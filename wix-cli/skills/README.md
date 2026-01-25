@@ -80,7 +80,6 @@ Agent skills for building Wix CLI applications. Each skill provides domain-speci
 - TypeScript compilation checks
 - Build verification
 - Preview deployment
-- E2E testing with Playwright
 
 ## Shared References
 
