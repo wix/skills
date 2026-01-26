@@ -14,7 +14,7 @@ Install the plugin via the Wix marketplace:
 /plugin marketplace add wix/skills
 
 # Install wix-cli plugin
-/plugin install wix-cli@wix-plugins
+/plugin install wix-cli@wix
 ```
 
 ### Skills
