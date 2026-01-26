@@ -6,6 +6,19 @@ Agent skills for building Wix applications with AI coding assistants.
 
 ## Installation
 
+### Plugin
+Install the plugin via the Wix marketplace:
+
+```bash
+# Add the marketplace
+/plugin marketplace add wix/skills
+
+# Install wix-cli plugin
+/plugin install wix-cli@wix
+```
+
+### Skills
+
 Install these skills using [add-skill](https://github.com/vercel-labs/add-skill):
 
 ```bash
