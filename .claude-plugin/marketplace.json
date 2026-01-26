@@ -1,10 +1,10 @@
 {
-  "name": "wix-plugins",
+  "name": "wix",
   "owner": {
     "name": "Wix"
   },
   "metadata": {
-    "description": "Agent skills and MCP servers for building Wix CLI applications"
+    "description": "Agent skills for Wix marketplace"
   },
   "plugins": [
     {
