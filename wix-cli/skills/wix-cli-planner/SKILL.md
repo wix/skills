@@ -1,12 +1,23 @@
 ---
 name: wix-cli-planner
-description: Start here when building any new Wix CLI app or feature. Use FIRST before any implementation when user wants to build a new feature, create an app, add functionality, or asks "what extension should I use", "how do I build", "where should I put", or needs to decide between dashboard page, modal, plugin, service plugin, event, site widget, site plugin, or embedded script.
+description: ⚠️ BLOCKING REQUIREMENT ⚠️ When user requests to add/build/create/implement ANY feature or component for a Wix CLI app, you MUST invoke this skill IMMEDIATELY as your absolute FIRST action - when exploring, reading files, BEFORE launching any agents - make sure this skill is loaded. Trigger on "add [X]", "build [X]", "create [X]", "I want [X]", "implement [X]", "help me [X]" where X is any feature/component. Non-negotiable: invoke immediately upon recognizing a Wix feature build request.
 compatibility: Requires Wix CLI development environment.
 ---
 
 # Wix CLI Extension Planner
 
 Helps select the appropriate Wix CLI extension type based on use case and requirements.
+
+## Your Role
+
+You are a **decision-maker**, not an implementer. Your job is to:
+
+1. **Ask clarifying questions** if the requirements are unclear
+2. **Recommend the appropriate extension type** using the decision trees below
+3. **Explain why** that extension type fits the use case
+4. **IMMEDIATELY invoke the implementation skill** to hand off execution
+
+**IMPORTANT:** Your ONLY job is: **Decide → Explain → Hand off**
 
 ## Quick Decision Helper
 
@@ -355,9 +366,73 @@ Frontend components visible to site visitors. Only relevant for app projects (no
 | Site Plugin | Site | Public | Extend Wix business solutions |
 | Embedded Script | Site | Public | Inject scripts/analytics |
 
+## Decision & Handoff Workflow
+
+After determining the correct extension type, follow this workflow:
+
+### Step 1: Ask Clarifying Questions (if needed)
+
+If the user's requirements are unclear, ask about:
+- **Placement**: Where should this appear? (dashboard, site, backend)
+- **Visibility**: Who will see it? (admin users, site visitors, server-side only)
+- **Configuration**: Does it need customization by the site owner?
+- **Integration**: Does it extend an existing Wix app or business solution?
+
+### Step 2: Make Your Recommendation
+
+Use the decision trees above to determine the appropriate extension type. Explain your reasoning briefly:
+
+```
+Based on your requirements, I recommend using [EXTENSION TYPE] because:
+- [Reason 1 related to placement/visibility]
+- [Reason 2 related to functionality]
+- [Reason 3 related to integration needs]
+```
+
+### Step 3: IMMEDIATELY Invoke the Implementation Skill
+
+**CRITICAL:** Once you've made your recommendation, you MUST immediately invoke the corresponding implementation skill using the Skill tool. Do NOT create a plan yourself. Do NOT explore the codebase. The implementation skill will handle all planning and execution.
+
+**Extension Type to Skill Mapping:**
+
+| Extension Type | Skill to Invoke |
+|----------------|-----------------|
+| Dashboard Page | `wix-cli-dashboard-page` |
+| Dashboard Modal | `wix-cli-dashboard-modal` |
+| Dashboard Plugin | No skill available yet |
+| Dashboard Menu Plugin | No skill available yet |
+| Service Plugin | `wix-cli-service-plugin` |
+| Event Extension | No skill available yet |
+| Backend API / Endpoints | `wix-cli-backend-api` |
+| Site Widget | `wix-cli-site-widget` |
+| Site Plugin | `wix-cli-site-plugin` |
+| Embedded Script | `wix-cli-embedded-script` |
+
+**Example Handoff:**
+
+```markdown
+I recommend using an Embedded Script extension because you want to add a popup banner visible to site visitors.
+
+Now I'll hand off to the wix-cli-embedded-script skill to handle the implementation.
+```
+
+Then immediately call:
+```
+Skill tool with skill="wix-cli-embedded-script"
+```
+
+### Step 4: End Your Involvement
+
+After invoking the implementation skill, your job is done. The implementation skill will:
+- Enter plan mode if needed
+- Explore the codebase
+- Design the implementation approach
+- Execute the implementation
+- Test and validate
+
 ## Related Skills
 
-For implementation guidance on specific extension types, refer to:
+Implementation skills you will hand off to:
 
 - `wix-cli-dashboard-page` - Dashboard page implementation
 - `wix-cli-dashboard-modal` - Dashboard modal implementation
