@@ -1,6 +1,6 @@
 ---
 name: wix-cli-site-widget
-description: Use when building interactive widgets, custom data displays, or configurable site components with settings panels. Triggers include widget, custom element, interactive component, countdown timer, calculator, showcase, gallery, editor component, configurable widget, web component.
+description: Use when building interactive widgets, custom data displays, or configurable site components with settings panels. Triggers include widget, custom element, interactive component, editor component, configurable widget, web component.
 compatibility: Requires Wix CLI development environment.
 ---
 
@@ -42,7 +42,7 @@ Do NOT use this skill for:
 | **Placement** | Add Panel in Wix Editor | Plugin explorer in Wix Editor |
 | **Props convention** | camelCase (widget) / kebab-case (panel) | kebab-case only |
 
-**Choose Site Widget when:** You need a standalone widget (countdown timer, calculator, gallery) that site owners can place anywhere.
+**Choose Site Widget when:** You need a standalone widget that site owners can place anywhere.
 
 **Choose Site Plugin when:** You need to extend predefined slots in Wix business solutions.
 

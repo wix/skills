@@ -1,6 +1,6 @@
 ---
 name: wix-cli-site-plugin
-description: Use when building interactive components for predefined slots in Wix business solutions like Stores, Bookings, or Restaurants. Triggers include site plugin, slot, product page extension, checkout plugin, booking widget, store customization, Wix app integration, plugin explorer, business solution extension.
+description: Use when building interactive components for predefined slots in Wix business solutions. Triggers include site plugin, slot, Wix app integration, plugin explorer, business solution extension.
 compatibility: Requires Wix CLI development environment.
 ---
 

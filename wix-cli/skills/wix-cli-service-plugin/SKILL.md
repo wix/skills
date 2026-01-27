@@ -1,6 +1,6 @@
 ---
 name: wix-cli-service-plugin
-description: Use when implementing service plugin extensions that inject custom backend logic into existing Wix business solution flows or introduce new flows to Wix sites. Service plugins let you customize shipping rates, additional fees, taxes, cart validations, checkout behavior, gift cards, discount triggers, and more. Triggers include SPI, service plugin, shipping rates, handling fees, tax calculation, cart validation, checkout customization, business logic, gift cards, custom triggers, payment settings, backend flow.
+description: Use when implementing service plugin extensions that inject custom backend logic into existing Wix business solution flows or introduce new flows to Wix sites. Triggers include SPI, service plugin, backend flow, business logic.
 compatibility: Requires Wix CLI development environment.
 ---
 

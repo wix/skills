@@ -1,6 +1,6 @@
 ---
 name: wix-cli-dashboard-page
-description: Use when building admin interfaces, management pages, CRUD operations, or dashboard configuration UIs. Triggers include dashboard, admin panel, data management, tables, forms, settings pages, CMS interface, modals, notifications, embedded script configuration.
+description: Use when building admin interfaces, management pages, CRUD operations, or dashboard configuration UIs. Triggers include dashboard, admin panel, data management, settings pages.
 compatibility: Requires Wix CLI development environment.
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: wix-cli-embedded-script
-description: Use when adding tracking code, advertising pixels, third-party integrations, custom popups, or client-side JavaScript to sites. Triggers include embed, inject, tracking, analytics, pixel, popup, modal, chat widget, third-party integration, DOM injection, consent banner.
+description: Use when adding tracking code, advertising pixels, third-party integrations, or client-side JavaScript to sites. Triggers include embed, inject, script, third-party integration, DOM injection.
 compatibility: Requires Wix CLI development environment.
 ---
 
