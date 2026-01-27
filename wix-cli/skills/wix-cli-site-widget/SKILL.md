@@ -21,31 +21,6 @@ Follow these steps in order when creating a site widget:
 7. [ ] Run `npx wix build` and `npx wix preview` to test
 8. [ ] Verify widget appears in Wix Editor Add Panel
 
-## Non-Matching Intents
-
-Do NOT use this skill for:
-
-- **Dashboard admin interfaces** → Use `wix-cli-dashboard-page`
-- **Embedded scripts** (HTML/JavaScript injection) → Use `wix-cli-embedded-script`
-- **Backend API endpoints** → Use `wix-cli-backend-api`
-- **Service plugins** (eCommerce SPIs) → Use `wix-cli-service-plugin`
-- **Site components** (React-only, no settings panel) → Use `wix-site-component`
-- **Plugins for Wix app slots** (Stores, Bookings) → Use `wix-cli-site-plugin`
-
-## Site Widget vs Site Plugin
-
-| Feature | Site Widget | Site Plugin |
-|---------|-------------|-------------|
-| **Target location** | Anywhere on site pages | Predefined slots in Wix business solutions |
-| **Component type** | React → Web Component (`react-to-webcomponent`) | Native `HTMLElement` |
-| **Use case** | Standalone interactive widgets | Extend Wix business solutions |
-| **Placement** | Add Panel in Wix Editor | Plugin explorer in Wix Editor |
-| **Props convention** | camelCase (widget) / kebab-case (panel) | kebab-case only |
-
-**Choose Site Widget when:** You need a standalone widget that site owners can place anywhere.
-
-**Choose Site Plugin when:** You need to extend predefined slots in Wix business solutions.
-
 ## Architecture
 
 Site widgets consist of **two required files**:

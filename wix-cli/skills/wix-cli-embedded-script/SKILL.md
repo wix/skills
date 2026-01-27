@@ -21,16 +21,6 @@ Follow these steps in order when creating an embedded script:
 7. [ ] Run `npx tsc --noEmit` to verify TypeScript compiles
 8. [ ] Run `npx wix build` and `npx wix preview` to test
 
-## Non-Matching Intents
-
-Do NOT use this skill for:
-
-- **Dashboard admin interfaces** → Use `wix-cli-dashboard-page`
-- **Database/collection schemas** → Use `wix-cli-cms-collection`
-- **Backend API endpoints** → Use `wix-cli-backend-api`
-- **Service plugins (eCommerce SPIs)** → Use `wix-cli-service-plugin`
-- **Custom site widgets with settings panel** → Use `wix-custom-element`
-
 ## Script Types
 
 Embedded scripts must declare a type for consent management:

@@ -8,14 +8,6 @@ compatibility: Requires Wix CLI development environment.
 
 Validates Wix CLI applications through a four-step sequential workflow: package installation, TypeScript compilation check, build, and preview.
 
-## Non-Matching Intents
-
-Do NOT use this skill for:
-
-- **Creating new extensions** → Use `wix-cli-dashboard-page`, `wix-cli-embedded-script`, etc.
-- **Deploying to production** → This is for validation/testing only
-- **Unit testing** → This skill validates build and preview, not unit tests
-
 ## Validation Workflow
 
 Execute these steps sequentially. Stop and report errors if any step fails.

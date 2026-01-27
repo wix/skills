@@ -24,16 +24,6 @@ Follow these steps in order when creating a service plugin:
 8. [ ] Run `npx wix build` to verify build succeeds
 9. [ ] Test by triggering the relevant site action (e.g., add to cart for fees)
 
-## Non-Matching Intents
-
-Do NOT use this skill for:
-
-- **Dashboard admin interfaces** → Use `wix-cli-dashboard-page`
-- **Database/collection schemas** → Use `wix-cli-cms-collection`
-- **Backend API endpoints** → Use `wix-cli-backend-api`
-- **Embedded scripts on site** → Use `wix-cli-embedded-script`
-- **Backend event handlers** → Use `wix-backend-event`
-
 ## References
 
 **You MUST read the relevant reference document before implementing a relevant SPI.** Each reference contains the correct imports, handler signatures, response structures, and working examples.

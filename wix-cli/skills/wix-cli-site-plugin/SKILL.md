@@ -23,30 +23,6 @@ Follow these steps in order when creating a site plugin:
 7. [ ] Run `npx wix build` and `npx wix preview` to test
 8. [ ] Verify plugin appears in plugin explorer for target slots
 
-## Non-Matching Intents
-
-Do NOT use this skill for:
-
-- **Standalone site widgets** (not in predefined slots) → Use `wix-cli-site-widget`
-- **Dashboard admin interfaces** → Use `wix-cli-dashboard-page`
-- **Backend API endpoints** → Use `wix-cli-backend-api`
-- **Service plugins** (eCommerce SPIs) → Use `wix-cli-service-plugin`
-- **Embedded scripts** (HTML/JavaScript injection) → Use `wix-cli-embedded-script`
-
-## Site Plugin vs Site Widget
-
-| Feature | Site Plugin | Site Widget |
-|---------|-------------|-------------|
-| **Target location** | Predefined slots in Wix business solutions | Anywhere on site pages |
-| **Component type** | Native `HTMLElement` | React → Web Component (`react-to-webcomponent`) |
-| **Use case** | Extend Wix business solutions | Standalone interactive widgets |
-| **Placement** | Plugin explorer in Wix Editor | Add Panel in Wix Editor |
-| **Props convention** | kebab-case only | camelCase (widget) / kebab-case (panel) |
-
-**Choose Site Plugin when:** You need to extend predefined slots in Wix business solutions.
-
-**Choose Site Widget when:** You need a standalone widget that site owners can place anywhere on their pages.
-
 ## Architecture
 
 Site plugins consist of **three required files**:

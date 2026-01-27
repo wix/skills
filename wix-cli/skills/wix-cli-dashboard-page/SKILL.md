@@ -20,16 +20,6 @@ Follow these steps in order when creating a dashboard page:
 6. [ ] Run `npx wix build` to verify build succeeds
 7. [ ] Run `npx wix preview` and navigate to the page route
 
-## Non-Matching Intents
-
-Do NOT use this skill for:
-
-- **Site pages** (visitor-facing) → Use `wix-site-page`
-- **Embedded widgets** (custom elements) → Use `wix-cli-embedded-script`
-- **Backend APIs** (HTTP functions) → Use `wix-cli-backend-api`
-- **Service plugins** (checkout, shipping SPIs) → Use `wix-cli-service-plugin`
-- **Modals/Dialogs** (popup forms, confirmations, detail views) → Use [wix-cli-dashboard-modal](../wix-cli-dashboard-modal/SKILL.md) for dashboard modals
-
 ## Capabilities
 
 ### UI Components (Wix Design System)
