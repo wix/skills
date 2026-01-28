@@ -20,6 +20,7 @@ Follow these steps in order when creating an embedded script:
 6. [ ] Update `src/extensions.ts` to import and use both extensions
 7. [ ] Run `npx tsc --noEmit` to verify TypeScript compiles
 8. [ ] Run `npx wix build` and `npx wix preview` to test
+9. [ ] Add the `APPS.MANAGE_EMBEDDED_SCRIPT` permission in the Wix Dev Center (see [Enable Embedded Script Permission](#enable-embedded-script-permission))
 
 ## Non-Matching Intents
 
@@ -104,19 +105,16 @@ Embedded scripts support parameterization using template variable syntax `{{vari
 **Usage Instructions:**
 
 1. **Template Variable Syntax:**
-
    - Use `{{parameterKey}}` syntax to insert parameter values into your HTML
    - Template variables work in HTML attributes
    - They will be replaced with actual values when the script is injected
 
 2. **HTML Attributes (REQUIRED):**
-
    - Store ALL parameter values in data attributes on a configuration element
    - Template variables can ONLY be used here, not directly in JavaScript
    - Example: `<div id="config" data-headline="{{headline}}" data-text="{{text}}"></div>`
 
 3. **JavaScript Access:**
-
    - JavaScript must read parameter values from the data attributes
    - Use `getAttribute()` or the `dataset` property
    - Examples:
@@ -128,14 +126,12 @@ Embedded scripts support parameterization using template variable syntax `{{vari
      ```
 
 4. **Type Safety:**
-
    - Be aware of parameter types when using them in JavaScript
    - NUMBER types: convert with `Number()` or `parseInt()`
    - BOOLEAN types: compare with `'true'` or `'false'` strings
    - DATE/DATETIME: parse with `new Date()`
 
 5. **Required vs Optional:**
-
    - Required parameters will always have values
    - Optional parameters may be empty - handle gracefully
    - Provide fallback values for optional parameters
@@ -477,6 +473,16 @@ The `id` must be a unique, static UUID v4 string. Generate a fresh UUID for each
 **CRITICAL:** After creating the script-specific extension file, you MUST read [../../skills/references/EXTENSIONS.md](../../skills/references/EXTENSIONS.md) and follow the "App Registration" section to update `src/extensions.ts`.
 
 **Without completing Step 2, the embedded script will not be deployed to the site.**
+
+## Enable Embedded Script Permission
+
+After implementation, the app developer must manually enable the embedded script permission:
+
+1. Go to [https://manage.wix.com/apps/{app-id}/dev-center-permissions](https://manage.wix.com/apps/{app-id}/dev-center-permissions) (replace `{app-id}` with your actual app ID)
+2. Add the `APPS.MANAGE_EMBEDDED_SCRIPT` permission
+3. Save the changes
+
+**Note:** This is a manual step in the Wix Dev Center. Without this permission, embedded scripts will not function on the site.
 
 ## Verification
 
