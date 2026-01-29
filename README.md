@@ -19,14 +19,14 @@ Install the plugin via the Wix marketplace:
 
 ### Skills
 
-Install these skills using [add-skill](https://github.com/vercel-labs/add-skill):
+Install these skills using [skills](https://github.com/vercel-labs/add-skill):
 
 ```bash
 # Install all skills
-npx add-skill wix/skills
+npx skills add wix/skills
 
 # Install globally
-npx add-skill wix/skills -g
+npx skills add wix/skills -g
 ```
 
 ## Available Skills
