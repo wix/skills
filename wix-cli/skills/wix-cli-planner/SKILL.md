@@ -15,9 +15,10 @@ You are a **decision-maker**, not an implementer. Your job is to:
 1. **Ask clarifying questions** if the requirements are unclear
 2. **Recommend the appropriate extension type** using the decision trees below
 3. **Explain why** that extension type fits the use case
-4. **IMMEDIATELY invoke the implementation skill** to hand off execution
+4. **Launch agent** to discover relevant SDK methods/interfaces and WDS components
+5. **Invoke the implementation skill** to hand off execution with SDK/WDS context
 
-**IMPORTANT:** Your ONLY job is: **Decide → Explain → Hand off**
+Your ONLY job is: **Decide → Agent (SDK/WDS Discovery) → Implementation Skill → Hand off**
 
 ## Quick Decision Helper
 
@@ -53,6 +54,8 @@ Answer these questions to find the right extension:
 - Need custom routes and full-page UI? → Dashboard Page
 - Need quick form or confirmation? → Dashboard Modal
 - Extending Wix's built-in dashboards? → Dashboard Plugin
+
+**⚠️ Modal Constraint:** Dashboard Pages cannot use `<Modal />` directly. If your page needs popups, you need BOTH a Dashboard Page AND a Dashboard Modal extension.
 
 ### Need to handle backend logic?
 
@@ -96,6 +99,7 @@ Admin interfaces for managing sites and business data. Not visible to site visit
 **Key constraints:**
 - Appears in dashboard sidebar navigation
 - Full-page dashboard interfaces
+- **CRITICAL: Cannot use `<Modal />` component directly** - WDS Modal components don't work in dashboard pages. To show popups/dialogs, you MUST create a separate Dashboard Modal extension and open it via `dashboard.openModal()`
 
 **Examples:**
 - Product management interface
@@ -110,15 +114,18 @@ Admin interfaces for managing sites and business data. Not visible to site visit
 - Confirmation dialogs
 - Quick data entry forms
 - Detail views for records
+- **Any time you need a modal/popup inside a Dashboard Page** (since `<Modal />` doesn't work in dashboard pages)
 
 **Don't use when:**
 - Need full page with navigation → Use Dashboard Page
 - Extending Wix app dashboard → Use Dashboard Plugin
 
 **Key constraints:**
+- **Required for any popup/modal in dashboard pages** - This is the ONLY way to show modals in dashboard pages
 - Overlay dialogs on top of dashboard pages
 - Controlled via Dashboard SDK `openModal()` and `closeModal()`
 - Can receive data from parent dashboard page
+- Must be a separate extension (cannot be inline in dashboard page code)
 
 **Examples:**
 - "Add new item" form modal
@@ -329,42 +336,44 @@ Frontend components visible to site visitors. Only relevant for app projects (no
 
 ### Site Widget vs Site Plugin
 
-| Decision Factor | Site Widget | Site Plugin |
-|-----------------|-------------|-------------|
-| **Placement** | User chooses anywhere on site | Fixed slots in Wix business solutions |
-| **Best for** | Standalone widgets | Extend Wix business solutions |
-| **Choose when** | Need flexible placement | Must integrate with Wix app pages |
+| Decision Factor | Site Widget                   | Site Plugin                           |
+| --------------- | ----------------------------- | ------------------------------------- |
+| **Placement**   | User chooses anywhere on site | Fixed slots in Wix business solutions |
+| **Best for**    | Standalone widgets            | Extend Wix business solutions         |
+| **Choose when** | Need flexible placement       | Must integrate with Wix app pages     |
 
 ### Dashboard Page vs Dashboard Modal
 
-| Decision Factor | Dashboard Page | Dashboard Modal |
-|-----------------|----------------|-----------------|
-| **Scope** | Full page | Overlay dialog |
-| **Best for** | Main admin interface | Quick actions, forms |
-| **Choose when** | Need sidebar navigation | Triggered from existing page |
+| Decision Factor   | Dashboard Page                        | Dashboard Modal                        |
+| ----------------- | ------------------------------------- | -------------------------------------- |
+| **Scope**         | Full page                             | Overlay dialog                         |
+| **Best for**      | Main admin interface                  | Quick actions, forms, popups           |
+| **Choose when**   | Need sidebar navigation               | Triggered from existing page           |
+
+**Important:** If your Dashboard Page needs to show any popup/modal, you MUST also create a Dashboard Modal extension. Use `dashboard.openModal()` from the page to open it.
 
 ### Service Plugin vs Event Extension
 
-| Decision Factor | Service Plugin | Event Extension |
-|-----------------|----------------|-----------------|
-| **Timing** | During business flow | After condition met |
-| **Best for** | Modify/extend flow | React to event |
+| Decision Factor | Service Plugin              | Event Extension       |
+| --------------- | --------------------------- | --------------------- |
+| **Timing**      | During business flow        | After condition met   |
+| **Best for**    | Modify/extend flow          | React to event        |
 | **Choose when** | Customize checkout/shipping | Sync external systems |
 
 ## Quick Reference Table
 
-| Extension Type | Category | Visibility | Use When |
-|----------------|----------|------------|----------|
-| Dashboard Page | Dashboard | Admin only | Full admin pages |
-| Dashboard Modal | Dashboard | Admin only | Popup dialogs |
-| Dashboard Plugin | Dashboard | Admin only | Extend Wix app dashboards |
-| Dashboard Menu Plugin | Dashboard | Admin only | Add menu items |
-| Service Plugin | Backend | Server-side | Customize business flows |
-| Event Extension | Backend | Server-side | React to events |
-| Backend Endpoints | Backend | API | Custom HTTP handlers |
-| Site Widget | Site | Public | Standalone widgets |
-| Site Plugin | Site | Public | Extend Wix business solutions |
-| Embedded Script | Site | Public | Inject scripts/analytics |
+| Extension Type        | Category  | Visibility  | Use When                      |
+| --------------------- | --------- | ----------- | ----------------------------- |
+| Dashboard Page        | Dashboard | Admin only  | Full admin pages              |
+| Dashboard Modal       | Dashboard | Admin only  | Popup dialogs                 |
+| Dashboard Plugin      | Dashboard | Admin only  | Extend Wix app dashboards     |
+| Dashboard Menu Plugin | Dashboard | Admin only  | Add menu items                |
+| Service Plugin        | Backend   | Server-side | Customize business flows      |
+| Event Extension       | Backend   | Server-side | React to events               |
+| Backend Endpoints     | Backend   | API         | Custom HTTP handlers          |
+| Site Widget           | Site      | Public      | Standalone widgets            |
+| Site Plugin           | Site      | Public      | Extend Wix business solutions |
+| Embedded Script       | Site      | Public      | Inject scripts/analytics      |
 
 ## Decision & Handoff Workflow
 
@@ -373,6 +382,7 @@ After determining the correct extension type, follow this workflow:
 ### Step 1: Ask Clarifying Questions (if needed)
 
 If the user's requirements are unclear, ask about:
+
 - **Placement**: Where should this appear? (dashboard, site, backend)
 - **Visibility**: Who will see it? (admin users, site visitors, server-side only)
 - **Configuration**: Does it need customization by the site owner?
@@ -389,50 +399,104 @@ Based on your requirements, I recommend using [EXTENSION TYPE] because:
 - [Reason 3 related to integration needs]
 ```
 
-### Step 3: IMMEDIATELY Invoke the Implementation Skill
+### Step 3: Discover SDK Methods & WDS Components
 
-**CRITICAL:** Once you've made your recommendation, you MUST immediately invoke the corresponding implementation skill using the Skill tool. Do NOT create a plan yourself. Do NOT explore the codebase. The implementation skill will handle all planning and execution.
+**IMPORTANT:** Before invoking the implementation skill, use the general-purpose agent to discover relevant Wix SDK methods/interfaces and WDS components/interfaces.
+
+**Why use an agent?** MCP search results are verbose (3,000-5,000 tokens per search). Using an agent keeps the main context clean by running searches in isolation and returning only condensed, relevant results.
+
+**Agent prompt template:**
+
+```markdown
+You are discovering Wix SDK methods and WDS components for a Wix CLI extension.
+
+**Extension Type:** [The extension type you recommended]
+**Feature Description:** [What the user wants to build]
+**Key Functionality:** [Specific data/actions needed]
+
+Your task:
+1. Use mcp__plugin_wix-cli_wix-mcp-remote__SearchWixSDKDocumentation to search for relevant SDK methods (maxResults=3-5)
+2. Use mcp__plugin_wix-cli_wix-mcp-remote__SearchWixWDSDocumentation to search for relevant WDS components (maxResults=3-5)
+3. Return ONLY a concise summary in this format:
+
+## SDK Methods & Interfaces
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| `moduleName.methodName()` | Method | Brief description |
+
+**Import:** `import { methodName } from '@wix/sdk-module';`
+
+## WDS Components & Interfaces
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| `<ComponentName>` | Component | UI purpose |
+
+**Import:** `import { ComponentName } from '@wix/design-system';`
+```
+
+**Example invocation:**
+
+```markdown
+I'll discover relevant SDK and WDS modules for this Dashboard Page that manages bookings.
+
+[Launch general-purpose agent with the prompt above]
+```
+
+### Step 4: Invoke the Implementation Skill
+
+**CRITICAL:** After discovering relevant SDK/WDS modules, immediately invoke the corresponding implementation skill. Pass along both:
+1. The original user requirements
+2. The SDK/WDS recommendations from the picker
+
+Do NOT create a plan yourself. Do NOT explore the codebase. The implementation skill will handle all planning and execution.
 
 **Extension Type to Skill Mapping:**
 
-| Extension Type | Skill to Invoke |
-|----------------|-----------------|
-| Dashboard Page | `wix-cli-dashboard-page` |
-| Dashboard Modal | `wix-cli-dashboard-modal` |
-| Dashboard Plugin | No skill available yet |
-| Dashboard Menu Plugin | No skill available yet |
-| Service Plugin | `wix-cli-service-plugin` |
-| Event Extension | No skill available yet |
-| Backend API / Endpoints | `wix-cli-backend-api` |
-| Site Widget | `wix-cli-site-widget` |
-| Site Plugin | `wix-cli-site-plugin` |
-| Embedded Script | `wix-cli-embedded-script` |
+| Extension Type          | Skill to Invoke           |
+| ----------------------- | ------------------------- |
+| Dashboard Page          | `wix-cli-dashboard-page`  |
+| Dashboard Modal         | `wix-cli-dashboard-modal` |
+| Dashboard Plugin        | No skill available yet    |
+| Dashboard Menu Plugin   | No skill available yet    |
+| Service Plugin          | `wix-cli-service-plugin`  |
+| Event Extension         | No skill available yet    |
+| Backend API / Endpoints | `wix-cli-backend-api`     |
+| Site Widget             | `wix-cli-site-widget`     |
+| Site Plugin             | `wix-cli-site-plugin`     |
+| Embedded Script         | `wix-cli-embedded-script` |
 
-**Example Handoff:**
+**Example Handoff with SDK/WDS Context:**
 
 ```markdown
 I recommend using an Embedded Script extension because you want to add a popup banner visible to site visitors.
 
-Now I'll hand off to the wix-cli-embedded-script skill to handle the implementation.
+I found these relevant modules:
+- SDK: `@wix/dashboard` - `showToast()` for notifications
+- WDS: `<AnnouncementModalLayout>` for popup styling, `<Button>` for actions
+
+Now I'll hand off to the wix-cli-embedded-script skill to handle the implementation with these SDK/WDS recommendations.
 ```
 
-Then immediately call:
-```
-Skill tool with skill="wix-cli-embedded-script"
-```
+Then immediately invoke the skill.
 
-### Step 4: End Your Involvement
+### Step 5: End Your Involvement
 
-After invoking the implementation skill, your job is done. The implementation skill will:
-- Enter plan mode if needed
-- Explore the codebase
-- Design the implementation approach
-- Execute the implementation
-- Test and validate
+After launching the SDK/WDS discovery agent and invoking the implementation skill, your job is done.
 
-## Related Skills
+## Related Skills & Agents
 
-Implementation skills you will hand off to:
+**SDK/WDS Discovery (launch general-purpose agent first):**
+
+The general-purpose agent has access to all MCP tools needed for discovery:
+- `mcp__plugin_wix-cli_wix-mcp-remote__SearchWixSDKDocumentation`
+- `mcp__plugin_wix-cli_wix-mcp-remote__SearchWixWDSDocumentation`
+- `mcp__plugin_wix-cli_wix-mcp-remote__ReadFullDocsArticle`
+
+Using an agent keeps verbose search results (3,000-5,000 tokens each) isolated from the main context.
+
+**Implementation skills (invoke after SDK/WDS discovery):**
 
 - `wix-cli-dashboard-page` - Dashboard page implementation
 - `wix-cli-dashboard-modal` - Dashboard modal implementation
