@@ -226,7 +226,7 @@ Additional fields may be required or optional depending on the specific service 
 
 ### Step 2: Register in Main Extensions File
 
-**CRITICAL:** After creating the plugin-specific extension file, you MUST read [../../skills/references/EXTENSIONS.md](../../skills/references/EXTENSIONS.md) and follow the "App Registration" section to update `src/extensions.ts`.
+**CRITICAL:** After creating the plugin-specific extension file, you MUST read [wix-cli-extension-registration](../wix-cli-extension-registration/SKILL.md) and follow the "App Registration" section to update `src/extensions.ts`.
 
 **Without completing Step 2, the service plugin will not be active in the eCommerce system.**
 

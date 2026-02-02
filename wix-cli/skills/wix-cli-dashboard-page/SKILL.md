@@ -8,6 +8,8 @@ compatibility: Requires Wix CLI development environment.
 
 Creates full-featured dashboard page extensions for Wix CLI applications. Dashboard pages appear in the Wix site owner's dashboard and enable site administrators to manage data, configure settings, and perform administrative tasks.
 
+---
+
 ## Quick Start Checklist
 
 Follow these steps in order when creating a dashboard page:
@@ -137,29 +139,6 @@ Use ONLY these Wix Design System components. Do NOT use components from `@wix/wi
 
 For detailed component information, see [WDS Components Reference](references/WDS_COMPONENTS.md).
 
-### Querying Component Details
-
-When you need detailed information about specific WDS components (descriptions, usage guidelines, feature examples, code snippets), use the shared query script:
-
-```bash
-# From the wix-cli-dashboard-page directory:
-node ../scripts/query-wds-components.js <component-name> [<component-name> ...]
-
-# Examples:
-node ../scripts/query-wds-components.js Button Card
-node ../scripts/query-wds-components.js Page Page.Header Page.Content
-node ../scripts/query-wds-components.js Table TableToolbar
-```
-
-The script reads from `../assets/wds-storybook.json` and outputs formatted component information including do's and don'ts, feature examples, and usage guidelines. This is especially useful when you need:
-
-- Specific prop usage examples
-- Best practices for component usage
-- Feature-specific code examples
-- Detailed component descriptions
-
-See [WDS Components Reference](references/WDS_COMPONENTS.md) for more information about the query script and JSON structure.
-
 ## Hard Constraints
 
 - Do NOT invent or assume new types, modules, functions, props, events, or imports.
@@ -262,7 +241,7 @@ The `id` must be a unique, static UUID v4 string. Generate a fresh UUID for each
 
 ### Step 2: Register in Main Extensions File
 
-**CRITICAL:** After creating the page-specific extension file, you MUST read [../../skills/references/EXTENSIONS.md](../../skills/references/EXTENSIONS.md) and follow the "App Registration" section to update `src/extensions.ts`.
+**CRITICAL:** After creating the page-specific extension file, you MUST read [wix-cli-extension-registration](../wix-cli-extension-registration/SKILL.md) and follow the "App Registration" section to update `src/extensions.ts`.
 
 **Without completing Step 2, the dashboard page will not appear in the Wix dashboard.**
 
@@ -337,7 +316,16 @@ Do NOT copy field names from embedded script or other extension registrations. D
 
 ## Verification
 
-After implementation, use [wix-cli-app-validation](../wix-cli-app-validation/SKILL.md) to validate TypeScript compilation, build, preview, and runtime behavior.
+After implementation completes, the **wix-cli-planner** will run validation using [wix-cli-app-validation](../wix-cli-app-validation/SKILL.md).
+
+If you are running as a sub-agent spawned by wix-cli-planner:
+- Complete the implementation
+- Return a summary of what was created
+- The planner will handle validation
+
+If you are running standalone (not recommended):
+- Invoke the `wix-cli-app-validation` skill after implementation
+- Fix any errors before reporting completion
 
 ## API Spec Support
 

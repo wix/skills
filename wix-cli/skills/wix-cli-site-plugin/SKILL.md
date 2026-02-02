@@ -199,7 +199,6 @@ public/
 | Complete Examples | [EXAMPLES.md](references/EXAMPLES.md) |
 | Slots (App IDs, multiple placements, finding slots) | [SLOTS.md](references/SLOTS.md) |
 | WDS Components | [WDS-COMPONENTS.md](../wix-cli-site-widget/references/WDS-COMPONENTS.md) |
-| Extension Registration | [EXTENSIONS.md](../references/EXTENSIONS.md) |
 
 ## Available Slots
 
@@ -267,7 +266,7 @@ The `id` must be a unique, static UUID v4 string. Generate a fresh UUID for each
 
 ### Step 2: Register in Main Extensions File
 
-**CRITICAL:** After creating the plugin-specific extension file, you MUST read [../../skills/references/EXTENSIONS.md](../../skills/references/EXTENSIONS.md) and follow the "App Registration" section to update `src/extensions.ts`.
+**CRITICAL:** After creating the plugin-specific extension file, you MUST read [wix-cli-extension-registration](../wix-cli-extension-registration/SKILL.md) and follow the "App Registration" section to update `src/extensions.ts`.
 
 **Without completing Step 2, the site plugin will not be available in the plugin explorer.**
 

@@ -214,21 +214,6 @@ export default Panel;
 - Use WDS components from `@wix/design-system` (see [references/WDS-COMPONENTS.md](references/WDS-COMPONENTS.md))
 - Import `@wix/design-system/styles.global.css` for styles
 
-### Querying WDS Component Details
-
-For detailed information about WDS components (descriptions, usage guidelines, feature examples, code snippets), use the shared query script:
-
-```bash
-node ./scripts/query-wds-components.js <component-name> [<component-name> ...]
-
-# Examples:
-node ./scripts/query-wds-components.js FormField Input
-node ./scripts/query-wds-components.js SidePanel SidePanel.Header
-node ./scripts/query-wds-components.js ToggleSwitch DatePicker
-```
-
-The script reads from `assets/wds-storybook.json` and outputs formatted component information. This is useful when you need specific prop usage examples, best practices, or feature-specific code examples beyond what's documented in [WDS-COMPONENTS.md](references/WDS-COMPONENTS.md).
-
 ## Props Naming Convention
 
 **Critical:** Props use different naming conventions in each file:
@@ -437,13 +422,9 @@ The `id` must be a unique, static UUID v4 string. Generate a fresh UUID for each
 
 ### Step 2: Register in Main Extensions File
 
-**CRITICAL:** After creating the widget-specific extension file, you MUST read [../../skills/references/EXTENSIONS.md](../../skills/references/EXTENSIONS.md) and follow the "App Registration" section to update `src/extensions.ts`.
+**CRITICAL:** After creating the widget-specific extension file, you MUST read [wix-cli-extension-registration](../wix-cli-extension-registration/SKILL.md) and follow the "App Registration" section to update `src/extensions.ts`.
 
 **Without completing Step 2, the site widget will not be available in the Wix Editor.**
-
-## Verification
-
-After implementation, use [wix-cli-app-validation](../wix-cli-app-validation/SKILL.md) to validate TypeScript compilation, build, preview, and runtime behavior.
 
 ## Code Quality Requirements
 

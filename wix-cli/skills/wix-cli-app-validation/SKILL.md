@@ -49,11 +49,43 @@ pnpm install
 
 ### Step 2: TypeScript Compilation Check
 
-Run TypeScript compiler to check for type errors:
+Run TypeScript compiler to check for type errors.
 
+**Full project check:**
 ```bash
 npx tsc --noEmit
 ```
+
+**Targeted check (specific files/directories):**
+
+When validating after implementing a specific extension, you can run TypeScript checks on just those files:
+
+```bash
+# Check specific directory
+npx tsc --noEmit src/extensions/dashboard/pages/survey/**/*.ts src/extensions/dashboard/pages/survey/**/*.tsx
+
+# Check dashboard pages only
+npx tsc --noEmit src/extensions/dashboard/pages/**/*.ts src/extensions/dashboard/pages/**/*.tsx
+
+# Check site widgets only
+npx tsc --noEmit src/site/widgets/**/*.ts src/site/widgets/**/*.tsx
+
+# Check dashboard modals only
+npx tsc --noEmit src/extensions/dashboard/modals/**/*.ts src/extensions/dashboard/modals/**/*.tsx
+
+# Check backend only
+npx tsc --noEmit src/backend/**/*.ts
+```
+
+**When to use targeted checks:**
+- After implementing a single extension (faster feedback)
+- When debugging type errors in a specific area
+- During iterative development
+
+**When to use full project check:**
+- Before final validation
+- When changes affect shared types
+- Before building/deploying
 
 **Success criteria:**
 - Exit code 0

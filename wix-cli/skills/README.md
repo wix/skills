@@ -11,6 +11,7 @@ Agent skills for building Wix CLI applications. Each skill provides domain-speci
 | [wix-cli-dashboard-modal](wix-cli-dashboard-modal/SKILL.md) | Build dashboard modals | Popup forms, confirmations, detail views in dashboards |
 | [wix-cli-dashboard-page](wix-cli-dashboard-page/SKILL.md) | Build admin interfaces | Dashboard pages, data management, settings UIs |
 | [wix-cli-embedded-script](wix-cli-embedded-script/SKILL.md) | Inject client-side code | Tracking pixels, popups, third-party integrations |
+| [wix-cli-extension-registration](wix-cli-extension-registration/SKILL.md) | Extension registration patterns | Registering new or existing extensions, UUID generation, app registration |
 | [wix-cli-service-plugin](wix-cli-service-plugin/SKILL.md) | Extend Wix business solution flows | Shipping, fees, taxes, validations, gift cards, custom triggers |
 | [wix-cli-site-component](wix-cli-site-component/SKILL.md) | Create site components | React components with editor manifests for visual customization |
 | [wix-cli-site-plugin](wix-cli-site-plugin/SKILL.md) | Extend Wix app slots | Components for predefined slots in Wix business solutions |
@@ -80,12 +81,6 @@ Agent skills for building Wix CLI applications. Each skill provides domain-speci
 - TypeScript compilation checks
 - Build verification
 - Preview deployment
-
-## Shared References
-
-| Reference | Description |
-|-----------|-------------|
-| [EXTENSIONS.md](references/EXTENSIONS.md) | Extension registration patterns for all types |
 
 ## Skill Structure
 

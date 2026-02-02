@@ -4,8 +4,6 @@ description: Use when adding popup forms, confirmations, or detail views to Wix 
 compatibility: Requires Wix CLI development environment.
 ---
 
-# Wix Dashboard Modal
-
 ## Overview
 
 Dashboard modals are popup dialogs triggered from dashboard pages or plugins. They consist of three files and use the Dashboard SDK for lifecycle control via `openModal()` and `closeModal()`.
