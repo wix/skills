@@ -344,11 +344,11 @@ Frontend components visible to site visitors. Only relevant for app projects (no
 
 ### Dashboard Page vs Dashboard Modal
 
-| Decision Factor   | Dashboard Page                        | Dashboard Modal                        |
-| ----------------- | ------------------------------------- | -------------------------------------- |
-| **Scope**         | Full page                             | Overlay dialog                         |
-| **Best for**      | Main admin interface                  | Quick actions, forms, popups           |
-| **Choose when**   | Need sidebar navigation               | Triggered from existing page           |
+| Decision Factor | Dashboard Page          | Dashboard Modal              |
+| --------------- | ----------------------- | ---------------------------- |
+| **Scope**       | Full page               | Overlay dialog               |
+| **Best for**    | Main admin interface    | Quick actions, forms, popups |
+| **Choose when** | Need sidebar navigation | Triggered from existing page |
 
 **Important:** If your Dashboard Page needs to show any popup/modal, you MUST also create a Dashboard Modal extension. Use `dashboard.openModal()` from the page to open it.
 
@@ -421,17 +421,17 @@ Your task:
 
 ## SDK Methods & Interfaces
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| `moduleName.methodName()` | Method | Brief description |
+| Name                      | Type   | TypeScript Type                              | Description       |
+| ------------------------- | ------ | -------------------------------------------- | ----------------- |
+| `moduleName.methodName()` | Method | `(params: ParamType) => Promise<ReturnType>` | Brief description |
 
 **Import:** `import { methodName } from '@wix/sdk-module';`
 
 ## WDS Components & Interfaces
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| `<ComponentName>` | Component | UI purpose |
+| Name              | Type      | TypeScript Type            | Description |
+| ----------------- | --------- | -------------------------- | ----------- |
+| `<ComponentName>` | Component | `React.FC<ComponentProps>` | UI purpose  |
 
 **Import:** `import { ComponentName } from '@wix/design-system';`
 ```
