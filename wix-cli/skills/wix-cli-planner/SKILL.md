@@ -13,12 +13,26 @@ Helps select the appropriate Wix CLI extension type based on use case and requir
 **Before reporting completion to the user, ALL boxes MUST be checked:**
 
 - [ ] **Step 1:** Determined extension type(s) needed
-- [ ] **Step 2:** Spawned discovery sub-agent (MCP searches + WDS component query)
+  - [ ] Asked clarifying questions if requirements were unclear
+  - [ ] Explained recommendation with reasoning
+- [ ] **Step 2:** Spawned discovery sub-agent (SDK documentation only)
+  - [ ] Sub-agent searched SDK documentation via MCP
 - [ ] **Step 3:** Waited for discovery sub-agent to complete
+  - [ ] Received SDK methods with imports
 - [ ] **Step 4:** Spawned implementation sub-agent(s) with skill context
+  - [ ] Included user requirements in prompt
+  - [ ] Included SDK context from discovery
+  - [ ] Instructed sub-agent to invoke `wds-docs` skill only when needed (e.g. WDS component props or examples)
+  - [ ] Instructed sub-agent to write summary log
 - [ ] **Step 5:** Waited for implementation sub-agent(s) to complete
+  - [ ] All files created
+  - [ ] Extension registered in extensions.ts
 - [ ] **Step 6:** Invoked `wix-cli-app-validation` skill
 - [ ] **Step 7:** Validation passed
+  - [ ] Dependencies installed
+  - [ ] TypeScript compiled
+  - [ ] Build succeeded
+  - [ ] Preview deployed
 
 **🛑 STOP:** If any box is unchecked, do NOT proceed to the next step.
 
@@ -26,16 +40,7 @@ Helps select the appropriate Wix CLI extension type based on use case and requir
 
 ## Your Role
 
-You are a **decision-maker and orchestrator**, not an implementer. Your job is to:
-
-1. **Ask clarifying questions** if the requirements are unclear
-2. **Recommend the appropriate extension type** using the decision trees below
-3. **Explain why** that extension type fits the use case
-4. **Spawn a discovery sub-agent** to find relevant SDK methods and WDS best practices
-5. **Spawn implementation sub-agent(s)** to hand off execution
-6. **Run validation** after implementation completes
-
-Your ONLY job is: **Decide → Discovery Sub-Agent → Implementation Sub-Agent(s) → Validation**
+You are a **decision-maker and orchestrator**, not an implementer. **Decide → Discovery Sub-Agent → Implementation Sub-Agent(s) → Validation.** Ask clarifying questions if unclear; recommend extension type using the decision content below; spawn discovery then implementation sub-agents; run validation.
 
 ---
 
@@ -52,7 +57,6 @@ Your ONLY job is: **Decide → Discovery Sub-Agent → Implementation Sub-Agent(
 **CRITICAL:** After this planner skill loads, you should ONLY:
 
 - Spawn sub-agents (for discovery and implementation)
-- Run shell commands (ONLY for WDS component queries)
 - Invoke `wix-cli-app-validation` skill at the end
 
 You should NEVER: Read, Write, Edit files for implementation yourself
@@ -79,158 +83,28 @@ Answer these questions to find the right extension:
    - During business flow → Service Plugin
    - After event occurs → Event Extension
 
-## Decision Flow
+## Decision Flow (Not sure?)
 
-### Need to build an admin interface?
+- **Admin:** Need full-page UI? → Dashboard Page. Need popup/form? → Dashboard Modal. Extending Wix app dashboard? → Dashboard Plugin. **Modal constraint:** Dashboard Pages cannot use `<Modal />`; use a separate Dashboard Modal extension and `dashboard.openModal()`.
+- **Backend:** During business flow (checkout/shipping/tax)? → Service Plugin. After event (webhooks/sync)? → Event Extension. Custom HTTP endpoints? → Backend Endpoints.
+- **Site:** User places anywhere? → Site Widget. Fixed slot on Wix app page? → Site Plugin. Scripts/analytics only? → Embedded Script.
 
-1. **Full page with sidebar navigation?** → Dashboard Page
-2. **Popup dialog triggered from a page?** → Dashboard Modal
-3. **Extend existing Wix app dashboard (Stores, Bookings, etc.)?** → Dashboard Plugin or Dashboard Menu Plugin
+## Quick Reference Table
 
-**Not sure?**
+| Extension Type        | Category  | Visibility  | Use When                      | Skill                     |
+| --------------------- | --------- | ----------- | ----------------------------- | ------------------------- |
+| Dashboard Page        | Dashboard | Admin only  | Full admin pages              | `wix-cli-dashboard-page`   |
+| Dashboard Modal       | Dashboard | Admin only  | Popup dialogs                 | `wix-cli-dashboard-modal` |
+| Dashboard Plugin      | Dashboard | Admin only  | Extend Wix app dashboards     | (none yet)                |
+| Dashboard Menu Plugin | Dashboard | Admin only  | Add menu items                | (none yet)                |
+| Service Plugin        | Backend   | Server-side | Customize business flows      | `wix-cli-service-plugin`   |
+| Event Extension       | Backend   | Server-side | React to events               | (none yet)                |
+| Backend Endpoints     | Backend   | API         | Custom HTTP handlers          | `wix-cli-backend-api`     |
+| Site Widget           | Site      | Public      | Standalone widgets            | `wix-cli-site-widget`     |
+| Site Plugin           | Site      | Public      | Extend Wix business solutions | `wix-cli-site-plugin`     |
+| Embedded Script       | Site      | Public      | Inject scripts/analytics      | `wix-cli-embedded-script` |
 
-- Need custom routes and full-page UI? → Dashboard Page
-- Need quick form or confirmation? → Dashboard Modal
-- Extending Wix's built-in dashboards? → Dashboard Plugin
-
-**⚠️ Modal Constraint:** Dashboard Pages cannot use `<Modal />` directly. If your page needs popups, you need BOTH a Dashboard Page AND a Dashboard Modal extension.
-
-### Need to handle backend logic?
-
-1. **React to events after they occur (webhooks)?** → Event Extension
-2. **Customize Wix business solution flows (shipping, fees, taxes)?** → Service Plugin
-3. **Create custom REST API endpoints?** → Backend Endpoints
-
-**Not sure?**
-
-- Need to modify checkout/shipping/tax calculation? → Service Plugin
-- Need to sync data when something happens? → Event Extension
-- Need custom HTTP endpoints? → Backend Endpoints
-
-### Need to add frontend components?
-
-1. **Standalone widget, placeable anywhere?** → Site Widget
-2. **Extend Wix business solution page (product page, booking page)?** → Site Plugin
-3. **Inject script/analytics/tracking?** → Embedded Script
-
-**Not sure?**
-
-- User chooses where to place it? → Site Widget
-- Must go in specific slot on Wix app page? → Site Plugin
-- Just need to add tracking code? → Embedded Script
-
-## Extension Types
-
-### Dashboard Extensions
-
-Admin interfaces for managing sites and business data. Not visible to site visitors.
-
-#### Dashboard Pages
-
-**Use when:**
-
-- Creating full admin pages for managing app data, settings, or business logic
-- Building data management interfaces (CRUD operations)
-- Implementing custom dashboard navigation and workflows
-
-**Don't use when:**
-
-- Need a popup dialog → Use Dashboard Modal
-- Extending existing Wix app dashboard → Use Dashboard Plugin
-
-**Key constraints:**
-
-- Appears in dashboard sidebar navigation
-- Full-page dashboard interfaces
-- **CRITICAL: Cannot use `<Modal />` component directly** - WDS Modal components don't work in dashboard pages. To show popups/dialogs, you MUST create a separate Dashboard Modal extension and open it via `dashboard.openModal()`
-
-**Examples:**
-
-- Product management interface
-- Order tracking dashboard
-- Settings configuration page
-- Analytics dashboard
-
-#### Dashboard Modals
-
-**Use when:**
-
-- Creating popup dialogs triggered from dashboard pages
-- Confirmation dialogs
-- Quick data entry forms
-- Detail views for records
-- **Any time you need a modal/popup inside a Dashboard Page** (since `<Modal />` doesn't work in dashboard pages)
-
-**Don't use when:**
-
-- Need full page with navigation → Use Dashboard Page
-- Extending Wix app dashboard → Use Dashboard Plugin
-
-**Key constraints:**
-
-- **Required for any popup/modal in dashboard pages** - This is the ONLY way to show modals in dashboard pages
-- Overlay dialogs on top of dashboard pages
-- Controlled via Dashboard SDK `openModal()` and `closeModal()`
-- Can receive data from parent dashboard page
-- Must be a separate extension (cannot be inline in dashboard page code)
-
-**Examples:**
-
-- "Add new item" form modal
-- Confirmation dialogs for destructive actions
-- Quick edit forms
-- Detail view popups
-
-#### Dashboard Plugins
-
-**Use when:**
-
-- Extending functionality of existing Wix app dashboard pages
-- Adding custom components to predefined slots in Wix app dashboards
-- Enhancing built-in Wix app pages with custom features
-
-**Don't use when:**
-
-- Creating your own dashboard page → Use Dashboard Page
-- Adding menu items → Use Dashboard Menu Plugin
-
-**Key constraints:**
-
-- Plug into predefined slots in Wix app dashboard pages
-- Extend apps made by Wix (not your own dashboard pages)
-- Can observe and interact with dashboard page state
-
-**Examples:**
-
-- Adding custom analytics widget to Wix Stores dashboard
-- Extending Wix Bookings dashboard with custom features
-- Adding custom components to Wix Events dashboard
-
-#### Dashboard Menu Plugins
-
-**Use when:**
-
-- Adding menu items to existing Wix app dashboard pages
-- Creating navigation to dashboard modals or other dashboard pages
-- Extending menu functionality in Wix app dashboards
-
-**Don't use when:**
-
-- Adding components to dashboard page → Use Dashboard Plugin
-- Creating your own dashboard page → Use Dashboard Page
-
-**Key constraints:**
-
-- Add menu items to pre-configured slots
-- Can navigate to dashboard modals or pages
-- Simple configuration-based extension
-- Extend apps made by Wix
-
-**Examples:**
-
-- Adding "Export Data" menu item
-- Creating shortcut to custom dashboard modal
-- Adding navigation to external dashboard
+**Key constraint:** Dashboard Page cannot use `<Modal />`; use a separate Dashboard Modal and `dashboard.openModal()`. Site plugins (CLI) not supported on checkout; use Wix Blocks.
 
 ### Backend Extensions
 
@@ -238,246 +112,23 @@ Server-side logic, events, and integrations with Wix business solutions.
 
 #### Service Plugins
 
-**Use when:**
-
-- Injecting custom logic into Wix business solution flows
-- Customizing eCommerce flows (shipping, fees, taxes, validations)
-- Extending checkout behavior
-- Adding custom business rules to Wix apps
-
-**Don't use when:**
-
-- Reacting to events after they occur → Use Event Extension
-- Creating custom API endpoints → Use Backend Endpoints
-
-**Key constraints:**
-
-- Set of APIs defined by Wix for specific flows
-- Called by Wix during specific business solution operations
-- Can modify or extend existing Wix flows
-
-**Common service plugin types:**
-
-- **Shipping Rates** - Calculate custom shipping costs
-- **Additional Fees** - Add handling fees, rush delivery, etc.
-- **Tax Calculation** - Custom tax computation logic
-- **Cart/Checkout Validations** - Validate orders before completion
-- **Gift Cards** - Integrate gift card systems
-- **Discount Triggers** - Custom discount logic
-
-**Examples:**
-
-- Calculate shipping based on custom carrier API
-- Add packaging fees to orders
-- Validate minimum order amounts
-- Apply custom discount rules
-
-#### Event Extensions
-
-**Use when:**
-
-- Reacting to specific conditions or events in your project
-- Handling webhooks for Wix business solutions
-- Implementing event-driven workflows
-- Syncing data with external systems when events occur
-
-**Don't use when:**
-
-- Modifying business flows during execution → Use Service Plugin
-- Creating custom API endpoints → Use Backend Endpoints
-
-**Key constraints:**
-
-- Triggered when specific conditions are met
-- One handler per event type (cannot have 2 extensions listening to same event)
-- Asynchronous execution
-
-**Examples:**
-
-- Send notification when booking is confirmed
-- Sync order data to external CRM
-- Trigger email campaigns on purchase
-- Update inventory when product is sold
-
-#### Backend Endpoints
-
-**Use when:**
-
-- Creating REST API endpoints
-- Building custom HTTP handlers
-- Implementing server-side data processing
-- Creating webhooks for external services
-
-**Don't use when:**
-
-- Customizing Wix business flows → Use Service Plugin
-- Reacting to Wix events → Use Event Extension
-
-**Key constraints:**
-
-- Support all HTTP methods (GET, POST, PUT, DELETE, PATCH)
-- Dynamic route parameters
-- Full control over request/response handling
-
-**Note:** Astro endpoints replace HTTP functions and Web Methods from previous CLI versions.
-
-### Site Extensions
-
-Frontend components visible to site visitors. Only relevant for app projects (not headless projects).
-
-#### Site Widgets
-
-**Use when:**
-
-- Creating standalone, draggable UI components
-- Building configurable widgets for site pages
-- Creating components that can be placed anywhere on a site
-- Building interactive widgets with settings panels
-
-**Don't use when:**
-
-- Extending Wix business solution pages → Use Site Plugin
-- Injecting scripts/analytics → Use Embedded Script
-
-**Key constraints:**
-
-- Draggable in Wix Editor
-- Built-in settings panel for customization
-- Can be placed anywhere on site pages
-
-**Examples:**
-
-- Countdown timer widget
-- Calculator widget
-- Custom form widget
-- Interactive map widget
-- Social media feed widget
-
-#### Site Plugins
-
-**Use when:**
-
-- Extending Wix business solutions (Stores, Bookings, Events, etc.)
-- Adding components to predefined slots in Wix apps
-- Integrating with Wix business solution pages
-- Creating components that enhance Wix app functionality
-
-**Don't use when:**
-
-- Standalone widget placeable anywhere → Use Site Widget
-- Injecting scripts → Use Embedded Script
-- Building for checkout page → Use Wix Blocks (CLI not supported)
-
-**Key constraints:**
-
-- Placed in predefined slots within Wix business solutions
-- Integrated into Wix app pages (product pages, booking pages, etc.)
-- Available via plugin explorer in Wix editors
-
-**Examples:**
-
-- Add review widget to product page
-- Custom booking form component
-- Event registration enhancement
-- Product recommendation component
-
-**Note:** Currently, site plugins built with CLI aren't supported on the checkout page. Use Wix Blocks for checkout plugins.
-
-#### Embedded Scripts
-
-**Use when:**
-
-- Injecting HTML/JavaScript code into site pages
-- Adding analytics tracking pixels
-- Integrating third-party services
-- Customizing site behavior with scripts
-- Adding popups or overlays
-
-**Don't use when:**
-
-- Building interactive UI components → Use Site Widget or Site Plugin
-- Need React components → Use Site Widget
-
-**Key constraints:**
-
-- Consent-aware script types (Essential, Functional, Analytics, Advertising)
-- Configurable placement (HEAD, BODY_START, BODY_END)
-- Dynamic parameters via dashboard configuration
-
-**Examples:**
-
-- Google Analytics tracking
-- Facebook Pixel integration
-- Custom popup scripts
-- Third-party chat widgets
-- A/B testing scripts
-
 ## Extension Comparison
 
-### Site Widget vs Site Plugin
-
-| Decision Factor | Site Widget                   | Site Plugin                           |
-| --------------- | ----------------------------- | ------------------------------------- |
-| **Placement**   | User chooses anywhere on site | Fixed slots in Wix business solutions |
-| **Best for**    | Standalone widgets            | Extend Wix business solutions         |
-| **Choose when** | Need flexible placement       | Must integrate with Wix app pages     |
-
-### Dashboard Page vs Dashboard Modal
-
-| Decision Factor | Dashboard Page          | Dashboard Modal              |
-| --------------- | ----------------------- | ---------------------------- |
-| **Scope**       | Full page               | Overlay dialog               |
-| **Best for**    | Main admin interface    | Quick actions, forms, popups |
-| **Choose when** | Need sidebar navigation | Triggered from existing page |
-
-**Important:** If your Dashboard Page needs to show any popup/modal, you MUST also create a Dashboard Modal extension. Use `dashboard.openModal()` from the page to open it.
-
-### Service Plugin vs Event Extension
-
-| Decision Factor | Service Plugin              | Event Extension       |
-| --------------- | --------------------------- | --------------------- |
-| **Timing**      | During business flow        | After condition met   |
-| **Best for**    | Modify/extend flow          | React to event        |
-| **Choose when** | Customize checkout/shipping | Sync external systems |
-
-## Quick Reference Table
-
-| Extension Type        | Category  | Visibility  | Use When                      |
-| --------------------- | --------- | ----------- | ----------------------------- |
-| Dashboard Page        | Dashboard | Admin only  | Full admin pages              |
-| Dashboard Modal       | Dashboard | Admin only  | Popup dialogs                 |
-| Dashboard Plugin      | Dashboard | Admin only  | Extend Wix app dashboards     |
-| Dashboard Menu Plugin | Dashboard | Admin only  | Add menu items                |
-| Service Plugin        | Backend   | Server-side | Customize business flows      |
-| Event Extension       | Backend   | Server-side | React to events               |
-| Backend Endpoints     | Backend   | API         | Custom HTTP handlers          |
-| Site Widget           | Site      | Public      | Standalone widgets            |
-| Site Plugin           | Site      | Public      | Extend Wix business solutions |
-| Embedded Script       | Site      | Public      | Inject scripts/analytics      |
+| Site Widget vs Site Plugin | Dashboard Page vs Modal | Service Plugin vs Event |
+| -------------------------- | ----------------------- | ----------------------- |
+| Widget: user places anywhere. Plugin: fixed slot in Wix app. | Page: full page. Modal: overlay; use for popups. | Service: during flow. Event: after event. |
 
 ## Decision & Handoff Workflow
 
-After determining the correct extension type, follow this workflow:
+Follow the checklist; steps below add detail.
 
 ### Step 1: Ask Clarifying Questions (if needed)
 
-If the user's requirements are unclear, ask about:
-
-- **Placement**: Where should this appear? (dashboard, site, backend)
-- **Visibility**: Who will see it? (admin users, site visitors, server-side only)
-- **Configuration**: Does it need customization by the site owner?
-- **Integration**: Does it extend an existing Wix app or business solution?
+If unclear: placement, visibility, configuration, integration. Wait if the answer changes extension type; otherwise proceed and say you can add optional extension later.
 
 ### Step 2: Make Your Recommendation
 
-Use the decision trees above to determine the appropriate extension type. Explain your reasoning briefly:
-
-```
-Based on your requirements, I recommend using [EXTENSION TYPE] because:
-- [Reason 1 related to placement/visibility]
-- [Reason 2 related to functionality]
-- [Reason 3 related to integration needs]
-```
+Use Quick Reference Table and decision content above. State extension type and brief reasoning (placement, functionality, integration).
 
 ### Step 3: Spawn Discovery Sub-Agent
 
@@ -485,40 +136,23 @@ Based on your requirements, I recommend using [EXTENSION TYPE] because:
 
 You MUST spawn a dedicated sub-agent for discovery. This keeps verbose search results (3,000-5,000 tokens each) isolated from the main context.
 
-The discovery sub-agent performs ALL discovery tasks:
+The discovery sub-agent performs SDK discovery only (no WDS lookups in discovery phase):
 
-1. **First:** Search MCP for SDK methods and WDS best practices
-2. **Then:** Run the local WDS component query script
+1. **Search MCP for SDK methods** relevant to the extension type
 
 **MCP Tools the sub-agent should use:**
 
-- `mcp__wix-mcp-remote__SearchWixSDKDocumentation` - SDK methods and APIs
-- `mcp__wix-mcp-remote__SearchWixWDSDocumentation` - WDS best practices and patterns
-- `mcp__wix-mcp-remote__ReadFullDocsArticle` - Full documentation when needed
-
-**WDS Component Query Script (run AFTER MCP searches):**
-
-```bash
-node .claude/skills/wix-cli-planner/scripts/query-wds-components.js <ComponentName> [<ComponentName> ...]
-
-# Examples:
-node .claude/skills/wix-cli-planner/scripts/query-wds-components.js Button Table Card
-node .claude/skills/wix-cli-planner/scripts/query-wds-components.js ColorInput FormField Input
-node .claude/skills/wix-cli-planner/scripts/query-wds-components.js Page Page.Header EmptyState
-```
+- `mcp__wix-mcp-remote__SearchWixSDKDocumentation` - SDK methods and APIs (**Always use maxResults: 5**)
+- `mcp__wix-mcp-remote__ReadFullDocsArticle` - Full documentation when needed (only if search results need more detail)
 
 **Discovery sub-agent prompt template:**
 
 ```
-Discover SDK methods, WDS best practices, and component details for building [EXTENSION TYPE].
+Discover SDK methods for building [EXTENSION TYPE].
 
-STEP 1: Search MCP documentation
-- Search WDS documentation for "[extension type] best practices" (e.g., "dashboard page best practices")
-- Search SDK documentation for relevant APIs
-
-STEP 2: Query WDS components
-Run the local script to get component details:
-node .claude/skills/wix-cli-planner/scripts/query-wds-components.js [ComponentName1] [ComponentName2] ...
+Search MCP documentation (use maxResults: 5):
+- Search SDK documentation for relevant APIs with maxResults: 5
+- Only use ReadFullDocsArticle if search results need more context
 
 Return ONLY a concise summary in this format:
 
@@ -530,33 +164,21 @@ Return ONLY a concise summary in this format:
 
 **Import:** `import { methodName } from '@wix/sdk-module';`
 
-## WDS Components & Interfaces
-
-| Name              | Type      | TypeScript Type            | Description |
-| ----------------- | --------- | -------------------------- | ----------- |
-| `<ComponentName>` | Component | `React.FC<ComponentProps>` | UI purpose  |
-
-**Import:** `import { ComponentName } from '@wix/design-system';`
-
-Also include:
-- WDS best practices for this extension type
-- WDS component do's and don'ts from the script output
-- UI/UX patterns and recommendations
-- Any gotchas or constraints
+Also include any gotchas or constraints discovered.
 ```
 
 **Do NOT proceed to Step 4 until this sub-agent completes.**
 
-#### Discovery Search Reference
+#### Discovery Search Reference (SDK only)
 
-| Extension Type  | WDS Best Practices Search                                     | SDK Search                                |
-| --------------- | ------------------------------------------------------------- | ----------------------------------------- |
-| Dashboard Page  | "dashboard page best practices"                               | "Wix Data API", "dashboard SDK"           |
-| Dashboard Modal | "dashboard modal best practices"                              | "dashboard openModal closeModal"          |
-| Site Widget     | "site widget best practices", "custom element best practices" | "Wix Data API", "site-window viewMode"    |
-| Site Plugin     | "site plugin best practices"                                  | "Wix Stores API", "Wix Bookings API"      |
-| Embedded Script | "embedded script best practices"                              | "embeddedScripts API"                     |
-| Service Plugin  | "service plugin best practices"                               | Specific SPI (e.g., "shipping rates SPI") |
+| Extension Type  | SDK Search                                |
+| --------------- | ----------------------------------------- |
+| Dashboard Page  | "Wix Data API", "dashboard SDK"           |
+| Dashboard Modal | "dashboard openModal closeModal"          |
+| Site Widget     | "Wix Data API", "site-window viewMode"    |
+| Site Plugin     | "Wix Stores API", "Wix Bookings API"      |
+| Embedded Script | "embeddedScripts API"                     |
+| Service Plugin  | Specific SPI (e.g., "shipping rates SPI") |
 
 **Implementation skills also include static reference files:**
 
@@ -575,7 +197,17 @@ The sub-agent prompt should include:
 
 1. The skill to load (e.g., `wix-cli-dashboard-page`)
 2. The user's requirements
-3. The SDK/WDS context from the discovery sub-agent
+3. The SDK context from the discovery sub-agent
+4. Instruction to invoke the `wds-docs` skill only when needed (e.g. when looking up WDS component props or examples)
+
+**Implementation sub-agent prompt MUST include:**
+
+1. ✅ The skill to load (full path or name)
+2. ✅ The user's original requirements (copy verbatim)
+3. ✅ SDK methods discovered (with imports and types)
+4. ✅ Instruction to invoke `wds-docs` skill only when needed for WDS component props or examples
+5. ✅ Any constraints or gotchas discovered
+6. ✅ Instruction to write a summary log file
 
 **Implementation sub-agent prompt template:**
 
@@ -583,10 +215,18 @@ The sub-agent prompt should include:
 Load and follow the skill: wix-cli-[skill-name]
 
 User Requirements:
-[Include the user's requirements here]
+[EXACT user request - copy verbatim]
 
-SDK/WDS Context from Discovery:
-[Paste relevant findings from discovery sub-agent]
+SDK Context:
+[Methods with imports from discovery]
+
+When building UI that requires WDS component lookups (props, examples), invoke the wds-docs skill; otherwise omit.
+
+Constraints:
+[Any gotchas or limitations from discovery]
+
+After implementation, write a summary log to: implementation-agent-{hash}.log
+Include: files created, features implemented, verification results.
 
 Implement this extension following the skill guidelines.
 ```
@@ -646,75 +286,19 @@ Only after validation passes, report to the user:
 - How to test it (preview commands)
 - Any next steps
 
-## Related Skills & Sub-Agents
-
-**Discovery Sub-Agent:**
-
-Spawn a sub-agent to perform ALL discovery tasks:
-
-1. **First:** Search MCP for best practices and SDK methods:
-   - `mcp__wix-mcp-remote__SearchWixSDKDocumentation`
-   - `mcp__wix-mcp-remote__SearchWixWDSDocumentation`
-   - `mcp__wix-mcp-remote__ReadFullDocsArticle`
-
-2. **Then:** Run the WDS component query script:
-   ```bash
-   node .claude/skills/wix-cli-planner/scripts/query-wds-components.js [ComponentNames...]
-   ```
-
-Using a sub-agent keeps verbose search results (3,000-5,000 tokens each) isolated from the main context.
-
-**Implementation Sub-Agents:**
-
-Spawn sub-agents with skill context for implementation:
-
-| Extension Type  | Skill to Load             |
-| --------------- | ------------------------- |
-| Dashboard Page  | `wix-cli-dashboard-page`  |
-| Dashboard Modal | `wix-cli-dashboard-modal` |
-| Backend API     | `wix-cli-backend-api`     |
-| Service Plugin  | `wix-cli-service-plugin`  |
-| Site Widget     | `wix-cli-site-widget`     |
-| Site Plugin     | `wix-cli-site-plugin`     |
-| Embedded Script | `wix-cli-embedded-script` |
-
-**Validation:**
-
-Invoke the `wix-cli-app-validation` skill after implementation completes.
+**Summary:** Discovery = SDK MCP only. Implementation = load extension skill; invoke `wds-docs` only when needed for WDS lookups. Validation = `wix-cli-app-validation`.
 
 ## Complete Workflow Example
 
-```
-User: "Create a survey app with dashboard management and site widget"
+User: "Create a survey app with dashboard and site widget" → [DECIDE] Dashboard Page + Site Widget → [DISCOVERY] Spawn sub-agent: "Discover SDK methods (maxResults: 5). Return methods with imports." → [WAIT] → [IMPLEMENT] Spawn two sub-agents (wix-cli-dashboard-page, wix-cli-site-widget) with SDK context; tell them to invoke wds-docs only when they need WDS component lookups → [VALIDATION] wix-cli-app-validation → [REPORT].
 
-1. [DECIDE] Recommend: Dashboard Page + Site Widget
+## Cost Optimization
 
-2. [DISCOVERY SUB-AGENT]
-   Spawn sub-agent with prompt:
-   "Discover SDK methods, WDS best practices, and component details for Dashboard Page and Site Widget.
-
-   STEP 1: Search MCP documentation
-   - Search WDS docs for 'dashboard page best practices' and 'site widget best practices'
-   - Search SDK docs for 'Wix Data API'
-
-   STEP 2: Query WDS components (AFTER MCP searches)
-   Run: node .claude/skills/wix-cli-planner/scripts/query-wds-components.js Table Card Button Input FormField
-
-   Return best practices, patterns, component do's/don'ts, and relevant methods."
-
-3. [WAIT] Wait for discovery sub-agent to complete
-
-4. [IMPLEMENTATION SUB-AGENTS - PARALLEL]
-   Spawn sub-agent: "Load skill: wix-cli-dashboard-page. Create survey manager with [requirements]. Context: [discovery findings]"
-   Spawn sub-agent: "Load skill: wix-cli-site-widget. Create survey widget with [requirements]. Context: [discovery findings]"
-
-5. [WAIT] Wait for both implementation sub-agents to complete
-
-6. [VALIDATION]
-   Invoke: wix-cli-app-validation skill
-
-7. [REPORT] Tell user what was created and how to test
-```
+- **maxResults: 5** for all MCP SDK searches.
+- Discovery: focused API searches; use `ReadFullDocsArticle` only when needed.
+- Implementation: pass only relevant SDK context; invoke `wds-docs` only when implementation needs WDS component lookups.
+- Parallelize independent sub-agents; reuse discovery when modifying existing extensions.
+- Targets: discovery output 500-1000 tokens; implementation prompt minimal; each search under 2000-3000 tokens.
 
 ## Documentation
 
