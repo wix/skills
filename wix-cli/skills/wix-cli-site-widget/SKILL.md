@@ -36,7 +36,7 @@ React component converted to a web component using `react-to-webcomponent`:
 
 Settings panel shown in the Wix Editor sidebar:
 
-- Uses Wix Design System components (see [references/WDS-COMPONENTS.md](references/WDS-COMPONENTS.md))
+- Uses Wix Design System components (see [references/SETTINGS_PANEL.md](references/SETTINGS_PANEL.md))
 - Manages widget properties via `@wix/editor` widget API
 - Loads initial values with `widget.getProp('kebab-case-name')`
 - Updates properties with `widget.setProp('kebab-case-name', value)`
@@ -208,7 +208,7 @@ export default Panel;
 - Prop names in `widget.getProp()` and `widget.setProp()` use **kebab-case** (e.g., `"target-date"`, `"bg-color"`)
 - Always update both local state AND widget prop in onChange handlers
 - Wrap content in `WixDesignSystemProvider > SidePanel > SidePanel.Content`
-- Use WDS components from `@wix/design-system` (see [references/WDS-COMPONENTS.md](references/WDS-COMPONENTS.md))
+- Use WDS components from `@wix/design-system` (see [references/SETTINGS_PANEL.md](references/SETTINGS_PANEL.md))
 - Import `@wix/design-system/styles.global.css` for styles
 
 ## Props Naming Convention
