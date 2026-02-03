@@ -6,6 +6,8 @@ Agent skills for building Wix CLI applications. Each skill provides domain-speci
 
 | Skill | Purpose | When to Use |
 |-------|---------|-------------|
+| [wix-cli-planner](wix-cli-planner/SKILL.md) | Select extension type & orchestrate builds | **First skill to invoke** when adding/building any Wix feature |
+| [wds-docs](wds-docs/SKILL.md) | Wix Design System reference | Looking up WDS component props, examples, icons |
 | [wix-cli-app-validation](wix-cli-app-validation/SKILL.md) | Test and validate Wix apps | Testing app readiness, e2e validation, TypeScript checks |
 | [wix-cli-backend-api](wix-cli-backend-api/SKILL.md) | Create REST API endpoints | Backend HTTP handlers, server-side data processing |
 | [wix-cli-dashboard-modal](wix-cli-dashboard-modal/SKILL.md) | Build dashboard modals | Popup forms, confirmations, detail views in dashboards |
@@ -26,6 +28,20 @@ Agent skills for building Wix CLI applications. Each skill provides domain-speci
 | **Use case** | Standalone widgets | Extend Wix business solutions |
 
 ## Skill Capabilities
+
+### Planner
+- Extension type selection based on use case (dashboard, backend, site)
+- Orchestrates discovery and implementation sub-agents
+- MCP-based SDK documentation discovery
+- Parallel sub-agent execution for independent extensions
+- Mandatory validation before completion
+
+### WDS Docs
+- Staged discovery flow for efficient component lookups
+- Props reference for all Wix Design System components
+- Example code extraction by feature (Size, Skin, Loading, etc.)
+- Icon search functionality
+- Spacing token reference (SP1-SP6)
 
 ### Dashboard Page
 - Wix Design System (WDS) components: Tables, Forms, Cards, Modals, and more
