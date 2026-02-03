@@ -17,9 +17,6 @@ Follow these steps in order when creating a site widget:
 3. [ ] Create `panel.tsx` with WDS components and `widget.getProp/setProp`
 4. [ ] Create `extensions.ts` with `extensions.customElement()` and unique UUID
 5. [ ] Update `src/extensions.ts` to import and use the new extension
-6. [ ] Run `npx tsc --noEmit` to verify TypeScript compiles
-7. [ ] Run `npx wix build` and `npx wix preview` to test
-8. [ ] Verify widget appears in Wix Editor Add Panel
 
 ## Architecture
 
@@ -435,3 +432,7 @@ The `id` must be a unique, static UUID v4 string. Generate a fresh UUID for each
 - Inline styles only (no CSS imports)
 - Handle Wix Editor environment when using Wix Data API
 - Consistent prop naming (camelCase in widget, kebab-case in panel)
+
+## Verification
+
+After implementation completes, the **wix-cli-planner** will run validation using [wix-cli-app-validation](../wix-cli-app-validation/SKILL.md).
