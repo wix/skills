@@ -6,11 +6,14 @@ Agent skills for building Wix CLI applications. Each skill provides domain-speci
 
 | Skill | Purpose | When to Use |
 |-------|---------|-------------|
+| [wix-cli-orchestrator](wix-cli-orchestrator/SKILL.md) | Select extension type & orchestrate builds | **First skill to invoke** when adding/building any Wix feature |
+| [wds-docs](wds-docs/SKILL.md) | Wix Design System reference | Looking up WDS component props, examples, icons |
 | [wix-cli-app-validation](wix-cli-app-validation/SKILL.md) | Test and validate Wix apps | Testing app readiness, e2e validation, TypeScript checks |
 | [wix-cli-backend-api](wix-cli-backend-api/SKILL.md) | Create REST API endpoints | Backend HTTP handlers, server-side data processing |
 | [wix-cli-dashboard-modal](wix-cli-dashboard-modal/SKILL.md) | Build dashboard modals | Popup forms, confirmations, detail views in dashboards |
 | [wix-cli-dashboard-page](wix-cli-dashboard-page/SKILL.md) | Build admin interfaces | Dashboard pages, data management, settings UIs |
 | [wix-cli-embedded-script](wix-cli-embedded-script/SKILL.md) | Inject client-side code | Tracking pixels, popups, third-party integrations |
+| [wix-cli-extension-registration](wix-cli-extension-registration/SKILL.md) | Extension registration patterns | Registering new or existing extensions, UUID generation, app registration |
 | [wix-cli-service-plugin](wix-cli-service-plugin/SKILL.md) | Extend Wix business solution flows | Shipping, fees, taxes, validations, gift cards, custom triggers |
 | [wix-cli-site-component](wix-cli-site-component/SKILL.md) | Create site components | React components with editor manifests for visual customization |
 | [wix-cli-site-plugin](wix-cli-site-plugin/SKILL.md) | Extend Wix app slots | Components for predefined slots in Wix business solutions |
@@ -25,6 +28,20 @@ Agent skills for building Wix CLI applications. Each skill provides domain-speci
 | **Use case** | Standalone widgets | Extend Wix business solutions |
 
 ## Skill Capabilities
+
+### Planner
+- Extension type selection based on use case (dashboard, backend, site)
+- Orchestrates discovery and implementation sub-agents
+- MCP-based SDK documentation discovery
+- Parallel sub-agent execution for independent extensions
+- Mandatory validation before completion
+
+### WDS Docs
+- Staged discovery flow for efficient component lookups
+- Props reference for all Wix Design System components
+- Example code extraction by feature (Size, Skin, Loading, etc.)
+- Icon search functionality
+- Spacing token reference (SP1-SP6)
 
 ### Dashboard Page
 - Wix Design System (WDS) components: Tables, Forms, Cards, Modals, and more
@@ -80,12 +97,6 @@ Agent skills for building Wix CLI applications. Each skill provides domain-speci
 - TypeScript compilation checks
 - Build verification
 - Preview deployment
-
-## Shared References
-
-| Reference | Description |
-|-----------|-------------|
-| [EXTENSIONS.md](references/EXTENSIONS.md) | Extension registration patterns for all types |
 
 ## Skill Structure
 

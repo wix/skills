@@ -1,6 +1,6 @@
 ---
 name: wix-cli-service-plugin
-description: Use when implementing service plugin extensions that inject custom backend logic into existing Wix business solution flows or introduce new flows to Wix sites. Service plugins let you customize shipping rates, additional fees, taxes, cart validations, checkout behavior, gift cards, discount triggers, and more. Triggers include SPI, service plugin, shipping rates, handling fees, tax calculation, cart validation, checkout customization, business logic, gift cards, custom triggers, payment settings, backend flow.
+description: Use when implementing service plugin extensions that inject custom backend logic into existing Wix business solution flows or introduce new flows to Wix sites. Triggers include SPI, service plugin, backend flow, business logic.
 compatibility: Requires Wix CLI development environment.
 ---
 
@@ -23,16 +23,6 @@ Follow these steps in order when creating a service plugin:
 7. [ ] Run `npx tsc --noEmit` to verify TypeScript compiles
 8. [ ] Run `npx wix build` to verify build succeeds
 9. [ ] Test by triggering the relevant site action (e.g., add to cart for fees)
-
-## Non-Matching Intents
-
-Do NOT use this skill for:
-
-- **Dashboard admin interfaces** → Use `wix-cli-dashboard-page`
-- **Database/collection schemas** → Use `wix-cli-cms-collection`
-- **Backend API endpoints** → Use `wix-cli-backend-api`
-- **Embedded scripts on site** → Use `wix-cli-embedded-script`
-- **Backend event handlers** → Use `wix-backend-event`
 
 ## References
 
@@ -236,7 +226,7 @@ Additional fields may be required or optional depending on the specific service 
 
 ### Step 2: Register in Main Extensions File
 
-**CRITICAL:** After creating the plugin-specific extension file, you MUST read [../../skills/references/EXTENSIONS.md](../../skills/references/EXTENSIONS.md) and follow the "App Registration" section to update `src/extensions.ts`.
+**CRITICAL:** After creating the plugin-specific extension file, you MUST read [wix-cli-extension-registration](../wix-cli-extension-registration/SKILL.md) and follow the "App Registration" section to update `src/extensions.ts`.
 
 **Without completing Step 2, the service plugin will not be active in the eCommerce system.**
 

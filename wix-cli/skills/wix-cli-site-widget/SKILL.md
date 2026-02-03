@@ -1,6 +1,6 @@
 ---
 name: wix-cli-site-widget
-description: Use when building interactive widgets, custom data displays, or configurable site components with settings panels. Triggers include widget, custom element, interactive component, countdown timer, calculator, showcase, gallery, editor component, configurable widget, web component.
+description: Use when building interactive widgets, custom data displays, or configurable site components with settings panels. Triggers include widget, custom element, interactive component, editor component, configurable widget, web component.
 compatibility: Requires Wix CLI development environment.
 ---
 
@@ -17,34 +17,6 @@ Follow these steps in order when creating a site widget:
 3. [ ] Create `panel.tsx` with WDS components and `widget.getProp/setProp`
 4. [ ] Create `extensions.ts` with `extensions.customElement()` and unique UUID
 5. [ ] Update `src/extensions.ts` to import and use the new extension
-6. [ ] Run `npx tsc --noEmit` to verify TypeScript compiles
-7. [ ] Run `npx wix build` and `npx wix preview` to test
-8. [ ] Verify widget appears in Wix Editor Add Panel
-
-## Non-Matching Intents
-
-Do NOT use this skill for:
-
-- **Dashboard admin interfaces** → Use `wix-cli-dashboard-page`
-- **Embedded scripts** (HTML/JavaScript injection) → Use `wix-cli-embedded-script`
-- **Backend API endpoints** → Use `wix-cli-backend-api`
-- **Service plugins** (eCommerce SPIs) → Use `wix-cli-service-plugin`
-- **Site components** (React-only, no settings panel) → Use `wix-site-component`
-- **Plugins for Wix app slots** (Stores, Bookings) → Use `wix-cli-site-plugin`
-
-## Site Widget vs Site Plugin
-
-| Feature | Site Widget | Site Plugin |
-|---------|-------------|-------------|
-| **Target location** | Anywhere on site pages | Predefined slots in Wix business solutions |
-| **Component type** | React → Web Component (`react-to-webcomponent`) | Native `HTMLElement` |
-| **Use case** | Standalone interactive widgets | Extend Wix business solutions |
-| **Placement** | Add Panel in Wix Editor | Plugin explorer in Wix Editor |
-| **Props convention** | camelCase (widget) / kebab-case (panel) | kebab-case only |
-
-**Choose Site Widget when:** You need a standalone widget (countdown timer, calculator, gallery) that site owners can place anywhere.
-
-**Choose Site Plugin when:** You need to extend predefined slots in Wix business solutions.
 
 ## Architecture
 
@@ -64,7 +36,7 @@ React component converted to a web component using `react-to-webcomponent`:
 
 Settings panel shown in the Wix Editor sidebar:
 
-- Uses Wix Design System components (see [references/WDS-COMPONENTS.md](references/WDS-COMPONENTS.md))
+- Uses Wix Design System components (see [references/SETTINGS_PANEL.md](references/SETTINGS_PANEL.md))
 - Manages widget properties via `@wix/editor` widget API
 - Loads initial values with `widget.getProp('kebab-case-name')`
 - Updates properties with `widget.setProp('kebab-case-name', value)`
@@ -236,23 +208,8 @@ export default Panel;
 - Prop names in `widget.getProp()` and `widget.setProp()` use **kebab-case** (e.g., `"target-date"`, `"bg-color"`)
 - Always update both local state AND widget prop in onChange handlers
 - Wrap content in `WixDesignSystemProvider > SidePanel > SidePanel.Content`
-- Use WDS components from `@wix/design-system` (see [references/WDS-COMPONENTS.md](references/WDS-COMPONENTS.md))
+- Use WDS components from `@wix/design-system` (see [references/SETTINGS_PANEL.md](references/SETTINGS_PANEL.md))
 - Import `@wix/design-system/styles.global.css` for styles
-
-### Querying WDS Component Details
-
-For detailed information about WDS components (descriptions, usage guidelines, feature examples, code snippets), use the shared query script:
-
-```bash
-node ./scripts/query-wds-components.js <component-name> [<component-name> ...]
-
-# Examples:
-node ./scripts/query-wds-components.js FormField Input
-node ./scripts/query-wds-components.js SidePanel SidePanel.Header
-node ./scripts/query-wds-components.js ToggleSwitch DatePicker
-```
-
-The script reads from `assets/wds-storybook.json` and outputs formatted component information. This is useful when you need specific prop usage examples, best practices, or feature-specific code examples beyond what's documented in [WDS-COMPONENTS.md](references/WDS-COMPONENTS.md).
 
 ## Props Naming Convention
 
@@ -462,13 +419,9 @@ The `id` must be a unique, static UUID v4 string. Generate a fresh UUID for each
 
 ### Step 2: Register in Main Extensions File
 
-**CRITICAL:** After creating the widget-specific extension file, you MUST read [../../skills/references/EXTENSIONS.md](../../skills/references/EXTENSIONS.md) and follow the "App Registration" section to update `src/extensions.ts`.
+**CRITICAL:** After creating the widget-specific extension file, you MUST read [wix-cli-extension-registration](../wix-cli-extension-registration/SKILL.md) and follow the "App Registration" section to update `src/extensions.ts`.
 
 **Without completing Step 2, the site widget will not be available in the Wix Editor.**
-
-## Verification
-
-After implementation, use [wix-cli-app-validation](../wix-cli-app-validation/SKILL.md) to validate TypeScript compilation, build, preview, and runtime behavior.
 
 ## Code Quality Requirements
 
@@ -479,3 +432,7 @@ After implementation, use [wix-cli-app-validation](../wix-cli-app-validation/SKI
 - Inline styles only (no CSS imports)
 - Handle Wix Editor environment when using Wix Data API
 - Consistent prop naming (camelCase in widget, kebab-case in panel)
+
+## Verification
+
+After implementation completes, the **wix-cli-orchestrator** will run validation using [wix-cli-app-validation](../wix-cli-app-validation/SKILL.md).

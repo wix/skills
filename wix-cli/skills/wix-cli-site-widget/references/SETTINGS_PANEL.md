@@ -1,6 +1,6 @@
-# Wix Design System Components for Settings Panels
+# Settings Panel Components Reference
 
-This reference documents Wix Design System (WDS) components commonly used in widget settings panels. Settings panels appear in the Wix Editor sidebar when site owners configure widget properties.
+This reference documents components and patterns specific to widget settings panels. For general WDS component documentation (FormField, Input, Dropdown, Checkbox, ToggleSwitch, DatePicker, Box, etc.), use the [wds-docs](../../wds-docs/SKILL.md) skill.
 
 ## Import
 
@@ -79,154 +79,9 @@ Wrapper for individual form fields. Use this to wrap each `FormField`.
 </SidePanel.Field>
 ```
 
-## Form Components
+## Widget API Integration Patterns
 
-### FormField
-
-Wrapper component for form inputs with label and validation.
-
-```typescript
-<FormField label="Title" required infoContent="Enter the widget title">
-  <Input value={title} onChange={handleChange} />
-</FormField>
-```
-
-**Props:**
-
-- `label`: Field label text
-- `required`: Show required indicator
-- `infoContent`: Help text or tooltip
-- `status`: Validation status (`"error"`, `"warning"`)
-- `statusMessage`: Error or warning message
-
-### Input
-
-Text input field for single-line text.
-
-```typescript
-<Input
-  type="text"
-  value={title}
-  onChange={handleChange}
-  placeholder="Enter title"
-  disabled={false}
-/>
-```
-
-**Props:**
-
-- `type`: Input type (`"text"`, `"number"`, `"date"`, `"email"`, `"url"`)
-- `value`: Current value
-- `onChange`: Change handler
-- `placeholder`: Placeholder text
-- `disabled`: Disable input
-- `required`: Required field
-
-**Date Input:**
-
-```typescript
-<Input
-  type="date"
-  value={targetDate}
-  onChange={handleDateChange}
-/>
-```
-
-### Dropdown
-
-Select dropdown for choosing from options.
-
-```typescript
-<Dropdown
-  options={[
-    { id: "1", value: "Option 1" },
-    { id: "2", value: "Option 2" },
-  ]}
-  selectedId="1"
-  onSelect={(option) => handleSelect(option.id)}
-  placeholder="Select an option"
-/>
-```
-
-**Props:**
-
-- `options`: Array of `{ id: string, value: string }` objects
-- `selectedId`: Currently selected option ID
-- `onSelect`: Selection handler
-- `placeholder`: Placeholder text
-- `disabled`: Disable dropdown
-
-### Checkbox
-
-Checkbox for boolean values.
-
-```typescript
-<Checkbox
-  checked={isEnabled}
-  onChange={(e) => handleChange(e.target.checked)}
->
-  Enable feature
-</Checkbox>
-```
-
-**Props:**
-
-- `checked`: Boolean checked state
-- `onChange`: Change handler receives event
-- `disabled`: Disable checkbox
-
-### ToggleSwitch
-
-Toggle switch for boolean values (alternative to Checkbox).
-
-```typescript
-<ToggleSwitch
-  checked={isEnabled}
-  onChange={(e) => handleChange(e.target.checked)}
-/>
-```
-
-**Props:**
-
-- `checked`: Boolean checked state
-- `onChange`: Change handler receives event
-- `disabled`: Disable toggle
-
-### DatePicker
-
-Date picker component (alternative to `Input type="date"`).
-
-```typescript
-<DatePicker
-  value={selectedDate}
-  onChange={({ date }) => handleDateChange(date)}
-  placeholderText="Select date"
-/>
-```
-
-**Props:**
-
-- `value`: Date object or null
-- `onChange`: Handler receives `{ date: Date | null }`
-- `placeholderText`: Placeholder text
-
-### TimeInput
-
-Time input component for selecting time.
-
-```typescript
-<TimeInput
-  value={timeValue}
-  onChange={({ date }) => handleTimeChange(date)}
-/>
-```
-
-**Props:**
-
-- `value`: Date object representing time
-- `onChange`: Handler receives `{ date: Date }`
-
-**Example with parsing:**
+### TimeInput with widget.setProp
 
 ```typescript
 const parseTimeValue = (timeString: string): Date => {
@@ -247,25 +102,6 @@ const parseTimeValue = (timeString: string): Date => {
   }}
 />
 ```
-
-## Layout Components
-
-### Box
-
-Flexbox container for layout.
-
-```typescript
-<Box direction="vertical" gap="24px" align="start">
-  {/* Children */}
-</Box>
-```
-
-**Props:**
-
-- `direction`: `"vertical"` or `"horizontal"`
-- `gap`: Spacing between children (e.g., `"24px"`, `"12px"`)
-- `align`: Alignment (`"start"`, `"center"`, `"end"`, `"stretch"`)
-- `verticalAlign`: Vertical alignment for horizontal direction
 
 ## Custom Components
 
@@ -349,24 +185,6 @@ export const FontPickerField: FC<FontPickerFieldProps> = ({
 ```
 
 **Important:** Always use `inputs.selectFont()` from `@wix/editor` for font selection, NOT a text Input. This provides a rich font picker dialog.
-
-## Provider Wrapper
-
-Always wrap the entire panel in `WixDesignSystemProvider`:
-
-```typescript
-import { WixDesignSystemProvider } from "@wix/design-system";
-
-const Panel: FC = () => {
-  return (
-    <WixDesignSystemProvider>
-      <SidePanel>
-        {/* Panel content */}
-      </SidePanel>
-    </WixDesignSystemProvider>
-  );
-};
-```
 
 ## Complete Example
 
@@ -511,51 +329,3 @@ export default Panel;
 - Update both local state AND `widget.setProp()` in onChange handlers
 - Prop names in `widget.getProp()` and `widget.setProp()` use kebab-case
 - For font selection, use `inputs.selectFont()` from `@wix/editor`, not a text Input
-
-## Querying Additional Component Details
-
-The information above covers common WDS components used in settings panels. For comprehensive component information including detailed descriptions, feature examples, usage guidelines (do's and don'ts), and code examples, you can query the WDS storybook JSON.
-
-### Using the Query Script
-
-The WDS component data is stored in `../assets/wds-storybook.json`. To query detailed information about specific components, use the query script:
-
-```bash
-# From any skill directory, run:
-node ../scripts/query-wds-components.js <component-name> [<component-name> ...]
-
-# Examples:
-node ../scripts/query-wds-components.js FormField Input
-node ../scripts/query-wds-components.js SidePanel SidePanel.Header SidePanel.Content
-node ../scripts/query-wds-components.js ToggleSwitch DatePicker
-```
-
-The script outputs formatted component information including:
-
-- Component description
-- Category
-- Do's and don'ts (usage guidelines)
-- Feature examples with code snippets
-
-### JSON Structure
-
-The JSON file (`../assets/wds-storybook.json`) contains comprehensive component information beyond what's documented in this static reference. Each component object includes:
-
-- `storyName` (string): The component name (e.g., "Button", "FormField", "SidePanel")
-- `category` (string, optional): Component category
-- `content.description` (string, optional): HTML-formatted component description
-- `content.do` (string[], optional): Array of recommended usage patterns
-- `content.dont` (string[], optional): Array of usage anti-patterns to avoid
-- `content.featureExamples` (array, optional): Array of feature examples with titles, descriptions, and code examples
-
-**Note:** Component names in the JSON are case-sensitive and must match exactly (e.g., "FormField" not "formField").
-
-### When to Query Components
-
-Query component details from the JSON when you need:
-
-- Specific prop usage examples not covered in this reference
-- Best practices and anti-patterns for components
-- Feature-specific code examples
-- Detailed component descriptions
-- Information about components not commonly used in settings panels

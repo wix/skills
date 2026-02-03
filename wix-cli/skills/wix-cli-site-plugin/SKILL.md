@@ -1,6 +1,6 @@
 ---
 name: wix-cli-site-plugin
-description: Use when building interactive components for predefined slots in Wix business solutions like Stores, Bookings, or Restaurants. Triggers include site plugin, slot, product page extension, checkout plugin, booking widget, store customization, Wix app integration, plugin explorer, business solution extension.
+description: Use when building interactive components for predefined slots in Wix business solutions. Triggers include site plugin, slot, Wix app integration, plugin explorer, business solution extension.
 compatibility: Requires Wix CLI development environment.
 ---
 
@@ -22,30 +22,6 @@ Follow these steps in order when creating a site plugin:
 6. [ ] Run `npx tsc --noEmit` to verify TypeScript compiles
 7. [ ] Run `npx wix build` and `npx wix preview` to test
 8. [ ] Verify plugin appears in plugin explorer for target slots
-
-## Non-Matching Intents
-
-Do NOT use this skill for:
-
-- **Standalone site widgets** (not in predefined slots) → Use `wix-cli-site-widget`
-- **Dashboard admin interfaces** → Use `wix-cli-dashboard-page`
-- **Backend API endpoints** → Use `wix-cli-backend-api`
-- **Service plugins** (eCommerce SPIs) → Use `wix-cli-service-plugin`
-- **Embedded scripts** (HTML/JavaScript injection) → Use `wix-cli-embedded-script`
-
-## Site Plugin vs Site Widget
-
-| Feature | Site Plugin | Site Widget |
-|---------|-------------|-------------|
-| **Target location** | Predefined slots in Wix business solutions | Anywhere on site pages |
-| **Component type** | Native `HTMLElement` | React → Web Component (`react-to-webcomponent`) |
-| **Use case** | Extend Wix business solutions | Standalone interactive widgets |
-| **Placement** | Plugin explorer in Wix Editor | Add Panel in Wix Editor |
-| **Props convention** | kebab-case only | camelCase (widget) / kebab-case (panel) |
-
-**Choose Site Plugin when:** You need to extend predefined slots in Wix business solutions.
-
-**Choose Site Widget when:** You need a standalone widget that site owners can place anywhere on their pages.
 
 ## Architecture
 
@@ -223,7 +199,6 @@ public/
 | Complete Examples | [EXAMPLES.md](references/EXAMPLES.md) |
 | Slots (App IDs, multiple placements, finding slots) | [SLOTS.md](references/SLOTS.md) |
 | WDS Components | [WDS-COMPONENTS.md](../wix-cli-site-widget/references/WDS-COMPONENTS.md) |
-| Extension Registration | [EXTENSIONS.md](../references/EXTENSIONS.md) |
 
 ## Available Slots
 
@@ -291,7 +266,7 @@ The `id` must be a unique, static UUID v4 string. Generate a fresh UUID for each
 
 ### Step 2: Register in Main Extensions File
 
-**CRITICAL:** After creating the plugin-specific extension file, you MUST read [../../skills/references/EXTENSIONS.md](../../skills/references/EXTENSIONS.md) and follow the "App Registration" section to update `src/extensions.ts`.
+**CRITICAL:** After creating the plugin-specific extension file, you MUST read [wix-cli-extension-registration](../wix-cli-extension-registration/SKILL.md) and follow the "App Registration" section to update `src/extensions.ts`.
 
 **Without completing Step 2, the site plugin will not be available in the plugin explorer.**
 

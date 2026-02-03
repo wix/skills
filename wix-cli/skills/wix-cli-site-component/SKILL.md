@@ -7,16 +7,6 @@ description: "Use when building React site components with editor manifests for 
 
 Creates production-quality React site components with editor manifests for Wix CLI applications. Site components are React components that integrate with the Wix Editor, allowing site owners to customize content, styling, and behavior through a visual interface.
 
-## Non-Matching Intents
-
-Do NOT use this skill for:
-
-- **Dashboard admin interfaces** → Use `wix-cli-dashboard-page`
-- **Site widgets with settings panels** → Use `wix-cli-site-widget`
-- **Embedded scripts** (HTML/JavaScript injection) → Use `wix-cli-embedded-script`
-- **Backend API endpoints** → Use `wix-cli-backend-api`
-- **Service plugins** (eCommerce SPIs) → Use `wix-cli-service-plugin`
-
 ## Architecture
 
 Site components consist of **four required files**:
@@ -425,7 +415,7 @@ The `id` must be a unique, static UUID v4 string. Generate a fresh UUID for each
 
 ### Step 2: Register in Main Extensions File
 
-**CRITICAL:** After creating the component-specific extension file, you MUST read [../../skills/references/EXTENSIONS.md](../../skills/references/EXTENSIONS.md) and follow the "App Registration" section to update `src/extensions.ts`.
+**CRITICAL:** After creating the component-specific extension file, you MUST read [wix-cli-extension-registration](../wix-cli-extension-registration/SKILL.md) and follow the "App Registration" section to update `src/extensions.ts`.
 
 **Without completing Step 2, the site component will not be available in the Wix Editor.**
 

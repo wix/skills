@@ -1,6 +1,6 @@
 ---
 name: wix-cli-embedded-script
-description: Use when adding tracking code, advertising pixels, third-party integrations, custom popups, or client-side JavaScript to sites. Triggers include embed, inject, tracking, analytics, pixel, popup, modal, chat widget, third-party integration, DOM injection, consent banner.
+description: Use when adding tracking code, advertising pixels, third-party integrations, or client-side JavaScript to sites. Triggers include embed, inject, script, third-party integration, DOM injection.
 compatibility: Requires Wix CLI development environment.
 ---
 
@@ -21,16 +21,6 @@ Follow these steps in order when creating an embedded script:
 7. [ ] Run `npx tsc --noEmit` to verify TypeScript compiles
 8. [ ] Run `npx wix build` and `npx wix preview` to test
 9. [ ] Add the `APPS.MANAGE_EMBEDDED_SCRIPT` permission in the Wix Dev Center (see [Enable Embedded Script Permission](#enable-embedded-script-permission))
-
-## Non-Matching Intents
-
-Do NOT use this skill for:
-
-- **Dashboard admin interfaces** → Use `wix-cli-dashboard-page`
-- **Database/collection schemas** → Use `wix-cli-cms-collection`
-- **Backend API endpoints** → Use `wix-cli-backend-api`
-- **Service plugins (eCommerce SPIs)** → Use `wix-cli-service-plugin`
-- **Custom site widgets with settings panel** → Use `wix-custom-element`
 
 ## Script Types
 
@@ -470,7 +460,7 @@ The `id` must be a unique, static UUID v4 string. Generate a fresh UUID for each
 
 ### Step 2: Register in Main Extensions File
 
-**CRITICAL:** After creating the script-specific extension file, you MUST read [../../skills/references/EXTENSIONS.md](../../skills/references/EXTENSIONS.md) and follow the "App Registration" section to update `src/extensions.ts`.
+**CRITICAL:** After creating the script-specific extension file, you MUST read [wix-cli-extension-registration](../wix-cli-extension-registration/SKILL.md) and follow the "App Registration" section to update `src/extensions.ts`.
 
 **Without completing Step 2, the embedded script will not be deployed to the site.**
 

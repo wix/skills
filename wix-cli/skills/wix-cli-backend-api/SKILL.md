@@ -8,16 +8,6 @@ compatibility: Requires Wix CLI development environment.
 
 Creates Astro server endpoint extensions for Wix CLI applications. Backend APIs are server-side routes that handle HTTP requests, process data, and return responses. They are automatically discovered and don't require extension registration. Endpoints are generated based on API specifications and are designed to integrate well with frontend applications in fullstack applications.
 
-## Non-Matching Intents
-
-Do NOT use this skill for:
-
-- **Dashboard admin interfaces** → Use `wix-cli-dashboard-page`
-- **Service plugins** (eCommerce SPIs) → Use `wix-cli-service-plugin`
-- **Embedded scripts** (client-side) → Use `wix-cli-embedded-script`
-- **Backend event handlers** (event-driven) → Use `wix-backend-event`
-- **Site widgets** (client components) → Use `wix-cli-site-widget`
-
 ## Architecture
 
 Astro server endpoints are TypeScript files (`.ts` extension) in the `src/pages/api/` directory that export named functions for HTTP methods. They are automatically converted to API routes.
