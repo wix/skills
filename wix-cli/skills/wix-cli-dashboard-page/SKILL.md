@@ -18,23 +18,8 @@ Follow these steps in order when creating a dashboard page:
 2. [ ] Create `page.tsx` with WDS components wrapped in `WixDesignSystemProvider`
 3. [ ] Create `extensions.ts` with `extensions.dashboardPage()` and unique UUID
 4. [ ] Update `src/extensions.ts` to import and use the new extension
-5. [ ] Run `npx tsc --noEmit` to verify TypeScript compiles
-6. [ ] Run `npx wix build` to verify build succeeds
-7. [ ] Run `npx wix preview` and navigate to the page route
 
 ## Capabilities
-
-### UI Components (Wix Design System)
-
-**Layout:** `Page`, `Page.Content`, `Layout`, `Cell`, `Card`, `Box`
-
-**Data Display:** `Table`, `TableToolbar`, `Text`, `Heading`, `Badge`, `EmptyState`
-
-**Forms:** `FormField`, `Input`, `Dropdown`, `Checkbox`, `ToggleSwitch`, `DatePicker`, `RichTextInputArea`
-
-**Actions:** `Button`, Toast notifications
-
-See more in "Supported WDS Components" section.
 
 ### Data Operations (Wix Data SDK)
 
@@ -108,10 +93,12 @@ Dashboard pages live under `src/dashboard/pages`. Each page has its own folder.
 
 ## WDS Provider Usage
 
-Wrap your dashboard page component with WixDesignSystemProvider to enable WDS components and theming.
+Wrap your dashboard page component with `WixDesignSystemProvider` to enable WDS components and theming. You must also import the global CSS styles for WDS components to render correctly.
 
 ```typescript
 import { WixDesignSystemProvider } from "@wix/design-system";
+import '@wix/design-system/styles.global.css';
+
 export default function () {
   return (
     <WixDesignSystemProvider>
@@ -131,21 +118,11 @@ export default function () {
 
 **Note:** When using dynamic parameters, use the `withProviders` wrapper instead. See [Dynamic Parameters](references/DYNAMIC_PARAMETERS.md) for details.
 
-## Supported WDS Components
-
-Use ONLY these Wix Design System components. Do NOT use components from `@wix/wix-ui-icons-common` unless you know the correct import path and it's explicitly needed for icons.
-
-**Supported components:** AutoComplete, Badge, Box, Button, IconButton, TextButton, Card, Card.Content, Card.Divider, Card.Header, Card.Subheader, Cell, Checkbox, ColorInput, CornerRadiusInput, Divider, Dropdown, EmptyState, FormField, Heading, IconButton, Input, InputArea, Layout, Loader, MarketingLayout, NestableList, NumberInput, Page, Page.Footer, Page.Header, Page.Section, RichTextInputArea, SectionHeader, SidePanel, Table, TableActionCell, TableListHeader, TableListItem, TableToolbar, TagList, Text, TextButton, TimeInput, Tooltip, ToggleSwitch
-
-For detailed component information, see [WDS Components Reference](references/WDS_COMPONENTS.md).
-
 ## Hard Constraints
 
 - Do NOT invent or assume new types, modules, functions, props, events, or imports.
 - Use only entities explicitly present in the provided references or standard libraries already used in this project.
 - If something is missing, call it out explicitly and provide a minimal TODO or clearly marked placeholder rather than creating it.
-- Use ONLY WDS components that are explicitly listed in the supported components list above.
-- Do NOT use components from @wix/wix-ui-icons-common unless you know the correct import path and it's explicitly needed for icons
 - Always verify component availability before using it in your generated code
 - If you need a component not in the list, use a basic HTML element or create a simple custom component instead
 - **Do NOT use WDS `Modal` component or custom React modal implementations** - Always use dashboard modals (see [wix-cli-dashboard-modal](../wix-cli-dashboard-modal/SKILL.md)) for any popup dialogs, forms, or overlays
@@ -317,15 +294,6 @@ Do NOT copy field names from embedded script or other extension registrations. D
 ## Verification
 
 After implementation completes, the **wix-cli-planner** will run validation using [wix-cli-app-validation](../wix-cli-app-validation/SKILL.md).
-
-If you are running as a sub-agent spawned by wix-cli-planner:
-- Complete the implementation
-- Return a summary of what was created
-- The planner will handle validation
-
-If you are running standalone (not recommended):
-- Invoke the `wix-cli-app-validation` skill after implementation
-- Fix any errors before reporting completion
 
 ## API Spec Support
 
