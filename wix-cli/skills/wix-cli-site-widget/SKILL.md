@@ -435,4 +435,4 @@ The `id` must be a unique, static UUID v4 string. Generate a fresh UUID for each
 
 ## Verification
 
-After implementation completes, the **wix-cli-planner** will run validation using [wix-cli-app-validation](../wix-cli-app-validation/SKILL.md).
+After implementation completes, the **wix-cli-orchestrator** will run validation using [wix-cli-app-validation](../wix-cli-app-validation/SKILL.md).

@@ -1,6 +1,6 @@
 # Wix CLI Extension Documentation
 
-All information in the wix-cli-planner skill is based on official Wix CLI documentation. This file contains links to detailed documentation for each extension type.
+All information in the wix-cli-orchestrator skill is based on official Wix CLI documentation. This file contains links to detailed documentation for each extension type.
 
 ## Main Documentation
 
