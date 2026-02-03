@@ -1,6 +1,6 @@
 ---
 name: wix-cli-orchestrator
-description: ⚠️ BLOCKING REQUIREMENT ⚠️ When user requests to add/build/create/implement ANY feature or component for a Wix CLI app, you MUST invoke this skill IMMEDIATELY as your absolute FIRST action - when exploring, reading files, BEFORE launching any agents - make sure this skill is loaded. Trigger on "add [X]", "build [X]", "create [X]", "I want [X]", "implement [X]", "help me [X]" where X is any feature/component. Non-negotiable: invoke immediately upon recognizing a Wix feature build request.
+description: "BLOCKING REQUIREMENT - When user requests to add/build/create/implement ANY feature or component for a Wix CLI app, you MUST invoke this skill IMMEDIATELY as your absolute FIRST action - when exploring, reading files, BEFORE launching any agents - make sure this skill is loaded. Trigger on add, build, create, I want, implement, help me where X is any feature/component. Non-negotiable - invoke immediately upon recognizing a Wix feature build request."
 compatibility: Requires Wix CLI development environment.
 ---
 
