@@ -99,7 +99,7 @@ Answer these questions to find the right extension:
 | Dashboard Plugin      | Dashboard | Admin only  | Extend Wix app dashboards     | (none yet)                |
 | Dashboard Menu Plugin | Dashboard | Admin only  | Add menu items                | (none yet)                |
 | Service Plugin        | Backend   | Server-side | Customize business flows      | `wix-cli-service-plugin`   |
-| Event Extension       | Backend   | Server-side | React to events               | (none yet)                |
+| Event Extension       | Backend   | Server-side | React to events               | `wix-cli-backend-event`   |
 | Backend Endpoints     | Backend   | API         | Custom HTTP handlers          | `wix-cli-backend-api`     |
 | Site Widget           | Site      | Public      | Standalone widgets            | `wix-cli-site-widget`     |
 | Site Plugin           | Site      | Public      | Extend Wix business solutions | `wix-cli-site-plugin`     |
@@ -136,14 +136,15 @@ Use Quick Reference Table and decision content above. State extension type and b
 Spawn a discovery sub-agent **only when the user's requirements need business domain APIs** (Wix Data, Wix Stores, Wix Bookings, third-party integrations, etc.).
 
 **Skip discovery when:**
-- Requirements only need APIs already in skill reference files (Wix Data, Dashboard SDK, SPIs)
+- Requirements only need APIs already in skill reference files (Wix Data, Dashboard SDK, SPIs, Events)
 - Requirements only need UI components (covered by extension skills)
 - No external Wix APIs or business solution integrations needed
 
-**DO NOT discover SDK already in reference files** — these are documented in the extension skills:
+**DO NOT discover SDK already in reference files** — these are documented in the skill references:
 - Dashboard API → `wix-cli-dashboard-page/references/DASHBOARD_API.md`
 - Wix Data SDK → `wix-cli-dashboard-page/references/WIX_DATA.md`
 - Service Plugin SPIs → `wix-cli-service-plugin/references/*.md`
+- Event SDK (common events only) → [references/COMMON-EVENTS.md](references/COMMON-EVENTS.md) — if event not listed, search SDK docs
 
 **When to spawn discovery:**
 
@@ -263,7 +264,7 @@ Implement this extension following the skill guidelines.
 | Dashboard Plugin        | No skill available yet    |
 | Dashboard Menu Plugin   | No skill available yet    |
 | Service Plugin          | `wix-cli-service-plugin`  |
-| Event Extension         | No skill available yet    |
+| Event Extension         | `wix-cli-backend-event`   |
 | Backend API / Endpoints | `wix-cli-backend-api`     |
 | Site Widget             | `wix-cli-site-widget`     |
 | Site Plugin             | `wix-cli-site-plugin`     |
