@@ -69,6 +69,7 @@ Answer these questions to find the right extension:
 1. **What are you trying to build?**
    - Admin interface → Dashboard Extensions
    - Backend logic → Backend Extensions
+   - Data storage / CMS collections → Data Collection
    - Site component → Site Extensions (app projects only)
 
 2. **Who will see it?**
@@ -87,7 +88,7 @@ Answer these questions to find the right extension:
 ## Decision Flow (Not sure?)
 
 - **Admin:** Need full-page UI? → Dashboard Page. Need popup/form? → Dashboard Modal. Extending Wix app dashboard? → Dashboard Plugin. **Modal constraint:** Dashboard Pages cannot use `<Modal />`; use a separate Dashboard Modal extension and `dashboard.openModal()`.
-- **Backend:** During business flow (checkout/shipping/tax)? → Service Plugin. After event (webhooks/sync)? → Event Extension. Custom HTTP endpoints? → Backend Endpoints.
+- **Backend:** During business flow (checkout/shipping/tax)? → Service Plugin. After event (webhooks/sync)? → Event Extension. Custom HTTP endpoints? → Backend Endpoints. Need CMS collections for app data? → Data Collection.
 - **Site:** User places anywhere? → Site Widget. Fixed slot on Wix app page? → Site Plugin. Scripts/analytics only? → Embedded Script.
 
 ## Quick Reference Table
@@ -101,17 +102,12 @@ Answer these questions to find the right extension:
 | Service Plugin        | Backend   | Server-side | Customize business flows      | `wix-cli-service-plugin`   |
 | Event Extension       | Backend   | Server-side | React to events               | (none yet)                |
 | Backend Endpoints     | Backend   | API         | Custom HTTP handlers          | `wix-cli-backend-api`     |
+| Data Collection       | Backend   | Data        | CMS collections for app data  | `wix-cli-data-collection` |
 | Site Widget           | Site      | Public      | Standalone widgets            | `wix-cli-site-widget`     |
 | Site Plugin           | Site      | Public      | Extend Wix business solutions | `wix-cli-site-plugin`     |
 | Embedded Script       | Site      | Public      | Inject scripts/analytics      | `wix-cli-embedded-script` |
 
 **Key constraint:** Dashboard Page cannot use `<Modal />`; use a separate Dashboard Modal and `dashboard.openModal()`. Site plugins (CLI) not supported on checkout; use Wix Blocks.
-
-### Backend Extensions
-
-Server-side logic, events, and integrations with Wix business solutions.
-
-#### Service Plugins
 
 ## Extension Comparison
 
@@ -154,6 +150,7 @@ Spawn a discovery sub-agent **only when the user's requirements need business do
 | "Send emails to users"               | ✅ YES            | Wix Triggered Emails not in reference files |
 | "Get member info"                    | ✅ YES            | Wix Members API not in reference files      |
 | "Store data in a collection"         | ❌ NO             | Covered by `WIX_DATA.md`                    |
+| "Create CMS collections for my app" | ❌ NO             | Covered by `wix-cli-data-collection` skill  |
 | "Show toast / navigate"              | ❌ NO             | Covered by `DASHBOARD_API.md`               |
 | "Settings page with form inputs"     | ❌ NO             | UI only, no external API                    |
 | "Dashboard page with local state"    | ❌ NO             | No external API needed                      |
@@ -248,6 +245,9 @@ Implement this extension following the skill guidelines.
 | Dashboard Page + Backend API     | ✅ YES    | Frontend vs backend                 |
 | Site Widget + Embedded Script    | ✅ YES    | Different rendering contexts        |
 | Service Plugin + Event Extension | ✅ YES    | Independent backend handlers        |
+| Data Collection + Dashboard Page | ✅ YES    | Data schema vs UI                   |
+| Data Collection + Backend API    | ✅ YES    | Data schema vs HTTP handlers        |
+| Data Collection + Site Widget    | ✅ YES    | Data schema vs site UI              |
 
 **Sequential execution required:**
 
@@ -265,6 +265,7 @@ Implement this extension following the skill guidelines.
 | Service Plugin          | `wix-cli-service-plugin`  |
 | Event Extension         | No skill available yet    |
 | Backend API / Endpoints | `wix-cli-backend-api`     |
+| Data Collection         | `wix-cli-data-collection` |
 | Site Widget             | `wix-cli-site-widget`     |
 | Site Plugin             | `wix-cli-site-plugin`     |
 | Embedded Script         | `wix-cli-embedded-script` |
@@ -294,7 +295,7 @@ Only after validation passes, report to the user:
 - How to test it (preview commands)
 - Any next steps
 
-**Summary:** Discovery = business domain SDK only (Wix Data, Stores, Bookings, etc.) — skip for extension SDK. Implementation = load extension skill; invoke `wds-docs` FIRST when using WDS (for correct imports). Validation = `wix-cli-app-validation`.
+**Summary:** Discovery = business domain SDK only (Wix Data, Stores, Bookings, etc.) — skip for extension SDK and data collections. Implementation = load extension skill; invoke `wds-docs` FIRST when using WDS (for correct imports). Validation = `wix-cli-app-validation`.
 
 ## Cost Optimization
 
