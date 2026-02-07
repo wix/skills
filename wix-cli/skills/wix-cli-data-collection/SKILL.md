@@ -35,7 +35,7 @@ export const dataExtension = extensions.genericExtension({
 });
 ```
 
-**CRITICAL:** The `compId` must be a unique, static UUID string. Generate a fresh UUID v4 for each app - do NOT use `randomUUID()` or copy UUIDs from examples. See [EXTENSIONS.md](../../skills/references/EXTENSIONS.md) for UUID generation instructions.
+**CRITICAL:** The `compId` must be a unique, static UUID string. Generate a fresh UUID v4 for each app - do NOT use `randomUUID()` or copy UUIDs from examples. After creating or modifying this file, follow [wix-cli-extension-registration](../wix-cli-extension-registration/SKILL.md) for UUID generation and to register the extension in `src/extensions.ts` (required for collections to work).
 
 **Key points:**
 
@@ -171,13 +171,9 @@ Access levels control who can read, create, update, and delete items in collecti
 | `CMS_EDITOR`         | Site collaborators with CMS Access permission      |
 | `PRIVILEGED`         | CMS administrators and privileged users            |
 
-**Default pattern (recommended):**
-
-- `read: ANYONE, write: PRIVILEGED` - Public read, admin write
-
 **Common patterns:**
 
-- Public content: `read: ANYONE, write: PRIVILEGED`
+- Public content (default, recommended): `read: ANYONE, write: PRIVILEGED`
 - User-generated content: `read: SITE_MEMBER, write: SITE_MEMBER_AUTHOR`
 - Editorial workflow: `read: ANYONE, write: CMS_EDITOR`
 - Private/admin: `read: PRIVILEGED, write: PRIVILEGED`
@@ -218,24 +214,6 @@ Access levels control who can read, create, update, and delete items in collecti
 - The `referencedCollectionId` MUST be the `idSuffix` of another collection in the same plan
 - **NEVER use REFERENCE fields to link to Wix business entities** (Products, Orders, Contacts, Members, etc.)
 - Use Wix SDK APIs to access Wix business entities instead
-
-## Output Structure
-
-All collections are defined in a single file:
-
-```
-src/
-└── data/
-    └── extensions.ts    # All collections defined here
-```
-
-This file exports a `dataExtension` using `extensions.genericExtension()` that contains all collection definitions.
-
-## Extension Registration
-
-**CRITICAL:** After creating or modifying `src/data/extensions.ts`, you MUST read [../../skills/references/EXTENSIONS.md](../../skills/references/EXTENSIONS.md) and follow the "App Registration" section to update `src/extensions.ts`.
-
-**Without this step, the CMS collections will not be available in your app.**
 
 ## Collection Operations
 
@@ -364,7 +342,6 @@ Each item in `initialData` must match the collection schema exactly:
 - `DATE`/`DATETIME` → use `{ "$date": "2024-01-15T10:30:00.000Z" }` format
 - `REFERENCE` → provide the `idSuffix` of the referenced collection
 - Required fields must always have values
-- Initial data is only imported when a collection is first created (ignored on updates)
 
 ## Examples
 
@@ -409,8 +386,6 @@ export const dataExtension = extensions.genericExtension({
   },
 });
 ```
-
-**Note:** Replace `{{GENERATE_UUID}}` with a freshly generated UUID v4 string.
 
 ### Collection with Reference Relationship
 
