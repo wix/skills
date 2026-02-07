@@ -12,7 +12,7 @@ Common use cases: run logic when a contact is created, an order is placed, a boo
 
 ## Quick Start Checklist
 
-Follow these steps in order when creating an event extension. **Prerequisite:** The orchestrator should have already identified the event to handle via [COMMON-EVENTS.md](../wix-cli-orchestrator/references/COMMON-EVENTS.md).
+Follow these steps in order when creating an event extension.
 
 1. [ ] Create event folder: `src/backend/events/<event-name>/`
 2. [ ] Create `<event-name>.ts` with the SDK event import and handler function
@@ -23,11 +23,9 @@ Follow these steps in order when creating an event extension. **Prerequisite:** 
 
 ## References
 
-The orchestrator reads the common events reference during event discovery. Implementation sub-agents can reference it for SDK imports, handler signatures, and permissions.
-
 | Topic | Reference |
 | --- | --- |
-| Common events (CRM, eCommerce, Bookings, Blog) | [COMMON-EVENTS.md](../wix-cli-orchestrator/references/COMMON-EVENTS.md) |
+| Common events (CRM, eCommerce, Bookings, Blog) | [COMMON-EVENTS.md](references/COMMON-EVENTS.md) |
 
 ## Output Structure
 
