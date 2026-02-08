@@ -15,9 +15,10 @@ Helps select the appropriate Wix CLI extension type based on use case and requir
 - [ ] **Step 1:** Determined extension type(s) needed
   - [ ] Asked clarifying questions if requirements were unclear
   - [ ] Explained recommendation with reasoning
-- [ ] **Step 2:** Spawned discovery sub-agent (if business domain SDK needed)
-  - [ ] Sub-agent searched SDK documentation via MCP for business domain APIs
-  - [ ] Skip if no external Wix APIs needed (e.g., in-memory data, simple UI)
+- [ ] **Step 2:** Checked references, spawned discovery if needed
+  - [ ] Checked relevant reference files for required APIs
+  - [ ] Spawned discovery only if API not found in references
+  - [ ] Skip if all APIs are in reference files or no external APIs needed
 - [ ] **Step 3:** Waited for discovery sub-agent to complete (if spawned)
   - [ ] Received SDK methods with imports
 - [ ] **Step 4:** Spawned implementation sub-agent(s) with skill context
@@ -41,7 +42,7 @@ Helps select the appropriate Wix CLI extension type based on use case and requir
 
 ## Your Role
 
-You are a **decision-maker and orchestrator**, not an implementer. **Decide → Discovery (if needed) → Implementation Sub-Agent(s) → Validation.** Ask clarifying questions if unclear; recommend extension type using the decision content below; spawn discovery sub-agent only for business domain APIs; spawn implementation sub-agents; run validation.
+You are a **decision-maker and orchestrator**, not an implementer. **Decide → Check References → Discovery (if needed) → Implementation Sub-Agent(s) → Validation.** Ask clarifying questions if unclear; recommend extension type; check reference files first, spawn discovery only for missing APIs; spawn implementation sub-agents; run validation.
 
 ---
 
@@ -52,6 +53,7 @@ You are a **decision-maker and orchestrator**, not an implementer. **Decide → 
 | Writing implementation code yourself        | Spawning a sub-agent to implement              |
 | Invoking implementation skills directly     | Spawning sub-agent with skill context          |
 | Discovering extension SDK (dashboard, etc.) | Extension SDK is in skill reference files      |
+| Spawning discovery without checking refs    | Check skill refs first                         |
 | Reporting done without validation           | Always run `wix-cli-app-validation` at the end |
 | Reading/writing files after invoking skills | Let sub-agents handle ALL file operations      |
 
@@ -100,7 +102,7 @@ Answer these questions to find the right extension:
 | Dashboard Plugin      | Dashboard | Admin only  | Extend Wix app dashboards     | (none yet)                |
 | Dashboard Menu Plugin | Dashboard | Admin only  | Add menu items                | (none yet)                |
 | Service Plugin        | Backend   | Server-side | Customize business flows      | `wix-cli-service-plugin`   |
-| Event Extension       | Backend   | Server-side | React to events               | (none yet)                |
+| Event Extension       | Backend   | Server-side | React to events               | `wix-cli-backend-event`   |
 | Backend Endpoints     | Backend   | API         | Custom HTTP handlers          | `wix-cli-backend-api`     |
 | Data Collection       | Backend   | Data        | CMS collections for app data  | `wix-cli-data-collection` |
 | Site Widget           | Site      | Public      | Standalone widgets            | `wix-cli-site-widget`     |
@@ -127,33 +129,41 @@ If unclear: placement, visibility, configuration, integration. Wait if the answe
 
 Use Quick Reference Table and decision content above. State extension type and brief reasoning (placement, functionality, integration).
 
-### Step 3: Spawn Discovery Sub-Agent (Business Domain SDK Only)
+### Step 3: Check References, Then Discover (if needed)
 
-Spawn a discovery sub-agent **only when the user's requirements need business domain APIs** (Wix Data, Wix Stores, Wix Bookings, third-party integrations, etc.).
+**Workflow: References first, search only for gaps.**
 
-**Skip discovery when:**
-- Requirements only need APIs already in skill reference files (Wix Data, Dashboard SDK, SPIs)
-- Requirements only need UI components (covered by extension skills)
-- No external Wix APIs or business solution integrations needed
+1. **Identify required APIs** from user requirements
+2. **Check relevant reference files:**
+   - Backend events → `wix-cli-backend-event/references/COMMON-EVENTS.md`
+   - Wix Data → `wix-cli-dashboard-page/references/WIX_DATA.md`
+   - Dashboard SDK → `wix-cli-dashboard-page/references/DASHBOARD_API.md`
+   - Service Plugin SPIs → `wix-cli-service-plugin/references/*.md`
+3. **Verify the specific method/event exists** in references
+4. **ONLY spawn discovery if NOT found** in reference files
 
-**DO NOT discover SDK already in reference files** — these are documented in the extension skills:
-- Dashboard API → `wix-cli-dashboard-page/references/DASHBOARD_API.md`
-- Wix Data SDK → `wix-cli-dashboard-page/references/WIX_DATA.md`
-- Service Plugin SPIs → `wix-cli-service-plugin/references/*.md`
+**Platform APIs (never discover - in references):**
+- Wix Data, Dashboard SDK, Event SDK (common events), Service Plugin SPIs
 
-**When to spawn discovery:**
+**Vertical APIs (discover if needed):**
+- Wix Stores, Wix Bookings, Wix Members, Wix Pricing Plans, third-party integrations
 
-| User Requirement                     | Discovery Needed? | Reason                                      |
-| ------------------------------------ | ----------------- | ------------------------------------------- |
-| "Display store products"             | ✅ YES            | Wix Stores API not in reference files       |
-| "Show booking calendar"              | ✅ YES            | Wix Bookings API not in reference files     |
-| "Send emails to users"               | ✅ YES            | Wix Triggered Emails not in reference files |
-| "Get member info"                    | ✅ YES            | Wix Members API not in reference files      |
-| "Store data in a collection"         | ❌ NO             | Covered by `WIX_DATA.md`                    |
-| "Create CMS collections for my app" | ❌ NO             | Covered by `wix-cli-data-collection` skill  |
-| "Show toast / navigate"              | ❌ NO             | Covered by `DASHBOARD_API.md`               |
-| "Settings page with form inputs"     | ❌ NO             | UI only, no external API                    |
-| "Dashboard page with local state"    | ❌ NO             | No external API needed                      |
+**Decision table:**
+
+| User Requirement                     | Check References / Discovery Needed? | Reason / Reference File                             |
+| ------------------------------------ | ------------------------------------ | --------------------------------------------------- |
+| "Display store products"             | ✅ YES (Spawn discovery)             | Wix Stores API not in reference files               |
+| "Show booking calendar"              | ✅ YES (Spawn discovery)             | Wix Bookings API not in reference files             |
+| "Send emails to users"               | ✅ YES (Spawn discovery)             | Wix Triggered Emails not in reference files         |
+| "Get member info"                    | ✅ YES (Spawn discovery)             | Wix Members API not in reference files              |
+| "Listen for cart events"             | Check `COMMON-EVENTS.md`             | Spawn discovery only if event missing in reference  |
+| "Store data in collection"           | WIX_DATA.md ✅ Found                 | ❌ Skip discovery (covered by `WIX_DATA.md`)        |
+| "Create CMS collections for my app"  | Reference: `wix-cli-data-collection` | ❌ Skip discovery (covered by dedicated skill)       |
+| "Show dashboard toast"               | DASHBOARD_API.md ✅ Found            | ❌ Skip discovery                                   |
+| "Show toast / navigate"              | DASHBOARD_API.md ✅ Found            | ❌ Skip discovery                                   |
+| "UI only (forms, inputs)"            | N/A (no external API)                | ❌ Skip discovery                                   |
+| "Settings page with form inputs"     | N/A (UI only, no external API)       | ❌ Skip discovery                                   |
+| "Dashboard page with local state"    | N/A (no external API)                | ❌ Skip discovery                                   |
 
 **MCP Tools the sub-agent should use:**
 
@@ -163,16 +173,11 @@ Spawn a discovery sub-agent **only when the user's requirements need business do
 **Discovery sub-agent prompt template:**
 
 ```
-Discover SDK methods for [BUSINESS DOMAIN REQUIREMENT].
+Discover SDK methods for [SPECIFIC API/EVENT NOT IN REFERENCE FILES].
 
 Search MCP documentation (use maxResults: 5):
 - Search SDK documentation for [SPECIFIC API] with maxResults: 5
 - Only use ReadFullDocsArticle if search results need more context
-
-DO NOT search for these (already in skill reference files):
-- Wix Data API (WIX_DATA.md)
-- Dashboard SDK (DASHBOARD_API.md)
-- Service Plugin SPIs (wix-cli-service-plugin/references/*.md)
 
 Return ONLY a concise summary in this format:
 
@@ -184,7 +189,7 @@ Return ONLY a concise summary in this format:
 
 **Import:** `import { methodName } from '@wix/sdk-module';`
 
-Also include any gotchas or constraints discovered.
+Include any gotchas or constraints discovered.
 ```
 
 **If discovery is spawned, wait for it to complete before proceeding to Step 4.**
@@ -254,21 +259,7 @@ Implement this extension following the skill guidelines.
 - When one extension imports types/interfaces from another
 - When user explicitly says "first X, then Y"
 
-**Extension Type to Skill Mapping:**
-
-| Extension Type          | Skill to Load             |
-| ----------------------- | ------------------------- |
-| Dashboard Page          | `wix-cli-dashboard-page`  |
-| Dashboard Modal         | `wix-cli-dashboard-modal` |
-| Dashboard Plugin        | No skill available yet    |
-| Dashboard Menu Plugin   | No skill available yet    |
-| Service Plugin          | `wix-cli-service-plugin`  |
-| Event Extension         | No skill available yet    |
-| Backend API / Endpoints | `wix-cli-backend-api`     |
-| Data Collection         | `wix-cli-data-collection` |
-| Site Widget             | `wix-cli-site-widget`     |
-| Site Plugin             | `wix-cli-site-plugin`     |
-| Embedded Script         | `wix-cli-embedded-script` |
+**Extension Type to Skill Mapping:** See [Quick Reference Table](#quick-reference-table) above.
 
 **Wait for sub-agents to complete before proceeding to Step 5.**
 
@@ -295,17 +286,18 @@ Only after validation passes, report to the user:
 - How to test it (preview commands)
 - Any next steps
 
-**Summary:** Discovery = business domain SDK only (Wix Data, Stores, Bookings, etc.) — skip for extension SDK and data collections. Implementation = load extension skill; invoke `wds-docs` FIRST when using WDS (for correct imports). Validation = `wix-cli-app-validation`.
+**Summary:** Discovery = business domain SDK only (Stores, Bookings, etc.) — skip for extension SDK and data collections. Implementation = load extension skill; invoke `wds-docs` FIRST when using WDS (for correct imports). Validation = `wix-cli-app-validation`.
 
 ## Cost Optimization
 
-- **Skip discovery** when APIs are already in reference files or no external APIs needed.
-- **maxResults: 5** for all MCP SDK searches when discovery is needed.
-- Discovery: focused business domain API searches only; use `ReadFullDocsArticle` only when needed.
-- **Never discover extension SDK** — it's already in skill reference files.
-- Implementation: pass only relevant SDK context (if any); invoke `wds-docs` first when using WDS (prevents import errors).
-- Parallelize independent sub-agents; reuse discovery when modifying existing extensions.
-- Targets: discovery output 500-1000 tokens; implementation prompt minimal; each search under 2000-3000 tokens.
+- **Check references first** — read relevant reference files before spawning discovery
+- **Skip discovery** when all required APIs are in reference files
+- **maxResults: 5** for all MCP SDK searches
+- **ReadFullDocsArticle** only when search results need more context
+- **Implementation prompts:** include only relevant SDK context from discovery (if performed)
+- **Parallelize** independent sub-agents when possible
+- **Invoke wds-docs** first when using WDS (prevents import errors)
+- **Targets:** discovery output 500-1000 tokens; implementation prompt minimal; each search under 2000-3000 tokens
 
 ## Documentation
 

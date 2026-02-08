@@ -10,6 +10,7 @@ Agent skills for building Wix CLI applications. Each skill provides domain-speci
 | [wds-docs](wds-docs/SKILL.md) | Wix Design System reference | Looking up WDS component props, examples, icons |
 | [wix-cli-app-validation](wix-cli-app-validation/SKILL.md) | Test and validate Wix apps | Testing app readiness, e2e validation, TypeScript checks |
 | [wix-cli-backend-api](wix-cli-backend-api/SKILL.md) | Create REST API endpoints | Backend HTTP handlers, server-side data processing |
+| [wix-cli-backend-event](wix-cli-backend-event/SKILL.md) | Respond to Wix webhooks/events | Run custom backend logic when platform events occur |
 | [wix-cli-dashboard-modal](wix-cli-dashboard-modal/SKILL.md) | Build dashboard modals | Popup forms, confirmations, detail views in dashboards |
 | [wix-cli-dashboard-page](wix-cli-dashboard-page/SKILL.md) | Build admin interfaces | Dashboard pages, data management, settings UIs |
 | [wix-cli-data-collection](wix-cli-data-collection/SKILL.md) | Create CMS data collections | Database schemas, structured data storage, collection fields & permissions |
@@ -79,6 +80,11 @@ Agent skills for building Wix CLI applications. Each skill provides domain-speci
 - Full HTTP method support (GET, POST, PUT, DELETE, PATCH)
 - Dynamic route parameters
 - Wix Data SDK integration
+
+### Backend Event
+- Event extensions for Wix webhooks (CRM, eCommerce, Bookings, Blog)
+- One handler per event, SDK event imports, permissions configuration
+- Builder + handler file pattern, extension registration
 
 ### Embedded Script
 - Consent-aware script types (Essential, Functional, Analytics, Advertising)
