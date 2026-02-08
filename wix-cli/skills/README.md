@@ -13,6 +13,7 @@ Agent skills for building Wix CLI applications. Each skill provides domain-speci
 | [wix-cli-backend-event](wix-cli-backend-event/SKILL.md) | Respond to Wix webhooks/events | Run custom backend logic when platform events occur |
 | [wix-cli-dashboard-modal](wix-cli-dashboard-modal/SKILL.md) | Build dashboard modals | Popup forms, confirmations, detail views in dashboards |
 | [wix-cli-dashboard-page](wix-cli-dashboard-page/SKILL.md) | Build admin interfaces | Dashboard pages, data management, settings UIs |
+| [wix-cli-data-collection](wix-cli-data-collection/SKILL.md) | Create CMS data collections | Database schemas, structured data storage, collection fields & permissions |
 | [wix-cli-embedded-script](wix-cli-embedded-script/SKILL.md) | Inject client-side code | Tracking pixels, popups, third-party integrations |
 | [wix-cli-extension-registration](wix-cli-extension-registration/SKILL.md) | Extension registration patterns | Registering new or existing extensions, UUID generation, app registration |
 | [wix-cli-service-plugin](wix-cli-service-plugin/SKILL.md) | Extend Wix business solution flows | Shipping, fees, taxes, validations, gift cards, custom triggers |
