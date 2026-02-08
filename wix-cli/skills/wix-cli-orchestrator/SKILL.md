@@ -25,7 +25,6 @@ Helps select the appropriate Wix CLI extension type based on use case and requir
   - [ ] Included user requirements in prompt
   - [ ] Included SDK context from discovery (if any)
   - [ ] Instructed sub-agent to invoke `wds-docs` skill FIRST when using @wix/design-system (for correct imports, especially icons)
-  - [ ] Instructed sub-agent to write summary log
 - [ ] **Step 5:** Waited for implementation sub-agent(s) to complete
   - [ ] All files created
   - [ ] Extension registered in extensions.ts
@@ -216,7 +215,6 @@ The sub-agent prompt should include:
 3. ✅ SDK methods discovered (with imports and types) — **only if discovery was performed**
 4. ✅ Instruction to invoke `wds-docs` skill FIRST when using @wix/design-system (critical for correct imports, especially icons)
 5. ✅ Any constraints or gotchas discovered
-6. ✅ Instruction to write a summary log file
 
 **Implementation sub-agent prompt template:**
 
@@ -234,10 +232,6 @@ Constraints:
 [Any gotchas or limitations from discovery]
 
 ⚠️ MANDATORY when using WDS: Before using @wix/design-system components, invoke the wds-docs skill FIRST to get correct imports (icons are from @wix/wix-ui-icons-common, NOT @wix/design-system/icons).
-
-After implementation, write a summary log to: implementation-agent-{hash}.log
-Include: files created, features implemented, verification results.
-
 Implement this extension following the skill guidelines.
 ```
 
