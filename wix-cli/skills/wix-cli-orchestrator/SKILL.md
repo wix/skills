@@ -286,8 +286,7 @@ Only after validation passes, report to the user:
 - How to test it (preview commands)
 - Any next steps
 
-**Summary:** Discovery = business domain SDK only (Stores, Bookings, etc.) — skip for extension SDK and data 
-collections. Implementation = load extension skill; invoke `wds-docs` FIRST when using WDS (for correct imports). 
+**Summary:** Discovery = business domain SDK only (Stores, Bookings, etc.) — skip for extension SDK and data collections. Implementation = load extension skill; invoke `wds-docs` FIRST when using WDS (for correct imports). 
 Validation = `wix-cli-app-validation`.
 
 ## Cost Optimization
