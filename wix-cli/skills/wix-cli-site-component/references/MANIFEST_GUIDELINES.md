@@ -6,6 +6,13 @@ The manifest defines the contract between your React component and the Wix ecosy
 
 ```json
 {
+  "installation": {
+    "staticContainer": "HOMEPAGE",
+    "initialSize": {
+      "width": { "sizingType": "pixels", "pixels": 400 },
+      "height": { "sizingType": "pixels", "pixels": 300 }
+    }
+  },
   "editorElement": {
     "selector": ".component-name",
     "displayName": "Component Name",
@@ -17,6 +24,84 @@ The manifest defines the contract between your React component and the Wix ecosy
   }
 }
 ```
+
+## Installation Configuration
+
+The `installation` property defines how the component is initially placed and sized when added to a page.
+
+### Installation Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `staticContainer` | string | Automatic installation location. Use `"HOMEPAGE"` to auto-install on homepage |
+| `initialSize` | object | Initial dimensions when the component is added |
+
+### Initial Size Configuration
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `width` | InitialSizeSetting | Width configuration |
+| `height` | InitialSizeSetting | Height configuration |
+
+### InitialSizeSetting
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `sizingType` | string | One of: `"content"`, `"stretched"`, `"pixels"` |
+| `pixels` | number | Required when sizingType is `"pixels"` |
+
+### Sizing Type Values
+
+| Value | Description |
+|-------|-------------|
+| `content` | Component auto-sizes based on its content |
+| `stretched` | Component stretches to fill available space |
+| `pixels` | Component has a fixed pixel dimension (requires `pixels` property) |
+
+### Installation Examples
+
+```json
+// Fixed dimensions (most common)
+{
+  "installation": {
+    "staticContainer": "HOMEPAGE",
+    "initialSize": {
+      "width": { "sizingType": "pixels", "pixels": 400 },
+      "height": { "sizingType": "pixels", "pixels": 300 }
+    }
+  }
+}
+
+// Content-based height
+{
+  "installation": {
+    "staticContainer": "HOMEPAGE",
+    "initialSize": {
+      "width": { "sizingType": "pixels", "pixels": 600 },
+      "height": { "sizingType": "content" }
+    }
+  }
+}
+
+// Stretched width
+{
+  "installation": {
+    "staticContainer": "HOMEPAGE",
+    "initialSize": {
+      "width": { "sizingType": "stretched" },
+      "height": { "sizingType": "pixels", "pixels": 400 }
+    }
+  }
+}
+```
+
+### Installation Guidelines
+
+- **Always include** `"staticContainer": "HOMEPAGE"` for automatic installation on Harmony editor
+- **Default initial size** is 400px width, 300px height (matches Wix Harmony defaults)
+- Use `"content"` for height when the component should auto-size based on its content
+- Use `"stretched"` when the component should fill available space
+- Use `"pixels"` for fixed dimensions
 
 ## Data Types
 

@@ -59,6 +59,26 @@ Strict type definitions:
 
 The manifest defines the editor contract using these key sections:
 
+### installation (Initial Placement)
+
+```json
+{
+  "installation": {
+    "staticContainer": "HOMEPAGE",
+    "initialSize": {
+      "width": { "sizingType": "pixels", "pixels": 400 },
+      "height": { "sizingType": "pixels", "pixels": 300 }
+    }
+  }
+}
+```
+
+- **staticContainer**: Use `"HOMEPAGE"` for automatic installation on Harmony editor
+- **initialSize**: Defines initial dimensions with `sizingType` options:
+  - `"content"` - Auto-size based on content
+  - `"stretched"` - Fill available space
+  - `"pixels"` - Fixed pixel dimension (requires `pixels` property)
+
 ### editorElement (Root Configuration)
 
 ```json
@@ -391,13 +411,13 @@ Each site component requires an `extensions.ts` file in its folder:
 
 ```typescript
 import { extensions } from "@wix/astro/builders";
-import manifest from "./site/components/my-component/manifest.json";
+import manifest from "./manifest.json";
 
 export const sitecomponentMyComponent = extensions.siteComponent({
   ...manifest,
   id: "{{GENERATE_UUID}}",
   description: "My Component",
-  type: "platform.builder.{{GENERATE_UUID}}",
+  type: "platform.MyComponent",
   resources: {
     client: {
       component: "./site/components/my-component/component.tsx",
@@ -407,7 +427,14 @@ export const sitecomponentMyComponent = extensions.siteComponent({
 });
 ```
 
-**Note:** The `id` and `type` should use the same UUID.
+**CRITICAL: Type Naming Convention**
+
+The `type` field uses the format `platform.{PascalCaseFolderName}`:
+- Folder `my-component` → `type: "platform.MyComponent"`
+- Folder `product-card` → `type: "platform.ProductCard"`
+- Folder `hero-section` → `type: "platform.HeroSection"`
+
+The folder name is converted to PascalCase (hyphens removed, each word capitalized).
 
 **CRITICAL: UUID Generation**
 
