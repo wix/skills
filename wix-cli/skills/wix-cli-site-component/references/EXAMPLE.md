@@ -40,6 +40,13 @@ src/site/components/perfect-example/
 
 ```json
 {
+  "installation": {
+    "staticContainer": "HOMEPAGE",
+    "initialSize": {
+      "width": { "sizingType": "pixels", "pixels": 400 },
+      "height": { "sizingType": "pixels", "pixels": 400 }
+    }
+  },
   "editorElement": {
     "selector": ".perfect-example",
     "displayName": "Perfect Example",
@@ -988,32 +995,47 @@ export const SocialLinks: React.FC<SocialLinksComponentProps> = ({
 
 ## Key Patterns Demonstrated
 
-### 1. Manifest-to-React Alignment
+### 1. Installation Configuration
+
+```json
+"installation": {
+  "staticContainer": "HOMEPAGE",
+  "initialSize": {
+    "width": { "sizingType": "pixels", "pixels": 400 },
+    "height": { "sizingType": "pixels", "pixels": 400 }
+  }
+}
+```
+
+- `staticContainer: "HOMEPAGE"` ensures automatic installation on Harmony editor
+- `initialSize` defines the component's default dimensions when added to a page
+
+### 2. Manifest-to-React Alignment
 
 - Each manifest element key (`badge`, `title`, etc.) matches the React removal state check
 - CSS selectors match manifest selectors exactly (`.perfect-example__badge`)
 - Data types in manifest match TypeScript types (`text` → `Text`, `number` → `NumberType`)
 
-### 2. Sub-Component Architecture
+### 3. Sub-Component Architecture
 
 - Each visual element is a separate sub-component
 - Sub-components receive `className` prop for CSS styling
 - Props spread pattern: `{...elementProps?.badge}`
 
-### 3. Removal State Handling
+### 4. Removal State Handling
 
 ```tsx
 const rm = wix?.elementsRemovalState || {};
 {!rm['badge'] && <Badge ... />}
 ```
 
-### 4. CSS Variable Integration
+### 5. CSS Variable Integration
 
 - Root element uses CSS variables for dynamic styling
 - `display` property configurable via manifest
 - All selectors declared once with `box-sizing: border-box`
 
-### 5. Accessibility
+### 6. Accessibility
 
 - Proper `aria-disabled` on buttons
 - `loading="lazy"` on images
