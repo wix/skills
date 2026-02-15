@@ -126,33 +126,11 @@ Follow the checklist; steps below add detail.
 
 ### Step 1: Ask Clarifying Questions (if needed)
 
-#### A. Required Configuration Values
+Only ask for configuration values when **absolutely necessary** for the implementation to proceed — i.e., the sub-agent literally cannot generate working code without it. If a value can be configured later or added as a manual step, don't block on it.
 
-**BEFORE spawning implementation sub-agents**, check if any of these required values are needed and ASK THE USER if not already provided:
+**Always ask:** Data Collection app namespace (required to create the collection — ask if not provided).
 
-| Extension Type | Required Configuration | Question to Ask |
-|----------------|------------------------|-----------------|
-| Data Collection | App namespace | "What is your app namespace? (e.g., `@company/app-name`). This is required to create the data collection. If you haven't set one yet, I'll include steps to configure it in the manual steps section." |
-| Backend API | API authentication method | "How should this API be authenticated? (e.g., OAuth, API keys, session-based, etc.)" |
-| Service Plugin | SPI implementation details | "Which specific SPI endpoint are you implementing? (e.g., ecom.v1.TaxCalculator)" |
-| Third-party Integration | API keys/credentials | "Do you have API keys for [service]? If not, I'll include steps to obtain them in the manual steps section." |
-| Embedded Script | External service configuration | "Do you need to configure any external services (analytics, tracking, etc.)? If yes, provide the configuration details or I'll include setup steps." |
-
-**When to ask:**
-- If the value is REQUIRED for the extension to function correctly
-- If missing the value would result in incomplete implementation or avoidable manual steps
-- If the user needs to provide site-specific or app-specific configuration
-
-**When NOT to ask:**
-- If the value can be configured later without affecting implementation
-- If the user already provided it in their request
-- If it's a standard convention that doesn't need user input (e.g., default port numbers, standard file paths)
-
-**Important:** For Data Collections, ALWAYS check if the user has provided their app namespace. If not provided, ask for it OR note that you'll include configuration steps in the manual actions section.
-
-#### B. Clarifying Questions for Approach
-
-If unclear: placement, visibility, configuration, integration. Wait if the answer changes extension type; otherwise proceed and say you can add optional extension later.
+If unclear on approach (placement, visibility, configuration, integration), ask. If the answer could change the extension type, wait for the response before proceeding. Otherwise, proceed with the best-fit extension type.
 
 ### Step 2: Make Your Recommendation
 
