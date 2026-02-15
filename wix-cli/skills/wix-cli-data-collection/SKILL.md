@@ -10,6 +10,29 @@ Creates CMS data collections for Wix CLI apps. The data collections extension al
 
 **Important:** This extension automatically enables the site's code editor, which is required for the Wix Data APIs to work. Without this extension, apps using Data APIs would need the Wix user to manually enable the code editor on their site, which isn't guaranteed. With the data collections extension, your app can reliably use Data APIs to read and write data in the collections.
 
+---
+
+## ⚠️ CRITICAL PREREQUISITE: App Namespace Required
+
+**App namespace is REQUIRED** for data collections to work. The namespace scopes your collection IDs to prevent conflicts between apps.
+
+### Before Implementing
+
+**STOP and ask the user for their app namespace if not already provided.** Do not proceed with implementation until you have it.
+
+Ask: *"What is your app namespace? (e.g., `@company/app-name`). I need this to create the data collection — it scopes your collection IDs to prevent conflicts between apps. You can find it in the Wix dashboard under Custom Apps → your app → Develop > Extensions → Data Collections."*
+
+Once provided, use the full scoped ID `@company/app-name/collection-suffix` in all code and examples.
+
+### Collection ID Format
+
+- **In extension definition (`idSuffix`):** Use just the suffix, e.g., `"products"`
+- **In API calls:** Use the full scoped ID, e.g., `"@company/app-name/products"`
+- **In `referencedCollectionId`:** Use the `idSuffix` only (not the full scoped ID) — the system resolves it automatically
+- The system automatically scopes `idSuffix` with the namespace
+
+---
+
 ## File Structure
 
 In Wix CLI apps, all CMS collections are defined in a single file:
@@ -136,23 +159,6 @@ For structured objects, define nested fields inside `objectOptions.fields`:
 - **Field keys:** `lowerCamelCase`, ASCII only (e.g., `productName`, `isActive`, `createdAt`)
 - **Collection IDs (`idSuffix`):** `lower-kebab-case` or `lower_underscore` (e.g., `product-categories`, `blog_posts`)
 - **Display names:** Human-readable, can contain spaces (e.g., `"Product Name"`, `"Is Active"`)
-
-### App Namespace Scoping
-
-Collections are automatically scoped with the app namespace to prevent conflicts between apps:
-
-- `idSuffix`: `"products"` + app namespace `"@company/app-name"` = final CMS ID: `"@company/app-name/products"`
-- When using `referencedCollectionId` in the extension schema, use the `idSuffix` only (not the full scoped ID) — the system resolves it automatically
-
-**IMPORTANT — Namespace setup:** Before creating collections, the user must configure their app namespace in the app dashboard:
-
-1. In the Custom Apps page, select an app.
-2. In the left menu, select **Develop > Extensions**.
-3. Click **+ Create Extension** and find the **Data Collections** extension, then click **+ Create**. A popup will appear to set the app namespace.
-
-Once configured, ask the user for their app namespace (e.g., `@company/app-name`) so collection IDs can be correctly resolved.
-
-**IMPORTANT — API calls use the full collection ID:** When querying or writing data via Wix Data APIs, you must use the **full scoped collection ID** (e.g., `"@company/app-name/products"`), not just the `idSuffix`. The `idSuffix` alone is only used within the extension schema definition.
 
 ## System Fields (Automatic)
 
