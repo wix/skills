@@ -126,6 +126,32 @@ Follow the checklist; steps below add detail.
 
 ### Step 1: Ask Clarifying Questions (if needed)
 
+#### A. Required Configuration Values
+
+**BEFORE spawning implementation sub-agents**, check if any of these required values are needed and ASK THE USER if not already provided:
+
+| Extension Type | Required Configuration | Question to Ask |
+|----------------|------------------------|-----------------|
+| Data Collection | App namespace | "What is your app namespace? (e.g., `@company/app-name`). This is required to create the data collection. If you haven't set one yet, I'll include steps to configure it in the manual steps section." |
+| Backend API | API authentication method | "How should this API be authenticated? (e.g., OAuth, API keys, session-based, etc.)" |
+| Service Plugin | SPI implementation details | "Which specific SPI endpoint are you implementing? (e.g., ecom.v1.TaxCalculator)" |
+| Third-party Integration | API keys/credentials | "Do you have API keys for [service]? If not, I'll include steps to obtain them in the manual steps section." |
+| Embedded Script | External service configuration | "Do you need to configure any external services (analytics, tracking, etc.)? If yes, provide the configuration details or I'll include setup steps." |
+
+**When to ask:**
+- If the value is REQUIRED for the extension to function correctly
+- If missing the value would result in incomplete implementation or avoidable manual steps
+- If the user needs to provide site-specific or app-specific configuration
+
+**When NOT to ask:**
+- If the value can be configured later without affecting implementation
+- If the user already provided it in their request
+- If it's a standard convention that doesn't need user input (e.g., default port numbers, standard file paths)
+
+**Important:** For Data Collections, ALWAYS check if the user has provided their app namespace. If not provided, ask for it OR note that you'll include configuration steps in the manual actions section.
+
+#### B. Clarifying Questions for Approach
+
 If unclear: placement, visibility, configuration, integration. Wait if the answer changes extension type; otherwise proceed and say you can add optional extension later.
 
 ### Step 2: Make Your Recommendation
@@ -285,11 +311,35 @@ If validation fails:
 
 ### Step 6: Report Completion
 
-Only after validation passes, report to the user:
+Only after validation passes, provide a **concise summary section** at the top of your response that includes:
 
-- What was created
-- How to test it (preview commands)
-- Any next steps
+**Required format:**
+
+```markdown
+## ✅ Implementation Complete
+
+[1-2 sentence description of what was built]
+
+**Extensions Created:**
+- [Extension 1 Name] - [Brief purpose]
+- [Extension 2 Name] - [Brief purpose]
+- [Extension 3 Name] - [Brief purpose]
+
+**Build Status:**
+- ✅ Dependencies: [Installed / status message]
+- ✅ TypeScript: [No compilation errors / status]
+- ✅ Build: [Completed successfully / status]
+- ✅/⚠️ Preview: [Running at URL / Failed - reason]
+
+**⚠️ IMPORTANT: [X] manual step(s) required to complete setup** (see "Manual Steps Required" section below)
+```
+
+**Critical rules:**
+- The summary MUST explicitly state how many manual steps are required
+- The summary MUST reference where to find the manual steps ("see Manual Steps Required section below")
+- If there are NO manual steps, state: "✅ No manual steps required — you're ready to go!"
+- Keep the summary concise (under 200 words)
+- Present build status clearly with ✅ or ⚠️ indicators
 
 ### Step 7: Surface Manual Action Items
 
@@ -301,27 +351,51 @@ After ALL sub-agents complete, you MUST:
 
 1. **Review every sub-agent's output** for any "Manual Action Items" section or any mention of steps the user needs to perform manually
 2. **Aggregate ALL manual action items** from every sub-agent into a single, deduplicated list
-3. **Present them prominently** at the very end of your final message to the user, under a clear heading
+3. **Reference them in the summary section** (Step 6) by stating how many manual steps exist
+4. **Present them prominently** at the very end of your final message to the user, under a clear heading
 
-**Format for the final message:**
+**Complete workflow for manual steps:**
 
-```
+1. **In the summary (Step 6):** Include the line `**⚠️ IMPORTANT: [X] manual step(s) required to complete setup** (see "Manual Steps Required" section below)`
+2. **At the end of your response:** Present the full detailed manual steps section
+
+**Format for the manual steps section:**
+
+```markdown
 ## 🔧 Manual Steps Required
 
 The following actions need to be done manually by you:
 
-1. [Action item from sub-agent A]
-2. [Action item from sub-agent B]
-3. ...
+### 1. [Action Category/Title]
+[Detailed description with specific instructions]
+- Step-by-step if needed
+- Include where to find things in the UI
+- Provide example values if helpful
 
-If no manual steps are needed, state: "No manual steps required — you're all set!"
+### 2. [Action Category/Title]
+[Detailed description]
+
+### 3. [Action Category/Title]
+[Detailed description]
+
+[Continue for all manual steps...]
+```
+
+**If no manual steps are needed:**
+```markdown
+## 🔧 Manual Steps Required
+
+No manual steps required — you're all set! Your implementation is complete and ready to use.
 ```
 
 **Rules:**
-- This section MUST be the **last thing** in your final response to the user
+- The summary section (Step 6) MUST reference the manual steps
+- This detailed manual steps section MUST be the **last thing** in your final response to the user
 - Even if you think the items were mentioned earlier in the conversation, **repeat them here** — assume the user only reads the final summary
-- Include context for each item (e.g., "In the Wix dashboard, go to Settings > Permissions and enable X" rather than just "enable X")
+- Include full context for each item (e.g., "In the Wix dashboard, go to Settings > Permissions and enable X" rather than just "enable X")
+- Group related steps together under category headings for clarity
 - If a sub-agent didn't include a "Manual Action Items" section, review its full output for any implicit manual steps (phrases like "you'll need to", "make sure to", "don't forget to", "manually", "go to the dashboard", etc.)
+- Number the main categories/sections (1, 2, 3...) for easy reference
 
 **Summary:** Discovery = business domain SDK only (Stores, Bookings, etc.) — skip for extension SDK and data collections. Implementation = load extension skill; invoke `wds-docs` FIRST when using WDS (for correct imports). Validation = `wix-cli-app-validation`. Manual actions = always aggregated and surfaced at the end.
 
