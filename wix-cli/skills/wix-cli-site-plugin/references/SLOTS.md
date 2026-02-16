@@ -1,6 +1,6 @@
 # Site Plugin Slots Reference
 
-This reference provides additional details about slots beyond what's covered in the main SKILL.md.
+This reference provides detailed information about all available slots for site plugins across Wix business solutions.
 
 ## Supported Pages and Slots
 
@@ -38,12 +38,14 @@ This reference provides additional details about slots beyond what's covered in 
 - `product-page-media-1`
 - `product-page-details-2`
 
+**Note:** If using the `product-page-media-1` slot, it may overlap with the thumbnail images on the left side in desktop view. Consider offering settings in your app to control the left padding. ([Wix docs reference](https://dev.wix.com/docs/build-apps/develop-your-app/extensions/site-extensions/site-plugins/supported-wix-app-pages/wix-stores/wix-stores-product-page))
+
 **Plugin API Properties:**
-- `productId` (string) - The product ID
-- `selectedVariantId` (string) - Selected product variant ID
-- `selectedChoices` (object) - Customer's option selections
-- `quantity` (number) - Item quantity
-- `customText` (string[]) - Custom text field entries
+- `productId` (string) - The ID of the product on the product page
+- `selectedVariantId` (string) - The ID of the selected product variant. Only available after the site visitor picks all required product choices. Until all required choices are selected, this is `undefined`
+- `selectedChoices` (object) - An object containing all choices the site visitor picks. Each key is an option name and each value is the selected option (e.g., `{ color: "green", size: "large" }`)
+- `quantity` (number) - The number of product items the site visitor wants to buy
+- `customText` (string[]) - An array of text values entered by the site visitor in custom text fields (e.g., personalization). Each entry corresponds to a different custom text field on the product page
 
 ### Product Page (Old Version)
 
@@ -56,7 +58,21 @@ This reference provides additional details about slots beyond what's covered in 
 - `product-page-details-2`
 - Additional slots vary by layout (Classic, Simple, Sleek, Spotlight, Stunning)
 
-**Note:** Check which Wix Stores version is installed before building plugins, as slots differ between versions. Your app should include placements for both versions for maximum compatibility.
+**Note:** Check which Wix Stores version is installed before building 
+plugins, as slots differ between versions. Your app should include 
+placements for both versions for maximum compatibility.
+
+**Plugin API Properties:** Same as New Version above.
+
+### Category Page
+
+| Property          | Value                                    |
+| ----------------- | ---------------------------------------- |
+| `appDefinitionId` | `1380b703-ce81-ff05-f115-39571d94dfcd`   |
+| `widgetId`        | `bda15dc1-816d-4ff3-8dcb-1172d5343cce`  |
+
+**Plugin API Properties:**
+- `categoryId` (string) - The ID of the category
 
 ### Shop Page
 
@@ -95,17 +111,68 @@ This reference provides additional details about slots beyond what's covered in 
 - `checkout:header`
 - `checkout:top`
 - `checkout:steps:before`
+- `checkout:delivery-step:options:after`
+- `checkout:policies:after-1`
 - `checkout:summary:before`
 - `checkout:summary:lineItems:after`
 - `checkout:summary:lineItems:after2`
 - `checkout:summary:totalsBreakdown:before`
 - `checkout:summary:after`
 
-**Plugin API Properties:**
+**Note:** Some checkout plugins may not support automatic addition upon installation. Create a dashboard page to manage your site plugin.
+
+**Checkout Plugin API Properties:**
 - `checkoutId` (string) - ID of the current checkout process
 - `stepId` (string) - Current step: `contact-details`, `delivery-method`, `payment-and-billing`, or `place-order`
 - `checkoutUpdatedDate` (string) - When checkout was last updated
-- `onRefreshCheckout()` - Callback function to refresh checkout when needed
+
+**Checkout Plugin API Functions:**
+- `onRefreshCheckout(callback: () => void)` - An event handler that accepts a callback function invoked whenever the checkout needs to be refreshed
+
+**Note:** The `checkout:delivery-step:options:after` slot uses a **different API** — see Delivery Step Options Slot API below.
+
+#### Delivery Step Options Slot API
+
+The `checkout:delivery-step:options:after` slot has its own API that is different from the other checkout slots.
+
+**Properties:**
+- `checkoutId` (string) - ID of the current checkout process
+- `checkoutUpdatedDate` (string) - When checkout was last updated
+- `selectedDeliveryOptionCarrierId` (string) - The ID of the carrier for the selected delivery option
+- `selectedDeliveryOptionId` (string) - The ID of the selected delivery option
+- `deliveryStepState` (string) - The current state of the delivery step. Possible values: `open` or `summary`
+
+**Functions:**
+- `onRefreshCheckout(callback: () => Promise)` - Event handler invoked whenever the checkout needs to be refreshed
+- `disableContinueButton(callback: (isDisabled: boolean) => void)` - Event handler to control the checkout's continue button. Call with `true` to disable or `false` to enable
+
+### Side Cart
+
+| Property          | Value                                    |
+| ----------------- | ---------------------------------------- |
+| `appDefinitionId` | `1380b703-ce81-ff05-f115-39571d94dfcd`   |
+| `widgetId`        | `49dbb2d9-d9e5-4605-a147-e926605bf164`  |
+
+**Available Slot IDs:**
+- `side-cart:header:after-1`
+- `side-cart:lineItems:after-1`
+- `side-cart:customer-input:after-1`
+- `side-cart:footer:actions:before-1`
+- `side-cart:footer:actions:after-1`
+
+**Note:** Some side cart plugins may not support automatic addition upon installation. Create a dashboard page to manage your site plugin.
+
+**Design Guidelines:**
+
+The Side Cart uses a `4px` baseline grid. Don't add extra spacing around your plugin — the slot handles spacing automatically.
+
+| Slot                                  | Recommended Height | Max Height |
+| ------------------------------------- | ------------------ | ---------- |
+| `side-cart:header:after-1`            | `30px`             | `70px`     |
+| `side-cart:lineItems:after-1`         | `50px`             | `150px`    |
+| `side-cart:customer-input:after-1`    | `24px`             | `150px`    |
+| `side-cart:footer:actions:before-1`   | `50px`             | `70px`     |
+| `side-cart:footer:actions:after-1`    | `50px`             | `70px`     |
 
 ---
 
@@ -140,11 +207,13 @@ This reference provides additional details about slots beyond what's covered in 
 | Property          | Value                                    |
 | ----------------- | ---------------------------------------- |
 | `appDefinitionId` | `13d21c63-b5ec-5912-8397-c3a5ddb27a97`   |
+| `widgetId`        | `a91a0543-d4bd-4e6b-b315-9410aa27bcde`  |
+| `slotId`          | `slot1`                                  |
+
+The Service Page can host a single plugin that users are free to reposition within the page by reordering the Service Page sections.
 
 **Plugin API Properties:**
-- `bookingsServiceId` (string) - The ID of the service
-
-Use `wix-bookings-frontend` APIs like `getServiceAvailability()` to query service information.
+- `bookingsServiceId` (string) - The ID of the Wix Bookings service currently applied on the plugin's host
 
 ---
 
@@ -155,11 +224,14 @@ Use `wix-bookings-frontend` APIs like `getServiceAvailability()` to query servic
 | Property          | Value                                    |
 | ----------------- | ---------------------------------------- |
 | `appDefinitionId` | `140603ad-af8d-84a5-2c80-a0f60cb47351`   |
+| `widgetId`        | `14d2abc2-5350-6322-487d-8c16ff833c8a`  |
+
+**Available Slot IDs:**
+- `header`
+- `details`
 
 **Plugin API Properties:**
-- `eventId` (string) - The ID of the event
-
-**Note:** Event Details Page slots are currently in beta and available only to a closed group of developers.
+- `eventId` (string) - The ID of the event currently applied on the plugin's host
 
 ---
 
@@ -182,7 +254,7 @@ placements: [
 ]
 ```
 
-**Note:** If you have multiple placements for slots on a single page, the plugin will be added to the first slot in the array by default. Users can manually move the plugin to their desired location in the editor.
+**Note:** If you have multiple placements for slots on a single page, the plugin will be added to the first available slot according to the order you defined. If that slot is occupied, it will be placed in the next available slot. If there are no available slots, it will not be placed. Users may manually move the plugin to their desired location in the editor.
 
 ## Finding Slot IDs
 
