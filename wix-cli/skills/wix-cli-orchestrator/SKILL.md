@@ -108,7 +108,7 @@ Answer these questions to find the right extension:
 | Site Plugin           | Site      | Public      | Extend Wix business solutions | `wix-cli-site-plugin`     |
 | Embedded Script       | Site      | Public      | Inject scripts/analytics      | `wix-cli-embedded-script` |
 
-**Key constraint:** Dashboard Page cannot use `<Modal />`; use a separate Dashboard Modal and `dashboard.openModal()`. Site plugins (CLI) not supported on checkout; use Wix Blocks.
+**Key constraint:** Dashboard Page cannot use `<Modal />`; use a separate Dashboard Modal and `dashboard.openModal()`.
 
 ## Extension Comparison
 
