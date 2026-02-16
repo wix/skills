@@ -8,6 +8,18 @@ compatibility: Requires Wix CLI development environment.
 
 Creates custom element widget extensions for Wix CLI applications. Site widgets are React components converted to web components that appear in the Wix Editor, allowing site owners to add interactive, configurable widgets to their pages with a built-in settings panel.
 
+## MANDATORY FILES - READ FIRST
+
+> **CRITICAL: Every site widget MUST have ALL THREE files. Do NOT proceed without creating each one.**
+
+| File | Purpose | Required |
+|------|---------|----------|
+| `widget.tsx` | The widget UI component (React → Web Component) | **YES - MANDATORY** |
+| `panel.tsx` | Settings panel for the Wix Editor sidebar | **YES - MANDATORY** |
+| `extensions.ts` | Extension registration with UUID | **YES - MANDATORY** |
+
+**WARNING:** A widget without `panel.tsx` is INCOMPLETE and will not be configurable in the Wix Editor. Users will have no way to customize the widget.
+
 ## Quick Start Checklist
 
 Follow these steps in order when creating a site widget:
@@ -20,7 +32,7 @@ Follow these steps in order when creating a site widget:
 
 ## Architecture
 
-Site widgets consist of **two required files**:
+Site widgets consist of **THREE required files** (widget.tsx, panel.tsx, extensions.ts):
 
 ### 1. Widget Component (`widget.tsx`)
 
