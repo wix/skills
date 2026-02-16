@@ -262,7 +262,9 @@ SDK Context:
 Constraints:
 [Any gotchas or limitations from discovery]
 
-⚠️ MANDATORY when using WDS: Before using @wix/design-system components, invoke the wds-docs skill FIRST to get correct imports (icons are from @wix/wix-ui-icons-common, NOT @wix/design-system/icons).
+⚠️ MANDATORY when using WDS: Invoke the wds-docs skill FIRST to get correct imports (icons are from @wix/wix-ui-icons-common, NOT @wix/design-system/icons).
+
+⚠️ MANDATORY when using Data Collections: Use EXACT collection ID from `idSuffix` (case-sensitive). Example: If `idSuffix` is "product-recommendations", use "<app-namespace>/product-recommendations" NOT "productRecommendations".
 
 ⚠️ MANDATORY: At the END of your response, include a section titled "## Manual Action Items" listing ANY steps the user must perform manually (e.g., configuring settings in the Wix dashboard, adding API keys, enabling permissions, setting up external services, etc.). If there are no manual steps, write "None". This section MUST always be present in your final response.
 
