@@ -41,7 +41,7 @@ pnpm install
 - No missing peer dependencies warnings (unless expected)
 - `node_modules` directory exists and contains expected packages
 
-**On failure:** Report the installation errors and stop validation. Common issues:
+**On failure:** Report the installation errors, [check the debug log](#debug-log-on-errors) for detailed diagnostics, and stop validation. Common issues:
 - Network connectivity problems
 - Corrupted lock files
 - Version conflicts
@@ -112,7 +112,7 @@ npx wix build
 - No TypeScript errors
 - No missing dependencies
 
-**On failure:** Report the specific compilation errors and stop validation.
+**On failure:** Report the specific compilation errors, [check the debug log](#debug-log-on-errors) for detailed diagnostics, and stop validation.
 
 ### Step 4: Preview Deployment
 
@@ -132,7 +132,7 @@ npx wix preview
 
 Extract both URLs and provide them to the user for manual verification.
 
-**On failure:** Report the preview startup errors and stop validation.
+**On failure:** Report the preview startup errors, [check the debug log](#debug-log-on-errors) for detailed diagnostics, and stop validation.
 
 ## Validation Report
 
@@ -149,13 +149,29 @@ After completing all steps, provide a summary:
 - Provide specific error messages
 - Suggest remediation steps
 
+## Debug Log on Errors
+
+When a validation step fails (non-zero exit code, error output, or the CLI crashes/hangs), check `.wix/debug.log` in the project root for the full error trace. **Only read this file when errors occur** — skip it when steps pass or when the terminal output already makes the error clear (e.g. a straightforward TypeScript type error).
+
+The `.wix/` directory is automatically created by the Wix CLI and contains internal configuration and log files. Don't edit it, but reading `debug.log` for troubleshooting is expected.
+
+```bash
+# Read the debug log (at <project-root>/.wix/debug.log)
+cat .wix/debug.log
+
+# If the file is large, check the end for the most recent errors
+tail -100 .wix/debug.log
+```
+
 ## Common Issues
 
 | Issue | Cause | Solution |
 |-------|-------|----------|
 | Package installation fails | Missing lock file, network issues, or corrupted node_modules | Delete `node_modules` and lock file, then reinstall |
 | TypeScript compilation fails | Type mismatches, missing declarations, or incorrect types | Fix TypeScript errors shown in `npx tsc --noEmit` output |
-| Build fails with TS errors | Type mismatches | Fix TypeScript errors in source |
-| Preview fails to start | Port conflict or config issue | Check `wix.config.json` |
+| Build fails | TypeScript errors, missing dependencies, or internal CLI error | Fix TypeScript errors in source; for non-obvious failures, check `.wix/debug.log` |
+| Preview fails to start | Port conflict, config issue, or internal CLI error | Check `wix.config.json`; if unclear, check `.wix/debug.log` for details |
 | Console errors in preview | Runtime exceptions | Check browser console output |
 | UI not rendering | Component errors | Review component code and imports |
+| CLI error with no clear message | Truncated terminal output | Read `.wix/debug.log` for the full error trace and stack details |
+| Mysterious failures after config change | Stale CLI state | Read `.wix/debug.log` to confirm, then delete `.wix/` and rebuild |
