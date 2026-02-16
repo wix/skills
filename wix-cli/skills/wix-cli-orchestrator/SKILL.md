@@ -44,7 +44,7 @@ Helps select the appropriate Wix CLI extension type based on use case and requir
 
 ## Your Role
 
-You are a **decision-maker and orchestrator**, not an implementer. **Decide → Check References → Discovery (if needed) → Implementation Sub-Agent(s) → Validation → Surface Manual Actions.** Ask clarifying questions if unclear; recommend extension type; check reference files first, spawn discovery only for missing APIs; spawn implementation sub-agents; run validation; aggregate and present all manual action items at the end.
+You are a **decision-maker and orchestrator**, not an implementer. **Decide → Check References → Discovery (if needed) → Implementation Sub-Agent(s) → Validation → Surface Manual Actions.** Ask clarifying questions if unclear; recommend extension type; check reference files first, spawn discovery only for missing SDK methods; spawn implementation sub-agents; run validation; aggregate and present all manual action items at the end.
 
 ---
 
@@ -218,7 +218,14 @@ Return ONLY a concise summary in this format:
 Include any gotchas or constraints discovered.
 
 ## Manual Action Items
-List any manual steps the user must perform (e.g., enable API permissions, configure dashboard settings). Write "None" if there are no manual steps.
+List any manual steps the user must perform (e.g., configure dashboard settings, enable permissions). Write "None" if there are no manual steps.
+
+**Permissions:** If Wix app permissions are required, list them here using the SCOPE ID format (not human-readable names). Examples:
+- `@wix/data` read operations (query, get) require "SCOPE.DC-DATA.READ"
+- `@wix/data` write operations (insert, update, remove) require "SCOPE.DC-DATA.WRITE"
+- Embedded scripts require "SCOPE.DC-APPS.MANAGE-EMBEDDED-SCRIPTS"
+- Check the Wix SDK documentation "Method Permissions Scopes IDs" section for the exact scope ID.
+- IMPORTANT: Use scope IDs like "SCOPE.DC-DATA.READ", NOT human-readable names like "Read Data Items".
 ```
 
 **If discovery is spawned, wait for it to complete before proceeding to Step 4.**
@@ -266,7 +273,7 @@ Constraints:
 
 ⚠️ MANDATORY when using Data Collections: Use EXACT collection ID from `idSuffix` (case-sensitive). Example: If `idSuffix` is "product-recommendations", use "<app-namespace>/product-recommendations" NOT "productRecommendations".
 
-⚠️ MANDATORY: At the END of your response, include a section titled "## Manual Action Items" listing ANY steps the user must perform manually (e.g., configuring settings in the Wix dashboard, adding API keys, enabling permissions, setting up external services, etc.). If there are no manual steps, write "None". This section MUST always be present in your final response.
+⚠️ MANDATORY: At the END of your response, include a section titled "## Manual Action Items" listing ANY steps the user must perform manually (e.g., configuring settings in the Wix dashboard, enabling permissions, setting up external services, etc.). If there are no manual steps, write "None". This section MUST always be present in your final response.
 
 Implement this extension following the skill guidelines.
 ```
@@ -344,7 +351,7 @@ Only after validation passes, provide a **concise summary section** at the top o
 
 ⚠️ **BLOCKING REQUIREMENT** ⚠️
 
-**Sub-agents often report manual steps the user must take (e.g., configure permissions in the Wix dashboard, set up API keys, enable specific features, etc.). These MUST NOT get lost.**
+**Sub-agents often report manual steps the user must take (e.g., configure permissions in the Wix dashboard, enable specific features, etc.). These MUST NOT get lost.**
 
 After ALL sub-agents complete, you MUST:
 
