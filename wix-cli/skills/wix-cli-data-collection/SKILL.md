@@ -28,9 +28,9 @@ Creates CMS data collections for Wix CLI apps. The data collections extension al
 ### Collection ID Format
 
 - **In extension definition (`idSuffix`):** Use just the suffix, e.g., `"products"`
-- **In API calls:** Use the full scoped ID, e.g., `"<app-namespace>/products"`
+- **In API calls:** Use the full scoped ID: `"<app-namespace>/products"` — MUST match `idSuffix` exactly (case-sensitive, no camelCase/PascalCase transformation)
 - **In `referencedCollectionId`:** Use the `idSuffix` only (not the full scoped ID) — the system resolves it automatically
-- The system automatically scopes `idSuffix` with the namespace
+- Example: If `idSuffix` is `"product-recommendations"`, API calls use `"<app-namespace>/product-recommendations"` NOT `"<app-namespace>/productRecommendations"`
 
 ---
 
