@@ -18,9 +18,7 @@ Follow these steps in order when creating an embedded script:
 4. [ ] Create dashboard config page: `src/dashboard/pages/<script-name>-settings/`
 5. [ ] Implement config page with `embeddedScripts` API from `@wix/app-management`
 6. [ ] Update `src/extensions.ts` to import and use both extensions
-7. [ ] Run `npx tsc --noEmit` to verify TypeScript compiles
-8. [ ] Run `npx wix build` and `npx wix preview` to test
-9. [ ] Add the `APPS.MANAGE_EMBEDDED_SCRIPT` permission in the Wix Dev Center (see [Enable Embedded Script Permission](#enable-embedded-script-permission))
+7. [ ] Add the `SCOPE.DC-APPS.MANAGE-EMBEDDED-SCRIPTS` permission in the Wix Dev Center (see [Enable Embedded Script Permission](#enable-embedded-script-permission))
 
 ## Script Types
 
@@ -469,11 +467,7 @@ The `id` must be a unique, static UUID v4 string. Generate a fresh UUID for each
 After implementation, the app developer must manually enable the embedded script permission:
 
 1. Go to [https://manage.wix.com/apps/{app-id}/dev-center-permissions](https://manage.wix.com/apps/{app-id}/dev-center-permissions) (replace `{app-id}` with your actual app ID)
-2. Add the `APPS.MANAGE_EMBEDDED_SCRIPT` permission
+2. Add the `SCOPE.DC-APPS.MANAGE-EMBEDDED-SCRIPTS` permission
 3. Save the changes
 
 **Note:** This is a manual step in the Wix Dev Center. Without this permission, embedded scripts will not function on the site.
-
-## Verification
-
-After implementation, use [wix-cli-app-validation](../wix-cli-app-validation/SKILL.md) to validate TypeScript compilation, build, preview, and runtime behavior.
