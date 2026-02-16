@@ -129,9 +129,25 @@ Follow the checklist; steps below add detail.
 Only ask for configuration values when **absolutely necessary** for the implementation to proceed — i.e., the sub-agent literally cannot generate working code without it. If a value can be configured later or added as a manual step, don't block on it.
 
 **App Namespace Requirement:**
-When creating a Data Collection, you MUST ask the user for their app namespace from Wix Dev Center. This is a required parameter that must be obtained from the user's Dev Center settings and cannot be recommended or guessed.
-- Inform the user that you need their app namespace from Wix Dev Center
-- Wait for the user to provide the namespace value before proceeding to implementation
+When creating a Data Collection, you MUST ask the user for their app namespace from Wix Dev Center. This is a required parameter that must be obtained from the user's Dev Center dashboard and cannot be recommended or guessed.
+
+**Instructions to give the user:**
+
+**If you don't have an app namespace yet:**
+1. Go to [Wix Dev Center](https://manage.wix.com/studio/custom-apps/)
+2. Select your app
+3. In the left menu, select **Develop > Extensions**
+4. Click **+ Create Extension** and find the **Data Collections** extension
+5. Click **+ Create**
+6. You will be prompted to create an app namespace - follow the prompts to set it up
+
+**If you already have an app namespace:**
+1. Go to [Wix Dev Center](https://manage.wix.com/studio/custom-apps/)
+2. Open your app dashboard
+3. Click the three dots (...) menu button in the top-right corner (next to "Test App" button)
+4. Select "View ID & keys" from the dropdown menu
+5. In the modal that opens, scroll to the bottom to find the "Namespace" field
+6. Copy the Namespace value
 
 If unclear on approach (placement, visibility, configuration, integration), ask clarifying questions. If the answer could change the extension type, wait for the response before proceeding. Otherwise, proceed with the best-fit extension type.
 
