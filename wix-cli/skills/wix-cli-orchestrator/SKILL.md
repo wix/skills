@@ -128,9 +128,12 @@ Follow the checklist; steps below add detail.
 
 Only ask for configuration values when **absolutely necessary** for the implementation to proceed — i.e., the sub-agent literally cannot generate working code without it. If a value can be configured later or added as a manual step, don't block on it.
 
-**Always ask:** Data Collection app namespace (required to create the collection — ask if not provided).
+**App Namespace Requirement:**
+When creating a Data Collection, you MUST ask the user for their app namespace from Wix Dev Center. This is a required parameter that must be obtained from the user's Dev Center settings and cannot be recommended or guessed.
+- Inform the user that you need their app namespace from Wix Dev Center
+- Wait for the user to provide the namespace value before proceeding to implementation
 
-If unclear on approach (placement, visibility, configuration, integration), ask. If the answer could change the extension type, wait for the response before proceeding. Otherwise, proceed with the best-fit extension type.
+If unclear on approach (placement, visibility, configuration, integration), ask clarifying questions. If the answer could change the extension type, wait for the response before proceeding. Otherwise, proceed with the best-fit extension type.
 
 ### Step 2: Make Your Recommendation
 
