@@ -12,22 +12,23 @@ Creates CMS data collections for Wix CLI apps. The data collections extension al
 
 ---
 
-## ⚠️ CRITICAL PREREQUISITE: App Namespace Required
+## App Namespace Handling
 
 **App namespace is REQUIRED** for data collections to work. The namespace scopes your collection IDs to prevent conflicts between apps.
 
-### Before Implementing
+### Implementation Behavior
 
-**STOP and ask the user for their app namespace if not already provided.** Do not proceed with implementation until you have it.
+**If app namespace is provided in the prompt:**
+- Use it in all code examples: `<actual-namespace>/collection-suffix`
 
-Ask: *"What is your app namespace? (e.g., `@company/app-name`). I need this to create the data collection — it scopes your collection IDs to prevent conflicts between apps. You can find it in the Wix dashboard under Custom Apps → your app → Develop > Extensions → Data Collections."*
-
-Once provided, use the full scoped ID `@company/app-name/collection-suffix` in all code and examples.
+**If app namespace is NOT provided:**
+- Use the placeholder `<app-namespace>` in all code examples: `<app-namespace>/collection-suffix`
+- Add to Manual Action Items: "Replace `<app-namespace>` with your actual app namespace from Wix Dev Center"
 
 ### Collection ID Format
 
 - **In extension definition (`idSuffix`):** Use just the suffix, e.g., `"products"`
-- **In API calls:** Use the full scoped ID, e.g., `"@company/app-name/products"`
+- **In API calls:** Use the full scoped ID, e.g., `"<app-namespace>/products"`
 - **In `referencedCollectionId`:** Use the `idSuffix` only (not the full scoped ID) — the system resolves it automatically
 - The system automatically scopes `idSuffix` with the namespace
 
