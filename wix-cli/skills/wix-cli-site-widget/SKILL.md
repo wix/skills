@@ -32,7 +32,7 @@ Follow these steps in order when creating a site widget:
 
 ## Architecture
 
-Site widgets consist of **THREE required files** (widget.tsx, panel.tsx, extensions.ts):
+Site widgets consist of **two required files**:
 
 ### 1. Widget Component (`widget.tsx`)
 
