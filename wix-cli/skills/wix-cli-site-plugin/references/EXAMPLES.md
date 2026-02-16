@@ -145,12 +145,19 @@ export default extensions.sitePlugin({
     description: 'Display a customizable badge on product pages',
     logoUrl: '{{BASE_URL}}/best-seller-badge-logo.svg',
   },
-  placements: [{
-    appDefinitionId: '1380b703-ce81-ff05-f115-39571d94dfcd',
-    widgetId: '13a94f09-2766-3c40-4a32-8edb5acdd8bc',
-    slotId: 'product-page-slot-1',
-  }],
-  installation: { autoAdd: true },
+  placements: [
+    {
+      appDefinitionId: '1380b703-ce81-ff05-f115-39571d94dfcd',
+      widgetId: '13a94f09-2766-3c40-4a32-8edb5acdd8bc',
+      slotId: 'product-page-details-2',
+    },
+    {
+      appDefinitionId: 'a0c68605-c2e7-4c8d-9ea1-767f9770e087',
+      widgetId: '6a25b678-53ec-4b37-a190-65fcd1ca1a63',
+      slotId: 'product-page-details-2',
+    },
+  ],
+  installation: { autoAddToSite: true },
   tagName: 'best-seller-badge',
   element: './extensions/site/plugins/best-seller-badge/best-seller-badge.tsx',
   settings: './extensions/site/plugins/best-seller-badge/best-seller-badge.panel.tsx',
@@ -159,7 +166,9 @@ export default extensions.sitePlugin({
 
 ## Dashboard Page for Plugin Management
 
-For plugins that require back-office management, create a dashboard page:
+For plugins that require back-office management (especially checkout and side cart plugins that may not support auto-add), create a dashboard page.
+
+> **Note:** The `placement` option in `addSitePlugin()` is optional. If omitted, the plugin is placed in the first available slot based on the priority order configured in the plugin's installation settings in your app's dashboard.
 
 ```typescript
 // src/dashboard/pages/plugin-settings/page.tsx
@@ -168,9 +177,15 @@ import { Page, WixDesignSystemProvider, Card, FormField, Input, Button } from "@
 
 export default function PluginSettingsPage() {
   const handleAddToSlot = async () => {
-    await dashboard.addSitePlugin({
-      widgetId: "your-widget-id",
-      slotId: "your-slot-id",
+    const pluginId = "your-plugin-id";
+    const pluginPlacement = {
+      appDefinitionId: "host-app-definition-id",
+      widgetId: "host-widget-id",
+      slotId: "target-slot-id",
+    };
+
+    await dashboard.addSitePlugin(pluginId, {
+      placement: pluginPlacement,
     });
     dashboard.showToast({ message: "Plugin added!", type: "success" });
   };
@@ -282,3 +297,4 @@ export default DataPlugin;
 - Configurable display options (show count, show average)
 - Settings panel for styling customization
 - Integration with slot on product page
+- Include placements for both old and new Wix Stores product page versions

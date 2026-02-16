@@ -6,7 +6,7 @@ compatibility: Requires Wix CLI development environment.
 
 # Wix Site Plugin Builder
 
-Creates site plugin extensions for Wix CLI applications. Site plugins are custom elements that integrate into predefined **slots** within Wix business solutions (like Wix Stores, Wix Bookings), extending their functionality and user experience.
+Creates site plugin extensions for Wix CLI applications. Site plugins are custom elements that integrate into predefined **slots** within Wix business solutions (like Wix Stores, Wix Bookings, Wix eCommerce), extending their functionality and user experience.
 
 Site owners can place site plugins into UI slots using the plugin explorer in Wix editors.
 
@@ -15,13 +15,10 @@ Site owners can place site plugins into UI slots using the plugin explorer in Wi
 Follow these steps in order when creating a site plugin:
 
 1. [ ] Create plugin folder: `src/extensions/site/plugins/<plugin-name>/`
-2. [ ] Create `<plugin>.tsx` extending `HTMLElement` with `observedAttributes`
-3. [ ] Create `<plugin>.panel.tsx` with WDS components and `widget.getProp/setProp`
-4. [ ] Create `<plugin>.extension.ts` with `extensions.sitePlugin()` and unique UUID
+2. [ ] Create `<plugin-name>.tsx` extending `HTMLElement` with `observedAttributes`
+3. [ ] Create `<plugin-name>.panel.tsx` with WDS components and `widget.getProp/setProp`
+4. [ ] Create `<plugin-name>.extension.ts` with `extensions.sitePlugin()` and unique UUID
 5. [ ] Update `src/extensions.ts` to import and use the new extension
-6. [ ] Run `npx tsc --noEmit` to verify TypeScript compiles
-7. [ ] Run `npx wix build` and `npx wix preview` to test
-8. [ ] Verify plugin appears in plugin explorer for target slots
 
 ## Architecture
 
@@ -41,10 +38,11 @@ Custom element component that renders in the slot using native HTMLElement:
 
 Settings panel shown in the Wix Editor sidebar:
 
-- Uses Wix Design System components (see [WDS-COMPONENTS.md](../wix-cli-site-widget/references/WDS-COMPONENTS.md))
+- Uses Wix Design System (`@wix/design-system`) components — see [wds-docs](../wds-docs/SKILL.md) for component reference
 - Manages plugin properties via `@wix/editor` widget API
 - Loads initial values with `widget.getProp('kebab-case-name')`
 - Updates properties with `widget.setProp('kebab-case-name', value)`
+- Widget properties are bound to custom element attributes — any property change automatically updates the corresponding attribute
 - Wrapped in `WixDesignSystemProvider > SidePanel > SidePanel.Content`
 
 ### 3. Extension Configuration (`<plugin-name>.extension.ts`)
@@ -106,6 +104,7 @@ export default MyElement;
 - Implement `attributeChangedCallback()` to re-render when attributes change
 - Use inline styles via template strings
 - Use `this.getAttribute('attribute-name')` to read attribute values
+- Wix handles `define()` for you — do NOT call `customElements.define()` in your code
 
 ## Settings Panel Pattern
 
@@ -163,6 +162,7 @@ export default Panel;
 
 - Prop names in `widget.getProp()` and `widget.setProp()` use **kebab-case** (e.g., `"display-name"`)
 - Always update both local state AND widget prop in onChange handlers
+- Widget properties are bound to custom element attributes — changes automatically update the corresponding attribute
 - Wrap content in `WixDesignSystemProvider > SidePanel > SidePanel.Content`
 - Use WDS components from `@wix/design-system`
 - Import `@wix/design-system/styles.global.css` for styles
@@ -198,7 +198,7 @@ public/
 | --- | --- |
 | Complete Examples | [EXAMPLES.md](references/EXAMPLES.md) |
 | Slots (App IDs, multiple placements, finding slots) | [SLOTS.md](references/SLOTS.md) |
-| WDS Components | [WDS-COMPONENTS.md](../wix-cli-site-widget/references/WDS-COMPONENTS.md) |
+| WDS Components | [wds-docs](../wds-docs/SKILL.md) |
 
 ## Available Slots
 
@@ -208,7 +208,7 @@ Site plugins integrate into predefined slots in Wix business solutions. Each slo
 - **widgetId**: The ID of the page containing the slot
 - **slotId**: The specific slot identifier
 
-Common placement areas include product pages (Wix Stores), booking pages (Wix Bookings), service pages, and event pages.
+Common placement areas include product pages (Wix Stores), checkout and side cart (Wix eCommerce), booking pages (Wix Bookings), service pages, event pages, and blog post pages.
 
 For supported pages, common Wix App IDs, and how to find slot IDs, see [SLOTS.md](./references/SLOTS.md).
 
@@ -259,7 +259,7 @@ The `id` must be a unique, static UUID v4 string. Generate a fresh UUID for each
 | `placements.appDefinitionId` | string | ID of the Wix app containing the slot                          |
 | `placements.widgetId`      | string  | ID of the page containing the slot                              |
 | `placements.slotId`        | string  | ID of the specific slot                                         |
-| `installation.autoAdd`     | boolean | Whether to auto-add plugin to slots on app installation         |
+| `installation.autoAddToSite` | boolean | Whether to auto-add plugin to slots on app installation       |
 | `tagName`                  | string  | HTML custom element tag (kebab-case, must contain a hyphen)     |
 | `element`                  | string  | Relative path to plugin component                               |
 | `settings`                 | string  | Relative path to settings panel component                       |
@@ -269,6 +269,10 @@ The `id` must be a unique, static UUID v4 string. Generate a fresh UUID for each
 **CRITICAL:** After creating the plugin-specific extension file, you MUST read [wix-cli-extension-registration](../wix-cli-extension-registration/SKILL.md) and follow the "App Registration" section to update `src/extensions.ts`.
 
 **Without completing Step 2, the site plugin will not be available in the plugin explorer.**
+
+## Checkout Plugins
+
+If you are building a plugin for the **checkout page**, it may not support automatic addition upon installation. You must create a dashboard page to provide users with a way to add the plugin to their site. See [EXAMPLES.md](references/EXAMPLES.md) for the dashboard page pattern.
 
 ## Examples
 
@@ -287,11 +291,38 @@ For complete examples with all three required files (plugin component, settings 
 
 - **Use inline styles** - CSS imports are not supported in custom elements
 - **Handle editor environment** - Show placeholders when in editor mode for data-dependent plugins
-- **Editor sandboxing** - Plugins are sandboxed in the Editor; `localStorage`, `sessionStorage`, and cookies are restricted. Use `viewMode()` to detect editor and mock storage if needed
+- **Do not call `define()`** - Wix handles `customElements.define()` for you automatically
 - **Validate all input** - Check required props are present
 - **Follow naming conventions** - kebab-case for all attributes and widget API
 - **Keep plugins focused** - Each plugin should do one thing well
 - **Test in multiple slots** - If supporting multiple placements, test each one
+- **Support both Stores versions** - Include placements for both old and new Wix Stores product pages for maximum compatibility
+
+### Editor Sandboxing
+
+Site plugins are sandboxed when rendered in the editor. This means they're treated as if they come from a different domain, which impacts access to browser storage APIs.
+
+**Restricted APIs in the editor:**
+- `localStorage` and `sessionStorage` (Web Storage API)
+- `document.cookie` (Cookie Store API)
+- IndexedDB API
+- Cache API
+
+**How to handle sandboxing:**
+
+Use the `viewMode()` function from `@wix/site-window` to check the current mode before accessing restricted APIs:
+
+```typescript
+import { window as wixWindow } from '@wix/site-window';
+
+const viewMode = await wixWindow.viewMode();
+
+if (viewMode === 'Site') {
+  const item = localStorage.getItem('myKey');
+} else {
+  // Mock storage or modify API usage for editor mode
+}
+```
 
 ### Performance Considerations
 
@@ -299,18 +330,3 @@ For complete examples with all three required files (plugin component, settings 
 - Avoid heavy computations on initial render
 - Lazy load data when possible
 - Use efficient re-rendering patterns
-
-## Verification
-
-After implementation, use [wix-cli-app-validation](../wix-cli-app-validation/SKILL.md) to validate TypeScript compilation, build, preview, and runtime behavior.
-
-## Code Quality Requirements
-
-- Strict TypeScript (no `any`, explicit return types)
-- Native HTMLElement class for plugin components
-- React functional components with hooks for settings panels
-- Proper error handling and loading states
-- No `@ts-ignore` comments
-- Inline styles via template strings (no CSS imports)
-- Handle Wix Editor environment when using Wix Data API
-- Consistent attribute naming using **kebab-case** throughout
