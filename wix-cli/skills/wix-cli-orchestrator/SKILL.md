@@ -34,6 +34,9 @@ Helps select the appropriate Wix CLI extension type based on use case and requir
   - [ ] TypeScript compiled
   - [ ] Build succeeded
   - [ ] Preview deployed
+- [ ] **Step 8:** Collected and presented ALL manual action items to user
+  - [ ] Reviewed output from every sub-agent for manual steps
+  - [ ] Aggregated into a single actionable list at the end of the conversation
 
 **🛑 STOP:** If any box is unchecked, do NOT proceed to the next step.
 
@@ -41,7 +44,7 @@ Helps select the appropriate Wix CLI extension type based on use case and requir
 
 ## Your Role
 
-You are a **decision-maker and orchestrator**, not an implementer. **Decide → Check References → Discovery (if needed) → Implementation Sub-Agent(s) → Validation.** Ask clarifying questions if unclear; recommend extension type; check reference files first, spawn discovery only for missing APIs; spawn implementation sub-agents; run validation.
+You are a **decision-maker and orchestrator**, not an implementer. **Decide → Check References → Discovery (if needed) → Implementation Sub-Agent(s) → Validation → Surface Manual Actions.** Ask clarifying questions if unclear; recommend extension type; check reference files first, spawn discovery only for missing SDK methods; spawn implementation sub-agents; run validation; aggregate and present all manual action items at the end.
 
 ---
 
@@ -55,6 +58,7 @@ You are a **decision-maker and orchestrator**, not an implementer. **Decide → 
 | Spawning discovery without checking refs    | Check skill refs first                         |
 | Reporting done without validation           | Always run `wix-cli-app-validation` at the end |
 | Reading/writing files after invoking skills | Let sub-agents handle ALL file operations      |
+| Letting manual action items get buried      | Aggregate all manual steps at the very end     |
 
 **CRITICAL:** After this planner skill loads, you should ONLY:
 
@@ -122,7 +126,30 @@ Follow the checklist; steps below add detail.
 
 ### Step 1: Ask Clarifying Questions (if needed)
 
-If unclear: placement, visibility, configuration, integration. Wait if the answer changes extension type; otherwise proceed and say you can add optional extension later.
+Only ask for configuration values when **absolutely necessary** for the implementation to proceed — i.e., the sub-agent literally cannot generate working code without it. If a value can be configured later or added as a manual step, don't block on it.
+
+**App Namespace Requirement:**
+When creating a Data Collection, you MUST ask the user for their app namespace from Wix Dev Center. This is a required parameter that must be obtained from the user's Dev Center dashboard and cannot be recommended or guessed.
+
+**Instructions to give the user:**
+
+**If you don't have an app namespace yet:**
+1. Go to [Wix Dev Center](https://manage.wix.com/studio/custom-apps/)
+2. Select your app
+3. In the left menu, select **Develop > Extensions**
+4. Click **+ Create Extension** and find the **Data Collections** extension
+5. Click **+ Create**
+6. You will be prompted to create an app namespace - follow the prompts to set it up
+
+**If you already have an app namespace:**
+1. Go to [Wix Dev Center](https://manage.wix.com/studio/custom-apps/)
+2. Open your app dashboard
+3. Click the three dots (...) menu button in the top-right corner (next to "Test App" button)
+4. Select "View ID & keys" from the dropdown menu
+5. In the modal that opens, scroll to the bottom to find the "Namespace" field
+6. Copy the Namespace value
+
+If unclear on approach (placement, visibility, configuration, integration), ask clarifying questions. If the answer could change the extension type, wait for the response before proceeding. Otherwise, proceed with the best-fit extension type.
 
 ### Step 2: Make Your Recommendation
 
@@ -189,6 +216,16 @@ Return ONLY a concise summary in this format:
 **Import:** `import { methodName } from '@wix/sdk-module';`
 
 Include any gotchas or constraints discovered.
+
+## Manual Action Items
+List any manual steps the user must perform (e.g., configure dashboard settings, enable permissions). Write "None" if there are no manual steps.
+
+**Permissions:** If Wix app permissions are required, list them here using the SCOPE ID format (not human-readable names). Examples:
+- `@wix/data` read operations (query, get) require "SCOPE.DC-DATA.READ"
+- `@wix/data` write operations (insert, update, remove) require "SCOPE.DC-DATA.WRITE"
+- Embedded scripts require "SCOPE.DC-APPS.MANAGE-EMBEDDED-SCRIPTS"
+- Check the Wix SDK documentation "Method Permissions Scopes IDs" section for the exact scope ID.
+- IMPORTANT: Use scope IDs like "SCOPE.DC-DATA.READ", NOT human-readable names like "Read Data Items".
 ```
 
 **If discovery is spawned, wait for it to complete before proceeding to Step 4.**
@@ -215,6 +252,7 @@ The sub-agent prompt should include:
 3. ✅ SDK methods discovered (with imports and types) — **only if discovery was performed**
 4. ✅ Instruction to invoke `wds-docs` skill FIRST when using @wix/design-system (critical for correct imports, especially icons)
 5. ✅ Any constraints or gotchas discovered
+6. ✅ Instruction to return manual action items (see below)
 
 **Implementation sub-agent prompt template:**
 
@@ -231,7 +269,12 @@ SDK Context:
 Constraints:
 [Any gotchas or limitations from discovery]
 
-⚠️ MANDATORY when using WDS: Before using @wix/design-system components, invoke the wds-docs skill FIRST to get correct imports (icons are from @wix/wix-ui-icons-common, NOT @wix/design-system/icons).
+⚠️ MANDATORY when using WDS: Invoke the wds-docs skill FIRST to get correct imports (icons are from @wix/wix-ui-icons-common, NOT @wix/design-system/icons).
+
+⚠️ MANDATORY when using Data Collections: Use EXACT collection ID from `idSuffix` (case-sensitive). Example: If `idSuffix` is "product-recommendations", use "<app-namespace>/product-recommendations" NOT "productRecommendations".
+
+⚠️ MANDATORY: At the END of your response, include a section titled "## Manual Action Items" listing ANY steps the user must perform manually (e.g., configuring settings in the Wix dashboard, enabling permissions, setting up external services, etc.). If there are no manual steps, write "None". This section MUST always be present in your final response.
+
 Implement this extension following the skill guidelines.
 ```
 
@@ -274,13 +317,93 @@ If validation fails:
 
 ### Step 6: Report Completion
 
-Only after validation passes, report to the user:
+Only after validation passes, provide a **concise summary section** at the top of your response that includes:
 
-- What was created
-- How to test it (preview commands)
-- Any next steps
+**Required format:**
 
-**Summary:** Discovery = business domain SDK only (Stores, Bookings, etc.) — skip for extension SDK and data collections. Implementation = load extension skill; invoke `wds-docs` FIRST when using WDS (for correct imports). Validation = `wix-cli-app-validation`.
+```markdown
+## ✅ Implementation Complete
+
+[1-2 sentence description of what was built]
+
+**Extensions Created:**
+- [Extension 1 Name] - [Brief purpose]
+- [Extension 2 Name] - [Brief purpose]
+- [Extension 3 Name] - [Brief purpose]
+
+**Build Status:**
+- ✅ Dependencies: [Installed / status message]
+- ✅ TypeScript: [No compilation errors / status]
+- ✅ Build: [Completed successfully / status]
+- ✅/⚠️ Preview: [Running at URL / Failed - reason]
+
+**⚠️ IMPORTANT: [X] manual step(s) required to complete setup** (see "Manual Steps Required" section below)
+```
+
+**Critical rules:**
+- The summary MUST explicitly state how many manual steps are required
+- The summary MUST reference where to find the manual steps ("see Manual Steps Required section below")
+- If there are NO manual steps, state: "✅ No manual steps required — you're ready to go!"
+- Keep the summary concise (under 200 words)
+- Present build status clearly with ✅ or ⚠️ indicators
+
+### Step 7: Surface Manual Action Items
+
+⚠️ **BLOCKING REQUIREMENT** ⚠️
+
+**Sub-agents often report manual steps the user must take (e.g., configure permissions in the Wix dashboard, enable specific features, etc.). These MUST NOT get lost.**
+
+After ALL sub-agents complete, you MUST:
+
+1. **Review every sub-agent's output** for any "Manual Action Items" section or any mention of steps the user needs to perform manually
+2. **Aggregate ALL manual action items** from every sub-agent into a single, deduplicated list
+3. **Reference them in the summary section** (Step 6) by stating how many manual steps exist
+4. **Present them prominently** at the very end of your final message to the user, under a clear heading
+
+**Complete workflow for manual steps:**
+
+1. **In the summary (Step 6):** Include the line `**⚠️ IMPORTANT: [X] manual step(s) required to complete setup** (see "Manual Steps Required" section below)`
+2. **At the end of your response:** Present the full detailed manual steps section
+
+**Format for the manual steps section:**
+
+```markdown
+## 🔧 Manual Steps Required
+
+The following actions need to be done manually by you:
+
+### 1. [Action Category/Title]
+[Detailed description with specific instructions]
+- Step-by-step if needed
+- Include where to find things in the UI
+- Provide example values if helpful
+
+### 2. [Action Category/Title]
+[Detailed description]
+
+### 3. [Action Category/Title]
+[Detailed description]
+
+[Continue for all manual steps...]
+```
+
+**If no manual steps are needed:**
+```markdown
+## 🔧 Manual Steps Required
+
+No manual steps required — you're all set! Your implementation is complete and ready to use.
+```
+
+**Rules:**
+- The summary section (Step 6) MUST reference the manual steps
+- This detailed manual steps section MUST be the **last thing** in your final response to the user
+- Even if you think the items were mentioned earlier in the conversation, **repeat them here** — assume the user only reads the final summary
+- Include full context for each item (e.g., "In the Wix dashboard, go to Settings > Permissions and enable X" rather than just "enable X")
+- Group related steps together under category headings for clarity
+- If a sub-agent didn't include a "Manual Action Items" section, review its full output for any implicit manual steps (phrases like "you'll need to", "make sure to", "don't forget to", "manually", "go to the dashboard", etc.)
+- Number the main categories/sections (1, 2, 3...) for easy reference
+
+**Summary:** Discovery = business domain SDK only (Stores, Bookings, etc.) — skip for extension SDK and data collections. Implementation = load extension skill; invoke `wds-docs` FIRST when using WDS (for correct imports). Validation = `wix-cli-app-validation`. Manual actions = always aggregated and surfaced at the end.
 
 ## Cost Optimization
 
