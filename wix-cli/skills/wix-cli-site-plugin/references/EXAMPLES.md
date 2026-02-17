@@ -157,7 +157,7 @@ export default extensions.sitePlugin({
       slotId: 'product-page-details-2',
     },
   ],
-  installation: { autoAddToSite: true },
+  installation: { autoAdd: true },
   tagName: 'best-seller-badge',
   element: './extensions/site/plugins/best-seller-badge/best-seller-badge.tsx',
   settings: './extensions/site/plugins/best-seller-badge/best-seller-badge.panel.tsx',
