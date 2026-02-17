@@ -259,7 +259,7 @@ The `id` must be a unique, static UUID v4 string. Generate a fresh UUID for each
 | `placements.appDefinitionId` | string | ID of the Wix app containing the slot                          |
 | `placements.widgetId`      | string  | ID of the page containing the slot                              |
 | `placements.slotId`        | string  | ID of the specific slot                                         |
-| `installation.autoAddToSite` | boolean | Whether to auto-add plugin to slots on app installation       |
+| `installation.autoAdd`       | boolean | Whether to auto-add plugin to slots on app installation       |
 | `tagName`                  | string  | HTML custom element tag (kebab-case, must contain a hyphen)     |
 | `element`                  | string  | Relative path to plugin component                               |
 | `settings`                 | string  | Relative path to settings panel component                       |
@@ -322,6 +322,33 @@ if (viewMode === 'Site') {
 } else {
   // Mock storage or modify API usage for editor mode
 }
+```
+
+### Using Wix SDK Modules in Site Plugins
+
+Site plugins can import and use Wix SDK modules directly — you do NOT need `createClient()`. The Wix runtime provides the client context automatically.
+
+```typescript
+// ✅ CORRECT — Import SDK modules directly
+import { items } from "@wix/data";
+import { currentCart } from "@wix/ecom";
+import { products } from "@wix/stores";
+
+class MyPlugin extends HTMLElement {
+  async loadData() {
+    // Call SDK methods directly — no createClient needed
+    const result = await items.query("MyCollection").find();
+    const cart = await currentCart.getCurrentCart();
+    const productList = await products.queryProducts().limit(10).find();
+  }
+}
+```
+
+```typescript
+// ❌ WRONG — Do NOT use createClient in site plugins
+import { createClient } from "@wix/sdk";
+const wixClient = createClient({ modules: { items, products } });
+await wixClient.items.query(...); // Wrong — API surface differs through client
 ```
 
 ### Performance Considerations
