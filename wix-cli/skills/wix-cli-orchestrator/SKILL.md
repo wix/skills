@@ -94,7 +94,7 @@ Answer these questions to find the right extension:
 
 - **Admin:** Need full-page UI? → Dashboard Page. Need popup/form? → Dashboard Modal. Extending Wix app dashboard? → Dashboard Plugin. **Modal constraint:** Dashboard Pages cannot use `<Modal />`; use a separate Dashboard Modal extension and `dashboard.openModal()`.
 - **Backend:** During business flow (checkout/shipping/tax)? → Service Plugin. After event (webhooks/sync)? → Event Extension. Custom HTTP endpoints? → Backend Endpoints. Need CMS collections for app data? → Data Collection.
-- **Site:** User places anywhere? → Site Widget. Fixed slot on Wix app page? → Site Plugin. Scripts/analytics only? → Embedded Script.
+- **Site:** On a specific Wix app page (checkout/product/cart/booking)? → Site Plugin. User places anywhere? → Site Widget. Scripts/analytics only? → Embedded Script.
 
 ## Quick Reference Table
 
@@ -118,7 +118,7 @@ Answer these questions to find the right extension:
 
 | Site Widget vs Site Plugin | Dashboard Page vs Modal | Service Plugin vs Event |
 | -------------------------- | ----------------------- | ----------------------- |
-| Widget: user places anywhere. Plugin: fixed slot in Wix app. | Page: full page. Modal: overlay; use for popups. | Service: during flow. Event: after event. |
+| **Widget:** User manually places anywhere on site using editor. **Plugin:** Fixed slot in Wix business solution pages (checkout, product, cart, booking, etc.). | Page: full page. Modal: overlay; use for popups. | Service: during flow. Event: after event. |
 
 ## Decision & Handoff Workflow
 
@@ -209,11 +209,69 @@ Return ONLY a concise summary in this format:
 
 ## SDK Methods & Interfaces
 
-| Name                      | Type   | TypeScript Type                              | Description       |
-| ------------------------- | ------ | -------------------------------------------- | ----------------- |
-| `moduleName.methodName()` | Method | `(params: ParamType) => Promise<ReturnType>` | Brief description |
+| Method Call                 | Import                                          | TypeScript Signature                         | Description       |
+| --------------------------- | ----------------------------------------------- | -------------------------------------------- | ----------------- |
+| `moduleName.methodName()`   | `import { moduleName } from '@wix/package-name'` | `(params: ParamType) => Promise<ReturnType>` | Brief description |
 
-**Import:** `import { methodName } from '@wix/sdk-module';`
+⚠️ **CRITICAL — Import accuracy rules:**
+- Show the EXACT `import { ... } from '...'` statement that compiles
+- Many Wix SDK packages use **namespaced exports** (e.g., `import { products } from '@wix/stores'` then `products.queryProducts()`, NOT `import { queryProducts } from '@wix/stores'`)
+- Similarly: `import { auth } from '@wix/essentials'` then `auth.elevate()`, NOT `import { elevate } from '@wix/essentials'`
+- Show both the import AND how the method is called (e.g., `moduleName.methodName()`)
+- If a type is needed, prefer the namespace pattern (e.g., `products.Product` from `import { products } from '@wix/stores'`) — do NOT recommend importing from internal auto-generated packages like `@wix/auto_sdk_*`
+
+### Full Type Definitions
+
+⚠️ **REQUIRED:** For EVERY custom/non-primitive type referenced in the method signatures above (parameters, return types, nested objects), provide its full TypeScript definition. The implementation sub-agent needs complete type context to write correct code without guessing field names or shapes.
+
+**Rules:**
+- Expand ALL custom types — if `ReturnType` has a field of type `SubType`, expand `SubType` too
+- Include optional (`?`) markers, union types, and enums exactly as defined
+- Primitives (`string`, `number`, `boolean`, `Date`) do not need expansion
+- If a type is recursive, define it once — do not repeat it at deeper levels
+- If a type is very deep (4+ levels of nesting), expand to 3 levels and add a `// ... nested fields omitted` comment to indicate the definition is incomplete
+
+**Example format:**
+
+```ts
+interface QueryProductsOptions {
+  filter?: Record<string, any>;
+  sort?: Sorting[];
+  paging?: Paging;
+}
+
+interface Sorting {
+  fieldName: string;
+  order: 'ASC' | 'DESC';
+}
+
+interface Paging {
+  limit?: number;
+  offset?: number;
+}
+
+interface Product {
+  _id?: string;
+  name?: string;
+  slug?: string;
+  productType?: 'physical' | 'digital';
+  price?: PriceData;
+  media?: Media;
+  // ... all fields
+}
+
+interface PriceData {
+  currency?: string;
+  price?: number;
+  discountedPrice?: number;
+  formatted?: FormattedPrice;
+}
+
+interface FormattedPrice {
+  price?: string;
+  discountedPrice?: string;
+}
+```
 
 Include any gotchas or constraints discovered.
 
@@ -414,7 +472,7 @@ No manual steps required — you're all set! Your implementation is complete and
 - **Implementation prompts:** include only relevant SDK context from discovery (if performed)
 - **Parallelize** independent sub-agents when possible
 - **Invoke wds-docs** first when using WDS (prevents import errors)
-- **Targets:** discovery output 500-1000 tokens; implementation prompt minimal; each search under 2000-3000 tokens
+- **Targets:** discovery output 800-1500 tokens (includes full type definitions); implementation prompt minimal; each search under 2000-3000 tokens
 
 ## Documentation
 
