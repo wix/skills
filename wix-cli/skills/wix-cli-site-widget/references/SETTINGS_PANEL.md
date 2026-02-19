@@ -107,10 +107,12 @@ const parseTimeValue = (timeString: string): Date => {
 
 ### ColorPickerField
 
-Custom component for color selection. Create this component in your widget:
+Custom component for color selection using `inputs.selectColor()` from `@wix/editor`. This opens the Wix color picker dialog with theme colors, gradients, and more — **NOT** a basic HTML `<input type="color">`.
 
 ```typescript
-import { FormField, Input } from "@wix/design-system";
+import React, { type FC } from 'react';
+import { inputs } from '@wix/editor';
+import { FormField, Box, FillPreview, SidePanel } from '@wix/design-system';
 
 interface ColorPickerFieldProps {
   label: string;
@@ -122,69 +124,63 @@ export const ColorPickerField: FC<ColorPickerFieldProps> = ({
   label,
   value,
   onChange,
-}) => {
-  return (
-    <SidePanel.Field>
-      <FormField label={label}>
-        <Input
-          type="color"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
+}) => (
+  <SidePanel.Field>
+    <FormField label={label}>
+      <Box width="30px" height="30px">
+        <FillPreview
+          fill={value}
+          onClick={() => inputs.selectColor(value, { onChange })}
         />
-      </FormField>
-    </SidePanel.Field>
-  );
-};
+      </Box>
+    </FormField>
+  </SidePanel.Field>
+);
 ```
+
+**Important:** Always use `inputs.selectColor()` from `@wix/editor` with the `FillPreview` WDS component. Do NOT use `<Input type="color">` — it produces a basic browser color picker that doesn't match the Wix Editor UX.
 
 ### FontPickerField
 
-Custom component for font selection using `inputs.selectFont()` from `@wix/editor`:
+Custom component for font selection using `inputs.selectFont()` from `@wix/editor`. This opens the Wix font picker dialog with font family, size, bold, italic, and other typography features.
 
 ```typescript
-import { FormField, Input, Button } from "@wix/design-system";
-import { inputs } from "@wix/editor";
+import React, { type FC } from 'react';
+import { inputs } from '@wix/editor';
+import { FormField, Button, Text, SidePanel } from '@wix/design-system';
+
+interface FontValue {
+  font: string;
+  textDecoration: string;
+}
 
 interface FontPickerFieldProps {
   label: string;
-  value: { font: string; textDecoration: string };
-  onChange: (value: { font: string; textDecoration: string }) => void;
+  value: FontValue;
+  onChange: (value: FontValue) => void;
 }
 
 export const FontPickerField: FC<FontPickerFieldProps> = ({
   label,
   value,
   onChange,
-}) => {
-  const handleFontSelect = async () => {
-    const selectedFont = await inputs.selectFont();
-    if (selectedFont) {
-      onChange({
-        font: selectedFont.fontFamily || "",
-        textDecoration: selectedFont.textDecoration || "",
-      });
-    }
-  };
-
-  return (
-    <SidePanel.Field>
-      <FormField label={label}>
-        <Box direction="horizontal" gap="8px">
-          <Input
-            type="text"
-            value={value.font || "Select font"}
-            readOnly
-            placeholder="Select font"
-          />
-          <Button onClick={handleFontSelect}>Select</Button>
-        </Box>
-      </FormField>
-    </SidePanel.Field>
-  );
-};
+}) => (
+  <SidePanel.Field>
+    <FormField label={label}>
+      <Button
+        size="small"
+        priority="secondary"
+        onClick={() => inputs.selectFont(value, { onChange })}
+        fullWidth
+      >
+        <Text size="small" ellipsis>Change Font</Text>
+      </Button>
+    </FormField>
+  </SidePanel.Field>
+);
 ```
 
-**Important:** Always use `inputs.selectFont()` from `@wix/editor` for font selection, NOT a text Input. This provides a rich font picker dialog.
+**Important:** Always use `inputs.selectFont()` from `@wix/editor` with the callback pattern `inputs.selectFont(value, { onChange })`. Do NOT use an async/await pattern or a readOnly text Input — the callback pattern integrates directly with the Wix Editor font picker dialog.
 
 ## Complete Example
 
@@ -197,19 +193,25 @@ import {
   Input,
   FormField,
   TimeInput,
-  ToggleSwitch,
   Box,
 } from "@wix/design-system";
 import "@wix/design-system/styles.global.css";
 import { ColorPickerField } from "./components/ColorPickerField";
 import { FontPickerField } from "./components/FontPickerField";
+import { parseTimeValue } from "./utils";
+
+const DEFAULT_BG_COLOR = "#0a0e27";
+const DEFAULT_TEXT_COLOR = "#00ff88";
+const DEFAULT_TEXT_FONT = "";
+const DEFAULT_TEXT_DECORATION = "";
 
 const Panel: FC = () => {
-  const [title, setTitle] = useState<string>("");
+  const [title, setTitle] = useState<string>("Countdown");
   const [targetDate, setTargetDate] = useState<string>("");
   const [targetTime, setTargetTime] = useState<string>("00:00");
-  const [bgColor, setBgColor] = useState<string>("#ffffff");
-  const [isEnabled, setIsEnabled] = useState<boolean>(true);
+  const [bgColor, setBgColor] = useState<string>(DEFAULT_BG_COLOR);
+  const [textColor, setTextColor] = useState<string>(DEFAULT_TEXT_COLOR);
+  const [font, setFont] = useState({ font: DEFAULT_TEXT_FONT, textDecoration: DEFAULT_TEXT_DECORATION });
 
   useEffect(() => {
     Promise.all([
@@ -217,14 +219,16 @@ const Panel: FC = () => {
       widget.getProp("target-date"),
       widget.getProp("target-time"),
       widget.getProp("bg-color"),
-      widget.getProp("enabled"),
+      widget.getProp("text-color"),
+      widget.getProp("font"),
     ])
-      .then(([titleVal, dateVal, timeVal, bgColorVal, enabledVal]) => {
-        setTitle(titleVal || "");
+      .then(([titleVal, dateVal, timeVal, bgColorVal, textColorVal, fontString]) => {
+        setTitle(titleVal || "Countdown");
         setTargetDate(dateVal || "");
         setTargetTime(timeVal || "00:00");
-        setBgColor(bgColorVal || "#ffffff");
-        setIsEnabled(enabledVal === "true" || enabledVal === true);
+        setBgColor(bgColorVal || DEFAULT_BG_COLOR);
+        setTextColor(textColorVal || DEFAULT_TEXT_COLOR);
+        setFont(JSON.parse(fontString || "{}"));
       })
       .catch((error) => console.error("Failed to fetch widget properties:", error));
   }, []);
@@ -256,16 +260,20 @@ const Panel: FC = () => {
     widget.setProp("bg-color", value);
   };
 
-  const handleEnabledChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-    const enabled = event.target.checked;
-    setIsEnabled(enabled);
-    widget.setProp("enabled", String(enabled));
-  }, []);
+  const handleTextColorChange = (value: string) => {
+    setTextColor(value);
+    widget.setProp("text-color", value);
+  };
+
+  const handleFontChange = (value: { font: string; textDecoration: string }) => {
+    setFont(value);
+    widget.setProp("font", JSON.stringify(value));
+  };
 
   return (
     <WixDesignSystemProvider>
       <SidePanel width="300" height="100vh">
-        <SidePanel.Header title="Widget Settings" />
+        <SidePanel.Header title="Countdown Settings" />
         <SidePanel.Content noPadding stretchVertically>
           <Box direction="vertical" gap="24px">
             <SidePanel.Field>
@@ -274,13 +282,13 @@ const Panel: FC = () => {
                   type="text"
                   value={title}
                   onChange={handleTitleChange}
-                  placeholder="Enter title"
+                  placeholder="Enter countdown title"
                 />
               </FormField>
             </SidePanel.Field>
 
             <SidePanel.Field>
-              <FormField label="Target Date">
+              <FormField label="Target Date" required>
                 <Input
                   type="date"
                   value={targetDate}
@@ -290,7 +298,7 @@ const Panel: FC = () => {
             </SidePanel.Field>
 
             <SidePanel.Field>
-              <FormField label="Target Time">
+              <FormField label="Target Time" required>
                 <TimeInput
                   value={parseTimeValue(targetTime)}
                   onChange={handleTimeChange}
@@ -304,14 +312,17 @@ const Panel: FC = () => {
               onChange={handleBgColorChange}
             />
 
-            <SidePanel.Field>
-              <FormField label="Enabled">
-                <ToggleSwitch
-                  checked={isEnabled}
-                  onChange={handleEnabledChange}
-                />
-              </FormField>
-            </SidePanel.Field>
+            <ColorPickerField
+              label="Text Color"
+              value={textColor}
+              onChange={handleTextColorChange}
+            />
+
+            <FontPickerField
+              label="Text Font"
+              value={font}
+              onChange={handleFontChange}
+            />
           </Box>
         </SidePanel.Content>
       </SidePanel>
@@ -328,4 +339,7 @@ export default Panel;
 - Use `SidePanel.Field` to wrap each `FormField`
 - Update both local state AND `widget.setProp()` in onChange handlers
 - Prop names in `widget.getProp()` and `widget.setProp()` use kebab-case
-- For font selection, use `inputs.selectFont()` from `@wix/editor`, not a text Input
+- For color selection, use `inputs.selectColor()` from `@wix/editor` with `FillPreview` — do NOT use `<Input type="color">`
+- For font selection, use `inputs.selectFont()` from `@wix/editor` with a `Button` — do NOT use a text Input
+- Both `inputs.selectColor()` and `inputs.selectFont()` use the callback pattern: `inputs.selectColor(value, { onChange })` and `inputs.selectFont(value, { onChange })`
+- Font values are stored as JSON strings via `widget.setProp("font", JSON.stringify(value))` and parsed back with `JSON.parse()`
