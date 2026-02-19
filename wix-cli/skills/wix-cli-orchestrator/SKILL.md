@@ -14,6 +14,9 @@ Helps select the appropriate Wix CLI extension type based on use case and requir
 
 - [ ] **Step 1:** Determined extension type(s) needed
   - [ ] Asked clarifying questions if requirements were unclear
+  - [ ] Checked for implicit Data Collection need — unless user provided a collection ID directly (see [Data Collection Inference](#data-collection-inference))
+  - [ ] Obtained app namespace if Data Collection extension is being created
+  - [ ] Determined full scoped collection IDs if Data Collection extension is being created (see [Collection ID Coordination](#collection-id-coordination))
   - [ ] Explained recommendation with reasoning
 - [ ] **Step 2:** Checked references, spawned discovery if needed
   - [ ] Checked relevant reference files for required APIs
@@ -96,6 +99,26 @@ Answer these questions to find the right extension:
 - **Backend:** During business flow (checkout/shipping/tax)? → Service Plugin. After event (webhooks/sync)? → Event Extension. Custom HTTP endpoints? → Backend Endpoints. Need CMS collections for app data? → Data Collection.
 - **Site:** User places anywhere? → Site Widget. Fixed slot on Wix app page? → Site Plugin. Scripts/analytics only? → Embedded Script.
 
+### Data Collection Inference
+
+**CRITICAL:** Data collections are often needed implicitly — don't wait for the user to explicitly say "create a CMS collection." Infer the need automatically.
+
+**Skip this section if the user provides a collection ID directly** (e.g., an existing site-level collection). In that case, use the provided ID as-is — no Data Collection extension or namespace scoping needed.
+
+**Always include a Data Collection extension when ANY of these are true:**
+
+| Indicator | Example |
+| --- | --- |
+| User mentions saving/storing/persisting app-specific data | "save the fee amount", "store product recommendations" |
+| A dashboard page will **manage** (CRUD) domain entities | "dashboard to manage fees", "admin page to edit rules" |
+| A service plugin reads app-configured data at runtime | "fetch fee rules at checkout", "look up shipping rates" |
+| User mentions "dedicated database/collection" | "save in a dedicated database collection" |
+| Multiple extensions reference the same custom data | Dashboard manages fees + service plugin reads fees |
+
+**Why this matters:** Without the Data Collection extension, the collection won't be created when the app is installed, the Wix Data APIs may not work (code editor not enabled), and collection IDs won't be properly scoped to the app namespace.
+
+**If data collection is inferred, follow the [App Namespace Requirement](#step-1-ask-clarifying-questions-if-needed) to obtain the namespace before proceeding.**
+
 ## Quick Reference Table
 
 | Extension Type        | Category  | Visibility  | Use When                      | Skill                     |
@@ -150,6 +173,16 @@ When creating a Data Collection, you MUST ask the user for their app namespace f
 6. Copy the Namespace value
 
 If unclear on approach (placement, visibility, configuration, integration), ask clarifying questions. If the answer could change the extension type, wait for the response before proceeding. Otherwise, proceed with the best-fit extension type.
+
+### Collection ID Coordination
+
+**Applies ONLY when a Data Collection extension is being created.** If the user provides a collection ID directly, use it as-is — no namespace scoping, no Data Collection extension needed.
+
+When a Data Collection is created alongside other extensions that reference the same collections:
+
+1. **Get the app namespace** (see App Namespace Requirement above)
+2. **Determine the `idSuffix`** for each collection (the `wix-cli-data-collection` skill documents the full ID format)
+3. **Pass the full scoped collection ID** (`<app-namespace>/<idSuffix>`) to every other sub-agent (dashboard page, service plugin, etc.) so they use it in all Wix Data API calls
 
 ### Step 2: Make Your Recommendation
 
@@ -252,7 +285,8 @@ The sub-agent prompt should include:
 3. ✅ SDK methods discovered (with imports and types) — **only if discovery was performed**
 4. ✅ Instruction to invoke `wds-docs` skill FIRST when using @wix/design-system (critical for correct imports, especially icons)
 5. ✅ Any constraints or gotchas discovered
-6. ✅ Instruction to return manual action items (see below)
+6. ✅ Collection Context with full scoped collection IDs — **only if Data Collection is being created**
+7. ✅ Instruction to return manual action items (see below)
 
 **Implementation sub-agent prompt template:**
 
@@ -290,6 +324,10 @@ Implement this extension following the skill guidelines.
 | Data Collection + Dashboard Page | ✅ YES    | Data schema vs UI                   |
 | Data Collection + Backend API    | ✅ YES    | Data schema vs HTTP handlers        |
 | Data Collection + Site Widget    | ✅ YES    | Data schema vs site UI              |
+
+**Pre-spawn coordination required (then parallel is fine):**
+
+- When a Data Collection + other extensions reference the same collections: determine the full scoped collection IDs (`<app-namespace>/<idSuffix>`) BEFORE spawning sub-agents, then pass the IDs to all sub-agents and run them in parallel
 
 **Sequential execution required:**
 
