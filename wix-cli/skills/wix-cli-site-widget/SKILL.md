@@ -403,7 +403,7 @@ export const ColorPickerField: FC<ColorPickerFieldProps> = ({
       <Box width="30px" height="30px">
         <FillPreview
           fill={value}
-          onClick={() => inputs.selectColor(value, { onChange })}
+          onClick={() => inputs.selectColor(value, { onChange: (val) => { if (val) onChange(val); } })}
         />
       </Box>
     </FormField>
@@ -455,7 +455,7 @@ export const FontPickerField: FC<FontPickerFieldProps> = ({
       <Button
         size="small"
         priority="secondary"
-        onClick={() => inputs.selectFont(value, { onChange })}
+        onClick={() => inputs.selectFont(value, { onChange: (val) => onChange({ font: val.font, textDecoration: val.textDecoration || "" }) })}
         fullWidth
       >
         <Text size="small" ellipsis>Change Font</Text>
