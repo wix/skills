@@ -1,0 +1,15 @@
+{
+  "name": "wix",
+  "displayName": "Wix",
+  "description": "Build, manage, and deploy Wix sites and apps directly from Cursor. Includes CLI development skills for creating dashboard extensions, backend APIs, site widgets, and service plugins. Connects to the Wix MCP server for site management.",
+  "version": "1.0.0",
+  "publisher": "wix",
+  "author": {
+    "name": "Wix",
+    "url": "https://dev.wix.com"
+  },
+  "homepage": "https://dev.wix.com/",
+  "repository": "https://github.com/wix/skills",
+  "license": "MIT",
+  "keywords": ["wix", "wix-cli", "mcp", "ecommerce", "cms", "backend-api"]
+}
