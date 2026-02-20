@@ -3,9 +3,7 @@
   "owner": {
     "name": "Wix"
   },
-  "metadata": {
-    "description": "Agent skills for Wix marketplace"
-  },
+  "description": "Agent skills and tools for Wix development",
   "plugins": [
     {
       "name": "wix-cli",
