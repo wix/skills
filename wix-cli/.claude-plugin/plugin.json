@@ -1,10 +1,13 @@
 {
   "name": "wix-cli",
-  "description": "Agent skills for building Wix CLI applications.",
+  "description": "Build, manage, and deploy Wix sites and apps. Includes CLI development skills and Wix MCP server for site management, eCommerce, CMS, dashboard extensions, and more.",
   "version": "1.0.0",
   "author": {
     "name": "Wix"
+    "url": "https://dev.wix.com"
   },
+  "homepage": "https://dev.wix.com/docs/wix-cli/guides/development/about-wix-skills",
   "repository": "https://github.com/wix/skills",
   "license": "MIT"
+  "keywords": ["wix", "wix-cli", "wix-mcp", "ecommerce", "cms","wix-apps"]
 }
