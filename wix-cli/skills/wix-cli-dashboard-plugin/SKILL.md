@@ -214,15 +214,6 @@ For existing app versions, rebuild and redeploy after removal.
 - Do NOT use dashboard plugins for standalone admin pages — use [wix-cli-dashboard-page](../wix-cli-dashboard-page/SKILL.md) instead
 - Do NOT use dashboard plugins for site-facing UI — use [wix-cli-site-widget](../wix-cli-site-widget/SKILL.md) or [wix-cli-site-plugin](../wix-cli-site-plugin/SKILL.md) instead
 
-## Non-Matching Intents
-
-| User Request | Correct Skill |
-|---|---|
-| "Create a dashboard settings page" | [wix-cli-dashboard-page](../wix-cli-dashboard-page/SKILL.md) |
-| "Add a popup dialog to the dashboard" | [wix-cli-dashboard-modal](../wix-cli-dashboard-modal/SKILL.md) |
-| "Build a widget for the site frontend" | [wix-cli-site-widget](../wix-cli-site-widget/SKILL.md) |
-| "Extend a product page slot on the live site" | [wix-cli-site-plugin](../wix-cli-site-plugin/SKILL.md) |
-
 ## Examples
 
 ### Blog Posts Banner Plugin
