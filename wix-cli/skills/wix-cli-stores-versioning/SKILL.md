@@ -41,6 +41,14 @@ async function getProducts() {
 }
 ```
 
+## Required Permissions
+
+**Always look up permissions for each API method you use:**
+
+1. Search for the method using `mcp__wix-mcp-remote__SearchWixRESTDocumentation`
+2. Read the full docs with `mcp__wix-mcp-remote__ReadFullDocsArticle` to get the required permissions
+3. Return the required permissions to the user
+
 ## Key Rules
 
 - Call `getCatalogVersion()` at the start of each flow
@@ -52,13 +60,16 @@ async function getProducts() {
 
 **Use MCP tools to search for version-specific documentation:**
 
-- `mcp__wix-mcp-remote__SearchWixSDKDocumentation` - Search for SDK methods (use `maxResults: 5`)
+- `mcp__wix-mcp-remote__SearchWixRESTDocumentation` - Search for methods and permissions
 - `mcp__wix-mcp-remote__ReadFullDocsArticle` - Read full documentation when needed
 
 **Search queries** (results show both V1 and V3 namespaces):
+- `"getCatalogVersion"` → permissions and usage
 - `"createProduct"` → `productsV3` (V3) and `products` (V1)
 - `"queryProducts"` → `productsV3` (V3) and `products` (V1)
 - `"getInventoryItem"` → `inventoryItemsV3` (V3) and `inventory` (V1)
+
+**Important:** After finding the method, use `mcp__wix-mcp-remote__ReadFullDocsArticle` to get the full documentation including required permissions. Return them to the user.
 
 ## API Differences Reference
 
