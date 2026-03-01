@@ -11,7 +11,7 @@ In [Claude Code](https://docs.anthropic.com/en/docs/claude-code), run:
 
 ```bash
 /plugin marketplace add wix/skills
-/plugin install wix-cli@wix
+/plugin install wix@wix
 ```
 
 ### Skills
