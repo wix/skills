@@ -30,7 +30,6 @@ npx skills add wix/skills -g
 
 | Skill | Purpose | When to Use |
 |-------|---------|-------------|
-| [wix-cli-orchestrator](skills/wix-cli-orchestrator/SKILL.md) | Select extension type & orchestrate builds | **First skill to invoke** when adding/building any Wix feature |
 | [wds-docs](skills/wds-docs/SKILL.md) | Wix Design System reference | Looking up WDS component props, examples, icons |
 | [wix-cli-app-validation](skills/wix-cli-app-validation/SKILL.md) | Test and validate Wix apps | Testing app readiness, e2e validation, TypeScript checks |
 | [wix-cli-backend-api](skills/wix-cli-backend-api/SKILL.md) | Create REST API endpoints | Backend HTTP handlers, server-side data processing |
@@ -40,6 +39,7 @@ npx skills add wix/skills -g
 | [wix-cli-data-collection](skills/wix-cli-data-collection/SKILL.md) | Create CMS data collections | Database schemas, structured data storage, collection fields & permissions |
 | [wix-cli-embedded-script](skills/wix-cli-embedded-script/SKILL.md) | Inject client-side code | Tracking pixels, popups, third-party integrations |
 | [wix-cli-extension-registration](skills/wix-cli-extension-registration/SKILL.md) | Extension registration patterns | Registering new or existing extensions, UUID generation, app registration |
+| [wix-cli-orchestrator](skills/wix-cli-orchestrator/SKILL.md) | Select extension type & orchestrate builds | **First skill to invoke** when adding/building any Wix feature |
 | [wix-cli-service-plugin](skills/wix-cli-service-plugin/SKILL.md) | Extend Wix business solution flows | Shipping, fees, taxes, validations, gift cards, custom triggers |
 | [wix-cli-site-component](skills/wix-cli-site-component/SKILL.md) | Create site components | React components with editor manifests for visual customization |
 | [wix-cli-site-plugin](skills/wix-cli-site-plugin/SKILL.md) | Extend Wix app slots | Components for predefined slots in Wix business solutions |
