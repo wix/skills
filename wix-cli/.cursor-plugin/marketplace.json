@@ -1,0 +1,16 @@
+{
+  "name": "wix",
+  "owner": {
+    "name": "Wix"
+  },
+  "metadata": {
+    "description": "Agent skills and tools for Wix development"
+  },
+  "plugins": [
+    {
+      "name": "wix",
+      "source": "./",
+      "description": "Build, manage, and deploy Wix sites and apps. Includes CLI development skills and Wix MCP server for site management, eCommerce, CMS, dashboard extensions, and more."
+    }
+  ]
+}
