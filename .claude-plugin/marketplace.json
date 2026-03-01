@@ -9,7 +9,7 @@
   "plugins": [
     {
       "name": "wix-cli",
-      "source": "./wix-cli",
+      "source": "./",
       "description": "Agent skills for building Wix CLI applications.",
       "version": "1.0.0",
       "author": {

@@ -12,7 +12,7 @@ When adding new skills, follow these best practices:
  
 **Best Practice: Add skills to folders according to the relevant product.**
 
-Skills should be organized under the appropriate product directory structure. Currently, all Wix CLI skills are located under `wix-cli/skills/`.
+Skills should be organized under the appropriate product directory structure. Currently, all Wix CLI skills are located under `skills/`.
 
 #### Naming Convention
 

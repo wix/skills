@@ -33,7 +33,7 @@ npx skills add wix/skills -g
 
 ### Wix CLI
 
-See [wix-cli/skills/README.md](wix-cli/skills/README.md) for the full list of available skills and their capabilities.
+See [skills/README.md](skills/README.md) for the full list of available skills and their capabilities.
 
 ## Supported Agents
 
