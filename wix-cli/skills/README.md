@@ -108,10 +108,8 @@ Agent skills for building Wix CLI applications. Each skill provides domain-speci
 
 ### Stores Versioning
 - Catalog version detection (V1/V3/Not Installed)
-- Version-aware product CRUD operations
-- V1 and V3 webhook handling
-- SDK patterns for both catalog versions
-- Caching strategies for catalog version
+- Version-aware SDK module selection
+- Directs to MCP for SDK-specific documentation
 
 ## Skill Structure
 
