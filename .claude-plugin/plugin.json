@@ -9,5 +9,6 @@
   "homepage": "https://dev.wix.com/docs/wix-cli/guides/development/about-wix-skills",
   "repository": "https://github.com/wix/skills",
   "license": "MIT",
-  "keywords": ["wix", "wix-cli", "wix-mcp", "ecommerce", "cms", "wix-apps"]
+  "keywords": ["wix", "wix-cli", "wix-mcp", "ecommerce", "cms", "wix-apps"],
+  "mcpServers": "./.mcp.json"
 }
