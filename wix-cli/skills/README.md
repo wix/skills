@@ -20,6 +20,7 @@ Agent skills for building Wix CLI applications. Each skill provides domain-speci
 | [wix-cli-site-component](wix-cli-site-component/SKILL.md) | Create site components | React components with editor manifests for visual customization |
 | [wix-cli-site-plugin](wix-cli-site-plugin/SKILL.md) | Extend Wix app slots | Components for predefined slots in Wix business solutions |
 | [wix-cli-site-widget](wix-cli-site-widget/SKILL.md) | Create standalone widgets | Countdown timers, calculators, configurable components |
+| [wix-cli-stores-versioning](wix-cli-stores-versioning/SKILL.md) | Handle Stores V1/V3 APIs | Building integrations supporting both catalog versions |
 
 ## Quick Reference: Site Plugin vs Site Widget
 
@@ -104,6 +105,13 @@ Agent skills for building Wix CLI applications. Each skill provides domain-speci
 - TypeScript compilation checks
 - Build verification
 - Preview deployment
+
+### Stores Versioning
+- Catalog version detection (V1/V3/Not Installed)
+- Version-aware product CRUD operations
+- V1 and V3 webhook handling
+- SDK patterns for both catalog versions
+- Caching strategies for catalog version
 
 ## Skill Structure
 
