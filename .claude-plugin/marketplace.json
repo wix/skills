@@ -1,8 +1,7 @@
 {
   "name": "wix",
   "owner": {
-    "name": "Wix",
-    "url": "https://dev.wix.com"
+    "name": "Wix"
   },
   "metadata": {
     "description": "Agent skills for Wix marketplace"
