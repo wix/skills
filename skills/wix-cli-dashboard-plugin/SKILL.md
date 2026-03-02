@@ -172,47 +172,19 @@ Each dashboard plugin requires an `<plugin-name>.extension.ts` file in its folde
 
 **Without completing Step 2, the dashboard plugin will not appear on the dashboard page.**
 
-Example registration in `src/extensions.ts`:
-
-```typescript
-import { app } from "@wix/astro/builders";
-import { dashboardpluginMyPlugin } from "./extensions/dashboard/plugins/my-plugin/my-plugin.extension.ts";
-
-export default app()
-  .use(dashboardpluginMyPlugin);
-```
-
-### Naming Convention
-
-Extension export names follow the pattern: `dashboardplugin{CamelCaseName}`
-
-Examples:
-- `dashboardpluginBlogPostsBanner`
-- `dashboardpluginBookingsStaffSummary`
-- `dashboardpluginOrderDetails`
-
 ## Sizing Behavior
 
 - Dashboard plugins take the **full width** of their slot
 - **Height** adjusts dynamically based on content within slot boundaries
 - When using Dashboard SDK or dashboard-react SDK, dimensions change dynamically based on contents
 
-## Deleting a Plugin
-
-1. Delete the folder containing extension files under `src/extensions/dashboard/plugins/`
-2. Remove the import and `.use()` statement from `src/extensions.ts`
-
-For existing app versions, rebuild and redeploy after removal.
-
 ## Hard Constraints
 
-- Do NOT invent or assume new types, modules, functions, props, events, or imports
-- Use only entities explicitly present in the provided references or standard libraries already used in this project
-- If something is missing, call it out explicitly and provide a minimal TODO or clearly marked placeholder
-- Always verify component availability before using it in generated code
+- Do NOT invent or assume new types, modules, functions, props, events, or imports — use only entities explicitly present in the provided references or standard libraries already used in this project
+- NEVER use mocks, placeholders, or TODOs in any code — ALWAYS implement complete, production-ready functionality
 - The `extends` field MUST contain a valid slot ID from a Wix business app — do NOT invent slot IDs
-- Do NOT use dashboard plugins for standalone admin pages — use [wix-cli-dashboard-page](../wix-cli-dashboard-page/SKILL.md) instead
-- Do NOT use dashboard plugins for site-facing UI — use [wix-cli-site-widget](../wix-cli-site-widget/SKILL.md) or [wix-cli-site-plugin](../wix-cli-site-plugin/SKILL.md) instead
+- Prefer type-narrowing and exhaustive logic over assertions; avoid non-null assertions (`!`) and unsafe casts (`as any`)
+- Do NOT use `// @ts-ignore` or `// @ts-expect-error`; fix the types or add guards instead
 
 ## Examples
 
@@ -233,21 +205,6 @@ For existing app versions, rebuild and redeploy after removal.
 **Request:** "Create a plugin on the eCommerce order page showing fulfillment status"
 
 **Output:** Plugin targeting slot `cb16162e-42aa-41bd-a644-dc570328c6cc` (eCommerce Order page) with status badges and fulfillment details, using `observeState()` to access order data.
-
-## Code Quality Requirements
-
-### TypeScript Quality Guidelines
-
-- Generated code MUST compile with zero TypeScript errors under strict settings
-- Prefer type-narrowing and exhaustive logic over assertions; avoid non-null assertions (`!`) and unsafe casts (`as any`)
-- Do NOT use `// @ts-ignore` or `// @ts-expect-error`; fix the types or add guards instead
-
-### Core Principles
-
-- Do NOT invent or assume new types, modules, functions, props, events, or imports
-- NEVER use mocks, placeholders, or TODOs in any code
-- ALWAYS implement complete, production-ready functionality
-- Handle all edge cases and error scenarios appropriately
 
 ### Output Constraints
 
