@@ -1,5 +1,5 @@
 ---
-name: stores-versioning
+name: wix-stores-versioning
 description: "Handle Wix Stores Catalog V1 and V3 SDK compatibility. Use when building integrations that interact with Wix Stores"
 ---
 
