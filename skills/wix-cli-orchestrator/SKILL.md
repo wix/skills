@@ -226,8 +226,8 @@ Use Quick Reference Table and decision content above. State extension type and b
 
 **MCP Tools the sub-agent should use:**
 
-- `mcp__wix-mcp-remote__SearchWixSDKDocumentation` - SDK methods and APIs (**Always use maxResults: 5**)
-- `mcp__wix-mcp-remote__ReadFullDocsArticle` - Full documentation when needed (only if search results need more detail)
+- `SearchWixSDKDocumentation` - SDK methods and APIs (**Always use maxResults: 5**)
+- `ReadFullDocsArticle` - Full documentation when needed (only if search results need more detail)
 
 **Discovery sub-agent prompt template:**
 
