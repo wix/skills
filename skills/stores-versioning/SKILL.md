@@ -1,5 +1,5 @@
 ---
-name: wix-cli-stores-versioning
+name: stores-versioning
 description: "Handle Wix Stores Catalog V1 and V3 SDK compatibility. Use when building integrations that interact with Wix Stores"
 ---
 
@@ -12,7 +12,7 @@ Wix Stores has two catalog versions that are **NOT backwards compatible**:
 | **V1_CATALOG** | Legacy (e.g., `products`, `inventory`) |
 | **V3_CATALOG** | Current (e.g., `productsV3`, `inventoryItemsV3`) |
 
-V3 modules typically have a `V3` suffix. Use MCP to search for the specific module you need.
+V3 modules typically have a `V3` suffix. Use Wix MCP to search for the specific module you need.
 
 ## Core Pattern
 
@@ -20,7 +20,6 @@ Always check catalog version before any Stores operation:
 
 ```typescript
 import { catalogVersioning, products, productsV3 } from '@wix/stores';
-import { auth } from '@wix/essentials';
 
 async function getProducts() {
   const { catalogVersion } = await catalogVersioning.getCatalogVersion();
@@ -45,8 +44,8 @@ async function getProducts() {
 
 **Always look up permissions for each API method you use:**
 
-1. Search for the method using `mcp__wix-mcp-remote__SearchWixRESTDocumentation`
-2. Read the full docs with `mcp__wix-mcp-remote__ReadFullDocsArticle` to get the required permissions
+1. Search for the method using `SearchWixRESTDocumentation`
+2. Read the full docs with `ReadFullDocsArticle` to get the required permissions
 3. Return the required permissions to the user
 
 ## Key Rules
@@ -60,8 +59,8 @@ async function getProducts() {
 
 **Use MCP tools to search for version-specific documentation:**
 
-- `mcp__wix-mcp-remote__SearchWixRESTDocumentation` - Search for methods and permissions
-- `mcp__wix-mcp-remote__ReadFullDocsArticle` - Read full documentation when needed
+- `SearchWixRESTDocumentation` - Search for methods and permissions
+- `ReadFullDocsArticle` - Read full documentation when needed
 
 **Search queries** (results show both V1 and V3 namespaces):
 - `"getCatalogVersion"` → permissions and usage
@@ -69,7 +68,7 @@ async function getProducts() {
 - `"queryProducts"` → `productsV3` (V3) and `products` (V1)
 - `"getInventoryItem"` → `inventoryItemsV3` (V3) and `inventory` (V1)
 
-**Important:** After finding the method, use `mcp__wix-mcp-remote__ReadFullDocsArticle` to get the full documentation including required permissions. Return them to the user.
+**Important:** After finding the method, use `ReadFullDocsArticle` to get the full documentation including required permissions. Return them to the user.
 
 ## API Differences Reference
 

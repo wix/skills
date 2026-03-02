@@ -48,7 +48,7 @@ npx skills add wix/skills -g
 | [wix-cli-site-component](skills/wix-cli-site-component/SKILL.md) | Create site components | React components with editor manifests for visual customization |
 | [wix-cli-site-plugin](skills/wix-cli-site-plugin/SKILL.md) | Extend Wix app slots | Components for predefined slots in Wix business solutions |
 | [wix-cli-site-widget](skills/wix-cli-site-widget/SKILL.md) | Create standalone widgets | Countdown timers, calculators, configurable components |
-| [wix-cli-stores-versioning](skills/wix-cli-stores-versioning/SKILL.md) | Handle Stores V1/V3 APIs | Building integrations supporting both catalog versions |
+| [stores-versioning](skills/stores-versioning/SKILL.md) | Handle Stores V1/V3 APIs | Building integrations supporting both catalog versions |
 
 ## Supported Agents
 
