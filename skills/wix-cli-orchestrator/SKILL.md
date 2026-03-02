@@ -125,7 +125,7 @@ Answer these questions to find the right extension:
 | --------------------- | --------- | ----------- | ----------------------------- | ------------------------- |
 | Dashboard Page        | Dashboard | Admin only  | Full admin pages              | `wix-cli-dashboard-page`   |
 | Dashboard Modal       | Dashboard | Admin only  | Popup dialogs                 | `wix-cli-dashboard-modal` |
-| Dashboard Plugin      | Dashboard | Admin only  | Extend Wix app dashboards     | (none yet)                |
+| Dashboard Plugin      | Dashboard | Admin only  | Extend Wix app dashboards     | `wix-cli-dashboard-plugin` |
 | Dashboard Menu Plugin | Dashboard | Admin only  | Add menu items                | (none yet)                |
 | Service Plugin        | Backend   | Server-side | Customize business flows      | `wix-cli-service-plugin`   |
 | Event Extension       | Backend   | Server-side | React to events               | `wix-cli-backend-event`   |
