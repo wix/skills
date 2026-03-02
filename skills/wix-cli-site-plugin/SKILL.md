@@ -168,6 +168,88 @@ export default Panel;
 - Import `@wix/design-system/styles.global.css` for styles
 - Include `aria-label` for accessibility
 
+## Color & Font Picker Fields
+
+Site plugin settings panels can use `inputs.selectColor()` and `inputs.selectFont()` from `@wix/editor` to open the native Wix Editor color and font picker dialogs.
+
+### ColorPickerField
+
+Opens the Wix color picker with theme colors, gradients, and more — **NOT** a basic HTML `<input type="color">`.
+
+```typescript
+import React, { type FC } from 'react';
+import { inputs } from '@wix/editor';
+import { FormField, Box, FillPreview, SidePanel } from '@wix/design-system';
+
+interface ColorPickerFieldProps {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}
+
+export const ColorPickerField: FC<ColorPickerFieldProps> = ({
+  label,
+  value,
+  onChange,
+}) => (
+  <SidePanel.Field>
+    <FormField label={label}>
+      <Box width="30px" height="30px">
+        <FillPreview
+          fill={value}
+          onClick={() => inputs.selectColor(value, { onChange: (val) => { if (val) onChange(val); } })}
+        />
+      </Box>
+    </FormField>
+  </SidePanel.Field>
+);
+```
+
+### FontPickerField
+
+Opens the Wix font picker with font family, size, bold, italic, and other typography features.
+
+```typescript
+import React, { type FC } from 'react';
+import { inputs } from '@wix/editor';
+import { FormField, Button, Text, SidePanel } from '@wix/design-system';
+
+interface FontValue {
+  font: string;
+  textDecoration: string;
+}
+
+interface FontPickerFieldProps {
+  label: string;
+  value: FontValue;
+  onChange: (value: FontValue) => void;
+}
+
+export const FontPickerField: FC<FontPickerFieldProps> = ({
+  label,
+  value,
+  onChange,
+}) => (
+  <SidePanel.Field>
+    <FormField label={label}>
+      <Button
+        size="small"
+        priority="secondary"
+        onClick={() => inputs.selectFont(value, { onChange: (val) => onChange({ font: val.font, textDecoration: val.textDecoration || "" }) })}
+        fullWidth
+      >
+        <Text size="small" ellipsis>Change Font</Text>
+      </Button>
+    </FormField>
+  </SidePanel.Field>
+);
+```
+
+**Important:**
+- Always use `inputs.selectColor()` from `@wix/editor` with `FillPreview` — do NOT use `<Input type="color">`
+- Always use `inputs.selectFont()` from `@wix/editor` with the callback pattern `inputs.selectFont(value, { onChange })`
+- Import `inputs` from `@wix/editor` (not from `@wix/sdk`)
+
 ## Attribute Naming Convention
 
 Site plugins use **kebab-case** consistently for HTML attributes:

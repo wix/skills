@@ -54,13 +54,14 @@ export default BestSellerBadge;
 
 ```typescript
 import React, { type FC, useState, useEffect, useCallback } from 'react';
-import { widget } from '@wix/editor';
+import { widget, inputs } from '@wix/editor';
 import {
   SidePanel,
   WixDesignSystemProvider,
   Input,
   FormField,
-  ColorInput,
+  Box,
+  FillPreview,
 } from '@wix/design-system';
 import '@wix/design-system/styles.global.css';
 
@@ -115,12 +116,22 @@ const Panel: FC = () => {
           </SidePanel.Field>
           <SidePanel.Field>
             <FormField label="Background Color">
-              <ColorInput value={bgColor} onChange={handleBgColorChange} />
+              <Box width="30px" height="30px">
+                <FillPreview
+                  fill={bgColor}
+                  onClick={() => inputs.selectColor(bgColor, { onChange: (val) => { if (val) handleBgColorChange(val); } })}
+                />
+              </Box>
             </FormField>
           </SidePanel.Field>
           <SidePanel.Field>
             <FormField label="Text Color">
-              <ColorInput value={textColor} onChange={handleTextColorChange} />
+              <Box width="30px" height="30px">
+                <FillPreview
+                  fill={textColor}
+                  onClick={() => inputs.selectColor(textColor, { onChange: (val) => { if (val) handleTextColorChange(val); } })}
+                />
+              </Box>
             </FormField>
           </SidePanel.Field>
         </SidePanel.Content>

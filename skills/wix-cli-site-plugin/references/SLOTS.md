@@ -256,16 +256,6 @@ placements: [
 
 **Note:** If you have multiple placements for slots on a single page, the plugin will be added to the first available slot according to the order you defined. If that slot is occupied, it will be placed in the next available slot. If there are no available slots, it will not be placed. Users may manually move the plugin to their desired location in the editor.
 
-## Finding Slot IDs
-
-To find available slots for a specific Wix app:
-
-1. Use the Wix CLI `generate` command and select "Site Plugin"
-2. The CLI will prompt you to select a Wix app and display available slots
-3. Use the arrow keys to navigate and select the desired slot
-
-The CLI automatically populates the `placements` array with the correct IDs.
-
 ## Slot Limitations
 
 - Each slot has specific size constraints defined by the host app
