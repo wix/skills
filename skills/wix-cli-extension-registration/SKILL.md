@@ -68,6 +68,7 @@ Extension export names follow this pattern: `{extensiontype}{CamelCaseName}`
 Examples:
 
 - `dashboardpageCartPopupManager`
+- `dashboardpluginBlogPostsBanner`
 - `embeddedscriptCouponPopup`
 - `sitewidgetCountdownWidget`
 - `sitepluginProductBadge`
