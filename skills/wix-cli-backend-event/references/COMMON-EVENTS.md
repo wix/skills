@@ -17,7 +17,7 @@ import { contacts } from "@wix/crm";
 
 contacts.onContactCreated((event) => {
   const contact = event.entity;
-  console.log("New contact:", contact.id, contact.info?.email);
+  console.log("New contact:", contact._id, contact.primaryInfo?.email);
 });
 ```
 
@@ -36,8 +36,8 @@ contacts.onContactCreated((event) => {
 import { orders } from "@wix/ecom";
 
 orders.onOrderApproved(async (event) => {
-  const order = event.entity;
-  console.log("Order approved:", order.id);
+  const order = event.data.order;
+  console.log("Order approved:", order._id);
 });
 ```
 
@@ -54,8 +54,8 @@ orders.onOrderApproved(async (event) => {
 import { bookings } from "@wix/bookings";
 
 bookings.onBookingConfirmed((event) => {
-  const booking = event.entity;
-  console.log("Booking confirmed:", booking.id);
+  const booking = event.data.booking;
+  console.log("Booking confirmed:", booking._id);
 });
 ```
 
@@ -73,15 +73,12 @@ import { posts } from "@wix/blog";
 
 posts.onPostCreated((event) => {
   const post = event.entity;
-  console.log("Post created:", post.id, post.title);
+  console.log("Post created:", post._id, post.title);
 });
 ```
 
 ## Payload Shape
 
-Event handlers receive an object (often called `event` or envelope) that includes:
+The event envelope structure varies by API — the path to the main entity differs (e.g., `event.entity`, `event.data.order`). Use TypeScript and your IDE for autocomplete and type safety. See each event's API reference link above for the exact payload shape.
 
-- **entity** – The main resource (contact, order, booking, post, etc.).
-- **metadata** – Context such as site ID, instance ID, timestamp.
-
-Exact types are in the SDK; use TypeScript and your IDE for autocomplete and type safety.
+All envelopes include a **metadata** object with context such as event ID, entity ID, timestamp, and instance ID.

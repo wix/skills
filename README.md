@@ -14,13 +14,13 @@ In [Claude Code](https://docs.anthropic.com/en/docs/claude-code), run:
 /plugin install wix@wix
 ```
 
-### Cursor
+### Cursor Plugin
 
-Install from the [Cursor Marketplace](https://cursor.com/marketplace) or in Cursor go to **Settings > Rules > New Rule > Add from Github** with `https://github.com/wix/skills.git`.
+Go to **Settings > Rules > New Rule > Add from Github** with `https://github.com/wix/skills.git`.
 
-### Skills
+### Skills CLI
 
-Install these skills using [skills](https://github.com/vercel-labs/add-skill):
+Install using [skills CLI](https://github.com/vercel-labs/skills):
 
 ```bash
 # Install all skills
