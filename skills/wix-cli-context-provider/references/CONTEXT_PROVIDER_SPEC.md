@@ -119,7 +119,7 @@ Specifies how to use the context this component provides in React.
 
 | Key | Type | Description | Constraints |
 |-----|------|-------------|------------|
-| moduleSpecifier | string | The module name in case of public NPM package | Optional, maxLength: 100 |
+| moduleSpecifier | string | An identifier for the context module. Does not have to be an NPM package | Optional, maxLength: 100 |
 | hook | string | The exported hook for components usage (e.g., `useSomeContextName`) | Required, maxLength: 100 |
 
 ## ContextItem

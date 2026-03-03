@@ -16,7 +16,7 @@ Creates production-quality context provider components for Wix CLI applications.
 
 Follow these steps in order when creating a context provider:
 
-1. [ ] Install `@preact/signals-react` as a devDependency if not already present
+1. [ ] Install `@preact/signals-react` if not already present
 2. [ ] Create provider folder: `src/extensions/{provider-name}/`
 3. [ ] Create `provider.tsx` with React context, hook export, and provider component
 4. [ ] Register in `src/extensions.ts` using `experimentalExtensions.contextProvider()`
@@ -260,9 +260,11 @@ The implementor component must be part of the same application and is rendered i
 | `resources.client.url` | string | Yes | Path to the ESM bundle (provider component) |
 | `resources.editor.url` | string | No | Path to editor-specific bundle (mock/default data) |
 | `resources.contextSpecifier.hook` | string | Yes | The exported hook name (e.g., `useMyContext`) |
-| `resources.contextSpecifier.moduleSpecifier` | string | No | Package name chosen by the app developer. Consumers import the hook from this name and declare it in `contextDependencies` |
+| `resources.contextSpecifier.moduleSpecifier` | string | No | An identifier for the context module. Does not have to be an NPM package. Consumers import the hook from this name and declare it in `contextDependencies` |
 
 ### Child Component Dependencies
+
+**Only site components can consume context providers.** Other extension types (e.g. site widgets, site plugins) are not supported as consumers.
 
 Any site component consuming a context provider must declare the dependency:
 
@@ -439,7 +441,8 @@ export default Clicker;
 
 ### Consumer Component Rules
 
-- **Import the hook from the `moduleSpecifier` package** (e.g., `my-counter-context`). This package is generated at build time, so the import requires `@ts-expect-error`:
+- **Only site components** can be consumers of context providers. Other extension types (e.g. site widgets, site plugins) are not supported.
+- **Import the hook from the `moduleSpecifier`** (e.g., `my-counter-context`). This is not an actual NPM package, so the import requires `@ts-expect-error`:
   ```typescript
   //@ts-expect-error will be generated
   import { useCounterContext } from 'my-counter-context';
