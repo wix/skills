@@ -174,6 +174,16 @@ When creating a Data Collection, you MUST ask the user for their app namespace f
 
 If unclear on approach (placement, visibility, configuration, integration), ask clarifying questions. If the answer could change the extension type, wait for the response before proceeding. Otherwise, proceed with the best-fit extension type.
 
+### Wix Stores Versioning Requirement
+
+**Applies when ANY Wix Stores API is used** (products, inventory, orders, etc.):
+
+1. **Include the `wix-stores-versioning` skill** in implementation sub-agent prompts
+2. **All Stores operations must check catalog version first** using `getCatalogVersion()`
+3. **Use the correct module** based on version: `productsV3` (V3) vs `products` (V1)
+
+This is non-negotiable — V1 and V3 are NOT backwards compatible.
+
 ### Collection ID Coordination
 
 **Applies ONLY when a Data Collection extension is being created.** If the user provides a collection ID directly, use it as-is — no namespace scoping, no Data Collection extension needed.
@@ -205,13 +215,13 @@ Use Quick Reference Table and decision content above. State extension type and b
 - Wix Data, Dashboard SDK, Event SDK (common events), Service Plugin SPIs
 
 **Vertical APIs (discover if needed):**
-- Wix Stores, Wix Bookings, Wix Members, Wix Pricing Plans, third-party integrations
+- Wix Stores (**⚠️ MUST use `wix-stores-versioning` skill** - V1/V3 catalog check required), Wix Bookings, Wix Members, Wix Pricing Plans, third-party integrations
 
 **Decision table:**
 
 | User Requirement                     | Check References / Discovery Needed? | Reason / Reference File                             |
 | ------------------------------------ | ------------------------------------ | --------------------------------------------------- |
-| "Display store products"             | ✅ YES (Spawn discovery)             | Wix Stores API not in reference files               |
+| "Display store products"             | ✅ YES (Spawn discovery)             | Wix Stores API — **include `wix-stores-versioning` skill** |
 | "Show booking calendar"              | ✅ YES (Spawn discovery)             | Wix Bookings API not in reference files             |
 | "Send emails to users"               | ✅ YES (Spawn discovery)             | Wix Triggered Emails not in reference files         |
 | "Get member info"                    | ✅ YES (Spawn discovery)             | Wix Members API not in reference files              |
