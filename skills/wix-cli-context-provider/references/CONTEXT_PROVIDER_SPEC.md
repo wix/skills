@@ -93,6 +93,8 @@ Each option:
 
 ### ArrayItems Type
 
+> **⚠️ Important:** This `ArrayItems` type is used in the **`data`** section only. It uses `data` or `dataItem` as keys. This is different from `ContextArrayItems` (used in the **`context`** section), which uses `item` as its key. See [ContextArrayItems](#contextarrayitems) below. Mixing these up causes the error: `arrayItems is missing arrayItems.item or arrayItems.dataItem with dataType`.
+
 | Key | Type | Description |
 |-----|------|-------------|
 | data | DataItems | Multiple data items per array element. Cannot be used with `dataItem` |

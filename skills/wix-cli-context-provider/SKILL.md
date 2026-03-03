@@ -12,6 +12,10 @@ Creates production-quality context provider components for Wix CLI applications.
 
 **For all context pattern examples, see [EXAMPLES.md](references/EXAMPLES.md).**
 
+## Consumer Constraint
+
+**⚠️ Only site components (`wix-cli-site-component`) can consume context provider extensions.** Site widgets, site plugins, and all other extension types are NOT supported as consumers.
+
 ## Quick Start Checklist
 
 Follow these steps in order when creating a context provider:
@@ -20,7 +24,7 @@ Follow these steps in order when creating a context provider:
 2. [ ] Create provider folder: `src/extensions/{provider-name}/`
 3. [ ] Create `provider.tsx` with React context, hook export, and provider component
 4. [ ] Register in `src/extensions.ts` using `experimentalExtensions.contextProvider()`
-5. [ ] Ensure child components declare `contextDependencies` in their registration
+5. [ ] Ensure consumer components are **site components** with `contextDependencies` in their registration
 
 ## Architecture
 
@@ -173,6 +177,43 @@ export default app()
 
 The `context.items` map defines what the provider exposes to child components. Each item requires a `dataType`. See [CONTEXT_PROVIDER_SPEC.md](references/CONTEXT_PROVIDER_SPEC.md) for all ContextItem fields and constraints.
 
+### ⚠️ CRITICAL: `context` vs `data` Array Format Difference
+
+The `context` section and `data` section use **different types** for array items. Mixing them up causes the runtime error `arrayItems is missing arrayItems.item or arrayItems.dataItem with dataType`.
+
+| Section | Type | Array item key | Example |
+|---------|------|---------------|---------|
+| `context` | `ContextArrayItems` | `item` | `arrayItems: { item: { dataType: 'text' } }` |
+| `data` | `ArrayItems` | `dataItem` | `arrayItems: { dataItem: { dataType: 'text' } }` |
+
+**In `context` arrays** — use `arrayItems.item` (a `ContextItem`):
+
+```typescript
+context: {
+  items: {
+    myList: {
+      dataType: 'arrayItems',
+      arrayItems: {
+        item: { dataType: 'text' },  // ← "item" for context
+      },
+    },
+  },
+}
+```
+
+**In `data` arrays** — use `arrayItems.dataItem` (a `DataItem`):
+
+```typescript
+data: {
+  initialList: {
+    dataType: 'arrayItems',
+    arrayItems: {
+      dataItem: { dataType: 'text' },  // ← "dataItem" for data
+    },
+  },
+}
+```
+
 ### Context with Functions
 
 ```typescript
@@ -264,9 +305,7 @@ The implementor component must be part of the same application and is rendered i
 
 ### Child Component Dependencies
 
-**Only site components can consume context providers.** Other extension types (e.g. site widgets, site plugins) are not supported as consumers.
-
-Any site component consuming a context provider must declare the dependency:
+Consumer site components must declare the dependency (see [Consumer Constraint](#consumer-constraint) above):
 
 ```typescript
 extensions.siteComponent({
@@ -441,7 +480,7 @@ export default Clicker;
 
 ### Consumer Component Rules
 
-- **Only site components** can be consumers of context providers. Other extension types (e.g. site widgets, site plugins) are not supported.
+- Consumers must be **site components** (see [Consumer Constraint](#consumer-constraint) above).
 - **Import the hook from the `moduleSpecifier`** (e.g., `my-counter-context`). This is not an actual NPM package, so the import requires `@ts-expect-error`:
   ```typescript
   //@ts-expect-error will be generated

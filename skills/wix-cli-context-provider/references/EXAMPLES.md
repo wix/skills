@@ -76,7 +76,7 @@ const { userId, userName } = useUserContext();
       "dataType": "arrayItems",
       "displayName": "Initial Products",
       "arrayItems": {
-        "item": {
+        "dataItem": {
           "dataType": "text"
         }
       }
