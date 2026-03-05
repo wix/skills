@@ -1,6 +1,6 @@
 ---
 name: wix-cli-backend-event
-description: Create backend event extensions that respond to Wix events. Use when implementing handlers that run when specific conditions occur on a site. Triggers include event extension, backend event, webhook handler, onContactCreated, onOrderPaid, onBookingConfirmed, listen for events, react to changes, event subscription, CRM events, eCommerce events, Bookings events, Blog events.
+description: Create backend event extensions that respond to Wix events. Use when implementing handlers that run when specific conditions occur on a site. Triggers include event extension, backend event, webhook handler.
 compatibility: Requires Wix CLI development environment.
 ---
 
@@ -63,14 +63,9 @@ Import the event from the correct SDK module and pass a handler. Wix invokes the
 ```typescript
 import { onContactCreated } from "@wix/crm/events";
 
-onContactCreated(async (event) => {
-  try {
-    const contact = event.entity;
-    console.log("Contact created:", contact.info?.name?.first, contact.info?.name?.last);
-    // Custom logic: sync to CRM, send welcome email, etc.
-  } catch (error) {
-    console.error("Failed to handle contact created event:", error);
-  }
+onContactCreated((event) => {
+  console.log("Contact created:", event.entity);
+  // Custom logic: sync to CRM, send welcome email, etc.
 });
 ```
 
@@ -115,6 +110,7 @@ onContactCreated(async (event) => {
 ## Best Practices
 
 - **Error handling:** Wrap handler logic in try/catch; log and optionally rethrow or report.
+- **Idempotency:** Events may be delivered more than once; design handlers to be idempotent where possible.
 - **Logging:** Use `console.log` for debugging; keep production logs minimal and non-sensitive.
 - **Performance:** Finish within backend limits; offload heavy work to queues or background jobs if needed.
 
