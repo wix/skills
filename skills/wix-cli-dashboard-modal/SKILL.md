@@ -199,7 +199,10 @@ dashboard.closeModal({ saved: true, itemId: "123" });
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| closeData | Serializable (optional) | Data to pass back to the modal opener. Must be cloneable via [structured clone algorithm](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Structured_clone_algorithm) - no function callbacks. |
+| closeData | Serializable (optional) | Data to pass back to the modal opener. Must be cloneable via [structured clone algorithm](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Structured_clone_algorithm). |
+
+**Supported types:** strings, numbers, booleans, plain objects, arrays, Dates, Maps, Sets, ArrayBuffers.
+**Not supported:** functions, DOM nodes, class instances with methods, Symbols, Promises.
 
 **Returns:** `void`
 

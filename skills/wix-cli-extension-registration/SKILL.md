@@ -1,11 +1,24 @@
 ---
 name: wix-cli-extension-registration
-description: Register Wix CLI extensions with the app in src/extensions.ts. Use when registering new or existing extensions with the main app builder.
+description: Register Wix CLI extensions with the app in src/extensions.ts. Use when registering new or existing extensions with the main app builder, adding .use() calls, importing extensions, or updating the extensions chain. Triggers include register extension, extensions.ts, app().use(), import extension, extension not appearing.
+compatibility: Requires Wix CLI development environment.
 ---
 
 # Wix App Registration
 
-After creating any extension file, you MUST update the main `src/extensions.ts` file to register the extension with the app. Without this step, the extension will not be recognized by Wix CLI.
+After creating any extension file, you must update the main `src/extensions.ts` file to register the extension with the app.
+
+## Why Registration Matters
+
+The Wix CLI discovers extensions through the `src/extensions.ts` file — it's the single entry point that tells the build system which extensions exist. Without registration:
+
+- Dashboard pages won't appear in the sidebar
+- Site widgets won't show in the Wix Editor
+- Service plugins won't be called during checkout flows
+- Event handlers won't receive webhook deliveries
+- Embedded scripts won't be injected into site pages
+
+The most common cause of "my extension isn't working" is a missing `.use()` call in this file.
 
 ## Simple Pattern (Recommended for Small Apps)
 
@@ -75,3 +88,13 @@ Examples:
 - `ecomshippingratesCustomShipping`
 
 The type prefix is the extension type in lowercase with no separators.
+
+## Troubleshooting
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| Extension not appearing at all | Missing `.use()` call | Add import and `.use(extensionName)` to `src/extensions.ts` |
+| "Cannot find module" on build | Wrong import path | Verify the path in your import matches the actual file location (relative to `src/`) |
+| Extension registered but not working | Export name mismatch | Ensure the exported name in the extension file matches the import in `extensions.ts` |
+| Multiple extensions, only some work | Incomplete chain | Check that every extension has both an import and a `.use()` call |
+| TypeScript error on `.use()` | Wrong export type | Ensure extension file uses the correct builder method (e.g., `extensions.dashboardPage()` not `extensions.embeddedScript()`) |

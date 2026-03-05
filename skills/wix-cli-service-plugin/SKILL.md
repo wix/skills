@@ -1,6 +1,6 @@
 ---
 name: wix-cli-service-plugin
-description: Use when implementing service plugin extensions that inject custom backend logic into existing Wix business solution flows or introduce new flows to Wix sites. Triggers include SPI, service plugin, backend flow, business logic.
+description: Use when implementing service plugin extensions that inject custom backend logic into existing Wix business solution flows or introduce new flows to Wix sites. Triggers include SPI, service plugin, backend flow, business logic, custom shipping rates, additional fees, tax calculation, checkout validation, discount triggers, gift cards, eCommerce customization.
 compatibility: Requires Wix CLI development environment.
 ---
 
@@ -236,11 +236,6 @@ To test your service plugin extension:
 
 1. **Release a version** with your changes - new service plugins or changes to existing ones won't take effect until you've built and released your project
 2. **Trigger the call** to your service plugin by performing the relevant action (e.g., add items to cart and view cart to test Additional Fees)
-
-For example, to test an Additional Fees service plugin that adds a $5 packaging fee:
-1. Go to your site's store in the local development environment
-2. Select any product and add it to the cart, then view the cart
-3. Check if the additional fee is listed in the order summary
 
 ## Verification
 

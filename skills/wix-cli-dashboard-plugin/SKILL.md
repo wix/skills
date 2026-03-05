@@ -178,6 +178,13 @@ Each dashboard plugin requires an `<plugin-name>.extension.ts` file in its folde
 - **Height** adjusts dynamically based on content within slot boundaries
 - When using Dashboard SDK or dashboard-react SDK, dimensions change dynamically based on contents
 
+## Troubleshooting
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| Plugin not appearing on dashboard page | Missing registration | Import and `.use()` in `src/extensions.ts` |
+| Plugin not appearing on dashboard page | Wrong slot ID | Verify `extends` field matches a valid slot ID from [Slots Reference](references/SLOTS.md) |
+
 ## Hard Constraints
 
 - Do NOT invent or assume new types, modules, functions, props, events, or imports — use only entities explicitly present in the provided references or standard libraries already used in this project

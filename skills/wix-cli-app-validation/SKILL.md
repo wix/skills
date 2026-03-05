@@ -155,12 +155,11 @@ When a validation step fails (non-zero exit code, error output, or the CLI crash
 
 The `.wix/` directory is automatically created by the Wix CLI and contains internal configuration and log files. Don't edit it, but reading `debug.log` for troubleshooting is expected.
 
-```bash
-# Read the debug log (at <project-root>/.wix/debug.log)
-cat .wix/debug.log
+```
+Read: .wix/debug.log
 
-# If the file is large, check the end for the most recent errors
-tail -100 .wix/debug.log
+# If the file is large, read the last 100 lines for the most recent errors
+Read: .wix/debug.log (with offset to the end)
 ```
 
 ## Common Issues

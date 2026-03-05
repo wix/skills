@@ -1,6 +1,7 @@
 ---
 name: wds-docs
-description: Wix Design System component reference. Use when building UI with @wix/design-system, choosing components, or checking props and examples. Triggers on "what component", "how do I make", "WDS", "show me props", or component names like Button, Card, Modal, Box, Text.
+description: Wix Design System component reference. Use when building UI with @wix/design-system, choosing components, or checking props and examples. Triggers on "what component", "how do I make", "WDS", "show me props", component names like Button, Card, Modal, Box, Text, or when importing from @wix/design-system or @wix/wix-ui-icons-common. Also use when looking up spacing tokens (SP1-SP6) or icon names.
+compatibility: Requires @wix/design-system package installed in the project.
 ---
 
 # WDS Documentation Navigator
