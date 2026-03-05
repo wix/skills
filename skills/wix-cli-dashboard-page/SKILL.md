@@ -8,14 +8,6 @@ compatibility: Requires Wix CLI development environment.
 
 Creates full-featured dashboard page extensions for Wix CLI applications. Dashboard pages appear in the Wix site owner's dashboard and enable site administrators to manage data, configure settings, and perform administrative tasks.
 
-**Choosing the right dashboard extension:**
-
-| Need | Extension | Skill |
-|------|-----------|-------|
-| Full admin page (data tables, forms, settings) | Dashboard Page | This skill |
-| Popup dialog (edit form, confirmation, detail view) | Dashboard Modal | [wix-cli-dashboard-modal](../wix-cli-dashboard-modal/SKILL.md) |
-| Widget on an existing Wix app's dashboard page | Dashboard Plugin | [wix-cli-dashboard-plugin](../wix-cli-dashboard-plugin/SKILL.md) |
-
 ---
 
 ## Quick Start Checklist
