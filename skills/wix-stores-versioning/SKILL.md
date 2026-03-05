@@ -44,17 +44,6 @@ async function getProducts() {
 2. Read the full docs with `ReadFullDocsArticle` to get the required permissions
 3. Return the required permissions to the user
 
-## V1 vs V3 Quick Reference
-
-| Operation | V1 | V3 |
-|-----------|-----------|-----------|
-| Query products | `products.queryProducts()` | `productsV3.queryProducts()` |
-| Get product | `products.getProduct()` | `productsV3.getProduct()` |
-| Create product | `products.createProduct()` | `productsV3.createProduct()` |
-| Query inventory | `inventory.getInventoryVariants()` | `inventoryItemsV3.searchInventoryItems()` |
-| Query collections | `collections.queryCollections()` | V3 uses **Categories** — look up via MCP |
-
-All modules are imported from `@wix/stores`. Most V3 modules have a `V3` suffix, but some (like Collections → Categories) were renamed. Always verify exact module names via MCP tools.
 
 ## When Wix Stores Is Not Installed
 
