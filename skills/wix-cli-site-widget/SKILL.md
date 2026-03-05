@@ -377,15 +377,108 @@ const CustomElement: FC<WidgetProps> = ({ collectionId }) => {
 - If `viewMode === 'Editor'`, show a placeholder UI instead
 - Only fetch and render real data when NOT in editor mode
 
-## Color & Font Picker Fields
+## Color Selection
 
-For color and font selection in settings panels, use `inputs.selectColor()` and `inputs.selectFont()` from `@wix/editor`. See [wix-cli-site-plugin](../wix-cli-site-plugin/SKILL.md#color--font-picker-fields) for the complete `ColorPickerField` and `FontPickerField` component patterns — the same implementation applies to site widgets.
+For color selection in settings panels, use `ColorPickerField` component with `inputs.selectColor()` from `@wix/editor`. Do NOT use `<Input type="color">`.
 
-**Key rules:**
-- Use `inputs.selectColor()` with `FillPreview` — do NOT use `<Input type="color">`
-- Use `inputs.selectFont()` with a `Button` — do NOT use a text Input
-- Font values are stored as JSON strings via `JSON.stringify()` / `JSON.parse()`
-- Import `inputs` from `@wix/editor`
+```typescript
+// components/ColorPickerField.tsx
+import React, { type FC } from 'react';
+import { inputs } from '@wix/editor';
+import { FormField, Box, FillPreview, SidePanel } from '@wix/design-system';
+
+interface ColorPickerFieldProps {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}
+
+export const ColorPickerField: FC<ColorPickerFieldProps> = ({
+  label,
+  value,
+  onChange,
+}) => (
+  <SidePanel.Field>
+    <FormField label={label}>
+      <Box width="30px" height="30px">
+        <FillPreview
+          fill={value}
+          onClick={() => inputs.selectColor(value, { onChange: (val) => { if (val) onChange(val); } })}
+        />
+      </Box>
+    </FormField>
+  </SidePanel.Field>
+);
+```
+
+Usage in panel:
+
+```typescript
+const handleBgColorChange = (value: string) => {
+  setBgColor(value);
+  widget.setProp("bg-color", value);
+};
+
+<ColorPickerField label="Background Color" value={bgColor} onChange={handleBgColorChange} />
+```
+
+**Important:** Use `inputs.selectColor(value, { onChange })` from `@wix/editor` with `FillPreview` from WDS. This opens the native Wix color picker with theme colors, gradients, and more. Never use `<Input type="color">`.
+
+## Font Selection
+
+For font selection in settings panels, use `FontPickerField` component with `inputs.selectFont()` from `@wix/editor`. Do NOT use a text Input.
+
+```typescript
+// components/FontPickerField.tsx
+import React, { type FC } from 'react';
+import { inputs } from '@wix/editor';
+import { FormField, Button, Text, SidePanel } from '@wix/design-system';
+
+interface FontValue {
+  font: string;
+  textDecoration: string;
+}
+
+interface FontPickerFieldProps {
+  label: string;
+  value: FontValue;
+  onChange: (value: FontValue) => void;
+}
+
+export const FontPickerField: FC<FontPickerFieldProps> = ({
+  label,
+  value,
+  onChange,
+}) => (
+  <SidePanel.Field>
+    <FormField label={label}>
+      <Button
+        size="small"
+        priority="secondary"
+        onClick={() => inputs.selectFont(value, { onChange: (val) => onChange({ font: val.font, textDecoration: val.textDecoration || "" }) })}
+        fullWidth
+      >
+        <Text size="small" ellipsis>Change Font</Text>
+      </Button>
+    </FormField>
+  </SidePanel.Field>
+);
+```
+
+Usage in panel:
+
+```typescript
+const [font, setFont] = useState<FontValue>({ font: "", textDecoration: "" });
+
+const handleFontChange = (value: FontValue) => {
+  setFont(value);
+  widget.setProp("font", JSON.stringify(value));
+};
+
+<FontPickerField label="Text Font" value={font} onChange={handleFontChange} />
+```
+
+**Important:** Use `inputs.selectFont(value, { onChange })` from `@wix/editor` with the callback pattern. This provides a rich font picker dialog with bold, italic, size, and typography features. Font values are stored as JSON strings.
 
 ## Output Structure
 
@@ -503,4 +596,4 @@ The `id` must be a unique, static UUID v4 string. Generate a fresh UUID for each
 
 ## Verification
 
-After implementation, use [wix-cli-app-validation](../wix-cli-app-validation/SKILL.md) to validate TypeScript compilation, build, preview, and runtime behavior.
+After implementation completes, the **wix-cli-orchestrator** will run validation using [wix-cli-app-validation](../wix-cli-app-validation/SKILL.md).
