@@ -25,12 +25,17 @@ import { catalogVersioning, products, productsV3 } from '@wix/stores';
 async function getProducts() {
   const { catalogVersion } = await catalogVersioning.getCatalogVersion();
 
+  if (catalogVersion === 'STORES_NOT_INSTALLED') {
+    return [];
+  }
+
   if (catalogVersion === 'V3_CATALOG') {
+    // Use V3 module
     const result = await productsV3.queryProducts().limit(10).find();
     return result.items;
   }
 
-  // V1_CATALOG — use V1 module
+  // Use V1 module
   const result = await products.queryProducts().limit(10).find();
   return result.items;
 }
@@ -43,21 +48,6 @@ async function getProducts() {
 1. Search for the method using `SearchWixRESTDocumentation`
 2. Read the full docs with `ReadFullDocsArticle` to get the required permissions
 3. Return the required permissions to the user
-
-
-## When Wix Stores Is Not Installed
-
-The Wix docs require that "the site owner must have the Wix Stores app installed" before calling `getCatalogVersion()`. If your app may be installed on sites without Stores, wrap the call in a try/catch:
-
-```typescript
-try {
-  const { catalogVersion } = await catalogVersioning.getCatalogVersion();
-  // Use catalogVersion ('V1_CATALOG' or 'V3_CATALOG') to pick the right module
-} catch (error) {
-  // Stores may not be installed — show appropriate UI or return empty results
-  return [];
-}
-```
 
 ## Key Rules
 
