@@ -1,6 +1,6 @@
 ---
 name: wix-cli-orchestrator
-description: "Invoke this skill FIRST when the user requests to add, build, create, or implement any feature or component for a Wix CLI app — before exploring files or launching agents. This skill selects the right extension type and orchestrates the build. Triggers on add, build, create, I want, implement, help me, make a, set up, where the target is any Wix feature, extension, page, widget, plugin, or component."
+description: "BLOCKING REQUIREMENT - When user requests to add/build/create/implement ANY feature or component for a Wix CLI app, you MUST invoke this skill IMMEDIATELY as your absolute FIRST action - when exploring, reading files, BEFORE launching any agents - make sure this skill is loaded. Trigger on add, build, create, I want, implement, help me where X is any feature/component. Non-negotiable - invoke immediately upon recognizing a Wix feature build request."
 compatibility: Requires Wix CLI development environment.
 ---
 
@@ -8,48 +8,50 @@ compatibility: Requires Wix CLI development environment.
 
 Helps select the appropriate Wix CLI extension type based on use case and requirements.
 
-## Workflow Checklist
+## ⚠️ MANDATORY WORKFLOW CHECKLIST ⚠️
 
-**Before reporting completion to the user, verify all boxes are checked.** Each step exists because skipping it leads to broken extensions, missing registrations, or user confusion:
+**Before reporting completion to the user, ALL boxes MUST be checked:**
 
-- [ ] **Step 1:** Clarified requirements and determined extension type(s)
+- [ ] **Step 1:** Determined extension type(s) needed
   - [ ] Asked clarifying questions if requirements were unclear
-  - [ ] Checked for implicit Data Collection need (see [Data Collection Inference](#data-collection-inference))
+  - [ ] Checked for implicit Data Collection need — unless user provided a collection ID directly (see [Data Collection Inference](#data-collection-inference))
   - [ ] Obtained app namespace if Data Collection extension is being created
-  - [ ] Determined full scoped collection IDs if applicable (see [Collection ID Coordination](#collection-id-coordination))
+  - [ ] Determined full scoped collection IDs if Data Collection extension is being created (see [Collection ID Coordination](#collection-id-coordination))
   - [ ] Explained recommendation with reasoning
-- [ ] **Step 2:** Made recommendation to user
-- [ ] **Step 3:** Checked references, spawned discovery if needed
+- [ ] **Step 2:** Checked references, spawned discovery if needed
   - [ ] Checked relevant reference files for required APIs
   - [ ] Spawned discovery only if API not found in references
-  - [ ] Waited for discovery sub-agent to complete (if spawned)
-- [ ] **Step 4:** Spawned implementation sub-agent(s)
-  - [ ] Included user requirements and SDK context in prompt
-  - [ ] Instructed sub-agent to invoke `wds-docs` skill when using @wix/design-system
-  - [ ] Waited for all sub-agents to complete
-- [ ] **Step 5:** Ran validation via `wix-cli-app-validation`
+  - [ ] Skip if all APIs are in reference files or no external APIs needed
+- [ ] **Step 3:** Waited for discovery sub-agent to complete (if spawned)
+  - [ ] Received SDK methods with imports
+- [ ] **Step 4:** Spawned implementation sub-agent(s) with skill context
+  - [ ] Included user requirements in prompt
+  - [ ] Included SDK context from discovery (if any)
+  - [ ] Instructed sub-agent to invoke `wds-docs` skill FIRST when using @wix/design-system (for correct imports, especially icons)
+- [ ] **Step 5:** Waited for implementation sub-agent(s) to complete
+  - [ ] All files created
+  - [ ] Extension registered in extensions.ts
+- [ ] **Step 6:** Invoked `wix-cli-app-validation` skill
+- [ ] **Step 7:** Validation passed
   - [ ] Dependencies installed
   - [ ] TypeScript compiled
   - [ ] Build succeeded
   - [ ] Preview deployed
-- [ ] **Step 6:** Reported completion with summary
-- [ ] **Step 7:** Surfaced all manual action items
-  - [ ] Reviewed every sub-agent's output for manual steps
-  - [ ] Aggregated into a single actionable list at the end
+- [ ] **Step 8:** Collected and presented ALL manual action items to user
+  - [ ] Reviewed output from every sub-agent for manual steps
+  - [ ] Aggregated into a single actionable list at the end of the conversation
 
-If a box is unchecked, complete it before moving on — skipping steps is the most common cause of broken implementations.
+**🛑 STOP:** If any box is unchecked, do NOT proceed to the next step.
 
 ---
 
 ## Your Role
 
-You are a **decision-maker and orchestrator**, not an implementer. Your job is to: decide extension type → check references → discover missing APIs → spawn implementation sub-agents → validate → surface manual actions.
-
-The reason you delegate implementation rather than doing it yourself is that each skill contains domain-specific patterns, constraints, and references that the sub-agent loads into its context. Writing code directly bypasses all of that knowledge.
+You are a **decision-maker and orchestrator**, not an implementer. **Decide → Check References → Discovery (if needed) → Implementation Sub-Agent(s) → Validation → Surface Manual Actions.** Ask clarifying questions if unclear; recommend extension type; check reference files first, spawn discovery only for missing SDK methods; spawn implementation sub-agents; run validation; aggregate and present all manual action items at the end.
 
 ---
 
-## Anti-Patterns
+## ❌ ANTI-PATTERNS (DO NOT DO)
 
 | ❌ WRONG                                    | ✅ CORRECT                                     |
 | ------------------------------------------- | ---------------------------------------------- |
@@ -61,12 +63,12 @@ The reason you delegate implementation rather than doing it yourself is that eac
 | Reading/writing files after invoking skills | Let sub-agents handle ALL file operations      |
 | Letting manual action items get buried      | Aggregate all manual steps at the very end     |
 
-After this planner skill loads, your actions should be limited to:
+**CRITICAL:** After this planner skill loads, you should ONLY:
 
-- Spawning sub-agents (for discovery and implementation)
-- Invoking `wix-cli-app-validation` skill at the end
+- Spawn sub-agents (for discovery and implementation)
+- Invoke `wix-cli-app-validation` skill at the end
 
-Avoid reading, writing, or editing implementation files yourself — that's the sub-agent's job.
+You should NEVER: Read, Write, Edit files for implementation yourself
 
 ## Quick Decision Helper
 
@@ -86,9 +88,8 @@ Answer these questions to find the right extension:
 3. **Where will it appear?**
    - Dashboard sidebar/page → Dashboard Page or Modal
    - Existing Wix app dashboard → Dashboard Plugin
-   - Anywhere on site (React web component) → Site Widget
-   - Anywhere on site (editor-customizable with manifest) → Site Component
-   - Wix business solution page slot → Site Plugin
+   - Anywhere on site → Site Widget
+   - Wix business solution page → Site Plugin
    - During business flow → Service Plugin
    - After event occurs → Event Extension
 
@@ -96,15 +97,15 @@ Answer these questions to find the right extension:
 
 - **Admin:** Need full-page UI? → Dashboard Page. Need popup/form? → Dashboard Modal. Extending Wix app dashboard? → Dashboard Plugin. **Modal constraint:** Dashboard Pages cannot use `<Modal />`; use a separate Dashboard Modal extension and `dashboard.openModal()`.
 - **Backend:** During business flow (checkout/shipping/tax)? → Service Plugin. After event (webhooks/sync)? → Event Extension. Custom HTTP endpoints? → Backend Endpoints. Need CMS collections for app data? → Data Collection.
-- **Site:** User places anywhere? → Site Widget. Editor-customizable with manifest? → Site Component. Fixed slot on Wix app page? → Site Plugin. Scripts/analytics only? → Embedded Script.
+- **Site:** User places anywhere? → Site Widget. Fixed slot on Wix app page? → Site Plugin. Scripts/analytics only? → Embedded Script.
 
 ### Data Collection Inference
 
-Data collections are often needed implicitly — users rarely say "create a CMS collection" directly, but their requirements imply persistent app data. Proactively infer the need rather than waiting for an explicit request.
+**CRITICAL:** Data collections are often needed implicitly — don't wait for the user to explicitly say "create a CMS collection." Infer the need automatically.
 
-**Exception:** If the user provides a collection ID directly (e.g., an existing site-level collection), use it as-is — no Data Collection extension or namespace scoping needed.
+**Skip this section if the user provides a collection ID directly** (e.g., an existing site-level collection). In that case, use the provided ID as-is — no Data Collection extension or namespace scoping needed.
 
-**Include a Data Collection extension when any of these are true:**
+**Always include a Data Collection extension when ANY of these are true:**
 
 | Indicator | Example |
 | --- | --- |
@@ -131,7 +132,6 @@ Data collections are often needed implicitly — users rarely say "create a CMS 
 | Backend Endpoints     | Backend   | API         | Custom HTTP handlers          | `wix-cli-backend-api`     |
 | Data Collection       | Backend   | Data        | CMS collections for app data  | `wix-cli-data-collection` |
 | Site Widget           | Site      | Public      | Standalone widgets            | `wix-cli-site-widget`     |
-| Site Component        | Site      | Public      | Editor-customizable components| `wix-cli-site-component`  |
 | Site Plugin           | Site      | Public      | Extend Wix business solutions | `wix-cli-site-plugin`     |
 | Embedded Script       | Site      | Public      | Inject scripts/analytics      | `wix-cli-embedded-script` |
 
@@ -139,9 +139,9 @@ Data collections are often needed implicitly — users rarely say "create a CMS 
 
 ## Extension Comparison
 
-| Site Widget vs Site Component vs Site Plugin | Dashboard Page vs Modal | Service Plugin vs Event |
-| ------------------------------------------- | ----------------------- | ----------------------- |
-| Widget: React web component, user places anywhere. Component: editor-customizable with manifest. Plugin: fixed slot in Wix app. | Page: full page. Modal: overlay; use for popups. | Service: during flow. Event: after event. |
+| Site Widget vs Site Plugin | Dashboard Page vs Modal | Service Plugin vs Event |
+| -------------------------- | ----------------------- | ----------------------- |
+| Widget: user places anywhere. Plugin: fixed slot in Wix app. | Page: full page. Modal: overlay; use for popups. | Service: during flow. Event: after event. |
 
 ## Decision & Handoff Workflow
 
@@ -152,7 +152,7 @@ Follow the checklist; steps below add detail.
 Only ask for configuration values when **absolutely necessary** for the implementation to proceed — i.e., the sub-agent literally cannot generate working code without it. If a value can be configured later or added as a manual step, don't block on it.
 
 **App Namespace Requirement:**
-When creating a Data Collection, ask the user for their app namespace from Wix Dev Center. The namespace scopes collection IDs to the app and cannot be guessed or defaulted — it must come from the user's Dev Center dashboard.
+When creating a Data Collection, you MUST ask the user for their app namespace from Wix Dev Center. This is a required parameter that must be obtained from the user's Dev Center dashboard and cannot be recommended or guessed.
 
 **Instructions to give the user:**
 
@@ -176,11 +176,13 @@ If unclear on approach (placement, visibility, configuration, integration), ask 
 
 ### Wix Stores Versioning Requirement
 
-**Applies when any Wix Stores API is used** (products, inventory, orders, etc.). V1 and V3 catalog versions have different module names, field structures, and payload shapes — code written for one version will fail silently or error on the other.
+**Applies when ANY Wix Stores API is used** (products, inventory, orders, etc.):
 
-1. Include the `wix-stores-versioning` skill in implementation sub-agent prompts
-2. All Stores operations must check catalog version first using `getCatalogVersion()`
-3. Use the correct module based on version: `productsV3` (V3) vs `products` (V1)
+1. **Include the `wix-stores-versioning` skill** in implementation sub-agent prompts
+2. **All Stores operations must check catalog version first** using `getCatalogVersion()`
+3. **Use the correct module** based on version: `productsV3` (V3) vs `products` (V1)
+
+This is non-negotiable — V1 and V3 are NOT backwards compatible.
 
 ### Collection ID Coordination
 
@@ -213,7 +215,7 @@ Use Quick Reference Table and decision content above. State extension type and b
 - Wix Data, Dashboard SDK, Event SDK (common events), Service Plugin SPIs
 
 **Vertical APIs (discover if needed):**
-- Wix Stores (**include `wix-stores-versioning` skill** — V1/V3 catalog check required), Wix Bookings, Wix Members, Wix Pricing Plans, third-party integrations
+- Wix Stores (**⚠️ MUST use `wix-stores-versioning` skill** - V1/V3 catalog check required), Wix Bookings, Wix Members, Wix Pricing Plans, third-party integrations
 
 **Decision table:**
 
@@ -273,7 +275,9 @@ List any manual steps the user must perform (e.g., configure dashboard settings,
 
 ### Step 4: Spawn Implementation Sub-Agent(s)
 
-Spawn sub-agent(s) for implementation rather than implementing directly. This is important because each skill contains extensive domain knowledge (correct imports, builder patterns, UUID requirements, registration steps) that would be lost if you wrote code yourself.
+⚠️ **BLOCKING REQUIREMENT** ⚠️
+
+You MUST spawn sub-agent(s) for implementation. Do NOT invoke implementation skills directly. Do NOT write code yourself.
 
 **Spawn an implementation sub-agent with the skill context:**
 
@@ -284,7 +288,7 @@ The sub-agent prompt should include:
 3. The SDK context from the discovery sub-agent
 4. Instruction to invoke the `wds-docs` skill only when needed (e.g. when looking up WDS component props or examples)
 
-**Implementation sub-agent prompt should include:**
+**Implementation sub-agent prompt MUST include:**
 
 1. ✅ The skill to load (full path or name)
 2. ✅ The user's original requirements (copy verbatim)
@@ -346,7 +350,11 @@ Implement this extension following the skill guidelines.
 
 ### Step 5: Run Validation
 
-After all implementation sub-agents complete, run validation by invoking the `wix-cli-app-validation` skill. Reporting completion without validation risks delivering broken code — TypeScript errors, missing imports, or registration issues are caught here.
+⚠️ **BLOCKING REQUIREMENT** ⚠️
+
+After ALL implementation sub-agents complete, you MUST run validation by invoking the `wix-cli-app-validation` skill.
+
+**Do NOT report completion to the user until validation passes.**
 
 If validation fails:
 
@@ -380,22 +388,25 @@ Only after validation passes, provide a **concise summary section** at the top o
 **⚠️ IMPORTANT: [X] manual step(s) required to complete setup** (see "Manual Steps Required" section below)
 ```
 
-**Rules:**
-- State how many manual steps are required and reference where to find them
-- If there are no manual steps, state: "No manual steps required — you're ready to go!"
+**Critical rules:**
+- The summary MUST explicitly state how many manual steps are required
+- The summary MUST reference where to find the manual steps ("see Manual Steps Required section below")
+- If there are NO manual steps, state: "✅ No manual steps required — you're ready to go!"
 - Keep the summary concise (under 200 words)
-- Present build status clearly with pass/warning indicators
+- Present build status clearly with ✅ or ⚠️ indicators
 
 ### Step 7: Surface Manual Action Items
 
-Sub-agents often report manual steps the user must take (e.g., configure permissions in the Wix dashboard, enable specific features). These steps are easy to miss since they're buried in sub-agent output, but without them the extension won't work correctly in production.
+⚠️ **BLOCKING REQUIREMENT** ⚠️
 
-After all sub-agents complete:
+**Sub-agents often report manual steps the user must take (e.g., configure permissions in the Wix dashboard, enable specific features, etc.). These MUST NOT get lost.**
 
-1. **Review every sub-agent's output** for any "Manual Action Items" section or mentions of steps the user needs to perform
-2. **Aggregate all manual action items** into a single, deduplicated list
-3. **Reference them in the summary** (Step 6) by stating how many manual steps exist
-4. **Present them at the end** of your final message under a clear heading
+After ALL sub-agents complete, you MUST:
+
+1. **Review every sub-agent's output** for any "Manual Action Items" section or any mention of steps the user needs to perform manually
+2. **Aggregate ALL manual action items** from every sub-agent into a single, deduplicated list
+3. **Reference them in the summary section** (Step 6) by stating how many manual steps exist
+4. **Present them prominently** at the very end of your final message to the user, under a clear heading
 
 **Complete workflow for manual steps:**
 
@@ -431,12 +442,14 @@ The following actions need to be done manually by you:
 No manual steps required — you're all set! Your implementation is complete and ready to use.
 ```
 
-**Guidelines:**
-- Place the manual steps section as the **last thing** in your final response — users tend to act on the last thing they read
-- Repeat items here even if mentioned earlier — assume the user skips to the final summary
-- Include full context (e.g., "In the Wix dashboard, go to Settings > Permissions and enable X" rather than just "enable X")
-- Group related steps under category headings and number them for easy reference
-- Scan sub-agent output for implicit manual steps too (phrases like "you'll need to", "make sure to", "manually", "go to the dashboard")
+**Rules:**
+- The summary section (Step 6) MUST reference the manual steps
+- This detailed manual steps section MUST be the **last thing** in your final response to the user
+- Even if you think the items were mentioned earlier in the conversation, **repeat them here** — assume the user only reads the final summary
+- Include full context for each item (e.g., "In the Wix dashboard, go to Settings > Permissions and enable X" rather than just "enable X")
+- Group related steps together under category headings for clarity
+- If a sub-agent didn't include a "Manual Action Items" section, review its full output for any implicit manual steps (phrases like "you'll need to", "make sure to", "don't forget to", "manually", "go to the dashboard", etc.)
+- Number the main categories/sections (1, 2, 3...) for easy reference
 
 **Summary:** Discovery = business domain SDK only (Stores, Bookings, etc.) — skip for extension SDK and data collections. Implementation = load extension skill; invoke `wds-docs` FIRST when using WDS (for correct imports). Validation = `wix-cli-app-validation`. Manual actions = always aggregated and surfaced at the end.
 
