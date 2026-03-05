@@ -25,17 +25,12 @@ import { catalogVersioning, products, productsV3 } from '@wix/stores';
 async function getProducts() {
   const { catalogVersion } = await catalogVersioning.getCatalogVersion();
 
-  if (catalogVersion === 'STORES_NOT_INSTALLED') {
-    return [];
-  }
-
   if (catalogVersion === 'V3_CATALOG') {
-    // Use V3 module
     const result = await productsV3.queryProducts().limit(10).find();
     return result.items;
   }
 
-  // Use V1 module
+  // V1_CATALOG — use V1 module
   const result = await products.queryProducts().limit(10).find();
   return result.items;
 }
@@ -51,35 +46,33 @@ async function getProducts() {
 
 ## V1 vs V3 Quick Reference
 
-| Operation | V1 Module | V3 Module |
+| Operation | V1 | V3 |
 |-----------|-----------|-----------|
 | Query products | `products.queryProducts()` | `productsV3.queryProducts()` |
 | Get product | `products.getProduct()` | `productsV3.getProduct()` |
 | Create product | `products.createProduct()` | `productsV3.createProduct()` |
-| Query inventory | `inventory.getInventoryVariants()` | `inventoryItemsV3.queryInventoryItems()` |
-| Query collections | `collections.queryCollections()` | `collectionsV3.queryCollections()` |
+| Query inventory | `inventory.getInventoryVariants()` | `inventoryItemsV3.searchInventoryItems()` |
+| Query collections | `collections.queryCollections()` | V3 uses **Categories** — look up via MCP |
 
-All modules are imported from `@wix/stores`. V3 modules have a `V3` suffix.
+All modules are imported from `@wix/stores`. Most V3 modules have a `V3` suffix, but some (like Collections → Categories) were renamed. Always verify exact module names via MCP tools.
 
-## Handling STORES_NOT_INSTALLED
+## When Wix Stores Is Not Installed
 
-When `getCatalogVersion()` returns `STORES_NOT_INSTALLED`, Wix Stores is not active on the site. Handle this gracefully:
+The Wix docs require that "the site owner must have the Wix Stores app installed" before calling `getCatalogVersion()`. If your app may be installed on sites without Stores, wrap the call in a try/catch:
 
 ```typescript
-const { catalogVersion } = await catalogVersioning.getCatalogVersion();
-
-if (catalogVersion === 'STORES_NOT_INSTALLED') {
-  // Show appropriate UI or return empty results
-  // Do NOT call any products/inventory APIs — they will fail
+try {
+  const { catalogVersion } = await catalogVersioning.getCatalogVersion();
+  // Use catalogVersion ('V1_CATALOG' or 'V3_CATALOG') to pick the right module
+} catch (error) {
+  // Stores may not be installed — show appropriate UI or return empty results
   return [];
 }
 ```
 
-This can happen when an app is installed on a site that doesn't use Wix Stores. Always check before making any Stores API call.
-
 ## Key Rules
 
-- Call `getCatalogVersion()` at the start of each flow — it's a lightweight call that caches well
+- Call `getCatalogVersion()` at the start of each flow
 - Catalog version is permanent per site (won't downgrade from V3 to V1)
 - V1 and V3 have different payload structures — field names, nesting, and types differ
 - Subscribe to both V1 and V3 webhooks to handle all sites

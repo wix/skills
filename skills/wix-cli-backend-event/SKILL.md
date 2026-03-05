@@ -74,7 +74,7 @@ onContactCreated(async (event) => {
 });
 ```
 
-Handler can be `async`. Always wrap logic in try/catch — an unhandled exception can prevent the handler from completing, and Wix may retry delivery, causing duplicate processing.
+Handler can be `async`; ensure errors are caught and logged so one failing handler does not break others.
 
 ## Extension Registration
 
@@ -107,32 +107,21 @@ onContactCreated(async (event) => {
 
 ## Key Constraints
 
-- **One handler per event** – You cannot have two event extensions for the same event in the app. This limit is global across the entire app, including any dashboard-side handlers.
-- **At-least-once delivery** – Wix guarantees events are delivered at least once, but duplicates are possible. Design handlers to be idempotent (e.g., check if a record already exists before inserting).
+- **One handler per event** – You cannot have two event extensions for the same event in the app (local or dashboard).
 - **Permissions** – Each event may require specific permission scopes; configure them in the app dashboard (Permissions page).
-- **No local dev testing** – Event handlers require a released version to test. See [Testing Event Extensions](#testing-event-extensions) for the full workflow.
+- **Testing** – Release a version with your changes, then perform the action that triggers the event. Some events are not fully testable in local dev.
 - **Backend limits** – Event handlers run under backend extension limits (e.g. 1000 CPU ms per request, 20 sub-requests). See [About Backend Extensions](https://dev.wix.com/docs/wix-cli/guides/extensions/backend-extensions/about-backend-extensions).
 
 ## Best Practices
 
 - **Error handling:** Wrap handler logic in try/catch; log and optionally rethrow or report.
-- **Idempotency:** Events may be delivered more than once; design handlers to be idempotent where possible.
 - **Logging:** Use `console.log` for debugging; keep production logs minimal and non-sensitive.
 - **Performance:** Finish within backend limits; offload heavy work to queues or background jobs if needed.
 
 ## Testing Event Extensions
 
-Event handlers cannot be tested locally with `wix dev` — they require a released version because Wix needs to route webhooks to your deployed code.
-
-1. **Build and release** a version with your changes (`npx wix build && npx wix release`).
-2. **Install the app** on a test site (or update if already installed).
-3. **Trigger the event** by performing the relevant action on the site (e.g., create a contact, place an order).
-4. **Check logs** in the [Wix Dev Center](https://manage.wix.com/) → your app → Monitoring to verify the handler executed.
-
-**Debugging tips:**
-- Add `console.log` statements to confirm handler execution — these appear in the Dev Center monitoring logs.
-- If the handler doesn't fire, verify the app has the required permission scopes configured in the app dashboard.
-- If the handler fires but fails, check the error in monitoring logs and ensure you're using `auth.elevate()` for any API calls that need elevated permissions.
+1. **Release** a version with your changes.
+2. **Trigger** the event by taking an action.
 
 ## Verification
 

@@ -232,28 +232,10 @@ Additional fields may be required or optional depending on the specific service 
 
 ## Testing Service Plugins
 
-Service plugins run server-side during eCommerce flows, so they require a released version to test — `wix dev` alone is not sufficient.
+To test your service plugin extension:
 
-**Testing workflow:**
-
-1. **Build and release** a version (`npx wix build && npx wix release`)
-2. **Install/update the app** on a test site
-3. **Trigger the flow** by performing the relevant site action:
-
-| SPI Type | How to Trigger |
-|----------|---------------|
-| Additional Fees | Add items to cart, view cart — check order summary for fee |
-| Shipping Rates | Proceed to checkout, enter shipping address — check shipping options |
-| Tax Calculation | Add items to cart, proceed to checkout — check tax line items |
-| Validations | Attempt to complete checkout — validation errors should appear |
-| Discount Triggers | Add items matching trigger conditions — discount should apply |
-| Gift Cards | Enter gift card code at checkout — balance should apply |
-
-**Debugging tips:**
-- Add `console.log` at the start of each handler to confirm it's being called — logs appear in the Wix Dev Center monitoring.
-- If the handler isn't called, verify the app has the required permissions and the extension is registered in `src/extensions.ts`.
-- If the handler runs but the result doesn't appear, check the response structure matches what Wix expects — even minor field name mismatches cause silent failures. Compare against the reference docs for your SPI type.
-- Use `auth.elevate()` for any Wix Data or SDK calls inside handlers — service plugins run without user context.
+1. **Release a version** with your changes - new service plugins or changes to existing ones won't take effect until you've built and released your project
+2. **Trigger the call** to your service plugin by performing the relevant action (e.g., add items to cart and view cart to test Additional Fees)
 
 ## Verification
 

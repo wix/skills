@@ -184,9 +184,6 @@ Each dashboard plugin requires an `<plugin-name>.extension.ts` file in its folde
 |---------|-------|-----|
 | Plugin not appearing on dashboard page | Missing registration | Import and `.use()` in `src/extensions.ts` |
 | Plugin not appearing on dashboard page | Wrong slot ID | Verify `extends` field matches a valid slot ID from [Slots Reference](references/SLOTS.md) |
-| Plugin appears on unexpected pages | Slot ID shared across pages | Some slot IDs appear on multiple dashboard pages — this is by design |
-| `observeState()` returns empty data | Host page doesn't pass data to this slot | Not all slots provide data — check the specific slot's documentation |
-| TypeScript error on typed props import | Package not installed | Install the app's dashboard package (e.g., `@wix/blog/dashboard`) |
 
 ## Hard Constraints
 

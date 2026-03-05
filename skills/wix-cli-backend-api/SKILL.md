@@ -228,36 +228,6 @@ src/pages/api/
 └── posts.ts              # /api/posts endpoint
 ```
 
-## Error Response Pattern
-
-Use a consistent error shape across all endpoints so frontend code can handle errors uniformly:
-
-```typescript
-function errorResponse(status: number, statusText: string, message: string): Response {
-  return new Response(JSON.stringify({ error: message }), {
-    status,
-    statusText,
-    headers: { "Content-Type": "application/json" },
-  });
-}
-```
-
-## CORS and Security
-
-Backend API endpoints are served from the same origin as the Wix site, so CORS headers are not needed for frontend calls using `httpClient.fetchWithAuth()`. If you need to expose an endpoint to external consumers, add CORS headers explicitly:
-
-```typescript
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization",
-};
-
-export const OPTIONS: APIRoute = async () => {
-  return new Response(null, { status: 204, headers: corsHeaders });
-};
-```
-
 ## Code Quality Requirements
 
 - Strict TypeScript (no `any`, explicit return types)
