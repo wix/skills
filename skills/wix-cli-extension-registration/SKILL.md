@@ -69,6 +69,7 @@ Examples:
 
 - `dashboardpageCartPopupManager`
 - `dashboardpluginBlogPostsBanner`
+- `dashboardmenupluginExportPosts`
 - `embeddedscriptCouponPopup`
 - `sitewidgetCountdownWidget`
 - `sitepluginProductBadge`

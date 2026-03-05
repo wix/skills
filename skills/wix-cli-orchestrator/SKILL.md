@@ -87,7 +87,8 @@ Answer these questions to find the right extension:
 
 3. **Where will it appear?**
    - Dashboard sidebar/page → Dashboard Page or Modal
-   - Existing Wix app dashboard → Dashboard Plugin
+   - Existing Wix app dashboard (widget) → Dashboard Plugin
+   - Existing Wix app dashboard (menu item) → Dashboard Menu Plugin
    - Anywhere on site → Site Widget
    - Wix business solution page → Site Plugin
    - During business flow → Service Plugin
@@ -95,7 +96,7 @@ Answer these questions to find the right extension:
 
 ## Decision Flow (Not sure?)
 
-- **Admin:** Need full-page UI? → Dashboard Page. Need popup/form? → Dashboard Modal. Extending Wix app dashboard? → Dashboard Plugin. **Modal constraint:** Dashboard Pages cannot use `<Modal />`; use a separate Dashboard Modal extension and `dashboard.openModal()`.
+- **Admin:** Need full-page UI? → Dashboard Page. Need popup/form? → Dashboard Modal. Extending Wix app dashboard with a visual widget? → Dashboard Plugin. Adding a menu item to a Wix app dashboard's more-actions or bulk-actions menu? → Dashboard Menu Plugin. **Modal constraint:** Dashboard Pages cannot use `<Modal />`; use a separate Dashboard Modal extension and `dashboard.openModal()`.
 - **Backend:** During business flow (checkout/shipping/tax)? → Service Plugin. After event (webhooks/sync)? → Event Extension. Custom HTTP endpoints? → Backend Endpoints. Need CMS collections for app data? → Data Collection.
 - **Site:** User places anywhere? → Site Widget. Fixed slot on Wix app page? → Site Plugin. Scripts/analytics only? → Embedded Script.
 
@@ -126,7 +127,7 @@ Answer these questions to find the right extension:
 | Dashboard Page        | Dashboard | Admin only  | Full admin pages              | `wix-cli-dashboard-page`   |
 | Dashboard Modal       | Dashboard | Admin only  | Popup dialogs                 | `wix-cli-dashboard-modal` |
 | Dashboard Plugin      | Dashboard | Admin only  | Extend Wix app dashboards     | `wix-cli-dashboard-plugin` |
-| Dashboard Menu Plugin | Dashboard | Admin only  | Add menu items                | (none yet)                |
+| Dashboard Menu Plugin | Dashboard | Admin only  | Add menu items to Wix app dashboards | `wix-cli-dashboard-menu-plugin` |
 | Service Plugin        | Backend   | Server-side | Customize business flows      | `wix-cli-service-plugin`   |
 | Event Extension       | Backend   | Server-side | React to events               | `wix-cli-backend-event`   |
 | Backend Endpoints     | Backend   | API         | Custom HTTP handlers          | `wix-cli-backend-api`     |
