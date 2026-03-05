@@ -12,6 +12,22 @@ Creates CMS data collections for Wix CLI apps. The data collections extension al
 
 ---
 
+## Do I Need a Collection?
+
+| Scenario | Use Collection? | Use Instead |
+|----------|----------------|-------------|
+| Dashboard manages multi-record business data (fees, rules, inventory) | **Yes** | — |
+| Site widget displays data managed by dashboard | **Yes** | — |
+| User-generated content (reviews, submissions) | **Yes** | — |
+| Single-value app config (headline, color, toggle) | No | Embedded script parameters or widget settings panel |
+| Widget appearance settings (font, size, position) | No | Widget settings panel (`panel.tsx`) |
+| Embedded script behavior (enabled, API key) | No | Embedded script parameters |
+| Accessing Wix platform data (products, orders, contacts) | No | Wix SDK APIs directly |
+
+**Rule of thumb:** If the data is multi-record, user-generated, or needs CRUD management from a dashboard page, use a collection. If it's configuration with a fixed set of keys, use parameters or settings panels.
+
+---
+
 ## App Namespace Handling
 
 **App namespace is REQUIRED** for data collections to work. The namespace scopes your collection IDs to prevent conflicts between apps.

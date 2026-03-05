@@ -1,6 +1,7 @@
 ---
 name: wix-stores-versioning
-description: "Handle Wix Stores Catalog V1 and V3 SDK compatibility. Use when building integrations that interact with Wix Stores"
+description: "Handle Wix Stores Catalog V1 and V3 SDK compatibility. Use when building any integration that interacts with Wix Stores products, inventory, orders, or collections. Triggers include Wix Stores, products API, inventory API, catalog version, productsV3, V1 vs V3, store products, queryProducts, getProduct."
+compatibility: Requires Wix CLI development environment.
 ---
 
 # Wix Stores Catalog Versioning
@@ -48,11 +49,39 @@ async function getProducts() {
 2. Read the full docs with `ReadFullDocsArticle` to get the required permissions
 3. Return the required permissions to the user
 
+## V1 vs V3 Quick Reference
+
+| Operation | V1 Module | V3 Module |
+|-----------|-----------|-----------|
+| Query products | `products.queryProducts()` | `productsV3.queryProducts()` |
+| Get product | `products.getProduct()` | `productsV3.getProduct()` |
+| Create product | `products.createProduct()` | `productsV3.createProduct()` |
+| Query inventory | `inventory.getInventoryVariants()` | `inventoryItemsV3.queryInventoryItems()` |
+| Query collections | `collections.queryCollections()` | `collectionsV3.queryCollections()` |
+
+All modules are imported from `@wix/stores`. V3 modules have a `V3` suffix.
+
+## Handling STORES_NOT_INSTALLED
+
+When `getCatalogVersion()` returns `STORES_NOT_INSTALLED`, Wix Stores is not active on the site. Handle this gracefully:
+
+```typescript
+const { catalogVersion } = await catalogVersioning.getCatalogVersion();
+
+if (catalogVersion === 'STORES_NOT_INSTALLED') {
+  // Show appropriate UI or return empty results
+  // Do NOT call any products/inventory APIs — they will fail
+  return [];
+}
+```
+
+This can happen when an app is installed on a site that doesn't use Wix Stores. Always check before making any Stores API call.
+
 ## Key Rules
 
-- Call `getCatalogVersion()` at the start of each flow
-- Catalog version is permanent per site (won't downgrade)
-- V1 and V3 have different payload structures - search docs for specifics
+- Call `getCatalogVersion()` at the start of each flow — it's a lightweight call that caches well
+- Catalog version is permanent per site (won't downgrade from V3 to V1)
+- V1 and V3 have different payload structures — field names, nesting, and types differ
 - Subscribe to both V1 and V3 webhooks to handle all sites
 
 ## Finding SDK Details

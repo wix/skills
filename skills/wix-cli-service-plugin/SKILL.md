@@ -1,6 +1,6 @@
 ---
 name: wix-cli-service-plugin
-description: Use when implementing service plugin extensions that inject custom backend logic into existing Wix business solution flows or introduce new flows to Wix sites. Triggers include SPI, service plugin, backend flow, business logic.
+description: Use when implementing service plugin extensions that inject custom backend logic into existing Wix business solution flows or introduce new flows to Wix sites. Triggers include SPI, service plugin, backend flow, business logic, custom shipping rates, additional fees, tax calculation, checkout validation, discount triggers, gift cards, eCommerce customization.
 compatibility: Requires Wix CLI development environment.
 ---
 
@@ -232,15 +232,28 @@ Additional fields may be required or optional depending on the specific service 
 
 ## Testing Service Plugins
 
-To test your service plugin extension:
+Service plugins run server-side during eCommerce flows, so they require a released version to test — `wix dev` alone is not sufficient.
 
-1. **Release a version** with your changes - new service plugins or changes to existing ones won't take effect until you've built and released your project
-2. **Trigger the call** to your service plugin by performing the relevant action (e.g., add items to cart and view cart to test Additional Fees)
+**Testing workflow:**
 
-For example, to test an Additional Fees service plugin that adds a $5 packaging fee:
-1. Go to your site's store in the local development environment
-2. Select any product and add it to the cart, then view the cart
-3. Check if the additional fee is listed in the order summary
+1. **Build and release** a version (`npx wix build && npx wix release`)
+2. **Install/update the app** on a test site
+3. **Trigger the flow** by performing the relevant site action:
+
+| SPI Type | How to Trigger |
+|----------|---------------|
+| Additional Fees | Add items to cart, view cart — check order summary for fee |
+| Shipping Rates | Proceed to checkout, enter shipping address — check shipping options |
+| Tax Calculation | Add items to cart, proceed to checkout — check tax line items |
+| Validations | Attempt to complete checkout — validation errors should appear |
+| Discount Triggers | Add items matching trigger conditions — discount should apply |
+| Gift Cards | Enter gift card code at checkout — balance should apply |
+
+**Debugging tips:**
+- Add `console.log` at the start of each handler to confirm it's being called — logs appear in the Wix Dev Center monitoring.
+- If the handler isn't called, verify the app has the required permissions and the extension is registered in `src/extensions.ts`.
+- If the handler runs but the result doesn't appear, check the response structure matches what Wix expects — even minor field name mismatches cause silent failures. Compare against the reference docs for your SPI type.
+- Use `auth.elevate()` for any Wix Data or SDK calls inside handlers — service plugins run without user context.
 
 ## Verification
 

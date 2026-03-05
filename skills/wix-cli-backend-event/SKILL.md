@@ -1,6 +1,6 @@
 ---
 name: wix-cli-backend-event
-description: Create backend event extensions that respond to Wix events. Use when implementing handlers that run when specific conditions occur on a site. Triggers include event extension, backend event, webhook handler.
+description: Create backend event extensions that respond to Wix events. Use when implementing handlers that run when specific conditions occur on a site. Triggers include event extension, backend event, webhook handler, onContactCreated, onOrderPaid, onBookingConfirmed, listen for events, react to changes, event subscription, CRM events, eCommerce events, Bookings events, Blog events.
 compatibility: Requires Wix CLI development environment.
 ---
 
@@ -63,13 +63,18 @@ Import the event from the correct SDK module and pass a handler. Wix invokes the
 ```typescript
 import { onContactCreated } from "@wix/crm/events";
 
-onContactCreated((event) => {
-  console.log("Contact created:", event.entity);
-  // Custom logic: sync to CRM, send welcome email, etc.
+onContactCreated(async (event) => {
+  try {
+    const contact = event.entity;
+    console.log("Contact created:", contact.info?.name?.first, contact.info?.name?.last);
+    // Custom logic: sync to CRM, send welcome email, etc.
+  } catch (error) {
+    console.error("Failed to handle contact created event:", error);
+  }
 });
 ```
 
-Handler can be `async`; ensure errors are caught and logged so one failing handler does not break others.
+Handler can be `async`. Always wrap logic in try/catch — an unhandled exception can prevent the handler from completing, and Wix may retry delivery, causing duplicate processing.
 
 ## Extension Registration
 
@@ -102,9 +107,10 @@ onContactCreated(async (event) => {
 
 ## Key Constraints
 
-- **One handler per event** – You cannot have two event extensions for the same event in the app (local or dashboard).
+- **One handler per event** – You cannot have two event extensions for the same event in the app. This limit is global across the entire app, including any dashboard-side handlers.
+- **At-least-once delivery** – Wix guarantees events are delivered at least once, but duplicates are possible. Design handlers to be idempotent (e.g., check if a record already exists before inserting).
 - **Permissions** – Each event may require specific permission scopes; configure them in the app dashboard (Permissions page).
-- **Testing** – Release a version with your changes, then perform the action that triggers the event. Some events are not fully testable in local dev.
+- **No local dev testing** – Event handlers require a released version to test. See [Testing Event Extensions](#testing-event-extensions) for the full workflow.
 - **Backend limits** – Event handlers run under backend extension limits (e.g. 1000 CPU ms per request, 20 sub-requests). See [About Backend Extensions](https://dev.wix.com/docs/wix-cli/guides/extensions/backend-extensions/about-backend-extensions).
 
 ## Best Practices
@@ -116,8 +122,17 @@ onContactCreated(async (event) => {
 
 ## Testing Event Extensions
 
-1. **Release** a version with your changes.
-2. **Trigger** the event by taking an action.
+Event handlers cannot be tested locally with `wix dev` — they require a released version because Wix needs to route webhooks to your deployed code.
+
+1. **Build and release** a version with your changes (`npx wix build && npx wix release`).
+2. **Install the app** on a test site (or update if already installed).
+3. **Trigger the event** by performing the relevant action on the site (e.g., create a contact, place an order).
+4. **Check logs** in the [Wix Dev Center](https://manage.wix.com/) → your app → Monitoring to verify the handler executed.
+
+**Debugging tips:**
+- Add `console.log` statements to confirm handler execution — these appear in the Dev Center monitoring logs.
+- If the handler doesn't fire, verify the app has the required permission scopes configured in the app dashboard.
+- If the handler fires but fails, check the error in monitoring logs and ensure you're using `auth.elevate()` for any API calls that need elevated permissions.
 
 ## Verification
 
