@@ -12,7 +12,7 @@ Dashboard modals are popup dialogs triggered from dashboard pages or plugins. Th
 
 | Task | Method | Example |
 |------|--------|---------|
-| Create modal | Create 3 files in `src/dashboard/modals/<folder>/` | See File Structure below |
+| Create modal | Create 3 files in `src/extensions/dashboard/modals/<folder>/` | See File Structure below |
 | Open modal | `dashboard.openModal()` | `openModal({ modalId: "modal-id" })` |
 | Pass data to modal | `params` in `openModal()` | `params: { userId: "123" }` |
 | Read data in modal | `observeState()` | `dashboard.observeState((state) => { ... })` |
@@ -22,7 +22,7 @@ Dashboard modals are popup dialogs triggered from dashboard pages or plugins. Th
 
 ## File Structure
 
-Create **three files** in `src/dashboard/modals/<folder-name>/`:
+Create **three files** in `src/extensions/dashboard/modals/<folder-name>/`:
 
 1. **`extensions.ts`** - Builder configuration with modal ID, title, dimensions, component path
 2. **`<modal-name>.tsx`** - React component rendering modal content
@@ -123,7 +123,7 @@ export default {
 Then register in `src/extensions.ts`:
 
 ```typescript
-import { dashboardmodalYourModal } from './dashboard/modals/<modal-name>/extensions.ts';
+import { dashboardmodalYourModal } from './extensions/dashboard/modals/<modal-name>/extensions.ts';
 
 export default app()
   .use(dashboardmodalYourModal)

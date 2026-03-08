@@ -26,9 +26,9 @@ The most common cause of "my extension isn't working" is a missing `.use()` call
 
 ```typescript
 import { app } from "@wix/astro/builders";
-import { dataExtension } from "./data/extensions.ts";
-import { dashboardpageMyPage } from "./dashboard/pages/my-page/extensions.ts";
-import { embeddedscriptMyScript } from "./site/embedded-scripts/my-script/extensions.ts";
+import { dataExtension } from "./extensions/data/extensions.ts";
+import { dashboardpageMyPage } from "./extensions/dashboard/pages/my-page/extensions.ts";
+import { embeddedscriptMyScript } from "./extensions/site/embedded-scripts/my-script/extensions.ts";
 
 export default app()
   .use(dataExtension)
@@ -47,9 +47,9 @@ export default app()
 **`src/index.ts`** - Re-export all extensions:
 
 ```typescript
-export { dashboardpageMyPage } from "./dashboard/pages/my-page/extensions";
-export { embeddedscriptMyScript } from "./site/embedded-scripts/my-script/extensions";
-export { dataExtension } from "./data/extensions";
+export { dashboardpageMyPage } from "./extensions/dashboard/pages/my-page/extensions";
+export { embeddedscriptMyScript } from "./extensions/site/embedded-scripts/my-script/extensions";
+export { dataExtension } from "./extensions/data/extensions";
 ```
 
 **`src/extensions.ts`** - Register all extensions programmatically:

@@ -15,7 +15,7 @@ When you implement a service plugin, Wix calls your custom functions during spec
 Follow these steps in order when creating a service plugin:
 
 1. [ ] **Read the reference doc** for your SPI type (REQUIRED before implementation)
-2. [ ] Create plugin folder: `src/backend/service-plugins/<service-type>/<plugin-name>/`
+2. [ ] Create plugin folder: `src/extensions/backend/service-plugins/<service-type>/<plugin-name>/`
 3. [ ] Create `plugin.ts` with correct imports and `provideHandlers()` call
 4. [ ] Implement all required handler functions with complete business logic
 5. [ ] Create `extensions.ts` with appropriate builder method and unique UUID
@@ -42,7 +42,7 @@ Follow these steps in order when creating a service plugin:
 Service plugins consist of two files that work together. Registration of plugins requires an extension builder file.
 
 ```
-src/backend/service-plugins/
+src/extensions/backend/service-plugins/
 └── {service-type}/
     └── {plugin-name}/
         ├── plugin.ts           # Handler logic with provideHandlers()
@@ -194,7 +194,7 @@ export const ecomshippingratesMyShipping = extensions.ecomShippingRates({
   id: "{{GENERATE_UUID}}",
   name: "My Shipping Rates",
   description: "Calculates custom shipping rates based on order weight",
-  source: "./backend/service-plugins/ecom-shipping-rates/my-shipping/plugin.ts",
+  source: "./extensions/backend/service-plugins/ecom-shipping-rates/my-shipping/plugin.ts",
 });
 ```
 

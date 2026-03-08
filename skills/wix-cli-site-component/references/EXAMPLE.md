@@ -17,7 +17,7 @@ This example showcases a versatile component with:
 ## File Structure
 
 ```
-src/site/components/perfect-example/
+src/extensions/site/components/perfect-example/
 ├── manifest.json
 ├── component.tsx
 ├── style.css

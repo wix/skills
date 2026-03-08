@@ -12,10 +12,10 @@ Creates embedded script extensions for Wix CLI applications. Embedded scripts ar
 
 Follow these steps in order when creating an embedded script:
 
-1. [ ] Create script folder: `src/site/embedded-scripts/<script-name>/`
+1. [ ] Create script folder: `src/extensions/site/embedded-scripts/<script-name>/`
 2. [ ] Create `embedded.html` with config element, styles, and script logic
 3. [ ] Create `extensions.ts` with `extensions.embeddedScript()` and unique UUID
-4. [ ] Create dashboard config page: `src/dashboard/pages/<script-name>-settings/`
+4. [ ] Create dashboard config page: `src/extensions/dashboard/pages/<script-name>-settings/`
 5. [ ] Implement config page with `embeddedScripts` API from `@wix/app-management`
 6. [ ] Update `src/extensions.ts` to import and use both extensions
 7. [ ] Add the `SCOPE.DC-APPS.MANAGE-EMBEDDED-SCRIPTS` permission in the Wix Dev Center (see [Enable Embedded Script Permission](#enable-embedded-script-permission))
@@ -228,7 +228,7 @@ A complete embedded script implementation requires **two parts**:
 ### 1. Embedded Script Extension
 
 ```
-src/site/embedded-scripts/
+src/extensions/site/embedded-scripts/
 └── {script-name}/
     ├── embedded.html     # HTML/JavaScript code to inject
     └── extensions.ts     # Metadata (scriptType, placement)
@@ -237,7 +237,7 @@ src/site/embedded-scripts/
 ### 2. Dashboard Configuration Page (Required)
 
 ```
-src/dashboard/
+src/extensions/dashboard/
 ├── withProviders.tsx     # WDS provider wrapper (required)
 └── pages/
     └── {script-name}-settings/
@@ -438,7 +438,7 @@ import { extensions } from "@wix/astro/builders";
 export const embeddedscriptMyScript = extensions.embeddedScript({
   id: "{{GENERATE_UUID}}",
   name: "My Script",
-  source: "./site/embedded-scripts/my-script/embedded.html",
+  source: "./extensions/site/embedded-scripts/my-script/embedded.html",
   placement: "BODY_END",
   scriptType: "FUNCTIONAL",
 });

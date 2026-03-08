@@ -14,7 +14,7 @@ Common use cases: run logic when a contact is created, an order is placed, a boo
 
 Follow these steps in order when creating an event extension.
 
-1. [ ] Create event folder: `src/backend/events/<event-name>/`
+1. [ ] Create event folder: `src/extensions/backend/events/<event-name>/`
 2. [ ] Create `<event-name>.ts` with the SDK event import and handler function
 3. [ ] Create `<event-name>.extension.ts` with `extensions.event()` and a unique UUID
 4. [ ] Update `src/extensions.ts` to import and use the new extension
@@ -32,7 +32,7 @@ Follow these steps in order when creating an event extension.
 Two files per event ([docs](https://dev.wix.com/docs/wix-cli/guides/extensions/backend-extensions/events/event-extension-files-and-code)). Only **one** handler per event allowed in the app (including dashboard handlers).
 
 ```
-src/backend/events/<event-name>/
+src/extensions/backend/events/<event-name>/
 ├── <event-name>.extension.ts   # Builder: extensions.event({ id, source }) – id is unique GUID
 └── <event-name>.ts             # Handler: imports SDK event (e.g. onContactCreated), runs on trigger
 ```
@@ -48,7 +48,7 @@ import { extensions } from "@wix/astro/builders";
 
 export const eventContactCreated = extensions.event({
   id: "{{GENERATE_UUID}}",
-  source: "./backend/events/contact-created/contact-created.ts",
+  source: "./extensions/backend/events/contact-created/contact-created.ts",
 });
 ```
 
