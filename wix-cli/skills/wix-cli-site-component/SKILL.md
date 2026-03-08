@@ -357,7 +357,7 @@ Asset specification format:
 ## Output Structure
 
 ```
-src/site/components/
+src/extensions/site/components/
 └── {component-name}/
     ├── manifest.json        # Component manifest
     ├── component.tsx        # React component
@@ -420,8 +420,8 @@ export const sitecomponentMyComponent = extensions.siteComponent({
   type: "platform.MyComponent",
   resources: {
     client: {
-      component: "./site/components/my-component/component.tsx",
-      componentUrl: "./site/components/my-component/component.tsx",
+      component: "./extensions/site/components/my-component/component.tsx",
+      componentUrl: "./extensions/site/components/my-component/component.tsx",
     },
   },
 });

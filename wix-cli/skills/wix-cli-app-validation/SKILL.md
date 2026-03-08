@@ -68,13 +68,13 @@ npx tsc --noEmit src/extensions/dashboard/pages/survey/**/*.ts src/extensions/da
 npx tsc --noEmit src/extensions/dashboard/pages/**/*.ts src/extensions/dashboard/pages/**/*.tsx
 
 # Check site widgets only
-npx tsc --noEmit src/site/widgets/**/*.ts src/site/widgets/**/*.tsx
+npx tsc --noEmit src/extensions/site/widgets/**/*.ts src/extensions/site/widgets/**/*.tsx
 
 # Check dashboard modals only
 npx tsc --noEmit src/extensions/dashboard/modals/**/*.ts src/extensions/dashboard/modals/**/*.tsx
 
 # Check backend only
-npx tsc --noEmit src/backend/**/*.ts
+npx tsc --noEmit src/extensions/backend/**/*.ts
 ```
 
 **When to use targeted checks:**

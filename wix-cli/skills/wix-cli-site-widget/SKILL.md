@@ -12,7 +12,7 @@ Creates custom element widget extensions for Wix CLI applications. Site widgets 
 
 Follow these steps in order when creating a site widget:
 
-1. [ ] Create widget folder: `src/site/widgets/custom-elements/<widget-name>/`
+1. [ ] Create widget folder: `src/extensions/site/widgets/custom-elements/<widget-name>/`
 2. [ ] Create `widget.tsx` with React component and `reactToWebComponent` conversion
 3. [ ] Create `panel.tsx` with WDS components and `widget.getProp/setProp`
 4. [ ] Create `extensions.ts` with `extensions.customElement()` and unique UUID
@@ -322,7 +322,7 @@ const Panel: FC = () => {
 ## Output Structure
 
 ```
-src/site/widgets/custom-elements/
+src/extensions/site/widgets/custom-elements/
 └── {widget-name}/
     ├── widget.tsx           # Main widget component
     ├── panel.tsx            # Settings panel component
@@ -387,8 +387,8 @@ export const sitewidgetMyWidget = extensions.customElement({
   id: "{{GENERATE_UUID}}",
   name: "My Widget",
   tagName: "my-widget",
-  element: "./site/widgets/custom-elements/my-widget/widget.tsx",
-  settings: "./site/widgets/custom-elements/my-widget/panel.tsx",
+  element: "./extensions/site/widgets/custom-elements/my-widget/widget.tsx",
+  settings: "./extensions/site/widgets/custom-elements/my-widget/panel.tsx",
   installation: {
     autoAdd: true,
   },

@@ -139,10 +139,10 @@ This dashboard page manages dynamic parameters for an embedded script. The param
 ## Example Implementation
 
 See the generated site-popup example for a complete reference implementation:
-- src/dashboard/withProviders.tsx - Provider wrapper with WDS
-- src/dashboard/pages/page.tsx - Dashboard page with parameter management (wrapped with withProviders)
-- src/components/site-popup-settings.tsx - Settings form component
-- src/types.ts - Type definitions
+- src/extensions/dashboard/withProviders.tsx - Provider wrapper with WDS
+- src/extensions/dashboard/pages/page.tsx - Dashboard page with parameter management (wrapped with withProviders)
+- src/extensions/dashboard/components/site-popup-settings.tsx - Settings form component
+- src/extensions/dashboard/types.ts - Type definitions
 
 Key implementation patterns from the example:
 1. withProviders.tsx wraps the component with WixDesignSystemProvider
@@ -154,16 +154,16 @@ Key implementation patterns from the example:
 ## File Generation Requirements
 
 When dynamic parameters are present, you MUST generate these files:
-1. src/dashboard/withProviders.tsx - Provider wrapper (REQUIRED for WDS)
-2. src/dashboard/pages/page.tsx - The main dashboard page component
-3. src/types.ts - Type definitions for the parameters (if needed)
+1. src/extensions/dashboard/withProviders.tsx - Provider wrapper (REQUIRED for WDS)
+2. src/extensions/dashboard/pages/page.tsx - The main dashboard page component
+3. src/extensions/dashboard/types.ts - Type definitions for the parameters (if needed)
 4. Any additional component files (settings forms, previews, etc.)
 
 The withProviders.tsx is NOT optional - it must always be generated when there are dynamic parameters.
 
 ## Provider Wrapper Implementation
 
-You MUST generate the following file: src/dashboard/withProviders.tsx
+You MUST generate the following file: src/extensions/dashboard/withProviders.tsx
 
 This file is REQUIRED to wrap dashboard components with the Wix Design System provider.
 
