@@ -20,7 +20,7 @@ Creates production-quality context provider components for Wix CLI applications.
 
 Follow these steps in order when creating a context provider:
 
-1. [ ] Install `@preact/signals-react` if not already present
+1. [ ] Install `@wix/services-manager-react` and `@wix/services-definitions` if not already present
 2. [ ] Create provider folder: `src/extensions/{provider-name}/`
 3. [ ] Create `provider.tsx` with React context, hook export, and provider component
 4. [ ] Register in `src/extensions.ts` using `experimentalExtensions.contextProvider()`
@@ -52,13 +52,13 @@ Registers the context provider with the app builder using `experimentalExtension
 ## Provider Component Pattern
 
 ```typescript
-import { useSignal } from '@preact/signals-react';
-import type { Signal } from '@preact/signals-react';
-import React, { createContext, useContext } from 'react';
+import React, { createContext, useContext, useMemo } from 'react';
+import { useService } from '@wix/services-manager-react';
+import { SignalsServiceDefinition } from '@wix/services-definitions/core-services/signals';
 
-// 1. Define the context type interface
+// 1. Define the context type interface (plain types, not Signal objects)
 export interface MyContextType {
-  someValue: Signal<string>;
+  someValue: string;
   someAction: () => void;
 }
 
@@ -86,13 +86,19 @@ export function MyContextProvider({
   children,
   initialValue,
 }: MyProviderProps): React.ReactNode {
-  const someValue = useSignal(initialValue || '');
+  const signalsService = useService(SignalsServiceDefinition);
+  const signal = useMemo(() => {
+    return signalsService.signal(initialValue || '');
+  }, [initialValue]);
 
   const someAction = () => {
-    someValue.value = 'updated';
+    signal.set('updated');
   };
 
-  const api = { someValue, someAction };
+  const api = {
+    someValue: signal.get(),
+    someAction,
+  };
 
   return (
     <MyContext.Provider value={api}>{children}</MyContext.Provider>
@@ -111,7 +117,7 @@ export default MyContextProvider;
 - **Always** throw an error in the hook if used outside the provider
 - **Always** accept `children` as a prop
 - Provider props correspond to the `data` entries in the extension registration
-- Use `@preact/signals-react` for reactive state management
+- Use `@wix/services-manager-react` with `SignalsServiceDefinition` from `@wix/services-definitions/core-services/signals` for reactive state management
 
 ## Extension Registration
 
@@ -330,12 +336,12 @@ The `contextDependencies` array references the `moduleSpecifier` from the contex
 **`src/extensions/context-provider/provider.tsx`**:
 
 ```typescript
-import { useSignal } from '@preact/signals-react';
-import type { Signal } from '@preact/signals-react';
-import React, { createContext, useContext } from 'react';
+import React, { createContext, useContext, useMemo } from 'react';
+import { useService } from '@wix/services-manager-react';
+import { SignalsServiceDefinition } from '@wix/services-definitions/core-services/signals';
 
 export interface CounterContextType {
-  count: Signal<number>;
+  count: number;
   decrement: () => void;
   increment: () => void;
   setCount: (count: number) => void;
@@ -361,13 +367,21 @@ export function CounterContextProvider({
   children,
   initialCount,
 }: CounterProviderProps): React.ReactNode {
-  const count = useSignal(initialCount || 0);
+  const signalsService = useService(SignalsServiceDefinition);
+  const count = useMemo(() => {
+    return signalsService.signal(initialCount || 0);
+  }, [initialCount]);
 
-  const increment = () => { count.value += 1; };
-  const decrement = () => { count.value -= 1; };
-  const setCount = (value: number) => { count.value = value; };
+  const increment = () => { count.set(count.peek() + 1); };
+  const decrement = () => { count.set(count.peek() - 1); };
+  const setCount = (value: number) => { count.set(value); };
 
-  const api = { count, decrement, increment, setCount };
+  const api = {
+    count: count.get(),
+    decrement,
+    increment,
+    setCount,
+  };
 
   return (
     <CounterContext.Provider value={api}>{children}</CounterContext.Provider>
@@ -451,10 +465,11 @@ extensions.siteComponent({
 **Consumer component (`src/extensions/clicker-with-context/component.tsx`)**:
 
 ```typescript
-import React, { type FC } from 'react';
+import React from 'react';
 //@ts-expect-error will be generated
 import { useCounterContext } from 'my-counter-context';
 import type { CounterContextType } from '../context-provider/provider.tsx';
+import './component.css';
 
 interface Props {
   id: string;
@@ -462,20 +477,19 @@ interface Props {
   text?: string;
 }
 
-const Clicker: FC<Props> = (props) => {
+export default function Clicker(props: Props) {
   const { count, increment } = useCounterContext() as CounterContextType;
+  const finalClassName = `clicker ${props.className ?? ''}`;
 
   return (
-    <div className={props.className} id={props.id}>
-      <span>Count: {count.value}</span>
+    <div className={finalClassName} id={props.id}>
+      <span>Count: {count}</span>
       <button onClick={() => increment()}>
         {props.text ?? 'CLICK'}
       </button>
     </div>
   );
-};
-
-export default Clicker;
+}
 ```
 
 ### Consumer Component Rules
@@ -491,7 +505,8 @@ export default Clicker;
   import type { CounterContextType } from '../context-provider/provider.tsx';
   const { count, increment } = useCounterContext() as CounterContextType;
   ```
-- **Access Signal values with `.value`** — Context values using `@preact/signals-react` are Signal objects. Read them in JSX with `count.value`, not `count`.
+- **Context values are plain values** — The provider resolves signal values via `.get()` before exposing them. Consumers use values directly (e.g., `count`, not `count.value`).
+- **Use `finalClassName`** — Combine the `editorElement.selector` class (without the `.`) with `props.className`: ``const finalClassName = `clicker ${props.className ?? ''}` ``
 - The consumer's registration must include `contextDependencies` referencing the provider's `moduleSpecifier`.
 
 ## Output Structure
@@ -507,7 +522,7 @@ src/extensions/{provider-name}/
 - Explicit return types for all functions
 - Proper null/undefined handling with optional chaining
 - Functional components with hooks
-- Use `@preact/signals-react` for reactive state
+- Use `@wix/services-manager-react` and `@wix/services-definitions/core-services/signals` for reactive state
 - SSR-safe code (no browser APIs at module scope)
 - Always set `displayName` on context and provider
 - No `@ts-ignore` comments. `@ts-expect-error` is only allowed for the generated `moduleSpecifier` import in consumer components
