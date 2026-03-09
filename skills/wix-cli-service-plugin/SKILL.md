@@ -54,7 +54,7 @@ src/backend/service-plugins/
 | File | Purpose |
 | --- | --- |
 | `plugin.ts` | Contains the service plugin handler logic with `provideHandlers()` - this is where you implement your custom business logic |
-| `extensions.ts` | Contains the service plugin builder configuration with id (GUID), name, description, and source path |
+| `extensions.ts` | Contains the service plugin builder configuration with id (GUID), name, source path, and builder-specific optional fields |
 
 ## Implementation Requirements
 
@@ -208,10 +208,9 @@ The `id` must be a unique, static UUID v4 string. Generate a fresh UUID for each
 | --- | --- | --- |
 | `id` | string | Service plugin ID as a GUID. Must be unique across all extensions in the project. |
 | `name` | string | The service plugin name (visible in app dashboard when developing an app). |
-| `description` | string | A short description of what the service plugin does. |
 | `source` | string | Path to the service plugin handler file that contains the plugin logic. |
 
-Additional fields may be required or optional depending on the specific service plugin type.
+Additional fields vary by builder method. For example, `ecomShippingRates()` accepts optional `description`, `learnMoreUrl`, `dashboardUrl`, `fallbackDefinitionMandatory`, and `thumbnailUrl`. Check TypeScript types for the specific builder method you are using.
 
 **Builder methods by SPI type:**
 

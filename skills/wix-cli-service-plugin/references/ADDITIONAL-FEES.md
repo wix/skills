@@ -16,6 +16,39 @@ import { additionalFees } from '@wix/ecom/service-plugins';
 | --- | --- |
 | `calculateAdditionalFees` | Calculate and return additional fees to apply to the order |
 
+## Request Structure
+
+The `calculateAdditionalFees` handler receives `{ request, metadata }`. Key fields on `request`:
+
+```typescript
+{
+  lineItems: Array<{
+    id: string;                      // Line item GUID
+    quantity: number;                // Quantity of item
+    productName: string;             // Item name
+    price: string;                   // Price for a single item as a STRING (e.g., "25.00"), NOT an object
+    catalogReference?: {
+      catalogItemId: string;         // Item GUID within its catalog
+      appId: string;                 // Catalog app GUID
+      options?: Record<string, any>; // Additional item details
+    };
+    physicalProperties?: {
+      weight: number;                // Item weight
+      sku: string;                   // Stock-keeping unit
+      shippable: boolean;            // Whether item is shippable
+    };
+  }>;
+  shippingAddress?: {                // Shipping address (if provided)
+    country: string;                 // ISO-3166 alpha-2 country code
+    subdivision?: string;            // State/province code
+    city?: string;
+    postalCode?: string;
+  };
+  buyerDetails?: { ... };           // Buyer contact info
+  subtotal: string;                  // Pre-calculated total: sum of (price × quantity) for all line items, as a STRING
+}
+```
+
 ## Example: Global Additional Fee from Database Configuration
 
 This example queries a CMS collection to retrieve a configurable global fee that applies to all orders.
