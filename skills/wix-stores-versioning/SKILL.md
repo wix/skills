@@ -1,6 +1,7 @@
 ---
 name: wix-stores-versioning
-description: "Handle Wix Stores Catalog V1 and V3 SDK compatibility. Use when building integrations that interact with Wix Stores"
+description: "Handle Wix Stores Catalog V1 and V3 SDK compatibility. Use when building any integration that interacts with Wix Stores products, inventory, orders, or collections. Triggers include Wix Stores, products API, inventory API, catalog version, productsV3, V1 vs V3, store products, queryProducts, getProduct."
+compatibility: Requires Wix CLI development environment.
 ---
 
 # Wix Stores Catalog Versioning
@@ -51,8 +52,8 @@ async function getProducts() {
 ## Key Rules
 
 - Call `getCatalogVersion()` at the start of each flow
-- Catalog version is permanent per site (won't downgrade)
-- V1 and V3 have different payload structures - search docs for specifics
+- Catalog version is permanent per site (won't downgrade from V3 to V1)
+- V1 and V3 have different payload structures — field names, nesting, and types differ
 - Subscribe to both V1 and V3 webhooks to handle all sites
 
 ## Finding SDK Details
