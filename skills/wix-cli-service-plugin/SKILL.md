@@ -190,11 +190,10 @@ Each service plugin requires an `extensions.ts` file in its folder with the appr
 ```typescript
 import { extensions } from "@wix/astro/builders";
 
-export const ecomshippingratesMyShipping = extensions.ecomShippingRates({
+export const ecomadditionalfeesMyFees = extensions.ecomAdditionalFees({
   id: "{{GENERATE_UUID}}",
-  name: "My Shipping Rates",
-  description: "Calculates custom shipping rates based on order weight",
-  source: "./backend/service-plugins/ecom-shipping-rates/my-shipping/plugin.ts",
+  name: "My Additional Fees",
+  source: "./backend/service-plugins/ecom-additional-fees/my-fees/plugin.ts",
 });
 ```
 
@@ -204,24 +203,26 @@ The `id` must be a unique, static UUID v4 string. Generate a fresh UUID for each
 
 ### Builder Configuration Fields
 
+All builder methods accept these three fields:
+
 | Field | Type | Description |
 | --- | --- | --- |
 | `id` | string | Service plugin ID as a GUID. Must be unique across all extensions in the project. |
 | `name` | string | The service plugin name (visible in app dashboard when developing an app). |
 | `source` | string | Path to the service plugin handler file that contains the plugin logic. |
 
-Additional fields vary by builder method. For example, `ecomShippingRates()` accepts optional `description`, `learnMoreUrl`, `dashboardUrl`, `fallbackDefinitionMandatory`, and `thumbnailUrl`. Check TypeScript types for the specific builder method you are using.
+**Builder methods by SPI type and their accepted fields:**
 
-**Builder methods by SPI type:**
+| SPI Type          | Builder Method           | Accepted Fields |
+| ----------------- | ------------------------ | --------------- |
+| Shipping Rates    | `ecomShippingRates()`    | `id`, `name`, `source`, `description`, `learnMoreUrl`, `dashboardUrl`, `fallbackDefinitionMandatory`, `thumbnailUrl` |
+| Additional Fees   | `ecomAdditionalFees()`   | `id`, `name`, `source` |
+| Validations       | `ecomValidations()`      | `id`, `name`, `source`, `validateInCart` |
+| Discount Triggers | `ecomDiscountTriggers()` | `id`, `name`, `source` |
+| Gift Cards        | `ecomGiftCards()`        | `id`, `name`, `source` |
+| Payment Settings  | `ecomPaymentSettings()`  | `id`, `name`, `source`, `fallbackValueForRequires3dSecure` |
 
-| SPI Type          | Builder Method           |
-| ----------------- | ------------------------ |
-| Shipping Rates    | `ecomShippingRates()`    |
-| Additional Fees   | `ecomAdditionalFees()`   |
-| Validations       | `ecomValidations()`      |
-| Discount Triggers | `ecomDiscountTriggers()` |
-| Gift Cards        | `ecomGiftCards()`        |
-| Payment Settings  | `ecomPaymentSettings()`  |
+Only `ecomShippingRates()` accepts `description`. Passing unsupported fields to other builders causes TypeScript errors.
 
 ### Step 2: Register in Main Extensions File
 
