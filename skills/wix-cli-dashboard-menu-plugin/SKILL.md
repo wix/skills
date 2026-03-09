@@ -18,7 +18,7 @@ Dashboard menu plugins are configuration-only extensions — they do NOT have a 
 
 Follow these steps in order when creating a dashboard menu plugin:
 
-1. [ ] Identify the target menu slot ID — see [Slots Reference](references/SLOTS.md)
+1. [ ] Identify the target menu slot ID — see [Slot Lookup Table](#slot-lookup-table) below, then read only the relevant vertical file
 2. [ ] Create plugin folder: `src/extensions/dashboard/menu-plugins/<plugin-name>/`
 3. [ ] Create `<plugin-name>.extension.ts` with `extensions.dashboardMenuPlugin()` and unique UUID
 4. [ ] Configure the `action` field to either navigate to a dashboard page or open a modal
@@ -75,7 +75,7 @@ The `id` must be a unique, static UUID v4 string. Generate a fresh UUID for each
 |-------|------|-------------|
 | `id` | string | Unique plugin ID (GUID). Must be unique across all extensions in the project. |
 | `title` | string | Text displayed for the menu item. |
-| `extends` | string | Menu slot ID where the extension integrates. See [Slots Reference](references/SLOTS.md). |
+| `extends` | string | Menu slot ID where the extension integrates. See [Slot Lookup Table](#slot-lookup-table). |
 | `iconKey` | string | Icon name from Wix Design System appearing next to the title. |
 | `action` | object | Navigation configuration determining behavior when clicked. |
 
@@ -85,7 +85,7 @@ The `extends` field specifies which dashboard menu slot hosts your menu plugin. 
 
 **Important:** Some slots with the same ID appear on different pages within the dashboard. If you create a menu plugin for a slot that exists on multiple pages, the menu plugin is displayed on all of those pages.
 
-For the complete list of available menu slot IDs, see [Slots Reference](references/SLOTS.md).
+For the complete list of available menu slot IDs, see the [Slot Lookup Table](#slot-lookup-table) below. Read only the vertical file that matches the user's request.
 
 ### The `action` Field
 
@@ -149,27 +149,21 @@ Each dashboard menu plugin requires a `<plugin-name>.extension.ts` file in its f
 - A dashboard menu plugin does NOT have a React component — it is configuration-only
 - Do NOT confuse dashboard menu plugins with dashboard plugins — they are different extension types
 
-## Examples
+## Slot Lookup Table
 
-### Blog Posts More Actions Menu Item
+Identify which Wix app the user is targeting, then read **only** the corresponding reference file for slot IDs.
 
-**Request:** "Add a menu item to the Blog posts more actions menu that navigates to a custom analytics page"
+| Wix App | Keywords | Slot Reference |
+|---------|----------|----------------|
+| Wix Blog | blog, posts, categories, tags, drafts, scheduled | [blog-slots.md](references/blog-slots.md) |
+| Wix Bookings | bookings, calendar, services, staff, booking list | [bookings-slots.md](references/bookings-slots.md) |
+| Wix CRM | CRM, contacts | [crm-slots.md](references/crm-slots.md) |
+| Wix eCommerce | ecommerce, orders, payment | [ecommerce-slots.md](references/ecommerce-slots.md) |
+| Wix Events | events, guests, RSVP, ticketed | [events-slots.md](references/events-slots.md) |
+| Wix Stores | stores, products, inventory, catalog | [stores-slots.md](references/stores-slots.md) |
+| Wix Restaurants | restaurants, reservations, online orders, menus | [restaurants-slots.md](references/restaurants-slots.md) |
 
-**Output:** Menu plugin targeting slot `62eee170-31e0-4e71-b3ac-e357a9326a8c` (Blog Published posts more actions menu) with `navigateToPage` action pointing to the analytics dashboard page's `id`.
-
-### Bookings Calendar Menu Item with Modal
-
-**Request:** "Add a menu item to the Bookings calendar more actions menu that opens a quick-add modal"
-
-**Output:** Menu plugin targeting slot `f3ad314d-0704-48e5-86b5-81acaf43e036` (Bookings Calendar more actions menu) with `openModal` action pointing to the quick-add dashboard modal's `id`.
-
-### Stores Product Bulk Action
-
-**Request:** "Add a bulk action to the Stores products page that opens a batch pricing modal"
-
-**Output:** Menu plugin targeting slot `23986555-0ea3-49b4-bcaa-56cfe1ad35bf` (Stores bulk actions toolbar more actions menu) with `openModal` action pointing to the batch pricing dashboard modal's `id`.
-
-### Output Constraints
+## Output Constraints
 
 **Token limits:** Your max output is ~10,000 tokens. Plan your response to stay under this limit.
 
