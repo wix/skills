@@ -1,0 +1,26 @@
+{
+  "skill_name": "wix-cli-site-plugin",
+  "evals": [
+    {
+      "id": 1,
+      "name": "best-seller-badge",
+      "prompt": "Create a site plugin that shows a 'Best Seller' badge on Wix Stores product pages. It should have configurable badge text and background color.",
+      "expected_output": "3 files: plugin component (HTMLElement), settings panel (WDS), extension config. Extension registered in src/extensions.ts.",
+      "assertions": []
+    },
+    {
+      "id": 2,
+      "name": "promo-banner",
+      "prompt": "Build a site plugin for Wix Bookings service pages that displays a custom promotional banner. The site owner should be able to configure the headline text, description, background color, and text color from the settings panel.",
+      "expected_output": "3 files with color picker components. Settings panel uses inputs.selectColor() from @wix/editor, not HTML color input. Bookings slot IDs used.",
+      "assertions": []
+    },
+    {
+      "id": 3,
+      "name": "customers-also-viewed",
+      "prompt": "Create a site plugin for the Wix Stores product page that shows a 'Customers Also Viewed' section. It should use Wix Data API to query a collection called 'product-views' and handle the editor environment by showing a placeholder.",
+      "expected_output": "Plugin uses @wix/data items.query(), checks viewMode() from @wix/site-window for editor placeholder. No createClient().",
+      "assertions": []
+    }
+  ]
+}
