@@ -44,7 +44,7 @@ Defines a single data item. Used in both the `data` map (configuration props) an
 |-----|------|-------------|------------|
 | dataType | DataType | The type of data | Required |
 | displayName | string | Display name of this data item | Optional, maxLength: 100, translatable |
-| defaultValue | Value | Default value (for display purposes in editor panels). Should align with the runtime/props format | Optional |
+| defaultValue | Value | Default value (only for display purposes in editor panels). Should align with the runtime/props format | Optional |
 | deprecated | boolean | Whether this data item is deprecated | Optional, internal |
 | disableDeletion | BoolValue | Disables the ability to delete this data-item value in the Editor UI | Optional |
 | text | Text | Limitations on text input | Only when dataType is `text` |
@@ -94,7 +94,6 @@ Each option:
 ### ArrayItems Type
 
 > **⚠️ Important:** This `ArrayItems` type is used in the **`data`** section only. It uses `data` or `dataItem` as keys. This is different from `ContextArrayItems` (used in the **`context`** section), which uses `item` as its key. See [ContextArrayItems](#contextarrayitems) below. Mixing these up causes the error: `arrayItems is missing arrayItems.item or arrayItems.dataItem with dataType`.
-
 | Key | Type | Description |
 |-----|------|-------------|
 | data | DataItems | Multiple data items per array element. Cannot be used with `dataItem` |
@@ -191,7 +190,6 @@ This pattern is useful when an item-level context needs to provide **functions t
 When a `contextImplementor` is specified on a ContextItem or within ContextDataItems, the system will look for the referenced component (by `componentType`) in the component tree and delegate that portion of the context to it. The optional `propKey` specifies which prop the implementor component expects the context value to be passed through.
 
 > A context implementor **must be** part of the same application.
-
 | Key | Type | Description | Constraints |
 |-----|------|-------------|------------|
 | componentType | string | The component type that implements this part of the context. Must reference a valid registered component type of the same app | Required, maxLength: 100 |
@@ -213,6 +211,69 @@ A map of keys describing the context items provided by this component. Used for 
 |-----|------|-------------|------------|
 | items | map<string, ContextItem> | A map of keys describing the data items provided by this component | Required |
 | contextImplementor | ContextImplementor | For sub types that implement parts of context, points to a context provider component type | Optional |
+
+## EditorFunction
+
+Defines a function with its parameters, return type, and execution characteristics. Used in both context items and data items when `dataType` is `function`.
+
+| Key | Type | Description | Constraints |
+|-----|------|-------------|------------|
+| parameters | FunctionParameter[] | The parameters expected by the function. Can be empty for functions with no parameters | Optional, maxSize: 10 |
+| returns | FunctionReturnType | The return type of the function. Omit for void return | Optional |
+| async | bool | Whether the function returns a promise with the type of the result | Optional |
+| displayName | string | The display name of the function for panels | Optional, maxLength: 100, translatable |
+| description | string | The description of the function for human readability | Optional, maxLength: 300, translatable |
+| deprecated | boolean | Whether this function is deprecated | Optional, internal |
+
+## FunctionParameter
+
+Defines a function parameter with its data type and optional structure.
+
+| Key | Type | Description | Constraints |
+|-----|------|-------------|------------|
+| dataType | DataType | The type of the parameter. See [Disallowed Data Types](#disallowed-data-types) for restrictions | Required |
+| optional | bool | Whether the parameter is optional. Due to JavaScript limitations, only the last parameters can be optional. Default is `false` | Optional |
+| defaultValue | Value | The default value for this parameter, only for display purposes in the editor — will not be passed to the function | Only when `optional` is `true` |
+| displayName | string | The display name of the parameter for human readability | Optional, maxLength: 100, translatable |
+| description | string | The description of the parameter for human readability | Optional, maxLength: 100, translatable |
+| arrayItems | FunctionParameterArrayItems | Array type definition | Only when dataType is `arrayItems` |
+| data | FunctionParameterItems | Complex object structure | Only when dataType is `data` |
+| function | EditorFunction | Callback function definition | Only when dataType is `function` |
+| textEnum | TextEnum | List of options | Only when dataType is `textEnum` |
+| deprecated | boolean | Whether this parameter is deprecated | Optional, internal |
+
+> **Note:** The same [Disallowed Data Types](#disallowed-data-types) apply to function parameters.
+
+## FunctionReturnType
+
+Defines the return type of a function with its data type and optional structure.
+
+| Key | Type | Description | Constraints |
+|-----|------|-------------|------------|
+| dataType | DataType | The type of the return value | Required |
+| displayName | string | The display name of the return type for human readability | Optional, maxLength: 100, translatable |
+| description | string | The description of the function return type for human readability | Optional, maxLength: 100, translatable |
+| textEnum | TextEnum | List of options | Only when dataType is `textEnum` |
+| arrayItems | FunctionParameterArrayItems | Array type definition | Only when dataType is `arrayItems` |
+| data | FunctionParameterItems | Complex object structure | Only when dataType is `data` |
+
+> **Note:** The same [Disallowed Data Types](#disallowed-data-types) apply to function return types.
+
+## FunctionParameterItems
+
+Defines the structure of a complex object type used in function parameters or return types.
+
+| Key | Type | Description | Constraints |
+|-----|------|-------------|------------|
+| items | map<string, FunctionParameter> | Map of function parameters that define the structure of the complex object. Each key is the property name | Required |
+
+## FunctionParameterArrayItems
+
+Defines the structure of array items in function parameters or return types.
+
+| Key | Type | Description | Constraints |
+|-----|------|-------------|------------|
+| item | FunctionParameter | Specifies the type of data inside the array | Required |
 
 ## Dependencies
 
