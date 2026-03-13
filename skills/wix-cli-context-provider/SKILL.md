@@ -1,6 +1,6 @@
 ---
 name: wix-cli-context-provider
-description: "Use when building context provider components that expose shared state and functionality to child components in Wix CLI applications. Triggers include context provider, shared state, context hook, useContext, provider component, context API."
+description: "Creates context provider extensions for Wix CLI apps — logical components (no UI) that expose shared state, functions, and configuration to child site components via React hooks and Editor Binding. Use when building a context provider, sharing state between components, creating a context hook (useContext), building a provider/consumer pattern, wiring contextDependencies, or using Editor Binding for context. Only site components can consume context providers — do NOT use for site widgets or site plugins."
 compatibility: Requires Wix CLI development environment.
 ---
 
@@ -26,6 +26,19 @@ Follow these steps in order when creating a context provider:
 4. [ ] Create `provider.tsx` with React context, hook export, provider component, and RichText support for all text/number values
 5. [ ] Register in `src/extensions.ts` using `experimentalExtensions.contextProvider()` — include both plain and richText context items
 6. [ ] Ensure consumer components are **site components** with `contextDependencies` in their registration
+
+## Hard Constraints
+
+- **Import `experimentalExtensions`** from `@wix/astro/builders/experimental`, NOT from `@wix/astro/builders`
+- Do NOT invent or assume new types, modules, or imports
+- The `type` field must be namespaced: `slug.ComponentName`
+- Generate a fresh UUID v4 for each new context provider `id`
+- Do NOT use disallowed data types (`UNKNOWN_DataType`, `schema`, `container`, `onClick`, `onChange`, `onKeyPress`, `onKeyUp`, `onSubmit`)
+- All context items must have a `dataType`
+- The hook name in `contextSpecifier.hook` must match the exported hook in `provider.tsx`
+- NEVER use mocks, placeholders, or TODOs in any code
+- ALWAYS implement complete, production-ready functionality
+- ALWAYS expose RichText versions (`{ text, html }`) of all text and number context values — this is mandatory, not optional
 
 ## Architecture
 
@@ -114,12 +127,12 @@ export default MyContextProvider;
 
 ### Key Rules for Provider Components
 
-- **Always** create a `displayName` for both the context and the provider component
-- **Always** export the hook as a named export
-- **Always** export the provider as both a named export and `default`
-- **Always** throw an error in the hook if used outside the provider
-- **Always** accept `children` as a prop
-- **Always** use types from `@wix/public-schemas` (e.g., `NumberType`, `Text`, `BooleanType`) instead of plain TypeScript primitives for context and props types
+- **Always** create a `displayName` for both the context and the provider component — for human readability
+- **Always** export the hook as a named export — the manifest's `contextSpecifier.hook` field references it by name, and consumers import it from the `moduleSpecifier`
+- **Always** export the provider as both a named export and `default` — the Wix runtime loads the context provider via its default export
+- **Always** throw an error in the hook if used outside the provider — this surfaces a clear message when a consumer component is rendered outside the provider tree, rather than silently returning `null`
+- **Always** accept `children` as a prop — the provider wraps child components in the React tree; the Wix editor places consumer components as children of the provider
+- **Always** use types from `@wix/public-schemas` (e.g., `NumberType`, `Text`, `BooleanType`) instead of plain TypeScript primitives — these types match the actual runtime format Wix provides to components as props, so using plain primitives creates a type mismatch
 - Provider props correspond to the `data` entries in the extension registration
 - Use `@wix/services-manager-react` with `SignalsServiceDefinition` from `@wix/services-definitions/core-services/signals` for reactive state management
 - **Always** expose RichText versions of all text and number context values (see [RichText Support](#richtext-support-mandatory) below)
@@ -426,343 +439,11 @@ The `contextDependencies` array references the `moduleSpecifier` from the contex
 
 ## Complete Example
 
-### Counter Context Provider
-
-**`src/extensions/context-provider/provider.tsx`**:
-
-```typescript
-import React, { createContext, useContext, useMemo, useCallback } from 'react';
-import { useService } from '@wix/services-manager-react';
-import { SignalsServiceDefinition } from '@wix/services-definitions/core-services/signals';
-import type { NumberType } from '@wix/public-schemas';
-
-type RichTextType = { text: string; html: string };
-
-const toRichText = (value: string | number): RichTextType => ({
-  text: `${value}`,
-  html: `<div>${value}</div>`,
-});
-
-export interface CounterContextType {
-  count: NumberType;
-  richTextCount: RichTextType;
-  decrement: () => void;
-  increment: () => void;
-  setCount: (count: NumberType) => void;
-}
-
-export interface CounterProviderProps {
-  children?: React.ReactNode;
-  initialCount: NumberType;
-}
-
-const CounterContext = createContext<CounterContextType | null>(null);
-CounterContext.displayName = 'CounterContext';
-
-export function useCounterContext(): CounterContextType {
-  const context = useContext(CounterContext);
-  if (!context) {
-    throw new Error('useCounterContext must be used within a CounterProvider');
-  }
-  return context;
-}
-
-export function CounterContextProvider({
-  children,
-  initialCount,
-}: CounterProviderProps): React.ReactNode {
-  const signalsService = useService(SignalsServiceDefinition);
-  const count = useMemo(() => {
-    return signalsService.signal(initialCount || 0);
-  }, [initialCount]);
-
-  const setCount = (value: NumberType) => {
-    count.set(value);
-  };
-  const increment = () => { setCount(count.peek() + 1); };
-  const decrement = () => { setCount(count.peek() - 1); };
-
-  const api: CounterContextType = {
-    count: count.get(),
-    richTextCount: toRichText(count.get()),
-    decrement,
-    increment,
-    setCount,
-  };
-
-  return (
-    <CounterContext.Provider value={api}>{children}</CounterContext.Provider>
-  );
-}
-
-CounterContextProvider.displayName = 'CounterContextProvider';
-export default CounterContextProvider;
-```
-
-**Registration in `src/extensions.ts`**:
-
-```typescript
-import { app } from '@wix/astro/builders';
-import { extensions as experimentalExtensions } from '@wix/astro/builders/experimental';
-
-export default app()
-  .use(
-    experimentalExtensions.contextProvider({
-      id: '20c6e0a1-6d3f-4da1-96a3-9cd9fabde1e9',
-      type: '<codeIdentifier>.TestContextType',
-      context: {
-        items: {
-          count: {
-            dataType: 'number',
-            displayName: 'Counter current value',
-          },
-          richTextCount: {
-            dataType: 'data',
-            displayName: 'Counter Value (Rich Text)',
-            data: {
-              items: {
-                text: { dataType: 'text' },
-                html: { dataType: 'text' },
-              },
-            },
-          },
-          decrement: {
-            dataType: 'function',
-            displayName: 'Decrement counter value by 1',
-            function: {
-              parameters: [],
-              async: false,
-            },
-          },
-          increment: {
-            dataType: 'function',
-            displayName: 'Increment counter value by 1',
-            function: {
-              parameters: [],
-              async: false,
-            },
-          },
-          setCount: {
-            dataType: 'function',
-            displayName: 'Set counter value to a specific number',
-            function: {
-              parameters: [
-                {
-                  dataType: 'number',
-                  displayName: 'Count Value',
-                },
-              ],
-              async: false,
-            },
-          },
-        },
-      },
-      data: {
-        initialCount: {
-          dataType: 'number',
-          defaultValue: 0,
-          deprecated: false,
-          displayName: 'Initial Count',
-        },
-      },
-      resources: {
-        client: {
-          url: './extensions/context-provider/provider.tsx',
-        },
-        contextSpecifier: {
-          hook: 'useCounterContext',
-          moduleSpecifier: 'my-counter-context',
-        },
-      },
-    })
-  );
-```
-
-**Consumer component declaring the dependency**:
-
-```typescript
-extensions.siteComponent({
-  id: '4294f79c-e7b7-47d4-98b7-e33822051fed',
-  type: '<codeIdentifier>.MyClicker',
-  description: 'My Clicker Component',
-  resources: {
-    client: {
-      componentUrl: './extensions/clicker-with-context/component.tsx',
-    },
-    dependencies: {
-      contextDependencies: ['my-counter-context'],
-    },
-  },
-});
-```
-
-**Consumer component (`src/extensions/clicker-with-context/component.tsx`)**:
-
-```typescript
-import React from 'react';
-//@ts-expect-error will be generated
-import { useCounterContext } from 'my-counter-context';
-//@ts-expect-error will be generated
-import type { CounterContextType } from 'my-counter-context';
-import './component.css';
-
-interface Props {
-  id: string;
-  className: string;
-  text?: string;
-}
-
-export default function Clicker(props: Props) {
-  const { count, increment } = useCounterContext() as CounterContextType;
-  const finalClassName = `clicker ${props.className ?? ''}`;
-
-  return (
-    <div className={finalClassName} id={props.id}>
-      <span>Count: {count}</span>
-      <button onClick={() => increment()}>
-        {props.text ?? 'CLICK'}
-      </button>
-    </div>
-  );
-}
-```
-
-### Consumer Component Rules
-
-- Consumers must be **site components** (see [Consumer Constraint](#consumer-constraint) above).
-- **Import the hook AND context type from the `moduleSpecifier`.** Both require `@ts-expect-error` since the module is generated at build time. Do NOT redeclare the context type locally or import it from the provider's file path.
-  ```typescript
-  //@ts-expect-error will be generated
-  import { useCounterContext } from 'my-counter-context';
-  //@ts-expect-error will be generated
-  import type { CounterContextType } from 'my-counter-context';
-
-  const { count, increment } = useCounterContext() as CounterContextType;
-  ```
-- **Import `Wix` type from `@wix/public-schemas`** — Use `import type { Wix } from '@wix/public-schemas'` for the `wix` prop. Do NOT define a local `Wix` type.
-- **Context values are plain values** — The provider resolves signal values via `.get()` before exposing them. Consumers use values directly (e.g., `count`, not `count.value`).
-- **Use `finalClassName`** — Combine the `editorElement.selector` class (without the `.`) with `props.className`: ``const finalClassName = `clicker ${props.className ?? ''}` ``
-- The consumer's registration must include `contextDependencies` referencing the provider's `moduleSpecifier`.
+For a full working example including provider component, registration, consumer component, and consumer component rules, see [EXAMPLES.md](references/EXAMPLES.md).
 
 ## Editor Binding (Alternative Consumption)
 
-In addition to Native usage (importing the hook), context can be consumed via **Editor Binding**. This allows components to receive context data and methods as props, without importing the hook or having a direct dependency on the provider's bundle. The editor UI lets users connect a component's props to a context provided by any component above it in the React tree.
-
-From the component's perspective, Editor Binding is identical to receiving static props — the component doesn't know or care whether the values come from context or direct configuration.
-
-### When to use Editor Binding
-
-- The consumer doesn't need direct access to the provider's bundle
-- You want any component (not just those with `contextDependencies`) to consume context
-- The context data should be wired up by the site owner in the editor UI
-
-### Consumer component using Editor Binding
-
-The component receives context as a regular prop:
-
-```typescript
-import React from 'react';
-import type { NumberType, Text } from '@wix/public-schemas';
-
-interface CounterProps {
-  incrementText?: Text;
-  decrementText?: Text;
-  // Context injected as a prop by editor binding
-  counter?: {
-    increment: () => void;
-    decrement: () => void;
-    setCount: (value: NumberType) => void;
-    count: NumberType;
-  };
-}
-
-export default function CounterDisplay({
-  incrementText = '+',
-  decrementText = '-',
-  counter,
-}: CounterProps) {
-  if (!counter) {
-    return <div>Counter context not available</div>;
-  }
-
-  const { increment, decrement, count } = counter;
-
-  return (
-    <div>
-      <span>{count}</span>
-      <button onClick={increment}>{incrementText}</button>
-      <button onClick={decrement}>{decrementText}</button>
-    </div>
-  );
-}
-```
-
-### Consumer manifest for Editor Binding
-
-The context shape is declared in the component's `data` using `dataType: 'data'`:
-
-```json
-{
-  "type": "appSlug.CounterDisplay",
-  "resources": {
-    "client": {
-      "url": "https://cdn.example.com/counter-display.js"
-    }
-  },
-  "editorElement": {
-    "selector": ".counter-display",
-    "displayName": "Counter Display",
-    "data": {
-      "incrementText": {
-        "dataType": "text",
-        "displayName": "Increment Button Text"
-      },
-      "decrementText": {
-        "dataType": "text",
-        "displayName": "Decrement Button Text"
-      },
-      "counter": {
-        "dataType": "data",
-        "displayName": "Counter Context",
-        "data": {
-          "items": {
-            "increment": {
-              "dataType": "function",
-              "displayName": "Increment Function",
-              "function": { "parameters": [], "async": false }
-            },
-            "decrement": {
-              "dataType": "function",
-              "displayName": "Decrement Function",
-              "function": { "parameters": [], "async": false }
-            },
-            "setCount": {
-              "dataType": "function",
-              "displayName": "Set Count Function",
-              "function": {
-                "parameters": [
-                  { "dataType": "number", "displayName": "Count Value" }
-                ],
-                "async": false
-              }
-            },
-            "count": {
-              "dataType": "number",
-              "displayName": "Current Count"
-            }
-          }
-        }
-      }
-    }
-  }
-}
-```
-
-Note that Editor Binding consumers do **not** need `contextDependencies` in their registration — the binding is configured by the user in the editor.
-
-### RichText Support for Editor Binding
-
-RichText versions of context values are **always provided** (see [RichText Support (Mandatory)](#richtext-support-mandatory)). Editor Binding consumers can connect these richText context items to Wix's built-in text elements without any additional setup.
+Context can also be consumed via Editor Binding, where components receive context data as props without importing the hook. For details, examples, and manifest format, see [EDITOR_BINDING.md](references/EDITOR_BINDING.md).
 
 ## Output Structure
 
@@ -783,19 +464,20 @@ src/extensions/{provider-name}/
 - No `@ts-ignore` comments. `@ts-expect-error` is only allowed for the generated `moduleSpecifier` import in consumer components
 - Use `const`/`let` (no `var`)
 
-## Hard Constraints
+## Troubleshooting
 
-- **Import `experimentalExtensions`** from `@wix/astro/builders/experimental`, NOT from `@wix/astro/builders`
-- Do NOT invent or assume new types, modules, or imports
-- The `type` field must be namespaced: `slug.ComponentName`
-- Generate a fresh UUID v4 for each new context provider `id`
-- Do NOT use disallowed data types (`UNKNOWN_DataType`, `schema`, `container`, `onClick`, `onChange`, `onKeyPress`, `onKeyUp`, `onSubmit`)
-- All context items must have a `dataType`
-- The hook name in `contextSpecifier.hook` must match the exported hook in `provider.tsx`
-- NEVER use mocks, placeholders, or TODOs in any code
-- ALWAYS implement complete, production-ready functionality
-- ALWAYS expose RichText versions (`{ text, html }`) of all text and number context values — this is mandatory, not optional
+### Error: `arrayItems is missing arrayItems.item or arrayItems.dataItem with dataType`
+
+**Cause:** Mixed up the `context` array format with the `data` array format. The `context` section and `data` section use different types for array items.
+
+**Solution:**
+- In `context` arrays — use `arrayItems.item` (a `ContextItem`)
+- In `data` arrays — use `arrayItems.dataItem` (a `DataItem`)
+
+See the [context vs data Array Format Difference](#️-critical-context-vs-data-array-format-difference) section above and [CONTEXT_PROVIDER_SPEC.md](references/CONTEXT_PROVIDER_SPEC.md) for full type definitions.
 
 ## Reference Documentation
 
 - [Context Provider Specification](references/CONTEXT_PROVIDER_SPEC.md) - Complete manifest structure, all types, and constraints
+- [Complete Example](references/EXAMPLES.md) - Full counter context provider with registration and consumer
+- [Editor Binding](references/EDITOR_BINDING.md) - Alternative consumption via editor-bound props
