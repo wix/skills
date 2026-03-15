@@ -22,7 +22,8 @@ Creates production-quality context provider components for Wix CLI applications.
 
 Follow these steps in order when creating a context provider:
 
-1. [ ] Install `@wix/public-schemas` as a devDependency
+1. [ ] Ask the user for the app's **code identifier** (`<codeIdentifier>`) — this is configured in the Wix Dev Center and cannot be derived from the code. It is used as the namespace in the `type` field (e.g., `<codeIdentifier>.CounterContext`)
+2. [ ] Install `@wix/public-schemas` as a devDependency
 2. [ ] Install `@wix/services-manager-react` and `@wix/services-definitions` if not already present
 3. [ ] Create provider folder: `src/extensions/{provider-name}/`
 4. [ ] Create `provider.tsx` with React context, hook export, provider component, and RichText support for all text/number values
@@ -33,7 +34,7 @@ Follow these steps in order when creating a context provider:
 
 - **Import `experimentalExtensions`** from `@wix/astro/builders/experimental`, NOT from `@wix/astro/builders`
 - Do NOT invent or assume new types, modules, or imports
-- The `type` field must be namespaced: `slug.ComponentName`
+- The `type` field must be namespaced: `<codeIdentifier>.ComponentName`
 - Generate a fresh UUID v4 for each new context provider `id`
 - Do NOT use disallowed data types (`UNKNOWN_DataType`, `schema`, `container`, `onClick`, `onChange`, `onKeyPress`, `onKeyUp`, `onSubmit`)
 - All context items must have a `dataType`
@@ -231,7 +232,7 @@ export default app()
   .use(
     experimentalExtensions.contextProvider({
       id: '{{GENERATE_UUID}}',
-      type: 'appSlug.ContextTypeName',
+      type: '<codeIdentifier>.ContextTypeName',
       context: {
         items: {
           // Context values exposed to children
@@ -258,7 +259,7 @@ export default app()
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `id` | string (UUID v4) | Yes | Unique identifier. Generate a fresh UUID for each provider |
-| `type` | string | Yes | Namespaced component type: `slug.ComponentName` (max 100 chars) |
+| `type` | string | Yes | Namespaced component type: `<codeIdentifier>.ComponentName` (max 100 chars) |
 | `context` | object | Yes | The context model — what values/functions are exposed |
 | `data` | object | Yes | Configuration props the provider accepts in the Editor |
 | `resources` | object | Yes | Runtime bundles and context specifier |
@@ -402,7 +403,7 @@ data: {
     name: { dataType: 'text', displayName: 'Name' },
   },
   contextImplementor: {
-    componentType: 'appSlug.lineItemContext',
+    componentType: '<codeIdentifier>.lineItemContext',
     propKey: 'lineItemData',
   },
 },
