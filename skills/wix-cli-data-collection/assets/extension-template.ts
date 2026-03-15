@@ -1,5 +1,5 @@
 /**
- * Template for src/data/extensions.ts
+ * Template for src/extensions/data/extensions.ts
  * 
  * This file defines all CMS collections for your Wix CLI app.
  * All collections are defined in a single file using extensions.genericExtension().
