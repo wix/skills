@@ -2,6 +2,8 @@
 name: wix-cli-context-provider
 description: "Creates context provider extensions for Wix CLI apps — logical components (no UI) that expose shared state, functions, and configuration to child site components via React hooks and Editor Binding. Use when building a context provider, sharing state between components, creating a context hook (useContext), building a provider/consumer pattern, wiring contextDependencies, or using Editor Binding for context. Only site components can consume context providers — do NOT use for site widgets or site plugins."
 compatibility: Requires Wix CLI development environment.
+metadata:
+  internal: true
 ---
 
 # Wix Context Provider Builder
