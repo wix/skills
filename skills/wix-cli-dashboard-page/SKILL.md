@@ -14,7 +14,7 @@ Creates full-featured dashboard page extensions for Wix CLI applications. Dashbo
 
 Follow these steps in order when creating a dashboard page:
 
-1. [ ] Create page folder: `src/dashboard/pages/<page-name>/`
+1. [ ] Create page folder: `src/extensions/dashboard/pages/<page-name>/`
 2. [ ] Create `page.tsx` with WDS components wrapped in `WixDesignSystemProvider`
 3. [ ] Create `extensions.ts` with `extensions.dashboardPage()` and unique UUID
 4. [ ] Update `src/extensions.ts` to import and use the new extension
@@ -75,11 +75,11 @@ When building a dashboard page to configure an embedded script, see [Dynamic Par
 
 ## Files and Code Structure
 
-Dashboard pages live under `src/dashboard/pages`. Each page has its own folder.
+Dashboard pages live under `src/extensions/dashboard/pages`. Each page has its own folder.
 
 **File structure:**
 
-- `src/dashboard/pages/<page>/page.tsx` — page component
+- `src/extensions/dashboard/pages/<page>/page.tsx` — page component
 
 **Key metadata fields:**
 
@@ -192,7 +192,7 @@ const handleSave = async () => {
 
 Each dashboard page requires an `extensions.ts` file in its folder:
 
-**File:** `src/dashboard/pages/<page-name>/extensions.ts`
+**File:** `src/extensions/dashboard/pages/<page-name>/extensions.ts`
 
 ```typescript
 import { extensions } from "@wix/astro/builders";
@@ -201,7 +201,7 @@ export const dashboardpageMyPage = extensions.dashboardPage({
   id: "{{GENERATE_UUID}}",
   title: "My Page",
   routePath: "my-page",
-  component: "./dashboard/pages/my-page/page.tsx",
+  component: "./extensions/dashboard/pages/my-page/page.tsx",
 });
 ```
 
