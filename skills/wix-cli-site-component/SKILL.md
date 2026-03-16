@@ -1,6 +1,7 @@
 ---
 name: wix-cli-site-component
-description: "Use when building React site components with editor manifests for Wix CLI applications."
+description: "Use when building React site components with editor manifests for Wix CLI applications. Triggers include site component, editor manifest, custom component, visual customization, editor element, CSS properties, data API, site builder component, Wix Editor component. Use this skill whenever the user wants to create a component that site owners can customize through the Wix Editor's visual interface."
+compatibility: Requires Wix CLI development environment.
 ---
 
 # Wix Site Component Builder
@@ -357,7 +358,7 @@ Asset specification format:
 ## Output Structure
 
 ```
-src/site/components/
+src/extensions/site/components/
 └── {component-name}/
     ├── manifest.json        # Component manifest
     ├── component.tsx        # React component
@@ -420,8 +421,8 @@ export const sitecomponentMyComponent = extensions.siteComponent({
   type: "platform.MyComponent",
   resources: {
     client: {
-      component: "./site/components/my-component/component.tsx",
-      componentUrl: "./site/components/my-component/component.tsx",
+      component: "./extensions/site/components/my-component/component.tsx",
+      componentUrl: "./extensions/site/components/my-component/component.tsx",
     },
   },
 });
@@ -473,6 +474,17 @@ The `id` must be a unique, static UUID v4 string. Generate a fresh UUID for each
 5. No `window.fetch` (`no-restricted-properties`)
 6. Hooks `exhaustive-deps`: ALL values from component scope used inside `useEffect`/`useCallback` MUST be in dependency array
 7. Use `const`/`let` (no `var`), no unknown JSX properties
+
+## Common Mistakes
+
+| Mistake | Why It Fails | Fix |
+|---------|-------------|-----|
+| CSS selector doesn't match manifest | Editor can't apply styles to the element | Ensure manifest `selector`, React `className`, and CSS selector are identical |
+| Putting content text in `editorElement.data` | Content belongs to specific elements, not root | Move text/image/link data into `elements[key].data` |
+| Using `display: flex` directly on root | Breaks editor override mechanism | Use `--display: flex` CSS variable, then `display: var(--display)` |
+| Missing `removable: true` on optional elements | Site owner can't hide the element | Add `behaviors: { removable: true }` to optional elements |
+| Using `window`/`document` at module scope | SSR fails during build | Guard browser APIs inside `useEffect` or event handlers |
+| Importing from `@wix/design-system` | Not available in site components | Use plain HTML/CSS or custom components only |
 
 ## Hard Constraints
 

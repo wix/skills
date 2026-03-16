@@ -182,7 +182,7 @@ For plugins that require back-office management (especially checkout and side ca
 > **Note:** The `placement` option in `addSitePlugin()` is optional. If omitted, the plugin is placed in the first available slot based on the priority order configured in the plugin's installation settings in your app's dashboard.
 
 ```typescript
-// src/dashboard/pages/plugin-settings/page.tsx
+// src/extensions/dashboard/pages/plugin-settings/page.tsx
 import { dashboard } from "@wix/dashboard";
 import { Page, WixDesignSystemProvider, Card, FormField, Input, Button } from "@wix/design-system";
 

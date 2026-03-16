@@ -68,13 +68,13 @@ npx tsc --noEmit src/extensions/dashboard/pages/survey/**/*.ts src/extensions/da
 npx tsc --noEmit src/extensions/dashboard/pages/**/*.ts src/extensions/dashboard/pages/**/*.tsx
 
 # Check site widgets only
-npx tsc --noEmit src/site/widgets/**/*.ts src/site/widgets/**/*.tsx
+npx tsc --noEmit src/extensions/site/widgets/**/*.ts src/extensions/site/widgets/**/*.tsx
 
 # Check dashboard modals only
 npx tsc --noEmit src/extensions/dashboard/modals/**/*.ts src/extensions/dashboard/modals/**/*.tsx
 
 # Check backend only
-npx tsc --noEmit src/backend/**/*.ts
+npx tsc --noEmit src/extensions/backend/**/*.ts
 ```
 
 **When to use targeted checks:**
@@ -155,12 +155,11 @@ When a validation step fails (non-zero exit code, error output, or the CLI crash
 
 The `.wix/` directory is automatically created by the Wix CLI and contains internal configuration and log files. Don't edit it, but reading `debug.log` for troubleshooting is expected.
 
-```bash
-# Read the debug log (at <project-root>/.wix/debug.log)
-cat .wix/debug.log
+```
+Read: .wix/debug.log
 
-# If the file is large, check the end for the most recent errors
-tail -100 .wix/debug.log
+# If the file is large, read the last 100 lines for the most recent errors
+Read: .wix/debug.log (with offset to the end)
 ```
 
 ## Common Issues

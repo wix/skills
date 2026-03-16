@@ -38,7 +38,7 @@ Creates CMS data collections for Wix CLI apps. The data collections extension al
 
 In Wix CLI apps, all CMS collections are defined in a single file:
 
-**File:** `src/data/extensions.ts`
+**File:** `src/extensions/data/extensions.ts`
 
 This file uses the `extensions.genericExtension()` pattern from `@wix/astro/builders` to register all collections:
 
@@ -280,7 +280,7 @@ Removes a collection from the app.
 
 **Behavior:**
 
-- Removes the collection from `src/data/extensions.ts`
+- Removes the collection from `src/extensions/data/extensions.ts`
 - If all collections are deleted, the entire file is deleted
 
 **Merge logic:** Operations are applied using a Map keyed by `idSuffix`. Existing collections are loaded into the Map first, then each operation modifies it: INSERT sets/replaces, UPDATE merges with existing (or creates if missing), DELETE removes. The final Map values become the output collections.
@@ -385,7 +385,7 @@ Each item in `initialData` must match the collection schema exactly:
 
 **Request:** "Create a collection for handling fees with example data"
 
-**Generated file:** `src/data/extensions.ts`
+**Generated file:** `src/extensions/data/extensions.ts`
 
 ```typescript
 import { extensions } from "@wix/astro/builders";
@@ -432,7 +432,7 @@ export const dataExtension = extensions.genericExtension({
 - `categories` - Category definitions
 - `products` - Products that reference categories
 
-Both collections are defined in the same `src/data/extensions.ts` file, with the `products` collection using a REFERENCE field to link to `categories`. See the [extension template](assets/extension-template.ts) for a complete multi-collection example.
+Both collections are defined in the same `src/extensions/data/extensions.ts` file, with the `products` collection using a REFERENCE field to link to `categories`. See the [extension template](assets/extension-template.ts) for a complete multi-collection example.
 
 ## Common Patterns
 
@@ -452,7 +452,7 @@ After implementation, use [wix-cli-app-validation](../wix-cli-app-validation/SKI
 
 ## Reference Documentation
 
-- [extension-template.ts](assets/extension-template.ts) - Template for `src/data/extensions.ts`
+- [extension-template.ts](assets/extension-template.ts) - Template for `src/extensions/data/extensions.ts`
 
 ### Public Documentation
 

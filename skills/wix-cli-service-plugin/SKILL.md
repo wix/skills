@@ -1,6 +1,6 @@
 ---
 name: wix-cli-service-plugin
-description: Use when implementing service plugin extensions that inject custom backend logic into existing Wix business solution flows or introduce new flows to Wix sites. Triggers include SPI, service plugin, backend flow, business logic.
+description: Use when implementing service plugin extensions that inject custom backend logic into existing Wix business solution flows or introduce new flows to Wix sites. Triggers include SPI, service plugin, backend flow, business logic, custom shipping rates, additional fees, tax calculation, checkout validation, discount triggers, gift cards, eCommerce customization.
 compatibility: Requires Wix CLI development environment.
 ---
 
@@ -15,7 +15,7 @@ When you implement a service plugin, Wix calls your custom functions during spec
 Follow these steps in order when creating a service plugin:
 
 1. [ ] **Read the reference doc** for your SPI type (REQUIRED before implementation)
-2. [ ] Create plugin folder: `src/backend/service-plugins/<service-type>/<plugin-name>/`
+2. [ ] Create plugin folder: `src/extensions/backend/service-plugins/<service-type>/<plugin-name>/`
 3. [ ] Create `plugin.ts` with correct imports and `provideHandlers()` call
 4. [ ] Implement all required handler functions with complete business logic
 5. [ ] Create `extensions.ts` with appropriate builder method and unique UUID
@@ -42,7 +42,7 @@ Follow these steps in order when creating a service plugin:
 Service plugins consist of two files that work together. Registration of plugins requires an extension builder file.
 
 ```
-src/backend/service-plugins/
+src/extensions/backend/service-plugins/
 └── {service-type}/
     └── {plugin-name}/
         ├── plugin.ts           # Handler logic with provideHandlers()
@@ -54,7 +54,7 @@ src/backend/service-plugins/
 | File | Purpose |
 | --- | --- |
 | `plugin.ts` | Contains the service plugin handler logic with `provideHandlers()` - this is where you implement your custom business logic |
-| `extensions.ts` | Contains the service plugin builder configuration with id (GUID), name, description, and source path |
+| `extensions.ts` | Contains the service plugin builder configuration with id (GUID), name, source path, and builder-specific optional fields |
 
 ## Implementation Requirements
 
@@ -190,11 +190,10 @@ Each service plugin requires an `extensions.ts` file in its folder with the appr
 ```typescript
 import { extensions } from "@wix/astro/builders";
 
-export const ecomshippingratesMyShipping = extensions.ecomShippingRates({
+export const ecomadditionalfeesMyFees = extensions.ecomAdditionalFees({
   id: "{{GENERATE_UUID}}",
-  name: "My Shipping Rates",
-  description: "Calculates custom shipping rates based on order weight",
-  source: "./backend/service-plugins/ecom-shipping-rates/my-shipping/plugin.ts",
+  name: "My Additional Fees",
+  source: "./extensions/backend/service-plugins/ecom-additional-fees/my-fees/plugin.ts",
 });
 ```
 
@@ -204,25 +203,26 @@ The `id` must be a unique, static UUID v4 string. Generate a fresh UUID for each
 
 ### Builder Configuration Fields
 
+All builder methods accept these three fields:
+
 | Field | Type | Description |
 | --- | --- | --- |
 | `id` | string | Service plugin ID as a GUID. Must be unique across all extensions in the project. |
 | `name` | string | The service plugin name (visible in app dashboard when developing an app). |
-| `description` | string | A short description of what the service plugin does. |
 | `source` | string | Path to the service plugin handler file that contains the plugin logic. |
 
-Additional fields may be required or optional depending on the specific service plugin type.
+**Builder methods by SPI type and their accepted fields:**
 
-**Builder methods by SPI type:**
+| SPI Type          | Builder Method           | Accepted Fields |
+| ----------------- | ------------------------ | --------------- |
+| Shipping Rates    | `ecomShippingRates()`    | `id`, `name`, `source`, `description`, `learnMoreUrl`, `dashboardUrl`, `fallbackDefinitionMandatory`, `thumbnailUrl` |
+| Additional Fees   | `ecomAdditionalFees()`   | `id`, `name`, `source` |
+| Validations       | `ecomValidations()`      | `id`, `name`, `source`, `validateInCart` |
+| Discount Triggers | `ecomDiscountTriggers()` | `id`, `name`, `source` |
+| Gift Cards        | `ecomGiftCards()`        | `id`, `name`, `source` |
+| Payment Settings  | `ecomPaymentSettings()`  | `id`, `name`, `source`, `fallbackValueForRequires3dSecure` |
 
-| SPI Type          | Builder Method           |
-| ----------------- | ------------------------ |
-| Shipping Rates    | `ecomShippingRates()`    |
-| Additional Fees   | `ecomAdditionalFees()`   |
-| Validations       | `ecomValidations()`      |
-| Discount Triggers | `ecomDiscountTriggers()` |
-| Gift Cards        | `ecomGiftCards()`        |
-| Payment Settings  | `ecomPaymentSettings()`  |
+Only `ecomShippingRates()` accepts `description`. Passing unsupported fields to other builders causes TypeScript errors.
 
 ### Step 2: Register in Main Extensions File
 
@@ -236,11 +236,6 @@ To test your service plugin extension:
 
 1. **Release a version** with your changes - new service plugins or changes to existing ones won't take effect until you've built and released your project
 2. **Trigger the call** to your service plugin by performing the relevant action (e.g., add items to cart and view cart to test Additional Fees)
-
-For example, to test an Additional Fees service plugin that adds a $5 packaging fee:
-1. Go to your site's store in the local development environment
-2. Select any product and add it to the cart, then view the cart
-3. Check if the additional fee is listed in the order summary
 
 ## Verification
 
