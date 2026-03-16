@@ -62,6 +62,7 @@ You are a **decision-maker and orchestrator**, not an implementer. **Decide → 
 | Reporting done without validation           | Always run `wix-cli-app-validation` at the end |
 | Reading/writing files after invoking skills | Let sub-agents handle ALL file operations      |
 | Letting manual action items get buried      | Aggregate all manual steps at the very end     |
+| Using site widget/plugin to consume context provider extensions | Only site components (`wix-cli-site-component`) can consume context provider extensions |
 
 **CRITICAL:** After this planner skill loads, you should ONLY:
 
@@ -90,6 +91,7 @@ Answer these questions to find the right extension:
    - Existing Wix app dashboard (widget) → Dashboard Plugin
    - Existing Wix app dashboard (menu item) → Dashboard Menu Plugin
    - Anywhere on site → Site Widget
+   - Anywhere on site (with editor manifest) → Site Component
    - Wix business solution page → Site Plugin
    - During business flow → Service Plugin
    - After event occurs → Event Extension
@@ -98,7 +100,7 @@ Answer these questions to find the right extension:
 
 - **Admin:** Need full-page UI? → Dashboard Page. Need popup/form? → Dashboard Modal. Extending Wix app dashboard with a visual widget? → Dashboard Plugin. Adding a menu item to a Wix app dashboard's more-actions or bulk-actions menu? → Dashboard Menu Plugin. **Modal constraint:** Dashboard Pages cannot use `<Modal />`; use a separate Dashboard Modal extension and `dashboard.openModal()`.
 - **Backend:** During business flow (checkout/shipping/tax)? → Service Plugin. After event (webhooks/sync)? → Event Extension. Custom HTTP endpoints? → Backend Endpoints. Need CMS collections for app data? → Data Collection.
-- **Site:** User places anywhere? → Site Widget. Fixed slot on Wix app page? → Site Plugin. Scripts/analytics only? → Embedded Script.
+- **Site:** User places anywhere (standalone)? → Site Widget. React component with editor manifest (styling, content, elements)? → Site Component. Fixed slot on Wix app page? → Site Plugin. Scripts/analytics only? → Embedded Script.
 
 ### Data Collection Inference
 
@@ -132,17 +134,20 @@ Answer these questions to find the right extension:
 | Event Extension       | Backend   | Server-side | React to events               | `wix-cli-backend-event`   |
 | Backend Endpoints     | Backend   | API         | Custom HTTP handlers          | `wix-cli-backend-api`     |
 | Data Collection       | Backend   | Data        | CMS collections for app data  | `wix-cli-data-collection` |
+| Site Component        | Site      | Public      | React components with editor manifests | `wix-cli-site-component`  |
 | Site Widget           | Site      | Public      | Standalone widgets            | `wix-cli-site-widget`     |
 | Site Plugin           | Site      | Public      | Extend Wix business solutions | `wix-cli-site-plugin`     |
 | Embedded Script       | Site      | Public      | Inject scripts/analytics      | `wix-cli-embedded-script` |
 
-**Key constraint:** Dashboard Page cannot use `<Modal />`; use a separate Dashboard Modal and `dashboard.openModal()`.
+**Key constraints:**
+- Dashboard Page cannot use `<Modal />`; use a separate Dashboard Modal and `dashboard.openModal()`.
+- **Only Site Components can consume context provider extensions** — NOT site widgets or site plugins. When building consumers for a context provider extension, always use `wix-cli-site-component`.
 
 ## Extension Comparison
 
-| Site Widget vs Site Plugin | Dashboard Page vs Modal | Service Plugin vs Event |
-| -------------------------- | ----------------------- | ----------------------- |
-| Widget: user places anywhere. Plugin: fixed slot in Wix app. | Page: full page. Modal: overlay; use for popups. | Service: during flow. Event: after event. |
+| Site Widget vs Site Component vs Site Plugin | Dashboard Page vs Modal | Service Plugin vs Event |
+| -------------------------------------------- | ----------------------- | ----------------------- |
+| Widget: standalone interactive component. Component: React with editor manifest (CSS/data/elements). Plugin: fixed slot in Wix app page. | Page: full page. Modal: overlay; use for popups. | Service: during flow. Event: after event. |
 
 ## Decision & Handoff Workflow
 
@@ -335,6 +340,7 @@ Implement this extension following the skill guidelines.
 | Data Collection + Dashboard Page | ✅ YES    | Data schema vs UI                   |
 | Data Collection + Backend API    | ✅ YES    | Data schema vs HTTP handlers        |
 | Data Collection + Site Widget    | ✅ YES    | Data schema vs site UI              |
+| Context Provider Extension + Site Component | ✅ YES | Provider vs consumer |
 
 **Pre-spawn coordination required (then parallel is fine):**
 
