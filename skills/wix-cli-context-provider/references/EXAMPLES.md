@@ -73,83 +73,89 @@ CounterContextProvider.displayName = 'CounterContextProvider';
 export default CounterContextProvider;
 ```
 
-**Registration in `src/extensions.ts`**:
+**Per-extension file (`src/extensions/context-provider/extensions.ts`)**:
+
+```typescript
+import { extensions as experimentalExtensions } from '@wix/astro/builders/experimental';
+
+export const contextproviderCounterContext = experimentalExtensions.contextProvider({
+  id: '20c6e0a1-6d3f-4da1-96a3-9cd9fabde1e9',
+  type: '<codeIdentifier>.TestContextType',
+  context: {
+    items: {
+      count: {
+        dataType: 'number',
+        displayName: 'Counter current value',
+      },
+      richTextCount: {
+        dataType: 'data',
+        displayName: 'Counter Value (Rich Text)',
+        data: {
+          items: {
+            text: { dataType: 'text' },
+            html: { dataType: 'text' },
+          },
+        },
+      },
+      decrement: {
+        dataType: 'function',
+        displayName: 'Decrement counter value by 1',
+        function: {
+          parameters: [],
+          async: false,
+        },
+      },
+      increment: {
+        dataType: 'function',
+        displayName: 'Increment counter value by 1',
+        function: {
+          parameters: [],
+          async: false,
+        },
+      },
+      setCount: {
+        dataType: 'function',
+        displayName: 'Set counter value to a specific number',
+        function: {
+          parameters: [
+            {
+              dataType: 'number',
+              displayName: 'Count Value',
+            },
+          ],
+          async: false,
+        },
+      },
+    },
+  },
+  data: {
+    initialCount: {
+      dataType: 'number',
+      defaultValue: 0,
+      deprecated: false,
+      displayName: 'Initial Count',
+    },
+  },
+  resources: {
+    client: {
+      url: './extensions/context-provider/provider.tsx',
+    },
+    contextSpecifier: {
+      hook: 'useCounterContext',
+      moduleSpecifier: 'my-counter-context',
+    },
+  },
+});
+```
+
+**Main app file (`src/extensions.ts`)**:
 
 ```typescript
 import { app } from '@wix/astro/builders';
-import { extensions as experimentalExtensions } from '@wix/astro/builders/experimental';
+import { contextproviderCounterContext } from './extensions/context-provider/extensions.ts';
 
 export default app()
-  .use(
-    experimentalExtensions.contextProvider({
-      id: '20c6e0a1-6d3f-4da1-96a3-9cd9fabde1e9',
-      type: '<codeIdentifier>.TestContextType',
-      context: {
-        items: {
-          count: {
-            dataType: 'number',
-            displayName: 'Counter current value',
-          },
-          richTextCount: {
-            dataType: 'data',
-            displayName: 'Counter Value (Rich Text)',
-            data: {
-              items: {
-                text: { dataType: 'text' },
-                html: { dataType: 'text' },
-              },
-            },
-          },
-          decrement: {
-            dataType: 'function',
-            displayName: 'Decrement counter value by 1',
-            function: {
-              parameters: [],
-              async: false,
-            },
-          },
-          increment: {
-            dataType: 'function',
-            displayName: 'Increment counter value by 1',
-            function: {
-              parameters: [],
-              async: false,
-            },
-          },
-          setCount: {
-            dataType: 'function',
-            displayName: 'Set counter value to a specific number',
-            function: {
-              parameters: [
-                {
-                  dataType: 'number',
-                  displayName: 'Count Value',
-                },
-              ],
-              async: false,
-            },
-          },
-        },
-      },
-      data: {
-        initialCount: {
-          dataType: 'number',
-          defaultValue: 0,
-          deprecated: false,
-          displayName: 'Initial Count',
-        },
-      },
-      resources: {
-        client: {
-          url: './extensions/context-provider/provider.tsx',
-        },
-        contextSpecifier: {
-          hook: 'useCounterContext',
-          moduleSpecifier: 'my-counter-context',
-        },
-      },
-    })
-  );
+  .use(contextproviderCounterContext);
 ```
 
 **Consumer component declaring the dependency**:

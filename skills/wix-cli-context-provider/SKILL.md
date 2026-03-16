@@ -27,7 +27,8 @@ Follow these steps in order when creating a context provider:
 2. [ ] Install `@wix/services-manager-react` and `@wix/services-definitions` if not already present
 3. [ ] Create provider folder: `src/extensions/{provider-name}/`
 4. [ ] Create `provider.tsx` with React context, hook export, provider component, and RichText support for all text/number values
-5. [ ] Register in `src/extensions.ts` using `experimentalExtensions.contextProvider()` — include both plain and richText context items
+5. [ ] Create `extensions.ts` in the provider folder with `experimentalExtensions.contextProvider()` — include both plain and richText context items
+6. [ ] Import and register the extension in `src/extensions.ts` using `.use()`
 6. [ ] Ensure consumer components are **site components** with `contextDependencies` in their registration
 
 ## Hard Constraints
@@ -224,34 +225,42 @@ This is different from standard extensions which use `import { extensions } from
 
 ### Registration Pattern
 
+**Per-extension file (`src/extensions/{provider-name}/extensions.ts`)**:
+
 ```typescript
-import { app } from '@wix/astro/builders';
 import { extensions as experimentalExtensions } from '@wix/astro/builders/experimental';
 
+export const contextproviderMyContext = experimentalExtensions.contextProvider({
+  id: '{{GENERATE_UUID}}',
+  type: '<codeIdentifier>.ContextTypeName',
+  context: {
+    items: {
+      // Context values exposed to children
+    },
+  },
+  data: {
+    // Configuration props for the provider
+  },
+  resources: {
+    client: {
+      url: './extensions/{provider-name}/provider.tsx',
+    },
+    contextSpecifier: {
+      hook: 'useMyContext',
+      moduleSpecifier: 'my-package-name',
+    },
+  },
+});
+```
+
+**Main app file (`src/extensions.ts`)**:
+
+```typescript
+import { app } from '@wix/astro/builders';
+import { contextproviderMyContext } from './extensions/{provider-name}/extensions.ts';
+
 export default app()
-  .use(
-    experimentalExtensions.contextProvider({
-      id: '{{GENERATE_UUID}}',
-      type: '<codeIdentifier>.ContextTypeName',
-      context: {
-        items: {
-          // Context values exposed to children
-        },
-      },
-      data: {
-        // Configuration props for the provider
-      },
-      resources: {
-        client: {
-          url: './extensions/{provider-name}/provider.tsx',
-        },
-        contextSpecifier: {
-          hook: 'useMyContext',
-          moduleSpecifier: 'my-package-name',
-        },
-      },
-    })
-  );
+  .use(contextproviderMyContext);
 ```
 
 ### Registration Fields
@@ -452,6 +461,7 @@ Context can also be consumed via Editor Binding, where components receive contex
 
 ```
 src/extensions/{provider-name}/
+├── extensions.ts         # Extension registration (exported, imported by src/extensions.ts)
 └── provider.tsx          # Context provider component with hook
 ```
 
