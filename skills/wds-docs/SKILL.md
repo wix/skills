@@ -173,16 +173,108 @@ Grep: "notification\|toast\|loader" in components.md
 
 ---
 
+## Common Dashboard Patterns
+
+### Data Management Table
+
+Most dashboard pages use this pattern: Table + TableToolbar + optional TableActionCell.
+
+```tsx
+import { Table, TableToolbar, TableActionCell, Card, Box, Text, Button, Loader, EmptyState } from '@wix/design-system';
+import { Add, Delete, Edit } from '@wix/wix-ui-icons-common';
+
+// Column definition
+const columns = [
+  { title: 'Name', render: (row) => <Text>{row.name}</Text> },
+  { title: 'Amount', render: (row) => <Text>${row.amount}</Text> },
+  { title: 'Actions', render: (row) => (
+    <TableActionCell
+      primaryAction={{ text: 'Edit', onClick: () => handleEdit(row) }}
+      secondaryActions={[{ text: 'Delete', icon: <Delete />, onClick: () => handleDelete(row._id) }]}
+    />
+  )}
+];
+
+// Toolbar with title + count
+<Table data={items} columns={columns} showHeaderWhenEmpty>
+  <TableToolbar>
+    <TableToolbar.ItemGroup position="start">
+      <TableToolbar.Item><TableToolbar.Title>Items</TableToolbar.Title></TableToolbar.Item>
+      <TableToolbar.Item><TableToolbar.Label>{items.length} items</TableToolbar.Label></TableToolbar.Item>
+    </TableToolbar.ItemGroup>
+  </TableToolbar>
+  <Table.Titlebar />
+  <Table.Content />
+  <Table.EmptyState>
+    <EmptyState title="No items yet" subtitle="Add your first item to get started" />
+  </Table.EmptyState>
+</Table>
+```
+
+### Add/Edit Form Pattern
+
+```tsx
+<Card>
+  <Card.Header title="Add Item" />
+  <Card.Divider />
+  <Card.Content>
+    <Box direction="vertical" gap="SP4">
+      <FormField label="Name" required>
+        <Input value={name} onChange={(e) => setName(e.target.value)} />
+      </FormField>
+      <FormField label="Amount" required>
+        <NumberInput value={amount} onChange={(val) => setAmount(val ?? 0)} min={0} />
+      </FormField>
+      <Button onClick={handleAdd} prefixIcon={<Add />}>Add</Button>
+    </Box>
+  </Card.Content>
+</Card>
+```
+
+### Loading / Empty / Content States
+
+```tsx
+{loading ? (
+  <Box align="center" padding="SP6"><Loader size="medium" /></Box>
+) : items.length === 0 ? (
+  <EmptyState theme="page" title="No items" subtitle="Create your first item" />
+) : (
+  <Table data={items} columns={columns}>...</Table>
+)}
+```
+
+---
+
+## Type Pitfalls
+
+| Component | Prop | Correct Type | Common Mistake |
+|-----------|------|-------------|----------------|
+| `NumberInput` | `value` | `string \| number` | Using `null` or `undefined` → TSC error |
+| `NumberInput` | `onChange` | `(val: number) => void` | Use `val ?? 0` for nullish safety |
+| `Input` | `value` | `string` | Using `number` without `.toString()` |
+| `ToggleSwitch` | `checked` | `boolean` | Using `undefined` |
+
+**NumberInput:** Initialize with `0` (not `null`). Reset with `0` or empty string. The `onChange` callback receives `number`, but wrap with `?? 0` for safety.
+
+---
+
 ## Quick Component Mapping (Design → WDS)
 
 | Design Element | WDS Component | Notes |
 |----------------|---------------|-------|
 | Rectangle/container | `<Box>` | Layout wrapper |
+| Data table | `<Table>` + `<Table.Content>` | Always wrap with `<Table.Titlebar />` |
+| Table header | `<TableToolbar>` | Title, count, search, actions |
+| Row actions | `<TableActionCell>` | Primary + secondary actions per row |
 | Text button | `<TextButton>` | Secondary actions |
 | Input with label | `<FormField>` + `<Input>` | Wrap inputs |
+| Number input | `<NumberInput>` | value: `string \| number` (not null!) |
 | Toggle | `<ToggleSwitch>` | On/off settings |
+| Empty placeholder | `<EmptyState>` | theme="page" for standalone |
+| Loading spinner | `<Loader>` | size="small"/"medium"/"large" |
 | Modal | `<Modal>` + `<CustomModalLayout>` | Use together |
 | Grid | `<Layout>` + `<Cell>` | Responsive |
+| Search | `<Search>` | Filter/search in toolbars |
 
 ---
 
