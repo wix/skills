@@ -169,7 +169,3 @@ Identify which Wix app the user is targeting, then read **only** the correspondi
 
 - Only output files that are directly required for the task
 - Do NOT add README.md or documentation files unless explicitly requested
-
-## Verification
-
-After implementation, use [wix-cli-app-validation](../wix-cli-app-validation/SKILL.md) to validate TypeScript compilation, build, preview, and runtime behavior.

@@ -240,7 +240,3 @@ src/pages/api/
 - Validate input parameters and request bodies
 - Use async/await for asynchronous operations
 - No `@ts-ignore` comments
-
-## Verification
-
-After implementation, use [wix-cli-app-validation](../wix-cli-app-validation/SKILL.md) to validate TypeScript compilation, build, preview, and runtime behavior.

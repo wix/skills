@@ -593,7 +593,3 @@ The `id` must be a unique, static UUID v4 string. Generate a fresh UUID for each
 - Inline styles only (no CSS imports)
 - Handle Wix Editor environment when using Wix Data API
 - Consistent prop naming (camelCase in widget, kebab-case in panel)
-
-## Verification
-
-After implementation completes, the **wix-cli-orchestrator** will run validation using [wix-cli-app-validation](../wix-cli-app-validation/SKILL.md).

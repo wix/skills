@@ -291,10 +291,6 @@ Do NOT copy field names from embedded script or other extension registrations. D
 - Separate types/interfaces into dedicated type files
 - Keep each component/function focused (~50-100 lines max)
 
-## Verification
-
-After implementation completes, the **wix-cli-orchestrator** will run validation using [wix-cli-app-validation](../wix-cli-app-validation/SKILL.md).
-
 ## API Spec Support
 
 When an API specification is provided, you can make API calls to those endpoints. See [API Spec Reference](references/API_SPEC.md) for details on how to use API specs in dashboard pages.

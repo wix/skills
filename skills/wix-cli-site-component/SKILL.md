@@ -496,10 +496,6 @@ The `id` must be a unique, static UUID v4 string. Generate a fresh UUID for each
 - NEVER use mocks, placeholders, or TODOs in any code
 - ALWAYS implement complete, production-ready functionality
 
-## Verification
-
-After implementation, use [wix-cli-app-validation](../wix-cli-app-validation/SKILL.md) to validate TypeScript compilation, build, preview, and runtime behavior.
-
 ## Reference Documentation
 
 - [Complete Example](references/EXAMPLE.md) - Full production-ready site component example with all patterns

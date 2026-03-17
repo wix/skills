@@ -446,10 +446,6 @@ Both collections are defined in the same `src/extensions/data/extensions.ts` fil
 
 **Note:** For owner tracking, create a custom collection for users rather than referencing Wix Members directly.
 
-## Verification
-
-After implementation, use [wix-cli-app-validation](../wix-cli-app-validation/SKILL.md) to validate TypeScript compilation, build, preview, and runtime behavior.
-
 ## Reference Documentation
 
 - [extension-template.ts](assets/extension-template.ts) - Template for `src/extensions/data/extensions.ts`
