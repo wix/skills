@@ -118,7 +118,3 @@ onContactCreated(async (event) => {
 
 1. **Release** a version with your changes.
 2. **Trigger** the event by taking an action.
-
-## Verification
-
-After implementation, use [wix-cli-app-validation](../wix-cli-app-validation/SKILL.md) to validate TypeScript, build, and preview.

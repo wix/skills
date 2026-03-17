@@ -286,7 +286,3 @@ export default function ItemEditModal() {
   );
 }
 ```
-
-## Verification
-
-After implementation, use [wix-cli-app-validation](../wix-cli-app-validation/SKILL.md) to validate TypeScript compilation, build, preview, and runtime behavior.

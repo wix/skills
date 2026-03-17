@@ -236,7 +236,3 @@ To test your service plugin extension:
 
 1. **Release a version** with your changes - new service plugins or changes to existing ones won't take effect until you've built and released your project
 2. **Trigger the call** to your service plugin by performing the relevant action (e.g., add items to cart and view cart to test Additional Fees)
-
-## Verification
-
-After implementation, use [wix-cli-app-validation](../wix-cli-app-validation/SKILL.md) to validate TypeScript compilation, build, preview, and runtime behavior.
