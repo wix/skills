@@ -1,6 +1,6 @@
 ---
 name: wix-cli-service-plugin
-description: Use when implementing service plugin extensions that inject custom backend logic into existing Wix business solution flows or introduce new flows to Wix sites. Triggers include SPI, service plugin, backend flow, business logic, custom shipping rates, additional fees, tax calculation, checkout validation, discount triggers, gift cards, eCommerce customization.
+description: Use when implementing service plugin extensions that inject custom backend logic into existing Wix business solution flows or introduce new flows to Wix sites (eCommerce, Bookings, etc.). Triggers include SPI, service plugin, backend flow, business logic, custom shipping rates, additional fees, tax calculation, checkout validation, discount triggers, gift cards, eCommerce customization, bookings staff sorting.
 compatibility: Requires Wix CLI development environment.
 ---
 
@@ -8,7 +8,7 @@ compatibility: Requires Wix CLI development environment.
 
 Creates service plugin extensions for Wix CLI applications. Service plugins are a set of APIs defined by Wix that you can use to inject custom logic into the existing backend flows of Wix business solutions or to introduce entirely new flows to Wix sites.
 
-When you implement a service plugin, Wix calls your custom functions during specific flows. Common use cases include eCommerce customization (shipping, fees, taxes, validations), but service plugins can extend any Wix business solution that exposes SPIs.
+When you implement a service plugin, Wix calls your custom functions during specific flows. Common use cases include eCommerce customization (shipping, fees, taxes, validations) and Bookings customization (staff sorting), but service plugins can extend any Wix business solution that exposes SPIs.
 
 ## Quick Start Checklist
 
@@ -36,6 +36,7 @@ Follow these steps in order when creating a service plugin:
 | Shipping Rates | [SHIPPING-RATES.md](./references/SHIPPING-RATES.md) |
 | Tax Calculation | [TAX-CALCULATION.md](./references/TAX-CALCULATION.md) |
 | Validations | [VALIDATIONS.md](./references/VALIDATIONS.md) |
+| Bookings Staff Sorting | [BOOKINGS-STAFF-SORTING.md](./references/BOOKINGS-STAFF-SORTING.md) |
 
 ## Output Structure
 
@@ -83,10 +84,12 @@ All service plugins must include comprehensive data validation:
 
 The handler file (`plugin.ts`) contains the service plugin logic. It must:
 
-1. Import the relevant service plugin from `@wix/ecom/service-plugins`
+1. Import the relevant service plugin from the appropriate package (e.g., `@wix/ecom/service-plugins` for eCommerce, `@wix/bookings/service-plugins` for Bookings)
 2. Call `provideHandlers()` with an object containing handler functions
 3. Each handler function receives a payload with `request` and `metadata`
 4. Return the expected response structure for that SPI type
+
+**eCommerce example (Shipping Rates):**
 
 ```typescript
 import { shippingRates } from "@wix/ecom/service-plugins";
@@ -113,6 +116,27 @@ shippingRates.provideHandlers({
           },
         },
       ],
+    };
+  },
+});
+```
+
+**Bookings example (Staff Sorting):**
+
+```typescript
+import { staffSorting } from "@wix/bookings/service-plugins";
+
+staffSorting.provideHandlers({
+  sortStaffMembers: async (payload) => {
+    const { request } = payload;
+
+    // Implement custom staff sorting logic
+    // - request contains availableResourceIds, slot details, etc.
+
+    return {
+      staff: request.availableResourceIds.map((resourceId) => ({
+        resourceId,
+      })),
     };
   },
 });
@@ -221,8 +245,9 @@ All builder methods accept these three fields:
 | Discount Triggers | `ecomDiscountTriggers()` | `id`, `name`, `source` |
 | Gift Cards        | `ecomGiftCards()`        | `id`, `name`, `source` |
 | Payment Settings  | `ecomPaymentSettings()`  | `id`, `name`, `source`, `fallbackValueForRequires3dSecure` |
+| Bookings Staff Sorting | `bookingsStaffSortingProvider()` | `id`, `name`, `source`, `methodName`, `methodDescription`, `dashboardPluginId` |
 
-Only `ecomShippingRates()` accepts `description`. Passing unsupported fields to other builders causes TypeScript errors.
+Only `ecomShippingRates()` accepts `description`. Passing unsupported fields to other builders causes TypeScript errors. `bookingsStaffSortingProvider()` requires `methodName` and `methodDescription` fields, and optionally accepts `dashboardPluginId`.
 
 ### Step 2: Register in Main Extensions File
 
