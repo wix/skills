@@ -89,8 +89,6 @@ The handler file (`plugin.ts`) contains the service plugin logic. It must:
 3. Each handler function receives a payload with `request` and `metadata`
 4. Return the expected response structure for that SPI type
 
-**eCommerce example (Shipping Rates):**
-
 ```typescript
 import { shippingRates } from "@wix/ecom/service-plugins";
 
@@ -116,27 +114,6 @@ shippingRates.provideHandlers({
           },
         },
       ],
-    };
-  },
-});
-```
-
-**Bookings example (Staff Sorting):**
-
-```typescript
-import { staffSorting } from "@wix/bookings/service-plugins";
-
-staffSorting.provideHandlers({
-  sortStaffMembers: async (payload) => {
-    const { request } = payload;
-
-    // Implement custom staff sorting logic
-    // - request contains availableResourceIds, slot details, etc.
-
-    return {
-      staff: request.availableResourceIds.map((resourceId) => ({
-        resourceId,
-      })),
     };
   },
 });
