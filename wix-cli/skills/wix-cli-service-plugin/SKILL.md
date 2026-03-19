@@ -54,7 +54,7 @@ src/backend/service-plugins/
 | File | Purpose |
 | --- | --- |
 | `plugin.ts` | Contains the service plugin handler logic with `provideHandlers()` - this is where you implement your custom business logic |
-| `extensions.ts` | Contains the service plugin builder configuration with id (GUID), name, description, and source path |
+| `extensions.ts` | Contains the service plugin builder configuration with id (GUID), name, and source path |
 
 ## Implementation Requirements
 
@@ -193,7 +193,6 @@ import { extensions } from "@wix/astro/builders";
 export const ecomshippingratesMyShipping = extensions.ecomShippingRates({
   id: "{{GENERATE_UUID}}",
   name: "My Shipping Rates",
-  description: "Calculates custom shipping rates based on order weight",
   source: "./backend/service-plugins/ecom-shipping-rates/my-shipping/plugin.ts",
 });
 ```
@@ -208,10 +207,9 @@ The `id` must be a unique, static UUID v4 string. Generate a fresh UUID for each
 | --- | --- | --- |
 | `id` | string | Service plugin ID as a GUID. Must be unique across all extensions in the project. |
 | `name` | string | The service plugin name (visible in app dashboard when developing an app). |
-| `description` | string | A short description of what the service plugin does. |
 | `source` | string | Path to the service plugin handler file that contains the plugin logic. |
 
-Additional fields may be required or optional depending on the specific service plugin type.
+Additional fields vary by SPI type. For example, `ecomShippingRates()` supports a `description` field, while other builder methods may have different type-specific options. Always rely on TypeScript autocompletion to discover available fields for each builder method.
 
 **Builder methods by SPI type:**
 

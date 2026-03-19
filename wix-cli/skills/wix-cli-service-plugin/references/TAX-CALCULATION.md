@@ -32,30 +32,27 @@ const STATE_TAX_RATES: Record<string, number> = {
 
 taxCalculationProvider.provideHandlers({
   calculateTax: async ({ request }) => {
-    const state = request.shippingAddress?.subdivision;
+    const state = request.addresses?.[0]?.subdivision;
     const taxRate = STATE_TAX_RATES[state || ""] || 0;
 
-    const lineItemTaxes =
+    const lineItemTaxDetails =
       request.lineItems?.map((item) => {
-        const amount = parseFloat(item.price?.amount || "0");
+        const amount = parseFloat(item.price || "0");
         const taxAmount = (amount * taxRate).toFixed(2);
 
         return {
-          lineItemId: item._id,
+          _id: item._id,
           taxBreakdown: [
             {
-              name: "State Sales Tax",
-              rate: String(taxRate * 100),
-              amount: {
-                amount: taxAmount,
-                currency: request.currency || "USD",
-              },
+              taxName: "State Sales Tax",
+              rate: String(taxRate),
+              taxAmount: taxAmount,
             },
           ],
         };
       }) || [];
 
-    return { lineItemTaxes };
+    return { lineItemTaxDetails };
   },
 });
 ```
@@ -64,15 +61,12 @@ taxCalculationProvider.provideHandlers({
 
 ```typescript
 {
-  lineItemTaxes: Array<{
-    lineItemId: string;           // ID of the line item
+  lineItemTaxDetails: Array<{
+    _id: string;                    // Line item ID
     taxBreakdown: Array<{
-      name: string;               // Tax name (e.g., "State Sales Tax")
-      rate: string;               // Tax rate as string (e.g., "7.25")
-      amount: {
-        amount: string;           // Tax amount as string
-        currency: string;         // Currency code (e.g., "USD")
-      };
+      taxName: string;              // Tax name (e.g., "State Sales Tax")
+      rate: string;                 // Tax rate as decimal string (e.g., "0.0725" for 7.25%)
+      taxAmount: string;            // Tax amount as string
     }>;
   }>;
 }
@@ -80,8 +74,8 @@ taxCalculationProvider.provideHandlers({
 
 ## Key Implementation Notes
 
-1. **Price as string** - All amount values must be strings, not numbers
-2. **Rate as percentage** - The `rate` field should be the percentage value (e.g., "7.25" for 7.25%)
-3. **Line item matching** - Each `lineItemId` must match an item from the request
+1. **Price as string** - `item.price` is a string, not an object — use it directly (e.g., `parseFloat(item.price || "0")`)
+2. **Rate as decimal** - The `rate` field should be a decimal string (e.g., `"0.0725"` for 7.25%), not a percentage
+3. **Line item matching** - Each `_id` in the response must match an item `_id` from the request
 4. **Multiple tax breakdowns** - You can include multiple taxes per line item (state, local, etc.)
 5. **Handle missing data** - Gracefully handle missing addresses or subdivision codes
