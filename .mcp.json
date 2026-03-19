@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "wix-mcp": {
+      "command": "npx",
+      "args": ["-y", "@wix/mcp-remote@latest", "https://mcp.wix.com/mcp"]
+    }
+  }
+}
