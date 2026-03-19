@@ -6,33 +6,46 @@ compatibility: Requires @wix/design-system package installed in the project.
 
 # WDS Documentation Navigator
 
-**Docs path:** `node_modules/@wix/design-system/dist/docs/`
+## FAST PATH: Cheat Sheets First (1 Read covers 90% of cases)
 
-## CRITICAL: Never Read Entire Files
+Before using the staged docs lookup, check the **pre-built references** in this skill's `references/` folder.
 
-Files are 200-900+ lines. Follow the staged discovery flow below.
+### Step 1: Read the cheat sheet
+
+Read **one file** that covers your needs:
+
+| Need | File | Covers |
+|------|------|--------|
+| Component props & snippets | `references/COMMON_COMPONENTS.md` | Top ~20 components with correct types, snippets, deprecation warnings, and gotchas |
+| Dashboard page patterns | `references/RECIPES.md` | CRUD table, form modal, delete confirm, settings card, selection, empty state |
+| Icon names | `references/ICONS.md` | ~100 most-used icons organized by category, naming conventions |
+
+**For most tasks, reading `COMMON_COMPONENTS.md` + `ICONS.md` is sufficient (2 Reads total).**
+
+### Step 2: Only fall back to full docs if needed
+
+If a component is NOT in the cheat sheet, use the staged lookup below.
 
 ---
 
-## Stage 1: Find Component
+## SLOW PATH: Full Docs Lookup (for uncommon components)
 
-**Goal:** Search for component by feature/keyword
+**Docs path:** `node_modules/@wix/design-system/dist/docs/`
+
+### CRITICAL: Never Read Entire Files
+
+Files are 200-900+ lines. Follow the staged discovery flow below.
+
+### Stage 1: Find Component
 
 ```bash
 Grep: "table" in components.md
 Grep: "form\|input\|validation" in components.md
-Grep: "modal\|dialog\|popup" in components.md
 ```
 
-**Output:** Component name + description + do/don'ts
+**Output:** Component name + description + do/don'ts → Go to Stage 2
 
-**Next:** Go to Stage 2 with component name
-
----
-
-## Stage 2: Get Props + Example List
-
-**Goal:** Get props AND discover available examples
+### Stage 2: Get Props + Example List
 
 ```bash
 # 2a. Get props (small files OK to read, large files grep)
@@ -43,37 +56,15 @@ Grep: "### disabled" in components/BoxProps.md -A 3  # Box is huge
 Grep: "^### " in components/ButtonExamples.md -n
 ```
 
-**Output from 2b:**
-```
-5:### Size
-17:### Skin
-71:### Affix
-123:### Disabled
-183:### Loading state
-```
-
-**Next:** Pick example(s) from list, go to Stage 3
-
----
-
-## Stage 3: Fetch Specific Example
-
-**Goal:** Read only the example you need (~30-50 lines)
+### Stage 3: Fetch Specific Example
 
 ```bash
-# Option A: Read with offset (line number from Stage 2)
 Read: components/ButtonExamples.md offset=183 limit=40
-
-# Option B: Grep with context
-Grep: "### Loading state" in components/ButtonExamples.md -A 40
 ```
 
-**Output:** JSX code example for that specific feature
+### Stage 4: Icons (when needed)
 
----
-
-## Stage 4: Icons (when needed)
-
+Prefer `references/ICONS.md` first. Fall back to:
 ```bash
 Grep: "Add\|Edit\|Delete\|Search" in icons.md
 ```
@@ -83,92 +74,19 @@ Grep: "Add\|Edit\|Delete\|Search" in icons.md
 ## Flow Summary
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│ Stage 1: Grep components.md for keyword                 │
-│          → finds: Button, Card, Table...                │
-└────────────────────┬────────────────────────────────────┘
-                     ↓
-┌─────────────────────────────────────────────────────────┐
-│ Stage 2a: Read/Grep {Component}Props.md                 │
-│           → gets: props with types & descriptions       │
-│                                                         │
-│ Stage 2b: Grep "^### " in {Component}Examples.md        │
-│           → gets: example names + line numbers          │
-│           "5:### Size, 71:### Affix, 183:### Loading"   │
-└────────────────────┬────────────────────────────────────┘
-                     ↓
-┌─────────────────────────────────────────────────────────┐
-│ Stage 3: Read offset=183 limit=40                       │
-│          → gets: specific example JSX code              │
-└────────────────────────────────────────────────────────┘
-```
-
----
-
-## Example Session: Product Page
-
-```bash
-# Stage 1: Find components
-Grep: "image\|card\|price" in components.md
-→ Image, Card, Text found
-
-# Stage 2a: Get Card props
-Read: components/CardProps.md
-
-# Stage 2b: List Card examples
-Grep: "^### " in components/CardExamples.md -n
-→ 5:### Basic, 25:### With media, 60:### Clickable
-
-# Stage 3: Fetch "With media" example
-Read: components/CardExamples.md offset=25 limit=35
-→ Gets Card with Image example code
-
-# Repeat Stage 2-3 for other components as needed
-```
-
-**Result:** ~80 lines read instead of 1500+
-
----
-
-## Quick Reference
-
-| Stage | Command | Output |
-|-------|---------|--------|
-| 1. Find | `Grep: "keyword" in components.md` | Component name |
-| 2a. Props | `Read: {Name}Props.md` | Props list |
-| 2b. Examples | `Grep: "^### " in {Name}Examples.md` | Example names + lines |
-| 3. Fetch | `Read: offset=N limit=40` | Example code |
-| 4. Icons | `Grep: "IconName" in icons.md` | Icon exists |
-
----
-
-## File Sizes
-
-| File | Lines | Strategy |
-|------|-------|----------|
-| components.md | ~970 | Grep, never read fully |
-| icons.md | ~400 | Grep for specific icon |
-| Most Props.md | 30-100 | Read fully OK |
-| BoxProps.md | 8000+ | Grep only! |
-| Most Examples.md | 100-600 | Grep → offset read |
-| PageExamples.md | 940 | Grep → offset read |
-
----
-
-## Grep Patterns by Use Case
-
-```bash
-# Forms
-Grep: "form\|input\|validation" in components.md
-
-# Layout
-Grep: "layout\|page\|card\|box" in components.md
-
-# Data display
-Grep: "table\|list\|badge" in components.md
-
-# Feedback
-Grep: "notification\|toast\|loader" in components.md
+┌────────────────────────────────────────────────────────────┐
+│ FAST: Read references/COMMON_COMPONENTS.md (1 tool call)   │
+│       + references/ICONS.md if icons needed                │
+│       + references/RECIPES.md for page patterns            │
+│                                                            │
+│       → Covers ~90% of components. STOP HERE if covered.   │
+└─────────────────────────┬──────────────────────────────────┘
+                          ↓ component NOT in cheat sheet
+┌────────────────────────────────────────────────────────────┐
+│ SLOW Stage 1: Grep components.md for keyword               │
+│ SLOW Stage 2: Read {Name}Props.md + Grep Examples headings │
+│ SLOW Stage 3: Read specific example with offset            │
+└────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -180,15 +98,18 @@ Grep: "notification\|toast\|loader" in components.md
 | Rectangle/container | `<Box>` | Layout wrapper |
 | Text button | `<TextButton>` | Secondary actions |
 | Input with label | `<FormField>` + `<Input>` | Wrap inputs |
+| Number input | `<NumberInput>` | Prefer over `<Input type="number">` |
+| Textarea | `<InputArea>` | Multiline text |
 | Toggle | `<ToggleSwitch>` | On/off settings |
 | Modal | `<Modal>` + `<CustomModalLayout>` | Use together |
-| Grid | `<Layout>` + `<Cell>` | Responsive |
+| Confirm dialog | `<Modal>` + `<MessageModalLayout>` | Short messages |
+| Grid | `<Layout>` + `<Cell>` | Responsive grid |
+| Select/dropdown | `<Dropdown>` | Single select |
+| Search | `<Search>` | With optional dropdown |
 
 ---
 
 ## Spacing (px → SP conversion)
-
-When designer specifies pixels, convert to the nearest SP token:
 
 | Token | Classic | Studio |
 |-------|---------|--------|
@@ -199,11 +120,7 @@ When designer specifies pixels, convert to the nearest SP token:
 | `SP5` | 30px | 20px |
 | `SP6` | 36px | 24px |
 
-```tsx
-<Box gap="SP2" padding="SP3">
-```
-
-Only use SP tokens for `gap`, `padding`, `margin` - not for width/height.
+Only use SP tokens for `gap`, `padding`, `margin` — not for width/height.
 
 ---
 
@@ -213,3 +130,16 @@ Only use SP tokens for `gap`, `padding`, `margin` - not for width/height.
 import { Button, Card, Image } from '@wix/design-system';
 import { Add, Edit, Delete } from '@wix/wix-ui-icons-common';
 ```
+
+---
+
+## File Sizes (for full docs lookup)
+
+| File | Lines | Strategy |
+|------|-------|----------|
+| components.md | ~970 | Grep, never read fully |
+| icons.md | ~400 | Grep, or use references/ICONS.md |
+| Most Props.md | 30-100 | Read fully OK |
+| BoxProps.md | 8000+ | Grep only! |
+| Most Examples.md | 100-600 | Grep → offset read |
+| PageExamples.md | 940 | Grep → offset read |
