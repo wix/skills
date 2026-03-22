@@ -17,6 +17,54 @@ import { ChargeType } from "@wix/auto_sdk_ecom_shipping-rates";
 | --- | --- |
 | `getShippingRates` | Calculate and return available shipping options with costs |
 
+## Request Structure
+
+The `getShippingRates` handler receives `{ request, metadata }`. Key fields on `request`:
+
+```typescript
+{
+  lineItems: Array<{                    // Products being shipped (ProductItem type)
+    name?: string;                      // Product name
+    quantity?: number;                  // Quantity
+    price?: string;                     // Unit price as decimal string
+    totalPrice?: string;                // Total price (price × quantity)
+    totalPriceBeforeDiscount?: string;  // Total before discounts
+    priceBeforeDiscount?: string;       // Unit price before discount
+    catalogReference?: {
+      catalogItemId: string;            // Item GUID within its catalog
+      appId: string;                    // Catalog app GUID
+      options?: Record<string, any>;
+    };
+    physicalProperties?: {
+      weight?: number;                  // Item weight
+      sku?: string;                     // Stock-keeping unit
+      shippable?: boolean;              // Whether item is shippable
+    };
+  }>;
+  shippingDestination?: {               // Where items are being shipped
+    country?: string;                   // ISO-3166 alpha-2 country code
+    subdivision?: string;               // State/province code
+    city?: string;
+    postalCode?: string;
+    addressLine1?: string;
+    addressLine2?: string;
+    streetAddress?: {
+      number?: string;
+      name?: string;
+    };
+  };
+  shippingOrigin?: { ... };             // Where items ship from (same Address shape)
+  buyerContactDetails?: {               // Buyer contact info
+    firstName?: string;
+    lastName?: string;
+    phone?: string;
+    company?: string;
+  };
+  weightUnit?: string;                  // Weight unit: "KG", "LB"
+  purchaseFlowId?: string;             // Persistent ID correlating cart/checkout/order
+}
+```
+
 ## Example: International Shipping with Handling Fee
 
 This example provides an international shipping option with an additional handling fee charge.
@@ -66,7 +114,8 @@ shippingRates.provideHandlers({
     code: string;             // Unique identifier for this shipping option
     title: string;            // Display name shown to customer
     logistics: {
-      deliveryTime: string;   // Estimated delivery time (e.g., "2-5 days")
+      deliveryTime?: string;  // Estimated delivery time (e.g., "2-5 days")
+      instructions?: string;  // Delivery instructions
     };
     cost: {
       price: string;          // Base shipping price as string

@@ -16,6 +16,65 @@ import { validations } from "@wix/ecom/service-plugins";
 | --- | --- |
 | `getValidationViolations` | Evaluate order and return any validation violations |
 
+## Request Structure
+
+The `getValidationViolations` handler receives `{ request, metadata }`. Key fields on `request`:
+
+```typescript
+{
+  sourceInfo?: {
+    source?: string;                    // "OTHER" | "CART" | "CHECKOUT" — where validation was triggered
+    purchaseFlowId?: string;            // Persistent ID correlating cart/checkout/order
+  };
+  validationInfo?: {
+    lineItems?: Array<{
+      _id?: string;                     // Line item ID
+      quantity?: number;                // Quantity
+      catalogReference?: {
+        catalogItemId: string;
+        appId: string;
+        options?: Record<string, any>;
+      };
+      productName?: {                   // NOTE: object, NOT a string
+        original?: string;              // Original product name
+        translated?: string;            // Translated product name
+      };
+      price?: {                         // NOTE: MultiCurrencyPrice object, NOT a string
+        amount?: string;                // Price as decimal string (e.g., "25.00")
+        convertedAmount?: string;       // Converted amount (read-only)
+        formattedAmount?: string;       // Formatted with currency symbol (read-only)
+        formattedConvertedAmount?: string; // Formatted converted (read-only)
+      };
+      physicalProperties?: {
+        weight?: number;
+        sku?: string;
+        shippable?: boolean;
+      };
+    }>;
+    priceSummary?: {                    // Order price summary
+      subtotal?: string;                // Subtotal
+      total?: string;                   // Total
+      discount?: string;                // Total discount
+      tax?: string;                     // Tax amount
+      shipping?: string;                // Shipping cost
+    };
+    billingInfo?: {                     // Billing address + contact
+      address?: { country?: string; subdivision?: string; city?: string; postalCode?: string; };
+      contactDetails?: { firstName?: string; lastName?: string; phone?: string; company?: string; };
+    };
+    shippingAddress?: {                 // Shipping address + contact (same shape as billingInfo)
+      address?: { country?: string; subdivision?: string; city?: string; postalCode?: string; };
+      contactDetails?: { firstName?: string; lastName?: string; phone?: string; company?: string; };
+    };
+    buyerDetails?: {                    // Buyer info
+      email?: string;
+      contactId?: string;
+    };
+    currency?: string;                  // Site currency (read-only)
+  };
+}
+```
+
 ## Example: Minimum Quantity Validation
 
 This example validates that the order meets a minimum item quantity requirement.
@@ -61,6 +120,7 @@ validations.provideHandlers({
     } | {
       lineItem: {
         _id: string;                        // Specific line item ID
+        name?: validations.NameInLineItem;  // LINE_ITEM_DEFAULT
       };
     };
   }>;
@@ -80,6 +140,7 @@ validations.provideHandlers({
 | --- | --- |
 | `validations.NameInOther.OTHER_DEFAULT` | General cart/order level validation |
 | `lineItem._id` | Validation targeting a specific item |
+| `validations.NameInLineItem.LINE_ITEM_DEFAULT` | Default line item target name |
 
 ## Key Implementation Notes
 

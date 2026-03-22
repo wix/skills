@@ -17,6 +17,45 @@ import { customTriggers } from "@wix/ecom/service-plugins";
 | `getEligibleTriggers` | Evaluate current conditions and return which triggers are active |
 | `listTriggers` | Return the list of all available custom triggers |
 
+## Request Structure
+
+### getEligibleTriggers Request
+
+The `getEligibleTriggers` handler receives `{ request, metadata }`. Key fields on `request`:
+
+```typescript
+{
+  lineItems: Array<{
+    _id?: string;                       // Line item ID
+    quantity?: number;                  // Quantity
+    catalogReference?: {
+      catalogItemId: string;
+      appId: string;
+      options?: Record<string, any>;
+    };
+    price?: string;                     // Price as decimal string
+  }>;
+  triggers: Array<{                     // Triggers to evaluate
+    customTrigger?: {
+      _id?: string;                     // Trigger ID (from listTriggers)
+    };
+    identifier?: string;                // Trigger instance identifier
+  }>;
+  purchaseFlowId?: string;             // Persistent ID correlating cart/checkout/order
+  shippingInfo?: {
+    address?: {
+      country?: string;                 // ISO-3166 alpha-2 country code
+      subdivision?: string;             // State/province code
+      city?: string;
+    };
+  };
+}
+```
+
+### listTriggers Request
+
+The `listTriggers` handler receives `{ request, metadata }`. The `request` object is empty — no fields to read.
+
 ## Example: Happy Hour and Digital Products Triggers
 
 This example defines two custom triggers: a time-based "Happy Hour" trigger and a product-type-based "Digital Sale" trigger.

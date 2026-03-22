@@ -18,6 +18,40 @@ import { giftVouchersProvider } from '@wix/ecom/service-plugins';
 | `getBalance` | Check the current balance of a gift card |
 | `_void` | Cancel/void a previous redemption |
 
+## Request Structure
+
+### getBalance Request
+
+```typescript
+{
+  code: string;           // Gift card code (8-20 characters)
+  pin?: string;           // Optional PIN for the gift card
+  locationId?: string;    // Business location ID
+}
+```
+
+### redeem Request
+
+```typescript
+{
+  code: string;           // Gift card code
+  amount: number;         // Amount to redeem (max 999,999,999.99)
+  orderId: string;        // Order ID for this redemption
+  currencyCode: string;   // Currency code (e.g., "USD")
+  pin?: string;           // Optional PIN
+  locationId?: string;    // Business location ID
+}
+```
+
+### _void Request
+
+```typescript
+{
+  transactionId: string;  // Transaction ID from the original redeem response
+  locationId?: string;    // Business location ID
+}
+```
+
 ## Example: Gift Card Provider Implementation
 
 This example shows a basic gift card provider with all three required handlers.
@@ -90,6 +124,7 @@ giftVouchersProvider.provideHandlers({
 {
   balance: number;            // Current gift card balance
   currencyCode: string;       // Currency code
+  externalId?: string;        // Optional external gift card ID
 }
 ```
 

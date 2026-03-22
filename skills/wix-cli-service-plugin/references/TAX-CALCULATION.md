@@ -16,6 +16,41 @@ import { taxCalculationProvider } from "@wix/ecom/service-plugins";
 | --- | --- |
 | `calculateTax` | Calculate and return tax amounts for line items |
 
+## Request Structure
+
+The `calculateTax` handler receives a `request` object with the following fields:
+
+```typescript
+{
+  currency: string;                     // 3-letter ISO currency code
+  addresses: Array<{                    // 1-3 addresses referenced by line items via addressIndex
+    country?: string;                   // ISO-3166 alpha-2 country code
+    subdivision?: string;               // State/province code (e.g., "US-CA")
+    city?: string;
+    postalCode?: string;
+    addressLine1?: string;
+    addressLine2?: string;
+  }>;
+  lineItems: Array<{
+    _id: string;                        // Line item ID
+    itemName?: string;                  // Item display name
+    quantity: number;                   // Quantity
+    price: string;                      // Unit price as decimal STRING (e.g., "25.00"), NOT an object
+    itemCode?: string;                  // SKU / item code
+    taxGroupId?: string;                // Tax group for this item
+    taxIncludedInPrice?: boolean;       // Whether price already includes tax
+    addressIndex?: {                    // Which address applies to this item
+      singleAddress?: number;           // Index into addresses array (common case)
+      multipleAddresses?: {             // For multi-address orders
+        origin?: number;                // Origin address index
+        destination?: number;           // Destination address index
+      };
+    };
+    taxRegionId?: string;               // Tax region ID
+  }>;
+}
+```
+
 ## Example: State-Based Tax Calculation
 
 This example calculates tax based on each line item's shipping destination state.
@@ -72,9 +107,25 @@ taxCalculationProvider.provideHandlers({
       };
     });
 
+    let totalTax = 0;
+    let totalAmount = 0;
+    let totalTaxableAmount = 0;
+    for (const detail of lineItemTaxDetails) {
+      for (const tb of detail.taxBreakdown) {
+        totalTax += parseFloat(tb.taxAmount);
+        totalTaxableAmount += parseFloat(tb.taxableAmount);
+      }
+      totalAmount += parseFloat(detail.taxSummary.fullPrice);
+    }
+
     return {
       currency: request.currency,
       lineItemTaxDetails,
+      taxSummary: {
+        totalAmount: totalAmount.toFixed(4),
+        totalTax: totalTax.toFixed(4),
+        totalTaxableAmount: totalTaxableAmount.toFixed(4),
+      },
     };
   },
 });
@@ -85,6 +136,12 @@ taxCalculationProvider.provideHandlers({
 ```typescript
 {
   currency: string;                   // Must match request.currency
+  taxSummary?: {
+    totalAmount: string;              // Total amount for all items
+    totalTax: string;                 // Total tax for all items
+    totalTaxableAmount: string;       // Total taxable amount
+    totalTaxIncludedInPrice?: string; // Total tax included in price
+  };
   lineItemTaxDetails: Array<{
     _id: string;                      // Line item ID
     taxBreakdown: Array<{

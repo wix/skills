@@ -37,6 +37,7 @@ The `calculateAdditionalFees` handler receives `{ request, metadata }`. Key fiel
       sku: string;                   // Stock-keeping unit
       shippable: boolean;            // Whether item is shippable
     };
+    depositAmount?: string;             // Partial payment for deposit items
   }>;
   shippingAddress?: {                // Shipping address (if provided)
     country: string;                 // ISO-3166 alpha-2 country code
@@ -46,6 +47,19 @@ The `calculateAdditionalFees` handler receives `{ request, metadata }`. Key fiel
   };
   buyerDetails?: { ... };           // Buyer contact info
   subtotal: string;                  // Pre-calculated total: sum of (price × quantity) for all line items, as a STRING
+  appliedDiscounts?: Array<{            // Discounts already applied
+    coupon?: { _id: string; code: string; name?: string; };
+    merchantDiscount?: { amount?: { amount: string; }; };
+    discountRule?: { _id: string; name?: { original?: string; }; };
+  }>;
+  shippingInfo?: {                      // Shipping carrier selection
+    carrierId?: string;
+    code?: string;
+  };
+  purchaseFlowId?: string;             // Persistent ID correlating cart/checkout/order
+  extendedFields?: {                    // Extended field data
+    namespaces?: Record<string, Record<string, any>>;
+  };
 }
 ```
 
@@ -137,6 +151,7 @@ The `calculateAdditionalFees` handler must return:
     price: string;          // Fee amount as string
     taxDetails?: {
       taxable: boolean;     // Whether fee is taxable
+      taxGroupId?: string;  // Tax group ID for the fee
     };
     lineItemIds?: string[]; // Optional: specific items (omit for cart-wide)
   }>;
