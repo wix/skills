@@ -23,7 +23,7 @@ The `calculateAdditionalFees` handler receives `{ request, metadata }`. Key fiel
 ```typescript
 {
   lineItems: Array<{
-    id: string;                      // Line item GUID
+    _id: string;                     // Line item GUID
     quantity: number;                // Quantity of item
     productName: string;             // Item name
     price: string;                   // Price for a single item as a STRING (e.g., "25.00"), NOT an object
