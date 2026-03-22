@@ -21,6 +21,14 @@ import { validations } from "@wix/ecom/service-plugins";
 The `getValidationViolations` handler receives `{ request, metadata }`. Key fields on `request`:
 
 ```typescript
+// MultiCurrencyPrice — used for price, priceSummary fields
+type MultiCurrencyPrice = {
+  amount?: string;                    // Decimal string (e.g., "25.00")
+  convertedAmount?: string;           // Converted amount (read-only)
+  formattedAmount?: string;           // Formatted with currency symbol (read-only)
+  formattedConvertedAmount?: string;  // Formatted converted (read-only)
+};
+
 {
   sourceInfo?: {
     source?: string;                    // "OTHER" | "CART" | "CHECKOUT" — where validation was triggered
@@ -39,24 +47,19 @@ The `getValidationViolations` handler receives `{ request, metadata }`. Key fiel
         original?: string;              // Original product name
         translated?: string;            // Translated product name
       };
-      price?: {                         // NOTE: MultiCurrencyPrice object, NOT a string
-        amount?: string;                // Price as decimal string (e.g., "25.00")
-        convertedAmount?: string;       // Converted amount (read-only)
-        formattedAmount?: string;       // Formatted with currency symbol (read-only)
-        formattedConvertedAmount?: string; // Formatted converted (read-only)
-      };
+      price?: MultiCurrencyPrice;       // NOTE: object, NOT a string — use .amount for decimal value
       physicalProperties?: {
         weight?: number;
         sku?: string;
         shippable?: boolean;
       };
     }>;
-    priceSummary?: {                    // Order price summary
-      subtotal?: string;                // Subtotal
-      total?: string;                   // Total
-      discount?: string;                // Total discount
-      tax?: string;                     // Tax amount
-      shipping?: string;                // Shipping cost
+    priceSummary?: {                    // Order price summary — all fields are MultiCurrencyPrice
+      subtotal?: MultiCurrencyPrice;
+      total?: MultiCurrencyPrice;
+      discount?: MultiCurrencyPrice;
+      tax?: MultiCurrencyPrice;
+      shipping?: MultiCurrencyPrice;
     };
     billingInfo?: {                     // Billing address + contact
       address?: { country?: string; subdivision?: string; city?: string; postalCode?: string; };
@@ -149,3 +152,4 @@ validations.provideHandlers({
 3. **Clear messages** - Write descriptive `description` text that helps customers fix the issue
 4. **ERROR vs WARNING** - Use ERROR to block checkout, WARNING to inform but allow proceeding
 5. **Target specificity** - Use `other.name` for cart-wide validations, `lineItem._id` for item-specific issues
+6. **priceSummary fields are objects** - `priceSummary.total`, `.subtotal`, etc. are `MultiCurrencyPrice` objects — use `.amount` to get the decimal string (e.g., `priceSummary.total?.amount`)
