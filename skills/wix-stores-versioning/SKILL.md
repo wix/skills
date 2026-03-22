@@ -45,7 +45,7 @@ async function getProducts() {
 
 **Always look up permissions for each API method you use:**
 
-1. Search for the method using `SearchWixRESTDocumentation`
+1. Search for the method using `SearchWixSDKDocumentation`
 2. Read the full docs with `ReadFullDocsArticle` to get the required permissions
 3. Return the required permissions to the user
 
@@ -60,7 +60,7 @@ async function getProducts() {
 
 **Use MCP tools to search for version-specific documentation:**
 
-- `SearchWixRESTDocumentation` - Search for methods and permissions
+- `SearchWixSDKDocumentation` - Search for methods and permissions
 - `ReadFullDocsArticle` - Read full documentation when needed
 
 **Search queries** (results show both V1 and V3 namespaces):
