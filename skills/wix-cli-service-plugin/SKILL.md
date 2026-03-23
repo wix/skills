@@ -86,7 +86,7 @@ The handler file (`plugin.ts`) contains the service plugin logic. It must:
 
 1. Import the relevant service plugin from the appropriate package (e.g., `@wix/ecom/service-plugins` for eCommerce, `@wix/bookings/service-plugins` for Bookings)
 2. Call `provideHandlers()` with an object containing handler functions
-3. Each handler function receives a payload with `request` and `metadata`
+3. Each handler function receives a payload with `request` and `metadata` (see [Metadata Structure](#metadata-structure) below)
 4. Return the expected response structure for that SPI type
 
 ```typescript
@@ -120,6 +120,31 @@ shippingRates.provideHandlers({
 ```
 
 Handler functions are called automatically by Wix when the relevant site action triggers them. Your custom logic should be placed inside each handler function.
+
+## Metadata Structure
+
+All service plugin handlers receive a `metadata` object alongside `request` in the payload. This metadata comes from the Wix request envelope and is common to all service plugin endpoints:
+
+```typescript
+{
+  requestId: string;          // Unique request ID (useful for log correlation with Wix)
+  instanceId: string;         // Service provider app's instance ID
+  currency: string;           // ISO 4217 3-letter currency code (e.g., "USD")
+  languages: string;          // Buyer language/country in ISO 639-1 + ISO 3166-1 format (e.g., "en-US")
+  identity: {
+    identityType: string;     // "ANONYMOUS_VISITOR" | "MEMBER" | "WIX_USER" | "APP"
+    anonymousVisitorId?: string;  // Set when identityType is ANONYMOUS_VISITOR
+    memberId?: string;            // Set when identityType is MEMBER
+    wixUserId?: string;           // Set when identityType is WIX_USER
+    appId?: string;               // Set when identityType is APP
+  };
+}
+```
+
+Common usage patterns:
+- **Currency**: Use `metadata.currency` to match the site's currency in your response
+- **Identity**: Use `metadata.identity` to apply member-specific or visitor-specific logic
+- **Languages**: Use `metadata.languages` for localized fee names or messages
 
 ## Elevating Permissions for API Calls
 
