@@ -48,13 +48,17 @@ The `calculateAdditionalFees` handler receives `{ request, metadata }`. Key fiel
   buyerDetails?: { ... };           // Buyer contact info
   subtotal: string;                  // Pre-calculated total: sum of (price × quantity) for all line items, as a STRING
   appliedDiscounts?: Array<{            // Discounts already applied
-    coupon?: { _id: string; code: string; name?: string; };
-    merchantDiscount?: { amount?: { amount: string; }; };
-    discountRule?: { _id: string; name?: { original?: string; }; };
+    coupon?: { _id?: string; code?: string; name?: string; amount?: string; };
+    merchantDiscount?: { amount?: string; };  // Discount amount as decimal string
+    discountRule?: { _id?: string; name?: { original?: string; }; };
+    discountType?: string;                    // "GLOBAL" | "SPECIFIC_ITEMS" | "SHIPPING"
+    lineItemIds?: string[];                   // Line items this discount applies to
   }>;
   shippingInfo?: {                      // Shipping carrier selection
-    carrierId?: string;
-    code?: string;
+    selectedCarrierServiceOption?: {
+      code?: string;                    // Carrier option ID (e.g., "usps_std_overnight")
+      title?: string;                   // Option display name
+    };
   };
   purchaseFlowId?: string;             // Persistent ID correlating cart/checkout/order
   extendedFields?: {                    // Extended field data
