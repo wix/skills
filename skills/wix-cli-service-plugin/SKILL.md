@@ -130,9 +130,9 @@ All service plugin handlers receive a `metadata` object alongside `request` in t
   requestId: string;          // Unique request ID (useful for log correlation with Wix)
   instanceId: string;         // Service provider app's instance ID
   currency: string;           // ISO 4217 3-letter currency code (e.g., "USD")
-  languages: string;          // Buyer language/country in ISO 639-1 + ISO 3166-1 format (e.g., "en-US")
+  languages: string[];         // Buyer languages in ISO 639-1 + ISO 3166-1 format (e.g., ["en-US"])
   identity: {
-    identityType: string;     // "ANONYMOUS_VISITOR" | "MEMBER" | "WIX_USER" | "APP"
+    identityType: string;     // "UNKNOWN" | "ANONYMOUS_VISITOR" | "MEMBER" | "WIX_USER" | "APP"
     anonymousVisitorId?: string;  // Set when identityType is ANONYMOUS_VISITOR
     memberId?: string;            // Set when identityType is MEMBER
     wixUserId?: string;           // Set when identityType is WIX_USER
@@ -144,7 +144,7 @@ All service plugin handlers receive a `metadata` object alongside `request` in t
 Common usage patterns:
 - **Currency**: Use `metadata.currency` to match the site's currency in your response
 - **Identity**: Use `metadata.identity` to apply member-specific or visitor-specific logic
-- **Languages**: Use `metadata.languages` for localized fee names or messages
+- **Languages**: `metadata.languages` returns an array — use it for localized fee names or messages
 
 ## Elevating Permissions for API Calls
 

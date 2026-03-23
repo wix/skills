@@ -27,6 +27,9 @@ import { giftVouchersProvider } from '@wix/ecom/service-plugins';
   code: string;           // Gift card code (8-20 characters)
   pin?: string;           // Optional PIN for the gift card
   locationId?: string;    // Business location ID
+  extendedFields?: {      // Extended field data
+    namespaces?: Record<string, Record<string, any>>;
+  };
 }
 ```
 

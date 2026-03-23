@@ -38,14 +38,49 @@ The `calculateAdditionalFees` handler receives `{ request, metadata }`. Key fiel
       shippable: boolean;            // Whether item is shippable
     };
     depositAmount?: string;             // Partial payment for deposit items
+    modifierGroups?: Array<{          // Modifier groups added to the item
+      _id?: string;                   // Modifier group ID
+      name?: { original?: string; translated?: string; };  // Group name (TranslatableString)
+      modifiers?: Array<{             // List of modifiers
+        _id?: string;                 // Modifier ID
+        quantity?: number;            // Modifier quantity
+        label?: { original?: string; translated?: string; };  // Display label
+        details?: { original?: string; translated?: string; }; // Additional details
+        price?: string;              // Modifier price as decimal string
+      }>;
+    }>;
   }>;
   shippingAddress?: {                // Shipping address (if provided)
-    country: string;                 // ISO-3166 alpha-2 country code
+    country?: string;                 // ISO-3166 alpha-2 country code
     subdivision?: string;            // State/province code
     city?: string;
     postalCode?: string;
+    addressLine1?: string;           // Main address line (street name and number)
+    addressLine2?: string;           // Additional address info (apt, suite, floor)
+    streetAddress?: {                // Structured street address
+      number?: string;               // Street number
+      name?: string;                 // Street name
+    };
+    location?: {                     // Geocode coordinates
+      latitude?: number;
+      longitude?: number;
+    };
+    countryFullname?: string;        // Country full name (read-only)
+    subdivisionFullname?: string;    // Subdivision full name (read-only)
   };
-  buyerDetails?: { ... };           // Buyer contact info
+  buyerDetails?: {                   // Buyer contact info
+    contactDetails?: {
+      firstName?: string;
+      lastName?: string;
+      phone?: string;
+      company?: string;
+      email?: string;
+      vatId?: {                      // Tax info (Brazil only)
+        _id?: string;                // Customer's tax ID
+        type?: string;               // "UNSPECIFIED" | "CPF" | "CNPJ"
+      };
+    };
+  };
   subtotal: string;                  // Pre-calculated total: sum of (price × quantity) for all line items, as a STRING
   appliedDiscounts?: Array<{            // Discounts already applied
     coupon?: { _id?: string; code?: string; name?: string; amount?: string; };
@@ -57,10 +92,28 @@ The `calculateAdditionalFees` handler receives `{ request, metadata }`. Key fiel
   shippingInfo?: {                      // Shipping carrier selection
     selectedCarrierServiceOption?: {
       code?: string;                    // Carrier option ID (e.g., "usps_std_overnight")
-      title?: string;                   // Option display name
+      title?: string;                   // Option display name (read-only)
+      logistics?: {                     // Delivery logistics (read-only)
+        deliveryTime?: string;          // Expected delivery time
+        instructions?: string;          // Delivery instructions
+        pickupDetails?: {               // Pickup details (if applicable)
+          address?: { ... };            // Pickup address (same Address shape)
+          pickupMethod?: string;        // "STORE_PICKUP" | "PICKUP_POINT"
+        };
+      };
+      cost?: {                          // Shipping costs (read-only)
+        price?: string;                 // Shipping price
+        totalDiscount?: string;         // Total shipping discount
+      };
+      otherCharges?: Array<{            // Other charges
+        type?: string;                  // "HANDLING_FEE" | "INSURANCE"
+        details?: string;               // Charge details
+        cost?: { price?: string; totalDiscount?: string; };
+      }>;
     };
   };
   purchaseFlowId?: string;             // Persistent ID correlating cart/checkout/order
+  businessLocationId?: string;       // Business location ID associated with the items
   extendedFields?: {                    // Extended field data
     namespaces?: Record<string, Record<string, any>>;
   };

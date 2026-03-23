@@ -40,6 +40,9 @@ The `getShippingRates` handler receives `{ request, metadata }`. Key fields on `
       sku?: string;                     // Stock-keeping unit
       shippable?: boolean;              // Whether item is shippable
     };
+    deliveryDestinationIndex?: number;  // Destination index in shipping addresses list
+    deliveryOriginIndex?: number;       // Origin index in from addresses list
+    taxIncludedInPrice?: boolean;       // Whether tax is included in line item price
   }>;
   shippingDestination?: {               // Where items are being shipped
     country?: string;                   // ISO-3166 alpha-2 country code
@@ -54,14 +57,29 @@ The `getShippingRates` handler receives `{ request, metadata }`. Key fields on `
     };
   };
   shippingOrigin?: { ... };             // Where items ship from (same Address shape)
-  buyerContactDetails?: {               // Buyer contact info
+  buyerContactDetails?: {               // Buyer contact info (FullAddressContactDetails)
     firstName?: string;
     lastName?: string;
     phone?: string;
     company?: string;
+    email?: string;
+    vatId?: {                           // Tax info (Brazil only)
+      _id?: string;                     // Customer's tax ID
+      type?: string;                    // "UNSPECIFIED" | "CPF" | "CNPJ"
+    };
   };
   weightUnit?: string;                  // Weight unit: "KG", "LB"
   purchaseFlowId?: string;             // Persistent ID correlating cart/checkout/order
+  deliveryPreferences?: {              // Delivery preferences
+    preferredCode?: string;            // Preferred delivery code (shippingOptionId)
+  };
+  externalReferences?: Array<{         // External resource references for integration/tracking
+    appId?: string;                    // App ID associated with the purchase flow
+    resourceId?: string;               // External resource ID (e.g., Pay Link ID)
+  }>;
+  extendedFields?: {                   // Extended field data
+    namespaces?: Record<string, Record<string, any>>;
+  };
 }
 ```
 
@@ -116,6 +134,10 @@ shippingRates.provideHandlers({
     logistics: {
       deliveryTime?: string;  // Estimated delivery time (e.g., "2-5 days")
       instructions?: string;  // Delivery instructions
+      pickupDetails?: {       // Pickup details (return only for pickup orders)
+        address?: { ... };    // Pickup address (same Address shape)
+        pickupMethod?: string; // "STORE_PICKUP" | "PICKUP_POINT"
+      };
     };
     cost: {
       price: string;          // Base shipping price as string

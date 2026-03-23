@@ -146,7 +146,7 @@ taxCalculationProvider.provideHandlers({
     _id: string;                      // Line item ID
     taxBreakdown: Array<{
       jurisdiction: string;           // Jurisdiction name (e.g., "CA")
-      jurisdictionType: JurisdictionType; // COUNTRY, STATE, COUNTY, CITY, SPECIAL
+      jurisdictionType: JurisdictionType; // UNDEFINED, COUNTRY, STATE, COUNTY, CITY, SPECIAL
       taxName: string;                // Tax name (e.g., "CA State Sales Tax")
       taxType: string;                // Tax type (e.g., "Sales Tax")
       rate: string;                   // Tax rate as decimal string (e.g., "0.0725" for 7.25%)

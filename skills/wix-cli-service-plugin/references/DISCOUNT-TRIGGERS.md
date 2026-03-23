@@ -48,6 +48,7 @@ The `getEligibleTriggers` handler receives `{ request, metadata }`. Key fields o
       subdivision?: string;             // State/province code
       city?: string;
     };
+    preferredShippingOptionCode?: string; // Preferred shipping option code (e.g., "usps_std_overnight")
   };
 }
 ```

@@ -30,7 +30,7 @@ import { staffSorting } from "@wix/bookings/service-plugins";
 | `slot.locationId` | string | The booking location ID |
 | `slot.timeZone` | string | Time zone of the slot |
 | `availableResourceIds` | string[] | IDs of staff members available for this slot |
-| `extendedFields` | object | Additional custom fields |
+| `extendedFields` | object | Additional custom fields. Contains `namespaces` property: `Record<string, Record<string, any>>` |
 
 ## Response Structure
 

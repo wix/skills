@@ -53,6 +53,46 @@ type MultiCurrencyPrice = {
         sku?: string;
         shippable?: boolean;
       };
+      itemType?: {                      // Item type classification
+        preset?: string;                // "UNRECOGNISED" | "PHYSICAL" | "DIGITAL" | "GIFT_CARD" | "SERVICE"
+        custom?: string;                // Custom item type (when presets don't fit)
+      };
+      subscriptionOptionInfo?: {        // Subscription option info (for recurring items)
+        subscriptionSettings?: {
+          frequency?: string;           // "UNDEFINED" | "DAY" | "WEEK" | "MONTH" | "YEAR"
+          interval?: number;            // Recurring interval (default: 1)
+          autoRenewal?: boolean;        // Whether subscription auto-renews
+          billingCycles?: number;       // Number of billing cycles (if not auto-renewal)
+          enableCustomerCancellation?: boolean;
+          freeTrialPeriod?: { frequency?: string; interval?: number; };
+        };
+        title?: { original?: string; translated?: string; };
+        description?: { original?: string; translated?: string; };
+      };
+      pricesBreakdown?: {               // Price breakdown for this line item
+        totalPriceAfterTax?: MultiCurrencyPrice;
+        totalPriceBeforeTax?: MultiCurrencyPrice;
+        taxDetails?: {
+          taxableAmount?: MultiCurrencyPrice;
+          totalTax?: MultiCurrencyPrice;
+          isTaxIncluded?: boolean;
+          taxBreakdown?: Array<{
+            jurisdiction?: string;
+            nonTaxableAmount?: MultiCurrencyPrice;
+            rate?: string;
+            taxAmount?: MultiCurrencyPrice;
+            taxableAmount?: MultiCurrencyPrice;
+            taxType?: string;
+            taxName?: string;
+            jurisdictionType?: string;  // "UNDEFINED" | "COUNTRY" | "STATE" | "COUNTY" | "CITY" | "SPECIAL"
+          }>;
+        };
+        totalDiscount?: MultiCurrencyPrice;
+        price?: MultiCurrencyPrice;
+        priceBeforeDiscounts?: MultiCurrencyPrice;
+        lineItemPrice?: MultiCurrencyPrice;
+        fullPrice?: MultiCurrencyPrice;
+      };
     }>;
     priceSummary?: {                    // Order price summary — all fields are MultiCurrencyPrice
       subtotal?: MultiCurrencyPrice;
@@ -60,20 +100,91 @@ type MultiCurrencyPrice = {
       discount?: MultiCurrencyPrice;
       tax?: MultiCurrencyPrice;
       shipping?: MultiCurrencyPrice;
+      additionalFees?: MultiCurrencyPrice;  // Total additional fees before tax
     };
-    billingInfo?: {                     // Billing address + contact
-      address?: { country?: string; subdivision?: string; city?: string; postalCode?: string; };
-      contactDetails?: { firstName?: string; lastName?: string; phone?: string; company?: string; };
+    billingInfo?: {                     // Billing address + contact (AddressWithContact)
+      address?: {
+        country?: string; subdivision?: string; city?: string; postalCode?: string;
+        addressLine1?: string; addressLine2?: string;
+        streetAddress?: { number?: string; name?: string; };
+        location?: { latitude?: number; longitude?: number; };
+        countryFullname?: string;       // Read-only
+        subdivisionFullname?: string;   // Read-only
+      };
+      contactDetails?: {
+        firstName?: string; lastName?: string; phone?: string; company?: string;
+        vatId?: { _id?: string; type?: string; }; // "UNSPECIFIED" | "CPF" | "CNPJ"
+      };
     };
-    shippingAddress?: {                 // Shipping address + contact (same shape as billingInfo)
-      address?: { country?: string; subdivision?: string; city?: string; postalCode?: string; };
-      contactDetails?: { firstName?: string; lastName?: string; phone?: string; company?: string; };
+    shippingAddress?: {                 // Shipping address + contact (same AddressWithContact shape)
+      address?: {
+        country?: string; subdivision?: string; city?: string; postalCode?: string;
+        addressLine1?: string; addressLine2?: string;
+        streetAddress?: { number?: string; name?: string; };
+        location?: { latitude?: number; longitude?: number; };
+        countryFullname?: string;       // Read-only
+        subdivisionFullname?: string;   // Read-only
+      };
+      contactDetails?: {
+        firstName?: string; lastName?: string; phone?: string; company?: string;
+        vatId?: { _id?: string; type?: string; }; // "UNSPECIFIED" | "CPF" | "CNPJ"
+      };
     };
     buyerDetails?: {                    // Buyer info
       email?: string;
       contactId?: string;
     };
     currency?: string;                  // Site currency (read-only)
+    conversionCurrency?: string;        // Customer's selected display currency (read-only)
+    paymentCurrency?: string;           // Currency used for payment (read-only)
+    shippingInfo?: {                    // Shipping information
+      selectedCarrierServiceOption?: {
+        code?: string;                  // Shipping option code
+        title?: string;                 // Option display name
+        cost?: {                        // Shipping costs
+          totalPriceAfterTax?: MultiCurrencyPrice;
+          totalPriceBeforeTax?: MultiCurrencyPrice;
+          taxDetails?: { taxableAmount?: MultiCurrencyPrice; totalTax?: MultiCurrencyPrice; isTaxIncluded?: boolean; };
+          totalDiscount?: MultiCurrencyPrice;
+          price?: MultiCurrencyPrice;
+        };
+        deliveryAllocations?: Array<{   // Delivery carrier/region allocations
+          deliveryCarrier?: { appId?: string; code?: string; };
+          deliveryRegion?: { _id?: string; name?: string; };
+          applicableLineItems?: { lineItemIds?: string[]; };
+        }>;
+        partial?: boolean;              // Whether delivery is partial
+        deliveryTimeSlot?: { from?: Date; to?: Date; };
+      };
+    };
+    customFields?: {                    // Custom checkout fields
+      fields?: Array<{
+        value?: any;                    // Field value
+        title?: string;                 // Field title
+        translatedTitle?: string;       // Translated field title
+      }>;
+    };
+    appliedDiscounts?: Array<{          // Applied discounts
+      coupon?: { _id?: string; code?: string; name?: string; amount?: string; };
+      merchantDiscount?: { amount?: string; };
+      discountRule?: { _id?: string; name?: { original?: string; translated?: string; }; amount?: string; };
+      discountType?: string;            // "GLOBAL" | "SPECIFIC_ITEMS" | "SHIPPING"
+      lineItemIds?: string[];
+    }>;
+    externalReference?: {               // External app/resource reference
+      appId?: string;                   // App ID
+      resourceId?: string;              // External resource ID
+    };
+    giftCard?: {                        // Applied gift card details
+      _id?: string;                     // Gift card ID (deprecated)
+      obfuscatedCode?: string;          // Obfuscated card code
+      amount?: MultiCurrencyPrice;      // Gift card value
+      appId?: string;                   // Gift card provider app ID
+    };
+    weightUnit?: string;                // "UNSPECIFIED_WEIGHT_UNIT" | "KG" | "LB"
+  };
+  extendedFields?: {                    // Extended field data at request level
+    namespaces?: Record<string, Record<string, any>>;
   };
 }
 ```
