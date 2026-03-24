@@ -47,39 +47,17 @@ validations.provideHandlers({
 });
 ```
 
-## Response Structure
+## Request and Response Schema
 
-```typescript
-{
-  violations: Array<{
-    description: string;                    // Message shown to customer
-    severity: validations.Severity;         // ERROR or WARNING
-    target: {
-      other: {
-        name: validations.NameInOther;      // Target type
-      };
-    } | {
-      lineItem: {
-        _id: string;                        // Specific line item ID
-      };
-    };
-  }>;
-}
-```
+**IMPORTANT: Before implementing, use the MCP tools below to read the full request and response types for each handler.**
 
-## Severity Levels
+**MCP Tools to use:**
+- `ReadFullDocsMethodSchema` - Full request/response schema with field names, types, and descriptions
+- `ReadFullDocsArticle` - Full documentation with code examples (use if schema needs more context)
 
-| Severity | Description |
+| Handler | Docs URL |
 | --- | --- |
-| `validations.Severity.ERROR` | Blocks checkout - customer cannot proceed |
-| `validations.Severity.WARNING` | Shows warning but allows checkout to continue |
-
-## Target Types
-
-| Target | Description |
-| --- | --- |
-| `validations.NameInOther.OTHER_DEFAULT` | General cart/order level validation |
-| `lineItem._id` | Validation targeting a specific item |
+| `getValidationViolations` | https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/validations/validations-integration-service-plugin/get-validation-violations?apiView=SDK |
 
 ## Key Implementation Notes
 

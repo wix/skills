@@ -14,7 +14,7 @@ When you implement a service plugin, Wix calls your custom functions during spec
 
 Follow these steps in order when creating a service plugin:
 
-1. [ ] **Read the reference doc** for your SPI type (REQUIRED before implementation)
+1. [ ] **Read the reference doc** for your SPI type, then **use `ReadFullDocsMethodSchema`** to get the exact request/response types (REQUIRED before implementation)
 2. [ ] Create plugin folder: `src/extensions/backend/service-plugins/<service-type>/<plugin-name>/`
 3. [ ] Create `plugin.ts` with correct imports and `provideHandlers()` call
 4. [ ] Implement all required handler functions with complete business logic

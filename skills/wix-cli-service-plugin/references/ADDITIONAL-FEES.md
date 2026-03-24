@@ -16,39 +16,6 @@ import { additionalFees } from '@wix/ecom/service-plugins';
 | --- | --- |
 | `calculateAdditionalFees` | Calculate and return additional fees to apply to the order |
 
-## Request Structure
-
-The `calculateAdditionalFees` handler receives `{ request, metadata }`. Key fields on `request`:
-
-```typescript
-{
-  lineItems: Array<{
-    id: string;                      // Line item GUID
-    quantity: number;                // Quantity of item
-    productName: string;             // Item name
-    price: string;                   // Price for a single item as a STRING (e.g., "25.00"), NOT an object
-    catalogReference?: {
-      catalogItemId: string;         // Item GUID within its catalog
-      appId: string;                 // Catalog app GUID
-      options?: Record<string, any>; // Additional item details
-    };
-    physicalProperties?: {
-      weight: number;                // Item weight
-      sku: string;                   // Stock-keeping unit
-      shippable: boolean;            // Whether item is shippable
-    };
-  }>;
-  shippingAddress?: {                // Shipping address (if provided)
-    country: string;                 // ISO-3166 alpha-2 country code
-    subdivision?: string;            // State/province code
-    city?: string;
-    postalCode?: string;
-  };
-  buyerDetails?: { ... };           // Buyer contact info
-  subtotal: string;                  // Pre-calculated total: sum of (price × quantity) for all line items, as a STRING
-}
-```
-
 ## Example: Global Additional Fee from Database Configuration
 
 This example queries a CMS collection to retrieve a configurable global fee that applies to all orders.
@@ -124,25 +91,17 @@ additionalFees.provideHandlers({
 });
 ```
 
-## Response Structure
+## Request and Response Schema
 
-The `calculateAdditionalFees` handler must return:
+**IMPORTANT: Before implementing, use the MCP tools below to read the full request and response types for each handler.**
 
-```typescript
-{
-  additionalFees: Array<{
-    code: string;           // Unique identifier for the fee
-    name: string;           // Display name
-    translatedName?: string; // Optional translated name
-    price: string;          // Fee amount as string
-    taxDetails?: {
-      taxable: boolean;     // Whether fee is taxable
-    };
-    lineItemIds?: string[]; // Optional: specific items (omit for cart-wide)
-  }>;
-  currency: string;         // Currency code (e.g., "USD")
-}
-```
+**MCP Tools to use:**
+- `ReadFullDocsMethodSchema` - Full request/response schema with field names, types, and descriptions
+- `ReadFullDocsArticle` - Full documentation with code examples (use if schema needs more context)
+
+| Handler | Docs URL |
+| --- | --- |
+| `calculateAdditionalFees` | https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/additional-fees/additional-fees-service-plugin/calculate-additional-fees?apiView=SDK |
 
 ## Key Implementation Notes
 

@@ -63,35 +63,19 @@ giftVouchersProvider.provideHandlers({
 });
 ```
 
-## Response Structure
+## Request and Response Schema
 
-### redeem Response
+**IMPORTANT: Before implementing, use the MCP tools below to read the full request and response types for each handler.**
 
-```typescript
-{
-  remainingBalance: number;   // Balance after redemption
-  currencyCode: string;       // Currency code (e.g., "USD", "ILS")
-  transactionId: string;      // Unique ID for this redemption transaction
-}
-```
+**MCP Tools to use:**
+- `ReadFullDocsMethodSchema` - Full request/response schema with field names, types, and descriptions
+- `ReadFullDocsArticle` - Full documentation with code examples (use if schema needs more context)
 
-### _void Response
-
-```typescript
-{
-  remainingBalance: number;   // Balance after voiding (restored amount)
-  currencyCode: string;       // Currency code
-}
-```
-
-### getBalance Response
-
-```typescript
-{
-  balance: number;            // Current gift card balance
-  currencyCode: string;       // Currency code
-}
-```
+| Handler | Docs URL |
+| --- | --- |
+| `redeem` | https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/payments/gift-cards/gift-cards-service-plugin/redeem?apiView=SDK |
+| `getBalance` | https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/payments/gift-cards/gift-cards-service-plugin/get-balance?apiView=SDK |
+| `_void` | https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/payments/gift-cards/gift-cards-service-plugin/void?apiView=SDK |
 
 ## Key Implementation Notes
 

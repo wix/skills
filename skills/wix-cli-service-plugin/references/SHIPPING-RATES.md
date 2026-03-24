@@ -58,34 +58,17 @@ shippingRates.provideHandlers({
 });
 ```
 
-## Response Structure
+## Request and Response Schema
 
-```typescript
-{
-  shippingRates: Array<{
-    code: string;             // Unique identifier for this shipping option
-    title: string;            // Display name shown to customer
-    logistics: {
-      deliveryTime: string;   // Estimated delivery time (e.g., "2-5 days")
-    };
-    cost: {
-      price: string;          // Base shipping price as string
-      currency: string;       // Currency code (e.g., "USD")
-      additionalCharges?: Array<{
-        price: string;        // Additional charge amount
-        type: ChargeType;     // Type of charge (HANDLING_FEE, etc.)
-        details?: string;     // Description of the charge
-      }>;
-    };
-  }>;
-}
-```
+**IMPORTANT: Before implementing, use the MCP tools below to read the full request and response types for each handler.**
 
-## ChargeType Values
+**MCP Tools to use:**
+- `ReadFullDocsMethodSchema` - Full request/response schema with field names, types, and descriptions
+- `ReadFullDocsArticle` - Full documentation with code examples (use if schema needs more context)
 
-| Type | Description |
+| Handler | Docs URL |
 | --- | --- |
-| `ChargeType.HANDLING_FEE` | Additional handling fee |
+| `getShippingRates` | https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/shipping-rates/shipping-rates-integration-service-plugin/get-shipping-rates?apiView=SDK |
 
 ## Key Implementation Notes
 

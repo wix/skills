@@ -66,29 +66,18 @@ customTriggers.provideHandlers({
 });
 ```
 
-## Response Structure
+## Request and Response Schema
 
-### getEligibleTriggers Response
+**IMPORTANT: Before implementing, use the MCP tools below to read the full request and response types for each handler.**
 
-```typescript
-{
-  eligibleTriggers: Array<{
-    customTriggerId: string;  // ID matching one from listTriggers
-    identifier: string;       // Unique identifier for this trigger instance
-  }>;
-}
-```
+**MCP Tools to use:**
+- `ReadFullDocsMethodSchema` - Full request/response schema with field names, types, and descriptions
+- `ReadFullDocsArticle` - Full documentation with code examples (use if schema needs more context)
 
-### listTriggers Response
-
-```typescript
-{
-  customTriggers: Array<{
-    _id: string;    // Unique trigger ID
-    name: string;   // Display name shown in Wix dashboard
-  }>;
-}
-```
+| Handler | Docs URL |
+| --- | --- |
+| `getEligibleTriggers` | https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/discounts/custom-discount-triggers-integration-service-plugin/get-eligible-triggers?apiView=SDK |
+| `listTriggers` | https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/discounts/custom-discount-triggers-integration-service-plugin/list-triggers?apiView=SDK |
 
 ## Key Implementation Notes
 
