@@ -16,6 +16,18 @@ import { validations } from "@wix/ecom/service-plugins";
 | --- | --- |
 | `getValidationViolations` | Evaluate order and return any validation violations |
 
+## Request and Response Schema
+
+Before implementing, call `ReadFullDocsMethodSchema` with the docs URL below to get the full request/response types.
+
+**MCP Tools to use:**
+- `ReadFullDocsMethodSchema` - Full request/response schema with field names, types, and descriptions
+- `ReadFullDocsArticle` - Full documentation with code examples (use if schema needs more context)
+
+| Handler | Docs URL |
+| --- | --- |
+| `getValidationViolations` | https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/validations/validations-integration-service-plugin/get-validation-violations?apiView=SDK |
+
 ## Example: Minimum Quantity Validation
 
 This example validates that the order meets a minimum item quantity requirement.
@@ -46,40 +58,6 @@ validations.provideHandlers({
   },
 });
 ```
-
-## Response Structure
-
-```typescript
-{
-  violations: Array<{
-    description: string;                    // Message shown to customer
-    severity: validations.Severity;         // ERROR or WARNING
-    target: {
-      other: {
-        name: validations.NameInOther;      // Target type
-      };
-    } | {
-      lineItem: {
-        _id: string;                        // Specific line item ID
-      };
-    };
-  }>;
-}
-```
-
-## Severity Levels
-
-| Severity | Description |
-| --- | --- |
-| `validations.Severity.ERROR` | Blocks checkout - customer cannot proceed |
-| `validations.Severity.WARNING` | Shows warning but allows checkout to continue |
-
-## Target Types
-
-| Target | Description |
-| --- | --- |
-| `validations.NameInOther.OTHER_DEFAULT` | General cart/order level validation |
-| `lineItem._id` | Validation targeting a specific item |
 
 ## Key Implementation Notes
 

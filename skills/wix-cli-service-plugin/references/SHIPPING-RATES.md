@@ -17,6 +17,18 @@ import { ChargeType } from "@wix/auto_sdk_ecom_shipping-rates";
 | --- | --- |
 | `getShippingRates` | Calculate and return available shipping options with costs |
 
+## Request and Response Schema
+
+Before implementing, call `ReadFullDocsMethodSchema` with the docs URL below to get the full request/response types.
+
+**MCP Tools to use:**
+- `ReadFullDocsMethodSchema` - Full request/response schema with field names, types, and descriptions
+- `ReadFullDocsArticle` - Full documentation with code examples (use if schema needs more context)
+
+| Handler | Docs URL |
+| --- | --- |
+| `getShippingRates` | https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/shipping-rates/shipping-rates-integration-service-plugin/get-shipping-rates?apiView=SDK |
+
 ## Example: International Shipping with Handling Fee
 
 This example provides an international shipping option with an additional handling fee charge.
@@ -57,35 +69,6 @@ shippingRates.provideHandlers({
   },
 });
 ```
-
-## Response Structure
-
-```typescript
-{
-  shippingRates: Array<{
-    code: string;             // Unique identifier for this shipping option
-    title: string;            // Display name shown to customer
-    logistics: {
-      deliveryTime: string;   // Estimated delivery time (e.g., "2-5 days")
-    };
-    cost: {
-      price: string;          // Base shipping price as string
-      currency: string;       // Currency code (e.g., "USD")
-      additionalCharges?: Array<{
-        price: string;        // Additional charge amount
-        type: ChargeType;     // Type of charge (HANDLING_FEE, etc.)
-        details?: string;     // Description of the charge
-      }>;
-    };
-  }>;
-}
-```
-
-## ChargeType Values
-
-| Type | Description |
-| --- | --- |
-| `ChargeType.HANDLING_FEE` | Additional handling fee |
 
 ## Key Implementation Notes
 

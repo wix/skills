@@ -16,6 +16,18 @@ import { taxCalculationProvider } from "@wix/ecom/service-plugins";
 | --- | --- |
 | `calculateTax` | Calculate and return tax amounts for line items |
 
+## Request and Response Schema
+
+Before implementing, call `ReadFullDocsMethodSchema` with the docs URL below to get the full request/response types.
+
+**MCP Tools to use:**
+- `ReadFullDocsMethodSchema` - Full request/response schema with field names, types, and descriptions
+- `ReadFullDocsArticle` - Full documentation with code examples (use if schema needs more context)
+
+| Handler | Docs URL |
+| --- | --- |
+| `calculateTax` | https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/tax/tax-calculation-integration-service-plugin/calculate-tax?apiView=SDK |
+
 ## Example: State-Based Tax Calculation
 
 This example calculates tax based on the shipping destination state.
@@ -58,24 +70,6 @@ taxCalculationProvider.provideHandlers({
     return { lineItemTaxes };
   },
 });
-```
-
-## Response Structure
-
-```typescript
-{
-  lineItemTaxes: Array<{
-    lineItemId: string;           // ID of the line item
-    taxBreakdown: Array<{
-      name: string;               // Tax name (e.g., "State Sales Tax")
-      rate: string;               // Tax rate as string (e.g., "7.25")
-      amount: {
-        amount: string;           // Tax amount as string
-        currency: string;         // Currency code (e.g., "USD")
-      };
-    }>;
-  }>;
-}
 ```
 
 ## Key Implementation Notes

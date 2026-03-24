@@ -17,6 +17,19 @@ import { customTriggers } from "@wix/ecom/service-plugins";
 | `getEligibleTriggers` | Evaluate current conditions and return which triggers are active |
 | `listTriggers` | Return the list of all available custom triggers |
 
+## Request and Response Schema
+
+Before implementing, call `ReadFullDocsMethodSchema` with the docs URLs below to get the full request/response types.
+
+**MCP Tools to use:**
+- `ReadFullDocsMethodSchema` - Full request/response schema with field names, types, and descriptions
+- `ReadFullDocsArticle` - Full documentation with code examples (use if schema needs more context)
+
+| Handler | Docs URL |
+| --- | --- |
+| `getEligibleTriggers` | https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/discounts/custom-discount-triggers-integration-service-plugin/get-eligible-triggers?apiView=SDK |
+| `listTriggers` | https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/discounts/custom-discount-triggers-integration-service-plugin/list-triggers?apiView=SDK |
+
 ## Example: Happy Hour and Digital Products Triggers
 
 This example defines two custom triggers: a time-based "Happy Hour" trigger and a product-type-based "Digital Sale" trigger.
@@ -64,30 +77,6 @@ customTriggers.provideHandlers({
     };
   },
 });
-```
-
-## Response Structure
-
-### getEligibleTriggers Response
-
-```typescript
-{
-  eligibleTriggers: Array<{
-    customTriggerId: string;  // ID matching one from listTriggers
-    identifier: string;       // Unique identifier for this trigger instance
-  }>;
-}
-```
-
-### listTriggers Response
-
-```typescript
-{
-  customTriggers: Array<{
-    _id: string;    // Unique trigger ID
-    name: string;   // Display name shown in Wix dashboard
-  }>;
-}
 ```
 
 ## Key Implementation Notes
