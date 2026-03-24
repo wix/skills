@@ -19,7 +19,7 @@ import { customTriggers } from "@wix/ecom/service-plugins";
 
 ## Request and Response Schema
 
-**STOP: You MUST call `ReadFullDocsMethodSchema` with the docs URLs below BEFORE writing any implementation code. DO NOT rely on the code example alone — it does not show the full request type. The SDK request fields may differ from the REST API.**
+Before implementing, call `ReadFullDocsMethodSchema` with the docs URLs below to get the full request/response types.
 
 **MCP Tools to use:**
 - `ReadFullDocsMethodSchema` - Full request/response schema with field names, types, and descriptions
