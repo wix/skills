@@ -18,6 +18,20 @@ import { giftVouchersProvider } from '@wix/ecom/service-plugins';
 | `getBalance` | Check the current balance of a gift card |
 | `_void` | Cancel/void a previous redemption |
 
+## Request and Response Schema
+
+**STOP: You MUST call `ReadFullDocsMethodSchema` with the docs URLs below BEFORE writing any implementation code. DO NOT rely on the code example alone — it does not show the full request type. The SDK request fields may differ from the REST API.**
+
+**MCP Tools to use:**
+- `ReadFullDocsMethodSchema` - Full request/response schema with field names, types, and descriptions
+- `ReadFullDocsArticle` - Full documentation with code examples (use if schema needs more context)
+
+| Handler | Docs URL |
+| --- | --- |
+| `redeem` | https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/payments/gift-cards/gift-cards-service-plugin/redeem?apiView=SDK |
+| `getBalance` | https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/payments/gift-cards/gift-cards-service-plugin/get-balance?apiView=SDK |
+| `_void` | https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/payments/gift-cards/gift-cards-service-plugin/void?apiView=SDK |
+
 ## Example: Gift Card Provider Implementation
 
 This example shows a basic gift card provider with all three required handlers.
@@ -62,20 +76,6 @@ giftVouchersProvider.provideHandlers({
   },
 });
 ```
-
-## Request and Response Schema
-
-**IMPORTANT: Before implementing, use the MCP tools below to read the full request and response types for each handler.**
-
-**MCP Tools to use:**
-- `ReadFullDocsMethodSchema` - Full request/response schema with field names, types, and descriptions
-- `ReadFullDocsArticle` - Full documentation with code examples (use if schema needs more context)
-
-| Handler | Docs URL |
-| --- | --- |
-| `redeem` | https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/payments/gift-cards/gift-cards-service-plugin/redeem?apiView=SDK |
-| `getBalance` | https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/payments/gift-cards/gift-cards-service-plugin/get-balance?apiView=SDK |
-| `_void` | https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/payments/gift-cards/gift-cards-service-plugin/void?apiView=SDK |
 
 ## Key Implementation Notes
 

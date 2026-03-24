@@ -16,6 +16,18 @@ import { additionalFees } from '@wix/ecom/service-plugins';
 | --- | --- |
 | `calculateAdditionalFees` | Calculate and return additional fees to apply to the order |
 
+## Request and Response Schema
+
+**STOP: You MUST call `ReadFullDocsMethodSchema` with the docs URL below BEFORE writing any implementation code. DO NOT rely on the code example alone — it does not show the full request type. The SDK request fields may differ from the REST API.**
+
+**MCP Tools to use:**
+- `ReadFullDocsMethodSchema` - Full request/response schema with field names, types, and descriptions
+- `ReadFullDocsArticle` - Full documentation with code examples (use if schema needs more context)
+
+| Handler | Docs URL |
+| --- | --- |
+| `calculateAdditionalFees` | https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/additional-fees/additional-fees-service-plugin/calculate-additional-fees?apiView=SDK |
+
 ## Example: Global Additional Fee from Database Configuration
 
 This example queries a CMS collection to retrieve a configurable global fee that applies to all orders.
@@ -90,18 +102,6 @@ additionalFees.provideHandlers({
   },
 });
 ```
-
-## Request and Response Schema
-
-**IMPORTANT: Before implementing, use the MCP tools below to read the full request and response types for each handler.**
-
-**MCP Tools to use:**
-- `ReadFullDocsMethodSchema` - Full request/response schema with field names, types, and descriptions
-- `ReadFullDocsArticle` - Full documentation with code examples (use if schema needs more context)
-
-| Handler | Docs URL |
-| --- | --- |
-| `calculateAdditionalFees` | https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/additional-fees/additional-fees-service-plugin/calculate-additional-fees?apiView=SDK |
 
 ## Key Implementation Notes
 

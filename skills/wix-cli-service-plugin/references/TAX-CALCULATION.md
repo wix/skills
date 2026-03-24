@@ -16,6 +16,18 @@ import { taxCalculationProvider } from "@wix/ecom/service-plugins";
 | --- | --- |
 | `calculateTax` | Calculate and return tax amounts for line items |
 
+## Request and Response Schema
+
+**STOP: You MUST call `ReadFullDocsMethodSchema` with the docs URL below BEFORE writing any implementation code. DO NOT rely on the code example alone — it does not show the full request type. The SDK request fields may differ from the REST API.**
+
+**MCP Tools to use:**
+- `ReadFullDocsMethodSchema` - Full request/response schema with field names, types, and descriptions
+- `ReadFullDocsArticle` - Full documentation with code examples (use if schema needs more context)
+
+| Handler | Docs URL |
+| --- | --- |
+| `calculateTax` | https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/tax/tax-calculation-integration-service-plugin/calculate-tax?apiView=SDK |
+
 ## Example: State-Based Tax Calculation
 
 This example calculates tax based on the shipping destination state.
@@ -59,18 +71,6 @@ taxCalculationProvider.provideHandlers({
   },
 });
 ```
-
-## Request and Response Schema
-
-**IMPORTANT: Before implementing, use the MCP tools below to read the full request and response types for each handler.**
-
-**MCP Tools to use:**
-- `ReadFullDocsMethodSchema` - Full request/response schema with field names, types, and descriptions
-- `ReadFullDocsArticle` - Full documentation with code examples (use if schema needs more context)
-
-| Handler | Docs URL |
-| --- | --- |
-| `calculateTax` | https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/tax/tax-calculation-integration-service-plugin/calculate-tax?apiView=SDK |
 
 ## Key Implementation Notes
 

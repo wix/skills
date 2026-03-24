@@ -17,6 +17,19 @@ import { customTriggers } from "@wix/ecom/service-plugins";
 | `getEligibleTriggers` | Evaluate current conditions and return which triggers are active |
 | `listTriggers` | Return the list of all available custom triggers |
 
+## Request and Response Schema
+
+**STOP: You MUST call `ReadFullDocsMethodSchema` with the docs URLs below BEFORE writing any implementation code. DO NOT rely on the code example alone — it does not show the full request type. The SDK request fields may differ from the REST API.**
+
+**MCP Tools to use:**
+- `ReadFullDocsMethodSchema` - Full request/response schema with field names, types, and descriptions
+- `ReadFullDocsArticle` - Full documentation with code examples (use if schema needs more context)
+
+| Handler | Docs URL |
+| --- | --- |
+| `getEligibleTriggers` | https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/discounts/custom-discount-triggers-integration-service-plugin/get-eligible-triggers?apiView=SDK |
+| `listTriggers` | https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/discounts/custom-discount-triggers-integration-service-plugin/list-triggers?apiView=SDK |
+
 ## Example: Happy Hour and Digital Products Triggers
 
 This example defines two custom triggers: a time-based "Happy Hour" trigger and a product-type-based "Digital Sale" trigger.
@@ -65,19 +78,6 @@ customTriggers.provideHandlers({
   },
 });
 ```
-
-## Request and Response Schema
-
-**IMPORTANT: Before implementing, use the MCP tools below to read the full request and response types for each handler.**
-
-**MCP Tools to use:**
-- `ReadFullDocsMethodSchema` - Full request/response schema with field names, types, and descriptions
-- `ReadFullDocsArticle` - Full documentation with code examples (use if schema needs more context)
-
-| Handler | Docs URL |
-| --- | --- |
-| `getEligibleTriggers` | https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/discounts/custom-discount-triggers-integration-service-plugin/get-eligible-triggers?apiView=SDK |
-| `listTriggers` | https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/discounts/custom-discount-triggers-integration-service-plugin/list-triggers?apiView=SDK |
 
 ## Key Implementation Notes
 

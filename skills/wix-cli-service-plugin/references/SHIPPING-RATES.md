@@ -17,6 +17,18 @@ import { ChargeType } from "@wix/auto_sdk_ecom_shipping-rates";
 | --- | --- |
 | `getShippingRates` | Calculate and return available shipping options with costs |
 
+## Request and Response Schema
+
+**STOP: You MUST call `ReadFullDocsMethodSchema` with the docs URL below BEFORE writing any implementation code. DO NOT rely on the code example alone — it does not show the full request type. The SDK request fields may differ from the REST API.**
+
+**MCP Tools to use:**
+- `ReadFullDocsMethodSchema` - Full request/response schema with field names, types, and descriptions
+- `ReadFullDocsArticle` - Full documentation with code examples (use if schema needs more context)
+
+| Handler | Docs URL |
+| --- | --- |
+| `getShippingRates` | https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/shipping-rates/shipping-rates-integration-service-plugin/get-shipping-rates?apiView=SDK |
+
 ## Example: International Shipping with Handling Fee
 
 This example provides an international shipping option with an additional handling fee charge.
@@ -57,18 +69,6 @@ shippingRates.provideHandlers({
   },
 });
 ```
-
-## Request and Response Schema
-
-**IMPORTANT: Before implementing, use the MCP tools below to read the full request and response types for each handler.**
-
-**MCP Tools to use:**
-- `ReadFullDocsMethodSchema` - Full request/response schema with field names, types, and descriptions
-- `ReadFullDocsArticle` - Full documentation with code examples (use if schema needs more context)
-
-| Handler | Docs URL |
-| --- | --- |
-| `getShippingRates` | https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/shipping-rates/shipping-rates-integration-service-plugin/get-shipping-rates?apiView=SDK |
 
 ## Key Implementation Notes
 

@@ -20,7 +20,7 @@ import { staffSorting } from "@wix/bookings/service-plugins";
 
 ## Request and Response Schema
 
-**IMPORTANT: Before implementing, use the MCP tools below to read the full request and response types for each handler.**
+**STOP: You MUST call `ReadFullDocsMethodSchema` with the docs URL below BEFORE writing any implementation code. DO NOT rely on the code example alone — it does not show the full request type. The SDK request fields may differ from the REST API.**
 
 **MCP Tools to use:**
 - `ReadFullDocsMethodSchema` - Full request/response schema with field names, types, and descriptions
