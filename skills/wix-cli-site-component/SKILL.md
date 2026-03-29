@@ -147,6 +147,8 @@ The manifest defines the editor contract using these key sections:
 | `direction` | string | HTML dir attribute |
 | `menuItems` | Array of menu items | Navigation menus |
 
+**Tip — countdown/timer components:** Declare both `localDate` and `localTime` at the root level (`editorElement.data`). In the component, combine them to form a target timestamp: `new Date(\`\${targetDate}T\${targetTime ?? '00:00'}:00\`)`.
+
 ### CSS Properties Reference
 
 Common CSS properties for styling customization:
@@ -161,7 +163,7 @@ Common CSS properties for styling customization:
 
 ## React Component Patterns
 
-**Complete reference:** See [REACT_PATTERNS.md](references/REACT_PATTERNS.md) for detailed component architecture, all coding patterns, and implementation examples.
+**For components using hooks, effects, or callbacks:** See [REACT_PATTERNS.md](references/REACT_PATTERNS.md) — read this when your component uses `useEffect`, `useCallback`, complex state, or async operations. Contains complete patterns for hooks, arrays, refs, and SSR-safe data fetching.
 
 ### Props Structure
 
@@ -193,46 +195,24 @@ interface ComponentProps {
 
 ### Sub-Component Pattern
 
-Extract every distinct UI element into named sub-components:
+Extract every distinct UI element into a named sub-component. Each sub-component receives a `className` prop matching the manifest selector plus its own data props:
 
 ```typescript
-// Title sub-component
-interface TitleProps {
-  titleText?: string;
-  className: string;
-}
+const Title: FC<{ titleText?: string; className: string }> = ({
+  titleText = "Default Title", className
+}) => <h2 className={className}>{titleText}</h2>;
 
-const Title: FC<TitleProps> = ({ titleText = "Default Title", className }) => (
-  <h2 className={className}>{titleText}</h2>
-);
-
-// Main component
-const ProductCard: FC<ProductCardProps> = ({
-  className,
-  id,
-  elementProps,
-  wix
-}) => {
+const MyComponent: FC<MyComponentProps> = ({ className, id, elementProps, wix }) => {
   const removalState = wix?.elementsRemovalState || {};
-
   return (
-    <div className={`product-card ${className}`} id={id}>
-      {!removalState['title'] && (
-        <Title
-          className="product-card__title"
-          {...elementProps?.title}
-        />
-      )}
-      {!removalState['button'] && (
-        <Button
-          className="product-card__button"
-          {...elementProps?.button}
-        />
-      )}
+    <div className={`my-component ${className}`} id={id}>
+      {!removalState['title'] && <Title className="my-component__title" {...elementProps?.title} />}
     </div>
   );
 };
 ```
+
+See [REACT_PATTERNS.md](references/REACT_PATTERNS.md) for full sub-component architecture, array handling, and TypeScript patterns.
 
 ### Conditional Rendering
 
@@ -370,7 +350,7 @@ src/extensions/site/components/
 
 ## Examples
 
-**Complete working example:** See [EXAMPLE.md](references/EXAMPLE.md) for a full production-ready site component with all patterns, including manifest, React component, CSS, and types.
+**Complete working example:** See [EXAMPLE.md](references/EXAMPLE.md) for a full reference implementation with 8 elements and all patterns. **Read this when building a complex multi-element component, when you want to verify you have all patterns right, or when you need a cross-reference. For components with ≤5 elements, the patterns documented in this file are sufficient — EXAMPLE.md is not required reading.**
 
 ### Product Card Component
 
@@ -485,6 +465,7 @@ The `id` must be a unique, static UUID v4 string. Generate a fresh UUID for each
 | Missing `removable: true` on optional elements | Site owner can't hide the element | Add `behaviors: { removable: true }` to optional elements |
 | Using `window`/`document` at module scope | SSR fails during build | Guard browser APIs inside `useEffect` or event handlers |
 | Importing from `@wix/design-system` | Not available in site components | Use plain HTML/CSS or custom components only |
+| `import { FC } from 'react'` | `verbatimModuleSyntax` in Astro tsconfig requires type-only imports | Use `import { type FC }` or `import type { FC }` from React |
 
 ## Hard Constraints
 
@@ -498,9 +479,11 @@ The `id` must be a unique, static UUID v4 string. Generate a fresh UUID for each
 
 ## Reference Documentation
 
-- [Complete Example](references/EXAMPLE.md) - Full production-ready site component example with all patterns
-- [Component Manifest Guidelines](references/MANIFEST_GUIDELINES.md) - Detailed manifest structure and best practices
-- [React Patterns](references/REACT_PATTERNS.md) - Component architecture and coding patterns
-- [CSS Guidelines](references/CSS_GUIDELINES.md) - Styling conventions and responsive design
-- [Design System](references/DESIGN_SYSTEM.md) - Visual design principles and creative guidelines
-- [TypeScript Quality](references/TYPESCRIPT_QUALITY.md) - Type safety and code quality standards
+| File | When to read |
+|------|-------------|
+| [MANIFEST_GUIDELINES.md](references/MANIFEST_GUIDELINES.md) | **Always** — complete manifest structure, all data types, element patterns |
+| [REACT_PATTERNS.md](references/REACT_PATTERNS.md) | When using hooks (`useEffect`, `useCallback`), complex state, or arrays |
+| [EXAMPLE.md](references/EXAMPLE.md) | When building complex (5+ element) components, or to cross-check all patterns |
+| [CSS_GUIDELINES.md](references/CSS_GUIDELINES.md) | When you need advanced CSS patterns, animations, or container queries |
+| [DESIGN_SYSTEM.md](references/DESIGN_SYSTEM.md) | When building visually rich/branded components |
+| [TYPESCRIPT_QUALITY.md](references/TYPESCRIPT_QUALITY.md) | When you need advanced type safety patterns (generics, type guards, runtime validation) |
