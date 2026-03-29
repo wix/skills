@@ -216,15 +216,17 @@ See [REACT_PATTERNS.md](references/REACT_PATTERNS.md) for full sub-component arc
 
 ### Conditional Rendering
 
-Use `wix?.elementsRemovalState` for elements the site owner has removed in the Editor:
+All elements must be conditionally rendered based on removal state:
 
 ```typescript
 const removalState = wix?.elementsRemovalState || {};
-// ...
-{!removalState['elementKey'] && <Element />}
-```
 
-**App logic vs removal state:** `elementsRemovalState` is only for editor-removed elements. For logic-driven visibility (e.g., showing an "expired" message when a timer ends, hiding a section when data is empty), use regular React conditional rendering — never `elementsRemovalState` for this purpose.
+return (
+  <div className={`component ${className}`} id={id}>
+    {!removalState['elementKey'] && <Element />}
+  </div>
+);
+```
 
 ## CSS Guidelines
 
