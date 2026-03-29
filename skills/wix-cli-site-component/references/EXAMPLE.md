@@ -500,10 +500,12 @@ export default PerfectExample;
 
 ```css
 .perfect-example {
+  --display: flex;
   box-sizing: border-box;
   width: 100%;
+  height: 100%;
   min-height: 400px;
-  display: flex;
+  display: var(--display);
   flex-direction: column;
   align-items: center;
   justify-content: center;
@@ -511,6 +513,7 @@ export default PerfectExample;
   padding: 40px;
   background-color: #ff6b6b;
   text-align: center;
+  pointer-events: auto;
 }
 
 .perfect-example *,
