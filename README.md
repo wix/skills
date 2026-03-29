@@ -4,6 +4,8 @@
 
 Agent skills for building Wix applications with AI coding assistants.
 
+> **Note**: These skills are designed for the **new Wix CLI**. See [About the Wix CLI](https://dev.wix.com/docs/wix-cli/guides/about-the-wix-cli) to learn more.
+
 ## Installation
 
 ### Claude Code Plugin
