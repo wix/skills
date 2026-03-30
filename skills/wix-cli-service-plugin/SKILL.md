@@ -10,6 +10,10 @@ Creates service plugin extensions for Wix CLI applications. Service plugins are 
 
 When you implement a service plugin, Wix calls your custom functions during specific flows. Common use cases include eCommerce customization (shipping, fees, taxes, validations) and Bookings customization (staff sorting), but service plugins can extend any Wix business solution that exposes SPIs.
 
+## Secrets Management
+
+When service plugins need API keys or credentials for third-party services, use `@wix/secrets` to retrieve them at runtime. See [Wix Secrets Reference](../wix-cli-backend-api/references/WIX_SECRETS.md) for complete documentation.
+
 ## Quick Start Checklist
 
 Follow these steps in order when creating a service plugin:

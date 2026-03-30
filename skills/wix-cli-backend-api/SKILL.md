@@ -30,15 +30,7 @@ Use HTTP endpoints when you need to:
 
 When backend endpoints need API keys or credentials for third-party services, use the Wix Secrets Manager. See [Wix Secrets Reference](references/WIX_SECRETS.md) for complete documentation.
 
-**Key rule:** NEVER hardcode API keys, tokens, or credentials. Always retrieve them at runtime:
-
-```typescript
-import { secrets } from "@wix/secrets";
-
-const { value: apiKey } = await secrets.getSecretValue("MY_API_KEY");
-```
-
-Always include a manual action item telling the site owner to store required secrets in the Wix Secrets Manager dashboard.
+**Key rule:** NEVER hardcode API keys, tokens, or credentials. Always retrieve them at runtime using `@wix/secrets`.
 
 ## File Structure and Naming
 

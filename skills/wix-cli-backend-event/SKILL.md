@@ -10,6 +10,10 @@ Creates event extensions for Wix CLI applications. Events are triggered when spe
 
 Common use cases: run logic when a contact is created, an order is placed, a booking is confirmed, or a blog post is published.
 
+## Secrets Management
+
+When event handlers need API keys or credentials for third-party services, use `@wix/secrets` to retrieve them at runtime. See [Wix Secrets Reference](../wix-cli-backend-api/references/WIX_SECRETS.md) for complete documentation.
+
 ## Quick Start Checklist
 
 Follow these steps in order when creating an event extension.

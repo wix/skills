@@ -12,10 +12,10 @@ npm install @wix/secrets
 
 ## SDK Methods
 
-| Method Call | Import | TypeScript Signature | Description |
-| --- | --- | --- | --- |
-| `secrets.getSecretValue()` | `import { secrets } from '@wix/secrets'` | `(name: string) => Promise<{ value: string }>` | Retrieve a secret value by name |
-| `secrets.listSecretInfo()` | `import { secrets } from '@wix/secrets'` | `() => Promise<{ secrets: Secret[] }>` | List metadata about all secrets (names only, not values) |
+| Method Call | Import | TypeScript Signature | Description | Required Scope |
+| --- | --- | --- | --- | --- |
+| `secrets.getSecretValue()` | `import { secrets } from '@wix/secrets'` | `(name: string) => Promise<{ value: string }>` | Retrieve a secret value by name | `SCOPE.VELO.MANAGE_SECRETS` |
+| `secrets.listSecretInfo()` | `import { secrets } from '@wix/secrets'` | `() => Promise<{ secrets: Secret[] }>` | List metadata about all secrets (names only, not values) | `SCOPE.VELO.MANAGE_SECRETS` |
 
 ## Usage Example
 
@@ -26,20 +26,16 @@ import type { APIRoute } from "astro";
 import { secrets } from "@wix/secrets";
 
 export const POST: APIRoute = async ({ request }) => {
-  const { prompt } = await request.json();
+  const { value: apiKey } = await secrets.getSecretValue("MY_API_KEY");
 
-  const { value: apiKey } = await secrets.getSecretValue("OPENAI_API_KEY");
-
-  const response = await fetch("https://api.openai.com/v1/chat/completions", {
+  // Use apiKey to call your third-party service
+  const response = await fetch("https://api.example.com/endpoint", {
     method: "POST",
     headers: {
-      "Content-Type": "application/json",
       Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      model: "gpt-4",
-      messages: [{ role: "user", content: prompt }],
-    }),
+    body: JSON.stringify(await request.json()),
   });
 
   const data = await response.json();
@@ -61,26 +57,11 @@ export const POST: APIRoute = async ({ request }) => {
 When generating code that uses secrets, ALWAYS include this manual action item:
 
 > **Store API secrets in the Wix Secrets Manager:**
-> 1. In your Wix dashboard, go to Settings > Secrets Manager
+> 1. In your Wix dashboard, go to [Developer Tools > Secrets Manager](https://www.wix.com/my-account/site-selector/?buttonText=Select%20Site&title=Select%20a%20Site&autoSelectOnSingleSite=true&actionUrl=https:%2F%2Fwww.wix.com%2Fdashboard%2F%7B%7BmetaSiteId%7D%7D%2Fdeveloper-tools/secrets-manager)
 > 2. Click "Store a New Secret"
-> 3. Set the secret name to exactly: `SECRET_NAME_HERE`
+> 3. Set the secret name to exactly: `SECRET_NAME_HERE` _(use the exact name from the generated code, e.g. `MY_API_KEY`)_
 > 4. Paste your API key/token as the value
 > 5. Click "Save"
 >
 > The app will not function until this secret is stored.
 
-## Secrets vs Dynamic Parameters
-
-| Data Type | Use | Reason |
-| --- | --- | --- |
-| API keys, auth tokens, passwords | `@wix/secrets` | Sensitive, must not be exposed client-side |
-| Tracking IDs (Google Analytics, Pixel) | Dynamic parameters | Non-sensitive, needed client-side |
-| Public app IDs (Intercom, chat widgets) | Dynamic parameters | Non-sensitive, needed client-side |
-| Webhook URLs | Dynamic parameters or secrets | Depends on sensitivity |
-| Database connection strings | `@wix/secrets` | Sensitive credentials |
-
-## Permissions
-
-| Operation | Required Scope |
-| --- | --- |
-| `getSecretValue`, `listSecretInfo` | `SCOPE.VELO.MANAGE_SECRETS` |
