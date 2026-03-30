@@ -57,7 +57,7 @@ export const POST: APIRoute = async ({ request }) => {
 When generating code that uses secrets, ALWAYS include this manual action item:
 
 > **Store API secrets in the Wix Secrets Manager:**
-> 1. In your Wix dashboard, go to [Developer Tools > Secrets Manager](https://www.wix.com/my-account/site-selector/?buttonText=Select%20Site&title=Select%20a%20Site&autoSelectOnSingleSite=true&actionUrl=https:%2F%2Fwww.wix.com%2Fdashboard%2F%7B%7BmetaSiteId%7D%7D%2Fdeveloper-tools/secrets-manager)
+> 1. In your Wix dashboard, go to [Developer Tools > Secrets Manager](https://dev.wix.com/docs/develop-websites/articles/workspace-tools/developer-tools/secrets-manager/manage-secrets-in-the-secrets-manager)
 > 2. Click "Store a New Secret"
 > 3. Set the secret name to exactly: `SECRET_NAME_HERE` _(use the exact name from the generated code, e.g. `MY_API_KEY`)_
 > 4. Paste your API key/token as the value
