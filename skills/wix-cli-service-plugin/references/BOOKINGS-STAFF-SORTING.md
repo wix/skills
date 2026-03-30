@@ -18,29 +18,17 @@ import { staffSorting } from "@wix/bookings/service-plugins";
 | --- | --- |
 | `sortStaffMembers` | Sort available staff members by priority for a given booking slot |
 
-## Request Fields
+## Request and Response Schema
 
-| Field | Type | Description |
-| --- | --- | --- |
-| `policyId` | string | The ID of the sorting policy being applied |
-| `slot` | object | The booking slot details |
-| `slot.startDate` | string | Slot start date/time |
-| `slot.endDate` | string | Slot end date/time |
-| `slot.serviceId` | string | The booked service ID |
-| `slot.locationId` | string | The booking location ID |
-| `slot.timeZone` | string | Time zone of the slot |
-| `availableResourceIds` | string[] | IDs of staff members available for this slot |
-| `extendedFields` | object | Additional custom fields |
+Before implementing, call `ReadFullDocsMethodSchema` with the docs URL below to get the full request/response types.
 
-## Response Structure
+**MCP Tools to use:**
+- `ReadFullDocsMethodSchema` - Full request/response schema with field names, types, and descriptions
+- `ReadFullDocsArticle` - Full documentation with code examples (use if schema needs more context)
 
-```typescript
-{
-  staff: Array<{
-    resourceId: string;  // Staff member resource ID
-  }>;
-}
-```
+| Handler | Docs URL |
+| --- | --- |
+| `sortStaffMembers` | https://dev.wix.com/docs/api-reference/business-solutions/bookings/staff-members/staff-sorting-service-plugin/sort-staff-members?apiView=SDK |
 
 **Important constraints:**
 - You must return the **exact same IDs** from `availableResourceIds`, reordered by priority
