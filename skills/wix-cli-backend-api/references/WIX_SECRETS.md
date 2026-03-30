@@ -14,8 +14,8 @@ npm install @wix/secrets
 
 | Method Call | Import | TypeScript Signature | Description |
 | --- | --- | --- | --- |
-| `secrets.getSecret()` | `import { secrets } from '@wix/secrets'` | `(name: string) => Promise<string>` | Retrieve a secret value by name |
-| `secrets.listSecretInfo()` | `import { secrets } from '@wix/secrets'` | `() => Promise<ListSecretInfoResponse>` | List metadata about all secrets (names only, not values) |
+| `secrets.getSecretValue()` | `import { secrets } from '@wix/secrets'` | `(name: string) => Promise<{ value: string }>` | Retrieve a secret value by name |
+| `secrets.listSecretInfo()` | `import { secrets } from '@wix/secrets'` | `() => Promise<{ secrets: Secret[] }>` | List metadata about all secrets (names only, not values) |
 
 ## Usage Example
 
@@ -28,7 +28,7 @@ import { secrets } from "@wix/secrets";
 export const POST: APIRoute = async ({ request }) => {
   const { prompt } = await request.json();
 
-  const apiKey = await secrets.getSecret("OPENAI_API_KEY");
+  const { value: apiKey } = await secrets.getSecretValue("OPENAI_API_KEY");
 
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
@@ -83,4 +83,4 @@ When generating code that uses secrets, ALWAYS include this manual action item:
 
 | Operation | Required Scope |
 | --- | --- |
-| `getSecret`, `listSecretInfo` | `SCOPE.DC-APPS.MANAGE-SECRETS` |
+| `getSecretValue`, `listSecretInfo` | `SCOPE.VELO.MANAGE_SECRETS` |

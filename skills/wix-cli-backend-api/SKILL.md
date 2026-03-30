@@ -35,7 +35,7 @@ When backend endpoints need API keys or credentials for third-party services, us
 ```typescript
 import { secrets } from "@wix/secrets";
 
-const apiKey = await secrets.getSecret("MY_API_KEY");
+const { value: apiKey } = await secrets.getSecretValue("MY_API_KEY");
 ```
 
 Always include a manual action item telling the site owner to store required secrets in the Wix Secrets Manager dashboard.
