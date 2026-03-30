@@ -26,6 +26,12 @@ Use HTTP endpoints when you need to:
 - Serve dynamic content (images, RSS feeds, personalized data)
 - Access runtime data or server-side databases
 
+## Secrets Management
+
+When backend endpoints need API keys or credentials for third-party services, use the Wix Secrets Manager. See [Wix Secrets Reference](references/WIX_SECRETS.md) for complete documentation.
+
+**Key rule:** NEVER hardcode API keys, tokens, or credentials. Always retrieve them at runtime using `@wix/secrets`.
+
 ## File Structure and Naming
 
 ### Basic Endpoint

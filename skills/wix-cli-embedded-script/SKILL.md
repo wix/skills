@@ -216,7 +216,7 @@ Every embedded script should have at minimum an **enable/disable toggle** parame
 | Parameter    | Type      | Purpose                              |
 | ------------ | --------- | ------------------------------------ |
 | `enabled`    | `BOOLEAN` | Allow site owner to activate/disable |
-| `apiKey`     | `TEXT`    | Third-party service credentials      |
+| `apiKey`     | `TEXT`    | Non-sensitive public identifiers only (e.g., tracking IDs, public app IDs). For sensitive API keys, use `@wix/secrets` in a Backend API endpoint instead |
 | `trackingId` | `TEXT`    | Analytics/pixel identifiers          |
 | `headline`   | `TEXT`    | Customizable display text            |
 | `color`      | `COLOR`   | UI customization                     |
@@ -349,6 +349,15 @@ Do NOT apply embedded script field names to dashboard page registrations.
 - **API calls:** Only create fetch() calls to /api/\* endpoints that exist in the API spec
 - **Scoping:** Prefix CSS classes and IDs to avoid conflicts with site styles
 - **Cleanup:** Remove event listeners and intervals when appropriate
+- **Secrets vs Dynamic Parameters:** Dynamic parameters are visible in client-side HTML. NEVER use them for sensitive credentials (API keys, auth tokens). Use `@wix/secrets` in a backend endpoint instead. Dynamic parameters are appropriate for non-sensitive configuration like tracking IDs, pixel IDs, and public app identifiers.
+
+  | Data Type | Use | Reason |
+  | --- | --- | --- |
+  | API keys, auth tokens, passwords | `@wix/secrets` in a Backend API endpoint | Sensitive, must not be exposed client-side |
+  | Tracking IDs (Google Analytics, Pixel) | Dynamic parameters | Non-sensitive, needed client-side |
+  | Public app IDs (Intercom, chat widgets) | Dynamic parameters | Non-sensitive, needed client-side |
+  | Webhook URLs | Dynamic parameters or secrets | Depends on sensitivity |
+  | Database connection strings | `@wix/secrets` in a Backend API endpoint | Sensitive credentials |
 
 ## Complete Example: Coupon Popup
 
