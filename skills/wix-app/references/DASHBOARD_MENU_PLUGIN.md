@@ -1,9 +1,3 @@
----
-name: wix-cli-dashboard-menu-plugin
-description: "MUST use whenever the user wants to add a clickable menu item, action, or option to an existing Wix dashboard page's more-actions menu, bulk-actions menu, or context menu. This includes any request to add actions/options/items to menus on Wix Stores (products, inventory), Wix Bookings (calendar, services, staff, booking list), Wix Blog (posts, categories, tags), Wix eCommerce (orders), Wix Events, Wix CRM (contacts), or Wix Restaurants (reservations, online orders, menus) dashboard pages. Trigger on phrases like: add menu item, add action to menu, add option to more actions, bulk action, custom action in dashboard menu, extend dashboard menu, dashboard menu plugin, context menu action on dashboard page. Do NOT use for: visual widgets/plugins embedded in dashboard page slots (use wix-cli-dashboard-plugin), standalone dashboard pages (use wix-cli-dashboard-page), standalone modals (use wix-cli-dashboard-modal), or site-facing UI."
-compatibility: Requires Wix CLI development environment.
----
-
 # Wix Dashboard Menu Plugin Builder
 
 Creates dashboard menu plugin extensions for Wix CLI applications. Dashboard menu plugins are menu items that integrate into predefined **menu slots** on dashboard pages managed by Wix first-party business apps (Wix Stores, Wix Bookings, Wix Blog, Wix eCommerce, Wix Events, Wix CRM, Wix Restaurants).
@@ -135,7 +129,7 @@ Each dashboard menu plugin requires a `<plugin-name>.extension.ts` file in its f
 
 ### Step 2: Register in Main Extensions File
 
-**CRITICAL:** After creating the plugin-specific extension file, you MUST read [wix-cli-extension-registration](../wix-cli-extension-registration/SKILL.md) and follow the "App Registration" section to update `src/extensions.ts`.
+**CRITICAL:** After creating the plugin-specific extension file, you MUST read [wix-cli-extension-registration](EXTENSION_REGISTRATION.md) and follow the "App Registration" section to update `src/extensions.ts`.
 
 **Without completing Step 2, the dashboard menu plugin will not appear on the dashboard page.**
 
@@ -155,13 +149,13 @@ Identify which Wix app the user is targeting, then read **only** the correspondi
 
 | Wix App | Keywords | Slot Reference |
 |---------|----------|----------------|
-| Wix Blog | blog, posts, categories, tags, drafts, scheduled | [blog-slots.md](references/blog-slots.md) |
-| Wix Bookings | bookings, calendar, services, staff, booking list | [bookings-slots.md](references/bookings-slots.md) |
-| Wix CRM | CRM, contacts | [crm-slots.md](references/crm-slots.md) |
-| Wix eCommerce | ecommerce, orders, payment | [ecommerce-slots.md](references/ecommerce-slots.md) |
-| Wix Events | events, guests, RSVP, ticketed | [events-slots.md](references/events-slots.md) |
-| Wix Stores | stores, products, inventory, catalog | [stores-slots.md](references/stores-slots.md) |
-| Wix Restaurants | restaurants, reservations, online orders, menus | [restaurants-slots.md](references/restaurants-slots.md) |
+| Wix Blog | blog, posts, categories, tags, drafts, scheduled | [blog-slots.md](dashboard-menu-plugin/blog-slots.md) |
+| Wix Bookings | bookings, calendar, services, staff, booking list | [bookings-slots.md](dashboard-menu-plugin/bookings-slots.md) |
+| Wix CRM | CRM, contacts | [crm-slots.md](dashboard-menu-plugin/crm-slots.md) |
+| Wix eCommerce | ecommerce, orders, payment | [ecommerce-slots.md](dashboard-menu-plugin/ecommerce-slots.md) |
+| Wix Events | events, guests, RSVP, ticketed | [events-slots.md](dashboard-menu-plugin/events-slots.md) |
+| Wix Stores | stores, products, inventory, catalog | [stores-slots.md](dashboard-menu-plugin/stores-slots.md) |
+| Wix Restaurants | restaurants, reservations, online orders, menus | [restaurants-slots.md](dashboard-menu-plugin/restaurants-slots.md) |
 
 ## Output Constraints
 

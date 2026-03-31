@@ -1,22 +1,14 @@
----
-name: wix-cli-context-provider
-description: "Creates context provider extensions for Wix CLI apps — logical components (no UI) that expose shared state, functions, and configuration to child site components via React hooks and Editor Binding. Use when building a context provider, sharing state between components, creating a context hook (useContext), building a provider/consumer pattern, wiring contextDependencies, or using Editor Binding for context. Only site components can consume context providers — do NOT use for site widgets or site plugins."
-compatibility: Requires Wix CLI development environment.
-metadata:
-  internal: true
----
-
 # Wix Context Provider Builder
 
 Creates production-quality context provider components for Wix CLI applications. Context providers are logical components (no UI) that can be added to any page, container, or section in the Editor. They expose shared state and functionality that child components consume via a React hook.
 
-**You MUST read [CONTEXT_PROVIDER_SPEC.md](references/CONTEXT_PROVIDER_SPEC.md) before implementing a context provider.** It contains the complete manifest structure, all data types, and type constraints.
+**You MUST read [CONTEXT_PROVIDER_SPEC.md](context-provider/CONTEXT_PROVIDER_SPEC.md) before implementing a context provider.** It contains the complete manifest structure, all data types, and type constraints.
 
 ## Consumer Constraint
 
-**⚠️ Only site components (`wix-cli-site-component`) can consume context provider extensions.** Site widgets, site plugins, and all other extension types are NOT supported as consumers.
+**⚠️ Only site components can consume context provider extensions.** See [SITE_COMPONENT.md](SITE_COMPONENT.md). Site widgets, site plugins, and all other extension types are NOT supported as consumers.
 
-**⚠️ Consumer site components require valid manifests.** When creating a site component to consume this context provider, you MUST follow the [wix-cli-site-component](../wix-cli-site-component/SKILL.md) skill, including its Hard Constraints.
+**⚠️ Consumer site components require valid manifests.** When creating a site component to consume this context provider, you MUST follow [SITE_COMPONENT.md](SITE_COMPONENT.md), including its Hard Constraints.
 
 ## Quick Start Checklist
 
@@ -279,7 +271,7 @@ export default app()
 
 ### Context Items
 
-The `context.items` map defines what the provider exposes to child components. Each item requires a `dataType`. See [CONTEXT_PROVIDER_SPEC.md](references/CONTEXT_PROVIDER_SPEC.md) for all ContextItem fields and constraints.
+The `context.items` map defines what the provider exposes to child components. Each item requires a `dataType`. See [CONTEXT_PROVIDER_SPEC.md](context-provider/CONTEXT_PROVIDER_SPEC.md) for all ContextItem fields and constraints.
 
 ### ⚠️ CRITICAL: `context` vs `data` Array Format Difference
 
@@ -451,11 +443,11 @@ The `contextDependencies` array references the `moduleSpecifier` from the contex
 
 ## Complete Example
 
-For a full working example including provider component, registration, consumer component, and consumer component rules, see [EXAMPLES.md](references/EXAMPLES.md).
+For a full working example including provider component, registration, consumer component, and consumer component rules, see [EXAMPLES.md](context-provider/EXAMPLES.md).
 
 ## Editor Binding (Alternative Consumption)
 
-Context can also be consumed via Editor Binding, where components receive context data as props without importing the hook. For details, examples, and manifest format, see [EDITOR_BINDING.md](references/EDITOR_BINDING.md).
+Context can also be consumed via Editor Binding, where components receive context data as props without importing the hook. For details, examples, and manifest format, see [EDITOR_BINDING.md](context-provider/EDITOR_BINDING.md).
 
 ## Output Structure
 
@@ -487,10 +479,10 @@ src/extensions/{provider-name}/
 - In `context` arrays — use `arrayItems.item` (a `ContextItem`)
 - In `data` arrays — use `arrayItems.dataItem` (a `DataItem`)
 
-See the [context vs data Array Format Difference](#️-critical-context-vs-data-array-format-difference) section above and [CONTEXT_PROVIDER_SPEC.md](references/CONTEXT_PROVIDER_SPEC.md) for full type definitions.
+See the [context vs data Array Format Difference](#️-critical-context-vs-data-array-format-difference) section above and [CONTEXT_PROVIDER_SPEC.md](context-provider/CONTEXT_PROVIDER_SPEC.md) for full type definitions.
 
 ## Reference Documentation
 
-- [Context Provider Specification](references/CONTEXT_PROVIDER_SPEC.md) - Complete manifest structure, all types, and constraints
-- [Complete Example](references/EXAMPLES.md) - Full counter context provider with registration and consumer
-- [Editor Binding](references/EDITOR_BINDING.md) - Alternative consumption via editor-bound props
+- [Context Provider Specification](context-provider/CONTEXT_PROVIDER_SPEC.md) - Complete manifest structure, all types, and constraints
+- [Complete Example](context-provider/EXAMPLES.md) - Full counter context provider with registration and consumer
+- [Editor Binding](context-provider/EDITOR_BINDING.md) - Alternative consumption via editor-bound props

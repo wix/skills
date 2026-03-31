@@ -1,9 +1,3 @@
----
-name: wix-cli-site-component
-description: "Use when building React site components with editor manifests for Wix CLI applications. Triggers include site component, editor manifest, custom component, visual customization, editor element, CSS properties, data API, site builder component, Wix Editor component. Use this skill whenever the user wants to create a component that site owners can customize through the Wix Editor's visual interface."
-compatibility: Requires Wix CLI development environment.
----
-
 # Wix Site Component Builder
 
 Creates production-quality React site components with editor manifests for Wix CLI applications. Site components are React components that integrate with the Wix Editor, allowing site owners to customize content, styling, and behavior through a visual interface.
@@ -56,7 +50,7 @@ Strict type definitions:
 
 ## Component Manifest Structure
 
-**You MUST read [MANIFEST_GUIDELINES.md](references/MANIFEST_GUIDELINES.md) before implementing a site component.** It contains the complete manifest structure, all data types, element configurations, and required patterns.
+**You MUST read [MANIFEST_GUIDELINES.md](site-component/MANIFEST_GUIDELINES.md) before implementing a site component.** It contains the complete manifest structure, all data types, element configurations, and required patterns.
 
 The manifest defines the editor contract using these key sections:
 
@@ -157,11 +151,11 @@ Common CSS properties for styling customization:
 - **Border**: `border`, `borderRadius`, `boxShadow`
 - **Positioning**: `alignItems`, `justifyContent`, `flexDirection`
 
-**Complete CSS properties reference:** See [CSS_GUIDELINES.md](references/CSS_GUIDELINES.md) for all CSS properties, variable patterns, and styling best practices.
+**Complete CSS properties reference:** See [CSS_GUIDELINES.md](site-component/CSS_GUIDELINES.md) for all CSS properties, variable patterns, and styling best practices.
 
 ## React Component Patterns
 
-**Complete reference:** See [REACT_PATTERNS.md](references/REACT_PATTERNS.md) for detailed component architecture, all coding patterns, and implementation examples.
+**Complete reference:** See [REACT_PATTERNS.md](site-component/REACT_PATTERNS.md) for detailed component architecture, all coding patterns, and implementation examples.
 
 ### Props Structure
 
@@ -284,7 +278,7 @@ Components live in user-resizable containers (300-1200px) within varying viewpor
 
 ## Design Guidelines
 
-**Complete reference:** See [DESIGN_SYSTEM.md](references/DESIGN_SYSTEM.md) for visual design principles, creative guidelines, and aesthetic best practices.
+**Complete reference:** See [DESIGN_SYSTEM.md](site-component/DESIGN_SYSTEM.md) for visual design principles, creative guidelines, and aesthetic best practices.
 
 ### Spacing as Communication
 
@@ -370,7 +364,7 @@ src/extensions/site/components/
 
 ## Examples
 
-**Complete working example:** See [EXAMPLE.md](references/EXAMPLE.md) for a full production-ready site component with all patterns, including manifest, React component, CSS, and types.
+**Complete working example:** See [EXAMPLE.md](site-component/EXAMPLE.md) for a full production-ready site component with all patterns, including manifest, React component, CSS, and types.
 
 ### Product Card Component
 
@@ -443,13 +437,13 @@ The `id` must be a unique, static UUID v4 string. Generate a fresh UUID for each
 
 ### Step 2: Register in Main Extensions File
 
-**CRITICAL:** After creating the component-specific extension file, you MUST read [wix-cli-extension-registration](../wix-cli-extension-registration/SKILL.md) and follow the "App Registration" section to update `src/extensions.ts`.
+**CRITICAL:** After creating the component-specific extension file, you MUST read [EXTENSION_REGISTRATION.md](EXTENSION_REGISTRATION.md) and follow the "App Registration" section to update `src/extensions.ts`.
 
 **Without completing Step 2, the site component will not be available in the Wix Editor.**
 
 ## Code Quality Requirements
 
-**Complete reference:** See [TYPESCRIPT_QUALITY.md](references/TYPESCRIPT_QUALITY.md) for comprehensive type safety guidelines and code quality standards.
+**Complete reference:** See [TYPESCRIPT_QUALITY.md](site-component/TYPESCRIPT_QUALITY.md) for comprehensive type safety guidelines and code quality standards.
 
 ### TypeScript Standards
 
@@ -498,9 +492,9 @@ The `id` must be a unique, static UUID v4 string. Generate a fresh UUID for each
 
 ## Reference Documentation
 
-- [Complete Example](references/EXAMPLE.md) - Full production-ready site component example with all patterns
-- [Component Manifest Guidelines](references/MANIFEST_GUIDELINES.md) - Detailed manifest structure and best practices
-- [React Patterns](references/REACT_PATTERNS.md) - Component architecture and coding patterns
-- [CSS Guidelines](references/CSS_GUIDELINES.md) - Styling conventions and responsive design
-- [Design System](references/DESIGN_SYSTEM.md) - Visual design principles and creative guidelines
-- [TypeScript Quality](references/TYPESCRIPT_QUALITY.md) - Type safety and code quality standards
+- [Complete Example](site-component/EXAMPLE.md) - Full production-ready site component example with all patterns
+- [Component Manifest Guidelines](site-component/MANIFEST_GUIDELINES.md) - Detailed manifest structure and best practices
+- [React Patterns](site-component/REACT_PATTERNS.md) - Component architecture and coding patterns
+- [CSS Guidelines](site-component/CSS_GUIDELINES.md) - Styling conventions and responsive design
+- [Design System](site-component/DESIGN_SYSTEM.md) - Visual design principles and creative guidelines
+- [TypeScript Quality](site-component/TYPESCRIPT_QUALITY.md) - Type safety and code quality standards

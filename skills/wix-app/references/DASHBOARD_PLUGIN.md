@@ -1,9 +1,3 @@
----
-name: wix-cli-dashboard-plugin
-description: Use when building widgets that extend Wix dashboard pages for first-party business apps. Triggers include dashboard plugin, dashboard slot, extend dashboard page, Wix Stores plugin, Wix Bookings plugin, Wix Blog plugin, observeState, dashboard widget. Do NOT use for standalone dashboard pages (use wix-cli-dashboard-page) or site-facing UI (use site widgets/site plugins).
-compatibility: Requires Wix CLI development environment.
----
-
 # Wix Dashboard Plugin Builder
 
 Creates dashboard plugin extensions for Wix CLI applications. Dashboard plugins are interactive widgets that embed into predefined **slots** on dashboard pages managed by Wix first-party business apps (Wix Stores, Wix Bookings, Wix Blog, Wix eCommerce, etc.).
@@ -16,7 +10,7 @@ Dashboard plugins occupy the full width of their slot and maintain dynamic heigh
 
 Follow these steps in order when creating a dashboard plugin:
 
-1. [ ] Identify the target slot ID — see [Slots Reference](references/SLOTS.md)
+1. [ ] Identify the target slot ID — see [Slots Reference](dashboard-plugin/SLOTS.md)
 2. [ ] Create plugin folder: `src/extensions/dashboard/plugins/<plugin-name>/`
 3. [ ] Create `<plugin-name>.extension.ts` with `extensions.dashboardPlugin()` and unique UUID
 4. [ ] Create `<plugin-name>.tsx` with React component wrapped in `WixDesignSystemProvider`
@@ -67,7 +61,7 @@ The `id` must be a unique, static UUID v4 string. Generate a fresh UUID for each
 |-------|------|-------------|
 | `id` | string | Unique plugin ID (GUID). Must be unique across all extensions in the project. |
 | `title` | string | Plugin title. Used to refer to the plugin in the project dashboard. |
-| `extends` | string | Slot ID of the dashboard page hosting the plugin. See [Slots Reference](references/SLOTS.md). |
+| `extends` | string | Slot ID of the dashboard page hosting the plugin. See [Slots Reference](dashboard-plugin/SLOTS.md). |
 | `component` | string | Relative path to the plugin content component (`.tsx` file). |
 
 ### The `extends` Field
@@ -76,7 +70,7 @@ The `extends` field specifies which dashboard page slot hosts your plugin. Each 
 
 **Important:** Some slots with the same ID appear on different pages within the dashboard. If you create a plugin for a slot that exists on multiple pages, the plugin is displayed on all of those pages.
 
-For the complete list of available slot IDs, see [Slots Reference](references/SLOTS.md).
+For the complete list of available slot IDs, see [Slots Reference](dashboard-plugin/SLOTS.md).
 
 ## Plugin Component
 
@@ -168,7 +162,7 @@ Each dashboard plugin requires an `<plugin-name>.extension.ts` file in its folde
 
 ### Step 2: Register in Main Extensions File
 
-**CRITICAL:** After creating the plugin-specific extension file, you MUST read [wix-cli-extension-registration](../wix-cli-extension-registration/SKILL.md) and follow the "App Registration" section to update `src/extensions.ts`.
+**CRITICAL:** After creating the plugin-specific extension file, you MUST read [wix-cli-extension-registration](EXTENSION_REGISTRATION.md) and follow the "App Registration" section to update `src/extensions.ts`.
 
 **Without completing Step 2, the dashboard plugin will not appear on the dashboard page.**
 
@@ -183,7 +177,7 @@ Each dashboard plugin requires an `<plugin-name>.extension.ts` file in its folde
 | Symptom | Cause | Fix |
 |---------|-------|-----|
 | Plugin not appearing on dashboard page | Missing registration | Import and `.use()` in `src/extensions.ts` |
-| Plugin not appearing on dashboard page | Wrong slot ID | Verify `extends` field matches a valid slot ID from [Slots Reference](references/SLOTS.md) |
+| Plugin not appearing on dashboard page | Wrong slot ID | Verify `extends` field matches a valid slot ID from [Slots Reference](dashboard-plugin/SLOTS.md) |
 
 ## Hard Constraints
 

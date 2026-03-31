@@ -1,9 +1,3 @@
----
-name: wix-cli-backend-event
-description: Create backend event extensions that respond to Wix events. Use when implementing handlers that run when specific conditions occur on a site. Triggers include event extension, backend event, webhook handler.
-compatibility: Requires Wix CLI development environment.
----
-
 # Wix CLI Backend Event Extension
 
 Creates event extensions for Wix CLI applications. Events are triggered when specific conditions occur—on a Wix user's site for app projects, or on your project's site for headless projects. Your project responds using event extensions built on JavaScript SDK webhooks; the CLI subscribes your project to these webhooks.
@@ -25,7 +19,7 @@ Follow these steps in order when creating an event extension.
 
 | Topic | Reference |
 | --- | --- |
-| Common events (CRM, eCommerce, Bookings, Blog) | [COMMON-EVENTS.md](references/COMMON-EVENTS.md) |
+| Common events (CRM, eCommerce, Bookings, Blog) | [COMMON-EVENTS.md](backend-event/COMMON-EVENTS.md) |
 
 ## Output Structure
 
@@ -81,7 +75,7 @@ Create `<event-name>.extension.ts` inside the event folder (and `<event-name>.ts
 
 ### Step 2: Register in main extensions.ts
 
-**CRITICAL:** Read [wix-cli-extension-registration](../wix-cli-extension-registration/SKILL.md) and add the event extension to `src/extensions.ts` (import and `.use(eventContactCreated)` or equivalent). Without this, the event extension is not active.
+**CRITICAL:** Read [EXTENSION_REGISTRATION.md](EXTENSION_REGISTRATION.md) and add the event extension to `src/extensions.ts` (import and `.use(eventContactCreated)` or equivalent). Without this, the event extension is not active.
 
 Naming: export names follow `event{CamelCaseName}` (e.g. `eventContactCreated`, `eventOrderPaid`).
 
