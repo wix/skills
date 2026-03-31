@@ -18,34 +18,20 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
   - [ ] Obtained app namespace if Data Collection extension is being created
   - [ ] Determined full scoped collection IDs if Data Collection extension is being created (see [Collection ID Coordination](#collection-id-coordination))
   - [ ] Explained recommendation with reasoning
-- [ ] **Step 2:** Checked references, spawned discovery if needed
-  - [ ] Checked relevant reference files for required APIs
-  - [ ] Spawned discovery only if API not found in references
-  - [ ] Skip if all APIs are in reference files or no external APIs needed
-- [ ] **Step 3:** Waited for discovery sub-agent to complete (if spawned)
-  - [ ] Received SDK methods with imports
-- [ ] **Step 4:** Spawned implementation sub-agent(s) with extension reference context
-  - [ ] Included user requirements in prompt
-  - [ ] Included SDK context from discovery (if any)
-  - [ ] Instructed sub-agent to invoke `wds-docs` skill FIRST when using @wix/design-system (for correct imports, especially icons)
-- [ ] **Step 5:** Waited for implementation sub-agent(s) to complete
+- [ ] **Step 2:** Read extension reference file(s) for the chosen type(s)
+- [ ] **Step 3:** Checked API references; used MCP discovery only for gaps
+- [ ] **Step 4:** Implemented all extensions
   - [ ] All files created
-  - [ ] Extension registered in extensions.ts
-- [ ] **Step 6:** Ran validation (see [Validation](#validation))
-- [ ] **Step 7:** Validation passed
+  - [ ] Extension(s) registered in extensions.ts
+  - [ ] Invoked `wds-docs` skill FIRST when using @wix/design-system (for correct imports, especially icons)
+- [ ] **Step 5:** Ran validation (see [Validation](#validation))
   - [ ] Dependencies installed
   - [ ] TypeScript compiled
   - [ ] Build succeeded
   - [ ] Preview deployed
-- [ ] **Step 8:** Collected and presented ALL manual action items to user
+- [ ] **Step 6:** Collected and presented ALL manual action items to user
 
 **🛑 STOP:** If any box is unchecked, do NOT proceed to the next step.
-
----
-
-## Your Role
-
-You are a **decision-maker and orchestrator**, not an implementer. **Decide → Read Extension Reference → Check API References → Discovery (if needed) → Implementation Sub-Agent(s) → Validation → Surface Manual Actions.** Ask clarifying questions if unclear; recommend extension type; read the corresponding extension reference file; check API reference files first, spawn discovery only for missing SDK methods; spawn implementation sub-agents; run validation; aggregate and present all manual action items at the end.
 
 ---
 
@@ -53,22 +39,11 @@ You are a **decision-maker and orchestrator**, not an implementer. **Decide → 
 
 | ❌ WRONG                                    | ✅ CORRECT                                     |
 | ------------------------------------------- | ---------------------------------------------- |
-| Writing implementation code yourself        | Spawning a sub-agent to implement              |
 | Implementing without reading the extension reference | Always read the relevant reference file first |
-| Discovering extension SDK (dashboard, etc.) | Extension SDK is in reference files            |
-| Spawning discovery without checking refs    | Check reference files first                    |
+| Using MCP discovery without checking refs   | Check reference files first                    |
 | Reporting done without validation           | Always run validation at the end               |
-| Reading/writing files after reading references | Let sub-agents handle ALL file operations    |
 | Letting manual action items get buried      | Aggregate all manual steps at the very end     |
 | Using site widget/plugin to consume context provider extensions | Only site components can consume context provider extensions |
-
-**CRITICAL:** After this skill loads, you should ONLY:
-
-- Read extension reference files (to include in sub-agent prompts)
-- Spawn sub-agents (for discovery and implementation)
-- Run validation at the end
-
-You should NEVER: Read, Write, Edit files for implementation yourself.
 
 ---
 
@@ -194,7 +169,7 @@ When a Data Collection is created alongside other extensions that reference the 
 
 1. **Get the app namespace** (see App Namespace Requirement above)
 2. **Determine the `idSuffix`** for each collection (the Data Collection reference documents the full ID format)
-3. **Pass the full scoped collection ID** (`<app-namespace>/<idSuffix>`) to every other sub-agent (dashboard page, service plugin, etc.) so they use it in all Wix Data API calls
+3. **Use the full scoped collection ID** (`<app-namespace>/<idSuffix>`) in all extensions that reference the collection via Wix Data API calls
 
 ---
 
@@ -202,7 +177,7 @@ When a Data Collection is created alongside other extensions that reference the 
 
 **Applies when ANY Wix Stores API is used** (products, inventory, orders, etc.):
 
-1. **Include the Stores Versioning reference** in implementation sub-agent prompts — see [STORES_VERSIONING.md](references/STORES_VERSIONING.md)
+1. **Read the Stores Versioning reference** — see [STORES_VERSIONING.md](references/STORES_VERSIONING.md)
 2. **All Stores operations must check catalog version first** using `getCatalogVersion()`
 3. **Use the correct module** based on version: `productsV3` (V3) vs `products` (V1)
 
@@ -210,7 +185,7 @@ This is non-negotiable — V1 and V3 are NOT backwards compatible.
 
 ---
 
-## Decision & Handoff Workflow
+## Implementation Workflow
 
 ### Step 1: Ask Clarifying Questions (if needed)
 
@@ -224,7 +199,7 @@ Use the Extension Types Reference Table and decision content above. State extens
 
 ### Step 3: Read Extension Reference, Check API References, Then Discover (if needed)
 
-**Workflow: Read extension reference → Check API references → Search only for gaps.**
+**Workflow: Read extension reference → Check API references → Use MCP only for gaps.**
 
 1. **Read the extension reference file** for the chosen extension type from the table above
 2. **Identify required APIs** from user requirements
@@ -234,7 +209,7 @@ Use the Extension Types Reference Table and decision content above. State extens
    - Dashboard SDK → `references/dashboard-page/DASHBOARD_API.md`
    - Service Plugin SPIs → `references/service-plugin/*.md`
 4. **Verify the specific method/event exists** in references
-5. **ONLY spawn discovery if NOT found** in reference files
+5. **ONLY use MCP discovery if NOT found** in reference files
 
 **Platform APIs (never discover - in references):**
 - Wix Data, Dashboard SDK, Event SDK (common events), Service Plugin SPIs
@@ -246,11 +221,11 @@ Use the Extension Types Reference Table and decision content above. State extens
 
 | User Requirement                     | Check References / Discovery Needed? | Reason / Reference File                             |
 | ------------------------------------ | ------------------------------------ | --------------------------------------------------- |
-| "Display store products"             | ✅ YES (Spawn discovery)             | Wix Stores API — **include Stores Versioning reference** |
-| "Show booking calendar"              | ✅ YES (Spawn discovery)             | Wix Bookings API not in reference files             |
-| "Send emails to users"               | ✅ YES (Spawn discovery)             | Wix Triggered Emails not in reference files         |
-| "Get member info"                    | ✅ YES (Spawn discovery)             | Wix Members API not in reference files              |
-| "Listen for cart events"             | Check `COMMON-EVENTS.md`             | Spawn discovery only if event missing in reference  |
+| "Display store products"             | ✅ YES (MCP discovery)               | Wix Stores API — **include Stores Versioning reference** |
+| "Show booking calendar"              | ✅ YES (MCP discovery)               | Wix Bookings API not in reference files             |
+| "Send emails to users"               | ✅ YES (MCP discovery)               | Wix Triggered Emails not in reference files         |
+| "Get member info"                    | ✅ YES (MCP discovery)               | Wix Members API not in reference files              |
+| "Listen for cart events"             | Check `COMMON-EVENTS.md`             | MCP discovery only if event missing in reference    |
 | "Store data in collection"           | WIX_DATA.md ✅ Found                 | ❌ Skip discovery (covered by reference)             |
 | "Create CMS collections for my app"  | Data Collection reference            | ❌ Skip discovery (covered by dedicated reference)   |
 | "Show dashboard toast"               | DASHBOARD_API.md ✅ Found            | ❌ Skip discovery                                   |
@@ -259,129 +234,22 @@ Use the Extension Types Reference Table and decision content above. State extens
 | "Settings page with form inputs"     | N/A (UI only, no external API)       | ❌ Skip discovery                                   |
 | "Dashboard page with local state"    | N/A (no external API)                | ❌ Skip discovery                                   |
 
-**MCP Tools the sub-agent should use:**
+**MCP Tools for discovery (when needed):**
 
 - `SearchWixSDKDocumentation` - SDK methods and APIs (**Always use maxResults: 5**)
 - `ReadFullDocsArticle` - Full documentation when needed (only if search results need more detail)
 
-**Discovery sub-agent prompt template:**
+### Step 4: Implement Extensions
 
-```
-Discover SDK methods for [SPECIFIC API/EVENT NOT IN REFERENCE FILES].
+Follow the extension reference file to implement each extension. Key rules:
 
-Search MCP documentation (use maxResults: 5):
-- Search SDK documentation for [SPECIFIC API] with maxResults: 5
-- Only use ReadFullDocsArticle if search results need more context
-
-Return ONLY a concise summary in this format:
-
-## SDK Methods & Interfaces
-
-| Name                      | Type   | TypeScript Type                              | Description       |
-| ------------------------- | ------ | -------------------------------------------- | ----------------- |
-| `moduleName.methodName()` | Method | `(params: ParamType) => Promise<ReturnType>` | Brief description |
-
-**Import:** `import { methodName } from '@wix/sdk-module';`
-
-Include any gotchas or constraints discovered.
-
-## Manual Action Items
-List any manual steps the user must perform (e.g., configure dashboard settings, enable permissions). Write "None" if there are no manual steps.
-
-**Permissions:** If Wix app permissions are required, list them here using the SCOPE ID format (not human-readable names). Examples:
-- `@wix/data` read operations (query, get) require "SCOPE.DC-DATA.READ"
-- `@wix/data` write operations (insert, update, remove) require "SCOPE.DC-DATA.WRITE"
-- Embedded scripts require "SCOPE.DC-APPS.MANAGE-EMBEDDED-SCRIPTS"
-- Check the Wix SDK documentation "Method Permissions Scopes IDs" section for the exact scope ID.
-- IMPORTANT: Use scope IDs like "SCOPE.DC-DATA.READ", NOT human-readable names like "Read Data Items".
-```
-
-**If discovery is spawned, wait for it to complete before proceeding to Step 4.**
-
-### Step 4: Spawn Implementation Sub-Agent(s)
-
-⚠️ **BLOCKING REQUIREMENT** ⚠️
-
-You MUST spawn sub-agent(s) for implementation. Do NOT write code yourself.
-
-**Spawn an implementation sub-agent with the extension reference context:**
-
-The sub-agent prompt should include:
-
-1. The extension reference content (read from the appropriate reference file)
-2. The user's requirements
-3. The SDK context from the discovery sub-agent (if any)
-4. Instruction to invoke the `wds-docs` skill only when needed (when using @wix/design-system)
-
-**Implementation sub-agent prompt MUST include:**
-
-1. ✅ The extension reference content (from the reference file you read)
-2. ✅ The user's original requirements (copy verbatim)
-3. ✅ SDK methods discovered (with imports and types) — **only if discovery was performed**
-4. ✅ Instruction to invoke `wds-docs` skill FIRST when using @wix/design-system (critical for correct imports, especially icons)
-5. ✅ Any constraints or gotchas discovered
-6. ✅ Collection Context with full scoped collection IDs — **only if Data Collection is being created**
-7. ✅ Instruction to return manual action items (see below)
-
-**Implementation sub-agent prompt template:**
-
-```
-Follow this extension reference guide:
-
-[PASTE EXTENSION REFERENCE CONTENT HERE]
-
-Extension Registration Guide:
-[PASTE EXTENSION_REGISTRATION.md CONTENT HERE]
-
-User Requirements:
-[EXACT user request - copy verbatim]
-
-[ONLY IF DISCOVERY WAS PERFORMED:]
-SDK Context:
-[Methods with imports from discovery]
-
-Constraints:
-[Any gotchas or limitations from discovery]
-
-⚠️ MANDATORY when using WDS: Invoke the wds-docs skill FIRST to get correct imports (icons are from @wix/wix-ui-icons-common, NOT @wix/design-system/icons).
-
-⚠️ MANDATORY when using Data Collections: Use EXACT collection ID from `idSuffix` (case-sensitive). Example: If `idSuffix` is "product-recommendations", use "<app-namespace>/product-recommendations" NOT "productRecommendations".
-
-⚠️ MANDATORY: At the END of your response, include a section titled "## Manual Action Items" listing ANY steps the user must perform manually (e.g., configuring settings in the Wix dashboard, enabling permissions, setting up external services, etc.). If there are no manual steps, write "None". This section MUST always be present in your final response.
-
-Implement this extension following the reference guidelines.
-```
-
-**PARALLEL EXECUTION:** When multiple independent extensions are needed, spawn ALL sub-agents in parallel:
-
-| Extension Combination            | Parallel? | Reason                              |
-| -------------------------------- | --------- | ----------------------------------- |
-| Dashboard Page + Site Widget     | ✅ YES    | Independent UI contexts             |
-| Dashboard Page + Dashboard Modal | ✅ YES    | Modal code is independent from page |
-| Dashboard Page + Backend API     | ✅ YES    | Frontend vs backend                 |
-| Site Widget + Embedded Script    | ✅ YES    | Different rendering contexts        |
-| Service Plugin + Event Extension | ✅ YES    | Independent backend handlers        |
-| Data Collection + Dashboard Page | ✅ YES    | Data schema vs UI                   |
-| Data Collection + Backend API    | ✅ YES    | Data schema vs HTTP handlers        |
-| Data Collection + Site Widget    | ✅ YES    | Data schema vs site UI              |
-| Context Provider + Site Component | ✅ YES   | Provider vs consumer                |
-
-**Pre-spawn coordination required (then parallel is fine):**
-
-- When a Data Collection + other extensions reference the same collections: determine the full scoped collection IDs (`<app-namespace>/<idSuffix>`) BEFORE spawning sub-agents, then pass the IDs to all sub-agents and run them in parallel
-
-**Sequential execution required:**
-
-- When one extension imports types/interfaces from another
-- When user explicitly says "first X, then Y"
-
-**Wait for sub-agents to complete before proceeding to Step 5.**
+- ⚠️ MANDATORY when using WDS: Invoke the `wds-docs` skill FIRST to get correct imports (icons are from `@wix/wix-ui-icons-common`, NOT `@wix/design-system/icons`).
+- ⚠️ MANDATORY when using Data Collections: Use EXACT collection ID from `idSuffix` (case-sensitive). Example: If `idSuffix` is "product-recommendations", use `<app-namespace>/product-recommendations` NOT `productRecommendations`.
+- Register all extensions in `src/extensions.ts` (see [Extension Registration](#extension-registration)).
 
 ### Step 5: Run Validation
 
-⚠️ **BLOCKING REQUIREMENT** ⚠️
-
-After ALL implementation sub-agents complete, you MUST run validation. See [APP_VALIDATION.md](references/APP_VALIDATION.md) for the complete validation workflow:
+After all implementation is complete, you MUST run validation. See [APP_VALIDATION.md](references/APP_VALIDATION.md) for the complete validation workflow:
 
 1. Package installation (detect package manager, run install)
 2. TypeScript compilation check (`npx tsc --noEmit`)
@@ -390,12 +258,7 @@ After ALL implementation sub-agents complete, you MUST run validation. See [APP_
 
 **Do NOT report completion to the user until validation passes.**
 
-If validation fails:
-
-1. Review the errors
-2. Spawn a new implementation sub-agent to fix the issues
-3. Run validation again
-4. Repeat until validation passes
+If validation fails, fix the errors and re-validate until it passes.
 
 ### Step 6: Report Completion
 
@@ -419,22 +282,11 @@ Only after validation passes, provide a **concise summary section** at the top o
 **⚠️ IMPORTANT: [X] manual step(s) required to complete setup** (see "Manual Steps Required" section below)
 ```
 
-**Critical rules:**
-- The summary MUST explicitly state how many manual steps are required
-- The summary MUST reference where to find the manual steps
 - If there are NO manual steps, state: "✅ No manual steps required — you're ready to go!"
-- Keep the summary concise (under 200 words)
 
 ### Step 7: Surface Manual Action Items
 
-⚠️ **BLOCKING REQUIREMENT** ⚠️
-
-After ALL sub-agents complete, you MUST:
-
-1. **Review every sub-agent's output** for any "Manual Action Items" section
-2. **Aggregate ALL manual action items** into a single, deduplicated list
-3. **Reference them in the summary section** (Step 6) by stating how many manual steps exist
-4. **Present them prominently** at the very end of your final message
+Present any manual steps the user must perform (e.g., configuring settings in the Wix dashboard, enabling permissions, setting up external services).
 
 **Format:**
 
@@ -487,15 +339,12 @@ Stop and report errors if any step fails. Check `.wix/debug.log` on failures.
 
 ## Cost Optimization
 
-- **Read extension reference first** — always read the relevant extension reference file before spawning sub-agents
-- **Check API references first** — read relevant API reference files before spawning discovery
+- **Read extension reference first** — always read the relevant extension reference file before implementing
+- **Check API references first** — read relevant API reference files before using MCP discovery
 - **Skip discovery** when all required APIs are in reference files
 - **maxResults: 5** for all MCP SDK searches
 - **ReadFullDocsArticle** only when search results need more context
-- **Implementation prompts:** include only relevant SDK context from discovery (if performed)
-- **Parallelize** independent sub-agents when possible
 - **Invoke wds-docs** first when using WDS (prevents import errors)
-- **Targets:** discovery output 500-1000 tokens; implementation prompt minimal; each search under 2000-3000 tokens
 
 ## Documentation
 
