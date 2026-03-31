@@ -675,31 +675,14 @@ export default PerfectExample;
 ## types.ts
 
 ```typescript
-export type Text = string;
+import type {
+  Wix, Link, Image, Text, NumberType, BooleanValue, WebUrl, Direction,
+} from '@wix/public-schemas';
+
+export type { Wix, Link, Image, Text, NumberType, BooleanValue, WebUrl, Direction };
+
+// RichText from @wix/public-schemas is { text, html, linkList } — site components receive HTML string
 export type RichText = string;
-export type NumberType = number;
-export type BooleanValue = boolean;
-export type WebUrl = string;
-export type Direction = 'rtl' | 'ltr' | 'auto';
-
-export type Link = {
-  href: string;
-  target?: string;
-  rel?: string;
-};
-
-export type Image = {
-  uri: string;
-  url: string;
-  name?: string;
-  alt?: string;
-  width?: number;
-  height?: number;
-};
-
-export interface Wix {
-  elementsRemovalState?: Record<string, 'REMOVED'>;
-}
 
 export interface BadgeProps {
   badgeText?: Text;

@@ -73,6 +73,9 @@ interface BadProps {
 ### Data Type Mappings
 
 ```typescript
+// Import system types from @wix/public-schemas — do NOT define locally
+import type { Wix, Link, Image } from '@wix/public-schemas';
+
 // Runtime value types for manifest data types
 interface DataTypeMapping {
   text: string;
@@ -89,28 +92,6 @@ interface DataTypeMapping {
   vectorArt: VectorArt;
   arrayItems: Array<unknown> | Array<Record<string, unknown>>;
   menuItems: Array<MenuItem>;
-}
-
-// Wix system types
-interface Link {
-  href: string;
-  target?: string;
-  rel?: string;
-}
-
-interface Image {
-  uri: string;
-  url: string;
-  name?: string;
-  alt?: string;
-  width?: number;
-  height?: number;
-}
-
-type REMOVED = 'REMOVED';
-
-interface Wix {
-  elementsRemovalState?: Record<string, REMOVED>;
 }
 ```
 

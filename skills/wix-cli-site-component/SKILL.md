@@ -49,10 +49,11 @@ Modern CSS with responsive design:
 
 Strict type definitions:
 
+- Install `@wix/public-schemas` as a devDependency: `npm install --save-dev @wix/public-schemas`
+- Import types: `import type { Wix, Link, Image, Text, NumberType, BooleanValue, WebUrl, Direction } from '@wix/public-schemas'` — do NOT define these locally
+- Exception: `RichText` — define locally as `type RichText = string` (the `@wix/public-schemas` version is `{ text, html, linkList }`, not a plain string)
 - Props interfaces for all components
-- Data type mappings (text → string, image → Image object)
 - Element props structure with optional chaining
-- Wix system types (Wix interface, REMOVED type)
 
 ## Component Manifest Structure
 
@@ -168,6 +169,8 @@ Common CSS properties for styling customization:
 ### Props Structure
 
 ```typescript
+import type { Wix, Link, Image } from '@wix/public-schemas'; // also: Text, NumberType, BooleanValue, WebUrl, Direction
+
 interface ComponentProps {
   // Standard props (always present)
   className: string;

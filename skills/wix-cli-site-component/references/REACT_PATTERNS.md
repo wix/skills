@@ -660,28 +660,13 @@ const Dashboard: FC<DashboardProps> = ({ showChart }) => (
 
 ### Wix System Types
 
+Import from `@wix/public-schemas` — do NOT define these locally:
+
 ```typescript
-type REMOVED = 'REMOVED';
-
-interface Wix {
-  elementsRemovalState?: Record<string, REMOVED>;
-}
-
-interface Link {
-  href: string;
-  target?: string;
-  rel?: string;
-}
-
-interface Image {
-  uri: string;
-  url: string;
-  name?: string;
-  alt?: string;
-  width?: number;
-  height?: number;
-}
+import type { Wix, Link, Image, Text, NumberType, BooleanValue, WebUrl, Direction } from '@wix/public-schemas';
 ```
+
+Exception: `RichText` — define locally as `type RichText = string` (the package version is `{ text, html, linkList }`, not a plain string).
 
 ### Manifest Data Type → TypeScript Mapping
 
