@@ -1,9 +1,3 @@
----
-name: wix-cli-backend-api
-description: Creates HTTP endpoints for Wix CLI apps. Use only when the user specifically asks for a backend endpoint. Use when building REST API endpoints, backend HTTP handlers, or server-side logic. Triggers include backend API, HTTP endpoint, HTTP methods, form handling, file uploads.
-compatibility: Requires Wix CLI development environment.
----
-
 # Wix Backend API Builder
 
 Creates HTTP endpoints for Wix CLI applications — server-side routes that handle HTTP requests, process data, and return responses. HTTP endpoints are powered by Astro endpoints and are automatically discovered from the file system.

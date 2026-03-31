@@ -1,9 +1,3 @@
----
-name: wix-cli-embedded-script
-description: Use when adding tracking code, advertising pixels, third-party integrations, popups, banners, or client-side JavaScript to sites. Triggers include embed, inject, script, third-party integration, DOM injection, Google Analytics, Facebook Pixel, tracking pixel, chat widget, popup, coupon popup, custom JavaScript, site script.
-compatibility: Requires Wix CLI development environment.
----
-
 # Wix Embedded Script Builder
 
 Creates embedded script extensions for Wix CLI applications. Embedded scripts are HTML code fragments that get injected into the DOM of Wix sites, enabling integration with third-party services, analytics tracking, advertising, and custom JavaScript functionality.
@@ -70,7 +64,7 @@ Embedded Script (HTML)
 Site DOM
 ```
 
-**Related skill:** Use `wix-cli-dashboard-page` to create the configuration UI for your embedded script.
+**Related reference:** See [DASHBOARD_PAGE.md](DASHBOARD_PAGE.md) to create the configuration UI for your embedded script.
 
 ### Parameter Types
 
@@ -254,7 +248,7 @@ src/extensions/dashboard/
 
 Do NOT apply embedded script field names to dashboard page registrations.
 
-**See `wix-cli-dashboard-page` skill** for dashboard page implementation details and the extension registration pattern.
+**See [DASHBOARD_PAGE.md](DASHBOARD_PAGE.md)** for dashboard page implementation details and the extension registration pattern.
 
 ## Implementation Pattern
 
@@ -403,7 +397,7 @@ Parameters for "cart-coupon-popup":
 </script>
 ```
 
-### 3. Dashboard Page (See `wix-cli-dashboard-page` skill)
+### 3. Dashboard Page (See [DASHBOARD_PAGE.md](DASHBOARD_PAGE.md))
 
 Uses `embeddedScripts` API from `@wix/app-management`:
 
@@ -458,7 +452,7 @@ The `id` must be a unique, static UUID v4 string. Generate a fresh UUID for each
 
 ### Step 2: Register in Main Extensions File
 
-**CRITICAL:** After creating the script-specific extension file, you MUST read [wix-cli-extension-registration](../wix-cli-extension-registration/SKILL.md) and follow the "App Registration" section to update `src/extensions.ts`.
+**CRITICAL:** After creating the script-specific extension file, you MUST read [EXTENSION_REGISTRATION.md](EXTENSION_REGISTRATION.md) and follow the "App Registration" section to update `src/extensions.ts`.
 
 **Without completing Step 2, the embedded script will not be deployed to the site.**
 

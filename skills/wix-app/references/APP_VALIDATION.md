@@ -1,9 +1,3 @@
----
-name: wix-cli-app-validation
-description: Use when testing app readiness, verifying runtime behavior, or validating before releases and after changes in the code. Triggers include validate, test, verify, check readiness, preview validation, build verification, TypeScript compilation.
-compatibility: Requires Wix CLI development environment.
----
-
 # Wix App Validation
 
 Validates Wix CLI applications through a four-step sequential workflow: package installation, TypeScript compilation check, build, and preview.
