@@ -655,3 +655,40 @@ const Dashboard: FC<DashboardProps> = ({ showChart }) => (
   </div>
 );
 ```
+
+## TypeScript Type Reference
+
+### Wix System Types
+
+Import from `@wix/public-schemas` — do NOT define these locally:
+
+```typescript
+import type { Wix, Link, Image, Text, NumberType, BooleanValue, WebUrl, Direction } from '@wix/public-schemas';
+```
+
+Exception: `RichText` — define locally as `type RichText = string` (the package version is `{ text, html, linkList }`, not a plain string).
+
+### Manifest Data Type → TypeScript Mapping
+
+| Manifest `dataType` | TypeScript type | Notes |
+|--------------------|-----------------|-------|
+| `text` | `string` | |
+| `textEnum` | `string` | Constrained to enum values |
+| `number` | `number` | |
+| `booleanValue` | `boolean` | |
+| `localDate` | `string` | Format: `YYYY-MM-DD` |
+| `localTime` | `string` | Format: `HH:mm` |
+| `webUrl` | `string` | External URL |
+| `richText` | `string` | HTML string |
+| `link` | `Link` | `{ href, target?, rel? }` |
+| `image` | `Image` | `{ uri, url, alt?, width?, height? }` |
+| `arrayItems` | `Array<Record<string, unknown>>` | |
+
+### TypeScript Checklist
+
+- All props interfaces use `?` for data properties
+- Component functions have explicit return types (`React.JSX.Element`)
+- `useState` calls have explicit type parameters
+- `useEffect` dependencies include ALL values from component scope used inside
+- Use optional chaining (`?.`) for nested property access — never assume values exist
+- No `any` types, no `@ts-ignore`, no `@ts-expect-error`

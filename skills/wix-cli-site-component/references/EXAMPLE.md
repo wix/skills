@@ -500,10 +500,12 @@ export default PerfectExample;
 
 ```css
 .perfect-example {
+  --display: flex;
   box-sizing: border-box;
   width: 100%;
+  height: 100%;
   min-height: 400px;
-  display: flex;
+  display: var(--display);
   flex-direction: column;
   align-items: center;
   justify-content: center;
@@ -511,6 +513,7 @@ export default PerfectExample;
   padding: 40px;
   background-color: #ff6b6b;
   text-align: center;
+  pointer-events: auto;
 }
 
 .perfect-example *,
@@ -672,31 +675,14 @@ export default PerfectExample;
 ## types.ts
 
 ```typescript
-export type Text = string;
+import type {
+  Wix, Link, Image, Text, NumberType, BooleanValue, WebUrl, Direction,
+} from '@wix/public-schemas';
+
+export type { Wix, Link, Image, Text, NumberType, BooleanValue, WebUrl, Direction };
+
+// RichText from @wix/public-schemas is { text, html, linkList } — site components receive HTML string
 export type RichText = string;
-export type NumberType = number;
-export type BooleanValue = boolean;
-export type WebUrl = string;
-export type Direction = 'rtl' | 'ltr' | 'auto';
-
-export type Link = {
-  href: string;
-  target?: string;
-  rel?: string;
-};
-
-export type Image = {
-  uri: string;
-  url: string;
-  name?: string;
-  alt?: string;
-  width?: number;
-  height?: number;
-};
-
-export interface Wix {
-  elementsRemovalState?: Record<string, 'REMOVED'>;
-}
 
 export interface BadgeProps {
   badgeText?: Text;
