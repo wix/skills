@@ -11,6 +11,11 @@
       "name": "wix",
       "source": "./",
       "description": "Build, manage, and deploy Wix sites and apps. Includes CLI development skills and Wix MCP server for site management, eCommerce, CMS, dashboard extensions, and more."
+    },
+    {
+      "name": "wix-headless",
+      "source": "./skills/headless",
+      "description": "Build and deploy Wix Managed Headless projects with CLI management, SDK integration, and Astro framework development skills."
     }
   ]
 }
