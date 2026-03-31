@@ -10,6 +10,6 @@
   "repository": "https://github.com/wix/skills",
   "license": "MIT",
   "keywords": ["wix", "wix-cli", "wix-mcp", "ecommerce", "cms", "wix-apps"],
-  "skills": ["./skills/apps/", "./skills/headless/skills/"],
+  "skills": ["./skills/apps/", "./skills/headless/"],
   "mcpServers": "./.mcp.json"
 }
