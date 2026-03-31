@@ -1,0 +1,23 @@
+{
+  "name": "wix-headless",
+  "version": "1.0.0-beta.1",
+  "description": "Build and deploy Wix Managed Headless projects with CLI management, SDK integration, and Astro framework development skills",
+  "author": {
+    "name": "Wix",
+    "url": "https://www.wix.com"
+  },
+  "homepage": "https://dev.wix.com/docs/go-headless",
+  "license": "MIT",
+  "keywords": ["wix", "headless", "astro", "sdk", "cli", "deployment", "managed-headless"],
+  "mcpServers": "./.mcp.json",
+  "skills": [
+    "./skills/wix-headless-solution-architect/",
+    "./skills/wix-headless-designer/",
+    "./skills/wix-headless-features-orchestrator/",
+    "./skills/wix-headless-cli/",
+    "./skills/wix-headless-stores/",
+    "./skills/wix-headless-forms/",
+    "./skills/wix-headless-blog/",
+    "./skills/wix-headless-cms/"
+  ]
+}

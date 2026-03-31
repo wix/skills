@@ -9,7 +9,7 @@
   "plugins": [
     {
       "name": "wix-cli",
-      "source": "./wix-cli",
+      "source": "./apps",
       "description": "Agent skills for building Wix CLI applications.",
       "version": "1.0.0",
       "author": {
@@ -27,6 +27,28 @@
         "backend-api",
         "embedded-scripts",
         "service-plugins"
+      ],
+      "category": "development"
+    },
+    {
+      "name": "wix-headless",
+      "source": "./headless",
+      "description": "Build and deploy Wix Managed Headless projects with CLI management, SDK integration, and Astro framework development skills.",
+      "version": "1.0.0-beta.1",
+      "author": {
+        "name": "Wix"
+      },
+      "homepage": "https://dev.wix.com/docs/go-headless",
+      "repository": "https://github.com/wix/skills",
+      "license": "MIT",
+      "keywords": [
+        "wix",
+        "headless",
+        "astro",
+        "sdk",
+        "cli",
+        "deployment",
+        "managed-headless"
       ],
       "category": "development"
     }
