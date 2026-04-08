@@ -217,17 +217,7 @@ See [REACT_PATTERNS.md](references/REACT_PATTERNS.md) for full sub-component arc
 
 ### Conditional Rendering
 
-All elements must be conditionally rendered based on removal state:
-
-```typescript
-const removalState = wix?.elementsRemovalState || {};
-
-return (
-  <div className={`component ${className}`} id={id}>
-    {!removalState['elementKey'] && <Element />}
-  </div>
-);
-```
+Conditionally render ALL elements per `wix.elementsRemovalState`: `{!removalState['elementKey'] && <Element />}` where `removalState = wix?.elementsRemovalState || {}`.
 
 ## CSS Guidelines
 
@@ -452,6 +442,7 @@ The `id` must be a unique, static UUID v4 string. Generate a fresh UUID for each
 
 ### React Best Practices
 
+- React 16 compatible — no React 18+ features (`useId`, `useDeferredValue`, `useTransition`, etc.)
 - Functional components with hooks
 - Proper dependency arrays in useEffect
 - Component must react to prop changes
@@ -474,7 +465,7 @@ The `id` must be a unique, static UUID v4 string. Generate a fresh UUID for each
 | CSS selector doesn't match manifest | Editor can't apply styles to the element | Ensure manifest `selector`, React `className`, and CSS selector are identical |
 | Putting content text in `editorElement.data` | Content belongs to specific elements, not root | Move text/image/link data into `elements[key].data` |
 | Using `display: flex` directly on root | Breaks editor override mechanism | Use `--display: flex` CSS variable, then `display: var(--display)` |
-| Missing `removable: true` on optional elements | Site owner can't hide the element | Add `behaviors: { removable: true }` to optional elements |
+| Missing `removable: true` on elements | Site owner can't hide the element | Add `behaviors: { selectable: true, removable: true }` to all elements |
 | Using `window`/`document` at module scope | SSR fails during build | Guard browser APIs inside `useEffect` or event handlers |
 | Importing from `@wix/design-system` | Not available in site components | Use plain HTML/CSS or custom components only |
 | `import { FC } from 'react'` | `verbatimModuleSyntax` in Astro tsconfig requires type-only imports | Use `import { type FC }` or `import type { FC }` from React |
