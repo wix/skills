@@ -146,12 +146,6 @@ Components live in user-resizable containers (300-1200px) within varying viewpor
   gap: clamp(2rem, 4vw, 4rem);
   align-items: center;
 }
-
-@container (max-width: 600px) {
-  .feature-section {
-    grid-template-columns: 1fr;
-  }
-}
 ```
 
 **Multi-Column Grid**
@@ -215,92 +209,6 @@ Components live in user-resizable containers (300-1200px) within varying viewpor
 }
 ```
 
-### Spacing Scale
-
-```css
-:root {
-  /* Spacing tokens */
-  --space-xs: 0.25rem;  /* 4px - tight clustering */
-  --space-sm: 0.5rem;   /* 8px - related items */
-  --space-md: 1rem;     /* 16px - same category */
-  --space-lg: 1.5rem;   /* 24px - form fields */
-  --space-xl: 2rem;     /* 32px - sections */
-  --space-2xl: 3rem;    /* 48px - major blocks */
-  --space-3xl: 4rem;    /* 64px - emphasis */
-}
-
-.component {
-  padding: var(--space-xl);
-  gap: var(--space-lg);
-}
-
-.component__section {
-  margin-bottom: var(--space-2xl);
-}
-
-.component__title {
-  margin-bottom: var(--space-md);
-}
-```
-
-## Color and Theming
-
-### CSS Custom Properties
-
-```css
-.component {
-  /* Color tokens */
-  --color-primary: #007bff;
-  --color-secondary: #6c757d;
-  --color-success: #28a745;
-  --color-danger: #dc3545;
-  --color-warning: #ffc107;
-
-  /* Background tokens */
-  --bg-primary: #ffffff;
-  --bg-secondary: #f8f9fa;
-  --bg-accent: #e9ecef;
-
-  /* Text tokens */
-  --text-primary: #212529;
-  --text-secondary: #6c757d;
-  --text-muted: #adb5bd;
-
-  /* Apply colors */
-  background-color: var(--bg-primary);
-  color: var(--text-primary);
-}
-```
-
-### Color Usage Patterns
-
-```css
-/* ✅ Semantic color usage */
-.component__header {
-  background-color: var(--bg-secondary);
-  border-bottom: 1px solid var(--bg-accent);
-}
-
-.component__button {
-  background-color: var(--color-primary);
-  color: white;
-  border: none;
-}
-
-.component__button:hover {
-  background-color: color-mix(in srgb, var(--color-primary) 90%, black);
-}
-
-.component__text {
-  color: var(--text-primary);
-}
-
-.component__caption {
-  color: var(--text-secondary);
-  font-size: 0.875rem;
-}
-```
-
 ## Layout Systems
 
 ### Flexbox Patterns
@@ -310,14 +218,14 @@ Components live in user-resizable containers (300-1200px) within varying viewpor
 .component__row {
   display: flex;
   align-items: center;
-  gap: var(--space-md);
+  gap: 1rem;
 }
 
 /* Vertical layout with stretch */
 .component__column {
   display: flex;
   flex-direction: column;
-  gap: var(--space-lg);
+  gap: 1.5rem;
   height: 100%;
 }
 
@@ -344,83 +252,14 @@ Components live in user-resizable containers (300-1200px) within varying viewpor
 .component__grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: var(--space-xl);
+  gap: 2rem;
 }
 
-/* Fixed columns with responsive */
+/* Fixed columns */
 .component__layout {
   display: grid;
   grid-template-columns: 1fr 2fr;
-  gap: var(--space-2xl);
-}
-
-@container (max-width: 768px) {
-  .component__layout {
-    grid-template-columns: 1fr;
-  }
-}
-
-/* Named grid areas */
-.component__page {
-  display: grid;
-  grid-template-areas:
-    "header header"
-    "sidebar content"
-    "footer footer";
-  grid-template-columns: 250px 1fr;
-  gap: var(--space-lg);
-}
-
-.component__header { grid-area: header; }
-.component__sidebar { grid-area: sidebar; }
-.component__content { grid-area: content; }
-.component__footer { grid-area: footer; }
-```
-
-## Visual Effects
-
-### Shadows and Depth
-
-```css
-/* Shadow scale */
-.component {
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07);
-  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
-  --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.15);
-}
-
-.component__card {
-  box-shadow: var(--shadow-md);
-  transition: box-shadow 0.2s ease;
-}
-
-.component__card:hover {
-  box-shadow: var(--shadow-lg);
-}
-```
-
-### Border Radius
-
-```css
-.component {
-  --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
-  --radius-full: 9999px;
-}
-
-.component__card {
-  border-radius: var(--radius-lg);
-}
-
-.component__button {
-  border-radius: var(--radius-md);
-}
-
-.component__avatar {
-  border-radius: var(--radius-full);
+  gap: 2rem;
 }
 ```
 
@@ -429,31 +268,22 @@ Components live in user-resizable containers (300-1200px) within varying viewpor
 ### Standard Transitions
 
 ```css
-.component {
-  --duration-fast: 150ms;
-  --duration-normal: 250ms;
-  --duration-slow: 400ms;
-
-  --ease-out: cubic-bezier(0.0, 0.0, 0.2, 1);
-  --ease-in: cubic-bezier(0.4, 0.0, 1, 1);
-  --ease-in-out: cubic-bezier(0.4, 0.0, 0.2, 1);
-}
-
-/* Hover transitions */
+/* Hover transitions — be specific, never transition: all */
 .component__button {
-  transition: all var(--duration-fast) var(--ease-out);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  transition: transform 150ms ease-out,
+              box-shadow 150ms ease-out;
 }
 
 .component__button:hover {
   transform: translateY(-1px);
-  box-shadow: var(--shadow-lg);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
-/* Focus states */
+/* Focus states — custom accessible focus, never default browser outline */
 .component__input:focus {
-  outline: 2px solid var(--color-primary);
+  outline: 2px solid currentColor;
   outline-offset: 2px;
-  transition: outline var(--duration-fast) var(--ease-out);
 }
 ```
 
@@ -472,7 +302,7 @@ Components live in user-resizable containers (300-1200px) within varying viewpor
 }
 
 .component__content {
-  animation: contentAppear var(--duration-normal) var(--ease-out);
+  animation: contentAppear 250ms ease-out;
 }
 
 /* Respect reduced motion */
@@ -484,29 +314,6 @@ Components live in user-resizable containers (300-1200px) within varying viewpor
   .component__button {
     transition: none;
   }
-}
-```
-
-### Loading States
-
-```css
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
-}
-
-.component__skeleton {
-  background-color: var(--bg-accent);
-  border-radius: var(--radius-md);
-  animation: pulse 2s infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-.component__spinner {
-  animation: spin 1s linear infinite;
 }
 ```
 
@@ -538,8 +345,8 @@ Components live in user-resizable containers (300-1200px) within varying viewpor
 .component__slide {
   transform: translateX(0);
   opacity: 1;
-  transition: transform var(--duration-normal) var(--ease-out),
-              opacity var(--duration-normal) var(--ease-out);
+  transition: transform 250ms ease-out,
+              opacity 250ms ease-out;
 }
 
 .component__slide--hidden {
@@ -578,6 +385,4 @@ Components live in user-resizable containers (300-1200px) within varying viewpor
 - [ ] Responsive design uses modern CSS (no media queries except prefers-reduced-motion)
 - [ ] Animations only use transform and opacity
 - [ ] Transitions have appropriate durations and easing
-- [ ] Color tokens defined and used consistently
-- [ ] Spacing scale applied consistently
 - [ ] No external dependencies or imports
