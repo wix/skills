@@ -445,6 +445,7 @@ The `id` must be a unique, static UUID v4 string. Generate a fresh UUID for each
 ### TypeScript Standards
 
 - Strict TypeScript with no `any` types
+- ALL data props must be optional (use `?`)
 - Explicit return types for all functions
 - Proper null/undefined handling with optional chaining
 - No `@ts-ignore` or `@ts-expect-error` comments
