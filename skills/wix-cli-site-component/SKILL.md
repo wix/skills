@@ -341,7 +341,7 @@ src/extensions/site/components/
 
 ## Examples
 
-**Complete working example:** See [EXAMPLE.md](references/EXAMPLE.md) for a full reference implementation with 8 elements and all patterns. **Read this when building a complex multi-element component, when you want to verify you have all patterns right, or when you need a cross-reference. For components with ≤5 elements, the patterns documented in this file are sufficient — EXAMPLE.md is not required reading.**
+**Complete working example:** See [EXAMPLE.md](references/EXAMPLE.md) for a product card with nested elements, all data types, and three component types (Leaf, Container, Root). **Read this when building a complex multi-element component, when you want to verify you have all patterns right, or when you need a cross-reference. For components with ≤5 elements, the patterns documented in this file are sufficient — EXAMPLE.md is not required reading.**
 
 ### Product Card Component
 
@@ -430,7 +430,7 @@ The `id` must be a unique, static UUID v4 string. Generate a fresh UUID for each
 
 ## Code Quality Requirements
 
-**Complete reference:** See [TYPESCRIPT_QUALITY.md](references/TYPESCRIPT_QUALITY.md) for comprehensive type safety guidelines and code quality standards.
+**Complete reference:** See [TYPESCRIPT_QUALITY.md](references/TYPESCRIPT_QUALITY.md) for strict TypeScript configuration and code quality standards.
 
 ### TypeScript Standards
 
@@ -488,6 +488,6 @@ The `id` must be a unique, static UUID v4 string. Generate a fresh UUID for each
 | [MANIFEST_ADVANCED.md](references/MANIFEST_ADVANCED.md) | When using arrayItems, link constraints, richText abilities, or non-default installation sizing |
 | [REACT_PATTERNS.md](references/REACT_PATTERNS.md) | When using hooks (`useEffect`, `useCallback`), complex state, or arrays |
 | [EXAMPLE.md](references/EXAMPLE.md) | When building complex (5+ element) components, or to cross-check all patterns |
-| [CSS_GUIDELINES.md](references/CSS_GUIDELINES.md) | When you need advanced CSS patterns, animations, or container queries |
+| [CSS_GUIDELINES.md](references/CSS_GUIDELINES.md) | When you need advanced CSS patterns or animations |
 | [DESIGN_SYSTEM.md](references/DESIGN_SYSTEM.md) | When building visually rich/branded components |
-| [TYPESCRIPT_QUALITY.md](references/TYPESCRIPT_QUALITY.md) | When you need advanced type safety patterns (generics, type guards, runtime validation) |
+| [TYPESCRIPT_QUALITY.md](references/TYPESCRIPT_QUALITY.md) | When you need strict TypeScript configuration and props interface patterns |
