@@ -492,7 +492,8 @@ The `id` must be a unique, static UUID v4 string. Generate a fresh UUID for each
 
 | File | When to read |
 |------|-------------|
-| [MANIFEST_GUIDELINES.md](references/MANIFEST_GUIDELINES.md) | **Always** — complete manifest structure, all data types, element patterns |
+| [MANIFEST_GUIDELINES.md](references/MANIFEST_GUIDELINES.md) | **Always** — manifest structure, element rules, CSS properties, sync |
+| [MANIFEST_ADVANCED.md](references/MANIFEST_ADVANCED.md) | When using arrayItems, link constraints, richText abilities, or non-default installation sizing |
 | [REACT_PATTERNS.md](references/REACT_PATTERNS.md) | When using hooks (`useEffect`, `useCallback`), complex state, or arrays |
 | [EXAMPLE.md](references/EXAMPLE.md) | When building complex (5+ element) components, or to cross-check all patterns |
 | [CSS_GUIDELINES.md](references/CSS_GUIDELINES.md) | When you need advanced CSS patterns, animations, or container queries |
