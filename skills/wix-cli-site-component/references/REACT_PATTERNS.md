@@ -623,36 +623,4 @@ import { defaultImage } from './assets/defaultImages';
 <img src="https://static.wixstatic.com/media/example.jpg" alt="Example" />
 ```
 
-## Performance Considerations
-
-### Avoid Re-renders
-
-```typescript
-// ✅ Memoize expensive calculations
-const expensiveValue = useMemo(() => {
-  return items.reduce((acc, item) => acc + item.value, 0);
-}, [items]);
-
-// ✅ Memoize components when needed
-const MemoizedItem = React.memo<ItemProps>(({ item }) => (
-  <div className="item">{item.title}</div>
-));
-```
-
-### Lazy Loading
-
-```typescript
-// ✅ Lazy load heavy components
-const HeavyChart = lazy(() => import('./HeavyChart'));
-
-const Dashboard: FC<DashboardProps> = ({ showChart }) => (
-  <div>
-    {showChart && (
-      <Suspense fallback={<div>Loading chart...</div>}>
-        <HeavyChart />
-      </Suspense>
-    )}
-  </div>
-);
-```
 
