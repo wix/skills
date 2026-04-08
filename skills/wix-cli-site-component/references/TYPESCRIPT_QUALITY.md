@@ -83,7 +83,7 @@ interface DataTypeMapping {
   number: number;
   booleanValue: boolean;
   localDate: string; // YYYY-MM-DD format
-  localTime: string; // hh:mm format
+  localTime: string; // hh:mm[:ss][.sss] format
   webUrl: string;
   richText: string; // HTML string
   link: Link;

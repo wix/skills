@@ -677,11 +677,11 @@ Exception: `RichText` — define locally as `type RichText = string` (the packag
 | `number` | `number` | |
 | `booleanValue` | `boolean` | |
 | `localDate` | `string` | Format: `YYYY-MM-DD` |
-| `localTime` | `string` | Format: `HH:mm` |
+| `localTime` | `string` | Format: `hh:mm[:ss][.sss]` |
 | `webUrl` | `string` | External URL |
 | `richText` | `string` | HTML string |
-| `link` | `Link` | `{ href, target?, rel? }` |
-| `image` | `Image` | `{ uri, url, alt?, width?, height? }` |
+| `link` | `Link` | `{ href?, target?, rel? }` |
+| `image` | `Image` | `{ uri, url, name?, height?, width? }` |
 | `arrayItems` | `Array<Record<string, unknown>>` | |
 
 ### TypeScript Checklist

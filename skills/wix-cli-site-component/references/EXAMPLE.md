@@ -895,7 +895,7 @@ export const FeaturedImage: React.FC<FeaturedImageComponentProps> = ({ className
       <img
         className={className}
         src={image.url}
-        alt={imageAlt || image.alt || 'Featured image'}
+        alt={imageAlt || image.name || 'Featured image'}
         loading="lazy"
       />
     ) : (

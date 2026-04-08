@@ -136,19 +136,17 @@ The manifest defines the editor contract using these key sections:
 | `number` | number | Quantities, dimensions |
 | `booleanValue` | boolean | Toggles, flags |
 | `a11y` | Object | Accessibility attributes |
-| `link` | `{ href, target, rel }` | Navigation links |
-| `image` | `{ uri, url, alt, width, height }` | Images |
+| `link` | `{ href?, target?, rel? }` | Navigation links |
+| `image` | `{ uri, url, name?, height?, width? }` | Images |
 | `video` | Video object | Media content |
 | `vectorArt` | Sanitized SVG object | Icons, graphics |
 | `localDate` | string (YYYY-MM-DD) | Date values |
-| `localTime` | string (hh:mm) | Time values |
+| `localTime` | string (hh:mm[:ss][.sss]) | Time values |
 | `webUrl` | string | External URLs |
 | `richText` | string (HTML) | Formatted content |
 | `arrayItems` | Array | Collections, lists |
 | `direction` | string | HTML dir attribute |
 | `menuItems` | Array of menu items | Navigation menus |
-
-**Tip — countdown/timer components:** Declare both `localDate` and `localTime` at the root level (`editorElement.data`). In the component, combine them to form a target timestamp: `new Date(\`\${targetDate}T\${targetTime ?? '00:00'}:00\`)`.
 
 ### CSS Properties Reference
 
