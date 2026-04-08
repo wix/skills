@@ -70,31 +70,6 @@ interface BadProps {
 }
 ```
 
-### Data Type Mappings
-
-```typescript
-// Import system types from @wix/editor-react-types — do NOT define locally
-import type { Wix, Link, Image } from '@wix/editor-react-types';
-
-// Runtime value types for manifest data types
-interface DataTypeMapping {
-  text: string;
-  textEnum: string;
-  number: number;
-  booleanValue: boolean;
-  localDate: string; // YYYY-MM-DD format
-  localTime: string; // hh:mm[:ss][.sss] format
-  webUrl: string;
-  richText: string; // HTML string
-  link: Link;
-  image: Image;
-  video: Video;
-  vectorArt: VectorArt;
-  arrayItems: Array<unknown> | Array<Record<string, unknown>>;
-  menuItems: Array<MenuItem>;
-}
-```
-
 ### Sub-Component Props
 
 ```typescript
