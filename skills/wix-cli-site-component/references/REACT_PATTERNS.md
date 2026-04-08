@@ -660,10 +660,10 @@ const Dashboard: FC<DashboardProps> = ({ showChart }) => (
 
 ### Wix System Types
 
-Import from `@wix/public-schemas` — do NOT define these locally:
+Import from `@wix/editor-react-types` — do NOT define these locally:
 
 ```typescript
-import type { Wix, Link, Image, Text, NumberType, BooleanValue, WebUrl, Direction } from '@wix/public-schemas';
+import type { Wix, Link, Image, Text, NumberType, BooleanValue, WebUrl, Direction } from '@wix/editor-react-types';
 ```
 
 Exception: `RichText` — define locally as `type RichText = string` (the package version is `{ text, html, linkList }`, not a plain string).

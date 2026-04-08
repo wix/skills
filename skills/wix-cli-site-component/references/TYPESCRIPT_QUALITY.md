@@ -73,8 +73,8 @@ interface BadProps {
 ### Data Type Mappings
 
 ```typescript
-// Import system types from @wix/public-schemas — do NOT define locally
-import type { Wix, Link, Image } from '@wix/public-schemas';
+// Import system types from @wix/editor-react-types — do NOT define locally
+import type { Wix, Link, Image } from '@wix/editor-react-types';
 
 // Runtime value types for manifest data types
 interface DataTypeMapping {

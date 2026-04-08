@@ -49,9 +49,9 @@ Modern CSS with responsive design:
 
 Strict type definitions:
 
-- Install `@wix/public-schemas` as a devDependency: `npm install --save-dev @wix/public-schemas`
-- Import types: `import type { Wix, Link, Image, Text, NumberType, BooleanValue, WebUrl, Direction } from '@wix/public-schemas'` — do NOT define these locally
-- Exception: `RichText` — define locally as `type RichText = string` (the `@wix/public-schemas` version is `{ text, html, linkList }`, not a plain string)
+- Install `@wix/editor-react-types` as a devDependency: `npm install --save-dev @wix/editor-react-types`
+- Import types: `import type { Wix, Link, Image, Text, NumberType, BooleanValue, WebUrl, Direction } from '@wix/editor-react-types'` — do NOT define these locally
+- Exception: `RichText` — define locally as `type RichText = string` (the `@wix/editor-react-types` version is `{ text, html, linkList }`, not a plain string)
 - Props interfaces for all components
 - Element props structure with optional chaining
 
@@ -169,7 +169,7 @@ Common CSS properties for styling customization:
 ### Props Structure
 
 ```typescript
-import type { Wix, Link, Image } from '@wix/public-schemas'; // also: Text, NumberType, BooleanValue, WebUrl, Direction
+import type { Wix, Link, Image } from '@wix/editor-react-types'; // also: Text, NumberType, BooleanValue, WebUrl, Direction
 
 interface ComponentProps {
   // Standard props (always present)

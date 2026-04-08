@@ -677,11 +677,11 @@ export default PerfectExample;
 ```typescript
 import type {
   Wix, Link, Image, Text, NumberType, BooleanValue, WebUrl, Direction,
-} from '@wix/public-schemas';
+} from '@wix/editor-react-types';
 
 export type { Wix, Link, Image, Text, NumberType, BooleanValue, WebUrl, Direction };
 
-// RichText from @wix/public-schemas is { text, html, linkList } — site components receive HTML string
+// RichText from @wix/editor-react-types is { text, html, linkList } — site components receive HTML string
 export type RichText = string;
 
 export interface BadgeProps {
