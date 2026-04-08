@@ -401,7 +401,7 @@ export const sitecomponentMyComponent = extensions.siteComponent({
   ...manifest,
   id: "{{GENERATE_UUID}}",
   description: "My Component",
-  type: "platform.MyComponent",
+  type: "<CODE_IDENTIFIER>.MyComponent",
   resources: {
     client: {
       component: "./extensions/site/components/my-component/component.tsx",
@@ -413,12 +413,22 @@ export const sitecomponentMyComponent = extensions.siteComponent({
 
 **CRITICAL: Type Naming Convention**
 
-The `type` field uses the format `platform.{PascalCaseFolderName}`:
-- Folder `my-component` → `type: "platform.MyComponent"`
-- Folder `product-card` → `type: "platform.ProductCard"`
-- Folder `hero-section` → `type: "platform.HeroSection"`
+The `type` field uses the format `{CODE_IDENTIFIER}.{PascalCaseFolderName}`:
+- Folder `my-component` → `type: "<CODE_IDENTIFIER>.MyComponent"`
+- Folder `product-card` → `type: "<CODE_IDENTIFIER>.ProductCard"`
+- Folder `hero-section` → `type: "<CODE_IDENTIFIER>.HeroSection"`
 
 The folder name is converted to PascalCase (hyphens removed, each word capitalized).
+
+**CODE_IDENTIFIER Requirement:**
+The Code Identifier is a required value that cannot be guessed. Every Wix app has one automatically.
+
+**If Code Identifier is provided in the prompt:**
+- Use it as the type prefix: `<actual-code-identifier>.ComponentName`
+
+**If Code Identifier is NOT provided:**
+- Use the placeholder `<CODE_IDENTIFIER>` in the type field: `<CODE_IDENTIFIER>.ComponentName`
+- Add to Manual Action Items: "Replace `<CODE_IDENTIFIER>` with your actual Code Identifier from Wix Dev Center"
 
 **CRITICAL: UUID Generation**
 
