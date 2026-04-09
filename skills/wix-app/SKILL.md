@@ -1,12 +1,12 @@
 ---
 name: wix-app
-description: "Build Wix CLI app extensions — dashboard pages, modals, plugins, menu plugins, site widgets, site components, site plugins, embedded scripts, backend APIs, backend events, service plugins, data collections, context providers. Use when building ANY feature or extension for a Wix CLI app. Triggers on: add, build, create, implement, help me, dashboard, widget, plugin, backend, API, event, collection, embedded script, service plugin, site component, checkout, shipping, tax, discount, SPI, CMS, schema, tracking, popup, admin panel, menu item, modal, context provider, validate, test, verify, register extension."
+description: "Build Wix CLI app extensions — dashboard pages, modals, plugins, menu plugins, site widgets, site components, site plugins, embedded scripts, backend APIs, backend events, service plugins, data collections. Use when building ANY feature or extension for a Wix CLI app. Triggers on: add, build, create, implement, help me, dashboard, widget, plugin, backend, API, event, collection, embedded script, service plugin, site component, checkout, shipping, tax, discount, SPI, CMS, schema, tracking, popup, admin panel, menu item, modal, validate, test, verify, register extension."
 compatibility: Requires Wix CLI development environment.
 ---
 
 # Wix App Builder
 
-Helps build extensions for Wix CLI applications. Covers all extension types: dashboard pages, modals, plugins, menu plugins, site widgets, site components, site plugins, embedded scripts, backend APIs, events, service plugins, data collections, and context providers.
+Helps build extensions for Wix CLI applications. Covers all extension types: dashboard pages, modals, plugins, menu plugins, site widgets, site components, site plugins, embedded scripts, backend APIs, events, service plugins, and data collections.
 
 ## ⚠️ MANDATORY WORKFLOW CHECKLIST ⚠️
 
@@ -43,7 +43,6 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
 | Using MCP discovery without checking refs   | Check reference files first                    |
 | Reporting done without validation           | Always run validation at the end               |
 | Letting manual action items get buried      | Aggregate all manual steps at the very end     |
-| Using site widget/plugin to consume context provider extensions | Only site components can consume context provider extensions |
 
 ---
 
@@ -94,11 +93,8 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
 | Site Widget           | Site      | Public      | Standalone widgets                    | [SITE_WIDGET.md](references/SITE_WIDGET.md)             |
 | Site Plugin           | Site      | Public      | Extend Wix business solutions         | [SITE_PLUGIN.md](references/SITE_PLUGIN.md)             |
 | Embedded Script       | Site      | Public      | Inject scripts/analytics              | [EMBEDDED_SCRIPT.md](references/EMBEDDED_SCRIPT.md)     |
-| Context Provider      | Site      | Public      | Shared state for site components      | [CONTEXT_PROVIDER.md](references/CONTEXT_PROVIDER.md)   |
-
 **Key constraints:**
 - Dashboard Page cannot use `<Modal />`; use a separate Dashboard Modal and `dashboard.openModal()`.
-- **Only Site Components can consume context provider extensions** — NOT site widgets or site plugins.
 
 ## Extension Comparison
 
