@@ -205,12 +205,7 @@ Complete production-ready site component demonstrating nested elements, all key 
 import React from 'react';
 import './style.css';
 import { defaultProductImage } from './assets/defaultImages';
-import type {
-  Wix, Text, Link, Image, NumberType, BooleanValue, Direction,
-} from '@wix/editor-react-types';
-
-// RichText from @wix/editor-react-types is { text, html, linkList } — site components receive HTML string
-type RichText = string;
+import type { Wix, Text, Link, Image, NumberType, BooleanValue, Direction } from './types';
 
 type LeafComponent<TProps> = (props: TProps & { className: string }) => React.JSX.Element;
 
