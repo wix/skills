@@ -129,24 +129,28 @@ The manifest defines the editor contract using these key sections:
 
 ### Data Types Reference
 
-| Type | Runtime Value | Use Case |
-|------|---------------|----------|
-| `text` | string | Names, titles, descriptions |
-| `textEnum` | string | Predefined options |
-| `number` | number | Quantities, dimensions |
-| `booleanValue` | boolean | Toggles, flags |
-| `a11y` | Object | Accessibility attributes |
-| `link` | `{ href?, target?, rel? }` | Navigation links |
-| `image` | `{ uri, url, name?, height?, width? }` | Images |
-| `video` | Video object | Media content |
-| `vectorArt` | Sanitized SVG object | Icons, graphics |
-| `localDate` | string (YYYY-MM-DD) | Date values |
-| `localTime` | string (hh:mm[:ss][.sss]) | Time values |
-| `webUrl` | string | External URLs |
-| `richText` | string (HTML) | Formatted content |
-| `arrayItems` | Array | Collections, lists |
-| `direction` | string | HTML dir attribute |
-| `menuItems` | Array of menu items | Navigation menus |
+All runtime types are from `@wix/editor-react-types`.
+
+| Manifest `dataType` | TypeScript type | Use Case |
+|---------------------|----------------|----------|
+| `text` | `Text` | Names, titles, descriptions |
+| `textEnum` | `TextEnum` | Predefined options |
+| `number` | `NumberType` | Quantities, dimensions |
+| `booleanValue` | `BooleanValue` | Toggles, flags |
+| `a11y` | `A11y` | Accessibility attributes |
+| `link` | `Link` | Navigation links |
+| `image` | `Image` | Images |
+| `video` | `Video` | Media content |
+| `audio` | `Audio` | Audio content |
+| `vectorArt` | `VectorArt` | Icons, graphics |
+| `localDate` | `LocalDate` (string, YYYY-MM-DD) | Date values |
+| `localTime` | `LocalTime` (string, hh:mm[:ss][.sss]) | Time values |
+| `localDateTime` | `LocalDateTime` (string, YYYY-MM-DDThh:mm[:ss][.sss]) | Date + time values |
+| `webUrl` | `WebUrl` (string) | External URLs |
+| `richText` | `RichText` (define locally as `string`) | Formatted content |
+| `arrayItems` | `ArrayItems` | Collections, lists |
+| `direction` | `Direction` | HTML dir attribute |
+| `menuItems` | `MenuItems` | Navigation menus |
 
 ### CSS Properties Reference
 

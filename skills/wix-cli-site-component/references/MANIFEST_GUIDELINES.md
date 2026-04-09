@@ -66,39 +66,6 @@ The `installation` property defines how the component is initially placed and si
 - Use `"stretched"` when the component should fill available space
 - Use `"pixels"` for fixed dimensions
 
-## Data Types
-
-### Basic Types
-
-| Type | Runtime Value | Constraints | Use Case |
-|------|---------------|-------------|----------|
-| `text` | string | maxLength, minLength, pattern | Names, titles, descriptions |
-| `textEnum` | string | required options list | Predefined choices |
-| `number` | number | minimum, maximum, multipleOf | Quantities, dimensions |
-| `booleanValue` | boolean | - | Toggles, feature flags |
-| `localDate` | string (YYYY-MM-DD) | - | Birthdays, events |
-| `localTime` | string (hh:mm[:ss][.sss]) | - | Schedules |
-| `webUrl` | string | http/https validation | External links |
-| `direction` | string | - | HTML dir attribute (ltr/rtl) |
-
-### Rich Content Types
-
-| Type | Runtime Value | Configuration | Use Case |
-|------|---------------|---------------|----------|
-| `richText` | string (HTML) | richTextAbilities array | Formatted content |
-| `link` | `{ href?, target?, rel? }` | linkTypes array | Navigation |
-| `image` | `{ uri, url, name?, height?, width? }` | - | Media content |
-| `video` | Video object | - | Media content |
-| `vectorArt` | Sanitized SVG object | - | Icons, graphics |
-| `a11y` | Object | selected A11Y fields | Accessibility attributes |
-
-### Collection Types
-
-| Type | Runtime Value | Configuration | Use Case |
-|------|---------------|---------------|----------|
-| `arrayItems` | Array | data structure, maxSize | Lists, collections |
-| `menuItems` | Array of menu items | - | Navigation menus |
-
 ## CSS Properties
 
 ### Common Properties
