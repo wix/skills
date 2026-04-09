@@ -49,10 +49,11 @@ Modern CSS with responsive design:
 
 Strict type definitions:
 
+- Install `@wix/editor-react-types` as a devDependency: `npm install --save-dev @wix/editor-react-types`
+- Import types: `import type { Wix, Link, Image, Text, NumberType, BooleanValue, WebUrl, Direction } from '@wix/editor-react-types'` — do NOT define these locally
+- Exception: `RichText` — define locally as `type RichText = string` (the `@wix/editor-react-types` version is `{ text, html, linkList }`, not a plain string)
 - Props interfaces for all components
-- Data type mappings (text → string, image → Image object)
 - Element props structure with optional chaining
-- Wix system types (Wix interface, REMOVED type)
 
 ## Component Manifest Structure
 
@@ -128,24 +129,28 @@ The manifest defines the editor contract using these key sections:
 
 ### Data Types Reference
 
-| Type | Runtime Value | Use Case |
-|------|---------------|----------|
-| `text` | string | Names, titles, descriptions |
-| `textEnum` | string | Predefined options |
-| `number` | number | Quantities, dimensions |
-| `booleanValue` | boolean | Toggles, flags |
-| `a11y` | Object | Accessibility attributes |
-| `link` | `{ href, target, rel }` | Navigation links |
-| `image` | `{ uri, url, alt, width, height }` | Images |
-| `video` | Video object | Media content |
-| `vectorArt` | Sanitized SVG object | Icons, graphics |
-| `localDate` | string (YYYY-MM-DD) | Date values |
-| `localTime` | string (hh:mm) | Time values |
-| `webUrl` | string | External URLs |
-| `richText` | string (HTML) | Formatted content |
-| `arrayItems` | Array | Collections, lists |
-| `direction` | string | HTML dir attribute |
-| `menuItems` | Array of menu items | Navigation menus |
+All runtime types are from `@wix/editor-react-types`.
+
+| Manifest `dataType` | TypeScript type | Use Case |
+|---------------------|----------------|----------|
+| `text` | `Text` | Names, titles, descriptions |
+| `textEnum` | `TextEnum` | Predefined options |
+| `number` | `NumberType` | Quantities, dimensions |
+| `booleanValue` | `BooleanValue` | Toggles, flags |
+| `a11y` | `A11y` | Accessibility attributes |
+| `link` | `Link` | Navigation links |
+| `image` | `Image` | Images |
+| `video` | `Video` | Media content |
+| `audio` | `Audio` | Audio content |
+| `vectorArt` | `VectorArt` | Icons, graphics |
+| `localDate` | `LocalDate` (string, YYYY-MM-DD) | Date values |
+| `localTime` | `LocalTime` (string, hh:mm[:ss][.sss]) | Time values |
+| `localDateTime` | `LocalDateTime` (string, YYYY-MM-DDThh:mm[:ss][.sss]) | Date + time values |
+| `webUrl` | `WebUrl` (string) | External URLs |
+| `richText` | `RichText` (define locally as `string`) | Formatted content |
+| `arrayItems` | `ArrayItems` | Collections, lists |
+| `direction` | `Direction` | HTML dir attribute |
+| `menuItems` | `MenuItems` | Navigation menus |
 
 ### CSS Properties Reference
 
@@ -161,11 +166,13 @@ Common CSS properties for styling customization:
 
 ## React Component Patterns
 
-**Complete reference:** See [REACT_PATTERNS.md](references/REACT_PATTERNS.md) for detailed component architecture, all coding patterns, and implementation examples.
+**For components using hooks, effects, or callbacks:** See [REACT_PATTERNS.md](references/REACT_PATTERNS.md) — read this when your component uses `useEffect`, `useCallback`, complex state, or async operations. Contains complete patterns for hooks, arrays, refs, and SSR-safe data fetching.
 
 ### Props Structure
 
 ```typescript
+import type { Wix, Link, Image } from '@wix/editor-react-types'; // also: Text, NumberType, BooleanValue, WebUrl, Direction
+
 interface ComponentProps {
   // Standard props (always present)
   className: string;
@@ -193,60 +200,28 @@ interface ComponentProps {
 
 ### Sub-Component Pattern
 
-Extract every distinct UI element into named sub-components:
+Extract every distinct UI element into a named sub-component. Each sub-component receives a `className` prop matching the manifest selector plus its own data props:
 
 ```typescript
-// Title sub-component
-interface TitleProps {
-  titleText?: string;
-  className: string;
-}
+const Title: FC<{ titleText?: string; className: string }> = ({
+  titleText = "Default Title", className
+}) => <h2 className={className}>{titleText}</h2>;
 
-const Title: FC<TitleProps> = ({ titleText = "Default Title", className }) => (
-  <h2 className={className}>{titleText}</h2>
-);
-
-// Main component
-const ProductCard: FC<ProductCardProps> = ({
-  className,
-  id,
-  elementProps,
-  wix
-}) => {
+const MyComponent: FC<MyComponentProps> = ({ className, id, elementProps, wix }) => {
   const removalState = wix?.elementsRemovalState || {};
-
   return (
-    <div className={`product-card ${className}`} id={id}>
-      {!removalState['title'] && (
-        <Title
-          className="product-card__title"
-          {...elementProps?.title}
-        />
-      )}
-      {!removalState['button'] && (
-        <Button
-          className="product-card__button"
-          {...elementProps?.button}
-        />
-      )}
+    <div className={`my-component ${className}`} id={id}>
+      {!removalState['title'] && <Title className="my-component__title" {...elementProps?.title} />}
     </div>
   );
 };
 ```
 
+See [REACT_PATTERNS.md](references/REACT_PATTERNS.md) for full sub-component architecture, array handling, and TypeScript patterns.
+
 ### Conditional Rendering
 
-All elements must be conditionally rendered based on removal state:
-
-```typescript
-const removalState = wix?.elementsRemovalState || {};
-
-return (
-  <div className={`component ${className}`} id={id}>
-    {!removalState['elementKey'] && <Element />}
-  </div>
-);
-```
+Conditionally render ALL elements per `wix.elementsRemovalState`: `{!removalState['elementKey'] && <Element />}` where `removalState = wix?.elementsRemovalState || {}`.
 
 ## CSS Guidelines
 
@@ -370,7 +345,7 @@ src/extensions/site/components/
 
 ## Examples
 
-**Complete working example:** See [EXAMPLE.md](references/EXAMPLE.md) for a full production-ready site component with all patterns, including manifest, React component, CSS, and types.
+**Complete working example:** See [EXAMPLE.md](references/EXAMPLE.md) for a product card with nested elements, all data types, and three component types (Leaf, Container, Root). **Read this when building a complex multi-element component, when you want to verify you have all patterns right, or when you need a cross-reference. For components with ≤5 elements, the patterns documented in this file are sufficient — EXAMPLE.md is not required reading.**
 
 ### Product Card Component
 
@@ -459,17 +434,19 @@ The `id` must be a unique, static UUID v4 string. Generate a fresh UUID for each
 
 ## Code Quality Requirements
 
-**Complete reference:** See [TYPESCRIPT_QUALITY.md](references/TYPESCRIPT_QUALITY.md) for comprehensive type safety guidelines and code quality standards.
+**Complete reference:** See [TYPESCRIPT_QUALITY.md](references/TYPESCRIPT_QUALITY.md) for strict TypeScript configuration and code quality standards.
 
 ### TypeScript Standards
 
 - Strict TypeScript with no `any` types
+- ALL data props must be optional (use `?`)
 - Explicit return types for all functions
 - Proper null/undefined handling with optional chaining
 - No `@ts-ignore` or `@ts-expect-error` comments
 
 ### React Best Practices
 
+- React 16 compatible — no React 18+ features (`useId`, `useDeferredValue`, `useTransition`, etc.)
 - Functional components with hooks
 - Proper dependency arrays in useEffect
 - Component must react to prop changes
@@ -492,9 +469,10 @@ The `id` must be a unique, static UUID v4 string. Generate a fresh UUID for each
 | CSS selector doesn't match manifest | Editor can't apply styles to the element | Ensure manifest `selector`, React `className`, and CSS selector are identical |
 | Putting content text in `editorElement.data` | Content belongs to specific elements, not root | Move text/image/link data into `elements[key].data` |
 | Using `display: flex` directly on root | Breaks editor override mechanism | Use `--display: flex` CSS variable, then `display: var(--display)` |
-| Missing `removable: true` on optional elements | Site owner can't hide the element | Add `behaviors: { removable: true }` to optional elements |
+| Missing `removable: true` on elements | Site owner can't hide the element | Add `behaviors: { selectable: true, removable: true }` to all elements |
 | Using `window`/`document` at module scope | SSR fails during build | Guard browser APIs inside `useEffect` or event handlers |
 | Importing from `@wix/design-system` | Not available in site components | Use plain HTML/CSS or custom components only |
+| `import { FC } from 'react'` | `verbatimModuleSyntax` in Astro tsconfig requires type-only imports | Use `import { type FC }` or `import type { FC }` from React |
 
 ## Hard Constraints
 
@@ -508,9 +486,12 @@ The `id` must be a unique, static UUID v4 string. Generate a fresh UUID for each
 
 ## Reference Documentation
 
-- [Complete Example](references/EXAMPLE.md) - Full production-ready site component example with all patterns
-- [Component Manifest Guidelines](references/MANIFEST_GUIDELINES.md) - Detailed manifest structure and best practices
-- [React Patterns](references/REACT_PATTERNS.md) - Component architecture and coding patterns
-- [CSS Guidelines](references/CSS_GUIDELINES.md) - Styling conventions and responsive design
-- [Design System](references/DESIGN_SYSTEM.md) - Visual design principles and creative guidelines
-- [TypeScript Quality](references/TYPESCRIPT_QUALITY.md) - Type safety and code quality standards
+| File | When to read |
+|------|-------------|
+| [MANIFEST_GUIDELINES.md](references/MANIFEST_GUIDELINES.md) | **Always** — manifest structure, element rules, CSS properties, sync |
+| [MANIFEST_ADVANCED.md](references/MANIFEST_ADVANCED.md) | When using arrayItems, link constraints, richText abilities, or non-default installation sizing |
+| [REACT_PATTERNS.md](references/REACT_PATTERNS.md) | When using hooks (`useEffect`, `useCallback`), complex state, or arrays |
+| [EXAMPLE.md](references/EXAMPLE.md) | When building complex (5+ element) components, or to cross-check all patterns |
+| [CSS_GUIDELINES.md](references/CSS_GUIDELINES.md) | When you need advanced CSS patterns or animations |
+| [DESIGN_SYSTEM.md](references/DESIGN_SYSTEM.md) | When building visually rich/branded components |
+| [TYPESCRIPT_QUALITY.md](references/TYPESCRIPT_QUALITY.md) | When you need strict TypeScript configuration and props interface patterns |
