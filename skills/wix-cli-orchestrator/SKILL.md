@@ -62,7 +62,6 @@ You are a **decision-maker and orchestrator**, not an implementer. **Decide → 
 | Reporting done without validation           | Always run `wix-cli-app-validation` at the end |
 | Reading/writing files after invoking skills | Let sub-agents handle ALL file operations      |
 | Letting manual action items get buried      | Aggregate all manual steps at the very end     |
-| Using site widget/plugin to consume context provider extensions | Only site components (`wix-cli-site-component`) can consume context provider extensions |
 
 **CRITICAL:** After this planner skill loads, you should ONLY:
 
@@ -88,19 +87,40 @@ Answer these questions to find the right extension:
 
 3. **Where will it appear?**
    - Dashboard sidebar/page → Dashboard Page or Modal
-   - Existing Wix app dashboard (widget) → Dashboard Plugin
-   - Existing Wix app dashboard (menu item) → Dashboard Menu Plugin
+   - Existing Wix app dashboard → Dashboard Plugin
    - Anywhere on site → Site Widget
-   - Anywhere on site (with editor manifest) → Site Component
    - Wix business solution page → Site Plugin
    - During business flow → Service Plugin
    - After event occurs → Event Extension
 
+## Dashboard Page: Auto Patterns vs Custom Code
+
+Before choosing `wix-cli-dashboard-page`, check if `wix-cli-auto-patterns-dashboard` is a better fit.
+
+**Use Auto Patterns (`wix-cli-auto-patterns-dashboard`) when ALL true:**
+- Single-collection CRUD (one data collection, standard Create/Read/Update/Delete)
+- Standard table/grid view with sorting and filtering
+- Basic form layouts for entity detail pages
+- No custom business logic, calculations, or workflows
+- No embedded script configuration
+- No external API integrations
+
+**Use Custom Code (`wix-cli-dashboard-page`) when ANY true:**
+- Multi-collection data display, joining, or aggregation
+- Custom business logic or calculations
+- External API integrations or webhooks
+- Embedded script parameter management
+- Custom UI components beyond standard forms/tables
+- Complex workflows, state management, or multi-step forms
+- Advanced search or filtering logic
+
+**Updating existing auto-patterns pages:** If the user wants to modify a page that already has a `patterns.json` file, use `wix-cli-auto-patterns-dashboard` — it supports editing existing configurations.
+
 ## Decision Flow (Not sure?)
 
-- **Admin:** Need full-page UI? → Dashboard Page. Need popup/form? → Dashboard Modal. Extending Wix app dashboard with a visual widget? → Dashboard Plugin. Adding a menu item to a Wix app dashboard's more-actions or bulk-actions menu? → Dashboard Menu Plugin. **Modal constraint:** Dashboard Pages cannot use `<Modal />`; use a separate Dashboard Modal extension and `dashboard.openModal()`.
+- **Admin:** Simple CRUD for single collection? → Auto Patterns Page. Need full-page custom UI? → Dashboard Page. Need popup/form? → Dashboard Modal. Extending Wix app dashboard? → Dashboard Plugin. **Modal constraint:** Dashboard Pages cannot use `<Modal />`; use a separate Dashboard Modal extension and `dashboard.openModal()`.
 - **Backend:** During business flow (checkout/shipping/tax)? → Service Plugin. After event (webhooks/sync)? → Event Extension. Custom HTTP endpoints? → Backend Endpoints. Need CMS collections for app data? → Data Collection.
-- **Site:** User places anywhere (standalone)? → Site Widget. React component with editor manifest (styling, content, elements)? → Site Component. Fixed slot on Wix app page? → Site Plugin. Scripts/analytics only? → Embedded Script.
+- **Site:** User places anywhere? → Site Widget. Fixed slot on Wix app page? → Site Plugin. Scripts/analytics only? → Embedded Script.
 
 ### Data Collection Inference
 
@@ -126,28 +146,26 @@ Answer these questions to find the right extension:
 
 | Extension Type        | Category  | Visibility  | Use When                      | Skill                     |
 | --------------------- | --------- | ----------- | ----------------------------- | ------------------------- |
-| Dashboard Page        | Dashboard | Admin only  | Full admin pages              | `wix-cli-dashboard-page`   |
+| Auto Patterns Page    | Dashboard | Admin only  | Simple CRUD dashboard pages   | `wix-cli-auto-patterns-dashboard` |
+| Dashboard Page        | Dashboard | Admin only  | Full admin pages (custom UI)  | `wix-cli-dashboard-page`   |
 | Dashboard Modal       | Dashboard | Admin only  | Popup dialogs                 | `wix-cli-dashboard-modal` |
-| Dashboard Plugin      | Dashboard | Admin only  | Extend Wix app dashboards     | `wix-cli-dashboard-plugin` |
-| Dashboard Menu Plugin | Dashboard | Admin only  | Add menu items to Wix app dashboards | `wix-cli-dashboard-menu-plugin` |
+| Dashboard Plugin      | Dashboard | Admin only  | Extend Wix app dashboards     | (none yet)                |
+| Dashboard Menu Plugin | Dashboard | Admin only  | Add menu items                | (none yet)                |
 | Service Plugin        | Backend   | Server-side | Customize business flows      | `wix-cli-service-plugin`   |
 | Event Extension       | Backend   | Server-side | React to events               | `wix-cli-backend-event`   |
 | Backend Endpoints     | Backend   | API         | Custom HTTP handlers          | `wix-cli-backend-api`     |
 | Data Collection       | Backend   | Data        | CMS collections for app data  | `wix-cli-data-collection` |
-| Site Component        | Site      | Public      | React components with editor manifests | `wix-cli-site-component`  |
 | Site Widget           | Site      | Public      | Standalone widgets            | `wix-cli-site-widget`     |
 | Site Plugin           | Site      | Public      | Extend Wix business solutions | `wix-cli-site-plugin`     |
 | Embedded Script       | Site      | Public      | Inject scripts/analytics      | `wix-cli-embedded-script` |
 
-**Key constraints:**
-- Dashboard Page cannot use `<Modal />`; use a separate Dashboard Modal and `dashboard.openModal()`.
-- **Only Site Components can consume context provider extensions** — NOT site widgets or site plugins. When building consumers for a context provider extension, always use `wix-cli-site-component`.
+**Key constraint:** Dashboard Page cannot use `<Modal />`; use a separate Dashboard Modal and `dashboard.openModal()`.
 
 ## Extension Comparison
 
-| Site Widget vs Site Component vs Site Plugin | Dashboard Page vs Modal | Service Plugin vs Event |
-| -------------------------------------------- | ----------------------- | ----------------------- |
-| Widget: standalone interactive component. Component: React with editor manifest (CSS/data/elements). Plugin: fixed slot in Wix app page. | Page: full page. Modal: overlay; use for popups. | Service: during flow. Event: after event. |
+| Site Widget vs Site Plugin | Dashboard Page vs Modal | Service Plugin vs Event |
+| -------------------------- | ----------------------- | ----------------------- |
+| Widget: user places anywhere. Plugin: fixed slot in Wix app. | Page: full page. Modal: overlay; use for popups. | Service: during flow. Event: after event. |
 
 ## Decision & Handoff Workflow
 
@@ -158,22 +176,27 @@ Follow the checklist; steps below add detail.
 Only ask for configuration values when **absolutely necessary** for the implementation to proceed — i.e., the sub-agent literally cannot generate working code without it. If a value can be configured later or added as a manual step, don't block on it.
 
 **App Namespace Requirement:**
-When creating a Data Collection, you MUST ask the user for their app namespace. If not provided, read [APP_IDENTIFIERS.md](references/APP_IDENTIFIERS.md) and give the user the instructions to obtain it.
+When creating a Data Collection, you MUST ask the user for their app namespace from Wix Dev Center. This is a required parameter that must be obtained from the user's Dev Center dashboard and cannot be recommended or guessed.
 
-**Code Identifier Requirement:**
-When creating a Site Component, you need the user's Code Identifier. If not provided, read [APP_IDENTIFIERS.md](references/APP_IDENTIFIERS.md) and give the user the instructions to obtain it.
+**Instructions to give the user:**
+
+**If you don't have an app namespace yet:**
+1. Go to [Wix Dev Center](https://manage.wix.com/studio/custom-apps/)
+2. Select your app
+3. In the left menu, select **Develop > Extensions**
+4. Click **+ Create Extension** and find the **Data Collections** extension
+5. Click **+ Create**
+6. You will be prompted to create an app namespace - follow the prompts to set it up
+
+**If you already have an app namespace:**
+1. Go to [Wix Dev Center](https://manage.wix.com/studio/custom-apps/)
+2. Open your app dashboard
+3. Click the three dots (...) menu button in the top-right corner (next to "Test App" button)
+4. Select "View ID & keys" from the dropdown menu
+5. In the modal that opens, scroll to the bottom to find the "Namespace" field
+6. Copy the Namespace value
 
 If unclear on approach (placement, visibility, configuration, integration), ask clarifying questions. If the answer could change the extension type, wait for the response before proceeding. Otherwise, proceed with the best-fit extension type.
-
-### Wix Stores Versioning Requirement
-
-**Applies when ANY Wix Stores API is used** (products, inventory, orders, etc.):
-
-1. **Include the `wix-stores-versioning` skill** in implementation sub-agent prompts
-2. **All Stores operations must check catalog version first** using `getCatalogVersion()`
-3. **Use the correct module** based on version: `productsV3` (V3) vs `products` (V1)
-
-This is non-negotiable — V1 and V3 are NOT backwards compatible.
 
 ### Collection ID Coordination
 
@@ -206,13 +229,13 @@ Use Quick Reference Table and decision content above. State extension type and b
 - Wix Data, Dashboard SDK, Event SDK (common events), Service Plugin SPIs
 
 **Vertical APIs (discover if needed):**
-- Wix Stores (**⚠️ MUST use `wix-stores-versioning` skill** - V1/V3 catalog check required), Wix Bookings, Wix Members, Wix Pricing Plans, third-party integrations
+- Wix Stores, Wix Bookings, Wix Members, Wix Pricing Plans, third-party integrations
 
 **Decision table:**
 
 | User Requirement                     | Check References / Discovery Needed? | Reason / Reference File                             |
 | ------------------------------------ | ------------------------------------ | --------------------------------------------------- |
-| "Display store products"             | ✅ YES (Spawn discovery)             | Wix Stores API — **include `wix-stores-versioning` skill** |
+| "Display store products"             | ✅ YES (Spawn discovery)             | Wix Stores API not in reference files               |
 | "Show booking calendar"              | ✅ YES (Spawn discovery)             | Wix Bookings API not in reference files             |
 | "Send emails to users"               | ✅ YES (Spawn discovery)             | Wix Triggered Emails not in reference files         |
 | "Get member info"                    | ✅ YES (Spawn discovery)             | Wix Members API not in reference files              |
@@ -227,8 +250,8 @@ Use Quick Reference Table and decision content above. State extension type and b
 
 **MCP Tools the sub-agent should use:**
 
-- `SearchWixSDKDocumentation` - SDK methods and APIs (**Always use maxResults: 5**)
-- `ReadFullDocsArticle` - Full documentation when needed (only if search results need more detail)
+- `mcp__wix-mcp-remote__SearchWixSDKDocumentation` - SDK methods and APIs (**Always use maxResults: 5**)
+- `mcp__wix-mcp-remote__ReadFullDocsArticle` - Full documentation when needed (only if search results need more detail)
 
 **Discovery sub-agent prompt template:**
 
@@ -313,6 +336,31 @@ Constraints:
 Implement this extension following the skill guidelines.
 ```
 
+**Auto-patterns sub-agent prompt template** (use when routing to `wix-cli-auto-patterns-dashboard`):
+
+```
+Load and follow the skill: wix-cli-auto-patterns-dashboard
+
+User Requirements:
+[EXACT user request - copy verbatim]
+
+Collection Schema:
+- Collection ID (full scoped): [<app-namespace>/<idSuffix>]
+- Collection idSuffix: [idSuffix value]
+- Fields:
+  - [key]: [displayName] (type: [TYPE])
+  - [key]: [displayName] (type: [TYPE])
+  - ...
+
+Extension Name: [Human-readable name for the dashboard page]
+
+⚠️ MANDATORY when using Data Collections: Use EXACT collection ID from `idSuffix` (case-sensitive).
+
+⚠️ MANDATORY: At the END of your response, include a section titled "## Manual Action Items" listing ANY steps the user must perform manually. If there are no manual steps, write "None".
+
+Implement this extension following the skill guidelines.
+```
+
 **PARALLEL EXECUTION:** When multiple independent extensions are needed, spawn ALL sub-agents in parallel:
 
 | Extension Combination            | Parallel? | Reason                              |
@@ -323,9 +371,9 @@ Implement this extension following the skill guidelines.
 | Site Widget + Embedded Script    | ✅ YES    | Different rendering contexts        |
 | Service Plugin + Event Extension | ✅ YES    | Independent backend handlers        |
 | Data Collection + Dashboard Page | ✅ YES    | Data schema vs UI                   |
+| Data Collection + Auto Patterns  | ✅ YES    | Data schema vs declarative config   |
 | Data Collection + Backend API    | ✅ YES    | Data schema vs HTTP handlers        |
 | Data Collection + Site Widget    | ✅ YES    | Data schema vs site UI              |
-| Context Provider Extension + Site Component | ✅ YES | Provider vs consumer |
 
 **Pre-spawn coordination required (then parallel is fine):**
 

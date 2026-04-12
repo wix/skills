@@ -13,6 +13,7 @@
   "skills": [
     "./skills/wds-docs",
     "./skills/wix-cli-app-validation",
+    "./skills/wix-cli-auto-patterns-dashboard",
     "./skills/wix-cli-backend-api",
     "./skills/wix-cli-backend-event",
     "./skills/wix-cli-context-provider",
