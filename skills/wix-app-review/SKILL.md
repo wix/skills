@@ -1,21 +1,21 @@
 ---
 name: wix-app-review
 description: >
-  Review the technical and code-facing portions of a Wix app for App Market
-  readiness. Use when auditing decline risk, validating technical requirements,
-  or fixing review feedback around billing flows, identity, security, UX,
-  performance, responsiveness, permissions, setup surfaces, or webhooks.
+  Review Wix apps for App Market readiness. Use when auditing decline risk,
+  validating technical requirements, or preparing manual follow-up for App
+  Dashboard, pricing-page, Dev Center, and listing-copy checks in addition to
+  billing flows, identity, security, UX, performance, responsiveness,
+  permissions, setup surfaces, and webhooks.
 compatibility: Best with access to Wix MCP or official Wix docs for citations.
 ---
 
 # Wix App Market Review Skill
 
 This skill helps you build a Wix app that passes the App Market review process.
-This first version intentionally focuses on technically reviewable surfaces:
-code, configuration checked from the repo, runtime flows, and implementation
-details. Manual App Dashboard, Dev Center, and listing-copy verification is
-intentionally out of scope until those surfaces are easier for agents to check
-reliably.
+It covers both technically verifiable requirements and the manual App Dashboard
+and listing surfaces that still need human confirmation. Keep those two buckets
+separate in the report so the user can tell which items need code changes and
+which ones need dashboard or listing updates.
 
 ## How to use this skill
 
@@ -51,11 +51,11 @@ When helping a developer prepare a Wix app for submission:
    gap. Flag applicable missing items, explain the impact, and prepare the fix
    plan for approval before implementing changes.
 
-4. **Keep manual dashboard and listing checks out of scope** - this version of
-   the skill should not claim compliance for App Dashboard, Dev Center, pricing-page
-   setup, or listing-copy requirements. If the user asks about those surfaces,
-   call them out as a separate manual follow-up instead of mixing them into the
-   technical blocker list.
+4. **Handle manual dashboard and listing checks separately** - when the user
+   wants the remaining App Dashboard, Dev Center, pricing-page, or listing-copy
+   checks, read `references/manual-dashboard-and-listing-guide.md`. Keep those
+   items in a separate `Manual dashboard and marketing follow-up` section instead
+   of mixing them into the technical blocker list.
 
 5. **Produce implementation-grade output, not generic advice** - when you provide
    recommendations, anchor them to Wix-specific requirements and include:
@@ -83,8 +83,8 @@ When this skill is used well, the user should get:
    - Nice-to-have hardening items
 2. A concrete implementation plan for all relevant 🔵 Code / Technical requirements,
    with links to official Wix docs, before any changes are made.
-3. Explicit verification tests, plus a short note listing any manual App Dashboard
-   or marketing checks that were intentionally left out of scope.
+3. Explicit verification tests, plus a separate manual follow-up section for
+   App Dashboard, pricing-page, Dev Center, and listing-copy checks.
 
 ## Response quality rules
 
@@ -120,8 +120,8 @@ Use these rules whenever this skill is triggered:
    - End with a concise pre-submission checklist.
 
 7. **Keep structure predictable**
-   - Use clear sections and separate `Confirmed`, `Needs confirmation`, and
-     `Out-of-scope manual follow-up` items.
+   - Use clear sections and separate `Technical blockers`, `Needs confirmation`,
+     and `Manual dashboard and marketing follow-up` items.
 
 ## Reference files
 
@@ -129,6 +129,7 @@ Use these rules whenever this skill is triggered:
 |---|---|---|
 | `references/taxonomy.md` | Technical and process decline reasons covered by this phased version of the skill | When auditing an app or identifying technically reviewable gaps |
 | `references/technical-guide.md` | Deep-dive on technically reviewable requirements with implementation notes and Wix doc links | When implementing a specific requirement |
+| `references/manual-dashboard-and-listing-guide.md` | Manual App Dashboard, pricing-page, support, and listing checks that are still hard to auto-verify | When the user wants submission readiness beyond code and repo-visible surfaces |
 
 ---
 
@@ -193,6 +194,12 @@ gaps.
 
 ### Cookie Consent
 - [ ] Cookie consent workflow activates/deactivates cookies per visitor preferences
+
+### Manual Dashboard & Listing Follow-Up
+- [ ] Released version exists in App Dashboard
+- [ ] Security & Privacy form, pricing page, and plan descriptions are configured correctly
+- [ ] App Profile, Company Info, Contact Info, and policy links are complete
+- [ ] Listing copy, support details, screenshots, and demo assets are ready for review
 
 ---
 
