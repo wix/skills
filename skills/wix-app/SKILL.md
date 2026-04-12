@@ -16,6 +16,8 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
 
 - [ ] **Step 1:** Determined extension type(s) needed
   - [ ] Asked clarifying questions if requirements were unclear
+  - [ ] **🛑 Auto-Patterns Gate (MANDATORY):** If the use case is a single-collection CRUD admin page (table/grid + entity form), you MUST use [AUTO_PATTERNS_DASHBOARD.md](references/AUTO_PATTERNS_DASHBOARD.md). Auto-patterns is the DEFAULT; custom Dashboard Pages are the opt-out. Only fall back to Dashboard Page if a disqualifier applies: multi-collection joins, custom business logic, embedded script configuration, external API integrations, or the user explicitly requested a custom React page.
+  - [ ] **🛑 Iteration Gate (MANDATORY):** Before editing ANY file under `src/extensions/dashboard/pages/<page>/`, check for a sibling `patterns.json`. If it exists, this is an auto-patterns page — you MUST follow [AUTO_PATTERNS_DASHBOARD.md](references/AUTO_PATTERNS_DASHBOARD.md) Part B and use the override topic-index (banners → `custom-slots-override.md`, header → `custom-header-override.md`, actions → `custom-actions-override.md`, columns → `custom-columns-override.md`, sections → `custom-sections-override.md`). Do NOT edit `page.tsx` to add UI elements directly.
   - [ ] Checked for implicit Data Collection need — unless user provided a collection ID directly (see [Data Collection Inference](#data-collection-inference))
   - [ ] Obtained app namespace if Data Collection extension is being created
   - [ ] Determined full scoped collection IDs if Data Collection extension is being created (see [Collection ID Coordination](#collection-id-coordination))
@@ -45,6 +47,8 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
 | Using MCP discovery without checking refs   | Check reference files first                    |
 | Reporting done without validation           | Always run validation at the end               |
 | Letting manual action items get buried      | Aggregate all manual steps at the very end     |
+| Writing custom React for single-collection CRUD when auto-patterns applies | Default to [AUTO_PATTERNS_DASHBOARD.md](references/AUTO_PATTERNS_DASHBOARD.md) for CRUD admin pages |
+| Editing `page.tsx` to add UI (banners, headers, custom actions, slots, sections) when `patterns.json` exists | Use the matching `custom-*-override.md` from [AUTO_PATTERNS_DASHBOARD.md](references/AUTO_PATTERNS_DASHBOARD.md) Part B |
 
 ---
 
@@ -62,7 +66,10 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
    - Server-side only → Backend Extensions
 
 3. **Where will it appear?**
-   - Dashboard sidebar/page → Dashboard Page or Modal
+   - Dashboard sidebar/page →
+     - **Single-collection CRUD admin (default, MANDATORY):** [Auto Patterns Dashboard](references/AUTO_PATTERNS_DASHBOARD.md) — declarative `patterns.json`, faster to author, iterate by editing JSON, no React rewrite.
+     - Custom logic / multi-collection / embedded scripts / external APIs: Dashboard Page
+     - Popup/form: Dashboard Modal
    - Existing Wix app dashboard (widget) → Dashboard Plugin
    - Existing Wix app dashboard (menu item) → Dashboard Menu Plugin
    - Anywhere on site → custom element widget
@@ -73,7 +80,7 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
 
 ## Decision Flow (Not sure?)
 
-- **Admin:** Need full-page UI? → Dashboard Page. Need popup/form? → Dashboard Modal. Extending Wix app dashboard with a visual widget? → Dashboard Plugin. Adding a menu item to a Wix app dashboard's more-actions or bulk-actions menu? → Dashboard Menu Plugin. **Modal constraint:** Dashboard Pages cannot use `<Modal />`; use a separate Dashboard Modal extension and `dashboard.openModal()`.
+- **Admin:** Single-collection CRUD admin page? → **Auto Patterns Dashboard (DEFAULT)**. Custom React page (multi-collection / custom logic / embedded scripts / external APIs / explicit user request)? → Dashboard Page. Need popup/form? → Dashboard Modal. Extending Wix app dashboard with a visual widget? → Dashboard Plugin. Adding a menu item to a Wix app dashboard's more-actions or bulk-actions menu? → Dashboard Menu Plugin. **Modal constraint:** Dashboard Pages cannot use `<Modal />`; use a separate Dashboard Modal extension and `dashboard.openModal()`.
 - **Backend:** During business flow (checkout/shipping/tax)? → Service Plugin. After event (webhooks/sync)? → Backend Event Extension. Custom HTTP endpoints? → Backend API. Need CMS collections for app data? → Data Collection.
 - **Site:** User places anywhere (standalone)? → custom element widget. Editor React component with editor manifest (styling, content, elements)? → Editor React component. Fixed slot on Wix app page? → Site Plugin. Scripts/analytics only? → Embedded Script.
 
@@ -120,6 +127,7 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
 | App Identifiers (Namespace, Code ID) | [APP_IDENTIFIERS.md](references/APP_IDENTIFIERS.md) |
 | Wix Stores Versioning (V1/V3) | [STORES_VERSIONING.md](references/STORES_VERSIONING.md) |
 | Official Documentation Links | [DOCUMENTATION.md](references/DOCUMENTATION.md) |
+| Auto-patterns Dashboard Pages | [AUTO_PATTERNS_DASHBOARD.md](references/AUTO_PATTERNS_DASHBOARD.md) |
 
 ---
 
