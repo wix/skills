@@ -38,6 +38,7 @@ npx skills add wix/skills -g
 |-------|---------|-------------|
 | [wds-docs](skills/wds-docs/SKILL.md) | Wix Design System reference | Looking up WDS component props, examples, icons |
 | [wix-cli-app-validation](skills/wix-cli-app-validation/SKILL.md) | Test and validate Wix apps | Testing app readiness, e2e validation, TypeScript checks |
+| [wix-cli-auto-patterns-dashboard](skills/wix-cli-auto-patterns-dashboard/SKILL.md) | Simple CRUD dashboard pages | Single-collection management with standard table/grid views and forms |
 | [wix-cli-backend-api](skills/wix-cli-backend-api/SKILL.md) | Create REST API endpoints | Backend HTTP handlers, server-side data processing |
 | [wix-cli-backend-event](skills/wix-cli-backend-event/SKILL.md) | Respond to Wix webhooks/events | Run custom backend logic when platform events occur |
 | [wix-cli-dashboard-modal](skills/wix-cli-dashboard-modal/SKILL.md) | Build dashboard modals | Popup forms, confirmations, detail views in dashboards |
