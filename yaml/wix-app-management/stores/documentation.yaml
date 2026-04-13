@@ -1,0 +1,8 @@
+apiDoc:
+  title: Wix Stores Management Recipes
+
+  docs:
+    - file: ../../../skills/wix-app-management/stores/references/QUERY-PRODUCTS.md
+      title: Query Products
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
+      tags: [stores]
