@@ -2,7 +2,43 @@ apiDoc:
   title: Wix Stores Management Recipes
 
   docs:
-    - file: ../../../skills/wix-app-management/stores/references/QUERY-PRODUCTS.md
+    - file: ../../../skills/wix-app-management/stores/references/query-products.md
       title: Query Products
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
+      tags: [stores]
+    - file: ../../../skills/wix-app-management/stores/references/query-products-v1.md
+      title: Query Products (Catalog V1)
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
+      tags: [stores]
+    - file: ../../../skills/wix-app-management/stores/references/create-product-with-options.md
+      title: Create Product with Options (Catalog V3)
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
+      tags: [stores]
+    - file: ../../../skills/wix-app-management/stores/references/create-product-v1.md
+      title: Create Product (Catalog V1)
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
+      tags: [stores]
+    - file: ../../../skills/wix-app-management/stores/references/bulk-create-products-with-options.md
+      title: Bulk Create Products with Options
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
+      tags: [stores]
+    - file: ../../../skills/wix-app-management/stores/references/update-product-with-options.md
+      title: Update Product with Options
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
+      tags: [stores]
+    - file: ../../../skills/wix-app-management/stores/references/update-product-pre-order.md
+      title: Update Product Pre-Order
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
+      tags: [stores]
+    - file: ../../../skills/wix-app-management/stores/references/setup-online-store-catalog-v3.md
+      title: Setup Online Store (Catalog V3)
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
+      tags: [stores]
+    - file: ../../../skills/wix-app-management/stores/references/setup-store-pickup-location.md
+      title: Setup Store Pickup Location
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
+      tags: [stores]
+    - file: ../../../skills/wix-app-management/stores/references/add-pages-to-site.md
+      title: Add Store Pages to Site
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
       tags: [stores]

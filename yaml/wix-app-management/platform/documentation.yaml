@@ -1,0 +1,16 @@
+apiDoc:
+  title: Wix Platform Management Recipes
+
+  docs:
+    - file: ../../../skills/wix-app-management/platform/references/install-wix-apps.md
+      title: Install Wix Apps
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/bookings/bookings-platform/skills
+      tags: [platform]
+    - file: ../../../skills/wix-app-management/platform/references/list-installed-apps.md
+      title: List Installed Apps
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/bookings/bookings-platform/skills
+      tags: [platform]
+    - file: ../../../skills/wix-app-management/platform/references/send-mcp-feedback.md
+      title: Send MCP Feedback
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/bookings/bookings-platform/skills
+      tags: [platform]

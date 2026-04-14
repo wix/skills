@@ -1,0 +1,8 @@
+apiDoc:
+  title: Wix Pricing Plans Management Recipes
+
+  docs:
+    - file: ../../../skills/wix-app-management/pricing-plans/references/create-update-pricing-plan.md
+      title: Create and Update Pricing Plans
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans/skills
+      tags: [pricing-plans]

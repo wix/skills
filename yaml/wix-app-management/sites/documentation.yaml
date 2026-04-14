@@ -1,0 +1,20 @@
+apiDoc:
+  title: Wix Sites Management Recipes
+
+  docs:
+    - file: ../../../skills/wix-app-management/sites/references/query-sites.md
+      title: Query Sites
+      docsEntry: https://dev.wix.com/docs/api-reference/account-level/sites/skills
+      tags: [sites]
+    - file: ../../../skills/wix-app-management/sites/references/create-site-from-template.md
+      title: Create Site from Template
+      docsEntry: https://dev.wix.com/docs/api-reference/account-level/sites/skills
+      tags: [sites]
+    - file: ../../../skills/wix-app-management/sites/references/domain-search-and-purchase.md
+      title: Domain Search and Purchase
+      docsEntry: https://dev.wix.com/docs/api-reference/account-level/sites/skills
+      tags: [sites]
+    - file: ../../../skills/wix-app-management/sites/references/change-payment-currency-site-properties.md
+      title: Change Payment Currency (Site Properties)
+      docsEntry: https://dev.wix.com/docs/api-reference/account-level/sites/skills
+      tags: [sites]

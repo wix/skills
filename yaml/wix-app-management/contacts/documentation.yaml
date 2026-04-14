@@ -1,0 +1,12 @@
+apiDoc:
+  title: Wix Contacts Management Recipes
+
+  docs:
+    - file: ../../../skills/wix-app-management/contacts/references/bulk-delete-contacts.md
+      title: Bulk Delete Contacts
+      docsEntry: https://dev.wix.com/docs/api-reference/crm/members-contacts/contacts/skills
+      tags: [contacts]
+    - file: ../../../skills/wix-app-management/contacts/references/bulk-label-and-unlabel-contacts.md
+      title: Bulk Label and Unlabel Contacts
+      docsEntry: https://dev.wix.com/docs/api-reference/crm/members-contacts/contacts/skills
+      tags: [contacts]

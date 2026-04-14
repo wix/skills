@@ -1,0 +1,16 @@
+apiDoc:
+  title: Wix Payments Management Recipes
+
+  docs:
+    - file: ../../../skills/wix-app-management/payments/references/create-payment-links.md
+      title: Create Payment Links
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/payments/skills
+      tags: [payments]
+    - file: ../../../skills/wix-app-management/payments/references/how-to-setup-wix-payments.md
+      title: How to Setup Wix Payments
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/payments/skills
+      tags: [payments]
+    - file: ../../../skills/wix-app-management/payments/references/wix-payment-links-for-bookings.md
+      title: Payment Links for Bookings
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/payments/skills
+      tags: [payments]
