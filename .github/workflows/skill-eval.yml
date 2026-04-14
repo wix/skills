@@ -6,7 +6,7 @@ on:
 
 jobs:
   skill-eval:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest # TODO: switch back to self-hosted once runner is configured (needed to reach internal EvalForge endpoint)
     if: contains(github.event.pull_request.title, '#test-eval-action')
     permissions:
       contents: read
