@@ -16,7 +16,7 @@ Guidelines for building production-quality React components that integrate seaml
 - Apply `className` and `id` to root element: `<div className={\`my-component ${className}\`} id={id}>`
 - Top-level className MUST match manifest `editorElement.selector`
 - Pattern: `className={\`base ${className}\`}` where `base` = selector without the dot
-- Example: If selector is `.product-card`, then: `className={\`product-card ${className}\`}`
+- Example: If selector is `.profile-card`, then: `className={\`profile-card ${className}\`}`
 
 ### Synchronization Requirements
 
@@ -104,7 +104,7 @@ interface ElementProps {
 ### Complete Props Example
 
 ```typescript
-interface ProductCardProps extends BaseProps {
+interface ProfileCardProps extends BaseProps {
   // Component-level data (from editorElement.data)
   columns?: number;
   layout?: 'grid' | 'list';
@@ -112,7 +112,7 @@ interface ProductCardProps extends BaseProps {
   // Element props (from elements definitions)
   elementProps?: {
     image?: {
-      productImage?: Image;
+      photo?: Image;
       wix?: Wix;
       elementProps?: {
         badge?: {
@@ -221,7 +221,7 @@ const Button: FC<ButtonProps> = ({
 };
 
 // Main component
-const ProductCard: FC<ProductCardProps> = ({
+const ProfileCard: FC<ProfileCardProps> = ({
   className,
   id,
   columns = 1,
@@ -232,19 +232,19 @@ const ProductCard: FC<ProductCardProps> = ({
 
   return (
     <div
-      className={`product-card ${className}`}
+      className={`profile-card ${className}`}
       id={id}
       style={{ '--columns': columns } as React.CSSProperties}
     >
       {!removalState['image'] && (
-        <div className="product-card__image">
+        <div className="profile-card__image">
           <img
-            src={elementProps?.image?.productImage?.url || '/default-image.jpg'}
-            alt={elementProps?.image?.productImage?.alt || 'Product'}
-            className="product-card__img"
+            src={elementProps?.image?.photo?.url || '/default-image.jpg'}
+            alt={elementProps?.image?.photo?.alt || 'Profile'}
+            className="profile-card__img"
           />
           {!removalState['badge'] && elementProps?.image?.elementProps?.badge && (
-            <span className="product-card__badge">
+            <span className="profile-card__badge">
               {elementProps.image.elementProps.badge.badgeText}
             </span>
           )}
@@ -252,24 +252,24 @@ const ProductCard: FC<ProductCardProps> = ({
       )}
 
       {!removalState['content'] && (
-        <div className="product-card__content">
+        <div className="profile-card__content">
           {!removalState['title'] && (
             <Title
-              className="product-card__title"
+              className="profile-card__title"
               {...elementProps?.content?.elementProps?.title}
             />
           )}
 
           {!removalState['price'] && (
             <Price
-              className="product-card__price"
+              className="profile-card__price"
               {...elementProps?.content?.elementProps?.price}
             />
           )}
 
           {!removalState['button'] && (
             <Button
-              className="product-card__button"
+              className="profile-card__button"
               {...elementProps?.content?.elementProps?.button}
             />
           )}
@@ -279,7 +279,7 @@ const ProductCard: FC<ProductCardProps> = ({
   );
 };
 
-export default ProductCard;
+export default ProfileCard;
 ```
 
 ## Props and State Management
@@ -414,16 +414,16 @@ const LinkButton: FC<LinkProps> = ({ buttonText, buttonLink, className }) => {
 
 ```typescript
 interface ImageProps {
-  productImage?: Image;
+  photo?: Image;
   className: string;
 }
 
-const ProductImage: FC<ImageProps> = ({ productImage, className }) => (
+const ProfileImage: FC<ImageProps> = ({ photo, className }) => (
   <img
-    src={productImage?.url || '/default-image.jpg'}
-    alt={productImage?.alt || 'Product'}
-    width={productImage?.width}
-    height={productImage?.height}
+    src={photo?.url || '/default-image.jpg'}
+    alt={photo?.alt || 'Profile'}
+    width={photo?.width}
+    height={photo?.height}
     className={className}
   />
 );
@@ -623,35 +623,4 @@ import { defaultImage } from './assets/defaultImages';
 <img src="https://static.wixstatic.com/media/example.jpg" alt="Example" />
 ```
 
-## Performance Considerations
 
-### Avoid Re-renders
-
-```typescript
-// ✅ Memoize expensive calculations
-const expensiveValue = useMemo(() => {
-  return items.reduce((acc, item) => acc + item.value, 0);
-}, [items]);
-
-// ✅ Memoize components when needed
-const MemoizedItem = React.memo<ItemProps>(({ item }) => (
-  <div className="item">{item.title}</div>
-));
-```
-
-### Lazy Loading
-
-```typescript
-// ✅ Lazy load heavy components
-const HeavyChart = lazy(() => import('./HeavyChart'));
-
-const Dashboard: FC<DashboardProps> = ({ showChart }) => (
-  <div>
-    {showChart && (
-      <Suspense fallback={<div>Loading chart...</div>}>
-        <HeavyChart />
-      </Suspense>
-    )}
-  </div>
-);
-```
