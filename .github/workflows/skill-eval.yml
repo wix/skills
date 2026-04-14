@@ -1,0 +1,35 @@
+name: Skill Eval
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - "**/*.md"
+      - "**/*.yml"
+      - "**/*.yaml"
+
+jobs:
+  skill-eval:
+    runs-on: ubuntu-latest
+    if: contains(github.event.pull_request.title, '#test-eval-action')
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install dependencies
+        run: npm ci
+        working-directory: .github/actions/skill-eval
+      - name: Build
+        run: npx tsc
+        working-directory: .github/actions/skill-eval
+      - uses: ./.github/actions/skill-eval
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          evalforge-url: ${{ vars.EVALFORGE_URL }}
+          evalforge-project-id: ${{ vars.AUTO_SKILLS_PIPELINE_PROJECT_ID }}
+          evalforge-app-id: ${{ secrets.AUTO_SKILLS_PIPELINE_APP_ID }}
+          evalforge-app-secret: ${{ secrets.AUTO_SKILLS_PIPELINE_APP_SECRET }}
