@@ -20,6 +20,14 @@ In [Claude Code](https://docs.anthropic.com/en/docs/claude-code), run:
 
 Go to **Settings > Rules > New Rule > Add from Github** with `https://github.com/wix/skills.git`.
 
+### Gemini CLI
+
+Install using [Gemini CLI](https://geminicli.com):
+
+```bash
+gemini extensions install https://github.com/wix/skills
+```
+
 ### Skills CLI
 
 Install using [skills CLI](https://github.com/vercel-labs/skills):
@@ -60,6 +68,7 @@ These skills work with any agent that supports the [Agent Skills specification](
 
 - Cursor
 - Claude Code
+- Gemini CLI
 - Codex
 - GitHub Copilot
 - Windsurf
