@@ -238,6 +238,7 @@ The root editorElement MUST include a display CSS property:
 
 **Repeated Data**
 - Whenever the component has repeated data (e.g. lists, collections), ALWAYS use the `arrayItems` data type
+- The `arrayItems` field must contain one of: `data` (static structure), `dataItem` (single typed item), or `dynamicItems`. Omitting all three fails deploy validation
 - Never create multiple separate elements for items that should be in an array
 
 ## Examples

@@ -8,6 +8,8 @@ compatibility: Requires Wix CLI development environment.
 
 Creates production-quality React site components with editor manifests for Wix CLI applications. Site components are React components that integrate with the Wix Editor, allowing site owners to customize content, styling, and behavior through a visual interface.
 
+**Prerequisite:** Run `npm install --save-dev @wix/editor-react-types` before writing any files.
+
 ## Architecture
 
 Site components consist of **four required files**:
@@ -49,8 +51,7 @@ Modern CSS with responsive design:
 
 Strict type definitions:
 
-- Install `@wix/editor-react-types` as a devDependency: `npm install --save-dev @wix/editor-react-types`
-- Import types: `import type { Wix, Link, Image, Text, NumberType, BooleanValue, WebUrl, Direction } from '@wix/editor-react-types'` — do NOT define these locally
+- Import types: `import type { Wix, Link, Image, Text, NumberType, BooleanValue, WebUrl, Direction } from '@wix/editor-react-types'` — do NOT define these locally (installed in Prerequisites)
 - Exception: `RichText` — define locally as `type RichText = string` (the `@wix/editor-react-types` version is `{ text, html, linkList }`, not a plain string)
 - Props interfaces for all components
 - Element props structure with optional chaining
@@ -470,6 +471,7 @@ The `id` must be a unique, static UUID v4 string. Generate a fresh UUID for each
 | Putting content text in `editorElement.data` | Content belongs to specific elements, not root | Move text/image/link data into `elements[key].data` |
 | Using `display: flex` directly on root | Breaks editor override mechanism | Use `--display: flex` CSS variable, then `display: var(--display)` |
 | Missing `removable: true` on elements | Site owner can't hide the element | Add `behaviors: { selectable: true, removable: true }` to all elements |
+| `arrayItems` without `data`/`dataItem`/`dynamicItems` | Deploy validation fails | The `arrayItems` object must include one of: `data`, `dataItem`, or `dynamicItems` |
 | Using `window`/`document` at module scope | SSR fails during build | Guard browser APIs inside `useEffect` or event handlers |
 | Importing from `@wix/design-system` | Not available in site components | Use plain HTML/CSS or custom components only |
 | `import { FC } from 'react'` | `verbatimModuleSyntax` in Astro tsconfig requires type-only imports | Use `import { type FC }` or `import type { FC }` from React |
