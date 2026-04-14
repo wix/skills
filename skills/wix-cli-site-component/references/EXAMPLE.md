@@ -1,38 +1,12 @@
-# Site Component Example: Perfect Example
+# Site Component Example: Profile Card
 
-A complete production-ready site component demonstrating all key patterns: manifest configuration, React component architecture, CSS styling, and TypeScript types.
+Complete production-ready site component demonstrating nested elements, all key data types, three component types (Leaf, Container, Root), conditional rendering, and three-way synchronization.
 
 ## Component Overview
 
-This example showcases a versatile component with:
-- Badge, title, subtitle text elements
-- Tags with comma-separated parsing
-- Counter with numeric value
-- Button with link and disabled state
-- Featured image with placeholder
-- Social links (Facebook, Twitter, Instagram)
-
----
-
-## File Structure
-
-```
-src/extensions/site/components/perfect-example/
-├── manifest.json
-├── component.tsx
-├── style.css
-├── types.ts
-└── components/
-    ├── index.ts
-    ├── Badge.tsx
-    ├── Button.tsx
-    ├── Counter.tsx
-    ├── FeaturedImage.tsx
-    ├── SocialLinks.tsx
-    ├── Subtitle.tsx
-    ├── Tags.tsx
-    └── Title.tsx
-```
+- **8 elements** with 2-level nesting (photoSection > statusBadge, infoSection > name/experience/skills/bio/contactButton)
+- **Data types**: text, link, image, arrayItems, number, booleanValue, direction
+- **Patterns**: LeafComponent, ContainerComponent, RootComponent, elementsRemovalState, elementProps spreading
 
 ---
 
@@ -43,23 +17,17 @@ src/extensions/site/components/perfect-example/
   "installation": {
     "staticContainer": "HOMEPAGE",
     "initialSize": {
-      "width": { "sizingType": "pixels", "pixels": 400 },
-      "height": { "sizingType": "pixels", "pixels": 400 }
+      "width": { "sizingType": "pixels", "pixels": 320 },
+      "height": { "sizingType": "content" }
     }
   },
   "editorElement": {
-    "selector": ".perfect-example",
-    "displayName": "Perfect Example",
+    "selector": ".profile-card",
+    "displayName": "Profile Card",
     "archetype": "Container",
-    "interactions": {
-      "triggers": ["viewEnter", "pageVisible", "animationEnd", "viewProgress", "pointerMove"],
-      "effectGroups": ["UNKNOWN_EFFECT_GROUP"]
-    },
     "layout": {
       "resizeDirection": "horizontalAndVertical",
-      "contentResizeDirection": "vertical",
-      "disableStretching": false,
-      "disablePositioning": false
+      "contentResizeDirection": "vertical"
     },
     "data": {
       "direction": {
@@ -68,304 +36,160 @@ src/extensions/site/components/perfect-example/
       }
     },
     "cssProperties": {
-      "backgroundColor": {
-        "displayName": "Background",
-        "defaultValue": "#ff6b6b"
-      },
-      "padding": {
-        "displayName": "Padding",
-        "defaultValue": "40px"
-      },
-      "borderRadius": {
-        "displayName": "Border Radius",
-        "defaultValue": "0"
-      },
-      "border": {
-        "displayName": "Border",
-        "defaultValue": "none"
-      },
-      "gap": {
-        "displayName": "Gap",
-        "defaultValue": "20px"
-      },
-      "boxShadow": {
-        "displayName": "Shadow",
-        "defaultValue": "none"
-      },
-      "opacity": {
-        "displayName": "Opacity",
-        "defaultValue": "1"
-      },
+      "backgroundColor": { "displayName": "Card BG", "defaultValue": "#FFFFFF" },
+      "borderRadius": { "displayName": "Radius", "defaultValue": "12px" },
+      "boxShadow": { "displayName": "Shadow", "defaultValue": "0 2px 8px rgba(3,34,98,0.08)" },
       "display": {
         "displayName": "Display",
-        "defaultValue": "flex",
-        "display": {
-          "displayValues": ["none", "flex", "block"]
-        }
-      },
-      "flexDirection": {
-        "displayName": "Direction",
-        "defaultValue": "column"
-      },
-      "alignItems": {
-        "displayName": "Align Items",
-        "defaultValue": "center"
-      },
-      "justifyContent": {
-        "displayName": "Justify",
-        "defaultValue": "center"
+        "display": { "displayValues": ["none", "flex"] }
       }
     },
     "elements": {
-      "badge": {
+      "photoSection": {
         "elementType": "inlineElement",
         "inlineElement": {
-          "selector": ".perfect-example__badge",
-          "displayName": "Badge",
-          "archetype": "Text",
+          "selector": ".profile-card__photo-section",
+          "displayName": "Photo Area",
           "data": {
-            "badgeText": {
-              "dataType": "text",
-              "displayName": "Badge Text",
-              "text": { "maxLength": 30 }
-            }
+            "image": { "dataType": "image", "displayName": "Photo" }
           },
           "cssProperties": {
-            "backgroundColor": { "displayName": "Background", "defaultValue": "#ffffff" },
-            "color": { "displayName": "Color", "defaultValue": "#ff6b6b" },
-            "font": { "displayName": "Font", "defaultValue": "normal normal 600 12px/1.3em wix-madefor-display-v2" },
-            "padding": { "displayName": "Padding", "defaultValue": "4px 12px" },
-            "borderRadius": { "displayName": "Radius", "defaultValue": "20px" },
-            "textTransform": { "displayName": "Transform", "defaultValue": "uppercase" },
-            "letterSpacing": { "displayName": "Spacing", "defaultValue": "0.05em" },
-            "display": {
-              "displayName": "Display",
-              "defaultValue": "inline-block",
-              "display": { "displayValues": ["none", "inline_block"] }
+            "borderRadius": { "displayName": "Radius", "defaultValue": "8px 8px 0 0" },
+            "display": { "display": { "displayValues": ["none", "block"] } }
+          },
+          "elements": {
+            "statusBadge": {
+              "elementType": "inlineElement",
+              "inlineElement": {
+                "selector": ".profile-card__status-badge",
+                "displayName": "Badge",
+                "data": {
+                  "badgeText": { "dataType": "text", "displayName": "Text" }
+                },
+                "cssProperties": {
+                  "backgroundColor": { "displayName": "BG", "defaultValue": "#D1FFAE" },
+                  "color": { "displayName": "Color", "defaultValue": "#000" },
+                  "font": { "displayName": "Font", "defaultValue": "normal normal 600 12px/1.3em wix-madefor-display-v2" },
+                  "display": { "display": { "displayValues": ["none", "block"] } }
+                },
+                "behaviors": { "selectable": true, "removable": true }
+              }
             }
           },
           "behaviors": { "selectable": true, "removable": true }
         }
       },
-      "title": {
+      "infoSection": {
         "elementType": "inlineElement",
         "inlineElement": {
-          "selector": ".perfect-example__title",
-          "displayName": "Title",
-          "archetype": "Text",
-          "data": {
-            "titleText": {
-              "dataType": "text",
-              "displayName": "Title Text",
-              "text": { "maxLength": 100 }
-            }
-          },
+          "selector": ".profile-card__info",
+          "displayName": "Info Area",
           "cssProperties": {
-            "color": { "displayName": "Color", "defaultValue": "#ffffff" },
-            "font": { "displayName": "Font", "defaultValue": "normal normal 700 48px/1.2em wix-madefor-display-v2" },
-            "textAlign": { "displayName": "Align", "defaultValue": "center" },
-            "textShadow": { "displayName": "Shadow", "defaultValue": "none" },
-            "width": { "displayName": "Width", "defaultValue": "100%" },
-            "display": {
-              "displayName": "Display",
-              "defaultValue": "block",
-              "display": { "displayValues": ["none", "block"] }
-            }
+            "padding": { "displayName": "Padding", "defaultValue": "clamp(1.5rem,4vw,2rem)" },
+            "gap": { "displayName": "Gap", "defaultValue": "0.75rem" },
+            "display": { "display": { "displayValues": ["none", "flex"] } }
           },
-          "behaviors": { "selectable": true, "removable": true }
-        }
-      },
-      "subtitle": {
-        "elementType": "inlineElement",
-        "inlineElement": {
-          "selector": ".perfect-example__subtitle",
-          "displayName": "Subtitle",
-          "archetype": "Text",
-          "data": {
-            "subtitleText": {
-              "dataType": "text",
-              "displayName": "Subtitle Text",
-              "text": { "maxLength": 200 }
-            }
-          },
-          "cssProperties": {
-            "color": { "displayName": "Color", "defaultValue": "rgba(255, 255, 255, 0.9)" },
-            "font": { "displayName": "Font", "defaultValue": "normal normal 400 18px/1.5em wix-madefor-display-v2" },
-            "textAlign": { "displayName": "Align", "defaultValue": "center" },
-            "width": { "displayName": "Width", "defaultValue": "100%" },
-            "opacity": { "displayName": "Opacity", "defaultValue": "0.9" },
-            "display": {
-              "displayName": "Display",
-              "defaultValue": "block",
-              "display": { "displayValues": ["none", "block"] }
-            }
-          },
-          "behaviors": { "selectable": true, "removable": true }
-        }
-      },
-      "tags": {
-        "elementType": "inlineElement",
-        "inlineElement": {
-          "selector": ".perfect-example__tags",
-          "displayName": "Tags",
-          "archetype": "Container",
-          "data": {
-            "tagsText": {
-              "dataType": "text",
-              "displayName": "Tags (comma separated)",
-              "text": { "maxLength": 200 }
-            }
-          },
-          "cssProperties": {
-            "gap": { "displayName": "Gap", "defaultValue": "8px" },
-            "width": { "displayName": "Width", "defaultValue": "auto" },
-            "display": {
-              "displayName": "Display",
-              "defaultValue": "flex",
-              "display": { "displayValues": ["none", "flex"] }
-            }
-          },
-          "behaviors": { "selectable": true, "removable": true }
-        }
-      },
-      "counter": {
-        "elementType": "inlineElement",
-        "inlineElement": {
-          "selector": ".perfect-example__counter",
-          "displayName": "Counter",
-          "archetype": "Text",
-          "data": {
-            "counterValue": {
-              "dataType": "number",
-              "displayName": "Count",
-              "number": { "minimum": 0, "maximum": 9999 }
-            }
-          },
-          "cssProperties": {
-            "color": { "displayName": "Color", "defaultValue": "#ffffff" },
-            "font": { "displayName": "Font", "defaultValue": "normal normal 700 36px/1.2em wix-madefor-display-v2" },
-            "display": {
-              "displayName": "Display",
-              "defaultValue": "flex",
-              "display": { "displayValues": ["none", "flex"] }
-            }
-          },
-          "behaviors": { "selectable": true, "removable": true }
-        }
-      },
-      "button": {
-        "elementType": "inlineElement",
-        "inlineElement": {
-          "selector": ".perfect-example__button",
-          "displayName": "Button",
-          "archetype": "Button",
-          "data": {
-            "buttonText": {
-              "dataType": "text",
-              "displayName": "Button Text",
-              "text": { "maxLength": 50 }
-            },
-            "buttonLink": {
-              "dataType": "link",
-              "displayName": "Button Link",
-              "link": {
-                "linkTypes": ["externalLink", "pageLink", "anchorLink", "emailLink", "phoneLink"]
+          "elements": {
+            "name": {
+              "elementType": "inlineElement",
+              "inlineElement": {
+                "selector": ".profile-card__name",
+                "displayName": "Name",
+                "data": {
+                  "nameText": { "dataType": "text", "displayName": "Text" }
+                },
+                "cssProperties": {
+                  "font": { "displayName": "Font", "defaultValue": "normal normal 700 24px/1.2em wix-madefor-display-v2" },
+                  "color": { "displayName": "Color", "defaultValue": "#000" },
+                  "display": { "display": { "displayValues": ["none", "block"] } }
+                },
+                "behaviors": { "selectable": true, "removable": true }
               }
             },
-            "buttonDisabled": {
-              "dataType": "booleanValue",
-              "displayName": "Disabled"
-            }
-          },
-          "cssProperties": {
-            "backgroundColor": { "displayName": "Background", "defaultValue": "#ffffff" },
-            "color": { "displayName": "Text Color", "defaultValue": "#ff6b6b" },
-            "font": { "displayName": "Font", "defaultValue": "normal normal 600 16px/1.4em wix-madefor-display-v2" },
-            "padding": { "displayName": "Padding", "defaultValue": "12px 32px" },
-            "borderRadius": { "displayName": "Radius", "defaultValue": "50px" },
-            "border": { "displayName": "Border", "defaultValue": "none" },
-            "boxShadow": { "displayName": "Shadow", "defaultValue": "0 4px 15px rgba(0, 0, 0, 0.2)" },
-            "opacity": { "displayName": "Opacity", "defaultValue": "1" },
-            "display": {
-              "displayName": "Display",
-              "defaultValue": "inline-flex",
-              "display": { "displayValues": ["none", "inline_flex"] }
+            "experience": {
+              "elementType": "inlineElement",
+              "inlineElement": {
+                "selector": ".profile-card__experience",
+                "displayName": "Experience",
+                "data": {
+                  "yearsExperience": { "dataType": "number", "displayName": "Years", "number": { "minimum": 0 } },
+                  "experienceLabel": { "dataType": "text", "displayName": "Label" }
+                },
+                "cssProperties": {
+                  "font": { "displayName": "Font", "defaultValue": "normal normal 600 20px/1.2em wix-madefor-display-v2" },
+                  "color": { "displayName": "Color", "defaultValue": "#000" },
+                  "display": { "display": { "displayValues": ["none", "block"] } }
+                },
+                "behaviors": { "selectable": true, "removable": true }
+              }
+            },
+            "skills": {
+              "elementType": "inlineElement",
+              "inlineElement": {
+                "selector": ".profile-card__skills",
+                "displayName": "Skills",
+                "data": {
+                  "skills": {
+                    "dataType": "arrayItems",
+                    "displayName": "Skills",
+                    "arrayItems": {
+                      "dataItem": {
+                        "dataType": "data",
+                        "displayName": "Skill",
+                        "data": {
+                          "items": {
+                            "label": { "dataType": "text", "displayName": "Label" }
+                          }
+                        }
+                      },
+                      "maxSize": 5
+                    }
+                  }
+                },
+                "cssProperties": {
+                  "gap": { "displayName": "Gap", "defaultValue": "0.5rem" },
+                  "display": { "display": { "displayValues": ["none", "flex"] } }
+                },
+                "behaviors": { "selectable": true, "removable": true }
+              }
+            },
+            "bio": {
+              "elementType": "inlineElement",
+              "inlineElement": {
+                "selector": ".profile-card__bio",
+                "displayName": "Bio",
+                "data": {
+                  "bioText": { "dataType": "text", "displayName": "Text" }
+                },
+                "cssProperties": {
+                  "font": { "displayName": "Font", "defaultValue": "normal normal 400 16px/1.5em wix-madefor-display-v2" },
+                  "color": { "displayName": "Color", "defaultValue": "#000" },
+                  "display": { "display": { "displayValues": ["none", "block"] } }
+                },
+                "behaviors": { "selectable": true, "removable": true }
+              }
+            },
+            "contactButton": {
+              "elementType": "inlineElement",
+              "inlineElement": {
+                "selector": ".profile-card__button",
+                "displayName": "Button",
+                "data": {
+                  "buttonText": { "dataType": "text", "displayName": "Text" },
+                  "buttonLink": { "dataType": "link", "displayName": "Link" },
+                  "buttonDisabled": { "dataType": "booleanValue", "displayName": "Disabled" }
+                },
+                "cssProperties": {
+                  "backgroundColor": { "displayName": "BG", "defaultValue": "#032262" },
+                  "color": { "displayName": "Color", "defaultValue": "#FFF" },
+                  "border": { "displayName": "Border", "defaultValue": "1px solid #032262" },
+                  "display": { "display": { "displayValues": ["none", "inline_flex"] } }
+                },
+                "behaviors": { "selectable": true, "removable": true }
+              }
             }
           },
           "behaviors": { "selectable": true, "removable": true }
-        }
-      },
-      "featuredImage": {
-        "elementType": "inlineElement",
-        "inlineElement": {
-          "selector": ".perfect-example__image",
-          "displayName": "Featured Image",
-          "archetype": "Image",
-          "data": {
-            "image": {
-              "dataType": "image",
-              "displayName": "Image"
-            },
-            "imageAlt": {
-              "dataType": "text",
-              "displayName": "Alt Text",
-              "text": { "maxLength": 100 }
-            }
-          },
-          "cssProperties": {
-            "borderRadius": { "displayName": "Radius", "defaultValue": "12px" },
-            "width": { "displayName": "Width", "defaultValue": "100%" },
-            "height": { "displayName": "Height", "defaultValue": "auto" },
-            "boxShadow": { "displayName": "Shadow", "defaultValue": "0 10px 40px rgba(0, 0, 0, 0.3)" },
-            "objectFit": { "displayName": "Fit", "defaultValue": "cover" },
-            "opacity": { "displayName": "Opacity", "defaultValue": "1" },
-            "display": {
-              "displayName": "Display",
-              "defaultValue": "block",
-              "display": { "displayValues": ["none", "block"] }
-            }
-          },
-          "behaviors": { "selectable": true, "removable": true }
-        }
-      },
-      "socialLinks": {
-        "elementType": "inlineElement",
-        "inlineElement": {
-          "selector": ".perfect-example__social",
-          "displayName": "Social Links",
-          "archetype": "Social",
-          "data": {
-            "facebookUrl": {
-              "dataType": "webUrl",
-              "displayName": "Facebook URL"
-            },
-            "twitterUrl": {
-              "dataType": "webUrl",
-              "displayName": "Twitter URL"
-            },
-            "instagramUrl": {
-              "dataType": "webUrl",
-              "displayName": "Instagram URL"
-            }
-          },
-          "cssProperties": {
-            "gap": { "displayName": "Gap", "defaultValue": "16px" },
-            "display": {
-              "displayName": "Display",
-              "defaultValue": "flex",
-              "display": { "displayValues": ["none", "flex"] }
-            }
-          },
-          "behaviors": { "selectable": true, "removable": true }
-        }
-      }
-    },
-    "actions": {
-      "editContent": {
-        "displayName": "Edit Content",
-        "execution": {
-          "actionType": "data",
-          "data": { "dataItemKey": "titleText" }
         }
       }
     }
@@ -380,496 +204,70 @@ src/extensions/site/components/perfect-example/
 ```tsx
 import React from 'react';
 import './style.css';
+import { defaultProfilePhoto } from './assets/defaultImages';
+import type { Wix, Text, Link, Image, NumberType, BooleanValue, Direction } from './types';
 
-import {
-  Badge,
-  Title,
-  Subtitle,
-  Tags,
-  Counter,
-  Button,
-  FeaturedImage,
-  SocialLinks,
-} from './components';
+type LeafComponent<TProps> = (props: TProps & { className: string }) => React.JSX.Element;
 
-import type {
-  Text,
-  RichText,
-  NumberType,
-  BooleanValue,
-  WebUrl,
-  Link,
-  Image,
-  Direction,
-  Wix,
-} from './types';
-
-interface PerfectExampleProps {
-  className: string;
-  id: string;
-  wix?: Wix;
-  direction?: Direction;
-  elementProps?: {
-    badge?: {
-      badgeText?: Text;
-    };
-    title?: {
-      titleText?: Text;
-    };
-    subtitle?: {
-      subtitleText?: Text;
-    };
-    tags?: {
-      tagsText?: Text;
-    };
-    counter?: {
-      counterValue?: NumberType;
-      counterLabel?: Text;
-    };
-    button?: {
-      buttonText?: Text;
-      buttonLink?: Link;
-      buttonDisabled?: BooleanValue;
-    };
-    featuredImage?: {
-      image?: Image;
-      imageAlt?: Text;
-    };
-    socialLinks?: {
-      facebookUrl?: WebUrl;
-      twitterUrl?: WebUrl;
-      instagramUrl?: WebUrl;
-    };
-  };
-}
-
-const PerfectExample: React.FC<PerfectExampleProps> = ({
-  className,
-  id,
-  wix,
-  direction,
-  elementProps,
-}) => {
-  const rm = wix?.elementsRemovalState || {};
-
-  return (
-    <div className={`perfect-example ${className}`} id={id} dir={direction}>
-      {!rm['badge'] && (
-        <Badge className="perfect-example__badge" {...elementProps?.badge} />
-      )}
-
-      {!rm['title'] && (
-        <Title className="perfect-example__title" {...elementProps?.title} />
-      )}
-
-      {!rm['subtitle'] && (
-        <Subtitle className="perfect-example__subtitle" {...elementProps?.subtitle} />
-      )}
-
-      {!rm['tags'] && (
-        <Tags className="perfect-example__tags" {...elementProps?.tags} />
-      )}
-
-      {!rm['counter'] && (
-        <Counter className="perfect-example__counter" {...elementProps?.counter} />
-      )}
-
-      <div className="perfect-example__buttons">
-        {!rm['button'] && (
-          <Button className="perfect-example__button" {...elementProps?.button} />
-        )}
-      </div>
-
-      {!rm['featuredImage'] && (
-        <FeaturedImage className="perfect-example__image" {...elementProps?.featuredImage} />
-      )}
-
-      {!rm['socialLinks'] && (
-        <SocialLinks className="perfect-example__social" {...elementProps?.socialLinks} />
-      )}
-    </div>
-  );
-};
-
-export default PerfectExample;
-```
-
----
-
-## style.css
-
-```css
-.perfect-example {
-  box-sizing: border-box;
-  width: 100%;
-  min-height: 400px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 20px;
-  padding: 40px;
-  background-color: #ff6b6b;
-  text-align: center;
-}
-
-.perfect-example *,
-.perfect-example *::before,
-.perfect-example *::after {
-  box-sizing: border-box;
-}
-
-.perfect-example__badge {
-  display: inline-block;
-  padding: 4px 12px;
-  background-color: #ffffff;
-  color: #ff6b6b;
-  font: normal normal 600 12px/1.3em wix-madefor-display-v2;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  border-radius: 20px;
-}
-
-.perfect-example__title {
-  margin: 0;
-  color: #ffffff;
-  font: normal normal 700 48px/1.2em wix-madefor-display-v2;
-  text-align: center;
-}
-
-.perfect-example__subtitle {
-  margin: 0;
-  color: rgba(255, 255, 255, 0.9);
-  font: normal normal 400 18px/1.5em wix-madefor-display-v2;
-  text-align: center;
-  max-width: 600px;
-}
-
-.perfect-example__tags {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 8px;
-}
-
-.perfect-example__tag {
-  display: inline-block;
-  padding: 6px 14px;
-  background-color: rgba(255, 255, 255, 0.15);
-  color: #ffffff;
-  font: normal normal 500 13px/1.3em wix-madefor-display-v2;
-  border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-.perfect-example__counter {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  color: #ffffff;
-}
-
-.perfect-example__counter-label {
-  font: normal normal 400 14px/1.4em wix-madefor-display-v2;
-  opacity: 0.8;
-}
-
-.perfect-example__buttons {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 12px;
-}
-
-.perfect-example__button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 12px 32px;
-  background-color: #ffffff;
-  color: #ff6b6b;
-  font: normal normal 600 16px/1.4em wix-madefor-display-v2;
-  text-decoration: none;
-  border: none;
-  border-radius: 50px;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-  cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.perfect-example__button:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
-}
-
-.perfect-example__image-wrapper {
-  width: 100%;
-  max-width: 400px;
-}
-
-.perfect-example__image {
-  width: 100%;
-  height: auto;
-  border-radius: 12px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-  object-fit: cover;
-}
-
-.perfect-example__image--placeholder {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  min-height: 200px;
-  background: rgba(255, 255, 255, 0.15);
-  color: rgba(255, 255, 255, 0.7);
-  font: normal normal 500 14px/1.4em wix-madefor-display-v2;
-  border: 2px dashed rgba(255, 255, 255, 0.3);
-}
-
-.perfect-example__social {
-  display: flex;
-  gap: 16px;
-}
-
-.perfect-example__social-link {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  background-color: rgba(255, 255, 255, 0.15);
-  color: #ffffff;
-  border-radius: 50%;
-  text-decoration: none;
-  transition: background-color 0.2s ease, transform 0.2s ease;
-}
-
-.perfect-example__social-link:hover {
-  background-color: rgba(255, 255, 255, 0.25);
-  transform: scale(1.1);
-}
-
-.perfect-example[dir="rtl"] {
-  direction: rtl;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .perfect-example *,
-  .perfect-example *::before,
-  .perfect-example *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+type ContainerComponent<TProps> = (
+  props: TProps & {
+    className: string;
+    elementProps?: Record<string, any>;
+    wix?: Wix;
   }
-}
-```
+) => React.JSX.Element;
 
----
+type RootComponent<TProps> = (
+  props: TProps & {
+    id?: string;
+    className: string;
+    elementProps?: Record<string, any>;
+    wix?: Wix;
+  }
+) => React.JSX.Element;
 
-## types.ts
+// --- Leaf Components ---
 
-```typescript
-export type Text = string;
-export type RichText = string;
-export type NumberType = number;
-export type BooleanValue = boolean;
-export type WebUrl = string;
-export type Direction = 'rtl' | 'ltr' | 'auto';
+const StatusBadge: LeafComponent<{ badgeText?: Text }> = ({ className, badgeText }) => (
+  <div className={className}>{badgeText || 'Available'}</div>
+);
 
-export type Link = {
-  href: string;
-  target?: string;
-  rel?: string;
+const Name: LeafComponent<{ nameText?: Text }> = ({ className, nameText }) => (
+  <h2 className={className}>{nameText || 'Team Member'}</h2>
+);
+
+const Experience: LeafComponent<{ yearsExperience?: NumberType; experienceLabel?: Text }> = ({
+  className, yearsExperience, experienceLabel
+}) => {
+  const years = yearsExperience ?? 5;
+  const label = experienceLabel || 'years experience';
+  return <p className={className}>{years} {label}</p>;
 };
 
-export type Image = {
-  uri: string;
-  url: string;
-  name?: string;
-  alt?: string;
-  width?: number;
-  height?: number;
-};
+interface Skill { label?: Text; }
 
-export interface Wix {
-  elementsRemovalState?: Record<string, 'REMOVED'>;
-}
-
-export interface BadgeProps {
-  badgeText?: Text;
-}
-
-export interface TitleProps {
-  titleText?: Text;
-}
-
-export interface SubtitleProps {
-  subtitleText?: Text;
-}
-
-export interface DescriptionProps {
-  descriptionContent?: RichText;
-}
-
-export interface TagsProps {
-  tagsText?: Text;
-}
-
-export interface CounterProps {
-  counterValue?: NumberType;
-  counterLabel?: Text;
-}
-
-export interface ButtonProps {
-  buttonText?: Text;
-  buttonLink?: Link;
-  buttonDisabled?: BooleanValue;
-}
-
-export interface FeaturedImageProps {
-  image?: Image;
-  imageAlt?: Text;
-}
-
-export interface SocialLinksProps {
-  facebookUrl?: WebUrl;
-  twitterUrl?: WebUrl;
-  instagramUrl?: WebUrl;
-}
-```
-
----
-
-## Sub-Components
-
-### components/index.ts
-
-```typescript
-export { Badge } from './Badge';
-export { Title } from './Title';
-export { Subtitle } from './Subtitle';
-export { Tags } from './Tags';
-export { Counter } from './Counter';
-export { Button } from './Button';
-export { FeaturedImage } from './FeaturedImage';
-export { SocialLinks } from './SocialLinks';
-```
-
-### components/Badge.tsx
-
-```tsx
-import React from 'react';
-import type { Text } from '../types';
-
-interface BadgeComponentProps {
-  className: string;
-  badgeText?: Text;
-}
-
-export const Badge: React.FC<BadgeComponentProps> = ({ className, badgeText }) => (
-  <span className={className}>
-    {badgeText || 'New'}
-  </span>
-);
-```
-
-### components/Title.tsx
-
-```tsx
-import React from 'react';
-import type { Text } from '../types';
-
-interface TitleComponentProps {
-  className: string;
-  titleText?: Text;
-}
-
-export const Title: React.FC<TitleComponentProps> = ({ className, titleText }) => (
-  <h1 className={className}>{titleText || 'Perfect Example'}</h1>
-);
-```
-
-### components/Subtitle.tsx
-
-```tsx
-import React from 'react';
-import type { Text } from '../types';
-
-interface SubtitleComponentProps {
-  className: string;
-  subtitleText?: Text;
-}
-
-export const Subtitle: React.FC<SubtitleComponentProps> = ({ className, subtitleText }) => (
-  <p className={className}>{subtitleText || 'The ultimate React component builder showcase'}</p>
-);
-```
-
-### components/Tags.tsx
-
-```tsx
-import React from 'react';
-import type { Text } from '../types';
-
-interface TagsComponentProps {
-  className: string;
-  tagsText?: Text;
-}
-
-const DEFAULT_TAGS = 'React, Builder, Wix';
-
-export const Tags: React.FC<TagsComponentProps> = ({ className, tagsText }) => {
-  const tagsString = tagsText || DEFAULT_TAGS;
-  const tags = tagsString.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0);
-
+const Skills: LeafComponent<{ skills?: Skill[] }> = ({ className, skills }) => {
+  const defaultSkills: Skill[] = [{ label: 'Design' }, { label: 'Strategy' }, { label: 'Leadership' }];
+  const displaySkills = (skills?.length ?? 0) > 0 ? skills! : defaultSkills;
   return (
     <div className={className}>
-      {tags.map((tag, index) => (
-        <span key={index} className="perfect-example__tag">
-          {tag}
-        </span>
+      {displaySkills.map((skill, i) => (
+        <span key={i} className="profile-card__skill">{skill.label || 'Skill'}</span>
       ))}
     </div>
   );
 };
-```
 
-### components/Counter.tsx
-
-```tsx
-import React from 'react';
-import type { NumberType } from '../types';
-
-interface CounterComponentProps {
-  className: string;
-  counterValue?: NumberType;
-}
-
-export const Counter: React.FC<CounterComponentProps> = ({ className, counterValue }) => (
-  <div className={className}>
-    <span className="perfect-example__counter-value">{counterValue ?? 100}</span>
-  </div>
+const Bio: LeafComponent<{ bioText?: Text }> = ({ className, bioText }) => (
+  <p className={className}>{bioText || 'Passionate about creating meaningful experiences.'}</p>
 );
-```
 
-### components/Button.tsx
-
-```tsx
-import React from 'react';
-import type { Text, Link, BooleanValue } from '../types';
-
-interface ButtonComponentProps {
-  className: string;
+const ContactButton: LeafComponent<{
   buttonText?: Text;
   buttonLink?: Link;
   buttonDisabled?: BooleanValue;
-}
-
-export const Button: React.FC<ButtonComponentProps> = ({ className, buttonText, buttonLink, buttonDisabled }) => {
-  const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+}> = ({ className, buttonText, buttonLink, buttonDisabled }) => {
+  const handleClick = (e: React.MouseEvent<HTMLAnchorElement>): void => {
     if (buttonDisabled || !buttonLink?.href || buttonLink.href === '#') {
       e.preventDefault();
     }
@@ -885,160 +283,310 @@ export const Button: React.FC<ButtonComponentProps> = ({ className, buttonText, 
       aria-disabled={buttonDisabled}
       style={{ pointerEvents: buttonDisabled ? 'none' : 'auto', opacity: buttonDisabled ? 0.5 : 1 }}
     >
-      {buttonText || 'Get Started'}
+      <span>{buttonText || 'Get in Touch'}</span>
     </a>
   );
 };
-```
 
-### components/FeaturedImage.tsx
+// --- Container Components ---
 
-```tsx
-import React from 'react';
-import type { Image, Text } from '../types';
-
-interface FeaturedImageComponentProps {
-  className: string;
-  image?: Image;
-  imageAlt?: Text;
-}
-
-export const FeaturedImage: React.FC<FeaturedImageComponentProps> = ({ className, image, imageAlt }) => (
-  <div className="perfect-example__image-wrapper">
-    {image?.url ? (
-      <img
-        className={className}
-        src={image.url}
-        alt={imageAlt || image.alt || 'Featured image'}
-        loading="lazy"
-      />
-    ) : (
-      <div className={`${className} perfect-example__image--placeholder`}>
-        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-          <circle cx="8.5" cy="8.5" r="1.5" />
-          <polyline points="21 15 16 10 5 21" />
-        </svg>
-        <span>Add Image</span>
-      </div>
-    )}
-  </div>
-);
-```
-
-### components/SocialLinks.tsx
-
-```tsx
-import React from 'react';
-import type { WebUrl } from '../types';
-
-interface SocialLinksComponentProps {
-  className: string;
-  facebookUrl?: WebUrl;
-  twitterUrl?: WebUrl;
-  instagramUrl?: WebUrl;
-}
-
-const SocialIcon: React.FC<{ type: 'facebook' | 'twitter' | 'instagram' }> = ({ type }) => {
-  const paths: Record<string, string> = {
-    facebook: 'M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z',
-    twitter: 'M23 3a10.9 10.9 0 0 1-3.14 1.53 4.48 4.48 0 0 0-7.86 3v1A10.66 10.66 0 0 1 3 4s-4 9 5 13a11.64 11.64 0 0 1-7 2c9 5 20 0 20-11.5a4.5 4.5 0 0 0-.08-.83A7.72 7.72 0 0 0 23 3z',
-    instagram: 'M16 4H8a4 4 0 0 0-4 4v8a4 4 0 0 0 4 4h8a4 4 0 0 0 4-4V8a4 4 0 0 0-4-4zm-4 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6zm4.5-7.5a1 1 0 1 1 0-2 1 1 0 0 1 0 2z',
-  };
-
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d={paths[type]} />
-    </svg>
-  );
-};
-
-export const SocialLinks: React.FC<SocialLinksComponentProps> = ({
-  className,
-  facebookUrl,
-  twitterUrl,
-  instagramUrl
-}) => {
-  const links = [
-    { type: 'facebook' as const, url: facebookUrl },
-    { type: 'twitter' as const, url: twitterUrl },
-    { type: 'instagram' as const, url: instagramUrl },
-  ].filter(link => link.url);
-
-  const displayLinks = links.length > 0 ? links : [
-    { type: 'facebook' as const, url: '#' },
-    { type: 'twitter' as const, url: '#' },
-    { type: 'instagram' as const, url: '#' },
-  ];
+const PhotoSection: ContainerComponent<{ image?: Image }> = ({ className, image, elementProps, wix }) => {
+  const removalState = wix?.elementsRemovalState || {};
+  const imageUrl = image?.url || defaultProfilePhoto;
 
   return (
     <div className={className}>
-      {displayLinks.map(({ type, url }) => (
-        <a
-          key={type}
-          href={url || '#'}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="perfect-example__social-link"
-          aria-label={type}
-          onClick={(e) => { if (!url || url === '#') e.preventDefault(); }}
-        >
-          <SocialIcon type={type} />
-        </a>
-      ))}
+      {imageUrl && (
+        <img className="profile-card__photo" src={imageUrl} alt={image?.name || 'Profile photo'} loading="lazy" />
+      )}
+      {!removalState['statusBadge'] && (
+        <StatusBadge className="profile-card__status-badge" {...elementProps?.['statusBadge']} />
+      )}
     </div>
   );
 };
+
+const InfoSection: ContainerComponent<{}> = ({ className, elementProps, wix }) => {
+  const removalState = wix?.elementsRemovalState || {};
+
+  return (
+    <div className={className}>
+      {!removalState['name'] && (
+        <Name className="profile-card__name" {...elementProps?.['name']} />
+      )}
+      {!removalState['experience'] && (
+        <Experience className="profile-card__experience" {...elementProps?.['experience']} />
+      )}
+      {!removalState['skills'] && (
+        <Skills className="profile-card__skills" {...elementProps?.['skills']} />
+      )}
+      {!removalState['bio'] && (
+        <Bio className="profile-card__bio" {...elementProps?.['bio']} />
+      )}
+      {!removalState['contactButton'] && (
+        <ContactButton className="profile-card__button" {...elementProps?.['contactButton']} />
+      )}
+    </div>
+  );
+};
+
+// --- Root Component ---
+
+const ProfileCard: RootComponent<{ direction?: Direction }> = ({ className, id, wix, elementProps, direction }) => {
+  const removalState = wix?.elementsRemovalState || {};
+
+  return (
+    <div className={`profile-card ${className}`} id={id} dir={direction}>
+      {!removalState['photoSection'] && (
+        <PhotoSection className="profile-card__photo-section" {...elementProps?.['photoSection']} />
+      )}
+      {!removalState['infoSection'] && (
+        <InfoSection className="profile-card__info" {...elementProps?.['infoSection']} />
+      )}
+    </div>
+  );
+};
+
+export default ProfileCard;
+```
+
+---
+
+## style.css
+
+```css
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+@keyframes contentAppear {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.profile-card {
+  --display: flex;
+  width: 100%;
+  background: #FFF;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(3, 34, 98, 0.08);
+  transition: transform 400ms cubic-bezier(0.34, 1.56, 0.64, 1),
+              box-shadow 400ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  display: var(--display);
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.profile-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(3, 34, 98, 0.12);
+}
+
+.profile-card__photo-section {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  border-radius: 8px 8px 0 0;
+  position: relative;
+  pointer-events: auto;
+  opacity: 0;
+  animation: contentAppear 700ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  animation-delay: 100ms;
+}
+
+.profile-card__photo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 400ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.profile-card:hover .profile-card__photo {
+  transform: scale(1.05);
+}
+
+.profile-card__status-badge {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  padding: 0.25rem 0.75rem;
+  background: #D1FFAE;
+  color: #000;
+  font: normal normal 600 12px/1.3em wix-madefor-display-v2;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  pointer-events: auto;
+}
+
+.profile-card__info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: clamp(1.5rem, 4vw, 2rem);
+  flex-grow: 1;
+  pointer-events: auto;
+  opacity: 0;
+  animation: contentAppear 700ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  animation-delay: 250ms;
+}
+
+.profile-card__name {
+  margin: 0;
+  font: normal normal 700 24px/1.2em wix-madefor-display-v2;
+  color: #000;
+  pointer-events: auto;
+}
+
+.profile-card__experience {
+  margin: 0;
+  font: normal normal 600 20px/1.2em wix-madefor-display-v2;
+  color: #000;
+  pointer-events: auto;
+}
+
+.profile-card__skills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.5rem 0;
+  pointer-events: auto;
+}
+
+.profile-card__skill {
+  padding: 0.25rem 0.75rem;
+  background: rgba(3, 34, 98, 0.08);
+  color: #032262;
+  font: normal normal 500 12px/1.3em wix-madefor-display-v2;
+  border-radius: 16px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.profile-card__bio {
+  margin: 0;
+  font: normal normal 400 16px/1.5em wix-madefor-display-v2;
+  color: #000;
+  opacity: 0.7;
+  flex-grow: 1;
+  pointer-events: auto;
+}
+
+.profile-card__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  background: #032262;
+  color: #FFF;
+  font: normal normal 500 16px/1.4em wix-madefor-display-v2;
+  text-decoration: none;
+  border: 1px solid #032262;
+  border-radius: 15px;
+  align-self: flex-start;
+  margin-top: 1rem;
+  pointer-events: auto;
+  transition: background-color 300ms cubic-bezier(0.34, 1.56, 0.64, 1),
+              border-color 300ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.profile-card__button:hover {
+  background: #88C0FF;
+  border-color: #88C0FF;
+}
+
+.profile-card__button:focus-visible {
+  outline: 2px solid #032262;
+  outline-offset: 2px;
+}
+
+.profile-card[dir="rtl"] {
+  direction: rtl;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+```
+
+---
+
+## types.ts
+
+```typescript
+import type {
+  Wix, Link, Image, Text, NumberType, BooleanValue, Direction,
+} from '@wix/editor-react-types';
+
+export type { Wix, Link, Image, Text, NumberType, BooleanValue, Direction };
+
+// RichText from @wix/editor-react-types is { text, html, linkList } — site components receive HTML string
+export type RichText = string;
+```
+
+---
+
+## Default Image Asset
+
+```
+<defaultProfilePhoto>
+{
+  "description": "A professional headshot portrait with a clean neutral background, warm lighting, and friendly expression",
+  "width": 1024,
+  "height": 896
+}
+</defaultProfilePhoto>
 ```
 
 ---
 
 ## Key Patterns Demonstrated
 
-### 1. Installation Configuration
+### Nested Elements (2-level)
+Root → photoSection → statusBadge, Root → infoSection → name/experience/skills/bio/contactButton
 
-```json
-"installation": {
-  "staticContainer": "HOMEPAGE",
-  "initialSize": {
-    "width": { "sizingType": "pixels", "pixels": 400 },
-    "height": { "sizingType": "pixels", "pixels": 400 }
-  }
-}
-```
+### Three Component Types
+- **LeafComponent**: StatusBadge, Name, Experience, Skills, Bio, ContactButton — content only, no children
+- **ContainerComponent**: PhotoSection, InfoSection — render child sub-components via `elementProps`
+- **RootComponent**: ProfileCard — exported default, receives `id`, `className`, `elementProps`, `wix`
 
-- `staticContainer: "HOMEPAGE"` ensures automatic installation on Harmony editor
-- `initialSize` defines the component's default dimensions when added to a page
+### Conditional Rendering
+Each level checks its own `wix.elementsRemovalState`:
+- Root checks `photoSection`, `infoSection`
+- PhotoSection checks `statusBadge`
+- InfoSection checks `name`, `experience`, `skills`, `bio`, `contactButton`
 
-### 2. Manifest-to-React Alignment
+### Data Types Covered
+| Type | Element | Field |
+|------|---------|-------|
+| `text` | statusBadge, name, bio, contactButton | badgeText, nameText, bioText, buttonText |
+| `number` | experience | yearsExperience |
+| `booleanValue` | contactButton | buttonDisabled |
+| `link` | contactButton | buttonLink |
+| `image` | photoSection | image |
+| `arrayItems` | skills | skills (array of { label: text }) |
+| `direction` | root | direction |
 
-- Each manifest element key (`badge`, `title`, etc.) matches the React removal state check
-- CSS selectors match manifest selectors exactly (`.perfect-example__badge`)
-- Data types in manifest match TypeScript types (`text` → `Text`, `number` → `NumberType`)
+### Three-Way Sync
+Every element: React `className` = CSS selector = manifest `selector`
+- React: `className="profile-card__status-badge"` → CSS: `.profile-card__status-badge {}` → Manifest: `"selector": ".profile-card__status-badge"`
 
-### 3. Sub-Component Architecture
-
-- Each visual element is a separate sub-component
-- Sub-components receive `className` prop for CSS styling
-- Props spread pattern: `{...elementProps?.badge}`
-
-### 4. Removal State Handling
-
-```tsx
-const rm = wix?.elementsRemovalState || {};
-{!rm['badge'] && <Badge ... />}
-```
-
-### 5. CSS Variable Integration
-
-- Root element uses CSS variables for dynamic styling
-- `display` property configurable via manifest
+### CSS Variable Integration
+- Root `--display` variable for editor override: `display: var(--display)`
 - All selectors declared once with `box-sizing: border-box`
+- `pointer-events: auto` on all manifest elements
 
-### 6. Accessibility
-
-- Proper `aria-disabled` on buttons
+### Accessibility
+- `aria-disabled` on buttons with disabled state
 - `loading="lazy"` on images
-- `aria-label` on icon-only links
-- Reduced motion media query support
-
+- `focus-visible` outline for keyboard navigation
+- `prefers-reduced-motion` media query
