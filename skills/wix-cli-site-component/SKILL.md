@@ -8,7 +8,7 @@ compatibility: Requires Wix CLI development environment.
 
 Creates production-quality React site components with editor manifests for Wix CLI applications. Site components are React components that integrate with the Wix Editor, allowing site owners to customize content, styling, and behavior through a visual interface.
 
-**Prerequisite:** Run `npm install --save-dev @wix/editor-react-types` before writing any files.
+**Prerequisite:** Install `@wix/editor-react-types` as a dev dependency before writing any files.
 
 ## Architecture
 
