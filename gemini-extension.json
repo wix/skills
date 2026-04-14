@@ -1,0 +1,11 @@
+{
+  "name": "wix",
+  "version": "1.0.0",
+  "description": "Build, manage, and deploy Wix sites and apps. Includes CLI development skills and Wix MCP server for site management, eCommerce, CMS, dashboard extensions, and more.",
+  "mcpServers": {
+    "wix-mcp": {
+      "command": "npx",
+      "args": ["-y", "@wix/mcp-remote@latest", "https://mcp.wix.com/mcp"]
+    }
+  }
+}
