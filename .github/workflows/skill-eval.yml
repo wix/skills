@@ -3,10 +3,6 @@ name: Skill Eval
 on:
   pull_request:
     types: [opened, synchronize, reopened]
-    paths:
-      - "**/*.md"
-      - "**/*.yml"
-      - "**/*.yaml"
 
 jobs:
   skill-eval:
