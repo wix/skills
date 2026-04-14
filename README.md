@@ -25,7 +25,7 @@ Go to **Settings > Rules > New Rule > Add from Github** with `https://github.com
 Install using [Gemini CLI](https://geminicli.com):
 
 ```bash
-gemini extensions install github:wix/skills
+gemini extensions install https://github.com/wix/skills
 ```
 
 ### Skills CLI
