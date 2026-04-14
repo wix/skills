@@ -10,7 +10,7 @@ on:
 
 jobs:
   skill-eval:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     if: contains(github.event.pull_request.title, '#test-eval-action')
     permissions:
       contents: read
@@ -24,7 +24,7 @@ jobs:
         run: npm ci
         working-directory: .github/actions/skill-eval
       - name: Build
-        run: npx tsc
+        run: npm run build
         working-directory: .github/actions/skill-eval
       - uses: ./.github/actions/skill-eval
         with:
