@@ -254,9 +254,9 @@ Components live in user-resizable containers (300-1200px) within varying viewpor
 
 **CRITICAL**: CSS selectors must match manifest selectors and React classNames exactly:
 
-- React: `className="product-card__title"`
-- CSS: `.product-card__title { ... }`
-- Manifest: `"selector": ".product-card__title"`
+- React: `className="profile-card__name"`
+- CSS: `.profile-card__name { ... }`
+- Manifest: `"selector": ".profile-card__name"`
 
 ## Design Guidelines
 
@@ -346,16 +346,16 @@ src/extensions/site/components/
 
 ## Examples
 
-**Complete working example:** See [EXAMPLE.md](references/EXAMPLE.md) for a product card with nested elements, all data types, and three component types (Leaf, Container, Root). **Read this when building a complex multi-element component, when you want to verify you have all patterns right, or when you need a cross-reference. For components with ≤5 elements, the patterns documented in this file are sufficient — EXAMPLE.md is not required reading.**
+**Complete working example:** See [EXAMPLE.md](references/EXAMPLE.md) for a profile card with nested elements, all data types, and three component types (Leaf, Container, Root). **Read this when building a complex multi-element component, when you want to verify you have all patterns right, or when you need a cross-reference. For components with ≤5 elements, the patterns documented in this file are sufficient — EXAMPLE.md is not required reading.**
 
-### Product Card Component
+### Profile Card Component
 
-**Request:** "Create a product card component with image, title, price, and buy button"
+**Request:** "Create a team member profile card with photo, name, experience, and contact button"
 
 **Output:**
-- Manifest with 4 elements (image, title, price, button)
-- React component with sub-components for each element
-- CSS with responsive grid layout and hover effects
+- Manifest with 8 elements in 2-level nesting (photo section, info section)
+- React component with Leaf, Container, and Root sub-components
+- CSS with responsive layout and hover effects
 - TypeScript types for all props and data structures
 
 ### Hero Section Component
@@ -408,7 +408,7 @@ export const sitecomponentMyComponent = extensions.siteComponent({
 
 The `type` field uses the format `{CODE_IDENTIFIER}.{PascalCaseFolderName}`:
 - Folder `my-component` → `type: "<CODE_IDENTIFIER>.MyComponent"`
-- Folder `product-card` → `type: "<CODE_IDENTIFIER>.ProductCard"`
+- Folder `profile-card` → `type: "<CODE_IDENTIFIER>.ProfileCard"`
 - Folder `hero-section` → `type: "<CODE_IDENTIFIER>.HeroSection"`
 
 The folder name is converted to PascalCase (hyphens removed, each word capitalized).

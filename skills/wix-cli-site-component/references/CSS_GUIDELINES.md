@@ -163,37 +163,37 @@ Components live in user-resizable containers (300-1200px) within varying viewpor
 
 | File | Format | Example |
 |------|--------|---------|
-| React | `className="product-card__title"` | Direct class |
-| CSS | `.product-card__title { ... }` | Same class |
-| Manifest | `"selector": ".product-card__title"` | Same class |
+| React | `className="profile-card__title"` | Direct class |
+| CSS | `.profile-card__title { ... }` | Same class |
+| Manifest | `"selector": ".profile-card__title"` | Same class |
 
 ### Naming Convention
 
 ```css
 /* ✅ BEM-style naming */
-.product-card { }                    /* Block */
-.product-card__image { }             /* Element */
-.product-card__title { }             /* Element */
-.product-card__button { }            /* Element */
-.product-card__button--primary { }   /* Modifier */
+.profile-card { }                    /* Block */
+.profile-card__image { }             /* Element */
+.profile-card__title { }             /* Element */
+.profile-card__button { }            /* Element */
+.profile-card__button--primary { }   /* Modifier */
 ```
 
 ### Forbidden Selectors
 
 ```css
 /* ❌ Compound selectors */
-.product-card.featured { }
+.profile-card.featured { }
 
 /* ❌ Descendant selectors */
-.product-card .title { }
+.profile-card .title { }
 
 /* ❌ Child selectors */
-.product-card > .content { }
+.profile-card > .content { }
 
 /* ✅ Use direct classes only */
-.product-card { }
-.product-card__title { }
-.product-card__content { }
+.profile-card { }
+.profile-card__title { }
+.profile-card__content { }
 ```
 
 ## Box Model and Spacing

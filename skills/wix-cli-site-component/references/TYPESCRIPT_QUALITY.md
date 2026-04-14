@@ -27,7 +27,7 @@ Generated code MUST compile with zero TypeScript errors under strict settings:
 
 ```typescript
 // ✅ Correct - strict typing with optional data props
-interface ProductCardProps {
+interface ProfileCardProps {
   // Required system props
   className: string;
   id: string;
@@ -36,12 +36,12 @@ interface ProductCardProps {
   // Optional component data (from editorElement.data)
   columns?: number;
   layout?: 'grid' | 'list' | 'masonry';
-  showPrices?: boolean;
+  showDetails?: boolean;
 
   // Optional element props (from elements definitions)
   elementProps?: {
     image?: {
-      productImage?: Image;
+      photo?: Image;
       wix?: Wix;
       elementProps?: {
         badge?: {
@@ -87,7 +87,7 @@ interface ButtonProps {
 }
 
 interface ImageProps {
-  productImage?: Image;
+  photo?: Image;
   className: string;
   loading?: 'lazy' | 'eager';
 }
@@ -107,7 +107,7 @@ interface FeatureItemProps {
 
 ```typescript
 // ✅ Correct - explicit return type
-const ProductCard: React.FC<ProductCardProps> = ({
+const ProfileCard: React.FC<ProfileCardProps> = ({
   className,
   id,
   columns = 1,

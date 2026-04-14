@@ -250,7 +250,7 @@ The root editorElement MUST include a display CSS property:
   "title": {
     "elementType": "inlineElement",
     "inlineElement": {
-      "selector": ".product-card__title",
+      "selector": ".profile-card__title",
       "displayName": "Title",
       "data": {
         "titleText": {
@@ -326,9 +326,9 @@ The root editorElement MUST include a display CSS property:
 
 | File | Convention | Example |
 |------|------------|---------|
-| React className | Direct class | `className="product-card__title"` |
-| CSS selector | Same class | `.product-card__title { ... }` |
-| Manifest selector | Same class | `"selector": ".product-card__title"` |
+| React className | Direct class | `className="profile-card__title"` |
+| CSS selector | Same class | `.profile-card__title { ... }` |
+| Manifest selector | Same class | `"selector": ".profile-card__title"` |
 | React prop | camelCase | `titleText` |
 | Manifest data key | camelCase | `"titleText"` |
 

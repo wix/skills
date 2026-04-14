@@ -1,10 +1,10 @@
-# Site Component Example: Product Card
+# Site Component Example: Profile Card
 
 Complete production-ready site component demonstrating nested elements, all key data types, three component types (Leaf, Container, Root), conditional rendering, and three-way synchronization.
 
 ## Component Overview
 
-- **8 elements** with 2-level nesting (imageWrapper > badge, contentArea > title/price/tags/description/button)
+- **8 elements** with 2-level nesting (photoSection > statusBadge, infoSection > name/experience/skills/bio/contactButton)
 - **Data types**: text, link, image, arrayItems, number, booleanValue, direction
 - **Patterns**: LeafComponent, ContainerComponent, RootComponent, elementsRemovalState, elementProps spreading
 
@@ -22,8 +22,8 @@ Complete production-ready site component demonstrating nested elements, all key 
     }
   },
   "editorElement": {
-    "selector": ".product-card",
-    "displayName": "Product Card",
+    "selector": ".profile-card",
+    "displayName": "Profile Card",
     "archetype": "Container",
     "layout": {
       "resizeDirection": "horizontalAndVertical",
@@ -45,23 +45,23 @@ Complete production-ready site component demonstrating nested elements, all key 
       }
     },
     "elements": {
-      "imageWrapper": {
+      "photoSection": {
         "elementType": "inlineElement",
         "inlineElement": {
-          "selector": ".product-card__image-wrapper",
-          "displayName": "Media Area",
+          "selector": ".profile-card__photo-section",
+          "displayName": "Photo Area",
           "data": {
-            "image": { "dataType": "image", "displayName": "Image" }
+            "image": { "dataType": "image", "displayName": "Photo" }
           },
           "cssProperties": {
             "borderRadius": { "displayName": "Radius", "defaultValue": "8px 8px 0 0" },
             "display": { "display": { "displayValues": ["none", "block"] } }
           },
           "elements": {
-            "badge": {
+            "statusBadge": {
               "elementType": "inlineElement",
               "inlineElement": {
-                "selector": ".product-card__badge",
+                "selector": ".profile-card__status-badge",
                 "displayName": "Badge",
                 "data": {
                   "badgeText": { "dataType": "text", "displayName": "Text" }
@@ -79,24 +79,24 @@ Complete production-ready site component demonstrating nested elements, all key 
           "behaviors": { "selectable": true, "removable": true }
         }
       },
-      "contentArea": {
+      "infoSection": {
         "elementType": "inlineElement",
         "inlineElement": {
-          "selector": ".product-card__content",
-          "displayName": "Content Area",
+          "selector": ".profile-card__info",
+          "displayName": "Info Area",
           "cssProperties": {
             "padding": { "displayName": "Padding", "defaultValue": "clamp(1.5rem,4vw,2rem)" },
             "gap": { "displayName": "Gap", "defaultValue": "0.75rem" },
             "display": { "display": { "displayValues": ["none", "flex"] } }
           },
           "elements": {
-            "title": {
+            "name": {
               "elementType": "inlineElement",
               "inlineElement": {
-                "selector": ".product-card__title",
-                "displayName": "Title",
+                "selector": ".profile-card__name",
+                "displayName": "Name",
                 "data": {
-                  "titleText": { "dataType": "text", "displayName": "Text" }
+                  "nameText": { "dataType": "text", "displayName": "Text" }
                 },
                 "cssProperties": {
                   "font": { "displayName": "Font", "defaultValue": "normal normal 700 24px/1.2em wix-madefor-display-v2" },
@@ -106,14 +106,14 @@ Complete production-ready site component demonstrating nested elements, all key 
                 "behaviors": { "selectable": true, "removable": true }
               }
             },
-            "price": {
+            "experience": {
               "elementType": "inlineElement",
               "inlineElement": {
-                "selector": ".product-card__price",
-                "displayName": "Price",
+                "selector": ".profile-card__experience",
+                "displayName": "Experience",
                 "data": {
-                  "priceAmount": { "dataType": "number", "displayName": "Price", "number": { "minimum": 0 } },
-                  "currency": { "dataType": "text", "displayName": "Currency" }
+                  "yearsExperience": { "dataType": "number", "displayName": "Years", "number": { "minimum": 0 } },
+                  "experienceLabel": { "dataType": "text", "displayName": "Label" }
                 },
                 "cssProperties": {
                   "font": { "displayName": "Font", "defaultValue": "normal normal 600 20px/1.2em wix-madefor-display-v2" },
@@ -123,19 +123,19 @@ Complete production-ready site component demonstrating nested elements, all key 
                 "behaviors": { "selectable": true, "removable": true }
               }
             },
-            "tags": {
+            "skills": {
               "elementType": "inlineElement",
               "inlineElement": {
-                "selector": ".product-card__tags",
-                "displayName": "Tags",
+                "selector": ".profile-card__skills",
+                "displayName": "Skills",
                 "data": {
-                  "tags": {
+                  "skills": {
                     "dataType": "arrayItems",
-                    "displayName": "Tags",
+                    "displayName": "Skills",
                     "arrayItems": {
                       "dataItem": {
                         "dataType": "data",
-                        "displayName": "Tag",
+                        "displayName": "Skill",
                         "data": {
                           "items": {
                             "label": { "dataType": "text", "displayName": "Label" }
@@ -153,13 +153,13 @@ Complete production-ready site component demonstrating nested elements, all key 
                 "behaviors": { "selectable": true, "removable": true }
               }
             },
-            "descriptionText": {
+            "bio": {
               "elementType": "inlineElement",
               "inlineElement": {
-                "selector": ".product-card__description",
-                "displayName": "Description",
+                "selector": ".profile-card__bio",
+                "displayName": "Bio",
                 "data": {
-                  "descriptionText": { "dataType": "text", "displayName": "Text" }
+                  "bioText": { "dataType": "text", "displayName": "Text" }
                 },
                 "cssProperties": {
                   "font": { "displayName": "Font", "defaultValue": "normal normal 400 16px/1.5em wix-madefor-display-v2" },
@@ -169,10 +169,10 @@ Complete production-ready site component demonstrating nested elements, all key 
                 "behaviors": { "selectable": true, "removable": true }
               }
             },
-            "button": {
+            "contactButton": {
               "elementType": "inlineElement",
               "inlineElement": {
-                "selector": ".product-card__button",
+                "selector": ".profile-card__button",
                 "displayName": "Button",
                 "data": {
                   "buttonText": { "dataType": "text", "displayName": "Text" },
@@ -204,7 +204,7 @@ Complete production-ready site component demonstrating nested elements, all key 
 ```tsx
 import React from 'react';
 import './style.css';
-import { defaultProductImage } from './assets/defaultImages';
+import { defaultProfilePhoto } from './assets/defaultImages';
 import type { Wix, Text, Link, Image, NumberType, BooleanValue, Direction } from './types';
 
 type LeafComponent<TProps> = (props: TProps & { className: string }) => React.JSX.Element;
@@ -228,41 +228,41 @@ type RootComponent<TProps> = (
 
 // --- Leaf Components ---
 
-const Badge: LeafComponent<{ badgeText?: Text }> = ({ className, badgeText }) => (
-  <div className={className}>{badgeText || 'New'}</div>
+const StatusBadge: LeafComponent<{ badgeText?: Text }> = ({ className, badgeText }) => (
+  <div className={className}>{badgeText || 'Available'}</div>
 );
 
-const Title: LeafComponent<{ titleText?: Text }> = ({ className, titleText }) => (
-  <h2 className={className}>{titleText || 'Product Title'}</h2>
+const Name: LeafComponent<{ nameText?: Text }> = ({ className, nameText }) => (
+  <h2 className={className}>{nameText || 'Team Member'}</h2>
 );
 
-const Price: LeafComponent<{ priceAmount?: NumberType; currency?: Text }> = ({
-  className, priceAmount, currency
+const Experience: LeafComponent<{ yearsExperience?: NumberType; experienceLabel?: Text }> = ({
+  className, yearsExperience, experienceLabel
 }) => {
-  const amount = priceAmount ?? 99;
-  const curr = currency || '$';
-  return <p className={className}>{curr}{amount.toFixed(2)}</p>;
+  const years = yearsExperience ?? 5;
+  const label = experienceLabel || 'years experience';
+  return <p className={className}>{years} {label}</p>;
 };
 
-interface Tag { label?: Text; }
+interface Skill { label?: Text; }
 
-const Tags: LeafComponent<{ tags?: Tag[] }> = ({ className, tags }) => {
-  const defaultTags: Tag[] = [{ label: 'AI' }, { label: 'Premium' }, { label: 'New' }];
-  const displayTags = (tags?.length ?? 0) > 0 ? tags! : defaultTags;
+const Skills: LeafComponent<{ skills?: Skill[] }> = ({ className, skills }) => {
+  const defaultSkills: Skill[] = [{ label: 'Design' }, { label: 'Strategy' }, { label: 'Leadership' }];
+  const displaySkills = (skills?.length ?? 0) > 0 ? skills! : defaultSkills;
   return (
     <div className={className}>
-      {displayTags.map((tag, i) => (
-        <span key={i} className="product-card__tag">{tag.label || 'Tag'}</span>
+      {displaySkills.map((skill, i) => (
+        <span key={i} className="profile-card__skill">{skill.label || 'Skill'}</span>
       ))}
     </div>
   );
 };
 
-const Description: LeafComponent<{ descriptionText?: Text }> = ({ className, descriptionText }) => (
-  <p className={className}>{descriptionText || 'Unlock insights with AI.'}</p>
+const Bio: LeafComponent<{ bioText?: Text }> = ({ className, bioText }) => (
+  <p className={className}>{bioText || 'Passionate about creating meaningful experiences.'}</p>
 );
 
-const Button: LeafComponent<{
+const ContactButton: LeafComponent<{
   buttonText?: Text;
   buttonLink?: Link;
   buttonDisabled?: BooleanValue;
@@ -283,48 +283,48 @@ const Button: LeafComponent<{
       aria-disabled={buttonDisabled}
       style={{ pointerEvents: buttonDisabled ? 'none' : 'auto', opacity: buttonDisabled ? 0.5 : 1 }}
     >
-      <span>{buttonText || 'Learn More'}</span>
+      <span>{buttonText || 'Get in Touch'}</span>
     </a>
   );
 };
 
 // --- Container Components ---
 
-const ImageWrapper: ContainerComponent<{ image?: Image }> = ({ className, image, elementProps, wix }) => {
+const PhotoSection: ContainerComponent<{ image?: Image }> = ({ className, image, elementProps, wix }) => {
   const removalState = wix?.elementsRemovalState || {};
-  const imageUrl = image?.url || defaultProductImage;
+  const imageUrl = image?.url || defaultProfilePhoto;
 
   return (
     <div className={className}>
       {imageUrl && (
-        <img className="product-card__image" src={imageUrl} alt={image?.name || 'Product Image'} loading="lazy" />
+        <img className="profile-card__photo" src={imageUrl} alt={image?.name || 'Profile photo'} loading="lazy" />
       )}
-      {!removalState['badge'] && (
-        <Badge className="product-card__badge" {...elementProps?.['badge']} />
+      {!removalState['statusBadge'] && (
+        <StatusBadge className="profile-card__status-badge" {...elementProps?.['statusBadge']} />
       )}
     </div>
   );
 };
 
-const ContentArea: ContainerComponent<{}> = ({ className, elementProps, wix }) => {
+const InfoSection: ContainerComponent<{}> = ({ className, elementProps, wix }) => {
   const removalState = wix?.elementsRemovalState || {};
 
   return (
     <div className={className}>
-      {!removalState['title'] && (
-        <Title className="product-card__title" {...elementProps?.['title']} />
+      {!removalState['name'] && (
+        <Name className="profile-card__name" {...elementProps?.['name']} />
       )}
-      {!removalState['price'] && (
-        <Price className="product-card__price" {...elementProps?.['price']} />
+      {!removalState['experience'] && (
+        <Experience className="profile-card__experience" {...elementProps?.['experience']} />
       )}
-      {!removalState['tags'] && (
-        <Tags className="product-card__tags" {...elementProps?.['tags']} />
+      {!removalState['skills'] && (
+        <Skills className="profile-card__skills" {...elementProps?.['skills']} />
       )}
-      {!removalState['descriptionText'] && (
-        <Description className="product-card__description" {...elementProps?.['descriptionText']} />
+      {!removalState['bio'] && (
+        <Bio className="profile-card__bio" {...elementProps?.['bio']} />
       )}
-      {!removalState['button'] && (
-        <Button className="product-card__button" {...elementProps?.['button']} />
+      {!removalState['contactButton'] && (
+        <ContactButton className="profile-card__button" {...elementProps?.['contactButton']} />
       )}
     </div>
   );
@@ -332,22 +332,22 @@ const ContentArea: ContainerComponent<{}> = ({ className, elementProps, wix }) =
 
 // --- Root Component ---
 
-const ProductCard: RootComponent<{ direction?: Direction }> = ({ className, id, wix, elementProps, direction }) => {
+const ProfileCard: RootComponent<{ direction?: Direction }> = ({ className, id, wix, elementProps, direction }) => {
   const removalState = wix?.elementsRemovalState || {};
 
   return (
-    <div className={`product-card ${className}`} id={id} dir={direction}>
-      {!removalState['imageWrapper'] && (
-        <ImageWrapper className="product-card__image-wrapper" {...elementProps?.['imageWrapper']} />
+    <div className={`profile-card ${className}`} id={id} dir={direction}>
+      {!removalState['photoSection'] && (
+        <PhotoSection className="profile-card__photo-section" {...elementProps?.['photoSection']} />
       )}
-      {!removalState['contentArea'] && (
-        <ContentArea className="product-card__content" {...elementProps?.['contentArea']} />
+      {!removalState['infoSection'] && (
+        <InfoSection className="profile-card__info" {...elementProps?.['infoSection']} />
       )}
     </div>
   );
 };
 
-export default ProductCard;
+export default ProfileCard;
 ```
 
 ---
@@ -366,7 +366,7 @@ export default ProductCard;
   to { opacity: 1; transform: translateY(0); }
 }
 
-.product-card {
+.profile-card {
   --display: flex;
   width: 100%;
   background: #FFF;
@@ -379,12 +379,12 @@ export default ProductCard;
   overflow: hidden;
 }
 
-.product-card:hover {
+.profile-card:hover {
   transform: translateY(-4px);
   box-shadow: 0 8px 24px rgba(3, 34, 98, 0.12);
 }
 
-.product-card__image-wrapper {
+.profile-card__photo-section {
   width: 100%;
   aspect-ratio: 16 / 10;
   overflow: hidden;
@@ -396,18 +396,18 @@ export default ProductCard;
   animation-delay: 100ms;
 }
 
-.product-card__image {
+.profile-card__photo {
   width: 100%;
   height: 100%;
   object-fit: cover;
   transition: transform 400ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-.product-card:hover .product-card__image {
+.profile-card:hover .profile-card__photo {
   transform: scale(1.05);
 }
 
-.product-card__badge {
+.profile-card__status-badge {
   position: absolute;
   top: 1rem;
   left: 1rem;
@@ -421,7 +421,7 @@ export default ProductCard;
   pointer-events: auto;
 }
 
-.product-card__content {
+.profile-card__info {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
@@ -433,21 +433,21 @@ export default ProductCard;
   animation-delay: 250ms;
 }
 
-.product-card__title {
+.profile-card__name {
   margin: 0;
   font: normal normal 700 24px/1.2em wix-madefor-display-v2;
   color: #000;
   pointer-events: auto;
 }
 
-.product-card__price {
+.profile-card__experience {
   margin: 0;
   font: normal normal 600 20px/1.2em wix-madefor-display-v2;
   color: #000;
   pointer-events: auto;
 }
 
-.product-card__tags {
+.profile-card__skills {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
@@ -455,7 +455,7 @@ export default ProductCard;
   pointer-events: auto;
 }
 
-.product-card__tag {
+.profile-card__skill {
   padding: 0.25rem 0.75rem;
   background: rgba(3, 34, 98, 0.08);
   color: #032262;
@@ -465,7 +465,7 @@ export default ProductCard;
   letter-spacing: 0.05em;
 }
 
-.product-card__description {
+.profile-card__bio {
   margin: 0;
   font: normal normal 400 16px/1.5em wix-madefor-display-v2;
   color: #000;
@@ -474,7 +474,7 @@ export default ProductCard;
   pointer-events: auto;
 }
 
-.product-card__button {
+.profile-card__button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -493,17 +493,17 @@ export default ProductCard;
               border-color 300ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-.product-card__button:hover {
+.profile-card__button:hover {
   background: #88C0FF;
   border-color: #88C0FF;
 }
 
-.product-card__button:focus-visible {
+.profile-card__button:focus-visible {
   outline: 2px solid #032262;
   outline-offset: 2px;
 }
 
-.product-card[dir="rtl"] {
+.profile-card[dir="rtl"] {
   direction: rtl;
 }
 
@@ -538,13 +538,13 @@ export type RichText = string;
 ## Default Image Asset
 
 ```
-<defaultProductImage>
+<defaultProfilePhoto>
 {
-  "description": "A high-tech product photograph featuring futuristic AI technology with sleek metallic surfaces and glowing blue circuit patterns",
+  "description": "A professional headshot portrait with a clean neutral background, warm lighting, and friendly expression",
   "width": 1024,
   "height": 896
 }
-</defaultProductImage>
+</defaultProfilePhoto>
 ```
 
 ---
@@ -552,33 +552,33 @@ export type RichText = string;
 ## Key Patterns Demonstrated
 
 ### Nested Elements (2-level)
-Root → imageWrapper → badge, Root → contentArea → title/price/tags/description/button
+Root → photoSection → statusBadge, Root → infoSection → name/experience/skills/bio/contactButton
 
 ### Three Component Types
-- **LeafComponent**: Badge, Title, Price, Tags, Description, Button — content only, no children
-- **ContainerComponent**: ImageWrapper, ContentArea — render child sub-components via `elementProps`
-- **RootComponent**: ProductCard — exported default, receives `id`, `className`, `elementProps`, `wix`
+- **LeafComponent**: StatusBadge, Name, Experience, Skills, Bio, ContactButton — content only, no children
+- **ContainerComponent**: PhotoSection, InfoSection — render child sub-components via `elementProps`
+- **RootComponent**: ProfileCard — exported default, receives `id`, `className`, `elementProps`, `wix`
 
 ### Conditional Rendering
 Each level checks its own `wix.elementsRemovalState`:
-- Root checks `imageWrapper`, `contentArea`
-- ImageWrapper checks `badge`
-- ContentArea checks `title`, `price`, `tags`, `descriptionText`, `button`
+- Root checks `photoSection`, `infoSection`
+- PhotoSection checks `statusBadge`
+- InfoSection checks `name`, `experience`, `skills`, `bio`, `contactButton`
 
 ### Data Types Covered
 | Type | Element | Field |
 |------|---------|-------|
-| `text` | badge, title, description, button | badgeText, titleText, descriptionText, buttonText |
-| `number` | price | priceAmount |
-| `booleanValue` | button | buttonDisabled |
-| `link` | button | buttonLink |
-| `image` | imageWrapper | image |
-| `arrayItems` | tags | tags (array of { label: text }) |
+| `text` | statusBadge, name, bio, contactButton | badgeText, nameText, bioText, buttonText |
+| `number` | experience | yearsExperience |
+| `booleanValue` | contactButton | buttonDisabled |
+| `link` | contactButton | buttonLink |
+| `image` | photoSection | image |
+| `arrayItems` | skills | skills (array of { label: text }) |
 | `direction` | root | direction |
 
 ### Three-Way Sync
 Every element: React `className` = CSS selector = manifest `selector`
-- React: `className="product-card__badge"` → CSS: `.product-card__badge {}` → Manifest: `"selector": ".product-card__badge"`
+- React: `className="profile-card__status-badge"` → CSS: `.profile-card__status-badge {}` → Manifest: `"selector": ".profile-card__status-badge"`
 
 ### CSS Variable Integration
 - Root `--display` variable for editor override: `display: var(--display)`

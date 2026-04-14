@@ -53,7 +53,7 @@ Choose patterns that serve the component's purpose—don't default to the first 
 | Pattern | When to Use | Spacing Strategy | Best For |
 |---|---|---|---|
 | **Single-Column** | Simple, focused (hero, single CTA) | Generous vertical gaps (2-3rem) | Focused actions, mobile-first |
-| **Two-Column Split** | Contrasting content (image + text) | Balance weight with whitespace | Product cards, profiles |
+| **Two-Column Split** | Contrasting content (image + text) | Balance weight with whitespace | Profile cards, features |
 | **Grid/Multi-Column** | Repeating items (galleries, cards) | Consistent gaps, subtle depth | Collections, dashboards |
 | **Stacked + Emphasis** | Primary + metadata (pricing) | Large top element, smaller secondary | Pricing, announcements |
 
