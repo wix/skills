@@ -2,7 +2,7 @@ name: Skill Eval
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
+    types: [opened, synchronize, reopened, edited] # TODO: remove 'edited' — only needed to re-trigger after adding #test-eval-action to an existing PR title
 
 jobs:
   skill-eval:
