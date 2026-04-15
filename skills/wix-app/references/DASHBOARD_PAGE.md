@@ -1,14 +1,8 @@
----
-name: wix-cli-dashboard-page
-description: Use when building admin interfaces, management pages, CRUD operations, or dashboard configuration UIs. Triggers include dashboard, admin panel, data management, settings pages.
-compatibility: Requires Wix CLI development environment.
----
 
 # Wix Dashboard Page Builder
 
 Creates full-featured dashboard page extensions for Wix CLI applications. Dashboard pages appear in the Wix site owner's dashboard and enable site administrators to manage data, configure settings, and perform administrative tasks.
 
----
 
 ## Quick Start Checklist
 
@@ -23,7 +17,7 @@ Follow these steps in order when creating a dashboard page:
 
 ### Data Operations (Wix Data SDK)
 
-See [Wix Data Reference](references/WIX_DATA.md) for complete documentation.
+See [Wix Data Reference](dashboard-page/WIX_DATA.md) for complete documentation.
 
 **Summary:**
 
@@ -34,14 +28,14 @@ See [Wix Data Reference](references/WIX_DATA.md) for complete documentation.
 
 ### Dashboard APIs
 
-See [Dashboard API Reference](references/DASHBOARD_API.md) for complete documentation including all methods, page IDs, and examples.
+See [Dashboard API Reference](dashboard-page/DASHBOARD_API.md) for complete documentation including all methods, page IDs, and examples.
 
 **Key methods:**
 
 - `dashboard.navigate()` - Navigate between dashboard pages
 - `dashboard.observeState()` - Receive contextual state and environmental information
 - `dashboard.showToast()` - Display toast notifications
-- `dashboard.openModal()` - Open dashboard modal extensions (see [wix-cli-dashboard-modal](../wix-cli-dashboard-modal/SKILL.md))
+- `dashboard.openModal()` - Open dashboard modal extensions (see [Dashboard Modal reference](DASHBOARD_MODAL.md))
 - `dashboard.navigateBack()` - Navigate back to previous page
 - `dashboard.getPageUrl()` - Get full URL for a dashboard page
 - `dashboard.openMediaManager()` - Open Wix Media Manager
@@ -56,15 +50,15 @@ When you need to display popup forms, confirmations, detail views, or any dialog
 
 - **Use dashboard modals** for: edit forms, delete confirmations, detail views, settings dialogs, any popup content
 - **Do NOT use** WDS `Modal` component or custom React modal implementations
-- **See [wix-cli-dashboard-modal](../wix-cli-dashboard-modal/SKILL.md)** for complete implementation guide
+- **See [Dashboard Modal reference](DASHBOARD_MODAL.md)** for complete implementation guide
 
 Dashboard modals are opened using `dashboard.openModal()` and provide proper integration with the dashboard lifecycle, state management, and navigation.
 
-**Ecom Navigation:** See [Ecom Navigation Reference](references/ECOM_NAVIGATION.md) for ecom-specific navigation helpers.
+**Ecom Navigation:** See [Ecom Navigation Reference](dashboard-page/ECOM_NAVIGATION.md) for ecom-specific navigation helpers.
 
 ### Embedded Script Configuration API
 
-When building a dashboard page to configure an embedded script, see [Dynamic Parameters Reference](references/DYNAMIC_PARAMETERS.md) for complete implementation guide.
+When building a dashboard page to configure an embedded script, see [Dynamic Parameters Reference](dashboard-page/DYNAMIC_PARAMETERS.md) for complete implementation guide.
 
 **Key points:**
 
@@ -116,7 +110,7 @@ export default function () {
 }
 ```
 
-**Note:** When using dynamic parameters, use the `withProviders` wrapper instead. See [Dynamic Parameters](references/DYNAMIC_PARAMETERS.md) for details.
+**Note:** When using dynamic parameters, use the `withProviders` wrapper instead. See [Dynamic Parameters](dashboard-page/DYNAMIC_PARAMETERS.md) for details.
 
 ## Hard Constraints
 
@@ -125,7 +119,7 @@ export default function () {
 - If something is missing, call it out explicitly and provide a minimal TODO or clearly marked placeholder rather than creating it.
 - Always verify component availability before using it in your generated code
 - If you need a component not in the list, use a basic HTML element or create a simple custom component instead
-- **Do NOT use WDS `Modal` component or custom React modal implementations** - Always use dashboard modals (see [wix-cli-dashboard-modal](../wix-cli-dashboard-modal/SKILL.md)) for any popup dialogs, forms, or overlays
+- **Do NOT use WDS `Modal` component or custom React modal implementations** - Always use dashboard modals (see [Dashboard Modal reference](DASHBOARD_MODAL.md)) for any popup dialogs, forms, or overlays
 
 ## Examples
 
@@ -145,7 +139,7 @@ export default function () {
 
 **Request:** "Create an admin panel for customer orders"
 
-**Output:** Page with orders table, status badges, filters, detail dashboard modal (using [wix-cli-dashboard-modal](../wix-cli-dashboard-modal/SKILL.md)), status update actions.
+**Output:** Page with orders table, status badges, filters, detail dashboard modal (using [Dashboard Modal reference](DASHBOARD_MODAL.md)), status update actions.
 
 ### Embedded Script Configuration
 
@@ -218,7 +212,7 @@ The `id` must be a unique, static UUID v4 string. Generate a fresh UUID for each
 
 ### Step 2: Register in Main Extensions File
 
-**CRITICAL:** After creating the page-specific extension file, you MUST read [wix-cli-extension-registration](../wix-cli-extension-registration/SKILL.md) and follow the "App Registration" section to update `src/extensions.ts`.
+**CRITICAL:** After creating the page-specific extension file, you MUST read [Extension Registration reference](EXTENSION_REGISTRATION.md) and follow the "App Registration" section to update `src/extensions.ts`.
 
 **Without completing Step 2, the dashboard page will not appear in the Wix dashboard.**
 
@@ -293,9 +287,8 @@ Do NOT copy field names from embedded script or other extension registrations. D
 
 ## API Spec Support
 
-When an API specification is provided, you can make API calls to those endpoints. See [API Spec Reference](references/API_SPEC.md) for details on how to use API specs in dashboard pages.
+When an API specification is provided, you can make API calls to those endpoints. See [API Spec Reference](dashboard-page/API_SPEC.md) for details on how to use API specs in dashboard pages.
 
----
 
 ## Layout Guidelines
 
@@ -310,7 +303,6 @@ To create dashboard pages optimized for user experience, follow these design pri
 3. **Balanced:** Emphasize the priority of regions and content elements through deliberate management of size and white space.
 4. **Connected:** Minimize the distance between related regions or content elements to enhance cohesion and navigation.
 
----
 
 ### Screen Size
 
@@ -318,7 +310,6 @@ Dashboard pages are designed to accommodate various screen sizes rather than bei
 
 > **Note:** Content displayed in the top 600 pixels of the page will be visible for the majority of users.
 
----
 
 ### Base Unit
 
@@ -341,7 +332,6 @@ The layout grid, spacing tokens, and nearly all visual elements and sizes adhere
 | SP10 | 54px | Layout spacing |
 | SP11 | 60px | Layout spacing |
 
----
 
 ### Layout Structure
 
@@ -366,7 +356,6 @@ The dashboard app frame is used by the majority of Wix applications settings. Da
 - Let the side panel overlay main content when it contains supplementary actions or settings, such as data filters
 - Push main content with the side panel when users must see the full context to continue
 
----
 
 #### Grid Layout
 
@@ -383,7 +372,6 @@ The grid is constructed from 3 elements:
 - Wider screens maintain 1248px content width with side margins stretching to center content
 - Use 24px gap between cards both vertically and horizontally
 
----
 
 ### Common Layouts
 
@@ -472,7 +460,6 @@ Wizard pages guide users through setting up a product or feature. They split com
 
 > **Note:** Wizards must have a final destination. After completing all steps, users should end up on a relevant page: a dashboard, a details page, or any other relevant location.
 
----
 
 ### Related WDS Components
 

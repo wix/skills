@@ -6,13 +6,7 @@
     "name": "Wix",
     "url": "https://dev.wix.com"
   },
-  "homepage": "https://dev.wix.com/docs/wix-cli/guides/development/about-wix-skills",
   "repository": "https://github.com/wix/skills",
   "license": "MIT",
-  "keywords": ["wix", "wix-cli", "wix-mcp", "ecommerce", "cms", "wix-apps"],
-  "skills": [
-    "./skills/wds-docs",
-    "./skills/wix-app"
-  ],
-  "mcpServers": "./.mcp.json"
+  "keywords": ["wix", "wix-cli", "wix-mcp", "ecommerce", "cms", "wix-apps"]
 }

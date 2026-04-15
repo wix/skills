@@ -1,8 +1,3 @@
----
-name: wix-cli-site-component
-description: "Use when building React site components with editor manifests for Wix CLI applications. Triggers include site component, editor manifest, custom component, visual customization, editor element, CSS properties, data API, site builder component, Wix Editor component. Use this skill whenever the user wants to create a component that site owners can customize through the Wix Editor's visual interface."
-compatibility: Requires Wix CLI development environment.
----
 
 # Wix Site Component Builder
 
@@ -58,7 +53,7 @@ Strict type definitions:
 
 ## Component Manifest Structure
 
-**You MUST read [MANIFEST_GUIDELINES.md](references/MANIFEST_GUIDELINES.md) before implementing a site component.** It contains the complete manifest structure, all data types, element configurations, and required patterns.
+**You MUST read [MANIFEST_GUIDELINES.md](site-component/MANIFEST_GUIDELINES.md) before implementing a site component.** It contains the complete manifest structure, all data types, element configurations, and required patterns.
 
 The manifest defines the editor contract using these key sections:
 
@@ -163,11 +158,11 @@ Common CSS properties for styling customization:
 - **Border**: `border`, `borderRadius`, `boxShadow`
 - **Positioning**: `alignItems`, `justifyContent`, `flexDirection`
 
-**Complete CSS properties reference:** See [CSS_GUIDELINES.md](references/CSS_GUIDELINES.md) for all CSS properties, variable patterns, and styling best practices.
+**Complete CSS properties reference:** See [CSS_GUIDELINES.md](site-component/CSS_GUIDELINES.md) for all CSS properties, variable patterns, and styling best practices.
 
 ## React Component Patterns
 
-**For components using hooks, effects, or callbacks:** See [REACT_PATTERNS.md](references/REACT_PATTERNS.md) — read this when your component uses `useEffect`, `useCallback`, complex state, or async operations. Contains complete patterns for hooks, arrays, refs, and SSR-safe data fetching.
+**For components using hooks, effects, or callbacks:** See [REACT_PATTERNS.md](site-component/REACT_PATTERNS.md) — read this when your component uses `useEffect`, `useCallback`, complex state, or async operations. Contains complete patterns for hooks, arrays, refs, and SSR-safe data fetching.
 
 ### Props Structure
 
@@ -218,7 +213,7 @@ const MyComponent: FC<MyComponentProps> = ({ className, id, elementProps, wix })
 };
 ```
 
-See [REACT_PATTERNS.md](references/REACT_PATTERNS.md) for full sub-component architecture, array handling, and TypeScript patterns.
+See [REACT_PATTERNS.md](site-component/REACT_PATTERNS.md) for full sub-component architecture, array handling, and TypeScript patterns.
 
 ### Conditional Rendering
 
@@ -260,7 +255,7 @@ Components live in user-resizable containers (300-1200px) within varying viewpor
 
 ## Design Guidelines
 
-**Complete reference:** See [DESIGN_SYSTEM.md](references/DESIGN_SYSTEM.md) for visual design principles, creative guidelines, and aesthetic best practices.
+**Complete reference:** See [DESIGN_SYSTEM.md](site-component/DESIGN_SYSTEM.md) for visual design principles, creative guidelines, and aesthetic best practices.
 
 ### Spacing as Communication
 
@@ -346,7 +341,7 @@ src/extensions/site/components/
 
 ## Examples
 
-**Complete working example:** See [EXAMPLE.md](references/EXAMPLE.md) for a profile card with nested elements, all data types, and three component types (Leaf, Container, Root). **Read this when building a complex multi-element component, when you want to verify you have all patterns right, or when you need a cross-reference. For components with ≤5 elements, the patterns documented in this file are sufficient — EXAMPLE.md is not required reading.**
+**Complete working example:** See [EXAMPLE.md](site-component/EXAMPLE.md) for a profile card with nested elements, all data types, and three component types (Leaf, Container, Root). **Read this when building a complex multi-element component, when you want to verify you have all patterns right, or when you need a cross-reference. For components with ≤5 elements, the patterns documented in this file are sufficient — EXAMPLE.md is not required reading.**
 
 ### Profile Card Component
 
@@ -429,13 +424,13 @@ The `id` must be a unique, static UUID v4 string. Generate a fresh UUID for each
 
 ### Step 2: Register in Main Extensions File
 
-**CRITICAL:** After creating the component-specific extension file, you MUST read [wix-cli-extension-registration](../wix-cli-extension-registration/SKILL.md) and follow the "App Registration" section to update `src/extensions.ts`.
+**CRITICAL:** After creating the component-specific extension file, you MUST read [Extension Registration reference](EXTENSION_REGISTRATION.md) and follow the "App Registration" section to update `src/extensions.ts`.
 
 **Without completing Step 2, the site component will not be available in the Wix Editor.**
 
 ## Code Quality Requirements
 
-**Complete reference:** See [TYPESCRIPT_QUALITY.md](references/TYPESCRIPT_QUALITY.md) for strict TypeScript configuration and code quality standards.
+**Complete reference:** See [TYPESCRIPT_QUALITY.md](site-component/TYPESCRIPT_QUALITY.md) for strict TypeScript configuration and code quality standards.
 
 ### TypeScript Standards
 
@@ -490,10 +485,10 @@ The `id` must be a unique, static UUID v4 string. Generate a fresh UUID for each
 
 | File | When to read |
 |------|-------------|
-| [MANIFEST_GUIDELINES.md](references/MANIFEST_GUIDELINES.md) | **Always** — manifest structure, element rules, CSS properties, sync |
-| [MANIFEST_ADVANCED.md](references/MANIFEST_ADVANCED.md) | When using arrayItems, link constraints, richText abilities, or non-default installation sizing |
-| [REACT_PATTERNS.md](references/REACT_PATTERNS.md) | When using hooks (`useEffect`, `useCallback`), complex state, or arrays |
-| [EXAMPLE.md](references/EXAMPLE.md) | When building complex (5+ element) components, or to cross-check all patterns |
-| [CSS_GUIDELINES.md](references/CSS_GUIDELINES.md) | When you need advanced CSS patterns or animations |
-| [DESIGN_SYSTEM.md](references/DESIGN_SYSTEM.md) | When building visually rich/branded components |
-| [TYPESCRIPT_QUALITY.md](references/TYPESCRIPT_QUALITY.md) | When you need strict TypeScript configuration and props interface patterns |
+| [MANIFEST_GUIDELINES.md](site-component/MANIFEST_GUIDELINES.md) | **Always** — manifest structure, element rules, CSS properties, sync |
+| [MANIFEST_ADVANCED.md](site-component/MANIFEST_ADVANCED.md) | When using arrayItems, link constraints, richText abilities, or non-default installation sizing |
+| [REACT_PATTERNS.md](site-component/REACT_PATTERNS.md) | When using hooks (`useEffect`, `useCallback`), complex state, or arrays |
+| [EXAMPLE.md](site-component/EXAMPLE.md) | When building complex (5+ element) components, or to cross-check all patterns |
+| [CSS_GUIDELINES.md](site-component/CSS_GUIDELINES.md) | When you need advanced CSS patterns or animations |
+| [DESIGN_SYSTEM.md](site-component/DESIGN_SYSTEM.md) | When building visually rich/branded components |
+| [TYPESCRIPT_QUALITY.md](site-component/TYPESCRIPT_QUALITY.md) | When you need strict TypeScript configuration and props interface patterns |

@@ -1,8 +1,3 @@
----
-name: wix-cli-extension-registration
-description: Register Wix CLI extensions with the app in src/extensions.ts. Use when registering new or existing extensions with the main app builder, adding .use() calls, importing extensions, or updating the extensions chain. Triggers include register extension, extensions.ts, app().use(), import extension, extension not appearing.
-compatibility: Requires Wix CLI development environment.
----
 
 # Wix App Registration
 
