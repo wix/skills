@@ -14,10 +14,6 @@ apiDoc:
       title: Bookings Staff Setup
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/bookings/bookings/skills
       tags: [bookings]
-    - file: ../../../skills/wix-app-management/bookings/references/recipe-bookings-default-business-hours.md
-      title: Configure Default Business Hours
-      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/bookings/bookings/skills
-      tags: [bookings]
     - file: ../../../skills/wix-app-management/bookings/references/wix-bookings-service-policy-setup.md
       title: Booking Service Policy Setup
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/bookings/bookings/skills
@@ -29,11 +25,7 @@ apiDoc:
     - file: ../../../skills/wix-app-management/bookings/references/recipe-external-calendar-integration.md
       title: External Calendar Integration
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/bookings/bookings/skills
-      tags: [bookings]
-    - file: ../../../skills/wix-app-management/bookings/references/wix-pricing-plans-bookings-integration.md
-      title: Pricing Plans Bookings Integration
-      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/bookings/bookings/skills
-      tags: [bookings]
+      tags: [bookings, calendar]
     - file: ../../../skills/wix-app-management/bookings/references/recipe-booking-system-integration-gaps.md
       title: Booking System Integration Gaps
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/bookings/bookings/skills

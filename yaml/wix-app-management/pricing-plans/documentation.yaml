@@ -6,3 +6,7 @@ apiDoc:
       title: Create and Update Pricing Plans
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans/skills
       tags: [pricing-plans]
+    - file: ../../../skills/wix-app-management/pricing-plans/references/wix-pricing-plans-bookings-integration.md
+      title: Pricing Plans Bookings Integration
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/bookings/bookings/skills
+      tags: [bookings, pricing-plans]

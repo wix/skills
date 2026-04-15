@@ -12,3 +12,4 @@ Recipes for managing Wix Pricing Plans via REST API.
 | Recipe                           | Use When                                                                  | Reference                                                                             |
 | -------------------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
 | Create and Update Pricing Plans  | Create or update pricing plans and attach benefit programs (bookings, etc.) | [create-update-pricing-plan.md](references/create-update-pricing-plan.md)             |
+| Pricing Plans Bookings Integration | Link pricing plans to bookings services for package deals                | [wix-pricing-plans-bookings-integration.md](references/wix-pricing-plans-bookings-integration.md) |

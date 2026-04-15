@@ -4,5 +4,5 @@ apiDoc:
   docs:
     - file: ../../../skills/wix-app-management/blog/references/how-to-create-a-blog-post.md
       title: How to Create Blog Posts (REST)
-      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/blog/skills
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/blog
       tags: [blog]
