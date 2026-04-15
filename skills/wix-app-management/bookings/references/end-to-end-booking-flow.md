@@ -1,7 +1,8 @@
 ---
-name: "Recipe: End-to-End Booking Flow (REST)"
+name: "End-to-End Booking Flow"
 description: Complete booking flow from service discovery to payment. Query services, check availability with Time Slots V2, create bookings, and process payment via eCommerce checkout.
 ---
+
 # End-to-End Booking Flow (REST)
 
 Step-by-step flow for implementing a complete booking experience using REST APIs.
@@ -40,11 +41,13 @@ Step-by-step flow for implementing a complete booking experience using REST APIs
 ```
 
 **Service Types**:
+
 - `APPOINTMENT` — One-on-one sessions with a staff member
 - `CLASS` — Group sessions at scheduled times
 - `COURSE` — Multi-session series (customers book the entire course)
 
 **Save from the response**:
+
 - `id` — service ID
 - `schedule.id` — schedule ID (needed for appointment bookings and course bookings)
 - `type` — determines the booking flow (slot vs schedule)
@@ -75,14 +78,14 @@ Dates **must** be in `YYYY-MM-DDThh:mm:ss` format (local datetime). Plain dates 
 
 ### Parameters
 
-| Parameter | Required | Description |
-|-----------|----------|-------------|
-| `serviceId` | Yes | From Step 1 |
-| `fromLocalDate` | Yes | Start of range in `YYYY-MM-DDThh:mm:ss` format |
-| `toLocalDate` | Yes | End of range in `YYYY-MM-DDThh:mm:ss` format |
-| `timeZone` | Yes | IANA timezone (e.g. `America/New_York`) |
-| `bookable` | No | Set `true` to only get bookable slots |
-| `includeResourceTypeIds` | No | Array of resource type IDs — populates `availableResources` in response |
+| Parameter                | Required | Description                                                             |
+| ------------------------ | -------- | ----------------------------------------------------------------------- |
+| `serviceId`              | Yes      | From Step 1                                                             |
+| `fromLocalDate`          | Yes      | Start of range in `YYYY-MM-DDThh:mm:ss` format                          |
+| `toLocalDate`            | Yes      | End of range in `YYYY-MM-DDThh:mm:ss` format                            |
+| `timeZone`               | Yes      | IANA timezone (e.g. `America/New_York`)                                 |
+| `bookable`               | No       | Set `true` to only get bookable slots                                   |
+| `includeResourceTypeIds` | No       | Array of resource type IDs — populates `availableResources` in response |
 
 ### Save from each time slot
 
@@ -133,14 +136,14 @@ Use [List Event Time Slots](https://dev.wix.com/docs/api-reference/business-solu
 
 All slot fields are **required** for appointments when no `eventId` is provided:
 
-| Field | Source | Notes |
-|-------|--------|-------|
-| `serviceId` | Step 1 | Service GUID |
-| `scheduleId` | Step 2 | From the time slot response |
-| `startDate` / `endDate` | Step 2 | `YYYY-MM-DDThh:mm:ss` format |
-| `timezone` | Step 2 | IANA tz format |
-| `resource.id` | Step 2 | From `availableResources` in time slot response |
-| `location.locationType` | — | Must be `OWNER_BUSINESS`, `OWNER_CUSTOM`, or `CUSTOM`. Time Slots returns `BUSINESS` but that value is **not accepted** here |
+| Field                   | Source | Notes                                                                                                                        |
+| ----------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| `serviceId`             | Step 1 | Service GUID                                                                                                                 |
+| `scheduleId`            | Step 2 | From the time slot response                                                                                                  |
+| `startDate` / `endDate` | Step 2 | `YYYY-MM-DDThh:mm:ss` format                                                                                                 |
+| `timezone`              | Step 2 | IANA tz format                                                                                                               |
+| `resource.id`           | Step 2 | From `availableResources` in time slot response                                                                              |
+| `location.locationType` | —      | Must be `OWNER_BUSINESS`, `OWNER_CUSTOM`, or `CUSTOM`. Time Slots returns `BUSINESS` but that value is **not accepted** here |
 
 ### For Classes (use `slot` with `eventId`)
 
@@ -193,12 +196,14 @@ When you provide `eventId`, all other slot fields (`startDate`, `endDate`, `time
 ### Participants
 
 Specify exactly one of:
+
 - `totalParticipants` — for services with fixed pricing and no variants
 - `participantsChoices` — for services with [variants and options](https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/service-options-and-variants/introduction)
 
 ### Result
 
 Booking is created with `status: CREATED`. This is **not yet visible** in the booking calendar. You must either:
+
 - **Confirm it** (Step 4, for offline/free payments), or
 - **Process payment** (Step 4, for online payments) — confirmation happens automatically after checkout
 
@@ -260,11 +265,11 @@ Creates an order directly without redirect.
 
 ## Service Type Summary
 
-| Service Type | `bookedEntity` | Availability API | Key Difference |
-|--------------|----------------|-----------------|----------------|
-| APPOINTMENT | `slot` (all fields required) | Time Slots V2 | Single session, specific time, needs resource + scheduleId |
-| CLASS | `slot` (only `serviceId` + `eventId`) | Event Time Slots | Group session, auto-derives fields from event |
-| COURSE | `schedule` | Check capacity via Query Extended Bookings | Multi-session, books entire schedule |
+| Service Type | `bookedEntity`                        | Availability API                           | Key Difference                                             |
+| ------------ | ------------------------------------- | ------------------------------------------ | ---------------------------------------------------------- |
+| APPOINTMENT  | `slot` (all fields required)          | Time Slots V2                              | Single session, specific time, needs resource + scheduleId |
+| CLASS        | `slot` (only `serviceId` + `eventId`) | Event Time Slots                           | Group session, auto-derives fields from event              |
+| COURSE       | `schedule`                            | Check capacity via Query Extended Bookings | Multi-session, books entire schedule                       |
 
 ## See Also
 

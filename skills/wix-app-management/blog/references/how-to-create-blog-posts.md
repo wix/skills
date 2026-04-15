@@ -1,12 +1,14 @@
 ---
-name: "How to Create Blog Posts (REST)"
+name: "How to Create Blog Posts"
 description: Creates and publishes blog posts using Blog Posts API. Covers Ricos rich content format, image upload via Media Manager, category/tag assignment, and bulk post creation.
 ---
+
 **Article: Create and Publish Blog Posts with Rich Content and Images**
 
 ---
 
 ## Description
+
 This article demonstrates how to create and immediately publish blog posts using Wix Blog REST API, including handling external images, rich content formatting, and proper media management workflow.
 
 ### Part 0: Get an Author/Member ID (Required for 3rd-Party Apps)
@@ -95,18 +97,21 @@ This article demonstrates how to create and immediately publish blog posts using
    **CRITICAL**: All TEXT nodes MUST be wrapped in PARAGRAPH nodes within their parent containers.
 
    **Correct Ricos structure example:**
+
    ```json
    {
      "nodes": [
        {
          "type": "PARAGRAPH",
-         "nodes": [{
-           "type": "TEXT",
-           "textData": {
-             "text": "This is a paragraph with some content.",
-             "decorations": []
+         "nodes": [
+           {
+             "type": "TEXT",
+             "textData": {
+               "text": "This is a paragraph with some content.",
+               "decorations": []
+             }
            }
-         }],
+         ],
          "paragraphData": {}
        }
      ]
@@ -114,6 +119,7 @@ This article demonstrates how to create and immediately publish blog posts using
    ```
 
    **Correct BLOCKQUOTE structure:**
+
    ```json
    {
      "type": "BLOCKQUOTE",
@@ -134,6 +140,7 @@ This article demonstrates how to create and immediately publish blog posts using
    ```
 
    **Correct LIST_ITEM structure:**
+
    ```json
    {
      "type": "LIST_ITEM",
@@ -184,6 +191,7 @@ This article demonstrates how to create and immediately publish blog posts using
 3. Include resolved IDs in `categoryIds` and `tagIds` arrays in the draft post object.
 
 ### IMPORTANT NOTES:
+
 - Never mock blog posts or media IDs - always use the APIs to import images and create posts
 - Always read the full documentation of methods before implementation
 - External images MUST be imported via Import File API before use in blog posts - direct external URLs will not work
@@ -200,6 +208,7 @@ This article demonstrates how to create and immediately publish blog posts using
 - Consider batching image imports when creating multiple posts with many images
 
 ### CRITICAL RICOS JSON STRUCTURE RULES:
+
 - **NEVER place TEXT nodes directly in BLOCKQUOTE, LIST_ITEM, or other container nodes**
 - **ALL TEXT nodes MUST be wrapped in PARAGRAPH nodes within their parent containers**
 - **BLOCKQUOTE nodes must contain PARAGRAPH nodes, which contain TEXT nodes**
@@ -209,9 +218,9 @@ This article demonstrates how to create and immediately publish blog posts using
 
 ### Troubleshooting
 
-| Error | Cause | Solution |
-|-------|-------|----------|
-| "Missing post owner information" | `memberId` not provided | Add `draftPost.memberId` - see Part 0 for how to get one |
-| "memberIds ... do not exist" | Invalid member ID | Query members first using List Members API to get valid IDs |
-| "Expected a paragraph node but found TEXT" | Invalid Ricos structure | Wrap TEXT nodes in PARAGRAPH nodes (see structure rules above) |
-| Image not displaying | Using external URL directly | Import image via Media Manager first, then use the returned file ID |
+| Error                                      | Cause                       | Solution                                                            |
+| ------------------------------------------ | --------------------------- | ------------------------------------------------------------------- |
+| "Missing post owner information"           | `memberId` not provided     | Add `draftPost.memberId` - see Part 0 for how to get one            |
+| "memberIds ... do not exist"               | Invalid member ID           | Query members first using List Members API to get valid IDs         |
+| "Expected a paragraph node but found TEXT" | Invalid Ricos structure     | Wrap TEXT nodes in PARAGRAPH nodes (see structure rules above)      |
+| Image not displaying                       | Using external URL directly | Import image via Media Manager first, then use the returned file ID |

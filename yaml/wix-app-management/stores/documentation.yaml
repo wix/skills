@@ -6,15 +6,15 @@ apiDoc:
       title: Query Products
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
       tags: [stores]
-    - file: ../../../skills/wix-app-management/stores/references/query-products-v1.md
+    - file: ../../../skills/wix-app-management/stores/references/query-products-catalog-v1.md
       title: Query Products (Catalog V1)
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
       tags: [stores]
-    - file: ../../../skills/wix-app-management/stores/references/create-product-with-options.md
+    - file: ../../../skills/wix-app-management/stores/references/create-product-with-options-catalog-v3.md
       title: Create Product with Options (Catalog V3)
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
       tags: [stores]
-    - file: ../../../skills/wix-app-management/stores/references/create-product-v1.md
+    - file: ../../../skills/wix-app-management/stores/references/create-product-catalog-v1.md
       title: Create Product (Catalog V1)
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
       tags: [stores]
@@ -34,7 +34,7 @@ apiDoc:
       title: Setup Online Store (Catalog V3)
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
       tags: [stores]
-    - file: ../../../skills/wix-app-management/stores/references/add-pages-to-site.md
+    - file: ../../../skills/wix-app-management/stores/references/add-store-pages-to-site.md
       title: Add Store Pages to Site
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
       tags: [stores]

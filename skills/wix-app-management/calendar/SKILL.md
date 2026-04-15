@@ -11,4 +11,4 @@ Recipes for managing Wix Calendar via REST API.
 
 | Recipe                                  | Use When                                                                  | Reference                                                                                               |
 | --------------------------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| Configure Default Business Hours        | Set base availability using Calendar Events API                          | [recipe-bookings-default-business-hours.md](references/recipe-bookings-default-business-hours.md)       |
+| Configure Default Business Hours        | Set base availability using Calendar Events API                          | [configure-default-business-hours.md](references/configure-default-business-hours.md)       |

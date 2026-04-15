@@ -13,4 +13,4 @@ Recipes for managing Wix Get Paid via REST API.
 | ------------------------------- | ----------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
 | Create Payment Links            | Create payment links for custom items or catalog products         | [create-payment-links.md](references/create-payment-links.md)                             |
 | How to Setup Wix Payments       | Connect Wix Payments before collecting payments                   | [how-to-setup-wix-payments.md](references/how-to-setup-wix-payments.md)                   |
-| Payment Links for Bookings      | Collect payment for bookings via payment links                    | [wix-payment-links-for-bookings.md](references/wix-payment-links-for-bookings.md)         |
+| Payment Links for Bookings      | Collect payment for bookings via payment links                    | [payment-links-for-bookings.md](references/payment-links-for-bookings.md)         |

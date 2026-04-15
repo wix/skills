@@ -10,7 +10,7 @@ apiDoc:
       title: How to Setup Wix Payments
       docsEntry: https://dev.wix.com/docs/api-reference/business-management/get-paid
       tags: [get-paid]
-    - file: ../../../skills/wix-app-management/get-paid/references/wix-payment-links-for-bookings.md
+    - file: ../../../skills/wix-app-management/get-paid/references/payment-links-for-bookings.md
       title: Payment Links for Bookings
       docsEntry: https://dev.wix.com/docs/api-reference/business-management/get-paid
       tags: [get-paid, bookings]

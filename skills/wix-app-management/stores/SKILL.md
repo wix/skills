@@ -12,11 +12,11 @@ Recipes for managing Wix Stores via REST API.
 | Recipe                              | Use When                                                        | Reference                                                                       |
 | ----------------------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------- |
 | Query Products                      | List/search products from a V3 store                            | [query-products.md](references/query-products.md)                               |
-| Query Products (V1)                 | List/search products from a V1 store                            | [query-products-v1.md](references/query-products-v1.md)                         |
-| Create Product with Options (V3)    | Create a single product with options/variants on V3             | [create-product-with-options.md](references/create-product-with-options.md)      |
-| Create Product (V1)                 | Create a product on a Catalog V1 site                           | [create-product-v1.md](references/create-product-v1.md)                         |
+| Query Products (V1)                 | List/search products from a V1 store                            | [query-products-catalog-v1.md](references/query-products-catalog-v1.md)         |
+| Create Product with Options (V3)    | Create a single product with options/variants on V3             | [create-product-with-options-catalog-v3.md](references/create-product-with-options-catalog-v3.md) |
+| Create Product (V1)                 | Create a product on a Catalog V1 site                           | [create-product-catalog-v1.md](references/create-product-catalog-v1.md)                         |
 | Bulk Create Products with Options   | Create multiple products with inventory in one request          | [bulk-create-products-with-options.md](references/bulk-create-products-with-options.md) |
 | Update Product with Options         | Update existing product options, variants, media, or prices     | [update-product-with-options.md](references/update-product-with-options.md)      |
 | Update Product Pre-Order            | Enable/disable pre-orders and configure limits for variants     | [update-product-pre-order.md](references/update-product-pre-order.md)           |
 | Setup Online Store (Catalog V3)     | Initial full store setup: products, categories, assignments     | [setup-online-store-catalog-v3.md](references/setup-online-store-catalog-v3.md) |
-| Add Store Pages to Site             | Add missing checkout/cart pages after migration or setup issues  | [add-pages-to-site.md](references/add-pages-to-site.md)                        |
+| Add Store Pages to Site             | Add missing checkout/cart pages after migration or setup issues  | [add-store-pages-to-site.md](references/add-store-pages-to-site.md)                        |

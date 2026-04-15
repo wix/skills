@@ -11,4 +11,4 @@ Recipes for managing Wix Blog via REST API.
 
 | Recipe                              | Use When                                                              | Reference                                                                         |
 | ----------------------------------- | --------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| How to Create Blog Posts (REST)     | Create and publish blog posts with rich content, images, and metadata | [how-to-create-a-blog-post.md](references/how-to-create-a-blog-post.md)           |
+| How to Create Blog Posts            | Create and publish blog posts with rich content, images, and metadata | [how-to-create-blog-posts.md](references/how-to-create-blog-posts.md)           |
