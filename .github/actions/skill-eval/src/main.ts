@@ -21,6 +21,11 @@ async function run(): Promise<void> {
       return;
     }
 
+    // Enforce HTTPS to prevent credentials from being sent in plaintext
+    if (!baseUrl.startsWith("https://")) {
+      throw new Error(`evalforge-url must use HTTPS, got: ${baseUrl}`);
+    }
+
     const comment = await checkConnection(baseUrl, projectId, appId, appSecret);
 
     const { owner, repo } = context.repo;
