@@ -1,8 +1,3 @@
----
-name: wix-cli-site-widget
-description: Use when building interactive widgets, custom data displays, or configurable site components with settings panels. Triggers include widget, custom element, interactive component, editor component, configurable widget, web component.
-compatibility: Requires Wix CLI development environment.
----
 
 # Wix Site Widget Builder
 
@@ -36,7 +31,7 @@ React component converted to a web component using `react-to-webcomponent`:
 
 Settings panel shown in the Wix Editor sidebar:
 
-- Uses Wix Design System components (see [references/SETTINGS_PANEL.md](references/SETTINGS_PANEL.md))
+- Uses Wix Design System components (see [site-widget/SETTINGS_PANEL.md](site-widget/SETTINGS_PANEL.md))
 - Manages widget properties via `@wix/editor` widget API
 - Loads initial values with `widget.getProp('kebab-case-name')`
 - Updates properties with `widget.setProp('kebab-case-name', value)`
@@ -298,7 +293,7 @@ export default Panel;
 - Prop names in `widget.getProp()` and `widget.setProp()` use **kebab-case** (e.g., `"target-date"`, `"bg-color"`)
 - Always update both local state AND widget prop in onChange handlers
 - Wrap content in `WixDesignSystemProvider > SidePanel > SidePanel.Content`
-- Use WDS components from `@wix/design-system` (see [references/SETTINGS_PANEL.md](references/SETTINGS_PANEL.md))
+- Use WDS components from `@wix/design-system` (see [site-widget/SETTINGS_PANEL.md](site-widget/SETTINGS_PANEL.md))
 - Import `@wix/design-system/styles.global.css` for styles
 - For colors, use `ColorPickerField` with `inputs.selectColor()` from `@wix/editor` — NOT `<Input type="color">`
 - For fonts, use `FontPickerField` with `inputs.selectFont()` from `@wix/editor` — NOT a text Input

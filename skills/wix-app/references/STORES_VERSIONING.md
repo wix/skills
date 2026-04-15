@@ -1,8 +1,3 @@
----
-name: wix-stores-versioning
-description: "Handle Wix Stores Catalog V1 and V3 SDK compatibility. Use when building any integration that interacts with Wix Stores products, inventory, orders, or collections. Triggers include Wix Stores, products API, inventory API, catalog version, productsV3, V1 vs V3, store products, queryProducts, getProduct."
-compatibility: Requires Wix CLI development environment.
----
 
 # Wix Stores Catalog Versioning
 

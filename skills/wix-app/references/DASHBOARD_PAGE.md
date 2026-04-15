@@ -1,8 +1,3 @@
----
-name: wix-cli-dashboard-page
-description: Use when building admin interfaces, management pages, CRUD operations, or dashboard configuration UIs. Triggers include dashboard, admin panel, data management, settings pages.
-compatibility: Requires Wix CLI development environment.
----
 
 # Wix Dashboard Page Builder
 
@@ -23,7 +18,7 @@ Follow these steps in order when creating a dashboard page:
 
 ### Data Operations (Wix Data SDK)
 
-See [Wix Data Reference](references/WIX_DATA.md) for complete documentation.
+See [Wix Data Reference](dashboard-page/WIX_DATA.md) for complete documentation.
 
 **Summary:**
 
@@ -34,7 +29,7 @@ See [Wix Data Reference](references/WIX_DATA.md) for complete documentation.
 
 ### Dashboard APIs
 
-See [Dashboard API Reference](references/DASHBOARD_API.md) for complete documentation including all methods, page IDs, and examples.
+See [Dashboard API Reference](dashboard-page/DASHBOARD_API.md) for complete documentation including all methods, page IDs, and examples.
 
 **Key methods:**
 
@@ -60,11 +55,11 @@ When you need to display popup forms, confirmations, detail views, or any dialog
 
 Dashboard modals are opened using `dashboard.openModal()` and provide proper integration with the dashboard lifecycle, state management, and navigation.
 
-**Ecom Navigation:** See [Ecom Navigation Reference](references/ECOM_NAVIGATION.md) for ecom-specific navigation helpers.
+**Ecom Navigation:** See [Ecom Navigation Reference](dashboard-page/ECOM_NAVIGATION.md) for ecom-specific navigation helpers.
 
 ### Embedded Script Configuration API
 
-When building a dashboard page to configure an embedded script, see [Dynamic Parameters Reference](references/DYNAMIC_PARAMETERS.md) for complete implementation guide.
+When building a dashboard page to configure an embedded script, see [Dynamic Parameters Reference](dashboard-page/DYNAMIC_PARAMETERS.md) for complete implementation guide.
 
 **Key points:**
 
@@ -116,7 +111,7 @@ export default function () {
 }
 ```
 
-**Note:** When using dynamic parameters, use the `withProviders` wrapper instead. See [Dynamic Parameters](references/DYNAMIC_PARAMETERS.md) for details.
+**Note:** When using dynamic parameters, use the `withProviders` wrapper instead. See [Dynamic Parameters](dashboard-page/DYNAMIC_PARAMETERS.md) for details.
 
 ## Hard Constraints
 
@@ -293,7 +288,7 @@ Do NOT copy field names from embedded script or other extension registrations. D
 
 ## API Spec Support
 
-When an API specification is provided, you can make API calls to those endpoints. See [API Spec Reference](references/API_SPEC.md) for details on how to use API specs in dashboard pages.
+When an API specification is provided, you can make API calls to those endpoints. See [API Spec Reference](dashboard-page/API_SPEC.md) for details on how to use API specs in dashboard pages.
 
 ---
 

@@ -1,8 +1,3 @@
----
-name: wix-cli-site-plugin
-description: Use when building interactive components for predefined slots in Wix business solutions. Triggers include site plugin, slot, Wix app integration, plugin explorer, business solution extension.
-compatibility: Requires Wix CLI development environment.
----
 
 # Wix Site Plugin Builder
 
@@ -278,8 +273,8 @@ public/
 
 | Topic | Reference |
 | --- | --- |
-| Complete Examples | [EXAMPLES.md](references/EXAMPLES.md) |
-| Slots (App IDs, multiple placements, finding slots) | [SLOTS.md](references/SLOTS.md) |
+| Complete Examples | [EXAMPLES.md](site-plugin/EXAMPLES.md) |
+| Slots (App IDs, multiple placements, finding slots) | [SLOTS.md](site-plugin/SLOTS.md) |
 | WDS Components | [wds-docs](../wds-docs/SKILL.md) |
 
 ## Available Slots
@@ -292,7 +287,7 @@ Site plugins integrate into predefined slots in Wix business solutions. Each slo
 
 Common placement areas include product pages (Wix Stores), checkout and side cart (Wix eCommerce), booking pages (Wix Bookings), service pages, event pages, and blog post pages.
 
-For supported pages, common Wix App IDs, and how to find slot IDs, see [SLOTS.md](./references/SLOTS.md).
+For supported pages, common Wix App IDs, and how to find slot IDs, see [SLOTS.md](site-plugin/SLOTS.md).
 
 ## Extension Registration
 
@@ -354,11 +349,11 @@ The `id` must be a unique, static UUID v4 string. Generate a fresh UUID for each
 
 ## Checkout Plugins
 
-If you are building a plugin for the **checkout page**, it may not support automatic addition upon installation. You must create a dashboard page to provide users with a way to add the plugin to their site. See [EXAMPLES.md](references/EXAMPLES.md) for the dashboard page pattern.
+If you are building a plugin for the **checkout page**, it may not support automatic addition upon installation. You must create a dashboard page to provide users with a way to add the plugin to their site. See [EXAMPLES.md](site-plugin/EXAMPLES.md) for the dashboard page pattern.
 
 ## Examples
 
-For complete examples with all three required files (plugin component, settings panel, extension configuration), see [EXAMPLES.md](references/EXAMPLES.md).
+For complete examples with all three required files (plugin component, settings panel, extension configuration), see [EXAMPLES.md](site-plugin/EXAMPLES.md).
 
 **Example use cases:**
 
