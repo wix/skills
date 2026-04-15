@@ -14,7 +14,7 @@ Below are the recommended steps to successfully set up Wix Bookings staff member
 
 - **Wix Bookings app installed** (App ID: `13d21c63-b5ec-5912-8397-c3a5ddb27a97`)
 
-> **Note:** If you receive errors from Bookings APIs, the Wix Bookings app may not be installed on the site. Use [List Installed Apps](https://dev.wix.com/docs/picasso/wix-ai-docs/recipes-v2/manage/platform/recipe-list-installed-apps) to verify, and [Install Wix Apps](https://dev.wix.com/docs/picasso/wix-ai-docs/recipes-v2/manage/platform/recipe-install-wix-apps) to install it if missing.
+> **Note:** If you receive errors from Bookings APIs, the Wix Bookings app may not be installed on the site. Use [List Installed Apps](../app-installation/list-installed-apps.md) to verify, and [Install Wix Apps](../app-installation/install-wix-apps.md) to install it if missing.
 
 ---
 

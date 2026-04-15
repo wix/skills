@@ -20,7 +20,7 @@ This recipe demonstrates how to query and list events from Wix Events using the 
 
 ## Step 1: Verify Events App is Installed
 
-Before querying events, ensure Wix Events is installed on the site. If not, use the [Install Wix Apps](https://dev.wix.com/docs/picasso/wix-ai-docs/recipes-v2/manage/platform/recipe-install-wix-apps) recipe to install it.
+Before querying events, ensure Wix Events is installed on the site. If not, use the [Install Wix Apps](../app-installation/install-wix-apps.md) recipe to install it.
 
 ---
 

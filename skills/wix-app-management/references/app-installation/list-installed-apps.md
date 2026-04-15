@@ -99,7 +99,7 @@ If you receive `401 Unauthorized` or `403 Forbidden` errors from Wix APIs:
 
 1. **List installed apps** using this recipe
 2. **Check if the required app** is in the response
-3. **If missing**: Install the app using the [Install Wix Apps](https://dev.wix.com/docs/picasso/wix-ai-docs/recipes-v2/manage/platform/recipe-install-wix-apps) recipe
+3. **If missing**: Install the app using the [Install Wix Apps](install-wix-apps.md) recipe
 4. **Retry the original API call**
 
 ---
@@ -119,6 +119,6 @@ If you receive `401 Unauthorized` or `403 Forbidden` errors from Wix APIs:
 ## Next Steps
 
 After checking installed apps:
-- **If app is missing**: Use the [Install Wix Apps](https://dev.wix.com/docs/picasso/wix-ai-docs/recipes-v2/manage/platform/recipe-install-wix-apps) recipe to install required apps
+- **If app is missing**: Use the [Install Wix Apps](install-wix-apps.md) recipe to install required apps
 - **If app is installed but API fails**: Check API permissions and authentication
-- **For Bookings APIs**: See [Bookings recipes](https://dev.wix.com/docs/picasso/wix-ai-docs/recipes-v2/manage/management-recipes-index) for service setup
+- **For Bookings APIs**: See [Bookings recipes](../../SKILL.md) for service setup

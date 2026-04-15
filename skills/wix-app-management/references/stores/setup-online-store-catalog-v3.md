@@ -33,7 +33,7 @@ The Categories API is an exception. It uses a v1 endpoint, as it replaces the ol
 
 
 ### STEP 2: Create 5 new products based on the format specified in the Bulk Create Products with Options recipe (4 in stock, 1 out of stock)
-1. First *YOU MUST* pull up the [Bulk Create Wix Store Products with Options](https://dev.wix.com/docs/picasso/wix-ai-docs/recipes-v2/manage/stores/recipe-bulk-create-products-with-options) recipe to understand the exact format required for creating products.
+1. First *YOU MUST* pull up the [Bulk Create Wix Store Products with Options](bulk-create-products-with-options.md) recipe to understand the exact format required for creating products.
 2. Create 5 products according to this format using bulk creation (use a single bulk request). 4 of the created products **MUST** have ALL there variants in-stock, and the last (5th) product **MUST** have all its variants be out-of-stock.
 3. **Make sure** to add in image (using media) using  a url from the web that matches each product.
 4. **YOU MUST** use the price formatting as seen in the example, meaning using actualPrice and compareAtPrice.
@@ -43,7 +43,7 @@ The Categories API is an exception. It uses a v1 endpoint, as it replaces the ol
 **⚠️ CRITICAL: EXACT FORMAT REQUIREMENTS**
 **YOU MUST** use the following recipe to create ALL products with the EXACT same format:
 - **Bulk Create Wix Store Products with Options**
- [Recipe: Bulk Create Products with Options](https://dev.wix.com/docs/picasso/wix-ai-docs/recipes-v2/manage/stores/recipe-bulk-create-products-with-options)
+ [Recipe: Bulk Create Products with Options](bulk-create-products-with-options.md)
 
 
 ### STEP 3: Prepare Three Store Categories

@@ -117,7 +117,7 @@ This is different from V3 which uses an array structure.
 - Check the site's catalog version in dynamic context before choosing endpoints.
 - `productType` only supports `"physical"` via the API.
 - To add media to a product, use the separate **Add Product Media** endpoint after creation.
-- To query products on a V1 site, see [Query Products (Catalog V1)](https://dev.wix.com/docs/picasso/wix-ai-docs/recipes-v2/manage/stores/recipe-query-products-v1).
+- To query products on a V1 site, see [Query Products (Catalog V1)](query-products-catalog-v1.md).
 
 ## References
 

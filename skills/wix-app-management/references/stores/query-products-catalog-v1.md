@@ -72,7 +72,7 @@ curl -X POST 'https://www.wixapis.com/stores-reader/v1/products/query' \
 
 - **Never use `/stores/v3/` endpoints on a CATALOG_V1 site** — they return `428 Precondition Required`.
 - Check the site's catalog version in dynamic context before choosing endpoints.
-- To create products on a V1 site, see [Create Product (Catalog V1)](https://dev.wix.com/docs/picasso/wix-ai-docs/recipes-v2/manage/stores/recipe-create-product-v1).
+- To create products on a V1 site, see [Create Product (Catalog V1)](create-product-catalog-v1.md).
 
 ## References
 

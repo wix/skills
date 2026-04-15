@@ -157,4 +157,4 @@ curl -X POST \
 
 - [Data Items API Reference](https://dev.wix.com/docs/rest/business-solutions/cms/data-items/introduction)
 - [Collections API Reference](https://dev.wix.com/docs/rest/business-solutions/cms/collection-management/data-collections/introduction)
-- [CMS Schema Management Recipe](https://dev.wix.com/docs/picasso/wix-ai-docs/recipes-v2/manage/cms/recipe-cms-schema-management)
+- [CMS Schema Management Recipe](cms-schema-management.md)

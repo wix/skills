@@ -121,5 +121,5 @@ After querying, filter results by name or ID to locate a specific site.
 
 After finding a site:
 - Use the site ID for site-level API calls
-- Create new sites using [Create Site from Template](https://dev.wix.com/docs/picasso/wix-ai-docs/recipes-v2/manage/sites/recipe-create-site-from-template)
+- Create new sites using [Create Site from Template](create-site-from-template.md)
 - Manage site settings and content

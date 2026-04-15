@@ -259,5 +259,5 @@ curl -X POST \
 ## Related Documentation
 
 - [Data Items API Reference](https://dev.wix.com/docs/rest/business-solutions/cms/data-items/introduction)
-- [CMS Operations Best Practices](https://dev.wix.com/docs/picasso/wix-ai-docs/recipes-v2/manage/cms/recipe-cms-data-items-crud)
-- [CMS Schema Management](https://dev.wix.com/docs/picasso/wix-ai-docs/recipes-v2/manage/cms/recipe-cms-schema-management)
+- [CMS Operations Best Practices](cms-data-items-crud.md)
+- [CMS Schema Management](cms-schema-management.md)

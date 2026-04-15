@@ -140,4 +140,4 @@ curl -X GET \
 
 - [Data Collections API Reference](https://dev.wix.com/docs/rest/business-solutions/cms/collection-management/data-collections/introduction)
 - [Data Types in Wix Data](https://dev.wix.com/docs/rest/business-solutions/cms/data-types-in-wix-data)
-- [CMS Data Items CRUD Recipe](https://dev.wix.com/docs/picasso/wix-ai-docs/recipes-v2/manage/cms/recipe-cms-data-items-crud)
+- [CMS Data Items CRUD Recipe](cms-data-items-crud.md)

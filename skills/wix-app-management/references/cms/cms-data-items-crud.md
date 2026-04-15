@@ -9,7 +9,7 @@ This recipe covers basic Create, Read, Update, Delete (CRUD) operations for Wix 
 ## Prerequisites
 
 1. Wix CMS enabled on the site
-2. Collections already created (see [CMS Schema Management](https://dev.wix.com/docs/picasso/wix-ai-docs/recipes-v2/manage/cms/recipe-cms-schema-management))
+2. Collections already created (see [CMS Schema Management](cms-schema-management.md))
 3. API access with CMS permissions
 
 ## Required APIs
@@ -24,7 +24,7 @@ Before inserting or updating items, you need to know the collection's field name
 
 1. **Query existing items** - Fetch a few items to infer field names from the data
 2. **Get collection schema** - Use `GET /collections/{collectionId}` for full field definitions
-3. **List collections** - Use `GET /collections?fields=id` to see what collections exist (see [Schema Management](https://dev.wix.com/docs/picasso/wix-ai-docs/recipes-v2/manage/cms/recipe-cms-schema-management))
+3. **List collections** - Use `GET /collections?fields=id` to see what collections exist (see [Schema Management](cms-schema-management.md))
 
 ---
 
@@ -323,7 +323,7 @@ Unlike bulk update, this only modifies the specified fields - other fields remai
 > - **MULTI_REFERENCE**: **STOP** - You cannot use this recipe for multi-reference fields. They cannot be set via insert/update/patch.
 >
 > **For MULTI_REFERENCE operations (add speakers, assign tags, link categories, etc.):**
-> **READ [CMS References & Relationships](https://dev.wix.com/docs/picasso/wix-ai-docs/recipes-v2/manage/cms/recipe-cms-references-relationships)** for the exact endpoints and request bodies:
+> **READ [CMS References & Relationships](cms-references-and-relationships.md)** for the exact endpoints and request bodies:
 > - `POST /wix-data/v2/bulk/items/insert-references` - add references
 > - `POST /wix-data/v2/items/replace-references` - replace all references
 > - `POST /wix-data/v2/bulk/items/remove-references` - remove references
@@ -417,6 +417,6 @@ curl -X DELETE \
 ## Related Documentation
 
 - [Data Items API Reference](https://dev.wix.com/docs/rest/business-solutions/cms/data-items/introduction)
-- [CMS Schema Management](https://dev.wix.com/docs/picasso/wix-ai-docs/recipes-v2/manage/cms/recipe-cms-schema-management) - Creating and modifying collections
-- [CMS References & Relationships](https://dev.wix.com/docs/picasso/wix-ai-docs/recipes-v2/manage/cms/recipe-cms-references-relationships) - Linking collections
-- [CMS Data Operations Extended](https://dev.wix.com/docs/picasso/wix-ai-docs/recipes-v2/manage/cms/recipe-cms-data-operations-extended) - Count, upsert, aggregate
+- [CMS Schema Management](cms-schema-management.md) - Creating and modifying collections
+- [CMS References & Relationships](cms-references-and-relationships.md) - Linking collections
+- [CMS Data Operations Extended](cms-data-operations-extended.md) - Count, upsert, aggregate

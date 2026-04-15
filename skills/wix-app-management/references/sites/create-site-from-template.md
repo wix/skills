@@ -178,6 +178,6 @@ For quick access without searching:
 ## Next Steps
 
 After creating the site:
-- Install required apps using [Install Wix Apps](https://dev.wix.com/docs/picasso/wix-ai-docs/recipes-v2/manage/platform/recipe-install-wix-apps)
+- Install required apps using [Install Wix Apps](../app-installation/install-wix-apps.md)
 - Configure site settings
 - Add content (products, services, blog posts, etc.)

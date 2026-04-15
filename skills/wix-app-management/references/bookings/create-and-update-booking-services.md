@@ -15,7 +15,7 @@ Below are the recommended steps to successfully create or update a Wix Bookings 
 
 - **Wix Bookings app installed** (App ID: `13d21c63-b5ec-5912-8397-c3a5ddb27a97`)
 
-> **Note:** If you receive errors from Bookings APIs, the Wix Bookings app may not be installed on the site. Use [List Installed Apps](https://dev.wix.com/docs/picasso/wix-ai-docs/recipes-v2/manage/platform/recipe-list-installed-apps) to verify, and [Install Wix Apps](https://dev.wix.com/docs/picasso/wix-ai-docs/recipes-v2/manage/platform/recipe-install-wix-apps) to install it if missing.
+> **Note:** If you receive errors from Bookings APIs, the Wix Bookings app may not be installed on the site. Use [List Installed Apps](../app-installation/list-installed-apps.md) to verify, and [Install Wix Apps](../app-installation/install-wix-apps.md) to install it if missing.
 
 ## Overview
 
@@ -176,7 +176,7 @@ Use the `resourceId` from the response (not `id`) in `staffMemberIds` when creat
 - If a staff member has `default: true` → use it
 - If only one staff member exists → use it
 - If multiple exist → pick the first or most appropriate
-- If none exist → create one using the [Staff Setup recipe](https://dev.wix.com/docs/picasso/wix-ai-docs/recipes-v2/manage/bookings/recipe-bookings-staff-setup)
+- If none exist → create one using the [Staff Setup recipe](bookings-staff-setup.md)
 
 **Service Type Requirements:**
 
