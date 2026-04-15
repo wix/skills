@@ -16,6 +16,7 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
   - [ ] Asked clarifying questions if requirements were unclear
   - [ ] Checked for implicit Data Collection need — unless user provided a collection ID directly (see [Data Collection Inference](#data-collection-inference))
   - [ ] Obtained app namespace if Data Collection extension is being created
+  - [ ] Obtained Code Identifier if Site Component extension is being created
   - [ ] Determined full scoped collection IDs if Data Collection extension is being created (see [Collection ID Coordination](#collection-id-coordination))
   - [ ] Explained recommendation with reasoning
 - [ ] **Step 2:** Read extension reference file(s) for the chosen type(s)
@@ -95,6 +96,7 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
 | Embedded Script       | Site      | Public      | Inject scripts/analytics              | [EMBEDDED_SCRIPT.md](references/EMBEDDED_SCRIPT.md)     |
 **Key constraints:**
 - Dashboard Page cannot use `<Modal />`; use a separate Dashboard Modal and `dashboard.openModal()`.
+- Only Site Components can consume context provider extensions — NOT site widgets or site plugins.
 
 ## Extension Comparison
 
@@ -138,25 +140,11 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
 
 ### App Namespace Requirement
 
-When creating a Data Collection, you MUST ask the user for their app namespace from Wix Dev Center. This is a required parameter that must be obtained from the user's Dev Center dashboard and cannot be recommended or guessed.
+When creating a Data Collection, you MUST ask the user for their app namespace. If not provided, read [APP_IDENTIFIERS.md](references/APP_IDENTIFIERS.md) and give the user the instructions to obtain it.
 
-**Instructions to give the user:**
+### Code Identifier Requirement
 
-**If you don't have an app namespace yet:**
-1. Go to [Wix Dev Center](https://manage.wix.com/studio/custom-apps/)
-2. Select your app
-3. In the left menu, select **Develop > Extensions**
-4. Click **+ Create Extension** and find the **Data Collections** extension
-5. Click **+ Create**
-6. You will be prompted to create an app namespace - follow the prompts to set it up
-
-**If you already have an app namespace:**
-1. Go to [Wix Dev Center](https://manage.wix.com/studio/custom-apps/)
-2. Open your app dashboard
-3. Click the three dots (...) menu button in the top-right corner (next to "Test App" button)
-4. Select "View ID & keys" from the dropdown menu
-5. In the modal that opens, scroll to the bottom to find the "Namespace" field
-6. Copy the Namespace value
+When creating a Site Component, you need the user's Code Identifier. If not provided, read [APP_IDENTIFIERS.md](references/APP_IDENTIFIERS.md) and give the user the instructions to obtain it.
 
 ### Collection ID Coordination
 
