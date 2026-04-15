@@ -12,23 +12,7 @@
   "keywords": ["wix", "wix-cli", "wix-mcp", "ecommerce", "cms", "wix-apps"],
   "skills": [
     "./skills/wds-docs",
-    "./skills/wix-cli-app-validation",
-    "./skills/wix-cli-backend-api",
-    "./skills/wix-cli-backend-event",
-    "./skills/wix-cli-context-provider",
-    "./skills/wix-cli-dashboard-menu-plugin",
-    "./skills/wix-cli-dashboard-modal",
-    "./skills/wix-cli-dashboard-page",
-    "./skills/wix-cli-dashboard-plugin",
-    "./skills/wix-cli-data-collection",
-    "./skills/wix-cli-embedded-script",
-    "./skills/wix-cli-extension-registration",
-    "./skills/wix-cli-orchestrator",
-    "./skills/wix-cli-service-plugin",
-    "./skills/wix-cli-site-component",
-    "./skills/wix-cli-site-plugin",
-    "./skills/wix-cli-site-widget",
-    "./skills/wix-stores-versioning"
+    "./skills/wix-app"
   ],
   "mcpServers": "./.mcp.json"
 }
