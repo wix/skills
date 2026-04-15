@@ -1,8 +1,3 @@
----
-name: wix-cli-service-plugin
-description: Use when implementing service plugin extensions that inject custom backend logic into existing Wix business solution flows or introduce new flows to Wix sites (eCommerce, Bookings, etc.). Triggers include SPI, service plugin, backend flow, business logic, custom shipping rates, additional fees, tax calculation, checkout validation, discount triggers, gift cards, eCommerce customization, bookings staff sorting.
-compatibility: Requires Wix CLI development environment.
----
 
 # Wix Service Plugin (SPI) Builder
 
@@ -30,13 +25,13 @@ Follow these steps in order when creating a service plugin:
 
 | SPI Type | Reference |
 | --- | --- |
-| Additional Fees | [ADDITIONAL-FEES.md](./references/ADDITIONAL-FEES.md) |
-| Discount Triggers | [DISCOUNT-TRIGGERS.md](./references/DISCOUNT-TRIGGERS.md) |
-| Gift Cards | [GIFT-CARDS.md](./references/GIFT-CARDS.md) |
-| Shipping Rates | [SHIPPING-RATES.md](./references/SHIPPING-RATES.md) |
-| Tax Calculation | [TAX-CALCULATION.md](./references/TAX-CALCULATION.md) |
-| Validations | [VALIDATIONS.md](./references/VALIDATIONS.md) |
-| Bookings Staff Sorting | [BOOKINGS-STAFF-SORTING.md](./references/BOOKINGS-STAFF-SORTING.md) |
+| Additional Fees | [ADDITIONAL-FEES.md](service-plugin/ADDITIONAL-FEES.md) |
+| Discount Triggers | [DISCOUNT-TRIGGERS.md](service-plugin/DISCOUNT-TRIGGERS.md) |
+| Gift Cards | [GIFT-CARDS.md](service-plugin/GIFT-CARDS.md) |
+| Shipping Rates | [SHIPPING-RATES.md](service-plugin/SHIPPING-RATES.md) |
+| Tax Calculation | [TAX-CALCULATION.md](service-plugin/TAX-CALCULATION.md) |
+| Validations | [VALIDATIONS.md](service-plugin/VALIDATIONS.md) |
+| Bookings Staff Sorting | [BOOKINGS-STAFF-SORTING.md](service-plugin/BOOKINGS-STAFF-SORTING.md) |
 
 ## Output Structure
 
@@ -228,7 +223,7 @@ Only `ecomShippingRates()` accepts `description`. Passing unsupported fields to 
 
 ### Step 2: Register in Main Extensions File
 
-**CRITICAL:** After creating the plugin-specific extension file, you MUST read [wix-cli-extension-registration](../wix-cli-extension-registration/SKILL.md) and follow the "App Registration" section to update `src/extensions.ts`.
+**CRITICAL:** After creating the plugin-specific extension file, you MUST read [Extension Registration reference](EXTENSION_REGISTRATION.md) and follow the "App Registration" section to update `src/extensions.ts`.
 
 **Without completing Step 2, the service plugin will not be active in the eCommerce system.**
 

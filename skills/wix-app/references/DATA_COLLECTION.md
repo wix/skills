@@ -1,8 +1,3 @@
----
-name: wix-cli-data-collection
-description: Use when defining database schemas, creating data collections, or setting up structured data storage. Triggers include CMS, collection, database, schema, data model, fields, relationships, permissions, data structure, entity definition, data extension.
-compatibility: Requires Wix CLI development environment.
----
 
 # Wix Data Collection Builder
 
@@ -10,7 +5,6 @@ Creates CMS data collections for Wix CLI apps. The data collections extension al
 
 **Important:** This extension automatically enables the site's code editor, which is required for the Wix Data APIs to work. Without this extension, apps using Data APIs would need the Wix user to manually enable the code editor on their site, which isn't guaranteed. With the data collections extension, your app can reliably use Data APIs to read and write data in the collections.
 
----
 
 ## App Namespace Handling
 
@@ -32,7 +26,6 @@ Creates CMS data collections for Wix CLI apps. The data collections extension al
 - **In `referencedCollectionId`:** Use the `idSuffix` only (not the full scoped ID) — the system resolves it automatically
 - Example: If `idSuffix` is `"product-recommendations"`, API calls use `"<app-namespace>/product-recommendations"` NOT `"<app-namespace>/productRecommendations"`
 
----
 
 ## File Structure
 
@@ -59,7 +52,7 @@ export const dataExtension = extensions.genericExtension({
 });
 ```
 
-**CRITICAL:** The `compId` must be a unique, static UUID string. Generate a fresh UUID v4 for each app - do NOT use `randomUUID()` or copy UUIDs from examples. After creating or modifying this file, follow [wix-cli-extension-registration](../wix-cli-extension-registration/SKILL.md) for UUID generation and to register the extension in `src/extensions.ts` (required for collections to work).
+**CRITICAL:** The `compId` must be a unique, static UUID string. Generate a fresh UUID v4 for each app - do NOT use `randomUUID()` or copy UUIDs from examples. After creating or modifying this file, follow [Extension Registration reference](EXTENSION_REGISTRATION.md) for UUID generation and to register the extension in `src/extensions.ts` (required for collections to work).
 
 **Key points:**
 

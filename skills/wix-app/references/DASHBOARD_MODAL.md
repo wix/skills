@@ -1,8 +1,3 @@
----
-name: wix-cli-dashboard-modal
-description: Use when adding popup forms, confirmations, or detail views to Wix dashboards; creating reusable dialog components across dashboard pages; showing context-specific information in overlays; opening modals from dashboard pages; or passing data between dashboard pages and modals. Do NOT use for static content (use dashboard pages instead) or site-facing UI (use site widgets/embedded scripts).
-compatibility: Requires Wix CLI development environment.
----
 
 ## Overview
 
