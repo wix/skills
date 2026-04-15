@@ -1,6 +1,6 @@
 ---
 name: "Bookings"
-description: "Wix Bookings management recipes — covers service creation, staff setup, business hours, booking flows, policies, multi-resource services, external calendar integration, and pricing plans integration."
+description: "Wix Bookings management recipes — covers service creation, staff setup, booking flows, policies, multi-resource services, and external calendar integration."
 ---
 
 # Bookings Management Recipes

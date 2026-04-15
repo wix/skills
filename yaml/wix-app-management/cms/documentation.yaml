@@ -21,4 +21,4 @@ apiDoc:
     - file: ../../../skills/wix-app-management/cms/references/cms-ecom-catalog.md
       title: CMS eCommerce Catalog Integration
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/cms/skills
-      tags: [cms]
+      tags: [cms, ecommerce]

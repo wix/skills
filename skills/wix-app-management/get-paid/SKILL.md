@@ -1,11 +1,11 @@
 ---
-name: "Payments"
-description: "Wix Payments management recipes — covers payment links creation, Wix Payments setup, and booking payment links."
+name: "Get Paid"
+description: "Wix Get Paid management recipes — covers payment links creation, Wix Payments setup, and booking payment links."
 ---
 
-# Payments Management Recipes
+# Get Paid Management Recipes
 
-Recipes for managing Wix Payments via REST API.
+Recipes for managing Wix Get Paid via REST API.
 
 ## Recipe Index
 
