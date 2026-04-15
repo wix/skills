@@ -1,8 +1,0 @@
-apiDoc:
-  title: Wix eCommerce Management Recipes
-
-  docs:
-    - file: ../../../skills/wix-admin/references/ecommerce/setup-store-pickup-location.md
-      title: Setup Store Pickup Location
-      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
-      tags: [stores, ecommerce]

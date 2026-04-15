@@ -1,0 +1,12 @@
+apiDoc:
+  title: Wix Pricing Plans Management Recipes
+
+  docs:
+    - file: ../../../skills/wix-manage/references/pricing-plans/create-and-update-pricing-plans.md
+      title: Create and Update Pricing Plans
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans
+      tags: [pricing-plans]
+    - file: ../../../skills/wix-manage/references/pricing-plans/pricing-plans-bookings-integration.md
+      title: Pricing Plans Bookings Integration
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans
+      tags: [bookings, pricing-plans]
