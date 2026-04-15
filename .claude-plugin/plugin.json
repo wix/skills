@@ -12,7 +12,8 @@
   "keywords": ["wix", "wix-cli", "wix-mcp", "ecommerce", "cms", "wix-apps"],
   "skills": [
     "./skills/wds-docs",
-    "./skills/wix-app"
+    "./skills/wix-app",
+    "./skills/wix-manage"
   ],
   "mcpServers": "./.mcp.json"
 }

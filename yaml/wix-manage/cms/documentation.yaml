@@ -1,0 +1,24 @@
+apiDoc:
+  title: Wix CMS Management Recipes
+
+  docs:
+    - file: ../../../skills/wix-manage/references/cms/cms-data-items-crud.md
+      title: CMS Data Items CRUD
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/cms
+      tags: [cms]
+    - file: ../../../skills/wix-manage/references/cms/cms-data-operations-extended.md
+      title: CMS Data Operations Extended
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/cms
+      tags: [cms]
+    - file: ../../../skills/wix-manage/references/cms/cms-schema-management.md
+      title: CMS Schema Management
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/cms
+      tags: [cms]
+    - file: ../../../skills/wix-manage/references/cms/cms-references-and-relationships.md
+      title: CMS References & Relationships
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/cms
+      tags: [cms]
+    - file: ../../../skills/wix-manage/references/cms/cms-ecommerce-catalog-integration.md
+      title: CMS eCommerce Catalog Integration
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/cms
+      tags: [cms, ecommerce]
