@@ -4,5 +4,5 @@ apiDoc:
   docs:
     - file: ../../../skills/wix-app-management/media/references/upload-media-to-wix.md
       title: Upload Media to Wix
-      docsEntry: https://dev.wix.com/docs/api-reference/assets/media/skills
+      docsEntry: https://dev.wix.com/docs/api-reference/assets/media
       tags: [media]

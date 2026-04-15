@@ -4,5 +4,5 @@ apiDoc:
   docs:
     - file: ../../../skills/wix-app-management/rich-content/references/ricos-converter-service.md
       title: Ricos Converter Service
-      docsEntry: https://dev.wix.com/docs/api-reference/assets/rich-content/skills
+      docsEntry: https://dev.wix.com/docs/api-reference/assets/rich-content
       tags: [rich-content]

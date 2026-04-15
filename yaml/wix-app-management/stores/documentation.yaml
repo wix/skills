@@ -34,10 +34,6 @@ apiDoc:
       title: Setup Online Store (Catalog V3)
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
       tags: [stores]
-    - file: ../../../skills/wix-app-management/stores/references/setup-store-pickup-location.md
-      title: Setup Store Pickup Location
-      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
-      tags: [stores]
     - file: ../../../skills/wix-app-management/stores/references/add-pages-to-site.md
       title: Add Store Pages to Site
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores

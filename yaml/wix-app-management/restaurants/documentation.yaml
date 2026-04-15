@@ -4,5 +4,5 @@ aapiDoc:
   docs:
     - file: ../../../skills/wix-app-management/restaurants/references/wix-restaurants-setup.md
       title: Wix Restaurants Setup
-      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/skills
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/restaurants
       tags: [restaurants]

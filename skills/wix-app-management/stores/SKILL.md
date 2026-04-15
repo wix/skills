@@ -1,6 +1,6 @@
 ---
 name: "Stores"
-description: "Wix Stores management recipes — covers product CRUD (V1 & V3), bulk creation, querying, pre-orders, store setup, pickup locations, and page management."
+description: "Wix Stores management recipes — covers product CRUD (V1 & V3), bulk creation, querying, pre-orders, store setup, and page management."
 ---
 
 # Stores Management Recipes
@@ -19,5 +19,4 @@ Recipes for managing Wix Stores via REST API.
 | Update Product with Options         | Update existing product options, variants, media, or prices     | [update-product-with-options.md](references/update-product-with-options.md)      |
 | Update Product Pre-Order            | Enable/disable pre-orders and configure limits for variants     | [update-product-pre-order.md](references/update-product-pre-order.md)           |
 | Setup Online Store (Catalog V3)     | Initial full store setup: products, categories, assignments     | [setup-online-store-catalog-v3.md](references/setup-online-store-catalog-v3.md) |
-| Setup Store Pickup Location         | Configure in-store pickup option for checkout                   | [setup-store-pickup-location.md](references/setup-store-pickup-location.md)     |
 | Add Store Pages to Site             | Add missing checkout/cart pages after migration or setup issues  | [add-pages-to-site.md](references/add-pages-to-site.md)                        |

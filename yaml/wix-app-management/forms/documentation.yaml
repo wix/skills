@@ -4,5 +4,5 @@ apiDoc:
   docs:
     - file: ../../../skills/wix-app-management/forms/references/create-form.md
       title: Create Form
-      docsEntry: https://dev.wix.com/docs/api-reference/crm/forms/skills
+      docsEntry: https://dev.wix.com/docs/api-reference/crm/forms
       tags: [forms]
