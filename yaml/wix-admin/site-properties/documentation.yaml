@@ -1,0 +1,8 @@
+apiDoc:
+  title: Wix Site Properties Management Recipes
+
+  docs:
+    - file: ../../../skills/wix-admin/references/site-properties/change-payment-currency-site-properties.md
+      title: Change Payment Currency (Site Properties)
+      docsEntry: https://dev.wix.com/docs/api-reference/business-management/site-properties
+      tags: [site-properties]

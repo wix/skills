@@ -1,0 +1,8 @@
+apiDoc:
+  title: Wix Forms Management Recipes
+
+  docs:
+    - file: ../../../skills/wix-admin/references/forms/create-form.md
+      title: Create Form
+      docsEntry: https://dev.wix.com/docs/api-reference/crm/forms
+      tags: [forms]

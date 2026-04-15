@@ -1,0 +1,12 @@
+apiDoc:
+  title: Wix App Installation Management Recipes
+
+  docs:
+    - file: ../../../skills/wix-admin/references/app-installation/install-wix-apps.md
+      title: Install Wix Apps
+      docsEntry: https://dev.wix.com/docs/api-reference/business-management/app-installation
+      tags: [app-installation]
+    - file: ../../../skills/wix-admin/references/app-installation/list-installed-apps.md
+      title: List Installed Apps
+      docsEntry: https://dev.wix.com/docs/api-reference/business-management/app-installation
+      tags: [app-installation]

@@ -1,0 +1,8 @@
+apiDoc:
+  title: Wix Calendar Management Recipes
+
+  docs:
+    - file: ../../../skills/wix-admin/references/calendar/configure-default-business-hours.md
+      title: Configure Default Business Hours
+      docsEntry: https://dev.wix.com/docs/api-reference/business-management/calendar
+      tags: [bookings, calendar]

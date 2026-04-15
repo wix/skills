@@ -1,0 +1,8 @@
+apiDoc:
+  title: Wix Media Management Recipes
+
+  docs:
+    - file: ../../../skills/wix-admin/references/media/upload-media-to-wix.md
+      title: Upload Media to Wix
+      docsEntry: https://dev.wix.com/docs/api-reference/assets/media
+      tags: [media]
