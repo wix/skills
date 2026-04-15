@@ -95,7 +95,6 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
 | Embedded Script       | Site      | Public      | Inject scripts/analytics              | [EMBEDDED_SCRIPT.md](references/EMBEDDED_SCRIPT.md)     |
 **Key constraints:**
 - Dashboard Page cannot use `<Modal />`; use a separate Dashboard Modal and `dashboard.openModal()`.
-- Only Site Components can consume context provider extensions — NOT site widgets or site plugins.
 
 ## Extension Comparison
 
