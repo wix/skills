@@ -287,7 +287,7 @@ Site plugins integrate into predefined slots in Wix business solutions. Each slo
 
 Common placement areas include product pages (Wix Stores), checkout and side cart (Wix eCommerce), booking pages (Wix Bookings), service pages, event pages, and blog post pages.
 
-For supported pages, common Wix App IDs, and how to find slot IDs, see [SLOTS.md](./references/SLOTS.md).
+For supported pages, common Wix App IDs, and how to find slot IDs, see [SLOTS.md](site-plugin/SLOTS.md).
 
 ## Extension Registration
 
