@@ -16,7 +16,6 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
   - [ ] Asked clarifying questions if requirements were unclear
   - [ ] Checked for implicit Data Collection need — unless user provided a collection ID directly (see [Data Collection Inference](#data-collection-inference))
   - [ ] Obtained app namespace if Data Collection extension is being created
-  - [ ] Obtained Code Identifier if Site Component extension is being created
   - [ ] Determined full scoped collection IDs if Data Collection extension is being created (see [Collection ID Coordination](#collection-id-coordination))
   - [ ] Explained recommendation with reasoning
 - [ ] **Step 2:** Read extension reference file(s) for the chosen type(s)
