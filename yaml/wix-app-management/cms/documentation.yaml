@@ -2,23 +2,23 @@ apiDoc:
   title: Wix CMS Management Recipes
 
   docs:
-    - file: ../../../skills/wix-app-management/cms/references/cms-data-items-crud.md
+    - file: ../../../skills/wix-app-management/references/cms/cms-data-items-crud.md
       title: CMS Data Items CRUD
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/cms
       tags: [cms]
-    - file: ../../../skills/wix-app-management/cms/references/cms-data-operations-extended.md
+    - file: ../../../skills/wix-app-management/references/cms/cms-data-operations-extended.md
       title: CMS Data Operations Extended
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/cms
       tags: [cms]
-    - file: ../../../skills/wix-app-management/cms/references/cms-schema-management.md
+    - file: ../../../skills/wix-app-management/references/cms/cms-schema-management.md
       title: CMS Schema Management
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/cms
       tags: [cms]
-    - file: ../../../skills/wix-app-management/cms/references/cms-references-and-relationships.md
+    - file: ../../../skills/wix-app-management/references/cms/cms-references-and-relationships.md
       title: CMS References & Relationships
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/cms
       tags: [cms]
-    - file: ../../../skills/wix-app-management/cms/references/cms-ecommerce-catalog-integration.md
+    - file: ../../../skills/wix-app-management/references/cms/cms-ecommerce-catalog-integration.md
       title: CMS eCommerce Catalog Integration
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/cms
       tags: [cms, ecommerce]

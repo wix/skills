@@ -2,31 +2,31 @@ apiDoc:
   title: Wix Bookings Management Recipes
 
   docs:
-    - file: ../../../skills/wix-app-management/bookings/references/end-to-end-booking-flow.md
+    - file: ../../../skills/wix-app-management/references/bookings/end-to-end-booking-flow.md
       title: End-to-End Booking Flow
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/bookings
       tags: [bookings]
-    - file: ../../../skills/wix-app-management/bookings/references/create-and-update-booking-services.md
+    - file: ../../../skills/wix-app-management/references/bookings/create-and-update-booking-services.md
       title: Create and Update Booking Services
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/bookings
       tags: [bookings]
-    - file: ../../../skills/wix-app-management/bookings/references/bookings-staff-setup.md
+    - file: ../../../skills/wix-app-management/references/bookings/bookings-staff-setup.md
       title: Bookings Staff Setup
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/bookings
       tags: [bookings]
-    - file: ../../../skills/wix-app-management/bookings/references/booking-service-policy-setup.md
+    - file: ../../../skills/wix-app-management/references/bookings/booking-service-policy-setup.md
       title: Booking Service Policy Setup
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/bookings
       tags: [bookings]
-    - file: ../../../skills/wix-app-management/bookings/references/multi-resource-service-creation.md
+    - file: ../../../skills/wix-app-management/references/bookings/multi-resource-service-creation.md
       title: Multi-Resource Service Creation
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/bookings
       tags: [bookings]
-    - file: ../../../skills/wix-app-management/bookings/references/external-calendar-integration.md
+    - file: ../../../skills/wix-app-management/references/bookings/external-calendar-integration.md
       title: External Calendar Integration
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/bookings
       tags: [bookings, calendar]
-    - file: ../../../skills/wix-app-management/bookings/references/booking-system-integration-gaps.md
+    - file: ../../../skills/wix-app-management/references/bookings/booking-system-integration-gaps.md
       title: Booking System Integration Gaps
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/bookings
       tags: [bookings]
