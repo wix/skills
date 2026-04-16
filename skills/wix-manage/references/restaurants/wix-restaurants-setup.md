@@ -327,7 +327,6 @@ Common dietary labels:
 | `MENU_NOT_FOUND` | Invalid menu ID | Verify menu exists |
 | `ITEM_NOT_FOUND` | Invalid item ID | Verify item exists |
 | `INVALID_PRICE` | Negative price | Use positive amounts |
-| `DUPLICATE_NAME` | Section/item name exists | Use unique names |
 
 ## Related Documentation
 
