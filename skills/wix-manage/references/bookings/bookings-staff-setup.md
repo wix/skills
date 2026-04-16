@@ -1,6 +1,6 @@
 ---
 name: "Bookings Staff Setup"
-description: Creates staff members and configures custom working hours using Staff API + Calendar Events API. Critical two-step process: create staff → assign schedule → create working hours events.
+description: "Creates staff members and configures custom working hours using Staff API + Calendar Events API. Critical two-step process: create staff → assign schedule → create working hours events."
 ---
 # Technical Step-by-Step Instructions: Setting Up Wix Bookings Staff Members with Custom Working Hours (Real-World, API-First)
 
