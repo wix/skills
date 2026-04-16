@@ -1,5 +1,5 @@
 ---
-name: "CMS References & Relationships"
+name: "CMS References And Relationships"
 description: "Add, replace, or remove items from MULTI_REFERENCE fields. Use insert-references, replace-references, remove-references endpoints. Required for managing multi-reference relationships - these CANNOT be set via regular insert/update/patch operations. Also covers single references and querying with expanded references."
 ---
 # CMS References & Relationships
