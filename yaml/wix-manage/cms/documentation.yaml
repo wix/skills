@@ -15,7 +15,7 @@ apiDoc:
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/cms
       tags: [cms]
     - file: ../../../skills/wix-manage/references/cms/cms-references-and-relationships.md
-      title: CMS References & Relationships
+      title: CMS References And Relationships
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/cms
       tags: [cms]
     - file: ../../../skills/wix-manage/references/cms/cms-ecommerce-catalog-integration.md
