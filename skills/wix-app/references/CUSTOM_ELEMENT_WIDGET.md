@@ -1,11 +1,11 @@
 
-# Wix Site Widget Builder
+# Wix Custom Element Widget Builder
 
-Creates custom element widget extensions for Wix CLI applications. Site widgets are React components converted to web components that appear in the Wix Editor, allowing site owners to add interactive, configurable widgets to their pages with a built-in settings panel.
+Creates Custom element widget extensions for Wix CLI applications. Custom element widgets are React components converted to web components that appear in the Wix Editor, allowing site owners to add interactive, configurable widgets to their pages with a built-in settings panel.
 
 ## Quick Start Checklist
 
-Follow these steps in order when creating a site widget:
+Follow these steps in order when creating a Custom element widget:
 
 1. [ ] Create widget folder: `src/extensions/site/widgets/custom-elements/<widget-name>/`
 2. [ ] Create `widget.tsx` with React component and `reactToWebComponent` conversion
@@ -15,7 +15,7 @@ Follow these steps in order when creating a site widget:
 
 ## Architecture
 
-Site widgets consist of **two required files**:
+Custom element widgets consist of **two required files**:
 
 ### 1. Widget Component (`widget.tsx`)
 
@@ -31,7 +31,7 @@ React component converted to a web component using `react-to-webcomponent`:
 
 Settings panel shown in the Wix Editor sidebar:
 
-- Uses Wix Design System components (see [SETTINGS_PANEL.md](site-widget/SETTINGS_PANEL.md))
+- Uses Wix Design System components (see [SETTINGS_PANEL.md](custom-element-widget/SETTINGS_PANEL.md))
 - Manages widget properties via `@wix/editor` widget API
 - Loads initial values with `widget.getProp('kebab-case-name')`
 - Updates properties with `widget.setProp('kebab-case-name', value)`
@@ -293,7 +293,7 @@ export default Panel;
 - Prop names in `widget.getProp()` and `widget.setProp()` use **kebab-case** (e.g., `"target-date"`, `"bg-color"`)
 - Always update both local state AND widget prop in onChange handlers
 - Wrap content in `WixDesignSystemProvider > SidePanel > SidePanel.Content`
-- Use WDS components from `@wix/design-system` (see [SETTINGS_PANEL.md](site-widget/SETTINGS_PANEL.md))
+- Use WDS components from `@wix/design-system` (see [SETTINGS_PANEL.md](custom-element-widget/SETTINGS_PANEL.md))
 - Import `@wix/design-system/styles.global.css` for styles
 - For colors, use `ColorPickerField` with `inputs.selectColor()` from `@wix/editor` — NOT `<Input type="color">`
 - For fonts, use `FontPickerField` with `inputs.selectFont()` from `@wix/editor` — NOT a text Input
@@ -534,12 +534,12 @@ Avoid generic aesthetics. Create distinctive designs with unique fonts (avoid In
 
 ### Step 1: Create Widget-Specific Extension File
 
-Each site widget requires an `extensions.ts` file in its folder:
+Each Custom element widget requires an `extensions.ts` file in its folder:
 
 ```typescript
 import { extensions } from "@wix/astro/builders";
 
-export const sitewidgetMyWidget = extensions.customElement({
+export const customelementwidgetMyWidget = extensions.customElement({
   id: "{{GENERATE_UUID}}",
   name: "My Widget",
   tagName: "my-widget",
@@ -577,7 +577,7 @@ The `id` must be a unique, static UUID v4 string. Generate a fresh UUID for each
 
 **CRITICAL:** After creating the widget-specific extension file, you MUST read [Extension Registration reference](EXTENSION_REGISTRATION.md) and follow the "App Registration" section to update `src/extensions.ts`.
 
-**Without completing Step 2, the site widget will not be available in the Wix Editor.**
+**Without completing Step 2, the Custom element widget will not be available in the Wix Editor.**
 
 ## Code Quality Requirements
 

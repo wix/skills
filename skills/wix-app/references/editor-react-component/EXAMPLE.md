@@ -1,6 +1,6 @@
-# Site Component Example: Profile Card
+# Editor React Component Example: Profile Card
 
-Complete production-ready site component demonstrating nested elements, all key data types, three component types (Leaf, Container, Root), conditional rendering, and three-way synchronization.
+Complete production-ready Editor react component demonstrating nested elements, all key data types, three component types (Leaf, Container, Root), conditional rendering, and three-way synchronization.
 
 ## Component Overview
 
@@ -529,7 +529,7 @@ import type {
 
 export type { Wix, Link, Image, Text, NumberType, BooleanValue, Direction };
 
-// RichText from @wix/editor-react-types is { text, html, linkList } — site components receive HTML string
+// RichText from @wix/editor-react-types is { text, html, linkList } — Editor react components receive HTML string
 export type RichText = string;
 ```
 

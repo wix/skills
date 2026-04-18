@@ -1,6 +1,6 @@
 # CSS Guidelines
 
-Modern CSS patterns for responsive, maintainable site components that integrate with Wix Editor styling controls.
+Modern CSS patterns for responsive, maintainable Editor react components that integrate with Wix Editor styling controls.
 
 ## Core Principles
 

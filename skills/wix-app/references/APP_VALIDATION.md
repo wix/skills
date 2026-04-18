@@ -62,7 +62,7 @@ npx tsc --noEmit src/extensions/dashboard/pages/survey/**/*.ts src/extensions/da
 # Check dashboard pages only
 npx tsc --noEmit src/extensions/dashboard/pages/**/*.ts src/extensions/dashboard/pages/**/*.tsx
 
-# Check site widgets only
+# Check Custom element widgets only
 npx tsc --noEmit src/extensions/site/widgets/**/*.ts src/extensions/site/widgets/**/*.tsx
 
 # Check dashboard modals only

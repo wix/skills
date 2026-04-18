@@ -79,7 +79,7 @@ Examples:
 - `dashboardpluginBlogPostsBanner`
 - `dashboardmenupluginExportPosts`
 - `embeddedscriptCouponPopup`
-- `sitewidgetCountdownWidget`
+- `customelementwidgetCountdownWidget`
 - `sitepluginProductBadge`
 - `ecomshippingratesCustomShipping`
 
