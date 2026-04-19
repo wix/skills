@@ -2,6 +2,10 @@ apiDoc:
   title: Wix eCommerce Management Recipes
 
   docs:
+    - file: ../../../skills/wix-manage/references/ecommerce/recipe-apply-shipping-recommendations.md
+      title: "Recipe: Apply Shipping Recommendations"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
     - file: ../../../skills/wix-manage/references/ecommerce/setup-store-pickup-location.md
       title: Setup Store Pickup Location
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
