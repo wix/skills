@@ -31,6 +31,9 @@ Follow these steps in order when creating a context provider:
 
 ## Hard Constraints
 
+- **MANDATORY: Use signals service for ALL reactive state** — Import `useService` from `@wix/services-manager-react` and `SignalsServiceDefinition` from `@wix/services-definitions/core-services/signals`. Create state via `signalsService.signal(initialValue)`. Read with `.get()`, write with `.set()`, peek with `.peek()`. This is required for HMR (Hot Module Replacement) in dev mode — without it, changes won't propagate during development.
+- **DO NOT use `useState` or `useReducer` for provider state** — These React primitives break HMR. The ONLY acceptable state primitive inside a context provider is `signalsService.signal()`.
+- **DO NOT use plain variables or `useRef` for mutable state** — All mutable state must go through signals for HMR reactivity.
 - **Import `experimentalExtensions`** from `@wix/astro/builders/experimental`, NOT from `@wix/astro/builders`
 - Do NOT invent or assume new types, modules, or imports
 - The `type` field must be namespaced: `<codeIdentifier>.ComponentName`
@@ -136,7 +139,7 @@ export default MyContextProvider;
 - **Always** accept `children` as a prop — the provider wraps child components in the React tree; the Wix editor places consumer components as children of the provider
 - **Always** use types from `@wix/public-schemas` (e.g., `NumberType`, `Text`, `BooleanType`) instead of plain TypeScript primitives — these types match the actual runtime format Wix provides to components as props, so using plain primitives creates a type mismatch
 - Provider props correspond to the `data` entries in the extension registration
-- Use `@wix/services-manager-react` with `SignalsServiceDefinition` from `@wix/services-definitions/core-services/signals` for reactive state management
+- **MANDATORY:** Use `@wix/services-manager-react` with `SignalsServiceDefinition` from `@wix/services-definitions/core-services/signals` for ALL reactive state — this enables HMR in dev mode. Do NOT use useState/useReducer as alternatives (see Hard Constraints)
 - **Always** expose RichText versions of all text and number context values (see [RichText Support](#richtext-support-mandatory) below)
 
 ## RichText Support (Mandatory)
@@ -469,7 +472,7 @@ src/extensions/site/contextProviders/{provider-name}/
 - Explicit return types for all functions
 - Proper null/undefined handling with optional chaining
 - Functional components with hooks
-- Use `@wix/services-manager-react` and `@wix/services-definitions/core-services/signals` for reactive state
+- **MANDATORY:** Use `@wix/services-manager-react` and `@wix/services-definitions/core-services/signals` for ALL reactive state (never useState/useReducer — see Hard Constraints)
 - SSR-safe code (no browser APIs at module scope)
 - Always set `displayName` on context and provider
 - No `@ts-ignore` comments. `@ts-expect-error` is only allowed for the generated `moduleSpecifier` import in consumer components
