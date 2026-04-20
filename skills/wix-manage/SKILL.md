@@ -197,6 +197,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ### [Bulk Create Products with Options](references/stores/bulk-create-products-with-options.md)
 **Technical:** Uses bulk products endpoint to create multiple products with inventory in a single request. Handles variant generation from options, media format requirements, and error handling for partial failures.
 
+### [Create Product from Image](references/stores/create-product-from-image.md)
+**Technical:** Creates a product by uploading an image to Wix Media, using the LLM to generate the product name, description, and price from the image, then attaching the media to the created product. Combines Media Upload + LLM analysis + Product Creation + Add Product Media into a single flow.
+
 ### [Create Product (Catalog V1)](references/stores/create-product-catalog-v1.md)
 **Technical:** Create products using the Catalog V1 Products API. Use this recipe when the site's catalog version is CATALOG_V1. Covers simple product creation, product with options, and key V1 request structure differences from V3.
 
