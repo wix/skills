@@ -8,7 +8,7 @@ After creating any extension file, you must update the main `src/extensions.ts` 
 The Wix CLI discovers extensions through the `src/extensions.ts` file — it's the single entry point that tells the build system which extensions exist. Without registration:
 
 - Dashboard pages won't appear in the sidebar
-- Site widgets won't show in the Wix Editor
+- Custom element widgets won't show in the Wix Editor
 - Service plugins won't be called during checkout flows
 - Event handlers won't receive webhook deliveries
 - Embedded scripts won't be injected into site pages
