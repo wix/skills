@@ -106,6 +106,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 
 ## eCommerce
 
+### [Recipe: Apply Shipping Recommendations](references/ecommerce/recipe-apply-shipping-recommendations.md)
+**Technical:** Applies AI-generated shipping recommendations to a Wix e-commerce store. Reads the current delivery profile and shipping options, then creates or updates shipping options based on recommendation data. Supports creating new options with conditional rates, updating existing options, and querying delivery profiles for region/carrier context.
+
 ### [Setup Store Pickup Location](references/ecommerce/setup-store-pickup-location.md)
 **Technical:** Configures a pickup option for an online store so customers can choose in-store pickup at checkout. Uses the Delivery Profiles API to discover the Pickup carrier, add a delivery region, and attach the carrier with a free pickup rate.
 
