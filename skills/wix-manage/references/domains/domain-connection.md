@@ -33,10 +33,10 @@ Before connecting, collect the following from the user:
 
 1. **Domain name** -- the full domain including TLD (e.g. `mybusiness.com` or `shop.mybusiness.com`)
 2. **Target site** -- which Wix site to connect to. Use the `ListWixSites` tool to list available sites and let the user pick. Only sites with an active **Premium plan** can have a custom domain connected. If the user's site doesn't have Premium, tell them they need to upgrade first.
-3. **Connection method** -- ask the user to choose:
-   - **Pointing** (recommended default) -- the domain stays with its current DNS provider, user updates A and CNAME records there. Best when the user has other services (email, etc.) on the same domain.
-   - **Nameservers** -- Wix takes over DNS management entirely. Simpler setup but all DNS moves to Wix. Warn that existing DNS records (email MX, etc.) will need to be re-created in the Wix DNS manager after the switch.
-   - If the user doesn't have a preference or is unsure, default to **Pointing**.
+3. **Connection method** -- explain both options and let the user choose:
+   - **Pointing** -- the domain stays with its current DNS provider. The user updates A and CNAME records at their registrar. Best when the user has other services (email, etc.) on the same domain and wants to keep managing DNS externally.
+   - **Nameservers** -- Wix takes over DNS management entirely. Simpler ongoing management since everything is in one place, but existing DNS records (email MX, etc.) will need to be re-created in the Wix DNS manager after the switch.
+   - Do NOT default to either option. Always ask the user which method they prefer after explaining the trade-offs.
 4. **Assignment type** -- explain the difference clearly and let the user choose:
    - **PRIMARY** -- this becomes the main domain for the site. It's what visitors see in the address bar. If the site already has a primary domain, the old one automatically becomes a redirect.
    - **REDIRECT** -- this domain simply forwards visitors to the primary domain. For example, if the primary is `mybusiness.com` and you add `mybiz.com` as a redirect, anyone typing `mybiz.com` gets redirected to `mybusiness.com`.
