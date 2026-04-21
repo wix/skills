@@ -216,4 +216,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 **Technical:** Manages pre-order settings for product variants using V3 Inventory API. Covers enabling/disabling pre-orders, setting messages, configuring limits, and handling trackQuantity requirements.
 
 ### [Update Product with Options](references/stores/update-product-with-options.md)
-**Technical:** Modifies existing products and variants using Catalog V3 Products API. Covers adding/removing option choices, variant-specific pricing, and revision-based updates to prevent conflicts.
+**Technical:** Modifies existing products and variants using Catalog V3 Products API. Covers adding/removing option choices, variant-specific pricing, and revision-based updates to prevent conflicts.---
+
+## local-test
+
+### [Local Test Skill](https://dev.wix.com/docs/rest/site-plugins/local-test/skills/local-test-skill)
+**Technical:** Local test skill created from /api/skill-generation/create-pr
