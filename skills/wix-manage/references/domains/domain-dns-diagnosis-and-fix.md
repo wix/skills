@@ -71,7 +71,11 @@ GET https://www.wixapis.com/domain-connections/v1/dns-propagation/mybusiness.com
 
 ### Handle Each Status
 
-- **SUCCEEDED** -> Tell the user DNS is healthy. If their site still isn't loading, suggest checking if the site is published, clearing browser cache, or waiting for full propagation.
+- **SUCCEEDED** -> Tell the user DNS is healthy. If their site still isn't loading, suggest:
+  - Make sure the site is published from the Wix Editor
+  - Try clearing browser cache or opening in incognito
+  - For newly registered domains, check for an ICANN verification email (unverified domains can be suspended)
+  - Full propagation can sometimes take a few more hours
 - **IN_PROGRESS** -> DNS changes are propagating. This is normal and can take up to 48 hours. Tell the user to wait and check again later.
 - **FAILED** -> DNS records are misconfigured. Continue to Step 2.
 - **NOT_PUBLISHED** -> The Wix site isn't published yet. Tell the user to publish their site first.
@@ -193,6 +197,13 @@ After the user makes changes (or after auto-fix), re-run Step 1 to verify.
 - If status changed to `SUCCEEDED` -> Confirm everything is working
 - If status is `IN_PROGRESS` -> Tell the user propagation is happening, check again later
 - If status is still `FAILED` -> Review the records again, something may have been missed
+
+### Edge case: FAILED but no failure details
+
+If the status is `FAILED` but `failureInfo` is missing or empty:
+- For Wix-managed domains: suggest the user check the Wix DNS manager or contact Wix support
+- For external domains: suggest double-checking the DNS configuration at the registrar
+- The issue may resolve on its own with time
 
 ---
 

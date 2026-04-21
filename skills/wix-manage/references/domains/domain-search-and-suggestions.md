@@ -153,6 +153,7 @@ When showing suggestions to the user:
 - Flag premium domains (they cost more than standard pricing)
 - If the user has a preference for TLD type, highlight relevant ones (e.g., `.com` for general business, `.shop`/`.store` for e-commerce, `.me` for personal branding)
 - All returned suggestions are available for purchase
+- If no suggestions are found, suggest the user try different keywords or remove TLD filters
 
 ### Pagination
 
