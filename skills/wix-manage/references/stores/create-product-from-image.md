@@ -10,7 +10,9 @@ Create a product by uploading an image URL to Wix Media Manager, analyzing the i
 
 ## STEP 1: Upload Image to Wix Media Manager
 
-Import the image from the provided external URL into the site's Media Manager.
+Import the image from an external URL into the site's Media Manager.
+
+**CRITICAL: The `url` field MUST be a publicly accessible HTTP/HTTPS URL** (e.g., `https://images.unsplash.com/...` or `https://example.com/photo.jpg`). It CANNOT be a local file reference, a client-side file ID, or an internal file token. If the user uploaded an image directly to the chat (not as a URL), ask them to provide a public URL where the image is hosted instead.
 
 ```bash
 curl -X POST 'https://www.wixapis.com/site-media/v1/files/import' \
