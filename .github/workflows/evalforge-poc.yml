@@ -6,11 +6,11 @@ on:
       base_url:
         description: EvalForge backend base URL
         required: false
-        default: https://bo.wix.com/_api/evalforge-backend
+        default: https://manage.wix.com/_api/evalforge-backend
 
 jobs:
   fetch-projects:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - name: Fetch projects from EvalForge
         run: |
