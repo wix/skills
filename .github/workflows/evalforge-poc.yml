@@ -16,7 +16,7 @@ jobs:
         run: |
           echo "Calling ${{ github.event.inputs.base_url }}/projects"
           curl -sf \
-            -H "x-app-id: ${{ secrets.EVALFORGE_APP_ID }}" \
-            -H "x-app-secret: ${{ secrets.EVALFORGE_APP_SECRET }}" \
+            -H "x-app-id: ${{ secrets.ORLEIB_POC_EVALFORGE_APP_ID }}" \
+            -H "x-app-secret: ${{ secrets.ORLEIB_POC_EVALFORGE_APP_SECRET }}" \
             "${{ github.event.inputs.base_url }}/projects" \
             | python3 -m json.tool
