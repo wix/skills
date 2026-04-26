@@ -1,0 +1,22 @@
+name: EvalForge POC - fetch projects
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: EvalForge backend base URL
+        required: false
+        default: https://bo.wix.com/_api/evalforge-backend
+
+jobs:
+  fetch-projects:
+    runs-on: self-hosted
+    steps:
+      - name: Fetch projects from EvalForge
+        run: |
+          echo "Calling ${{ github.event.inputs.base_url }}/projects"
+          curl -sf \
+            -H "x-app-id: ${{ secrets.EVALFORGE_APP_ID }}" \
+            -H "x-app-secret: ${{ secrets.EVALFORGE_APP_SECRET }}" \
+            "${{ github.event.inputs.base_url }}/projects" \
+            | python3 -m json.tool
