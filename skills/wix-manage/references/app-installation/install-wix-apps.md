@@ -16,7 +16,41 @@ This recipe guides you through installing Wix apps on a site using the Apps Inst
 - **Apps Installer API**: [REST](https://dev.wix.com/docs/rest/business-management/app-installation/install-app)
 
 ---
+## Step 0: Find the App ID (skip if you already have it)
 
+If you already know the `appDefId` (e.g. from the table of Wix-built apps below), skip to Step 1.
+
+For any third-party app, or any app you only know by name, resolve the ID first using the Search Market Listings API.
+
+**Endpoint**: `POST https://www.wixapis.com/devcenter/app-market-listing/v1/market-listings/search`
+
+**Request**:
+```bash
+curl -X POST \
+  'https://www.wixapis.com/devcenter/app-market-listing/v1/market-listings/search' \
+  -H 'Authorization: <AUTH>' \
+  -H 'Content-Type: application/json' \
+  -d '{ "searchTerm": "Usercentrics" }'
+```
+
+**Response** (truncated):
+```json
+{
+  "marketListings": [
+    {
+      "appId": "b8cfbda5-91e8-45ad-8c8d-4d4700534ab5",
+      "basicInfo": { "name": "Usercentrics for Wix", ... }
+    }
+  ]
+}
+```
+
+Use the returned `appId` as the `appDefId` in Step 2.
+
+### IMPORTANT NOTES
+- The `appDefId` field in the install request and the `appId` field returned here are the same value
+- If multiple results come back, match on `basicInfo.name` to confirm you have the right app before installing
+- Only listings with `status: "PUBLISHED"` can be installed
 ## Step 1: Enable Velo (Wix Code) if Needed
 
 If you receive the error `WDE0110: Wix Code not enabled`, you must first enable Velo on the site.
@@ -90,7 +124,7 @@ Some common apps:
 | Wix Pricing Plans | `1522827f-c56c-a5c9-2ac9-00f9e6ae12d3` |
 
 ### IMPORTANT NOTES:
-- I MUST NEVER guess the `appDefId` - always refer to the official documentation
+- NEVER guess the `appDefId`. For Wix-built apps, use the table above. For any other app, resolve the ID using Step 0 (Search Market Listings).
 - The `tenantType` MUST be `SITE`
 - The `id` in tenant is the site's metaSiteId
 
@@ -111,3 +145,11 @@ Call the Velo provision endpoint (Step 1) first, then retry the original operati
 After installing an app:
 - Configure the app's settings using its specific APIs
 - Set up any required app-specific data (products for Stores, services for Bookings, etc.)
+
+---
+
+## Common Pitfalls
+
+- **"I don't have the appDefId"** → Run Step 0. The table in Step 2 only covers Wix-built apps; the App Market has thousands of others.
+- **Don't try to scrape the App Market website to find IDs** — pages are client-rendered and the appId is not in the HTML. Use Search Market Listings instead.
+- **Don't try `InstallAppFromShareUrl` as a workaround for unknown IDs** — `shareUrlId` is an internal identifier you generally don't have either.
