@@ -1,11 +1,11 @@
 
 # Wix Custom Element Widget Builder
 
-Creates Custom element widget extensions for Wix CLI applications. Custom element widgets are React components converted to web components that appear in the Wix Editor, allowing site owners to add interactive, configurable widgets to their pages with a built-in settings panel.
+Creates custom element widget extensions for Wix CLI applications. Custom element widgets are React components converted to web components that appear in the Wix Editor, allowing site owners to add interactive, configurable widgets to their pages with a built-in settings panel.
 
 ## Quick Start Checklist
 
-Follow these steps in order when creating a Custom element widget:
+Follow these steps in order when creating a custom element widget:
 
 1. [ ] Create widget folder: `src/extensions/site/widgets/custom-elements/<widget-name>/`
 2. [ ] Create `widget.tsx` with React component and `reactToWebComponent` conversion
@@ -534,7 +534,7 @@ Avoid generic aesthetics. Create distinctive designs with unique fonts (avoid In
 
 ### Step 1: Create Widget-Specific Extension File
 
-Each Custom element widget requires an `extensions.ts` file in its folder:
+Each custom element widget requires an `extensions.ts` file in its folder:
 
 ```typescript
 import { extensions } from "@wix/astro/builders";
@@ -577,7 +577,7 @@ The `id` must be a unique, static UUID v4 string. Generate a fresh UUID for each
 
 **CRITICAL:** After creating the widget-specific extension file, you MUST read [Extension Registration reference](EXTENSION_REGISTRATION.md) and follow the "App Registration" section to update `src/extensions.ts`.
 
-**Without completing Step 2, the Custom element widget will not be available in the Wix Editor.**
+**Without completing Step 2, the custom element widget will not be available in the Wix Editor.**
 
 ## Code Quality Requirements
 

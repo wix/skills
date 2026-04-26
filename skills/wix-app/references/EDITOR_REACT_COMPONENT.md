@@ -1,13 +1,13 @@
 
 # Wix Editor React Component Builder
 
-Creates production-quality Editor react components with editor manifests for Wix CLI applications. Editor react components are React components that integrate with the Wix Editor, allowing site owners to customize content, styling, and behavior through a visual interface.
+Creates production-quality Editor React components with editor manifests for Wix CLI applications. Editor React components are React components that integrate with the Wix Editor, allowing site owners to customize content, styling, and behavior through a visual interface.
 
 **Prerequisite:** Install `@wix/editor-react-types` as a dev dependency before writing any files.
 
 ## Architecture
 
-Editor react components consist of **four required files**:
+Editor React components consist of **four required files**:
 
 ### 1. Component Manifest (`manifest.json`)
 
@@ -53,7 +53,7 @@ Strict type definitions:
 
 ## Component Manifest Structure
 
-**You MUST read [MANIFEST_GUIDELINES.md](editor-react-component/MANIFEST_GUIDELINES.md) before implementing an Editor react component.** It contains the complete manifest structure, all data types, element configurations, and required patterns.
+**You MUST read [MANIFEST_GUIDELINES.md](editor-react-component/MANIFEST_GUIDELINES.md) before implementing an Editor React component.** It contains the complete manifest structure, all data types, element configurations, and required patterns.
 
 The manifest defines the editor contract using these key sections:
 
@@ -379,7 +379,7 @@ src/extensions/site/components/
 
 ### Step 1: Create Component-Specific Extension File
 
-Each Editor react component requires an `extensions.ts` file in its folder:
+Each Editor React component requires an `extensions.ts` file in its folder:
 
 ```typescript
 import { extensions } from "@wix/astro/builders";
@@ -426,7 +426,7 @@ The `id` must be a unique, static UUID v4 string. Generate a fresh UUID for each
 
 **CRITICAL:** After creating the component-specific extension file, you MUST read [Extension Registration reference](EXTENSION_REGISTRATION.md) and follow the "App Registration" section to update `src/extensions.ts`.
 
-**Without completing Step 2, the Editor react component will not be available in the Wix Editor.**
+**Without completing Step 2, the Editor React component will not be available in the Wix Editor.**
 
 ## Code Quality Requirements
 
@@ -468,7 +468,7 @@ The `id` must be a unique, static UUID v4 string. Generate a fresh UUID for each
 | Missing `removable: true` on elements | Site owner can't hide the element | Add `behaviors: { selectable: true, removable: true }` to all elements |
 | `arrayItems` without `data`/`dataItem`/`dynamicItems` | Deploy validation fails | The `arrayItems` object must include one of: `data`, `dataItem`, or `dynamicItems` |
 | Using `window`/`document` at module scope | SSR fails during build | Guard browser APIs inside `useEffect` or event handlers |
-| Importing from `@wix/design-system` | Not available in Editor react components | Use plain HTML/CSS or custom components only |
+| Importing from `@wix/design-system` | Not available in Editor React components | Use plain HTML/CSS or custom components only |
 | `import { FC } from 'react'` | `verbatimModuleSyntax` in Astro tsconfig requires type-only imports | Use `import { type FC }` or `import type { FC }` from React |
 
 ## Hard Constraints

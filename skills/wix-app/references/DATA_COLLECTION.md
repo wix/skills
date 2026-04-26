@@ -189,25 +189,25 @@ Access levels control who can read, create, update, and delete items in collecti
 | Access Context | Who Sees / Uses It | Implication |
 |---|---|---|
 | **Custom element widget** (`CUSTOM_ELEMENT_WIDGET`) | Any site visitor (public) | Reads must be `ANYONE`. If the widget accepts input (e.g., reviews, submissions), inserts must also be `ANYONE` or `SITE_MEMBER`. |
-| **Embedded Script** | Any site visitor (public) | Same as Custom element widget — reads must be `ANYONE`. Writes depend on whether visitors can submit data. |
+| **Embedded Script** | Any site visitor (public) | Same as custom element widget — reads must be `ANYONE`. Writes depend on whether visitors can submit data. |
 | **Dashboard Page** (`DASHBOARD_PAGE`) | Site owner / collaborators only | Can use `CMS_EDITOR` or `PRIVILEGED` for all operations since only authorized users access the dashboard. |
 | **Backend code (site-side)** | Runs in visitor context | If called from page code or site-side modules, the caller has visitor-level permissions — data must be readable/writable at the appropriate public level. |
 | **Backend code (elevated)** | Runs with `auth.elevate()` from `@wix/essentials` | Can bypass permissions, but the collection still needs correct defaults for any non-elevated callers. |
 
 **How to apply this:**
 
-1. **Identify every place the collection is read or written** — Custom element widgets, dashboard pages, embedded scripts, backend APIs.
-2. **Use the least restrictive context as the floor.** If a Custom element widget reads the data AND a dashboard page also reads it, `itemRead` must be `ANYONE` (because the widget is public).
+1. **Identify every place the collection is read or written** — custom element widgets, dashboard pages, embedded scripts, backend APIs.
+2. **Use the least restrictive context as the floor.** If a custom element widget reads the data AND a dashboard page also reads it, `itemRead` must be `ANYONE` (because the widget is public).
 3. **Apply per-operation.** A collection can have `itemRead: ANYONE` (widget displays it) but `itemInsert: CMS_EDITOR` (only dashboard users add items). Each operation is independent.
 
 **Examples by blueprint type:**
 
-- **Dashboard manages data, Custom element widget displays it:** `itemRead: ANYONE`, `itemInsert: CMS_EDITOR`, `itemUpdate: CMS_EDITOR`, `itemRemove: CMS_EDITOR`
+- **Dashboard manages data, custom element widget displays it:** `itemRead: ANYONE`, `itemInsert: CMS_EDITOR`, `itemUpdate: CMS_EDITOR`, `itemRemove: CMS_EDITOR`
 - **Custom element widget collects user submissions (e.g., reviews), dashboard moderates:** `itemRead: ANYONE`, `itemInsert: ANYONE`, `itemUpdate: CMS_EDITOR`, `itemRemove: CMS_EDITOR`
 - **Members-only widget reads data, members can submit:** `itemRead: SITE_MEMBER`, `itemInsert: SITE_MEMBER`, `itemUpdate: SITE_MEMBER_AUTHOR`, `itemRemove: CMS_EDITOR`
 - **Dashboard-only (no public surface):** `itemRead: CMS_EDITOR`, `itemInsert: CMS_EDITOR`, `itemUpdate: CMS_EDITOR`, `itemRemove: CMS_EDITOR`
 
-**Anti-pattern:** Setting `itemRead: PRIVILEGED` on a collection that a Custom element widget queries — the widget will return empty results for all visitors because they lack privileged access.
+**Anti-pattern:** Setting `itemRead: PRIVILEGED` on a collection that a custom element widget queries — the widget will return empty results for all visitors because they lack privileged access.
 
 ## Relationships
 
@@ -332,7 +332,7 @@ All embedded script configuration must go through embedded script parameters (`e
 
 ### Custom Element Widget Settings vs Collections
 
-**CRITICAL: Custom element widgets have a built-in settings panel (`panel.tsx`) that handles ALL widget configuration.**
+**CRITICAL: custom element widgets have a built-in settings panel (`panel.tsx`) that handles ALL widget configuration.**
 
 **For CUSTOM_ELEMENT_WIDGET-only blueprints (no DASHBOARD_PAGE or other extensions):**
 

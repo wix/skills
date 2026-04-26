@@ -24,7 +24,7 @@ Required when creating **Data Collections**. Scopes collection IDs to prevent co
 
 ## Code Identifier
 
-Required when creating **Editor react components**. Used as the type prefix for Editor react component extensions (e.g. `type: '<CODE_IDENTIFIER>.ComponentName'`). Every Wix app has one automatically — there is no need to create it.
+Required when creating **Editor React components**. Used as the type prefix for Editor React component extensions (e.g. `type: '<CODE_IDENTIFIER>.ComponentName'`). Every Wix app has one automatically — there is no need to create it.
 
 ### How to get the Code Identifier:
 1. Go to [Wix Dev Center](https://manage.wix.com/studio/custom-apps/)

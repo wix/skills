@@ -32,7 +32,7 @@ All information in the wix-app skill is based on official Wix CLI documentation.
 ## Site Extensions
 
 - [About Site Extensions](https://dev.wix.com/docs/wix-cli/guides/extensions/site-extensions/about-site-extensions) - Overview of site extension types
-- [Add Custom Element Widget Extensions](https://dev.wix.com/docs/wix-cli/guides/extensions/site-extensions/site-widgets/add-a-site-widget-extension) - How to create Custom element widgets
+- [Add Custom Element Widget Extensions](https://dev.wix.com/docs/wix-cli/guides/extensions/site-extensions/site-widgets/add-a-site-widget-extension) - How to create custom element widgets
 - [Custom Element Widget Extension Files and Code](https://dev.wix.com/docs/wix-cli/guides/extensions/site-extensions/site-widgets/site-widget-extension-files-and-code) - File structure and code examples
 - [Identify the App Instance in a Custom Element Widget](https://dev.wix.com/docs/wix-cli/guides/extensions/site-extensions/site-widgets/identify-the-app-instance-in-a-site-widget) - How to identify app instances
 - [Add Site Plugin Extensions](https://dev.wix.com/docs/wix-cli/guides/extensions/site-extensions/site-plugins/add-a-site-plugin-extension) - How to create site plugins
