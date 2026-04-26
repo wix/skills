@@ -1,12 +1,15 @@
 ---
 name: "Create Product from Image"
-description: Creates a product by uploading an image to Wix Media, using the LLM to generate the product name, description, and price from the image, and then creating the product with the image attached. Requires a publicly accessible image URL.
+description: Creates a product by uploading an image to Wix Media, using the LLM to generate the product name, description, and price from the image, and then creating the product with the image attached. Requires a publicly accessible image URL. Uses Catalog V1 API — only for sites with CATALOG_V1 catalog version.
 ---
-# RECIPE: Create Product from Image
+# RECIPE: Create Product from Image (Catalog V1)
+
+> **Catalog V1 only.** This recipe uses the Catalog V1 API (`/stores/v1/products`). It will NOT work on sites using Catalog V3. If the site uses Catalog V3, use the [Create Product with Options (Catalog V3)](create-product-with-options-catalog-v3.md) recipe instead and include media inline in the product creation request. Check the site's catalog version in dynamic context before proceeding.
 
 This recipe creates a Wix Store product from an image. It has exactly 4 steps that MUST ALL be completed in order. Do NOT report success until ALL 4 steps have been executed successfully.
 
 **Prerequisites:**
+- The site MUST be using **Catalog V1**. If the site uses Catalog V3, do NOT use this recipe.
 - The user MUST provide a publicly accessible image URL (starts with `https://` or `http://`).
 - If the user uploaded an image directly to the chat instead of providing a URL, you MUST ask them: "Please provide a public URL where the image is hosted (e.g., an Unsplash, Imgur, or any https:// link). I cannot use images uploaded directly to the chat — I need a publicly accessible URL that the Wix Media API can download from."
 - Do NOT proceed until you have a valid public URL.
