@@ -1,0 +1,8 @@
+apiDoc:
+  title: Skills
+  docs:
+    - file: ../../../skills/wix-manage/references/local-test/local-test-skill.md
+      title: Local Test Skill
+      docsEntry: https://dev.wix.com/docs/rest/site-plugins/local-test
+      tags:
+        - local-test
