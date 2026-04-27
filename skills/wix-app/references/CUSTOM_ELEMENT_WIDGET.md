@@ -132,7 +132,7 @@ export default customElement;
 - Props interface uses **camelCase** (e.g., `targetDate`, `bgColor`)
 - `reactToWebComponent` config uses camelCase keys with `'string'` type
 - All props are passed as strings from the web component
-- Use inline styles, not CSS imports
+- Use inline styles, not CSS imports. Do NOT put functions in styles objects (causes TS2560/TS2349). For conditional styles, use ternary expressions directly in the `style` prop: `style={{ ...styles.itemBase, color: item.done ? '#999' : '#000' }}`
 - Parse complex props (like `font`) from JSON strings: `const { font: textFont, textDecoration } = JSON.parse(font)`
 - Apply font via `font` CSS shorthand and `textDecoration` property
 - Extract helper components, utility functions, and styles into separate files for clean code organization
