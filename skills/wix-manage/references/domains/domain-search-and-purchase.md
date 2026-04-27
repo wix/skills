@@ -50,7 +50,7 @@ This is the most important step. You MUST generate this link and share it with t
 **Purchase URL format**:
 
 ```
-https://manage.wix.com/get-domain?domainName={DOMAIN_NAME}&flowType=purchase
+https://manage.wix.com/premium-domains/split-page?domainName={DOMAIN_NAME}
 ```
 
 Replace `{DOMAIN_NAME}` with the chosen domain including TLD.
@@ -58,15 +58,13 @@ Replace `{DOMAIN_NAME}` with the chosen domain including TLD.
 **Example**: for domain `mybakery.com`:
 
 ```
-https://manage.wix.com/get-domain?domainName=mybakery.com&flowType=purchase
+https://manage.wix.com/premium-domains/split-page?domainName=mybakery.com
 ```
 
-The checkout page will let the user:
-- Choose between getting the domain free with a site plan (best value) or buying the domain only
-- Select a registration period (1, 2, 3, 5, or 10 years)
-- Fill in contact information
-- Add privacy & security protection (WHOIS privacy)
-- Complete payment
+This link opens a page where the user can:
+- Get the domain **free with a site plan** (best value - includes a Wix site plan with the domain free for the first year)
+- Or **buy the domain only** at full price
+- Then continue to select registration period (1-10 years), fill in contact info, add privacy protection, and complete payment
 
 Present this link to the user and tell them to click it to complete the purchase.
 
@@ -93,7 +91,7 @@ Present this link to the user and tell them to click it to complete the purchase
 
 1. User: "Buy me mybakery.com"
 2. Check availability -> available: true
-3. Generate link: `https://manage.wix.com/get-domain?domainName=mybakery.com&flowType=purchase`
+3. Generate link: `https://manage.wix.com/premium-domains/split-page?domainName=mybakery.com`
 4. Share link with user
 
 ### Flow 2: Domain taken, suggest alternatives
@@ -103,7 +101,7 @@ Present this link to the user and tell them to click it to complete the purchase
 3. Suggest alternatives -> show 10 options
 4. User picks "coolstartup.online"
 5. Verify availability -> available: true
-6. Generate link: `https://manage.wix.com/get-domain?domainName=coolstartup.online&flowType=purchase`
+6. Generate link: `https://manage.wix.com/premium-domains/split-page?domainName=coolstartup.online`
 7. Share link with user
 
 ### Flow 3: Unsupported TLD
