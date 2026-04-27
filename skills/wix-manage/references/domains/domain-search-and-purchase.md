@@ -1,174 +1,78 @@
 ---
 name: "Domain Search and Purchase"
-description: Search for available domains, get domain suggestions, and generate purchase links using Domain Search V2 API. Covers availability checks, TLD filtering, and connecting domains to Wix sites.
+description: Help users buy a domain through Wix. Check availability, suggest alternatives if taken, and generate a purchase checkout link. The purchase link is the key output of this recipe - always generate it when the user wants to buy a domain.
 ---
 # Domain Search and Purchase
 
-This recipe guides you through searching for available domains, getting domain suggestions, and purchasing a domain to connect to a Wix site. Use this recipe when a user wants to buy a domain, find a domain, check domain availability, connect a domain to their site, or get a custom domain for their Wix site.
+Use this recipe when a user wants to:
+- Buy / purchase a domain
+- Register a domain through Wix
+- Get a custom domain for their Wix site
+- Says something like "buy me a domain", "I want to purchase a domain", "get me mybusiness.com"
 
-## Prerequisites
+For users who only want to check availability or brainstorm domain ideas without purchasing, use the Domain Search and Suggestions recipe instead.
 
-- Wix account with domain management permissions
-- Account-level API access
+## How Purchase Works
+
+There is no API to purchase a domain directly. Instead, you generate a **purchase checkout link** that the user opens in their browser to complete the purchase. The checkout page handles everything: plan selection (domain + site plan or domain only), registration period, contact info, privacy protection, and payment.
+
+This is the main goal of this recipe: get the user to a working checkout link as fast as possible.
 
 ## Required APIs
 
-- **Domain Search API**: [REST](https://dev.wix.com/docs/api-reference/account-level/domains/domain-search/introduction)
-- **Check Domain Availability API**: [Check Domain Availability](https://dev.wix.com/docs/api-reference/account-level/domains/domain-search/availability-v2/check-domain-availability) — `GET https://www.wixapis.com/domain-search/v2/check-domain-availability`
-- **Suggest Domains API**: [Suggest Domains](https://dev.wix.com/docs/api-reference/account-level/domains/domain-search/suggestion-v2/suggest-domains) — `GET https://www.wixapis.com/domain-search/v2/suggest-domains`
+- **Check Domain Availability**: `GET https://www.wixapis.com/domain-search/v2/check-domain-availability`
+- **Suggest Domains**: `GET https://www.wixapis.com/domain-search/v2/suggest-domains`
+
+All are **account-level APIs** -- use account-level authentication.
 
 ---
 
-## Step 1: Understand User Requirements
+## Step 1: Check Availability
 
-Before searching for domains, gather information:
+If the user has a specific domain in mind, check if it's available.
 
-1. **Ask the user** what domain name they're looking for (e.g., `mybusiness.com`)
-2. **Clarify preferences** — do they want a specific TLD (.com, .net, .org) or are they open to suggestions?
+**Endpoint**: `GET https://www.wixapis.com/domain-search/v2/check-domain-availability?domain={domain}`
 
----
+If the user gives a domain without a TLD (e.g. just "mybusiness"), default to `.com` first.
 
-## Step 2: Check Domain Availability
+**If available**: proceed to Step 2.
 
-If the user has a specific domain in mind, check whether it's available for purchase.
+**If taken**: immediately suggest alternatives using `GET https://www.wixapis.com/domain-search/v2/suggest-domains?query={keyword}&paging.limit=10`. Let the user pick one, then proceed to Step 2.
 
-**Endpoint**: `GET https://www.wixapis.com/domain-search/v2/check-domain-availability`
-
-**Query Parameters**:
-| Parameter | Description | Example |
-|-----------|-------------|---------|
-| `domain` | The full domain name including TLD | `mybusiness.com` |
-
-**Example Request**:
-```bash
-curl -X GET \
-  'https://www.wixapis.com/domain-search/v2/check-domain-availability?domain=mybusiness.com' \
-  -H 'Authorization: <AUTH>'
-```
-
-**Example Response**:
-```json
-{
-  "availability": {
-    "domain": "mybusiness.com",
-    "available": true,
-    "premium": false,
-    "premiumType": "UNKNOWN_PREMIUM_TYPE"
-  }
-}
-```
-
-### Response Fields
-
-| Field | Description |
-|-------|-------------|
-| `domain` | The domain that was checked |
-| `available` | `true` if available for purchase, `false` if taken |
-| `premium` | `true` if this is a premium-priced domain |
-| `premiumType` | Type of premium pricing (if applicable) |
-
-### IMPORTANT NOTES:
-- The `domain` field **must** include the TLD (e.g., `mybusiness.com`, not just `mybusiness`)
-- Not all TLDs are supported. If you receive a `DOMAINS_UNSUPPORTED_TLD` error, inform the user and suggest supported alternatives
-- This is an **account-level API** — use the account-level authentication method (e.g., `ManageWixSite` tool)
+**If unsupported TLD**: tell the user and suggest alternatives with supported TLDs.
 
 ---
 
-## Step 3: Get Domain Suggestions
+## Step 2: Generate the Purchase Link
 
-If the user wants alternatives, or if their preferred domain is unavailable, use the suggestions API.
-
-**Endpoint**: `GET https://www.wixapis.com/domain-search/v2/suggest-domains`
-
-**Query Parameters**:
-| Parameter | Description | Example |
-|-----------|-------------|---------|
-| `query` | Keyword or domain to base suggestions on | `mybusiness` |
-| `paging.limit` | Number of suggestions to return | `10` |
-| `tlds` | Filter by specific TLDs (can be repeated). Do **not** include the dot. | `com`, `net`, `org` |
-
-**Example Request**:
-```bash
-curl -X GET \
-  'https://www.wixapis.com/domain-search/v2/suggest-domains?query=mybusiness&paging.limit=10' \
-  -H 'Authorization: <AUTH>'
-```
-
-**Example Request with TLD filter**:
-```bash
-curl -X GET \
-  'https://www.wixapis.com/domain-search/v2/suggest-domains?query=mybusiness&paging.limit=5&tlds=com&tlds=net' \
-  -H 'Authorization: <AUTH>'
-```
-
-**Example Response**:
-```json
-{
-  "suggestions": [
-    { "domain": "mybusiness.com", "premium": false },
-    { "domain": "mybusiness.net", "premium": false },
-    { "domain": "mybusiness.org", "premium": false },
-    { "domain": "mybusiness.co", "premium": false },
-    { "domain": "mybusiness.online", "premium": false }
-  ],
-  "pagingMetadata": {
-    "count": 5,
-    "cursors": { "next": "..." },
-    "hasNext": true
-  }
-}
-```
-
-### Pagination
-
-If `pagingMetadata.hasNext` is `true`, more suggestions are available. Use the `cursors.next` value to fetch the next page.
-
-### Present Suggestions to User
-
-Show the suggestions in a clear format, highlighting:
-- Domain name
-- Whether it's a premium domain
-- Recommendations based on use case (e.g., `.com` for general, `.me` for personal branding, `.shop`/`.store` for e-commerce)
-
----
-
-## Step 4: Select Target Site
-
-Before generating a purchase link, **ask the user which site** they'd like to connect the domain to.
-
-Use the `ListWixSites` tool to retrieve the user's sites and present them for selection. The user must pick a site, as the site ID is required for the purchase URL.
-
----
-
-## Step 5: Generate Purchase Link
-
-Once the user picks a domain and a target site, first **verify availability** using Step 2, then generate a purchase link.
+This is the most important step. You MUST generate this link and share it with the user.
 
 **Purchase URL format**:
-```
-https://manage.wix.com/dashboard/{SITE_ID}/premium-express-checkout-app/storefront-bundle-selection?domainName={DOMAIN_NAME}&locale=en
-```
 
-| Parameter | Description | Example |
-|-----------|-------------|---------|
-| `{SITE_ID}` | The Wix site ID (GUID) the domain will be connected to | `57d71937-e772-44ab-a89a-e4d0a7d9d814` |
-| `{DOMAIN_NAME}` | The chosen domain name including TLD | `mybusiness.com` |
-
-**Example**:
 ```
-https://manage.wix.com/dashboard/57d71937-e772-44ab-a89a-e4d0a7d9d814/premium-express-checkout-app/storefront-bundle-selection?domainName=mybusiness.com&locale=en
+https://manage.wix.com/premium-domains/split-page?domainName={DOMAIN_NAME}
 ```
 
-Replace `{SITE_ID}` with the selected site's ID and `{DOMAIN_NAME}` with the user's chosen domain (e.g., `ravitgonen.online`).
+Replace `{DOMAIN_NAME}` with the chosen domain including TLD.
 
-### Getting the Site ID
+**Example**: for domain `mybakery.com`:
 
-Use the `ListWixSites` tool to list the user's sites and retrieve the site ID from the response.
+```
+https://manage.wix.com/premium-domains/split-page?domainName=mybakery.com
+```
 
-### IMPORTANT NOTES:
-- **Always verify availability** before generating the purchase link
-- If the domain has an unsupported TLD, inform the user and suggest alternatives
-- The actual purchase is completed by the user through the Wix dashboard — the API cannot process domain purchases directly
+This link opens a page where the user can:
+- Get the domain **free with a site plan** (best value - includes a Wix site plan with the domain free for the first year)
+- Or **buy the domain only** at full price
+- Then continue to select registration period (1-10 years), fill in contact info, add privacy protection, and complete payment
+
+Present this link to the user and tell them to click it to complete the purchase.
+
+**Rules**:
+- Always verify availability before generating the link
+- Do NOT tell the user to "go to the Wix dashboard and search for the domain" -- generate the direct link instead
+- Do NOT say you can't generate a purchase link -- you can, using the format above
+- Do NOT ask which site to connect to -- the checkout page handles that
 
 ---
 
@@ -176,20 +80,34 @@ Use the `ListWixSites` tool to list the user's sites and retrieve the site ID fr
 
 | Error Code | Description | Action |
 |------------|-------------|--------|
-| `DOMAINS_UNSUPPORTED_TLD` | The TLD is not supported by Wix | Inform the user and suggest supported TLDs using the Suggest Domains API |
-| `access_denied` | Authentication issue | Use account-level API authentication (not site-level) |
+| `DOMAINS_UNSUPPORTED_TLD` | TLD not supported by Wix | Suggest alternatives using Suggest Domains API |
+| `access_denied` | Auth issue | Use account-level authentication |
 
 ---
 
-## Example Full Flow
+## Example Flows
 
-1. User asks to buy `mysite.io`
-2. Check availability → `DOMAINS_UNSUPPORTED_TLD` error
-3. Inform user that `.io` is not supported
-4. Get suggestions for `mysite` → present alternatives
-5. User picks `mysite.online`
-6. Verify `mysite.online` is available → `available: true`
-7. List user's sites and ask which site they'd like to connect the domain to
-8. User selects their site (e.g., site ID `57d71937-e772-44ab-a89a-e4d0a7d9d814`)
-9. Generate purchase link: `https://manage.wix.com/dashboard/57d71937-e772-44ab-a89a-e4d0a7d9d814/premium-express-checkout-app/storefront-bundle-selection?domainName=mysite.online&locale=en`
-10. Share link with user to complete purchase
+### Flow 1: Direct purchase
+
+1. User: "Buy me mybakery.com"
+2. Check availability -> available: true
+3. Generate link: `https://manage.wix.com/premium-domains/split-page?domainName=mybakery.com`
+4. Share link with user
+
+### Flow 2: Domain taken, suggest alternatives
+
+1. User: "I want to buy coolstartup.com"
+2. Check availability -> available: false
+3. Suggest alternatives -> show 10 options
+4. User picks "coolstartup.online"
+5. Verify availability -> available: true
+6. Generate link: `https://manage.wix.com/premium-domains/split-page?domainName=coolstartup.online`
+7. Share link with user
+
+### Flow 3: Unsupported TLD
+
+1. User: "Buy mysite.io"
+2. Check availability -> DOMAINS_UNSUPPORTED_TLD
+3. Tell user .io is not supported, suggest alternatives
+4. User picks "mysite.online"
+5. Verify, generate link, share it
