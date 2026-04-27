@@ -56,9 +56,9 @@ The `id` must be a unique, static UUID v4 string. Generate a fresh UUID for each
 Import the event from the correct SDK module and pass a handler. Wix invokes the handler with the event payload and metadata when the event occurs. Handler signatures are documented in the [JavaScript SDK reference](https://dev.wix.com/docs/sdk).
 
 ```typescript
-import { onContactCreated } from "@wix/crm/events";
+import { contacts } from "@wix/crm";
 
-onContactCreated((event) => {
+export default contacts.onContactCreated((event) => {
   console.log("Contact created:", event.entity);
   // Custom logic: sync to CRM, send welcome email, etc.
 });
@@ -85,10 +85,11 @@ Naming: export names follow `event{CamelCaseName}` (e.g. `eventContactCreated`, 
 When calling Wix APIs from inside an event handler, use `auth.elevate` from `@wix/essentials` so the call runs with the right permissions.
 
 ```typescript
+import { contacts } from "@wix/crm";
 import { auth } from "@wix/essentials";
 import { items } from "@wix/data";
 
-onContactCreated(async (event) => {
+export default contacts.onContactCreated(async (event) => {
   const elevatedQuery = auth.elevate(items.query);
   const result = await elevatedQuery("MyCollection").find();
   // Use result
