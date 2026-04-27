@@ -251,5 +251,5 @@ If working with existing staff members, first retrieve their details using `quer
 * [Create Staff Member](https://dev.wix.com/docs/api-reference/business-solutions/bookings/staff-members/staff-members/create-staff-member)
 * [Query Staff Members](https://dev.wix.com/docs/api-reference/business-solutions/bookings/staff-members/staff-members/query-staff-members)
 * [Assign Working Hours Schedule](https://dev.wix.com/docs/api-reference/business-solutions/bookings/staff-members/staff-members/assign-working-hours-schedule)
-* [Schedules and Sessions API](https://dev.wix.com/docs/api-reference/business-solutions/bookings/calendar/schedules-and-sessions/introduction)
+* [Schedules and Sessions API](https://dev.wix.com/docs/api-reference/business-solutions/bookings/calendar/schedules-and-sessions/schedule-and-sessions/introduction)
 * [Apps Created by Wix](https://dev.wix.com/docs/api-reference/articles/work-with-wix-apis/platform/about-apps-created-by-wix)

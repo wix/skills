@@ -6,9 +6,9 @@ This reference lists common event types, SDK imports, permissions, and links. Fo
 
 | Event | Import | Handler Call | Permission | API Reference |
 | --- | --- | --- | --- | --- |
-| Contact created | `import { contacts } from "@wix/crm"` | `contacts.onContactCreated(handler)` | Read Contacts | [onContactCreated](https://dev.wix.com/docs/api-reference/crm/members-contacts/contacts/contacts/contact-v4/contact-created?apiView=SDK) |
-| Contact updated | `import { contacts } from "@wix/crm"` | `contacts.onContactUpdated(handler)` | Read Contacts | [onContactUpdated](https://dev.wix.com/docs/api-reference/crm/members-contacts/contacts/contacts/contact-v4/contact-updated?apiView=SDK) |
-| Contact deleted | `import { contacts } from "@wix/crm"` | `contacts.onContactDeleted(handler)` | Read Contacts | [onContactDeleted](https://dev.wix.com/docs/api-reference/crm/members-contacts/contacts/contacts/contact-v4/contact-deleted?apiView=SDK) |
+| Contact created | `import { contacts } from "@wix/crm"` | `contacts.onContactCreated(handler)` | `SCOPE.DC-CONTACTS.READ-CONTACTS` | [onContactCreated](https://dev.wix.com/docs/api-reference/crm/members-contacts/contacts/contacts/contact-v4/contact-created?apiView=SDK) |
+| Contact updated | `import { contacts } from "@wix/crm"` | `contacts.onContactUpdated(handler)` | `SCOPE.DC-CONTACTS.READ-CONTACTS` | [onContactUpdated](https://dev.wix.com/docs/api-reference/crm/members-contacts/contacts/contacts/contact-v4/contact-updated?apiView=SDK) |
+| Contact deleted | `import { contacts } from "@wix/crm"` | `contacts.onContactDeleted(handler)` | `SCOPE.DC-CONTACTS.READ-CONTACTS` | [onContactDeleted](https://dev.wix.com/docs/api-reference/crm/members-contacts/contacts/contacts/contact-v4/contact-deleted?apiView=SDK) |
 
 **Example – contact created:**
 
@@ -25,10 +25,10 @@ contacts.onContactCreated((event) => {
 
 | Event | Import | Handler Call | Permission | API Reference |
 | --- | --- | --- | --- | --- |
-| Order created | `import { orders } from "@wix/ecom"` | `orders.onOrderCreated(handler)` | Read Orders | [onOrderCreated](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/orders/orders/order-created?apiView=SDK) |
-| Order approved | `import { orders } from "@wix/ecom"` | `orders.onOrderApproved(handler)` | Read Orders | [onOrderApproved](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/orders/orders/order-approved?apiView=SDK) |
-| Cart created | `import { cart } from "@wix/ecom"` | `cart.onCartCreated(handler)` | Read Orders | [onCartCreated](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart/cart/cart-created?apiView=SDK) |
-| Cart updated | `import { cart } from "@wix/ecom"` | `cart.onCartUpdated(handler)` | Read Orders | [onCartUpdated](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart/cart/cart-updated?apiView=SDK) |
+| Order created | `import { orders } from "@wix/ecom"` | `orders.onOrderCreated(handler)` | `SCOPE.DC-STORES.READ-ORDERS` | [onOrderCreated](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/orders/orders/order-created?apiView=SDK) |
+| Order approved | `import { orders } from "@wix/ecom"` | `orders.onOrderApproved(handler)` | `SCOPE.DC-STORES.READ-ORDERS` | [onOrderApproved](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/orders/orders/order-approved?apiView=SDK) |
+| Cart created | `import { cart } from "@wix/ecom"` | `cart.onCartCreated(handler)` | `SCOPE.DC-STORES.READ-ORDERS` | [onCartCreated](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart/cart/cart-created?apiView=SDK) |
+| Cart updated | `import { cart } from "@wix/ecom"` | `cart.onCartUpdated(handler)` | `SCOPE.DC-STORES.READ-ORDERS` | [onCartUpdated](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart/cart/cart-updated?apiView=SDK) |
 
 **Example – order approved:**
 
@@ -45,8 +45,8 @@ orders.onOrderApproved(async (event) => {
 
 | Event | Import | Handler Call | Permission | API Reference |
 | --- | --- | --- | --- | --- |
-| Booking confirmed | `import { bookings } from "@wix/bookings"` | `bookings.onBookingConfirmed(handler)` | Read bookings calendar - including participants | [onBookingConfirmed](https://dev.wix.com/docs/api-reference/business-solutions/bookings/bookings/bookings-writer-v2/booking-confirmed?apiView=SDK) |
-| Booking canceled | `import { bookings } from "@wix/bookings"` | `bookings.onBookingCanceled(handler)` | Read bookings calendar - including participants | [onBookingCanceled](https://dev.wix.com/docs/api-reference/business-solutions/bookings/bookings/bookings-writer-v2/booking-canceled?apiView=SDK) |
+| Booking confirmed | `import { bookings } from "@wix/bookings"` | `bookings.onBookingConfirmed(handler)` | `SCOPE.DC-BOOKINGS.READ-CALENDAR-WITH-PARTICIPANTS` | [onBookingConfirmed](https://dev.wix.com/docs/api-reference/business-solutions/bookings/bookings/bookings-writer-v2/booking-confirmed?apiView=SDK) |
+| Booking canceled | `import { bookings } from "@wix/bookings"` | `bookings.onBookingCanceled(handler)` | `SCOPE.DC-BOOKINGS.READ-CALENDAR-WITH-PARTICIPANTS` | [onBookingCanceled](https://dev.wix.com/docs/api-reference/business-solutions/bookings/bookings/bookings-writer-v2/booking-canceled?apiView=SDK) |
 
 **Example – booking confirmed:**
 
@@ -63,8 +63,8 @@ bookings.onBookingConfirmed((event) => {
 
 | Event | Import | Handler Call | Permission | API Reference |
 | --- | --- | --- | --- | --- |
-| Post created | `import { posts } from "@wix/blog"` | `posts.onPostCreated(handler)` | Read Blog | [onPostCreated](https://dev.wix.com/docs/api-reference/business-solutions/blog/posts-stats/post-created?apiView=SDK) |
-| Post updated | `import { posts } from "@wix/blog"` | `posts.onPostUpdated(handler)` | Read Blog | [onPostUpdated](https://dev.wix.com/docs/api-reference/business-solutions/blog/posts-stats/post-updated?apiView=SDK) |
+| Post created | `import { posts } from "@wix/blog"` | `posts.onPostCreated(handler)` | `SCOPE.DC-BLOG.READ-BLOGS` | [onPostCreated](https://dev.wix.com/docs/api-reference/business-solutions/blog/posts-stats/post-created?apiView=SDK) |
+| Post updated | `import { posts } from "@wix/blog"` | `posts.onPostUpdated(handler)` | `SCOPE.DC-BLOG.READ-BLOGS` | [onPostUpdated](https://dev.wix.com/docs/api-reference/business-solutions/blog/posts-stats/post-updated?apiView=SDK) |
 
 **Example – post created:**
 

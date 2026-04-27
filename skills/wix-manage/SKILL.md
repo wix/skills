@@ -106,6 +106,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 
 ## eCommerce
 
+### [Recipe: Apply Shipping Recommendations](references/ecommerce/recipe-apply-shipping-recommendations.md)
+**Technical:** Applies AI-generated shipping recommendations to a Wix e-commerce store. Reads the current delivery profile and shipping options, then creates or updates shipping options based on recommendation data. Supports creating new options with conditional rates, updating existing options, and querying delivery profiles for region/carrier context.
+
 ### [Setup Store Pickup Location](references/ecommerce/setup-store-pickup-location.md)
 **Technical:** Configures a pickup option for an online store so customers can choose in-store pickup at checkout. Uses the Delivery Profiles API to discover the Pickup carrier, add a delivery region, and attach the carrier with a free pickup rate.
 
@@ -193,6 +196,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 
 ### [Bulk Create Products with Options](references/stores/bulk-create-products-with-options.md)
 **Technical:** Uses bulk products endpoint to create multiple products with inventory in a single request. Handles variant generation from options, media format requirements, and error handling for partial failures.
+
+### [Create Product from Image (Catalog V1)](references/stores/create-product-from-image.md)
+**Technical:** Creates a product by uploading an image to Wix Media, using the LLM to generate the product name, description, and price from the image, then attaching the media to the created product. Combines Media Upload + LLM analysis + Product Creation + Add Product Media into a single flow. **Catalog V1 only** — for V3 sites, use Create Product with Options (Catalog V3) with inline media instead.
 
 ### [Create Product (Catalog V1)](references/stores/create-product-catalog-v1.md)
 **Technical:** Create products using the Catalog V1 Products API. Use this recipe when the site's catalog version is CATALOG_V1. Covers simple product creation, product with options, and key V1 request structure differences from V3.

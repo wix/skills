@@ -1,6 +1,6 @@
 # Design System Guidelines
 
-Creative design principles for building distinctive, award-winning site components that avoid generic "AI slop" aesthetics.
+Creative design principles for building distinctive, award-winning Editor React components that avoid generic "AI slop" aesthetics.
 
 ## 1. Spacing as Communication
 
