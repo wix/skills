@@ -1,6 +1,6 @@
 ---
 name: "Upload Media to Wix"
-description: Uploads images and files to the Wix Media Manager using the Import File API. Covers importing from external URLs, checking file status, and using the returned wixstatic.com URL in other APIs.
+description: Uploads images and files to the Wix Media Manager. Supports two methods - importing from an external public URL, or uploading binary content from a local file via a two-step generate-upload-url + PUT flow. Covers both methods, checking file status, and using the returned wixstatic.com URL in other APIs.
 ---
 # RECIPE: Upload Media to Wix Media Manager
 
@@ -11,6 +11,10 @@ Learn how to upload images and files to a Wix site's Media Manager using the RES
 ## Overview
 
 The Wix Media Manager stores all media files for a site. When you need to use images or files in other Wix APIs, you should first upload them to the Media Manager to get a reliable wixstatic.com URL.
+
+**There are two ways to upload media:**
+- **Import from an external URL** — provide a public HTTPS URL and Wix fetches the file. See [Method: Import File from External URL](#method-import-file-from-external-url) below.
+- **Upload binary content from a local file** — generate a signed upload URL, then PUT the file bytes directly. See [Alternative: Upload from Local Device](#alternative-upload-from-local-device) below.
 
 **Key Points:**
 - Uploaded files are permanently stored on Wix servers
@@ -152,7 +156,7 @@ curl -X GET 'https://www.wixapis.com/site-media/v1/files?parentFolderId=media-ro
 
 ## Alternative: Upload from Local Device
 
-If you need to upload files from a local device (not from a URL), use the two-step upload process:
+If you have a file locally (not at a public URL), use the two-step upload process:
 
 ### Step 1: Generate Upload URL
 
