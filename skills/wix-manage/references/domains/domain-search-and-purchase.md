@@ -14,7 +14,9 @@ For users who only want to check availability or brainstorm domain ideas without
 
 ## How Purchase Works
 
-There is no API to purchase a domain directly. Instead, you generate a **purchase checkout link** that the user opens in their browser to complete the purchase. This is the main goal of this recipe: get the user to a working checkout link as fast as possible.
+There is no API to purchase a domain directly. Instead, you generate a **purchase checkout link** that the user opens in their browser to complete the purchase. The checkout page handles everything: plan selection (domain + site plan or domain only), registration period, contact info, privacy protection, and payment.
+
+This is the main goal of this recipe: get the user to a working checkout link as fast as possible.
 
 ## Required APIs
 
@@ -41,41 +43,38 @@ If the user gives a domain without a TLD (e.g. just "mybusiness"), default to `.
 
 ---
 
-## Step 2: Select Target Site
-
-Use the `ListWixSites` tool to list the user's sites. Ask the user which site they want to connect the domain to. You need the **site ID** (UUID) for the purchase link.
-
-If the user only has one site, confirm it and move on.
-
----
-
-## Step 3: Generate the Purchase Link
+## Step 2: Generate the Purchase Link
 
 This is the most important step. You MUST generate this link and share it with the user.
 
 **Purchase URL format**:
 
 ```
-https://manage.wix.com/dashboard/{SITE_ID}/premium-express-checkout-app/storefront-bundle-selection?domainName={DOMAIN_NAME}&locale=en
+https://manage.wix.com/get-domain?domainName={DOMAIN_NAME}&flowType=purchase
 ```
 
-Replace:
-- `{SITE_ID}` with the site UUID from Step 2
-- `{DOMAIN_NAME}` with the chosen domain including TLD
+Replace `{DOMAIN_NAME}` with the chosen domain including TLD.
 
-**Example**: for site ID `db064689-f61a-4e1b-82e6-45fb01e936ef` and domain `mybakery.com`:
+**Example**: for domain `mybakery.com`:
 
 ```
-https://manage.wix.com/dashboard/db064689-f61a-4e1b-82e6-45fb01e936ef/premium-express-checkout-app/storefront-bundle-selection?domainName=mybakery.com&locale=en
+https://manage.wix.com/get-domain?domainName=mybakery.com&flowType=purchase
 ```
 
-Present this link to the user and tell them to open it to complete the purchase. The checkout page handles payment, plan selection, and domain registration.
+The checkout page will let the user:
+- Choose between getting the domain free with a site plan (best value) or buying the domain only
+- Select a registration period (1, 2, 3, 5, or 10 years)
+- Fill in contact information
+- Add privacy & security protection (WHOIS privacy)
+- Complete payment
+
+Present this link to the user and tell them to click it to complete the purchase.
 
 **Rules**:
 - Always verify availability before generating the link
-- Always include the site ID and domain name in the URL
 - Do NOT tell the user to "go to the Wix dashboard and search for the domain" -- generate the direct link instead
 - Do NOT say you can't generate a purchase link -- you can, using the format above
+- Do NOT ask which site to connect to -- the checkout page handles that
 
 ---
 
@@ -94,9 +93,8 @@ Present this link to the user and tell them to open it to complete the purchase.
 
 1. User: "Buy me mybakery.com"
 2. Check availability -> available: true
-3. List sites, user picks "My Bakery Site" (ID: db064689-...)
-4. Generate link: `https://manage.wix.com/dashboard/db064689-.../premium-express-checkout-app/storefront-bundle-selection?domainName=mybakery.com&locale=en`
-5. Share link with user
+3. Generate link: `https://manage.wix.com/get-domain?domainName=mybakery.com&flowType=purchase`
+4. Share link with user
 
 ### Flow 2: Domain taken, suggest alternatives
 
@@ -105,8 +103,8 @@ Present this link to the user and tell them to open it to complete the purchase.
 3. Suggest alternatives -> show 10 options
 4. User picks "coolstartup.online"
 5. Verify availability -> available: true
-6. List sites, user picks their site
-7. Generate purchase link and share it
+6. Generate link: `https://manage.wix.com/get-domain?domainName=coolstartup.online&flowType=purchase`
+7. Share link with user
 
 ### Flow 3: Unsupported TLD
 
@@ -114,4 +112,4 @@ Present this link to the user and tell them to open it to complete the purchase.
 2. Check availability -> DOMAINS_UNSUPPORTED_TLD
 3. Tell user .io is not supported, suggest alternatives
 4. User picks "mysite.online"
-5. Verify, select site, generate link
+5. Verify, generate link, share it
