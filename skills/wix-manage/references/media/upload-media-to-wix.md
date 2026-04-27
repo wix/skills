@@ -1,6 +1,6 @@
 ---
 name: "Upload Media to Wix"
-description: Uploads images and files to the Wix Media Manager using the Import File API. Covers importing from external URLs, checking file status, and using the returned wixstatic.com URL in other APIs.
+description: Uploads images and files to the Wix Media Manager. Supports two methods - importing from an external public URL, or uploading binary content from a local file via a two-step generate-upload-url + PUT flow. Covers both methods, checking file status, and using the returned wixstatic.com URL in other APIs.
 ---
 # RECIPE: Upload Media to Wix Media Manager
 
@@ -12,16 +12,80 @@ Learn how to upload images and files to a Wix site's Media Manager using the RES
 
 The Wix Media Manager stores all media files for a site. When you need to use images or files in other Wix APIs, you should first upload them to the Media Manager to get a reliable wixstatic.com URL.
 
-**Key Points:**
-- Uploaded files are permanently stored on Wix servers
-- You get back a `url` (wixstatic.com) that works reliably in other APIs
-- External URLs can fail if the source server blocks requests - Media Manager URLs never fail
+**There are two ways to upload media:**
+- **Upload a local file** — generate a signed upload URL, then PUT the file bytes directly. See [Method: Upload from Local File](#method-upload-from-local-file) below.
+- **Import from an external URL** — provide a public HTTPS URL and Wix fetches the file. See [Alternative: Import File from External URL](#alternative-import-file-from-external-url) below.
 
 ---
 
-## Method: Import File from External URL
+## Which method should I use?
 
-The simplest way to add media is to import it from an external URL. Wix will download and store the file.
+The right method depends on **two separate capabilities**: whether you can read the file, and whether you can execute shell commands / make binary HTTP requests.
+
+| Your situation | Method |
+|---|---|
+| You can execute shell commands (e.g. Claude Code, ChatGPT with computer use) | [Upload from local file](#method-upload-from-local-file) — run the curl steps yourself |
+| You have no filesystem and no shell access (e.g. browser-only, sandboxed environment) | [Import from external URL](#alternative-import-file-from-external-url) — ask the user for a public URL |
+| User attached a file to the conversation, but you cannot execute shell commands | [Generate the upload URL via API, then hand the user ready-to-run curl commands](#when-user-attaches-a-file-but-you-cannot-execute-shell-commands) |
+
+> **Important:** Receiving a file as an attachment is NOT the same as being able to upload it to Wix. The two-step local upload requires executing a binary HTTP PUT (`curl --data-binary`). If you cannot run shell commands, you cannot complete that step automatically — even if you can see the file content.
+
+---
+
+## Method: Upload from Local File
+
+**Use this when you can execute shell commands on the machine where the file lives.**
+
+### Step 1: Generate Upload URL
+
+```bash
+curl -X POST 'https://www.wixapis.com/site-media/v1/files/generate-upload-url' \
+-H 'Content-Type: application/json' \
+-H 'Authorization: <AUTH>' \
+-d '{
+    "mimeType": "image/jpeg",
+    "fileName": "my-photo.jpg"
+}'
+```
+
+### Step 2: PUT the File to the Generated URL
+
+```bash
+curl -X PUT '<UPLOAD_URL_FROM_RESPONSE>' \
+-H 'Content-Type: image/jpeg' \
+--data-binary @/path/to/my-photo.jpg
+```
+
+> **Note:** For files larger than 10MB, use the Resumable Upload URL API instead.
+
+---
+
+## When User Attaches a File But You Cannot Execute Shell Commands
+
+If the user attached a file to the conversation but you have no way to run `curl` or make binary HTTP requests yourself:
+
+1. **Call the generate-upload-url API** to get a signed upload URL (you can do this via your available API tools).
+2. **Give the user ready-to-run curl commands** with the generated URL filled in, so they can complete the upload from their terminal.
+
+Example handoff message to the user:
+
+> I've generated a signed upload URL for your file. Run this command in your terminal to complete the upload:
+>
+> ```bash
+> curl -X PUT '<GENERATED_UPLOAD_URL>' \
+> -H 'Content-Type: image/jpeg' \
+> --data-binary @/path/to/your-file.jpg
+> ```
+>
+> Once done, let me know and I'll continue from there.
+
+Do **not** tell the user "I can't upload local files" and ask for a public URL — you can still do half the work (generate the signed URL) and let the user do the binary transfer step.
+
+---
+
+## Alternative: Import File from External URL
+
+**Use this when neither you nor the user can run shell commands**, or when the user already has the file at a public URL. Wix will download and store the file directly.
 
 ### API Endpoint
 
@@ -94,8 +158,6 @@ After importing, the file goes through async processing. For guaranteed consiste
 
 ### Get File by ID (Recommended)
 
-Use this endpoint to check the status of a specific file:
-
 ```bash
 curl -X GET 'https://www.wixapis.com/site-media/v1/files/get-file-by-id?fileId={fileId}' \
 -H 'Authorization: <AUTH>'
@@ -150,34 +212,6 @@ curl -X GET 'https://www.wixapis.com/site-media/v1/files?parentFolderId=media-ro
 
 ---
 
-## Alternative: Upload from Local Device
-
-If you need to upload files from a local device (not from a URL), use the two-step upload process:
-
-### Step 1: Generate Upload URL
-
-```bash
-curl -X POST 'https://www.wixapis.com/site-media/v1/files/generate-upload-url' \
--H 'Content-Type: application/json' \
--H 'Authorization: <AUTH>' \
--d '{
-    "mimeType": "image/jpeg",
-    "fileName": "my-photo.jpg"
-}'
-```
-
-### Step 2: Upload to the Generated URL
-
-```bash
-curl -X PUT '<UPLOAD_URL_FROM_RESPONSE>' \
--H 'Content-Type: image/jpeg' \
---data-binary @my-photo.jpg
-```
-
-> **Note:** For files larger than 10MB, use the Resumable Upload URL API instead.
-
----
-
 ## Common Issues
 
 ### Issue 1: Import Fails (operationStatus: FAILED)
@@ -209,8 +243,8 @@ curl -X PUT '<UPLOAD_URL_FROM_RESPONSE>' \
 
 ## Summary
 
-| Step | Action | Result |
-|------|--------|--------|
-| 1 | Call Import File API with external URL | Get file `id` and `url` with status `PENDING` |
-| 2 | Poll List Files API | Wait for `operationStatus: "READY"` |
-| 3 | Use in other APIs | Use the `url` field (wixstatic.com URL) |
+| Scenario | Method | Who does the PUT? |
+|---|---|---|
+| You have shell access | Generate upload URL → PUT file | You (AI) |
+| User attached file, no shell access | Generate upload URL → hand curl command to user | User |
+| No file, no shell access | Import from public URL | Wix (fetches from URL) |
