@@ -34296,7 +34296,7 @@ function filterSkillEntries(entries) {
 function deduplicateAffectedEntries(entries) {
     const seen = new Map();
     for (const e of entries) {
-        const key = `${e.yamlPath}::${e.title}`;
+        const key = JSON.stringify([e.yamlPath, e.title]);
         const existing = seen.get(key);
         if (!existing) {
             seen.set(key, e);

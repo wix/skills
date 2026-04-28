@@ -33,7 +33,7 @@ export type AffectedEntry<T extends DocEntry = DocEntry> = T & { yamlPath: strin
 export function deduplicateAffectedEntries<T extends DocEntry>(entries: AffectedEntry<T>[]): AffectedEntry<T>[] {
   const seen = new Map<string, AffectedEntry<T>>();
   for (const e of entries) {
-    const key = `${e.yamlPath}::${e.title}`;
+    const key = JSON.stringify([e.yamlPath, e.title]);
     const existing = seen.get(key);
     if (!existing) {
       seen.set(key, e);
