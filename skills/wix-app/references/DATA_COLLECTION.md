@@ -441,6 +441,7 @@ Both collections are defined in the same `src/extensions/data/extensions.ts` fil
 
 ## Reference Documentation
 
+- [Wix Data SDK Reference](data-collection/WIX_DATA.md) - Complete reference for reading and writing data using `@wix/data`
 - [extension-template.ts](data-collection/extension-template.ts) - Template for `src/extensions/data/extensions.ts`
 
 ### Public Documentation
