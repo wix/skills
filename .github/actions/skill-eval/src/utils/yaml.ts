@@ -30,10 +30,14 @@ export function filterSkillEntries(entries: DocEntry[]): SkillEntry[] {
 
 export type AffectedEntry<T extends DocEntry = DocEntry> = T & { yamlPath: string };
 
+function makeEntryKey(yamlPath: string, title: string): string {
+  return JSON.stringify([yamlPath, title]);
+}
+
 export function deduplicateAffectedEntries<T extends DocEntry>(entries: AffectedEntry<T>[]): AffectedEntry<T>[] {
   const seen = new Map<string, AffectedEntry<T>>();
   for (const e of entries) {
-    const key = JSON.stringify([e.yamlPath, e.title]);
+    const key = makeEntryKey(e.yamlPath, e.title);
     const existing = seen.get(key);
     if (!existing) {
       seen.set(key, e);

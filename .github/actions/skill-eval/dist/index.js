@@ -34293,10 +34293,13 @@ function parseDocumentationYaml(raw) {
 function filterSkillEntries(entries) {
     return entries.filter((e) => !!e.docsEntry);
 }
+function makeEntryKey(yamlPath, title) {
+    return JSON.stringify([yamlPath, title]);
+}
 function deduplicateAffectedEntries(entries) {
     const seen = new Map();
     for (const e of entries) {
-        const key = JSON.stringify([e.yamlPath, e.title]);
+        const key = makeEntryKey(e.yamlPath, e.title);
         const existing = seen.get(key);
         if (!existing) {
             seen.set(key, e);
