@@ -31,7 +31,11 @@ async function run(): Promise<void> {
     const allFiles = await octokit.paginate(octokit.rest.pulls.listFiles, {
       owner, repo, pull_number: prNumber, per_page: 100,
     });
-    const files = allFiles.map(f => ({ filename: f.filename, status: f.status }));
+    const files = allFiles.map(f => ({
+      filename: f.filename,
+      status: f.status,
+      previousFilename: f.previous_filename,
+    }));
 
     const { yamlFiles, mdFiles } = categorizeChanges(files);
 
@@ -48,10 +52,12 @@ async function run(): Promise<void> {
 
     // ── Path A: changed YAML files ───────────────────────────────────────────
     if (yamlFiles.length > 0) {
-      const oldContents = await batchFetchFilesAtRef(octokit, owner, repo, yamlFiles.map(f => f.filename), baseSha);
+      // For renamed files, fetch old content using the previous filename (it didn't exist at baseSha under the new name)
+      const oldPaths = yamlFiles.map(f => f.previousFilename ?? f.filename);
+      const oldContents = await batchFetchFilesAtRef(octokit, owner, repo, oldPaths, baseSha);
 
       for (const yamlFile of yamlFiles) {
-        const oldRaw = oldContents[yamlFile.filename];
+        const oldRaw = oldContents[yamlFile.previousFilename ?? yamlFile.filename];
         const newRaw = readFileSync(yamlFile.filename, 'utf-8');
         const { affectedEntries: entries, errors } = diffYamlEntries(
           oldRaw ? parseDocumentationYaml(oldRaw) : [],
@@ -64,13 +70,14 @@ async function run(): Promise<void> {
 
     // ── Path B: changed MD files — reverse lookup ────────────────────────────
     if (mdFiles.length > 0) {
-      const changedMdSet = new Set(mdFiles.map(f => f.filename));
+      // Include previous filenames for renamed MDs — YAML entries still point to the old path
+      const changedMdSet = new Set(mdFiles.flatMap(f => f.previousFilename ? [f.filename, f.previousFilename] : [f.filename]));
       const allYamlPaths = await glob('yaml/wix-manage/**/documentation.yaml');
 
       for (const yamlPath of allYamlPaths) {
         const entries = parseDocumentationYaml(readFileSync(yamlPath, 'utf-8'));
         for (const entry of entries) {
-          if (changedMdSet.has(resolveEntryPath(yamlPath, entry.file))) {
+          if (changedMdSet.has(resolveEntryPath(yamlPath, entry.file, process.cwd()))) {
             affectedEntries.push({ ...entry, yamlPath });
           }
         }

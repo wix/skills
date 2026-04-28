@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
+import { resolve, dirname, relative } from 'node:path';
 
-type ChangedFile = { filename: string; status: string };
+export type ChangedFile = { filename: string; status: string; previousFilename?: string };
 
 export function categorizeChanges(files: ChangedFile[]): {
   yamlFiles: ChangedFile[];
@@ -9,15 +9,19 @@ export function categorizeChanges(files: ChangedFile[]): {
 } {
   const relevant = files.filter(f => f.status !== 'removed');
   return {
-    yamlFiles: relevant.filter(f => f.filename.match(/^yaml\/wix-manage\/.+\/documentation\.yaml$/)),
-    mdFiles: relevant.filter(f => f.filename.match(/^skills\/wix-manage\/.+\.md$/)),
+    yamlFiles: relevant.filter(f => /^yaml\/wix-manage\/.+\/documentation\.yaml$/.test(f.filename)),
+    mdFiles: relevant.filter(f => /^skills\/wix-manage\/references\/.+\.md$/.test(f.filename)),
   };
 }
 
-export function resolveEntryPath(yamlPath: string, entryFile: string): string {
-  const absYamlDir = resolve(process.cwd(), dirname(yamlPath));
+export function resolveEntryPath(yamlPath: string, entryFile: string, workspaceRoot: string): string {
+  const absYamlDir = resolve(workspaceRoot, dirname(yamlPath));
   const absEntry = resolve(absYamlDir, entryFile);
-  return absEntry.slice(process.cwd().length + 1);
+  const rel = relative(workspaceRoot, absEntry);
+  if (rel.startsWith('..')) {
+    throw new Error(`Entry path escapes workspace: ${entryFile} in ${yamlPath}`);
+  }
+  return rel;
 }
 
 export function fileExistsInWorkspace(repoRootPath: string): boolean {

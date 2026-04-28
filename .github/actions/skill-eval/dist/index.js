@@ -34099,7 +34099,11 @@ async function run() {
         const allFiles = await octokit.paginate(octokit.rest.pulls.listFiles, {
             owner, repo, pull_number: prNumber, per_page: 100,
         });
-        const files = allFiles.map(f => ({ filename: f.filename, status: f.status }));
+        const files = allFiles.map(f => ({
+            filename: f.filename,
+            status: f.status,
+            previousFilename: f.previous_filename,
+        }));
         const { yamlFiles, mdFiles } = (0, paths_1.categorizeChanges)(files);
         if (yamlFiles.length === 0 && mdFiles.length === 0) {
             core.info('No relevant changes — skipping');
@@ -34111,9 +34115,11 @@ async function run() {
         const phaseZeroErrors = [];
         // ── Path A: changed YAML files ───────────────────────────────────────────
         if (yamlFiles.length > 0) {
-            const oldContents = await batchFetchFilesAtRef(octokit, owner, repo, yamlFiles.map(f => f.filename), baseSha);
+            // For renamed files, fetch old content using the previous filename (it didn't exist at baseSha under the new name)
+            const oldPaths = yamlFiles.map(f => f.previousFilename ?? f.filename);
+            const oldContents = await batchFetchFilesAtRef(octokit, owner, repo, oldPaths, baseSha);
             for (const yamlFile of yamlFiles) {
-                const oldRaw = oldContents[yamlFile.filename];
+                const oldRaw = oldContents[yamlFile.previousFilename ?? yamlFile.filename];
                 const newRaw = (0, node_fs_1.readFileSync)(yamlFile.filename, 'utf-8');
                 const { affectedEntries: entries, errors } = (0, yaml_1.diffYamlEntries)(oldRaw ? (0, yaml_1.parseDocumentationYaml)(oldRaw) : [], (0, yaml_1.parseDocumentationYaml)(newRaw));
                 affectedEntries.push(...entries.map(e => ({ ...e, yamlPath: yamlFile.filename })));
@@ -34122,12 +34128,13 @@ async function run() {
         }
         // ── Path B: changed MD files — reverse lookup ────────────────────────────
         if (mdFiles.length > 0) {
-            const changedMdSet = new Set(mdFiles.map(f => f.filename));
+            // Include previous filenames for renamed MDs — YAML entries still point to the old path
+            const changedMdSet = new Set(mdFiles.flatMap(f => f.previousFilename ? [f.filename, f.previousFilename] : [f.filename]));
             const allYamlPaths = await (0, glob_1.glob)('yaml/wix-manage/**/documentation.yaml');
             for (const yamlPath of allYamlPaths) {
                 const entries = (0, yaml_1.parseDocumentationYaml)((0, node_fs_1.readFileSync)(yamlPath, 'utf-8'));
                 for (const entry of entries) {
-                    if (changedMdSet.has((0, paths_1.resolveEntryPath)(yamlPath, entry.file))) {
+                    if (changedMdSet.has((0, paths_1.resolveEntryPath)(yamlPath, entry.file, process.cwd()))) {
                         affectedEntries.push({ ...entry, yamlPath });
                     }
                 }
@@ -34183,14 +34190,18 @@ const node_path_1 = __nccwpck_require__(6760);
 function categorizeChanges(files) {
     const relevant = files.filter(f => f.status !== 'removed');
     return {
-        yamlFiles: relevant.filter(f => f.filename.match(/^yaml\/wix-manage\/.+\/documentation\.yaml$/)),
-        mdFiles: relevant.filter(f => f.filename.match(/^skills\/wix-manage\/.+\.md$/)),
+        yamlFiles: relevant.filter(f => /^yaml\/wix-manage\/.+\/documentation\.yaml$/.test(f.filename)),
+        mdFiles: relevant.filter(f => /^skills\/wix-manage\/references\/.+\.md$/.test(f.filename)),
     };
 }
-function resolveEntryPath(yamlPath, entryFile) {
-    const absYamlDir = (0, node_path_1.resolve)(process.cwd(), (0, node_path_1.dirname)(yamlPath));
+function resolveEntryPath(yamlPath, entryFile, workspaceRoot) {
+    const absYamlDir = (0, node_path_1.resolve)(workspaceRoot, (0, node_path_1.dirname)(yamlPath));
     const absEntry = (0, node_path_1.resolve)(absYamlDir, entryFile);
-    return absEntry.slice(process.cwd().length + 1);
+    const rel = (0, node_path_1.relative)(workspaceRoot, absEntry);
+    if (rel.startsWith('..')) {
+        throw new Error(`Entry path escapes workspace: ${entryFile} in ${yamlPath}`);
+    }
+    return rel;
 }
 function fileExistsInWorkspace(repoRootPath) {
     return (0, node_fs_1.existsSync)((0, node_path_1.resolve)(process.cwd(), repoRootPath));
