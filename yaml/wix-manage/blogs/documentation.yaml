@@ -1,0 +1,7 @@
+apiDoc:
+  title: Skills
+  docs:
+    - file: ../../../skills/wix-manage/references/blogs/create-blog-post.md
+      title: How to create Blog post
+      docsEntry: https://dev.wix.com/docs/business-solutions/blog
+      tags: [blogs]
