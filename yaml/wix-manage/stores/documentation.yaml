@@ -2,27 +2,27 @@ apiDoc:
   title: Wix Stores Management Recipes
 
   docs:
-    - file: ../../../skills/wix-manage/references/stores/query-products.md
+    - file: ../../../skills/wix-manage/references/stores/catalog-v3/query-products.md
       title: Query Products
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
       tags: [stores]
-    - file: ../../../skills/wix-manage/references/stores/query-products-catalog-v1.md
+    - file: ../../../skills/wix-manage/references/stores/catalog-v1/query-products-catalog-v1.md
       title: Query Products (Catalog V1)
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
       tags: [stores]
-    - file: ../../../skills/wix-manage/references/stores/create-product-with-options-catalog-v3.md
+    - file: ../../../skills/wix-manage/references/stores/catalog-v3/create-product-with-options-catalog-v3.md
       title: Create Product with Options (Catalog V3)
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
       tags: [stores]
-    - file: ../../../skills/wix-manage/references/stores/create-product-catalog-v1.md
+    - file: ../../../skills/wix-manage/references/stores/catalog-v1/create-product-catalog-v1.md
       title: Create Product (Catalog V1)
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
       tags: [stores]
-    - file: ../../../skills/wix-manage/references/stores/bulk-create-products-with-options.md
+    - file: ../../../skills/wix-manage/references/stores/catalog-v3/bulk-create-products-with-options.md
       title: Bulk Create Products with Options (Catalog V3)
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
       tags: [stores]
-    - file: ../../../skills/wix-manage/references/stores/update-product-with-options.md
+    - file: ../../../skills/wix-manage/references/stores/catalog-v3/update-product-with-options.md
       title: Update Product with Options (Catalog V3)
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
       tags: [stores]
@@ -30,7 +30,7 @@ apiDoc:
       title: Update Product Pre-Order
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
       tags: [stores]
-    - file: ../../../skills/wix-manage/references/stores/setup-online-store-catalog-v3.md
+    - file: ../../../skills/wix-manage/references/stores/catalog-v3/setup-online-store-catalog-v3.md
       title: Setup Online Store (Catalog V3)
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
       tags: [stores]
@@ -38,7 +38,7 @@ apiDoc:
       title: Add Store Pages to Site
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
       tags: [stores]
-    - file: ../../../skills/wix-manage/references/stores/create-product-from-image.md
+    - file: ../../../skills/wix-manage/references/stores/catalog-v1/create-product-from-image.md
       title: Create Product from Image
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
       tags: [stores, media]
