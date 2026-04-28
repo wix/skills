@@ -1,5 +1,5 @@
 ---
-name: "Create Product from Image"
+name: "Create Product from Image (Catalog V1)"
 description: Creates a product by uploading an image to Wix Media, using the LLM to generate the product name, description, and price from the image, and then creating the product with the image attached. Requires a publicly accessible image URL. Uses Catalog V1 API — only for sites with CATALOG_V1 catalog version.
 ---
 # RECIPE: Create Product from Image (Catalog V1)

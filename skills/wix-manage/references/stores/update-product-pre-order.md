@@ -1,8 +1,8 @@
 ---
-name: "Update Product Pre-Order"
+name: "Update Product Pre-Order (Catalog V3)"
 description: Manages pre-order settings for product variants using V3 Inventory API. Covers enabling/disabling pre-orders, setting messages, configuring limits, and handling trackQuantity requirements.
 ---
-# Update Product Pre-Order Information
+# Update Product Pre-Order Information (Catalog V3)
 
 This recipe outlines the steps to manage pre-orders for product variants, including enabling/disabling pre-orders, setting messages, and configuring limits.
 

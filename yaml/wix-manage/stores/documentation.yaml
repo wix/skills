@@ -2,8 +2,8 @@ apiDoc:
   title: Wix Stores Management Recipes
 
   docs:
-    - file: ../../../skills/wix-manage/references/stores/query-products.md
-      title: Query Products
+    - file: ../../../skills/wix-manage/references/stores/find-products-query-and-search-catalog-v3.md
+      title: Find Products (Query and Search, Catalog V3)
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
       tags: [stores]
     - file: ../../../skills/wix-manage/references/stores/query-products-catalog-v1.md
@@ -19,15 +19,15 @@ apiDoc:
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
       tags: [stores]
     - file: ../../../skills/wix-manage/references/stores/bulk-create-products-with-options.md
-      title: Bulk Create Products with Options
+      title: Bulk Create Products with Options (Catalog V3)
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
       tags: [stores]
     - file: ../../../skills/wix-manage/references/stores/update-product-with-options.md
-      title: Update Product with Options
+      title: Update Product with Options (Catalog V3)
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
       tags: [stores]
     - file: ../../../skills/wix-manage/references/stores/update-product-pre-order.md
-      title: Update Product Pre-Order
+      title: Update Product Pre-Order (Catalog V3)
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
       tags: [stores]
     - file: ../../../skills/wix-manage/references/stores/setup-online-store-catalog-v3.md
@@ -39,6 +39,6 @@ apiDoc:
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
       tags: [stores]
     - file: ../../../skills/wix-manage/references/stores/create-product-from-image.md
-      title: Create Product from Image
+      title: Create Product from Image (Catalog V1)
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
       tags: [stores, media]
