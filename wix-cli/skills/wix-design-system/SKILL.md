@@ -1,5 +1,5 @@
 ---
-name: wds-docs
+name: wix-design-system
 description: Wix Design System component reference. Use when building UI with @wix/design-system, choosing components, or checking props and examples. Triggers on "what component", "how do I make", "WDS", "show me props", or component names like Button, Card, Modal, Box, Text.
 ---
 

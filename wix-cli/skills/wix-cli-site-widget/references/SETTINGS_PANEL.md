@@ -1,6 +1,6 @@
 # Settings Panel Components Reference
 
-This reference documents components and patterns specific to widget settings panels. For general WDS component documentation (FormField, Input, Dropdown, Checkbox, ToggleSwitch, DatePicker, Box, etc.), use the [wds-docs](../../wds-docs/SKILL.md) skill.
+This reference documents components and patterns specific to widget settings panels. For general WDS component documentation (FormField, Input, Dropdown, Checkbox, ToggleSwitch, DatePicker, Box, etc.), use the [wix-design-system](../../wix-design-system/SKILL.md) skill.
 
 ## Import
 

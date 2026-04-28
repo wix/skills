@@ -24,7 +24,7 @@ Helps select the appropriate Wix CLI extension type based on use case and requir
 - [ ] **Step 4:** Spawned implementation sub-agent(s) with skill context
   - [ ] Included user requirements in prompt
   - [ ] Included SDK context from discovery (if any)
-  - [ ] Instructed sub-agent to invoke `wds-docs` skill FIRST when using @wix/design-system (for correct imports, especially icons)
+  - [ ] Instructed sub-agent to invoke `wix-design-system` skill FIRST when using @wix/design-system (for correct imports, especially icons)
 - [ ] **Step 5:** Waited for implementation sub-agent(s) to complete
   - [ ] All files created
   - [ ] Extension registered in extensions.ts
@@ -243,14 +243,14 @@ The sub-agent prompt should include:
 1. The skill to load (e.g., `wix-cli-dashboard-page`)
 2. The user's requirements
 3. The SDK context from the discovery sub-agent
-4. Instruction to invoke the `wds-docs` skill only when needed (e.g. when looking up WDS component props or examples)
+4. Instruction to invoke the `wix-design-system` skill only when needed (e.g. when looking up WDS component props or examples)
 
 **Implementation sub-agent prompt MUST include:**
 
 1. ✅ The skill to load (full path or name)
 2. ✅ The user's original requirements (copy verbatim)
 3. ✅ SDK methods discovered (with imports and types) — **only if discovery was performed**
-4. ✅ Instruction to invoke `wds-docs` skill FIRST when using @wix/design-system (critical for correct imports, especially icons)
+4. ✅ Instruction to invoke `wix-design-system` skill FIRST when using @wix/design-system (critical for correct imports, especially icons)
 5. ✅ Any constraints or gotchas discovered
 6. ✅ Instruction to return manual action items (see below)
 
@@ -269,7 +269,7 @@ SDK Context:
 Constraints:
 [Any gotchas or limitations from discovery]
 
-⚠️ MANDATORY when using WDS: Invoke the wds-docs skill FIRST to get correct imports (icons are from @wix/wix-ui-icons-common, NOT @wix/design-system/icons).
+⚠️ MANDATORY when using WDS: Invoke the wix-design-system skill FIRST to get correct imports (icons are from @wix/wix-ui-icons-common, NOT @wix/design-system/icons).
 
 ⚠️ MANDATORY when using Data Collections: Use EXACT collection ID from `idSuffix` (case-sensitive). Example: If `idSuffix` is "product-recommendations", use "<app-namespace>/product-recommendations" NOT "productRecommendations".
 
@@ -403,7 +403,7 @@ No manual steps required — you're all set! Your implementation is complete and
 - If a sub-agent didn't include a "Manual Action Items" section, review its full output for any implicit manual steps (phrases like "you'll need to", "make sure to", "don't forget to", "manually", "go to the dashboard", etc.)
 - Number the main categories/sections (1, 2, 3...) for easy reference
 
-**Summary:** Discovery = business domain SDK only (Stores, Bookings, etc.) — skip for extension SDK and data collections. Implementation = load extension skill; invoke `wds-docs` FIRST when using WDS (for correct imports). Validation = `wix-cli-app-validation`. Manual actions = always aggregated and surfaced at the end.
+**Summary:** Discovery = business domain SDK only (Stores, Bookings, etc.) — skip for extension SDK and data collections. Implementation = load extension skill; invoke `wix-design-system` FIRST when using WDS (for correct imports). Validation = `wix-cli-app-validation`. Manual actions = always aggregated and surfaced at the end.
 
 ## Cost Optimization
 
@@ -413,7 +413,7 @@ No manual steps required — you're all set! Your implementation is complete and
 - **ReadFullDocsArticle** only when search results need more context
 - **Implementation prompts:** include only relevant SDK context from discovery (if performed)
 - **Parallelize** independent sub-agents when possible
-- **Invoke wds-docs** first when using WDS (prevents import errors)
+- **Invoke wix-design-system** first when using WDS (prevents import errors)
 - **Targets:** discovery output 500-1000 tokens; implementation prompt minimal; each search under 2000-3000 tokens
 
 ## Documentation

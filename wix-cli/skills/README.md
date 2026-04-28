@@ -7,7 +7,7 @@ Agent skills for building Wix CLI applications. Each skill provides domain-speci
 | Skill | Purpose | When to Use |
 |-------|---------|-------------|
 | [wix-cli-orchestrator](wix-cli-orchestrator/SKILL.md) | Select extension type & orchestrate builds | **First skill to invoke** when adding/building any Wix feature |
-| [wds-docs](wds-docs/SKILL.md) | Wix Design System reference | Looking up WDS component props, examples, icons |
+| [wix-design-system](wix-design-system/SKILL.md) | Wix Design System reference | Looking up WDS component props, examples, icons |
 | [wix-cli-app-validation](wix-cli-app-validation/SKILL.md) | Test and validate Wix apps | Testing app readiness, e2e validation, TypeScript checks |
 | [wix-cli-backend-api](wix-cli-backend-api/SKILL.md) | Create REST API endpoints | Backend HTTP handlers, server-side data processing |
 | [wix-cli-backend-event](wix-cli-backend-event/SKILL.md) | Respond to Wix webhooks/events | Run custom backend logic when platform events occur |
