@@ -4,6 +4,8 @@ description: "Build Wix CLI app extensions — dashboard pages, modals, plugins,
 compatibility: Requires Wix CLI development environment.
 ---
 
+<!-- State of AI demo -->
+
 # Wix App Builder
 
 Helps build extensions for Wix CLI applications. Covers all extension types: dashboard pages, modals, plugins, menu plugins, custom element widgets, Editor React components, site plugins, embedded scripts, backend APIs, events, service plugins, and data collections.
