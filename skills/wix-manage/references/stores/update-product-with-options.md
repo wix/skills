@@ -20,6 +20,23 @@ Learn how to update existing Wix store products, including adding options, chang
 
 ## Article: Steps for Updating Wix Store Products
 
+## STEP 0: Resolve the product ID when the user provides a product name
+
+If the user gives a product name instead of a product ID, use [Search Products](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/search-products) to find the product first:
+
+```bash
+curl -X POST "https://www.wixapis.com/stores/v3/products/search" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: <AUTH>" \
+  -d '{
+    "search": {
+      "expression": "Product name"
+    }
+  }'
+```
+
+Do **not** use Query Products with `query.filter.name`; Catalog V3 Query Products does not support filtering by `name` and rejects it with `Field 'name' is not declared as filterable`.
+
 ## STEP 1: Get the current product to obtain its revision
 1. Before updating the product, you need to retrieve its current revision to prevent conflicts using [Get Product](https://dev.wix.com/docs/rest/business-solutions/stores/catalog-v3/products-v3/get-product):
 
