@@ -1,5 +1,5 @@
 ---
-name: "Bulk Create Products with Options"
+name: "Bulk Create Products with Options (Catalog V3)"
 description: Uses bulk products endpoint to create multiple products with inventory in a single request. Handles variant generation from options, media format requirements, and error handling for partial failures.
 ---
 # RECIPE: Business Recipe - Bulk Creating Wix Store Products with inventory and options

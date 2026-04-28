@@ -19,7 +19,7 @@ apiDoc:
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
       tags: [stores]
     - file: ../../../skills/wix-manage/references/stores/bulk-create-products-with-options.md
-      title: Bulk Create Products with Options
+      title: Bulk Create Products with Options (Catalog V3)
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
       tags: [stores]
     - file: ../../../skills/wix-manage/references/stores/update-product-with-options.md
