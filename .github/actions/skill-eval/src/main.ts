@@ -84,7 +84,14 @@ async function run(): Promise<void> {
           continue;
         }
         for (const entry of filterSkillEntries(entries)) {
-          if (changedMdSet.has(resolveEntryPath(yamlPath, entry.file, process.cwd()))) {
+          let resolvedPath: string;
+          try {
+            resolvedPath = resolveEntryPath(yamlPath, entry.file, process.cwd());
+          } catch (e) {
+            core.warning(`Skipping invalid entry path "${entry.file}" in ${yamlPath}: ${e instanceof Error ? e.message : String(e)}`);
+            continue;
+          }
+          if (changedMdSet.has(resolvedPath)) {
             affectedEntries.push({ ...entry, yamlPath });
           }
         }
