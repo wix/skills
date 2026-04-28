@@ -1,6 +1,6 @@
 ---
 name: "Create Product (Catalog V1)"
-description: Create products using the Catalog V1 Products API. Use this recipe when the site's catalog version is CATALOG_V1. Covers simple product creation, product with options, and key V1 request structure differences from V3.
+description: Create products using the Catalog V1 Products API. Use this recipe when the site's catalog version is CATALOG_V1. Covers simple product creation, product with options, and key V1 request structure differences from V3. Updated to clarify error handling.
 ---
 # RECIPE: Business Recipe - Create Product (Catalog V1)
 
