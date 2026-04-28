@@ -46,7 +46,6 @@ async function run(): Promise<void> {
     core.info(`Changed MD files: ${mdFiles.map(f => f.filename).join(', ') || 'none'}`);
 
     const affectedEntries: AffectedEntry[] = [];
-    const phaseZeroErrors: Array<{ entryTitle: string; message: string }> = [];
 
     // ── Path A: changed YAML files ───────────────────────────────────────────
     if (yamlFiles.length > 0) {
@@ -65,9 +64,8 @@ async function run(): Promise<void> {
           core.warning(`Failed to parse ${yamlFile.filename}: ${e instanceof Error ? e.message : String(e)}`);
           continue;
         }
-        const { affectedEntries: entries, errors } = diffYamlEntries(oldEntries, newEntries);
+        const entries = diffYamlEntries(oldEntries, newEntries);
         affectedEntries.push(...entries.map(e => ({ ...e, yamlPath: yamlFile.filename })));
-        phaseZeroErrors.push(...errors);
       }
     }
 
@@ -95,10 +93,6 @@ async function run(): Promise<void> {
 
     const dedupedEntries = deduplicateAffectedEntries(affectedEntries);
     const allTags = [...new Set(dedupedEntries.flatMap(e => e.tags ?? []))];
-
-    if (phaseZeroErrors.length > 0) {
-      core.warning(`Phase 0 issues:\n${phaseZeroErrors.map(e => `  - ${e.entryTitle}: ${e.message}`).join('\n')}`);
-    }
 
     if (allTags.length === 0) {
       core.info('No tags collected — skipping eval');

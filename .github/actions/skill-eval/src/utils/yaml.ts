@@ -7,11 +7,6 @@ export type DocEntry = {
   tags?: string[];
 };
 
-export type ValidationError = {
-  entryTitle: string;
-  message: string;
-};
-
 type RawEntry = { title?: unknown; file?: unknown; docsEntry?: unknown; tags?: unknown };
 type RawDoc = { apiDoc?: { docs?: RawEntry[] } };
 
@@ -42,22 +37,19 @@ export function deduplicateAffectedEntries<T extends DocEntry>(entries: Affected
 export function diffYamlEntries(
   oldEntries: DocEntry[],
   newEntries: DocEntry[]
-): { affectedEntries: DocEntry[]; errors: ValidationError[] } {
+): DocEntry[] {
   const affectedEntries: DocEntry[] = [];
-  const errors: ValidationError[] = [];
   const oldByTitle = new Map(oldEntries.map(e => [e.title, e]));
 
   for (const next of newEntries) {
+    // Entries without docsEntry are not skills — skip regardless of prior state
+    if (!next.docsEntry) continue;
+
     const old = oldByTitle.get(next.title);
 
-    if (!old) {
+    if (!old || !old.docsEntry) {
+      // New skill entry (or docsEntry was just added)
       affectedEntries.push(next);
-      continue;
-    }
-
-    const docsEntryRemoved = old.docsEntry !== undefined && next.docsEntry === undefined;
-    if (docsEntryRemoved) {
-      errors.push({ entryTitle: next.title, message: `docsEntry removed from "${next.title}"` });
       continue;
     }
 
@@ -71,5 +63,5 @@ export function diffYamlEntries(
     }
   }
 
-  return { affectedEntries, errors };
+  return affectedEntries;
 }

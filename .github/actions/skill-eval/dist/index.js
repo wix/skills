@@ -34112,7 +34112,6 @@ async function run() {
         core.info(`Changed YAML files: ${yamlFiles.map(f => f.filename).join(', ') || 'none'}`);
         core.info(`Changed MD files: ${mdFiles.map(f => f.filename).join(', ') || 'none'}`);
         const affectedEntries = [];
-        const phaseZeroErrors = [];
         // ── Path A: changed YAML files ───────────────────────────────────────────
         if (yamlFiles.length > 0) {
             // For renamed files, fetch old content using the previous filename (it didn't exist at baseSha under the new name)
@@ -34130,9 +34129,8 @@ async function run() {
                     core.warning(`Failed to parse ${yamlFile.filename}: ${e instanceof Error ? e.message : String(e)}`);
                     continue;
                 }
-                const { affectedEntries: entries, errors } = (0, yaml_1.diffYamlEntries)(oldEntries, newEntries);
+                const entries = (0, yaml_1.diffYamlEntries)(oldEntries, newEntries);
                 affectedEntries.push(...entries.map(e => ({ ...e, yamlPath: yamlFile.filename })));
-                phaseZeroErrors.push(...errors);
             }
         }
         // ── Path B: changed MD files — reverse lookup ────────────────────────────
@@ -34158,9 +34156,6 @@ async function run() {
         }
         const dedupedEntries = (0, yaml_1.deduplicateAffectedEntries)(affectedEntries);
         const allTags = [...new Set(dedupedEntries.flatMap(e => e.tags ?? []))];
-        if (phaseZeroErrors.length > 0) {
-            core.warning(`Phase 0 issues:\n${phaseZeroErrors.map(e => `  - ${e.entryTitle}: ${e.message}`).join('\n')}`);
-        }
         if (allTags.length === 0) {
             core.info('No tags collected — skipping eval');
             return;
@@ -34294,17 +34289,15 @@ function deduplicateAffectedEntries(entries) {
 }
 function diffYamlEntries(oldEntries, newEntries) {
     const affectedEntries = [];
-    const errors = [];
     const oldByTitle = new Map(oldEntries.map(e => [e.title, e]));
     for (const next of newEntries) {
-        const old = oldByTitle.get(next.title);
-        if (!old) {
-            affectedEntries.push(next);
+        // Entries without docsEntry are not skills — skip regardless of prior state
+        if (!next.docsEntry)
             continue;
-        }
-        const docsEntryRemoved = old.docsEntry !== undefined && next.docsEntry === undefined;
-        if (docsEntryRemoved) {
-            errors.push({ entryTitle: next.title, message: `docsEntry removed from "${next.title}"` });
+        const old = oldByTitle.get(next.title);
+        if (!old || !old.docsEntry) {
+            // New skill entry (or docsEntry was just added)
+            affectedEntries.push(next);
             continue;
         }
         const fileChanged = old.file !== next.file;
@@ -34316,7 +34309,7 @@ function diffYamlEntries(oldEntries, newEntries) {
             affectedEntries.push({ ...next, tags: addedTags });
         }
     }
-    return { affectedEntries, errors };
+    return affectedEntries;
 }
 
 

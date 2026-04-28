@@ -44,25 +44,24 @@ describe('parseDocumentationYaml', () => {
 
 describe('diffYamlEntries', () => {
   it('new entry → all tags', () => {
-    const { affectedEntries, errors } = diffYamlEntries([], parseDocumentationYaml(BASE_YAML));
-    expect(errors).toHaveLength(0);
+    const affectedEntries = diffYamlEntries([], parseDocumentationYaml(BASE_YAML));
     expect(affectedEntries[0].tags).toEqual(['stores', 'stores-v2']);
   });
 
   it('removed entry → skip', () => {
-    const { affectedEntries } = diffYamlEntries(parseDocumentationYaml(BASE_YAML), []);
+    const affectedEntries = diffYamlEntries(parseDocumentationYaml(BASE_YAML), []);
     expect(affectedEntries).toHaveLength(0);
   });
 
   it('tags changed → only added tags', () => {
     const next = parseDocumentationYaml(BASE_YAML.replace('tags: [stores, stores-v2]', 'tags: [stores, stores-v2, stores-v3]'));
-    const { affectedEntries } = diffYamlEntries(parseDocumentationYaml(BASE_YAML), next);
+    const affectedEntries = diffYamlEntries(parseDocumentationYaml(BASE_YAML), next);
     expect(affectedEntries[0].tags).toEqual(['stores-v3']);
   });
 
   it('file changed → all tags', () => {
     const next = parseDocumentationYaml(BASE_YAML.replace('query-products.md', 'query-products-v2.md'));
-    const { affectedEntries } = diffYamlEntries(parseDocumentationYaml(BASE_YAML), next);
+    const affectedEntries = diffYamlEntries(parseDocumentationYaml(BASE_YAML), next);
     expect(affectedEntries[0].tags).toEqual(['stores', 'stores-v2']);
   });
 
@@ -72,28 +71,26 @@ describe('diffYamlEntries', () => {
         .replace('query-products.md', 'query-products-v2.md')
         .replace('stores-v2', 'stores-v3')
     );
-    const { affectedEntries } = diffYamlEntries(parseDocumentationYaml(BASE_YAML), next);
+    const affectedEntries = diffYamlEntries(parseDocumentationYaml(BASE_YAML), next);
     expect(affectedEntries[0].tags).toEqual(['stores', 'stores-v3']);
   });
 
   it('title only changed → treated as new entry (title is the lookup key)', () => {
     const next = parseDocumentationYaml(BASE_YAML.replace('Query Products"', 'Query Products v2"'));
-    const { affectedEntries } = diffYamlEntries(parseDocumentationYaml(BASE_YAML), next);
+    const affectedEntries = diffYamlEntries(parseDocumentationYaml(BASE_YAML), next);
     expect(affectedEntries).toHaveLength(1);
     expect(affectedEntries[0].tags).toEqual(['stores', 'stores-v2']);
   });
 
-  it('docsEntry removed → validation error, not affected entry', () => {
+  it('docsEntry removed → entry is no longer a skill, silently skipped', () => {
     const next = parseDocumentationYaml(BASE_YAML.replace(/\s+docsEntry:.*/, ''));
-    const { affectedEntries, errors } = diffYamlEntries(parseDocumentationYaml(BASE_YAML), next);
+    const affectedEntries = diffYamlEntries(parseDocumentationYaml(BASE_YAML), next);
     expect(affectedEntries).toHaveLength(0);
-    expect(errors).toHaveLength(1);
-    expect(errors[0].message).toMatch(/docsEntry/);
   });
 
   it('unchanged entry → skip', () => {
     const entries = parseDocumentationYaml(BASE_YAML);
-    const { affectedEntries } = diffYamlEntries(entries, entries);
+    const affectedEntries = diffYamlEntries(entries, entries);
     expect(affectedEntries).toHaveLength(0);
   });
 });
