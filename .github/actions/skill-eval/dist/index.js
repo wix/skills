@@ -34096,45 +34096,67 @@ async function run() {
     core.info(`Changed YAML files: ${yamlFiles.map(f => f.filename).join(', ') || 'none'}`);
     core.info(`Changed MD files: ${mdFiles.map(f => f.filename).join(', ') || 'none'}`);
     const entries = await (0, skill_changes_1.collectSkillChanges)(octokit, config.owner, config.repo, yamlFiles, mdFiles, config.baseSha, process.cwd());
-    const allTags = [...new Set(entries.flatMap(e => e.tags ?? []))];
-    if (allTags.length === 0) {
-        core.info('No tags collected — skipping eval');
+    if (entries.length === 0) {
+        core.info('No affected skill entries — skipping eval');
         return;
     }
-    core.info(`Affected entries: ${entries.length}, tags: ${allTags.join(', ')}`);
-    const evalforge = new evalforge_1.EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
-    const availableTags = new Set(await evalforge.getTags(config.projectId));
-    const errors = [];
-    const seen = new Set();
+    core.info(`Affected entries: ${entries.length}`);
+    // Local checks — no API calls
+    const localErrors = [];
     for (const entry of entries) {
-        const key = `${entry.yamlPath}::${entry.title}`;
-        if (seen.has(key))
-            continue;
-        seen.add(key);
         if (!entry.tags?.length) {
-            errors.push({ entryTitle: entry.title, message: 'missing tags (required when docsEntry is present)' });
+            localErrors.push({ entryTitle: entry.title, message: 'missing tags — at least one tag is required' });
         }
         let resolved;
         try {
             resolved = (0, paths_1.resolveEntryPath)(entry.yamlPath, entry.file, process.cwd());
         }
         catch {
-            errors.push({ entryTitle: entry.title, message: `invalid file path: ${entry.file}` });
+            localErrors.push({ entryTitle: entry.title, message: `invalid file path: ${entry.file}` });
             continue;
         }
         if (!(0, paths_1.fileExistsInWorkspace)(resolved)) {
-            errors.push({ entryTitle: entry.title, message: `file not found: ${resolved}` });
+            localErrors.push({ entryTitle: entry.title, message: `file not found: ${resolved}` });
         }
+    }
+    if (localErrors.length > 0) {
+        try {
+            await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatValidationErrors)(localErrors));
+        }
+        catch (e) {
+            core.warning(`Failed to post PR comment: ${e instanceof Error ? e.message : String(e)}`);
+        }
+        core.setFailed(`Skill validation failed (${localErrors.length} error${localErrors.length === 1 ? '' : 's'}) — see PR comment`);
+        return;
+    }
+    // EvalForge tag validation
+    const allTags = [...new Set(entries.flatMap(e => e.tags ?? []))];
+    core.info(`Tags to validate: ${allTags.join(', ')}`);
+    const evalforge = new evalforge_1.EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
+    const availableTags = new Set(await evalforge.getTags(config.projectId));
+    const tagErrors = [];
+    for (const entry of entries) {
         for (const tag of entry.tags ?? []) {
             if (!availableTags.has(tag)) {
-                errors.push({ entryTitle: entry.title, message: `unknown tag "${tag}"` });
+                tagErrors.push({ entryTitle: entry.title, message: `unknown tag "${tag}"` });
             }
         }
     }
-    if (errors.length > 0) {
-        await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatValidationErrors)(errors));
-        core.setFailed(`Skill validation failed (${errors.length} error${errors.length === 1 ? '' : 's'}) — see PR comment`);
+    if (tagErrors.length > 0) {
+        try {
+            await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatValidationErrors)(tagErrors));
+        }
+        catch (e) {
+            core.warning(`Failed to post PR comment: ${e instanceof Error ? e.message : String(e)}`);
+        }
+        core.setFailed(`Skill validation failed (${tagErrors.length} error${tagErrors.length === 1 ? '' : 's'}) — see PR comment`);
         return;
+    }
+    try {
+        await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatValidationPassed)());
+    }
+    catch (e) {
+        core.warning(`Failed to post PR comment: ${e instanceof Error ? e.message : String(e)}`);
     }
     core.info('Validation passed — eval run not yet implemented');
 }
@@ -34196,10 +34218,14 @@ const eval_1 = __nccwpck_require__(9709);
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.COMMENT_MARKER = void 0;
 exports.formatValidationErrors = formatValidationErrors;
+exports.formatValidationPassed = formatValidationPassed;
 exports.COMMENT_MARKER = '<!-- skill-eval-action -->';
 function formatValidationErrors(errors) {
     const lines = errors.map(e => `- **${e.entryTitle}**: ${e.message}`).join('\n');
     return [exports.COMMENT_MARKER, '## ❌ Skill validation failed', '', lines].join('\n');
+}
+function formatValidationPassed() {
+    return `${exports.COMMENT_MARKER}\n## ✅ Skill validation passed`;
 }
 
 
@@ -34247,20 +34273,21 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.getConfig = getConfig;
 const core = __importStar(__nccwpck_require__(7484));
 const github = __importStar(__nccwpck_require__(3228));
+function safeGetSecret(name) {
+    const value = core.getInput(name, { required: true });
+    core.setSecret(value);
+    return value;
+}
 function getConfig() {
-    const githubToken = core.getInput('github-token', { required: true });
-    core.setSecret(githubToken);
-    const appSecret = core.getInput('evalforge-app-secret', { required: true });
-    core.setSecret(appSecret);
     const pr = github.context.payload.pull_request;
     if (!pr)
         throw new Error('No pull_request payload — action must be triggered by a pull_request event');
     return {
-        githubToken,
+        githubToken: safeGetSecret('github-token'),
         evalforgeUrl: core.getInput('evalforge-url', { required: true }),
         projectId: core.getInput('evalforge-project-id', { required: true }),
-        appId: core.getInput('evalforge-app-id', { required: true }),
-        appSecret,
+        appId: safeGetSecret('evalforge-app-id'),
+        appSecret: safeGetSecret('evalforge-app-secret'),
         prNumber: pr.number,
         baseSha: pr.base.sha,
         owner: github.context.repo.owner,
@@ -34294,12 +34321,15 @@ class EvalForgeClient {
             method,
             headers: this.headers,
             body: body !== undefined ? JSON.stringify(body) : undefined,
+            signal: AbortSignal.timeout(10_000),
         });
         if (!res.ok) {
             const err = await res.json().catch(() => ({}));
             throw Object.assign(new Error(`EvalForge ${method} ${path} → ${res.status}: ${err.error ?? ''}`), { status: res.status });
         }
-        return res.json();
+        return res.json().catch((e) => {
+            throw new Error(`EvalForge ${method} ${path} → 200 but invalid JSON: ${e instanceof Error ? e.message : String(e)}`);
+        });
     }
     async getTags(projectId) {
         return this.request('GET', `/projects/${projectId}/tags`);
@@ -34491,9 +34521,9 @@ async function collectFromYamlChanges(octokit, owner, repo, yamlFiles, baseSha) 
     const result = [];
     for (const yamlFile of yamlFiles) {
         const oldRaw = oldContents[yamlFile.previousFilename ?? yamlFile.filename];
-        const newRaw = (0, node_fs_1.readFileSync)(yamlFile.filename, 'utf-8');
         let oldEntries, newEntries;
         try {
+            const newRaw = (0, node_fs_1.readFileSync)(yamlFile.filename, 'utf-8');
             oldEntries = oldRaw ? (0, yaml_1.parseDocumentationYaml)(oldRaw) : [];
             newEntries = (0, yaml_1.parseDocumentationYaml)(newRaw);
         }

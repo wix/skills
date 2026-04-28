@@ -4,7 +4,7 @@ import { getOctokit, getChangedFiles, upsertComment } from './utils/github';
 import { EvalForgeClient } from './utils/evalforge';
 import { categorizeChanges, resolveEntryPath, fileExistsInWorkspace } from './utils/paths';
 import { collectSkillChanges } from './utils/skill-changes';
-import { formatValidationErrors } from './utils/comment';
+import { formatValidationErrors, formatValidationPassed } from './utils/comment';
 import type { ValidationError } from './utils/yaml';
 
 export async function run(): Promise<void> {
@@ -27,54 +27,75 @@ export async function run(): Promise<void> {
   const entries = await collectSkillChanges(
     octokit, config.owner, config.repo, yamlFiles, mdFiles, config.baseSha, process.cwd(),
   );
-  const allTags = [...new Set(entries.flatMap(e => e.tags ?? []))];
 
-  if (allTags.length === 0) {
-    core.info('No tags collected — skipping eval');
+  if (entries.length === 0) {
+    core.info('No affected skill entries — skipping eval');
     return;
   }
 
-  core.info(`Affected entries: ${entries.length}, tags: ${allTags.join(', ')}`);
+  core.info(`Affected entries: ${entries.length}`);
 
-  const evalforge = new EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
-  const availableTags = new Set(await evalforge.getTags(config.projectId));
-
-  const errors: ValidationError[] = [];
-  const seen = new Set<string>();
+  // Local checks — no API calls
+  const localErrors: ValidationError[] = [];
 
   for (const entry of entries) {
-    const key = `${entry.yamlPath}::${entry.title}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-
     if (!entry.tags?.length) {
-      errors.push({ entryTitle: entry.title, message: 'missing tags (required when docsEntry is present)' });
+      localErrors.push({ entryTitle: entry.title, message: 'missing tags — at least one tag is required' });
     }
 
     let resolved: string;
     try {
       resolved = resolveEntryPath(entry.yamlPath, entry.file, process.cwd());
     } catch {
-      errors.push({ entryTitle: entry.title, message: `invalid file path: ${entry.file}` });
+      localErrors.push({ entryTitle: entry.title, message: `invalid file path: ${entry.file}` });
       continue;
     }
 
     if (!fileExistsInWorkspace(resolved)) {
-      errors.push({ entryTitle: entry.title, message: `file not found: ${resolved}` });
+      localErrors.push({ entryTitle: entry.title, message: `file not found: ${resolved}` });
     }
+  }
 
+  if (localErrors.length > 0) {
+    try {
+      await upsertComment(octokit, config, formatValidationErrors(localErrors));
+    } catch (e) {
+      core.warning(`Failed to post PR comment: ${e instanceof Error ? e.message : String(e)}`);
+    }
+    core.setFailed(`Skill validation failed (${localErrors.length} error${localErrors.length === 1 ? '' : 's'}) — see PR comment`);
+    return;
+  }
+
+  // EvalForge tag validation
+  const allTags = [...new Set(entries.flatMap(e => e.tags ?? []))];
+  core.info(`Tags to validate: ${allTags.join(', ')}`);
+
+  const evalforge = new EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
+  const availableTags = new Set(await evalforge.getTags(config.projectId));
+  const tagErrors: ValidationError[] = [];
+
+  for (const entry of entries) {
     for (const tag of entry.tags ?? []) {
       if (!availableTags.has(tag)) {
-        errors.push({ entryTitle: entry.title, message: `unknown tag "${tag}"` });
+        tagErrors.push({ entryTitle: entry.title, message: `unknown tag "${tag}"` });
       }
     }
   }
 
-  if (errors.length > 0) {
-    await upsertComment(octokit, config, formatValidationErrors(errors));
-    core.setFailed(`Skill validation failed (${errors.length} error${errors.length === 1 ? '' : 's'}) — see PR comment`);
+  if (tagErrors.length > 0) {
+    try {
+      await upsertComment(octokit, config, formatValidationErrors(tagErrors));
+    } catch (e) {
+      core.warning(`Failed to post PR comment: ${e instanceof Error ? e.message : String(e)}`);
+    }
+    core.setFailed(`Skill validation failed (${tagErrors.length} error${tagErrors.length === 1 ? '' : 's'}) — see PR comment`);
     return;
   }
 
+  try {
+    await upsertComment(octokit, config, formatValidationPassed());
+  } catch (e) {
+    core.warning(`Failed to post PR comment: ${e instanceof Error ? e.message : String(e)}`);
+  }
   core.info('Validation passed — eval run not yet implemented');
 }

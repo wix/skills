@@ -13,22 +13,22 @@ export type Config = {
   repo: string;
 };
 
+function safeGetSecret(name: string): string {
+  const value = core.getInput(name, { required: true });
+  core.setSecret(value);
+  return value;
+}
+
 export function getConfig(): Config {
-  const githubToken = core.getInput('github-token', { required: true });
-  core.setSecret(githubToken);
-
-  const appSecret = core.getInput('evalforge-app-secret', { required: true });
-  core.setSecret(appSecret);
-
   const pr = github.context.payload.pull_request;
   if (!pr) throw new Error('No pull_request payload — action must be triggered by a pull_request event');
 
   return {
-    githubToken,
+    githubToken: safeGetSecret('github-token'),
     evalforgeUrl: core.getInput('evalforge-url', { required: true }),
     projectId: core.getInput('evalforge-project-id', { required: true }),
-    appId: core.getInput('evalforge-app-id', { required: true }),
-    appSecret,
+    appId: safeGetSecret('evalforge-app-id'),
+    appSecret: safeGetSecret('evalforge-app-secret'),
     prNumber: pr.number as number,
     baseSha: (pr.base as { sha: string }).sha,
     owner: github.context.repo.owner,

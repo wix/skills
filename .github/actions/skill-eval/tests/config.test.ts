@@ -42,9 +42,10 @@ describe('getConfig', () => {
     expect(config.repo).toBe('skills');
   });
 
-  it('masks github-token and app-secret', () => {
+  it('masks all secret inputs', () => {
     getConfig();
     expect(vi.mocked(core.setSecret)).toHaveBeenCalledWith('ghs_token');
+    expect(vi.mocked(core.setSecret)).toHaveBeenCalledWith('app-1');
     expect(vi.mocked(core.setSecret)).toHaveBeenCalledWith('secret-1');
   });
 

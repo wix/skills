@@ -38,9 +38,9 @@ async function collectFromYamlChanges(
 
   for (const yamlFile of yamlFiles) {
     const oldRaw = oldContents[yamlFile.previousFilename ?? yamlFile.filename];
-    const newRaw = readFileSync(yamlFile.filename, 'utf-8');
     let oldEntries: DocEntry[], newEntries: DocEntry[];
     try {
+      const newRaw = readFileSync(yamlFile.filename, 'utf-8');
       oldEntries = oldRaw ? parseDocumentationYaml(oldRaw) : [];
       newEntries = parseDocumentationYaml(newRaw);
     } catch (e) {

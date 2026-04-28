@@ -20,6 +20,7 @@ export class EvalForgeClient {
       method,
       headers: this.headers,
       body: body !== undefined ? JSON.stringify(body) : undefined,
+      signal: AbortSignal.timeout(10_000),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({})) as { error?: string };
@@ -28,7 +29,9 @@ export class EvalForgeClient {
         { status: res.status } satisfies Pick<HttpError, 'status'>,
       );
     }
-    return res.json() as Promise<T>;
+    return res.json().catch((e: unknown) => {
+      throw new Error(`EvalForge ${method} ${path} → 200 but invalid JSON: ${e instanceof Error ? e.message : String(e)}`);
+    }) as Promise<T>;
   }
 
   async getTags(projectId: string): Promise<string[]> {

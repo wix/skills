@@ -36,7 +36,7 @@ export function filterSkillEntries(entries: DocEntry[]): SkillEntry[] {
   return entries.filter((e): e is SkillEntry => !!e.docsEntry);
 }
 
-export type AffectedEntry = DocEntry & { yamlPath: string };
+export type AffectedEntry = SkillEntry & { yamlPath: string };
 
 function makeEntryKey(yamlPath: string, title: string): string {
   return JSON.stringify([yamlPath, title]);
