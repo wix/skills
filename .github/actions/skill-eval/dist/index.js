@@ -34182,16 +34182,8 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 const core = __importStar(__nccwpck_require__(7484));
-async function main() {
-    const mode = core.getInput('mode') || 'eval';
-    if (mode === 'cleanup') {
-        core.info('Cleanup mode — not yet implemented');
-        return;
-    }
-    const { run } = await Promise.resolve().then(() => __importStar(__nccwpck_require__(9709)));
-    await run();
-}
-main().catch(err => core.setFailed(err instanceof Error ? err.message : String(err)));
+const eval_1 = __nccwpck_require__(9709);
+(0, eval_1.run)().catch(err => core.setFailed(err instanceof Error ? err.message : String(err)));
 
 
 /***/ }),

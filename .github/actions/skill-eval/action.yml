@@ -16,10 +16,6 @@ inputs:
   evalforge-app-secret:
     description: 'EvalForge app secret for authentication'
     required: true
-  mode:
-    description: 'Action mode: eval or cleanup'
-    required: false
-    default: 'eval'
 runs:
   using: 'node20'
   main: 'dist/index.js'
