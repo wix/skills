@@ -58,9 +58,7 @@ async function collectFromMdChanges(
   mdFiles: ChangedFile[],
   workspaceRoot: string
 ): Promise<AffectedEntry[]> {
-  const changedMdSet = new Set(
-    mdFiles.flatMap(f => f.previousFilename ? [f.filename, f.previousFilename] : [f.filename])
-  );
+  const changedMdSet = new Set(mdFiles.map(f => f.filename));
   const allYamlPaths = await glob('yaml/wix-manage/**/documentation.yaml');
   const result: AffectedEntry[] = [];
 

@@ -37,6 +37,16 @@ describe('parseDocumentationYaml', () => {
     expect(parseDocumentationYaml(raw)[0].tags).toBeUndefined();
   });
 
+  it('silently drops entries with missing title', () => {
+    const raw = `apiDoc:\n  docs:\n    - file: "f.md"\n      docsEntry: "https://x.com"`;
+    expect(parseDocumentationYaml(raw)).toHaveLength(0);
+  });
+
+  it('silently drops entries with missing file', () => {
+    const raw = `apiDoc:\n  docs:\n    - title: "T"\n      docsEntry: "https://x.com"`;
+    expect(parseDocumentationYaml(raw)).toHaveLength(0);
+  });
+
   it('throws on malformed YAML', () => {
     expect(() => parseDocumentationYaml('{ invalid: yaml: content')).toThrow();
   });
