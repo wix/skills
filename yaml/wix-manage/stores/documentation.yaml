@@ -2,7 +2,7 @@ apiDoc:
   title: Wix Stores Management Recipes
 
   docs:
-    - file: ../../../skills/wix-manage/references/stores/query-products.md
+    - file: ../../../skills/wix-manage/references/stores/find-products-query-and-search-catalog-v3.md
       title: Find Products (Query and Search, Catalog V3)
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
       tags: [stores]
