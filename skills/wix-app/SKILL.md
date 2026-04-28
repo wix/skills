@@ -189,7 +189,7 @@ Use the Extension Types Reference Table and decision content above. State extens
 2. **Identify required APIs** from user requirements
 3. **Check relevant API reference files:**
    - Backend events → `references/backend-event/COMMON-EVENTS.md`
-   - Wix Data → `references/dashboard-page/WIX_DATA.md`
+   - Wix Data → `references/data-collection/WIX_DATA.md`
    - Dashboard SDK → `references/dashboard-page/DASHBOARD_API.md`
    - Service Plugin SPIs → `references/service-plugin/*.md`
 4. **Verify the specific method/event exists** in references
