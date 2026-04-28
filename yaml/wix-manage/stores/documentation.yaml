@@ -1,6 +1,5 @@
 apiDoc:
   title: Wix Stores Management Recipes
-
   docs:
     - file: ../../../skills/wix-manage/references/stores/query-products.md
       title: Query Products
@@ -42,3 +41,7 @@ apiDoc:
       title: Create Product from Image
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
       tags: [stores, media]
+    - file: ../../../skills/wix-manage/references/stores/change-site-currency-moigtzji.md
+      title: Change Site Currency
+      docsEntry: https://dev.wix.com/docs/rest/stores
+      tags: [test-store]
