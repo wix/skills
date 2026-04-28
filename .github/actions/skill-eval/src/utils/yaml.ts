@@ -7,6 +7,11 @@ export type DocEntry = {
   tags?: string[];
 };
 
+export type ValidationError = {
+  entryTitle: string;
+  message: string;
+};
+
 export type SkillEntry = DocEntry & { docsEntry: string };
 
 type RawEntry = { title?: unknown; file?: unknown; docsEntry?: unknown; tags?: unknown };

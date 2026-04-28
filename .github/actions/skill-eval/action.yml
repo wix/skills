@@ -4,6 +4,22 @@ inputs:
   github-token:
     description: 'GitHub token for PR comments'
     required: true
+  evalforge-url:
+    description: 'EvalForge API base URL'
+    required: true
+  evalforge-project-id:
+    description: 'EvalForge project ID'
+    required: true
+  evalforge-app-id:
+    description: 'EvalForge app ID for authentication'
+    required: true
+  evalforge-app-secret:
+    description: 'EvalForge app secret for authentication'
+    required: true
+  mode:
+    description: 'Action mode: eval or cleanup'
+    required: false
+    default: 'eval'
 runs:
   using: 'node20'
   main: 'dist/index.js'

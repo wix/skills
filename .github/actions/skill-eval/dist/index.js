@@ -34036,7 +34036,113 @@ function wrappy (fn, cb) {
 
 /***/ }),
 
-/***/ 1730:
+/***/ 9709:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.run = run;
+const core = __importStar(__nccwpck_require__(7484));
+const config_1 = __nccwpck_require__(7799);
+const github_1 = __nccwpck_require__(6246);
+const evalforge_1 = __nccwpck_require__(280);
+const paths_1 = __nccwpck_require__(6621);
+const skill_changes_1 = __nccwpck_require__(9336);
+const comment_1 = __nccwpck_require__(3116);
+async function run() {
+    const config = (0, config_1.getConfig)();
+    const octokit = (0, github_1.getOctokit)(config.githubToken);
+    core.info(`Skill eval — PR #${config.prNumber}`);
+    const allFiles = await (0, github_1.getChangedFiles)(octokit, config);
+    const { yamlFiles, mdFiles } = (0, paths_1.categorizeChanges)(allFiles);
+    if (yamlFiles.length === 0 && mdFiles.length === 0) {
+        core.info('No relevant changes — skipping');
+        return;
+    }
+    core.info(`Changed YAML files: ${yamlFiles.map(f => f.filename).join(', ') || 'none'}`);
+    core.info(`Changed MD files: ${mdFiles.map(f => f.filename).join(', ') || 'none'}`);
+    const entries = await (0, skill_changes_1.collectSkillChanges)(octokit, config.owner, config.repo, yamlFiles, mdFiles, config.baseSha, process.cwd());
+    const allTags = [...new Set(entries.flatMap(e => e.tags ?? []))];
+    if (allTags.length === 0) {
+        core.info('No tags collected — skipping eval');
+        return;
+    }
+    core.info(`Affected entries: ${entries.length}, tags: ${allTags.join(', ')}`);
+    const evalforge = new evalforge_1.EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
+    const availableTags = new Set(await evalforge.getTags(config.projectId));
+    const errors = [];
+    const seen = new Set();
+    for (const entry of entries) {
+        const key = `${entry.yamlPath}::${entry.title}`;
+        if (seen.has(key))
+            continue;
+        seen.add(key);
+        if (!entry.tags?.length) {
+            errors.push({ entryTitle: entry.title, message: 'missing tags (required when docsEntry is present)' });
+        }
+        let resolved;
+        try {
+            resolved = (0, paths_1.resolveEntryPath)(entry.yamlPath, entry.file, process.cwd());
+        }
+        catch {
+            errors.push({ entryTitle: entry.title, message: `invalid file path: ${entry.file}` });
+            continue;
+        }
+        if (!(0, paths_1.fileExistsInWorkspace)(resolved)) {
+            errors.push({ entryTitle: entry.title, message: `file not found: ${resolved}` });
+        }
+        for (const tag of entry.tags ?? []) {
+            if (!availableTags.has(tag)) {
+                errors.push({ entryTitle: entry.title, message: `unknown tag "${tag}"` });
+            }
+        }
+    }
+    if (errors.length > 0) {
+        await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatValidationErrors)(errors));
+        core.setFailed(`Skill validation failed (${errors.length} error${errors.length === 1 ? '' : 's'}) — see PR comment`);
+        return;
+    }
+    core.info('Validation passed — eval run not yet implemented');
+}
+
+
+/***/ }),
+
+/***/ 9407:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
 "use strict";
@@ -34076,54 +34182,227 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 const core = __importStar(__nccwpck_require__(7484));
-const github = __importStar(__nccwpck_require__(3228));
-const paths_1 = __nccwpck_require__(6621);
-const skill_changes_1 = __nccwpck_require__(9336);
-async function run() {
-    try {
-        const token = core.getInput('github-token', { required: true });
-        core.setSecret(token);
-        const ctx = github.context;
-        if (!ctx.payload.pull_request) {
-            core.info('Not a pull request — skipping');
-            return;
-        }
-        const pr = ctx.payload.pull_request;
-        const prNumber = pr.number;
-        const baseSha = pr.base.sha;
-        const { owner, repo } = ctx.repo;
-        core.info(`Skill eval — PR #${prNumber}`);
-        const octokit = github.getOctokit(token);
-        const allFiles = await octokit.paginate(octokit.rest.pulls.listFiles, {
-            owner, repo, pull_number: prNumber, per_page: 100,
-        });
-        const files = allFiles.map(f => ({
-            filename: f.filename,
-            status: f.status,
-            previousFilename: f.previous_filename,
-        }));
-        const { yamlFiles, mdFiles } = (0, paths_1.categorizeChanges)(files);
-        if (yamlFiles.length === 0 && mdFiles.length === 0) {
-            core.info('No relevant changes — skipping');
-            return;
-        }
-        core.info(`Changed YAML files: ${yamlFiles.map(f => f.filename).join(', ') || 'none'}`);
-        core.info(`Changed MD files: ${mdFiles.map(f => f.filename).join(', ') || 'none'}`);
-        const entries = await (0, skill_changes_1.collectSkillChanges)(octokit, owner, repo, yamlFiles, mdFiles, baseSha, process.cwd());
-        const allTags = [...new Set(entries.flatMap(e => e.tags ?? []))];
-        if (allTags.length === 0) {
-            core.info('No tags collected — skipping eval');
-            return;
-        }
-        core.info(`Affected entries: ${entries.length}`);
-        core.info(`Tags to evaluate: ${allTags.join(', ')}`);
-        core.info('Skill eval complete — validation not yet implemented');
+async function main() {
+    const mode = core.getInput('mode') || 'eval';
+    if (mode === 'cleanup') {
+        core.info('Cleanup mode — not yet implemented');
+        return;
     }
-    catch (error) {
-        core.setFailed(error instanceof Error ? error.message : 'Unknown error');
+    const { run } = await Promise.resolve().then(() => __importStar(__nccwpck_require__(9709)));
+    await run();
+}
+main().catch(err => core.setFailed(err instanceof Error ? err.message : String(err)));
+
+
+/***/ }),
+
+/***/ 3116:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.COMMENT_MARKER = void 0;
+exports.formatValidationErrors = formatValidationErrors;
+exports.COMMENT_MARKER = '<!-- skill-eval-action -->';
+function formatValidationErrors(errors) {
+    const lines = errors.map(e => `- **${e.entryTitle}**: ${e.message}`).join('\n');
+    return [exports.COMMENT_MARKER, '## ❌ Skill validation failed', '', lines].join('\n');
+}
+
+
+/***/ }),
+
+/***/ 7799:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.getConfig = getConfig;
+const core = __importStar(__nccwpck_require__(7484));
+const github = __importStar(__nccwpck_require__(3228));
+function getConfig() {
+    const githubToken = core.getInput('github-token', { required: true });
+    core.setSecret(githubToken);
+    const appSecret = core.getInput('evalforge-app-secret', { required: true });
+    core.setSecret(appSecret);
+    const pr = github.context.payload.pull_request;
+    if (!pr)
+        throw new Error('No pull_request payload — action must be triggered by a pull_request event');
+    return {
+        githubToken,
+        evalforgeUrl: core.getInput('evalforge-url', { required: true }),
+        projectId: core.getInput('evalforge-project-id', { required: true }),
+        appId: core.getInput('evalforge-app-id', { required: true }),
+        appSecret,
+        prNumber: pr.number,
+        baseSha: pr.base.sha,
+        owner: github.context.repo.owner,
+        repo: github.context.repo.repo,
+    };
+}
+
+
+/***/ }),
+
+/***/ 280:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.EvalForgeClient = void 0;
+class EvalForgeClient {
+    baseUrl;
+    headers;
+    constructor(baseUrl, appId, appSecret) {
+        this.baseUrl = baseUrl;
+        this.headers = {
+            'Content-Type': 'application/json',
+            'x-app-id': appId,
+            'x-app-secret': appSecret,
+        };
+    }
+    async request(method, path, body) {
+        const res = await fetch(`${this.baseUrl}${path}`, {
+            method,
+            headers: this.headers,
+            body: body !== undefined ? JSON.stringify(body) : undefined,
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw Object.assign(new Error(`EvalForge ${method} ${path} → ${res.status}: ${err.error ?? ''}`), { status: res.status });
+        }
+        return res.json();
+    }
+    async getTags(projectId) {
+        return this.request('GET', `/projects/${projectId}/tags`);
     }
 }
-run();
+exports.EvalForgeClient = EvalForgeClient;
+
+
+/***/ }),
+
+/***/ 6246:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.getOctokit = getOctokit;
+exports.getChangedFiles = getChangedFiles;
+exports.upsertComment = upsertComment;
+const github = __importStar(__nccwpck_require__(3228));
+const comment_1 = __nccwpck_require__(3116);
+function getOctokit(token) {
+    return github.getOctokit(token);
+}
+async function getChangedFiles(octokit, config) {
+    const files = await octokit.paginate(octokit.rest.pulls.listFiles, {
+        owner: config.owner,
+        repo: config.repo,
+        pull_number: config.prNumber,
+        per_page: 100,
+    });
+    return files.map(f => ({
+        filename: f.filename,
+        status: f.status,
+        previousFilename: f.previous_filename,
+    }));
+}
+async function upsertComment(octokit, config, body) {
+    const comments = await octokit.paginate(octokit.rest.issues.listComments, {
+        owner: config.owner,
+        repo: config.repo,
+        issue_number: config.prNumber,
+        per_page: 100,
+    });
+    const existing = comments.find(c => c.body?.includes(comment_1.COMMENT_MARKER));
+    if (existing) {
+        await octokit.rest.issues.updateComment({
+            owner: config.owner,
+            repo: config.repo,
+            comment_id: existing.id,
+            body,
+        });
+    }
+    else {
+        await octokit.rest.issues.createComment({
+            owner: config.owner,
+            repo: config.repo,
+            issue_number: config.prNumber,
+            body,
+        });
+    }
+}
 
 
 /***/ }),
@@ -43373,7 +43652,7 @@ exports.PathScurry = process.platform === 'win32' ? PathScurryWin32
 /******/ 	// startup
 /******/ 	// Load entry module and return exports
 /******/ 	// This entry module is referenced by other modules so it can't be inlined
-/******/ 	var __webpack_exports__ = __nccwpck_require__(1730);
+/******/ 	var __webpack_exports__ = __nccwpck_require__(9407);
 /******/ 	module.exports = __webpack_exports__;
 /******/ 	
 /******/ })()
