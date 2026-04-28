@@ -1,9 +1,6 @@
 name: Skill Eval CI
 
 on:
-  push:
-    paths:
-      - '.github/actions/skill-eval/**'
   pull_request:
     paths:
       - '.github/actions/skill-eval/**'
