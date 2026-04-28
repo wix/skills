@@ -1,3 +1,4 @@
+import * as core from '@actions/core';
 import * as github from '@actions/github';
 import type { Config } from './config';
 import type { ChangedFile } from './paths';
@@ -24,26 +25,30 @@ export async function getChangedFiles(octokit: Octokit, config: Config): Promise
 }
 
 export async function upsertComment(octokit: Octokit, config: Config, body: string): Promise<void> {
-  const comments = await octokit.paginate(octokit.rest.issues.listComments, {
-    owner: config.owner,
-    repo: config.repo,
-    issue_number: config.prNumber,
-    per_page: 100,
-  });
-  const existing = comments.find(c => c.body?.includes(COMMENT_MARKER));
-  if (existing) {
-    await octokit.rest.issues.updateComment({
-      owner: config.owner,
-      repo: config.repo,
-      comment_id: existing.id,
-      body,
-    });
-  } else {
-    await octokit.rest.issues.createComment({
+  try {
+    const comments = await octokit.paginate(octokit.rest.issues.listComments, {
       owner: config.owner,
       repo: config.repo,
       issue_number: config.prNumber,
-      body,
+      per_page: 100,
     });
+    const existing = comments.find(c => c.body?.includes(COMMENT_MARKER));
+    if (existing) {
+      await octokit.rest.issues.updateComment({
+        owner: config.owner,
+        repo: config.repo,
+        comment_id: existing.id,
+        body,
+      });
+    } else {
+      await octokit.rest.issues.createComment({
+        owner: config.owner,
+        repo: config.repo,
+        issue_number: config.prNumber,
+        body,
+      });
+    }
+  } catch (e) {
+    core.warning(`Failed to post PR comment: ${e instanceof Error ? e.message : String(e)}`);
   }
 }

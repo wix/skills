@@ -34,7 +34,8 @@ export class EvalForgeClient {
     }) as Promise<T>;
   }
 
-  async getTags(projectId: string): Promise<string[]> {
-    return this.request<string[]>('GET', `/projects/${projectId}/tags`);
+  async getTags(projectId: string): Promise<Set<string>> {
+    const tags = await this.request<string[]>('GET', `/projects/${projectId}/tags`);
+    return new Set(tags);
   }
 }

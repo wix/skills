@@ -14,9 +14,9 @@ function mockFetch(status: number, body: unknown) {
 describe('EvalForgeClient', () => {
   beforeEach(() => vi.restoreAllMocks());
 
-  it('getTags returns string array', async () => {
+  it('getTags returns a Set of tags', async () => {
     mockFetch(200, ['stores', 'calendar']);
-    expect(await CLIENT.getTags('proj-1')).toEqual(['stores', 'calendar']);
+    expect(await CLIENT.getTags('proj-1')).toEqual(new Set(['stores', 'calendar']));
   });
 
   it('throws with status on non-200', async () => {
