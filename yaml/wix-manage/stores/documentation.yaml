@@ -3,7 +3,7 @@ apiDoc:
 
   docs:
     - file: ../../../skills/wix-manage/references/stores/query-products.md
-      title: Query Products
+      title: Query Products (Catalog V3)
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
       tags: [stores]
     - file: ../../../skills/wix-manage/references/stores/query-products-catalog-v1.md
@@ -27,7 +27,7 @@ apiDoc:
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
       tags: [stores]
     - file: ../../../skills/wix-manage/references/stores/update-product-pre-order.md
-      title: Update Product Pre-Order
+      title: Update Product Pre-Order (Catalog V3)
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
       tags: [stores]
     - file: ../../../skills/wix-manage/references/stores/setup-online-store-catalog-v3.md
@@ -39,6 +39,6 @@ apiDoc:
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
       tags: [stores]
     - file: ../../../skills/wix-manage/references/stores/create-product-from-image.md
-      title: Create Product from Image
+      title: Create Product from Image (Catalog V1)
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
       tags: [stores, media]

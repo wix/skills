@@ -1,9 +1,9 @@
 ---
-name: Query Products
+name: "Query Products (Catalog V3)"
 description: Query, search, and list products from a Wix Store using Catalog V3 Query Products and Search Products endpoints. Explains when to use each endpoint, correct fields enum values, filtering, sorting, and paging.
 ---
 
-# RECIPE: Business Recipe – Query Products from a Wix Store
+# RECIPE: Business Recipe – Query Products from a Wix Store (Catalog V3)
 
 Retrieve products from a Wix store using the Catalog V3 Query Products and Search Products APIs.
 
