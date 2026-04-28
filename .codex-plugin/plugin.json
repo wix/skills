@@ -1,0 +1,46 @@
+{
+  "name": "wix",
+  "version": "1.0.0",
+  "description": "Build, manage, and deploy Wix sites and apps. Includes CLI development skills and Wix MCP server for site management, eCommerce, CMS, dashboard extensions, and more.",
+  "author": {
+    "name": "Wix",
+    "url": "https://dev.wix.com"
+  },
+  "homepage": "https://dev.wix.com/docs/wix-cli/guides/development/about-wix-skills",
+  "repository": "https://github.com/wix/skills",
+  "license": "MIT",
+  "keywords": [
+    "wix",
+    "wix-cli",
+    "wix-mcp",
+    "ecommerce",
+    "cms",
+    "wix-apps"
+  ],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Wix",
+    "shortDescription": "Build Wix apps and manage Wix sites from Codex",
+    "longDescription": "Build, manage, and deploy Wix sites and apps with Codex. Includes Wix CLI development skills for dashboard extensions, backend APIs, site widgets, service plugins, data collections, and recipes for Wix business solution management.",
+    "developerName": "Wix",
+    "category": "Engineering",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://dev.wix.com/",
+    "privacyPolicyURL": "https://www.wix.com/about/privacy",
+    "termsOfServiceURL": "https://www.wix.com/about/terms-of-use",
+    "defaultPrompt": [
+      "Build a Wix app extension with WDS UI",
+      "Build a Wix app with a shipping fee service plugin",
+      "Set up Wix Stores products, pickup, or CMS data"
+    ],
+    "brandColor": "#116DFF",
+    "composerIcon": "./assets/logo.svg",
+    "logo": "./assets/logo.svg",
+    "screenshots": []
+  }
+}
