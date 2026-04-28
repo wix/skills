@@ -99,7 +99,7 @@ The `fields` array requests **additional** fields beyond the defaults. It does *
 | `updatedDate` | `$eq`, `$ne`, `$exists`, `$in`, `$lt`, `$lte`, `$gt`, `$gte` | Yes |
 | `visible` | `$eq`, `$ne`, `$exists`, `$in` | Yes |
 
-Do **not** filter Query Products by `name`; the API rejects it with `Field 'name' is not declared as filterable`. For name-based lookup, use [Search Products](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/search-products), or query a bounded page and match by `product.name` in your own code.
+For name-based lookup, use [Search Products](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/search-products), or query a bounded page and match by `product.name` in your own code.
 
 **Query with filter and sort:**
 

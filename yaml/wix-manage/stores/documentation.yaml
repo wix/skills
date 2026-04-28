@@ -23,7 +23,7 @@ apiDoc:
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
       tags: [stores]
     - file: ../../../skills/wix-manage/references/stores/update-product-with-options.md
-      title: Update Product with Options
+      title: Update Product with Options (Catalog V3)
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
       tags: [stores]
     - file: ../../../skills/wix-manage/references/stores/update-product-pre-order.md

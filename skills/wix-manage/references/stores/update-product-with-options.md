@@ -1,5 +1,5 @@
 ---
-name: "Update Product with Options"
+name: "Update Product with Options (Catalog V3)"
 description: Modifies existing products and variants using Catalog V3 Products API. Covers adding/removing option choices, variant-specific pricing, and revision-based updates to prevent conflicts.
 ---
 **RECIPE**: Business Recipe - Updating a Wix Store Product (V3)
@@ -35,7 +35,7 @@ curl -X POST "https://www.wixapis.com/stores/v3/products/search" \
   }'
 ```
 
-Do **not** use Query Products with `query.filter.name`; Catalog V3 Query Products does not support filtering by `name` and rejects it with `Field 'name' is not declared as filterable`.
+For product-name lookup, prefer Search Products before retrieving the product by ID.
 
 ## STEP 1: Get the current product to obtain its revision
 1. Before updating the product, you need to retrieve its current revision to prevent conflicts using [Get Product](https://dev.wix.com/docs/rest/business-solutions/stores/catalog-v3/products-v3/get-product):
