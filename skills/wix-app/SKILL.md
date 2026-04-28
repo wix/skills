@@ -23,7 +23,7 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
 - [ ] **Step 4:** Implemented all extensions
   - [ ] All files created
   - [ ] Extension(s) registered in extensions.ts
-  - [ ] Invoked `wds-docs` skill FIRST when using @wix/design-system (for correct imports, especially icons)
+  - [ ] Invoked `wix-design-system` skill FIRST when using @wix/design-system (for correct imports, especially icons)
 - [ ] **Step 5:** Ran validation (see [Validation](#validation))
   - [ ] Dependencies installed
   - [ ] TypeScript compiled
@@ -227,7 +227,7 @@ Use the Extension Types Reference Table and decision content above. State extens
 
 Follow the extension reference file to implement each extension. Key rules:
 
-- ⚠️ MANDATORY when using WDS: Invoke the `wds-docs` skill FIRST to get correct imports (icons are from `@wix/wix-ui-icons-common`, NOT `@wix/design-system/icons`).
+- ⚠️ MANDATORY when using WDS: Invoke the `wix-design-system` skill FIRST to get correct imports (icons are from `@wix/wix-ui-icons-common`, NOT `@wix/design-system/icons`).
 - ⚠️ MANDATORY when using Data Collections: Use EXACT collection ID from `idSuffix` (case-sensitive). Example: If `idSuffix` is "product-recommendations", use `<app-namespace>/product-recommendations` NOT `productRecommendations`.
 - Register all extensions in `src/extensions.ts` (see [Extension Registration](#extension-registration)).
 
@@ -328,7 +328,7 @@ Stop and report errors if any step fails. Check `.wix/debug.log` on failures.
 - **Skip discovery** when all required APIs are in reference files
 - **maxResults: 5** for all MCP SDK searches
 - **ReadFullDocsArticle** only when search results need more context
-- **Invoke wds-docs** first when using WDS (prevents import errors)
+- **Invoke wix-design-system** first when using WDS (prevents import errors)
 
 ## Documentation
 
