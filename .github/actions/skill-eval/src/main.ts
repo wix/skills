@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { glob } from 'glob';
 import { parseDocumentationYaml, diffYamlEntries, deduplicateAffectedEntries, filterSkillEntries } from './utils/yaml';
 import { categorizeChanges, resolveEntryPath } from './utils/paths';
-import type { AffectedEntry } from './utils/yaml';
+import type { AffectedEntry, DocEntry } from './utils/yaml';
 
 async function run(): Promise<void> {
   try {
@@ -56,7 +56,7 @@ async function run(): Promise<void> {
       for (const yamlFile of yamlFiles) {
         const oldRaw = oldContents[yamlFile.previousFilename ?? yamlFile.filename];
         const newRaw = readFileSync(yamlFile.filename, 'utf-8');
-        let oldEntries, newEntries;
+        let oldEntries: DocEntry[], newEntries: DocEntry[];
         try {
           oldEntries = oldRaw ? parseDocumentationYaml(oldRaw) : [];
           newEntries = parseDocumentationYaml(newRaw);
