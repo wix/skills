@@ -220,3 +220,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 
 ### [Update Product with Options](references/stores/update-product-with-options.md)
 **Technical:** Modifies existing products and variants using Catalog V3 Products API. Covers adding/removing option choices, variant-specific pricing, and revision-based updates to prevent conflicts.
+---
+
+## Test Store
+
+### [Change Site Currency](https://dev.wix.com/docs/rest/stores/skills/change-site-currency)
+**Technical:** Change the currency used by a Wix site for displaying prices and processing payments.
