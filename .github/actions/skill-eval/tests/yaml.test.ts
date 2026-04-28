@@ -150,7 +150,7 @@ describe('deduplicateAffectedEntries', () => {
     expect(deduplicateAffectedEntries(entries)).toHaveLength(2);
   });
 
-  it('removes duplicate when same entry added by both Path A and Path B', () => {
+  it('removes duplicate when same entry collected via yaml-change and md-change paths', () => {
     const entries = [
       affectedEntry('Query Products', 'yaml/wix-manage/stores/documentation.yaml', ['stores']),
       affectedEntry('Query Products', 'yaml/wix-manage/stores/documentation.yaml', ['stores']),
@@ -174,10 +174,10 @@ describe('deduplicateAffectedEntries', () => {
     expect(result[0].tags).toEqual(['stores', 'extra']);
   });
 
-  it('merges tags when Path A has partial tags and Path B has full tags', () => {
-    const pathA = affectedEntry('Query Products', 'yaml/wix-manage/stores/documentation.yaml', ['stores-v3']);
-    const pathB = affectedEntry('Query Products', 'yaml/wix-manage/stores/documentation.yaml', ['stores', 'stores-v2', 'stores-v3']);
-    const result = deduplicateAffectedEntries([pathA, pathB]);
+  it('merges tags when yaml-change and md-change collect the same entry with different tag subsets', () => {
+    const fromYaml = affectedEntry('Query Products', 'yaml/wix-manage/stores/documentation.yaml', ['stores-v3']);
+    const fromMd = affectedEntry('Query Products', 'yaml/wix-manage/stores/documentation.yaml', ['stores', 'stores-v2', 'stores-v3']);
+    const result = deduplicateAffectedEntries([fromYaml, fromMd]);
     expect(result).toHaveLength(1);
     expect(result[0].tags).toHaveLength(3);
     expect(result[0].tags).toEqual(expect.arrayContaining(['stores', 'stores-v2', 'stores-v3']));

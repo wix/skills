@@ -34117,7 +34117,7 @@ async function run() {
         }
         core.info(`Affected entries: ${entries.length}`);
         core.info(`Tags to evaluate: ${allTags.join(', ')}`);
-        core.info('Phase 0 complete — Phase 1 (validation) not yet implemented');
+        core.info('Skill eval complete — validation not yet implemented');
     }
     catch (error) {
         core.setFailed(error instanceof Error ? error.message : 'Unknown error');
