@@ -7,6 +7,8 @@ export type DocEntry = {
   tags?: string[];
 };
 
+export type SkillEntry = DocEntry & { docsEntry: string };
+
 type RawEntry = { title?: unknown; file?: unknown; docsEntry?: unknown; tags?: unknown };
 type RawDoc = { apiDoc?: { docs?: RawEntry[] } };
 
@@ -20,6 +22,10 @@ export function parseDocumentationYaml(raw: string): DocEntry[] {
     docsEntry: e.docsEntry !== undefined ? String(e.docsEntry) : undefined,
     tags: Array.isArray(e.tags) ? e.tags.map(String) : undefined,
   }));
+}
+
+export function filterSkillEntries(entries: DocEntry[]): SkillEntry[] {
+  return entries.filter((e): e is SkillEntry => !!e.docsEntry);
 }
 
 export type AffectedEntry<T extends DocEntry = DocEntry> = T & { yamlPath: string };
@@ -37,18 +43,14 @@ export function deduplicateAffectedEntries<T extends DocEntry>(entries: Affected
 export function diffYamlEntries(
   oldEntries: DocEntry[],
   newEntries: DocEntry[]
-): DocEntry[] {
-  const affectedEntries: DocEntry[] = [];
+): SkillEntry[] {
+  const affectedEntries: SkillEntry[] = [];
   const oldByTitle = new Map(oldEntries.map(e => [e.title, e]));
 
-  for (const next of newEntries) {
-    // Entries without docsEntry are not skills — skip regardless of prior state
-    if (!next.docsEntry) continue;
-
+  for (const next of filterSkillEntries(newEntries)) {
     const old = oldByTitle.get(next.title);
 
     if (!old || !old.docsEntry) {
-      // New skill entry (or docsEntry was just added)
       affectedEntries.push(next);
       continue;
     }

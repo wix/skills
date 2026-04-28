@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseDocumentationYaml, diffYamlEntries } from '../src/utils/yaml';
+import { parseDocumentationYaml, diffYamlEntries, filterSkillEntries } from '../src/utils/yaml';
 
 const BASE_YAML = `
 apiDoc:
@@ -39,6 +39,34 @@ describe('parseDocumentationYaml', () => {
 
   it('throws on malformed YAML', () => {
     expect(() => parseDocumentationYaml('{ invalid: yaml: content')).toThrow();
+  });
+});
+
+describe('filterSkillEntries', () => {
+  it('keeps entries with docsEntry', () => {
+    const entries = parseDocumentationYaml(BASE_YAML);
+    expect(filterSkillEntries(entries)).toHaveLength(1);
+  });
+
+  it('removes entries without docsEntry', () => {
+    const raw = `apiDoc:\n  docs:\n    - title: "T"\n      file: "f.md"\n      tags: [t1]`;
+    expect(filterSkillEntries(parseDocumentationYaml(raw))).toHaveLength(0);
+  });
+
+  it('handles mixed entries', () => {
+    const raw = `
+apiDoc:
+  docs:
+    - title: "Skill"
+      file: "skill.md"
+      docsEntry: "https://dev.wix.com/docs/skill"
+      tags: [t1]
+    - title: "Non-skill"
+      file: "other.md"
+`;
+    const result = filterSkillEntries(parseDocumentationYaml(raw));
+    expect(result).toHaveLength(1);
+    expect(result[0].title).toBe('Skill');
   });
 });
 

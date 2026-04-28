@@ -2,7 +2,7 @@ import * as core from '@actions/core';
 import * as github from '@actions/github';
 import { readFileSync } from 'node:fs';
 import { glob } from 'glob';
-import { parseDocumentationYaml, diffYamlEntries, deduplicateAffectedEntries } from './utils/yaml';
+import { parseDocumentationYaml, diffYamlEntries, deduplicateAffectedEntries, filterSkillEntries } from './utils/yaml';
 import { categorizeChanges, resolveEntryPath } from './utils/paths';
 import type { AffectedEntry } from './utils/yaml';
 
@@ -83,7 +83,7 @@ async function run(): Promise<void> {
           core.warning(`Failed to parse ${yamlPath}: ${e instanceof Error ? e.message : String(e)}`);
           continue;
         }
-        for (const entry of entries) {
+        for (const entry of filterSkillEntries(entries)) {
           if (changedMdSet.has(resolveEntryPath(yamlPath, entry.file, process.cwd()))) {
             affectedEntries.push({ ...entry, yamlPath });
           }

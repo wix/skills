@@ -34147,7 +34147,7 @@ async function run() {
                     core.warning(`Failed to parse ${yamlPath}: ${e instanceof Error ? e.message : String(e)}`);
                     continue;
                 }
-                for (const entry of entries) {
+                for (const entry of (0, yaml_1.filterSkillEntries)(entries)) {
                     if (changedMdSet.has((0, paths_1.resolveEntryPath)(yamlPath, entry.file, process.cwd()))) {
                         affectedEntries.push({ ...entry, yamlPath });
                     }
@@ -34262,6 +34262,7 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.parseDocumentationYaml = parseDocumentationYaml;
+exports.filterSkillEntries = filterSkillEntries;
 exports.deduplicateAffectedEntries = deduplicateAffectedEntries;
 exports.diffYamlEntries = diffYamlEntries;
 const jsYaml = __importStar(__nccwpck_require__(4281));
@@ -34277,6 +34278,9 @@ function parseDocumentationYaml(raw) {
         tags: Array.isArray(e.tags) ? e.tags.map(String) : undefined,
     }));
 }
+function filterSkillEntries(entries) {
+    return entries.filter((e) => !!e.docsEntry);
+}
 function deduplicateAffectedEntries(entries) {
     const seen = new Set();
     return entries.filter(e => {
@@ -34290,13 +34294,9 @@ function deduplicateAffectedEntries(entries) {
 function diffYamlEntries(oldEntries, newEntries) {
     const affectedEntries = [];
     const oldByTitle = new Map(oldEntries.map(e => [e.title, e]));
-    for (const next of newEntries) {
-        // Entries without docsEntry are not skills — skip regardless of prior state
-        if (!next.docsEntry)
-            continue;
+    for (const next of filterSkillEntries(newEntries)) {
         const old = oldByTitle.get(next.title);
         if (!old || !old.docsEntry) {
-            // New skill entry (or docsEntry was just added)
             affectedEntries.push(next);
             continue;
         }
