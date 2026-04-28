@@ -55,7 +55,7 @@ npx skills add wix/skills -g
 | Skill                                    | Purpose                          | When to Use                                                                                                                         |
 | ---------------------------------------- | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
 | [wix-app](skills/wix-app/SKILL.md)       | Build Wix app extensions         | Adding any extension — dashboard pages, site widgets, backend events, service plugins, embedded scripts, data collections, and more |
-| [wds-docs](skills/wds-docs/SKILL.md)     | Wix Design System reference      | Looking up WDS component props, examples, icons                                                                                     |
+| [wix-design-system](skills/wix-design-system/SKILL.md) | Wix Design System reference      | Looking up WDS component props, examples, icons                                                                                     |
 | [wix-manage](skills/wix-manage/SKILL.md) | Wix business solution management | REST API operations for configuring and managing Wix business solutions                                                             |
 
 ## Supported Agents

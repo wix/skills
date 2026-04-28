@@ -117,7 +117,7 @@ action: {
 
 ### The `iconKey` Field
 
-The `iconKey` must be a valid icon name from the Wix Design System icon set (`@wix/wix-ui-icons-common`). Use the `wds-docs` skill to look up available icon names.
+The `iconKey` must be a valid icon name from the Wix Design System icon set (`@wix/wix-ui-icons-common`). Use the `wix-design-system` skill to look up available icon names.
 
 ## Extension Registration
 
