@@ -34179,17 +34179,21 @@ async function run() {
 async function batchFetchFilesAtRef(octokit, owner, repo, paths, ref) {
     if (paths.length === 0)
         return {};
-    for (const p of paths) {
-        if (!/^[\w/.\-]+$/.test(p)) {
-            throw new Error(`Unsafe file path for GraphQL: ${p}`);
+    const entries = await Promise.all(paths.map(async (path) => {
+        try {
+            const { data } = await octokit.rest.repos.getContent({ owner, repo, path, ref });
+            if (!Array.isArray(data) && data.type === 'file' && data.encoding === 'base64') {
+                return [path, Buffer.from(data.content, 'base64').toString('utf-8')];
+            }
+            return [path, null];
         }
-    }
-    const fields = paths
-        .map((p, i) => `f${i}: object(expression: "${ref}:${p}") { ... on Blob { text } }`)
-        .join('\n');
-    const query = `query($owner: String!, $repo: String!) { repository(owner: $owner, name: $repo) { ${fields} } }`;
-    const result = await octokit.graphql(query, { owner, repo });
-    return Object.fromEntries(paths.map((p, i) => [p, result.repository[`f${i}`]?.text ?? null]));
+        catch (e) {
+            if (e.status === 404)
+                return [path, null];
+            throw e;
+        }
+    }));
+    return Object.fromEntries(entries);
 }
 run();
 
