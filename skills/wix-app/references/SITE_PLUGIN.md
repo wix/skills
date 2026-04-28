@@ -33,7 +33,7 @@ Custom element component that renders in the slot using native HTMLElement:
 
 Settings panel shown in the Wix Editor sidebar:
 
-- Uses Wix Design System (`@wix/design-system`) components — see the `wds-docs` skill for component reference
+- Uses Wix Design System (`@wix/design-system`) components — see the `wix-design-system` skill for component reference
 - Manages plugin properties via `@wix/editor` widget API
 - Loads initial values with `widget.getProp('kebab-case-name')`
 - Updates properties with `widget.setProp('kebab-case-name', value)`
@@ -275,7 +275,7 @@ public/
 | --- | --- |
 | Complete Examples | [EXAMPLES.md](site-plugin/EXAMPLES.md) |
 | Slots (App IDs, multiple placements, finding slots) | [SLOTS.md](site-plugin/SLOTS.md) |
-| WDS Components | the `wds-docs` skill |
+| WDS Components | the `wix-design-system` skill |
 
 ## Available Slots
 

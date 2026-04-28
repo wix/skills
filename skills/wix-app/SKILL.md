@@ -1,12 +1,12 @@
 ---
 name: wix-app
-description: "Build Wix CLI app extensions — dashboard pages, modals, plugins, menu plugins, site widgets, site components, site plugins, embedded scripts, backend APIs, backend events, service plugins, data collections. Use when building ANY feature or extension for a Wix CLI app. Triggers on: add, build, create, implement, help me, dashboard, widget, plugin, backend, API, event, collection, embedded script, service plugin, site component, checkout, shipping, tax, discount, SPI, CMS, schema, tracking, popup, admin panel, menu item, modal, validate, test, verify, register extension."
+description: "Build Wix CLI app extensions — dashboard pages, modals, plugins, menu plugins, custom element widgets, Editor React components, site plugins, embedded scripts, backend APIs, backend events, service plugins, data collections. Use when building ANY feature or extension for a Wix CLI app. Triggers on: add, build, create, implement, help me, dashboard, widget, plugin, backend, API, event, collection, embedded script, service plugin, Editor React component, checkout, shipping, tax, discount, SPI, CMS, schema, tracking, popup, admin panel, menu item, modal, validate, test, verify, register extension."
 compatibility: Requires Wix CLI development environment.
 ---
 
 # Wix App Builder
 
-Helps build extensions for Wix CLI applications. Covers all extension types: dashboard pages, modals, plugins, menu plugins, site widgets, site components, site plugins, embedded scripts, backend APIs, events, service plugins, and data collections.
+Helps build extensions for Wix CLI applications. Covers all extension types: dashboard pages, modals, plugins, menu plugins, custom element widgets, Editor React components, site plugins, embedded scripts, backend APIs, events, service plugins, and data collections.
 
 ## ⚠️ MANDATORY WORKFLOW CHECKLIST ⚠️
 
@@ -23,7 +23,7 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
 - [ ] **Step 4:** Implemented all extensions
   - [ ] All files created
   - [ ] Extension(s) registered in extensions.ts
-  - [ ] Invoked `wds-docs` skill FIRST when using @wix/design-system (for correct imports, especially icons)
+  - [ ] Invoked `wix-design-system` skill FIRST when using @wix/design-system (for correct imports, especially icons)
 - [ ] **Step 5:** Ran validation (see [Validation](#validation))
   - [ ] Dependencies installed
   - [ ] TypeScript compiled
@@ -52,7 +52,7 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
    - Admin interface → Dashboard Extensions
    - Backend logic → Backend Extensions
    - Data storage / CMS collections → Data Collection
-   - Site component → Site Extensions (app projects only)
+   - Editor React component → Site Extensions (app projects only)
 
 2. **Who will see it?**
    - Admin users only → Dashboard Extensions
@@ -63,8 +63,8 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
    - Dashboard sidebar/page → Dashboard Page or Modal
    - Existing Wix app dashboard (widget) → Dashboard Plugin
    - Existing Wix app dashboard (menu item) → Dashboard Menu Plugin
-   - Anywhere on site → Site Widget
-   - Anywhere on site (with editor manifest) → Site Component
+   - Anywhere on site → custom element widget
+   - Anywhere on site (with editor manifest) → Editor React component
    - Wix business solution page → Site Plugin
    - During business flow → Service Plugin
    - After event occurs → Event Extension
@@ -73,7 +73,7 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
 
 - **Admin:** Need full-page UI? → Dashboard Page. Need popup/form? → Dashboard Modal. Extending Wix app dashboard with a visual widget? → Dashboard Plugin. Adding a menu item to a Wix app dashboard's more-actions or bulk-actions menu? → Dashboard Menu Plugin. **Modal constraint:** Dashboard Pages cannot use `<Modal />`; use a separate Dashboard Modal extension and `dashboard.openModal()`.
 - **Backend:** During business flow (checkout/shipping/tax)? → Service Plugin. After event (webhooks/sync)? → Event Extension. Custom HTTP endpoints? → Backend Endpoints. Need CMS collections for app data? → Data Collection.
-- **Site:** User places anywhere (standalone)? → Site Widget. React component with editor manifest (styling, content, elements)? → Site Component. Fixed slot on Wix app page? → Site Plugin. Scripts/analytics only? → Embedded Script.
+- **Site:** User places anywhere (standalone)? → custom element widget. Editor React component with editor manifest (styling, content, elements)? → Editor React component. Fixed slot on Wix app page? → Site Plugin. Scripts/analytics only? → Embedded Script.
 
 ---
 
@@ -89,8 +89,8 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
 | Event Extension       | Backend   | Server-side | React to events                       | [BACKEND_EVENT.md](references/BACKEND_EVENT.md)         |
 | Backend Endpoints     | Backend   | API         | Custom HTTP handlers                  | [BACKEND_API.md](references/BACKEND_API.md)             |
 | Data Collection       | Backend   | Data        | CMS collections for app data          | [DATA_COLLECTION.md](references/DATA_COLLECTION.md)     |
-| Site Component        | Site      | Public      | React components with editor manifests| [SITE_COMPONENT.md](references/SITE_COMPONENT.md)       |
-| Site Widget           | Site      | Public      | Standalone widgets                    | [SITE_WIDGET.md](references/SITE_WIDGET.md)             |
+| Editor React component | Site     | Public      | Editor React components with editor manifests | [EDITOR_REACT_COMPONENT.md](references/EDITOR_REACT_COMPONENT.md) |
+| Custom element widget | Site      | Public      | Standalone widgets                    | [CUSTOM_ELEMENT_WIDGET.md](references/CUSTOM_ELEMENT_WIDGET.md) |
 | Site Plugin           | Site      | Public      | Extend Wix business solutions         | [SITE_PLUGIN.md](references/SITE_PLUGIN.md)             |
 | Embedded Script       | Site      | Public      | Inject scripts/analytics              | [EMBEDDED_SCRIPT.md](references/EMBEDDED_SCRIPT.md)     |
 **Key constraints:**
@@ -98,9 +98,9 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
 
 ## Extension Comparison
 
-| Site Widget vs Site Component vs Site Plugin | Dashboard Page vs Modal | Service Plugin vs Event |
-| -------------------------------------------- | ----------------------- | ----------------------- |
-| Widget: standalone interactive component. Component: React with editor manifest (CSS/data/elements). Plugin: fixed slot in Wix app page. | Page: full page. Modal: overlay; use for popups. | Service: during flow. Event: after event. |
+| Custom element widget vs Editor React component vs Site Plugin | Dashboard Page vs Modal | Service Plugin vs Event |
+| -------------------------------------------------------------- | ----------------------- | ----------------------- |
+| Custom element widget: standalone interactive component. Editor React component: React with editor manifest (CSS/data/elements). Plugin: fixed slot in Wix app page. | Page: full page. Modal: overlay; use for popups. | Service: during flow. Event: after event. |
 
 ---
 
@@ -173,7 +173,7 @@ This is non-negotiable — V1 and V3 are NOT backwards compatible.
 Only ask for configuration values when **absolutely necessary** for the implementation to proceed. If a value can be configured later or added as a manual step, don't block on it.
 
 **Code Identifier Requirement:**
-When creating a Site Component, you need the user's Code Identifier. If not provided, read [APP_IDENTIFIERS.md](references/APP_IDENTIFIERS.md) and give the user the instructions to obtain it.
+When creating an Editor React component, you need the user's Code Identifier. If not provided, read [APP_IDENTIFIERS.md](references/APP_IDENTIFIERS.md) and give the user the instructions to obtain it.
 
 If unclear on approach (placement, visibility, configuration, integration), ask clarifying questions. If the answer could change the extension type, wait for the response before proceeding. Otherwise, proceed with the best-fit extension type.
 
@@ -189,7 +189,7 @@ Use the Extension Types Reference Table and decision content above. State extens
 2. **Identify required APIs** from user requirements
 3. **Check relevant API reference files:**
    - Backend events → `references/backend-event/COMMON-EVENTS.md`
-   - Wix Data → `references/dashboard-page/WIX_DATA.md`
+   - Wix Data → `references/data-collection/WIX_DATA.md`
    - Dashboard SDK → `references/dashboard-page/DASHBOARD_API.md`
    - Service Plugin SPIs → `references/service-plugin/*.md`
 4. **Verify the specific method/event exists** in references
@@ -227,7 +227,7 @@ Use the Extension Types Reference Table and decision content above. State extens
 
 Follow the extension reference file to implement each extension. Key rules:
 
-- ⚠️ MANDATORY when using WDS: Invoke the `wds-docs` skill FIRST to get correct imports (icons are from `@wix/wix-ui-icons-common`, NOT `@wix/design-system/icons`).
+- ⚠️ MANDATORY when using WDS: Invoke the `wix-design-system` skill FIRST to get correct imports (icons are from `@wix/wix-ui-icons-common`, NOT `@wix/design-system/icons`).
 - ⚠️ MANDATORY when using Data Collections: Use EXACT collection ID from `idSuffix` (case-sensitive). Example: If `idSuffix` is "product-recommendations", use `<app-namespace>/product-recommendations` NOT `productRecommendations`.
 - Register all extensions in `src/extensions.ts` (see [Extension Registration](#extension-registration)).
 
@@ -328,7 +328,7 @@ Stop and report errors if any step fails. Check `.wix/debug.log` on failures.
 - **Skip discovery** when all required APIs are in reference files
 - **maxResults: 5** for all MCP SDK searches
 - **ReadFullDocsArticle** only when search results need more context
-- **Invoke wds-docs** first when using WDS (prevents import errors)
+- **Invoke wix-design-system** first when using WDS (prevents import errors)
 
 ## Documentation
 

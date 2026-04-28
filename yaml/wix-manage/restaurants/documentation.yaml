@@ -1,0 +1,8 @@
+apiDoc:
+  title: Wix Restaurants Management Recipes
+
+  docs:
+    - file: ../../../skills/wix-manage/references/restaurants/wix-restaurants-setup.md
+      title: Wix Restaurants Setup
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/restaurants
+      tags: [restaurants]

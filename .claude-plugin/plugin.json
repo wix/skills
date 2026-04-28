@@ -11,8 +11,9 @@
   "license": "MIT",
   "keywords": ["wix", "wix-cli", "wix-mcp", "ecommerce", "cms", "wix-apps"],
   "skills": [
-    "./skills/wds-docs",
-    "./skills/wix-app"
+    "./skills/wix-design-system",
+    "./skills/wix-app",
+    "./skills/wix-manage"
   ],
   "mcpServers": "./.mcp.json"
 }

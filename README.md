@@ -9,12 +9,18 @@ Agent skills for building Wix applications with AI coding assistants.
 ## Installation
 
 ### Claude Code Plugin
+
 In [Claude Code](https://docs.anthropic.com/en/docs/claude-code), run:
 
 ```bash
 /plugin marketplace add wix/skills
 /plugin install wix@wix
 ```
+
+### Codex Plugin
+
+This repository includes a Codex plugin manifest at `.codex-plugin/plugin.json`.
+Add this repository as a local/source plugin in Codex to load the Wix skills and Wix MCP server.
 
 ### VS Code Plugin
 
@@ -46,10 +52,11 @@ npx skills add wix/skills -g
 
 ## Available Skills
 
-| Skill | Purpose | When to Use |
-|-------|---------|-------------|
-| [wix-app](skills/wix-app/SKILL.md) | Build Wix app extensions | Adding any extension — dashboard pages, site widgets, backend events, service plugins, embedded scripts, data collections, and more |
-| [wds-docs](skills/wds-docs/SKILL.md) | Wix Design System reference | Looking up WDS component props, examples, icons |
+| Skill                                    | Purpose                          | When to Use                                                                                                                         |
+| ---------------------------------------- | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| [wix-app](skills/wix-app/SKILL.md)       | Build Wix app extensions         | Adding any extension — dashboard pages, site widgets, backend events, service plugins, embedded scripts, data collections, and more |
+| [wix-design-system](skills/wix-design-system/SKILL.md) | Wix Design System reference      | Looking up WDS component props, examples, icons                                                                                     |
+| [wix-manage](skills/wix-manage/SKILL.md) | Wix business solution management | REST API operations for configuring and managing Wix business solutions                                                             |
 
 ## Supported Agents
 
