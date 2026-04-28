@@ -4,7 +4,7 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
-      - 'skills/wix-manage/**'
+      - 'skills/wix-manage/references/**'
       - 'yaml/wix-manage/**'
 
 jobs:
