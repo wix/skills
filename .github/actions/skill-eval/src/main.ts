@@ -1,78 +1,127 @@
-import * as core from "@actions/core";
-import * as github from "@actions/github";
+import * as core from '@actions/core';
+import * as github from '@actions/github';
+import { readFileSync } from 'node:fs';
+import { glob } from 'glob';
+import { parseDocumentationYaml, diffYamlEntries } from './utils/yaml';
+import { categorizeChanges, resolveEntryPath } from './utils/paths';
+import type { DocEntry } from './utils/yaml';
+
+type AffectedEntry = DocEntry & { yamlPath: string };
 
 async function run(): Promise<void> {
   try {
-    const token = core.getInput("github-token", { required: true });
-    const baseUrl = core.getInput("evalforge-url", { required: true });
-    const projectId = core.getInput("evalforge-project-id", { required: true });
-    const appId = core.getInput("evalforge-app-id", { required: true });
-    const appSecret = core.getInput("evalforge-app-secret", { required: true });
-
+    const token = core.getInput('github-token', { required: true });
     core.setSecret(token);
-    core.setSecret(appId);
-    core.setSecret(appSecret);
 
-    const octokit = github.getOctokit(token);
-    const context = github.context;
-
-    if (!context.payload.pull_request) {
-      core.info("Not a pull request — skipping");
+    const ctx = github.context;
+    if (!ctx.payload.pull_request) {
+      core.info('Not a pull request — skipping');
       return;
     }
 
-    // Enforce HTTPS to prevent credentials from being sent in plaintext
-    if (!baseUrl.startsWith("https://")) {
-      throw new Error(`evalforge-url must use HTTPS, got: ${baseUrl}`);
+    const pr = ctx.payload.pull_request;
+    const prNumber = pr.number as number;
+    const baseSha = (pr.base as { sha: string }).sha;
+    const { owner, repo } = ctx.repo;
+
+    core.info(`Skill eval — PR #${prNumber}`);
+
+    const octokit = github.getOctokit(token);
+
+    const allFiles = await octokit.paginate(octokit.rest.pulls.listFiles, {
+      owner, repo, pull_number: prNumber, per_page: 100,
+    });
+    const files = allFiles.map(f => ({ filename: f.filename, status: f.status }));
+
+    const { yamlFiles, mdFiles } = categorizeChanges(files);
+
+    if (yamlFiles.length === 0 && mdFiles.length === 0) {
+      core.info('No relevant changes — skipping');
+      return;
     }
 
-    const comment = await checkConnection(baseUrl, projectId, appId, appSecret);
+    core.info(`Changed YAML files: ${yamlFiles.map(f => f.filename).join(', ') || 'none'}`);
+    core.info(`Changed MD files: ${mdFiles.map(f => f.filename).join(', ') || 'none'}`);
 
-    const { owner, repo } = context.repo;
-    const prNumber = context.payload.pull_request.number;
-    await octokit.rest.issues.createComment({
-      owner,
-      repo,
-      issue_number: prNumber,
-      body: comment,
-    });
+    const affectedEntries: AffectedEntry[] = [];
+    const phaseZeroErrors: Array<{ entryTitle: string; message: string }> = [];
 
-    core.info(comment);
+    // ── Path A: changed YAML files ───────────────────────────────────────────
+    if (yamlFiles.length > 0) {
+      const oldContents = await batchFetchFilesAtRef(octokit, owner, repo, yamlFiles.map(f => f.filename), baseSha);
+
+      for (const yamlFile of yamlFiles) {
+        const oldRaw = oldContents[yamlFile.filename];
+        const newRaw = readFileSync(yamlFile.filename, 'utf-8');
+        const { affectedEntries: entries, errors } = diffYamlEntries(
+          oldRaw ? parseDocumentationYaml(oldRaw) : [],
+          parseDocumentationYaml(newRaw)
+        );
+        affectedEntries.push(...entries.map(e => ({ ...e, yamlPath: yamlFile.filename })));
+        phaseZeroErrors.push(...errors);
+      }
+    }
+
+    // ── Path B: changed MD files — reverse lookup ────────────────────────────
+    if (mdFiles.length > 0) {
+      const changedMdSet = new Set(mdFiles.map(f => f.filename));
+      const allYamlPaths = await glob('yaml/wix-manage/**/documentation.yaml');
+
+      for (const yamlPath of allYamlPaths) {
+        const entries = parseDocumentationYaml(readFileSync(yamlPath, 'utf-8'));
+        for (const entry of entries) {
+          if (changedMdSet.has(resolveEntryPath(yamlPath, entry.file))) {
+            affectedEntries.push({ ...entry, yamlPath });
+          }
+        }
+      }
+    }
+
+    const allTags = [...new Set(affectedEntries.flatMap(e => e.tags ?? []))];
+
+    if (phaseZeroErrors.length > 0) {
+      core.warning(`Phase 0 issues:\n${phaseZeroErrors.map(e => `  - ${e.entryTitle}: ${e.message}`).join('\n')}`);
+    }
+
+    if (allTags.length === 0) {
+      core.info('No tags collected — skipping eval');
+      return;
+    }
+
+    core.info(`Affected entries: ${affectedEntries.length}`);
+    core.info(`Tags to evaluate: ${allTags.join(', ')}`);
+    core.info('Phase 0 complete — Phase 1 (validation) not yet implemented');
   } catch (error) {
-    core.error(error instanceof Error ? error.message : "Unknown error");
+    core.setFailed(error instanceof Error ? error.message : 'Unknown error');
   }
 }
 
-async function checkConnection(
-  url: string,
-  projectId: string,
-  appId: string,
-  appSecret: string,
-): Promise<string> {
-  try {
-    // Strip trailing slash if present
-    const baseUrl = url.replace(/\/$/, "");
+async function batchFetchFilesAtRef(
+  octokit: ReturnType<typeof github.getOctokit>,
+  owner: string,
+  repo: string,
+  paths: string[],
+  ref: string
+): Promise<Record<string, string | null>> {
+  if (paths.length === 0) return {};
 
-    const res = await fetch(`${baseUrl}/projects/${projectId}`, {
-      signal: AbortSignal.timeout(10_000),
-      headers: {
-        "x-app-id": appId,
-        "x-app-secret": appSecret,
-      },
-    });
-
-    if (res.ok) {
-      const data = (await res.json()) as { name?: string };
-      return `**EvalForge connection OK** — project \`${data.name ?? projectId}\``;
+  for (const p of paths) {
+    if (p.includes('"') || p.includes('\\')) {
+      throw new Error(`Unsafe file path for GraphQL: ${p}`);
     }
-
-    const text = await res.text();
-    core.debug(`EvalForge error body: ${text}`);
-    const snippet = text.length > 300 ? `${text.slice(0, 300)}…` : text;
-    return `**EvalForge error** — ${res.status}: ${snippet}`;
-  } catch (err) {
-    return `**EvalForge unreachable** — ${err instanceof Error ? err.message : String(err)}`;
   }
+
+  const fields = paths
+    .map((p, i) => `f${i}: object(expression: "${ref}:${p}") { ... on Blob { text } }`)
+    .join('\n');
+
+  const query = `query { repository(owner: "${owner}", name: "${repo}") { ${fields} } }`;
+
+  const result = await octokit.graphql<{
+    repository: Record<string, { text: string | null } | null>;
+  }>(query);
+
+  return Object.fromEntries(paths.map((p, i) => [p, result.repository[`f${i}`]?.text ?? null]));
 }
 
 run();

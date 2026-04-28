@@ -1,23 +1,9 @@
 name: 'Skill Eval'
-description: 'Phase 1: Verifies EvalForge connectivity and authentication'
+description: 'Validates skill YAML entries and runs EvalForge evaluations on PRs'
 inputs:
   github-token:
     description: 'GitHub token for PR comments'
     required: true
-  evalforge-url:
-    description: 'EvalForge server base URL'
-    required: true
-  evalforge-project-id:
-    description: 'EvalForge project ID'
-    required: true
-  evalforge-app-id:
-    description: 'EvalForge app ID for authentication'
-    required: true
-  evalforge-app-secret:
-    description: 'EvalForge app secret for authentication'
-    required: true
 runs:
   using: 'node20'
-  main: 'lib/main.js'
-  # Note: lib/ is gitignored. The workflow installs dependencies and builds
-  # before invoking this action.
+  main: 'dist/index.js'

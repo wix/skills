@@ -2,30 +2,20 @@ name: Skill Eval
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened, edited] # TODO: remove 'edited' — only needed to re-trigger after adding #test-eval-action to an existing PR title
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - 'skills/wix-manage/**'
+      - 'yaml/wix-manage/**'
 
 jobs:
   skill-eval:
-    runs-on: ubuntu-latest # TODO: switch back to self-hosted once runner is configured (needed to reach internal EvalForge endpoint)
-    if: contains(github.event.pull_request.title, '#test-eval-action')
+    runs-on: ubuntu-latest
+    if: ${{ !github.event.pull_request.draft }}
     permissions:
       contents: read
       pull-requests: write
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4
-        with:
-          node-version: "20"
-      - name: Install dependencies
-        run: node .yarn/releases/yarn-*.cjs install --immutable
-        working-directory: .github/actions/skill-eval
-      - name: Build
-        run: node .yarn/releases/yarn-*.cjs build
-        working-directory: .github/actions/skill-eval
       - uses: ./.github/actions/skill-eval
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          evalforge-url: ${{ vars.EVALFORGE_URL }}
-          evalforge-project-id: ${{ vars.AUTO_SKILLS_PIPELINE_PROJECT_ID }}
-          evalforge-app-id: ${{ secrets.AUTO_SKILLS_PIPELINE_APP_ID }}
-          evalforge-app-secret: ${{ secrets.AUTO_SKILLS_PIPELINE_APP_SECRET }}
