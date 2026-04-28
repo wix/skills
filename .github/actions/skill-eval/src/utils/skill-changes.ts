@@ -3,8 +3,8 @@ import * as github from '@actions/github';
 import { readFileSync } from 'node:fs';
 import { glob } from 'glob';
 import { parseDocumentationYaml, diffYamlEntries, filterSkillEntries, deduplicateAffectedEntries } from './yaml';
-import { resolveEntryPath } from './paths';
-import type { AffectedEntry, DocEntry } from './yaml';
+import { resolveEntryPath, fileExistsInWorkspace } from './paths';
+import type { AffectedEntry, DocEntry, ValidationError } from './yaml';
 import type { ChangedFile } from './paths';
 
 type Octokit = ReturnType<typeof github.getOctokit>;
@@ -17,12 +17,14 @@ export async function collectSkillChanges(
   mdFiles: ChangedFile[],
   baseSha: string,
   workspaceRoot: string
-): Promise<AffectedEntry[]> {
-  const [yamlEntries, mdEntries] = await Promise.all([
+): Promise<{ entries: AffectedEntry[], errors: ValidationError[] }> {
+  const [yamlResult, mdEntries] = await Promise.all([
     collectFromYamlChanges(octokit, owner, repo, yamlFiles, baseSha),
     collectFromMdChanges(mdFiles, workspaceRoot),
   ]);
-  return deduplicateAffectedEntries([...yamlEntries, ...mdEntries]);
+  const entries = deduplicateAffectedEntries([...yamlResult.entries, ...mdEntries]);
+  const entryErrors = validateEntries(entries, workspaceRoot);
+  return { entries, errors: [...yamlResult.errors, ...entryErrors] };
 }
 
 async function collectFromYamlChanges(
@@ -31,10 +33,11 @@ async function collectFromYamlChanges(
   repo: string,
   yamlFiles: ChangedFile[],
   baseSha: string
-): Promise<AffectedEntry[]> {
+): Promise<{ entries: AffectedEntry[], errors: ValidationError[] }> {
   const oldPaths = yamlFiles.map(f => f.previousFilename ?? f.filename);
   const oldContents = await fetchFilesAtRef(octokit, owner, repo, oldPaths, baseSha);
-  const result: AffectedEntry[] = [];
+  const entries: AffectedEntry[] = [];
+  const errors: ValidationError[] = [];
 
   for (const yamlFile of yamlFiles) {
     const oldRaw = oldContents[yamlFile.previousFilename ?? yamlFile.filename];
@@ -44,14 +47,37 @@ async function collectFromYamlChanges(
       oldEntries = oldRaw ? parseDocumentationYaml(oldRaw) : [];
       newEntries = parseDocumentationYaml(newRaw);
     } catch (e) {
-      core.warning(`Failed to parse ${yamlFile.filename}: ${e instanceof Error ? e.message : String(e)}`);
+      errors.push({ entryTitle: yamlFile.filename, message: `failed to parse: ${e instanceof Error ? e.message : String(e)}` });
       continue;
     }
-    const entries = diffYamlEntries(oldEntries, newEntries);
-    result.push(...entries.map(e => ({ ...e, yamlPath: yamlFile.filename })));
+    const diffed = diffYamlEntries(oldEntries, newEntries);
+    entries.push(...diffed.map(e => ({ ...e, yamlPath: yamlFile.filename })));
   }
 
-  return result;
+  return { entries, errors };
+}
+
+function validateEntry(entry: AffectedEntry, workspaceRoot: string): ValidationError[] {
+  const errors: ValidationError[] = [];
+  const location = `(${entry.yamlPath})`;
+  if (!entry.tags?.length) {
+    errors.push({ entryTitle: entry.title, message: `missing tags — at least one tag is required ${location}` });
+  }
+  let resolved: string;
+  try {
+    resolved = resolveEntryPath(entry.yamlPath, entry.file, workspaceRoot);
+  } catch {
+    errors.push({ entryTitle: entry.title, message: `invalid file path: ${entry.file} ${location}` });
+    return errors;
+  }
+  if (!fileExistsInWorkspace(resolved)) {
+    errors.push({ entryTitle: entry.title, message: `file not found: ${resolved} ${location}` });
+  }
+  return errors;
+}
+
+function validateEntries(entries: AffectedEntry[], workspaceRoot: string): ValidationError[] {
+  return entries.flatMap(entry => validateEntry(entry, workspaceRoot));
 }
 
 async function collectFromMdChanges(

@@ -2,7 +2,7 @@ import * as core from '@actions/core';
 import { getConfig } from './utils/config';
 import { getOctokit, getChangedFiles, upsertComment } from './utils/github';
 import { EvalForgeClient } from './utils/evalforge';
-import { categorizeChanges, resolveEntryPath, fileExistsInWorkspace } from './utils/paths';
+import { categorizeChanges } from './utils/paths';
 import { collectSkillChanges } from './utils/skill-changes';
 import { formatValidationErrors, formatValidationPassed } from './utils/comment';
 import type { ValidationError } from './utils/yaml';
@@ -24,45 +24,24 @@ export async function run(): Promise<void> {
   core.info(`Changed YAML files: ${yamlFiles.map(f => f.filename).join(', ') || 'none'}`);
   core.info(`Changed MD files: ${mdFiles.map(f => f.filename).join(', ') || 'none'}`);
 
-  const entries = await collectSkillChanges(
+  const { entries, errors } = await collectSkillChanges(
     octokit, config.owner, config.repo, yamlFiles, mdFiles, config.baseSha, process.cwd(),
   );
 
-  if (entries.length === 0) {
+  if (entries.length === 0 && errors.length === 0) {
     core.info('No affected skill entries — skipping eval');
     return;
   }
 
   core.info(`Affected entries: ${entries.length}`);
 
-  // Local checks — no API calls
-  const localErrors: ValidationError[] = [];
-
-  for (const entry of entries) {
-    if (!entry.tags?.length) {
-      localErrors.push({ entryTitle: entry.title, message: 'missing tags — at least one tag is required' });
-    }
-
-    let resolved: string;
+  if (errors.length > 0) {
     try {
-      resolved = resolveEntryPath(entry.yamlPath, entry.file, process.cwd());
-    } catch {
-      localErrors.push({ entryTitle: entry.title, message: `invalid file path: ${entry.file}` });
-      continue;
-    }
-
-    if (!fileExistsInWorkspace(resolved)) {
-      localErrors.push({ entryTitle: entry.title, message: `file not found: ${resolved}` });
-    }
-  }
-
-  if (localErrors.length > 0) {
-    try {
-      await upsertComment(octokit, config, formatValidationErrors(localErrors));
+      await upsertComment(octokit, config, formatValidationErrors(errors));
     } catch (e) {
       core.warning(`Failed to post PR comment: ${e instanceof Error ? e.message : String(e)}`);
     }
-    core.setFailed(`Skill validation failed (${localErrors.length} error${localErrors.length === 1 ? '' : 's'}) — see PR comment`);
+    core.setFailed(`Skill validation failed (${errors.length} error${errors.length === 1 ? '' : 's'}) — see PR comment`);
     return;
   }
 
