@@ -2,14 +2,30 @@ import * as core from '@actions/core';
 import * as github from '@actions/github';
 import { readFileSync } from 'node:fs';
 import { glob } from 'glob';
-import { parseDocumentationYaml, diffYamlEntries, filterSkillEntries } from './yaml';
+import { parseDocumentationYaml, diffYamlEntries, filterSkillEntries, deduplicateAffectedEntries } from './yaml';
 import { resolveEntryPath } from './paths';
 import type { AffectedEntry, DocEntry } from './yaml';
 import type { ChangedFile } from './paths';
 
 type Octokit = ReturnType<typeof github.getOctokit>;
 
-export async function collectFromYamlChanges(
+export async function collectSkillChanges(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  yamlFiles: ChangedFile[],
+  mdFiles: ChangedFile[],
+  baseSha: string,
+  workspaceRoot: string
+): Promise<AffectedEntry[]> {
+  const [yamlEntries, mdEntries] = await Promise.all([
+    yamlFiles.length > 0 ? collectFromYamlChanges(octokit, owner, repo, yamlFiles, baseSha) : [],
+    mdFiles.length > 0 ? collectFromMdChanges(mdFiles, workspaceRoot) : [],
+  ]);
+  return deduplicateAffectedEntries([...yamlEntries, ...mdEntries]);
+}
+
+async function collectFromYamlChanges(
   octokit: Octokit,
   owner: string,
   repo: string,
@@ -38,7 +54,7 @@ export async function collectFromYamlChanges(
   return result;
 }
 
-export async function collectFromMdChanges(
+async function collectFromMdChanges(
   mdFiles: ChangedFile[],
   workspaceRoot: string
 ): Promise<AffectedEntry[]> {

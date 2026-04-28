@@ -1,8 +1,7 @@
 import * as core from '@actions/core';
 import * as github from '@actions/github';
 import { categorizeChanges } from './utils/paths';
-import { deduplicateAffectedEntries } from './utils/yaml';
-import { collectFromYamlChanges, collectFromMdChanges } from './utils/skill-changes';
+import { collectSkillChanges } from './utils/skill-changes';
 
 async function run(): Promise<void> {
   try {
@@ -43,20 +42,15 @@ async function run(): Promise<void> {
     core.info(`Changed YAML files: ${yamlFiles.map(f => f.filename).join(', ') || 'none'}`);
     core.info(`Changed MD files: ${mdFiles.map(f => f.filename).join(', ') || 'none'}`);
 
-    const [yamlEntries, mdEntries] = await Promise.all([
-      yamlFiles.length > 0 ? collectFromYamlChanges(octokit, owner, repo, yamlFiles, baseSha) : [],
-      mdFiles.length > 0 ? collectFromMdChanges(mdFiles, process.cwd()) : [],
-    ]);
-
-    const dedupedEntries = deduplicateAffectedEntries([...yamlEntries, ...mdEntries]);
-    const allTags = [...new Set(dedupedEntries.flatMap(e => e.tags ?? []))];
+    const entries = await collectSkillChanges(octokit, owner, repo, yamlFiles, mdFiles, baseSha, process.cwd());
+    const allTags = [...new Set(entries.flatMap(e => e.tags ?? []))];
 
     if (allTags.length === 0) {
       core.info('No tags collected — skipping eval');
       return;
     }
 
-    core.info(`Affected entries: ${dedupedEntries.length}`);
+    core.info(`Affected entries: ${entries.length}`);
     core.info(`Tags to evaluate: ${allTags.join(', ')}`);
     core.info('Phase 0 complete — Phase 1 (validation) not yet implemented');
   } catch (error) {

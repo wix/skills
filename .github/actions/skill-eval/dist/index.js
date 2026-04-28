@@ -34078,7 +34078,6 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 const core = __importStar(__nccwpck_require__(7484));
 const github = __importStar(__nccwpck_require__(3228));
 const paths_1 = __nccwpck_require__(6621);
-const yaml_1 = __nccwpck_require__(1206);
 const skill_changes_1 = __nccwpck_require__(9336);
 async function run() {
     try {
@@ -34110,17 +34109,13 @@ async function run() {
         }
         core.info(`Changed YAML files: ${yamlFiles.map(f => f.filename).join(', ') || 'none'}`);
         core.info(`Changed MD files: ${mdFiles.map(f => f.filename).join(', ') || 'none'}`);
-        const [yamlEntries, mdEntries] = await Promise.all([
-            yamlFiles.length > 0 ? (0, skill_changes_1.collectFromYamlChanges)(octokit, owner, repo, yamlFiles, baseSha) : [],
-            mdFiles.length > 0 ? (0, skill_changes_1.collectFromMdChanges)(mdFiles, process.cwd()) : [],
-        ]);
-        const dedupedEntries = (0, yaml_1.deduplicateAffectedEntries)([...yamlEntries, ...mdEntries]);
-        const allTags = [...new Set(dedupedEntries.flatMap(e => e.tags ?? []))];
+        const entries = await (0, skill_changes_1.collectSkillChanges)(octokit, owner, repo, yamlFiles, mdFiles, baseSha, process.cwd());
+        const allTags = [...new Set(entries.flatMap(e => e.tags ?? []))];
         if (allTags.length === 0) {
             core.info('No tags collected — skipping eval');
             return;
         }
-        core.info(`Affected entries: ${dedupedEntries.length}`);
+        core.info(`Affected entries: ${entries.length}`);
         core.info(`Tags to evaluate: ${allTags.join(', ')}`);
         core.info('Phase 0 complete — Phase 1 (validation) not yet implemented');
     }
@@ -34206,13 +34201,19 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.collectFromYamlChanges = collectFromYamlChanges;
-exports.collectFromMdChanges = collectFromMdChanges;
+exports.collectSkillChanges = collectSkillChanges;
 const core = __importStar(__nccwpck_require__(7484));
 const node_fs_1 = __nccwpck_require__(3024);
 const glob_1 = __nccwpck_require__(1363);
 const yaml_1 = __nccwpck_require__(1206);
 const paths_1 = __nccwpck_require__(6621);
+async function collectSkillChanges(octokit, owner, repo, yamlFiles, mdFiles, baseSha, workspaceRoot) {
+    const [yamlEntries, mdEntries] = await Promise.all([
+        yamlFiles.length > 0 ? collectFromYamlChanges(octokit, owner, repo, yamlFiles, baseSha) : [],
+        mdFiles.length > 0 ? collectFromMdChanges(mdFiles, workspaceRoot) : [],
+    ]);
+    return (0, yaml_1.deduplicateAffectedEntries)([...yamlEntries, ...mdEntries]);
+}
 async function collectFromYamlChanges(octokit, owner, repo, yamlFiles, baseSha) {
     const oldPaths = yamlFiles.map(f => f.previousFilename ?? f.filename);
     const oldContents = await fetchFilesAtRef(octokit, owner, repo, oldPaths, baseSha);
