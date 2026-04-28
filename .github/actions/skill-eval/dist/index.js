@@ -34077,10 +34077,9 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 const core = __importStar(__nccwpck_require__(7484));
 const github = __importStar(__nccwpck_require__(3228));
-const node_fs_1 = __nccwpck_require__(3024);
-const glob_1 = __nccwpck_require__(1363);
-const yaml_1 = __nccwpck_require__(1206);
 const paths_1 = __nccwpck_require__(6621);
+const yaml_1 = __nccwpck_require__(1206);
+const skill_changes_1 = __nccwpck_require__(9336);
 async function run() {
     try {
         const token = core.getInput('github-token', { required: true });
@@ -34111,58 +34110,11 @@ async function run() {
         }
         core.info(`Changed YAML files: ${yamlFiles.map(f => f.filename).join(', ') || 'none'}`);
         core.info(`Changed MD files: ${mdFiles.map(f => f.filename).join(', ') || 'none'}`);
-        const affectedEntries = [];
-        // ── Path A: changed YAML files ───────────────────────────────────────────
-        if (yamlFiles.length > 0) {
-            // For renamed files, fetch old content using the previous filename (it didn't exist at baseSha under the new name)
-            const oldPaths = yamlFiles.map(f => f.previousFilename ?? f.filename);
-            const oldContents = await batchFetchFilesAtRef(octokit, owner, repo, oldPaths, baseSha);
-            for (const yamlFile of yamlFiles) {
-                const oldRaw = oldContents[yamlFile.previousFilename ?? yamlFile.filename];
-                const newRaw = (0, node_fs_1.readFileSync)(yamlFile.filename, 'utf-8');
-                let oldEntries, newEntries;
-                try {
-                    oldEntries = oldRaw ? (0, yaml_1.parseDocumentationYaml)(oldRaw) : [];
-                    newEntries = (0, yaml_1.parseDocumentationYaml)(newRaw);
-                }
-                catch (e) {
-                    core.warning(`Failed to parse ${yamlFile.filename}: ${e instanceof Error ? e.message : String(e)}`);
-                    continue;
-                }
-                const entries = (0, yaml_1.diffYamlEntries)(oldEntries, newEntries);
-                affectedEntries.push(...entries.map(e => ({ ...e, yamlPath: yamlFile.filename })));
-            }
-        }
-        // ── Path B: changed MD files — reverse lookup ────────────────────────────
-        if (mdFiles.length > 0) {
-            // Include previous filenames for renamed MDs — YAML entries still point to the old path
-            const changedMdSet = new Set(mdFiles.flatMap(f => f.previousFilename ? [f.filename, f.previousFilename] : [f.filename]));
-            const allYamlPaths = await (0, glob_1.glob)('yaml/wix-manage/**/documentation.yaml');
-            for (const yamlPath of allYamlPaths) {
-                let entries;
-                try {
-                    entries = (0, yaml_1.parseDocumentationYaml)((0, node_fs_1.readFileSync)(yamlPath, 'utf-8'));
-                }
-                catch (e) {
-                    core.warning(`Failed to parse ${yamlPath}: ${e instanceof Error ? e.message : String(e)}`);
-                    continue;
-                }
-                for (const entry of (0, yaml_1.filterSkillEntries)(entries)) {
-                    let resolvedPath;
-                    try {
-                        resolvedPath = (0, paths_1.resolveEntryPath)(yamlPath, entry.file, process.cwd());
-                    }
-                    catch (e) {
-                        core.warning(`Skipping invalid entry path "${entry.file}" in ${yamlPath}: ${e instanceof Error ? e.message : String(e)}`);
-                        continue;
-                    }
-                    if (changedMdSet.has(resolvedPath)) {
-                        affectedEntries.push({ ...entry, yamlPath });
-                    }
-                }
-            }
-        }
-        const dedupedEntries = (0, yaml_1.deduplicateAffectedEntries)(affectedEntries);
+        const [yamlEntries, mdEntries] = await Promise.all([
+            yamlFiles.length > 0 ? (0, skill_changes_1.collectFromYamlChanges)(octokit, owner, repo, yamlFiles, baseSha) : [],
+            mdFiles.length > 0 ? (0, skill_changes_1.collectFromMdChanges)(mdFiles, process.cwd()) : [],
+        ]);
+        const dedupedEntries = (0, yaml_1.deduplicateAffectedEntries)([...yamlEntries, ...mdEntries]);
         const allTags = [...new Set(dedupedEntries.flatMap(e => e.tags ?? []))];
         if (allTags.length === 0) {
             core.info('No tags collected — skipping eval');
@@ -34175,25 +34127,6 @@ async function run() {
     catch (error) {
         core.setFailed(error instanceof Error ? error.message : 'Unknown error');
     }
-}
-async function batchFetchFilesAtRef(octokit, owner, repo, paths, ref) {
-    if (paths.length === 0)
-        return {};
-    const entries = await Promise.all(paths.map(async (path) => {
-        try {
-            const { data } = await octokit.rest.repos.getContent({ owner, repo, path, ref });
-            if (!Array.isArray(data) && data.type === 'file' && data.encoding === 'base64') {
-                return [path, Buffer.from(data.content, 'base64').toString('utf-8')];
-            }
-            return [path, null];
-        }
-        catch (e) {
-            if (e.status === 404)
-                return [path, null];
-            throw e;
-        }
-    }));
-    return Object.fromEntries(entries);
 }
 run();
 
@@ -34229,6 +34162,125 @@ function resolveEntryPath(yamlPath, entryFile, workspaceRoot) {
 }
 function fileExistsInWorkspace(repoRootPath) {
     return (0, node_fs_1.existsSync)((0, node_path_1.resolve)(process.cwd(), repoRootPath));
+}
+
+
+/***/ }),
+
+/***/ 9336:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.collectFromYamlChanges = collectFromYamlChanges;
+exports.collectFromMdChanges = collectFromMdChanges;
+const core = __importStar(__nccwpck_require__(7484));
+const node_fs_1 = __nccwpck_require__(3024);
+const glob_1 = __nccwpck_require__(1363);
+const yaml_1 = __nccwpck_require__(1206);
+const paths_1 = __nccwpck_require__(6621);
+async function collectFromYamlChanges(octokit, owner, repo, yamlFiles, baseSha) {
+    const oldPaths = yamlFiles.map(f => f.previousFilename ?? f.filename);
+    const oldContents = await fetchFilesAtRef(octokit, owner, repo, oldPaths, baseSha);
+    const result = [];
+    for (const yamlFile of yamlFiles) {
+        const oldRaw = oldContents[yamlFile.previousFilename ?? yamlFile.filename];
+        const newRaw = (0, node_fs_1.readFileSync)(yamlFile.filename, 'utf-8');
+        let oldEntries, newEntries;
+        try {
+            oldEntries = oldRaw ? (0, yaml_1.parseDocumentationYaml)(oldRaw) : [];
+            newEntries = (0, yaml_1.parseDocumentationYaml)(newRaw);
+        }
+        catch (e) {
+            core.warning(`Failed to parse ${yamlFile.filename}: ${e instanceof Error ? e.message : String(e)}`);
+            continue;
+        }
+        const entries = (0, yaml_1.diffYamlEntries)(oldEntries, newEntries);
+        result.push(...entries.map(e => ({ ...e, yamlPath: yamlFile.filename })));
+    }
+    return result;
+}
+async function collectFromMdChanges(mdFiles, workspaceRoot) {
+    const changedMdSet = new Set(mdFiles.flatMap(f => f.previousFilename ? [f.filename, f.previousFilename] : [f.filename]));
+    const allYamlPaths = await (0, glob_1.glob)('yaml/wix-manage/**/documentation.yaml');
+    const result = [];
+    for (const yamlPath of allYamlPaths) {
+        let entries;
+        try {
+            entries = (0, yaml_1.parseDocumentationYaml)((0, node_fs_1.readFileSync)(yamlPath, 'utf-8'));
+        }
+        catch (e) {
+            core.warning(`Failed to parse ${yamlPath}: ${e instanceof Error ? e.message : String(e)}`);
+            continue;
+        }
+        for (const entry of (0, yaml_1.filterSkillEntries)(entries)) {
+            let resolvedPath;
+            try {
+                resolvedPath = (0, paths_1.resolveEntryPath)(yamlPath, entry.file, workspaceRoot);
+            }
+            catch (e) {
+                core.warning(`Skipping invalid entry path "${entry.file}" in ${yamlPath}: ${e instanceof Error ? e.message : String(e)}`);
+                continue;
+            }
+            if (changedMdSet.has(resolvedPath)) {
+                result.push({ ...entry, yamlPath });
+            }
+        }
+    }
+    return result;
+}
+async function fetchFilesAtRef(octokit, owner, repo, paths, ref) {
+    if (paths.length === 0)
+        return {};
+    const entries = await Promise.all(paths.map(async (path) => {
+        try {
+            const { data } = await octokit.rest.repos.getContent({ owner, repo, path, ref });
+            if (!Array.isArray(data) && data.type === 'file' && data.encoding === 'base64') {
+                return [path, Buffer.from(data.content, 'base64').toString('utf-8')];
+            }
+            return [path, null];
+        }
+        catch (e) {
+            if (e.status === 404)
+                return [path, null];
+            throw e;
+        }
+    }));
+    return Object.fromEntries(entries);
 }
 
 
