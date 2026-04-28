@@ -57,10 +57,15 @@ async function run(): Promise<void> {
       for (const yamlFile of yamlFiles) {
         const oldRaw = oldContents[yamlFile.previousFilename ?? yamlFile.filename];
         const newRaw = readFileSync(yamlFile.filename, 'utf-8');
-        const { affectedEntries: entries, errors } = diffYamlEntries(
-          oldRaw ? parseDocumentationYaml(oldRaw) : [],
-          parseDocumentationYaml(newRaw)
-        );
+        let oldEntries, newEntries;
+        try {
+          oldEntries = oldRaw ? parseDocumentationYaml(oldRaw) : [];
+          newEntries = parseDocumentationYaml(newRaw);
+        } catch (e) {
+          core.warning(`Failed to parse ${yamlFile.filename}: ${e instanceof Error ? e.message : String(e)}`);
+          continue;
+        }
+        const { affectedEntries: entries, errors } = diffYamlEntries(oldEntries, newEntries);
         affectedEntries.push(...entries.map(e => ({ ...e, yamlPath: yamlFile.filename })));
         phaseZeroErrors.push(...errors);
       }
@@ -73,7 +78,13 @@ async function run(): Promise<void> {
       const allYamlPaths = await glob('yaml/wix-manage/**/documentation.yaml');
 
       for (const yamlPath of allYamlPaths) {
-        const entries = parseDocumentationYaml(readFileSync(yamlPath, 'utf-8'));
+        let entries;
+        try {
+          entries = parseDocumentationYaml(readFileSync(yamlPath, 'utf-8'));
+        } catch (e) {
+          core.warning(`Failed to parse ${yamlPath}: ${e instanceof Error ? e.message : String(e)}`);
+          continue;
+        }
         for (const entry of entries) {
           if (changedMdSet.has(resolveEntryPath(yamlPath, entry.file, process.cwd()))) {
             affectedEntries.push({ ...entry, yamlPath });

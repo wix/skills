@@ -34121,7 +34121,16 @@ async function run() {
             for (const yamlFile of yamlFiles) {
                 const oldRaw = oldContents[yamlFile.previousFilename ?? yamlFile.filename];
                 const newRaw = (0, node_fs_1.readFileSync)(yamlFile.filename, 'utf-8');
-                const { affectedEntries: entries, errors } = (0, yaml_1.diffYamlEntries)(oldRaw ? (0, yaml_1.parseDocumentationYaml)(oldRaw) : [], (0, yaml_1.parseDocumentationYaml)(newRaw));
+                let oldEntries, newEntries;
+                try {
+                    oldEntries = oldRaw ? (0, yaml_1.parseDocumentationYaml)(oldRaw) : [];
+                    newEntries = (0, yaml_1.parseDocumentationYaml)(newRaw);
+                }
+                catch (e) {
+                    core.warning(`Failed to parse ${yamlFile.filename}: ${e instanceof Error ? e.message : String(e)}`);
+                    continue;
+                }
+                const { affectedEntries: entries, errors } = (0, yaml_1.diffYamlEntries)(oldEntries, newEntries);
                 affectedEntries.push(...entries.map(e => ({ ...e, yamlPath: yamlFile.filename })));
                 phaseZeroErrors.push(...errors);
             }
@@ -34132,7 +34141,14 @@ async function run() {
             const changedMdSet = new Set(mdFiles.flatMap(f => f.previousFilename ? [f.filename, f.previousFilename] : [f.filename]));
             const allYamlPaths = await (0, glob_1.glob)('yaml/wix-manage/**/documentation.yaml');
             for (const yamlPath of allYamlPaths) {
-                const entries = (0, yaml_1.parseDocumentationYaml)((0, node_fs_1.readFileSync)(yamlPath, 'utf-8'));
+                let entries;
+                try {
+                    entries = (0, yaml_1.parseDocumentationYaml)((0, node_fs_1.readFileSync)(yamlPath, 'utf-8'));
+                }
+                catch (e) {
+                    core.warning(`Failed to parse ${yamlPath}: ${e instanceof Error ? e.message : String(e)}`);
+                    continue;
+                }
                 for (const entry of entries) {
                     if (changedMdSet.has((0, paths_1.resolveEntryPath)(yamlPath, entry.file, process.cwd()))) {
                         affectedEntries.push({ ...entry, yamlPath });

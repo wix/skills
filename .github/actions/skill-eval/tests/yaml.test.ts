@@ -36,6 +36,10 @@ describe('parseDocumentationYaml', () => {
     const raw = `apiDoc:\n  docs:\n    - title: "T"\n      file: "f.md"`;
     expect(parseDocumentationYaml(raw)[0].tags).toBeUndefined();
   });
+
+  it('throws on malformed YAML', () => {
+    expect(() => parseDocumentationYaml('{ invalid: yaml: content')).toThrow();
+  });
 });
 
 describe('diffYamlEntries', () => {
