@@ -123,7 +123,7 @@ async function batchFetchFilesAtRef(
   if (paths.length === 0) return {};
 
   for (const p of paths) {
-    if (p.includes('"') || p.includes('\\')) {
+    if (!/^[\w/.\-]+$/.test(p)) {
       throw new Error(`Unsafe file path for GraphQL: ${p}`);
     }
   }
@@ -132,11 +132,11 @@ async function batchFetchFilesAtRef(
     .map((p, i) => `f${i}: object(expression: "${ref}:${p}") { ... on Blob { text } }`)
     .join('\n');
 
-  const query = `query { repository(owner: "${owner}", name: "${repo}") { ${fields} } }`;
+  const query = `query($owner: String!, $repo: String!) { repository(owner: $owner, name: $repo) { ${fields} } }`;
 
   const result = await octokit.graphql<{
     repository: Record<string, { text: string | null } | null>;
-  }>(query);
+  }>(query, { owner, repo });
 
   return Object.fromEntries(paths.map((p, i) => [p, result.repository[`f${i}`]?.text ?? null]));
 }
