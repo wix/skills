@@ -3,7 +3,7 @@ apiDoc:
 
   docs:
     - file: ../../../skills/wix-manage/references/stores/query-products.md
-      title: Query Products (Catalog V3)
+      title: Find Products (Query and Search, Catalog V3)
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
       tags: [stores]
     - file: ../../../skills/wix-manage/references/stores/query-products-catalog-v1.md

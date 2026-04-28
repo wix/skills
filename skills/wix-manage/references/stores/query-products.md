@@ -1,26 +1,43 @@
 ---
-name: "Query Products (Catalog V3)"
-description: Query, search, and list products from a Wix Store using Catalog V3 Query Products and Search Products endpoints. Explains when to use each endpoint, correct fields enum values, filtering, sorting, and paging.
+name: "Find Products (Query and Search, Catalog V3)"
+description: Find, search, query, and list products from a Wix Store using Catalog V3 Search Products and Query Products endpoints. Explains when to use each endpoint, correct fields enum values, filtering, sorting, and paging.
 ---
 
-# RECIPE: Business Recipe – Query Products from a Wix Store (Catalog V3)
+# RECIPE: Business Recipe – Find Products in a Wix Store (Query and Search, Catalog V3)
 
-Retrieve products from a Wix store using the Catalog V3 Query Products and Search Products APIs.
+Find products in a Wix store using the Catalog V3 Search Products and Query Products APIs.
 
-## Article: How to Query Products
+## Article: How to Find Products
 
-### STEP 0: Choose Query Products or Search Products
+### STEP 0: Choose the right product lookup method
 
-Use **Query Products** when you need structured filters, sorting, paging, or listing products. Use **Search Products** when you need text search, especially looking up products by name.
+Use **Search Products** for text search and name-based lookup. Use **Query Products** for structured filtering, sorting, paging, and listing products.
 
 | Need | Endpoint | Notes |
 | ---- | -------- | ----- |
+| Find products by name or free text | [Search Products](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/search-products) | Best for user-provided names, keywords, and broad product lookup. |
 | List all products or page through the catalog | [Query Products](https://dev.wix.com/docs/rest/business-solutions/stores/catalog-v3/products-v3/query-products) | Supports paging and structured filters on the fields listed below. |
-| Filter by `id`, `slug`, `handle`, dates, or `visible` | [Query Products](https://dev.wix.com/docs/rest/business-solutions/stores/catalog-v3/products-v3/query-products) | Do not use unsupported fields in `query.filter`. |
-| Find a product by name or other free text | [Search Products](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/search-products) | `name` is not a supported Query Products filter field. |
-| Need exact name matching but Search Products is unavailable or too broad | [Query Products](https://dev.wix.com/docs/rest/business-solutions/stores/catalog-v3/products-v3/query-products) + client-side match | Query a bounded page and match `product.name` in your own code. |
+| Filter by `id`, `slug`, `handle`, dates, or `visible` | [Query Products](https://dev.wix.com/docs/rest/business-solutions/stores/catalog-v3/products-v3/query-products) | Best for exact structured criteria. |
+| Need exact name matching after text lookup | [Search Products](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/search-products) + client-side match | Search by the name text, then match the returned `product.name` in your own code. |
 
-### STEP 1: Call Query Products endpoint
+### STEP 1: Search products by name or free text
+
+Use Search Products when the user gives a product name, keyword, or other text expression:
+
+```bash
+curl -X POST 'https://www.wixapis.com/stores/v3/products/search' \
+-H 'Content-Type: application/json' \
+-H 'Authorization: <AUTH>' \
+-d '{
+  "search": {
+    "expression": "Blue Shirt"
+  }
+}'
+```
+
+For exact name matching, search with the user-provided text and then compare the returned `product.name` values in your own code.
+
+### STEP 2: Query products with structured filters, sorting, or paging
 
 Use the **POST** [Query Products](https://dev.wix.com/docs/rest/business-solutions/stores/catalog-v3/products-v3/query-products) endpoint to query products. The endpoint returns up to 100 products per request.
 
@@ -39,7 +56,7 @@ curl -X POST 'https://www.wixapis.com/stores/v3/products/query' \
 
 This returns all products with their default fields (id, name, slug, visible, productType, priceData, stock, media, etc.).
 
-### STEP 2: Understanding the `fields` parameter
+### STEP 3: Understanding the `fields` parameter
 
 The `fields` array requests **additional** fields beyond the defaults. It does **NOT** accept property names like `"name"` or `"id"`.
 
@@ -85,7 +102,7 @@ The `fields` array requests **additional** fields beyond the defaults. It does *
 "fields": ["DESCRIPTION", "URL", "ALL_CATEGORIES_INFO"]
 ```
 
-### STEP 3: Filtering and sorting
+### STEP 4: Filtering and sorting with Query Products
 
 `QueryProducts` supports filters only on these fields:
 
@@ -98,8 +115,6 @@ The `fields` array requests **additional** fields beyond the defaults. It does *
 | `createdDate` | `$eq`, `$ne`, `$exists`, `$in`, `$lt`, `$lte`, `$gt`, `$gte` | Yes |
 | `updatedDate` | `$eq`, `$ne`, `$exists`, `$in`, `$lt`, `$lte`, `$gt`, `$gte` | Yes |
 | `visible` | `$eq`, `$ne`, `$exists`, `$in` | Yes |
-
-For name-based lookup, use [Search Products](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/search-products), or query a bounded page and match by `product.name` in your own code.
 
 **Query with filter and sort:**
 
@@ -148,21 +163,6 @@ curl -X POST 'https://www.wixapis.com/stores/v3/products/query' \
 }'
 ```
 
-### STEP 4: Search by product name
-
-Use Search Products for name or free-text lookup:
-
-```bash
-curl -X POST 'https://www.wixapis.com/stores/v3/products/search' \
--H 'Content-Type: application/json' \
--H 'Authorization: <AUTH>' \
--d '{
-  "search": {
-    "expression": "Blue Shirt"
-  }
-}'
-```
-
 ### STEP 5: Handling pagination
 
 When there are more products than the page limit, use cursor-based or offset-based paging:
@@ -191,4 +191,4 @@ Check the response `pagingMetadata` to determine if more pages exist.
 
 ## Conclusion
 
-To list or structurally filter products, use `POST https://www.wixapis.com/stores/v3/products/query`. To find products by name or free text, use `POST https://www.wixapis.com/stores/v3/products/search`. Use `fields: []` for defaults, or pass valid enum values like `DESCRIPTION`, `URL`, `ALL_CATEGORIES_INFO` for additional data. Never pass property names as field values.
+To find products by name or free text, use `POST https://www.wixapis.com/stores/v3/products/search`. To list, page, sort, or structurally filter products, use `POST https://www.wixapis.com/stores/v3/products/query`. Use `fields: []` for defaults, or pass valid enum values like `DESCRIPTION`, `URL`, `ALL_CATEGORIES_INFO` for additional data. Never pass property names as field values.
