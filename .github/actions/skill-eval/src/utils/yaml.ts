@@ -31,14 +31,14 @@ export function filterSkillEntries(entries: DocEntry[]): SkillEntry[] {
   return entries.filter((e): e is SkillEntry => !!e.docsEntry);
 }
 
-export type AffectedEntry<T extends DocEntry = DocEntry> = T & { yamlPath: string };
+export type AffectedEntry = DocEntry & { yamlPath: string };
 
 function makeEntryKey(yamlPath: string, title: string): string {
   return JSON.stringify([yamlPath, title]);
 }
 
-export function deduplicateAffectedEntries<T extends DocEntry>(entries: AffectedEntry<T>[]): AffectedEntry<T>[] {
-  const seen = new Map<string, AffectedEntry<T>>();
+export function deduplicateAffectedEntries(entries: AffectedEntry[]): AffectedEntry[] {
+  const seen = new Map<string, AffectedEntry>();
   for (const e of entries) {
     const key = makeEntryKey(e.yamlPath, e.title);
     const existing = seen.get(key);
@@ -62,6 +62,7 @@ export function diffYamlEntries(
   for (const next of filterSkillEntries(newEntries)) {
     const old = oldByTitle.get(next.title);
 
+    // !old: brand-new entry; !old.docsEntry: existed before but wasn't a skill — treat both as newly added
     if (!old || !old.docsEntry) {
       affectedEntries.push(next);
       continue;

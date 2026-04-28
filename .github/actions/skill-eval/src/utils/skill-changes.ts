@@ -19,8 +19,8 @@ export async function collectSkillChanges(
   workspaceRoot: string
 ): Promise<AffectedEntry[]> {
   const [yamlEntries, mdEntries] = await Promise.all([
-    yamlFiles.length > 0 ? collectFromYamlChanges(octokit, owner, repo, yamlFiles, baseSha) : [],
-    mdFiles.length > 0 ? collectFromMdChanges(mdFiles, workspaceRoot) : [],
+    collectFromYamlChanges(octokit, owner, repo, yamlFiles, baseSha),
+    collectFromMdChanges(mdFiles, workspaceRoot),
   ]);
   return deduplicateAffectedEntries([...yamlEntries, ...mdEntries]);
 }

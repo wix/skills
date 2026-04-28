@@ -34209,8 +34209,8 @@ const yaml_1 = __nccwpck_require__(1206);
 const paths_1 = __nccwpck_require__(6621);
 async function collectSkillChanges(octokit, owner, repo, yamlFiles, mdFiles, baseSha, workspaceRoot) {
     const [yamlEntries, mdEntries] = await Promise.all([
-        yamlFiles.length > 0 ? collectFromYamlChanges(octokit, owner, repo, yamlFiles, baseSha) : [],
-        mdFiles.length > 0 ? collectFromMdChanges(mdFiles, workspaceRoot) : [],
+        collectFromYamlChanges(octokit, owner, repo, yamlFiles, baseSha),
+        collectFromMdChanges(mdFiles, workspaceRoot),
     ]);
     return (0, yaml_1.deduplicateAffectedEntries)([...yamlEntries, ...mdEntries]);
 }
@@ -34373,6 +34373,7 @@ function diffYamlEntries(oldEntries, newEntries) {
     const oldByTitle = new Map(oldEntries.map(e => [e.title, e]));
     for (const next of filterSkillEntries(newEntries)) {
         const old = oldByTitle.get(next.title);
+        // !old: brand-new entry; !old.docsEntry: existed before but wasn't a skill — treat both as newly added
         if (!old || !old.docsEntry) {
             affectedEntries.push(next);
             continue;
