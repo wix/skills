@@ -34236,7 +34236,7 @@ async function collectFromYamlChanges(octokit, owner, repo, yamlFiles, baseSha) 
     return result;
 }
 async function collectFromMdChanges(mdFiles, workspaceRoot) {
-    const changedMdSet = new Set(mdFiles.flatMap(f => f.previousFilename ? [f.filename, f.previousFilename] : [f.filename]));
+    const changedMdSet = new Set(mdFiles.map(f => f.filename));
     const allYamlPaths = await (0, glob_1.glob)('yaml/wix-manage/**/documentation.yaml');
     const result = [];
     for (const yamlPath of allYamlPaths) {
@@ -34336,12 +34336,16 @@ function parseDocumentationYaml(raw) {
     const docs = parsed?.apiDoc?.docs;
     if (!docs || !Array.isArray(docs))
         return [];
-    return docs.map(e => ({
-        title: String(e.title ?? ''),
-        file: String(e.file ?? ''),
-        docsEntry: e.docsEntry !== undefined ? String(e.docsEntry) : undefined,
-        tags: Array.isArray(e.tags) ? e.tags.map(String) : undefined,
-    }));
+    return docs.flatMap(e => {
+        if (!e.title || !e.file)
+            return [];
+        return [{
+                title: String(e.title),
+                file: String(e.file),
+                docsEntry: e.docsEntry !== undefined ? String(e.docsEntry) : undefined,
+                tags: Array.isArray(e.tags) ? e.tags.map(String) : undefined,
+            }];
+    });
 }
 function filterSkillEntries(entries) {
     return entries.filter((e) => !!e.docsEntry);

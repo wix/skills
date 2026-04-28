@@ -16,12 +16,15 @@ export function parseDocumentationYaml(raw: string): DocEntry[] {
   const parsed = jsYaml.load(raw) as RawDoc | null;
   const docs = parsed?.apiDoc?.docs;
   if (!docs || !Array.isArray(docs)) return [];
-  return docs.map(e => ({
-    title: String(e.title ?? ''),
-    file: String(e.file ?? ''),
-    docsEntry: e.docsEntry !== undefined ? String(e.docsEntry) : undefined,
-    tags: Array.isArray(e.tags) ? e.tags.map(String) : undefined,
-  }));
+  return docs.flatMap(e => {
+    if (!e.title || !e.file) return [];
+    return [{
+      title: String(e.title),
+      file: String(e.file),
+      docsEntry: e.docsEntry !== undefined ? String(e.docsEntry) : undefined,
+      tags: Array.isArray(e.tags) ? e.tags.map(String) : undefined,
+    }];
+  });
 }
 
 export function filterSkillEntries(entries: DocEntry[]): SkillEntry[] {
