@@ -34,7 +34,7 @@
     "privacyPolicyURL": "https://www.wix.com/about/privacy",
     "termsOfServiceURL": "https://www.wix.com/about/terms-of-use",
     "defaultPrompt": [
-      "Build a Wix app extension with WDS UI",
+      "Build a Wix app extension with Wix Design System UI",
       "Build a Wix app with a shipping fee service plugin",
       "Set up Wix Stores products, pickup, or CMS data"
     ],
