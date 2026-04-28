@@ -34,10 +34,21 @@ describe('deduplicateAffectedEntries', () => {
     expect(deduplicateAffectedEntries(entries)).toHaveLength(2);
   });
 
-  it('keeps first occurrence when deduplicating', () => {
+  it('merges tags from duplicate entries', () => {
     const first = entry('Query Products', 'yaml/wix-manage/stores/documentation.yaml', ['stores']);
     const second = entry('Query Products', 'yaml/wix-manage/stores/documentation.yaml', ['stores', 'extra']);
-    expect(deduplicateAffectedEntries([first, second])[0]).toBe(first);
+    const result = deduplicateAffectedEntries([first, second]);
+    expect(result).toHaveLength(1);
+    expect(result[0].tags).toEqual(['stores', 'extra']);
+  });
+
+  it('merges tags when Path A has partial tags and Path B has full tags', () => {
+    const pathA = entry('Query Products', 'yaml/wix-manage/stores/documentation.yaml', ['stores-v3']);
+    const pathB = entry('Query Products', 'yaml/wix-manage/stores/documentation.yaml', ['stores', 'stores-v2', 'stores-v3']);
+    const result = deduplicateAffectedEntries([pathA, pathB]);
+    expect(result).toHaveLength(1);
+    expect(result[0].tags).toHaveLength(3);
+    expect(result[0].tags).toEqual(expect.arrayContaining(['stores', 'stores-v2', 'stores-v3']));
   });
 
   it('handles empty input', () => {

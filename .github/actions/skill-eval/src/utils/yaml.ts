@@ -31,13 +31,18 @@ export function filterSkillEntries(entries: DocEntry[]): SkillEntry[] {
 export type AffectedEntry<T extends DocEntry = DocEntry> = T & { yamlPath: string };
 
 export function deduplicateAffectedEntries<T extends DocEntry>(entries: AffectedEntry<T>[]): AffectedEntry<T>[] {
-  const seen = new Set<string>();
-  return entries.filter(e => {
+  const seen = new Map<string, AffectedEntry<T>>();
+  for (const e of entries) {
     const key = `${e.yamlPath}::${e.title}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
+    const existing = seen.get(key);
+    if (!existing) {
+      seen.set(key, e);
+    } else {
+      const merged = [...new Set([...(existing.tags ?? []), ...(e.tags ?? [])])];
+      seen.set(key, { ...existing, tags: merged.length > 0 ? merged : undefined });
+    }
+  }
+  return [...seen.values()];
 }
 
 export function diffYamlEntries(

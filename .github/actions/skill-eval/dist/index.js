@@ -34294,14 +34294,19 @@ function filterSkillEntries(entries) {
     return entries.filter((e) => !!e.docsEntry);
 }
 function deduplicateAffectedEntries(entries) {
-    const seen = new Set();
-    return entries.filter(e => {
+    const seen = new Map();
+    for (const e of entries) {
         const key = `${e.yamlPath}::${e.title}`;
-        if (seen.has(key))
-            return false;
-        seen.add(key);
-        return true;
-    });
+        const existing = seen.get(key);
+        if (!existing) {
+            seen.set(key, e);
+        }
+        else {
+            const merged = [...new Set([...(existing.tags ?? []), ...(e.tags ?? [])])];
+            seen.set(key, { ...existing, tags: merged.length > 0 ? merged : undefined });
+        }
+    }
+    return [...seen.values()];
 }
 function diffYamlEntries(oldEntries, newEntries) {
     const affectedEntries = [];
