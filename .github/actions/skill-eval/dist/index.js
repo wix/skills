@@ -34140,7 +34140,8 @@ async function run() {
                 }
             }
         }
-        const allTags = [...new Set(affectedEntries.flatMap(e => e.tags ?? []))];
+        const dedupedEntries = (0, yaml_1.deduplicateAffectedEntries)(affectedEntries);
+        const allTags = [...new Set(dedupedEntries.flatMap(e => e.tags ?? []))];
         if (phaseZeroErrors.length > 0) {
             core.warning(`Phase 0 issues:\n${phaseZeroErrors.map(e => `  - ${e.entryTitle}: ${e.message}`).join('\n')}`);
         }
@@ -34148,7 +34149,7 @@ async function run() {
             core.info('No tags collected — skipping eval');
             return;
         }
-        core.info(`Affected entries: ${affectedEntries.length}`);
+        core.info(`Affected entries: ${dedupedEntries.length}`);
         core.info(`Tags to evaluate: ${allTags.join(', ')}`);
         core.info('Phase 0 complete — Phase 1 (validation) not yet implemented');
     }
@@ -34250,6 +34251,7 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.parseDocumentationYaml = parseDocumentationYaml;
+exports.deduplicateAffectedEntries = deduplicateAffectedEntries;
 exports.diffYamlEntries = diffYamlEntries;
 const jsYaml = __importStar(__nccwpck_require__(4281));
 function parseDocumentationYaml(raw) {
@@ -34263,6 +34265,16 @@ function parseDocumentationYaml(raw) {
         docsEntry: e.docsEntry !== undefined ? String(e.docsEntry) : undefined,
         tags: Array.isArray(e.tags) ? e.tags.map(String) : undefined,
     }));
+}
+function deduplicateAffectedEntries(entries) {
+    const seen = new Set();
+    return entries.filter(e => {
+        const key = `${e.yamlPath}::${e.title}`;
+        if (seen.has(key))
+            return false;
+        seen.add(key);
+        return true;
+    });
 }
 function diffYamlEntries(oldEntries, newEntries) {
     const affectedEntries = [];

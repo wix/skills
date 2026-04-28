@@ -27,6 +27,18 @@ export function parseDocumentationYaml(raw: string): DocEntry[] {
   }));
 }
 
+export type AffectedEntry<T extends DocEntry = DocEntry> = T & { yamlPath: string };
+
+export function deduplicateAffectedEntries<T extends DocEntry>(entries: AffectedEntry<T>[]): AffectedEntry<T>[] {
+  const seen = new Set<string>();
+  return entries.filter(e => {
+    const key = `${e.yamlPath}::${e.title}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 export function diffYamlEntries(
   oldEntries: DocEntry[],
   newEntries: DocEntry[]

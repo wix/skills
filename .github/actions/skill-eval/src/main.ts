@@ -2,11 +2,9 @@ import * as core from '@actions/core';
 import * as github from '@actions/github';
 import { readFileSync } from 'node:fs';
 import { glob } from 'glob';
-import { parseDocumentationYaml, diffYamlEntries } from './utils/yaml';
+import { parseDocumentationYaml, diffYamlEntries, deduplicateAffectedEntries } from './utils/yaml';
 import { categorizeChanges, resolveEntryPath } from './utils/paths';
-import type { DocEntry } from './utils/yaml';
-
-type AffectedEntry = DocEntry & { yamlPath: string };
+import type { AffectedEntry } from './utils/yaml';
 
 async function run(): Promise<void> {
   try {
@@ -84,7 +82,8 @@ async function run(): Promise<void> {
       }
     }
 
-    const allTags = [...new Set(affectedEntries.flatMap(e => e.tags ?? []))];
+    const dedupedEntries = deduplicateAffectedEntries(affectedEntries);
+    const allTags = [...new Set(dedupedEntries.flatMap(e => e.tags ?? []))];
 
     if (phaseZeroErrors.length > 0) {
       core.warning(`Phase 0 issues:\n${phaseZeroErrors.map(e => `  - ${e.entryTitle}: ${e.message}`).join('\n')}`);
@@ -95,7 +94,7 @@ async function run(): Promise<void> {
       return;
     }
 
-    core.info(`Affected entries: ${affectedEntries.length}`);
+    core.info(`Affected entries: ${dedupedEntries.length}`);
     core.info(`Tags to evaluate: ${allTags.join(', ')}`);
     core.info('Phase 0 complete — Phase 1 (validation) not yet implemented');
   } catch (error) {
