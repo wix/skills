@@ -58,6 +58,21 @@ describe('parseDocumentationYaml', () => {
   it('throws on malformed YAML', () => {
     expect(() => parseDocumentationYaml('{ invalid: yaml: content')).toThrow();
   });
+
+  it('HTML-escapes title at parse time', () => {
+    const raw = `apiDoc:\n  docs:\n    - title: "<script>alert(1)</script>"\n      file: "f.md"`;
+    expect(parseDocumentationYaml(raw)[0].title).toBe('&lt;script&gt;alert(1)&lt;/script&gt;');
+  });
+
+  it('silently drops tags with invalid characters, keeps valid ones', () => {
+    const raw = `apiDoc:\n  docs:\n    - title: "T"\n      file: "f.md"\n      tags: [stores, "<inject>", stores-v2]`;
+    expect(parseDocumentationYaml(raw)[0].tags).toEqual(['stores', 'stores-v2']);
+  });
+
+  it('silently drops tags containing spaces or special characters', () => {
+    const raw = `apiDoc:\n  docs:\n    - title: "T"\n      file: "f.md"\n      tags: [valid, "bad tag", "also/bad"]`;
+    expect(parseDocumentationYaml(raw)[0].tags).toEqual(['valid']);
+  });
 });
 
 describe('filterSkillEntries', () => {

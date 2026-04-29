@@ -34203,14 +34203,18 @@ function getConfig() {
     const pr = github.context.payload.pull_request;
     if (!pr)
         throw new Error('No pull_request payload — action must be triggered by a pull_request event');
+    const prNumber = pr.number;
+    const baseSha = pr.base?.sha;
+    if (!prNumber || !baseSha)
+        throw new Error('PR payload is missing required fields (number or base.sha)');
     return {
         githubToken: safeGetSecret('github-token'),
         evalforgeUrl: core.getInput('evalforge-url', { required: true }),
         projectId: core.getInput('evalforge-project-id', { required: true }),
         appId: safeGetSecret('evalforge-app-id'),
         appSecret: safeGetSecret('evalforge-app-secret'),
-        prNumber: pr.number,
-        baseSha: pr.base.sha,
+        prNumber,
+        baseSha,
         owner: github.context.repo.owner,
         repo: github.context.repo.repo,
     };
@@ -34585,6 +34589,9 @@ exports.filterSkillEntries = filterSkillEntries;
 exports.deduplicateAffectedEntries = deduplicateAffectedEntries;
 exports.diffYamlEntries = diffYamlEntries;
 const jsYaml = __importStar(__nccwpck_require__(4281));
+function escapeHtml(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
 function parseDocumentationYaml(raw) {
     const parsed = jsYaml.load(raw);
     const docs = parsed?.apiDoc?.docs;
@@ -34594,10 +34601,10 @@ function parseDocumentationYaml(raw) {
         if (!e.title || !e.file)
             return [];
         return [{
-                title: String(e.title),
+                title: escapeHtml(String(e.title)),
                 file: String(e.file),
                 docsEntry: e.docsEntry !== undefined ? String(e.docsEntry) : undefined,
-                tags: Array.isArray(e.tags) ? e.tags.map(String) : undefined,
+                tags: Array.isArray(e.tags) ? e.tags.map(String).filter(t => /^[\w-]+$/.test(t)) : undefined,
             }];
     });
 }
