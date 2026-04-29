@@ -13,12 +13,12 @@ apiDoc:
     - file: ../../../skills/wix-manage/references/ecommerce/query-orders.md
       title: Query Orders
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
-      tags: [ecommerce, unknown-tag-xyz]
+      tags: [ecommerce]
     - file: ../../../skills/wix-manage/references/ecommerce/manage-discounts.md
       title: Manage Discounts
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
-      tags: [ecommerce, unknown-tag-xyz]
+      tags: [ecommerce]
     - file: ../../../skills/wix-manage/references/ecommerce/process-refunds.md
       title: Process Refunds
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
-      tags: [ecommerce, unknown-tag-xyz]
+      tags: [ecommerce]
