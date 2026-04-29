@@ -44,7 +44,7 @@ The catalog version is **permanent per site** — a V3 site never downgrades to 
 | Products CRUD | `products` | `productsV3` |
 | Product variants | nested in `products` | nested in `productsV3` (every product has ≥1 variant) |
 | Inventory | `inventory` | `inventoryItemsV3` |
-| Collections / Categories | `collections` (in `products` namespace) | `@wix/categories` → `categories` |
+| Collections / Categories | Read: `collections`. **Write ops live on `products`** (`createCollection`, `updateCollection`, `addProductsToCollection`, …) | `@wix/categories` → `categories` |
 | Custom text fields | `customTextFields` on product | `customizationsV3` (FREE_TEXT modifier) |
 | Ribbons (text on product) | inline `ribbon` string | `ribbonsV3` |
 | Brand | inline `brand` string | `brandsV3` |
@@ -106,9 +106,11 @@ export async function listProducts(limit = 20) {
 
 ```typescript
 if (catalogVersion === 'V3_CATALOG') {
-  const { product } = await productsV3.getProduct(id);
+  // V3 returns the product directly.
+  const product = await productsV3.getProduct(id);
   return product;
 }
+// V1 wraps it in { product }.
 const { product } = await products.getProduct(id);
 return product;
 ```
@@ -117,7 +119,8 @@ return product;
 
 ```typescript
 if (catalogVersion === 'V3_CATALOG') {
-  const { product } = await productsV3.createProduct({
+  // V3 returns the product directly.
+  const product = await productsV3.createProduct({
     name: 'My Product',
     productType: 'PHYSICAL',
     variantsInfo: {
@@ -130,6 +133,7 @@ if (catalogVersion === 'V3_CATALOG') {
   return product;
 }
 
+// V1 wraps it in { product }.
 const { product } = await products.createProduct({
   name: 'My Product',
   productType: 'physical',
@@ -148,15 +152,16 @@ return product;
 ```typescript
 if (catalogVersion === 'V3_CATALOG') {
   // V3 requires the current revision for optimistic concurrency.
-  const { product: current } = await productsV3.getProduct(id);
-  const { product } = await productsV3.updateProduct({
-    id,
+  // Signature: updateProduct(_id, productFields). Returns the product directly.
+  const current = await productsV3.getProduct(id);
+  const product = await productsV3.updateProduct(id, {
     revision: current.revision,
     name: 'New name',
   });
   return product;
 }
 
+// V1 signature: updateProduct(id, productFields). Returns { product }.
 const { product } = await products.updateProduct(id, { name: 'New name' });
 return product;
 ```
@@ -179,9 +184,9 @@ if (catalogVersion === 'V3_CATALOG') {
 import { inventory, inventoryItemsV3 } from '@wix/stores';
 
 if (catalogVersion === 'V3_CATALOG') {
-  // V3 is per-variant; pass inventory item IDs.
+  // V3 is per-variant; pass inventory item IDs. Shape is flat.
   await inventoryItemsV3.bulkIncrementInventoryItems([
-    { id: inventoryItemId, incrementData: { incrementBy: 5 } },
+    { inventoryItemId, incrementBy: 5 },
   ]);
 } else {
   // V1 is per-product (variant optional).
@@ -197,6 +202,7 @@ To find the V3 inventory item ID for a product/variant, use `inventoryItemsV3.se
 
 ```typescript
 if (catalogVersion === 'V3_CATALOG') {
+  // V3 uses a fluent query builder.
   const res = await inventoryItemsV3
     .queryInventoryItems()
     .eq('productId', productId)
@@ -204,30 +210,38 @@ if (catalogVersion === 'V3_CATALOG') {
   return res.items;
 }
 
-const res = await inventory.queryInventory({ filter: { productId } });
+// V1 takes a Query object; `filter` is a JSON-stringified expression.
+const res = await inventory.queryInventory({
+  query: { filter: JSON.stringify({ productId }) },
+});
 return res.inventoryItems;
 ```
 
 ### Collections (V1) ↔ Categories (V3)
 
 ```typescript
-import { collections } from '@wix/stores';
+// Note: in V1, write ops for collections live on the `products` namespace, not `collections`.
+// The `collections` namespace only exposes read methods (getCollection, queryCollections, ...).
+import { products } from '@wix/stores';
 import { categories } from '@wix/categories';
 
 if (catalogVersion === 'V3_CATALOG') {
-  const { category } = await categories.createCategory({
+  // V3 returns the category directly.
+  const category = await categories.createCategory({
     name: 'Sale',
     treeReference: { appNamespace: 'STORES_NAMESPACE', treeKey: 'allProducts' },
   });
   return category;
 }
 
-const { collection } = await collections.createCollection({ name: 'Sale' });
+// V1 returns { collection }.
+const { collection } = await products.createCollection({ name: 'Sale' });
 return collection;
 ```
 
 > V3 categories live in `@wix/categories` (separate package). They are tree-structured (parent / child) — V1 collections are flat.
 > Reference V3 categories on a product via `directCategories[]`, not `collectionIds[]`.
+> **V1 gotcha:** `createCollection`, `updateCollection`, `deleteCollection`, `addProductsToCollection`, `removeProductsFromCollection` all live on the `products` namespace. The `collections` namespace is read-only.
 
 ---
 
