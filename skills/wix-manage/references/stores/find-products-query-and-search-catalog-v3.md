@@ -1,6 +1,6 @@
 ---
 name: "Find Products (Query and Search, Catalog V3)"
-description: Find, search, query, and list products from a Wix Store using Catalog V3 Search Products and Query Products endpoints. Explains when to use each endpoint, correct field enum values, filtering, sorting, and paging.
+description: Find, search, query, and list products from a Wix Store using Catalog V3 Search Products and Query Products endpoints. Explains when to use each endpoint, correct fields enum values, filtering, sorting, and paging.
 ---
 
 # RECIPE: Business Recipe – Find Products in a Wix Store (Query and Search, Catalog V3)
@@ -13,12 +13,12 @@ Find products in a Wix store using the Catalog V3 Search Products and Query Prod
 
 Use **Search Products** for text search and name-based lookup. Use **Query Products** for structured filtering, sorting, paging, and listing products.
 
-| Need | Endpoint | Notes |
-| ---- | -------- | ----- |
-| Find products by name or free text | [Search Products](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/search-products) | Best for user-provided names, keywords, and broad product lookup. |
-| List all products or page through the catalog | [Query Products](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/query-products) | Supports paging and structured filters on the fields listed below. |
-| Filter by `id`, `slug`, `handle`, dates, or `visible` | [Query Products](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/query-products) | Best for exact structured criteria. |
-| Need exact name matching after text lookup | [Search Products](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/search-products) + client-side match | Search by the name text, then match the returned `product.name` in your own code. |
+| Need                                                  | Endpoint                                                                                                                                       | Notes                                                                             |
+| ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| Find products by name or free text                    | [Search Products](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/search-products)                     | Best for user-provided names, keywords, and broad product lookup.                 |
+| List all products or page through the catalog         | [Query Products](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/query-products)                       | Supports paging and structured filters on the fields listed below.                |
+| Filter by `id`, `slug`, `handle`, dates, or `visible` | [Query Products](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/query-products)                       | Best for exact structured criteria.                                               |
+| Need exact name matching after text lookup            | [Search Products](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/search-products) + client-side match | Search by the name text, then match the returned `product.name` in your own code. |
 
 ### STEP 1: Search products by name or free text
 
@@ -106,15 +106,15 @@ The `fields` array requests **additional** fields beyond the defaults. It does *
 
 `QueryProducts` supports filters only on these fields:
 
-| Field | Supported Filters | Sortable |
-| ----- | ----------------- | -------- |
-| `id` | `$eq`, `$ne`, `$exists`, `$in`, `$startsWith` | No |
-| `handle` | `$eq`, `$ne`, `$exists`, `$in`, `$startsWith` | No |
-| `options.id` | `$isEmpty`, `$hasAll`, `$hasSome` | No |
-| `slug` | `$eq`, `$ne`, `$exists`, `$in`, `$startsWith` | Yes |
-| `createdDate` | `$eq`, `$ne`, `$exists`, `$in`, `$lt`, `$lte`, `$gt`, `$gte` | Yes |
-| `updatedDate` | `$eq`, `$ne`, `$exists`, `$in`, `$lt`, `$lte`, `$gt`, `$gte` | Yes |
-| `visible` | `$eq`, `$ne`, `$exists`, `$in` | Yes |
+| Field         | Supported Filters                                            | Sortable |
+| ------------- | ------------------------------------------------------------ | -------- |
+| `id`          | `$eq`, `$ne`, `$exists`, `$in`, `$startsWith`                | No       |
+| `handle`      | `$eq`, `$ne`, `$exists`, `$in`, `$startsWith`                | No       |
+| `options.id`  | `$isEmpty`, `$hasAll`, `$hasSome`                            | No       |
+| `slug`        | `$eq`, `$ne`, `$exists`, `$in`, `$startsWith`                | Yes      |
+| `createdDate` | `$eq`, `$ne`, `$exists`, `$in`, `$lt`, `$lte`, `$gt`, `$gte` | Yes      |
+| `updatedDate` | `$eq`, `$ne`, `$exists`, `$in`, `$lt`, `$lte`, `$gt`, `$gte` | Yes      |
+| `visible`     | `$eq`, `$ne`, `$exists`, `$in`                               | Yes      |
 
 **Query with filter and sort:**
 
