@@ -13,10 +13,12 @@ const config: Config = {
   evalforgeUrl: 'https://evalforge.example.com',
   projectId: 'proj-1',
   agentId: 'agent-1',
+  mcpId: 'mcp-1',
   appId: 'app-id',
   appSecret: 'secret',
   prNumber: 42,
   baseSha: 'abc123',
+  headSha: 'def456',
   owner: 'wix',
   repo: 'skills',
 };

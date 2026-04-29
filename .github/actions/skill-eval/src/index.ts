@@ -85,6 +85,26 @@ async function run(): Promise<void> {
 
   const tags = [...new Set(entries.flatMap(e => e.tags!))];
 
+  const versionLabel = `pr-${config.prNumber}-${config.headSha.slice(0, 7)}`;
+  let mcpVersionId: string;
+  try {
+    const mcpVersion = await evalforge.createMcpVersion(config.mcpId, config.projectId, versionLabel, config.prNumber);
+    mcpVersionId = mcpVersion.id;
+    core.info(`Created MCP version ${versionLabel} (${mcpVersionId})`);
+  } catch (e) {
+    const status = (e as { status?: number }).status;
+    if (status === 409) {
+      core.warning(`MCP version ${versionLabel} already exists — reusing`);
+      mcpVersionId = versionLabel;
+    } else {
+      const message = e instanceof Error ? e.message : String(e);
+      core.error(`Failed to create MCP version: ${message}`);
+      await upsertComment(octokit, config, formatServiceError('Could not create MCP version — see job logs for details'));
+      core.setFailed('Could not create MCP version');
+      return;
+    }
+  }
+
   let runId: string;
   try {
     const run = await evalforge.createEvalRun(config.projectId, {
@@ -93,6 +113,7 @@ async function run(): Promise<void> {
       projectId: config.projectId,
       tags,
       agentId: config.agentId,
+      capabilityVersions: { [config.mcpId]: mcpVersionId },
     });
     runId = run.id;
     core.info(`Created eval run ${runId}`);

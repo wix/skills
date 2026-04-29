@@ -34143,6 +34143,27 @@ async function run() {
         return;
     }
     const tags = [...new Set(entries.flatMap(e => e.tags))];
+    const versionLabel = `pr-${config.prNumber}-${config.headSha.slice(0, 7)}`;
+    let mcpVersionId;
+    try {
+        const mcpVersion = await evalforge.createMcpVersion(config.mcpId, config.projectId, versionLabel, config.prNumber);
+        mcpVersionId = mcpVersion.id;
+        core.info(`Created MCP version ${versionLabel} (${mcpVersionId})`);
+    }
+    catch (e) {
+        const status = e.status;
+        if (status === 409) {
+            core.warning(`MCP version ${versionLabel} already exists — reusing`);
+            mcpVersionId = versionLabel;
+        }
+        else {
+            const message = e instanceof Error ? e.message : String(e);
+            core.error(`Failed to create MCP version: ${message}`);
+            await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatServiceError)('Could not create MCP version — see job logs for details'));
+            core.setFailed('Could not create MCP version');
+            return;
+        }
+    }
     let runId;
     try {
         const run = await evalforge.createEvalRun(config.projectId, {
@@ -34151,6 +34172,7 @@ async function run() {
             projectId: config.projectId,
             tags,
             agentId: config.agentId,
+            capabilityVersions: { [config.mcpId]: mcpVersionId },
         });
         runId = run.id;
         core.info(`Created eval run ${runId}`);
@@ -34335,17 +34357,20 @@ function getConfig() {
         throw new Error('No pull_request payload — action must be triggered by a pull_request event');
     const prNumber = pr.number;
     const baseSha = pr.base?.sha;
-    if (!prNumber || !baseSha)
-        throw new Error('PR payload is missing required fields (number or base.sha)');
+    const headSha = pr.head?.sha;
+    if (!prNumber || !baseSha || !headSha)
+        throw new Error('PR payload is missing required fields (number, base.sha, or head.sha)');
     return {
         githubToken: safeGetSecret('github-token'),
         evalforgeUrl: ensureHttps(core.getInput('evalforge-url', { required: true })),
         projectId: core.getInput('evalforge-project-id', { required: true }),
         agentId: core.getInput('evalforge-agent-id', { required: true }),
+        mcpId: core.getInput('evalforge-mcp-id', { required: true }),
         appId: safeGetSecret('evalforge-app-id'),
         appSecret: safeGetSecret('evalforge-app-secret'),
         prNumber,
         baseSha,
+        headSha,
         owner: github.context.repo.owner,
         repo: github.context.repo.repo,
     };
@@ -34475,6 +34500,13 @@ class EvalForgeClient {
         }
         return res.json().catch((e) => {
             throw new Error(`EvalForge ${method} ${path} → 200 but invalid JSON: ${e instanceof Error ? e.message : String(e)}`);
+        });
+    }
+    async createMcpVersion(mcpId, projectId, versionLabel, prNumber) {
+        return this.request('POST', `/projects/${projectId}/capabilities/${mcpId}/versions`, {
+            version: versionLabel,
+            origin: 'pr',
+            notes: `Auto-created for PR #${prNumber}`,
         });
     }
     async getTags(projectId) {

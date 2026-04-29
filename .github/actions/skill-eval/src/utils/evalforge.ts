@@ -1,11 +1,14 @@
 type HttpError = Error & { status: number };
 
+export type CapabilityVersion = { id: string; capabilityId: string; version: string };
+
 export type EvalRunInput = {
   name: string;
   description: string;
   projectId: string;
   tags: string[];
   agentId: string;
+  capabilityVersions?: Record<string, string>;
 };
 
 export type EvalRunCreated = { id: string; status: string; scenarioIds: string[] };
@@ -57,6 +60,14 @@ export class EvalForgeClient {
     return res.json().catch((e: unknown) => {
       throw new Error(`EvalForge ${method} ${path} → 200 but invalid JSON: ${e instanceof Error ? e.message : String(e)}`);
     }) as Promise<T>;
+  }
+
+  async createMcpVersion(mcpId: string, projectId: string, versionLabel: string, prNumber: number): Promise<CapabilityVersion> {
+    return this.request<CapabilityVersion>('POST', `/projects/${projectId}/capabilities/${mcpId}/versions`, {
+      version: versionLabel,
+      origin: 'pr',
+      notes: `Auto-created for PR #${prNumber}`,
+    });
   }
 
   async getTags(projectId: string): Promise<Set<string>> {
