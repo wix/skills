@@ -6,13 +6,6 @@ const POLL_TIMEOUT_MS = 30 * 60 * 1_000;
 const RETRY_LIMIT = 5;
 const RETRY_DELAY_MS = 10_000;
 
-type McpVersionConfig = {
-  projectId: string;
-  mcpId: string;
-  prNumber: number;
-  headSha: string;
-};
-
 function isRetriable(e: unknown): boolean {
   const status = (e as { status?: number }).status;
   if (status && status >= 500) return true;
@@ -22,34 +15,6 @@ function isRetriable(e: unknown): boolean {
 
 function delay(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, Math.max(0, ms)));
-}
-
-export async function ensureMcpVersion(
-  client: EvalForgeClient,
-  config: McpVersionConfig,
-): Promise<string | null> {
-  const mcp = await client.getMcp(config.projectId, config.mcpId);
-  if (!mcp.source) return null;
-
-  const versionString = `pr-${config.prNumber}-${config.headSha.slice(0, 7)}`;
-
-  try {
-    const version = await client.createMcpVersion(config.projectId, config.mcpId, {
-      version: versionString,
-      source: { ...mcp.source, ref: config.headSha },
-      origin: 'pr',
-    });
-    core.info(`Created MCP version ${version.version} (${version.id})`);
-    return version.id;
-  } catch (e) {
-    if ((e as { status?: number }).status !== 409) throw e;
-
-    core.info(`MCP version ${versionString} already exists — recovering`);
-    const versions = await client.getMcpVersions(config.projectId, config.mcpId);
-    const existing = versions.find(v => v.version === versionString);
-    if (!existing) throw new Error(`Version ${versionString} not found after 409`);
-    return existing.id;
-  }
 }
 
 export async function pollUntilDone(

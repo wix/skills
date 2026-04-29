@@ -1,15 +1,6 @@
 type HttpError = Error & { status: number };
 
-export type McpSource = { owner: string; repo: string; path: string; ref: string };
-export type Mcp = { id: string; source: McpSource | null };
-export type McpVersion = { id: string; version: string; origin: string };
-
-export type CreateMcpVersionInput = {
-  version: string;
-  source?: { ref: string };
-  origin: 'pr';
-  notes?: string;
-};
+export type CapabilityVersion = { id: string; capabilityId: string; version: string };
 
 export type EvalRunInput = {
   name: string;
@@ -71,21 +62,29 @@ export class EvalForgeClient {
     }) as Promise<T>;
   }
 
+  async createMcpVersion(mcpId: string, projectId: string, versionLabel: string, prNumber: number, headSha: string): Promise<CapabilityVersion> {
+    return this.request<CapabilityVersion>('POST', `/projects/${projectId}/capabilities/${mcpId}/versions`, {
+      version: versionLabel,
+      origin: 'pr',
+      notes: `Auto-created for PR #${prNumber}`,
+      content: {
+        config: {
+          'wix-mcp-remote': {
+            url: `https://mcp.wix.com/mcp?skillsRepo=wix/skills&skillsPr=${headSha}`,
+            type: 'http',
+            headers: {
+              Authorization: '{{wix-auth-token}}',
+              'wix-account-id': '{{wix-auth-user-id}}',
+            },
+          },
+        },
+      },
+    });
+  }
+
   async getTags(projectId: string): Promise<Set<string>> {
     const tags = await this.request<string[]>('GET', `/projects/${projectId}/tags`);
     return new Set(tags);
-  }
-
-  async getMcp(projectId: string, mcpId: string): Promise<Mcp> {
-    return this.request<Mcp>('GET', `/projects/${projectId}/capabilities/${mcpId}`);
-  }
-
-  async createMcpVersion(projectId: string, mcpId: string, input: CreateMcpVersionInput): Promise<McpVersion> {
-    return this.request<McpVersion>('POST', `/projects/${projectId}/capabilities/${mcpId}/versions`, input);
-  }
-
-  async getMcpVersions(projectId: string, mcpId: string): Promise<McpVersion[]> {
-    return this.request<McpVersion[]>('GET', `/projects/${projectId}/capabilities/${mcpId}/versions`);
   }
 
   async createEvalRun(projectId: string, input: EvalRunInput): Promise<EvalRunCreated> {

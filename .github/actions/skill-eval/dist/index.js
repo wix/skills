@@ -34143,16 +34143,26 @@ async function run() {
         return;
     }
     const tags = [...new Set(entries.flatMap(e => e.tags))];
+    const versionLabel = `pr-${config.prNumber}-${config.headSha.slice(0, 7)}`;
     let mcpVersionId;
     try {
-        mcpVersionId = await (0, eval_run_1.ensureMcpVersion)(evalforge, config);
+        const mcpVersion = await evalforge.createMcpVersion(config.mcpId, config.projectId, versionLabel, config.prNumber, config.headSha);
+        mcpVersionId = mcpVersion.id;
+        core.info(`Created MCP version ${versionLabel} (${mcpVersionId})`);
     }
     catch (e) {
-        const message = e instanceof Error ? e.message : String(e);
-        core.error(`Failed to create MCP version: ${message}`);
-        await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatServiceError)('Could not create MCP version — see job logs for details'));
-        core.setFailed('Could not create MCP version');
-        return;
+        const status = e.status;
+        if (status === 409) {
+            core.warning(`MCP version ${versionLabel} already exists — reusing`);
+            mcpVersionId = versionLabel;
+        }
+        else {
+            const message = e instanceof Error ? e.message : String(e);
+            core.error(`Failed to create MCP version: ${message}`);
+            await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatServiceError)('Could not create MCP version — see job logs for details'));
+            core.setFailed('Could not create MCP version');
+            return;
+        }
     }
     let runId;
     try {
@@ -34162,7 +34172,7 @@ async function run() {
             projectId: config.projectId,
             tags,
             agentId: config.agentId,
-            ...(mcpVersionId ? { capabilityVersions: { [config.mcpId]: mcpVersionId } } : {}),
+            capabilityVersions: { [config.mcpId]: mcpVersionId },
         });
         runId = run.id;
         core.info(`Created eval run ${runId}`);
@@ -34408,7 +34418,6 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.ensureMcpVersion = ensureMcpVersion;
 exports.pollUntilDone = pollUntilDone;
 const core = __importStar(__nccwpck_require__(7484));
 const POLL_INTERVAL_MS = 30_000;
@@ -34425,31 +34434,6 @@ function isRetriable(e) {
 }
 function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, Math.max(0, ms)));
-}
-async function ensureMcpVersion(client, config) {
-    const mcp = await client.getMcp(config.projectId, config.mcpId);
-    if (!mcp.source)
-        return null;
-    const versionString = `pr-${config.prNumber}-${config.headSha.slice(0, 7)}`;
-    try {
-        const version = await client.createMcpVersion(config.projectId, config.mcpId, {
-            version: versionString,
-            source: { ...mcp.source, ref: config.headSha },
-            origin: 'pr',
-        });
-        core.info(`Created MCP version ${version.version} (${version.id})`);
-        return version.id;
-    }
-    catch (e) {
-        if (e.status !== 409)
-            throw e;
-        core.info(`MCP version ${versionString} already exists — recovering`);
-        const versions = await client.getMcpVersions(config.projectId, config.mcpId);
-        const existing = versions.find(v => v.version === versionString);
-        if (!existing)
-            throw new Error(`Version ${versionString} not found after 409`);
-        return existing.id;
-    }
 }
 async function pollUntilDone(client, projectId, runId) {
     const deadline = Date.now() + POLL_TIMEOUT_MS;
@@ -34518,18 +34502,28 @@ class EvalForgeClient {
             throw new Error(`EvalForge ${method} ${path} → 200 but invalid JSON: ${e instanceof Error ? e.message : String(e)}`);
         });
     }
+    async createMcpVersion(mcpId, projectId, versionLabel, prNumber, headSha) {
+        return this.request('POST', `/projects/${projectId}/capabilities/${mcpId}/versions`, {
+            version: versionLabel,
+            origin: 'pr',
+            notes: `Auto-created for PR #${prNumber}`,
+            content: {
+                config: {
+                    'wix-mcp-remote': {
+                        url: `https://mcp.wix.com/mcp?skillsRepo=wix/skills&skillsPr=${headSha}`,
+                        type: 'http',
+                        headers: {
+                            Authorization: '{{wix-auth-token}}',
+                            'wix-account-id': '{{wix-auth-user-id}}',
+                        },
+                    },
+                },
+            },
+        });
+    }
     async getTags(projectId) {
         const tags = await this.request('GET', `/projects/${projectId}/tags`);
         return new Set(tags);
-    }
-    async getMcp(projectId, mcpId) {
-        return this.request('GET', `/projects/${projectId}/capabilities/${mcpId}`);
-    }
-    async createMcpVersion(projectId, mcpId, input) {
-        return this.request('POST', `/projects/${projectId}/capabilities/${mcpId}/versions`, input);
-    }
-    async getMcpVersions(projectId, mcpId) {
-        return this.request('GET', `/projects/${projectId}/capabilities/${mcpId}/versions`);
     }
     async createEvalRun(projectId, input) {
         return this.request('POST', `/projects/${projectId}/eval-runs`, input);

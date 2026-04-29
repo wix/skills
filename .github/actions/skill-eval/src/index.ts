@@ -5,7 +5,7 @@ import { getChangedFiles, upsertComment } from './utils/github';
 import { EvalForgeClient } from './utils/evalforge';
 import { categorizeChanges } from './utils/paths';
 import { collectSkillChanges } from './utils/skill-changes';
-import { ensureMcpVersion, pollUntilDone } from './utils/eval-run';
+import { pollUntilDone } from './utils/eval-run';
 import {
   formatValidationErrors, formatFailedJobMessage,
   formatServiceError, formatEvalPassed, formatEvalFailed, formatEvalTimeout, formatNoScenarios,
@@ -85,15 +85,24 @@ async function run(): Promise<void> {
 
   const tags = [...new Set(entries.flatMap(e => e.tags!))];
 
-  let mcpVersionId: string | null;
+  const versionLabel = `pr-${config.prNumber}-${config.headSha.slice(0, 7)}`;
+  let mcpVersionId: string;
   try {
-    mcpVersionId = await ensureMcpVersion(evalforge, config);
+    const mcpVersion = await evalforge.createMcpVersion(config.mcpId, config.projectId, versionLabel, config.prNumber, config.headSha);
+    mcpVersionId = mcpVersion.id;
+    core.info(`Created MCP version ${versionLabel} (${mcpVersionId})`);
   } catch (e) {
-    const message = e instanceof Error ? e.message : String(e);
-    core.error(`Failed to create MCP version: ${message}`);
-    await upsertComment(octokit, config, formatServiceError('Could not create MCP version — see job logs for details'));
-    core.setFailed('Could not create MCP version');
-    return;
+    const status = (e as { status?: number }).status;
+    if (status === 409) {
+      core.warning(`MCP version ${versionLabel} already exists — reusing`);
+      mcpVersionId = versionLabel;
+    } else {
+      const message = e instanceof Error ? e.message : String(e);
+      core.error(`Failed to create MCP version: ${message}`);
+      await upsertComment(octokit, config, formatServiceError('Could not create MCP version — see job logs for details'));
+      core.setFailed('Could not create MCP version');
+      return;
+    }
   }
 
   let runId: string;
@@ -104,7 +113,7 @@ async function run(): Promise<void> {
       projectId: config.projectId,
       tags,
       agentId: config.agentId,
-      ...(mcpVersionId ? { capabilityVersions: { [config.mcpId]: mcpVersionId } } : {}),
+      capabilityVersions: { [config.mcpId]: mcpVersionId },
     });
     runId = run.id;
     core.info(`Created eval run ${runId}`);

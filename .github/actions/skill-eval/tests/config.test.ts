@@ -7,7 +7,7 @@ vi.mock('@actions/github', () => ({
       pull_request: {
         number: 42,
         base: { sha: 'base-sha-123' },
-        head: { sha: 'def456abc' },
+        head: { sha: 'head-sha-456' },
       },
     },
     repo: { owner: 'wix', repo: 'skills' },
@@ -43,7 +43,7 @@ describe('getConfig', () => {
     expect(config.appSecret).toBe('secret-1');
     expect(config.prNumber).toBe(42);
     expect(config.baseSha).toBe('base-sha-123');
-    expect(config.headSha).toBe('def456abc');
+    expect(config.headSha).toBe('head-sha-456');
     expect(config.owner).toBe('wix');
     expect(config.repo).toBe('skills');
   });
