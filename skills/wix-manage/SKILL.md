@@ -218,5 +218,8 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ### [Update Product Pre-Order](references/stores/update-product-pre-order.md)
 **Technical:** Manages pre-order settings for product variants using V3 Inventory API. Covers enabling/disabling pre-orders, setting messages, configuring limits, and handling trackQuantity requirements.
 
+### [Update Variant Inventory / Stock](references/stores/update-variant-inventory.md)
+**Technical:** Sets or adjusts the stock quantity for product variants using the V3 Inventory Items API. Use whenever the user asks to update inventory, stock, quantity, or "in stock" counts for a product or specific variant. Action-oriented — execute the API calls, do not return instructions.
+
 ### [Update Product with Options](references/stores/update-product-with-options.md)
 **Technical:** Modifies existing products and variants using Catalog V3 Products API. Covers adding/removing option choices, variant-specific pricing, and revision-based updates to prevent conflicts.
