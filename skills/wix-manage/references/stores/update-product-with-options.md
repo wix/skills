@@ -191,6 +191,82 @@ curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
 
 When updating existing variants, include each existing variant `id`. If no GUID is passed, a variant is created with a new GUID.
 
+### Convert a Simple Product to Color Variants
+
+When adding the first option to a simple product, do not preserve a choice-less default variant unchanged. A simple product often has one existing variant with price or stock but no `choices`. After you add a `Color` option, every variant in `variantsInfo.variants` must include choices that match the product options.
+
+Use the existing default variant as source data only. For example, copy its price if the user did not ask to change price, then send a complete optioned variants list:
+
+```bash
+curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: <AUTH>" \
+  -d '{
+    "product": {
+      "id": "{productId}",
+      "revision": "{currentRevision}",
+      "options": [
+        {
+          "name": "Color",
+          "optionRenderType": "SWATCH_CHOICES",
+          "choicesSettings": {
+            "choices": [
+              {
+                "name": "Red",
+                "choiceType": "ONE_COLOR",
+                "colorCode": "#FF0000"
+              },
+              {
+                "name": "Blue",
+                "choiceType": "ONE_COLOR",
+                "colorCode": "#0000FF"
+              }
+            ]
+          }
+        }
+      ],
+      "variantsInfo": {
+        "variants": [
+          {
+            "choices": [
+              {
+                "optionChoiceNames": {
+                  "optionName": "Color",
+                  "choiceName": "Red",
+                  "renderType": "SWATCH_CHOICES"
+                }
+              }
+            ],
+            "price": {
+              "actualPrice": {
+                "amount": "{existingOrRequestedPrice}"
+              }
+            }
+          },
+          {
+            "choices": [
+              {
+                "optionChoiceNames": {
+                  "optionName": "Color",
+                  "choiceName": "Blue",
+                  "renderType": "SWATCH_CHOICES"
+                }
+              }
+            ],
+            "price": {
+              "actualPrice": {
+                "amount": "{existingOrRequestedPrice}"
+              }
+            }
+          }
+        ]
+      }
+    }
+  }'
+```
+
+After the product update returns the new variant IDs, use those IDs to set inventory.
+
 ### Set Stock for New Variants
 
 Inventory is handled separately from product updates. After the product update returns variant IDs, use [Bulk Create Inventory Items](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/inventory-items-v3/bulk-create-inventory-items) with `productId`, `variantId`, and `quantity`.
@@ -272,6 +348,7 @@ curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
 
 - To update array fields like `options`, `modifiers`, `variantsInfo.variants`, and any others, pass the entire existing array. Passing only the changed item overwrites the whole array.
 - To update `variantsInfo.variants`, also pass `options`, and vice versa. Variants and options are mutually dependent and must stay aligned.
+- When converting a simple product to an optioned product, rebuild the variants list so every variant has `choices`; do not keep an existing choice-less default variant unchanged.
 - Always include `choicesSettings` with the complete list of choices when updating a product with options.
 - Use `optionChoiceNames` rather than `optionChoiceIds` in variants for more reliable updates.
 - Include the `renderType` in `optionChoiceNames`.
@@ -285,3 +362,5 @@ curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
 | `Expected an object` for `description` | Sent `description` as a string | Use `plainDescription` for HTML strings, or send `description` as Rich Content |
 | `choicesSettings must not be empty` | Missing choices array | Include full `choicesSettings.choices` array |
 | `Missing product option choices` | Variant references non-existent option | Use `optionChoiceNames` with exact option and choice names |
+| `price must not be empty` | A variant was created or replaced without a price | Include `price.actualPrice.amount` on every new variant |
+| `Missing option choices` or `INVALID_DEFAULT_VARIANT` | Product has options but at least one variant has no matching choices | Rebuild `variantsInfo.variants` so every variant includes choices for all product options |
