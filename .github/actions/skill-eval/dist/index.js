@@ -34143,17 +34143,6 @@ async function run() {
         return;
     }
     const tags = [...new Set(entries.flatMap(e => e.tags))];
-    let mcpVersionId;
-    try {
-        mcpVersionId = await (0, eval_run_1.ensureMcpVersion)(evalforge, config);
-    }
-    catch (e) {
-        const message = e instanceof Error ? e.message : String(e);
-        core.error(`Failed to create MCP version: ${message}`);
-        await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatServiceError)('Could not create MCP version — see job logs for details'));
-        core.setFailed('Could not create MCP version');
-        return;
-    }
     let runId;
     try {
         const run = await evalforge.createEvalRun(config.projectId, {
@@ -34162,7 +34151,6 @@ async function run() {
             projectId: config.projectId,
             tags,
             agentId: config.agentId,
-            ...(mcpVersionId ? { capabilityVersions: { [config.mcpId]: mcpVersionId } } : {}),
         });
         runId = run.id;
         core.info(`Created eval run ${runId}`);
@@ -34347,20 +34335,17 @@ function getConfig() {
         throw new Error('No pull_request payload — action must be triggered by a pull_request event');
     const prNumber = pr.number;
     const baseSha = pr.base?.sha;
-    const headSha = pr.head?.sha;
-    if (!prNumber || !baseSha || !headSha)
-        throw new Error('PR payload is missing required fields (number, base.sha, or head.sha)');
+    if (!prNumber || !baseSha)
+        throw new Error('PR payload is missing required fields (number or base.sha)');
     return {
         githubToken: safeGetSecret('github-token'),
         evalforgeUrl: ensureHttps(core.getInput('evalforge-url', { required: true })),
         projectId: core.getInput('evalforge-project-id', { required: true }),
         agentId: core.getInput('evalforge-agent-id', { required: true }),
-        mcpId: core.getInput('evalforge-mcp-id', { required: true }),
         appId: safeGetSecret('evalforge-app-id'),
         appSecret: safeGetSecret('evalforge-app-secret'),
         prNumber,
         baseSha,
-        headSha,
         owner: github.context.repo.owner,
         repo: github.context.repo.repo,
     };
@@ -34408,7 +34393,6 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.ensureMcpVersion = ensureMcpVersion;
 exports.pollUntilDone = pollUntilDone;
 const core = __importStar(__nccwpck_require__(7484));
 const POLL_INTERVAL_MS = 30_000;
@@ -34425,31 +34409,6 @@ function isRetriable(e) {
 }
 function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, Math.max(0, ms)));
-}
-async function ensureMcpVersion(client, config) {
-    const mcp = await client.getMcp(config.projectId, config.mcpId);
-    if (!mcp.source)
-        return null;
-    const versionString = `pr-${config.prNumber}-${config.headSha.slice(0, 7)}`;
-    try {
-        const version = await client.createMcpVersion(config.projectId, config.mcpId, {
-            version: versionString,
-            source: { ...mcp.source, ref: config.headSha },
-            origin: 'pr',
-        });
-        core.info(`Created MCP version ${version.version} (${version.id})`);
-        return version.id;
-    }
-    catch (e) {
-        if (e.status !== 409)
-            throw e;
-        core.info(`MCP version ${versionString} already exists — recovering`);
-        const versions = await client.getMcpVersions(config.projectId, config.mcpId);
-        const existing = versions.find(v => v.version === versionString);
-        if (!existing)
-            throw new Error(`Version ${versionString} not found after 409`);
-        return existing.id;
-    }
 }
 async function pollUntilDone(client, projectId, runId) {
     const deadline = Date.now() + POLL_TIMEOUT_MS;
@@ -34521,15 +34480,6 @@ class EvalForgeClient {
     async getTags(projectId) {
         const tags = await this.request('GET', `/projects/${projectId}/tags`);
         return new Set(tags);
-    }
-    async getMcp(projectId, mcpId) {
-        return this.request('GET', `/projects/${projectId}/capabilities/${mcpId}`);
-    }
-    async createMcpVersion(projectId, mcpId, input) {
-        return this.request('POST', `/projects/${projectId}/capabilities/${mcpId}/versions`, input);
-    }
-    async getMcpVersions(projectId, mcpId) {
-        return this.request('GET', `/projects/${projectId}/capabilities/${mcpId}/versions`);
     }
     async createEvalRun(projectId, input) {
         return this.request('POST', `/projects/${projectId}/eval-runs`, input);

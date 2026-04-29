@@ -1,23 +1,11 @@
 type HttpError = Error & { status: number };
 
-export type McpSource = { owner: string; repo: string; path: string; ref: string };
-export type Mcp = { id: string; source: McpSource | null };
-export type McpVersion = { id: string; version: string; origin: string };
-
-export type CreateMcpVersionInput = {
-  version: string;
-  source?: { ref: string };
-  origin: 'pr';
-  notes?: string;
-};
-
 export type EvalRunInput = {
   name: string;
   description: string;
   projectId: string;
   tags: string[];
   agentId: string;
-  capabilityVersions?: Record<string, string>;
 };
 
 export type EvalRunCreated = { id: string; status: string; scenarioIds: string[] };
@@ -74,18 +62,6 @@ export class EvalForgeClient {
   async getTags(projectId: string): Promise<Set<string>> {
     const tags = await this.request<string[]>('GET', `/projects/${projectId}/tags`);
     return new Set(tags);
-  }
-
-  async getMcp(projectId: string, mcpId: string): Promise<Mcp> {
-    return this.request<Mcp>('GET', `/projects/${projectId}/capabilities/${mcpId}`);
-  }
-
-  async createMcpVersion(projectId: string, mcpId: string, input: CreateMcpVersionInput): Promise<McpVersion> {
-    return this.request<McpVersion>('POST', `/projects/${projectId}/capabilities/${mcpId}/versions`, input);
-  }
-
-  async getMcpVersions(projectId: string, mcpId: string): Promise<McpVersion[]> {
-    return this.request<McpVersion[]>('GET', `/projects/${projectId}/capabilities/${mcpId}/versions`);
   }
 
   async createEvalRun(projectId: string, input: EvalRunInput): Promise<EvalRunCreated> {

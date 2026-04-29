@@ -13,9 +13,6 @@ inputs:
   evalforge-agent-id:
     description: 'EvalForge agent ID for eval runs'
     required: true
-  evalforge-mcp-id:
-    description: 'EvalForge MCP capability ID'
-    required: true
   evalforge-app-id:
     description: 'EvalForge app ID for authentication'
     required: true

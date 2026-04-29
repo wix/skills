@@ -1,82 +1,14 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { ensureMcpVersion, pollUntilDone } from '../src/utils/eval-run';
+import { pollUntilDone } from '../src/utils/eval-run';
 import type { EvalForgeClient, EvalRunStatus } from '../src/utils/evalforge';
 
 vi.mock('@actions/core', () => ({ info: vi.fn(), error: vi.fn() }));
 
 function makeClient(): EvalForgeClient {
   return {
-    getMcp: vi.fn(),
-    createMcpVersion: vi.fn(),
-    getMcpVersions: vi.fn(),
     getEvalRun: vi.fn(),
   } as unknown as EvalForgeClient;
 }
-
-const BASE_CONFIG = {
-  projectId: 'proj-1',
-  mcpId: 'mcp-1',
-  prNumber: 42,
-  headSha: 'abc1234def',
-};
-
-describe('ensureMcpVersion', () => {
-  it('returns null when mcp has no source', async () => {
-    const client = makeClient();
-    vi.mocked(client.getMcp).mockResolvedValue({ id: 'mcp-1', source: null });
-    const result = await ensureMcpVersion(client, BASE_CONFIG);
-    expect(result).toBeNull();
-    expect(client.createMcpVersion).not.toHaveBeenCalled();
-  });
-
-  it('creates and returns version when mcp has source', async () => {
-    const client = makeClient();
-    vi.mocked(client.getMcp).mockResolvedValue({
-      id: 'mcp-1',
-      source: { owner: 'wix', repo: 'skills', path: 'mcp.json', ref: 'main' },
-    });
-    vi.mocked(client.createMcpVersion).mockResolvedValue({ id: 'ver-1', version: 'pr-42-abc1234', origin: 'pr' });
-    const result = await ensureMcpVersion(client, BASE_CONFIG);
-    expect(result).toBe('ver-1');
-    expect(client.createMcpVersion).toHaveBeenCalledWith(
-      'proj-1', 'mcp-1',
-      expect.objectContaining({
-        version: 'pr-42-abc1234',
-        source: { owner: 'wix', repo: 'skills', path: 'mcp.json', ref: 'abc1234def' },
-        origin: 'pr',
-      }),
-    );
-  });
-
-  it('recovers from 409 by finding existing version', async () => {
-    const client = makeClient();
-    vi.mocked(client.getMcp).mockResolvedValue({
-      id: 'mcp-1',
-      source: { owner: 'wix', repo: 'skills', path: 'mcp.json', ref: 'main' },
-    });
-    vi.mocked(client.createMcpVersion).mockRejectedValue(
-      Object.assign(new Error('Version already exists'), { status: 409 }),
-    );
-    vi.mocked(client.getMcpVersions).mockResolvedValue([
-      { id: 'existing-ver', version: 'pr-42-abc1234', origin: 'pr' },
-    ]);
-    const result = await ensureMcpVersion(client, BASE_CONFIG);
-    expect(result).toBe('existing-ver');
-  });
-
-  it('throws when 409 recovery finds no matching version', async () => {
-    const client = makeClient();
-    vi.mocked(client.getMcp).mockResolvedValue({
-      id: 'mcp-1',
-      source: { owner: 'wix', repo: 'skills', path: 'mcp.json', ref: 'main' },
-    });
-    vi.mocked(client.createMcpVersion).mockRejectedValue(
-      Object.assign(new Error('Version already exists'), { status: 409 }),
-    );
-    vi.mocked(client.getMcpVersions).mockResolvedValue([]);
-    await expect(ensureMcpVersion(client, BASE_CONFIG)).rejects.toThrow();
-  });
-});
 
 describe('pollUntilDone', () => {
   beforeEach(() => vi.useFakeTimers());

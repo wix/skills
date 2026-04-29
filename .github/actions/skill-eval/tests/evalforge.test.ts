@@ -31,58 +31,6 @@ describe('EvalForgeClient', () => {
   });
 });
 
-describe('getMcp', () => {
-  beforeEach(() => vi.restoreAllMocks());
-
-  it('returns mcp with source', async () => {
-    mockFetch(200, { id: 'mcp-1', source: { owner: 'wix', repo: 'skills', path: 'mcp.json', ref: 'main' } });
-    const mcp = await CLIENT.getMcp('proj-1', 'mcp-1');
-    expect(mcp.id).toBe('mcp-1');
-    expect(mcp.source).not.toBeNull();
-  });
-
-  it('returns mcp with null source', async () => {
-    mockFetch(200, { id: 'mcp-1', source: null });
-    const mcp = await CLIENT.getMcp('proj-1', 'mcp-1');
-    expect(mcp.source).toBeNull();
-  });
-});
-
-describe('createMcpVersion', () => {
-  beforeEach(() => vi.restoreAllMocks());
-
-  it('returns created version', async () => {
-    mockFetch(201, { id: 'ver-1', version: 'pr-42-abc1234', origin: 'pr' });
-    const ver = await CLIENT.createMcpVersion('proj-1', 'mcp-1', {
-      version: 'pr-42-abc1234',
-      source: { ref: 'abc1234' },
-      origin: 'pr',
-    });
-    expect(ver.id).toBe('ver-1');
-  });
-
-  it('throws with status 409 on duplicate', async () => {
-    mockFetch(409, { error: 'Version already exists' });
-    const err = await CLIENT.createMcpVersion('proj-1', 'mcp-1', {
-      version: 'pr-42-abc1234',
-      source: { ref: 'abc1234' },
-      origin: 'pr',
-    }).catch(e => e);
-    expect(err.status).toBe(409);
-  });
-});
-
-describe('getMcpVersions', () => {
-  beforeEach(() => vi.restoreAllMocks());
-
-  it('returns list of versions', async () => {
-    mockFetch(200, [{ id: 'ver-1', version: 'pr-42-abc1234', origin: 'pr' }]);
-    const versions = await CLIENT.getMcpVersions('proj-1', 'mcp-1');
-    expect(versions).toHaveLength(1);
-    expect(versions[0].id).toBe('ver-1');
-  });
-});
-
 describe('createEvalRun', () => {
   beforeEach(() => vi.restoreAllMocks());
 
