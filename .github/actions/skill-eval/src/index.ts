@@ -14,7 +14,16 @@ async function run(): Promise<void> {
 
   core.info(`Skill eval — PR #${config.prNumber}`);
 
-  const allFiles = await getChangedFiles(octokit, config);
+  let allFiles;
+  try {
+    allFiles = await getChangedFiles(octokit, config);
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    core.error(`Failed to fetch changed files: ${message}`);
+    await upsertComment(octokit, config, formatServiceError('Could not retrieve PR file list — see job logs for details'));
+    core.setFailed('Could not retrieve PR file list');
+    return;
+  }
   const { yamlFiles, mdFiles } = categorizeChanges(allFiles);
 
   if (yamlFiles.length === 0 && mdFiles.length === 0) {
@@ -50,14 +59,15 @@ async function run(): Promise<void> {
     availableTags = await evalforge.getTags(config.projectId);
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
-    await upsertComment(octokit, config, formatServiceError(`EvalForge request failed: ${message}`));
-    core.setFailed(`EvalForge request failed: ${message}`);
+    core.error(`EvalForge request failed: ${message}`);
+    await upsertComment(octokit, config, formatServiceError('EvalForge validation could not run — see job logs for details'));
+    core.setFailed('EvalForge validation could not run');
     return;
   }
   const tagErrors: ValidationError[] = [];
 
   for (const entry of entries) {
-    for (const tag of entry.tags ?? []) {
+    for (const tag of entry.tags!) {
       if (!availableTags.has(tag)) {
         tagErrors.push({ entryTitle: entry.title, message: `unknown tag "${tag}"` });
       }

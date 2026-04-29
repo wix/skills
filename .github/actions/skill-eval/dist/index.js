@@ -34087,7 +34087,17 @@ async function run() {
     const config = (0, config_1.getConfig)();
     const octokit = github.getOctokit(config.githubToken);
     core.info(`Skill eval — PR #${config.prNumber}`);
-    const allFiles = await (0, github_1.getChangedFiles)(octokit, config);
+    let allFiles;
+    try {
+        allFiles = await (0, github_1.getChangedFiles)(octokit, config);
+    }
+    catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        core.error(`Failed to fetch changed files: ${message}`);
+        await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatServiceError)('Could not retrieve PR file list — see job logs for details'));
+        core.setFailed('Could not retrieve PR file list');
+        return;
+    }
     const { yamlFiles, mdFiles } = (0, paths_1.categorizeChanges)(allFiles);
     if (yamlFiles.length === 0 && mdFiles.length === 0) {
         core.info('No relevant changes — skipping');
@@ -34114,13 +34124,14 @@ async function run() {
     }
     catch (e) {
         const message = e instanceof Error ? e.message : String(e);
-        await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatServiceError)(`EvalForge request failed: ${message}`));
-        core.setFailed(`EvalForge request failed: ${message}`);
+        core.error(`EvalForge request failed: ${message}`);
+        await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatServiceError)('EvalForge validation could not run — see job logs for details'));
+        core.setFailed('EvalForge validation could not run');
         return;
     }
     const tagErrors = [];
     for (const entry of entries) {
-        for (const tag of entry.tags ?? []) {
+        for (const tag of entry.tags) {
             if (!availableTags.has(tag)) {
                 tagErrors.push({ entryTitle: entry.title, message: `unknown tag "${tag}"` });
             }
@@ -34214,7 +34225,9 @@ const github = __importStar(__nccwpck_require__(3228));
 function ensureHttps(url) {
     if (url.startsWith('https://'))
         return url;
-    return 'https://' + url.replace(/^https?:\/\//, '');
+    const upgraded = 'https://' + url.replace(/^https?:\/\//, '');
+    core.warning(`evalforge-url was not HTTPS — upgraded to: ${upgraded}`);
+    return upgraded;
 }
 function safeGetSecret(name) {
     const value = core.getInput(name, { required: true });
@@ -34352,7 +34365,7 @@ async function upsertComment(octokit, config, body) {
             issue_number: config.prNumber,
             per_page: 100,
         });
-        const existing = comments.find(c => c.user?.type === 'Bot' && c.body?.includes(comment_1.COMMENT_MARKER));
+        const existing = comments.find(c => c.body?.includes(comment_1.COMMENT_MARKER));
         if (existing) {
             await octokit.rest.issues.updateComment({
                 owner: config.owner,
@@ -34371,7 +34384,8 @@ async function upsertComment(octokit, config, body) {
         }
     }
     catch (e) {
-        core.warning(`Failed to post PR comment: ${e instanceof Error ? e.message : String(e)}`);
+        core.error(`Failed to post PR comment: ${e instanceof Error ? e.message : String(e)}`);
+        await core.summary.addRaw(body).write();
     }
 }
 
@@ -34413,60 +34427,26 @@ function fileExistsInWorkspace(repoRootPath, workspaceRoot) {
 /***/ }),
 
 /***/ 9336:
-/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
 
 "use strict";
 
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.collectSkillChanges = collectSkillChanges;
 exports.validateEntry = validateEntry;
-const core = __importStar(__nccwpck_require__(7484));
 const node_fs_1 = __nccwpck_require__(3024);
 const node_path_1 = __nccwpck_require__(6760);
 const glob_1 = __nccwpck_require__(1363);
 const yaml_1 = __nccwpck_require__(1206);
 const paths_1 = __nccwpck_require__(6621);
 async function collectSkillChanges(octokit, owner, repo, yamlFiles, mdFiles, baseSha, workspaceRoot) {
-    const [yamlResult, mdEntries] = await Promise.all([
+    const [yamlResult, mdResult] = await Promise.all([
         collectFromYamlChanges(octokit, owner, repo, yamlFiles, baseSha, workspaceRoot),
         collectFromMdChanges(mdFiles, workspaceRoot),
     ]);
-    const entries = (0, yaml_1.deduplicateAffectedEntries)([...yamlResult.entries, ...mdEntries]);
+    const entries = (0, yaml_1.deduplicateAffectedEntries)([...yamlResult.entries, ...mdResult.entries]);
     const entryErrors = validateEntries(entries, workspaceRoot);
-    return { entries, errors: [...yamlResult.errors, ...entryErrors] };
+    return { entries, errors: [...yamlResult.errors, ...mdResult.errors, ...entryErrors] };
 }
 async function collectFromYamlChanges(octokit, owner, repo, yamlFiles, baseSha, workspaceRoot) {
     const oldPaths = yamlFiles.map(f => f.previousFilename ?? f.filename);
@@ -34515,31 +34495,32 @@ function validateEntries(entries, workspaceRoot) {
 async function collectFromMdChanges(mdFiles, workspaceRoot) {
     const changedMdSet = new Set(mdFiles.map(f => f.filename));
     const allYamlPaths = await (0, glob_1.glob)('yaml/wix-manage/**/documentation.yaml', { cwd: workspaceRoot });
-    const result = [];
+    const entries = [];
+    const errors = [];
     for (const yamlPath of allYamlPaths) {
-        let entries;
+        let skillEntries;
         try {
-            entries = (0, yaml_1.parseDocumentationYaml)((0, node_fs_1.readFileSync)((0, node_path_1.join)(workspaceRoot, yamlPath), 'utf-8'));
+            skillEntries = (0, yaml_1.filterSkillEntries)((0, yaml_1.parseDocumentationYaml)((0, node_fs_1.readFileSync)((0, node_path_1.join)(workspaceRoot, yamlPath), 'utf-8')));
         }
         catch (e) {
-            core.warning(`Failed to parse ${yamlPath}: ${e instanceof Error ? e.message : String(e)}`);
+            errors.push({ entryTitle: yamlPath, message: `failed to parse: ${e instanceof Error ? e.message : String(e)}` });
             continue;
         }
-        for (const entry of (0, yaml_1.filterSkillEntries)(entries)) {
+        for (const entry of skillEntries) {
             let resolvedPath;
             try {
                 resolvedPath = (0, paths_1.resolveEntryPath)(yamlPath, entry.file, workspaceRoot);
             }
             catch (e) {
-                core.warning(`Skipping invalid entry path "${entry.file}" in ${yamlPath}: ${e instanceof Error ? e.message : String(e)}`);
+                errors.push({ entryTitle: entry.title, message: `invalid file path: ${entry.file} (${yamlPath})` });
                 continue;
             }
             if (changedMdSet.has(resolvedPath)) {
-                result.push({ ...entry, yamlPath });
+                entries.push({ ...entry, yamlPath });
             }
         }
     }
-    return result;
+    return { entries, errors };
 }
 async function fetchFilesAtRef(octokit, owner, repo, paths, ref) {
     if (paths.length === 0)
@@ -34656,12 +34637,14 @@ function diffYamlEntries(oldEntries, newEntries) {
             continue;
         }
         const fileChanged = old.file !== next.file;
-        const addedTags = (next.tags ?? []).filter(t => !new Set(old.tags ?? []).has(t));
+        const oldTagSet = new Set(old.tags ?? []);
+        const addedTags = (next.tags ?? []).filter(t => !oldTagSet.has(t));
+        const tagsChanged = addedTags.length > 0 || (old.tags ?? []).some(t => !new Set(next.tags ?? []).has(t));
         if (fileChanged) {
             affectedEntries.push(next);
         }
-        else if (addedTags.length > 0) {
-            affectedEntries.push({ ...next, tags: addedTags });
+        else if (tagsChanged) {
+            affectedEntries.push(addedTags.length > 0 ? { ...next, tags: addedTags } : next);
         }
     }
     return affectedEntries;

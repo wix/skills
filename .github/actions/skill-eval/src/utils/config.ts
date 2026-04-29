@@ -15,7 +15,9 @@ export type Config = {
 
 function ensureHttps(url: string): string {
   if (url.startsWith('https://')) return url;
-  return 'https://' + url.replace(/^https?:\/\//, '');
+  const upgraded = 'https://' + url.replace(/^https?:\/\//, '');
+  core.warning(`evalforge-url was not HTTPS — upgraded to: ${upgraded}`);
+  return upgraded;
 }
 
 function safeGetSecret(name: string): string {

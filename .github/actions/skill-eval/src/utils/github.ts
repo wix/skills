@@ -28,7 +28,7 @@ export async function upsertComment(octokit: Octokit, config: Config, body: stri
       issue_number: config.prNumber,
       per_page: 100,
     });
-    const existing = comments.find(c => c.user?.type === 'Bot' && c.body?.includes(COMMENT_MARKER));
+    const existing = comments.find(c => c.body?.includes(COMMENT_MARKER));
     if (existing) {
       await octokit.rest.issues.updateComment({
         owner: config.owner,
@@ -45,6 +45,7 @@ export async function upsertComment(octokit: Octokit, config: Config, body: stri
       });
     }
   } catch (e) {
-    core.warning(`Failed to post PR comment: ${e instanceof Error ? e.message : String(e)}`);
+    core.error(`Failed to post PR comment: ${e instanceof Error ? e.message : String(e)}`);
+    await core.summary.addRaw(body).write();
   }
 }

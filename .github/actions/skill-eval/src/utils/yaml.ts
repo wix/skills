@@ -74,12 +74,14 @@ export function diffYamlEntries(
     }
 
     const fileChanged = old.file !== next.file;
-    const addedTags = (next.tags ?? []).filter(t => !new Set(old.tags ?? []).has(t));
+    const oldTagSet = new Set(old.tags ?? []);
+    const addedTags = (next.tags ?? []).filter(t => !oldTagSet.has(t));
+    const tagsChanged = addedTags.length > 0 || (old.tags ?? []).some(t => !new Set(next.tags ?? []).has(t));
 
     if (fileChanged) {
       affectedEntries.push(next);
-    } else if (addedTags.length > 0) {
-      affectedEntries.push({ ...next, tags: addedTags });
+    } else if (tagsChanged) {
+      affectedEntries.push(addedTags.length > 0 ? { ...next, tags: addedTags } : next);
     }
   }
 

@@ -1,4 +1,3 @@
-import * as core from '@actions/core';
 import * as github from '@actions/github';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -19,13 +18,13 @@ export async function collectSkillChanges(
   baseSha: string,
   workspaceRoot: string
 ): Promise<{ entries: AffectedEntry[], errors: ValidationError[] }> {
-  const [yamlResult, mdEntries] = await Promise.all([
+  const [yamlResult, mdResult] = await Promise.all([
     collectFromYamlChanges(octokit, owner, repo, yamlFiles, baseSha, workspaceRoot),
     collectFromMdChanges(mdFiles, workspaceRoot),
   ]);
-  const entries = deduplicateAffectedEntries([...yamlResult.entries, ...mdEntries]);
+  const entries = deduplicateAffectedEntries([...yamlResult.entries, ...mdResult.entries]);
   const entryErrors = validateEntries(entries, workspaceRoot);
-  return { entries, errors: [...yamlResult.errors, ...entryErrors] };
+  return { entries, errors: [...yamlResult.errors, ...mdResult.errors, ...entryErrors] };
 }
 
 async function collectFromYamlChanges(
@@ -85,34 +84,35 @@ function validateEntries(entries: AffectedEntry[], workspaceRoot: string): Valid
 async function collectFromMdChanges(
   mdFiles: ChangedFile[],
   workspaceRoot: string
-): Promise<AffectedEntry[]> {
+): Promise<{ entries: AffectedEntry[], errors: ValidationError[] }> {
   const changedMdSet = new Set(mdFiles.map(f => f.filename));
   const allYamlPaths = await glob('yaml/wix-manage/**/documentation.yaml', { cwd: workspaceRoot });
-  const result: AffectedEntry[] = [];
+  const entries: AffectedEntry[] = [];
+  const errors: ValidationError[] = [];
 
   for (const yamlPath of allYamlPaths) {
-    let entries;
+    let skillEntries;
     try {
-      entries = parseDocumentationYaml(readFileSync(join(workspaceRoot, yamlPath), 'utf-8'));
+      skillEntries = filterSkillEntries(parseDocumentationYaml(readFileSync(join(workspaceRoot, yamlPath), 'utf-8')));
     } catch (e) {
-      core.warning(`Failed to parse ${yamlPath}: ${e instanceof Error ? e.message : String(e)}`);
+      errors.push({ entryTitle: yamlPath, message: `failed to parse: ${e instanceof Error ? e.message : String(e)}` });
       continue;
     }
-    for (const entry of filterSkillEntries(entries)) {
+    for (const entry of skillEntries) {
       let resolvedPath: string;
       try {
         resolvedPath = resolveEntryPath(yamlPath, entry.file, workspaceRoot);
       } catch (e) {
-        core.warning(`Skipping invalid entry path "${entry.file}" in ${yamlPath}: ${e instanceof Error ? e.message : String(e)}`);
+        errors.push({ entryTitle: entry.title, message: `invalid file path: ${entry.file} (${yamlPath})` });
         continue;
       }
       if (changedMdSet.has(resolvedPath)) {
-        result.push({ ...entry, yamlPath });
+        entries.push({ ...entry, yamlPath });
       }
     }
   }
 
-  return result;
+  return { entries, errors };
 }
 
 async function fetchFilesAtRef(
