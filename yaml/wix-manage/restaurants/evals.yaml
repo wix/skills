@@ -1,0 +1,18 @@
+evals:
+  - id: duplicate-section-name
+    prompt: |
+      A restaurant site already has an "Appetizers" section in its dinner menu
+      (section ID: sec-111). The owner wants to add a second "Appetizers" section
+      to the same menu for a seasonal rotation. Create it and confirm it was added.
+    judge:
+      pass: A new section was created successfully with a returned section ID
+      fail: Agent declares the task impossible due to a name conflict
+
+  - id: sections-attached-to-menu
+    prompt: |
+      Create a new dinner menu called "Evening Dining" with three sections:
+      Starters, Mains, and Desserts. Once done, retrieve the menu and confirm
+      all three sections appear under it.
+    judge:
+      pass: Retrieved menu contains all three section IDs in its sectionIds field
+      fail: Retrieved menu has an empty or missing sectionIds field

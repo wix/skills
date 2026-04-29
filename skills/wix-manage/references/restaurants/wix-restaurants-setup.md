@@ -70,6 +70,8 @@ Wix Restaurants uses a hierarchical structure:
 }
 ```
 
+> **Note**: Sections are automatically linked to the most recently created menu. No manual attachment step is needed.
+
 Create multiple sections:
 ```json
 // Section 1: Appetizers
@@ -213,22 +215,6 @@ Add-on modifier with pricing:
 }
 ```
 
-## Step 6: Set Menu Structure (Attach Sections to Menu)
-
-Attach section IDs to a menu. This call requires the latest menu `revision`.
-
-**Endpoint**: `PATCH https://www.wixapis.com/restaurants/menus-menu/v1/menus/{menuId}`
-
-```json
-{
-  "menu": {
-    "id": "<MENU_ID>",
-    "revision": "<MENU_REVISION>",
-    "sectionIds": ["<SECTION_ID_1>", "<SECTION_ID_2>"]
-  }
-}
-```
-
 ## Step 7: Bulk Operations for Large Menus
 
 For restaurant setup flows with many sections/items, use bulk endpoints:
@@ -327,6 +313,7 @@ Common dietary labels:
 | `MENU_NOT_FOUND` | Invalid menu ID | Verify menu exists |
 | `ITEM_NOT_FOUND` | Invalid item ID | Verify item exists |
 | `INVALID_PRICE` | Negative price | Use positive amounts |
+| `DUPLICATE_NAME` | Section/item name is permanently reserved across all menus | Section names cannot be reused or changed once created |
 
 ## Related Documentation
 
