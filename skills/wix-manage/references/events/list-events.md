@@ -13,8 +13,8 @@ This recipe demonstrates how to query and list events from Wix Events using the 
 
 ## Required APIs
 
-- **Events API**: [REST](https://dev.wix.com/docs/rest/business-solutions/events/events-v3/query-events)
-- **Filter and Sort Guidelines**: [Documentation](https://dev.wix.com/docs/rest/business-solutions/events/events-v3/filter-and-sort)
+- **Events API**: [REST](https://dev.wix.com/docs/api-reference/business-solutions/events/event-management/events-v3/query-events)
+- **Filter and Sort Guidelines**: [Documentation](https://dev.wix.com/docs/api-reference/business-solutions/events/event-management/events-v3/filter-and-sort)
 
 ---
 
@@ -78,7 +78,7 @@ The `fields` parameter determines which data is returned. You MUST specify at le
 - I MUST specify at least `"DETAILS"` in the `fields` array
 - I MUST NEVER use `"FULL"` as a field value
 - If the user wants event links, I MUST include `"URLS"` in the fields
-- Follow the [Filter and Sort Guidelines](https://dev.wix.com/docs/rest/business-solutions/events/events-v3/filter-and-sort) for query filtering
+- Follow the [Filter and Sort Guidelines](https://dev.wix.com/docs/api-reference/business-solutions/events/event-management/events-v3/filter-and-sort) for query filtering
 
 ---
 
@@ -198,6 +198,6 @@ Apply filters to narrow down results:
 
 ## Next Steps
 
-- Create events using the [Create Event API](https://dev.wix.com/docs/rest/business-solutions/events/events-v3/create-event)
+- Create events using the [Create Event API](https://dev.wix.com/docs/api-reference/business-solutions/events/event-management/events-v3/create-event)
 - Manage RSVPs and registrations
 - Configure event tickets and pricing

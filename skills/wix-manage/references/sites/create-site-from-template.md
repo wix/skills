@@ -155,7 +155,7 @@ curl -X POST \
 
 If the site was created as headless, you MUST create an OAuth app for authentication.
 
-See [Create OAuth App](https://dev.wix.com/docs/rest/business-management/headless-authentication/oauth-apps/create-oauth-app) documentation.
+See [Create OAuth App](https://dev.wix.com/docs/api-reference/business-management/headless/oauth-apps/create-oauth-app) documentation.
 
 This is a site-level call in the context of the newly created site.
 

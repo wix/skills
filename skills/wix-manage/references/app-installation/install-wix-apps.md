@@ -9,11 +9,11 @@ This recipe guides you through installing Wix apps on a site using the Apps Inst
 ## Prerequisites
 
 - Site ID where apps will be installed
-- Knowledge of which app to install (see [Apps Created by Wix](https://dev.wix.com/docs/rest/articles/get-started/apps-created-by-wix))
+- Knowledge of which app to install (see [Apps Created by Wix](https://dev.wix.com/docs/api-reference/articles/work-with-wix-apis/platform/about-apps-created-by-wix))
 
 ## Required APIs
 
-- **Apps Installer API**: [REST](https://dev.wix.com/docs/rest/business-management/app-installation/install-app)
+- **Apps Installer API**: [REST](https://dev.wix.com/docs/api-reference/business-management/app-installation/app-installation/install-app)
 
 ---
 ## Step 0: Find the App ID (skip if you already have it)
@@ -112,7 +112,7 @@ curl -X POST \
 
 ### Common App Definition IDs
 
-Before installing, refer to the [Apps Created by Wix](https://dev.wix.com/docs/rest/articles/get-started/apps-created-by-wix) documentation to find the correct `appDefId` for the app you want to install.
+Before installing, refer to the [Apps Created by Wix](https://dev.wix.com/docs/api-reference/articles/work-with-wix-apis/platform/about-apps-created-by-wix) documentation to find the correct `appDefId` for the app you want to install.
 
 Some common apps:
 | App | appDefId |

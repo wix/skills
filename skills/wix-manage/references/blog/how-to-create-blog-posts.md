@@ -15,7 +15,7 @@ This article demonstrates how to create and immediately publish blog posts using
 
 **IMPORTANT**: When calling the Blog API as a 3rd-party app (not as the site owner), `draftPost.memberId` is **required**. The API will reject requests with "Missing post owner information" if omitted.
 
-1. Query site members to get a valid member ID using [List Members](https://dev.wix.com/docs/rest/crm/members-contacts/members/member-management/members/list-members):
+1. Query site members to get a valid member ID using [List Members](https://dev.wix.com/docs/api-reference/crm/members-contacts/members/member-management/members/list-members):
 
    ```bash
    curl -X GET "https://www.wixapis.com/members/v1/members?fieldsets=PUBLIC&paging.limit=1" \
@@ -86,7 +86,7 @@ This article demonstrates how to create and immediately publish blog posts using
      }'
    ```
 
-2. Structure rich content using Ricos JSON format. Reference [Ricos documentation](https://dev.wix.com/docs/rest/assets/rich-content/ricos-documents/introduction) for complete node structure. Common node types:
+2. Structure rich content using Ricos JSON format. Reference [Ricos documentation](https://dev.wix.com/docs/api-reference/assets/rich-content/ricos-documents/introduction) for complete node structure. Common node types:
    - `PARAGRAPH` for text content
    - `HEADING` for section headers
    - `IMAGE` for embedded images (requires Wix Media ID)
@@ -195,7 +195,7 @@ This article demonstrates how to create and immediately publish blog posts using
 - Never mock blog posts or media IDs - always use the APIs to import images and create posts
 - Always read the full documentation of methods before implementation
 - External images MUST be imported via Import File API before use in blog posts - direct external URLs will not work
-- For 3rd-party app integrations, `memberId` is mandatory - use the [List Members](https://dev.wix.com/docs/rest/crm/members-contacts/members/member-management/members/list-members) API if needed to get member ID
+- For 3rd-party app integrations, `memberId` is mandatory - use the [List Members](https://dev.wix.com/docs/api-reference/crm/members-contacts/members/member-management/members/list-members) API if needed to get member ID
 - Use ONLY the file ID (without `wix:image://v1/` prefix) for both cover images and embedded images
 - Rich content IMAGE nodes require both `width` and `height` properties in the `image` object
 - Images with `"operationStatus": "PENDING"` from import can be used immediately in blog posts

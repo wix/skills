@@ -13,7 +13,7 @@ This recipe demonstrates how to list and query all sites associated with a Wix a
 
 ## Required APIs
 
-- **Query Sites API**: [REST](https://dev.wix.com/docs/rest/account-level-apis/sites/sites/query-sites)
+- **Query Sites API**: [REST](https://dev.wix.com/docs/api-reference/account-level/sites/sites/query-sites)
 
 ---
 

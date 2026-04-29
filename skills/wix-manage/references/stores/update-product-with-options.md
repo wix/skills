@@ -38,7 +38,7 @@ curl -X POST "https://www.wixapis.com/stores/v3/products/search" \
 For product-name lookup, prefer Search Products before retrieving the product by ID.
 
 ## STEP 1: Get the current product to obtain its revision
-1. Before updating the product, you need to retrieve its current revision to prevent conflicts using [Get Product](https://dev.wix.com/docs/rest/business-solutions/stores/catalog-v3/products-v3/get-product):
+1. Before updating the product, you need to retrieve its current revision to prevent conflicts using [Get Product](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/get-product):
 
 ```bash
 curl -X GET "https://www.wixapis.com/stores/v3/products/{productId}" \

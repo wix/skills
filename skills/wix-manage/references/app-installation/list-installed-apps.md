@@ -12,7 +12,7 @@ This recipe guides you through listing all installed apps on a Wix site using th
 
 ## Required APIs
 
-- **Apps Installer API**: [Get Installed Apps](https://dev.wix.com/docs/rest/business-management/app-installation/get-installed-apps)
+- **Apps Installer API**: [Get Installed Apps](https://dev.wix.com/docs/api-reference/business-management/app-installation/app-installation/get-installed-apps)
 
 ---
 
@@ -68,7 +68,7 @@ Match the `appDefId` values from the response against known Wix app IDs.
 | Wix Pricing Plans | `1522827f-c56c-a5c9-2ac9-00f9e6ae12d3` |
 | Wix Restaurants | `13e8d036-5516-6f75-e025-2aca3b5d7930` |
 
-For a complete list, see [Apps Created by Wix](https://dev.wix.com/docs/rest/articles/get-started/apps-created-by-wix).
+For a complete list, see [Apps Created by Wix](https://dev.wix.com/docs/api-reference/articles/work-with-wix-apis/platform/about-apps-created-by-wix).
 
 ---
 
