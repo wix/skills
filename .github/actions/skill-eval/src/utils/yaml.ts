@@ -21,6 +21,10 @@ function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+function isValidTag(tag: string): boolean {
+  return /^[\w-]+$/.test(tag);
+}
+
 export function parseDocumentationYaml(raw: string): DocEntry[] {
   const parsed = jsYaml.load(raw) as RawDoc | null;
   const docs = parsed?.apiDoc?.docs;
@@ -31,7 +35,7 @@ export function parseDocumentationYaml(raw: string): DocEntry[] {
       title: escapeHtml(String(e.title)),
       file: String(e.file),
       docsEntry: e.docsEntry !== undefined ? String(e.docsEntry) : undefined,
-      tags: Array.isArray(e.tags) ? e.tags.map(String).filter(t => /^[\w-]+$/.test(t)) : undefined,
+      tags: Array.isArray(e.tags) ? e.tags.map(String).filter(isValidTag) : undefined,
     }];
   });
 }
