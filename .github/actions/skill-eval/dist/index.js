@@ -34388,8 +34388,8 @@ function resolveEntryPath(yamlPath, entryFile, workspaceRoot) {
     }
     return rel;
 }
-function fileExistsInWorkspace(repoRootPath) {
-    return (0, node_fs_1.existsSync)((0, node_path_1.resolve)(process.cwd(), repoRootPath));
+function fileExistsInWorkspace(repoRootPath, workspaceRoot) {
+    return (0, node_fs_1.existsSync)((0, node_path_1.resolve)(workspaceRoot, repoRootPath));
 }
 
 
@@ -34485,7 +34485,7 @@ function validateEntry(entry, workspaceRoot) {
         errors.push({ entryTitle: entry.title, message: `invalid file path: ${entry.file} ${location}` });
         return errors;
     }
-    if (!(0, paths_1.fileExistsInWorkspace)(resolved)) {
+    if (!(0, paths_1.fileExistsInWorkspace)(resolved, workspaceRoot)) {
         errors.push({ entryTitle: entry.title, message: `file not found: ${resolved} ${location}` });
     }
     return errors;
@@ -34592,6 +34592,9 @@ const jsYaml = __importStar(__nccwpck_require__(4281));
 function escapeHtml(s) {
     return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
+function isValidTag(tag) {
+    return /^[\w-]+$/.test(tag);
+}
 function parseDocumentationYaml(raw) {
     const parsed = jsYaml.load(raw);
     const docs = parsed?.apiDoc?.docs;
@@ -34604,7 +34607,7 @@ function parseDocumentationYaml(raw) {
                 title: escapeHtml(String(e.title)),
                 file: String(e.file),
                 docsEntry: e.docsEntry !== undefined ? String(e.docsEntry) : undefined,
-                tags: Array.isArray(e.tags) ? e.tags.map(String).filter(t => /^[\w-]+$/.test(t)) : undefined,
+                tags: Array.isArray(e.tags) ? e.tags.map(String).filter(isValidTag) : undefined,
             }];
     });
 }

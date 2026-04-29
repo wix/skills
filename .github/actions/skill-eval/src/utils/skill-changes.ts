@@ -70,7 +70,7 @@ function validateEntry(entry: AffectedEntry, workspaceRoot: string): ValidationE
     errors.push({ entryTitle: entry.title, message: `invalid file path: ${entry.file} ${location}` });
     return errors;
   }
-  if (!fileExistsInWorkspace(resolved)) {
+  if (!fileExistsInWorkspace(resolved, workspaceRoot)) {
     errors.push({ entryTitle: entry.title, message: `file not found: ${resolved} ${location}` });
   }
   return errors;

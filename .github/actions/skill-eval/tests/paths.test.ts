@@ -30,7 +30,7 @@ describe('resolveEntryPath', () => {
 });
 
 describe('fileExistsInWorkspace', () => {
-  const tmp = 'tmp-paths-test';
+  const tmp = join(process.cwd(), 'tmp-paths-test');
 
   beforeAll(() => {
     mkdirSync(tmp, { recursive: true });
@@ -40,11 +40,11 @@ describe('fileExistsInWorkspace', () => {
   afterAll(() => rmSync(tmp, { recursive: true }));
 
   it('returns true for an existing file', () => {
-    expect(fileExistsInWorkspace(join(tmp, 'test.md'))).toBe(true);
+    expect(fileExistsInWorkspace('test.md', tmp)).toBe(true);
   });
 
   it('returns false for a missing file', () => {
-    expect(fileExistsInWorkspace(join(tmp, 'missing.md'))).toBe(false);
+    expect(fileExistsInWorkspace('missing.md', tmp)).toBe(false);
   });
 });
 
