@@ -62,11 +62,23 @@ export class EvalForgeClient {
     }) as Promise<T>;
   }
 
-  async createMcpVersion(mcpId: string, projectId: string, versionLabel: string, prNumber: number): Promise<CapabilityVersion> {
+  async createMcpVersion(mcpId: string, projectId: string, versionLabel: string, prNumber: number, headSha: string): Promise<CapabilityVersion> {
     return this.request<CapabilityVersion>('POST', `/projects/${projectId}/capabilities/${mcpId}/versions`, {
       version: versionLabel,
       origin: 'pr',
       notes: `Auto-created for PR #${prNumber}`,
+      content: {
+        config: {
+          'wix-mcp-remote': {
+            url: `https://mcp.wix.com/mcp?skillsRepo=wix/skills&skillsPr=${headSha}`,
+            type: 'http',
+            headers: {
+              Authorization: '{{wix-auth-token}}',
+              'wix-account-id': '{{wix-auth-user-id}}',
+            },
+          },
+        },
+      },
     });
   }
 

@@ -34146,7 +34146,7 @@ async function run() {
     const versionLabel = `pr-${config.prNumber}-${config.headSha.slice(0, 7)}`;
     let mcpVersionId;
     try {
-        const mcpVersion = await evalforge.createMcpVersion(config.mcpId, config.projectId, versionLabel, config.prNumber);
+        const mcpVersion = await evalforge.createMcpVersion(config.mcpId, config.projectId, versionLabel, config.prNumber, config.headSha);
         mcpVersionId = mcpVersion.id;
         core.info(`Created MCP version ${versionLabel} (${mcpVersionId})`);
     }
@@ -34502,11 +34502,23 @@ class EvalForgeClient {
             throw new Error(`EvalForge ${method} ${path} → 200 but invalid JSON: ${e instanceof Error ? e.message : String(e)}`);
         });
     }
-    async createMcpVersion(mcpId, projectId, versionLabel, prNumber) {
+    async createMcpVersion(mcpId, projectId, versionLabel, prNumber, headSha) {
         return this.request('POST', `/projects/${projectId}/capabilities/${mcpId}/versions`, {
             version: versionLabel,
             origin: 'pr',
             notes: `Auto-created for PR #${prNumber}`,
+            content: {
+                config: {
+                    'wix-mcp-remote': {
+                        url: `https://mcp.wix.com/mcp?skillsRepo=wix/skills&skillsPr=${headSha}`,
+                        type: 'http',
+                        headers: {
+                            Authorization: '{{wix-auth-token}}',
+                            'wix-account-id': '{{wix-auth-user-id}}',
+                        },
+                    },
+                },
+            },
         });
     }
     async getTags(projectId) {

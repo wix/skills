@@ -88,7 +88,7 @@ async function run(): Promise<void> {
   const versionLabel = `pr-${config.prNumber}-${config.headSha.slice(0, 7)}`;
   let mcpVersionId: string;
   try {
-    const mcpVersion = await evalforge.createMcpVersion(config.mcpId, config.projectId, versionLabel, config.prNumber);
+    const mcpVersion = await evalforge.createMcpVersion(config.mcpId, config.projectId, versionLabel, config.prNumber, config.headSha);
     mcpVersionId = mcpVersion.id;
     core.info(`Created MCP version ${versionLabel} (${mcpVersionId})`);
   } catch (e) {
