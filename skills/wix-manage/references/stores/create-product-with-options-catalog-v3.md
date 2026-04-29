@@ -12,7 +12,7 @@ Learn how to create a Wix store product with customizable options like colors, s
 
 ## STEP 1: create the product with options and variants
 
-1. create the product with options and create variants for them - Wix REST API: [Create Product](https://dev.wix.com/docs/rest/business-solutions/stores/catalog-v3/products-v3/create-product) **CRITICAL: USE THIS WORKING EXAMPLE**
+1. create the product with options and create variants for them - Wix REST API: [Create Product](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/create-product) **CRITICAL: USE THIS WORKING EXAMPLE**
 
 ```bash
 curl -X POST 'https://www.wixapis.com/stores/v3/products' \

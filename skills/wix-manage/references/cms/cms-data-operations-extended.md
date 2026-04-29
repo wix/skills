@@ -14,7 +14,7 @@ This recipe covers additional CMS data operations not included in the basic CRUD
 
 ## Required APIs
 
-- **Data Items API**: [REST](https://dev.wix.com/docs/rest/business-solutions/cms/data-items/introduction)
+- **Data Items API**: [REST](https://dev.wix.com/docs/api-reference/business-solutions/cms/data-items/introduction)
 
 ## Count Data Items
 
@@ -258,6 +258,6 @@ curl -X POST \
 
 ## Related Documentation
 
-- [Data Items API Reference](https://dev.wix.com/docs/rest/business-solutions/cms/data-items/introduction)
+- [Data Items API Reference](https://dev.wix.com/docs/api-reference/business-solutions/cms/data-items/introduction)
 - [CMS Operations Best Practices](cms-data-items-crud.md)
 - [CMS Schema Management](cms-schema-management.md)

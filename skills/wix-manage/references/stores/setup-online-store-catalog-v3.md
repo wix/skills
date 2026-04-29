@@ -19,7 +19,7 @@ A concise checklist for preparing any new Wix site that uses the Online Stores a
 ### STEP 1: Confirm Catalog V3 & Stick to V3 APIs
 
 - **Check if the site uses Catalog V3.**
- This can be done using the [Get Catalog Version](https://dev.wix.com/docs/rest/business-solutions/stores/catalog-versioning/get-catalog-version) endpoint.
+ This can be done using the [Get Catalog Version](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-versioning/get-catalog-version) endpoint.
  path: `https://www.wixapis.com/stores/v3/provision/version`
 
 
@@ -53,7 +53,7 @@ The Categories API is an exception. It uses a v1 endpoint, as it replaces the ol
   - **Book store** → Drama, Kids, Sci-Fi
   - **Fashion** → Men, Women, Kids
   - **Other industries** → any logical grouping that fits the catalog.
-4. Use the Categories API to create each category. **YOU MUST USE** the endpoint: [Create Category](https://dev.wix.com/docs/rest/business-solutions/stores/catalog-v3/categories/create-category) based on the example below.
+4. Use the Categories API to create each category. **YOU MUST USE** the endpoint: [Create Category](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/categories/create-category) based on the example below.
 **⚠️ CRITICAL: Use correct endpoint `/categories/v1/bulk/categories/{categoryId}/add-items` with `catalogItemId`, `appId: "215238eb-22a5-4c36-9e7b-e7c08025e04e"`, and `treeReference` object.**
 When calling the endpoint, make sure the request body includes a top-level `treeReference` field. It must **not** be nested inside the `category` object.
 
@@ -77,7 +77,7 @@ Use the following example format:
 ### STEP 4: Add Each Product to a Category
 1. **YOU MUST** add each existing product to at least one category that most makes sense.
 2. First acquire the product's ids to use for this action.
-3. Then adding a product to a category **MUST** be done using the Category API, specifically [Bulk Add Items To Category](https://dev.wix.com/docs/rest/business-solutions/stores/catalog-v3/categories/bulk-add-items-to-category), where products are referred to as items. This endpoint enables adding multiple products at once to a category.
+3. Then adding a product to a category **MUST** be done using the Category API, specifically [Bulk Add Items To Category](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/categories/bulk-add-items-to-category), where products are referred to as items. This endpoint enables adding multiple products at once to a category.
 
 **⚠️ CRITICAL: Use correct endpoint `/categories/v1/bulk/categories/{categoryId}/add-items` with `catalogItemId`, `appId: "215238eb-22a5-4c36-9e7b-e7c08025e04e"`, and `treeReference` object.**
 **Make Sure** you pass the treeReference correctly at the same level as "items".
@@ -85,7 +85,7 @@ Use the following example format:
 
 ### STEP 5: Ensure Each Product was Added to a Category
 1. **YOU MUST** ensure that each product is connected to at least one category.
-2. **You MUST** do this by using the [List Items In Category](https://dev.wix.com/docs/rest/business-solutions/stores/catalog-v3/categories/list-items-in-category) for EVERY Category (for example: 3 required api calls for 3 categories). If the list of items is empty, it means that the product was not added to that category and **YOU MUST** repeat step 4.
+2. **You MUST** do this by using the [List Items In Category](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/categories/list-items-in-category) for EVERY Category (for example: 3 required api calls for 3 categories). If the list of items is empty, it means that the product was not added to that category and **YOU MUST** repeat step 4.
 The path for this endpoint in REST is: `https://www.wixapis.com/categories/v1/categories/{categoryId}/list-items`
 3. When calling the endpoint, make sure the request body includes a top-level `treeReference` field. It must **not** be nested inside the `category` object.
 

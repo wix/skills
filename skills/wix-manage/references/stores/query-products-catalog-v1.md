@@ -77,4 +77,4 @@ curl -X POST 'https://www.wixapis.com/stores-reader/v1/products/query' \
 ## References
 
 - [V1 Query Products](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v1/catalog/query-products)
-- [Catalog Versioning Overview](https://dev.wix.com/docs/rest/business-solutions/stores/catalog-versioning/introduction)
+- [Catalog Versioning Overview](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-versioning/introduction)

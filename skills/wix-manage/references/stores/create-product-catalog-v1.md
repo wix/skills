@@ -122,4 +122,4 @@ This is different from V3 which uses an array structure.
 ## References
 
 - [V1 Create Product](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v1/catalog/create-product)
-- [Catalog Versioning Overview](https://dev.wix.com/docs/rest/business-solutions/stores/catalog-versioning/introduction)
+- [Catalog Versioning Overview](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-versioning/introduction)
