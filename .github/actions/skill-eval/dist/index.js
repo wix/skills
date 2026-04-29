@@ -34090,7 +34090,11 @@ async function run() {
         }
         const pr = ctx.payload.pull_request;
         const prNumber = pr.number;
-        const baseSha = pr.base.sha;
+        const baseSha = pr.base?.sha;
+        if (!prNumber || !baseSha) {
+            core.setFailed('PR payload is missing required fields (number or base.sha)');
+            return;
+        }
         const { owner, repo } = ctx.repo;
         core.info(`Skill eval — PR #${prNumber}`);
         const octokit = github.getOctokit(token);

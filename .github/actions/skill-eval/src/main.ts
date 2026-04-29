@@ -15,8 +15,12 @@ async function run(): Promise<void> {
     }
 
     const pr = ctx.payload.pull_request;
-    const prNumber = pr.number as number;
-    const baseSha = (pr.base as { sha: string }).sha;
+    const prNumber = pr.number as number | undefined;
+    const baseSha = (pr.base as { sha?: string } | undefined)?.sha;
+    if (!prNumber || !baseSha) {
+      core.setFailed('PR payload is missing required fields (number or base.sha)');
+      return;
+    }
     const { owner, repo } = ctx.repo;
 
     core.info(`Skill eval — PR #${prNumber}`);
