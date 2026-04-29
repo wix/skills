@@ -198,7 +198,7 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 **Technical:** Uses bulk products endpoint to create multiple products with inventory in a single request. Handles variant generation from options, media format requirements, and error handling for partial failures.
 
 ### [Create Product from Image (Version Router)](references/stores/create-product-from-image-router.md)
-**Technical:** Detects the site's catalog version using Get Catalog Version endpoint, then routes to the correct "Create Product from Image" recipe (V1 or V3). Use as the entry point when catalog version is unknown.
+**Technical:** **MANDATORY entry point** for all "create product from image" flows. Detects the site's catalog version using Get Catalog Version endpoint, then routes to the correct version-specific recipe (V1 or V3). Always start here when the user wants to create a product from an image.
 
 ### [Create Product from Image (Catalog V1)](references/stores/create-product-from-image.md)
 **Technical:** Creates a product by uploading an image to Wix Media, using the LLM to generate the product name, description, and price from the image, then attaching the media to the created product. Combines Media Upload + LLM analysis + Product Creation + Add Product Media into a single flow. **Catalog V1 only** — for V3 sites, use Create Product from Image (Catalog V3) instead.

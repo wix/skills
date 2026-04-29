@@ -1,10 +1,10 @@
 ---
 name: "Create Product from Image (Version Router)"
-description: Detects the site's catalog version using the Get Catalog Version endpoint, then routes to the correct "Create Product from Image" recipe (V1 or V3). Use this as the entry point when the catalog version is unknown.
+description: "MANDATORY entry point for creating a product from an image. Detects the site's catalog version using Get Catalog Version endpoint, then routes to the correct version-specific recipe (V1 or V3). Always start here — do NOT skip version detection."
 ---
 # RECIPE: Create Product from Image (Version Router)
 
-> **Use this recipe when the site's catalog version is unknown.** It detects the version automatically and routes to the correct recipe. If you already know the catalog version from dynamic context, skip directly to the appropriate recipe: [Catalog V1](create-product-from-image.md) or [Catalog V3](create-product-from-image-catalog-v3.md).
+> **ALWAYS use this recipe as the entry point** when the user wants to create a product from an image. Do NOT skip version detection — even if you believe you know the catalog version from dynamic context.
 
 This recipe determines the site's catalog version and then delegates to the version-specific "Create Product from Image" recipe.
 

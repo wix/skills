@@ -4,7 +4,9 @@ description: Creates a product by uploading an image to Wix Media, using the LLM
 ---
 # RECIPE: Create Product from Image (Catalog V1)
 
-> **Catalog V1 only.** This recipe uses the Catalog V1 API (`/stores/v1/products`). It will NOT work on sites using Catalog V3. If the site uses Catalog V3, use the [Create Product from Image (Catalog V3)](create-product-from-image-catalog-v3.md) recipe instead. If the catalog version is unknown, use the [Create Product from Image (Version Router)](create-product-from-image-router.md) to auto-detect and route to the correct recipe.
+> **Recommended:** Always start from the [Version Router](create-product-from-image-router.md) which auto-detects the catalog version and routes here automatically.
+
+> **Catalog V1 only.** This recipe uses the Catalog V1 API (`/stores/v1/products`). It will NOT work on sites using Catalog V3. If the site uses Catalog V3, use the [Create Product from Image (Catalog V3)](create-product-from-image-catalog-v3.md) recipe instead.
 
 This recipe creates a Wix Store product from an image. It has exactly 4 steps that MUST ALL be completed in order. Do NOT report success until ALL 4 steps have been executed successfully.
 
