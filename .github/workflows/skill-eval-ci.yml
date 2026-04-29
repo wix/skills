@@ -1,0 +1,29 @@
+name: Skill Eval CI
+
+on:
+  pull_request:
+    paths:
+      - '.github/actions/skill-eval/**'
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .github/actions/skill-eval
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4
+        with:
+          node-version: '20'
+      - run: node .yarn/releases/yarn-*.cjs install --immutable
+      - run: node .yarn/releases/yarn-*.cjs typecheck
+      - run: node .yarn/releases/yarn-*.cjs test
+      - name: Check dist is up to date
+        run: |
+          node .yarn/releases/yarn-*.cjs build
+          git diff --exit-code dist/index.js
