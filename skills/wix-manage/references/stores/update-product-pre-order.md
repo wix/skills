@@ -14,10 +14,10 @@ This recipe outlines the steps to manage pre-orders for product variants, includ
 
 ## Required APIs
 
-- **Products Search API**: [REST](https://dev.wix.com/docs/rest/business-solutions/stores/catalog-v3/products-v3/search-products)
-- **Query Inventory Items API**: [REST](https://dev.wix.com/docs/rest/business-solutions/stores/catalog-v3/inventory-items-v3/query-inventory-items)
-- **Bulk Update Inventory Items API**: [REST](https://dev.wix.com/docs/rest/business-solutions/stores/catalog-v3/inventory-items-v3/bulk-update-inventory-items)
-- **Update Inventory Item API**: [REST](https://dev.wix.com/docs/rest/business-solutions/stores/catalog-v3/inventory-items-v3/update-inventory-item)
+- **Products Search API**: [REST](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/search-products)
+- **Query Inventory Items API**: [REST](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/inventory-items-v3/query-inventory-items)
+- **Bulk Update Inventory Items API**: [REST](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/inventory-items-v3/bulk-update-inventory-items)
+- **Update Inventory Item API**: [REST](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/inventory-items-v3/update-inventory-item)
 
 ---
 

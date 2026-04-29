@@ -42,7 +42,7 @@ Learn how to create multiple Wix store products with customizable options like c
 
 ## STEP 1: bulk create products with options and variants
 
-1. bulk create products with options and create variants for them - Wix REST API: [Bulk Create Products With Inventory](https://dev.wix.com/docs/rest/business-solutions/stores/catalog-v3/products-v3/bulk-create-products-with-inventory) **CRITICAL: USE THIS WORKING EXAMPLE - if more products are required copy the same format exactly to create more**
+1. bulk create products with options and create variants for them - Wix REST API: [Bulk Create Products With Inventory](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/bulk-create-products-with-inventory) **CRITICAL: USE THIS WORKING EXAMPLE - if more products are required copy the same format exactly to create more**
 
 ```bash
 curl -X POST "https://www.wixapis.com/stores/v3/bulk/products-with-inventory/create" \

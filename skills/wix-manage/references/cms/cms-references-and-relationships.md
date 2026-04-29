@@ -14,8 +14,8 @@ This recipe covers linking CMS collections together using reference fields.
 
 ## Required APIs
 
-- **Collections API**: [REST](https://dev.wix.com/docs/rest/business-solutions/cms/collection-management/data-collections/introduction)
-- **Data Items API**: [REST](https://dev.wix.com/docs/rest/business-solutions/cms/data-items/introduction)
+- **Collections API**: [REST](https://dev.wix.com/docs/api-reference/business-solutions/cms/collection-management/data-collections/introduction)
+- **Data Items API**: [REST](https://dev.wix.com/docs/api-reference/business-solutions/cms/data-items/introduction)
 
 ## Reference Types
 
@@ -155,6 +155,6 @@ curl -X POST \
 
 ## Related Documentation
 
-- [Data Items API Reference](https://dev.wix.com/docs/rest/business-solutions/cms/data-items/introduction)
-- [Collections API Reference](https://dev.wix.com/docs/rest/business-solutions/cms/collection-management/data-collections/introduction)
+- [Data Items API Reference](https://dev.wix.com/docs/api-reference/business-solutions/cms/data-items/introduction)
+- [Collections API Reference](https://dev.wix.com/docs/api-reference/business-solutions/cms/collection-management/data-collections/introduction)
 - [CMS Schema Management Recipe](cms-schema-management.md)

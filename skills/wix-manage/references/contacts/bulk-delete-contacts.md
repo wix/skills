@@ -13,7 +13,7 @@ To perform a dry run, call [Query Contacts](https://dev.wix.com/docs/api-referen
 
 When this method is called, a bulk job is started and the job ID is returned.
 The job might not complete right away, depending on its size.
-The job's status can be retrieved with [Get Bulk Job](https://dev.wix.com/docs/rest/crm/members-contacts/contacts/contacts/bulk-job/get-bulk-job).
+The job's status can be retrieved with [Get Bulk Job](https://dev.wix.com/docs/api-reference/crm/members-contacts/contacts/contacts/bulk-job/get-bulk-job).
 
 **IMPORTANT NOTE:** When specific contacts are to be deleted, they should be filtered by id.
 
@@ -51,7 +51,7 @@ The response includes a `jobId` which can be used to track the bulk job status:
 }
 ```
 
-Use the [Get Bulk Job](https://dev.wix.com/docs/rest/crm/members-contacts/contacts/contacts/bulk-job/get-bulk-job) endpoint to check the job status.
+Use the [Get Bulk Job](https://dev.wix.com/docs/api-reference/crm/members-contacts/contacts/contacts/bulk-job/get-bulk-job) endpoint to check the job status.
 
 ## Common Errors
 
@@ -70,4 +70,4 @@ The following errors might occur during the bulk processing and will appear in t
 ## Related Documentation
 - [Bulk Delete Contacts API Reference](https://dev.wix.com/docs/api-reference/crm/members-contacts/contacts/contacts/contact-v4/bulk-delete-contacts)
 - [Query Contacts](https://dev.wix.com/docs/api-reference/crm/members-contacts/contacts/contacts/contact-v4/query-contacts)
-- [Get Bulk Job](https://dev.wix.com/docs/rest/crm/members-contacts/contacts/contacts/bulk-job/get-bulk-job)
+- [Get Bulk Job](https://dev.wix.com/docs/api-reference/crm/members-contacts/contacts/contacts/bulk-job/get-bulk-job)

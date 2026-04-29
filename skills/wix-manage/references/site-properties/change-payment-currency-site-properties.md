@@ -54,6 +54,6 @@ A successful call returns an updated Site Properties snapshot version, for examp
 - Currency must be a **3-letter ISO-4217** code (for example, `USD`, `CAD`, `EUR`, `GBP`).
 
 ## Related APIs
-- **Site Properties API**: [REST](https://dev.wix.com/docs/rest/business-management/site-properties/properties/introduction)
+- **Site Properties API**: [REST](https://dev.wix.com/docs/api-reference/business-management/site-properties/properties/introduction)
 - Stores Currency Converter (conversion utilities, not for setting the site currency):
   - `POST https://www.wixapis.com/currency_converter/v1/currencies/amounts/{from}/convert/{to}`
