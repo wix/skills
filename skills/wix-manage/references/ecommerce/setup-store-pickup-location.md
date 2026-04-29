@@ -4,6 +4,7 @@ description: Configures a pickup option for an online store so customers can cho
 ---
 # Set Up Store Pickup Location
 
+
 ## Prerequisites
 
 - Wix Stores (or another eCommerce business solution) installed on the site
