@@ -94,8 +94,20 @@ async function run(): Promise<void> {
   } catch (e) {
     const status = (e as { status?: number }).status;
     if (status === 409) {
-      core.warning(`MCP version ${versionLabel} already exists — reusing`);
-      mcpVersionId = versionLabel;
+      core.warning(`MCP version ${versionLabel} already exists — looking up existing version`);
+      try {
+        const versions = await evalforge.listMcpVersions(config.mcpId, config.projectId);
+        const existing = versions.find(v => v.version === versionLabel);
+        if (!existing) throw new Error(`Version ${versionLabel} not found after 409`);
+        mcpVersionId = existing.id;
+        core.info(`Reusing existing MCP version ${versionLabel} (${mcpVersionId})`);
+      } catch (lookupErr) {
+        const message = lookupErr instanceof Error ? lookupErr.message : String(lookupErr);
+        core.error(`Failed to look up existing MCP version: ${message}`);
+        await upsertComment(octokit, config, formatServiceError('Could not look up existing MCP version — see job logs for details'));
+        core.setFailed('Could not look up existing MCP version');
+        return;
+      }
     } else {
       const message = e instanceof Error ? e.message : String(e);
       core.error(`Failed to create MCP version: ${message}`);
@@ -161,14 +173,18 @@ async function run(): Promise<void> {
   }
 
   const { aggregateMetrics: m } = finalStatus;
-  const passed = finalStatus.status === 'completed' && m.failed === 0;
 
-  if (passed) {
-    await upsertComment(octokit, config, formatEvalPassed(m, runId));
-    core.info(`Eval passed — ${m.passed}/${m.totalAssertions} scenarios passed`);
+  if (finalStatus.status === 'completed') {
+    if (m.failed === 0 && m.errors === 0) {
+      await upsertComment(octokit, config, formatEvalPassed(m, runId));
+      core.info(`Eval passed — ${m.passed}/${m.totalAssertions} scenarios passed`);
+    } else {
+      await upsertComment(octokit, config, formatEvalFailed(m, runId));
+      core.setFailed(`Eval failed — ${m.failed}/${m.totalAssertions} scenarios failed (pass rate: ${m.passRate}%)`);
+    }
   } else {
-    await upsertComment(octokit, config, formatEvalFailed(m, runId));
-    core.setFailed(`Eval failed — ${m.failed}/${m.totalAssertions} scenarios failed (pass rate: ${m.passRate}%)`);
+    await upsertComment(octokit, config, formatServiceError(`Eval run ended with status '${finalStatus.status}' — check EvalForge for details (run ID: ${runId})`));
+    core.setFailed(`Eval run ended with unexpected status: ${finalStatus.status}`);
   }
 }
 

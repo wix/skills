@@ -8,9 +8,6 @@ export function formatValidationErrors(errors: ValidationError[]): string {
   return [COMMENT_MARKER, '## ❌ Skill validation failed', '', lines].join('\n');
 }
 
-export function formatValidationPassed(): string {
-  return `${COMMENT_MARKER}\n## ✅ Skill validation passed`;
-}
 
 export function formatServiceError(message: string): string {
   return `${COMMENT_MARKER}\n## ❌ Skill validation failed\n\n${message}`;

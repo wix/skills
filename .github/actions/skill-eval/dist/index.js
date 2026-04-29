@@ -34153,8 +34153,22 @@ async function run() {
     catch (e) {
         const status = e.status;
         if (status === 409) {
-            core.warning(`MCP version ${versionLabel} already exists — reusing`);
-            mcpVersionId = versionLabel;
+            core.warning(`MCP version ${versionLabel} already exists — looking up existing version`);
+            try {
+                const versions = await evalforge.listMcpVersions(config.mcpId, config.projectId);
+                const existing = versions.find(v => v.version === versionLabel);
+                if (!existing)
+                    throw new Error(`Version ${versionLabel} not found after 409`);
+                mcpVersionId = existing.id;
+                core.info(`Reusing existing MCP version ${versionLabel} (${mcpVersionId})`);
+            }
+            catch (lookupErr) {
+                const message = lookupErr instanceof Error ? lookupErr.message : String(lookupErr);
+                core.error(`Failed to look up existing MCP version: ${message}`);
+                await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatServiceError)('Could not look up existing MCP version — see job logs for details'));
+                core.setFailed('Could not look up existing MCP version');
+                return;
+            }
         }
         else {
             const message = e instanceof Error ? e.message : String(e);
@@ -34219,14 +34233,19 @@ async function run() {
         return;
     }
     const { aggregateMetrics: m } = finalStatus;
-    const passed = finalStatus.status === 'completed' && m.failed === 0;
-    if (passed) {
-        await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatEvalPassed)(m, runId));
-        core.info(`Eval passed — ${m.passed}/${m.totalAssertions} scenarios passed`);
+    if (finalStatus.status === 'completed') {
+        if (m.failed === 0 && m.errors === 0) {
+            await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatEvalPassed)(m, runId));
+            core.info(`Eval passed — ${m.passed}/${m.totalAssertions} scenarios passed`);
+        }
+        else {
+            await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatEvalFailed)(m, runId));
+            core.setFailed(`Eval failed — ${m.failed}/${m.totalAssertions} scenarios failed (pass rate: ${m.passRate}%)`);
+        }
     }
     else {
-        await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatEvalFailed)(m, runId));
-        core.setFailed(`Eval failed — ${m.failed}/${m.totalAssertions} scenarios failed (pass rate: ${m.passRate}%)`);
+        await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatServiceError)(`Eval run ended with status '${finalStatus.status}' — check EvalForge for details (run ID: ${runId})`));
+        core.setFailed(`Eval run ended with unexpected status: ${finalStatus.status}`);
     }
 }
 run().catch(err => core.setFailed(err instanceof Error ? err.message : String(err)));
@@ -34242,7 +34261,6 @@ run().catch(err => core.setFailed(err instanceof Error ? err.message : String(er
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.COMMENT_MARKER = void 0;
 exports.formatValidationErrors = formatValidationErrors;
-exports.formatValidationPassed = formatValidationPassed;
 exports.formatServiceError = formatServiceError;
 exports.formatFailedJobMessage = formatFailedJobMessage;
 exports.formatEvalPassed = formatEvalPassed;
@@ -34253,9 +34271,6 @@ exports.COMMENT_MARKER = '<!-- skill-eval-action -->';
 function formatValidationErrors(errors) {
     const lines = errors.map(e => `- **${e.entryTitle}**: ${e.message}`).join('\n');
     return [exports.COMMENT_MARKER, '## ❌ Skill validation failed', '', lines].join('\n');
-}
-function formatValidationPassed() {
-    return `${exports.COMMENT_MARKER}\n## ✅ Skill validation passed`;
 }
 function formatServiceError(message) {
     return `${exports.COMMENT_MARKER}\n## ❌ Skill validation failed\n\n${message}`;
@@ -34428,7 +34443,7 @@ function isRetriable(e) {
     const status = e.status;
     if (status && status >= 500)
         return true;
-    if (e instanceof Error && e.name === 'AbortError')
+    if (e instanceof Error && (e.name === 'AbortError' || e.name === 'TimeoutError'))
         return true;
     return false;
 }
@@ -34476,6 +34491,9 @@ async function pollUntilDone(client, projectId, runId) {
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.EvalForgeClient = void 0;
+const MCP_URL = 'https://mcp.wix.com/mcp';
+const MCP_SKILLS_REPO = 'wix/skills';
+const MCP_CONFIG_KEY = 'wix-mcp-remote';
 class EvalForgeClient {
     baseUrl;
     headers;
@@ -34502,6 +34520,9 @@ class EvalForgeClient {
             throw new Error(`EvalForge ${method} ${path} → 200 but invalid JSON: ${e instanceof Error ? e.message : String(e)}`);
         });
     }
+    async listMcpVersions(mcpId, projectId) {
+        return this.request('GET', `/projects/${projectId}/capabilities/${mcpId}/versions`);
+    }
     async createMcpVersion(mcpId, projectId, versionLabel, prNumber, headSha) {
         return this.request('POST', `/projects/${projectId}/capabilities/${mcpId}/versions`, {
             version: versionLabel,
@@ -34509,8 +34530,8 @@ class EvalForgeClient {
             notes: `Auto-created for PR #${prNumber}`,
             content: {
                 config: {
-                    'wix-mcp-remote': {
-                        url: `https://mcp.wix.com/mcp?skillsRepo=wix/skills&skillsPr=${headSha}`,
+                    [MCP_CONFIG_KEY]: {
+                        url: `${MCP_URL}?skillsRepo=${MCP_SKILLS_REPO}&skillsPr=${headSha}`,
                         type: 'http',
                         headers: {
                             Authorization: '{{wix-auth-token}}',

@@ -9,7 +9,7 @@ const RETRY_DELAY_MS = 10_000;
 function isRetriable(e: unknown): boolean {
   const status = (e as { status?: number }).status;
   if (status && status >= 500) return true;
-  if (e instanceof Error && e.name === 'AbortError') return true;
+  if (e instanceof Error && (e.name === 'AbortError' || e.name === 'TimeoutError')) return true;
   return false;
 }
 
