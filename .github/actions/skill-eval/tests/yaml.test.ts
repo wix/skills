@@ -58,6 +58,7 @@ describe('parseDocumentationYaml', () => {
   it('throws on malformed YAML', () => {
     expect(() => parseDocumentationYaml('{ invalid: yaml: content')).toThrow();
   });
+
 });
 
 describe('filterSkillEntries', () => {
@@ -138,6 +139,20 @@ describe('diffYamlEntries', () => {
     const entries = parseDocumentationYaml(BASE_YAML);
     const affectedEntries = diffYamlEntries(entries, entries);
     expect(affectedEntries).toHaveLength(0);
+  });
+
+  it('tag removed → collected with current tags so validateEntry can catch missing-tags', () => {
+    const next = parseDocumentationYaml(BASE_YAML.replace('tags: [stores, stores-v2]', 'tags: [stores]'));
+    const affectedEntries = diffYamlEntries(parseDocumentationYaml(BASE_YAML), next);
+    expect(affectedEntries).toHaveLength(1);
+    expect(affectedEntries[0].tags).toEqual(['stores']);
+  });
+
+  it('all tags removed → collected so validateEntry reports missing-tags error', () => {
+    const next = parseDocumentationYaml(BASE_YAML.replace(/\s+tags:.*/, ''));
+    const affectedEntries = diffYamlEntries(parseDocumentationYaml(BASE_YAML), next);
+    expect(affectedEntries).toHaveLength(1);
+    expect(affectedEntries[0].tags).toBeUndefined();
   });
 });
 

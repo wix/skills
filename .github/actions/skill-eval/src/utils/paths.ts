@@ -24,6 +24,6 @@ export function resolveEntryPath(yamlPath: string, entryFile: string, workspaceR
   return rel;
 }
 
-export function fileExistsInWorkspace(repoRootPath: string): boolean {
-  return existsSync(resolve(process.cwd(), repoRootPath));
+export function fileExistsInWorkspace(repoRootPath: string, workspaceRoot: string): boolean {
+  return existsSync(resolve(workspaceRoot, repoRootPath));
 }
