@@ -23,14 +23,18 @@ export function getConfig(): Config {
   const pr = github.context.payload.pull_request;
   if (!pr) throw new Error('No pull_request payload — action must be triggered by a pull_request event');
 
+  const prNumber = pr.number as number | undefined;
+  const baseSha = (pr.base as { sha?: string } | undefined)?.sha;
+  if (!prNumber || !baseSha) throw new Error('PR payload is missing required fields (number or base.sha)');
+
   return {
     githubToken: safeGetSecret('github-token'),
     evalforgeUrl: core.getInput('evalforge-url', { required: true }),
     projectId: core.getInput('evalforge-project-id', { required: true }),
     appId: safeGetSecret('evalforge-app-id'),
     appSecret: safeGetSecret('evalforge-app-secret'),
-    prNumber: pr.number as number,
-    baseSha: (pr.base as { sha: string }).sha,
+    prNumber,
+    baseSha,
     owner: github.context.repo.owner,
     repo: github.context.repo.repo,
   };
