@@ -17,14 +17,6 @@ export type SkillEntry = DocEntry & { docsEntry: string };
 type RawEntry = { title?: unknown; file?: unknown; docsEntry?: unknown; tags?: unknown };
 type RawDoc = { apiDoc?: { docs?: RawEntry[] } };
 
-function escapeHtml(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
-
-function isValidTag(tag: string): boolean {
-  return /^[\w-]+$/.test(tag);
-}
-
 export function parseDocumentationYaml(raw: string): DocEntry[] {
   const parsed = jsYaml.load(raw) as RawDoc | null;
   const docs = parsed?.apiDoc?.docs;
@@ -32,10 +24,10 @@ export function parseDocumentationYaml(raw: string): DocEntry[] {
   return docs.flatMap(e => {
     if (!e.title || !e.file) return [];
     return [{
-      title: escapeHtml(String(e.title)),
+      title: String(e.title),
       file: String(e.file),
       docsEntry: e.docsEntry !== undefined ? String(e.docsEntry) : undefined,
-      tags: Array.isArray(e.tags) ? e.tags.map(String).filter(isValidTag) : undefined,
+      tags: Array.isArray(e.tags) ? e.tags.map(String) : undefined,
     }];
   });
 }

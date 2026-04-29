@@ -6,10 +6,6 @@ import { COMMENT_MARKER } from './comment';
 
 type Octokit = ReturnType<typeof github.getOctokit>;
 
-export function getOctokit(token: string): Octokit {
-  return github.getOctokit(token);
-}
-
 export async function getChangedFiles(octokit: Octokit, config: Config): Promise<ChangedFile[]> {
   const files = await octokit.paginate(octokit.rest.pulls.listFiles, {
     owner: config.owner,
@@ -32,7 +28,7 @@ export async function upsertComment(octokit: Octokit, config: Config, body: stri
       issue_number: config.prNumber,
       per_page: 100,
     });
-    const existing = comments.find(c => c.body?.includes(COMMENT_MARKER));
+    const existing = comments.find(c => c.user?.type === 'Bot' && c.body?.includes(COMMENT_MARKER));
     if (existing) {
       await octokit.rest.issues.updateComment({
         owner: config.owner,

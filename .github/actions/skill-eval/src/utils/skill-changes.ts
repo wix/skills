@@ -1,6 +1,7 @@
 import * as core from '@actions/core';
 import * as github from '@actions/github';
 import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { glob } from 'glob';
 import { parseDocumentationYaml, diffYamlEntries, filterSkillEntries, deduplicateAffectedEntries } from './yaml';
 import { resolveEntryPath, fileExistsInWorkspace } from './paths';
@@ -19,7 +20,7 @@ export async function collectSkillChanges(
   workspaceRoot: string
 ): Promise<{ entries: AffectedEntry[], errors: ValidationError[] }> {
   const [yamlResult, mdEntries] = await Promise.all([
-    collectFromYamlChanges(octokit, owner, repo, yamlFiles, baseSha),
+    collectFromYamlChanges(octokit, owner, repo, yamlFiles, baseSha, workspaceRoot),
     collectFromMdChanges(mdFiles, workspaceRoot),
   ]);
   const entries = deduplicateAffectedEntries([...yamlResult.entries, ...mdEntries]);
@@ -32,7 +33,8 @@ async function collectFromYamlChanges(
   owner: string,
   repo: string,
   yamlFiles: ChangedFile[],
-  baseSha: string
+  baseSha: string,
+  workspaceRoot: string
 ): Promise<{ entries: AffectedEntry[], errors: ValidationError[] }> {
   const oldPaths = yamlFiles.map(f => f.previousFilename ?? f.filename);
   const oldContents = await fetchFilesAtRef(octokit, owner, repo, oldPaths, baseSha);
@@ -43,7 +45,7 @@ async function collectFromYamlChanges(
     const oldRaw = oldContents[yamlFile.previousFilename ?? yamlFile.filename];
     let oldEntries: DocEntry[], newEntries: DocEntry[];
     try {
-      const newRaw = readFileSync(yamlFile.filename, 'utf-8');
+      const newRaw = readFileSync(join(workspaceRoot, yamlFile.filename), 'utf-8');
       oldEntries = oldRaw ? parseDocumentationYaml(oldRaw) : [];
       newEntries = parseDocumentationYaml(newRaw);
     } catch (e) {
@@ -57,7 +59,7 @@ async function collectFromYamlChanges(
   return { entries, errors };
 }
 
-function validateEntry(entry: AffectedEntry, workspaceRoot: string): ValidationError[] {
+export function validateEntry(entry: AffectedEntry, workspaceRoot: string): ValidationError[] {
   const errors: ValidationError[] = [];
   const location = `(${entry.yamlPath})`;
   if (!entry.tags?.length) {
@@ -85,13 +87,13 @@ async function collectFromMdChanges(
   workspaceRoot: string
 ): Promise<AffectedEntry[]> {
   const changedMdSet = new Set(mdFiles.map(f => f.filename));
-  const allYamlPaths = await glob('yaml/wix-manage/**/documentation.yaml');
+  const allYamlPaths = await glob('yaml/wix-manage/**/documentation.yaml', { cwd: workspaceRoot });
   const result: AffectedEntry[] = [];
 
   for (const yamlPath of allYamlPaths) {
     let entries;
     try {
-      entries = parseDocumentationYaml(readFileSync(yamlPath, 'utf-8'));
+      entries = parseDocumentationYaml(readFileSync(join(workspaceRoot, yamlPath), 'utf-8'));
     } catch (e) {
       core.warning(`Failed to parse ${yamlPath}: ${e instanceof Error ? e.message : String(e)}`);
       continue;

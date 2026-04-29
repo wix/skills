@@ -1,15 +1,16 @@
 import * as core from '@actions/core';
 import { getConfig } from './utils/config';
-import { getOctokit, getChangedFiles, upsertComment } from './utils/github';
+import * as github from '@actions/github';
+import { getChangedFiles, upsertComment } from './utils/github';
 import { EvalForgeClient } from './utils/evalforge';
 import { categorizeChanges } from './utils/paths';
 import { collectSkillChanges } from './utils/skill-changes';
-import { formatValidationErrors, formatValidationPassed } from './utils/comment';
+import { formatValidationErrors, formatValidationPassed, formatFailedJobMessage, formatServiceError } from './utils/comment';
 import type { ValidationError } from './utils/yaml';
 
 async function run(): Promise<void> {
   const config = getConfig();
-  const octokit = getOctokit(config.githubToken);
+  const octokit = github.getOctokit(config.githubToken);
 
   core.info(`Skill eval — PR #${config.prNumber}`);
 
@@ -25,7 +26,7 @@ async function run(): Promise<void> {
   core.info(`Changed MD files: ${mdFiles.map(f => f.filename).join(', ') || 'none'}`);
 
   const { entries, errors } = await collectSkillChanges(
-    octokit, config.owner, config.repo, yamlFiles, mdFiles, config.baseSha, process.cwd(),
+    octokit, config.owner, config.repo, yamlFiles, mdFiles, config.baseSha, process.env.GITHUB_WORKSPACE ?? process.cwd(),
   );
 
   if (entries.length === 0 && errors.length === 0) {
@@ -37,16 +38,22 @@ async function run(): Promise<void> {
 
   if (errors.length > 0) {
     await upsertComment(octokit, config, formatValidationErrors(errors));
-    core.setFailed(`Skill validation failed (${errors.length} error${errors.length === 1 ? '' : 's'}) — see PR comment`);
+    core.setFailed(formatFailedJobMessage(errors));
     return;
   }
 
   // EvalForge tag validation
-  const allTags = [...new Set(entries.flatMap(e => e.tags ?? []))];
-  core.info(`Tags to validate: ${allTags.join(', ')}`);
 
   const evalforge = new EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
-  const availableTags = await evalforge.getTags(config.projectId);
+  let availableTags: Set<string>;
+  try {
+    availableTags = await evalforge.getTags(config.projectId);
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    await upsertComment(octokit, config, formatServiceError(`EvalForge request failed: ${message}`));
+    core.setFailed(`EvalForge request failed: ${message}`);
+    return;
+  }
   const tagErrors: ValidationError[] = [];
 
   for (const entry of entries) {
@@ -59,7 +66,7 @@ async function run(): Promise<void> {
 
   if (tagErrors.length > 0) {
     await upsertComment(octokit, config, formatValidationErrors(tagErrors));
-    core.setFailed(`Skill validation failed (${tagErrors.length} error${tagErrors.length === 1 ? '' : 's'}) — see PR comment`);
+    core.setFailed(formatFailedJobMessage(tagErrors));
     return;
   }
 

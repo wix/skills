@@ -13,6 +13,11 @@ export type Config = {
   repo: string;
 };
 
+function ensureHttps(url: string): string {
+  if (url.startsWith('https://')) return url;
+  return 'https://' + url.replace(/^https?:\/\//, '');
+}
+
 function safeGetSecret(name: string): string {
   const value = core.getInput(name, { required: true });
   core.setSecret(value);
@@ -29,7 +34,7 @@ export function getConfig(): Config {
 
   return {
     githubToken: safeGetSecret('github-token'),
-    evalforgeUrl: core.getInput('evalforge-url', { required: true }),
+    evalforgeUrl: ensureHttps(core.getInput('evalforge-url', { required: true })),
     projectId: core.getInput('evalforge-project-id', { required: true }),
     appId: safeGetSecret('evalforge-app-id'),
     appSecret: safeGetSecret('evalforge-app-secret'),

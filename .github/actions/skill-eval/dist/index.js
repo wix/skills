@@ -34077,6 +34077,7 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 const core = __importStar(__nccwpck_require__(7484));
 const config_1 = __nccwpck_require__(7799);
+const github = __importStar(__nccwpck_require__(3228));
 const github_1 = __nccwpck_require__(6246);
 const evalforge_1 = __nccwpck_require__(280);
 const paths_1 = __nccwpck_require__(6621);
@@ -34084,7 +34085,7 @@ const skill_changes_1 = __nccwpck_require__(9336);
 const comment_1 = __nccwpck_require__(3116);
 async function run() {
     const config = (0, config_1.getConfig)();
-    const octokit = (0, github_1.getOctokit)(config.githubToken);
+    const octokit = github.getOctokit(config.githubToken);
     core.info(`Skill eval — PR #${config.prNumber}`);
     const allFiles = await (0, github_1.getChangedFiles)(octokit, config);
     const { yamlFiles, mdFiles } = (0, paths_1.categorizeChanges)(allFiles);
@@ -34094,7 +34095,7 @@ async function run() {
     }
     core.info(`Changed YAML files: ${yamlFiles.map(f => f.filename).join(', ') || 'none'}`);
     core.info(`Changed MD files: ${mdFiles.map(f => f.filename).join(', ') || 'none'}`);
-    const { entries, errors } = await (0, skill_changes_1.collectSkillChanges)(octokit, config.owner, config.repo, yamlFiles, mdFiles, config.baseSha, process.cwd());
+    const { entries, errors } = await (0, skill_changes_1.collectSkillChanges)(octokit, config.owner, config.repo, yamlFiles, mdFiles, config.baseSha, process.env.GITHUB_WORKSPACE ?? process.cwd());
     if (entries.length === 0 && errors.length === 0) {
         core.info('No affected skill entries — skipping eval');
         return;
@@ -34102,14 +34103,21 @@ async function run() {
     core.info(`Affected entries: ${entries.length}`);
     if (errors.length > 0) {
         await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatValidationErrors)(errors));
-        core.setFailed(`Skill validation failed (${errors.length} error${errors.length === 1 ? '' : 's'}) — see PR comment`);
+        core.setFailed((0, comment_1.formatFailedJobMessage)(errors));
         return;
     }
     // EvalForge tag validation
-    const allTags = [...new Set(entries.flatMap(e => e.tags ?? []))];
-    core.info(`Tags to validate: ${allTags.join(', ')}`);
     const evalforge = new evalforge_1.EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
-    const availableTags = await evalforge.getTags(config.projectId);
+    let availableTags;
+    try {
+        availableTags = await evalforge.getTags(config.projectId);
+    }
+    catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatServiceError)(`EvalForge request failed: ${message}`));
+        core.setFailed(`EvalForge request failed: ${message}`);
+        return;
+    }
     const tagErrors = [];
     for (const entry of entries) {
         for (const tag of entry.tags ?? []) {
@@ -34120,7 +34128,7 @@ async function run() {
     }
     if (tagErrors.length > 0) {
         await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatValidationErrors)(tagErrors));
-        core.setFailed(`Skill validation failed (${tagErrors.length} error${tagErrors.length === 1 ? '' : 's'}) — see PR comment`);
+        core.setFailed((0, comment_1.formatFailedJobMessage)(tagErrors));
         return;
     }
     await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatValidationPassed)());
@@ -34140,6 +34148,8 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.COMMENT_MARKER = void 0;
 exports.formatValidationErrors = formatValidationErrors;
 exports.formatValidationPassed = formatValidationPassed;
+exports.formatServiceError = formatServiceError;
+exports.formatFailedJobMessage = formatFailedJobMessage;
 exports.COMMENT_MARKER = '<!-- skill-eval-action -->';
 function formatValidationErrors(errors) {
     const lines = errors.map(e => `- **${e.entryTitle}**: ${e.message}`).join('\n');
@@ -34147,6 +34157,13 @@ function formatValidationErrors(errors) {
 }
 function formatValidationPassed() {
     return `${exports.COMMENT_MARKER}\n## ✅ Skill validation passed`;
+}
+function formatServiceError(message) {
+    return `${exports.COMMENT_MARKER}\n## ❌ Skill validation failed\n\n${message}`;
+}
+function formatFailedJobMessage(errors) {
+    const lines = errors.map(e => `  - ${e.entryTitle}: ${e.message}`).join('\n');
+    return `Skill validation failed (${errors.length} error${errors.length === 1 ? '' : 's'}):\n${lines}`;
 }
 
 
@@ -34194,6 +34211,11 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.getConfig = getConfig;
 const core = __importStar(__nccwpck_require__(7484));
 const github = __importStar(__nccwpck_require__(3228));
+function ensureHttps(url) {
+    if (url.startsWith('https://'))
+        return url;
+    return 'https://' + url.replace(/^https?:\/\//, '');
+}
 function safeGetSecret(name) {
     const value = core.getInput(name, { required: true });
     core.setSecret(value);
@@ -34209,7 +34231,7 @@ function getConfig() {
         throw new Error('PR payload is missing required fields (number or base.sha)');
     return {
         githubToken: safeGetSecret('github-token'),
-        evalforgeUrl: core.getInput('evalforge-url', { required: true }),
+        evalforgeUrl: ensureHttps(core.getInput('evalforge-url', { required: true })),
         projectId: core.getInput('evalforge-project-id', { required: true }),
         appId: safeGetSecret('evalforge-app-id'),
         appSecret: safeGetSecret('evalforge-app-secret'),
@@ -34305,15 +34327,10 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.getOctokit = getOctokit;
 exports.getChangedFiles = getChangedFiles;
 exports.upsertComment = upsertComment;
 const core = __importStar(__nccwpck_require__(7484));
-const github = __importStar(__nccwpck_require__(3228));
 const comment_1 = __nccwpck_require__(3116);
-function getOctokit(token) {
-    return github.getOctokit(token);
-}
 async function getChangedFiles(octokit, config) {
     const files = await octokit.paginate(octokit.rest.pulls.listFiles, {
         owner: config.owner,
@@ -34335,7 +34352,7 @@ async function upsertComment(octokit, config, body) {
             issue_number: config.prNumber,
             per_page: 100,
         });
-        const existing = comments.find(c => c.body?.includes(comment_1.COMMENT_MARKER));
+        const existing = comments.find(c => c.user?.type === 'Bot' && c.body?.includes(comment_1.COMMENT_MARKER));
         if (existing) {
             await octokit.rest.issues.updateComment({
                 owner: config.owner,
@@ -34435,21 +34452,23 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.collectSkillChanges = collectSkillChanges;
+exports.validateEntry = validateEntry;
 const core = __importStar(__nccwpck_require__(7484));
 const node_fs_1 = __nccwpck_require__(3024);
+const node_path_1 = __nccwpck_require__(6760);
 const glob_1 = __nccwpck_require__(1363);
 const yaml_1 = __nccwpck_require__(1206);
 const paths_1 = __nccwpck_require__(6621);
 async function collectSkillChanges(octokit, owner, repo, yamlFiles, mdFiles, baseSha, workspaceRoot) {
     const [yamlResult, mdEntries] = await Promise.all([
-        collectFromYamlChanges(octokit, owner, repo, yamlFiles, baseSha),
+        collectFromYamlChanges(octokit, owner, repo, yamlFiles, baseSha, workspaceRoot),
         collectFromMdChanges(mdFiles, workspaceRoot),
     ]);
     const entries = (0, yaml_1.deduplicateAffectedEntries)([...yamlResult.entries, ...mdEntries]);
     const entryErrors = validateEntries(entries, workspaceRoot);
     return { entries, errors: [...yamlResult.errors, ...entryErrors] };
 }
-async function collectFromYamlChanges(octokit, owner, repo, yamlFiles, baseSha) {
+async function collectFromYamlChanges(octokit, owner, repo, yamlFiles, baseSha, workspaceRoot) {
     const oldPaths = yamlFiles.map(f => f.previousFilename ?? f.filename);
     const oldContents = await fetchFilesAtRef(octokit, owner, repo, oldPaths, baseSha);
     const entries = [];
@@ -34458,7 +34477,7 @@ async function collectFromYamlChanges(octokit, owner, repo, yamlFiles, baseSha) 
         const oldRaw = oldContents[yamlFile.previousFilename ?? yamlFile.filename];
         let oldEntries, newEntries;
         try {
-            const newRaw = (0, node_fs_1.readFileSync)(yamlFile.filename, 'utf-8');
+            const newRaw = (0, node_fs_1.readFileSync)((0, node_path_1.join)(workspaceRoot, yamlFile.filename), 'utf-8');
             oldEntries = oldRaw ? (0, yaml_1.parseDocumentationYaml)(oldRaw) : [];
             newEntries = (0, yaml_1.parseDocumentationYaml)(newRaw);
         }
@@ -34495,12 +34514,12 @@ function validateEntries(entries, workspaceRoot) {
 }
 async function collectFromMdChanges(mdFiles, workspaceRoot) {
     const changedMdSet = new Set(mdFiles.map(f => f.filename));
-    const allYamlPaths = await (0, glob_1.glob)('yaml/wix-manage/**/documentation.yaml');
+    const allYamlPaths = await (0, glob_1.glob)('yaml/wix-manage/**/documentation.yaml', { cwd: workspaceRoot });
     const result = [];
     for (const yamlPath of allYamlPaths) {
         let entries;
         try {
-            entries = (0, yaml_1.parseDocumentationYaml)((0, node_fs_1.readFileSync)(yamlPath, 'utf-8'));
+            entries = (0, yaml_1.parseDocumentationYaml)((0, node_fs_1.readFileSync)((0, node_path_1.join)(workspaceRoot, yamlPath), 'utf-8'));
         }
         catch (e) {
             core.warning(`Failed to parse ${yamlPath}: ${e instanceof Error ? e.message : String(e)}`);
@@ -34589,12 +34608,6 @@ exports.filterSkillEntries = filterSkillEntries;
 exports.deduplicateAffectedEntries = deduplicateAffectedEntries;
 exports.diffYamlEntries = diffYamlEntries;
 const jsYaml = __importStar(__nccwpck_require__(4281));
-function escapeHtml(s) {
-    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
-function isValidTag(tag) {
-    return /^[\w-]+$/.test(tag);
-}
 function parseDocumentationYaml(raw) {
     const parsed = jsYaml.load(raw);
     const docs = parsed?.apiDoc?.docs;
@@ -34604,10 +34617,10 @@ function parseDocumentationYaml(raw) {
         if (!e.title || !e.file)
             return [];
         return [{
-                title: escapeHtml(String(e.title)),
+                title: String(e.title),
                 file: String(e.file),
                 docsEntry: e.docsEntry !== undefined ? String(e.docsEntry) : undefined,
-                tags: Array.isArray(e.tags) ? e.tags.map(String).filter(isValidTag) : undefined,
+                tags: Array.isArray(e.tags) ? e.tags.map(String) : undefined,
             }];
     });
 }
