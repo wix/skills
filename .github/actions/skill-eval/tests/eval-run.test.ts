@@ -57,8 +57,10 @@ describe('pollUntilDone', () => {
     };
     vi.mocked(client.getEvalRun).mockResolvedValue(running);
     const promise = pollUntilDone(client, 'proj-1', 'run-1');
-    await vi.runAllTimersAsync();
-    await expect(promise).rejects.toMatchObject({ timeout: true });
+    await Promise.all([
+      expect(promise).rejects.toMatchObject({ timeout: true }),
+      vi.runAllTimersAsync(),
+    ]);
   });
 
   it('retries on 5xx and eventually succeeds', async () => {
