@@ -34434,7 +34434,7 @@ async function ensureMcpVersion(client, config) {
     try {
         const version = await client.createMcpVersion(config.projectId, config.mcpId, {
             version: versionString,
-            source: { ref: config.headSha },
+            source: { ...mcp.source, ref: config.headSha },
             origin: 'pr',
         });
         core.info(`Created MCP version ${version.version} (${version.id})`);

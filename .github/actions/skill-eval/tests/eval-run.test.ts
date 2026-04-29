@@ -40,7 +40,11 @@ describe('ensureMcpVersion', () => {
     expect(result).toBe('ver-1');
     expect(client.createMcpVersion).toHaveBeenCalledWith(
       'proj-1', 'mcp-1',
-      expect.objectContaining({ version: 'pr-42-abc1234', source: { ref: 'abc1234def' }, origin: 'pr' }),
+      expect.objectContaining({
+        version: 'pr-42-abc1234',
+        source: { owner: 'wix', repo: 'skills', path: 'mcp.json', ref: 'abc1234def' },
+        origin: 'pr',
+      }),
     );
   });
 
