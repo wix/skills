@@ -210,8 +210,9 @@ return product;
 if (v === 'V3_CATALOG') {
   // Signature: updateProduct(_id, productFields). Returns Product directly.
   const current = await productsV3.getProduct(id);
+  if (current.revision == null) throw new Error(`Product ${id} has no revision`);
   return await productsV3.updateProduct(id, {
-    revision: current.revision,
+    revision: current.revision,  // narrowed — required under exactOptionalPropertyTypes
     name: 'New name',
   });
 }
