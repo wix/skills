@@ -1,6 +1,6 @@
 ---
 name: wix-manage
-description: "Wix business solution management recipes — REST API operations for configuring and managing Wix business solutions. Routes to: stores, bookings, get-paid, CMS, contacts, events, forms, media, app-installation, pricing-plans, restaurants, rich-content, sites, blog, calendar, domains, site-properties, ecommerce."
+description: "Wix business solution management recipes — REST API operations for configuring and managing Wix business solutions. Routes to: stores, bookings, get-paid, CMS, contacts, events, forms, media, app-installation, pricing-plans, restaurants, rich-content, sites, blog, calendar, domains, site-properties, ecommerce, loyalty."
 compatibility: Requires Wix REST API access (API key or OAuth).
 ---
 
@@ -138,6 +138,13 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 
 ### [Payment Links for Bookings](references/get-paid/payment-links-for-bookings.md)
 **Technical:** Creates payment links for unpaid bookings using Payment Links API. Links booking IDs to payment requests with proper redirect handling.
+
+---
+
+## Loyalty
+
+### [Set Up Loyalty Program with Earn Rule and Tier](references/loyalty/recipe-set-up-loyalty-program-with-earn-rule-and-tier.md)
+**Technical:** Activates the Wix Loyalty Program, sets the program name, creates a conversion-rate earning rule that awards points per money spent on Stores orders, and creates a loyalty tier. Covers the required PATCH-before-activate sequence, the non-canonical `/_api/loyalty-earning-rules/v1/earning-rules` path, and the premium-plan requirement for tiers.
 
 ---
 

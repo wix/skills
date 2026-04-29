@@ -1,0 +1,8 @@
+apiDoc:
+  title: Wix Loyalty Management Recipes
+
+  docs:
+    - file: ../../../skills/wix-manage/references/loyalty/recipe-set-up-loyalty-program-with-earn-rule-and-tier.md
+      title: Set Up Loyalty Program with Earn Rule and Tier
+      docsEntry: https://dev.wix.com/docs/api-reference/crm/loyalty-program
+      tags: [loyalty]
