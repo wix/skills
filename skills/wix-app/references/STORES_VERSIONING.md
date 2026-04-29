@@ -78,7 +78,7 @@ When supporting both versions, **request both V1 and V3 scopes** for any operati
 
 Each recipe handles both versions. Use these as starting points; rename helpers as needed.
 
-### List products
+### List products (single page, no pagination)
 
 ```typescript
 import { catalogVersioning, products, productsV3 } from '@wix/stores';
@@ -88,19 +88,142 @@ export async function listProducts(limit = 20) {
   if (catalogVersion === 'STORES_NOT_INSTALLED') return [];
 
   if (catalogVersion === 'V3_CATALOG') {
-    const res = await productsV3
-      .queryProducts()
-      .limit(limit)
-      .find();
-    return res.items;
+    // V3: pass the query object directly. Returns { products, pagingMetadata }.
+    const res = await productsV3.queryProducts({ cursorPaging: { limit } });
+    return res.products ?? [];
   }
 
+  // V1: fluent builder. Returns { items, totalCount, hasNext, ... }.
   const res = await products.queryProducts().limit(limit).find();
   return res.items;
 }
 ```
 
 > V3 `queryProducts` does **not** return variants. Use `getProduct(id)` per product, or the Read-Only Variants API, when variants are needed.
+
+### List products with pagination (the gotchas)
+
+V3 and V1 paginate completely differently. Pick the right pattern up front — the response shapes don't match.
+
+| Aspect | V1 (`products.queryProducts()`) | V3 (`productsV3.queryProducts(query)`) |
+|--------|--------------------------------|----------------------------------------|
+| API style | Fluent builder: `.skip().limit().find()` | Direct call: `queryProducts({ cursorPaging })` |
+| Pagination | Offset-based (`skip`) | **Cursor-based only** — no `skip` |
+| Total count | `res.totalCount` available | **No total count** in `pagingMetadata` |
+| Next page | offset += limit | `res.pagingMetadata.cursors.next` (string token) |
+| `hasNext` | `res.hasNext()` (method) | `res.pagingMetadata.hasNext` (boolean) |
+| Has builder? | Yes (recommended) | Builder exists but **does not support `cursorPaging`** — use the direct-call form for paging |
+
+**Common runtime errors and how to avoid them:**
+
+1. ❌ `Field '_createdDate' is not declared as sortable` — V3 SDK type allows `'_createdDate' | '_updatedDate' | 'slug' | 'visible'` for `sort.fieldName`, but the runtime catalog rejects most of them. **Omit `sort` entirely on V3 product queries** — cursor paging already preserves a stable order. Only sort when you have a specific need and have verified the field works on a real V3 site.
+2. ❌ `Property 'skip' does not exist on type 'ProductsQueryBuilder'` — V3 has no offset paging. Build a cursor-based UI ("Next/Previous"), not a numbered-page UI.
+3. ❌ `Property 'total' does not exist on type 'CommonCursorPagingMetadata'` — V3 paging response has no total count. Don't try to compute `totalPages = ceil(total / pageSize)` for V3.
+4. ❌ `Object literal may only specify known properties, and 'cursorPaging' does not exist in type 'QueryProductsOptions'` — `cursorPaging` belongs in the `query` parameter (first arg), not `options` (second arg). Don't combine it with the builder.
+
+**Cursor-paging pattern (V3) + offset-paging pattern (V1):**
+
+```typescript
+import { catalogVersioning, products, productsV3 } from '@wix/stores';
+
+// Note: V3Product / V1 Product types aren't re-exported from '@wix/stores' top-level.
+// Let TypeScript infer the array type from the SDK return value, or use `unknown[]`
+// in shared interfaces and narrow at the call site.
+
+export interface ProductsPage {
+  products: unknown[];        // narrow at call site to V1 vs V3 shape
+  nextCursor: string | null;  // V3 only; null on V1
+  hasNext: boolean;
+  totalCount: number | null;  // V1 only; null on V3
+}
+
+export async function listProductsPage(
+  limit: number,
+  cursorOrSkip: string | number | undefined,
+): Promise<ProductsPage> {
+  const { catalogVersion } = await catalogVersioning.getCatalogVersion();
+  if (catalogVersion === 'STORES_NOT_INSTALLED') {
+    return { products: [], nextCursor: null, hasNext: false, totalCount: 0 };
+  }
+
+  if (catalogVersion === 'V3_CATALOG') {
+    const cursor = typeof cursorOrSkip === 'string' ? cursorOrSkip : undefined;
+    const res = await productsV3.queryProducts({
+      cursorPaging: { limit, ...(cursor ? { cursor } : {}) },
+      // Do NOT pass `sort` here — see gotcha #1 above.
+    });
+    return {
+      products: res.products ?? [],
+      nextCursor: res.pagingMetadata?.cursors?.next ?? null,
+      hasNext: res.pagingMetadata?.hasNext ?? false,
+      totalCount: null, // V3 has no total
+    };
+  }
+
+  // V1 — offset paging via the fluent builder.
+  const skip = typeof cursorOrSkip === 'number' ? cursorOrSkip : 0;
+  const res = await products
+    .queryProducts()
+    .skip(skip)
+    .limit(limit)
+    .find();
+  return {
+    products: res.items,
+    nextCursor: null,
+    hasNext: res.hasNext(),
+    totalCount: res.totalCount ?? null,
+  };
+}
+```
+
+**UI implication:** A "page X of Y" numbered pager only works on V1. For V3, expose a "Next / Previous" pager driven by `pagingMetadata.cursors`. Or pick a single UI and run two implementations behind the helper — never try to fake a V3 total count.
+
+### Display price/stock without fetching variants
+
+`productsV3.queryProducts` does **not** return variant data. To render a product list with price and stock, use the read-only product-level fields instead — no per-product round trip needed:
+
+```typescript
+// Each `p` here is a V3 product as returned by productsV3.queryProducts.
+// Type it via `Awaited<ReturnType<typeof productsV3.queryProducts>>['products'][number]`
+// or use a structural type — V3Product is not re-exported from '@wix/stores'.
+
+function displayPrice(p: { actualPriceRange?: { minValue?: { amount?: string }; maxValue?: { amount?: string } } }): string {
+  const minAmount = p.actualPriceRange?.minValue?.amount;
+  const maxAmount = p.actualPriceRange?.maxValue?.amount;
+  if (!minAmount) return '—';
+  if (maxAmount && maxAmount !== minAmount) return `${minAmount} – ${maxAmount}`;
+  return minAmount; // string in V3, e.g. "19.99"
+}
+
+function displayStock(p: { inventory?: { availabilityStatus?: string } }): string {
+  return p.inventory?.availabilityStatus ?? 'UNKNOWN';
+}
+```
+
+> SKU is on the variant (`variantsInfo.variants[i].sku`), and variants are **not** returned by `queryProducts` in V3. Either show "—" for SKU in lists, or fetch each product individually with `getProduct` (slow), or use the Read-Only Variants API.
+
+### Stock status enums
+
+Both versions use **UPPER_SNAKE_CASE** literals — never lowercase. TypeScript will reject `'in_stock'` as a comparison.
+
+| Field | V1 path | V3 path | Values |
+|-------|---------|---------|--------|
+| Product-level rollup | `product.stock.inventoryStatus` | `product.inventory.availabilityStatus` | `IN_STOCK`, `OUT_OF_STOCK`, `PARTIALLY_OUT_OF_STOCK` (V3 also: `PREORDER`) |
+| Per-variant in V3 | n/a | `variantsInfo.variants[i].inventoryStatus.inStock` (boolean) + `preorderEnabled` (boolean) | — |
+| V3 preorder rollup | n/a | `product.inventory.preorderStatus` | `ENABLED`, `DISABLED`, `PARTIALLY_ENABLED` |
+
+```typescript
+// Mapping the rollup status to a user-facing label, version-agnostic.
+function stockLabel(status: string | undefined): string {
+  switch (status) {
+    case 'IN_STOCK': return 'In Stock';
+    case 'OUT_OF_STOCK': return 'Out of Stock';
+    case 'PARTIALLY_OUT_OF_STOCK': return 'Limited';
+    case 'PREORDER': return 'Pre-order';
+    default: return '—';
+  }
+}
+```
 
 ### Get a single product
 
@@ -348,6 +471,10 @@ For order webhooks (unchanged across V1/V3) use `@wix/ecom` → `orders`.
 8. **Prices are strings in V3, numbers in V1.** Always serialize/parse.
 9. **Enums are UPPER_CASE in V3, lower-case in V1** (e.g. `PHYSICAL` vs `physical`).
 10. **Categories require a `treeReference`** (`appNamespace` + `treeKey`) — V1 collections did not.
+11. **V3 cursor paging has NO total count.** `pagingMetadata.cursors.next` + `hasNext` is all you get. Don't build "page X of Y" UI for V3 — use Next/Previous.
+12. **V3 has no `skip` / offset.** The fluent builder pattern `.skip().limit().find()` is V1-only. V3 uses the direct call `productsV3.queryProducts({ cursorPaging: { limit, cursor } })`.
+13. **V3 product sort fields fail at runtime even when TypeScript accepts them.** TS allows `'_createdDate' | '_updatedDate' | 'slug' | 'visible'`, but real V3 sites return `Field '_createdDate' is not declared as sortable`. **Omit `sort` on V3 product queries** unless you have verified the field works on a live V3 site.
+14. **Stock status is UPPER_SNAKE_CASE on both versions** — `IN_STOCK`, `OUT_OF_STOCK`, `PARTIALLY_OUT_OF_STOCK`, V3 also `PREORDER`. Never compare against lowercase strings; TS will reject and runtime will mismatch.
 
 ---
 
