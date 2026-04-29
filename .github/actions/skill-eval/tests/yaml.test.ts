@@ -1,0 +1,189 @@
+import { describe, it, expect } from 'vitest';
+import { parseDocumentationYaml, diffYamlEntries, filterSkillEntries, deduplicateAffectedEntries } from '../src/utils/yaml';
+
+const affectedEntry = (title: string, yamlPath: string, tags?: string[]) => ({
+  title,
+  file: `skills/wix-manage/references/stores/${title}.md`,
+  docsEntry: 'https://dev.wix.com/docs/rest/products',
+  tags,
+  yamlPath,
+});
+
+const BASE_YAML = `
+apiDoc:
+  title: Wix Stores Management Recipes
+  docs:
+    - title: "Query Products"
+      file: "../../../skills/wix-manage/references/stores/query-products.md"
+      docsEntry: "https://dev.wix.com/docs/rest/products"
+      tags: [stores, stores-v2]
+`;
+
+describe('parseDocumentationYaml', () => {
+  it('parses entries from valid yaml', () => {
+    const entries = parseDocumentationYaml(BASE_YAML);
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toEqual({
+      title: 'Query Products',
+      file: '../../../skills/wix-manage/references/stores/query-products.md',
+      docsEntry: 'https://dev.wix.com/docs/rest/products',
+      tags: ['stores', 'stores-v2'],
+    });
+  });
+
+  it('returns empty array when no apiDoc.docs key', () => {
+    expect(parseDocumentationYaml('other: value')).toEqual([]);
+  });
+
+  it('handles missing optional docsEntry', () => {
+    const raw = `apiDoc:\n  docs:\n    - title: "T"\n      file: "f.md"\n      tags: [t1]`;
+    expect(parseDocumentationYaml(raw)[0].docsEntry).toBeUndefined();
+  });
+
+  it('handles missing optional tags', () => {
+    const raw = `apiDoc:\n  docs:\n    - title: "T"\n      file: "f.md"`;
+    expect(parseDocumentationYaml(raw)[0].tags).toBeUndefined();
+  });
+
+  it('silently drops entries with missing title', () => {
+    const raw = `apiDoc:\n  docs:\n    - file: "f.md"\n      docsEntry: "https://x.com"`;
+    expect(parseDocumentationYaml(raw)).toHaveLength(0);
+  });
+
+  it('silently drops entries with missing file', () => {
+    const raw = `apiDoc:\n  docs:\n    - title: "T"\n      docsEntry: "https://x.com"`;
+    expect(parseDocumentationYaml(raw)).toHaveLength(0);
+  });
+
+  it('throws on malformed YAML', () => {
+    expect(() => parseDocumentationYaml('{ invalid: yaml: content')).toThrow();
+  });
+});
+
+describe('filterSkillEntries', () => {
+  it('keeps entries with docsEntry', () => {
+    const entries = parseDocumentationYaml(BASE_YAML);
+    expect(filterSkillEntries(entries)).toHaveLength(1);
+  });
+
+  it('removes entries without docsEntry', () => {
+    const raw = `apiDoc:\n  docs:\n    - title: "T"\n      file: "f.md"\n      tags: [t1]`;
+    expect(filterSkillEntries(parseDocumentationYaml(raw))).toHaveLength(0);
+  });
+
+  it('handles mixed entries', () => {
+    const raw = `
+apiDoc:
+  docs:
+    - title: "Skill"
+      file: "skill.md"
+      docsEntry: "https://dev.wix.com/docs/skill"
+      tags: [t1]
+    - title: "Non-skill"
+      file: "other.md"
+`;
+    const result = filterSkillEntries(parseDocumentationYaml(raw));
+    expect(result).toHaveLength(1);
+    expect(result[0].title).toBe('Skill');
+  });
+});
+
+describe('diffYamlEntries', () => {
+  it('new entry → all tags', () => {
+    const affectedEntries = diffYamlEntries([], parseDocumentationYaml(BASE_YAML));
+    expect(affectedEntries[0].tags).toEqual(['stores', 'stores-v2']);
+  });
+
+  it('removed entry → skip', () => {
+    const affectedEntries = diffYamlEntries(parseDocumentationYaml(BASE_YAML), []);
+    expect(affectedEntries).toHaveLength(0);
+  });
+
+  it('tags changed → only added tags', () => {
+    const next = parseDocumentationYaml(BASE_YAML.replace('tags: [stores, stores-v2]', 'tags: [stores, stores-v2, stores-v3]'));
+    const affectedEntries = diffYamlEntries(parseDocumentationYaml(BASE_YAML), next);
+    expect(affectedEntries[0].tags).toEqual(['stores-v3']);
+  });
+
+  it('file changed → all tags', () => {
+    const next = parseDocumentationYaml(BASE_YAML.replace('query-products.md', 'query-products-v2.md'));
+    const affectedEntries = diffYamlEntries(parseDocumentationYaml(BASE_YAML), next);
+    expect(affectedEntries[0].tags).toEqual(['stores', 'stores-v2']);
+  });
+
+  it('file + tags changed → all tags (file dominates)', () => {
+    const next = parseDocumentationYaml(
+      BASE_YAML
+        .replace('query-products.md', 'query-products-v2.md')
+        .replace('stores-v2', 'stores-v3')
+    );
+    const affectedEntries = diffYamlEntries(parseDocumentationYaml(BASE_YAML), next);
+    expect(affectedEntries[0].tags).toEqual(['stores', 'stores-v3']);
+  });
+
+  it('title only changed → treated as new entry (title is the lookup key)', () => {
+    const next = parseDocumentationYaml(BASE_YAML.replace('Query Products"', 'Query Products v2"'));
+    const affectedEntries = diffYamlEntries(parseDocumentationYaml(BASE_YAML), next);
+    expect(affectedEntries).toHaveLength(1);
+    expect(affectedEntries[0].tags).toEqual(['stores', 'stores-v2']);
+  });
+
+  it('docsEntry removed → entry is no longer a skill, silently skipped', () => {
+    const next = parseDocumentationYaml(BASE_YAML.replace(/\s+docsEntry:.*/, ''));
+    const affectedEntries = diffYamlEntries(parseDocumentationYaml(BASE_YAML), next);
+    expect(affectedEntries).toHaveLength(0);
+  });
+
+  it('unchanged entry → skip', () => {
+    const entries = parseDocumentationYaml(BASE_YAML);
+    const affectedEntries = diffYamlEntries(entries, entries);
+    expect(affectedEntries).toHaveLength(0);
+  });
+});
+
+describe('deduplicateAffectedEntries', () => {
+  it('returns entries unchanged when no duplicates', () => {
+    const entries = [
+      affectedEntry('Query Products', 'yaml/wix-manage/stores/documentation.yaml', ['stores']),
+      affectedEntry('Create Product', 'yaml/wix-manage/stores/documentation.yaml', ['media']),
+    ];
+    expect(deduplicateAffectedEntries(entries)).toHaveLength(2);
+  });
+
+  it('removes duplicate when same entry collected via yaml-change and md-change paths', () => {
+    const entries = [
+      affectedEntry('Query Products', 'yaml/wix-manage/stores/documentation.yaml', ['stores']),
+      affectedEntry('Query Products', 'yaml/wix-manage/stores/documentation.yaml', ['stores']),
+    ];
+    expect(deduplicateAffectedEntries(entries)).toHaveLength(1);
+  });
+
+  it('keeps entries with same title but different yamlPath', () => {
+    const entries = [
+      affectedEntry('Query Products', 'yaml/wix-manage/stores/documentation.yaml', ['stores']),
+      affectedEntry('Query Products', 'yaml/wix-manage/bookings/documentation.yaml', ['bookings']),
+    ];
+    expect(deduplicateAffectedEntries(entries)).toHaveLength(2);
+  });
+
+  it('merges tags from duplicate entries', () => {
+    const first = affectedEntry('Query Products', 'yaml/wix-manage/stores/documentation.yaml', ['stores']);
+    const second = affectedEntry('Query Products', 'yaml/wix-manage/stores/documentation.yaml', ['stores', 'extra']);
+    const result = deduplicateAffectedEntries([first, second]);
+    expect(result).toHaveLength(1);
+    expect(result[0].tags).toEqual(['stores', 'extra']);
+  });
+
+  it('merges tags when yaml-change and md-change collect the same entry with different tag subsets', () => {
+    const fromYaml = affectedEntry('Query Products', 'yaml/wix-manage/stores/documentation.yaml', ['stores-v3']);
+    const fromMd = affectedEntry('Query Products', 'yaml/wix-manage/stores/documentation.yaml', ['stores', 'stores-v2', 'stores-v3']);
+    const result = deduplicateAffectedEntries([fromYaml, fromMd]);
+    expect(result).toHaveLength(1);
+    expect(result[0].tags).toHaveLength(3);
+    expect(result[0].tags).toEqual(expect.arrayContaining(['stores', 'stores-v2', 'stores-v3']));
+  });
+
+  it('handles empty input', () => {
+    expect(deduplicateAffectedEntries([])).toHaveLength(0);
+  });
+});
