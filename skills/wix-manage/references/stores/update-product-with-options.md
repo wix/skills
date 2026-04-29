@@ -50,6 +50,8 @@ The response will include a `revision` field in the product object. Save this va
 ## STEP 2: Update the product with options and variants
 1. Update the product to add options and create variants using the revision obtained in Step 1 - [Wix REST API: Update Product](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/update-product)
 
+The `description` field is a Rich Content object, not a plain string. The [Update Product](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/update-product) method article includes more code examples for updating different product fields.
+
 ```bash
 curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
   -H "Content-Type: application/json" \
@@ -58,6 +60,30 @@ curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
     "product": {
         "id": "{productId}",
         "revision": "{currentRevision}",
+        "description": {
+            "nodes": [
+                {
+                    "type": "PARAGRAPH",
+                    "id": "description",
+                    "nodes": [
+                        {
+                            "type": "TEXT",
+                            "textData": {
+                                "text": "Updated product description."
+                            }
+                        }
+                    ],
+                    "paragraphData": {
+                        "textStyle": {
+                            "textAlignment": "AUTO"
+                        }
+                    }
+                }
+            ],
+            "metadata": {
+                "version": 1
+            }
+        },
         "options": [
             {
                 "name": "Color",
@@ -138,6 +164,31 @@ curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
     }
 }'
 ```
+
+If the user also asks to set stock for the new variants, inventory is handled separately from the product update. After the product update returns the variant IDs, use [Bulk Create Inventory Items](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/inventory-items-v3/bulk-create-inventory-items) with `productId`, `variantId`, and `quantity`:
+
+```bash
+curl -X POST "https://www.wixapis.com/stores/v3/bulk/inventory-items/create" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: <AUTH>" \
+  -d '{
+    "inventoryItems": [
+      {
+        "productId": "{productId}",
+        "variantId": "{redVariantId}",
+        "quantity": 10
+      },
+      {
+        "productId": "{productId}",
+        "variantId": "{blueVariantId}",
+        "quantity": 10
+      }
+    ],
+    "returnEntity": true
+  }'
+```
+
+If the store has multiple inventory locations, include `locationId`; otherwise the store's default location is used.
 
 ## Common Update Patterns (Minimal Examples)
 
