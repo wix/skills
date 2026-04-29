@@ -5,7 +5,11 @@ import { getChangedFiles, upsertComment } from './utils/github';
 import { EvalForgeClient } from './utils/evalforge';
 import { categorizeChanges } from './utils/paths';
 import { collectSkillChanges } from './utils/skill-changes';
-import { formatValidationErrors, formatValidationPassed, formatFailedJobMessage, formatServiceError } from './utils/comment';
+import { ensureMcpVersion, pollUntilDone } from './utils/eval-run';
+import {
+  formatValidationErrors, formatFailedJobMessage,
+  formatServiceError, formatEvalPassed, formatEvalFailed, formatEvalTimeout, formatNoScenarios,
+} from './utils/comment';
 import type { ValidationError } from './utils/yaml';
 
 async function run(): Promise<void> {
@@ -51,9 +55,8 @@ async function run(): Promise<void> {
     return;
   }
 
-  // EvalForge tag validation
-
   const evalforge = new EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
+
   let availableTags: Set<string>;
   try {
     availableTags = await evalforge.getTags(config.projectId);
@@ -64,8 +67,8 @@ async function run(): Promise<void> {
     core.setFailed('EvalForge validation could not run');
     return;
   }
-  const tagErrors: ValidationError[] = [];
 
+  const tagErrors: ValidationError[] = [];
   for (const entry of entries) {
     for (const tag of entry.tags!) {
       if (!availableTags.has(tag)) {
@@ -80,8 +83,84 @@ async function run(): Promise<void> {
     return;
   }
 
-  await upsertComment(octokit, config, formatValidationPassed());
-  core.info('Validation passed — eval run not yet implemented');
+  const tags = [...new Set(entries.flatMap(e => e.tags!))];
+
+  let mcpVersionId: string | null;
+  try {
+    mcpVersionId = await ensureMcpVersion(evalforge, config);
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    core.error(`Failed to create MCP version: ${message}`);
+    await upsertComment(octokit, config, formatServiceError('Could not create MCP version — see job logs for details'));
+    core.setFailed('Could not create MCP version');
+    return;
+  }
+
+  let runId: string;
+  try {
+    const run = await evalforge.createEvalRun(config.projectId, {
+      name: `PR #${config.prNumber} skill eval`,
+      description: `Skill eval for PR #${config.prNumber}`,
+      projectId: config.projectId,
+      tags,
+      agentId: config.agentId,
+      ...(mcpVersionId ? { capabilityVersions: { [config.mcpId]: mcpVersionId } } : {}),
+    });
+    runId = run.id;
+    core.info(`Created eval run ${runId}`);
+  } catch (e) {
+    const status = (e as { status?: number }).status;
+    if (status === 400) {
+      await upsertComment(octokit, config, formatNoScenarios(tags));
+      core.setFailed(`No eval scenarios found matching tags: ${tags.join(', ')}`);
+      return;
+    }
+    const message = e instanceof Error ? e.message : String(e);
+    core.error(`Failed to create eval run: ${message}`);
+    await upsertComment(octokit, config, formatServiceError('Could not create eval run — see job logs for details'));
+    core.setFailed('Could not create eval run');
+    return;
+  }
+
+  try {
+    await evalforge.triggerEvalRun(config.projectId, runId);
+    core.info(`Triggered eval run ${runId}`);
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    core.error(`Failed to trigger eval run: ${message}`);
+    await upsertComment(octokit, config, formatServiceError('Could not trigger eval run — see job logs for details'));
+    core.setFailed('Could not trigger eval run');
+    return;
+  }
+
+  core.info(`Polling eval run ${runId} for completion...`);
+
+  let finalStatus;
+  try {
+    finalStatus = await pollUntilDone(evalforge, config.projectId, runId);
+  } catch (e) {
+    if ((e as { timeout?: boolean }).timeout) {
+      await upsertComment(octokit, config, formatEvalTimeout(runId));
+      core.setFailed('Eval run timed out after 30 minutes');
+      return;
+    }
+    const message = e instanceof Error ? e.message : String(e);
+    core.error(`Eval run polling failed: ${message}`);
+    await upsertComment(octokit, config, formatServiceError('Eval run polling failed — see job logs for details'));
+    core.setFailed('Eval run polling failed');
+    return;
+  }
+
+  const { aggregateMetrics: m } = finalStatus;
+  const passed = finalStatus.status === 'completed' && m.failed === 0;
+
+  if (passed) {
+    await upsertComment(octokit, config, formatEvalPassed(m, runId));
+    core.info(`Eval passed — ${m.passed}/${m.totalAssertions} scenarios passed`);
+  } else {
+    await upsertComment(octokit, config, formatEvalFailed(m, runId));
+    core.setFailed(`Eval failed — ${m.failed}/${m.totalAssertions} scenarios failed (pass rate: ${m.passRate}%)`);
+  }
 }
 
 run().catch(err => core.setFailed(err instanceof Error ? err.message : String(err)));
