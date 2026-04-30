@@ -5,7 +5,7 @@ description: Activates the Wix Loyalty Program on a site, sets the program name,
 
 # Set Up Loyalty Program with Earn Rule and Tier
 
-This recipe activates a Wix Loyalty Program, creates a custom earning rule that awards points based on Stores order totals, and creates a loyalty tier that customers reach at a configurable point threshold.
+This recipe activates a Wix Loyalty  Program, creates a custom earning rule that awards points based on Stores order totals, and creates a loyalty tier that customers reach at a configurable point threshold.
 
 ## Prerequisites
 
