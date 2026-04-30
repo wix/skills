@@ -17,14 +17,20 @@ There is no API to purchase a domain directly. Instead, you generate a **purchas
 
 This is the main goal of this recipe: get the user to a working checkout link as fast as possible.
 
+## Important: No Site Required
+
+This recipe does NOT require a site. Do NOT call `ListWixSites` or ask the user to pick a site. Domain search and purchase is completely independent of any Wix site.
+
 ## Required APIs
 
 - **Check Domain Availability**: `GET https://www.wixapis.com/domain-search/v2/check-domain-availability`
 - **Suggest Domains**: `GET https://www.wixapis.com/domain-search/v2/suggest-domains`
 
-These are **account-level APIs** -- use account-level authentication (e.g., `ManageWixSite` tool), not site-level.
+These are **public APIs that require no special authentication or scopes**. Just make a plain GET request to the URL with query parameters. No extra headers, no account-level auth, no site-level auth. Use the `CallWixSiteAPI` tool with the full URL and method GET.
 
-**Important**: Do NOT use `GetSuggestedDomains` (v1) -- that requires a `siteId` and only matches existing site names. The `SuggestDomains` (v2) listed above is the correct one for free-text searches.
+Do NOT use `ManageWixSite` for these calls. Do NOT add authorization headers yourself. Just call the URL directly.
+
+**Important**: Do NOT use `GetSuggestedDomains` tool for domain suggestions in this recipe. Use the `SuggestDomains` v2 endpoint above instead -- it accepts free-text queries and does not need a site ID.
 
 ---
 
@@ -69,7 +75,7 @@ Use the **Suggest Domains v2** API to find available alternatives:
 
 `GET https://www.wixapis.com/domain-search/v2/suggest-domains`
 
-**IMPORTANT**: Do NOT use `GetSuggestedDomains` or any tool that requires a `siteId` for suggestions. That is the old v1 API and only matches existing site names. Always use the v2 endpoint above -- it does NOT need a site ID.
+**IMPORTANT**: Do NOT use the `GetSuggestedDomains` tool for this. Always use the v2 endpoint above with `CallWixSiteAPI`.
 
 This API accepts **free-text queries** -- it works with business descriptions, keywords, and brand concepts, not just domain names. For example: "pancakes business", "modern yoga studio", "photography portfolio".
 
@@ -167,7 +173,7 @@ Present this link as a clickable markdown link, not as a raw URL. For example:
 | Error Code | Description | Action |
 |------------|-------------|--------|
 | `DOMAINS_UNSUPPORTED_TLD` | TLD not supported by Wix | Suggest alternatives using Suggest Domains API |
-| `access_denied` | Auth issue | Use account-level authentication, not site-level |
+| `access_denied` or `403` | Auth issue | Make sure you're calling the URL directly with `CallWixSiteAPI` and not adding extra auth headers |
 
 ---
 
