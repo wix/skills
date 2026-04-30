@@ -76,7 +76,7 @@ Handle `STORES_NOT_INSTALLED` gracefully — return empty results, do not throw.
 6. **Requested fields**: V3 needs `'CURRENCY'`, `'MERCHANT_DATA'`, `'URL'`, `'INFO_SECTION'`, etc. in the `fields` array to populate those fields.
 7. **Prices are strings in V3, numbers in V1.** Enums are **UPPER_CASE in V3, lower-case in V1** (`PHYSICAL` vs `physical`).
 8. **Categories require a `treeReference`** (`appNamespace` + `treeKey`) — V1 collections did not.
-9. **V3 cursor paging has NO total count and NO `skip`/offset.** Don't build "page X of Y" UI for V3 — use Next/Previous via `pagingMetadata.cursors.next` + `hasNext`.
+9. **V3 paging is cursor-only — no offset, no total count.** The V3 builder uses `.skipTo(cursor)` (not V1's `.skip(n)`), and the result has `cursors.next` + `hasNext()` but no `totalCount`. Don't build "page X of Y" UI for V3 — use Next/Previous.
 10. **V3 product sort fields fail at runtime even when TypeScript accepts them.** TS allows `'_createdDate' | '_updatedDate' | 'slug' | 'visible'`, but real V3 sites return `Field '_createdDate' is not declared as sortable`. **Omit `sort` on V3 product queries** unless verified on a live V3 site.
 11. **Stock status is UPPER_SNAKE_CASE on both versions** — `IN_STOCK`, `OUT_OF_STOCK`, `PARTIALLY_OUT_OF_STOCK`, plus `PREORDER` on V3. Never compare against lowercase.
 
@@ -88,14 +88,16 @@ Each recipe handles both versions. `V3Product` and V1 `Product` types are **not*
 
 ### List products with pagination
 
-V3 and V1 paginate completely differently:
+Both versions expose a fluent query builder, but the paging method differs:
 
-| Aspect | V1 (`products.queryProducts()`) | V3 (`productsV3.queryProducts(query)`) |
-|--------|--------------------------------|----------------------------------------|
-| API style | Fluent builder: `.skip().limit().find()` | Direct call: `queryProducts({ cursorPaging })` |
-| Pagination | Offset (`skip`) | **Cursor only** — no `skip` |
-| Total count | `res.totalCount` | **None** — only `cursors.next` + `hasNext` |
-| Has builder for paging? | Yes | No — the V3 builder doesn't accept `cursorPaging` |
+| Aspect | V1 (`products.queryProducts()`) | V3 (`productsV3.queryProducts()`) |
+|--------|--------------------------------|----------------------------------|
+| API style | Fluent builder: `.skip().limit().find()` | Fluent builder: `.skipTo(cursor).limit().find()` |
+| Pagination | Offset (`.skip(n)`) | Cursor (`.skipTo(cursor)`) |
+| Result `items` | `res.items` (V1 `Product[]`) | `res.items` (V3 `Product[]`) |
+| Total count | `res.totalCount` | **None** — V3 only has `cursors.next` + `hasNext()` |
+| `hasNext` | `res.hasNext()` (method) | `res.hasNext()` (method) |
+| Next cursor | n/a | `res.cursors.next` (string) |
 
 ```typescript
 import { catalogVersioning, products, productsV3 } from '@wix/stores';
@@ -117,15 +119,14 @@ export async function listProductsPage(
   }
 
   if (v === 'V3_CATALOG') {
-    const cursor = typeof cursorOrSkip === 'string' ? cursorOrSkip : undefined;
-    const res = await productsV3.queryProducts({
-      cursorPaging: { limit, ...(cursor ? { cursor } : {}) },
-      // Do NOT pass `sort` — see gotcha #10.
-    });
+    let builder = productsV3.queryProducts().limit(limit);
+    if (typeof cursorOrSkip === 'string') builder = builder.skipTo(cursorOrSkip);
+    // Do NOT chain a sort — see gotcha #10.
+    const res = await builder.find();
     return {
-      products: res.products ?? [],
-      nextCursor: res.pagingMetadata?.cursors?.next ?? null,
-      hasNext: res.pagingMetadata?.hasNext ?? false,
+      products: res.items,
+      nextCursor: res.cursors.next ?? null,
+      hasNext: res.hasNext(),
       totalCount: null,
     };
   }
@@ -140,6 +141,8 @@ export async function listProductsPage(
   };
 }
 ```
+
+> **Two ways to call V3 `queryProducts`:** the canonical builder shown above, and a direct-call form `productsV3.queryProducts({ cursorPaging: { limit, cursor } })` returning a `Promise<{ products, pagingMetadata }>`. Both compile and run, but the builder is more idiomatic and matches V1's shape.
 
 ### Display price/stock without fetching variants
 
@@ -319,8 +322,8 @@ For the full table see the [Catalog V1 to V3 Migration Guide](https://dev.wix.co
 | V1 event | V3 event |
 |----------|----------|
 | `products.onProductCreated` / `onProductChanged` / `onProductDeleted` | `productsV3.onProductCreated` / `onProductUpdated` / `onProductDeleted` |
-| `products.onVariantsChanged` | `productsV3.onProductUpdated` (with `variantsInfo` in `modifiedFields`) |
-| `collections.onCollectionCreated` / `onCollectionChanged` / `onCollectionDeleted` | `categories.onCategoryCreated` / `onCategoryUpdated` / `onCategoryDeleted` |
+| `products.onProductVariantsChanged` | `productsV3.onProductUpdated` (with `variantsInfo` in `modifiedFields`) |
+| `products.onProductCollectionCreated` / `onProductCollectionChanged` / `onProductCollectionDeleted` (yes — the collection webhooks live on the `products` namespace) | `categories.onCategoryCreated` / `onCategoryUpdated` / `onCategoryDeleted` |
 
 Payload changes: V1 `changedFields` → V3 `modifiedFields`. Top-level `entityId` on all V3 payloads. V1 created-event entity → V3 `createdEvent.entityAsJson`. Order webhooks are unchanged — use `@wix/ecom` → `orders`.
 
