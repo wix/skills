@@ -26,9 +26,7 @@ This recipe does NOT require a site. Do NOT call `ListWixSites` or ask the user 
 - **Check Domain Availability**: `GET https://www.wixapis.com/domain-search/v2/check-domain-availability`
 - **Suggest Domains**: `GET https://www.wixapis.com/domain-search/v2/suggest-domains`
 
-These are **public APIs that require no special authentication or scopes**. Just make a plain GET request to the URL with query parameters. No extra headers, no account-level auth, no site-level auth. Use the `CallWixSiteAPI` tool with the full URL and method GET.
-
-Do NOT use `ManageWixSite` for these calls. Do NOT add authorization headers yourself. Just call the URL directly.
+These are **public APIs that require no special authentication or scopes**. Just make a plain GET request to the URL with query parameters. No extra headers, no account-level auth, no site-level auth. No tokens needed.
 
 **Important**: Do NOT use `GetSuggestedDomains` tool for domain suggestions in this recipe. Use the `SuggestDomains` v2 endpoint above instead -- it accepts free-text queries and does not need a site ID.
 
@@ -75,7 +73,7 @@ Use the **Suggest Domains v2** API to find available alternatives:
 
 `GET https://www.wixapis.com/domain-search/v2/suggest-domains`
 
-**IMPORTANT**: Do NOT use the `GetSuggestedDomains` tool for this. Always use the v2 endpoint above with `CallWixSiteAPI`.
+**IMPORTANT**: Do NOT use the `GetSuggestedDomains` tool for this. Always use the v2 endpoint above.
 
 This API accepts **free-text queries** -- it works with business descriptions, keywords, and brand concepts, not just domain names. For example: "pancakes business", "modern yoga studio", "photography portfolio".
 
@@ -173,7 +171,7 @@ Present this link as a clickable markdown link, not as a raw URL. For example:
 | Error Code | Description | Action |
 |------------|-------------|--------|
 | `DOMAINS_UNSUPPORTED_TLD` | TLD not supported by Wix | Suggest alternatives using Suggest Domains API |
-| `access_denied` or `403` | Auth issue | Make sure you're calling the URL directly with `CallWixSiteAPI` and not adding extra auth headers |
+| `access_denied` or `403` | Auth issue | These are public APIs -- make sure you're not adding extra auth headers or scopes |
 
 ---
 
