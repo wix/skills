@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { pollUntilDone } from '../src/utils/eval-run';
 import type { EvalForgeClient, EvalRunStatus } from '../src/utils/evalforge';
 
-vi.mock('@actions/core', () => ({ info: vi.fn(), error: vi.fn() }));
+vi.mock('@actions/core', () => ({ info: vi.fn(), warning: vi.fn(), error: vi.fn() }));
 
 function makeClient(): EvalForgeClient {
   return {

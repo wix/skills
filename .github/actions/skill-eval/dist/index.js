@@ -34194,8 +34194,10 @@ async function run() {
     catch (e) {
         const status = e.status;
         if (status === 400) {
+            const message = e instanceof Error ? e.message : String(e);
+            core.error(`createEvalRun 400 — treating as no matching scenarios. Full error: ${message}`);
             await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatNoScenarios)(tags));
-            core.setFailed(`No eval scenarios found matching tags: ${tags.join(', ')}`);
+            core.setFailed(`No eval scenarios found matching tags: ${tags.join(', ')} (or invalid request — see job logs)`);
             return;
         }
         const message = e instanceof Error ? e.message : String(e);
@@ -34236,7 +34238,7 @@ async function run() {
     if (finalStatus.status === 'completed') {
         if (m.failed === 0 && m.errors === 0) {
             await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatEvalPassed)(m, runId));
-            core.info(`Eval passed — ${m.passed}/${m.totalAssertions} scenarios passed`);
+            core.info(`Eval passed — ${m.passed}/${m.totalAssertions} assertions passed`);
         }
         else {
             await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatEvalFailed)(m, runId));
@@ -34273,7 +34275,7 @@ function formatValidationErrors(errors) {
     return [exports.COMMENT_MARKER, '## ❌ Skill validation failed', '', lines].join('\n');
 }
 function formatServiceError(message) {
-    return `${exports.COMMENT_MARKER}\n## ❌ Skill validation failed\n\n${message}`;
+    return `${exports.COMMENT_MARKER}\n## ❌ Skill eval failed\n\n${message}`;
 }
 function formatFailedJobMessage(errors) {
     const lines = errors.map(e => `  - ${e.entryTitle}: ${e.message}`).join('\n');
@@ -34282,15 +34284,21 @@ function formatFailedJobMessage(errors) {
 function formatEvalPassed(metrics, runId) {
     return [
         exports.COMMENT_MARKER,
-        `## ✅ Eval passed — ${metrics.passed}/${metrics.totalAssertions} scenarios passed`,
+        `## ✅ Eval passed — ${metrics.passed}/${metrics.totalAssertions} assertions passed`,
         `📊 Pass rate: ${metrics.passRate}%`,
         `🔑 Run ID: ${runId}`,
     ].join('\n');
 }
 function formatEvalFailed(metrics, runId) {
+    const parts = [];
+    if (metrics.failed > 0)
+        parts.push(`${metrics.failed} failed`);
+    if (metrics.errors > 0)
+        parts.push(`${metrics.errors} errors`);
+    const summary = parts.length > 0 ? parts.join(', ') : 'unknown failure';
     return [
         exports.COMMENT_MARKER,
-        `## ❌ Eval failed — ${metrics.failed}/${metrics.totalAssertions} scenarios failed`,
+        `## ❌ Eval failed — ${summary} out of ${metrics.totalAssertions} assertions`,
         `📊 Pass rate: ${metrics.passRate}%`,
         `🔑 Run ID: ${runId}`,
     ].join('\n');
@@ -34454,24 +34462,21 @@ async function pollUntilDone(client, projectId, runId) {
     const deadline = Date.now() + POLL_TIMEOUT_MS;
     while (Date.now() < deadline) {
         let status;
-        let retries = 0;
-        while (retries <= RETRY_LIMIT) {
+        for (let attempt = 0; attempt <= RETRY_LIMIT; attempt++) {
             try {
                 status = await client.getEvalRun(projectId, runId);
                 break;
             }
             catch (e) {
-                if (isRetriable(e) && retries < RETRY_LIMIT) {
-                    retries++;
-                    core.info(`Poll attempt failed (retry ${retries}/${RETRY_LIMIT}): ${e instanceof Error ? e.message : String(e)}`);
+                if (isRetriable(e) && attempt < RETRY_LIMIT) {
+                    core.warning(`Poll attempt failed (retry ${attempt + 1}/${RETRY_LIMIT}): ${e instanceof Error ? e.message : String(e)}`);
                     await delay(RETRY_DELAY_MS);
-                    continue;
                 }
-                throw e;
+                else {
+                    throw e;
+                }
             }
         }
-        if (!status)
-            throw new Error('Poll failed — no status returned');
         const terminal = status.status === 'completed' || status.status === 'failed' || status.status === 'cancelled';
         if (terminal)
             return status;

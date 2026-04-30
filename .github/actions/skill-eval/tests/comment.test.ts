@@ -50,9 +50,15 @@ describe('eval result formatters', () => {
     const body = formatEvalFailed({ ...metrics, passed: 8, failed: 2, passRate: 80 }, 'run-123');
     expect(body).toContain(COMMENT_MARKER);
     expect(body).toContain('❌');
-    expect(body).toContain('2/10');
+    expect(body).toContain('2 failed');
     expect(body).toContain('80%');
     expect(body).toContain('run-123');
+  });
+
+  it('formatEvalFailed shows errors when only errors present', () => {
+    const body = formatEvalFailed({ ...metrics, passed: 7, failed: 0, errors: 3, passRate: 70 }, 'run-123');
+    expect(body).toContain('3 errors');
+    expect(body).not.toContain('0 failed');
   });
 
   it('formatEvalTimeout includes run ID', () => {

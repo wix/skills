@@ -26,29 +26,25 @@ export async function pollUntilDone(
 
   while (Date.now() < deadline) {
     let status: EvalRunStatus | undefined;
-    let retries = 0;
 
-    while (retries <= RETRY_LIMIT) {
+    for (let attempt = 0; attempt <= RETRY_LIMIT; attempt++) {
       try {
         status = await client.getEvalRun(projectId, runId);
         break;
       } catch (e) {
-        if (isRetriable(e) && retries < RETRY_LIMIT) {
-          retries++;
-          core.info(`Poll attempt failed (retry ${retries}/${RETRY_LIMIT}): ${e instanceof Error ? e.message : String(e)}`);
+        if (isRetriable(e) && attempt < RETRY_LIMIT) {
+          core.warning(`Poll attempt failed (retry ${attempt + 1}/${RETRY_LIMIT}): ${e instanceof Error ? e.message : String(e)}`);
           await delay(RETRY_DELAY_MS);
-          continue;
+        } else {
+          throw e;
         }
-        throw e;
       }
     }
 
-    if (!status) throw new Error('Poll failed — no status returned');
+    const terminal = status!.status === 'completed' || status!.status === 'failed' || status!.status === 'cancelled';
+    if (terminal) return status!;
 
-    const terminal = status.status === 'completed' || status.status === 'failed' || status.status === 'cancelled';
-    if (terminal) return status;
-
-    core.info(`Eval run ${runId}: ${status.status} (${status.progress}%)...`);
+    core.info(`Eval run ${runId}: ${status!.status} (${status!.progress}%)...`);
     await delay(Math.min(POLL_INTERVAL_MS, deadline - Date.now()));
   }
 

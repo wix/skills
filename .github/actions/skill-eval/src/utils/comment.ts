@@ -10,7 +10,7 @@ export function formatValidationErrors(errors: ValidationError[]): string {
 
 
 export function formatServiceError(message: string): string {
-  return `${COMMENT_MARKER}\n## ❌ Skill validation failed\n\n${message}`;
+  return `${COMMENT_MARKER}\n## ❌ Skill eval failed\n\n${message}`;
 }
 
 export function formatFailedJobMessage(errors: ValidationError[]): string {
@@ -21,16 +21,20 @@ export function formatFailedJobMessage(errors: ValidationError[]): string {
 export function formatEvalPassed(metrics: EvalRunStatus['aggregateMetrics'], runId: string): string {
   return [
     COMMENT_MARKER,
-    `## ✅ Eval passed — ${metrics.passed}/${metrics.totalAssertions} scenarios passed`,
+    `## ✅ Eval passed — ${metrics.passed}/${metrics.totalAssertions} assertions passed`,
     `📊 Pass rate: ${metrics.passRate}%`,
     `🔑 Run ID: ${runId}`,
   ].join('\n');
 }
 
 export function formatEvalFailed(metrics: EvalRunStatus['aggregateMetrics'], runId: string): string {
+  const parts = [];
+  if (metrics.failed > 0) parts.push(`${metrics.failed} failed`);
+  if (metrics.errors > 0) parts.push(`${metrics.errors} errors`);
+  const summary = parts.length > 0 ? parts.join(', ') : 'unknown failure';
   return [
     COMMENT_MARKER,
-    `## ❌ Eval failed — ${metrics.failed}/${metrics.totalAssertions} scenarios failed`,
+    `## ❌ Eval failed — ${summary} out of ${metrics.totalAssertions} assertions`,
     `📊 Pass rate: ${metrics.passRate}%`,
     `🔑 Run ID: ${runId}`,
   ].join('\n');

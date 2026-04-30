@@ -132,8 +132,10 @@ async function run(): Promise<void> {
   } catch (e) {
     const status = (e as { status?: number }).status;
     if (status === 400) {
+      const message = e instanceof Error ? e.message : String(e);
+      core.error(`createEvalRun 400 — treating as no matching scenarios. Full error: ${message}`);
       await upsertComment(octokit, config, formatNoScenarios(tags));
-      core.setFailed(`No eval scenarios found matching tags: ${tags.join(', ')}`);
+      core.setFailed(`No eval scenarios found matching tags: ${tags.join(', ')} (or invalid request — see job logs)`);
       return;
     }
     const message = e instanceof Error ? e.message : String(e);
@@ -177,7 +179,7 @@ async function run(): Promise<void> {
   if (finalStatus.status === 'completed') {
     if (m.failed === 0 && m.errors === 0) {
       await upsertComment(octokit, config, formatEvalPassed(m, runId));
-      core.info(`Eval passed — ${m.passed}/${m.totalAssertions} scenarios passed`);
+      core.info(`Eval passed — ${m.passed}/${m.totalAssertions} assertions passed`);
     } else {
       await upsertComment(octokit, config, formatEvalFailed(m, runId));
       core.setFailed(`Eval failed — ${m.failed}/${m.totalAssertions} scenarios failed (pass rate: ${m.passRate}%)`);
