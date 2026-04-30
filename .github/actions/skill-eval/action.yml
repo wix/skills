@@ -1,0 +1,21 @@
+name: 'Skill Eval'
+description: 'Validates skill YAML entries and runs EvalForge evaluations on PRs'
+inputs:
+  github-token:
+    description: 'GitHub token for PR comments'
+    required: true
+  evalforge-url:
+    description: 'EvalForge API base URL'
+    required: true
+  evalforge-project-id:
+    description: 'EvalForge project ID'
+    required: true
+  evalforge-app-id:
+    description: 'EvalForge app ID for authentication'
+    required: true
+  evalforge-app-secret:
+    description: 'EvalForge app secret for authentication'
+    required: true
+runs:
+  using: 'node20'
+  main: 'dist/index.js'

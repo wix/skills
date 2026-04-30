@@ -2,27 +2,20 @@
 name: "Update Product with Options (Catalog V3)"
 description: Modifies existing products and variants using Catalog V3 Products API. Covers adding/removing option choices, variant-specific pricing, and revision-based updates to prevent conflicts.
 ---
-**RECIPE**: Business Recipe - Updating a Wix Store Product (V3)
+**RECIPE**: Business Recipe - Updating a Wix Store Product (Catalog V3)
 
-Learn how to update existing Wix store products, including adding options, changing media, updating prices, or modifying other product properties.
+Use this recipe to update an existing Catalog V3 product: description, media, options, variants, prices, or stock-related inventory records.
 
----
+## Before Any Product Update
 
-> **CRITICAL: Revision Required for All Updates**
->
-> All PATCH operations on Catalog V3 products require the current `product.revision`. Without it, you'll get: `"revision must not be empty"`
->
-> **Always:**
-> 1. GET the product first to obtain current revision
-> 2. Include `product.revision` in every PATCH body
+Every Catalog V3 product update is revision-based:
 
----
+- If the user gives a product name instead of a product ID, use [Search Products](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/search-products) and choose the exact product name match.
+- Use [Get Product](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/get-product) to retrieve the current product and `product.revision`.
+- Include `product.id` and the current `product.revision` in every [Update Product](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/update-product) PATCH body.
+- For simple text/HTML description updates, prefer `plainDescription`. Use `description` only when sending a Rich Content object.
 
-## Article: Steps for Updating Wix Store Products
-
-## STEP 0: Resolve the product ID when the user provides a product name
-
-If the user gives a product name instead of a product ID, use [Search Products](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/search-products) to find the product first:
+### Find the product by name
 
 ```bash
 curl -X POST "https://www.wixapis.com/stores/v3/products/search" \
@@ -37,18 +30,35 @@ curl -X POST "https://www.wixapis.com/stores/v3/products/search" \
 
 For product-name lookup, prefer Search Products before retrieving the product by ID.
 
-## STEP 1: Get the current product to obtain its revision
-1. Before updating the product, you need to retrieve its current revision to prevent conflicts using [Get Product](https://dev.wix.com/docs/rest/business-solutions/stores/catalog-v3/products-v3/get-product):
+### Get the current revision
 
 ```bash
 curl -X GET "https://www.wixapis.com/stores/v3/products/{productId}" \
   -H "Authorization: <AUTH>"
 ```
 
-The response will include a `revision` field in the product object. Save this value for use in Step 2.
+## Common Update Patterns
 
-## STEP 2: Update the product with options and variants
-1. Update the product to add options and create variants using the revision obtained in Step 1 - [Wix REST API: Update Product](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/update-product)
+### Update Description Only
+
+For a normal user request like "set the product description to X", use `plainDescription` with valid HTML. The API converts it to rich content.
+
+Do not send a plain string in `description`. `description` is a Rich Content object.
+
+```bash
+curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: <AUTH>" \
+  -d '{
+    "product": {
+      "id": "{productId}",
+      "revision": "{currentRevision}",
+      "plainDescription": "<p>A great product for everyone.</p>"
+    }
+  }'
+```
+
+Use `description` only when you intentionally need to send Rich Content:
 
 ```bash
 curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
@@ -58,92 +68,37 @@ curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
     "product": {
         "id": "{productId}",
         "revision": "{currentRevision}",
-        "options": [
-            {
-                "name": "Color",
-                "optionRenderType": "SWATCH_CHOICES",
-                "choicesSettings": {
-                    "choices": [
+        "description": {
+            "nodes": [
+                {
+                    "type": "PARAGRAPH",
+                    "id": "description",
+                    "nodes": [
                         {
-                            "name": "White",
-                            "choiceType": "ONE_COLOR",
-                            "colorCode": "#FFFFFF"
-                        },
-                        {
-                            "name": "Red",
-                            "choiceType": "ONE_COLOR",
-                            "colorCode": "#FF0000"
-                        },
-                        {
-                            "name": "Black",
-                            "choiceType": "ONE_COLOR",
-                            "colorCode": "#000000"
+                            "type": "TEXT",
+                            "textData": {
+                                "text": "Updated product description."
+                            }
                         }
-                    ]
+                    ],
+                    "paragraphData": {
+                        "textStyle": {
+                            "textAlignment": "AUTO"
+                        }
+                    }
                 }
+            ],
+            "metadata": {
+                "version": 1
             }
-        ],
-        "variantsInfo": {
-            "variants": [
-                {
-                    "choices": [
-                        {
-                            "optionChoiceNames": {
-                                "optionName": "Color",
-                                "choiceName": "White",
-                                "renderType": "SWATCH_CHOICES"
-                            }
-                        }
-                    ],
-                    "price": {
-                        "actualPrice": {
-                            "amount": "270.00"
-                        }
-                    }
-                },
-                {
-                    "choices": [
-                        {
-                            "optionChoiceNames": {
-                                "optionName": "Color",
-                                "choiceName": "Red",
-                                "renderType": "SWATCH_CHOICES"
-                            }
-                        }
-                    ],
-                    "price": {
-                        "actualPrice": {
-                            "amount": "270.00"
-                        }
-                    }
-                },
-                {
-                    "choices": [
-                        {
-                            "optionChoiceNames": {
-                                "optionName": "Color",
-                                "choiceName": "Black",
-                                "renderType": "SWATCH_CHOICES"
-                            }
-                        }
-                    ],
-                    "price": {
-                        "actualPrice": {
-                            "amount": "270.00"
-                        }
-                    }
-                }
-            ]
         }
     }
-}'
+  }'
 ```
 
-## Common Update Patterns (Minimal Examples)
+### Update Options and Variants
 
-### Update Media Only
-
-To update just the product's media without changing other fields:
+When adding or changing options and variants, send the full option definitions and one variant for each option-choice combination. Use `optionChoiceNames` to reference choices.
 
 ```bash
 curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
@@ -151,6 +106,154 @@ curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
   -H "Authorization: <AUTH>" \
   -d '{
     "product": {
+      "id": "{productId}",
+      "revision": "{currentRevision}",
+      "options": [
+        {
+          "name": "Color",
+          "optionRenderType": "SWATCH_CHOICES",
+          "choicesSettings": {
+            "choices": [
+              {
+                "name": "White",
+                "choiceType": "ONE_COLOR",
+                "colorCode": "#FFFFFF"
+              },
+              {
+                "name": "Red",
+                "choiceType": "ONE_COLOR",
+                "colorCode": "#FF0000"
+              },
+              {
+                "name": "Black",
+                "choiceType": "ONE_COLOR",
+                "colorCode": "#000000"
+              }
+            ]
+          }
+        }
+      ],
+      "variantsInfo": {
+        "variants": [
+          {
+            "choices": [
+              {
+                "optionChoiceNames": {
+                  "optionName": "Color",
+                  "choiceName": "White",
+                  "renderType": "SWATCH_CHOICES"
+                }
+              }
+            ],
+            "price": {
+              "actualPrice": {
+                "amount": "270.00"
+              }
+            }
+          },
+          {
+            "choices": [
+              {
+                "optionChoiceNames": {
+                  "optionName": "Color",
+                  "choiceName": "Red",
+                  "renderType": "SWATCH_CHOICES"
+                }
+              }
+            ],
+            "price": {
+              "actualPrice": {
+                "amount": "270.00"
+              }
+            }
+          },
+          {
+            "choices": [
+              {
+                "optionChoiceNames": {
+                  "optionName": "Color",
+                  "choiceName": "Black",
+                  "renderType": "SWATCH_CHOICES"
+                }
+              }
+            ],
+            "price": {
+              "actualPrice": {
+                "amount": "270.00"
+              }
+            }
+          }
+        ]
+      }
+    }
+  }'
+```
+
+When updating existing variants, include each existing variant `id`. If no GUID is passed, a variant is created with a new GUID.
+
+### Convert a Simple Product to Color Variants
+
+When adding the first option to a simple product, do not preserve a choice-less default variant unchanged. A simple product often has one existing variant with price or stock but no `choices`. After you add a `Color` option, every variant in `variantsInfo.variants` must include choices that match the product options.
+
+Use the existing default variant as source data only. For example, copy its price if the user did not ask to change price, then send a complete optioned variants list where each variant has:
+
+```json
+{
+  "choices": [
+    {
+      "optionChoiceNames": {
+        "optionName": "Color",
+        "choiceName": "Red",
+        "renderType": "SWATCH_CHOICES"
+      }
+    }
+  ],
+  "price": {
+    "actualPrice": {
+      "amount": "{existingOrRequestedPrice}"
+    }
+  }
+}
+```
+
+After the product update returns the new variant IDs, use those IDs to set inventory.
+
+### Set Stock for New Variants
+
+Inventory is handled separately from product updates. After the product update returns variant IDs, use [Bulk Create Inventory Items](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/inventory-items-v3/bulk-create-inventory-items) with `productId`, `variantId`, and `quantity`.
+
+If the store has multiple inventory locations, include `locationId`; otherwise the store's default location is used.
+
+```bash
+curl -X POST "https://www.wixapis.com/stores/v3/bulk/inventory-items/create" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: <AUTH>" \
+  -d '{
+    "inventoryItems": [
+      {
+        "productId": "{productId}",
+        "variantId": "{redVariantId}",
+        "quantity": 10
+      },
+      {
+        "productId": "{productId}",
+        "variantId": "{blueVariantId}",
+        "quantity": 10
+      }
+    ],
+    "returnEntity": true
+  }'
+```
+
+### Update Media Only
+
+```bash
+curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: <AUTH>" \
+  -d '{
+    "product": {
+      "id": "{productId}",
       "revision": "{currentRevision}",
       "media": {
         "itemsInfo": {
@@ -166,9 +269,7 @@ curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
   }'
 ```
 
-### Update Price Only
-
-To update just the variant prices:
+### Update Variant Price Only
 
 ```bash
 curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
@@ -176,6 +277,7 @@ curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
   -H "Authorization: <AUTH>" \
   -d '{
     "product": {
+      "id": "{productId}",
       "revision": "{currentRevision}",
       "variantsInfo": {
         "variants": [
@@ -193,72 +295,23 @@ curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
   }'
 ```
 
-> **Note:** When updating variants, you must include the variant `id` to update existing variants. Without the `id`, a new variant will be created.
+## Important Notes
 
----
-
-### IMPORTANT NOTES:
-The Update Product API can handle creating customizations and choices in a single call. There's no need to separately check for existing customizations, create new ones, or add choices to them—the API handles all of this automatically:
-
-1. If you provide an option with a name that doesn't exist as a customization, a new customization will be created
-2. If a customization with that name already exists, it will be associated with the product
-3. New choices will be added to the customization if they don't exist
-4. When creating variants, use optionChoiceNames rather than optionChoiceIds to reference the options and choices
-5. Always include the choicesSettings object with the complete list of choices
-6. You must create one variant for each combination of option choices
-
-### Next Steps:
-After updating the product, verify that the options appear correctly in the store and that customers can select different variants.
-
-## Troubleshooting Common Issues
-
-### Issue 1: "ChoicesSettings must not be empty" error
-- **Problem**: When updating a product with options, you get an error saying `choicesSettings must not be empty`.
-- **Solution**: Always include the `choicesSettings` object with the full array of `choices` when updating a product with options, even when using an existing customization.
-
-### Issue 2: "Missing product option choices" error
-- **Problem**: You get an error message like `Missing product option choices. Every variant option id (variants.choices.optionId field) must exist in options.id`.
-- **Solution**:
-- Use `optionChoiceNames` instead of `optionChoiceIds` in variants
-- Make sure the option name in variants exactly matches the option name defined in the options array
-- Include the renderType in optionChoiceNames
-
-### Issue 3: Variants not matching options
-- **Problem**: The API returns errors about variants not matching the product's options.
-- **Solution**:
-- Create one variant for each possible combination of option choices
-- Ensure each variant references all options defined on the product
-- If the product has only one option with three choices, you need three variants
-- Make sure each variant's option choice name exactly matches the corresponding option choice
-
-### Issue 4: Conflicts when using existing customizations
-- **Problem**: When attempting to use existing customizations, you encounter name conflicts or choice conflicts.
-- **Solution**:
-- If you need to use a specific existing customization ID, first query customizations to get the correct ID
-- When working with existing customizations, ensure all choices you reference actually exist in that customization
-- If you're creating a new customization with the same name as an existing one, the API will use the existing one
-- Be aware that customizations are shared across all products in your store
-
-### Issue 5: Inconsistencies in documentation vs. actual API behavior
-- **Problem**: Several API requirements are not well-documented or are documented differently from how the API actually behaves.
-- **Solution**:
-- Always include choicesSettings with all choices when updating a product
-- Use optionChoiceNames rather than optionChoiceIds in variants for more reliable results
-- Include the renderType in optionChoiceNames
-- Use the exact same choice names as defined in the customization
-- Always get the current product revision before updating to prevent conflicts
+- To update array fields like `options`, `modifiers`, `variantsInfo.variants`, and any others, pass the entire existing array. Passing only the changed item overwrites the whole array.
+- To update `variantsInfo.variants`, also pass `options`, and vice versa. Variants and options are mutually dependent and must stay aligned.
+- When converting a simple product to an optioned product, rebuild the variants list so every variant has `choices`; do not keep an existing choice-less default variant unchanged.
+- Always include `choicesSettings` with the complete list of choices when updating a product with options.
+- Use `optionChoiceNames` rather than `optionChoiceIds` in variants for more reliable updates.
+- Include the `renderType` in `optionChoiceNames`.
 
 ## Error Message Reference
 
 | Error Message | Meaning | Fix |
 |---------------|---------|-----|
-| `revision must not be empty` | Missing optimistic lock | GET product first, include `revision` in PATCH |
-| `revision mismatch` | Stale revision (product was updated elsewhere) | Re-GET product, retry with new revision |
+| `revision must not be empty` | Missing optimistic lock | GET product first and include `product.revision` in PATCH |
+| `revision mismatch` | Stale revision | Re-GET product and retry with the new revision |
+| `Expected an object` for `description` | Sent `description` as a string | Use `plainDescription` for HTML strings, or send `description` as Rich Content |
 | `choicesSettings must not be empty` | Missing choices array | Include full `choicesSettings.choices` array |
-| `Missing product option choices` | Variant references non-existent option | Use `optionChoiceNames` with exact match to option names |
-
-## Conclusion
-
-Updating a Wix store product involves understanding the revision-based optimistic concurrency model and the relationship between store-wide customizations and product-specific options and variants. The key is to always fetch the current revision before updating and ensure consistency between customization definitions, product options, and product variants.
-
-By following this recipe and being aware of the common pitfalls, you can successfully update your Wix store products.
+| `Missing product option choices` | Variant references non-existent option | Use `optionChoiceNames` with exact option and choice names |
+| `price must not be empty` | A variant was created or replaced without a price | Include `price.actualPrice.amount` on every new variant |
+| `Missing option choices` or `INVALID_DEFAULT_VARIANT` | Product has options but at least one variant has no matching choices | Rebuild `variantsInfo.variants` so every variant includes choices for all product options |

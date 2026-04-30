@@ -14,7 +14,7 @@ This recipe covers basic Create, Read, Update, Delete (CRUD) operations for Wix 
 
 ## Required APIs
 
-- **Data Items API**: [REST](https://dev.wix.com/docs/rest/business-solutions/cms/data-items/introduction)
+- **Data Items API**: [REST](https://dev.wix.com/docs/api-reference/business-solutions/cms/data-items/introduction)
 
 ---
 
@@ -416,7 +416,7 @@ curl -X DELETE \
 
 ## Related Documentation
 
-- [Data Items API Reference](https://dev.wix.com/docs/rest/business-solutions/cms/data-items/introduction)
+- [Data Items API Reference](https://dev.wix.com/docs/api-reference/business-solutions/cms/data-items/introduction)
 - [CMS Schema Management](cms-schema-management.md) - Creating and modifying collections
 - [CMS References & Relationships](cms-references-and-relationships.md) - Linking collections
 - [CMS Data Operations Extended](cms-data-operations-extended.md) - Count, upsert, aggregate

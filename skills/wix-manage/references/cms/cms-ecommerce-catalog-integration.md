@@ -133,4 +133,4 @@ CMS Catalogs are best for simple product catalogs. For complex eCommerce needs, 
 
 - [CMS Schema Management](cms-schema-management.md)
 - [CMS Data Operations](cms-data-items-crud.md)
-- [Wix Cart API](https://dev.wix.com/docs/rest/business-solutions/e-commerce/purchase-flow/cart/cart/introduction)
+- [Wix Cart API](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart/cart/introduction)
