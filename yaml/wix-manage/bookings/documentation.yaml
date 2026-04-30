@@ -1,6 +1,5 @@
 apiDoc:
   title: Wix Bookings Management Recipes
-
   docs:
     - file: ../../../skills/wix-manage/references/bookings/end-to-end-booking-flow.md
       title: End-to-End Booking Flow
@@ -28,5 +27,9 @@ apiDoc:
       tags: [bookings, calendar]
     - file: ../../../skills/wix-manage/references/bookings/booking-system-integration-gaps.md
       title: Booking System Integration Gaps
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/bookings
+      tags: [bookings]
+    - file: ../../../skills/wix-manage/references/bookings/yotam-test-skill.md
+      title: '[TEST] Yotam Test Skill'
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/bookings
       tags: [bookings]
