@@ -34084,7 +34084,6 @@ const paths_1 = __nccwpck_require__(6621);
 const skill_changes_1 = __nccwpck_require__(9336);
 const eval_run_1 = __nccwpck_require__(5879);
 const comment_1 = __nccwpck_require__(3116);
-const fail_1 = __nccwpck_require__(4629);
 async function run() {
     const config = (0, config_1.getConfig)();
     const octokit = github.getOctokit(config.githubToken);
@@ -34127,7 +34126,7 @@ async function run() {
         const message = e instanceof Error ? e.message : String(e);
         core.error(`EvalForge request failed: ${message}`);
         await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatServiceError)('EvalForge validation could not run — see job logs for details', config.blocking));
-        (0, fail_1.fail)('EvalForge validation could not run', config.blocking);
+        (0, github_1.fail)('EvalForge validation could not run', config.blocking);
         return;
     }
     const tagErrors = [];
@@ -34167,7 +34166,7 @@ async function run() {
                 const message = lookupErr instanceof Error ? lookupErr.message : String(lookupErr);
                 core.error(`Failed to look up existing MCP version: ${message}`);
                 await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatServiceError)('Could not look up existing MCP version — see job logs for details', config.blocking));
-                (0, fail_1.fail)('Could not look up existing MCP version', config.blocking);
+                (0, github_1.fail)('Could not look up existing MCP version', config.blocking);
                 return;
             }
         }
@@ -34175,7 +34174,7 @@ async function run() {
             const message = e instanceof Error ? e.message : String(e);
             core.error(`Failed to create MCP version: ${message}`);
             await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatServiceError)('Could not create MCP version — see job logs for details', config.blocking));
-            (0, fail_1.fail)('Could not create MCP version', config.blocking);
+            (0, github_1.fail)('Could not create MCP version', config.blocking);
             return;
         }
     }
@@ -34198,13 +34197,13 @@ async function run() {
             const message = e instanceof Error ? e.message : String(e);
             core.error(`createEvalRun 400 — treating as no matching scenarios. Full error: ${message}`);
             await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatNoScenarios)(tags, config.blocking));
-            (0, fail_1.fail)(`No eval scenarios found matching tags: ${tags.join(', ')} (or invalid request — see job logs)`, config.blocking);
+            (0, github_1.fail)(`No eval scenarios found matching tags: ${tags.join(', ')} (or invalid request — see job logs)`, config.blocking);
             return;
         }
         const message = e instanceof Error ? e.message : String(e);
         core.error(`Failed to create eval run: ${message}`);
         await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatServiceError)('Could not create eval run — see job logs for details', config.blocking));
-        (0, fail_1.fail)('Could not create eval run', config.blocking);
+        (0, github_1.fail)('Could not create eval run', config.blocking);
         return;
     }
     try {
@@ -34215,7 +34214,7 @@ async function run() {
         const message = e instanceof Error ? e.message : String(e);
         core.error(`Failed to trigger eval run: ${message}`);
         await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatServiceError)('Could not trigger eval run — see job logs for details', config.blocking));
-        (0, fail_1.fail)('Could not trigger eval run', config.blocking);
+        (0, github_1.fail)('Could not trigger eval run', config.blocking);
         return;
     }
     core.info(`Polling eval run ${runId} for completion...`);
@@ -34226,13 +34225,13 @@ async function run() {
     catch (e) {
         if (e.timeout) {
             await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatEvalTimeout)(runId, config.blocking));
-            (0, fail_1.fail)('Eval run timed out after 30 minutes', config.blocking);
+            (0, github_1.fail)('Eval run timed out after 30 minutes', config.blocking);
             return;
         }
         const message = e instanceof Error ? e.message : String(e);
         core.error(`Eval run polling failed: ${message}`);
         await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatServiceError)('Eval run polling failed — see job logs for details', config.blocking));
-        (0, fail_1.fail)('Eval run polling failed', config.blocking);
+        (0, github_1.fail)('Eval run polling failed', config.blocking);
         return;
     }
     const { aggregateMetrics: m } = finalStatus;
@@ -34243,12 +34242,12 @@ async function run() {
         }
         else {
             await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatEvalFailed)(m, runId, config.blocking));
-            (0, fail_1.fail)(`Eval failed — ${m.failed}/${m.totalAssertions} scenarios failed (pass rate: ${m.passRate}%)`, config.blocking);
+            (0, github_1.fail)(`Eval failed — ${m.failed}/${m.totalAssertions} scenarios failed (pass rate: ${m.passRate}%)`, config.blocking);
         }
     }
     else {
         await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatServiceError)(`Eval run ended with status '${finalStatus.status}' — check EvalForge for details (run ID: ${runId})`, config.blocking));
-        (0, fail_1.fail)(`Eval run ended with unexpected status: ${finalStatus.status}`, config.blocking);
+        (0, github_1.fail)(`Eval run ended with unexpected status: ${finalStatus.status}`, config.blocking);
     }
 }
 run().catch(err => core.setFailed(err instanceof Error ? err.message : String(err)));
@@ -34574,57 +34573,6 @@ exports.EvalForgeClient = EvalForgeClient;
 
 /***/ }),
 
-/***/ 4629:
-/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
-
-"use strict";
-
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.fail = fail;
-const core = __importStar(__nccwpck_require__(7484));
-function fail(message, blocking) {
-    if (blocking)
-        core.setFailed(message);
-    else
-        core.warning(message);
-}
-
-
-/***/ }),
-
 /***/ 6246:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
@@ -34664,10 +34612,17 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.fail = fail;
 exports.getChangedFiles = getChangedFiles;
 exports.upsertComment = upsertComment;
 const core = __importStar(__nccwpck_require__(7484));
 const comment_1 = __nccwpck_require__(3116);
+function fail(message, blocking) {
+    if (blocking)
+        core.setFailed(message);
+    else
+        core.warning(message);
+}
 async function getChangedFiles(octokit, config) {
     const files = await octokit.paginate(octokit.rest.pulls.listFiles, {
         owner: config.owner,
