@@ -1,6 +1,6 @@
 ---
-name: "Bulk Delete Contacts"
-description: Deletes multiple contacts using filter-based bulk delete. Covers safe deletion patterns, GDPR compliance, soft delete alternatives, and batch processing strategies.
+name: "Bulk Delete Contacts (Filter-Based)"
+description: Deletes multiple contacts using filter-based bulk delete. Covers safe deletion patterns, GDPR compliance, soft delete alternatives, and batch processing strategies. Includes bulk job tracking via jobId.
 ---
 # Bulk Delete Contacts
 
