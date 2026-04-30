@@ -190,18 +190,16 @@ Present this link as a clickable markdown link, not as a raw URL. For example:
 2. Check availability -> available: false
 3. Suggest alternatives with query "coolstartup" -> show 10 options
 4. User picks "coolstartup.online"
-5. Verify availability -> available: true
-6. Generate link: `https://manage.wix.com/premium-domains/split-page?domainName=coolstartup.online`
-7. Share link with user
+5. Generate link: `https://manage.wix.com/premium-domains/split-page?domainName=coolstartup.online`
+6. Share link with user
 
 ### Flow 3: Brainstorming from scratch
 
 1. User: "I need a domain for my pancakes restaurant"
 2. Suggest domains with query "pancakes restaurant" -> show 10 options
 3. User picks "stackedpancakes.com"
-4. Verify availability -> available: true
-5. Generate link: `https://manage.wix.com/premium-domains/split-page?domainName=stackedpancakes.com`
-6. Share link with user
+4. Generate link: `https://manage.wix.com/premium-domains/split-page?domainName=stackedpancakes.com`
+5. Share link with user
 
 ### Flow 4: Unsupported TLD
 
