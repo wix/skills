@@ -1,0 +1,8 @@
+apiDoc:
+  title: Wix Management Recipes
+
+  docs:
+    - file: ../../skills/wix-manage/SKILL.md
+      title: Wix Management Recipes Index
+      docsEntry: https://dev.wix.com/docs/api-reference/articles/ai-tools/wix-mcp
+      tags: []
