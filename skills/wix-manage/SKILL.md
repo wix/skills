@@ -59,6 +59,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ### [Multi-Resource Service Creation](references/bookings/multi-resource-service-creation.md)
 **Technical:** Creates resource types and individual resources using Resources API. Enables services that require multiple resources (rooms + equipment + staff) with automatic allocation.
 
+### [[TEST] Yotam Test Skill](https://dev.wix.com/docs/api-reference/business-solutions/bookings/skills/yotam-test-skill)
+**Technical:** Test skill created by yotamsu via automated PR flow. Do not merge.
+
 ---
 
 ## Calendar
