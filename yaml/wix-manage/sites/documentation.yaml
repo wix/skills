@@ -1,0 +1,12 @@
+apiDoc:
+  title: Wix Sites Management Recipes
+
+  docs:
+    - file: ../../../skills/wix-manage/references/sites/query-sites.md
+      title: Query Sites
+      docsEntry: https://dev.wix.com/docs/api-reference/account-level/sites
+      tags: [sites]
+    - file: ../../../skills/wix-manage/references/sites/create-site-from-template.md
+      title: Create Site from Template
+      docsEntry: https://dev.wix.com/docs/api-reference/account-level/sites
+      tags: [sites]

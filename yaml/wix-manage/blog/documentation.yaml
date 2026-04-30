@@ -1,0 +1,8 @@
+apiDoc:
+  title: Wix Blog Management Recipes
+
+  docs:
+    - file: ../../../skills/wix-manage/references/blog/how-to-create-blog-posts.md
+      title: How to Create Blog Posts
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/blog
+      tags: [blog]

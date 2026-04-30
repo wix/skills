@@ -1,0 +1,8 @@
+apiDoc:
+  title: Wix Rich Content Management Recipes
+
+  docs:
+    - file: ../../../skills/wix-manage/references/rich-content/ricos-converter-service.md
+      title: Ricos Converter Service
+      docsEntry: https://dev.wix.com/docs/api-reference/assets/rich-content
+      tags: [rich-content]
