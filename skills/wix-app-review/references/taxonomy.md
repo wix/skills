@@ -158,9 +158,6 @@ intentionally excluded from this file. Each item is tagged:
 
 | # | Requirement | Type | Review |
 |---|---|---|---|
-| 155 | Blocks extension has configuration or deletion issues | 🔵 Code / Technical | Manual |
-| 156 | Blocks dashboard extension has no real functionality | 🔵 Code / Technical | Manual |
-| 157 | Blocks widget has UX issues (e.g. live data causes text to jump) | 🔵 Code / Technical | Manual |
 | 158 | Custom element extension is missing settings or not appearing in editor | 🔵 Code / Technical | Manual |
 | 159 | Dashboard modal extension purpose is unclear or unnecessary | 🔵 Code / Technical | Manual |
 | 160 | Dashboard page extension is blank, broken, or violates Wix guidelines | 🔵 Code / Technical | Manual |
