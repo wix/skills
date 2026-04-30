@@ -25,6 +25,7 @@ const ALL_INPUTS: Record<string, string> = {
   'evalforge-mcp-id': 'mcp-1',
   'evalforge-app-id': 'app-1',
   'evalforge-app-secret': 'secret-1',
+  'blocking': 'true',
 };
 
 beforeEach(() => {
@@ -53,6 +54,20 @@ describe('getConfig', () => {
     expect(vi.mocked(core.setSecret)).toHaveBeenCalledWith('ghs_token');
     expect(vi.mocked(core.setSecret)).toHaveBeenCalledWith('app-1');
     expect(vi.mocked(core.setSecret)).toHaveBeenCalledWith('secret-1');
+  });
+
+  it('blocking is true when input is "true"', () => {
+    expect(getConfig().blocking).toBe(true);
+  });
+
+  it('blocking is false when input is "false"', () => {
+    vi.mocked(core.getInput).mockImplementation((name: string) => ({ ...ALL_INPUTS, blocking: 'false' }[name] ?? ''));
+    expect(getConfig().blocking).toBe(false);
+  });
+
+  it('blocking is true when input is absent (empty string)', () => {
+    vi.mocked(core.getInput).mockImplementation((name: string) => ({ ...ALL_INPUTS, blocking: '' }[name] ?? ''));
+    expect(getConfig().blocking).toBe(true);
   });
 
   it('throws when a required input is missing', () => {

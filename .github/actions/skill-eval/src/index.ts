@@ -1,7 +1,7 @@
 import * as core from '@actions/core';
 import { getConfig } from './utils/config';
 import * as github from '@actions/github';
-import { getChangedFiles, upsertComment } from './utils/github';
+import { getChangedFiles, upsertComment, fail } from './utils/github';
 import { EvalForgeClient } from './utils/evalforge';
 import { categorizeChanges } from './utils/paths';
 import { collectSkillChanges } from './utils/skill-changes';
@@ -63,8 +63,8 @@ async function run(): Promise<void> {
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     core.error(`EvalForge request failed: ${message}`);
-    await upsertComment(octokit, config, formatServiceError('EvalForge validation could not run — see job logs for details'));
-    core.setFailed('EvalForge validation could not run');
+    await upsertComment(octokit, config, formatServiceError('EvalForge validation could not run — see job logs for details', config.blocking));
+    fail('EvalForge validation could not run', config.blocking);
     return;
   }
 
@@ -104,15 +104,15 @@ async function run(): Promise<void> {
       } catch (lookupErr) {
         const message = lookupErr instanceof Error ? lookupErr.message : String(lookupErr);
         core.error(`Failed to look up existing MCP version: ${message}`);
-        await upsertComment(octokit, config, formatServiceError('Could not look up existing MCP version — see job logs for details'));
-        core.setFailed('Could not look up existing MCP version');
+        await upsertComment(octokit, config, formatServiceError('Could not look up existing MCP version — see job logs for details', config.blocking));
+        fail('Could not look up existing MCP version', config.blocking);
         return;
       }
     } else {
       const message = e instanceof Error ? e.message : String(e);
       core.error(`Failed to create MCP version: ${message}`);
-      await upsertComment(octokit, config, formatServiceError('Could not create MCP version — see job logs for details'));
-      core.setFailed('Could not create MCP version');
+      await upsertComment(octokit, config, formatServiceError('Could not create MCP version — see job logs for details', config.blocking));
+      fail('Could not create MCP version', config.blocking);
       return;
     }
   }
@@ -134,14 +134,14 @@ async function run(): Promise<void> {
     if (status === 400) {
       const message = e instanceof Error ? e.message : String(e);
       core.error(`createEvalRun 400 — treating as no matching scenarios. Full error: ${message}`);
-      await upsertComment(octokit, config, formatNoScenarios(tags));
-      core.setFailed(`No eval scenarios found matching tags: ${tags.join(', ')} (or invalid request — see job logs)`);
+      await upsertComment(octokit, config, formatNoScenarios(tags, config.blocking));
+      fail(`No eval scenarios found matching tags: ${tags.join(', ')} (or invalid request — see job logs)`, config.blocking);
       return;
     }
     const message = e instanceof Error ? e.message : String(e);
     core.error(`Failed to create eval run: ${message}`);
-    await upsertComment(octokit, config, formatServiceError('Could not create eval run — see job logs for details'));
-    core.setFailed('Could not create eval run');
+    await upsertComment(octokit, config, formatServiceError('Could not create eval run — see job logs for details', config.blocking));
+    fail('Could not create eval run', config.blocking);
     return;
   }
 
@@ -151,8 +151,8 @@ async function run(): Promise<void> {
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     core.error(`Failed to trigger eval run: ${message}`);
-    await upsertComment(octokit, config, formatServiceError('Could not trigger eval run — see job logs for details'));
-    core.setFailed('Could not trigger eval run');
+    await upsertComment(octokit, config, formatServiceError('Could not trigger eval run — see job logs for details', config.blocking));
+    fail('Could not trigger eval run', config.blocking);
     return;
   }
 
@@ -163,14 +163,14 @@ async function run(): Promise<void> {
     finalStatus = await pollUntilDone(evalforge, config.projectId, runId);
   } catch (e) {
     if ((e as { timeout?: boolean }).timeout) {
-      await upsertComment(octokit, config, formatEvalTimeout(runId));
-      core.setFailed('Eval run timed out after 30 minutes');
+      await upsertComment(octokit, config, formatEvalTimeout(runId, config.blocking));
+      fail('Eval run timed out after 30 minutes', config.blocking);
       return;
     }
     const message = e instanceof Error ? e.message : String(e);
     core.error(`Eval run polling failed: ${message}`);
-    await upsertComment(octokit, config, formatServiceError('Eval run polling failed — see job logs for details'));
-    core.setFailed('Eval run polling failed');
+    await upsertComment(octokit, config, formatServiceError('Eval run polling failed — see job logs for details', config.blocking));
+    fail('Eval run polling failed', config.blocking);
     return;
   }
 
@@ -181,12 +181,12 @@ async function run(): Promise<void> {
       await upsertComment(octokit, config, formatEvalPassed(m, runId));
       core.info(`Eval passed — ${m.passed}/${m.totalAssertions} assertions passed`);
     } else {
-      await upsertComment(octokit, config, formatEvalFailed(m, runId));
-      core.setFailed(`Eval failed — ${m.failed}/${m.totalAssertions} scenarios failed (pass rate: ${m.passRate}%)`);
+      await upsertComment(octokit, config, formatEvalFailed(m, runId, config.blocking));
+      fail(`Eval failed — ${m.failed}/${m.totalAssertions} scenarios failed (pass rate: ${m.passRate}%)`, config.blocking);
     }
   } else {
-    await upsertComment(octokit, config, formatServiceError(`Eval run ended with status '${finalStatus.status}' — check EvalForge for details (run ID: ${runId})`));
-    core.setFailed(`Eval run ended with unexpected status: ${finalStatus.status}`);
+    await upsertComment(octokit, config, formatServiceError(`Eval run ended with status '${finalStatus.status}' — check EvalForge for details (run ID: ${runId})`, config.blocking));
+    fail(`Eval run ended with unexpected status: ${finalStatus.status}`, config.blocking);
   }
 }
 
