@@ -1,15 +1,39 @@
 # Manual App Dashboard & Listing Guide
 
-Use this guide when the user wants the non-code App Market checks that still
-require screenshots, dashboard access, listing previews, or explicit user
-confirmation. Keep these findings under `Manual dashboard and marketing follow-up`
-instead of mixing them into the technical blocker list.
+Use this guide when the user wants the non-code App Market checks that need
+App Dashboard access, Market Listing data, pricing-page previews, screenshots,
+or explicit user confirmation. Keep these findings under
+`Manual dashboard and marketing follow-up` instead of mixing them into the
+technical blocker list.
 
 ## How to report manual-only items
 
+- Use Query Market Listing for App Profile and listing fields when app
+  credentials and an app ID are available.
 - Mark each item as `Confirmed`, `Needs dashboard verification`, or `Needs listing verification`.
-- Ask for screenshots, exported profile data, pricing-page previews, or direct user confirmation before claiming compliance.
+- Ask for screenshots, pricing-page previews, or direct user confirmation only
+  for fields and rendered assets that the API response cannot verify.
 - Do not turn these items into code fixes unless the user separately asks to change copy, assets, or dashboard settings.
+
+## Market Listing API Check
+
+When checking App Profile, listing copy, and market-facing metadata, prefer the
+Market Listing query API over screenshots when credentials are available.
+
+- REST: `POST https://www.wixapis.com/devcenter/app-market-listing/v1/marketListings/query`
+- SDK: `appMarketListing.queryMarketListing(query)` from `@wix/app-market-listing`
+- Query by `appId`, `languageCode`, and the relevant `status`; use `DRAFT` for
+  submission review and compare with `PUBLISHED` when validating live listing
+  consistency.
+- Use WQL filtering, sorting, and paging. The default sort is `createdDate`
+  descending, with `paging.limit` 50 and `paging.offset` 0.
+- Inspect `basicInfo`, `contactInfo`, `installationRequirement`, `pricingData`,
+  and listing assets. For rendered screenshots, image quality, pricing-page
+  previews, or dashboard-only settings, keep the item as manual verification.
+
+Docs:
+- [Query Market Listing - REST](https://dev.wix.com/docs/api-reference/app-management/market-listing/query-market-listing)
+- [Query Market Listing - SDK](https://dev.wix.com/docs/api-reference/app-management/market-listing/query-market-listing?apiView=SDK)
 
 ## Submission Prerequisites
 
@@ -29,6 +53,9 @@ instead of mixing them into the technical blocker list.
 - `#129` The selected pricing model type matches the actual business model.
 
 ## App Profile, Listing, and Marketing Assets
+
+Use Query Market Listing first for these fields when possible, then request
+rendered previews or screenshots for anything not visible in the response.
 
 - `#138` App Info and description are complete, clear, and correctly formatted.
 - `#139` Audience and required Wix products are configured correctly.
