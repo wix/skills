@@ -1,10 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { upsertComment } from '../src/utils/github';
+import * as core from '@actions/core';
+import { upsertComment, fail } from '../src/utils/github';
 import { COMMENT_MARKER } from '../src/utils/comment';
 import type { Config } from '../src/utils/config';
 
 vi.mock('@actions/core', () => ({
   error: vi.fn(),
+  setFailed: vi.fn(),
+  warning: vi.fn(),
   summary: { addRaw: vi.fn().mockReturnValue({ write: vi.fn().mockResolvedValue(undefined) }) },
 }));
 
@@ -21,6 +24,7 @@ const config: Config = {
   headSha: 'def456',
   owner: 'wix',
   repo: 'skills',
+  blocking: true,
 };
 
 function makeOctokit(comments: { id: number; body: string }[]) {
@@ -35,6 +39,22 @@ function makeOctokit(comments: { id: number; body: string }[]) {
     },
   };
 }
+
+describe('fail', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('calls core.setFailed when blocking is true', () => {
+    fail('something broke', true);
+    expect(vi.mocked(core.setFailed)).toHaveBeenCalledWith('something broke');
+    expect(vi.mocked(core.warning)).not.toHaveBeenCalled();
+  });
+
+  it('calls core.warning when blocking is false', () => {
+    fail('something broke', false);
+    expect(vi.mocked(core.warning)).toHaveBeenCalledWith('something broke');
+    expect(vi.mocked(core.setFailed)).not.toHaveBeenCalled();
+  });
+});
 
 describe('upsertComment', () => {
   it('updates existing comment when marker is found', async () => {

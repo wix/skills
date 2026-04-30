@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { pollUntilDone } from '../src/utils/eval-run';
 import type { EvalForgeClient, EvalRunStatus } from '../src/utils/evalforge';
 
-vi.mock('@actions/core', () => ({ info: vi.fn(), error: vi.fn() }));
+vi.mock('@actions/core', () => ({ info: vi.fn(), warning: vi.fn(), error: vi.fn() }));
 
 function makeClient(): EvalForgeClient {
   return {
@@ -76,5 +76,41 @@ describe('pollUntilDone', () => {
     await vi.runAllTimersAsync();
     const result = await promise;
     expect(result.status).toBe('completed');
+  });
+
+  it('throws after exhausting all 5xx retries', async () => {
+    const client = makeClient();
+    const serverError = Object.assign(new Error('server error'), { status: 500 });
+    vi.mocked(client.getEvalRun).mockRejectedValue(serverError);
+    const promise = pollUntilDone(client, 'proj-1', 'run-1');
+    await Promise.all([
+      expect(promise).rejects.toMatchObject({ status: 500 }),
+      vi.runAllTimersAsync(),
+    ]);
+  });
+
+  it('throws immediately on non-retriable 4xx without retrying', async () => {
+    const client = makeClient();
+    const notFound = Object.assign(new Error('not found'), { status: 404 });
+    vi.mocked(client.getEvalRun).mockRejectedValueOnce(notFound);
+    const promise = pollUntilDone(client, 'proj-1', 'run-1');
+    await Promise.all([
+      expect(promise).rejects.toMatchObject({ status: 404 }),
+      vi.runAllTimersAsync(),
+    ]);
+    expect(client.getEvalRun).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(['failed', 'cancelled'] as const)('returns immediately on terminal status "%s"', async (terminalStatus) => {
+    const client = makeClient();
+    const terminal: EvalRunStatus = {
+      status: terminalStatus, progress: 0,
+      aggregateMetrics: { totalAssertions: 0, passed: 0, failed: 0, skipped: 0, errors: 0, passRate: 0, avgDuration: 0, totalDuration: 0 },
+    };
+    vi.mocked(client.getEvalRun).mockResolvedValue(terminal);
+    const promise = pollUntilDone(client, 'proj-1', 'run-1');
+    await vi.runAllTimersAsync();
+    const result = await promise;
+    expect(result.status).toBe(terminalStatus);
   });
 });

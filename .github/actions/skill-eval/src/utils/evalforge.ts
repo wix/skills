@@ -1,5 +1,9 @@
 type HttpError = Error & { status: number };
 
+const MCP_URL = 'https://mcp.wix.com/mcp';
+const MCP_SKILLS_REPO = 'wix/skills';
+const MCP_CONFIG_KEY = 'wix-mcp-remote';
+
 export type CapabilityVersion = { id: string; capabilityId: string; version: string };
 
 export type EvalRunInput = {
@@ -62,6 +66,10 @@ export class EvalForgeClient {
     }) as Promise<T>;
   }
 
+  async listMcpVersions(mcpId: string, projectId: string): Promise<CapabilityVersion[]> {
+    return this.request<CapabilityVersion[]>('GET', `/projects/${projectId}/capabilities/${mcpId}/versions`);
+  }
+
   async createMcpVersion(mcpId: string, projectId: string, versionLabel: string, prNumber: number, headSha: string): Promise<CapabilityVersion> {
     return this.request<CapabilityVersion>('POST', `/projects/${projectId}/capabilities/${mcpId}/versions`, {
       version: versionLabel,
@@ -69,8 +77,8 @@ export class EvalForgeClient {
       notes: `Auto-created for PR #${prNumber}`,
       content: {
         config: {
-          'wix-mcp-remote': {
-            url: `https://mcp.wix.com/mcp?skillsRepo=wix/skills&skillsPr=${headSha}`,
+          [MCP_CONFIG_KEY]: {
+            url: `${MCP_URL}?skillsRepo=${MCP_SKILLS_REPO}&skillsPr=${headSha}`,
             type: 'http',
             headers: {
               Authorization: '{{wix-auth-token}}',

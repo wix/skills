@@ -22,6 +22,10 @@ inputs:
   evalforge-app-secret:
     description: 'EvalForge app secret for authentication'
     required: true
+  blocking:
+    description: 'Fail the check on EvalForge errors or eval failures (set to false to make eval non-blocking)'
+    required: false
+    default: 'true'
 runs:
   using: 'node20'
   main: 'dist/index.js'

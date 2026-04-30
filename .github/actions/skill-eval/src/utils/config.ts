@@ -14,6 +14,7 @@ export type Config = {
   headSha: string;
   owner: string;
   repo: string;
+  blocking: boolean;
 };
 
 function ensureHttps(url: string): string {
@@ -51,5 +52,6 @@ export function getConfig(): Config {
     headSha,
     owner: github.context.repo.owner,
     repo: github.context.repo.repo,
+    blocking: core.getInput('blocking') !== 'false',
   };
 }
