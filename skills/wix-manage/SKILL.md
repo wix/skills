@@ -89,8 +89,8 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 
 ## Contacts
 
-### [Bulk Delete Contacts](references/contacts/bulk-delete-contacts.md)
-**Technical:** Deletes multiple contacts using filter-based bulk delete. Covers safe deletion patterns, GDPR compliance, soft delete alternatives, and batch processing strategies.
+### [Bulk Delete Contacts (Filter-Based)](references/contacts/bulk-delete-contacts.md)
+**Technical:** Deletes multiple contacts using filter-based bulk delete. Covers safe deletion patterns, GDPR compliance, soft delete alternatives, and batch processing strategies. Includes bulk job tracking via jobId.
 
 ### [Bulk Label and Unlabel Contacts](references/contacts/bulk-label-and-unlabel-contacts.md)
 **Technical:** Adds/removes labels from multiple contacts using Contacts API bulk operations. Covers label creation, contact filtering, batch processing, and rate limit handling.
