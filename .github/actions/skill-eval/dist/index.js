@@ -34520,7 +34520,7 @@ async function runEval() {
     }
     const tagErrors = [];
     for (const entry of entries) {
-        for (const tag of entry.tags) {
+        for (const tag of entry.tags ?? []) {
             if (!availableTags.has(tag)) {
                 tagErrors.push({ entryTitle: entry.title, message: `unknown tag "${tag}"` });
             }
