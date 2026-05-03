@@ -276,6 +276,8 @@ If the API returns a validation error:
 
 ## Step 4: Create Cart and Checkout Link
 
+**Important**: If the user selected a site in Step 1b, use `CallWixSiteAPI` (with the site's `siteId`) for ALL cart operations below. This creates the cart in the site's context so the checkout link with `?msid=` works correctly. If no site was selected, use `ManageWixSite` (account-level).
+
 ### 4a: Cancel any existing cart
 
 ```
