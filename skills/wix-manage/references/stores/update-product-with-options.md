@@ -216,6 +216,8 @@ Use the existing default variant as source data only. For example, copy its pric
 }
 ```
 
+After the PATCH, map returned variant IDs to colors by position: the response preserves the order variants were sent, so `variants[0]` corresponds to the first choice sent (e.g. Red), `variants[1]` to the second (e.g. Blue). Do not rely on `optionChoiceNames` in the response — the API returns `optionChoiceIds` instead, and option choices do not expose an `id` field for reverse-mapping.
+
 After the product update returns the new variant IDs, use those IDs to set inventory.
 
 ### Set Stock for New Variants
@@ -302,7 +304,7 @@ curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
 - To update `variantsInfo.variants`, also pass `options`, and vice versa. Variants and options are mutually dependent and must stay aligned.
 - When converting a simple product to an optioned product, rebuild the variants list so every variant has `choices`; do not keep an existing choice-less default variant unchanged.
 - Always include `choicesSettings` with the complete list of choices when updating a product with options.
-- Use `optionChoiceNames` rather than `optionChoiceIds` in variants for more reliable updates.
+- Use `optionChoiceNames` rather than `optionChoiceIds` in variants for more reliable updates. This applies only to **requests** — the API response always returns `optionChoiceIds`, not `optionChoiceNames`. Do not expect to read `optionChoiceNames` back from a response.
 - Include the `renderType` in `optionChoiceNames`.
 
 ## Error Message Reference
