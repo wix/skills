@@ -55,3 +55,29 @@ export function getEvalConfig(): Config {
     blocking: core.getInput('blocking') !== 'false',
   };
 }
+
+export type CleanupConfig = {
+  evalforgeUrl: string;
+  projectId: string;
+  mcpId: string;
+  appId: string;
+  appSecret: string;
+  prNumber: number;
+};
+
+export function getCleanupConfig(): CleanupConfig {
+  const pr = github.context.payload.pull_request;
+  if (!pr) throw new Error('No pull_request payload — action must be triggered by a pull_request event');
+
+  const prNumber = pr.number as number | undefined;
+  if (!prNumber) throw new Error('PR payload is missing required field: number');
+
+  return {
+    evalforgeUrl: ensureHttps(core.getInput('evalforge-url', { required: true })),
+    projectId: core.getInput('evalforge-project-id', { required: true }),
+    mcpId: core.getInput('evalforge-mcp-id', { required: true }),
+    appId: safeGetSecret('evalforge-app-id'),
+    appSecret: safeGetSecret('evalforge-app-secret'),
+    prNumber,
+  };
+}

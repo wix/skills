@@ -15,7 +15,7 @@ vi.mock('@actions/github', () => ({
 }));
 
 import * as core from '@actions/core';
-import { getEvalConfig } from '../src/utils/config';
+import { getEvalConfig, getCleanupConfig } from '../src/utils/config';
 
 const ALL_INPUTS: Record<string, string> = {
   'github-token': 'ghs_token',
@@ -79,5 +79,32 @@ describe('getEvalConfig', () => {
       return ALL_INPUTS[name] ?? '';
     });
     expect(() => getEvalConfig()).toThrow('evalforge-url');
+  });
+});
+
+describe('getCleanupConfig', () => {
+  it('returns cleanup config with required fields', () => {
+    const config = getCleanupConfig();
+    expect(config.evalforgeUrl).toBe('https://ef.example.com/api');
+    expect(config.projectId).toBe('proj-1');
+    expect(config.mcpId).toBe('mcp-1');
+    expect(config.appId).toBe('app-1');
+    expect(config.appSecret).toBe('secret-1');
+    expect(config.prNumber).toBe(42);
+  });
+
+  it('does not include agentId, blocking, baseSha, headSha, owner, or repo', () => {
+    const config = getCleanupConfig();
+    expect(config).not.toHaveProperty('agentId');
+    expect(config).not.toHaveProperty('blocking');
+    expect(config).not.toHaveProperty('baseSha');
+    expect(config).not.toHaveProperty('owner');
+  });
+
+  it('masks app-id and app-secret', () => {
+    vi.mocked(core.setSecret).mockReset();
+    getCleanupConfig();
+    expect(vi.mocked(core.setSecret)).toHaveBeenCalledWith('app-1');
+    expect(vi.mocked(core.setSecret)).toHaveBeenCalledWith('secret-1');
   });
 });
