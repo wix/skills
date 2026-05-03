@@ -195,8 +195,8 @@ Replace `{domain}` with the chosen domain (e.g. `mybakery.com`).
 }
 ```
 
-- **If contacts exist**: Show the info and ask "Is this correct?" If the user confirms, use it as-is. If they want to change something, let them update specific fields.
-- **If contacts are empty**: Ask the user for: first name, last name, email, phone number, street address, city, country, and postal code.
+- **If contacts exist**: Show the info and explicitly ask "Should I use these details, or would you like to register with different info?" Wait for the user to confirm before proceeding to Step 3. Do NOT skip this confirmation.
+- **If contacts are empty**: Ask the user for: first name, last name, email, phone number, street address, city, country, and postal code. Wait for them to provide all fields before proceeding.
 
 ---
 
@@ -236,7 +236,11 @@ Use the same contact info for registrant, admin, and tech contacts (standard pra
 
 Phone format: `+{countryCode}.{number}` (e.g. `+1.5551234567`, `+972.544738293`).
 
-If the API returns a validation error, tell the user what's wrong and ask them to fix it. Then retry.
+If the API returns a validation error:
+- Show the user exactly which fields have issues (missing, invalid format, etc.)
+- Ask them to provide corrected values for those specific fields
+- Retry the upsert with the corrected data
+- Some TLDs require extra fields (e.g. .com.br needs an identification number, .it needs entity type). If the error mentions TLD-specific requirements, explain what's needed and ask the user to provide it.
 
 ---
 
