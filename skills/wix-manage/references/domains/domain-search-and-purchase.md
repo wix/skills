@@ -189,14 +189,17 @@ Present the pricing to the user as a table, for example:
 
 Ask the user which period they prefer. Default to 1 year if they don't have a preference.
 
-If the API returns no products for this TLD, tell the user: "This TLD isn't available for purchase through chat yet. You can buy it at [wix.com/domains](https://www.wix.com/domains)."
+If the API returns no products for this TLD, tell the user: "Wix doesn't support purchasing this TLD. Try a different extension like .com, .net, or .org."
 
 ### 2b: Ask about privacy protection
 
-Ask: "Would you like to add domain privacy protection? It hides your personal contact info from public WHOIS lookups. Recommended: yes."
+Present the user with three options:
 
-- If yes (recommended): use addon product ID `f8211619-d9f6-4312-9d03-f2958bbd08aa` (privacy + DNSSEC)
-- If no: skip the addon line item
+1. **Privacy + DNSSEC** (recommended, most protecting) -- Hides your personal contact info from public WHOIS lookups AND adds DNSSEC protection against DNS spoofing/hijacking attacks. Product ID: `f8211619-d9f6-4312-9d03-f2958bbd08aa`
+2. **Privacy only** -- Hides your personal contact info from public WHOIS lookups. Product ID: `22a84545-4ac0-4490-a434-45a1ebc479fb`
+3. **No protection** -- Your contact info will be publicly visible in WHOIS. Product ID: `b9d89ff0-f29b-4bfd-a3f0-6e34ae65120d`
+
+All three options use the addon product type ID `b3d86a1d-9db3-4f69-bd54-c132808856b1`.
 
 ### 2c: Collect or confirm contact info
 
@@ -318,11 +321,12 @@ Body:
 
 Set `cycle.cycleDuration.count` to the number of years the user chose.
 
-If the user selected privacy protection, add a second line item in the same `lineItems` array:
+Add a second line item for the addon (based on the user's choice from Step 2b):
+
 ```json
 {
   "productInfo": {
-    "productId": "f8211619-d9f6-4312-9d03-f2958bbd08aa",
+    "productId": "<addon product ID from Step 2b>",
     "productTypeId": "b3d86a1d-9db3-4f69-bd54-c132808856b1"
   },
   "cycle": {
@@ -355,7 +359,7 @@ This opens the checkout page with the pre-filled cart. The user only needs to co
 |------------|-------------|--------|
 | `DOMAINS_UNSUPPORTED_TLD` | TLD not supported by Wix | Suggest alternatives using Suggest Domains API |
 | `access_denied` or `403` on domain search APIs | Auth issue | These are public APIs -- do not add extra auth headers |
-| Offering API returns no products | TLD not available for chat purchase | Tell user to buy at wix.com/domains |
+| Offering API returns no products | TLD not supported by Wix | Tell user to try a different TLD (.com, .net, .org) |
 | Intent API validation error | Missing/invalid contact fields | Show the error, ask user to correct, retry |
 | Cart add-items fails | Product ID or format issue | Verify product ID came from offering API response |
 
