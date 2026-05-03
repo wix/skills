@@ -70,7 +70,7 @@ async function run(): Promise<void> {
 
   const tagErrors: ValidationError[] = [];
   for (const entry of entries) {
-    for (const tag of entry.tags!) {
+    for (const tag of entry.tags ?? []) {
       if (!availableTags.has(tag)) {
         tagErrors.push({ entryTitle: entry.title, message: `unknown tag "${tag}"` });
       }

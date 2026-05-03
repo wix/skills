@@ -20,7 +20,11 @@ jobs:
       pull-requests: write
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
-      - uses: ./.github/actions/skill-eval
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: .action-src
+      - uses: ./.action-src/.github/actions/skill-eval
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           evalforge-url: ${{ vars.EVALFORGE_URL }}
