@@ -98,7 +98,9 @@ describe('getCleanupConfig', () => {
     expect(config).not.toHaveProperty('agentId');
     expect(config).not.toHaveProperty('blocking');
     expect(config).not.toHaveProperty('baseSha');
+    expect(config).not.toHaveProperty('headSha');
     expect(config).not.toHaveProperty('owner');
+    expect(config).not.toHaveProperty('repo');
   });
 
   it('masks app-id and app-secret', () => {
