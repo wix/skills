@@ -34076,6 +34076,395 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 const core = __importStar(__nccwpck_require__(7484));
+const eval_1 = __nccwpck_require__(9903);
+const cleanup_1 = __nccwpck_require__(6157);
+const mode = core.getInput('mode') || 'eval';
+if (mode === 'cleanup') {
+    (0, cleanup_1.runCleanup)().catch(err => core.setFailed(err instanceof Error ? err.message : String(err)));
+}
+else {
+    (0, eval_1.runEval)().catch(err => core.setFailed(err instanceof Error ? err.message : String(err)));
+}
+
+
+/***/ }),
+
+/***/ 6157:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.runCleanup = runCleanup;
+const core = __importStar(__nccwpck_require__(7484));
+const config_1 = __nccwpck_require__(7799);
+const evalforge_1 = __nccwpck_require__(280);
+async function runCleanup() {
+    const config = (0, config_1.getCleanupConfig)();
+    const evalforge = new evalforge_1.EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
+    let versions;
+    try {
+        versions = await evalforge.listMcpVersions(config.mcpId, config.projectId);
+    }
+    catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        core.error(`Failed to list MCP versions: ${message}`);
+        core.setFailed('Could not list MCP versions for cleanup');
+        return;
+    }
+    const prefix = `pr-${config.prNumber}-`;
+    const prVersions = versions.filter(v => v.version.startsWith(prefix));
+    if (prVersions.length === 0) {
+        core.info(`No MCP versions found for PR #${config.prNumber} — nothing to clean up`);
+        return;
+    }
+    core.info(`Found ${prVersions.length} MCP version(s) to delete for PR #${config.prNumber}`);
+    for (const version of prVersions) {
+        try {
+            await evalforge.deleteMcpVersion(config.mcpId, config.projectId, version.id);
+            core.info(`Deleted MCP version ${version.version} (${version.id})`);
+        }
+        catch (e) {
+            const message = e instanceof Error ? e.message : String(e);
+            core.warning(`Failed to delete MCP version ${version.version}: ${message}`);
+        }
+    }
+}
+
+
+/***/ }),
+
+/***/ 3116:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.COMMENT_MARKER = void 0;
+exports.formatValidationErrors = formatValidationErrors;
+exports.formatServiceError = formatServiceError;
+exports.formatFailedJobMessage = formatFailedJobMessage;
+exports.formatEvalPassed = formatEvalPassed;
+exports.formatEvalFailed = formatEvalFailed;
+exports.formatEvalTimeout = formatEvalTimeout;
+exports.formatNoScenarios = formatNoScenarios;
+exports.COMMENT_MARKER = '<!-- skill-eval-action -->';
+function formatValidationErrors(errors) {
+    const lines = errors.map(e => `- **${e.entryTitle}**: ${e.message}`).join('\n');
+    return [exports.COMMENT_MARKER, '## ❌ Skill Validation: Failed', '', lines].join('\n');
+}
+function formatServiceError(message, blocking = true) {
+    const icon = blocking ? '❌' : '⚠️';
+    const heading = blocking ? 'Skill Evaluation: Error' : 'Skill Evaluation: Warning';
+    return `${exports.COMMENT_MARKER}\n## ${icon} ${heading}\n\n${message}`;
+}
+function formatFailedJobMessage(errors) {
+    const lines = errors.map(e => `  - ${e.entryTitle}: ${e.message}`).join('\n');
+    return `Skill validation failed (${errors.length} error${errors.length === 1 ? '' : 's'}):\n${lines}`;
+}
+function formatEvalPassed(metrics, runId) {
+    return [
+        exports.COMMENT_MARKER,
+        `## ✅ Skill Evaluation: Passed`,
+        '',
+        `Pass rate: ${metrics.passRate}%`,
+        `Run ID: ${runId}`,
+    ].join('\n');
+}
+function formatEvalFailed(metrics, runId, blocking) {
+    const icon = blocking ? '❌' : '⚠️';
+    const label = blocking ? 'Skill Evaluation: Failed' : 'Skill Evaluation: Warning';
+    return [
+        exports.COMMENT_MARKER,
+        `## ${icon} ${label}`,
+        '',
+        `Pass rate: ${metrics.passRate}%`,
+        `Run ID: ${runId}`,
+    ].join('\n');
+}
+function formatEvalTimeout(runId, blocking) {
+    const icon = blocking ? '⏱' : '⚠️';
+    return [
+        exports.COMMENT_MARKER,
+        `## ${icon} Skill Evaluation: Timed Out`,
+        '',
+        `Run ID: ${runId}`,
+    ].join('\n');
+}
+function formatNoScenarios(tags, blocking) {
+    const icon = blocking ? '❌' : '⚠️';
+    return [
+        exports.COMMENT_MARKER,
+        `## ${icon} Skill Evaluation: No Matching Scenarios`,
+        '',
+        `No scenarios matched tags: ${tags.map(t => `\`${t}\``).join(', ')}`,
+    ].join('\n');
+}
+
+
+/***/ }),
+
+/***/ 7799:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.getEvalConfig = getEvalConfig;
+exports.getCleanupConfig = getCleanupConfig;
+const core = __importStar(__nccwpck_require__(7484));
+const github = __importStar(__nccwpck_require__(3228));
+function ensureHttps(url) {
+    if (url.startsWith('https://'))
+        return url;
+    const upgraded = 'https://' + url.replace(/^https?:\/\//, '');
+    core.warning(`evalforge-url was not HTTPS — upgraded to: ${upgraded}`);
+    return upgraded;
+}
+function safeGetSecret(name) {
+    const value = core.getInput(name, { required: true });
+    core.setSecret(value);
+    return value;
+}
+function getEvalConfig() {
+    const pr = github.context.payload.pull_request;
+    if (!pr)
+        throw new Error('No pull_request payload — action must be triggered by a pull_request event');
+    const prNumber = pr.number;
+    const baseSha = pr.base?.sha;
+    const headSha = pr.head?.sha;
+    if (!prNumber || !baseSha || !headSha)
+        throw new Error('PR payload is missing required fields (number, base.sha, or head.sha)');
+    return {
+        githubToken: safeGetSecret('github-token'),
+        evalforgeUrl: ensureHttps(core.getInput('evalforge-url', { required: true })),
+        projectId: core.getInput('evalforge-project-id', { required: true }),
+        agentId: core.getInput('evalforge-agent-id', { required: true }),
+        mcpId: core.getInput('evalforge-mcp-id', { required: true }),
+        appId: safeGetSecret('evalforge-app-id'),
+        appSecret: safeGetSecret('evalforge-app-secret'),
+        prNumber,
+        baseSha,
+        headSha,
+        owner: github.context.repo.owner,
+        repo: github.context.repo.repo,
+        blocking: core.getInput('blocking') !== 'false',
+    };
+}
+function getCleanupConfig() {
+    const pr = github.context.payload.pull_request;
+    if (!pr)
+        throw new Error('No pull_request payload — action must be triggered by a pull_request event');
+    const prNumber = pr.number;
+    if (!prNumber)
+        throw new Error('PR payload is missing required field: number');
+    return {
+        evalforgeUrl: ensureHttps(core.getInput('evalforge-url', { required: true })),
+        projectId: core.getInput('evalforge-project-id', { required: true }),
+        mcpId: core.getInput('evalforge-mcp-id', { required: true }),
+        appId: safeGetSecret('evalforge-app-id'),
+        appSecret: safeGetSecret('evalforge-app-secret'),
+        prNumber,
+    };
+}
+
+
+/***/ }),
+
+/***/ 5879:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.pollUntilDone = pollUntilDone;
+const core = __importStar(__nccwpck_require__(7484));
+const POLL_INTERVAL_MS = 30_000;
+const POLL_TIMEOUT_MS = 30 * 60 * 1_000;
+const RETRY_LIMIT = 5;
+const RETRY_DELAY_MS = 10_000;
+function isRetriable(e) {
+    const status = e.status;
+    if (status && status >= 500)
+        return true;
+    if (e instanceof Error && (e.name === 'AbortError' || e.name === 'TimeoutError'))
+        return true;
+    return false;
+}
+function delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, Math.max(0, ms)));
+}
+async function pollUntilDone(client, projectId, runId) {
+    const deadline = Date.now() + POLL_TIMEOUT_MS;
+    while (Date.now() < deadline) {
+        let status;
+        for (let attempt = 0; attempt <= RETRY_LIMIT; attempt++) {
+            try {
+                status = await client.getEvalRun(projectId, runId);
+                break;
+            }
+            catch (e) {
+                if (isRetriable(e) && attempt < RETRY_LIMIT) {
+                    core.warning(`Poll attempt failed (retry ${attempt + 1}/${RETRY_LIMIT}): ${e instanceof Error ? e.message : String(e)}`);
+                    await delay(RETRY_DELAY_MS);
+                }
+                else {
+                    throw e;
+                }
+            }
+        }
+        const terminal = status.status === 'completed' || status.status === 'failed' || status.status === 'cancelled';
+        if (terminal)
+            return status;
+        core.info(`Eval run ${runId}: ${status.status}...`);
+        await delay(Math.min(POLL_INTERVAL_MS, deadline - Date.now()));
+    }
+    throw Object.assign(new Error('Eval run timed out after 30 minutes'), { timeout: true });
+}
+
+
+/***/ }),
+
+/***/ 9903:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.runEval = runEval;
+const core = __importStar(__nccwpck_require__(7484));
 const config_1 = __nccwpck_require__(7799);
 const github = __importStar(__nccwpck_require__(3228));
 const github_1 = __nccwpck_require__(6246);
@@ -34084,8 +34473,8 @@ const paths_1 = __nccwpck_require__(6621);
 const skill_changes_1 = __nccwpck_require__(9336);
 const eval_run_1 = __nccwpck_require__(5879);
 const comment_1 = __nccwpck_require__(3116);
-async function run() {
-    const config = (0, config_1.getConfig)();
+async function runEval() {
+    const config = (0, config_1.getEvalConfig)();
     const octokit = github.getOctokit(config.githubToken);
     core.info(`Skill eval — PR #${config.prNumber}`);
     let allFiles;
@@ -34259,247 +34648,6 @@ async function run() {
         (0, github_1.fail)(`Eval run ended with unexpected status: ${finalStatus.status}`, config.blocking);
     }
 }
-run().catch(err => core.setFailed(err instanceof Error ? err.message : String(err)));
-
-
-/***/ }),
-
-/***/ 3116:
-/***/ ((__unused_webpack_module, exports) => {
-
-"use strict";
-
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.COMMENT_MARKER = void 0;
-exports.formatValidationErrors = formatValidationErrors;
-exports.formatServiceError = formatServiceError;
-exports.formatFailedJobMessage = formatFailedJobMessage;
-exports.formatEvalPassed = formatEvalPassed;
-exports.formatEvalFailed = formatEvalFailed;
-exports.formatEvalTimeout = formatEvalTimeout;
-exports.formatNoScenarios = formatNoScenarios;
-exports.COMMENT_MARKER = '<!-- skill-eval-action -->';
-function formatValidationErrors(errors) {
-    const lines = errors.map(e => `- **${e.entryTitle}**: ${e.message}`).join('\n');
-    return [exports.COMMENT_MARKER, '## ❌ Skill Validation: Failed', '', lines].join('\n');
-}
-function formatServiceError(message, blocking = true) {
-    const icon = blocking ? '❌' : '⚠️';
-    const heading = blocking ? 'Skill Evaluation: Error' : 'Skill Evaluation: Warning';
-    return `${exports.COMMENT_MARKER}\n## ${icon} ${heading}\n\n${message}`;
-}
-function formatFailedJobMessage(errors) {
-    const lines = errors.map(e => `  - ${e.entryTitle}: ${e.message}`).join('\n');
-    return `Skill validation failed (${errors.length} error${errors.length === 1 ? '' : 's'}):\n${lines}`;
-}
-function formatEvalPassed(metrics, runId) {
-    return [
-        exports.COMMENT_MARKER,
-        `## ✅ Skill Evaluation: Passed`,
-        '',
-        `Pass rate: ${metrics.passRate}%`,
-        `Run ID: ${runId}`,
-    ].join('\n');
-}
-function formatEvalFailed(metrics, runId, blocking) {
-    const icon = blocking ? '❌' : '⚠️';
-    const label = blocking ? 'Skill Evaluation: Failed' : 'Skill Evaluation: Warning';
-    return [
-        exports.COMMENT_MARKER,
-        `## ${icon} ${label}`,
-        '',
-        `Pass rate: ${metrics.passRate}%`,
-        `Run ID: ${runId}`,
-    ].join('\n');
-}
-function formatEvalTimeout(runId, blocking) {
-    const icon = blocking ? '⏱' : '⚠️';
-    return [
-        exports.COMMENT_MARKER,
-        `## ${icon} Skill Evaluation: Timed Out`,
-        '',
-        `Run ID: ${runId}`,
-    ].join('\n');
-}
-function formatNoScenarios(tags, blocking) {
-    const icon = blocking ? '❌' : '⚠️';
-    return [
-        exports.COMMENT_MARKER,
-        `## ${icon} Skill Evaluation: No Matching Scenarios`,
-        '',
-        `No scenarios matched tags: ${tags.map(t => `\`${t}\``).join(', ')}`,
-    ].join('\n');
-}
-
-
-/***/ }),
-
-/***/ 7799:
-/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
-
-"use strict";
-
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.getConfig = getConfig;
-const core = __importStar(__nccwpck_require__(7484));
-const github = __importStar(__nccwpck_require__(3228));
-function ensureHttps(url) {
-    if (url.startsWith('https://'))
-        return url;
-    const upgraded = 'https://' + url.replace(/^https?:\/\//, '');
-    core.warning(`evalforge-url was not HTTPS — upgraded to: ${upgraded}`);
-    return upgraded;
-}
-function safeGetSecret(name) {
-    const value = core.getInput(name, { required: true });
-    core.setSecret(value);
-    return value;
-}
-function getConfig() {
-    const pr = github.context.payload.pull_request;
-    if (!pr)
-        throw new Error('No pull_request payload — action must be triggered by a pull_request event');
-    const prNumber = pr.number;
-    const baseSha = pr.base?.sha;
-    const headSha = pr.head?.sha;
-    if (!prNumber || !baseSha || !headSha)
-        throw new Error('PR payload is missing required fields (number, base.sha, or head.sha)');
-    return {
-        githubToken: safeGetSecret('github-token'),
-        evalforgeUrl: ensureHttps(core.getInput('evalforge-url', { required: true })),
-        projectId: core.getInput('evalforge-project-id', { required: true }),
-        agentId: core.getInput('evalforge-agent-id', { required: true }),
-        mcpId: core.getInput('evalforge-mcp-id', { required: true }),
-        appId: safeGetSecret('evalforge-app-id'),
-        appSecret: safeGetSecret('evalforge-app-secret'),
-        prNumber,
-        baseSha,
-        headSha,
-        owner: github.context.repo.owner,
-        repo: github.context.repo.repo,
-        blocking: core.getInput('blocking') !== 'false',
-    };
-}
-
-
-/***/ }),
-
-/***/ 5879:
-/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
-
-"use strict";
-
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.pollUntilDone = pollUntilDone;
-const core = __importStar(__nccwpck_require__(7484));
-const POLL_INTERVAL_MS = 30_000;
-const POLL_TIMEOUT_MS = 30 * 60 * 1_000;
-const RETRY_LIMIT = 5;
-const RETRY_DELAY_MS = 10_000;
-function isRetriable(e) {
-    const status = e.status;
-    if (status && status >= 500)
-        return true;
-    if (e instanceof Error && (e.name === 'AbortError' || e.name === 'TimeoutError'))
-        return true;
-    return false;
-}
-function delay(ms) {
-    return new Promise(resolve => setTimeout(resolve, Math.max(0, ms)));
-}
-async function pollUntilDone(client, projectId, runId) {
-    const deadline = Date.now() + POLL_TIMEOUT_MS;
-    while (Date.now() < deadline) {
-        let status;
-        for (let attempt = 0; attempt <= RETRY_LIMIT; attempt++) {
-            try {
-                status = await client.getEvalRun(projectId, runId);
-                break;
-            }
-            catch (e) {
-                if (isRetriable(e) && attempt < RETRY_LIMIT) {
-                    core.warning(`Poll attempt failed (retry ${attempt + 1}/${RETRY_LIMIT}): ${e instanceof Error ? e.message : String(e)}`);
-                    await delay(RETRY_DELAY_MS);
-                }
-                else {
-                    throw e;
-                }
-            }
-        }
-        const terminal = status.status === 'completed' || status.status === 'failed' || status.status === 'cancelled';
-        if (terminal)
-            return status;
-        core.info(`Eval run ${runId}: ${status.status}...`);
-        await delay(Math.min(POLL_INTERVAL_MS, deadline - Date.now()));
-    }
-    throw Object.assign(new Error('Eval run timed out after 30 minutes'), { timeout: true });
-}
 
 
 /***/ }),
@@ -34574,6 +34722,9 @@ class EvalForgeClient {
     }
     async getEvalRun(projectId, runId) {
         return this.request('GET', `/projects/${projectId}/eval-runs/${runId}`);
+    }
+    async deleteMcpVersion(mcpId, projectId, versionId) {
+        await this.request('DELETE', `/projects/${projectId}/capabilities/${mcpId}/versions/${versionId}`);
     }
 }
 exports.EvalForgeClient = EvalForgeClient;
