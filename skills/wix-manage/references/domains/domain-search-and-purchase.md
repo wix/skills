@@ -17,14 +17,18 @@ There is no API to purchase a domain directly. Instead, you generate a **purchas
 
 This is the main goal of this recipe: get the user to a working checkout link as fast as possible.
 
+## Important: No Site Required
+
+This recipe does NOT require a site. Do NOT call `ListWixSites` or ask the user to pick a site. Domain search and purchase is completely independent of any Wix site.
+
 ## Required APIs
 
 - **Check Domain Availability**: `GET https://www.wixapis.com/domain-search/v2/check-domain-availability`
 - **Suggest Domains**: `GET https://www.wixapis.com/domain-search/v2/suggest-domains`
 
-These are **account-level APIs** -- use account-level authentication (e.g., `ManageWixSite` tool), not site-level.
+These are **public APIs that require no special authentication or scopes**. Just make a plain GET request to the URL with query parameters. No extra headers, no account-level auth, no site-level auth. No tokens needed.
 
-**Important**: Do NOT use `GetSuggestedDomains` (v1) -- that requires a `siteId` and only matches existing site names. The `SuggestDomains` (v2) listed above is the correct one for free-text searches.
+**Important**: Do NOT use `GetSuggestedDomains` tool for domain suggestions in this recipe. Use the `SuggestDomains` v2 endpoint above instead -- it accepts free-text queries and does not need a site ID.
 
 ---
 
@@ -69,7 +73,7 @@ Use the **Suggest Domains v2** API to find available alternatives:
 
 `GET https://www.wixapis.com/domain-search/v2/suggest-domains`
 
-**IMPORTANT**: Do NOT use `GetSuggestedDomains` or any tool that requires a `siteId` for suggestions. That is the old v1 API and only matches existing site names. Always use the v2 endpoint above -- it does NOT need a site ID.
+**IMPORTANT**: Do NOT use the `GetSuggestedDomains` tool for this. Always use the v2 endpoint above.
 
 This API accepts **free-text queries** -- it works with business descriptions, keywords, and brand concepts, not just domain names. For example: "pancakes business", "modern yoga studio", "photography portfolio".
 
@@ -167,7 +171,7 @@ Present this link as a clickable markdown link, not as a raw URL. For example:
 | Error Code | Description | Action |
 |------------|-------------|--------|
 | `DOMAINS_UNSUPPORTED_TLD` | TLD not supported by Wix | Suggest alternatives using Suggest Domains API |
-| `access_denied` | Auth issue | Use account-level authentication, not site-level |
+| `access_denied` or `403` | Auth issue | These are public APIs -- make sure you're not adding extra auth headers or scopes |
 
 ---
 
@@ -186,18 +190,16 @@ Present this link as a clickable markdown link, not as a raw URL. For example:
 2. Check availability -> available: false
 3. Suggest alternatives with query "coolstartup" -> show 10 options
 4. User picks "coolstartup.online"
-5. Verify availability -> available: true
-6. Generate link: `https://manage.wix.com/premium-domains/split-page?domainName=coolstartup.online`
-7. Share link with user
+5. Generate link: `https://manage.wix.com/premium-domains/split-page?domainName=coolstartup.online`
+6. Share link with user
 
 ### Flow 3: Brainstorming from scratch
 
 1. User: "I need a domain for my pancakes restaurant"
 2. Suggest domains with query "pancakes restaurant" -> show 10 options
 3. User picks "stackedpancakes.com"
-4. Verify availability -> available: true
-5. Generate link: `https://manage.wix.com/premium-domains/split-page?domainName=stackedpancakes.com`
-6. Share link with user
+4. Generate link: `https://manage.wix.com/premium-domains/split-page?domainName=stackedpancakes.com`
+5. Share link with user
 
 ### Flow 4: Unsupported TLD
 

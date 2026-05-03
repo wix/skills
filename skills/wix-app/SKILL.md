@@ -158,9 +158,11 @@ When a Data Collection is created alongside other extensions that reference the 
 
 **Applies when ANY Wix Stores API is used** (products, inventory, orders, etc.):
 
-1. **Read the Stores Versioning reference** — see [STORES_VERSIONING.md](references/STORES_VERSIONING.md)
+1. **Read the Stores Versioning reference** — see [STORES_VERSIONING.md](references/STORES_VERSIONING.md). It contains the module map, permissions cheatsheet, copy-paste dual-catalog recipes (list/get/create/update/delete products, inventory, categories), the V1→V3 field map, webhook mapping, and the major V3 gotchas. **Use it before searching SDK docs** — it covers the common 80%.
 2. **All Stores operations must check catalog version first** using `getCatalogVersion()`
 3. **Use the correct module** based on version: `productsV3` (V3) vs `products` (V1)
+4. **Apps MUST support both V1 and V3** — single-version apps cannot list in the App Market and break on new sites
+5. **Request both V1 and V3 permission scopes** for every Stores operation
 
 This is non-negotiable — V1 and V3 are NOT backwards compatible.
 
