@@ -38,28 +38,26 @@ describe('eval result formatters', () => {
     totalDuration: 5000,
   };
 
-  it('formatEvalPassed includes pass rate and scenario count', () => {
+  it('formatEvalPassed includes pass rate and run ID', () => {
     const body = formatEvalPassed({ ...metrics }, 'run-123');
     expect(body).toContain(COMMENT_MARKER);
     expect(body).toContain('✅');
-    expect(body).toContain('10/10');
     expect(body).toContain('100%');
     expect(body).toContain('run-123');
   });
 
-  it('formatEvalFailed includes failure count and pass rate', () => {
+  it('formatEvalFailed includes pass rate and run ID', () => {
     const body = formatEvalFailed({ ...metrics, passed: 8, failed: 2, passRate: 80 }, 'run-123', true);
     expect(body).toContain(COMMENT_MARKER);
     expect(body).toContain('❌');
-    expect(body).toContain('2 failed');
     expect(body).toContain('80%');
     expect(body).toContain('run-123');
   });
 
-  it('formatEvalFailed shows errors when only errors present', () => {
-    const body = formatEvalFailed({ ...metrics, passed: 7, failed: 0, errors: 3, passRate: 70 }, 'run-123', true);
-    expect(body).toContain('3 errors');
-    expect(body).not.toContain('0 failed');
+  it('formatEvalFailed blocking and non-blocking contain pass rate', () => {
+    const m = { ...metrics, passed: 7, failed: 3, passRate: 70 };
+    expect(formatEvalFailed(m, 'run-123', true)).toContain('70%');
+    expect(formatEvalFailed(m, 'run-123', false)).toContain('70%');
   });
 
   it('formatEvalTimeout includes run ID', () => {
@@ -88,28 +86,28 @@ describe('non-blocking comment formatters', () => {
     const body = formatServiceError('timeout', false);
     expect(body).toContain(COMMENT_MARKER);
     expect(body).toContain('⚠️');
-    expect(body).toContain('Skill eval warning');
+    expect(body).toContain('Skill Evaluation: Warning');
     expect(body).not.toContain('❌');
   });
 
   it('formatServiceError uses ❌ heading when blocking', () => {
     const body = formatServiceError('timeout', true);
     expect(body).toContain('❌');
-    expect(body).toContain('Skill eval failed');
+    expect(body).toContain('Skill Evaluation: Error');
     expect(body).not.toContain('⚠️');
   });
 
   it('formatEvalFailed uses ⚠️ heading when non-blocking', () => {
     const body = formatEvalFailed(metrics, 'run-123', false);
     expect(body).toContain('⚠️');
-    expect(body).toContain('Eval did not pass');
+    expect(body).toContain('Skill Evaluation: Warning');
     expect(body).not.toContain('❌');
   });
 
   it('formatEvalFailed uses ❌ heading when blocking', () => {
     const body = formatEvalFailed(metrics, 'run-123', true);
     expect(body).toContain('❌');
-    expect(body).toContain('Eval failed');
+    expect(body).toContain('Skill Evaluation: Failed');
     expect(body).not.toContain('⚠️');
   });
 

@@ -44,7 +44,7 @@ export async function pollUntilDone(
     const terminal = status!.status === 'completed' || status!.status === 'failed' || status!.status === 'cancelled';
     if (terminal) return status!;
 
-    core.info(`Eval run ${runId}: ${status!.status} (${status!.progress}%)...`);
+    core.info(`Eval run ${runId}: ${status!.status}...`);
     await delay(Math.min(POLL_INTERVAL_MS, deadline - Date.now()));
   }
 

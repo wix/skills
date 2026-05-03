@@ -24,7 +24,7 @@ async function run(): Promise<void> {
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     core.error(`Failed to fetch changed files: ${message}`);
-    await upsertComment(octokit, config, formatServiceError('Could not retrieve PR file list — see job logs for details'));
+    await upsertComment(octokit, config, formatServiceError('Could not retrieve PR file list'));
     core.setFailed('Could not retrieve PR file list');
     return;
   }
@@ -62,8 +62,8 @@ async function run(): Promise<void> {
     availableTags = await evalforge.getTags(config.projectId);
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
-    core.error(`EvalForge request failed: ${message}`);
-    await upsertComment(octokit, config, formatServiceError('EvalForge validation could not run — see job logs for details', config.blocking));
+    core.error(`Failed to fetch EvalForge tags: ${message}`);
+    await upsertComment(octokit, config, formatServiceError('Could not reach EvalForge — contact a repository maintainer if this persists', config.blocking));
     fail('EvalForge validation could not run', config.blocking);
     return;
   }
@@ -104,14 +104,14 @@ async function run(): Promise<void> {
       } catch (lookupErr) {
         const message = lookupErr instanceof Error ? lookupErr.message : String(lookupErr);
         core.error(`Failed to look up existing MCP version: ${message}`);
-        await upsertComment(octokit, config, formatServiceError('Could not look up existing MCP version — see job logs for details', config.blocking));
+        await upsertComment(octokit, config, formatServiceError('Could not look up existing MCP version — contact a repository maintainer if this persists', config.blocking));
         fail('Could not look up existing MCP version', config.blocking);
         return;
       }
     } else {
       const message = e instanceof Error ? e.message : String(e);
       core.error(`Failed to create MCP version: ${message}`);
-      await upsertComment(octokit, config, formatServiceError('Could not create MCP version — see job logs for details', config.blocking));
+      await upsertComment(octokit, config, formatServiceError('Could not create MCP version — contact a repository maintainer if this persists', config.blocking));
       fail('Could not create MCP version', config.blocking);
       return;
     }
@@ -135,12 +135,12 @@ async function run(): Promise<void> {
       const message = e instanceof Error ? e.message : String(e);
       core.error(`createEvalRun 400 — treating as no matching scenarios. Full error: ${message}`);
       await upsertComment(octokit, config, formatNoScenarios(tags, config.blocking));
-      fail(`No eval scenarios found matching tags: ${tags.join(', ')} (or invalid request — see job logs)`, config.blocking);
+      fail(`Skill evaluation failed: no scenarios matched tags: ${tags.join(', ')}`, config.blocking);
       return;
     }
     const message = e instanceof Error ? e.message : String(e);
     core.error(`Failed to create eval run: ${message}`);
-    await upsertComment(octokit, config, formatServiceError('Could not create eval run — see job logs for details', config.blocking));
+    await upsertComment(octokit, config, formatServiceError('Could not create eval run — contact a repository maintainer if this persists', config.blocking));
     fail('Could not create eval run', config.blocking);
     return;
   }
@@ -151,12 +151,12 @@ async function run(): Promise<void> {
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     core.error(`Failed to trigger eval run: ${message}`);
-    await upsertComment(octokit, config, formatServiceError('Could not trigger eval run — see job logs for details', config.blocking));
+    await upsertComment(octokit, config, formatServiceError('Could not trigger eval run — contact a repository maintainer if this persists', config.blocking));
     fail('Could not trigger eval run', config.blocking);
     return;
   }
 
-  core.info(`Polling eval run ${runId} for completion...`);
+  core.info(`Polling eval run ${runId}...`);
 
   let finalStatus;
   try {
@@ -164,12 +164,12 @@ async function run(): Promise<void> {
   } catch (e) {
     if ((e as { timeout?: boolean }).timeout) {
       await upsertComment(octokit, config, formatEvalTimeout(runId, config.blocking));
-      fail('Eval run timed out after 30 minutes', config.blocking);
+      fail(`Skill evaluation timed out (run ID: ${runId})`, config.blocking);
       return;
     }
     const message = e instanceof Error ? e.message : String(e);
     core.error(`Eval run polling failed: ${message}`);
-    await upsertComment(octokit, config, formatServiceError('Eval run polling failed — see job logs for details', config.blocking));
+    await upsertComment(octokit, config, formatServiceError('Eval run polling failed — contact a repository maintainer if this persists', config.blocking));
     fail('Eval run polling failed', config.blocking);
     return;
   }
@@ -179,13 +179,14 @@ async function run(): Promise<void> {
   if (finalStatus.status === 'completed') {
     if (m.failed === 0 && m.errors === 0) {
       await upsertComment(octokit, config, formatEvalPassed(m, runId));
-      core.info(`Eval passed — ${m.passed}/${m.totalAssertions} assertions passed`);
+      core.info(`Eval passed — ${m.passed}/${m.totalAssertions} assertions passed (pass rate: ${m.passRate}%, run ID: ${runId})`);
     } else {
       await upsertComment(octokit, config, formatEvalFailed(m, runId, config.blocking));
-      fail(`Eval failed — ${m.failed}/${m.totalAssertions} scenarios failed (pass rate: ${m.passRate}%)`, config.blocking);
+      core.info(`Eval result — ${m.failed} assertions failed, ${m.errors} errors, ${m.passed}/${m.totalAssertions} passed (pass rate: ${m.passRate}%, run ID: ${runId})`);
+      fail(`Skill evaluation failed (pass rate: ${m.passRate}%)`, config.blocking);
     }
   } else {
-    await upsertComment(octokit, config, formatServiceError(`Eval run ended with status '${finalStatus.status}' — check EvalForge for details (run ID: ${runId})`, config.blocking));
+    await upsertComment(octokit, config, formatServiceError(`Eval run ended with unexpected status: ${finalStatus.status} (run ID: ${runId})`, config.blocking));
     fail(`Eval run ended with unexpected status: ${finalStatus.status}`, config.blocking);
   }
 }
