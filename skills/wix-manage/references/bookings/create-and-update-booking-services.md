@@ -69,6 +69,7 @@ This is a critical API limitation that affects service planning and staff resour
 - If the service type is `APPOINTMENT` I MUST read the relevant full article about staff members ([REST](https://dev.wix.com/docs/api-reference/business-solutions/bookings/staff-members/introduction)) in order to determine whether I should create a new staff member (or members)
 - For free service I MUST set `service.payment.rateType` as `"NO_FEE"` and `service.payment.options.inPerson` as `true` (at least one payment option must be true)
 - For paid service I MUST set the `service.payment.fixed.price.value` (must be above 0) as well as `service.payment.fixed.price.currency`
+- When changing a free service to a paid service, I MUST update `service.payment.rateType` from `"NO_FEE"` to `"FIXED"` in the same request where I set `service.payment.fixed.price`; patching only `fixed.price` on a `NO_FEE` service fails validation.
 
 ### Payment Options Validation Rules
 
@@ -322,6 +323,32 @@ curl -X PATCH 'https://www.wixapis.com/bookings/v2/services/<SERVICE_ID>' \
   }'
 ```
 
+**Update free service to fixed price:**
+
+When an existing service has `payment.rateType: "NO_FEE"` and the user asks to set a price, convert it to `FIXED` and set the price in the same update.
+
+```bash
+# First, get current service to obtain revision and current payment settings
+curl -X GET 'https://www.wixapis.com/bookings/v2/services/<SERVICE_ID>' \
+  -H 'Authorization: <AUTH>'
+
+curl -X PATCH 'https://www.wixapis.com/bookings/v2/services/<SERVICE_ID>' \
+  -H 'Authorization: <AUTH>' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "service": {
+      "revision": "<REVISION_FROM_GET>",
+      "payment": {
+        "rateType": "FIXED",
+        "options": { "online": false, "inPerson": true },
+        "fixed": {
+          "price": { "value": "200", "currency": "<SITE_CURRENCY>" }
+        }
+      }
+    }
+  }'
+```
+
 ### 3. Set the availability of the service
 
 Once the service and staff member are available, you can define when the service is available:
@@ -358,6 +385,12 @@ Once the service and staff member are available, you can define when the service
 - **Error**: `INVALID_PAYMENT_OPTIONS - "Specifying payment.paymentOptions.online as true is applicable only to payments of types FIXED or VARIED"`
 - **Cause**: `payment.options.online: true` is only valid for paid services (FIXED or VARIED)
 - **Solution**: For free services (NO_FEE), use `"options": { "online": false, "inPerson": true }`
+
+**Changing a free service price fails:**
+
+- **Error**: `"Payment of type FREE cannot be used with payment.rate"`
+- **Cause**: The service is still `NO_FEE` while the update tries to set `fixed.price`
+- **Solution**: Change `payment.rateType` to `"FIXED"` and include `payment.fixed.price` in the same update request
 
 **Services Not Appearing in UI Filters:**
 
