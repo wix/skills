@@ -7,10 +7,10 @@
  * fast, focused lookups for components, props, examples, and icons.
  *
  * Usage:
- *   node <path-to>/wds.js search <keyword>
- *   node <path-to>/wds.js component <Name>
- *   node <path-to>/wds.js example <Name> <ExampleName>
- *   node <path-to>/wds.js icons <query>
+ *   node <path-to>/wds.cjs search <keyword>
+ *   node <path-to>/wds.cjs component <Name>
+ *   node <path-to>/wds.cjs example <Name> <ExampleName>
+ *   node <path-to>/wds.cjs icons <query>
  */
 
 const fs = require("fs");
@@ -20,7 +20,29 @@ const path = require("path");
 // Path discovery
 // ---------------------------------------------------------------------------
 
+function tryEnablePnp() {
+  // Yarn Berry PnP projects have no node_modules. Walk up from cwd looking for
+  // .pnp.cjs and activate it so require.resolve can see PnP-managed packages.
+  let dir = process.cwd();
+  while (true) {
+    const pnp = path.join(dir, ".pnp.cjs");
+    if (fs.existsSync(pnp)) {
+      try {
+        require(pnp).setup();
+      } catch {
+        // ignore — fall through to other discovery paths
+      }
+      return;
+    }
+    const parent = path.dirname(dir);
+    if (parent === dir) return;
+    dir = parent;
+  }
+}
+
 function findDocsDir() {
+  tryEnablePnp();
+
   // Primary: use Node's module resolver (handles symlinks, pnpm, yarn PnP, etc.)
   try {
     const pkgPath = require.resolve("@wix/design-system/package.json", {
@@ -88,8 +110,8 @@ function validateComponentName(name) {
 
 function cmdSearch(docsDir, terms) {
   if (terms.length === 0) {
-    console.error("Usage: wds.js search <keyword> [keyword...]");
-    console.error('Example: wds.js search form input validation');
+    console.error("Usage: wds.cjs search <keyword> [keyword...]");
+    console.error('Example: wds.cjs search form input validation');
     process.exit(1);
   }
 
@@ -134,8 +156,8 @@ function cmdSearch(docsDir, terms) {
 
 function cmdComponent(docsDir, componentName) {
   if (!componentName) {
-    console.error("Usage: wds.js component <ComponentName>");
-    console.error("Example: wds.js component Button");
+    console.error("Usage: wds.cjs component <ComponentName>");
+    console.error("Example: wds.cjs component Button");
     process.exit(1);
   }
   validateComponentName(componentName);
@@ -148,7 +170,7 @@ function cmdComponent(docsDir, componentName) {
 
   if (!propsContent) {
     console.error(
-      `Component "${componentName}" not found. Run: wds.js search <keyword>`
+      `Component "${componentName}" not found. Run: wds.cjs search <keyword>`
     );
     process.exit(1);
   }
@@ -200,7 +222,7 @@ function cmdComponent(docsDir, componentName) {
         console.log(`  - ${ex}`);
       }
       console.log(
-        `\nGet an example: wds.js example ${componentName} "<ExampleName>"`
+        `\nGet an example: wds.cjs example ${componentName} "<ExampleName>"`
       );
     }
   }
@@ -208,8 +230,8 @@ function cmdComponent(docsDir, componentName) {
 
 function cmdExample(docsDir, componentName, exampleName) {
   if (!componentName || !exampleName) {
-    console.error('Usage: wds.js example <ComponentName> "<ExampleName>"');
-    console.error('Example: wds.js example Button "Loading state"');
+    console.error('Usage: wds.cjs example <ComponentName> "<ExampleName>"');
+    console.error('Example: wds.cjs example Button "Loading state"');
     process.exit(1);
   }
   validateComponentName(componentName);
@@ -268,10 +290,83 @@ function cmdExample(docsDir, componentName, exampleName) {
   console.log(lines.slice(startLine, endLine).join("\n"));
 }
 
+function cmdTestkit(docsDir, componentName, methodName) {
+  if (!componentName) {
+    console.error("Usage: wds.cjs testkit <ComponentName> [methodName]");
+    console.error("Example: wds.cjs testkit Button");
+    console.error('Example: wds.cjs testkit Button click');
+    process.exit(1);
+  }
+  validateComponentName(componentName);
+
+  const filePath = path.join(
+    docsDir,
+    "components",
+    `${componentName}Testkit.md`,
+  );
+  const content = readFile(filePath);
+
+  if (!content) {
+    console.error(
+      `Testkit docs for "${componentName}" not found. Run: wds.cjs search <keyword>`,
+    );
+    process.exit(1);
+  }
+
+  if (!methodName) {
+    console.log(content);
+    return;
+  }
+
+  const lines = content.split("\n");
+  const searchName = methodName.toLowerCase();
+  let startLine = -1;
+  let endLine = lines.length;
+
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].startsWith("### ") && !lines[i].startsWith("### API")) {
+      const name = lines[i].replace("### ", "").trim().toLowerCase();
+      if (startLine >= 0) {
+        endLine = i;
+        break;
+      }
+      if (name === searchName || name.includes(searchName)) {
+        startLine = i;
+      }
+    }
+  }
+
+  if (startLine < 0) {
+    console.error(
+      `Method "${methodName}" not found on ${componentName} testkit.\n`,
+    );
+    const available = [];
+    let inApiSection = false;
+    for (const line of lines) {
+      if (line.startsWith("### API")) {
+        inApiSection = true;
+        continue;
+      }
+      if (inApiSection && line.startsWith("### ")) {
+        available.push(line.replace("### ", "").trim());
+      }
+    }
+    if (available.length > 0) {
+      console.log("Available methods:");
+      for (const m of available) {
+        console.log(`  - ${m}`);
+      }
+    }
+    process.exit(1);
+  }
+
+  console.log(lines.slice(startLine, endLine).join("\n"));
+}
+
 function cmdIcons(docsDir, terms) {
   if (terms.length === 0) {
-    console.error("Usage: wds.js icons <query> [query...]");
-    console.error("Example: wds.js icons Add Edit Delete");
+    console.error("Usage: wds.cjs icons <query> [query...]");
+    console.error("Example: wds.cjs icons Add Edit Delete");
     process.exit(1);
   }
 
@@ -305,13 +400,14 @@ function cmdIcons(docsDir, terms) {
 }
 
 function cmdHelp(docsDir) {
-  const scriptPath = path.resolve(__dirname, "wds.js");
+  const scriptPath = path.resolve(__dirname, "wds.cjs");
   console.log(`WDS Documentation Helper
 
 Usage:
   node ${scriptPath} search <keyword>              Search components by keyword
   node ${scriptPath} component <Name>              Get props + example list
   node ${scriptPath} example <Name> "<ExampleName>" Get a specific example
+  node ${scriptPath} testkit <Name> [method]       Get testkit imports + API (or one method)
   node ${scriptPath} icons <query>                 Search for icons
 
 Examples:
@@ -319,6 +415,8 @@ Examples:
   node ${scriptPath} search form input validation
   node ${scriptPath} component Button
   node ${scriptPath} example Button "Loading state"
+  node ${scriptPath} testkit Button
+  node ${scriptPath} testkit Button click
   node ${scriptPath} icons Add Edit Delete
 
 Docs found at: ${docsDir}`);
@@ -348,6 +446,9 @@ switch (command) {
     break;
   case "example":
     cmdExample(docsDir, args[0], args.slice(1).join(" "));
+    break;
+  case "testkit":
+    cmdTestkit(docsDir, args[0], args[1]);
     break;
   case "icons":
     cmdIcons(docsDir, args);

@@ -1,0 +1,41 @@
+type HttpError = Error & { status: number };
+
+export class EvalForgeClient {
+  private readonly headers: Record<string, string>;
+
+  constructor(
+    private readonly baseUrl: string,
+    appId: string,
+    appSecret: string,
+  ) {
+    this.headers = {
+      'Content-Type': 'application/json',
+      'x-app-id': appId,
+      'x-app-secret': appSecret,
+    };
+  }
+
+  private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
+    const res = await fetch(`${this.baseUrl}${path}`, {
+      method,
+      headers: this.headers,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({})) as { error?: string };
+      throw Object.assign(
+        new Error(`EvalForge ${method} ${path} → ${res.status}: ${err.error ?? ''}`),
+        { status: res.status } satisfies Pick<HttpError, 'status'>,
+      );
+    }
+    return res.json().catch((e: unknown) => {
+      throw new Error(`EvalForge ${method} ${path} → 200 but invalid JSON: ${e instanceof Error ? e.message : String(e)}`);
+    }) as Promise<T>;
+  }
+
+  async getTags(projectId: string): Promise<Set<string>> {
+    const tags = await this.request<string[]>('GET', `/projects/${projectId}/tags`);
+    return new Set(tags);
+  }
+}

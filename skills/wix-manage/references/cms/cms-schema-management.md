@@ -13,7 +13,7 @@ This recipe covers managing the structure (schema) of Wix CMS collections using 
 
 ## Required APIs
 
-- **Collections API**: [REST](https://dev.wix.com/docs/rest/business-solutions/cms/collection-management/data-collections/introduction)
+- **Collections API**: [REST](https://dev.wix.com/docs/api-reference/business-solutions/cms/collection-management/data-collections/introduction)
 
 ## List All Collections
 
@@ -138,6 +138,6 @@ curl -X GET \
 
 ## Related Documentation
 
-- [Data Collections API Reference](https://dev.wix.com/docs/rest/business-solutions/cms/collection-management/data-collections/introduction)
-- [Data Types in Wix Data](https://dev.wix.com/docs/rest/business-solutions/cms/data-types-in-wix-data)
+- [Data Collections API Reference](https://dev.wix.com/docs/api-reference/business-solutions/cms/collection-management/data-collections/introduction)
+- [Data Types in Wix Data](https://dev.wix.com/docs/api-reference/business-solutions/cms/data-types-in-wix-data)
 - [CMS Data Items CRUD Recipe](cms-data-items-crud.md)
