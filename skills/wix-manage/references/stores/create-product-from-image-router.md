@@ -9,9 +9,8 @@ description: "MANDATORY entry point for creating a product from an image. Detect
 This recipe determines the site's catalog version and then delegates to the version-specific "Create Product from Image" recipe.
 
 **Prerequisites:**
-- The user MUST provide a publicly accessible image URL (starts with `https://` or `http://`).
-- If the user uploaded an image directly to the chat instead of providing a URL, you MUST ask them: "Please provide a public URL where the image is hosted (e.g., an Unsplash, Imgur, or any https:// link). I cannot use images uploaded directly to the chat — I need a publicly accessible URL that the Wix Media API can download from."
-- Do NOT proceed until you have a valid public URL.
+- The user MUST provide at least one product image — either uploaded directly to the chat or as a publicly accessible URL.
+- Up to 3 images are supported per product.
 
 ---
 
@@ -46,9 +45,13 @@ Based on the `catalogVersion` value from Step 1, follow the appropriate path:
 
 Follow the **[Create Product from Image (Catalog V3)](create-product-from-image-catalog-v3.md)** recipe.
 
-This is a 2-step flow:
-1. Analyze the image and generate product details (name, rich text description, price)
-2. Create the product with media inline via `POST https://www.wixapis.com/stores/v3/products`
+This is an interactive 6-step flow:
+1. Collect 1-3 images from the user (uploaded files or URLs)
+2. Upload images to Wix Media Manager
+3. Analyze all images — generate name, description, price, info sections (materials/care/specs), SEO meta, and suggested options
+4. Present a review card to the user for confirmation
+5. Suggest product options (detected from images) and let the user modify or skip
+6. Create the product with all fields via `POST https://www.wixapis.com/stores/v3/products`
 
 ### If `V1_CATALOG`:
 
