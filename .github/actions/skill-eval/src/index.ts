@@ -185,6 +185,12 @@ async function run(): Promise<void> {
       core.info(`Eval result — ${m.failed} assertions failed, ${m.errors} errors, ${m.passed}/${m.totalAssertions} passed (pass rate: ${m.passRate}%, run ID: ${runId})`);
       fail(`Skill evaluation failed (pass rate: ${m.passRate}%)`, config.blocking);
     }
+  } else if (finalStatus.status === 'failed') {
+    await upsertComment(octokit, config, formatServiceError(`Eval run failed — contact a repository maintainer if this persists (run ID: ${runId})`, config.blocking));
+    fail(`Eval run failed (run ID: ${runId})`, config.blocking);
+  } else if (finalStatus.status === 'cancelled') {
+    await upsertComment(octokit, config, formatServiceError(`Eval run was cancelled (run ID: ${runId})`, config.blocking));
+    fail(`Eval run was cancelled (run ID: ${runId})`, config.blocking);
   } else {
     await upsertComment(octokit, config, formatServiceError(`Eval run ended with unexpected status: ${finalStatus.status} (run ID: ${runId})`, config.blocking));
     fail(`Eval run ended with unexpected status: ${finalStatus.status}`, config.blocking);

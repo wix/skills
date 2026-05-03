@@ -7,6 +7,10 @@ on:
       - 'skills/wix-manage/references/**'
       - 'yaml/wix-manage/**'
 
+concurrency:
+  group: skill-eval-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   skill-eval:
     runs-on: ubuntu-latest

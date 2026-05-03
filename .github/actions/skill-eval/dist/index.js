@@ -34246,6 +34246,14 @@ async function run() {
             (0, github_1.fail)(`Skill evaluation failed (pass rate: ${m.passRate}%)`, config.blocking);
         }
     }
+    else if (finalStatus.status === 'failed') {
+        await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatServiceError)(`Eval run failed — contact a repository maintainer if this persists (run ID: ${runId})`, config.blocking));
+        (0, github_1.fail)(`Eval run failed (run ID: ${runId})`, config.blocking);
+    }
+    else if (finalStatus.status === 'cancelled') {
+        await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatServiceError)(`Eval run was cancelled (run ID: ${runId})`, config.blocking));
+        (0, github_1.fail)(`Eval run was cancelled (run ID: ${runId})`, config.blocking);
+    }
     else {
         await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatServiceError)(`Eval run ended with unexpected status: ${finalStatus.status} (run ID: ${runId})`, config.blocking));
         (0, github_1.fail)(`Eval run ended with unexpected status: ${finalStatus.status}`, config.blocking);
