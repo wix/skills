@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@actions/core', () => ({ getInput: vi.fn(), setSecret: vi.fn() }));
+vi.mock('@actions/core', () => ({ getInput: vi.fn(), setSecret: vi.fn(), warning: vi.fn() }));
 vi.mock('@actions/github', () => ({
   context: {
     payload: {
@@ -15,7 +15,7 @@ vi.mock('@actions/github', () => ({
 }));
 
 import * as core from '@actions/core';
-import { getConfig } from '../src/utils/config';
+import { getEvalConfig } from '../src/utils/config';
 
 const ALL_INPUTS: Record<string, string> = {
   'github-token': 'ghs_token',
@@ -32,9 +32,9 @@ beforeEach(() => {
   vi.mocked(core.getInput).mockImplementation((name: string) => ALL_INPUTS[name] ?? '');
 });
 
-describe('getConfig', () => {
+describe('getEvalConfig', () => {
   it('returns config with all fields populated', () => {
-    const config = getConfig();
+    const config = getEvalConfig();
     expect(config.githubToken).toBe('ghs_token');
     expect(config.evalforgeUrl).toBe('https://ef.example.com/api');
     expect(config.projectId).toBe('proj-1');
@@ -50,24 +50,24 @@ describe('getConfig', () => {
   });
 
   it('masks all secret inputs', () => {
-    getConfig();
+    getEvalConfig();
     expect(vi.mocked(core.setSecret)).toHaveBeenCalledWith('ghs_token');
     expect(vi.mocked(core.setSecret)).toHaveBeenCalledWith('app-1');
     expect(vi.mocked(core.setSecret)).toHaveBeenCalledWith('secret-1');
   });
 
   it('blocking is true when input is "true"', () => {
-    expect(getConfig().blocking).toBe(true);
+    expect(getEvalConfig().blocking).toBe(true);
   });
 
   it('blocking is false when input is "false"', () => {
     vi.mocked(core.getInput).mockImplementation((name: string) => ({ ...ALL_INPUTS, blocking: 'false' }[name] ?? ''));
-    expect(getConfig().blocking).toBe(false);
+    expect(getEvalConfig().blocking).toBe(false);
   });
 
   it('blocking is true when input is absent (empty string)', () => {
     vi.mocked(core.getInput).mockImplementation((name: string) => ({ ...ALL_INPUTS, blocking: '' }[name] ?? ''));
-    expect(getConfig().blocking).toBe(true);
+    expect(getEvalConfig().blocking).toBe(true);
   });
 
   it('throws when a required input is missing', () => {
@@ -78,6 +78,6 @@ describe('getConfig', () => {
       }
       return ALL_INPUTS[name] ?? '';
     });
-    expect(() => getConfig()).toThrow('evalforge-url');
+    expect(() => getEvalConfig()).toThrow('evalforge-url');
   });
 });

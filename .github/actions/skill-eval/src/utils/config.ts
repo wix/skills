@@ -30,7 +30,7 @@ function safeGetSecret(name: string): string {
   return value;
 }
 
-export function getConfig(): Config {
+export function getEvalConfig(): Config {
   const pr = github.context.payload.pull_request;
   if (!pr) throw new Error('No pull_request payload — action must be triggered by a pull_request event');
 
