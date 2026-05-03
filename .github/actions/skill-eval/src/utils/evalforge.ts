@@ -106,4 +106,8 @@ export class EvalForgeClient {
   async getEvalRun(projectId: string, runId: string): Promise<EvalRunStatus> {
     return this.request<EvalRunStatus>('GET', `/projects/${projectId}/eval-runs/${runId}`);
   }
+
+  async deleteMcpVersion(mcpId: string, projectId: string, versionId: string): Promise<void> {
+    await this.request<{ message: string }>('DELETE', `/projects/${projectId}/capabilities/${mcpId}/versions/${versionId}`);
+  }
 }
