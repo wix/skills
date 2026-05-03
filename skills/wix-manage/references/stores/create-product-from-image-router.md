@@ -18,6 +18,7 @@ This recipe determines the site's catalog version and then delegates to the vers
 
 **API Endpoint:** `GET https://www.wixapis.com/stores/v3/provision/version`
 
+
 No request body is needed — this is a GET request.
 
 **Expected response:**
