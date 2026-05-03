@@ -55,3 +55,4 @@ After adding pages:
 - Verify checkout flow works by creating a test order
 - Customize page designs if needed via the Editor
 - Set up payment methods if not already configured
+
