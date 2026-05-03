@@ -15,9 +15,17 @@ Use this recipe when a user wants to:
 
 You help the user find an available domain, then collect registration details (cycle, privacy protection, contact info) directly in the chat. Once collected, you save the contact info, create a cart with the domain + addons, and provide a checkout link where the user only needs to complete payment.
 
-## Important: No Site Required
+**UX guidelines**: Keep the conversation natural. Do NOT expose internal implementation details to the user (e.g. don't say "I'm canceling the old cart", "saving to intent API", "adding line items"). Just tell them what matters: "Setting up your order..." then show the summary and checkout link.
 
-This recipe does NOT require a site. Do NOT call `ListWixSites` or ask the user to pick a site. Domain search and purchase is completely independent of any Wix site.
+## Site Context (Optional)
+
+Domain purchase does NOT require a site. Do NOT call `ListWixSites` unless the user specifically mentions a site or asks to connect the domain to one.
+
+However, after finding an available domain (Step 1), you should ask the user if they want to connect it to a Wix site. This unlocks two benefits:
+- If the user has a **premium site**, the domain can be connected to it after purchase
+- If the user has **no premium site**, they can get the domain **free for the first year** by upgrading to a premium plan (bundle deal)
+
+See **Step 1b** for the site check flow.
 
 ## Required APIs
 
@@ -123,7 +131,26 @@ When presenting suggestions:
 - If no suggestions come back, ask the user to try different keywords or broader terms
 - If `pagingMetadata.hasNext` is true, more suggestions exist -- offer to show more
 
-Once the user picks a domain (or the original was available), proceed to Step 2.
+Once the user picks a domain (or the original was available), proceed to Step 1b.
+
+---
+
+## Step 1b: Check for Wix Sites (Optional but Recommended)
+
+After the user has chosen a domain, ask: "Would you like to connect this domain to one of your Wix sites?"
+
+If the user says yes (or if they mentioned a site earlier), call `ListWixSites` to get their sites.
+
+The response includes each site's `id` and `name`. If the user has multiple sites, list them and ask which one they want to use.
+
+Once a site is selected, remember the `siteId` (also called `msid`) -- you'll use it in the checkout link (Step 4d).
+
+**Based on the site's plan status**, you can offer different guidance:
+- **Site has a premium plan**: "Great, after purchasing the domain you can connect it to your site."
+- **Site has no premium plan**: "I notice your site doesn't have a premium plan yet. If you upgrade to a premium plan, you can get this domain free for the first year! Want me to generate a link for the bundle deal instead?" If yes, generate: `[Get domain free with a site plan](https://manage.wix.com/premium-domains/split-page?domainName={DOMAIN_NAME})` -- this page shows the bundle option.
+- **No sites at all**: "No problem, we'll proceed with a standalone domain purchase."
+
+If the user says no or wants to skip, proceed without a site context.
 
 ---
 
@@ -164,14 +191,17 @@ Present the pricing to the user as a table, for example:
 
 Ask the user which period they prefer. Default to 1 year if they don't have a preference.
 
-If the API returns no products for this TLD, tell the user: "This TLD isn't available for purchase through chat yet. You can buy it at [wix.com/domains](https://www.wix.com/domains)."
+If the API returns no products for this TLD, tell the user: "Wix doesn't support purchasing this TLD. Try a different extension like .com, .net, or .org."
 
 ### 2b: Ask about privacy protection
 
-Ask: "Would you like to add domain privacy protection? It hides your personal contact info from public WHOIS lookups. Recommended: yes."
+Present the user with three options:
 
-- If yes (recommended): use addon product ID `f8211619-d9f6-4312-9d03-f2958bbd08aa` (privacy + DNSSEC)
-- If no: skip the addon line item
+1. **Privacy + DNSSEC** (recommended, most protecting) -- Hides your personal contact info from public WHOIS lookups AND adds DNSSEC protection against DNS spoofing/hijacking attacks. Product ID: `f8211619-d9f6-4312-9d03-f2958bbd08aa`
+2. **Privacy only** -- Hides your personal contact info from public WHOIS lookups. Product ID: `22a84545-4ac0-4490-a434-45a1ebc479fb`
+3. **No protection** -- Your contact info will be publicly visible in WHOIS. Product ID: `b9d89ff0-f29b-4bfd-a3f0-6e34ae65120d`
+
+All three options use the addon product type ID `b3d86a1d-9db3-4f69-bd54-c132808856b1`.
 
 ### 2c: Collect or confirm contact info
 
@@ -196,7 +226,7 @@ Replace `{domain}` with the chosen domain (e.g. `mybakery.com`).
 ```
 
 - **If contacts exist**: Show the info and explicitly ask "Should I use these details, or would you like to register with different info?" Wait for the user to confirm before proceeding to Step 3. Do NOT skip this confirmation.
-- **If contacts are empty**: Ask the user for: first name, last name, email, phone number, street address, city, country, and postal code. Wait for them to provide all fields before proceeding.
+- **If contacts are empty**: Ask the user for: first name, last name, email, phone number, street address, city, country, and postal code. The user can provide country as a full name (e.g. "Israel", "United States") -- convert it to the 2-letter ISO country code (e.g. "IL", "US") before sending to the API. Wait for them to provide all fields before proceeding.
 
 ---
 
@@ -246,6 +276,8 @@ If the API returns a validation error:
 
 ## Step 4: Create Cart and Checkout Link
 
+**Important**: If the user selected a site in Step 1b, use `CallWixSiteAPI` (with the site's `siteId`) for ALL cart operations below. This creates the cart in the site's context so the checkout link with `?msid=` works correctly. If no site was selected, use `ManageWixSite` (account-level).
+
 ### 4a: Cancel any existing cart
 
 ```
@@ -293,11 +325,12 @@ Body:
 
 Set `cycle.cycleDuration.count` to the number of years the user chose.
 
-If the user selected privacy protection, add a second line item in the same `lineItems` array:
+Add a second line item for the addon (based on the user's choice from Step 2b):
+
 ```json
 {
   "productInfo": {
-    "productId": "f8211619-d9f6-4312-9d03-f2958bbd08aa",
+    "productId": "<addon product ID from Step 2b>",
     "productTypeId": "b3d86a1d-9db3-4f69-bd54-c132808856b1"
   },
   "cycle": {
@@ -315,11 +348,10 @@ Use the same cycle duration for the addon as for the domain.
 
 ### 4d: Provide checkout link
 
-Once the cart is populated, give the user this link:
+Once the cart is populated, give the user a checkout link:
 
-```
-[Click here to complete your purchase](https://manage.wix.com/cart/checkout)
-```
+- **If a site was selected** (Step 1b): `[Click here to complete your purchase](https://manage.wix.com/cart/checkout?msid={siteId})`
+- **No site / standalone purchase**: `[Click here to complete your purchase](https://manage.wix.com/cart/checkout)`
 
 This opens the checkout page with the pre-filled cart. The user only needs to complete payment.
 
@@ -331,7 +363,7 @@ This opens the checkout page with the pre-filled cart. The user only needs to co
 |------------|-------------|--------|
 | `DOMAINS_UNSUPPORTED_TLD` | TLD not supported by Wix | Suggest alternatives using Suggest Domains API |
 | `access_denied` or `403` on domain search APIs | Auth issue | These are public APIs -- do not add extra auth headers |
-| Offering API returns no products | TLD not available for chat purchase | Tell user to buy at wix.com/domains |
+| Offering API returns no products | TLD not supported by Wix | Tell user to try a different TLD (.com, .net, .org) |
 | Intent API validation error | Missing/invalid contact fields | Show the error, ask user to correct, retry |
 | Cart add-items fails | Product ID or format issue | Verify product ID came from offering API response |
 
@@ -376,7 +408,24 @@ This opens the checkout page with the pre-filled cart. The user only needs to co
 6. Confirm contact info -> user confirms existing info
 7. Save contact, create cart, share checkout link
 
-### Flow 4: Unsupported TLD
+### Flow 4: Purchase with site connection
+
+1. User: "Buy mybakery.com and connect it to my site"
+2. Check availability -> available: true
+3. Ask which site -> call ListWixSites -> user picks "My Bakery Site" (msid: abc-123)
+4. Site has premium plan -> "Great, we'll connect it after purchase"
+5. Get pricing, user picks 1 year, wants privacy, confirms contact info
+6. Save contact, create cart, share checkout link with msid: `https://manage.wix.com/cart/checkout?msid=abc-123`
+
+### Flow 5: No premium site, suggest bundle
+
+1. User: "I want mybakery.com for my website"
+2. Check availability -> available: true
+3. Call ListWixSites -> user picks "My Bakery Site" -> site has no premium plan
+4. "Your site doesn't have a premium plan. You can get this domain free for the first year by upgrading! Want the bundle deal?"
+5. User says yes -> share: [Get domain free with a site plan](https://manage.wix.com/premium-domains/split-page?domainName=mybakery.com)
+
+### Flow 6: Unsupported TLD
 
 1. User: "Buy mysite.io"
 2. Check availability -> DOMAINS_UNSUPPORTED_TLD
