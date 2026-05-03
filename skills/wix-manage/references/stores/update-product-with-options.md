@@ -223,6 +223,7 @@ After the product update returns the new variant IDs, use those IDs to set inven
 Inventory is handled separately from product updates. After the product update returns variant IDs, use [Bulk Create Inventory Items](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/inventory-items-v3/bulk-create-inventory-items) with `productId`, `variantId`, and `quantity`.
 
 If the store has multiple inventory locations, include `locationId`; otherwise the store's default location is used.
+After bulk inventory create, check `bulkActionMetadata.totalSuccesses` and `results[].itemMetadata.success`. Returned inventory entities are under `results[].item`, not a top-level `inventoryItems` field; confirm stock from `results[].item.quantity`.
 
 ```bash
 curl -X POST "https://www.wixapis.com/stores/v3/bulk/inventory-items/create" \
