@@ -15,6 +15,8 @@ Use this recipe when a user wants to:
 
 You help the user find an available domain, then collect registration details (cycle, privacy protection, contact info) directly in the chat. Once collected, you save the contact info, create a cart with the domain + addons, and provide a checkout link where the user only needs to complete payment.
 
+**UX guidelines**: Keep the conversation natural. Do NOT expose internal implementation details to the user (e.g. don't say "I'm canceling the old cart", "saving to intent API", "adding line items"). Just tell them what matters: "Setting up your order..." then show the summary and checkout link.
+
 ## Site Context (Optional)
 
 Domain purchase does NOT require a site. Do NOT call `ListWixSites` unless the user specifically mentions a site or asks to connect the domain to one.
@@ -224,7 +226,7 @@ Replace `{domain}` with the chosen domain (e.g. `mybakery.com`).
 ```
 
 - **If contacts exist**: Show the info and explicitly ask "Should I use these details, or would you like to register with different info?" Wait for the user to confirm before proceeding to Step 3. Do NOT skip this confirmation.
-- **If contacts are empty**: Ask the user for: first name, last name, email, phone number, street address, city, country, and postal code. Wait for them to provide all fields before proceeding.
+- **If contacts are empty**: Ask the user for: first name, last name, email, phone number, street address, city, country, and postal code. The user can provide country as a full name (e.g. "Israel", "United States") -- convert it to the 2-letter ISO country code (e.g. "IL", "US") before sending to the API. Wait for them to provide all fields before proceeding.
 
 ---
 
