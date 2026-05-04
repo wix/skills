@@ -362,6 +362,22 @@ All embedded script configuration must go through embedded script parameters (`e
 
 **Don't create single-value collections.** A collection with one field like `{ theme: "dark" }` should be an embedded script parameter or widget setting instead.
 
+**Don't add a top-level `createdBy` field to the data extension.** Some scaffolding examples include a `createdBy: { author: "CODE_GEN" }` block at the end of the `extensions.genericExtension({...})` call. This field is **not part of the public schema** and will fail `tsc --noEmit` with `TS2322: Type '{ author: string; }' is not assignable to type 'CreatedBy'`.
+
+❌ **Wrong:**
+
+```ts
+export const dataExtension = extensions.genericExtension({
+  compId: "...",
+  compName: "data-extension",
+  compType: "DATA_COMPONENT",
+  compData: { dataComponent: { collections: [...] } },
+  createdBy: { author: "CODE_GEN" }, // ← never include this
+});
+```
+
+✅ **Right:** stop after `compData`. See [extension-template.ts](data-collection/extension-template.ts) for the complete, correct shape.
+
 ### Initial Data Rules
 
 Each item in `initialData` must match the collection schema exactly:
