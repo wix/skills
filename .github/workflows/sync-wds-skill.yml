@@ -15,19 +15,9 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
 
-      - name: Generate GitHub App token
-        id: app-token
-        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3  # v3
-        with:
-          app-id: ${{ secrets.AICM_GITHUB_APP_ID }}
-          private-key: ${{ secrets.AICM_GITHUB_APP_PRIVATE_KEY }}
-          owner: wix-private
-          repositories: coding-agents-plugins
-          permission-contents: read
-
       - name: Sync WDS skill from private repo
         env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_TOKEN: ${{ secrets.WIX_PRIVATE_CODING_AGENTS_PLUGINS_READ_TOKEN }}
         run: |
           chmod +x .github/scripts/sync-wds-skill.sh
           ./.github/scripts/sync-wds-skill.sh
