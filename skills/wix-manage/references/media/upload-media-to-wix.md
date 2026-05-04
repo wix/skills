@@ -51,13 +51,17 @@ Pass it directly to the Import File API — it works the same as any external UR
 
 **Case B — No `download_url` found**
 
-> **There is no single "upload" tool or action.** Uploading a local file is a two-step process:
-> - **Step 1** — Call `generate-upload-url` via the Wix MCP (e.g. `ExecuteWixAPI` or `ManageWixSite`)
-> - **Step 2** — PUT the file binary to that URL using your code interpreter (Python `requests.put()`) or bash tool
+> **Uploading a local file is a two-step process:**
+> - **Step 1** — Call `generate-upload-url` via the Wix MCP
+> - **Step 2** — PUT the file binary using your **Bash tool** (run `curl`) or Python interpreter
 >
-> "I don't have an upload action in my connected tools" is never a valid reason to stop. You do not need a dedicated upload tool.
->
-> Always attempt Step 1. Then immediately attempt Step 2 using code execution — do not describe it, do not show the user a curl command to run, just execute it.
+> You have a Bash tool. Use it. A PUT upload is a single `curl` command — it is not a "streaming" operation that requires special capabilities. Saying "I can't stream the file from here" is incorrect and forbidden.
+
+**FORBIDDEN behaviors — never do these:**
+- Do NOT generate the upload URL and then stop
+- Do NOT show the user a `curl` command and ask them to run it
+- Do NOT say "I can't complete the upload from here" or "this requires streaming"
+- Do NOT claim a lack of an "upload tool" — `curl` via the Bash tool is the upload tool
 
 **Step 1:** Generate an upload URL:
 
@@ -76,24 +80,21 @@ Response:
 { "uploadUrl": "https://upload.wixmp.com/..." }
 ```
 
-> **After receiving the `uploadUrl`, immediately proceed to Step 2 without pausing, reporting back, or asking the user anything.** The upload URL is short-lived and will expire quickly. Do not show it to the user. Do not wait for confirmation. Execute Step 2 now, in the same flow.
+> **After receiving the `uploadUrl`, immediately execute Step 2 — do not pause, do not report back, do not show the URL to the user.** The URL is short-lived. Execute Step 2 now, in the same flow.
 
-**Step 2:** Execute the PUT upload now — do NOT describe it, do NOT ask the user to run it, just run it yourself.
+**Step 2:** Run the PUT upload using the **Bash tool** — do NOT describe it, do NOT give it to the user to run, just execute it yourself now:
 
-Use whichever execution method is available in your environment:
-
-**Option A — Shell/bash:**
 ```bash
 curl -X PUT '<uploadUrl from Step 1>' \
   -H 'Content-Type: image/jpeg' \
-  --data-binary @"/mnt/data/your-file.jpg"
+  --data-binary @"/path/to/the/file"
 ```
 
-**Option B — Python (e.g. in a code interpreter sandbox):**
+If you don't have a Bash tool, use Python:
 ```python
 import requests
 
-with open('/mnt/data/your-file.jpg', 'rb') as f:
+with open('/path/to/the/file', 'rb') as f:
     response = requests.put(
         '<uploadUrl from Step 1>',
         headers={'Content-Type': 'image/jpeg'},
@@ -111,7 +112,7 @@ curl -X GET 'https://www.wixapis.com/site-media/v1/files?mediaTypes=IMAGE&sort.f
 
 Use `files[0].url` as the permanent wixstatic.com URL.
 
-> **Do NOT tell the user to manually re-upload via the Wix dashboard** unless you have confirmed: (1) the file has no `download_url`, AND (2) you cannot execute shell or code to perform a binary upload (no bash tool, no Python interpreter, no code execution capability). Saying "I don't have an upload tool" is not a valid reason — the upload is a plain `curl` command, not a special plugin.
+> **Only ask the user to do the upload manually** if you have confirmed ALL of the following: (1) the file has no `download_url`, AND (2) your Bash tool call actually failed (not just returned a non-2xx — actually failed to execute), AND (3) you have no Python interpreter. Rationale: you have a Bash tool, so this condition almost never applies.
 
 ---
 
