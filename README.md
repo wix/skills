@@ -13,7 +13,6 @@ Agent skills for building Wix applications with AI coding assistants.
 In [Claude Code](https://docs.anthropic.com/en/docs/claude-code), run:
 
 ```bash
-/plugin marketplace add wix/skills
 /plugin install wix@wix
 ```
 
