@@ -83,7 +83,7 @@ export async function runEval(): Promise<void> {
     return;
   }
 
-  const tags = [...new Set(entries.flatMap(e => e.tags!))];
+  const tags = [...new Set(entries.flatMap(e => e.tags ?? []))];
 
   const versionLabel = `pr-${config.prNumber}-${config.headSha.slice(0, 7)}`;
   let mcpVersionId: string;

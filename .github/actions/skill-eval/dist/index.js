@@ -34534,7 +34534,7 @@ async function runEval() {
         core.setFailed((0, comment_1.formatFailedJobMessage)(tagErrors));
         return;
     }
-    const tags = [...new Set(entries.flatMap(e => e.tags))];
+    const tags = [...new Set(entries.flatMap(e => e.tags ?? []))];
     const versionLabel = `pr-${config.prNumber}-${config.headSha.slice(0, 7)}`;
     let mcpVersionId;
     try {
