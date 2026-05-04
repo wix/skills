@@ -42,3 +42,4 @@ apiDoc:
       title: Create Product from Image (Catalog V1)
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
       tags: [stores, media]
+
