@@ -39,6 +39,48 @@ Settings panel shown in the Wix Editor sidebar:
 - For color pickers, use `inputs.selectColor()` from `@wix/editor` with `FillPreview` — NOT `<Input type="color">`
 - For font pickers, use `inputs.selectFont()` from `@wix/editor` with a `Button` — NOT a text Input
 
+## ⚠️ Critical TypeScript Constraints
+
+Because custom element widgets must use **inline styles** (no CSS imports), TypeScript style typing matters more here than in extensions that use external CSS files. The rules below apply specifically to widget components.
+
+### Never put functions inside a styles object typed as `Record<string, CSSProperties>`
+
+This causes `TS2349` ("This expression is not callable") at the call site and `TS2322`/`TS2560` at the declaration. The pattern is tempting for conditional styles but is a hard type error.
+
+❌ **Wrong** (will fail `tsc --noEmit`):
+
+```tsx
+const styles: Record<string, React.CSSProperties> = {
+  titleChip: (selected: boolean): React.CSSProperties => ({
+    border: selected ? "2px solid blue" : "2px solid gray",
+    fontWeight: selected ? 700 : 500,
+  }),
+};
+
+<button style={styles.titleChip(true)}>Mr</button>
+```
+
+✅ **Right** — extract the function to a sibling const:
+
+```tsx
+const titleChipStyle = (selected: boolean): React.CSSProperties => ({
+  border: selected ? "2px solid blue" : "2px solid gray",
+  fontWeight: selected ? 700 : 500,
+});
+
+const styles: Record<string, React.CSSProperties> = {
+  // only static styles here
+};
+
+<button style={titleChipStyle(true)}>Mr</button>
+```
+
+✅ **Or** inline the conditional spread on the `style` prop:
+
+```tsx
+<button style={{ ...styles.chipBase, color: selected ? "#fff" : "#000" }}>Mr</button>
+```
+
 ## Widget Component Pattern
 
 ```typescript
@@ -132,7 +174,7 @@ export default customElement;
 - Props interface uses **camelCase** (e.g., `targetDate`, `bgColor`)
 - `reactToWebComponent` config uses camelCase keys with `'string'` type
 - All props are passed as strings from the web component
-- Use inline styles, not CSS imports. Do NOT put functions in styles objects (causes TS2560/TS2349). For conditional styles, use ternary expressions directly in the `style` prop: `style={{ ...styles.itemBase, color: item.done ? '#999' : '#000' }}`
+- Use inline styles, not CSS imports. See "⚠️ Critical TypeScript Constraints" above for the styles-function rule.
 - Parse complex props (like `font`) from JSON strings: `const { font: textFont, textDecoration } = JSON.parse(font)`
 - Apply font via `font` CSS shorthand and `textDecoration` property
 - Extract helper components, utility functions, and styles into separate files for clean code organization
