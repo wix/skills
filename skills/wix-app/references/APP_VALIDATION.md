@@ -3,6 +3,23 @@
 
 Validates Wix CLI applications through a four-step sequential workflow: package installation, TypeScript compilation check, build, and preview.
 
+## Validation Modes
+
+The validation workflow has **two modes**. You MUST choose the correct mode for the situation:
+
+| Mode | When to use | Steps run | Typical wall time |
+|---|---|---|---|
+| **`fast-validate`** | During iterative fix loops, after edits responding to a previous validation failure | Targeted `npx tsc --noEmit <changed-paths>` only (see [Targeted Check](#targeted-check-specific-filesdirectories)) | ~10-15 s |
+| **`full-validate`** | Before reporting completion to the user. **Always** the final gate. | All 4 steps below: install + full `tsc --noEmit` + `wix build` + `wix preview` | ~60-90 s |
+
+**Decision rule:**
+
+- After your **first** code generation pass → run **`full-validate`** (catches install/build issues you wouldn't see with `tsc` alone).
+- After **each subsequent edit** in a fix loop → run **`fast-validate`** only.
+- When **`fast-validate`** passes and you believe the work is complete → run **`full-validate`** once as the final gate before reporting completion.
+
+**Never** report completion to the user without a successful **`full-validate`** run. **Never** run **`full-validate`** between every individual edit during a fix loop — it wastes ~25-50 s per iteration.
+
 ## Validation Workflow
 
 Execute these steps sequentially. Stop and report errors if any step fails.
