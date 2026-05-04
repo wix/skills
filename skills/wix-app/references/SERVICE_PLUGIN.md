@@ -217,9 +217,9 @@ All builder methods accept these three fields:
 | Discount Triggers | `ecomDiscountTriggers()` | `id`, `name`, `source` |
 | Gift Cards        | `ecomGiftCards()`        | `id`, `name`, `source` |
 | Payment Settings  | `ecomPaymentSettings()`  | `id`, `name`, `source`, `fallbackValueForRequires3dSecure` |
-| Bookings Staff Sorting | `bookingsStaffSortingProvider()` | `id`, `name`, `source`, `methodName`, `methodDescription`, `dashboardPluginId` |
+| Bookings Staff Sorting | `bookingsStaffSortingProvider()` | `id`, `name`, `source`, `methodName`, `methodDescription` (max 100 chars), `dashboardPluginId` |
 
-Only `ecomShippingRates()` accepts `description`. Passing unsupported fields to other builders causes TypeScript errors. `bookingsStaffSortingProvider()` requires `methodName` and `methodDescription` fields, and optionally accepts `dashboardPluginId`.
+Only `ecomShippingRates()` accepts `description`. Passing unsupported fields to other builders causes TypeScript errors. `bookingsStaffSortingProvider()` requires `methodName` and `methodDescription` fields (methodDescription has a 100-character limit), and optionally accepts `dashboardPluginId`.
 
 ### Step 2: Register in Main Extensions File
 

@@ -97,17 +97,17 @@ export const staffSorting = extensions.bookingsStaffSortingProvider({
   name: "Workload Balanced Staff Assignment",
   source: "./backend/service-plugins/bookings-staff-sorting/workload-balancer/plugin.ts",
   methodName: "Workload Balancer",
-  methodDescription: "Assigns staff members based on their recent booking count to balance workload evenly",
+  methodDescription: "Balances workload by prioritizing staff with fewer recent bookings",
 });
 ```
 
 ### Additional Builder Fields
 
-| Field | Type | Required | Description |
-| --- | --- | --- | --- |
-| `methodName` | string | Yes | Display name for the sorting method |
-| `methodDescription` | string | Yes | Description of the sorting algorithm |
-| `dashboardPluginId` | string | No | Optional dashboard plugin ID for configuration UI |
+| Field | Type | Required | Max Length | Description |
+| --- | --- | --- | --- | --- |
+| `methodName` | string | Yes | - | Display name for the sorting method |
+| `methodDescription` | string | Yes | 100 chars | Description of the sorting algorithm (max 100 characters) |
+| `dashboardPluginId` | string | No | - | Optional dashboard plugin ID for configuration UI |
 
 ## Key Implementation Notes
 
