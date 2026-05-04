@@ -53,15 +53,42 @@ Pass it directly to the Import File API — it works the same as any external UR
 
 > **Uploading a local file is a two-step process:**
 > - **Step 1** — Call `generate-upload-url` via the Wix MCP
-> - **Step 2** — PUT the file binary using your **Bash tool** (run `curl`) or Python interpreter
+> - **Step 2** — PUT the file binary using your Bash tool (`curl`) or Python code interpreter
 >
-> You have a Bash tool. Use it. A PUT upload is a single `curl` command — it is not a "streaming" operation that requires special capabilities. Saying "I can't stream the file from here" is incorrect and forbidden.
+> Do NOT assume you cannot do Step 2 before actually trying. You must attempt execution.
 
-**FORBIDDEN behaviors — never do these:**
-- Do NOT generate the upload URL and then stop
-- Do NOT show the user a `curl` command and ask them to run it
-- Do NOT say "I can't complete the upload from here" or "this requires streaming"
-- Do NOT claim a lack of an "upload tool" — `curl` via the Bash tool is the upload tool
+**FORBIDDEN — never say or do these:**
+- "I can't complete the upload from here"
+- "my environment doesn't expose the file as a binary stream"
+- "this requires streaming which I can't do"
+- Generating the upload URL, then stopping and showing the user a curl command to run themselves
+- Suggesting the user upload via the Wix dashboard or a public URL as a first response
+
+These statements are pre-emptive surrenders. The binary PUT is a standard HTTP request. You can do it.
+
+**Required execution order — attempt each in sequence, stop at first success:**
+
+1. **Try Bash tool** — run `curl`:
+```bash
+curl -X PUT '<uploadUrl from Step 1>' \
+  -H 'Content-Type: image/jpeg' \
+  --data-binary @"/path/to/the/file"
+```
+
+2. **If no Bash tool, try Python code interpreter** — chat-uploaded files are accessible as binary in most code execution sandboxes (e.g. at `/mnt/user-data/uploads/<filename>` or the path shown in file metadata):
+```python
+import requests
+
+with open('/path/to/the/file', 'rb') as f:
+    response = requests.put(
+        '<uploadUrl from Step 1>',
+        headers={'Content-Type': 'image/jpeg'},
+        data=f
+    )
+print(response.status_code, response.text)
+```
+
+3. **Only if both actually fail** (execution attempted, not just assumed impossible) — explain to the user that your current environment cannot execute code, and offer them the curl command to run. This is a last resort, not a first response.
 
 **Step 1:** Generate an upload URL:
 
@@ -82,26 +109,7 @@ Response:
 
 > **After receiving the `uploadUrl`, immediately execute Step 2 — do not pause, do not report back, do not show the URL to the user.** The URL is short-lived. Execute Step 2 now, in the same flow.
 
-**Step 2:** Run the PUT upload using the **Bash tool** — do NOT describe it, do NOT give it to the user to run, just execute it yourself now:
-
-```bash
-curl -X PUT '<uploadUrl from Step 1>' \
-  -H 'Content-Type: image/jpeg' \
-  --data-binary @"/path/to/the/file"
-```
-
-If you don't have a Bash tool, use Python:
-```python
-import requests
-
-with open('/path/to/the/file', 'rb') as f:
-    response = requests.put(
-        '<uploadUrl from Step 1>',
-        headers={'Content-Type': 'image/jpeg'},
-        data=f
-    )
-print(response.status_code, response.text)
-```
+**Step 2:** Attempt execution per the order above (Bash → Python → fallback).
 
 **Step 3:** Find the uploaded file (poll until `operationStatus: "READY"`):
 
@@ -111,8 +119,6 @@ curl -X GET 'https://www.wixapis.com/site-media/v1/files?mediaTypes=IMAGE&sort.f
 ```
 
 Use `files[0].url` as the permanent wixstatic.com URL.
-
-> **Only ask the user to do the upload manually** if you have confirmed ALL of the following: (1) the file has no `download_url`, AND (2) your Bash tool call actually failed (not just returned a non-2xx — actually failed to execute), AND (3) you have no Python interpreter. Rationale: you have a Bash tool, so this condition almost never applies.
 
 ---
 
