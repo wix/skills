@@ -19,27 +19,32 @@ The Wix Media Manager stores all media files for a site. When you need to use im
 
 ---
 
-## Three Upload Methods
+## Choosing the Right Upload Method
 
-| Method | When to use |
-|--------|-------------|
-| **Import from URL** (below) | You have a publicly accessible `https://` URL |
-| **Import from chat-uploaded file** (below) | User uploaded a file directly to the chat — use the file's `download_url` |
-| **Upload from local device** (see [Alternative section](#alternative-upload-from-local-device)) | You have a file on disk and can provide it as a binary stream |
+**Before choosing a method, assess what you have:**
 
-### Chat-Uploaded Files
+| What you have | Method to use |
+|---------------|---------------|
+| A publicly accessible `https://` URL | [Import from URL](#method-import-file-from-external-url) |
+| A chat-uploaded file with a `download_url` in its metadata | [Import from URL](#method-import-file-from-external-url) using that `download_url` |
+| A chat-uploaded file with **no** `download_url`, AND you have a Bash or Python tool | [Binary upload](#alternative-upload-from-local-device) using that tool |
+| A chat-uploaded file with **no** `download_url`, AND you have **no** execution tool | Give the user the curl command — this is the correct last resort, not a failure |
 
 > **IMPORTANT — API capability clarification:** The Wix Media API fully supports uploading from local file binaries via the Generate Upload URL endpoint. Never say "Wix's Media API cannot upload from a local file path" — that is false. The correct statement, when applicable, is: "my current environment does not support code execution, so I cannot perform a binary upload." The limitation is always in the runtime, never in the API.
 
-When a user uploads a file directly to the chat, check what your platform gives you:
+---
 
-**Case A — Platform provides a `download_url`**
+### Decision: Chat-uploaded file
 
-> **Always check for a `download_url` first — before anything else.** Even if the file appears as a local path (e.g. `/mnt/data/...`), inspect the file's full metadata object. Many platforms expose a `download_url` alongside the local path. If one exists, use it here. Do not skip this check and do not proceed to Case B without confirming no `download_url` is present.
+When a user uploads a file directly to the chat, follow this decision tree **in order**:
+
+#### Step 0 — Check for `download_url` (do this before anything else)
+
+> Even if the file appears as a local path (e.g. `/mnt/data/...`), inspect the file's full metadata object. Many platforms expose a `download_url` alongside the local path.
 >
-> **A `/mnt/data/...` path is NOT a URL.** Never pass it to the Import File API — the Import API only accepts externally accessible `https://` URLs. If you only have a local path and no `download_url`, go to Case B.
+> **A `/mnt/data/...` path is NOT a URL.** Never pass it to the Import File API — the Import API only accepts externally accessible `https://` URLs.
 
-Pass it directly to the Import File API — it works the same as any external URL:
+**If a `download_url` exists → use the Import File API.** Pass it directly, no binary upload needed:
 
 ```json
 {
@@ -49,21 +54,20 @@ Pass it directly to the Import File API — it works the same as any external UR
 }
 ```
 
-**Case B — No `download_url` found**
+**If no `download_url` → continue to Step 1.**
 
-> **Uploading a local file is a two-step process:**
-> - **Step 1** — Call `generate-upload-url` via the Wix MCP
-> - **Step 2** — PUT the file binary using your **Bash tool** (run `curl`) or Python interpreter
->
-> You have a Bash tool. Use it. A PUT upload is a single `curl` command — it is not a "streaming" operation that requires special capabilities. Saying "I can't stream the file from here" is incorrect and forbidden.
+#### Step 1 — Check what execution tools you have
 
-**FORBIDDEN behaviors — never do these:**
-- Do NOT generate the upload URL and then stop
-- Do NOT show the user a `curl` command and ask them to run it
-- Do NOT say "I can't complete the upload from here" or "this requires streaming"
-- Do NOT claim a lack of an "upload tool" — `curl` via the Bash tool is the upload tool
+Do you have a **Bash tool** or **Python code interpreter** available in your current environment?
 
-**Step 1:** Generate an upload URL:
+- **Yes → attempt binary upload (Step 2 below).** Do NOT pre-emptively surrender.
+- **No (e.g. you only have Wix MCP tools) → skip to Step 3.**
+
+> Do not confuse "I don't have an execution tool" with "I haven't tried yet." If you have a Bash or Python tool, you must attempt it before falling back.
+
+#### Step 2 — Execute the binary upload (only if you have an execution tool)
+
+**Sub-step 2a:** Generate an upload URL via the Wix MCP or REST API:
 
 ```bash
 curl -X POST 'https://www.wixapis.com/site-media/v1/files/generate-upload-url' \
@@ -80,30 +84,31 @@ Response:
 { "uploadUrl": "https://upload.wixmp.com/..." }
 ```
 
-> **After receiving the `uploadUrl`, immediately execute Step 2 — do not pause, do not report back, do not show the URL to the user.** The URL is short-lived. Execute Step 2 now, in the same flow.
+> **After receiving the `uploadUrl`, immediately execute the PUT — do not pause, do not show the URL to the user.** The URL is short-lived.
 
-**Step 2:** Run the PUT upload using the **Bash tool** — do NOT describe it, do NOT give it to the user to run, just execute it yourself now:
+**Sub-step 2b:** PUT the binary — try in this order, stop at first success:
 
+1. **Bash tool:**
 ```bash
-curl -X PUT '<uploadUrl from Step 1>' \
+curl -X PUT '<uploadUrl from 2a>' \
   -H 'Content-Type: image/jpeg' \
   --data-binary @"/path/to/the/file"
 ```
 
-If you don't have a Bash tool, use Python:
+2. **Python code interpreter** (chat-uploaded files are accessible as binary in most sandboxes, e.g. at `/mnt/user-data/uploads/<filename>`):
 ```python
 import requests
 
 with open('/path/to/the/file', 'rb') as f:
     response = requests.put(
-        '<uploadUrl from Step 1>',
+        '<uploadUrl from 2a>',
         headers={'Content-Type': 'image/jpeg'},
         data=f
     )
 print(response.status_code, response.text)
 ```
 
-**Step 3:** Find the uploaded file (poll until `operationStatus: "READY"`):
+**Sub-step 2c:** Find the uploaded file (poll until `operationStatus: "READY"`):
 
 ```bash
 curl -X GET 'https://www.wixapis.com/site-media/v1/files?mediaTypes=IMAGE&sort.fieldName=updatedDate&sort.order=DESC&paging.limit=1' \
@@ -112,7 +117,22 @@ curl -X GET 'https://www.wixapis.com/site-media/v1/files?mediaTypes=IMAGE&sort.f
 
 Use `files[0].url` as the permanent wixstatic.com URL.
 
-> **Only ask the user to do the upload manually** if you have confirmed ALL of the following: (1) the file has no `download_url`, AND (2) your Bash tool call actually failed (not just returned a non-2xx — actually failed to execute), AND (3) you have no Python interpreter. Rationale: you have a Bash tool, so this condition almost never applies.
+#### Step 3 — No execution tool available (legitimate last resort)
+
+If you confirmed in Step 1 that you have no Bash tool or Python interpreter (e.g. you are running only with Wix MCP tools in a web chat context), then:
+
+1. Generate the upload URL (sub-step 2a above)
+2. Give the user this command to run themselves — **this is correct behavior, not a failure:**
+
+```bash
+curl -X PUT '<uploadUrl>' \
+  -H 'Content-Type: image/jpeg' \
+  --data-binary @"/path/to/your/file"
+```
+
+**Clearly explain:**
+- The upload URL expires quickly — they should run the command immediately
+- After running it, come back and you will poll the Media Manager to confirm success and get the wixstatic.com URL
 
 ---
 
