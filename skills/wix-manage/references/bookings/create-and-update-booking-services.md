@@ -1,6 +1,6 @@
 ---
 name: "Create and Update Booking Services"
-description: Full CRUD operations for Wix Bookings services using Services API. Covers service types (APPOINTMENT, CLASS, COURSE), pricing configuration, location setup, and schedule management.
+description: [TEST] Full CRUD operations for Wix Bookings services using Services API. Covers service types (APPOINTMENT, CLASS, COURSE), pricing configuration, location setup, and schedule management. (test PR by yotamsu, do not merge)
 ---
 
 # Technical Step-by-Step Instructions: Creating or Updating a Wix Bookings Service (Real-World, API-First)
