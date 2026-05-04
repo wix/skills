@@ -61,6 +61,7 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
 
 3. **Where will it appear?**
    - Dashboard sidebar/page → Dashboard Page or Modal
+     - Default for single-collection CRUD: [Auto Patterns Dashboard](references/AUTO_PATTERNS_DASHBOARD.md) — declarative `patterns.json` (faster to author, iterate by editing JSON, no React rewrite). Skip when you need multi-collection joins, custom business logic, embedded scripts, or external APIs.
    - Existing Wix app dashboard (widget) → Dashboard Plugin
    - Existing Wix app dashboard (menu item) → Dashboard Menu Plugin
    - Anywhere on site → custom element widget
@@ -113,6 +114,7 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
 | App Identifiers (Namespace, Code ID) | [APP_IDENTIFIERS.md](references/APP_IDENTIFIERS.md) |
 | Wix Stores Versioning (V1/V3) | [STORES_VERSIONING.md](references/STORES_VERSIONING.md) |
 | Official Documentation Links | [DOCUMENTATION.md](references/DOCUMENTATION.md) |
+| Auto-patterns Dashboard Pages | [AUTO_PATTERNS_DASHBOARD.md](references/AUTO_PATTERNS_DASHBOARD.md) |
 
 ---
 
