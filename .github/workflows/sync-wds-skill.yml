@@ -29,8 +29,8 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
-          chmod +x scripts/sync-wds-skill.sh
-          ./scripts/sync-wds-skill.sh
+          chmod +x .github/scripts/sync-wds-skill.sh
+          ./.github/scripts/sync-wds-skill.sh
 
       - name: Check for changes
         id: sync
