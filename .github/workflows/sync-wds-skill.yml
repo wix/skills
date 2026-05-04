@@ -1,0 +1,55 @@
+name: Sync WDS Skill
+
+on:
+  schedule:
+    - cron: '0 8 * * 1-5'  # Weekdays at 08:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ secrets.AICM_GITHUB_APP_ID }}
+          private-key: ${{ secrets.AICM_GITHUB_APP_PRIVATE_KEY }}
+          owner: wix-private
+          repositories: coding-agents-plugins
+          permission-contents: read
+
+      - name: Sync WDS skill from private repo
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          chmod +x .github/scripts/sync-wds-skill.sh
+          ./.github/scripts/sync-wds-skill.sh
+
+      - name: Check for changes
+        id: sync
+        run: |
+          if git diff --quiet -- skills/wix-design-system; then
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create Pull Request
+        if: steps.sync.outputs.has_changes == 'true'
+        uses: peter-evans/create-pull-request@271a8d0340265f705b14b31e2c788f8122c6d27f  # v7
+        with:
+          branch: sync/wds-skill
+          title: 'chore: sync WDS skill from upstream'
+          body: |
+            Automated sync of the WDS skill from [`wix-private/coding-agents-plugins/skills/wds-docs`](https://github.com/wix-private/coding-agents-plugins/tree/master/skills/wds-docs).
+
+            Please review the changes and merge if they look correct.
+          commit-message: 'chore: sync WDS skill from upstream'
+          delete-branch: true
