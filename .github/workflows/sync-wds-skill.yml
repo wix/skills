@@ -17,7 +17,7 @@ jobs:
 
       - name: Sync WDS skill from private repo
         env:
-          GH_TOKEN: ${{ secrets.WIX_PRIVATE_SKILLS_READ_TOKEN }}
+          GH_TOKEN: ${{ secrets.WIX_PRIVATE_CODING_AGENTS_PLUGINS_READ_TOKEN }}
         run: |
           chmod +x scripts/sync-wds-skill.sh
           ./scripts/sync-wds-skill.sh
