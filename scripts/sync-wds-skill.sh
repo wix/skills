@@ -28,11 +28,42 @@ sync_file() {
   fetch_file "$remote_path" > "$local_file"
 }
 
+discover_files() {
+  local dir_path="$1"
+  local entries
+  entries=$(gh api "repos/${UPSTREAM_REPO}/contents/${UPSTREAM_PATH}/${dir_path}" --jq '.[] | "\(.type)\t\(.name)"')
+
+  while IFS=$'\t' read -r type name; do
+    local rel_path="${dir_path:+${dir_path}/}${name}"
+    if [ "$type" = "file" ] && [ "$name" != "README.md" ]; then
+      echo "$rel_path"
+    elif [ "$type" = "dir" ]; then
+      discover_files "$rel_path"
+    fi
+  done <<< "$entries"
+}
+
 echo "Syncing WDS skill from ${UPSTREAM_REPO}/${UPSTREAM_PATH} → ${LOCAL_PATH}"
 
-sync_file "SKILL.md"
-sync_file "scripts/wds.cjs"
-sync_file "references/file-structure.md"
+# Discover all files from upstream (excluding README.md)
+files=$(discover_files "")
+
+# Remove local files that no longer exist upstream
+if [ -d "${REPO_ROOT}/${LOCAL_PATH}" ]; then
+  while IFS= read -r local_file; do
+    rel_path="${local_file#${REPO_ROOT}/${LOCAL_PATH}/}"
+    if ! echo "$files" | grep -qxF "$rel_path"; then
+      echo "Removing ${rel_path} (deleted upstream)"
+      rm -f "$local_file"
+    fi
+  done < <(find "${REPO_ROOT}/${LOCAL_PATH}" -type f)
+fi
+
+# Sync all upstream files
+while IFS= read -r file; do
+  echo "  Syncing ${file}"
+  sync_file "$file"
+done <<< "$files"
 
 # Preserve local skill name in SKILL.md frontmatter
 SKILL_FILE="${REPO_ROOT}/${LOCAL_PATH}/SKILL.md"
