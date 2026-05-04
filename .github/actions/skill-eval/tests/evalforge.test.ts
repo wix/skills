@@ -129,3 +129,33 @@ describe('getEvalRun', () => {
     expect(run.aggregateMetrics.failed).toBe(0);
   });
 });
+
+describe('deleteMcpVersion', () => {
+  beforeEach(() => vi.restoreAllMocks());
+
+  it('sends DELETE request to correct URL', async () => {
+    const spy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ message: 'CapabilityVersion deleted successfully' }),
+    } as Response);
+
+    await CLIENT.deleteMcpVersion('mcp-1', 'proj-1', 'ver-uuid-1');
+
+    expect(spy).toHaveBeenCalledWith(
+      'https://ef.example.com/api/projects/proj-1/capabilities/mcp-1/versions/ver-uuid-1',
+      expect.objectContaining({ method: 'DELETE' }),
+    );
+  });
+
+  it('throws with status 404 when version not found', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
+      ok: false,
+      status: 404,
+      json: async () => ({ error: 'CapabilityVersion not found' }),
+    } as Response);
+
+    const err = await CLIENT.deleteMcpVersion('mcp-1', 'proj-1', 'ver-uuid-1').catch(e => e);
+    expect(err.status).toBe(404);
+  });
+});
