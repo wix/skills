@@ -6,6 +6,11 @@ import { COMMENT_MARKER } from './comment';
 
 type Octokit = ReturnType<typeof github.getOctokit>;
 
+export function fail(message: string, blocking: boolean): void {
+  if (blocking) core.setFailed(message);
+  else core.warning(message);
+}
+
 export async function getChangedFiles(octokit: Octokit, config: Config): Promise<ChangedFile[]> {
   const files = await octokit.paginate(octokit.rest.pulls.listFiles, {
     owner: config.owner,

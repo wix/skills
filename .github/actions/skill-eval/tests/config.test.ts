@@ -7,6 +7,7 @@ vi.mock('@actions/github', () => ({
       pull_request: {
         number: 42,
         base: { sha: 'base-sha-123' },
+        head: { sha: 'head-sha-456' },
       },
     },
     repo: { owner: 'wix', repo: 'skills' },
@@ -20,8 +21,11 @@ const ALL_INPUTS: Record<string, string> = {
   'github-token': 'ghs_token',
   'evalforge-url': 'https://ef.example.com/api',
   'evalforge-project-id': 'proj-1',
+  'evalforge-agent-id': 'agent-1',
+  'evalforge-mcp-id': 'mcp-1',
   'evalforge-app-id': 'app-1',
   'evalforge-app-secret': 'secret-1',
+  'blocking': 'true',
 };
 
 beforeEach(() => {
@@ -34,10 +38,13 @@ describe('getConfig', () => {
     expect(config.githubToken).toBe('ghs_token');
     expect(config.evalforgeUrl).toBe('https://ef.example.com/api');
     expect(config.projectId).toBe('proj-1');
+    expect(config.agentId).toBe('agent-1');
+    expect(config.mcpId).toBe('mcp-1');
     expect(config.appId).toBe('app-1');
     expect(config.appSecret).toBe('secret-1');
     expect(config.prNumber).toBe(42);
     expect(config.baseSha).toBe('base-sha-123');
+    expect(config.headSha).toBe('head-sha-456');
     expect(config.owner).toBe('wix');
     expect(config.repo).toBe('skills');
   });
@@ -47,6 +54,20 @@ describe('getConfig', () => {
     expect(vi.mocked(core.setSecret)).toHaveBeenCalledWith('ghs_token');
     expect(vi.mocked(core.setSecret)).toHaveBeenCalledWith('app-1');
     expect(vi.mocked(core.setSecret)).toHaveBeenCalledWith('secret-1');
+  });
+
+  it('blocking is true when input is "true"', () => {
+    expect(getConfig().blocking).toBe(true);
+  });
+
+  it('blocking is false when input is "false"', () => {
+    vi.mocked(core.getInput).mockImplementation((name: string) => ({ ...ALL_INPUTS, blocking: 'false' }[name] ?? ''));
+    expect(getConfig().blocking).toBe(false);
+  });
+
+  it('blocking is true when input is absent (empty string)', () => {
+    vi.mocked(core.getInput).mockImplementation((name: string) => ({ ...ALL_INPUTS, blocking: '' }[name] ?? ''));
+    expect(getConfig().blocking).toBe(true);
   });
 
   it('throws when a required input is missing', () => {

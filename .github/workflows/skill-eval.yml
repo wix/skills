@@ -7,6 +7,10 @@ on:
       - 'skills/wix-manage/references/**'
       - 'yaml/wix-manage/**'
 
+concurrency:
+  group: skill-eval-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   skill-eval:
     runs-on: ubuntu-latest
@@ -21,5 +25,8 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           evalforge-url: ${{ vars.EVALFORGE_URL }}
           evalforge-project-id: ${{ vars.AUTO_SKILLS_PIPELINE_PROJECT_ID }}
+          evalforge-agent-id: ${{ vars.AUTO_SKILLS_PIPELINE_AGENT_ID }}
+          evalforge-mcp-id: ${{ vars.AUTO_SKILLS_PIPELINE_MCP_ID }}
           evalforge-app-id: ${{ secrets.AUTO_SKILLS_PIPELINE_APP_ID }}
           evalforge-app-secret: ${{ secrets.AUTO_SKILLS_PIPELINE_APP_SECRET }}
+          blocking: ${{ vars.EVAL_BLOCK_MERGE }}
