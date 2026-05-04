@@ -3,9 +3,10 @@ name: Skill Eval Cleanup
 on:
   pull_request:
     types: [closed]
-    paths:
-      - 'skills/wix-manage/references/**'
-      - 'yaml/wix-manage/**'
+
+concurrency:
+  group: skill-eval-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 jobs:
   cleanup:
@@ -14,7 +15,6 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
         with:
           ref: ${{ github.event.pull_request.base.sha }}

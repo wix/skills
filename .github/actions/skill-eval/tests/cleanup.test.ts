@@ -48,6 +48,7 @@ describe('runCleanup', () => {
   it('deletes only versions matching the PR prefix', async () => {
     await runCleanup();
 
+    expect(mockListMcpVersions).toHaveBeenCalledWith('mcp-1', 'proj-1');
     expect(mockDeleteMcpVersion).toHaveBeenCalledTimes(2);
     expect(mockDeleteMcpVersion).toHaveBeenCalledWith('mcp-1', 'proj-1', 'ver-1');
     expect(mockDeleteMcpVersion).toHaveBeenCalledWith('mcp-1', 'proj-1', 'ver-2');

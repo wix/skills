@@ -34082,8 +34082,11 @@ const mode = core.getInput('mode') || 'eval';
 if (mode === 'cleanup') {
     (0, cleanup_1.runCleanup)().catch(err => core.setFailed(err instanceof Error ? err.message : String(err)));
 }
-else {
+else if (mode === 'eval') {
     (0, eval_1.runEval)().catch(err => core.setFailed(err instanceof Error ? err.message : String(err)));
+}
+else {
+    core.setFailed(`Unknown mode: "${mode}". Valid modes are "eval" and "cleanup".`);
 }
 
 
