@@ -25,10 +25,8 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
   - [ ] Extension(s) registered in extensions.ts
   - [ ] Invoked `wix-design-system` skill FIRST when using @wix/design-system (for correct imports, especially icons)
 - [ ] **Step 5:** Ran validation (see [Validation](#validation))
-  - [ ] Dependencies installed
-  - [ ] TypeScript compiled
-  - [ ] Build succeeded
-  - [ ] Preview deployed
+  - [ ] Used **`fast-validate`** during fix loops (targeted `tsc --noEmit` only)
+  - [ ] Final **`full-validate`** passed (dependencies installed, TypeScript compiled, build succeeded, preview deployed)
 - [ ] **Step 6:** Collected and presented ALL manual action items to user
 
 **🛑 STOP:** If any box is unchecked, do NOT proceed to the next step.
@@ -235,16 +233,15 @@ Follow the extension reference file to implement each extension. Key rules:
 
 ### Step 5: Run Validation
 
-After all implementation is complete, you MUST run validation. See [APP_VALIDATION.md](references/APP_VALIDATION.md) for the complete validation workflow:
+After all implementation is complete, you MUST run validation. See [APP_VALIDATION.md](references/APP_VALIDATION.md) for the **`fast-validate`** and **`full-validate`** modes and the decision rule.
 
-1. Package installation (detect package manager, run install)
-2. TypeScript compilation check (`npx tsc --noEmit`)
-3. Build validation (`npx wix build`)
-4. Preview deployment (`npx wix preview`)
+**Critical rules:**
 
-**Do NOT report completion to the user until validation passes.**
+- During fix loops, use **`fast-validate`** (targeted `tsc --noEmit`) for fast feedback.
+- **Always** run **`full-validate`** as the final gate before reporting completion.
+- Do NOT report completion until **`full-validate`** passes.
 
-If validation fails, fix the errors and re-validate until it passes.
+If validation fails, fix the errors and re-validate (using **`fast-validate`** during the fix loop).
 
 ### Step 6: Report Completion
 
