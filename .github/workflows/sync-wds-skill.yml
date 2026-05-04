@@ -17,10 +17,13 @@ jobs:
 
       - name: Generate GitHub App token
         id: app-token
-        uses: tibdex/github-app-token@3beb63f4bd073e61482598c45c71c1019b59b73a  # v2
+        uses: actions/create-github-app-token@v3
         with:
-          app_id: ${{ secrets.AICM_GITHUB_APP_ID }}
-          private_key: ${{ secrets.AICM_GITHUB_APP_PRIVATE_KEY }}
+          app-id: ${{ secrets.AICM_GITHUB_APP_ID }}
+          private-key: ${{ secrets.AICM_GITHUB_APP_PRIVATE_KEY }}
+          owner: wix-private
+          repositories: coding-agents-plugins
+          permission-contents: read
 
       - name: Sync WDS skill from private repo
         env:
