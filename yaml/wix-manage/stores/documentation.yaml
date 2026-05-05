@@ -40,5 +40,5 @@ apiDoc:
       tags: [stores]
     - file: ../../../skills/wix-manage/references/stores/create-product-from-image.md
       title: Create Product from Image
-      docsEntry: https://github.com/wix/skills/blob/feat/image-to-product-v3/skills/wix-manage/references/stores/create-product-from-image.md
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
       tags: [stores, media]
