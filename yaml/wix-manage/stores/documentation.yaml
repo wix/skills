@@ -40,13 +40,13 @@ apiDoc:
       tags: [stores]
     - file: ../../../skills/wix-manage/references/stores/create-product-from-image.md
       title: Create Product from Image (Catalog V1)
-      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
+      docsEntry: https://github.com/wix/skills/blob/feat/image-to-product-v3/skills/wix-manage/references/stores/create-product-from-image.md
       tags: [stores, media]
     - file: ../../../skills/wix-manage/references/stores/create-product-from-image-catalog-v3.md
       title: Create Product from Image (Catalog V3)
-      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
+      docsEntry: https://github.com/wix/skills/blob/feat/image-to-product-v3/skills/wix-manage/references/stores/find-products-query-and-search-catalog-v3.md
       tags: [stores, media]
     - file: ../../../skills/wix-manage/references/stores/create-product-router.md
       title: Create Product (Router)
-      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
+      docsEntry: https://github.com/wix/skills/blob/feat/image-to-product-v3/skills/wix-manage/references/stores/create-product-router.md
       tags: [stores, media]
