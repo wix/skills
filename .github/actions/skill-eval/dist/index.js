@@ -34076,190 +34076,96 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 const core = __importStar(__nccwpck_require__(7484));
+const eval_1 = __nccwpck_require__(9903);
+const cleanup_1 = __nccwpck_require__(6157);
+const mode = core.getInput('mode') || 'eval';
+if (mode === 'cleanup') {
+    (0, cleanup_1.runCleanup)().catch(err => core.setFailed(err instanceof Error ? err.message : String(err)));
+}
+else if (mode === 'eval') {
+    (0, eval_1.runEval)().catch(err => core.setFailed(err instanceof Error ? err.message : String(err)));
+}
+else {
+    core.setFailed(`Unknown mode: "${mode}". Valid modes are "eval" and "cleanup".`);
+}
+
+
+/***/ }),
+
+/***/ 6157:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.runCleanup = runCleanup;
+const core = __importStar(__nccwpck_require__(7484));
 const config_1 = __nccwpck_require__(7799);
-const github = __importStar(__nccwpck_require__(3228));
-const github_1 = __nccwpck_require__(6246);
 const evalforge_1 = __nccwpck_require__(280);
-const paths_1 = __nccwpck_require__(6621);
-const skill_changes_1 = __nccwpck_require__(9336);
-const eval_run_1 = __nccwpck_require__(5879);
-const comment_1 = __nccwpck_require__(3116);
-async function run() {
-    const config = (0, config_1.getConfig)();
-    const octokit = github.getOctokit(config.githubToken);
-    core.info(`Skill eval — PR #${config.prNumber}`);
-    let allFiles;
-    try {
-        allFiles = await (0, github_1.getChangedFiles)(octokit, config);
-    }
-    catch (e) {
-        const message = e instanceof Error ? e.message : String(e);
-        core.error(`Failed to fetch changed files: ${message}`);
-        await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatServiceError)('Could not retrieve PR file list'));
-        core.setFailed('Could not retrieve PR file list');
-        return;
-    }
-    const { yamlFiles, mdFiles } = (0, paths_1.categorizeChanges)(allFiles);
-    if (yamlFiles.length === 0 && mdFiles.length === 0) {
-        core.info('No relevant changes — skipping');
-        return;
-    }
-    core.info(`Changed YAML files: ${yamlFiles.map(f => f.filename).join(', ') || 'none'}`);
-    core.info(`Changed MD files: ${mdFiles.map(f => f.filename).join(', ') || 'none'}`);
-    const { entries, errors } = await (0, skill_changes_1.collectSkillChanges)(octokit, config.owner, config.repo, yamlFiles, mdFiles, config.baseSha, process.env.GITHUB_WORKSPACE ?? process.cwd());
-    if (entries.length === 0 && errors.length === 0) {
-        core.info('No affected skill entries — skipping eval');
-        return;
-    }
-    core.info(`Affected entries: ${entries.length}`);
-    if (errors.length > 0) {
-        await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatValidationErrors)(errors));
-        core.setFailed((0, comment_1.formatFailedJobMessage)(errors));
-        return;
-    }
+async function runCleanup() {
+    const config = (0, config_1.getCleanupConfig)();
     const evalforge = new evalforge_1.EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
-    let availableTags;
+    let versions;
     try {
-        availableTags = await evalforge.getTags(config.projectId);
+        versions = await evalforge.listMcpVersions(config.mcpId, config.projectId);
     }
     catch (e) {
         const message = e instanceof Error ? e.message : String(e);
-        core.error(`Failed to fetch EvalForge tags: ${message}`);
-        await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatServiceError)('Could not reach EvalForge — contact a repository maintainer if this persists', config.blocking));
-        (0, github_1.fail)('EvalForge validation could not run', config.blocking);
+        core.error(`Failed to list MCP versions: ${message}`);
+        core.setFailed('Could not list MCP versions for cleanup');
         return;
     }
-    const tagErrors = [];
-    for (const entry of entries) {
-        for (const tag of entry.tags) {
-            if (!availableTags.has(tag)) {
-                tagErrors.push({ entryTitle: entry.title, message: `unknown tag "${tag}"` });
-            }
-        }
-    }
-    if (tagErrors.length > 0) {
-        await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatValidationErrors)(tagErrors));
-        core.setFailed((0, comment_1.formatFailedJobMessage)(tagErrors));
+    const prefix = `pr-${config.prNumber}-`;
+    const prVersions = versions.filter(v => v.version.startsWith(prefix));
+    if (prVersions.length === 0) {
+        core.info(`No MCP versions found for PR #${config.prNumber} — nothing to clean up`);
         return;
     }
-    const tags = [...new Set(entries.flatMap(e => e.tags))];
-    const versionLabel = `pr-${config.prNumber}-${config.headSha.slice(0, 7)}`;
-    let mcpVersionId;
-    try {
-        const mcpVersion = await evalforge.createMcpVersion(config.mcpId, config.projectId, versionLabel, config.prNumber, config.headSha);
-        mcpVersionId = mcpVersion.id;
-        core.info(`Created MCP version ${versionLabel} (${mcpVersionId})`);
-    }
-    catch (e) {
-        const status = e.status;
-        if (status === 409) {
-            core.warning(`MCP version ${versionLabel} already exists — looking up existing version`);
-            try {
-                const versions = await evalforge.listMcpVersions(config.mcpId, config.projectId);
-                const existing = versions.find(v => v.version === versionLabel);
-                if (!existing)
-                    throw new Error(`Version ${versionLabel} not found after 409`);
-                mcpVersionId = existing.id;
-                core.info(`Reusing existing MCP version ${versionLabel} (${mcpVersionId})`);
-            }
-            catch (lookupErr) {
-                const message = lookupErr instanceof Error ? lookupErr.message : String(lookupErr);
-                core.error(`Failed to look up existing MCP version: ${message}`);
-                await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatServiceError)('Could not look up existing MCP version — contact a repository maintainer if this persists', config.blocking));
-                (0, github_1.fail)('Could not look up existing MCP version', config.blocking);
-                return;
-            }
+    core.info(`Found ${prVersions.length} MCP version(s) to delete for PR #${config.prNumber}`);
+    for (const version of prVersions) {
+        try {
+            await evalforge.deleteMcpVersion(config.mcpId, config.projectId, version.id);
+            core.info(`Deleted MCP version ${version.version} (${version.id})`);
         }
-        else {
+        catch (e) {
             const message = e instanceof Error ? e.message : String(e);
-            core.error(`Failed to create MCP version: ${message}`);
-            await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatServiceError)('Could not create MCP version — contact a repository maintainer if this persists', config.blocking));
-            (0, github_1.fail)('Could not create MCP version', config.blocking);
-            return;
+            core.warning(`Failed to delete MCP version ${version.version}: ${message}`);
         }
-    }
-    let runId;
-    try {
-        const run = await evalforge.createEvalRun(config.projectId, {
-            name: `PR #${config.prNumber} skill eval`,
-            description: `Skill eval for PR #${config.prNumber}`,
-            projectId: config.projectId,
-            tags,
-            agentId: config.agentId,
-            capabilityVersions: { [config.mcpId]: mcpVersionId },
-        });
-        runId = run.id;
-        core.info(`Created eval run ${runId}`);
-    }
-    catch (e) {
-        const status = e.status;
-        if (status === 400) {
-            const message = e instanceof Error ? e.message : String(e);
-            core.error(`createEvalRun 400 — treating as no matching scenarios. Full error: ${message}`);
-            await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatNoScenarios)(tags, config.blocking));
-            (0, github_1.fail)(`Skill evaluation failed: no scenarios matched tags: ${tags.join(', ')}`, config.blocking);
-            return;
-        }
-        const message = e instanceof Error ? e.message : String(e);
-        core.error(`Failed to create eval run: ${message}`);
-        await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatServiceError)('Could not create eval run — contact a repository maintainer if this persists', config.blocking));
-        (0, github_1.fail)('Could not create eval run', config.blocking);
-        return;
-    }
-    try {
-        await evalforge.triggerEvalRun(config.projectId, runId);
-        core.info(`Triggered eval run ${runId}`);
-    }
-    catch (e) {
-        const message = e instanceof Error ? e.message : String(e);
-        core.error(`Failed to trigger eval run: ${message}`);
-        await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatServiceError)('Could not trigger eval run — contact a repository maintainer if this persists', config.blocking));
-        (0, github_1.fail)('Could not trigger eval run', config.blocking);
-        return;
-    }
-    core.info(`Polling eval run ${runId}...`);
-    let finalStatus;
-    try {
-        finalStatus = await (0, eval_run_1.pollUntilDone)(evalforge, config.projectId, runId);
-    }
-    catch (e) {
-        if (e.timeout) {
-            await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatEvalTimeout)(runId, config.blocking));
-            (0, github_1.fail)(`Skill evaluation timed out (run ID: ${runId})`, config.blocking);
-            return;
-        }
-        const message = e instanceof Error ? e.message : String(e);
-        core.error(`Eval run polling failed: ${message}`);
-        await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatServiceError)('Eval run polling failed — contact a repository maintainer if this persists', config.blocking));
-        (0, github_1.fail)('Eval run polling failed', config.blocking);
-        return;
-    }
-    const { aggregateMetrics: m } = finalStatus;
-    if (finalStatus.status === 'completed') {
-        if (m.failed === 0 && m.errors === 0) {
-            await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatEvalPassed)(m, runId));
-            core.info(`Eval passed — ${m.passed}/${m.totalAssertions} assertions passed (pass rate: ${m.passRate}%, run ID: ${runId})`);
-        }
-        else {
-            await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatEvalFailed)(m, runId, config.blocking));
-            core.info(`Eval result — ${m.failed} assertions failed, ${m.errors} errors, ${m.passed}/${m.totalAssertions} passed (pass rate: ${m.passRate}%, run ID: ${runId})`);
-            (0, github_1.fail)(`Skill evaluation failed (pass rate: ${m.passRate}%)`, config.blocking);
-        }
-    }
-    else if (finalStatus.status === 'failed') {
-        await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatServiceError)(`Eval run failed — contact a repository maintainer if this persists (run ID: ${runId})`, config.blocking));
-        (0, github_1.fail)(`Eval run failed (run ID: ${runId})`, config.blocking);
-    }
-    else if (finalStatus.status === 'cancelled') {
-        await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatServiceError)(`Eval run was cancelled (run ID: ${runId})`, config.blocking));
-        (0, github_1.fail)(`Eval run was cancelled (run ID: ${runId})`, config.blocking);
-    }
-    else {
-        await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatServiceError)(`Eval run ended with unexpected status: ${finalStatus.status} (run ID: ${runId})`, config.blocking));
-        (0, github_1.fail)(`Eval run ended with unexpected status: ${finalStatus.status}`, config.blocking);
     }
 }
-run().catch(err => core.setFailed(err instanceof Error ? err.message : String(err)));
 
 
 /***/ }),
@@ -34373,7 +34279,8 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.getConfig = getConfig;
+exports.getEvalConfig = getEvalConfig;
+exports.getCleanupConfig = getCleanupConfig;
 const core = __importStar(__nccwpck_require__(7484));
 const github = __importStar(__nccwpck_require__(3228));
 function ensureHttps(url) {
@@ -34388,7 +34295,7 @@ function safeGetSecret(name) {
     core.setSecret(value);
     return value;
 }
-function getConfig() {
+function getEvalConfig() {
     const pr = github.context.payload.pull_request;
     if (!pr)
         throw new Error('No pull_request payload — action must be triggered by a pull_request event');
@@ -34411,6 +34318,22 @@ function getConfig() {
         owner: github.context.repo.owner,
         repo: github.context.repo.repo,
         blocking: core.getInput('blocking') !== 'false',
+    };
+}
+function getCleanupConfig() {
+    const pr = github.context.payload.pull_request;
+    if (!pr)
+        throw new Error('No pull_request payload — action must be triggered by a pull_request event');
+    const prNumber = pr.number;
+    if (!prNumber)
+        throw new Error('PR payload is missing required field: number');
+    return {
+        evalforgeUrl: ensureHttps(core.getInput('evalforge-url', { required: true })),
+        projectId: core.getInput('evalforge-project-id', { required: true }),
+        mcpId: core.getInput('evalforge-mcp-id', { required: true }),
+        appId: safeGetSecret('evalforge-app-id'),
+        appSecret: safeGetSecret('evalforge-app-secret'),
+        prNumber,
     };
 }
 
@@ -34504,6 +34427,235 @@ async function pollUntilDone(client, projectId, runId) {
 
 /***/ }),
 
+/***/ 9903:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.runEval = runEval;
+const core = __importStar(__nccwpck_require__(7484));
+const config_1 = __nccwpck_require__(7799);
+const github = __importStar(__nccwpck_require__(3228));
+const github_1 = __nccwpck_require__(6246);
+const evalforge_1 = __nccwpck_require__(280);
+const paths_1 = __nccwpck_require__(6621);
+const skill_changes_1 = __nccwpck_require__(9336);
+const eval_run_1 = __nccwpck_require__(5879);
+const comment_1 = __nccwpck_require__(3116);
+async function runEval() {
+    const config = (0, config_1.getEvalConfig)();
+    const octokit = github.getOctokit(config.githubToken);
+    core.info(`Skill eval — PR #${config.prNumber}`);
+    let allFiles;
+    try {
+        allFiles = await (0, github_1.getChangedFiles)(octokit, config);
+    }
+    catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        core.error(`Failed to fetch changed files: ${message}`);
+        await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatServiceError)('Could not retrieve PR file list'));
+        core.setFailed('Could not retrieve PR file list');
+        return;
+    }
+    const { yamlFiles, mdFiles } = (0, paths_1.categorizeChanges)(allFiles);
+    if (yamlFiles.length === 0 && mdFiles.length === 0) {
+        core.info('No relevant changes — skipping');
+        return;
+    }
+    core.info(`Changed YAML files: ${yamlFiles.map(f => f.filename).join(', ') || 'none'}`);
+    core.info(`Changed MD files: ${mdFiles.map(f => f.filename).join(', ') || 'none'}`);
+    const { entries, errors } = await (0, skill_changes_1.collectSkillChanges)(octokit, config.owner, config.repo, yamlFiles, mdFiles, config.baseSha, process.env.GITHUB_WORKSPACE ?? process.cwd());
+    if (entries.length === 0 && errors.length === 0) {
+        core.info('No affected skill entries — skipping eval');
+        return;
+    }
+    core.info(`Affected entries: ${entries.length}`);
+    if (errors.length > 0) {
+        await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatValidationErrors)(errors));
+        core.setFailed((0, comment_1.formatFailedJobMessage)(errors));
+        return;
+    }
+    const evalforge = new evalforge_1.EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
+    let availableTags;
+    try {
+        availableTags = await evalforge.getTags(config.projectId);
+    }
+    catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        core.error(`Failed to fetch EvalForge tags: ${message}`);
+        await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatServiceError)('Could not reach EvalForge — contact a repository maintainer if this persists', config.blocking));
+        (0, github_1.fail)('EvalForge validation could not run', config.blocking);
+        return;
+    }
+    const tagErrors = [];
+    for (const entry of entries) {
+        for (const tag of entry.tags ?? []) {
+            if (!availableTags.has(tag)) {
+                tagErrors.push({ entryTitle: entry.title, message: `unknown tag "${tag}"` });
+            }
+        }
+    }
+    if (tagErrors.length > 0) {
+        await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatValidationErrors)(tagErrors));
+        core.setFailed((0, comment_1.formatFailedJobMessage)(tagErrors));
+        return;
+    }
+    const tags = [...new Set(entries.flatMap(e => e.tags ?? []))];
+    const versionLabel = `pr-${config.prNumber}-${config.headSha.slice(0, 7)}`;
+    let mcpVersionId;
+    try {
+        const mcpVersion = await evalforge.createMcpVersion(config.mcpId, config.projectId, versionLabel, config.prNumber, config.headSha);
+        mcpVersionId = mcpVersion.id;
+        core.info(`Created MCP version ${versionLabel} (${mcpVersionId})`);
+    }
+    catch (e) {
+        const status = e.status;
+        if (status === 409) {
+            core.warning(`MCP version ${versionLabel} already exists — looking up existing version`);
+            try {
+                const versions = await evalforge.listMcpVersions(config.mcpId, config.projectId);
+                const existing = versions.find(v => v.version === versionLabel);
+                if (!existing)
+                    throw new Error(`Version ${versionLabel} not found after 409`);
+                mcpVersionId = existing.id;
+                core.info(`Reusing existing MCP version ${versionLabel} (${mcpVersionId})`);
+            }
+            catch (lookupErr) {
+                const message = lookupErr instanceof Error ? lookupErr.message : String(lookupErr);
+                core.error(`Failed to look up existing MCP version: ${message}`);
+                await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatServiceError)('Could not look up existing MCP version — contact a repository maintainer if this persists', config.blocking));
+                (0, github_1.fail)('Could not look up existing MCP version', config.blocking);
+                return;
+            }
+        }
+        else {
+            const message = e instanceof Error ? e.message : String(e);
+            core.error(`Failed to create MCP version: ${message}`);
+            await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatServiceError)('Could not create MCP version — contact a repository maintainer if this persists', config.blocking));
+            (0, github_1.fail)('Could not create MCP version', config.blocking);
+            return;
+        }
+    }
+    let runId;
+    try {
+        const run = await evalforge.createEvalRun(config.projectId, {
+            name: `PR #${config.prNumber} skill eval`,
+            description: `Skill eval for PR #${config.prNumber}`,
+            projectId: config.projectId,
+            tags,
+            agentId: config.agentId,
+            capabilityIds: [config.mcpId],
+            capabilityVersions: { [config.mcpId]: mcpVersionId },
+        });
+        runId = run.id;
+        core.info(`Created eval run ${runId}`);
+    }
+    catch (e) {
+        const status = e.status;
+        if (status === 400) {
+            const message = e instanceof Error ? e.message : String(e);
+            core.error(`createEvalRun 400 — treating as no matching scenarios. Full error: ${message}`);
+            await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatNoScenarios)(tags, config.blocking));
+            (0, github_1.fail)(`Skill evaluation failed: no scenarios matched tags: ${tags.join(', ')}`, config.blocking);
+            return;
+        }
+        const message = e instanceof Error ? e.message : String(e);
+        core.error(`Failed to create eval run: ${message}`);
+        await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatServiceError)('Could not create eval run — contact a repository maintainer if this persists', config.blocking));
+        (0, github_1.fail)('Could not create eval run', config.blocking);
+        return;
+    }
+    try {
+        await evalforge.triggerEvalRun(config.projectId, runId);
+        core.info(`Triggered eval run ${runId}`);
+    }
+    catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        core.error(`Failed to trigger eval run: ${message}`);
+        await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatServiceError)('Could not trigger eval run — contact a repository maintainer if this persists', config.blocking));
+        (0, github_1.fail)('Could not trigger eval run', config.blocking);
+        return;
+    }
+    core.info(`Polling eval run ${runId}...`);
+    let finalStatus;
+    try {
+        finalStatus = await (0, eval_run_1.pollUntilDone)(evalforge, config.projectId, runId);
+    }
+    catch (e) {
+        if (e.timeout) {
+            await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatEvalTimeout)(runId, config.blocking));
+            (0, github_1.fail)(`Skill evaluation timed out (run ID: ${runId})`, config.blocking);
+            return;
+        }
+        const message = e instanceof Error ? e.message : String(e);
+        core.error(`Eval run polling failed: ${message}`);
+        await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatServiceError)('Eval run polling failed — contact a repository maintainer if this persists', config.blocking));
+        (0, github_1.fail)('Eval run polling failed', config.blocking);
+        return;
+    }
+    const { aggregateMetrics: m } = finalStatus;
+    if (finalStatus.status === 'completed') {
+        if (m.failed === 0 && m.errors === 0) {
+            await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatEvalPassed)(m, runId));
+            core.info(`Eval passed — ${m.passed}/${m.totalAssertions} assertions passed (pass rate: ${m.passRate}%, run ID: ${runId})`);
+        }
+        else {
+            await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatEvalFailed)(m, runId, config.blocking));
+            core.info(`Eval result — ${m.failed} assertions failed, ${m.errors} errors, ${m.passed}/${m.totalAssertions} passed (pass rate: ${m.passRate}%, run ID: ${runId})`);
+            (0, github_1.fail)(`Skill evaluation failed (pass rate: ${m.passRate}%)`, config.blocking);
+        }
+    }
+    else if (finalStatus.status === 'failed') {
+        await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatServiceError)(`Eval run failed — contact a repository maintainer if this persists (run ID: ${runId})`, config.blocking));
+        (0, github_1.fail)(`Eval run failed (run ID: ${runId})`, config.blocking);
+    }
+    else if (finalStatus.status === 'cancelled') {
+        await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatServiceError)(`Eval run was cancelled (run ID: ${runId})`, config.blocking));
+        (0, github_1.fail)(`Eval run was cancelled (run ID: ${runId})`, config.blocking);
+    }
+    else {
+        await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatServiceError)(`Eval run ended with unexpected status: ${finalStatus.status} (run ID: ${runId})`, config.blocking));
+        (0, github_1.fail)(`Eval run ended with unexpected status: ${finalStatus.status}`, config.blocking);
+    }
+}
+
+
+/***/ }),
+
 /***/ 280:
 /***/ ((__unused_webpack_module, exports) => {
 
@@ -34574,6 +34726,9 @@ class EvalForgeClient {
     }
     async getEvalRun(projectId, runId) {
         return this.request('GET', `/projects/${projectId}/eval-runs/${runId}`);
+    }
+    async deleteMcpVersion(mcpId, projectId, versionId) {
+        await this.request('DELETE', `/projects/${projectId}/capabilities/${mcpId}/versions/${versionId}`);
     }
 }
 exports.EvalForgeClient = EvalForgeClient;

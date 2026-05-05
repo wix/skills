@@ -1,6 +1,10 @@
 name: 'Skill Eval'
 description: 'Validates skill YAML entries and runs EvalForge evaluations on PRs'
 inputs:
+  mode:
+    description: 'Action mode: "eval" (default) runs the skill evaluation; "cleanup" deletes MCP versions on PR close'
+    required: false
+    default: 'eval'
   github-token:
     description: 'GitHub token for PR comments'
     required: true
@@ -11,8 +15,8 @@ inputs:
     description: 'EvalForge project ID'
     required: true
   evalforge-agent-id:
-    description: 'EvalForge agent ID for eval runs'
-    required: true
+    description: 'EvalForge agent ID for eval runs (required for eval mode)'
+    required: false
   evalforge-mcp-id:
     description: 'EvalForge MCP capability ID'
     required: true
