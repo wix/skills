@@ -1,6 +1,6 @@
 # TypeScript Quality Guidelines
 
-Strict TypeScript standards for production-quality site components with zero compilation errors.
+Strict TypeScript standards for production-quality Editor React components with zero compilation errors.
 
 ## Core Principles
 

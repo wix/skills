@@ -15,7 +15,7 @@ This reference lists common event types, SDK imports, permissions, and links. Fo
 ```typescript
 import { contacts } from "@wix/crm";
 
-contacts.onContactCreated((event) => {
+export default contacts.onContactCreated((event) => {
   const contact = event.entity;
   console.log("New contact:", contact._id, contact.primaryInfo?.email);
 });
@@ -35,7 +35,7 @@ contacts.onContactCreated((event) => {
 ```typescript
 import { orders } from "@wix/ecom";
 
-orders.onOrderApproved(async (event) => {
+export default orders.onOrderApproved(async (event) => {
   const order = event.data.order;
   console.log("Order approved:", order._id);
 });
@@ -53,7 +53,7 @@ orders.onOrderApproved(async (event) => {
 ```typescript
 import { bookings } from "@wix/bookings";
 
-bookings.onBookingConfirmed((event) => {
+export default bookings.onBookingConfirmed((event) => {
   const booking = event.data.booking;
   console.log("Booking confirmed:", booking._id);
 });
@@ -71,7 +71,7 @@ bookings.onBookingConfirmed((event) => {
 ```typescript
 import { posts } from "@wix/blog";
 
-posts.onPostCreated((event) => {
+export default posts.onPostCreated((event) => {
   const post = event.entity;
   console.log("Post created:", post._id, post.title);
 });

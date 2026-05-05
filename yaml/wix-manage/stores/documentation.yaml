@@ -38,3 +38,7 @@ apiDoc:
       title: Add Store Pages to Site
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
       tags: [stores]
+    - file: ../../../skills/wix-manage/references/stores/create-product-from-image.md
+      title: Create Product from Image
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
+      tags: [stores, media]

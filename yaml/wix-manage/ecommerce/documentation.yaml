@@ -10,3 +10,109 @@ apiDoc:
       title: Setup Store Pickup Location
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
       tags: [stores, ecommerce]
+    - file: ../../../skills/wix-manage/references/ecommerce/guardrail-discount-conflicts.md
+      title: "Guardrail: Discount Conflicts"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce, discounts]
+    - file: ../../../skills/wix-manage/references/ecommerce/setup-discount-rules.md
+      title: "Setup: Discount Rules"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce, discounts]
+    # L3 — Configuration & Setup Skills
+    - file: ../../../skills/wix-manage/references/ecommerce/api-discount-recommendations.md
+      title: "API: Discount Recommendations"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce, discounts, api]
+    - file: ../../../skills/wix-manage/references/ecommerce/setup-coupons.md
+      title: "Setup: Coupons"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/coupons
+      tags: [ecommerce, discounts, coupons]
+    - file: ../../../skills/wix-manage/references/ecommerce/setup-shipping-regions.md
+      title: "Setup: Shipping Regions"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce, shipping]
+    - file: ../../../skills/wix-manage/references/ecommerce/setup-shipping-rates.md
+      title: "Setup: Shipping Rates"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce, shipping]
+    # L4 — Business Flow Skills (Discount)
+    - file: ../../../skills/wix-manage/references/ecommerce/flow-upsell-boost.md
+      title: "Flow: Upsell Boost"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce, discounts]
+    - file: ../../../skills/wix-manage/references/ecommerce/flow-bundle-and-save.md
+      title: "Flow: Bundle and Save"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce, discounts]
+    - file: ../../../skills/wix-manage/references/ecommerce/flow-stock-mover.md
+      title: "Flow: Stock Mover"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce, discounts]
+    - file: ../../../skills/wix-manage/references/ecommerce/flow-seasonal-promotion.md
+      title: "Flow: Seasonal Promotion"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce, discounts]
+    # L4 — Business Flow Skills (Shipping)
+    - file: ../../../skills/wix-manage/references/ecommerce/flow-fix-coverage-gaps.md
+      title: "Flow: Fix Coverage Gaps"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce, shipping]
+    - file: ../../../skills/wix-manage/references/ecommerce/flow-add-free-shipping.md
+      title: "Flow: Add Free Shipping"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce, shipping]
+    - file: ../../../skills/wix-manage/references/ecommerce/flow-optimize-shipping-rates.md
+      title: "Flow: Optimize Shipping Rates"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce, shipping]
+    # L5 — Troubleshooting & Guardrails
+    - file: ../../../skills/wix-manage/references/ecommerce/guardrail-margin-protection.md
+      title: "Guardrail: Margin Protection"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce, discounts]
+    - file: ../../../skills/wix-manage/references/ecommerce/troubleshoot-discount-not-applying.md
+      title: "Troubleshoot: Discount Not Applying"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce, discounts]
+    - file: ../../../skills/wix-manage/references/ecommerce/guardrail-shipping-health.md
+      title: "Guardrail: Shipping Health"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce, shipping]
+    - file: ../../../skills/wix-manage/references/ecommerce/guardrail-rate-pricing-sanity.md
+      title: "Guardrail: Rate Pricing Sanity"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce, shipping]
+    - file: ../../../skills/wix-manage/references/ecommerce/troubleshoot-checkout-delivery-dropoff.md
+      title: "Troubleshoot: Checkout Delivery Drop-off"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce, shipping]
+    # L6 — Business Goals & KPI Skills
+    - file: ../../../skills/wix-manage/references/ecommerce/goal-increase-aov.md
+      title: "Goal: Increase AOV"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce, discounts, goals]
+    - file: ../../../skills/wix-manage/references/ecommerce/goal-clear-inventory.md
+      title: "Goal: Clear Inventory"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce, discounts, goals]
+    - file: ../../../skills/wix-manage/references/ecommerce/goal-seasonal-revenue.md
+      title: "Goal: Seasonal Revenue"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce, discounts, goals]
+    - file: ../../../skills/wix-manage/references/ecommerce/goal-drive-cross-sells.md
+      title: "Goal: Drive Cross-Sells"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce, discounts, goals]
+    - file: ../../../skills/wix-manage/references/ecommerce/goal-reduce-cart-abandonment.md
+      title: "Goal: Reduce Cart Abandonment"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce, shipping, goals]
+    # R — Recommendation Orchestration
+    - file: ../../../skills/wix-manage/references/ecommerce/recommend-discount-strategy.md
+      title: "Recommend: Discount Strategy"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce, discounts, recommendations]
+    - file: ../../../skills/wix-manage/references/ecommerce/recommend-shipping-health.md
+      title: "Recommend: Shipping Health"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce, shipping, recommendations]

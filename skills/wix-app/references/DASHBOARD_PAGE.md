@@ -17,7 +17,7 @@ Follow these steps in order when creating a dashboard page:
 
 ### Data Operations (Wix Data SDK)
 
-See [Wix Data Reference](dashboard-page/WIX_DATA.md) for complete documentation.
+See [Wix Data Reference](data-collection/WIX_DATA.md) in the Data Collection reference for complete documentation.
 
 **Summary:**
 
