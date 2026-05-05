@@ -34082,6 +34082,7 @@ const github_1 = __nccwpck_require__(6246);
 const evalforge_1 = __nccwpck_require__(280);
 const paths_1 = __nccwpck_require__(6621);
 const skill_changes_1 = __nccwpck_require__(9336);
+const eval_run_1 = __nccwpck_require__(5879);
 const comment_1 = __nccwpck_require__(3116);
 async function run() {
     const config = (0, config_1.getConfig)();
@@ -34094,7 +34095,7 @@ async function run() {
     catch (e) {
         const message = e instanceof Error ? e.message : String(e);
         core.error(`Failed to fetch changed files: ${message}`);
-        await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatServiceError)('Could not retrieve PR file list — see job logs for details'));
+        await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatServiceError)('Could not retrieve PR file list'));
         core.setFailed('Could not retrieve PR file list');
         return;
     }
@@ -34116,7 +34117,6 @@ async function run() {
         core.setFailed((0, comment_1.formatFailedJobMessage)(errors));
         return;
     }
-    // EvalForge tag validation
     const evalforge = new evalforge_1.EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
     let availableTags;
     try {
@@ -34124,9 +34124,9 @@ async function run() {
     }
     catch (e) {
         const message = e instanceof Error ? e.message : String(e);
-        core.error(`EvalForge request failed: ${message}`);
-        await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatServiceError)('EvalForge validation could not run — see job logs for details'));
-        core.setFailed('EvalForge validation could not run');
+        core.error(`Failed to fetch EvalForge tags: ${message}`);
+        await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatServiceError)('Could not reach EvalForge — contact a repository maintainer if this persists', config.blocking));
+        (0, github_1.fail)('EvalForge validation could not run', config.blocking);
         return;
     }
     const tagErrors = [];
@@ -34142,8 +34142,122 @@ async function run() {
         core.setFailed((0, comment_1.formatFailedJobMessage)(tagErrors));
         return;
     }
-    await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatValidationPassed)());
-    core.info('Validation passed — eval run not yet implemented');
+    const tags = [...new Set(entries.flatMap(e => e.tags))];
+    const versionLabel = `pr-${config.prNumber}-${config.headSha.slice(0, 7)}`;
+    let mcpVersionId;
+    try {
+        const mcpVersion = await evalforge.createMcpVersion(config.mcpId, config.projectId, versionLabel, config.prNumber, config.headSha);
+        mcpVersionId = mcpVersion.id;
+        core.info(`Created MCP version ${versionLabel} (${mcpVersionId})`);
+    }
+    catch (e) {
+        const status = e.status;
+        if (status === 409) {
+            core.warning(`MCP version ${versionLabel} already exists — looking up existing version`);
+            try {
+                const versions = await evalforge.listMcpVersions(config.mcpId, config.projectId);
+                const existing = versions.find(v => v.version === versionLabel);
+                if (!existing)
+                    throw new Error(`Version ${versionLabel} not found after 409`);
+                mcpVersionId = existing.id;
+                core.info(`Reusing existing MCP version ${versionLabel} (${mcpVersionId})`);
+            }
+            catch (lookupErr) {
+                const message = lookupErr instanceof Error ? lookupErr.message : String(lookupErr);
+                core.error(`Failed to look up existing MCP version: ${message}`);
+                await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatServiceError)('Could not look up existing MCP version — contact a repository maintainer if this persists', config.blocking));
+                (0, github_1.fail)('Could not look up existing MCP version', config.blocking);
+                return;
+            }
+        }
+        else {
+            const message = e instanceof Error ? e.message : String(e);
+            core.error(`Failed to create MCP version: ${message}`);
+            await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatServiceError)('Could not create MCP version — contact a repository maintainer if this persists', config.blocking));
+            (0, github_1.fail)('Could not create MCP version', config.blocking);
+            return;
+        }
+    }
+    let runId;
+    try {
+        const run = await evalforge.createEvalRun(config.projectId, {
+            name: `PR #${config.prNumber} skill eval`,
+            description: `Skill eval for PR #${config.prNumber}`,
+            projectId: config.projectId,
+            tags,
+            agentId: config.agentId,
+            capabilityVersions: { [config.mcpId]: mcpVersionId },
+        });
+        runId = run.id;
+        core.info(`Created eval run ${runId}`);
+    }
+    catch (e) {
+        const status = e.status;
+        if (status === 400) {
+            const message = e instanceof Error ? e.message : String(e);
+            core.error(`createEvalRun 400 — treating as no matching scenarios. Full error: ${message}`);
+            await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatNoScenarios)(tags, config.blocking));
+            (0, github_1.fail)(`Skill evaluation failed: no scenarios matched tags: ${tags.join(', ')}`, config.blocking);
+            return;
+        }
+        const message = e instanceof Error ? e.message : String(e);
+        core.error(`Failed to create eval run: ${message}`);
+        await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatServiceError)('Could not create eval run — contact a repository maintainer if this persists', config.blocking));
+        (0, github_1.fail)('Could not create eval run', config.blocking);
+        return;
+    }
+    try {
+        await evalforge.triggerEvalRun(config.projectId, runId);
+        core.info(`Triggered eval run ${runId}`);
+    }
+    catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        core.error(`Failed to trigger eval run: ${message}`);
+        await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatServiceError)('Could not trigger eval run — contact a repository maintainer if this persists', config.blocking));
+        (0, github_1.fail)('Could not trigger eval run', config.blocking);
+        return;
+    }
+    core.info(`Polling eval run ${runId}...`);
+    let finalStatus;
+    try {
+        finalStatus = await (0, eval_run_1.pollUntilDone)(evalforge, config.projectId, runId);
+    }
+    catch (e) {
+        if (e.timeout) {
+            await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatEvalTimeout)(runId, config.blocking));
+            (0, github_1.fail)(`Skill evaluation timed out (run ID: ${runId})`, config.blocking);
+            return;
+        }
+        const message = e instanceof Error ? e.message : String(e);
+        core.error(`Eval run polling failed: ${message}`);
+        await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatServiceError)('Eval run polling failed — contact a repository maintainer if this persists', config.blocking));
+        (0, github_1.fail)('Eval run polling failed', config.blocking);
+        return;
+    }
+    const { aggregateMetrics: m } = finalStatus;
+    if (finalStatus.status === 'completed') {
+        if (m.failed === 0 && m.errors === 0) {
+            await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatEvalPassed)(m, runId));
+            core.info(`Eval passed — ${m.passed}/${m.totalAssertions} assertions passed (pass rate: ${m.passRate}%, run ID: ${runId})`);
+        }
+        else {
+            await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatEvalFailed)(m, runId, config.blocking));
+            core.info(`Eval result — ${m.failed} assertions failed, ${m.errors} errors, ${m.passed}/${m.totalAssertions} passed (pass rate: ${m.passRate}%, run ID: ${runId})`);
+            (0, github_1.fail)(`Skill evaluation failed (pass rate: ${m.passRate}%)`, config.blocking);
+        }
+    }
+    else if (finalStatus.status === 'failed') {
+        await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatServiceError)(`Eval run failed — contact a repository maintainer if this persists (run ID: ${runId})`, config.blocking));
+        (0, github_1.fail)(`Eval run failed (run ID: ${runId})`, config.blocking);
+    }
+    else if (finalStatus.status === 'cancelled') {
+        await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatServiceError)(`Eval run was cancelled (run ID: ${runId})`, config.blocking));
+        (0, github_1.fail)(`Eval run was cancelled (run ID: ${runId})`, config.blocking);
+    }
+    else {
+        await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatServiceError)(`Eval run ended with unexpected status: ${finalStatus.status} (run ID: ${runId})`, config.blocking));
+        (0, github_1.fail)(`Eval run ended with unexpected status: ${finalStatus.status}`, config.blocking);
+    }
 }
 run().catch(err => core.setFailed(err instanceof Error ? err.message : String(err)));
 
@@ -34158,23 +34272,63 @@ run().catch(err => core.setFailed(err instanceof Error ? err.message : String(er
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.COMMENT_MARKER = void 0;
 exports.formatValidationErrors = formatValidationErrors;
-exports.formatValidationPassed = formatValidationPassed;
 exports.formatServiceError = formatServiceError;
 exports.formatFailedJobMessage = formatFailedJobMessage;
+exports.formatEvalPassed = formatEvalPassed;
+exports.formatEvalFailed = formatEvalFailed;
+exports.formatEvalTimeout = formatEvalTimeout;
+exports.formatNoScenarios = formatNoScenarios;
 exports.COMMENT_MARKER = '<!-- skill-eval-action -->';
 function formatValidationErrors(errors) {
     const lines = errors.map(e => `- **${e.entryTitle}**: ${e.message}`).join('\n');
-    return [exports.COMMENT_MARKER, '## ❌ Skill validation failed', '', lines].join('\n');
+    return [exports.COMMENT_MARKER, '## ❌ Skill Validation: Failed', '', lines].join('\n');
 }
-function formatValidationPassed() {
-    return `${exports.COMMENT_MARKER}\n## ✅ Skill validation passed`;
-}
-function formatServiceError(message) {
-    return `${exports.COMMENT_MARKER}\n## ❌ Skill validation failed\n\n${message}`;
+function formatServiceError(message, blocking = true) {
+    const icon = blocking ? '❌' : '⚠️';
+    const heading = blocking ? 'Skill Evaluation: Error' : 'Skill Evaluation: Warning';
+    return `${exports.COMMENT_MARKER}\n## ${icon} ${heading}\n\n${message}`;
 }
 function formatFailedJobMessage(errors) {
     const lines = errors.map(e => `  - ${e.entryTitle}: ${e.message}`).join('\n');
     return `Skill validation failed (${errors.length} error${errors.length === 1 ? '' : 's'}):\n${lines}`;
+}
+function formatEvalPassed(metrics, runId) {
+    return [
+        exports.COMMENT_MARKER,
+        `## ✅ Skill Evaluation: Passed`,
+        '',
+        `Pass rate: ${metrics.passRate}%`,
+        `Run ID: ${runId}`,
+    ].join('\n');
+}
+function formatEvalFailed(metrics, runId, blocking) {
+    const icon = blocking ? '❌' : '⚠️';
+    const label = blocking ? 'Skill Evaluation: Failed' : 'Skill Evaluation: Warning';
+    return [
+        exports.COMMENT_MARKER,
+        `## ${icon} ${label}`,
+        '',
+        `Pass rate: ${metrics.passRate}%`,
+        `Run ID: ${runId}`,
+    ].join('\n');
+}
+function formatEvalTimeout(runId, blocking) {
+    const icon = blocking ? '⏱' : '⚠️';
+    return [
+        exports.COMMENT_MARKER,
+        `## ${icon} Skill Evaluation: Timed Out`,
+        '',
+        `Run ID: ${runId}`,
+    ].join('\n');
+}
+function formatNoScenarios(tags, blocking) {
+    const icon = blocking ? '❌' : '⚠️';
+    return [
+        exports.COMMENT_MARKER,
+        `## ${icon} Skill Evaluation: No Matching Scenarios`,
+        '',
+        `No scenarios matched tags: ${tags.map(t => `\`${t}\``).join(', ')}`,
+    ].join('\n');
 }
 
 
@@ -34240,19 +34394,111 @@ function getConfig() {
         throw new Error('No pull_request payload — action must be triggered by a pull_request event');
     const prNumber = pr.number;
     const baseSha = pr.base?.sha;
-    if (!prNumber || !baseSha)
-        throw new Error('PR payload is missing required fields (number or base.sha)');
+    const headSha = pr.head?.sha;
+    if (!prNumber || !baseSha || !headSha)
+        throw new Error('PR payload is missing required fields (number, base.sha, or head.sha)');
     return {
         githubToken: safeGetSecret('github-token'),
         evalforgeUrl: ensureHttps(core.getInput('evalforge-url', { required: true })),
         projectId: core.getInput('evalforge-project-id', { required: true }),
+        agentId: core.getInput('evalforge-agent-id', { required: true }),
+        mcpId: core.getInput('evalforge-mcp-id', { required: true }),
         appId: safeGetSecret('evalforge-app-id'),
         appSecret: safeGetSecret('evalforge-app-secret'),
         prNumber,
         baseSha,
+        headSha,
         owner: github.context.repo.owner,
         repo: github.context.repo.repo,
+        blocking: core.getInput('blocking') !== 'false',
     };
+}
+
+
+/***/ }),
+
+/***/ 5879:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.pollUntilDone = pollUntilDone;
+const core = __importStar(__nccwpck_require__(7484));
+const POLL_INTERVAL_MS = 30_000;
+const POLL_TIMEOUT_MS = 30 * 60 * 1_000;
+const RETRY_LIMIT = 5;
+const RETRY_DELAY_MS = 10_000;
+function isRetriable(e) {
+    const status = e.status;
+    if (status && status >= 500)
+        return true;
+    if (e instanceof Error && (e.name === 'AbortError' || e.name === 'TimeoutError'))
+        return true;
+    return false;
+}
+function delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, Math.max(0, ms)));
+}
+async function pollUntilDone(client, projectId, runId) {
+    const deadline = Date.now() + POLL_TIMEOUT_MS;
+    while (Date.now() < deadline) {
+        let status;
+        for (let attempt = 0; attempt <= RETRY_LIMIT; attempt++) {
+            try {
+                status = await client.getEvalRun(projectId, runId);
+                break;
+            }
+            catch (e) {
+                if (isRetriable(e) && attempt < RETRY_LIMIT) {
+                    core.warning(`Poll attempt failed (retry ${attempt + 1}/${RETRY_LIMIT}): ${e instanceof Error ? e.message : String(e)}`);
+                    await delay(RETRY_DELAY_MS);
+                }
+                else {
+                    throw e;
+                }
+            }
+        }
+        const terminal = status.status === 'completed' || status.status === 'failed' || status.status === 'cancelled';
+        if (terminal)
+            return status;
+        core.info(`Eval run ${runId}: ${status.status}...`);
+        await delay(Math.min(POLL_INTERVAL_MS, deadline - Date.now()));
+    }
+    throw Object.assign(new Error('Eval run timed out after 30 minutes'), { timeout: true });
 }
 
 
@@ -34265,6 +34511,9 @@ function getConfig() {
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.EvalForgeClient = void 0;
+const MCP_URL = 'https://mcp.wix.com/mcp';
+const MCP_SKILLS_REPO = 'wix/skills';
+const MCP_CONFIG_KEY = 'wix-mcp-remote';
 class EvalForgeClient {
     baseUrl;
     headers;
@@ -34291,9 +34540,40 @@ class EvalForgeClient {
             throw new Error(`EvalForge ${method} ${path} → 200 but invalid JSON: ${e instanceof Error ? e.message : String(e)}`);
         });
     }
+    async listMcpVersions(mcpId, projectId) {
+        return this.request('GET', `/projects/${projectId}/capabilities/${mcpId}/versions`);
+    }
+    async createMcpVersion(mcpId, projectId, versionLabel, prNumber, headSha) {
+        return this.request('POST', `/projects/${projectId}/capabilities/${mcpId}/versions`, {
+            version: versionLabel,
+            origin: 'pr',
+            notes: `Auto-created for PR #${prNumber}`,
+            content: {
+                config: {
+                    [MCP_CONFIG_KEY]: {
+                        url: `${MCP_URL}?skillsRepo=${MCP_SKILLS_REPO}&skillsPr=${headSha}`,
+                        type: 'http',
+                        headers: {
+                            Authorization: '{{wix-auth-token}}',
+                            'wix-account-id': '{{wix-auth-user-id}}',
+                        },
+                    },
+                },
+            },
+        });
+    }
     async getTags(projectId) {
         const tags = await this.request('GET', `/projects/${projectId}/tags`);
         return new Set(tags);
+    }
+    async createEvalRun(projectId, input) {
+        return this.request('POST', `/projects/${projectId}/eval-runs`, input);
+    }
+    async triggerEvalRun(projectId, runId) {
+        return this.request('POST', `/projects/${projectId}/eval-runs/${runId}/run`);
+    }
+    async getEvalRun(projectId, runId) {
+        return this.request('GET', `/projects/${projectId}/eval-runs/${runId}`);
     }
 }
 exports.EvalForgeClient = EvalForgeClient;
@@ -34340,10 +34620,17 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.fail = fail;
 exports.getChangedFiles = getChangedFiles;
 exports.upsertComment = upsertComment;
 const core = __importStar(__nccwpck_require__(7484));
 const comment_1 = __nccwpck_require__(3116);
+function fail(message, blocking) {
+    if (blocking)
+        core.setFailed(message);
+    else
+        core.warning(message);
+}
 async function getChangedFiles(octokit, config) {
     const files = await octokit.paginate(octokit.rest.pulls.listFiles, {
         owner: config.owner,

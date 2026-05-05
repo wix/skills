@@ -42,3 +42,11 @@ apiDoc:
       title: Create Product from Image (Catalog V1)
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
       tags: [stores, media]
+    - file: ../../../skills/wix-manage/references/stores/create-product-from-image-catalog-v3.md
+      title: Create Product from Image (Catalog V3)
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
+      tags: [stores, media]
+    - file: ../../../skills/wix-manage/references/stores/create-product-from-image-router.md
+      title: Create Product from Image (Version Router)
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
+      tags: [stores, media]
