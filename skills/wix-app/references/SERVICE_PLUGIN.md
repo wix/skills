@@ -3,7 +3,7 @@
 
 Creates service plugin extensions for Wix CLI applications. Service plugins are a set of APIs defined by Wix that you can use to inject custom logic into the existing backend flows of Wix business solutions or to introduce entirely new flows to Wix sites.
 
-When you implement a service plugin, Wix calls your custom functions during specific flows. Common use cases include eCommerce customization (shipping, fees, payment settings, validations) and Bookings customization (pricing, staff sorting), but service plugins can extend any Wix business solution that exposes SPIs.
+When you implement a service plugin, Wix calls your custom functions during specific flows. Common use cases include eCommerce customization (shipping, fees, payment settings, validations) and Bookings customization (staff sorting), but service plugins can extend any Wix business solution that exposes SPIs.
 
 ## Quick Start Checklist
 
@@ -31,7 +31,6 @@ Follow these steps in order when creating a service plugin:
 | Payment Settings | [PAYMENT-SETTINGS.md](service-plugin/PAYMENT-SETTINGS.md) |
 | Shipping Rates | [SHIPPING-RATES.md](service-plugin/SHIPPING-RATES.md) |
 | Validations | [VALIDATIONS.md](service-plugin/VALIDATIONS.md) |
-| Bookings Pricing Provider | [BOOKINGS-PRICING-PROVIDER.md](service-plugin/BOOKINGS-PRICING-PROVIDER.md) |
 | Bookings Staff Sorting | [BOOKINGS-STAFF-SORTING.md](service-plugin/BOOKINGS-STAFF-SORTING.md) |
 
 ## Output Structure
@@ -218,7 +217,6 @@ All builder methods accept these three fields:
 | Discount Triggers | `ecomDiscountTriggers()` | `id`, `name`, `source` |
 | Gift Cards        | `ecomGiftCards()`        | `id`, `name`, `source` |
 | Payment Settings  | `ecomPaymentSettings()`  | `id`, `name`, `source`, `fallbackValueForRequires3dSecure` |
-| Bookings Pricing Provider | `bookingsPricingProvider()` | `id`, `name`, `source` |
 | Bookings Staff Sorting | `bookingsStaffSortingProvider()` | `id`, `name`, `source`, `methodName`, `methodDescription` (max 100 chars), `dashboardPluginId` |
 
 Only `ecomShippingRates()` accepts `description`. Passing unsupported fields to other builders causes TypeScript errors. `bookingsStaffSortingProvider()` requires `methodName` and `methodDescription` fields (methodDescription has a 100-character limit), and optionally accepts `dashboardPluginId`.
