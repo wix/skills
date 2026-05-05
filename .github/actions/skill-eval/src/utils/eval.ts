@@ -125,6 +125,7 @@ export async function runEval(): Promise<void> {
       projectId: config.projectId,
       tags,
       agentId: config.agentId,
+      capabilityIds: [config.mcpId],
       capabilityVersions: { [config.mcpId]: mcpVersionId },
     });
     runId = run.id;

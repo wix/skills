@@ -34578,6 +34578,7 @@ async function runEval() {
             projectId: config.projectId,
             tags,
             agentId: config.agentId,
+            capabilityIds: [config.mcpId],
             capabilityVersions: { [config.mcpId]: mcpVersionId },
         });
         runId = run.id;
