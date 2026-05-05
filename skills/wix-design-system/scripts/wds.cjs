@@ -4,12 +4,14 @@
  * WDS Documentation Helper
  *
  * Auto-discovers @wix/design-system in node_modules and provides
- * fast, focused lookups for components, props, examples, and icons
+ * fast, focused lookups for components, props, examples, and icons.
  *
  * Usage:
  *   node <path-to>/wds.cjs search <keyword>
  *   node <path-to>/wds.cjs component <Name>
+ *   node <path-to>/wds.cjs components <Name1> <Name2>...
  *   node <path-to>/wds.cjs example <Name> <ExampleName>
+ *   node <path-to>/wds.cjs testkit <Name> [method]
  *   node <path-to>/wds.cjs icons <query>
  */
 
@@ -92,7 +94,14 @@ function escapeRegex(str) {
 }
 
 function buildTermsPattern(args) {
-  return args.map((a) => escapeRegex(a)).join("|");
+  // Tolerate both `search foo bar` (separate args) and `search "foo bar"`
+  // (single quoted arg). Without the split, a single quoted string becomes a
+  // literal-phrase match instead of OR-of-words and silently returns nothing.
+  return args
+    .flatMap((a) => a.split(/\s+/))
+    .filter(Boolean)
+    .map(escapeRegex)
+    .join("|");
 }
 
 function validateComponentName(name) {
@@ -154,12 +163,9 @@ function cmdSearch(docsDir, terms) {
   }
 }
 
-function cmdComponent(docsDir, componentName) {
-  if (!componentName) {
-    console.error("Usage: wds.cjs component <ComponentName>");
-    console.error("Example: wds.cjs component Button");
-    process.exit(1);
-  }
+// Renders one component's props + examples list. Returns true on success,
+// false if the component wasn't found (so batch callers can keep going).
+function printComponent(docsDir, componentName) {
   validateComponentName(componentName);
 
   const componentsDir = path.join(docsDir, "components");
@@ -172,7 +178,7 @@ function cmdComponent(docsDir, componentName) {
     console.error(
       `Component "${componentName}" not found. Run: wds.cjs search <keyword>`
     );
-    process.exit(1);
+    return false;
   }
 
   const propsLines = propsContent.split("\n");
@@ -226,6 +232,67 @@ function cmdComponent(docsDir, componentName) {
       );
     }
   }
+
+  return true;
+}
+
+function cmdComponent(docsDir, componentName) {
+  if (!componentName) {
+    console.error("Usage: wds.cjs component <ComponentName>");
+    console.error("Example: wds.cjs component Button");
+    process.exit(1);
+  }
+  if (!printComponent(docsDir, componentName)) {
+    process.exit(1);
+  }
+}
+
+// Cheap pre-check so cmdComponents can decide whether to emit a `---`
+// separator before invoking the actual renderer. Avoids stale separators
+// when a middle component is missing.
+function componentExists(docsDir, componentName) {
+  if (!/^[A-Za-z0-9]+$/.test(componentName)) return false;
+  return fs.existsSync(
+    path.join(docsDir, "components", `${componentName}Props.md`)
+  );
+}
+
+function cmdComponents(docsDir, args) {
+  // Accept either `components Button Card` or `components "Button Card"`.
+  const names = args.flatMap((a) => a.split(/\s+/)).filter(Boolean);
+
+  if (names.length === 0) {
+    console.error("Usage: wds.cjs components <Name1> [Name2] [Name3]...");
+    console.error("Example: wds.cjs components Button Card Table");
+    process.exit(1);
+  }
+
+  let printedAny = false;
+  let anyFailed = false;
+  for (const name of names) {
+    // Match the single-component flow: invalid names get a distinct error
+    // instead of being lumped under "not found".
+    if (!/^[A-Za-z0-9]+$/.test(name)) {
+      console.error(
+        `Invalid component name "${name}". Names may only contain letters and digits.`
+      );
+      anyFailed = true;
+      continue;
+    }
+    if (!componentExists(docsDir, name)) {
+      console.error(
+        `Component "${name}" not found. Run: wds.cjs search <keyword>`
+      );
+      anyFailed = true;
+      continue;
+    }
+    if (printedAny) console.log("\n---\n");
+    printComponent(docsDir, name);
+    printedAny = true;
+  }
+
+  // Exit non-zero only if every requested component failed.
+  if (anyFailed && !printedAny) process.exit(1);
 }
 
 function cmdExample(docsDir, componentName, exampleName) {
@@ -406,6 +473,7 @@ function cmdHelp(docsDir) {
 Usage:
   node ${scriptPath} search <keyword>              Search components by keyword
   node ${scriptPath} component <Name>              Get props + example list
+  node ${scriptPath} components <Name1> <Name2>... Get props + example list for multiple components in one call
   node ${scriptPath} example <Name> "<ExampleName>" Get a specific example
   node ${scriptPath} testkit <Name> [method]       Get testkit imports + API (or one method)
   node ${scriptPath} icons <query>                 Search for icons
@@ -414,6 +482,7 @@ Examples:
   node ${scriptPath} search table list
   node ${scriptPath} search form input validation
   node ${scriptPath} component Button
+  node ${scriptPath} components Button Card Table Input
   node ${scriptPath} example Button "Loading state"
   node ${scriptPath} testkit Button
   node ${scriptPath} testkit Button click
@@ -443,6 +512,9 @@ switch (command) {
     break;
   case "component":
     cmdComponent(docsDir, args[0]);
+    break;
+  case "components":
+    cmdComponents(docsDir, args);
     break;
   case "example":
     cmdExample(docsDir, args[0], args.slice(1).join(" "));
