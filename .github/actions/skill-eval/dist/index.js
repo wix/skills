@@ -34503,7 +34503,7 @@ async function runEval() {
         core.info('No affected skill entries — skipping eval');
         return;
     }
-    core.info(`Affected entries: ${entries.length}`);
+    core.info(`Affected entries: ${entries.map(e => e.title).join(', ')}`);
     if (errors.length > 0) {
         await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatValidationErrors)(errors));
         core.setFailed((0, comment_1.formatFailedJobMessage)(errors));
@@ -34535,6 +34535,7 @@ async function runEval() {
         return;
     }
     const tags = [...new Set(entries.flatMap(e => e.tags ?? []))];
+    core.info(`Eval tags: ${tags.join(', ')}`);
     const versionLabel = `pr-${config.prNumber}-${config.headSha.slice(0, 7)}`;
     let mcpVersionId;
     try {
