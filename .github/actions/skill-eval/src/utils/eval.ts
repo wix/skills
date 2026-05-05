@@ -47,7 +47,7 @@ export async function runEval(): Promise<void> {
     return;
   }
 
-  core.info(`Affected entries: ${entries.length}`);
+  core.info(`Affected entries: ${entries.map(e => e.title).join(', ')}`);
 
   if (errors.length > 0) {
     await upsertComment(octokit, config, formatValidationErrors(errors));
@@ -84,6 +84,7 @@ export async function runEval(): Promise<void> {
   }
 
   const tags = [...new Set(entries.flatMap(e => e.tags ?? []))];
+  core.info(`Eval tags: ${tags.join(', ')}`);
 
   const versionLabel = `pr-${config.prNumber}-${config.headSha.slice(0, 7)}`;
   let mcpVersionId: string;
