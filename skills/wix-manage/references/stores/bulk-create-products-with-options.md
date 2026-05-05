@@ -4,8 +4,6 @@ description: Uses bulk products endpoint to create multiple products with invent
 ---
 # RECIPE: Business Recipe - Bulk Creating Wix Store Products with inventory and options
 
-> **Recommended:** Always start from the [Create Product Router](create-product-router.md) which auto-detects the catalog version and routes here automatically.
-
 Learn how to create multiple Wix store products with customizable options like colors, sizes, or other variants in a single bulk operation, allowing efficient creation of product catalogs.
 
 ---

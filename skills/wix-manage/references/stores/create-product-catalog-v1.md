@@ -4,8 +4,6 @@ description: Create products using the Catalog V1 Products API. Use this recipe 
 ---
 # RECIPE: Business Recipe - Create Product (Catalog V1)
 
-> **Recommended:** Always start from the [Create Product Router](create-product-router.md) which auto-detects the catalog version and routes here automatically.
-
 ## STEP 1: Create a Simple Product
 
 Use `POST https://www.wixapis.com/stores/v1/products` to create a product.
