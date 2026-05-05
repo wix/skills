@@ -200,11 +200,12 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ### [Create Product from Image (Version Router)](references/stores/create-product-from-image-router.md)
 **Technical:** **MANDATORY entry point** for all "create product from image" flows. Detects the site's catalog version using Get Catalog Version endpoint, then routes to the correct version-specific recipe (V1 or V3). Always start here when the user wants to create a product from an image.
 
+### [Create Product from Image (Catalog V3)](references/stores/create-product-from-image-catalog-v3.md)
+**Technical:** AI-powered product creation from 1-3 images. Uploads images to Media Manager, analyzes them to generate name, description, price, info sections (materials, care instructions, specs), SEO meta description, and variant options. Interactive 6-step flow with user review and approval. **Catalog V3 only** — for V1 sites, use Create Product from Image (Catalog V1) instead.
+
 ### [Create Product from Image (Catalog V1)](references/stores/create-product-from-image.md)
 **Technical:** Creates a product by uploading an image to Wix Media, using the LLM to generate the product name, description, and price from the image, then attaching the media to the created product. Combines Media Upload + LLM analysis + Product Creation + Add Product Media into a single flow. **Catalog V1 only** — for V3 sites, use Create Product from Image (Catalog V3) instead.
 
-### [Create Product from Image (Catalog V3)](references/stores/create-product-from-image-catalog-v3.md)
-**Technical:** AI-powered product creation from 1-3 images. Uploads images to Media Manager, analyzes them to generate name, description, price, info sections (materials, care instructions, specs), SEO meta description, and variant options. Interactive 6-step flow with user review and approval. **Catalog V3 only** — for V1 sites, use Create Product from Image (Catalog V1) instead.
 
 ### [Create Product (Catalog V1)](references/stores/create-product-catalog-v1.md)
 **Technical:** Create products using the Catalog V1 Products API. Use this recipe when the site's catalog version is CATALOG_V1. Covers simple product creation, product with options, and key V1 request structure differences from V3.
