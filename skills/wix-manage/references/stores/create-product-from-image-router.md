@@ -32,8 +32,8 @@ No request body is needed — this is a GET request.
 Possible values for `catalogVersion`:
 | Value | Meaning |
 |-------|---------|
-| `V3_CATALOG` | Site uses Catalog V3 |
-| `V1_CATALOG` | Site uses Catalog V1 |
+| `V3_CATALOG` | Site uses Wix Catalog V3 |
+| `V1_CATALOG` | Site uses Wix Catalog V1 |
 | `STORES_NOT_INSTALLED` | Wix Stores is not installed on this site |
 
 ---
@@ -44,7 +44,7 @@ Based on the `catalogVersion` value from Step 1, follow the appropriate path:
 
 ### If `V3_CATALOG`:
 
-Follow the **[Create Product from Image (Catalog V3)](create-product-from-image-catalog-v3.md)** recipe.
+Follow the **[Create Product from Image (Catalog V3)](references/stores/create-product-from-image-catalog-v3.md)** recipe.
 
 This is an interactive 6-step flow:
 1. Collect 1-3 images from the user (uploaded files or URLs)
@@ -56,7 +56,7 @@ This is an interactive 6-step flow:
 
 ### If `V1_CATALOG`:
 
-Follow the **[Create Product from Image (Catalog V1)](create-product-from-image.md)** recipe.
+Follow the **[Create Product from Image (Catalog V1)](references/stores/create-product-from-image.md)** recipe.
 
 This is a 4-step flow:
 1. Upload the image to Wix Media Manager
