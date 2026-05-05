@@ -4,6 +4,8 @@ description: Single product creation with options using Catalog V3 Products API.
 ---
 # RECIPE: Business Recipe - Creating a Wix Store Product with options (Catalog V3)
 
+> **Recommended:** Always start from the [Create Product Router](create-product-router.md) which auto-detects the catalog version and routes here automatically.
+
 Learn how to create a Wix store product with customizable options like colors, sizes, or other variants, allowing customers to select their preferences when purchasing.
 
 ---
