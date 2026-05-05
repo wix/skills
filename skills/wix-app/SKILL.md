@@ -330,7 +330,7 @@ Stop and report errors if any step fails. Check `.wix/debug.log` on failures.
 - **Skip discovery** when all required APIs are in reference files
 - **maxResults: 5** for all MCP SDK searches
 - **ReadFullDocsArticle** only when search results need more context
-- **Invoke wix-design-system** only before writing the first `.tsx`/`.jsx` that imports it — never preemptively (skips ~5KB of irrelevant context for backend-only jobs)
+- **Invoke wix-design-system** first when using WDS (prevents import errors)
 
 ## Documentation
 
