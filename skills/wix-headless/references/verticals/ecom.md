@@ -28,13 +28,21 @@ seed: null  # No data seeding — ecom has no data of its own
 components:
   agentLocation: "references/ecom/"
   scope: "components"
-  description: "Cart/checkout React islands, ecom utilities, and discount-rule fetch/match helper consumed by stores pages"
+  description: "Cart/checkout React islands. CSS is split into the sibling componentsCss scope."
   references: ["references/ecom/CART_WIRING.md"]
   files:
     - "src/components/CartView.tsx"
     - "src/components/CartBadge.tsx"
-    - "src/styles/components-ecom.css"
     - "src/utils/discounts.ts"
+
+componentsCss:
+  agentLocation: "references/ecom/"
+  scope: "components-css"
+  description: "Scoped ecom CSS — components-ecom.css. Runs in parallel with the components scope; reads design tokens + global.css (for leak audit) but no SDK templates. Independent of TSX work because TSX/CSS link is build-time via class names."
+  references:
+    - "references/ecom/COMPONENTS_CSS.md"
+  files:
+    - "src/styles/components-ecom.css"
 
 pages:
   - name: "ecom-pages"

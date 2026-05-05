@@ -1,14 +1,19 @@
 # Phase 3 Components — Back in Stock (Stores)
 
-Part of the stores `components` scope. Adds two component files plus a CSS append to `components-stores.css`. The matching Phase 4 wiring lives in `PRODUCT_PAGES.md` (SSR probe import + new props on `<ProductPurchase>`).
+Split across the stores `components` scope (TSX/util files) and the `components-css` sibling (CSS rules). The matching Phase 4 wiring lives in `PRODUCT_PAGES.md` (SSR probe import + new props on `<ProductPurchase>`).
 
 ## Scope
 
-Files this scope writes for back-in-stock (in addition to the rest of `components`):
+Files written for back-in-stock, by scope:
 
+**`components` scope** (see `./SHARED_WIRING.md`):
 - `src/utils/back-in-stock.ts` — SSR-elevated probe of the Wix back-in-stock service, plus the canonical Stores app id constant
 - `src/components/BackInStockForm.tsx` — React island that posts via `@wix/ecom`'s `backInStockNotifications.createBackInStockNotificationRequest`
-- `src/styles/components-stores.css` — append the back-in-stock CSS rules to the file the rest of this scope already writes
+
+**`components-css` scope** (see `./COMPONENTS_CSS.md`):
+- `src/styles/components-stores.css` — appends the back-in-stock form CSS rules at the end of the file (see § 3 below)
+
+This file is read by both scopes. Sections covering the SDK / probe / form island are for the `components` scope; § 3 (CSS append) is for the `components-css` scope.
 
 ## Critical rules
 

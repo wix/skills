@@ -34,7 +34,7 @@ seed:
 components:
   agentLocation: "references/stores/"
   scope: "components"
-  description: "SDK wiring that depends only on the styling contract, not on designed page markup"
+  description: "SDK wiring that depends only on the styling contract, not on designed page markup. Writes React/Astro islands and the back-in-stock util. CSS is split into the sibling componentsCss scope."
   references:
     - "references/stores/SHARED_WIRING.md"
     - "references/stores/BACK_IN_STOCK.md"
@@ -44,6 +44,15 @@ components:
     - "src/components/ProductPurchase.tsx"
     - "src/components/BackInStockForm.tsx"
     - "src/utils/back-in-stock.ts"
+
+componentsCss:
+  agentLocation: "references/stores/"
+  scope: "components-css"
+  description: "Scoped stores CSS — components-stores.css. Runs in parallel with the components scope; reads design tokens + global.css (for leak audit) but no SDK templates. Independent of TSX work because TSX/CSS link is build-time via class names."
+  references:
+    - "references/stores/COMPONENTS_CSS.md"
+    - "references/stores/BACK_IN_STOCK.md"  # § 3 — back-in-stock form CSS rules to append
+  files:
     - "src/styles/components-stores.css"
 
 pages:

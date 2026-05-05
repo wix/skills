@@ -95,6 +95,23 @@
         }
       ]
     },
+    "componentsCss": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "required": ["agentLocation", "scope", "references"],
+          "description": "Optional sibling of `components`. When present, the orchestrator dispatches a second concurrent Phase 3 subagent that owns the pack's scoped CSS file only — independent of TSX/Astro work in the `components` scope. Used by packs whose `components` agent dominated phase wall time (today: stores). Backward compatible — packs without this field keep the single-agent shape.",
+          "properties": {
+            "agentLocation": { "type": "string" },
+            "scope": { "type": "string", "const": "components-css" },
+            "description": { "type": "string" },
+            "references": { "type": "array", "items": { "type": "string" } },
+            "files": { "type": "array", "items": { "type": "string" } }
+          }
+        }
+      ]
+    },
     "pages": {
       "type": "array",
       "items": {

@@ -128,6 +128,8 @@ Page design agents read `.wix/image-urls.md` and use the URLs. If the file doesn
 
 Generate images for products, blog posts, and CMS items. Attach via MCP PATCH calls.
 
+> **Parent must NOT paste a PATCH/Update body template.** This INSTRUCTIONS.md owns the recipe per entity type (Products, Blog Posts, CMS Items) — including the exact write-shape (`media.itemsInfo.items[].url` + echoed `options`/`variantsInfo` + `revision`, no `fieldMask`) and the failure-mode mappings. An inline template in the parent prompt causes drift; the wrong shape (e.g. `media.main.image` + `fieldMask`) returns `400 "Expected an object"` on every product. Parents should pass `Phase 1 Seed return data` and `Brand context` only.
+
 **Phase 1 Seed entity IDs are in your prompt, not on disk.** Your parent passes a `Phase 1 Seed return data:` block containing:
 - `products: [{id, name, slug, variantId, ...}, ...]` — if stores pack loaded
 - `collections: [{name, itemIds, fields}, ...]` — if cms pack loaded

@@ -1,6 +1,6 @@
 ---
 name: stores-implementer
-description: "Implements Wix Stores vertical — product catalog, categories, add-to-cart, product pages. Scopes: seed, components, pages-products, pages-categories, pages-home-and-nav. Extends references/shared/IMPLEMENTER.md."
+description: "Implements Wix Stores vertical — product catalog, categories, add-to-cart, product pages. Scopes: seed, components, components-css, pages-products, pages-categories, pages-home-and-nav. Extends references/shared/IMPLEMENTER.md."
 ---
 
 # Stores Implementer
@@ -12,10 +12,13 @@ Extends `references/shared/IMPLEMENTER.md`. Read that file first for phase routi
 | Scope | Phase | Reference |
 |-------|-------|-----------|
 | `seed` | Seed (MCP catalog setup — products only; categories are merchant-driven, not seeded) | `./PRODUCT_CATALOG_DATA.md` |
-| `components` | Components (React islands, SeoTags, scoped CSS) | `./SHARED_WIRING.md` |
+| `components` | Components (React islands + SeoTags + back-in-stock util — TSX/Astro only, **no CSS**) | `./SHARED_WIRING.md` |
+| `components-css` | Components (scoped CSS — `components-stores.css` only; runs concurrently with `components`) | `./COMPONENTS_CSS.md` |
 | `pages-categories` | Pages (`/category/[slug]` listing + shared CategoryRail + `utils/categories.ts`) | `./CATEGORY_PAGES.md` |
 | `pages-products` | Pages (products listing + detail + ProductCard; mounts the rail written by `pages-categories`) | `./PRODUCT_PAGES.md` |
 | `pages-home-and-nav` | Pages (home-page contribution + Shop submenu in Navigation) | `./HOME_AND_NAV.md` |
+
+> **Why `components` is split.** A single agent writing five .tsx/.astro files plus the scoped CSS dominated Phase 3 wall time (228 s on a 3-product run, 320 s on an 8-product run). The CSS file has no runtime coupling to the TSX components — it's referenced only by class name at build time — so it splits cleanly into a sibling agent that runs in the same dispatch batch. Each scope gets a smaller reading set and a smaller write list. See `./COMPONENTS_CSS.md` § "What this scope owns".
 
 ## Files this vertical creates / contributes
 
@@ -31,11 +34,13 @@ If a declared file is missing, return `status: "partial"` with `errors: [{ code:
 
 Canonical templates live at `<SKILL_ROOT>/templates/stores/`. Your `components` and `pages-*` scopes read these and adapt them — don't invent markup or logic.
 
-Components (`components` scope):
+Components (`components` scope — TSX/Astro only):
 - `<SKILL_ROOT>/templates/stores/AddToCartButton.tsx`
 - `<SKILL_ROOT>/templates/stores/ProductPurchase.tsx`
 - `<SKILL_ROOT>/templates/stores/BackInStockForm.tsx`
 - `<SKILL_ROOT>/templates/stores/SeoTags.astro`
+
+Components CSS (`components-css` scope — scoped CSS only):
 - `<SKILL_ROOT>/templates/stores/components-stores.css`
 
 Pages (`pages-products` scope):
@@ -58,7 +63,7 @@ If you find one of these missing at runtime, that's an orchestrator-side bug —
 
 ## CSS ownership — stores pack
 
-Stores-specific component CSS lives in `src/styles/components-stores.css` (written by your `components` scope), NOT in the designer's `global.css`. The classes you own:
+Stores-specific component CSS lives in `src/styles/components-stores.css` (written by the `components-css` scope — see `./COMPONENTS_CSS.md`), NOT in the designer's `global.css`. The classes the pack owns:
 
 - `.product-card`, `.product-card-media`, `.product-card-ribbon`, `.product-card-index` — the product card itself, including the `overflow: hidden` + `border-radius` clipping context. Whoever writes the `border-radius` here also writes any inner padding required to keep child content inside the rounded edges. Without inner padding, a price `<p>` sits flush against the rounded bottom corner and descenders get clipped. Add `padding-bottom: var(--spacing-md)` on the card plus horizontal padding on each text block when you set the radius. See `references/shared/STYLING.md` § "Component-specific CSS is owned by the component, not the designer".
 - `.product-grid` — the layout that lists product cards. Both `/products` (pages-products scope) and `/category/[slug]` (pages-categories scope) consume it from one place. Include `display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--spacing-xl);` plus the View-Transitions opacity fade for in-flight navigations.
@@ -70,7 +75,8 @@ The designer's `global.css` declares only tokens, the `.btn` family, decorative 
 
 Back-in-stock is a dashboard-toggleable feature: it ships in every stores build but only lights up when the merchant clicks "Start Collecting Requests" in the Back in Stock dashboard. The implementation is split across the two scopes the same way every other stores feature is:
 
-- **`components` scope** writes the SSR probe (`src/utils/back-in-stock.ts`), the React form island (`src/components/BackInStockForm.tsx`), and appends the form's CSS to `src/styles/components-stores.css`. See `./BACK_IN_STOCK.md` for the full rules — especially the two app ids (use `1380b703-…` for back-in-stock, NOT the Stores install id `215238eb-…`) and the bare-fields rule (no `itemUrl`, no `image` on the SDK call).
+- **`components` scope** writes the SSR probe (`src/utils/back-in-stock.ts`) and the React form island (`src/components/BackInStockForm.tsx`). See `./BACK_IN_STOCK.md` for the full rules — especially the two app ids (use `1380b703-…` for back-in-stock, NOT the Stores install id `215238eb-…`) and the bare-fields rule (no `itemUrl`, no `image` on the SDK call).
+- **`components-css` scope** appends the back-in-stock form rules to `src/styles/components-stores.css` as part of writing that file. See `./BACK_IN_STOCK.md` § 3 for the CSS append.
 - **`pages-products` scope** imports `getBackInStockEnabled` in `[slug].astro`, awaits the probe, and passes `backInStockEnabled` + `priceAmount` to `<ProductPurchase>`. ProductPurchase renders the form in its three OOS branches when the prop is true.
 
 If the merchant hasn't enabled "Start Collecting Requests", the probe returns `false`, the prop stays `false`, and the form never mounts — no rebuild needed when the merchant flips the toggle in the dashboard.

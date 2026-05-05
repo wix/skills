@@ -4,15 +4,15 @@ This file is **extended by every per-vertical `INSTRUCTIONS.md`** (stores, ecom,
 
 ## Self-loading
 
-On invocation, every agent reads, in order:
+Read **only** the files your scope needs. The reading set varies by scope:
 
-1. **This file** (`references/shared/IMPLEMENTER.md`) — behavioral spec. Loaded on disk, not pasted inline.
-2. `references/shared/RETURN_CONTRACT.md` — structured return format.
-3. `references/shared/MCP_PREFIX.md` — MCP tool prefix discovery.
-4. `references/shared/STYLING.md` — three styling categories (tokens-as-utilities, global semantic classes, co-located styles), ownership, and decision rules. Required reading for any `components` or `pages` scope.
-5. The specific reference(s) for your declared scope (see your vertical's `INSTRUCTIONS.md` scope table).
+| Your scope | Mandatory | Conditional |
+|---|---|---|
+| `seed` | this file, `RETURN_CONTRACT.md`, `MCP_PREFIX.md` | — |
+| `components`, `components-css`, `pages`, `pages-*` | this file, `RETURN_CONTRACT.md`, `STYLING.md` | — |
+| Image scopes | (read `references/images/INSTRUCTIONS.md` § Self-Loading) | — |
 
-Do NOT read references for scopes other than the one named in your prompt — wastes context and blurs ownership.
+Then read the specific reference(s) for your declared scope (see your vertical's `INSTRUCTIONS.md` scope table). Do NOT read references for scopes other than the one named in your prompt — wastes context and blurs ownership.
 
 ## Phase routing
 
@@ -83,7 +83,7 @@ If your marker is missing from the file, fail fast — it means the shell wasn't
 
 Multiple Phase 4 agents patch the same files concurrently (`Navigation.astro` is touched by stores, ecom, and gift-cards; `index.astro` by stores and gift-cards). To keep their edits compatible:
 
-- **Never delete the marker comment** — even if your insert makes it look redundant, leave the comment in place. Other verticals running in parallel rely on `Edit` finding it. An earlier run dropped `<!-- nav:links -->` after a stores insert; the gift-cards agent then couldn't locate its insertion point and had to fall back to fuzzy positioning.
+- **Never delete the marker comment** — even if your insert makes it look redundant, leave the comment in place. Other verticals running in parallel rely on `Edit` finding it.
 - **Edit only between/at YOUR marker.** Do not reorder, deduplicate, or "tidy up" content inserted by another agent — even if it looks duplicated. If you observe a duplicate, return `status: "partial"` with `errors: [{code: "MARKER_CONFLICT", marker: "<name>", detail: "..."}]` rather than self-deciding which copy to keep. Concurrent agents have no shared truth on insert order.
 - **Insert AFTER the marker, never replace it.** Use `Edit` with `old_string` = the marker line and `new_string` = the marker line + a newline + your snippet. Never `Edit` with `old_string` containing both the marker and surrounding content unless you also re-emit the marker verbatim in `new_string`.
 - **If your marker has prior content (designer placed a placeholder), append rather than replace** unless your scope reference explicitly says to clear-and-replace. The designer is instructed not to speculatively populate pack-owned slots, but mistakes happen — appending degrades to a duplicate that the user can clean up; replacing destroys hand-tuned content.
@@ -119,64 +119,9 @@ await currentCart.addToCurrentCart({ … });
 trackEvent("AddToCart", { … }); // fires after; can't break the cart if it fails
 ```
 
-### Styling: tokens-first, classes as exception
+### Styling
 
-**Default to Tailwind utilities derived from `@theme` tokens** for layout, spacing, typography, color, and aspect-ratio decisions. Read `.wix/site.json.designTokens` (and its typed mirror at `.wix/site.d.ts`) at the start of your scope to know which tokens this run published. Tailwind v4 generates utilities from `@theme`: `--spacing-4xl` exposes `py-4xl`/`mt-4xl`/`gap-4xl`, `--color-sand` exposes `bg-sand`/`text-sand`/`border-sand`, etc. Compose those utilities in markup at the call site:
-
-```astro
-<!-- Correct — utilities derived from tokens -->
-<section class="py-4xl flex flex-col gap-xl">
-  <h2 class="font-display text-3xl">A few favourites</h2>
-  <div class="grid grid-cols-1 md:grid-cols-3 gap-2xl">
-    {products.map(p => <ProductCard product={p} />)}
-  </div>
-</section>
-
-<!-- Wrong — invented semantic class for layout -->
-<section class="featured-section">
-  <div class="featured-header">…</div>
-</section>
-```
-
-Markup that references undeclared classes ships broken: Tailwind v4 silently drops them. Tokens-as-utilities makes that miss impossible: there's no class to forget, only utilities derived from a token list everyone reads.
-
-**Use a global semantic class only when one is published for what you're building.** That means: a compound multi-element pattern (`.cart-summary`, `.offer-callout`), an interactive primitive with `:hover`/`:focus`/`:disabled` states (`.btn-primary`), or a JS/React DOM query target (`.cart-badge`, `.product-card`). The full retained list is in designer `INSTRUCTIONS.md` § "Always-required global semantic classes." Use the **ACTUAL class name** verbatim — not the symbolic contract key, not an invented name:
-
-```tsx
-// Correct — the published class name
-<button className="btn-primary">Add to Cart</button>
-<a className="cart-badge" href="/cart">Cart</a>
-
-// Wrong — symbolic key from contract, not the resolved class name
-<button className="addToCartButton">Add to Cart</button>
-
-// Wrong — invented
-<button className="primary-button">Add to Cart</button>
-```
-
-**Never invent a cross-cutting class name** that would belong in `global.css`. That's the designer's domain; you don't write to `global.css`. If you genuinely need a cross-cutting pattern not in the published list, return `status: "partial"` with `errors: [{ code: "MISSING_CONTRACT_CLASS", note: "..." }]` rather than inventing.
-
-**For one-off page decoration that doesn't fit utilities or contract classes, write a co-located `<style>` block at the bottom of the same `.astro` file.** Reference tokens via `var(--color-foo)` from `:root` (auto-loaded by `.wix/design-tokens.css` through `global.css`). Co-located styles are local to one route by definition; no cross-agent coordination, nothing for the designer to pre-declare.
-
-```astro
-<section class="relative py-4xl">
-  <h1 class="font-display text-5xl">Issue No. 01</h1>
-  <div class="hero-stamp">Made in small batches</div>
-</section>
-
-<style>
-  .hero-stamp {
-    position: absolute;
-    bottom: var(--spacing-lg); right: var(--spacing-lg);
-    background: rgba(27, 26, 23, 0.75);
-    color: var(--color-paper);
-    padding: 0.5rem 0.875rem;
-    font-family: var(--font-display); font-style: italic;
-  }
-</style>
-```
-
-When adapting a template, the ONLY class names you may change are those whose contract value differs in the current project (rare — usually only for fully custom brand systems). Logic, imports, and component structure are not adaptable.
+The full styling contract (tokens-as-utilities default, when global semantic classes are appropriate, co-located styles for one-offs, the always-required class list) lives in `STYLING.md`. Read it before any `components` / `pages` work — it's the canonical source. Do not reinvent class names; do not duplicate rules across files.
 
 ## Style conventions
 

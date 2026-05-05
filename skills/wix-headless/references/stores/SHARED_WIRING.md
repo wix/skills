@@ -1,6 +1,8 @@
-# Phase 3 Components — Stores
+# Phase 3 Components — Stores (TSX/Astro)
 
 Launched in **Step 4.5** (after Phase 2 Design System completes, parallel to any running designer page scopes). Writes code that depends on the **design tokens** but NOT on Phase 4 page markup. Finishes before the Phase 4 Pages scopes run in Step 7.
+
+> **CSS lives in a sibling scope.** `src/styles/components-stores.css` is owned by the `components-css` scope (see `./COMPONENTS_CSS.md`), which runs concurrently with this one in the same Step 4.5 batch. This scope does NOT write the CSS file. Reference contract class names from the design tokens here; the CSS sibling defines the rules.
 
 ## Scope
 
@@ -9,9 +11,10 @@ Files this agent OWNS (creates fresh, no designer output to read):
 - `src/components/SeoTags.astro` — Renders `product.seoData.tags` into `<head>`
 - `src/components/AddToCartButton.tsx` — React island; optimistic add-to-cart
 - `src/components/ProductPurchase.tsx` — React island; option selectors + variant resolution + wraps AddToCartButton
-- **`src/styles/components-stores.css`** — scoped CSS for stores-specific contract keys (option selector, quantity stepper, stock status). Imported by `Layout.astro` (foundation sets up the import).
+- `src/components/BackInStockForm.tsx` — React island; back-in-stock subscription form
 
 Files this agent MUST NOT touch:
+- `src/styles/components-stores.css` — owned by the **`components-css`** sibling scope (see `./COMPONENTS_CSS.md`). Reference its class names; do not write the file.
 - `src/utils/wix-image.ts` — **shared utility shipped by the build skill.** Import `resolveWixImageUrl` from `../utils/wix-image`; do NOT write your own copy (would shadow the shared util and drop other verticals' callers). The canonical source lives at `<SKILL_ROOT>/shared-utilities/wix-image.ts`; it's copied into projects by `seed-utilities.sh` during Setup.
 - `src/components/CartView.tsx`, `src/components/CartBadge.tsx`, `src/utils/analytics.ts`, `src/styles/components-ecom.css` — owned by ecom
 - Any `.astro` page — those are designed and later rewritten by other scopes
@@ -45,15 +48,9 @@ Do NOT modify logic, imports, or component structure.
 
 ## Implementation
 
-### 1. `src/styles/components-stores.css`
+### 1. `src/styles/components-stores.css` — not owned by this scope
 
-Use template `templates/components-stores.css`.
-
-Scoped CSS for stores-pack interactive controls: option pills (variant selector), quantity stepper, stock status message, modifier free-text input. Imported by `Layout.astro` (foundation sets up the import).
-
-**Use `@apply` with brand `@theme` utilities** from `global.css` (e.g., `bg-bark`, `text-cream`, `font-body`). The `@theme` tokens are globally available because `global.css` is imported first in Layout.astro. You can also use `var(--color-bark)` directly when `@apply` doesn't cover a property.
-
-Adapt sizing/spacing to the brand's aesthetic (the discovery "page color strategy" + foundation's palette establish the language). Do not rename the class names or state modifiers — they must match the contract.
+> Owned by the **`components-css`** sibling scope. See `./COMPONENTS_CSS.md`. Reference the contract class names from the design tokens in your TSX/Astro files; the CSS sibling defines the rules.
 
 ### 2. `src/utils/analytics.ts` — not owned by this scope
 
@@ -111,7 +108,7 @@ Classes from contract (stores pack):
 
 - **Global** (CSS in foundation's `global.css`):
   - `productPurchase` → `"product-purchase"` (outer wrapper — use on the root `<div>`)
-- **Scoped** (CSS in your `components-stores.css` — see § 1 above):
+- **Scoped** (CSS in `components-stores.css`, owned by the `components-css` sibling scope — see `./COMPONENTS_CSS.md`):
   - `optionGroup` → `"option-group"`
   - `optionLabel` → `"option-label"`
   - `optionChoices` → `"option-choices"`
@@ -134,12 +131,10 @@ Classes from contract (stores pack):
   "status": "complete",
   "phase": "stores-components",
   "scope": "components",
-  "summary": "Wrote React islands + scoped stores CSS from templates",
+  "summary": "Wrote React islands and Astro components from templates (CSS handled by components-css sibling)",
   "data": {
-    "islands": ["ProductPurchase.tsx", "AddToCartButton.tsx"],
+    "islands": ["ProductPurchase.tsx", "AddToCartButton.tsx", "BackInStockForm.tsx"],
     "astroComponents": ["SeoTags.astro"],
-    "scopedCssFile": "src/styles/components-stores.css",
-    "scopedCssRules": 6,
     "globalContractClassesReferenced": ["addToCartButton", "productPurchase"],
     "scopedContractClassesReferenced": ["optionGroup", "optionLabel", "optionChoices", "optionPill", "stockStatus", "quantitySelector", "quantityBtn", "quantityValue"]
   },
@@ -147,7 +142,7 @@ Classes from contract (stores pack):
     "src/components/SeoTags.astro",
     "src/components/AddToCartButton.tsx",
     "src/components/ProductPurchase.tsx",
-    "src/styles/components-stores.css"
+    "src/components/BackInStockForm.tsx"
   ],
   "errors": []
 }

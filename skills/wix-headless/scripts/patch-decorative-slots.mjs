@@ -36,7 +36,11 @@ if (!existsSync(imageUrlsPath)) {
 // Parse `## <key>\n- url: <url>` blocks from .wix/image-urls.md.
 const imageUrlsRaw = readFileSync(imageUrlsPath, "utf8");
 const urlMap = {};
-const sectionRegex = /^##\s+(\S+)\s*\n[\s\S]*?-\s*url:\s*(https?:\/\/\S+)/gm;
+// Match `## key\n…- url: <url>` per section. The inner `(?:(?!^##\s)[\s\S])*?`
+// forbids the lazy span from crossing into the next `## ` line — without
+// that guard, an empty `- url:` for one slot silently steals the next
+// section's URL on partial-failure runs.
+const sectionRegex = /^##\s+(\S+)\s*\n(?:(?!^##\s)[\s\S])*?-\s*url:\s*(https?:\/\/\S+)/gm;
 let m;
 while ((m = sectionRegex.exec(imageUrlsRaw)) !== null) {
   urlMap[m[1]] = m[2];
@@ -80,14 +84,18 @@ for (const file of candidates) {
       return match;
     }
 
+    // Strip HTML comments before any content checks — the designer's placeholder
+    // is a comment like `<!-- orchestrator injects <img> here -->`, which would
+    // otherwise false-positive both the idempotency and clobber-guard checks.
+    const stripped = inner.replace(/<!--[\s\S]*?-->/g, "").trim();
+
     // Skip if div already contains an <img> element (idempotency).
-    if (/<img\b/i.test(inner)) {
+    if (/<img\b/i.test(stripped)) {
       skipped.push({ file, slot: slotKey, reason: "div already contains an <img> tag (idempotent skip)" });
       return match;
     }
 
     // Skip if div has substantive child content beyond whitespace/comments.
-    const stripped = inner.replace(/<!--[\s\S]*?-->/g, "").trim();
     if (stripped.length > 0) {
       warnings.push({ file, slot: slotKey, reason: "div has existing non-image child content; not patching to avoid clobber" });
       return match;

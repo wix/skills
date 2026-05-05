@@ -1,6 +1,8 @@
-# Phase 3 Components — Ecom
+# Phase 3 Components — Ecom (TSX)
 
-Scope: `ecom-shared`. Launched in **Step 4.5** (after Phase 2 Design System completes, parallel to stores components). Writes code that depends on the **design tokens** but NOT on Phase 4 page markup.
+Scope: `components`. Launched in **Step 4.5** (after Phase 2 Design System completes, parallel to stores components and the `components-css` sibling). Writes code that depends on the **design tokens** but NOT on Phase 4 page markup.
+
+> **CSS lives in a sibling scope.** `src/styles/components-ecom.css` is owned by the `components-css` scope (see `./COMPONENTS_CSS.md`), which runs concurrently with this one in the same Step 4.5 batch. This scope does NOT write the CSS file. Reference contract class names from the design tokens here; the CSS sibling defines the rules.
 
 ## Scope
 
@@ -8,9 +10,9 @@ Files this agent OWNS (creates fresh):
 
 - `src/components/CartView.tsx` — React island; full cart display + checkout redirect
 - `src/components/CartBadge.tsx` — React island; nav-wide cart count badge
-- `src/styles/components-ecom.css` — Scoped CSS for cart-item row controls
 
 Files this agent MUST NOT touch:
+- `src/styles/components-ecom.css` — owned by the **`components-css`** sibling scope (see `./COMPONENTS_CSS.md`). Reference its class names; do not write the file.
 - Any `.astro` page — designed and later rewritten by other scopes
 - `src/styles/global.css` — owned by designer foundation
 - `src/layouts/Layout.astro` — owned by designer foundation
@@ -77,13 +79,9 @@ Contract keys: `cartBadge`, `cartBadgeCount`
 
 > `analytics.ts` is a shared utility (see `references/shared/analytics.ts`). Import from it (`import { trackEvent } from "../utils/analytics"`) but do not write it.
 
-### 4. `src/styles/components-ecom.css`
+### 4. `src/styles/components-ecom.css` — not owned by this scope
 
-Use template `templates/components-ecom.css`.
-
-Scoped CSS for cart-item row controls: quantity buttons, prices, description lines, modifiers, unavailable state, remove button. Imported by `Layout.astro` (foundation sets up the import).
-
-Adapt the template's CSS variable references to match the project's design tokens. The class names come from the design tokens and must not be renamed.
+> Owned by the **`components-css`** sibling scope. See `./COMPONENTS_CSS.md`. Reference the contract class names from the design tokens in your TSX files; the CSS sibling defines the rules.
 
 ## Return format
 
@@ -91,16 +89,14 @@ Adapt the template's CSS variable references to match the project's design token
 {
   "status": "complete",
   "phase": "ecom-components",
-  "scope": "ecom-shared",
-  "summary": "Wrote CartView, CartBadge, and components-ecom.css",
+  "scope": "components",
+  "summary": "Wrote CartView and CartBadge from templates (CSS handled by components-css sibling)",
   "data": {
-    "islands": ["CartView.tsx", "CartBadge.tsx"],
-    "css": ["components-ecom.css"]
+    "islands": ["CartView.tsx", "CartBadge.tsx"]
   },
   "files": [
     "src/components/CartView.tsx",
-    "src/components/CartBadge.tsx",
-    "src/styles/components-ecom.css"
+    "src/components/CartBadge.tsx"
   ],
   "errors": []
 }

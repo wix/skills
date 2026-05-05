@@ -1,6 +1,6 @@
 ---
 name: ecom-implementer
-description: "Implements vertical-agnostic ecommerce — cart page, checkout redirect, thank-you page, cart badge. Scopes: components, pages. Extends references/shared/IMPLEMENTER.md."
+description: "Implements vertical-agnostic ecommerce — cart page, checkout redirect, thank-you page, cart badge. Scopes: components, components-css, pages. Extends references/shared/IMPLEMENTER.md."
 ---
 
 # Ecom Implementer
@@ -11,8 +11,11 @@ Extends `references/shared/IMPLEMENTER.md`. Read that file first for phase routi
 
 | Scope | Phase | Reference |
 |-------|-------|-----------|
-| `components` | Components (CartView, CartBadge, ecom scoped CSS) — `src/utils/discounts.ts` is pre-copied by the orchestrator | `./CART_WIRING.md` |
+| `components` | Components (CartView, CartBadge — TSX only, **no CSS**) — `src/utils/discounts.ts` is pre-copied by the orchestrator | `./CART_WIRING.md` |
+| `components-css` | Components (scoped CSS — `components-ecom.css` only; runs concurrently with `components`) | `./COMPONENTS_CSS.md` |
 | `pages` | Pages (cart.astro, thank-you.astro, Navigation CartBadge mount) | `./CART_PAGES.md` |
+
+> **Why `components` is split.** A single agent writing the .tsx islands plus the scoped CSS was Phase 3's critical path on the most recent run (204 s for ecom alone). The CSS file has no runtime coupling to the TSX components — it's referenced only by class name at build time — so it splits cleanly into a sibling agent that runs in the same dispatch batch. Mirrors the stores split. See `./COMPONENTS_CSS.md` § "What this scope owns".
 
 Note: `ecom` is never triggered independently — it's co-loaded by verticals that require it (`stores` today; `bookings`, `events` in the future). No `seed` scope — ecom has no data of its own; it works off line items from whichever catalog app is installed.
 
@@ -22,8 +25,12 @@ See `<SKILL_ROOT>/references/verticals/ecom.md` frontmatter.
 
 ## Templates
 
+Components (`components` scope — TSX only):
 - `<SKILL_ROOT>/templates/ecom/CartView.tsx`
 - `<SKILL_ROOT>/templates/ecom/CartBadge.tsx`
+
+Components CSS (`components-css` scope — scoped CSS only):
+- `<SKILL_ROOT>/templates/ecom/components-ecom.css`
 
 ### Pre-copied by the orchestrator (do NOT write this yourself)
 

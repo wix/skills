@@ -2,6 +2,11 @@
 // Generate .wix/design-tokens.css and .wix/site.d.ts deterministically from
 // .wix/site.json.designTokens. Invoked by the wix-headless skill orchestrator
 // after the Phase 2 Design System agent's return is merged into site.json.
+//
+// Why a script (not agent work): both files are pure projections of the
+// designTokens JSON — no judgment, no brand-context dependence. An LLM
+// emitting them is wasted tokens AND a drift risk (malformed :root blocks,
+// missing token groups, divergent .d.ts skeletons).
 
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
