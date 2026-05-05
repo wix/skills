@@ -4,7 +4,7 @@ description: "AI-powered product creation from 1-3 images. Uploads images to Med
 ---
 # RECIPE: Create Product from Image (Catalog V3)
 
-> **Catalog V3 only.** This recipe uses the Catalog V3 API (`/stores/v3/products`). It will NOT work on sites using Catalog V1. **Recommended:** Always start from the [Create Product Router](create-product-router.md) which auto-detects the catalog version.
+> **Catalog V3 only.** This recipe uses the Catalog V3 API (`/stores/v3/products`). It will NOT work on sites using Catalog V1. **Recommended:** Always start from the [Create Product Router] USE THIS FILE: create-product-router.md which auto-detects the catalog version.
 
 This recipe creates a complete, ready-to-publish Wix Store product from 1-3 product images. It follows a 6-step interactive flow. Steps 4 and 5 require user interaction — do NOT skip them.
 
@@ -579,7 +579,7 @@ If the user's free-text note conflicts with what's visible (e.g., image shows bl
 Ask for a different image or a public URL. Reliable sources: Unsplash, Pexels, Imgur, public S3/GCS.
 
 ### 428 Precondition Required on product creation
-The site uses Catalog V1, not V3. Use the [Create Product Router](create-product-router.md) to detect and route correctly.
+The site uses Catalog V1, not V3. Use the [Create Product Router] USE THIS FILE: create-product-router.md to detect and route correctly.
 
 ### Description format error
 V3 requires rich text nodes, NOT HTML strings. Ensure the description is an object with `nodes` array.
@@ -596,6 +596,6 @@ Show an error and offer to retry. Do NOT leave a partially created product.
 - [Create Product with Options (Catalog V3)](create-product-with-options-catalog-v3.md)
 - [Info Sections API](https://dev.wix.com/docs/rest/business-solutions/stores/catalog-v3/info-sections-v3/introduction)
 - [Upload Media to Wix](../media/upload-media-to-wix.md)
-- [Create Product from Image (Catalog V1)](create-product-from-image.md)
-- [Create Product Router](create-product-router.md)
+- [Create Product from Image (Catalog V1)] USE THIS FILE: create-product-from-image.md
+- [Create Product Router] USE THIS FILE: create-product-router.md
 - [Catalog Versioning Overview](https://dev.wix.com/docs/rest/business-solutions/stores/catalog-versioning/introduction)

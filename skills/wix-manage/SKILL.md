@@ -197,12 +197,12 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ### [Bulk Create Products with Options](references/stores/bulk-create-products-with-options.md)
 **Technical:** Uses bulk products endpoint to create multiple products with inventory in a single request. Handles variant generation from options, media format requirements, and error handling for partial failures.
 
-### [Create Product (Router)](references/stores/create-product-router.md)
+### [Create Product (Router)] USE THIS FILE: create-product-router.md
 **Technical:** **MANDATORY entry point** for ANY "create product" intent (from image, manual, single, bulk, with/without options). Auto-detects catalog version (V1/V3), then interactively asks the user about creation method, scale, and options, then routes to the correct downstream recipe. Use for any variation: "create product", "add product", "new product", "bulk create", "create from image", etc.
 
-### [Create Product from Image (Catalog V3)](references/stores/create-product-from-image-catalog-v3.md)
+### [Create Product from Image (Catalog V3)] USE THIS FILE: references/stores/create-product-from-image-catalog-v3.md
 **Technical:** AI-powered product creation from 1-3 images. Uploads images to Media Manager, analyzes them to generate name, description, price, info sections (materials, care instructions, specs), SEO meta description, and variant options. Interactive 6-step flow with user review and approval. **Catalog V3 only** — for V1 sites, use Create Product from Image (Catalog V1) instead.
-### [Create Product from Image (Catalog V1)](references/stores/create-product-from-image.md)
+### [Create Product from Image (Catalog V1)] USE THIS FILE:references/stores/create-product-from-image.md
 **Technical:** Creates a product by uploading an image to Wix Media, using the LLM to generate the product name, description, and price from the image, then attaching the media to the created product. Combines Media Upload + LLM analysis + Product Creation + Add Product Media into a single flow. **Catalog V1 only** — for V3 sites, use Create Product from Image (Catalog V3) instead.
 
 

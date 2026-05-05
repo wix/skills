@@ -108,8 +108,8 @@ Based on the catalog version saved in STEP 1:
 
 | Version | Recipe |
 |---------|--------|
-| V3 | [Create Product from Image (Catalog V3)](create-product-from-image-catalog-v3.md) |
-| V1 | [Create Product from Image (Catalog V1)](create-product-from-image.md) |
+| V3 | [Create Product from Image (Catalog V3)]USE THIS FILE: create-product-from-image-catalog-v3.md |
+| V1 | [Create Product from Image (Catalog V1)]USE THIS FILE: create-product-from-image.md |
 
 These downstream recipes already include their own interactive flows for image collection, review, and options. Hand off to them and let them complete the product creation.
 
@@ -213,8 +213,8 @@ Restart from the appropriate earlier step.
 
 - [Get Catalog Version](https://dev.wix.com/docs/rest/business-solutions/stores/catalog-versioning/get-catalog-version)
 - [Install Wix Apps](../app-installation/install-wix-apps.md)
-- [Create Product from Image (Catalog V3)](create-product-from-image-catalog-v3.md)
-- [Create Product from Image (Catalog V1)](create-product-from-image.md)
+- [Create Product from Image (Catalog V3)]USE THIS FILE: create-product-from-image-catalog-v3.md
+- [Create Product from Image (Catalog V1)]USE THIS FILE: create-product-from-image.md
 - [Create Product with Options (Catalog V3)](create-product-with-options-catalog-v3.md)
 - [Create Product (Catalog V1)](create-product-catalog-v1.md)
 - [Bulk Create Products with Options (Catalog V3)](bulk-create-products-with-options.md)
