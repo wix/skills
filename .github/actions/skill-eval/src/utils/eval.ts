@@ -131,6 +131,7 @@ export async function runEval(): Promise<void> {
     });
     runId = run.id;
     core.info(`Created eval run ${runId}`);
+    core.info(`EvalForge run: https://bo.wix.com/pages/evalforge/${config.projectId}/results?runId=${runId}`);
   } catch (e) {
     const status = (e as { status?: number }).status;
     if (status === 400) {
