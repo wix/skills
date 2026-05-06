@@ -24,7 +24,7 @@
     "shortDescription": "Build Wix apps and manage Wix sites from Codex",
     "longDescription": "Build, manage, and deploy Wix sites and apps with Codex. Includes Wix CLI development skills for dashboard extensions, backend APIs, site widgets, service plugins, data collections, and recipes for Wix business solution management.",
     "developerName": "Wix",
-    "category": "Engineering",
+    "category": "Coding",
     "capabilities": [
       "Interactive",
       "Read",
