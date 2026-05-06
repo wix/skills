@@ -34584,6 +34584,7 @@ async function runEval() {
         });
         runId = run.id;
         core.info(`Created eval run ${runId}`);
+        core.info(`EvalForge run: https://bo.wix.com/pages/evalforge/${config.projectId}/results?runId=${runId}`);
     }
     catch (e) {
         const status = e.status;
