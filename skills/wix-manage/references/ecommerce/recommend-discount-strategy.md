@@ -134,10 +134,10 @@ body: {
 
 | Goal | `aggregates` array |
 |---|---|
-| UPSELL_BOOST | `[{"op":"COUNT","field":"PRICE"}, {"op":"QUANTILES","field":"PRICE","q":[0.5,0.75,0.9]}, {"op":"AVG","field":"PROFIT_MARGIN"}]` |
-| BUNDLE_AND_SAVE | `[{"op":"MIN","field":"PRICE"}, {"op":"MAX","field":"PRICE"}, {"op":"AVG","field":"PROFIT_MARGIN"}, {"op":"COUNT","field":"PRICE"}]` |
-| STOCK_MOVER | `[{"op":"SUM","field":"QUANTITY"}, {"op":"SUM","field":"ORDERS_COUNT"}, {"op":"AVG","field":"PROFIT_MARGIN"}]` |
-| SEASONAL | `[{"op":"SUM","field":"ORDERS_COUNT"}, {"op":"QUANTILES","field":"PRICE","q":[0.5,0.9]}, {"op":"AVG","field":"PROFIT_MARGIN"}]` |
+| UPSELL_BOOST | `[{"op":"count","field":"price"}, {"op":"quantiles","field":"price","q":[0.5,0.75,0.9]}, {"op":"avg","field":"profitMargin"}]` |
+| BUNDLE_AND_SAVE | `[{"op":"min","field":"price"}, {"op":"max","field":"price"}, {"op":"avg","field":"profitMargin"}, {"op":"count","field":"price"}]` |
+| STOCK_MOVER | `[{"op":"sum","field":"quantity"}, {"op":"sum","field":"ordersCount"}, {"op":"avg","field":"profitMargin"}]` |
+| SEASONAL | `[{"op":"sum","field":"ordersCount"}, {"op":"quantiles","field":"price","q":[0.5,0.9]}, {"op":"avg","field":"profitMargin"}]` |
 
 ### Call 2: GetProductCatalogData
 

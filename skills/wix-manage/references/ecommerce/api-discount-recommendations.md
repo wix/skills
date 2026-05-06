@@ -89,9 +89,9 @@ Computes aggregate statistics on the product catalog, grouped by category.
 ```json
 {
   "aggregates": [
-    { "op": "COUNT", "field": "PRICE" },
-    { "op": "QUANTILES", "field": "PRICE", "q": [0.5, 0.75, 0.9] },
-    { "op": "AVG", "field": "PROFIT_MARGIN" }
+    { "op": "count", "field": "price" },
+    { "op": "quantiles", "field": "price", "q": [0.5, 0.75, 0.9] },
+    { "op": "avg", "field": "profitMargin" }
   ],
   "minMarginPct": 0.15
 }
@@ -102,8 +102,8 @@ Computes aggregate statistics on the product catalog, grouped by category.
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `aggregates` | array | Yes | List of aggregation operations (max 100) |
-| `aggregates[].op` | enum | Yes | `COUNT`, `SUM`, `AVG`, `MIN`, `MAX`, `QUANTILES` |
-| `aggregates[].field` | enum | Yes | `PRICE`, `PROFIT_MARGIN`, `QUANTITY`, `ORDERS_COUNT` |
+| `aggregates[].op` | enum | Yes | `count`, `sum`, `avg`, `min`, `max`, `stddev`, `quantiles` |
+| `aggregates[].field` | enum | Yes | `quantity`, `price`, `cost`, `profit`, `profitMargin`, `ordersCount` |
 | `aggregates[].q` | double[] | If QUANTILES | Quantile values 0.0-1.0 (max 20) |
 | `minMarginPct` | double | Yes | Min margin filter as decimal (e.g., 0.15 for 15%) |
 
@@ -143,10 +143,10 @@ Computes aggregate statistics on the product catalog, grouped by category.
 
 | Goal | Aggregates |
 |---|---|
-| UPSELL_BOOST | `COUNT(PRICE)`, `QUANTILES([0.5,0.75,0.9], PRICE)`, `AVG(PROFIT_MARGIN)` |
-| STOCK_MOVER | `SUM(QUANTITY)`, `SUM(ORDERS_COUNT)`, `AVG(PROFIT_MARGIN)` |
-| SEASONAL | `SUM(ORDERS_COUNT)`, `QUANTILES([0.5,0.9], PRICE)`, `AVG(PROFIT_MARGIN)` |
-| BUNDLE_AND_SAVE | `MIN(PRICE)`, `MAX(PRICE)`, `AVG(PROFIT_MARGIN)`, `COUNT(PRICE)` |
+| UPSELL_BOOST | `count(price)`, `quantiles([0.5,0.75,0.9], price)`, `avg(profitMargin)` |
+| STOCK_MOVER | `sum(quantity)`, `sum(ordersCount)`, `avg(profitMargin)` |
+| SEASONAL | `sum(ordersCount)`, `quantiles([0.5,0.9], price)`, `avg(profitMargin)` |
+| BUNDLE_AND_SAVE | `min(price)`, `max(price)`, `avg(profitMargin)`, `count(price)` |
 
 **Important**: Always exclude "All Products" from category-level analysis. Use the "All Products" group only for overall catalog stats (AOV sanity check, price distribution).
 
