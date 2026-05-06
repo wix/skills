@@ -45,23 +45,23 @@ File where you can override the generated manifest from `<componentName>.generat
    `src/site/components/ComponentName/`.
 3. Run `yarn build` && `yarn generate:manifest ComponentName` so the editor picks up
    the new/updated prop schema.
-4. Update `Component.extensions.ts` file according to [`references/COMPONENT-CONFIGURATION.md`](references/COMPONENT-CONFIGURATION.md)
+4. Update `Component.extensions.ts` file according to [`editor-react-component/COMPONENT-CONFIGURATION.md`](editor-react-component/COMPONENT-CONFIGURATION.md)
 
 Reference: when modifying an _existing_ component, follow
-[`references/EDIT-FLOW.md`](references/EDIT-FLOW.md).
+[`editor-react-component/EDIT-FLOW.md`](editor-react-component/EDIT-FLOW.md).
 
 ## React guidelines
 
-Core rules and workflow: [`references/REACT-GUIDELINES.md`](references/REACT-GUIDELINES.md).
+Core rules and workflow: [`editor-react-component/REACT-GUIDELINES.md`](editor-react-component/REACT-GUIDELINES.md).
 
 Topic-focused references (rules + patterns + common mistakes in one place):
 
-- [`references/ACCESSIBILITY.md`](references/ACCESSIBILITY.md) — ARIA/a11y rules and patterns
-- [`references/DIRECTIONALITY.md`](references/DIRECTIONALITY.md) — RTL/LTR rules and patterns
-- [`references/PROPS-VS-CSS.md`](references/PROPS-VS-CSS.md) — What should be a React prop vs CSS
-- [`references/COMPONENT-API.md`](references/COMPONENT-API.md) — Props structure, elementProps, data types, file splitting, containers, array props
-- [`references/REACT-PATTERNS.md`](references/REACT-PATTERNS.md) — SSR-safe patterns, CSS rules, remaining common mistakes
+- [`editor-react-component/ACCESSIBILITY.md`](editor-react-component/ACCESSIBILITY.md) — ARIA/a11y rules and patterns
+- [`editor-react-component/DIRECTIONALITY.md`](editor-react-component/DIRECTIONALITY.md) — RTL/LTR rules and patterns
+- [`editor-react-component/PROPS-VS-CSS.md`](editor-react-component/PROPS-VS-CSS.md) — What should be a React prop vs CSS
+- [`editor-react-component/COMPONENT-API.md`](editor-react-component/COMPONENT-API.md) — Props structure, elementProps, data types, file splitting, containers, array props
+- [`editor-react-component/REACT-PATTERNS.md`](editor-react-component/REACT-PATTERNS.md) — SSR-safe patterns, CSS rules, remaining common mistakes
 
 ## CSS guidelines
 
-Reference: [`references/CSS-GUIDELINES.md`](references/CSS-GUIDELINES.md).
+Reference: [`editor-react-component/CSS-GUIDELINES.md`](editor-react-component/CSS-GUIDELINES.md).
