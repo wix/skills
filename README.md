@@ -19,21 +19,13 @@ In [Claude Code](https://docs.anthropic.com/en/docs/claude-code), run:
 
 ### Codex Plugin
 
-Register this repo as a marketplace source. The Codex CLI and the Codex desktop app share the same marketplace config, so this one command covers both:
+In a terminal, register the marketplace:
 
 ```bash
 codex plugin marketplace add wix/skills
 ```
 
-Then install the plugin from your preferred surface.
-
-#### Codex CLI
-
-In Codex, run `/plugins`, select **Wix**, and choose **Install Plugin**.
-
-#### Codex Desktop App
-
-Open the Codex desktop app, click **Plugins** in the sidebar, find **Wix** under **Coding**, and click **+** to install.
+Then in Codex CLI, run `/plugins`, select **Wix**, and choose **Install Plugin**.
 
 ### VS Code Plugin
 
@@ -78,7 +70,7 @@ These skills work with any agent that supports the [Agent Skills specification](
 - Cursor
 - Claude Code
 - Gemini CLI
-- Codex
+- Codex CLI
 - GitHub Copilot
 - Windsurf
 - And [many more](https://github.com/vercel-labs/add-skill#available-agents)
