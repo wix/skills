@@ -11,5 +11,10 @@
   "license": "MIT",
   "keywords": ["wix", "wix-cli", "mcp", "ecommerce", "cms", "backend-api"],
   "mcpServers": "./.mcp.json",
+  "skills": [
+    "./skills/wix-design-system",
+    "./skills/wix-app",
+    "./skills/wix-manage"
+  ],
   "logo": "assets/logo.svg"
 }
