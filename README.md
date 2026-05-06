@@ -19,8 +19,21 @@ In [Claude Code](https://docs.anthropic.com/en/docs/claude-code), run:
 
 ### Codex Plugin
 
-This repository includes a Codex plugin manifest at `.codex-plugin/plugin.json`.
-Add this repository as a local/source plugin in Codex to load the Wix skills and Wix MCP server.
+Register this repo as a marketplace source. The Codex CLI and the Codex desktop app share the same marketplace config, so this one command covers both:
+
+```bash
+codex plugin marketplace add wix/skills
+```
+
+Then install the plugin from your preferred surface.
+
+#### Codex CLI
+
+In Codex, run `/plugins`, select **Wix**, and choose **Install Plugin**.
+
+#### Codex Desktop App
+
+Open the Codex desktop app, click **Plugins** in the sidebar, find **Wix** under **Coding**, and click **+** to install.
 
 ### VS Code Plugin
 
