@@ -395,7 +395,7 @@ the user sees no control for it.
 .profile-card {
   padding: 20px;
   border-radius: 8px;
-  background-color: #ffffff;
+  background: #ffffff; /* Use `background`, never `background-color` — the schema key is "background"; zeroConfig can't match "background-color" so the default is lost in the design panel */
 }
 ```
 
