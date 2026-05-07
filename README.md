@@ -57,6 +57,7 @@ npx skills add wix/skills -g
 | [wix-app](skills/wix-app/SKILL.md)       | Build Wix app extensions         | Adding any extension — dashboard pages, site widgets, backend events, service plugins, embedded scripts, data collections, and more |
 | [wix-design-system](skills/wix-design-system/SKILL.md) | Wix Design System reference      | Looking up WDS component props, examples, icons                                                                                     |
 | [wix-manage](skills/wix-manage/SKILL.md) | Wix business solution management | REST API operations for configuring and managing Wix business solutions                                                             |
+| [wix-headless](skills/wix-headless/SKILL.md) | Build a complete Wix Managed Headless site | Building a new site end-to-end from a single prompt — discovery, design, feature wiring, and preview |
 
 ## Supported Agents
 
