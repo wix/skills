@@ -118,6 +118,34 @@ width or height overflows or leaves gaps inside its slot.
 }
 ```
 
+### Pipe sizing through every layer below the root
+
+Every element between the platform-sized root and the leaf content
+must explicitly participate in the sizing chain — one unsized
+wrapper collapses the entire subtree to intrinsic size.
+
+Use `flex: 1; min-width: 0` (or `min-height: 0` on the block axis)
+on children that should grow, and `flex: 0 0 auto` on children that
+should stay fixed-size.
+
+**Why:** flex/grid children default to `auto` sizing and shrink to
+content. A wrapper `<div>` without explicit sizing breaks the chain
+even when the root fills its slot correctly.
+
+```css
+/* ✅ Do: grower fills remaining space */
+.wrapper {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+}
+
+/* ✅ Do: fixed child keeps intrinsic size */
+.control {
+  flex: 0 0 auto;
+}
+```
+
 ### Set `box-sizing: border-box` on every selector
 
 Apply `box-sizing: border-box` to every class in component CSS, not
@@ -257,9 +285,9 @@ aren't toggled this way, so they use `display` normally.
 }
 ```
 
-### Choose one of three layout shapes for the component root
+### Choose one of four layout shapes for the component root
 
-A component's root layout typically fits one of three shapes — reach
+A component's root layout typically fits one of four shapes — reach
 for the simplest one that satisfies the design.
 
 **Why:** a small, shared vocabulary of layouts produces predictable
@@ -291,6 +319,16 @@ these shapes.
   --display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: clamp(1rem, 2.5vw, 2rem);
+}
+
+/* ✅ Do: Inline row — fixed controls on edges, growing center
+   (numeric stepper, search bar, toolbar, split button, pagination).
+   Pair with stretch-chain rules: controls flex: 0 0 auto,
+   center area flex: 1; min-width: 0. */
+.numeric-stepper {
+  --display: flex;
+  flex-direction: row;
+  align-items: center;
 }
 ```
 
@@ -361,6 +399,24 @@ the user sees no control for it.
 }
 ```
 
+### Default aesthetic: polished and generous
+
+When the user does not specify a visual style, default to a polished,
+modern look. The editor lets the user override every value, so a
+refined default costs nothing.
+
+| Property | Guidance |
+|---|---|
+| `border-radius` | 8–12 px containers, `50%` for controls and interactive groups (buttons, pills, input rows) |
+| `box-shadow` | Prefer soft, diffused shadows over hard borders (e.g. `0 2px 8px rgba(0,0,0,0.06), 0 0 1px rgba(0,0,0,0.08)`) |
+| Spacing | 8–16 px inside controls, 16–32 px for containers. Avoid cramped layouts |
+| Typography | Body ≥ 16 px, labels ≥ 14 px, headings larger. `font-weight: 500`–`600` |
+| Palette | Root background transparent (blends with page). Use subtle fills (`#f1f5f9`/`#e2e8f0`) on *inner controls* only (buttons, input areas, pill containers). Text `#1e293b`/`#334155`, borders `#e2e8f0`. `#475569` for large/secondary text only |
+| Accent | Use a muted accent color (e.g. `#6366f1`, `#7c83db`) sparingly on interactive icons, active indicators, and primary actions — just enough to signal interactivity without dominating |
+| Contrast | WCAG AA minimum: 4.5:1 body text, 3:1 large text / UI controls |
+| Hierarchy | Interactive elements visually distinct from static via weight, fill, or elevation |
+| Touch targets | Interactive elements ≥ 44×44 px |
+
 ### Don't author state styles (`:hover`, `:focus`, `:disabled`, `[data-state]`)
 
 State pseudo-classes and state attribute selectors are not allowed
@@ -396,6 +452,65 @@ sources of truth for the same state.
 .button {
   background-color: #ffffff;
   color: #111;
+}
+```
+
+### Express selection / mode variants with JS-toggled modifier classes
+
+The previous rule banned **interaction states** (`:hover`, `:focus`,
+`:focus-visible`, `:active`, `:disabled`, `[data-state]`,
+`[aria-selected]`) — those are user-controlled and platform-owned.
+**Selection / mode variants** (`selected`, `active`, `current`,
+`open`, `expanded`) are different: they are part of the component's
+own data model and the component owns their styling.
+
+Express each variant as a **JS-toggled modifier class**, applied
+alongside the base class via `classNames`. Each class — base and
+modifier — is its own **single-class** CSS rule. The decision of
+which class applies is made in JSX from props/state, not by a CSS
+selector.
+
+**Why:** the modifier class is decided in JSX, not in CSS. zeroConfig
+still sees one selector per rule (both classes are single-class
+rules), so the editor's mapping stays unambiguous. `PARTS.md`
+excludes "state or variant" from the named-parts taxonomy — the
+modifier is CSS-only, not a part.
+
+```tsx
+/* ✅ Do: JS-toggled modifier class, applied alongside the base */
+<button
+  className={classNames(
+    styles.toggleSegment,
+    isSelected && styles.toggleSegmentSelected,
+  )}
+/>
+```
+
+```css
+/* ✅ Do: each class is its own single-class rule */
+.toggleSegment {
+  background: transparent;
+  color: #475569;
+  font-weight: 500;
+}
+
+.toggleSegmentSelected {
+  background: #ffffff;
+  color: #0f172a;
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(15, 23, 42, 0.1);
+}
+
+/* ❌ Don't: compound selector — banned by the single-class-selector rule */
+.toggleSegment.selected {
+}
+
+/* ❌ Don't: attribute selector keyed on ARIA — banned by the no-state-CSS rule */
+.toggleSegment[aria-selected='true'] {
+}
+
+/* ❌ Don't: pseudo-class — that's an interaction state, platform-owned */
+.toggleSegment:checked {
 }
 ```
 

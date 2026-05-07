@@ -1,11 +1,11 @@
 # Component Configuration
 
-After scaffolding the component and running `yarn generate:manifest`,
+After scaffolding the component and running `npx wix generate manifest`,
 configure the component's behavior in the editor by writing **partial
 manifest overrides** in the component's hand-edited extension file
 (`<ComponentName>.extension.ts`). That file imports the auto-generated
 manifest and spreads it; specific fields are overridden inline. Re-running
-`yarn generate:manifest` regenerates the `<ComponentName>.generated.ts`
+`npx wix generate manifest` regenerates each `<ComponentName>.generated.ts`
 companion but never touches the overrides authored in the extension file.
 
 ---
@@ -32,10 +32,8 @@ import { LAYOUT } from '@wix/react-component-schema';
 import { manifest } from './ComponentName.generated';
 
 const componentExtension = extensions.editorReactComponent({
-  ...manifest,
   // …other fields…
   installation: {
-    ...manifest.installation,
     initialSize: {
       width: {
         sizingType: LAYOUT.SIZING_TYPE.pixels,
@@ -103,12 +101,10 @@ import { LAYOUT } from '@wix/react-component-schema';
 import { manifest } from './ComponentName.generated';
 
 const componentExtension = extensions.editorReactComponent({
-  ...manifest,
   // …other fields…
   editorElement: {
     ...manifest.editorElement,
     layout: {
-      ...manifest.editorElement?.layout,
       resizeDirection: LAYOUT.RESIZE_DIRECTION._selectedResizeDirection_,
     },
   },
@@ -136,4 +132,27 @@ whose meaning depends on its proportions:
 
 ```ts
 resizeDirection: LAYOUT.RESIZE_DIRECTION.aspectRatio,
+```
+
+---
+
+## 3. Wiring defaults into the manifest
+
+1. **Export `defaultProps` from `component.tsx`** so the extension file can import it.
+2. **Import `componentUrl` from `'./component.tsx?url'`** (the wrapped component), not from `'./ComponentName.tsx?url'` (the raw component).
+3. **Wrap `editorElement` with `withEditorElementDefaults`** using the same `defaultProps`.
+
+```ts
+import { withEditorElementDefaults } from '@wix/react-component-utils';
+import componentUrl from './component.tsx?url';
+import { defaultProps } from './component';
+
+// in the extension:
+editorElement: withEditorElementDefaults({
+  ...manifest.editorElement,
+}, defaultProps),
+resources: {
+  ...manifest.resources,
+  client: { componentUrl },
+},
 ```

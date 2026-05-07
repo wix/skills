@@ -54,28 +54,48 @@ animation: fadeIn 0.5s;      // ❌
 
 # Part 3: Common Mistakes
 
-## 3.1 Adding state CSS to parts
+## 3.1 Adding interaction-state CSS to parts
 
-**❌ Wrong:**
+The resting visual (background, color, border-radius, padding, font)
+belongs in the component's CSS — see `CSS-GUIDELINES.md` §"Keep all
+styling in CSS". What does NOT belong is **interaction-state CSS**
+(`:hover`, `:focus`, `:focus-visible`, `:active`, `:disabled`,
+`[data-state]`, `[aria-selected]`) — the platform owns those.
+Selection / mode variants (`selected`, `active`, `open`) are
+different — they go through a JS-toggled modifier class; see
+`CSS-GUIDELINES.md` §"Express selection / mode variants".
+
+**❌ Wrong — pseudo-class rules must be removed:**
 
 ```scss
 .button {
-  background-color: #fff; // ❌ User-customizable
-  &:hover {
-    background-color: #f0f0f0;
-  } // ❌ State
-  &:disabled {
-    opacity: 0.5;
-  } // ❌ State
+  background-color: #ffffff;
+  color: #0f172a;
+  border-radius: 8px;
+  padding-block: 8px;
+  padding-inline: 16px;
+}
+
+.button:hover { /* ❌ Interaction state — platform owns this */
+  background-color: #f0f0f0;
+}
+
+.button:disabled { /* ❌ Interaction state — platform owns this */
+  opacity: 0.5;
 }
 ```
 
-**✅ Correct:**
+**✅ Correct — keep the resting visual; drop the pseudo-class rules:**
 
 ```scss
 .button {
   display: flex;
   align-items: center;
+  background-color: #ffffff;
+  color: #0f172a;
+  border-radius: 8px;
+  padding-block: 8px;
+  padding-inline: 16px;
   box-sizing: border-box;
 }
 ```

@@ -9,8 +9,13 @@ Rules and patterns for handling visual/layout properties that vary by breakpoint
 ```
 Is this a content/data property?
 │
-├─ YES (label, items, imageSrc, link, title, etc.)
-│   └─ ✅ React prop
+├─ YES → Can it be derived from other props / internal state?
+│   │
+│   ├─ YES (subtotal = price × qty, fullName = first + last, etc.)
+│   │   └─ ❌ NOT a prop → compute internally
+│   │
+│   └─ NO (label, items, imageSrc, link, title, etc.)
+│       └─ ✅ React prop
 │
 └─ NO → Would a user want this to vary per breakpoint?
     │
@@ -69,11 +74,11 @@ Props like `showProgressBar`, `showVolumeControls`, `showTimeDisplay`, `showNavi
 
 ### How to Implement
 
-Just like visual CSS properties (colors, shadows, borders), visibility/display properties are controlled externally by users:
+Visibility/display properties can be overridden per breakpoint by the user via the editor — but, just like background colors, the component still authors the resting defaults in CSS:
 
 1. **Always render all elements** — No conditional rendering with props
-2. **Do NOT hardcode visibility-toggling display in CSS** (e.g. `display: none` to hide an element by default) — like colors, this is user-controlled per breakpoint. Layout `display` (`flex`, `grid`, etc.) on layout containers is fine and expected.
-3. **Visibility is user-controlled** — Users control what shows/hides per breakpoint via external CSS
+2. **Do NOT hardcode visibility-toggling display in CSS** (e.g. `display: none` to hide an element by default) — visibility is user-controlled per breakpoint. Layout `display` (`flex`, `grid`, etc.) on layout containers is fine and expected. Resting visual properties (background, color, border-radius, padding, font) DO belong in CSS — see `CSS-GUIDELINES.md`.
+3. **Visibility is user-controlled** — Users control what shows/hides per breakpoint via the editor
 
 ```tsx
 // ✅ CORRECT: Always render
@@ -81,9 +86,8 @@ Just like visual CSS properties (colors, shadows, borders), visibility/display p
 <div className={styles.volumeControls}>...</div>
 <div className={styles.trackInfo}>...</div>
 
-// SCSS: NO visual properties (user-controlled, like colors)
+// SCSS: no `display: none` default — visibility is user-controlled per breakpoint
 .progressBar {
-  // Only layout structure, NO visual property
   position: relative;
 }
 ```
@@ -169,9 +173,9 @@ interface AudioPlayerProps {
 <div className={styles.volumeControls}>...</div>
 <div className={styles.trackInfo}>...</div>
 
-// SCSS: NO display properties (user-controlled externally, like colors)
+// SCSS: no `display: none` default — visibility is user-controlled per breakpoint
 .progressBar {
-  position: relative;  // Only layout structure
+  position: relative;
 }
 ```
 

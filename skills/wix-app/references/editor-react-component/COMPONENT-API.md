@@ -80,10 +80,19 @@ interface ComponentProps {
 
 See [`PARTS.md`](PARTS.md) for the mandatory filter and full rules.
 
+### Derived values are not props
+
+If a displayed value can be computed with a simple pure function from
+other props and/or internal state, compute it internally — don't
+expose it as a prop. Expose only the source inputs (use numeric types
+when arithmetic is needed: `price: number`, not `price: string`).
+
+**Example:** subtotal = `price × quantity` → computed inside the component, not a prop.
+
 ### Data-Driven Components (NO children in exported props)
 
 - Component's **exported interface** must NOT accept `children` prop
-- ALL content MUST come through explicit named props:
+- ALL content MUST come through explicit named props (see "Derived values" above for what stays internal):
   - Text (labels, placeholders, messages) → `label`, `text`, `placeholder`, etc.
   - Media (images, videos, icons) → `imageSrc`, `videoUrl`, `iconName`, etc.
   - Links (URLs, hrefs) → `link`, `href`, `url`, etc.
@@ -91,7 +100,7 @@ See [`PARTS.md`](PARTS.md) for the mandatory filter and full rules.
 - **Internal implementation** can use children for composition between sub-components
 - Hardcoded values are ONLY for fallback defaults when props are undefined
 
-**Exception — Container-type components:** Components whose purpose is to wrap arbitrary child elements (e.g., BoxContainer, LegacyContainer) MAY accept `children: React.ReactNode`. This applies only to structural containers — data-driven leaf components (Button, Tabs, Accordion, etc.) must NOT use `children`.
+**Exception — Container-type components:** Components whose purpose is to wrap arbitrary child elements (e.g., BoxContainer, LegacyContainer) MAY accept `children: Container` (from `@wix/editor-react-types`). This applies only to structural containers — data-driven leaf components (Button, Tabs, Accordion, etc.) must NOT use `children`.
 
 ### Array Props: Data on Parent Only
 
@@ -99,15 +108,15 @@ When the parent component defines an array prop (e.g., `items`), child/item comp
 
 ### Container Components (Blackbox Content)
 
-When a component specification indicates a "container" or "slot" area where users can add nested content, use `React.ReactNode` for that content prop.
+When a component specification indicates a "container" or "slot" area where users can add nested content, use `Container` (from `@wix/editor-react-types`) for that content prop. Never use `React.ReactNode` in a prop type.
 
-**When to use `React.ReactNode`:**
+**When to use `Container`:**
 
 - The specification describes a "container" or "content area"
 - Users should be able to add arbitrary nested components
 - The component doesn't control what goes inside that area
 
-**RTL Support:** Elements that render `React.ReactNode` content MUST have `dir="ltr"` to prevent RTL inheritance from the parent component. See [`DIRECTIONALITY.md`](DIRECTIONALITY.md).
+**RTL Support:** Elements that render `Container` content MUST have `dir="ltr"` to prevent RTL inheritance from the parent component. See [`DIRECTIONALITY.md`](DIRECTIONALITY.md).
 
 ### Component Data Types
 
@@ -222,13 +231,13 @@ interface ParentProps {
 
 interface AccordionItem {
   name: string;
-  content: React.ReactNode;
+  content: Container;
 }
 
 // Child receives single item
 interface ChildProps {
   item: AccordionItem & { id: string };  // Single item
-  isOpen?: boolean;
+  isOpen?: BooleanValue;
 }
 
 // Parent maps
@@ -239,17 +248,19 @@ items.map((item, index) => (
 
 ### Container Components Pattern
 
-For "container" or "slot" areas, use `React.ReactNode`:
+For "container" or "slot" areas, use `Container`:
 
 ```typescript
 interface AccordionItem {
   name: string;
-  content: React.ReactNode;  // Users add any content here
+  content: Container;  // Users add any content here
 }
 
 // Render
 {items.map((item, index) => (
-  <div key={index} dir="ltr">{item.content}</div>
+  <div key={index} dir="ltr">
+    {typeof item.content === 'function' ? item.content({}) : item.content}
+  </div>
 ))}
 ```
 
@@ -263,7 +274,7 @@ interface AccordionItem {
 
 ```typescript
 export interface CardProps {
-  children: React.ReactNode;  // ❌
+  children: React.ReactNode;  // ❌ children + React.ReactNode both forbidden
 }
 <Card><CardHeader>Title</CardHeader></Card>
 ```
@@ -273,7 +284,7 @@ export interface CardProps {
 ```typescript
 export interface CardProps {
   title: string;
-  content: React.ReactNode;  // Blackbox container
+  content: Container; // Blackbox container (from @wix/editor-react-types)
 }
 <Card title="Title" content={<div>Content</div>} />
 ```
