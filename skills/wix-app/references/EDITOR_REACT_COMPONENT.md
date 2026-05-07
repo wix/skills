@@ -1,6 +1,6 @@
 ---
 name: taskforce-generate-component
-description: "Generates a Wix site component scaffold using this project's `yarn generate:component` and `yarn generate:manifest` scripts, then implements the component using Wix-specific conventions (editor-react-types, prop types, SSR-safe code, no @wix/design-system). Use this skill whenever the user wants to create, add, or scaffold a new React or site component in this Wix CLI project — even when they phrase it indirectly (\"build me a hero section\", \"add a pricing card\", \"make a testimonials block\"). Triggers: create component, new component, generate component, add component, scaffold component."
+description: "Generates a Wix site component scaffold using this project's `npx wix generate` and `npx wix generate manifest` commands, then implements the component using Wix-specific conventions (editor-react-types, prop types, SSR-safe code, no @wix/design-system). Use this skill whenever the user wants to create, add, or scaffold a new React or site component in this Wix CLI project — even when they phrase it indirectly (\"build me a hero section\", \"add a pricing card\", \"make a testimonials block\"). Triggers: create component, new component, generate component, add component, scaffold component."
 ---
 
 # Wix Editor React Component Builder
@@ -38,13 +38,14 @@ File where you can override the generated manifest from `<componentName>.generat
 ## Workflow
 
 1. If `src/site/components/ComponentName/` does not yet exist, run
-   `yarn generate:component '{"extensionType":"EDITOR_REACT_COMPONENT","name":"ComponentName","folder":"ComponentName","description":"A brief description of what the component does"}'` to scaffold it. Skip this
+   `npx wix generate --params '{"extensionType":"EDITOR_REACT_COMPONENT","name":"ComponentName","folder":"component-name","description":"A brief description of what the component does"}'` to scaffold it. Skip this
    step when iterating on an existing component — re-running it would
    overwrite local changes.
 2. Edit the generated react and CSS files in
    `src/site/components/ComponentName/`.
-3. Run `yarn build` && `yarn generate:manifest ComponentName` so the editor picks up
-   the new/updated prop schema.
+3. Run `npx wix build && npx wix generate manifest` so the editor picks up
+   the new/updated prop schema. `npx wix generate manifest` regenerates manifest
+   parts for all components.
 4. Update `Component.extensions.ts` file according to [`editor-react-component/COMPONENT-CONFIGURATION.md`](editor-react-component/COMPONENT-CONFIGURATION.md)
 
 Reference: when modifying an _existing_ component, follow
