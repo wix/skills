@@ -1,8 +1,3 @@
----
-name: taskforce-generate-component
-description: "Generates a Wix site component scaffold using this project's `npx wix generate` and `npx wix generate manifest` commands, then implements the component using Wix-specific conventions (editor-react-types, prop types, SSR-safe code, no @wix/design-system). Use this skill whenever the user wants to create, add, or scaffold a new React or site component in this Wix CLI project — even when they phrase it indirectly (\"build me a hero section\", \"add a pricing card\", \"make a testimonials block\"). Triggers: create component, new component, generate component, add component, scaffold component."
----
-
 # Wix Editor React Component Builder
 
 Creates production-quality Editor React components that would be used in Harmony Editor for Wix CLI applications. Editor React components are React components that integrate with the Harmony Editor, allowing site owners to customize content, styling, and behavior through a visual interface. **Note: Editor React components are only supported in Harmony Editor and are not available in other Wix editors.**
@@ -21,14 +16,14 @@ CSS Module file for the component. Contains all styles scoped to the component.
 
 ### `component.tsx`
 
-Wrapper file for the component. Provides default prop values and default styles so the component renders correctly when first added to the stage.
+Entry point for the component. Imports the default prop values defined in `<componentName>.tsx` and wires them up so the component renders correctly when first added to the stage.
 
 ### `<componentName>.generated.ts`
 
 Auto-generated file that describes the component manifest. **Do not write or edit content in this file.** It is updated automatically based on the React component by running:
 
 ```
-npm run generate -- --experimental
+npx wix generate manifest
 ```
 
 ### `<componentName>.extension.ts`
@@ -37,7 +32,7 @@ File where you can override the generated manifest from `<componentName>.generat
 
 ## Workflow
 
-1. If `src/site/components/ComponentName/` does not yet exist, run
+1. If `src/site/components/component-name/` does not yet exist, run
    `npx wix generate --params '{"extensionType":"EDITOR_REACT_COMPONENT","name":"ComponentName","folder":"component-name","description":"A brief description of what the component does"}'` to scaffold it. Skip this
    step when iterating on an existing component — re-running it would
    overwrite local changes.
