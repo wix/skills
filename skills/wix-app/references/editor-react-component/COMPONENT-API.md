@@ -134,25 +134,148 @@ import type {
   Direction,
   ArrayItems,
   MenuItems,
-} from '@wix/editor-react-types';
+} from "@wix/editor-react-types";
 ```
 
-**Common Types Usage:**
+**Type mapping (use this to pick the right type for every prop):**
 
-- **Text data** → `string`
-- **Numeric data** → `number`
-- **Boolean flags** → `boolean`
-- **Enum options** → `string` union (e.g., `'option1' | 'option2'`)
-- **Direction** → `Direction` (= `'rtl' | 'ltr' | 'auto'`)
-- **Links** → `Link`
-- **Images** → `Image`
-- **Videos** → `Video`
-- **Audio** → `Audio`
-- **Vector graphics** → `VectorArt`
-- **Accessibility** → `A11y`
-- **Rich text** → `RichText`
-- **Arrays/Lists** → `Array<{...}>`
-- **Menu items** → `MenuItems`
+| Concept                     | Use this type   |
+| --------------------------- | --------------- |
+| Enum / option set           | `TextEnum`      |
+| Date (ISO `YYYY-MM-DD`)     | `LocalDate`     |
+| Time (`hh:mm[:ss]`)         | `LocalTime`     |
+| Date-time                   | `LocalDateTime` |
+| URL                         | `WebUrl`        |
+| Email                       | `Email`         |
+| Phone number                | `Phone`         |
+| Hostname                    | `Hostname`      |
+| Regex pattern               | `Regex`         |
+| UUID                        | `Guid`          |
+| Rich text                   | `RichText`      |
+| Direction (RTL/LTR)         | `Direction`     |
+| Accessibility               | `A11y`          |
+| Image                       | `Image`         |
+| Video                       | `Video`         |
+| Audio                       | `Audio`         |
+| Vector graphic              | `VectorArt`     |
+| Link                        | `Link`          |
+| Menu items                  | `MenuItems`     |
+| Container / slot / blackbox | `Container`     |
+
+### External resources are forbidden
+
+All resources rendered or fetched by the component (images, icons, fonts,
+videos, audio, JSON data, etc.) MUST come from Wix services. Never reference
+or call external (non-Wix) hosts — no `unsplash.com`, `placehold.co`,
+`picsum.photos`, third-party CDN icon sets, or any custom backend the user
+hasn't asked for. This rule covers both `src`/`href` attributes and any
+runtime fetching.
+
+Allowed image hosts: `static.wixstatic.com` (and other `*.wixstatic.com`
+subdomains). Allowed data: values supplied through props (populated by the
+editor) or imported local assets bundled with the component.
+
+### Default values for `Image` props
+
+Image defaults belong in the component file's exported `defaultProps`
+constant (the one consumed by `withDefaults(Component, defaultProps)` in
+`component.tsx`). Use a Wix-hosted image from the Free-from-Wix public
+media catalog and populate **only** `uri`, `url`, and `alt` — leave
+`width`, `height`, `focalPoint`, etc. unset so the editor fills them when
+the user picks a real image.
+
+By default, use the canonical fallback URL from the examples below for
+every `Image` default (`url` and `uri` derived from the same `fileName`).
+**Only when the user explicitly asks for different/better default images**,
+fetch candidates from the Wix Free-from-Wix catalog:
+
+```
+GET https://publicmedia.wix.com/public/light_items?guid=bca5cb9f-45d2-4b11-8d6c-c9a7e7bd2873%3Aglobal%3Awix&pageSize=20&pageNumber=1&language=en&tags=free&mediaType=picture
+```
+
+The endpoint is unauthenticated. Pick an item whose `displayTags` /
+`title` fit the component's purpose, then build the `Image` default from
+its `fileName`:
+
+- `url` → `` `https://static.wixstatic.com/media/${fileName}` ``
+- `uri` → `fileName`
+- `alt` → a short human description (use the item's `title` or
+  `displayTags`)
+
+Do not call this endpoint when the user hasn't asked for it — the
+canonical fallback URL is fine for unattended scaffolds.
+
+**Single `Image` prop:**
+
+```typescript
+export const defaultProps = {
+  image: {
+    url: "https://static.wixstatic.com/media/11062b_2f97b87dcea2446fa48e9ad9c5457ae1~mv2.jpg",
+    uri: "11062b_2f97b87dcea2446fa48e9ad9c5457ae1~mv2.jpg",
+    alt: "Default image",
+  },
+} as const satisfies Omit<ExampleComponentProps, "id" | "className">;
+```
+
+**Array of `Image`:**
+
+```typescript
+export const defaultProps = {
+  images: [
+    {
+      url: "https://static.wixstatic.com/media/11062b_2f97b87dcea2446fa48e9ad9c5457ae1~mv2.jpg",
+      uri: "11062b_2f97b87dcea2446fa48e9ad9c5457ae1~mv2.jpg",
+      alt: "Default image 1",
+    },
+    {
+      url: "https://static.wixstatic.com/media/11062b_2f97b87dcea2446fa48e9ad9c5457ae1~mv2.jpg",
+      uri: "11062b_2f97b87dcea2446fa48e9ad9c5457ae1~mv2.jpg",
+      alt: "Default image 2",
+    },
+  ],
+} as const satisfies Omit<ExampleComponentProps, "id" | "className">;
+```
+
+**Array of objects with an `Image` field:**
+
+```typescript
+export const defaultProps = {
+  cards: [
+    {
+      title: "First card",
+      image: {
+        url: "https://static.wixstatic.com/media/11062b_2f97b87dcea2446fa48e9ad9c5457ae1~mv2.jpg",
+        uri: "11062b_2f97b87dcea2446fa48e9ad9c5457ae1~mv2.jpg",
+        alt: "First card image",
+      },
+    },
+    {
+      title: "Second card",
+      image: {
+        url: "https://static.wixstatic.com/media/11062b_2f97b87dcea2446fa48e9ad9c5457ae1~mv2.jpg",
+        uri: "11062b_2f97b87dcea2446fa48e9ad9c5457ae1~mv2.jpg",
+        alt: "Second card image",
+      },
+    },
+  ],
+} as const satisfies Omit<ExampleComponentProps, "id" | "className">;
+```
+
+**Inline fallback for HTML `src` / `href`:** when rendering a raw HTML
+attribute that takes a URL (`<img src>`, `<source src>`, `<video poster>`,
+`<a href>` for an image link, etc.) and the value could be empty, fall
+back to the same Wix-hosted URL — never to an external host or a relative
+path that doesn't exist:
+
+```tsx
+<img
+  src={
+    image?.url ||
+    "https://static.wixstatic.com/media/11062b_2f97b87dcea2446fa48e9ad9c5457ae1~mv2.jpg"
+  }
+  alt={image?.alt || "Default image"}
+/>
+```
 
 ### Component File Splitting
 
