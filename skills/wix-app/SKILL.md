@@ -183,6 +183,9 @@ Read [APP_MARKET_REVIEW.md](references/APP_MARKET_REVIEW.md) — it contains the
 
 Only ask for configuration values when **absolutely necessary** for the implementation to proceed. If a value can be configured later or added as a manual step, don't block on it.
 
+**Code Identifier Requirement:**
+When creating an Editor React component, you need the user's Code Identifier. If not provided, read [APP_IDENTIFIERS.md](references/APP_IDENTIFIERS.md) and give the user the instructions to obtain it.
+
 If unclear on approach (placement, visibility, configuration, integration), ask clarifying questions. If the answer could change the extension type, wait for the response before proceeding. Otherwise, proceed with the best-fit extension type.
 
 ### Step 2: Make Your Recommendation
