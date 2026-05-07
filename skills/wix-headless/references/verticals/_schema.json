@@ -1,0 +1,160 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Wix Headless Vertical Frontmatter",
+  "description": "Validates verticals/<name>.md frontmatter. Runs at session start; malformed vertical aborts the skill.",
+  "type": "object",
+  "required": ["name", "description", "packages"],
+  "additionalProperties": true,
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$",
+      "description": "Must match filename stem (e.g., stores.md → 'stores')"
+    },
+    "triggers": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "description": { "type": "string" },
+    "requires": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "features": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "description"],
+        "properties": {
+          "name": { "type": "string" },
+          "description": { "type": "string" }
+        }
+      }
+    },
+    "apps": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          { "type": "string", "description": "App name (resolved via known-apps.json)" },
+          {
+            "type": "object",
+            "required": ["name"],
+            "properties": {
+              "name": { "type": "string" },
+              "appDefId": { "type": "string" }
+            }
+          }
+        ]
+      }
+    },
+    "packages": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string" }
+    },
+    "routes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["route"],
+        "properties": {
+          "route": { "type": "string", "description": "URL path (e.g. /cart) OR the literal 'Hosted by Wix' for Wix-hosted endpoints like checkout." },
+          "name": { "type": "string", "description": "Optional user-facing page name override for DISCOVERY.md's Section C table. When omitted, the orchestrator derives the name from the path (/ → Home; /thank-you → Thank You). Set this only when path-derivation produces a poor name (e.g. /products/[slug] → 'Product Detail') or when the route has no path (e.g. ecom's Wix-hosted Checkout)." }
+        }
+      }
+    },
+    "cmsCollections": { "type": "array" },
+    "seed": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "required": ["agentLocation", "scope", "references"],
+          "properties": {
+            "agentLocation": { "type": "string" },
+            "scope": { "type": "string", "const": "seed" },
+            "description": { "type": "string" },
+            "references": { "type": "array", "items": { "type": "string" } }
+          }
+        }
+      ]
+    },
+    "components": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "required": ["agentLocation", "scope", "references"],
+          "properties": {
+            "agentLocation": { "type": "string" },
+            "scope": { "type": "string", "const": "components" },
+            "description": { "type": "string" },
+            "references": { "type": "array", "items": { "type": "string" } },
+            "files": { "type": "array", "items": { "type": "string" } }
+          }
+        }
+      ]
+    },
+    "componentsCss": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "required": ["agentLocation", "scope", "references"],
+          "description": "Optional sibling of `components`. When present, the orchestrator dispatches a second concurrent Phase 3 subagent that owns the pack's scoped CSS file only — independent of TSX/Astro work in the `components` scope. Used by packs whose `components` agent dominated phase wall time (today: stores). Backward compatible — packs without this field keep the single-agent shape.",
+          "properties": {
+            "agentLocation": { "type": "string" },
+            "scope": { "type": "string", "const": "components-css" },
+            "description": { "type": "string" },
+            "references": { "type": "array", "items": { "type": "string" } },
+            "files": { "type": "array", "items": { "type": "string" } }
+          }
+        }
+      ]
+    },
+    "pages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["agentLocation", "scope", "references"],
+        "properties": {
+          "name": { "type": "string" },
+          "agentLocation": { "type": "string" },
+          "scope": {
+            "type": "string",
+            "pattern": "^pages(-[a-z][a-z0-9-]*)?$",
+            "description": "Must be 'pages' or 'pages-<subscope>'"
+          },
+          "description": { "type": "string" },
+          "references": { "type": "array", "items": { "type": "string" } },
+          "files": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "creates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["file", "phase"],
+        "properties": {
+          "file": { "type": "string" },
+          "phase": { "type": "string", "enum": ["seed", "components", "pages"] }
+        }
+      }
+    },
+    "contributes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["file", "marker"],
+        "properties": {
+          "file": { "type": "string" },
+          "marker": { "type": "string", "pattern": "^<!--\\s.*\\s-->$" },
+          "description": { "type": "string" }
+        }
+      }
+    },
+    "include": { "type": "boolean", "description": "Pack-level loading flag. If true, the pack is loaded in every site regardless of triggers/requires (today: only the cms pack uses include:true). Default false — the pack loads only when triggers match the user's prompt or another pack pulls it in via requires." },
+    "disabled": { "type": "boolean", "description": "Pack-level activation flag, ORTHOGONAL to `include`. If true, the pack's surfaces (pages, nav links, home blocks) are disabled by default — they ship as code but do not appear without a separate user action (today: enabling the matching Wix app from the dashboard, which the pack's runtime probe detects). Files still ship via creates: / contributes: so activation is instant once the user opts in. DISCOVERY.md plan composition (Sections B + C) skips features and routes from disabled packs so the plan never promises a surface the user did not ask for. Today only the gift-cards pack uses disabled:true." }
+  }
+}

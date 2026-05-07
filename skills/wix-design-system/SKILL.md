@@ -15,8 +15,9 @@ This skill bundles `scripts/wds.cjs` — a Node.js helper that auto-discovers `@
 # WDS is the absolute path to this skill's scripts/wds.cjs
 WDS="<this-skill-dir>/scripts/wds.cjs"
 
-node $WDS search <keyword>                # Find components by keyword
-node $WDS component <Name>                 # Get props + example list
+node $WDS search <keyword>                 # Find components by keyword
+node $WDS component <Name>                 # Get props + example list (one component)
+node $WDS components <Name1> <Name2>...    # Same as `component`, but for several at once
 node $WDS example <Name> "<ExampleName>"   # Get a specific example
 node $WDS testkit <Name> [method]          # Get testkit imports + driver API
 node $WDS icons <query>                    # Search for icons
@@ -41,6 +42,14 @@ node $WDS component Button
 ```
 
 Returns the full props list (types and descriptions) plus a list of all available examples. For large prop files (>200 lines), returns a summary with prop names and types.
+
+If you already know which several components you'll need (e.g. after Step 1 returned a shortlist), prefer the batch form to avoid one round-trip per component:
+
+```bash
+node $WDS components Button Card Table Input Text Thumbnail
+```
+
+Output is each component's props block separated by `---`. Missing components are logged to stderr and skipped; the command only fails if every requested component is missing.
 
 ### Step 3: Get a specific example
 
