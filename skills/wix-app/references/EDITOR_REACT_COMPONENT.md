@@ -35,7 +35,7 @@ File where you can override the generated manifest from `<componentName>.generat
 1. If `src/site/components/component-name/` does not yet exist, run
    `npx wix generate --params '{"extensionType":"EDITOR_REACT_COMPONENT","name":"ComponentName","folder":"component-name","description":"A brief description of what the component does"}'` to scaffold it. Skip this
    step when iterating on an existing component — re-running it would
-   overwrite local changes.
+   return "an extension already exist" error.
 2. Edit the generated react and CSS files in
    `src/site/components/ComponentName/`.
 3. Run `npx wix build && npx wix generate manifest` so the editor picks up
