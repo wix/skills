@@ -16,6 +16,7 @@ flowchart TB
 
     R --> |"classifies intent → loads matching goal"| Goals
     R --> |"loads API references"| Config
+    R --> |"loads tracking (SKIP_TRACKING gate inside)"| Tracking
 
     subgraph Goals["Goals — Business Objectives"]
         subgraph GD["Discount"]
@@ -68,7 +69,6 @@ flowchart TB
         recipe-recommendation-tracking
     end
 
-    R -.-> |"persists & tracks (unless SKIP_TRACKING)"| Tracking
     Tracking --> |"calls"| api-recommendation-tracking
 
     subgraph Troubleshoot["Cross-cutting: Troubleshooting"]

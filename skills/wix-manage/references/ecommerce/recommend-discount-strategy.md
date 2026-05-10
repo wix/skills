@@ -21,11 +21,15 @@ references:
   - name: "Goal: Drive Cross-Sells"
     path: ecommerce/goal-drive-cross-sells.md
     load: false
+  - name: "Recipe: Recommendation Tracking"
+    path: ecommerce/recipe-recommendation-tracking.md
+    load: true
 ---
 # Recommend: Discount Strategy
 
 > **Before executing this skill**, read these referenced skills with `ReadFullDocsArticle`:
 > - [API: Discount Recommendations](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/api-discount-recommendations)
+> - [Recipe: Recommendation Tracking](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/recipe-recommendation-tracking)
 >
 > **After classifying the business goal in Step 3**, read the matching goal skill with `ReadFullDocsArticle`:
 > - **UPSELL_BOOST** → [Goal: Increase AOV](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-increase-aov)

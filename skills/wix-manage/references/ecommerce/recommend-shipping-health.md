@@ -18,12 +18,16 @@ references:
   - name: "Flow: Optimize Shipping Rates"
     path: ecommerce/flow-optimize-shipping-rates.md
     load: false
+  - name: "Recipe: Recommendation Tracking"
+    path: ecommerce/recipe-recommendation-tracking.md
+    load: true
 ---
 # Recommend: Shipping Health
 
 > **Before executing this skill**, read these referenced skills with `ReadFullDocsArticle`:
 > - [Guardrail: Shipping Health](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/guardrail-shipping-health)
 > - [Goal: Reduce Cart Abandonment](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-reduce-cart-abandonment)
+> - [Recipe: Recommendation Tracking](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/recipe-recommendation-tracking)
 >
 > **After running checks**, read the matching flow skills with `ReadFullDocsArticle` based on your findings:
 > - Coverage gaps or missing regions → [Flow: Fix Coverage Gaps](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-fix-coverage-gaps)
