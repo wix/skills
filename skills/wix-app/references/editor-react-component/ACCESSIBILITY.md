@@ -135,4 +135,4 @@ export interface TabsProps {
 {...(a11y && convertA11yKeysToHtmlFormat(a11y))}
 ```
 
-**Why:** The `A11y` type from `@wix//editor-react-types` provides a standardized way to handle ALL ARIA attributes (ariaLabel, ariaDescribedBy, ariaLabelledBy, role, ariaHidden, ariaLive, etc.). Individual ARIA props fragment the API and make it harder to use.
+**Why:** The `A11y` type from `@wix/editor-react-types` provides a standardized way to handle ALL ARIA attributes (ariaLabel, ariaDescribedBy, ariaLabelledBy, role, ariaHidden, ariaLive, etc.). Individual ARIA props fragment the API and make it harder to use.
