@@ -205,6 +205,20 @@ its `fileName`:
 Do not call this endpoint when the user hasn't asked for it — the
 canonical fallback URL is fine for unattended scaffolds.
 
+**Default image pool — use a different image for each slot:**
+
+| # | fileName | Description |
+|---|----------|-------------|
+| 1 | `11062b_2f97b87dcea2446fa48e9ad9c5457ae1~mv2.jpg` | Tropical beach aerial |
+| 2 | `11062b_73f31c7e7d3544c69dc8ecd8d34c5717~mv2.jpg` | Dead Sea landscape |
+| 3 | `11062b_3682ebfcb08e4da5b3168b62819a1e68~mv2.jpg` | Palm tree sunset |
+| 4 | `11062b_45e67783d39c4963ab9e4fc418173233~mv2.jpg` | Abstract pink waves |
+| 5 | `11062b_4c11f014b0d04948b2e6f554076bc40a~mv2.jpg` | Coastal village aerial |
+
+When a component needs **more than one** image default, cycle through
+the pool above so every slot gets a visually distinct image. For a
+single image, use image #1.
+
 **Single `Image` prop:**
 
 ```typescript
@@ -228,8 +242,8 @@ export const defaultProps = {
       alt: "Default image 1",
     },
     {
-      url: "https://static.wixstatic.com/media/11062b_2f97b87dcea2446fa48e9ad9c5457ae1~mv2.jpg",
-      uri: "11062b_2f97b87dcea2446fa48e9ad9c5457ae1~mv2.jpg",
+      url: "https://static.wixstatic.com/media/11062b_73f31c7e7d3544c69dc8ecd8d34c5717~mv2.jpg",
+      uri: "11062b_73f31c7e7d3544c69dc8ecd8d34c5717~mv2.jpg",
       alt: "Default image 2",
     },
   ],
@@ -252,8 +266,8 @@ export const defaultProps = {
     {
       title: "Second card",
       image: {
-        url: "https://static.wixstatic.com/media/11062b_2f97b87dcea2446fa48e9ad9c5457ae1~mv2.jpg",
-        uri: "11062b_2f97b87dcea2446fa48e9ad9c5457ae1~mv2.jpg",
+        url: "https://static.wixstatic.com/media/11062b_73f31c7e7d3544c69dc8ecd8d34c5717~mv2.jpg",
+        uri: "11062b_73f31c7e7d3544c69dc8ecd8d34c5717~mv2.jpg",
         alt: "Second card image",
       },
     },
