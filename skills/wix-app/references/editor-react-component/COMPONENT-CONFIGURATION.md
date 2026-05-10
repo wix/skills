@@ -1,11 +1,11 @@
 # Component Configuration
 
-After scaffolding the component and running `npx wix generate manifest`,
+After scaffolding the component and running `npx wix build && npx wix generate manifest`,
 configure the component's behavior in the editor by writing **partial
 manifest overrides** in the component's hand-edited extension file
 (`<ComponentName>.extension.ts`). That file imports the auto-generated
 manifest and spreads it; specific fields are overridden inline. Re-running
-`npx wix generate manifest` regenerates each `<ComponentName>.generated.ts`
+this command regenerates each `<ComponentName>.generated.ts`
 companion but never touches the overrides authored in the extension file.
 
 ---
