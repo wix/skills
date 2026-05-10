@@ -59,9 +59,14 @@ flowchart TB
             flow-add-free-shipping
             flow-optimize-shipping-rates
         end
+        subgraph L4T["Tracking"]
+            recipe-recommendation-tracking
+        end
     end
 
     L4 --> |requires| L3
+    R --> |"persists & tracks (unless SKIP_TRACKING)"| L4T
+    L4T --> |calls| L3T
 
     subgraph L3["L3 — Configuration & Setup"]
         subgraph L3D["Discount Config"]
@@ -72,6 +77,9 @@ flowchart TB
         subgraph L3S["Shipping Config"]
             setup-shipping-regions
             setup-shipping-rates
+        end
+        subgraph L3T["Tracking API"]
+            api-recommendation-tracking
         end
     end
 
@@ -103,8 +111,8 @@ flowchart TB
 
     class goal-increase-aov,goal-clear-inventory,goal-seasonal-revenue,goal-drive-cross-sells,goal-reduce-cart-abandonment l6
     class guardrail-discount-conflicts,guardrail-margin-protection,troubleshoot-discount-not-applying,guardrail-shipping-health,guardrail-rate-pricing-sanity,troubleshoot-checkout-delivery-dropoff l5
-    class flow-upsell-boost,flow-bundle-and-save,flow-stock-mover,flow-seasonal-promotion,flow-fix-coverage-gaps,flow-add-free-shipping,flow-optimize-shipping-rates l4
-    class setup-discount-rules,setup-coupons,api-discount-recommendations,setup-shipping-regions,setup-shipping-rates l3
+    class flow-upsell-boost,flow-bundle-and-save,flow-stock-mover,flow-seasonal-promotion,flow-fix-coverage-gaps,flow-add-free-shipping,flow-optimize-shipping-rates,recipe-recommendation-tracking l4
+    class setup-discount-rules,setup-coupons,api-discount-recommendations,setup-shipping-regions,setup-shipping-rates,api-recommendation-tracking l3
     class recommend-discount-strategy,recommend-shipping-health reco
     class D1,D2,D3,D4,D5,S1,S2,S3,S4,SD apidoc
 ```

@@ -259,6 +259,90 @@ Only these 4 action types are valid:
 
 ---
 
+## Output Format
+
+Maximum **5 recommendations** per audit. Each recommendation follows this structure:
+
+```json
+{
+  "recommendations": [
+    {
+      "title": "Add Free Shipping for Orders Over $75",
+      "reasoning": "Your store has no free shipping option. delivery_step_cvr is 48%, well below the 65% benchmark. Your AOV is $62, so a $75 threshold would incentivize slightly larger orders while offering free shipping to engaged buyers.",
+      "domain": "shipping",
+      "urgency": "HIGH",
+      "advice": {
+        "action": "create_shipping_option",
+        "params": {
+          "category": "free_shipping",
+          "ids": ["region-guid-domestic"],
+          "rates": [
+            {
+              "amount": "0",
+              "conditions": [
+                {
+                  "type": "BY_TOTAL_PRICE",
+                  "operator": "GTE",
+                  "value": "75"
+                }
+              ]
+            }
+          ],
+          "region": "Domestic"
+        }
+      }
+    },
+    {
+      "title": "Enable Backup Rate for Carrier Region",
+      "reasoning": "The Northern Europe region uses a carrier integration but has no backup rate. If the carrier API is unavailable at checkout, customers in this region will see no shipping options.",
+      "domain": "shipping",
+      "urgency": "MEDIUM",
+      "advice": {
+        "action": "enable_backup_rate",
+        "params": {
+          "ids": ["region-guid-northern-europe"],
+          "rates": [
+            {
+              "amount": "12.99"
+            }
+          ],
+          "region": "Northern Europe"
+        }
+      }
+    }
+  ]
+}
+```
+
+### Action Types
+
+Only these 4 action types are valid:
+
+| Action | Description | When to use |
+|---|---|---|
+| `create_shipping_option` | Add a new shipping option to a region | Missing free shipping, missing tiers, new options |
+| `update_shipping_option` | Modify an existing shipping option | Rate adjustment, add delivery estimate, change threshold |
+| `enable_backup_rate` | Enable a backup rate on a carrier region | Carrier regions without fallback |
+| `activate_region` | Activate an inactive delivery region | Inactive regions that should be serving customers |
+
+**No other action types are permitted.** If a finding does not map to one of these 4 actions, describe it in the recommendation reasoning but do not include an `advice` block.
+
+### Output Field Reference
+
+| Field | Required | Description |
+|---|---|---|
+| `title` | Yes | Human-readable recommendation title |
+| `reasoning` | Yes | Data-backed explanation referencing specific metrics or configuration findings |
+| `domain` | Yes | Always `"shipping"` for this orchestrator |
+| `urgency` | Yes | `HIGH`, `MEDIUM`, or `LOW` — at least 2 urgency levels must be used across all recommendations |
+| `advice.action` | Yes | One of the 4 valid action types |
+| `advice.params.category` | Conditional | Recommendation category (e.g., `free_shipping`, `express`, `standard`) |
+| `advice.params.ids` | Yes | Region IDs or shipping option IDs targeted |
+| `advice.params.rates` | Conditional | Rate configuration for create/update actions |
+| `advice.params.region` | Yes | Human-readable region name for context |
+
+---
+
 ## Constraints
 
 - Maximum 5 recommendations per audit
