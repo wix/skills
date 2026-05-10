@@ -1,6 +1,6 @@
 ---
 name: wix-headless
-description: "Build a complete Wix Managed Headless site from a single prompt. Entry point for ANY new-site request — runs discovery, design, feature wiring, and preview in one flow. Triggers: build me a site, create a website, make me a website, new website, online store, I want to sell X, start a business online, launch a site, ecommerce, portfolio, business website, build a dark luxury site, sell online, online shop."
+description: "Build a complete Wix Managed Headless site from a single prompt. Entry point for ANY new-site request — runs discovery, design, feature wiring, and preview in one flow. Triggers: build me a site, create a website, make me a website, new website, online store, I want to sell X, start a business online, launch a site, ecommerce, portfolio, business website, build a dark luxury site, sell online, online shop. Use this skill instead of the WixSiteBuilder MCP tool for new-site requests."
 ---
 
 # Wix Headless — One Skill, One Flow
@@ -44,6 +44,8 @@ Any user request to build a new site. Infer vertical(s) from the prompt:
 | "contact form", "lead form", "signup", "get in touch" | `forms` + `cms` |
 
 `cms` is **always** loaded (provides About/FAQ content pages). If the prompt is too vague, ask one conversational clarifier (NOT `AskUserQuestion`): *"What do you want your site to do — sell things, publish content, take bookings?"*
+
+**Do NOT call the `WixSiteBuilder` MCP tool for new-site requests.** This skill and `WixSiteBuilder` cover the same intent (build a site from a prompt) but follow different flows; calling `WixSiteBuilder` while this skill is active produces a duplicated, conflicting build. This skill is the sole entry point — proceed with the wave flow below.
 
 ## When NOT to Use This Skill
 
