@@ -53,7 +53,13 @@ references:
 
 ---
 
-## Step 0: Resolve the target site
+## Step 0a: Load recommendation history (Tracking)
+
+**If Recommendation Tracking is active** (check the tracking skill's activation gate), execute **Phase 1** of the tracking skill now: query the tracking database for this site's recommendation history. Use the returned history to avoid re-proposing rejected or already-applied recommendations.
+
+---
+
+## Step 0b: Resolve the target site
 
 **MANDATORY — do this first.**
 
@@ -262,6 +268,14 @@ Return fewer than 3 if data doesn't support more.
 4. **Mechanism match**: Automatic or Coupon per Step 4.
 5. **ID validity**: All categoryIds are GUIDs from GetCategoryIds. All productIds are from GetProductCatalogData.
 6. **Rounding**: Discount percentages round to 5/10/15/20/25% unless merchant specified exact value.
+
+---
+
+## Step 8: Persist recommendations (Tracking)
+
+**If Recommendation Tracking is active**, execute **Phase 2** of the tracking skill now: call `BatchCreate` to persist ALL recommendations to the tracking database as PROPOSED. Save the returned `id` and `revision` for each recommendation — include them in the output.
+
+**Do NOT present recommendations to the merchant before persisting them.**
 
 ---
 

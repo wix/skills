@@ -38,6 +38,12 @@ Proactive shipping health audit that analyzes the store's delivery configuration
 
 ---
 
+## Step 0: Load recommendation history (Tracking)
+
+**If Recommendation Tracking is active** (check the tracking skill's activation gate), execute **Phase 1** of the tracking skill now: query the tracking database for this site's recommendation history. Use the returned history to avoid re-proposing rejected or already-applied recommendations.
+
+---
+
 ## Data Sources
 
 All data is pre-fetched before analysis begins:
@@ -191,87 +197,11 @@ Recommendations are ordered by business impact:
 
 ---
 
-## Output Format
+## Persist recommendations (Tracking)
 
-Maximum **5 recommendations** per audit. Each recommendation follows this structure:
+**If Recommendation Tracking is active**, execute **Phase 2** of the tracking skill now: call `BatchCreate` to persist ALL recommendations to the tracking database as PROPOSED. Save the returned `id` and `revision` for each recommendation — include them in the output.
 
-```json
-{
-  "recommendations": [
-    {
-      "title": "Add Free Shipping for Orders Over $75",
-      "reasoning": "Your store has no free shipping option. delivery_step_cvr is 48%, well below the 65% benchmark. Your AOV is $62, so a $75 threshold would incentivize slightly larger orders while offering free shipping to engaged buyers.",
-      "domain": "shipping",
-      "urgency": "HIGH",
-      "advice": {
-        "action": "create_shipping_option",
-        "params": {
-          "category": "free_shipping",
-          "ids": ["region-guid-domestic"],
-          "rates": [
-            {
-              "amount": "0",
-              "conditions": [
-                {
-                  "type": "BY_TOTAL_PRICE",
-                  "operator": "GTE",
-                  "value": "75"
-                }
-              ]
-            }
-          ],
-          "region": "Domestic"
-        }
-      }
-    },
-    {
-      "title": "Enable Backup Rate for Carrier Region",
-      "reasoning": "The Northern Europe region uses a carrier integration but has no backup rate. If the carrier API is unavailable at checkout, customers in this region will see no shipping options.",
-      "domain": "shipping",
-      "urgency": "MEDIUM",
-      "advice": {
-        "action": "enable_backup_rate",
-        "params": {
-          "ids": ["region-guid-northern-europe"],
-          "rates": [
-            {
-              "amount": "12.99"
-            }
-          ],
-          "region": "Northern Europe"
-        }
-      }
-    }
-  ]
-}
-```
-
-### Action Types
-
-Only these 4 action types are valid:
-
-| Action | Description | When to use |
-|---|---|---|
-| `create_shipping_option` | Add a new shipping option to a region | Missing free shipping, missing tiers, new options |
-| `update_shipping_option` | Modify an existing shipping option | Rate adjustment, add delivery estimate, change threshold |
-| `enable_backup_rate` | Enable a backup rate on a carrier region | Carrier regions without fallback |
-| `activate_region` | Activate an inactive delivery region | Inactive regions that should be serving customers |
-
-**No other action types are permitted.** If a finding does not map to one of these 4 actions, describe it in the recommendation reasoning but do not include an `advice` block.
-
-### Output Field Reference
-
-| Field | Required | Description |
-|---|---|---|
-| `title` | Yes | Human-readable recommendation title |
-| `reasoning` | Yes | Data-backed explanation referencing specific metrics or configuration findings |
-| `domain` | Yes | Always `"shipping"` for this orchestrator |
-| `urgency` | Yes | `HIGH`, `MEDIUM`, or `LOW` — at least 2 urgency levels must be used across all recommendations |
-| `advice.action` | Yes | One of the 4 valid action types |
-| `advice.params.category` | Conditional | Recommendation category (e.g., `free_shipping`, `express`, `standard`) |
-| `advice.params.ids` | Yes | Region IDs or shipping option IDs targeted |
-| `advice.params.rates` | Conditional | Rate configuration for create/update actions |
-| `advice.params.region` | Yes | Human-readable region name for context |
+**Do NOT present recommendations to the merchant before persisting them.**
 
 ---
 
