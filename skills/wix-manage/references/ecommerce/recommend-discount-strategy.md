@@ -117,7 +117,9 @@ Determine the business goal:
 | **STOCK_MOVER** | "clear inventory", "overstock", "dead stock", "clearance" |
 | **SEASONAL** | Holiday names, dates, "seasonal", "sale event" |
 
-If ambiguous, default to `UPSELL_BOOST`.
+**Priority rule**: If the merchant mentions a specific holiday, event, or date range (e.g., Memorial Day, Black Friday, Christmas, "this weekend", "end of summer"), ALWAYS classify as **SEASONAL** — even if other signals like "boost sales" or "increase revenue" could match other goals. Holidays are time-sensitive and take priority over general intent.
+
+If no holiday/event is mentioned and the intent is ambiguous, default to `UPSELL_BOOST`.
 
 Extract from input: **keywords** (product/brand names), **category suggestions** (only if merchant says "category"), **date range** (map holidays to dates).
 
