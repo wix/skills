@@ -12,6 +12,10 @@ references:
 ---
 # Flow: Add Free Shipping
 
+> **Before executing this skill**, read these referenced skills with `ReadFullDocsArticle`:
+> - [Guardrail: Rate Pricing Sanity](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/guardrail-rate-pricing-sanity)
+> - [Setup: Shipping Rates](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/setup-shipping-rates)
+
 Adds a free shipping option with an optimal threshold calibrated against the site's average order value and catalog price distribution. Free shipping is the single most effective lever for reducing cart abandonment at the delivery step.
 
 ## Prerequisites

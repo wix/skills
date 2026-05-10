@@ -18,6 +18,14 @@ references:
 ---
 # Recommend: Shipping Health
 
+> **Before executing this skill**, read these referenced skills with `ReadFullDocsArticle`:
+> - [Guardrail: Shipping Health](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/guardrail-shipping-health)
+>
+> **Related skills** (read with `ReadFullDocsArticle` if needed):
+> - [Goal: Reduce Cart Abandonment](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-reduce-cart-abandonment)
+> - [Flow: Fix Coverage Gaps](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-fix-coverage-gaps)
+> - [Flow: Add Free Shipping](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-add-free-shipping)
+
 Proactive shipping health audit that analyzes the store's delivery configuration, identifies gaps and optimization opportunities, and generates prioritized recommendations to improve shipping setup and checkout conversion.
 
 ---

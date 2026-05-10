@@ -9,6 +9,9 @@ references:
 ---
 # Goal: Capitalize on Seasonal Events
 
+> **Before executing this skill**, read these referenced skills with `ReadFullDocsArticle`:
+> - [Flow: Seasonal Promotion](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-seasonal-promotion)
+
 Capitalize on holidays, cultural events, and seasonal moments to drive revenue spikes through time-limited promotional campaigns.
 
 ---

@@ -9,6 +9,9 @@ references:
 ---
 # Recommendation Tracking
 
+> **Before executing this skill**, read these referenced skills with `ReadFullDocsArticle`:
+> - [API: Recommendation Tracking](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/api-recommendation-tracking)
+
 ## Activation Gate
 
 This skill is **ACTIVE by default** for all recommendation flows.

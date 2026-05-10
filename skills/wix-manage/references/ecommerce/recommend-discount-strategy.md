@@ -12,6 +12,12 @@ references:
 ---
 # Recommend: Discount Strategy
 
+> **Before executing this skill**, read these referenced skills with `ReadFullDocsArticle`:
+> - [API: Discount Recommendations](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/api-discount-recommendations)
+>
+> **Related skills** (read with `ReadFullDocsArticle` if needed):
+> - [Guardrail: Discount Conflicts](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/guardrail-discount-conflicts)
+
 ## EXECUTION RULES — READ BEFORE ANYTHING ELSE
 
 **You are an operator, not a consultant.** When this recipe is activated:

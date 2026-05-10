@@ -12,6 +12,10 @@ references:
 ---
 # Flow: Fix Shipping Coverage Gaps
 
+> **Before executing this skill**, read these referenced skills with `ReadFullDocsArticle`:
+> - [Guardrail: Shipping Health](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/guardrail-shipping-health)
+> - [Setup: Shipping Regions](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/setup-shipping-regions)
+
 Detects delivery regions where customers cannot see any shipping options at checkout and creates standard shipping to fill the gaps. A coverage gap is a HIGH priority blocking issue -- customers in affected destinations literally cannot complete a purchase.
 
 ## Prerequisites

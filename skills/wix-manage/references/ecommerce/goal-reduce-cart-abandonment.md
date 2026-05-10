@@ -15,6 +15,13 @@ references:
 ---
 # Goal: Reduce Cart Abandonment
 
+> **Before executing this skill**, read these referenced skills with `ReadFullDocsArticle`:
+> - [Flow: Add Free Shipping](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-add-free-shipping)
+> - [Flow: Fix Coverage Gaps](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-fix-coverage-gaps)
+>
+> **Related skills** (read with `ReadFullDocsArticle` if needed):
+> - [Flow: Optimize Shipping Rates](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-optimize-shipping-rates)
+
 Reduce checkout abandonment caused by shipping friction — coverage gaps, unexpected costs, and missing free shipping options — by optimizing the delivery step of the checkout funnel.
 
 ---

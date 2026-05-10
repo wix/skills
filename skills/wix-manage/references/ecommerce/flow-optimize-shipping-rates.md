@@ -12,6 +12,10 @@ references:
 ---
 # Flow: Optimize Shipping Rates
 
+> **Before executing this skill**, read these referenced skills with `ReadFullDocsArticle`:
+> - [Guardrail: Rate Pricing Sanity](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/guardrail-rate-pricing-sanity)
+> - [Setup: Shipping Rates](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/setup-shipping-rates)
+
 Analyzes the site's catalog price distribution and current shipping rate structure to determine if the rate strategy is optimal. Recommends and applies changes when flat rates should become tiered, when tier gaps exist, or when per-item penalties are harming conversion.
 
 ## Prerequisites

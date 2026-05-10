@@ -15,6 +15,13 @@ references:
 ---
 # Goal: Increase Average Order Value
 
+> **Before executing this skill**, read these referenced skills with `ReadFullDocsArticle`:
+> - [Flow: Upsell Boost](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-upsell-boost)
+> - [Flow: Bundle and Save](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-bundle-and-save)
+>
+> **Related skills** (read with `ReadFullDocsArticle` if needed):
+> - [Guardrail: Margin Protection](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/guardrail-margin-protection)
+
 Incentivize customers to spend above the store's current average order value (AOV) by creating threshold-based discounts that reward higher cart totals.
 
 ---
