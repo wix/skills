@@ -23,7 +23,7 @@ Entry point for the component. Imports the default prop values defined in `<comp
 Auto-generated file that describes the component manifest. **Do not write or edit content in this file.** It is updated automatically based on the React component by running:
 
 ```
-npx wix generate manifest
+npx wix build && npx wix generate manifest
 ```
 
 ### `<componentName>.extension.ts`
@@ -39,7 +39,7 @@ File where you can override the generated manifest from `<componentName>.generat
 2. Edit the generated react and CSS files in
    `src/site/components/ComponentName/`.
 3. Run `npx wix build && npx wix generate manifest` so the editor picks up
-   the new/updated prop schema. `npx wix generate manifest` regenerates manifest
+   the new/updated prop schema. This command regenerates manifest
    parts for all components.
 4. Update `Component.extensions.ts` file according to [`editor-react-component/COMPONENT-CONFIGURATION.md`](editor-react-component/COMPONENT-CONFIGURATION.md)
 
