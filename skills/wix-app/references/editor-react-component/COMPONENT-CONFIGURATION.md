@@ -146,3 +146,20 @@ resources: {
   client: { componentUrl },
 },
 ```
+
+---
+
+## 4. Enabling automatic installation on Harmony editor
+
+**Always include `"staticContainer": "HOMEPAGE"`** in `installation` so the
+component is automatically installed on the Harmony editor.
+
+```ts
+const componentExtension = extensions.editorReactComponent({
+  // …other fields…
+  installation: {
+    // …other fields…
+    staticContainer: 'HOMEPAGE',
+  },
+});
+```
