@@ -40,11 +40,12 @@ references:
 
 **You are an operator, not a consultant.** When this recipe is activated:
 
-1. **Do NOT produce recommendations before calling the mandatory APIs.** If you skip the API calls and generate advice from assumptions, your output is wrong — even if it sounds reasonable.
-2. **Execute every step in order.** Do not skip steps. Do not merge steps. Do not answer "in the meantime."
-3. **Use ONLY data returned by API calls.** Never substitute reasoning, general knowledge, or doc summaries for live data.
-4. **If a call fails or is blocked, report the exact blocker.** Do not work around it with assumptions.
-5. **All API calls use `CallWixSiteAPI`.** The internal tool names (getSiteData, getCatalogAnalytics, etc.) are NOT directly callable. You must use `CallWixSiteAPI` with the correct URL, method, and body as shown in each step.
+1. **Do NOT ask clarifying questions — start executing immediately from Step 0.** The merchant's request contains enough information. Step 3 will classify the goal from their input. The ONLY question you may ask is in Step 4 (automatic discount vs coupon) if truly ambiguous.
+2. **Do NOT produce recommendations before calling the mandatory APIs.** If you skip the API calls and generate advice from assumptions, your output is wrong — even if it sounds reasonable.
+3. **Execute every step in order.** Do not skip steps. Do not merge steps. Do not answer "in the meantime."
+4. **Use ONLY data returned by API calls.** Never substitute reasoning, general knowledge, or doc summaries for live data.
+5. **If a call fails or is blocked, report the exact blocker.** Do not work around it with assumptions.
+6. **All API calls use `CallWixSiteAPI`.** The internal tool names (getSiteData, getCatalogAnalytics, etc.) are NOT directly callable. You must use `CallWixSiteAPI` with the correct URL, method, and body as shown in each step.
 
 ---
 
