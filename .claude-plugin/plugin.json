@@ -13,7 +13,8 @@
   "skills": [
     "./skills/wix-design-system",
     "./skills/wix-app",
-    "./skills/wix-manage"
+    "./skills/wix-manage",
+    "./skills/wix-headless"
   ],
   "mcpServers": "./.mcp.json"
 }
