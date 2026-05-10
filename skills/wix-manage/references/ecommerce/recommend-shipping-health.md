@@ -8,23 +8,27 @@ references:
     load: true
   - name: "Goal: Reduce Cart Abandonment"
     path: ecommerce/goal-reduce-cart-abandonment.md
-    load: false
+    load: true
   - name: "Flow: Fix Coverage Gaps"
     path: ecommerce/flow-fix-coverage-gaps.md
     load: false
   - name: "Flow: Add Free Shipping"
     path: ecommerce/flow-add-free-shipping.md
     load: false
+  - name: "Flow: Optimize Shipping Rates"
+    path: ecommerce/flow-optimize-shipping-rates.md
+    load: false
 ---
 # Recommend: Shipping Health
 
 > **Before executing this skill**, read these referenced skills with `ReadFullDocsArticle`:
 > - [Guardrail: Shipping Health](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/guardrail-shipping-health)
->
-> **Related skills** (read with `ReadFullDocsArticle` if needed):
 > - [Goal: Reduce Cart Abandonment](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-reduce-cart-abandonment)
-> - [Flow: Fix Coverage Gaps](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-fix-coverage-gaps)
-> - [Flow: Add Free Shipping](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-add-free-shipping)
+>
+> **After running checks**, read the matching flow skills with `ReadFullDocsArticle` based on your findings:
+> - Coverage gaps or missing regions → [Flow: Fix Coverage Gaps](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-fix-coverage-gaps)
+> - No free shipping or threshold issues → [Flow: Add Free Shipping](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-add-free-shipping)
+> - Rate too high, missing tiers, or pricing issues → [Flow: Optimize Shipping Rates](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-optimize-shipping-rates)
 
 Proactive shipping health audit that analyzes the store's delivery configuration, identifies gaps and optimization opportunities, and generates prioritized recommendations to improve shipping setup and checkout conversion.
 

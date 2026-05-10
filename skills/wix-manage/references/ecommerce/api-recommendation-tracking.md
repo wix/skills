@@ -1,7 +1,7 @@
 ---
 name: "API: Recommendation Tracking"
 description: CRUD API for persisting and managing the lifecycle of AI-generated recommendations. Tracks state transitions from PROPOSED through APPROVED, EXECUTING, to DONE/FAILED/REJECTED. Every recommendation must be persisted here before presenting to the merchant.
-layer: L3
+layer: config
 ---
 # API: Recommendation Tracking Service
 

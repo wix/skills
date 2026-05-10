@@ -9,11 +9,29 @@ references:
   - name: "Guardrail: Discount Conflicts"
     path: ecommerce/guardrail-discount-conflicts.md
     load: false
+  - name: "Goal: Increase AOV"
+    path: ecommerce/goal-increase-aov.md
+    load: false
+  - name: "Goal: Clear Inventory"
+    path: ecommerce/goal-clear-inventory.md
+    load: false
+  - name: "Goal: Seasonal Revenue"
+    path: ecommerce/goal-seasonal-revenue.md
+    load: false
+  - name: "Goal: Drive Cross-Sells"
+    path: ecommerce/goal-drive-cross-sells.md
+    load: false
 ---
 # Recommend: Discount Strategy
 
 > **Before executing this skill**, read these referenced skills with `ReadFullDocsArticle`:
 > - [API: Discount Recommendations](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/api-discount-recommendations)
+>
+> **After classifying the business goal in Step 3**, read the matching goal skill with `ReadFullDocsArticle`:
+> - **UPSELL_BOOST** → [Goal: Increase AOV](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-increase-aov)
+> - **BUNDLE_AND_SAVE** → [Goal: Drive Cross-Sells](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-drive-cross-sells)
+> - **STOCK_MOVER** → [Goal: Clear Inventory](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-clear-inventory)
+> - **SEASONAL** → [Goal: Seasonal Revenue](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-seasonal-revenue)
 >
 > **Related skills** (read with `ReadFullDocsArticle` if needed):
 > - [Guardrail: Discount Conflicts](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/guardrail-discount-conflicts)
@@ -102,6 +120,17 @@ Determine the business goal:
 If ambiguous, default to `UPSELL_BOOST`.
 
 Extract from input: **keywords** (product/brand names), **category suggestions** (only if merchant says "category"), **date range** (map holidays to dates).
+
+**MANDATORY — load the matching goal skill now.** Use `ReadFullDocsArticle` to read the goal skill for the classified business goal:
+
+| Goal | Load this skill |
+|---|---|
+| UPSELL_BOOST | [Goal: Increase AOV](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-increase-aov) |
+| BUNDLE_AND_SAVE | [Goal: Drive Cross-Sells](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-drive-cross-sells) |
+| STOCK_MOVER | [Goal: Clear Inventory](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-clear-inventory) |
+| SEASONAL | [Goal: Seasonal Revenue](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-seasonal-revenue) |
+
+The goal skill contains detailed flow logic, guardrails, and setup instructions that you MUST follow when generating recommendations. Do not proceed to Step 4 without reading it.
 
 ---
 

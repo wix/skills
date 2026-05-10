@@ -1,7 +1,7 @@
 ---
 name: "Goal: Reduce Cart Abandonment"
 description: Maps checkout abandonment reduction to delivery step conversion KPIs and shipping optimization flows.
-layer: L6
+layer: goal
 references:
   - name: "Flow: Add Free Shipping"
     path: ecommerce/flow-add-free-shipping.md

@@ -1,7 +1,7 @@
 ---
 name: "Guardrail: Margin Protection"
 description: Safety constraints for discount percentages — global discount cap, minimum margin requirements, user override protocol, and percentage sanity checks.
-layer: L5
+layer: guardrail
 ---
 # Guardrail: Margin Protection
 

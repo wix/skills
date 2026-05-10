@@ -1,7 +1,7 @@
 ---
 name: "Flow: Optimize Shipping Rates"
 description: Analyzes catalog price distribution and current rate structure to recommend optimal shipping rate strategy. Handles flat-to-tiered conversion, tier gap detection, and per-item penalty removal.
-layer: L4
+layer: flow
 references:
   - name: "Guardrail: Rate Pricing Sanity"
     path: ecommerce/guardrail-rate-pricing-sanity.md

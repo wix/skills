@@ -1,7 +1,7 @@
 ---
 name: "Guardrail: Rate Pricing Sanity"
 description: Validates shipping rate pricing against AOV and catalog data. Flags excessive rates, per-item penalties, unreachable free shipping thresholds, and backup rate sticker shock.
-layer: L5
+layer: guardrail
 ---
 # Guardrail: Rate Pricing Sanity
 

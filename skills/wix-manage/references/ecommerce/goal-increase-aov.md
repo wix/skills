@@ -1,7 +1,7 @@
 ---
 name: "Goal: Increase AOV"
 description: Maps the UPSELL_BOOST business goal to measurable KPIs and actionable discount flows. Covers AOV benchmarking, margin-based discount tiers, and minSubTotal strategy.
-layer: L6
+layer: goal
 references:
   - name: "Flow: Upsell Boost"
     path: ecommerce/flow-upsell-boost.md

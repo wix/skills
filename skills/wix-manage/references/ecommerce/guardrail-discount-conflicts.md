@@ -1,7 +1,7 @@
 ---
 name: "Guardrail: Discount Conflicts"
 description: Validation rules for detecting and preventing discount stacking conflicts, coupon overlap, and unintended deep discounts before applying new promotions. Covers automatic discount rules, coupon interactions, and safe discount limits.
-layer: L5
+layer: guardrail
 ---
 # Guardrail: Discount Conflicts
 

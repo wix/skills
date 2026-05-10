@@ -1,7 +1,7 @@
 ---
 name: "Setup: Discount Rules"
 description: Configures automatic discount rules using the eCommerce Discount Rules API. Covers percentage and fixed-amount discounts, scope targeting (catalog-wide, specific collections, or individual products), and scheduling active periods.
-layer: L3
+layer: config
 ---
 # Setup Discount Rules
 

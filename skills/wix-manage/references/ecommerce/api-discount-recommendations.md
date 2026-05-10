@@ -1,7 +1,7 @@
 ---
 name: "API: Discount Recommendations"
 description: Internal API for gathering site data, catalog analytics, product catalog data, and category IDs used by discount recommendation flows. Base URL is manage.wix.com.
-layer: L3
+layer: config
 ---
 # API: Discount Recommendations Service
 

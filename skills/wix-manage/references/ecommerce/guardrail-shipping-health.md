@@ -1,7 +1,7 @@
 ---
 name: "Guardrail: Shipping Health"
 description: Shipping health score calculation (CRITICAL/POOR/FAIR/GOOD/EXCELLENT) with exact scoring criteria. Includes the mandatory business context filter for international shipping recommendations.
-layer: L5
+layer: guardrail
 ---
 # Guardrail: Shipping Health
 

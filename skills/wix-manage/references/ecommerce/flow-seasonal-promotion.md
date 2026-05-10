@@ -1,7 +1,7 @@
 ---
 name: "Flow: Seasonal Promotion"
 description: Creates event-driven promotional campaigns tied to holidays or seasonal events. Uses country and date context to identify upcoming events, calculates optimal campaign windows, and targets relevant categories.
-layer: L4
+layer: flow
 references:
   - name: "Guardrail: Discount Conflicts"
     path: ecommerce/guardrail-discount-conflicts.md

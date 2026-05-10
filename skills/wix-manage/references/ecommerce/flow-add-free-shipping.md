@@ -1,7 +1,7 @@
 ---
 name: "Flow: Add Free Shipping"
 description: Creates a free shipping option with an AOV-calibrated threshold to reduce cart abandonment and increase average order value. Validates threshold against catalog price distribution.
-layer: L4
+layer: flow
 references:
   - name: "Guardrail: Rate Pricing Sanity"
     path: ecommerce/guardrail-rate-pricing-sanity.md

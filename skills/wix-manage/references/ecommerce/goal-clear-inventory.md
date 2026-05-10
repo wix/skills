@@ -1,7 +1,7 @@
 ---
 name: "Goal: Clear Inventory"
 description: Maps the STOCK_MOVER business goal to inventory turnover KPIs and clearance discount flows.
-layer: L6
+layer: goal
 references:
   - name: "Flow: Stock Mover"
     path: ecommerce/flow-stock-mover.md

@@ -1,7 +1,7 @@
 ---
 name: "Troubleshoot: Checkout Delivery Drop-off"
 description: Diagnostic tree for when delivery step conversion is below benchmark. Correlates shipping issues with checkout abandonment and calculates revenue impact.
-layer: L5
+layer: troubleshoot
 ---
 # Troubleshoot: Checkout Delivery Drop-off
 

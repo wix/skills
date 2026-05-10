@@ -1,7 +1,7 @@
 ---
 name: "Goal: Seasonal Revenue"
 description: Maps the SEASONAL business goal to event-driven revenue KPIs and promotional flows.
-layer: L6
+layer: goal
 references:
   - name: "Flow: Seasonal Promotion"
     path: ecommerce/flow-seasonal-promotion.md

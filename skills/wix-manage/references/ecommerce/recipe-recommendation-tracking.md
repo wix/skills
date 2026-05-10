@@ -1,7 +1,7 @@
 ---
 name: "Recipe: Recommendation Tracking"
 description: Standalone skill for persisting recommendations to the database and tracking their lifecycle. Loads recommendation history for context, persists new recommendations as PROPOSED, and tracks every merchant action (approve, reject, modify, execute). Active by default — disabled via session text instruction.
-layer: L4
+layer: tracking
 references:
   - name: "API: Recommendation Tracking"
     path: ecommerce/api-recommendation-tracking.md
