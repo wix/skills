@@ -35,7 +35,7 @@ Query the tracking database for existing recommendations on this site. This give
 Call `CallWixSiteAPI` with:
 
 ```
-url: https://www.wixapis.com/ecom/v1/agentic-recommendations/query
+url: https://manage.wix.com/_api/agentic-recommendations/v1/agentic-recommendations/query
 method: POST
 siteId: <siteId>
 body: {
@@ -89,7 +89,7 @@ Every new recommendation must be saved to the database as PROPOSED before the me
 Call `CallWixSiteAPI` with:
 
 ```
-url: https://www.wixapis.com/ecom/v1/agentic-recommendations/batch-create
+url: https://manage.wix.com/_api/agentic-recommendations/v1/agentic-recommendations/batch-create
 method: POST
 siteId: <siteId>
 body: {

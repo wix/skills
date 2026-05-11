@@ -9,7 +9,7 @@ This service persists recommendations in a database and tracks their lifecycle s
 
 **Service**: `wix.ecom.agentic.recommendations.v1.AgenticRecommendationsService`
 
-**Base URL**: `https://www.wixapis.com/ecom/v1/agentic-recommendations`
+**Base URL**: `https://manage.wix.com/_api/agentic-recommendations/v1/agentic-recommendations`
 
 ## How to call these APIs
 
@@ -17,7 +17,7 @@ Use `CallWixSiteAPI` to invoke each endpoint:
 
 ```
 CallWixSiteAPI(
-  url: "https://www.wixapis.com/ecom/v1/agentic-recommendations/<endpoint>",
+  url: "https://manage.wix.com/_api/agentic-recommendations/v1/agentic-recommendations/<endpoint>",
   method: "POST",
   siteId: "<siteId>",
   body: { ... }
@@ -96,7 +96,7 @@ PROPOSED → APPROVED → EXECUTING → DONE
 
 Creates multiple recommendations (1-100) atomically. All start in PROPOSED state. **Use this as the default** — always batch recommendations together.
 
-**Endpoint**: `POST https://www.wixapis.com/ecom/v1/agentic-recommendations/batch-create`
+**Endpoint**: `POST https://manage.wix.com/_api/agentic-recommendations/v1/agentic-recommendations/batch-create`
 
 **Request**:
 ```json
@@ -155,7 +155,7 @@ Creates multiple recommendations (1-100) atomically. All start in PROPOSED state
 
 Creates a single recommendation in PROPOSED state. Prefer BatchCreate for multiple recommendations.
 
-**Endpoint**: `POST https://www.wixapis.com/ecom/v1/agentic-recommendations`
+**Endpoint**: `POST https://manage.wix.com/_api/agentic-recommendations/v1/agentic-recommendations`
 
 **Request**:
 ```json
@@ -187,7 +187,7 @@ Creates a single recommendation in PROPOSED state. Prefer BatchCreate for multip
 
 Query recommendations by conversation ID, state, or domain. Returns paginated results.
 
-**Endpoint**: `POST https://www.wixapis.com/ecom/v1/agentic-recommendations/query`
+**Endpoint**: `POST https://manage.wix.com/_api/agentic-recommendations/v1/agentic-recommendations/query`
 
 **Request**:
 ```json
@@ -228,7 +228,7 @@ Query recommendations by conversation ID, state, or domain. Returns paginated re
 
 Fetch a single recommendation by ID.
 
-**Endpoint**: `GET https://www.wixapis.com/ecom/v1/agentic-recommendations/{agenticRecommendationId}`
+**Endpoint**: `GET https://manage.wix.com/_api/agentic-recommendations/v1/agentic-recommendations/{agenticRecommendationId}`
 
 **Response**: Single `agenticRecommendation` object with all fields.
 
@@ -238,7 +238,7 @@ Fetch a single recommendation by ID.
 
 Get recommendation counts grouped by state for the current site.
 
-**Endpoint**: `POST https://www.wixapis.com/ecom/v1/agentic-recommendations/count`
+**Endpoint**: `POST https://manage.wix.com/_api/agentic-recommendations/v1/agentic-recommendations/count`
 
 **Request**: `{}`
 
@@ -262,7 +262,7 @@ Get recommendation counts grouped by state for the current site.
 
 Update a PROPOSED recommendation. Only `title`, `reasoning`, `urgency`, `advice`, and `expiresAt` can be updated. State stays PROPOSED.
 
-**Endpoint**: `PATCH https://www.wixapis.com/ecom/v1/agentic-recommendations/{agenticRecommendationId}`
+**Endpoint**: `PATCH https://manage.wix.com/_api/agentic-recommendations/v1/agentic-recommendations/{agenticRecommendationId}`
 
 **Request**:
 ```json
@@ -290,7 +290,7 @@ Update a PROPOSED recommendation. Only `title`, `reasoning`, `urgency`, `advice`
 
 PROPOSED → APPROVED. Call when the merchant agrees with a recommendation.
 
-**Endpoint**: `POST https://www.wixapis.com/ecom/v1/agentic-recommendations/{agenticRecommendationId}/approve`
+**Endpoint**: `POST https://manage.wix.com/_api/agentic-recommendations/v1/agentic-recommendations/{agenticRecommendationId}/approve`
 
 **Request**:
 ```json
@@ -307,7 +307,7 @@ PROPOSED → APPROVED. Call when the merchant agrees with a recommendation.
 
 PROPOSED → REJECTED. Call when the merchant declines.
 
-**Endpoint**: `POST https://www.wixapis.com/ecom/v1/agentic-recommendations/{agenticRecommendationId}/reject`
+**Endpoint**: `POST https://manage.wix.com/_api/agentic-recommendations/v1/agentic-recommendations/{agenticRecommendationId}/reject`
 
 **Request**:
 ```json
@@ -332,7 +332,7 @@ PROPOSED → REJECTED. Call when the merchant declines.
 
 APPROVED → EXECUTING. Call immediately before applying the recommendation.
 
-**Endpoint**: `POST https://www.wixapis.com/ecom/v1/agentic-recommendations/{agenticRecommendationId}/mark-executing`
+**Endpoint**: `POST https://manage.wix.com/_api/agentic-recommendations/v1/agentic-recommendations/{agenticRecommendationId}/mark-executing`
 
 **Request**:
 ```json
@@ -349,7 +349,7 @@ APPROVED → EXECUTING. Call immediately before applying the recommendation.
 
 EXECUTING → DONE. Call after the recommendation was successfully applied.
 
-**Endpoint**: `POST https://www.wixapis.com/ecom/v1/agentic-recommendations/{agenticRecommendationId}/mark-done`
+**Endpoint**: `POST https://manage.wix.com/_api/agentic-recommendations/v1/agentic-recommendations/{agenticRecommendationId}/mark-done`
 
 **Request**:
 ```json
@@ -370,7 +370,7 @@ EXECUTING → DONE. Call after the recommendation was successfully applied.
 
 EXECUTING → FAILED. Call when execution fails.
 
-**Endpoint**: `POST https://www.wixapis.com/ecom/v1/agentic-recommendations/{agenticRecommendationId}/mark-failed`
+**Endpoint**: `POST https://manage.wix.com/_api/agentic-recommendations/v1/agentic-recommendations/{agenticRecommendationId}/mark-failed`
 
 **Request**:
 ```json
