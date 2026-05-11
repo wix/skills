@@ -254,12 +254,14 @@ CallWixSiteAPI(
 
 **MANDATORY before outputting any categoryIds.** Never output category names as IDs.
 
+**Send only the categories you plan to target — max 10 names per call.** Do NOT send all categories from analytics. Pick only the high-opportunity ones relevant to your recommendations.
+
 ```
 CallWixSiteAPI(
   url: "https://manage.wix.com/recommendations/v1/recommendations/get-category-ids-tool",
   method: "POST",
   siteId: <siteId>,
-  body: { "categoryNames": ["<category name from analytics>"] }
+  body: { "categoryNames": ["<top category 1>", "<top category 2>"] }
 )
 ```
 
