@@ -2,8 +2,15 @@
 name: "Guardrail: Discount Conflicts"
 description: Validation rules for detecting and preventing discount stacking conflicts, coupon overlap, and unintended deep discounts before applying new promotions. Covers automatic discount rules, coupon interactions, and safe discount limits.
 layer: guardrail
+references:
+  - name: "Troubleshoot: Discount Not Applying"
+    path: ecommerce/troubleshoot-discount-not-applying.md
+    load: false
 ---
 # Guardrail: Discount Conflicts
+
+> **Related skills** (read with `ReadFullDocsArticle` if needed):
+> - [Troubleshoot: Discount Not Applying](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/troubleshoot-discount-not-applying)
 
 ## When to use this guardrail
 

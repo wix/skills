@@ -12,6 +12,12 @@ references:
   - name: "Flow: Optimize Shipping Rates"
     path: ecommerce/flow-optimize-shipping-rates.md
     load: false
+  - name: "Recipe: Apply Shipping Recommendations"
+    path: ecommerce/recipe-apply-shipping-recommendations.md
+    load: false
+  - name: "Setup Store Pickup Location"
+    path: ecommerce/setup-store-pickup-location.md
+    load: false
 ---
 # Goal: Reduce Cart Abandonment
 
@@ -21,6 +27,8 @@ references:
 >
 > **Related skills** (read with `ReadFullDocsArticle` if needed):
 > - [Flow: Optimize Shipping Rates](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-optimize-shipping-rates)
+> - [Recipe: Apply Shipping Recommendations](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/recipe-apply-shipping-recommendations)
+> - [Setup Store Pickup Location](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/setup-store-pickup-location)
 
 Reduce checkout abandonment caused by shipping friction — coverage gaps, unexpected costs, and missing free shipping options — by optimizing the delivery step of the checkout funnel.
 

@@ -1,6 +1,6 @@
 ---
 name: "eCommerce Skill Graph"
-description: Mermaid diagram showing how eCommerce skills connect — 3 layers (Goals, Flows, Config) plus cross-cutting concerns (Guardrails, Tracking, Troubleshooting).
+description: Mermaid diagram showing how eCommerce skills connect — unified strategy entry point, goal/flow/guardrail chain, tracking inlined, troubleshoot as direct entries.
 ---
 
 ## Skill Graph Diagram
@@ -9,14 +9,13 @@ description: Mermaid diagram showing how eCommerce skills connect — 3 layers (
 flowchart TB
     MR["Merchant Request"] --> R
 
-    subgraph R["R — Recommendation Orchestration"]
-        recommend-discount-strategy
-        recommend-shipping-health
+    subgraph R["R — Unified Entry Point"]
+        recommend-ecommerce-strategy
     end
 
-    R --> |"classifies intent → loads matching goal"| Goals
-    R --> |"loads API references"| Config
-    R --> |"loads tracking (SKIP_TRACKING gate inside)"| Tracking
+    R --> |"loads API ref"| Config
+    R --> |"Step 4b: loads matching goal"| Goals
+    R --> |"Step 2+8: tracking inlined"| TrackingAPI
 
     subgraph Goals["Goals — Business Objectives"]
         subgraph GD["Discount"]
@@ -62,16 +61,15 @@ flowchart TB
         setup-shipping-regions
         setup-shipping-rates
         api-discount-recommendations
+    end
+
+    subgraph TrackingAPI["Tracking API"]
         api-recommendation-tracking
     end
 
-    subgraph Tracking["Cross-cutting: Tracking"]
-        recipe-recommendation-tracking
-    end
-
-    Tracking --> |"calls"| api-recommendation-tracking
-
-    subgraph Troubleshoot["Cross-cutting: Troubleshooting"]
+    subgraph Standalone["Direct Entry Points (from README)"]
+        recipe-apply-shipping-recommendations
+        setup-store-pickup-location
         troubleshoot-discount-not-applying
         troubleshoot-checkout-delivery-dropoff
     end
@@ -96,16 +94,47 @@ flowchart TB
     classDef flow fill:#3b82f6,stroke:#2563eb,color:#fff
     classDef config fill:#f59e0b,stroke:#d97706,color:#fff
     classDef reco fill:#ec4899,stroke:#db2777,color:#fff
-    classDef tracking fill:#14b8a6,stroke:#0d9488,color:#fff
-    classDef troubleshoot fill:#f97316,stroke:#ea580c,color:#fff
+    classDef standalone fill:#6b7280,stroke:#4b5563,color:#fff
     classDef apidoc fill:#e5e7eb,stroke:#9ca3af,color:#374151
 
     class goal-increase-aov,goal-clear-inventory,goal-seasonal-revenue,goal-drive-cross-sells,goal-reduce-cart-abandonment goal
     class guardrail-discount-conflicts,guardrail-margin-protection,guardrail-shipping-health,guardrail-rate-pricing-sanity guardrail
     class flow-upsell-boost,flow-bundle-and-save,flow-stock-mover,flow-seasonal-promotion,flow-fix-coverage-gaps,flow-add-free-shipping,flow-optimize-shipping-rates flow
     class setup-discount-rules,setup-coupons,api-discount-recommendations,setup-shipping-regions,setup-shipping-rates,api-recommendation-tracking config
-    class recommend-discount-strategy,recommend-shipping-health reco
-    class recipe-recommendation-tracking tracking
-    class troubleshoot-discount-not-applying,troubleshoot-checkout-delivery-dropoff troubleshoot
+    class recommend-ecommerce-strategy reco
+    class recipe-apply-shipping-recommendations,setup-store-pickup-location,troubleshoot-discount-not-applying,troubleshoot-checkout-delivery-dropoff standalone
     class D1,D2,D3,D4,D5,S1,S2,S3,S4,SD apidoc
 ```
+
+## File Reachability
+
+| File | Reached via |
+|---|---|
+| `recommend-ecommerce-strategy.md` | README routing (entry point) |
+| `api-discount-recommendations.md` | Entry point loads directly |
+| `api-recommendation-tracking.md` | Entry point tracking steps |
+| `goal-increase-aov.md` | Step 4b (UPSELL_BOOST) |
+| `goal-clear-inventory.md` | Step 4b (STOCK_MOVER) |
+| `goal-seasonal-revenue.md` | Step 4b (SEASONAL) |
+| `goal-drive-cross-sells.md` | Step 4b (BUNDLE_AND_SAVE) |
+| `goal-reduce-cart-abandonment.md` | Step 4b (SHIPPING domain) |
+| `flow-upsell-boost.md` | goal-increase-aov chain |
+| `flow-bundle-and-save.md` | goal-increase-aov / goal-drive-cross-sells chain |
+| `flow-stock-mover.md` | goal-clear-inventory chain |
+| `flow-seasonal-promotion.md` | goal-seasonal-revenue chain |
+| `flow-fix-coverage-gaps.md` | goal-reduce-cart-abandonment chain |
+| `flow-add-free-shipping.md` | goal-reduce-cart-abandonment chain |
+| `flow-optimize-shipping-rates.md` | goal-reduce-cart-abandonment chain |
+| `guardrail-discount-conflicts.md` | flow-upsell-boost / bundle / stock / seasonal chains |
+| `guardrail-margin-protection.md` | flow-upsell-boost / stock-mover chains |
+| `guardrail-shipping-health.md` | flow-fix-coverage-gaps chain |
+| `guardrail-rate-pricing-sanity.md` | flow-add-free-shipping / optimize chains |
+| `setup-discount-rules.md` | All discount flow chains |
+| `setup-coupons.md` | Step 4c (COUPON mechanism) |
+| `setup-shipping-regions.md` | flow-fix-coverage-gaps chain |
+| `setup-shipping-rates.md` | flow-add-free-shipping / optimize chains |
+| `recipe-apply-shipping-recommendations.md` | README direct entry |
+| `setup-store-pickup-location.md` | README direct entry |
+| `troubleshoot-discount-not-applying.md` | README direct entry |
+| `troubleshoot-checkout-delivery-dropoff.md` | README direct entry |
+| `skill-graph.md` | Documentation reference |

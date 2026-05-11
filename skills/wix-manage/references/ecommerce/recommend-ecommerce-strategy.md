@@ -8,7 +8,7 @@ references:
     load: true
   - name: "API: Recommendation Tracking"
     path: ecommerce/api-recommendation-tracking.md
-    load: true
+    load: false
   - name: "Goal: Increase AOV"
     path: ecommerce/goal-increase-aov.md
     load: false
@@ -24,11 +24,24 @@ references:
   - name: "Goal: Reduce Cart Abandonment"
     path: ecommerce/goal-reduce-cart-abandonment.md
     load: false
+  - name: "Setup: Coupons"
+    path: ecommerce/setup-coupons.md
+    load: false
 ---
 # Recommend: eCommerce Strategy
 
 > **Before executing this skill**, read this API reference with `ReadFullDocsArticle`:
 > - [API: Discount Recommendations](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/api-discount-recommendations)
+>
+> **After classifying domains in Step 4b**, load the matching goal skill with `ReadFullDocsArticle`:
+> - **SEASONAL** → [Goal: Seasonal Revenue](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-seasonal-revenue)
+> - **UPSELL_BOOST** → [Goal: Increase AOV](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-increase-aov)
+> - **STOCK_MOVER** → [Goal: Clear Inventory](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-clear-inventory)
+> - **BUNDLE_AND_SAVE** → [Goal: Drive Cross-Sells](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-drive-cross-sells)
+> - **SHIPPING** → [Goal: Reduce Cart Abandonment](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-reduce-cart-abandonment)
+>
+> **If COUPON mechanism in Step 4c**, load:
+> - [Setup: Coupons](https://dev.wix.com/docs/api-reference/business-solutions/coupons/skills/setup-coupons)
 
 ## EXECUTION RULES — READ BEFORE ANYTHING ELSE
 
@@ -118,6 +131,20 @@ CallWixSiteAPI(
 
 ---
 
+## Step 3b: Validate the request
+
+Check if the merchant's request includes anything unsupported. **Reject** these:
+
+| Unsupported request | Response |
+|---|---|
+| Buy one get one (BOGO) | Explain: not supported by Discount Rules API |
+| Fixed-price bundles ("3 for $100") | Explain: requires custom pricing logic |
+| Unrelated to eCommerce | Decline politely |
+
+If valid, continue.
+
+---
+
 ## Step 4: Identify applicable domains
 
 Based on the merchant's request AND the site data, determine which domains to analyze. **Multiple domains can be active simultaneously.**
@@ -127,7 +154,7 @@ Based on the merchant's request AND the site data, determine which domains to an
 | **DISCOUNTS** | Merchant mentions sales, promotions, revenue, AOV, clearance, holidays, coupons. **Also activate if no specific domain is mentioned** (default). | Always — site data contains discount metrics |
 | **SHIPPING** | Merchant mentions shipping, delivery, checkout conversion, cart abandonment. **Also activate proactively** if site data suggests shipping issues. | High visitors + low orders may indicate shipping friction |
 
-**Priority rule**: If the merchant mentions a specific holiday/event/date, the DISCOUNTS domain MUST use the **SEASONAL** strategy — even if other signals match other goals.
+**Priority rule**: If the merchant mentions a specific holiday/event/date, the DISCOUNTS domain MUST use the **SEASONAL** strategy — even if other signals like "boost sales" or "increase revenue" could match other goals. Holidays are time-sensitive and take priority over general intent.
 
 **If the request is generic** (e.g., "boost my sales", "help my business"), **activate ALL domains**. The best recommendations will come from analyzing every angle.
 
@@ -159,6 +186,24 @@ Based on the merchant's request AND the site data, determine which domains to an
 
 ---
 
+## Step 4c: Determine mechanism — Automatic Discount or Coupon
+
+**Only for DISCOUNTS domain. Skip if DISCOUNTS is not active.**
+
+| Merchant says | Mechanism |
+|---|---|
+| "sale", "promotion", "discount for everyone" | **AUTOMATIC** |
+| "coupon", "code", "promo code", "voucher" | **COUPON** |
+| "discount for subscribers", "influencer code" | **COUPON** |
+| Unclear | **Ask the merchant** |
+
+**If unclear, ask:** "Would you like this to apply automatically to everyone, or as a coupon code?"
+
+**If COUPON is selected**, load the coupon setup reference with `ReadFullDocsArticle`:
+[Setup: Coupons](https://dev.wix.com/docs/api-reference/business-solutions/coupons/skills/setup-coupons)
+
+---
+
 ## Step 5: Analyze catalog (Discounts domain)
 
 **Skip this step if DISCOUNTS domain is not active.**
@@ -173,15 +218,20 @@ CallWixSiteAPI(
   method: "POST",
   siteId: <siteId>,
   body: {
-    "aggregates": [
-      {"op":"sum","field":"ordersCount"},
-      {"op":"quantiles","field":"price","q":[0.5,0.75,0.9]},
-      {"op":"avg","field":"profitMargin"}
-    ],
+    "aggregates": <see table below>,
     "minMarginPct": 0.15
   }
 )
 ```
+
+**Aggregates by goal:**
+
+| Goal | `aggregates` array |
+|---|---|
+| UPSELL_BOOST | `[{"op":"count","field":"price"}, {"op":"quantiles","field":"price","q":[0.5,0.75,0.9]}, {"op":"avg","field":"profitMargin"}]` |
+| BUNDLE_AND_SAVE | `[{"op":"min","field":"price"}, {"op":"max","field":"price"}, {"op":"avg","field":"profitMargin"}, {"op":"count","field":"price"}]` |
+| STOCK_MOVER | `[{"op":"sum","field":"quantity"}, {"op":"sum","field":"ordersCount"}, {"op":"avg","field":"profitMargin"}]` |
+| SEASONAL | `[{"op":"sum","field":"ordersCount"}, {"op":"quantiles","field":"price","q":[0.5,0.9]}, {"op":"avg","field":"profitMargin"}]` |
 
 ### Call 2: GetProductCatalogData
 
@@ -191,20 +241,33 @@ CallWixSiteAPI(
   method: "POST",
   siteId: <siteId>,
   body: {
-    "businessGoal": "SEASONAL",
+    "businessGoal": "<goal from Step 4>",
     "minMarginPct": 0.15,
     "catalogLimit": 30,
-    "query": "",
-    "categoryNames": []
+    "query": "<keywords from merchant request, or empty string>",
+    "categoryNames": <category names if mentioned, or empty array>
   }
 )
 ```
 
-Adjust `businessGoal` based on Step 4 classification. If SEASONAL, use `"SEASONAL"`. If generic, use `"UPSELL_BOOST"` as default.
+### Step 5b: Convert category names to GUIDs (if using CATEGORY scope)
+
+**MANDATORY before outputting any categoryIds.** Never output category names as IDs.
+
+```
+CallWixSiteAPI(
+  url: "https://manage.wix.com/recommendations/v1/recommendations/get-category-ids-tool",
+  method: "POST",
+  siteId: <siteId>,
+  body: { "categoryNames": ["<category name from analytics>"] }
+)
+```
+
+If response returns empty `categoryIds`: fall back to SITE scope.
 
 ### Failure handling
 
-- Both fail: Generate discount recommendations using only site data (conservative 5-10%).
+- Both calls fail: Fall back to SITE scope with 5-10% discount using only site data.
 - One fails: Use whichever succeeded.
 
 ---
@@ -226,11 +289,27 @@ Use site data + catalog data to generate discount recommendations. Each should u
 | STOCK_MOVER | Products with high stock + low orders | Deeper discounts on slow movers |
 | BUNDLE_AND_SAVE | Many low-priced items | minItemQuantity conditions |
 
+**Scope selection** (in order of preference):
+
+1. **CATEGORY** (preferred): High-opportunity category from analytics. Must have GUID from GetCategoryIds.
+2. **ITEMS** (specific): Individual products from catalog data. Max 5 product IDs.
+3. **SITE** (fallback): When no clear category/product opportunity.
+
+**Performance signals:**
+
+| What you observe in the data | What to recommend |
+|---|---|
+| High visitors, low ordersCount | Site-wide discount to convert traffic |
+| High AOV, few items per order | BUNDLE_AND_SAVE |
+| Products with high stock + low orders | STOCK_MOVER |
+| Holiday within 30 days | SEASONAL |
+
 **Discount constraints:**
 - Discount must not exceed `discountMargin` from site data (unless merchant overrides)
 - Round percentages to 5/10/15/20/25% unless merchant specified exact value
-- All categoryIds must be GUIDs from GetCategoryIds (call if using CATEGORY scope)
+- All categoryIds must be GUIDs from GetCategoryIds
 - All productIds must be from GetProductCatalogData
+- Mechanism must be AUTOMATIC or COUPON per Step 4c
 
 ### Shipping recommendations (if SHIPPING domain active)
 
@@ -261,19 +340,23 @@ Analyze the site's shipping configuration using the rules below. All shipping re
 ### Cross-domain balance
 
 - If request is generic, aim for recommendations from **multiple domains** (e.g., 2-3 discount + 1-2 shipping)
-- If request targets a specific domain, prioritize that domain but include 1 cross-domain recommendation if data strongly supports it
+- If request targets a specific domain, focus all slots on that domain
 - Rank by business impact: CRITICAL blockers first, then conversion-linked, then revenue opportunities
 
 ---
 
 ## Step 7: Validate before returning
 
-1. **No duplicates**: Each recommendation targets a different scope/action combination
-2. **No contradictions**: Don't recommend opposite actions in the same domain
-3. **Margin check**: Discounts within `discountMargin` cap
-4. **Strategy diversity**: Discount recommendations use different strategies where possible
-5. **Data-backed**: Every recommendation must reference specific data from API responses
-6. **Domain labeled**: Every recommendation has the correct `domain` field
+1. **Conflict check**: Do existing active discounts/coupons overlap with your recommendation scope? Warn about stacking.
+2. **Margin check**: Discounts within `discountMargin` cap.
+3. **No duplicates**: Each recommendation targets a different scope/action combination.
+4. **No contradictions**: Don't recommend opposite actions in the same domain.
+5. **Strategy diversity**: Discount recommendations use different strategies where possible.
+6. **Mechanism match**: Discount mechanism matches Step 4c determination.
+7. **ID validity**: All categoryIds are GUIDs from GetCategoryIds. All productIds are from GetProductCatalogData.
+8. **Rounding**: Discount percentages round to 5/10/15/20/25% unless merchant specified exact value.
+9. **Data-backed**: Every recommendation must reference specific data from API responses.
+10. **Domain labeled**: Every recommendation has the correct `domain` field.
 
 ---
 
@@ -336,27 +419,17 @@ If BatchCreate fails, report the error and include recommendations without track
           "why": "Your AOV is $242. A 15% discount on orders over $250 encourages adding one more item.",
           "discountType": "PERCENTAGE",
           "discount": 15,
+          "code": "",
+          "usageLimit": 0,
+          "limitPerCustomer": 0,
           "conditions": {
+            "minItemQuantity": 0,
             "minSubTotal": 250,
             "startDate": "2026-05-23",
             "endDate": "2026-05-26"
           }
         },
         "success_criteria": "15% discount applied site-wide for orders above $250 during Memorial Weekend"
-      }
-    },
-    {
-      "title": "Add Free Shipping for Orders Over $290",
-      "reasoning": "No free shipping option detected. Site has 26,300 visitors but checkout conversion may be impacted by shipping costs. AOV is $242, so $290 threshold (1.2x AOV) incentivizes slightly larger orders.",
-      "domain": "shipping",
-      "urgency": "MEDIUM",
-      "advice": {
-        "action": "create_shipping_option",
-        "params": {
-          "category": "free_shipping",
-          "rates": [{ "amount": "0", "conditions": [{ "type": "BY_TOTAL_PRICE", "operator": "GTE", "value": "290" }] }]
-        },
-        "success_criteria": "Free shipping option created for orders above $290"
       }
     }
   ]
@@ -372,8 +445,11 @@ If BatchCreate fails, report the error and include recommendations without track
 | `reasoning` | **Must reference which API call returned the data.** Always English. |
 | `domain` | `"discounts"` or `"shipping"` (future: `"gift_cards"`, `"taxes"`) |
 | `urgency` | `CRITICAL`, `HIGH`, `MEDIUM`, or `LOW` |
-| `advice.action` | Domain-specific action type |
-| `advice.params` | Domain-specific parameters |
+| `mechanism` | `AUTOMATIC` or `COUPON`. From Step 4c. Only for discounts domain. |
+| `name` | Marketing headline, 2-5 words. Translate to site `language` if not English. |
+| `why` | 1-2 sentences with specific data points from API responses. Translate to site `language`. |
+| `code` | Only for COUPON mechanism. Memorable code, max 20 chars (e.g., "SAVE15"). |
+| `scope` + IDs | For discounts: SITE = both empty, CATEGORY = categoryIds only (max 3), ITEMS = productIds only (max 5). |
 | `success_criteria` | How to verify the recommendation was applied correctly |
 
 ### Valid action types by domain
@@ -388,9 +464,11 @@ If BatchCreate fails, report the error and include recommendations without track
 ## Constraints
 
 - Maximum 5 recommendations total across all domains
+- Each discount recommendation must use a different strategy
 - All data must come from API responses — no assumptions
 - Respect discountMargin cap unless merchant overrides
 - All IDs must be GUIDs from API responses
 - Catalog queries limited to 30 items
 - Every recommendation MUST be persisted via tracking before presenting (unless SKIP_TRACKING)
 - Recommendations should span multiple domains when the request is generic
+- Never recommend changes to externally managed (Shippo) shipping regions

@@ -2,8 +2,15 @@
 name: "Guardrail: Shipping Health"
 description: Shipping health score calculation (CRITICAL/POOR/FAIR/GOOD/EXCELLENT) with exact scoring criteria. Includes the mandatory business context filter for international shipping recommendations.
 layer: guardrail
+references:
+  - name: "Troubleshoot: Checkout Delivery Drop-off"
+    path: ecommerce/troubleshoot-checkout-delivery-dropoff.md
+    load: false
 ---
 # Guardrail: Shipping Health
+
+> **Related skills** (read with `ReadFullDocsArticle` if needed):
+> - [Troubleshoot: Checkout Delivery Drop-off](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/troubleshoot-checkout-delivery-drop-off)
 
 ## When to use
 
