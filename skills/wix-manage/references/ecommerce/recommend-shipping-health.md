@@ -27,7 +27,6 @@ references:
 > **Before executing this skill**, read these referenced skills with `ReadFullDocsArticle`:
 > - [Guardrail: Shipping Health](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/guardrail-shipping-health)
 > - [Goal: Reduce Cart Abandonment](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-reduce-cart-abandonment)
-> - [Recipe: Recommendation Tracking](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/recipe-recommendation-tracking)
 >
 > **After running checks**, read the matching flow skills with `ReadFullDocsArticle` based on your findings:
 > - Coverage gaps or missing regions → [Flow: Fix Coverage Gaps](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-fix-coverage-gaps)
@@ -38,9 +37,15 @@ Proactive shipping health audit that analyzes the store's delivery configuration
 
 ---
 
-## Step 0: Load recommendation history (Tracking)
+## Step 0: Load Recommendation Tracking
 
-**If Recommendation Tracking is active** (check the tracking skill's activation gate), execute **Phase 1** of the tracking skill now: query the tracking database for this site's recommendation history. Use the returned history to avoid re-proposing rejected or already-applied recommendations.
+**MANDATORY — do this FIRST, before anything else.** Unless the user explicitly said `SKIP_TRACKING` or "don't track", you MUST load the tracking skill now:
+
+1. Call `ReadFullDocsArticle` with URL: `https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/recipe-recommendation-tracking`
+2. Read the activation gate in the returned skill. If active (default), execute **Phase 1** now: query the tracking database for this site's recommendation history.
+3. Use the returned history to avoid re-proposing rejected or already-applied recommendations.
+
+**Do NOT skip this step.** If `ReadFullDocsArticle` fails, log the error and continue without tracking — but you MUST attempt the call.
 
 ---
 
@@ -197,11 +202,15 @@ Recommendations are ordered by business impact:
 
 ---
 
-## Persist recommendations (Tracking)
+## Persist recommendations to database (Tracking)
 
-**If Recommendation Tracking is active**, execute **Phase 2** of the tracking skill now: call `BatchCreate` to persist ALL recommendations to the tracking database as PROPOSED. Save the returned `id` and `revision` for each recommendation — include them in the output.
+**MANDATORY — do NOT skip unless the user said `SKIP_TRACKING`.** If you loaded the tracking skill in Step 0, you MUST execute **Phase 2** now:
 
-**Do NOT present recommendations to the merchant before persisting them.**
+1. Follow the tracking skill's Phase 2 instructions: call `BatchCreate` via `CallWixSiteAPI` to persist ALL recommendations to the tracking database as PROPOSED.
+2. Save the returned `id` and `revision` for each recommendation.
+3. Include the `id` and `revision` in the output JSON for each recommendation.
+
+**Do NOT present recommendations to the merchant before persisting them.** If the BatchCreate call fails, report the error to the merchant and include the recommendations without tracking IDs.
 
 ---
 
