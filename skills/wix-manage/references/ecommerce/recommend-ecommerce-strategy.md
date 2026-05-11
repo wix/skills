@@ -9,6 +9,21 @@ references:
   - name: "API: Recommendation Tracking"
     path: ecommerce/api-recommendation-tracking.md
     load: true
+  - name: "Goal: Increase AOV"
+    path: ecommerce/goal-increase-aov.md
+    load: false
+  - name: "Goal: Clear Inventory"
+    path: ecommerce/goal-clear-inventory.md
+    load: false
+  - name: "Goal: Seasonal Revenue"
+    path: ecommerce/goal-seasonal-revenue.md
+    load: false
+  - name: "Goal: Drive Cross-Sells"
+    path: ecommerce/goal-drive-cross-sells.md
+    load: false
+  - name: "Goal: Reduce Cart Abandonment"
+    path: ecommerce/goal-reduce-cart-abandonment.md
+    load: false
 ---
 # Recommend: eCommerce Strategy
 
@@ -117,6 +132,30 @@ Based on the merchant's request AND the site data, determine which domains to an
 **If the request is generic** (e.g., "boost my sales", "help my business"), **activate ALL domains**. The best recommendations will come from analyzing every angle.
 
 **If the request targets a specific domain** (e.g., "give me a coupon", "fix my shipping rates", "set up a gift card"), **activate ONLY that domain**. Do not generate cross-domain recommendations — focus all 5 recommendation slots on the requested domain. The merchant asked for something specific; respect that focus.
+
+---
+
+## Step 4b: Load domain-specific goal skills
+
+**MANDATORY — load the matching goal skill(s) now using `ReadFullDocsArticle`.** These contain detailed strategy logic, KPIs, margin tiers, campaign window calculations, and guardrails that you MUST follow.
+
+**For DISCOUNTS domain — classify the discount goal and load it:**
+
+| Discount goal | Trigger | Load this skill |
+|---|---|---|
+| SEASONAL | Holiday/event/date mentioned | [Goal: Seasonal Revenue](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-seasonal-revenue) |
+| UPSELL_BOOST | "increase AOV", "spend more", "upsell" | [Goal: Increase AOV](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-increase-aov) |
+| STOCK_MOVER | "clear inventory", "overstock", "clearance" | [Goal: Clear Inventory](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-clear-inventory) |
+| BUNDLE_AND_SAVE | "bundle", "cross-sell", "buy together" | [Goal: Drive Cross-Sells](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-drive-cross-sells) |
+| Generic (no clear goal) | "boost sales", ambiguous | Default to SEASONAL if holiday nearby, else UPSELL_BOOST |
+
+**For SHIPPING domain — load the shipping goal:**
+
+[Goal: Reduce Cart Abandonment](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-reduce-cart-abandonment)
+
+**The goal skill will instruct you to load flow and guardrail skills** — follow those instructions. This chain provides the detailed execution logic you need for high-quality recommendations.
+
+**Do NOT skip this step.** The goal/flow/guardrail skills contain critical constraints (margin tiers, campaign windows, conflict checks) that prevent bad recommendations.
 
 ---
 
