@@ -116,6 +116,8 @@ Based on the merchant's request AND the site data, determine which domains to an
 
 **If the request is generic** (e.g., "boost my sales", "help my business"), **activate ALL domains**. The best recommendations will come from analyzing every angle.
 
+**If the request targets a specific domain** (e.g., "give me a coupon", "fix my shipping rates", "set up a gift card"), **activate ONLY that domain**. Do not generate cross-domain recommendations — focus all 5 recommendation slots on the requested domain. The merchant asked for something specific; respect that focus.
+
 ---
 
 ## Step 5: Analyze catalog (Discounts domain)
@@ -193,15 +195,29 @@ Use site data + catalog data to generate discount recommendations. Each should u
 
 ### Shipping recommendations (if SHIPPING domain active)
 
-Based on site data, generate shipping improvement recommendations:
+Analyze the site's shipping configuration using the rules below. All shipping recommendations use `domain: "shipping"`.
 
-| Signal | Recommendation |
-|---|---|
-| No free shipping + high AOV | Add free shipping with AOV-calibrated threshold |
-| High visitors, low orders | Shipping friction — audit rates and coverage |
-| Country with no domestic shipping | Critical — add domestic shipping option |
+**Externally managed regions:** Regions where `deliveryCarriers[].appId` matches an external carrier (e.g., Shippo) — exclude from ALL analysis. Do not recommend changes to these.
 
-Shipping recommendations use `domain: "shipping"` and action types: `create_shipping_option`, `update_shipping_option`, `enable_backup_rate`, `activate_region`.
+**Shipping analysis rules — evaluate each and recommend where data supports:**
+
+| Rule | Finding | Recommendation |
+|---|---|---|
+| **Coverage** | Active region with zero shipping options | CRITICAL — `create_shipping_option` for that region |
+| **Coverage** | Domestic country not covered by any region | CRITICAL — `activate_region` or create domestic region |
+| **Coverage** | Inactive regions with shipping options | `activate_region` or clean up orphaned options |
+| **Free Shipping** | No free shipping option anywhere | `create_shipping_option` with AOV-calibrated threshold (1.2-1.5x AOV) |
+| **Free Shipping** | Free shipping threshold > 2x AOV | Lower threshold — too high for most customers |
+| **Rates** | Flat rate > 15% of AOV | Reduce rate or add conditional tiering — sticker shock risk |
+| **Rates** | All flat rates, no conditional pricing | Add threshold-based tiers for better conversion |
+| **Rates** | Per-item pricing enabled | Review — usually causes unexpectedly high totals |
+| **Carrier** | No backup rate on carrier regions | `enable_backup_rate` as fallback |
+| **Options** | Too many options per region (> 5) | Consolidate — choice paralysis reduces conversion |
+| **Options** | Only 1 option per region | Add at least one alternative (e.g., express tier) |
+
+**Shipping action types:** `create_shipping_option`, `update_shipping_option`, `enable_backup_rate`, `activate_region`.
+
+**Priority order:** CRITICAL blockers (no options, no coverage) → Conversion-linked (no free shipping, high rates) → Revenue opportunities (international, tiered pricing) → Configuration improvements (consolidate, add estimates).
 
 ### Cross-domain balance
 

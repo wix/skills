@@ -107,25 +107,13 @@ apiDoc:
       title: "Goal: Reduce Cart Abandonment"
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
       tags: [ecommerce, shipping, goals]
-    # Tracking (cross-cutting)
+    # Tracking API
     - file: ../../../skills/wix-manage/references/ecommerce/api-recommendation-tracking.md
       title: "API: Recommendation Tracking"
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
       tags: [ecommerce, tracking, api]
-    - file: ../../../skills/wix-manage/references/ecommerce/recipe-recommendation-tracking.md
-      title: "Recipe: Recommendation Tracking"
-      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
-      tags: [ecommerce, tracking]
     # R — Recommendation Orchestration
     - file: ../../../skills/wix-manage/references/ecommerce/recommend-ecommerce-strategy.md
       title: "Recommend: eCommerce Strategy"
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
       tags: [ecommerce, discounts, shipping, recommendations]
-    - file: ../../../skills/wix-manage/references/ecommerce/recommend-discount-strategy.md
-      title: "Recommend: Discount Strategy"
-      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
-      tags: [ecommerce, discounts, recommendations]
-    - file: ../../../skills/wix-manage/references/ecommerce/recommend-shipping-health.md
-      title: "Recommend: Shipping Health"
-      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
-      tags: [ecommerce, shipping, recommendations]
