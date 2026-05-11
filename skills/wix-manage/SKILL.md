@@ -107,18 +107,22 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ## eCommerce
 
 **Routing — pick the right entry point:**
-- **Discounts, sales, promotions, coupons, clearance, holiday deals** → use [Recommend: Discount Strategy](references/ecommerce/recommend-discount-strategy.md). Do NOT ask clarifying questions — this skill classifies the merchant's intent automatically.
-- **Shipping setup, delivery optimization, coverage gaps, shipping rates** → use [Recommend: Shipping Health](references/ecommerce/recommend-shipping-health.md)
+- **Any sales/business improvement request** (boost sales, promotions, help my business, holiday deals, improve revenue) → use [Recommend: eCommerce Strategy](references/ecommerce/recommend-ecommerce-strategy.md). This is the **default entry point** — it analyzes ALL domains (discounts, shipping, future: gift cards, taxes) and generates cross-domain recommendations. Do NOT ask clarifying questions.
+- **Specifically only shipping** (fix shipping, delivery issues, shipping rates only) → use [Recommend: Shipping Health](references/ecommerce/recommend-shipping-health.md)
+- **Specifically only discounts** (only coupons, only discount rules) → use [Recommend: Discount Strategy](references/ecommerce/recommend-discount-strategy.md)
 - **Apply previously generated shipping recommendations** → use [Recipe: Apply Shipping Recommendations](references/ecommerce/recipe-apply-shipping-recommendations.md)
 - **Store pickup configuration** → use [Setup Store Pickup Location](references/ecommerce/setup-store-pickup-location.md)
 - **Discount not working at checkout** → use [Troubleshoot: Discount Not Applying](references/ecommerce/troubleshoot-discount-not-applying.md)
 - **Checkout delivery step drop-off** → use [Troubleshoot: Checkout Delivery Drop-off](references/ecommerce/troubleshoot-checkout-delivery-dropoff.md)
 
+### [Recommend: eCommerce Strategy](references/ecommerce/recommend-ecommerce-strategy.md)
+**DEFAULT entry point for all business improvement requests.** Unified skill that analyzes site data across ALL domains (discounts + shipping), generates up to 5 cross-domain recommendations, and persists them to the tracking database. Use this for any generic "help my business" or "boost sales" request — it determines which domains apply automatically.
+
 ### [Recommend: Discount Strategy](references/ecommerce/recommend-discount-strategy.md)
-**Entry point for all discount/promotion requests.** Gathers site data, classifies merchant intent into 4 business goals (UPSELL_BOOST, BUNDLE_AND_SAVE, STOCK_MOVER, SEASONAL), analyzes catalog, and generates up to 3 actionable recommendations. Loads goal/flow/guardrail skills automatically via its reference chain — do NOT load them separately.
+**Discount-only entry point.** Use only when the merchant explicitly asks for discounts/coupons and nothing else.
 
 ### [Recommend: Shipping Health](references/ecommerce/recommend-shipping-health.md)
-**Entry point for all shipping optimization requests.** Analyzes delivery profiles, shipping options, and site metrics. Runs 7 rule categories, generates max 5 prioritized recommendations. Loads goal/flow/guardrail skills automatically.
+**Shipping-only entry point.** Use only when the merchant explicitly asks for shipping optimization and nothing else.
 
 ### [Recipe: Apply Shipping Recommendations](references/ecommerce/recipe-apply-shipping-recommendations.md)
 **Technical:** Applies AI-generated shipping recommendations. Creates or updates shipping options based on recommendation data.

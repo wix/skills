@@ -117,6 +117,10 @@ apiDoc:
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
       tags: [ecommerce, tracking]
     # R — Recommendation Orchestration
+    - file: ../../../skills/wix-manage/references/ecommerce/recommend-ecommerce-strategy.md
+      title: "Recommend: eCommerce Strategy"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce, discounts, shipping, recommendations]
     - file: ../../../skills/wix-manage/references/ecommerce/recommend-discount-strategy.md
       title: "Recommend: Discount Strategy"
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
