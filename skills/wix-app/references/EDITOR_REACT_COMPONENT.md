@@ -36,6 +36,8 @@ File where you can override the generated manifest from `<componentName>.generat
    `npx wix generate --params '{"extensionType":"EDITOR_REACT_COMPONENT","name":"ComponentName","folder":"component-name","description":"A brief description of what the component does"}'` to scaffold it. Skip this
    step when iterating on an existing component — re-running it would
    return "an extension already exist" error.
+2. Run the following script to verify that the component dependencies are installed properly:
+`[[ -d "node_modules/@wix/react-component-schema" && -d "node_modules/@wix/react-component-utils" && -d "node_modules/@wix/editor-react-types" ]] || ([ -f yarn.lock ] && yarn add @wix/react-component-schema @wix/react-component-utils @wix/editor-react-types || npm install @wix/react-component-schema @wix/react-component-utils @wix/editor-react-types)`
 2. Edit the generated react and CSS files in
    `src/site/components/ComponentName/`.
 3. Run `npx wix build && npx wix generate manifest` so the editor picks up
