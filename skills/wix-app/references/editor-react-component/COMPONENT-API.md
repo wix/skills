@@ -106,6 +106,41 @@ when arithmetic is needed: `price: number`, not `price: string`).
 
 When the parent component defines an array prop (e.g., `items`), child/item components receive a single item directly. They do NOT redeclare the data structure in their own props.
 
+### Array Element Types: Always Objects with Named Keys
+
+Array elements MUST be objects with named keys. This enables stable item identity (each item can carry its own `id`/`key`), non-breaking extension (new fields can be added later without changing the prop signature), and semantic naming (each value has meaning instead of being an opaque scalar).
+
+**Allowed forms:**
+
+- Inline object literal: `Array<{ key: ValueType, ... }>`
+- Named interface where the interface itself is an object with named keys (e.g. `Array<AccordionItem>` is OK because `AccordionItem` is `{ name, content }`)
+
+**Never allowed as the array element:**
+
+- Primitives: `Array<string>`, `Array<number>`, `Array<boolean>`
+- Leaf data types from `@wix/editor-react-types`: `Array<Image>`, `Array<Link>`, `Array<Video>`, `Array<Audio>`, `Array<VectorArt>`, `Array<RichText>`. Wrap them in an object instead.
+
+**❌ Wrong:**
+
+```typescript
+tags: Array<string>;
+prices: Array<number>;
+flags: Array<boolean>;
+images: Array<Image>;
+links: Array<Link>;
+```
+
+**✅ Correct:**
+
+```typescript
+tags: Array<{ label: string }>;
+prices: Array<{ amount: number }>;
+flags: Array<{ enabled: boolean }>;
+gallery: Array<{ image: Image, caption?: string }>;
+links: Array<{ link: Link, label: string }>;
+items: Array<AccordionItem>; // AccordionItem is { name, content }
+```
+
 ### Container Components (Blackbox Content)
 
 When a component specification indicates a "container" or "slot" area where users can add nested content, use `React.ReactNode` for that content prop.
@@ -192,25 +227,6 @@ export const defaultProps = {
     uri: "11062b_2f97b87dcea2446fa48e9ad9c5457ae1~mv2.jpg",
     alt: "Default image",
   },
-} as const satisfies Omit<ExampleComponentProps, "id" | "className">;
-```
-
-**Array of `Image`:**
-
-```typescript
-export const defaultProps = {
-  images: [
-    {
-      url: "https://static.wixstatic.com/media/11062b_2f97b87dcea2446fa48e9ad9c5457ae1~mv2.jpg",
-      uri: "11062b_2f97b87dcea2446fa48e9ad9c5457ae1~mv2.jpg",
-      alt: "Default image 1",
-    },
-    {
-      url: "https://static.wixstatic.com/media/11062b_73f31c7e7d3544c69dc8ecd8d34c5717~mv2.jpg",
-      uri: "11062b_73f31c7e7d3544c69dc8ecd8d34c5717~mv2.jpg",
-      alt: "Default image 2",
-    },
-  ],
 } as const satisfies Omit<ExampleComponentProps, "id" | "className">;
 ```
 
@@ -420,6 +436,7 @@ Use `Array<T>` over `T[]`.
 interface ComponentProps {
   items: Item[]; // ❌ Wrong syntax
   tags: string[]; // ❌ Wrong syntax
+  tags: Array<string>; // ❌ Element must be an object with named keys
 }
 ```
 
@@ -428,6 +445,8 @@ interface ComponentProps {
 ```typescript
 interface ComponentProps {
   items: Array<Item>; // ✅ Correct syntax
-  tags: Array<string>; // ✅ Correct syntax
+  tags: Array<{ label: string }>; // ✅ Element is an object with named keys
 }
 ```
+
+See also: [Array Element Types: Always Objects with Named Keys](#array-element-types-always-objects-with-named-keys) — items must be objects with named keys.

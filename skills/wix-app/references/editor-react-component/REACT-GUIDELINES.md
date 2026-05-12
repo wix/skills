@@ -49,6 +49,7 @@ See [`ACCESSIBILITY.md`](ACCESSIBILITY.md) for full rules and patterns.
 - Export all prop interfaces
 - Use proper React types (`React.FC`, `React.ReactNode`, etc.)
 - **Array type syntax:** Use `Array<T>` instead of `T[]` (e.g., `Array<Item>` not `Item[]`)
+- **Array element types:** `T` must be an object with named keys — `Array<{ key: ValueType, ... }>` or a named interface that is itself a keyed object. Never `Array<string>`, `Array<number>`, `Array<boolean>`, or `Array<DataType>` (`Image`, `Link`, `Video`, `Audio`, `VectorArt`, `RichText`, etc.). See [`COMPONENT-API.md`](COMPONENT-API.md) for full rules.
 - **Component function pattern:**
   - Use inline arrow functions with `export const`
   - Accept `props` as the argument (do NOT destructure in function signature)
