@@ -1,13 +1,22 @@
 
-## Overview
+# Wix Dashboard Modal
 
-Dashboard modals are popup dialogs triggered from dashboard pages or plugins. They consist of three files and use the Dashboard SDK for lifecycle control via `openModal()` and `closeModal()`.
+Dashboard modals are popup dialogs triggered from dashboard pages or plugins. They use the Dashboard SDK for lifecycle control via `openModal()` and `closeModal()`.
+
+## Scaffold
+
+```bash
+npx wix generate --params '{"extensionType":"DASHBOARD_MODAL","title":"<modal title>","folder":"<modal-folder>"}'
+```
+
+`folder` is lowercase alphanumeric with hyphens. The CLI generates the folder, the modal `.tsx`, the config file, the builder file, the UUID, and the `src/extensions.ts` registration. After scaffolding, implement the modal UI in the generated `.tsx`.
+
+`wix schema generate` is the authoritative source for params.
 
 ## Quick Reference
 
 | Task | Method | Example |
 |------|--------|---------|
-| Create modal | Create 3 files in `src/extensions/dashboard/modals/<folder>/` | See File Structure below |
 | Open modal | `dashboard.openModal()` | `openModal({ modalId: "modal-id" })` |
 | Pass data to modal | `params` in `openModal()` | `params: { userId: "123" }` |
 | Read data in modal | `observeState()` | `dashboard.observeState((state) => { ... })` |
@@ -15,124 +24,14 @@ Dashboard modals are popup dialogs triggered from dashboard pages or plugins. Th
 | Return data to parent | Pass data to `closeModal()` | `closeModal({ ... })` |
 | Wait for modal close | `modalClosed` Promise | `const { modalClosed } = openModal(...);` |
 
-## File Structure
-
-Create **three files** in `src/extensions/dashboard/modals/<folder-name>/`:
-
-1. **`extensions.ts`** - Builder configuration with modal ID, title, dimensions, component path
-2. **`<modal-name>.tsx`** - React component rendering modal content
-3. **`<modal-name>.config.ts`** - Configurable modal properties (title, width, height)
-
-## Implementation
-
-### Creating a Modal
-
-Create the three required files:
-
-**1. `extensions.ts`** - Modal builder configuration:
-
-```typescript
-import { extensions } from '@wix/astro/builders';
-import config from './<modal-name>.config.ts';
-
-export default extensions.dashboardModal({
-  id: "{{GENERATE_UUID}}",
-  title: config.title,
-  width: config.width,
-  height: config.height,
-  component: './extensions/dashboard/modals/<modal-name>/<modal-name>.tsx',
-});
-
-```
-
-**CRITICAL: UUID Generation**
-
-The `id` must be a unique, static UUID v4 string. Generate a fresh UUID for each extension - do NOT use `randomUUID()` or copy UUIDs from examples. Replace `{{GENERATE_UUID}}` with a freshly generated UUID like `"a1b2c3d4-e5f6-7890-abcd-ef1234567890"`.
-
-Builder fields:
-| Field | Type | Description |
-|-------|------|-------------|
-| id | string | Unique modal ID (GUID). Used with `openModal()` |
-| title | string | Modal title shown in project dashboard |
-| width | number | Initial width while loading |
-| height | number | Initial height while loading |
-| component | string | Path to the modal content `.tsx` file |
-
-**2. `<modal-name>.tsx`** - Modal content component:
-
-```typescript
-import type { FC } from 'react';
-import { dashboard } from '@wix/dashboard';
-import {
-  WixDesignSystemProvider,
-  Text,
-  Box,
-  CustomModalLayout,
-} from '@wix/design-system';
-import '@wix/design-system/styles.global.css';
-import config from './<modal-name>.config.ts';
-
-const { width, height, title } = config;
-
-// To open your modal, call `openModal` with your modal id.
-// e.g.
-// import { dashboard } from '@wix/dashboard';
-// function MyComponent() {
-//   return <button onClick={() => dashboard.openModal({ modalId: '8ef4d434-9c80-44f5-a3f5-6f15f3a34be7' })}>Open Modal</button>;
-// }
-const Modal: FC = () => {
-  return (
-    <WixDesignSystemProvider features={{ newColorsBranding: true }}>
-      <CustomModalLayout
-        width={width}
-        maxHeight={height}
-        primaryButtonText="Save"
-        secondaryButtonText="Cancel"
-        primaryButtonOnClick={() => dashboard.closeModal()}
-        secondaryButtonOnClick={() => dashboard.closeModal()}
-        title={title}
-        subtitle="Edit this file to customize your modal"
-        content={
-          <Box direction="vertical" align="center">
-            <Text>Wix CLI Modal</Text>
-          </Box>
-        }
-      />
-    </WixDesignSystemProvider>
-  );
-};
-
-export default Modal;
-```
-
-**3. `<modal-name>.config.ts`** - Configurable properties:
-
-```typescript
-export default {
-  title: "My Modal",
-  width: 600,
-  height: 400,
-};
-```
-
-Then register in `src/extensions.ts`:
-
-```typescript
-import { dashboardmodalYourModal } from './extensions/dashboard/modals/<modal-name>/extensions.ts';
-
-export default app()
-  .use(dashboardmodalYourModal)
-  // ... other extensions
-```
-
-### Opening a Modal
+## Opening a Modal
 
 ```typescript
 import { dashboard } from "@wix/dashboard";
 
 // Simple open
 const result = await dashboard.openModal({
-  modalId: "your-modal-id", // From .extension.ts id field
+  modalId: "your-modal-id", // The id generated by the CLI for this modal
 });
 
 // Pass data to modal via params
@@ -151,7 +50,7 @@ const { modalClosed } = dashboard.openModal({
 const result = await modalClosed; // Resolves with data from closeModal()
 ```
 
-### Receiving Data in Modal
+## Receiving Data in Modal
 
 Use `observeState()` to access data passed via `params` in `openModal()`:
 
@@ -178,7 +77,7 @@ function MyModal() {
 }
 ```
 
-### Closing Modal
+## Closing Modal
 
 Call `closeModal()` from within the modal extension to close it. Optionally pass data back to the opener.
 
@@ -201,9 +100,9 @@ dashboard.closeModal({ saved: true, itemId: "123" });
 
 **Returns:** `void`
 
-### Customizing Modal
+## Customizing Modal
 
-Edit `.config.ts` for organized settings:
+The CLI generates a `<modal>.config.ts` next to the modal component. Edit it for organized settings:
 
 ```typescript
 export default {
@@ -213,7 +112,7 @@ export default {
 }
 ```
 
-Import in `.tsx`:
+The generated `.tsx` already imports config; use it inside the component:
 
 ```typescript
 import config from './modal.config.ts';
@@ -232,8 +131,7 @@ export default function MyModal() {
 
 | Mistake | Fix |
 |---------|-----|
-| Can't find modal ID | Check `.extension.ts` file's `id` field |
-| Forgetting to register in `extensions.ts` | Import and `.use()` the modal |
+| Can't find modal ID | Check the modal's generated builder file (`extensions.ts`) `id` field |
 | Using `extensionId` instead of `modalId` | Use `modalId` in `openModal()` |
 | Can't access params in modal | Use `dashboard.observeState()` to read passed data |
 | Modal won't close | Use `dashboard.closeModal()` from `@wix/dashboard` |

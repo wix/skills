@@ -1,17 +1,17 @@
 
 # Wix Dashboard Page Builder
 
-Creates full-featured dashboard page extensions for Wix CLI applications. Dashboard pages appear in the Wix site owner's dashboard and enable site administrators to manage data, configure settings, and perform administrative tasks.
+Dashboard pages appear in the site owner's Wix dashboard and enable site administrators to manage data, configure settings, and perform admin tasks.
 
+## Scaffold
 
-## Quick Start Checklist
+```bash
+npx wix generate --params '{"extensionType":"DASHBOARD_PAGE","title":"<page title>","route":"<page-route>"}'
+```
 
-Follow these steps in order when creating a dashboard page:
+`route` is lowercase alphanumeric, hyphens, and slashes (no leading slash). The CLI generates the folder, `page.tsx`, the builder file, the UUID, and the `src/extensions.ts` registration. After scaffolding, implement the page UI in the generated `page.tsx`.
 
-1. [ ] Create page folder: `src/extensions/dashboard/pages/<page-name>/`
-2. [ ] Create `page.tsx` with WDS components wrapped in `WixDesignSystemProvider`
-3. [ ] Create `extensions.ts` with `extensions.dashboardPage()` and unique UUID
-4. [ ] Update `src/extensions.ts` to import and use the new extension
+`wix schema generate` is the authoritative source for params.
 
 ## Capabilities
 
@@ -66,24 +66,6 @@ When building a dashboard page to configure an embedded script, see [Dynamic Par
 - Parameters are returned as strings - handle type conversions when loading
 - All parameters must be saved as strings (convert booleans/numbers to strings)
 - Use `withProviders` wrapper when dynamic parameters are present
-
-## Files and Code Structure
-
-Dashboard pages live under `src/extensions/dashboard/pages`. Each page has its own folder.
-
-**File structure:**
-
-- `src/extensions/dashboard/pages/<page>/page.tsx` — page component
-
-**Key metadata fields:**
-
-- `id` (string, GUID): Unique page ID used to register the page
-- `title` (string): Used for browser tab and optional sidebar label
-- `additionalRoutes` (string[], optional): Extra routes leading to this page
-- `sidebar.disabled` (boolean, optional): Hide page from sidebar (default false)
-- `sidebar.priority` (number, optional): Sidebar ordering; lower is higher priority
-- `sidebar.whenActive.selectedPageId` (string, optional): Which page appears selected when this page is active
-- `sidebar.whenActive.hideSidebar` (boolean, optional): Hide sidebar when this page is active
 
 ## WDS Provider Usage
 
@@ -177,56 +159,6 @@ const handleSave = async () => {
   dashboard.showToast({ message: "Saved!", type: "success" });
 };
 ```
-
-## Extension Registration
-
-**Extension registration is MANDATORY and has TWO required steps.**
-
-### Step 1: Create Page-Specific Extension File
-
-Each dashboard page requires an `extensions.ts` file in its folder:
-
-**File:** `src/extensions/dashboard/pages/<page-name>/extensions.ts`
-
-```typescript
-import { extensions } from "@wix/astro/builders";
-
-export const dashboardpageMyPage = extensions.dashboardPage({
-  id: "{{GENERATE_UUID}}",
-  title: "My Page",
-  routePath: "my-page",
-  component: "./extensions/dashboard/pages/my-page/page.tsx",
-});
-```
-
-**CRITICAL: UUID Generation**
-
-The `id` must be a unique, static UUID v4 string. Generate a fresh UUID for each extension - do NOT use `randomUUID()` or copy UUIDs from examples. Replace `{{GENERATE_UUID}}` with a freshly generated UUID like `"a1b2c3d4-e5f6-7890-abcd-ef1234567890"`.
-
-| Property    | Type   | Description                                                                                          |
-| ----------- | ------ | ---------------------------------------------------------------------------------------------------- |
-| `id`        | string | Unique static UUID v4 (generate fresh - see note above)                                              |
-| `title`     | string | Display title in dashboard sidebar                                                                   |
-| `routePath` | string | URL path segment. Lowercase letters, numbers, dashes, and slashes only. Must NOT start with a slash. |
-| `component` | string | Relative path to the page component (.tsx)                                                           |
-
-### Step 2: Register in Main Extensions File
-
-**CRITICAL:** After creating the page-specific extension file, you MUST read [Extension Registration reference](EXTENSION_REGISTRATION.md) and follow the "App Registration" section to update `src/extensions.ts`.
-
-**Without completing Step 2, the dashboard page will not appear in the Wix dashboard.**
-
-## Common Mistakes - Do NOT
-
-**API confusion with other extension types:**
-
-| WRONG (Embedded Script API) | CORRECT (Dashboard Page API) |
-| --------------------------- | ---------------------------- |
-| `name: "..."`               | `title: "..."`               |
-| `source: "..."`             | `component: "..."`           |
-| `route: "..."`              | `routePath: "..."`           |
-
-Do NOT copy field names from embedded script or other extension registrations. Dashboard pages use `title`, `routePath`, and `component`.
 
 ## Code Quality Requirements
 

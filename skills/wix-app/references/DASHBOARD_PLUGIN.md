@@ -1,20 +1,17 @@
 
 # Wix Dashboard Plugin Builder
 
-Creates dashboard plugin extensions for Wix CLI applications. Dashboard plugins are interactive widgets that embed into predefined **slots** on dashboard pages managed by Wix first-party business apps (Wix Stores, Wix Bookings, Wix Blog, Wix eCommerce, etc.).
+Dashboard plugins are interactive widgets that embed into predefined **slots** on dashboard pages managed by Wix first-party business apps (Wix Stores, Wix Bookings, Wix Blog, Wix eCommerce, etc.). They occupy the full width of their slot and maintain dynamic height based on content.
 
-Dashboard plugins occupy the full width of their slot and maintain dynamic height based on content.
+## Scaffold
 
+```bash
+npx wix generate --params '{"extensionType":"DASHBOARD_PLUGIN","extendsSlotId":"<slot-id>","title":"<plugin title>","folder":"<plugin-folder>"}'
+```
 
-## Quick Start Checklist
+`extendsSlotId` is the back-office extension container component ID exposed by the host Wix app — see [Slots Reference](dashboard-plugin/SLOTS.md). The CLI fetches available slot IDs at scaffold time when run interactively (`wix generate --type DASHBOARD_PLUGIN`); pass the value directly when using `--params`. The CLI generates the folder, the React component, the builder file, the UUID, and the `src/extensions.ts` registration.
 
-Follow these steps in order when creating a dashboard plugin:
-
-1. [ ] Identify the target slot ID — see [Slots Reference](dashboard-plugin/SLOTS.md)
-2. [ ] Create plugin folder: `src/extensions/dashboard/plugins/<plugin-name>/`
-3. [ ] Create `<plugin-name>.extension.ts` with `extensions.dashboardPlugin()` and unique UUID
-4. [ ] Create `<plugin-name>.tsx` with React component wrapped in `WixDesignSystemProvider`
-5. [ ] Update `src/extensions.ts` to import and use the new extension
+`wix schema generate` is the authoritative source for params.
 
 ## Architecture
 
@@ -23,50 +20,9 @@ Dashboard plugins operate through two mechanisms:
 1. **Visual Integration** — Embedding plugin UI inside a supported dashboard page slot
 2. **Logical Integration** — Implementing communication between the plugin and the host page's data via `observeState()`
 
-## Files and Code Structure
+## The `extendsSlotId` field
 
-Dashboard plugins live under `src/extensions/dashboard/plugins/`. Each plugin has its own folder.
-
-```
-src/extensions/dashboard/plugins/
-└── <plugin-name>/
-    ├── <plugin-name>.extension.ts   # Builder configuration
-    └── <plugin-name>.tsx            # React component
-```
-
-> **Note:** This is the default folder structure created by the CLI. You can move these files to any location within the `src/` folder and update the references in your `extension.ts` file.
-
-## Plugin Builder Configuration
-
-### File: `<plugin-name>.extension.ts`
-
-```typescript
-import { extensions } from "@wix/astro/builders";
-
-export const dashboardpluginMyPlugin = extensions.dashboardPlugin({
-  id: "{{GENERATE_UUID}}",
-  title: "My Dashboard Plugin",
-  extends: "<SLOT_ID>",
-  component: "./extensions/dashboard/plugins/my-plugin/my-plugin.tsx",
-});
-```
-
-**CRITICAL: UUID Generation**
-
-The `id` must be a unique, static UUID v4 string. Generate a fresh UUID for each extension — do NOT use `randomUUID()` or copy UUIDs from examples. Replace `{{GENERATE_UUID}}` with a freshly generated UUID like `"a1b2c3d4-e5f6-7890-abcd-ef1234567890"`.
-
-### Builder Fields
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `id` | string | Unique plugin ID (GUID). Must be unique across all extensions in the project. |
-| `title` | string | Plugin title. Used to refer to the plugin in the project dashboard. |
-| `extends` | string | Slot ID of the dashboard page hosting the plugin. See [Slots Reference](dashboard-plugin/SLOTS.md). |
-| `component` | string | Relative path to the plugin content component (`.tsx` file). |
-
-### The `extends` Field
-
-The `extends` field specifies which dashboard page slot hosts your plugin. Each Wix business app exposes slots on its dashboard pages. You must provide the exact slot ID.
+Specifies which dashboard page slot hosts your plugin. Each Wix business app exposes slots on its dashboard pages. You must provide the exact slot ID.
 
 **Important:** Some slots with the same ID appear on different pages within the dashboard. If you create a plugin for a slot that exists on multiple pages, the plugin is displayed on all of those pages.
 
@@ -74,9 +30,7 @@ For the complete list of available slot IDs, see [Slots Reference](dashboard-plu
 
 ## Plugin Component
 
-### File: `<plugin-name>.tsx`
-
-The plugin component is a React component that renders within the dashboard page slot.
+The generated plugin component is a React component that renders within the dashboard page slot. Implement the UI body inside `WixDesignSystemProvider`:
 
 ```typescript
 import type { FC } from "react";
@@ -152,20 +106,6 @@ const Plugin: FC<Props> = (props) => {
 
 > **Note:** Typed props availability varies by Wix app. Consult the specific app's SDK documentation. Not all slots provide typed parameter interfaces.
 
-## Extension Registration
-
-**Extension registration is MANDATORY and has TWO required steps.**
-
-### Step 1: Create Plugin-Specific Extension File
-
-Each dashboard plugin requires an `<plugin-name>.extension.ts` file in its folder. See [Plugin Builder Configuration](#plugin-builder-configuration) above.
-
-### Step 2: Register in Main Extensions File
-
-**CRITICAL:** After creating the plugin-specific extension file, you MUST read [Extension Registration reference](EXTENSION_REGISTRATION.md) and follow the "App Registration" section to update `src/extensions.ts`.
-
-**Without completing Step 2, the dashboard plugin will not appear on the dashboard page.**
-
 ## Sizing Behavior
 
 - Dashboard plugins take the **full width** of their slot
@@ -176,14 +116,14 @@ Each dashboard plugin requires an `<plugin-name>.extension.ts` file in its folde
 
 | Symptom | Cause | Fix |
 |---------|-------|-----|
-| Plugin not appearing on dashboard page | Missing registration | Import and `.use()` in `src/extensions.ts` |
-| Plugin not appearing on dashboard page | Wrong slot ID | Verify `extends` field matches a valid slot ID from [Slots Reference](dashboard-plugin/SLOTS.md) |
+| Plugin not appearing on dashboard page | Wrong slot ID | Verify `extendsSlotId` matches a valid slot ID from [Slots Reference](dashboard-plugin/SLOTS.md) |
+| Plugin not appearing on dashboard page | CLI scaffolding failed mid-run | Re-run `wix generate --params` and verify `src/extensions.ts` was updated |
 
 ## Hard Constraints
 
 - Do NOT invent or assume new types, modules, functions, props, events, or imports — use only entities explicitly present in the provided references or standard libraries already used in this project
 - NEVER use mocks, placeholders, or TODOs in any code — ALWAYS implement complete, production-ready functionality
-- The `extends` field MUST contain a valid slot ID from a Wix business app — do NOT invent slot IDs
+- The `extendsSlotId` MUST be a valid slot ID from a Wix business app — do NOT invent slot IDs
 - Prefer type-narrowing and exhaustive logic over assertions; avoid non-null assertions (`!`) and unsafe casts (`as any`)
 - Do NOT use `// @ts-ignore` or `// @ts-expect-error`; fix the types or add guards instead
 

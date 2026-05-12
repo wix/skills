@@ -1,20 +1,19 @@
 
 # Wix CLI Backend Event Extension
 
-Creates event extensions for Wix CLI applications. Events are triggered when specific conditions occur—on a Wix user's site for app projects, or on your project's site for headless projects. Your project responds using event extensions built on JavaScript SDK webhooks; the CLI subscribes your project to these webhooks.
+Event extensions run custom logic when something happens on a site — a contact is created, an order is placed, a booking is confirmed, a blog post is published. Each extension is built on a Wix JavaScript SDK webhook; the CLI subscribes your project to it.
 
-Common use cases: run logic when a contact is created, an order is placed, a booking is confirmed, or a blog post is published.
+Common use cases: react to CRM events, sync data on order creation, send notifications when a booking is confirmed.
 
-## Quick Start Checklist
+## Scaffold
 
-Follow these steps in order when creating an event extension.
+```bash
+npx wix generate --params '{"extensionType":"EVENT","folder":"<event-name>"}'
+```
 
-1. [ ] Create event folder: `src/extensions/backend/events/<event-name>/`
-2. [ ] Create `<event-name>.ts` with the SDK event import and handler function
-3. [ ] Create `<event-name>.extension.ts` with `extensions.event()` and a unique UUID
-4. [ ] Update `src/extensions.ts` to import and use the new extension
+`folder` is lowercase alphanumeric with hyphens (e.g. `contact-created`, `order-paid`). The CLI generates the folder, both files, the UUID, and the `src/extensions.ts` registration.
 
-**User (manual):** Configure app permissions for the event in the app dashboard if required; release a version and trigger the event to test.
+After scaffolding, edit the generated handler to import the right SDK event and implement the logic. `wix schema generate` is the authoritative source for the param shape.
 
 ## References
 
@@ -22,36 +21,7 @@ Follow these steps in order when creating an event extension.
 | --- | --- |
 | Common events (CRM, eCommerce, Bookings, Blog) | [COMMON-EVENTS.md](backend-event/COMMON-EVENTS.md) |
 
-## Output Structure
-
-Two files per event ([docs](https://dev.wix.com/docs/wix-cli/guides/extensions/backend-extensions/events/event-extension-files-and-code)). Only **one** handler per event allowed in the app (including dashboard handlers).
-
-```
-src/extensions/backend/events/<event-name>/
-├── <event-name>.extension.ts   # Builder: extensions.event({ id, source }) – id is unique GUID
-└── <event-name>.ts             # Handler: imports SDK event (e.g. onContactCreated), runs on trigger
-```
-
-## Implementation Pattern
-
-### Event builder (`<event-name>.extension.ts`)
-
-Use `extensions.event()` from `@wix/astro/builders`. Required fields: `id` (unique GUID), `source` (path to the handler file).
-
-```typescript
-import { extensions } from "@wix/astro/builders";
-
-export const eventContactCreated = extensions.event({
-  id: "{{GENERATE_UUID}}",
-  source: "./extensions/backend/events/contact-created/contact-created.ts",
-});
-```
-
-**CRITICAL: UUID Generation**
-
-The `id` must be a unique, static UUID v4 string. Generate a fresh UUID for each extension—do NOT use `randomUUID()` or copy UUIDs from examples. Replace `{{GENERATE_UUID}}` with a freshly generated UUID like `"a1b2c3d4-e5f6-7890-abcd-ef1234567890"`.
-
-### Event handler (`<event-name>.ts`)
+## Handler implementation
 
 Import the event from the correct SDK module and pass a handler. Wix invokes the handler with the event payload and metadata when the event occurs. Handler signatures are documented in the [JavaScript SDK reference](https://dev.wix.com/docs/sdk).
 
@@ -64,21 +34,7 @@ export default contacts.onContactCreated((event) => {
 });
 ```
 
-Handler can be `async`; ensure errors are caught and logged so one failing handler does not break others.
-
-## Extension Registration
-
-**Two steps required.**
-
-### Step 1: Event builder file
-
-Create `<event-name>.extension.ts` inside the event folder (and `<event-name>.ts` for the handler) as shown in [Implementation Pattern](#implementation-pattern) above.
-
-### Step 2: Register in main extensions.ts
-
-**CRITICAL:** Read [Extension Registration reference](EXTENSION_REGISTRATION.md) and add the event extension to `src/extensions.ts` (import and `.use(eventContactCreated)` or equivalent). Without this, the event extension is not active.
-
-Naming: export names follow `event{CamelCaseName}` (e.g. `eventContactCreated`, `eventOrderPaid`).
+Handlers can be `async`; ensure errors are caught and logged so one failing handler does not break others.
 
 ## Elevating Permissions for API Calls
 

@@ -1,23 +1,38 @@
 
 # Wix Service Plugin (SPI) Builder
 
-Creates service plugin extensions for Wix CLI applications. Service plugins are a set of APIs defined by Wix that you can use to inject custom logic into the existing backend flows of Wix business solutions or to introduce entirely new flows to Wix sites.
+Service plugins are a set of APIs defined by Wix that let you inject custom logic into the existing backend flows of Wix business solutions or introduce entirely new flows. When you implement a service plugin, Wix calls your custom functions during specific flows. Common use cases include eCommerce customization (shipping, fees, payment settings, validations) and Bookings customization (staff sorting).
 
-When you implement a service plugin, Wix calls your custom functions during specific flows. Common use cases include eCommerce customization (shipping, fees, payment settings, validations) and Bookings customization (staff sorting), but service plugins can extend any Wix business solution that exposes SPIs.
+## Scaffold
 
-## Quick Start Checklist
+```bash
+npx wix generate --params '{"extensionType":"SERVICE_PLUGIN","pluginType":"<PLUGIN_TYPE>","name":"<plugin-name>"}'
+```
 
-Follow these steps in order when creating a service plugin:
+`pluginType` is one of:
 
-1. [ ] **Read the reference doc** for your SPI type, then **STOP and call `ReadFullDocsMethodSchema`** with the docs URL from the reference to get the exact request/response types — **DO NOT write any code until you have the schema**
-2. [ ] Create plugin folder: `src/extensions/backend/service-plugins/<service-type>/<plugin-name>/`
-3. [ ] Create `plugin.ts` with correct imports and `provideHandlers()` call
-4. [ ] Implement all required handler functions with complete business logic
-5. [ ] Create `extensions.ts` with appropriate builder method and unique UUID
-6. [ ] Update `src/extensions.ts` to import and use the new extension
-7. [ ] Run `npx tsc --noEmit` to verify TypeScript compiles
-8. [ ] Run `npx wix build` to verify build succeeds
-9. [ ] Test by triggering the relevant site action (e.g., add to cart for fees)
+| Value | SPI |
+| --- | --- |
+| `ECOM_ADDITIONAL_FEES` | Additional Fees |
+| `ECOM_SHIPPING_RATES` | Shipping Rates |
+| `ECOM_DISCOUNTS_TRIGGER` | Discount Triggers |
+| `ECOM_VALIDATIONS` | Validations |
+| `ECOM_PAYMENT_SETTINGS` | Payment Settings |
+| `GIFT_CARDS_PROVIDER` | Gift Cards Provider |
+| `STAFF_SORTING_PROVIDER` | Bookings Staff Sorting |
+| `REALTIME_PERMISSIONS_PROVIDER` | Realtime Permissions Provider |
+
+`name` is lowercase alphanumeric with hyphens, max 19 chars. The CLI generates the folder, `plugin.ts`, the builder file, the UUID, and the `src/extensions.ts` registration with the appropriate builder method for the SPI type.
+
+`wix schema generate` is the authoritative source for params.
+
+## Workflow
+
+1. **Scaffold** with `wix generate --params` (above)
+2. **Read the SPI reference** for the chosen `pluginType` (see [References](#references)) and **STOP and call `ReadFullDocsMethodSchema`** with the docs URL from that reference to get the exact request/response types — **DO NOT edit code until you have the schema**
+3. **Implement** the handler in the generated `plugin.ts` per the SPI reference
+4. **Validate** (`npx tsc --noEmit`, `npx wix build`)
+5. **Test** by triggering the relevant site action (e.g., add to cart for fees)
 
 ## References
 
@@ -32,48 +47,6 @@ Follow these steps in order when creating a service plugin:
 | Shipping Rates | [SHIPPING-RATES.md](service-plugin/SHIPPING-RATES.md) |
 | Validations | [VALIDATIONS.md](service-plugin/VALIDATIONS.md) |
 | Bookings Staff Sorting | [BOOKINGS-STAFF-SORTING.md](service-plugin/BOOKINGS-STAFF-SORTING.md) |
-
-## Output Structure
-
-Service plugins consist of two files that work together. Registration of plugins requires an extension builder file.
-
-```
-src/extensions/backend/service-plugins/
-└── {service-type}/
-    └── {plugin-name}/
-        ├── plugin.ts           # Handler logic with provideHandlers()
-        └── extensions.ts       # Builder configuration (id, name, source)
-```
-
-### File Descriptions
-
-| File | Purpose |
-| --- | --- |
-| `plugin.ts` | Contains the service plugin handler logic with `provideHandlers()` - this is where you implement your custom business logic |
-| `extensions.ts` | Contains the service plugin builder configuration with id (GUID), name, source path, and builder-specific optional fields |
-
-## Implementation Requirements
-
-### Generation Requirements
-
-1. **Implement ALL required handler functions** with complete business logic
-2. **Include proper TypeScript types and error handling**
-3. **Focus on implementing the EXACT business logic** described in the user prompt
-
-### Implementation Patterns
-
-- **If capabilities are undocumented/unavailable**, explicitly state the gap and proceed only with documented minimal logic
-- **Implement all required handler functions** according to Wix specifications
-- **Never use placeholders** - always implement complete, working functionality
-
-### Data Validation
-
-All service plugins must include comprehensive data validation:
-
-- **Validate all input data** from Wix requests
-- **Ensure required fields** are present and properly formatted
-- **Handle missing or malformed data** gracefully
-- **Validate business logic constraints** (e.g., minimum order amounts, valid addresses)
 
 ## Implementation Pattern
 
@@ -116,6 +89,23 @@ shippingRates.provideHandlers({
 
 Handler functions are called automatically by Wix when the relevant site action triggers them. Your custom logic should be placed inside each handler function.
 
+## Implementation Requirements
+
+- **Implement ALL required handler functions** with complete business logic
+- **Include proper TypeScript types and error handling**
+- **Focus on implementing the EXACT business logic** described in the user prompt
+- **If capabilities are undocumented/unavailable**, explicitly state the gap and proceed only with documented minimal logic
+- **Never use placeholders** - always implement complete, working functionality
+
+## Data Validation
+
+All service plugins must include comprehensive data validation:
+
+- **Validate all input data** from Wix requests
+- **Ensure required fields** are present and properly formatted
+- **Handle missing or malformed data** gracefully
+- **Validate business logic constraints** (e.g., minimum order amounts, valid addresses)
+
 ## Elevating Permissions for API Calls
 
 When making Wix API calls from service plugins, you must elevate permissions using `auth.elevate` from `@wix/essentials`.
@@ -153,20 +143,22 @@ export const myFunction = async () => {
 };
 ```
 
+## Builder field overrides
+
+The CLI generates a builder with `id`, `name`, and `source`. Some SPI types accept additional optional fields you may want to set in the generated builder file:
+
+| SPI Type | Builder Method | Additional Optional Fields |
+| --- | --- | --- |
+| Shipping Rates | `ecomShippingRates()` | `description`, `learnMoreUrl`, `dashboardUrl`, `fallbackDefinitionMandatory`, `thumbnailUrl` |
+| Validations | `ecomValidations()` | `validateInCart` |
+| Payment Settings | `ecomPaymentSettings()` | `fallbackValueForRequires3dSecure` |
+| Bookings Staff Sorting | `bookingsStaffSortingProvider()` | `methodName` (required), `methodDescription` (required, max 100 chars), `dashboardPluginId` |
+
+Only `ecomShippingRates()` accepts `description`. Passing unsupported fields to other builders causes TypeScript errors. `bookingsStaffSortingProvider()` requires `methodName` and `methodDescription` fields — set these in the generated builder file after scaffolding.
+
 ## Best Practices
 
-### Development Workflow
-
 - **Always implement complete, working functionality** - never use placeholders
-- **Handle all required fields** according to Wix documentation
-- **Implement proper validation** for all input data
-- **Return responses in exact format** expected by Wix
-- **Add comprehensive error handling** for all failure scenarios
-- **Use meaningful variable names** and clear code structure
-- **Test thoroughly** with different input combinations
-
-### Implementation Guidelines
-
 - **Validate all input:** Check required fields are present and properly formatted
 - **Handle errors gracefully:** Return appropriate error responses, don't throw unhandled exceptions
 - **Return exact format:** Responses must match Wix documented structure exactly
@@ -174,58 +166,6 @@ export const myFunction = async () => {
 - **Test edge cases:** Empty carts, missing addresses, invalid data
 - **Performance:** Keep calculations efficient - these run on every checkout
 - **Logging:** Add console.log for debugging but keep production logs minimal
-
-## Extension Registration
-
-**Extension registration is MANDATORY and has TWO required steps.**
-
-### Step 1: Create Plugin-Specific Extension File
-
-Each service plugin requires an `extensions.ts` file in its folder with the appropriate builder method for the SPI type:
-
-```typescript
-import { extensions } from "@wix/astro/builders";
-
-export const ecomadditionalfeesMyFees = extensions.ecomAdditionalFees({
-  id: "{{GENERATE_UUID}}",
-  name: "My Additional Fees",
-  source: "./extensions/backend/service-plugins/ecom-additional-fees/my-fees/plugin.ts",
-});
-```
-
-**CRITICAL: UUID Generation**
-
-The `id` must be a unique, static UUID v4 string. Generate a fresh UUID for each extension - do NOT use `randomUUID()` or copy UUIDs from examples. Replace `{{GENERATE_UUID}}` with a freshly generated UUID like `"a1b2c3d4-e5f6-7890-abcd-ef1234567890"`.
-
-### Builder Configuration Fields
-
-All builder methods accept these three fields:
-
-| Field | Type | Description |
-| --- | --- | --- |
-| `id` | string | Service plugin ID as a GUID. Must be unique across all extensions in the project. |
-| `name` | string | The service plugin name (visible in app dashboard when developing an app). |
-| `source` | string | Path to the service plugin handler file that contains the plugin logic. |
-
-**Builder methods by SPI type and their accepted fields:**
-
-| SPI Type          | Builder Method           | Accepted Fields |
-| ----------------- | ------------------------ | --------------- |
-| Shipping Rates    | `ecomShippingRates()`    | `id`, `name`, `source`, `description`, `learnMoreUrl`, `dashboardUrl`, `fallbackDefinitionMandatory`, `thumbnailUrl` |
-| Additional Fees   | `ecomAdditionalFees()`   | `id`, `name`, `source` |
-| Validations       | `ecomValidations()`      | `id`, `name`, `source`, `validateInCart` |
-| Discount Triggers | `ecomDiscountTriggers()` | `id`, `name`, `source` |
-| Gift Cards        | `ecomGiftCards()`        | `id`, `name`, `source` |
-| Payment Settings  | `ecomPaymentSettings()`  | `id`, `name`, `source`, `fallbackValueForRequires3dSecure` |
-| Bookings Staff Sorting | `bookingsStaffSortingProvider()` | `id`, `name`, `source`, `methodName`, `methodDescription` (max 100 chars), `dashboardPluginId` |
-
-Only `ecomShippingRates()` accepts `description`. Passing unsupported fields to other builders causes TypeScript errors. `bookingsStaffSortingProvider()` requires `methodName` and `methodDescription` fields (methodDescription has a 100-character limit), and optionally accepts `dashboardPluginId`.
-
-### Step 2: Register in Main Extensions File
-
-**CRITICAL:** After creating the plugin-specific extension file, you MUST read [Extension Registration reference](EXTENSION_REGISTRATION.md) and follow the "App Registration" section to update `src/extensions.ts`.
-
-**Without completing Step 2, the service plugin will not be active in the eCommerce system.**
 
 ## Testing Service Plugins
 

@@ -1,19 +1,33 @@
 
 # Wix Embedded Script Builder
 
-Creates embedded script extensions for Wix CLI applications. Embedded scripts are HTML code fragments that get injected into the DOM of Wix sites, enabling integration with third-party services, analytics tracking, advertising, and custom JavaScript functionality.
+Embedded scripts are HTML code fragments injected into the DOM of Wix sites — for integration with third-party services, analytics tracking, advertising, and custom JavaScript functionality.
 
-## Quick Start Checklist
+## Scaffold
 
-Follow these steps in order when creating an embedded script:
+```bash
+npx wix generate --params '{"extensionType":"EMBEDDED_SCRIPT","name":"<script name>","folder":"<script-folder>","scriptType":"<TYPE>","placement":"<PLACEMENT>"}'
+```
 
-1. [ ] Create script folder: `src/extensions/site/embedded-scripts/<script-name>/`
-2. [ ] Create `embedded.html` with config element, styles, and script logic
-3. [ ] Create `extensions.ts` with `extensions.embeddedScript()` and unique UUID
-4. [ ] Create dashboard config page: `src/extensions/dashboard/pages/<script-name>-settings/`
-5. [ ] Implement config page with `embeddedScripts` API from `@wix/app-management`
-6. [ ] Update `src/extensions.ts` to import and use both extensions
-7. [ ] Add the `SCOPE.DC-APPS.MANAGE-EMBEDDED-SCRIPTS` permission in the Wix Dev Center (see [Enable Embedded Script Permission](#enable-embedded-script-permission))
+| Field | Allowed values |
+| --- | --- |
+| `scriptType` | `ESSENTIAL`, `FUNCTIONAL`, `ANALYTICS`, `ADVERTISING` |
+| `placement` | `HEAD`, `BODY_START`, `BODY_END` |
+| `folder` | lowercase alphanumeric and hyphens, unique within `src/site/embedded-scripts/` |
+
+The CLI generates the folder, `embedded.html`, the builder file, the UUID, and the `src/extensions.ts` registration.
+
+**Companion dashboard page** — Every embedded script needs a configuration UI. Scaffold it separately:
+
+```bash
+npx wix generate --params '{"extensionType":"DASHBOARD_PAGE","title":"<Script> Settings","route":"<script-name>-settings"}'
+```
+
+Use `embeddedScripts` from `@wix/app-management` in the dashboard page to load/save parameters (see [Dashboard Page reference](DASHBOARD_PAGE.md) for the integration pattern).
+
+After implementation, the app developer must enable `SCOPE.DC-APPS.MANAGE-EMBEDDED-SCRIPTS` in the Wix Dev Center — see [Enable Embedded Script Permission](#enable-embedded-script-permission).
+
+`wix schema generate` is the authoritative source for params.
 
 ## Script Types
 
@@ -64,8 +78,6 @@ Embedded Script (HTML)
     ▼
 Site DOM
 ```
-
-**Related skill:** Use DASHBOARD_PAGE.md to create the configuration UI for your embedded script.
 
 ### Parameter Types
 
@@ -216,42 +228,9 @@ Every embedded script should have at minimum an **enable/disable toggle** parame
 | `headline`   | `TEXT`    | Customizable display text            |
 | `color`      | `COLOR`   | UI customization                     |
 
-## Output Structure
-
-A complete embedded script implementation requires **two parts**:
-
-### 1. Embedded Script Extension
-
-```
-src/extensions/site/embedded-scripts/
-└── {script-name}/
-    ├── embedded.html     # HTML/JavaScript code to inject
-    └── extensions.ts     # Metadata (scriptType, placement)
-```
-
-### 2. Dashboard Configuration Page (Required)
-
-```
-src/extensions/dashboard/
-├── withProviders.tsx     # WDS provider wrapper (required)
-└── pages/
-    └── {script-name}-settings/
-        ├── extensions.ts  # Extension registration (REQUIRED)
-        └── page.tsx       # Configuration UI using embeddedScripts API
-```
-
-**Note:** The dashboard page requires its own `extensions.ts` file. Without this file, the dashboard page will not appear in the Wix dashboard.
-
-**WARNING:** The dashboard page uses DIFFERENT field names than embedded scripts:
-
-- Dashboard pages use `title`, `routePath`, `component`
-- Embedded scripts use `name`, `source`, `placement`, `scriptType`
-
-Do NOT apply embedded script field names to dashboard page registrations.
-
-**See the DASHBOARD_PAGE.md reference** for dashboard page implementation details and the extension registration pattern.
-
 ## Implementation Pattern
+
+Inside the generated `embedded.html`:
 
 ```html
 <!-- Configuration element with template variables -->
@@ -418,44 +397,6 @@ await embeddedScripts.embedScript({
   },
 });
 ```
-
-## Extension Registration
-
-**Extension registration is MANDATORY and has TWO required steps.**
-
-### Step 1: Create Script-Specific Extension File
-
-Each embedded script requires an `extensions.ts` file in its folder:
-
-```typescript
-import { extensions } from "@wix/astro/builders";
-
-export const embeddedscriptMyScript = extensions.embeddedScript({
-  id: "{{GENERATE_UUID}}",
-  name: "My Script",
-  source: "./extensions/site/embedded-scripts/my-script/embedded.html",
-  placement: "BODY_END",
-  scriptType: "FUNCTIONAL",
-});
-```
-
-**CRITICAL: UUID Generation**
-
-The `id` must be a unique, static UUID v4 string. Generate a fresh UUID for each extension - do NOT use `randomUUID()` or copy UUIDs from examples. Replace `{{GENERATE_UUID}}` with a freshly generated UUID like `"a1b2c3d4-e5f6-7890-abcd-ef1234567890"`.
-
-| Property     | Type   | Description                                           |
-| ------------ | ------ | ----------------------------------------------------- |
-| `id`         | string | Unique static UUID v4 (generate fresh)                |
-| `name`       | string | Display name for the script                           |
-| `source`     | string | Relative path to the HTML file                        |
-| `placement`  | enum   | `HEAD`, `BODY_START`, or `BODY_END`                   |
-| `scriptType` | enum   | `ESSENTIAL`, `FUNCTIONAL`, `ANALYTICS`, `ADVERTISING` |
-
-### Step 2: Register in Main Extensions File
-
-**CRITICAL:** After creating the script-specific extension file, you MUST read [Extension Registration reference](EXTENSION_REGISTRATION.md) and follow the "App Registration" section to update `src/extensions.ts`.
-
-**Without completing Step 2, the embedded script will not be deployed to the site.**
 
 ## Enable Embedded Script Permission
 
