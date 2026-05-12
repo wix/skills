@@ -41,12 +41,14 @@ File where you can override the generated manifest from `<componentName>.generat
    `npx wix generate --params '{"extensionType":"EDITOR_REACT_COMPONENT","name":"ComponentName","folder":"component-name","description":"A brief description of what the component does"}'` to scaffold it. Skip this
    step when iterating on an existing component — re-running it would
    overwrite local changes.
-2. Edit the generated react and CSS files in
+2. Run the following script to ensure the component dependencies are installed:
+`[[ -d "node_modules/@wix/react-component-schema" && -d "node_modules/@wix/react-component-utils" && -d "node_modules/@wix/editor-react-types" ]] || ([ -f yarn.lock ] && yarn add @wix/react-component-schema @wix/react-component-utils @wix/editor-react-types || npm install @wix/react-component-schema @wix/react-component-utils @wix/editor-react-types)`
+3. Edit the generated react and CSS files in
    `src/site/components/ComponentName/`.
-3. Run `npx wix build && npx wix generate manifest` so the editor picks up
+4. Run `npx wix build && npx wix generate manifest` so the editor picks up
    the new/updated prop schema. `npx wix generate manifest` regenerates manifest
    parts for all components.
-4. Update `Component.extensions.ts` file according to [`editor-react-component/COMPONENT-CONFIGURATION.md`](editor-react-component/COMPONENT-CONFIGURATION.md)
+5. Update `Component.extensions.ts` file according to [`editor-react-component/COMPONENT-CONFIGURATION.md`](editor-react-component/COMPONENT-CONFIGURATION.md)
 
 Reference: when modifying an _existing_ component, follow
 [`editor-react-component/EDIT-FLOW.md`](editor-react-component/EDIT-FLOW.md).
