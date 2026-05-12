@@ -17,11 +17,12 @@ jobs:
 
       - name: Mint App token for wix-private read access
         id: app-token
-        uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547  # v1.12.0
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3  # v3.1.1
         with:
-          app-id: ${{ secrets.SYNC_APP_ID }}
+          client-id: ${{ secrets.SYNC_APP_CLIENT_ID }}
           private-key: ${{ secrets.SYNC_APP_PRIVATE_KEY }}
-          installation-id: ${{ secrets.SYNC_APP_INSTALLATION_ID }}
+          owner: wix-private
+          repositories: coding-agents-plugins
 
       - name: Sync WDS skill from private repo
         env:
