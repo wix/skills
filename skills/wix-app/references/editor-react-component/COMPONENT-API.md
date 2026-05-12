@@ -106,6 +106,41 @@ when arithmetic is needed: `price: number`, not `price: string`).
 
 When the parent component defines an array prop (e.g., `items`), child/item components receive a single item directly. They do NOT redeclare the data structure in their own props.
 
+### Array Element Types: Always Objects with Named Keys
+
+Array elements MUST be objects with named keys. This enables stable item identity (each item can carry its own `id`/`key`), non-breaking extension (new fields can be added later without changing the prop signature), and semantic naming (each value has meaning instead of being an opaque scalar).
+
+**Allowed forms:**
+
+- Inline object literal: `Array<{ key: ValueType, ... }>`
+- Named interface where the interface itself is an object with named keys (e.g. `Array<AccordionItem>` is OK because `AccordionItem` is `{ name, content }`)
+
+**Never allowed as the array element:**
+
+- Primitives: `Array<string>`, `Array<number>`, `Array<boolean>`
+- Leaf data types from `@wix/editor-react-types`: `Array<Image>`, `Array<Link>`, `Array<Video>`, `Array<Audio>`, `Array<VectorArt>`, `Array<RichText>`. Wrap them in an object instead.
+
+**❌ Wrong:**
+
+```typescript
+tags: Array<string>;
+prices: Array<number>;
+flags: Array<boolean>;
+images: Array<Image>;
+links: Array<Link>;
+```
+
+**✅ Correct:**
+
+```typescript
+tags: Array<{ label: string }>;
+prices: Array<{ amount: number }>;
+flags: Array<{ enabled: boolean }>;
+gallery: Array<{ image: Image, caption?: string }>;
+links: Array<{ link: Link, label: string }>;
+items: Array<AccordionItem>; // AccordionItem is { name, content }
+```
+
 ### Container Components (Blackbox Content)
 
 When a component specification indicates a "container" or "slot" area where users can add nested content, use `Container` (from `@wix/editor-react-types`) for that content prop. Never use `React.ReactNode` in a prop type.
@@ -151,7 +186,7 @@ import type {
 - **Vector graphics** → `VectorArt`
 - **Accessibility** → `A11y`
 - **Rich text** → `RichText`
-- **Arrays/Lists** → `Array<{...}>`
+- **Arrays/Lists** → `Array<{ key: ValueType, ... }>` — must be an object with named keys; never a primitive or leaf data type (see "Array Element Types" rule below)
 - **Menu items** → `MenuItems`
 
 ### Component File Splitting
@@ -319,6 +354,7 @@ Use `Array<T>` over `T[]`.
 interface ComponentProps {
   items: Item[]; // ❌ Wrong syntax
   tags: string[]; // ❌ Wrong syntax
+  tags: Array<string>; // ❌ Element must be an object with named keys
 }
 ```
 
@@ -327,6 +363,8 @@ interface ComponentProps {
 ```typescript
 interface ComponentProps {
   items: Array<Item>; // ✅ Correct syntax
-  tags: Array<string>; // ✅ Correct syntax
+  tags: Array<{ label: string }>; // ✅ Element is an object with named keys
 }
 ```
+
+See also: [Array Element Types: Always Objects with Named Keys](#array-element-types-always-objects-with-named-keys) — items must be objects with named keys.
