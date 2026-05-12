@@ -9,7 +9,7 @@ description: "MANDATORY entry point for creating a product from an image. STEP 1
 This recipe creates a Wix Store product from an image. It first detects the site's catalog version, then runs the appropriate flow:
 
 - **V3 flow:** 6 interactive steps. Up to 3 images, multi-image variant detection, info sections (materials, care, specs), SEO meta, options/variants, atomic single-call create.
-- **V1 flow:** 4 sequential steps. Single image, simple product, separate media-attach call after create.
+- **V1 flow:** 3 sequential steps. Single image, product details inferred from the image, separate media-attach call after create.
 
 **Prerequisites:**
 - The user MUST provide at least one product image — uploaded directly to the chat or as a publicly accessible URL.
@@ -36,7 +36,7 @@ Possible values for `catalogVersion`:
 | Value | Action |
 |-------|--------|
 | `V3_CATALOG` | Run the **V3 Flow** below (V3 STEP 2 through V3 STEP 6) |
-| `V1_CATALOG` | Run the **V1 Flow** below (V1 STEP 2 through V1 STEP 5) |
+| `V1_CATALOG` | Run the **V1 Flow** below (V1 STEP 2 through V1 STEP 4) |
 | `STORES_NOT_INSTALLED` | Stop. Inform the user: "The Wix Stores app is not installed on this site. Please install Wix Stores first before creating products. You can install it using the [Install Wix Apps](https://dev.wix.com/docs/api-reference/business-management/app-installation/skills/install-wix-apps) recipe." |
 
 ---
@@ -105,23 +105,17 @@ Ask the user to provide **1 to 3 images** of their product:
 
 ---
 
-## V3 STEP 3: Analyze Images and Write Product Description to Context
+## V3 STEP 3: Analyze Images and Generate Product Details
 
-**STOP — do NOT call any API in this step.** This step is analysis only. You must respond with text, not a tool call.
+**BEFORE generating any product fields, you MUST look at the product image(s) from the user's first message** (the `<MEDIA>` tag or attached image). Identify:
+- What the product IS (e.g., fishing reel, ceramic mug, leather wallet)
+- Color(s), finish, and material(s) if visible
+- Shape, size impression, any text/branding/logos visible
+- If multiple images: differences between them (variant colors vs angles)
 
-**Look at the product image(s) the user uploaded at the beginning of this conversation.** The image is visible in the user's first message (the `<MEDIA>` tag or attached image). Look at it NOW and describe what you see.
+**Use ONLY what you see in the image(s) to generate the fields below.** Do NOT use generic names like "Product" or hallucinate details not visible in the image. If you cannot clearly identify the product, ask the user for clarification instead of guessing.
 
-**Write a detailed visual description of the product into your response.** Include:
-- What the product IS (e.g., "fishing reel", "ceramic mug", "leather wallet")
-- Color(s) and finish
-- Material(s) if visible
-- Shape and size impression
-- Any text, branding, or logos visible
-- If multiple images: differences between them (variant colors, angles)
-
-**This description is the source of truth for ALL subsequent product details.** Once written, you MUST base the product name, description, and price on THIS text — not on assumptions or generic products. If you cannot clearly identify the product, say so and ask the user for clarification.
-
-**After writing the visual description, generate the following fields based on what you described** (and any free-text note from the user):
+**Generate the following fields based on what you see in the image(s)** (and any free-text note from the user):
 
 ### 4a. Product Name
 A concise, appealing product name optimized for e-commerce discoverability. Maximum 80 characters. Follow the naming convention: `[Brand/Style] [Material] [Product Type]`.
@@ -603,7 +597,7 @@ Before reporting success to the user, verify ALL of the following:
 
 - [ ] STEP 1 completed: Catalog version detected as `V3_CATALOG`.
 - [ ] V3 STEP 2 completed: User provided 1-3 images, all uploaded to Media Manager with wixstatic.com URLs.
-- [ ] V3 STEP 3 completed: Images analyzed using wixstatic.com URLs, visual description written to context, all product fields generated.
+- [ ] V3 STEP 3 completed: Images analyzed from user's message, all product fields generated based on what's visible in the image(s).
 - [ ] V3 STEP 4 completed: User reviewed and approved the generated details.
 - [ ] V3 STEP 5 completed: User confirmed, modified, or skipped product options.
 - [ ] V3 STEP 6 completed: Product was created via API and you received a product ID.
@@ -614,7 +608,7 @@ Before reporting success to the user, verify ALL of the following:
 
 > Run this section ONLY if STEP 1 returned `V1_CATALOG`. Otherwise use the V3 Flow above.
 
-This is a 4-step sequential flow. ALL steps MUST be completed in order. Do NOT report success until ALL 4 steps have executed successfully.
+This is a 3-step sequential flow (STEP 2 through STEP 4). ALL steps MUST be completed in order. Do NOT report success until ALL steps have executed successfully.
 
 **V1 prerequisites:**
 - The user MUST provide at least one product image — uploaded directly to the chat or as a publicly accessible URL.
@@ -660,51 +654,33 @@ This is a 4-step sequential flow. ALL steps MUST be completed in order. Do NOT r
 ```
 
 **After this step, save these values — you need them later:**
-- `file.url` — the wixstatic.com URL (use in V1 STEP 5)
+- `file.url` — the wixstatic.com URL (use in V1 STEP 4)
 - `file.id` — the media file ID
 
 **If the response contains `operationStatus: "FAILED"`:** The source URL is not accessible. Ask the user for a different image URL.
 
 ---
 
-## V1 STEP 3: Analyze the Image and Generate Product Details
-
-**STOP — do NOT call any API in this step.** This step is analysis only. You must respond with text, not a tool call.
-
-**Look at the product image the user uploaded at the beginning of this conversation.** The image is visible in the user's first message (the `<MEDIA>` tag or attached image). Look at it NOW and describe what you see.
-
-**Write a detailed visual description into your response.** Include:
-- What the product IS (e.g., "fishing reel", "ceramic mug", "leather wallet")
-- Color(s) and finish
-- Material(s) if visible
-- Shape and size impression
-- Any text, branding, or logos visible
-
-**This description is the source of truth for ALL product details.** Once written, you MUST base the product name, description, and price on THIS text — not on assumptions or generic products. If you cannot clearly identify the product, say so and ask the user for clarification.
-
-**After writing the visual description, generate the following three values based on what you described:**
-
-1. **Product name** — A concise, appealing product name. Maximum 80 characters. Example: `"Premium Spinning Fishing Reel"`.
-2. **Product description** — A marketing description of 2-3 sentences. MUST be wrapped in HTML `<p>` tags. Example: `"<p>A sleek black-and-gold spinning fishing reel designed for smooth retrieves. Ideal for freshwater or light saltwater fishing.</p>"`. Do NOT use plain text without `<p>` tags — the API will reject it.
-3. **Product price** — A reasonable retail price as a number (not a string). Example: `79.99`.
-
-**CRITICAL:** These values MUST describe the actual product visible in the image. Do NOT use generic placeholder text. If you cannot see the product clearly, say so — do NOT hallucinate details.
-
----
-
-## V1 STEP 4: Create the Product
+## V1 STEP 3: Create the Product (with image-based details)
 
 **API Endpoint:** `POST https://www.wixapis.com/stores/v1/products`
+
+**BEFORE building the request body, you MUST look at the product image from the user's first message** (the `<MEDIA>` tag or attached image). Identify:
+- What the product IS (e.g., fishing reel, ceramic mug, leather wallet)
+- Its color(s), material(s), shape
+- Any text, branding, or logos visible
+
+**Use ONLY what you see in the image to set the product name, description, and price below.** Do NOT use generic text like "Product from image" or hallucinate details. If you cannot identify the product, ask the user for clarification instead of guessing.
 
 **Request body fields:**
 
 | Field | Type | Required | Value |
 |-------|------|----------|-------|
-| `product.name` | string | Yes | The product name from V1 STEP 3 (max 80 chars) |
-| `product.description` | string | Yes | The HTML description from V1 STEP 3 (wrapped in `<p>` tags) |
+| `product.name` | string | Yes | A concise, appealing name describing the ACTUAL product in the image (max 80 chars). Example: `"Premium Spinning Fishing Reel"` — NOT `"Product from image"`. |
+| `product.description` | string | Yes | A 2-3 sentence marketing description of what you SEE in the image. MUST be wrapped in `<p>` tags. |
 | `product.visible` | boolean | Yes | `true` |
-| `product.productType` | string | Yes | `"physical"` (only supported value) |
-| `product.priceData.price` | number | Yes | The price from V1 STEP 3 |
+| `product.productType` | string | Yes | `"physical"` |
+| `product.priceData.price` | number | Yes | A reasonable retail price based on the product type visible in the image |
 
 **Exact request example (using values from V1 STEP 3):**
 
@@ -738,12 +714,12 @@ This is a 4-step sequential flow. ALL steps MUST be completed in order. Do NOT r
 }
 ```
 
-**After this step, save this value — you need it in V1 STEP 5:**
+**After this step, save this value — you need it in V1 STEP 4:**
 - `product.id` — the product ID (a UUID string like `"a1b2c3d4-e5f6-7890-abcd-ef1234567890"`)
 
 ---
 
-## V1 STEP 5: Attach the Image to the Product (MANDATORY — DO NOT SKIP)
+## V1 STEP 4: Attach the Image to the Product (MANDATORY — DO NOT SKIP)
 
 **API Endpoint:** `POST https://www.wixapis.com/stores/v1/products/{id}/media`
 
@@ -782,11 +758,10 @@ Before reporting success to the user, verify ALL of the following:
 
 - [ ] STEP 1 completed: Catalog version detected as `V1_CATALOG`.
 - [ ] V1 STEP 2 completed: Image was uploaded to Wix Media Manager and you received a wixstatic.com URL.
-- [ ] V1 STEP 3 completed: You analyzed the image and generated a name, description, and price.
-- [ ] V1 STEP 4 completed: Product was created and you received a product ID.
-- [ ] V1 STEP 5 completed: Image was attached to the product using the Add Product Media endpoint.
+- [ ] V1 STEP 3 completed: You looked at the image, identified the product, and created it with accurate name/description/price.
+- [ ] V1 STEP 4 completed: Image was attached to the product using the Add Product Media endpoint.
 
-Only after ALL 5 steps succeed (STEP 1 + V1 STEP 2-5), report to the user: the product name, price, and that it was created with the image attached.
+Only after ALL 4 steps succeed (STEP 1 + V1 STEP 2-4), report to the user: the product name, price, and that it was created with the image attached.
 
 ---
 
@@ -829,7 +804,7 @@ Show an error and offer to retry. Do NOT leave a partially created product.
 The URL may be a local file path or invalid reference. Both public HTTPS URLs and wixmp URLs from chat uploads work. If the error persists, ask the user for a different image source.
 
 ### Product created but no image visible (V1)
-You used the original external URL instead of the wixstatic.com URL in V1 STEP 5. Always use the `file.url` from V1 STEP 2's response.
+You used the original external URL instead of the wixstatic.com URL in V1 STEP 4. Always use the `file.url` from V1 STEP 2's response.
 
 ## Cross-version errors
 
