@@ -4,7 +4,7 @@
  * WDS Documentation Helper
  *
  * Auto-discovers @wix/design-system in node_modules and provides
- * fast, focused lookups for components, props, examples, and icons.
+ * fast, focused lookups for components, props, examples, and icons
  *
  * Usage:
  *   node <path-to>/wds.cjs search <keyword>
