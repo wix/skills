@@ -107,11 +107,21 @@ Ask the user to provide **1 to 3 images** of their product:
 
 ## V3 STEP 3: Analyze Images and Write Product Description to Context
 
-**CRITICAL: Use the `file.url` (wixstatic.com URLs) from V3 STEP 2 as the image source for visual analysis.** Do NOT use the original uploaded wixmp URL — it requires JWT auth and may fail silently. The wixstatic.com URLs are public, permanent, and reliable for vision processing.
+**STOP — do NOT call any API in this step.** This step is analysis only. You must respond with text, not a tool call.
 
-**First, describe what you see in each image.** Write a detailed visual description of the product into the conversation context. Include: what the product is, its color(s), material(s), shape, any text/branding visible, and any variant differences between images. This description becomes the source of truth for all subsequent product detail generation — even if the image is no longer accessible later in the conversation, the text description preserves the details.
+**Look at the product image(s) the user uploaded at the beginning of this conversation.** The image is visible in the user's first message (the `<MEDIA>` tag or attached image). Look at it NOW and describe what you see.
 
-**Then, generate the following fields based on your visual description** (and any free-text note from the user). Generate the following fields:
+**Write a detailed visual description of the product into your response.** Include:
+- What the product IS (e.g., "fishing reel", "ceramic mug", "leather wallet")
+- Color(s) and finish
+- Material(s) if visible
+- Shape and size impression
+- Any text, branding, or logos visible
+- If multiple images: differences between them (variant colors, angles)
+
+**This description is the source of truth for ALL subsequent product details.** Once written, you MUST base the product name, description, and price on THIS text — not on assumptions or generic products. If you cannot clearly identify the product, say so and ask the user for clarification.
+
+**After writing the visual description, generate the following fields based on what you described** (and any free-text note from the user):
 
 ### 4a. Product Name
 A concise, appealing product name optimized for e-commerce discoverability. Maximum 80 characters. Follow the naming convention: `[Brand/Style] [Material] [Product Type]`.
@@ -659,11 +669,20 @@ This is a 4-step sequential flow. ALL steps MUST be completed in order. Do NOT r
 
 ## V1 STEP 3: Analyze the Image and Generate Product Details
 
-**CRITICAL: Use the `file.url` (wixstatic.com URL) from V1 STEP 2 as the image source for visual analysis.** Do NOT use the original uploaded wixmp URL — it requires JWT auth and may fail silently. The wixstatic.com URL is public, permanent, and reliable for vision processing.
+**STOP — do NOT call any API in this step.** This step is analysis only. You must respond with text, not a tool call.
 
-**First, describe what you see in the image.** Write a detailed visual description into the conversation context: what the product is, its color(s), material(s), shape, any text/branding visible, and its likely use case. This text description becomes the source of truth for product details — even if the image is no longer accessible later, the description preserves the details.
+**Look at the product image the user uploaded at the beginning of this conversation.** The image is visible in the user's first message (the `<MEDIA>` tag or attached image). Look at it NOW and describe what you see.
 
-**Then, based on your visual description, generate the following three values:**
+**Write a detailed visual description into your response.** Include:
+- What the product IS (e.g., "fishing reel", "ceramic mug", "leather wallet")
+- Color(s) and finish
+- Material(s) if visible
+- Shape and size impression
+- Any text, branding, or logos visible
+
+**This description is the source of truth for ALL product details.** Once written, you MUST base the product name, description, and price on THIS text — not on assumptions or generic products. If you cannot clearly identify the product, say so and ask the user for clarification.
+
+**After writing the visual description, generate the following three values based on what you described:**
 
 1. **Product name** — A concise, appealing product name. Maximum 80 characters. Example: `"Premium Spinning Fishing Reel"`.
 2. **Product description** — A marketing description of 2-3 sentences. MUST be wrapped in HTML `<p>` tags. Example: `"<p>A sleek black-and-gold spinning fishing reel designed for smooth retrieves. Ideal for freshwater or light saltwater fishing.</p>"`. Do NOT use plain text without `<p>` tags — the API will reject it.
