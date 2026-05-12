@@ -5,13 +5,7 @@ Dashboard modals are popup dialogs triggered from dashboard pages or plugins. Th
 
 ## Scaffold
 
-```bash
-npx wix generate --params '{"extensionType":"DASHBOARD_MODAL","title":"<modal title>","folder":"<modal-folder>"}'
-```
-
-`folder` is lowercase alphanumeric with hyphens. The CLI generates the folder, the modal `.tsx`, the config file, the builder file, the UUID, and the `src/extensions.ts` registration. After scaffolding, implement the modal UI in the generated `.tsx`.
-
-`wix schema generate` is the authoritative source for params.
+Use `wix generate --params` with `extensionType: DASHBOARD_MODAL`. The CLI generates the folder, the modal `.tsx`, the config file, the builder file, the UUID, and the `src/extensions.ts` registration. After scaffolding, implement the modal UI in the generated `.tsx`.
 
 ## Quick Reference
 

@@ -7,13 +7,7 @@ Common use cases: react to CRM events, sync data on order creation, send notific
 
 ## Scaffold
 
-```bash
-npx wix generate --params '{"extensionType":"EVENT","folder":"<event-name>"}'
-```
-
-`folder` is lowercase alphanumeric with hyphens (e.g. `contact-created`, `order-paid`). The CLI generates the folder, both files, the UUID, and the `src/extensions.ts` registration.
-
-After scaffolding, edit the generated handler to import the right SDK event and implement the logic. `wix schema generate` is the authoritative source for the param shape.
+Use `wix generate --params` with `extensionType: EVENT`. The CLI generates the folder, both files, the UUID, and the `src/extensions.ts` registration. After scaffolding, edit the generated handler to import the right SDK event and implement the logic.
 
 ## References
 

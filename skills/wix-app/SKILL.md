@@ -251,22 +251,7 @@ Use the Extension Types Reference Table and decision content above. State extens
 
 ### Step 4a: Scaffold via the CLI
 
-For each extension **except Backend API**, build a `--params` JSON object using the schema from Step 0 and the user's requirements, then run:
-
-```bash
-npx wix generate --params '<json>'
-```
-
-Example invocations:
-
-```bash
-npx wix generate --params '{"extensionType":"DASHBOARD_PAGE","title":"My Page","route":"my-page"}'
-npx wix generate --params '{"extensionType":"EVENT","folder":"contact-created"}'
-npx wix generate --params '{"extensionType":"DATA_COLLECTION","collectionName":"products"}'
-npx wix generate --params '{"extensionType":"EMBEDDED_SCRIPT","name":"Analytics","folder":"analytics","scriptType":"ANALYTICS","placement":"HEAD"}'
-```
-
-The command returns JSON like `{"success":true,"extensionType":"EVENT","newFiles":["src/extensions/backend/events/contact-created/..."]}`. If `success` is `false`, surface the error and stop — do not attempt manual recovery.
+For each extension **except Backend API**, build a `--params` JSON using the schema from Step 0 and run `npx wix generate --params '<json>'`. The command returns `{"success":true,"extensionType":"...","newFiles":[...]}` on success; on failure surface the error and stop — do not attempt manual recovery.
 
 **What the CLI does automatically:**
 - Creates folders and stub files

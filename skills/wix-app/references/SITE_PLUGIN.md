@@ -5,13 +5,7 @@ Site plugins are custom elements that integrate into predefined **slots** within
 
 ## Scaffold
 
-```bash
-npx wix generate --params '{"extensionType":"SITE_PLUGIN","slotId":"<componentId>:<slotId>","name":"<plugin name>","folder":"<plugin-folder>"}'
-```
-
-`slotId` is `<componentId>:<slotId>` — the colon-joined widget component ID and slot ID. The interactive `wix generate --type SITE_PLUGIN` enumerates available slots from the Dev Center; pass the exact string when using `--params`. `folder` must be a valid custom element name (lowercase, starts with a letter, contains at least one hyphen). The CLI generates the folder, the plugin `.tsx`, the settings panel `.tsx`, the builder file, the UUID, the logo SVG, and the `src/extensions.ts` registration. For ecom-required apps the CLI also auto-adds the required app to the Dev Center.
-
-`wix schema generate` is the authoritative source for params.
+Use `wix generate --params` with `extensionType: SITE_PLUGIN`. `slotId` is `<componentId>:<slotId>` — the colon-joined widget component ID and slot ID (run `wix generate --type SITE_PLUGIN` interactively to enumerate available slots from the Dev Center). The CLI generates the folder, the plugin `.tsx`, the settings panel `.tsx`, the builder file, the UUID, the logo SVG, and the `src/extensions.ts` registration. For ecom-required apps the CLI also auto-adds the required app to the Dev Center.
 
 ## Architecture
 

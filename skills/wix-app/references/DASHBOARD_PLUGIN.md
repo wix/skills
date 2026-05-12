@@ -5,13 +5,7 @@ Dashboard plugins are interactive widgets that embed into predefined **slots** o
 
 ## Scaffold
 
-```bash
-npx wix generate --params '{"extensionType":"DASHBOARD_PLUGIN","extendsSlotId":"<slot-id>","title":"<plugin title>","folder":"<plugin-folder>"}'
-```
-
-`extendsSlotId` is the back-office extension container component ID exposed by the host Wix app — see [Slots Reference](dashboard-plugin/SLOTS.md). The CLI fetches available slot IDs at scaffold time when run interactively (`wix generate --type DASHBOARD_PLUGIN`); pass the value directly when using `--params`. The CLI generates the folder, the React component, the builder file, the UUID, and the `src/extensions.ts` registration.
-
-`wix schema generate` is the authoritative source for params.
+Use `wix generate --params` with `extensionType: DASHBOARD_PLUGIN`. `extendsSlotId` is the back-office extension container component ID from the host Wix app — see [Slots Reference](dashboard-plugin/SLOTS.md). The CLI generates the folder, the React component, the builder file, the UUID, and the `src/extensions.ts` registration.
 
 ## Architecture
 

@@ -5,29 +5,18 @@ Embedded scripts are HTML code fragments injected into the DOM of Wix sites — 
 
 ## Scaffold
 
-```bash
-npx wix generate --params '{"extensionType":"EMBEDDED_SCRIPT","name":"<script name>","folder":"<script-folder>","scriptType":"<TYPE>","placement":"<PLACEMENT>"}'
-```
+Use `wix generate --params` with `extensionType: EMBEDDED_SCRIPT`. Allowed values:
 
-| Field | Allowed values |
+| Field | Values |
 | --- | --- |
 | `scriptType` | `ESSENTIAL`, `FUNCTIONAL`, `ANALYTICS`, `ADVERTISING` |
 | `placement` | `HEAD`, `BODY_START`, `BODY_END` |
-| `folder` | lowercase alphanumeric and hyphens, unique within `src/site/embedded-scripts/` |
 
 The CLI generates the folder, `embedded.html`, the builder file, the UUID, and the `src/extensions.ts` registration.
 
-**Companion dashboard page** — Every embedded script needs a configuration UI. Scaffold it separately:
-
-```bash
-npx wix generate --params '{"extensionType":"DASHBOARD_PAGE","title":"<Script> Settings","route":"<script-name>-settings"}'
-```
-
-Use `embeddedScripts` from `@wix/app-management` in the dashboard page to load/save parameters (see [Dashboard Page reference](DASHBOARD_PAGE.md) for the integration pattern).
+**Companion dashboard page** — Every embedded script needs a configuration UI. Scaffold a separate `DASHBOARD_PAGE` extension and use `embeddedScripts` from `@wix/app-management` to load/save parameters (see [Dashboard Page reference](DASHBOARD_PAGE.md)).
 
 After implementation, the app developer must enable `SCOPE.DC-APPS.MANAGE-EMBEDDED-SCRIPTS` in the Wix Dev Center — see [Enable Embedded Script Permission](#enable-embedded-script-permission).
-
-`wix schema generate` is the authoritative source for params.
 
 ## Script Types
 

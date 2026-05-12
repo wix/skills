@@ -7,13 +7,7 @@ Creates CMS data collections for Wix CLI apps. The data collections extension al
 
 ## Scaffold
 
-```bash
-npx wix generate --params '{"extensionType":"DATA_COLLECTION","collectionName":"<collection-name>"}'
-```
-
-`collectionName` is 1-36 characters, letters, numbers, underscores, and hyphens only. The CLI generates `src/extensions/data/extensions.ts` (or merges into it if other collections already exist), the UUID, and the `src/extensions.ts` registration. Each `wix generate --params` invocation adds one collection — call it once per collection. After scaffolding, edit the generated collection entry to set `displayName`, `displayField`, `fields`, `dataPermissions`, and optionally `initialData`.
-
-`wix schema generate` is the authoritative source for params.
+Use `wix generate --params` with `extensionType: DATA_COLLECTION`. The CLI generates `src/extensions/data/extensions.ts` (or merges into it if other collections exist), the UUID, and the `src/extensions.ts` registration. Each invocation adds one collection — call it once per collection. After scaffolding, edit the generated entry to set `displayName`, `displayField`, `fields`, `dataPermissions`, and optionally `initialData`.
 
 ## App Namespace Handling
 

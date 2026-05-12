@@ -5,11 +5,7 @@ Service plugins are a set of APIs defined by Wix that let you inject custom logi
 
 ## Scaffold
 
-```bash
-npx wix generate --params '{"extensionType":"SERVICE_PLUGIN","pluginType":"<PLUGIN_TYPE>","name":"<plugin-name>"}'
-```
-
-`pluginType` is one of:
+Use `wix generate --params` with `extensionType: SERVICE_PLUGIN`. `pluginType` is one of:
 
 | Value | SPI |
 | --- | --- |
@@ -22,9 +18,7 @@ npx wix generate --params '{"extensionType":"SERVICE_PLUGIN","pluginType":"<PLUG
 | `STAFF_SORTING_PROVIDER` | Bookings Staff Sorting |
 | `REALTIME_PERMISSIONS_PROVIDER` | Realtime Permissions Provider |
 
-`name` is lowercase alphanumeric with hyphens, max 19 chars. The CLI generates the folder, `plugin.ts`, the builder file, the UUID, and the `src/extensions.ts` registration with the appropriate builder method for the SPI type.
-
-`wix schema generate` is the authoritative source for params.
+The CLI generates the folder, `plugin.ts`, the builder file, the UUID, and the `src/extensions.ts` registration with the appropriate builder method for the SPI type.
 
 ## Workflow
 

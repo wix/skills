@@ -5,15 +5,7 @@ Custom element widgets are React components converted to web components that app
 
 ## Scaffold
 
-```bash
-npx wix generate --params '{"extensionType":"CUSTOM_ELEMENT","name":"<widget name>","folder":"<widget-folder>"}'
-```
-
-`folder` must be a valid custom element tag name: lowercase, starts with a letter, contains at least one hyphen (e.g. `countdown-timer`, `my-widget`). The CLI generates the folder, `widget.tsx`, `panel.tsx`, the builder file, the UUID, and the `src/extensions.ts` registration.
-
-`wix schema generate` is the authoritative source for params.
-
-After scaffolding, edit the generated `widget.tsx` and `panel.tsx` to implement the widget and settings UI. The builder file (with `tagName`, `installation`, `width`, `height` etc.) can be edited for non-default sizing or auto-add behavior.
+Use `wix generate --params` with `extensionType: CUSTOM_ELEMENT`. `folder` must be a valid custom element tag (lowercase, starts with a letter, at least one hyphen). The CLI generates the folder, `widget.tsx`, `panel.tsx`, the builder file, the UUID, and the `src/extensions.ts` registration. After scaffolding, edit `widget.tsx` and `panel.tsx` to implement the widget and settings UI; edit the builder file for non-default sizing or auto-add behavior.
 
 ## Architecture
 

@@ -7,17 +7,7 @@ When clicked, a dashboard menu plugin either **navigates to a dashboard page** o
 
 ## Scaffold
 
-```bash
-# Navigate to a dashboard page
-npx wix generate --params '{"extensionType":"DASHBOARD_MENU_PLUGIN","extendsSlotId":"<menu-slot-id>","action":{"pageId":"<dashboard-page-uuid>"},"title":"<menu item title>","folder":"<plugin-folder>"}'
-
-# Open a dashboard modal
-npx wix generate --params '{"extensionType":"DASHBOARD_MENU_PLUGIN","extendsSlotId":"<menu-slot-id>","action":{"modalId":"<dashboard-modal-uuid>"},"title":"<menu item title>","folder":"<plugin-folder>"}'
-```
-
-`extendsSlotId` comes from the Slot Lookup Table below. `action` must contain **exactly one** of `pageId` or `modalId`, referencing the `id` of an existing Dashboard Page or Dashboard Modal extension in the project. The CLI generates the folder, the configuration file, the UUID, and the `src/extensions.ts` registration.
-
-`wix schema generate` is the authoritative source for params.
+Use `wix generate --params` with `extensionType: DASHBOARD_MENU_PLUGIN`. `extendsSlotId` comes from the [Slot Lookup Table](#slot-lookup-table) below. `action` must contain **exactly one** of `pageId` or `modalId`, referencing the `id` of an existing Dashboard Page or Dashboard Modal extension in the project. The CLI generates the folder, the configuration file, the UUID, and the `src/extensions.ts` registration.
 
 ## Architecture
 

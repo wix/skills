@@ -5,13 +5,7 @@ Dashboard pages appear in the site owner's Wix dashboard and enable site adminis
 
 ## Scaffold
 
-```bash
-npx wix generate --params '{"extensionType":"DASHBOARD_PAGE","title":"<page title>","route":"<page-route>"}'
-```
-
-`route` is lowercase alphanumeric, hyphens, and slashes (no leading slash). The CLI generates the folder, `page.tsx`, the builder file, the UUID, and the `src/extensions.ts` registration. After scaffolding, implement the page UI in the generated `page.tsx`.
-
-`wix schema generate` is the authoritative source for params.
+Use `wix generate --params` with `extensionType: DASHBOARD_PAGE`. The CLI generates the folder, `page.tsx`, the builder file, the UUID, and the `src/extensions.ts` registration. After scaffolding, implement the page UI in the generated `page.tsx`.
 
 ## Capabilities
 
