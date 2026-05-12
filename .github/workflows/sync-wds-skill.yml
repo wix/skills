@@ -15,9 +15,17 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
 
+      - name: Mint App token for wix-private read access
+        id: app-token
+        uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547  # v1.12.0
+        with:
+          app-id: ${{ secrets.SYNC_APP_ID }}
+          private-key: ${{ secrets.SYNC_APP_PRIVATE_KEY }}
+          installation-id: ${{ secrets.SYNC_APP_INSTALLATION_ID }}
+
       - name: Sync WDS skill from private repo
         env:
-          GH_TOKEN: ${{ secrets.WIX_PRIVATE_CODING_AGENTS_PLUGINS_READ_TOKEN }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           chmod +x .github/scripts/sync-wds-skill.sh
           ./.github/scripts/sync-wds-skill.sh
