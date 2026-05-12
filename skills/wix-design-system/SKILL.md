@@ -5,7 +5,7 @@ description: Wix Design System component reference. Use when building UI with @w
 
 # WDS Documentation Navigator
 
-**Prerequisite:** `@wix/design-system` must be installed (`npm i @wix/design-system` or `yarn add @wix/design-system`).
+**Prerequisite:** `@wix/design-system` must be installed (`npm i @wix/design-system` or `yarn add @wix/design-system`)
 
 ## Helper Script
 
