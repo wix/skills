@@ -31,26 +31,11 @@ When adding a `wix-manage` recipe:
 
 ## Writing Wix API Recipes
 
-Validate API recipes against the Wix MCP docs tools before opening a PR. Do not rely on memory, copied internal service names, or old examples.
+Connect an agent to the Wix MCP and use official docs, examples, and method schemas to verify any API recipe. Do not rely on memory, copied internal service names, or old examples.
 
-Recommended workflow:
+The best source for a recipe is often a real agent conversation where the agent successfully completed the task. After the task works, ask the agent to distill the happy path, the API details it had to discover, and the missing context it needed to know up front.
 
-1. Use `WixREADME` to find existing recipes and the right category.
-2. Use `SearchWixRESTDocumentation` to find the relevant REST method.
-3. Use `ReadFullDocsArticle` for method behavior and examples.
-4. Use `ReadFullDocsMethodSchema` for exact endpoint paths, request fields, response fields, enum values, and permissions.
-
-Verify every API detail the recipe depends on:
-
-- HTTP method and full endpoint path.
-- Whether the API is account-level or site-level, and which headers are required.
-- Required permissions/scopes.
-- Request body shape and required fields.
-- Response fields used by the recipe.
-- Enum values such as statuses, types, and modes.
-- Documented error codes and failure cases.
-
-Prefer method schemas over examples when they disagree. Examples can be incomplete or stale; the method schema is the source of truth for field names, required fields, and enum values. If a recipe depends on a field that appears in examples or sample flows but not in the method schema, call that out in the recipe or verify it with the API owner before relying on it.
+Before adding skill guidance, first ask whether the fix belongs in the public API, docs, examples, or MCP docs surface. Add a skill recipe only when those sources are correct but still do not connect the dots for an agent. Keep that recipe minimal: document the decision flow, the verified API details, and the sharp edges needed to complete the task.
 
 For mutating flows, ask for user confirmation before changing site or account data unless the surrounding recipe already makes the mutation an explicit user-confirmed action.
 
@@ -78,7 +63,7 @@ Before opening a PR, confirm:
 - The content is in the right existing skill, or a maintainer approved a new top-level skill.
 - The relevant `SKILL.md` index is updated.
 - Any new `wix-manage` recipe is listed in the relevant `yaml/wix-manage/<area>/documentation.yaml`.
-- Wix API endpoints, schemas, permissions, request bodies, response fields, and enum values were checked against the Wix MCP docs tools.
+- Wix API details were checked against official docs through the Wix MCP docs tools, or distilled from a successful agent run.
 - Mutating flows ask for user confirmation before changing site or account data.
 - The skill evaluation workflow is expected to run for the changed files, if applicable.
 
