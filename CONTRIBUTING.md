@@ -15,7 +15,7 @@ Most new content should fit into one of the existing skill folders:
 - `skills/wix-design-system/` — Wix Design System component, API, and reference guidance.
 - `skills/wix-headless/` — one-prompt headless site builds, templates, orchestration, and vertical-specific implementation guidance.
 
-In this repo, many requests to add a "new skill" should actually be added as a new skill reference inside an existing skill. Add a new top-level skill only when the content cannot reasonably belong to an existing skill and a maintainer has agreed to that structure.
+In this repo, many requests to add a "new skill" should actually be added as a new skill reference inside an existing skill. New top-level skills should only be added by repository admins.
 
 ## Adding a Wix Manage Skill
 
@@ -62,7 +62,7 @@ Use evaluation as a loop, not a one-time check. Review the failures, tighten the
 
 Before opening a PR, confirm:
 
-- The content is in the right existing skill, or a maintainer approved a new top-level skill.
+- The content is in the right existing skill. New top-level skills are admin-only.
 - The relevant `SKILL.md` index is updated.
 - Any new `wix-manage` skill is listed in the relevant `yaml/wix-manage/<area>/documentation.yaml`.
 - Wix API details were checked against official docs through the Wix MCP docs tools, or distilled from a successful agent run.
@@ -74,5 +74,5 @@ Before opening a PR, confirm:
 If you're unsure about where to place new content or how to structure it:
 
 - Review existing skills for patterns.
-- Open an issue or ask a maintainer before adding a new top-level skill.
+- Ask a repository admin if you think a new top-level skill is required.
 - Refer to the [Agent Skills specification](https://agentskills.io/home) for base format requirements.
