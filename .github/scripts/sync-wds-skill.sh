@@ -7,7 +7,7 @@ LOCAL_PATH="skills/wix-design-system"
 LOCAL_SKILL_NAME="wix-design-system"
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 fetch_file() {
   local remote_path="$1"
