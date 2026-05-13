@@ -5,6 +5,8 @@ description: "MANDATORY entry point for creating a product from an image. STEP 1
 # RECIPE: Create Product from Image
 
 > **ALWAYS use this recipe as the entry point** when the user wants to create a product from one or more images. Do NOT skip STEP 1 (version detection) — even if you believe you know the catalog version from dynamic context.
+>
+> **CRITICAL — IMAGE DESCRIPTION FIRST:** In your VERY FIRST response after seeing a product image, you MUST write a detailed text description of what you see in the image (product type, colors, materials, shape, branding). Output this description as text alongside your first tool call. This description will persist in conversation context and is the ONLY source of truth for product details in later steps. Do NOT attempt to re-analyze the image later — use the description you wrote here.
 
 This recipe creates a Wix Store product from an image. It first detects the site's catalog version, then runs the appropriate flow:
 
@@ -107,15 +109,9 @@ Ask the user to provide **1 to 3 images** of their product:
 
 ## V3 STEP 3: Analyze Images and Generate Product Details
 
-**BEFORE generating any product fields, you MUST visually analyze the product image(s) using the `file.url` (wixstatic.com URLs) returned in V3 STEP 2.** Do NOT use the original wixmp URLs from the user's message — those have expiring JWT tokens and may fail. The wixstatic.com URLs are permanent and always accessible.
+**Use the image description you wrote at the start of this conversation** (in your first response, per the CRITICAL instruction at the top of this recipe). That description is the source of truth for all product fields. Do NOT attempt to re-analyze the image — use the text description already in context.
 
-Look at each wixstatic.com image and identify:
-- What the product IS (e.g., fishing reel, ceramic mug, leather wallet)
-- Color(s), finish, and material(s) if visible
-- Shape, size impression, any text/branding/logos visible
-- If multiple images: differences between them (variant colors vs angles)
-
-**Use ONLY what you see in the image(s) to generate the fields below.** Do NOT use generic names like "Product" or hallucinate details not visible in the image. If you cannot clearly identify the product, ask the user for clarification instead of guessing.
+**Use ONLY details from your earlier image description to generate the fields below.** Do NOT use generic names like "Product" or hallucinate new details. If you did not write an image description earlier, ask the user for clarification instead of guessing.
 
 **Generate the following fields based on what you see in the image(s)** (and any free-text note from the user):
 
@@ -667,14 +663,9 @@ This is a 3-step sequential flow (STEP 2 through STEP 4). ALL steps MUST be comp
 
 **API Endpoint:** `POST https://www.wixapis.com/stores/v1/products`
 
-**BEFORE building the request body, you MUST visually analyze the product image using the `file.url` (wixstatic.com URL) returned in V1 STEP 2.** Do NOT use the original wixmp URL from the user's message — that URL has an expiring JWT token and may fail. The wixstatic.com URL is permanent and always accessible.
+**Use the image description you wrote at the start of this conversation** (in your first response, per the CRITICAL instruction at the top of this recipe). That description is the source of truth for the product name, description, and price. Do NOT attempt to re-analyze the image — use the text description already in context.
 
-Look at the wixstatic.com image and identify:
-- What the product IS (e.g., fishing reel, ceramic mug, leather wallet)
-- Its color(s), material(s), shape
-- Any text, branding, or logos visible
-
-**Use ONLY what you see in the image to set the product name, description, and price below.** Do NOT use generic text like "Product from image" or hallucinate details. If you cannot identify the product, ask the user for clarification instead of guessing.
+**Use ONLY details from your earlier image description to set the product name, description, and price below.** Do NOT use generic text like "Product from image" or hallucinate new details. If you did not write an image description earlier, ask the user for clarification instead of guessing.
 
 **Request body fields:**
 
