@@ -102,6 +102,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ### [Domain Search and Purchase](references/domains/domain-search-and-purchase.md)
 **Technical:** Search for available domains, get domain suggestions, and generate purchase links using Domain Search V2 API. Covers availability checks, TLD filtering, and connecting domains to Wix sites.
 
+### [Check and Fix Domain DNS](references/domains/check-and-fix-dns.md)
+**Technical:** End-to-end flow for diagnosing and resolving domain connection issues. Lists connected domains, checks DNS propagation status (SUCCEEDED/IN_PROGRESS/FAILED), determines management type (NAMESERVERS vs POINTING), and either auto-fixes DNS records via the DNS Zone API or guides manual resolution at an external registrar.
+
 ---
 
 ## eCommerce
