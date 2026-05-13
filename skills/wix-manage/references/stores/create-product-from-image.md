@@ -107,7 +107,9 @@ Ask the user to provide **1 to 3 images** of their product:
 
 ## V3 STEP 3: Analyze Images and Generate Product Details
 
-**BEFORE generating any product fields, you MUST look at the product image(s) from the user's first message** (the `<MEDIA>` tag or attached image). Identify:
+**BEFORE generating any product fields, you MUST visually analyze the product image(s) using the `file.url` (wixstatic.com URLs) returned in V3 STEP 2.** Do NOT use the original wixmp URLs from the user's message — those have expiring JWT tokens and may fail. The wixstatic.com URLs are permanent and always accessible.
+
+Look at each wixstatic.com image and identify:
 - What the product IS (e.g., fishing reel, ceramic mug, leather wallet)
 - Color(s), finish, and material(s) if visible
 - Shape, size impression, any text/branding/logos visible
@@ -665,7 +667,9 @@ This is a 3-step sequential flow (STEP 2 through STEP 4). ALL steps MUST be comp
 
 **API Endpoint:** `POST https://www.wixapis.com/stores/v1/products`
 
-**BEFORE building the request body, you MUST look at the product image from the user's first message** (the `<MEDIA>` tag or attached image). Identify:
+**BEFORE building the request body, you MUST visually analyze the product image using the `file.url` (wixstatic.com URL) returned in V1 STEP 2.** Do NOT use the original wixmp URL from the user's message — that URL has an expiring JWT token and may fail. The wixstatic.com URL is permanent and always accessible.
+
+Look at the wixstatic.com image and identify:
 - What the product IS (e.g., fishing reel, ceramic mug, leather wallet)
 - Its color(s), material(s), shape
 - Any text, branding, or logos visible
