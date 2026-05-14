@@ -22,33 +22,7 @@ Specifies which dashboard page slot hosts your plugin. Each Wix business app exp
 
 For the complete list of available slot IDs, see [Slots Reference](dashboard-plugin/SLOTS.md).
 
-## Plugin Component
-
-The generated plugin component is a React component that renders within the dashboard page slot. Implement the UI body inside `WixDesignSystemProvider`:
-
-```typescript
-import type { FC } from "react";
-import { WixDesignSystemProvider, Card, Text } from "@wix/design-system";
-import "@wix/design-system/styles.global.css";
-
-const Plugin: FC = () => {
-  return (
-    <WixDesignSystemProvider features={{ newColorsBranding: true }}>
-      <Card>
-        <Card.Header title="My Plugin" />
-        <Card.Divider />
-        <Card.Content size="medium">
-          <Text>Plugin content goes here.</Text>
-        </Card.Content>
-      </Card>
-    </WixDesignSystemProvider>
-  );
-};
-
-export default Plugin;
-```
-
-### Available Resources in Plugin Components
+## Available Resources in Plugin Components
 
 - **React** — Component logic and state management
 - **Wix SDK** — Access Wix business solutions and site data
