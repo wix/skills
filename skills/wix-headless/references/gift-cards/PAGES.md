@@ -10,18 +10,22 @@ Files this agent OWNS (writes fresh):
 
 Files this agent PATCHES (insert at marker, preserve everything else):
 
-- `src/components/Navigation.astro` — insert "Gift Cards" link at `<!-- nav:links -->`
 - `src/pages/index.astro` — insert home teaser at `<!-- home:gift-cards -->`
+
+Navigation contribution (returned as `data.navContributions`, NOT a direct write):
+
+- The probe-gated "Gift Cards" link is now returned as JSON. The orchestrator collects every Phase 4 agent's `data.navContributions` and invokes `scripts/merge-navigation.mjs` once. See "Section 2 — Navigation contribution" below.
 
 Files this agent MUST NOT touch:
 - `src/utils/gift-cards.ts`, `src/components/GiftCardPurchase.tsx`, `src/styles/components-gift-cards.css` — Components scope.
-- Any other vertical's nav/home contributions.
+- **`src/components/Navigation.astro`** — direct writes are forbidden. The orchestrator owns this file via the merge script. Stores also contributes at the same `<!-- nav:links -->` marker — the merge script orders contributions deterministically.
+- Any other vertical's home contributions.
 - `Layout.astro`, `global.css`, or any product/cart/checkout page.
 
 ## Critical rules
 
-1. **Marker-based patching.** Read the shell file, locate the exact marker comment string (`<!-- nav:links -->` or `<!-- home:gift-cards -->`), insert your snippet immediately AFTER the marker line, preserve the marker line itself. See `references/shared/IMPLEMENTER.md` § "Contributing to shared files via markers".
-2. **Inject the import + frontmatter call when patching.** When inserting at `<!-- nav:links -->` in `Navigation.astro`, also add `import { getGiftCardProduct } from "../utils/gift-cards";` and `const giftCardsEnabled = (await getGiftCardProduct()) !== null;` to the file's frontmatter (top of the file). Same for `index.astro`'s home teaser. Do NOT assume another vertical added them.
+1. **Marker-based patching.** For `index.astro` only: read the shell file, locate the marker comment (`<!-- home:gift-cards -->`), insert your snippet immediately AFTER the marker line, preserve the marker. For `Navigation.astro`, do NOT patch — return `data.navContributions` instead (Section 2 below).
+2. **Inject the import + frontmatter call when patching.** For the `index.astro` home teaser, add `import { getGiftCardProduct } from "../utils/gift-cards";` and `const giftCardProduct = await getGiftCardProduct();` to the frontmatter. For the Navigation contribution, declare the imports + frontmatter lines in `data.navContributions.imports[]` and `data.navContributions.frontmatter[]` — the merge script dedupes them against the designer's existing content.
 3. **SSR error guards.** Wrap `getGiftCardProduct()` calls in try/catch with safe fallback (`giftCardsEnabled = false` / `giftCardProduct = null`). See `references/shared/IMPLEMENTER.md` § "SSR error guards". Although the helper itself never throws, the guard cost is zero and protects against future regressions.
 4. **Redirect rather than render** when the page-level probe returns null. `if (!product) return Astro.redirect("/", 302);` — same pattern as private/disabled-feature routes elsewhere.
 5. **Memoization is per-request.** Navigation, home, and the page may all call `getGiftCardProduct()` on the same request — the helper coalesces them into one fetch. You do not need to thread the result through Astro context.
@@ -59,15 +63,34 @@ const heroImage = resolveWixImageUrl(product.image, 800, 800);
 
 Body: hero image + name + description + `<GiftCardPurchase client:load product={product} />` + fineprint paragraph. All page-level CSS is already shipped via `components-gift-cards.css` (Components scope) — do not duplicate styles inside the `.astro` file's `<style>` block.
 
-### 2. Patch `src/components/Navigation.astro`
+### 2. Navigation contribution (returned as `data.navContributions`)
 
-1. Read the file.
-2. Add to frontmatter (above the `---` close): `import { getGiftCardProduct } from "../utils/gift-cards"; const giftCardsEnabled = (await getGiftCardProduct()) !== null;` (split across two lines as needed).
-3. Locate the line containing `<!-- nav:links -->`. Insert immediately after it:
-   ```astro
-   {giftCardsEnabled && <a href="/gift-cards">Gift Cards</a>}
-   ```
-4. If other verticals (stores, blog, forms) already inserted at the same marker, preserve every existing line — your snippet appends.
+> **Do NOT write `Navigation.astro` from this scope.** Return the contribution as JSON; the orchestrator splices it via `scripts/merge-navigation.mjs` after all Phase 4 agents return. Background subagents writing the same file concurrently produced a real race (this scope + stores both target `<!-- nav:links -->`).
+
+Build the contribution as part of your return JSON:
+
+```json
+{
+  "data": {
+    "navContributions": {
+      "imports": [
+        "import { getGiftCardProduct } from '../utils/gift-cards';"
+      ],
+      "frontmatter": [
+        "const giftCardsEnabled = (await getGiftCardProduct().catch(() => null)) !== null;"
+      ],
+      "byMarker": {
+        "nav:links": "{giftCardsEnabled && <li class=\"site-nav-item\"><a href=\"/gift-cards\">Gift Cards</a></li>}"
+      }
+    }
+  }
+}
+```
+
+The merge script:
+- Dedupes `imports[]` and `frontmatter[]` against existing content (so if stores already declared a similar guard, only new lines get added).
+- Inserts the `byMarker["nav:links"]` snippet immediately after the marker line, in input order (the orchestrator controls render order — typically stores' Shop link first, then gift-cards' link).
+- Preserves the marker comment for any future contributions.
 
 ### 3. Patch `src/pages/index.astro`
 
@@ -102,20 +125,25 @@ After writing/patching, grep the project to confirm:
   "summary": "Wrote /gift-cards page; patched Navigation + home with conditional gift-card surfaces",
   "data": {
     "pageWritten": true,
-    "navigationPatched": true,
     "homePatched": true,
-    "markersFound": ["<!-- nav:links -->", "<!-- home:gift-cards -->"]
+    "markersFound": ["<!-- home:gift-cards -->"],
+    "navContributions": {
+      "imports": ["import { getGiftCardProduct } from '../utils/gift-cards';"],
+      "frontmatter": ["const giftCardsEnabled = (await getGiftCardProduct().catch(() => null)) !== null;"],
+      "byMarker": {
+        "nav:links": "{giftCardsEnabled && <li class=\"site-nav-item\"><a href=\"/gift-cards\">Gift Cards</a></li>}"
+      }
+    }
   },
   "files": [
     "src/pages/gift-cards.astro",
-    "src/components/Navigation.astro",
     "src/pages/index.astro"
   ],
   "errors": []
 }
 ```
 
-If a marker is missing, return `status: "partial"` with `errors: [{ code: "MARKER_NOT_FOUND", file: "<path>", marker: "<marker>" }]`. Do NOT invent your own insertion point — that signals the designer foundation didn't scaffold the shell correctly and should be fixed upstream.
+If the `<!-- home:gift-cards -->` marker is missing, return `status: "partial"` with `errors: [{ code: "MARKER_NOT_FOUND", file: "src/pages/index.astro", marker: "home:gift-cards" }]`. Do NOT invent your own insertion point — that signals the designer foundation didn't scaffold the shell correctly and should be fixed upstream. For the Navigation contribution, an unknown marker is surfaced by the orchestrator-side merge script (in its `skipped[]` list), not the agent.
 
 ## Anti-patterns
 

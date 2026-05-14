@@ -48,12 +48,13 @@ pages:
   - name: "ecom-pages"
     agentLocation: "references/ecom/"
     scope: "pages"
-    description: "Mount CartView on cart.astro, wire thank-you.astro, mount CartBadge in Navigation"
+    description: "Mount CartView on cart.astro, wire thank-you.astro; return CartBadge mount as data.navContributions (orchestrator merges via scripts/merge-navigation.mjs)"
     references: ["references/ecom/CART_PAGES.md"]
     files:
       - "src/pages/cart.astro"
       - "src/pages/thank-you.astro"
-      - "src/components/Navigation.astro (patch — CartBadge mount only)"
+    # Navigation.astro is no longer written by this agent. CartBadge mount is returned
+    # as data.navContributions and merged by the orchestrator (see contributes: below).
 
 creates:
   - { file: src/components/CartView.tsx,      phase: components }
