@@ -339,14 +339,6 @@ Stop and report errors if any step fails. Check `.wix/debug.log` on failures.
 - **ReadFullDocsArticle** only when search results need more context
 - **Invoke wix-design-system** first when using WDS (prevents import errors)
 
-## Output Behavior
-
-Rules for how the agent emits files and responses across every extension type:
-
-- **Split large edits:** if editing a single section would exceed ~100 lines, break it into multiple smaller edits.
-- **Don't add docs unprompted:** never create README.md, CHANGELOG.md, or other markdown unless the user explicitly asks.
-- **Don't echo unchanged files:** never re-output content that didn't change.
-
 ## Documentation
 
 For links to official Wix CLI documentation for all extension types, see [DOCUMENTATION.md](references/DOCUMENTATION.md).

@@ -15,18 +15,12 @@ Applies to all generated code across every Wix CLI app extension type. Each per-
 - Do NOT invent or assume new types, modules, functions, props, events, or imports. Use only entities present in the provided references or standard libraries already used in this project.
 - NEVER use mocks, placeholders, or TODOs in shipped code. ALWAYS implement complete, production-ready functionality.
 - If a required API, type, or module is missing, surface it to the user explicitly rather than inserting placeholder code.
-- Follow the extension type's reference patterns precisely.
-- Handle all edge cases and error scenarios appropriately.
+- Do NOT create README.md, CHANGELOG.md, or other unprompted markdown documentation — only output the files the task actually requires.
 
 ## Code Quality Standards
 
-- Prefer TypeScript with appropriate typing.
-- Use consistent naming conventions.
-- Include error handling where appropriate.
 - Add documentation only for complex or non-obvious logic — well-named identifiers should carry the rest.
 - Prefer `async`/`await` for asynchronous operations.
-- Consider destructuring for cleaner code when beneficial.
-- Return well-structured response objects.
 
 ## Modular Code
 
@@ -35,7 +29,5 @@ Applies to all generated code across every Wix CLI app extension type. Each per-
 
 ## Error Handling
 
-- Always implement proper error handling.
-- Return appropriate error responses when data is invalid.
 - Log errors with `console.error` for debugging.
 - Handle network timeouts and external service failures.
