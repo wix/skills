@@ -1,5 +1,5 @@
 ---
-name: "Recipe: Set Up Store Pickup Location"
+name: "Setup: Store Pickup Location"
 description: Configures a pickup option for an online store so customers can choose in-store pickup at checkout. Uses the Delivery Profiles API to discover the Pickup carrier, add a delivery region, and attach the carrier with a free pickup rate.
 ---
 # Set Up Store Pickup Location
