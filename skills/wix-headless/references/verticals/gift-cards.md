@@ -35,12 +35,13 @@ pages:
   - name: "gift-cards-pages"
     agentLocation: "references/gift-cards/"
     scope: "pages"
-    description: "Write /gift-cards landing page (redirects when app is disabled), patch nav link + home teaser via markers"
+    description: "Write /gift-cards landing page (redirects when app is disabled); return probe-gated nav link as data.navContributions and probe-gated home teaser as data.homeContributions (orchestrator merges via scripts/merge-navigation.mjs and scripts/merge-home.mjs)"
     references: ["references/gift-cards/PAGES.md"]
     files:
       - "src/pages/gift-cards.astro"
-      - "src/components/Navigation.astro (patch — gift-cards link)"
-      - "src/pages/index.astro (patch — gift-cards teaser)"
+    # Navigation.astro + index.astro are no longer written by this agent. Nav link
+    # is returned as data.navContributions and home teaser as data.homeContributions.
+    # The orchestrator merges contributions (see contributes: below for which markers).
 
 creates:
   - { file: src/utils/gift-cards.ts,            phase: components }

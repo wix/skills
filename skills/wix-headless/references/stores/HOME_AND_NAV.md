@@ -43,49 +43,49 @@ If the home page is purely editorial (hero + copy + newsletter), return with `fe
 
 ## Implementation
 
-### 1. Home page: featured products
+### 1. Home page: featured products (returned as `data.homeContributions`)
 
-Find the placeholder products array in `src/pages/index.astro`. Replace with a server-side `productsV3` query; pass the raw product objects to `ProductCard`.
+> **Do NOT patch `src/pages/index.astro` at the `<!-- home:stores -->` marker yourself.** Return the contribution as JSON; the orchestrator splices it via `scripts/merge-home.mjs` after all Phase 4 agents return. The category-href rewrites in section 2 below STILL happen as direct edits to `index.astro` (they're non-marker surgical edits) — only the featured-grid section at the marker is contributed.
+
+Build the contribution as part of your return JSON's `data.homeContributions`:
+
+```json
+{
+  "data": {
+    "homeContributions": {
+      "imports": [
+        "import ProductCard from '../components/ProductCard.astro';",
+        "import { productsV3 } from '@wix/stores';"
+      ],
+      "frontmatter": [
+        "let featured: any[] = [];",
+        "try { const { items: featuredProducts } = await productsV3.queryProducts({ fields: ['CURRENCY'] }).limit(4).find(); featured = featuredProducts ?? []; } catch (err) { console.error('[home] featured products query failed:', err); }",
+        "featured = featured.filter((p) => p?.ribbon?.name !== 'Gift Card').slice(0, 3);"
+      ],
+      "byMarker": {
+        "home:stores": "{featured.length > 0 && (<section class=\"featured-section\">…<div class=\"product-grid\">{featured.map((p) => <ProductCard product={p} />)}</div>…</section>)}"
+      }
+    }
+  }
+}
+```
+
+The merge script:
+- Dedupes the `imports[]` and `frontmatter[]` lines against the designer's existing content.
+- Inserts the `byMarker["home:stores"]` snippet immediately after the marker line, preserving the marker.
 
 > **WRONG:** `featured = products.map(p => ({name: p.name, price: ...}))` then `<ProductCard name={p.name} .../>`
 > **RIGHT:** `featured = featuredProducts ?? []` as `any[]`, then `<ProductCard product={p} />`
 >
 > Flat-mapping strips fields that ProductCard needs (`media`, `actualPriceRange`, etc.) and crashes the home page (`product` is `undefined`).
 
-```astro
----
-// src/pages/index.astro (frontmatter additions only — keep existing imports)
-import { productsV3 } from "@wix/stores";
+> **Gift-card mirror filter.** Apply `featured = featured.filter((p) => p.ribbon?.name !== "Gift Card")` so the Wix Gift Card app's auto-created DIGITAL mirror products don't appear in the featured grid. The home teaser block (gift-cards pack) is the right surface for gift cards on the home page.
 
-// Wrap every SSR await in try/catch — see references/shared/IMPLEMENTER.md
-// § "SSR error guards" for the full rule.
-let featured: any[] = [];
-try {
-  const { items: featuredProducts } = await productsV3
-    .queryProducts({ fields: ["CURRENCY"] })
-    .limit(4)
-    .find();
-  featured = featuredProducts ?? [];
-} catch (err) {
-  console.error("[home] featured products query failed:", err);
-}
----
-```
+Do **NOT** flat-map products into `{name, price, slug, image}` — pass the raw SDK objects in the marker snippet. ProductCard handles its own field extraction, image resolution, and ribbon (offer) rendering internally.
 
-Then pass each raw product to `ProductCard`. The ribbon is fetched inside ProductCard itself — pages no longer wire offers:
-```astro
-{featured.map((p) => <ProductCard product={p} />)}
-```
+If `featured` is empty (query failed, or stock cleared), the wrapped `{featured.length > 0 && (...)}` expression renders nothing — the rest of the page stays up.
 
-> **Gift-card mirror filter.** After `featured = featuredProducts ?? []`, apply the same filter the listing template uses:
-> ```ts
-> featured = featured.filter((p) => p.ribbon?.name !== "Gift Card");
-> ```
-> The Wix Gift Card app, when enabled in the dashboard, auto-creates 5 DIGITAL Stores products tagged with the "Gift Card" ribbon. They must not appear in the home featured grid for the same reason they're filtered from `/products`: buying a mirror produces a dud line item that doesn't trigger gift-card issuance, and the home teaser block (gift-cards pack) is the right surface for gift cards on the home page.
-
-Do **NOT** flat-map products into `{name, price, slug, image}` — pass the raw SDK objects. ProductCard handles its own field extraction, image resolution, and ribbon (offer) rendering internally.
-
-Preserve every other prop the designer set on the grid. If `featured` is empty (query failed, or stock cleared), the grid renders with zero cards — the rest of the page stays up.
+> **If the home page is purely editorial** (hero + copy + newsletter; no `<!-- home:stores -->` marker), omit `data.homeContributions` entirely or pass empty arrays/objects. The merge script will report no patches for stores. Return with `featuredProductsWired: false`.
 
 ### 1a. ProductCard interface (template — deterministic)
 
@@ -196,7 +196,21 @@ Keep the marker comment immediately after the inserted `<li>` so other vertical 
     "categoryCardsFound": 3,
     "categoryCardsMatched": 2,
     "categoryCardsFallbackToProducts": 1,
-    "navSubmenuCategoryCount": 0
+    "navSubmenuCategoryCount": 0,
+    "homeContributions": {
+      "imports": [
+        "import ProductCard from '../components/ProductCard.astro';",
+        "import { productsV3 } from '@wix/stores';"
+      ],
+      "frontmatter": [
+        "let featured: any[] = [];",
+        "try { const { items: featuredProducts } = await productsV3.queryProducts({ fields: ['CURRENCY'] }).limit(4).find(); featured = featuredProducts ?? []; } catch (err) { console.error('[home] featured products query failed:', err); }",
+        "featured = featured.filter((p) => p?.ribbon?.name !== 'Gift Card').slice(0, 3);"
+      ],
+      "byMarker": {
+        "home:stores": "{featured.length > 0 && (<section class=\"featured-section\">…</section>)}"
+      }
+    }
   },
   "files": [
     "src/pages/index.astro",
@@ -205,6 +219,8 @@ Keep the marker comment immediately after the inserted `<li>` so other vertical 
   "errors": []
 }
 ```
+
+> `src/pages/index.astro` stays in `files[]` because this scope still performs non-marker edits on it (category-card href rewrites). The `home:stores` marker insertion is contributed via `data.homeContributions` instead, and is merged by the orchestrator after this scope returns. `src/components/Navigation.astro` listed here predates the navContributions migration — see the sibling PR for that change.
 
 ## Scope boundaries (reinforced)
 
