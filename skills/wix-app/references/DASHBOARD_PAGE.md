@@ -112,15 +112,6 @@ export default function () {
 
 **Note:** When using dynamic parameters, use the `withProviders` wrapper instead. See [Dynamic Parameters](dashboard-page/DYNAMIC_PARAMETERS.md) for details.
 
-## Hard Constraints
-
-- Do NOT invent or assume new types, modules, functions, props, events, or imports.
-- Use only entities explicitly present in the provided references or standard libraries already used in this project.
-- If something is missing, call it out explicitly and provide a minimal TODO or clearly marked placeholder rather than creating it.
-- Always verify component availability before using it in your generated code
-- If you need a component not in the list, use a basic HTML element or create a simple custom component instead
-- **Do NOT use WDS `Modal` component or custom React modal implementations** - Always use dashboard modals (see [Dashboard Modal reference](DASHBOARD_MODAL.md)) for any popup dialogs, forms, or overlays
-
 ## Examples
 
 ### Data Management Table
@@ -227,63 +218,6 @@ The `id` must be a unique, static UUID v4 string. Generate a fresh UUID for each
 | `route: "..."`              | `routePath: "..."`           |
 
 Do NOT copy field names from embedded script or other extension registrations. Dashboard pages use `title`, `routePath`, and `component`.
-
-## Code Quality Requirements
-
-### TypeScript Quality Guidelines
-
-- Generated code MUST compile with zero TypeScript errors under strict settings: strict, noImplicitAny, strictNullChecks, exactOptionalPropertyTypes, noUncheckedIndexedAccess
-- Prefer type-narrowing and exhaustive logic over assertions; avoid non-null assertions (!) and unsafe casts (as any)
-- Treat optional values, refs, and array indexing results as possibly undefined and handle them explicitly
-- Use exhaustive checks for unions (e.g., switch with a never check) and return total values (no implicit undefined)
-- Do NOT use // @ts-ignore or // @ts-expect-error; fix the types or add guards instead
-
-### Core Principles
-
-- Do NOT invent or assume new types, modules, functions, props, events, or imports
-- NEVER use mocks, placeholders, or TODOs in any code
-- ALWAYS implement complete, production-ready functionality
-- Follow Wix dashboard page patterns and best practices precisely
-- Handle all edge cases and error scenarios appropriately
-
-### Code Quality Standards
-
-- Prefer TypeScript with appropriate typing
-- Use consistent naming conventions
-- Include error handling where appropriate
-- Add documentation for complex or non-obvious logic
-- Prefer async/await for asynchronous operations
-- Consider destructuring for cleaner code when beneficial
-- Return well-structured response objects
-
-### Error Handling
-
-- Always implement proper error handling in dashboard pages
-- Return appropriate error responses when data is invalid
-- Log errors appropriately for debugging using console.error
-- Handle network timeouts and external service failures
-
-### Output Constraints
-
-**Token limits:** Your max output is ~10,000 tokens. You MUST plan your response to stay well under this limit.
-
-- If making a large file (>300 lines), split it into multiple smaller files with imports.
-- If editing a large section (>100 lines), break it into multiple smaller edit operations.
-- Count your output before responding - if it seems too long, reduce scope and prioritize.
-
-**Brevity rules:** Minimize output tokens while maintaining quality and correctness.
-
-- Do NOT add README.md, documentation files, or markdown files unless explicitly requested.
-- Do NOT add excessive comments in code - only add comments where truly necessary for clarity.
-- Do NOT re-output unchanged files or duplicate existing code.
-- Do NOT generate placeholder code like "// TODO: implement" - provide working implementations.
-- Only output files that are directly required for the task.
-
-**Modular code strategy:** When generating substantial code, split into multiple smaller files with imports:
-
-- Extract utilities/helpers into separate files
-- Separate types/interfaces into dedicated type files
-- Keep each component/function focused (~50-100 lines max)
 
 ## API Spec Support
 

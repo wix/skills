@@ -179,13 +179,9 @@ Each dashboard plugin requires an `<plugin-name>.extension.ts` file in its folde
 | Plugin not appearing on dashboard page | Missing registration | Import and `.use()` in `src/extensions.ts` |
 | Plugin not appearing on dashboard page | Wrong slot ID | Verify `extends` field matches a valid slot ID from [Slots Reference](dashboard-plugin/SLOTS.md) |
 
-## Hard Constraints
+## Dashboard-Plugin-specific Conventions
 
-- Do NOT invent or assume new types, modules, functions, props, events, or imports — use only entities explicitly present in the provided references or standard libraries already used in this project
-- NEVER use mocks, placeholders, or TODOs in any code — ALWAYS implement complete, production-ready functionality
-- The `extends` field MUST contain a valid slot ID from a Wix business app — do NOT invent slot IDs
-- Prefer type-narrowing and exhaustive logic over assertions; avoid non-null assertions (`!`) and unsafe casts (`as any`)
-- Do NOT use `// @ts-ignore` or `// @ts-expect-error`; fix the types or add guards instead
+- The `extends` field MUST contain a valid slot ID from a Wix business app — do NOT invent slot IDs.
 
 ## Examples
 
@@ -207,10 +203,3 @@ Each dashboard plugin requires an `<plugin-name>.extension.ts` file in its folde
 
 **Output:** Plugin targeting slot `cb16162e-42aa-41bd-a644-dc570328c6cc` (eCommerce Order page) with status badges and fulfillment details, using `observeState()` to access order data.
 
-### Output Constraints
-
-**Token limits:** Your max output is ~10,000 tokens. Plan your response to stay under this limit.
-
-- If making a large file (>300 lines), split it into multiple smaller files with imports
-- Only output files that are directly required for the task
-- Do NOT add README.md or documentation files unless explicitly requested

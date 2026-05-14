@@ -223,15 +223,11 @@ src/pages/api/
 └── posts.ts              # /api/posts endpoint
 ```
 
-## Code Quality Requirements
+## Backend-API-specific Conventions
 
-- Strict TypeScript (no `any`, explicit return types)
-- Type all handlers with `APIRoute` from `astro`
-- Always return `Response` objects with `JSON.stringify()` for JSON
-- Proper HTTP status codes (200, 201, 204, 400, 404, 500)
-- Include `Content-Type: application/json` header on JSON responses
-- Include `statusText` in error responses
-- Handle errors with try/catch blocks
-- Validate input parameters and request bodies
-- Use async/await for asynchronous operations
-- No `@ts-ignore` comments
+- Type all handlers with `APIRoute` from `astro`.
+- Always return `Response` objects with `JSON.stringify()` for JSON.
+- Use proper HTTP status codes (200, 201, 204, 400, 404, 500).
+- Include `Content-Type: application/json` header on JSON responses.
+- Include `statusText` in error responses.
+- Validate input parameters and request bodies.
