@@ -9,6 +9,12 @@ references:
   - name: "Flow: Bundle and Save"
     path: ecommerce/flow-bundle-and-save.md
     load: true
+  - name: "Flow: Add Free Shipping"
+    path: ecommerce/flow-add-free-shipping.md
+    load: false
+  - name: "Flow: Optimize Shipping Rates"
+    path: ecommerce/flow-optimize-shipping-rates.md
+    load: false
   - name: "Guardrail: Margin Protection"
     path: ecommerce/guardrail-margin-protection.md
     load: false
@@ -18,6 +24,10 @@ references:
 > **Before executing this skill**, read these referenced skills with `ReadFullDocsArticle`:
 > - [Flow: Upsell Boost](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-upsell-boost)
 > - [Flow: Bundle and Save](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-bundle-and-save)
+>
+> **Shipping flows that also serve AOV goals** (read with `ReadFullDocsArticle` if shipping domain is active):
+> - [Flow: Add Free Shipping](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-add-free-shipping) — free shipping threshold pushes carts above AOV
+> - [Flow: Optimize Shipping Rates](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-optimize-shipping-rates) — rate optimization improves conversion on higher-value orders
 >
 > **Related skills** (read with `ReadFullDocsArticle` if needed):
 > - [Guardrail: Margin Protection](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/guardrail-margin-protection)

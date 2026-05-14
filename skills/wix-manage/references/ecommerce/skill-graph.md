@@ -18,18 +18,19 @@ flowchart TB
     R --> |"Step 2+8: tracking inlined"| TrackingAPI
 
     subgraph Goals["Goals — Business Objectives"]
-        subgraph GD["Discount"]
+        subgraph GD["Discount + Shipping"]
             goal-increase-aov
             goal-clear-inventory
             goal-seasonal-revenue
             goal-drive-cross-sells
         end
-        subgraph GS["Shipping"]
+        subgraph GA["Abandoned Cart"]
             goal-reduce-cart-abandonment
         end
     end
 
     Goals --> |"loads matching flows"| Flows
+    goal-increase-aov --> |"also loads shipping flows"| FS
 
     subgraph Flows["Flows — Business Logic"]
         subgraph FD["Discount"]
@@ -117,14 +118,14 @@ flowchart TB
 | `goal-clear-inventory.md` | Step 4b (STOCK_MOVER) |
 | `goal-seasonal-revenue.md` | Step 4b (SEASONAL) |
 | `goal-drive-cross-sells.md` | Step 4b (BUNDLE_AND_SAVE) |
-| `goal-reduce-cart-abandonment.md` | Step 4b (SHIPPING domain) |
+| `goal-reduce-cart-abandonment.md` | Step 4b (ABANDONED_CART domain) |
 | `flow-upsell-boost.md` | goal-increase-aov chain |
 | `flow-bundle-and-save.md` | goal-increase-aov / goal-drive-cross-sells chain |
 | `flow-stock-mover.md` | goal-clear-inventory chain |
 | `flow-seasonal-promotion.md` | goal-seasonal-revenue chain |
-| `flow-fix-coverage-gaps.md` | goal-reduce-cart-abandonment chain |
-| `flow-add-free-shipping.md` | goal-reduce-cart-abandonment chain |
-| `flow-optimize-shipping-rates.md` | goal-reduce-cart-abandonment chain |
+| `flow-fix-coverage-gaps.md` | goal-reduce-cart-abandonment chain (critical operational fix) |
+| `flow-add-free-shipping.md` | goal-increase-aov chain (shipping flows serving AOV) |
+| `flow-optimize-shipping-rates.md` | goal-increase-aov chain (shipping flows serving AOV) |
 | `guardrail-discount-conflicts.md` | flow-upsell-boost / bundle / stock / seasonal chains |
 | `guardrail-margin-protection.md` | flow-upsell-boost / stock-mover chains |
 | `guardrail-shipping-health.md` | flow-fix-coverage-gaps chain |
