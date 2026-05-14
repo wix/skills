@@ -248,7 +248,7 @@ Site plugins use **kebab-case** consistently for HTML attributes:
 | Topic | Reference |
 | --- | --- |
 | Complete Examples | [EXAMPLES.md](site-plugin/EXAMPLES.md) |
-| Slots (App IDs, multiple placements, finding slots) | [SLOTS.md](site-plugin/SLOTS.md) |
+| Slots (App IDs, runtime APIs, design guidelines, multiple placements) | [SLOTS.md](site-plugin/SLOTS.md) — run `wix schema generate --type SITE_PLUGIN` for the authoritative `slotId` enum |
 | WDS Components | the `wix-design-system` skill |
 
 ## Available Slots
@@ -261,7 +261,7 @@ Site plugins integrate into predefined slots in Wix business solutions. Each slo
 
 Common placement areas include product pages (Wix Stores), checkout and side cart (Wix eCommerce), booking pages (Wix Bookings), service pages, event pages, and blog post pages.
 
-For supported pages, common Wix App IDs, and how to find slot IDs, see [SLOTS.md](site-plugin/SLOTS.md).
+For App Definition IDs, per-slot runtime APIs, design guidelines, and placement constraints, see [SLOTS.md](site-plugin/SLOTS.md). Run `wix schema generate --type SITE_PLUGIN` for the authoritative `slotId` enum.
 
 ## Checkout Plugins
 
