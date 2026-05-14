@@ -28,27 +28,12 @@ For the complete list of available menu slot IDs, see the [Slot Lookup Table](#s
 
 ## The `action` Field
 
-The `action` field determines what happens when the user clicks the menu item. You must configure exactly one of the following:
+The `action` field determines what happens when the user clicks the menu item. Configure **exactly one** of the following:
 
-### Option 1: Navigate to a Dashboard Page
-
-```json
-{ "action": { "pageId": "<DASHBOARD_PAGE_ID>" } }
-```
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `action.pageId` | string (UUID) | The `id` of the target dashboard page extension. |
-
-### Option 2: Open a Dashboard Modal
-
-```json
-{ "action": { "modalId": "<DASHBOARD_MODAL_ID>" } }
-```
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `action.modalId` | string (UUID) | The `id` of the target dashboard modal extension. |
+| Action | Scaffold param | Value |
+|---|---|---|
+| Navigate to a dashboard page | `{ "action": { "pageId": "<PAGE_ID>" } }` | `pageId` is the `id` (UUID) of an existing dashboard page extension. |
+| Open a dashboard modal | `{ "action": { "modalId": "<MODAL_ID>" } }` | `modalId` is the `id` (UUID) of an existing dashboard modal extension. |
 
 ## Icon Selection
 
@@ -58,9 +43,6 @@ The generated builder file has an `iconKey` field. It must be a valid icon name 
 
 - Do NOT invent or assume new types, modules, functions, props, events, or imports — use only entities explicitly present in the provided references or standard libraries already used in this project
 - NEVER use mocks, placeholders, or TODOs in any code — ALWAYS implement complete, production-ready functionality
-- The `extendsSlotId` MUST be a valid menu slot ID from a Wix business app — do NOT invent slot IDs
-- The `action.pageId` MUST reference the `id` of an existing dashboard page extension in the project
-- The `action.modalId` MUST reference the `id` of an existing dashboard modal extension in the project
 - A dashboard menu plugin does NOT have a React component — it is configuration-only
 - Do NOT confuse dashboard menu plugins with dashboard plugins — they are different extension types
 
