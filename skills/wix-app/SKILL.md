@@ -1,7 +1,7 @@
 ---
 name: wix-app
 description: "Build and review Wix CLI app extensions — dashboard pages, modals, plugins, menu plugins, custom element widgets, Editor React components, site plugins, embedded scripts, backend APIs, backend events, service plugins, data collections, and App Market readiness. Use when building ANY feature or extension for a Wix CLI app or preparing a Wix app for App Market review. Triggers on: add, build, create, implement, help me, dashboard, widget, plugin, backend, API, event, collection, embedded script, service plugin, Editor React component, checkout, shipping, tax, discount, SPI, CMS, schema, tracking, popup, admin panel, menu item, modal, validate, test, verify, register extension, App Market, app review, submission readiness."
-compatibility: Requires @wix/cli ≥ 1.1.185.
+compatibility: requires `@wix/cli` >= 1.1.192.
 ---
 
 # Wix App Builder
@@ -14,7 +14,6 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
 
 **Before reporting completion to the user, ALL boxes MUST be checked:**
 
-- [ ] **Step 0:** Discovered the extension param schema via `wix schema generate`
 - [ ] **Step 1:** Determined extension type(s) needed
   - [ ] Asked clarifying questions if requirements were unclear
   - [ ] Checked for implicit Data Collection need — unless user provided a collection ID directly (see [Data Collection Inference](#data-collection-inference))
@@ -185,18 +184,6 @@ Read [APP_MARKET_REVIEW.md](references/APP_MARKET_REVIEW.md) — it contains the
 
 ## Implementation Workflow
 
-### Step 0: Discover the scaffolding schema
-
-Before scaffolding anything, run:
-
-```bash
-npx wix schema generate
-```
-
-This prints a JSON Schema Draft-07 describing every `extensionType` the CLI can scaffold and the params each one requires. **Treat this output as the authoritative source** for required fields, enums (`pluginType`, `scriptType`, `placement`, `action`), and validation rules. Cache it for the session.
-
-If the command fails, the CLI is too old — upgrade `@wix/cli` in the project (e.g. `npm i @wix/cli@latest`) and retry. Do not fall back to manual scaffolding.
-
 ### Step 1: Ask Clarifying Questions (if needed)
 
 Only ask for configuration values when **absolutely necessary** for the implementation to proceed. If a value can be configured later or added as a manual step, don't block on it.
@@ -251,7 +238,9 @@ Use the Extension Types Reference Table and decision content above. State extens
 
 ### Step 4a: Scaffold via the CLI
 
-For each extension **except Backend API**, build a `--params` JSON using the schema from Step 0 and run `npx wix generate --params '<json>'`. The command returns `{"success":true,"extensionType":"...","newFiles":[...]}` on success; on failure surface the error and stop — do not attempt manual recovery.
+For each extension **except Backend API**, run `npx wix generate --params '<json>'`. The command returns `{"success":true,"extensionType":"...","newFiles":[...]}` on success.
+
+If the command fails because of unknown or invalid params, run `npx wix schema generate --type <extensionType>` to print the JSON Schema for that extension type, fix the `--params` payload, and retry. Do not fall back to manual scaffolding.
 
 **What the CLI does automatically:**
 - Creates folders and stub files
@@ -346,8 +335,8 @@ Stop and report errors if any step fails. Check `.wix/debug.log` on failures.
 
 ## Cost Optimization
 
-- **Run `wix schema generate` once per session** — cache the output; it's the source of truth for params
 - **Let the CLI scaffold** — don't burn tokens describing folder layouts or builder boilerplate
+- **Only run `wix schema generate --type <extensionType>`** when `wix generate --params` fails — don't pre-fetch it
 - **Read extension reference first** — always read the relevant extension reference file before implementing
 - **Check API references first** — read relevant API reference files before using MCP discovery
 - **Skip discovery** when all required APIs are in reference files
