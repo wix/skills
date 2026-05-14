@@ -1,6 +1,8 @@
 # Dashboard Plugin Slots Reference
 
-Slots are UI placeholders on dashboard pages of Wix first-party business apps. Each slot has a unique ID used in the `extends` field of a dashboard plugin.
+Slots are UI placeholders on dashboard pages of Wix first-party business apps. Each slot has a unique ID passed as the `extendsSlotId` scaffold param (written as `extends` in the generated `.extension.ts` file).
+
+> **Authoritative slot list**: run `wix schema generate --type DASHBOARD_PLUGIN` for the live, complete `extendsSlotId` enum (each `anyOf` entry has the slot's human-readable title). This file documents per-slot parameters, dashboard paths, and use cases — content the schema does not carry.
 
 **Key behaviors:**
 - Some slots with the same ID appear on different pages. A plugin targeting such a slot is displayed on all pages containing it.
@@ -160,20 +162,6 @@ Slots are UI placeholders on dashboard pages of Wix first-party business apps. E
 - **Use case:** Add items to an order such as additional items, notes, or extra fees.
 
 > **Note:** This slot also appears on the Wix Bookings Calendar Page.
-
-### Edit Order Page — Additional Fees
-
-**Slot ID:** `057f1726-f0b3-40ef-8903-1bd104e18369`
-
-- **Dashboard path:** Sales > Orders > Order > More Actions > Edit Order
-- **Location:** Right side of page, in the "Order summary" card
-- **Parameters:**
-  | Name | Type | Description |
-  |------|------|-------------|
-  | `draftOrderId` | String | ID of the order being edited |
-  | `onDraftOrderUpdate()` | `() => Promise<void>` | Callback that notifies the host page about a draft order update, prompting a UI refresh |
-- **Multi-plugin:** Vertical, newest at bottom
-- **Use case:** Manage custom fees for orders — add or remove order fees according to custom business logic.
 
 ---
 

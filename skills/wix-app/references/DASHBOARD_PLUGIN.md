@@ -106,18 +106,10 @@ const Plugin: FC<Props> = (props) => {
 - **Height** adjusts dynamically based on content within slot boundaries
 - When using Dashboard SDK or dashboard-react SDK, dimensions change dynamically based on contents
 
-## Troubleshooting
-
-| Symptom | Cause | Fix |
-|---------|-------|-----|
-| Plugin not appearing on dashboard page | Wrong slot ID | Verify `extendsSlotId` matches a valid slot ID from [Slots Reference](dashboard-plugin/SLOTS.md) |
-| Plugin not appearing on dashboard page | CLI scaffolding failed mid-run | Re-run `wix generate --params` and verify `src/extensions.ts` was updated |
-
 ## Hard Constraints
 
 - Do NOT invent or assume new types, modules, functions, props, events, or imports — use only entities explicitly present in the provided references or standard libraries already used in this project
 - NEVER use mocks, placeholders, or TODOs in any code — ALWAYS implement complete, production-ready functionality
-- The `extendsSlotId` MUST be a valid slot ID from a Wix business app — do NOT invent slot IDs
 - Prefer type-narrowing and exhaustive logic over assertions; avoid non-null assertions (`!`) and unsafe casts (`as any`)
 - Do NOT use `// @ts-ignore` or `// @ts-expect-error`; fix the types or add guards instead
 
