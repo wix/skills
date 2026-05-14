@@ -216,6 +216,42 @@ Phase 4 CMS page agents reference these collection names; the image agent attach
 }
 ```
 
+### Phase 2: homeContributions (index.astro contributions)
+
+Identical shape to `navContributions` (see above) but targets `src/pages/index.astro` and `home:*` markers. Phase 4 page agents that previously patched the home page at marker comments (stores `home-and-nav` at `<!-- home:stores -->`, gift-cards `pages` at `<!-- home:gift-cards -->`) now return their contribution as `data.homeContributions`. The orchestrator collects every Phase 4 agent's `homeContributions`, then invokes `scripts/merge-home.mjs` ONCE to splice them into the designer-emitted shell.
+
+```json
+{
+  "status": "complete",
+  "phase": "stores-pages-home-and-nav",
+  "scope": "pages-home-and-nav",
+  "data": {
+    "homeContributions": {
+      "imports": [
+        "import ProductCard from '../components/ProductCard.astro';",
+        "import { productsV3 } from '@wix/stores';"
+      ],
+      "frontmatter": [
+        "let featured: any[] = [];",
+        "try { featured = (await productsV3.queryProducts().limit(12).find()).items ?? []; } catch (err) { console.error('[home] featured products query failed:', err); }",
+        "featured = featured.filter((p) => p?.ribbon?.name !== 'Gift Card').slice(0, 3);"
+      ],
+      "byMarker": {
+        "home:stores": "{featured.length > 0 && (<section class=\"featured-section\">…<div class=\"product-grid\">{featured.map((p) => <ProductCard product={p} />)}</div>…</section>)}"
+      }
+    },
+    "featuredProductsCount": 3
+  },
+  "files": [
+    "src/pages/index.astro"
+  ]
+}
+```
+
+> The stores `home-and-nav` agent still lists `src/pages/index.astro` in `files[]` because it ALSO performs non-marker edits on the page (category-card href rewrites). The orchestrator reads the post-edit file before invoking `merge-home.mjs`, so those rewrites are preserved.
+
+The `gift-cards` page agent contributes at `home:gift-cards`. If the designer didn't emit that marker (e.g. because gift-cards is `disabled: true` and the designer was told to skip surfaces for disabled packs), `merge-home.mjs` reports it in `skipped[]` with reason `MARKER_NOT_FOUND` — non-fatal, observable.
+
 ### Designer foundation
 
 ```json
