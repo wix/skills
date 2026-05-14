@@ -272,17 +272,24 @@ The image agent runs in two scopes dispatched by the parent in different steps. 
   "status": "complete",
   "phase": "image-phase-1-decorative",
   "scope": "image-phase-1-decorative",
-  "summary": "Generated 3 decorative images; uploaded to Wix Media; wrote .wix/image-urls.md",
+  "summary": "Generated 3 decorative images; uploaded to Wix Media; URLs returned for orchestrator to persist",
   "data": {
     "decorativeCount": 3,
-    "purposes": ["hero", "about", "background"],
+    "purposes": ["hero", "about", "productsHeader"],
+    "imageUrls": {
+      "hero": "https://static.wixstatic.com/media/<id>~mv2.png",
+      "about": "https://static.wixstatic.com/media/<id>~mv2.png",
+      "productsHeader": "https://static.wixstatic.com/media/<id>~mv2.png"
+    },
     "model": "google:4@2",
     "totalCredits": 0.297
   },
-  "files": [".wix/image-urls.md"],
+  "files": [],
   "errors": []
 }
 ```
+
+`data.imageUrls` is **required** on `complete` and **strongly recommended** on `partial` (return whichever URLs the agent did manage to produce — the orchestrator can still patch some slots). The orchestrator pipes this object into `scripts/write-image-urls.mjs` to write `.wix/image-urls.md`; the agent does not write the file itself. `files` is `[]` for this scope.
 
 **`image-phase-2-entity` — dispatched in Step 7 (Phase 1 Seed return data inline in prompt):**
 
