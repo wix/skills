@@ -216,6 +216,47 @@ Phase 4 CMS page agents reference these collection names; the image agent attach
 }
 ```
 
+### Phase 2: navContributions (Navigation.astro contributions)
+
+Phase 4 page agents that previously patched `src/components/Navigation.astro` directly (stores `home-and-nav`, ecom `pages`, gift-cards `pages`) now return their contribution as `data.navContributions`. The orchestrator collects every Phase 4 agent's `navContributions`, then invokes `scripts/merge-navigation.mjs` ONCE to splice them into the designer-emitted shell. This replaces the previous "each agent patches Navigation.astro at its declared marker" model, which had a race when two agents targeted the same marker (`<!-- nav:links -->`, claimed by both stores and gift-cards).
+
+```json
+{
+  "status": "complete",
+  "phase": "stores-pages-home-and-nav",
+  "scope": "pages-home-and-nav",
+  "data": {
+    "navContributions": {
+      "imports": [
+        "import { listStoreCategories } from '../utils/categories';"
+      ],
+      "frontmatter": [
+        "const navCategories = (await listStoreCategories().catch(() => []));"
+      ],
+      "byMarker": {
+        "nav:links": "<li class=\"site-nav-item has-submenu\">\n  <a href=\"/products\" data-astro-prefetch=\"hover\">Shop</a>\n  {navCategories.length > 0 && (<ul class=\"site-nav-submenu\">…</ul>)}\n</li>"
+      }
+    },
+    "homePageHadPlaceholders": false,
+    "featuredProductsWired": true
+  },
+  "files": [
+    "src/pages/index.astro"
+  ]
+}
+```
+
+**Shape rules (enforced by `scripts/merge-navigation.mjs`):**
+
+- `imports[]`: raw TypeScript import lines. Deduped against existing frontmatter by exact line match (after trim). Append after the designer's last `import …` line.
+- `frontmatter[]`: raw TypeScript lines (SSR-time computations). Deduped the same way. Append after any new imports.
+- `byMarker`: `{ "<marker-name>": "<raw HTML/Astro snippet>" }`. The merge script finds the marker line in the body and inserts your snippet immediately after it, preserving the marker comment for future contributions. Multiple agents targeting the same marker are joined in input order, so the orchestrator controls render order.
+- Marker names today: `nav:links` (stores submenu, gift-cards probe-gated link), `nav:actions` (ecom CartBadge mount).
+
+**Do not write `src/components/Navigation.astro` directly from a Phase 4 agent** — return contributions instead. Agents that still write the file will see their changes clobbered by the merge script, since the orchestrator reads Navigation.astro fresh before splicing.
+
+`files: []` is correct for the Navigation.astro contribution alone — only list files you wrote yourself in this scope.
+
 ### Designer foundation
 
 ```json

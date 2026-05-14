@@ -81,7 +81,7 @@ If `wix.config.json` is present in the working directory, offer: *"I found an ex
 | 3 | seeders + design-system + image-phase-1 | design-system (fg) | merge `designTokens` into site.json; `emit-design-tokens.mjs`; grep Layout.astro CSS imports |
 | 4 | components + components-css + image-phase-2 (all bg) | (none — all backgrounded) | `copy-utility-templates.mjs components`; on Image Phase 1 return: `patch-decorative-slots.mjs`; on Phase 3 return: `check-manifest.mjs components` |
 | 5 | pages | components done + Phase 1 seeders done | `copy-utility-templates.mjs pages` |
-| 6 | (bash) | pages done + image-phase-2 done | `check-manifest.mjs pages`; `release.sh`; `finalize-run-json.mjs` |
+| 6 | (bash) | pages done + image-phase-2 done | `merge-navigation.mjs` (collect each Phase 4 agent's `data.navContributions`); `check-manifest.mjs pages`; `release.sh`; `finalize-run-json.mjs` |
 
 **Phase axis.** Core pipeline: `Phase 1 (Seed) → Phase 2 (Design System) → Phase 3 (Components) → Phase 4 (Pages)`. Image pipeline runs in parallel: Image Phase 1 (Decorative) alongside Phases 1–2; Image Phase 2 (Entity) alongside Phase 3 (depends only on Phase 1 Seed entity IDs + brand). Each Phase 4 agent writes its routes ONCE with both visual design and data queries — no placeholder-then-rewrite split.
 
@@ -263,11 +263,23 @@ Each prompt includes the standard fields PLUS:
 
    **Rate-limit recovery for `image-phase-2-entity`.** If the subagent returns `status: "failed"` with an error matching `/limit|quota|resets/i`, do NOT stall or retry the subagent. Run the inline recovery in the orchestrator: batched generate (one call) → concurrent imports (one batch) → concurrent product/CMS PATCHes (one batch). Procedure encoded in `references/shared/IMAGE_GENERATION.md`.
 
-2. **Post-Phase-4 manifest check.** `node "<SKILL_ROOT>/scripts/check-manifest.mjs" "$(pwd)" pages "<packs-csv>"`. Same recovery rules as Phase 3 check. Surface any unrecoverable `missing[]` entries (exit code 1) before invoking release — those are page files Phase 4 didn't write that have no template fallback. Record `{ phase: "manifest-check-pages", seconds }`.
+2. **Merge Navigation.astro contributions.** Phase 4 page agents now return per-pack `data.navContributions` (per `references/shared/RETURN_CONTRACT.md`) instead of patching `src/components/Navigation.astro` themselves. Compose the contributions in pack order and pipe them through the merge script:
 
-3. **Wait for npm install** — the background install from Wave 2. Wait on its handle; do not `sleep`-poll. On non-zero exit follow the recovery ladder in `references/SETUP.md` § "npm install recovery" (foreground retry with timeout, never delete the lockfile).
+   ```bash
+   echo "$NAV_CONTRIBUTIONS_JSON" | node "<SKILL_ROOT>/scripts/merge-navigation.mjs" "$(pwd)"
+   ```
 
-4. **`bash <SKILL_ROOT>/scripts/release.sh`** — runs `npx @wix/cli build` + `release`, extracts the URL from `Site published on <url>`, prints the URL on stdout. Capture build / release timings via `date -u` wrappers and record `{ phase: "build", seconds }` and `{ phase: "release", seconds }`. The script's stdout becomes `outcome.releaseUrl` in `run.json`. This populates the **Frontend link** in headless settings so transactional emails link to the deployed frontend. On build failure, surface the compiler error and stop — do NOT deploy a broken site.
+   `$NAV_CONTRIBUTIONS_JSON` is `{contributions: [<agent return's data.navContributions>, ...]}` — one entry per Phase 4 page agent that emitted one. Order them by pack importance: top-level `stores` before transitive `gift-cards`, with `ecom` last (it only writes `nav:actions`, no ordering interaction). Record `{ phase: "merge-navigation", seconds }`. Why orchestrator-merge instead of agent-patch: three Phase 4 subagents used to read+write the same file concurrently, two of them at the same `<!-- nav:links -->` marker — a real race. Collecting contributions and splicing once removes the race and makes pack ordering explicit.
+
+   `byMarker` keys agents may emit today (always preserve the marker comment for future patches):
+   - `nav:links` — stores submenu, gift-cards probe-gated link
+   - `nav:actions` — ecom CartBadge mount
+
+3. **Post-Phase-4 manifest check.** `node "<SKILL_ROOT>/scripts/check-manifest.mjs" "$(pwd)" pages "<packs-csv>"`. Same recovery rules as Phase 3 check. Surface any unrecoverable `missing[]` entries (exit code 1) before invoking release — those are page files Phase 4 didn't write that have no template fallback. Record `{ phase: "manifest-check-pages", seconds }`.
+
+4. **Wait for npm install** — the background install from Wave 2. Wait on its handle; do not `sleep`-poll. On non-zero exit follow the recovery ladder in `references/SETUP.md` § "npm install recovery" (foreground retry with timeout, never delete the lockfile).
+
+5. **`bash <SKILL_ROOT>/scripts/release.sh`** — runs `npx @wix/cli build` + `release`, extracts the URL from `Site published on <url>`, prints the URL on stdout. Capture build / release timings via `date -u` wrappers and record `{ phase: "build", seconds }` and `{ phase: "release", seconds }`. The script's stdout becomes `outcome.releaseUrl` in `run.json`. This populates the **Frontend link** in headless settings so transactional emails link to the deployed frontend. On build failure, surface the compiler error and stop — do NOT deploy a broken site.
 
    Use `bash <SKILL_ROOT>/scripts/preview.sh` (not this step) only when the user is iterating on an existing site and explicitly asks for a fast preview without touching production.
 
@@ -298,7 +310,7 @@ One concluding turn containing, in order:
 
 1. **Release URL text first** — bold heading / link at the top so the user sees it immediately.
 2. **Compose the draft `run.json` blob** in scratch. Aggregate every subagent return into `phases[]`, set `outcome.previewUrl`, fill `run.started` (from `runStartedAt`) / `run.ended` (capture now via `date -u`), compute `run.totalSeconds`, and compose `requiredPhases[]` — phases that MUST have a captured duration:
-   - Always: `mcp-bootstrap`, `init-site-json`, `scaffold`, `env-pull`, `seed-utilities`, `emit-design-tokens`, `manifest-check-components`, `manifest-check-pages`, `decorative-slot-patch`, `npm-install`, `build`, `release` (or `preview` if `preview.sh` was used).
+   - Always: `mcp-bootstrap`, `init-site-json`, `scaffold`, `env-pull`, `seed-utilities`, `emit-design-tokens`, `manifest-check-components`, `manifest-check-pages`, `decorative-slot-patch`, `merge-navigation`, `npm-install`, `build`, `release` (or `preview` if `preview.sh` was used).
    - Per app installed in Wave 2: `app-install-<appName>`.
    - When `copy-utility-templates` ran: `copy-utility-templates-components` and/or `copy-utility-templates-pages`.
    - `image-phase-2-entity`'s duration arrives via its return; record from there if any pack produced entities.

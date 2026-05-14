@@ -9,13 +9,14 @@ Files this agent OWNS (rewrites from designer output):
 - `src/pages/cart.astro` — mount `CartView.tsx` (client-only, no server-side cart fetch)
 - `src/pages/thank-you.astro` — read `orderId` from URL, fire `Purchase` event
 
-Files this agent PATCHES (does NOT rewrite):
+Navigation contribution (returned as `data.navContributions`, NOT a direct write):
 
-- `src/components/Navigation.astro` — mount `CartBadge` in the `nav-actions` area
+- The `CartBadge` mount is now returned as JSON in the agent's return block. The orchestrator collects every Phase 4 agent's `data.navContributions` and invokes `scripts/merge-navigation.mjs` once. See "Section 3 — CartBadge contribution" below and the shape spec in `../shared/RETURN_CONTRACT.md` § "Phase 2: navContributions".
 
 Files this agent MUST NOT touch:
 - `src/components/CartView.tsx` — owned by `ecom-shared` (already written)
 - `src/components/CartBadge.tsx` — owned by `ecom-shared`
+- **`src/components/Navigation.astro`** — direct writes are forbidden. The orchestrator owns this file via the merge script; contribute via `data.navContributions` only.
 - Any product page, home page, or stores-specific component
 - `global.css`, any designed component
 
@@ -24,7 +25,7 @@ Files this agent MUST NOT touch:
 1. **No server-side cart fetch** — cart is per-visitor and must not break SSR caching. `CartView` fetches its own data on mount.
 2. **Mount `CartView` with `client:load`** — no props needed, the island is self-contained.
 3. **Fire `Purchase` event in `thank-you.astro`** only when `?orderId=` is present.
-4. **Mount `CartBadge` in `Navigation.astro`** (not Layout.astro, not a page-specific header).
+4. **Contribute `CartBadge` to `Navigation.astro` via `data.navContributions`** (not Layout.astro, not a page-specific header). Do not write Navigation.astro directly — the orchestrator merges contributions.
 5. **No HTML comments in `.astro` frontmatter** — frontmatter is TypeScript.
 6. **Preserve designer layout and classes.** Only mount islands and wire data; do not restructure markup.
 7. **Do NOT add static HTML alongside `<CartView>`** — the island handles empty/loading/cart states internally.
@@ -53,20 +54,26 @@ Wix redirects here after successful checkout with `?orderId=<id>`. Fires `Purcha
 - Fire `Purchase` event via the analytics helper (client-side script)
 - Only fire when `orderId` is present — refreshing without it should not re-fire
 
-### 3. Mount CartBadge in `Navigation.astro`
+### 3. CartBadge contribution (returned as `data.navContributions`)
 
-Mount `CartBadge` inside the `nav-actions` area. The designer creates this with a `<slot name="actions" />` or similar placeholder. Because Navigation is in the shared Layout, the badge appears on every page.
+> **Do NOT write `Navigation.astro` from this scope.** Return the contribution; the orchestrator splices it via `scripts/merge-navigation.mjs` after all Phase 4 agents return. Direct writes will be clobbered.
 
-```astro
----
-// Add to Navigation.astro frontmatter:
-import CartBadge from "./CartBadge.tsx";
----
+The designer scaffolds `Navigation.astro` with a `<!-- nav:actions -->` marker. Ecom contributes the `CartBadge` island at that marker. Build the contribution as part of your return JSON:
 
-<!-- Replace the nav-actions slot with the CartBadge island: -->
-<div class="nav-actions">
-  <CartBadge client:only="react" />
-</div>
+```json
+{
+  "data": {
+    "navContributions": {
+      "imports": [
+        "import CartBadge from './CartBadge.tsx';"
+      ],
+      "frontmatter": [],
+      "byMarker": {
+        "nav:actions": "<CartBadge client:only=\"react\" />"
+      }
+    }
+  }
+}
 ```
 
 Use `client:only="react"` — never SSR the badge. SSR would render `count: 0` (sessionStorage is a browser-only API), then hydration would read the cached count and flip to the real number, causing a visible blink on every page navigation. Skipping SSR means the badge renders once on the client with the cached count already populated. No flash.
@@ -102,18 +109,24 @@ Cart page → "Proceed to Checkout"
   "status": "complete",
   "phase": "ecom-pages",
   "scope": "ecom-pages",
-  "summary": "Mounted CartView (client-only fetch); wired Purchase event; mounted CartBadge in Navigation",
+  "summary": "Mounted CartView (client-only fetch); wired Purchase event; contributed CartBadge mount to Navigation via navContributions",
   "data": {
     "pagesWired": 2,
     "cartViewMounted": true,
     "purchaseEventWired": true,
     "cartBadgeMounted": true,
-    "analyticsEvents": ["Purchase"]
+    "analyticsEvents": ["Purchase"],
+    "navContributions": {
+      "imports": ["import CartBadge from './CartBadge.tsx';"],
+      "frontmatter": [],
+      "byMarker": {
+        "nav:actions": "<CartBadge client:only=\"react\" />"
+      }
+    }
   },
   "files": [
     "src/pages/cart.astro",
-    "src/pages/thank-you.astro",
-    "src/components/Navigation.astro"
+    "src/pages/thank-you.astro"
   ],
   "errors": []
 }

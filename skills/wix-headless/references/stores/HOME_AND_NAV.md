@@ -7,11 +7,14 @@ Scope: `pages-home-and-nav`. Launched in **Step 7** after `pages-categories` has
 Files this agent PATCHES (does NOT rewrite):
 
 - `src/pages/index.astro` — only the stores-related sections (featured products grid, category cards)
-- `src/components/Navigation.astro` — only at the `<!-- nav:links -->` marker; insert the Shop link + categories submenu
+
+Navigation contribution (returned as `data.navContributions`, NOT a direct write):
+
+- The Shop link + categories submenu is now returned as JSON in the agent's return block. The orchestrator collects every Phase 4 agent's `data.navContributions` and invokes `scripts/merge-navigation.mjs` once after all Phase 4 agents return. See "Section 4 — Navigation contribution" below and the shape spec in `../shared/RETURN_CONTRACT.md` § "Phase 2: navContributions".
 
 Files this agent MUST NOT touch:
 - Any other part of `index.astro` — hero, copy, newsletter, decorative ornaments are designer-owned
-- Any part of `Navigation.astro` outside the `<!-- nav:links -->` marker — designer/ecom-owned (the marker model lets multiple verticals contribute siblings without conflict)
+- **`src/components/Navigation.astro`** — direct writes are forbidden. The orchestrator owns this file via the merge script; agent writes will be clobbered. Contribute via `data.navContributions` only.
 - `src/utils/categories.ts`, `src/components/CategoryRail.astro`, `src/pages/category/[slug].astro` — owned by `pages-categories`; this scope only **imports** `listStoreCategories` from `categories.ts`
 - Any other component, page, or CSS
 - `global.css`
@@ -124,58 +127,39 @@ Handle this:
 
 > Never call `/stores/v3/categories/*` — category endpoints live under `/categories/v1/`. Improvising URLs caused a documented multi-minute stall in past runs.
 
-### 3. Navigation: Shop submenu
+### 3. Navigation: Shop submenu (returned as `data.navContributions`)
 
-The designer scaffolds `Navigation.astro` with a `<!-- nav:links -->` marker that vertical packs replace with their primary nav contributions. Stores contributes the Shop link (always) and a hover/focus submenu listing the merchant's visible categories (when any exist — empty by default, since Phase 1 does not seed them).
+> **Do NOT write `Navigation.astro` from this scope.** Return the contribution as JSON; the orchestrator splices it via `scripts/merge-navigation.mjs` after all Phase 4 agents return. Background subagents writing the same file concurrently has produced a real race (stores + gift-cards both target `<!-- nav:links -->`). Returning JSON instead lets the orchestrator order and dedupe deterministically.
 
-Read `src/utils/categories.ts` (already on disk — written by `pages-categories`) and import `listStoreCategories`. At the marker, insert:
+The designer scaffolds `Navigation.astro` with a `<!-- nav:links -->` marker. Stores contributes the Shop link (always) plus a hover/focus submenu listing the merchant's visible categories (when any exist — empty by default, since Phase 1 does not seed them).
 
-```astro
----
-// (frontmatter additions to Navigation.astro — keep existing imports)
-import { listStoreCategories } from "../utils/categories";
+Build the contribution as part of your return JSON's `data.navContributions`:
 
-const navCategories = await listStoreCategories();
----
+```json
+{
+  "data": {
+    "navContributions": {
+      "imports": [
+        "import { listStoreCategories } from '../utils/categories';"
+      ],
+      "frontmatter": [
+        "const navCategories = (await listStoreCategories().catch(() => []));"
+      ],
+      "byMarker": {
+        "nav:links": "<li class={`site-nav-item${navCategories.length > 0 ? ' has-submenu' : ''}`}>\n  <a\n    href=\"/products\"\n    class=\"site-nav-link\"\n    data-astro-prefetch=\"hover\"\n    aria-current={isActive('/products') || isActive('/category') ? 'page' : undefined}\n    aria-haspopup={navCategories.length > 0 ? 'true' : undefined}\n  >Shop</a>\n  {navCategories.length > 0 && (\n    <ul class=\"site-nav-submenu\" aria-label=\"Shop categories\">\n      <li>\n        <a href=\"/products\" class=\"site-nav-sublink\" data-astro-prefetch=\"hover\">All</a>\n      </li>\n      {navCategories.map((cat) => (\n        <li>\n          <a\n            href={`/category/${cat.slug}`}\n            class=\"site-nav-sublink\"\n            data-astro-prefetch=\"hover\"\n            aria-current={Astro.url.pathname === `/category/${cat.slug}` ? 'page' : undefined}\n          >{cat.name}</a>\n        </li>\n      ))}\n    </ul>\n  )}\n</li>"
+      }
+    }
+  }
+}
 ```
 
-Then replace the `<!-- nav:links -->` marker with:
-
-```astro
-<li class={`site-nav-item${navCategories.length > 0 ? ' has-submenu' : ''}`}>
-  <a
-    href="/products"
-    class="site-nav-link"
-    data-astro-prefetch="hover"
-    aria-current={isActive('/products') || isActive('/category') ? 'page' : undefined}
-    aria-haspopup={navCategories.length > 0 ? 'true' : undefined}
-  >Shop</a>
-  {navCategories.length > 0 && (
-    <ul class="site-nav-submenu" aria-label="Shop categories">
-      <li>
-        <a href="/products" class="site-nav-sublink" data-astro-prefetch="hover">All</a>
-      </li>
-      {navCategories.map((cat) => (
-        <li>
-          <a
-            href={`/category/${cat.slug}`}
-            class="site-nav-sublink"
-            data-astro-prefetch="hover"
-            aria-current={Astro.url.pathname === `/category/${cat.slug}` ? 'page' : undefined}
-          >{cat.name}</a>
-        </li>
-      ))}
-    </ul>
-  )}
-</li>
-<!-- nav:links -->
-```
-
-Keep the marker comment immediately after the inserted `<li>` so other vertical packs (gift-cards, etc.) can still contribute siblings.
+The merge script:
+- Dedupes the `imports[]` and `frontmatter[]` lines against the designer's existing content (so re-running is harmless).
+- Inserts the `byMarker["nav:links"]` snippet immediately after the marker line, preserving the marker so other packs (gift-cards) can still contribute siblings.
 
 > **Empty-categories fallback.** `navCategories` is `[]` by default — Phase 1 does not seed categories, and `listStoreCategories()` only returns visible, non-empty, merchant-created categories. When empty, the submenu renders nothing and the link is just `Shop` with no dropdown. The aria-haspopup attribute is conditionally added so screen readers don't promise a menu that isn't there. As soon as the merchant creates a visible category with items in the dashboard, the submenu lights up automatically (≤ 5 min, the helper's TTL).
 
-> **`isActive` is already defined** in the designer-scaffolded Navigation.astro frontmatter (it returns whether a path matches the current URL). Reuse it; do not redefine.
+> **`isActive` is already defined** in the designer-scaffolded Navigation.astro frontmatter (it returns whether a path matches the current URL). Reuse it; do not redefine. Your `frontmatter[]` should NOT redeclare it.
 
 > **`data-astro-prefetch="hover"` is required** on every category link so hovering warms the prefetch cache before the click. Designer's Layout includes `<ClientRouter />` — without prefetch, each click waits a full network round-trip.
 
@@ -196,22 +180,30 @@ Keep the marker comment immediately after the inserted `<li>` so other vertical 
     "categoryCardsFound": 3,
     "categoryCardsMatched": 2,
     "categoryCardsFallbackToProducts": 1,
-    "navSubmenuCategoryCount": 0
+    "navSubmenuCategoryCount": 0,
+    "navContributions": {
+      "imports": ["import { listStoreCategories } from '../utils/categories';"],
+      "frontmatter": ["const navCategories = (await listStoreCategories().catch(() => []));"],
+      "byMarker": {
+        "nav:links": "<li class={`site-nav-item${navCategories.length > 0 ? ' has-submenu' : ''}`}>...</li>"
+      }
+    }
   },
   "files": [
-    "src/pages/index.astro",
-    "src/components/Navigation.astro"
+    "src/pages/index.astro"
   ],
   "errors": []
 }
 ```
+
+> `files` lists only files this scope writes directly — `Navigation.astro` is **not** listed because the orchestrator owns the write. The contribution shows up in `data.navContributions` instead.
 
 ## Scope boundaries (reinforced)
 
 - **Do NOT edit** home page layout, copy, hero text, newsletter section, or decorative SVGs.
 - **Do NOT add** new sections the designer didn't include.
 - **Do NOT mutate** categories in the catalog — read-only.
-- **Do NOT touch** `Navigation.astro` outside the `<!-- nav:links -->` marker. Other vertical packs use the same marker model and write siblings.
+- **Do NOT touch** `Navigation.astro` at all — contribute via `data.navContributions`. The orchestrator merges all packs' contributions deterministically.
 - **Do NOT touch** `CartBadge.tsx` or `CartView.tsx` — owned by ecom.
 - **Do NOT rewrite** `src/utils/categories.ts` or `src/components/CategoryRail.astro` — owned by `pages-categories`.
 - If home page already has a live query (another agent wired it), leave alone and note in return.

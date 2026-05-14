@@ -79,11 +79,12 @@ pages:
   - name: "home-and-nav"
     agentLocation: "references/stores/"
     scope: "pages-home-and-nav"
-    description: "Patch home page featured products to live query and contribute the Shop submenu (categories list) to Navigation"
+    description: "Patch home page featured products to live query; return Shop submenu contribution as data.navContributions (orchestrator merges via scripts/merge-navigation.mjs)"
     references: ["references/stores/HOME_AND_NAV.md"]
     files:
       - "src/pages/index.astro (patch — home product grid only)"
-      - "src/components/Navigation.astro (patch — Shop submenu insert)"
+    # Navigation.astro is no longer written by this agent. The Shop submenu is returned
+    # as data.navContributions and merged by the orchestrator (see contributes: below).
 
 creates:
   - { file: src/components/AddToCartButton.tsx,  phase: components }
