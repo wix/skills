@@ -135,13 +135,12 @@ Each dashboard menu plugin requires a `<plugin-name>.extension.ts` file in its f
 
 ## Hard Constraints
 
-- Do NOT invent or assume new types, modules, functions, props, events, or imports — use only entities explicitly present in the provided references or standard libraries already used in this project
-- NEVER use mocks, placeholders, or TODOs in any code — ALWAYS implement complete, production-ready functionality
-- The `extends` field MUST contain a valid menu slot ID from a Wix business app — do NOT invent slot IDs
-- The `action.navigateToPage.pageId` MUST reference the `id` of an existing dashboard page extension in the project
-- The `action.openModal.componentId` MUST reference the `id` of an existing dashboard modal extension in the project
-- A dashboard menu plugin does NOT have a React component — it is configuration-only
-- Do NOT confuse dashboard menu plugins with dashboard plugins — they are different extension types
+- The `extends` field MUST contain a valid menu slot ID from a Wix business app — do NOT invent slot IDs.
+- The `action.navigateToPage.pageId` MUST reference the `id` of an existing dashboard page extension in the project.
+- The `action.openModal.componentId` MUST reference the `id` of an existing dashboard modal extension in the project.
+- A dashboard menu plugin does NOT have a React component — it is configuration-only.
+- Do NOT confuse dashboard menu plugins with dashboard plugins — they are different extension types.
+- Generated code must follow the project-wide [Code Quality Requirements](CODE_QUALITY.md).
 
 ## Slot Lookup Table
 
@@ -157,9 +156,3 @@ Identify which Wix app the user is targeting, then read **only** the correspondi
 | Wix Stores | stores, products, inventory, catalog | [stores-slots.md](dashboard-menu-plugin/stores-slots.md) |
 | Wix Restaurants | restaurants, reservations, online orders, menus | [restaurants-slots.md](dashboard-menu-plugin/restaurants-slots.md) |
 
-## Output Constraints
-
-**Token limits:** Your max output is ~10,000 tokens. Plan your response to stay under this limit.
-
-- Only output files that are directly required for the task
-- Do NOT add README.md or documentation files unless explicitly requested

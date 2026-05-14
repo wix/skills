@@ -579,12 +579,11 @@ The `id` must be a unique, static UUID v4 string. Generate a fresh UUID for each
 
 **Without completing Step 2, the custom element widget will not be available in the Wix Editor.**
 
-## Code Quality Requirements
+## Custom-element-specific Conventions
 
-- Strict TypeScript (no `any`, explicit return types)
-- Functional React components with hooks
-- Proper error handling and loading states
-- No `@ts-ignore` comments
-- Inline styles only (no CSS imports)
-- Handle Wix Editor environment when using Wix Data API
-- Consistent prop naming (camelCase in widget, kebab-case in panel)
+In addition to the project-wide [Code Quality Requirements](CODE_QUALITY.md):
+
+- Functional React components with hooks.
+- Inline styles only (no CSS imports).
+- Handle Wix Editor environment when using Wix Data API.
+- Consistent prop naming (camelCase in widget, kebab-case in panel).
