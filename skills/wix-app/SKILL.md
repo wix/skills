@@ -108,6 +108,7 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
 
 | Topic | Reference |
 | --- | --- |
+| Code Quality Requirements (applies to all generated code) | [CODE_QUALITY.md](references/CODE_QUALITY.md) |
 | Extension Registration | [EXTENSION_REGISTRATION.md](references/EXTENSION_REGISTRATION.md) |
 | App Validation | [APP_VALIDATION.md](references/APP_VALIDATION.md) |
 | App Market Review | [APP_MARKET_REVIEW.md](references/APP_MARKET_REVIEW.md) |

@@ -581,8 +581,6 @@ The `id` must be a unique, static UUID v4 string. Generate a fresh UUID for each
 
 ## Custom-element-specific Conventions
 
-In addition to the project-wide [Code Quality Requirements](CODE_QUALITY.md):
-
 - Functional React components with hooks.
 - Inline styles only (no CSS imports).
 - Handle Wix Editor environment when using Wix Data API.

@@ -133,14 +133,13 @@ Each dashboard menu plugin requires a `<plugin-name>.extension.ts` file in its f
 
 **Without completing Step 2, the dashboard menu plugin will not appear on the dashboard page.**
 
-## Hard Constraints
+## Dashboard-Menu-Plugin-specific Conventions
 
 - The `extends` field MUST contain a valid menu slot ID from a Wix business app — do NOT invent slot IDs.
 - The `action.navigateToPage.pageId` MUST reference the `id` of an existing dashboard page extension in the project.
 - The `action.openModal.componentId` MUST reference the `id` of an existing dashboard modal extension in the project.
 - A dashboard menu plugin does NOT have a React component — it is configuration-only.
 - Do NOT confuse dashboard menu plugins with dashboard plugins — they are different extension types.
-- Generated code must follow the project-wide [Code Quality Requirements](CODE_QUALITY.md).
 
 ## Slot Lookup Table
 

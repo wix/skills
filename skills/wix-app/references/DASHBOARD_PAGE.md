@@ -112,10 +112,6 @@ export default function () {
 
 **Note:** When using dynamic parameters, use the `withProviders` wrapper instead. See [Dynamic Parameters](dashboard-page/DYNAMIC_PARAMETERS.md) for details.
 
-## Hard Constraints
-
-- Generated code must follow the project-wide [Code Quality Requirements](CODE_QUALITY.md).
-
 ## Examples
 
 ### Data Management Table

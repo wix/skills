@@ -179,10 +179,9 @@ Each dashboard plugin requires an `<plugin-name>.extension.ts` file in its folde
 | Plugin not appearing on dashboard page | Missing registration | Import and `.use()` in `src/extensions.ts` |
 | Plugin not appearing on dashboard page | Wrong slot ID | Verify `extends` field matches a valid slot ID from [Slots Reference](dashboard-plugin/SLOTS.md) |
 
-## Hard Constraints
+## Dashboard-Plugin-specific Conventions
 
 - The `extends` field MUST contain a valid slot ID from a Wix business app — do NOT invent slot IDs.
-- Generated code must follow the project-wide [Code Quality Requirements](CODE_QUALITY.md).
 
 ## Examples
 
