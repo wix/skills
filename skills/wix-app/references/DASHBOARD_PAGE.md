@@ -61,33 +61,6 @@ When building a dashboard page to configure an embedded script, see [Dynamic Par
 - All parameters must be saved as strings (convert booleans/numbers to strings)
 - Use `withProviders` wrapper when dynamic parameters are present
 
-## WDS Provider Usage
-
-Wrap your dashboard page component with `WixDesignSystemProvider` to enable WDS components and theming. You must also import the global CSS styles for WDS components to render correctly.
-
-```typescript
-import { WixDesignSystemProvider } from "@wix/design-system";
-import '@wix/design-system/styles.global.css';
-
-export default function () {
-  return (
-    <WixDesignSystemProvider>
-      <Page>
-        <Page.Header
-          title="My Page"
-          subtitle="This is a subtitle for your page"
-        />
-        <Page.Content>
-          <EmptyState title="My Page" subtitle="Hello World!" theme="page" />
-        </Page.Content>
-      </Page>
-    </WixDesignSystemProvider>
-  );
-}
-```
-
-**Note:** When using dynamic parameters, use the `withProviders` wrapper instead. See [Dynamic Parameters](dashboard-page/DYNAMIC_PARAMETERS.md) for details.
-
 ## Hard Constraints
 
 - Do NOT invent or assume new types, modules, functions, props, events, or imports.
