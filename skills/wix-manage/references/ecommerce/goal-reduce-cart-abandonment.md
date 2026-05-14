@@ -1,16 +1,10 @@
 ---
 name: "Goal: Reduce Cart Abandonment"
-description: Maps checkout abandonment reduction to delivery step conversion KPIs and shipping optimization flows.
+description: Maps cart abandonment reduction to recovery automation KPIs. Covers abandoned cart email automation activation, missing sales detection, and eligibility thresholds. Also references shipping flows that affect checkout drop-off.
 layer: goal
 references:
-  - name: "Flow: Add Free Shipping"
-    path: ecommerce/flow-add-free-shipping.md
-    load: true
   - name: "Flow: Fix Coverage Gaps"
     path: ecommerce/flow-fix-coverage-gaps.md
-    load: true
-  - name: "Flow: Optimize Shipping Rates"
-    path: ecommerce/flow-optimize-shipping-rates.md
     load: false
   - name: "Recipe: Apply Shipping Recommendations"
     path: ecommerce/recipe-apply-shipping-recommendations.md
@@ -21,13 +15,10 @@ references:
 ---
 # Goal: Reduce Cart Abandonment
 
-> **Before executing this skill**, read these referenced skills with `ReadFullDocsArticle`:
-> - [Flow: Add Free Shipping](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-add-free-shipping)
-> - [Flow: Fix Coverage Gaps](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-fix-coverage-gaps)
->
 > **Related skills** (read with `ReadFullDocsArticle` if needed):
-> - [Flow: Optimize Shipping Rates](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-optimize-shipping-rates)
+> - [Flow: Fix Coverage Gaps](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-fix-coverage-gaps) — shipping coverage gaps block checkout entirely
 > - [Recipe: Apply Shipping Recommendations](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/recipe-apply-shipping-recommendations)
+> - [Setup Store Pickup Location](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/setup-store-pickup-location)
 > - [Setup Store Pickup Location](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/setup-store-pickup-location)
 
 Reduce checkout abandonment caused by shipping friction — coverage gaps, unexpected costs, and missing free shipping options — by optimizing the delivery step of the checkout funnel.
