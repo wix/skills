@@ -299,7 +299,7 @@ After writing, self-verify the file contains all of: `import '../styles/global.c
 
 The site shell. Contains:
 
-- `<head>` with meta tags, Google Fonts link for the chosen fonts, favicon, viewport
+- `<head>` with meta tags, Google Fonts link for the chosen fonts, favicon, viewport. Do not rely on `/favicon.svg` as the browser-facing href; Wix may intercept that root path. If you create a custom SVG favicon, keep the readable source in `public/favicon.svg` and embed the browser-facing icon as `data:image/svg+xml;base64,...` in `<link rel="icon">` unless the orchestrator gives you a verified site-favicon URL.
 - `import '../styles/global.css'`
 - One `import '../styles/components-<pack>.css'` per pack **that has a `components` agent** (listed in your prompt as "Packs with shared wiring"). Packs without shared wiring (e.g., `cms`) do NOT get an import — no agent writes that file, and importing it breaks the build.
 - `import { ClientRouter } from 'astro:transitions'` and `<ClientRouter />` rendered inside `<head>` — enables Astro View Transitions across the site so category-rail clicks feel like in-place filtering instead of full page loads.
