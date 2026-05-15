@@ -22,7 +22,7 @@ Use `wix generate --params` with `extensionType: SERVICE_PLUGIN`. `pluginType` i
 
 ## References
 
-**You MUST read the relevant reference document before implementing an SPI**, and **call `ReadFullDocsMethodSchema`** with the docs URL it points at to get the exact request/response types — **do NOT edit code until you have the schema**. Each reference also contains the correct imports, handler signatures, response structures, and a worked example.
+**You MUST read the relevant reference document before implementing an SPI**, and **call `ReadFullDocsMethodSchema`** with the docs URL it points at to get the exact request/response types — **do NOT edit code until you have the schema**. If the schema alone isn't enough, follow up with `ReadFullDocsArticle` on the same URL for prose explanations and additional code examples. Each reference also contains the correct imports, handler signatures, response structures, and a worked example.
 
 | SPI Type | Reference |
 | --- | --- |
