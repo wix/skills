@@ -2,76 +2,9 @@
 
 This reference documents components and patterns specific to widget settings panels. For general WDS component documentation (FormField, Input, Dropdown, Checkbox, ToggleSwitch, DatePicker, Box, etc.), use the the `wix-design-system` skill.
 
-## SidePanel Components
+## Layout
 
-### SidePanel
-
-Main container for the settings panel. Always wrap panel content in this component.
-
-```typescript
-<SidePanel width="300" height="100vh">
-  <SidePanel.Header title="Widget Settings" />
-  <SidePanel.Content noPadding stretchVertically>
-    {/* Form fields */}
-  </SidePanel.Content>
-</SidePanel>
-```
-
-**Props:**
-
-- `width`: Panel width (default: "300")
-- `height`: Panel height (default: "100vh")
-
-### SidePanel.Header
-
-Header section with title.
-
-```typescript
-<SidePanel.Header title="Widget Settings" />
-```
-
-**Props:**
-
-- `title`: Header title text
-
-### SidePanel.Content
-
-Content area for form fields.
-
-```typescript
-<SidePanel.Content noPadding stretchVertically>
-  {/* Form content */}
-</SidePanel.Content>
-```
-
-**Props:**
-
-- `noPadding`: Remove default padding
-- `stretchVertically`: Stretch to fill available height
-
-### SidePanel.Field
-
-Wrapper for individual form fields. Use this to wrap each `FormField`.
-
-```typescript
-<SidePanel.Field>
-  <FormField label="Title">
-    <Input value={title} onChange={handleChange} />
-  </FormField>
-</SidePanel.Field>
-```
-
-### SidePanel.Footer
-
-Optional footer rendered below `SidePanel.Content`. The CLI scaffolds one containing a `SectionHelper` linking to docs. Use it for contextual help, doc links, or secondary actions.
-
-```typescript
-<SidePanel.Footer noPadding>
-  <SectionHelper fullWidth appearance="success" border="topBottom">
-    Footer content (e.g., docs link).
-  </SectionHelper>
-</SidePanel.Footer>
-```
+The scaffolded `<name>.panel.tsx` already wraps everything in `SidePanel > Header > Content > Footer`. Wrap each `FormField` in `SidePanel.Field`. For component-level props (`SidePanel`, `SidePanel.Header`/`Content`/`Field`/`Footer`, `SectionHelper`), use the wix-design-system skill.
 
 ## Color & Font Picker Fields
 
