@@ -5,16 +5,20 @@ Embedded scripts are HTML code fragments injected into the DOM of Wix sites — 
 
 ## Scaffold
 
-Use `wix generate --params` with `extensionType: EMBEDDED_SCRIPT`. Allowed values:
+Use `wix generate --params` with all 5 required fields:
 
-| Field | Values |
+```bash
+wix generate --params '{"extensionType":"EMBEDDED_SCRIPT","name":"<name>","folder":"<folder>","scriptType":"<scriptType>","placement":"<placement>"}'
+```
+
+| Field | Constraint |
 | --- | --- |
-| `scriptType` | `ESSENTIAL`, `FUNCTIONAL`, `ANALYTICS`, `ADVERTISING` |
-| `placement` | `HEAD`, `BODY_START`, `BODY_END` |
+| `name` | Display name, any string. |
+| `folder` | Lowercase alphanumeric, hyphens, slashes (for sub-paths). |
+| `scriptType` | One of: `ESSENTIAL`, `FUNCTIONAL`, `ANALYTICS`, `ADVERTISING`. |
+| `placement` | One of: `HEAD`, `BODY_START`, `BODY_END`. |
 
-The CLI generates the folder, `embedded.html`, the builder file, the UUID, and the `src/extensions.ts` registration.
-
-**Companion dashboard page** — Every embedded script needs a configuration UI. Scaffold a separate `DASHBOARD_PAGE` extension and use `embeddedScripts` from `@wix/app-management` to load/save parameters (see [Dashboard Page reference](DASHBOARD_PAGE.md)).
+The CLI generates the folder, `<folder>.html` (the actual script HTML), the builder file, the UUID, and the `src/extensions.ts` registration. (It may also drop a sample `<other>.ts` module to demonstrate `<script type="module" src="./xxx.ts">` imports — feel free to delete or repurpose it.)
 
 After implementation, the app developer must enable `SCOPE.DC-APPS.MANAGE-EMBEDDED-SCRIPTS` in the Wix Dev Center — see [Enable Embedded Script Permission](#enable-embedded-script-permission).
 
@@ -33,40 +37,15 @@ Embedded scripts must declare a type for consent management:
 
 ## Placement Options
 
-| Placement    | Description                              | Best For                          |
-| ------------ | ---------------------------------------- | --------------------------------- |
-| `HEAD`       | Between `<head>` and `</head>` tags      | Analytics, early initialization   |
-| `BODY_START` | Immediately after opening `<body>` tag   | Critical functionality, noscript  |
-| `BODY_END`   | Immediately before closing `</body>` tag | Non-blocking scripts, performance |
-
-**Selection guidelines:**
-
-- Analytics/tracking → `HEAD` (initialize early)
-- Advertising pixels → `BODY_END` (non-blocking)
-- Critical functionality → `HEAD` or `BODY_START`
-- Non-critical features → `BODY_END` (better performance)
+| Placement    | Where in HTML                            | Best for                                                                |
+| ------------ | ---------------------------------------- | ----------------------------------------------------------------------- |
+| `HEAD`       | Between `<head>` and `</head>` tags      | Analytics, tracking, early initialization                               |
+| `BODY_START` | Immediately after opening `<body>` tag   | Critical functionality, `<noscript>` fallback                           |
+| `BODY_END`   | Immediately before closing `</body>` tag | Advertising pixels, non-critical features (non-blocking, better perf)   |
 
 ## Dynamic Parameters and Dashboard Configuration
 
-**Every embedded script requires a companion dashboard page** to configure its parameters. Site owners use the dashboard page UI to set values, which are then passed to the embedded script as template variables.
-
-### Architecture Flow
-
-```
-Dashboard Page (React UI)
-    │
-    │  embeddedScripts.embedScript({ parameters: {...} })
-    ▼
-Wix App Management API
-    │
-    │  Stores parameters, injects as template variables
-    ▼
-Embedded Script (HTML)
-    │
-    │  {{parameterKey}} → actual value
-    ▼
-Site DOM
-```
+**Every embedded script requires a companion dashboard page** to configure its parameters. Scaffold a separate `DASHBOARD_PAGE` extension and use `embeddedScripts` from `@wix/app-management` to load/save parameters (see [DASHBOARD_PAGE.md](DASHBOARD_PAGE.md)). Wix stores the parameters and injects them as `{{templateVars}}` into the HTML at render time.
 
 ### Parameter Types
 
@@ -84,126 +63,29 @@ Site DOM
 
 ### Template Variable Syntax
 
-Embedded scripts support parameterization using template variable syntax `{{variableName}}`. These parameters are configured through the dashboard and passed as template variables that should be used in your HTML/JavaScript code.
-
-**Usage Instructions:**
-
-1. **Template Variable Syntax:**
-   - Use `{{parameterKey}}` syntax to insert parameter values into your HTML
-   - Template variables work in HTML attributes
-   - They will be replaced with actual values when the script is injected
-
-2. **HTML Attributes (REQUIRED):**
-   - Store ALL parameter values in data attributes on a configuration element
-   - Template variables can ONLY be used here, not directly in JavaScript
-   - Example: `<div id="config" data-headline="{{headline}}" data-text="{{text}}"></div>`
-
-3. **JavaScript Access:**
-   - JavaScript must read parameter values from the data attributes
-   - Use `getAttribute()` or the `dataset` property
-   - Examples:
-     ```javascript
-     const config = document.getElementById("config");
-     const headline = config?.getAttribute("data-headline");
-     // OR using dataset:
-     const { headline, text } = config.dataset;
-     ```
-
-4. **Type Safety:**
-   - Be aware of parameter types when using them in JavaScript
-   - NUMBER types: convert with `Number()` or `parseInt()`
-   - BOOLEAN types: compare with `'true'` or `'false'` strings
-   - DATE/DATETIME: parse with `new Date()`
-
-5. **Required vs Optional:**
-   - Required parameters will always have values
-   - Optional parameters may be empty - handle gracefully
-   - Provide fallback values for optional parameters
-
-6. **Relevant Parameter Usage:**
-   - Only use dynamic parameters that are relevant to your current use case
-   - Ignore parameters that don't apply to the functionality you're implementing
-   - Each parameter you use should serve a clear purpose in the script's functionality
-   - It's perfectly fine to not use all parameters if they're not applicable
-
-**Example Patterns:**
-
-**Pattern 1 - Configuration in Data Attributes:**
+`{{parameterKey}}` placeholders are substituted at injection time, **but only inside HTML attribute values** — not inside `<script>` bodies. The required pattern is: render every parameter as a data attribute on a config element, then read it from `dataset` in JS.
 
 ```html
-<div
-  id="script-config"
+<div id="config"
   data-api-key="{{apiKey}}"
   data-enabled="{{enabled}}"
-  data-color="{{primaryColor}}"
-></div>
-<script>
-  const config = document.getElementById("script-config");
-  const apiKey = config.getAttribute("data-api-key");
-  const enabled = config.getAttribute("data-enabled") === "true";
-  const color = config.getAttribute("data-color");
-
-  if (enabled && apiKey) {
-    // Initialize with configuration
-  }
-</script>
-```
-
-**Pattern 2 - Using dataset Property:**
-
-```html
-<div
-  id="script-config"
   data-headline="{{headline}}"
-  data-message="{{message}}"
-  data-image-url="{{imageUrl}}"
 ></div>
 <script>
-  const config = document.getElementById("script-config");
-  const { headline, message, imageUrl } = config.dataset;
-
-  // Use the variables in your script logic
-  if (headline) {
-    document.querySelector("#headline").textContent = headline;
-  }
+  const { apiKey, enabled, headline } = document.getElementById("config").dataset;
+  // ...
 </script>
 ```
 
-**Pattern 3 - Conditional Logic:**
+**Type handling (all `dataset` values are strings):**
+- `NUMBER` → `Number(value)` or `parseInt(value, 10)`
+- `BOOLEAN` → compare against `"true"` / `"false"`
+- `DATE` / `DATETIME` → `new Date(value)`
 
-```html
-<div
-  id="config"
-  data-mode="{{activationMode}}"
-  data-start="{{startDate}}"
-  data-end="{{endDate}}"
-></div>
-<script>
-  const config = document.getElementById("config");
-  const mode = config.getAttribute("data-mode");
-
-  if (mode === "timed") {
-    const startDate = new Date(config.getAttribute("data-start"));
-    const endDate = new Date(config.getAttribute("data-end"));
-    const now = new Date();
-
-    if (now >= startDate && now <= endDate) {
-      // Show content
-    }
-  } else if (mode === "active") {
-    // Show content immediately
-  }
-</script>
-```
-
-**Validation Requirements:**
-
-- Only use dynamic parameters that are relevant to your specific use case
-- Ignore parameters that don't apply to the functionality being implemented
-- Template variables `{{parameterKey}}` must match the exact key names from the parameter definitions
-- Handle both required and optional parameters appropriately
-- Provide sensible default behavior when optional parameters are not set
-- Ensure type-appropriate usage (don't use NUMBER parameters as strings without conversion)
+**Other rules:**
+- Template variable names must match the parameter keys exactly.
+- Required parameters always have values; optional parameters may be empty — provide fallbacks.
+- Only use parameters that are relevant to the use case; don't reference parameters you don't implement.
 
 ### Common Parameters
 
@@ -217,53 +99,14 @@ Every embedded script should have at minimum an **enable/disable toggle** parame
 | `headline`   | `TEXT`    | Customizable display text            |
 | `color`      | `COLOR`   | UI customization                     |
 
-## Implementation Pattern
+## Module-script Rules
 
-Inside the generated `embedded.html`:
+The `<script type="module">` block runs at module scope, where Rollup (used by Astro) **disallows `return` statements**.
 
-```html
-<!-- Configuration element with template variables -->
-<div id="my-config" data-api-key="{{apiKey}}" data-enabled="{{enabled}}"></div>
+- Use `throw new Error(...)` for early exits at module scope (e.g., "script disabled" / "config element not found").
+- Wrap the main logic in a named `async function` and call it from a `DOMContentLoaded` listener (or directly if `document.readyState !== "loading"`); `return` is valid inside the function.
 
-<!-- Container for dynamic content -->
-<div id="my-container"></div>
-
-<style>
-  /* Scoped styles for the embedded content */
-  #my-container {
-    /* styles */
-  }
-</style>
-
-<script type="module">
-  // Get configuration from data attributes
-  const config = document.getElementById("my-config");
-  if (!config) throw new Error("Config element not found");
-
-  const { apiKey, enabled } = config.dataset;
-
-  // Exit early if disabled (use throw at module scope, not return)
-  if (enabled !== "true") {
-    throw new Error("Script disabled");
-  }
-
-  // Implement functionality in a named function (return is allowed here)
-  async function initialize() {
-    try {
-      // Your implementation
-    } catch (error) {
-      console.error("Script error:", error);
-    }
-  }
-
-  // Initialize when DOM is ready
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", initialize);
-  } else {
-    initialize();
-  }
-</script>
-```
+See the [Complete Example](#complete-example-coupon-popup) below for the full skeleton.
 
 ## Examples
 
