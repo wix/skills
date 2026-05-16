@@ -27,7 +27,7 @@ If your prompt is missing a `Scope:` line, stop and ask the parent — do not gu
 3. **Prefer the inlined recipe below and `IMAGE_GENERATION.md` over external docs.** When a PATCH or API call fails:
    1. **FIRST re-read your own recipe** in this file (INSTRUCTIONS.md § for that entity type) — it likely covers the error.
    2. If the recipe covers it, follow the recipe. Do NOT look up external docs for errors your recipe already handles.
-   3. **ONLY** if you've re-read the recipe AND the error is genuinely not covered, fall back to `SearchWixRESTDocumentation` / `ReadFullDocsArticle`.
+   3. **ONLY** if you've re-read the recipe AND the error is genuinely not covered, fall back to the docs-search REST endpoints — search via `GET https://www.wixapis.com/mcp-docs-search/v1/search` (with `kbName=REST_METHODS_KB_ID&kbName=REST_DOCS_KB_ID`) and read the top match via `GET https://dev.wix.com/rawdocs/api/get-article-content?articleUrl=<url>&schema=false`.
    
    Known errors already covered by this recipe (do not look up externally):
    - **428** from product PATCH → missing `options`/`variantsInfo` → see § "Products" step 1
@@ -356,4 +356,4 @@ The JSON block MUST be the **last** content in your message (see `../shared/RETU
 | PUT a CMS item with only `{data: {image: "..."}}` | Read-merge-write: query the item, merge image into existing `data`, PUT the full record (see § "CMS Items" step 4). Writing only `image` erases seeded heading/body/etc. |
 | Use `PATCH /wix-data/v2/items/{itemId}` with `{dataItem: {data}}` | PATCH requires JsonPatch `fieldModifications` — use read-merge-PUT instead (see § "CMS Items") |
 | Hit a 428 → immediately search external docs | Re-read § "Products" step 1 first — it covers 428. Only use external docs if your recipe genuinely doesn't cover the error (see § "Self-Loading" step 3) |
-| Default to `ReadFullDocsArticle` for API errors already covered by your recipe | Re-read your own recipe first; fall back to MCP doc tools only for errors genuinely not covered (see § "Self-Loading" step 3) |
+| Default to the docs-article REST endpoint for API errors already covered by your recipe | Re-read your own recipe first; fall back to the docs-search REST endpoints only for errors genuinely not covered (see § "Self-Loading" step 3) |

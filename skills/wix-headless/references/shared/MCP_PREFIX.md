@@ -86,9 +86,39 @@ This guards against parents that forgot to pass the prefix and against future pr
 
 Your agent directory includes `.md` reference files with API recipes, call templates, and error handling tailored to your scope. These are your primary source — they document the exact call patterns, body shapes, and edge cases for your use case.
 
-The Wix MCP also exposes documentation tools (`SearchWixRESTDocumentation`, `ReadFullDocsArticle`, `SearchWixSDKDocumentation`, etc.). These are useful when you hit an error or edge case not covered by your reference files. But **prefer your bundled `.md` files first** — each external doc read costs a tool call and 15-30s, and the bundled recipes are already validated for this plugin's flows.
+Wix also exposes a set of **public, unauthenticated REST endpoints** for documentation lookup. These are useful when you hit an error or edge case not covered by your reference files. But **prefer your bundled `.md` files first** — each external doc read costs a tool call and 15-30s, and the bundled recipes are already validated for this plugin's flows.
 
-**Rule of thumb:** read your reference files → try the documented recipe → only if you get an unexpected error or need an endpoint not covered, fall back to the MCP doc tools.
+### Documentation REST endpoints
+
+All endpoints below are public (no auth required). URL-encode query params. Use `curl --get --data-urlencode` to handle encoding correctly.
+
+| Purpose | Endpoint | Required query params |
+|---|---|---|
+| Search REST API docs | `GET https://www.wixapis.com/mcp-docs-search/v1/search` | `kbName=REST_METHODS_KB_ID`, `kbName=REST_DOCS_KB_ID`, `searchTerm`, `maxResults` |
+| Search SDK docs | `GET https://www.wixapis.com/mcp-docs-search/v1/search` | `kbName=API_REFERENCE_SDK_KB_ID`, `kbName=FRONTEND_SDK_AND_EXTENSIONS_KB_ID`, `kbName=REST_DOCS_KB_ID`, `searchTerm`, `maxResults` |
+| Search Headless docs | `GET https://www.wixapis.com/mcp-docs-search/v1/search` | `kbName=HEADLESS_KB_ID`, `searchTerm`, `maxResults` |
+| Search CLI docs | `GET https://www.wixapis.com/mcp-docs-search/v1/search` | `kbName=CLI_KB_ID`, `searchTerm`, `maxResults` |
+| Search WDS docs | `GET https://www.wixapis.com/mcp-docs-search/v1/search` | `kbName=WDS_DOCS_KB_ID`, `searchTerm`, `maxResults` |
+| Search Build-Apps docs | `GET https://www.wixapis.com/mcp-docs-search/v1/search` | `kbName=BUILD_APPS_KB_ID`, `searchTerm`, `maxResults` |
+| Read full article content | `GET https://dev.wix.com/rawdocs/api/get-article-content` | `articleUrl`, `schema=false` |
+| Read article method schema | `GET https://dev.wix.com/rawdocs/api/get-article-content` | `articleUrl`, `schema=true` |
+| Browse REST docs menu | `GET https://dev.wix.com/docs/api/v1/get-menu-content` | `url`, `format=markdown` |
+
+Example — search REST docs for `install app instance`, then read the top match's method schema:
+
+```bash
+curl -fsSL --get 'https://www.wixapis.com/mcp-docs-search/v1/search' \
+  --data-urlencode 'kbName=REST_METHODS_KB_ID' \
+  --data-urlencode 'kbName=REST_DOCS_KB_ID' \
+  --data-urlencode 'searchTerm=install app instance' \
+  --data-urlencode 'maxResults=5'
+
+curl -fsSL --get 'https://dev.wix.com/rawdocs/api/get-article-content' \
+  --data-urlencode 'articleUrl=<top-match-url>' \
+  --data-urlencode 'schema=true'
+```
+
+**Rule of thumb:** read your reference files → try the documented recipe → only if you get an unexpected error or need an endpoint not covered, fall back to the docs-search REST endpoints above.
 
 ---
 

@@ -70,7 +70,7 @@ Immediately after the brand name is confirmed (before Q2), emit **one concurrent
    **Strict-then-recover:**
    1. Script exit 2 (slug or brand validation failed) → orchestrator-side bug; the orchestrator should have caught this in pre-flight. Fix the slug derivation and retry.
    2. Auth error from npm/Wix CLI → surface `"Run \`npx @wix/cli login\` and retry."` and stop.
-   3. `invalid template` error → the template ID inside `scaffold.sh` is stale. Look up the current ID via `<prefix>SearchWixCLIDocumentation` query `create headless template`, edit the script's `TEMPLATE_ID` constant, retry once, log to `.wix/run.json.commandDrift[]` so the script can be tightened.
+   3. `invalid template` error → the template ID inside `scaffold.sh` is stale. Look up the current ID via the docs-search REST endpoint (`curl -fsSL --get 'https://www.wixapis.com/mcp-docs-search/v1/search' --data-urlencode 'kbName=CLI_KB_ID' --data-urlencode 'searchTerm=create headless template' --data-urlencode 'maxResults=5'`), edit the script's `TEMPLATE_ID` constant, retry once, log to `.wix/run.json.commandDrift[]` so the script can be tightened.
    4. Other errors → surface stderr to the user.
 
    Launch with background.

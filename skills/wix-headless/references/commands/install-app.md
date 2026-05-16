@@ -33,7 +33,7 @@ The MCP tool requires explicit `url` / `method` / `body` / `reason` / `sourceDoc
 | Outcome | Action |
 |---|---|
 | 2xx | Done. |
-| 4xx / 5xx with parseable body | Enter recover loop (max 1 retry): `{mcpPrefix}SearchWixRESTDocumentation` for `install app instance`, then `{mcpPrefix}ReadFullDocsMethodSchema` on the top match, then retry with the discovered shape. |
+| 4xx / 5xx with parseable body | Enter recover loop (max 1 retry): search the REST docs for `install app instance`, then read the method schema for the top match, then retry with the discovered shape. Example: <br>`curl -fsSL --get 'https://www.wixapis.com/mcp-docs-search/v1/search' --data-urlencode 'kbName=REST_METHODS_KB_ID' --data-urlencode 'kbName=REST_DOCS_KB_ID' --data-urlencode 'searchTerm=install app instance' --data-urlencode 'maxResults=5'` <br>then `curl -fsSL --get 'https://dev.wix.com/rawdocs/api/get-article-content' --data-urlencode 'articleUrl=<top-match-url>' --data-urlencode 'schema=true'`. |
 | Recovery succeeds | Append to `run.json.commandDrift[]`: `{ command: "install-app", primaryError: { status, body }, recoveredWith: { endpoint, bodyPatch }, suggestedFix: "Update references/commands/install-app.md body template" }`. |
 | Both paths fail | Surface the original response body and the doc link to the user. Do not loop further. |
 

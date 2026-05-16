@@ -159,6 +159,6 @@ Classes from contract (stores pack):
 | Default Tailwind color utilities on React islands (`bg-green-50`, `bg-blue-500`) | Brand `@theme` utilities (`bg-bark`, `text-cream`) or contract class names |
 | `<!--` HTML comments in `.astro` frontmatter | `//` or `/* */` — frontmatter is TypeScript |
 | Omit `WIX_STORES_APP_ID` constant | Hardcoded `215238eb-22a5-4c36-9e7b-e7c08025e04e` in AddToCartButton for `catalogReference.appId` |
-| Introspect `node_modules/@wix/*` | All symbols are documented here; if missing, call `<prefix>SearchWixSDKDocumentation` |
+| Introspect `node_modules/@wix/*` | All symbols are documented here; if missing, query the docs-search REST endpoint (`curl -fsSL --get 'https://www.wixapis.com/mcp-docs-search/v1/search' --data-urlencode 'kbName=API_REFERENCE_SDK_KB_ID' --data-urlencode 'kbName=FRONTEND_SDK_AND_EXTENSIONS_KB_ID' --data-urlencode 'kbName=REST_DOCS_KB_ID' --data-urlencode 'searchTerm=<symbol>' --data-urlencode 'maxResults=5'`) |
 | Write `CartView.tsx`, `CartBadge.tsx`, or `analytics.ts` | Not owned by this scope — do not write |
 | Pass flat props to `ProductPurchase` (`productId`, `options`, `variantsInfo`, …) | Pass the whole product: `<ProductPurchase product={product} inventoryByVariant={inventoryByVariant} />` |
