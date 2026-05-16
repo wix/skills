@@ -7,7 +7,13 @@ Common use cases: react to CRM events, sync data on order creation, send notific
 
 ## Scaffold
 
-Use `wix generate --params` with `extensionType: EVENT`. The CLI generates the folder, both files, the UUID, and the `src/extensions.ts` registration. After scaffolding, edit the generated handler to import the right SDK event and implement the logic.
+Use `wix generate --params` with all required fields:
+
+```bash
+wix generate --params '{"extensionType":"EVENT","folder":"<folder>"}'
+```
+
+`folder` must be lowercase alphanumeric and hyphens. The CLI generates the folder, both files, the UUID, and the `src/extensions.ts` registration. The scaffolded handler file imports a sample SDK event (CRM Contact Created) — replace the import and the handler body with the event you actually want.
 
 ## References
 
@@ -17,18 +23,7 @@ Use `wix generate --params` with `extensionType: EVENT`. The CLI generates the f
 
 ## Handler implementation
 
-Import the event from the correct SDK module and pass a handler. Wix invokes the handler with the event payload and metadata when the event occurs. Handler signatures are documented in the [JavaScript SDK reference](https://dev.wix.com/docs/sdk).
-
-```typescript
-import { contacts } from "@wix/crm";
-
-export default contacts.onContactCreated((event) => {
-  console.log("Contact created:", event.entity);
-  // Custom logic: sync to CRM, send welcome email, etc.
-});
-```
-
-Handlers can be `async`; ensure errors are caught and logged so one failing handler does not break others.
+Each handler imports an event from the relevant `@wix/*` SDK module and is `default`-exported (e.g., `export default contacts.onContactCreated((event) => { ... })`). See [COMMON-EVENTS.md](backend-event/COMMON-EVENTS.md) for the SDK module, handler name, payload shape, and required permission for each common event. Handlers can be `async`; wrap logic in try/catch so one failing handler doesn't break others.
 
 ## Elevating Permissions for API Calls
 
