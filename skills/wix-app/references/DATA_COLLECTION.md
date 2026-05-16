@@ -7,7 +7,9 @@ Creates CMS data collections for Wix CLI apps. The data collections extension al
 
 ## Scaffold
 
-Use `wix generate --params` with `extensionType: DATA_COLLECTION`. The CLI generates `src/extensions/data/extensions.ts` (or merges into it if other collections exist), the UUID, and the `src/extensions.ts` registration. Each invocation adds one collection — call it once per collection. After scaffolding, edit the generated entry to set `displayName`, `displayField`, `fields`, `dataPermissions`, and optionally `initialData`.
+Use `wix generate --params` with `extensionType: DATA_COLLECTION`. The only other param is `collectionName` (1-36 chars: letters, numbers, underscores, hyphens) — fields, permissions, displayName overrides, etc. are all edited after scaffolding in the generated file.
+
+The CLI manages a shared aggregator file (`data-collections.extension.ts`) that imports every collection file and registers them in one `extensions.dataCollections({...})` builder. The aggregator and `src/extensions.ts` are updated automatically — don't edit them manually.
 
 ## App Namespace Handling
 
@@ -29,25 +31,24 @@ Use `wix generate --params` with `extensionType: DATA_COLLECTION`. The CLI gener
 - **In `referencedCollectionId`:** Use the `idSuffix` only (not the full scoped ID) — the system resolves it automatically
 - Example: If `idSuffix` is `"product-recommendations"`, API calls use `"<app-namespace>/product-recommendations"` NOT `"<app-namespace>/productRecommendations"`
 
-## Collection Entry Shape
+## Collection File Shape
 
-Each entry inside `compData.dataComponent.collections[]` in the generated `src/extensions/data/extensions.ts` has this shape:
+The CLI scaffolds `<CollectionName>.ts` as a `satisfies DataCollection` default export. The scaffolded `fields` and `dataPermissions` are placeholders — replace them with your real schema, and set permissions per the [Context-Based Permission Rules](#context-based-permission-rules) before shipping.
 
 ```typescript
-{
-  schemaUrl: "https://www.wix.com/",
-  idSuffix: "<collection-name>",
-  displayName: "Display Name Shown in CMS",
-  displayField: "title",            // Field shown when referencing items
+import type { DataCollection } from '@wix/astro/builders';
+
+export const collectionIdSuffix = '<CollectionName>';
+
+export default {
+  idSuffix: collectionIdSuffix,
+  displayName: '<CollectionName>',
+  displayField: 'title',            // Field shown when referencing items
   fields: [ /* field definitions */ ],
-  dataPermissions: {
-    itemRead: "ANYONE",
-    itemInsert: "PRIVILEGED",
-    itemUpdate: "PRIVILEGED",
-    itemRemove: "PRIVILEGED",
-  },
-  initialData: [ /* optional initial rows */ ],
-}
+  dataPermissions: { /* itemRead, itemInsert, itemUpdate, itemRemove */ },
+  indexes: [],
+  initialData: [],
+} satisfies DataCollection;
 ```
 
 ## Field Types
@@ -181,20 +182,13 @@ Access levels control who can read, create, update, and delete items in collecti
 | **Backend code (site-side)** | Runs in visitor context | If called from page code or site-side modules, the caller has visitor-level permissions — data must be readable/writable at the appropriate public level. |
 | **Backend code (elevated)** | Runs with `auth.elevate()` from `@wix/essentials` | Can bypass permissions, but the collection still needs correct defaults for any non-elevated callers. |
 
+Use `SITE_MEMBER_AUTHOR` on `itemUpdate` / `itemRemove` when members should only modify their **own** items (e.g., a member can edit only their own reviews).
+
 **How to apply this:**
 
 1. **Identify every place the collection is read or written** — custom element widgets, dashboard pages, embedded scripts, backend APIs.
 2. **Use the least restrictive context as the floor.** If a custom element widget reads the data AND a dashboard page also reads it, `itemRead` must be `ANYONE` (because the widget is public).
 3. **Apply per-operation.** A collection can have `itemRead: ANYONE` (widget displays it) but `itemInsert: CMS_EDITOR` (only dashboard users add items). Each operation is independent.
-
-**Examples by blueprint type:**
-
-- **Dashboard manages data, custom element widget displays it:** `itemRead: ANYONE`, `itemInsert: CMS_EDITOR`, `itemUpdate: CMS_EDITOR`, `itemRemove: CMS_EDITOR`
-- **Custom element widget collects user submissions (e.g., reviews), dashboard moderates:** `itemRead: ANYONE`, `itemInsert: ANYONE`, `itemUpdate: CMS_EDITOR`, `itemRemove: CMS_EDITOR`
-- **Members-only widget reads data, members can submit:** `itemRead: SITE_MEMBER`, `itemInsert: SITE_MEMBER`, `itemUpdate: SITE_MEMBER_AUTHOR`, `itemRemove: CMS_EDITOR`
-- **Dashboard-only (no public surface):** `itemRead: CMS_EDITOR`, `itemInsert: CMS_EDITOR`, `itemUpdate: CMS_EDITOR`, `itemRemove: CMS_EDITOR`
-
-**Anti-pattern:** Setting `itemRead: PRIVILEGED` on a collection that a custom element widget queries — the widget will return empty results for all visitors because they lack privileged access.
 
 ## Relationships
 
@@ -247,72 +241,18 @@ Changes to your data collections extension require releasing a new major version
 
 ## Wix CLI-Specific Constraints
 
-### Embedded Script Parameters vs Collections
+### When NOT to use a Collection
 
-**CRITICAL: NEVER create CMS collections to store configuration for embedded scripts.**
+Collections are for **data**, not configuration:
 
-All embedded script configuration must go through embedded script parameters (`embeddedScriptParameters`), not CMS collections.
+- **Embedded script settings** → use `embeddedScriptParameters` instead.
+- **Custom element widget settings** → use the widget's `panel.tsx` (settings panel) instead. A widget-only blueprint usually needs **zero** collections.
+- **Single-value config** (theme, mode, threshold) → put it in the host extension's settings, not a one-field collection.
+- **Computed / aggregated values** (averages, counts) → calculate dynamically, don't store.
 
-**DO NOT create collections for:**
+Common values that do **not** belong in a collection: colors, fonts, sizes, headlines, labels, messages, dates/times, coupon codes, display positions, feature toggles, frequencies, numeric thresholds.
 
-- Colors, messages, headlines, text content
-- Coupon codes, display settings
-- UI customization (positions, sizes, styles)
-- Timing settings, feature toggles
-- Display frequencies, thresholds
-- Minimums/maximums
-- **ANY configuration that controls how an embedded script behaves or appears**
-
-**Examples of configuration (use parameters, NOT collections):**
-
-- Popup headline → embedded script parameter
-- Coupon code → embedded script parameter
-- Background color → embedded script parameter
-- Display position → embedded script parameter
-- Show/hide toggles → embedded script parameter
-
-**CMS collections should ONLY be created for:**
-
-- Business data (products, orders, inventory, etc.)
-- User-generated content (reviews, comments, submissions)
-- Event logs (if explicitly requested for analytics/tracking)
-- Multi-record relational data that is NOT configuration
-
-**Decision Rule:**
-
-- If it controls HOW the embedded script works or looks → it's configuration → use embedded script parameters
-- If it's business data or user-generated content → it's data → use CMS collections
-
-### Custom Element Widget Settings vs Collections
-
-**CRITICAL: custom element widgets have a built-in settings panel (`panel.tsx`) that handles ALL widget configuration.**
-
-**For CUSTOM_ELEMENT_WIDGET-only blueprints (no DASHBOARD_PAGE or other extensions):**
-
-- **Don't scaffold any data collections** — the widget panel handles everything
-- **NEVER create collections to store widget configuration data**
-
-**Configuration handled by widget panel (NOT collections):**
-
-- Target date/time for countdown → widget panel
-- Display colors, fonts, sizes → widget panel
-- Headlines, labels, messages → widget panel
-- Feature toggles, show/hide options → widget panel
-- Numeric settings (delays, intervals, thresholds) → widget panel
-
-**Only create collections for CUSTOM_ELEMENT_WIDGET when ALL of these conditions are met:**
-
-1. The blueprint ALSO includes a DASHBOARD_PAGE extension that needs to manage data the widget displays
-2. OR the widget explicitly needs to display MULTIPLE records of user-generated/business data (not configuration)
-3. AND the data is NOT configuration (dates, colors, settings, display options are ALWAYS configuration)
-
-### Anti-Patterns
-
-**Don't create aggregated fields.** If you have individual `rating` fields, calculate averages dynamically — don't store computed values like `averageRating`.
-
-**Don't duplicate configuration.** If embedded script parameters already hold `{ headline, color }`, don't also create a CMS collection with the same data.
-
-**Don't create single-value collections.** A collection with one field like `{ theme: "dark" }` should be an embedded script parameter or widget setting instead.
+Collections are for: business data (products, orders, inventory), user-generated content (reviews, comments, submissions), event logs, and multi-record relational data.
 
 ### Initial Data Rules
 
@@ -330,36 +270,46 @@ Each item in `initialData` must match the collection schema exactly:
 
 **Request:** "Create a collection for handling fees with example data"
 
-After running `wix generate --params '{"extensionType":"DATA_COLLECTION","collectionName":"additional-fees"}'`, edit the generated entry in `src/extensions/data/extensions.ts`:
+Scaffold:
+
+```bash
+wix generate --params '{"extensionType":"DATA_COLLECTION","collectionName":"additional-fees"}'
+```
+
+Edit the generated `src/extensions/backend/data-collections/additional-fees.ts`:
 
 ```typescript
-{
-  schemaUrl: "https://www.wix.com/",
-  idSuffix: "additional-fees",
-  displayName: "Additional Fees",
-  displayField: "title",
+import type { DataCollection } from '@wix/astro/builders';
+
+export const collectionIdSuffix = 'additional-fees';
+
+export default {
+  idSuffix: collectionIdSuffix,
+  displayName: 'Additional Fees',
+  displayField: 'title',
   fields: [
-    { key: "title", displayName: "Fee Title", type: "TEXT" },
-    { key: "amount", displayName: "Fee Amount", type: "NUMBER" },
+    { key: 'title', displayName: 'Fee Title', type: 'TEXT' },
+    { key: 'amount', displayName: 'Fee Amount', type: 'NUMBER' },
   ],
   dataPermissions: {
-    itemRead: "ANYONE",
-    itemInsert: "PRIVILEGED",
-    itemUpdate: "PRIVILEGED",
-    itemRemove: "PRIVILEGED",
+    itemRead: 'ANYONE',
+    itemInsert: 'PRIVILEGED',
+    itemUpdate: 'PRIVILEGED',
+    itemRemove: 'PRIVILEGED',
   },
+  indexes: [],
   initialData: [
-    { title: "Handling Fee", amount: 5 },
-    { title: "Gift Wrapping", amount: 3.5 },
+    { title: 'Handling Fee', amount: 5 },
+    { title: 'Gift Wrapping', amount: 3.5 },
   ],
-}
+} satisfies DataCollection;
 ```
 
 ### Collection with Reference Relationship
 
 **Request:** "Create collections for products and categories with relationships"
 
-Run `wix generate --params` twice — once with `collectionName: "categories"` and once with `collectionName: "products"`. Then edit `src/extensions/data/extensions.ts` to add a REFERENCE field on `products` pointing to `categories` (`referenceOptions: { referencedCollectionId: "categories" }`).
+Run `wix generate --params` twice — once with `collectionName: "categories"` and once with `collectionName: "products"`. Then edit `src/extensions/backend/data-collections/products.ts` to add a `REFERENCE` field pointing at `categories` (`referenceOptions: { referencedCollectionId: "categories" }`). The aggregator `data-collections.extension.ts` is updated by the CLI automatically.
 
 ## Common Patterns
 
