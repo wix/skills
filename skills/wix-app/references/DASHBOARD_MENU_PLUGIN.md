@@ -39,12 +39,10 @@ The `action` field determines what happens when the user clicks the menu item. C
 
 The generated builder file has an `iconKey` field. It must be a valid icon name from the Wix Design System icon set (`@wix/wix-ui-icons-common`). Use the `wix-design-system` skill to look up available icon names and update the generated builder file accordingly.
 
-## Hard Constraints
+## Dashboard-Menu-Plugin-specific Conventions
 
-- Do NOT invent or assume new types, modules, functions, props, events, or imports — use only entities explicitly present in the provided references or standard libraries already used in this project
-- NEVER use mocks, placeholders, or TODOs in any code — ALWAYS implement complete, production-ready functionality
-- A dashboard menu plugin does NOT have a React component — it is configuration-only
-- Do NOT confuse dashboard menu plugins with dashboard plugins — they are different extension types
+- A dashboard menu plugin does NOT have a React component — it is configuration-only.
+- Do NOT confuse dashboard menu plugins with dashboard plugins — they are different extension types.
 
 ## Slot Lookup Table
 
@@ -60,9 +58,3 @@ Identify which Wix app the user is targeting, then read **only** the correspondi
 | Wix Stores | stores, products, inventory, catalog | [stores-slots.md](dashboard-menu-plugin/stores-slots.md) |
 | Wix Restaurants | restaurants, reservations, online orders, menus | [restaurants-slots.md](dashboard-menu-plugin/restaurants-slots.md) |
 
-## Output Constraints
-
-**Token limits:** Your max output is ~10,000 tokens. Plan your response to stay under this limit.
-
-- Only output files that are directly required for the task
-- Do NOT add README.md or documentation files unless explicitly requested

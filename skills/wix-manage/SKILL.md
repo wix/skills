@@ -106,11 +106,69 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 
 ## eCommerce
 
+**Routing — pick the right entry point:**
+- **Any sales/business improvement request** (boost sales, promotions, help my business, holiday deals, improve revenue, discounts, shipping, coupons, clearance) → use [Recommend: eCommerce Strategy](references/ecommerce/recommend-ecommerce-strategy.md). This is the **default entry point** — it analyzes ALL domains (discounts, shipping, future: gift cards, taxes) and generates cross-domain recommendations. Do NOT ask clarifying questions.
+- **Apply previously generated shipping recommendations** → use [Recipe: Apply Shipping Recommendations](references/ecommerce/recipe-apply-shipping-recommendations.md)
+- **Store pickup configuration** → use [Setup Store Pickup Location](references/ecommerce/setup-store-pickup-location.md)
+- **Discount not working at checkout** → use [Troubleshoot: Discount Not Applying](references/ecommerce/troubleshoot-discount-not-applying.md)
+- **Checkout delivery step drop-off** → use [Troubleshoot: Checkout Delivery Drop-off](references/ecommerce/troubleshoot-checkout-delivery-dropoff.md)
+
+### [Recommend: eCommerce Strategy](references/ecommerce/recommend-ecommerce-strategy.md)
+**THE entry point for all eCommerce recommendation requests.** Unified skill that analyzes site data across ALL domains (discounts + shipping), generates up to 5 cross-domain recommendations, and persists them to the tracking database. Covers discount strategies (seasonal, upsell, stock mover, bundling) AND shipping optimization (coverage gaps, free shipping, rate strategy, carrier backup). Use this for ANY business improvement request.
+
 ### [Recipe: Apply Shipping Recommendations](references/ecommerce/recipe-apply-shipping-recommendations.md)
-**Technical:** Applies AI-generated shipping recommendations to a Wix e-commerce store. Reads the current delivery profile and shipping options, then creates or updates shipping options based on recommendation data. Supports creating new options with conditional rates, updating existing options, and querying delivery profiles for region/carrier context.
+**Technical:** Applies AI-generated shipping recommendations. Creates or updates shipping options based on recommendation data.
 
 ### [Setup Store Pickup Location](references/ecommerce/setup-store-pickup-location.md)
-**Technical:** Configures a pickup option for an online store so customers can choose in-store pickup at checkout. Uses the Delivery Profiles API to discover the Pickup carrier, add a delivery region, and attach the carrier with a free pickup rate.
+**Technical:** Configures in-store pickup at checkout using Delivery Profiles API.
+
+### [Troubleshoot: Discount Not Applying](references/ecommerce/troubleshoot-discount-not-applying.md)
+**Technical:** Diagnostic tree for inactive discounts — checks active status, time window, scope targeting, revision mismatch, app installation.
+
+### [Troubleshoot: Checkout Delivery Drop-off](references/ecommerce/troubleshoot-checkout-delivery-dropoff.md)
+**Technical:** Diagnostic tree for delivery step conversion below 65% benchmark.
+
+<details>
+<summary>Internal skills (loaded automatically by the entry points above — do NOT use directly)</summary>
+
+#### Goals
+- [Goal: Increase AOV](references/ecommerce/goal-increase-aov.md) — UPSELL_BOOST
+- [Goal: Clear Inventory](references/ecommerce/goal-clear-inventory.md) — STOCK_MOVER
+- [Goal: Seasonal Revenue](references/ecommerce/goal-seasonal-revenue.md) — SEASONAL
+- [Goal: Drive Cross-Sells](references/ecommerce/goal-drive-cross-sells.md) — BUNDLE_AND_SAVE
+- [Goal: Reduce Cart Abandonment](references/ecommerce/goal-reduce-cart-abandonment.md) — Shipping
+
+#### Flows
+- [Flow: Upsell Boost](references/ecommerce/flow-upsell-boost.md)
+- [Flow: Bundle and Save](references/ecommerce/flow-bundle-and-save.md)
+- [Flow: Stock Mover](references/ecommerce/flow-stock-mover.md)
+- [Flow: Seasonal Promotion](references/ecommerce/flow-seasonal-promotion.md)
+- [Flow: Fix Coverage Gaps](references/ecommerce/flow-fix-coverage-gaps.md)
+- [Flow: Add Free Shipping](references/ecommerce/flow-add-free-shipping.md)
+- [Flow: Optimize Shipping Rates](references/ecommerce/flow-optimize-shipping-rates.md)
+
+#### Guardrails
+- [Guardrail: Discount Conflicts](references/ecommerce/guardrail-discount-conflicts.md)
+- [Guardrail: Margin Protection](references/ecommerce/guardrail-margin-protection.md)
+- [Guardrail: Shipping Health](references/ecommerce/guardrail-shipping-health.md)
+- [Guardrail: Rate Pricing Sanity](references/ecommerce/guardrail-rate-pricing-sanity.md)
+
+#### Config & API References
+- [API: Discount Recommendations](references/ecommerce/api-discount-recommendations.md)
+- [API: Recommendation Tracking](references/ecommerce/api-recommendation-tracking.md)
+- [Setup: Discount Rules](references/ecommerce/setup-discount-rules.md)
+- [Setup: Coupons](references/ecommerce/setup-coupons.md)
+- [Setup: Shipping Regions](references/ecommerce/setup-shipping-regions.md)
+- [Setup: Shipping Rates](references/ecommerce/setup-shipping-rates.md)
+
+#### Tracking
+- Tracking is built into [Recommend: eCommerce Strategy](references/ecommerce/recommend-ecommerce-strategy.md) (Steps 2 + 8) — no separate skill needed
+- [API: Recommendation Tracking](references/ecommerce/api-recommendation-tracking.md) — CRUD API reference for the tracking service
+
+#### Reference
+- [Skill Graph](references/ecommerce/skill-graph.md)
+
+</details>
 
 ---
 

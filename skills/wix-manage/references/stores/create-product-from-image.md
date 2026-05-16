@@ -5,11 +5,13 @@ description: "MANDATORY entry point for creating a product from an image. STEP 1
 # RECIPE: Create Product from Image
 
 > **ALWAYS use this recipe as the entry point** when the user wants to create a product from one or more images. Do NOT skip STEP 1 (version detection) — even if you believe you know the catalog version from dynamic context.
+>
+> **CRITICAL — IMAGE DESCRIPTION FIRST:** In your VERY FIRST response after seeing a product image, you MUST write a detailed text description of what you see in the image (product type, colors, materials, shape, branding). Output this description as text alongside your first tool call. This description will persist in conversation context and is the ONLY source of truth for product details in later steps. Do NOT attempt to re-analyze the image later — use the description you wrote here.
 
 This recipe creates a Wix Store product from an image. It first detects the site's catalog version, then runs the appropriate flow:
 
 - **V3 flow:** 6 interactive steps. Up to 3 images, multi-image variant detection, info sections (materials, care, specs), SEO meta, options/variants, atomic single-call create.
-- **V1 flow:** 4 sequential steps. Single image, simple product, separate media-attach call after create.
+- **V1 flow:** 3 sequential steps. Single image, product details inferred from the image, separate media-attach call after create.
 
 **Prerequisites:**
 - The user MUST provide at least one product image — uploaded directly to the chat or as a publicly accessible URL.
@@ -35,9 +37,9 @@ Possible values for `catalogVersion`:
 
 | Value | Action |
 |-------|--------|
-| `V3_CATALOG` | Run the **V3 Flow** below (V3 STEP 2 through V3 STEP 7) |
-| `V1_CATALOG` | Run the **V1 Flow** below (V1 STEP 2 through V1 STEP 5) |
-| `STORES_NOT_INSTALLED` | Stop. Inform the user: "The Wix Stores app is not installed on this site. Please install Wix Stores first before creating products. You can install it using the [Install Wix Apps](../app-installation/install-wix-apps.md) recipe." |
+| `V3_CATALOG` | Run the **V3 Flow** below (V3 STEP 2 through V3 STEP 6) |
+| `V1_CATALOG` | Run the **V1 Flow** below (V1 STEP 2 through V1 STEP 4) |
+| `STORES_NOT_INSTALLED` | Stop. Inform the user: "The Wix Stores app is not installed on this site. Please install Wix Stores first before creating products. You can install it using the [Install Wix Apps](https://dev.wix.com/docs/api-reference/business-management/app-installation/skills/install-wix-apps) recipe." |
 
 ---
 
@@ -45,13 +47,13 @@ Possible values for `catalogVersion`:
 
 > Run this section ONLY if STEP 1 returned `V3_CATALOG`. Otherwise jump to the V1 Flow further below.
 
-This is an interactive 6-step flow. V3 STEP 5 and V3 STEP 6 require user interaction — do NOT skip them.
+This is an interactive 5-step flow (STEP 2 through STEP 6). V3 STEP 4 and V3 STEP 5 require user interaction — do NOT skip them.
 
 ---
 
-## V3 STEP 2: Collect Images from User
+## V3 STEP 2: Collect Images and Upload to Wix Media Manager
 
-Ask the user to provide **1 to 3 images** of their product. Present the following prompt:
+Ask the user to provide **1 to 3 images** of their product:
 
 > Upload 1-3 images of your product. If your product comes in different colors or sizes, feel free to upload images of those variants — I'll use them to set up product options automatically.
 >
@@ -66,11 +68,7 @@ Ask the user to provide **1 to 3 images** of their product. Present the followin
 
 **Optional free-text:** The user may include a text note with context (e.g., "handmade ceramic mug, usually around $25, available in blue and green"). Use this to supplement the image analysis.
 
----
-
-## V3 STEP 3: Upload Images to Wix Media Manager
-
-For each image provided by the user, upload it to the Wix Media Manager. This ensures reliable wixstatic.com URLs for the product.
+**Immediately upload each image** to the Wix Media Manager to get permanent public URLs:
 
 **API Endpoint:** `POST https://www.wixapis.com/site-media/v1/files/import`
 
@@ -99,7 +97,7 @@ For each image provided by the user, upload it to the Wix Media Manager. This en
 }
 ```
 
-**After uploading, save the `file.url` (wixstatic.com URL) for each image.** You need these in V3 STEP 7.
+**After uploading, save the `file.url` (wixstatic.com URL) for each image.** You need these in V3 STEP 3 and V3 STEP 6.
 
 **Fallback:** If the upload fails (e.g., the source URL is not publicly accessible, or `operationStatus: "FAILED"`), ask the user: "I couldn't upload that image. Could you provide a publicly accessible URL for it (e.g., from Unsplash, Imgur, or any https:// link)?"
 
@@ -109,9 +107,13 @@ For each image provided by the user, upload it to the Wix Media Manager. This en
 
 ---
 
-## V3 STEP 4: Analyze Images and Generate Product Details
+## V3 STEP 3: Analyze Images and Generate Product Details
 
-Analyze **all** uploaded images together. If the user provided a free-text note, incorporate it into the analysis. Generate the following fields:
+**Use the image description you wrote at the start of this conversation** (in your first response, per the CRITICAL instruction at the top of this recipe). That description is the source of truth for all product fields. Do NOT attempt to re-analyze the image — use the text description already in context.
+
+**Use ONLY details from your earlier image description to generate the fields below.** Do NOT use generic names like "Product" or hallucinate new details. If you did not write an image description earlier, ask the user for clarification instead of guessing.
+
+**Generate the following fields based on what you see in the image(s)** (and any free-text note from the user):
 
 ### 4a. Product Name
 A concise, appealing product name optimized for e-commerce discoverability. Maximum 80 characters. Follow the naming convention: `[Brand/Style] [Material] [Product Type]`.
@@ -119,7 +121,7 @@ A concise, appealing product name optimized for e-commerce discoverability. Maxi
 Example: `"Artisan Stoneware Ceramic Mug"` — not generic names like `"Mug"` or `"Product"`.
 
 ### 4b. Product Description
-A marketing description of 2-4 sentences. Highlight key features, materials, and use case. Adapt tone to the product type (artisanal for handmade, technical for electronics, warm for home goods). This will be formatted as rich text nodes in V3 STEP 7.
+A marketing description of 2-4 sentences. Highlight key features, materials, and use case. Adapt tone to the product type (artisanal for handmade, technical for electronics, warm for home goods). This will be formatted as rich text nodes in V3 STEP 6.
 
 ### 4c. Price with Market Range
 - Suggest a retail price based on the product type and industry averages.
@@ -163,7 +165,7 @@ Common options to detect:
 
 ---
 
-## V3 STEP 5: Present Review Card to User (INTERACTIVE)
+## V3 STEP 4: Present Review Card to User (INTERACTIVE)
 
 **You MUST present ALL generated fields to the user and ask for confirmation before proceeding.**
 
@@ -194,9 +196,9 @@ If the user provided a text note that **contradicts** what's visible in the imag
 
 ---
 
-## V3 STEP 6: Suggest Options and Ask User (INTERACTIVE)
+## V3 STEP 5: Suggest Options and Ask User (INTERACTIVE)
 
-**Present the detected options from V3 STEP 4f and ask the user if they want to add product options.**
+**Present the detected options from V3 STEP 3f and ask the user if they want to add product options.**
 
 If options were detected:
 
@@ -218,7 +220,7 @@ If no options were detected:
 
 ---
 
-## V3 STEP 7: Create the Product
+## V3 STEP 6: Create the Product
 
 **API Endpoint:** `POST https://www.wixapis.com/stores/v3/products`
 
@@ -592,12 +594,11 @@ Use this if the user confirmed or provided options in V3 STEP 6. You MUST define
 Before reporting success to the user, verify ALL of the following:
 
 - [ ] STEP 1 completed: Catalog version detected as `V3_CATALOG`.
-- [ ] V3 STEP 2 completed: User provided 1-3 images of a single product.
-- [ ] V3 STEP 3 completed: All images were uploaded to Media Manager (or fallback URLs collected).
-- [ ] V3 STEP 4 completed: All product fields generated (name, description, price, info sections, SEO, options).
-- [ ] V3 STEP 5 completed: User reviewed and approved the generated details.
-- [ ] V3 STEP 6 completed: User confirmed, modified, or skipped product options.
-- [ ] V3 STEP 7 completed: Product was created via API and you received a product ID.
+- [ ] V3 STEP 2 completed: User provided 1-3 images, all uploaded to Media Manager with wixstatic.com URLs.
+- [ ] V3 STEP 3 completed: Images analyzed from user's message, all product fields generated based on what's visible in the image(s).
+- [ ] V3 STEP 4 completed: User reviewed and approved the generated details.
+- [ ] V3 STEP 5 completed: User confirmed, modified, or skipped product options.
+- [ ] V3 STEP 6 completed: Product was created via API and you received a product ID.
 
 ---
 
@@ -605,12 +606,11 @@ Before reporting success to the user, verify ALL of the following:
 
 > Run this section ONLY if STEP 1 returned `V1_CATALOG`. Otherwise use the V3 Flow above.
 
-This is a 4-step sequential flow. ALL steps MUST be completed in order. Do NOT report success until ALL 4 steps have executed successfully.
+This is a 3-step sequential flow (STEP 2 through STEP 4). ALL steps MUST be completed in order. Do NOT report success until ALL steps have executed successfully.
 
 **V1 prerequisites:**
-- The user MUST provide a publicly accessible image URL (starts with `https://` or `http://`).
-- If the user uploaded an image directly to the chat instead of providing a URL, you MUST ask them: "Please provide a public URL where the image is hosted (e.g., an Unsplash, Imgur, or any https:// link). I cannot use images uploaded directly to the chat — I need a publicly accessible URL that the Wix Media API can download from."
-- Do NOT proceed until you have a valid public URL.
+- The user MUST provide at least one product image — uploaded directly to the chat or as a publicly accessible URL.
+- Both chat uploads and public URLs are accepted. Chat-uploaded images have a wixmp URL that works for Media Manager import.
 
 ---
 
@@ -622,7 +622,7 @@ This is a 4-step sequential flow. ALL steps MUST be completed in order. Do NOT r
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `url` | string | Yes | The publicly accessible HTTP/HTTPS URL of the image. MUST start with `https://` or `http://`. CANNOT be a file ID, file reference, local path, or chat-uploaded file token. |
+| `url` | string | Yes | The image URL. Can be a publicly accessible HTTP/HTTPS URL OR a wixmp URL from a chat-uploaded image. Both work with the Media Manager import API. |
 | `mimeType` | string | Recommended | The MIME type of the image. Use `image/jpeg` for .jpg/.jpeg files, `image/png` for .png files, `image/webp` for .webp files. |
 | `displayName` | string | No | A display name for the file in Media Manager. Include the file extension (e.g., `product-image.jpg`). |
 
@@ -652,38 +652,30 @@ This is a 4-step sequential flow. ALL steps MUST be completed in order. Do NOT r
 ```
 
 **After this step, save these values — you need them later:**
-- `file.url` — the wixstatic.com URL (use in V1 STEP 5)
+- `file.url` — the wixstatic.com URL (use in V1 STEP 4)
 - `file.id` — the media file ID
 
 **If the response contains `operationStatus: "FAILED"`:** The source URL is not accessible. Ask the user for a different image URL.
 
 ---
 
-## V1 STEP 3: Analyze the Image and Generate Product Details
-
-Look at the image from the URL provided by the user. Based on what you see in the image, generate the following three values:
-
-1. **Product name** — A concise, appealing product name. Maximum 80 characters. Example: `"Premium Spinning Fishing Reel"`.
-2. **Product description** — A marketing description of 2-3 sentences. MUST be wrapped in HTML `<p>` tags. Example: `"<p>A sleek black-and-gold spinning fishing reel designed for smooth retrieves. Ideal for freshwater or light saltwater fishing.</p>"`. Do NOT use plain text without `<p>` tags — the API will reject it.
-3. **Product price** — A reasonable retail price as a number (not a string). Example: `79.99`.
-
-**CRITICAL:** These values MUST describe the actual product visible in the image. Do NOT use generic placeholder text.
-
----
-
-## V1 STEP 4: Create the Product
+## V1 STEP 3: Create the Product (with image-based details)
 
 **API Endpoint:** `POST https://www.wixapis.com/stores/v1/products`
+
+**Use the image description you wrote at the start of this conversation** (in your first response, per the CRITICAL instruction at the top of this recipe). That description is the source of truth for the product name, description, and price. Do NOT attempt to re-analyze the image — use the text description already in context.
+
+**Use ONLY details from your earlier image description to set the product name, description, and price below.** Do NOT use generic text like "Product from image" or hallucinate new details. If you did not write an image description earlier, ask the user for clarification instead of guessing.
 
 **Request body fields:**
 
 | Field | Type | Required | Value |
 |-------|------|----------|-------|
-| `product.name` | string | Yes | The product name from V1 STEP 3 (max 80 chars) |
-| `product.description` | string | Yes | The HTML description from V1 STEP 3 (wrapped in `<p>` tags) |
+| `product.name` | string | Yes | A concise, appealing name describing the ACTUAL product in the image (max 80 chars). Example: `"Premium Spinning Fishing Reel"` — NOT `"Product from image"`. |
+| `product.description` | string | Yes | A 2-3 sentence marketing description of what you SEE in the image. MUST be wrapped in `<p>` tags. |
 | `product.visible` | boolean | Yes | `true` |
-| `product.productType` | string | Yes | `"physical"` (only supported value) |
-| `product.priceData.price` | number | Yes | The price from V1 STEP 3 |
+| `product.productType` | string | Yes | `"physical"` |
+| `product.priceData.price` | number | Yes | A reasonable retail price based on the product type visible in the image |
 
 **Exact request example (using values from V1 STEP 3):**
 
@@ -717,12 +709,12 @@ Look at the image from the URL provided by the user. Based on what you see in th
 }
 ```
 
-**After this step, save this value — you need it in V1 STEP 5:**
+**After this step, save this value — you need it in V1 STEP 4:**
 - `product.id` — the product ID (a UUID string like `"a1b2c3d4-e5f6-7890-abcd-ef1234567890"`)
 
 ---
 
-## V1 STEP 5: Attach the Image to the Product (MANDATORY — DO NOT SKIP)
+## V1 STEP 4: Attach the Image to the Product (MANDATORY — DO NOT SKIP)
 
 **API Endpoint:** `POST https://www.wixapis.com/stores/v1/products/{id}/media`
 
@@ -761,11 +753,10 @@ Before reporting success to the user, verify ALL of the following:
 
 - [ ] STEP 1 completed: Catalog version detected as `V1_CATALOG`.
 - [ ] V1 STEP 2 completed: Image was uploaded to Wix Media Manager and you received a wixstatic.com URL.
-- [ ] V1 STEP 3 completed: You analyzed the image and generated a name, description, and price.
-- [ ] V1 STEP 4 completed: Product was created and you received a product ID.
-- [ ] V1 STEP 5 completed: Image was attached to the product using the Add Product Media endpoint.
+- [ ] V1 STEP 3 completed: You looked at the image, identified the product, and created it with accurate name/description/price.
+- [ ] V1 STEP 4 completed: Image was attached to the product using the Add Product Media endpoint.
 
-Only after ALL 5 steps succeed (STEP 1 + V1 STEP 2-5), report to the user: the product name, price, and that it was created with the image attached.
+Only after ALL 4 steps succeed (STEP 1 + V1 STEP 2-4), report to the user: the product name, price, and that it was created with the image attached.
 
 ---
 
@@ -805,10 +796,10 @@ Show an error and offer to retry. Do NOT leave a partially created product.
 ## V1 issues
 
 ### "The url field must be a publicly accessible URL"
-The user provided a file ID, file token, or local file reference instead of a public URL. Ask for a URL that starts with `https://`.
+The URL may be a local file path or invalid reference. Both public HTTPS URLs and wixmp URLs from chat uploads work. If the error persists, ask the user for a different image source.
 
 ### Product created but no image visible (V1)
-You used the original external URL instead of the wixstatic.com URL in V1 STEP 5. Always use the `file.url` from V1 STEP 2's response.
+You used the original external URL instead of the wixstatic.com URL in V1 STEP 4. Always use the `file.url` from V1 STEP 2's response.
 
 ## Cross-version errors
 
@@ -817,7 +808,7 @@ The source server blocks external requests. Ask the user for a different image U
 
 ### 428 Precondition Required on product creation
 You called the wrong endpoint for the site's catalog version. Re-run STEP 1 to detect the version and use the matching flow:
-- V3 sites must use `POST /stores/v3/products` (V3 STEP 7)
+- V3 sites must use `POST /stores/v3/products` (V3 STEP 6)
 - V1 sites must use `POST /stores/v1/products` (V1 STEP 4)
 
 # References
@@ -825,9 +816,9 @@ You called the wrong endpoint for the site's catalog version. Re-run STEP 1 to d
 - [Get Catalog Version](https://dev.wix.com/docs/rest/business-solutions/stores/catalog-versioning/get-catalog-version)
 - [Catalog Versioning Overview](https://dev.wix.com/docs/rest/business-solutions/stores/catalog-versioning/introduction)
 - [Create Product (Catalog V3)](https://dev.wix.com/docs/rest/business-solutions/stores/catalog-v3/products-v3/create-product)
-- [Create Product with Options (Catalog V3)](create-product-with-options-catalog-v3.md)
+- [Create Product with Options (Catalog V3)](https://dev.wix.com/docs/api-reference/business-solutions/stores/skills/create-product-with-options-catalog-v3)
 - [Info Sections API (Catalog V3)](https://dev.wix.com/docs/rest/business-solutions/stores/catalog-v3/info-sections-v3/introduction)
-- [Create Product (Catalog V1)](create-product-catalog-v1.md)
+- [Create Product (Catalog V1)](https://dev.wix.com/docs/api-reference/business-solutions/stores/skills/create-product-catalog-v1)
 - [Add Product Media (Catalog V1)](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v1/catalog/add-product-media)
-- [Upload Media to Wix](../media/upload-media-to-wix.md)
-- [Install Wix Apps](../app-installation/install-wix-apps.md)
+- [Upload Media to Wix](https://dev.wix.com/docs/api-reference/assets/media/skills/upload-media-to-wix)
+- [Install Wix Apps](https://dev.wix.com/docs/api-reference/business-management/app-installation/skills/install-wix-apps)

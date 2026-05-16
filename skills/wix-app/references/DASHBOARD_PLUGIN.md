@@ -80,12 +80,6 @@ const Plugin: FC<Props> = (props) => {
 - **Height** adjusts dynamically based on content within slot boundaries
 - When using Dashboard SDK or dashboard-react SDK, dimensions change dynamically based on contents
 
-## Hard Constraints
-
-- Do NOT invent or assume new types, modules, functions, props, events, or imports — use only entities explicitly present in the provided references or standard libraries already used in this project
-- NEVER use mocks, placeholders, or TODOs in any code — ALWAYS implement complete, production-ready functionality
-- Prefer type-narrowing and exhaustive logic over assertions; avoid non-null assertions (`!`) and unsafe casts (`as any`)
-- Do NOT use `// @ts-ignore` or `// @ts-expect-error`; fix the types or add guards instead
 
 ## Examples
 
@@ -107,10 +101,3 @@ const Plugin: FC<Props> = (props) => {
 
 **Output:** Plugin targeting slot `cb16162e-42aa-41bd-a644-dc570328c6cc` (eCommerce Order page) with status badges and fulfillment details, using `observeState()` to access order data.
 
-### Output Constraints
-
-**Token limits:** Your max output is ~10,000 tokens. Plan your response to stay under this limit.
-
-- If making a large file (>300 lines), split it into multiple smaller files with imports
-- Only output files that are directly required for the task
-- Do NOT add README.md or documentation files unless explicitly requested

@@ -279,12 +279,9 @@ const handleFontChange = (value: FontValue) => {
 
 Avoid generic aesthetics. Create distinctive designs with unique fonts (avoid Inter, Roboto, Arial), cohesive color palettes, CSS animations for micro-interactions, and context-specific choices. Don't use clichéd color schemes or predictable layouts.
 
-## Code Quality Requirements
+## Custom-element-specific Conventions
 
-- Strict TypeScript (no `any`, explicit return types)
-- Functional React components with hooks
-- Proper error handling and loading states
-- No `@ts-ignore` comments
-- Inline styles only (no CSS imports)
-- Handle Wix Editor environment when using Wix Data API
-- Consistent prop naming (camelCase in widget, kebab-case in panel)
+- Functional React components with hooks.
+- Inline styles only (no CSS imports).
+- Handle Wix Editor environment when using Wix Data API.
+- Consistent prop naming (camelCase in widget, kebab-case in panel).
