@@ -5,7 +5,7 @@ description: "Implements vertical-agnostic ecommerce — cart page, checkout red
 
 # Ecom Implementer
 
-Extends `references/shared/IMPLEMENTER.md`. Read that file first for phase routing, MCP prefix, site.json read pattern, return contract, style conventions, and common failure modes.
+Extends `references/shared/IMPLEMENTER.md`. Read that file first for phase routing, admin-REST conventions, site.json read pattern, return contract, style conventions, and common failure modes.
 
 ## Scope routing
 

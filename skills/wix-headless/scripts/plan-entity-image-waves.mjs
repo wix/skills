@@ -9,8 +9,9 @@
 //
 //   waves     — Runware generation requests, grouped into waves of <waveSize>
 //               (default 3) to match the google:4@2 throttle. Each wave is
-//               one orchestration step with N parallel CallWixSiteAPI tool
-//               calls; each tool call sends one task in the body array.
+//               one orchestration step with N parallel `curl` calls to
+//               https://www.wixapis.com/runwareschemaless/v1/request; each
+//               call sends one task in the body array.
 //
 //   imports   — POST /site-media/v1/files/import requests, one per generated
 //               image. Indexed by taskUUID so the orchestrator threads the

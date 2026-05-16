@@ -395,13 +395,13 @@ Agents should check their output for these before returning `complete`:
 | Missing `variantId` in cart operations | Check `catalogReference.options` | Always include — single-variant products have one |
 | React island using default Tailwind color class | `grep 'bg-blue-\|bg-green-\|text-red-\|bg-gray-' *.tsx` | Use brand `@theme` utilities (`bg-bark`, `text-cream`) or contract class names |
 
-### MCP
+### Admin REST
 
 | Failure | How to detect | Fix |
 |---------|---------------|-----|
-| `UNSUPPORTED_FORM_NAMESPACE` after app install | Error on first MCP call post-install | Wait 10s, retry up to 3x (namespace propagation) |
-| `CallWixSiteAPI` with stringified `body` | Tool rejects the call shape | Load the tool schema via your runtime's tool-discovery primitive, then pass `body` as a real object |
-| Tool-not-found on Wix MCP call | Tool name without the session's prefix | Use `<prefix>ToolName`; see `MCP_PREFIX.md` recovery |
+| `UNSUPPORTED_FORM_NAMESPACE` after app install | Error on first REST call post-install | Wait 10s, retry up to 3x (namespace propagation) |
+| 401 on every admin call | `curl` returns `{"message":"Unauthenticated"}` | `$TOKEN` is empty or expired — re-run `npx @wix/cli token --site $SITE_ID`. If still 401, run `npx @wix/cli login` and retry. |
+| 4xx with `"Expected an object"` body | Endpoint expects JSON object but `-d` was passed an empty/malformed payload | Verify `-d` argument is valid JSON and `-H 'Content-Type: application/json'` is set; see `REST_CONVENTIONS.md` |
 
 ### Build
 

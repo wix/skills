@@ -78,7 +78,7 @@ Immediately after the brand name is confirmed (before Q2), emit **one concurrent
 2. **Prefetch shared contracts** — siblings in the same concurrent batch (resolve `<SKILL_ROOT>` per SKILL.md § "Path resolution"):
    - `Read <SKILL_ROOT>/references/shared/RETURN_CONTRACT.md`
    - `Read <SKILL_ROOT>/references/shared/IMAGE_GENERATION.md`
-   - `Read <SKILL_ROOT>/references/shared/MCP_PREFIX.md`
+   - `Read <SKILL_ROOT>/references/shared/REST_CONVENTIONS.md`
 
 3. **Prefetch loaded pack files** — siblings in the same message:
    - `Read <SKILL_ROOT>/references/verticals/<pack>.md` for each loaded pack
@@ -118,7 +118,7 @@ Example:
 
 Present the plan as formatted markdown. After presenting, use `AskUserQuestion` for approval.
 
-> **Do NOT show implementation details.** Users do not want to read about scaffolding, `npm install`, `env pull`, MCP calls, phase agents, designer handoffs, sidecars, or build/preview steps. They care about their site. The TaskList conveys progress; the plan conveys outcome. Never open with SDK packages or CMS collection fields.
+> **Do NOT show implementation details.** Users do not want to read about scaffolding, `npm install`, `env pull`, admin REST calls, phase agents, designer handoffs, sidecars, or build/preview steps. They care about their site. The TaskList conveys progress; the plan conveys outcome. Never open with SDK packages or CMS collection fields.
 
 The plan is composed from the loaded vertical packs. Each pack contributes: apps, packages, pages, CMS collections, features blurbs. The skill assembles; the packs supply.
 
@@ -325,7 +325,7 @@ Save the project context to memory (type: `project`) so future sessions can resu
 - Project name + absolute project directory
 - Current phase: `scaffolding`
 
-> **Do NOT narrate the internal sub-steps.** After approval, proceed silently through setup, launch phases, etc. The user tracks progress via TaskList — that's enough. No *"Now I'll install Wix Stores via MCP"*, no *"Launching Phase 1 agents"*, no MCP / sidecar / agent-name / `.wix/` leakage.
+> **Do NOT narrate the internal sub-steps.** After approval, proceed silently through setup, launch phases, etc. The user tracks progress via TaskList — that's enough. No *"Now I'll install Wix Stores"*, no *"Launching Phase 1 agents"*, no admin-REST / sidecar / agent-name / `.wix/` leakage.
 
 Brief transition messages are fine when major milestones complete (e.g., *"Products seeded, designing pages now"* or the final preview URL), but never surface tool-layer mechanics.
 

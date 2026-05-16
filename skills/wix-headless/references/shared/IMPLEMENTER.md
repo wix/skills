@@ -8,7 +8,7 @@ Read **only** the files your scope needs. The reading set varies by scope:
 
 | Your scope | Mandatory | Conditional |
 |---|---|---|
-| `seed` | this file, `RETURN_CONTRACT.md`, `MCP_PREFIX.md` | — |
+| `seed` | this file, `RETURN_CONTRACT.md`, `REST_CONVENTIONS.md` | — |
 | `components`, `components-css`, `pages`, `pages-*` | this file, `RETURN_CONTRACT.md`, `STYLING.md` | — |
 | Image scopes | (read `references/images/INSTRUCTIONS.md` § Self-Loading) | — |
 
@@ -19,16 +19,16 @@ Then read the specific reference(s) for your declared scope (see your vertical's
 Your prompt includes a line `Scope: <name>`. Map to exactly one reference set per your vertical's `INSTRUCTIONS.md` scope table. If the `Scope:` line is missing, stop and ask the parent — do not guess.
 
 Standard scope names (see architecture-proposal §3):
-- `seed` — Seed phase (MCP data setup, no frontend code)
+- `seed` — Seed phase (admin REST data setup, no frontend code)
 - `components` — Components phase (reusable React/Astro islands, SDK wiring)
 - `pages` — Pages phase (route files with visual design + data queries, single scope per vertical)
 - `pages-<name>` — Pages phase sub-scope (only when a vertical has multiple pages groups, e.g. stores has `pages-products`, `pages-home-and-nav`)
 
-## MCP tool prefix
+## Admin REST calls
 
-Your prompt includes `MCP tool prefix: <prefix>`. Substitute it for `mcp__wix-mcp-remote__` wherever it appears in your reference files. See `references/shared/MCP_PREFIX.md` for discovery rules.
+Admin calls (seed-phase data setup, image PATCHes, etc.) go directly to `https://www.wixapis.com/<path>` with `Authorization: Bearer $(npx @wix/cli token --site $SITE_ID)`. See `references/shared/REST_CONVENTIONS.md` for the auth pattern and the curl shape every recipe in the skill uses.
 
-If your scope is `components` or `pages`, you should NOT make MCP calls — those scopes are frontend-only. If you find yourself needing MCP, it's a scope violation — return `status: "partial"` with an error note, do not proceed.
+If your scope is `components` or `pages`, you should NOT make any admin REST calls — those scopes are frontend-only. If you find yourself needing one, it's a scope violation — return `status: "partial"` with an error note, do not proceed.
 
 ## Reading `.wix/site.json`
 
@@ -49,9 +49,9 @@ Every agent reads `.wix/site.json` at the start of its run. The file is the sing
 |---|---|
 | `seed` | `brand` (for copy generation — product descriptions, FAQ answers). Do NOT read `seeded.<self>` — you're writing it. |
 | `components` | `brand`, `designTokens` (via `var(--color-*)` in CSS). |
-| `pages` / `pages-*` | `brand`, `seeded.<vertical>` (products, posts, collections), `designTokens`. Page data comes from `seeded`, NOT from re-querying MCP. |
+| `pages` / `pages-*` | `brand`, `seeded.<vertical>` (products, posts, collections), `designTokens`. Page data comes from `seeded`, NOT from re-querying the admin REST API. |
 
-If a required key is missing (e.g. `seeded.stores.products` absent when you're dispatched as `pages-products`), fail fast — return `status: "failed"` with `errors: [{ code: "SITE_JSON_INCOMPLETE", missing: "seeded.stores.products" }]`. Do NOT re-query MCP — the data gap means a seeder didn't complete, and re-querying would mask the real bug.
+If a required key is missing (e.g. `seeded.stores.products` absent when you're dispatched as `pages-products`), fail fast — return `status: "failed"` with `errors: [{ code: "SITE_JSON_INCOMPLETE", missing: "seeded.stores.products" }]`. Do NOT re-query the admin REST API — the data gap means a seeder didn't complete, and re-querying would mask the real bug.
 
 ## Seeders write their data for the orchestrator to aggregate
 
@@ -133,7 +133,7 @@ The full styling contract (tokens-as-utilities default, when global semantic cla
   @reference "./global.css";
   ```
   Without it, the build breaks at release time even though `tsc` and `astro check` pass clean — only the bundler catches it.
-- **Fail loud, never silently.** If data is missing, a required field is absent, or an MCP call returns an unexpected shape, return `status: "failed"` with details. Do not invent placeholders or swallow errors.
+- **Fail loud, never silently.** If data is missing, a required field is absent, or an admin REST call returns an unexpected shape, return `status: "failed"` with details. Do not invent placeholders or swallow errors.
 
 ## Return contract
 
@@ -144,7 +144,7 @@ Every agent ends its message with a fenced JSON block per `RETURN_CONTRACT.md`. 
 | Wrong | Right |
 |---|---|
 | Reading references for scopes other than the declared `Scope:` | Read only your scope's references |
-| Querying MCP from a `components` or `pages` scope | Components/Pages are frontend-only; use `seeded` data from `site.json` |
+| Calling Wix admin REST from a `components` or `pages` scope | Components/Pages are frontend-only; use `seeded` data from `site.json` |
 | Re-querying when `site.json.seeded.<vertical>` is missing | Fail fast with `SITE_JSON_INCOMPLETE` — the seeder didn't complete |
 | Writing `.wix/site.json` from a seeder | Seeders return data; orchestrator writes site.json |
 | Inventing class names for layout/spacing/typography (`.productCard`, `.heroSection`) | Tailwind utilities derived from `@theme` tokens (`class="flex flex-col gap-md"`, `class="py-4xl"`). For one-off page decoration, co-located `<style>` block. |

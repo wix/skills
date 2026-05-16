@@ -28,7 +28,7 @@ Files this agent MUST NOT touch:
 1. **Surgical edits only.** Use `Edit` tool, not `Write`. Preserve everything the designer wrote — hero, copy, decorative elements, section structure, class names.
 2. **Do NOT restructure layout.** If the designer didn't include featured products, don't add it.
 3. **Do NOT mutate categories in the catalog.** Read-only. Match designer's category slugs against real ones; rewrite `href` if matched; fall back to `/products` if not.
-4. **Never improvise category endpoint URLs.** Use `categoriesV3` SDK. If the SDK isn't available, fall back to `<prefix>CallWixSiteAPI` with `POST /categories/v1/categories/query` body `{"query":{}}`. Improvised `/stores/v3/categories/...` URLs caused a multi-minute stall historically.
+4. **Never improvise category endpoint URLs.** Use `categoriesV3` SDK. If the SDK isn't available, fall back to a `curl` against `POST /categories/v1/categories/query` with body `{"query":{}}`. Improvised `/stores/v3/categories/...` URLs caused a multi-minute stall historically.
 5. **If another agent already wired the home page** (e.g., a previous run), leave it alone and note this in the return.
 6. **ProductCard is a template** — always accepts `{ product }`. Pass raw SDK product objects, never flat-map. See § 1a.
 
@@ -116,7 +116,7 @@ Handle this:
    import { categoriesV3 } from "@wix/stores";
    const { items: categories } = await categoriesV3.queryCategories().find();
    ```
-   Fall back to `CallWixSiteAPI` with `POST /categories/v1/categories/query` body `{"query":{}}` if the SDK module is unavailable.
+   Fall back to `curl -X POST https://www.wixapis.com/categories/v1/categories/query -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{"query":{}}'` if the SDK module is unavailable.
 2. **Match by name or slug** — case-insensitive substring match is fine (e.g., designer's "rubber" card matches a real category "Rubber Ducks").
 3. **If a match exists** → rewrite the `href` to use the real category slug (and optionally real category name).
 4. **If no match exists** → render the card with `/products` (no filter) rather than a dead filter URL. Keep the visual card intact.

@@ -15,7 +15,7 @@ You own **all visual output**: CSS, page layout, typography, color, spacing, com
 2. Read `../shared/RETURN_CONTRACT.md` — structured return format
 3. Read `../shared/STYLING.md` — three styling categories (tokens-as-utilities, global semantic classes, co-located styles), ownership, and decision rules. The principle that governs what belongs in `global.css` versus what stays in markup as utilities.
 
-No MCP calls required. Designer scopes are frontend-only — no `CallWixSiteAPI`, no MCP tool-discovery.
+No admin REST calls required. Designer scopes are frontend-only — no `curl` to `wixapis.com`, no token fetches.
 
 ## Scope Routing
 

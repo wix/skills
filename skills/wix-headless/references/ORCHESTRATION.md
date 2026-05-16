@@ -17,7 +17,7 @@ The terms below appear throughout this skill. They describe the *shape* of work;
 
 | Phase | What | Dispatched at |
 |---|---|---|
-| **Phase 1 — Seed** | Per-vertical MCP data → `.wix/site.json.seeded.<vertical>` | Step 3 (concurrent with Phase 2 + Image Phase 1) |
+| **Phase 1 — Seed** | Per-vertical admin-REST data → `.wix/site.json.seeded.<vertical>` | Step 3 (concurrent with Phase 2 + Image Phase 1) |
 | **Phase 2 — Design System** | Designer writes tokens + Layout + Nav + Footer | Step 3 (foreground) |
 | **Phase 3 — Components** | Per-vertical React islands, with styling contract inlined into each prompt | Step 4.5 (after Phase 2 completes) |
 | **Phase 4 — Pages** | Per-vertical routes; each page agent writes its routes once with both visual design and live data queries | Step 7 (concurrent with Image Phase 2) |
@@ -75,11 +75,11 @@ Phase instruction: <exact phase/scope string from the pack>
 Scope: <scope string>
 Project directory (absolute path): <project path>
 siteId: <from wix.config.json>
-MCP tool prefix: <prefix>
-  Use this prefix for every Wix MCP call. Example: <prefix>CallWixSiteAPI, <prefix>WixREADME.
 Brand context: name, vibe, aesthetic direction, colors, fonts, mood, page color strategy
 Design tokens: .wix/design-tokens.css (generated from site.json.designTokens)
 ```
+
+Subagents derive their own admin token from `siteId` via `npx @wix/cli token --site $SITE_ID` — no token is passed in the prompt itself.
 
 **`Instruction file` must point to one of these vertical instruction files:**
 - `<SKILL_ROOT>/references/stores/INSTRUCTIONS.md` — Phase 1 Seed + Phase 3 Components + Phase 4 Pages
