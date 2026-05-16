@@ -9,15 +9,16 @@ Single orchestrator for the full site build. Linear flow with parallel subagent 
 
 ## Prerequisites
 
-Before running this skill, the user's environment must have:
+Before running this skill, the user's environment must have a working, authenticated Wix CLI:
 
 | Requirement | Why | How to verify | How to fix if missing |
 |---|---|---|---|
-| **Wix MCP connected** | Wave 0 discovers the MCP prefix via `WixREADME`; every subagent calls `<prefix>*` MCP tools (CallWixSiteAPI, ExecuteWixAPI, image upload, etc.). Without it the orchestrator stops at Wave 0. | Run `claude mcp list` — `claude.ai Wix` should show `✓ Connected`. | In Claude Code, run `/mcp` and connect Wix; or visit Claude.ai → Settings → Connectors. |
 | **`@wix/cli` available** | Wave 2 runs `npx @wix/cli env pull` to write `.env.local`; Wave 6 runs `npx @wix/cli build` + `release` to publish. `npx` will fetch the CLI on demand, but a locally installed CLI is faster and surfaces version issues earlier. | `which wix` or `npx @wix/cli --version`. | `npm i -g @wix/cli` (or rely on `npx` to fetch per-invocation). |
 | **Wix CLI authenticated** | `env pull` and `release` both require a logged-in session; tokens live in `~/.wix/auth/`. On auth error the skill surfaces `"Run \`npx @wix/cli login\` and retry."` and stops. | `ls ~/.wix/auth/account.json` exists and is non-empty. | `npx @wix/cli login` — opens a browser to auth. |
 
-If any prerequisite is missing, surface the specific gap to the user and stop **before** any subagent dispatches — failing mid-flow leaves a partially scaffolded project.
+If either prerequisite is missing, surface the specific gap to the user and stop **before** any subagent dispatches — failing mid-flow leaves a partially scaffolded project.
+
+> The Wix MCP connection is also relied on heavily today (Wave 0 hard-stops without it; every subagent calls MCP tools), but its prerequisite status is intentionally **not documented here yet** — see follow-up discussion on whether MCP should be a hard requirement or whether a REST/SDK fallback path is feasible.
 
 ## Path resolution — read this first
 
