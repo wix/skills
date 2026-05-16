@@ -5,7 +5,7 @@ Dashboard modals are popup dialogs triggered from dashboard pages or plugins. Th
 
 ## Scaffold
 
-Use `wix generate --params` with `extensionType: DASHBOARD_MODAL`. The CLI generates the folder, the modal `.tsx`, the config file, the builder file, the UUID, and the `src/extensions.ts` registration. After scaffolding, implement the modal UI in the generated `.tsx`.
+Use `wix generate --params` with `extensionType: DASHBOARD_MODAL`. `folder` must be lowercase alphanumeric + hyphens. The CLI generates the folder, the modal `.tsx`, the config file, the builder file, the UUID, and the `src/extensions.ts` registration. After scaffolding, implement the modal UI in the generated `.tsx`.
 
 ## Quick Reference
 
@@ -46,79 +46,42 @@ const result = await modalClosed; // Resolves with data from closeModal()
 
 ## Receiving Data in Modal
 
-Use `observeState()` to access data passed via `params` in `openModal()`:
+Inside the modal, subscribe via `dashboard.observeState()` to access whatever was passed in `openModal({ params })`. The callback receives the params object as `state`:
 
 ```typescript
 import { dashboard } from "@wix/dashboard";
-import { useEffect, useState } from "react";
 
-function MyModal() {
-  const [modalData, setModalData] = useState<{ userId?: string; itemData?: any }>({});
-
-  useEffect(() => {
-    dashboard.observeState((state) => {
-      // Access custom data passed through openModal params
-      if (state.userId) {
-        setModalData({
-          userId: state.userId,
-          itemData: state.itemData,
-        });
-      }
-    });
-  }, []);
-
-  return <div>User ID: {modalData.userId}</div>;
-}
+dashboard.observeState((state) => {
+  // state contains the keys you passed in `openModal({ params: { ... } })`
+  console.log(state.userId, state.itemData);
+});
 ```
+
+Call it inside a `useEffect` if you want to set local React state from the params.
 
 ## Closing Modal
 
-Call `closeModal()` from within the modal extension to close it. Optionally pass data back to the opener.
+Call `closeModal()` from within the modal extension. The optional argument is data passed back to the opener (resolved via `modalClosed`).
 
 ```typescript
 import { dashboard } from "@wix/dashboard";
 
-// Close without returning data
-dashboard.closeModal();
-
-// Close with custom return data
-dashboard.closeModal({ saved: true, itemId: "123" });
+dashboard.closeModal({ saved: true, itemId: "123" }); // arg is optional
 ```
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| closeData | Serializable (optional) | Data to pass back to the modal opener. Must be cloneable via [structured clone algorithm](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Structured_clone_algorithm). |
-
-**Supported types:** strings, numbers, booleans, plain objects, arrays, Dates, Maps, Sets, ArrayBuffers.
-**Not supported:** functions, DOM nodes, class instances with methods, Symbols, Promises.
-
-**Returns:** `void`
+The argument must be cloneable via the [structured clone algorithm](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Structured_clone_algorithm) — strings, numbers, booleans, plain objects, arrays, Dates, Maps, Sets, ArrayBuffers. **Not supported:** functions, DOM nodes, class instances with methods, Symbols, Promises.
 
 ## Customizing Modal
 
-The CLI generates a `<modal>.config.ts` next to the modal component. Edit it for organized settings:
+Edit `<modal>.config.ts` (generated alongside the modal) to change the title and dimensions. The generated `.tsx` already imports and uses it.
 
 ```typescript
+// <modal>.config.ts
 export default {
   title: 'User Settings',
   width: 600,
   height: 500,
-}
-```
-
-The generated `.tsx` already imports config; use it inside the component:
-
-```typescript
-import config from './modal.config.ts';
-
-export default function MyModal() {
-  return (
-    <CustomModalLayout
-      title={config.title}
-      // ... rest of component
-    />
-  );
-}
+};
 ```
 
 ## Common Mistakes
@@ -132,44 +95,29 @@ export default function MyModal() {
 
 ## Real-World Example
 
+End-to-end edit-item flow. The scaffolded `<modal>.tsx` already wires up `CustomModalLayout` — the unique parts are on the opener side, in `observeState`, and in the save handler.
+
 ```typescript
-// Dashboard Page: Opening edit modal
-const handleEdit = async (item: Item) => {
+// Dashboard Page: open the modal with the item to edit
+const handleEdit = (item: Item) => {
   dashboard.openModal({
     modalId: "edit-item-modal-guid",
-    params: {
-      itemId: item._id,
-      item: item, // Objects passed directly via params
-    },
+    params: { item }, // objects are passed directly via params
   });
 };
 
-// Modal: Receiving and saving data
-export default function ItemEditModal() {
-  const [formData, setFormData] = useState<Item | null>(null);
+// Modal: read params, save, toast, close
+const [formData, setFormData] = useState<Item | null>(null);
 
-  useEffect(() => {
-    dashboard.observeState((state) => {
-      if (state.item) {
-        setFormData(state.item);
-      }
-    });
-  }, []);
+useEffect(() => {
+  dashboard.observeState((state) => {
+    if (state.item) setFormData(state.item);
+  });
+}, []);
 
-  const handleSave = async () => {
-    // Save logic
-    dashboard.showToast({ message: "Saved!", type: "success" });
-    dashboard.closeModal();
-  };
-
-  return (
-    <CustomModalLayout
-      title="Edit Item"
-      primaryButtonText="Save"
-      onCloseButtonClick={() => dashboard.closeModal()}
-      primaryButtonOnClick={handleSave}
-      content={/* form fields */}
-    />
-  );
-}
+const handleSave = async () => {
+  // ...your save logic...
+  dashboard.showToast({ message: "Saved!", type: "success" });
+  dashboard.closeModal();
+};
 ```
