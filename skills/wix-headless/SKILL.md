@@ -9,16 +9,15 @@ Single orchestrator for the full site build. Linear flow with parallel subagent 
 
 ## Prerequisites
 
-Before running this skill, the user's environment must have a working, authenticated Wix CLI:
+Before running this skill, the user's environment must have a working, authenticated Wix CLI and a Wix MCP server registered with their agent client:
 
 | Requirement | Why | How to verify | How to fix if missing |
 |---|---|---|---|
 | **`@wix/cli` available** | Wave 2 runs `npx @wix/cli env pull` to write `.env.local`; Wave 6 runs `npx @wix/cli build` + `release` to publish. `npx` will fetch the CLI on demand, but a locally installed CLI is faster and surfaces version issues earlier. | `which wix` or `npx @wix/cli --version`. | `npm i -g @wix/cli` (or rely on `npx` to fetch per-invocation). |
 | **Wix CLI authenticated** | `env pull` and `release` both require a logged-in session; tokens live in `~/.wix/auth/`. On auth error the skill surfaces `"Run \`npx @wix/cli login\` and retry."` and stops. | `ls ~/.wix/auth/account.json` exists and is non-empty. | `npx @wix/cli login` — opens a browser to auth. |
+| **Wix MCP server configured with `--wixCliAuth`** | Provides the admin tools (`CallWixSiteAPI`, `ListWixSites`, `ManageWixSite`, image upload, etc.) the skill calls at Wave 0 and across every downstream subagent. Launched with `--wixCliAuth`, `@wix/mcp` reuses the same `~/.wix/auth/account.json` token the CLI writes (refreshed transparently); without the flag only the docs-only tools are exposed. | Your MCP client lists a server running `npx -y @wix/mcp --wixCliAuth` (or equivalent) and exposes `CallWixSiteAPI` as a tool — e.g. in Claude Code: `claude mcp list` shows `wix` connected with admin tools, not only `Search*Documentation`. | Register `npx -y @wix/mcp --wixCliAuth` as a stdio MCP server in your agent client. The exact registration step depends on the client — see your client's MCP-server documentation. The CLI-auth row above is a hard prereq, since `--wixCliAuth` reads from the CLI's token store. |
 
-If either prerequisite is missing, surface the specific gap to the user and stop **before** any subagent dispatches — failing mid-flow leaves a partially scaffolded project.
-
-> The Wix MCP connection is also relied on heavily today (Wave 0 hard-stops without it; every subagent calls MCP tools), but its prerequisite status is intentionally **not documented here yet** — see follow-up discussion on whether MCP should be a hard requirement or whether a REST/SDK fallback path is feasible.
+If any prerequisite is missing, surface the specific gap to the user and stop **before** any subagent dispatches — failing mid-flow leaves a partially scaffolded project.
 
 ## Path resolution — read this first
 
