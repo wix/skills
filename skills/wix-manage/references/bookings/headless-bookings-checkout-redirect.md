@@ -35,6 +35,18 @@ If the Pricing Plans app is not installed on the site, `getPublicAPI` throws wit
 
 The error is silent from the integrator's side: `redirects.createRedirectSession` succeeds, the 303 redirect lands on the Wix-managed booking-form page, network responses are 200, no JS exception propagates. The widget swallows its own exception and reports nothing structured to the parent context.
 
+### Scope: only the booking-form widget
+
+The Pricing Plans dependency is specific to the **booking-form (checkout) widget** at `/__bookings/booking-form`. Other Wix-managed Bookings widgets do **not** hard-require Pricing Plans:
+
+| Widget | Wix-managed path | Has `getPricingPlansApi` dependency? |
+| --- | --- | --- |
+| `bookings-form-widget` (checkout) | `/__bookings/booking-form` | **Yes** — Pricing Plans appDefId is in the bundle and called unconditionally on load |
+| `bookings-service-details-widget` (service page) | `/__bookings/service-page` | No — Pricing Plans appDefId is not in the bundle |
+| `bookings-calendar-widget` (calendar / slot picker) | `/__bookings/booking-calendar` | No — Pricing Plans appDefId is not in the bundle |
+
+So a Headless site that lists services and picks a slot in its own UI (using the SDK's `services.queryServices()` + `availabilityCalendar.queryAvailability()`) will appear to work fine until the customer is sent to `redirects.createRedirectSession({ bookingsCheckout })` — at which point the missing Pricing Plans app silently breaks the final step. The other Wix-managed Bookings pages render normally without Pricing Plans installed.
+
 ### Pricing Plans Dependency
 
 `POST https://www.wixapis.com/apps-installer-service/v1/app-instance/install` for Wix Bookings auto-installs exactly one dependency — Wix Calendar (`482f413c-67ec-4700-acb3-d64d742e7751`). Pricing Plans is **not** in the declared dependency graph for Bookings, even though the bookings-form widget hard-requires it at runtime.
