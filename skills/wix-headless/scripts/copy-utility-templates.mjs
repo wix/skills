@@ -6,25 +6,71 @@
 // agents start.
 //
 // These files are pure templates — same shape regardless of brand. Letting an
-// LLM regenerate them costs tokens and risks drift. Pre-copying is structurally better.
+// LLM regenerate them costs tokens and risks drift. Pre-copying is structurally
+// better.
 //
-// Usage:
-//   node copy-utility-templates.mjs <project-dir> <phase>
+// Usage (both modes work):
+//   node <SKILL_ROOT>/scripts/copy-utility-templates.mjs <project-dir> <phase>
+//   node <(curl -s https://dev.wix.com/skills/wix-headless/scripts/copy-utility-templates.mjs) \
+//     <project-dir> <phase>
 //
 //   <phase> ∈ { "components", "pages" }
 //
+// Template files auto-detect whether they can be read on disk (tgz install)
+// and fall back to HTTP fetch when streamed via process substitution.
+//
 // Reads `.wix/site.json` to discover which packs are loaded, then copies the
-// matching templates for the given phase. Uses `cp -n` semantics — never
-// overwrites an existing file (so user customisations and earlier orchestrator
-// state are preserved).
+// matching templates for the given phase. Never overwrites an existing file
+// (so user customisations and earlier orchestrator state are preserved).
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync, copyFileSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-// Script lives at <SKILL_ROOT>/scripts/copy-utility-templates.mjs.
-const SKILL_TEMPLATES_DIR = resolve(__dirname, "../templates");
+const SKILL_URL =
+  process.env.WIX_HEADLESS_SKILL_URL ||
+  "https://dev.wix.com/skills/wix-headless";
+
+// Mode detection — see check-manifest.mjs for the same pattern.
+let SKILL_ROOT_DISK = null;
+try {
+  const scriptDir = dirname(fileURLToPath(import.meta.url));
+  const candidate = resolve(scriptDir, "..");
+  if (existsSync(join(candidate, "templates"))) {
+    SKILL_ROOT_DISK = candidate;
+  }
+} catch {
+  // fileURLToPath may fail on non-file URLs; fall through to URL mode.
+}
+
+// Copy a template file (path relative to <SKILL_ROOT>/templates/) into the
+// project at destPath. Returns { ok: true } on success, or { ok: false,
+// reason: "..." } on failure (source missing, HTTP error, IO error).
+async function copyTemplate(sourceRel, destPath) {
+  if (SKILL_ROOT_DISK) {
+    const src = join(SKILL_ROOT_DISK, "templates", sourceRel);
+    if (!existsSync(src)) return { ok: false, reason: `missing on disk: ${src}` };
+    try {
+      mkdirSync(dirname(destPath), { recursive: true });
+      copyFileSync(src, destPath);
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, reason: e.message };
+    }
+  }
+  const url = `${SKILL_URL}/templates/${sourceRel}`;
+  try {
+    const r = await fetch(url);
+    if (r.status === 404) return { ok: false, reason: `missing at ${url}` };
+    if (!r.ok) return { ok: false, reason: `fetch ${url}: HTTP ${r.status}` };
+    const text = await r.text();
+    mkdirSync(dirname(destPath), { recursive: true });
+    writeFileSync(destPath, text);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, reason: e.message };
+  }
+}
 
 // Hardcoded mapping: { pack, phase, source (relative to templates dir), dest (relative to project) }.
 // To add a new templated utility: ship the file under templates/<pack>/, then add
@@ -76,25 +122,18 @@ const skipped = [];
 const errors = [];
 
 for (const { pack, source, dest } of candidates) {
-  const sourcePath = join(SKILL_TEMPLATES_DIR, source);
   const destPath = join(projectDir, dest);
-
-  if (!existsSync(sourcePath)) {
-    errors.push(`missing template at ${sourcePath} (declared by pack "${pack}")`);
-    continue;
-  }
 
   if (existsSync(destPath)) {
     skipped.push(dest);
     continue;
   }
 
-  try {
-    mkdirSync(dirname(destPath), { recursive: true });
-    copyFileSync(sourcePath, destPath);
+  const result = await copyTemplate(source, destPath);
+  if (result.ok) {
     copied.push(dest);
-  } catch (e) {
-    errors.push(`failed to copy ${source} → ${dest}: ${e.message}`);
+  } else {
+    errors.push(`failed to copy ${source} → ${dest} (pack "${pack}"): ${result.reason}`);
   }
 }
 
