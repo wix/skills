@@ -55,6 +55,16 @@ npx skills add wix/skills
 npx skills add wix/skills -g
 ```
 
+### npm Package (versioned distribution)
+
+For Wix-internal infrastructure that needs a pinned, versioned skills snapshot (e.g., App Builder, Studio 2, `@wix/cli`), `@wix/skills` is also published to npm:
+
+```bash
+npm install @wix/skills
+```
+
+The npm package contains the same skill bodies as the GitHub repo but pinned to a specific version. Consumers typically install it as a transitive dependency of `@wix/cli` rather than directly. See [CODEAI-505](https://wix.atlassian.net/browse/CODEAI-505) for context.
+
 ## Available Skills
 
 | Skill                                    | Purpose                          | When to Use                                                                                                                         |
@@ -75,6 +85,22 @@ These skills work with any agent that supports the [Agent Skills specification](
 - GitHub Copilot
 - Windsurf
 - And [many more](https://github.com/vercel-labs/add-skill#available-agents)
+
+## Versioning
+
+`@wix/skills` follows semver. Bumps target **AI-generated-code stability** — i.e., whether a change could cause an agent using these skills to produce broken code on the previous-major `wix-cli`:
+
+| Bump | Examples |
+| --- | --- |
+| **patch** | Wording fix, typo, link update, clarification of existing guidance |
+| **minor** | New skill added, new section in an existing skill, additive guidance for a non-breaking `wix-cli` feature |
+| **major** | Skill rename/removal, rewrite of guidance for a deprecated `wix-cli` API, anything that would cause AI-generated code to fail on the previous-major `wix-cli` |
+
+When a major bump is required (a breaking change in the underlying `wix-cli`), the previous major continues on a `release/<N>.x` maintenance branch and receives backports for genuine bugs only — no new features.
+
+## Releasing
+
+Releases run via the [`release` GitHub Actions workflow](.github/workflows/release.yml) using npm Trusted Publishing (no stored tokens). Triggered manually from the **Actions** tab: pick `version_strategy` and optionally `dry_run`. Modeled on [`wix/interact`](https://github.com/wix/interact/blob/master/.github/workflows/release-interact.yml)'s setup.
 
 ## Contributing
 

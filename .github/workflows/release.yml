@@ -1,0 +1,78 @@
+name: Release - Bump Version and Publish @wix/skills
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_strategy:
+        type: choice
+        description: Version strategy
+        options:
+          - patch
+          - minor
+          - major
+          - prerelease
+          - premajor
+          - preminor
+          - prepatch
+      dry_run:
+        description: 'Dry run (preview only, no tag/push/publish)'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  id-token: write # REQUIRED for npm Trusted Publishing
+  contents: write
+  pull-requests: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node with trusted publishing
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      - name: Configure git
+        run: |
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+
+      - name: Bump version
+        if: ${{ github.event.inputs.dry_run == 'false' }}
+        id: bump
+        run: |
+          NEW_VERSION=$(npm version ${{ github.event.inputs.version_strategy }} --no-git-tag-version)
+          echo "version=${NEW_VERSION}" >> $GITHUB_OUTPUT
+          echo "New version: ${NEW_VERSION}"
+
+      - name: Dry-run version preview
+        if: ${{ github.event.inputs.dry_run == 'true' }}
+        run: |
+          CURRENT=$(node -p "require('./package.json').version")
+          echo "Would bump @wix/skills from $CURRENT using strategy: ${{ github.event.inputs.version_strategy }}"
+
+      - name: Commit and tag
+        if: ${{ github.event.inputs.dry_run == 'false' }}
+        run: |
+          git add package.json
+          git commit -m "chore: release @wix/skills ${{ steps.bump.outputs.version }}"
+          git tag "${{ steps.bump.outputs.version }}"
+          git push origin HEAD --follow-tags
+
+      - name: Publish to npm (trusted publishing)
+        if: ${{ github.event.inputs.dry_run == 'false' }}
+        run: npm publish --provenance --access=public
+
+      - name: Dry-run publish preview
+        if: ${{ github.event.inputs.dry_run == 'true' }}
+        run: npm publish --dry-run --access=public
