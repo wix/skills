@@ -19,12 +19,9 @@ Use `CallWixSiteAPI` to invoke each endpoint:
 CallWixSiteAPI(
   url: "https://manage.wix.com/_api/agentic-recommendations/v1/agentic-recommendations/<endpoint>",
   method: "POST",
-  siteId: "<siteId>",
   body: { ... }
 )
 ```
-
-**Important**: You must have a `siteId` before calling any of these. Use `ListWixSites` first to resolve the site.
 
 ---
 
