@@ -14,10 +14,65 @@ Before running this skill, the user's environment must have a working, authentic
 | Requirement | Why | How to verify | How to fix if missing |
 |---|---|---|---|
 | **`@wix/cli` available** | Wave 2 runs `npx @wix/cli env pull` to write `.env.local`; Wave 6 runs `npx @wix/cli build` + `release` to publish. `npx` will fetch the CLI on demand, but a locally installed CLI is faster and surfaces version issues earlier. | `which wix` or `npx @wix/cli --version`. | `npm i -g @wix/cli` (or rely on `npx` to fetch per-invocation). |
-| **Wix CLI authenticated** | `env pull` and `release` both require a logged-in session; tokens live in `~/.wix/auth/`. On auth error the skill surfaces `"Run \`npx @wix/cli login\` and retry."` and stops. | `ls ~/.wix/auth/account.json` exists and is non-empty. | `npx @wix/cli login` — opens a browser to auth. |
-| **Wix MCP server configured with `--wixCliAuth`** | Provides the admin tools (`CallWixSiteAPI`, `ListWixSites`, `ManageWixSite`, image upload, etc.) the skill calls at Wave 0 and across every downstream subagent. Launched with `--wixCliAuth`, `@wix/mcp` reuses the same `~/.wix/auth/account.json` token the CLI writes (refreshed transparently); without the flag only the docs-only tools are exposed. | Your MCP client lists a server running `npx -y @wix/mcp --wixCliAuth` (or equivalent) and exposes `CallWixSiteAPI` as a tool — e.g. in Claude Code: `claude mcp list` shows `wix` connected with admin tools, not only `Search*Documentation`. | Register `npx -y @wix/mcp --wixCliAuth` as a stdio MCP server in your agent client. The exact registration step depends on the client — see your client's MCP-server documentation. The CLI-auth row above is a hard prereq, since `--wixCliAuth` reads from the CLI's token store. |
+| **Wix CLI authenticated** | `env pull` and `release` both require a logged-in session; tokens live in `~/.wix/auth/`. On missing or invalid auth, the skill runs `npx @wix/cli login` inline (browser-based), waits for completion, and retries the failed operation once. | `ls ~/.wix/auth/account.json` exists and is non-empty. | The skill auto-runs `npx @wix/cli login` on detection (preflight or mid-flow). If the auto-recovery fails, run `npx @wix/cli login` manually and retry. |
+| **Wix MCP server configured with `--wixCliAuth`** | Provides the admin tools (`CallWixSiteAPI`, `ListWixSites`, `ManageWixSite`, image upload, etc.) the skill calls at Wave 0 and across every downstream subagent. Launched with `--wixCliAuth`, `@wix/mcp` reuses the same `~/.wix/auth/account.json` token the CLI writes (refreshed transparently); without the flag only the docs-only tools are exposed. | Your MCP client lists a server running `npx -y @wix/mcp --wixCliAuth` (or equivalent) and exposes `CallWixSiteAPI` as a tool — e.g. in Claude Code: `claude mcp list` shows `wix` (or `claude.ai Wix`) as `✓ Connected` with admin tools loaded. A `! Needs authentication` status counts as missing — admin tools are NOT loaded in the session even if the server is registered. | Register `npx -y @wix/mcp --wixCliAuth` as a stdio MCP server in your agent client (variant agnostic to the host's MCP-server documentation). If an existing hosted entry shows `Needs authentication` (e.g. `claude.ai Wix` connector), tell the user to re-authenticate via the client's MCP UI (Claude Code: `/mcp`) and restart the session so the admin tools load — the agent cannot trigger this directly. The CLI-auth row above is a hard prereq for the stdio variant, since `--wixCliAuth` reads from the CLI's token store. |
 
-If any prerequisite is missing, surface the specific gap to the user and stop **before** any subagent dispatches — failing mid-flow leaves a partially scaffolded project.
+If a prerequisite is missing:
+
+- **CLI auth missing** (`~/.wix/auth/account.json` absent or empty) → run `npx @wix/cli login` following the **Auth recovery procedure** below. On success, proceed. On non-zero exit, stop and surface the failure. Same procedure applies to any mid-flow auth error (`env pull`, scaffold, release) — auto-login, then retry the failed operation once.
+- **Other prereqs missing** (CLI binary absent, Wix MCP not connected) → surface the specific gap to the user and stop **before** any subagent dispatches — failing mid-flow leaves a partially scaffolded project.
+
+### Auth recovery procedure
+
+`npx @wix/cli login` is a **device-code flow** — it emits a verification URL and a one-time user code; the user opens the URL in a browser and enters the code to complete authentication. The CLI does *not* auto-open the browser. **Without surfacing URL + code to the user in real time, login can never complete.**
+
+#### Output format depends on TTY detection
+
+When `wix login` sees an interactive terminal, it prints human-readable text with a spinner. When it runs detached (which is what the streaming recipes below produce), it emits **one JSON event per line on stdout**, plus a benign `(node:NNN) TimeoutNaNWarning: NaN is not a number.` line — ignore that warning, it's noise from the CLI's internal `setTimeout`, not a real timeout.
+
+The event you need:
+
+```json
+{"event":"awaiting_user","expiresInSeconds":600,"userCode":"AB3X9KLM","verificationUri":"https://users.wix.com/login/device-login?color=developer&studio=true"}
+```
+
+Extract both fields. Robust regex (handles both formats):
+
+- JSON: `"userCode":"([A-Z0-9]+)"` and `"verificationUri":"([^"]+)"`
+- TTY fallback: `Copy this code to the clipboard:\s*([A-Z0-9]+)` and `(https?://users\.wix\.com/login/device-login[^\s.]*)` (strip any trailing sentence period)
+
+#### Why a simple `Bash(wix login)` does NOT work
+
+Most agent runtimes buffer subprocess stdout — invoking the login command with any tool that captures output (Claude Code `Bash`, Cursor terminal, etc.) holds all output until the command exits, which never happens because the command is waiting for that very code. Even Claude Code's `Bash(run_in_background=true)` is **not enough on its own** — the bash wrapper keeps the stdout FD open and the CLI never flushes to the log file. The login wedges silently.
+
+The output has to reach the user **while the command is still running**, which requires a fully-detached subshell + a tail-based streamer.
+
+#### Required behavior
+
+1. **Launch login as a fully-detached background process writing to a log file.** The reliable shape (works in Claude Code Bash, plain shell, any POSIX environment):
+
+   ```bash
+   (npx @wix/cli login > /tmp/wix-login.log 2>&1 &)
+   ```
+
+   The outer parentheses spawn a subshell that exits as soon as the background process is forked, fully detaching the CLI from the wrapper's stdout FD. Verify the process started: `pgrep -f "wix.*login"`.
+
+2. **Tail the log via a streaming-output primitive** so lines reach the user in real time. Use whatever your runtime offers — Claude Code: `Monitor` with `tail -n +1 -F /tmp/wix-login.log`; Cursor: equivalent; a poll-and-read loop is acceptable too. Filter to actionable lines: `grep --line-buffered -E '"userCode"|"verificationUri"|Copy this code|users\.wix\.com|"event":"|error'`.
+
+3. **Extract and re-print URL + code prominently in chat** as soon as the `awaiting_user` event arrives. Example:
+
+   ```
+   **URL:** https://users.wix.com/login/device-login?color=developer&studio=true
+   **Code:** AB3X9KLM
+   ```
+
+   The raw JSON/spinner/control-code stream is not actionable on its own — re-surface as bold labelled lines.
+
+4. **Enforce a 600-second deadline** matching the CLI's `expiresInSeconds`. If the user doesn't complete OAuth before then, the device code expires and the CLI will exit non-zero. Surface this clearly and ask whether to restart `wix login`.
+
+5. **Confirm success via filesystem + `whoami`, not by grepping for a magic success string.** When `[ -s ~/.wix/auth/account.json ]` is true AND `npx @wix/cli whoami` exits 0, login is complete. Do not rely on a specific stdout line — the JSON event sequence for success may vary across CLI versions. Optionally also confirm the login subprocess exited 0 (cat the appended `[exit=$?]` line if you wrote one).
+
+Stop on non-zero exit, timeout, or `whoami` failure; do not silently proceed.
 
 ## Path resolution — read this first
 
@@ -144,7 +199,7 @@ See `references/DISCOVERY.md` for full mechanics.
 See `references/SETUP.md`. After approval, run **one concurrent batch** with no narration between operations.
 
 1. **App install** for every entry in `apps[*]` of every loaded vertical. Follow `<SKILL_ROOT>/references/commands/install-app.md` — owns the `CallWixSiteAPI` body shape, `appName → appDefId` lookup, and recovery ladder. **An empty `apps: []` array means install nothing for that pack** — gift-cards, ecom, cms all ship `apps: []`. Do not invent an `appName` from the pack name or SDK packages. Capture `APP_INSTALL_START`/`END` via `date -u +%s` around the `CallWixSiteAPI` invocation; record `{ phase: "app-install-<appName>", seconds }`.
-2. **`npx @wix/cli env pull`** (foreground, fast). Produces `.env.local` with `WIX_CLIENT_ID`. On auth error: surface `"Run \`npx @wix/cli login\` and retry."` and stop. Record `{ phase: "env-pull", seconds }`.
+2. **`npx @wix/cli env pull`** (foreground, fast). Produces `.env.local` with `WIX_CLIENT_ID`. On auth error: run `npx @wix/cli login` per the **Auth recovery procedure** in the Prerequisites section (device-code flow — surface URL + code to the user prominently via a streaming primitive, not a buffering foreground call), then retry `env pull` once. If the retry also fails, stop and surface the error. Record `{ phase: "env-pull", seconds }`; on auto-recovery, also record `{ phase: "auth-login", seconds }`.
 3. **`rm -f package-lock.json && npm install …`** as a **background shell** with the union of all loaded verticals' `packages` arrays plus the always-packages (`@wix/sdk tailwindcss @tailwindcss/vite`). Flags: `--no-fund --no-audit --legacy-peer-deps`. Bake `NPM_INSTALL_START=$(date -u +%s)` and `NPM_INSTALL_END=$(date -u +%s)` into the SAME background bash command so the values land in its output. Record `{ phase: "npm-install", seconds }` when the install finishes. **Do not add packages beyond this set** — see `SETUP.md` § anti-hallucination rule.
 4. **`bash <SKILL_ROOT>/scripts/seed-utilities.sh`** — copies `<SKILL_ROOT>/shared-utilities/*.ts` (`wix-image.ts`, `analytics.ts`, `ricos.ts`) into `src/utils/` with `cp -n` and strips the Astro starter cruft. Record `{ phase: "seed-utilities", seconds }`.
 5. **Memory writes** — `project` memory with brand/apps/pages/phase.
