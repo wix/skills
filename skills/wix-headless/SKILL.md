@@ -15,6 +15,7 @@ Your CWD at runtime is the **project directory**, not the skill root. Compute `<
 |---|---|
 | Shared return contract | `<SKILL_ROOT>/references/shared/RETURN_CONTRACT.md` |
 | Shared MCP prefix guide | `<SKILL_ROOT>/references/shared/MCP_PREFIX.md` |
+| Production release / reserved root path sharp edges | `<SKILL_ROOT>/references/shared/PRODUCTION_SHARP_EDGES.md` |
 | Per-vertical / per-scope subagent instructions | `<SKILL_ROOT>/references/<scope>/INSTRUCTIONS.md` (scopes: `stores`, `ecom`, `cms`, `blog`, `forms`, `gift-cards`, `images`, `designer`). Subagent-only — orchestrator never reads. |
 | Vertical packs directory | `<SKILL_ROOT>/references/verticals/` |
 | Templates directory | `<SKILL_ROOT>/templates/` |
@@ -267,11 +268,13 @@ Each prompt includes the standard fields PLUS:
 
 3. **Wait for npm install** — the background install from Wave 2. Wait on its handle; do not `sleep`-poll. On non-zero exit follow the recovery ladder in `references/SETUP.md` § "npm install recovery" (foreground retry with timeout, never delete the lockfile).
 
-4. **`bash <SKILL_ROOT>/scripts/release.sh`** — runs `npx @wix/cli build` + `release`, extracts the URL from `Site published on <url>`, prints the URL on stdout. Capture build / release timings via `date -u` wrappers and record `{ phase: "build", seconds }` and `{ phase: "release", seconds }`. The script's stdout becomes `outcome.releaseUrl` in `run.json`. This populates the **Frontend link** in headless settings so transactional emails link to the deployed frontend. On build failure, surface the compiler error and stop — do NOT deploy a broken site.
+4. **`bash <SKILL_ROOT>/scripts/release.sh`** — runs `npx @wix/cli build` + `release`, extracts the URL from `Site published on <url>`, prints the URL on stdout. Capture build / release timings via `date -u` wrappers and record `{ phase: "build", seconds }` and `{ phase: "release", seconds }`. The script's stdout becomes `outcome.releaseUrl` in `run.json`. This populates the **Frontend link** in headless settings so transactional emails link to the deployed frontend. On build failure, surface the compiler error and stop — do NOT deploy a broken site. The script retries known transient release failures; see `<SKILL_ROOT>/references/shared/PRODUCTION_SHARP_EDGES.md` before adding custom release retry logic.
 
    Use `bash <SKILL_ROOT>/scripts/preview.sh` (not this step) only when the user is iterating on an existing site and explicitly asks for a fast preview without touching production.
 
    On non-fatal build warnings, see `<SKILL_ROOT>/references/shared/BUILD_NOISE.md` — read only if a warning surfaces.
+
+   If the user asks for SEO root files (`robots.txt`, `llms.txt`), favicons, custom-domain verification, or batch release behavior, read `<SKILL_ROOT>/references/shared/PRODUCTION_SHARP_EDGES.md` before implementing. Wix may own these root paths at the edge, so static files and Astro routes are not always effective.
 
 > **No standalone verify phase.** The post-phase manifest check catches missing files with auto-recovery; type/module/template errors surface from `astro build` a few seconds later.
 
@@ -373,3 +376,4 @@ Shared (with agents):
 - `references/shared/IMAGE_GENERATION.md` — image agent contract
 - `references/shared/STYLING.md` — three styling categories, ownership, decision rules
 - `references/shared/IMPLEMENTER.md` — shared implementer behavior
+- `references/shared/PRODUCTION_SHARP_EDGES.md` — release retries, reserved root paths, SEO files, favicons, verification
