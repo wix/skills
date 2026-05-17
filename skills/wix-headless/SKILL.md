@@ -28,8 +28,6 @@ Your CWD at runtime is the **project directory**, not the skill root. How you re
   - `bash <SKILL_ROOT>/scripts/X.sh <args>` → `bash <(curl -s <SKILL_ROOT>/scripts/X.sh) <args>`
   - `node "<SKILL_ROOT>/scripts/X.mjs" <args>` → `node <(curl -s <SKILL_ROOT>/scripts/X.mjs) <args>`
 
-  The three scripts that depend on sibling skill files (`seed-utilities.sh`, `check-manifest.mjs`, `copy-utility-templates.mjs`) auto-detect this mode and fetch their dependencies over HTTP — no tgz install needed.
-
 | What | Absolute path |
 |---|---|
 | Shared return contract | `<SKILL_ROOT>/references/shared/RETURN_CONTRACT.md` |

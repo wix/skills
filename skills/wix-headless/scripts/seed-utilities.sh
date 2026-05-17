@@ -24,16 +24,15 @@
 
 set -euo pipefail
 
-SKILL_URL="${WIX_HEADLESS_SKILL_URL:-https://dev.wix.com/skills/wix-headless}"
+SKILL_URL="https://dev.wix.com/skills/wix-headless"
 UTILS=(analytics.ts ricos.ts wix-image.ts)
 
-# Mode detection: when streamed via `bash <(curl ...)`, BASH_SOURCE is
-# /dev/fd/N — the disk lookup falls through and we fetch over HTTP instead.
+# Mode detection: prefer on-disk skill root if the sibling dir exists, else
+# fetch over HTTP. Covers both tgz install and `bash <(curl ...)` streaming.
 SHARED_UTILS_DIR=""
 script_path="${BASH_SOURCE[0]}"
-if [[ "$script_path" != /dev/fd/* && -f "$script_path" ]]; then
-  script_dir="$(cd "$(dirname "$script_path")" && pwd)"
-  candidate="$script_dir/../shared-utilities"
+if [[ -f "$script_path" ]]; then
+  candidate="$(dirname "$script_path")/../shared-utilities"
   if [[ -d "$candidate" ]]; then
     SHARED_UTILS_DIR="$(cd "$candidate" && pwd)"
   fi

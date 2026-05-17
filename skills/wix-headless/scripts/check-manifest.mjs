@@ -34,9 +34,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync, copyFileSync } from
 import { join, dirname, basename, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const SKILL_URL =
-  process.env.WIX_HEADLESS_SKILL_URL ||
-  "https://dev.wix.com/skills/wix-headless";
+const SKILL_URL = "https://dev.wix.com/skills/wix-headless";
 
 // Mode detection: prefer on-disk skill root if reachable, else use HTTP.
 // When invoked as `node <(curl ...)`, import.meta.url is `file:///dev/fd/N`
