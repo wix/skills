@@ -59,6 +59,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ### [Multi-Resource Service Creation](references/bookings/multi-resource-service-creation.md)
 **Technical:** Creates resource types and individual resources using Resources API. Enables services that require multiple resources (rooms + equipment + staff) with automatic allocation.
 
+### [Headless Bookings Checkout Redirect](references/bookings/headless-bookings-checkout-redirect.md)
+**Technical:** Send Headless visitors to the Wix-managed Bookings checkout via `redirects.createRedirectSession({ bookingsCheckout })`. Documents two undocumented failure modes that surface the generic "There was an issue with booking this service" empty-state — a missing Wix Pricing Plans app (hard runtime dependency of the bookings-form widget, not part of Bookings' declared install graph) and a hand-rolled `slotAvailability` that drops `resource._id` / `location._id`.
+
 ---
 
 ## Calendar

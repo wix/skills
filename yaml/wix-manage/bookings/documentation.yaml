@@ -30,3 +30,7 @@ apiDoc:
       title: Booking System Integration Gaps
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/bookings
       tags: [bookings]
+    - file: ../../../skills/wix-manage/references/bookings/headless-bookings-checkout-redirect.md
+      title: Headless Bookings Checkout Redirect
+      docsEntry: https://dev.wix.com/docs/api-reference/business-management/headless/redirects/create-redirect-session
+      tags: [bookings]
