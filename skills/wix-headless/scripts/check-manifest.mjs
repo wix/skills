@@ -8,15 +8,18 @@
 //
 // Usage (both modes work):
 //   node <SKILL_ROOT>/scripts/check-manifest.mjs <project-dir> <phase> <packs-csv>
-//   node <(curl -s https://dev.wix.com/skills/wix-headless/scripts/check-manifest.mjs) \
-//     <project-dir> <phase> <packs-csv>
+//   curl -s https://dev.wix.com/skills/wix-headless/scripts/check-manifest.mjs \
+//     | node --input-type=module - <project-dir> <phase> <packs-csv>
 //
 //   <phase> ∈ { "components", "pages" }
 //   <packs-csv> = comma-separated pack names (loaded verticals), e.g. "stores,ecom,cms"
 //
+// Note: `node <(curl ...)` does NOT work for .mjs files — Node sees /dev/fd/N
+// with no extension and rejects ESM syntax. Use the stdin form above.
+//
 // Skill-local file reads (vertical pack markdowns, template files) auto-detect
 // whether they can resolve on disk (tgz install) and fall back to HTTP fetch
-// otherwise (stream via process substitution).
+// otherwise (stream via stdin).
 //
 // Behavior:
 //   - For each pack, parses `references/verticals/<pack>.md` to extract the

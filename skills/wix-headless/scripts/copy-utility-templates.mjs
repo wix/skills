@@ -11,13 +11,16 @@
 //
 // Usage (both modes work):
 //   node <SKILL_ROOT>/scripts/copy-utility-templates.mjs <project-dir> <phase>
-//   node <(curl -s https://dev.wix.com/skills/wix-headless/scripts/copy-utility-templates.mjs) \
-//     <project-dir> <phase>
+//   curl -s https://dev.wix.com/skills/wix-headless/scripts/copy-utility-templates.mjs \
+//     | node --input-type=module - <project-dir> <phase>
 //
 //   <phase> ∈ { "components", "pages" }
 //
+// Note: `node <(curl ...)` does NOT work for .mjs files — Node sees /dev/fd/N
+// with no extension and rejects ESM syntax. Use the stdin form above.
+//
 // Template files auto-detect whether they can be read on disk (tgz install)
-// and fall back to HTTP fetch when streamed via process substitution.
+// and fall back to HTTP fetch when streamed via stdin.
 //
 // Reads `.wix/site.json` to discover which packs are loaded, then copies the
 // matching templates for the given phase. Never overwrites an existing file
