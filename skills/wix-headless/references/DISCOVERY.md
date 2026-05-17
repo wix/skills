@@ -69,7 +69,7 @@ Immediately after the brand name is confirmed (before Q2), emit **one concurrent
 
    **Strict-then-recover:**
    1. Script exit 2 (slug or brand validation failed) → orchestrator-side bug; the orchestrator should have caught this in pre-flight. Fix the slug derivation and retry.
-   2. Auth error from npm/Wix CLI → run `npx @wix/cli login` inline (tell the user a browser is opening), wait for completion, then retry the scaffold once. If the retry also fails, stop and surface the error.
+   2. Auth error from npm/Wix CLI → run `npx @wix/cli login` per the **Auth recovery procedure** in `SKILL.md` § Prerequisites (device-code flow — surface URL + code to the user prominently via a streaming primitive, not a buffering foreground call), then retry the scaffold once. If the retry also fails, stop and surface the error.
    3. `invalid template` error → the template ID inside `scaffold.sh` is stale. Look up the current ID via `<prefix>SearchWixCLIDocumentation` query `create headless template`, edit the script's `TEMPLATE_ID` constant, retry once, log to `.wix/run.json.commandDrift[]` so the script can be tightened.
    4. Other errors → surface stderr to the user.
 

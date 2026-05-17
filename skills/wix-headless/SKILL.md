@@ -19,8 +19,22 @@ Before running this skill, the user's environment must have a working, authentic
 
 If a prerequisite is missing:
 
-- **CLI auth missing** (`~/.wix/auth/account.json` absent or empty) → tell the user *"Wix CLI is not authenticated — opening a browser to run `npx @wix/cli login`…"*, run `npx @wix/cli login` inline, wait for completion. On success, proceed. On non-zero exit, stop and surface the failure. Same procedure applies to any mid-flow auth error (`env pull`, scaffold, release) — auto-login, then retry the failed operation once.
+- **CLI auth missing** (`~/.wix/auth/account.json` absent or empty) → run `npx @wix/cli login` following the **Auth recovery procedure** below. On success, proceed. On non-zero exit, stop and surface the failure. Same procedure applies to any mid-flow auth error (`env pull`, scaffold, release) — auto-login, then retry the failed operation once.
 - **Other prereqs missing** (CLI binary absent, Wix MCP not connected) → surface the specific gap to the user and stop **before** any subagent dispatches — failing mid-flow leaves a partially scaffolded project.
+
+### Auth recovery procedure
+
+`npx @wix/cli login` uses a **device-code flow** — it prints a verification URL **and** a one-time code; the user opens the URL in a browser and enters the code to complete authentication. The CLI does *not* auto-open the browser, and it does not proceed without that code. If the user doesn't see the URL+code, login never completes.
+
+Most agent runtimes buffer subprocess stdout — calling the login command with a foreground tool that captures output (e.g. plain `Bash(npx @wix/cli login)`) holds the URL+code until the command exits, which never happens because the command is waiting for that very code. The output must reach the user **while the command is still running**.
+
+Required behavior:
+
+1. **Run login as a streaming/background process** so its stdout reaches the user in real time. Use whatever your runtime offers — a streaming-output tool (Claude Code: `Monitor` tailing a log file; Cursor: equivalent), a background bash + periodic log read, or hand the command off to the user via a shell-prefix shortcut. **Do not call `npx @wix/cli login` with a stdout-buffering foreground tool.**
+2. **Surface URL and code prominently in chat** as soon as they appear. The raw output contains spinner frames and shell control codes that bury the actionable lines — extract and re-print them on their own (e.g. `**URL:** <url>` and `**Code:** <code>`) so the user can act without hunting through a stream.
+3. **Wait for the "Logged in as ..." confirmation** before continuing. The login is not complete until the CLI writes `~/.wix/auth/account.json` and exits with code 0.
+
+Stop on non-zero exit or timeout; do not silently fail.
 
 ## Path resolution — read this first
 
@@ -147,7 +161,7 @@ See `references/DISCOVERY.md` for full mechanics.
 See `references/SETUP.md`. After approval, run **one concurrent batch** with no narration between operations.
 
 1. **App install** for every entry in `apps[*]` of every loaded vertical. Follow `<SKILL_ROOT>/references/commands/install-app.md` — owns the `CallWixSiteAPI` body shape, `appName → appDefId` lookup, and recovery ladder. **An empty `apps: []` array means install nothing for that pack** — gift-cards, ecom, cms all ship `apps: []`. Do not invent an `appName` from the pack name or SDK packages. Capture `APP_INSTALL_START`/`END` via `date -u +%s` around the `CallWixSiteAPI` invocation; record `{ phase: "app-install-<appName>", seconds }`.
-2. **`npx @wix/cli env pull`** (foreground, fast). Produces `.env.local` with `WIX_CLIENT_ID`. On auth error: run `npx @wix/cli login` inline (tell the user a browser is opening), wait for completion, then retry `env pull` once. If the retry also fails, stop and surface the error. Record `{ phase: "env-pull", seconds }`; on auto-recovery, also record `{ phase: "auth-login", seconds }`.
+2. **`npx @wix/cli env pull`** (foreground, fast). Produces `.env.local` with `WIX_CLIENT_ID`. On auth error: run `npx @wix/cli login` per the **Auth recovery procedure** in the Prerequisites section (device-code flow — surface URL + code to the user prominently via a streaming primitive, not a buffering foreground call), then retry `env pull` once. If the retry also fails, stop and surface the error. Record `{ phase: "env-pull", seconds }`; on auto-recovery, also record `{ phase: "auth-login", seconds }`.
 3. **`rm -f package-lock.json && npm install …`** as a **background shell** with the union of all loaded verticals' `packages` arrays plus the always-packages (`@wix/sdk tailwindcss @tailwindcss/vite`). Flags: `--no-fund --no-audit --legacy-peer-deps`. Bake `NPM_INSTALL_START=$(date -u +%s)` and `NPM_INSTALL_END=$(date -u +%s)` into the SAME background bash command so the values land in its output. Record `{ phase: "npm-install", seconds }` when the install finishes. **Do not add packages beyond this set** — see `SETUP.md` § anti-hallucination rule.
 4. **`bash <SKILL_ROOT>/scripts/seed-utilities.sh`** — copies `<SKILL_ROOT>/shared-utilities/*.ts` (`wix-image.ts`, `analytics.ts`, `ricos.ts`) into `src/utils/` with `cp -n` and strips the Astro starter cruft. Record `{ phase: "seed-utilities", seconds }`.
 5. **Memory writes** — `project` memory with brand/apps/pages/phase.
