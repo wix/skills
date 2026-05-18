@@ -39,65 +39,54 @@ Authoritative SCSS rules: `REACT-GUIDELINES.md` Part 2. For RTL/logical CSS patt
 ```scss
 // ❌ NEVER include:
 
-// State CSS
-&:hover { ... }              // ❌
-&:focus { ... }              // ❌
-&:disabled { ... }           // ❌
-&[data-state='open'] { ... } // ❌
-
 // Transitions/Animations
 transition: all 0.3s;        // ❌
 animation: fadeIn 0.5s;      // ❌
 ```
 
+State CSS (`:hover`, `:focus`, `:disabled`, `:invalid`, `[data-state]`) is **only** written through the design-states contract — paired pseudo-class + `:global(.elem<PascalKey>)` rules driven by TSX markers. See [`DESIGN-STATES.md`](DESIGN-STATES.md) for the full procedure. Ad-hoc `:hover` / `:focus` / `:disabled` rules outside that contract still don't belong in component CSS — the platform owns the state surface and only reads paired rules.
+
 ---
 
 # Part 3: Common Mistakes
 
-## 3.1 Adding interaction-state CSS to parts
+## 3.1 Authoring state CSS
 
-The resting visual (background, color, border-radius, padding, font)
-belongs in the component's CSS — see `CSS-GUIDELINES.md` §"Keep all
-styling in CSS". What does NOT belong is **interaction-state CSS**
-(`:hover`, `:focus`, `:focus-visible`, `:active`, `:disabled`,
-`[data-state]`, `[aria-selected]`) — the platform owns those.
-Selection / mode variants (`selected`, `active`, `open`) are
-different — they go through a JS-toggled modifier class; see
-`CSS-GUIDELINES.md` §"Express selection / mode variants".
+State CSS (`:hover`, `:focus`, `:focus-visible`, `:active`, `:disabled`, `:invalid`, `[data-state]`, `[aria-selected]`) only belongs in component CSS via the **design-states contract** — paired pseudo-class + `:global(.elem<PascalKey>)` rules with matching TSX markers. The manifest generator reads both signals and emits the editor's `states` block from them. Full procedure (state catalog, default styling, base-class resolution, TSX markers, key collision rule) lives in [`DESIGN-STATES.md`](DESIGN-STATES.md).
 
-**❌ Wrong — pseudo-class rules must be removed:**
+A pseudo-class rule **without** a matching `:global(.elem<PascalKey>)` partner is invisible to the editor — the platform can never apply the user's state styling to that surface. That's why ad-hoc `:hover` rules are still rejected.
+
+Selection / mode variants that are part of the component's own data model (not surfaced as editable design states) still go through a JS-toggled modifier class — see `CSS-GUIDELINES.md` §"Express selection / mode variants".
+
+**❌ Wrong — pseudo-class rule with no paired `:global(.elem<PascalKey>)`:**
 
 ```scss
-.button {
-  background-color: #ffffff;
-  color: #0f172a;
-  border-radius: 8px;
-  padding-block: 8px;
-  padding-inline: 16px;
-}
-
-.button:hover { /* ❌ Interaction state — platform owns this */
+.button:hover {
   background-color: #f0f0f0;
-}
-
-.button:disabled { /* ❌ Interaction state — platform owns this */
-  opacity: 0.5;
 }
 ```
 
-**✅ Correct — keep the resting visual; drop the pseudo-class rules:**
+**✅ Correct — paired CSS + TSX marker per [`DESIGN-STATES.md`](DESIGN-STATES.md):**
 
 ```scss
-.button {
-  display: flex;
-  align-items: center;
-  background-color: #ffffff;
-  color: #0f172a;
-  border-radius: 8px;
-  padding-block: 8px;
-  padding-inline: 16px;
-  box-sizing: border-box;
+.button:hover,
+.button:global(.elemHover) {
+  filter: brightness(1.05);
 }
+
+.button[aria-disabled='true'],
+.button:global(.elemDisabled) {
+  opacity: 0.5;
+  pointer-events: none;
+  cursor: not-allowed;
+}
+```
+
+```tsx
+<button
+  className={classNames('button', styles.button)}
+  aria-disabled={isDisabled || undefined}
+>
 ```
 
 ## 3.2 Browser APIs at module scope

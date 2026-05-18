@@ -40,10 +40,16 @@ File where you can override the generated manifest from `<componentName>.generat
 `[[ -d "node_modules/@wix/react-component-schema" && -d "node_modules/@wix/react-component-utils" && -d "node_modules/@wix/editor-react-types" ]] || ([ -f yarn.lock ] && yarn add @wix/react-component-schema @wix/react-component-utils @wix/editor-react-types || npm install @wix/react-component-schema @wix/react-component-utils @wix/editor-react-types)`
 3. Edit the generated react and CSS files in
    `src/site/components/ComponentName/`.
-4. Run `npx wix build && npx wix generate manifest` so the editor picks up
+4. Wire design states (Hover / Focus / Disabled / Invalid / Selected /
+   custom keys) into the React + CSS per
+   [`editor-react-component/DESIGN-STATES.md`](editor-react-component/DESIGN-STATES.md).
+   Paired pseudo-class + `:global(.elem<PascalKey>)` rules with matching TSX
+   markers are required for the manifest generator to emit the editor's
+   `states` block.
+5. Run `npx wix build && npx wix generate manifest` so the editor picks up
    the new/updated prop schema. This command regenerates manifest
    parts for all components.
-5. Update `Component.extensions.ts` file according to [`editor-react-component/COMPONENT-CONFIGURATION.md`](editor-react-component/COMPONENT-CONFIGURATION.md)
+6. Update `Component.extensions.ts` file according to [`editor-react-component/COMPONENT-CONFIGURATION.md`](editor-react-component/COMPONENT-CONFIGURATION.md)
 
 Reference: when modifying an _existing_ component, follow
 [`editor-react-component/EDIT-FLOW.md`](editor-react-component/EDIT-FLOW.md).
@@ -59,6 +65,7 @@ Topic-focused references (rules + patterns + common mistakes in one place):
 - [`editor-react-component/PROPS-VS-CSS.md`](editor-react-component/PROPS-VS-CSS.md) — What should be a React prop vs CSS
 - [`editor-react-component/COMPONENT-API.md`](editor-react-component/COMPONENT-API.md) — Props structure, elementProps, data types, file splitting, containers, array props
 - [`editor-react-component/REACT-PATTERNS.md`](editor-react-component/REACT-PATTERNS.md) — SSR-safe patterns, CSS rules, remaining common mistakes
+- [`editor-react-component/DESIGN-STATES.md`](editor-react-component/DESIGN-STATES.md) — Paired CSS + TSX signals for Hover / Focus / Disabled / Invalid / Selected and custom states
 
 ## CSS guidelines
 

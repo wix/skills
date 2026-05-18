@@ -417,41 +417,36 @@ refined default costs nothing.
 | Hierarchy | Interactive elements visually distinct from static via weight, fill, or elevation |
 | Touch targets | Interactive elements ≥ 44×44 px |
 
-### Don't author state styles (`:hover`, `:focus`, `:disabled`, `[data-state]`)
+### State styles go through the design-states contract
 
-State pseudo-classes and state attribute selectors are not allowed
-in component CSS. That includes `:hover`, `:focus`, `:focus-visible`,
-`:active`, `:disabled`, and attribute selectors like
-`[data-state='open']` or `[aria-selected='true']`.
+State pseudo-classes (`:hover`, `:focus`, `:focus-visible`, `:disabled`, `:invalid`) and state attribute selectors (`[aria-disabled='true']`, `[aria-invalid='true']`, `[data-state='<key>']`) are only authored as part of the **design-states contract**: a paired rule that combines the pseudo-class (or state attribute) with a `:global(.elem<PascalKey>)` class, backed by a matching TSX marker on the same element. The manifest generator reads both signals together and emits the editor's `states` block from them; the editor then applies the site owner's state styling by injecting `elem<PascalKey>` onto the DOM at runtime.
 
-**Why:** the editor owns state styling. Hover, focus, disabled, and
-similar interaction states are exposed to the site owner as
-editable visual states — the platform writes those rules itself
-based on what the user configures. State styles authored in the
-component compete with the platform's rules and produce two
-sources of truth for the same state.
+Full procedure — state catalog (`hover` / `focus` / `disabled` / `invalid` / `selected` / custom keys), default-styling table, base-class resolution, TSX markers, key collision rule, manifest output — lives in [`DESIGN-STATES.md`](DESIGN-STATES.md).
+
+**Why:** an unpaired pseudo-class rule is invisible to the editor — the platform can never apply the user's state styling to that surface. The paired form (`<base>:<pseudo>, <base>:global(.elem<PascalKey>)`) is the protocol the platform reads to know the component supports a given state. Authoring state CSS outside this contract still produces two competing sources of truth for the same state.
 
 ```css
-/* ❌ Don't: hover/focus/disabled state — platform owns these */
+/* ❌ Don't: unpaired pseudo-class — invisible to the editor */
 .button:hover {
   background-color: #f0f0f0;
 }
-.button:focus {
-  outline: 2px solid blue;
-}
-.button:disabled {
-  opacity: 0.5;
-}
 
-/* ❌ Don't: state attribute selectors — same problem */
+/* ❌ Don't: unpaired state attribute — same problem */
 .panel[data-state='open'] {
   background-color: #fafafa;
 }
 
-/* ✅ Do: Style the resting state only — platform layers state styling on top */
-.button {
-  background-color: #ffffff;
-  color: #111;
+/* ✅ Do: paired CSS + matching TSX marker (see DESIGN-STATES.md) */
+.button:hover,
+.button:global(.elemHover) {
+  filter: brightness(1.05);
+}
+
+.button[aria-disabled='true'],
+.button:global(.elemDisabled) {
+  opacity: 0.5;
+  pointer-events: none;
+  cursor: not-allowed;
 }
 ```
 

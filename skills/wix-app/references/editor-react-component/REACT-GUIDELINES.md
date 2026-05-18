@@ -9,6 +9,7 @@ This guide defines rules and guidance on **how to implement** production-quality
 - [`PROPS-VS-CSS.md`](PROPS-VS-CSS.md) — What should be a React prop vs CSS
 - [`COMPONENT-API.md`](COMPONENT-API.md) — Props structure, elementProps, data types, file splitting, containers, array props
 - [`REACT-PATTERNS.md`](REACT-PATTERNS.md) — SSR-safe patterns, CSS rules, common mistakes
+- [`DESIGN-STATES.md`](DESIGN-STATES.md) — Paired CSS + TSX signals for Hover / Focus / Disabled / Invalid / Selected and custom states
 
 ## React 18 features are not supported
 
@@ -41,6 +42,10 @@ Direction support is mandatory — see [`DIRECTIONALITY.md`](DIRECTIONALITY.md).
 ### Accessibility ARIA Support
 
 See [`ACCESSIBILITY.md`](ACCESSIBILITY.md) for full rules and patterns.
+
+### Design States
+
+Every interactive component must declare its design states (Hover, Focus, Disabled, Invalid, Selected, custom keys) via the paired CSS + TSX contract — see [`DESIGN-STATES.md`](DESIGN-STATES.md) for the procedure, the role → states inference table, and the default-styling catalog. The manifest generator emits the editor's state-switcher entries from these signals.
 
 ### TypeScript
 
