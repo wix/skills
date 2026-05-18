@@ -1,6 +1,9 @@
 
 # Wix Dashboard Page Builder
 
+> **🛑 STOP — Read this first.**
+> If this page is a single-collection CRUD admin (table/grid view + entity form, no multi-collection joins, no custom business logic, no embedded scripts, no external APIs), STOP and use [AUTO_PATTERNS_DASHBOARD.md](AUTO_PATTERNS_DASHBOARD.md) instead. Auto-patterns is the default; this file documents the custom React variant for cases auto-patterns cannot handle, or when the user explicitly requested a custom React page.
+
 Creates full-featured dashboard page extensions for Wix CLI applications. Dashboard pages appear in the Wix site owner's dashboard and enable site administrators to manage data, configure settings, and perform administrative tasks.
 
 
