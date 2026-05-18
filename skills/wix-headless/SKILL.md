@@ -41,7 +41,14 @@ exits with the terminal event.
 
 ## Path resolution — read this first
 
-Your CWD at runtime is the **project directory**, not the skill root. Compute `<SKILL_ROOT>` from this file's path: this file is at `<SKILL_ROOT>/SKILL.md` — strip the trailing `/SKILL.md`. Hold the absolute path in session scratch for the whole run.
+Your CWD at runtime is the **project directory**, not the skill root. How you resolve `<SKILL_ROOT>/...` references depends on how you loaded the skill:
+
+- **On-disk install** (`curl -O https://dev.wix.com/skills/wix-headless.tgz && tar xzf wix-headless.tgz`): this file is at `<SKILL_ROOT>/SKILL.md` on disk — strip the trailing `/SKILL.md` for the absolute path. Hold it in session scratch for the whole run. Run scripts as written: `bash <SKILL_ROOT>/scripts/X.sh` and `node "<SKILL_ROOT>/scripts/X.mjs" <args>`.
+- **URL stream** (you see the agent-note preamble at the top of this file): `<SKILL_ROOT>` is `https://dev.wix.com/skills/wix-headless`. Execute scripts via process substitution:
+  - `bash <SKILL_ROOT>/scripts/X.sh <args>` → `bash <(curl -s <SKILL_ROOT>/scripts/X.sh) <args>`
+  - `node "<SKILL_ROOT>/scripts/X.mjs" <args>` → `curl -s <SKILL_ROOT>/scripts/X.mjs | node --input-type=module - <args>`
+
+  Process substitution (`node <(curl ...)`) does **not** work for `.mjs` — Node sees the script as `/dev/fd/N` with no extension and refuses ESM syntax. Pipe via stdin with `--input-type=module` instead.
 
 | What | Absolute path |
 |---|---|
