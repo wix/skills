@@ -114,27 +114,59 @@ For structured objects, define nested fields inside `objectOptions.fields`:
 
 ## Field Properties
 
-```json
+```ts
 {
-  "key": "email",
-  "displayName": "Email Address",
-  "type": "TEXT",
-  "required": true,
-  "unique": true,
-  "defaultValue": null,
-  "description": "User's primary email"
+  key: 'email',                         // required, lowerCamelCase ASCII
+  type: 'TEXT',                         // required, see Field Types above
+  displayName: 'Email Address',         // optional, CMS label
+  description: "User's primary email",  // optional, help text
+  encrypted: false,                     // optional, encrypt value at rest
+  // arrayOptions / objectOptions / referenceOptions / multiReferenceOptions
+  // only when type is ARRAY / OBJECT / REFERENCE / MULTI_REFERENCE
 }
 ```
 
-| Property       | Description                  |
-| -------------- | ---------------------------- |
-| `key`          | Field identifier (camelCase) |
-| `displayName`  | Label shown in CMS           |
-| `type`         | Field data type              |
-| `required`     | Must have value              |
-| `unique`       | No duplicates allowed        |
-| `defaultValue` | Initial value                |
-| `description`  | Help text                    |
+| Property      | Required | Description                          |
+| ------------- | -------- | ------------------------------------ |
+| `key`         | yes      | Field identifier (lowerCamelCase)    |
+| `type`        | yes      | Field data type (see Field Types)    |
+| `displayName` | no       | Label shown in CMS                   |
+| `description` | no       | Help text                            |
+| `encrypted`   | no       | Encrypt value at rest                |
+
+**There is no field-level `required`, `defaultValue`, or `unique`.** The `DevCenterDataCollectionField` type does not accept them and TypeScript will reject the build. Use these alternatives instead:
+
+- **Required values:** Validate in the dashboard form and/or service-plugin handler before inserting. Do not rely on the collection schema to enforce presence.
+- **Defaults:** Set defaults in the insert path (dashboard handler, service plugin) or via the collection's `initialData` for seeded rows.
+- **Uniqueness:** Declare a unique index in the collection's `indexes` array (see [Indexes](#indexes)). Uniqueness is an index-level concern, not a field-level one.
+
+## Indexes
+
+The `indexes` array on the collection accepts entries shaped like:
+
+```ts
+indexes: [
+  {
+    fields: [{ path: 'email', order: 'ASC' }],  // order is optional: 'ASC' | 'DESC'
+    unique: true,                                // optional, enforces uniqueness across items
+  },
+  {
+    fields: [
+      { path: 'category' },
+      { path: '_createdDate', order: 'DESC' },
+    ],
+  },
+],
+```
+
+| Property        | Required | Description                                            |
+| --------------- | -------- | ------------------------------------------------------ |
+| `fields`        | yes      | One or more `{ path, order? }` entries (composite index when more than one) |
+| `fields[].path` | yes      | Field key to index                                     |
+| `fields[].order`| no       | `'ASC'` (default) or `'DESC'`                          |
+| `unique`        | no       | Enforce uniqueness on the indexed field(s)             |
+
+Leave `indexes: []` when no custom indexing is needed; the `_id` index is created automatically.
 
 ## Naming Conventions
 
@@ -313,11 +345,11 @@ Run `wix generate --params` twice — once with `collectionName: "categories"` a
 
 ## Common Patterns
 
-**Soft Delete:** Add `isDeleted` (BOOLEAN, default: false)
+**Soft Delete:** Add `isDeleted` (BOOLEAN), defaulted at the insert path
 
 **Status/Workflow:** Add `status` (TEXT) with values like draft/pending/published
 
-**URL Slug:** Add `slug` (TEXT, unique) for SEO-friendly URLs
+**URL Slug:** Add `slug` (TEXT) plus a `{ fields: [{ path: 'slug' }], unique: true }` entry in `indexes` for SEO-friendly URLs
 
 **Owner Tracking:** Add `createdBy` (REFERENCE → custom collection, not Members)
 
