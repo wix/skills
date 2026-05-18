@@ -154,7 +154,6 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 - [Guardrail: Rate Pricing Sanity](references/ecommerce/guardrail-rate-pricing-sanity.md)
 
 #### Config & API References
-- [API: Discount Recommendations](references/ecommerce/api-discount-recommendations.md)
 - [API: Recommendation Tracking](references/ecommerce/api-recommendation-tracking.md)
 - [Setup: Discount Rules](references/ecommerce/setup-discount-rules.md)
 - [Setup: Coupons](references/ecommerce/setup-coupons.md)
