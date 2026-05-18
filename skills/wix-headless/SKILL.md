@@ -118,7 +118,7 @@ If `wix.config.json` is present in the working directory, offer: *"I found an ex
 
 **Phase axis.** Core pipeline: `Phase 1 (Seed) → Phase 2 (Design System) → Phase 3 (Components) → Phase 4 (Pages)`. Image pipeline runs in parallel: Image Phase 1 (Decorative) alongside Phases 1–2; Image Phase 2 (Entity) alongside Phase 3 (depends only on Phase 1 Seed entity IDs + brand). Each Phase 4 agent writes its routes ONCE with both visual design and data queries — no placeholder-then-rewrite split.
 
-**The orchestrator is the only writer of `.wix/site.json`** — it merges each Seeder's `data` block into `seeded.<vertical>` and the Designer's `data.designTokens` block into `designTokens` as subagent results arrive. Subagents never write `site.json` themselves.
+**The orchestrator is the only writer of `.wix/site.json`** — it merges each Seeder's `data` block into `seeded.<vertical>` and the Designer's `data.designTokens` block into `designTokens` as subagent results arrive. Subagents never write `site.json` themselves. Use `scripts/merge-site-json.mjs` for every merge (it deep-merges into the existing path and refuses to descend through non-objects, which makes accidentally clobbering structured state impossible).
 
 ### Batching compliance
 
@@ -179,12 +179,12 @@ See `references/SETUP.md`. After approval, run **one concurrent batch** with no 
    {"brand": {"name": "...", "description": "..."}, "seeded": {}, "designTokens": {}, "verticals": ["..."]}
    ```
 
-   `.wix/site.json` is the single source of truth that every downstream phase reads. Only the orchestrator writes — it merges Seeder `data` into `seeded.<vertical>` and Designer `data.designTokens` into `designTokens` as returns arrive.
+   `.wix/site.json` is the single source of truth that every downstream phase reads. Only the orchestrator writes — it merges Seeder `data` into `seeded.<vertical>` and Designer `data.designTokens` into `designTokens` as returns arrive. Use `scripts/merge-site-json.mjs` for both: e.g. `echo "$STORES_SEED_DATA" | node scripts/merge-site-json.mjs "$(pwd)" --path seeded.stores`.
 
 ## Wave 3 — Seed + Design System + Image Phase 1 (one concurrent batch)
 
 Per loaded vertical:
-- **Phase 1 Seeder subagent (background)**, per vertical's `seed` config. Returns its data via the standard return JSON; orchestrator merges into `.wix/site.json.seeded.<vertical>`.
+- **Phase 1 Seeder subagent (background)**, per vertical's `seed` config. Returns its data via the standard return JSON; orchestrator merges into `.wix/site.json.seeded.<vertical>` via `scripts/merge-site-json.mjs` (see "Bridge: site.json merges" below).
 
 Always:
 - **Image Phase 1 Decorative subagent (background)**. Generates decorative images from brand context only — no Phase 1 Seed dependency. Prompt adds `Scope: image-phase-1-decorative` + page list + **`decorativeSlots: string[]`** (REQUIRED). Compose `decorativeSlots` from the canonical vocabulary in `references/designer/INSTRUCTIONS.md` § common rule #7: always `["hero", "about"]`, plus `"productsHeader"` if stores loaded, plus `"cmsHeader"` if you want a CMS page-header decorative. Designer is restricted to the same vocabulary; the two MUST match exactly.
@@ -203,7 +203,11 @@ The Designer prompt additionally requires:
 
 Phase 2 completes (~2–3 min). Inline orchestrator work, in this exact order:
 
-1. **Merge `data.designTokens` into `.wix/site.json.designTokens`.**
+1. **Merge `data.designTokens` into `.wix/site.json.designTokens`** via:
+   ```bash
+   echo "$DESIGN_TOKENS_JSON" | node "<SKILL_ROOT>/scripts/merge-site-json.mjs" "$(pwd)" --path designTokens
+   ```
+   where `$DESIGN_TOKENS_JSON` is the agent's `data.designTokens` block. The script deep-merges into the existing `designTokens` object so subsequent partial updates (e.g. an additional palette color from a later phase) compose cleanly with the foundation tokens. Wrap in `PHASE_START`/`PHASE_END`; record `{ phase: "merge-site-json-design-tokens", seconds }`.
 2. **`node "<SKILL_ROOT>/scripts/emit-design-tokens.mjs" "$(pwd)"`** — deterministically projects `.wix/site.json.designTokens` → `.wix/design-tokens.css` + `.wix/site.d.ts`. Wrap in `PHASE_START`/`PHASE_END`; record `{ phase: "emit-design-tokens", seconds }`.
 3. **Layout.astro CSS-import verification (mandatory).** Grep the generated `src/layouts/Layout.astro`. For every loaded vertical whose pack declares a `components` entry (stores, ecom, blog, forms), there MUST be a matching `import '../styles/components-<pack>.css'` in the frontmatter. If any is missing, **inline-patch Layout.astro now** — Phase 3 agents write `components-<pack>.css` expecting the designer to have imported it; if forgotten, every React island that uses scoped contract classes renders unstyled.
 
