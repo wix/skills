@@ -1,22 +1,13 @@
 
 # Wix Dashboard Menu Plugin Builder
 
-Creates dashboard menu plugin extensions for Wix CLI applications. Dashboard menu plugins are menu items that integrate into predefined **menu slots** on dashboard pages managed by Wix first-party business apps (Wix Stores, Wix Bookings, Wix Blog, Wix eCommerce, Wix Events, Wix CRM, Wix Restaurants).
+Dashboard menu plugins are menu items that integrate into predefined **menu slots** on dashboard pages managed by Wix first-party business apps (Wix Stores, Wix Bookings, Wix Blog, Wix eCommerce, Wix Events, Wix CRM, Wix Restaurants).
 
-When clicked, a dashboard menu plugin either **navigates to a dashboard page** or **opens a dashboard modal**.
+When clicked, a dashboard menu plugin either **navigates to a dashboard page** or **opens a dashboard modal**. They are configuration-only extensions — they do NOT have a React component file.
 
-Dashboard menu plugins are configuration-only extensions — they do NOT have a React component file.
+## Scaffold
 
-
-## Quick Start Checklist
-
-Follow these steps in order when creating a dashboard menu plugin:
-
-1. [ ] Identify the target menu slot ID — see [Slot Lookup Table](#slot-lookup-table) below, then read only the relevant vertical file
-2. [ ] Create plugin folder: `src/extensions/dashboard/menu-plugins/<plugin-name>/`
-3. [ ] Create `<plugin-name>.extension.ts` with `extensions.dashboardMenuPlugin()` and unique UUID
-4. [ ] Configure the `action` field to either navigate to a dashboard page or open a modal
-5. [ ] Update `src/extensions.ts` to import and use the new extension
+Use `wix generate --params` with `extensionType: DASHBOARD_MENU_PLUGIN`. `extendsSlotId` comes from the [Slot Lookup Table](#slot-lookup-table) below; for the authoritative list of all supported `extendsSlotId` values, run `wix schema generate --type DASHBOARD_MENU_PLUGIN`. `action` must contain **exactly one** of `pageId` or `modalId`, referencing the `id` of an existing Dashboard Page or Dashboard Modal extension in the project. The CLI generates the folder, the configuration file, the UUID, and the `src/extensions.ts` registration.
 
 ## Architecture
 
@@ -27,117 +18,29 @@ Dashboard menu plugins operate as **click-to-action** menu items. They:
    - **Navigate to a dashboard page** — redirects to a specified dashboard page
    - **Open a dashboard modal** — displays a specified dashboard modal
 
-## Files and Code Structure
+## The `extendsSlotId` Field
 
-Dashboard menu plugins live under `src/extensions/dashboard/menu-plugins/`. Each plugin has its own folder containing a single file.
-
-```
-src/extensions/dashboard/menu-plugins/
-└── <plugin-name>/
-    └── <plugin-name>.extension.ts   # Builder configuration
-```
-
-> **Note:** This is the default folder structure created by the CLI. You can move the file to any location within the `src/` folder and update the references in your `extension.ts` file.
-
-## Plugin Builder Configuration
-
-### File: `<plugin-name>.extension.ts`
-
-```typescript
-import { extensions } from "@wix/astro/builders";
-
-export const dashboardmenupluginMyMenuPlugin = extensions.dashboardMenuPlugin({
-  id: "{{GENERATE_UUID}}",
-  title: "My Menu Plugin",
-  extends: "<MENU_SLOT_ID>",
-  iconKey: "Sparkles",
-  action: {
-    navigateToPage: {
-      pageId: "<DASHBOARD_PAGE_ID>",
-    },
-  },
-});
-```
-
-**CRITICAL: UUID Generation**
-
-The `id` must be a unique, static UUID v4 string. Generate a fresh UUID for each extension — do NOT use `randomUUID()` or copy UUIDs from examples. Replace `{{GENERATE_UUID}}` with a freshly generated UUID like `"a1b2c3d4-e5f6-7890-abcd-ef1234567890"`.
-
-### Builder Fields
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `id` | string | Unique plugin ID (GUID). Must be unique across all extensions in the project. |
-| `title` | string | Text displayed for the menu item. |
-| `extends` | string | Menu slot ID where the extension integrates. See [Slot Lookup Table](#slot-lookup-table). |
-| `iconKey` | string | Icon name from Wix Design System appearing next to the title. |
-| `action` | object | Navigation configuration determining behavior when clicked. |
-
-### The `extends` Field
-
-The `extends` field specifies which dashboard menu slot hosts your menu plugin. Each Wix business app exposes menu slots on its dashboard pages. You must provide the exact slot ID.
+Specifies which dashboard menu slot hosts your menu plugin. Each Wix business app exposes menu slots on its dashboard pages. You must provide the exact slot ID.
 
 **Important:** Some slots with the same ID appear on different pages within the dashboard. If you create a menu plugin for a slot that exists on multiple pages, the menu plugin is displayed on all of those pages.
 
 For the complete list of available menu slot IDs, see the [Slot Lookup Table](#slot-lookup-table) below. Read only the vertical file that matches the user's request.
 
-### The `action` Field
+## The `action` Field
 
-The `action` field determines what happens when the user clicks the menu item. You must configure exactly one of the following:
+The `action` field determines what happens when the user clicks the menu item. Configure **exactly one** of the following:
 
-#### Option 1: Navigate to a Dashboard Page
+| Action | Scaffold param | Value |
+|---|---|---|
+| Navigate to a dashboard page | `{ "action": { "pageId": "<PAGE_ID>" } }` | `pageId` is the `id` (UUID) of an existing dashboard page extension. |
+| Open a dashboard modal | `{ "action": { "modalId": "<MODAL_ID>" } }` | `modalId` is the `id` (UUID) of an existing dashboard modal extension. |
 
-```typescript
-action: {
-  navigateToPage: {
-    pageId: "<DASHBOARD_PAGE_ID>",
-  },
-},
-```
+## Icon Selection
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `action.navigateToPage` | object | Page navigation configuration object. |
-| `action.navigateToPage.pageId` | string | The `id` of the target dashboard page extension. |
-
-#### Option 2: Open a Dashboard Modal
-
-```typescript
-action: {
-  openModal: {
-    componentId: "<DASHBOARD_MODAL_ID>",
-  },
-},
-```
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `action.openModal` | object | Modal navigation configuration object. |
-| `action.openModal.componentId` | string | The `id` of the target dashboard modal extension. |
-
-### The `iconKey` Field
-
-The `iconKey` must be a valid icon name from the Wix Design System icon set (`@wix/wix-ui-icons-common`). Use the `wix-design-system` skill to look up available icon names.
-
-## Extension Registration
-
-**Extension registration is MANDATORY and has TWO required steps.**
-
-### Step 1: Create Plugin-Specific Extension File
-
-Each dashboard menu plugin requires a `<plugin-name>.extension.ts` file in its folder. See [Plugin Builder Configuration](#plugin-builder-configuration) above.
-
-### Step 2: Register in Main Extensions File
-
-**CRITICAL:** After creating the plugin-specific extension file, you MUST read [Extension Registration reference](EXTENSION_REGISTRATION.md) and follow the "App Registration" section to update `src/extensions.ts`.
-
-**Without completing Step 2, the dashboard menu plugin will not appear on the dashboard page.**
+The generated builder file has an `iconKey` field. It must be a valid icon name from the Wix Design System icon set (`@wix/wix-ui-icons-common`). Use the `wix-design-system` skill to look up available icon names and update the generated builder file accordingly.
 
 ## Dashboard-Menu-Plugin-specific Conventions
 
-- The `extends` field MUST contain a valid menu slot ID from a Wix business app — do NOT invent slot IDs.
-- The `action.navigateToPage.pageId` MUST reference the `id` of an existing dashboard page extension in the project.
-- The `action.openModal.componentId` MUST reference the `id` of an existing dashboard modal extension in the project.
 - A dashboard menu plugin does NOT have a React component — it is configuration-only.
 - Do NOT confuse dashboard menu plugins with dashboard plugins — they are different extension types.
 

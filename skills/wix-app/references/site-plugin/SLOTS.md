@@ -2,26 +2,19 @@
 
 This reference provides detailed information about all available slots for site plugins across Wix business solutions.
 
-## Supported Pages and Slots
+> **Authoritative slot list**: run `wix schema generate --type SITE_PLUGIN` for the live, complete `slotId` enum (each `anyOf` entry has the slot's human-readable title). This file documents per-slot runtime APIs, App Definition IDs, UX notes, and design constraints — content the schema does not carry.
 
-| Wix App        | Supported Pages/Widgets                                      |
-| -------------- | ------------------------------------------------------------ |
-| Wix Stores     | Product Page (new and old versions), Category Page, Shop Page, Gallery Widget |
-| Wix eCommerce  | Checkout Page, Side Cart                                     |
-| Wix Bookings   | Service Page                                                 |
-| Wix Events     | Event Details Page                                           |
-| Wix Blog       | Post Page                                                    |
+## Host Apps
 
-## Common Wix App IDs
-
-| Wix App                | App Definition ID                      |
-| ---------------------- | -------------------------------------- |
-| Wix Stores (Old)       | `1380b703-ce81-ff05-f115-39571d94dfcd` |
-| Wix Stores (New)       | `a0c68605-c2e7-4c8d-9ea1-767f9770e087` |
-| Wix Bookings           | `13d21c63-b5ec-5912-8397-c3a5ddb27a97` |
-| Wix Events             | `140603ad-af8d-84a5-2c80-a0f60cb47351` |
-| Wix Blog               | `14bcded7-0066-7c35-14d7-466cb3f09103` |
-| Wix Restaurants        | `13e8d036-5516-6104-b456-c8466db39542` |
+| Wix App           | App Definition ID                      | Supported Pages/Widgets                                       |
+| ----------------- | -------------------------------------- | ------------------------------------------------------------- |
+| Wix Stores (Old)  | `1380b703-ce81-ff05-f115-39571d94dfcd` | Product Page (Old Version), Category Page, Shop Page, Gallery Widget |
+| Wix Stores (New)  | `a0c68605-c2e7-4c8d-9ea1-767f9770e087` | Product Page (New Version)                                    |
+| Wix eCommerce     | —                                      | Checkout Page, Side Cart                                      |
+| Wix Bookings      | `13d21c63-b5ec-5912-8397-c3a5ddb27a97` | Service Page                                                  |
+| Wix Events        | `140603ad-af8d-84a5-2c80-a0f60cb47351` | Event Details Page                                            |
+| Wix Blog          | `14bcded7-0066-7c35-14d7-466cb3f09103` | Post Page                                                     |
+| Wix Restaurants   | `13e8d036-5516-6104-b456-c8466db39542` | —                                                             |
 
 ---
 
@@ -33,10 +26,6 @@ This reference provides detailed information about all available slots for site 
 | ----------------- | ---------------------------------------- |
 | `appDefinitionId` | `a0c68605-c2e7-4c8d-9ea1-767f9770e087`   |
 | `widgetId`        | `6a25b678-53ec-4b37-a190-65fcd1ca1a63`   |
-
-**Available Slot IDs:**
-- `product-page-media-1`
-- `product-page-details-2`
 
 **Note:** If using the `product-page-media-1` slot, it may overlap with the thumbnail images on the left side in desktop view. Consider offering settings in your app to control the left padding. ([Wix docs reference](https://dev.wix.com/docs/build-apps/develop-your-app/extensions/site-extensions/site-plugins/supported-wix-app-pages/wix-stores/wix-stores-product-page))
 
@@ -54,11 +43,7 @@ This reference provides detailed information about all available slots for site 
 | `appDefinitionId` | `1380b703-ce81-ff05-f115-39571d94dfcd`   |
 | `widgetId`        | `13a94f09-2766-3c40-4a32-8edb5acdd8bc`   |
 
-**Available Slot IDs:**
-- `product-page-details-2`
-- Additional slots vary by layout (Classic, Simple, Sleek, Spotlight, Stunning)
-
-**Note:** Check which Wix Stores version is installed before building 
+**Note:** Available slots vary by layout (Classic, Simple, Sleek, Spotlight, Stunning). Check which Wix Stores version is installed before building 
 plugins, as slots differ between versions. Your app should include 
 placements for both versions for maximum compatibility.
 
@@ -107,18 +92,6 @@ placements for both versions for maximum compatibility.
 | `appDefinitionId` | `1380b703-ce81-ff05-f115-39571d94dfcd`   |
 | `widgetId`        | `14fd5970-8072-c276-1246-058b79e70c1a`   |
 
-**Available Slot IDs:**
-- `checkout:header`
-- `checkout:top`
-- `checkout:steps:before`
-- `checkout:delivery-step:options:after`
-- `checkout:policies:after-1`
-- `checkout:summary:before`
-- `checkout:summary:lineItems:after`
-- `checkout:summary:lineItems:after2`
-- `checkout:summary:totalsBreakdown:before`
-- `checkout:summary:after`
-
 **Note:** Some checkout plugins may not support automatic addition upon installation. Create a dashboard page to manage your site plugin.
 
 **Checkout Plugin API Properties:**
@@ -129,11 +102,11 @@ placements for both versions for maximum compatibility.
 **Checkout Plugin API Functions:**
 - `onRefreshCheckout(callback: () => void)` - An event handler that accepts a callback function invoked whenever the checkout needs to be refreshed
 
-**Note:** The `checkout:delivery-step:options:after` slot uses a **different API** — see Delivery Step Options Slot API below.
+**Note:** The delivery-method step slot uses a **different API** — see Delivery Step Options Slot API below. Check the schema for its exact `slotId`.
 
 #### Delivery Step Options Slot API
 
-The `checkout:delivery-step:options:after` slot has its own API that is different from the other checkout slots.
+The delivery-method step slot has its own API that is different from the other checkout slots.
 
 **Properties:**
 - `checkoutId` (string) - ID of the current checkout process
@@ -153,13 +126,6 @@ The `checkout:delivery-step:options:after` slot has its own API that is differen
 | `appDefinitionId` | `1380b703-ce81-ff05-f115-39571d94dfcd`   |
 | `widgetId`        | `49dbb2d9-d9e5-4605-a147-e926605bf164`  |
 
-**Available Slot IDs:**
-- `side-cart:header:after-1`
-- `side-cart:lineItems:after-1`
-- `side-cart:customer-input:after-1`
-- `side-cart:footer:actions:before-1`
-- `side-cart:footer:actions:after-1`
-
 **Note:** Some side cart plugins may not support automatic addition upon installation. Create a dashboard page to manage your site plugin.
 
 **Design Guidelines:**
@@ -169,7 +135,7 @@ The Side Cart uses a `4px` baseline grid. Don't add extra spacing around your pl
 | Slot                                  | Recommended Height | Max Height |
 | ------------------------------------- | ------------------ | ---------- |
 | `side-cart:header:after-1`            | `30px`             | `70px`     |
-| `side-cart:lineItems:after-1`         | `50px`             | `150px`    |
+| `side-cart:line-items:after-1`        | `50px`             | `150px`    |
 | `side-cart:customer-input:after-1`    | `24px`             | `150px`    |
 | `side-cart:footer:actions:before-1`   | `50px`             | `70px`     |
 | `side-cart:footer:actions:after-1`    | `50px`             | `70px`     |
@@ -185,16 +151,6 @@ The Side Cart uses a `4px` baseline grid. Don't add extra spacing around your pl
 | `appDefinitionId` | `14bcded7-0066-7c35-14d7-466cb3f09103`   |
 | `widgetId`        | `211b5287-14e2-4690-bb71-525908938c81`   |
 
-**Available Slot IDs:**
-- `above-header`
-- `above-content-1`
-- `above-content-2`
-- `below-content-1`
-- `below-content-2`
-- `page-bottom-1`
-- `page-bottom-2`
-- `page-bottom-3`
-
 **Plugin API Properties:**
 - `postId` (string) - The ID of the current post
 
@@ -208,7 +164,6 @@ The Side Cart uses a `4px` baseline grid. Don't add extra spacing around your pl
 | ----------------- | ---------------------------------------- |
 | `appDefinitionId` | `13d21c63-b5ec-5912-8397-c3a5ddb27a97`   |
 | `widgetId`        | `a91a0543-d4bd-4e6b-b315-9410aa27bcde`  |
-| `slotId`          | `slot1`                                  |
 
 The Service Page can host a single plugin that users are free to reposition within the page by reordering the Service Page sections.
 
@@ -225,10 +180,6 @@ The Service Page can host a single plugin that users are free to reposition with
 | ----------------- | ---------------------------------------- |
 | `appDefinitionId` | `140603ad-af8d-84a5-2c80-a0f60cb47351`   |
 | `widgetId`        | `14d2abc2-5350-6322-487d-8c16ff833c8a`  |
-
-**Available Slot IDs:**
-- `header`
-- `details`
 
 **Plugin API Properties:**
 - `eventId` (string) - The ID of the event currently applied on the plugin's host

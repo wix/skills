@@ -2,29 +2,11 @@
 
 ## Overview
 
-The Payment Settings SPI allows you to integrate custom payment settings with the Wix eCommerce payment process. This is called during payment processing (e.g., when a customer enters credit card details) and returns payment settings that Wix passes to the payment provider.
-
-A common use case is to enforce 3D Secure (3DS) payments for certain transactions based on custom business logic.
-
-## Import
-
-```typescript
-import { paymentSettings } from '@wix/ecom/service-plugins';
-```
-
-## Handler
-
-| Handler | Description |
-| --- | --- |
-| `getPaymentSettings` | Return payment settings to apply during the payment process |
+The Payment Settings SPI lets you integrate custom payment settings with the Wix eCommerce payment process. It's called during payment processing (e.g., when a customer enters credit card details) and returns settings that Wix passes to the payment provider. A common use case is enforcing 3D Secure (3DS) for certain transactions. Implement the `getPaymentSettings` handler.
 
 ## Request and Response Schema
 
-Before implementing, call `ReadFullDocsMethodSchema` with the docs URL below to get the full request/response types.
-
-**MCP Tools to use:**
-- `ReadFullDocsMethodSchema` - Full request/response schema with field names, types, and descriptions
-- `ReadFullDocsArticle` - Full documentation with code examples (use if schema needs more context)
+Before implementing, call `ReadFullDocsMethodSchema` on the docs URL to get the full request/response types.
 
 | Handler | Docs URL |
 | --- | --- |
@@ -113,23 +95,3 @@ paymentSettings.provideHandlers({
 5. **Fallback configuration** - Use the `fallbackValueForRequires3dSecure` builder field to set a default value if the SPI call fails (defaults to `false`)
 6. **Handle errors gracefully** - Return sensible defaults on error rather than throwing
 
-## Extension Registration
-
-Register the payment settings provider using the `ecomPaymentSettings()` builder. This builder accepts a special `fallbackValueForRequires3dSecure` field:
-
-```typescript
-import { extensions } from "@wix/astro/builders";
-
-export const paymentSettings = extensions.ecomPaymentSettings({
-  id: "{{GENERATE_UUID}}",
-  name: "Custom Payment Settings",
-  source: "./backend/service-plugins/ecom-payment-settings/my-payment-settings/plugin.ts",
-  fallbackValueForRequires3dSecure: false, // Default if SPI call fails
-});
-```
-
-### Additional Builder Fields
-
-| Field | Type | Required | Description |
-| --- | --- | --- | --- |
-| `fallbackValueForRequires3dSecure` | boolean | No | Default value for `requires3dSecure` if the SPI call fails (defaults to `false`) |

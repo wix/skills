@@ -1,19 +1,26 @@
 
 # Wix Embedded Script Builder
 
-Creates embedded script extensions for Wix CLI applications. Embedded scripts are HTML code fragments that get injected into the DOM of Wix sites, enabling integration with third-party services, analytics tracking, advertising, and custom JavaScript functionality.
+Embedded scripts are HTML code fragments injected into the DOM of Wix sites — for integration with third-party services, analytics tracking, advertising, and custom JavaScript functionality.
 
-## Quick Start Checklist
+## Scaffold
 
-Follow these steps in order when creating an embedded script:
+Use `wix generate --params` with all 5 required fields:
 
-1. [ ] Create script folder: `src/extensions/site/embedded-scripts/<script-name>/`
-2. [ ] Create `embedded.html` with config element, styles, and script logic
-3. [ ] Create `extensions.ts` with `extensions.embeddedScript()` and unique UUID
-4. [ ] Create dashboard config page: `src/extensions/dashboard/pages/<script-name>-settings/`
-5. [ ] Implement config page with `embeddedScripts` API from `@wix/app-management`
-6. [ ] Update `src/extensions.ts` to import and use both extensions
-7. [ ] Add the `SCOPE.DC-APPS.MANAGE-EMBEDDED-SCRIPTS` permission in the Wix Dev Center (see [Enable Embedded Script Permission](#enable-embedded-script-permission))
+```bash
+wix generate --params '{"extensionType":"EMBEDDED_SCRIPT","name":"<name>","folder":"<folder>","scriptType":"<scriptType>","placement":"<placement>"}'
+```
+
+| Field | Constraint |
+| --- | --- |
+| `name` | Display name, any string. |
+| `folder` | Lowercase alphanumeric, hyphens, slashes (for sub-paths). |
+| `scriptType` | One of: `ESSENTIAL`, `FUNCTIONAL`, `ANALYTICS`, `ADVERTISING`. |
+| `placement` | One of: `HEAD`, `BODY_START`, `BODY_END`. |
+
+The CLI generates the folder, `<folder>.html` (the actual script HTML), the builder file, the UUID, and the `src/extensions.ts` registration. (It may also drop a sample `<other>.ts` module to demonstrate `<script type="module" src="./xxx.ts">` imports — feel free to delete or repurpose it.)
+
+After implementation, the app developer must enable `SCOPE.DC-APPS.MANAGE-EMBEDDED-SCRIPTS` in the Wix Dev Center — see [Enable Embedded Script Permission](#enable-embedded-script-permission).
 
 ## Script Types
 
@@ -30,42 +37,15 @@ Embedded scripts must declare a type for consent management:
 
 ## Placement Options
 
-| Placement    | Description                              | Best For                          |
-| ------------ | ---------------------------------------- | --------------------------------- |
-| `HEAD`       | Between `<head>` and `</head>` tags      | Analytics, early initialization   |
-| `BODY_START` | Immediately after opening `<body>` tag   | Critical functionality, noscript  |
-| `BODY_END`   | Immediately before closing `</body>` tag | Non-blocking scripts, performance |
-
-**Selection guidelines:**
-
-- Analytics/tracking → `HEAD` (initialize early)
-- Advertising pixels → `BODY_END` (non-blocking)
-- Critical functionality → `HEAD` or `BODY_START`
-- Non-critical features → `BODY_END` (better performance)
+| Placement    | Where in HTML                            | Best for                                                                |
+| ------------ | ---------------------------------------- | ----------------------------------------------------------------------- |
+| `HEAD`       | Between `<head>` and `</head>` tags      | Analytics, tracking, early initialization                               |
+| `BODY_START` | Immediately after opening `<body>` tag   | Critical functionality, `<noscript>` fallback                           |
+| `BODY_END`   | Immediately before closing `</body>` tag | Advertising pixels, non-critical features (non-blocking, better perf)   |
 
 ## Dynamic Parameters and Dashboard Configuration
 
-**Every embedded script requires a companion dashboard page** to configure its parameters. Site owners use the dashboard page UI to set values, which are then passed to the embedded script as template variables.
-
-### Architecture Flow
-
-```
-Dashboard Page (React UI)
-    │
-    │  embeddedScripts.embedScript({ parameters: {...} })
-    ▼
-Wix App Management API
-    │
-    │  Stores parameters, injects as template variables
-    ▼
-Embedded Script (HTML)
-    │
-    │  {{parameterKey}} → actual value
-    ▼
-Site DOM
-```
-
-**Related skill:** Use DASHBOARD_PAGE.md to create the configuration UI for your embedded script.
+**Every embedded script requires a companion dashboard page** to configure its parameters. Scaffold a separate `DASHBOARD_PAGE` extension and use `embeddedScripts` from `@wix/app-management` to load/save parameters (see [DASHBOARD_PAGE.md](DASHBOARD_PAGE.md)). Wix stores the parameters and injects them as `{{templateVars}}` into the HTML at render time.
 
 ### Parameter Types
 
@@ -83,126 +63,29 @@ Site DOM
 
 ### Template Variable Syntax
 
-Embedded scripts support parameterization using template variable syntax `{{variableName}}`. These parameters are configured through the dashboard and passed as template variables that should be used in your HTML/JavaScript code.
-
-**Usage Instructions:**
-
-1. **Template Variable Syntax:**
-   - Use `{{parameterKey}}` syntax to insert parameter values into your HTML
-   - Template variables work in HTML attributes
-   - They will be replaced with actual values when the script is injected
-
-2. **HTML Attributes (REQUIRED):**
-   - Store ALL parameter values in data attributes on a configuration element
-   - Template variables can ONLY be used here, not directly in JavaScript
-   - Example: `<div id="config" data-headline="{{headline}}" data-text="{{text}}"></div>`
-
-3. **JavaScript Access:**
-   - JavaScript must read parameter values from the data attributes
-   - Use `getAttribute()` or the `dataset` property
-   - Examples:
-     ```javascript
-     const config = document.getElementById("config");
-     const headline = config?.getAttribute("data-headline");
-     // OR using dataset:
-     const { headline, text } = config.dataset;
-     ```
-
-4. **Type Safety:**
-   - Be aware of parameter types when using them in JavaScript
-   - NUMBER types: convert with `Number()` or `parseInt()`
-   - BOOLEAN types: compare with `'true'` or `'false'` strings
-   - DATE/DATETIME: parse with `new Date()`
-
-5. **Required vs Optional:**
-   - Required parameters will always have values
-   - Optional parameters may be empty - handle gracefully
-   - Provide fallback values for optional parameters
-
-6. **Relevant Parameter Usage:**
-   - Only use dynamic parameters that are relevant to your current use case
-   - Ignore parameters that don't apply to the functionality you're implementing
-   - Each parameter you use should serve a clear purpose in the script's functionality
-   - It's perfectly fine to not use all parameters if they're not applicable
-
-**Example Patterns:**
-
-**Pattern 1 - Configuration in Data Attributes:**
+`{{parameterKey}}` placeholders are substituted at injection time, **but only inside HTML attribute values** — not inside `<script>` bodies. The required pattern is: render every parameter as a data attribute on a config element, then read it from `dataset` in JS.
 
 ```html
-<div
-  id="script-config"
+<div id="config"
   data-api-key="{{apiKey}}"
   data-enabled="{{enabled}}"
-  data-color="{{primaryColor}}"
-></div>
-<script>
-  const config = document.getElementById("script-config");
-  const apiKey = config.getAttribute("data-api-key");
-  const enabled = config.getAttribute("data-enabled") === "true";
-  const color = config.getAttribute("data-color");
-
-  if (enabled && apiKey) {
-    // Initialize with configuration
-  }
-</script>
-```
-
-**Pattern 2 - Using dataset Property:**
-
-```html
-<div
-  id="script-config"
   data-headline="{{headline}}"
-  data-message="{{message}}"
-  data-image-url="{{imageUrl}}"
 ></div>
 <script>
-  const config = document.getElementById("script-config");
-  const { headline, message, imageUrl } = config.dataset;
-
-  // Use the variables in your script logic
-  if (headline) {
-    document.querySelector("#headline").textContent = headline;
-  }
+  const { apiKey, enabled, headline } = document.getElementById("config").dataset;
+  // ...
 </script>
 ```
 
-**Pattern 3 - Conditional Logic:**
+**Type handling (all `dataset` values are strings):**
+- `NUMBER` → `Number(value)` or `parseInt(value, 10)`
+- `BOOLEAN` → compare against `"true"` / `"false"`
+- `DATE` / `DATETIME` → `new Date(value)`
 
-```html
-<div
-  id="config"
-  data-mode="{{activationMode}}"
-  data-start="{{startDate}}"
-  data-end="{{endDate}}"
-></div>
-<script>
-  const config = document.getElementById("config");
-  const mode = config.getAttribute("data-mode");
-
-  if (mode === "timed") {
-    const startDate = new Date(config.getAttribute("data-start"));
-    const endDate = new Date(config.getAttribute("data-end"));
-    const now = new Date();
-
-    if (now >= startDate && now <= endDate) {
-      // Show content
-    }
-  } else if (mode === "active") {
-    // Show content immediately
-  }
-</script>
-```
-
-**Validation Requirements:**
-
-- Only use dynamic parameters that are relevant to your specific use case
-- Ignore parameters that don't apply to the functionality being implemented
-- Template variables `{{parameterKey}}` must match the exact key names from the parameter definitions
-- Handle both required and optional parameters appropriately
-- Provide sensible default behavior when optional parameters are not set
-- Ensure type-appropriate usage (don't use NUMBER parameters as strings without conversion)
+**Other rules:**
+- Template variable names must match the parameter keys exactly.
+- Required parameters always have values; optional parameters may be empty — provide fallbacks.
+- Only use parameters that are relevant to the use case; don't reference parameters you don't implement.
 
 ### Common Parameters
 
@@ -216,86 +99,14 @@ Every embedded script should have at minimum an **enable/disable toggle** parame
 | `headline`   | `TEXT`    | Customizable display text            |
 | `color`      | `COLOR`   | UI customization                     |
 
-## Output Structure
+## Module-script Rules
 
-A complete embedded script implementation requires **two parts**:
+The `<script type="module">` block runs at module scope, where Rollup (used by Astro) **disallows `return` statements**.
 
-### 1. Embedded Script Extension
+- Use `throw new Error(...)` for early exits at module scope (e.g., "script disabled" / "config element not found").
+- Wrap the main logic in a named `async function` and call it from a `DOMContentLoaded` listener (or directly if `document.readyState !== "loading"`); `return` is valid inside the function.
 
-```
-src/extensions/site/embedded-scripts/
-└── {script-name}/
-    ├── embedded.html     # HTML/JavaScript code to inject
-    └── extensions.ts     # Metadata (scriptType, placement)
-```
-
-### 2. Dashboard Configuration Page (Required)
-
-```
-src/extensions/dashboard/
-├── withProviders.tsx     # WDS provider wrapper (required)
-└── pages/
-    └── {script-name}-settings/
-        ├── extensions.ts  # Extension registration (REQUIRED)
-        └── page.tsx       # Configuration UI using embeddedScripts API
-```
-
-**Note:** The dashboard page requires its own `extensions.ts` file. Without this file, the dashboard page will not appear in the Wix dashboard.
-
-**WARNING:** The dashboard page uses DIFFERENT field names than embedded scripts:
-
-- Dashboard pages use `title`, `routePath`, `component`
-- Embedded scripts use `name`, `source`, `placement`, `scriptType`
-
-Do NOT apply embedded script field names to dashboard page registrations.
-
-**See the DASHBOARD_PAGE.md reference** for dashboard page implementation details and the extension registration pattern.
-
-## Implementation Pattern
-
-```html
-<!-- Configuration element with template variables -->
-<div id="my-config" data-api-key="{{apiKey}}" data-enabled="{{enabled}}"></div>
-
-<!-- Container for dynamic content -->
-<div id="my-container"></div>
-
-<style>
-  /* Scoped styles for the embedded content */
-  #my-container {
-    /* styles */
-  }
-</style>
-
-<script type="module">
-  // Get configuration from data attributes
-  const config = document.getElementById("my-config");
-  if (!config) throw new Error("Config element not found");
-
-  const { apiKey, enabled } = config.dataset;
-
-  // Exit early if disabled (use throw at module scope, not return)
-  if (enabled !== "true") {
-    throw new Error("Script disabled");
-  }
-
-  // Implement functionality in a named function (return is allowed here)
-  async function initialize() {
-    try {
-      // Your implementation
-    } catch (error) {
-      console.error("Script error:", error);
-    }
-  }
-
-  // Initialize when DOM is ready
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", initialize);
-  } else {
-    initialize();
-  }
-</script>
-```
+See the [Complete Example](#complete-example-coupon-popup) below for the full skeleton.
 
 ## Examples
 
@@ -418,44 +229,6 @@ await embeddedScripts.embedScript({
   },
 });
 ```
-
-## Extension Registration
-
-**Extension registration is MANDATORY and has TWO required steps.**
-
-### Step 1: Create Script-Specific Extension File
-
-Each embedded script requires an `extensions.ts` file in its folder:
-
-```typescript
-import { extensions } from "@wix/astro/builders";
-
-export const embeddedscriptMyScript = extensions.embeddedScript({
-  id: "{{GENERATE_UUID}}",
-  name: "My Script",
-  source: "./extensions/site/embedded-scripts/my-script/embedded.html",
-  placement: "BODY_END",
-  scriptType: "FUNCTIONAL",
-});
-```
-
-**CRITICAL: UUID Generation**
-
-The `id` must be a unique, static UUID v4 string. Generate a fresh UUID for each extension - do NOT use `randomUUID()` or copy UUIDs from examples. Replace `{{GENERATE_UUID}}` with a freshly generated UUID like `"a1b2c3d4-e5f6-7890-abcd-ef1234567890"`.
-
-| Property     | Type   | Description                                           |
-| ------------ | ------ | ----------------------------------------------------- |
-| `id`         | string | Unique static UUID v4 (generate fresh)                |
-| `name`       | string | Display name for the script                           |
-| `source`     | string | Relative path to the HTML file                        |
-| `placement`  | enum   | `HEAD`, `BODY_START`, or `BODY_END`                   |
-| `scriptType` | enum   | `ESSENTIAL`, `FUNCTIONAL`, `ANALYTICS`, `ADVERTISING` |
-
-### Step 2: Register in Main Extensions File
-
-**CRITICAL:** After creating the script-specific extension file, you MUST read [Extension Registration reference](EXTENSION_REGISTRATION.md) and follow the "App Registration" section to update `src/extensions.ts`.
-
-**Without completing Step 2, the embedded script will not be deployed to the site.**
 
 ## Enable Embedded Script Permission
 
