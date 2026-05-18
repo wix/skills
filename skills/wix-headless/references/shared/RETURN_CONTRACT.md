@@ -60,7 +60,7 @@ Agents sometimes end with prose like:
 
 > *"All three files are correctly written. Let me verify the key requirements… Everything looks good."*
 
-…with no fenced JSON block at the end. The parent skill then has to reconstruct `data.products` etc. from narrative text — fragile, and when Phase 4 relies on pre-seeded data from Phase 1 Seed returns (see `SKILL.md` Step 7), a missing JSON block means Phase 4 agents don't get their pre-seeded data inline and fall back to re-querying MCP, costing 5–15s each.
+…with no fenced JSON block at the end. The parent skill then has to reconstruct `data.products` etc. from narrative text — fragile, and when Phase 4 relies on pre-seeded data from Phase 1 Seed returns (see `SKILL.md` Step 7), a missing JSON block means Phase 4 agents don't get their pre-seeded data inline and fall back to re-querying the Wix API, costing 5–15s each.
 
 **Correct pattern — end with the fenced block, no trailing prose:**
 
@@ -302,7 +302,7 @@ The image agent runs in two scopes dispatched by the parent in different steps. 
 }
 ```
 
-(Image agent writes to Wix Media via MCP, not to project files — Image Phase 2 `files` is empty.)
+(Image agent writes to Wix Media via the REST API, not to project files — Image Phase 2 `files` is empty.)
 
 ## Failure returns
 
@@ -395,13 +395,13 @@ Agents should check their output for these before returning `complete`:
 | Missing `variantId` in cart operations | Check `catalogReference.options` | Always include — single-variant products have one |
 | React island using default Tailwind color class | `grep 'bg-blue-\|bg-green-\|text-red-\|bg-gray-' *.tsx` | Use brand `@theme` utilities (`bg-bark`, `text-cream`) or contract class names |
 
-### MCP
+### Wix REST API
 
 | Failure | How to detect | Fix |
 |---------|---------------|-----|
-| `UNSUPPORTED_FORM_NAMESPACE` after app install | Error on first MCP call post-install | Wait 10s, retry up to 3x (namespace propagation) |
-| `CallWixSiteAPI` with stringified `body` | Tool rejects the call shape | Load the tool schema via your runtime's tool-discovery primitive, then pass `body` as a real object |
-| Tool-not-found on Wix MCP call | Tool name without the session's prefix | Use `<prefix>ToolName`; see `MCP_PREFIX.md` recovery |
+| `UNSUPPORTED_FORM_NAMESPACE` after app install | Error on first API call post-install | Wait 10s, retry up to 3x (namespace propagation) |
+| 401 / 403 on a `curl` against `wixapis.com` | Token expired or wrong site | Re-mint via `TOKEN=$(wix token --site "$SITE_ID")`; if it still fails, surface `"Run \`npx @wix/cli login\` and retry."` |
+| `Expected object, received string` or similar JSON shape error | `curl -d` payload was double-quoted as a string | Pass `-d '{ "key": "value" }'` (literal JSON), not `-d "\"{ ... }\""` |
 
 ### Build
 

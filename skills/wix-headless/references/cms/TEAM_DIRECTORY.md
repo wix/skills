@@ -2,7 +2,7 @@
 
 Build a team directory using `@wix/data` — staff cards grouped by department with individual profile pages. Use for about us, our team, meet the staff, or any people directory.
 
-> Read `CMS_FOUNDATIONS.md` first for shared patterns (service module, image resolution, elevation, MCP seeding).
+> Read `CMS_FOUNDATIONS.md` first for shared patterns (service module, image resolution, elevation, REST API seeding).
 
 ## Collection Schema
 
@@ -266,7 +266,7 @@ if (!member) return Astro.redirect("/404");
 > **Do not skip:** Team members without photos appear as initial-letter placeholders.
 > Always ask the user if they want to generate headshot images before moving on.
 
-After seeding team members via MCP, generate headshot images following `../../shared/IMAGE_GENERATION.md` and `CMS_FOUNDATIONS.md` → "MCP Seeding with Images".
+After seeding team members via the Wix REST API, generate headshot images following `../../shared/IMAGE_GENERATION.md` and `CMS_FOUNDATIONS.md` → "REST API Seeding with Images".
 
 **Prompt template:**
 
@@ -278,16 +278,18 @@ Professional headshot portrait of [NAME], [ROLE] at [BUSINESS NAME]. [BRAND AEST
 
 Example: after generating and importing the image, patch the team member item:
 
-```
-CallWixSiteAPI: PATCH /wix-data/v2/items/{memberId}
-body: {
-  "dataCollectionId": "Team",
-  "dataItem": {
-    "data": {
-      "photo": "<wixstatic-url>"
+```bash
+curl -sS -X PATCH "https://www.wixapis.com/wix-data/v2/items/{memberId}" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "dataCollectionId": "Team",
+    "dataItem": {
+      "data": {
+        "photo": "<wixstatic-url>"
+      }
     }
-  }
-}
+  }'
 ```
 
 ## Testing

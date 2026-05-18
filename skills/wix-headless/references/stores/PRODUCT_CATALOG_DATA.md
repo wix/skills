@@ -1,28 +1,37 @@
 # Recipe: Product Catalog Data Setup (Phase 1)
 
-Replace the default sample products Wix Stores installs with on-brand products via MCP. This file covers the `seed-seed` scope — data seeding only. Frontend wiring lives in the Phase 2 scope references (`SHARED_WIRING.md`, `PRODUCT_PAGES.md`, `CART_CHECKOUT.md`, `HOME_AND_NAV.md`) and should not be read by `seed-seed`.
+Replace the default sample products Wix Stores installs with on-brand products via the Wix REST API. This file covers the `seed-seed` scope — data seeding only. Frontend wiring lives in the Phase 2 scope references (`SHARED_WIRING.md`, `PRODUCT_PAGES.md`, `CART_CHECKOUT.md`, `HOME_AND_NAV.md`) and should not be read by `seed-seed`.
 
 > **Critical Rules — Read Before Starting**
 > 1. **V3 only** — all endpoints under `/stores/v3/...` for products.
-> 2. **No improvised endpoints** — if an MCP call returns 404, stop and report. Do not guess alternative URLs. Do not loop on `SearchWixRESTDocumentation` more than twice on the same topic.
+> 2. **No improvised endpoints** — if a call returns 404, stop and report. Do not guess alternative URLs. (If the Wix MCP doc tools are connected, you may run one `SearchWixRESTDocumentation` lookup; do not loop more than twice on the same topic.)
 > 3. **Do not seed categories.** Categories are merchant-driven — created in the Wix dashboard, not by this scope. The storefront's rail, Shop submenu, and `/category/[slug]` route are still wired (Phase 4) and light up automatically once the merchant adds at least one visible category with items (≤ 5 min after creation, the helper's TTL).
 
 > **V3 Catalog:** New Wix sites use Catalog V3. All endpoints below live under `/stores/v3/...`. The V1 product endpoints should not be used — they silently return 0 results on V3 catalogs.
 
 ## Prerequisites
 
-- Wix Stores app must be installed on the site (via MCP after scaffolding, or installed via MCP if missing — see Step 0)
+- Wix Stores app must be installed on the site (via the Wix REST API after scaffolding, or installed via the same API if missing — see Step 0)
 
-## Setup: Replace Default Products via MCP
+## Auth (once per agent)
+
+```bash
+SITE_ID=$(jq -r '.siteId' .wix/wix.config.json)
+TOKEN=$(wix token --site "$SITE_ID")
+```
+
+The site-scoped CLI token encodes the site, so no separate `wix-site-id` header is needed.
+
+## Setup: Replace Default Products via the Wix REST API
 
 > **Conditional:** This section only applies when ALL of these are true:
 > - The Stores app was just installed (default sample products exist)
-> - Wix MCP tools are available (`mcp__wix-mcp-remote__CallWixSiteAPI` exists)
+> - `wix whoami` confirms a logged-in CLI session (so `wix token --site "$SITE_ID"` returns a valid token)
 > - Discovery context is available in your prompt (business type, brand name, style)
 >
-> **If MCP tools are not available, skip this entire section.** The 12 default products remain and can be customized later in the Wix dashboard.
+> **If the CLI isn't authenticated, skip this entire section.** The 12 default products remain and can be customized later in the Wix dashboard.
 
-> **API error guard:** If any MCP call in Phase 1 returns a 404 or an unexpected error, do **not** retry the same call with a guessed alternative URL or namespace. Report the failing endpoint, request body, and error verbatim to the user, then stop. Improvised endpoints have caused multi-minute silent stalls in past runs.
+> **API error guard:** If any call in Phase 1 returns a 404 or an unexpected error, do **not** retry the same call with a guessed alternative URL or namespace. Report the failing endpoint, request body, and error verbatim to the user, then stop. Improvised endpoints have caused multi-minute silent stalls in past runs.
 
 > **Stores appDefId** for install and `catalogReference.appId`: `215238eb-22a5-4c36-9e7b-e7c08025e04e`. (A different defId — `1380b703-ce81-ff05-f115-39571d94dfcd` — is used for `wixMetadata.appDefId` in Phase 2. Do not swap them.)
 
@@ -30,16 +39,23 @@ Replace the default sample products Wix Stores installs with on-brand products v
 
 Before querying products, verify the Stores app is installed:
 
-1. **Probe** — `CallWixSiteAPI: POST /stores/v3/products/query` with body `{ "query": { "paging": { "limit": 1 } } }`
+1. **Probe** —
+   ```bash
+   curl -sS -X POST "https://www.wixapis.com/stores/v3/products/query" \
+     -H "Authorization: Bearer $TOKEN" \
+     -H "Content-Type: application/json" \
+     -d '{ "query": { "paging": { "limit": 1 } } }'
+   ```
 2. **If the API returns a "REQUIRED_APP_NOT_INSTALLED" error** → install the Wix Stores app:
+   ```bash
+   curl -sS -X POST "https://www.wixapis.com/apps-installer-service/v1/app-instance/install" \
+     -H "Authorization: Bearer $TOKEN" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "tenant":      { "tenantType": "SITE", "id": "'"$SITE_ID"'" },
+       "appInstance": { "appDefId": "215238eb-22a5-4c36-9e7b-e7c08025e04e", "enabled": true }
+     }'
    ```
-   CallWixSiteAPI: POST https://www.wixapis.com/apps-installer-service/v1/app-instance/install
-   body: {
-     "tenant": { "tenantType": "SITE", "id": "<siteId>" },
-     "appInstance": { "appDefId": "215238eb-22a5-4c36-9e7b-e7c08025e04e", "enabled": true }
-   }
-   ```
-   > Translate this prose-HTTP form into the full `CallWixSiteAPI` tool-call shape — include `siteId`, `reason`, `sourceDocUrl` wrapper fields and pass `body` as a real object (NOT a stringified JSON). See `../../shared/MCP_PREFIX.md` § "CallWixSiteAPI call conventions".
 
    Then retry the probe query to confirm installation succeeded.
 3. **If the probe succeeds** → proceed to Step 1.
@@ -50,24 +66,22 @@ Replace the 12 generic sample products with 3 on-brand products that match the u
 
 ### Step 1: Query Default Products
 
-```
-CallWixSiteAPI: POST /stores/v3/products/query
-body: {
-  "query": {
-    "paging": { "limit": 50 }
-  }
-}
+```bash
+curl -sS -X POST "https://www.wixapis.com/stores/v3/products/query" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{ "query": { "paging": { "limit": 50 } } }'
 ```
 
 Collect all product IDs from the response.
 
 ### Step 2: Bulk Delete Defaults
 
-```
-CallWixSiteAPI: POST /stores/v3/bulk/products/delete
-body: {
-  "productIds": ["<id1>", "<id2>", ..., "<id12>"]
-}
+```bash
+curl -sS -X POST "https://www.wixapis.com/stores/v3/bulk/products/delete" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{ "productIds": ["<id1>", "<id2>", ..., "<id12>"] }'
 ```
 
 ### Step 3: Design 3 On-Brand Products
@@ -97,9 +111,11 @@ Adapt names, descriptions, and pricing to match the brand's tone and style. Use 
 
 **Product with variants** (e.g., skincare with 30ml/50ml sizes):
 
-```
-CallWixSiteAPI: POST /stores/v3/bulk/products-with-inventory/create
-body: {
+```bash
+curl -sS -X POST "https://www.wixapis.com/stores/v3/bulk/products-with-inventory/create" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
   "products": [
     {
       "name": "<Product Name>",
@@ -154,7 +170,7 @@ body: {
     }
   ],
   "returnEntity": true
-}
+}'
 ```
 
 Add one more variant object per size in the `variants` array (one per choice combination). Use the Ricos format for descriptions (PARAGRAPH > TEXT > textData).
@@ -182,11 +198,11 @@ Include all products in the same `products` array. Do not include `media` — pr
 
 ### Step 5: Verify
 
-```
-CallWixSiteAPI: POST /stores/v3/products/query
-body: {
-  "query": { "paging": { "limit": 50 } }
-}
+```bash
+curl -sS -X POST "https://www.wixapis.com/stores/v3/products/query" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{ "query": { "paging": { "limit": 50 } } }'
 ```
 
 Confirm exactly 3 products exist. Report the product names and prices to the user.

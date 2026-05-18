@@ -12,25 +12,36 @@ Build a complete form feature using `@wix/forms` — server-side schema fetching
 
 ## Prerequisites
 
-- Wix Forms app must be installed on the site (via MCP after scaffolding, or manually in Wix dashboard)
+- Wix Forms app must be installed on the site (via the Wix REST API after scaffolding — see below — or manually in the Wix dashboard)
 - `@wix/forms` package installed: `npm install @wix/forms`
 
-> **Forms are auto-created during scaffolding.** When scaffolding with a forms template (e.g., the Registration template `e5d63bf1-cd06-48eb-ad77-0da9235adcf1`), a form is automatically created on the site with server-side privileges. Use `forms.listForms("wix.form_app.form")` with `auth.elevate` to discover it — no manual form ID needed. If no forms exist, use the MCP-assisted Form Setup below to create one (the Create Form API is not available to headless SDK calls, but MCP credentials can create forms).
+> **Forms are auto-created during scaffolding.** When scaffolding with a forms template (e.g., the Registration template `e5d63bf1-cd06-48eb-ad77-0da9235adcf1`), a form is automatically created on the site with server-side privileges. Use `forms.listForms("wix.form_app.form")` with `auth.elevate` to discover it — no manual form ID needed. If no forms exist, use the Wix REST API form setup below to create one (the Create Form API is not exposed to headless SDK calls, but a CLI-authenticated REST call can create forms).
 
-## Form Setup (MCP-Assisted)
+## Form Setup (Wix REST API)
 
-Before writing any form code, ensure a contact form exists on the site via MCP:
+Before writing any form code, ensure a contact form exists on the site via the Wix REST API. All calls in this section use a site-scoped access token obtained from the Wix CLI:
 
-1. **List forms** — `CallWixSiteAPI: GET https://www.wixapis.com/form-schema-service/v4/forms?namespace=wix.form_app.form`
+```bash
+# Run once at the top of this section. `SITE_ID` comes from `.wix/wix.config.json`.
+SITE_ID=$(jq -r '.siteId' .wix/wix.config.json)
+TOKEN=$(wix token --site "$SITE_ID")
+```
+
+1. **List forms** —
+   ```bash
+   curl -sS -X GET "https://www.wixapis.com/form-schema-service/v4/forms?namespace=wix.form_app.form" \
+     -H "Authorization: Bearer $TOKEN"
+   ```
 2. **If the API returns a "missing installed app" error** → install the Wix Forms app:
+   ```bash
+   curl -sS -X POST "https://www.wixapis.com/apps-installer-service/v1/app-instance/install" \
+     -H "Authorization: Bearer $TOKEN" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "tenant": { "tenantType": "SITE", "id": "'"$SITE_ID"'" },
+       "appInstance": { "appDefId": "225dd912-7dea-4738-8688-4b8c6955ffc2", "enabled": true }
+     }'
    ```
-   CallWixSiteAPI: POST https://www.wixapis.com/apps-installer-service/v1/app-instance/install
-   body: {
-     "tenant": { "tenantType": "SITE", "id": "<siteId>" },
-     "appInstance": { "appDefId": "225dd912-7dea-4738-8688-4b8c6955ffc2", "enabled": true }
-   }
-   ```
-   > Translate this prose-HTTP form into the full `CallWixSiteAPI` tool-call shape — include `siteId`, `reason`, `sourceDocUrl` wrapper fields and pass `body` as a real object (NOT a stringified JSON). See `../../shared/MCP_PREFIX.md` § "CallWixSiteAPI call conventions".
 
    Then retry listing forms.
 3. **If forms list is empty** → create a form (two-step atomic operation):
@@ -125,34 +136,36 @@ Before writing any form code, ensure a contact form exists on the site via MCP:
    }
    ```
 
-   Full MCP call structure:
-   ```
-   CallWixSiteAPI: POST https://www.wixapis.com/form-schema-service/v4/forms
-   body: {
-     "form": {
-       "formFields": [ <selected fields from above> ],
-       "steps": [{ "id": "cfa7a3ed-ef11-4ae7-3a5b-7d450c86d217", "name": "Page 1", "hidden": false,
-         "layout": { "large": { "items": [ <layout entries matching selected fields> ] }}
-       }],
-       "name": "<Form Name matching purpose>",
-       "namespace": "wix.form_app.form",
-       "spamFilterProtectionLevel": "ADVANCED",
-       "enabled": true,
-       "postSubmissionTriggers": {
-         "upsertContact": {
-           "fieldsMapping": { <only mappings for included contact fields> },
-           "labels": []
-         }
-       },
-       "submitSettings": {
-         "submitSuccessAction": "THANK_YOU_MESSAGE",
-         "thankYouMessageOptions": {
-           "durationInSeconds": 8,
-           "richContent": { "nodes": [{ "type": "PARAGRAPH", "id": "krhc065", "nodes": [{ "type": "TEXT", "id": "", "nodes": [], "textData": { "text": "Thanks, we received your submission.", "decorations": [] } }], "paragraphData": { "textStyle": { "textAlignment": "CENTER" } } }] }
+   Full request:
+   ```bash
+   curl -sS -X POST "https://www.wixapis.com/form-schema-service/v4/forms" \
+     -H "Authorization: Bearer $TOKEN" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "form": {
+         "formFields": [ <selected fields from above> ],
+         "steps": [{ "id": "cfa7a3ed-ef11-4ae7-3a5b-7d450c86d217", "name": "Page 1", "hidden": false,
+           "layout": { "large": { "items": [ <layout entries matching selected fields> ] }}
+         }],
+         "name": "<Form Name matching purpose>",
+         "namespace": "wix.form_app.form",
+         "spamFilterProtectionLevel": "ADVANCED",
+         "enabled": true,
+         "postSubmissionTriggers": {
+           "upsertContact": {
+             "fieldsMapping": { <only mappings for included contact fields> },
+             "labels": []
+           }
+         },
+         "submitSettings": {
+           "submitSuccessAction": "THANK_YOU_MESSAGE",
+           "thankYouMessageOptions": {
+             "durationInSeconds": 8,
+             "richContent": { "nodes": [{ "type": "PARAGRAPH", "id": "krhc065", "nodes": [{ "type": "TEXT", "id": "", "nodes": [], "textData": { "text": "Thanks, we received your submission.", "decorations": [] } }], "paragraphData": { "textStyle": { "textAlignment": "CENTER" } } }] }
+           }
          }
        }
-     }
-   }
+     }'
    ```
 4. **Always PATCH `postSubmissionTriggers` after creation** — The creation API silently drops this field. Treat form creation as a two-step atomic operation:
    - Step A: `POST /forms` to create the form
@@ -161,25 +174,27 @@ Before writing any form code, ensure a contact form exists on the site via MCP:
    - GET the form: `GET https://www.wixapis.com/form-schema-service/v4/forms?namespace=wix.form_app.form`
    - PATCH using the procedure in step 5 below
 5. **If forms already exist** → verify the form has `postSubmissionTriggers.upsertContact`. This field is **critical** — without it, submissions are recorded but no Contact is created in the CRM. If missing, patch the form to add it:
-   ```
-   CallWixSiteAPI: PATCH https://www.wixapis.com/form-schema-service/v4/forms/<formId>
-   body: {
-     "form": {
-       "revision": "<current revision from GET>",
-       "postSubmissionTriggers": {
-         "upsertContact": {
-           "fieldsMapping": {
-             <map each contact field target in the form, e.g.:>
-             "email": { "contactField": "EMAIL", "emailInfo": { "tag": "UNTAGGED" } },
-             "first_name": { "contactField": "FIRST_NAME" },
-             "last_name": { "contactField": "LAST_NAME" },
-             "phone": { "contactField": "PHONE", "phoneInfo": { "tag": "UNTAGGED" } }
-           },
-           "labels": []
+   ```bash
+   curl -sS -X PATCH "https://www.wixapis.com/form-schema-service/v4/forms/<formId>" \
+     -H "Authorization: Bearer $TOKEN" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "form": {
+         "revision": "<current revision from GET>",
+         "postSubmissionTriggers": {
+           "upsertContact": {
+             "fieldsMapping": {
+               <map each contact field target in the form, e.g.:>
+               "email": { "contactField": "EMAIL", "emailInfo": { "tag": "UNTAGGED" } },
+               "first_name": { "contactField": "FIRST_NAME" },
+               "last_name": { "contactField": "LAST_NAME" },
+               "phone": { "contactField": "PHONE", "phoneInfo": { "tag": "UNTAGGED" } }
+             },
+             "labels": []
+           }
          }
        }
-     }
-   }
+     }'
    ```
    Only include mappings for fields that exist on the form. The `fieldsMapping` keys must match the `inputOptions.target` values of the form's fields.
 
@@ -427,7 +442,7 @@ const wixForm = listResult.forms?.[0];
 const formId = wixForm?._id;
 ```
 
-If no forms exist, use the MCP-assisted Form Setup section above to create one via `CallWixSiteAPI`. If MCP is not available, create one in the Wix dashboard (Forms section → Add New Form).
+If no forms exist, use the Wix REST API form setup section above to create one. As a fallback, create one in the Wix dashboard (Forms section → Add New Form).
 
 ## Form Field Schema (SDK Types)
 

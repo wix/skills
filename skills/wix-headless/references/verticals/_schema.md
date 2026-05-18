@@ -31,7 +31,7 @@ features:                             # human-readable feature blurbs for the pl
     description: "Add to cart, review, check out via Wix's hosted checkout."
 
 # --- Infrastructure ---
-apps:                                 # MCP app installs (0 or more per pack)
+apps:                                 # Wix REST API app installs (0 or more per pack)
   - name: "Wix Stores"
     appDefId: "215238eb-22a5-4c36-9e7b-e7c08025e04e"
 packages:                             # npm packages to install
@@ -50,7 +50,7 @@ routes:
 # --- CMS collections this vertical declares (if any) ---
 cmsCollections: []                    # stores adds none; the cms vertical adds About + FAQ
 
-# --- Seed phase: data seeding (MCP-only, no design-token dependency) ---
+# --- Seed phase: data seeding (Wix REST API only, no design-token dependency) ---
 seed:
   agentLocation: "references/stores/"
   scope: "seed"
@@ -135,7 +135,7 @@ disabled: false                       # if true, the pack ships its code but its
 | `triggers` | string[] | yes unless `include: true` | Case-insensitive substrings matched against user prompt |
 | `description` | string | yes | Short label for the plan |
 | `features` | object[] | yes | Feature blurbs for the plan's "Features" section |
-| `apps` | object[] | no | MCP app installs; `{name, appDefId}` pairs |
+| `apps` | object[] | no | App installs (via Wix REST API); `{name, appDefId}` pairs |
 | `packages` | string[] | yes | npm packages |
 | `routes` | object[] | no | `{route, name?}` — routes the pack ships. Optional `name` overrides the path-derived page name in DISCOVERY's Section C. |
 | `cmsCollections` | object[] | no | Collections this vertical adds |
@@ -159,7 +159,7 @@ A pack can be `include: true, disabled: true` (always loaded but never auto-acti
 ## How the skill uses the vertical
 
 1. **Discovery step**: scan loaded verticals for `features`, `routes`, `cmsCollections` → assemble plan markdown.
-2. **Setup phase**: collect `apps`, `packages` → one MCP call per app, one `npm install` with merged package list.
+2. **Setup phase**: collect `apps`, `packages` → one Wix REST API call per app (see `references/commands/install-app.md`), one `npm install` with merged package list.
 3. **Seed phase**: for each vertical with a `seed` block, dispatch `seed.agent + scope`.
 4. **Design System phase**: Design System agent writes global styling — `@theme` token contract + a small set of always-required global semantic classes (compound patterns, interactive states, JS targets). Layout/spacing/typography flows through tokens-as-utilities at call sites; see `references/shared/STYLING.md`.
 5. **Components phase**: for each vertical with a `components` block, dispatch `components.agent + scope` (parallel).

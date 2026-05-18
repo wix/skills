@@ -15,7 +15,7 @@ You own **all visual output**: CSS, page layout, typography, color, spacing, com
 2. Read `../shared/RETURN_CONTRACT.md` — structured return format
 3. Read `../shared/STYLING.md` — three styling categories (tokens-as-utilities, global semantic classes, co-located styles), ownership, and decision rules. The principle that governs what belongs in `global.css` versus what stays in markup as utilities.
 
-No MCP calls required. Designer scopes are frontend-only — no `CallWixSiteAPI`, no MCP tool-discovery.
+No Wix API calls required. Designer scopes are frontend-only — no `curl` against `wixapis.com`, no `wix token`.
 
 ## Scope Routing
 
@@ -819,7 +819,7 @@ The JSON block MUST be the **last** content in your message — the parent parse
 | Phase 3 Components (stores/blog/forms) | Writes React islands referencing contract classes | Phase 2 Design System writes global CSS; Phase 3 Components writes scoped CSS. No overlap. |
 | Phase 4 Pages (vertical packs) | Reads your `.astro` files, swaps placeholders for live data (where the designer wrote placeholder-only scopes) | They preserve your layout and styling; they only change data-fetching code and island mounts |
 | Image agent (Image Phase 1) | Writes `.wix/image-urls.md` with decorative image URLs | Designers do NOT read this file. Emit `data-decorative-slot="<key>"` placeholders; the orchestrator's Step 4.6 Edit pass injects the `<img>` once Image Phase 1 finishes. |
-| Image agent (Image Phase 2) | PATCHes entity images onto products/posts via MCP | No direct interaction — images flow through product/post records that Phase 4 queries |
+| Image agent (Image Phase 2) | PATCHes entity images onto products/posts via the Wix REST API | No direct interaction — images flow through product/post records that Phase 4 queries |
 
 ## File ownership
 

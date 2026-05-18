@@ -5,13 +5,13 @@ description: "Implements structured content pages (About, FAQ, portfolios, team 
 
 # CMS Implementer
 
-Extends `references/shared/IMPLEMENTER.md`. Read that file first for phase routing, MCP prefix, site.json read pattern, return contract, style conventions, and common failure modes.
+Extends `references/shared/IMPLEMENTER.md`. Read that file first for phase routing, Wix API auth (CLI token), site.json read pattern, return contract, style conventions, and common failure modes.
 
 ## Scope routing
 
 | Scope | Phase | Reference |
 |-------|-------|-----------|
-| `seed` | Seed (create collections + seed items via MCP) | `./CMS_FOUNDATIONS.md` (§ seeding) + use-case ref |
+| `seed` | Seed (create collections + seed items via the Wix REST API) | `./CMS_FOUNDATIONS.md` (§ seeding) + use-case ref |
 | `pages` | Pages (About + FAQ pages read CMS via @wix/data inline) | `./CMS_FOUNDATIONS.md` (§ code patterns) + use-case ref |
 
 No `components` scope — CMS pages SSR content inline via `@wix/data`; no React islands.

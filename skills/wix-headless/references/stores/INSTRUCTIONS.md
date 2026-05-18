@@ -5,13 +5,13 @@ description: "Implements Wix Stores vertical — product catalog, categories, ad
 
 # Stores Implementer
 
-Extends `references/shared/IMPLEMENTER.md`. Read that file first for phase routing, MCP prefix, site.json read pattern, return contract, style conventions, and common failure modes.
+Extends `references/shared/IMPLEMENTER.md`. Read that file first for phase routing, Wix API auth (CLI token), site.json read pattern, return contract, style conventions, and common failure modes.
 
 ## Scope routing
 
 | Scope | Phase | Reference |
 |-------|-------|-----------|
-| `seed` | Seed (MCP catalog setup — products only; categories are merchant-driven, not seeded) | `./PRODUCT_CATALOG_DATA.md` |
+| `seed` | Seed (catalog setup via Wix REST API — products only; categories are merchant-driven, not seeded) | `./PRODUCT_CATALOG_DATA.md` |
 | `components` | Components (React islands + SeoTags + back-in-stock util — TSX/Astro only, **no CSS**) | `./SHARED_WIRING.md` |
 | `components-css` | Components (scoped CSS — `components-stores.css` only; runs concurrently with `components`) | `./COMPONENTS_CSS.md` |
 | `pages-categories` | Pages (`/category/[slug]` listing + shared CategoryRail + `utils/categories.ts`) | `./CATEGORY_PAGES.md` |

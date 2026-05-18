@@ -1,6 +1,6 @@
 # CMS Foundations — Shared Patterns for `@wix/data`
 
-Core patterns used by all CMS use cases: service module template, `@wix/data` queries, image resolution, elevated access, MCP seeding, and rich-text (Ricos) rendering.
+Core patterns used by all CMS use cases: service module template, `@wix/data` queries, image resolution, elevated access, REST API seeding, and rich-text (Ricos) rendering.
 
 > **Import note (read first).** Page code in this plugin uses `import * as items from "@wix/wix-data-items-sdk"` rather than the documented `import { items } from "@wix/data"`. The Wix-headless docs still show the `@wix/data` form, but `@wix/data` 1.0.448 dropped the `items` re-export — only sub-namespaces (`backups`, `collections`, `permissions`, …) remain, and the documented form fails the build with `'items' is not exported by '@wix/data'`. The actual `items` API (with `query`, `insert`, `update`, `remove`, `bulkInsert`, etc.) lives in `@wix/wix-data-items-sdk`, which `@wix/data` depends on transitively. Importing from there directly works on every current `@wix/data` version. The cms vertical pack adds `@wix/wix-data-items-sdk` to the install list so it's always present (`references/verticals/cms.md`). Use the wix-data-items-sdk import everywhere.
 
@@ -37,7 +37,7 @@ The util covers the common subset (PARAGRAPH, HEADING 1-6, BULLETED_LIST / ORDER
 > **Do NOT `set:html={item.body}` directly.** That ships JSON-encoded text into the page (e.g. `[object Object]` or `{"nodes":...}`). Always go through `renderRicos`.
 
 > **Critical Rules — Read Before Starting**
-> 1. **Collection IDs have NO namespace** — user collections use just the name (e.g., `"Projects"`). Only Wix App collections use `<namespace>/<name>`. Verify via MCP: `GET /wix-data/v2/collections?fields=id`.
+> 1. **Collection IDs have NO namespace** — user collections use just the name (e.g., `"Projects"`). Only Wix App collections use `<namespace>/<name>`. Verify via `GET /wix-data/v2/collections?fields=id` (see "Auth" below for token).
 > 2. **SDK query pattern** — `items.query("CollectionId").find()`. There is no `items.queryDataItems()` in the SDK.
 > 3. **`auth.elevate` on every query** — without it, restricted collections silently return no items.
 > 4. **CMS only for user collections** — use `@wix/blog` for blog posts, `@wix/stores` for products, `@wix/forms` for form submissions.
@@ -57,7 +57,7 @@ Example: if the collection is called `Projects`, the collection ID is simply `"P
 
 Only Wix App collections (e.g., `Members/PublicData`, `Locations/Locations`) use a `<namespace>/<name>` format. User-created collections never use a namespace.
 
-> **How to verify**: Call `GET /wix-data/v2/collections?fields=id` via MCP and use the exact `id` value from the response. Never guess — the dashboard name may differ from the ID.
+> **How to verify**: GET `https://www.wixapis.com/wix-data/v2/collections?fields=id` with the CLI token (see § Auth below) and use the exact `id` value from the response. Never guess — the dashboard name may differ from the ID.
 
 ## Quick Reference — Inline Query (Simple Pages)
 
@@ -206,48 +206,61 @@ const categories = [...new Set(allItems.map((item) => item.category).filter(Bool
 
 > **Styling note:** Category filter pill styling is created by the design skill. See `COMPONENT_PATTERNS.md` → Category Filter.
 
-## MCP Seeding (Conditional)
+## REST API Seeding (Conditional)
 
-If Wix MCP tools are available, check if the collection has data and seed sample items if empty. This is **conditional** — only attempt if MCP is connected.
+If the Wix CLI is authenticated, check if the collection has data and seed sample items if empty. This is **conditional** — only attempt if `wix whoami` succeeds.
 
 1. Query the collection — if items exist, skip seeding
-2. If empty, create the collection and insert sample items via MCP (see templates below)
+2. If empty, create the collection and insert sample items via the Wix REST API (see templates below)
 3. Design sample data that matches the business type from the functional plan
 
-> MCP seeding is optional. If MCP tools are not available, instruct the user to add content via the Wix dashboard → CMS section.
+> Seeding is optional. If the CLI isn't authenticated, instruct the user to add content via the Wix dashboard → CMS section.
+
+### Auth (once per agent)
+
+```bash
+SITE_ID=$(jq -r '.siteId' .wix/wix.config.json)
+TOKEN=$(wix token --site "$SITE_ID")
+```
+
+The site-scoped CLI token encodes the site, so no separate `wix-site-id` header is needed.
 
 ### Create collection (if it doesn't exist)
 
-```
-<prefix>CallWixSiteAPI: POST https://www.wixapis.com/wix-data/v2/collections
-body: {
-  "collection": {
-    "id": "about-content",
-    "displayName": "About Content",
-    "fields": [
-      { "key": "heading", "displayName": "Heading", "type": "TEXT" },
-      { "key": "body", "displayName": "Body", "type": "RICH_TEXT" },
-      { "key": "image", "displayName": "Image", "type": "IMAGE" }
-    ]
-  }
-}
+```bash
+curl -sS -X POST "https://www.wixapis.com/wix-data/v2/collections" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "collection": {
+      "id": "about-content",
+      "displayName": "About Content",
+      "fields": [
+        { "key": "heading", "displayName": "Heading", "type": "TEXT" },
+        { "key": "body", "displayName": "Body", "type": "RICH_TEXT" },
+        { "key": "image", "displayName": "Image", "type": "IMAGE" }
+      ]
+    }
+  }'
 ```
 
 ### Insert item WITH field data
 
 **This is the critical step that must include actual field values.** Creating an item without populating the `data` object results in an empty record — the collection schema exists but the item has no content.
 
-```
-<prefix>CallWixSiteAPI: POST https://www.wixapis.com/wix-data/v2/items
-body: {
-  "dataCollectionId": "about-content",
-  "dataItem": {
-    "data": {
-      "heading": "Our Story",
-      "body": "<p>Founded on a belief that...</p><p>We source the finest...</p>"
+```bash
+curl -sS -X POST "https://www.wixapis.com/wix-data/v2/items" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "dataCollectionId": "about-content",
+    "dataItem": {
+      "data": {
+        "heading": "Our Story",
+        "body": "<p>Founded on a belief that...</p><p>We source the finest...</p>"
+      }
     }
-  }
-}
+  }'
 ```
 
 The response returns the created item's `_id` — collect these for the Phase 1 return contract.
@@ -256,27 +269,31 @@ The response returns the created item's `_id` — collect these for the Phase 1 
 
 For FAQ items, include both `question` and `answer` plus `sortOrder`:
 
-```
-<prefix>CallWixSiteAPI: POST https://www.wixapis.com/wix-data/v2/items
-body: {
-  "dataCollectionId": "faq",
-  "dataItem": {
-    "data": {
-      "question": "What is your return policy?",
-      "answer": "We accept returns within 30 days of purchase...",
-      "sortOrder": 1
+```bash
+curl -sS -X POST "https://www.wixapis.com/wix-data/v2/items" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "dataCollectionId": "faq",
+    "dataItem": {
+      "data": {
+        "question": "What is your return policy?",
+        "answer": "We accept returns within 30 days of purchase...",
+        "sortOrder": 1
+      }
     }
-  }
-}
+  }'
 ```
 
 ### Verify inserts with a live query (mandatory)
 
 After inserting all items, **query each collection once** and confirm every field you sent is present in the stored `data`. A POST without errors does NOT prove the content persisted — the API has accepted insert bodies with missing fields before, and the failure is invisible until a human opens the page.
 
-```
-<prefix>CallWixSiteAPI: POST https://www.wixapis.com/wix-data/v2/items/query
-body: { "dataCollectionId": "<collection>" }
+```bash
+curl -sS -X POST "https://www.wixapis.com/wix-data/v2/items/query" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{ "dataCollectionId": "<collection>" }'
 ```
 
 For every returned item, confirm its `data` object contains every text field you POSTed (`heading`, `body`, `question`, `answer`, etc.). If any field is missing:
@@ -287,12 +304,12 @@ For every returned item, confirm its `data` object contains every text field you
 
 A CMS seeder can return `complete` for an about-content item, then Image Phase 2 silently wipes its `heading` + `body` via a destructive full-record PUT. The verify-after-insert step here plus the read-merge-PUT rule in the images agent makes that class of data loss unreachable.
 
-### MCP Seeding with Images
+### REST API Seeding with Images
 
 For use cases with image fields (`photo`, `coverImage`, `galleryImages`),
 follow `../../shared/IMAGE_GENERATION.md` (Steps 1–2) for Wix AI image
-generation and Wix Media import. Image generation is MCP-authenticated
-and always available — do not ask the user for credentials.
+generation and Wix Media import. Both use the same site-scoped CLI token
+as the data calls above — no separate credentials.
 
 **Workflow:**
 
@@ -301,23 +318,27 @@ and always available — do not ask the user for credentials.
 3. Generate images via Wix AI (IMAGE_GENERATION.md Steps 1–2) using the prompt templates from each use-case reference
 4. Attach each image by reading the existing item, merging, and writing the whole record back via PUT. Do NOT use PATCH here — the endpoint expects a JsonPatch `fieldModifications` array and rejects the `{dataItem:{data}}` body. Do NOT PUT with just `{image}` — PUT replaces the entire record and erases heading/body.
 
-```
+```bash
 # Step a: read the existing item
-<prefix>CallWixSiteAPI: POST https://www.wixapis.com/wix-data/v2/items/query
-body: {
-  "dataCollectionId": "CollectionName",
-  "query": { "filter": { "_id": { "$in": ["{itemId}"] } } }
-}
+curl -sS -X POST "https://www.wixapis.com/wix-data/v2/items/query" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "dataCollectionId": "CollectionName",
+    "query": { "filter": { "_id": { "$in": ["{itemId}"] } } }
+  }'
 
 # Step b: merge image into existing data and PUT the full record
-<prefix>CallWixSiteAPI: PUT https://www.wixapis.com/wix-data/v2/items/{itemId}
-body: {
-  "dataCollectionId": "CollectionName",
-  "dataItem": {
-    "id": "{itemId}",
-    "data": { ...existingData, "{imageField}": "<wixstatic-url>" }
-  }
-}
+curl -sS -X PUT "https://www.wixapis.com/wix-data/v2/items/{itemId}" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "dataCollectionId": "CollectionName",
+    "dataItem": {
+      "id": "{itemId}",
+      "data": { ...existingData, "{imageField}": "<wixstatic-url>" }
+    }
+  }'
 ```
 
 `...existingData` must include every non-system field from step a (system fields `_id`, `_owner`, `_createdDate`, `_updatedDate` don't need to be echoed). Skipping the merge wipes seeded text fields and ships an empty About page.
@@ -328,7 +349,7 @@ body: {
 - Never block the main flow on image failures — text data is already seeded
 - Runware image URLs are short-lived — import to Wix Media immediately after generation
 - If image generation or import fails for a single item, skip that item and continue with others
-- If all generation fails (credits exhausted, MCP errors), write the sidecar with `Status: partial` and proceed — but always attempt first
+- If all generation fails (credits exhausted, API errors), write the sidecar with `Status: partial` and proceed — but always attempt first
 - FAQ_KNOWLEDGE_BASE has no image fields — skip image generation for FAQ use cases
 
 ## Return Results
@@ -359,7 +380,7 @@ Emit a structured JSON block at the end of your completion message per `../../sh
 ```
 
 - `storedFields` MUST match the real keys seen in the verify-after-insert query response's `data` object (see § "Verify inserts with a live query"). Downstream pages agents compare against this — if you return `fields: ["heading", "body"]` but only `heading` was actually stored, pages render empty bodies.
-- `sampleValues` is a single example item's field-to-short-string map. Lets downstream agents spot-check that content is real without another MCP round-trip. Truncate rich-text bodies to the first ~80 characters.
+- `sampleValues` is a single example item's field-to-short-string map. Lets downstream agents spot-check that content is real without another API round-trip. Truncate rich-text bodies to the first ~80 characters.
 - For collections without image fields (e.g., FAQ), set `imageField: null`.
 - The JSON block MUST be the last content in your message.
 

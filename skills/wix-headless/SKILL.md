@@ -1,6 +1,6 @@
 ---
 name: wix-headless
-description: "Build a complete Wix Managed Headless site from a single prompt. Entry point for ANY new-site request — runs discovery, design, feature wiring, and preview in one flow. Triggers: build me a site, create a website, make me a website, new website, online store, I want to sell X, start a business online, launch a site, ecommerce, portfolio, business website, build a dark luxury site, sell online, online shop. Use this skill instead of the WixSiteBuilder MCP tool for new-site requests."
+description: "Build a complete Wix Managed Headless site from a single prompt. Entry point for ANY new-site request — runs discovery, design, feature wiring, and preview in one flow. Triggers: build me a site, create a website, make me a website, new website, online store, I want to sell X, start a business online, launch a site, ecommerce, portfolio, business website, build a dark luxury site, sell online, online shop. Use this skill instead of the WixSiteBuilder tool for new-site requests."
 ---
 
 # Wix Headless — One Skill, One Flow
@@ -9,13 +9,13 @@ Single orchestrator for the full site build. Linear flow with parallel subagent 
 
 ## Prerequisites
 
-Before running this skill, the user's environment must have a working, authenticated Wix CLI and a Wix MCP server registered with their agent client:
+Before running this skill, the user's environment must have a working, authenticated Wix CLI:
 
 | Requirement | Why | How to verify | How to fix if missing |
 |---|---|---|---|
-| **`@wix/cli` available** | Wave 2 runs `npx @wix/cli env pull` to write `.env.local`; Wave 6 runs `npx @wix/cli build` + `release` to publish. `npx` will fetch the CLI on demand, but a locally installed CLI is faster and surfaces version issues earlier. | `which wix` or `npx @wix/cli --version`. | `npm i -g @wix/cli` (or rely on `npx` to fetch per-invocation). |
-| **Wix CLI authenticated** | `env pull` and `release` both require a logged-in session; tokens live in `~/.wix/auth/`. On auth error the skill surfaces `"Run \`npx @wix/cli login\` and retry."` and stops. | `ls ~/.wix/auth/account.json` exists and is non-empty. | `npx @wix/cli login` — opens a browser to auth. |
-| **Wix MCP server configured with `--wixCliAuth`** | Provides the admin tools (`CallWixSiteAPI`, `ListWixSites`, `ManageWixSite`, image upload, etc.) the skill calls at Wave 0 and across every downstream subagent. Launched with `--wixCliAuth`, `@wix/mcp` reuses the same `~/.wix/auth/account.json` token the CLI writes (refreshed transparently); without the flag only the docs-only tools are exposed. | Your MCP client lists a server running `npx -y @wix/mcp --wixCliAuth` (or equivalent) and exposes `CallWixSiteAPI` as a tool — e.g. in Claude Code: `claude mcp list` shows `wix` connected with admin tools, not only `Search*Documentation`. | Register `npx -y @wix/mcp --wixCliAuth` as a stdio MCP server in your agent client. The exact registration step depends on the client — see your client's MCP-server documentation. The CLI-auth row above is a hard prereq, since `--wixCliAuth` reads from the CLI's token store. |
+| **`@wix/cli` available** | Wave 2 runs `npx @wix/cli env pull` to write `.env.local`; Wave 6 runs `npx @wix/cli build` + `release` to publish. Operational calls to `wixapis.com` (app install, seeders, image attach, forms, CMS) are authenticated with `wix token --site <siteId>`, which prints a fresh site-scoped access token. `npx` will fetch the CLI on demand, but a locally installed CLI is faster and surfaces version issues earlier. | `which wix` or `npx @wix/cli --version`. | `npm i -g @wix/cli` (or rely on `npx` to fetch per-invocation). |
+| **Wix CLI authenticated** | `env pull`, `release`, and every `wix token` invocation require a logged-in session; tokens live in `~/.wix/auth/`. On auth error the skill surfaces `"Run \`npx @wix/cli login\` and retry."` and stops. | `ls ~/.wix/auth/account.json` exists and is non-empty; `wix whoami` prints the logged-in email. | `npx @wix/cli login` — opens a browser to auth. |
+| *Optional:* **Wix MCP doc tools** | If the Wix MCP server is connected, the doc-lookup tools (`SearchWix*Documentation`, `ReadFullDocsArticle`, `ReadFullDocsMethodSchema`, `WixREADME`) become available for ad-hoc API discovery when a reference recipe falls short. The skill's core operational flow does **not** require this — every API call goes through `wix token` + `curl` against `wixapis.com`. | Your MCP client exposes a tool named like `mcp__wix-mcp-remote__SearchWixRESTDocumentation`. | Optional. If you want the doc tools, register `npx -y @wix/mcp` as a stdio MCP server in your agent client; the exact registration step depends on the client. |
 
 If any prerequisite is missing, surface the specific gap to the user and stop **before** any subagent dispatches — failing mid-flow leaves a partially scaffolded project.
 
@@ -46,14 +46,14 @@ Your CWD at runtime is the **project directory**, not the skill root. Compute `<
 | What | Absolute path |
 |---|---|
 | Shared return contract | `<SKILL_ROOT>/references/shared/RETURN_CONTRACT.md` |
-| Shared MCP prefix guide | `<SKILL_ROOT>/references/shared/MCP_PREFIX.md` |
+| Optional Wix MCP doc-tool prefix guide | `<SKILL_ROOT>/references/shared/MCP_PREFIX.md` |
 | Production release / reserved root path sharp edges | `<SKILL_ROOT>/references/shared/PRODUCTION_SHARP_EDGES.md` |
 | Per-vertical / per-scope subagent instructions | `<SKILL_ROOT>/references/<scope>/INSTRUCTIONS.md` (scopes: `stores`, `ecom`, `cms`, `blog`, `forms`, `gift-cards`, `images`, `designer`). Subagent-only — orchestrator never reads. |
 | Vertical packs directory | `<SKILL_ROOT>/references/verticals/` |
 | Templates directory | `<SKILL_ROOT>/templates/` |
 | Scripts directory | `<SKILL_ROOT>/scripts/` |
 | Shared utilities | `<SKILL_ROOT>/shared-utilities/` — copied into `src/utils/` by `seed-utilities.sh` |
-| Frozen MCP-call references | `<SKILL_ROOT>/references/commands/` — `install-app.md`, `mcp-bootstrap.md`, `known-apps.json` |
+| Frozen app-install references | `<SKILL_ROOT>/references/commands/` — `install-app.md`, `known-apps.json` |
 
 **Do NOT Read subagent INSTRUCTIONS files in the orchestrator.** Pre-reading wastes ~25k tokens on a typical dispatch and pushes the orchestrator past its autocompact threshold mid-pipeline. Pass the absolute path; the subagent opens the file.
 
@@ -78,7 +78,7 @@ Any user request to build a new site. Infer vertical(s) from the prompt:
 
 `cms` is **always** loaded (provides About/FAQ content pages). If the prompt is too vague, ask one conversational clarifier (NOT `AskUserQuestion`): *"What do you want your site to do — sell things, publish content, take bookings?"*
 
-**Do NOT call the `WixSiteBuilder` MCP tool for new-site requests.** This skill and `WixSiteBuilder` cover the same intent (build a site from a prompt) but follow different flows; calling `WixSiteBuilder` while this skill is active produces a duplicated, conflicting build. This skill is the sole entry point — proceed with the wave flow below.
+**Do NOT call the `WixSiteBuilder` tool for new-site requests.** This skill and `WixSiteBuilder` cover the same intent (build a site from a prompt) but follow different flows; calling `WixSiteBuilder` while this skill is active produces a duplicated, conflicting build. This skill is the sole entry point — proceed with the wave flow below.
 
 ## When NOT to Use This Skill
 
@@ -108,7 +108,7 @@ If `wix.config.json` is present in the working directory, offer: *"I found an ex
 
 | Wave | Dispatches | Waits for | Bridge work |
 |---|---|---|---|
-| 0 | (bash) | — | MCP prefix discovery, schema bootstrap, capture `runStartedAt` |
+| 0 | (bash) | — | capture `runStartedAt` |
 | 1 | (Q&A) | user | brand/vibe/aesthetic; scaffold launches in background after Q1 |
 | 2 | apps install + env-pull + npm-install (bg) + seed-utilities | — | `init-site-json.mjs` |
 | 3 | seeders + design-system + image-phase-1 | design-system (fg) | merge `designTokens` into site.json; `emit-design-tokens.mjs`; grep Layout.astro CSS imports |
@@ -129,21 +129,16 @@ Each parallel-dispatch step is **one concurrent batch** with **no narration betw
 Every dispatch prompt includes:
 - `Instruction file (absolute path)` — `<SKILL_ROOT>/references/<scope>/INSTRUCTIONS.md`
 - `Phase instruction` / `Scope` — exact scope string
-- `MCP tool prefix` — from Wave 0, verbatim
 - `Project directory (absolute path)` — project CWD
 - `siteId` — from `wix.config.json`
 - `Brand context` — name, vibe, aesthetic direction, colors, fonts
 
 ---
 
-## Wave 0 — MCP bootstrap & run start
-
-See `references/SETUP.md` § "MCP Prefix Discovery + Schema Bootstrap".
+## Wave 0 — Run start
 
 1. **Capture `runStartedAt`** via `date -u +%Y-%m-%dT%H:%M:%SZ` and hold in scratch (used at end-of-run for `run.totalSeconds`).
-2. **Discover the MCP prefix** via your runtime's tool-discovery primitive: look up `WixREADME`, strip the trailing suffix from the returned name. Call `<prefix>WixREADME` to verify connectivity. On failure, stop and tell the user the Wix MCP server isn't connected.
-3. **Pre-load Wix MCP tool schemas** — read `<SKILL_ROOT>/references/commands/mcp-bootstrap.md` and follow its single `ToolSearch` invocation. Capture `{ phase: "mcp-bootstrap", seconds: <duration> }` in `run.json.phases[]`.
-4. Hold the prefix for the whole session. Pass it verbatim into every subagent prompt.
+2. **Verify CLI auth.** `wix whoami` should print the user's email. If it fails, surface `"Run \`npx @wix/cli login\` and retry."` and stop. No need to discover an MCP prefix — the operational flow uses `wix token --site <siteId>` + `curl` for every Wix API call.
 
 ## Wave 1 — Discovery
 
@@ -163,7 +158,7 @@ See `references/DISCOVERY.md` for full mechanics.
 
 See `references/SETUP.md`. After approval, run **one concurrent batch** with no narration between operations.
 
-1. **App install** for every entry in `apps[*]` of every loaded vertical. Follow `<SKILL_ROOT>/references/commands/install-app.md` — owns the `CallWixSiteAPI` body shape, `appName → appDefId` lookup, and recovery ladder. **An empty `apps: []` array means install nothing for that pack** — gift-cards, ecom, cms all ship `apps: []`. Do not invent an `appName` from the pack name or SDK packages. Capture `APP_INSTALL_START`/`END` via `date -u +%s` around the `CallWixSiteAPI` invocation; record `{ phase: "app-install-<appName>", seconds }`.
+1. **App install** for every entry in `apps[*]` of every loaded vertical. Follow `<SKILL_ROOT>/references/commands/install-app.md` — owns the request body shape, `appName → appDefId` lookup, and recovery ladder. **An empty `apps: []` array means install nothing for that pack** — gift-cards, ecom, cms all ship `apps: []`. Do not invent an `appName` from the pack name or SDK packages. Capture `APP_INSTALL_START`/`END` via `date -u +%s` around the `curl` invocation; record `{ phase: "app-install-<appName>", seconds }`.
 2. **`npx @wix/cli env pull`** (foreground, fast). Produces `.env.local` with `WIX_CLIENT_ID`. On auth error: surface `"Run \`npx @wix/cli login\` and retry."` and stop. Record `{ phase: "env-pull", seconds }`.
 3. **`rm -f package-lock.json && npm install …`** as a **background shell** with the union of all loaded verticals' `packages` arrays plus the always-packages (`@wix/sdk tailwindcss @tailwindcss/vite`). Flags: `--no-fund --no-audit --legacy-peer-deps`. Bake `NPM_INSTALL_START=$(date -u +%s)` and `NPM_INSTALL_END=$(date -u +%s)` into the SAME background bash command so the values land in its output. Record `{ phase: "npm-install", seconds }` when the install finishes. **Do not add packages beyond this set** — see `SETUP.md` § anti-hallucination rule.
 4. **`bash <SKILL_ROOT>/scripts/seed-utilities.sh`** — copies `<SKILL_ROOT>/shared-utilities/*.ts` (`wix-image.ts`, `analytics.ts`, `ricos.ts`) into `src/utils/` with `cp -n` and strips the Astro starter cruft. Record `{ phase: "seed-utilities", seconds }`.
@@ -277,7 +272,7 @@ Each prompt includes the standard fields PLUS:
   - stores scopes → `.wix/site.json.seeded.stores.products` (id, name, slug, variantId, price, sku, inventory). `.wix/site.json.seeded.stores.categories` is always `[]` — categories are merchant-driven, live-queried by the frontend.
   - CMS scopes → `.wix/site.json.seeded.cms.collections`.
   - blog scopes → `.wix/site.json.seeded.blog.posts`.
-  - Agents DO NOT re-query MCP — if `site.json` is missing a required key, return `status: "failed", errors: [{code: "SITE_JSON_INCOMPLETE", missing: "..."}]` rather than re-fetching. Re-querying would mask a seeder bug and adds 5–15 s per agent.
+  - Agents DO NOT re-query the Wix API — if `site.json` is missing a required key, return `status: "failed", errors: [{code: "SITE_JSON_INCOMPLETE", missing: "..."}]` rather than re-fetching. Re-querying would mask a seeder bug and adds 5–15 s per agent.
 - Styling contract (full JSON inline — same pattern as Phase 3 Components).
 - **ProductCard interface (for `product-pages` and `home-and-nav` only).** Both subagents touch `ProductCard.astro` — `product-pages` owns and rewrites it, `home-and-nav` reads it to wire the home grid. Tell both subagents the interface up front to eliminate the read-timing race:
   > `ProductCard.astro accepts a single prop: { product } where product is the full Wix product object from productsV3. Usage: <ProductCard product={p} />`
@@ -333,7 +328,7 @@ One concluding turn containing, in order:
 
 1. **Release URL text first** — bold heading / link at the top so the user sees it immediately.
 2. **Compose the draft `run.json` blob** in scratch. Aggregate every subagent return into `phases[]`, set `outcome.previewUrl`, fill `run.started` (from `runStartedAt`) / `run.ended` (capture now via `date -u`), compute `run.totalSeconds`, and compose `requiredPhases[]` — phases that MUST have a captured duration:
-   - Always: `mcp-bootstrap`, `init-site-json`, `scaffold`, `env-pull`, `seed-utilities`, `emit-design-tokens`, `manifest-check-components`, `manifest-check-pages`, `decorative-slot-patch`, `npm-install`, `build`, `release` (or `preview` if `preview.sh` was used).
+   - Always: `init-site-json`, `scaffold`, `env-pull`, `seed-utilities`, `emit-design-tokens`, `manifest-check-components`, `manifest-check-pages`, `decorative-slot-patch`, `npm-install`, `build`, `release` (or `preview` if `preview.sh` was used).
    - Per app installed in Wave 2: `app-install-<appName>`.
    - When `copy-utility-templates` ran: `copy-utility-templates-components` and/or `copy-utility-templates-pages`.
    - `image-phase-2-entity`'s duration arrives via its return; record from there if any pack produced entities.
@@ -398,13 +393,13 @@ Agents return structured data in their completion message, not via sidecar files
 
 Skill-level:
 - `references/DISCOVERY.md` — discovery flow, plan format, aesthetic direction crafting
-- `references/SETUP.md` — MCP prefix, app install, env pull, npm install recovery
+- `references/SETUP.md` — app install, env pull, npm install recovery
 - `references/ORCHESTRATION.md` — phase-dispatch mechanics, wait conditions, data carry-forward
 - `references/verticals/_schema.md` — vertical pack schema
 
 Shared (with agents):
 - `references/shared/RETURN_CONTRACT.md` — agent return JSON schema, run.json aggregation
-- `references/shared/MCP_PREFIX.md` — prefix discovery + recovery
+- `references/shared/MCP_PREFIX.md` — Wix MCP doc-tool prefix discovery (optional)
 - `references/shared/IMAGE_GENERATION.md` — image agent contract
 - `references/shared/STYLING.md` — three styling categories, ownership, decision rules
 - `references/shared/IMPLEMENTER.md` — shared implementer behavior

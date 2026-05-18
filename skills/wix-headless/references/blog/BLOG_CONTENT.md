@@ -1,4 +1,4 @@
-# Recipe: Seed Initial Blog Posts via MCP
+# Recipe: Seed Initial Blog Posts via the Wix REST API
 
 Create 3 on-brand blog posts so the blog has real content on first preview.
 
@@ -8,24 +8,38 @@ Create 3 on-brand blog posts so the blog has real content on first preview.
 > 3. **Use `@wix/blog`, not `@wix/data`** — blog posts are NOT CMS collections.
 > 4. **`RICH_CONTENT` fieldset required** — without it, `post.richContent` is undefined and rendering fails.
 
-> **Required in the Seed phase.** When dispatched with `Scope: seed`, MCP tools and discovery context are guaranteed available. Always execute this section — do not skip. A blog with zero posts on first preview is a build failure.
+> **Required in the Seed phase.** When dispatched with `Scope: seed`, CLI auth and discovery context are guaranteed available. Always execute this section — do not skip. A blog with zero posts on first preview is a build failure.
 >
-> **Skip only for standalone invocations** where the Blog skill is invoked directly AND `mcp__wix-mcp-remote__CallWixSiteAPI` is genuinely unavailable. In that case, the user can create posts manually in the Wix dashboard.
+> **Skip only for standalone invocations** where the Blog skill is invoked directly AND the Wix CLI is not authenticated (`wix whoami` fails). In that case, the user can create posts manually in the Wix dashboard.
+
+## Auth (once per agent)
+
+```bash
+SITE_ID=$(jq -r '.siteId' .wix/wix.config.json)
+TOKEN=$(wix token --site "$SITE_ID")
+```
 
 ## Step 0: Ensure Blog App Is Installed
 
 Before querying blog data, verify the Blog app is installed:
 
-1. **Probe** — `CallWixSiteAPI: POST /blog/v3/posts/query` with body `{ "query": { "paging": { "limit": 1 } } }`
+1. **Probe** —
+   ```bash
+   curl -sS -X POST "https://www.wixapis.com/blog/v3/posts/query" \
+     -H "Authorization: Bearer $TOKEN" \
+     -H "Content-Type: application/json" \
+     -d '{ "query": { "paging": { "limit": 1 } } }'
+   ```
 2. **If the API returns a "REQUIRED_APP_NOT_INSTALLED" error** → install the Wix Blog app:
+   ```bash
+   curl -sS -X POST "https://www.wixapis.com/apps-installer-service/v1/app-instance/install" \
+     -H "Authorization: Bearer $TOKEN" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "tenant":      { "tenantType": "SITE", "id": "'"$SITE_ID"'" },
+       "appInstance": { "appDefId": "14bcded7-0066-7c35-14d7-466cb3f09103", "enabled": true }
+     }'
    ```
-   CallWixSiteAPI: POST https://www.wixapis.com/apps-installer-service/v1/app-instance/install
-   body: {
-     "tenant": { "tenantType": "SITE", "id": "<siteId>" },
-     "appInstance": { "appDefId": "14bcded7-0066-7c35-14d7-466cb3f09103", "enabled": true }
-   }
-   ```
-   > Translate this prose-HTTP form into the full `CallWixSiteAPI` tool-call shape — include `siteId`, `reason`, `sourceDocUrl` wrapper fields and pass `body` as a real object (NOT a stringified JSON). See `../../shared/MCP_PREFIX.md` § "CallWixSiteAPI call conventions".
 
    Then retry the probe query to confirm installation succeeded.
 3. **If the probe succeeds** → proceed to Step 1.
@@ -36,8 +50,9 @@ Before querying blog data, verify the Blog app is installed:
 
 Blog posts require a `memberId` (the post author). Fetch the first site member:
 
-```
-CallWixSiteAPI: GET /members/v1/members
+```bash
+curl -sS -X GET "https://www.wixapis.com/members/v1/members" \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
 Extract the first member's `_id` from the response. This will be used as the author for all posts.
@@ -69,35 +84,37 @@ For each post, call `POST /blog/v3/draft-posts` with `publish: true` to create a
 
 > Do not include the `media` field — cover images are handled separately by the image agent after post creation.
 
-```
-CallWixSiteAPI: POST /blog/v3/draft-posts
-body: {
-  "draftPost": {
-    "title": "<Post Title>",
-    "memberId": "<member-id-from-step-1>",
-    "richContent": {
-      "nodes": [
-        {
-          "type": "HEADING",
-          "id": "<unique-id>",
-          "nodes": [
-            { "type": "TEXT", "id": "", "nodes": [], "textData": { "text": "Section Heading", "decorations": [] } }
-          ],
-          "headingData": { "level": 2 }
-        },
-        {
-          "type": "PARAGRAPH",
-          "id": "<unique-id>",
-          "nodes": [
-            { "type": "TEXT", "id": "", "nodes": [], "textData": { "text": "Paragraph content here.", "decorations": [] } }
-          ],
-          "paragraphData": {}
-        }
-      ]
-    }
-  },
-  "publish": true
-}
+```bash
+curl -sS -X POST "https://www.wixapis.com/blog/v3/draft-posts" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "draftPost": {
+      "title": "<Post Title>",
+      "memberId": "<member-id-from-step-1>",
+      "richContent": {
+        "nodes": [
+          {
+            "type": "HEADING",
+            "id": "<unique-id>",
+            "nodes": [
+              { "type": "TEXT", "id": "", "nodes": [], "textData": { "text": "Section Heading", "decorations": [] } }
+            ],
+            "headingData": { "level": 2 }
+          },
+          {
+            "type": "PARAGRAPH",
+            "id": "<unique-id>",
+            "nodes": [
+              { "type": "TEXT", "id": "", "nodes": [], "textData": { "text": "Paragraph content here.", "decorations": [] } }
+            ],
+            "paragraphData": {}
+          }
+        ]
+      }
+    },
+    "publish": true
+  }'
 ```
 
 ### Ricos JSON Node Reference
@@ -119,7 +136,7 @@ Use these node types to build rich, varied content:
 - TEXT nodes are always leaf nodes inside PARAGRAPH, HEADING, CODE_BLOCK, etc.
 - LIST_ITEM nodes contain PARAGRAPH nodes (not TEXT directly)
 - Mix at least 3 different node types per post for visual variety
-- Create all 3 posts in sequence (one `CallWixSiteAPI` call per post)
+- Create all 3 posts in sequence (one `curl` call per post)
 - **Best practice:** include all fields (title, content, media) in the initial creation call to avoid needing a re-publish
 
 > **Re-publish after PATCH:** If you update a published post (e.g., adding a cover image via PATCH after creation), it becomes `hasUnpublishedChanges: true`. You must call `POST /blog/v3/draft-posts/{draftPostId}/publish` to re-publish. To avoid this, include media in the initial creation call.
@@ -128,13 +145,11 @@ Use these node types to build rich, varied content:
 
 Query published posts to confirm all 3 exist:
 
-```
-CallWixSiteAPI: POST /blog/v3/posts/query
-body: {
-  "query": {
-    "paging": { "limit": 10 }
-  }
-}
+```bash
+curl -sS -X POST "https://www.wixapis.com/blog/v3/posts/query" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{ "query": { "paging": { "limit": 10 } } }'
 ```
 
 Confirm 3 posts are returned. Report post titles to the user.

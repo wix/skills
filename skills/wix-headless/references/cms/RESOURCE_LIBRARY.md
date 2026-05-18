@@ -2,7 +2,7 @@
 
 Build a downloadable resource library using `@wix/data` — file listings with category filtering, file type badges, and detail pages with download buttons. Use for documents, guides, templates, whitepapers, or any downloadable assets.
 
-> Read `CMS_FOUNDATIONS.md` first for shared patterns (service module, image resolution, elevation, MCP seeding).
+> Read `CMS_FOUNDATIONS.md` first for shared patterns (service module, image resolution, elevation, REST API seeding).
 
 ## Collection Schema
 
@@ -321,7 +321,7 @@ Key details:
 
 ## Seed with Images
 
-After seeding resources via MCP, generate cover images following `../../shared/IMAGE_GENERATION.md` and `CMS_FOUNDATIONS.md` → "MCP Seeding with Images".
+After seeding resources via the Wix REST API, generate cover images following `../../shared/IMAGE_GENERATION.md` and `CMS_FOUNDATIONS.md` → "REST API Seeding with Images".
 
 **Prompt template:**
 
@@ -333,16 +333,18 @@ Cover image for [TITLE], a [FILE TYPE]. Abstract [BRAND AESTHETIC]. Color tones:
 
 Example patch:
 
-```
-CallWixSiteAPI: PATCH /wix-data/v2/items/{resourceId}
-body: {
-  "dataCollectionId": "Resources",
-  "dataItem": {
-    "data": {
-      "coverImage": "<wixstatic-url>"
+```bash
+curl -sS -X PATCH "https://www.wixapis.com/wix-data/v2/items/{resourceId}" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "dataCollectionId": "Resources",
+    "dataItem": {
+      "data": {
+        "coverImage": "<wixstatic-url>"
+      }
     }
-  }
-}
+  }'
 ```
 
 ## Testing

@@ -1,28 +1,8 @@
 # Setup
 
-Runs once per session, immediately after plan approval. Establishes MCP connectivity, installs apps, pulls env, kicks off npm install in background, writes memory, creates the user-facing roadmap.
+Runs once per session, immediately after plan approval. Installs apps, pulls env, kicks off npm install in background, writes memory, creates the user-facing roadmap.
 
-Target: **~15 seconds on the critical path** (everything after the MCP prefix discovery in Step 0 runs as a single concurrent batch).
-
----
-
-## Step 0 — MCP Prefix Discovery + Schema Bootstrap (first time only)
-
-Runs once per session, before any MCP call. Separate from the Setup step because it requires a sequential **discover prefix → verify connectivity → bootstrap schemas** chain.
-
-1. **Discover the MCP prefix.** Wix MCP tool names take the form `<prefix>WixREADME`. Use whatever tool-discovery primitive your runtime provides to look up `WixREADME` and strip the trailing suffix from the returned tool name — the remainder (ending in `wix-mcp-remote__` or similar) is the **MCP prefix**.
-2. Call `<prefix>WixREADME` once to verify connectivity.
-3. If discovery returns no match or the verify call fails → stop and tell the user: *"Wix MCP tools are not available in this session. Please ensure the Wix MCP server is connected (or that the Wix plugin is enabled), then restart your client."*
-4. **Pre-load Wix MCP tool schemas** — read `<SKILL_ROOT>/references/commands/mcp-bootstrap.md` and follow its single `ToolSearch` invocation. Loads every Wix MCP tool schema the build will use (CallWixSiteAPI, SearchWixRESTDocumentation, ReadFullDocsArticle, ReadFullDocsMethodSchema, SearchWixCLIDocumentation, SearchWixSDKDocumentation, SearchWixHeadlessDocumentation, SearchWixWDSDocumentation, SearchBuildAppsDocumentation, BrowseWixRESTDocsMenu).
-5. Hold the prefix for the whole session. Pass it into **every** subagent prompt as:
-   ```
-   MCP tool prefix: <prefix>
-   Use this prefix for every Wix MCP call. Example: <prefix>CallWixSiteAPI, <prefix>WixREADME.
-   ```
-
-See `references/shared/MCP_PREFIX.md` for the tool-not-found recovery procedure that subagents use if the prefix somehow fails downstream.
-
-> **Why the MCP bootstrap is mandatory.** Without it, the first `CallWixSiteAPI` emits `body` as a JSON string (because the schema isn't loaded) and returns `Expected object, received string`. Pinning the schema-load list in `references/commands/mcp-bootstrap.md` and reading it as a discrete step makes the operation impossible to skim past — the orchestrator can skip a footnote; it can't skip a numbered step that resolves to a single concrete tool call.
+Target: **~15 seconds on the critical path** (all operations below run as a single concurrent batch).
 
 ---
 
@@ -42,35 +22,34 @@ The skill assembles this dispatch dynamically from the loaded vertical packs. Th
 
 **Before the setup dispatch:** read `<project>/wix.config.json` to confirm the background scaffold from Discovery Step 1 finished. If not, wait for the background scaffold to finish. On scaffold failure, retry the inline `npm create @wix/new` call once (same shell command from DISCOVERY.md Step 1); surface the error if it still fails. Recovery ladder is documented in DISCOVERY.md § "Strict-then-recover" — auth, invalid template, etc.
 
-Once `wix.config.json` exists, extract `siteId` (value of the `siteId` field — this is the businessId for all MCP calls in the session).
+Once `wix.config.json` exists, extract `siteId` (value of the `siteId` field — this is the businessId for all Wix API calls in the session).
 
 `cd` into the project directory so all subsequent file operations and shell commands are relative to it.
 
 #### 2. The dispatch itself (one concurrent batch)
 
-**MCP app installs** — one `<prefix>CallWixSiteAPI` per app in the union of loaded packs' `apps[*]`. Example for an ecommerce run (stores pack contributes one app; cms pack contributes none):
+**App installs** — one `curl` per app in the union of loaded packs' `apps[*]`. Example for an ecommerce run (stores pack contributes one app; cms pack contributes none):
 
-```
-<prefix>CallWixSiteAPI(
-  siteId: "<siteId>",
-  reason: "Install Wix Stores app for <brand>",
-  sourceDocUrl: "https://dev.wix.com/docs/picasso/wix-ai-docs/recipes-v2/manage/platform/recipe-install-wix-apps",
-  method: "POST",
-  url: "https://www.wixapis.com/apps-installer-service/v1/app-instance/install",
-  body: {
-    tenant: { tenantType: "SITE", id: "<siteId>" },
-    appInstance: { appDefId: "<pack.apps[0].appDefId>", enabled: true }
-  }
-)
+```bash
+SITE_ID="<siteId>"
+TOKEN=$(wix token --site "$SITE_ID")
+
+curl -sS -X POST "https://www.wixapis.com/apps-installer-service/v1/app-instance/install" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "tenant":      { "tenantType": "SITE", "id": "'"$SITE_ID"'" },
+    "appInstance": { "appDefId": "<pack.apps[0].appDefId>", "enabled": true }
+  }'
 ```
 
-> The `CallWixSiteAPI` schema was already loaded by the Step 0 MCP bootstrap, so `body` is correctly typed as a JSON object on the first call. See `references/shared/MCP_PREFIX.md` § "CallWixSiteAPI call conventions".
+See `<SKILL_ROOT>/references/commands/install-app.md` for the recovery ladder. Reference doc URL for the body shape: `https://dev.wix.com/docs/api-reference/business-management/app-installation/skills/install-wix-apps`.
 
 A 200 response with `"enabled": true` confirms success.
 
 **Packs with `apps: []` (e.g. `cms`)** — record a phase entry in `run.json` anyway: `{phase: "app-install-<pack>", status: "skipped", notes: "Bundled with Wix platform; no install required"}`. Without an explicit skipped entry, `run.json` reads as a silent omission ("did the CMS install run? was it skipped? did it fail?"); the explicit entry makes observability unambiguous.
 
-**Namespace propagation:** After app install, the app's API namespace may take up to 30 seconds to register. If a downstream MCP call fails with `UNSUPPORTED_FORM_NAMESPACE`, wait 10 seconds and retry up to 3 times. Phase 1 Seeders handle this retry themselves.
+**Namespace propagation:** After app install, the app's API namespace may take up to 30 seconds to register. If a downstream Wix API call fails with `UNSUPPORTED_FORM_NAMESPACE`, wait 10 seconds and retry up to 3 times. Phase 1 Seeders handle this retry themselves.
 
 **Shell: `npx @wix/cli env pull`** (foreground, ~5s). Writes `WIX_CLIENT_ID` to `.env.local`. Idempotent. Skipping this historically caused `Missing environment variable WIX_CLIENT_ID` build failures.
 

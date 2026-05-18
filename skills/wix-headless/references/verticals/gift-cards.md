@@ -73,7 +73,7 @@ Passive vertical: code ships in every site that has a storefront, but every gift
 
 ## Why passive
 
-The dashboard's Catalog → Gift Cards screen owns the eGift Card template (denominations, image, copy). We never seed it. We never install the app via MCP. Instead:
+The dashboard's Catalog → Gift Cards screen owns the eGift Card template (denominations, image, copy). We never seed it. We never install the app via the Wix REST API. Instead:
 
 1. The site owner enables the Wix Gift Card app from their dashboard whenever they want.
 2. On every request, `getGiftCardProduct()` probes `POST /gift-cards/v1/gift-card-products/query` and memoizes the result for the request.

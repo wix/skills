@@ -5,7 +5,7 @@ Prerequisites, dependencies, blog service module, and astro config changes for t
 ## Prerequisites
 
 - A Wix Managed Headless project (has `wix.config.json` and `astro.config.mjs`)
-- The **Wix Blog app** installed on the connected Wix site (via MCP after scaffolding, or installed via MCP if missing — see `BLOG_CONTENT.md` Step 0)
+- The **Wix Blog app** installed on the connected Wix site (via the Wix REST API after scaffolding, or installed via the same API if missing — see `BLOG_CONTENT.md` Step 0)
 - At least one published blog post in the Wix dashboard
 
 ## Package Installation

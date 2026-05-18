@@ -155,7 +155,7 @@ Phase 4 agents do NOT read the image agent's output. Image URLs flow through the
 
 - `WIX_CLIENT_ID` in `.env.local` (populated by `npx @wix/cli env pull` in Setup)
 - `siteId` known (from `wix.config.json`, extracted in Setup)
-- MCP prefix discovered (Setup Step 0)
+- Wix CLI authenticated (`wix whoami` succeeds; `wix token --site "$SITE_ID"` returns a token)
 
 ## References
 

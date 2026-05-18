@@ -5,7 +5,7 @@ description: "Generates images for the site. Two scopes: image-phase-1-decorativ
 
 # Images Agent — Scope-Based Image Generation
 
-Generates site images in two scopes dispatched separately by the parent skill. Uses Wix AI (Runware) for generation and Wix Media for hosting — all via MCP, no user credentials required.
+Generates site images in two scopes dispatched separately by the parent skill. Uses Wix AI (Runware) for generation and Wix Media for hosting — all via the Wix REST API, authenticated with a site-scoped CLI token (`wix token --site "$SITE_ID"`). No user credentials required beyond `wix login`.
 
 **Nothing else blocks on image generation.** Phases 1–4 and the core pipeline all proceed independently. Products, posts, and pages work without images. Each image phase enriches them when it finishes.
 
@@ -16,19 +16,18 @@ Your prompt includes `Scope: <name>`. Map it to an image phase:
 | Scope | When dispatched | Depends on | Output |
 |---|---|---|---|
 | `image-phase-1-decorative` | Step 3 (background) | Brand context only | Decorative images for hero / about / backgrounds; written to `.wix/image-urls.md` |
-| `image-phase-2-entity` | Step 4.5 (background, alongside Phase 3 Components) | Phase 1 Seed return data (entity IDs in prompt) | Entity images attached to products / blog posts / CMS items via MCP PATCH |
+| `image-phase-2-entity` | Step 4.5 (background, alongside Phase 3 Components) | Phase 1 Seed return data (entity IDs in prompt) | Entity images attached to products / blog posts / CMS items via REST API PATCH |
 
 If your prompt is missing a `Scope:` line, stop and ask the parent — do not guess.
 
 ## Self-Loading
 
-1. Read `../shared/IMAGE_GENERATION.md` — Wix AI image generation + Wix Media import recipe (including the **required** batched-call pattern)
-2. Read `../shared/MCP_PREFIX.md` — MCP tool prefix for Wix API calls
-3. **Prefer the inlined recipe below and `IMAGE_GENERATION.md` over external docs.** When a PATCH or API call fails:
+1. Read `../shared/IMAGE_GENERATION.md` — Wix AI image generation + Wix Media import recipe (including the **required** batched-call pattern).
+2. **Prefer the inlined recipe below and `IMAGE_GENERATION.md` over external docs.** When a PATCH or API call fails:
    1. **FIRST re-read your own recipe** in this file (INSTRUCTIONS.md § for that entity type) — it likely covers the error.
    2. If the recipe covers it, follow the recipe. Do NOT look up external docs for errors your recipe already handles.
-   3. **ONLY** if you've re-read the recipe AND the error is genuinely not covered, fall back to `SearchWixRESTDocumentation` / `ReadFullDocsArticle`.
-   
+   3. **ONLY** if you've re-read the recipe AND the error is genuinely not covered, fall back to the Wix MCP doc tools (`SearchWixRESTDocumentation` / `ReadFullDocsArticle`) — only if connected; see `../shared/MCP_PREFIX.md` for discovery.
+
    Known errors already covered by this recipe (do not look up externally):
    - **428** from product PATCH → missing `options`/`variantsInfo` → see § "Products" step 1
    - **400** `"Expected an object"` from product PATCH → missing `revision` → see § "Products" step 4
@@ -36,39 +35,48 @@ If your prompt is missing a `Scope:` line, stop and ask the parent — do not gu
    - **400** `unsupportedDimensions` → see § "Error Handling"
    - **400** `invalidTaskUUID` → `taskUUID` must be valid UUIDv4 → see § "Quick Reference"
 
+## Auth (once per agent)
+
+```bash
+SITE_ID=$(jq -r '.siteId' .wix/wix.config.json)
+TOKEN=$(wix token --site "$SITE_ID")
+```
+
+The site-scoped CLI token encodes the site, so no separate `wix-site-id` header is needed on any of the calls below.
+
 ## Quick Reference: Generation Call Shape
 
-Before the first MCP call, ensure the `CallWixSiteAPI` tool schema is loaded (the orchestrator's Step 0 MCP bootstrap covers this for the whole session per `<SKILL_ROOT>/references/commands/mcp-bootstrap.md` — only re-load if you hit a tool-not-found error). Use your runtime's tool-discovery primitive to look up the suffix.
+**All generation calls for an image phase MUST be issued together.** The exact shape depends on the model — see `../shared/IMAGE_GENERATION.md` § "Required: minimize round-trips" for the rule. In short:
 
-**All generation tool calls for an image phase MUST be in one concurrent batch.** The exact shape depends on the model — see `../shared/IMAGE_GENERATION.md` § "Required: minimize round-trips" for the rule. In short:
+- **`google:4@2` (the default):** N background `curl`s in one shell, joined with `wait`. (Batched N≥3 times out at 504 on this model.)
+- **`bfl:5@1`, `runware:400@1`:** one `curl` with N tasks in the body array.
 
-- **`google:4@2` (the default):** N concurrent 1-task `CallWixSiteAPI` calls as siblings in one batch. (Batched N≥3 times out at 504 on this model.)
-- **`bfl:5@1`, `runware:400@1`:** one batched `CallWixSiteAPI` call with N tasks in the body array.
+Example task body (same for both patterns — only the distribution across `curl` invocations changes):
 
-Example task body (same for both patterns — only the distribution across tool calls changes):
-
-```
-<prefix>CallWixSiteAPI: POST https://www.wixapis.com/runwareschemaless/v1/request
-body: [
-  {
-    "taskType": "imageInference",
-    "taskUUID": "550e8400-e29b-41d4-a716-446655440000",
-    "outputType": "URL",
-    "outputFormat": "PNG",
-    "positivePrompt": "<prompt-for-image>",
-    "height": 1024,
-    "width": 1024,
-    "model": "google:4@2",
-    "numberResults": 1
-  }
-]
+```bash
+curl -sS -X POST "https://www.wixapis.com/runwareschemaless/v1/request" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '[
+    {
+      "taskType": "imageInference",
+      "taskUUID": "550e8400-e29b-41d4-a716-446655440000",
+      "outputType": "URL",
+      "outputFormat": "PNG",
+      "positivePrompt": "<prompt-for-image>",
+      "height": 1024,
+      "width": 1024,
+      "model": "google:4@2",
+      "numberResults": 1
+    }
+  ]'
 ```
 
 Extract `data[i].imageURL` from each response. Import each to Wix Media immediately. **Do NOT send `steps` or `CFGScale`** with `google:4@2` — both cause a 400 error. `taskUUID` must be a valid UUIDv4 (`uuidgen` or `crypto.randomUUID()`) — Runware rejects human-readable slugs with `400 invalidTaskUUID`.
 
-### Mandatory pre-call procedure — construct ALL tasks FIRST, then dispatch in ONE message
+### Mandatory pre-call procedure — construct ALL tasks FIRST, then dispatch in ONE shell
 
-Image Phase 2 serializes into 6+ sequential calls across multiple turns when you compose and send tasks one-at-a-time. The fix is to build the full task set first and dispatch them as a single concurrent batch.
+Image Phase 2 serializes into 6+ sequential calls when you compose and send tasks one-at-a-time. The fix is to build the full task set first and dispatch them as a single shell with `&`-backgrounded curls.
 
 **Required procedure (do this, exactly, every time):**
 
@@ -76,22 +84,22 @@ Image Phase 2 serializes into 6+ sequential calls across multiple turns when you
 
 2. **Compose the full task set** as a fenced JSON block in your text. Verify the count matches the entity count.
 
-3. **Dispatch in one concurrent batch.** For `google:4@2`: N concurrent sibling calls, each with one task. For other models: one tool call with all N tasks in `body`.
+3. **Dispatch in one shell.** For `google:4@2`: N background curls with `&` + `wait`. For other models: one curl with all N tasks in `-d`.
 
-4. **After generation returns:** make all N import calls as **sibling calls in one concurrent batch** (not sequential messages). Same for PATCH calls — all N as siblings in one message.
+4. **After generation returns:** make all N import calls in **one shell with `&` + `wait`**. Same for PATCH calls — all N backgrounded together.
 
-That gives you exactly 3 concurrent batches for the whole image phase: 1 generate dispatch, 1 batch of imports, 1 batch of PATCHes.
+That gives you exactly 3 shell invocations for the whole image phase: 1 generate dispatch, 1 batch of imports, 1 batch of PATCHes.
 
-Concurrent siblings are safe across all three stages (gen, import, PATCH). Wix Media imports do not rate-limit at typical scales (≤10/run); product PATCHes against distinct entity IDs do not produce revision conflicts because each entity has independent revision tracking. The 3-message recipe (one batch per stage) typically completes in ~190 s end-to-end vs ~480 s for the same 4 entities done sequentially — ~2.5× speedup.
+Concurrent `&`-backgrounded curls are safe across all three stages (gen, import, PATCH). Wix Media imports do not rate-limit at typical scales (≤10/run); product PATCHes against distinct entity IDs do not produce revision conflicts because each entity has independent revision tracking. The 3-shell recipe (one batch per stage) typically completes in ~190 s end-to-end vs ~480 s for the same 4 entities done sequentially — ~2.5× speedup.
 
 **Self-check before the generate dispatch:**
 - [ ] You have planned all N tasks with UUIDv4 `taskUUID` values
-- [ ] All generate tool calls will be in one concurrent batch (siblings for `google:4@2`, or one block with N tasks for other models)
+- [ ] All generate curls will be in one shell (`&`+`wait` for `google:4@2`, or one curl with N tasks for other models)
 - [ ] You wrote out the full plan in your text before making any tool call
 
 ### Expected tool-call budget
 
-Image Phase 2 for N products + M CMS items: ~1 schema-load + 1 product query + 1 batched generate + (N+M) imports + (N+M) PATCHes ≈ 2(N+M) + 3 calls. For 4 entities that's ~11 calls. If above 20, check for unnecessary doc reads or re-queries.
+Image Phase 2 for N products + M CMS items: ~1 product query + 1 batched generate + (N+M) imports + (N+M) PATCHes ≈ 2(N+M) + 2 calls (each shell counts as one tool call). For 4 entities that's ~10 shell calls. If above 20, check for unnecessary doc reads or re-queries.
 
 ## Scope: `image-phase-1-decorative` (Step 3 — no dependencies)
 
@@ -108,8 +116,8 @@ Generate site-wide decorative images that don't depend on any entity. Used by th
 **Process (must follow this order):**
 
 1. **Craft all image prompts up front** using brand context — see `IMAGE_GENERATION.md` § "Prompt guidelines".
-2. **Dispatch all generation tool calls in one concurrent batch** — siblings for `google:4@2` (1 task each, N blocks in parallel), or one batched call for other models (N tasks in `body`). Required, not optional — see `IMAGE_GENERATION.md` § "Required: minimize round-trips per image phase". Sequential 1-task calls across multiple turns is an anti-pattern; never do it.
-3. **Import each to Wix Media** via `<prefix>CallWixSiteAPI: POST /site-media/v1/files/import`. Imports can parallelize (sibling `CallWixSiteAPI` tool calls in one message).
+2. **Dispatch all generation curls in one shell** — `&`+`wait` for `google:4@2` (1 task each, N curls in parallel), or one batched curl for other models (N tasks in `-d`). Required, not optional — see `IMAGE_GENERATION.md` § "Required: minimize round-trips per image phase". Sequential 1-task calls across multiple tool calls is an anti-pattern; never do it.
+3. **Import each to Wix Media** via `POST /site-media/v1/files/import` (curl). Imports can parallelize the same way (`&`+`wait`).
 4. **Write `.wix/image-urls.md`** with all resolved URLs, keyed by purpose:
    ```markdown
    # Image URLs
@@ -126,7 +134,7 @@ Page design agents read `.wix/image-urls.md` and use the URLs. If the file doesn
 
 ## Scope: `image-phase-2-entity` (Step 4.5 — Phase 1 Seed data inline)
 
-Generate images for products, blog posts, and CMS items. Attach via MCP PATCH calls.
+Generate images for products, blog posts, and CMS items. Attach via REST API PATCH calls.
 
 > **Parent must NOT paste a PATCH/Update body template.** This INSTRUCTIONS.md owns the recipe per entity type (Products, Blog Posts, CMS Items) — including the exact write-shape (`media.itemsInfo.items[].url` + echoed `options`/`variantsInfo` + `revision`, no `fieldMask`) and the failure-mode mappings. An inline template in the parent prompt causes drift; the wrong shape (e.g. `media.main.image` + `fieldMask`) returns `400 "Expected an object"` on every product. Parents should pass `Phase 1 Seed return data` and `Brand context` only.
 
@@ -135,21 +143,21 @@ Generate images for products, blog posts, and CMS items. Attach via MCP PATCH ca
 - `collections: [{name, itemIds, fields}, ...]` — if cms pack loaded
 - `blogPosts: [{id, title, ...}, ...]` — if blog pack loaded
 
-**Do not poll for sidecars.** `.wix/logs/<feature>-data.md` is a deprecated coordination pattern (see `../shared/RETURN_CONTRACT.md`). If the `Phase 1 Seed return data:` block is missing from your prompt, return `status: "failed"` with `reason: "Phase 1 Seed return data not provided; image-phase-2-entity cannot run without entity IDs"` — do not sleep, do not read sidecars, do not query Phase 1 Seed data from MCP.
+**Do not poll for sidecars.** `.wix/logs/<feature>-data.md` is a deprecated coordination pattern (see `../shared/RETURN_CONTRACT.md`). If the `Phase 1 Seed return data:` block is missing from your prompt, return `status: "failed"` with `reason: "Phase 1 Seed return data not provided; image-phase-2-entity cannot run without entity IDs"` — do not sleep, do not read sidecars, do not re-query the Wix API for Phase 1 Seed data.
 
 **Process per entity type (must follow):**
 
 1. **Craft all image prompts** for this entity type up front, using each entity's own context (name, description, title, etc.).
-2. **Dispatch all generation tool calls in one concurrent batch** — same dispatch shape as Phase 1 Decorative:
-   - For `google:4@2` (default): N parallel sibling `CallWixSiteAPI` tool calls, one task each.
-   - For `bfl:5@1` / `runware:400@1` / others: ONE batched call with all N tasks in `body`.
-   See `IMAGE_GENERATION.md` § "Required: minimize round-trips per image phase". Sequential 1-task calls across multiple turns is an anti-pattern.
+2. **Dispatch all generation curls in one shell** — same dispatch shape as Phase 1 Decorative:
+   - For `google:4@2` (default): N parallel background curls, one task each, joined with `wait`.
+   - For `bfl:5@1` / `runware:400@1` / others: ONE batched curl with all N tasks in `-d`.
+   See `IMAGE_GENERATION.md` § "Required: minimize round-trips per image phase". Sequential 1-task calls across multiple tool calls is an anti-pattern.
 
    **`google:4@2` 504 retry.** Even with N concurrent siblings, individual tasks intermittently 504. When the response array contains an entry with `errorMessage: "Request timed out"` or HTTP 504, retry **only the failing task(s)** in a follow-up batch — do NOT re-dispatch the whole batch. Cap at 1 retry per task; if it 504s twice, fall back to `bfl:5@1` for that task or skip it (entity gets no image; user can upload from dashboard).
 
-   **N≥6 entities — stagger.** When you have 6 or more entities of one type, split into pairs of 3 parallel siblings rather than 6+ in one shot. Runware throttles google:4@2 above ~4 concurrent tasks per request burst, and the timeout ladder gets steeper. Two messages with 3 siblings each is reliably faster than one message with 6 + multiple retries. (Heuristic — refine after more runs collect data.)
+   **N≥6 entities — stagger.** When you have 6 or more entities of one type, split into pairs of 3 parallel curls rather than 6+ in one shot. Runware throttles google:4@2 above ~4 concurrent tasks per request burst, and the timeout ladder gets steeper. Two shells with 3 backgrounded curls each is reliably faster than one shell with 6 + multiple retries. (Heuristic — refine after more runs collect data.)
 3. **Import each to Wix Media**. Imports can parallelize.
-4. **PATCH each entity** with its image URL / file ID. PATCH calls can also parallelize (sibling `CallWixSiteAPI` tool calls in one message).
+4. **PATCH each entity** with its image URL / file ID. PATCH calls can also parallelize (`&`+`wait` in one shell).
 
 ### Products (if `products` is in your prompt)
 
@@ -160,44 +168,47 @@ Generate images for products, blog posts, and CMS items. Attach via MCP PATCH ca
    > **Critical:** `POST /stores/v3/products/query` does **NOT** return `variantsInfo` — even when you pass `fields: [VARIANT_OPTION_CHOICE_NAMES, MERCHANT_DATA, MEDIA_ITEMS_INFO]`. It returns `options` only. Using the bulk-query endpoint produces 428 on every product with variants. Use per-product GETs.
 
    > **Use per-product GET instead of bulk query:**
+   > ```bash
+   > curl -sS -X GET "https://www.wixapis.com/stores/v3/products/{productId}" \
+   >   -H "Authorization: Bearer $TOKEN"
    > ```
-   > <prefix>CallWixSiteAPI: GET /stores/v3/products/{productId}   // no body
-   > ```
-   > GET returns both `options` and `variantsInfo` in one shot. Parallelize the N GETs as sibling `CallWixSiteAPI` tool calls in one concurrent batch so they fan out without adding to the critical path.
+   > GET returns both `options` and `variantsInfo` in one shot. Parallelize the N GETs as background curls in one shell so they fan out without adding to the critical path.
 
    > If you skip this and get a 428, re-read this section — do not look up external docs.
 
 2. Generate images — ONE batched generation call with N tasks (one per product).
 
-3. Import each to Wix Media — parallelize with sibling calls.
+3. Import each to Wix Media — parallelize with `&`+`wait`.
 
 4. PATCH each product with its image + preserved options/variantsInfo + product `revision`:
-   ```
-   <prefix>CallWixSiteAPI: PATCH /stores/v3/products/{productId}
-   body: {
-     "product": {
-       "revision": "<product.revision from step 1's GET>",
-       "media": {
-         "itemsInfo": {
-           "items": [
-             { "url": "<wixstatic-url>", "altText": "<product name or short description>" }
-           ]
-         }
-       },
-       "options": <existing options from product query>,
-       "variantsInfo": <existing variantsInfo from product query>
-     }
-   }
+   ```bash
+   curl -sS -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
+     -H "Authorization: Bearer $TOKEN" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "product": {
+         "revision": "<product.revision from step 1 GET>",
+         "media": {
+           "itemsInfo": {
+             "items": [
+               { "url": "<wixstatic-url>", "altText": "<product name or short description>" }
+             ]
+           }
+         },
+         "options": <existing options from product query>,
+         "variantsInfo": <existing variantsInfo from product query>
+       }
+     }'
    ```
    **`revision` is mandatory** — omitting it returns `400 "Expected an object"` with no useful hint. Read it from each product's GET response in step 1 and echo it back on the PATCH. Do NOT use `media.main.image` — `media.itemsInfo.items[].url` is the write-shape; `media.main.image` is the read-shape on product responses (they are asymmetric).
 
    **DO NOT add `fieldMask` to this PATCH.** The endpoint runs cross-field validation (options ↔ variants) BEFORE applying the field mask, so even though `fieldMask: { paths: ["media"] }` should "only update media", the validator sees variants without options and returns 428 `MISSING_VARIANT_OPTION`. Send the full product body shown above (id, revision, media, options, variantsInfo) and let the server merge — no fieldMask.
 
-   PATCH calls parallelize — dispatch as concurrent sibling calls. Parallel PATCHes against different product IDs do NOT cause revision conflicts: each entity has independent revision tracking.
+   PATCH calls parallelize — dispatch as background curls in one shell. Parallel PATCHes against different product IDs do NOT cause revision conflicts: each entity has independent revision tracking.
 
    **409 `INVALID_REVISION` recovery.** If a single PATCH returns 409 with `{"applicationError": {"code": "INVALID_REVISION", ...}}`, the product's actual revision has advanced past the value you cached in step 1's GET. This typically happens against an already-built site (re-runs, remediation runs) where the user edited products via the dashboard between builds. Recovery is per-failure, not whole-batch:
 
-   1. Re-fetch the failed product: `<prefix>CallWixSiteAPI: GET /stores/v3/products/{productId}`. Read the new `revision`.
+   1. Re-fetch the failed product: `curl -sS -X GET "https://www.wixapis.com/stores/v3/products/{productId}" -H "Authorization: Bearer $TOKEN"`. Read the new `revision`.
    2. Retry the PATCH once with the new revision.
    3. If the retry also fails with 409, surface the error — something else is mutating the entity faster than we can react. Don't loop.
 
@@ -212,21 +223,24 @@ Generate images for products, blog posts, and CMS items. Attach via MCP PATCH ca
 3. Import to Wix Media — save the **`file.fileUrl`** (file ID), not the full URL.
 
 4. PATCH each draft post's cover image:
-   ```
-   <prefix>CallWixSiteAPI: PATCH /blog/v3/draft-posts/{draftPostId}
-   body: {
-     "draftPost": {
-       "media": { "wixMedia": { "image": { "id": "<file-id-from-fileUrl>" } } }
-     }
-   }
+   ```bash
+   curl -sS -X PATCH "https://www.wixapis.com/blog/v3/draft-posts/{draftPostId}" \
+     -H "Authorization: Bearer $TOKEN" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "draftPost": {
+         "media": { "wixMedia": { "image": { "id": "<file-id-from-fileUrl>" } } }
+       }
+     }'
    ```
 
 5. **Re-publish** each updated post (PATCHing a published post makes it unpublished):
-   ```
-   <prefix>CallWixSiteAPI: POST /blog/v3/draft-posts/{draftPostId}/publish
+   ```bash
+   curl -sS -X POST "https://www.wixapis.com/blog/v3/draft-posts/{draftPostId}/publish" \
+     -H "Authorization: Bearer $TOKEN"
    ```
 
-   Re-publish calls parallelize — dispatch as concurrent sibling calls.
+   Re-publish calls parallelize — dispatch as background curls in one shell.
 
 ### CMS Items (if `collections` is in your prompt)
 
@@ -235,12 +249,14 @@ Key constraint: `wix-data/v2/items` updates are **full-record replaces** (via PU
 The `PATCH /wix-data/v2/items/{itemId}` endpoint exists but requires a JsonPatch-shaped `fieldModifications` array, not a plain `{dataItem: {data}}` body. Do NOT use PATCH for this scope — it has rejected the documented shape in production and led agents to fall back to a destructive PUT. Use read-merge-PUT instead.
 
 1. Your prompt lists `collections[].itemIds` for each collection with an image field. **Fetch the existing item data** once per collection via `POST /wix-data/v2/items/query` — you cannot skip this step because you need every existing field to merge-preserve.
-   ```
-   <prefix>CallWixSiteAPI: POST https://www.wixapis.com/wix-data/v2/items/query
-   body: {
-     "dataCollectionId": "<collection>",
-     "query": { "filter": { "_id": { "$in": ["<itemId1>", "<itemId2>", ...] } } }
-   }
+   ```bash
+   curl -sS -X POST "https://www.wixapis.com/wix-data/v2/items/query" \
+     -H "Authorization: Bearer $TOKEN" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "dataCollectionId": "<collection>",
+       "query": { "filter": { "_id": { "$in": ["<itemId1>", "<itemId2>", ...] } } }
+     }'
    ```
    Retain the full `data` object from each result — you'll merge into it.
 
@@ -249,31 +265,31 @@ The `PATCH /wix-data/v2/items/{itemId}` endpoint exists but requires a JsonPatch
 3. Import to Wix Media.
 
 4. **PUT each item's full record** with the image field merged into the existing `data`:
-   ```
-   <prefix>CallWixSiteAPI: PUT https://www.wixapis.com/wix-data/v2/items/{itemId}
-   body: {
-     "dataCollectionId": "<collection>",
-     "dataItem": {
-       "id": "{itemId}",
-       "data": { ...existingData, "<imageField>": "<wixstatic-url>" }
-     }
-   }
+   ```bash
+   curl -sS -X PUT "https://www.wixapis.com/wix-data/v2/items/{itemId}" \
+     -H "Authorization: Bearer $TOKEN" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "dataCollectionId": "<collection>",
+       "dataItem": {
+         "id": "{itemId}",
+         "data": { ...existingData, "<imageField>": "<wixstatic-url>" }
+       }
+     }'
    ```
    `...existingData` MUST include every non-system field you read in step 1 (`heading`, `body`, etc.). System fields (`_id`, `_owner`, `_createdDate`, `_updatedDate`) don't need to be echoed back — Wix repopulates them.
 
 **Failure mode — do NOT ship with this pattern:**
-```
-// WRONG — wipes heading + body
-PUT /wix-data/v2/items/{itemId}
-body: { "dataCollectionId": "<c>", "dataItem": { "id": "...", "data": { "image": "..." } } }
+```bash
+# WRONG — wipes heading + body
+curl -sS -X PUT "https://www.wixapis.com/wix-data/v2/items/{itemId}" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{ "dataCollectionId": "<c>", "dataItem": { "id": "...", "data": { "image": "..." } } }'
 ```
 Without the read-merge step, an `about-content` item loses its seeded `heading` and `body` when Image Phase 2 attaches the image — the About page then renders only its fallback copy.
 
-PUT calls parallelize — dispatch all items across all collections as sibling `CallWixSiteAPI` tool calls in one concurrent batch.
-
-## MCP Tool Prefix
-
-Your prompt includes a `MCP tool prefix:` line. Use it for every Wix MCP call. If a call returns "tool not found", re-discover the tool via your runtime's tool-discovery primitive (look up the suffix `CallWixSiteAPI`). See `../shared/MCP_PREFIX.md` § "Defensive fallback".
+PUT calls parallelize — dispatch all items across all collections as background curls in one shell.
 
 ## Return Contract
 
@@ -340,11 +356,11 @@ The JSON block MUST be the **last** content in your message (see `../shared/RETU
 
 | WRONG | CORRECT |
 |-------|---------|
-| N sequential 1-task `CallWixSiteAPI` generation calls across multiple turns | All generation tool calls in one concurrent batch — parallel siblings for `google:4@2`, or one batched call for other models. See IMAGE_GENERATION.md § "Required: minimize round-trips per image phase" |
+| N sequential 1-task `curl` invocations across multiple tool calls | All generation curls in one shell — `&`+`wait` for `google:4@2`, or one batched curl for other models. See IMAGE_GENERATION.md § "Required: minimize round-trips per image phase" |
 | Poll `.wix/logs/<feature>-data.md` sidecars to learn Phase 1 Seed is done | Phase 1 Seed data is inline in your prompt — if missing, return `failed` |
 | `sleep 60` loop to wait for Phase 1 Seed | No waiting, no polling — prompt has the data or the agent fails |
 | Write `.wix/logs/images.md` sidecar | Sidecars are deprecated — return structured JSON per `RETURN_CONTRACT.md` |
-| Re-query Phase 1 Seed entity IDs via MCP | IDs are in your prompt; re-querying wastes a round-trip |
+| Re-query Phase 1 Seed entity IDs from the Wix API | IDs are in your prompt; re-querying wastes a round-trip |
 | Generic prompts ("a product photo") | Use brand context, product name, aesthetic direction |
 | Ignore color palette from prompt | Reference actual hex codes in image prompts |
 | Request text in images | Always include "no text, no watermarks" |
@@ -356,4 +372,4 @@ The JSON block MUST be the **last** content in your message (see `../shared/RETU
 | PUT a CMS item with only `{data: {image: "..."}}` | Read-merge-write: query the item, merge image into existing `data`, PUT the full record (see § "CMS Items" step 4). Writing only `image` erases seeded heading/body/etc. |
 | Use `PATCH /wix-data/v2/items/{itemId}` with `{dataItem: {data}}` | PATCH requires JsonPatch `fieldModifications` — use read-merge-PUT instead (see § "CMS Items") |
 | Hit a 428 → immediately search external docs | Re-read § "Products" step 1 first — it covers 428. Only use external docs if your recipe genuinely doesn't cover the error (see § "Self-Loading" step 3) |
-| Default to `ReadFullDocsArticle` for API errors already covered by your recipe | Re-read your own recipe first; fall back to MCP doc tools only for errors genuinely not covered (see § "Self-Loading" step 3) |
+| Default to `ReadFullDocsArticle` for API errors already covered by your recipe | Re-read your own recipe first; fall back to Wix MCP doc tools only for errors genuinely not covered (see § "Self-Loading" step 3) |

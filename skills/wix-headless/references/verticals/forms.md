@@ -67,11 +67,11 @@ Contact, lead capture, and signup forms with CRM integration. Loaded when the us
 
 | Scope | Phase | Files | Depends on |
 |-------|-------|-------|------------|
-| `seed` | Phase 1 — Step 3 (bg) | None (MCP only) | MCP connection |
+| `seed` | Phase 1 — Step 3 (bg) | None (Wix REST API only) | CLI auth (`wix token --site`) |
 | `components` | Phase 3 — Step 4.5 (bg) | ContactForm.tsx | Styling contract |
 | `contact-page` | Phase 4 — Step 7 (bg) | contact.astro | Phase 2 Design System + Phase 1 Seed formId |
 
-All three scopes reference the same `CONTACT_FORM.md` file — it covers MCP form setup, React island implementation, and page wiring in one document. The agent's scope parameter guides it to the correct section.
+All three scopes reference the same `CONTACT_FORM.md` file — it covers Wix REST API form setup, React island implementation, and page wiring in one document. The agent's scope parameter guides it to the correct section.
 
 ## Known failure modes (propagate to agent prompts)
 
@@ -103,4 +103,4 @@ Forms has no entity images. The contact page gets decorative images via `image-p
 
 ## References
 
-- `references/forms/CONTACT_FORM.md` — All phases: MCP form setup, field building blocks, React island, page wiring, form schema types
+- `references/forms/CONTACT_FORM.md` — All phases: Wix REST API form setup, field building blocks, React island, page wiring, form schema types
