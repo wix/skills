@@ -15,7 +15,8 @@ Before running this skill, the user's environment must have a working, authentic
 |---|---|---|---|
 | **`@wix/cli` available** | Wave 2 runs `npx @wix/cli env pull` to write `.env.local`; Wave 6 runs `npx @wix/cli build` + `release` to publish. Operational calls to `wixapis.com` (app install, seeders, image attach, forms, CMS) are authenticated with `wix token --site <siteId>`, which prints a fresh site-scoped access token. `npx` will fetch the CLI on demand, but a locally installed CLI is faster and surfaces version issues earlier. | `which wix` or `npx @wix/cli --version`. | `npm i -g @wix/cli` (or rely on `npx` to fetch per-invocation). |
 | **Wix CLI authenticated** | `env pull`, `release`, and every `wix token` invocation require a logged-in session; tokens live in `~/.wix/auth/`. On auth error the skill surfaces `"Run \`npx @wix/cli login\` and retry."` and stops. | `ls ~/.wix/auth/account.json` exists and is non-empty; `wix whoami` prints the logged-in email. | `npx @wix/cli login` — opens a browser to auth. |
-| *Optional:* **Wix MCP doc tools** | If the Wix MCP server is connected, the doc-lookup tools (`SearchWix*Documentation`, `ReadFullDocsArticle`, `ReadFullDocsMethodSchema`, `WixREADME`) become available for ad-hoc API discovery when a reference recipe falls short. The skill's core operational flow does **not** require this — every API call goes through `wix token` + `curl` against `wixapis.com`. | Your MCP client exposes a tool named like `mcp__wix-mcp-remote__SearchWixRESTDocumentation`. | Optional. If you want the doc tools, register `npx -y @wix/mcp` as a stdio MCP server in your agent client; the exact registration step depends on the client. |
+
+No MCP server is required. Documentation lookups (when a bundled recipe falls short) go through Wix's public, unauthenticated docs-search REST endpoints — see `references/shared/MCP_PREFIX.md`.
 
 If any prerequisite is missing, surface the specific gap to the user and stop **before** any subagent dispatches — failing mid-flow leaves a partially scaffolded project.
 
@@ -46,7 +47,7 @@ Your CWD at runtime is the **project directory**, not the skill root. Compute `<
 | What | Absolute path |
 |---|---|
 | Shared return contract | `<SKILL_ROOT>/references/shared/RETURN_CONTRACT.md` |
-| Optional Wix MCP doc-tool prefix guide | `<SKILL_ROOT>/references/shared/MCP_PREFIX.md` |
+| Public Wix doc-search REST endpoints | `<SKILL_ROOT>/references/shared/MCP_PREFIX.md` |
 | Production release / reserved root path sharp edges | `<SKILL_ROOT>/references/shared/PRODUCTION_SHARP_EDGES.md` |
 | Per-vertical / per-scope subagent instructions | `<SKILL_ROOT>/references/<scope>/INSTRUCTIONS.md` (scopes: `stores`, `ecom`, `cms`, `blog`, `forms`, `gift-cards`, `images`, `designer`). Subagent-only — orchestrator never reads. |
 | Vertical packs directory | `<SKILL_ROOT>/references/verticals/` |
@@ -138,7 +139,7 @@ Every dispatch prompt includes:
 ## Wave 0 — Run start
 
 1. **Capture `runStartedAt`** via `date -u +%Y-%m-%dT%H:%M:%SZ` and hold in scratch (used at end-of-run for `run.totalSeconds`).
-2. **Verify CLI auth.** `wix whoami` should print the user's email. If it fails, surface `"Run \`npx @wix/cli login\` and retry."` and stop. No need to discover an MCP prefix — the operational flow uses `wix token --site <siteId>` + `curl` for every Wix API call.
+2. **Verify CLI auth.** `wix whoami` should print the user's email. If it fails, surface `"Run \`npx @wix/cli login\` and retry."` and stop. The operational flow uses `wix token --site <siteId>` + `curl` for every Wix API call.
 
 ## Wave 1 — Discovery
 
@@ -399,7 +400,7 @@ Skill-level:
 
 Shared (with agents):
 - `references/shared/RETURN_CONTRACT.md` — agent return JSON schema, run.json aggregation
-- `references/shared/MCP_PREFIX.md` — Wix MCP doc-tool prefix discovery (optional)
+- `references/shared/MCP_PREFIX.md` — public Wix doc-search REST endpoint reference
 - `references/shared/IMAGE_GENERATION.md` — image agent contract
 - `references/shared/STYLING.md` — three styling categories, ownership, decision rules
 - `references/shared/IMPLEMENTER.md` — shared implementer behavior

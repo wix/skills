@@ -8,7 +8,7 @@ Read **only** the files your scope needs. The reading set varies by scope:
 
 | Your scope | Mandatory | Conditional |
 |---|---|---|
-| `seed` | this file, `RETURN_CONTRACT.md` | `MCP_PREFIX.md` (only if you intend to call a Wix MCP doc-lookup tool) |
+| `seed` | this file, `RETURN_CONTRACT.md` | `MCP_PREFIX.md` (only if you need to look up a Wix API in the public doc-search endpoints) |
 | `components`, `components-css`, `pages`, `pages-*` | this file, `RETURN_CONTRACT.md`, `STYLING.md` | — |
 | Image scopes | (read `references/images/INSTRUCTIONS.md` § Self-Loading) | — |
 

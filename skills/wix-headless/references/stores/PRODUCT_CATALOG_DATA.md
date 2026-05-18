@@ -4,7 +4,7 @@ Replace the default sample products Wix Stores installs with on-brand products v
 
 > **Critical Rules — Read Before Starting**
 > 1. **V3 only** — all endpoints under `/stores/v3/...` for products.
-> 2. **No improvised endpoints** — if a call returns 404, stop and report. Do not guess alternative URLs. (If the Wix MCP doc tools are connected, you may run one `SearchWixRESTDocumentation` lookup; do not loop more than twice on the same topic.)
+> 2. **No improvised endpoints** — if a call returns 404, stop and report. Do not guess alternative URLs. You may run one docs-search REST lookup (`https://www.wixapis.com/mcp-docs-search/v1/search`) if needed; do not loop more than twice on the same topic.
 > 3. **Do not seed categories.** Categories are merchant-driven — created in the Wix dashboard, not by this scope. The storefront's rail, Shop submenu, and `/category/[slug]` route are still wired (Phase 4) and light up automatically once the merchant adds at least one visible category with items (≤ 5 min after creation, the helper's TTL).
 
 > **V3 Catalog:** New Wix sites use Catalog V3. All endpoints below live under `/stores/v3/...`. The V1 product endpoints should not be used — they silently return 0 results on V3 catalogs.
