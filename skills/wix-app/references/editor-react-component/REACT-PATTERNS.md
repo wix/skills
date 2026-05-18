@@ -135,3 +135,39 @@ For lists, breadcrumbs, tabs, menus, and similar collection-style UI, render the
 ```
 
 Handle separators with CSS pseudo-elements or inside each item.
+
+### 3.4 Missing `import React` in `.tsx` files that use the React namespace
+
+Always import React in `.tsx` files that reference the `React` namespace. If you use `React.FC`, `React.ReactNode`, `React.useState`, `React.MouseEvent`, etc., add `import * as React from "react";` at the top of the file. Omitting it triggers `TS2686: 'React' refers to a UMD global`. Alternatively, import the specific symbols (`import { FC, ReactNode, useState } from "react";`) and drop the `React.` prefix.
+
+❌ Wrong — references `React` without importing it:
+
+```tsx
+// no import for React
+export const Card: React.FC<CardProps> = (props) => {
+  const [open, setOpen] = React.useState(false); // ❌ TS2686
+  return <div>{props.label}</div>;
+};
+```
+
+✅ Correct — namespace import:
+
+```tsx
+import * as React from "react";
+
+export const Card: React.FC<CardProps> = (props) => {
+  const [open, setOpen] = React.useState(false);
+  return <div>{props.label}</div>;
+};
+```
+
+✅ Also correct — named imports, drop the `React.` prefix:
+
+```tsx
+import { FC, ReactNode, useState } from "react";
+
+export const Card: FC<CardProps> = (props) => {
+  const [open, setOpen] = useState(false);
+  return <div>{props.label}</div>;
+};
+```
