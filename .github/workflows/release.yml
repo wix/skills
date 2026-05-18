@@ -1,4 +1,4 @@
-name: Release - Bump Version and Publish @wix/skills
+name: Release - Bump Version and Publish @wix/agent-skills
 
 on:
   workflow_dispatch:
@@ -59,13 +59,13 @@ jobs:
         if: ${{ github.event.inputs.dry_run == 'true' }}
         run: |
           CURRENT=$(node -p "require('./package.json').version")
-          echo "Would bump @wix/skills from $CURRENT using strategy: ${{ github.event.inputs.version_strategy }}"
+          echo "Would bump @wix/agent-skills from $CURRENT using strategy: ${{ github.event.inputs.version_strategy }}"
 
       - name: Commit and tag
         if: ${{ github.event.inputs.dry_run == 'false' }}
         run: |
           git add package.json
-          git commit -m "chore: release @wix/skills ${{ steps.bump.outputs.version }}"
+          git commit -m "chore: release @wix/agent-skills ${{ steps.bump.outputs.version }}"
           git tag "${{ steps.bump.outputs.version }}"
           git push origin HEAD --follow-tags
 
