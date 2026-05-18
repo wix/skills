@@ -47,7 +47,7 @@ See [`ACCESSIBILITY.md`](ACCESSIBILITY.md) for full rules and patterns.
 - All components must be fully typed
 - NO `any` types
 - Export all prop interfaces
-- Use proper React types (`React.FC`, `React.ReactNode`, etc.)
+- Use proper React types (`React.FC`, `React.ReactNode`, etc.) — **and import them from `react` at the top of the file** (e.g., `import * as React from "react";` or `import { FC, ReactNode } from "react";`). Without an import, files that reference the `React` namespace fail to compile with `TS2686: 'React' refers to a UMD global`.
 - **Array type syntax:** Use `Array<T>` instead of `T[]` (e.g., `Array<Item>` not `Item[]`)
 - **Array element types:** `T` must be an object with named keys — `Array<{ key: ValueType, ... }>` or a named interface that is itself a keyed object. Never `Array<string>`, `Array<number>`, `Array<boolean>`, or `Array<DataType>` (`Image`, `Link`, `Video`, `Audio`, `VectorArt`, `RichText`, etc.). See [`COMPONENT-API.md`](COMPONENT-API.md) for full rules.
 - **Component function pattern:**
