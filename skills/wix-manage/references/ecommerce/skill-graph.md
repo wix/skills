@@ -61,7 +61,6 @@ flowchart TB
         setup-coupons
         setup-shipping-regions
         setup-shipping-rates
-        api-discount-recommendations
     end
 
     subgraph TrackingAPI["Tracking API"]
@@ -87,7 +86,7 @@ flowchart TB
         S2["Shipping Options API"]
         S3["Pickup Locations API"]
         S4["Local Delivery API"]
-        SD["Site Data API"]
+        SD["Profile Service API (wix-profile-client)"]
     end
 
     classDef goal fill:#8b5cf6,stroke:#6d28d9,color:#fff
@@ -101,7 +100,7 @@ flowchart TB
     class goal-increase-aov,goal-clear-inventory,goal-seasonal-revenue,goal-drive-cross-sells,goal-reduce-cart-abandonment goal
     class guardrail-discount-conflicts,guardrail-margin-protection,guardrail-shipping-health,guardrail-rate-pricing-sanity guardrail
     class flow-upsell-boost,flow-bundle-and-save,flow-stock-mover,flow-seasonal-promotion,flow-fix-coverage-gaps,flow-add-free-shipping,flow-optimize-shipping-rates flow
-    class setup-discount-rules,setup-coupons,api-discount-recommendations,setup-shipping-regions,setup-shipping-rates,api-recommendation-tracking config
+    class setup-discount-rules,setup-coupons,setup-shipping-regions,setup-shipping-rates,api-recommendation-tracking config
     class recommend-ecommerce-strategy reco
     class recipe-apply-shipping-recommendations,setup-store-pickup-location,troubleshoot-discount-not-applying,troubleshoot-checkout-delivery-dropoff standalone
     class D1,D2,D3,D4,D5,S1,S2,S3,S4,SD apidoc
@@ -112,7 +111,6 @@ flowchart TB
 | File | Reached via |
 |---|---|
 | `recommend-ecommerce-strategy.md` | README routing (entry point) |
-| `api-discount-recommendations.md` | Entry point loads directly |
 | `api-recommendation-tracking.md` | Entry point tracking steps |
 | `goal-increase-aov.md` | Step 4b (UPSELL_BOOST) |
 | `goal-clear-inventory.md` | Step 4b (STOCK_MOVER) |
