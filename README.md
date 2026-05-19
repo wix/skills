@@ -100,16 +100,7 @@ When a major bump is required (a breaking change in the underlying `wix-cli`), t
 
 ## Releasing
 
-Releases use npm Trusted Publishing (no stored tokens). The bump goes through a PR (required by org-level branch protection on `main`); the whole flow is one click:
-
-1. **Trigger [`release-bump`](.github/workflows/release-bump.yml)** from the **Actions** tab — pick `version_strategy` (and optionally `dry_run`).
-2. The workflow bumps `package.json`, opens a `release/vX.Y.Z` PR labeled `release`, and enables **auto-merge** (using a GitHub App token so the merge event triggers downstream workflows).
-3. When required checks pass, the PR auto-merges. [`release.yml`](.github/workflows/release.yml)'s `push-tag` job (triggered by `pull_request: closed`, filtered by the `release` label) pushes the `vX.Y.Z` tag using the App token.
-4. The tag push fires `release.yml`'s `publish` job, which publishes to npm via Trusted Publishing.
-
-The **tag is the canonical release signal** — publishing is decoupled from PR state, so pushing a `v*` tag directly (e.g. for a backport on a maintenance branch) also publishes.
-
-Requires the GitHub App referenced via `SYNC_APP_CLIENT_ID` / `SYNC_APP_PRIVATE_KEY` to be installed on this repo with `contents: write` and `pull-requests: write`, and "Allow auto-merge" enabled in repo settings.
+Run the [`release-bump`](.github/workflows/release-bump.yml) workflow from the **Actions** tab and pick a `version_strategy`. The rest is automatic: the bump PR auto-merges, a `vX.Y.Z` tag is pushed, and [`release.yml`](.github/workflows/release.yml) publishes to npm via Trusted Publishing.
 
 ## Contributing
 
