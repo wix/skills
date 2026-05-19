@@ -351,6 +351,28 @@ curl -X DELETE \
 }
 ```
 
+## Field Types Reference
+
+| Type | Description | Example Value |
+|------|-------------|---------------|
+| `TEXT` | String | `"Hello World"` |
+| `NUMBER` | Numeric | `99.99` |
+| `BOOLEAN` | True/false | `true` |
+| `DATE` | Date only | `"2024-01-15"` |
+| `DATETIME` | Date and time | `{ "$date": "2024-01-15T10:00:00.000Z" }` |
+| `IMAGE` | Image reference (HTTP url or wix:image://v1/{mediaId}/{friendlyName}) | `"wix:image://v1/3f72369f2219e2ee853e9e3df0217ce1.jpg/Colorful%20Business%20Cards.jpg"` |
+| `VIDEO` | Video reference (HTTP url or wix:video://v1/{mediaId}/{friendlyName}) | `"wix:video://v1/11062b_484182533ede4b9a81329daf20238867/Sketching%20Design%20Concepts#posterUri=11062b_484182533ede4b9a81329daf20238867f000.jpg&posterWidth=1920&posterHeight=1080"` |
+| `DOCUMENT` | Document reference  (HTTP url or wix:document://v1/{mediaId}) | `"wix:document://v1/..."` |
+| `URL` | Web URL | `"https://example.com"` |
+| `RICH_TEXT` | HTML content | `"<p>Rich text</p>"` |
+| `EMAIL` | Email | `"example@wix.com"` |
+| `RICH_CONTENT` | Structured content | Complex object |
+| `ADDRESS` | Address object | Address fields |
+| `ARRAY_STRING` | Array of strings | `["tag1", "tag2"]` |
+| `OBJECT` | JSON object | `{"key": "value"}` |
+| `REFERENCE` | Single reference | Item ID string |
+| `MULTI_REFERENCE` | Multiple references, use separate *reference* endpoints to manipulate, `include` to include in queries | Array of IDs |
+
 ---
 
 ## Query Operators
