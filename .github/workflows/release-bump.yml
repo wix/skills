@@ -99,13 +99,20 @@ jobs:
             --label release)
           echo "url=${PR_URL}" >> $GITHUB_OUTPUT
 
-      - name: Mint App token (so auto-merge triggers downstream workflows)
+      - name: Mint App token (used for approval + auto-merge so events propagate)
         if: ${{ github.event.inputs.dry_run == 'false' }}
         id: app-token
         uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
         with:
           app-id: ${{ secrets.RELEASE_APP_ID }}
           private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+
+      - name: Approve the PR (App identity ≠ PR author)
+        if: ${{ github.event.inputs.dry_run == 'false' }}
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PR_URL: ${{ steps.pr.outputs.url }}
+        run: gh pr review --approve "${PR_URL}" --body "Automated approval for release PR."
 
       - name: Enable auto-merge
         if: ${{ github.event.inputs.dry_run == 'false' }}
