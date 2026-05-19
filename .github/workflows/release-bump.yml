@@ -71,13 +71,23 @@ jobs:
         if: ${{ github.event.inputs.dry_run == 'false' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.bump.outputs.version }}
+          BRANCH: ${{ steps.bump.outputs.branch }}
         run: |
+          BODY=$(cat <<EOF
+          Automated release PR for **${VERSION}**.
+
+          After merging, push the version tag to trigger \`release.yml\` (publish via npm Trusted Publishing):
+
+          \`\`\`bash
+          git fetch origin main
+          git tag ${VERSION} origin/main
+          git push origin ${VERSION}
+          \`\`\`
+          EOF
+          )
           gh pr create \
             --base main \
-            --head ${{ steps.bump.outputs.branch }} \
-            --title "chore: release @wix/agent-skills ${{ steps.bump.outputs.version }}" \
-            --body "Automated release PR for **${{ steps.bump.outputs.version }}**.
-
-          When this PR is merged, \`release-tag.yml\` will push the matching tag, which triggers \`release.yml\` to publish to npm via Trusted Publishing.
-
-          No manual steps required after merge."
+            --head "${BRANCH}" \
+            --title "chore: release @wix/agent-skills ${VERSION}" \
+            --body "${BODY}"

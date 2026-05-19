@@ -100,10 +100,17 @@ When a major bump is required (a breaking change in the underlying `wix-cli`), t
 
 ## Releasing
 
-Releases use npm Trusted Publishing (no stored tokens), split across two workflows so the version bump goes through a PR (required by org-level branch protection on `main`):
+Releases use npm Trusted Publishing (no stored tokens). The flow is split so the version bump goes through a PR (required by org-level branch protection on `main`):
 
 1. **Trigger [`release-bump`](.github/workflows/release-bump.yml)** from the **Actions** tab — pick `version_strategy` (and optionally `dry_run`). It bumps `package.json` and opens a `release/vX.Y.Z` PR.
-2. **Merge the PR.** [`release`](.github/workflows/release.yml) detects the release commit on `main`, publishes to npm via Trusted Publishing, then pushes the matching `vX.Y.Z` tag.
+2. **Merge the PR.**
+3. **Push the version tag** (one command, also shown in the PR body):
+   ```bash
+   git fetch origin main && git tag vX.Y.Z origin/main && git push origin vX.Y.Z
+   ```
+   The tag push triggers [`release`](.github/workflows/release.yml), which publishes to npm via Trusted Publishing.
+
+> Step 3 is manual because the default `GITHUB_TOKEN` cannot trigger a downstream `release.yml` run from another workflow. For full automation, add a PAT or GitHub App token and an auto-tag step on PR merge.
 
 ## Contributing
 
