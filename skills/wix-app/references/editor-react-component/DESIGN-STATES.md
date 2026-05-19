@@ -4,36 +4,37 @@ Wire **design states** into an Editor React component's source files so the Wix 
 
 A design state is declared via **two source signals** the editor / manifest extractor reads together:
 
-1. **CSS pairs** in the component's CSS module — a pseudo-class (or state attribute) selector **and** a matching `.elem<PascalKey>` class on the same base element.
+1. **CSS pairs** in the component's CSS module — a pseudo-class (or state attribute) selector **and** a matching BEM modifier class (`.<component>--<state>` for the root, `.<component>__<element>--<state>` for inner elements) on the same base element.
 2. **TSX markers** on the rendered element — `aria-checked`, `aria-selected`, `aria-disabled`, `aria-invalid`, or `data-state="<key>"`.
 
 Both signals are required for non-pseudo keys (`disabled`, `invalid`, `selected`, custom). `hover` and `focus` only need the CSS pair — pseudo-classes fire natively from native pointer / focus events.
 
 `npx wix generate manifest` reads the paired CSS rules + the rendered TSX attributes and emits the manifest `states` block. **Never hand-write the `states` block into the manifest — the generator is the only writer.**
 
-> ⚠️ This is the **exception** to the "platform owns state styling" rule called out in [`CSS-GUIDELINES.md`](CSS-GUIDELINES.md) and [`REACT-PATTERNS.md`](REACT-PATTERNS.md). For components that opt into design states using the contract below, the component declares the state surface (paired rules + ARIA / data-state markers) and the platform layers the user's state styling on top via the `elem<PascalKey>` class. For everything else, the no-state-CSS rule still applies.
+> ⚠️ This is the **exception** to the "platform owns state styling" rule called out in [`CSS-GUIDELINES.md`](CSS-GUIDELINES.md) and [`REACT-PATTERNS.md`](REACT-PATTERNS.md). For components that opt into design states using the contract below, the component declares the state surface (paired rules + ARIA / data-state markers) and the platform layers the user's state styling on top via the `<component>--<state>` modifier class. For everything else, the no-state-CSS rule still applies.
 
 ---
 
 ## CSS signal (in `<ComponentName>.module.css`)
 
-For each state on a given target, write a paired selector rule with sensible default styling. Because the project uses CSS Modules, the `.elem<PascalKey>` class must be wrapped in `:global(...)` so it stays unhashed — the editor injects the literal class name (`elemHover`, `elemDisabled`, …) onto the DOM at runtime, and the generated manifest references that literal string.
+For each state on a given target, write a paired selector rule with sensible default styling. Because the project uses CSS Modules, the `.<component>--<state>` class must be wrapped in `:global(...)` so it stays unhashed — the editor injects the literal class name (e.g. `profile-card--hover`, `profile-card--disabled`) onto the DOM at runtime, and the generated manifest references that literal string.
 
 ```css
 .root:hover,
-.root:global(.elemHover) {
+.root:global(.<component>--hover) {
   /* populated default styling — see Default styling */
 }
 ```
 
-- **Native keys** (`hover` / `focus` / `disabled` / `invalid`) emit both the pseudo-class (or state attribute) **and** the `:global(.elem<PascalKey>)` class. These map 1:1 to `NATIVE_STATE_TYPE` from `@wix/react-component-schema`.
-- **Custom keys** (`selected`, `featured`, anything else) emit only the `:global(.elem<PascalKey>)` class (no pseudo-class):
+- **Native keys** (`hover` / `focus` / `disabled` / `invalid`) emit both the pseudo-class (or state attribute) **and** the `:global(.<component>--<state>)` modifier class. These map 1:1 to `NATIVE_STATE_TYPE` from `@wix/react-component-schema`.
+- **Custom keys** (`selected`, `featured`, anything else) emit only the `:global(.<component>--<state>)` modifier class (no pseudo-class):
   ```css
-  .root:global(.elemSelected) {
+  .root:global(.<component>--selected) {
     /* populated default styling */
   }
   ```
-- `<PascalKey>` capitalizes the key with PascalCase on word boundaries — `hover` → `elemHover`, `in-progress` → `elemInProgress`.
+- The state suffix follows `--` verbatim in kebab-case — `hover` → `--hover`, `in-progress` → `--in-progress`. No casing transform.
+- `<component>` is the component's public block class (kebab-case, e.g. `profile-card`, `button`, `accordion-component`). For inner-element targets the modifier class is `<component>__<element>--<state>` (e.g. `.toggle__thumb--selected`).
 - The base class (`.root`, `.thumb`, …) is the CSS-Module class applied to the same element that carries the TSX markers. See [Picking the base class](#picking-the-base-class).
 
 ### Picking the pseudo-class for `disabled` and `focus`
@@ -93,7 +94,7 @@ For inner elements with their own role (e.g., interactive list items), the same 
 
 ## Picking the base class
 
-The state-switcher in the design panel adds `elem<Key>` classes to the rendered element. For the CSS rule to fire, its prefix must be a class that lives on that same element.
+The state-switcher in the design panel adds `<component>--<state>` (or `<component>__<element>--<state>` for inner elements) modifier classes to the rendered element. For the CSS rule to fire, its prefix must be a class that lives on that same element.
 
 ### Case A — self-rendering component (default)
 
@@ -105,7 +106,7 @@ The component applies `styles.root` to the outer rendered element. Base class = 
 
 ```css
 .root:hover,
-.root:global(.elemHover) { /* … */ }
+.root:global(.profile-card--hover) { /* … */ }
 ```
 
 ### Case B — component wraps a library primitive
@@ -118,7 +119,7 @@ The component composes a library primitive (e.g., React Aria `<Switch>`) and app
 
 ```css
 .button:hover,
-.button:global(.elemHover) { /* … */ }
+.button:global(.button--hover) { /* … */ }
 ```
 
 ### Case C — inner elements
@@ -130,7 +131,7 @@ Inner named parts (`heading`, `label`, `item`, …) follow the same pattern, eac
 ```
 
 ```css
-.thumb:global(.elemSelected) { /* … */ }
+.thumb:global(.<component>__thumb--selected) { /* e.g. .toggle__thumb--selected */ }
 ```
 
 ---
@@ -182,7 +183,7 @@ Many components carry per-child states more than root states:
 
 ## Key collision rule
 
-If a state's CSS rule already exists in the module (any selector that targets `<base>:<pseudoClass>` or `<base>:global(.elem<PascalKey>)`), **leave it alone**. Existing wins — no merge, no overwrite.
+If a state's CSS rule already exists in the module (any selector that targets `<base>:<pseudoClass>` or `<base>:global(.<component>--<state>)`), **leave it alone**. Existing wins — no merge, no overwrite.
 
 Same rule applies to the TSX side: if the target element already has the matching `aria-*` or `data-state` attribute, leave it alone.
 
@@ -199,9 +200,9 @@ Apply when generating new Editor React components, immediately after `<Component
 2. **Resolve the base class and rendered tag per target.** Read the component's `className` composition (Cases A–C above). Identify the rendered tag (`<input>` / `<button>` / `<label>` / generic) — this drives `:disabled` vs `[aria-disabled='true']` and `:focus-visible` vs `:focus-within` per [Picking the pseudo-class](#picking-the-pseudo-class-for-disabled-and-focus).
 
 3. **Patch the CSS (root).** For each root state in the inferred list:
-   - Build the paired selector with the right pseudo (per Step 2) **plus** `:global(.elem<PascalKey>)`.
+   - Build the paired selector with the right pseudo (per Step 2) **plus** `:global(.<component>--<state>)`.
    - Populate the body with default styling from [Default styling](#default-styling).
-   - Collision check (skip if matching `<base>:<pseudo>` or `<base>:global(.elem<PascalKey>)` already exists).
+   - Collision check (skip if matching `<base>:<pseudo>` or `<base>:global(.<component>--<state>)` already exists).
    - Append the new rule. Don't emit comments.
 
 4. **Patch the TSX (root).** For each root state that has a TSX marker:
@@ -232,21 +233,22 @@ Apply when generating new Editor React components, immediately after `<Component
 ```ts
 import { NATIVE_STATE_TYPE } from '@wix/react-component-schema';
 
+// Example for a Button component (block name 'button'):
 states: {
   hover: {
     displayName: 'Hover',
-    className: 'elemHover',
+    className: 'button--hover',
     pseudoClass: NATIVE_STATE_TYPE.hover,
   },
   disabled: {
     displayName: 'Disabled',
-    className: 'elemDisabled',
+    className: 'button--disabled',
     pseudoClass: NATIVE_STATE_TYPE.disabled,
     props: { isDisabled: true },
   },
   selected: {
     displayName: 'Selected',
-    className: 'elemSelected',
+    className: 'button--selected',
   },
 }
 ```
@@ -255,18 +257,20 @@ The deterministic mapping the generator applies:
 
 | Source signal | Manifest output |
 |---|---|
-| `<base>:hover` paired with `<base>:global(.elemHover)` | `hover: { className: 'elemHover', pseudoClass: NATIVE_STATE_TYPE.hover }` |
-| `<base>:focus-visible` / `:focus-within` paired with `:global(.elemFocus)` | `focus: { className: 'elemFocus', pseudoClass: NATIVE_STATE_TYPE.focus }` |
-| `<base>:disabled` or `<base>[aria-disabled='true']` paired with `:global(.elemDisabled)` **+** TSX `aria-disabled` | `disabled: { className: 'elemDisabled', pseudoClass: NATIVE_STATE_TYPE.disabled, props: { isDisabled: true } }` *(props only on root)* |
-| `<base>:invalid` or `[aria-invalid='true']` paired with `:global(.elemInvalid)` **+** TSX `aria-invalid` | `invalid: { className: 'elemInvalid', pseudoClass: NATIVE_STATE_TYPE.invalid }` |
-| `<base>:global(.elemSelected)` **+** TSX `aria-checked` *(switch/checkbox role)* | `selected: { className: 'elemSelected' }` |
-| `<base>:global(.elemSelected)` **+** TSX `aria-selected` *(tab/option/treeitem/etc.)* | `selected: { className: 'elemSelected' }` |
-| `<base>:global(.elemSelected)` **+** TSX `data-state="selected"` | `selected: { className: 'elemSelected' }` |
-| `<base>:global(.elem<PascalKey>)` **+** TSX `data-state="<key>"` | `<key>: { className: 'elem<PascalKey>' }` |
+| `<base>:hover` paired with `<base>:global(.<component>--hover)` | `hover: { className: '<component>--hover', pseudoClass: NATIVE_STATE_TYPE.hover }` |
+| `<base>:focus-visible` / `:focus-within` paired with `:global(.<component>--focus)` | `focus: { className: '<component>--focus', pseudoClass: NATIVE_STATE_TYPE.focus }` |
+| `<base>:disabled` or `<base>[aria-disabled='true']` paired with `:global(.<component>--disabled)` **+** TSX `aria-disabled` | `disabled: { className: '<component>--disabled', pseudoClass: NATIVE_STATE_TYPE.disabled, props: { isDisabled: true } }` *(props only on root)* |
+| `<base>:invalid` or `[aria-invalid='true']` paired with `:global(.<component>--invalid)` **+** TSX `aria-invalid` | `invalid: { className: '<component>--invalid', pseudoClass: NATIVE_STATE_TYPE.invalid }` |
+| `<base>:global(.<component>--selected)` **+** TSX `aria-checked` *(switch/checkbox role)* | `selected: { className: '<component>--selected' }` |
+| `<base>:global(.<component>--selected)` **+** TSX `aria-selected` *(tab/option/treeitem/etc.)* | `selected: { className: '<component>--selected' }` |
+| `<base>:global(.<component>--selected)` **+** TSX `data-state="selected"` | `selected: { className: '<component>--selected' }` |
+| `<base>:global(.<component>--<key>)` **+** TSX `data-state="<key>"` | `<key>: { className: '<component>--<key>' }` |
+
+For inner-element targets, the modifier class is `<component>__<element>--<state>` (e.g. `button__label--hover`, `toggle__thumb--selected`) — the same mapping applies, just with the inner-element BEM block prefix in place of `<component>--`.
 
 **Gating:** for non-pseudo keys, a CSS pair without a confirming TSX marker is skipped silently (treated as stale CSS). A TSX marker without a CSS pair is skipped too. This is how the generator catches drift between the two source files.
 
-**Custom-key manifest key** uses the verbatim `data-state` token (e.g. `data-state="in-progress"` → manifest key `'in-progress'`, paired with `className: 'elemInProgress'`). The TSX side is the source of truth for naming.
+**Custom-key manifest key** uses the verbatim `data-state` token (e.g. `data-state="in-progress"` → manifest key `'in-progress'`, paired with `className: '<component>--in-progress'`). The state name in both the manifest key and the BEM class is kebab-case verbatim — no casing transform. The TSX side is the source of truth for naming.
 
 The same shape applies to inner-element `states` blocks — inner-element `disabled` omits the `props` field (inverted-prop wiring is root-only).
 

@@ -43,7 +43,7 @@ File where you can override the generated manifest from `<componentName>.generat
 4. Wire design states (Hover / Focus / Disabled / Invalid / Selected /
    custom keys) into the React + CSS per
    [`editor-react-component/DESIGN-STATES.md`](editor-react-component/DESIGN-STATES.md).
-   Paired pseudo-class + `:global(.elem<PascalKey>)` rules with matching TSX
+   Paired pseudo-class + `:global(.<component>--<state>)` rules with matching TSX
    markers are required for the manifest generator to emit the editor's
    `states` block.
 5. Run `npx wix build && npx wix generate manifest` so the editor picks up
