@@ -100,7 +100,10 @@ When a major bump is required (a breaking change in the underlying `wix-cli`), t
 
 ## Releasing
 
-Releases run via the [`release` GitHub Actions workflow](.github/workflows/release.yml) using npm Trusted Publishing (no stored tokens). Triggered manually from the **Actions** tab: pick `version_strategy` and optionally `dry_run`. Modeled on [`wix/interact`](https://github.com/wix/interact/blob/master/.github/workflows/release-interact.yml)'s setup.
+Releases use npm Trusted Publishing (no stored tokens), split across two workflows so the version bump goes through a PR (required by org-level branch protection on `main`):
+
+1. **Trigger [`release-bump`](.github/workflows/release-bump.yml)** from the **Actions** tab — pick `version_strategy` (and optionally `dry_run`). It bumps `package.json` and opens a `release/vX.Y.Z` PR.
+2. **Merge the PR.** [`release`](.github/workflows/release.yml) detects the release commit on `main`, publishes to npm via Trusted Publishing, then pushes the matching `vX.Y.Z` tag.
 
 ## Contributing
 
