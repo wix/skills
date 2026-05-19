@@ -1,40 +1,21 @@
-name: Release - Bump Version and Publish @wix/agent-skills
+name: Publish @wix/agent-skills to npm
 
 on:
-  workflow_dispatch:
-    inputs:
-      version_strategy:
-        type: choice
-        description: Version strategy
-        options:
-          - patch
-          - minor
-          - major
-          - prerelease
-          - premajor
-          - preminor
-          - prepatch
-      dry_run:
-        description: 'Dry run (preview only, no tag/push/publish)'
-        required: false
-        default: false
-        type: boolean
+  push:
+    tags:
+      - 'v*'
 
 permissions:
   id-token: write # REQUIRED for npm Trusted Publishing
-  contents: write
-  pull-requests: write
+  contents: read
 
 jobs:
   publish:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout tag
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-        with:
-          fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Node with trusted publishing
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
@@ -42,37 +23,14 @@ jobs:
           node-version: 24
           registry-url: https://registry.npmjs.org
 
-      - name: Configure git
+      - name: Verify tag matches package.json version
         run: |
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git config user.name "github-actions[bot]"
-
-      - name: Bump version
-        if: ${{ github.event.inputs.dry_run == 'false' }}
-        id: bump
-        run: |
-          NEW_VERSION=$(npm version ${{ github.event.inputs.version_strategy }} --no-git-tag-version)
-          echo "version=${NEW_VERSION}" >> $GITHUB_OUTPUT
-          echo "New version: ${NEW_VERSION}"
-
-      - name: Dry-run version preview
-        if: ${{ github.event.inputs.dry_run == 'true' }}
-        run: |
-          CURRENT=$(node -p "require('./package.json').version")
-          echo "Would bump @wix/agent-skills from $CURRENT using strategy: ${{ github.event.inputs.version_strategy }}"
-
-      - name: Commit and tag
-        if: ${{ github.event.inputs.dry_run == 'false' }}
-        run: |
-          git add package.json
-          git commit -m "chore: release @wix/agent-skills ${{ steps.bump.outputs.version }}"
-          git tag "${{ steps.bump.outputs.version }}"
-          git push origin HEAD --follow-tags
+          PKG_VERSION="v$(node -p "require('./package.json').version")"
+          TAG_VERSION="${GITHUB_REF_NAME}"
+          if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
+            echo "Tag $TAG_VERSION does not match package.json version $PKG_VERSION"
+            exit 1
+          fi
 
       - name: Publish to npm (trusted publishing)
-        if: ${{ github.event.inputs.dry_run == 'false' }}
         run: npm publish --provenance --access=public
-
-      - name: Dry-run publish preview
-        if: ${{ github.event.inputs.dry_run == 'true' }}
-        run: npm publish --dry-run --access=public
