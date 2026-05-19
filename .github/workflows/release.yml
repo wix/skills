@@ -1,22 +1,25 @@
 name: Publish @wix/agent-skills to npm
 
 on:
-  push:
-    branches: [main]
+  pull_request:
+    types: [closed]
 
 permissions:
   id-token: write # REQUIRED for npm Trusted Publishing
-  contents: write # to push the version tag
+  contents: write # to push the release tag
 
 jobs:
   publish:
-    if: startsWith(github.event.head_commit.message, 'chore: release @wix/agent-skills v')
+    if: >
+      github.event.pull_request.merged == true &&
+      contains(github.event.pull_request.labels.*.name, 'release')
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout main
+      - name: Checkout main (post-merge)
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
+          ref: main
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
