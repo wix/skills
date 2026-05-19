@@ -2,20 +2,23 @@ name: Publish @wix/agent-skills to npm
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches: [main]
 
 permissions:
   id-token: write # REQUIRED for npm Trusted Publishing
-  contents: read
+  contents: write # to push the version tag
 
 jobs:
   publish:
+    if: startsWith(github.event.head_commit.message, 'chore: release @wix/agent-skills v')
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout tag
+      - name: Checkout main
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Node with trusted publishing
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
@@ -23,14 +26,20 @@ jobs:
           node-version: 24
           registry-url: https://registry.npmjs.org
 
-      - name: Verify tag matches package.json version
-        run: |
-          PKG_VERSION="v$(node -p "require('./package.json').version")"
-          TAG_VERSION="${GITHUB_REF_NAME}"
-          if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
-            echo "Tag $TAG_VERSION does not match package.json version $PKG_VERSION"
-            exit 1
-          fi
+      - name: Resolve version
+        id: version
+        run: echo "tag=v$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
 
       - name: Publish to npm (trusted publishing)
         run: npm publish --provenance --access=public
+
+      - name: Tag the release commit
+        run: |
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          if git rev-parse "${{ steps.version.outputs.tag }}" >/dev/null 2>&1; then
+            echo "Tag ${{ steps.version.outputs.tag }} already exists; nothing to do."
+            exit 0
+          fi
+          git tag "${{ steps.version.outputs.tag }}"
+          git push origin "${{ steps.version.outputs.tag }}"
