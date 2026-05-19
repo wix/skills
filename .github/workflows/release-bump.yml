@@ -1,4 +1,4 @@
-name: Release - Bump Version and Open PR
+name: Release - Bump Version, Open PR, Enable Auto-Merge
 
 on:
   workflow_dispatch:
@@ -67,27 +67,41 @@ jobs:
           git commit -m "chore: release @wix/agent-skills ${{ steps.bump.outputs.version }}"
           git push -u origin ${{ steps.bump.outputs.branch }}
 
-      - name: Open release PR
+      - name: Mint App token (so auto-merge triggers downstream workflows)
+        if: ${{ github.event.inputs.dry_run == 'false' }}
+        id: app-token
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
+        with:
+          client-id: ${{ secrets.SYNC_APP_CLIENT_ID }}
+          private-key: ${{ secrets.SYNC_APP_PRIVATE_KEY }}
+
+      - name: Ensure release label exists
         if: ${{ github.event.inputs.dry_run == 'false' }}
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          gh label create release \
+            --color "0E8A16" \
+            --description "Merging publishes to npm" \
+            --force
+
+      - name: Open release PR and enable auto-merge
+        if: ${{ github.event.inputs.dry_run == 'false' }}
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
           VERSION: ${{ steps.bump.outputs.version }}
           BRANCH: ${{ steps.bump.outputs.branch }}
         run: |
           BODY=$(cat <<EOF
           Automated release PR for **${VERSION}**.
 
-          After merging, push the version tag to trigger \`release.yml\` (publish via npm Trusted Publishing):
-
-          \`\`\`bash
-          git fetch origin main
-          git tag ${VERSION} origin/main
-          git push origin ${VERSION}
-          \`\`\`
+          When required checks pass, this PR auto-merges. The merge triggers \`release.yml\`, which publishes to npm via Trusted Publishing and tags the release commit.
           EOF
           )
-          gh pr create \
+          PR_URL=$(gh pr create \
             --base main \
             --head "${BRANCH}" \
             --title "chore: release @wix/agent-skills ${VERSION}" \
-            --body "${BODY}"
+            --body "${BODY}" \
+            --label release)
+          gh pr merge --auto --squash "${PR_URL}"
