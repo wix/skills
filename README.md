@@ -55,16 +55,6 @@ npx skills add wix/skills
 npx skills add wix/skills -g
 ```
 
-### npm Package (versioned distribution)
-
-For Wix-internal infrastructure that needs a pinned, versioned skills snapshot (e.g., App Builder, Studio 2, `@wix/cli`), `@wix/agent-skills` is also published to npm:
-
-```bash
-npm install @wix/agent-skills
-```
-
-The npm package contains the same skill bodies as the GitHub repo but pinned to a specific version. Consumers typically install it as a transitive dependency of `@wix/cli` rather than directly. See [CODEAI-505](https://wix.atlassian.net/browse/CODEAI-505) for context.
-
 ## Available Skills
 
 | Skill                                    | Purpose                          | When to Use                                                                                                                         |
