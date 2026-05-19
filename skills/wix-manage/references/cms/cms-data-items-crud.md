@@ -23,8 +23,10 @@ This recipe covers basic Create, Read, Update, Delete (CRUD) operations for Wix 
 Before inserting or updating items, you need to know the collection's field names and types. If you don't already know the schema:
 
 1. **Query existing items** - Fetch a few items to infer field names from the data
-2. **Get collection schema** - Use `GET /collections/{collectionId}` for full field definitions
-3. **List collections** - Use `GET /collections?fields=id` to see what collections exist (see [Schema Management](cms-schema-management.md))
+2. **Get collection schema** - Use `GET /collections/{dataCollectionId}` for full field definitions
+3. **List collections** - Use `GET /collections?fields=displayName` to see what collections exist (see [Schema Management](cms-schema-management.md))
+
+It may be, that user refers to schema by its `displayName` rather than `id`, if collection is not found list all collections to find the right `id` (`dataCollectionId`) to use.
 
 ---
 

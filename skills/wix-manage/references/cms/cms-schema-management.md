@@ -20,7 +20,7 @@ This recipe covers managing the structure (schema) of Wix CMS collections using 
 **Lightweight listing (recommended for existence checks)**:
 ```bash
 curl -X GET \
-'https://www.wixapis.com/wix-data/v2/collections?fields=id' \
+'https://www.wixapis.com/wix-data/v2/collections?fields=displayName' \
 -H 'Authorization: <AUTH>'
 ```
 
