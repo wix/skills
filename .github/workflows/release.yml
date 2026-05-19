@@ -3,58 +3,25 @@ name: Publish @wix/agent-skills to npm
 on:
   pull_request:
     types: [closed]
-  push:
-    tags:
-      - 'v*'
 
 permissions:
   id-token: write # REQUIRED for npm Trusted Publishing
   contents: write # to push the release tag
 
 jobs:
-  push-tag:
-    name: Push release tag on labeled PR merge
+  publish:
     if: >
-      github.event_name == 'pull_request' &&
       github.event.pull_request.merged == true &&
       contains(github.event.pull_request.labels.*.name, 'release')
     runs-on: ubuntu-latest
 
     steps:
-      - name: Mint App token (so the tag push triggers the publish job)
-        id: app-token
-        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
-        with:
-          client-id: ${{ secrets.SYNC_APP_CLIENT_ID }}
-          private-key: ${{ secrets.SYNC_APP_PRIVATE_KEY }}
-
-      - name: Checkout main (post-merge) with App token
+      - name: Checkout main (post-merge)
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           ref: main
           fetch-depth: 0
-          token: ${{ steps.app-token.outputs.token }}
-
-      - name: Push version tag
-        run: |
-          VERSION="v$(node -p "require('./package.json').version")"
-          if git ls-remote --exit-code --tags origin "refs/tags/${VERSION}" >/dev/null 2>&1; then
-            echo "Tag ${VERSION} already exists on origin; nothing to do."
-            exit 0
-          fi
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git config user.name "github-actions[bot]"
-          git tag "${VERSION}"
-          git push origin "${VERSION}"
-
-  publish:
-    name: Publish to npm on tag push
-    if: github.event_name == 'push'
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout tag
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Node with trusted publishing
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
@@ -62,14 +29,20 @@ jobs:
           node-version: 24
           registry-url: https://registry.npmjs.org
 
-      - name: Verify tag matches package.json version
-        run: |
-          PKG_VERSION="v$(node -p "require('./package.json').version")"
-          TAG_VERSION="${GITHUB_REF_NAME}"
-          if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
-            echo "Tag $TAG_VERSION does not match package.json version $PKG_VERSION" >&2
-            exit 1
-          fi
+      - name: Resolve version
+        id: version
+        run: echo "tag=v$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
 
       - name: Publish to npm (trusted publishing)
         run: npm publish --provenance --access=public
+
+      - name: Tag the release commit
+        run: |
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          if git rev-parse "${{ steps.version.outputs.tag }}" >/dev/null 2>&1; then
+            echo "Tag ${{ steps.version.outputs.tag }} already exists; nothing to do."
+            exit 0
+          fi
+          git tag "${{ steps.version.outputs.tag }}"
+          git push origin "${{ steps.version.outputs.tag }}"

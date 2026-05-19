@@ -100,7 +100,7 @@ When a major bump is required (a breaking change in the underlying `wix-cli`), t
 
 ## Releasing
 
-Run the [`release-bump`](.github/workflows/release-bump.yml) workflow from the **Actions** tab and pick a `version_strategy`. The rest is automatic: the bump PR auto-merges, a `vX.Y.Z` tag is pushed, and [`release.yml`](.github/workflows/release.yml) publishes to npm via Trusted Publishing.
+Run the [`release-bump`](.github/workflows/release-bump.yml) workflow from the **Actions** tab and pick a `version_strategy`. The rest is automatic — the bump PR auto-merges and [`release.yml`](.github/workflows/release.yml) publishes to npm via Trusted Publishing.
 
 ## Contributing
 
