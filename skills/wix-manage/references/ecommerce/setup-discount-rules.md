@@ -441,4 +441,4 @@ All recommendation-created rules use these fixed settings:
 ## References
 
 - [Discount Rules API](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/discounts/discount-rules/introduction)
-- [Coupons API](https://dev.wix.com/docs/api-reference/business-solutions/coupons/introduction)
+- [Coupons API](https://dev.wix.com/docs/api-reference/business-solutions/coupons/coupons/introduction)

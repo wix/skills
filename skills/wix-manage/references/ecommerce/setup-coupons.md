@@ -12,9 +12,9 @@ layer: config
 ## Required APIs
 
 - [Create Coupon](https://dev.wix.com/docs/api-reference/business-solutions/coupons/coupons/create-a-coupon) — `POST /v2/coupons`
-- [Update Coupon](https://dev.wix.com/docs/api-reference/business-solutions/coupons/coupons/update) — `PATCH /v2/coupons/{id}`
-- [Query Coupons](https://dev.wix.com/docs/api-reference/business-solutions/coupons/coupons/query) — `POST /v2/coupons/query`
-- [Delete Coupon](https://dev.wix.com/docs/api-reference/business-solutions/coupons/coupons/delete) — `DELETE /v2/coupons/{id}`
+- [Update Coupon](https://dev.wix.com/docs/api-reference/business-solutions/coupons/coupons/update-a-coupon) — `PATCH /v2/coupons/{id}`
+- [Query Coupons](https://dev.wix.com/docs/api-reference/business-solutions/coupons/coupons/query-coupons) — `POST /v2/coupons/query`
+- [Delete Coupon](https://dev.wix.com/docs/api-reference/business-solutions/coupons/coupons/delete-a-coupon) — `DELETE /v2/coupons/{id}`
 
 ---
 
@@ -335,4 +335,4 @@ When the recommendation output has `mechanism: "COUPON"`, use this mapping to co
 ## References
 
 - [Coupons API](https://dev.wix.com/docs/api-reference/business-solutions/coupons/coupons/create-a-coupon)
-- [Valid Scope Values](https://dev.wix.com/api/rest/coupons/coupons/valid-scope-values)
+- [Valid Scope Values](https://dev.wix.com/docs/api-reference/business-solutions/coupons/coupons/valid-scope-values)

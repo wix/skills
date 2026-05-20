@@ -36,7 +36,7 @@ references:
 > - **ABANDONED_CART** → [Goal: Reduce Cart Abandonment](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-reduce-cart-abandonment)
 >
 > **If COUPON mechanism in Step 4c**, load:
-> - [Setup: Coupons](https://dev.wix.com/docs/api-reference/business-solutions/coupons/skills/setup-coupons)
+> - [Setup: Coupons](https://dev.wix.com/docs/api-reference/business-solutions/coupons)
 
 ## EXECUTION RULES — READ BEFORE ANYTHING ELSE
 
@@ -229,7 +229,7 @@ Based on the merchant's request AND the site data, determine which domains to an
 **If unclear, ask:** "Would you like this to apply automatically to everyone, or as a coupon code?"
 
 **If COUPON is selected**, load the coupon setup reference with `ReadFullDocsArticle`:
-[Setup: Coupons](https://dev.wix.com/docs/api-reference/business-solutions/coupons/skills/setup-coupons)
+[Setup: Coupons](https://dev.wix.com/docs/api-reference/business-solutions/coupons)
 
 ---
 
