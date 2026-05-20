@@ -119,7 +119,7 @@ If `wix.config.json` is present in the working directory, offer: *"I found an ex
 | 1 | (Q&A) | user | brand/vibe/aesthetic; scaffold launches in background after Q1 |
 | 2 | apps install + env-pull + npm-install (bg) + seed-utilities | — | `init-site-json.mjs` |
 | 3 | seeders + design-system + image-phase-1 | design-system (fg) | merge `designTokens` into site.json; `emit-design-tokens.mjs`; grep Layout.astro CSS imports |
-| 4 | components + components-css + image-phase-2 (all bg) | (none — all backgrounded) | `copy-utility-templates.mjs components`; on Image Phase 1 return: `patch-decorative-slots.mjs`; on Phase 3 return: `check-manifest.mjs components` |
+| 4 | components + components-css + image-phase-2 (all bg) | (none — all backgrounded) | `copy-utility-templates.mjs components`; on Image Phase 1 return: `write-image-urls.mjs` then `patch-decorative-slots.mjs`; on Phase 3 return: `check-manifest.mjs components` |
 | 5 | pages | components done + Phase 1 seeders done | `copy-utility-templates.mjs pages` |
 | 6 | (bash) | pages done + image-phase-2 done | `check-manifest.mjs pages`; `release.sh`; `finalize-run-json.mjs` |
 
@@ -243,11 +243,15 @@ If any pack produces entities (stores products, CMS items, blog posts) AND the r
 
 Phase 2 designer wrote `index.astro` with `data-decorative-slot="<key>"` placeholder `<div>`s. Once Image Phase 1 returns:
 
-1. If Image Phase 1 returned `status: "failed"` or timed out, skip — placeholders look complete on their own. (You can also unconditionally invoke the script — it self-skips when `.wix/image-urls.md` is missing.)
-2. **`node "<SKILL_ROOT>/scripts/patch-decorative-slots.mjs" "$(pwd)"`** — reads `.wix/image-urls.md`, walks `src/pages/**/*.astro`, injects `<img …class="decorative-slot-img" />` as the first child of each matching slot div. Idempotent + safe (won't clobber a div with non-`<img>` child content). JSON return: `{ status, imageUrls, filesScanned, patched, skipped, warnings }`.
-3. If `warnings[]` is non-empty, append `{code: "DECORATIVE_SLOT_DIV_OCCUPIED", file, slot}` per warning to the Phase 2 Design System entry's `errors` in `run.json`. If `imageUrls[]` is non-empty but `patched[]` is empty AND `warnings[]` is empty, the designer emitted no `data-decorative-slot=` attributes at all — append `{code: "NO_DECORATIVE_SLOTS_FOUND"}`. Both non-fatal.
+1. If Image Phase 1 returned `status: "failed"` or timed out **with no `data.imageUrls`**, skip — placeholders look complete on their own. If it returned `partial` (e.g. permission failures, credit exhaustion after some images succeeded) but `data.imageUrls` is non-empty, still proceed — use whatever URLs the agent did produce.
+2. **`echo "$IMAGE_URLS_JSON" | node "<SKILL_ROOT>/scripts/write-image-urls.mjs" "$(pwd)"`** — where `$IMAGE_URLS_JSON` is `{"imageUrls": <data.imageUrls from agent return>}`. Writes `.wix/image-urls.md` in the format `patch-decorative-slots.mjs` parses. Validates that every URL is `https://`. Rejects re-writes (pass `--force` to overwrite, e.g. after a credit-recovery retry). Wrap in `PHASE_START`/`PHASE_END`; record `{ phase: "write-image-urls", seconds }`.
 
-Wrap in `PHASE_START`/`PHASE_END`; record `{ phase: "decorative-slot-patch", seconds }`.
+   > **Why orchestrator-writes, not agent-writes.** Image-generation agents are not always granted Write/Bash permission for the project tree. Returning `data.imageUrls` and letting the orchestrator persist the file means the build never loses URLs after a successful upload simply because of a sandboxing decision. It also eliminates a class of format-drift bugs between the writer and the patcher.
+
+3. **`node "<SKILL_ROOT>/scripts/patch-decorative-slots.mjs" "$(pwd)"`** — reads `.wix/image-urls.md`, walks `src/pages/**/*.astro`, injects `<img …class="decorative-slot-img" />` as the first child of each matching slot div. Idempotent + safe (won't clobber a div with non-`<img>` child content). JSON return: `{ status, imageUrls, filesScanned, patched, skipped, warnings }`.
+4. If `warnings[]` is non-empty, append `{code: "DECORATIVE_SLOT_DIV_OCCUPIED", file, slot}` per warning to the Phase 2 Design System entry's `errors` in `run.json`. If `imageUrls[]` is non-empty but `patched[]` is empty AND `warnings[]` is empty, the designer emitted no `data-decorative-slot=` attributes at all — append `{code: "NO_DECORATIVE_SLOTS_FOUND"}`. Both non-fatal.
+
+Wrap step 3 in `PHASE_START`/`PHASE_END`; record `{ phase: "decorative-slot-patch", seconds }`.
 
 ### Bridge: post-Phase-3 manifest check
 
@@ -341,6 +345,7 @@ One concluding turn containing, in order:
 1. **Release URL text first** — bold heading / link at the top so the user sees it immediately.
 2. **Compose the draft `run.json` blob** in scratch. Aggregate every subagent return into `phases[]`, set `outcome.previewUrl`, fill `run.started` (from `runStartedAt`) / `run.ended` (capture now via `date -u`), compute `run.totalSeconds`, and compose `requiredPhases[]` — phases that MUST have a captured duration:
    - Always: `mcp-bootstrap`, `init-site-json`, `scaffold`, `env-pull`, `seed-utilities`, `emit-design-tokens`, `manifest-check-components`, `manifest-check-pages`, `decorative-slot-patch`, `npm-install`, `build`, `release` (or `preview` if `preview.sh` was used).
+   - When Image Phase 1 returned non-empty `data.imageUrls`: `write-image-urls`.
    - Per app installed in Wave 2: `app-install-<appName>`.
    - When `copy-utility-templates` ran: `copy-utility-templates-components` and/or `copy-utility-templates-pages`.
    - `image-phase-2-entity`'s duration arrives via its return; record from there if any pack produced entities.

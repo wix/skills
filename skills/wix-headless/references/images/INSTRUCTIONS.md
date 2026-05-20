@@ -15,7 +15,7 @@ Your prompt includes `Scope: <name>`. Map it to an image phase:
 
 | Scope | When dispatched | Depends on | Output |
 |---|---|---|---|
-| `image-phase-1-decorative` | Step 3 (background) | Brand context only | Decorative images for hero / about / backgrounds; written to `.wix/image-urls.md` |
+| `image-phase-1-decorative` | Step 3 (background) | Brand context only | Decorative images uploaded to Wix Media; resolved URLs returned in `data.imageUrls` (orchestrator writes `.wix/image-urls.md` via `scripts/write-image-urls.mjs`) |
 | `image-phase-2-entity` | Step 4.5 (background, alongside Phase 3 Components) | Phase 1 Seed return data (entity IDs in prompt) | Entity images attached to products / blog posts / CMS items via MCP PATCH |
 
 If your prompt is missing a `Scope:` line, stop and ask the parent — do not guess.
@@ -110,19 +110,24 @@ Generate site-wide decorative images that don't depend on any entity. Used by th
 1. **Craft all image prompts up front** using brand context — see `IMAGE_GENERATION.md` § "Prompt guidelines".
 2. **Dispatch all generation tool calls in one concurrent batch** — siblings for `google:4@2` (1 task each, N blocks in parallel), or one batched call for other models (N tasks in `body`). Required, not optional — see `IMAGE_GENERATION.md` § "Required: minimize round-trips per image phase". Sequential 1-task calls across multiple turns is an anti-pattern; never do it.
 3. **Import each to Wix Media** via `<prefix>CallWixSiteAPI: POST /site-media/v1/files/import`. Imports can parallelize (sibling `CallWixSiteAPI` tool calls in one message).
-4. **Write `.wix/image-urls.md`** with all resolved URLs, keyed by purpose:
-   ```markdown
-   # Image URLs
+4. **Return all resolved URLs in `data.imageUrls`** as a flat `{<slot>: <url>}` map. **DO NOT write `.wix/image-urls.md` yourself** — the orchestrator writes it deterministically via `scripts/write-image-urls.mjs` after parsing your return JSON. Returning the URLs (rather than writing the file) is the contract for two reasons:
+   - Agents are not always granted Write/Bash permissions for the project tree. In runs where they are denied, every URL is still safely captured in the return blob, and the orchestrator finishes the file write.
+   - It eliminates format drift — the writer and the patcher (`scripts/patch-decorative-slots.mjs`) used to be two independent producers/consumers of the same markdown shape. One source of truth now.
 
-   ## hero
-   - url: https://static.wixstatic.com/media/...
-
-   ## about
-   - url: https://static.wixstatic.com/media/...
+   Required shape:
+   ```json
+   "data": {
+     "imageUrls": {
+       "hero": "https://static.wixstatic.com/media/...",
+       "about": "https://static.wixstatic.com/media/...",
+       "productsHeader": "https://static.wixstatic.com/media/..."
+     }
+   }
    ```
-5. Return the structured JSON block per `../shared/RETURN_CONTRACT.md` (see § Return below).
+   Keys must match the `decorativeSlots` list from your prompt exactly. URLs must be `https://`.
+5. Return the structured JSON block per `../shared/RETURN_CONTRACT.md` (see § Return below). `data.imageUrls` is **required** on `complete` and **strongly recommended** on `partial` (return whichever URLs you did manage to produce).
 
-Page design agents read `.wix/image-urls.md` and use the URLs. If the file doesn't exist when a page agent runs, the page agent uses placeholder styling instead — nothing blocks.
+Page design agents read `.wix/image-urls.md` once it's written by the orchestrator. If the file doesn't exist when a page agent runs (e.g. Image Phase 1 returned no URLs at all), the page agent uses placeholder styling instead — nothing blocks.
 
 ## Scope: `image-phase-2-entity` (Step 4.5 — Phase 1 Seed data inline)
 
@@ -286,17 +291,24 @@ At the end, emit a structured JSON block per `../shared/RETURN_CONTRACT.md`. Do 
   "status": "complete" | "partial" | "failed",
   "phase": "image-phase-1-decorative",
   "scope": "image-phase-1-decorative",
-  "summary": "Generated N decorative images; uploaded to Wix Media; wrote .wix/image-urls.md",
+  "summary": "Generated N decorative images; uploaded to Wix Media; returned imageUrls for orchestrator to persist",
   "data": {
     "decorativeCount": 3,
-    "purposes": ["hero", "about", "background"],
+    "purposes": ["hero", "about", "productsHeader"],
+    "imageUrls": {
+      "hero": "https://static.wixstatic.com/media/<id>~mv2.png",
+      "about": "https://static.wixstatic.com/media/<id>~mv2.png",
+      "productsHeader": "https://static.wixstatic.com/media/<id>~mv2.png"
+    },
     "model": "google:4@2",
     "totalCredits": 0.297
   },
-  "files": [".wix/image-urls.md"],
+  "files": [],
   "errors": []
 }
 ```
+
+`data.imageUrls` keys must match the `decorativeSlots` list passed in your prompt (no extra keys, no missing keys for successful generations). The orchestrator writes `.wix/image-urls.md` via `scripts/write-image-urls.mjs` after parsing this block — `files: []` is correct; you don't write any project files in this scope.
 
 ### `image-phase-2-entity` return
 
