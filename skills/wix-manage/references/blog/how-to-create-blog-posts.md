@@ -49,7 +49,13 @@ This article demonstrates how to create and immediately publish blog posts using
 
 ### Part 2: Create Blog Post with Rich Content
 
-1. Create blog post using [Create Draft Post](https://dev.wix.com/docs/api-reference/business-solutions/blog/draft-posts/create-draft-post) for single posts, or [Bulk Create Draft Posts](https://dev.wix.com/docs/api-reference/business-solutions/blog/draft-posts/bulk-create-draft-posts) for multiple posts.
+You have two endpoints:
+- **Single post:** [Create Draft Post](https://dev.wix.com/docs/api-reference/business-solutions/blog/draft-posts/create-draft-post) — `POST https://www.wixapis.com/blog/v3/draft-posts`
+- **Multiple posts (preferred for any N ≥ 2):** [Bulk Create Draft Posts](https://dev.wix.com/docs/api-reference/business-solutions/blog/draft-posts/bulk-create-draft-posts) — `POST https://www.wixapis.com/blog/v3/bulk/draft-posts/create`
+
+**Use the bulk endpoint when seeding multiple posts** — one call replaces N single-post calls and avoids the per-call latency of ~25–30 s each.
+
+#### Single-post endpoint
 
    ```bash
    curl -X POST "https://www.wixapis.com/blog/v3/draft-posts" \
@@ -85,6 +91,67 @@ This article demonstrates how to create and immediately publish blog posts using
        "publish": true
      }'
    ```
+
+#### Bulk-create endpoint (preferred for multiple posts)
+
+> **⚠️ Body shape — read this carefully. Each item in `draftPosts` is a FLAT post object: `{title, memberId, richContent, media?, ...}`. Do NOT wrap each item in a `draftPost` field.** Unlike the single-post endpoint (which uses `{draftPost: {...}}` because the request is one post), the bulk endpoint puts each post DIRECTLY inside the `draftPosts` array.
+
+✅ **CORRECT body shape (verified against the live API — returns 200 with `results[].itemMetadata.success: true`):**
+
+   ```json
+   {
+     "draftPosts": [
+       { "title": "First Post",  "memberId": "...", "richContent": { /* … */ } },
+       { "title": "Second Post", "memberId": "...", "richContent": { /* … */ } }
+     ],
+     "publish": true
+   }
+   ```
+
+❌ **WRONG body shape (returns `400 Bad Request` with `draftPosts[i].title must not be empty` because the API is looking for `draftPosts[i].title` directly and finds it nested under a `draftPost` field):**
+
+   ```json
+   {
+     "draftPosts": [
+       { "draftPost": { "title": "First Post",  "memberId": "...", "richContent": { /* … */ } } },
+       { "draftPost": { "title": "Second Post", "memberId": "...", "richContent": { /* … */ } } }
+     ],
+     "publish": true
+   }
+   ```
+
+The natural intuition is "the bulk endpoint reuses the single-post `{draftPost: {...}}` envelope, just inside an array" — that's wrong. The bulk endpoint flattens the envelope away because the array IS the envelope. **Use the FLAT shape: `draftPosts[i]` IS the post.**
+
+#### Full bulk-create curl example
+
+   ```bash
+   curl -X POST "https://www.wixapis.com/blog/v3/bulk/draft-posts/create" \
+     -H "Authorization: <AUTH>" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "draftPosts": [
+         {
+           "title": "First Post",
+           "memberId": "author-member-id",
+           "richContent": { /* Ricos JSON — see below */ },
+           "media": { "wixMedia": { "image": { "id": "mediaId" } }, "displayed": true, "custom": true }
+         },
+         {
+           "title": "Second Post",
+           "memberId": "author-member-id",
+           "richContent": { /* Ricos JSON */ }
+         }
+       ],
+       "publish": true
+     }'
+   ```
+
+   The response body is `{results: [{itemMetadata: {id, originalIndex, success}}, ...]}`. Each result's `itemMetadata` carries the created post id and a `success: boolean` flag — the bulk call returns 200 even if some posts fail; check each `results[i].itemMetadata.success` individually.
+
+   **Common URL-shape mistakes (do not use these — both return 404):**
+   - `/blog/v3/draft-posts/bulk` ✗
+   - `/blog/v3/draft-posts/bulk-create` ✗
+   - The correct path is `/blog/v3/bulk/draft-posts/create` (note: `bulk` is a path segment between `v3` and `draft-posts`, not a suffix on `draft-posts`).
 
 2. Structure rich content using Ricos JSON format. Reference [Ricos documentation](https://dev.wix.com/docs/api-reference/assets/rich-content/ricos-documents/introduction) for complete node structure. Common node types:
    - `PARAGRAPH` for text content
