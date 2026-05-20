@@ -55,16 +55,6 @@ npx skills add wix/skills
 npx skills add wix/skills -g
 ```
 
-### npm Package (versioned distribution)
-
-For Wix-internal infrastructure that needs a pinned, versioned skills snapshot (e.g., App Builder, Studio 2, `@wix/cli`), `@wix/agent-skills` is also published to npm:
-
-```bash
-npm install @wix/agent-skills
-```
-
-The npm package contains the same skill bodies as the GitHub repo but pinned to a specific version. Consumers typically install it as a transitive dependency of `@wix/cli` rather than directly. See [CODEAI-505](https://wix.atlassian.net/browse/CODEAI-505) for context.
-
 ## Available Skills
 
 | Skill                                    | Purpose                          | When to Use                                                                                                                         |
@@ -100,7 +90,7 @@ When a major bump is required (a breaking change in the underlying `wix-cli`), t
 
 ## Releasing
 
-Releases run via the [`release` GitHub Actions workflow](.github/workflows/release.yml) using npm Trusted Publishing (no stored tokens). Triggered manually from the **Actions** tab: pick `version_strategy` and optionally `dry_run`. Modeled on [`wix/interact`](https://github.com/wix/interact/blob/master/.github/workflows/release-interact.yml)'s setup.
+Run the [`release-bump`](.github/workflows/release-bump.yml) workflow from the **Actions** tab and pick a `version_strategy`. The rest is automatic — the bump PR auto-merges once checks pass and [`release.yml`](.github/workflows/release.yml) publishes to npm via Trusted Publishing.
 
 ## Contributing
 
