@@ -1,0 +1,48 @@
+name: Publish @wix/agent-skills to npm
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  id-token: write # REQUIRED for npm Trusted Publishing
+  contents: write # to push the release tag
+
+jobs:
+  publish:
+    if: >
+      github.event.pull_request.merged == true &&
+      contains(github.event.pull_request.labels.*.name, 'release')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout main (post-merge)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node with trusted publishing
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      - name: Resolve version
+        id: version
+        run: echo "tag=v$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+
+      - name: Publish to npm (trusted publishing)
+        run: npm publish --provenance --access=public
+
+      - name: Tag the release commit
+        run: |
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          if git rev-parse "${{ steps.version.outputs.tag }}" >/dev/null 2>&1; then
+            echo "Tag ${{ steps.version.outputs.tag }} already exists; nothing to do."
+            exit 0
+          fi
+          git tag "${{ steps.version.outputs.tag }}"
+          git push origin "${{ steps.version.outputs.tag }}"

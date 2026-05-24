@@ -15,13 +15,40 @@ Before running this skill, the user's environment must have a working, authentic
 |---|---|---|---|
 | **`@wix/cli` available** | Wave 2 runs `npx @wix/cli env pull` to write `.env.local`; Wave 6 runs `npx @wix/cli build` + `release` to publish. `npx` will fetch the CLI on demand, but a locally installed CLI is faster and surfaces version issues earlier. | `which wix` or `npx @wix/cli --version`. | `npm i -g @wix/cli` (or rely on `npx` to fetch per-invocation). |
 | **Wix CLI authenticated** | `env pull` and `release` both require a logged-in session; tokens live in `~/.wix/auth/`. On auth error the skill surfaces `"Run \`npx @wix/cli login\` and retry."` and stops. | `ls ~/.wix/auth/account.json` exists and is non-empty. | `npx @wix/cli login` — opens a browser to auth. |
-| **Wix MCP server configured with `--wixCliAuth`** | Provides the admin tools (`CallWixSiteAPI`, `ListWixSites`, `ManageWixSite`, image upload, etc.) the skill calls at Wave 0 and across every downstream subagent. Launched with `--wixCliAuth`, `@wix/mcp` reuses the same `~/.wix/auth/account.json` token the CLI writes (refreshed transparently); without the flag only the docs-only tools are exposed. | Your MCP client lists a server running `npx -y @wix/mcp --wixCliAuth` (or equivalent) and exposes `CallWixSiteAPI` as a tool — e.g. in Claude Code: `claude mcp list` shows `wix` connected with admin tools, not only `Search*Documentation`. | Register `npx -y @wix/mcp --wixCliAuth` as a stdio MCP server in your agent client. The exact registration step depends on the client — see your client's MCP-server documentation. The CLI-auth row above is a hard prereq, since `--wixCliAuth` reads from the CLI's token store. |
+| **Wix MCP exposing admin tools** | Admin tools (`CallWixSiteAPI`, `ListWixSites`, `ManageWixSite`, image upload, etc.) are called at Wave 0 and across every downstream subagent. Any authenticated Wix MCP that exposes them satisfies this prereq — a pre-installed remote connector (claude.ai, ChatGPT, etc.) and a locally-registered stdio `@wix/mcp --wixCliAuth` are equivalent for the skill's purposes. | Tool discovery from your agent client finds `WixREADME` and `CallWixSiteAPI` from any authenticated Wix MCP. If only `Search*Documentation` tools appear, no admin-capable Wix MCP is connected. | If no authenticated Wix MCP exposes admin tools, register a stdio MCP server running `npx -y @wix/mcp --wixCliAuth` in your agent client, then restart the session so the new tools load. `--wixCliAuth` reuses the `wix login` token from the row above, so this is one command and no extra auth UI. Do **not** prompt the user to OAuth into a remote connector when this command-driven path is available. |
 
 If any prerequisite is missing, surface the specific gap to the user and stop **before** any subagent dispatches — failing mid-flow leaves a partially scaffolded project.
 
+### Authentication
+
+`wix login` (and `npx @wix/cli login`) are **safe to run from a non-interactive AI-agent
+environment**. When the CLI detects an AI agent it skips the interactive UI and emits
+JSON events on stdout, one per line:
+
+- `{"event":"awaiting_user","verificationUri":"...","userCode":"...","expiresInSeconds":...}`
+   — surface the URL and code to the user; wait for them to complete login in their browser.
+- `{"event":"success","email":"...","userId":"..."}` — login complete; resume the
+   step that failed.
+- `{"event":"logged_in","email":"...","userId":"..."}` — there was already a valid
+   session, nothing to do.
+
+### How to run it
+
+Run `wix login` (or `npx @wix/cli login`) with `run_in_background: true` since it
+blocks until the human finishes the browser step. Tail the output file to read the
+`awaiting_user` event as soon as it appears; you'll be notified when the process
+exits with the terminal event.
+
 ## Path resolution — read this first
 
-Your CWD at runtime is the **project directory**, not the skill root. Compute `<SKILL_ROOT>` from this file's path: this file is at `<SKILL_ROOT>/SKILL.md` — strip the trailing `/SKILL.md`. Hold the absolute path in session scratch for the whole run.
+Your CWD at runtime is the **project directory**, not the skill root. How you resolve `<SKILL_ROOT>/...` references depends on how you loaded the skill:
+
+- **On-disk install** (`curl -O https://dev.wix.com/skills/wix-headless.tgz && tar xzf wix-headless.tgz`): this file is at `<SKILL_ROOT>/SKILL.md` on disk — strip the trailing `/SKILL.md` for the absolute path. Hold it in session scratch for the whole run. Run scripts as written: `bash <SKILL_ROOT>/scripts/X.sh` and `node "<SKILL_ROOT>/scripts/X.mjs" <args>`.
+- **URL stream** (you see the agent-note preamble at the top of this file): `<SKILL_ROOT>` is `https://dev.wix.com/skills/wix-headless`. Execute scripts via process substitution:
+  - `bash <SKILL_ROOT>/scripts/X.sh <args>` → `bash <(curl -s <SKILL_ROOT>/scripts/X.sh) <args>`
+  - `node "<SKILL_ROOT>/scripts/X.mjs" <args>` → `curl -s <SKILL_ROOT>/scripts/X.mjs | node --input-type=module - <args>`
+
+  Process substitution (`node <(curl ...)`) does **not** work for `.mjs` — Node sees the script as `/dev/fd/N` with no extension and refuses ESM syntax. Pipe via stdin with `--input-type=module` instead.
 
 | What | Absolute path |
 |---|---|

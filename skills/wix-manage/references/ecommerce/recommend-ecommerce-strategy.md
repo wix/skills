@@ -3,9 +3,6 @@ name: "Recommend: eCommerce Strategy"
 description: Unified eCommerce recommendation skill — analyzes site data across ALL domains (discounts, shipping, and future domains) and generates up to 5 actionable recommendations. Single entry point for any "help my business" request. Tracking is built-in.
 layer: R
 references:
-  - name: "API: Discount Recommendations"
-    path: ecommerce/api-discount-recommendations.md
-    load: true
   - name: "API: Recommendation Tracking"
     path: ecommerce/api-recommendation-tracking.md
     load: false
@@ -30,8 +27,6 @@ references:
 ---
 # Recommend: eCommerce Strategy
 
-> **Before executing this skill**, read this API reference with `ReadFullDocsArticle`:
-> - [API: Discount Recommendations](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/api-discount-recommendations)
 >
 > **After classifying domains in Step 4b**, load the matching goal skill with `ReadFullDocsArticle`:
 > - **SEASONAL** → [Goal: Seasonal Revenue](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-seasonal-revenue)
@@ -41,7 +36,7 @@ references:
 > - **ABANDONED_CART** → [Goal: Reduce Cart Abandonment](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-reduce-cart-abandonment)
 >
 > **If COUPON mechanism in Step 4c**, load:
-> - [Setup: Coupons](https://dev.wix.com/docs/api-reference/business-solutions/coupons/skills/setup-coupons)
+> - [Setup: Coupons](https://dev.wix.com/docs/api-reference/business-solutions/coupons)
 
 ## EXECUTION RULES — READ BEFORE ANYTHING ELSE
 
@@ -79,7 +74,7 @@ Query the tracking database for existing recommendations on this site:
 CallWixSiteAPI(
   url: "https://manage.wix.com/_api/agentic-recommendations/v1/agentic-recommendations/query",
   method: "POST",
-  siteId: <siteId>,
+
   body: { "query": { "filter": {}, "cursorPaging": { "limit": 50 } } }
 )
 ```
@@ -104,30 +99,61 @@ If the query returns empty results or fails, continue — this is a fresh sessio
 
 ```
 CallWixSiteAPI(
-  url: "https://manage.wix.com/recommendations/v1/recommendations/get-site-data-tool",
+  url: "https://www.wix.com/wix-profile-client/v4/profile/metasite",
   method: "POST",
-  siteId: <siteId>,
+
   body: {
-    "fields": ["country", "businessType", "industry", "visitors", "revenue", "ordersCount", "currency", "language"],
-    "include": ["currentDiscounts", "AOV", "discountMargin"]
+    "fields": [
+      "language",
+      "merchant_business_country",
+      "success_last_30_days_industry",
+      "success_last_30_days_sub_industry",
+      "success_last_30_days_distinct_visitors",
+      "last_30_days_orders_count",
+      "online_gpv_last_30_days",
+      "payment_currency"
+    ]
   }
 )
 ```
 
-**You need these values:**
+**Available fields:**
 
-| Value | Used for |
-|---|---|
-| `aov` | Discount thresholds, shipping threshold calibration |
-| `discountMargin` | Max allowed discount (decimal, 0.25 = 25%) |
-| `currentDiscounts` | Conflict detection |
-| `country` | Holiday detection, shipping region analysis |
-| `currency` | Price formatting |
-| `language` | Translating recommendation names |
-| `visitors` | Traffic-to-conversion analysis |
-| `ordersCount` | Conversion analysis |
+| Field ID | Type | Description | Used for |
+|---|---|---|---|
+| `language` | STRING | Wix site language code | Locale-aware recommendations |
+| `merchant_business_country` | STRING | Merchant's business country (ISO alpha-2) | Holiday detection, region analysis, shipping |
+| `success_last_30_days_industry` | STRING | Dominant industry in last 30 days (user growth model) | Domain classification, goal selection |
+| `success_last_30_days_sub_industry` | STRING | Dominant sub-industry in last 30 days | Domain classification |
+| `success_last_30_days_distinct_visitors` | LONG | Distinct visitors in last 30 days (incl. app sessions) | Traffic-based thresholds |
+| `last_30_days_orders_count` | LONG | Order count in last 30 days | AOV calculation, goal selection |
+| `online_gpv_last_30_days` | LONG | Online Gross Payment Volume in last 30 days (site currency units) | Revenue analysis, AOV calculation |
+| `payment_currency` | STRING | Store payment currency code (ISO-4217) | Discount/shipping amount formatting |
 
-**STOP if `country`, `industry`, or `revenue` are missing or null.** Report: "Cannot generate recommendations — missing required site data: {fields}."
+**Response shape** — each field is a nested object; missing fields = no data for this site:
+
+```json
+{
+  "metaSiteId": "<msid>",
+  "fields": {
+    "language":                    { "aSingleValue": { "aString": "en-US" } },
+    "merchant_business_country":   { "aSingleValue": { "aString": "US" } },
+    "payment_currency":            { "aSingleValue": { "aString": "USD" } },
+    "last_30_days_orders_count":   { "aSingleValue": { "aLong": "2141" } },
+    "online_gpv_last_30_days":     { "aSingleValue": { "aLong": "526550" } }
+  }
+}
+```
+
+Extracting values:
+- String: `fields.<name>.aSingleValue.aString`
+- Number: `fields.<name>.aSingleValue.aLong` — **returned as a JSON string, parse to int before arithmetic**
+
+**Derived value:** `aov = parseInt(online_gpv_last_30_days) / parseInt(last_30_days_orders_count)` — in `payment_currency` units
+
+**Currency rule:** All monetary values (`online_gpv_last_30_days`, `aov`, discount thresholds, shipping amounts) are in the site's `payment_currency`. Never assume USD. Always display and compute amounts using `payment_currency`.
+
+**STOP if `merchant_business_country`, `success_last_30_days_industry`, or `online_gpv_last_30_days` are missing or null.** Report: "Cannot generate recommendations — missing required site data: {fields}."
 
 ---
 
@@ -203,13 +229,13 @@ Based on the merchant's request AND the site data, determine which domains to an
 **If unclear, ask:** "Would you like this to apply automatically to everyone, or as a coupon code?"
 
 **If COUPON is selected**, load the coupon setup reference with `ReadFullDocsArticle`:
-[Setup: Coupons](https://dev.wix.com/docs/api-reference/business-solutions/coupons/skills/setup-coupons)
+[Setup: Coupons](https://dev.wix.com/docs/api-reference/business-solutions/coupons)
 
 ---
 
-## Step 5: Analyze catalog (Discounts domain)
+## Step 5: Analyze catalog
 
-**Skip this step if DISCOUNTS domain is not active.**
+**Permission**: `ecom:discounts_recommendations:v1:recommendation:build_recommendation`
 
 Call both APIs concurrently:
 
@@ -219,13 +245,14 @@ Call both APIs concurrently:
 CallWixSiteAPI(
   url: "https://manage.wix.com/recommendations/v1/recommendations/get-catalog-analytics-tool",
   method: "POST",
-  siteId: <siteId>,
   body: {
     "aggregates": <see table below>,
     "minMarginPct": 0.15
   }
 )
 ```
+
+Valid `aggregates` values: `op` ∈ `count|sum|avg|min|max|stddev|quantiles` · `field` ∈ `quantity|price|cost|profit|profitMargin|ordersCount` · `q` required only for `quantiles` (array of 0.0–1.0, max 20)
 
 **Aggregates by goal:**
 
@@ -235,6 +262,28 @@ CallWixSiteAPI(
 | BUNDLE_AND_SAVE | `[{"op":"min","field":"price"}, {"op":"max","field":"price"}, {"op":"avg","field":"profitMargin"}, {"op":"count","field":"price"}]` |
 | STOCK_MOVER | `[{"op":"sum","field":"quantity"}, {"op":"sum","field":"ordersCount"}, {"op":"avg","field":"profitMargin"}]` |
 | SEASONAL | `[{"op":"sum","field":"ordersCount"}, {"op":"quantiles","field":"price","q":[0.5,0.9]}, {"op":"avg","field":"profitMargin"}]` |
+| SHIPPING | `[{"op":"count","field":"price"}, {"op":"quantiles","field":"price","q":[0.5,0.75]}, {"op":"avg","field":"profitMargin"}]` |
+
+**Response shape:**
+```json
+{
+  "categoryGroups": [
+    {
+      "categoryName": "Electronics",
+      "fields": {
+        "count()": 45,
+        "quantiles([0.5,0.75,0.9],price)": [
+          { "quantile": 0.5, "value": 89.99 },
+          { "quantile": 0.75, "value": 149.99 }
+        ],
+        "avg(profitMargin)": 0.42
+      }
+    },
+    { "categoryName": "All Products", "fields": { "count()": 120, "avg(profitMargin)": 0.35 } }
+  ]
+}
+```
+**Important**: Use "All Products" only for overall catalog stats. Exclude it from category-level analysis.
 
 ### Call 2: GetProductCatalogData
 
@@ -242,7 +291,6 @@ CallWixSiteAPI(
 CallWixSiteAPI(
   url: "https://manage.wix.com/recommendations/v1/recommendations/get-product-catalog-data-tool",
   method: "POST",
-  siteId: <siteId>,
   body: {
     "businessGoal": "<goal from Step 4>",
     "minMarginPct": 0.15,
@@ -253,26 +301,54 @@ CallWixSiteAPI(
 )
 ```
 
+**Sort order applied server-side by `businessGoal`:**
+
+| Goal | Sort order |
+|---|---|
+| UPSELL_BOOST | price DESC, ordersCount DESC |
+| BUNDLE_AND_SAVE | price DESC, ordersCount DESC |
+| STOCK_MOVER | quantity DESC, ordersCount ASC |
+| SEASONAL / SHIPPING | ordersCount DESC |
+
+**Response shape:**
+```json
+{
+  "items": [
+    {
+      "id": "product-uuid",
+      "name": "Premium Headphones",
+      "quantity": 85,
+      "price": 149.99,
+      "profit": 67.50,
+      "profitMargin": 0.45,
+      "ordersCount": 23
+    }
+  ]
+}
+```
+`price` and `profit` are in `payment_currency` units. `id` is the product UUID — use for `productIds` in rules.
+
 ### Step 5b: Convert category names to GUIDs (if using CATEGORY scope)
 
 **MANDATORY before outputting any categoryIds.** Never output category names as IDs.
 
-**Send only the categories you plan to target — max 10 names per call.** Do NOT send all categories from analytics. Pick only the high-opportunity ones relevant to your recommendations.
+**Send only categories you plan to target — max 10 per call.**
 
 ```
 CallWixSiteAPI(
   url: "https://manage.wix.com/recommendations/v1/recommendations/get-category-ids-tool",
   method: "POST",
-  siteId: <siteId>,
   body: { "categoryNames": ["<top category 1>", "<top category 2>"] }
 )
 ```
 
-If response returns empty `categoryIds`: fall back to SITE scope.
+**Response:** `{ "categoryIds": ["a1b2c3d4-...", "b2c3d4e5-..."] }`
+
+If `categoryIds` is empty: category doesn't exist — fall back to SITE scope and tell the merchant: "Could not resolve category '{name}', using site-wide scope instead."
 
 ### Failure handling
 
-- Both calls fail: Fall back to SITE scope with 5-10% discount using only site data.
+- Both calls fail: Fall back to SITE scope using only site profile data.
 - One fails: Use whichever succeeded.
 
 ---
@@ -401,7 +477,7 @@ Call `BatchCreate` to persist ALL recommendations as PROPOSED:
 CallWixSiteAPI(
   url: "https://manage.wix.com/_api/agentic-recommendations/v1/agentic-recommendations/batch-create",
   method: "POST",
-  siteId: <siteId>,
+
   body: {
     "agenticRecommendations": [
       {
@@ -436,7 +512,7 @@ If BatchCreate fails, report the error and include recommendations without track
       "id": "<tracking-id from BatchCreate, or omit if tracking failed>",
       "revision": "<revision from BatchCreate>",
       "title": "Memorial Weekend Flash Sale — 15% Off Orders Over $250",
-      "reasoning": "AOV is $242 (from GetSiteData). Country is US, Memorial Day is within 7 days. Setting $250 threshold nudges carts above AOV while staying within 25% discount cap.",
+      "reasoning": "AOV is $242 (online_gpv_last_30_days / last_30_days_orders_count). merchant_business_country is US, Memorial Day is within 7 days. Setting $250 threshold nudges carts above AOV while staying within 25% discount cap.",
       "domain": "discounts",
       "urgency": "HIGH",
       "advice": {

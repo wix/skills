@@ -2,22 +2,20 @@
 # Copy the skill's shared utilities into the project's src/utils/ and strip the
 # Astro starter cruft that ships with the blank template.
 #
-# Usage:
-#   bash <SKILL_ROOT>/scripts/seed-utilities.sh
+# Usage (both modes work):
+#   bash <SKILL_ROOT>/scripts/seed-utilities.sh                # installed tgz
+#   bash <(curl -s https://dev.wix.com/skills/wix-headless/scripts/seed-utilities.sh)
 #
-# Run from the project directory (CWD = <project>/). The script computes its
-# own location to find the shared-utilities source — no PLUGIN_ROOT or env
-# variable required.
+# Run from the project directory (CWD = <project>/). The script auto-detects
+# whether shared-utilities is available on disk (tgz install) and falls back
+# to fetching from the well-known URL when streamed via process substitution
+# (BASH_SOURCE is /dev/fd/N, so the on-disk lookup naturally falls through).
 #
 # Behavior:
-#   - Copies <SKILL_ROOT>/shared-utilities/*.ts into src/utils/ with `cp -n`
-#     (never overwrites — users can override a utility by dropping their own
-#     file in first).
+#   - Copies the three shared utility files into src/utils/ — never overwrites
+#     an existing file (users can drop in their own version to override).
 #   - Removes Astro starter cruft (Welcome.astro + marketing SVGs) that ships
-#     with the blank template but is never imported by the build skill. A
-#     2026-04-27 sanity run shipped Welcome.astro lingering in src/components/;
-#     a 2026-05-03 sanity run flagged the orphaned SVG assets. The rm -f
-#     invocations are unconditional but safe (-f suppresses missing-file).
+#     with the blank template but is never imported by the build skill.
 #
 # Shared utilities copied:
 #   - wix-image.ts  — media URL resolver (used by stores, blog, cms)
@@ -26,19 +24,32 @@
 
 set -euo pipefail
 
-# Resolve the skill's shared-utilities directory from this script's location.
-# Script lives at <SKILL_ROOT>/scripts/seed-utilities.sh.
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SHARED_UTILS_DIR="$(cd "$SCRIPT_DIR/.." && pwd)/shared-utilities"
+SKILL_URL="https://dev.wix.com/skills/wix-headless"
+UTILS=(analytics.ts ricos.ts wix-image.ts)
 
-if [[ ! -d "$SHARED_UTILS_DIR" ]]; then
-  echo "seed-utilities.sh: cannot find $SHARED_UTILS_DIR — skill layout broken?" >&2
-  exit 1
+# Mode detection: prefer on-disk skill root if the sibling dir exists, else
+# fetch over HTTP. Covers both tgz install and `bash <(curl ...)` streaming.
+SHARED_UTILS_DIR=""
+script_path="${BASH_SOURCE[0]}"
+if [[ -f "$script_path" ]]; then
+  candidate="$(dirname "$script_path")/../shared-utilities"
+  if [[ -d "$candidate" ]]; then
+    SHARED_UTILS_DIR="$(cd "$candidate" && pwd)"
+  fi
 fi
 
 mkdir -p src/utils
-cp -n "$SHARED_UTILS_DIR/"*.ts src/utils/
 
-# Astro starter cruft cleanup (see header comment).
+for f in "${UTILS[@]}"; do
+  dest="src/utils/$f"
+  if [[ -e "$dest" ]]; then continue; fi
+  if [[ -n "$SHARED_UTILS_DIR" ]]; then
+    cp "$SHARED_UTILS_DIR/$f" "$dest"
+  else
+    curl -fsSL "$SKILL_URL/shared-utilities/$f" -o "$dest"
+  fi
+done
+
+# Astro starter cruft cleanup.
 rm -f src/components/Welcome.astro
 rm -f src/assets/astro.svg src/assets/wix.svg src/assets/background.svg
