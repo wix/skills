@@ -8,7 +8,7 @@ import { computeCoverage } from './coverage';
 import { pollUntilDone } from './eval-run';
 import {
   formatEvalFailed, formatEvalPassed, formatEvalTimeout, formatManifestErrors,
-  formatNoScenarios, formatServiceError, formatStaleScenarios, formatUncovered,
+  formatNoScenarios, formatServiceError, formatUncovered,
 } from './comment';
 
 type Commenter = ReturnType<typeof makeCommenter>;
@@ -60,19 +60,8 @@ export async function runEval(): Promise<void> {
 
   const evalforge = new EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
 
-  const scenarios = await guardedCall(
-    () => evalforge.listScenarios(config.projectId),
-    'Could not reach EvalForge — contact a repository maintainer if this persists', comment, config,
-  );
-  if (!scenarios) return;
-
-  const knownIds = new Set(scenarios.map(s => s.id));
-  const stale = coverage.scenarioIds.filter(id => !knownIds.has(id));
-  if (stale.length > 0) {
-    await comment(formatStaleScenarios(stale));
-    fail(`Stale scenario references: ${stale.join(', ')}`, config.blocking);
-    return;
-  }
+  // Stale-reference check deferred to Phase 1 — EvalForge doesn't expose a bulk-list scenarios
+  // endpoint. createEvalRun will reject unknown IDs and the error surfaces in the PR comment.
 
   const versionLabel = `pr-${config.prNumber}-${config.headSha.slice(0, 7)}`;
   const mcpVersion = await guardedCall(

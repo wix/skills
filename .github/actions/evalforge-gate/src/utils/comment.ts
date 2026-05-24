@@ -28,14 +28,6 @@ export function formatUncovered(errors: CoverageError[]): string {
   ]);
 }
 
-export function formatStaleScenarios(staleIds: string[]): string {
-  return render('❌', 'Stale Scenario References', [
-    'These scenario IDs from `.evalforge.yml` were not found in EvalForge:',
-    '',
-    ...staleIds.map(id => `- \`${id}\``),
-  ]);
-}
-
 export function formatServiceError(message: string, blocking: boolean): string {
   const { icon } = failIcon(blocking);
   return render(icon, blocking ? 'Error' : 'Warning', [message]);
