@@ -19,6 +19,7 @@ export type EvalRunInput = {
   projectId: string;
   agentId: string;
   scenarioIds: string[];
+  capabilityIds?: string[];
   capabilityVersions?: Record<string, string>;
   prContext?: PrContext;
 };

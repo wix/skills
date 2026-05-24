@@ -80,12 +80,10 @@ export async function runEval(): Promise<void> {
       projectId: config.projectId,
       agentId: config.agentId,
       scenarioIds: coverage.scenarioIds,
+      // capabilityIds binds the MCP to the agent at run time. Without it the agent has no Wix tools
+      // and every scenario fails with "I can't access external sites". Don't drop it.
+      capabilityIds: [config.mcpId],
       capabilityVersions: { [config.mcpId]: mcpVersion.id },
-      prContext: {
-        repo: `${config.owner}/${config.repo}`,
-        prNumber: config.prNumber,
-        headSha: config.headSha,
-      },
     }),
     'Could not create eval run', comment, config,
   );
