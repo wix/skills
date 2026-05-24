@@ -1,0 +1,8 @@
+# Phase 0 POC of the EvalForge coverage gate.
+# Each key is a file in this folder; each value lists EvalForge scenario IDs that cover it.
+#
+# Currently empty: any PR touching a file in this folder will fail the strict check
+# (this exercises "Flow 2 — new doc, no scenario yet" from the design doc).
+# To enable Flow 1: add a real scenario ID, e.g.
+#   how-to-create-blog-posts.md: [<scenario-id>]
+coverage: {}
