@@ -249,6 +249,8 @@ Skip the new-project flow's other Wave-2 operations: **no `env pull` is required
 
 Installing apps in E3 only registers them against the Site — the existing frontend still ignores them until SDK calls are wired in. For each app installed in E3, find the matching feature surface in the project's source files (the same surfaces E2 detected) and wire its SDK calls inline.
 
+> **Browser-only frontends:** the Path-A subagent INSTRUCTIONS and the `templates/<pack>/` files assume Astro SSR with admin scope. For client-only SPAs (Vite/Webpack/CDN-React/Next-client-mode) — anything that ships as static files with no Node runtime at request time — the SDK runs under **visitor OAuth scope** which strips fields admin scope returns (most importantly `variantsInfo` on `productsV3.queryProducts`). Read `<SKILL_ROOT>/references/recipes/CLIENT_ONLY_SPA.md` first: it has the visitor-scope versions of product listing, add-to-cart, and checkout redirect.
+
 1. Add `@wix/sdk` + the pack's `packages:` (from `references/verticals/<pack>.md`) to the project's `package.json` (`npm init -y` first if absent), then run the project's install command. `--no-fund --no-audit --legacy-peer-deps`.
 2. Edit the source files in place. Follow call patterns from `<SKILL_ROOT>/references/<pack>/INSTRUCTIONS.md` (translate Astro idioms → the project's framework; SDK calls themselves are framework-agnostic). Initialize the client once per file:
 
