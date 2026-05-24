@@ -58,8 +58,8 @@ This reference provides detailed information about all available slots for site 
 - `product-page-details-2`
 - Additional slots vary by layout (Classic, Simple, Sleek, Spotlight, Stunning)
 
-**Note:** Check which Wix Stores version is installed before building 
-plugins, as slots differ between versions. Your app should include 
+**Note:** Check which Wix Stores version is installed before building
+plugins, as slots differ between versions. Your app should include
 placements for both versions for maximum compatibility.
 
 **Plugin API Properties:** Same as New Version above.
