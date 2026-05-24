@@ -119,7 +119,7 @@ Array elements MUST be objects with named keys. This enables stable item identit
 
 - Primitives: `Array<string>`, `Array<number>`, `Array<boolean>`
 - Leaf data types from `@wix/editor-react-types`: `Array<Image>`, `Array<Link>`, `Array<Video>`, `Array<Audio>`, `Array<VectorArt>`, `Array<RichText>`. Wrap them in an object instead.
-- Nested arrays:  `Array<Array<{cover: image, caption: string}>>` `Array<{items: Array<image>, caption: string}>` 
+- Nested arrays:  `Array<Array<{cover: image, caption: string}>>` `Array<{items: Array<image>, caption: string}>`
 
 **❌ Wrong:**
 
