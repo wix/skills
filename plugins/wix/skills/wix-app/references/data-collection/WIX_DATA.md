@@ -17,7 +17,7 @@ npm install @wix/data
 ❌ **WRONG**: Do not create mock implementations or workarounds
 ✅ **CORRECT**: Install the package using `npm install @wix/data`
 
-The `@wix/data` package is a real npm package that provides access to Wix Data collections. 
+The `@wix/data` package is a real npm package that provides access to Wix Data collections.
 It must be installed before TypeScript compilation will succeed.
 
 ## SDK Methods & Interfaces
