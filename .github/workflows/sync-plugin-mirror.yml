@@ -28,9 +28,9 @@ jobs:
         id: sync
         run: |
           if git diff --quiet -- plugins/wix; then
-            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+            echo "has_changes=false" | tee -a "$GITHUB_OUTPUT"
           else
-            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+            echo "has_changes=true" | tee -a "$GITHUB_OUTPUT"
           fi
 
       - name: Create or update Pull Request
