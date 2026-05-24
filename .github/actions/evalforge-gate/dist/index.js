@@ -34181,7 +34181,6 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.COMMENT_MARKER = void 0;
 exports.formatManifestErrors = formatManifestErrors;
 exports.formatUncovered = formatUncovered;
-exports.formatStaleScenarios = formatStaleScenarios;
 exports.formatServiceError = formatServiceError;
 exports.formatEvalPassed = formatEvalPassed;
 exports.formatEvalFailed = formatEvalFailed;
@@ -34205,13 +34204,6 @@ function formatUncovered(errors) {
         ...errors.map(e => `- \`${e.file}\`: ${e.message}`),
         '',
         'Add a scenario in EvalForge (tag it with `pending:<repo>#<pr>` if it covers an unmerged PR), then reference its ID in the manifest.',
-    ]);
-}
-function formatStaleScenarios(staleIds) {
-    return render('❌', 'Stale Scenario References', [
-        'These scenario IDs from `.evalforge.yml` were not found in EvalForge:',
-        '',
-        ...staleIds.map(id => `- \`${id}\``),
     ]);
 }
 function formatServiceError(message, blocking) {
@@ -34551,16 +34543,8 @@ async function runEval() {
     }
     core.info(`Coverage: ${coverage.scenarioIds.join(', ')}`);
     const evalforge = new evalforge_1.EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
-    const scenarios = await guardedCall(() => evalforge.listScenarios(config.projectId), 'Could not reach EvalForge — contact a repository maintainer if this persists', comment, config);
-    if (!scenarios)
-        return;
-    const knownIds = new Set(scenarios.map(s => s.id));
-    const stale = coverage.scenarioIds.filter(id => !knownIds.has(id));
-    if (stale.length > 0) {
-        await comment((0, comment_1.formatStaleScenarios)(stale));
-        (0, github_1.fail)(`Stale scenario references: ${stale.join(', ')}`, config.blocking);
-        return;
-    }
+    // Stale-reference check deferred to Phase 1 — EvalForge doesn't expose a bulk-list scenarios
+    // endpoint. createEvalRun will reject unknown IDs and the error surfaces in the PR comment.
     const versionLabel = `pr-${config.prNumber}-${config.headSha.slice(0, 7)}`;
     const mcpVersion = await guardedCall(() => evalforge.ensureMcpVersion(config.mcpId, config.projectId, versionLabel, config.prNumber, config.headSha, config.mcpSkillsRepo), 'Could not create MCP version', comment, config);
     if (!mcpVersion)
@@ -34946,7 +34930,7 @@ async function loadManifests(workspaceRoot) {
     const found = await (0, glob_1.glob)(`**/${exports.MANIFEST_FILENAME}`, {
         cwd: workspaceRoot,
         nodir: true,
-        ignore: ['**/node_modules/**', '**/dist/**', '**/.git/**'],
+        ignore: ['**/node_modules/**', '**/dist/**', '**/.git/**', '.action-src/**'],
         dot: true,
         posix: true,
     });
@@ -35048,13 +35032,14 @@ async function runPromotion() {
     const config = (0, config_1.getSimpleConfig)();
     const evalforge = new evalforge_1.EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
     const tag = (0, evalforge_1.pendingTagFor)(`${config.owner}/${config.repo}`, config.prNumber);
+    // TODO(phase-1): EvalForge doesn't expose a bulk-list scenarios endpoint. Promotion is a no-op
+    // until that endpoint exists or the action gets the pending scenario IDs from another source.
     let scenarios;
     try {
         scenarios = await evalforge.listScenarios(config.projectId);
     }
     catch (e) {
-        core.error(`Failed to list scenarios: ${e instanceof Error ? e.message : String(e)}`);
-        core.setFailed('Could not list scenarios for promotion');
+        core.warning(`Promotion skipped — listScenarios not available: ${e instanceof Error ? e.message : String(e)}`);
         return;
     }
     const pending = scenarios.filter(s => (s.tags ?? []).includes(tag));

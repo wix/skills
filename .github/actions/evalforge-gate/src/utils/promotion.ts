@@ -7,12 +7,13 @@ export async function runPromotion(): Promise<void> {
   const evalforge = new EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
   const tag = pendingTagFor(`${config.owner}/${config.repo}`, config.prNumber);
 
+  // TODO(phase-1): EvalForge doesn't expose a bulk-list scenarios endpoint. Promotion is a no-op
+  // until that endpoint exists or the action gets the pending scenario IDs from another source.
   let scenarios;
   try {
     scenarios = await evalforge.listScenarios(config.projectId);
   } catch (e) {
-    core.error(`Failed to list scenarios: ${e instanceof Error ? e.message : String(e)}`);
-    core.setFailed('Could not list scenarios for promotion');
+    core.warning(`Promotion skipped — listScenarios not available: ${e instanceof Error ? e.message : String(e)}`);
     return;
   }
 

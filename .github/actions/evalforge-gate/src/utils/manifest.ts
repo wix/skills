@@ -61,7 +61,7 @@ export async function loadManifests(workspaceRoot: string): Promise<{
   const found = await glob(`**/${MANIFEST_FILENAME}`, {
     cwd: workspaceRoot,
     nodir: true,
-    ignore: ['**/node_modules/**', '**/dist/**', '**/.git/**'],
+    ignore: ['**/node_modules/**', '**/dist/**', '**/.git/**', '.action-src/**'],
     dot: true,
     posix: true,
   });
