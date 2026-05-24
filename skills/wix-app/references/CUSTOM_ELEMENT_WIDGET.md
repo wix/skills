@@ -555,6 +555,14 @@ export const customelementwidgetMyWidget = extensions.customElement({
   height: {
     defaultHeight: 500,
   },
+  presets: [
+    {
+      id: "default",
+      name: "Default",
+      thumbnailUrl:
+        "https://www.unpkg.com/@wix/cli-dummy-custom-element/dist/preset/thumbnail.png",
+    },
+  ],
 });
 ```
 
@@ -562,16 +570,23 @@ export const customelementwidgetMyWidget = extensions.customElement({
 
 The `id` must be a unique, static UUID v4 string. Generate a fresh UUID for each extension - do NOT use `randomUUID()` or copy UUIDs from examples. Replace `{{GENERATE_UUID}}` with a freshly generated UUID like `"a1b2c3d4-e5f6-7890-abcd-ef1234567890"`.
 
-| Property       | Type   | Description                            |
-| -------------- | ------ | -------------------------------------- |
-| `id`           | string | Unique static UUID v4 (generate fresh) |
-| `name`         | string | Display name in editor                 |
-| `tagName`      | string | HTML custom element tag (kebab-case)   |
-| `element`      | string | Path to widget React component         |
-| `settings`     | string | Path to settings panel component       |
-| `installation` | object | Auto-add behavior                      |
-| `width`        | object | Default width and stretch settings     |
-| `height`       | object | Default height settings                |
+| Property       | Type   | Description                                                  |
+| -------------- | ------ | ------------------------------------------------------------ |
+| `id`           | string | Unique static UUID v4 (generate fresh)                       |
+| `name`         | string | Display name in editor                                       |
+| `tagName`      | string | HTML custom element tag (kebab-case)                         |
+| `element`      | string | Path to widget React component                               |
+| `settings`     | string | Path to settings panel component                             |
+| `installation` | object | Auto-add behavior                                            |
+| `width`        | object | Default width and stretch settings                           |
+| `height`       | object | Default height settings                                      |
+| `presets`      | array  | Preset entries — each drives a thumbnail in the Add panel    |
+
+**`presets` and the default thumbnail**
+
+Each entry in `presets` drives a thumbnail tile in the Wix Editor's Add Elements panel. When `presets` is supplied, every entry's `thumbnailUrl` is required (per the `@wix/astro` `DevCenterCustomElementPresets` schema).
+
+Use the URL shown above (`https://www.unpkg.com/@wix/cli-dummy-custom-element/dist/preset/thumbnail.png`) as the default placeholder — it's the same image the Wix CLI uses when migrating existing custom elements without thumbnails, so the experience stays consistent. Swap it for a real, widget-specific thumbnail once one is available.
 
 ### Step 2: Register in Main Extensions File
 
