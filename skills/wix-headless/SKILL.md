@@ -1,6 +1,6 @@
 ---
 name: wix-headless
-description: "Build a complete Wix Managed Headless site from a single prompt. Entry point for ANY new-site request — runs discovery, design, feature wiring, and preview in one flow. Triggers: build me a site, create a website, make me a website, new website, online store, I want to sell X, start a business online, launch a site, ecommerce, portfolio, business website, build a dark luxury site, sell online, online shop. Use this skill instead of the WixSiteBuilder MCP tool for new-site requests."
+description: "Build a complete Wix Managed Headless site from a single prompt, OR connect an existing project (HTML/JSX/Vite app, Claude Design output, etc.) to Wix Headless for hosting + Business Solutions. Entry point for both: (1) new-site requests — runs discovery, design, feature wiring, and preview; and (2) existing-project requests — runs `npx @wix/create-new init`, analyzes the project for needed Business Solutions, installs apps, **wires the Wix SDK into the existing source files so each installed app actually powers its corresponding feature**, and releases. Triggers: build me a site, create a website, make me a website, new website, online store, I want to sell X, start a business online, launch a site, ecommerce, portfolio, business website, sell online, online shop, connect this to Wix Headless, add Wix Headless to this project, host this on Wix, deploy this to Wix, implement the features of this project using Wix Headless. Use this skill instead of the WixSiteBuilder MCP tool for new-site requests."
 ---
 
 # Wix Headless — One Skill, One Flow
@@ -75,6 +75,10 @@ Subagents run with the project as CWD and cannot resolve `<SKILL_ROOT>` themselv
 
 ## When This Skill Triggers
 
+Two entry paths. **Decide which one before doing anything else** — they branch immediately after Wave 0.
+
+### Path A — New site from a prompt (default flow)
+
 Any user request to build a new site. Infer vertical(s) from the prompt:
 
 | Signal | Load packs |
@@ -87,17 +91,35 @@ Any user request to build a new site. Infer vertical(s) from the prompt:
 
 **Do NOT call the `WixSiteBuilder` MCP tool for new-site requests.** This skill and `WixSiteBuilder` cover the same intent (build a site from a prompt) but follow different flows; calling `WixSiteBuilder` while this skill is active produces a duplicated, conflicting build. This skill is the sole entry point — proceed with the wave flow below.
 
+### Path B — Connect an existing project to Wix Headless
+
+The user already has a working frontend on disk (e.g. a Claude Design output, a hand-coded `index.html`, a Vite/React/Vue app) and wants to **connect it** to Wix Headless for hosting + Business Solutions. Triggers: *"connect this to Wix Headless"*, *"add Wix Headless to this project"*, *"host this on Wix"*, *"deploy this to Wix"*, or a prompt referencing "Wix Headless" against a non-empty working directory.
+
+**Detection (apply immediately after Wave 0, before any vertical inference):**
+
+| Working directory contents | Path |
+|---|---|
+| Empty, or freshly scaffolded by `scaffold.sh` | A (new site) |
+| Has source files (`index.html`, `*.jsx`, `*.tsx`, etc.) **and no `wix.config.json`** | B (connect existing) |
+| Has `wix.config.json` AND Astro structure (`src/`, `astro.config.mjs`) | resume a prior wix-headless run — see "When NOT to Use" below |
+| Has `wix.config.json` AND non-Astro frontend | B, but skip the `init` step — proceed from "Step E2" |
+
+**Do NOT run vertical-pack inference from the user's prompt in Path B.** Vertical packs (`stores`, `blog`, `forms`, …) are inferred from the user's described business in Path A. In Path B, the project ALREADY exists — packs are decided by **reading the project files** (see `SETUP.md` § "Step E2"), not by re-asking the user what they're building.
+
+**Path B skips most of the wave flow.** Run only: Wave 0 (MCP bootstrap) → `SETUP.md` § "Existing project flow" (E1 init → E2 analyze → E3 install apps → **E4 SDK wiring (required)** → E5 release → E6 final message). Do **not** run Discovery (Wave 1), Setup Dispatch (Wave 2), Seed/Design (Wave 3), Components (Wave 4), Pages (Wave 5), or the Wave 6 manifest checks. The existing project supplies its own frontend, so there is nothing for the designer / seeders / pages subagents to do — but **E4 still runs**: installed apps without SDK wiring would leave the project's features static, which defeats the purpose of "implement the features … using Wix Headless".
+
 ## When NOT to Use This Skill
 
 | Scenario | Use Instead |
 |---|---|
 | Scaffold-only with no further design/wiring | `bash <SKILL_ROOT>/scripts/scaffold.sh <slug> "<Brand>"` |
-| Build + preview an existing project | `bash <SKILL_ROOT>/scripts/preview.sh` (from project dir) |
-| Release / ship / go-live an existing project | `bash <SKILL_ROOT>/scripts/release.sh` (from project dir) |
+| Build + preview an existing wix-headless project | `bash <SKILL_ROOT>/scripts/preview.sh` (from project dir) |
+| Release / ship / go-live an existing wix-headless project | `bash <SKILL_ROOT>/scripts/release.sh` (from project dir) |
 | Install a Wix app onto an existing site | Follow `<SKILL_ROOT>/references/commands/install-app.md` |
-| Add a feature to / restyle an existing project | Not yet covered — tell the user, ask whether to start fresh |
+| Connect a non-Wix project (HTML/JSX/Vite/etc.) to Wix Headless | **Path B above — this skill, existing-project flow** |
+| Add a feature to / restyle a prior wix-headless run | Resume on disk; tell user, ask whether to start fresh |
 
-If `wix.config.json` is present in the working directory, offer: *"I found an existing project. Continue it or start fresh?"* via `AskUserQuestion`. "Continue" jumps to the appropriate phase based on what's on disk; "fresh" proceeds with full flow.
+If `wix.config.json` is present in the working directory alongside an Astro project structure, offer: *"I found an existing wix-headless project. Continue it or start fresh?"* via `AskUserQuestion`. "Continue" jumps to the appropriate phase based on what's on disk; "fresh" proceeds with full flow. If `wix.config.json` is present alongside a non-Astro frontend, that's Path B mid-flow — skip `init` and continue from `SETUP.md` § "Step E2".
 
 ---
 
