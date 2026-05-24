@@ -419,36 +419,9 @@ refined default costs nothing.
 
 ### State styles go through the design-states contract
 
-State pseudo-classes (`:hover`, `:focus`, `:focus-visible`, `:disabled`, `:invalid`) and state attribute selectors (`[aria-disabled='true']`, `[aria-invalid='true']`, `[data-state='<key>']`) are only authored as part of the **design-states contract**: a paired rule that combines the pseudo-class (or state attribute) with a BEM modifier class (`:global(.<component>--<state>)`), backed by a matching TSX marker on the same element. The manifest generator reads both signals together and emits the editor's `states` block from them; the editor then applies the site owner's state styling by injecting the `<component>--<state>` class onto the DOM at runtime.
+State pseudo-classes (`:hover`, `:focus`, `:focus-visible`, `:disabled`, `:invalid`) and state attribute selectors (`[aria-disabled='true']`, `[aria-invalid='true']`, `[data-state='<key>']`) are only authored as part of the **design-states contract** — a paired rule combining the pseudo-class with `:global(.<component>--<state>)`, backed by a matching TSX marker. Full procedure (state catalog, default styling, base-class resolution, TSX markers, collision rule, manifest output) in [`DESIGN-STATES.md`](DESIGN-STATES.md).
 
-Full procedure — state catalog (`hover` / `focus` / `disabled` / `invalid` / `selected` / custom keys), default-styling table, base-class resolution, TSX markers, key collision rule, manifest output — lives in [`DESIGN-STATES.md`](DESIGN-STATES.md).
-
-**Why:** an unpaired pseudo-class rule is invisible to the editor — the platform can never apply the user's state styling to that surface. The paired form (`<base>:<pseudo>, <base>:global(.<component>--<state>)`) is the protocol the platform reads to know the component supports a given state. Authoring state CSS outside this contract still produces two competing sources of truth for the same state.
-
-```css
-/* ❌ Don't: unpaired pseudo-class — invisible to the editor */
-.button:hover {
-  background-color: #f0f0f0;
-}
-
-/* ❌ Don't: unpaired state attribute — same problem */
-.panel[data-state='open'] {
-  background-color: #fafafa;
-}
-
-/* ✅ Do: paired CSS + matching TSX marker (see DESIGN-STATES.md) */
-.button:hover,
-.button:global(.button--hover) {
-  filter: brightness(1.05);
-}
-
-.button[aria-disabled='true'],
-.button:global(.button--disabled) {
-  opacity: 0.5;
-  pointer-events: none;
-  cursor: not-allowed;
-}
-```
+**Why:** an unpaired pseudo-class rule is invisible to the editor — the platform can never apply the user's state styling. The paired form is the protocol the platform reads to know the component supports a given state.
 
 ### Express selection / mode variants with JS-toggled modifier classes
 

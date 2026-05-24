@@ -94,45 +94,15 @@ For inner elements with their own role (e.g., interactive list items), the same 
 
 ## Picking the base class
 
-The state-switcher in the design panel adds `<component>--<state>` (or `<component>__<element>--<state>` for inner elements) modifier classes to the rendered element. For the CSS rule to fire, its prefix must be a class that lives on that same element.
+The state-switcher in the design panel injects `<component>--<state>` (or `<component>__<element>--<state>` for inner elements) onto the rendered element. The paired CSS rule's prefix must be a class that lives on that same element. Read the JSX `className` composition; pick by case:
 
-### Case A — self-rendering component (default)
+| Case | When | Base class |
+|---|---|---|
+| A | Self-rendering component — `styles.root` on the outer element | `.root` |
+| B | Wraps a library primitive (e.g. React Aria `<Switch>`) — different `styles.X` lands alongside the unscoped global string (e.g. `styles.button` + `'button'`) | `.<the local class>` (e.g. `.button`) |
+| C | Inner named part (`heading`, `label`, `thumb`, …) | `.<part>` — the local class on the inner element |
 
-The component applies `styles.root` to the outer rendered element. Base class = `.root`.
-
-```tsx
-<div className={classNames(className, 'profile-card', styles.root)}>
-```
-
-```css
-.root:hover,
-.root:global(.profile-card--hover) { /* … */ }
-```
-
-### Case B — component wraps a library primitive
-
-The component composes a library primitive (e.g., React Aria `<Switch>`) and applies `styles.X` (where `X` is something other than `root`) to that primitive. Base class = the local class that IS applied alongside the primitive.
-
-```tsx
-<Switch className={classNames(styles.button, 'button')}>
-```
-
-```css
-.button:hover,
-.button:global(.button--hover) { /* … */ }
-```
-
-### Case C — inner elements
-
-Inner named parts (`heading`, `label`, `item`, …) follow the same pattern, each with their own base class. State markers (`data-state`, `aria-checked`, `aria-selected`) live on the inner element that carries the base class. `aria-disabled` / `aria-invalid` inverted-prop wiring belongs on the component **root**, not on inner elements.
-
-```tsx
-<span className={classNames('thumb', styles.thumb)} data-state={isSelected ? 'selected' : undefined} />
-```
-
-```css
-.thumb:global(.<component>__thumb--selected) { /* e.g. .toggle__thumb--selected */ }
-```
+Inner-element TSX markers are limited to `data-state` / `aria-selected` / `aria-checked`; `aria-disabled` / `aria-invalid` inverted-prop wiring belongs on the component **root**.
 
 ---
 
@@ -191,34 +161,17 @@ Same rule applies to the TSX side: if the target element already has the matchin
 
 ## Procedure
 
-Apply when generating new Editor React components, immediately after `<ComponentName>.tsx` + `<ComponentName>.module.css` exist. The manifest does **not** need to exist yet — `npx wix generate manifest` reads the source signals and produces the `states` block later.
+Apply immediately after `<ComponentName>.tsx` + `<ComponentName>.module.css` exist. The manifest does **not** need to exist yet — `npx wix generate manifest` reads the source signals and produces the `states` block later.
 
-1. **Infer the state list per target.**
-   - **Root**: read `<ComponentName>.tsx`. Match against the [role → states](#role--suggested-states) and [per-state relevance](#per-state-relevance) tables.
-   - **Inner elements**: for each named part inside the component, apply the [inner-element rules](#inner-element-rules) against its rendered React.
+1. **Infer the state list per target** (§ [What states each component should support](#what-states-each-component-should-support)). Root from JSX + props; inner elements from each named part inside the component.
 
-2. **Resolve the base class and rendered tag per target.** Read the component's `className` composition (Cases A–C above). Identify the rendered tag (`<input>` / `<button>` / `<label>` / generic) — this drives `:disabled` vs `[aria-disabled='true']` and `:focus-visible` vs `:focus-within` per [Picking the pseudo-class](#picking-the-pseudo-class-for-disabled-and-focus).
+2. **Resolve the base class and rendered tag per target.** Cases A–C for the base class. Rendered tag (`<input>` / `<button>` / `<label>` / generic) drives `:disabled` vs `[aria-disabled='true']` and `:focus-visible` vs `:focus-within` per § [Picking the pseudo-class](#picking-the-pseudo-class-for-disabled-and-focus).
 
-3. **Patch the CSS (root).** For each root state in the inferred list:
-   - Build the paired selector with the right pseudo (per Step 2) **plus** `:global(.<component>--<state>)`.
-   - Populate the body with default styling from [Default styling](#default-styling).
-   - Collision check (skip if matching `<base>:<pseudo>` or `<base>:global(.<component>--<state>)` already exists).
-   - Append the new rule. Don't emit comments.
+3. **Patch the CSS.** For each inferred state on each target: build the paired selector (`<base>:<pseudo>` + `:global(.<component>--<state>)`, or `:global(.<component>__<element>--<state>)` for inner elements), populate with default styling (§ [Default styling](#default-styling)), append. Collision check on `<base>` + key — skip silently. No comments.
 
-4. **Patch the TSX (root).** For each root state that has a TSX marker:
-   - `disabled` → ensure an `isDisabled` (or detected inverted prop) typed `boolean` exists on the props interface; add it if missing. Add `aria-disabled={isDisabled || undefined}` on the root element.
-   - `invalid` → same pattern with `isInvalid`.
-   - `selected` → pick the marker based on the rendered role (`aria-checked` for switch/checkbox role; `aria-selected` for tab/option/treeitem/gridcell/row/columnheader/rowheader; `data-state` otherwise). Add the matching prop if missing.
-   - Other custom keys → add `data-state` on the root element if not present.
-   - Skip if the attribute is already wired. Don't emit comments.
+4. **Patch the TSX.** Per § [TSX signal](#tsx-signal-in-componentnametsx) — for native gated keys (`disabled` / `invalid`), add the matching inverted prop (`isDisabled` / `isInvalid`) to the props interface if missing. For inner elements, only `data-state` / `aria-selected` / `aria-checked` apply. Collision check on the attribute. No comments.
 
-5. **Patch the CSS + TSX (inner elements).**
-   - For each inner-element target with a non-empty inferred state list:
-     - Resolve its base class and rendered tag (Step 2).
-     - Append paired-selector rules with default styling to the same CSS module.
-     - For TSX markers on inner elements: only `data-state`, `aria-selected`, and `aria-checked` apply — `disabled` / `invalid` inverted-prop wiring lives on the component root.
-
-6. **Regenerate the manifest.**
+5. **Regenerate the manifest.**
    ```
    npx wix build && npx wix generate manifest
    ```
@@ -253,42 +206,13 @@ states: {
 }
 ```
 
-The deterministic mapping the generator applies:
+The deterministic mapping: each key in the emitted `states` block comes from a CSS pair on `<base>` (per § [CSS signal](#css-signal-in-componentnamemodulecss)) **confirmed by** its TSX marker on the same element (per § [TSX signal](#tsx-signal-in-componentnametsx)). The native keys (`hover` / `focus` / `disabled` / `invalid`) emit `pseudoClass: NATIVE_STATE_TYPE.<key>`; custom keys (incl. `selected`) emit just `className`. Root `disabled` additionally emits `props: { isDisabled: true }` — inner-element `disabled` omits `props` (inverted-prop wiring is root-only). Custom-key names are the verbatim kebab-case `data-state` token (`data-state="in-progress"` → key `'in-progress'`).
 
-| Source signal | Manifest output |
-|---|---|
-| `<base>:hover` paired with `<base>:global(.<component>--hover)` | `hover: { className: '<component>--hover', pseudoClass: NATIVE_STATE_TYPE.hover }` |
-| `<base>:focus-visible` / `:focus-within` paired with `:global(.<component>--focus)` | `focus: { className: '<component>--focus', pseudoClass: NATIVE_STATE_TYPE.focus }` |
-| `<base>:disabled` or `<base>[aria-disabled='true']` paired with `:global(.<component>--disabled)` **+** TSX `aria-disabled` | `disabled: { className: '<component>--disabled', pseudoClass: NATIVE_STATE_TYPE.disabled, props: { isDisabled: true } }` *(props only on root)* |
-| `<base>:invalid` or `[aria-invalid='true']` paired with `:global(.<component>--invalid)` **+** TSX `aria-invalid` | `invalid: { className: '<component>--invalid', pseudoClass: NATIVE_STATE_TYPE.invalid }` |
-| `<base>:global(.<component>--selected)` **+** TSX `aria-checked` *(switch/checkbox role)* | `selected: { className: '<component>--selected' }` |
-| `<base>:global(.<component>--selected)` **+** TSX `aria-selected` *(tab/option/treeitem/etc.)* | `selected: { className: '<component>--selected' }` |
-| `<base>:global(.<component>--selected)` **+** TSX `data-state="selected"` | `selected: { className: '<component>--selected' }` |
-| `<base>:global(.<component>--<key>)` **+** TSX `data-state="<key>"` | `<key>: { className: '<component>--<key>' }` |
-
-For inner-element targets, the modifier class is `<component>__<element>--<state>` (e.g. `button__label--hover`, `toggle__thumb--selected`) — the same mapping applies, just with the inner-element BEM block prefix in place of `<component>--`.
-
-**Gating:** for non-pseudo keys, a CSS pair without a confirming TSX marker is skipped silently (treated as stale CSS). A TSX marker without a CSS pair is skipped too. This is how the generator catches drift between the two source files.
-
-**Custom-key manifest key** uses the verbatim `data-state` token (e.g. `data-state="in-progress"` → manifest key `'in-progress'`, paired with `className: '<component>--in-progress'`). The state name in both the manifest key and the BEM class is kebab-case verbatim — no casing transform. The TSX side is the source of truth for naming.
-
-The same shape applies to inner-element `states` blocks — inner-element `disabled` omits the `props` field (inverted-prop wiring is root-only).
-
----
-
-## Self-checks before considering the wiring done
-
-| Check | How |
-|---|---|
-| Every inferred key produced a paired CSS rule at the correct scope with populated default styling | Read the CSS module |
-| `aria-*` / `data-state` markers present on the right JSX element when required | Read `<ComponentName>.tsx` |
-| New props (if any) typed on the component's props interface | `npx wix build` passes type-check |
-| Generated manifest contains the expected `states` entries | `npx wix build && npx wix generate manifest`, then read `<ComponentName>.generated.ts` |
+**Gating:** for non-pseudo keys, a CSS pair without a confirming TSX marker is skipped silently (treated as stale CSS). A TSX marker without a CSS pair is skipped too. This catches drift between the two source files.
 
 ---
 
 ## Out of scope
 
-- Writing or updating the `states` block in the manifest manually — the generator owns it.
-- Removing states — this procedure only adds.
-- Modifying existing CSS rules or TSX attributes (collision rule).
+- Hand-writing the `states` block in the manifest — the generator owns it.
+- Removing states or modifying existing CSS / TSX (collision rule — existing wins).
