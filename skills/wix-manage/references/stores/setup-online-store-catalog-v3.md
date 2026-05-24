@@ -53,8 +53,9 @@ The Categories API is an exception. It uses a v1 endpoint, as it replaces the ol
   - **Book store** → Drama, Kids, Sci-Fi
   - **Fashion** → Men, Women, Kids
   - **Other industries** → any logical grouping that fits the catalog.
-4. Use the Categories API to create each category. **YOU MUST USE** the endpoint: [Create Category](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/categories/create-category) based on the example below.
-**⚠️ CRITICAL: Use correct endpoint `/categories/v1/bulk/categories/{categoryId}/add-items` with `catalogItemId`, `appId: "215238eb-22a5-4c36-9e7b-e7c08025e04e"`, and `treeReference` object.**
+4. Use the Categories API to create each category. **YOU MUST USE** the endpoint: [Create Category](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/categories/create-category) based on the example below. Endpoint path: `POST https://www.wixapis.com/categories/v1/categories`. **There is no bulk-create endpoint for `/categories/v1/`** (the `events/v1/bulk/categories/create` URL is for the Events product, not Stores).
+5. **Fire all N category-create calls as a single concurrent batch.** Each call is independent (creates a different category), so issue them as siblings in one assistant message — do not serialize. For 3 categories this saves ~6–8 s of wall vs. sequential calls.
+
 When calling the endpoint, make sure the request body includes a top-level `treeReference` field. It must **not** be nested inside the `category` object.
 
 Use the following example format:
@@ -78,16 +79,20 @@ Use the following example format:
 1. **YOU MUST** add each existing product to at least one category that most makes sense.
 2. First acquire the product's ids to use for this action.
 3. Then adding a product to a category **MUST** be done using the Category API, specifically [Bulk Add Items To Category](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/categories/bulk-add-items-to-category), where products are referred to as items. This endpoint enables adding multiple products at once to a category.
+4. **Fire all N add-items calls as a single concurrent batch.** Each call targets a different `categoryId` (the path parameter is single, so one call per category is unavoidable), but the calls are independent and run as siblings in one assistant message. For 3 categories this saves another ~6–8 s of wall.
 
 **⚠️ CRITICAL: Use correct endpoint `/categories/v1/bulk/categories/{categoryId}/add-items` with `catalogItemId`, `appId: "215238eb-22a5-4c36-9e7b-e7c08025e04e"`, and `treeReference` object.**
 **Make Sure** you pass the treeReference correctly at the same level as "items".
 
 
-### STEP 5: Ensure Each Product was Added to a Category
-1. **YOU MUST** ensure that each product is connected to at least one category.
-2. **You MUST** do this by using the [List Items In Category](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/categories/list-items-in-category) for EVERY Category (for example: 3 required api calls for 3 categories). If the list of items is empty, it means that the product was not added to that category and **YOU MUST** repeat step 4.
-The path for this endpoint in REST is: `https://www.wixapis.com/categories/v1/categories/{categoryId}/list-items`
-3. When calling the endpoint, make sure the request body includes a top-level `treeReference` field. It must **not** be nested inside the `category` object.
+### STEP 5: (Optional) Verify Each Product was Added to a Category
+**Skip this step in trusting flows.** Step 4's bulk add-items endpoint returns an `itemMetadata` array per call — check each result there for failures (`itemMetadata[i].success === false`). The `list-items` round-trip is a defense-in-depth that adds ~10 s of wall and rarely surfaces a failure that the metadata didn't already report.
+
+If you keep the verification (e.g., for high-stakes catalogs):
+1. Use [List Items In Category](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/categories/list-items-in-category) for each category. Path: `https://www.wixapis.com/categories/v1/categories/{categoryId}/list-items`.
+2. **Fire all N list-items calls as a single concurrent batch** — they're independent.
+3. Body must include a top-level `treeReference` field (not nested inside `category`).
+4. If a list is empty for a category that should have items, repeat STEP 4 for that category only.
 
 ---
 
