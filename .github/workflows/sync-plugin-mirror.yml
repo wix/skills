@@ -34,6 +34,7 @@ jobs:
           fi
 
       - name: Create or update Pull Request
+        id: open-pr
         if: steps.sync.outputs.has_changes == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
@@ -44,10 +45,12 @@ jobs:
           git add plugins/wix/
           git commit -m "chore: sync plugins/wix/ mirror with repo root"
           git push -f origin sync/plugin-mirror
-          if gh pr list --head sync/plugin-mirror --state open --json number --jq '.[0].number' | grep -q .; then
-            echo "PR already exists, updated branch."
+          EXISTING=$(gh pr list --head sync/plugin-mirror --state open --json url --jq '.[0].url')
+          if [ -n "$EXISTING" ]; then
+            echo "PR already exists, updated branch: $EXISTING"
+            echo "url=$EXISTING" >> "$GITHUB_OUTPUT"
           else
-            gh pr create \
+            PR_URL=$(gh pr create \
               --head sync/plugin-mirror \
               --title "chore: sync plugins/wix/ mirror with repo root" \
               --body "$(cat <<'EOF'
@@ -55,5 +58,29 @@ jobs:
 
           This mirror is what the Codex marketplace reads (\`source.path: "./plugins/wix"\`). The root is the source of truth; this PR keeps the Codex install path in sync.
           EOF
-          )"
+          )")
+            echo "Opened PR: $PR_URL"
+            echo "url=$PR_URL" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Mint App token (used for approval + auto-merge so events propagate)
+        if: steps.sync.outputs.has_changes == 'true'
+        id: app-token
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3  # v3.1.1
+        with:
+          app-id: ${{ secrets.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+
+      - name: Approve the PR (App identity ≠ PR author)
+        if: steps.sync.outputs.has_changes == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PR_URL: ${{ steps.open-pr.outputs.url }}
+        run: gh pr review --approve "${PR_URL}" --body "Automated approval for plugin-mirror sync."
+
+      - name: Enable auto-merge
+        if: steps.sync.outputs.has_changes == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PR_URL: ${{ steps.open-pr.outputs.url }}
+        run: gh pr merge --auto --squash "${PR_URL}"
