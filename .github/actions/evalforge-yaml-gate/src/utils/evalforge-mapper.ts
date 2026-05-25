@@ -1,13 +1,13 @@
 import type { Scenario } from './schema';
 
+// EvalForge AssertionSchema is a discriminated union with the discriminator + payload
+// fields all at the top level (strictObject — extra keys are rejected). Phase 1 emits
+// only `tool_called_with_param`. See packages/eval-types/src/assertion/assertion.ts in
+// wix-private/evalforge.
 type EvalForgeAssertion = {
   type: 'tool_called_with_param';
-  name: string;
-  description: string;
-  config: {
-    toolName: string;
-    expectedParams: string;
-  };
+  toolName: string;
+  expectedParams: string;  // JSON string, NOT an object
 };
 
 export type EvalForgeBody = {
@@ -17,22 +17,15 @@ export type EvalForgeBody = {
   assertions: EvalForgeAssertion[];
 };
 
-// Map our author-friendly YAML shape to EvalForge's discriminated-union assertion shape.
-// EvalForge's AssertionSchema requires { type, name, description, config }; our YAML uses
-// { tool, params } for ergonomics. JSON-stringify params because config.expectedParams is a string.
 export function toEvalForgeBody(s: Scenario): EvalForgeBody {
   return {
     name: s.name,
     description: s.description,
     triggerPrompt: s.triggerPrompt,
-    assertions: s.assertions.map((a, i) => ({
+    assertions: s.assertions.map(a => ({
       type: 'tool_called_with_param',
-      name: `${s.name}#${i}`,
-      description: `Verify ${a.tool} called with expected params`,
-      config: {
-        toolName: a.tool,
-        expectedParams: JSON.stringify(a.params ?? {}),
-      },
+      toolName: a.tool,
+      expectedParams: JSON.stringify(a.params ?? {}),
     })),
   };
 }

@@ -31,25 +31,28 @@ describe('toEvalForgeBody', () => {
     expect(toEvalForgeBody(scenario)).not.toHaveProperty('tags');
   });
 
-  it('produces a tool_called_with_param assertion per YAML assertion', () => {
+  it('produces flat tool_called_with_param assertions (no config wrapper, no name/description)', () => {
     const body = toEvalForgeBody(scenario);
     expect(body.assertions).toHaveLength(2);
     for (const a of body.assertions) {
       expect(a.type).toBe('tool_called_with_param');
-      expect(a.name).toMatch(/^blog\/how-to-create-blog-posts#\d+$/);
-      expect(a.description.length).toBeGreaterThan(0);
+      // EvalForge schema is strictObject — extra keys would be rejected.
+      expect(a).not.toHaveProperty('name');
+      expect(a).not.toHaveProperty('description');
+      expect(a).not.toHaveProperty('config');
     }
   });
 
-  it('JSON-stringifies params into config.expectedParams', () => {
+  it('JSON-stringifies params into top-level expectedParams string', () => {
     const [first] = toEvalForgeBody(scenario).assertions;
-    expect(first.config.toolName).toBe('wix_mcp_remote_ReadFullDocsArticle');
-    expect(JSON.parse(first.config.expectedParams)).toEqual({ articleUrl: 'https://dev.wix.com/foo' });
+    expect(first.toolName).toBe('wix_mcp_remote_ReadFullDocsArticle');
+    expect(typeof first.expectedParams).toBe('string');
+    expect(JSON.parse(first.expectedParams)).toEqual({ articleUrl: 'https://dev.wix.com/foo' });
   });
 
   it('handles assertions with no params (empty object)', () => {
     const noParams: Scenario = { ...scenario, assertions: [{ tool: 't' }] };
     const [a] = toEvalForgeBody(noParams).assertions;
-    expect(JSON.parse(a.config.expectedParams)).toEqual({});
+    expect(JSON.parse(a.expectedParams)).toEqual({});
   });
 });

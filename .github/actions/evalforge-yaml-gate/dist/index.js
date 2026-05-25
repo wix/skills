@@ -34612,22 +34612,15 @@ exports.EvalRunTimeoutError = EvalRunTimeoutError;
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.toEvalForgeBody = toEvalForgeBody;
-// Map our author-friendly YAML shape to EvalForge's discriminated-union assertion shape.
-// EvalForge's AssertionSchema requires { type, name, description, config }; our YAML uses
-// { tool, params } for ergonomics. JSON-stringify params because config.expectedParams is a string.
 function toEvalForgeBody(s) {
     return {
         name: s.name,
         description: s.description,
         triggerPrompt: s.triggerPrompt,
-        assertions: s.assertions.map((a, i) => ({
+        assertions: s.assertions.map(a => ({
             type: 'tool_called_with_param',
-            name: `${s.name}#${i}`,
-            description: `Verify ${a.tool} called with expected params`,
-            config: {
-                toolName: a.tool,
-                expectedParams: JSON.stringify(a.params ?? {}),
-            },
+            toolName: a.tool,
+            expectedParams: JSON.stringify(a.params ?? {}),
         })),
     };
 }
@@ -34679,7 +34672,8 @@ class EvalForgeClient {
         });
         if (!res.ok) {
             const err = await res.json().catch(() => ({}));
-            throw Object.assign(new Error(`EvalForge ${method} ${path} → ${res.status}: ${err.error ?? ''}`), { status: res.status });
+            const detail = err.details !== undefined ? ` details=${JSON.stringify(err.details)}` : '';
+            throw Object.assign(new Error(`EvalForge ${method} ${path} → ${res.status}: ${err.error ?? ''}${detail}`), { status: res.status });
         }
         if (res.status === 204 || res.headers.get('content-length') === '0') {
             return undefined;

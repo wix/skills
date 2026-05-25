@@ -79,9 +79,10 @@ export class EvalForgeClient {
       signal: AbortSignal.timeout(10_000),
     });
     if (!res.ok) {
-      const err = await res.json().catch(() => ({})) as { error?: string };
+      const err = await res.json().catch(() => ({})) as { error?: string; details?: unknown };
+      const detail = err.details !== undefined ? ` details=${JSON.stringify(err.details)}` : '';
       throw Object.assign(
-        new Error(`EvalForge ${method} ${path} → ${res.status}: ${err.error ?? ''}`),
+        new Error(`EvalForge ${method} ${path} → ${res.status}: ${err.error ?? ''}${detail}`),
         { status: res.status },
       ) as HttpError;
     }
