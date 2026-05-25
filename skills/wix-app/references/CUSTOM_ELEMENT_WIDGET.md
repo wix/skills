@@ -560,7 +560,7 @@ export const customelementwidgetMyWidget = extensions.customElement({
       id: "default",
       name: "Default",
       thumbnailUrl:
-        "https://www.unpkg.com/@wix/cli-dummy-custom-element/dist/preset/thumbnail.png",
+        "https://www.unpkg.com/@wix/agent-skills/skills/wix-app/references/custom-element-widget/default-thumbnail.png",
     },
   ],
 });
@@ -586,7 +586,7 @@ The `id` must be a unique, static UUID v4 string. Generate a fresh UUID for each
 
 Each entry in `presets` drives a thumbnail tile in the Wix Editor's Add Elements panel. When `presets` is supplied, every entry's `thumbnailUrl` is required (per the `@wix/astro` `DevCenterCustomElementPresets` schema).
 
-Use the URL shown above (`https://www.unpkg.com/@wix/cli-dummy-custom-element/dist/preset/thumbnail.png`) as the default placeholder — it's the same image the Wix CLI uses when migrating existing custom elements without thumbnails, so the experience stays consistent. Swap it for a real, widget-specific thumbnail once one is available.
+Use the URL shown above (`https://www.unpkg.com/@wix/agent-skills/skills/wix-app/references/custom-element-widget/default-thumbnail.png`) as the default placeholder. The PNG ships inside this same `@wix/agent-skills` npm package, so the placeholder version moves in lockstep with the skill text that references it. Swap it for a real, widget-specific thumbnail once one is available.
 
 ### Step 2: Register in Main Extensions File
 
