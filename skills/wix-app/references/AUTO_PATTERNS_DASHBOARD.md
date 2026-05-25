@@ -12,6 +12,19 @@ Generates declarative `patterns.json` + thin `page.tsx` for simple CRUD dashboar
 
 ---
 
+## Required App Permissions
+
+Auto-patterns calls `@wix/data` at runtime to CRUD the collection. The app must declare these scopes in the Wix Dev Center — they are NOT added automatically:
+
+- `SCOPE.DC-DATA.READ` — for `get`, `query`, `count`, `distinct`
+- `SCOPE.DC-DATA.WRITE` — for `insert`, `update`, `save`, `remove`, `bulk*`
+
+Add them at: `https://manage.wix.com/apps/{app-id}/dev-center-permissions` (replace `{app-id}` with your app ID).
+
+Without these scopes, the dashboard page renders but all data operations fail.
+
+---
+
 ## Core Rules
 
 ### Configuration Generation
