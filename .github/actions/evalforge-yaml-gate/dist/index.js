@@ -34728,10 +34728,10 @@ class EvalForgeClient {
         return this.request('GET', `/projects/${enc(projectId)}/test-scenarios`);
     }
     async createTestScenario(projectId, body, tags) {
-        return this.request('POST', `/projects/${enc(projectId)}/test-scenarios`, { ...body, tags });
+        return this.request('POST', `/projects/${enc(projectId)}/test-scenarios`, { ...body, projectId, tags });
     }
     async updateTestScenario(projectId, id, body, tags) {
-        await this.request('PUT', `/projects/${enc(projectId)}/test-scenarios/${enc(id)}`, { ...body, tags });
+        await this.request('PUT', `/projects/${enc(projectId)}/test-scenarios/${enc(id)}`, { ...body, projectId, tags });
     }
     async deleteTestScenario(projectId, id) {
         await this.request('DELETE', `/projects/${enc(projectId)}/test-scenarios/${enc(id)}`);
