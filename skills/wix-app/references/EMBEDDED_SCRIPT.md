@@ -169,7 +169,7 @@ Parameters for "cart-coupon-popup":
 - enablePopup (BOOLEAN, required) - Enable/disable toggle
 ```
 
-### 2. Embedded Script (`embedded.html`)
+### 2. Embedded Script (`<folder>.html`)
 
 ```html
 <div
