@@ -103,4 +103,75 @@ describe('toEvalForgeBody', () => {
     const body = toEvalForgeBody(mixed);
     expect(body.assertions.map(a => a.type)).toEqual(['tool_called_with_param', 'llm_judge']);
   });
+
+  it('maps api_call: stringifies object expectedResponse, passes string through', () => {
+    const objExpected: Scenario = {
+      ...scenario,
+      assertions: [{
+        type: 'api_call',
+        url: 'https://x',
+        expectedResponse: { ok: true },
+      }],
+    };
+    const [a1] = toEvalForgeBody(objExpected).assertions;
+    if (a1.type !== 'api_call') throw new Error('expected api_call');
+    expect(a1.expectedResponse).toBe('{"ok":true}');
+
+    const stringExpected: Scenario = {
+      ...scenario,
+      assertions: [{
+        type: 'api_call',
+        url: 'https://x',
+        expectedResponse: '{"ok":true}',
+      }],
+    };
+    const [a2] = toEvalForgeBody(stringExpected).assertions;
+    if (a2.type !== 'api_call') throw new Error('expected api_call');
+    expect(a2.expectedResponse).toBe('{"ok":true}');
+  });
+
+  it('maps api_call: emits all optional fields when set', () => {
+    const full: Scenario = {
+      ...scenario,
+      assertions: [{
+        type: 'api_call',
+        url: 'https://x',
+        method: 'POST',
+        requestBody: { k: 'v' },
+        expectedResponse: { ok: true },
+        requestHeaders: { Authorization: 'Bearer y' },
+        timeoutMs: 5000,
+        negate: false,
+      }],
+    };
+    const [a] = toEvalForgeBody(full).assertions;
+    expect(a).toEqual({
+      type: 'api_call',
+      url: 'https://x',
+      method: 'POST',
+      requestBody: '{"k":"v"}',
+      expectedResponse: '{"ok":true}',
+      requestHeaders: '{"Authorization":"Bearer y"}',
+      timeoutMs: 5000,
+      negate: false,
+    });
+  });
+
+  it('maps cost', () => {
+    const c: Scenario = {
+      ...scenario,
+      assertions: [{ type: 'cost', maxCostUsd: 0.5 }],
+    };
+    const [a] = toEvalForgeBody(c).assertions;
+    expect(a).toEqual({ type: 'cost', maxCostUsd: 0.5 });
+  });
+
+  it('maps time_limit', () => {
+    const t: Scenario = {
+      ...scenario,
+      assertions: [{ type: 'time_limit', maxDurationMs: 60_000, negate: true }],
+    };
+    const [a] = toEvalForgeBody(t).assertions;
+    expect(a).toEqual({ type: 'time_limit', maxDurationMs: 60_000, negate: true });
+  });
 });
