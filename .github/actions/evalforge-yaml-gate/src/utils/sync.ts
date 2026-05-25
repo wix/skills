@@ -1,0 +1,72 @@
+import type { LoadedScenario } from './evals';
+import type { Scenario } from './schema';
+
+export type RemoteScenario = { id: string; name: string; tags: string[] };
+
+export type ScenarioBody = Omit<Scenario, 'tags'>;
+
+export type CreateAction = { kind: 'CREATE'; name: string; body: ScenarioBody; tags: string[] };
+export type UpdateAction = { kind: 'UPDATE'; id: string; name: string; body: ScenarioBody; tags: string[] };
+export type DeleteAction = { kind: 'DELETE'; id: string; name: string };
+export type DeferDeleteAction = { kind: 'DEFER_DELETE'; id: string; name: string };
+export type SyncAction = CreateAction | UpdateAction | DeleteAction | DeferDeleteAction;
+
+export type SyncError = {
+  kind: 'FOREIGN_DRAFT';
+  name: string;
+  foreignTags: string[];
+  path?: string;
+};
+
+export function stripTags(s: Scenario): ScenarioBody {
+  const { tags: _tags, ...rest } = s;
+  return rest;
+}
+
+function foreignDraftTags(tags: string[], myTag: string): string[] {
+  return tags.filter(t => t.startsWith('draft:') && t !== myTag);
+}
+
+export function diffSyncPlan(input: {
+  head: Map<string, LoadedScenario>;
+  base: Map<string, LoadedScenario>;
+  remote: RemoteScenario[];
+  draftTag: string;
+}): { actions: SyncAction[]; errors: SyncError[] } {
+  const { head, base, remote, draftTag } = input;
+  const remoteByName = new Map(remote.map(r => [r.name, r]));
+  const actions: SyncAction[] = [];
+  const errors: SyncError[] = [];
+
+  for (const [name, ls] of head) {
+    const r = remoteByName.get(name);
+    if (!r) {
+      actions.push({ kind: 'CREATE', name, body: stripTags(ls.scenario), tags: [draftTag] });
+      continue;
+    }
+    const foreign = foreignDraftTags(r.tags, draftTag);
+    if (foreign.length > 0) {
+      errors.push({ kind: 'FOREIGN_DRAFT', name, foreignTags: foreign, path: ls.path });
+      continue;
+    }
+    actions.push({ kind: 'UPDATE', id: r.id, name, body: stripTags(ls.scenario), tags: [draftTag] });
+  }
+
+  for (const [name, ls] of base) {
+    if (head.has(name)) continue;
+    const r = remoteByName.get(name);
+    if (!r) continue;
+    if (r.tags.includes(draftTag)) {
+      actions.push({ kind: 'DELETE', id: r.id, name });
+      continue;
+    }
+    const foreign = foreignDraftTags(r.tags, draftTag);
+    if (foreign.length > 0) {
+      errors.push({ kind: 'FOREIGN_DRAFT', name, foreignTags: foreign, path: ls.path });
+    } else {
+      actions.push({ kind: 'DEFER_DELETE', id: r.id, name });
+    }
+  }
+
+  return { actions, errors };
+}
