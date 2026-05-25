@@ -67,76 +67,71 @@ The CLI scaffolds the builder file with sensible defaults — edit it only to cu
 
 ## Props Naming Convention
 
-**Critical:** Props use different naming conventions in each file:
+All cross-boundary prop names are **kebab-case**. Both sides of the widget/panel boundary use the same string:
 
-| File                           | Convention | Example                                       |
-| ------------------------------ | ---------- | --------------------------------------------- |
-| `widget.tsx` (Props interface) | camelCase  | `targetDate`, `bgColor`, `textColor`          |
-| `panel.tsx` (widget API)       | kebab-case | `"target-date"`, `"bg-color"`, `"text-color"` |
-| `reactToWebComponent` config   | camelCase  | `targetDate: 'string'`                        |
-
-The web component automatically converts between camelCase (React props) and kebab-case (HTML attributes).
+| Site                                                   | Convention | Example                            |
+| ------------------------------------------------------ | ---------- | ---------------------------------- |
+| `<name>.tsx` — `observedAttributes`, `getAttribute`    | kebab-case | `"display-name"`, `"bg-color"`     |
+| `<name>.panel.tsx` — `widget.getProp` / `widget.setProp` | kebab-case | `"display-name"`, `"bg-color"`     |
+| Local TypeScript variables                             | camelCase  | `displayName`, `bgColor`           |
 
 ## Wix Data API Integration
 
-When using Wix Data API in widgets, you **must** handle the Wix Editor environment gracefully:
+When using the Wix Data API in widgets, you **must** handle the Wix Editor environment gracefully — fetching data inside the Editor produces empty results and noisy errors.
 
 ```typescript
-import { items } from "@wix/data";
-import { window as wixWindow } from "@wix/site-window";
+import { items } from '@wix/data';
+import { window as wixWindow } from '@wix/site-window';
 
-const CustomElement: FC<WidgetProps> = ({ collectionId }) => {
-  const [data, setData] = useState(null);
-  const [isEditor, setIsEditor] = useState(false);
-
-  useEffect(() => {
-    const loadData = async () => {
-      const currentViewMode = await wixWindow.viewMode();
-
-      if (currentViewMode === "Editor") {
-        // Don't fetch data in editor - show placeholder
-        setIsEditor(true);
-        return;
-      }
-
-      // Fetch real data only on live site
-      try {
-        const results = await items.query(collectionId).limit(10).find();
-        setData(results.items);
-      } catch (error) {
-        console.error("Failed to load data:", error);
-      }
-    };
-
-    loadData();
-  }, [collectionId]);
-
-  if (isEditor) {
-    return (
-      <div style={{ padding: "20px", border: "2px dashed #ccc" }}>
-        <p>Widget will display data on the live site</p>
-        <p>Collection: {collectionId}</p>
-      </div>
-    );
+class MyWidget extends HTMLElement {
+  static get observedAttributes() {
+    return ['collection-id'];
   }
 
-  // Render widget with real data
-  return (
-    <div>
-      {data?.map((item) => (
-        <div key={item._id}>{item.title}</div>
-      ))}
-    </div>
-  );
-};
+  constructor() {
+    super();
+  }
+
+  connectedCallback() {
+    this.render();
+  }
+
+  attributeChangedCallback() {
+    this.render();
+  }
+
+  async render() {
+    const collectionId = this.getAttribute('collection-id') || '';
+    const viewMode = await wixWindow.viewMode();
+
+    if (viewMode === 'Editor') {
+      this.innerHTML = `
+        <div style="padding: 20px; border: 2px dashed #ccc">
+          <p>Widget will display data on the live site</p>
+          <p>Collection: ${collectionId}</p>
+        </div>
+      `;
+      return;
+    }
+
+    try {
+      const { items: results } = await items.query(collectionId).limit(10).find();
+      this.innerHTML = results.map((item) => `<div>${item.title}</div>`).join('');
+    } catch (error) {
+      console.error('Failed to load data:', error);
+    }
+  }
+}
+
+export default MyWidget;
 ```
 
 **Requirements:**
 
-- Import `{ window as wixWindow }` from `"@wix/site-window"`
-- Check `await wixWindow.viewMode()` before fetching data
-- If `viewMode === 'Editor'`, show a placeholder UI instead
-- Only fetch and render real data when NOT in editor mode
+- Import `{ window as wixWindow }` from `'@wix/site-window'`.
+- Check `await wixWindow.viewMode()` before fetching data.
+- If `viewMode === 'Editor'`, render a placeholder via `this.innerHTML` instead of fetching.
+- Only query and render real data when NOT in Editor mode.
 
 ## Color Selection
 
@@ -281,7 +276,7 @@ Avoid generic aesthetics. Create distinctive designs with unique fonts (avoid In
 
 ## Custom-element-specific Conventions
 
-- Functional React components with hooks.
-- Inline styles only (no CSS imports).
-- Handle Wix Editor environment when using Wix Data API.
-- Consistent prop naming (camelCase in widget, kebab-case in panel).
+- Widget (`<name>.tsx`) extends `HTMLElement` and renders via `this.innerHTML`; the settings panel (`<name>.panel.tsx`) is a functional React component with hooks.
+- Style via the generated `<name>.module.css` (preferred) or inline styles. Don't import other global CSS.
+- Handle the Wix Editor environment when using the Wix Data API.
+- Cross-boundary prop names are kebab-case on both sides (`observedAttributes`, `getAttribute`, `getProp`, `setProp`).
