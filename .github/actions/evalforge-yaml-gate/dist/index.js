@@ -34356,6 +34356,7 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.computeCoverage = computeCoverage;
 const url_normalize_1 = __nccwpck_require__(9462);
 const paths_1 = __nccwpck_require__(6621);
+const schema_1 = __nccwpck_require__(4482);
 function areaOf(p) {
     const m = p.match(paths_1.AREA_RE);
     return m ? m[1] : null;
@@ -34386,6 +34387,10 @@ function computeCoverage(changedFiles, scenarios, canonicalUrlOf) {
             continue;
         const urls = new Set();
         for (const a of ls.scenario.assertions) {
+            // Only tool-call assertions contribute coverage. LLM-judge assertions carry a prompt string,
+            // which may incidentally contain URLs but doesn't represent doc coverage.
+            if (!(0, schema_1.isToolCall)(a))
+                continue;
             for (const v of stringValuesIn(a.params)) {
                 if ((0, url_normalize_1.isUrlShaped)(v))
                     urls.add((0, url_normalize_1.normalizeUrl)(v));
@@ -34606,23 +34611,41 @@ exports.EvalRunTimeoutError = EvalRunTimeoutError;
 /***/ }),
 
 /***/ 7648:
-/***/ ((__unused_webpack_module, exports) => {
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
 
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.toEvalForgeBody = toEvalForgeBody;
+const schema_1 = __nccwpck_require__(4482);
 function toEvalForgeBody(s) {
     return {
         name: s.name,
         description: s.description,
         triggerPrompt: s.triggerPrompt,
-        assertions: s.assertions.map(a => ({
-            type: 'tool_called_with_param',
-            toolName: a.tool,
-            expectedParams: JSON.stringify(a.params ?? {}),
-        })),
+        assertions: s.assertions.map(mapAssertion),
     };
+}
+function mapAssertion(a) {
+    if ((0, schema_1.isLlmJudge)(a))
+        return mapLlmJudge(a);
+    return {
+        type: 'tool_called_with_param',
+        toolName: a.tool,
+        expectedParams: JSON.stringify(a.params ?? {}),
+    };
+}
+function mapLlmJudge(a) {
+    const out = { type: 'llm_judge', prompt: a.prompt };
+    if (a.minScore !== undefined)
+        out.minScore = a.minScore;
+    if (a.model !== undefined)
+        out.model = a.model;
+    if (a.maxTokens !== undefined)
+        out.maxTokens = a.maxTokens;
+    if (a.temperature !== undefined)
+        out.temperature = a.temperature;
+    return out;
 }
 
 
@@ -35384,6 +35407,8 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.ScenarioSchema = exports.RESERVED_TAG_PREFIXES = void 0;
+exports.isLlmJudge = isLlmJudge;
+exports.isToolCall = isToolCall;
 exports.parseScenario = parseScenario;
 const zod_1 = __nccwpck_require__(924);
 const jsYaml = __importStar(__nccwpck_require__(4281));
@@ -35394,10 +35419,22 @@ const ParamValueSchema = zod_1.z.union([
     ParamScalarSchema,
     zod_1.z.array(ParamScalarSchema),
 ]);
-const AssertionSchema = zod_1.z.object({
+const ToolCallAssertionSchema = zod_1.z.object({
+    // Optional — defaults to 'tool_called_with_param' when absent. Keeps existing YAMLs valid.
+    type: zod_1.z.literal('tool_called_with_param').optional(),
     tool: zod_1.z.string().min(1),
     params: zod_1.z.record(zod_1.z.string(), ParamValueSchema).optional(),
 }).strict();
+const LlmJudgeAssertionSchema = zod_1.z.object({
+    type: zod_1.z.literal('llm_judge'),
+    prompt: zod_1.z.string().min(1),
+    // Optional EvalForge LlmJudgeConfig fields.
+    minScore: zod_1.z.number().int().min(0).max(10).optional(),
+    model: zod_1.z.string().optional(),
+    maxTokens: zod_1.z.number().int().positive().optional(),
+    temperature: zod_1.z.number().min(0).max(1).optional(),
+}).strict();
+const AssertionSchema = zod_1.z.union([ToolCallAssertionSchema, LlmJudgeAssertionSchema]);
 exports.ScenarioSchema = zod_1.z.object({
     name: zod_1.z.string().min(1).regex(NamePattern, 'name must match /^[a-z0-9][a-z0-9/_-]*$/'),
     description: zod_1.z.string(),
@@ -35405,6 +35442,12 @@ exports.ScenarioSchema = zod_1.z.object({
     tags: zod_1.z.array(zod_1.z.string().min(1)).min(1).refine(tags => tags.every(t => !exports.RESERVED_TAG_PREFIXES.some(p => t.startsWith(p))), { message: 'tags must not include reserved namespaces (draft:*, pending:*, rejected:*) — the action manages those' }),
     assertions: zod_1.z.array(AssertionSchema).min(1),
 }).strict();
+function isLlmJudge(a) {
+    return a.type === 'llm_judge';
+}
+function isToolCall(a) {
+    return a.type === undefined || a.type === 'tool_called_with_param';
+}
 function parseScenario(raw) {
     // CORE_SCHEMA refuses unsafe YAML tags (e.g. !!js/function); defense in depth before Zod.
     const parsed = jsYaml.load(raw, { schema: jsYaml.CORE_SCHEMA });

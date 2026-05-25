@@ -2,6 +2,7 @@ import type { LoadedScenario } from './evals';
 import type { ChangedFile } from './github';
 import { normalizeUrl, isUrlShaped } from './url-normalize';
 import { AREA_RE } from './paths';
+import { isToolCall } from './schema';
 
 export type { ChangedFile };
 export type Uncovered = { file: string; canonicalUrl: string };
@@ -44,6 +45,9 @@ export function computeCoverage(
     if (!area) continue;
     const urls = new Set<string>();
     for (const a of ls.scenario.assertions) {
+      // Only tool-call assertions contribute coverage. LLM-judge assertions carry a prompt string,
+      // which may incidentally contain URLs but doesn't represent doc coverage.
+      if (!isToolCall(a)) continue;
       for (const v of stringValuesIn(a.params as ParamMap | undefined)) {
         if (isUrlShaped(v)) urls.add(normalizeUrl(v));
       }

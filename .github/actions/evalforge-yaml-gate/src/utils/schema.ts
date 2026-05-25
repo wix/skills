@@ -11,10 +11,28 @@ const ParamValueSchema = z.union([
   z.array(ParamScalarSchema),
 ]);
 
-const AssertionSchema = z.object({
+const ToolCallAssertionSchema = z.object({
+  // Optional — defaults to 'tool_called_with_param' when absent. Keeps existing YAMLs valid.
+  type: z.literal('tool_called_with_param').optional(),
   tool: z.string().min(1),
   params: z.record(z.string(), ParamValueSchema).optional(),
 }).strict();
+
+const LlmJudgeAssertionSchema = z.object({
+  type: z.literal('llm_judge'),
+  prompt: z.string().min(1),
+  // Optional EvalForge LlmJudgeConfig fields.
+  minScore: z.number().int().min(0).max(10).optional(),
+  model: z.string().optional(),
+  maxTokens: z.number().int().positive().optional(),
+  temperature: z.number().min(0).max(1).optional(),
+}).strict();
+
+const AssertionSchema = z.union([ToolCallAssertionSchema, LlmJudgeAssertionSchema]);
+
+export type ToolCallAssertion = z.infer<typeof ToolCallAssertionSchema>;
+export type LlmJudgeAssertion = z.infer<typeof LlmJudgeAssertionSchema>;
+export type Assertion = z.infer<typeof AssertionSchema>;
 
 export const ScenarioSchema = z.object({
   name: z.string().min(1).regex(NamePattern, 'name must match /^[a-z0-9][a-z0-9/_-]*$/'),
@@ -28,6 +46,14 @@ export const ScenarioSchema = z.object({
 }).strict();
 
 export type Scenario = z.infer<typeof ScenarioSchema>;
+
+export function isLlmJudge(a: Assertion): a is LlmJudgeAssertion {
+  return a.type === 'llm_judge';
+}
+
+export function isToolCall(a: Assertion): a is ToolCallAssertion {
+  return a.type === undefined || a.type === 'tool_called_with_param';
+}
 
 export function parseScenario(raw: string): Scenario {
   // CORE_SCHEMA refuses unsafe YAML tags (e.g. !!js/function); defense in depth before Zod.
