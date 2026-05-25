@@ -34605,6 +34605,36 @@ exports.EvalRunTimeoutError = EvalRunTimeoutError;
 
 /***/ }),
 
+/***/ 7648:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.toEvalForgeBody = toEvalForgeBody;
+// Map our author-friendly YAML shape to EvalForge's discriminated-union assertion shape.
+// EvalForge's AssertionSchema requires { type, name, description, config }; our YAML uses
+// { tool, params } for ergonomics. JSON-stringify params because config.expectedParams is a string.
+function toEvalForgeBody(s) {
+    return {
+        name: s.name,
+        description: s.description,
+        triggerPrompt: s.triggerPrompt,
+        assertions: s.assertions.map((a, i) => ({
+            type: 'tool_called_with_param',
+            name: `${s.name}#${i}`,
+            description: `Verify ${a.tool} called with expected params`,
+            config: {
+                toolName: a.tool,
+                expectedParams: JSON.stringify(a.params ?? {}),
+            },
+        })),
+    };
+}
+
+
+/***/ }),
+
 /***/ 280:
 /***/ ((__unused_webpack_module, exports) => {
 
@@ -35280,7 +35310,7 @@ async function runPromote() {
             continue;
         }
         try {
-            await evalforge.updateTestScenario(config.projectId, s.id, (0, sync_1.stripTags)(ls.scenario), ls.scenario.tags);
+            await evalforge.updateTestScenario(config.projectId, s.id, (0, sync_1.toScenarioBody)(ls.scenario), ls.scenario.tags);
             promoted++;
             core.info(`Promoted ${s.name}: tags = ${JSON.stringify(ls.scenario.tags)}`);
         }
@@ -35404,16 +35434,16 @@ function parseScenario(raw) {
 /***/ }),
 
 /***/ 546:
-/***/ ((__unused_webpack_module, exports) => {
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
 
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.stripTags = stripTags;
+exports.toScenarioBody = toScenarioBody;
 exports.diffSyncPlan = diffSyncPlan;
-function stripTags(s) {
-    const { tags: _tags, ...rest } = s;
-    return rest;
+const evalforge_mapper_1 = __nccwpck_require__(7648);
+function toScenarioBody(s) {
+    return (0, evalforge_mapper_1.toEvalForgeBody)(s);
 }
 function foreignDraftTags(tags, myTag) {
     return tags.filter(t => t.startsWith('draft:') && t !== myTag);
@@ -35426,7 +35456,7 @@ function diffSyncPlan(input) {
     for (const [name, ls] of head) {
         const r = remoteByName.get(name);
         if (!r) {
-            actions.push({ kind: 'CREATE', name, body: stripTags(ls.scenario), tags: [draftTag] });
+            actions.push({ kind: 'CREATE', name, body: toScenarioBody(ls.scenario), tags: [draftTag] });
             continue;
         }
         const foreign = foreignDraftTags(r.tags, draftTag);
@@ -35434,7 +35464,7 @@ function diffSyncPlan(input) {
             errors.push({ kind: 'FOREIGN_DRAFT', name, foreignTags: foreign, path: ls.path });
             continue;
         }
-        actions.push({ kind: 'UPDATE', id: r.id, name, body: stripTags(ls.scenario), tags: [draftTag] });
+        actions.push({ kind: 'UPDATE', id: r.id, name, body: toScenarioBody(ls.scenario), tags: [draftTag] });
     }
     for (const [name, ls] of base) {
         if (head.has(name))

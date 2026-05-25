@@ -21,7 +21,17 @@ function mockFetch(handler: (req: { url: string; method: string; body?: unknown 
 
 beforeEach(() => { vi.restoreAllMocks(); });
 
-const goodBody = { name: 'n', description: '', triggerPrompt: '0123456789', assertions: [{ tool: 't' }] };
+const goodBody = {
+  name: 'n',
+  description: '',
+  triggerPrompt: '0123456789',
+  assertions: [{
+    type: 'tool_called_with_param' as const,
+    name: 'n#0',
+    description: 'd',
+    config: { toolName: 't', expectedParams: '{}' },
+  }],
+};
 
 describe('EvalForgeClient — test-scenarios', () => {
   it('listTestScenarios GETs /projects/:id/test-scenarios', async () => {
