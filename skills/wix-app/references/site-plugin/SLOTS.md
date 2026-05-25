@@ -43,9 +43,7 @@ This reference provides detailed information about all available slots for site 
 | `appDefinitionId` | `1380b703-ce81-ff05-f115-39571d94dfcd`   |
 | `widgetId`        | `13a94f09-2766-3c40-4a32-8edb5acdd8bc`   |
 
-**Note:** Available slots vary by layout (Classic, Simple, Sleek, Spotlight, Stunning). Check which Wix Stores version is installed before building 
-plugins, as slots differ between versions. Your app should include 
-placements for both versions for maximum compatibility.
+**Note:** Available slots vary by layout (Classic, Simple, Sleek, Spotlight, Stunning). Check which Wix Stores version is installed before building plugins, as slots differ between versions. Your app should include placements for both versions for maximum compatibility.
 
 **Plugin API Properties:** Same as New Version above.
 

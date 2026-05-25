@@ -76,6 +76,22 @@ These skills work with any agent that supports the [Agent Skills specification](
 - Windsurf
 - And [many more](https://github.com/vercel-labs/add-skill#available-agents)
 
+## Versioning
+
+`@wix/agent-skills` follows semver. Bumps target **AI-generated-code stability** — i.e., whether a change could cause an agent using these skills to produce broken code on the previous-major `wix-cli`:
+
+| Bump | Examples |
+| --- | --- |
+| **patch** | Wording fix, typo, link update, clarification of existing guidance |
+| **minor** | New skill added, new section in an existing skill, additive guidance for a non-breaking `wix-cli` feature |
+| **major** | Skill rename/removal, rewrite of guidance for a deprecated `wix-cli` API, anything that would cause AI-generated code to fail on the previous-major `wix-cli` |
+
+When a major bump is required (a breaking change in the underlying `wix-cli`), the previous major continues on a `release/<N>.x` maintenance branch and receives backports for genuine bugs only — no new features.
+
+## Releasing
+
+Run the [`release-bump`](.github/workflows/release-bump.yml) workflow from the **Actions** tab and pick a `version_strategy`. The rest is automatic — the bump PR auto-merges once checks pass and [`release.yml`](.github/workflows/release.yml) publishes to npm via Trusted Publishing.
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on adding new skills.
