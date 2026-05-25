@@ -156,11 +156,11 @@ export class EvalForgeClient {
   }
 
   async createTestScenario(projectId: string, body: ScenarioBody, tags: string[]): Promise<{ id: string }> {
-    return this.request<{ id: string }>('POST', `/projects/${enc(projectId)}/test-scenarios`, { ...body, tags });
+    return this.request<{ id: string }>('POST', `/projects/${enc(projectId)}/test-scenarios`, { ...body, projectId, tags });
   }
 
   async updateTestScenario(projectId: string, id: string, body: ScenarioBody, tags: string[]): Promise<void> {
-    await this.request<void>('PUT', `/projects/${enc(projectId)}/test-scenarios/${enc(id)}`, { ...body, tags });
+    await this.request<void>('PUT', `/projects/${enc(projectId)}/test-scenarios/${enc(id)}`, { ...body, projectId, tags });
   }
 
   async deleteTestScenario(projectId: string, id: string): Promise<void> {

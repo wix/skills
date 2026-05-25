@@ -44,11 +44,13 @@ describe('EvalForgeClient — test-scenarios', () => {
     expect(r).toEqual([{ id: 'a', name: 'x', tags: ['t'] }]);
   });
 
-  it('createTestScenario POSTs body+tags and returns id', async () => {
+  it('createTestScenario POSTs body+projectId+tags and returns id', async () => {
     mockFetch(({ url, method, body }) => {
       expect(method).toBe('POST');
       expect(url).toContain('/projects/P/test-scenarios');
-      expect((body as { tags?: unknown }).tags).toEqual(['draft:owner/repo#1']);
+      const b = body as { projectId?: unknown; tags?: unknown };
+      expect(b.projectId).toBe('P');
+      expect(b.tags).toEqual(['draft:owner/repo#1']);
       return { status: 200, body: { id: 'new-id' } };
     });
     const c = new EvalForgeClient(URL_BASE, APP_ID, APP_SECRET);
@@ -56,10 +58,11 @@ describe('EvalForgeClient — test-scenarios', () => {
     expect(r.id).toBe('new-id');
   });
 
-  it('updateTestScenario PUTs to /:id', async () => {
-    mockFetch(({ url, method }) => {
+  it('updateTestScenario PUTs to /:id with projectId in body', async () => {
+    mockFetch(({ url, method, body }) => {
       expect(method).toBe('PUT');
       expect(url).toContain('/projects/P/test-scenarios/X');
+      expect((body as { projectId?: unknown }).projectId).toBe('P');
       return { status: 204 };
     });
     const c = new EvalForgeClient(URL_BASE, APP_ID, APP_SECRET);
