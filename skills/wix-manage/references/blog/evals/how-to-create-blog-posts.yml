@@ -1,9 +1,0 @@
-name: blog/how-to-create-blog-posts
-description: "Create and publish a blog post — exercises the docs-read path for how-to-create-blog-posts."
-triggerPrompt: "Create a blog post titled 'Hello World' on My Blog site and publish it"
-tags:
-  - blog
-assertions:
-  - tool: wix_mcp_remote_ReadFullDocsArticle
-    params:
-      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/blog/skills/how-to-create-blog-posts
