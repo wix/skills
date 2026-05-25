@@ -1,0 +1,215 @@
+/* src/styles/components-ecom.css
+ *
+ * Ecom-pack component CSS. Owned by the ecom Phase 3 components agent.
+ *
+ * This file is the SINGLE source of truth for ecom-component classes.
+ * The designer's global.css does NOT publish .cart-summary, .cart-total,
+ * .cart-empty, or .checkout-btn — those all live here. See
+ * references/shared/STYLING.md § "Component-specific CSS is owned by the
+ * component, not the designer".
+ *
+ * Class groups in this file:
+ * - .cart-summary / .cart-total / .cart-empty / .checkout-btn → /cart page summary panel and empty state
+ * - .cart-item / .cart-item-* / .qty-* → CartView.tsx line items
+ * - .cart-discount / .cart-applied-discounts → CartView.tsx discount rows
+ * - .cart-badge / .cart-badge-* → CartBadge.tsx (mounted in Navigation)
+ *
+ * Tailwind v4 requires @reference in non-entrypoint CSS files that use @apply
+ * — without these, utilities like `size-6` fail at build with "Cannot apply
+ * unknown utility class". Do not remove.
+ */
+@reference "tailwindcss";
+@reference "./global.css";
+
+/* =========================================================================
+   Cart summary panel + total + checkout button + empty state.
+   Owned here, NOT in global.css. The .checkout-btn extends .btn-primary
+   (which IS designer-owned) and adds full-width + :disabled treatment.
+   ========================================================================= */
+.cart-summary {
+  background: var(--color-paper-warm, var(--color-cream));
+  border: 1px solid var(--color-rule);
+  padding: var(--spacing-xl);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+@media (min-width: 768px) {
+  .cart-summary {
+    position: sticky;
+    top: var(--spacing-xl);
+  }
+}
+
+.cart-empty {
+  text-align: center;
+  padding-block: var(--spacing-3xl);
+  color: var(--color-mute);
+}
+.cart-empty .checkout-btn {
+  display: inline-flex;
+  width: auto;
+  max-width: 18rem;
+}
+
+/* .checkout-btn composes the designer's `btn` @utility primitive plus the brand's
+   primary fill. Do NOT use `@apply btn-primary` here — Tailwind v4 only @applies
+   utilities declared with `@utility` (which `btn` is in global.css), not plain
+   custom classes like `.btn-primary` (which is just a regular CSS rule). The build
+   fails with "Cannot apply unknown utility class `btn-primary`" if you try.
+   The Phase 3 agent's brand-token swap (bark → navy/charcoal/coral/etc.) adapts
+   the var names without changing the composition shape. an earlier run on 2026-04-30 hit
+   this; the recovery cost ~1 min and a rebuild. */
+.checkout-btn {
+  @apply btn;
+  background: var(--color-bark);
+  color: var(--color-cream);
+  box-shadow: var(--shadow-sm);
+  width: 100%;
+  margin-top: var(--spacing-md);
+}
+.checkout-btn:hover:not(:disabled) {
+  background: var(--color-tobacco);
+  box-shadow: var(--shadow-md);
+}
+.checkout-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* --- Cart badge icon safety net --- */
+/* CartBadge.tsx renders an inline SVG bag icon + optional count span. The designer
+   owns .cart-badge in global.css; these rules guarantee an icon-button layout
+   (relative positioning anchor, centered icon, count pill overlap) even if the
+   designer's rule is purely aesthetic. */
+.cart-badge {
+  @apply relative inline-flex items-center justify-center;
+}
+.cart-badge-icon {
+  @apply size-6 shrink-0;
+}
+.cart-badge-count {
+  @apply absolute -top-1 -right-2 min-w-5 h-5 px-1 inline-flex items-center justify-center rounded-full bg-bark text-cream text-xs font-body tabular-nums leading-none;
+}
+
+/* --- Cart layout safety net --- */
+/* .cart-item is a global contract class styled by the designer in global.css.
+   These rules ensure the row layout works even if the designer omits flex. */
+.cart-item {
+  @apply flex flex-row gap-md;
+}
+.cart-item-image {
+  @apply shrink-0;
+}
+/* Clickable image + name link back to /products/<slug>.
+   At-rest underline + pointer cursor so the link is discoverable without
+   hovering (critical on touch). Muted rule-color underline keeps visual
+   weight in line with the body text; hover/focus escalates to tobacco. */
+.cart-item-image-link {
+  @apply block shrink-0 cursor-pointer;
+}
+.cart-item-image-link:hover .cart-item-image,
+.cart-item-image-link:focus-visible .cart-item-image {
+  @apply border-ink;
+}
+.cart-item-name-link {
+  @apply text-inherit cursor-pointer no-underline;
+  /* border-bottom is more predictable than text-decoration-line for inline
+     <a> inside <h3> (no text-decoration inheritance quirks). Muted ink at
+     rest, tobacco on hover. */
+  border-bottom: 1px solid var(--color-muted);
+  padding-bottom: 1px;
+  transition: color 150ms ease, border-color 150ms ease;
+}
+.cart-item-name-link:hover,
+.cart-item-name-link:focus-visible {
+  @apply text-tobacco outline-none;
+  border-bottom-color: var(--color-tobacco);
+}
+.cart-item-info {
+  @apply flex-1 min-w-0;
+}
+
+/* --- Description lines & modifiers --- */
+.cart-item-option {
+  @apply text-sm text-bark/70 font-body my-0.5;
+}
+.cart-item-modifiers {
+  @apply mt-1;
+}
+
+/* --- Quantity stepper --- */
+.cart-item-qty {
+  @apply inline-flex items-center gap-sm mt-sm w-fit;
+}
+.qty-btn {
+  @apply size-7 inline-flex items-center justify-center border border-bark rounded bg-transparent text-bark cursor-pointer font-body text-base leading-none;
+}
+.qty-btn:disabled {
+  @apply opacity-30 cursor-not-allowed;
+}
+.qty-value {
+  @apply font-body text-sm min-w-6 text-center tabular-nums;
+}
+
+/* --- Unavailable state --- */
+.cart-item-unavailable {
+  @apply text-sm text-red-600 font-medium font-body;
+}
+
+/* --- Price + remove --- */
+.cart-item-actions {
+  @apply flex flex-col items-end gap-1 shrink-0;
+}
+.cart-item-prices {
+  @apply flex items-center gap-sm;
+}
+.cart-item-full-price {
+  @apply text-sm text-bark/70 line-through font-body;
+}
+.cart-item-unit-price {
+  @apply font-body font-semibold whitespace-nowrap;
+}
+.cart-item-line-total {
+  @apply font-body text-xs text-bark/70 m-0;
+}
+.cart-item-remove {
+  @apply text-sm bg-transparent border-none text-bark/60 font-body cursor-pointer underline;
+}
+
+/* --- Cart summary: discount + total rows ---
+   Subtotal uses the designer's .cart-subtotal contract class in global.css.
+   These rows appear only when priceSummary exposes a discount or a total
+   that differs from subtotal (see CartView.tsx extractSummary). */
+.cart-discount {
+  @apply flex items-baseline justify-between gap-sm font-body text-sm mt-sm;
+}
+.cart-discount-name {
+  @apply text-xs text-bark/60;
+}
+.cart-discount-amount {
+  @apply whitespace-nowrap;
+}
+.cart-total {
+  border-top: 1px solid var(--color-rule);
+  padding-top: var(--spacing-md);
+  margin-top: var(--spacing-sm);
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 500;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+/* Applied-discounts row — name-only (no amount) for cases where the API
+   reports a promo NAME via appliedDiscounts[].discountName but no cart-level
+   amount in priceSummary.discount (common for line-item automatic discounts
+   — the savings already show inline via fullPrice/price strikethrough). */
+.cart-applied-discounts {
+  @apply flex items-baseline justify-between gap-sm font-body text-sm mt-sm;
+}
+.cart-applied-discounts-name {
+  @apply text-right text-bark/80 italic;
+}
