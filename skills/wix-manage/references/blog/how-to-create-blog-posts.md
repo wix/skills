@@ -13,7 +13,7 @@ This article demonstrates how to create and immediately publish blog posts using
 
 ### Part 0: Get an Author/Member ID (Required for 3rd-Party Apps)
 
-**IMPORTANT**: When calling the Blog API as a 3rd-party app (not as the site owner), `draftPost.memberId` is **required**. The API will reject requests with "Missing post owner information" if omitted. If you don't have a member ID handy, see Part 0 below — querying members is a one-line call.
+**IMPORTANT**: When calling the Blog API as a 3rd-party app (not as the site owner), `draftPost.memberId` is **required**. The API will reject requests with "Missing post owner information" if omitted.
 
 1. Query site members to get a valid member ID using [List Members](https://dev.wix.com/docs/api-reference/crm/members-contacts/members/member-management/members/list-members):
 
