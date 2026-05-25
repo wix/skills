@@ -1,0 +1,32 @@
+name: 'EvalForge YAML Gate'
+description: 'YAML-authored scenario gate with trace-verified coverage'
+inputs:
+  mode:
+    required: false
+    default: 'eval'
+    description: 'eval | promote | cleanup'
+  github-token:
+    required: true
+  evalforge-url:
+    required: true
+  evalforge-project-id:
+    required: true
+  evalforge-agent-id:
+    required: false
+    description: 'Required for eval mode'
+  evalforge-mcp-id:
+    required: true
+  evalforge-app-id:
+    required: true
+  evalforge-app-secret:
+    required: true
+  mcp-skills-repo:
+    required: false
+    default: ''
+    description: 'Override skillsRepo URL param'
+  blocking:
+    required: false
+    default: 'false'
+runs:
+  using: 'node20'
+  main: 'dist/index.js'
