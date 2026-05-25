@@ -66,14 +66,29 @@ Reference: when modifying an _existing_ component, follow
 
 Core rules and workflow: [`editor-react-component/REACT-GUIDELINES.md`](editor-react-component/REACT-GUIDELINES.md).
 
-Topic-focused references (rules + patterns + common mistakes in one place):
+### Read upfront (always)
 
-- [`editor-react-component/ACCESSIBILITY.md`](editor-react-component/ACCESSIBILITY.md) — ARIA/a11y rules and patterns
-- [`editor-react-component/DIRECTIONALITY.md`](editor-react-component/DIRECTIONALITY.md) — RTL/LTR rules and patterns
-- [`editor-react-component/PROPS-VS-CSS.md`](editor-react-component/PROPS-VS-CSS.md) — What should be a React prop vs CSS
+These three references apply to every Editor React Component — load them before writing code:
+
+- [`editor-react-component/REACT-GUIDELINES.md`](editor-react-component/REACT-GUIDELINES.md) — Core rules and workflow
 - [`editor-react-component/COMPONENT-API.md`](editor-react-component/COMPONENT-API.md) — Props structure, elementProps, data types, file splitting, containers, array props
-- [`editor-react-component/REACT-PATTERNS.md`](editor-react-component/REACT-PATTERNS.md) — SSR-safe patterns, CSS rules, remaining common mistakes
+- [`editor-react-component/CSS-GUIDELINES.md`](editor-react-component/CSS-GUIDELINES.md) — CSS authoring rules (root layout, naming, RTL, state styles)
+
+### Load on demand (only when a signal in the spec matches)
+
+Do **not** read these upfront. Pull each one only when the component spec has the trigger listed — they add ~5–15k tokens each to your context window and inflate every subsequent tool turn's cache-read cost:
+
+| Reference | Load when the spec mentions… |
+| --- | --- |
+| [`PROPS-VS-CSS.md`](editor-react-component/PROPS-VS-CSS.md) | per-breakpoint visibility, `show*`/`hide*` toggles, orientation/alignment variations, or you're tempted to add a visual-toggle prop |
+| [`ACCESSIBILITY.md`](editor-react-component/ACCESSIBILITY.md) | icon-only buttons/links, ARIA attributes, screen-reader behavior, or interactive elements without visible text |
+| [`DIRECTIONALITY.md`](editor-react-component/DIRECTIONALITY.md) | non-trivial RTL behavior beyond `dir={direction}` on the root, JS that branches on direction (keyboard nav, animations), or RTL-aware transforms |
+| [`PARTS.md`](editor-react-component/PARTS.md) | non-obvious decisions about which elements deserve a named part (lists/grids of items, repeated structural elements, ambiguous wrappers) |
+| [`REACT-PATTERNS.md`](editor-react-component/REACT-PATTERNS.md) | SSR-sensitive logic (`window`/`document`/`navigator`), pseudo-class state styling questions, or semantic-HTML choices for collection-style UI |
+| [`COMPONENT-CONFIGURATION.md`](editor-react-component/COMPONENT-CONFIGURATION.md) | always when editing `<ComponentName>.extension.ts` (sizing type, resize direction, `staticContainer`) — but not before |
+
+When in doubt, write the code first using the three upfront references and the inline rules above. Pull a topic file only when you hit a question it answers.
 
 ## CSS guidelines
 
-Reference: [`editor-react-component/CSS-GUIDELINES.md`](editor-react-component/CSS-GUIDELINES.md).
+Reference: [`editor-react-component/CSS-GUIDELINES.md`](editor-react-component/CSS-GUIDELINES.md) — included in the "Read upfront" set above.
