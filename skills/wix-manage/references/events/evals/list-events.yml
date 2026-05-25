@@ -1,0 +1,9 @@
+name: events/list-events
+description: "List events for the next 2 weeks — exercises the ReadFullDocsArticle path for events/list-events."
+triggerPrompt: "list all my events for the upcoming 2 weeks in My Events site"
+tags:
+  - events
+assertions:
+  - tool: wix_mcp_remote_ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/events/skills/list-events
