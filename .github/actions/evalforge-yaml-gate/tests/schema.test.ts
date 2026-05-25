@@ -97,4 +97,87 @@ describe('parseScenario', () => {
     );
     expect(() => parseScenario(yaml)).toThrow();
   });
+
+  it('accepts an api_call assertion with required fields only', () => {
+    const yaml = minimalYaml.replace(
+      /assertions:[\s\S]*$/,
+      `assertions:
+  - type: api_call
+    url: https://www.wixapis.com/foo
+    expectedResponse:
+      ok: true
+`,
+    );
+    const s = parseScenario(yaml);
+    expect(s.assertions[0].type).toBe('api_call');
+  });
+
+  it('accepts an api_call assertion with all optional fields', () => {
+    const yaml = minimalYaml.replace(
+      /assertions:[\s\S]*$/,
+      `assertions:
+  - type: api_call
+    url: https://www.wixapis.com/foo
+    method: POST
+    requestBody:
+      key: value
+    expectedResponse: '{"ok":true}'
+    requestHeaders:
+      Authorization: "Bearer x"
+    timeoutMs: 5000
+    negate: false
+`,
+    );
+    expect(() => parseScenario(yaml)).not.toThrow();
+  });
+
+  it('rejects api_call without expectedResponse', () => {
+    const yaml = minimalYaml.replace(
+      /assertions:[\s\S]*$/,
+      `assertions:\n  - type: api_call\n    url: https://x\n`,
+    );
+    expect(() => parseScenario(yaml)).toThrow();
+  });
+
+  it('rejects api_call with invalid method', () => {
+    const yaml = minimalYaml.replace(
+      /assertions:[\s\S]*$/,
+      `assertions:\n  - type: api_call\n    url: https://x\n    method: DELETE\n    expectedResponse: "{}"\n`,
+    );
+    expect(() => parseScenario(yaml)).toThrow();
+  });
+
+  it('accepts a cost assertion', () => {
+    const yaml = minimalYaml.replace(
+      /assertions:[\s\S]*$/,
+      `assertions:\n  - type: cost\n    maxCostUsd: 0.05\n`,
+    );
+    const s = parseScenario(yaml);
+    expect(s.assertions[0].type).toBe('cost');
+  });
+
+  it('rejects cost with zero or negative maxCostUsd', () => {
+    const zero = minimalYaml.replace(
+      /assertions:[\s\S]*$/,
+      `assertions:\n  - type: cost\n    maxCostUsd: 0\n`,
+    );
+    expect(() => parseScenario(zero)).toThrow();
+  });
+
+  it('accepts a time_limit assertion', () => {
+    const yaml = minimalYaml.replace(
+      /assertions:[\s\S]*$/,
+      `assertions:\n  - type: time_limit\n    maxDurationMs: 60000\n`,
+    );
+    const s = parseScenario(yaml);
+    expect(s.assertions[0].type).toBe('time_limit');
+  });
+
+  it('rejects time_limit with non-integer maxDurationMs', () => {
+    const yaml = minimalYaml.replace(
+      /assertions:[\s\S]*$/,
+      `assertions:\n  - type: time_limit\n    maxDurationMs: 1.5\n`,
+    );
+    expect(() => parseScenario(yaml)).toThrow();
+  });
 });

@@ -11,27 +11,67 @@ const ParamValueSchema = z.union([
   z.array(ParamScalarSchema),
 ]);
 
+// For api_call expectedResponse/requestBody/requestHeaders: accept a YAML object/array (mapper
+// JSON-stringifies it) or a literal JSON string (passed through).
+const JsonStringOrStructured = z.union([
+  z.string(),
+  z.record(z.string(), z.unknown()),
+  z.array(z.unknown()),
+]);
+
 const ToolCallAssertionSchema = z.object({
-  // Optional — defaults to 'tool_called_with_param' when absent. Keeps existing YAMLs valid.
   type: z.literal('tool_called_with_param').optional(),
   tool: z.string().min(1),
   params: z.record(z.string(), ParamValueSchema).optional(),
+  negate: z.boolean().optional(),
 }).strict();
 
 const LlmJudgeAssertionSchema = z.object({
   type: z.literal('llm_judge'),
   prompt: z.string().min(1),
-  // Optional EvalForge LlmJudgeConfig fields.
   minScore: z.number().int().min(0).max(10).optional(),
   model: z.string().optional(),
   maxTokens: z.number().int().positive().optional(),
   temperature: z.number().min(0).max(1).optional(),
+  negate: z.boolean().optional(),
 }).strict();
 
-const AssertionSchema = z.union([ToolCallAssertionSchema, LlmJudgeAssertionSchema]);
+const ApiCallAssertionSchema = z.object({
+  type: z.literal('api_call'),
+  url: z.string().min(1),
+  method: z.enum(['GET', 'POST']).optional(),
+  requestBody: JsonStringOrStructured.optional(),
+  expectedResponse: JsonStringOrStructured,
+  requestHeaders: JsonStringOrStructured.optional(),
+  timeoutMs: z.number().int().positive().optional(),
+  negate: z.boolean().optional(),
+}).strict();
+
+const CostAssertionSchema = z.object({
+  type: z.literal('cost'),
+  maxCostUsd: z.number().positive(),
+  negate: z.boolean().optional(),
+}).strict();
+
+const TimeLimitAssertionSchema = z.object({
+  type: z.literal('time_limit'),
+  maxDurationMs: z.number().int().positive(),
+  negate: z.boolean().optional(),
+}).strict();
+
+const AssertionSchema = z.union([
+  ToolCallAssertionSchema,
+  LlmJudgeAssertionSchema,
+  ApiCallAssertionSchema,
+  CostAssertionSchema,
+  TimeLimitAssertionSchema,
+]);
 
 export type ToolCallAssertion = z.infer<typeof ToolCallAssertionSchema>;
 export type LlmJudgeAssertion = z.infer<typeof LlmJudgeAssertionSchema>;
+export type ApiCallAssertion = z.infer<typeof ApiCallAssertionSchema>;
+export type CostAssertion = z.infer<typeof CostAssertionSchema>;
+export type TimeLimitAssertion = z.infer<typeof TimeLimitAssertionSchema>;
 export type Assertion = z.infer<typeof AssertionSchema>;
 
 export const ScenarioSchema = z.object({
@@ -51,6 +91,18 @@ export function isLlmJudge(a: Assertion): a is LlmJudgeAssertion {
   return a.type === 'llm_judge';
 }
 
+export function isApiCall(a: Assertion): a is ApiCallAssertion {
+  return a.type === 'api_call';
+}
+
+export function isCost(a: Assertion): a is CostAssertion {
+  return a.type === 'cost';
+}
+
+export function isTimeLimit(a: Assertion): a is TimeLimitAssertion {
+  return a.type === 'time_limit';
+}
+
 export function isToolCall(a: Assertion): a is ToolCallAssertion {
   return a.type === undefined || a.type === 'tool_called_with_param';
 }
@@ -59,10 +111,12 @@ export function parseScenario(raw: string): Scenario {
   // CORE_SCHEMA refuses unsafe YAML tags (e.g. !!js/function); defense in depth before Zod.
   const parsed = jsYaml.load(raw, { schema: jsYaml.CORE_SCHEMA });
   // Pre-flight: nested-object params get a clearer message than Zod's union error.
-  const obj = parsed as { assertions?: { params?: Record<string, unknown> }[] } | null | undefined;
+  // Only applies to tool-call assertions (which use `params`); other types have their own shapes.
+  const obj = parsed as { assertions?: { type?: string; params?: Record<string, unknown> }[] } | null | undefined;
   if (obj?.assertions) {
     for (const a of obj.assertions) {
-      if (!a?.params) continue;
+      const isToolCallShape = a?.type === undefined || a?.type === 'tool_called_with_param';
+      if (!isToolCallShape || !a?.params) continue;
       for (const [k, v] of Object.entries(a.params)) {
         if (v && typeof v === 'object' && !Array.isArray(v)) {
           throw new Error(`nested object params not supported (Phase 1): assertions.params.${k}`);

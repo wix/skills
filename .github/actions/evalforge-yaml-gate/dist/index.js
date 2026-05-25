@@ -34629,10 +34629,17 @@ function toEvalForgeBody(s) {
 function mapAssertion(a) {
     if ((0, schema_1.isLlmJudge)(a))
         return mapLlmJudge(a);
+    if ((0, schema_1.isApiCall)(a))
+        return mapApiCall(a);
+    if ((0, schema_1.isCost)(a))
+        return mapCost(a);
+    if ((0, schema_1.isTimeLimit)(a))
+        return mapTimeLimit(a);
     return {
         type: 'tool_called_with_param',
         toolName: a.tool,
         expectedParams: JSON.stringify(a.params ?? {}),
+        ...(a.negate !== undefined && { negate: a.negate }),
     };
 }
 function mapLlmJudge(a) {
@@ -34645,7 +34652,44 @@ function mapLlmJudge(a) {
         out.maxTokens = a.maxTokens;
     if (a.temperature !== undefined)
         out.temperature = a.temperature;
+    if (a.negate !== undefined)
+        out.negate = a.negate;
     return out;
+}
+function mapApiCall(a) {
+    const out = {
+        type: 'api_call',
+        url: a.url,
+        expectedResponse: jsonifyMaybe(a.expectedResponse),
+    };
+    if (a.method !== undefined)
+        out.method = a.method;
+    if (a.requestBody !== undefined)
+        out.requestBody = jsonifyMaybe(a.requestBody);
+    if (a.requestHeaders !== undefined)
+        out.requestHeaders = jsonifyMaybe(a.requestHeaders);
+    if (a.timeoutMs !== undefined)
+        out.timeoutMs = a.timeoutMs;
+    if (a.negate !== undefined)
+        out.negate = a.negate;
+    return out;
+}
+function mapCost(a) {
+    const out = { type: 'cost', maxCostUsd: a.maxCostUsd };
+    if (a.negate !== undefined)
+        out.negate = a.negate;
+    return out;
+}
+function mapTimeLimit(a) {
+    const out = { type: 'time_limit', maxDurationMs: a.maxDurationMs };
+    if (a.negate !== undefined)
+        out.negate = a.negate;
+    return out;
+}
+// EvalForge expects expectedResponse/requestBody/requestHeaders as JSON STRINGS. Authors may write
+// a YAML object/array for ergonomics — stringify if so, pass through if already a string.
+function jsonifyMaybe(v) {
+    return typeof v === 'string' ? v : JSON.stringify(v);
 }
 
 
@@ -35410,6 +35454,9 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.ScenarioSchema = exports.RESERVED_TAG_PREFIXES = void 0;
 exports.isLlmJudge = isLlmJudge;
+exports.isApiCall = isApiCall;
+exports.isCost = isCost;
+exports.isTimeLimit = isTimeLimit;
 exports.isToolCall = isToolCall;
 exports.parseScenario = parseScenario;
 const zod_1 = __nccwpck_require__(924);
@@ -35421,22 +35468,55 @@ const ParamValueSchema = zod_1.z.union([
     ParamScalarSchema,
     zod_1.z.array(ParamScalarSchema),
 ]);
+// For api_call expectedResponse/requestBody/requestHeaders: accept a YAML object/array (mapper
+// JSON-stringifies it) or a literal JSON string (passed through).
+const JsonStringOrStructured = zod_1.z.union([
+    zod_1.z.string(),
+    zod_1.z.record(zod_1.z.string(), zod_1.z.unknown()),
+    zod_1.z.array(zod_1.z.unknown()),
+]);
 const ToolCallAssertionSchema = zod_1.z.object({
-    // Optional — defaults to 'tool_called_with_param' when absent. Keeps existing YAMLs valid.
     type: zod_1.z.literal('tool_called_with_param').optional(),
     tool: zod_1.z.string().min(1),
     params: zod_1.z.record(zod_1.z.string(), ParamValueSchema).optional(),
+    negate: zod_1.z.boolean().optional(),
 }).strict();
 const LlmJudgeAssertionSchema = zod_1.z.object({
     type: zod_1.z.literal('llm_judge'),
     prompt: zod_1.z.string().min(1),
-    // Optional EvalForge LlmJudgeConfig fields.
     minScore: zod_1.z.number().int().min(0).max(10).optional(),
     model: zod_1.z.string().optional(),
     maxTokens: zod_1.z.number().int().positive().optional(),
     temperature: zod_1.z.number().min(0).max(1).optional(),
+    negate: zod_1.z.boolean().optional(),
 }).strict();
-const AssertionSchema = zod_1.z.union([ToolCallAssertionSchema, LlmJudgeAssertionSchema]);
+const ApiCallAssertionSchema = zod_1.z.object({
+    type: zod_1.z.literal('api_call'),
+    url: zod_1.z.string().min(1),
+    method: zod_1.z.enum(['GET', 'POST']).optional(),
+    requestBody: JsonStringOrStructured.optional(),
+    expectedResponse: JsonStringOrStructured,
+    requestHeaders: JsonStringOrStructured.optional(),
+    timeoutMs: zod_1.z.number().int().positive().optional(),
+    negate: zod_1.z.boolean().optional(),
+}).strict();
+const CostAssertionSchema = zod_1.z.object({
+    type: zod_1.z.literal('cost'),
+    maxCostUsd: zod_1.z.number().positive(),
+    negate: zod_1.z.boolean().optional(),
+}).strict();
+const TimeLimitAssertionSchema = zod_1.z.object({
+    type: zod_1.z.literal('time_limit'),
+    maxDurationMs: zod_1.z.number().int().positive(),
+    negate: zod_1.z.boolean().optional(),
+}).strict();
+const AssertionSchema = zod_1.z.union([
+    ToolCallAssertionSchema,
+    LlmJudgeAssertionSchema,
+    ApiCallAssertionSchema,
+    CostAssertionSchema,
+    TimeLimitAssertionSchema,
+]);
 exports.ScenarioSchema = zod_1.z.object({
     name: zod_1.z.string().min(1).regex(NamePattern, 'name must match /^[a-z0-9][a-z0-9/_-]*$/'),
     description: zod_1.z.string(),
@@ -35447,6 +35527,15 @@ exports.ScenarioSchema = zod_1.z.object({
 function isLlmJudge(a) {
     return a.type === 'llm_judge';
 }
+function isApiCall(a) {
+    return a.type === 'api_call';
+}
+function isCost(a) {
+    return a.type === 'cost';
+}
+function isTimeLimit(a) {
+    return a.type === 'time_limit';
+}
 function isToolCall(a) {
     return a.type === undefined || a.type === 'tool_called_with_param';
 }
@@ -35454,10 +35543,12 @@ function parseScenario(raw) {
     // CORE_SCHEMA refuses unsafe YAML tags (e.g. !!js/function); defense in depth before Zod.
     const parsed = jsYaml.load(raw, { schema: jsYaml.CORE_SCHEMA });
     // Pre-flight: nested-object params get a clearer message than Zod's union error.
+    // Only applies to tool-call assertions (which use `params`); other types have their own shapes.
     const obj = parsed;
     if (obj?.assertions) {
         for (const a of obj.assertions) {
-            if (!a?.params)
+            const isToolCallShape = a?.type === undefined || a?.type === 'tool_called_with_param';
+            if (!isToolCallShape || !a?.params)
                 continue;
             for (const [k, v] of Object.entries(a.params)) {
                 if (v && typeof v === 'object' && !Array.isArray(v)) {
