@@ -19,6 +19,11 @@ const scenario: Scenario = {
   ],
 };
 
+function asToolCall(a: ReturnType<typeof toEvalForgeBody>['assertions'][number]) {
+  if (a.type !== 'tool_called_with_param') throw new Error('expected tool_called_with_param');
+  return a;
+}
+
 describe('toEvalForgeBody', () => {
   it('maps top-level fields', () => {
     const body = toEvalForgeBody(scenario);
@@ -36,7 +41,6 @@ describe('toEvalForgeBody', () => {
     expect(body.assertions).toHaveLength(2);
     for (const a of body.assertions) {
       expect(a.type).toBe('tool_called_with_param');
-      // EvalForge schema is strictObject — extra keys would be rejected.
       expect(a).not.toHaveProperty('name');
       expect(a).not.toHaveProperty('description');
       expect(a).not.toHaveProperty('config');
@@ -44,7 +48,7 @@ describe('toEvalForgeBody', () => {
   });
 
   it('JSON-stringifies params into top-level expectedParams string', () => {
-    const [first] = toEvalForgeBody(scenario).assertions;
+    const first = asToolCall(toEvalForgeBody(scenario).assertions[0]);
     expect(first.toolName).toBe('wix_mcp_remote_ReadFullDocsArticle');
     expect(typeof first.expectedParams).toBe('string');
     expect(JSON.parse(first.expectedParams)).toEqual({ articleUrl: 'https://dev.wix.com/foo' });
@@ -52,7 +56,51 @@ describe('toEvalForgeBody', () => {
 
   it('handles assertions with no params (empty object)', () => {
     const noParams: Scenario = { ...scenario, assertions: [{ tool: 't' }] };
-    const [a] = toEvalForgeBody(noParams).assertions;
+    const a = asToolCall(toEvalForgeBody(noParams).assertions[0]);
     expect(JSON.parse(a.expectedParams)).toEqual({});
+  });
+
+  it('maps llm_judge with minimal fields (prompt only)', () => {
+    const judge: Scenario = {
+      ...scenario,
+      assertions: [{ type: 'llm_judge', prompt: 'judge {{output}}' }],
+    };
+    const [a] = toEvalForgeBody(judge).assertions;
+    expect(a).toEqual({ type: 'llm_judge', prompt: 'judge {{output}}' });
+  });
+
+  it('maps llm_judge with optional fields (only sets the ones provided)', () => {
+    const judge: Scenario = {
+      ...scenario,
+      assertions: [{
+        type: 'llm_judge',
+        prompt: 'judge {{output}}',
+        minScore: 8,
+        model: 'claude-3-5-haiku-20241022',
+        maxTokens: 2048,
+        temperature: 0.2,
+      }],
+    };
+    const [a] = toEvalForgeBody(judge).assertions;
+    expect(a).toEqual({
+      type: 'llm_judge',
+      prompt: 'judge {{output}}',
+      minScore: 8,
+      model: 'claude-3-5-haiku-20241022',
+      maxTokens: 2048,
+      temperature: 0.2,
+    });
+  });
+
+  it('mixes tool_called_with_param + llm_judge in one scenario', () => {
+    const mixed: Scenario = {
+      ...scenario,
+      assertions: [
+        { tool: 'wix_mcp_remote_X', params: { url: 'https://x' } },
+        { type: 'llm_judge', prompt: 'judge' },
+      ],
+    };
+    const body = toEvalForgeBody(mixed);
+    expect(body.assertions.map(a => a.type)).toEqual(['tool_called_with_param', 'llm_judge']);
   });
 });

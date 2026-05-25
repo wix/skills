@@ -49,4 +49,52 @@ describe('parseScenario', () => {
       'sourceDocUrls:\n        - https://dev.wix.com/foo');
     expect(() => parseScenario(yaml)).not.toThrow();
   });
+
+  it('accepts an llm_judge assertion with minimal fields', () => {
+    const yaml = minimalYaml.replace(
+      /assertions:[\s\S]*$/,
+      `assertions:\n  - type: llm_judge\n    prompt: "Evaluate {{output}} for correctness"\n`,
+    );
+    const s = parseScenario(yaml);
+    const a = s.assertions[0];
+    expect(a.type).toBe('llm_judge');
+    if (a.type === 'llm_judge') expect(a.prompt).toMatch(/Evaluate/);
+  });
+
+  it('accepts an llm_judge assertion with all optional fields', () => {
+    const yaml = minimalYaml.replace(
+      /assertions:[\s\S]*$/,
+      `assertions:
+  - type: llm_judge
+    prompt: "judge it: {{output}}"
+    minScore: 8
+    model: claude-3-5-haiku-20241022
+    maxTokens: 2048
+    temperature: 0.2
+`,
+    );
+    const s = parseScenario(yaml);
+    const a = s.assertions[0];
+    if (a.type !== 'llm_judge') throw new Error('expected llm_judge');
+    expect(a.minScore).toBe(8);
+    expect(a.model).toBe('claude-3-5-haiku-20241022');
+    expect(a.maxTokens).toBe(2048);
+    expect(a.temperature).toBeCloseTo(0.2);
+  });
+
+  it('rejects llm_judge with empty prompt', () => {
+    const yaml = minimalYaml.replace(
+      /assertions:[\s\S]*$/,
+      `assertions:\n  - type: llm_judge\n    prompt: ""\n`,
+    );
+    expect(() => parseScenario(yaml)).toThrow();
+  });
+
+  it('rejects llm_judge with minScore out of range', () => {
+    const yaml = minimalYaml.replace(
+      /assertions:[\s\S]*$/,
+      `assertions:\n  - type: llm_judge\n    prompt: "x"\n    minScore: 11\n`,
+    );
+    expect(() => parseScenario(yaml)).toThrow();
+  });
 });
