@@ -4,7 +4,7 @@ description: Queries events from Wix Events using Events API. Covers field sets 
 ---
 # List Events with Wix Events API
 
-This recipe demonstrates how to query and list events from Wix Events using the REST API.
+This recipe demonstrates how to query and list events from Wix Events using the REST API. Supports filtering, sorting, and pagination.
 
 ## Prerequisites
 
