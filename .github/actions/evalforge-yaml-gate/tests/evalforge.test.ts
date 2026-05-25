@@ -27,9 +27,8 @@ const goodBody = {
   triggerPrompt: '0123456789',
   assertions: [{
     type: 'tool_called_with_param' as const,
-    name: 'n#0',
-    description: 'd',
-    config: { toolName: 't', expectedParams: '{}' },
+    toolName: 't',
+    expectedParams: '{}',
   }],
 };
 
