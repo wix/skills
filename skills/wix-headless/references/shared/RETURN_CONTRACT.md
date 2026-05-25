@@ -265,7 +265,7 @@ Phase 4 CMS page agents reference these collection names; the image agent attach
 
 The image agent runs in two scopes dispatched by the parent in different steps. Each emits its own return block.
 
-**`image-phase-1-decorative` — dispatched in Step 3 (no dependencies):**
+**`image-phase-1-decorative` — dispatched in `SEED.md` Step 2 Wave 3 batch (no dependencies):**
 
 ```json
 {
@@ -399,9 +399,9 @@ Agents should check their output for these before returning `complete`:
 
 | Failure | How to detect | Fix |
 |---------|---------------|-----|
-| `UNSUPPORTED_FORM_NAMESPACE` after app install | Error on first MCP call post-install | Wait 10s, retry up to 3x (namespace propagation) |
-| `CallWixSiteAPI` with stringified `body` | Tool rejects the call shape | Load the tool schema via your runtime's tool-discovery primitive, then pass `body` as a real object |
-| Tool-not-found on Wix MCP call | Tool name without the session's prefix | Use `<prefix>ToolName`; see `MCP_PREFIX.md` recovery |
+| `UNSUPPORTED_FORM_NAMESPACE` after app install | Error on first REST call post-install | Wait 10s, retry up to 3x (namespace propagation) |
+| `curl` with stringified `body` | Tool rejects the call shape | Load the tool schema via your runtime's AUTHENTICATION.md recovery ladder, then pass `body` as a real object |
+| 401/403 on Wix REST call | Expired or wrong token | Re-mint per `AUTHENTICATION.md` recovery ladder; one retry then surface body |
 
 ### Build
 

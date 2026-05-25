@@ -19,16 +19,16 @@ Then read the specific reference(s) for your declared scope (see your vertical's
 Your prompt includes a line `Scope: <name>`. Map to exactly one reference set per your vertical's `INSTRUCTIONS.md` scope table. If the `Scope:` line is missing, stop and ask the parent — do not guess.
 
 Standard scope names (see architecture-proposal §3):
-- `seed` — Seed phase (MCP data setup, no frontend code)
+- `seed` — Seed phase (REST data setup, no frontend code)
 - `components` — Components phase (reusable React/Astro islands, SDK wiring)
 - `pages` — Pages phase (route files with visual design + data queries, single scope per vertical)
 - `pages-<name>` — Pages phase sub-scope (only when a vertical has multiple pages groups, e.g. stores has `pages-products`, `pages-home-and-nav`)
 
-## MCP tool prefix
+## REST auth
 
-Your prompt includes `MCP tool prefix: <prefix>`. Substitute it for `mcp__wix-mcp-remote__` wherever it appears in your reference files. See `references/shared/MCP_PREFIX.md` for discovery rules.
+Scopes that call Wix APIs (`seed`, image phases) receive `siteId` in the prompt. Mint once: `TOKEN=$(npx @wix/cli token --site "$SITE_ID")`. Every `curl` uses the headers in `references/shared/AUTHENTICATION.md`. Doc lookups use public endpoints in `references/shared/MCP_PREFIX.md` (no MCP).
 
-If your scope is `components` or `pages`, you should NOT make MCP calls — those scopes are frontend-only. If you find yourself needing MCP, it's a scope violation — return `status: "partial"` with an error note, do not proceed.
+If your scope is `components` or `pages`, you should NOT make REST calls — those scopes are frontend-only. If you find yourself needing a site API call, it's a scope violation — return `status: "partial"` with an error note, do not proceed.
 
 ## Reading `.wix/site.json`
 
@@ -51,7 +51,7 @@ Every agent reads `.wix/site.json` at the start of its run. The file is the sing
 | `components` | `brand`, `designTokens` (via `var(--color-*)` in CSS). |
 | `pages` / `pages-*` | `brand`, `seeded.<vertical>` (products, posts, collections), `designTokens`. Page data comes from `seeded`, NOT from re-querying MCP. |
 
-If a required key is missing (e.g. `seeded.stores.products` absent when you're dispatched as `pages-products`), fail fast — return `status: "failed"` with `errors: [{ code: "SITE_JSON_INCOMPLETE", missing: "seeded.stores.products" }]`. Do NOT re-query MCP — the data gap means a seeder didn't complete, and re-querying would mask the real bug.
+If a required key is missing (e.g. `seeded.stores.products` absent when you're dispatched as `pages-products`), fail fast — return `status: "failed"` with `errors: [{ code: "SITE_JSON_INCOMPLETE", missing: "seeded.stores.products" }]`. Do NOT re-fetch via curl — the data gap means a seeder didn't complete, and re-querying would mask the real bug.
 
 ## Seeders write their data for the orchestrator to aggregate
 
@@ -133,7 +133,7 @@ The full styling contract (tokens-as-utilities default, when global semantic cla
   @reference "./global.css";
   ```
   Without it, the build breaks at release time even though `tsc` and `astro check` pass clean — only the bundler catches it.
-- **Fail loud, never silently.** If data is missing, a required field is absent, or an MCP call returns an unexpected shape, return `status: "failed"` with details. Do not invent placeholders or swallow errors.
+- **Fail loud, never silently.** If data is missing, a required field is absent, or an REST call returns an unexpected shape, return `status: "failed"` with details. Do not invent placeholders or swallow errors.
 
 ## Return contract
 

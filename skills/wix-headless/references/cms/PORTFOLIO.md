@@ -431,7 +431,7 @@ Gallery image [N] for [TITLE]: [describe a specific aspect/angle of the project]
 Example patch:
 
 ```
-CallWixSiteAPI: PATCH /wix-data/v2/items/{projectId}
+REST: PATCH https://www.wixapis.com/wix-data/v2/items/{projectId}
 body: {
   "dataCollectionId": "Projects",
   "dataItem": {

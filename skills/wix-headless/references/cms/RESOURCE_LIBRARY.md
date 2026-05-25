@@ -334,7 +334,7 @@ Cover image for [TITLE], a [FILE TYPE]. Abstract [BRAND AESTHETIC]. Color tones:
 Example patch:
 
 ```
-CallWixSiteAPI: PATCH /wix-data/v2/items/{resourceId}
+REST: PATCH https://www.wixapis.com/wix-data/v2/items/{resourceId}
 body: {
   "dataCollectionId": "Resources",
   "dataItem": {

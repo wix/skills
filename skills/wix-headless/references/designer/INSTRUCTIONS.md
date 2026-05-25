@@ -11,11 +11,12 @@ You own **all visual output**: CSS, page layout, typography, color, spacing, com
 
 ## Self-Loading
 
-1. Read `.wix/site.json` — current site manifest (brand, loaded verticals)
-2. Read `../shared/RETURN_CONTRACT.md` — structured return format
-3. Read `../shared/STYLING.md` — three styling categories (tokens-as-utilities, global semantic classes, co-located styles), ownership, and decision rules. The principle that governs what belongs in `global.css` versus what stays in markup as utilities.
+1. Read `../shared/RETURN_CONTRACT.md` — structured return format
+2. Read `../shared/STYLING.md` — three styling categories (tokens-as-utilities, global semantic classes, co-located styles), ownership, and decision rules. The principle that governs what belongs in `global.css` versus what stays in markup as utilities.
 
-No MCP calls required. Designer scopes are frontend-only — no `CallWixSiteAPI`, no MCP tool-discovery.
+No REST calls required. Designer scopes are frontend-only — no `curl`, no MCP tool-discovery.
+
+**Do NOT `Read .wix/site.json`.** You are dispatched in DISCOVERY.md Step 2.6, before `init-site-json.mjs` runs — the file does not yet exist when you start. Every input you need (brand, verticals, packs with components, disabled packs, navigation links, plus all aesthetic fields) is inlined in your prompt. A `Read .wix/site.json` attempt either fails with "file does not exist" (early dispatch) or sees a partial file that won't include the design tokens you would otherwise care about (later dispatch). Trust the prompt; do not branch to site.json.
 
 ## Scope Routing
 
@@ -46,26 +47,32 @@ The orchestrator's prompt names every loaded pack, but only packs WITHOUT `disab
 
 ## Scope: `design-system` (foreground, critical path)
 
-**Tool call budget: target 9 calls** (2 reads for self-loading + 1 read of `.wix/site.json` + 6 writes — `global.css`, `astro.config.mjs`, `Layout.astro`, `Navigation.astro` shell, `Footer.astro`, `index.astro` shell). You no longer write `.wix/design-tokens.css` or `.wix/site.d.ts` — the orchestrator emits both deterministically from your returned `designTokens` JSON via `<SKILL_ROOT>/scripts/emit-design-tokens.mjs`. `site.json` is NOT one of your writes either — return your `designTokens` in the standard return `data` block and the orchestrator merges. Do NOT read existing project files, glob directories, or explore the scaffold — everything you need is in your prompt or in `.wix/site.json`.
+**Tool call budget: target 8 calls** (2 reads for self-loading + 6 writes — `global.css`, `astro.config.mjs`, `Layout.astro`, `Navigation.astro` shell, `Footer.astro`, `index.astro` shell). You no longer write `.wix/design-tokens.css` or `.wix/site.d.ts` — the orchestrator emits both deterministically from your returned `designTokens` JSON via `<SKILL_ROOT>/scripts/emit-design-tokens.mjs`. `site.json` is NOT one of your writes either — return your `designTokens` in the standard return `data` block and the orchestrator merges. Do NOT read existing project files, glob directories, or explore the scaffold — every brand/vertical/navigation input is inlined in your prompt; `.wix/site.json` does not yet exist when you are dispatched (see Self-Loading § "Do NOT `Read .wix/site.json`").
 
 You are the design system architect. Everything downstream depends on what you produce here. Your output sets the brand's visual identity (design tokens + typed manifest) and the class-name contract that every other agent references.
 
-### Inputs (from your prompt + .wix/site.json)
+### Inputs (entirely from your prompt)
 
-- **Brand name** and **description** — from `.wix/site.json.brand` (written by Setup).
-- **Aesthetic direction** — 2–3 sentence design brief from discovery (in prompt).
-- **Color palette** — hex codes (in prompt; you return these in `data.designTokens.colors` of your final return JSON — the orchestrator writes `site.json`).
-- **Typography** — font pairing (display + body).
-- **Mood** — personality and visual elements.
-- **Page color strategy** — Uniform Light / Uniform Dark / Defined Hybrid.
-- **Verticals loaded** — which packs are active (stores, cms, blog, forms).
-- **Packs with components** — which packs will have a `components-<pack>.css` file (for Layout.astro imports).
+Every field below is inlined in the prompt by the orchestrator at dispatch time. Do not derive any of them from `.wix/site.json` — that file does not yet exist when you start.
+
+- **Brand name** and **description** — from prompt `Brand: { name, description }`.
+- **Aesthetic direction** — 2–3 sentence design brief from prompt.
+- **Color palette** — hex codes from prompt; you return these in `data.designTokens.colors` of your final return JSON — the orchestrator merges into `site.json`.
+- **Typography** — font pairing (display + body), from prompt.
+- **Mood** — personality and visual elements, from prompt.
+- **Page color strategy** — Uniform Light / Uniform Dark / Defined Hybrid, from prompt.
+- **Verticals loaded** — from prompt's `Loaded verticals:` (comma-joined list).
+- **Packs with components** — from prompt's `Packs with components:`. These packs will have a `components-<pack>.css` file (for Layout.astro imports).
+- **Disabled packs** — from prompt's `Disabled packs:`. Today only `gift-cards` ships disabled.
+- **Navigation links** — from prompt's `Navigation links:` (JSON array of `{href, label}`). Use the labels verbatim in Navigation.astro.
 - **Always-required global semantic classes** — derived from which packs are loaded (see § "Always-required global semantic classes" below). These are the principled exceptions where a class earns its place in `global.css`; everything else flows through tokens-as-utilities at the call site.
 
 ### Outputs that matter to every downstream phase
 
-- **`data.designTokens` in your return JSON** — populate `{ colors, fonts, radii, spacing }`. The orchestrator merges this into `.wix/site.json.designTokens` after your return arrives, then runs `<SKILL_ROOT>/scripts/emit-design-tokens.mjs`, which deterministically projects the JSON into both `.wix/design-tokens.css` (CSS custom properties) and `.wix/site.d.ts` (TypeScript types). You do not write either file yourself — the script is the single source of truth for both projections, and it can't drift the way agent-emitted CSS / TS could.
+- **`data.designTokens` in your return JSON** — populate `{ colors, fonts, radii, spacing, containers? }`. The orchestrator merges this into `.wix/site.json.designTokens` after your return arrives, then runs `<SKILL_ROOT>/scripts/emit-design-tokens.mjs`, which deterministically projects the JSON into both `.wix/design-tokens.css` (CSS custom properties) and `.wix/site.d.ts` (TypeScript types). You do not write either file yourself — the script is the single source of truth for both projections, and it can't drift the way agent-emitted CSS / TS could.
 - Do **NOT** write `.wix/site.json` yourself either — Phase 1 Seeders run in parallel, and concurrent writes would clobber each other. The orchestrator owns site.json writes precisely to avoid that race; see `skills/wix-headless/SKILL.md` § Step 2 "`.wix/site.json` write contract".
+
+**Required tokens for component-CSS templates.** The per-pack `components-<pack>.css` templates (stores, ecom, blog, forms, gift-cards — copied by the orchestrator at ORCHESTRATION.md Step 4.5 into `src/styles/`) reference a fixed token set via `var(--token)`. **Your `@theme` block MUST declare every required token in that set**, or the components render unstyled at runtime. See [`../shared/STYLING.md` § "Required tokens — the component-CSS template contract"](../shared/STYLING.md) for the canonical list. In short: `--color-{paper,paper-warm,ink,mute,rule,accent}`, `--font-{display,body}`, the full `--spacing-{2xs..4xl}` scale, and `--radius-{sm,md}` are mandatory; `--color-{ink-soft,cream,error}` and `--radius-{lg,xl}` are template-fallback-friendly but recommended.
 
 **Token-key naming contract.** Because `emit-design-tokens.mjs` projects each group with a fixed prefix, your `designTokens` return must use the bare key (no prefix):
 
@@ -75,6 +82,9 @@ You are the design system architect. Everything downstream depends on what you p
 | `fonts` | `display`, `body`, … | `--font-display`, `--font-body`, … |
 | `radii` | `sm`, `md`, … | `--radius-sm`, `--radius-md`, … |
 | `spacing` | `xs`, `sm`, `md`, `lg`, `xl`, `2xl`, `3xl`, `4xl`, … | `--spacing-xs`, `--spacing-sm`, … |
+| `containers` | `prose`, `md`, `3xl`, `6xl`, … | `--container-prose`, `--container-3xl`, … (optional in JSON if declared only in `@theme`) |
+
+**Container scale is mandatory in `@theme`**, separate from spacing. Tailwind v4 maps `max-w-3xl` → `var(--container-3xl)`, not `var(--spacing-3xl)`. If you declare `--spacing-3xl: 5rem` but omit `--container-3xl`, downstream pages that use `max-w-3xl` collapse to ~80px (one word per line). Never alias container keys to spacing values.
 
 If you reference `class="py-4xl bg-paper text-ink"` in your shell markup, your `designTokens.spacing` must include a `4xl` entry, your `designTokens.colors` must include `paper` and `ink` entries — Tailwind v4 generates utilities from the emitted `--spacing-*` / `--color-*` variables, and silently drops references whose token isn't declared. This is the coverage check at the bottom of this section, just expressed as a JSON-key check rather than a CSS-grep.
 
@@ -156,6 +166,12 @@ For one-off page decoration that doesn't fit any of the above, the page or compo
   --spacing-3xl: 5rem;
   --spacing-4xl: 7rem;
 
+  /* Container scale — NOT spacing; required for max-w-* utilities */
+  --container-prose: 42rem;   /* ~65ch readable column */
+  --container-md:    40rem;
+  --container-3xl:   48rem;   /* do NOT set to 5rem / spacing-3xl */
+  --container-6xl:   72rem;
+
   /* Radii, shadows, transitions, eases as needed */
 }
 
@@ -180,7 +196,8 @@ For one-off page decoration that doesn't fit any of the above, the page or compo
 Contains:
 
 - **`@import "tailwindcss"`** — must be the first line. Loads all Tailwind v4 utilities.
-- **`@theme { }` block** — the token contract. Publish a complete set covering colors (full palette including semantic roles like `paper`, `paper-warm`, `cream`, `ink`, `ink-soft`, `mute`, `rule`, plus brand accents), font families (display, body, mono if needed), the spacing scale (every step from `2xs` through `4xl` minimum — pages will reference `py-4xl`, `mt-3xl`, `gap-sm` etc.), radii, shadows, transitions, and eases. Tailwind auto-generates utilities from these (`--color-bark` → `bg-bark`/`text-bark`/`border-bark`; `--spacing-4xl` → `py-4xl`/`mt-4xl`/`gap-4xl`). Derive every token from the aesthetic direction in your prompt — never use Tailwind's default color palette. **Token completeness is the contract** — if a value would be referenced anywhere in your shell markup or a downstream pack's typical page, it belongs as a token. Skipping a token forces downstream agents to invent classes (the failure mode this protocol exists to prevent).
+- **`@theme { }` block** — the token contract. Publish a complete set covering colors (full palette including semantic roles like `paper`, `paper-warm`, `cream`, `ink`, `ink-soft`, `mute`, `rule`, plus brand accents), font families (display, body, mono if needed), the spacing scale (every step from `2xs` through `4xl` minimum — pages will reference `py-4xl`, `mt-3xl`, `gap-sm` etc.), a **container scale** (`--container-prose`, `--container-md`, `--container-3xl`, `--container-6xl` minimum — pages use `max-w-3xl`, `max-w-6xl`, `max-w-prose`), radii, shadows, transitions, and eases. Tailwind auto-generates utilities from these (`--color-bark` → `bg-bark`/`text-bark`/`border-bark`; `--spacing-4xl` → `py-4xl`/`mt-4xl`/`gap-4xl`; `--container-3xl` → `max-w-3xl`). Derive every token from the aesthetic direction in your prompt — never use Tailwind's default color palette. **Token completeness is the contract** — if a value would be referenced anywhere in your shell markup or a downstream pack's typical page, it belongs as a token. Skipping a token forces downstream agents to invent classes (the failure mode this protocol exists to prevent).
+- **Reading-width utility (recommended).** After `@theme`, declare `@utility container-reading { max-width: var(--container-prose); margin-inline: auto; }` so CMS/FAQ pages can center prose without guessing Tailwind size names.
 - **`@layer base { }` block** — resets and base typography for `*`, `body`, `h1`–`h6`, `p`, `a`, `button`, `input`, `img`, `ul`/`ol`. Use `@apply` with brand-token utilities where possible.
 - **Global semantic class rules** — only the principled exceptions listed above. Use `@apply` to compose Tailwind utilities for the token-derived properties; supplement with explicit CSS for state, position, transitions, etc. Include hover/focus/disabled states where appropriate for interactive elements.
 
@@ -201,8 +218,9 @@ Two correct patterns:
 }
 @utility section { @apply py-3xl; }
 
-.btn-primary { @apply btn bg-amber text-walnut; }    /* now OK */
-.btn-secondary { @apply btn border-rule text-paper; } /* now OK */
+.btn-primary   { @apply btn bg-amber text-walnut; }                  /* now OK */
+.btn-secondary { @apply btn border border-rule text-paper; }          /* now OK */
+.btn-ghost     { @apply btn bg-transparent text-ink hover:bg-paper-warm; }  /* now OK */
 ```
 
 **Option B (preferred for a single variant) — inline the base rules into each contract class:**
@@ -213,6 +231,13 @@ Two correct patterns:
 ```
 
 Never write `@apply <custom-class-name>` unless `<custom-class-name>` is declared with `@utility`. The build validates this — a failing build is your signal.
+
+**Observed regression — `btn-ghost` specifically.** The exact failure `Cannot apply unknown utility class 'btn-ghost'` has been hit on multiple runs because the designer reached for `.btn-ghost { @apply btn ... }` without first declaring `@utility btn`. The retained-set rule at the bottom of this section requires all four classes — `btn`, `btn-primary`, `btn-secondary`, `btn-ghost` — to exist. If you ship `btn-primary`/`btn-secondary`/`btn-ghost` using `@apply btn`, you MUST declare `@utility btn` first (Option A). If you skip the `@utility` declaration, choose Option B and inline the base rules into each of the four. Mixing the two — `@utility btn` declared, but a variant like `.btn-ghost` still using `@apply btn-secondary` or `@apply some-other-custom-class` — fails the same way; only built-in utilities are `@apply`-able unless they were declared with `@utility`.
+
+```css
+/* WRONG — observed on Bakin Goods + French Goods runs */
+.btn-ghost { @apply btn bg-transparent; }   /* @utility btn was not declared above */
+```
 
 **Tailwind v4 `@apply` forbidden patterns — collapse silently at runtime.** These DO build successfully but produce broken CSS because the utilities reference theme keys you didn't declare in `@theme`:
 
@@ -228,12 +253,15 @@ Never write `@apply <custom-class-name>` unless `<custom-class-name>` is declare
 
 > **NEVER rewrite `global.css` from scratch to fit the line count.** A measured rewrite cycle costs ~60 s of subagent wall time (the dominant cause of a 326 s vs 197 s DS regression observed in the 2026-05-05 Magnific run, where v1 was 654 lines and the agent rewrote to 321). The line budget is a soft signal to audit for leaks, not a build constraint — every legitimate cross-cutting rule between 500 and 800 lines ships fine with `notes: [{code: "GLOBAL_CSS_OVER_TARGET"}]`. Only the audit-and-remove-leaks pass is allowed when over 500; full regenerations are not. If you are tempted to rewrite, that means the audit failed to find enough leaks — which is the signal to ship at the current line count, not to start over.
 
-**Coverage rule.** Two checks before returning:
+**Coverage rule.** Three checks before returning:
 
-1. **Token completeness.** Every spacing/color/font/radius value referenced in your shell markup (`index.astro`, `Layout.astro`, `Navigation.astro`, `Footer.astro`) must exist as a token in `@theme`. If you wrote `class="py-4xl"`, then `--spacing-4xl` must be declared — Tailwind v4 generates the utility from the token, and silently omits it if the token is absent.
-2. **Always-required class rules.** Every class on the principled retained list below (when its pack is loaded) must have a rule. Verify with the grep checks at the end of each section.
+1. **Token completeness.** Every spacing/color/font/radius/container value referenced in your shell markup (`index.astro`, `Layout.astro`, `Navigation.astro`, `Footer.astro`) must exist as a token in `@theme`. If you wrote `class="py-4xl"`, then `--spacing-4xl` must be declared — Tailwind v4 generates the utility from the token, and silently omits it if the token is absent.
+2. **Container / max-width cross-check.** Grep `src/pages/**/*.astro`, `src/styles/global.css`, and shell files for `max-w-`, `min-w-`, `w-` in `class="..."` strings. For each Tailwind size key (e.g. `3xl`, `6xl`, `prose`), confirm `--container-<key>` exists in `@theme`. If you cannot add the token, remove the utility from markup and use `container-reading`, `max-w-[48rem]`, or explicit CSS instead.
+3. **Always-required class rules.** Every class on the principled retained list below (when its pack is loaded) must have a rule. Verify with the grep checks at the end of each section.
 
 If a check fails, STOP — fix and re-verify rather than shipping a partial global.css.
+
+Include `containers` in `data.designTokens` when you want `emit-design-tokens.mjs` to mirror them to `:root` (optional if containers live only in `@theme` — Tailwind reads `@theme` in the built CSS directly).
 
 ### Always-required global semantic classes
 
@@ -294,6 +322,8 @@ This keeps the line node-runnable at build time while satisfying TS without addi
 #### 2. `src/layouts/Layout.astro`
 
 **Pre-write check:** Read the scaffolded `src/layouts/Layout.astro` first. The scaffold ships a **bare stub** with a hardcoded `<title>Wix Astro Basics</title>`, no `global.css` import, no `<Navigation />`/`<Footer />`, no head slot, no `hasSeoTags` prop. You MUST fully replace it — do not merge into the stub. If you skip the full rewrite, downstream Phase-2 agents detect the stub (`LAYOUT_SIGNATURE_MISSING`) and have to re-extend it themselves, duplicating work.
+
+> **Scaffold may still be in flight when you start.** You are dispatched from DISCOVERY.md Step 2.6, which fires after Q2 but does not wait on `scaffold_handle`. If your first `Read src/layouts/Layout.astro` returns "file does not exist", scaffold is still running — your Self-Loading reads of the two reference docs typically absorb 5–10 s of scaffold tail, but on a fast-Q&A run scaffold can still be ~10–15 s away from finishing when you reach the pre-write Read. Retry the Read with a small backoff: wait 5 s and retry, cap at 6 attempts (~30 s total). If the file still does not exist after 6 attempts, scaffold has failed — return `status: "failed"` with `errors: [{code: "SCAFFOLD_NOT_COMPLETE", message: "src/layouts/Layout.astro missing after 30s wait"}]`. The same retry contract applies to your `Read astro.config.mjs` pre-write check below.
 
 After writing, self-verify the file contains all of: `import '../styles/global.css'`, every required `components-<pack>.css` import (see Concrete import example below), `<Navigation />`, `<slot />`, `<Footer />`, `<slot name="head" />` inside `<head>`, the `hasSeoTags` prop pattern, and the `Props` interface. Missing any of these means you didn't fully replace the stub — rewrite.
 
@@ -806,6 +836,7 @@ The JSON block MUST be the **last** content in your message — the parent parse
 | Generic unstyled HTML | Brand-first design — every element reflects the aesthetic direction |
 | Fixed-width layouts | Responsive: mobile-first, breakpoints at 320/768/1024px |
 | `ls src/`, `Glob src/**` to discover files | Your prompt lists every file and class contract. Write directly. |
+| `Read .wix/site.json` to get brand or verticals | The file does not exist when you are dispatched (Designer fires from DISCOVERY.md Step 2.6, before `init-site-json.mjs`). Every field is in your prompt. See Self-Loading § "Do NOT `Read .wix/site.json`". |
 | Use `<img src="https://...">` for product/content images | Placeholder `<div>` with aspect-ratio; Phase 4 wires real images |
 | Omit `data-decorative-slot` on hero/about/background placeholders | Every decorative image placeholder MUST carry a slot attribute — the orchestrator's Step 4.6 patch depends on it (see common rule #7) |
 | Read `.wix/image-urls.md` during design-system scope | File doesn't exist yet — emit `data-decorative-slot` placeholders instead; the orchestrator injects the URLs after Image Phase 1 returns |

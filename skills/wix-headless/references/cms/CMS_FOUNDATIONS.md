@@ -219,7 +219,7 @@ If Wix MCP tools are available, check if the collection has data and seed sample
 ### Create collection (if it doesn't exist)
 
 ```
-<prefix>CallWixSiteAPI: POST https://www.wixapis.com/wix-data/v2/collections
+REST: POST https://www.wixapis.com/wix-data/v2/collections
 body: {
   "collection": {
     "id": "about-content",
@@ -238,7 +238,7 @@ body: {
 **This is the critical step that must include actual field values.** Creating an item without populating the `data` object results in an empty record — the collection schema exists but the item has no content.
 
 ```
-<prefix>CallWixSiteAPI: POST https://www.wixapis.com/wix-data/v2/items
+REST: POST https://www.wixapis.com/wix-data/v2/items
 body: {
   "dataCollectionId": "about-content",
   "dataItem": {
@@ -257,7 +257,7 @@ The response returns the created item's `_id` — collect these for the Phase 1 
 For FAQ items, include both `question` and `answer` plus `sortOrder`:
 
 ```
-<prefix>CallWixSiteAPI: POST https://www.wixapis.com/wix-data/v2/items
+REST: POST https://www.wixapis.com/wix-data/v2/items
 body: {
   "dataCollectionId": "faq",
   "dataItem": {
@@ -275,7 +275,7 @@ body: {
 After inserting all items, **query each collection once** and confirm every field you sent is present in the stored `data`. A POST without errors does NOT prove the content persisted — the API has accepted insert bodies with missing fields before, and the failure is invisible until a human opens the page.
 
 ```
-<prefix>CallWixSiteAPI: POST https://www.wixapis.com/wix-data/v2/items/query
+REST: POST https://www.wixapis.com/wix-data/v2/items/query
 body: { "dataCollectionId": "<collection>" }
 ```
 
@@ -303,14 +303,14 @@ and always available — do not ask the user for credentials.
 
 ```
 # Step a: read the existing item
-<prefix>CallWixSiteAPI: POST https://www.wixapis.com/wix-data/v2/items/query
+REST: POST https://www.wixapis.com/wix-data/v2/items/query
 body: {
   "dataCollectionId": "CollectionName",
   "query": { "filter": { "_id": { "$in": ["{itemId}"] } } }
 }
 
 # Step b: merge image into existing data and PUT the full record
-<prefix>CallWixSiteAPI: PUT https://www.wixapis.com/wix-data/v2/items/{itemId}
+REST: PUT https://www.wixapis.com/wix-data/v2/items/{itemId}
 body: {
   "dataCollectionId": "CollectionName",
   "dataItem": {

@@ -5,6 +5,8 @@ description: Creates and publishes blog posts using Blog Posts API. Covers Ricos
 
 **Article: Create and Publish Blog Posts with Rich Content and Images**
 
+> **Standard call shape (every curl below).** The `<AUTH>` placeholder is shorthand for `Authorization: Bearer <TOKEN>` only. Every actual call ALSO needs `wix-site-id: <SITE_ID>` and (for body-bearing requests) `Content-Type: application/json`. **POST against `blog/v3/*` returns 403 without `wix-site-id`** — recipe examples below show `<AUTH>` only for brevity, but the header is required on every call you make. Token: `npx @wix/cli token --site "$SITE_ID"`.
+
 ---
 
 ## Description

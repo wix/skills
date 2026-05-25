@@ -279,7 +279,7 @@ Professional headshot portrait of [NAME], [ROLE] at [BUSINESS NAME]. [BRAND AEST
 Example: after generating and importing the image, patch the team member item:
 
 ```
-CallWixSiteAPI: PATCH /wix-data/v2/items/{memberId}
+REST: PATCH https://www.wixapis.com/wix-data/v2/items/{memberId}
 body: {
   "dataCollectionId": "Team",
   "dataItem": {

@@ -9,8 +9,8 @@
 # <Brand Name>:   human-readable business name; quote if it contains spaces.
 #
 # After scaffold succeeds, read <project-slug>/wix.config.json to extract appId
-# (project's appId) and siteId (used for MCP calls). The orchestrator does that
-# read; this script just runs the npm create.
+# (project's appId) and siteId (used as --site for `wix token` and in REST call
+# bodies). The orchestrator does that read; this script just runs the npm create.
 #
 # Behavior:
 #   - Pre-flight validates the slug (regex ^[a-z0-9]{3,20}$).
