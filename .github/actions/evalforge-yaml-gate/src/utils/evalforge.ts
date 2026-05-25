@@ -152,7 +152,9 @@ export class EvalForgeClient {
   }
 
   async listTestScenarios(projectId: string): Promise<RemoteScenario[]> {
-    return this.request<RemoteScenario[]>('GET', `/projects/${enc(projectId)}/test-scenarios`);
+    // EvalForge returns `tags: undefined` for untagged scenarios — normalize so callers can assume `string[]`.
+    const raw = await this.request<RemoteScenario[]>('GET', `/projects/${enc(projectId)}/test-scenarios`);
+    return raw.map(s => ({ ...s, tags: s.tags ?? [] }));
   }
 
   async createTestScenario(projectId: string, body: ScenarioBody, tags: string[]): Promise<{ id: string }> {
