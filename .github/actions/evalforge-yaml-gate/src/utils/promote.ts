@@ -3,7 +3,7 @@ import { posix } from 'node:path';
 import { getSimpleConfig } from './config';
 import { EvalForgeClient, DRAFT_PREFIX, draftTagFor } from './evalforge';
 import { loadEvals, type LoadedScenario } from './evals';
-import { stripTags } from './sync';
+import { toScenarioBody } from './sync';
 import { deletePrMcpVersions } from './pr-cleanup';
 import { BASE_WORKSPACE_SUBDIR } from './paths';
 import { workspaceRoot } from './workspace';
@@ -35,7 +35,7 @@ export async function runPromote(): Promise<void> {
     const ls = headScenarios.get(s.name);
     if (!ls) { stillDraft++; continue; }
     try {
-      await evalforge.updateTestScenario(config.projectId, s.id, stripTags(ls.scenario), ls.scenario.tags);
+      await evalforge.updateTestScenario(config.projectId, s.id, toScenarioBody(ls.scenario), ls.scenario.tags);
       promoted++;
       core.info(`Promoted ${s.name}: tags = ${JSON.stringify(ls.scenario.tags)}`);
     } catch (e) {

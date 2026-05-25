@@ -1,9 +1,10 @@
 import type { LoadedScenario } from './evals';
 import type { Scenario } from './schema';
+import { toEvalForgeBody, type EvalForgeBody } from './evalforge-mapper';
 
 export type RemoteScenario = { id: string; name: string; tags: string[] };
 
-export type ScenarioBody = Omit<Scenario, 'tags'>;
+export type ScenarioBody = EvalForgeBody;
 
 export type CreateAction = { kind: 'CREATE'; name: string; body: ScenarioBody; tags: string[] };
 export type UpdateAction = { kind: 'UPDATE'; id: string; name: string; body: ScenarioBody; tags: string[] };
@@ -18,9 +19,8 @@ export type SyncError = {
   path?: string;
 };
 
-export function stripTags(s: Scenario): ScenarioBody {
-  const { tags: _tags, ...rest } = s;
-  return rest;
+export function toScenarioBody(s: Scenario): ScenarioBody {
+  return toEvalForgeBody(s);
 }
 
 function foreignDraftTags(tags: string[], myTag: string): string[] {
@@ -41,7 +41,7 @@ export function diffSyncPlan(input: {
   for (const [name, ls] of head) {
     const r = remoteByName.get(name);
     if (!r) {
-      actions.push({ kind: 'CREATE', name, body: stripTags(ls.scenario), tags: [draftTag] });
+      actions.push({ kind: 'CREATE', name, body: toScenarioBody(ls.scenario), tags: [draftTag] });
       continue;
     }
     const foreign = foreignDraftTags(r.tags, draftTag);
@@ -49,7 +49,7 @@ export function diffSyncPlan(input: {
       errors.push({ kind: 'FOREIGN_DRAFT', name, foreignTags: foreign, path: ls.path });
       continue;
     }
-    actions.push({ kind: 'UPDATE', id: r.id, name, body: stripTags(ls.scenario), tags: [draftTag] });
+    actions.push({ kind: 'UPDATE', id: r.id, name, body: toScenarioBody(ls.scenario), tags: [draftTag] });
   }
 
   for (const [name, ls] of base) {
