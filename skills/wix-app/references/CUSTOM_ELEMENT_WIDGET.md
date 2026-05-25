@@ -60,8 +60,6 @@ The CLI scaffolds the builder file with sensible defaults — edit it only to cu
 | `element` | path | `./extensions/site/widgets/<name>/<name>.tsx` | Path to the widget custom element file. Don't change unless renaming files. |
 | `settings` | path | `./extensions/site/widgets/<name>/<name>.panel.tsx` | Path to the settings panel file. Don't change unless renaming files. |
 
-**`presets` and the default thumbnail.** When `presets` is supplied, every entry's `thumbnailUrl` is required (per the `@wix/astro` `DevCenterCustomElementPresets` schema). The CLI's default `{{BASE_URL}}/<name>-thumbnail.png` is a placeholder — no PNG is scaffolded. Either drop a PNG at that path, or use the shipped default at `https://www.unpkg.com/@wix/agent-skills/skills/wix-app/references/custom-element-widget/default-thumbnail.png` until you have a real, widget-specific thumbnail.
-
 - Import `@wix/design-system/styles.global.css` for styles
 - For colors, use `ColorPickerField` with `inputs.selectColor()` from `@wix/editor` — NOT `<Input type="color">`
 - For fonts, use `FontPickerField` with `inputs.selectFont()` from `@wix/editor` — NOT a text Input
