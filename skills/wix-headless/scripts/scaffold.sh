@@ -7,6 +7,7 @@
 # <folder-name>:  lowercase letters, numbers, and hyphens only. Becomes the
 #                 local project directory name.
 # <Brand Name>:   human-readable business name; quote if it contains spaces.
+#                 The CLI uses this as the Wix project display-name / URL-slug source.
 #
 # After scaffold succeeds, read <folder-name>/wix.config.json to extract appId
 # (project's appId) and siteId (used for MCP calls). The orchestrator does that

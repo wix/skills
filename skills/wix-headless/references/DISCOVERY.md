@@ -39,7 +39,7 @@ If the user already named the brand in the opening message, skip this step.
 
 Immediately after the brand name is confirmed (before Q2), emit **one concurrent batch** containing both the scaffold dispatch AND prefetch reads of the shared contract docs. These reads cost nothing during Q2 + plan review wait time but save ~1 min of post-approval latency that prior runs spent reading these docs serially.
 
-1. **Scaffold dispatch.** Derive the folder name from the brand, validate it, then run `bash <SKILL_ROOT>/scripts/scaffold.sh <folder-name> "<Brand>"` as a background shell. The script handles the npm-create invocation + folder-name pre-flight; the orchestrator handles folder-name derivation from the human-readable brand.
+1. **Scaffold dispatch.** Derive the folder name from the brand, validate it, then run `bash <SKILL_ROOT>/scripts/scaffold.sh <folder-name> "<Brand>"` as a background shell. The script handles the npm-create invocation + folder-name pre-flight; the orchestrator handles folder-name derivation from the human-readable brand. The folder name only controls the local project directory. The same brand is passed to the CLI as `business-name`, and that value now drives the Wix project display name and project URL slug.
 
    **Folder-name derivation (apply to brand before invoking the script):**
    1. Lowercase
@@ -67,7 +67,7 @@ Immediately after the brand name is confirmed (before Q2), emit **one concurrent
    ENDED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
    ```
 
-   - Substitute `<brand>` with the user's confirmed brand (preserve original case; quotes are passed by the shell). Substitute `<folder-name>` with the validated folder name.
+   - Substitute `<brand>` with the user's confirmed brand (preserve original case; quotes are passed by the shell). This is the value sent to the CLI as `--business-name`, so it owns the Wix project display name and URL-slug generation. Substitute `<folder-name>` with the validated folder name for the local directory only.
    - The script pins `--site-template-id` to the pure-headless blank template (`212b41cb-0da6-4401-9c72-7c579e6477a2`). Vibe-compatible templates trigger an interactive prompt that blocks non-TTY runs — the template ID is intentionally hardcoded inside the script.
    - Append timing to `.wix/run.json.phases[]` as `{ phase: "scaffold", seconds: <duration>, started: $STARTED_AT, ended: $ENDED_AT }`.
 
@@ -324,7 +324,7 @@ If the user wants to adjust, handle it conversationally (swap brand, change vibe
 ## After Approval
 
 Save the project context to memory (type: `project`) so future sessions can resume:
-- Brand name, vertical(s) inferred
+- Brand name (also the Wix project display-name / URL-slug source), vertical(s) inferred
 - Apps, packages, pages from the loaded packs
 - Folder name + absolute project directory
 - Current phase: `scaffolding`

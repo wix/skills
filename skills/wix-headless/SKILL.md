@@ -125,7 +125,7 @@ See `references/SETUP.md` § "MCP Prefix Discovery + Schema Bootstrap".
 See `references/DISCOVERY.md` for full mechanics.
 
 - Infer vertical(s) from the user's opening message; if too vague, one conversational clarifier.
-- **Q1** (`AskUserQuestion`): brand name. On answer, launch scaffold in background: `bash <SKILL_ROOT>/scripts/scaffold.sh <folder-name> "<Brand>"`. Folder-name derivation + timing capture rules in `references/DISCOVERY.md` § "Scaffold dispatch".
+- **Q1** (`AskUserQuestion`): brand name. On answer, launch scaffold in background: `bash <SKILL_ROOT>/scripts/scaffold.sh <folder-name> "<Brand>"`. The brand is the CLI `business-name` and now owns Wix project naming; folder-name derivation + timing capture rules live in `references/DISCOVERY.md` § "Scaffold dispatch".
 - **Q2** (`AskUserQuestion`): vibe.
 - Craft a 2–3 sentence aesthetic direction in scratch (do not print standalone).
 - Present the plan as markdown (Design Direction → Features → Pages → CMS Collections → Apps & SDK). **Pages, CMS Collections, and Apps & SDK MUST be markdown tables.**
