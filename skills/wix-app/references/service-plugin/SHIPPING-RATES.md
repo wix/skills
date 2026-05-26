@@ -2,28 +2,11 @@
 
 ## Overview
 
-The Shipping Rates SPI allows you to provide custom shipping options and calculate shipping costs based on order details, destination, weight, or any custom logic.
-
-## Import
-
-```typescript
-import { shippingRates } from "@wix/ecom/service-plugins";
-import { ChargeType } from "@wix/auto_sdk_ecom_shipping-rates";
-```
-
-## Handler
-
-| Handler | Description |
-| --- | --- |
-| `getShippingRates` | Calculate and return available shipping options with costs |
+The Shipping Rates SPI lets you provide custom shipping options and calculate shipping costs based on order details, destination, weight, or any custom logic. Implement the `getShippingRates` handler — it returns the available shipping options with their costs.
 
 ## Request and Response Schema
 
-Before implementing, call `ReadFullDocsMethodSchema` with the docs URL below to get the full request/response types.
-
-**MCP Tools to use:**
-- `ReadFullDocsMethodSchema` - Full request/response schema with field names, types, and descriptions
-- `ReadFullDocsArticle` - Full documentation with code examples (use if schema needs more context)
+Before implementing, call `ReadFullDocsMethodSchema` on the docs URL to get the full request/response types.
 
 | Handler | Docs URL |
 | --- | --- |

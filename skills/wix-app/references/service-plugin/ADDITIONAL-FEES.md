@@ -2,27 +2,11 @@
 
 ## Overview
 
-The Additional Fees SPI allows you to add custom fees to orders during checkout, such as handling fees, rush delivery charges, or global order fees.
-
-## Import
-
-```typescript
-import { additionalFees } from '@wix/ecom/service-plugins';
-```
-
-## Handler
-
-| Handler | Description |
-| --- | --- |
-| `calculateAdditionalFees` | Calculate and return additional fees to apply to the order |
+The Additional Fees SPI lets you add custom fees to orders during checkout (handling fees, rush delivery charges, global order fees, etc.). Implement the `calculateAdditionalFees` handler — it calculates and returns the fees to apply.
 
 ## Request and Response Schema
 
-Before implementing, call `ReadFullDocsMethodSchema` with the docs URL below to get the full request/response types.
-
-**MCP Tools to use:**
-- `ReadFullDocsMethodSchema` - Full request/response schema with field names, types, and descriptions
-- `ReadFullDocsArticle` - Full documentation with code examples (use if schema needs more context)
+Before implementing, call `ReadFullDocsMethodSchema` on the docs URL to get the full request/response types.
 
 | Handler | Docs URL |
 | --- | --- |

@@ -4,12 +4,6 @@
 
 The Custom Triggers SPI allows you to define custom conditions that can trigger discounts in the Wix eCommerce system. You can create time-based triggers, product-based triggers, or any custom logic.
 
-## Import
-
-```typescript
-import { customTriggers } from "@wix/ecom/service-plugins";
-```
-
 ## Handlers
 
 | Handler | Description |
@@ -19,11 +13,7 @@ import { customTriggers } from "@wix/ecom/service-plugins";
 
 ## Request and Response Schema
 
-Before implementing, call `ReadFullDocsMethodSchema` with the docs URLs below to get the full request/response types.
-
-**MCP Tools to use:**
-- `ReadFullDocsMethodSchema` - Full request/response schema with field names, types, and descriptions
-- `ReadFullDocsArticle` - Full documentation with code examples (use if schema needs more context)
+Before implementing, call `ReadFullDocsMethodSchema` on each docs URL to get the full request/response types.
 
 | Handler | Docs URL |
 | --- | --- |
