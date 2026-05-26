@@ -1,6 +1,6 @@
 ---
 name: wix-app
-description: "Build Wix CLI app extensions — dashboard pages, modals, plugins, menu plugins, custom element widgets, Editor React components, site plugins, embedded scripts, backend APIs, backend events, service plugins, data collections. Use when building ANY feature or extension for a Wix CLI app. Triggers on: add, build, create, implement, help me, dashboard, widget, plugin, backend, API, event, collection, embedded script, service plugin, Editor React component, checkout, shipping, tax, discount, SPI, CMS, schema, tracking, popup, admin panel, menu item, modal, validate, test, verify, register extension."
+description: "Build and review Wix CLI app extensions — dashboard pages, modals, plugins, menu plugins, custom element widgets, Editor React components, site plugins, embedded scripts, backend APIs, backend events, service plugins, data collections, and App Market readiness. Use when building ANY feature or extension for a Wix CLI app or preparing a Wix app for App Market review. Triggers on: add, build, create, implement, help me, dashboard, widget, plugin, backend, API, event, collection, embedded script, service plugin, Editor React component, checkout, shipping, tax, discount, SPI, CMS, schema, tracking, popup, admin panel, menu item, modal, validate, test, verify, register extension, App Market, app review, submission readiness."
 compatibility: Requires Wix CLI development environment.
 ---
 
@@ -110,6 +110,7 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
 | --- | --- |
 | Extension Registration | [EXTENSION_REGISTRATION.md](references/EXTENSION_REGISTRATION.md) |
 | App Validation | [APP_VALIDATION.md](references/APP_VALIDATION.md) |
+| App Market Review | [APP_MARKET_REVIEW.md](references/APP_MARKET_REVIEW.md) |
 | App Identifiers (Namespace, Code ID) | [APP_IDENTIFIERS.md](references/APP_IDENTIFIERS.md) |
 | Wix Stores Versioning (V1/V3) | [STORES_VERSIONING.md](references/STORES_VERSIONING.md) |
 | Official Documentation Links | [DOCUMENTATION.md](references/DOCUMENTATION.md) |
@@ -168,14 +169,19 @@ This is non-negotiable — V1 and V3 are NOT backwards compatible.
 
 ---
 
+## App Market Review
+
+**Applies when a user wants to submit their app to the Wix App Market, list it publicly, prepare for App Market review, audit decline risk, or fix App Market review feedback.** Not needed for private apps or routine version releases.
+
+Read [APP_MARKET_REVIEW.md](references/APP_MARKET_REVIEW.md) — it contains the full technical checklist, implementation notes with Wix doc links, and the review taxonomy IDs for traceability.
+
+---
+
 ## Implementation Workflow
 
 ### Step 1: Ask Clarifying Questions (if needed)
 
 Only ask for configuration values when **absolutely necessary** for the implementation to proceed. If a value can be configured later or added as a manual step, don't block on it.
-
-**Code Identifier Requirement:**
-When creating an Editor React component, you need the user's Code Identifier. If not provided, read [APP_IDENTIFIERS.md](references/APP_IDENTIFIERS.md) and give the user the instructions to obtain it.
 
 If unclear on approach (placement, visibility, configuration, integration), ask clarifying questions. If the answer could change the extension type, wait for the response before proceeding. Otherwise, proceed with the best-fit extension type.
 

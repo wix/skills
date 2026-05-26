@@ -19,8 +19,13 @@ In [Claude Code](https://docs.anthropic.com/en/docs/claude-code), run:
 
 ### Codex Plugin
 
-This repository includes a Codex plugin manifest at `.codex-plugin/plugin.json`.
-Add this repository as a local/source plugin in Codex to load the Wix skills and Wix MCP server.
+In a terminal, register the marketplace:
+
+```bash
+codex plugin marketplace add wix/skills
+```
+
+Then in Codex CLI, run `/plugins`, select **Wix**, and choose **Install Plugin**.
 
 ### VS Code Plugin
 
@@ -65,7 +70,7 @@ These skills work with any agent that supports the [Agent Skills specification](
 - Cursor
 - Claude Code
 - Gemini CLI
-- Codex
+- Codex CLI
 - GitHub Copilot
 - Windsurf
 - And [many more](https://github.com/vercel-labs/add-skill#available-agents)
