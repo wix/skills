@@ -1,11 +1,11 @@
 # Component Configuration
 
-After scaffolding the component and running `npx wix generate manifest`,
+After scaffolding the component and running `npx wix build && npx wix generate manifest`,
 configure the component's behavior in the editor by writing **partial
 manifest overrides** in the component's hand-edited extension file
 (`<ComponentName>.extension.ts`). That file imports the auto-generated
 manifest and spreads it; specific fields are overridden inline. Re-running
-`npx wix generate manifest` regenerates each `<ComponentName>.generated.ts`
+this command regenerates each `<ComponentName>.generated.ts`
 companion but never touches the overrides authored in the extension file.
 
 ---
@@ -84,7 +84,7 @@ identity.
 
 | Choice | When to use |
 |--------|-------------|
-| `LAYOUT.RESIZE_DIRECTION.horizontalAndVertical` | Components the designer frames freely — framed media, embeds, icons, form controls, and any container the designer should be able to grow in either direction. |
+| `LAYOUT.RESIZE_DIRECTION.horizontalAndVertical` | Components the designer frames freely — framed media, embeds, icons, form controls, and any container the designer should be able to grow in either direction. **Default for most components.** |
 | `LAYOUT.RESIZE_DIRECTION.horizontal` | Only the horizontal axis is meaningful. Text and list-like components that flow along a row, one-dimensional primitives like bars and rails, anything whose vertical size is determined by what's inside or by the component spec. |
 | `LAYOUT.RESIZE_DIRECTION.vertical` | Mirror of `horizontal` — only the vertical axis is meaningful. Stacks of arbitrary children, ribbons, vertical rails. |
 | `LAYOUT.RESIZE_DIRECTION.aspectRatio` | The component carries proportion-critical identity that distortion would damage — logos, animations, illustrations. Not a default for anything merely image-shaped. |
@@ -155,4 +155,21 @@ resources: {
   ...manifest.resources,
   client: { componentUrl },
 },
+```
+
+---
+
+## 4. Enabling automatic installation on Harmony editor
+
+**Always include `"staticContainer": "HOMEPAGE"`** in `installation` so the
+component is automatically installed on the Harmony editor.
+
+```ts
+const componentExtension = extensions.editorReactComponent({
+  // …other fields…
+  installation: {
+    // …other fields…
+    staticContainer: 'HOMEPAGE',
+  },
+});
 ```

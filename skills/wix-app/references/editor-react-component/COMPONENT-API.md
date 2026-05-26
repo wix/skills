@@ -106,6 +106,43 @@ when arithmetic is needed: `price: number`, not `price: string`).
 
 When the parent component defines an array prop (e.g., `items`), child/item components receive a single item directly. They do NOT redeclare the data structure in their own props.
 
+### Array Element Types: Always Objects with Named Keys
+
+Array elements MUST be objects with named keys. This enables stable item identity (each item can carry its own `id`/`key`), non-breaking extension (new fields can be added later without changing the prop signature), and semantic naming (each value has meaning instead of being an opaque scalar).
+
+**Allowed forms:**
+
+- Inline object literal: `Array<{ key: ValueType, ... }>`
+- Named interface where the interface itself is an object with named keys (e.g. `Array<AccordionItem>` is OK because `AccordionItem` is `{ name, content }`)
+
+**Never allowed as the array element:**
+
+- Primitives: `Array<string>`, `Array<number>`, `Array<boolean>`
+- Leaf data types from `@wix/editor-react-types`: `Array<Image>`, `Array<Link>`, `Array<Video>`, `Array<Audio>`, `Array<VectorArt>`, `Array<RichText>`. Wrap them in an object instead.
+- Nested arrays:  `Array<Array<{cover: image, caption: string}>>` `Array<{items: Array<image>, caption: string}>`
+
+**❌ Wrong:**
+
+```typescript
+tags: Array<string>;
+prices: Array<number>;
+flags: Array<boolean>;
+images: Array<Image>;
+links: Array<Link>;
+nestedArrays: Array<Array<any>>
+```
+
+**✅ Correct:**
+
+```typescript
+tags: Array<{ label: string }>;
+prices: Array<{ amount: number }>;
+flags: Array<{ enabled: boolean }>;
+gallery: Array<{ image: Image, caption?: string }>;
+links: Array<{ link: Link, label: string }>;
+items: Array<AccordionItem>; // AccordionItem is { name, content }
+```
+
 ### Container Components (Blackbox Content)
 
 When a component specification indicates a "container" or "slot" area where users can add nested content, use `Container` (from `@wix/editor-react-types`) for that content prop. Never use `React.ReactNode` in a prop type.
@@ -120,21 +157,10 @@ When a component specification indicates a "container" or "slot" area where user
 
 ### Component Data Types
 
-When creating TypeScript interfaces for component props, use types from `@wix/editor-react-types` for more complex types:
+When creating TypeScript interfaces for component props, use types from `@wix/editor-react-types` for more complex types, to see the allowed type from this library, look at the following file `node_modules/@wix/react-component-schema/dist/editor-react-types.d.ts`:
 
 ```typescript
-import type {
-  Link,
-  Image,
-  Video,
-  Audio,
-  VectorArt,
-  A11y,
-  RichText,
-  Direction,
-  ArrayItems,
-  MenuItems,
-} from '@wix/editor-react-types';
+import type { Link } from "@wix/editor-react-types"; // Reference at node_modules/@wix/react-component-schema/dist/editor-react-types.d.ts
 ```
 
 **Common Types Usage:**
@@ -153,6 +179,116 @@ import type {
 - **Rich text** → `RichText`
 - **Arrays/Lists** → `Array<{...}>`
 - **Menu items** → `MenuItems`
+
+### External resources are forbidden
+
+All resources rendered or fetched by the component (images, icons, fonts,
+videos, audio, JSON data, etc.) MUST come from Wix services. Never reference
+or call external (non-Wix) hosts — no `unsplash.com`, `placehold.co`,
+`picsum.photos`, third-party CDN icon sets, or any custom backend the user
+hasn't asked for. This rule covers both `src`/`href` attributes and any
+runtime fetching.
+
+Allowed image hosts: `static.wixstatic.com` (and other `*.wixstatic.com`
+subdomains). Allowed data: values supplied through props (populated by the
+editor) or imported local assets bundled with the component.
+
+### Default values for `Image` props
+
+Image defaults belong in the component file's exported `defaultProps`
+constant (the one consumed by `withDefaults(Component, defaultProps)` in
+`component.tsx`). Use a Wix-hosted image from the Free-from-Wix public
+media catalog and populate **only** `uri`, `url`, and `alt` — leave
+`width`, `height`, `focalPoint`, etc. unset so the editor fills them when
+the user picks a real image.
+
+By default, use the canonical fallback URL from the examples below for
+every `Image` default (`url` and `uri` derived from the same `fileName`).
+**Only when the user explicitly asks for different/better default images**,
+fetch candidates from the Wix Free-from-Wix catalog:
+
+```
+GET https://publicmedia.wix.com/public/light_items?guid=bca5cb9f-45d2-4b11-8d6c-c9a7e7bd2873%3Aglobal%3Awix&pageSize=20&pageNumber=1&language=en&tags=free&mediaType=picture
+```
+
+The endpoint is unauthenticated. Pick an item whose `displayTags` /
+`title` fit the component's purpose, then build the `Image` default from
+its `fileName`:
+
+- `url` → `` `https://static.wixstatic.com/media/${fileName}` ``
+- `uri` → `fileName`
+- `alt` → a short human description (use the item's `title` or
+  `displayTags`)
+
+Do not call this endpoint when the user hasn't asked for it — the
+canonical fallback URL is fine for unattended scaffolds.
+
+**Default image pool — use a different image for each slot:**
+
+| # | fileName | Description |
+|---|----------|-------------|
+| 1 | `11062b_2f97b87dcea2446fa48e9ad9c5457ae1~mv2.jpg` | Tropical beach aerial |
+| 2 | `11062b_73f31c7e7d3544c69dc8ecd8d34c5717~mv2.jpg` | Dead Sea landscape |
+| 3 | `11062b_3682ebfcb08e4da5b3168b62819a1e68~mv2.jpg` | Palm tree sunset |
+| 4 | `11062b_45e67783d39c4963ab9e4fc418173233~mv2.jpg` | Abstract pink waves |
+| 5 | `11062b_4c11f014b0d04948b2e6f554076bc40a~mv2.jpg` | Coastal village aerial |
+
+When a component needs **more than one** image default, cycle through
+the pool above so every slot gets a visually distinct image. For a
+single image, use image #1.
+
+**Single `Image` prop:**
+
+```typescript
+export const defaultProps = {
+  image: {
+    url: "https://static.wixstatic.com/media/11062b_2f97b87dcea2446fa48e9ad9c5457ae1~mv2.jpg",
+    uri: "11062b_2f97b87dcea2446fa48e9ad9c5457ae1~mv2.jpg",
+    alt: "Default image",
+  },
+} as const satisfies Omit<ExampleComponentProps, "id" | "className">;
+```
+
+**Array of objects with an `Image` field:**
+
+```typescript
+export const defaultProps = {
+  cards: [
+    {
+      title: "First card",
+      image: {
+        url: "https://static.wixstatic.com/media/11062b_2f97b87dcea2446fa48e9ad9c5457ae1~mv2.jpg",
+        uri: "11062b_2f97b87dcea2446fa48e9ad9c5457ae1~mv2.jpg",
+        alt: "First card image",
+      },
+    },
+    {
+      title: "Second card",
+      image: {
+        url: "https://static.wixstatic.com/media/11062b_73f31c7e7d3544c69dc8ecd8d34c5717~mv2.jpg",
+        uri: "11062b_73f31c7e7d3544c69dc8ecd8d34c5717~mv2.jpg",
+        alt: "Second card image",
+      },
+    },
+  ],
+} as const satisfies Omit<ExampleComponentProps, "id" | "className">;
+```
+
+**Inline fallback for HTML `src` / `href`:** when rendering a raw HTML
+attribute that takes a URL (`<img src>`, `<source src>`, `<video poster>`,
+`<a href>` for an image link, etc.) and the value could be empty, fall
+back to the same Wix-hosted URL — never to an external host or a relative
+path that doesn't exist:
+
+```tsx
+<img
+  src={
+    image?.url ||
+    "https://static.wixstatic.com/media/11062b_2f97b87dcea2446fa48e9ad9c5457ae1~mv2.jpg"
+  }
+  alt={image?.alt || "Default image"}
+/>
+```
 
 ### Component File Splitting
 
@@ -319,6 +455,7 @@ Use `Array<T>` over `T[]`.
 interface ComponentProps {
   items: Item[]; // ❌ Wrong syntax
   tags: string[]; // ❌ Wrong syntax
+  tags: Array<string>; // ❌ Element must be an object with named keys
 }
 ```
 
@@ -327,6 +464,8 @@ interface ComponentProps {
 ```typescript
 interface ComponentProps {
   items: Array<Item>; // ✅ Correct syntax
-  tags: Array<string>; // ✅ Correct syntax
+  tags: Array<{ label: string }>; // ✅ Element is an object with named keys
 }
 ```
+
+See also: [Array Element Types: Always Objects with Named Keys](#array-element-types-always-objects-with-named-keys) — items must be objects with named keys.

@@ -2,9 +2,9 @@
 
 > ⚠️ **EXPERIMENTAL**: This project is in early development. APIs, skill definitions, and behavior may change without notice. Use at your own risk.
 
-Agent skills for building Wix applications with AI coding assistants.
+Agent skills for building Wix app extensions, managing Wix business solutions, developing headless sites, and using the Wix Design System with AI agents.
 
-> **Note**: These skills are designed for the **new Wix CLI**. See [About the Wix CLI](https://dev.wix.com/docs/wix-cli/guides/about-the-wix-cli) to learn more.
+> **Note**: These skills are designed for the **new Wix CLI**. See [About the Wix CLI](https://dev.wix.com/docs/wix-cli/guides/about-the-wix-cli) to learn more. For an overview of how skills work with AI tools, see [About Wix Skills](https://dev.wix.com/docs/api-reference/articles/ai-tools/about-wix-skills).
 
 ## Installation
 
@@ -62,6 +62,7 @@ npx skills add wix/skills -g
 | [wix-app](skills/wix-app/SKILL.md)       | Build Wix app extensions         | Adding any extension — dashboard pages, site widgets, backend events, service plugins, embedded scripts, data collections, and more |
 | [wix-design-system](skills/wix-design-system/SKILL.md) | Wix Design System reference      | Looking up WDS component props, examples, icons                                                                                     |
 | [wix-manage](skills/wix-manage/SKILL.md) | Wix business solution management | REST API operations for configuring and managing Wix business solutions                                                             |
+| [wix-headless](skills/wix-headless/SKILL.md) | Build a complete Wix Managed Headless site | Building a new site end-to-end from a single prompt — discovery, design, feature wiring, and preview |
 
 ## Supported Agents
 
@@ -74,6 +75,22 @@ These skills work with any agent that supports the [Agent Skills specification](
 - GitHub Copilot
 - Windsurf
 - And [many more](https://github.com/vercel-labs/add-skill#available-agents)
+
+## Versioning
+
+`@wix/agent-skills` follows semver. Bumps target **AI-generated-code stability** — i.e., whether a change could cause an agent using these skills to produce broken code on the previous-major `wix-cli`:
+
+| Bump | Examples |
+| --- | --- |
+| **patch** | Wording fix, typo, link update, clarification of existing guidance |
+| **minor** | New skill added, new section in an existing skill, additive guidance for a non-breaking `wix-cli` feature |
+| **major** | Skill rename/removal, rewrite of guidance for a deprecated `wix-cli` API, anything that would cause AI-generated code to fail on the previous-major `wix-cli` |
+
+When a major bump is required (a breaking change in the underlying `wix-cli`), the previous major continues on a `release/<N>.x` maintenance branch and receives backports for genuine bugs only — no new features.
+
+## Releasing
+
+Run the [`release-bump`](.github/workflows/release-bump.yml) workflow from the **Actions** tab and pick a `version_strategy`. The rest is automatic — the bump PR auto-merges once checks pass and [`release.yml`](.github/workflows/release.yml) publishes to npm via Trusted Publishing.
 
 ## Contributing
 
