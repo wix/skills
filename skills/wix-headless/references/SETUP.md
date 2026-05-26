@@ -53,7 +53,7 @@ The skill assembles this dispatch dynamically from the loaded vertical packs. Th
 
 #### 1. Verify scaffold completed
 
-**Before the setup dispatch:** read `<project>/wix.config.json` to confirm the background scaffold from Discovery Step 1 finished. If not, wait for the background scaffold to finish. On scaffold failure, retry the inline `npm create @wix/new` call once (same shell command from DISCOVERY.md Step 1); surface the error if it still fails. Recovery ladder is documented in DISCOVERY.md § "Strict-then-recover" — auth, invalid template, etc.
+**Before the setup dispatch:** read `<project>/wix.config.json` to confirm the background scaffold from Discovery Step 1 finished. If not, wait for the background scaffold to finish. On scaffold failure, retry the inline `npm create @wix/new` call once (same shell command from DISCOVERY.md Step 1); surface the error if it still fails. Recovery ladder is documented in DISCOVERY.md § "Strict-then-recover" — auth and other scaffold failures.
 
 Once `wix.config.json` exists, extract `siteId` (value of the `siteId` field — this is the businessId for all MCP calls in the session).
 
