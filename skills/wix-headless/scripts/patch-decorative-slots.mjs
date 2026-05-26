@@ -10,28 +10,89 @@
 // Usage:
 //   node patch-decorative-slots.mjs <project-dir>
 //
+// <project-dir> may be either the eval-run dir (where `.wix/image-urls.md`
+// typically lives) or the scaffold subdir (where `src/pages/*.astro` lives).
+// The two may differ: Image Phase 1 writes to `<eval-dir>/.wix/image-urls.md`
+// while `src/pages` is always inside the scaffold subdir. The script resolves
+// each piece independently — looking in `<project-dir>` first, then in any
+// single scaffold subdir one level down — so either input is accepted.
+//
 // Behavior:
-//   - If .wix/image-urls.md doesn't exist, exit 0 silently (Image Phase 1
-//     timed out / failed; the slot placeholders look complete on their own).
+//   - If .wix/image-urls.md doesn't exist anywhere reachable, exit 0 with
+//     status="skipped" (Image Phase 1 timed out / failed; slot placeholders
+//     look complete on their own via the designer's aspect-ratio + bg-color).
+//   - If src/pages doesn't exist anywhere reachable but image-urls.md does,
+//     exit 2 with status="error" — this almost always means the wrong dir
+//     was passed (eval-dir vs scaffold-dir). Surface the error verbatim to
+//     the orchestrator; don't retry blindly with the same arg.
 //   - For each `data-decorative-slot="<key>"` in src/pages/*.astro:
 //       * If <key> has no URL in image-urls.md → leave the div alone.
 //       * If the div is self-closing or already has a child element other
 //         than whitespace/comments → skip with a warning (don't clobber).
 //       * Otherwise inject <img …> as the first child.
-//   - Output a JSON summary of patches/skips/warnings to stdout.
-//   - Exit 0 even when some slots couldn't be patched — placeholders fall
-//     back to the designer's aspect-ratio + background-color rendering.
+//   - Output a JSON summary of patches/skips/warnings + the resolution map
+//     to stdout. Exit 0 on success even when some slots couldn't be patched.
 
 import { readFileSync, writeFileSync, existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 const projectDir = process.argv[2] ?? process.cwd();
 
-const imageUrlsPath = join(projectDir, ".wix/image-urls.md");
-if (!existsSync(imageUrlsPath)) {
-  console.log(JSON.stringify({ status: "skipped", reason: "no .wix/image-urls.md (Image Phase 1 didn't write — failed or timed out)" }));
+// Resolve where `.wix/image-urls.md` and `src/pages` actually live. These can
+// be the same dir (Phase 1 wrote into the scaffold subdir directly) OR
+// different — Image Phase 1's INSTRUCTIONS tell it to write `<site-root>/.wix/
+// image-urls.md` where site-root is the eval run dir, but `src/pages/*.astro`
+// always lives in the scaffold subdir (a child of the eval dir). On the
+// previous Brewing Pots run the orchestrator passed the eval dir and the
+// script returned `status: "ok", filesScanned: 0` — indistinguishable from
+// "nothing to patch" — which caused a 38 s blind retry and a manual `cp`
+// recovery cycle. So: look in `<projectDir>` first, then auto-detect a single
+// scaffold subdir that contains the missing piece.
+function findDir(label, relPath) {
+  const direct = join(projectDir, relPath);
+  if (existsSync(direct)) return { path: direct, source: "projectDir" };
+  // Look one level down — exactly one scaffold subdir is the normal case.
+  const hits = [];
+  for (const entry of readdirSync(projectDir, { withFileTypes: true })) {
+    if (!entry.isDirectory() || entry.name.startsWith(".")) continue;
+    const candidate = join(projectDir, entry.name, relPath);
+    if (existsSync(candidate)) hits.push(candidate);
+  }
+  if (hits.length === 1) return { path: hits[0], source: "scaffold-subdir" };
+  if (hits.length > 1) return { path: null, source: "ambiguous", hits };
+  return { path: null, source: "missing" };
+}
+
+const imageUrlsResolved = findDir("image-urls.md", ".wix/image-urls.md");
+const pagesResolved = findDir("pages", "src/pages");
+
+if (!imageUrlsResolved.path) {
+  console.log(JSON.stringify({
+    status: "skipped",
+    reason: "no .wix/image-urls.md (Image Phase 1 didn't write — failed or timed out)",
+    searchedAt: [join(projectDir, ".wix/image-urls.md")],
+  }));
   process.exit(0);
 }
+if (!pagesResolved.path) {
+  console.error(JSON.stringify({
+    status: "error",
+    reason: `src/pages not found at <projectDir>/src/pages or in any scaffold subdir of <projectDir>. Pass the dir that contains src/pages (typically the scaffold subdir, e.g. <eval-dir>/<brand-slug>/), not the eval root.`,
+    projectDir,
+    pagesSearchedAt: pagesResolved.source === "ambiguous" ? pagesResolved.hits : [join(projectDir, "src/pages")],
+  }, null, 2));
+  process.exit(2);
+}
+
+const imageUrlsPath = imageUrlsResolved.path;
+const pagesDir = pagesResolved.path;
+// If the two resolved sources disagree (image-urls.md in eval dir, src/pages
+// in scaffold subdir), surface that in the summary so the orchestrator can
+// see what happened — but proceed: the patch is still well-defined.
+const resolution = {
+  imageUrlsFrom: imageUrlsResolved.source,
+  pagesFrom: pagesResolved.source,
+};
 
 // Parse `## <key>\n- url: <url>` blocks from .wix/image-urls.md.
 const imageUrlsRaw = readFileSync(imageUrlsPath, "utf8");
@@ -53,7 +114,6 @@ if (Object.keys(urlMap).length === 0) {
 
 // Find candidate page files: src/pages/*.astro, recursively (designer may emit
 // /about.astro at top level OR /pages/about.astro).
-const pagesDir = join(projectDir, "src/pages");
 const candidates = [];
 const walk = (dir) => {
   if (!existsSync(dir)) return;
@@ -120,5 +180,6 @@ const summary = {
   patched,
   skipped,
   warnings,
+  resolution,
 };
 console.log(JSON.stringify(summary, null, 2));

@@ -37,6 +37,7 @@ const PREFIX = {
   fonts: "--font-",
   radii: "--radius-",
   spacing: "--spacing-",
+  containers: "--container-",
 };
 
 const cssLines = ["/* Generated from .wix/site.json.designTokens. Do not edit. */", ":root {"];
@@ -64,6 +65,7 @@ export type DesignTokens = {
   fonts: ${typeFor("fonts")};
   radii: ${typeFor("radii")};
   spacing: ${typeFor("spacing")};
+  containers: ${typeFor("containers")};
 };
 export type Product = { id: string; name: string; slug: string; price: number; variantId: string };
 export declare const site: {
