@@ -84,11 +84,11 @@ identity.
 
 | Choice | When to use |
 |--------|-------------|
-| `LAYOUT.RESIZE_DIRECTION.horizontalAndVertical` | Components the designer frames freely — framed media, embeds, icons, form controls, and any container the designer should be able to grow in either direction. **Default for most components.** |
-| `LAYOUT.RESIZE_DIRECTION.horizontal` | Only the horizontal axis is meaningful. Text and list-like components that flow along a row, one-dimensional primitives like bars and rails, anything whose vertical size is determined by what's inside or by the component spec. |
-| `LAYOUT.RESIZE_DIRECTION.vertical` | Mirror of `horizontal` — only the vertical axis is meaningful. Stacks of arbitrary children, ribbons, vertical rails. |
-| `LAYOUT.RESIZE_DIRECTION.aspectRatio` | The component carries proportion-critical identity that distortion would damage — logos, animations, illustrations. Not a default for anything merely image-shaped. |
-| `LAYOUT.RESIZE_DIRECTION.none` | Reserved for nested children whose size is fully owned by a parent layout. **Not** for top-level components. |
+| `horizontalAndVertical` | Content fills or stretches in both axes. Hero, carousel, gallery, card grid, embed, form control, any framed visual. **Default for most components.** |
+| `horizontal` | Height is rigid/intrinsic — cannot meaningfully stretch. Breadcrumb, tag row, nav bar, single-line input, slider rail. |
+| `vertical` | Width is rigid/intrinsic. Vertical stack, ribbon, sidebar rail. |
+| `aspectRatio` | Distortion breaks identity — logo, illustration, animation. |
+| `none` | Size fully owned by a parent layout. Never for top-level components. |
 
 **Tiebreaker:** if a drag handle on an axis would feel inert or wrong
 to a designer, take it away.
@@ -113,24 +113,14 @@ const componentExtension = extensions.editorReactComponent({
 
 ### Examples
 
-**Free framing** (`horizontalAndVertical`) — hero banner, video embed,
-icon tile, color picker, generic container:
-
 ```ts
+// hero, carousel, gallery, card grid, embed, form
 resizeDirection: LAYOUT.RESIZE_DIRECTION.horizontalAndVertical,
-```
 
-**Single-axis flow** (`horizontal` or `vertical`) — paragraph block,
-tag row, slider rail, vertical stack of testimonials:
-
-```ts
+// breadcrumb, tag row, nav bar, slider rail
 resizeDirection: LAYOUT.RESIZE_DIRECTION.horizontal,
-```
 
-**Proportion-critical** (`aspectRatio`) — logo, illustration, animation
-whose meaning depends on its proportions:
-
-```ts
+// logo, illustration, animation
 resizeDirection: LAYOUT.RESIZE_DIRECTION.aspectRatio,
 ```
 

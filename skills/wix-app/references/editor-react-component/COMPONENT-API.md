@@ -100,7 +100,7 @@ when arithmetic is needed: `price: number`, not `price: string`).
 - **Internal implementation** can use children for composition between sub-components
 - Hardcoded values are ONLY for fallback defaults when props are undefined
 
-**Exception — Container-type components:** Components whose purpose is to wrap arbitrary child elements (e.g., BoxContainer, LegacyContainer) MAY accept `children: Container` (from `@wix/editor-react-types`). This applies only to structural containers — data-driven leaf components (Button, Tabs, Accordion, etc.) must NOT use `children`.
+**Exception — Container-type components:** Components whose purpose is to wrap arbitrary child elements (e.g., BoxContainer) MAY accept `children: React.ReactNode`. This applies only to structural containers — data-driven leaf components (Button, Tabs, Accordion, etc.) must NOT use `children`.
 
 ### Array Props: Data on Parent Only
 
@@ -145,15 +145,15 @@ items: Array<AccordionItem>; // AccordionItem is { name, content }
 
 ### Container Components (Blackbox Content)
 
-When a component specification indicates a "container" or "slot" area where users can add nested content, use `Container` (from `@wix/editor-react-types`) for that content prop. Never use `React.ReactNode` in a prop type.
+When a component specification indicates a "container" or "slot" area where users can add nested content, use `React.ReactNode` for that content prop.
 
-**When to use `Container`:**
+**When to use `React.ReactNode` for a content prop:**
 
 - The specification describes a "container" or "content area"
 - Users should be able to add arbitrary nested components
 - The component doesn't control what goes inside that area
 
-**RTL Support:** Elements that render `Container` content MUST have `dir="ltr"` to prevent RTL inheritance from the parent component. See [`DIRECTIONALITY.md`](DIRECTIONALITY.md).
+**RTL Support:** Elements that render `React.ReactNode` content MUST have `dir="ltr"` to prevent RTL inheritance from the parent component. See [`DIRECTIONALITY.md`](DIRECTIONALITY.md).
 
 ### Component Data Types
 
@@ -162,23 +162,6 @@ When creating TypeScript interfaces for component props, use types from `@wix/ed
 ```typescript
 import type { Link } from "@wix/editor-react-types"; // Reference at node_modules/@wix/react-component-schema/dist/editor-react-types.d.ts
 ```
-
-**Common Types Usage:**
-
-- **Text data** → `string`
-- **Numeric data** → `number`
-- **Boolean flags** → `boolean`
-- **Enum options** → `string` union (e.g., `'option1' | 'option2'`)
-- **Direction** → `Direction` (= `'rtl' | 'ltr' | 'auto'`)
-- **Links** → `Link`
-- **Images** → `Image`
-- **Videos** → `Video`
-- **Audio** → `Audio`
-- **Vector graphics** → `VectorArt`
-- **Accessibility** → `A11y`
-- **Rich text** → `RichText`
-- **Arrays/Lists** → `Array<{...}>`
-- **Menu items** → `MenuItems`
 
 ### External resources are forbidden
 
@@ -367,13 +350,13 @@ interface ParentProps {
 
 interface AccordionItem {
   name: string;
-  content: Container;
+  content: React.ReactNode;
 }
 
 // Child receives single item
 interface ChildProps {
   item: AccordionItem & { id: string };  // Single item
-  isOpen?: BooleanValue;
+  isOpen?: boolean;
 }
 
 // Parent maps
@@ -384,12 +367,12 @@ items.map((item, index) => (
 
 ### Container Components Pattern
 
-For "container" or "slot" areas, use `Container`:
+For "container" or "slot" areas, use `React.ReactNode`:
 
 ```typescript
 interface AccordionItem {
   name: string;
-  content: Container;  // Users add any content here
+  content: React.ReactNode;  // Users add any content here
 }
 
 // Render
@@ -420,7 +403,7 @@ export interface CardProps {
 ```typescript
 export interface CardProps {
   title: string;
-  content: Container; // Blackbox container (from @wix/editor-react-types)
+  content: React.ReactNode;
 }
 <Card title="Title" content={<div>Content</div>} />
 ```
