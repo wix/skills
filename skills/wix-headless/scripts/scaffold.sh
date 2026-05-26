@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Scaffold a new Wix Managed Headless project using the CLI's default blank template.
+# Scaffold a new Wix Managed Headless project using the CLI's preset blank template.
 #
 # Usage:
 #   bash <SKILL_ROOT>/scripts/scaffold.sh <project-slug> "<Brand Name>"
@@ -17,8 +17,8 @@
 #   - Pre-flight requires both args.
 #   - Runs `npm create @wix/new@latest headless` with --no-publish + --skip-install
 #     so the orchestrator can deferred-install with its own package set.
-#   - Relies on the CLI's default blank template instead of passing
-#     `--site-template`, which avoids template-flag drift in the skill.
+#   - Passes bare `--site-template` so non-interactive scaffolding stays on the
+#     blank starter.
 #
 # Exit codes:
 #   0 — ok
@@ -57,5 +57,6 @@ fi
 npm create @wix/new@latest headless -- \
   --business-name "$2" \
   --project-name "$1" \
+  --site-template \
   --no-publish \
   --skip-install
