@@ -1,7 +1,7 @@
 {
   "name": "wix",
   "version": "1.1.0",
-  "description": "Build, manage, and deploy Wix sites and apps. Includes CLI development skills and Wix MCP server for site management, eCommerce, CMS, dashboard extensions, and more.",
+  "description": "Build, manage, and deploy Wix sites and apps. Includes CLI development skills, Wix Headless for custom frontends powered by Wix backends, and Wix MCP server for site management, eCommerce, CMS, dashboard extensions, and more.",
   "author": {
     "name": "Wix",
     "url": "https://dev.wix.com"
@@ -15,14 +15,16 @@
     "wix-mcp",
     "ecommerce",
     "cms",
-    "wix-apps"
+    "wix-apps",
+    "wix-headless",
+    "headless"
   ],
   "skills": "./skills/",
   "mcpServers": "./.mcp.json",
   "interface": {
     "displayName": "Wix",
     "shortDescription": "Build Wix apps and manage Wix sites from Codex",
-    "longDescription": "Build, manage, and deploy Wix sites and apps with Codex. Includes Wix CLI development skills for dashboard extensions, backend APIs, site widgets, service plugins, data collections, and recipes for Wix business solution management.",
+    "longDescription": "Build, manage, and deploy Wix sites and apps with Codex. Includes Wix CLI development skills for dashboard extensions, backend APIs, site widgets, service plugins, and data collections. Build Wix Headless sites using any frontend framework — React, Next.js, or plain HTML — powered by Wix's backend for eCommerce, bookings, CMS, events, and more. Also includes recipes for Wix business solution management.",
     "developerName": "Wix",
     "category": "Coding",
     "capabilities": [
@@ -36,7 +38,8 @@
     "defaultPrompt": [
       "Build a Wix app extension with Wix Design System UI",
       "Build a Wix app with a shipping fee service plugin",
-      "Set up Wix Stores products, pickup, or CMS data"
+      "Set up Wix Stores products, pickup, or CMS data",
+      "Build a headless eCommerce storefront with Next.js and Wix"
     ],
     "brandColor": "#116DFF",
     "composerIcon": "./assets/logo.svg",
