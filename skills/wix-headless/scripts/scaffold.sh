@@ -4,8 +4,8 @@
 # Usage:
 #   bash <SKILL_ROOT>/scripts/scaffold.sh <folder-name> "<Brand Name>"
 #
-# <folder-name>:  3-20 lowercase alphanumeric chars (no hyphens, no spaces) — the
-#                 Wix CLI rejects anything else. Becomes the project directory name.
+# <folder-name>:  lowercase letters, numbers, and hyphens only. Becomes the
+#                 local project directory name.
 # <Brand Name>:   human-readable business name; quote if it contains spaces.
 #
 # After scaffold succeeds, read <folder-name>/wix.config.json to extract appId
@@ -13,7 +13,7 @@
 # read; this script just runs the npm create.
 #
 # Behavior:
-#   - Pre-flight validates the folder name (regex ^[a-z0-9]{3,20}$).
+#   - Pre-flight validates the folder name syntax.
 #   - Pre-flight requires both args.
 #   - Runs `npm create @wix/new@latest headless` with --no-publish + --skip-install
 #     so the orchestrator can deferred-install with its own package set.
@@ -34,10 +34,10 @@ if [[ $# -lt 2 || -z "${1:-}" || -z "${2:-}" ]]; then
   exit 2
 fi
 
-if [[ ! "$1" =~ ^[a-z0-9]{3,20}$ ]]; then
+if [[ ! "$1" =~ ^[a-z0-9][a-z0-9-]*$ ]]; then
   echo "scaffold.sh: folder-name='$1' is not valid." >&2
-  echo "Folder name must be 3-20 lowercase alphanumeric chars (no hyphens, no spaces)." >&2
-  echo "Derive it from the brand: lowercase, strip non-[a-z0-9], truncate to 20." >&2
+  echo "Folder name must contain only lowercase letters, numbers, and hyphens." >&2
+  echo "Derive it from the brand as a lowercase, npm-safe directory name." >&2
   exit 2
 fi
 

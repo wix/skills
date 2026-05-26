@@ -39,21 +39,25 @@ If the user already named the brand in the opening message, skip this step.
 
 Immediately after the brand name is confirmed (before Q2), emit **one concurrent batch** containing both the scaffold dispatch AND prefetch reads of the shared contract docs. These reads cost nothing during Q2 + plan review wait time but save ~1 min of post-approval latency that prior runs spent reading these docs serially.
 
-1. **Scaffold dispatch.** Derive the folder name from the brand, validate it, then run `bash <SKILL_ROOT>/scripts/scaffold.sh <folder-name> "<Brand>"` as a background shell. The script handles the npm-create invocation + folder-name pre-flight (regex `^[a-z0-9]{3,20}$`); the orchestrator handles folder-name derivation from the human-readable brand.
+1. **Scaffold dispatch.** Derive the folder name from the brand, validate it, then run `bash <SKILL_ROOT>/scripts/scaffold.sh <folder-name> "<Brand>"` as a background shell. The script handles the npm-create invocation + folder-name pre-flight; the orchestrator handles folder-name derivation from the human-readable brand.
 
    **Folder-name derivation (apply to brand before invoking the script):**
    1. Lowercase
-   2. Strip every char that isn't `[a-z0-9]` (drop hyphens, spaces, punctuation, accents — the Wix CLI rejects them)
-   3. Truncate to 20 chars
-   4. If the result is shorter than 3 chars, ask the user explicitly for a folder name (`AskUserQuestion`)
+   2. Convert whitespace / punctuation runs to `-`
+   3. Remove every char that isn't `[a-z0-9-]`
+   4. Trim leading / trailing hyphens and collapse repeated hyphens
+   5. If the result is empty, ask the user explicitly for a folder name (`AskUserQuestion`)
 
-   Examples: `"Acme-Co" → "acmeco"`; `"Sole Society" → "solesociety"`; `"E&E Co." → "eeco"`; `"AB" → ask the user`.
+   Examples: `"Acme-Co" → "acme-co"`; `"Sole Society" → "sole-society"`; `"E&E Co." → "e-e-co"`; `"!!!" → ask the user`.
 
-   The Wix CLI requires `[a-z0-9]{3,20}` — hyphens, underscores, uppercase, and other punctuation are rejected.
+   The Wix CLI's `--folder-name` accepts lowercase letters, numbers, and hyphens. The value must also pass npm package-name validation, so keep it npm-safe.
+
+   **Business-name guardrail.** The CLI now derives the Wix project URL slug from `business-name`, not from `folder-name`. If the confirmed brand contains no English letters or numbers (for example, only emoji or punctuation), the CLI rejects it. In that case, ask the user for a brand name that includes at least one English letter or number before scaffolding.
 
    **Pre-flight validation (orchestrator-side, before invoking the script).** Both must pass; if either fails, regenerate the folder name or re-prompt the user — do NOT rely solely on the script's pre-flight (it'll exit non-zero, but that costs a round-trip):
-   - derived folder name matches `^[a-z0-9]{3,20}$`
-   - `brand` is non-empty after trimming whitespace
+   - derived folder name matches `^[a-z0-9][a-z0-9-]*$`
+   - derived folder name is npm-safe (same rule the CLI enforces)
+   - `brand` is non-empty after trimming whitespace and contains at least one English letter or number
 
    **The scaffold call (background shell, with timing capture):**
 
