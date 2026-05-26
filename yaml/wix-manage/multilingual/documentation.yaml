@@ -1,8 +1,7 @@
 apiDoc:
   title: Wix Multilingual Recipes
-
   docs:
-    - file: ../../../skills/wix-manage/references/multilingual/multilingual-setup.md‎
+    - file: ../../../skills/wix-manage/references/multilingual/multilingual-setup.md
       title: Multilingual Setup and translation
       docsEntry: https://dev.wix.com/docs/api-reference/business-management/multilingual
       tags: [multilingual]
