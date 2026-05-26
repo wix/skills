@@ -1,299 +1,65 @@
 
 # Wix Custom Element Widget Builder
 
-Creates custom element widget extensions for Wix CLI applications. Custom element widgets are React components converted to web components that appear in the Wix Editor, allowing site owners to add interactive, configurable widgets to their pages with a built-in settings panel.
+Custom element widgets are native web components (HTML custom elements) that appear in the Wix Editor. Site owners add interactive, configurable widgets to their pages and edit them through a built-in settings panel.
 
-## Quick Start Checklist
+## Scaffold
 
-Follow these steps in order when creating a custom element widget:
+Use `wix generate --params` with `extensionType: CUSTOM_ELEMENT`. `folder` must be a valid custom-element tag name (lowercase, starts with a letter, contains at least one hyphen). The CLI generates 4 files plus the `src/extensions.ts` registration:
 
-1. [ ] Create widget folder: `src/extensions/site/widgets/custom-elements/<widget-name>/`
-2. [ ] Create `widget.tsx` with React component and `reactToWebComponent` conversion
-3. [ ] Create `panel.tsx` with WDS components and `widget.getProp/setProp`
-4. [ ] Create `extensions.ts` with `extensions.customElement()` and unique UUID
-5. [ ] Update `src/extensions.ts` to import and use the new extension
+| File | Purpose |
+|------|---------|
+| `<name>.tsx` | The widget — a class that extends `HTMLElement` |
+| `<name>.panel.tsx` | The settings panel React component shown in the Editor sidebar |
+| `<name>.module.css` | CSS Modules stylesheet pre-wired with a `.root` class and CSS custom-property tokens |
+| `<name>.extension.ts` | Builder file (UUID, name, sizing defaults, auto-add, presets, tagName, file paths) |
 
-## Architecture
+After scaffolding, edit `<name>.tsx` for the widget logic, `<name>.panel.tsx` for the settings UI, `<name>.module.css` for the visual design, and the builder file only for non-default sizing, auto-add, or preset behavior.
 
-Custom element widgets consist of **two required files**:
+## Widget Component (`<name>.tsx`)
 
-### 1. Widget Component (`widget.tsx`)
+Wix calls `customElements.define()` for you using the builder's `tagName`; do NOT call it in your code.
 
-React component converted to a web component using `react-to-webcomponent`:
+Key authoring rules:
 
-- Define Props interface with configurable properties (camelCase)
-- Create a React functional component that renders the widget UI
-- Convert to web component with props mapping
-- Use inline styles (no CSS imports)
-- Handle Wix Editor environment when using Wix Data API
+- Extend `HTMLElement` and export the class as the default export.
+- Declare every reactive attribute in a static `observedAttributes` getter that returns an array of **kebab-case** strings (HTML attributes don't preserve camelCase).
+- Initialize and start side effects (timers, listeners, fetches) in `connectedCallback`. Tear them down in `disconnectedCallback` to avoid leaks when the widget is unmounted in the Editor.
+- Re-render in `attributeChangedCallback` when a watched attribute changes.
+- Read attribute values with `this.getAttribute('attr-name')` and provide sensible defaults — attributes may be missing on first paint.
+- Render output via `this.innerHTML = \`...\`` (template strings) or imperative DOM, not JSX.
+- Pull design tokens from the generated `<name>.module.css` (e.g., apply the `.root` class) rather than hard-coding colors inline; the settings panel is the place for user-controlled colors.
 
-### 2. Settings Panel (`panel.tsx`)
+## Settings Panel (`<name>.panel.tsx`)
 
-Settings panel shown in the Wix Editor sidebar:
+React component shown in the Wix Editor sidebar.
 
-- Uses Wix Design System components (see [SETTINGS_PANEL.md](custom-element-widget/SETTINGS_PANEL.md))
-- Manages widget properties via `@wix/editor` widget API
-- Loads initial values with `widget.getProp('kebab-case-name')`
-- Updates properties with `widget.setProp('kebab-case-name', value)`
-- Wrapped in `WixDesignSystemProvider > SidePanel > SidePanel.Content`
-- For color pickers, use `inputs.selectColor()` from `@wix/editor` with `FillPreview` — NOT `<Input type="color">`
-- For font pickers, use `inputs.selectFont()` from `@wix/editor` with a `Button` — NOT a text Input
+- Uses Wix Design System components (see [SETTINGS_PANEL.md](custom-element-widget/SETTINGS_PANEL.md)).
+- Manages widget properties via the `@wix/editor` `widget` API.
+- Loads initial values with `widget.getProp('kebab-case-name')`.
+- Updates properties with `widget.setProp('kebab-case-name', value)`. Always update both local React state AND the widget prop in onChange handlers.
+- Wrapped in `WixDesignSystemProvider > SidePanel > SidePanel.Content`.
+- For color pickers, use `inputs.selectColor()` from `@wix/editor` with `FillPreview` — NOT `<Input type="color">`.
+- For font pickers, use `inputs.selectFont()` from `@wix/editor` with a `Button` — NOT a text Input.
 
-## Widget Component Pattern
+## Builder file (`<name>.extension.ts`)
 
-```typescript
-import React, { type FC, useState, useEffect } from 'react';
-import ReactDOM from 'react-dom';
-import reactToWebComponent from 'react-to-webcomponent';
+The CLI scaffolds the builder file with sensible defaults — edit it only to customize sizing, auto-add behavior, or presets.
 
-interface WidgetProps {
-  title?: string;
-  targetDate?: string;
-  targetTime?: string;
-  bgColor?: string;
-  textColor?: string;
-  font?: string;
-}
+| Field | Type | Default | Purpose |
+|---|---|---|---|
+| `id` | UUID | generated | Extension ID. Don't change after scaffolding. |
+| `name` | string | from scaffold param | Display name. |
+| `tagName` | kebab-case | derived from `folder` | Custom-element tag the widget is registered under. Used by the Editor and by `customElements.define()`. |
+| `width.defaultWidth` | number (px) | `450` | Initial width when the widget is added to a page. |
+| `width.allowStretch` | boolean | `true` | Whether the site owner can stretch the widget to the page width. |
+| `height.defaultHeight` | number (px) | `250` | Initial height. |
+| `installation.autoAdd` | boolean | `true` | If true, the widget is auto-added to the site when the app is installed. Set to `false` for opt-in widgets. |
+| `presets` | array | one default preset | Editor presets (saved configurations) the site owner can pick from. Each preset has its own `id`, `name`, and `thumbnailUrl`. |
+| `presets[].thumbnailUrl` | string | `{{BASE_URL}}/<name>-thumbnail.png` | Path to a preview image. `{{BASE_URL}}` is resolved at build time. Replace the placeholder image at the same relative path with your actual asset. |
+| `element` | path | `./extensions/site/widgets/<name>/<name>.tsx` | Path to the widget custom element file. Don't change unless renaming files. |
+| `settings` | path | `./extensions/site/widgets/<name>/<name>.panel.tsx` | Path to the settings panel file. Don't change unless renaming files. |
 
-const CustomElement: FC<WidgetProps> = ({
-  title = 'Countdown',
-  targetDate = '',
-  targetTime = '00:00',
-  bgColor = '#ffffff',
-  textColor = '#333333',
-  font = "{}",
-}) => {
-  const { font: textFont, textDecoration } = JSON.parse(font);
-  const [time, setTime] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0, isExpired: false });
-
-  useEffect(() => {
-    if (!targetDate) return;
-
-    const update = () => {
-      const target = new Date(`${targetDate}T${targetTime}`);
-      const diff = target.getTime() - Date.now();
-      if (diff <= 0) {
-        setTime({ days: 0, hours: 0, minutes: 0, seconds: 0, isExpired: true });
-        return;
-      }
-      setTime({
-        days: Math.floor(diff / (1000 * 60 * 60 * 24)),
-        hours: Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
-        minutes: Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)),
-        seconds: Math.floor((diff % (1000 * 60)) / 1000),
-        isExpired: false,
-      });
-    };
-
-    update();
-    const interval = setInterval(update, 1000);
-    return () => clearInterval(interval);
-  }, [targetDate, targetTime]);
-
-  const styles = {
-    wrapper: {
-      backgroundColor: bgColor,
-      padding: '24px 32px',
-      textAlign: 'center' as const,
-      display: 'inline-block',
-    },
-    title: {
-      font: textFont || '600 24px sans-serif',
-      color: textColor,
-      textDecoration,
-      marginBottom: '16px',
-    },
-  };
-
-  return (
-    <div style={styles.wrapper}>
-      {title && <div style={styles.title}>{title}</div>}
-      {/* Widget content */}
-    </div>
-  );
-};
-
-const customElement = reactToWebComponent(CustomElement, React, ReactDOM, {
-  props: {
-    title: 'string',
-    targetDate: 'string',
-    targetTime: 'string',
-    bgColor: 'string',
-    textColor: 'string',
-    font: 'string',
-  },
-});
-
-export default customElement;
-```
-
-**Key Points:**
-
-- Props interface uses **camelCase** (e.g., `targetDate`, `bgColor`)
-- `reactToWebComponent` config uses camelCase keys with `'string'` type
-- All props are passed as strings from the web component
-- Use inline styles, not CSS imports. Do NOT put functions in styles objects (causes TS2560/TS2349). For conditional styles, use ternary expressions directly in the `style` prop: `style={{ ...styles.itemBase, color: item.done ? '#999' : '#000' }}`
-- Parse complex props (like `font`) from JSON strings: `const { font: textFont, textDecoration } = JSON.parse(font)`
-- Apply font via `font` CSS shorthand and `textDecoration` property
-- Extract helper components, utility functions, and styles into separate files for clean code organization
-
-## Settings Panel Pattern
-
-```typescript
-import React, { type FC, useState, useEffect, useCallback } from "react";
-import { widget } from "@wix/editor";
-import {
-  SidePanel,
-  WixDesignSystemProvider,
-  Input,
-  FormField,
-  TimeInput,
-  Box,
-} from "@wix/design-system";
-import "@wix/design-system/styles.global.css";
-import { ColorPickerField } from "./components/ColorPickerField";
-import { FontPickerField } from "./components/FontPickerField";
-import { parseTimeValue } from "./utils";
-
-const DEFAULT_BG_COLOR = "#0a0e27";
-const DEFAULT_TEXT_COLOR = "#00ff88";
-const DEFAULT_TEXT_FONT = "";
-const DEFAULT_TEXT_DECORATION = "";
-
-const Panel: FC = () => {
-  const [title, setTitle] = useState<string>("Countdown");
-  const [targetDate, setTargetDate] = useState<string>("");
-  const [targetTime, setTargetTime] = useState<string>("00:00");
-  const [bgColor, setBgColor] = useState<string>(DEFAULT_BG_COLOR);
-  const [textColor, setTextColor] = useState<string>(DEFAULT_TEXT_COLOR);
-  const [font, setFont] = useState({ font: DEFAULT_TEXT_FONT, textDecoration: DEFAULT_TEXT_DECORATION });
-
-  useEffect(() => {
-    Promise.all([
-      widget.getProp("title"),
-      widget.getProp("target-date"),
-      widget.getProp("target-time"),
-      widget.getProp("bg-color"),
-      widget.getProp("text-color"),
-      widget.getProp("font"),
-    ])
-      .then(([titleVal, dateVal, timeVal, bgColorVal, textColorVal, fontString]) => {
-        setTitle(titleVal || "Countdown");
-        setTargetDate(dateVal || "");
-        setTargetTime(timeVal || "00:00");
-        setBgColor(bgColorVal || DEFAULT_BG_COLOR);
-        setTextColor(textColorVal || DEFAULT_TEXT_COLOR);
-        setFont(JSON.parse(fontString || "{}"));
-      })
-      .catch((error) => console.error("Failed to fetch widget properties:", error));
-  }, []);
-
-  const handleTitleChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-    const newTitle = event.target.value;
-    setTitle(newTitle);
-    widget.setProp("title", newTitle);
-  }, []);
-
-  const handleDateChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-    const newDate = event.target.value;
-    setTargetDate(newDate);
-    widget.setProp("target-date", newDate);
-  }, []);
-
-  const handleTimeChange = useCallback(({ date }: { date: Date }) => {
-    if (date) {
-      const hours = String(date.getHours()).padStart(2, '0');
-      const minutes = String(date.getMinutes()).padStart(2, '0');
-      const newTime = `${hours}:${minutes}`;
-      setTargetTime(newTime);
-      widget.setProp("target-time", newTime);
-    }
-  }, []);
-
-  const handleBgColorChange = (value: string) => {
-    setBgColor(value);
-    widget.setProp("bg-color", value);
-  };
-
-  const handleTextColorChange = (value: string) => {
-    setTextColor(value);
-    widget.setProp("text-color", value);
-  };
-
-  const handleFontChange = (value: { font: string; textDecoration: string }) => {
-    setFont(value);
-    widget.setProp("font", JSON.stringify(value));
-  };
-
-  return (
-    <WixDesignSystemProvider>
-      <SidePanel width="300" height="100vh">
-        <SidePanel.Header title="Countdown Settings" />
-        <SidePanel.Content noPadding stretchVertically>
-          <Box direction="vertical" gap="24px">
-            <SidePanel.Field>
-              <FormField label="Title" required>
-                <Input
-                  type="text"
-                  value={title}
-                  onChange={handleTitleChange}
-                  placeholder="Enter countdown title"
-                />
-              </FormField>
-            </SidePanel.Field>
-
-            <SidePanel.Field>
-              <FormField label="Target Date" required>
-                <Input
-                  type="date"
-                  value={targetDate}
-                  onChange={handleDateChange}
-                />
-              </FormField>
-            </SidePanel.Field>
-
-            <SidePanel.Field>
-              <FormField label="Target Time" required>
-                <TimeInput
-                  value={parseTimeValue(targetTime)}
-                  onChange={handleTimeChange}
-                />
-              </FormField>
-            </SidePanel.Field>
-
-            <ColorPickerField
-              label="Background Color"
-              value={bgColor}
-              onChange={handleBgColorChange}
-            />
-
-            <ColorPickerField
-              label="Text Color"
-              value={textColor}
-              onChange={handleTextColorChange}
-            />
-
-            <FontPickerField
-              label="Text Font"
-              value={font}
-              onChange={handleFontChange}
-            />
-          </Box>
-        </SidePanel.Content>
-      </SidePanel>
-    </WixDesignSystemProvider>
-  );
-};
-
-export default Panel;
-```
-
-**Key Points:**
-
-- Prop names in `widget.getProp()` and `widget.setProp()` use **kebab-case** (e.g., `"target-date"`, `"bg-color"`)
-- Always update both local state AND widget prop in onChange handlers
-- Wrap content in `WixDesignSystemProvider > SidePanel > SidePanel.Content`
-- Use WDS components from `@wix/design-system` (see [SETTINGS_PANEL.md](custom-element-widget/SETTINGS_PANEL.md))
 - Import `@wix/design-system/styles.global.css` for styles
 - For colors, use `ColorPickerField` with `inputs.selectColor()` from `@wix/editor` — NOT `<Input type="color">`
 - For fonts, use `FontPickerField` with `inputs.selectFont()` from `@wix/editor` — NOT a text Input
@@ -301,76 +67,71 @@ export default Panel;
 
 ## Props Naming Convention
 
-**Critical:** Props use different naming conventions in each file:
+All cross-boundary prop names are **kebab-case**. Both sides of the widget/panel boundary use the same string:
 
-| File                           | Convention | Example                                       |
-| ------------------------------ | ---------- | --------------------------------------------- |
-| `widget.tsx` (Props interface) | camelCase  | `targetDate`, `bgColor`, `textColor`          |
-| `panel.tsx` (widget API)       | kebab-case | `"target-date"`, `"bg-color"`, `"text-color"` |
-| `reactToWebComponent` config   | camelCase  | `targetDate: 'string'`                        |
-
-The web component automatically converts between camelCase (React props) and kebab-case (HTML attributes).
+| Site                                                   | Convention | Example                            |
+| ------------------------------------------------------ | ---------- | ---------------------------------- |
+| `<name>.tsx` — `observedAttributes`, `getAttribute`    | kebab-case | `"display-name"`, `"bg-color"`     |
+| `<name>.panel.tsx` — `widget.getProp` / `widget.setProp` | kebab-case | `"display-name"`, `"bg-color"`     |
+| Local TypeScript variables                             | camelCase  | `displayName`, `bgColor`           |
 
 ## Wix Data API Integration
 
-When using Wix Data API in widgets, you **must** handle the Wix Editor environment gracefully:
+When using the Wix Data API in widgets, you **must** handle the Wix Editor environment gracefully — fetching data inside the Editor produces empty results and noisy errors.
 
 ```typescript
-import { items } from "@wix/data";
-import { window as wixWindow } from "@wix/site-window";
+import { items } from '@wix/data';
+import { window as wixWindow } from '@wix/site-window';
 
-const CustomElement: FC<WidgetProps> = ({ collectionId }) => {
-  const [data, setData] = useState(null);
-  const [isEditor, setIsEditor] = useState(false);
-
-  useEffect(() => {
-    const loadData = async () => {
-      const currentViewMode = await wixWindow.viewMode();
-
-      if (currentViewMode === "Editor") {
-        // Don't fetch data in editor - show placeholder
-        setIsEditor(true);
-        return;
-      }
-
-      // Fetch real data only on live site
-      try {
-        const results = await items.query(collectionId).limit(10).find();
-        setData(results.items);
-      } catch (error) {
-        console.error("Failed to load data:", error);
-      }
-    };
-
-    loadData();
-  }, [collectionId]);
-
-  if (isEditor) {
-    return (
-      <div style={{ padding: "20px", border: "2px dashed #ccc" }}>
-        <p>Widget will display data on the live site</p>
-        <p>Collection: {collectionId}</p>
-      </div>
-    );
+class MyWidget extends HTMLElement {
+  static get observedAttributes() {
+    return ['collection-id'];
   }
 
-  // Render widget with real data
-  return (
-    <div>
-      {data?.map((item) => (
-        <div key={item._id}>{item.title}</div>
-      ))}
-    </div>
-  );
-};
+  constructor() {
+    super();
+  }
+
+  connectedCallback() {
+    this.render();
+  }
+
+  attributeChangedCallback() {
+    this.render();
+  }
+
+  async render() {
+    const collectionId = this.getAttribute('collection-id') || '';
+    const viewMode = await wixWindow.viewMode();
+
+    if (viewMode === 'Editor') {
+      this.innerHTML = `
+        <div style="padding: 20px; border: 2px dashed #ccc">
+          <p>Widget will display data on the live site</p>
+          <p>Collection: ${collectionId}</p>
+        </div>
+      `;
+      return;
+    }
+
+    try {
+      const { items: results } = await items.query(collectionId).limit(10).find();
+      this.innerHTML = results.map((item) => `<div>${item.title}</div>`).join('');
+    } catch (error) {
+      console.error('Failed to load data:', error);
+    }
+  }
+}
+
+export default MyWidget;
 ```
 
 **Requirements:**
 
-- Import `{ window as wixWindow }` from `"@wix/site-window"`
-- Check `await wixWindow.viewMode()` before fetching data
-- If `viewMode === 'Editor'`, show a placeholder UI instead
-- Only fetch and render real data when NOT in editor mode
+- Import `{ window as wixWindow }` from `'@wix/site-window'`.
+- Check `await wixWindow.viewMode()` before fetching data.
+- If `viewMode === 'Editor'`, render a placeholder via `this.innerHTML` instead of fetching.
+- Only query and render real data when NOT in Editor mode.
 
 ## Color Selection
 
@@ -475,21 +236,6 @@ const handleFontChange = (value: FontValue) => {
 
 **Important:** Use `inputs.selectFont(value, { onChange })` from `@wix/editor` with the callback pattern. This provides a rich font picker dialog with bold, italic, size, and typography features. Font values are stored as JSON strings.
 
-## Output Structure
-
-```
-src/extensions/site/widgets/custom-elements/
-└── {widget-name}/
-    ├── widget.tsx           # Main widget component
-    ├── panel.tsx            # Settings panel component
-    ├── extensions.ts         # Extension registration
-    ├── components/          # Optional sub-components
-    │   ├── ColorPickerField.tsx
-    │   └── FontPickerField.tsx
-    └── utils/               # Optional helper functions
-        └── formatters.ts
-```
-
 ## Examples
 
 ### Countdown Timer Widget
@@ -528,60 +274,9 @@ src/extensions/site/widgets/custom-elements/
 
 Avoid generic aesthetics. Create distinctive designs with unique fonts (avoid Inter, Roboto, Arial), cohesive color palettes, CSS animations for micro-interactions, and context-specific choices. Don't use clichéd color schemes or predictable layouts.
 
-## Extension Registration
-
-**Extension registration is MANDATORY and has TWO required steps.**
-
-### Step 1: Create Widget-Specific Extension File
-
-Each custom element widget requires an `extensions.ts` file in its folder:
-
-```typescript
-import { extensions } from "@wix/astro/builders";
-
-export const customelementwidgetMyWidget = extensions.customElement({
-  id: "{{GENERATE_UUID}}",
-  name: "My Widget",
-  tagName: "my-widget",
-  element: "./extensions/site/widgets/custom-elements/my-widget/widget.tsx",
-  settings: "./extensions/site/widgets/custom-elements/my-widget/panel.tsx",
-  installation: {
-    autoAdd: true,
-  },
-  width: {
-    defaultWidth: 500,
-    allowStretch: true,
-  },
-  height: {
-    defaultHeight: 500,
-  },
-});
-```
-
-**CRITICAL: UUID Generation**
-
-The `id` must be a unique, static UUID v4 string. Generate a fresh UUID for each extension - do NOT use `randomUUID()` or copy UUIDs from examples. Replace `{{GENERATE_UUID}}` with a freshly generated UUID like `"a1b2c3d4-e5f6-7890-abcd-ef1234567890"`.
-
-| Property       | Type   | Description                            |
-| -------------- | ------ | -------------------------------------- |
-| `id`           | string | Unique static UUID v4 (generate fresh) |
-| `name`         | string | Display name in editor                 |
-| `tagName`      | string | HTML custom element tag (kebab-case)   |
-| `element`      | string | Path to widget React component         |
-| `settings`     | string | Path to settings panel component       |
-| `installation` | object | Auto-add behavior                      |
-| `width`        | object | Default width and stretch settings     |
-| `height`       | object | Default height settings                |
-
-### Step 2: Register in Main Extensions File
-
-**CRITICAL:** After creating the widget-specific extension file, you MUST read [Extension Registration reference](EXTENSION_REGISTRATION.md) and follow the "App Registration" section to update `src/extensions.ts`.
-
-**Without completing Step 2, the custom element widget will not be available in the Wix Editor.**
-
 ## Custom-element-specific Conventions
 
-- Functional React components with hooks.
-- Inline styles only (no CSS imports).
-- Handle Wix Editor environment when using Wix Data API.
-- Consistent prop naming (camelCase in widget, kebab-case in panel).
+- Widget (`<name>.tsx`) extends `HTMLElement` and renders via `this.innerHTML`; the settings panel (`<name>.panel.tsx`) is a functional React component with hooks.
+- Style via the generated `<name>.module.css` (preferred) or inline styles. Don't import other global CSS.
+- Handle the Wix Editor environment when using the Wix Data API.
+- Cross-boundary prop names are kebab-case on both sides (`observedAttributes`, `getAttribute`, `getProp`, `setProp`).
