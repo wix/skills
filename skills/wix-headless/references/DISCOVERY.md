@@ -15,7 +15,17 @@ npx @wix/cli whoami >/dev/null 2>&1
 ```
 
 - Exit 0 → continue to Step 0.
-- Exit non-zero → surface verbatim: *"You're not logged in to Wix. Run `npx @wix/cli login` and retry."* and stop. Do **not** call `AskUserQuestion` in this state — the user can't answer questions that will be discarded.
+- Exit non-zero → **run `npx @wix/cli login` yourself with `run_in_background: true`** (do NOT instruct the user to run it). The exact shape:
+
+  | Step | Action | Anti-pattern |
+  |---|---|---|
+  | 1 | `Bash` tool, command = `npx @wix/cli login`, `run_in_background: true`. **No shell `&`, no `mktemp` redirect, no chaining.** | `TMPFILE=$(mktemp …) && npx @wix/cli login > "$TMPFILE" 2>&1 &` — stacks shell `&` on harness `run_in_background`, splits wix-login output from the harness task file. |
+  | 2 | The tool reply gives you the harness output-file path in `<bash-stdout>`. **`Read` that path** (or use `TaskOutput`). | Reading any other file. The harness path IS the right file. |
+  | 3 | Parse line 1 of the file: `{"event":"awaiting_user","userCode":"…","verificationUri":"…"}`. (Node may emit a `TimeoutNaNWarning` on lines 3-5; ignore.) | Trying to re-invoke wix-login "to do it properly" after seeing the event. The event means it's working — surface and wait. |
+  | 4 | Surface to user in one plain-prose message: *"Open `<verificationUri>` in your browser and enter the code `<userCode>` — I'll continue once you've completed the login."* | `AskUserQuestion`. The URL + code are text the user needs to copy, not a multiple-choice answer. |
+  | 5 | Wait for the harness `task-notification` with `<status>completed</status>`. Run `whoami` once on completion to confirm. Then proceed to Step 0. | Polling `whoami` in a sleep loop while waiting. The notification is the only signal. |
+
+  Do **not** punt to the user with *"Run `npx @wix/cli login` and retry"* and stop — that breaks the flow (the harness backgrounds the user-issued command, you don't know which output file to read, and the user has to manually prompt you to read it; ~60 s + interrupt of recovery wall). Full reference: [`shared/AUTHENTICATION.md`](shared/AUTHENTICATION.md#wix-login-from-a-non-interactive-agent).
 
 ## Step 0 — Infer Vertical(s) and Business Context
 

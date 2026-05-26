@@ -7,17 +7,46 @@ Every Wix API call this skill makes goes through `@wix/cli` + `curl` — no MCP,
 - `@wix/cli` resolvable via `npx`. The scaffold installs it project-local, so `npx @wix/cli …` works without a global install.
 - An authenticated CLI session. Test with `npx @wix/cli whoami` — exits **0** when logged in (prints the authenticated email + user id), **non-zero** when logged out.
 
-The primary place this check runs is DISCOVERY.md § "Pre-flight" — foreground, before any `AskUserQuestion`. `scaffold.sh` repeats the check defensively for its standalone-invocation path. If the check fails, surface *"You're not logged in to Wix. Run `npx @wix/cli login` and retry."* and stop — do not start an interview or scaffold the project.
+The primary place this check runs is DISCOVERY.md § "Pre-flight" — foreground, before any `AskUserQuestion`. `scaffold.sh` repeats the check defensively for its standalone-invocation path. **If the check fails, run `npx @wix/cli login` yourself with `run_in_background: true`** per the next section — do not tell the user "run wix login and retry" and stop. Punting to the user breaks the flow: the harness backgrounds the user-issued command, the agent doesn't know which output file to read, and you end up paying ~60 s + a manual user interrupt to recover.
 
-## `wix login` is safe from a non-interactive agent
+The "stop and tell the user" path is a **last-resort fallback** for when the background-run mechanism itself is broken (e.g. the harness rejects `run_in_background: true`, or the task output file never gets created). Try the agent-driven flow first.
 
-In an agent context (no TTY), `wix login` writes the verification URL and one-time user code as **human-readable prose to stderr** and the process exits **non-zero** once the agent flow concludes. There are no JSON events — scrape the URL and code out of the stderr file.
+## `wix login` from a non-interactive agent
 
-### How to invoke
+`wix login` (or `npx @wix/cli login`) emits one JSON event per line on **stdout** and blocks until the human finishes the browser step. The first event you care about is `awaiting_user`:
 
-`wix login` (or `npx @wix/cli login`) blocks until the human finishes the browser step, so run it with `run_in_background: true` and capture stderr to a file. Tail the stderr file to read the verification URL + user code as soon as they appear — the user needs them immediately, not after the process exits.
+```json
+{"event":"awaiting_user","expiresInSeconds":600,"userCode":"TPV5HUG5","verificationUri":"https://users.wix.com/login/device-login?color=developer&studio=true"}
+```
 
-The harness `run_in_background` completion notification is the terminal signal that login finished (success or failure — distinguish by exit code and the final stderr content). Do not poll the CLI session by re-running `whoami` in a sleep loop.
+(Earlier revisions of this doc claimed the CLI wrote human-readable prose to stderr with no JSON events — that was wrong. The events are JSON on stdout. There may be incidental Node warnings interleaved; line-by-line JSON parsing with a `try` around each line handles that cleanly.)
+
+### How to invoke — exact shape
+
+The Bash command is just the CLI invocation, **nothing else**:
+
+```bash
+npx @wix/cli login
+```
+
+Pass `run_in_background: true` on the Bash tool call. **Do not** add shell `&`, **do not** redirect to your own `mktemp` file, **do not** chain with `echo`/`sleep`. The harness wraps the process for you and writes stdout+stderr to its own task output file at `/tmp/claude-<uid>/<project>/tasks/<task-id>.output`. The tool's `<bash-stdout>` reply gives you that path verbatim — that's the file you read. Stacking shell `&` on top of `run_in_background` creates two layers of backgrounding: the harness captures only the parent shell's `pid:` / `file:` echoes while wix-login's actual JSON events write somewhere else.
+
+### Reading the output
+
+Poll the harness's task-output file until the `awaiting_user` JSON line appears. Use `Read` on the path returned in `<bash-stdout>` — `TaskOutput` also works. The first useful event is on line 1 (a Node `TimeoutNaNWarning` may follow on lines 3-5; ignore it, the agent only cares about the JSON line). Parse the JSON, extract `verificationUri` + `userCode`.
+
+### The critical step: surface, don't re-invoke
+
+When you see the `awaiting_user` event:
+
+1. **Surface URL + code to the user in plain prose. Send the message. Do not write more Bash. Do not re-invoke wix-login "to do it properly this time".** Seeing the `awaiting_user` event means the first invocation is working correctly — reading its output is the right next step. Restarting wix-login throws away the live device-login session and the second instance has nothing to wait for (the user never sees the new code because by the time it's emitted, you've already messaged them the first one or are mid-restart). One invocation, one read, one message, one wait.
+2. The message shape:
+
+   > *"You need to authenticate with Wix. Open `<verificationUri>` in your browser and enter the code `<userCode>` — I'll continue once you've completed the login."*
+
+3. **Then wait** for the harness `task-notification` with `<status>completed</status>`. That's the terminal signal that the wix-login process exited (the user finished the browser flow). Do not re-run `whoami` in a sleep loop while waiting; the notification is the only signal you need.
+
+On `<status>completed</status>` with exit 0, run `whoami` once to confirm and proceed. On non-zero exit (rare — typically a timeout if the user took >600 s, or a network error), surface the tail of the output file to the user and stop.
 
 ## Token minting
 
