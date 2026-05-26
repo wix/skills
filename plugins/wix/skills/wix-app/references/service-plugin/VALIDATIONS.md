@@ -2,27 +2,11 @@
 
 ## Overview
 
-The Validations SPI allows you to add custom validation rules to the checkout process. You can validate cart contents, order totals, quantities, or any business logic requirement.
-
-## Import
-
-```typescript
-import { validations } from "@wix/ecom/service-plugins";
-```
-
-## Handler
-
-| Handler | Description |
-| --- | --- |
-| `getValidationViolations` | Evaluate order and return any validation violations |
+The Validations SPI lets you add custom validation rules to the checkout process. You can validate cart contents, order totals, quantities, or any business logic requirement. Implement the `getValidationViolations` handler — it evaluates the order and returns any violations.
 
 ## Request and Response Schema
 
-Before implementing, call `ReadFullDocsMethodSchema` with the docs URL below to get the full request/response types.
-
-**MCP Tools to use:**
-- `ReadFullDocsMethodSchema` - Full request/response schema with field names, types, and descriptions
-- `ReadFullDocsArticle` - Full documentation with code examples (use if schema needs more context)
+Before implementing, call `ReadFullDocsMethodSchema` on the docs URL to get the full request/response types.
 
 | Handler | Docs URL |
 | --- | --- |

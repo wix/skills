@@ -4,12 +4,6 @@
 
 The Gift Vouchers Provider SPI allows you to integrate external gift card or voucher systems with Wix eCommerce. This enables customers to redeem gift cards, check balances, and void transactions.
 
-## Import
-
-```typescript
-import { giftVouchersProvider } from '@wix/ecom/service-plugins';
-```
-
 ## Handlers
 
 | Handler | Description |
@@ -20,11 +14,7 @@ import { giftVouchersProvider } from '@wix/ecom/service-plugins';
 
 ## Request and Response Schema
 
-Before implementing, call `ReadFullDocsMethodSchema` with the docs URLs below to get the full request/response types.
-
-**MCP Tools to use:**
-- `ReadFullDocsMethodSchema` - Full request/response schema with field names, types, and descriptions
-- `ReadFullDocsArticle` - Full documentation with code examples (use if schema needs more context)
+Before implementing, call `ReadFullDocsMethodSchema` on each docs URL to get the full request/response types.
 
 | Handler | Docs URL |
 | --- | --- |
