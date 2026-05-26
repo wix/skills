@@ -1,96 +1,47 @@
 
-# Wix App Registration
+# Extension Registration
 
-After creating any extension file, you must update the main `src/extensions.ts` file to register the extension with the app.
+`src/extensions.ts` is the single entry point that tells the build system which extensions exist. Without a `.use()` call for an extension, it does not load.
 
-## Why Registration Matters
+## Registration is automatic via the CLI
 
-The Wix CLI discovers extensions through the `src/extensions.ts` file — it's the single entry point that tells the build system which extensions exist. Without registration:
+For every CLI-supported extension type, `wix generate --params` updates `src/extensions.ts` for you — you do NOT need to write the import or the `.use()` call by hand. Verify the file was updated after each `wix generate` invocation.
 
-- Dashboard pages won't appear in the sidebar
-- Custom element widgets won't show in the Wix Editor
-- Service plugins won't be called during checkout flows
-- Event handlers won't receive webhook deliveries
-- Embedded scripts won't be injected into site pages
+## Extension types that require manual registration
 
-The most common cause of "my extension isn't working" is a missing `.use()` call in this file.
+| Type | Why manual |
+| --- | --- |
+| **Backend API** | Astro endpoints under `src/pages/api/` are auto-discovered by the runtime. They do not need to be added to `src/extensions.ts`. |
 
-## Simple Pattern (Recommended for Small Apps)
+Every other extension type is wired up automatically by the CLI.
 
-**`src/extensions.ts`** - Import and register extensions directly:
+## Manual recovery (when the CLI output drifts)
+
+Edit `src/extensions.ts` directly only when:
+
+- The CLI failed mid-run and left the file out of sync
+- A user hand-edited the file and broke the chain
+- You're adding a Backend API helper (uncommon)
+
+Each extension file is a default export from `<folder>/<folder>.extension.ts`. In `src/extensions.ts`, import it as a default import using the camelCase of the folder name, then chain `.use(...)`:
 
 ```typescript
-import { app } from "@wix/astro/builders";
-import { dataExtension } from "./extensions/data/extensions.ts";
-import { dashboardpageMyPage } from "./extensions/dashboard/pages/my-page/extensions.ts";
-import { embeddedscriptMyScript } from "./extensions/site/embedded-scripts/my-script/extensions.ts";
+import { app } from '@wix/astro/builders';
+import myPage from './extensions/dashboard/pages/my-page/my-page.extension.ts';
+import contactCreated from './extensions/backend/events/contact-created/contact-created.extension.ts';
 
 export default app()
-  .use(dataExtension)
-  .use(dashboardpageMyPage)
-  .use(embeddedscriptMyScript);
+  .use(myPage)
+  .use(contactCreated);
 ```
 
-**Steps for each new extension:**
-
-1. Import the extension from its `extensions.ts` file
-2. Add `.use(extensionName)` to the app chain
-3. Chain multiple extensions together
-
-## Advanced Pattern (For Large Apps)
-
-**`src/index.ts`** - Re-export all extensions:
-
-```typescript
-export { dashboardpageMyPage } from "./extensions/dashboard/pages/my-page/extensions";
-export { embeddedscriptMyScript } from "./extensions/site/embedded-scripts/my-script/extensions";
-export { dataExtension } from "./extensions/data/extensions";
-```
-
-**`src/extensions.ts`** - Register all extensions programmatically:
-
-```typescript
-import { app } from "@wix/astro/builders";
-import * as allExtensions from "./index";
-
-const extensionList = Object.values(allExtensions);
-
-const appBuilder = app();
-extensionList.forEach((extension) => {
-  appBuilder.use(extension);
-});
-
-export default appBuilder;
-```
-
-## Extension Types Without Registration
-
-The following extension types do **not** require `extensions.ts` files:
-
-- **Backend API** - Astro server endpoints are auto-discovered
-
-## Naming Conventions
-
-Extension export names follow this pattern: `{extensiontype}{CamelCaseName}`
-
-Examples:
-
-- `dashboardpageCartPopupManager`
-- `dashboardpluginBlogPostsBanner`
-- `dashboardmenupluginExportPosts`
-- `embeddedscriptCouponPopup`
-- `customelementwidgetCountdownWidget`
-- `sitepluginProductBadge`
-- `ecomshippingratesCustomShipping`
-
-The type prefix is the extension type in lowercase with no separators.
+Re-run `wix generate --params` whenever possible — manual edits drift faster than CLI-generated ones.
 
 ## Troubleshooting
 
 | Symptom | Cause | Fix |
-|---------|-------|-----|
-| Extension not appearing at all | Missing `.use()` call | Add import and `.use(extensionName)` to `src/extensions.ts` |
-| "Cannot find module" on build | Wrong import path | Verify the path in your import matches the actual file location (relative to `src/`) |
-| Extension registered but not working | Export name mismatch | Ensure the exported name in the extension file matches the import in `extensions.ts` |
-| Multiple extensions, only some work | Incomplete chain | Check that every extension has both an import and a `.use()` call |
-| TypeScript error on `.use()` | Wrong export type | Ensure extension file uses the correct builder method (e.g., `extensions.dashboardPage()` not `extensions.embeddedScript()`) |
+| --- | --- | --- |
+| Extension not appearing at all | Missing `.use()` call | Re-run `wix generate --params`; if that's not possible, add the import + `.use(<binding>)` |
+| "Cannot find module" on build | Wrong import path | Verify the path matches `./extensions/<area>/<folder>/<folder>.extension.ts` relative to `src/` |
+| Multiple extensions, only some work | Incomplete chain | Check every extension has both an import and a `.use()` call |
+| TypeScript error on `.use()` | Wrong builder method | Ensure the extension file uses the correct builder (e.g., `extensions.dashboardPage()` not `extensions.embeddedScript()`) |

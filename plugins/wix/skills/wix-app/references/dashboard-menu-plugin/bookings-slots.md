@@ -44,15 +44,3 @@
 - **Use case:** Add custom payment options to the collect payment button menu.
 
 > **Note:** This slot also appears on the Wix eCommerce Order Page.
-
-### Booking List Page
-
-**Booking More Actions Menu — Slot ID:** `38fbe11f-6bc6-4df7-a742-e3e169a16cef`
-
-- **Dashboard path:** Booking Calendar > Booking List
-- **Use case:** Add actions for individual bookings.
-
-**Booking List Bulk Actions More Actions Menu — Slot ID:** `f1ab2ce9-a790-4e3e-a0f7-fae4da37a668`
-
-- **Dashboard path:** Booking Calendar > Booking List (when items are selected)
-- **Use case:** Add bulk actions for multiple selected bookings.
