@@ -1,7 +1,7 @@
 {
   "name": "wix",
   "version": "1.1.0",
-  "description": "Build, manage, and deploy Wix sites and apps. Includes CLI development skills, Wix Headless for custom frontends powered by Wix backends, and Wix MCP server for site management, eCommerce, CMS, dashboard extensions, and more.",
+  "description": "Build, manage, and deploy Wix sites, apps, and headless websites. Includes CLI development skills, Wix Headless for building websites in any framework powered by Wix backends, and Wix MCP server for site management, eCommerce, CMS, dashboard extensions, and more.",
   "author": {
     "name": "Wix",
     "url": "https://dev.wix.com"
@@ -23,8 +23,8 @@
   "mcpServers": "./.mcp.json",
   "interface": {
     "displayName": "Wix",
-    "shortDescription": "Build Wix apps and manage Wix sites from Codex",
-    "longDescription": "Build, manage, and deploy Wix sites and apps with Codex. Includes Wix CLI development skills for dashboard extensions, backend APIs, site widgets, service plugins, and data collections. Build Wix Headless sites using any frontend framework — React, Next.js, or plain HTML — powered by Wix's backend for eCommerce, bookings, CMS, events, and more. Also includes recipes for Wix business solution management.",
+    "shortDescription": "Build Wix apps, headless websites, and manage Wix sites from Codex",
+    "longDescription": "Build, manage, and deploy Wix sites, apps, and headless websites with Codex. Includes Wix CLI development skills for dashboard extensions, backend APIs, site widgets, service plugins, and data collections. Build headless websites with Wix Headless — from fully-hosted Astro apps to self-hosted in any framework — powered by Wix's backend for eCommerce, bookings, CMS, events, and members. Also includes recipes for Wix business solution management.",
     "developerName": "Wix",
     "category": "Coding",
     "capabilities": [
@@ -39,7 +39,7 @@
       "Build a Wix app extension with Wix Design System UI",
       "Build a Wix app with a shipping fee service plugin",
       "Set up Wix Stores products, pickup, or CMS data",
-      "Build a headless eCommerce storefront with Next.js and Wix"
+      "Build a headless website with Wix Headless backend services"
     ],
     "brandColor": "#116DFF",
     "composerIcon": "./assets/logo.svg",
