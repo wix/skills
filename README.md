@@ -2,9 +2,9 @@
 
 > ⚠️ **EXPERIMENTAL**: This project is in early development. APIs, skill definitions, and behavior may change without notice. Use at your own risk.
 
-Agent skills for building Wix applications with AI coding assistants.
+Agent skills for building Wix app extensions, managing Wix business solutions, developing headless sites, and using the Wix Design System with AI agents.
 
-> **Note**: These skills are designed for the **new Wix CLI**. See [About the Wix CLI](https://dev.wix.com/docs/api-reference/articles/ai-tools/about-the-wix-cli) to learn more.
+> **Note**: These skills are designed for the **new Wix CLI**. See [About the Wix CLI](https://dev.wix.com/docs/wix-cli/guides/about-the-wix-cli) to learn more. For an overview of how skills work with AI tools, see [About Wix Skills](https://dev.wix.com/docs/api-reference/articles/ai-tools/about-wix-skills).
 
 ## Installation
 
