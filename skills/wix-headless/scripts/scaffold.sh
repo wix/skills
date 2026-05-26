@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Scaffold a new Wix Managed Headless project with the pure-headless blank template.
+# Scaffold a new Wix Managed Headless project using the CLI's default blank template.
 #
 # Usage:
 #   bash <SKILL_ROOT>/scripts/scaffold.sh <project-slug> "<Brand Name>"
@@ -17,14 +17,14 @@
 #   - Pre-flight requires both args.
 #   - Runs `npm create @wix/new@latest headless` with --no-publish + --skip-install
 #     so the orchestrator can deferred-install with its own package set.
-#   - Template ID is the pure-headless blank (vibe-compatible templates trigger
-#     an interactive prompt that blocks non-TTY runs).
+#   - Relies on the CLI's default blank template instead of passing
+#     `--site-template`, which avoids template-flag drift in the skill.
 #
 # Exit codes:
 #   0 — ok
 #   2 — argument validation failed
 #   <other> — npm create failed; stderr surfaced to caller for orchestrator-side
-#             recovery (auth / invalid-template ladder lives in the orchestrator).
+#             recovery (auth / other scaffold failures live in the orchestrator).
 
 set -euo pipefail
 
@@ -41,13 +41,8 @@ if [[ ! "$1" =~ ^[a-z0-9]{3,20}$ ]]; then
   exit 2
 fi
 
-# Pure-headless blank template. Vibe-compatible templates show an interactive
-# vibe setup prompt that blocks non-TTY contexts — do not substitute.
-TEMPLATE_ID="blank"
-
 npm create @wix/new@latest headless -- \
   --business-name "$2" \
   --project-name "$1" \
-  --site-template "$TEMPLATE_ID" \
   --no-publish \
   --skip-install
