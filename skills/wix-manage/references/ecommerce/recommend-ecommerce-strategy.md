@@ -18,8 +18,8 @@ references:
   - name: "Goal: Drive Cross-Sells"
     path: ecommerce/goal-drive-cross-sells.md
     load: false
-  - name: "Goal: Reduce Cart Abandonment"
-    path: ecommerce/goal-reduce-cart-abandonment.md
+  - name: "Flow: Cart Abandonment Analysis"
+    path: ecommerce/flow-cart-abandonment-analysis.md
     load: false
   - name: "Setup: Coupons"
     path: ecommerce/setup-coupons.md
@@ -33,7 +33,7 @@ references:
 > - **UPSELL_BOOST** / **SHIPPING** → [Goal: Increase AOV](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-increase-aov) (includes both discount and shipping flows)
 > - **STOCK_MOVER** → [Goal: Clear Inventory](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-clear-inventory)
 > - **BUNDLE_AND_SAVE** → [Goal: Drive Cross-Sells](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-drive-cross-sells)
-> - **ABANDONED_CART** → [Goal: Reduce Cart Abandonment](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-reduce-cart-abandonment)
+> - **ABANDONED_CART** → [Flow: Cart Abandonment Analysis](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-cart-abandonment-analysis)
 >
 > **If COUPON mechanism in Step 4c**, load:
 > - [Setup: Coupons](https://dev.wix.com/docs/api-reference/business-solutions/coupons)
@@ -111,7 +111,10 @@ CallWixSiteAPI(
       "success_last_30_days_distinct_visitors",
       "last_30_days_orders_count",
       "online_gpv_last_30_days",
-      "payment_currency"
+      "payment_currency",
+      "ecom_number_cart_that_were_abandoned_last_30_days",
+      "ecom_usd_sum_of_carts_that_were_abandoned_last_30_days",
+      "activate_abandoned_cart_automation"
     ]
   }
 )
@@ -129,6 +132,9 @@ CallWixSiteAPI(
 | `last_30_days_orders_count` | LONG | Order count in last 30 days | AOV calculation, goal selection |
 | `online_gpv_last_30_days` | LONG | Online Gross Payment Volume in last 30 days (site currency units) | Revenue analysis, AOV calculation |
 | `payment_currency` | STRING | Store payment currency code (ISO-4217) | Discount/shipping amount formatting |
+| `ecom_number_cart_that_were_abandoned_last_30_days` | LONG | Count of carts abandoned in last 30 days | Abandoned cart domain activation + analysis |
+| `ecom_usd_sum_of_carts_that_were_abandoned_last_30_days` | LONG | Total USD value of abandoned carts last 30 days | Missing sales calculation for ABANDONED_CART |
+| `activate_abandoned_cart_automation` | STRING | Non-null = recovery automation is active; null = inactive | ABANDONED_CART domain eligibility gate |
 
 **Response shape** — each field is a nested object; missing fields = no data for this site:
 
@@ -205,11 +211,11 @@ Based on the merchant's request AND the site data, determine which domains to an
 
 **For SHIPPING domain — load the same goal as discounts.** Shipping flows (free shipping threshold, rate optimization) serve the same business goals as discount flows. Load the matching discount goal above — it now includes shipping flow references.
 
-**For ABANDONED_CART domain — load the cart abandonment goal:**
+**For ABANDONED_CART domain — load the analysis flow directly:**
 
-[Goal: Reduce Cart Abandonment](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-reduce-cart-abandonment)
+[Flow: Cart Abandonment Analysis](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-cart-abandonment-analysis)
 
-**The goal skill will instruct you to load flow and guardrail skills** — follow those instructions. This chain provides the detailed execution logic you need for high-quality recommendations.
+**The flow contains all execution logic** — rate calculation, root cause diagnosis, benchmark comparison, and recommendation generation.
 
 **Do NOT skip this step.** The goal/flow/guardrail skills contain critical constraints (margin tiers, campaign windows, conflict checks) that prevent bad recommendations.
 
@@ -420,29 +426,20 @@ Analyze the site's shipping configuration using the rules below. All shipping re
 
 ### Abandoned cart recommendations (if ABANDONED_CART domain active)
 
-Detect if the merchant has significant cart abandonment without active recovery. All abandoned cart recommendations use `domain: "abandoned_cart_recovery"`.
+**Delegate to [Flow: Cart Abandonment Analysis](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-cart-abandonment-analysis)** — loaded in Step 4b when ABANDONED_CART is active.
 
-**Eligibility gate (BOTH conditions required):**
-1. Cart abandonment recovery automation is **NOT active** on the site
-2. Estimated missing sales >= $200 over the last 30 days
+The flow uses Profile data already fetched in Step 3:
 
-**If either condition fails, do NOT generate abandoned cart recommendations.**
-
-**Urgency thresholds based on missing sales (USD, last 30 days):**
-
-| Missing sales | Urgency |
+| Profile field | Used for |
 |---|---|
-| >= $1,000 | HIGH |
-| $200 — $999 | MEDIUM |
-| < $200 | Do not recommend |
+| `ecom_number_cart_that_were_abandoned_last_30_days` | Abandoned cart count |
+| `ecom_usd_sum_of_carts_that_were_abandoned_last_30_days` | Missing sales (USD) |
+| `activate_abandoned_cart_automation` | Eligibility gate — is automation already active? |
+| `last_30_days_orders_count` | Abandonment rate denominator |
+| `online_gpv_last_30_days` | AOV calculation |
+| `payment_currency` | Currency display |
 
-**Action type:** `activate_abandoned_cart_recovery`
-
-**Params must include:** `automation_key` ("wix_e_commerce-cart_abandonment"), `missing_sales_usd` (integer, rounded), `abandoned_cart_count` (integer), `window_days` (always 30).
-
-**Title pattern:** "Recover $[missing_sales_usd] in abandoned carts"
-
-**Reasoning MUST cite:** automation is inactive, exact cart count, exact missing sales USD, 30-day window, and why the urgency level was chosen.
+The flow handles: rate calculation, industry benchmarks (from `GetAbandonedCartsBenchmarks` API), root cause diagnosis, and recommendation generation. All abandoned cart recommendations use `domain: "abandoned_cart_recovery"`.
 
 ### Cross-domain balance
 

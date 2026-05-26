@@ -48,6 +48,11 @@ apiDoc:
       title: "Flow: Seasonal Promotion"
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
       tags: [ecommerce, ecommerce recommendations]
+    # Flows — Cart Abandonment
+    - file: ../../../skills/wix-manage/references/ecommerce/flow-cart-abandonment-analysis.md
+      title: "Flow: Cart Abandonment Analysis"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce, ecommerce recommendations]
     # Flows — Shipping
     - file: ../../../skills/wix-manage/references/ecommerce/flow-fix-coverage-gaps.md
       title: "Flow: Fix Coverage Gaps"
@@ -97,10 +102,6 @@ apiDoc:
       tags: [ecommerce, ecommerce recommendations]
     - file: ../../../skills/wix-manage/references/ecommerce/goal-drive-cross-sells.md
       title: "Goal: Drive Cross-Sells"
-      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
-      tags: [ecommerce, ecommerce recommendations]
-    - file: ../../../skills/wix-manage/references/ecommerce/goal-reduce-cart-abandonment.md
-      title: "Goal: Reduce Cart Abandonment"
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
       tags: [ecommerce, ecommerce recommendations]
     # Tracking API

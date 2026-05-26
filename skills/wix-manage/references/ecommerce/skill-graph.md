@@ -15,18 +15,14 @@ flowchart TB
 
     R --> |"loads API ref"| Config
     R --> |"Step 4b: loads matching goal"| Goals
+    R --> |"Step 4b: ABANDONED_CART"| FAC
     R --> |"Step 2+8: tracking inlined"| TrackingAPI
 
     subgraph Goals["Goals — Business Objectives"]
-        subgraph GD["Discount + Shipping"]
-            goal-increase-aov
-            goal-clear-inventory
-            goal-seasonal-revenue
-            goal-drive-cross-sells
-        end
-        subgraph GA["Abandoned Cart"]
-            goal-reduce-cart-abandonment
-        end
+        goal-increase-aov
+        goal-clear-inventory
+        goal-seasonal-revenue
+        goal-drive-cross-sells
     end
 
     Goals --> |"loads matching flows"| Flows
@@ -43,6 +39,9 @@ flowchart TB
             flow-fix-coverage-gaps
             flow-add-free-shipping
             flow-optimize-shipping-rates
+        end
+        subgraph FAC["Cart Abandonment"]
+            flow-cart-abandonment-analysis
         end
     end
 
@@ -97,9 +96,9 @@ flowchart TB
     classDef standalone fill:#6b7280,stroke:#4b5563,color:#fff
     classDef apidoc fill:#e5e7eb,stroke:#9ca3af,color:#374151
 
-    class goal-increase-aov,goal-clear-inventory,goal-seasonal-revenue,goal-drive-cross-sells,goal-reduce-cart-abandonment goal
+    class goal-increase-aov,goal-clear-inventory,goal-seasonal-revenue,goal-drive-cross-sells goal
     class guardrail-discount-conflicts,guardrail-margin-protection,guardrail-shipping-health,guardrail-rate-pricing-sanity guardrail
-    class flow-upsell-boost,flow-bundle-and-save,flow-stock-mover,flow-seasonal-promotion,flow-fix-coverage-gaps,flow-add-free-shipping,flow-optimize-shipping-rates flow
+    class flow-upsell-boost,flow-bundle-and-save,flow-stock-mover,flow-seasonal-promotion,flow-fix-coverage-gaps,flow-add-free-shipping,flow-optimize-shipping-rates,flow-cart-abandonment-analysis flow
     class setup-discount-rules,setup-coupons,setup-shipping-regions,setup-shipping-rates,api-recommendation-tracking config
     class recommend-ecommerce-strategy reco
     class recipe-apply-shipping-recommendations,setup-store-pickup-location,troubleshoot-discount-not-applying,troubleshoot-checkout-delivery-dropoff standalone
@@ -116,7 +115,7 @@ flowchart TB
 | `goal-clear-inventory.md` | Step 4b (STOCK_MOVER) |
 | `goal-seasonal-revenue.md` | Step 4b (SEASONAL) |
 | `goal-drive-cross-sells.md` | Step 4b (BUNDLE_AND_SAVE) |
-| `goal-reduce-cart-abandonment.md` | Step 4b (ABANDONED_CART domain) |
+| `flow-cart-abandonment-analysis.md` | Step 4b (ABANDONED_CART domain — loaded directly) |
 | `flow-upsell-boost.md` | goal-increase-aov chain |
 | `flow-bundle-and-save.md` | goal-increase-aov / goal-drive-cross-sells chain |
 | `flow-stock-mover.md` | goal-clear-inventory chain |
