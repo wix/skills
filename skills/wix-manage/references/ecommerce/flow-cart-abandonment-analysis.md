@@ -34,9 +34,11 @@ Activate this flow for any question about abandoned cart performance, including:
 
 ---
 
-## Data sources (Profile-first)
+## Data sources
 
-All data comes from Step 3 of the entry point (`recommend-ecommerce-strategy.md`). **No additional API calls required** — the Profile already provides the abandonment metrics.
+### Profile (available now)
+
+All base metrics come from Step 3 of the entry point (`recommend-ecommerce-strategy.md`).
 
 | Profile field | Type | Description |
 |---|---|---|
@@ -84,6 +86,82 @@ If the benchmark call fails, use these fallback industry averages:
 | Cart abandonment rate | ~70% |
 | Recoverable cart rate | ~40% |
 | Recovery rate (with automation) | ~8-15% |
+
+### DWH data (future — via data-to-production API)
+
+**Not available at runtime yet.** These fields will be provided by `com.wixpress.datatoproduction.data-to-production`, which returns results equivalent to the reference queries below. When available, prefer this data over Profile estimates and benchmark fallbacks.
+
+**Additional fields this will provide:**
+
+| Field | Source | Replaces |
+|---|---|---|
+| `recovery_rate_pct` | actual recovered / total abandoned | 10% hardcoded estimate |
+| `recoverable_count` | carts with buyer contact (all in practice) | 40% benchmark estimate |
+| `avg_cart_value_usd` | average per-cart USD value | missing_sales / count |
+| `cart_churn_pct` | % dropped before reaching checkout | no current signal |
+| `checkout_churn_pct` | % dropped during checkout | root cause E signal |
+
+**When `checkout_churn_pct > 80%`:** Strengthen root cause E diagnosis — checkout UX friction is almost certainly the primary driver.
+
+**When `cart_churn_pct > 60%`:** The drop is happening before checkout — likely product/pricing or trust signals on the product page, not shipping or checkout UX.
+
+```
+-- DEBUG REFERENCE ONLY — for QA and future data-to-production wiring
+-- Table: prod.ecom.abandoned_cart_dim (Tier 1, owner: ecom-platform-data)
+-- Returns: per-site recovery metrics for last 30 days
+
+SELECT
+  msid,
+  COUNT(*) AS abandoned_cart_count,
+  COUNT(CASE WHEN buyer_contact_id IS NOT NULL THEN 1 END) AS recoverable_count,
+  COUNT(CASE WHEN status = 'RECOVERED' THEN 1 END) AS recovered_count,
+  COUNT(CASE WHEN first_email_sent_date IS NOT NULL THEN 1 END) AS email_sent_count,
+  COUNT(CASE WHEN first_email_sent_date IS NOT NULL AND status = 'RECOVERED' THEN 1 END) AS email_recovered_count,
+  ROUND(SUM(price_total_usd), 2) AS total_abandoned_usd,
+  ROUND(AVG(price_total_usd), 2) AS avg_cart_value_usd,
+  ROUND(COUNT(CASE WHEN status = 'RECOVERED' THEN 1 END) * 100.0 / NULLIF(COUNT(*), 0), 1) AS recovery_rate_pct,
+  ROUND(COUNT(CASE WHEN buyer_contact_id IS NOT NULL THEN 1 END) * 100.0 / NULLIF(COUNT(*), 0), 1) AS recoverable_rate_pct
+FROM prod.ecom.abandoned_cart_dim
+WHERE msid = '<msid>'
+  AND abandoned_date >= CURRENT_DATE - INTERVAL '30' DAY
+  AND deleted_date IS NULL
+GROUP BY msid
+
+-- Sample output (2026-05-26, test sites):
+-- msid                                  | abandoned | recoverable | recovered | email_sent | email_recovered | total_usd  | avg_usd | recovery_pct | recoverable_pct
+-- 0539bfda (Fishing)                    | 815       | 815         | 129       | 803        | 129             | 181966.52  | 223.27  | 15.8%        | 100%
+-- 25fd3126 (Cannabis)                   | 581       | 581         | 236       | 53         | 10              | 113238.13  | 194.90  | 40.6%        | 100%
+-- 2a3e0db2 (Lighting)                   | 147       | 147         | 20        | 146        | 20              | 30741.17   | 209.12  | 13.6%        | 100%
+-- c1f68cb7 (Sneakers)                   | 27        | 27          | 2         | 0          | 0               | 4373.40    | 161.98  | 7.4%         | 100%
+```
+
+```
+-- DEBUG REFERENCE ONLY — for QA and future data-to-production wiring
+-- Table: prod.ecom.abandoned_cart_enrichments_monthly (owner: ecom-platform-data)
+-- Returns: funnel churn location — cart stage vs checkout stage
+
+SELECT
+  msid,
+  COUNT(*) AS total_carts,
+  COUNT(CASE WHEN churned_at_cart = true THEN 1 END) AS churned_at_cart,
+  COUNT(CASE WHEN churned_at_checkout = true THEN 1 END) AS churned_at_checkout,
+  COUNT(CASE WHEN is_recoverable = true THEN 1 END) AS recoverable_count,
+  COUNT(CASE WHEN is_recovered = true THEN 1 END) AS recovered_count,
+  COUNT(CASE WHEN is_email_sent = true THEN 1 END) AS email_sent_count,
+  ROUND(COUNT(CASE WHEN churned_at_cart = true THEN 1 END) * 100.0 / NULLIF(COUNT(*), 0), 1) AS cart_churn_pct,
+  ROUND(COUNT(CASE WHEN churned_at_checkout = true THEN 1 END) * 100.0 / NULLIF(COUNT(*), 0), 1) AS checkout_churn_pct
+FROM prod.ecom.abandoned_cart_enrichments_monthly
+WHERE msid = '<msid>'
+  AND abandoned_date >= CURRENT_DATE - INTERVAL '30' DAY
+GROUP BY msid
+
+-- Sample output (2026-05-26, test sites):
+-- msid                                  | total | cart_churn | checkout_churn | recoverable | recovered | email_sent | cart_pct | checkout_pct
+-- 0539bfda (Fishing)                    | 102   | 1          | 101            | 102         | 11        | 102        | 1.0%     | 99.0%
+-- 25fd3126 (Cannabis)                   | 111   | 77         | 34             | 111         | 3         | 36         | 69.4%    | 30.6%
+-- 2a3e0db2 (Lighting)                   | 13    | 5          | 8              | 13          | 4         | 13         | 38.5%    | 61.5%
+-- c1f68cb7 (Sneakers)                   | 22    | 1          | 21             | 22          | 0         | 0          | 4.5%     | 95.5%
+```
 
 ---
 
@@ -164,6 +242,7 @@ potential_recovery_usd = recoverable_value_usd × 0.10  (conservative 10% recove
 
 **Signals:**
 - High abandonment rate (> 80%) with no shipping issues detected
+- `checkout_churn_pct > 80%` from DWH data (when available) — strong confirmation
 
 **Possible causes (non-shipping, informational only):**
 - Forced account creation
@@ -172,6 +251,8 @@ potential_recovery_usd = recoverable_value_usd × 0.10  (conservative 10% recove
 - Trust/security concerns
 
 **Note:** These are outside the scope of shipping/discount recommendations. Report the issue and suggest the merchant investigate their checkout UX.
+
+**If `cart_churn_pct > 60%` from DWH data:** Drop is happening before checkout — likely product page trust, pricing, or unclear product descriptions. This is a different problem from checkout friction. Note it separately.
 
 ---
 
