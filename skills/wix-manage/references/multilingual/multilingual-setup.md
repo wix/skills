@@ -7,7 +7,6 @@ description: The recommended way to make a Wix site multilingual — enable mult
 This recipe documents how to turn a single-language Wix site into a multilingual one: enabling the feature, adding languages, registering what's translatable, populating translations, and serving them to visitors.
 
 ## Overview
-
 Setting up multilingual on a site enables:
 - Multiple language versions of the same content, keyed off a primary locale
 - A translation **schema** describing which fields on an entity are translatable and how (short text, long text, rich content, image)
