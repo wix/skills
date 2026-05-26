@@ -17,11 +17,8 @@
 #   - Pre-flight requires both args.
 #   - Runs `npm create @wix/new@latest headless` with --no-publish + --skip-install
 #     so the orchestrator can deferred-install with its own package set.
-#   - Passes bare `--site-template` so wix-cli presets the blank template.
-#   - Do not omit `--site-template` entirely: as of wix-cli commit
-#     `fd0b37d63378eacce4198539d0dea0b120764baa`, the default is only applied
-#     when the flag itself is present. Omitting it falls back to the
-#     interactive template chooser and breaks non-TTY runs.
+#   - Passes bare `--site-template` so non-interactive scaffolding stays on the
+#     blank starter.
 #
 # Exit codes:
 #   0 — ok
