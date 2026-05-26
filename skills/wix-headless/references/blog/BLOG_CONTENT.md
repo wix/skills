@@ -1,4 +1,4 @@
-# Recipe: Seed Initial Blog Posts via MCP
+# Recipe: Seed Initial Blog Posts via REST
 
 Create 3 on-brand blog posts so the blog has real content on first preview.
 
@@ -8,7 +8,7 @@ Create 3 on-brand blog posts so the blog has real content on first preview.
 > 3. **Use `@wix/blog`, not `@wix/data`** — blog posts are NOT CMS collections.
 > 4. **`RICH_CONTENT` fieldset required** — without it, `post.richContent` is undefined and rendering fails.
 
-> **Required in the Seed phase.** When dispatched with `Scope: seed`, MCP tools and discovery context are guaranteed available. Always execute this section — do not skip. A blog with zero posts on first preview is a build failure.
+> **Required in the Seed phase.** When dispatched with `Scope: seed`, the CLI-minted REST token and discovery context are guaranteed available. Always execute this section — do not skip. A blog with zero posts on first preview is a build failure.
 >
 > **Skip only for standalone invocations** where the Blog skill is invoked directly AND CLI token mint fails after recovery. In that case, the user can create posts manually in the Wix dashboard.
 
@@ -25,7 +25,7 @@ Before querying blog data, verify the Blog app is installed:
      "appInstance": { "appDefId": "14bcded7-0066-7c35-14d7-466cb3f09103", "enabled": true }
    }
    ```
-   > Translate this prose-HTTP form into the full `curl` tool-call shape — pass `body` as JSON in `-d` (NOT a stringified JSON). See `../../shared/MCP_PREFIX.md` § "curl call conventions".
+   > Translate this prose-HTTP form into the full `curl` tool-call shape — pass `body` as JSON in `-d` (NOT a stringified JSON). See `../shared/AUTHENTICATION.md` for the standard REST headers.
 
    Then retry the probe query to confirm installation succeeded.
 3. **If the probe succeeds** → proceed to Step 1.

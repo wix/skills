@@ -2,7 +2,7 @@
 
 Build a team directory using `@wix/data` — staff cards grouped by department with individual profile pages. Use for about us, our team, meet the staff, or any people directory.
 
-> Read `CMS_FOUNDATIONS.md` first for shared patterns (service module, image resolution, elevation, MCP seeding).
+> Read `CMS_FOUNDATIONS.md` first for shared patterns (service module, image resolution, elevation, REST-based seeding).
 
 ## Collection Schema
 
@@ -266,7 +266,7 @@ if (!member) return Astro.redirect("/404");
 > **Do not skip:** Team members without photos appear as initial-letter placeholders.
 > Always ask the user if they want to generate headshot images before moving on.
 
-After seeding team members via MCP, generate headshot images following `../../shared/IMAGE_GENERATION.md` and `CMS_FOUNDATIONS.md` → "MCP Seeding with Images".
+After seeding team members via REST, generate headshot images following `../shared/IMAGE_GENERATION.md` and `CMS_FOUNDATIONS.md` → "Seeding with Images".
 
 **Prompt template:**
 

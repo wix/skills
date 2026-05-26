@@ -61,6 +61,10 @@ const KNOWN_SEEDED_KEYS = {
   forms: new Set(["formIds"]),
   "gift-cards": new Set([]),
   ecom: new Set([]),
+  // Image phases — bolted into seed-returns/ for uniform run-record handling.
+  // Phase identifiers come from references/images/INSTRUCTIONS.md + RETURN_CONTRACT.md.
+  "image-phase-1": new Set(["decorativeCount", "purposes", "model", "totalCredits"]),
+  "image-phase-2": new Set(["entityCount", "model", "totalCredits"]),
 };
 
 const returnFiles = readdirSync(returnsDir).filter((f) => f.endsWith(".json"));
@@ -95,9 +99,19 @@ for (const file of returnFiles) {
     continue;
   }
 
-  const expectedPhase = `seed-${pack}`;
-  if (payload.phase !== expectedPhase) {
-    errors.push(`${pack}: expected phase "${expectedPhase}", got ${JSON.stringify(payload.phase)}`);
+  // Image phases use their own identifier shape (image-phase-N-decorative /
+  // image-phase-N-entity) per references/images/INSTRUCTIONS.md. Seed packs use
+  // the seed-<pack> shape. Accept both based on the filename prefix.
+  const isImagePhase = /^image-phase-\d+$/.test(pack);
+  const expectedPhases = isImagePhase
+    ? [`${pack}-decorative`, `${pack}-entity`, pack]
+    : [`seed-${pack}`];
+
+  if (!expectedPhases.includes(payload.phase)) {
+    const label = expectedPhases.length === 1
+      ? `"${expectedPhases[0]}"`
+      : `one of ${JSON.stringify(expectedPhases)}`;
+    errors.push(`${pack}: expected phase ${label}, got ${JSON.stringify(payload.phase)}`);
     continue;
   }
 

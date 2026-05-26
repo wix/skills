@@ -5,13 +5,13 @@ description: "Implements Wix Stores vertical — product catalog, categories, ad
 
 # Stores Implementer
 
-Extends `references/shared/IMPLEMENTER.md`. Read that file first for phase routing, MCP prefix, site.json read pattern, return contract, style conventions, and common failure modes.
+Extends `references/shared/IMPLEMENTER.md`. Read that file first for phase routing, REST auth + doc lookups, site.json read pattern, return contract, style conventions, and common failure modes.
 
 ## Scope routing
 
 | Scope | Phase | Reference |
 |-------|-------|-----------|
-| `seed` | Seed (MCP catalog setup — products only; categories are merchant-driven, not seeded) | `./PRODUCT_CATALOG_DATA.md` |
+| `seed` | Seed (REST catalog setup — products only; categories are merchant-driven, not seeded) | `./PRODUCT_CATALOG_DATA.md` |
 | `components` | Components (React islands + SeoTags + back-in-stock util — TSX/Astro only, **no CSS**) | `./SHARED_WIRING.md` |
 | ~~`components-css`~~ | **Deprecated.** `src/styles/components-stores.css` is now copied from `<SKILL_ROOT>/templates/stores/components-stores.css` by the orchestrator's pre-Step-4.5 batch (see ORCHESTRATION.md § Step 4.5). The template uses direct `var(--token)` CSS, so it works against any designer-published vocabulary without needing per-run rewrites. `COMPONENTS_CSS.md` is retained as historical reference only — do NOT dispatch a `components-css` subagent. | — |
 | `pages-categories` | Pages (`/category/[slug]` listing + shared CategoryRail + `utils/categories.ts`) | `./CATEGORY_PAGES.md` |

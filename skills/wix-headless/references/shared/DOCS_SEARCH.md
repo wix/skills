@@ -1,6 +1,6 @@
-# Wix public doc endpoints (no MCP)
+# Wix documentation lookups
 
-This skill has **zero MCP dependencies**. Operational calls use `npx @wix/cli token --site "$SITE_ID"` + `curl` against `wixapis.com` (see `AUTHENTICATION.md`). When a bundled recipe falls short, use the public unauthenticated REST endpoints below — the same surfaces the Wix MCP doc tools wrapped.
+Operational calls in this skill use `npx @wix/cli token --site "$SITE_ID"` + `curl` against `wixapis.com` (see `AUTHENTICATION.md`). When a bundled recipe falls short and you need to look up an endpoint, method schema, or article body, use the public unauthenticated REST endpoints below. **No MCP, no SDK** — these are plain `curl` calls.
 
 ## Doc search
 

@@ -12,14 +12,14 @@ Build a complete form feature using `@wix/forms` — server-side schema fetching
 
 ## Prerequisites
 
-- Wix Forms app must be installed on the site (via MCP after scaffolding, or manually in Wix dashboard)
+- Wix Forms app must be installed on the site (installed via the apps-installer REST endpoint after scaffolding, or manually in the Wix dashboard)
 - `@wix/forms` package installed: `npm install @wix/forms`
 
-> **Forms are auto-created during scaffolding.** When scaffolding with a forms template (e.g., the Registration template `e5d63bf1-cd06-48eb-ad77-0da9235adcf1`), a form is automatically created on the site with server-side privileges. Use `forms.listForms("wix.form_app.form")` with `auth.elevate` to discover it — no manual form ID needed. If no forms exist, use the REST API Form Setup below to create one (the Create Form API is not available to headless SDK calls, but MCP credentials can create forms).
+> **Forms are auto-created during scaffolding.** When scaffolding with a forms template (e.g., the Registration template `e5d63bf1-cd06-48eb-ad77-0da9235adcf1`), a form is automatically created on the site with server-side privileges. Use `forms.listForms("wix.form_app.form")` with `auth.elevate` to discover it — no manual form ID needed. If no forms exist, use the REST API Form Setup below to create one (the Create Form API is not available to headless SDK calls, but the CLI-minted REST token can create forms).
 
-## Form Setup (MCP-Assisted)
+## Form Setup (REST)
 
-Before writing any form code, ensure a contact form exists on the site via MCP:
+Before writing any form code, ensure a contact form exists on the site via the form-schema REST API:
 
 1. **List forms** — `REST: GET https://www.wixapis.com/form-schema-service/v4/forms?namespace=wix.form_app.form`
 2. **If the API returns a "missing installed app" error** → install the Wix Forms app:
@@ -30,7 +30,7 @@ Before writing any form code, ensure a contact form exists on the site via MCP:
      "appInstance": { "appDefId": "225dd912-7dea-4738-8688-4b8c6955ffc2", "enabled": true }
    }
    ```
-   > Translate this prose-HTTP form into the full `curl` tool-call shape — pass `body` as JSON in `-d` (NOT a stringified JSON). See `../../shared/MCP_PREFIX.md` § "curl call conventions".
+   > Translate this prose-HTTP form into the full `curl` tool-call shape — pass `body` as JSON in `-d` (NOT a stringified JSON). See `../shared/AUTHENTICATION.md` for the standard REST headers.
 
    Then retry listing forms.
 3. **If forms list is empty** → create a form (two-step atomic operation):

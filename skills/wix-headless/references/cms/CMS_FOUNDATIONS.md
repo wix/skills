@@ -1,8 +1,8 @@
 # CMS Foundations — Shared Patterns for `@wix/data`
 
-Core patterns used by all CMS use cases: service module template, `@wix/data` queries, image resolution, elevated access, MCP seeding, and rich-text (Ricos) rendering.
+Core patterns used by all CMS use cases: service module template, `@wix/data` queries, image resolution, elevated access, REST-based seeding, and rich-text (Ricos) rendering.
 
-> **Import note (read first).** Page code in this plugin uses `import * as items from "@wix/wix-data-items-sdk"` rather than the documented `import { items } from "@wix/data"`. The Wix-headless docs still show the `@wix/data` form, but `@wix/data` 1.0.448 dropped the `items` re-export — only sub-namespaces (`backups`, `collections`, `permissions`, …) remain, and the documented form fails the build with `'items' is not exported by '@wix/data'`. The actual `items` API (with `query`, `insert`, `update`, `remove`, `bulkInsert`, etc.) lives in `@wix/wix-data-items-sdk`, which `@wix/data` depends on transitively. Importing from there directly works on every current `@wix/data` version. The cms vertical pack adds `@wix/wix-data-items-sdk` to the install list so it's always present (`references/verticals/cms.md`). Use the wix-data-items-sdk import everywhere.
+> **Import note (read first).** Page code in this plugin uses `import * as items from "@wix/wix-data-items-sdk"` rather than the documented `import { items } from "@wix/data"`. The Wix-headless docs still show the `@wix/data` form, but `@wix/data` 1.0.448 dropped the `items` re-export — only sub-namespaces (`backups`, `collections`, `permissions`, …) remain, and the documented form fails the build with `'items' is not exported by '@wix/data'`. The actual `items` API (with `query`, `insert`, `update`, `remove`, `bulkInsert`, etc.) lives in `@wix/wix-data-items-sdk`, which `@wix/data` depends on transitively. Importing from there directly works on every current `@wix/data` version. SETUP.md's per-pack install table (Step 4c) installs `@wix/wix-data-items-sdk` (alongside `@wix/data` and `@wix/essentials`) for the cms pack so it's always present. Use the wix-data-items-sdk import everywhere.
 
 ## Rendering Ricos rich-text fields
 
@@ -37,7 +37,7 @@ The util covers the common subset (PARAGRAPH, HEADING 1-6, BULLETED_LIST / ORDER
 > **Do NOT `set:html={item.body}` directly.** That ships JSON-encoded text into the page (e.g. `[object Object]` or `{"nodes":...}`). Always go through `renderRicos`.
 
 > **Critical Rules — Read Before Starting**
-> 1. **Collection IDs have NO namespace** — user collections use just the name (e.g., `"Projects"`). Only Wix App collections use `<namespace>/<name>`. Verify via MCP: `GET /wix-data/v2/collections?fields=id`.
+> 1. **Collection IDs have NO namespace** — user collections use just the name (e.g., `"Projects"`). Only Wix App collections use `<namespace>/<name>`. Verify via `curl`: `GET /wix-data/v2/collections?fields=id`.
 > 2. **SDK query pattern** — `items.query("CollectionId").find()`. There is no `items.queryDataItems()` in the SDK.
 > 3. **`auth.elevate` on every query** — without it, restricted collections silently return no items.
 > 4. **CMS only for user collections** — use `@wix/blog` for blog posts, `@wix/stores` for products, `@wix/forms` for form submissions.
@@ -57,7 +57,7 @@ Example: if the collection is called `Projects`, the collection ID is simply `"P
 
 Only Wix App collections (e.g., `Members/PublicData`, `Locations/Locations`) use a `<namespace>/<name>` format. User-created collections never use a namespace.
 
-> **How to verify**: Call `GET /wix-data/v2/collections?fields=id` via MCP and use the exact `id` value from the response. Never guess — the dashboard name may differ from the ID.
+> **How to verify**: Call `GET /wix-data/v2/collections?fields=id` via `curl` (with the standard REST headers from `../shared/AUTHENTICATION.md`) and use the exact `id` value from the response. Never guess — the dashboard name may differ from the ID.
 
 ## Quick Reference — Inline Query (Simple Pages)
 
@@ -206,15 +206,13 @@ const categories = [...new Set(allItems.map((item) => item.category).filter(Bool
 
 > **Styling note:** Category filter pill styling is created by the design skill. See `COMPONENT_PATTERNS.md` → Category Filter.
 
-## MCP Seeding (Conditional)
+## Seeding via REST (Conditional)
 
-If Wix MCP tools are available, check if the collection has data and seed sample items if empty. This is **conditional** — only attempt if MCP is connected.
+Check whether the collection already has data; seed sample items only if empty. Calls go through `curl` against `wixapis.com` with the site-scoped REST token (see `../shared/AUTHENTICATION.md`) — no SDK, no MCP.
 
 1. Query the collection — if items exist, skip seeding
-2. If empty, create the collection and insert sample items via MCP (see templates below)
+2. If empty, create the collection and insert sample items via the REST calls below
 3. Design sample data that matches the business type from the functional plan
-
-> MCP seeding is optional. If MCP tools are not available, instruct the user to add content via the Wix dashboard → CMS section.
 
 ### Create collection (if it doesn't exist)
 
@@ -287,12 +285,13 @@ For every returned item, confirm its `data` object contains every text field you
 
 A CMS seeder can return `complete` for an about-content item, then Image Phase 2 silently wipes its `heading` + `body` via a destructive full-record PUT. The verify-after-insert step here plus the read-merge-PUT rule in the images agent makes that class of data loss unreachable.
 
-### MCP Seeding with Images
+### Seeding with Images
 
 For use cases with image fields (`photo`, `coverImage`, `galleryImages`),
-follow `../../shared/IMAGE_GENERATION.md` (Steps 1–2) for Wix AI image
-generation and Wix Media import. Image generation is MCP-authenticated
-and always available — do not ask the user for credentials.
+follow `../shared/IMAGE_GENERATION.md` (Steps 1–2) for Wix AI image
+generation and Wix Media import. Image generation goes through the same
+CLI-minted REST token as the rest of this skill — do not ask the user for
+credentials.
 
 **Workflow:**
 
@@ -328,12 +327,12 @@ body: {
 - Never block the main flow on image failures — text data is already seeded
 - Runware image URLs are short-lived — import to Wix Media immediately after generation
 - If image generation or import fails for a single item, skip that item and continue with others
-- If all generation fails (credits exhausted, MCP errors), write the sidecar with `Status: partial` and proceed — but always attempt first
+- If all generation fails (credits exhausted, upstream Runware errors), write the sidecar with `Status: partial` and proceed — but always attempt first
 - FAQ_KNOWLEDGE_BASE has no image fields — skip image generation for FAQ use cases
 
 ## Return Results
 
-Emit a structured JSON block at the end of your completion message per `../../shared/RETURN_CONTRACT.md`. Do NOT write sidecar files.
+Emit a structured JSON block at the end of your completion message per `../shared/RETURN_CONTRACT.md`. Do NOT write sidecar files.
 
 ```json
 {
@@ -359,7 +358,7 @@ Emit a structured JSON block at the end of your completion message per `../../sh
 ```
 
 - `storedFields` MUST match the real keys seen in the verify-after-insert query response's `data` object (see § "Verify inserts with a live query"). Downstream pages agents compare against this — if you return `fields: ["heading", "body"]` but only `heading` was actually stored, pages render empty bodies.
-- `sampleValues` is a single example item's field-to-short-string map. Lets downstream agents spot-check that content is real without another MCP round-trip. Truncate rich-text bodies to the first ~80 characters.
+- `sampleValues` is a single example item's field-to-short-string map. Lets downstream agents spot-check that content is real without another REST round-trip. Truncate rich-text bodies to the first ~80 characters.
 - For collections without image fields (e.g., FAQ), set `imageField: null`.
 - The JSON block MUST be the last content in your message.
 

@@ -5,25 +5,19 @@ Every Wix API call this skill makes goes through `@wix/cli` + `curl` — no MCP,
 ## Prerequisites
 
 - `@wix/cli` resolvable via `npx`. The scaffold installs it project-local, so `npx @wix/cli …` works without a global install.
-- An authenticated CLI session. `npx @wix/cli whoami` should print an email + user id on stdout and exit 0.
+- An authenticated CLI session. Test with `npx @wix/cli whoami` — exits **0** when logged in (prints the authenticated email + user id), **non-zero** when logged out.
 
-On `whoami` failure, run `wix login` per the next section before continuing — the orchestrator surfaces *"Run `npx @wix/cli login` and retry."* if `whoami` exits non-zero during Setup.
+The primary place this check runs is DISCOVERY.md § "Pre-flight" — foreground, before any `AskUserQuestion`. `scaffold.sh` repeats the check defensively for its standalone-invocation path. If the check fails, surface *"You're not logged in to Wix. Run `npx @wix/cli login` and retry."* and stop — do not start an interview or scaffold the project.
 
 ## `wix login` is safe from a non-interactive agent
 
-When the CLI detects an AI agent it skips the interactive UI and emits JSON events on stdout, one per line:
-
-| Event | Meaning | What to do |
-|---|---|---|
-| `{"event":"awaiting_user","verificationUri":"...","userCode":"...","expiresInSeconds":...}` | Login started; user must complete in browser. | Surface the URL and code to the user verbatim; wait for the next event. |
-| `{"event":"success","email":"...","userId":"..."}` | Login completed in the browser. | Resume whatever step failed. |
-| `{"event":"logged_in","email":"...","userId":"..."}` | A valid session already exists. | Nothing — continue. |
+In an agent context (no TTY), `wix login` writes the verification URL and one-time user code as **human-readable prose to stderr** and the process exits **non-zero** once the agent flow concludes. There are no JSON events — scrape the URL and code out of the stderr file.
 
 ### How to invoke
 
-`wix login` (or `npx @wix/cli login`) blocks until the human finishes the browser step, so run it with `run_in_background: true`. Tail the output file to read the `awaiting_user` event as soon as it appears — the user needs the URL and code immediately, not after `success` fires. The harness notifies the orchestrator when the process exits with the terminal event (`success` or `logged_in`).
+`wix login` (or `npx @wix/cli login`) blocks until the human finishes the browser step, so run it with `run_in_background: true` and capture stderr to a file. Tail the stderr file to read the verification URL + user code as soon as they appear — the user needs them immediately, not after the process exits.
 
-Do not poll the CLI session by re-running `whoami` in a sleep loop. The terminal event is the signal.
+The harness `run_in_background` completion notification is the terminal signal that login finished (success or failure — distinguish by exit code and the final stderr content). Do not poll the CLI session by re-running `whoami` in a sleep loop.
 
 ## Token minting
 
@@ -58,7 +52,7 @@ The body is the recipe's documented JSON payload, with `siteId` inlined where th
 
 | Symptom | First response | If it still fails |
 |---|---|---|
-| `401 Unauthorized` | Re-mint with `npx @wix/cli token --site "$SITE_ID"` and retry the call once. | The CLI session expired — run `wix login` per the JSON-event flow above. |
+| `401 Unauthorized` | Re-mint with `npx @wix/cli token --site "$SITE_ID"` and retry the call once. | The CLI session expired — run `wix login` per the stderr-scrape flow above. |
 | `403 Forbidden` | Re-mint and retry once. | The token shape is fine but the caller lacks the permission. The two real causes: (a) the relevant app is not installed yet (re-check `apps-installer-service` returned 200 for that app in Setup Step 4a), (b) the resource requires a provisioning step the recipe doesn't run. Surface the response body; do not loop on retries. |
 | `404 Not Found` on a documented URL | Re-read the recipe — URL path segments are easy to typo (e.g. `/blog/v3/bulk/draft-posts/create`, **not** `/blog/v3/draft-posts/bulk/create`). | Recipe bug; surface and stop. |
 

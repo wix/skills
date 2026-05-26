@@ -21,7 +21,7 @@ Your CWD at runtime is the **project directory** (scaffold subdir after setup), 
 | Post-seed orchestration | `<SKILL_ROOT>/references/ORCHESTRATION.md` |
 | Seed recipe map (human ref) | `<SKILL_ROOT>/references/seed-recipes.md` |
 | Auth + REST headers | `<SKILL_ROOT>/references/shared/AUTHENTICATION.md` |
-| Public doc endpoints | `<SKILL_ROOT>/references/shared/MCP_PREFIX.md` |
+| Public doc endpoints | `<SKILL_ROOT>/references/shared/DOCS_SEARCH.md` |
 | Return contract | `<SKILL_ROOT>/references/shared/RETURN_CONTRACT.md` |
 | Implementer shared behavior | `<SKILL_ROOT>/references/shared/IMPLEMENTER.md` |
 | Image generation | `<SKILL_ROOT>/references/shared/IMAGE_GENERATION.md` |
@@ -45,7 +45,7 @@ Authorization: Bearer $(npx @wix/cli token --site "$SITE_ID")
 wix-site-id: $SITE_ID
 ```
 
-`wix login` is safe from non-interactive agents (JSON events on stdout). Full recovery ladder: `<SKILL_ROOT>/references/shared/AUTHENTICATION.md`.
+`wix login` is safe from non-interactive agents (URL + user code written to stderr, exits non-zero once the browser flow concludes). Full recovery ladder: `<SKILL_ROOT>/references/shared/AUTHENTICATION.md`.
 
 ## Subagent model tier
 
@@ -91,7 +91,7 @@ Triggers: *"connect this to Wix Headless"*, *"add Wix Headless to this project"*
 | `wix.config.json` + Astro structure (`src/`, `astro.config.mjs`) | resume a prior wix-headless run — ask "continue or start fresh?" via `AskUserQuestion` |
 | `wix.config.json` + non-Astro frontend | B, skipping `init` — start from SETUP.md Step E2 |
 
-**Path B skips most of the wave flow.** Vertical packs are inferred by **reading the project files** (SETUP.md § "Step E2"), not by re-prompting the user. Run only: Wave 0 (MCP bootstrap) → `SETUP.md` § "Existing project flow" (E1 init → E2 analyze → E3 install apps → **E4 SDK wiring** → E5 release → E6 final message). **Do not run** Discovery, Setup Step 4 batch, Seed, ORCHESTRATION, or any subagent dispatch — the existing project supplies its own frontend.
+**Path B skips most of the wave flow.** Vertical packs are inferred by **reading the project files** (SETUP.md § "Step E2"), not by re-prompting the user. Run only: DISCOVERY.md pre-flight (CLI-auth check) → `SETUP.md` § "Existing project flow" (E1 init → E2 analyze → E3 install apps → **E4 SDK wiring** → E5 release → E6 final message). **Do not run** Discovery's interview, Setup Step 4 batch, Seed, ORCHESTRATION, or any subagent dispatch — the existing project supplies its own frontend.
 
 ### When NOT to use this skill
 

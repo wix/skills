@@ -6,6 +6,17 @@ Infer as much as possible from the user's opening message; ask only what's genui
 
 > **Background work starts in Discovery; synchronization happens later.** Discovery dispatches `scripts/scaffold.sh` as a backgrounded shell as soon as Q1 returns, then continues with Q2/Q3 + plan composition while it runs. SETUP.md `wait`s on the captured `scaffold_handle` (Step 1) and later dispatches `npm install` as its own background handle (Step 4c). After Q2 (vibe captured) and the in-scratch aesthetic-direction craft, Discovery also dispatches the **Designer** subagent as `designer_handle` (Step 2.6 below) — its wall absorbs into Q3 + plan + approval + Setup + first half of Seed instead of being serialized into Wave 3. SEED.md Step 2 waits on `designer_handle` rather than dispatching it.
 
+## Pre-flight — Verify CLI auth (BEFORE any user-facing question)
+
+The first Wix touch in this phase is the background `scaffold.sh` dispatched after Q1 — `npm create @wix/new@latest headless` creates a business + project against the user's Wix account, so it requires an active CLI session. Without one, the scaffold fails in the background and the failure doesn't surface until SETUP.md Step 1 — **after** Q1, Q2, Q2.5, Q3, plan, and approval. That's a ~5-minute interview the user has to redo. Run the auth check foreground here so a logged-out user sees the login prompt before any `AskUserQuestion`.
+
+```bash
+npx @wix/cli whoami >/dev/null 2>&1
+```
+
+- Exit 0 → continue to Step 0.
+- Exit non-zero → surface verbatim: *"You're not logged in to Wix. Run `npx @wix/cli login` and retry."* and stop. Do **not** call `AskUserQuestion` in this state — the user can't answer questions that will be discarded.
+
 ## Step 0 — Infer Vertical(s) and Business Context
 
 The user's opening message typically names what they want: *"build me a skincare store"*, *"I want to sell handmade jewelry"*, *"create a coffee shop website"*.

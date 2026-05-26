@@ -6,12 +6,12 @@ Target wall (foreground critical path): **≤ 20 s**. The npm install tail runs 
 
 This article covers **two entry paths**:
 
-1. **New project flow** (the default — Sections "Step 0", "Setup Dispatch", "npm install recovery"). The orchestrator scaffolds a fresh Astro project via `scaffold.sh` in Discovery Step 1, then runs the dispatch below.
+1. **New project flow** (the default — Steps 1–5 below + "npm install recovery"). The orchestrator scaffolds a fresh Astro project via `scaffold.sh` in Discovery Step 1, then runs the dispatch below.
 2. **Existing project flow** (see "Existing project flow" at the bottom). The user already has a working frontend (e.g. a Claude Design output, a hand-coded HTML/JSX site) and wants to **connect it** to Wix Headless to get hosting + Business Solutions. No scaffold, no Astro, no design/seed/pages waves — just connect, install needed apps, optionally wire SDK calls, release.
 
-Both paths share **Step 0 (MCP bootstrap)**. Branch immediately after.
+Both paths assume DISCOVERY.md's CLI-auth pre-flight has already passed (the foreground check that runs before any `AskUserQuestion`). Branch on working-directory contents below.
 
-> **Routing decision (do this BEFORE Step 0's dispatch).** Inspect the working directory:
+> **Routing decision (do this BEFORE Step 1's dispatch).** Inspect the working directory:
 > - **Empty / non-existent / freshly-scaffolded** AND Discovery Step 1's `scaffold.sh` is what populated it → **New project flow** (continue with this article top-to-bottom).
 > - **Already contains source files** (`index.html`, `*.jsx`, `*.tsx`, `*.vue`, `package.json` from a non-Wix template, etc.) AND no scaffold was dispatched in Discovery → **Existing project flow** (jump to "Existing project flow" at the bottom; skip the Setup Dispatch).
 > - **Contains `wix.config.json`** AND an Astro project structure (`src/`, `astro.config.mjs`) → resume a prior wix-headless run (see `SKILL.md` § "When NOT to Use This Skill" — ask the user "continue or start fresh?").
@@ -38,7 +38,7 @@ Once the wait returns exit-0, read `<project-slug>/wix.config.json` and extract:
 
 `cd` into `<project-slug>/` so all subsequent file ops + shell calls are relative to the project root.
 
-**On non-zero exit from the wait** (scaffold failed), read the captured stderr tempfile to diagnose. Retry once inline with the same invocation from `scripts/scaffold.sh`. If the retry also fails, surface the stderr to the user — recovery from `npm create` errors (auth, invalid template, network) needs human input. (npm install hasn't been dispatched yet at this point, so failures here are scaffold-only.)
+**On non-zero exit from the wait** (scaffold failed), read the captured stderr tempfile to diagnose. Retry once inline with the same invocation from `scripts/scaffold.sh`. If the retry also fails, surface the stderr to the user — recovery from `npm create` errors (auth, network) needs human input. (npm install hasn't been dispatched yet at this point, so failures here are scaffold-only.)
 
 **Before `cd`, capture the current working directory as `<site-root>` and hold it in session scratch.** This is where Discovery's `init-site-json.mjs` wrote `.wix/site.json` (`<site-root>/.wix/site.json`). Phase 3 Seed reads from and writes back to this same root — both for the patched `site.json` and for the per-pack `seed-returns/`. Mixing the eval-run dir with the scaffold subdir is a known cause of `merge-seed-results.mjs: site.json does not exist` failures.
 
@@ -147,15 +147,19 @@ npm install --no-fund --no-audit --legacy-peer-deps <package-set> \
 | | **ecom** (loaded directly or as `requires:` of stores) → `@wix/ecom @wix/redirects` |
 | | **blog** → `@wix/blog @wix/ricos @astrojs/rss @astrojs/sitemap` |
 | | **forms** → `@wix/forms` |
-| | **cms** → (none — uses `@wix/data` from `@wix/sdk`) |
+| | **cms** → `@wix/data @wix/wix-data-items-sdk @wix/essentials` |
 | | **gift-cards** → (none — disabled-by-default pack ships no Astro-time imports) |
 
 Concrete example for the most common case (stores prompt; resolved set = stores + ecom + gift-cards + cms):
 ```bash
 npm install --no-fund --no-audit --legacy-peer-deps \
-  @wix/sdk @wix/stores @wix/ecom @wix/redirects tailwindcss @tailwindcss/vite \
+  @wix/sdk @wix/stores @wix/ecom @wix/redirects \
+  @wix/data @wix/wix-data-items-sdk @wix/essentials \
+  tailwindcss @tailwindcss/vite \
   2> <npm-tempfile>
 ```
+
+> **Why three packages for cms?** `@wix/data` exposes collections / permissions / backups namespaces; the actual `items` API (used by every CMS page for queries) lives in `@wix/wix-data-items-sdk` since `@wix/data` 1.0.448 dropped the `items` re-export (see [cms/CMS_FOUNDATIONS.md](./cms/CMS_FOUNDATIONS.md) § "Import note"). `@wix/essentials` is required for `auth.elevate` — every CMS page elevates queries to bypass per-collection permission checks. Shipping only `@wix/data` produces `'items' is not exported by '@wix/data'` at `astro build`; shipping without `@wix/essentials` produces `Cannot find module '@wix/essentials'` at SSR time.
 
 Per pre-flight S0.2, `pnpm install` fails against the `@wix/cli` template — use `npm install --legacy-peer-deps`.
 
@@ -233,7 +237,7 @@ Use this path when the user already has a working frontend on disk (Claude Desig
 | Build / release | `npx @wix/cli build` + `release` via `release.sh` | `npx @wix/cli release` directly — **no build step**; existing `index.html` is published as-is |
 | Entry file | `src/pages/index.astro` (Astro convention) | **Must be `index.html`** at the configured `outputDirectory` |
 
-Run **only**: Wave 0 (MCP bootstrap from SKILL.md) → E1 → E2 → E3 → E4 → E5 → E6. Skip Steps 1–5 above entirely.
+Run **only**: DISCOVERY.md pre-flight (CLI-auth check) → E1 → E2 → E3 → E4 → E5 → E6. Skip Steps 1–5 above entirely.
 
 ### Step E1 — Init (replaces scaffold)
 

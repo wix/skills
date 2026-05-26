@@ -1,8 +1,8 @@
 # Recipe: AI Image Generation + Wix Media Import
 
-Generate images using **Wix AI (Runware)** via the Wix MCP, then import them into Wix Media. This is a **pure utility** — it generates an image and returns the result. The calling skill owns prompt construction and entity attachment.
+Generate images using **Wix AI (Runware)** via the `wixapis.com` REST proxy, then import them into Wix Media. This is a **pure utility** — it generates an image and returns the result. The calling skill owns prompt construction and entity attachment.
 
-Image generation is MCP-authenticated — no API keys, no curl, no sandbox escape hatches. Runs automatically whenever the image agent launches.
+Image generation authenticates with the same CLI-minted site-scoped token used for every other Wix REST call in this skill (see `AUTHENTICATION.md`) — no separate API keys, no MCP, no sandbox escape hatches.
 
 ## Step 1: Generate Image via Wix AI
 

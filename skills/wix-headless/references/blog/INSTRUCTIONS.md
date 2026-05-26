@@ -5,13 +5,13 @@ description: "Implements blog vertical via Wix Blog app — @wix/blog SDK, @wix/
 
 # Blog Implementer
 
-Extends `references/shared/IMPLEMENTER.md`. Read that file first for phase routing, MCP prefix, site.json read pattern, return contract, style conventions, and common failure modes.
+Extends `references/shared/IMPLEMENTER.md`. Read that file first for phase routing, REST auth + doc lookups, site.json read pattern, return contract, style conventions, and common failure modes.
 
 ## Scope routing
 
 | Scope | Phase | Reference |
 |-------|-------|-----------|
-| `seed` | Seed (post seeding via MCP with Ricos content) | `./BLOG_CONTENT.md` |
+| `seed` | Seed (post seeding via REST with Ricos content) | `./BLOG_CONTENT.md` |
 | `components` | Components (blog service module, RicosViewer, consts, astro.config sitemap) | `./BLOG_SETUP.md` |
 | `pages` | Pages (listing, detail, RSS, BlogPost layout, home contribution) | `./BLOG_PAGES.md` |
 
