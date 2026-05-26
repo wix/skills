@@ -235,7 +235,8 @@ Use the Extension Types Reference Table and decision content above. State extens
 **MCP Tools for discovery (when needed):**
 
 - `SearchWixSDKDocumentation` - SDK methods and APIs (**Always use maxResults: 5**)
-- `ReadFullDocsArticle` - Full documentation when needed (only if search results need more detail)
+- `ReadFullDocsMethodSchema` - Full type schema for a specific SDK method (parameters, return type, permissions)
+- `ReadFullDocsArticle` - Prose guides and conceptual articles only (not for SDK method signatures)
 
 ### Step 4a: Scaffold via the CLI
 
@@ -342,7 +343,7 @@ Stop and report errors if any step fails. Check `.wix/debug.log` on failures.
 - **Check API references first** — read relevant API reference files before using MCP discovery
 - **Skip discovery** when all required APIs are in reference files
 - **maxResults: 5** for all MCP SDK searches
-- **ReadFullDocsArticle** only when search results need more context
+- **ReadFullDocsMethodSchema** for SDK method schemas; **ReadFullDocsArticle** for prose guides only
 - **Invoke wix-design-system** first when using WDS (prevents import errors)
 
 ## Documentation
