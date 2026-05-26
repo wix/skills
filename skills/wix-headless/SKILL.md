@@ -59,7 +59,7 @@ Any user request to build a new site. Infer vertical(s) from the prompt:
 
 | Scenario | Use Instead |
 |---|---|
-| Scaffold-only with no further design/wiring | `bash <SKILL_ROOT>/scripts/scaffold.sh <slug> "<Brand>"` |
+| Scaffold-only with no further design/wiring | `bash <SKILL_ROOT>/scripts/scaffold.sh <folder-name> "<Brand>"` |
 | Build + preview an existing project | `bash <SKILL_ROOT>/scripts/preview.sh` (from project dir) |
 | Release / ship / go-live an existing project | `bash <SKILL_ROOT>/scripts/release.sh` (from project dir) |
 | Install a Wix app onto an existing site | Follow `<SKILL_ROOT>/references/commands/install-app.md` |
@@ -125,7 +125,7 @@ See `references/SETUP.md` § "MCP Prefix Discovery + Schema Bootstrap".
 See `references/DISCOVERY.md` for full mechanics.
 
 - Infer vertical(s) from the user's opening message; if too vague, one conversational clarifier.
-- **Q1** (`AskUserQuestion`): brand name. On answer, launch scaffold in background: `bash <SKILL_ROOT>/scripts/scaffold.sh <slug> "<Brand>"`. Slug-derivation + timing capture rules in `references/DISCOVERY.md` § "Scaffold dispatch".
+- **Q1** (`AskUserQuestion`): brand name. On answer, launch scaffold in background: `bash <SKILL_ROOT>/scripts/scaffold.sh <folder-name> "<Brand>"`. Folder-name derivation + timing capture rules in `references/DISCOVERY.md` § "Scaffold dispatch".
 - **Q2** (`AskUserQuestion`): vibe.
 - Craft a 2–3 sentence aesthetic direction in scratch (do not print standalone).
 - Present the plan as markdown (Design Direction → Features → Pages → CMS Collections → Apps & SDK). **Pages, CMS Collections, and Apps & SDK MUST be markdown tables.**

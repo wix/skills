@@ -39,37 +39,37 @@ If the user already named the brand in the opening message, skip this step.
 
 Immediately after the brand name is confirmed (before Q2), emit **one concurrent batch** containing both the scaffold dispatch AND prefetch reads of the shared contract docs. These reads cost nothing during Q2 + plan review wait time but save ~1 min of post-approval latency that prior runs spent reading these docs serially.
 
-1. **Scaffold dispatch.** Derive the project slug from the brand, validate it, then run `bash <SKILL_ROOT>/scripts/scaffold.sh <slug> "<Brand>"` as a background shell. The script handles the npm-create invocation + slug pre-flight (regex `^[a-z0-9]{3,20}$`); the orchestrator handles slug derivation from the human-readable brand.
+1. **Scaffold dispatch.** Derive the folder name from the brand, validate it, then run `bash <SKILL_ROOT>/scripts/scaffold.sh <folder-name> "<Brand>"` as a background shell. The script handles the npm-create invocation + folder-name pre-flight (regex `^[a-z0-9]{3,20}$`); the orchestrator handles folder-name derivation from the human-readable brand.
 
-   **Slug derivation (apply to brand before invoking the script):**
+   **Folder-name derivation (apply to brand before invoking the script):**
    1. Lowercase
    2. Strip every char that isn't `[a-z0-9]` (drop hyphens, spaces, punctuation, accents — the Wix CLI rejects them)
    3. Truncate to 20 chars
-   4. If the result is shorter than 3 chars, ask the user explicitly for a slug (`AskUserQuestion`)
+   4. If the result is shorter than 3 chars, ask the user explicitly for a folder name (`AskUserQuestion`)
 
    Examples: `"Acme-Co" → "acmeco"`; `"Sole Society" → "solesociety"`; `"E&E Co." → "eeco"`; `"AB" → ask the user`.
 
    The Wix CLI requires `[a-z0-9]{3,20}` — hyphens, underscores, uppercase, and other punctuation are rejected.
 
-   **Pre-flight validation (orchestrator-side, before invoking the script).** Both must pass; if either fails, regenerate the slug or re-prompt the user — do NOT rely solely on the script's pre-flight (it'll exit non-zero, but that costs a round-trip):
-   - `slug` matches `^[a-z0-9]{3,20}$`
+   **Pre-flight validation (orchestrator-side, before invoking the script).** Both must pass; if either fails, regenerate the folder name or re-prompt the user — do NOT rely solely on the script's pre-flight (it'll exit non-zero, but that costs a round-trip):
+   - derived folder name matches `^[a-z0-9]{3,20}$`
    - `brand` is non-empty after trimming whitespace
 
    **The scaffold call (background shell, with timing capture):**
 
    ```bash
    STARTED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-   bash "<SKILL_ROOT>/scripts/scaffold.sh" "<slug>" "<brand>"
+   bash "<SKILL_ROOT>/scripts/scaffold.sh" "<folder-name>" "<brand>"
    ENDED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
    ```
 
-   - Substitute `<brand>` with the user's confirmed brand (preserve original case; quotes are passed by the shell). Substitute `<slug>` with the validated slug.
+   - Substitute `<brand>` with the user's confirmed brand (preserve original case; quotes are passed by the shell). Substitute `<folder-name>` with the validated folder name.
    - The script pins `--site-template-id` to the pure-headless blank template (`212b41cb-0da6-4401-9c72-7c579e6477a2`). Vibe-compatible templates trigger an interactive prompt that blocks non-TTY runs — the template ID is intentionally hardcoded inside the script.
    - Append timing to `.wix/run.json.phases[]` as `{ phase: "scaffold", seconds: <duration>, started: $STARTED_AT, ended: $ENDED_AT }`.
 
-   **Strict-then-recover:**
-   1. Script exit 2 (slug or brand validation failed) → orchestrator-side bug; the orchestrator should have caught this in pre-flight. Fix the slug derivation and retry.
-   2. Auth error from npm/Wix CLI → run `npx @wix/cli login` yourself per SKILL.md § "Authentication" (background, surface the device code, resume) — do not stop and punt to the user.
+  **Strict-then-recover:**
+  1. Script exit 2 (folder name or brand validation failed) → orchestrator-side bug; the orchestrator should have caught this in pre-flight. Fix the folder-name derivation and retry.
+  2. Auth error from npm/Wix CLI → run `npx @wix/cli login` yourself per SKILL.md § "Authentication" (background, surface the device code, resume) — do not stop and punt to the user.
    3. `invalid template` error → the template ID inside `scaffold.sh` is stale. Look up the current ID via `<prefix>SearchWixCLIDocumentation` query `create headless template`, edit the script's `TEMPLATE_ID` constant, retry once, log to `.wix/run.json.commandDrift[]` so the script can be tightened.
    4. Other errors → surface stderr to the user.
 
@@ -322,7 +322,7 @@ If the user wants to adjust, handle it conversationally (swap brand, change vibe
 Save the project context to memory (type: `project`) so future sessions can resume:
 - Brand name, vertical(s) inferred
 - Apps, packages, pages from the loaded packs
-- Project name + absolute project directory
+- Folder name + absolute project directory
 - Current phase: `scaffolding`
 
 > **Do NOT narrate the internal sub-steps.** After approval, proceed silently through setup, launch phases, etc. The user tracks progress via TaskList — that's enough. No *"Now I'll install Wix Stores via MCP"*, no *"Launching Phase 1 agents"*, no MCP / sidecar / agent-name / `.wix/` leakage.
