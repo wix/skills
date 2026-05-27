@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-// Inject Image-Phase-1 decorative URLs into the designer-emitted page shells.
+// Inject Image-Phase-1 decorative URLs into the page shells.
 //
-// The Phase 2 designer writes `<div data-decorative-slot="<key>">…</div>`
-// placeholders in src/pages/*.astro. Image Phase 1 returns a slot→URL map
+// The design-system Composer (index.astro) and the Phase 4 page designers write
+// `<div data-decorative-slot="<key>">…</div>` placeholders in src/pages/*.astro. Image Phase 1 returns a slot→URL map
 // in its JSON return; the orchestrator pipes that map (as JSON) into this
 // script's stdin. This script reads the map + walks src/pages/*.astro,
 // then injects an <img> as the first child of each matching slot div —

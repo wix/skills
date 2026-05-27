@@ -1,11 +1,11 @@
 ---
 name: images-agent
-description: "Generates images for the site. Two scopes: image-phase-1-decorative (hero/about/background art, no dependencies, dispatched in SEED.md Step 2 Wave 3 batch) and image-phase-2-entity (product/blog/CMS item images, needs Phase 1 Seed entity IDs, dispatched in ORCHESTRATION Step 4.5 alongside Phase 3 Components)."
+description: "Generates images for the site. Two scopes: image-phase-1-decorative (hero/about/background art) and image-phase-2-entity (product/blog/CMS item images, needs Phase 1 Seed entity IDs)."
 ---
 
 # Images Agent — Scope-Based Image Generation
 
-Generates site images in two scopes dispatched separately by the parent skill. Uses Wix AI (Runware) for generation and Wix Media for hosting — all via `curl` against `wixapis.com` using the CLI-minted REST token (see `../shared/AUTHENTICATION.md`).
+Generates site images in two scopes. Uses Wix AI (Runware) for generation and Wix Media for hosting — all via `curl` against `wixapis.com` using the CLI-minted REST token (see `../shared/AUTHENTICATION.md`).
 
 **Nothing else blocks on image generation.** Phases 1–4 and the core pipeline all proceed independently. Products, posts, and pages work without images. Each image phase enriches them when it finishes.
 
@@ -13,10 +13,10 @@ Generates site images in two scopes dispatched separately by the parent skill. U
 
 Your prompt includes `Scope: <name>`. Map it to an image phase:
 
-| Scope | When dispatched | Depends on | Output |
-|---|---|---|---|
-| `image-phase-1-decorative` | `SEED.md` Step 2 (background) | Brand context only | Decorative images for hero / about / backgrounds; slot→URL map returned in `data.slots` |
-| `image-phase-2-entity` | Step 4.5 (background, alongside Phase 3 Components) | Phase 1 Seed return data (entity IDs in prompt) | Entity images attached to products / blog posts / CMS items via REST PATCH |
+| Scope | Depends on | Output |
+|---|---|---|
+| `image-phase-1-decorative` | Brand context only | Decorative images for hero / about / backgrounds; slot→URL map returned in `data.slots` |
+| `image-phase-2-entity` | Phase 1 Seed return data (entity IDs in prompt) | Entity images attached to products / blog posts / CMS items via REST PATCH |
 
 If your prompt is missing a `Scope:` line, stop and ask the parent — do not guess.
 
@@ -93,7 +93,7 @@ Concurrent siblings are safe across all three stages (gen, import, PATCH). Wix M
 
 Image Phase 2 for N products + M CMS items: ~1 schema-load + 1 product query + 1 batched generate + (N+M) imports + (N+M) PATCHes ≈ 2(N+M) + 3 calls. For 4 entities that's ~11 calls. If above 20, check for unnecessary doc reads or re-queries.
 
-## Scope: `image-phase-1-decorative` (`SEED.md` Step 2 — no dependencies)
+## Scope: `image-phase-1-decorative` (no dependencies)
 
 Generate site-wide decorative images that don't depend on any entity. Used by the Phase 2 Design System agent + Phase 4 Pages agents for hero sections, about pages, and backgrounds.
 
@@ -113,9 +113,9 @@ Generate site-wide decorative images that don't depend on any entity. Used by th
 4. **Collect the resolved URLs keyed by slot purpose** (e.g., `{"hero": "https://static.wixstatic.com/...", "about": "https://static.wixstatic.com/..."}`). This map goes into your return JSON under `data.slots` — see § Return below. Do NOT write `.wix/image-urls.md` or any other file; the orchestrator pipes your `data.slots` directly into `patch-decorative-slots.mjs` via stdin.
 5. Return the structured JSON block per `../shared/RETURN_CONTRACT.md` (see § Return below). The JSON return is your sole output channel.
 
-The orchestrator runs `patch-decorative-slots.mjs` with your `data.slots` map piped in on stdin (`SEED.md` Step 4 / `ORCHESTRATION.md` Step 4.5). The patch script injects `<img>` tags into the designer's `data-decorative-slot="<key>"` placeholders. If your return is missing or has no slots, the patch is a no-op and the placeholders fall back to the designer's solid-color rendering — nothing blocks.
+The orchestrator runs `patch-decorative-slots.mjs` with your `data.slots` map piped in on stdin. The patch script injects `<img>` tags into the designer's `data-decorative-slot="<key>"` placeholders. If your return is missing or has no slots, the patch is a no-op and the placeholders fall back to the designer's solid-color rendering — nothing blocks.
 
-## Scope: `image-phase-2-entity` (Step 4.5 — Phase 1 Seed data inline)
+## Scope: `image-phase-2-entity` (Phase 1 Seed data inline)
 
 Generate images for products, blog posts, and CMS items. Attach via REST PATCH calls (`curl` against `wixapis.com`).
 

@@ -1,12 +1,14 @@
 # Styling — Three Categories, One Default
 
-Every visual decision in a generated site falls into one of three categories. Each has a single owner and a single home. This file is the canonical reference; designer `INSTRUCTIONS.md` and `IMPLEMENTER.md` link here.
+Every visual decision in a generated site falls into one of three categories. Each has a single owner and a single home. This file is the canonical reference; `DESIGN_SYSTEM.md` (Designer), `COMPOSE.md` (Composer), `designer/INSTRUCTIONS.md` (Phase 4 page designers), and `IMPLEMENTER.md` link here.
+
+> **Design-system ownership (the design-vs-application split).** The **Designer** (`DESIGN_SYSTEM.md`) owns the token *values* and their *completeness* — a coherent, complete brand visual returned as a framework-agnostic JSON spec (`data.designTokens`). The **Composer** (`COMPOSE.md`) owns the *application* — it writes the `@theme` block in `global.css` from those values (mapping each semantic role to a `--var` name) and guarantees the required-token contract below resolves. Component and page authors still compose those tokens as Tailwind utilities at their call sites. So: Designer picks "paper = `#FAF6EF`"; Composer writes `--color-paper: #FAF6EF` into `@theme`; a page writes `class="bg-paper"`.
 
 ## The three categories
 
 | Category | Lives in | Owned by | Use for |
 |---|---|---|---|
-| **Tokens (composed as utilities)** | `@theme` block in `src/styles/global.css`, mirrored to `.wix/design-tokens.css` + `.wix/site.d.ts` (emitted by `scripts/emit-design-tokens.mjs` from Designer's `data.designTokens`) | Designer (Phase 2) | All color, spacing, typography scale, radii, aspect ratios, shadows, transitions. Pages compose tokens at call sites as Tailwind utilities — `class="py-4xl bg-sand aspect-[16/5]"`. |
+| **Tokens (composed as utilities)** | `@theme` block in `src/styles/global.css`, mirrored to `.wix/design-tokens.css` + `.wix/site.d.ts` (emitted by `scripts/emit-design-tokens.mjs` from Designer's `data.designTokens`) | Designer picks values (Phase 2); Composer writes `@theme` | All color, spacing, typography scale, radii, aspect ratios, shadows, transitions. Pages compose tokens at call sites as Tailwind utilities — `class="py-4xl bg-sand aspect-[16/5]"`. |
 | **Global semantic classes** | `src/styles/global.css` (outside `@theme`) and `src/styles/components-<pack>.css` | Designer + Phase 3 component agents | Compound multi-element patterns, interactive states (`:hover`, `:focus`, `:disabled`), and JS/React DOM query targets. |
 | **Co-located styles** | `<style>` block at the bottom of the same `.astro` file (or component CSS module for islands) | Page or component author | One-off page decoration: hero stamps, custom dividers, ornamental overlays that won't be reused elsewhere. |
 
@@ -51,7 +53,7 @@ If a designer's `global.css` contains rules like `.featured-section { padding-bl
 
 ## Required tokens — the component-CSS template contract
 
-The per-pack `components-<pack>.css` templates at `<SKILL_ROOT>/templates/<pack>/components-<pack>.css` reference a fixed set of CSS custom properties via `var(--token)` (never `@apply`). Those templates are copied verbatim into the project by the orchestrator at ORCHESTRATION.md Step 4.5, so **the designer's `@theme` block MUST declare every token below** for the build to pass. If a token is missing, the rule that references it collapses silently and the corresponding component renders unstyled (or worse, half-styled).
+The per-pack `components-<pack>.css` templates at `<SKILL_ROOT>/templates/<pack>/components-<pack>.css` reference a fixed set of CSS custom properties via `var(--token)` (never `@apply`). Those templates are copied verbatim into the project by the orchestrator at BUILD.md § Step 4.5, so **the Composer's `@theme` block MUST declare every token below** for the build to pass (the Composer maps the Designer's framework-agnostic spec onto these `--var` names, deriving any required role the Designer omitted). If a token is missing, the rule that references it collapses silently and the corresponding component renders unstyled (or worse, half-styled).
 
 | Token | Required? | Fallback in templates | Used by |
 |---|---|---|---|
@@ -110,15 +112,15 @@ Tokens + truly cross-cutting patterns (buttons, decorative slots, site shell) ar
 - Verticals can ship new component variants without round-tripping the designer.
 - `overflow: hidden` + `border-radius` traps are caught by the same person who set the radius — no second author who has to *know* the radius value.
 
-### Pre-return checklist for the designer
+### Pre-return checklist for the Composer
 
-Before returning the design-system scope, the designer agent runs:
+The Composer writes `global.css` by substituting the `@theme` palette into a pinned skeleton, so the component-class leak below is **structurally prevented** — the skeleton declares no `.product-card`/`.cart-summary`-family rules at all. The check remains as a guard: before returning, confirm the Composer-written `global.css` declares none of these (it shouldn't, unless the skeleton was edited):
 
 ```
 grep -r --include="*.astro" --include="*.tsx" -lE "class(\\Name)?=.*(\\.|\\b)(product-card|product-grid|product-card-media|product-card-ribbon|product-card-index|offer-callout|cart-summary|cart-total|cart-empty|checkout-btn)\\b" $SKILL_ROOT/templates/*/
 ```
 
-For every class name listed above that the designer's `global.css` declares: if any template references it, the class is component-specific and must NOT be in `global.css`. Move the rule to the appropriate `components-<pack>.css` template (or to a scoped `<style>` block in the component template). Do NOT ship a partial rule in `global.css` that the template "completes" — that's the leak this file is preventing.
+For every class name listed above that the Composer's `global.css` declares: if any template references it, the class is component-specific and must NOT be in `global.css`. Move the rule to the appropriate `components-<pack>.css` template (or to a scoped `<style>` block in the component template). Do NOT ship a partial rule in `global.css` that the template "completes" — that's the leak this file is preventing.
 
 The check is mechanical and bounded — it scans templates, not the live project.
 

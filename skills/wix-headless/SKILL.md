@@ -5,7 +5,7 @@ description: "Build a complete Wix Managed Headless site from a single prompt, O
 
 # Wix Headless
 
-**Discovery, setup, and seed** run from `DISCOVERY.md`, `SETUP.md`, `SEED.md`. **Design system through release** run from `ORCHESTRATION.md` and per-vertical references. All site operations use `npx @wix/cli token` + `curl` — no MCP.
+**Run flow is owned by the conductor, split at the approval gate: `references/PLAN.md`** (pre-approval — mode routing, the Discovery questions, the plan + approval gate, the latency-hiding background dispatches) **then `references/BUILD.md`** (post-approval — Setup → Seed → Components → Pages → Build → Release). The domain/step files (`DISCOVERY.md`, `SETUP.md`, `SEED.md`, `DESIGN_SYSTEM.md`, `COMPOSE.md`, the per-vertical references) describe only *what* each step does; they do not name the sequence. **Start a run by opening `PLAN.md`**; open `BUILD.md` when the user approves the plan. All site operations use `npx @wix/cli token` + `curl` — no MCP.
 
 > **Explicit invocation only.** Do not auto-route on generic "build me a site" prompts; production `wix-headless` should win those unless the user names this skill.
 
@@ -18,15 +18,20 @@ Your CWD at runtime is the **project directory** (scaffold subdir after setup), 
 | Discovery flow | `<SKILL_ROOT>/references/DISCOVERY.md` |
 | Setup flow | `<SKILL_ROOT>/references/SETUP.md` |
 | Seed flow | `<SKILL_ROOT>/references/SEED.md` |
-| Post-seed orchestration | `<SKILL_ROOT>/references/ORCHESTRATION.md` |
+| Pre-approval funnel (plan) | `<SKILL_ROOT>/references/PLAN.md` |
+| Post-approval build | `<SKILL_ROOT>/references/BUILD.md` |
 | Seed recipe map (human ref) | `<SKILL_ROOT>/references/seed-recipes.md` |
 | Auth + REST headers | `<SKILL_ROOT>/references/shared/AUTHENTICATION.md` |
 | Public doc endpoints | `<SKILL_ROOT>/references/shared/DOCS_SEARCH.md` |
 | Return contract | `<SKILL_ROOT>/references/shared/RETURN_CONTRACT.md` |
 | Implementer shared behavior | `<SKILL_ROOT>/references/shared/IMPLEMENTER.md` |
 | Image generation | `<SKILL_ROOT>/references/shared/IMAGE_GENERATION.md` |
+| Design-system Designer (design spec, JSON only) | `<SKILL_ROOT>/references/DESIGN_SYSTEM.md` |
+| Design-system Composer (writes the 6 files) | `<SKILL_ROOT>/references/COMPOSE.md` |
+| Composer astro skeletons | `<SKILL_ROOT>/shared-utilities/templates/astro/` |
 | Vertical packs (discovery) | `<SKILL_ROOT>/references/verticals/` |
-| Per-vertical instructions | `<SKILL_ROOT>/references/{stores,ecom,cms,blog,forms,gift-cards,images,designer}/INSTRUCTIONS.md` |
+| Per-vertical instructions | `<SKILL_ROOT>/references/{stores,ecom,cms,blog,forms,gift-cards,images}/INSTRUCTIONS.md` |
+| Phase 4 page-designer scopes | `<SKILL_ROOT>/references/designer/INSTRUCTIONS.md` |
 | Templates | `<SKILL_ROOT>/templates/` |
 | Shared utilities (copied by seed-utilities) | `<SKILL_ROOT>/shared-utilities/` |
 | Known app IDs | `<SKILL_ROOT>/references/commands/known-apps.json` |
@@ -34,7 +39,7 @@ Your CWD at runtime is the **project directory** (scaffold subdir after setup), 
 
 **Do NOT Read subagent `INSTRUCTIONS.md` files in the orchestrator** — pass absolute paths; subagents open them.
 
-Subagent invocations: Designer (Discovery Step 2.6) as `designer_handle` (bg, absorbed into Q3 + plan + approval + Setup); `wix-manage` (Setup Step 3) for app-install recipe; Wave 3 batch in Seed Step 2 (seeders bg + image-phase-1 bg, with foreground wait on `designer_handle`); post-seed subagents per `ORCHESTRATION.md` from Step 4.5 onward.
+When and how each subagent is dispatched (Designer, Composer, seeders, image phases, vertical Components/Pages) is owned by the conductor (`references/PLAN.md` pre-approval, `references/BUILD.md` post-approval), not listed here.
 
 ## Authentication
 
@@ -91,28 +96,23 @@ Triggers: *"connect this to Wix Headless"*, *"add Wix Headless to this project"*
 | `wix.config.json` + Astro structure (`src/`, `astro.config.mjs`) | resume a prior wix-headless run — ask "continue or start fresh?" via `AskUserQuestion` |
 | `wix.config.json` + non-Astro frontend | B, skipping `init` — start from SETUP.md Step E2 |
 
-**Path B skips most of the wave flow.** Vertical packs are inferred by **reading the project files** (SETUP.md § "Step E2"), not by re-prompting the user. Run only: DISCOVERY.md pre-flight (CLI-auth check) → `SETUP.md` § "Existing project flow" (E1 init → E2 analyze → E3 install apps → **E4 SDK wiring** → E5 release → E6 final message). **Do not run** Discovery's interview, Setup Step 4 batch, Seed, ORCHESTRATION, or any subagent dispatch — the existing project supplies its own frontend.
+**Path B skips most of the wave flow.** Vertical packs are inferred by **reading the project files** (SETUP.md § "Step E2"), not by re-prompting the user. Run only: DISCOVERY.md pre-flight (CLI-auth check) → `SETUP.md` § "Existing project flow" (E1 init → E2 analyze → E3 install apps → **E4 SDK wiring** → E5 release → E6 final message). **Do not run** Discovery's interview, Setup Step 4 batch, Seed, the `BUILD.md` flow, or any subagent dispatch — the existing project supplies its own frontend.
 
 ### Frontend modes (the `.wix/site.json.frontend` axis)
 
 Path A vs Path B is the routing question. The `frontend` value is the **downstream branching axis** — the orchestrator holds it in session scratch and either branches on it directly or passes it to scripts as a `--frontend` flag. (It is also persisted to `.wix/site.json` as a resume fallback, but the live run reads scratch, not the file.) Three allowed values:
 
-| `frontend` | Mode | What runs |
-|---|---|---|
-| `astro` | Scaffold (Path A default) | Discovery full interview → `scaffold.sh --frontend astro` (bg) → SETUP Steps 1–5 → SEED → ORCHESTRATION → build + release. Layout-import bridge in SEED.md applies. |
-| `react-vite` | Scaffold (Path A, prompt-keyword opt-in) | Same flow as `astro` today. `scaffold.sh --frontend react-vite` exits 4 until the `react-vite/blank` template is staged; DISCOVERY.md § "After Q1" documents the fallback to `astro` for the same session. Per-route recipes in Phase 4 will diverge (CSR via `useEffect` vs Astro frontmatter). |
-| `user-provided` | Integrate (Path B) | DISCOVERY pre-flight → Wave 0 short flow (parse + one-shot approve, no Q1/Q2/Q3) → SETUP § "Existing project flow" (E1–E6). No Designer dispatch, no Seed, no ORCHESTRATION, no Layout-import bridge. The frontend track does not run, so `seed-utilities.sh` is never invoked. |
+| `frontend` | Mode |
+|---|---|
+| `astro` | Scaffold (Path A default) |
+| `react-vite` | Scaffold (Path A, prompt-keyword opt-in; `scaffold.sh --frontend react-vite` exits 4 until the template is staged — falls back to `astro` for the session) |
+| `user-provided` | Integrate (Path B) |
 
-Wave 0 (DISCOVERY.md § "Wave 0 — Mode detection") decides which value to set, holds it in orchestrator scratch, and records it via `init-site-json.mjs --frontend <value>`. The bootstrap scaffolder receives it as `scaffold.sh --frontend <value>`; the frontend-track project-prep script receives the template via `seed-utilities.sh --template <astro|react-vite>` (no `user-provided` — that mode never runs the frontend track).
+`DISCOVERY.md` § "Wave 0 — Mode detection" decides which value to set and records it via `init-site-json.mjs --frontend <value>`. **Which flow each value runs is owned by `PLAN.md` § "Frontend-mode routing".**
 
 ### Two tracks (business vs frontend)
 
-The skill runs two semi-independent tracks that the orchestrator interleaves for wall-time:
-
-- **Business track** (frontend-blind) — create/connect the site, **install Wix apps**, **seed backend data**. Inputs: `siteId`, `verticals`, `intent`, `brand`. It never reads `frontend`/template — a product (or collection, post, form) is the same regardless of what renders it. Lives in `SETUP.md` Step 4a + `SEED.md` seeders.
-- **Frontend track** (frontend-aware) — scaffold/prep the local project, Designer + design tokens, components, pages, SDK wiring, build. Every `frontend`/template branch lives here. Lives in `scaffold.sh` + `seed-utilities.sh` + the Designer bridge + `ORCHESTRATION.md` Components/Pages.
-
-The only cross-track data flow is **one-way, business → frontend**: seeders produce entity IDs which the orchestrator inlines into the frontend track's Page-subagent prompts. There is no frontend → business dependency. Mode selection (which tracks run at all) is the **routing layer** — Wave 0 + the SETUP routing table — not a property of either track's operations.
+The skill runs two semi-independent tracks (business = frontend-blind site/app/seed work; frontend = scaffold/design/components/pages/build) that the orchestrator interleaves for wall-time. **The track model and interleaving are owned by `PLAN.md` § "Two tracks".**
 
 ### When NOT to use this skill
 
@@ -125,38 +125,11 @@ The only cross-track data flow is **one-way, business → frontend**: seeders pr
 
 > **Read individual** `references/verticals/<pack>.md` files — never `Read` the `verticals/` directory (`EISDIR`).
 
-## The flow at a glance
+## The run
 
-```
-[Discovery Q&A]     Q1 → bg scaffold; Q2 → bg Designer (designer_handle); Q3 → plan → approval
-[Setup]             wait scaffold · patch site.json · apps · env pull · bg npm install
-[Seed batch]        seeders (bg) + Image Phase 1 (bg) — one message
-[Designer wait]     wait on designer_handle (typically near-return by this point)
-[Bridge]            merge designTokens · emit-design-tokens.mjs · Layout import check
-[Seed gate]         wait seeders · merge seeded · wait npm · optional decorative-slot patch
-        ↓
-[ORCHESTRATION]     Step 4.5 Components + Image Phase 2 (bg)
-[Pages]             Phase 4 per vertical (bg)
-[Build + Release]   cli build · release · final URL + run.json
-```
-
-Designer's wall (180–270 s) absorbs into Q3 + plan + approval + Setup + the seed-batch dispatch — instead of being serialized into Wave 3. On a fast eval run, Designer is typically near-complete by the time the orchestrator reaches the Seed Step 2 wait point.
+The whole run — Discovery → Setup → design-system bridge → Seed → Components → Pages → Build → Release, with every dispatch, handle, wait, and transition — is owned by the conductor: **`references/PLAN.md`** (pre-approval) then **`references/BUILD.md`** (post-approval). Open `PLAN.md` to start a run. This file does not duplicate the sequence.
 
 Wall-time targets: discovery ≤ 80 s (excl. user think-time); setup foreground ≤ 25 s; seed longest pole ≤ 120 s. Full-build target: ≤ 600 s prompt-to-live-URL when all phases run.
-
-## Discovery → Setup → Seed → Build (one run)
-
-1. `references/DISCOVERY.md` — Q&A, plan, approval; post-Q1 batch reads packs + bg `scaffold.sh`.
-2. After approval: `init-site-json.mjs` → `SETUP.md` Steps 1–5 → `SEED.md` Steps 1–5.
-3. `SEED.md` Step 2: Wave 3 batch (seeders + image phase 1) + wait on `designer_handle` (dispatched in Discovery Step 2.6); bridge on designer return; Step 4 merge + optional decorative patch.
-4. `SEED.md` Step 5: seed-progress line → **immediately** `ORCHESTRATION.md` **Step 4.5** (mandatory; not optional).
-5. `ORCHESTRATION.md`: components, pages, build, release, final URL.
-
-## Post-seed — components through release
-
-Open `references/ORCHESTRATION.md` at **Step 4.5** after Seed Step 5. The Designer subagent was dispatched in `DISCOVERY.md` Step 2.6 and its bridge ran inside `SEED.md` Step 2; the seed wave (seeders + Image Phase 1) completed at the end of Seed — do **not** re-dispatch designer or Image Phase 1 from Post-Seed. The orchestrator's `seeded` scratch must be populated and `.wix/design-tokens.css` must exist before Step 4.5.
-
-`seed-utilities.sh` (frontend-track project prep) runs at the start of `SEED.md` Step 2 (idempotent), co-scheduled with the business-track seeders.
 
 ## Verticals
 
