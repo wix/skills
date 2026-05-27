@@ -141,7 +141,7 @@ Capture the background handle as `scaffold_handle` and the path to `<tempfile>` 
 **Slug derivation:** lowercase the brand, then **STRIP every character not matching `[a-z0-9]` — do NOT replace them with hyphens or underscores**. Truncate to 20 chars. The `scaffold.sh` pre-flight enforces `^[a-z0-9]{3,20}$` and rejects anything else with exit 2; a rejected slug forces a redispatch and re-runs the ~30 s scaffold (the indie-bookshop-class regression).
 
    - Substitute `<brand>` with the user's confirmed brand (preserve original case; quotes are passed by the shell). Substitute `<slug>` with the validated slug.
-   - The script passes bare `--site-template` so non-interactive scaffolding stays on the blank starter. Keep the new-site flow there unless the skill is explicitly redesigned around another scaffold.
+   - The script passes bare `--site-template` so non-interactive scaffolding stays on the blank starter. Keep the new-site flow there unless the skill is explicitly redesigned around another scaffold. (Without it, `@wix/create-new` ≥0.0.72 prompts for a template and aborts in the agent's non-TTY shell.)
    - Append timing to `.wix/run.json.phases[]` as `{ phase: "scaffold", seconds: <duration>, started: $STARTED_AT, ended: $ENDED_AT }`.
 
 Correct (strip-and-concatenate):

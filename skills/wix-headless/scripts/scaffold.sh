@@ -24,7 +24,9 @@
 #   - Runs `npm create @wix/new@latest headless` with --no-publish + --skip-install
 #     so the orchestrator can deferred-install with its own package set.
 #   - Passes bare `--site-template` so non-interactive scaffolding stays on the
-#     blank starter.
+#     blank starter. Without it, @wix/create-new (>=0.0.72) prompts for a template
+#     choice and aborts in a non-TTY agent shell ("not supported in non-interactive
+#     terminals").
 #
 # Exit codes:
 #   0 — ok
