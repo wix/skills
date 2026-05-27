@@ -1,0 +1,21 @@
+name: events/list-events
+description: "List events for the next 2 weeks — exercises the ReadFullDocsArticle path + verifies the agent returns actual event data."
+triggerPrompt: "list all my events for the upcoming 2 weeks in My Events site"
+tags:
+  - events
+assertions:
+  - tool: wix_mcp_remote_ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/events/skills/list-events
+  - type: llm_judge
+    prompt: |
+      Evaluate whether the agent successfully returned upcoming events from a Wix site.
+      A passing answer must include concrete event details (at minimum: event title and start date) retrieved via the Wix Events API.
+      Failing cases: the agent stops at site lookup, errors out, asks the user to disambiguate, or refuses.
+
+      Agent's final output:
+      {{output}}
+
+      Tool-call trace:
+      {{trace}}
+    minScore: 7
