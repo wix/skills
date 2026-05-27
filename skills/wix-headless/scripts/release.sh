@@ -18,8 +18,10 @@
 #   0 — ok; release URL on stdout
 #   <other> — build or release failed; stderr surfaces the underlying error.
 #             Build failures are code bugs (TypeScript / Astro / missing
-#             module) — the orchestrator does NOT retry. Release auth failures
-#             surface as `Run npx @wix/cli login and retry.`
+#             module) — the orchestrator does NOT retry. On a release auth
+#             failure the orchestrator runs `npx @wix/cli login` itself per
+#             SKILL.md § "Authentication" (background, surface the device code,
+#             resume) — it does NOT stop and punt to the user.
 
 set -euo pipefail
 

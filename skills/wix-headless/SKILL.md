@@ -33,6 +33,16 @@ Every subagent is a **general-purpose worker** that loads its behavior from a sp
 
 Subagents run with the project as CWD and cannot resolve `<SKILL_ROOT>` themselves — pass absolute paths.
 
+## Authentication
+
+`wix login` (and `npx @wix/cli login`) are **safe to run from a non-interactive AI-agent environment**. When the CLI detects an AI agent it skips the interactive UI and emits JSON events on stdout, one per line:
+
+- `{"event":"awaiting_user","verificationUri":"...","userCode":"...","expiresInSeconds":...}` — surface the URL and code to the user; wait for them to complete login in their browser.
+- `{"event":"success","email":"...","userId":"..."}` — login complete; resume the step that failed.
+- `{"event":"logged_in","email":"...","userId":"..."}` — there was already a valid session, nothing to do.
+
+**How to run it:** run `wix login` (or `npx @wix/cli login`) with `run_in_background: true` since it blocks until the human finishes the browser step. Tail the output file to read the `awaiting_user` event as soon as it appears; you'll be notified when the process exits with the terminal event. Do **not** stop and tell the user to "run login and retry" — drive the login yourself and resume the step that failed.
+
 ## When This Skill Triggers
 
 Any user request to build a new site. Infer vertical(s) from the prompt:
@@ -129,7 +139,7 @@ See `references/DISCOVERY.md` for full mechanics.
 See `references/SETUP.md`. After approval, run **one concurrent batch** with no narration between operations.
 
 1. **App install** for every entry in `apps[*]` of every loaded vertical. Follow `<SKILL_ROOT>/references/commands/install-app.md` — owns the `CallWixSiteAPI` body shape, `appName → appDefId` lookup, and recovery ladder. **An empty `apps: []` array means install nothing for that pack** — gift-cards, ecom, cms all ship `apps: []`. Do not invent an `appName` from the pack name or SDK packages. Capture `APP_INSTALL_START`/`END` via `date -u +%s` around the `CallWixSiteAPI` invocation; record `{ phase: "app-install-<appName>", seconds }`.
-2. **`npx @wix/cli env pull`** (foreground, fast). Produces `.env.local` with `WIX_CLIENT_ID`. On auth error: surface `"Run \`npx @wix/cli login\` and retry."` and stop. Record `{ phase: "env-pull", seconds }`.
+2. **`npx @wix/cli env pull`** (foreground, fast). Produces `.env.local` with `WIX_CLIENT_ID`. On auth error: run `npx @wix/cli login` yourself per the **Authentication** section (background, surface the device code, resume) — do not stop and punt to the user. Record `{ phase: "env-pull", seconds }`.
 3. **`rm -f package-lock.json && npm install …`** as a **background shell** with the union of all loaded verticals' `packages` arrays plus the always-packages (`@wix/sdk tailwindcss @tailwindcss/vite`). Flags: `--no-fund --no-audit --legacy-peer-deps`. Bake `NPM_INSTALL_START=$(date -u +%s)` and `NPM_INSTALL_END=$(date -u +%s)` into the SAME background bash command so the values land in its output. Record `{ phase: "npm-install", seconds }` when the install finishes. **Do not add packages beyond this set** — see `SETUP.md` § anti-hallucination rule.
 4. **`bash <SKILL_ROOT>/scripts/seed-utilities.sh`** — copies `<SKILL_ROOT>/shared-utilities/*.ts` (`wix-image.ts`, `analytics.ts`, `ricos.ts`) into `src/utils/` with `cp -n` and strips the Astro starter cruft. Record `{ phase: "seed-utilities", seconds }`.
 5. **Memory writes** — `project` memory with brand/apps/pages/phase.
