@@ -128,7 +128,7 @@ curl -sS -X POST "https://www.wixapis.com/apps-installer-service/v1/app-instance
 
 Use `npx @wix/cli token …` (not bare `wix token …`): `@wix/cli` may not be globally installed in every harness, and `npx` resolves to the project-local copy that scaffold just produced. The first invocation auto-fetches the CLI (~3–5 s) if missing; subsequent calls are instant.
 
-A 200 response confirms the install. On 401/403, re-mint and retry once per the recovery ladder in `references/shared/AUTHENTICATION.md`; if it still fails, surface the response body — recovery beyond a single re-mint usually means the CLI session expired and `wix login` is required.
+A 200 response confirms the install. On 401/403, retry the same call once with the cached token per the recovery ladder in `references/shared/AUTHENTICATION.md` — do **not** re-mint (the token is byte-identical for the run); if it still fails, surface the response body — a persistent 401 usually means the CLI session expired and `wix login` is required.
 
 **Packs with `apps: []` (e.g. `cms`, `ecom`):** skip the curl but record a phase entry as `{phase: "app-install-<pack>", status: "skipped", notes: "no app required for this pack"}` — the explicit skipped entry keeps run observability unambiguous.
 

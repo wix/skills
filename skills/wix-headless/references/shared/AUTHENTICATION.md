@@ -55,7 +55,7 @@ SITE_ID="<siteId>"  # from wix.config.json after scaffold
 TOKEN=$(npx @wix/cli token --site "$SITE_ID")
 ```
 
-- Mints a **site-scoped REST token**. Stable for the duration of a run — cache it in session scratch and reuse on every `curl`. Do not re-mint per call (each mint costs ~3–5 s of CLI startup).
+- Mints a **site-scoped REST token**. **Mint it exactly once per run and never re-mint.** The CLI returns a **byte-identical** token on every call within a run (it caches internally), so re-minting buys nothing — it only costs ~1.25 s of CLI startup per call. Cache the value in session scratch and inline it into every `curl`. This holds on errors too: a re-minted token is the same string and will produce the same result, so re-minting is never a useful reaction to a failed call (the one exception is after a fresh `wix login`, which establishes a new CLI session — see the recovery ladder).
 - Use `npx @wix/cli token …` rather than bare `wix token …`. `@wix/cli` may not be globally installed in every harness; `npx` resolves the project-local copy the scaffold produced. The first invocation auto-fetches the CLI (~3–5 s) if missing; subsequent calls are instant.
 - The first `--site "$SITE_ID"` invocation in a run is the source of truth for `SITE_ID`. Bind it in session scratch; do not re-derive from `wix.config.json` mid-run.
 
@@ -79,13 +79,15 @@ The body is the recipe's documented JSON payload, with `siteId` inlined where th
 
 ## Recovery ladder
 
+**Do not re-mint the token as a recovery step** (see token-minting note above — a re-minted token is byte-identical). Retry the *same* call with the *same* cached token.
+
 | Symptom | First response | If it still fails |
 |---|---|---|
-| `401 Unauthorized` | Re-mint with `npx @wix/cli token --site "$SITE_ID"` and retry the call once. | The CLI session expired — run `wix login` per the stderr-scrape flow above. |
-| `403 Forbidden` | Re-mint and retry once. | The token shape is fine but the caller lacks the permission. The two real causes: (a) the relevant app is not installed yet (re-check `apps-installer-service` returned 200 for that app in Setup Step 4a), (b) the resource requires a provisioning step the recipe doesn't run. Surface the response body; do not loop on retries. |
+| `401 Unauthorized` | Retry the same call once with the cached token. | The CLI session expired — run `wix login` per the flow above (that establishes a *new* session, so the token minted afterward genuinely differs). Re-minting without a fresh login returns the same expired-context token and will not help. |
+| `403 Forbidden` | Retry the same call once. | The token shape is fine but the caller lacks the permission. The two real causes: (a) the relevant app is not installed yet (re-check `apps-installer-service` returned 200 for that app in Setup Step 4a), (b) the resource requires a provisioning step the recipe doesn't run. Surface the response body; do not loop on retries. |
 | `404 Not Found` on a documented URL | Re-read the recipe — URL path segments are easy to typo (e.g. `/blog/v3/bulk/draft-posts/create`, **not** `/blog/v3/draft-posts/bulk/create`). | Recipe bug; surface and stop. |
 
-**Do not** spend turns A/B-testing the header shape (Bearer vs no-Bearer, with/without `wix-site-id`). The shape above is the contract; if a single retry with re-minted token doesn't fix it, the issue is upstream and recipe-level debugging will not recover it.
+**Do not** spend turns A/B-testing the header shape (Bearer vs no-Bearer, with/without `wix-site-id`) or cycling tokens. The shape above is the contract; if a single retry with the cached token doesn't fix it, the issue is upstream and recipe-level debugging will not recover it.
 
 ## Account-scoped calls
 
