@@ -21,7 +21,7 @@ Files this agent MUST NOT touch:
 ## Inputs (from parent prompt)
 
 - **Phase 1 return data** — `categories: []`. Phase 1 does not seed categories (they're merchant-driven). This scope still writes the helper + rail + route — they're harmless when no categories exist, and they light up automatically once the merchant creates visible categories with items in the dashboard. `listStoreCategories()` queries the API live at SSR time (5-min TTL cache), so no redeploy is needed when categories are added later.
-- **Design tokens** — `.wix/site.json.designTokens` for the published vocabulary. Page header / breadcrumbs / pill / pagination styling should follow `references/shared/STYLING.md` (utilities derived from tokens, semantic classes only for primitives).
+- **Design tokens** — the full `designTokens` JSON is inlined in your prompt (same shape Designer returned). Page header / breadcrumbs / pill / pagination styling should follow `references/shared/STYLING.md` (utilities derived from tokens, semantic classes only for primitives).
 - **Designer output summary** — confirm `Layout.astro` already includes `<ClientRouter />`, `transition:persist` markers on nav/footer, and the `[data-nav-progress]` element + after-swap hook. If any of those is missing, return `status: "partial"` with `errors: [{ code: "DESIGNER_LAYOUT_MISSING_TRANSITIONS", path: "src/layouts/Layout.astro" }]`.
 
 ## Critical rules (all must be honored)

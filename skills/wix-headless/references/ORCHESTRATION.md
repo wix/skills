@@ -15,14 +15,16 @@ The terms below appear throughout this skill. They describe the *shape* of work;
 
 ## Phase axis
 
-| Phase | What | Dispatched at |
-|---|---|---|
-| **Phase 1 — Seed** | Per-pack seeders → `.wix/site.json.seeded` | `SEED.md` Step 2 (background) |
-| **Phase 2 — Design System** | Designer writes tokens + Layout + Nav + Footer | **`DISCOVERY.md` Step 2.6 (background, `designer_handle`)**; `SEED.md` Step 2 waits on the handle in foreground + runs the bridge (emit tokens) |
-| **Image Phase 1 — Decorative** | Hero/about/page-header decoratives | `SEED.md` Step 2 (background) |
-| **Phase 3 — Components** | Per-vertical React islands, with styling contract inlined into each prompt | Step 4.5 (after Phase 2 + seed merge complete) |
-| **Phase 4 — Pages** | Per-vertical routes; each page agent writes its routes once with both visual design and live data queries | Step 7 (concurrent with Image Phase 2) |
-| **Image Phase 2 — Entity** | Product / blog post / CMS item images | Step 4.5 (concurrent with Phase 3 Components) — reads entity IDs from `.wix/site.json.seeded`. **Gated on `intent.imagery === "ai-generated"`** — skipped in themed-blocks mode (the default). |
+Each phase belongs to one of two tracks (see `SKILL.md` § "Two tracks"): the **business track** (frontend-blind backend work) or the **frontend track** (frontend-aware local-project work). The orchestrator interleaves them for wall-time; the only cross-track flow is one-way business → frontend (seeded IDs inlined into Page prompts).
+
+| Phase | Track | What | Dispatched at |
+|---|---|---|---|
+| **Phase 1 — Seed** | business | Per-pack seeders → orchestrator collects `seeded` map in scratch | `SEED.md` Step 2 (background) |
+| **Phase 2 — Design System** | frontend | Designer writes tokens + Layout + Nav + Footer | **`DISCOVERY.md` Step 2.6 (background, `designer_handle`)**; `SEED.md` Step 2 waits on the handle in foreground + runs the bridge (pipe tokens to `emit-design-tokens.mjs`) |
+| **Image Phase 1 — Decorative** | frontend | Hero/about/page-header decoratives | `SEED.md` Step 2 (background) |
+| **Phase 3 — Components** | frontend | Per-vertical React islands, with styling contract inlined into each prompt | Step 4.5 (after Phase 2 bridge + seed wait complete) |
+| **Phase 4 — Pages** | frontend | Per-vertical routes; each page agent writes its routes once with both visual design and live data queries | Step 7 (concurrent with Image Phase 2) |
+| **Image Phase 2 — Entity** | business | Product / blog post / CMS item images PATCHed onto Wix entities | Step 4.5 (concurrent with Phase 3 Components) — entity IDs inlined in prompt from orchestrator's `seeded` scratch. **Gated on the orchestrator's `imagery` value === `"ai-generated"`** — skipped in themed-blocks mode (the default). |
 
 ## Why batching matters
 
@@ -50,7 +52,7 @@ After `SEED.md` Step 4 (seed merge + optional `patch-decorative-slots.mjs`), Ste
 
 ### Subagent prompt template
 
-Every dispatch sends a self-contained prompt with these fields:
+Every dispatch sends a self-contained prompt with these fields. Every input the subagent needs is inlined — subagents do NOT read `.wix/site.json` during the run.
 
 ```
 Instruction file (absolute path): <SKILL_ROOT>/references/<vertical>/INSTRUCTIONS.md
@@ -59,11 +61,11 @@ Instruction file (absolute path): <SKILL_ROOT>/references/<vertical>/INSTRUCTION
 Phase instruction: <exact phase/scope string from the pack>
 Scope: <scope string>
 Project directory (absolute path): <project path>
-site-root: <absolute path to eval run dir — parent of scaffold; .wix/site.json lives here>
-siteId: <from wix.config.json>
+siteId: <from orchestrator scratch — captured by SETUP.md Step 1>
 Auth: <SKILL_ROOT>/references/shared/AUTHENTICATION.md — mint TOKEN once via npx @wix/cli token --site "$SITE_ID"; every curl uses Bearer + wix-site-id headers
 Brand context: name, vibe, aesthetic direction, colors, fonts, mood, page color strategy
-Design tokens: .wix/design-tokens.css (generated from site.json.designTokens)
+Design tokens (Phase 3 Components / Phase 4 Pages): the full styling-contract JSON inlined here — same shape the orchestrator passed to emit-design-tokens.mjs; .wix/design-tokens.css + .wix/site.d.ts are on disk for the build to consume
+Seeded entities (Phase 3 Components / Phase 4 Pages / Image Phase 2): the relevant pack-specific slice from the orchestrator's seeded scratch, inlined here as JSON
 ```
 
 **`Instruction file` must point to one of these vertical instruction files:**
@@ -94,7 +96,7 @@ Phase 2 completed during `SEED.md` Step 2 (foreground in the Wave 3 batch). Befo
 
 Read `.wix/design-tokens.css` + `.wix/site.d.ts` once.
 
-**Pre-batch (same message, before subagent dispatches):** copy the per-pack component-CSS templates into the project. This is a deterministic `cp` — the templates are static and use direct `var(--token)` references against the standard designer vocabulary, so no subagent is needed to author them. The Phase 3 Components subagents below write only `.tsx` React islands; this step writes the matching `src/styles/components-<pack>.css`. **If you skip this `cp` step, `astro build` fails at Step 8 with `Could not resolve "../styles/components-<pack>.css"` from `src/layouts/Layout.astro`** — the Designer's Layout imports those files unconditionally for every pack that declares `components`. Observed in 2026-05-24 runs (Bakin Goods, French Goods, Frenchies) where the Phase 3 subagents wrote only `.tsx` and the build fell back to ~3 minutes of orchestrator recovery (`cp` + manual rewrite to strip `@apply`).
+**Pre-batch (same message, before subagent dispatches):** copy the per-pack component-CSS templates into the project. This is a deterministic `cp` — the templates are static and use direct `var(--token)` references against the standard designer vocabulary, so no subagent is needed to author them. The Phase 3 Components subagents below write only `.tsx` React islands; this step writes the matching `src/styles/components-<pack>.css`. **If you skip this `cp` step, `astro build` fails at Step 8 with `Could not resolve "../styles/components-<pack>.css"` from `src/layouts/Layout.astro`** — the Designer's Layout imports those files unconditionally for every pack that declares `components`. If the Phase 3 subagents write only `.tsx`, the build falls back to slow orchestrator recovery (`cp` + manual rewrite to strip `@apply`).
 
 For each loaded pack whose vertical INSTRUCTIONS declares a `components` scope (today: `stores`, `ecom`, `blog`, `forms`, `gift-cards`), copy the template:
 
@@ -114,21 +116,21 @@ Then dispatch in a single concurrent batch:
    - The **full styling-contract JSON inlined** — not a file path
    - A note: *"`src/styles/components-<pack>.css` is already on disk (copied from the skill template by the orchestrator). Do NOT write that file — write only `.tsx` islands and any `.astro` shells in your scope."*
 
-2. **One Image Phase 2 Entity subagent** — **gated on `.wix/site.json.intent.imagery === "ai-generated"`**. When `imagery === "themed-blocks"` (the default), **do NOT dispatch this subagent**. Stores seeders use placeholder image patterns (Unsplash URLs from the bulk-create recipe); CMS items and blog posts use their seeder-supplied placeholder media. Skipping Image Phase 2 in themed-blocks mode saves ~300–475 s of wall (often the critical-path subagent between Phase 3 return and Phase 4 dispatch) plus 0.4–1.2 Wix AI credits.
+2. **One Image Phase 2 Entity subagent** — **gated on the orchestrator's `imagery` scratch value === `"ai-generated"`**. When `imagery === "themed-blocks"` (the default), **do NOT dispatch this subagent**. Stores seeders use placeholder image patterns (Unsplash URLs from the bulk-create recipe); CMS items and blog posts use their seeder-supplied placeholder media. Skipping Image Phase 2 in themed-blocks mode saves ~300–475 s of wall (often the critical-path subagent between Phase 3 return and Phase 4 dispatch) plus 0.4–1.2 Wix AI credits.
 
-   Write a phase entry to `run.json` directly:
+   Record the skip in orchestrator scratch for `run.json`:
    ```json
    {"phase": "image-phase-2-entity", "status": "skipped",
     "notes": "themed-blocks mode — entity images use seeder placeholders"}
    ```
 
-   When `imagery === "ai-generated"` AND `.wix/site.json.seeded` has entities (stores products, CMS items, blog posts), dispatch the subagent. Prompt carries paths to `site.json` + brand context; the image agent reads seeded IDs from disk. Instruction file: `<SKILL_ROOT>/references/images/INSTRUCTIONS.md` § "Scope: image-phase-2-entity".
+   When `imagery === "ai-generated"` AND the orchestrator's `seeded` scratch has entities (stores products, CMS items, blog posts), dispatch the subagent. The prompt inlines the relevant `seeded.<pack>` slice (entity IDs + names + descriptions) and brand context — the image agent does NOT read from disk. Instruction file: `<SKILL_ROOT>/references/images/INSTRUCTIONS.md` § "Scope: image-phase-2-entity".
 
 The Phase 3 Components group is **background** regardless. Image Phase 2 (when dispatched) is also background — it starts immediately and continues running through Step 7 dispatch with no polling.
 
-**Why Image Phase 2 lives here, not in Step 7.** Image Phase 2 only depends on `.wix/site.json.seeded` entity IDs/names/descriptions + brand context. It does not read or write anything Phase 3 Components or Phase 4 Pages produce — its PATCH/PUT targets are Wix-side entities (`stores/v3/products`, `wix-data/v2/items`, `blog/v3/posts`). Launching it here lets it overlap entirely with Phase 3 (and often Phase 4 too) instead of becoming a post-Phase-4 tail blocker.
+**Why Image Phase 2 lives here, not in Step 7.** Image Phase 2 only depends on entity IDs/names/descriptions + brand context (all inlined in its prompt). It does not read or write anything Phase 3 Components or Phase 4 Pages produce — its PATCH/PUT targets are Wix-side entities (`stores/v3/products`, `wix-data/v2/items`, `blog/v3/posts`). Launching it here lets it overlap entirely with Phase 3 (and often Phase 4 too) instead of becoming a post-Phase-4 tail blocker.
 
-**Gate.** Image Phase 2 requires `merge-seed-results.mjs` to have completed (`.wix/site.json.seeded` populated). `SEED.md` Step 4 runs merge before Step 5 handoff here — do not launch Step 4.5 until seed merge exit-0. Phase 2 Design System (dispatched in `DISCOVERY.md` Step 2.6, bridge ran in `SEED.md` Step 2) and `.wix/design-tokens.css` must already exist.
+**Gate.** Image Phase 2 requires the orchestrator's `seeded` scratch to be populated (every seeder return collected per `SEED.md` Step 4). Do not launch Step 4.5 until the seed wait completes. Phase 2 Design System (dispatched in `DISCOVERY.md` Step 2.6, bridge ran in `SEED.md` Step 2) and `.wix/design-tokens.css` must already exist on disk.
 
 ### Then Phase 4 (Pages)
 
@@ -144,11 +146,11 @@ Do NOT launch Phase 4 prematurely — missing islands or incomplete `seeded` dat
 
 ### Data carry-forward
 
-Phase 4 subagents read `.wix/site.json` at `<site-root>/.wix/site.json` (absolute path from session scratch):
+Phase 4 subagents receive the relevant `seeded.<vertical>` slice inlined in their prompts from the orchestrator's session scratch:
 - **Stores** → `seeded.stores` (`productIds`, slugs, categories, …)
 - **CMS** → `seeded.cms` (`collectionIds`, `itemIds`, …)
 
-Seed merge already ran in `SEED.md` — do not re-dispatch seeders or re-inline raw seeder returns.
+The orchestrator already built the `seeded` map from seeder returns during `SEED.md` Step 4 — do not re-dispatch seeders. Subagents do NOT read `.wix/site.json`.
 
 ---
 
@@ -178,8 +180,8 @@ Five subagents launched concurrently:
 ```
 Scope: <scope name from pack.pages[*].name>
 Files to own (absolute paths): <from pack.pages[*].files>
-Phase 1 Seed data: read from `.wix/site.json.seeded.<vertical>` (path reference — see SKILL.md Step 7)
-Design tokens: .wix/design-tokens.css (read from disk if needed)
+Phase 1 Seed data: <the relevant seeded.<vertical> slice inlined here as JSON, from the orchestrator's scratch>
+Design tokens: the styling-contract JSON is inlined above; .wix/design-tokens.css + .wix/site.d.ts are also on disk (already imported by the build)
 ```
 
 Each scope subagent writes its `.astro` files directly with live SDK queries, wires up analytics events, and mounts the React islands written by Phase 3 Components.
@@ -251,7 +253,7 @@ The **design tokens** (`.wix/design-tokens.css` + `.wix/site.d.ts`) are the coor
 
 ### Producer: Phase 2 Design System (`DISCOVERY.md` Step 2.6 dispatch; bridge in `SEED.md` Step 2)
 
-Phase 2 is dispatched from `DISCOVERY.md` Step 2.6 as background `designer_handle`. Its wall runs in parallel with Q3 + plan + approval + Setup + the Seed batch dispatch. `SEED.md` Step 2 waits on the handle in foreground; when Designer returns, the orchestrator merges `designTokens` into `.wix/site.json` and runs `node <SKILL_ROOT>/scripts/emit-design-tokens.mjs "<site-root>"` — see `SEED.md` § "Bridge: when `designer_handle` returns". Both `.wix/design-tokens.css` and `.wix/site.d.ts` are pure projections from JSON.
+Phase 2 is dispatched from `DISCOVERY.md` Step 2.6 as background `designer_handle`. Its wall runs in parallel with Q3 + plan + approval + Setup + the Seed batch dispatch. `SEED.md` Step 2 waits on the handle in foreground; when Designer returns, the orchestrator pipes `data.designTokens` directly into `emit-design-tokens.mjs` via stdin — see `SEED.md` § "Bridge: when `designer_handle` returns". The script writes `.wix/design-tokens.css` and `.wix/site.d.ts` — both pure projections from JSON. No site.json round-trip.
 
 **Decorative slot patch:** after seed merge (and when Image Phase 1 has returned), run `patch-decorative-slots.mjs` per `SEED.md` Step 4 item 4.
 
@@ -269,7 +271,7 @@ Contract already exists when Phase 4 launches. Subagents receive the contract co
 
 If a build feels slow, check whether dispatches that should have been concurrent actually overlapped in execution. Two failure modes:
 
-1. **Serialized launch:** the orchestrator emitted subagent invocations one at a time across multiple turns instead of as a single batch. Symptom: 12–39s gaps between subagent starts in the run log.
+1. **Serialized launch:** the orchestrator emitted subagent invocations one at a time across multiple turns instead of as a single batch. Symptom: multi-second gaps between subagent starts in the run log.
 2. **Serialized execution:** the runtime dispatched the batch but executed it sequentially (rare; most runtimes parallelize properly).
 
 The fix for (1) depends on the runtime — check whether your dispatch primitive supports a single concurrent batch and whether anything between the subagent invocations (status updates, narration, file writes) is splitting the batch into multiple turns. Even when (1) cannot be fixed, **background dispatch alone gives ~2× compression** by overlapping execution. Make every subagent that doesn't block downstream work a background subagent.

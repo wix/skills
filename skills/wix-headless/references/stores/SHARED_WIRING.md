@@ -94,7 +94,7 @@ Handles variant selection, quantity selector, stock awareness, and wraps `AddToC
 <ProductPurchase client:load product={product} inventoryByVariant={inventoryByVariant} />
 ```
 
-**Prop contract — single `product` object.** The template accepts the full productsV3 product and destructures internally. This mirrors `ProductCard.astro`'s `{ product }` contract so both stores components take the same shape (prevents the regression observed in an earlier run where a fallback-written `[slug].astro` passed `product` as a whole when the component expected flat props).
+**Prop contract — single `product` object.** The template accepts the full productsV3 product and destructures internally. This mirrors `ProductCard.astro`'s `{ product }` contract so both stores components take the same shape (prevents a shape mismatch where a fallback-written `[slug].astro` passes `product` as a whole while the component expects flat props).
 
 Key behaviors:
 - `hasMeaningfulOptions` — a product has meaningful options only when at least one option has >1 choice. Dummy single-choice options (e.g., "Type: Standard") are treated as no options.

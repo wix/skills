@@ -30,39 +30,30 @@ Scopes that call Wix APIs (`seed`, image phases) receive `siteId` in the prompt.
 
 If your scope is `components` or `pages`, you should NOT make REST calls — those scopes are frontend-only. If you find yourself needing a site API call, it's a scope violation — return `status: "partial"` with an error note, do not proceed.
 
-## Reading `.wix/site.json`
+## Do NOT read `.wix/site.json`
 
-Every agent reads `.wix/site.json` at the start of its run. The file is the single source of truth for per-project data:
+Every input you need is inlined in your prompt. The orchestrator is the sole reader/writer of `.wix/site.json`; the file is a slim metadata snapshot for run.json composition + resume detection, not a coordination channel.
 
-```jsonc
-{
-  "brand":        { "name": "...", "description": "..." },
-  "seeded":       { "stores": { "products": [...] }, "cms": { "collections": {...} }, ... },
-  "designTokens": { "colors": {...}, "fonts": {...}, "radii": {...}, "spacing": {...} },
-  "verticals":    ["stores", "ecom", "cms"]
-}
-```
+**Phase-specific inputs (all inlined in your prompt):**
 
-**Phase-specific reads:**
-
-| Scope | What to read from site.json |
+| Scope | What the prompt inlines |
 |---|---|
-| `seed` | `brand` (for copy generation — product descriptions, FAQ answers). Do NOT read `seeded.<self>` — you're writing it. |
-| `components` | `brand`, `designTokens` (via `var(--color-*)` in CSS). |
-| `pages` / `pages-*` | `brand`, `seeded.<vertical>` (products, posts, collections), `designTokens`. Page data comes from `seeded`, NOT from re-querying the REST API. |
+| `seed` | `brand`, `intent.<pack>`, `siteId`, recipe path(s). Do NOT re-derive these. |
+| `components` | `brand`, the full `designTokens` JSON (same shape Designer returned). CSS variables are also on disk at `.wix/design-tokens.css` for the build. |
+| `pages` / `pages-*` | `brand`, the `designTokens` JSON, and the relevant `seeded.<vertical>` slice (products, posts, collections IDs). Page data wiring uses live SDK queries; the `seeded` data in your prompt is for path resolution + demo content authoring. |
 
-If a required key is missing (e.g. `seeded.stores.products` absent when you're dispatched as `pages-products`), fail fast — return `status: "failed"` with `errors: [{ code: "SITE_JSON_INCOMPLETE", missing: "seeded.stores.products" }]`. Do NOT re-fetch via curl — the data gap means a seeder didn't complete, and re-querying would mask the real bug.
+If a required input is missing from your prompt (e.g. the orchestrator forgot to inline `seeded.stores` when dispatching you as `pages-products`), fail fast — return `status: "failed"` with `errors: [{ code: "PROMPT_INCOMPLETE", missing: "seeded.stores.products" }]`. Do NOT re-fetch from `.wix/site.json` or via curl — the data gap means an upstream phase didn't complete, and re-querying would mask the real bug.
 
-## Seeders write their data for the orchestrator to aggregate
+## Seeders return data; orchestrator aggregates
 
-Agents with `Scope: seed` return their seeded entities in the `data` block of the standard return (see `RETURN_CONTRACT.md`). The parent skill merges your return into `.wix/site.json.seeded.<vertical>` after your run completes. You do NOT write `site.json` yourself — return the data and let the orchestrator aggregate.
+Agents with `Scope: seed` return their seeded entities in the `data` block of the standard return (see `RETURN_CONTRACT.md`). The orchestrator collects every seeder return into its session scratch and inlines the relevant slice into the prompts of Phase 3 Components / Phase 4 Pages / Image Phase 2 subagents. You do NOT write `site.json` yourself and you do NOT write `.wix/seed-returns/<pack>.json` — your JSON return is the contract.
 
 ## Writing page files
 
 Pages-phase agents write route files (`.astro`) with:
 
 1. **Visual design via design tokens and Tailwind.** Reference tokens as `var(--color-primary)` in `<style>` blocks or `bg-[--color-primary]` as Tailwind arbitrary values. Use canonical component templates (`agents/<vertical>/templates/*.astro`) as starting points — adapt, don't invent.
-2. **Data queries against seeded data.** Read the seeded entities from `.wix/site.json.seeded.<vertical>` at build time (Astro frontmatter `import { site } from "../../.wix/site"`) or at request time via the SDK if the page is server-rendered.
+2. **Data queries against seeded data.** The seeded entity IDs / slugs are inlined in your prompt (`seeded.<vertical>`). Pages query the Wix SDK at request time (`await productsV3.queryProducts(...)`) — that's the production-correct pattern. Use the inlined `seeded` data for path generation (e.g. `getStaticPaths` slugs) and for authoring demo content where needed; do NOT `import` `.wix/site.json` from page files.
 3. **Imports from shared components.** Pages import components your Components-phase agent wrote (`src/components/*.tsx`, `.astro`).
 4. **Imports from skill shared utilities.** `from "../utils/wix-image"` and `from "../utils/analytics"` — these are skill-shipped (copied into the project by `seed-utilities.sh` during Setup); do NOT import them from anywhere else.
 
@@ -144,8 +135,8 @@ Every agent ends its message with a fenced JSON block per `RETURN_CONTRACT.md`. 
 | Wrong | Right |
 |---|---|
 | Reading references for scopes other than the declared `Scope:` | Read only your scope's references |
-| Issuing REST calls from a `components` or `pages` scope | Components/Pages are frontend-only; use `seeded` data from `site.json` |
-| Re-querying when `site.json.seeded.<vertical>` is missing | Fail fast with `SITE_JSON_INCOMPLETE` — the seeder didn't complete |
+| Issuing REST calls from a `components` or `pages` scope | Components/Pages are frontend-only; use `seeded` data inlined in your prompt |
+| Re-querying when `seeded.<vertical>` is missing from your prompt | Fail fast with `PROMPT_INCOMPLETE` — the orchestrator forgot to inline it (upstream bug) |
 | Writing `.wix/site.json` from a seeder | Seeders return data; orchestrator writes site.json |
 | Inventing class names for layout/spacing/typography (`.productCard`, `.heroSection`) | Tailwind utilities derived from `@theme` tokens (`class="flex flex-col gap-md"`, `class="py-4xl"`). For one-off page decoration, co-located `<style>` block. |
 | Removing a marker after inserting at it | Marker stays; other verticals may contribute after you |

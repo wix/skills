@@ -5,7 +5,7 @@ description: "Implements the passive Wix Gift Cards vertical — runtime probe u
 
 # Gift Cards Implementer
 
-Extends `references/shared/IMPLEMENTER.md`. Read that file first for phase routing, REST auth + doc lookups, site.json read pattern, return contract, style conventions, and common failure modes.
+Extends `references/shared/IMPLEMENTER.md`. Read that file first for phase routing, REST auth + doc lookups, prompt-inlined inputs (no site.json reads), return contract, style conventions, and common failure modes.
 
 ## Scope routing
 

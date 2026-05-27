@@ -6,6 +6,57 @@ Infer as much as possible from the user's opening message; ask only what's genui
 
 > **Background work starts in Discovery; synchronization happens later.** Discovery dispatches `scripts/scaffold.sh` as a backgrounded shell as soon as Q1 returns, then continues with Q2/Q3 + plan composition while it runs. SETUP.md `wait`s on the captured `scaffold_handle` (Step 1) and later dispatches `npm install` as its own background handle (Step 4c). After Q2 (vibe captured) and the in-scratch aesthetic-direction craft, Discovery also dispatches the **Designer** subagent as `designer_handle` (Step 2.6 below) — its wall absorbs into Q3 + plan + approval + Setup + first half of Seed instead of being serialized into Wave 3. SEED.md Step 2 waits on `designer_handle` rather than dispatching it.
 
+## Wave 0 — Mode detection (BEFORE any user-facing question)
+
+Frontend mode is the single axis every downstream phase branches on. Detect it from the working directory **first** — before the CLI-auth pre-flight, before Q1 — so the rest of Discovery (and the background dispatches it fires) know which path to take. The detection is a file-existence check; cost is ~1 ms.
+
+```
+Inspect CWD:
+
+1. CWD is empty (or doesn't exist) → SCAFFOLD MODE.
+2. CWD contains `wix.config.json` AND Astro structure (`src/`, `astro.config.mjs`)
+   → resume a prior wix-headless run. See SKILL.md § "When NOT to use this skill"
+     ("continue or start fresh?" — out of pivot scope).
+3. CWD contains `wix.config.json` AND a non-Astro frontend (e.g. `index.html` at
+   root, `*.jsx`/`*.tsx`/`*.vue` files) → INTEGRATE MODE, already `init`'d.
+     Jump to SETUP.md § "Existing project flow" § E2 (skip init).
+4. CWD contains source files (`index.html`, `*.jsx`, `*.tsx`, `*.vue`,
+   `package.json` from a non-Wix template, etc.) AND no `wix.config.json`
+   → INTEGRATE MODE.
+```
+
+Capture the resolved value in session scratch as `frontend`:
+
+| Scenario | `frontend` value | Wave 0 next |
+|---|---|---|
+| Scaffold mode, default | `astro` (provisional — Q1 may refine to `react-vite`) | Continue to Pre-flight below |
+| Scaffold mode, prompt names Vite/React-only/SPA | `react-vite` (post-Q1 keyword scan, see § "After Q1") | Continue to Pre-flight below |
+| Integrate mode (cases 3 & 4 above) | `user-provided` | Skip Q1/Q2/Q3 — see § "Integrate-mode short flow" below |
+
+> **No `AskUserQuestion` for mode detection.** Per pivot decision #2 in PLAN-beta-frontend-pluggability.md, mode is detected, never asked. If the working directory is ambiguous, default to `user-provided` and let the parse-and-approve flow recover (the user can redirect conversationally).
+
+`frontend` flows into three places:
+- `scaffold.sh --frontend <value>` — Step 1 background dispatch (skipped entirely when `user-provided`; see § "Integrate-mode short flow").
+- `init-site-json.mjs --frontend <value>` — "After Approval" § 2 (records it in the slim site.json snapshot).
+- Orchestrator session scratch — every downstream branch reads the scratch value, not the file: SETUP routing (track selection), the frontend-track project-prep script (`seed-utilities.sh --template <astro|react-vite>`), and the SEED Layout-import bridge. (Business-track steps — app install, seeders — never read it.)
+
+## Integrate-mode short flow (when `frontend === "user-provided"`)
+
+Skip the standard Q1/Q2/Q3 interview. The user already designed the site — Discovery's job is to detect what's there and get a one-shot approval, not to interview the user about brand and vibe.
+
+1. **Run the Pre-flight CLI-auth check** (next section). Integrate mode still needs a logged-in CLI for app installs + release.
+2. **Parse the existing project** (light, time-boxed — cap at the top 5 source files by size). Pull:
+   - Brand inferences: `<title>` tag, `<meta name="description">`, dominant colors from CSS, the H1 on `index.html`.
+   - App signals: scan for the markers documented in `SETUP.md § Step E2` — `<form>` tags → forms; price tags / cart buttons → stores; article listings → blog; etc.
+3. **Present a one-paragraph summary** in plain prose:
+   > *"I see <N> HTML files in <project-dir>. The page looks like a <inferred type> for <inferred brand>. I'll install the matching Wix apps (<list>) and wire SDK calls into your existing source. The site stays exactly as you designed it; only behavior gets added. Continue?"*
+4. **Approval via `AskUserQuestion`** — options: **Yes, connect it** / **Adjust apps**. If the user wants to adjust, handle conversationally (drop an app, add one, etc.) and re-present. The conversational adjust loop is the integrate-mode equivalent of "swap brand, change vibe" — keep it brief.
+5. On approval, **skip the post-Q1 `scaffold.sh` dispatch** and the Step 2.6 Designer dispatch. Jump directly to "After Approval" § 2 to write `.wix/site.json` (with `frontend: "user-provided"`), then hand off to `SETUP.md § Existing project flow` (E1 init or E2 onward depending on whether `wix.config.json` is already present).
+
+The Pages plan table, the Imagery line, the aesthetic-direction paragraph, the `designer_handle` dispatch, the `npm install` package set — **none of them apply** in integrate mode. The skill defers to the user's design.
+
+---
+
 ## Pre-flight — Verify CLI auth (BEFORE any user-facing question)
 
 The first Wix touch in this phase is the background `scaffold.sh` dispatched after Q1 — `npm create @wix/new@latest headless` creates a business + project against the user's Wix account, so it requires an active CLI session. Without one, the scaffold fails in the background and the failure doesn't surface until SETUP.md Step 1 — **after** Q1, Q2, Q2.5, Q3, plan, and approval. That's a ~5-minute interview the user has to redo. Run the auth check foreground here so a logged-out user sees the login prompt before any `AskUserQuestion`.
@@ -74,8 +125,14 @@ These reads resolve near-instantly and pre-load the `routes:`, `apps:`, `require
 **(b) Dispatch the background scaffold.** A single backgrounded `Bash` invocation in the same batch:
 
 ```bash
-bash <SKILL_ROOT>/scripts/scaffold.sh <slug> "<brand>" 2> <tempfile>
+bash <SKILL_ROOT>/scripts/scaffold.sh <slug> "<brand>" --frontend <frontend> 2> <tempfile>
 ```
+
+`<frontend>` is the value captured in Wave 0:
+- `astro` — current Beta default. Use this unless the user's opening prompt explicitly named Vite / React-only / SPA.
+- `react-vite` — apply this keyword scan **once** before dispatching: if the opening message contains the case-insensitive substrings `"vite"`, `"react spa"`, `"react-only"`, or `"react only"`, set `frontend = "react-vite"`. Otherwise stay on `astro`. **Note:** `scaffold.sh` exits 4 on `react-vite` today (template not yet staged); when that happens, surface the error and fall back to `astro` for the same session — do not loop.
+
+(Integrate mode never reaches this step — the Wave 0 short flow short-circuits before Q1.)
 
 Capture the background handle as `scaffold_handle` and the path to `<tempfile>` (used by SETUP.md Step 1 if scaffold fails). The orchestrator does **not** block on this — Q2 + Q2.5 + plan composition continue immediately while scaffold runs. The wall-time win (pulling scaffold into Q&A think-time) is the reason Setup's foreground critical path stays under 25 s.
 
@@ -120,7 +177,7 @@ If the user picks "Something else", follow up with `AskUserQuestion` using a tex
 
 ## Step 2.5 — Imagery preference
 
-Before crafting the aesthetic direction and presenting the plan, capture the user's imagery preference. This becomes `.wix/site.json.intent.imagery` and gates whether downstream phases generate AI imagery (Wix AI credits) or rely on CSS-only themed blocks.
+Before crafting the aesthetic direction and presenting the plan, capture the user's imagery preference. Hold this `imagery` flag in orchestrator session scratch — it gates whether downstream phases generate AI imagery (Wix AI credits) or rely on CSS-only themed blocks. The flag is **not** persisted to `.wix/site.json`; the orchestrator inlines it into the prompts of any subagent that needs to branch on it (Image Phase 1 dispatch, Image Phase 2 gate).
 
 **Skip rule.** If the user's opening prompt explicitly mentioned imagery — phrases like *"with photos"*, *"with images"*, *"AI imagery"*, *"product photos"*, *"with pictures"* — skip the Q3 `AskUserQuestion` call and default `imagery` to `"ai-generated"`. Re-asking would feel redundant ("you already said you wanted images"). The credit estimate (§ 2.5.1) and balance fetch (§ 2.5.2) still run so the captured intent has the right numbers for the plan's Imagery line — only the `AskUserQuestion` itself is skipped.
 
@@ -147,7 +204,7 @@ Worked examples:
 
 ### 2.5.2 — Fetch the AI-credit balance
 
-`npx @wix/cli token` **without** `--site` mints an **account-scoped** token. With that token, the balance endpoint at `POST https://manage.wix.com/credit-transactions/v1/credit-transactions/get-account-balance` returns the current periodic credit balance + cap. Verified against the production endpoint on 2026-05-24.
+`npx @wix/cli token` **without** `--site` mints an **account-scoped** token. With that token, the balance endpoint at `POST https://manage.wix.com/credit-transactions/v1/credit-transactions/get-account-balance` returns the current periodic credit balance + cap.
 
 ```bash
 ACCOUNT_TOKEN=$(npx @wix/cli token)   # NO --site — mints account-scoped
@@ -198,9 +255,9 @@ If `balance === null`, drop the trailing *"Current balance: …"* sentence entir
 
 Capture the answer as `imagery: "themed-blocks" | "ai-generated"` in session scratch.
 
-> **AI-imagery dispatch gate.** The captured `imagery` value is consumed downstream: `SEED.md` Step 2 gates Image Phase 1 Decorative on `imagery === "ai-generated"`, and `ORCHESTRATION.md` Step 4.5 gates Image Phase 2 Entity on the same flag. On `"themed-blocks"` (the default) neither phase is dispatched — decorative slots render as designer-emitted color blocks, products carry placeholder media from the seed recipes, and the run saves ~300–500 s of wall + ~0.5–1.5 Wix AI credits compared to running images unconditionally. **Earlier behavior generated images regardless of the flag (observed on Bakin Goods, French Goods, Frenchies runs) — this is the gate that prevents that.** Pass the `imagery` value through to `init-site-json.mjs` (see "After Approval" § 1) verbatim; the gate logic reads it from `.wix/site.json.intent.imagery`.
+> **AI-imagery dispatch gate.** The captured `imagery` value is consumed downstream: `SEED.md` Step 2 gates Image Phase 1 Decorative on `imagery === "ai-generated"`, and `ORCHESTRATION.md` Step 4.5 gates Image Phase 2 Entity on the same flag. On `"themed-blocks"` (the default) neither phase is dispatched — decorative slots render as designer-emitted color blocks, products carry placeholder media from the seed recipes, and the run saves ~300–500 s of wall + ~0.5–1.5 Wix AI credits compared to running images unconditionally. **This gate is what ensures images are generated only when `imagery === "ai-generated"`; without it, images would be generated on every run regardless of the flag.** Hold the `imagery` value in orchestrator session scratch; the gate logic reads it from scratch (not from `.wix/site.json`).
 
-The captured `imagery` value flows into `init-site-json.mjs` at the end of this phase (see "After Approval" below) as part of `intent.imagery`.
+The captured `imagery` value lives in orchestrator session scratch (alongside the inferred per-vertical intent — see "After Approval" § 1). It is **not** written to `.wix/site.json`; subagents that need to branch on it receive it inlined in their prompts.
 
 ---
 
@@ -232,7 +289,7 @@ Use the **Default tier** model per SKILL.md § "Subagent model tier" — Designe
 
 ### Prompt template (no `.wix/site.json` dependency)
 
-Designer was previously instructed to `Read .wix/site.json` for brand + verticals. That file does not exist yet at this point in Discovery (`init-site-json.mjs` runs only after user approval). Pass every input inline — Designer's INSTRUCTIONS.md is updated to forbid reading `site.json` and to take every input from the prompt.
+`.wix/site.json` does not exist yet at this point in Discovery (`init-site-json.mjs` runs only after user approval), so the Designer cannot read brand + verticals from it. Pass every input inline — Designer's INSTRUCTIONS.md forbids reading `site.json` and takes every input from the prompt.
 
 ```
 Instruction file (absolute path): <SKILL_ROOT>/references/designer/INSTRUCTIONS.md
@@ -410,13 +467,13 @@ If the user wants to adjust, handle it conversationally (swap brand, change vibe
 
 ---
 
-## After Approval — capture intent and chain into Setup
+## After Approval — capture intent in scratch and chain into Setup
 
-On the user's "Yes, build it" approval, write `.wix/site.json` with the captured intent, then chain directly into Setup, which synchronizes on the background scaffold dispatched after Q1, kicks off `npm install` as its own background handle, and installs the apps the loaded packs declare.
+On the user's "Yes, build it" approval, hold the captured intent in orchestrator session scratch, write a slim `.wix/site.json` metadata snapshot, then chain directly into Setup. Setup synchronizes on the background scaffold dispatched after Q1, kicks off `npm install` as its own background handle, and installs the apps the loaded packs declare.
 
-### 1 · Compose the intent JSON
+### 1 · Compose the intent block in session scratch
 
-In session scratch, build a single JSON object carrying the captured imagery flag plus per-vertical hints inferred from the user's prompt. Only include blocks for verticals that were loaded.
+In session scratch, build a single JSON object carrying the captured imagery flag plus per-vertical hints inferred from the user's prompt. Only include blocks for verticals that were loaded. This stays in orchestrator memory for the rest of the run — it is **not** written to disk. Seeders receive the relevant `intent.<pack>` slice inlined in their prompts (see `SEED.md` Step 2).
 
 ```json
 {
@@ -440,22 +497,25 @@ Inference guidelines for each block:
 
 When in doubt, omit a field rather than fabricate. The downstream phases that consume this block aren't built yet — overconfident inference can't be verified until then.
 
-### 2 · Write `.wix/site.json`
+### 2 · Write the slim `.wix/site.json` snapshot
 
 ```bash
 mkdir -p .wix
-echo '<intent JSON>' | node "<SKILL_ROOT>/scripts/init-site-json.mjs" \
-    "$(pwd)" "<brand name>" "<one-line aesthetic from Q2>" "<verticals-csv>"
+node "<SKILL_ROOT>/scripts/init-site-json.mjs" \
+    "$(pwd)" "<brand name>" "<one-line aesthetic from Q2>" "<verticals-csv>" \
+    --frontend "<frontend>"
 ```
 
-- `<verticals-csv>` is the comma-joined list of all loaded packs (top-level + transitive via `requires:`). For a stores+cms run this is `"stores,ecom,cms,gift-cards"`.
+- `<frontend>` is the value captured in Wave 0 (`astro` / `react-vite` / `user-provided`). Always pass it explicitly so the recorded JSON is unambiguous.
+- `<verticals-csv>` is the comma-joined list of all loaded packs (top-level + transitive via `requires:`). For a stores+cms run this is `"stores,ecom,cms,gift-cards"`. In integrate mode, this is the comma-joined list of apps inferred from § "Integrate-mode short flow" Step 2.
 - `<one-line aesthetic from Q2>` is the short aesthetic tone phrase, not the full 2–3 sentence direction.
-- The script writes `.wix/site.json` and refuses to overwrite an existing file. If a stale site.json is present from a prior run, surface that to the user before retrying — do NOT silently `rm` it.
-- **Trust the script's response.** A `{"status": "ok", "path": "..."}` return is the contract — do **not** follow up with a defensive `ls` + `Read` against `.wix/site.json` to confirm. The script either returned `ok` (the file exists) or it returned a non-`ok` status (the file does not exist and a verify step would not help). Re-reading costs ~3s and adds nothing.
+- The script writes a slim `.wix/site.json` containing only `{brand, frontend, verticals}` (plus `siteId` / `appId` once Setup patches them in). It refuses to overwrite an existing file. If a stale site.json is present from a prior run, surface that to the user before retrying — do NOT silently `rm` it.
+- The intent block from § 1 is **not** passed to the script — it lives in orchestrator scratch and feeds seeder prompts directly.
+- **Trust the script's response.** A `{"status": "ok", "path": "..."}` return is the contract — do **not** follow up with a defensive `ls` + `Read` against `.wix/site.json` to confirm. Re-reading costs ~3s and adds nothing.
 
 ### 3 · Hand off to Setup
 
-After `init-site-json.mjs` returns `{"status": "ok"}`, open `<SKILL_ROOT>/references/SETUP.md` and follow Steps 1–5. Setup verifies the background scaffold completed, patches `siteId` + `appId` into `.wix/site.json`, invokes the `wix-manage` skill, runs the apps + env-pull batch, and dispatches `npm install` as its own background handle that Seed waits on at the end.
+After `init-site-json.mjs` returns `{"status": "ok"}`, open `<SKILL_ROOT>/references/SETUP.md` and follow Steps 1–5. Setup verifies the background scaffold completed, captures `siteId` + `appId` from `wix.config.json` and (optionally) patches them into `.wix/site.json`, invokes the `wix-manage` skill, runs the apps + env-pull batch, and dispatches `npm install` as its own background handle that Seed waits on at the end.
 
 Do **not** print a "Discovery complete" message between Discovery and Setup — Discovery, Setup, Seed, and post-seed orchestration are **one continuous flow** from the user's perspective until build/release finishes.
 

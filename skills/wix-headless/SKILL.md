@@ -93,6 +93,27 @@ Triggers: *"connect this to Wix Headless"*, *"add Wix Headless to this project"*
 
 **Path B skips most of the wave flow.** Vertical packs are inferred by **reading the project files** (SETUP.md § "Step E2"), not by re-prompting the user. Run only: DISCOVERY.md pre-flight (CLI-auth check) → `SETUP.md` § "Existing project flow" (E1 init → E2 analyze → E3 install apps → **E4 SDK wiring** → E5 release → E6 final message). **Do not run** Discovery's interview, Setup Step 4 batch, Seed, ORCHESTRATION, or any subagent dispatch — the existing project supplies its own frontend.
 
+### Frontend modes (the `.wix/site.json.frontend` axis)
+
+Path A vs Path B is the routing question. The `frontend` value is the **downstream branching axis** — the orchestrator holds it in session scratch and either branches on it directly or passes it to scripts as a `--frontend` flag. (It is also persisted to `.wix/site.json` as a resume fallback, but the live run reads scratch, not the file.) Three allowed values:
+
+| `frontend` | Mode | What runs |
+|---|---|---|
+| `astro` | Scaffold (Path A default) | Discovery full interview → `scaffold.sh --frontend astro` (bg) → SETUP Steps 1–5 → SEED → ORCHESTRATION → build + release. Layout-import bridge in SEED.md applies. |
+| `react-vite` | Scaffold (Path A, prompt-keyword opt-in) | Same flow as `astro` today. `scaffold.sh --frontend react-vite` exits 4 until the `react-vite/blank` template is staged; DISCOVERY.md § "After Q1" documents the fallback to `astro` for the same session. Per-route recipes in Phase 4 will diverge (CSR via `useEffect` vs Astro frontmatter). |
+| `user-provided` | Integrate (Path B) | DISCOVERY pre-flight → Wave 0 short flow (parse + one-shot approve, no Q1/Q2/Q3) → SETUP § "Existing project flow" (E1–E6). No Designer dispatch, no Seed, no ORCHESTRATION, no Layout-import bridge. The frontend track does not run, so `seed-utilities.sh` is never invoked. |
+
+Wave 0 (DISCOVERY.md § "Wave 0 — Mode detection") decides which value to set, holds it in orchestrator scratch, and records it via `init-site-json.mjs --frontend <value>`. The bootstrap scaffolder receives it as `scaffold.sh --frontend <value>`; the frontend-track project-prep script receives the template via `seed-utilities.sh --template <astro|react-vite>` (no `user-provided` — that mode never runs the frontend track).
+
+### Two tracks (business vs frontend)
+
+The skill runs two semi-independent tracks that the orchestrator interleaves for wall-time:
+
+- **Business track** (frontend-blind) — create/connect the site, **install Wix apps**, **seed backend data**. Inputs: `siteId`, `verticals`, `intent`, `brand`. It never reads `frontend`/template — a product (or collection, post, form) is the same regardless of what renders it. Lives in `SETUP.md` Step 4a + `SEED.md` seeders.
+- **Frontend track** (frontend-aware) — scaffold/prep the local project, Designer + design tokens, components, pages, SDK wiring, build. Every `frontend`/template branch lives here. Lives in `scaffold.sh` + `seed-utilities.sh` + the Designer bridge + `ORCHESTRATION.md` Components/Pages.
+
+The only cross-track data flow is **one-way, business → frontend**: seeders produce entity IDs which the orchestrator inlines into the frontend track's Page-subagent prompts. There is no frontend → business dependency. Mode selection (which tracks run at all) is the **routing layer** — Wave 0 + the SETUP routing table — not a property of either track's operations.
+
 ### When NOT to use this skill
 
 | Scenario | Use instead |
@@ -133,9 +154,9 @@ Wall-time targets: discovery ≤ 80 s (excl. user think-time); setup foreground 
 
 ## Post-seed — components through release
 
-Open `references/ORCHESTRATION.md` at **Step 4.5** after Seed Step 5. The Designer subagent was dispatched in `DISCOVERY.md` Step 2.6 and its bridge ran inside `SEED.md` Step 2; the seed wave (seeders + Image Phase 1) completed at the end of Seed — do **not** re-dispatch designer or Image Phase 1 from Post-Seed. `.wix/site.json.seeded` and `.wix/design-tokens.css` must exist before Step 4.5.
+Open `references/ORCHESTRATION.md` at **Step 4.5** after Seed Step 5. The Designer subagent was dispatched in `DISCOVERY.md` Step 2.6 and its bridge ran inside `SEED.md` Step 2; the seed wave (seeders + Image Phase 1) completed at the end of Seed — do **not** re-dispatch designer or Image Phase 1 from Post-Seed. The orchestrator's `seeded` scratch must be populated and `.wix/design-tokens.css` must exist before Step 4.5.
 
-`seed-utilities.sh` runs at the start of `SEED.md` Step 2 (idempotent).
+`seed-utilities.sh` (frontend-track project prep) runs at the start of `SEED.md` Step 2 (idempotent), co-scheduled with the business-track seeders.
 
 ## Verticals
 

@@ -15,7 +15,7 @@ Your prompt includes `Scope: <name>`. Map it to an image phase:
 
 | Scope | When dispatched | Depends on | Output |
 |---|---|---|---|
-| `image-phase-1-decorative` | `SEED.md` Step 2 (background) | Brand context only | Decorative images for hero / about / backgrounds; written to `.wix/image-urls.md` |
+| `image-phase-1-decorative` | `SEED.md` Step 2 (background) | Brand context only | Decorative images for hero / about / backgrounds; slot→URL map returned in `data.slots` |
 | `image-phase-2-entity` | Step 4.5 (background, alongside Phase 3 Components) | Phase 1 Seed return data (entity IDs in prompt) | Entity images attached to products / blog posts / CMS items via REST PATCH |
 
 If your prompt is missing a `Scope:` line, stop and ask the parent — do not guess.
@@ -110,20 +110,10 @@ Generate site-wide decorative images that don't depend on any entity. Used by th
 1. **Craft all image prompts up front** using brand context — see `IMAGE_GENERATION.md` § "Prompt guidelines".
 2. **Dispatch all generation tool calls in one concurrent batch** — siblings for `google:4@2` (1 task each, N blocks in parallel), or one batched call for other models (N tasks in `body`). Required, not optional — see `IMAGE_GENERATION.md` § "Required: minimize round-trips per image phase". Sequential 1-task calls across multiple turns is an anti-pattern; never do it.
 3. **Import each to Wix Media** via `REST: POST https://www.wixapis.com/site-media/v1/files/import`.
-4. **Write `<site-root>/.wix/image-urls.md`** with all resolved URLs, keyed by purpose. **Use the absolute `<site-root>` path passed in your inputs** — do **not** use a relative `.wix/image-urls.md`. Your CWD is the scaffold subdir (orchestrator `cd`'d into it during Setup), so a relative write lands at `<scaffold>/.wix/image-urls.md` instead of `<site-root>/.wix/image-urls.md`, and the post-bridge `patch-decorative-slots.mjs` invocation (passed `<site-root>`) can't find it. Both prior runs hit this — the orchestrator had to `cp` the file across before retrying the patch script, costing ~50 s of recovery wall.
+4. **Collect the resolved URLs keyed by slot purpose** (e.g., `{"hero": "https://static.wixstatic.com/...", "about": "https://static.wixstatic.com/..."}`). This map goes into your return JSON under `data.slots` — see § Return below. Do NOT write `.wix/image-urls.md` or any other file; the orchestrator pipes your `data.slots` directly into `patch-decorative-slots.mjs` via stdin.
+5. Return the structured JSON block per `../shared/RETURN_CONTRACT.md` (see § Return below). The JSON return is your sole output channel.
 
-   ```markdown
-   # Image URLs
-
-   ## hero
-   - url: https://static.wixstatic.com/media/...
-
-   ## about
-   - url: https://static.wixstatic.com/media/...
-   ```
-5. Return the structured JSON block per `../shared/RETURN_CONTRACT.md` (see § Return below).
-
-Page design agents read `<site-root>/.wix/image-urls.md` and use the URLs. If the file doesn't exist when a page agent runs, the page agent uses placeholder styling instead — nothing blocks.
+The orchestrator runs `patch-decorative-slots.mjs` with your `data.slots` map piped in on stdin (`SEED.md` Step 4 / `ORCHESTRATION.md` Step 4.5). The patch script injects `<img>` tags into the designer's `data-decorative-slot="<key>"` placeholders. If your return is missing or has no slots, the patch is a no-op and the placeholders fall back to the designer's solid-color rendering — nothing blocks.
 
 ## Scope: `image-phase-2-entity` (Step 4.5 — Phase 1 Seed data inline)
 
@@ -136,7 +126,7 @@ Generate images for products, blog posts, and CMS items. Attach via REST PATCH c
 - `collections: [{name, itemIds, fields}, ...]` — if cms pack loaded
 - `blogPosts: [{id, title, ...}, ...]` — if blog pack loaded
 
-**Do not poll for sidecars.** `.wix/logs/<feature>-data.md` is a deprecated coordination pattern (see `../shared/RETURN_CONTRACT.md`). If the `Phase 1 Seed return data:` block is missing from your prompt, return `status: "failed"` with `reason: "Phase 1 Seed return data not provided; image-phase-2-entity cannot run without entity IDs"` — do not sleep, do not read sidecars, do not re-query Phase 1 Seed data.
+**Do not poll for sidecars.** Do not read `.wix/logs/<feature>-data.md` or any coordination file (see `../shared/RETURN_CONTRACT.md`). If the `Phase 1 Seed return data:` block is missing from your prompt, return `status: "failed"` with `reason: "Phase 1 Seed return data not provided; image-phase-2-entity cannot run without entity IDs"` — do not sleep, do not read sidecars, do not re-query Phase 1 Seed data.
 
 **Process per entity type (must follow):**
 
@@ -278,7 +268,7 @@ Your prompt includes a `siteId (for token mint):` line. Use it for every Wix RES
 
 ## Return Contract
 
-At the end, emit a structured JSON block per `../shared/RETURN_CONTRACT.md`. Do **not** write `.wix/logs/images.md` — sidecars are deprecated; the parent reads your return JSON directly.
+At the end, emit a structured JSON block per `../shared/RETURN_CONTRACT.md`. Do **not** write `.wix/logs/images.md` or any sidecar file; the parent reads your return JSON directly.
 
 ### `image-phase-1-decorative` return
 
@@ -287,14 +277,19 @@ At the end, emit a structured JSON block per `../shared/RETURN_CONTRACT.md`. Do 
   "status": "complete" | "partial" | "failed",
   "phase": "image-phase-1-decorative",
   "scope": "image-phase-1-decorative",
-  "summary": "Generated N decorative images; uploaded to Wix Media; wrote <site-root>/.wix/image-urls.md",
+  "summary": "Generated N decorative images; uploaded to Wix Media; returned slot→URL map",
   "data": {
     "decorativeCount": 3,
     "purposes": ["hero", "about", "background"],
+    "slots": {
+      "hero":  "https://static.wixstatic.com/media/...",
+      "about": "https://static.wixstatic.com/media/...",
+      "background": "https://static.wixstatic.com/media/..."
+    },
     "model": "google:4@2",
     "totalCredits": 0.297
   },
-  "files": ["<site-root>/.wix/image-urls.md"],
+  "files": [],
   "errors": []
 }
 ```
@@ -344,7 +339,7 @@ The JSON block MUST be the **last** content in your message (see `../shared/RETU
 | N sequential 1-task `curl` generation calls across multiple turns | All generation tool calls in one concurrent batch — parallel siblings for `google:4@2`, or one batched call for other models. See IMAGE_GENERATION.md § "Required: minimize round-trips per image phase" |
 | Poll `.wix/logs/<feature>-data.md` sidecars to learn Phase 1 Seed is done | Phase 1 Seed data is inline in your prompt — if missing, return `failed` |
 | `sleep 60` loop to wait for Phase 1 Seed | No waiting, no polling — prompt has the data or the agent fails |
-| Write `.wix/logs/images.md` sidecar | Sidecars are deprecated — return structured JSON per `RETURN_CONTRACT.md` |
+| Write `.wix/logs/images.md` or `.wix/image-urls.md` sidecar | Return structured JSON per `RETURN_CONTRACT.md` instead (decorative URLs go in `data.slots`) |
 | Re-query Phase 1 Seed entity IDs via the REST API | IDs are in your prompt; re-querying wastes a round-trip |
 | Generic prompts ("a product photo") | Use brand context, product name, aesthetic direction |
 | Ignore color palette from prompt | Reference actual hex codes in image prompts |
@@ -353,7 +348,7 @@ The JSON block MUST be the **last** content in your message (see `../shared/RETU
 | Use free-form sizes (e.g., `800×600`) | Use allowed dimensions only — `1024×1024`, `1376×768`, `1200×896` |
 | Use blog post `file.url` for cover image | Blog posts need `file.fileUrl` (file ID) for `media.wixMedia.image.id` |
 | Block on image failures | Skip failed images, continue with others |
-| Write `.wix/image-urls.md` with a relative path | Use the absolute `<site-root>/.wix/image-urls.md` — your CWD is the scaffold subdir, not site-root, and a relative write lands in the wrong directory (`patch-decorative-slots.mjs` then can't find it; observed in two prior runs) |
+| Write any coordination file (`.wix/image-urls.md`, sidecars) | Return slot→URL map in `data.slots`; the orchestrator pipes it to `patch-decorative-slots.mjs` via stdin |
 | PATCH products without `options`/`variantsInfo` | Always query products first for these fields — PATCH returns 428 without them (see § "Products" step 1) |
 | PUT a CMS item with only `{data: {image: "..."}}` | Read-merge-write: query the item, merge image into existing `data`, PUT the full record (see § "CMS Items" step 4). Writing only `image` erases seeded heading/body/etc. |
 | Use `PATCH /wix-data/v2/items/{itemId}` with `{dataItem: {data}}` | PATCH requires JsonPatch `fieldModifications` — use read-merge-PUT instead (see § "CMS Items") |

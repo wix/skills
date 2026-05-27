@@ -5,7 +5,7 @@ description: "Implements Wix Stores vertical — product catalog, categories, ad
 
 # Stores Implementer
 
-Extends `references/shared/IMPLEMENTER.md`. Read that file first for phase routing, REST auth + doc lookups, site.json read pattern, return contract, style conventions, and common failure modes.
+Extends `references/shared/IMPLEMENTER.md`. Read that file first for phase routing, REST auth + doc lookups, prompt-inlined inputs (no site.json reads), return contract, style conventions, and common failure modes.
 
 ## Scope routing
 
@@ -13,7 +13,7 @@ Extends `references/shared/IMPLEMENTER.md`. Read that file first for phase routi
 |-------|-------|-----------|
 | `seed` | Seed (REST catalog setup — products only; categories are merchant-driven, not seeded) | `./PRODUCT_CATALOG_DATA.md` |
 | `components` | Components (React islands + SeoTags + back-in-stock util — TSX/Astro only, **no CSS**) | `./SHARED_WIRING.md` |
-| ~~`components-css`~~ | **Deprecated.** `src/styles/components-stores.css` is now copied from `<SKILL_ROOT>/templates/stores/components-stores.css` by the orchestrator's pre-Step-4.5 batch (see ORCHESTRATION.md § Step 4.5). The template uses direct `var(--token)` CSS, so it works against any designer-published vocabulary without needing per-run rewrites. `COMPONENTS_CSS.md` is retained as historical reference only — do NOT dispatch a `components-css` subagent. | — |
+| ~~`components-css`~~ | **Do not dispatch.** `src/styles/components-stores.css` is copied from `<SKILL_ROOT>/templates/stores/components-stores.css` by the orchestrator's pre-Step-4.5 batch (see ORCHESTRATION.md § Step 4.5). The template uses direct `var(--token)` CSS, so it works against any designer-published vocabulary without per-run rewrites. `COMPONENTS_CSS.md` documents that CSS for reference — there is no `components-css` subagent to dispatch. | — |
 | `pages-categories` | Pages (`/category/[slug]` listing + shared CategoryRail + `utils/categories.ts`) | `./CATEGORY_PAGES.md` |
 | `pages-products` | Pages (products listing + detail + ProductCard; mounts the rail written by `pages-categories`) | `./PRODUCT_PAGES.md` |
 | `pages-home-and-nav` | Pages (home-page contribution + Shop submenu in Navigation) | `./HOME_AND_NAV.md` |

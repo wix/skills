@@ -19,7 +19,7 @@ Files this agent MUST NOT touch:
 ## Inputs (from parent prompt)
 
 - **Phase 1 stores return** — `products: [{id, name, slug, ...}]`. Needed for live query on home page; also useful for deciding how many to feature.
-- **Design tokens** — read `.wix/site.json.designTokens` for the published color/spacing/typography vocabulary; compose Tailwind utilities derived from those tokens at the call site rather than inventing semantic classes. See `references/shared/STYLING.md` for the three styling categories.
+- **Design tokens** — the full `designTokens` JSON is inlined in your prompt for the published color/spacing/typography vocabulary; compose Tailwind utilities derived from those tokens at the call site rather than inventing semantic classes. See `references/shared/STYLING.md` for the three styling categories.
 - **Designer output summary** — path of `src/pages/index.astro` and `src/components/Navigation.astro`, with notes on what placeholder data exists.
 - **Categories (lookup)** — if the designer used category links with hardcoded slugs, call `categoriesV3` SDK to discover real category slugs and rewrite `href`s.
 
@@ -28,7 +28,7 @@ Files this agent MUST NOT touch:
 1. **Surgical edits only.** Use `Edit` tool, not `Write`. Preserve everything the designer wrote — hero, copy, decorative elements, section structure, class names.
 2. **Do NOT restructure layout.** If the designer didn't include featured products, don't add it.
 3. **Do NOT mutate categories in the catalog.** Read-only. Match designer's category slugs against real ones; rewrite `href` if matched; fall back to `/products` if not.
-4. **Never improvise category endpoint URLs.** Use `categoriesV3` SDK. If the SDK isn't available, fall back to `curl` with `POST /categories/v1/categories/query` body `{"query":{}}`. Improvised `/stores/v3/categories/...` URLs caused a multi-minute stall historically.
+4. **Never improvise category endpoint URLs.** Use `categoriesV3` SDK. If the SDK isn't available, fall back to `curl` with `POST /categories/v1/categories/query` body `{"query":{}}`. Improvised `/stores/v3/categories/...` URLs cause a multi-minute stall.
 5. **If another agent already wired the home page** (e.g., a previous run), leave it alone and note this in the return.
 6. **ProductCard is a template** — always accepts `{ product }`. Pass raw SDK product objects, never flat-map. See § 1a.
 
@@ -72,7 +72,7 @@ try {
 ---
 ```
 
-Then pass each raw product to `ProductCard`. The ribbon is fetched inside ProductCard itself — pages no longer wire offers:
+Then pass each raw product to `ProductCard`. The ribbon is fetched inside ProductCard itself — pages don't wire offers:
 ```astro
 {featured.map((p) => <ProductCard product={p} />)}
 ```

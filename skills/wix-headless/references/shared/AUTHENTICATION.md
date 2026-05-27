@@ -91,7 +91,7 @@ The body is the recipe's documented JSON payload, with `siteId` inlined where th
 
 `npx @wix/cli token` (no flags) mints an **account-scoped** token. `npx @wix/cli token --site "$SITE_ID"` mints a **site-scoped** token. The CLI's `--site` flag is what toggles between the two scopes; there is no separate `--account` flag because omitting `--site` is itself the account-scoped form.
 
-Verified against the production endpoint on 2026-05-24 — the account-scoped token authenticates against `manage.wix.com` endpoints (e.g. `POST /credit-transactions/v1/credit-transactions/get-account-balance`).
+The account-scoped token authenticates against `manage.wix.com` endpoints (e.g. `POST /credit-transactions/v1/credit-transactions/get-account-balance`).
 
 ```bash
 # Account-scoped — for /credit-transactions, /accounts, /subscriptions, etc.

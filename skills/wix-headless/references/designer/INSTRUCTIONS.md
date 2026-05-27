@@ -20,11 +20,11 @@ No REST calls required. Designer scopes are frontend-only — no `curl`, no MCP 
 
 ## Scope Routing
 
-The designer agent now has a single scope — `design-system`. The former page-design scopes (`home`, `static`, `store-pages`, `blog-pages`, `contact-page`) were retired in Step 3 of the architecture migration: each vertical's `pages` phase agent now writes its route files once with both visual design and data queries, eliminating the placeholder-then-rewrite pattern.
+The designer agent has a single scope — `design-system`. There is no separate page-design scope: each vertical's `pages` phase agent writes its route files once with both visual design and data queries, so there is no placeholder-then-rewrite pattern.
 
 | Scope | Phase | Runs as | Output |
 |-------|-------|---------|--------|
-| `design-system` | Design System | foreground (critical path) | Files written: `src/styles/global.css`, `astro.config.mjs`, `src/layouts/Layout.astro`, `src/components/Navigation.astro` (shell with markers), `src/components/Footer.astro`, `src/pages/index.astro` (shell with markers). Returned (orchestrator merges into `.wix/site.json.designTokens`, then emits `.wix/design-tokens.css` + `.wix/site.d.ts` deterministically): `data.designTokens`. |
+| `design-system` | Design System | foreground (critical path) | Files written: `src/styles/global.css`, `astro.config.mjs`, `src/layouts/Layout.astro`, `src/components/Navigation.astro` (shell with markers), `src/components/Footer.astro`, `src/pages/index.astro` (shell with markers). Returned in `data.designTokens` — the orchestrator pipes that JSON directly into `emit-design-tokens.mjs` via stdin to emit `.wix/design-tokens.css` + `.wix/site.d.ts` deterministically. |
 
 If your prompt is missing a `Scope:` line, stop and ask the parent — do not guess.
 
@@ -47,17 +47,17 @@ The orchestrator's prompt names every loaded pack, but only packs WITHOUT `disab
 
 ## Scope: `design-system` (foreground, critical path)
 
-**Tool call budget: target 8 calls** (2 reads for self-loading + 6 writes — `global.css`, `astro.config.mjs`, `Layout.astro`, `Navigation.astro` shell, `Footer.astro`, `index.astro` shell). You no longer write `.wix/design-tokens.css` or `.wix/site.d.ts` — the orchestrator emits both deterministically from your returned `designTokens` JSON via `<SKILL_ROOT>/scripts/emit-design-tokens.mjs`. `site.json` is NOT one of your writes either — return your `designTokens` in the standard return `data` block and the orchestrator merges. Do NOT read existing project files, glob directories, or explore the scaffold — every brand/vertical/navigation input is inlined in your prompt; `.wix/site.json` does not yet exist when you are dispatched (see Self-Loading § "Do NOT `Read .wix/site.json`").
+**Tool call budget: target 8 calls** (2 reads for self-loading + 6 writes — `global.css`, `astro.config.mjs`, `Layout.astro`, `Navigation.astro` shell, `Footer.astro`, `index.astro` shell). Do not write `.wix/design-tokens.css` or `.wix/site.d.ts` — the orchestrator pipes your returned `data.designTokens` directly into `<SKILL_ROOT>/scripts/emit-design-tokens.mjs` via stdin to produce both. You do NOT read or write `.wix/site.json` — every brand/vertical/navigation input is inlined in your prompt.
 
 You are the design system architect. Everything downstream depends on what you produce here. Your output sets the brand's visual identity (design tokens + typed manifest) and the class-name contract that every other agent references.
 
 ### Inputs (entirely from your prompt)
 
-Every field below is inlined in the prompt by the orchestrator at dispatch time. Do not derive any of them from `.wix/site.json` — that file does not yet exist when you start.
+Every field below is inlined in the prompt by the orchestrator at dispatch time. Do not derive any of them from `.wix/site.json` — that file is metadata-only for the orchestrator's bookkeeping and is not a coordination channel.
 
 - **Brand name** and **description** — from prompt `Brand: { name, description }`.
 - **Aesthetic direction** — 2–3 sentence design brief from prompt.
-- **Color palette** — hex codes from prompt; you return these in `data.designTokens.colors` of your final return JSON — the orchestrator merges into `site.json`.
+- **Color palette** — hex codes from prompt; you return these in `data.designTokens.colors` of your final return JSON — the orchestrator pipes the JSON to `emit-design-tokens.mjs`.
 - **Typography** — font pairing (display + body), from prompt.
 - **Mood** — personality and visual elements, from prompt.
 - **Page color strategy** — Uniform Light / Uniform Dark / Defined Hybrid, from prompt.
@@ -69,8 +69,8 @@ Every field below is inlined in the prompt by the orchestrator at dispatch time.
 
 ### Outputs that matter to every downstream phase
 
-- **`data.designTokens` in your return JSON** — populate `{ colors, fonts, radii, spacing, containers? }`. The orchestrator merges this into `.wix/site.json.designTokens` after your return arrives, then runs `<SKILL_ROOT>/scripts/emit-design-tokens.mjs`, which deterministically projects the JSON into both `.wix/design-tokens.css` (CSS custom properties) and `.wix/site.d.ts` (TypeScript types). You do not write either file yourself — the script is the single source of truth for both projections, and it can't drift the way agent-emitted CSS / TS could.
-- Do **NOT** write `.wix/site.json` yourself either — Phase 1 Seeders run in parallel, and concurrent writes would clobber each other. The orchestrator owns site.json writes precisely to avoid that race; see `skills/wix-headless/SKILL.md` § Step 2 "`.wix/site.json` write contract".
+- **`data.designTokens` in your return JSON** — populate `{ colors, fonts, radii, spacing, containers? }`. The orchestrator pipes this JSON directly into `<SKILL_ROOT>/scripts/emit-design-tokens.mjs` via stdin, which deterministically projects it into both `.wix/design-tokens.css` (CSS custom properties) and `.wix/site.d.ts` (TypeScript types). You do not write either file yourself — the script is the single source of truth for both projections, and it can't drift the way agent-emitted CSS / TS could.
+- Do **NOT** write `.wix/site.json` yourself. The orchestrator is the sole reader/writer of that file; subagents communicate via their JSON return.
 
 **Required tokens for component-CSS templates.** The per-pack `components-<pack>.css` templates (stores, ecom, blog, forms, gift-cards — copied by the orchestrator at ORCHESTRATION.md Step 4.5 into `src/styles/`) reference a fixed token set via `var(--token)`. **Your `@theme` block MUST declare every required token in that set**, or the components render unstyled at runtime. See [`../shared/STYLING.md` § "Required tokens — the component-CSS template contract"](../shared/STYLING.md) for the canonical list. In short: `--color-{paper,paper-warm,ink,mute,rule,accent}`, `--font-{display,body}`, the full `--spacing-{2xs..4xl}` scale, and `--radius-{sm,md}` are mandatory; `--color-{ink-soft,cream,error}` and `--radius-{lg,xl}` are template-fallback-friendly but recommended.
 
@@ -91,7 +91,7 @@ If you reference `class="py-4xl bg-paper text-ink"` in your shell markup, your `
 The emitted files look like:
 
 ```css
-/* .wix/design-tokens.css — generated from .wix/site.json.designTokens. Do not edit. */
+/* .wix/design-tokens.css — generated by emit-design-tokens.mjs from designer's data.designTokens. Do not edit. */
 :root {
   --color-paper: #FAF6EF;
   --color-accent: #B49A78;
@@ -103,19 +103,13 @@ The emitted files look like:
 ```
 
 ```ts
-// .wix/site.d.ts — generated from .wix/site.json.designTokens. Do not edit.
-export type Brand = { name: string; description: string };
+// .wix/site.d.ts — generated by emit-design-tokens.mjs from designer's data.designTokens. Do not edit.
 export type DesignTokens = {
   colors: Record<"paper" | "accent" | …, string>;
   fonts: Record<"display" | "body", string>;
   radii: Record<"sm" | "md" | …, string>;
   spacing: Record<"xs" | "sm" | "md" | "lg" | …, string>;
-};
-export type Product = { id: string; name: string; slug: string; price: number; variantId: string };
-export declare const site: {
-  brand: Brand;
-  designTokens: DesignTokens;
-  seeded: { products?: Product[]; posts?: unknown[]; collections?: Record<string, unknown[]> };
+  containers: Record<"prose" | "3xl" | …, string>;
 };
 ```
 
@@ -232,10 +226,10 @@ Two correct patterns:
 
 Never write `@apply <custom-class-name>` unless `<custom-class-name>` is declared with `@utility`. The build validates this — a failing build is your signal.
 
-**Observed regression — `btn-ghost` specifically.** The exact failure `Cannot apply unknown utility class 'btn-ghost'` has been hit on multiple runs because the designer reached for `.btn-ghost { @apply btn ... }` without first declaring `@utility btn`. The retained-set rule at the bottom of this section requires all four classes — `btn`, `btn-primary`, `btn-secondary`, `btn-ghost` — to exist. If you ship `btn-primary`/`btn-secondary`/`btn-ghost` using `@apply btn`, you MUST declare `@utility btn` first (Option A). If you skip the `@utility` declaration, choose Option B and inline the base rules into each of the four. Mixing the two — `@utility btn` declared, but a variant like `.btn-ghost` still using `@apply btn-secondary` or `@apply some-other-custom-class` — fails the same way; only built-in utilities are `@apply`-able unless they were declared with `@utility`.
+**Common failure — `btn-ghost` specifically.** The failure `Cannot apply unknown utility class 'btn-ghost'` happens when the designer reaches for `.btn-ghost { @apply btn ... }` without first declaring `@utility btn`. The retained-set rule at the bottom of this section requires all four classes — `btn`, `btn-primary`, `btn-secondary`, `btn-ghost` — to exist. If you ship `btn-primary`/`btn-secondary`/`btn-ghost` using `@apply btn`, you MUST declare `@utility btn` first (Option A). If you skip the `@utility` declaration, choose Option B and inline the base rules into each of the four. Mixing the two — `@utility btn` declared, but a variant like `.btn-ghost` still using `@apply btn-secondary` or `@apply some-other-custom-class` — fails the same way; only built-in utilities are `@apply`-able unless they were declared with `@utility`.
 
 ```css
-/* WRONG — observed on Bakin Goods + French Goods runs */
+/* WRONG — @utility btn not declared above */
 .btn-ghost { @apply btn bg-transparent; }   /* @utility btn was not declared above */
 ```
 
@@ -251,7 +245,7 @@ Never write `@apply <custom-class-name>` unless `<custom-class-name>` is declare
 
 **Line budget:** target 150-300 lines. Soft warning at 500, hard cap 800. Under the tokens-as-utilities default, `global.css` shrinks dramatically — most layout/spacing/typography moves to markup. **If your file exceeds 500 lines:** open `references/shared/STYLING.md` § "What does NOT belong as a global semantic class" and self-audit your file against that list. If you find any scoped/component-only classes (e.g. `.product-card-*`, `.cart-summary`, `.offer-callout` family) that should live in `components-<pack>.css`, remove them and re-check the line count. **If, after removing all violations, the file is still over 500 lines and under 800:** ship it with `notes: [{code: "GLOBAL_CSS_OVER_TARGET", lines: <count>}]` in your return — this is fine, brand needed more cross-cutting rules than the budget assumed. **Only return `status: "partial"` with `errors: [{code: "GLOBAL_CSS_OVERBUDGET"}]` if you exceed 800 lines OR find scoped classes you cannot remove.**
 
-> **NEVER rewrite `global.css` from scratch to fit the line count.** A measured rewrite cycle costs ~60 s of subagent wall time (the dominant cause of a 326 s vs 197 s DS regression observed in the 2026-05-05 Magnific run, where v1 was 654 lines and the agent rewrote to 321). The line budget is a soft signal to audit for leaks, not a build constraint — every legitimate cross-cutting rule between 500 and 800 lines ships fine with `notes: [{code: "GLOBAL_CSS_OVER_TARGET"}]`. Only the audit-and-remove-leaks pass is allowed when over 500; full regenerations are not. If you are tempted to rewrite, that means the audit failed to find enough leaks — which is the signal to ship at the current line count, not to start over.
+> **NEVER rewrite `global.css` from scratch to fit the line count.** A full rewrite cycle costs ~60 s of subagent wall time and is the dominant cause of design-system phase slowdowns (a rewrite from scratch can roughly double the phase wall time versus an audit-only pass). The line budget is a soft signal to audit for leaks, not a build constraint — every legitimate cross-cutting rule between 500 and 800 lines ships fine with `notes: [{code: "GLOBAL_CSS_OVER_TARGET"}]`. Only the audit-and-remove-leaks pass is allowed when over 500; full regenerations are not. If you are tempted to rewrite, that means the audit failed to find enough leaks — which is the signal to ship at the current line count, not to start over.
 
 **Coverage rule.** Three checks before returning:
 
@@ -613,7 +607,7 @@ All page scopes share common inputs and rules. Scope-specific details follow.
     Do NOT invent keys like `aboutFeature`, `background`, `heroAlt`, etc. The image agent receives this canonical list as its `decorativeSlots` input and generates exactly those keys — invented keys will not have images, and orphan generated images go unused. The vocabulary is intentionally small to keep the slot ↔ image agent contract tight; if a page needs more visual interest, use scoped CSS / SVG / brand-color blocks instead of additional generated images. The orchestrator runs a post-Phase-2 Edit pass (SKILL.md Step 4.6) that injects the actual `<img>` for each slot once Image Phase 1 finishes; your job is to make the slot visible. Rules:
     - Use aspect-ratio + background-color on the placeholder so the page looks complete even if Image Phase 1 never completes.
     - Keep decorative overlays (stamps, rules, frames) as siblings of the slot `<div>` — the orchestrator injects the `<img>` as the FIRST child of the slot, so anything you want to layer over it must stay outside the slot `<div>` (or inside with explicit z-index).
-    - Do NOT conditionally read `.wix/image-urls.md` — the file won't exist at designer-time because Image Phase 1 runs in parallel with you. The slot mechanism is the replacement for the old "read the file if it exists" branch and must not coexist with it.
+    - Do NOT conditionally read any image-coordination file — Image Phase 1's slot→URL map flows to the orchestrator via its JSON return, and the orchestrator injects URLs into your slot placeholders via `patch-decorative-slots.mjs`. The slot mechanism is the contract; no file lookup is needed or correct.
     - Do not use external placeholder services (picsum, unsplash, etc.).
 
     Example:
@@ -643,7 +637,7 @@ Composes the home page from every loaded pack's `homeSection` snippet plus brand
 - `Pack home-section snippets` — one per loaded pack. Each names a section (e.g., "Featured products", "Brand story", "Latest posts", "Contact CTA") with a description and contract classes.
 
 **Structure:**
-1. **Hero section** — full-width, impactful brand moment. Uses `hero-section` contract class. Emit a `data-decorative-slot="hero"` placeholder per Common rule #7 — do not inline an Image Phase 1 URL, even if `.wix/image-urls.md` happens to exist; the orchestrator injects the `<img>` after Image Phase 1 completes.
+1. **Hero section** — full-width, impactful brand moment. Uses `hero-section` contract class. Emit a `data-decorative-slot="hero"` placeholder per Common rule #7 — do not inline an Image Phase 1 URL; the orchestrator injects the `<img>` after Image Phase 1 completes (via `patch-decorative-slots.mjs`).
 2. **Pack sections** — one section per loaded pack's `homeSection`, in a sensible order (typically: featured content first, then story, then CTA).
 3. **Optional closing CTA** — if no pack contributes a CTA section, add a minimal brand-appropriate closing.
 
@@ -828,7 +822,7 @@ The JSON block MUST be the **last** content in your message — the parent parse
 | Invent global semantic classes for layout/spacing/typography (`.featured-section`, `.page-header`) | Use Tailwind utilities derived from `@theme` tokens at the call site (`<section class="py-4xl">`); see `references/shared/STYLING.md` for the three categories |
 | Override `global.css` rules from page `<style>` blocks | Pages can add co-located styles for one-off decoration; never override designer-owned global classes |
 | HTML `<!-- comment -->` in `.astro` frontmatter | Use `//` or `/* */` — frontmatter is TypeScript |
-| Use external placeholder image services (picsum, unsplash) | Use colored `<div>` placeholders or `.wix/image-urls.md` URLs |
+| Use external placeholder image services (picsum, unsplash) | Use colored `<div>` placeholders with `data-decorative-slot` — the orchestrator injects Image Phase 1 URLs later via `patch-decorative-slots.mjs` |
 | Write `components-<pack>.css` (Phase 2 or page scope) | Phase 3 Components creates that file — Phase 2 imports it in Layout; page scopes must not write it |
 | Write CSS for scoped contract keys (Phase 2 scope) | Only global keys get CSS in `global.css`; scoped keys → Phase 3 Components |
 | Skip publishing tokens — "downstream agents will add what they need" | Token completeness IS the contract; missing tokens force downstream agents to invent classes (the failure mode this protocol prevents) |
@@ -839,7 +833,7 @@ The JSON block MUST be the **last** content in your message — the parent parse
 | `Read .wix/site.json` to get brand or verticals | The file does not exist when you are dispatched (Designer fires from DISCOVERY.md Step 2.6, before `init-site-json.mjs`). Every field is in your prompt. See Self-Loading § "Do NOT `Read .wix/site.json`". |
 | Use `<img src="https://...">` for product/content images | Placeholder `<div>` with aspect-ratio; Phase 4 wires real images |
 | Omit `data-decorative-slot` on hero/about/background placeholders | Every decorative image placeholder MUST carry a slot attribute — the orchestrator's Step 4.6 patch depends on it (see common rule #7) |
-| Read `.wix/image-urls.md` during design-system scope | File doesn't exist yet — emit `data-decorative-slot` placeholders instead; the orchestrator injects the URLs after Image Phase 1 returns |
+| Read or write any image-coordination file | Image Phase 1 returns slot→URL map in `data.slots`; the orchestrator pipes it to `patch-decorative-slots.mjs`. Designers emit `data-decorative-slot` placeholders only. |
 | ProductCard with flat props (`name`, `price`, `slug` as separate props) | Single `product` object prop: `{ product }` — Phase 4 passes the full Wix product object |
 | Wrap CartBadge in `<a>` or add cart SVG icons in `nav-actions` | Leave `nav-actions` empty — CartBadge renders its own `<a>` link; nesting `<a>` tags produces duplicate icons |
 
@@ -849,7 +843,7 @@ The JSON block MUST be the **last** content in your message — the parent parse
 |-------|-------------|------|
 | Phase 3 Components (stores/blog/forms) | Writes React islands referencing contract classes | Phase 2 Design System writes global CSS; Phase 3 Components writes scoped CSS. No overlap. |
 | Phase 4 Pages (vertical packs) | Reads your `.astro` files, swaps placeholders for live data (where the designer wrote placeholder-only scopes) | They preserve your layout and styling; they only change data-fetching code and island mounts |
-| Image agent (Image Phase 1) | Writes `.wix/image-urls.md` with decorative image URLs | Designers do NOT read this file. Emit `data-decorative-slot="<key>"` placeholders; the orchestrator's Step 4.6 Edit pass injects the `<img>` once Image Phase 1 finishes. |
+| Image agent (Image Phase 1) | Returns decorative URLs in `data.slots` | Emit `data-decorative-slot="<key>"` placeholders; the orchestrator's `patch-decorative-slots.mjs` invocation injects the `<img>` once Image Phase 1 returns. |
 | Image agent (Image Phase 2) | PATCHes entity images onto products/posts via REST | No direct interaction — images flow through product/post records that Phase 4 queries |
 
 ## File ownership

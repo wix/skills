@@ -6,7 +6,7 @@ Every visual decision in a generated site falls into one of three categories. Ea
 
 | Category | Lives in | Owned by | Use for |
 |---|---|---|---|
-| **Tokens (composed as utilities)** | `@theme` block in `src/styles/global.css`, mirrored to `.wix/site.json.designTokens`, `.wix/design-tokens.css`, `.wix/site.d.ts` | Designer (Phase 2) | All color, spacing, typography scale, radii, aspect ratios, shadows, transitions. Pages compose tokens at call sites as Tailwind utilities — `class="py-4xl bg-sand aspect-[16/5]"`. |
+| **Tokens (composed as utilities)** | `@theme` block in `src/styles/global.css`, mirrored to `.wix/design-tokens.css` + `.wix/site.d.ts` (emitted by `scripts/emit-design-tokens.mjs` from Designer's `data.designTokens`) | Designer (Phase 2) | All color, spacing, typography scale, radii, aspect ratios, shadows, transitions. Pages compose tokens at call sites as Tailwind utilities — `class="py-4xl bg-sand aspect-[16/5]"`. |
 | **Global semantic classes** | `src/styles/global.css` (outside `@theme`) and `src/styles/components-<pack>.css` | Designer + Phase 3 component agents | Compound multi-element patterns, interactive states (`:hover`, `:focus`, `:disabled`), and JS/React DOM query targets. |
 | **Co-located styles** | `<style>` block at the bottom of the same `.astro` file (or component CSS module for islands) | Page or component author | One-off page decoration: hero stamps, custom dividers, ornamental overlays that won't be reused elsewhere. |
 
@@ -14,7 +14,7 @@ Every visual decision in a generated site falls into one of three categories. Ea
 
 **Tokens-as-utilities is the default.** When you're about to write a class for layout, spacing, typography, alignment, simple background/text color, or aspect ratio, write Tailwind utilities derived from `@theme` instead. The site's design tokens give you `py-4xl`, `gap-sm`, `bg-paper-warm`, `text-ink`, `font-display`, `aspect-[16/5]` etc. Compose them in markup; do not invent semantic classes for these concerns.
 
-The token namespace is the contract. Read `.wix/site.json.designTokens` (or its typed mirror at `.wix/site.d.ts`) at the start of any pages or components scope to know which tokens this run published. If a token you need isn't there, that's a designer-side gap — flag it in your return JSON, don't paper over it with a custom class.
+The token namespace is the contract. The orchestrator inlines the full `designTokens` JSON in your prompt (same shape Designer returned) — at start of any pages or components scope, read from your prompt to know which tokens this run published. `.wix/design-tokens.css` and `.wix/site.d.ts` are on disk for the build to consume, but you do NOT need to read them. If a token you need isn't in the inlined contract, that's a designer-side gap — flag it in your return JSON, don't paper over it with a custom class.
 
 ## Decision tree
 
@@ -24,7 +24,7 @@ When you find yourself reaching for a `class="..."` value, ask:
 2. **Is it a compound multi-element pattern** (e.g., a bordered card with header + body + foot rules), an **interactive state** (`:hover`/`:focus`/`:disabled`/`:hover .child`), or a **JS query target** the DOM is inspected for? → Global semantic class in `global.css` (designer-owned) or `components-<pack>.css` (Phase 3 components agent-owned).
 3. **Is it a one-off page decoration** that won't be reused on any other route? → Co-located `<style>` block at the bottom of the same `.astro` file. Reference tokens via `var(--color-foo)` from `:root` (auto-loaded by `design-tokens.css`).
 
-If none fit, you're probably trying to do something the tokens don't support yet — talk to the designer (for new runs, return a `MISSING_TOKEN` error; for existing projects, add the token to `@theme` and propagate to `.wix/site.json.designTokens`).
+If none fit, you're probably trying to do something the tokens don't support yet — talk to the designer (for new runs, return a `MISSING_TOKEN` error; for existing projects, add the token to `@theme`).
 
 ## What does NOT belong as a global semantic class
 
@@ -72,7 +72,7 @@ The per-pack `components-<pack>.css` templates at `<SKILL_ROOT>/templates/<pack>
 
 The templates do NOT use `@apply` — every rule is `property: var(--token);` directly. This means missing utilities don't fail at build time (the way `@apply gap-sm` would). Missing tokens degrade silently to `var(missing) → unset → initial`. That makes the failure mode "ugly component" not "broken build" — easier to recover from but harder to detect, so verify the full set above is in `@theme` before returning.
 
-**Why this contract exists.** The component templates were authored against a stable, brand-agnostic token vocabulary so they don't need to be regenerated per run. Earlier templates used `@apply` against brand-specific tokens (`bark`, `cream`, `parchment`) that designers didn't publish — every run hit `Cannot apply unknown utility class` and the orchestrator had to rewrite the templates by hand. Direct `var()` against the required-token list above avoids that class of failure entirely.
+**Why this contract exists.** The component templates are authored against a stable, brand-agnostic token vocabulary so they don't need to be regenerated per run. Using `@apply` against brand-specific tokens (e.g. `bark`, `cream`, `parchment`) that designers don't publish fails the build with `Cannot apply unknown utility class`. Direct `var()` against the required-token list above avoids that class of failure entirely.
 
 ## What DOES belong in `global.css` (designer-owned)
 
@@ -89,7 +89,7 @@ That's it. The full list of always-required classes for a site lives in designer
 
 ## Component-specific CSS is owned by the component, not the designer
 
-The boundary that previously caused leaks: the designer published partial rules for `.product-card`, `.product-grid`, `.product-card-media`, `.offer-callout`, `.cart-summary`, etc. — all classes used by exactly one vertical's component. The designer doesn't know how those components should be laid out for a particular brand, so the rules ship as stubs and templates quietly add the missing layout in scoped CSS. Result: the same class behaves differently on different pages (e.g. `/products` rendering with `.product-grid { transition: opacity }` and no `display: grid`, while `/category/<slug>` defines a separate scoped `.product-grid` with the actual grid).
+The boundary that causes leaks: if the designer publishes partial rules for `.product-card`, `.product-grid`, `.product-card-media`, `.offer-callout`, `.cart-summary`, etc. — all classes used by exactly one vertical's component — the designer doesn't know how those components should be laid out for a particular brand, so the rules ship as stubs and templates quietly add the missing layout in scoped CSS. The same class then behaves differently on different pages (e.g. `/products` rendering with `.product-grid { transition: opacity }` and no `display: grid`, while `/category/<slug>` defines a separate scoped `.product-grid` with the actual grid).
 
 The fix is structural: move component-specific CSS out of `global.css` entirely.
 
