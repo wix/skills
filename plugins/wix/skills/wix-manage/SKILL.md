@@ -6,6 +6,8 @@ compatibility: Requires Wix REST API access (API key or OAuth).
 
 # Management Recipes Index
 
+> **Standard call shape for every curl example across these recipes.** The `<AUTH>` placeholder in example curls is shorthand for the `Authorization` header only; every actual call ALSO needs `wix-site-id: <SITE_ID>` and `Content-Type: application/json`. **POST/PATCH against `wix-data/*`, `form-schema-service/*`, `stores/v3/*`, `blog/v3/*`, and other site-scoped REST families return 403 without `wix-site-id`** — observed seeder regression cost ~100 s rediscovering this on a 2026-05-24 run. Mint the token via `npx @wix/cli token --site "$SITE_ID"`.
+
 ## What Are Management Recipes?
 
 **Management recipes are for REST API operations** that configure, set up, and manage Wix business entities on your site. These recipes use REST API calls and are designed for:

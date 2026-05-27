@@ -35,9 +35,44 @@ These are layout/spacing/typography concerns that should always be utilities, ne
 - Aspect ratios (`aspect-[4/5]`, `aspect-square`)
 - Plain typography choices (`text-display-lg font-display`, `text-mute uppercase tracking-wide`)
 - Background / foreground color application without state (`bg-paper`, `text-ink-soft`)
-- Container widths derived from tokens (`max-w-prose`, `w-full`)
+- Container widths derived from tokens (`max-w-prose`, `w-full`) **only when** the designer declared matching `--container-*` keys in `@theme`
+
+### Prose / reading width (CMS, FAQ, About)
+
+Tailwind v4 resolves `max-w-3xl` to `var(--container-3xl)`, **not** `var(--spacing-3xl)`. If the designer published `--spacing-3xl: 5rem` but no `--container-3xl`, FAQ/About columns collapse to ~80px.
+
+**Page agents (Phase 4):**
+
+- **Do not** use `max-w-2xl`, `max-w-3xl`, etc. unless `global.css` `@theme` documents the matching `--container-*` key (grep `@theme` before choosing).
+- **Prefer** `container-reading` (designer `@utility`), `max-w-6xl` when `--container-6xl` exists, or explicit arbitrary width `max-w-[48rem]`.
+- **Do not** confuse spacing scale with container scale — `py-3xl` uses `--spacing-3xl`; `max-w-3xl` uses `--container-3xl`.
 
 If a designer's `global.css` contains rules like `.featured-section { padding-block: var(--spacing-4xl); }` or `.product-card-body { display: flex; flex-direction: column; gap: var(--spacing-xs); }`, those are misplaced — they belong in markup as utilities. Inventing such classes ships broken layouts: every consumer needs the designer to have pre-declared the class, and Tailwind v4 silently drops the references when the rule is missing.
+
+## Required tokens — the component-CSS template contract
+
+The per-pack `components-<pack>.css` templates at `<SKILL_ROOT>/templates/<pack>/components-<pack>.css` reference a fixed set of CSS custom properties via `var(--token)` (never `@apply`). Those templates are copied verbatim into the project by the orchestrator at ORCHESTRATION.md Step 4.5, so **the designer's `@theme` block MUST declare every token below** for the build to pass. If a token is missing, the rule that references it collapses silently and the corresponding component renders unstyled (or worse, half-styled).
+
+| Token | Required? | Fallback in templates | Used by |
+|---|---|---|---|
+| `--color-paper` | **required** | — | every pack — primary background |
+| `--color-paper-warm` | **required** | `var(--color-paper, var(--color-cream))` | stores summary bg, ecom cart-summary bg, gift-cards |
+| `--color-ink` | **required** | — | every pack — primary text + dark fills |
+| `--color-ink-soft` | optional | `var(--color-mute)` | stores option-label, ecom cart-item-option |
+| `--color-mute` | **required** | — | every pack — muted text + remove buttons |
+| `--color-rule` | **required** | — | every pack — borders + dividers |
+| `--color-accent` | **required** | — | every pack — brand emphasis |
+| `--color-cream` | optional | inner fallback in `var(--color-paper-warm, var(--color-paper, var(--color-cream)))` | stores form bg, gift-cards |
+| `--color-error` | optional | `var(--color-accent)` or hardcode | ecom cart-item-unavailable, stores back-in-stock-error |
+| `--font-display` | **required** | — | every pack — headings + labels |
+| `--font-body` | **required** | — | every pack — body text + UI |
+| `--spacing-2xs` … `--spacing-4xl` | **required (full scale)** | — | every template uses `gap: var(--spacing-md)` and similar |
+| `--radius-sm`, `--radius-md` | **required** | — | buttons, inputs, cards |
+| `--radius-lg`, `--radius-xl` | optional | — | stores product-card |
+
+The templates do NOT use `@apply` — every rule is `property: var(--token);` directly. This means missing utilities don't fail at build time (the way `@apply gap-sm` would). Missing tokens degrade silently to `var(missing) → unset → initial`. That makes the failure mode "ugly component" not "broken build" — easier to recover from but harder to detect, so verify the full set above is in `@theme` before returning.
+
+**Why this contract exists.** The component templates were authored against a stable, brand-agnostic token vocabulary so they don't need to be regenerated per run. Earlier templates used `@apply` against brand-specific tokens (`bark`, `cream`, `parchment`) that designers didn't publish — every run hit `Cannot apply unknown utility class` and the orchestrator had to rewrite the templates by hand. Direct `var()` against the required-token list above avoids that class of failure entirely.
 
 ## What DOES belong in `global.css` (designer-owned)
 

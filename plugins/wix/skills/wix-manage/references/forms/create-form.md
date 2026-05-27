@@ -4,6 +4,8 @@ description: Creates a form with fields (name, email, etc.) using the Form Schem
 ---
 # RECIPE: Create a Wix Form
 
+> **Standard call shape (every curl below).** The `<AUTH>` placeholder is shorthand for `Authorization: Bearer <TOKEN>` only. Every actual call ALSO needs `wix-site-id: <SITE_ID>` and (for body-bearing requests) `Content-Type: application/json`. **POST against `form-schema-service/v4/forms` returns 403 without `wix-site-id`** — recipe examples below show `<AUTH>` only for brevity, but the header is required on every call you make. Token: `npx @wix/cli token --site "$SITE_ID"`.
+
 Create a form on a Wix site that appears in the Forms & Submissions dashboard. The form collects visitor information (e.g., name, email) and can automatically upsert contacts on submission.
 
 ---
