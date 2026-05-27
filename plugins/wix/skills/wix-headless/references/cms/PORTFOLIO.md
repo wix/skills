@@ -2,7 +2,7 @@
 
 Build a visual portfolio using `@wix/data` — project grid with category filtering, image galleries, and project detail pages. Use for work samples, case studies, creative projects, or any visual showcase.
 
-> Read `CMS_FOUNDATIONS.md` first for shared patterns (service module, image resolution, elevation, MCP seeding).
+> Read `CMS_FOUNDATIONS.md` first for shared patterns (service module, image resolution, elevation, REST-based seeding).
 
 ## Collection Schema
 
@@ -410,7 +410,7 @@ const featured = await queryFeaturedProjects(3);
 
 ## Seed with Images
 
-After seeding projects via MCP, generate cover images (and optionally gallery images) following `../../shared/IMAGE_GENERATION.md` and `CMS_FOUNDATIONS.md` → "MCP Seeding with Images".
+After seeding projects via REST, generate cover images (and optionally gallery images) following `../shared/IMAGE_GENERATION.md` and `CMS_FOUNDATIONS.md` → "Seeding with Images".
 
 **Cover image prompt template:**
 
@@ -431,7 +431,7 @@ Gallery image [N] for [TITLE]: [describe a specific aspect/angle of the project]
 Example patch:
 
 ```
-CallWixSiteAPI: PATCH /wix-data/v2/items/{projectId}
+REST: PATCH https://www.wixapis.com/wix-data/v2/items/{projectId}
 body: {
   "dataCollectionId": "Projects",
   "dataItem": {
