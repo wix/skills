@@ -14,20 +14,24 @@
  * - .cart-discount / .cart-applied-discounts → CartView.tsx discount rows
  * - .cart-badge / .cart-badge-* → CartBadge.tsx (mounted in Navigation)
  *
- * Tailwind v4 requires @reference in non-entrypoint CSS files that use @apply
- * — without these, utilities like `size-6` fail at build with "Cannot apply
- * unknown utility class". Do not remove.
+ * Rules use direct CSS (`var(--token)`) only — no `@apply`. Tailwind v4
+ * `@apply` in a non-entrypoint file only resolves utilities whose theme keys
+ * the designer's `@theme` block declares. Earlier revisions of this template
+ * used `@apply text-bark/70 bg-tobacco …` (stale token vocabulary) and
+ * `@apply size-6` (built-in utility that needs `@reference` to be visible
+ * here), and both classes built-failed against current designer output.
+ * Direct `var(--color-ink)` / `var(--spacing-sm)` calls work against any
+ * designer-published token set as long as the core scales exist (they always
+ * do). Use fallback chains (`var(--color-paper-warm, var(--color-paper, var(--color-cream)))`)
+ * for sometimes-published tokens.
  */
-@reference "tailwindcss";
-@reference "./global.css";
 
 /* =========================================================================
    Cart summary panel + total + checkout button + empty state.
-   Owned here, NOT in global.css. The .checkout-btn extends .btn-primary
-   (which IS designer-owned) and adds full-width + :disabled treatment.
+   Owned here, NOT in global.css.
    ========================================================================= */
 .cart-summary {
-  background: var(--color-paper-warm, var(--color-cream));
+  background: var(--color-paper-warm, var(--color-paper, var(--color-cream)));
   border: 1px solid var(--color-rule);
   padding: var(--spacing-xl);
   border-radius: var(--radius-md);
@@ -53,129 +57,197 @@
   max-width: 18rem;
 }
 
-/* .checkout-btn composes the designer's `btn` @utility primitive plus the brand's
-   primary fill. Do NOT use `@apply btn-primary` here — Tailwind v4 only @applies
-   utilities declared with `@utility` (which `btn` is in global.css), not plain
-   custom classes like `.btn-primary` (which is just a regular CSS rule). The build
-   fails with "Cannot apply unknown utility class `btn-primary`" if you try.
-   The Phase 3 agent's brand-token swap (bark → navy/charcoal/coral/etc.) adapts
-   the var names without changing the composition shape. an earlier run on 2026-04-30 hit
-   this; the recovery cost ~1 min and a rebuild. */
+/* .checkout-btn — primary CTA, full-width inside .cart-summary. Self-contained;
+   does NOT @apply the designer's `btn` utility (Tailwind v4 only @applies
+   utilities declared with `@utility`, and the designer may or may not have
+   declared it under that exact name). Composing the same visual shape inline
+   keeps this file portable across designer vocabularies. */
 .checkout-btn {
-  @apply btn;
-  background: var(--color-bark);
-  color: var(--color-cream);
-  box-shadow: var(--shadow-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-md) var(--spacing-lg);
+  font-family: var(--font-display);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  background: var(--color-ink);
+  color: var(--color-paper);
+  border: 1px solid var(--color-ink);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
   width: 100%;
   margin-top: var(--spacing-md);
+  transition: background-color 150ms ease, box-shadow 150ms ease;
 }
 .checkout-btn:hover:not(:disabled) {
-  background: var(--color-tobacco);
-  box-shadow: var(--shadow-md);
+  background: var(--color-ink-soft, var(--color-ink));
 }
 .checkout-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
-/* --- Cart badge icon safety net --- */
-/* CartBadge.tsx renders an inline SVG bag icon + optional count span. The designer
-   owns .cart-badge in global.css; these rules guarantee an icon-button layout
-   (relative positioning anchor, centered icon, count pill overlap) even if the
-   designer's rule is purely aesthetic. */
+/* --- Cart badge icon (CartBadge.tsx) --- */
+/* CartBadge.tsx renders an inline SVG bag icon + optional count span. */
 .cart-badge {
-  @apply relative inline-flex items-center justify-center;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 .cart-badge-icon {
-  @apply size-6 shrink-0;
+  width: 1.5rem;
+  height: 1.5rem;
+  flex-shrink: 0;
 }
 .cart-badge-count {
-  @apply absolute -top-1 -right-2 min-w-5 h-5 px-1 inline-flex items-center justify-center rounded-full bg-bark text-cream text-xs font-body tabular-nums leading-none;
+  position: absolute;
+  top: -0.25rem;
+  right: -0.5rem;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  padding: 0 0.25rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: var(--color-ink);
+  color: var(--color-paper);
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
 }
 
-/* --- Cart layout safety net --- */
-/* .cart-item is a global contract class styled by the designer in global.css.
-   These rules ensure the row layout works even if the designer omits flex. */
+/* --- Cart line items (CartView.tsx) --- */
 .cart-item {
-  @apply flex flex-row gap-md;
+  display: flex;
+  flex-direction: row;
+  gap: var(--spacing-md);
 }
 .cart-item-image {
-  @apply shrink-0;
+  flex-shrink: 0;
 }
-/* Clickable image + name link back to /products/<slug>.
-   At-rest underline + pointer cursor so the link is discoverable without
-   hovering (critical on touch). Muted rule-color underline keeps visual
-   weight in line with the body text; hover/focus escalates to tobacco. */
 .cart-item-image-link {
-  @apply block shrink-0 cursor-pointer;
+  display: block;
+  flex-shrink: 0;
+  cursor: pointer;
 }
 .cart-item-image-link:hover .cart-item-image,
 .cart-item-image-link:focus-visible .cart-item-image {
-  @apply border-ink;
+  border-color: var(--color-ink);
 }
 .cart-item-name-link {
-  @apply text-inherit cursor-pointer no-underline;
-  /* border-bottom is more predictable than text-decoration-line for inline
-     <a> inside <h3> (no text-decoration inheritance quirks). Muted ink at
-     rest, tobacco on hover. */
-  border-bottom: 1px solid var(--color-muted);
+  color: inherit;
+  cursor: pointer;
+  text-decoration: none;
+  border-bottom: 1px solid var(--color-mute);
   padding-bottom: 1px;
   transition: color 150ms ease, border-color 150ms ease;
 }
 .cart-item-name-link:hover,
 .cart-item-name-link:focus-visible {
-  @apply text-tobacco outline-none;
-  border-bottom-color: var(--color-tobacco);
+  color: var(--color-accent);
+  outline: none;
+  border-bottom-color: var(--color-accent);
 }
 .cart-item-info {
-  @apply flex-1 min-w-0;
+  flex: 1;
+  min-width: 0;
 }
 
 /* --- Description lines & modifiers --- */
 .cart-item-option {
-  @apply text-sm text-bark/70 font-body my-0.5;
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  color: var(--color-ink-soft, var(--color-mute));
+  margin: 0.125rem 0;
 }
 .cart-item-modifiers {
-  @apply mt-1;
+  margin-top: 0.25rem;
 }
 
 /* --- Quantity stepper --- */
 .cart-item-qty {
-  @apply inline-flex items-center gap-sm mt-sm w-fit;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-sm);
+  width: fit-content;
 }
 .qty-btn {
-  @apply size-7 inline-flex items-center justify-center border border-bark rounded bg-transparent text-bark cursor-pointer font-body text-base leading-none;
+  width: 1.75rem;
+  height: 1.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-ink);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-ink);
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 1rem;
+  line-height: 1;
 }
 .qty-btn:disabled {
-  @apply opacity-30 cursor-not-allowed;
+  opacity: 0.3;
+  cursor: not-allowed;
 }
 .qty-value {
-  @apply font-body text-sm min-w-6 text-center tabular-nums;
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  min-width: 1.5rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
 }
 
 /* --- Unavailable state --- */
 .cart-item-unavailable {
-  @apply text-sm text-red-600 font-medium font-body;
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-error, #c0392b);
 }
 
 /* --- Price + remove --- */
 .cart-item-actions {
-  @apply flex flex-col items-end gap-1 shrink-0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.25rem;
+  flex-shrink: 0;
 }
 .cart-item-prices {
-  @apply flex items-center gap-sm;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
 }
 .cart-item-full-price {
-  @apply text-sm text-bark/70 line-through font-body;
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  color: var(--color-ink-soft, var(--color-mute));
+  text-decoration: line-through;
 }
 .cart-item-unit-price {
-  @apply font-body font-semibold whitespace-nowrap;
+  font-family: var(--font-body);
+  font-weight: 600;
+  white-space: nowrap;
 }
 .cart-item-line-total {
-  @apply font-body text-xs text-bark/70 m-0;
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  color: var(--color-ink-soft, var(--color-mute));
+  margin: 0;
 }
 .cart-item-remove {
-  @apply text-sm bg-transparent border-none text-bark/60 font-body cursor-pointer underline;
+  background: transparent;
+  border: none;
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  color: var(--color-mute);
+  cursor: pointer;
+  text-decoration: underline;
 }
 
 /* --- Cart summary: discount + total rows ---
@@ -183,13 +255,20 @@
    These rows appear only when priceSummary exposes a discount or a total
    that differs from subtotal (see CartView.tsx extractSummary). */
 .cart-discount {
-  @apply flex items-baseline justify-between gap-sm font-body text-sm mt-sm;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  margin-top: var(--spacing-sm);
 }
 .cart-discount-name {
-  @apply text-xs text-bark/60;
+  font-size: 0.75rem;
+  color: var(--color-ink-soft, var(--color-mute));
 }
 .cart-discount-amount {
-  @apply whitespace-nowrap;
+  white-space: nowrap;
 }
 .cart-total {
   border-top: 1px solid var(--color-rule);
@@ -208,8 +287,16 @@
    amount in priceSummary.discount (common for line-item automatic discounts
    — the savings already show inline via fullPrice/price strikethrough). */
 .cart-applied-discounts {
-  @apply flex items-baseline justify-between gap-sm font-body text-sm mt-sm;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  margin-top: var(--spacing-sm);
 }
 .cart-applied-discounts-name {
-  @apply text-right text-bark/80 italic;
+  text-align: right;
+  color: var(--color-ink-soft, var(--color-mute));
+  font-style: italic;
 }

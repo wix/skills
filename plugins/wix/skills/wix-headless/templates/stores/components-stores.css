@@ -182,114 +182,219 @@ body[data-navigating="true"] .product-grid {
 }
 
 
+/* =========================================================================
+   Rules below use direct CSS (var(--token)) only — no `@apply`.
+
+   Tailwind v4 `@apply` in a non-entrypoint CSS file only works for utilities
+   whose theme keys the designer's `@theme` block declares. Earlier revisions
+   of this template used `@apply font-heading text-bark/70 bg-parchment …`,
+   which assumed a different token vocabulary than current designer output
+   (`paper`/`ink`/`font-display` …) and built-failed on every run that loaded
+   it. Direct `var(--color-paper)` / `var(--spacing-sm)` calls work against
+   any designer-published token set as long as the core scales exist (they
+   always do). Use fallback chains (`var(--color-paper-warm, var(--color-cream))`)
+   when a token is sometimes-published.
+   ========================================================================= */
+
 /* --- Variant / option pills (ProductPurchase.tsx) --- */
 .option-group {
-  @apply flex flex-col gap-sm mb-lg;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-lg);
 }
 .option-label {
-  @apply font-heading text-sm uppercase tracking-wider text-bark/70;
+  font-family: var(--font-display);
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-ink-soft, var(--color-mute));
 }
 .option-choices {
-  @apply flex flex-wrap gap-sm;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-sm);
 }
 .option-pill {
-  @apply px-md py-sm border border-bark bg-transparent text-bark font-body rounded-full cursor-pointer transition-colors;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: 1px solid var(--color-ink);
+  background: transparent;
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: background-color 150ms ease, color 150ms ease;
 }
 .option-pill.selected {
-  @apply bg-bark text-cream;
+  background: var(--color-ink);
+  color: var(--color-paper);
 }
 .option-pill:disabled {
-  @apply opacity-40 cursor-not-allowed;
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 /* --- Quantity stepper (ProductPurchase.tsx, CartView.tsx qty editing) --- */
 .quantity-selector {
-  @apply inline-flex items-center border border-bark rounded-md overflow-hidden;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--color-ink);
+  border-radius: var(--radius-md);
+  overflow: hidden;
 }
 .quantity-btn {
-  @apply px-3 py-2 bg-transparent border-none cursor-pointer text-bark font-body;
+  padding: 0.5rem 0.75rem;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--color-ink);
+  font-family: var(--font-body);
 }
 .quantity-btn:disabled {
-  @apply opacity-40 cursor-not-allowed;
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 .quantity-value {
-  @apply px-md py-sm tabular-nums;
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-variant-numeric: tabular-nums;
 }
 
 /* --- Modifier free-text input (ProductPurchase.tsx, FREE_TEXT render type) --- */
 .modifier-text {
-  @apply w-full px-sm py-sm font-body text-sm border border-rule rounded bg-parchment text-ink;
+  width: 100%;
+  padding: var(--spacing-sm);
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-sm);
+  background: var(--color-paper-warm, var(--color-paper, var(--color-cream)));
+  color: var(--color-ink);
   resize: vertical;
 }
 .modifier-text:focus {
-  @apply outline-none border-ink bg-cream;
+  outline: none;
+  border-color: var(--color-ink);
+  background: var(--color-paper, var(--color-cream));
 }
 
 /* --- Stock status (ProductPurchase.tsx) --- */
 .stock-status {
-  @apply text-sm text-bark/70 italic;
+  font-size: 0.875rem;
+  color: var(--color-ink-soft, var(--color-mute));
+  font-style: italic;
 }
 
 /* --- Back-in-stock subscribe form (BackInStockForm.tsx) ---
  * Rendered inside .purchase-area in three OOS branches when
  * backInStockEnabled=true (probe in [slug].astro). */
 .back-in-stock-form {
-  @apply flex flex-col gap-md mt-md p-lg border border-rule rounded;
-  background-color: var(--color-cream);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  margin-top: var(--spacing-md);
+  padding: var(--spacing-lg);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-md);
+  background: var(--color-paper, var(--color-cream));
 }
 .back-in-stock-headline {
-  @apply flex flex-col gap-sm;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
 }
 .back-in-stock-eyebrow {
-  @apply font-heading text-xs uppercase tracking-wider text-bark/70;
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-ink-soft, var(--color-mute));
 }
 .back-in-stock-lede {
-  @apply font-body text-sm text-ink;
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  color: var(--color-ink);
   line-height: 1.5;
 }
 .back-in-stock-label {
-  @apply font-heading text-xs uppercase tracking-wider text-bark/70;
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-ink-soft, var(--color-mute));
 }
 .back-in-stock-row {
-  @apply flex flex-row flex-wrap gap-sm;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: var(--spacing-sm);
 }
 .back-in-stock-input {
-  @apply flex-1 px-md py-sm font-body text-sm border border-rule rounded bg-parchment text-ink;
+  flex: 1;
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-sm);
+  background: var(--color-paper-warm, var(--color-paper, var(--color-cream)));
+  color: var(--color-ink);
   min-width: 0;
   transition: border-color 0.15s ease;
 }
 .back-in-stock-input:focus {
-  @apply outline-none border-ink;
+  outline: none;
+  border-color: var(--color-ink);
 }
 .back-in-stock-submit {
-  @apply px-lg py-sm font-heading text-xs uppercase tracking-wider bg-bark text-cream rounded cursor-pointer transition-colors;
-  border: 1px solid var(--color-bark);
+  padding: var(--spacing-sm) var(--spacing-lg);
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: var(--color-ink);
+  color: var(--color-paper);
+  border: 1px solid var(--color-ink);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background-color 150ms ease;
 }
 .back-in-stock-submit:hover:not(:disabled) {
-  @apply bg-ink;
+  background: var(--color-ink-soft, var(--color-ink));
 }
 .back-in-stock-submit:disabled {
-  @apply opacity-50 cursor-not-allowed;
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 .back-in-stock-error {
-  @apply font-body text-sm;
-  color: var(--color-rust, var(--color-ink));
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  color: var(--color-error, var(--color-accent));
 }
 .back-in-stock-success {
-  @apply mt-md p-lg border border-rule rounded;
-  background-color: var(--color-cream);
+  margin-top: var(--spacing-md);
+  padding: var(--spacing-lg);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-md);
+  background: var(--color-paper, var(--color-cream));
 }
 .back-in-stock-success-headline {
-  @apply font-heading text-base text-ink;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  color: var(--color-ink);
   margin: 0 0 0.5rem 0;
 }
 .back-in-stock-success-detail {
-  @apply font-body text-sm text-ink;
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  color: var(--color-ink);
   line-height: 1.55;
   margin: 0;
 }
 .stock-status.back-in-stock-alt {
-  @apply mt-sm font-body text-sm italic text-bark/70;
+  margin-top: var(--spacing-sm);
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  font-style: italic;
+  color: var(--color-ink-soft, var(--color-mute));
 }
 
 /* Cart CSS (.cart-item-*, .qty-*) lives in components-ecom.css — not in this file. */
