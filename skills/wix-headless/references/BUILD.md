@@ -8,14 +8,16 @@ The **pre-approval** flow (mode routing, the Discovery questions, the plan + app
 
 Each phase belongs to one of the two tracks (`PLAN.md` § "Two tracks"). All phases are background (`bg`); this table is the *what* and *which track*, the sections below are the *when*.
 
-| Phase | Track | What | When (bg) |
-|---|---|---|---|
-| **Phase 1 — Seed** | business | Per-pack seeders → orchestrator collects `seeded` map in scratch | Seed wave |
-| **Phase 2 — Design System** | frontend | **Designer** returns tokens + brand-voice JSON (no files); **Composer** writes the 6 files (`global.css`, `astro.config.mjs`, `Layout`, `Nav`, `Footer`, `index`) by substituting into pinned skeletons | Designer: BUILD entry (run-step 0) · Composer: Setup-window bridge |
-| **Image Phase 1 — Decorative** | frontend | Hero/about/page-header decoratives | Seed wave (imagery-gated) |
-| **Phase 3 — Components** | frontend | Per-vertical React islands, styling contract inlined per prompt | Step 4.5 |
-| **Phase 4 — Pages** | frontend | Per-vertical routes; each agent writes its routes once with both visual design and live data queries | Step 7 |
-| **Image Phase 2 — Entity** | business | Product / blog / CMS item images PATCHed onto Wix entities | Step 4.5 (imagery-gated) |
+| Phase | Track | Tier | What | When (bg) |
+|---|---|---|---|---|
+| **Phase 1 — Seed** | business | Fast | Per-pack seeders → orchestrator collects `seeded` map in scratch | Seed wave |
+| **Phase 2 — Design System** | frontend | Default | **Designer** returns tokens + brand-voice JSON (no files); **Composer** writes the 6 files (`global.css`, `astro.config.mjs`, `Layout`, `Nav`, `Footer`, `index`) by substituting into pinned skeletons | Designer: BUILD entry (run-step 0) · Composer: Setup-window bridge |
+| **Image Phase 1 — Decorative** | frontend | Fast | Hero/about/page-header decoratives | Seed wave (imagery-gated) |
+| **Phase 3 — Components** | frontend | Default | Per-vertical React islands, styling contract inlined per prompt | Step 4.5 |
+| **Phase 4 — Pages** | frontend | Default | Per-vertical routes; each agent writes its routes once with both visual design and live data queries | Step 7 |
+| **Image Phase 2 — Entity** | business | Fast | Product / blog / CMS item images PATCHed onto Wix entities | Step 4.5 (imagery-gated) |
+
+> **Set the model tier on every dispatch.** The `Tier` column is binding (full policy: `SKILL.md` § "Subagent model tier" — Fast = recipe-following work returning JSON of IDs/URLs; Default = anything that authors files the build consumes or exercises creative judgment). The tier is selected via the **dispatch primitive's model parameter**, not the prompt — if you omit it, every subagent inherits the orchestrator's default model and the Default-tier roles (Designer, Composer, Components, Pages) silently run under-powered. Apply by table lookup, not per-dispatch deliberation: seeders + both image phases → Fast; Designer, Composer, Phase 3 Components, Phase 4 Pages → Default.
 
 ## The run from approval (Setup → Release)
 
@@ -29,19 +31,24 @@ Fire both as one concurrent batch (`PLAN.md` § "Batching discipline") — they 
 
 The Designer's ~13 s overlaps the scaffold's ~23 s. Setup waits on `scaffold_handle` at Step 1; the bridge (step 2) waits on `designer_handle`.
 
-### 1. Setup (business track)
+### 1. Setup Step 1 (foreground)
 
-Apply `SETUP.md` Steps 1–4: wait `scaffold_handle` (Step 1; load `wix-manage` in the same batch), patch `site.json` with `siteId`/`appId`, then **one concurrent batch** (`PLAN.md` § "Batching discipline"): app installs (one curl per `pack.apps[*]`) + `env pull` + background `npm install` (capture `npm_handle` + its stderr tempfile). Frontend-blind; `SETUP.md` owns the recipes/package set.
+Apply `SETUP.md` Step 1 only: wait `scaffold_handle` (load `wix-manage` in the same batch), then patch `site.json` with `siteId`/`appId`. **Do not run Setup Step 4 (the app-install batch) yet** — it goes in run-step 2 below, alongside the bridge.
 
-### 2. Design-system bridge (frontend track) — dispatch the Composer here, not in Seed
+### 2. Setup Step 4 batch **+** design-system bridge — ONE concurrent super-batch
 
-The moment **both** conditions hold — `designer_handle` has returned **and** the scaffold is verified (true right after Setup Step 1) — run the bridge:
+**Timing pin: these two are independent and MUST run concurrently. Do not serialize them.** Past runs that fired the Step-4 batch first, *then* the bridge after, cost ~60–90 s of Composer wall that should have been absorbed (the Composer ended up the Wave-1 longest pole, ending after both seeders). The bridge's only gates are `designer_handle` returning and the scaffold being verified — both true the instant Step 1 completes. App installs / `env pull` / `npm install` are business-track work the bridge has zero dependency on.
 
+Fire as one concurrent batch (`PLAN.md` § "Batching discipline"):
+
+**(a) Setup Step 4 — business track.** Apply `SETUP.md` Step 4: app installs (one curl per `pack.apps[*]`) + `env pull` + background `npm install` (capture `npm_handle` + its stderr tempfile). Frontend-blind; `SETUP.md` owns the recipes/package set.
+
+**(b) Design-system bridge — frontend track.** Composer dispatch, gated only on `designer_handle` + scaffold-verified:
 - **Wait `designer_handle`** (near-instant; it has been running since run-step 0, ~10–15 s).
 - **Emit tokens:** pipe `data.designTokens` into `emit-design-tokens.mjs` (writes `.wix/design-tokens.css` + `.wix/site.d.ts`). Hold `designTokens` + `shell` in scratch.
 - **Dispatch the Composer** (background, capture `composer_handle`) per the prompt template in `COMPOSE.md`, inlining tokens + shell + brand + nav links + packs.
 
-> **Why here.** The Composer's only inputs are the Designer's tokens (ready from run-step 0) and the verified scaffold (ready at Setup Step 1) — neither depends on the seeders, app installs, env, or npm. Dispatching it now lets its ~80–160 s authoring wall absorb into the rest of Setup + the whole seed window. **Dispatching it later (at the seed wave) makes it start late and land as a fresh longest pole that ends *after* the seeders** — the regression this placement fixes. The Composer self-retries its pre-write scaffold reads if the scaffold is somehow still in flight (`COMPOSE.md` § "Pre-write"). On `react-vite`/`user-provided` the Composer is skipped (record `{phase: "compose", status: "skipped"}`).
+> **Why concurrent, not sequential.** The Composer's only inputs are the Designer's tokens (ready from run-step 0) and the verified scaffold (ready at Setup Step 1) — neither depends on the seeders, app installs, env, or npm. Firing the bridge alongside the Step 4 batch lets its ~80–160 s authoring wall absorb into Setup + the whole seed window. **Firing it after the Step 4 batch — or worse, in the seed wave — makes it start late and land as a fresh longest pole that ends *after* the seeders.** The Composer self-retries its pre-write scaffold reads if the scaffold is somehow still in flight (`COMPOSE.md` § "Pre-write"). On `react-vite`/`user-provided` the Composer is skipped (record `{phase: "compose", status: "skipped"}`).
 
 ### 3. Seed wave (Wave 3) — business track + co-scheduled frontend prep
 
@@ -132,6 +139,15 @@ done
 
 Record `{ phase: "copy-component-css", packs: [...], seconds }` in `run.json`. Idempotent — re-running overwrites identical content. Packs without a `components-<pack>.css` template (today: `cms` — SSR inline, no component CSS) are skipped silently.
 
+**Also pre-copy the Phase-3 utility templates in the same `cp` batch.** Each vertical's INSTRUCTIONS declares utility files under "Pre-copied by the orchestrator (do NOT write these yourself)" that its `components` scope only *imports* — the conductor must put them on disk before dispatch so no subagent races to author them. Today that is the **stores** pack:
+
+```bash
+# only if the stores pack is loaded
+cp "<SKILL_ROOT>/templates/stores/back-in-stock.ts" "src/utils/back-in-stock.ts"
+```
+
+If you skip this, the `components` subagent falls back to writing `src/utils/back-in-stock.ts` itself, and on multi-pack runs two scopes can race the same path (`File has not been read yet` / `modified since read`). Record `{ phase: "copy-utils", scope: "components", files: [...] }`.
+
 Then dispatch in a single concurrent batch:
 
 1. **One Phase 3 Components subagent per loaded pack** that declares `components`. Each prompt carries:
@@ -157,10 +173,23 @@ Phase 3 Components must complete before Step 7 dispatches — Phase 4 Pages moun
 
 ## Step 7 Dispatch — Phase 4 (Pages)
 
+### Pre-batch (same message, before subagent dispatches)
+
+Pre-copy the Phase-4 utility templates each pack's INSTRUCTIONS declares under "Pre-copied by the orchestrator (do NOT write these yourself)" — the conductor puts them on disk so no `pages-*` scope authors them. Today that is the **stores** pack's category helper:
+
+```bash
+# only if the stores pack is loaded
+cp "<SKILL_ROOT>/templates/stores/categories.ts" "src/utils/categories.ts"
+```
+
+`categories.ts` is a static, brand-agnostic SDK wrapper. **It must be pre-copied, not written by a subagent.** `pages-categories`, `pages-products`, and `pages-home-and-nav` all *import* it; if it isn't on disk, two of those concurrently-dispatched scopes each fall back to writing it and race the same path (`File has not been read yet`). Record `{ phase: "copy-utils", scope: "pages", files: ["src/utils/categories.ts"] }`.
+
 ### Concurrent batch
 
 For each loaded pack's `pages`:
 - One Phase 4 subagent per scope — **background**. Each writes its routes ONCE with both visual design and live data queries (the merged design+wire model). Earlier flows split this into a placeholder-writing dispatch followed by a page-rewrite dispatch; that double-write was eliminated.
+
+> **Shared-shell patchers serialize; everyone else runs concurrent.** Most scopes write files in their own exclusive ownership — those all dispatch as one concurrent background batch. But a scope that **patches a shared shell file at a marker** — `src/components/Navigation.astro` (`<!-- nav:links -->`, CartBadge) or `src/pages/index.astro` (`<!-- home:<pack> -->`, featured grid) — read-modify-writes a file another scope also patches. Dispatching two such patchers concurrently trips the harness staleness guard (`File has been modified since read`) on whichever reads first. **Dispatch the shell-patching scopes one at a time — launch one, wait for its return, then launch the next** — so each sees the previous one's marker insertion. In the example below that is `home-and-nav` and `gift-cards pages` (both touch `Navigation.astro` + `index.astro`); the private-file scopes (`product-pages`, `category-pages`, `cart-checkout`, `cms-pages`) stay in the concurrent batch. The serialized chain runs alongside the concurrent batch, not after it.
 
 > **Image Phase 2 is NOT dispatched here.** When it was launched at Step 4.5 (i.e. on an `ai-generated` run), it has been running concurrent with Phase 3 + Phase 4 and is typically finished or near-finished by the time Step 7 fires; the Step 8 hard gate waits for it before invoking `release.sh`. **On a `themed-blocks` run (the default), Image Phase 2 was not dispatched at all** — no gate wait, no images, the build runs as soon as Phase 4 finishes.
 
@@ -169,12 +198,12 @@ For each loaded pack's `pages`:
 Five subagents launched concurrently:
 
 1. **product-pages** — `products/index.astro`, `products/[slug].astro`, `ProductCard.astro`
-2. **category-pages** — `category/[slug].astro`, `CategoryRail.astro`, `utils/categories.ts`
+2. **category-pages** — `category/[slug].astro`, `CategoryRail.astro` (imports the pre-copied `utils/categories.ts`)
 3. **cart-checkout** — `cart.astro`, `thank-you.astro`
 4. **home-and-nav** — patch `index.astro` product grid + `Navigation.astro` (CartBadge mount + Shop submenu insert at `<!-- nav:links -->`)
 5. **cms-pages** — wire About + FAQ to live `@wix/data` queries
 
-`product-pages` and `home-and-nav` import files written by `category-pages` (`CategoryRail.astro`, `utils/categories.ts`) — but the imports resolve at build time (Step 8), not at write time, so the three can dispatch concurrently.
+Scopes 1, 2, 3, 5 own their files exclusively → one concurrent background batch. `home-and-nav` (scope 4) patches the shared `Navigation.astro` + `index.astro` shells; on a run that also loads gift-cards, the gift-cards `pages` scope patches the same two shells — so those two serialize against each other per the shared-shell rule above. `product-pages` and `home-and-nav` import `CategoryRail.astro` and the pre-copied `utils/categories.ts`, but those imports resolve at build time (Step 8), not write time, so they don't force ordering against `category-pages`.
 
 ### Phase 4 prompt additions
 

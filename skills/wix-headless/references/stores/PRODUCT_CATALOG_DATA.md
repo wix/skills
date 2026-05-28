@@ -201,7 +201,7 @@ If the merchant later creates visible categories in the Wix dashboard and assign
 - The `Navigation` Shop submenu lists the categories.
 - `/category/<slug>` becomes a reachable, server-side-filtered listing.
 
-This works because the frontend (`src/utils/categories.ts`, written by the `pages-categories` scope in Phase 4) live-queries the Wix API at SSR time with a 5-min cache — no redeploy or regen is needed.
+This works because the frontend (`src/utils/categories.ts`, pre-copied by the orchestrator before Phase 4 and imported by the `pages-*` scopes) live-queries the Wix API at SSR time with a 5-min cache — no redeploy or regen is needed.
 
 ### Step 7: Return Results
 

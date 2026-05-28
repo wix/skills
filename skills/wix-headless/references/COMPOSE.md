@@ -37,6 +37,8 @@ Read each skeleton from `<SKILL_ROOT>/shared-utilities/templates/astro/`, substi
 
 **Pre-write: scaffold may still be in flight.** A scaffold file you need (`Layout.astro` stub, `astro.config.mjs`) may not yet be present. Before reading one, if a `Read` returns "file does not exist", wait 5 s and retry, cap 6 attempts (~30 s). If still missing, return `status: "failed"` with `errors: [{code: "SCAFFOLD_NOT_COMPLETE"}]`. (Reading the *skeletons* under `<SKILL_ROOT>` never needs this — they are always present.)
 
+**Read each destination before you overwrite it.** The scaffold ships stubs for several of your six targets (today: `src/layouts/Layout.astro`, `src/pages/index.astro`, `astro.config.mjs`). The harness **blocks a `Write` to an existing file you have not `Read` this run** (`File has not been read yet`). So your batched reads must include the *destination* project paths for any file the scaffold created — not only the `<SKILL_ROOT>` skeletons. Practically: in the same concurrent batch, `Read` both the skeleton and the destination for `Layout.astro`, `index.astro`, and `astro.config.mjs` (the latter you read anyway to merge); `global.css`, `Navigation.astro`, and `Footer.astro` are net-new, so a destination read isn't required (but is harmless if the scaffold happens to ship them).
+
 ### Token contract (do this first — it gates everything)
 
 Map the Designer's `designTokens` into the `@theme` palette that goes in `global.css`, and **guarantee every required token resolves**. Per `STYLING.md` § "Required tokens", the `components-<pack>.css` templates reference a fixed set via `var(--token)`. Your `@theme` MUST declare all of:

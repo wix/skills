@@ -1,6 +1,8 @@
 # Phase 4 Home Page + Nav — Stores
 
-Scope: `pages-home-and-nav`. Launched in **Step 7** after `pages-categories` has written the shared rail and `categories.ts` helper. Patches the home page's stores-related placeholder data with live `productsV3` queries AND inserts the Shop submenu (categories list) into the persisted Navigation.
+Scope: `pages-home-and-nav`. Launched in **Step 7**; imports the orchestrator-pre-copied `categories.ts` helper (and the rail `pages-categories` writes — resolved at build time). Patches the home page's stores-related placeholder data with live `productsV3` queries AND inserts the Shop submenu (categories list) into the persisted Navigation.
+
+> **You patch the shared `Navigation.astro` + `index.astro` shells**, which other packs (e.g. gift-cards) also patch at their own markers. **Touch only your markers and preserve every other scope's siblings — never rewrite either file.** (Flow is the conductor's job: it serializes shell-patching scopes so concurrent marker edits don't collide — BUILD.md Step 7.)
 
 ## Scope
 
@@ -12,7 +14,7 @@ Files this agent PATCHES (does NOT rewrite):
 Files this agent MUST NOT touch:
 - Any other part of `index.astro` — hero, copy, newsletter, decorative ornaments are designer-owned
 - Any part of `Navigation.astro` outside the `<!-- nav:links -->` marker — designer/ecom-owned (the marker model lets multiple verticals contribute siblings without conflict)
-- `src/utils/categories.ts`, `src/components/CategoryRail.astro`, `src/pages/category/[slug].astro` — owned by `pages-categories`; this scope only **imports** `listStoreCategories` from `categories.ts`
+- `src/utils/categories.ts` — pre-copied by the orchestrator; this scope only **imports** `listStoreCategories` from it. `src/components/CategoryRail.astro`, `src/pages/category/[slug].astro` — owned by `pages-categories`
 - Any other component, page, or CSS
 - `global.css`
 
@@ -128,7 +130,7 @@ Handle this:
 
 The designer scaffolds `Navigation.astro` with a `<!-- nav:links -->` marker that vertical packs replace with their primary nav contributions. Stores contributes the Shop link (always) and a hover/focus submenu listing the merchant's visible categories (when any exist — empty by default, since Phase 1 does not seed them).
 
-Read `src/utils/categories.ts` (already on disk — written by `pages-categories`) and import `listStoreCategories`. At the marker, insert:
+Import `listStoreCategories` from `src/utils/categories.ts` (already on disk — pre-copied by the orchestrator). At the marker, insert:
 
 ```astro
 ---
@@ -213,7 +215,7 @@ Keep the marker comment immediately after the inserted `<li>` so other vertical 
 - **Do NOT mutate** categories in the catalog — read-only.
 - **Do NOT touch** `Navigation.astro` outside the `<!-- nav:links -->` marker. Other vertical packs use the same marker model and write siblings.
 - **Do NOT touch** `CartBadge.tsx` or `CartView.tsx` — owned by ecom.
-- **Do NOT rewrite** `src/utils/categories.ts` or `src/components/CategoryRail.astro` — owned by `pages-categories`.
+- **Do NOT rewrite** `src/utils/categories.ts` (pre-copied by the orchestrator — import only) or `src/components/CategoryRail.astro` (owned by `pages-categories`).
 - If home page already has a live query (another agent wired it), leave alone and note in return.
 
 ## Anti-patterns
