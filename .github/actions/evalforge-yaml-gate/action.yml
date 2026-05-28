@@ -1,30 +1,37 @@
 name: 'EvalForge YAML Gate'
-description: 'YAML-authored scenario gate with trace-verified coverage'
+description: 'Authors YAML scenarios in PRs and runs EvalForge evaluations against PR-version docs'
 inputs:
   mode:
+    description: 'Action mode: "eval" (default) runs the gate on a PR; "promote" applies YAML tags on PR merge; "cleanup" deletes MCP versions and restores or removes draft scenarios on PR close'
     required: false
     default: 'eval'
-    description: 'eval | promote | cleanup'
   github-token:
+    description: 'GitHub token for PR comments'
     required: true
   evalforge-url:
+    description: 'EvalForge API base URL'
     required: true
   evalforge-project-id:
+    description: 'EvalForge project ID'
     required: true
   evalforge-agent-id:
+    description: 'EvalForge agent ID for eval runs (required for eval mode)'
     required: false
-    description: 'Required for eval mode'
   evalforge-mcp-id:
+    description: 'EvalForge MCP capability ID'
     required: true
   evalforge-app-id:
+    description: 'EvalForge app ID for authentication'
     required: true
   evalforge-app-secret:
+    description: 'EvalForge app secret for authentication'
     required: true
   mcp-skills-repo:
+    description: 'Override skillsRepo URL param when creating the per-PR MCP version (defaults to GITHUB_REPOSITORY)'
     required: false
     default: ''
-    description: 'Override skillsRepo URL param'
   blocking:
+    description: 'Fail the check on gate errors or scenario failures (set to true to block merges)'
     required: false
     default: 'false'
 runs:
