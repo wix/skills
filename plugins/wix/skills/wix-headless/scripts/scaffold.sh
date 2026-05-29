@@ -48,9 +48,9 @@ fi
 # an active CLI session and otherwise fails mid-run with an opaque error.
 # `wix whoami` exits non-zero on a logged-out session and prints the
 # authenticated email + user id when logged in.
-if ! npx @wix/cli whoami >/dev/null 2>&1; then
+if ! npx @wix/cli@latest whoami >/dev/null 2>&1; then
   echo "scaffold.sh: not logged in to Wix CLI." >&2
-  echo "Run 'npx @wix/cli login' and retry." >&2
+  echo "Run 'npx @wix/cli@latest login' and retry." >&2
   exit 3
 fi
 

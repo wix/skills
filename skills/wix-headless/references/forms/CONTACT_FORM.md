@@ -471,7 +471,7 @@ After form verification, write a sidecar file at `.wix/logs/forms-data.md` (form
 
 ## Testing
 
-1. Run `npx @wix/cli dev`
+1. Run `npx @wix/cli@latest dev`
 2. Navigate to `/contact`
 3. Fill in the form and submit
 4. Check the Wix dashboard → Forms → Submissions to verify the data arrived

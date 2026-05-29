@@ -9,7 +9,7 @@
 #
 # Run from the project directory (CWD = <project>/). Requires wix.config.json.
 #
-# Output: stdout is the released URL that `npx @wix/cli release` printed
+# Output: stdout is the released URL that `npx @wix/cli@latest release` printed
 # (extracted from the line `Site published on <url>`); the orchestrator
 # captures it as outcome.releaseUrl in run.json. All other CLI output goes
 # to stderr.
@@ -19,12 +19,12 @@
 #   <other> — build or release failed; stderr surfaces the underlying error.
 #             Build failures are code bugs (TypeScript / Astro / missing
 #             module) — the orchestrator does NOT retry. Release auth failures
-#             surface as `Run npx @wix/cli login and retry.`
+#             surface as `Run npx @wix/cli@latest login and retry.`
 #             Known transient release failures are retried by this script.
 
 set -euo pipefail
 
-npx @wix/cli build 1>&2
+npx @wix/cli@latest build 1>&2
 
 RELEASE_OUTPUT="$(mktemp)"
 trap 'rm -f "$RELEASE_OUTPUT"' EXIT
@@ -39,7 +39,7 @@ RELEASE_STATUS=1
 for ((attempt = 1; attempt <= MAX_RELEASE_ATTEMPTS; attempt++)); do
   : >"$RELEASE_OUTPUT"
   set +e
-  npx @wix/cli release 2>&1 | tee "$RELEASE_OUTPUT" 1>&2
+  npx @wix/cli@latest release 2>&1 | tee "$RELEASE_OUTPUT" 1>&2
   RELEASE_STATUS=${PIPESTATUS[0]}
   set -e
 

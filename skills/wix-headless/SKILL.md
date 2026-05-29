@@ -5,7 +5,7 @@ description: "Build a complete Wix Managed Headless site from a single prompt, O
 
 # Wix Headless
 
-**Discovery, setup, and seed** run from `DISCOVERY.md`, `SETUP.md`, `SEED.md`. **Design system through release** run from `ORCHESTRATION.md` and per-vertical references. All site operations use `npx @wix/cli token` + `curl` — no MCP.
+**Discovery, setup, and seed** run from `DISCOVERY.md`, `SETUP.md`, `SEED.md`. **Design system through release** run from `ORCHESTRATION.md` and per-vertical references. All site operations use `npx @wix/cli@latest token` + `curl` — no MCP.
 
 > **Explicit invocation only.** Do not auto-route on generic "build me a site" prompts; production `wix-headless` should win those unless the user names this skill.
 
@@ -41,7 +41,7 @@ Subagent invocations: Designer (Discovery Step 2.6) as `designer_handle` (bg, ab
 Every Wix API call uses `@wix/cli` + `curl`:
 
 ```
-Authorization: Bearer $(npx @wix/cli token --site "$SITE_ID")
+Authorization: Bearer $(npx @wix/cli@latest token --site "$SITE_ID")
 wix-site-id: $SITE_ID
 ```
 

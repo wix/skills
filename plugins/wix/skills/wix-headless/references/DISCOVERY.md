@@ -11,21 +11,21 @@ Infer as much as possible from the user's opening message; ask only what's genui
 The first Wix touch in this phase is the background `scaffold.sh` dispatched after Q1 — `npm create @wix/new@latest headless` creates a business + project against the user's Wix account, so it requires an active CLI session. Without one, the scaffold fails in the background and the failure doesn't surface until SETUP.md Step 1 — **after** Q1, Q2, Q2.5, Q3, plan, and approval. That's a ~5-minute interview the user has to redo. Run the auth check foreground here so a logged-out user sees the login prompt before any `AskUserQuestion`.
 
 ```bash
-npx @wix/cli whoami >/dev/null 2>&1
+npx @wix/cli@latest whoami >/dev/null 2>&1
 ```
 
 - Exit 0 → continue to Step 0.
-- Exit non-zero → **run `npx @wix/cli login` yourself with `run_in_background: true`** (do NOT instruct the user to run it). The exact shape:
+- Exit non-zero → **run `npx @wix/cli@latest login` yourself with `run_in_background: true`** (do NOT instruct the user to run it). The exact shape:
 
   | Step | Action | Anti-pattern |
   |---|---|---|
-  | 1 | `Bash` tool, command = `npx @wix/cli login`, `run_in_background: true`. **No shell `&`, no `mktemp` redirect, no chaining.** | `TMPFILE=$(mktemp …) && npx @wix/cli login > "$TMPFILE" 2>&1 &` — stacks shell `&` on harness `run_in_background`, splits wix-login output from the harness task file. |
+  | 1 | `Bash` tool, command = `npx @wix/cli@latest login`, `run_in_background: true`. **No shell `&`, no `mktemp` redirect, no chaining.** | `TMPFILE=$(mktemp …) && npx @wix/cli@latest login > "$TMPFILE" 2>&1 &` — stacks shell `&` on harness `run_in_background`, splits wix-login output from the harness task file. |
   | 2 | The tool reply gives you the harness output-file path in `<bash-stdout>`. **`Read` that path** (or use `TaskOutput`). | Reading any other file. The harness path IS the right file. |
   | 3 | Parse line 1 of the file: `{"event":"awaiting_user","userCode":"…","verificationUri":"…"}`. (Node may emit a `TimeoutNaNWarning` on lines 3-5; ignore.) | Trying to re-invoke wix-login "to do it properly" after seeing the event. The event means it's working — surface and wait. |
   | 4 | Surface to user in one plain-prose message: *"Open `<verificationUri>` in your browser and enter the code `<userCode>` — I'll continue once you've completed the login."* | `AskUserQuestion`. The URL + code are text the user needs to copy, not a multiple-choice answer. |
   | 5 | Wait for the harness `task-notification` with `<status>completed</status>`. Run `whoami` once on completion to confirm. Then proceed to Step 0. | Polling `whoami` in a sleep loop while waiting. The notification is the only signal. |
 
-  Do **not** punt to the user with *"Run `npx @wix/cli login` and retry"* and stop — that breaks the flow (the harness backgrounds the user-issued command, you don't know which output file to read, and the user has to manually prompt you to read it; ~60 s + interrupt of recovery wall). Full reference: [`shared/AUTHENTICATION.md`](shared/AUTHENTICATION.md#wix-login-from-a-non-interactive-agent).
+  Do **not** punt to the user with *"Run `npx @wix/cli@latest login` and retry"* and stop — that breaks the flow (the harness backgrounds the user-issued command, you don't know which output file to read, and the user has to manually prompt you to read it; ~60 s + interrupt of recovery wall). Full reference: [`shared/AUTHENTICATION.md`](shared/AUTHENTICATION.md#wix-login-from-a-non-interactive-agent).
 
 ## Step 0 — Infer Vertical(s) and Business Context
 
@@ -147,10 +147,10 @@ Worked examples:
 
 ### 2.5.2 — Fetch the AI-credit balance
 
-`npx @wix/cli token` **without** `--site` mints an **account-scoped** token. With that token, the balance endpoint at `POST https://manage.wix.com/credit-transactions/v1/credit-transactions/get-account-balance` returns the current periodic credit balance + cap. Verified against the production endpoint on 2026-05-24.
+`npx @wix/cli@latest token` **without** `--site` mints an **account-scoped** token. With that token, the balance endpoint at `POST https://manage.wix.com/credit-transactions/v1/credit-transactions/get-account-balance` returns the current periodic credit balance + cap. Verified against the production endpoint on 2026-05-24.
 
 ```bash
-ACCOUNT_TOKEN=$(npx @wix/cli token)   # NO --site — mints account-scoped
+ACCOUNT_TOKEN=$(npx @wix/cli@latest token)   # NO --site — mints account-scoped
 curl -sS -X POST \
   -H "Authorization: Bearer $ACCOUNT_TOKEN" \
   -H "Content-Type: application/json" \
@@ -178,7 +178,7 @@ Hold `balance = response.periodicCredits.balance` and `cap = response.periodicCr
 3. **POST returns 4xx other than 401/403** — log the response in scratch (do not crash) and set `balance = null`. This includes the 400 you'd see if you accidentally GET the endpoint instead of POST: every prior revision of this section hit that and concluded the endpoint was broken. It isn't — it's POST-only.
 4. **Network error / timeout** — set `balance = null`. The credit estimate (§ 2.5.1) is unaffected; only the Q3 description's *"Current balance: …"* tail goes silent.
 
-> **Don't share the token across calls.** The account-scoped token is for account-level reads only (balance, account metadata). Every other site-operating call in this skill uses `npx @wix/cli token --site "$SITE_ID"` — site-scoped — per `references/shared/AUTHENTICATION.md`. Mix-ups have caused `403 SITE_TOKEN_REQUIRED` on Wix-site calls and `403 ACCOUNT_TOKEN_REQUIRED` on the balance call.
+> **Don't share the token across calls.** The account-scoped token is for account-level reads only (balance, account metadata). Every other site-operating call in this skill uses `npx @wix/cli@latest token --site "$SITE_ID"` — site-scoped — per `references/shared/AUTHENTICATION.md`. Mix-ups have caused `403 SITE_TOKEN_REQUIRED` on Wix-site calls and `403 ACCOUNT_TOKEN_REQUIRED` on the balance call.
 
 > **Historical note.** Earlier revisions of this section claimed the CLI did not expose an account-scoped token primitive, and the balance lookup was disabled unconditionally. Both claims were wrong — `wix token` without `--site` is exactly that primitive. The omission was paying ~1 informational line at Q3 plus losing visibility into whether the user had credits before opting into AI imagery.
 
