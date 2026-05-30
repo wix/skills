@@ -4,7 +4,7 @@ Every Wix API call this skill makes goes through `@wix/cli` + `curl` — no MCP,
 
 ## Prerequisites
 
-- `@wix/cli` resolvable via `npx`. The scaffold installs it project-local, so `npx @wix/cli@latest …` works without a global install.
+- `@wix/cli` resolvable via `npx`. The scaffold installs it project-local, so `npx @wix/cli …` works without a global install.
 - An authenticated CLI session. Test with `npx @wix/cli@latest whoami` — exits **0** when logged in (prints the authenticated email + user id), **non-zero** when logged out.
 
 The primary place this check runs is DISCOVERY.md § "Pre-flight" — foreground, before any `AskUserQuestion`. `scaffold.sh` repeats the check defensively for its standalone-invocation path. **If the check fails, run `npx @wix/cli@latest login` yourself with `run_in_background: true`** per the next section — do not tell the user "run wix login and retry" and stop. Punting to the user breaks the flow: the harness backgrounds the user-issued command, the agent doesn't know which output file to read, and you end up paying ~60 s + a manual user interrupt to recover.
@@ -55,7 +55,7 @@ SITE_ID="<siteId>"  # from wix.config.json after scaffold
 TOKEN=$(npx @wix/cli@latest token --site "$SITE_ID")
 ```
 
-- Mints a **site-scoped REST token**. Stable for the duration of a run — cache it in session scratch and reuse on every `curl`. Do not re-mint per call (each mint costs ~3–5 s of CLI startup).
+- Mints a **site-scoped REST token**. **Mint it exactly once per run and never re-mint.** The CLI returns a **byte-identical** token on every call within a run (it caches internally), so re-minting buys nothing — it only costs ~1.25 s of CLI startup per call. Cache the value in session scratch and inline it into every `curl`. This holds on errors too: a re-minted token is the same string and will produce the same result, so re-minting is never a useful reaction to a failed call (the one exception is after a fresh `wix login`, which establishes a new CLI session — see the recovery ladder).
 - Use `npx @wix/cli@latest token …` rather than bare `wix token …`. `@wix/cli` may not be globally installed in every harness; `npx` resolves the project-local copy the scaffold produced. The first invocation auto-fetches the CLI (~3–5 s) if missing; subsequent calls are instant.
 - The first `--site "$SITE_ID"` invocation in a run is the source of truth for `SITE_ID`. Bind it in session scratch; do not re-derive from `wix.config.json` mid-run.
 
@@ -79,19 +79,21 @@ The body is the recipe's documented JSON payload, with `siteId` inlined where th
 
 ## Recovery ladder
 
+**Do not re-mint the token as a recovery step** (see token-minting note above — a re-minted token is byte-identical). Retry the *same* call with the *same* cached token.
+
 | Symptom | First response | If it still fails |
 |---|---|---|
-| `401 Unauthorized` | Re-mint with `npx @wix/cli@latest token --site "$SITE_ID"` and retry the call once. | The CLI session expired — run `wix login` per the stderr-scrape flow above. |
-| `403 Forbidden` | Re-mint and retry once. | The token shape is fine but the caller lacks the permission. The two real causes: (a) the relevant app is not installed yet (re-check `apps-installer-service` returned 200 for that app in Setup Step 4a), (b) the resource requires a provisioning step the recipe doesn't run. Surface the response body; do not loop on retries. |
+| `401 Unauthorized` | Retry the same call once with the cached token. | The CLI session expired — run `wix login` per the flow above (that establishes a *new* session, so the token minted afterward genuinely differs). Re-minting without a fresh login returns the same expired-context token and will not help. |
+| `403 Forbidden` | Retry the same call once. | The token shape is fine but the caller lacks the permission. The two real causes: (a) the relevant app is not installed yet (re-check `apps-installer-service` returned 200 for that app in Setup Step 4a), (b) the resource requires a provisioning step the recipe doesn't run. Surface the response body; do not loop on retries. |
 | `404 Not Found` on a documented URL | Re-read the recipe — URL path segments are easy to typo (e.g. `/blog/v3/bulk/draft-posts/create`, **not** `/blog/v3/draft-posts/bulk/create`). | Recipe bug; surface and stop. |
 
-**Do not** spend turns A/B-testing the header shape (Bearer vs no-Bearer, with/without `wix-site-id`). The shape above is the contract; if a single retry with re-minted token doesn't fix it, the issue is upstream and recipe-level debugging will not recover it.
+**Do not** spend turns A/B-testing the header shape (Bearer vs no-Bearer, with/without `wix-site-id`) or cycling tokens. The shape above is the contract; if a single retry with the cached token doesn't fix it, the issue is upstream and recipe-level debugging will not recover it.
 
 ## Account-scoped calls
 
 `npx @wix/cli@latest token` (no flags) mints an **account-scoped** token. `npx @wix/cli@latest token --site "$SITE_ID"` mints a **site-scoped** token. The CLI's `--site` flag is what toggles between the two scopes; there is no separate `--account` flag because omitting `--site` is itself the account-scoped form.
 
-Verified against the production endpoint on 2026-05-24 — the account-scoped token authenticates against `manage.wix.com` endpoints (e.g. `POST /credit-transactions/v1/credit-transactions/get-account-balance`).
+The account-scoped token authenticates against `manage.wix.com` endpoints (e.g. `POST /credit-transactions/v1/credit-transactions/get-account-balance`).
 
 ```bash
 # Account-scoped — for /credit-transactions, /accounts, /subscriptions, etc.
