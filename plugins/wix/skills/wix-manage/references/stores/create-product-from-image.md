@@ -120,14 +120,34 @@ A concise, appealing product name optimized for e-commerce discoverability. Maxi
 
 Example: `"Artisan Stoneware Ceramic Mug"` — not generic names like `"Mug"` or `"Product"`.
 
-### 4b. Product Description
-A marketing description of 2-4 sentences. Highlight key features, materials, and use case. Adapt tone to the product type (artisanal for handmade, technical for electronics, warm for home goods). This will be formatted as rich text nodes in V3 STEP 6.
+### 4b. Sample Existing Product Tone (silent — no user interaction)
 
-### 4c. Price with Market Range
+Before writing the description, check whether the site already has products to match their tone:
+
+**API Endpoint:** `POST https://www.wixapis.com/stores/v3/products/query`
+
+```json
+{
+    "query": {
+        "paging": {
+            "limit": 2
+        }
+    }
+}
+```
+
+- If the response contains products with non-empty `description` fields, analyze their writing style (casual, professional, playful, luxury, technical, etc.) and note it as the **site tone**.
+- If no products exist or descriptions are empty, use a neutral e-commerce tone.
+- This query is best-effort — if it fails, proceed with neutral tone. Do NOT block the flow.
+
+### 4c. Product Description
+A marketing description of 2-4 sentences. Highlight key features, materials, and use case. **Match the site tone detected in 4b** — if the existing products use casual language, write casually; if they use formal/luxury language, match that style. If no site tone was detected, adapt tone to the product type (artisanal for handmade, technical for electronics, warm for home goods). This will be formatted as rich text nodes in V3 STEP 7.
+
+### 4d. Price with Market Range
 - Suggest a retail price based on the product type and industry averages.
 - Also determine an approximate **market range** for annotation (e.g., "avg. market: $28-$42"). This range is shown to the user in V3 STEP 5 but is NOT sent to the API.
 
-### 4d. Info Sections (only if relevant)
+### 4e. Info Sections (only if relevant)
 Based on the product type and what's visible in the image, generate category-specific info sections. **Only include sections that are relevant — omit entirely if not applicable.**
 
 | Product Category | Possible Info Sections |
@@ -142,26 +162,26 @@ Based on the product type and what's visible in the image, generate category-spe
 
 Each info section needs: a `uniqueName` (lowercase-hyphenated, e.g., `"care-instructions"`), a `title` (display name, e.g., `"Care Instructions"`), and a description (2-3 sentences).
 
-### 4e. SEO Meta Description
+### 4f. SEO Meta Description
 A short meta description (120-160 characters) optimized for search. Include the product type, key materials, and primary use case.
 
 Example: `"Handcrafted stoneware ceramic mug with a matte glaze finish. Perfect for coffee and tea lovers. Microwave and dishwasher safe."`
 
-### 4f. Suggested Options (from images)
+### 4g. Suggested Options (from images)
 Examine the images for visible product attributes that should become variant options.
 
-**CRITICAL: Do NOT invent attributes.** Only suggest options that are:
-- Visually confirmed in the image(s), OR
-- Explicitly stated by the user in their text note
+**CRITICAL: Do NOT invent or infer attributes.** Only suggest options that meet **one** of these evidence thresholds:
+- **Visually confirmed** in the image(s) — you can see distinct values (e.g., two different colors across two images, a size label printed on packaging)
+- **Explicitly stated** by the user in their text note (e.g., "available in blue and green", "comes in S, M, L")
+
+**Do NOT suggest standard industry options based on product category.** For example, do NOT suggest Size: S, M, L, XL, XXL for apparel just because it is a clothing item. If no size information is visible in the image and the user did not mention sizes, report no size options detected.
+
+**Negative example:** Image shows a single t-shirt with no size labels visible and the user did not mention sizes → do NOT suggest a Size option. Report: "No variant options detected from the image."
 
 **Multi-image variant detection:**
-- If multiple images show the **same product in different colors** (e.g., one red shirt, one blue shirt), suggest a Color option with those colors as choices.
+- If multiple images show the **same product in different colors** (e.g., one red shirt, one blue shirt), suggest a Color option with **only those visible colors** as choices.
 - If multiple images show the **same product from different angles**, treat them as additional product media — NOT as separate variants.
-- If only one image is provided and a color is visible, suggest that single color as a choice and ask the user if the product comes in other colors.
-
-Common options to detect:
-- **Color** — visible color(s) across images
-- **Size** — if apparel, footwear, or size-varying product
+- If only one image is provided and a distinctive color is visible, suggest that single color as a choice and ask the user if the product comes in other colors.
 
 ---
 
@@ -169,26 +189,39 @@ Common options to detect:
 
 **You MUST present ALL generated fields to the user and ask for confirmation before proceeding.**
 
-Present a structured review card:
+Present a structured review card using the markdown format below. This provides a visual product-card-style layout:
 
-> **Here's what I've generated from your image(s):**
->
-> **Name:** [generated name]
->
-> **Description:** [generated description text]
->
-> **Price:** $[price] *(avg. market: $[low]-$[high])*
->
-> **Info Sections:**
-> - **[Title 1]:** [summary]
-> - **[Title 2]:** [summary]
->
-> **SEO Description:** [meta description]
->
-> Would you like to:
-> - **Refine** — tell me what to change (e.g., "make the description shorter", "the price should be lower")
-> - **Regenerate** — I'll start the analysis over, optionally with additional context from you
-> - **Approve** — proceed to options and product creation
+```
+---
+
+### [Product Name]
+
+**$[price]** · _avg. market: $[low]-$[high]_
+
+> [Generated description text — the full 2-4 sentence description]
+
+---
+
+| Detail | Value |
+|--------|-------|
+| Images | [count] uploaded |
+| SEO | [first 60 chars of meta description]… |
+| Tone | [Matched from existing site products / Neutral e-commerce] |
+
+**Info Sections**
+- **[Title 1]:** [one-line summary]
+- **[Title 2]:** [one-line summary]
+
+**Detected Options:** [option summary, e.g. "Color: Slate Blue, Terracotta" or "None detected"]
+
+---
+```
+
+After the card, present the action options:
+
+> 1. **Refine** — tell me what to change (e.g., "make the description shorter", "the price should be lower")
+> 2. **Regenerate** — I'll start the analysis over, optionally with additional context from you
+> 3. **Approve** — proceed to options and product creation
 
 If the user provided a text note that **contradicts** what's visible in the image (e.g., image shows blue but note says "available in red"), ask the user to clarify before proceeding.
 
@@ -198,7 +231,7 @@ If the user provided a text note that **contradicts** what's visible in the imag
 
 ## V3 STEP 5: Suggest Options and Ask User (INTERACTIVE)
 
-**Present the detected options from V3 STEP 3f and ask the user if they want to add product options.**
+**Present the detected options from V3 STEP 4g and ask the user if they want to add product options.**
 
 If options were detected:
 
@@ -214,7 +247,7 @@ If options were detected:
 
 If no options were detected:
 
-> I didn't detect any variant attributes from the image(s). Would you like to add product options (such as Size or Color), or should I create a simple product without variants?
+> I didn't detect any variant attributes from the image(s). Would you like to add product options, or should I create a simple product without variants?
 
 **Wait for user response.** Collect the final list of options and choices based on their answer.
 
@@ -583,7 +616,27 @@ Use this if the user confirmed or provided options in V3 STEP 6. You MUST define
 }
 ```
 
-**On success:** Report to the user the product name, price, options (if any), info sections added, and confirm the product was created with images attached.
+**On success:** Present a completion card summarizing what was created:
+
+```
+---
+
+### Product Created
+
+**[Product Name]** · **$[price]**
+
+| | |
+|---|---|
+| Options | [option summary or "None"] |
+| Info Sections | [list of section titles] |
+| Images | [count] attached |
+
+**View in dashboard:** `https://manage.wix.com/dashboard/[siteId]/store/products/[productId]`
+
+---
+```
+
+Replace `[siteId]` with the site ID from the MCP context and `[productId]` with the `product.id` from the API response. This link lets the user immediately view and edit the product in the Wix dashboard.
 
 **On failure:** Show an error message and offer to retry. Do NOT leave a partially created product.
 

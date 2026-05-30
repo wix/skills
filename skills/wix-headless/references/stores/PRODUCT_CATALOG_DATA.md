@@ -17,7 +17,7 @@ Replace the default sample products Wix Stores installs with on-brand products v
 
 > **Conditional:** This section only applies when ALL of these are true:
 > - The Stores app was just installed (default sample products exist)
-> - CLI auth works (`npx @wix/cli token --site "$SITE_ID"` returns a token)
+> - CLI auth works (`npx @wix/cli@latest token --site "$SITE_ID"` returns a token)
 > - Discovery context is available in your prompt (business type, brand name, style)
 >
 > **If CLI auth is not available, skip this entire section.** The 12 default products remain and can be customized later in the Wix dashboard.

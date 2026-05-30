@@ -252,8 +252,8 @@ Record the rate-limit event in `run.json` `notes[]` regardless of recovery outco
 
 ## Build & Release
 
-1. `npx @wix/cli build` — if it fails, inspect `.wix/debug.log` for the specific error, fix, retry. Common failure modes are listed in `references/shared/RETURN_CONTRACT.md` § "Common failure modes".
-2. `npx @wix/cli release` — extract the published URL from the `Site published on <url>` line in stdout. This command also populates the **Frontend link** in headless settings natively, so transactional emails link to the deployed frontend without any extra API calls.
+1. `npx @wix/cli@latest build` — if it fails, inspect `.wix/debug.log` for the specific error, fix, retry. Common failure modes are listed in `references/shared/RETURN_CONTRACT.md` § "Common failure modes".
+2. `npx @wix/cli@latest release` — extract the published URL from the `Site published on <url>` line in stdout. This command also populates the **Frontend link** in headless settings natively, so transactional emails link to the deployed frontend without any extra API calls.
 
 ---
 

@@ -26,7 +26,7 @@ Standard scope names (see architecture-proposal §3):
 
 ## REST auth
 
-Scopes that call Wix APIs (`seed`, image phases) receive `siteId` in the prompt. Mint once: `TOKEN=$(npx @wix/cli token --site "$SITE_ID")`. Every `curl` uses the headers in `references/shared/AUTHENTICATION.md`. Doc lookups use the public REST endpoints listed in `references/shared/DOCS_SEARCH.md`.
+Scopes that call Wix APIs (`seed`, image phases) receive `siteId` in the prompt. Mint once: `TOKEN=$(npx @wix/cli@latest token --site "$SITE_ID")`. Every `curl` uses the headers in `references/shared/AUTHENTICATION.md`. Doc lookups use the public REST endpoints listed in `references/shared/DOCS_SEARCH.md`.
 
 If your scope is `components` or `pages`, you should NOT make REST calls — those scopes are frontend-only. If you find yourself needing a site API call, it's a scope violation — return `status: "partial"` with an error note, do not proceed.
 

@@ -97,11 +97,11 @@ Do NOT read .wix/site.json — every input you need is inlined above. The orches
 Steps:
 
 1. **Open with one concurrent batch** (single assistant message, multiple tool calls):
-   - One `Bash` to mint and capture the site-scoped REST token: `TOKEN=$(npx @wix/cli token --site "<siteId>")`. Use `npx @wix/cli token …` (not bare `wix token …`): `@wix/cli` may not be globally installed in every harness.
+   - One `Bash` to mint and capture the site-scoped REST token: `TOKEN=$(npx @wix/cli@latest token --site "<siteId>")`. Use `npx @wix/cli@latest token …` (not bare `wix token …`): `@wix/cli` may not be globally installed in every harness.
    - One `Read` per absolute recipe path you were given. If you have N recipe paths, issue N Reads as siblings — do not serialize them.
    No narration, no "Reading recipe and minting token:" preamble. Issue the batch.
 
-   > **Mint the token EXACTLY ONCE. Never re-mint.** Inline the captured `$TOKEN` value into every subsequent `curl` and reuse it for the entire seed phase. `npx @wix/cli token --site "<siteId>"` returns a **byte-identical** string on every call within a run (the CLI caches it) **and** each call costs ~1.25 s of CLI startup — so re-minting is pure wasted wall that changes nothing. This holds on errors too: if a call fails, re-minting gives you the same token and the same failure. Do not re-mint to "get a fresh token," do not re-mint "to be safe," do not re-mint as a reaction to any error. One mint, reused everywhere.
+   > **Mint the token EXACTLY ONCE. Never re-mint.** Inline the captured `$TOKEN` value into every subsequent `curl` and reuse it for the entire seed phase. `npx @wix/cli@latest token --site "<siteId>"` returns a **byte-identical** string on every call within a run (the CLI caches it) **and** each call costs ~1.25 s of CLI startup — so re-minting is pure wasted wall that changes nothing. This holds on errors too: if a call fails, re-minting gives you the same token and the same failure. Do not re-mint to "get a fresh token," do not re-mint "to be safe," do not re-mint as a reaction to any error. One mint, reused everywhere.
 
 2. Fire the recipe's REST calls via `curl` against `wixapis.com`. Every call carries the headers documented in `<skill-root>/references/shared/AUTHENTICATION.md` — `Authorization: Bearer $TOKEN` (the token from Step 1), `wix-site-id: <siteId>`, and `Content-Type: application/json` — plus the recipe's documented body. Construct request bodies from intent.<pack> + brand. **When the recipe documents N independent calls** (e.g., creating N categories, adding products to N categories), issue them as one parallel batch — not sequentially.
 

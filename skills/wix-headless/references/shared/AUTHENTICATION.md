@@ -5,15 +5,15 @@ Every Wix API call this skill makes goes through `@wix/cli` + `curl` — no MCP,
 ## Prerequisites
 
 - `@wix/cli` resolvable via `npx`. The scaffold installs it project-local, so `npx @wix/cli …` works without a global install.
-- An authenticated CLI session. Test with `npx @wix/cli whoami` — exits **0** when logged in (prints the authenticated email + user id), **non-zero** when logged out.
+- An authenticated CLI session. Test with `npx @wix/cli@latest whoami` — exits **0** when logged in (prints the authenticated email + user id), **non-zero** when logged out.
 
-The primary place this check runs is DISCOVERY.md § "Pre-flight" — foreground, before any `AskUserQuestion`. `scaffold.sh` repeats the check defensively for its standalone-invocation path. **If the check fails, run `npx @wix/cli login` yourself with `run_in_background: true`** per the next section — do not tell the user "run wix login and retry" and stop. Punting to the user breaks the flow: the harness backgrounds the user-issued command, the agent doesn't know which output file to read, and you end up paying ~60 s + a manual user interrupt to recover.
+The primary place this check runs is DISCOVERY.md § "Pre-flight" — foreground, before any `AskUserQuestion`. `scaffold.sh` repeats the check defensively for its standalone-invocation path. **If the check fails, run `npx @wix/cli@latest login` yourself with `run_in_background: true`** per the next section — do not tell the user "run wix login and retry" and stop. Punting to the user breaks the flow: the harness backgrounds the user-issued command, the agent doesn't know which output file to read, and you end up paying ~60 s + a manual user interrupt to recover.
 
 The "stop and tell the user" path is a **last-resort fallback** for when the background-run mechanism itself is broken (e.g. the harness rejects `run_in_background: true`, or the task output file never gets created). Try the agent-driven flow first.
 
 ## `wix login` from a non-interactive agent
 
-`wix login` (or `npx @wix/cli login`) emits one JSON event per line on **stdout** and blocks until the human finishes the browser step. The first event you care about is `awaiting_user`:
+`wix login` (or `npx @wix/cli@latest login`) emits one JSON event per line on **stdout** and blocks until the human finishes the browser step. The first event you care about is `awaiting_user`:
 
 ```json
 {"event":"awaiting_user","expiresInSeconds":600,"userCode":"TPV5HUG5","verificationUri":"https://users.wix.com/login/device-login?color=developer&studio=true"}
@@ -26,7 +26,7 @@ The "stop and tell the user" path is a **last-resort fallback** for when the bac
 The Bash command is just the CLI invocation, **nothing else**:
 
 ```bash
-npx @wix/cli login
+npx @wix/cli@latest login
 ```
 
 Pass `run_in_background: true` on the Bash tool call. **Do not** add shell `&`, **do not** redirect to your own `mktemp` file, **do not** chain with `echo`/`sleep`. The harness wraps the process for you and writes stdout+stderr to its own task output file at `/tmp/claude-<uid>/<project>/tasks/<task-id>.output`. The tool's `<bash-stdout>` reply gives you that path verbatim — that's the file you read. Stacking shell `&` on top of `run_in_background` creates two layers of backgrounding: the harness captures only the parent shell's `pid:` / `file:` echoes while wix-login's actual JSON events write somewhere else.
@@ -52,11 +52,11 @@ On `<status>completed</status>` with exit 0, run `whoami` once to confirm and pr
 
 ```bash
 SITE_ID="<siteId>"  # from wix.config.json after scaffold
-TOKEN=$(npx @wix/cli token --site "$SITE_ID")
+TOKEN=$(npx @wix/cli@latest token --site "$SITE_ID")
 ```
 
 - Mints a **site-scoped REST token**. **Mint it exactly once per run and never re-mint.** The CLI returns a **byte-identical** token on every call within a run (it caches internally), so re-minting buys nothing — it only costs ~1.25 s of CLI startup per call. Cache the value in session scratch and inline it into every `curl`. This holds on errors too: a re-minted token is the same string and will produce the same result, so re-minting is never a useful reaction to a failed call (the one exception is after a fresh `wix login`, which establishes a new CLI session — see the recovery ladder).
-- Use `npx @wix/cli token …` rather than bare `wix token …`. `@wix/cli` may not be globally installed in every harness; `npx` resolves the project-local copy the scaffold produced. The first invocation auto-fetches the CLI (~3–5 s) if missing; subsequent calls are instant.
+- Use `npx @wix/cli@latest token …` rather than bare `wix token …`. `@wix/cli` may not be globally installed in every harness; `npx` resolves the project-local copy the scaffold produced. The first invocation auto-fetches the CLI (~3–5 s) if missing; subsequent calls are instant.
 - The first `--site "$SITE_ID"` invocation in a run is the source of truth for `SITE_ID`. Bind it in session scratch; do not re-derive from `wix.config.json` mid-run.
 
 ## REST call shape
@@ -91,16 +91,16 @@ The body is the recipe's documented JSON payload, with `siteId` inlined where th
 
 ## Account-scoped calls
 
-`npx @wix/cli token` (no flags) mints an **account-scoped** token. `npx @wix/cli token --site "$SITE_ID"` mints a **site-scoped** token. The CLI's `--site` flag is what toggles between the two scopes; there is no separate `--account` flag because omitting `--site` is itself the account-scoped form.
+`npx @wix/cli@latest token` (no flags) mints an **account-scoped** token. `npx @wix/cli@latest token --site "$SITE_ID"` mints a **site-scoped** token. The CLI's `--site` flag is what toggles between the two scopes; there is no separate `--account` flag because omitting `--site` is itself the account-scoped form.
 
 The account-scoped token authenticates against `manage.wix.com` endpoints (e.g. `POST /credit-transactions/v1/credit-transactions/get-account-balance`).
 
 ```bash
 # Account-scoped — for /credit-transactions, /accounts, /subscriptions, etc.
-ACCOUNT_TOKEN=$(npx @wix/cli token)
+ACCOUNT_TOKEN=$(npx @wix/cli@latest token)
 
 # Site-scoped — for everything site-operating (apps install, products, blog, cms, …)
-SITE_TOKEN=$(npx @wix/cli token --site "$SITE_ID")
+SITE_TOKEN=$(npx @wix/cli@latest token --site "$SITE_ID")
 ```
 
 **Do not share tokens across scopes.** Site-operating calls (`wixapis.com/stores/v3/...`, `/blog/v3/...`, `/wix-data/v2/...`) need the **site** token + `wix-site-id` header; using the account token returns `403 SITE_TOKEN_REQUIRED`. Account-level calls (`manage.wix.com/credit-transactions/...`, `/subscriptions/...`) need the **account** token alone — no `wix-site-id` header; using the site token returns `403 ACCOUNT_TOKEN_REQUIRED`.

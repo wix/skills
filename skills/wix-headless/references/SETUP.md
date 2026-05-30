@@ -18,12 +18,12 @@ Mode/track routing (which path runs) is owned by `PLAN.md` § "Frontend-mode rou
 **Do not** speculatively `Read <project-slug>/wix.config.json` before the scaffold exists — the speculative read returns `File does not exist` on every fast-Q&A run (the file isn't there yet), emits a `[MED]` anomaly in the trace, and costs 3–5 s of round-trip + recovery thinking.
 
 Once the scaffolded project exists, read `<project-slug>/wix.config.json` and extract:
-- `siteId` — the site id passed as `--site` to `npx @wix/cli token` and embedded in every install body + as the `wix-site-id` header on every site-scoped REST call. Hold it in orchestrator session scratch.
+- `siteId` — the site id passed as `--site` to `npx @wix/cli@latest token` and embedded in every install body + as the `wix-site-id` header on every site-scoped REST call. Hold it in orchestrator session scratch.
 - `appId` — the project's appId. Hold it in session scratch (it goes into the SDK's `createClient` inputs in later steps).
 
 **Before `cd`, capture the current working directory as `<site-root>` and hold it in session scratch.** This is where Discovery's `init-site-json.mjs` wrote the slim `.wix/site.json` snapshot. The orchestrator is the **sole** reader/writer of that file; no subagent or downstream script reads it during the run. Hold `<site-root>` as an absolute path so the `cd` into the scaffold subdir below does not lose it.
 
-`cd` into `<project-slug>/` so all subsequent file ops + shell calls (`npm`, `npx @wix/cli env pull`) are relative to the project root.
+`cd` into `<project-slug>/` so all subsequent file ops + shell calls (`npm`, `npx @wix/cli@latest env pull`) are relative to the project root.
 
 ---
 
@@ -80,7 +80,7 @@ Mint the site-scoped REST token once and cache it for the rest of the run, then 
 
 ```bash
 SITE_ID="<siteId>"
-TOKEN=$(npx @wix/cli token --site "$SITE_ID")  # once; cache in scratch for the run
+TOKEN=$(npx @wix/cli@latest token --site "$SITE_ID")  # once; cache in scratch for the run
 
 # per-pack iteration; one curl per pack.apps[*]:
 curl -sS -X POST "https://www.wixapis.com/apps-installer-service/v1/app-instance/install" \
@@ -93,7 +93,7 @@ curl -sS -X POST "https://www.wixapis.com/apps-installer-service/v1/app-instance
   }'
 ```
 
-Use `npx @wix/cli token …` (not bare `wix token …`): `@wix/cli` may not be globally installed in every harness, and `npx` resolves to the project-local copy that scaffold just produced. The first invocation auto-fetches the CLI (~3–5 s) if missing; subsequent calls are instant.
+Use `npx @wix/cli@latest token …` (not bare `wix token …`): `@wix/cli` may not be globally installed in every harness, and `npx` resolves to the project-local copy that scaffold just produced. The first invocation auto-fetches the CLI (~3–5 s) if missing; subsequent calls are instant.
 
 A 200 response confirms the install. On 401/403, retry the same call once with the cached token per the recovery ladder in `references/shared/AUTHENTICATION.md` — do **not** re-mint (the token is byte-identical for the run); if it still fails, surface the response body — a persistent 401 usually means the CLI session expired and `wix login` is required.
 
@@ -101,7 +101,7 @@ A 200 response confirms the install. On 401/403, retry the same call once with t
 
 **Packs with `disabled: true` (today: `gift-cards`):** the pack still loads and contributes to the resolved set, but its `apps:` array is empty by design (the user opts in via the dashboard later). No curl. Same `skipped` phase entry as above.
 
-### 4b. `npx @wix/cli env pull`
+### 4b. `npx @wix/cli@latest env pull`
 
 Foreground shell, ~5 s. Writes `WIX_CLIENT_ID` to `.env.local`. Idempotent. Skipping this causes `Missing environment variable WIX_CLIENT_ID` build failures in downstream phases.
 
@@ -184,7 +184,7 @@ Use this path when the user already has a working frontend on disk (Claude Desig
 | Seeders / Designer / Pages / BUILD | Run | **Skipped** — there is no Astro structure to populate |
 | App installs | From inferred vertical packs | From a quick **project analysis** (see E2) — only apps the existing project actually needs |
 | SDK wiring into source | N/A (subagents write Astro + SDK calls from scratch) | **Required (E4)** — edit the project's existing source files in place |
-| Build / release | `npx @wix/cli build` + `release` via `release.sh` | `npx @wix/cli release` directly — **no build step**; existing `index.html` is published as-is |
+| Build / release | `npx @wix/cli@latest build` + `release` via `release.sh` | `npx @wix/cli@latest release` directly — **no build step**; existing `index.html` is published as-is |
 | Entry file | `src/pages/index.astro` (Astro convention) | **Must be `index.html`** at the configured `outputDirectory` |
 
 ### Step E1 — Init (replaces scaffold)
@@ -218,7 +218,7 @@ This creates a Wix Site + Headless Project (App) connected to that Site, and wri
 4. Capture `{ phase: "init", seconds, started, ended }` in `run.json.phases[]`.
 
 Recovery ladder:
-- Auth error → surface `"Run \`npx @wix/cli login\` and retry."` and stop (same as Path A; full ladder in `references/shared/AUTHENTICATION.md`).
+- Auth error → surface `"Run \`npx @wix/cli@latest login\` and retry."` and stop (same as Path A; full ladder in `references/shared/AUTHENTICATION.md`).
 - `wix.config.json` already exists → skip E1, continue to E2.
 - Network / unknown → surface stderr to the user.
 
@@ -269,12 +269,12 @@ Capture `{ phase: "sdk-wiring-<pack>", seconds }` per pack.
 
 ### Step E5 — Release (no build)
 
-**Do NOT run `release.sh`** in this flow — `release.sh` runs `npx @wix/cli build` first, and there is nothing to build. The existing project's `index.html` and its sibling assets already sit at the configured `site.outputDirectory`; Wix just needs to publish that directory as-is. Calling `build` here either no-ops (wastes ~5–15 s) or fails if the project has no Astro/Vite config the Wix CLI knows how to invoke.
+**Do NOT run `release.sh`** in this flow — `release.sh` runs `npx @wix/cli@latest build` first, and there is nothing to build. The existing project's `index.html` and its sibling assets already sit at the configured `site.outputDirectory`; Wix just needs to publish that directory as-is. Calling `build` here either no-ops (wastes ~5–15 s) or fails if the project has no Astro/Vite config the Wix CLI knows how to invoke.
 
 Run release directly:
 
 ```bash
-npx @wix/cli release
+npx @wix/cli@latest release
 ```
 
 Capture stdout. The CLI prints `Site published on <url>` on success — extract that URL (same parser logic as `release.sh` uses):
@@ -285,9 +285,9 @@ sed -nE 's/.*Site published on ([^[:space:]]+).*/\1/p'
 
 Capture `{ phase: "release", seconds }` around the call. No `{ phase: "build" }` entry in `run.json` for this flow.
 
-Auth-failure recovery: same as `release.sh` — if stderr mentions login, surface `"Run \`npx @wix/cli login\` and retry."` and stop. Transient errors (`ECONNRESET`, `temporarily unavailable`, etc.) — retry up to 3 times with `attempt * 5` second backoff, mirroring `release.sh`.
+Auth-failure recovery: same as `release.sh` — if stderr mentions login, surface `"Run \`npx @wix/cli@latest login\` and retry."` and stop. Transient errors (`ECONNRESET`, `temporarily unavailable`, etc.) — retry up to 3 times with `attempt * 5` second backoff, mirroring `release.sh`.
 
-> **If the project needs a client build** (Vite, React, Webpack, etc.), run the project's own build command manually (e.g. `npm run build`) before `npx @wix/cli release`, and make sure `site.outputDirectory` points at the build output. Do not use `wix build`.
+> **If the project needs a client build** (Vite, React, Webpack, etc.), run the project's own build command manually (e.g. `npm run build`) before `npx @wix/cli@latest release`, and make sure `site.outputDirectory` points at the build output. Do not use `wix build`.
 
 ### Step E6 — Final message
 

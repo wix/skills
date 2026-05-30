@@ -62,12 +62,12 @@ The Pages plan table, the Imagery line, the aesthetic-direction paragraph, and t
 The first Wix touch is the post-approval scaffold (`scaffold.sh` → `npm create @wix/new@latest headless`), which creates a business + project against the user's Wix account and so requires an active CLI session. Without one it fails — and because the scaffold now runs **after** approval (`BUILD.md` run-step 0), a logged-out user wouldn't find out until they'd done the whole interview *and* approved, only to have the build fail immediately. Run the auth check foreground here so a logged-out user sees the login prompt before any `AskUserQuestion`.
 
 ```bash
-npx @wix/cli whoami >/dev/null 2>&1
+npx @wix/cli@latest whoami >/dev/null 2>&1
 ```
 
 - Exit 0 → continue to Step 0.
-- Exit non-zero → **run `npx @wix/cli login` yourself; do NOT punt to the user.** Steps:
-  1. `Bash` tool with command `npx @wix/cli login`, `run_in_background: true`. No shell `&`, no `mktemp` redirect, no chaining.
+- Exit non-zero → **run `npx @wix/cli@latest login` yourself; do NOT punt to the user.** Steps:
+  1. `Bash` tool with command `npx @wix/cli@latest login`, `run_in_background: true`. No shell `&`, no `mktemp` redirect, no chaining.
   2. Read the harness output-file path from the tool reply's `<bash-stdout>` (or use `TaskOutput`).
   3. Parse line 1 for `{"event":"awaiting_user","userCode":"…","verificationUri":"…"}` (ignore any `TimeoutNaNWarning` on later lines).
   4. Surface in one plain-prose message — *not* `AskUserQuestion`: *"Open `<verificationUri>` in your browser and enter the code `<userCode>` — I'll continue once you've completed the login."*
@@ -194,10 +194,10 @@ Worked examples:
 
 ### 2.5.2 — Fetch the AI-credit balance
 
-`npx @wix/cli token` **without** `--site` mints an **account-scoped** token. With that token, the balance endpoint at `POST https://manage.wix.com/credit-transactions/v1/credit-transactions/get-account-balance` returns the current periodic credit balance + cap.
+`npx @wix/cli@latest token` **without** `--site` mints an **account-scoped** token. With that token, the balance endpoint at `POST https://manage.wix.com/credit-transactions/v1/credit-transactions/get-account-balance` returns the current periodic credit balance + cap.
 
 ```bash
-ACCOUNT_TOKEN=$(npx @wix/cli token)   # NO --site — mints account-scoped
+ACCOUNT_TOKEN=$(npx @wix/cli@latest token)   # NO --site — mints account-scoped
 curl -sS -X POST \
   -H "Authorization: Bearer $ACCOUNT_TOKEN" \
   -H "Content-Type: application/json" \
@@ -225,7 +225,7 @@ Hold `balance = response.periodicCredits.balance` and `cap = response.periodicCr
 3. **POST returns 4xx other than 401/403** — log the response in scratch (do not crash) and set `balance = null`. The endpoint is POST-only; a GET returns 400.
 4. **Network error / timeout** — set `balance = null`. The credit estimate (§ 2.5.1) is unaffected; only the Q3 description's *"Current balance: …"* tail goes silent.
 
-> **Don't share the token across calls.** The account-scoped token is for account-level reads only (balance, account metadata). Every other site-operating call in this skill uses `npx @wix/cli token --site "$SITE_ID"` — site-scoped — per `references/shared/AUTHENTICATION.md`. Site-scoped tokens are rejected by the account endpoint and vice-versa.
+> **Don't share the token across calls.** The account-scoped token is for account-level reads only (balance, account metadata). Every other site-operating call in this skill uses `npx @wix/cli@latest token --site "$SITE_ID"` — site-scoped — per `references/shared/AUTHENTICATION.md`. Site-scoped tokens are rejected by the account endpoint and vice-versa.
 
 ### 2.5.3 — Ask Q3
 

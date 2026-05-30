@@ -294,6 +294,6 @@ body: {
 
 1. Create a "Team" collection in the Wix dashboard → CMS with the schema above
 2. Add 4+ members across 2+ departments, with photos and social links
-3. Run `npx @wix/cli dev`
+3. Run `npx @wix/cli@latest dev`
 4. `/team` — shows members grouped by department
 5. Click a member — profile page with photo, bio, and social links
