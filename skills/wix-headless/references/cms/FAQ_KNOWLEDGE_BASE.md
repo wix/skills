@@ -224,7 +224,7 @@ Key details:
 
 1. Create a "FAQ" collection in the Wix dashboard → CMS with the schema above
 2. Add 6+ FAQ items across 2+ categories, all with `published: true`
-3. Run `npx @wix/cli dev`
+3. Run `npx @wix/cli@latest dev`
 4. `/faq` — shows all questions grouped by category
 5. Click a question — accordion opens with the answer
 6. Type in search — filters questions in real-time

@@ -127,13 +127,13 @@ Inputs (do not re-derive these):
 Steps:
 
 1. **Open with one concurrent batch** (single assistant message, multiple tool calls):
-   - One `Bash` to mint and capture the site-scoped REST token: `TOKEN=$(npx @wix/cli token --site "<siteId>")`. Cache the token in subagent scratch — every subsequent `curl` reuses it. (The token is stable for the duration of the run; do not re-mint per call.) Use `npx @wix/cli token …` (not bare `wix token …`): `@wix/cli` may not be globally installed in every harness.
+   - One `Bash` to mint and capture the site-scoped REST token: `TOKEN=$(npx @wix/cli@latest token --site "<siteId>")`. Cache the token in subagent scratch — every subsequent `curl` reuses it. (The token is stable for the duration of the run; do not re-mint per call.) Use `npx @wix/cli@latest token …` (not bare `wix token …`): `@wix/cli` may not be globally installed in every harness.
    - One `Read` per absolute recipe path you were given. If you have N recipe paths, issue N Reads as siblings — do not serialize them.
    No narration, no "Reading recipe and minting token:" preamble. Issue the batch.
 
 2. Fire the recipe's REST calls via `curl` against `wixapis.com`. Every call carries the headers documented in `<skill-root>/references/shared/AUTHENTICATION.md` — `Authorization: Bearer $TOKEN` (the token from Step 1), `wix-site-id: <siteId>`, and `Content-Type: application/json` — plus the recipe's documented body. Construct request bodies from intent.<pack> + brand. **When the recipe documents N independent calls** (e.g., creating N categories, adding products to N categories), issue them as one parallel batch — not sequentially.
 
-   **On 401/403**, re-mint the token with `npx @wix/cli token --site "<siteId>"` and retry once; if it still fails, return `status: "error"` with the response body. Do **not** spend turns debugging the auth call shape — if the retry fails, the issue is upstream (expired CLI session, missing app install, or a resource that requires a provisioning step the recipe didn't run), and recipe-level header A/B-testing will not recover it.
+   **On 401/403**, re-mint the token with `npx @wix/cli@latest token --site "<siteId>"` and retry once; if it still fails, return `status: "error"` with the response body. Do **not** spend turns debugging the auth call shape — if the retry fails, the issue is upstream (expired CLI session, missing app install, or a resource that requires a provisioning step the recipe didn't run), and recipe-level header A/B-testing will not recover it.
 
 3. Text-only seeding only — do not call media-manager import or generate AI imagery. Use the placeholder image patterns the recipes document.
 

@@ -367,6 +367,6 @@ Emit a structured JSON block at the end of your completion message per `../share
 1. Create a data collection in the Wix dashboard → CMS
 2. Add fields matching the use case schema (see the specific use case reference)
 3. Add at least 2–3 items with all fields populated, including `slug` and `published` (if applicable)
-4. Run `npx @wix/cli dev`
+4. Run `npx @wix/cli@latest dev`
 5. Navigate to the listing page — should show items
 6. Click an item — should navigate to the detail page

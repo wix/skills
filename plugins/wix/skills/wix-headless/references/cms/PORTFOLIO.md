@@ -448,7 +448,7 @@ body: {
 1. Create a "Projects" collection in the Wix dashboard → CMS with the schema above
 2. Add 3+ projects with cover images, categories, and at least one with gallery images
 3. Mark 1–2 as `featured: true`
-4. Run `npx @wix/cli dev`
+4. Run `npx @wix/cli@latest dev`
 5. `/work` — grid with category filter tabs
 6. Click a category — filters projects
 7. Click a project — detail page with gallery lightbox

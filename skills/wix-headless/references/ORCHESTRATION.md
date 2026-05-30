@@ -61,7 +61,7 @@ Scope: <scope string>
 Project directory (absolute path): <project path>
 site-root: <absolute path to eval run dir — parent of scaffold; .wix/site.json lives here>
 siteId: <from wix.config.json>
-Auth: <SKILL_ROOT>/references/shared/AUTHENTICATION.md — mint TOKEN once via npx @wix/cli token --site "$SITE_ID"; every curl uses Bearer + wix-site-id headers
+Auth: <SKILL_ROOT>/references/shared/AUTHENTICATION.md — mint TOKEN once via npx @wix/cli@latest token --site "$SITE_ID"; every curl uses Bearer + wix-site-id headers
 Brand context: name, vibe, aesthetic direction, colors, fonts, mood, page color strategy
 Design tokens: .wix/design-tokens.css (generated from site.json.designTokens)
 ```
@@ -193,7 +193,7 @@ Scope subagents MUST NOT:
 
 ## Wait: Phase 4 → Build
 
-> **HARD GATE: Do NOT run `npx @wix/cli build` until `image-phase-2-entity` has completed or timed out (120s) — ONLY when it was dispatched.** This gate applies only to runs where `intent.imagery === "ai-generated"` and Step 4.5 actually dispatched Image Phase 2. On the default `themed-blocks` run, Image Phase 2 was skipped at Step 4.5 and recorded as `{phase: "image-phase-2-entity", status: "skipped"}` in `run.json` — there is no handle to wait on; proceed to the build immediately when Phase 4 Pages return. **Skipping it on an ai-generated run has shipped previews with no product images and `run.json` recording `image-phase-2-entity` as `"in_progress"`, so do not collapse this gate.**
+> **HARD GATE: Do NOT run `npx @wix/cli@latest build` until `image-phase-2-entity` has completed or timed out (120s) — ONLY when it was dispatched.** This gate applies only to runs where `intent.imagery === "ai-generated"` and Step 4.5 actually dispatched Image Phase 2. On the default `themed-blocks` run, Image Phase 2 was skipped at Step 4.5 and recorded as `{phase: "image-phase-2-entity", status: "skipped"}` in `run.json` — there is no handle to wait on; proceed to the build immediately when Phase 4 Pages return. **Skipping it on an ai-generated run has shipped previews with no product images and `run.json` recording `image-phase-2-entity` as `"in_progress"`, so do not collapse this gate.**
 
 All Step 7 Phase 4 Pages subagents return. When Image Phase 2 was dispatched (ai-generated runs), it has been running through Phase 3 + Phase 4 in parallel — typically ~5–8 minutes by the time Phase 4 Pages finish, which is enough for it to be done or in its tail. When skipped (themed-blocks runs), no wait. All return JSON is in session context.
 
@@ -227,8 +227,8 @@ Record the rate-limit event in `run.json` `notes[]` regardless of recovery outco
 
 ## Build & Release
 
-1. `npx @wix/cli build` — if it fails, inspect `.wix/debug.log` for the specific error, fix, retry. Common failure modes are listed in `references/shared/RETURN_CONTRACT.md` § "Common failure modes".
-2. `npx @wix/cli release` — extract the published URL from the `Site published on <url>` line in stdout. This command also populates the **Frontend link** in headless settings natively, so transactional emails link to the deployed frontend without any extra API calls.
+1. `npx @wix/cli@latest build` — if it fails, inspect `.wix/debug.log` for the specific error, fix, retry. Common failure modes are listed in `references/shared/RETURN_CONTRACT.md` § "Common failure modes".
+2. `npx @wix/cli@latest release` — extract the published URL from the `Site published on <url>` line in stdout. This command also populates the **Frontend link** in headless settings natively, so transactional emails link to the deployed frontend without any extra API calls.
 
 ---
 
