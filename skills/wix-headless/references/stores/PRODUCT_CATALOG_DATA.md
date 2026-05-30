@@ -22,7 +22,7 @@ Replace the default sample products Wix Stores installs with on-brand products v
 >
 > **If CLI auth is not available, skip this entire section.** The 12 default products remain and can be customized later in the Wix dashboard.
 
-> **API error guard:** If any REST call in Phase 1 returns a 404 or an unexpected error, do **not** retry the same call with a guessed alternative URL or namespace. Report the failing endpoint, request body, and error verbatim to the user, then stop. Improvised endpoints have caused multi-minute silent stalls in past runs.
+> **API error guard:** If any REST call in Phase 1 returns a 404 or an unexpected error, do **not** retry the same call with a guessed alternative URL or namespace. Report the failing endpoint, request body, and error verbatim to the user, then stop.
 
 > **Stores appDefId** for install and `catalogReference.appId`: `215238eb-22a5-4c36-9e7b-e7c08025e04e`. (A different defId — `1380b703-ce81-ff05-f115-39571d94dfcd` — is used for `wixMetadata.appDefId` in Phase 2. Do not swap them.)
 

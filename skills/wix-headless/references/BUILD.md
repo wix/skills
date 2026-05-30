@@ -17,7 +17,7 @@ Each phase belongs to one of the two tracks (`PLAN.md` § "Two tracks"). All pha
 | **Phase 4 — Pages** | frontend | Default | Per-vertical routes; each agent writes its routes once with both visual design and live data queries | Step 7 |
 | **Image Phase 2 — Entity** | business | Fast | Product / blog / CMS item images PATCHed onto Wix entities | Step 4.5 (imagery-gated) |
 
-> **Set the model tier on every dispatch.** The `Tier` column is binding (full policy: `SKILL.md` § "Subagent model tier" — Fast = recipe-following work returning JSON of IDs/URLs; Default = anything that authors files the build consumes or exercises creative judgment). The tier is selected via the **dispatch primitive's model parameter**, not the prompt — if you omit it, every subagent inherits the orchestrator's default model and the Default-tier roles (Designer, Composer, Components, Pages) silently run under-powered. Apply by table lookup, not per-dispatch deliberation: seeders + both image phases → Fast; Designer, Composer, Phase 3 Components, Phase 4 Pages → Default.
+> **Set the model tier on every dispatch.** Tier policy lives in `SKILL.md` § "Subagent model tier" — apply by table lookup. The tier is selected via the dispatch primitive's model parameter, not the prompt; if you omit it, Default-tier roles silently run under-powered on the orchestrator's default model.
 
 ## The run from approval (Setup → Release)
 
@@ -45,7 +45,15 @@ Fire as one concurrent batch (`PLAN.md` § "Batching discipline"):
 
 **(b) Design-system bridge — frontend track.** Composer dispatch, gated only on `designer_handle` + scaffold-verified:
 - **Wait `designer_handle`** (near-instant; it has been running since run-step 0, ~10–15 s).
-- **Emit tokens:** pipe `data.designTokens` into `emit-design-tokens.mjs` (writes `.wix/design-tokens.css` + `.wix/site.d.ts`). Hold `designTokens` + `shell` in scratch.
+- **Emit tokens:** pipe the Designer's `data.designTokens` JSON into `emit-design-tokens.mjs`. The script reads tokens from **stdin** and takes the **project directory as `argv[2]`**; if stdin is empty it exits 2 (`stdin was empty — pass the designTokens JSON object`) and the bridge stalls. Use a quoted heredoc so the JSON survives unchanged:
+
+  ```bash
+  node <SKILL_ROOT>/scripts/emit-design-tokens.mjs "<project-dir>" <<'TOKENS'
+  { ...paste the Designer's data.designTokens JSON object here, verbatim from scratch... }
+  TOKENS
+  ```
+
+  Writes `.wix/design-tokens.css` + `.wix/site.d.ts`. Hold `designTokens` + `shell` in scratch (the Composer needs both inlined into its prompt).
 - **Dispatch the Composer** (background, capture `composer_handle`) per the prompt template in `COMPOSE.md`, inlining tokens + shell + brand + nav links + packs.
 
 > **Why concurrent, not sequential.** The Composer's only inputs are the Designer's tokens (ready from run-step 0) and the verified scaffold (ready at Setup Step 1) — neither depends on the seeders, app installs, env, or npm. Firing the bridge alongside the Step 4 batch lets its ~80–160 s authoring wall absorb into Setup + the whole seed window. **Firing it after the Step 4 batch — or worse, in the seed wave — makes it start late and land as a fresh longest pole that ends *after* the seeders.** The Composer self-retries its pre-write scaffold reads if the scaffold is somehow still in flight (`COMPOSE.md` § "Pre-write"). On `react-vite`/`user-provided` the Composer is skipped (record `{phase: "compose", status: "skipped"}`).
@@ -56,7 +64,7 @@ Fire as one concurrent batch (`PLAN.md` § "Batching discipline"):
 
 ### 4. Seed gate
 
-Wait on the seeders + `composer_handle` + `npm_handle`; once `composer_handle` returns, run the post-Composer Layout-import verify; aggregate seeder returns into the `seeded` scratch map; optionally run `patch-decorative-slots.mjs`. Because the Composer started back in Setup, by the time the seeders return its wall is typically already complete — so the design-system phase no longer extends the seed window.
+Wait on the seeders + `composer_handle` + `npm_handle`; once `composer_handle` returns, run the post-Composer Layout-import verify; aggregate seeder returns into the `seeded` scratch map. Run `patch-decorative-slots.mjs` only when `imagery === "ai-generated"` and Image Phase 1 Decorative returned; otherwise skip and record `{phase: "decorative-slot-patch", status: "skipped"}`. Because the Composer started back in Setup, by the time the seeders return its wall is typically already complete — so the design-system phase no longer extends the seed window.
 
 ### 5. Continue
 
@@ -66,7 +74,7 @@ Wait on the seeders + `composer_handle` + `npm_handle`; once `composer_handle` r
 
 The `imagery` value (`"ai-generated"` | `"themed-blocks"`, captured in `DISCOVERY.md` Q2.5, default `"themed-blocks"`) gates **both** image phases. The conductor owns the gate; the step files describe what each image scope does when it runs.
 
-- **Image Phase 1 — Decorative** (Wave-3 batch). Dispatch the `image-phase-1-decorative` subagent (`<SKILL_ROOT>/references/images/INSTRUCTIONS.md`) **only when `imagery === "ai-generated"`**. When `"themed-blocks"` (default): do **not** dispatch — decorative slots render as solid color blocks via the designer placeholder pattern; record `{phase: "image-phase-1-decorative", status: "skipped", notes: "themed-blocks mode"}` and **skip the post-seed `patch-decorative-slots.mjs`** too (`{phase: "decorative-slot-patch", status: "skipped"}`). Dispatching it regardless wastes ~140–175 s + 0.3–0.5 Wix AI credits.
+- **Image Phase 1 — Decorative** (Wave-3 batch). Dispatch the `image-phase-1-decorative` subagent (`<SKILL_ROOT>/references/images/INSTRUCTIONS.md`) **only when `imagery === "ai-generated"`**. When `"themed-blocks"` (default): do **not** dispatch — decorative slots render as solid color blocks via the Composer-emitted decorative-slot CSS (color blocks tokenised against the Designer's palette); record `{phase: "image-phase-1-decorative", status: "skipped", notes: "themed-blocks mode"}` and **skip the post-seed `patch-decorative-slots.mjs`** too (`{phase: "decorative-slot-patch", status: "skipped"}`). Dispatching it regardless wastes ~140–175 s + 0.3–0.5 Wix AI credits.
 - **Image Phase 2 — Entity** (Step 4.5 batch). Same gate — dispatch only on `ai-generated`; on `themed-blocks` skip and record `{phase: "image-phase-2-entity", status: "skipped"}`. Detailed dispatch + the hard build gate are in § "Step 4.5" and § "Wait: Phase 4 → Build" below.
 
 ---
@@ -83,21 +91,7 @@ The **seed gate** that follows (wait on seeders + `composer_handle` + `npm_handl
 
 ### Subagent prompt template
 
-Every dispatch sends a self-contained prompt with these fields. Every input the subagent needs is inlined — subagents do NOT read `.wix/site.json` during the run.
-
-```
-Instruction file (absolute path): <SKILL_ROOT>/references/<vertical>/INSTRUCTIONS.md
-  Read this file in full before doing anything else. It defines your role,
-  scope routing, and return contract.
-Phase instruction: <exact phase/scope string from the pack>
-Scope: <scope string>
-Project directory (absolute path): <project path>
-siteId: <from orchestrator scratch — captured by SETUP.md Step 1>
-Auth: <SKILL_ROOT>/references/shared/AUTHENTICATION.md — mint TOKEN once via npx @wix/cli token --site "$SITE_ID"; every curl uses Bearer + wix-site-id headers
-Brand context: name, vibe, aesthetic direction, colors, fonts, mood, page color strategy
-Design tokens (Phase 3 Components / Phase 4 Pages): the full styling-contract JSON inlined here — same shape the orchestrator passed to emit-design-tokens.mjs; .wix/design-tokens.css + .wix/site.d.ts are on disk for the build to consume
-Seeded entities (Phase 3 Components / Phase 4 Pages / Image Phase 2): the relevant pack-specific slice from the orchestrator's seeded scratch, inlined here as JSON
-```
+See `SEED.md` § "Subagent prompt template" for the base fields (Instruction file, Phase instruction, Scope, Project directory, siteId, Auth, Brand context). Phase 3 Components and Phase 4 Pages dispatches additionally inline the full styling-contract JSON, and Phase 3 / Phase 4 / Image Phase 2 inline the relevant pack-specific slice from the orchestrator's `seeded` scratch as JSON. Subagents do NOT read `.wix/site.json` during the run.
 
 **`Instruction file` must point to one of these vertical instruction files:**
 - `<SKILL_ROOT>/references/stores/INSTRUCTIONS.md` — Phase 3 Components + Phase 4 Pages
@@ -122,7 +116,7 @@ Every subagent returns a structured JSON block at the end of its run, per `refer
 
 ## Step 4.5 — Phase 3 Components + Image Phase 2 Entity (one concurrent batch, all background)
 
-**Gate (from the seed gate, run-step 4):** the `seeded` map is populated and the Composer has returned. Verify `.wix/design-tokens.css` + `.wix/site.d.ts` exist on disk and the Composer wrote `src/layouts/Layout.astro` + `src/styles/global.css` — the `cp` pre-batch and Layout imports below depend on them. If `patch-decorative-slots.mjs` was deferred at the seed gate, run it now.
+**Gate (from the seed gate, run-step 4):** the `seeded` map is populated and the Composer has returned. Verify **both** `.wix/design-tokens.css` **and** `.wix/site.d.ts` exist on disk, and the Composer wrote `src/layouts/Layout.astro` + `src/styles/global.css` — the `cp` pre-batch and Layout imports below depend on them. If either design-tokens file is missing, do not dispatch Step 4.5 — surface the missing path and stop. (`patch-decorative-slots.mjs` was already run or skipped at the seed gate per § "4. Seed gate" — do not re-run it here.)
 
 Read `.wix/design-tokens.css` + `.wix/site.d.ts` once.
 
@@ -189,7 +183,7 @@ cp "<SKILL_ROOT>/templates/stores/categories.ts" "src/utils/categories.ts"
 For each loaded pack's `pages`:
 - One Phase 4 subagent per scope — **background**. Each writes its routes ONCE with both visual design and live data queries (the merged design+wire model). Earlier flows split this into a placeholder-writing dispatch followed by a page-rewrite dispatch; that double-write was eliminated.
 
-> **Shared-shell patchers serialize; everyone else runs concurrent.** Most scopes write files in their own exclusive ownership — those all dispatch as one concurrent background batch. But a scope that **patches a shared shell file at a marker** — `src/components/Navigation.astro` (`<!-- nav:links -->`, CartBadge) or `src/pages/index.astro` (`<!-- home:<pack> -->`, featured grid) — read-modify-writes a file another scope also patches. Dispatching two such patchers concurrently trips the harness staleness guard (`File has been modified since read`) on whichever reads first. **Dispatch the shell-patching scopes one at a time — launch one, wait for its return, then launch the next** — so each sees the previous one's marker insertion. In the example below that is `home-and-nav` and `gift-cards pages` (both touch `Navigation.astro` + `index.astro`); the private-file scopes (`product-pages`, `category-pages`, `cart-checkout`, `cms-pages`) stay in the concurrent batch. The serialized chain runs alongside the concurrent batch, not after it.
+> **Shared-shell patchers serialize within the Phase 4 batch; non-overlapping scopes run concurrently.** Scopes that patch a shared shell file at a marker — `src/components/Navigation.astro` (`<!-- nav:links -->`, CartBadge) or `src/pages/index.astro` (`<!-- home:<pack> -->`, featured grid) — read-modify-write a file another scope also patches. Dispatching two such patchers concurrently trips the harness staleness guard (`File has been modified since read`). **Dispatch the shell-patching scopes one at a time** — launch one, wait for its return, then launch the next — so each sees the previous one's marker insertion. See the ecommerce-run example below: `home-and-nav` and `gift-cards pages` serialize (both touch `Navigation.astro` + `index.astro`); the private-file scopes (`product-pages`, `category-pages`, `cart-checkout`, `cms-pages`) stay in the concurrent batch. The serialized chain runs alongside the concurrent batch, not after it.
 
 > **Image Phase 2 is NOT dispatched here.** When it was launched at Step 4.5 (i.e. on an `ai-generated` run), it has been running concurrent with Phase 3 + Phase 4 and is typically finished or near-finished by the time Step 7 fires; the Step 8 hard gate waits for it before invoking `release.sh`. **On a `themed-blocks` run (the default), Image Phase 2 was not dispatched at all** — no gate wait, no images, the build runs as soon as Phase 4 finishes.
 
@@ -225,13 +219,12 @@ Scope subagents MUST NOT:
 
 ## Wait: Phase 4 → Build
 
-> **HARD GATE: Do NOT run `npx @wix/cli build` until `image-phase-2-entity` has completed or timed out (120s) — ONLY when it was dispatched.** This gate applies only to runs where `intent.imagery === "ai-generated"` and Step 4.5 actually dispatched Image Phase 2. On the default `themed-blocks` run, Image Phase 2 was skipped at Step 4.5 and recorded as `{phase: "image-phase-2-entity", status: "skipped"}` in `run.json` — there is no handle to wait on; proceed to the build immediately when Phase 4 Pages return. **Skipping it on an ai-generated run has shipped previews with no product images and `run.json` recording `image-phase-2-entity` as `"in_progress"`, so do not collapse this gate.**
+Wait on all Step 7 Phase 4 Pages subagents to return, then:
 
-All Step 7 Phase 4 Pages subagents return. When Image Phase 2 was dispatched (ai-generated runs), it has been running through Phase 3 + Phase 4 in parallel — typically ~5–8 minutes by the time Phase 4 Pages finish, which is enough for it to be done or in its tail. When skipped (themed-blocks runs), no wait. All return JSON is in session context.
+- **If `imagery === "ai-generated"`** (Step 4.5 dispatched `image-phase-2-entity`): wait for that handle to return, with a hard **120 s timeout** from when Phase 4 Pages finish. On timeout, proceed to Build and record `{code: "IMAGE_PHASE_2_TIMEOUT"}` in `run.json`. Image Phase 2 has been running in parallel since Step 4.5, so under that dispatch model the timeout rarely fires.
+- **If `imagery === "themed-blocks"`** (Step 4.5 skipped `image-phase-2-entity`): no wait — proceed to Build immediately.
 
-When Image Phase 2 was dispatched (ai-generated mode) and Phase 4 finishes before it, wait for it before proceeding. Without this wait, the preview shows empty image placeholders on products (images not yet PATCHed). With Image Phase 2 dispatched earlier (in Step 4.5), this wait is usually a no-op. On themed-blocks runs Image Phase 2 was never dispatched — skip this wait entirely.
-
-> **Timeout safety:** if `image-phase-2-entity` has not completed within 120s after all Phase 4 subagents finish, proceed to Build and note `{code: "IMAGE_PHASE_2_TIMEOUT"}` in `run.json`. The timeout is a safety valve — under the Step-4.5-dispatch model it should rarely fire.
+Skipping this gate on an ai-generated run ships previews with no product images and leaves `run.json` recording `image-phase-2-entity` as `"in_progress"`.
 
 Also ensure the background `npm install` (`npm_handle` from `SETUP.md` Step 4c, waited on at the seed gate) completed successfully before Build. On non-zero exit, follow the recovery ladder in `SETUP.md` § "npm install recovery".
 
@@ -266,17 +259,15 @@ Record the rate-limit event in `run.json` `notes[]` regardless of recovery outco
 
 ## Final Message — emit the summary first, then write run.json
 
-The instant `release` returns the published URL, emit the **complete user-facing summary as one message** — and emit it *before* any `run.json` work:
+Emit the summary per `PLAN.md` § "User-facing output" (plain prose, no machinery); then write `run.json`. Single message.
+
+The summary contains, in order:
 
 1. **Production URL** — bold link, first line (the exact `Site published on <url>` string; do not retype it).
 2. **Dashboard link** — `https://manage.wix.com/dashboard/<siteId>`.
 3. **One-line perf summary** (optional) — total wall + the headline phase timings, plain prose.
 
-That summary is the only thing the user is waiting for at the end. Send it immediately, in one turn, with **no preceding "Site published — now writing run.json…" filler and no second closing message.**
-
-**Then, in the same turn, after the summary text, write `.wix/run.json` silently** — the observability record aggregating every subagent return (format per `references/shared/RETURN_CONTRACT.md` § "Final run.json format"). Do not announce it. Do not re-read anything to compose it — use the subagent returns already in session context.
-
-Ordering matters: composing `run.json` first put ~1 min between "published" and the summary the user actually wants. Summary first. The turn still does not close until the `run.json` write completes, so the record is guaranteed on disk before the turn ends — the user just sees the links immediately instead of after the write.
+After the summary text in the same turn, write `.wix/run.json` silently — the observability record aggregating every subagent return (format per `references/shared/RETURN_CONTRACT.md` § "Final run.json format"). Use the subagent returns already in session context — do not re-read anything to compose it. The turn does not close until the `run.json` write completes, so the record is guaranteed on disk before the user sees control return.
 
 ---
 

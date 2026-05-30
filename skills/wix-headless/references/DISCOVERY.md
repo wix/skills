@@ -50,7 +50,7 @@ Skip the standard Q1/Q2/Q3 interview. The user already designed the site — Dis
    - App signals: scan for the markers documented in `SETUP.md § Step E2` — `<form>` tags → forms; price tags / cart buttons → stores; article listings → blog; etc.
 3. **Present a one-paragraph summary** in plain prose:
    > *"I see <N> HTML files in <project-dir>. The page looks like a <inferred type> for <inferred brand>. I'll install the matching Wix apps (<list>) and wire SDK calls into your existing source. The site stays exactly as you designed it; only behavior gets added. Continue?"*
-4. **Approval via `AskUserQuestion`** — options: **Yes, connect it** / **Adjust apps**. If the user wants to adjust, handle conversationally (drop an app, add one, etc.) and re-present. The conversational adjust loop is the integrate-mode equivalent of "swap brand, change vibe" — keep it brief.
+4. **Approval via `AskUserQuestion`** — options: **Yes, connect it** / **Adjust apps**. On "Adjust apps": re-infer the app set with the user's adjustment applied (drop/add one app), re-run Step 2's project scan only for the changed app's signals, and re-present the Step 3 summary for approval before proceeding. Keep the adjust loop brief.
 5. On approval, write `.wix/site.json` (with `frontend: "user-provided"`) per "After Approval" § 2, then hand to `SETUP.md § Existing project flow` (E1 init or E2 onward depending on whether `wix.config.json` is already present).
 
 The Pages plan table, the Imagery line, the aesthetic-direction paragraph, and the Designer — **none of them apply** in integrate mode. The skill defers to the user's design.
@@ -66,17 +66,14 @@ npx @wix/cli whoami >/dev/null 2>&1
 ```
 
 - Exit 0 → continue to Step 0.
-- Exit non-zero → **run `npx @wix/cli login` yourself with `run_in_background: true`** (do NOT instruct the user to run it). The exact shape:
+- Exit non-zero → **run `npx @wix/cli login` yourself; do NOT punt to the user.** Steps:
+  1. `Bash` tool with command `npx @wix/cli login`, `run_in_background: true`. No shell `&`, no `mktemp` redirect, no chaining.
+  2. Read the harness output-file path from the tool reply's `<bash-stdout>` (or use `TaskOutput`).
+  3. Parse line 1 for `{"event":"awaiting_user","userCode":"…","verificationUri":"…"}` (ignore any `TimeoutNaNWarning` on later lines).
+  4. Surface in one plain-prose message — *not* `AskUserQuestion`: *"Open `<verificationUri>` in your browser and enter the code `<userCode>` — I'll continue once you've completed the login."*
+  5. Wait for the harness `task-notification` with `<status>completed</status>`; confirm with `whoami`, then proceed to Step 0.
 
-  | Step | Action | Anti-pattern |
-  |---|---|---|
-  | 1 | `Bash` tool, command = `npx @wix/cli login`, `run_in_background: true`. **No shell `&`, no `mktemp` redirect, no chaining.** | `TMPFILE=$(mktemp …) && npx @wix/cli login > "$TMPFILE" 2>&1 &` — stacks shell `&` on harness `run_in_background`, splits wix-login output from the harness task file. |
-  | 2 | The tool reply gives you the harness output-file path in `<bash-stdout>`. **`Read` that path** (or use `TaskOutput`). | Reading any other file. The harness path IS the right file. |
-  | 3 | Parse line 1 of the file: `{"event":"awaiting_user","userCode":"…","verificationUri":"…"}`. (Node may emit a `TimeoutNaNWarning` on lines 3-5; ignore.) | Trying to re-invoke wix-login "to do it properly" after seeing the event. The event means it's working — surface and wait. |
-  | 4 | Surface to user in one plain-prose message: *"Open `<verificationUri>` in your browser and enter the code `<userCode>` — I'll continue once you've completed the login."* | `AskUserQuestion`. The URL + code are text the user needs to copy, not a multiple-choice answer. |
-  | 5 | Wait for the harness `task-notification` with `<status>completed</status>`. Run `whoami` once on completion to confirm. Then proceed to Step 0. | Polling `whoami` in a sleep loop while waiting. The notification is the only signal. |
-
-  Do **not** punt to the user with *"Run `npx @wix/cli login` and retry"* and stop — that breaks the flow (the harness backgrounds the user-issued command, you don't know which output file to read, and the user has to manually prompt you to read it; ~60 s + interrupt of recovery wall). Full reference: [`shared/AUTHENTICATION.md`](shared/AUTHENTICATION.md#wix-login-from-a-non-interactive-agent).
+  Full recovery reference: [`shared/AUTHENTICATION.md`](shared/AUTHENTICATION.md#wix-login-from-a-non-interactive-agent).
 
 ## Step 0 — Infer Vertical(s) and Business Context
 
@@ -117,8 +114,7 @@ Once the brand is confirmed, read the loaded pack contents (to compose the plan)
 
 **(a) Read every pack in the resolved set.** The full resolved set lives in SKILL.md § "When this skill triggers" (third column). For example, a `stores` run reads four files: `stores.md`, `cms.md`, `ecom.md`, `gift-cards.md`. Read the whole resolved set at once — do **not** read the top-level pack alone, then discover its `requires:` and issue a second batch.
 
-- `Read <SKILL_ROOT>/references/verticals/<pack>.md` for each pack in the resolved set (resolve `<SKILL_ROOT>` per SKILL.md § "Path resolution")
-- **Read individual `.md` files**, never the `verticals/` directory itself — `Read` against a directory returns `EISDIR` and forces a retry round-trip.
+- `Read <SKILL_ROOT>/references/verticals/<pack>.md` for each pack in the resolved set (resolve `<SKILL_ROOT>` per SKILL.md § "Path resolution"). Read individual `.md` files; `Read` on the directory returns `EISDIR`.
 
 These reads pre-load the `routes:`, `apps:`, `requires:`, and `disabled` fields needed to compose the Pages table at Step 3.
 
@@ -225,13 +221,11 @@ Hold `balance = response.periodicCredits.balance` and `cap = response.periodicCr
 **Recovery / fallback (in order):**
 
 1. **`wix token` (no `--site`) fails** — surface the error from the CLI; that is a `wix login` problem, not a balance-lookup problem. Set `balance = null` only after the CLI failure surfaces.
-2. **POST returns 401/403** — token was minted but the account endpoint rejected it. Re-mint once and retry; if still 401/403, set `balance = null` and proceed.
-3. **POST returns 4xx other than 401/403** — log the response in scratch (do not crash) and set `balance = null`. This includes the 400 you'd see if you accidentally GET the endpoint instead of POST: every prior revision of this section hit that and concluded the endpoint was broken. It isn't — it's POST-only.
+2. **POST returns 401/403** — the **account-scoped** token (no `--site`) was rejected. Re-mint the account-scoped token once and retry. (The site-scoped "never re-mint" rule in `SEED.md` / `SETUP.md` does not apply here — these are distinct token caches.) If still 401/403, set `balance = null` and proceed.
+3. **POST returns 4xx other than 401/403** — log the response in scratch (do not crash) and set `balance = null`. The endpoint is POST-only; a GET returns 400.
 4. **Network error / timeout** — set `balance = null`. The credit estimate (§ 2.5.1) is unaffected; only the Q3 description's *"Current balance: …"* tail goes silent.
 
-> **Don't share the token across calls.** The account-scoped token is for account-level reads only (balance, account metadata). Every other site-operating call in this skill uses `npx @wix/cli token --site "$SITE_ID"` — site-scoped — per `references/shared/AUTHENTICATION.md`. Mix-ups have caused `403 SITE_TOKEN_REQUIRED` on Wix-site calls and `403 ACCOUNT_TOKEN_REQUIRED` on the balance call.
-
-> **Historical note.** Earlier revisions of this section claimed the CLI did not expose an account-scoped token primitive, and the balance lookup was disabled unconditionally. Both claims were wrong — `wix token` without `--site` is exactly that primitive. The omission was paying ~1 informational line at Q3 plus losing visibility into whether the user had credits before opting into AI imagery.
+> **Don't share the token across calls.** The account-scoped token is for account-level reads only (balance, account metadata). Every other site-operating call in this skill uses `npx @wix/cli token --site "$SITE_ID"` — site-scoped — per `references/shared/AUTHENTICATION.md`. Site-scoped tokens are rejected by the account endpoint and vice-versa.
 
 ### 2.5.3 — Ask Q3
 
@@ -247,9 +241,7 @@ If `balance === null`, drop the trailing *"Current balance: …"* sentence entir
 
 → **Verify Q3:** Themed blocks description ends `Uses 0 Wix AI credits.`. AI-generated description contains the substring `Uses ~<estimatedCredits> Wix AI credits (1 image = 1 credit).` (with `<estimatedCredits>` replaced by the integer). When balance is known, description also ends with `Current balance: <balance> / <cap>.`. When balance is unknown, description ends with `(1 image = 1 credit).` and no balance text follows.
 
-Capture the answer as `imagery: "themed-blocks" | "ai-generated"` in session scratch.
-
-> **AI-imagery dispatch gate.** The captured `imagery` value is consumed downstream: `SEED.md` Step 2 gates Image Phase 1 Decorative on `imagery === "ai-generated"`, and `BUILD.md` § "Imagery gates" gates Image Phase 2 Entity on the same flag. On `"themed-blocks"` (the default) neither phase is dispatched — decorative slots render as designer-emitted color blocks, products carry placeholder media from the seed recipes, and the run saves ~300–500 s of wall + ~0.5–1.5 Wix AI credits compared to running images unconditionally. **This gate is what ensures images are generated only when `imagery === "ai-generated"`; without it, images would be generated on every run regardless of the flag.** Hold the `imagery` value in orchestrator session scratch; the gate logic reads it from scratch (not from `.wix/site.json`).
+Capture the answer as `imagery: "themed-blocks" | "ai-generated"` in session scratch. The downstream dispatch gates that consume it are owned by `BUILD.md § "Imagery gates"`.
 
 The captured `imagery` value lives in orchestrator session scratch (alongside the inferred per-vertical intent — see "After Approval" § 1). It is **not** written to `.wix/site.json`; subagents that need to branch on it receive it inlined in their prompts.
 

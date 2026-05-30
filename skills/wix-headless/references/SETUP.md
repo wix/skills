@@ -158,23 +158,8 @@ Invoked when `npm_handle` returns non-zero. The handle is dispatched in Step 4c 
 
 If the background `npm install` fails or hangs:
 
-1. **Foreground retry with 90-second timeout:**
-   ```bash
-   npm install --no-fund --no-audit --legacy-peer-deps <packages>
-   ```
-
-2. **If still hanging, retry with `--prefer-offline`:**
-   ```bash
-   npm install --prefer-offline --no-fund --no-audit --legacy-peer-deps <packages>
-   ```
-
-3. **If still hanging, clear the cache:**
-   ```bash
-   npm cache clean --force
-   npm install --no-fund --no-audit --legacy-peer-deps <packages>
-   ```
-
-4. **Last resort:** tell the user: *"npm install is hanging. Please run `npm install --legacy-peer-deps` manually in your terminal, then let me know when it's done."* Do not silently substitute pnpm/yarn — pre-flight S0.2 confirmed pnpm fails against the `@wix/cli` template.
+1. **Foreground retry** with `npm install --no-fund --no-audit --legacy-peer-deps <packages>` (90 s timeout). If that hangs, add `--prefer-offline`; if still hanging, run `npm cache clean --force` and retry once more.
+2. **Last resort:** ask the user to run `npm install --legacy-peer-deps` manually and report back. Do not silently substitute pnpm/yarn — pre-flight S0.2 confirmed pnpm fails against the `@wix/cli` template.
 
 The package set is the union of `@wix/sdk tailwindcss @tailwindcss/vite` (always) plus each loaded pack's frontmatter `packages:` array. The current pack frontmatter does not declare `packages:` blocks — vertical packs are discovery-only at this phase, so the install set is just the always-on three. Do not invent package names.
 
@@ -182,17 +167,7 @@ The package set is the union of `@wix/sdk tailwindcss @tailwindcss/vite` (always
 
 ## Final scan (MANDATORY)
 
-Before transitioning to SEED.md in Step 5:
-
-- `wix.config.json` was read and `siteId` + `appId` were extracted (not empty, not undefined).
-- `.wix/site.json` now contains both `siteId` and `appId` at the top level.
-- `npx @wix/cli token --site "$SITE_ID"` returned a non-empty token (cached in session scratch).
-- Every loaded pack with non-empty `apps:` got a 200 OK from the install endpoint.
-- Every loaded pack with empty `apps:` got a `skipped` phase entry.
-- `.env.local` exists and contains `WIX_CLIENT_ID`.
-- background `npm install` (`npm_handle`) was dispatched and captured.
-
-If any check fails, surface the failure verbatim instead of transitioning to SEED.md.
+Before transitioning to SEED.md in Step 5, verify: `siteId` + `appId` are in `.wix/site.json` (extracted from `wix.config.json`, both non-empty), the cached token mints, every loaded pack with `apps:` got a 200 OK (or a `skipped` phase entry for empty `apps:`), `.env.local` contains `WIX_CLIENT_ID`, and `npm_handle` was dispatched. If any check fails, surface the failure verbatim instead of transitioning to SEED.md.
 
 ---
 
@@ -238,7 +213,7 @@ This creates a Wix Site + Headless Project (App) connected to that Site, and wri
 **Required follow-ups before continuing:**
 
 1. **Entry file must be `index.html`.** If the project's entry is `index.htm`, `main.html`, etc., either rename to `index.html` or ask the user to confirm renaming. Wix Headless hosting serves `index.html` as the site root; anything else 404s.
-2. **`site.outputDirectory` must point at the directory containing `index.html`.** If `index.html` is at the project root, edit `wix.config.json` and set `"outputDirectory": "./"`. Default is `"./site"` which assumes a build output directory.
+2. **`site.outputDirectory` must point at the directory containing `index.html`.** If `index.html` is at the project root, use the `Edit` tool on `wix.config.json` to set `"outputDirectory": "./"`. Default is `"./site"` which assumes a build output directory.
 3. Extract `siteId` and `appId` from `wix.config.json` and hold in session scratch (same role as Path A: `siteId` is the `wix-site-id` header on every REST call).
 4. Capture `{ phase: "init", seconds, started, ended }` in `run.json.phases[]`.
 

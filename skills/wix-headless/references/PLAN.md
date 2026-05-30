@@ -28,7 +28,7 @@ The only cross-track data flow is **one-way, business → frontend**: seeders pr
 
 ## Frontend-mode routing
 
-`frontend` (captured by `DISCOVERY.md` § "Wave 0 — Mode detection") is the axis every downstream phase branches on. The orchestrator holds it in scratch and either branches on it or passes it to scripts as `--frontend`. Three values, and which flow each one runs:
+`frontend` (captured by `DISCOVERY.md` § "Wave 0 — Mode detection") is the axis every downstream phase branches on. The orchestrator holds it in scratch and uses it in two ways: it branches inline in the PLAN/BUILD orchestration on the scratch value, and it passes `--frontend <value>` to `scaffold.sh` and `init-site-json.mjs` (and `--template <astro|react-vite>` to `seed-utilities.sh`). Three values, and which flow each one runs:
 
 | `frontend` | Mode | Flow |
 |---|---|---|

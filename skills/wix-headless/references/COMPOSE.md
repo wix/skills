@@ -13,8 +13,8 @@ This is deterministic work against pinned templates, so it is fast and low-varia
 
 ## Self-Loading
 
-1. Read `shared/RETURN_CONTRACT.md` — structured-return format.
-2. Read `shared/STYLING.md` — the three styling categories and, in particular, § "Required tokens — the component-CSS template contract" (the token set you must guarantee). You own that contract now.
+1. Read `<SKILL_ROOT>/references/shared/RETURN_CONTRACT.md` — structured-return format.
+2. Read `<SKILL_ROOT>/references/shared/STYLING.md` — the three styling categories and, in particular, § "Required tokens — the component-CSS template contract" (the token set you must guarantee). You own that contract now.
 
 No REST calls, no MCP — this is frontend-only work.
 
@@ -35,7 +35,7 @@ Read each skeleton from `<SKILL_ROOT>/shared-utilities/templates/astro/`, substi
 
 > **Read skeletons by file, never the directory (`EISDIR`).** `Read <SKILL_ROOT>/shared-utilities/templates/astro/` fails with `EISDIR: illegal operation on a directory` and costs a wasted recovery round-trip. Read each of the six by its exact path: `<SKILL_ROOT>/shared-utilities/templates/astro/global.css`, `…/astro.config.mjs`, `…/Layout.astro`, `…/Navigation.astro`, `…/Footer.astro`, `…/index.astro` (issue the six `Read`s as one concurrent batch). If you must discover them first, `Glob` the directory (`…/astro/*`) — never `Read` it.
 
-**Pre-write: scaffold may still be in flight.** A scaffold file you need (`Layout.astro` stub, `astro.config.mjs`) may not yet be present. Before reading one, if a `Read` returns "file does not exist", wait 5 s and retry, cap 6 attempts (~30 s). If still missing, return `status: "failed"` with `errors: [{code: "SCAFFOLD_NOT_COMPLETE"}]`. (Reading the *skeletons* under `<SKILL_ROOT>` never needs this — they are always present.)
+**Pre-write: scaffold may still be in flight.** A scaffold file you need (`Layout.astro` stub, `astro.config.mjs`) may not yet be present. Before reading one, if a `Read` returns "file does not exist", wait 5 s and retry, cap 6 attempts (~30 s). The 6-attempt cap is hard — do not check a 7th time; return `status: "failed"` with `errors: [{code: "SCAFFOLD_NOT_COMPLETE"}]` immediately on attempt 6's miss. (Reading the *skeletons* under `<SKILL_ROOT>` never needs this — they are always present.)
 
 **Read each destination before you overwrite it.** The scaffold ships stubs for several of your six targets (today: `src/layouts/Layout.astro`, `src/pages/index.astro`, `astro.config.mjs`). The harness **blocks a `Write` to an existing file you have not `Read` this run** (`File has not been read yet`). So your batched reads must include the *destination* project paths for any file the scaffold created — not only the `<SKILL_ROOT>` skeletons. Practically: in the same concurrent batch, `Read` both the skeleton and the destination for `Layout.astro`, `index.astro`, and `astro.config.mjs` (the latter you read anyway to merge); `global.css`, `Navigation.astro`, and `Footer.astro` are net-new, so a destination read isn't required (but is harmless if the scaffold happens to ship them).
 
@@ -99,7 +99,7 @@ If a check fails and you cannot fix it, return `status: "partial"` with the spec
 
 ## Return contract
 
-A single fenced JSON block per `shared/RETURN_CONTRACT.md`, last content in your message — a manifest of what you wrote:
+A single fenced JSON block per `<SKILL_ROOT>/references/shared/RETURN_CONTRACT.md`, last content in your message — a manifest of what you wrote:
 
 ```json
 {

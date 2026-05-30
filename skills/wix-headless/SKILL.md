@@ -123,7 +123,7 @@ The skill runs two semi-independent tracks (business = frontend-blind site/app/s
 | Install a Wix app onto an existing site | Follow `<SKILL_ROOT>/references/commands/install-app.md` |
 | Add a feature / restyle a prior wix-headless run | Resume on disk; ask whether to start fresh |
 
-> **Read individual** `references/verticals/<pack>.md` files — never `Read` the `verticals/` directory (`EISDIR`).
+> Read individual `.md` files under `references/verticals/`; `Read` on the directory returns `EISDIR`.
 
 ## The run
 

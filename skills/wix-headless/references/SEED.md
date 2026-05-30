@@ -6,7 +6,7 @@ This article seeds backend data. Every loaded pack with a seed recipe gets its o
 
 ## Step 1 — Build the dispatch list
 
-The recipe map and per-pack input notes are inlined below — **do NOT separately `Read references/seed-recipes.md`** (the file exists for human reference but is redundant during a run; reading it adds a turn and a thinking gap before the dispatch batch).
+The recipe map and per-pack input notes are inlined below — **do NOT separately `Read references/seed-recipes.md`**. The Step 1 table here is canonical for the run; `seed-recipes.md` exists only as a human-readable index of the same data, and reading it adds a turn and a thinking gap before the dispatch batch.
 
 From the `verticals` list in orchestrator scratch (captured in Discovery, also persisted to `.wix/site.json`), build the dispatch list. For each loaded pack:
 - If the pack has a recipe in the table below (`stores`, `cms`, `blog`, `forms`) → add to the dispatch list.
@@ -187,7 +187,7 @@ No script, no file. The orchestrator is the aggregator.
 
 ## Step 5 — Summary sentence
 
-One short message in plain prose, naming what was seeded per pack:
+Per `PLAN.md` § "User-facing output", emit one short plain-prose sentence naming what was seeded per pack — no tables, no machinery:
 
 > *"Seeded `<brand>`: `<N>` products in stores, `<M>` items across `<C>` CMS collections, `<P>` blog posts, `<F>` forms. Continuing with components and page build…"*
 

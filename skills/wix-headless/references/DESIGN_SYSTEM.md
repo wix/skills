@@ -13,7 +13,7 @@ Your output is small and mostly thinking: a coherent, complete brand visual expr
 
 ## Self-Loading
 
-Read `shared/RETURN_CONTRACT.md` for the structured-return format. That is the only doc you need. Do **not** read `STYLING.md`, `COMPOSE.md`, the templates, or any `.astro`/`.css` file — those are application concerns the Composer owns. No REST calls, no MCP, no tool discovery: this role is pure judgment.
+Read `<SKILL_ROOT>/references/shared/RETURN_CONTRACT.md` for the structured-return format. That is the only doc you need. Do **not** read `STYLING.md`, `COMPOSE.md`, the templates, or any `.astro`/`.css` file — those are application concerns the Composer owns. No REST calls, no MCP, no tool discovery: this role is pure judgment.
 
 **Do NOT `Read .wix/site.json`.** Every input is inlined in your prompt (see Inputs). The file may not exist yet when you run, and it is not a coordination channel.
 
@@ -30,7 +30,7 @@ You do **not** receive (and do not need) loaded packs, navigation links, disable
 
 ## What you return
 
-A single fenced JSON block per `shared/RETURN_CONTRACT.md`, last content in your message:
+A single fenced JSON block per `<SKILL_ROOT>/references/shared/RETURN_CONTRACT.md`, last content in your message:
 
 ```json
 {
