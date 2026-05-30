@@ -350,7 +350,7 @@ body: {
 1. Create a "Resources" collection in the Wix dashboard → CMS with the schema above
 2. Add 4+ resources across 2+ categories with different file types (PDF, DOC, ZIP)
 3. Include `fileUrl` links (can be any downloadable URL for testing)
-4. Run `npx @wix/cli dev`
+4. Run `npx @wix/cli@latest dev`
 5. `/resources` — shows all resources with category filters and file type badges
 6. Click a category — filters resources
 7. Click a resource — detail page with download button and related resources
