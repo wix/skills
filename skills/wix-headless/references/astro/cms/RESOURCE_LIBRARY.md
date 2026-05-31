@@ -2,7 +2,7 @@
 
 Build a downloadable resource library using `@wix/data` — file listings with category filtering, file type badges, and detail pages with download buttons. Use for documents, guides, templates, whitepapers, or any downloadable assets.
 
-> Read `CMS_FOUNDATIONS.md` first for shared patterns (service module, image resolution, elevation, REST-based seeding).
+> Read `CMS_FOUNDATIONS.md` (this folder — service module, query patterns, image resolution, elevation) for page-rendering patterns, and `../../cms/CMS_FOUNDATIONS.md` for REST-based seeding.
 
 ## Collection Schema
 
@@ -321,7 +321,7 @@ Key details:
 
 ## Seed with Images
 
-After seeding resources via REST, generate cover images following `../shared/IMAGE_GENERATION.md` and `CMS_FOUNDATIONS.md` → "Seeding with Images".
+After seeding resources via REST, generate cover images following `../../shared/IMAGE_GENERATION.md` and `../../cms/CMS_FOUNDATIONS.md` → "Seeding with Images".
 
 **Prompt template:**
 

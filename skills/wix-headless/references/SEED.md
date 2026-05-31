@@ -59,13 +59,13 @@ These notes reduce dispatch-time guesswork. The recipe itself is the source of t
 
 The seeders and Image Phase 1 below are launched as one concurrent background batch — that dispatch flow (timing, single-batch discipline, the two-dispatch trap) is owned by `BUILD.md` § "Wave 3" / `PLAN.md` § "Batching discipline". This step defines only the seed domain: the pre-batch utilities script, the dispatch rows, the recipe map, the per-pack input notes, and the prompt templates.
 
-**Pre-batch — `seed-utilities.sh` (project prep):** run the project-prep script once (idempotent). Pass the scaffold template the orchestrator captured in Discovery (the `frontend` value, which in scaffold mode is `astro` or `react-vite`):
+**Pre-batch — `seed-utilities.sh` (project prep):** run the project-prep script once (idempotent). Astro is the only frontend built, so the template is always `astro`:
 
 ```bash
-bash "<SKILL_ROOT>/scripts/seed-utilities.sh" --template <astro|react-vite — from orchestrator context>
+bash "<SKILL_ROOT>/scripts/seed-utilities.sh" --template astro
 ```
 
-Execute from the **project directory** (scaffold subdir after `cd`). Record `{ phase: "seed-utilities", seconds }` when composing `run.json`. (This is frontend-track project prep, not seeding — integrate-mode runs never reach this article, so the script has no `user-provided` case.)
+Execute from the **project directory** (scaffold subdir after `cd`). Record `{ phase: "seed-utilities", seconds }` when composing `run.json`. (This is frontend-track project prep, not seeding — custom frontends route to the stub and never reach this article.)
 
 ### Wave 3 dispatch table
 

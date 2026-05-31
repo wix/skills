@@ -2,7 +2,7 @@
 
 Build a FAQ page using `@wix/data` — Q&A pairs organized by category with accordion UI and client-side search. Use for frequently asked questions, help centers, or knowledge bases.
 
-> Read `CMS_FOUNDATIONS.md` first for shared patterns (service module, image resolution, elevation, REST-based seeding).
+> Read `CMS_FOUNDATIONS.md` (this folder — service module, query patterns, image resolution, elevation) for page-rendering patterns, and `../../cms/CMS_FOUNDATIONS.md` for REST-based seeding.
 
 ## Collection Schema
 

@@ -1,210 +1,12 @@
-# CMS Foundations — Shared Patterns for `@wix/data`
+# CMS Foundations — Seeding via `@wix/data` REST (business track)
 
-Core patterns used by all CMS use cases: service module template, `@wix/data` queries, image resolution, elevated access, REST-based seeding, and rich-text (Ricos) rendering.
+The **seeding** half of CMS foundations: create collections and insert + verify sample items via the Wix Data REST API. This is frontend-blind business-track work — a collection and its items are the same regardless of what renders them.
 
-> **Import note (read first).** Page code in this plugin uses `import * as items from "@wix/wix-data-items-sdk"` rather than the documented `import { items } from "@wix/data"`. The Wix-headless docs still show the `@wix/data` form, but `@wix/data` 1.0.448 dropped the `items` re-export — only sub-namespaces (`backups`, `collections`, `permissions`, …) remain, and the documented form fails the build with `'items' is not exported by '@wix/data'`. The actual `items` API (with `query`, `insert`, `update`, `remove`, `bulkInsert`, etc.) lives in `@wix/wix-data-items-sdk`, which `@wix/data` depends on transitively. Importing from there directly works on every current `@wix/data` version. SETUP.md's per-pack install table (Step 4c) installs `@wix/wix-data-items-sdk` (alongside `@wix/data` and `@wix/essentials`) for the cms pack so it's always present. Use the wix-data-items-sdk import everywhere.
+> **Rendering / page code lives in the astro frontend track.** The service-module template, `@wix/data` SDK query patterns, image resolution, Ricos rendering, and category filtering are **not** here — they are in `<SKILL_ROOT>/references/astro/cms/CMS_FOUNDATIONS.md` (the `pages` scope's doc). This file is consumed by the `seed` scope. The `cms/INSTRUCTIONS.md` router points each scope at the right half.
 
-## Rendering Ricos rich-text fields
+## Collection ID Format (seeding-relevant)
 
-Wix CMS stores `RICH_TEXT` / `RICH_CONTENT` fields as **Ricos JSON** — a structured node tree (PARAGRAPH, HEADING, BULLETED_LIST, etc.), not HTML. The dashboard's rich-text editor reads and writes this format.
-
-For SSR Astro pages (about, faq, portfolio, team, resource), import the seeded `renderRicos` util from `src/utils/ricos.ts`. The util is shipped by `seed-utilities.sh` (copied from `<SKILL_ROOT>/shared-utilities/ricos.ts` during Setup), so it's already on disk — do NOT inline a Ricos walker in your page.
-
-```astro
----
-import * as items from "@wix/wix-data-items-sdk";
-import { auth } from "@wix/essentials";
-import { renderRicos } from "../utils/ricos";
-
-const elevatedQuery = auth.elevate(items.query);
-const { items: results } = await elevatedQuery("about-content")
-  .limit(1)
-  .find();
-const about = results[0];
-const bodyHtml = renderRicos(about?.body);
----
-
-<article class="prose">
-  <h1>{about?.heading}</h1>
-  <div set:html={bodyHtml} />
-</article>
-```
-
-The util covers the common subset (PARAGRAPH, HEADING 1-6, BULLETED_LIST / ORDERED_LIST / LIST_ITEM, BLOCKQUOTE, DIVIDER + BOLD / ITALIC / UNDERLINE / LINK decorations). Anything outside that set renders defensively as a `<p>` with the raw text — never throws.
-
-> **Why not @wix/ricos?** The blog vertical uses `@wix/ricos`'s React `RicosViewer` as a client island because blog posts can carry the full Ricos feature set (galleries, polls, embedded media). For static CMS pages, that's ~80kb of React for paragraphs and lists — overkill. Use the seeded SSR walker instead.
-
-> **Do NOT `set:html={item.body}` directly.** That ships JSON-encoded text into the page (e.g. `[object Object]` or `{"nodes":...}`). Always go through `renderRicos`.
-
-> **Critical Rules — Read Before Starting**
-> 1. **Collection IDs have NO namespace** — user collections use just the name (e.g., `"Projects"`). Only Wix App collections use `<namespace>/<name>`. Verify via `curl`: `GET /wix-data/v2/collections?fields=id`.
-> 2. **SDK query pattern** — `items.query("CollectionId").find()`. There is no `items.queryDataItems()` in the SDK.
-> 3. **`auth.elevate` on every query** — without it, restricted collections silently return no items.
-> 4. **CMS only for user collections** — use `@wix/blog` for blog posts, `@wix/stores` for products, `@wix/forms` for form submissions.
-
-## Prerequisites
-
-- `@wix/data` package installed (collected by features orchestrator — do NOT install independently)
-- `@wix/essentials` package installed (for elevation)
-- A data collection created in the Wix dashboard → CMS section
-- No special Wix app installation needed — `@wix/data` works with any Wix Managed Headless project
-
-## Collection ID Format
-
-Native (user-created) CMS collections use **just the collection name** — no namespace prefix.
-
-Example: if the collection is called `Projects`, the collection ID is simply `"Projects"`.
-
-Only Wix App collections (e.g., `Members/PublicData`, `Locations/Locations`) use a `<namespace>/<name>` format. User-created collections never use a namespace.
-
-> **How to verify**: Call `GET /wix-data/v2/collections?fields=id` via `curl` (with the standard REST headers from `../shared/AUTHENTICATION.md`) and use the exact `id` value from the response. Never guess — the dashboard name may differ from the ID.
-
-## Quick Reference — Inline Query (Simple Pages)
-
-For pages that just need to list items from a collection:
-
-```astro
----
-import * as items from "@wix/wix-data-items-sdk";
-import { auth } from "@wix/essentials";
-
-// Always elevate queries for permission safety
-const elevatedQuery = auth.elevate(items.query);
-const { items: results } = await elevatedQuery("MyCollection")
-  .ascending("sortField")
-  .limit(50)
-  .find();
-
-// Fields are directly on each item (NOT item.data.field)
-const myItems = results.map((item) => ({
-  name: item.name,        // correct
-  // name: item.data.name  // wrong — REST pattern, not SDK
-}));
----
-```
-
-> **Common mistake:** `items.queryDataItems(...)` does NOT exist in the
-> `@wix/data` SDK. The REST API uses `/items/query` with a `dataCollectionId`
-> body field, but the SDK uses `items.query("collectionId")` — a chainable
-> QueryBuilder. Do not confuse REST and SDK patterns.
-
-## Service Module Template
-
-Every CMS use case follows the same `src/lib/{usecase}.ts` pattern — a typed interface and query functions that pages import.
-
-```typescript
-import * as items from "@wix/wix-data-items-sdk";
-import { auth } from "@wix/essentials";
-import { media } from "@wix/sdk";
-
-// -- Collection ID (use exact name from Wix dashboard — no namespace for native collections) --
-const COLLECTION_ID = "collection-name";
-
-// -- Typed interface matching collection fields --
-export interface CollectionItem {
-  _id: string;
-  title: string;
-  slug: string;
-  // ...add fields matching your collection schema
-  coverImage?: string;
-}
-
-// -- Image resolution helper --
-function resolveImage(wixImageUrl: string | undefined, width = 800, height = 600): string | undefined {
-  if (!wixImageUrl) return undefined;
-  return media.getScaledToFillImageUrl(wixImageUrl, width, height, {});
-}
-
-// -- Query all items --
-// Wrap every Wix SDK await in try/catch. If the query throws at SSR, an empty
-// array keeps the page renderable instead of crashing it. (Unguarded SSR
-// awaits truncate Astro's response stream mid-body — nav renders, then blank.)
-export async function queryItems(): Promise<CollectionItem[]> {
-  try {
-    const elevatedQuery = auth.elevate(items.query);
-    const { items: results } = await elevatedQuery(COLLECTION_ID)
-      .ascending("orderIndex")
-      .limit(50)
-      .find();
-
-    return results.map((item) => ({
-      ...item,
-      coverImage: resolveImage(item.coverImage),
-    })) as CollectionItem[];
-  } catch (err) {
-    console.error(`[cms:${COLLECTION_ID}] query failed:`, err);
-    return [];
-  }
-}
-
-// -- Get single item by slug --
-export async function getItemBySlug(slug: string): Promise<CollectionItem | null> {
-  try {
-    const elevatedQuery = auth.elevate(items.query);
-    const { items: results } = await elevatedQuery(COLLECTION_ID)
-      .eq("slug", slug)
-      .limit(1)
-      .find();
-
-    const item = results[0];
-    if (!item) return null;
-
-    return {
-      ...item,
-      coverImage: resolveImage(item.coverImage),
-    } as CollectionItem;
-  } catch (err) {
-    console.error(`[cms:${COLLECTION_ID}] getItemBySlug failed:`, err);
-    return null;
-  }
-}
-```
-
-Key details:
-- `auth.elevate(items.query)` wraps the query for restricted collections — always use this by default since collection permissions vary
-- `media.getScaledToFillImageUrl(url, w, h, {})` resolves `wix:image://` URLs to sized CDN URLs
-- Sort by `orderIndex` (ascending) for manually ordered content, or `_createdDate` (descending) for chronological
-- The interface must match the collection fields — check the dashboard, don't guess
-
-## Multi-Image Resolution
-
-For collections with image arrays (e.g., gallery images):
-
-```typescript
-function resolveImages(imageUrls: string[] | undefined, width = 800, height = 600): string[] {
-  if (!imageUrls || imageUrls.length === 0) return [];
-  return imageUrls
-    .map((url) => media.getScaledToFillImageUrl(url, width, height, {}))
-    .filter(Boolean);
-}
-```
-
-## Category Filtering Pattern
-
-Many use cases filter by category via URL search params (server-rendered, no client JS):
-
-```astro
----
-const activeCategory = Astro.url.searchParams.get("category");
-const allItems = await queryItems();
-const filtered = activeCategory
-  ? allItems.filter((item) => item.category === activeCategory)
-  : allItems;
-const categories = [...new Set(allItems.map((item) => item.category).filter(Boolean))];
----
-
-<nav>
-  <a href="?" class:list={[!activeCategory && "active"]}>All</a>
-  {categories.map((cat) => (
-    <a
-      href={`?category=${encodeURIComponent(cat)}`}
-      class:list={[activeCategory === cat && "active"]}
-    >{cat}</a>
-  ))}
-</nav>
-```
-
-> **Styling note:** Category filter pill styling is created by the design skill. See `COMPONENT_PATTERNS.md` → Category Filter.
+Native (user-created) CMS collections use **just the collection name** — no namespace prefix (e.g. `"about-content"`, `"faq"`, `"Projects"`). Only Wix App collections use a `<namespace>/<name>` format. Use the exact `id` you create here; verify with `GET /wix-data/v2/collections?fields=id` (standard REST headers from `../shared/AUTHENTICATION.md`). Never guess — the dashboard display name may differ from the ID.
 
 ## Seeding via REST (Conditional)
 
@@ -321,14 +123,14 @@ body: {
 
 `...existingData` must include every non-system field from step a (system fields `_id`, `_owner`, `_createdDate`, `_updatedDate` don't need to be echoed). Skipping the merge wipes seeded text fields and ships an empty About page.
 
-**Prompt templates** — each use-case reference defines its own prompt template (see the "Seed with Images" section in TEAM_DIRECTORY.md, PORTFOLIO.md, RESOURCE_LIBRARY.md). Always incorporate brand context from the discovery/design phases.
+**Prompt templates** — each use-case reference defines its own prompt template (see the "Seed with Images" section in `../astro/cms/TEAM_DIRECTORY.md`, `../astro/cms/PORTFOLIO.md`, `../astro/cms/RESOURCE_LIBRARY.md`). Always incorporate brand context from the discovery/design phases.
 
 **Constraints:**
 - Never block the main flow on image failures — text data is already seeded
 - Runware image URLs are short-lived — import to Wix Media immediately after generation
 - If image generation or import fails for a single item, skip that item and continue with others
 - If all generation fails (credits exhausted, upstream Runware errors), write the sidecar with `Status: partial` and proceed — but always attempt first
-- FAQ_KNOWLEDGE_BASE has no image fields — skip image generation for FAQ use cases
+- `../astro/cms/FAQ_KNOWLEDGE_BASE.md` has no image fields — skip image generation for FAQ use cases
 
 ## Return Results
 
@@ -362,11 +164,11 @@ Emit a structured JSON block at the end of your completion message per `../share
 - For collections without image fields (e.g., FAQ), set `imageField: null`.
 - The JSON block MUST be the last content in your message.
 
-## Testing
+## Testing (seed-side)
 
-1. Create a data collection in the Wix dashboard → CMS
-2. Add fields matching the use case schema (see the specific use case reference)
-3. Add at least 2–3 items with all fields populated, including `slug` and `published` (if applicable)
-4. Run `npx @wix/cli@latest dev`
-5. Navigate to the listing page — should show items
-6. Click an item — should navigate to the detail page
+1. Create a data collection in the Wix dashboard → CMS (or via the REST `POST /collections` above).
+2. Add fields matching the use case schema (see the specific use case reference under `../astro/cms/`).
+3. Add at least 2–3 items with all fields populated, including `slug` and `published` (if applicable).
+4. Run the verify-after-insert query and confirm every field persisted.
+
+Page rendering / SDK query patterns for these collections are in `../astro/cms/CMS_FOUNDATIONS.md`.

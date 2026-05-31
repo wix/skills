@@ -6,15 +6,13 @@
 # skill-written frontend to prep, so it is never invoked there).
 #
 # Usage (both modes work):
-#   bash <SKILL_ROOT>/scripts/seed-utilities.sh --template <astro|react-vite>
-#   bash <(curl -s https://dev.wix.com/skills/wix-headless/scripts/seed-utilities.sh) --template <astro|react-vite>
+#   bash <SKILL_ROOT>/scripts/seed-utilities.sh --template astro
+#   bash <(curl -s https://dev.wix.com/skills/wix-headless/scripts/seed-utilities.sh) --template astro
 #
-# --template (optional, default astro): astro | react-vite
-#   Branches on which scaffold template produced the project — NOT on the
-#   scaffold/integrate axis. The orchestrator passes the value it captured in
-#   Discovery's Wave 0 (the frontend value, which in scaffold mode is one of
-#   astro / react-vite). There is no user-provided case: integrate mode skips
-#   this script entirely.
+# --template (optional, default astro): astro
+#   Astro is the only frontend the skill scaffolds and preps, so the value is
+#   always "astro". Custom (non-astro) frontends route to the not-available stub
+#   (references/custom/INSTRUCTIONS.md) and never reach this script.
 #
 # Run from the project directory (CWD = <scaffold>/). The script auto-detects
 # whether shared-utilities is available on disk (tgz install) and falls back
@@ -26,7 +24,7 @@
 #     never overwrites an existing file (users can drop in their own version).
 #   - On --template=astro, removes Astro starter cruft (Welcome.astro + marketing
 #     SVGs) that ships with the blank template but is never imported by the build
-#     skill. On --template=react-vite this cleanup is skipped (different cruft).
+#     skill.
 #
 # Shared utilities copied:
 #   - wix-image.ts  — media URL resolver (used by stores, blog, cms)
@@ -57,10 +55,10 @@ while [[ $# -gt 0 ]]; do
 done
 
 case "$TEMPLATE" in
-  astro|react-vite) ;;
+  astro) ;;
   *)
-    echo "seed-utilities.sh: --template must be one of astro, react-vite; got $TEMPLATE" >&2
-    echo "(There is no user-provided case — integrate mode skips this script entirely.)" >&2
+    echo "seed-utilities.sh: --template must be 'astro' (the only supported frontend); got $TEMPLATE" >&2
+    echo "(Custom non-astro frontends route to the stub and never reach this script.)" >&2
     exit 2
     ;;
 esac
