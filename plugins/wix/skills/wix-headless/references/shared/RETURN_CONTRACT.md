@@ -1,18 +1,22 @@
 # Agent Return Contract
 
-Replaces the sidecar-file coordination model (`.wix/logs/*.md`) with **in-memory structured returns**. Every agent returns a JSON block at the end of its completion message; the skill parses these returns directly from session context.
+Coordination between agents uses **in-memory structured returns**, not sidecar files (`.wix/logs/*.md`, `.wix/seed-returns/*.json`, `.wix/image-urls.md`). Every agent returns a JSON block at the end of its completion message; the skill parses these returns directly from session context.
 
 At end of run, the skill writes ONE file (`.wix/run.json`) aggregating every return. This is the only observability artifact on the project side.
 
-## Why this replaces sidecars
+## The JSON return is your sole output channel
 
-Sidecar files were designed assuming agents are independent processes without shared memory. But subagents run as child model calls under the parent skill's context — they can return structured data directly. Writing/reading markdown files between them adds:
+Subagents MUST NOT write coordination files (`.wix/seed-returns/<pack>.json`, `.wix/image-urls.md`, `.wix/logs/*.md`, etc.). The orchestrator parses your fenced JSON block from the message body and either acts on the data directly or pipes it to a deterministic helper script via stdin (e.g. `emit-design-tokens.mjs`, `patch-decorative-slots.mjs`). Any data the orchestrator needs from you belongs under `data` in the return block — files in `.wix/` that aren't build-consumed (CSS, .d.ts) or external-system-owned (`wix.config.json`) are not part of the contract.
+
+## Why structured returns, not files
+
+Writing markdown files between agents assumes they're independent processes without shared memory. But subagents run as child model calls under the parent skill's context — they can return structured data directly. File-based coordination adds:
 
 - ~10s per sidecar write (file I/O + narration)
 - ~5s per sidecar read from the parent (another tool call)
 - Coordination complexity (timing, status-line parsing, retry logic)
 
-Prior runs spent **~1–2 minutes total** on sidecar ceremony. Eliminating that buys back meaningful critical-path time.
+That overhead is pure critical-path cost with no benefit here.
 
 ## The contract
 
@@ -272,14 +276,19 @@ The image agent runs in two scopes dispatched by the parent in different steps. 
   "status": "complete",
   "phase": "image-phase-1-decorative",
   "scope": "image-phase-1-decorative",
-  "summary": "Generated 3 decorative images; uploaded to Wix Media; wrote .wix/image-urls.md",
+  "summary": "Generated 3 decorative images; uploaded to Wix Media; returned slot→URL map",
   "data": {
     "decorativeCount": 3,
     "purposes": ["hero", "about", "background"],
+    "slots": {
+      "hero":  "https://static.wixstatic.com/media/...",
+      "about": "https://static.wixstatic.com/media/...",
+      "background": "https://static.wixstatic.com/media/..."
+    },
     "model": "google:4@2",
     "totalCredits": 0.297
   },
-  "files": [".wix/image-urls.md"],
+  "files": [],
   "errors": []
 }
 ```
