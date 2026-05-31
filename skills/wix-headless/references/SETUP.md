@@ -2,14 +2,13 @@
 
 Runs once, immediately after the user approves the plan and Discovery has written `.wix/site.json`. This phase's domain is: install the apps the loaded packs declare, pull the Wix env, run `npm install`, and patch `site.json` with `siteId` + `appId`. Run flow (dispatch timing, background handles, waits, batching, transitions) is owned by `BUILD.md` (Setup is its first run-step).
 
-This article covers **two entry paths**, branched off the `frontend` value Discovery captured in Wave 0 and wrote to `.wix/site.json`:
+This article covers the **astro (supported) entry path** — Steps 1–5 below + "npm install recovery". The orchestrator scaffolds a fresh Astro project via `scaffold.sh` in `BUILD.md` run-step 0; astro is the only frontend built on disk today.
 
-1. **New project flow** (Path A — scaffold mode; Steps 1–5 below + "npm install recovery"). The orchestrator either scaffolded a fresh project (Astro by default; `react-vite` when configured) via `scaffold.sh` in Discovery Step 1, **or skips scaffold entirely for an integrate-mode run**. Today the template branch is astro-only on disk; react-vite plumbing is staged but its template isn't (see PLAN-beta-frontend-pluggability.md § Order of operations).
-2. **Existing project flow** (Path B — integrate mode; see "Existing project flow" at the bottom). The user already has a working frontend (Claude Design output, a hand-coded HTML/JSX site, a Vite/React app, …) and wants to **connect it** to Wix Headless to get hosting + Business Solutions. No scaffold, no template, no design/seed/pages waves — just connect, install needed apps, optionally wire SDK calls, release.
+The **Existing project flow (Path B)** at the bottom is **retired** — non-astro (custom) frontends route to the not-available-yet stub (`references/custom/INSTRUCTIONS.md`) instead of running E1–E6. That section is kept as a historical reference only; see its banner.
 
-Both paths assume DISCOVERY.md's CLI-auth pre-flight has already passed (the foreground check that runs before any `AskUserQuestion`).
+This path assumes DISCOVERY.md's CLI-auth pre-flight has already passed (the foreground check that runs before any `AskUserQuestion`).
 
-Mode/track routing (which path runs) is owned by `PLAN.md` § "Frontend-mode routing". Steps 1–5 below are the scaffold-mode (Path A) business steps; the "Existing project flow" at the bottom is Path B.
+Mode/track routing (which path runs) is owned by `PLAN.md` § "Frontend-mode routing". Steps 1–5 below are the astro business steps.
 
 ---
 
@@ -136,7 +135,7 @@ npm install --no-fund --no-audit --legacy-peer-deps \
   2> <npm-tempfile>
 ```
 
-> **Why three packages for cms?** `@wix/data` exposes collections / permissions / backups namespaces; the actual `items` API (used by every CMS page for queries) lives in `@wix/wix-data-items-sdk` since `@wix/data` 1.0.448 dropped the `items` re-export (see [cms/CMS_FOUNDATIONS.md](./cms/CMS_FOUNDATIONS.md) § "Import note"). `@wix/essentials` is required for `auth.elevate` — every CMS page elevates queries to bypass per-collection permission checks. Shipping only `@wix/data` produces `'items' is not exported by '@wix/data'` at `astro build`; shipping without `@wix/essentials` produces `Cannot find module '@wix/essentials'` at SSR time.
+> **Why three packages for cms?** `@wix/data` exposes collections / permissions / backups namespaces; the actual `items` API (used by every CMS page for queries) lives in `@wix/wix-data-items-sdk` since `@wix/data` 1.0.448 dropped the `items` re-export (see [astro/cms/CMS_FOUNDATIONS.md](./astro/cms/CMS_FOUNDATIONS.md) § "Import note"). `@wix/essentials` is required for `auth.elevate` — every CMS page elevates queries to bypass per-collection permission checks. Shipping only `@wix/data` produces `'items' is not exported by '@wix/data'` at `astro build`; shipping without `@wix/essentials` produces `Cannot find module '@wix/essentials'` at SSR time.
 
 Per pre-flight S0.2, `pnpm install` fails against the `@wix/cli` template — use `npm install --legacy-peer-deps`.
 
@@ -171,9 +170,11 @@ Before transitioning to SEED.md in Step 5, verify: `siteId` + `appId` are in `.w
 
 ---
 
-## Existing project flow (Path B)
+## Existing project flow (Path B) — RETIRED, historical reference only
 
-Use this path when the user already has a working frontend on disk (Claude Design output, Vite/React app, hand-coded `index.html`) and wants to **connect it to Wix Headless** for hosting + Business Solutions. SKILL.md § "When this skill triggers" routes here based on working-directory detection.
+> **⚠️ This flow is no longer dispatched.** Non-astro (custom) frontends now route to the **not-available-yet stub** (`references/custom/INSTRUCTIONS.md`); the conductor does not run E1–E6 (`PLAN.md` § "Custom (non-astro) frontends — not available yet", `DISCOVERY.md` § "Custom (non-astro) — not available yet"). The E1–E6 mechanics below — especially the **E4 SDK-wiring recipe** — are retained as the **historical reference / closest prior art** for the eventual custom authoring track (`references/custom/INSTRUCTIONS.md` § "Intended future shape" step 3). Do **not** dispatch this flow; it is documentation, not a live path.
+
+This path used to run when the user already had a working frontend on disk (Claude Design output, Vite/React app, hand-coded `index.html`) and wanted to **connect it to Wix Headless** for hosting + Business Solutions.
 
 **Differences from Path A:**
 
@@ -248,7 +249,7 @@ For each pack identified in E2, fire the install `curl` per § Step 4a above —
 
 ### Step E4 — SDK wiring
 
-> **Phase 4-Integrate is the long-term home for this step.** Per PLAN-beta-frontend-pluggability.md § Order of operations, integrate-mode SDK wiring will move to per-vertical wiring subagents authored under `references/<pack>/SDK_WIRING.md`. Until that lands, the inline recipe below is the contract.
+> **The custom frontend track is the long-term home for this step.** When the custom track is built, this SDK-wiring recipe becomes per-pack wiring guides under `references/custom/<pack>/…` that inject `@wix/sdk` calls into the user's existing files (additive-only) — see `references/custom/INSTRUCTIONS.md` § "Intended future shape" step 3. Until that lands, this inline recipe is the **historical reference** (the flow itself is retired — non-astro frontends route to the stub, see the banner at the top of this section).
 
 Installing apps in E3 only registers them against the Site — the existing frontend still ignores them until SDK calls are wired in. For each app installed in E3, find the matching feature surface in the project's source files (the same surfaces E2 detected) and wire its SDK calls inline.
 

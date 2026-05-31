@@ -8,52 +8,44 @@ This phase owns the *domain* of discovery only. Run FLOW — when background wor
 
 ## Wave 0 — Mode detection (BEFORE any user-facing question)
 
-Frontend mode is the single axis every downstream phase branches on. Detect it from the working directory **first** — before the CLI-auth pre-flight, before Q1 — so the rest of Discovery knows which path to take. The detection is a file-existence check; cost is ~1 ms.
+Frontend mode is the single axis the frontend track branches on. Detect it from the working directory **first** — before the CLI-auth pre-flight, before Q1 — so the rest of Discovery knows which path to take. The detection is a file-existence check; cost is ~1 ms. The axis is binary: **astro (supported) vs custom (anything else, not available yet).**
 
 ```
 Inspect CWD:
 
-1. CWD is empty (or doesn't exist) → SCAFFOLD MODE.
+1. CWD is empty (or doesn't exist) → SCAFFOLD MODE (astro).
 2. CWD contains `wix.config.json` AND Astro structure (`src/`, `astro.config.mjs`)
    → resume a prior wix-headless run. See SKILL.md § "When NOT to use this skill"
      ("continue or start fresh?" — out of pivot scope).
 3. CWD contains `wix.config.json` AND a non-Astro frontend (e.g. `index.html` at
-   root, `*.jsx`/`*.tsx`/`*.vue` files) → INTEGRATE MODE, already `init`'d.
-     Jump to SETUP.md § "Existing project flow" § E2 (skip init).
+   root, `*.jsx`/`*.tsx`/`*.vue` files) → CUSTOM (non-astro), not available yet.
 4. CWD contains source files (`index.html`, `*.jsx`, `*.tsx`, `*.vue`,
    `package.json` from a non-Wix template, etc.) AND no `wix.config.json`
-   → INTEGRATE MODE.
+   → CUSTOM (non-astro), not available yet.
 ```
 
 Capture the resolved value in session scratch as `frontend`:
 
 | Scenario | `frontend` value | Wave 0 next |
 |---|---|---|
-| Scaffold mode, default | `astro` (provisional — Q1 may refine to `react-vite`) | Continue to Pre-flight below |
-| Scaffold mode, prompt names Vite/React-only/SPA | `react-vite` (post-Q1 keyword scan, see § "After Q1") | Continue to Pre-flight below |
-| Integrate mode (cases 3 & 4 above) | `user-provided` | Skip Q1/Q2/Q3 — see § "Integrate-mode short flow" below |
+| Scaffold mode (empty CWD) | `astro` | Continue to Pre-flight below |
+| Prompt names a non-astro frontend (Vite, React SPA, etc.) | `custom` | Route to the custom stub — see § "Custom (non-astro) — not available yet" below |
+| Existing project detected (cases 3 & 4 above) | `custom` | Route to the custom stub — see § "Custom (non-astro) — not available yet" below |
 
-> **No `AskUserQuestion` for mode detection.** Per pivot decision #2 in PLAN-beta-frontend-pluggability.md, mode is detected, never asked. If the working directory is ambiguous, default to `user-provided` and let the parse-and-approve flow recover (the user can redirect conversationally).
+> **No `AskUserQuestion` for mode detection.** Mode is detected, never asked. If the working directory is ambiguous, default to `custom` and let the not-available message redirect the user (they can re-run with an empty directory for the astro path).
 
 `frontend` flows into three places:
-- `scaffold.sh --frontend <value>` — the scaffolder's input (not run in `user-provided` mode; see § "Integrate-mode short flow").
-- `init-site-json.mjs --frontend <value>` — "After Approval" § 2 (records it in the slim site.json snapshot).
-- Orchestrator session scratch — every downstream branch reads the scratch value, not the file: SETUP routing (track selection), the frontend-track project-prep script (`seed-utilities.sh --template <astro|react-vite>`), and the SEED Layout-import bridge. (Business-track steps — app install, seeders — never read it.)
+- `scaffold.sh --frontend <value>` — the scaffolder's input (only `astro` is built; custom does not scaffold — see § "Custom (non-astro) — not available yet").
+- `init-site-json.mjs --frontend <value>` — "After Approval" § 2 (records it in the slim site.json snapshot; only reached on the astro path).
+- Orchestrator session scratch — every downstream branch reads the scratch value, not the file: the frontend-track project-prep script (`seed-utilities.sh --template astro`) and the SEED Layout-import bridge. (Business-track steps — app install, seeders — never read it.)
 
-## Integrate-mode short flow (when `frontend === "user-provided"`)
+## Custom (non-astro) — not available yet (when `frontend === "custom"`)
 
-Skip the standard Q1/Q2/Q3 interview. The user already designed the site — Discovery's job is to detect what's there and get a one-shot approval, not to interview the user about brand and vibe.
+Custom frontends are **not available yet** — astro is the only supported frontend. Do **not** run the interview, scaffold, Designer, Setup, or Seed. Open `<SKILL_ROOT>/references/custom/INSTRUCTIONS.md`, surface its not-available message to the user, and **stop**:
 
-1. **Run the Pre-flight CLI-auth check** (next section). Integrate mode still needs a logged-in CLI for app installs + release.
-2. **Parse the existing project** (light, time-boxed — cap at the top 5 source files by size). Pull:
-   - Brand inferences: `<title>` tag, `<meta name="description">`, dominant colors from CSS, the H1 on `index.html`.
-   - App signals: scan for the markers documented in `SETUP.md § Step E2` — `<form>` tags → forms; price tags / cart buttons → stores; article listings → blog; etc.
-3. **Present a one-paragraph summary** in plain prose:
-   > *"I see <N> HTML files in <project-dir>. The page looks like a <inferred type> for <inferred brand>. I'll install the matching Wix apps (<list>) and wire SDK calls into your existing source. The site stays exactly as you designed it; only behavior gets added. Continue?"*
-4. **Approval via `AskUserQuestion`** — options: **Yes, connect it** / **Adjust apps**. On "Adjust apps": re-infer the app set with the user's adjustment applied (drop/add one app), re-run Step 2's project scan only for the changed app's signals, and re-present the Step 3 summary for approval before proceeding. Keep the adjust loop brief.
-5. On approval, write `.wix/site.json` (with `frontend: "user-provided"`) per "After Approval" § 2, then hand to `SETUP.md § Existing project flow` (E1 init or E2 onward depending on whether `wix.config.json` is already present).
+> *Custom (non-astro) frontends are not available yet — astro is the supported frontend. Re-run with the astro frontend (start from an empty directory), or check back later.*
 
-The Pages plan table, the Imagery line, the aesthetic-direction paragraph, and the Designer — **none of them apply** in integrate mode. The skill defers to the user's design.
+No `.wix/site.json` is written and no `BUILD.md` flow runs. The intended future shape for the custom track (init scaffold + shared business track + per-pack SDK wiring) is recorded in `references/custom/INSTRUCTIONS.md` § "Intended future shape"; the retired Integrate (Path B) flow in `SETUP.md` is its historical reference. See `PLAN.md` § "Custom (non-astro) frontends — not available yet" for the routing.
 
 ---
 
@@ -124,11 +116,7 @@ These reads pre-load the `routes:`, `apps:`, `requires:`, and `disabled` fields 
 bash <SKILL_ROOT>/scripts/scaffold.sh <slug> "<brand>" --frontend <frontend> 2> <tempfile>
 ```
 
-`<frontend>` is the value captured in Wave 0:
-- `astro` — current Beta default. Use this unless the user's opening prompt explicitly named Vite / React-only / SPA.
-- `react-vite` — apply this keyword scan **once**: if the opening message contains the case-insensitive substrings `"vite"`, `"react spa"`, `"react-only"`, or `"react only"`, set `frontend = "react-vite"`. Otherwise stay on `astro`. **Note:** `scaffold.sh` exits 4 on `react-vite` today (template not yet staged); when that happens, surface the error and fall back to `astro` for the same session — do not loop.
-
-(Integrate mode never reaches this step — the Wave 0 short flow short-circuits before Q1.)
+`<frontend>` is `astro` — the only supported (and only scaffolded) frontend. The scaffold step is reached only on the astro path; a custom frontend never gets here, because Wave 0 routes it to the stub before Q1 (§ "Custom (non-astro) — not available yet"). If the opening prompt explicitly names a non-astro frontend (Vite / React SPA / etc.), Wave 0 already set `frontend = "custom"` and short-circuited — this step does not run.
 
 **Slug derivation:** lowercase the brand, then **STRIP every character not matching `[a-z0-9]` — do NOT replace them with hyphens or underscores**. Truncate to 20 chars. The `scaffold.sh` pre-flight enforces `^[a-z0-9]{3,20}$` and rejects anything else with exit 2; a rejected slug forces a re-run of the ~30 s scaffold (the indie-bookshop-class regression).
 
@@ -459,8 +447,8 @@ node "<SKILL_ROOT>/scripts/init-site-json.mjs" \
     --frontend "<frontend>"
 ```
 
-- `<frontend>` is the value captured in Wave 0 (`astro` / `react-vite` / `user-provided`). Always pass it explicitly so the recorded JSON is unambiguous.
-- `<verticals-csv>` is the comma-joined list of all loaded packs (top-level + transitive via `requires:`). For a stores+cms run this is `"stores,ecom,cms,gift-cards"`. In integrate mode, this is the comma-joined list of apps inferred from § "Integrate-mode short flow" Step 2.
+- `<frontend>` is the value captured in Wave 0 — `astro` on the supported path (the only path that reaches this step; custom frontends are routed to the stub before approval and never write `.wix/site.json`). Always pass it explicitly so the recorded JSON is unambiguous.
+- `<verticals-csv>` is the comma-joined list of all loaded packs (top-level + transitive via `requires:`). For a stores+cms run this is `"stores,ecom,cms,gift-cards"`.
 - `<one-line aesthetic from Q2>` is the short aesthetic tone phrase, not the full 2–3 sentence direction.
 - The script writes a slim `.wix/site.json` containing only `{brand, frontend, verticals}` (plus `siteId` / `appId` once Setup patches them in). It refuses to overwrite an existing file. If a stale site.json is present from a prior run, surface that to the user before retrying — do NOT silently `rm` it.
 - The intent block from § 1 is **not** passed to the script — it lives in orchestrator scratch and feeds seeder prompts directly.

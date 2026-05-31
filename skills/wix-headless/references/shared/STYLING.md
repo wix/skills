@@ -1,6 +1,6 @@
 # Styling — Three Categories, One Default
 
-Every visual decision in a generated site falls into one of three categories. Each has a single owner and a single home. This file is the canonical reference; `DESIGN_SYSTEM.md` (Designer), `COMPOSE.md` (Composer), `designer/INSTRUCTIONS.md` (Phase 4 page designers), and `IMPLEMENTER.md` link here.
+Every visual decision in a generated site falls into one of three categories. Each has a single owner and a single home. This file is the canonical reference; `DESIGN_SYSTEM.md` (Designer), `COMPOSE.md` (Composer), `astro/designer/INSTRUCTIONS.md` (Phase 4 page designers), and `IMPLEMENTER.md` link here.
 
 > **Design-system ownership (the design-vs-application split).** The **Designer** (`DESIGN_SYSTEM.md`) owns the token *values* and their *completeness* — a coherent, complete brand visual returned as a framework-agnostic JSON spec (`data.designTokens`). The **Composer** (`COMPOSE.md`) owns the *application* — it writes the `@theme` block in `global.css` from those values (mapping each semantic role to a `--var` name) and guarantees the required-token contract below resolves. Component and page authors still compose those tokens as Tailwind utilities at their call sites. So: Designer picks "paper = `#FAF6EF`"; Composer writes `--color-paper: #FAF6EF` into `@theme`; a page writes `class="bg-paper"`.
 
@@ -53,7 +53,7 @@ If a designer's `global.css` contains rules like `.featured-section { padding-bl
 
 ## Required tokens — the component-CSS template contract
 
-The per-pack `components-<pack>.css` templates at `<SKILL_ROOT>/templates/<pack>/components-<pack>.css` reference a fixed set of CSS custom properties via `var(--token)` (never `@apply`). Those templates are copied verbatim into the project by the orchestrator at BUILD.md § Step 4.5, so **the Composer's `@theme` block MUST declare every token below** for the build to pass (the Composer maps the Designer's framework-agnostic spec onto these `--var` names, deriving any required role the Designer omitted). If a token is missing, the rule that references it collapses silently and the corresponding component renders unstyled (or worse, half-styled).
+The per-pack `components-<pack>.css` templates at `<SKILL_ROOT>/references/astro/templates/<pack>/components-<pack>.css` reference a fixed set of CSS custom properties via `var(--token)` (never `@apply`). Those templates are copied verbatim into the project by the orchestrator at BUILD.md § Step 4.5, so **the Composer's `@theme` block MUST declare every token below** for the build to pass (the Composer maps the Designer's framework-agnostic spec onto these `--var` names, deriving any required role the Designer omitted). If a token is missing, the rule that references it collapses silently and the corresponding component renders unstyled (or worse, half-styled).
 
 | Token | Required? | Fallback in templates | Used by |
 |---|---|---|---|

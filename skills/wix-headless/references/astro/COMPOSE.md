@@ -1,6 +1,6 @@
 ---
 name: design-system-composer
-description: "The Composer role of the wix-headless design-system phase. Applies the Designer's framework-agnostic design spec to the astro frontend by SUBSTITUTING into pinned skeletons at shared-utilities/templates/astro/ — it does not re-author the fixed bulk. Maps semantic token values to the @theme vocabulary, writes the 6 design-system files (global.css, astro.config.mjs, Layout.astro, Navigation.astro, Footer.astro, index.astro), and owns the component-CSS token contract (every var(--token) a components-<pack>.css references must resolve). Returns a manifest."
+description: "The Composer role of the wix-headless design-system phase. Applies the Designer's framework-agnostic design spec to the astro frontend by SUBSTITUTING into pinned skeletons at references/astro/templates/ — it does not re-author the fixed bulk. Maps semantic token values to the @theme vocabulary, writes the 6 design-system files (global.css, astro.config.mjs, Layout.astro, Navigation.astro, Footer.astro, index.astro), and owns the component-CSS token contract (every var(--token) a components-<pack>.css references must resolve). Returns a manifest."
 ---
 
 # Composer — how the design becomes code
@@ -9,7 +9,7 @@ You are the **Composer**. The Designer already decided *what the brand looks lik
 
 This is deterministic work against pinned templates, so it is fast and low-variance. The whole reason the rewrite-from-scratch failure mode (which roughly doubled the old design-system wall) is gone is that you never regenerate the bulk.
 
-> **Framework:** astro only. The skeletons live at `<SKILL_ROOT>/shared-utilities/templates/astro/`. react-vite is gated (`scaffold.sh --frontend react-vite` exits 4); if your prompt ever names a non-astro frontend, return `status: "failed"` with `errors: [{code: "FRONTEND_NOT_SUPPORTED"}]` — do not improvise a second framework.
+> **Framework:** astro only. The skeletons live at `<SKILL_ROOT>/references/astro/templates/`. Custom (non-astro) frontends never reach the Composer — they route to the not-available-yet stub (`references/custom/INSTRUCTIONS.md`) before the build flow runs. If your prompt ever names a non-astro frontend, return `status: "failed"` with `errors: [{code: "FRONTEND_NOT_SUPPORTED"}]` — do not improvise a second framework.
 
 ## Self-Loading
 
@@ -31,9 +31,9 @@ No REST calls, no MCP — this is frontend-only work.
 
 ## What you write (the 6 files)
 
-Read each skeleton from `<SKILL_ROOT>/shared-utilities/templates/astro/`, substitute, write to the project. The fixed bulk in every skeleton is literal — change only the documented `{{…}}` slots.
+Read each skeleton from `<SKILL_ROOT>/references/astro/templates/`, substitute, write to the project. The fixed bulk in every skeleton is literal — change only the documented `{{…}}` slots.
 
-> **Read skeletons by file, never the directory (`EISDIR`).** `Read <SKILL_ROOT>/shared-utilities/templates/astro/` fails with `EISDIR: illegal operation on a directory` and costs a wasted recovery round-trip. Read each of the six by its exact path: `<SKILL_ROOT>/shared-utilities/templates/astro/global.css`, `…/astro.config.mjs`, `…/Layout.astro`, `…/Navigation.astro`, `…/Footer.astro`, `…/index.astro` (issue the six `Read`s as one concurrent batch). If you must discover them first, `Glob` the directory (`…/astro/*`) — never `Read` it.
+> **Read skeletons by file, never the directory (`EISDIR`).** `Read <SKILL_ROOT>/references/astro/templates/` fails with `EISDIR: illegal operation on a directory` and costs a wasted recovery round-trip. Read each of the six by its exact path: `<SKILL_ROOT>/references/astro/templates/global.css`, `…/astro.config.mjs`, `…/Layout.astro`, `…/Navigation.astro`, `…/Footer.astro`, `…/index.astro` (issue the six `Read`s as one concurrent batch). If you must discover them first, `Glob` the directory (`…/templates/*`) — never `Read` it.
 
 **Pre-write: scaffold may still be in flight.** A scaffold file you need (`Layout.astro` stub, `astro.config.mjs`) may not yet be present. Before reading one, if a `Read` returns "file does not exist", wait 5 s and retry, cap 6 attempts (~30 s). The 6-attempt cap is hard — do not check a 7th time; return `status: "failed"` with `errors: [{code: "SCAFFOLD_NOT_COMPLETE"}]` immediately on attempt 6's miss. (Reading the *skeletons* under `<SKILL_ROOT>` never needs this — they are always present.)
 
@@ -137,6 +137,6 @@ No trailing prose after the closing fence.
 | Coin label rebrands ("Journal" → /about) or add `/products`/cart links | Nav labels verbatim; packs splice their links at the marker |
 | Add a hero CTA / footer link to a disabled-pack route | Disabled packs are code-only — markers are the sole touchpoint |
 | Emit `<!-- home:cms -->` or a marker for a non-contributing pack | One marker per contributing loaded pack only |
-| `Read <SKILL_ROOT>/shared-utilities/templates/astro/` (the directory) | `EISDIR` — Read each of the six skeletons by its exact file path (batch the six Reads); `Glob` if you must discover them |
+| `Read <SKILL_ROOT>/references/astro/templates/` (the directory) | `EISDIR` — Read each of the six skeletons by its exact file path (batch the six Reads); `Glob` if you must discover them |
 | `Read .wix/site.json` for brand/tokens | Every input is inlined in your prompt |
 | Branch to react-vite | astro only; return `FRONTEND_NOT_SUPPORTED` otherwise |

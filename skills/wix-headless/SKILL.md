@@ -27,12 +27,12 @@ Your CWD at runtime is the **project directory** (scaffold subdir after setup), 
 | Implementer shared behavior | `<SKILL_ROOT>/references/shared/IMPLEMENTER.md` |
 | Image generation | `<SKILL_ROOT>/references/shared/IMAGE_GENERATION.md` |
 | Design-system Designer (design spec, JSON only) | `<SKILL_ROOT>/references/DESIGN_SYSTEM.md` |
-| Design-system Composer (writes the 6 files) | `<SKILL_ROOT>/references/COMPOSE.md` |
-| Composer astro skeletons | `<SKILL_ROOT>/shared-utilities/templates/astro/` |
+| Design-system Composer (writes the 6 files) | `<SKILL_ROOT>/references/astro/COMPOSE.md` |
+| Composer astro skeletons | `<SKILL_ROOT>/references/astro/templates/` |
 | Vertical packs (discovery) | `<SKILL_ROOT>/references/verticals/` |
 | Per-vertical instructions | `<SKILL_ROOT>/references/{stores,ecom,cms,blog,forms,gift-cards,images}/INSTRUCTIONS.md` |
-| Phase 4 page-designer scopes | `<SKILL_ROOT>/references/designer/INSTRUCTIONS.md` |
-| Templates | `<SKILL_ROOT>/templates/` |
+| Phase 4 page-designer scopes | `<SKILL_ROOT>/references/astro/designer/INSTRUCTIONS.md` |
+| Templates | `<SKILL_ROOT>/references/astro/templates/` |
 | Shared utilities (copied by seed-utilities) | `<SKILL_ROOT>/shared-utilities/` |
 | Known app IDs | `<SKILL_ROOT>/references/commands/known-apps.json` |
 | Scripts | `<SKILL_ROOT>/scripts/` |
@@ -85,30 +85,29 @@ Infer vertical(s) from the opening message and load the **full resolved pack set
 
 > **Do NOT call `WixSiteBuilder` MCP** for new-site requests — same intent, different flow; calling both produces a duplicated, conflicting build. This skill is the sole entry point.
 
-### Path B — Connect an existing project to Wix Headless
+### Path B — Existing project → custom frontend (not available yet)
 
 Triggers: *"connect this to Wix Headless"*, *"add Wix Headless to this project"*, *"host this on Wix"*, *"deploy this to Wix"*, *"implement the features … using Wix Headless"*, or any "Wix Headless" prompt against a non-empty working directory. Decide by working-directory contents:
 
 | Working directory contents | Path |
 |---|---|
-| Empty, or freshly scaffolded by `scaffold.sh` | A |
-| Source files (`index.html`, `*.jsx`, `*.tsx`, …) AND no `wix.config.json` | B (full existing-project flow) |
+| Empty, or freshly scaffolded by `scaffold.sh` | A (astro, supported) |
+| Source files (`index.html`, `*.jsx`, `*.tsx`, …) AND no `wix.config.json` | **custom — not available yet** |
 | `wix.config.json` + Astro structure (`src/`, `astro.config.mjs`) | resume a prior wix-headless run — ask "continue or start fresh?" via `AskUserQuestion` |
-| `wix.config.json` + non-Astro frontend | B, skipping `init` — start from SETUP.md Step E2 |
+| `wix.config.json` + non-Astro frontend | **custom — not available yet** |
 
-**Path B skips most of the wave flow.** Vertical packs are inferred by **reading the project files** (SETUP.md § "Step E2"), not by re-prompting the user. Run only: DISCOVERY.md pre-flight (CLI-auth check) → `SETUP.md` § "Existing project flow" (E1 init → E2 analyze → E3 install apps → **E4 SDK wiring** → E5 release → E6 final message). **Do not run** Discovery's interview, Setup Step 4 batch, Seed, the `BUILD.md` flow, or any subagent dispatch — the existing project supplies its own frontend.
+**Custom (non-astro) frontends route to the stub.** When the working directory holds a non-astro project, the run does **not** author anything — it opens `<SKILL_ROOT>/references/custom/INSTRUCTIONS.md`, surfaces the not-available message, and stops (`DISCOVERY.md` § "Custom (non-astro) — not available yet"; `PLAN.md` § "Custom (non-astro) frontends — not available yet"). The retired Integrate flow (`SETUP.md` § "Existing project flow" E1–E6, especially the E4 SDK-wiring recipe) is kept as a **historical reference** for the eventual custom authoring track — it is no longer dispatched.
 
 ### Frontend modes (the `.wix/site.json.frontend` axis)
 
-Path A vs Path B is the routing question. The `frontend` value is the **downstream branching axis** — the orchestrator holds it in session scratch and either branches on it directly or passes it to scripts as a `--frontend` flag. (It is also persisted to `.wix/site.json` as a resume fallback, but the live run reads scratch, not the file.) Three allowed values:
+Path A vs Path B is the routing question. The `frontend` value is the **downstream branching axis** — the orchestrator holds it in session scratch and either branches on it directly or passes it to scripts as a `--frontend` flag. (It is also persisted to `.wix/site.json` as a resume fallback, but the live run reads scratch, not the file.) The axis is binary:
 
 | `frontend` | Mode |
 |---|---|
-| `astro` | Scaffold (Path A default) |
-| `react-vite` | Scaffold (Path A, prompt-keyword opt-in; `scaffold.sh --frontend react-vite` exits 4 until the template is staged — falls back to `astro` for the session) |
-| `user-provided` | Integrate (Path B) |
+| `astro` | Scaffold + full build (the only supported frontend; full playbook under `references/astro/`) |
+| `custom` (anything non-astro) | **Not available yet** — routed to `references/custom/INSTRUCTIONS.md`, surfaces the not-available message, no authoring |
 
-`DISCOVERY.md` § "Wave 0 — Mode detection" decides which value to set and records it via `init-site-json.mjs --frontend <value>`. **Which flow each value runs is owned by `PLAN.md` § "Frontend-mode routing".**
+`DISCOVERY.md` § "Wave 0 — Mode detection" decides which value to set and records it via `init-site-json.mjs --frontend <value>` (on the astro path only). **Which flow each value runs is owned by `PLAN.md` § "Frontend-mode routing".**
 
 ### Two tracks (business vs frontend)
 
