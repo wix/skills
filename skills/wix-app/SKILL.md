@@ -205,7 +205,7 @@ Use the Extension Types Reference Table and decision content above. State extens
    - Backend events → `references/backend-event/COMMON-EVENTS.md`
    - Wix Data → `references/data-collection/WIX_DATA.md`
    - Dashboard SDK → `references/dashboard-page/DASHBOARD_API.md`
-   - Service Plugin SPIs → batch-read `references/SERVICE_PLUGIN.md` together with the matching `references/service-plugin/<NAME>.md` leaf in a single `batch-read` call
+   - Service Plugin SPIs → read `references/SERVICE_PLUGIN.md` together with the matching `references/service-plugin/<NAME>.md` leaf
 4. **Verify the specific method/event exists** in references
 5. **ONLY use MCP discovery if NOT found** in reference files
 
