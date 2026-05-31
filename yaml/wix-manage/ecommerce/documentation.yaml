@@ -19,6 +19,10 @@ apiDoc:
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
       tags: [ecommerce]
     # Config & API References
+    - file: ../../../skills/wix-manage/references/ecommerce/api-shipping.md
+      title: "API: Shipping Delivery"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce, ecommerce recommendations]
     - file: ../../../skills/wix-manage/references/ecommerce/setup-coupons.md
       title: "Setup: Coupons"
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/coupons
