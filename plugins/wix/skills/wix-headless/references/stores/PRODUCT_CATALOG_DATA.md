@@ -22,7 +22,7 @@ Replace the default sample products Wix Stores installs with on-brand products v
 >
 > **If CLI auth is not available, skip this entire section.** The 12 default products remain and can be customized later in the Wix dashboard.
 
-> **API error guard:** If any REST call in Phase 1 returns a 404 or an unexpected error, do **not** retry the same call with a guessed alternative URL or namespace. Report the failing endpoint, request body, and error verbatim to the user, then stop. Improvised endpoints have caused multi-minute silent stalls in past runs.
+> **API error guard:** If any REST call in Phase 1 returns a 404 or an unexpected error, do **not** retry the same call with a guessed alternative URL or namespace. Report the failing endpoint, request body, and error verbatim to the user, then stop.
 
 > **Stores appDefId** for install and `catalogReference.appId`: `215238eb-22a5-4c36-9e7b-e7c08025e04e`. (A different defId — `1380b703-ce81-ff05-f115-39571d94dfcd` — is used for `wixMetadata.appDefId` in Phase 2. Do not swap them.)
 
@@ -201,7 +201,7 @@ If the merchant later creates visible categories in the Wix dashboard and assign
 - The `Navigation` Shop submenu lists the categories.
 - `/category/<slug>` becomes a reachable, server-side-filtered listing.
 
-This works because the frontend (`src/utils/categories.ts`, written by the `pages-categories` scope in Phase 4) live-queries the Wix API at SSR time with a 5-min cache — no redeploy or regen is needed.
+This works because the frontend (`src/utils/categories.ts`, pre-copied by the orchestrator before Phase 4 and imported by the `pages-*` scopes) live-queries the Wix API at SSR time with a 5-min cache — no redeploy or regen is needed.
 
 ### Step 7: Return Results
 

@@ -1,66 +1,45 @@
 # Setup
 
-Runs once, immediately after the user approves the plan and Discovery has written `.wix/site.json`. The phase synchronizes on the background scaffold started during Discovery, installs the apps the loaded packs declare, pulls the Wix env, and dispatches `npm install` as its own background handle that SEED.md Step 4 waits on.
+Runs once, immediately after the user approves the plan and Discovery has written `.wix/site.json`. This phase's domain is: install the apps the loaded packs declare, pull the Wix env, run `npm install`, and patch `site.json` with `siteId` + `appId`. Run flow (dispatch timing, background handles, waits, batching, transitions) is owned by `BUILD.md` (Setup is its first run-step).
 
-Target wall (foreground critical path): **≤ 20 s**. The npm install tail runs concurrent with the seed phase rather than gating Setup.
+This article covers **two entry paths**, branched off the `frontend` value Discovery captured in Wave 0 and wrote to `.wix/site.json`:
 
-This article covers **two entry paths**:
+1. **New project flow** (Path A — scaffold mode; Steps 1–5 below + "npm install recovery"). The orchestrator either scaffolded a fresh project (Astro by default; `react-vite` when configured) via `scaffold.sh` in Discovery Step 1, **or skips scaffold entirely for an integrate-mode run**. Today the template branch is astro-only on disk; react-vite plumbing is staged but its template isn't (see PLAN-beta-frontend-pluggability.md § Order of operations).
+2. **Existing project flow** (Path B — integrate mode; see "Existing project flow" at the bottom). The user already has a working frontend (Claude Design output, a hand-coded HTML/JSX site, a Vite/React app, …) and wants to **connect it** to Wix Headless to get hosting + Business Solutions. No scaffold, no template, no design/seed/pages waves — just connect, install needed apps, optionally wire SDK calls, release.
 
-1. **New project flow** (the default — Steps 1–5 below + "npm install recovery"). The orchestrator scaffolds a fresh Astro project via `scaffold.sh` in Discovery Step 1, then runs the dispatch below.
-2. **Existing project flow** (see "Existing project flow" at the bottom). The user already has a working frontend (e.g. a Claude Design output, a hand-coded HTML/JSX site) and wants to **connect it** to Wix Headless to get hosting + Business Solutions. No scaffold, no Astro, no design/seed/pages waves — just connect, install needed apps, optionally wire SDK calls, release.
+Both paths assume DISCOVERY.md's CLI-auth pre-flight has already passed (the foreground check that runs before any `AskUserQuestion`).
 
-Both paths assume DISCOVERY.md's CLI-auth pre-flight has already passed (the foreground check that runs before any `AskUserQuestion`). Branch on working-directory contents below.
-
-> **Routing decision (do this BEFORE Step 1's dispatch).** Inspect the working directory:
-> - **Empty / non-existent / freshly-scaffolded** AND Discovery Step 1's `scaffold.sh` is what populated it → **New project flow** (continue with this article top-to-bottom).
-> - **Already contains source files** (`index.html`, `*.jsx`, `*.tsx`, `*.vue`, `package.json` from a non-Wix template, etc.) AND no scaffold was dispatched in Discovery → **Existing project flow** (jump to "Existing project flow" at the bottom; skip the Setup Dispatch).
-> - **Contains `wix.config.json`** AND an Astro project structure (`src/`, `astro.config.mjs`) → resume a prior wix-headless run (see `SKILL.md` § "When NOT to Use This Skill" — ask the user "continue or start fresh?").
-> - **Contains `wix.config.json`** AND a non-Astro frontend (`index.html` at root, `*.jsx` files) → already-`init`'d existing project; jump to "Existing project flow" § "After init" (skip the init step itself).
+Mode/track routing (which path runs) is owned by `PLAN.md` § "Frontend-mode routing". Steps 1–5 below are the scaffold-mode (Path A) business steps; the "Existing project flow" at the bottom is Path B.
 
 ---
 
-## Step 1 — Wait for `scaffold_handle`, **and load `wix-manage` in the same concurrent batch**
+## Step 1 — Read the scaffolded project config (siteId + appId)
 
-DISCOVERY.md kicked off `scripts/scaffold.sh` in the background as soon as Q1 (brand) returned. The handle (`scaffold_handle`) was captured at dispatch time. Hold `scaffold_handle` only — `npm_handle` does not exist yet; it is created in Step 4c.
+**Do not** speculatively `Read <project-slug>/wix.config.json` before the scaffold exists — the speculative read returns `File does not exist` on every fast-Q&A run (the file isn't there yet), emits a `[MED]` anomaly in the trace, and costs 3–5 s of round-trip + recovery thinking.
 
-**The wait is ~30 s and the `wix-manage` skill load doesn't depend on the scaffold.** Fire both as a single concurrent batch in the same message:
+Once the scaffolded project exists, read `<project-slug>/wix.config.json` and extract:
+- `siteId` — the site id passed as `--site` to `npx @wix/cli@latest token` and embedded in every install body + as the `wix-site-id` header on every site-scoped REST call. Hold it in orchestrator session scratch.
+- `appId` — the project's appId. Hold it in session scratch (it goes into the SDK's `createClient` inputs in later steps).
 
-- `TaskOutput` (or harness equivalent) — `block: true` on `scaffold_handle`. This is the wait.
-- The Step 3 `Skill` invocation of `wix-manage`. See § Step 3 below.
+**Before `cd`, capture the current working directory as `<site-root>` and hold it in session scratch.** This is where Discovery's `init-site-json.mjs` wrote the slim `.wix/site.json` snapshot. The orchestrator is the **sole** reader/writer of that file; no subagent or downstream script reads it during the run. Hold `<site-root>` as an absolute path so the `cd` into the scaffold subdir below does not lose it.
 
-By the time the wait returns, `wix-manage` is in context — so the only foreground work after the wait is reading `wix.config.json`, patching `site.json`, reading the install recipe, and firing the Step 4 batch. **Serializing the wait before the skill load costs ~5–10 s** of skill-load thinking after the wait instead of during it. The wait is the floor; everything that doesn't depend on its output should overlap with it.
-
-**Do not** speculatively `Read <project-slug>/wix.config.json` and fall back to a wait — the speculative read returns `File does not exist` on every fast-Q&A run (the file isn't there yet), emits a `[MED]` anomaly in the trace, and costs 3–5 s of round-trip + recovery thinking. Wait first; read second.
-
-Once the wait returns exit-0, read `<project-slug>/wix.config.json` and extract:
-- `siteId` — the site id passed as `--site` to `npx @wix/cli@latest token` and embedded in every install body + as the `wix-site-id` header on every site-scoped REST call.
-- `appId` — the project's appId, written into `.wix/site.json` for downstream phases.
-
-`cd` into `<project-slug>/` so all subsequent file ops + shell calls are relative to the project root.
-
-**On non-zero exit from the wait** (scaffold failed), read the captured stderr tempfile to diagnose. Retry once inline with the same invocation from `scripts/scaffold.sh`. If the retry also fails, surface the stderr to the user — recovery from `npm create` errors (auth, network) needs human input. (npm install hasn't been dispatched yet at this point, so failures here are scaffold-only.)
-
-**Before `cd`, capture the current working directory as `<site-root>` and hold it in session scratch.** This is where Discovery's `init-site-json.mjs` wrote `.wix/site.json` (`<site-root>/.wix/site.json`). Phase 3 Seed reads from and writes back to this same root — both for the patched `site.json` and for the per-pack `seed-returns/`. Mixing the eval-run dir with the scaffold subdir is a known cause of `merge-seed-results.mjs: site.json does not exist` failures.
-
-`cd` into `<project-slug>/` so subsequent shell calls (`npm`, `npx @wix/cli@latest env pull`) are relative to the project root. **Use the captured `<site-root>` (an absolute path) for every subsequent `Read`/`Write`/`Bash` that touches `.wix/site.json` or `.wix/seed-returns/`** — do not rely on relative paths after the `cd`.
+`cd` into `<project-slug>/` so all subsequent file ops + shell calls (`npm`, `npx @wix/cli@latest env pull`) are relative to the project root.
 
 ---
 
 ## Step 2 — Patch site.json with siteId + appId
 
-Discovery wrote `<site-root>/.wix/site.json` with `brand`, `intent`, and `verticals`. Setup's only addition is patching `siteId` and `appId` in. This is a one-shot in-process JSON edit, not a script:
+Discovery wrote `<site-root>/.wix/site.json` with `brand`, `frontend`, and `verticals`. Setup's only addition is patching `siteId` and `appId` in. This is a one-shot in-process JSON edit:
 
 1. `Read <site-root>/.wix/site.json` (absolute path — `<site-root>` was captured in Step 1, before the `cd` into the scaffold).
-2. Add the two top-level fields (`siteId`, `appId`) using the values from Step 1.
+2. Add the two top-level fields (`siteId`, `appId`) using the values held in session scratch.
 3. `Write` the updated file back to the same absolute path.
 
-Do not author a `patch-site-json.mjs` for this — six lines of edit doesn't justify a script.
+The file's purpose at this point is **observability + resume detection** — no subagent reads it; the orchestrator is the sole reader/writer. Six lines of edit doesn't justify a script.
 
 ---
 
-## Step 3 — Invoke the `wix-manage` skill (run during Step 1's wait)
-
-Per Step 1, fire this in the same concurrent batch as the `TaskOutput` block on the background scaffold handle. It doesn't depend on the scaffold's output; the only thing that does is reading `wix.config.json` after the wait returns.
+## Step 3 — Invoke the `wix-manage` skill
 
 App installation is delegated to `wix-manage`. Use the harness's skill-invocation primitive — in Claude Code that's `Skill(name="wix-manage")`; other harnesses provide an analogous mechanism. **Do not** hardcode a tool-call snippet here; the prose instruction "Invoke the `wix-manage` skill" is the contract, and the harness owns the mechanics. This mirrors `wix-app/SKILL.md:241` ("Invoke the `wix-design-system` skill") and keeps the skill agent-agnostic.
 
@@ -70,7 +49,7 @@ After invocation, `wix-manage`'s SKILL.md is in context with absolute paths to i
 Read <wix-manage-root>/references/app-installation/install-wix-apps.md
 ```
 
-> **Sequencing note.** Within Step 3, the `Skill` invocation must precede the `Read install-wix-apps.md` (the Read needs the absolute path that `wix-manage`'s SKILL.md publishes). Both can ride alongside the Step 1 wait in the opening concurrent batch — the wait is long enough to absorb a 1–2-message follow-up Read inside that window. The goal: by the time the wait returns, the recipe is loaded.
+> **Sequencing note.** Within Step 3, the `Skill` invocation must precede the `Read install-wix-apps.md` (the Read needs the absolute path that `wix-manage`'s SKILL.md publishes).
 
 The recipe's Step 2 documents the body shape every Step 4 install call will use:
 
@@ -89,15 +68,13 @@ Endpoint: `POST https://www.wixapis.com/apps-installer-service/v1/app-instance/i
 
 ## Step 4 — One concurrent batch
 
-> **BATCHING — read this twice before proceeding.**
->
-> Launch every operation below as a single concurrent batch. No narration, no *"Now installing apps:"*, no transition text between dispatches.
->
-> Any text adjacent to a dispatch closes the batch and forces remaining operations into separate turns. A prior run lost 13 s to roadmap-tracker calls splitting across 13 turns. The same regression applies here even though this dispatch is smaller (~3–5 ops) — strict single-batch dispatch is the cure.
+> Fire 4a + 4b + 4c as a single concurrent batch — see `PLAN.md` § "Batching discipline".
 
 The dispatch contains three operations:
 
-### 4a. App installs — one `curl` per `pack.apps[*]`
+### 4a. App installs — one `curl` per `pack.apps[*]` (business track, frontend-blind)
+
+This is **business-track** work: the install body is identical per `pack.apps[*]` regardless of the `frontend`/template — it registers Wix apps against the Site and never reads which frontend will consume them.
 
 Mint the site-scoped REST token once and cache it for the rest of the run, then iterate every loaded pack (top-level + transitive via `requires:`) and fire one `curl` per entry in the pack's `apps:` array:
 
@@ -118,7 +95,7 @@ curl -sS -X POST "https://www.wixapis.com/apps-installer-service/v1/app-instance
 
 Use `npx @wix/cli@latest token …` (not bare `wix token …`): `@wix/cli` may not be globally installed in every harness, and `npx` resolves to the project-local copy that scaffold just produced. The first invocation auto-fetches the CLI (~3–5 s) if missing; subsequent calls are instant.
 
-A 200 response confirms the install. On 401/403, re-mint and retry once per the recovery ladder in `references/shared/AUTHENTICATION.md`; if it still fails, surface the response body — recovery beyond a single re-mint usually means the CLI session expired and `wix login` is required.
+A 200 response confirms the install. On 401/403, retry the same call once with the cached token per the recovery ladder in `references/shared/AUTHENTICATION.md` — do **not** re-mint (the token is byte-identical for the run); if it still fails, surface the response body — a persistent 401 usually means the CLI session expired and `wix login` is required.
 
 **Packs with `apps: []` (e.g. `cms`, `ecom`):** skip the curl but record a phase entry as `{phase: "app-install-<pack>", status: "skipped", notes: "no app required for this pack"}` — the explicit skipped entry keeps run observability unambiguous.
 
@@ -126,11 +103,11 @@ A 200 response confirms the install. On 401/403, re-mint and retry once per the 
 
 ### 4b. `npx @wix/cli@latest env pull`
 
-Foreground shell, ~5 s. Writes `WIX_CLIENT_ID` to `.env.local`. Idempotent. Skipping this historically caused `Missing environment variable WIX_CLIENT_ID` build failures in downstream phases.
+Foreground shell, ~5 s. Writes `WIX_CLIENT_ID` to `.env.local`. Idempotent. Skipping this causes `Missing environment variable WIX_CLIENT_ID` build failures in downstream phases.
 
 ### 4c. Dispatch background `npm install`
 
-Now that scaffold is verified complete and we're `cd`'d into the project, fire `npm install` as a backgrounded shell in the same batch as 4a + 4b. Capture the handle as `npm_handle` and the path to `<npm-tempfile>` (used by SEED.md Step 4 if the install fails). Hold both in session scratch through the seed phase.
+Run `npm install` as a backgrounded shell. Capture the handle as `npm_handle` and the path to `<npm-tempfile>`. Hold both in session scratch.
 
 ```bash
 npm install --no-fund --no-audit --legacy-peer-deps <package-set> \
@@ -163,43 +140,26 @@ npm install --no-fund --no-audit --legacy-peer-deps \
 
 Per pre-flight S0.2, `pnpm install` fails against the `@wix/cli` template — use `npm install --legacy-peer-deps`.
 
-**Why per-pack packages live here, not in pack frontmatter:** `references/verticals/_schema.md` is scoped to Discovery; it deliberately excludes `packages:` to keep that schema small. The install set is owned by SETUP.md instead — the lookup table above is the contract. **If you skip the per-pack additions and ship only the always-on three, `astro build` fails at Wave 5 with `Rollup failed to resolve import "@wix/stores"` (or whichever pack-side package the run depends on) and Setup's win on the foreground wall is paid back many times over in a recovery cycle.** Both prior runs hit this — the build retried after an in-flight `npm install @wix/stores @wix/ecom`, costing ~30 s.
+**Why per-pack packages live here, not in pack frontmatter:** `references/verticals/_schema.md` is scoped to Discovery; it deliberately excludes `packages:` to keep that schema small. The install set is owned by SETUP.md instead — the lookup table above is the contract. **If you skip the per-pack additions and ship only the always-on three, `astro build` fails at Wave 5 with `Rollup failed to resolve import "@wix/stores"` (or whichever pack-side package the run depends on) and Setup's win on the foreground wall is paid back many times over in a recovery cycle.** When this happens, the build retries after an in-flight `npm install @wix/stores @wix/ecom`, costing ~30 s.
 
 Do not invent packages beyond the table above. If a future vertical needs a new package, extend the table here.
-
-**Do not `wait` on `npm_handle` inside this batch.** SEED.md Step 4 waits on it once the seed subagents have all returned, so the install runs concurrent with seed. Waiting here would defeat the split (it would re-serialize the install before seed, the regression this Step 4c shape was created to avoid).
 
 ---
 
 ## Step 5 — Transition to Seed
 
-Setup does not print a summary sentence. After the Step 4 batch's final-scan checks pass, open `<SKILL_ROOT>/references/SEED.md` and follow Steps 1–5. Step 2 runs the Wave 3 batch (seeders + design system + image phase 1 in parallel). Step 5 prints a short seed-progress line, then chains into `ORCHESTRATION.md` at Step 4.5 — do not treat Seed as the end of the run.
+Setup does not print a summary sentence. Setup ends once the Final-scan checks pass.
 
 ---
 
 ## npm install recovery
 
-Invoked from SEED.md Step 4 when `npm_handle` returns non-zero. The handle was dispatched in Step 4c above; recovery is owned by Seed because that's where the wait happens.
+Invoked when `npm_handle` returns non-zero. The handle is dispatched in Step 4c above; the orchestrator waits on it at the seed gate (`BUILD.md`) and runs this recovery ladder there if it failed.
 
 If the background `npm install` fails or hangs:
 
-1. **Foreground retry with 90-second timeout:**
-   ```bash
-   npm install --no-fund --no-audit --legacy-peer-deps <packages>
-   ```
-
-2. **If still hanging, retry with `--prefer-offline`:**
-   ```bash
-   npm install --prefer-offline --no-fund --no-audit --legacy-peer-deps <packages>
-   ```
-
-3. **If still hanging, clear the cache:**
-   ```bash
-   npm cache clean --force
-   npm install --no-fund --no-audit --legacy-peer-deps <packages>
-   ```
-
-4. **Last resort:** tell the user: *"npm install is hanging. Please run `npm install --legacy-peer-deps` manually in your terminal, then let me know when it's done."* Do not silently substitute pnpm/yarn — pre-flight S0.2 confirmed pnpm fails against the `@wix/cli` template.
+1. **Foreground retry** with `npm install --no-fund --no-audit --legacy-peer-deps <packages>` (90 s timeout). If that hangs, add `--prefer-offline`; if still hanging, run `npm cache clean --force` and retry once more.
+2. **Last resort:** ask the user to run `npm install --legacy-peer-deps` manually and report back. Do not silently substitute pnpm/yarn — pre-flight S0.2 confirmed pnpm fails against the `@wix/cli` template.
 
 The package set is the union of `@wix/sdk tailwindcss @tailwindcss/vite` (always) plus each loaded pack's frontmatter `packages:` array. The current pack frontmatter does not declare `packages:` blocks — vertical packs are discovery-only at this phase, so the install set is just the always-on three. Do not invent package names.
 
@@ -207,17 +167,7 @@ The package set is the union of `@wix/sdk tailwindcss @tailwindcss/vite` (always
 
 ## Final scan (MANDATORY)
 
-Before transitioning to SEED.md in Step 5:
-
-- `wix.config.json` was read and `siteId` + `appId` were extracted (not empty, not undefined).
-- `.wix/site.json` now contains both `siteId` and `appId` at the top level.
-- `npx @wix/cli@latest token --site "$SITE_ID"` returned a non-empty token (cached in session scratch).
-- Every loaded pack with non-empty `apps:` got a 200 OK from the install endpoint.
-- Every loaded pack with empty `apps:` got a `skipped` phase entry.
-- `.env.local` exists and contains `WIX_CLIENT_ID`.
-- `npm_handle` (background `npm install`) was captured and is in session scratch — its exit gate lives in SEED.md Step 4, not here.
-
-If any check fails, surface the failure verbatim instead of transitioning to SEED.md.
+Before transitioning to SEED.md in Step 5, verify: `siteId` + `appId` are in `.wix/site.json` (extracted from `wix.config.json`, both non-empty), the cached token mints, every loaded pack with `apps:` got a 200 OK (or a `skipped` phase entry for empty `apps:`), `.env.local` contains `WIX_CLIENT_ID`, and `npm_handle` was dispatched. If any check fails, surface the failure verbatim instead of transitioning to SEED.md.
 
 ---
 
@@ -231,13 +181,11 @@ Use this path when the user already has a working frontend on disk (Claude Desig
 |---|---|---|
 | Project creation | `npm create @wix/new@latest headless` (via `scaffold.sh`) — fresh Astro blank template | `npm create @wix/new@latest init` — wraps the existing project, leaves source untouched |
 | Frontend | Generated by Designer + Components + Pages subagents | Already exists; orchestrator does **not** generate UI |
-| Seeders / Designer / Pages / ORCHESTRATION | Run | **Skipped** — there is no Astro structure to populate |
+| Seeders / Designer / Pages / BUILD | Run | **Skipped** — there is no Astro structure to populate |
 | App installs | From inferred vertical packs | From a quick **project analysis** (see E2) — only apps the existing project actually needs |
 | SDK wiring into source | N/A (subagents write Astro + SDK calls from scratch) | **Required (E4)** — edit the project's existing source files in place |
 | Build / release | `npx @wix/cli@latest build` + `release` via `release.sh` | `npx @wix/cli@latest release` directly — **no build step**; existing `index.html` is published as-is |
 | Entry file | `src/pages/index.astro` (Astro convention) | **Must be `index.html`** at the configured `outputDirectory` |
-
-Run **only**: DISCOVERY.md pre-flight (CLI-auth check) → E1 → E2 → E3 → E4 → E5 → E6. Skip Steps 1–5 above entirely.
 
 ### Step E1 — Init (replaces scaffold)
 
@@ -265,7 +213,7 @@ This creates a Wix Site + Headless Project (App) connected to that Site, and wri
 **Required follow-ups before continuing:**
 
 1. **Entry file must be `index.html`.** If the project's entry is `index.htm`, `main.html`, etc., either rename to `index.html` or ask the user to confirm renaming. Wix Headless hosting serves `index.html` as the site root; anything else 404s.
-2. **`site.outputDirectory` must point at the directory containing `index.html`.** If `index.html` is at the project root, edit `wix.config.json` and set `"outputDirectory": "./"`. Default is `"./site"` which assumes a build output directory.
+2. **`site.outputDirectory` must point at the directory containing `index.html`.** If `index.html` is at the project root, use the `Edit` tool on `wix.config.json` to set `"outputDirectory": "./"`. Default is `"./site"` which assumes a build output directory.
 3. Extract `siteId` and `appId` from `wix.config.json` and hold in session scratch (same role as Path A: `siteId` is the `wix-site-id` header on every REST call).
 4. Capture `{ phase: "init", seconds, started, ended }` in `run.json.phases[]`.
 
@@ -296,9 +244,11 @@ Read `index.html` and any top-level source files (`*.jsx`, `*.tsx`, `*.html`, `*
 
 For each pack identified in E2, fire the install `curl` per § Step 4a above — same `tenant` / `appInstance` body, same headers, same recovery ladder (delegated to `wix-manage` per Step 3). Capture `{ phase: "app-install-<pack>", seconds }` per install.
 
-**Skip the rest of Path A's Step 4 batch:** no `env pull` for a pure-static site (only needed if E4 below adds SDK code that reads `WIX_CLIENT_ID` at build time; if so, run `env pull` then), **no `npm install`** (the existing project manages its own deps), **no `seed-utilities.sh`** (no Astro `src/utils/` to seed), **no `init-site-json.mjs`** (no `.wix/site.json` lifecycle in this flow).
+**Skip the rest of Path A's Step 4 batch:** no `env pull` for a pure-static site (only needed if E4 below adds SDK code that reads `WIX_CLIENT_ID` at build time; if so, run `env pull` then), **no `npm install`** (the existing project manages its own deps), **no `seed-utilities.sh`** (it is frontend-track project prep for a skill-scaffolded project; integrate mode has no such project and skips Seed entirely, so the orchestrator never calls it in this flow). `.wix/site.json` itself **was** written by Discovery's "After Approval" step with `frontend: "user-provided"` — that snapshot stays for observability; do not write it again here.
 
 ### Step E4 — SDK wiring
+
+> **Phase 4-Integrate is the long-term home for this step.** Per PLAN-beta-frontend-pluggability.md § Order of operations, integrate-mode SDK wiring will move to per-vertical wiring subagents authored under `references/<pack>/SDK_WIRING.md`. Until that lands, the inline recipe below is the contract.
 
 Installing apps in E3 only registers them against the Site — the existing frontend still ignores them until SDK calls are wired in. For each app installed in E3, find the matching feature surface in the project's source files (the same surfaces E2 detected) and wire its SDK calls inline.
 
