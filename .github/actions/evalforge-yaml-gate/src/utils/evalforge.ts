@@ -11,8 +11,6 @@ export type CapabilityVersion = { id: string; capabilityId: string; version: str
 import type { RemoteScenario, ScenarioBody } from './sync';
 export type { RemoteScenario, ScenarioBody };
 
-export type PrContext = { repo: string; prNumber: number; headSha: string };
-
 export type EvalRunInput = {
   name: string;
   description: string;
@@ -21,7 +19,6 @@ export type EvalRunInput = {
   scenarioIds: string[];
   capabilityIds?: string[];
   capabilityVersions?: Record<string, string>;
-  prContext?: PrContext;
 };
 
 export type EvalRunCreated = { id: string; status: RunStatus };

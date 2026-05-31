@@ -39,22 +39,22 @@ export async function runGate(): Promise<void> {
     'Could not retrieve PR file list', comment, config,
   );
   if (!allChanged) return;
-  const klass = classifyChanges(allChanged);
+  const classifiedChanges = classifyChanges(allChanged);
 
-  if (klass.mdFiles.length === 0 && klass.evalsAdded.length === 0 && klass.evalsModified.length === 0 && klass.evalsRemoved.length === 0) {
+  if (classifiedChanges.mdFiles.length === 0 && classifiedChanges.evalsAdded.length === 0 && classifiedChanges.evalsModified.length === 0 && classifiedChanges.evalsRemoved.length === 0) {
     core.info('No gated changes');
     await comment(formatNoChanges());
     return;
   }
 
-  const orphanedMds = klass.mdFiles.filter(f => canonicalDocUrl(f.filename, workspace) === null);
+  const orphanedMds = classifiedChanges.mdFiles.filter(f => canonicalDocUrl(f.filename, workspace) === null);
   if (orphanedMds.length > 0) {
     await comment(formatOrphanedMds(orphanedMds.map(f => f.filename)));
     fail(`${orphanedMds.length} changed .md file(s) not registered in documentation.yaml`, config.blocking);
     return;
   }
 
-  const cov = computeCoverage(klass.mdFiles, headScenarios, (f) => canonicalDocUrl(f, workspace));
+  const cov = computeCoverage(classifiedChanges.mdFiles, headScenarios, (f) => canonicalDocUrl(f, workspace));
   if (cov.uncovered.length > 0) {
     await comment(formatUncovered(cov.uncovered));
     fail(`Missing coverage for ${cov.uncovered.length} file(s)`, config.blocking);
@@ -67,8 +67,8 @@ export async function runGate(): Promise<void> {
 
   // Restrict head to scenarios authored or modified in THIS PR — avoids spurious PUTs on every push.
   const changedEvalPaths = new Set<string>([
-    ...klass.evalsAdded.map(f => f.filename),
-    ...klass.evalsModified.map(f => f.filename),
+    ...classifiedChanges.evalsAdded.map(f => f.filename),
+    ...classifiedChanges.evalsModified.map(f => f.filename),
   ]);
   const changedHeadScenarios = new Map<string, LoadedScenario>();
   for (const [name, ls] of headScenarios) {
@@ -123,7 +123,7 @@ export async function runGate(): Promise<void> {
   }
   const scenarioByPath = new Map<string, LoadedScenario>();
   for (const ls of headScenarios.values()) scenarioByPath.set(ls.path, ls);
-  for (const f of [...klass.evalsAdded, ...klass.evalsModified]) {
+  for (const f of [...classifiedChanges.evalsAdded, ...classifiedChanges.evalsModified]) {
     const ls = scenarioByPath.get(f.filename);
     if (!ls) continue;
     const id = nameToId.get(ls.scenario.name);

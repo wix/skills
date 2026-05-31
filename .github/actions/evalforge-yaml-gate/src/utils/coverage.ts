@@ -11,9 +11,9 @@ export type CoverageResult = {
   uncovered: Uncovered[];
 };
 
-function areaOf(p: string): string | null {
-  const m = p.match(AREA_RE);
-  return m ? m[1] : null;
+function areaOf(filePath: string): string | null {
+  const match = filePath.match(AREA_RE);
+  return match ? match[1] : null;
 }
 
 type ParamMap = Record<string, string | number | boolean | (string | number | boolean)[]>;
