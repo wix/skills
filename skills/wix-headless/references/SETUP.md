@@ -40,6 +40,8 @@ The file's purpose at this point is **observability + resume detection** — no 
 
 ## Step 3 — Invoke the `wix-manage` skill
 
+> **Default — just invoke it; do not deliberate.** **Always** invoke `Skill(name="wix-manage")` here. It is near-instant, and it is the *only* thing that both publishes `<wix-manage-root>` into scratch **and loads the recipe files into context** (which Step 4's installs and the whole Seed phase then reuse — SEED.md reads recipes relative to `<wix-manage-root>` and explicitly does **not** re-invoke). **Knowing the `wix-manage` directory path from an earlier `ls`/discovery is NOT a reason to skip the invocation** — a raw filesystem path is not the same as the skill being loaded (the recipes aren't in context). Do not weigh invoke-vs-skip; invoke. The only exception is the Missing-skill fallback below.
+
 App installation is delegated to `wix-manage`. Use the harness's skill-invocation primitive — in Claude Code that's `Skill(name="wix-manage")`; other harnesses provide an analogous mechanism. **Do not** hardcode a tool-call snippet here; the prose instruction "Invoke the `wix-manage` skill" is the contract, and the harness owns the mechanics. This mirrors `wix-app/SKILL.md:241` ("Invoke the `wix-design-system` skill") and keeps the skill agent-agnostic.
 
 After invocation, `wix-manage`'s SKILL.md is in context with absolute paths to its `references/<topic>/` files. Read its app-install recipe by absolute path:
@@ -61,7 +63,7 @@ Endpoint: `POST https://www.wixapis.com/apps-installer-service/v1/app-instance/i
 
 > **Recipe call shape.** Every loaded `wix-manage` recipe is authored in `curl` form. Build each call with the headers documented in `references/shared/AUTHENTICATION.md` (`Authorization: Bearer $TOKEN` + `wix-site-id: $SITE_ID` + `Content-Type: application/json`). The recipe's URL, method, and body are the source of truth — do not re-derive them.
 
-> **Sibling-path fallback.** If `wix-manage` is not installed in the current harness, the orchestrator can fall back to the body shape documented above (it is REST-shaped and stable; the recipe wraps it but does not transform it). Note the missing-skill in the run digest. Do not silently substitute — the canonical entry point is `wix-manage`.
+> **Missing-skill fallback (only when the `Skill` primitive fails).** This applies **only** when the skill-invocation primitive itself is unavailable — i.e. `wix-manage` is not installed in the current harness and the `Skill(name="wix-manage")` call errors. It is **not** a "use the path you already found" shortcut: a known directory path never justifies skipping the invocation (see the default above). When the invocation genuinely fails, fall back to the install **body shape** documented above (it is REST-shaped and stable; the recipe wraps it but does not transform it), and note the missing skill in the run digest. Do not silently substitute — the canonical entry point is `wix-manage`.
 
 ---
 

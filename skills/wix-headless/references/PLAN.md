@@ -14,7 +14,7 @@ The terms below appear throughout this skill. They describe the *shape* of work;
 - **Concurrent batch** — N subagents (or N tool calls) launched together so they execute in parallel rather than serially.
 - **Background subagent** — a subagent the orchestrator does not block on; it runs while the orchestrator continues with downstream work and reports its result asynchronously.
 - **Foreground subagent** — a subagent the orchestrator blocks on before continuing.
-- **Wait (gate)** — the orchestrator pauses until specified background subagents finish.
+- **Wait (gate)** — the orchestrator pauses until specified background work (subagents or background `Bash` jobs like the scaffold) finishes. **Waiting means awaiting the harness's background-task completion notification — never a `sleep`/poll loop against an output file.** A poll loop burns the whole wait as blocked orchestrator time and delays everything gated behind it (e.g. sleep-polling the scaffold lands the Composer late). The completion notification is the only signal you need; the same rule covers the `wix login` wait (`shared/AUTHENTICATION.md`) and the no-sidecar-poll rule for image phases (`images/INSTRUCTIONS.md`).
 - **Result** — the structured JSON block each subagent returns at the end of its run, per `references/shared/RETURN_CONTRACT.md`.
 
 ## Two tracks (business vs frontend)
