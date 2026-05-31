@@ -45,7 +45,7 @@ Apply `SETUP.md` Step 1 only: wait `scaffold_handle` (load `wix-manage` in the s
 
 *business track (frontend-blind — `SETUP.md` owns the recipes/package set):*
 1. `Bash` × N — app installs, one curl per `pack.apps[*]` → `SETUP.md` § Step 4a.
-2. `Bash` — `npx @wix/cli@latest env pull` → `SETUP.md` § Step 4b.
+2. `Bash` — `npx @wix/cli@latest env pull --json` → `SETUP.md` § Step 4b (the `--json` flag suppresses the interactive spinner that otherwise bloats context).
 3. `Bash` (background) — `npm install …`, capture `npm_handle` + its stderr tempfile → package set in `SETUP.md` § Step 4c.
 
 *frontend track (Designer tokens already in scratch):*

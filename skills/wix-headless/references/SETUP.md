@@ -102,9 +102,11 @@ A 200 response confirms the install. On 401/403, retry the same call once with t
 
 **Packs with `disabled: true` (today: `gift-cards`):** the pack still loads and contributes to the resolved set, but its `apps:` array is empty by design (the user opts in via the dashboard later). No curl. Same `skipped` phase entry as above.
 
-### 4b. `npx @wix/cli@latest env pull`
+### 4b. `npx @wix/cli@latest env pull --json`
 
 Foreground shell, ~5 s. Writes `WIX_CLIENT_ID` to `.env.local`. Idempotent. Skipping this causes `Missing environment variable WIX_CLIENT_ID` build failures in downstream phases.
+
+> **Always pass `--json`.** Without it the CLI renders an interactive spinner; captured through the tool's non-TTY pipe, every animation frame lands as a separate line of ANSI escapes (`\x1b[2K\x1b[1A…⠙ Pulling…`) and bloats the context for zero signal. `--json` selects the CLI's non-interactive render-to-string path (one clean `{"success": true}` line), and the skill doesn't parse this command's output anyway — it only needs `.env.local` on disk.
 
 ### 4c. Dispatch background `npm install`
 
