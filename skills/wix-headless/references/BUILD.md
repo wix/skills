@@ -27,7 +27,7 @@ The user just approved; `init-site-json.mjs` wrote the slim `.wix/site.json`. **
 
 Fire both as one concurrent batch (`PLAN.md` § "Batching discipline") — they are independent:
 - **Scaffold** — `scaffold.sh <slug> "<brand>" --frontend <value>` (background, capture `scaffold_handle` + its stderr tempfile). Slug derivation + the command shape are `DISCOVERY.md` § "After Q1". `npm install` is **not** chained here (Setup Step 4c dispatches it).
-- **Designer** — background, capture `designer_handle`, per the prompt template in `DESIGN_SYSTEM.md`, inlining Discovery's aesthetic craft (brand, aesthetic direction, palette, type, mood, page color strategy) held in scratch. Judgment-only (~10–15 s; JSON `data.designTokens` + `data.shell`, no files). Do **not** pass application inputs (packs, nav links) — those go to the Composer.
+- **Designer** — background, capture `designer_handle`. Dispatch with **Instruction file = `<SKILL_ROOT>/references/DESIGN_SYSTEM.md`** (the subagent opens it — **do not Read it in the orchestrator**, per `SKILL.md` § "Path resolution"). Inline Discovery's aesthetic craft held in scratch: brand, aesthetic direction, palette, type, mood, page color strategy. Judgment-only (~10–15 s; JSON `data.designTokens` + `data.shell`, no files). Do **not** pass application inputs (packs, nav links) — those go to the Composer.
 
 The Designer's ~13 s overlaps the scaffold's ~23 s. Setup waits on `scaffold_handle` at Step 1; the bridge (step 2) waits on `designer_handle`.
 
@@ -54,7 +54,7 @@ Apply `SETUP.md` Step 1 only: wait `scaffold_handle` (load `wix-manage` in the s
    { ...paste the Designer's data.designTokens JSON object here, verbatim from scratch... }
    TOKENS
    ```
-5. `Agent` (background) — Composer, capture `composer_handle`; prompt per `COMPOSE.md`, inlining tokens + shell + brand + nav links + packs. **SKIP** (record `{phase: "compose", status: "skipped"}`) if `frontend !== "astro"` (defensive — custom frontends never reach `BUILD.md`).
+5. `Agent` (background) — Composer, capture `composer_handle`. Dispatch with **Instruction file = `<SKILL_ROOT>/references/astro/COMPOSE.md`** (the subagent opens it — **do not Read it in the orchestrator**; it is 14 KB of subagent-only substitution how-to, and reading it here just bloats the dispatch turn you're composing). Inline: tokens + shell + brand + nav links + packs. **SKIP** (record `{phase: "compose", status: "skipped"}`) if `frontend !== "astro"` (defensive — custom frontends never reach `BUILD.md`).
 
 > **Rationale — do not re-derive.** The two tracks are independent: the Composer's only inputs are the Designer's tokens (ready from run-step 0) and the verified scaffold (ready at Setup Step 1) — neither depends on seeders, app installs, env, or npm. App installs / `env pull` / `npm install` are business-track work the bridge has zero dependency on. Firing the bridge alongside the Step 4 batch lets its ~80–160 s authoring wall absorb into Setup + the whole seed window; firing it *after* the Step 4 batch — or worse, in the seed wave — makes it start late and land as a fresh longest pole that ends *after* the seeders (~60–90 s of Composer wall lost in past runs). The Composer self-retries its pre-write scaffold reads if the scaffold is somehow still in flight (`COMPOSE.md` § "Pre-write").
 

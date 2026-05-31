@@ -37,7 +37,7 @@ Your CWD at runtime is the **project directory** (scaffold subdir after setup), 
 | Known app IDs | `<SKILL_ROOT>/references/commands/known-apps.json` |
 | Scripts | `<SKILL_ROOT>/scripts/` |
 
-**Do NOT Read subagent `INSTRUCTIONS.md` files in the orchestrator** — pass absolute paths; subagents open them.
+**Do NOT Read subagent role/instruction docs in the orchestrator** — pass the absolute path; the subagent opens it. This covers **every** doc whose body is written *for a subagent to follow*, not just files literally named `INSTRUCTIONS.md`: `DESIGN_SYSTEM.md` (Designer), `astro/COMPOSE.md` (Composer), `astro/designer/INSTRUCTIONS.md` (page designers), the per-vertical `INSTRUCTIONS.md` routers, and the per-vertical guides under `references/astro/`. The orchestrator only needs to know **which inputs to inline** for each dispatch — and that list lives in `BUILD.md`'s dispatch steps, not in the role doc. Reading a role doc to "prepare a dispatch" pulls 5–14 KB of subagent-only how-to into the orchestrator's context, which it then has to reason over on the dispatch turn — measurably inflating bridge turns. The orchestrator's own reading set is the conductor/domain docs only: `PLAN.md`, `BUILD.md`, `DISCOVERY.md`, `SETUP.md`, `SEED.md`, and `references/verticals/*.md`.
 
 When and how each subagent is dispatched (Designer, Composer, seeders, image phases, vertical Components/Pages) is owned by the conductor (`references/PLAN.md` pre-approval, `references/BUILD.md` post-approval), not listed here.
 
