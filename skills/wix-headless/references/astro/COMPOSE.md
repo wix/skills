@@ -139,4 +139,4 @@ No trailing prose after the closing fence.
 | Emit `<!-- home:cms -->` or a marker for a non-contributing pack | One marker per contributing loaded pack only |
 | `Read <SKILL_ROOT>/references/astro/templates/` (the directory) | `EISDIR` — Read each of the six skeletons by its exact file path (batch the six Reads); `Glob` if you must discover them |
 | `Read .wix/site.json` for brand/tokens | Every input is inlined in your prompt |
-| Branch to react-vite | astro only; return `FRONTEND_NOT_SUPPORTED` otherwise |
+| Branch to a non-astro / custom frontend | astro only; return `FRONTEND_NOT_SUPPORTED` otherwise |
