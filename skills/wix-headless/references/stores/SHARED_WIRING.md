@@ -94,7 +94,7 @@ Handles variant selection, quantity selector, stock awareness, and wraps `AddToC
 <ProductPurchase client:load product={product} inventoryByVariant={inventoryByVariant} />
 ```
 
-**Prop contract — single `product` object.** The template accepts the full productsV3 product and destructures internally. This mirrors `ProductCard.astro`'s `{ product }` contract so both stores components take the same shape (prevents the regression observed in an earlier run where a fallback-written `[slug].astro` passed `product` as a whole when the component expected flat props).
+**Prop contract — single `product` object.** The template accepts the full productsV3 product and destructures internally. This mirrors `ProductCard.astro`'s `{ product }` contract so both stores components take the same shape (prevents a shape mismatch where a fallback-written `[slug].astro` passes `product` as a whole while the component expects flat props).
 
 Key behaviors:
 - `hasMeaningfulOptions` — a product has meaningful options only when at least one option has >1 choice. Dummy single-choice options (e.g., "Type: Standard") are treated as no options.
@@ -159,6 +159,6 @@ Classes from contract (stores pack):
 | Default Tailwind color utilities on React islands (`bg-green-50`, `bg-blue-500`) | Brand `@theme` utilities (`bg-bark`, `text-cream`) or contract class names |
 | `<!--` HTML comments in `.astro` frontmatter | `//` or `/* */` — frontmatter is TypeScript |
 | Omit `WIX_STORES_APP_ID` constant | Hardcoded `215238eb-22a5-4c36-9e7b-e7c08025e04e` in AddToCartButton for `catalogReference.appId` |
-| Introspect `node_modules/@wix/*` | All symbols are documented here; if missing, call `<prefix>SearchWixSDKDocumentation` |
+| Introspect `node_modules/@wix/*` | All symbols are documented here; if missing, use docs-search REST (see `DOCS_SEARCH.md`) |
 | Write `CartView.tsx`, `CartBadge.tsx`, or `analytics.ts` | Not owned by this scope — do not write |
 | Pass flat props to `ProductPurchase` (`productId`, `options`, `variantsInfo`, …) | Pass the whole product: `<ProductPurchase product={product} inventoryByVariant={inventoryByVariant} />` |

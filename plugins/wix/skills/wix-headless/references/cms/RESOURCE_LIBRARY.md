@@ -2,7 +2,7 @@
 
 Build a downloadable resource library using `@wix/data` — file listings with category filtering, file type badges, and detail pages with download buttons. Use for documents, guides, templates, whitepapers, or any downloadable assets.
 
-> Read `CMS_FOUNDATIONS.md` first for shared patterns (service module, image resolution, elevation, MCP seeding).
+> Read `CMS_FOUNDATIONS.md` first for shared patterns (service module, image resolution, elevation, REST-based seeding).
 
 ## Collection Schema
 
@@ -321,7 +321,7 @@ Key details:
 
 ## Seed with Images
 
-After seeding resources via MCP, generate cover images following `../../shared/IMAGE_GENERATION.md` and `CMS_FOUNDATIONS.md` → "MCP Seeding with Images".
+After seeding resources via REST, generate cover images following `../shared/IMAGE_GENERATION.md` and `CMS_FOUNDATIONS.md` → "Seeding with Images".
 
 **Prompt template:**
 
@@ -334,7 +334,7 @@ Cover image for [TITLE], a [FILE TYPE]. Abstract [BRAND AESTHETIC]. Color tones:
 Example patch:
 
 ```
-CallWixSiteAPI: PATCH /wix-data/v2/items/{resourceId}
+REST: PATCH https://www.wixapis.com/wix-data/v2/items/{resourceId}
 body: {
   "dataCollectionId": "Resources",
   "dataItem": {
@@ -350,7 +350,7 @@ body: {
 1. Create a "Resources" collection in the Wix dashboard → CMS with the schema above
 2. Add 4+ resources across 2+ categories with different file types (PDF, DOC, ZIP)
 3. Include `fileUrl` links (can be any downloadable URL for testing)
-4. Run `npx @wix/cli dev`
+4. Run `npx @wix/cli@latest dev`
 5. `/resources` — shows all resources with category filters and file type badges
 6. Click a category — filters resources
 7. Click a resource — detail page with download button and related resources

@@ -12,25 +12,25 @@ Build a complete form feature using `@wix/forms` — server-side schema fetching
 
 ## Prerequisites
 
-- Wix Forms app must be installed on the site (via MCP after scaffolding, or manually in Wix dashboard)
+- Wix Forms app must be installed on the site (installed via the apps-installer REST endpoint after scaffolding, or manually in the Wix dashboard)
 - `@wix/forms` package installed: `npm install @wix/forms`
 
-> **Forms are auto-created during scaffolding.** When scaffolding with a forms template (e.g., the Registration template `e5d63bf1-cd06-48eb-ad77-0da9235adcf1`), a form is automatically created on the site with server-side privileges. Use `forms.listForms("wix.form_app.form")` with `auth.elevate` to discover it — no manual form ID needed. If no forms exist, use the MCP-assisted Form Setup below to create one (the Create Form API is not available to headless SDK calls, but MCP credentials can create forms).
+> **Forms are auto-created during scaffolding.** When scaffolding with a forms template (e.g., the Registration template `e5d63bf1-cd06-48eb-ad77-0da9235adcf1`), a form is automatically created on the site with server-side privileges. Use `forms.listForms("wix.form_app.form")` with `auth.elevate` to discover it — no manual form ID needed. If no forms exist, use the REST API Form Setup below to create one (the Create Form API is not available to headless SDK calls, but the CLI-minted REST token can create forms).
 
-## Form Setup (MCP-Assisted)
+## Form Setup (REST)
 
-Before writing any form code, ensure a contact form exists on the site via MCP:
+Before writing any form code, ensure a contact form exists on the site via the form-schema REST API:
 
-1. **List forms** — `CallWixSiteAPI: GET https://www.wixapis.com/form-schema-service/v4/forms?namespace=wix.form_app.form`
+1. **List forms** — `REST: GET https://www.wixapis.com/form-schema-service/v4/forms?namespace=wix.form_app.form`
 2. **If the API returns a "missing installed app" error** → install the Wix Forms app:
    ```
-   CallWixSiteAPI: POST https://www.wixapis.com/apps-installer-service/v1/app-instance/install
+   REST: POST https://www.wixapis.com/apps-installer-service/v1/app-instance/install
    body: {
      "tenant": { "tenantType": "SITE", "id": "<siteId>" },
      "appInstance": { "appDefId": "225dd912-7dea-4738-8688-4b8c6955ffc2", "enabled": true }
    }
    ```
-   > Translate this prose-HTTP form into the full `CallWixSiteAPI` tool-call shape — include `siteId`, `reason`, `sourceDocUrl` wrapper fields and pass `body` as a real object (NOT a stringified JSON). See `../../shared/MCP_PREFIX.md` § "CallWixSiteAPI call conventions".
+   > Translate this prose-HTTP form into the full `curl` tool-call shape — pass `body` as JSON in `-d` (NOT a stringified JSON). See `../shared/AUTHENTICATION.md` for the standard REST headers.
 
    Then retry listing forms.
 3. **If forms list is empty** → create a form (two-step atomic operation):
@@ -125,9 +125,9 @@ Before writing any form code, ensure a contact form exists on the site via MCP:
    }
    ```
 
-   Full MCP call structure:
+   Full REST call structure:
    ```
-   CallWixSiteAPI: POST https://www.wixapis.com/form-schema-service/v4/forms
+   REST: POST https://www.wixapis.com/form-schema-service/v4/forms
    body: {
      "form": {
        "formFields": [ <selected fields from above> ],
@@ -162,7 +162,7 @@ Before writing any form code, ensure a contact form exists on the site via MCP:
    - PATCH using the procedure in step 5 below
 5. **If forms already exist** → verify the form has `postSubmissionTriggers.upsertContact`. This field is **critical** — without it, submissions are recorded but no Contact is created in the CRM. If missing, patch the form to add it:
    ```
-   CallWixSiteAPI: PATCH https://www.wixapis.com/form-schema-service/v4/forms/<formId>
+   REST: PATCH https://www.wixapis.com/form-schema-service/v4/forms/<formId>
    body: {
      "form": {
        "revision": "<current revision from GET>",
@@ -427,7 +427,7 @@ const wixForm = listResult.forms?.[0];
 const formId = wixForm?._id;
 ```
 
-If no forms exist, use the MCP-assisted Form Setup section above to create one via `CallWixSiteAPI`. If MCP is not available, create one in the Wix dashboard (Forms section → Add New Form).
+If no forms exist, use the REST API Form Setup section above to create one via `curl`. If curl auth is not available, create one in the Wix dashboard (Forms section → Add New Form).
 
 ## Form Field Schema (SDK Types)
 
@@ -471,7 +471,7 @@ After form verification, write a sidecar file at `.wix/logs/forms-data.md` (form
 
 ## Testing
 
-1. Run `npx @wix/cli dev`
+1. Run `npx @wix/cli@latest dev`
 2. Navigate to `/contact`
 3. Fill in the form and submit
 4. Check the Wix dashboard → Forms → Submissions to verify the data arrived

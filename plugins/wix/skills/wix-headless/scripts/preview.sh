@@ -6,7 +6,7 @@
 #
 # Run from the project directory (CWD = <project>/). Requires wix.config.json.
 #
-# Output: stdout is the preview URL that `npx @wix/cli preview` printed; the
+# Output: stdout is the preview URL that `npx @wix/cli@latest preview` printed; the
 # orchestrator captures it and records as outcome.previewUrl in run.json. All
 # other CLI output goes to stderr.
 #
@@ -23,14 +23,14 @@
 set -euo pipefail
 
 # Build first; surface compile errors verbatim if it fails.
-npx @wix/cli build 1>&2
+npx @wix/cli@latest build 1>&2
 
 # Preview captures the deployed URL on stdout. We tee its output to stderr for
 # the user-visible log AND parse the URL out for the orchestrator's stdout.
 PREVIEW_OUTPUT="$(mktemp)"
 trap 'rm -f "$PREVIEW_OUTPUT"' EXIT
 
-npx @wix/cli preview 2>&1 | tee "$PREVIEW_OUTPUT" 1>&2
+npx @wix/cli@latest preview 2>&1 | tee "$PREVIEW_OUTPUT" 1>&2
 
 # Wix CLI prints `Site preview URL: <url>` (or similar) — extract the first
 # https URL from the output. If multiple are printed, the first is the canonical

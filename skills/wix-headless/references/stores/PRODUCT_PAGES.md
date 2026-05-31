@@ -14,12 +14,14 @@ Files this agent MUST NOT touch:
 - `src/components/ProductPurchase.tsx`, `src/components/AddToCartButton.tsx` — owned by `components`
 - `src/pages/cart.astro`, `src/pages/thank-you.astro` — owned by `pages-cart-checkout`
 - `src/pages/index.astro`, `src/components/Navigation.astro` — owned by `pages-home-and-nav`
+- `src/components/CategoryRail.astro` — owned by `pages-categories`. **Import** from `../../components/CategoryRail.astro`; never `Write` it. If it's not on disk yet when you go to mount it, that means the orchestrator dispatched scopes out of order — return `status: "partial"` with `errors: [{ code: "MISSING_PAGES_CATEGORIES_OUTPUT", path: "src/components/CategoryRail.astro" }]` (never defensively `Write` it yourself — `pages-categories` is the only writer, and racing it trips the harness staleness guard).
+- `src/utils/categories.ts` — pre-copied by the orchestrator before Phase 4 (BUILD.md Step 7 pre-batch). **Import** `listStoreCategories`/etc. from `../../utils/categories`; never `Write` it.
 - `global.css`, any other `.astro` page, any other component — owned by designers
 
 ## Inputs (from parent prompt)
 
 - **Phase 1 return data** — `products: [{id, name, slug, variantId, price, inventory, sku}]` — use slugs when needed (rarely; `queryProducts` returns them already).
-- **Design tokens** — read `.wix/site.json.designTokens` for the published color/spacing/typography vocabulary; compose Tailwind utilities derived from those tokens (`class="py-4xl flex flex-col gap-md font-display"`) at the call site rather than inventing semantic classes for layout/spacing/typography. Retained global semantic classes are limited to compound patterns (`offer-callout`, `cart-summary`), interactive primitives (`btn-primary`, `product-card`), and JS targets — see `references/shared/STYLING.md`.
+- **Design tokens** — the full `designTokens` JSON is inlined in your prompt for the published color/spacing/typography vocabulary; compose Tailwind utilities derived from those tokens (`class="py-4xl flex flex-col gap-md font-display"`) at the call site rather than inventing semantic classes for layout/spacing/typography. Retained global semantic classes are limited to compound patterns (`offer-callout`, `cart-summary`), interactive primitives (`btn-primary`, `product-card`), and JS targets — see `references/shared/STYLING.md`.
 - **Designer output summary** — paths of existing `products/index.astro`, `products/[slug].astro`, `ProductCard.astro` with placeholder data.
 
 ## Critical rules (all must be honored)
@@ -72,7 +74,7 @@ Preserves the designer's page structure (class names, layout) and replaces the p
 
 > **Page size 24** — multiple of the 2/3/4-column grid, well under Wix's per-request cap of 100. Do not change without updating `CATEGORY_PAGES.md` to match.
 
-> **No client-side filter.** The previous "ship every product, hide non-matching cards via JS" pattern is gone — it doesn't scale and breaks SEO. Do not reintroduce `data-category-ids` on `<ProductCard>` or any DOM-hide script. Filtering is done by navigating to `/category/<slug>` (a real route), and `<ClientRouter />` from the designer's Layout handles the swap.
+> **No client-side filter.** Do not ship every product and hide non-matching cards via JS — it doesn't scale and breaks SEO. Do not add `data-category-ids` on `<ProductCard>` or any DOM-hide script. Filtering is done by navigating to `/category/<slug>` (a real route), and `<ClientRouter />` from the designer's Layout handles the swap.
 
 > **Why the double-script pattern:** Listing page is server-rendered but `AddProductImpression` must fire in the browser. The server-computed payload is serialized into an inert JSON `<script>` (`is:inline`) and read by a separate processed `<script>` (bundled by Astro — has ES `import`). `define:vars` + inline-script combinations cannot do ES imports.
 

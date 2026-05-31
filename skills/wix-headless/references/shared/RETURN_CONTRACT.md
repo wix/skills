@@ -1,18 +1,22 @@
 # Agent Return Contract
 
-Replaces the sidecar-file coordination model (`.wix/logs/*.md`) with **in-memory structured returns**. Every agent returns a JSON block at the end of its completion message; the skill parses these returns directly from session context.
+Coordination between agents uses **in-memory structured returns**, not sidecar files (`.wix/logs/*.md`, `.wix/seed-returns/*.json`, `.wix/image-urls.md`). Every agent returns a JSON block at the end of its completion message; the skill parses these returns directly from session context.
 
 At end of run, the skill writes ONE file (`.wix/run.json`) aggregating every return. This is the only observability artifact on the project side.
 
-## Why this replaces sidecars
+## The JSON return is your sole output channel
 
-Sidecar files were designed assuming agents are independent processes without shared memory. But subagents run as child model calls under the parent skill's context — they can return structured data directly. Writing/reading markdown files between them adds:
+Subagents MUST NOT write coordination files (`.wix/seed-returns/<pack>.json`, `.wix/image-urls.md`, `.wix/logs/*.md`, etc.). The orchestrator parses your fenced JSON block from the message body and either acts on the data directly or pipes it to a deterministic helper script via stdin (e.g. `emit-design-tokens.mjs`, `patch-decorative-slots.mjs`). Any data the orchestrator needs from you belongs under `data` in the return block — files in `.wix/` that aren't build-consumed (CSS, .d.ts) or external-system-owned (`wix.config.json`) are not part of the contract.
+
+## Why structured returns, not files
+
+Writing markdown files between agents assumes they're independent processes without shared memory. But subagents run as child model calls under the parent skill's context — they can return structured data directly. File-based coordination adds:
 
 - ~10s per sidecar write (file I/O + narration)
 - ~5s per sidecar read from the parent (another tool call)
 - Coordination complexity (timing, status-line parsing, retry logic)
 
-Prior runs spent **~1–2 minutes total** on sidecar ceremony. Eliminating that buys back meaningful critical-path time.
+That overhead is pure critical-path cost with no benefit here.
 
 ## The contract
 
@@ -60,7 +64,7 @@ Agents sometimes end with prose like:
 
 > *"All three files are correctly written. Let me verify the key requirements… Everything looks good."*
 
-…with no fenced JSON block at the end. The parent skill then has to reconstruct `data.products` etc. from narrative text — fragile, and when Phase 4 relies on pre-seeded data from Phase 1 Seed returns (see `SKILL.md` Step 7), a missing JSON block means Phase 4 agents don't get their pre-seeded data inline and fall back to re-querying MCP, costing 5–15s each.
+…with no fenced JSON block at the end. The parent skill then has to reconstruct `data.products` etc. from narrative text — fragile, and when Phase 4 relies on pre-seeded data from Phase 1 Seed returns (see `SKILL.md` Step 7), a missing JSON block means Phase 4 agents don't get their pre-seeded data inline and fall back to re-querying the REST API, costing 5–15s each.
 
 **Correct pattern — end with the fenced block, no trailing prose:**
 
@@ -265,21 +269,26 @@ Phase 4 CMS page agents reference these collection names; the image agent attach
 
 The image agent runs in two scopes dispatched by the parent in different steps. Each emits its own return block.
 
-**`image-phase-1-decorative` — dispatched in Step 3 (no dependencies):**
+**`image-phase-1-decorative` — dispatched in `SEED.md` Step 2 Wave 3 batch (no dependencies):**
 
 ```json
 {
   "status": "complete",
   "phase": "image-phase-1-decorative",
   "scope": "image-phase-1-decorative",
-  "summary": "Generated 3 decorative images; uploaded to Wix Media; wrote .wix/image-urls.md",
+  "summary": "Generated 3 decorative images; uploaded to Wix Media; returned slot→URL map",
   "data": {
     "decorativeCount": 3,
     "purposes": ["hero", "about", "background"],
+    "slots": {
+      "hero":  "https://static.wixstatic.com/media/...",
+      "about": "https://static.wixstatic.com/media/...",
+      "background": "https://static.wixstatic.com/media/..."
+    },
     "model": "google:4@2",
     "totalCredits": 0.297
   },
-  "files": [".wix/image-urls.md"],
+  "files": [],
   "errors": []
 }
 ```
@@ -302,7 +311,7 @@ The image agent runs in two scopes dispatched by the parent in different steps. 
 }
 ```
 
-(Image agent writes to Wix Media via MCP, not to project files — Image Phase 2 `files` is empty.)
+(Image agent writes to Wix Media via REST, not to project files — Image Phase 2 `files` is empty.)
 
 ## Failure returns
 
@@ -395,20 +404,20 @@ Agents should check their output for these before returning `complete`:
 | Missing `variantId` in cart operations | Check `catalogReference.options` | Always include — single-variant products have one |
 | React island using default Tailwind color class | `grep 'bg-blue-\|bg-green-\|text-red-\|bg-gray-' *.tsx` | Use brand `@theme` utilities (`bg-bark`, `text-cream`) or contract class names |
 
-### MCP
+### REST API
 
 | Failure | How to detect | Fix |
 |---------|---------------|-----|
-| `UNSUPPORTED_FORM_NAMESPACE` after app install | Error on first MCP call post-install | Wait 10s, retry up to 3x (namespace propagation) |
-| `CallWixSiteAPI` with stringified `body` | Tool rejects the call shape | Load the tool schema via your runtime's tool-discovery primitive, then pass `body` as a real object |
-| Tool-not-found on Wix MCP call | Tool name without the session's prefix | Use `<prefix>ToolName`; see `MCP_PREFIX.md` recovery |
+| `UNSUPPORTED_FORM_NAMESPACE` after app install | Error on first REST call post-install | Wait 10s, retry up to 3x (namespace propagation) |
+| `curl` with stringified `body` | Endpoint rejects the call shape | Pass `body` as a real JSON object via `-d` (not a stringified blob). See `AUTHENTICATION.md` for the standard REST headers. |
+| 401/403 on Wix REST call | Expired or wrong token | Re-mint per `AUTHENTICATION.md` recovery ladder; one retry then surface body |
 
 ### Build
 
 | Failure | How to detect | Fix |
 |---------|---------------|-----|
-| `Legacy HTML single-line comments` | `npx @wix/cli build` stderr | See Astro/React row 1 above — Phase 2 agent emitted HTML comments |
-| `Missing environment variable WIX_CLIENT_ID` | Build stderr | Run `npx @wix/cli env pull` then retry |
+| `Legacy HTML single-line comments` | `npx @wix/cli@latest build` stderr | See Astro/React row 1 above — Phase 2 agent emitted HTML comments |
+| `Missing environment variable WIX_CLIENT_ID` | Build stderr | Run `npx @wix/cli@latest env pull` then retry |
 | `Cannot find module '@wix/…'` | Build stderr | npm install didn't include that package; check pack's `packages` list |
 
 ## Notes for agent authors

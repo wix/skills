@@ -2,29 +2,13 @@
 
 ## Overview
 
-The Staff Sorting Provider SPI allows you to implement custom staff assignment algorithms for Wix Bookings. When a booking slot has multiple available staff members, Wix calls your plugin to determine the priority order for staff assignment.
+The Staff Sorting Provider SPI lets you implement custom staff assignment algorithms for Wix Bookings. When a booking slot has multiple available staff members, Wix calls your plugin to determine the priority order. Implement the `sortStaffMembers` handler — it returns the available staff members reordered by priority.
 
 **FQDN**: `wix.interfaces.resources.sorting.v1.staff_sorting_provider`
 
-## Import
-
-```typescript
-import { staffSorting } from "@wix/bookings/service-plugins";
-```
-
-## Handler
-
-| Handler | Description |
-| --- | --- |
-| `sortStaffMembers` | Sort available staff members by priority for a given booking slot |
-
 ## Request and Response Schema
 
-Before implementing, call `ReadFullDocsMethodSchema` with the docs URL below to get the full request/response types.
-
-**MCP Tools to use:**
-- `ReadFullDocsMethodSchema` - Full request/response schema with field names, types, and descriptions
-- `ReadFullDocsArticle` - Full documentation with code examples (use if schema needs more context)
+Before implementing, call `ReadFullDocsMethodSchema` on the docs URL to get the full request/response types.
 
 | Handler | Docs URL |
 | --- | --- |
@@ -84,30 +68,6 @@ staffSorting.provideHandlers({
   },
 });
 ```
-
-## Extension Registration
-
-Register the staff sorting provider using the `bookingsStaffSortingProvider()` builder. This builder requires additional fields beyond the standard ones:
-
-```typescript
-import { extensions } from "@wix/astro/builders";
-
-export const staffSorting = extensions.bookingsStaffSortingProvider({
-  id: "{{GENERATE_UUID}}",
-  name: "Workload Balanced Staff Assignment",
-  source: "./backend/service-plugins/bookings-staff-sorting/workload-balancer/plugin.ts",
-  methodName: "Workload Balancer",
-  methodDescription: "Balances workload by prioritizing staff with fewer recent bookings",
-});
-```
-
-### Additional Builder Fields
-
-| Field | Type | Required | Max Length | Description |
-| --- | --- | --- | --- | --- |
-| `methodName` | string | Yes | - | Display name for the sorting method |
-| `methodDescription` | string | Yes | 100 chars | Description of the sorting algorithm (max 100 characters) |
-| `dashboardPluginId` | string | No | - | Optional dashboard plugin ID for configuration UI |
 
 ## Key Implementation Notes
 

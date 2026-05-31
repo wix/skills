@@ -4,6 +4,8 @@ description: Initializes a Stores catalog with Catalog V3 Products API, bulk pro
 ---
 **RECIPE**: Business Recipe – Initial Setup for a Wix Online Store (Catalog V3)
 
+> **Standard call shape (every curl below).** The `<AUTH>` placeholder is shorthand for `Authorization: Bearer <TOKEN>` only. Every actual call ALSO needs `wix-site-id: <SITE_ID>` and (for body-bearing requests) `Content-Type: application/json`. **POST/PATCH against `stores/v3/*` and `categories/v1/*` returns 403 without `wix-site-id`** — recipe examples below show `<AUTH>` only for brevity, but the header is required on every call you make. Token: `npx @wix/cli@latest token --site "$SITE_ID"`.
+
 A concise checklist for preparing any new Wix site that uses the Online Stores app with Catalog V3.
 **Notice** that this recipe is **NOT** meant for coding purposes and is **ONLY** meant for initial catalog setup.
 

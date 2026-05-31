@@ -6,7 +6,7 @@
 // Wix's back-in-stock service identifies the Stores integration by the
 // Stores SUB-PAGE registration id (1380b703-…), NOT by the install/catalog
 // appId (215238eb-…) that the public docs and other catalog endpoints use.
-// Reproduced 2026-04-28 against a Catalog-V3 site:
+// Against a Catalog-V3 site the request-collection endpoints behave as follows:
 //   - PUT /settings returned `collectionStates: [{appId: "1380b703-…",
 //     collectingRequests: true}]`.
 //   - POST /settings/start-collecting with `215238eb-…` returned

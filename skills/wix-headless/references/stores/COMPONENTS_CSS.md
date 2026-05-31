@@ -68,7 +68,7 @@ The boundary: **rules referenced by exactly one pack's TSX live in that pack's s
 
 ### 4. Global-CSS leak audit
 
-Before writing your file, **read `src/styles/global.css`** and grep for any class your scope owns. Stores-specific rules sometimes leak into the designer's foundation (observed across runs):
+Before writing your file, **read `src/styles/global.css`** and grep for any class your scope owns. Stores-specific rules sometimes leak into the designer's foundation:
 
 - `.product-grid` and `body[data-navigating="true"] .product-grid` — designer drift; should be in `components-stores.css`, not `global.css`.
 - Any `.product-card-*` rule.

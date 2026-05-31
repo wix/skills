@@ -1,15 +1,15 @@
 # Recipe: AI Image Generation + Wix Media Import
 
-Generate images using **Wix AI (Runware)** via the Wix MCP, then import them into Wix Media. This is a **pure utility** — it generates an image and returns the result. The calling skill owns prompt construction and entity attachment.
+Generate images using **Wix AI (Runware)** via the `wixapis.com` REST proxy, then import them into Wix Media. This is a **pure utility** — it generates an image and returns the result. The calling skill owns prompt construction and entity attachment.
 
-Image generation is MCP-authenticated — no API keys, no curl, no sandbox escape hatches. Runs automatically whenever the image agent launches.
+Image generation authenticates with the same CLI-minted site-scoped token used for every other Wix REST call in this skill (see `AUTHENTICATION.md`) — no separate API keys, no MCP, no sandbox escape hatches.
 
 ## Step 1: Generate Image via Wix AI
 
-Call the Runware proxy through `CallWixSiteAPI`. The body is an **array of tasks** — one request can generate N images by adding more task objects.
+Call the Runware proxy through `curl`. The body is an **array of tasks** — one request can generate N images by adding more task objects.
 
 ```
-CallWixSiteAPI: POST https://www.wixapis.com/runwareschemaless/v1/request
+REST: POST https://www.wixapis.com/runwareschemaless/v1/request
 body: [
   {
     "taskType": "imageInference",
@@ -25,7 +25,7 @@ body: [
 ]
 ```
 
-Before the first call, ensure the `CallWixSiteAPI` tool schema is loaded (the orchestrator's Step 0 MCP bootstrap covers this — see `<SKILL_ROOT>/references/commands/mcp-bootstrap.md`) so `body` is sent as a real JSON array (not a stringified blob). Use your runtime's tool-discovery primitive if you need to (re-)load it.
+Before the first call, ensure the `curl` tool schema is loaded (the orchestrator's session auth covers this — see `<SKILL_ROOT>/references/commands/AUTHENTICATION.md`) so `body` is sent as a real JSON array (not a stringified blob). Use your runtime's AUTHENTICATION.md recovery ladder if you need to (re-)load it.
 
 Extract `data[0].imageURL` from the response. This is a short-lived URL — **import to Wix Media immediately** in the same task queue.
 
@@ -65,7 +65,7 @@ The image agent's `image-phase-1-decorative` and `image-phase-2-entity` scopes e
 ### For `bfl:5@1`, `runware:400@1`, and other models: ONE batched call
 
 ```
-<prefix>CallWixSiteAPI: POST /runwareschemaless/v1/request
+REST: POST https://www.wixapis.com/runwareschemaless/v1/request
 body: [
   { "taskType": "imageInference", "taskUUID": "<uuid-1>", "positivePrompt": "...", ... },
   { "taskType": "imageInference", "taskUUID": "<uuid-2>", "positivePrompt": "...", ... },
@@ -76,13 +76,13 @@ One round-trip. Response's `data[]` array contains one result per task, matched 
 
 ### For `google:4@2` (the default): N parallel 1-task sibling calls
 
-`google:4@2` times out with `504` when a single request bundles N≥3 tasks — Runware's backend serializes work per request and the model is slow enough that large batches exceed the proxy timeout. Instead, emit **N parallel `CallWixSiteAPI` tool calls as siblings in one concurrent batch**, each carrying one task:
+`google:4@2` times out with `504` when a single request bundles N≥3 tasks — Runware's backend serializes work per request and the model is slow enough that large batches exceed the proxy timeout. Instead, emit **N parallel `curl` tool calls as siblings in one concurrent batch**, each carrying one task:
 
 ```
 Assistant message (single turn, multiple tool calls):
-  <prefix>CallWixSiteAPI: POST /runwareschemaless/v1/request  body: [ task1 ]
-  <prefix>CallWixSiteAPI: POST /runwareschemaless/v1/request  body: [ task2 ]
-  <prefix>CallWixSiteAPI: POST /runwareschemaless/v1/request  body: [ task3 ]
+  REST: POST https://www.wixapis.com/runwareschemaless/v1/request
+  REST: POST https://www.wixapis.com/runwareschemaless/v1/request
+  REST: POST https://www.wixapis.com/runwareschemaless/v1/request
 ```
 
 All three fire in parallel (runtime dispatches concurrent siblings concurrently). No 504, no sequential wait. The important constraint is *one concurrent batch* — splitting them across turns loses the parallelism and degenerates into the anti-pattern below.
@@ -91,11 +91,11 @@ All three fire in parallel (runtime dispatches concurrent siblings concurrently)
 
 Sequential 1-task calls across multiple turns:
 ```
-Assistant msg 1:  <prefix>CallWixSiteAPI  body: [ task1 ]
+Assistant msg 1:  curl  body: [ task1 ]
 (runtime waits)
-Assistant msg 2:  <prefix>CallWixSiteAPI  body: [ task2 ]
+Assistant msg 2:  curl  body: [ task2 ]
 (runtime waits)
-Assistant msg 3:  <prefix>CallWixSiteAPI  body: [ task3 ]
+Assistant msg 3:  curl  body: [ task3 ]
 ```
 Each turn adds inter-message overhead. Whether you're using the batched pattern or parallel siblings, **all the image-generation tool calls MUST be in one concurrent batch**.
 
@@ -105,7 +105,7 @@ The following procedure prevents the observed serialization anti-pattern. Follow
 
 1. **Write all prompts first.** In your text response, list every image you will generate with its positivePrompt, dimensions, and a UUID. Do not make any tool calls yet.
 2. **Compose the full body array** as a fenced JSON block in your text. Verify the task count matches the entity count.
-3. **One tool call.** Make exactly one `CallWixSiteAPI` call with that complete body array.
+3. **One tool call.** Make exactly one `curl` call with that complete body array.
 4. **Parallel imports.** After the generate response arrives, emit all N `POST /site-media/v1/files/import` calls as **concurrent sibling calls in one concurrent batch**.
 5. **Parallel PATCHes.** After all imports resolve, emit all N PATCH calls as **concurrent sibling calls in one concurrent batch**.
 
@@ -113,7 +113,7 @@ The following procedure prevents the observed serialization anti-pattern. Follow
 
 ### Media import and entity PATCH — parallelize with siblings
 
-Generation is one concurrent batch — whether that's one batched call or N parallel siblings. The follow-up steps (`POST /site-media/v1/files/import` per image, and entity PATCH per product/post/item) are per-entity; those can parallelize via concurrent siblings — emit all N import calls in one concurrent batch, then all N PATCH calls in one concurrent batch. See the skill's `references/ORCHESTRATION.md` § "Batching compliance" for why sibling batching beats sequential dispatch.
+Generation is one concurrent batch — whether that's one batched call or N parallel siblings. The follow-up steps (`POST /site-media/v1/files/import` per image, and entity PATCH per product/post/item) are per-entity; those can parallelize via concurrent siblings — emit all N import calls in one concurrent batch, then all N PATCH calls in one concurrent batch. See the skill's `references/PLAN.md` § "Batching discipline" for why sibling batching beats sequential dispatch.
 
 **Pattern for an image phase:** one batched generation call → N parallel imports (sibling calls in one message) → N parallel PATCHes (sibling calls in one message).
 
@@ -122,7 +122,7 @@ Generation is one concurrent batch — whether that's one batched call or N para
 This API is Wix-side and model-agnostic — the same shape works for any image source:
 
 ```
-CallWixSiteAPI: POST /site-media/v1/files/import
+REST: POST https://www.wixapis.com/site-media/v1/files/import
 body: {
   "url": "<imageURL from Runware response>",
   "mimeType": "image/png",

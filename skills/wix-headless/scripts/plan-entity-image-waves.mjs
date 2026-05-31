@@ -9,8 +9,8 @@
 //
 //   waves     — Runware generation requests, grouped into waves of <waveSize>
 //               (default 3) to match the google:4@2 throttle. Each wave is
-//               one orchestration step with N parallel CallWixSiteAPI tool
-//               calls; each tool call sends one task in the body array.
+//               one orchestration step with N parallel curls in one shell,
+//               backgrounded with `&`; each curl sends one task in the body array.
 //
 //   imports   — POST /site-media/v1/files/import requests, one per generated
 //               image. Indexed by taskUUID so the orchestrator threads the
@@ -155,7 +155,7 @@ for (const p of prompts) {
       process.exit(1);
     }
     // Read-merge-PUT: echo every existing data field, set the image field
-    // to the placeholder URL. Wipes nothing (the bug observed in 2026-04-19).
+    // to the placeholder URL. Echoing every existing field is what prevents wiping the rest of the record.
     const mergedData = { ...detail.data, [detail.imageField]: "__IMAGE_URL__" };
     patches.push({
       taskUUID: p.taskUUID,

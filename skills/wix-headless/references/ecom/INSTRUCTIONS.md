@@ -5,14 +5,14 @@ description: "Implements vertical-agnostic ecommerce — cart page, checkout red
 
 # Ecom Implementer
 
-Extends `references/shared/IMPLEMENTER.md`. Read that file first for phase routing, MCP prefix, site.json read pattern, return contract, style conventions, and common failure modes.
+Extends `references/shared/IMPLEMENTER.md`. Read that file first for phase routing, REST auth + doc lookups, prompt-inlined inputs (no site.json reads), return contract, style conventions, and common failure modes.
 
 ## Scope routing
 
 | Scope | Phase | Reference |
 |-------|-------|-----------|
 | `components` | Components (CartView, CartBadge — TSX only, **no CSS**) — `src/utils/discounts.ts` is pre-copied by the orchestrator | `./CART_WIRING.md` |
-| `components-css` | Components (scoped CSS — `components-ecom.css` only; runs concurrently with `components`) | `./COMPONENTS_CSS.md` |
+| ~~`components-css`~~ | **Do not dispatch.** `src/styles/components-ecom.css` is copied from `<SKILL_ROOT>/templates/ecom/components-ecom.css` by the orchestrator's pre-Step-4.5 batch (see BUILD.md § Step 4.5). The template uses direct `var(--token)` CSS, so it works against any designer-published vocabulary without per-run rewrites. `COMPONENTS_CSS.md` documents that CSS for reference — there is no `components-css` subagent to dispatch. | — |
 | `pages` | Pages (cart.astro, thank-you.astro, Navigation CartBadge mount) | `./CART_PAGES.md` |
 
 > **Why `components` is split.** A single agent writing the .tsx islands plus the scoped CSS was Phase 3's critical path on the most recent run (204 s for ecom alone). The CSS file has no runtime coupling to the TSX components — it's referenced only by class name at build time — so it splits cleanly into a sibling agent that runs in the same dispatch batch. Mirrors the stores split. See `./COMPONENTS_CSS.md` § "What this scope owns".
