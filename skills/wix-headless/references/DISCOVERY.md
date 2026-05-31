@@ -135,15 +135,17 @@ estimatedCredits =
   + (cms loaded         ? 2                              : 0)   // /about + /faq hero images
   + (stores loaded      ? stores.productCount            : 0)   // default 3 when unknown
   + (blog loaded        ? blog.postCount                 : 0)   // default 6 when unknown
+  + (bookings loaded    ? bookings.serviceCount          : 0)   // default 3 when unknown
   + (forms loaded       ? 0                              : 0)   // forms never trigger imagery
   + (gift-cards loaded  ? 0                              : 0)   // disabled pack — skip
 ```
 
-Packs with `disabled: true` contribute 0 regardless. The integer total is what we show. **Reuse** the `productCount=3` and `postCount=6` defaults from "After Approval" § 1 — do not invent new numbers.
+Packs with `disabled: true` contribute 0 regardless. The integer total is what we show. **Reuse** the `productCount=3`, `postCount=6`, and `serviceCount=3` defaults from "After Approval" § 1 — do not invent new numbers.
 
 Worked examples:
-- Skincare (stores + cms, productCount=3, no blog): `1 + 2 + 2 + 3 + 0 + 0 + 0 = 8`.
-- Coffee shop (stores + cms + blog, productCount=3, postCount=6): `1 + 2 + 2 + 3 + 6 + 0 + 0 = 14`.
+- Skincare (stores + cms, productCount=3, no blog): `1 + 2 + 2 + 3 + 0 + 0 + 0 + 0 = 8`.
+- Coffee shop (stores + cms + blog, productCount=3, postCount=6): `1 + 2 + 2 + 3 + 6 + 0 + 0 + 0 = 14`.
+- Yoga studio (bookings + cms, serviceCount=3): `1 + 2 + 2 + 0 + 0 + 3 + 0 + 0 = 8`.
 
 ### 2.5.2 — Fetch the AI-credit balance
 
@@ -224,7 +226,7 @@ Every Designer input is now in scratch:
 - **Loaded verticals**: the resolved pack set from Step 1's "After Q1" batch.
 - **Packs with components**: derived from the loaded verticals — every pack whose `references/<pack>/INSTRUCTIONS.md` declares a `components` scope (today: `stores`, `ecom`, `blog`, `forms` when loaded; `cms` does NOT).
 - **Disabled packs**: every pack in the loaded set whose frontmatter has `disabled: true` (today: only `gift-cards`).
-- **Navigation links**: computed from pack frontmatter — include `/about` and `/faq` when `cms` is loaded; do NOT include `/products` (stores splices it via `<!-- nav:links -->` in Phase 4), `/gift-cards` (disabled), or any route whose pack contributes a nav-links marker. Worked example for stores+cms+ecom+gift-cards: `[{"href":"/about","label":"About"},{"href":"/faq","label":"FAQ"}]`.
+- **Navigation links**: computed from pack frontmatter — include `/about` and `/faq` when `cms` is loaded; do NOT include `/products` (stores splices it via `<!-- nav:links -->` in Phase 4), `/services` (bookings splices it via `<!-- nav:links -->` in Phase 4), `/gift-cards` (disabled), or any route whose pack contributes a nav-links marker. Worked example for stores+cms+ecom+gift-cards: `[{"href":"/about","label":"About"},{"href":"/faq","label":"FAQ"}]`. Worked example for bookings+cms: `[{"href":"/about","label":"About"},{"href":"/faq","label":"FAQ"}]`.
 
 **Dispatch as a backgrounded `Agent` call.** Capture the handle as `designer_handle`. SEED.md Step 2 waits on it and runs the post-Designer bridge (merge `designTokens`, emit derived CSS, verify Layout imports) when it returns. Designer's wall (180–270 s) absorbs into Q3 + plan + approval + Setup + the first part of Seed instead of stacking onto the run's critical path.
 
@@ -425,7 +427,8 @@ In session scratch, build a single JSON object carrying the captured imagery fla
   "cms":        { "collections": [{ "purpose": "about", "itemCount": 1 }] },
   "blog":       { "postCount": 6, "topics": ["..."] },
   "forms":      { "forms": [{ "purpose": "contact", "fields": ["..."] }] },
-  "gift-cards": { "enabled": true }
+  "gift-cards": { "enabled": true },
+  "bookings":   { "serviceCount": 3, "serviceType": "APPOINTMENT", "hasStaff": false }
 }
 ```
 
@@ -437,6 +440,9 @@ Inference guidelines for each block:
 - **`blog.postCount`** — count the user implied; default to 6 when unclear. **`topics`** are explicit-only.
 - **`forms.forms`** — one per form the user described; `purpose` is one of `contact`, `signup`, `lead`, etc.; `fields` are explicit only.
 - **`gift-cards.enabled`** — `true` when the user explicitly asked for gift cards; `false` (or omit the block) otherwise.
+- **`bookings.serviceCount`** — number of services implied (e.g. *"a few treatments"* → 3, *"our full menu"* → 6). Default to 3 when unclear.
+- **`bookings.serviceType`** — `"APPOINTMENT"` for 1-on-1 services (the default; covers consultations, haircuts, therapy, personal training); `"CLASS"` when the user implies group sessions (*"yoga classes"*, *"group workshops"*).
+- **`bookings.hasStaff`** — `true` when the user implies multiple providers (*"different therapists"*, *"choose your trainer"*, *"our team of stylists"*). Default `false`.
 
 When in doubt, omit a field rather than fabricate. The downstream phases that consume this block aren't built yet — overconfident inference can't be verified until then.
 

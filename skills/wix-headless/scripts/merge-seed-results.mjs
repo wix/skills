@@ -59,6 +59,7 @@ const KNOWN_SEEDED_KEYS = {
   cms: new Set(["collectionIds", "itemIds"]),
   blog: new Set(["postIds", "categoryIds"]),
   forms: new Set(["formIds"]),
+  bookings: new Set(["services", "staff"]),
   "gift-cards": new Set([]),
   ecom: new Set([]),
   // Image phases — bolted into seed-returns/ for uniform run-record handling.

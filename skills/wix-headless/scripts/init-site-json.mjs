@@ -17,7 +17,8 @@
 //       "cms":        { "collections": [{ "purpose": "about", "itemCount": 1 }] },
 //       "blog":       { "postCount": 6, "topics": ["..."] },
 //       "forms":      { "forms": [{ "purpose": "contact", "fields": ["name","email","message"] }] },
-//       "gift-cards": { "enabled": true }
+//       "gift-cards": { "enabled": true },
+//       "bookings":   { "serviceCount": 3, "serviceType": "APPOINTMENT", "hasStaff": false }
 //     }
 //   Only blocks whose key is in <verticals-csv> are written. `imagery` defaults
 //   to "themed-blocks" when the payload is omitted or missing the field.
@@ -63,6 +64,7 @@ const KNOWN_VERTICAL_INTENT_KEYS = new Set([
   "blog",
   "forms",
   "gift-cards",
+  "bookings",
 ]);
 const VALID_IMAGERY = new Set(["themed-blocks", "ai-generated"]);
 

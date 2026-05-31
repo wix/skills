@@ -26,7 +26,7 @@ Your CWD at runtime is the **project directory** (scaffold subdir after setup), 
 | Implementer shared behavior | `<SKILL_ROOT>/references/shared/IMPLEMENTER.md` |
 | Image generation | `<SKILL_ROOT>/references/shared/IMAGE_GENERATION.md` |
 | Vertical packs (discovery) | `<SKILL_ROOT>/references/verticals/` |
-| Per-vertical instructions | `<SKILL_ROOT>/references/{stores,ecom,cms,blog,forms,gift-cards,images,designer}/INSTRUCTIONS.md` |
+| Per-vertical instructions | `<SKILL_ROOT>/references/{stores,ecom,cms,blog,forms,gift-cards,bookings,images,designer}/INSTRUCTIONS.md` |
 | Templates | `<SKILL_ROOT>/templates/` |
 | Shared utilities (copied by seed-utilities) | `<SKILL_ROOT>/shared-utilities/` |
 | Known app IDs | `<SKILL_ROOT>/references/commands/known-apps.json` |
@@ -76,7 +76,7 @@ Explicit invocation only. **Two entry paths — decide before doing anything els
 
 ### Path A — New site from a prompt (default)
 
-Infer vertical(s) from the opening message and load the **full resolved pack set** (top-level + `requires:` transitives + always-on `cms`) in one read batch — routing examples: stores → stores+cms+ecom+gift-cards; blog → blog+cms; etc. If the prompt is too vague, ask one conversational clarifier (NOT `AskUserQuestion`): *"What do you want your site to do — sell things, publish content, take bookings?"*
+Infer vertical(s) from the opening message and load the **full resolved pack set** (top-level + `requires:` transitives + always-on `cms`) in one read batch — routing examples: stores → stores+cms+ecom+gift-cards; blog → blog+cms; bookings → bookings+cms; etc. If the prompt is too vague, ask one conversational clarifier (NOT `AskUserQuestion`): *"What do you want your site to do — sell things, publish content, take bookings?"*
 
 > **Do NOT call `WixSiteBuilder` MCP** for new-site requests — same intent, different flow; calling both produces a duplicated, conflicting build. This skill is the sole entry point.
 
@@ -143,4 +143,4 @@ Pack frontmatter in `references/verticals/` is **discovery-only**. Post-seed wor
 
 Upstream: `@skills/wix-manage` (seed + app install recipes).
 
-Current packs: `stores`, `ecom`, `gift-cards`, `cms`, `blog`, `forms`. Schema: `references/verticals/_schema.md` + `_schema.json`.
+Current packs: `stores`, `ecom`, `gift-cards`, `cms`, `blog`, `forms`, `bookings`. Schema: `references/verticals/_schema.md` + `_schema.json`.

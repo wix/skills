@@ -73,6 +73,7 @@ Design tokens: .wix/design-tokens.css (generated from site.json.designTokens)
 - `<SKILL_ROOT>/references/blog/INSTRUCTIONS.md` — Phase 3 Components + Phase 4 Pages
 - `<SKILL_ROOT>/references/forms/INSTRUCTIONS.md` — Phase 3 Components + Phase 4 Pages
 - `<SKILL_ROOT>/references/gift-cards/INSTRUCTIONS.md` — Phase 3 Components + Phase 4 Pages (passive/dashboard-gated)
+- `<SKILL_ROOT>/references/bookings/INSTRUCTIONS.md` — Phase 3 Components + Phase 4 Pages
 - `<SKILL_ROOT>/references/images/INSTRUCTIONS.md` — `image-phase-1-decorative` + `image-phase-2-entity`
 - `<SKILL_ROOT>/references/designer/INSTRUCTIONS.md` — Phase 2 Design System + all Phase 4 Page designers
 
@@ -96,7 +97,7 @@ Read `.wix/design-tokens.css` + `.wix/site.d.ts` once.
 
 **Pre-batch (same message, before subagent dispatches):** copy the per-pack component-CSS templates into the project. This is a deterministic `cp` — the templates are static and use direct `var(--token)` references against the standard designer vocabulary, so no subagent is needed to author them. The Phase 3 Components subagents below write only `.tsx` React islands; this step writes the matching `src/styles/components-<pack>.css`. **If you skip this `cp` step, `astro build` fails at Step 8 with `Could not resolve "../styles/components-<pack>.css"` from `src/layouts/Layout.astro`** — the Designer's Layout imports those files unconditionally for every pack that declares `components`. Observed in 2026-05-24 runs (Bakin Goods, French Goods, Frenchies) where the Phase 3 subagents wrote only `.tsx` and the build fell back to ~3 minutes of orchestrator recovery (`cp` + manual rewrite to strip `@apply`).
 
-For each loaded pack whose vertical INSTRUCTIONS declares a `components` scope (today: `stores`, `ecom`, `blog`, `forms`, `gift-cards`), copy the template:
+For each loaded pack whose vertical INSTRUCTIONS declares a `components` scope (today: `stores`, `ecom`, `blog`, `forms`, `gift-cards`, `bookings`), copy the template:
 
 ```bash
 for pack in <loaded packs with components>; do
@@ -109,7 +110,7 @@ Record `{ phase: "copy-component-css", packs: [...], seconds }` in `run.json`. I
 
 Then dispatch in a single concurrent batch:
 
-1. **One Phase 3 Components subagent per loaded pack** that declares `components`. Each prompt carries:
+1. **One Phase 3 Components subagent per loaded pack** that declares `components` (stores, ecom, blog, forms, gift-cards, bookings). Each prompt carries:
    - All standard fields (see "Subagent prompt template" above)
    - The **full styling-contract JSON inlined** — not a file path
    - A note: *"`src/styles/components-<pack>.css` is already on disk (copied from the skill template by the orchestrator). Do NOT write that file — write only `.tsx` islands and any `.astro` shells in your scope."*
