@@ -1,6 +1,6 @@
 ---
 name: wix-manage
-description: "Wix business solution management recipes — REST API operations for configuring and managing Wix business solutions. Routes to: stores, bookings, get-paid, CMS, contacts, events, forms, media, app-installation, pricing-plans, restaurants, rich-content, sites, blog, calendar, domains, site-properties, ecommerce."
+description: "Wix business solution management recipes — REST API operations for configuring and managing Wix business solutions. Routes to: stores, bookings, get-paid, CMS, contacts, forms, media, app-installation, pricing-plans, restaurants, rich-content, sites, blog, calendar, domains, site-properties, ecommerce."
 compatibility: Requires Wix REST API access (API key or OAuth).
 ---
 
@@ -170,13 +170,6 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 - [Skill Graph](references/ecommerce/skill-graph.md)
 
 </details>
-
----
-
-## Events
-
-### [List Events](references/events/list-events.md)
-**Technical:** Queries events from Wix Events using Events API. Covers field sets (DETAILS, URLS, REGISTRATION), filtering by status/date, and pagination.
 
 ---
 
