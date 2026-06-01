@@ -33,32 +33,32 @@ The Designer's ~13 s overlaps the scaffold's ~23 s. Setup waits on `scaffold_han
 
 ### 1. Setup Step 1 (foreground)
 
-Apply `SETUP.md` Step 1 only: wait `scaffold_handle` (load `wix-manage` in the same batch), then patch `site.json` with `siteId`/`appId`. **Do not run Setup Step 4 (the app-install batch) yet** — it goes in run-step 2 below, alongside the bridge.
+Apply `SETUP.md` Step 1 only: wait `scaffold_handle` (load `wix-manage` in the same batch), then patch `site.json` with `siteId`/`appId`. **Do not run Setup Step 4 (the app-install batch) yet** — it goes in run-step 2 below, in the message right after the design-system bridge.
 
-> **How to wait — await the notification, never sleep-poll** (`PLAN.md` § "Concurrency vocabulary" → "Wait (gate)"). "Wait `scaffold_handle`" means await the harness's background-task **completion notification**. Do **not** run a `sleep`/poll loop against the scaffold's stdout/stderr/output file — that blocks the turn for the whole scaffold wall (~20–30 s, longer if you over-sleep) and pushes back the run-step 2 super-batch, landing the Composer late. A late Composer is the longest-pole regression called out at run-step 2 (~60–90 s of wall lost). Burn zero orchestrator time here: the notification is the only signal you need.
+> **How to wait — await the notification, never sleep-poll** (`PLAN.md` § "Concurrency vocabulary" → "Wait (gate)"). "Wait `scaffold_handle`" means await the harness's background-task **completion notification**. Do **not** run a `sleep`/poll loop against the scaffold's stdout/stderr/output file — that blocks the turn for the whole scaffold wall (~20–30 s, longer if you over-sleep) and pushes back the run-step 2 design-system bridge, landing the Composer late. A late Composer is the longest-pole regression called out at run-step 2 (~60–90 s of wall lost). Burn zero orchestrator time here: the notification is the only signal you need.
 
-### 2. Setup Step 4 batch **+** design-system bridge — ONE concurrent super-batch
+### 2. Design-system bridge first (its own lean message), then Setup Step 4 batch
 
-**Pin:** Setup Step 4 (business) and the design-system bridge (frontend) are independent and MUST go out as **one** assistant message (`PLAN.md` § "Batching discipline" — no narration between the tool calls, or the batch splits and the Composer starts late). `designer_handle` has been running since run-step 0, so it has returned by now: the bridge's wait→emit→dispatch collapses into two direct calls in the batch.
+**Pin:** dispatch the **frontend bridge** (emit tokens + Composer) as its own **minimal** assistant message *first* — no narration, no preamble, just the two tool calls — then the **business** Setup Step 4 batch in the **immediately following** message. The two tracks are independent (Rationale below); the Composer is the longest pole every later phase waits on, so dispatch it as early as possible. Keeping the bridge message lean is what gets it out early: a turn's tool calls don't dispatch until the whole turn finishes generating, so anything extra the orchestrator composes in that message delays the Composer inside it. `designer_handle` has been running since run-step 0, so its `designTokens` are already in scratch: the bridge is just emit→dispatch.
 
-**Dispatch block — emit all of the following as siblings in ONE assistant message; no text between the tool calls:**
+**Message 1 — frontend bridge: emit tokens + Composer, as siblings, no text between them:**
 
-*business track (frontend-blind — `SETUP.md` owns the recipes/package set):*
-1. `Bash` × N — app installs, one curl per `pack.apps[*]` → `SETUP.md` § Step 4a.
-2. `Bash` — `npx @wix/cli@latest env pull --json` → `SETUP.md` § Step 4b (the `--json` flag suppresses the interactive spinner that otherwise bloats context).
-3. `Bash` (background) — `npm install …`, capture `npm_handle` + its stderr tempfile → package set in `SETUP.md` § Step 4c.
-
-*frontend track (Designer tokens already in scratch):*
-4. `Bash` — emit tokens: pipe the Designer's `data.designTokens` JSON into `emit-design-tokens.mjs` (reads tokens from **stdin**, project dir as **`argv[2]`**; empty stdin → exits 2 `stdin was empty — pass the designTokens JSON object` and the bridge stalls). Quoted heredoc so the JSON survives unchanged. Writes `.wix/design-tokens.css` + `.wix/site.d.ts`; keep `designTokens` + `shell` in scratch for the Composer prompt.
+1. `Bash` — emit tokens: pipe the Designer's `data.designTokens` JSON into `emit-design-tokens.mjs` (reads tokens from **stdin**, project dir as **`argv[2]`**; empty stdin → exits 2 `stdin was empty — pass the designTokens JSON object` and the bridge stalls). Quoted heredoc so the JSON survives unchanged. Writes `.wix/design-tokens.css` + `.wix/site.d.ts`; keep `designTokens` + `shell` in scratch for the Composer prompt.
 
    ```bash
    node <SKILL_ROOT>/scripts/emit-design-tokens.mjs "<project-dir>" <<'TOKENS'
    { ...paste the Designer's data.designTokens JSON object here, verbatim from scratch... }
    TOKENS
    ```
-5. `Agent` (background) — Composer, capture `composer_handle`. Dispatch with **Instruction file = `<SKILL_ROOT>/references/astro/COMPOSE.md`** (the subagent opens it — **do not Read it in the orchestrator**; it is 14 KB of subagent-only substitution how-to, and reading it here just bloats the dispatch turn you're composing). Inline: tokens + shell + brand + nav links + packs. **SKIP** (record `{phase: "compose", status: "skipped"}`) if `frontend !== "astro"` (defensive — custom frontends never reach `BUILD.md`).
+2. `Agent` (background) — Composer, capture `composer_handle`. Dispatch with **Instruction file = `<SKILL_ROOT>/references/astro/COMPOSE.md`** (the subagent opens it — **do not Read it in the orchestrator**; it is 14 KB of subagent-only substitution how-to, and reading it here just bloats the dispatch turn you're composing). Inline: tokens + shell + brand + nav links + packs. **SKIP** (record `{phase: "compose", status: "skipped"}`) if `frontend !== "astro"` (defensive — custom frontends never reach `BUILD.md`).
 
-> **Rationale — do not re-derive.** The two tracks are independent: the Composer's only inputs are the Designer's tokens (ready from run-step 0) and the verified scaffold (ready at Setup Step 1) — neither depends on seeders, app installs, env, or npm. App installs / `env pull` / `npm install` are business-track work the bridge has zero dependency on. Firing the bridge alongside the Step 4 batch lets its ~80–160 s authoring wall absorb into Setup + the whole seed window; firing it *after* the Step 4 batch — or worse, in the seed wave — makes it start late and land as a fresh longest pole that ends *after* the seeders (~60–90 s of Composer wall lost in past runs). The Composer self-retries its pre-write scaffold reads if the scaffold is somehow still in flight (`COMPOSE.md` § "Pre-write").
+**Message 2 — business Setup Step 4 batch (immediately after Message 1), all as siblings; no text between the tool calls** (frontend-blind — `SETUP.md` owns the recipes/package set):
+
+3. `Bash` × N — app installs, one curl per `pack.apps[*]` → `SETUP.md` § Step 4a.
+4. `Bash` — `npx @wix/cli@latest env pull --json` → `SETUP.md` § Step 4b (the `--json` flag suppresses the interactive spinner that otherwise bloats context).
+5. `Bash` (background) — `npm install …`, capture `npm_handle` + its stderr tempfile → package set in `SETUP.md` § Step 4c.
+
+> **Rationale — do not re-derive.** The two tracks are independent: the Composer's only inputs are the Designer's tokens (ready from run-step 0) and the verified scaffold (ready at Setup Step 1) — neither depends on seeders, app installs, env, or npm. App installs / `env pull` / `npm install` are business-track work the bridge has zero dependency on. Dispatching the bridge first (platform batch a beat later) starts the Composer's ~80–160 s authoring wall at the earliest possible point, where it absorbs into Setup + the whole seed window; the platform batch's own wait (`npm_handle`) is gated later at the seed gate, so a one-message delay on it costs nothing on the critical path. Firing the bridge *after* the platform batch — or worse, in the seed wave — makes the Composer start late and land as a fresh longest pole that ends *after* the seeders (~60–90 s of Composer wall lost in past runs). The Composer self-retries its pre-write scaffold reads if the scaffold is somehow still in flight (`COMPOSE.md` § "Pre-write").
 
 ### 3. Seed wave (Wave 3) — business track + co-scheduled frontend prep
 
@@ -113,6 +113,15 @@ Phase 3 Components subagents (Step 4.5) additionally receive the full styling-co
 ### Subagent return
 
 Every subagent returns a structured JSON block at the end of its run, per `references/shared/RETURN_CONTRACT.md`. The orchestrator parses each return as it arrives.
+
+**Put the return-contract closing line in the dispatch prompt verbatim.** Every Phase 3 Components and Phase 4 Pages prompt ends with the same line the seeder template uses (`SEED.md` § "Subagent prompt template"), naming the scope's `data` shape:
+
+```
+Return contract (your sole output channel — end your message with this fenced JSON block; it MUST be the last content, no trailing prose, no "**What was done:**" recap after it):
+{ ...the data shape for your scope, per references/shared/IMPLEMENTER.md § "Return contract"... }
+```
+
+Do **not** soften this to "return the structured JSON when done." A `pages`/`components` subagent that reads only its leaf `INSTRUCTIONS.md` never reaches the no-trailing-prose rule — it lives two self-load hops away in `IMPLEMENTER.md` → `RETURN_CONTRACT.md` — so the prompt line is the only copy it is guaranteed to see. Without it, agents append a prose recap after the JSON (a contract violation, even when the orchestrator still parses the block).
 
 ---
 
