@@ -119,7 +119,7 @@ export function parseScenario(raw: string): Scenario {
       if (!isToolCallShape || !a?.params) continue;
       for (const [k, v] of Object.entries(a.params)) {
         if (v && typeof v === 'object' && !Array.isArray(v)) {
-          throw new Error(`nested object params not supported (Phase 1): assertions.params.${k}`);
+          throw new Error(`nested object not allowed in tool params — params must be primitives or arrays of primitives. Offending key: assertions.params.${k}`);
         }
       }
     }

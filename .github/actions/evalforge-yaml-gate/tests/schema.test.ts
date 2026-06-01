@@ -40,7 +40,7 @@ describe('parseScenario', () => {
   it('rejects names with invalid chars', () => {
     expect(() => parseScenario(minimalYaml.replace('blog/create-and-publish-post', 'BLOG Foo'))).toThrow(/name/);
   });
-  it('rejects nested object params (Phase 1)', () => {
+  it('rejects nested object params in tool-call assertions', () => {
     const yaml = minimalYaml + `      body:\n        foo: bar\n`;
     expect(() => parseScenario(yaml)).toThrow(/nested/);
   });
