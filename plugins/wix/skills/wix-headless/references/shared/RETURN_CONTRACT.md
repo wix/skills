@@ -417,7 +417,7 @@ Agents should check their output for these before returning `complete`:
 | Failure | How to detect | Fix |
 |---------|---------------|-----|
 | `Legacy HTML single-line comments` | `npx @wix/cli@latest build` stderr | See Astro/React row 1 above — Phase 2 agent emitted HTML comments |
-| `Missing environment variable WIX_CLIENT_ID` | Build stderr | Run `npx @wix/cli@latest env pull` then retry |
+| `Missing environment variable WIX_CLIENT_ID` | Build stderr | Run `npx @wix/cli@latest env pull --json` then retry |
 | `Cannot find module '@wix/…'` | Build stderr | npm install didn't include that package; check pack's `packages` list |
 
 ## Notes for agent authors

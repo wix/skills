@@ -11,9 +11,9 @@ Extends `references/shared/IMPLEMENTER.md`. Read that file first for phase routi
 
 | Scope | Phase | Reference |
 |-------|-------|-----------|
-| `seed` | Seed (Forms app install + form creation + postSubmissionTriggers PATCH) | `./CONTACT_FORM.md` (§ Form Setup) |
-| `components` | Components (ContactForm.tsx React island) | `./CONTACT_FORM.md` (§ React island) |
-| `pages` | Pages (contact.astro wire with formId from seeded data) | `./CONTACT_FORM.md` (§ Page wiring) |
+| `seed` | Seed (Forms app install + form creation + postSubmissionTriggers PATCH) | `../astro/forms/CONTACT_FORM.md` (§ Form Setup) |
+| `components` | Components (ContactForm.tsx React island) | `../astro/forms/CONTACT_FORM.md` (§ React island) |
+| `pages` | Pages (contact.astro wire with formId from seeded data) | `../astro/forms/CONTACT_FORM.md` (§ Page wiring) |
 
 ## Files this vertical creates / contributes
 

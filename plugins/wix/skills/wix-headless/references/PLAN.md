@@ -14,7 +14,7 @@ The terms below appear throughout this skill. They describe the *shape* of work;
 - **Concurrent batch** — N subagents (or N tool calls) launched together so they execute in parallel rather than serially.
 - **Background subagent** — a subagent the orchestrator does not block on; it runs while the orchestrator continues with downstream work and reports its result asynchronously.
 - **Foreground subagent** — a subagent the orchestrator blocks on before continuing.
-- **Wait (gate)** — the orchestrator pauses until specified background subagents finish.
+- **Wait (gate)** — the orchestrator pauses until specified background work (subagents or background `Bash` jobs like the scaffold) finishes. **Waiting means awaiting the harness's background-task completion notification — never a `sleep`/poll loop against an output file.** A poll loop burns the whole wait as blocked orchestrator time and delays everything gated behind it (e.g. sleep-polling the scaffold lands the Composer late). The completion notification is the only signal you need; the same rule covers the `wix login` wait (`shared/AUTHENTICATION.md`) and the no-sidecar-poll rule for image phases (`images/INSTRUCTIONS.md`).
 - **Result** — the structured JSON block each subagent returns at the end of its run, per `references/shared/RETURN_CONTRACT.md`.
 
 ## Two tracks (business vs frontend)
@@ -22,19 +22,20 @@ The terms below appear throughout this skill. They describe the *shape* of work;
 The run is two semi-independent tracks that the orchestrator interleaves for wall-time:
 
 - **Business track** (frontend-blind) — create/connect the site, **install Wix apps**, **seed backend data**. Inputs: `siteId`, `verticals`, `intent`, `brand`. It never reads `frontend`/template — a product (or collection, post, form) is the same regardless of what renders it. Its domain content lives in `SETUP.md` (app installs) + `SEED.md` (seeders).
-- **Frontend track** (frontend-aware) — scaffold/prep the local project, Designer + design tokens, Composer, components, pages, SDK wiring, build. Every `frontend`/template branch lives here. Its domain content lives in `scaffold.sh` + `seed-utilities.sh` + `DESIGN_SYSTEM.md` / `COMPOSE.md` + the per-vertical references.
+- **Frontend track** (frontend-aware) — scaffold/prep the local project, Designer + design tokens, Composer, components, pages, SDK wiring, build. Every `frontend`/template branch lives here. Its domain content lives in `scaffold.sh` + `seed-utilities.sh` + `DESIGN_SYSTEM.md` / `astro/COMPOSE.md` + the per-vertical references (frontend guides under `references/astro/`).
 
 The only cross-track data flow is **one-way, business → frontend**: seeders produce entity IDs which the orchestrator inlines into the frontend track's Page-subagent prompts. There is no frontend → business dependency.
 
 ## Frontend-mode routing
 
-`frontend` (captured by `DISCOVERY.md` § "Wave 0 — Mode detection") is the axis every downstream phase branches on. The orchestrator holds it in scratch and uses it in two ways: it branches inline in the PLAN/BUILD orchestration on the scratch value, and it passes `--frontend <value>` to `scaffold.sh` and `init-site-json.mjs` (and `--template <astro|react-vite>` to `seed-utilities.sh`). Three values, and which flow each one runs:
+`frontend` (captured by `DISCOVERY.md` § "Wave 0 — Mode detection") is the axis the frontend track branches on. The orchestrator holds it in scratch and uses it in two ways: it branches inline in the PLAN/BUILD orchestration on the scratch value, and it passes `--frontend <value>` to `scaffold.sh` and `init-site-json.mjs` (and `--template astro` to `seed-utilities.sh`). The axis is binary — **astro (supported) vs custom (anything else, not available yet)**:
 
 | `frontend` | Mode | Flow |
 |---|---|---|
-| `astro` | Scaffold (Path A default) | Wave 0 below → on approval → `BUILD.md`. |
-| `react-vite` | Scaffold (Path A, prompt-keyword opt-in) | Same as `astro` today; `scaffold.sh --frontend react-vite` exits 4 until the template is staged → fall back to `astro` for the session (per `DISCOVERY.md` § "After Q1"). Composer is astro-only. |
-| `user-provided` | Integrate (Path B) | § "Integrate-mode (Path B) sequence" — frontend track does not run, no `BUILD.md` build flow. |
+| `astro` | Scaffold (supported) | Wave 0 below → on approval → `BUILD.md`. The full playbook lives under `<SKILL_ROOT>/references/astro/`. |
+| anything else (custom) | Not available yet | Open `<SKILL_ROOT>/references/custom/INSTRUCTIONS.md`, surface its not-available message, and **stop** — no scaffold, no Designer/Composer, no Setup/Seed authoring, no `BUILD.md` build flow, no half-built site. |
+
+> **Astro is the one Wix-preferred frontend the skill builds end-to-end.** Every non-astro value (a user-provided project, a Vite/React SPA, anything else) is a **custom** frontend; the custom authoring track is deferred. Route it to the stub and tell the user astro is the supported path. The intended future shape for custom is recorded in `references/custom/INSTRUCTIONS.md`.
 
 This is the **track-selection routing layer**: `SETUP.md`'s steps assume the routing already happened; the conductor owns the branch.
 
@@ -48,15 +49,11 @@ This is the **track-selection routing layer**: `SETUP.md`'s steps assume the rou
 
 **On approval** — `init-site-json.mjs --frontend <value>` writes the slim `.wix/site.json`, then **open `BUILD.md`** and continue from its run-step 0 (which dispatches the scaffold + Designer, then runs Setup).
 
-## Integrate-mode (Path B) sequence
+## Custom (non-astro) frontends — not available yet
 
-When `frontend === "user-provided"` the run is short and the **frontend track does not run at all** — the user already has a working frontend; the skill only connects it to Wix Headless. Run **only** these steps:
+When `frontend` is anything other than `astro`, the run routes to the **custom stub** and stops the frontend track. Open `<SKILL_ROOT>/references/custom/INSTRUCTIONS.md`, surface its not-available message, and do **not** attempt authoring — no scaffold, no Designer/Composer, no Setup/Seed, no `BUILD.md`, no half-built site. The user is told astro is the supported frontend.
 
-1. **Discovery short flow** — apply `DISCOVERY.md` § "Integrate-mode short flow": pre-flight CLI auth, light project parse, one-paragraph summary, one-shot approval. **No** Q1/Q2/Q3 interview, **no** scaffold dispatch, **no** Designer dispatch.
-2. **Setup existing-project flow** — apply `SETUP.md` § "Existing project flow" E1–E6 (E1 init → E2 analyze → E3 install apps → E4 SDK wiring → E5 release → E6 final message). Branch within it on whether `wix.config.json` already exists (start at E2 if so).
-3. **Skipped entirely:** Seed, the design-system bridge, and everything in `BUILD.md` — there is no skill-authored frontend to build. E5 releases directly (no build for a static site).
-
-The detailed mechanics of each E-step are `SETUP.md`'s domain; this section owns only the sequence and the skip-list.
+> **Retired: the Integrate (Path B) flow.** The skill used to run a live "Integrate" sequence for `user-provided` frontends — `DISCOVERY.md` § "Integrate-mode short flow" → `SETUP.md` § "Existing project flow" E1–E6 (E1 init → E2 analyze → E3 install apps → E4 SDK wiring → E5 release). That flow is **no longer dispatched**: non-astro frontends now hit the stub instead. The E1–E6 mechanics (especially the E4 SDK-wiring recipe) are kept in `SETUP.md` as a **historical reference** for the eventual custom authoring track (`references/custom/INSTRUCTIONS.md` § "Intended future shape"), not as a Beta deliverable.
 
 ## User-facing output (keep the machinery invisible)
 

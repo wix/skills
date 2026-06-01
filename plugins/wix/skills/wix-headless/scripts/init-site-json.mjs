@@ -7,7 +7,7 @@
 // Final shape:
 //   {
 //     "brand":     { "name": "...", "description": "..." },
-//     "frontend":  "astro" | "react-vite" | "user-provided",
+//     "frontend":  "astro" | "custom",
 //     "verticals": ["stores", "cms", ...],
 //     "siteId":    "..." (optional — Setup Step 1 may patch later),
 //     "appId":     "..." (optional — Setup Step 1 may patch later)
@@ -15,8 +15,10 @@
 //
 // Usage:
 //   node init-site-json.mjs <project-dir> <brand-name> <brand-description> \
-//     <verticals-csv> --frontend <astro|react-vite|user-provided> \
+//     <verticals-csv> --frontend <astro|custom> \
 //     [--site-id <id>] [--app-id <id>]
+//   (In practice only "astro" reaches this step — custom frontends route to the
+//    not-available stub before Discovery's approval/site.json write.)
 //
 // Behavior:
 //   - Refuses to overwrite an existing .wix/site.json (exit 2). The orchestrator
@@ -28,7 +30,7 @@
 import { writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 
-const ALLOWED_FRONTENDS = new Set(["astro", "react-vite", "user-provided"]);
+const ALLOWED_FRONTENDS = new Set(["astro", "custom"]);
 
 let frontend = "astro";
 let siteId;
@@ -62,7 +64,7 @@ if (!ALLOWED_FRONTENDS.has(frontend)) {
 const [projectDir, brandName, brandDescription, verticalsCsv] = positional;
 
 if (!projectDir || !brandName || brandDescription === undefined || !verticalsCsv) {
-  console.error("usage: init-site-json.mjs <project-dir> <brand-name> <brand-description> <verticals-csv> --frontend <astro|react-vite|user-provided> [--site-id <id>] [--app-id <id>]");
+  console.error("usage: init-site-json.mjs <project-dir> <brand-name> <brand-description> <verticals-csv> --frontend <astro|custom> [--site-id <id>] [--app-id <id>]");
   process.exit(2);
 }
 

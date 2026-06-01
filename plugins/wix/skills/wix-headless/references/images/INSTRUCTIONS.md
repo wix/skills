@@ -97,7 +97,7 @@ Image Phase 2 for N products + M CMS items: ~1 schema-load + 1 product query + 1
 
 Generate site-wide decorative images that don't depend on any entity. Used by the Phase 2 Design System agent + Phase 4 Pages agents for hero sections, about pages, and backgrounds.
 
-**What to generate** is determined by the `decorativeSlots` list in your prompt — generate exactly those keys, no more, no less. Typical canonical keys: `hero`, `about`, `productsHeader`, `cmsHeader`. Do not invent additional keys (`background`, `aboutFeature`, etc.) — orphan keys ship as unused images and unfilled slots show as empty placeholders. The orchestrator composes this list from the loaded verticals + the designer's slot vocabulary (`references/designer/INSTRUCTIONS.md` § common rule #7); the two must agree.
+**What to generate** is determined by the `decorativeSlots` list in your prompt — generate exactly those keys, no more, no less. Typical canonical keys: `hero`, `about`, `productsHeader`, `cmsHeader`. Do not invent additional keys (`background`, `aboutFeature`, etc.) — orphan keys ship as unused images and unfilled slots show as empty placeholders. The orchestrator composes this list from the loaded verticals + the designer's slot vocabulary (`references/astro/designer/INSTRUCTIONS.md` § common rule #7); the two must agree.
 
 **Inputs (from your prompt):**
 - Brand name, business type, aesthetic direction
