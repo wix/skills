@@ -11,10 +11,19 @@ allowed-tools:
   - Bash(node *)
   - Bash(bash *)
   - Bash(curl *)
+  - Bash(ls *)
+  - Bash(grep *)
+  - Bash(find *)
+  - Bash(cat *)
+  - Bash(head *)
+  - Bash(wc *)
+  - Bash(mkdir *)
+  - Bash(cp *)
   - Read
   - Write
   - Edit
   - Skill
+  - Agent
 ---
 
 # Wix Headless
