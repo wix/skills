@@ -432,3 +432,4 @@ This opens the checkout page with the pre-filled cart. The user only needs to co
 3. Tell user .io is not supported, suggest alternatives with query "mysite"
 4. User picks "mysite.online"
 5. Continue with full purchase flow (pricing, privacy, contact, cart, checkout)
+
