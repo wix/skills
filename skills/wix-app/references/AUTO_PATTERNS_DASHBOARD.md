@@ -5,7 +5,7 @@ Generates declarative `patterns.json` + thin `page.tsx` for simple CRUD dashboar
 ## Quick Start Checklist
 
 - [ ] **Step 1:** Determine if this is a new page or update to existing
-- [ ] **Step 2:** For new pages — generate schema, run generator script, register extension
+- [ ] **Step 2:** For new pages — scaffold via `wix generate`, generate schema, run generator script
 - [ ] **Step 2 (alt):** For existing pages — read `patterns.json`, consult references, edit directly
 - [ ] **Step 3:** Install dependencies (`@wix/auto-patterns`, `@wix/patterns`)
 - [ ] **Step 4:** Verify per [APP_VALIDATION.md](APP_VALIDATION.md)
@@ -61,19 +61,24 @@ Without these scopes, the dashboard page renders but all data operations fail.
 
 ## Part A: Creating a New Auto-Patterns Page
 
-### Directory Layout
+### Step 1: Scaffold the Dashboard Page
 
-Create the page folder under `src/extensions/dashboard/pages/<page-name>/` with this structure:
+An auto-patterns page is a dashboard page — scaffold it with the Wix CLI:
+
+```bash
+wix generate --params '{"extensionType":"DASHBOARD_PAGE","title":"<title>","route":"<route>"}'
+```
+
+The CLI generates the page folder, `page.tsx`, the builder file, a unique UUID, and the `src/extensions.ts` registration — do NOT hand-write any of these. After scaffolding, the page folder looks like this:
 
 ```
 src/extensions/dashboard/pages/<page-name>/
-├── extensions.ts        # Extension registration
-├── page.tsx             # Thin React wrapper (generated)
-└── patterns.json        # Declarative AppConfig — edit this to iterate
+├── <page-name>.ts       # Builder file (generated — registration + UUID)
+├── page.tsx             # React wrapper (overwritten in Step 3)
+└── patterns.json        # Declarative AppConfig — added in Step 3, edit this to iterate
 ```
 
-
-### Step 1: Generate the Schema
+### Step 2: Generate the Schema
 
 You must produce the input JSON for the generator script. The schema has these parts:
 
@@ -124,9 +129,9 @@ Include ALL fields, primary identifiers first. Display names target ≤10 charac
 { "titleFieldId": "name", "subtitleFieldId": "category", "imageFieldId": "photo" }
 ```
 
-### Step 2: Run the Generator Script
+### Step 3: Run the Generator Script
 
-Write the input JSON to a temp file and run the script:
+Write the input JSON to a temp file and run the script, pointing `--output` at the folder the CLI scaffolded in Step 1:
 
 ```bash
 # Write input to temp file
@@ -140,40 +145,22 @@ cat > /tmp/auto-patterns-input.json << 'EOF'
 EOF
 
 # Run generator
-node scripts/generate-auto-patterns.js --input /tmp/auto-patterns-input.json --output ./src/dashboard/pages/my-page/
+node scripts/generate-auto-patterns.js --input /tmp/auto-patterns-input.json --output ./src/extensions/dashboard/pages/<page-name>/
 ```
 
 The script produces:
 - `patterns.json` — The declarative AppConfig
-- `page.tsx` — Thin React wrapper component
+- `page.tsx` — Thin React wrapper component (overwrites the scaffolded stub)
 
-### Step 3: Post-Generation Setup
+The builder file and `src/extensions.ts` registration from Step 1 stay as-is — no manual registration needed.
 
-1. **Create `extensions.ts`** in the page directory:
+### Step 4: Install Dependencies
 
-   **File:** `src/extensions/dashboard/pages/<page-name>/extensions.ts`
-
-   ```typescript
-   import { extensions } from "@wix/astro/builders";
-
-   export const dashboardpageMyPage = extensions.dashboardPage({
-     id: "{{GENERATE_UUID}}",
-     title: "My Page",
-     routePath: "my-page",
-     component: "./extensions/dashboard/pages/my-page/page.tsx",
-   });
-   ```
-
-   The `id` must be a unique, static UUID v4 string. Generate a fresh UUID for each extension — do NOT use `randomUUID()` or copy UUIDs from examples. Replace `{{GENERATE_UUID}}` with a freshly generated UUID like `"a1b2c3d4-e5f6-7890-abcd-ef1234567890"`.
-
-2. **Register the extension** — see [EXTENSION_REGISTRATION.md](EXTENSION_REGISTRATION.md)
-
-3. **Install dependencies**:
 ```bash
 npm install @wix/auto-patterns @wix/patterns
 ```
 
-### Step 4: Validate
+### Step 5: Validate
 
 Run validation per [APP_VALIDATION.md](APP_VALIDATION.md) to verify TypeScript compilation and build.
 
