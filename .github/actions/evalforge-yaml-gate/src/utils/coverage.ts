@@ -5,7 +5,7 @@ import { AREA_RE } from './paths';
 import { isToolCall } from './schema';
 
 export type { ChangedFile };
-export type Uncovered = { file: string; canonicalUrl: string };
+export type Uncovered = { file: string; canonicalUrl: string; area: string };
 export type CoverageResult = {
   coveredBy: Map<string, string[]>;
   uncovered: Uncovered[];
@@ -67,7 +67,7 @@ export function computeCoverage(
     const inArea = scenariosByArea.get(area) ?? [];
     const matching = inArea.filter(s => s.urls.has(norm)).map(s => s.name);
     if (matching.length === 0) {
-      uncovered.push({ file: f.filename, canonicalUrl: canonical });
+      uncovered.push({ file: f.filename, canonicalUrl: canonical, area });
     } else {
       coveredBy.set(f.filename, matching);
     }

@@ -1,10 +1,7 @@
 import type { LoadedScenario } from './evals';
 import type { Scenario } from './schema';
-import { toEvalForgeBody, type EvalForgeBody } from './evalforge-mapper';
-
-export type RemoteScenario = { id: string; name: string; tags: string[] };
-
-export type ScenarioBody = EvalForgeBody;
+import { toEvalForgeBody } from './evalforge-mapper';
+import type { RemoteScenario, ScenarioBody } from './evalforge';
 
 export type CreateAction = { kind: 'CREATE'; name: string; body: ScenarioBody; tags: string[] };
 export type UpdateAction = { kind: 'UPDATE'; id: string; name: string; body: ScenarioBody; tags: string[] };

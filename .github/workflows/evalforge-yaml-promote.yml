@@ -4,6 +4,12 @@ on:
   pull_request:
     types: [closed]
 
+# Serialize promotes per PR. cancel-in-progress: false because canceling mid-promote
+# leaves scenarios half-tagged.
+concurrency:
+  group: evalforge-yaml-promote-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
 jobs:
   promote:
     runs-on: ubuntu-latest

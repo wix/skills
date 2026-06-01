@@ -1,7 +1,7 @@
 import * as core from '@actions/core';
 import { posix } from 'node:path';
 import { getSimpleConfig } from './config';
-import { EvalForgeClient, DRAFT_PREFIX, draftTagFor } from './evalforge';
+import { EvalForgeClient, DRAFT_PREFIX, draftTagFor, type RemoteScenario } from './evalforge';
 import { loadEvals, type LoadedScenario } from './evals';
 import { toScenarioBody } from './sync';
 import { deletePrMcpVersions } from './pr-cleanup';
@@ -17,21 +17,20 @@ export async function runPromote(): Promise<void> {
   // Cleanup workflow no longer fires on merged PRs — promote owns MCP version teardown.
   await deletePrMcpVersions(evalforge, config.mcpId, config.projectId, config.prNumber);
 
-  let remote;
+  let drafts: RemoteScenario[];
   try {
-    remote = await evalforge.listTestScenarios(config.projectId);
+    drafts = await evalforge.queryTestScenarios(config.projectId, { tags: [draftTag] });
   } catch (e) {
-    core.warning(`listTestScenarios failed: ${e instanceof Error ? e.message : String(e)}`);
+    core.warning(`queryTestScenarios (by draftTag) failed: ${e instanceof Error ? e.message : String(e)}`);
     return;
   }
-  const remoteByName = new Map(remote.map(r => [r.name, r]));
 
   const headScenarios = loadEvalsWithWarnings(workspace);
   let promoted = 0;
   let stillDraft = 0;
+  let lookupFailures = 0;
 
-  for (const s of remote) {
-    if (!s.tags.includes(draftTag)) continue;
+  for (const s of drafts) {
     const ls = headScenarios.get(s.name);
     if (!ls) { stillDraft++; continue; }
     try {
@@ -46,7 +45,9 @@ export async function runPromote(): Promise<void> {
   const baseEvals = loadEvalsWithWarnings(posix.join(workspace, BASE_WORKSPACE_SUBDIR));
   for (const [name] of baseEvals) {
     if (headScenarios.has(name)) continue;
-    const r = remoteByName.get(name);
+    const lookup = await lookupByName(evalforge, config.projectId, name);
+    if (lookup.error) { lookupFailures++; continue; }
+    const r = lookup.scenario;
     if (!r) continue;
     if (r.tags.some(t => t.startsWith(DRAFT_PREFIX))) continue;
     try {
@@ -59,10 +60,25 @@ export async function runPromote(): Promise<void> {
 
   if (promoted > 0) core.info(`Promoted ${promoted} scenarios`);
   if (stillDraft > 0) core.info(`Skipped ${stillDraft} (YAML missing in merged head)`);
+  if (lookupFailures > 0) core.warning(`${lookupFailures} scenario lookup(s) failed during promote — YAML-removed scenarios may not have been cleaned up. Re-run the workflow to retry.`);
 }
 
 function loadEvalsWithWarnings(root: string): Map<string, LoadedScenario> {
   const { scenarios, errors } = loadEvals(root);
   for (const e of errors) core.warning(`Eval load issue at ${root}/${e.path}: ${e.message}`);
   return scenarios;
+}
+
+// Server-side filter is SQL LIKE %name% (substring) — exact-match client-side.
+// Returns { scenario, error: false } on success (scenario may be undefined if no exact match).
+// Returns { error: true } on transport failure so callers can tally distinct from "not found".
+type LookupResult = { scenario: RemoteScenario | undefined; error: false } | { error: true };
+async function lookupByName(client: EvalForgeClient, projectId: string, name: string): Promise<LookupResult> {
+  try {
+    const matches = await client.queryTestScenarios(projectId, { name });
+    return { scenario: matches.find(s => s.name === name), error: false };
+  } catch (e) {
+    core.warning(`queryTestScenarios (by name "${name}") failed: ${e instanceof Error ? e.message : String(e)}`);
+    return { error: true };
+  }
 }

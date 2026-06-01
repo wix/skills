@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { diffSyncPlan, type RemoteScenario } from '../src/utils/sync';
+import { diffSyncPlan } from '../src/utils/sync';
+import type { RemoteScenario } from '../src/utils/evalforge';
 import type { Scenario } from '../src/utils/schema';
 
 const s = (name: string): Scenario => ({

@@ -9,8 +9,10 @@ describe('comment formatters', () => {
     expect(out).toContain(c.COMMENT_MARKER);
   });
 
-  it('formatUncovered includes canonical URL hint', () => {
-    expect(c.formatUncovered([{ file: 'x.md', canonicalUrl: 'https://example/x' }])).toContain('https://example/x');
+  it('formatUncovered includes canonical URL hint and the expected evals path', () => {
+    const out = c.formatUncovered([{ file: 'skills/wix-manage/references/events/x.md', canonicalUrl: 'https://example/x', area: 'events' }]);
+    expect(out).toContain('https://example/x');
+    expect(out).toContain('skills/wix-manage/references/events/evals/');
   });
 
   it('formatForeignDraftConflicts resolves PR URLs from tag format', () => {

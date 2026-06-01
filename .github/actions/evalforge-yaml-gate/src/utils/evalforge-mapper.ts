@@ -4,61 +4,28 @@ import {
   type LlmJudgeAssertion, type Scenario, type TimeLimitAssertion,
 } from './schema';
 
-// EvalForge AssertionSchema is a discriminated-union; each variant's fields are flat at top level.
+// EvalForge v1 TestScenario uses assertionLinks (system-assertion references with primitive params)
+// rather than inline assertions. params must be Record<string, string | number | boolean | null>.
 // See packages/eval-types/src/assertion/assertion.ts in wix-private/evalforge.
 
-type ToolCallEvalForgeAssertion = {
-  type: 'tool_called_with_param';
-  toolName: string;
-  expectedParams: string; // JSON string
-  negate?: boolean;
-};
+const SYSTEM_TOOL_CALL = 'system:tool_called_with_param';
+const SYSTEM_LLM_JUDGE = 'system:llm_judge';
+const SYSTEM_API_CALL = 'system:api_call';
+const SYSTEM_COST = 'system:cost';
+const SYSTEM_TIME_LIMIT = 'system:time_limit';
 
-type LlmJudgeEvalForgeAssertion = {
-  type: 'llm_judge';
-  prompt: string;
-  minScore?: number;
-  model?: string;
-  maxTokens?: number;
-  temperature?: number;
-  negate?: boolean;
-};
+type LinkParams = Record<string, string | number | boolean | null>;
 
-type ApiCallEvalForgeAssertion = {
-  type: 'api_call';
-  url: string;
-  method?: 'GET' | 'POST';
-  requestBody?: string;
-  expectedResponse: string;
-  requestHeaders?: string;
-  timeoutMs?: number;
-  negate?: boolean;
+export type ScenarioAssertionLink = {
+  assertionId: string;
+  params?: LinkParams;
 };
-
-type CostEvalForgeAssertion = {
-  type: 'cost';
-  maxCostUsd: number;
-  negate?: boolean;
-};
-
-type TimeLimitEvalForgeAssertion = {
-  type: 'time_limit';
-  maxDurationMs: number;
-  negate?: boolean;
-};
-
-type EvalForgeAssertion =
-  | ToolCallEvalForgeAssertion
-  | LlmJudgeEvalForgeAssertion
-  | ApiCallEvalForgeAssertion
-  | CostEvalForgeAssertion
-  | TimeLimitEvalForgeAssertion;
 
 export type EvalForgeBody = {
   name: string;
   description: string;
   triggerPrompt: string;
-  assertions: EvalForgeAssertion[];
+  assertionLinks: ScenarioAssertionLink[];
 };
 
 export function toEvalForgeBody(s: Scenario): EvalForgeBody {
@@ -66,57 +33,60 @@ export function toEvalForgeBody(s: Scenario): EvalForgeBody {
     name: s.name,
     description: s.description,
     triggerPrompt: s.triggerPrompt,
-    assertions: s.assertions.map(mapAssertion),
+    assertionLinks: s.assertions.map(mapAssertion),
   };
 }
 
-function mapAssertion(a: Assertion): EvalForgeAssertion {
+function mapAssertion(a: Assertion): ScenarioAssertionLink {
   if (isLlmJudge(a)) return mapLlmJudge(a);
   if (isApiCall(a)) return mapApiCall(a);
   if (isCost(a)) return mapCost(a);
   if (isTimeLimit(a)) return mapTimeLimit(a);
-  return {
-    type: 'tool_called_with_param',
+  return mapToolCall(a);
+}
+
+function mapToolCall(a: { tool: string; params?: Record<string, unknown>; negate?: boolean }): ScenarioAssertionLink {
+  const params: LinkParams = {
     toolName: a.tool,
     expectedParams: JSON.stringify(a.params ?? {}),
-    ...(a.negate !== undefined && { negate: a.negate }),
   };
+  if (a.negate !== undefined) params.negate = a.negate;
+  return { assertionId: SYSTEM_TOOL_CALL, params };
 }
 
-function mapLlmJudge(a: LlmJudgeAssertion): LlmJudgeEvalForgeAssertion {
-  const out: LlmJudgeEvalForgeAssertion = { type: 'llm_judge', prompt: a.prompt };
-  if (a.minScore !== undefined) out.minScore = a.minScore;
-  if (a.model !== undefined) out.model = a.model;
-  if (a.maxTokens !== undefined) out.maxTokens = a.maxTokens;
-  if (a.temperature !== undefined) out.temperature = a.temperature;
-  if (a.negate !== undefined) out.negate = a.negate;
-  return out;
+function mapLlmJudge(a: LlmJudgeAssertion): ScenarioAssertionLink {
+  const params: LinkParams = { prompt: a.prompt };
+  if (a.minScore !== undefined) params.minScore = a.minScore;
+  if (a.model !== undefined) params.model = a.model;
+  if (a.maxTokens !== undefined) params.maxTokens = a.maxTokens;
+  if (a.temperature !== undefined) params.temperature = a.temperature;
+  if (a.negate !== undefined) params.negate = a.negate;
+  return { assertionId: SYSTEM_LLM_JUDGE, params };
 }
 
-function mapApiCall(a: ApiCallAssertion): ApiCallEvalForgeAssertion {
-  const out: ApiCallEvalForgeAssertion = {
-    type: 'api_call',
+function mapApiCall(a: ApiCallAssertion): ScenarioAssertionLink {
+  const params: LinkParams = {
     url: a.url,
     expectedResponse: jsonifyMaybe(a.expectedResponse),
   };
-  if (a.method !== undefined) out.method = a.method;
-  if (a.requestBody !== undefined) out.requestBody = jsonifyMaybe(a.requestBody);
-  if (a.requestHeaders !== undefined) out.requestHeaders = jsonifyMaybe(a.requestHeaders);
-  if (a.timeoutMs !== undefined) out.timeoutMs = a.timeoutMs;
-  if (a.negate !== undefined) out.negate = a.negate;
-  return out;
+  if (a.method !== undefined) params.method = a.method;
+  if (a.requestBody !== undefined) params.requestBody = jsonifyMaybe(a.requestBody);
+  if (a.requestHeaders !== undefined) params.requestHeaders = jsonifyMaybe(a.requestHeaders);
+  if (a.timeoutMs !== undefined) params.timeoutMs = a.timeoutMs;
+  if (a.negate !== undefined) params.negate = a.negate;
+  return { assertionId: SYSTEM_API_CALL, params };
 }
 
-function mapCost(a: CostAssertion): CostEvalForgeAssertion {
-  const out: CostEvalForgeAssertion = { type: 'cost', maxCostUsd: a.maxCostUsd };
-  if (a.negate !== undefined) out.negate = a.negate;
-  return out;
+function mapCost(a: CostAssertion): ScenarioAssertionLink {
+  const params: LinkParams = { maxCostUsd: a.maxCostUsd };
+  if (a.negate !== undefined) params.negate = a.negate;
+  return { assertionId: SYSTEM_COST, params };
 }
 
-function mapTimeLimit(a: TimeLimitAssertion): TimeLimitEvalForgeAssertion {
-  const out: TimeLimitEvalForgeAssertion = { type: 'time_limit', maxDurationMs: a.maxDurationMs };
-  if (a.negate !== undefined) out.negate = a.negate;
-  return out;
+function mapTimeLimit(a: TimeLimitAssertion): ScenarioAssertionLink {
+  const params: LinkParams = { maxDurationMs: a.maxDurationMs };
+  if (a.negate !== undefined) params.negate = a.negate;
+  return { assertionId: SYSTEM_TIME_LIMIT, params };
 }
 
 // EvalForge expects expectedResponse/requestBody/requestHeaders as JSON STRINGS. Authors may write

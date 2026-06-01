@@ -1,10 +1,10 @@
 import * as core from '@actions/core';
 import { posix } from 'node:path';
 import { getSimpleConfig } from './config';
-import { EvalForgeClient, draftTagFor, type RemoteScenario } from './evalforge';
+import { EvalForgeClient, draftTagFor, type RemoteScenario, type ScenarioBody } from './evalforge';
 import { deletePrMcpVersions } from './pr-cleanup';
 import { loadEvals, type LoadedScenario } from './evals';
-import { toScenarioBody, type ScenarioBody } from './sync';
+import { toScenarioBody } from './sync';
 import { workspaceRoot } from './workspace';
 import { BASE_WORKSPACE_SUBDIR } from './paths';
 
@@ -46,9 +46,9 @@ export async function runCleanup(): Promise<void> {
 
   let remote: RemoteScenario[];
   try {
-    remote = await evalforge.listTestScenarios(config.projectId);
+    remote = await evalforge.queryTestScenarios(config.projectId, { tags: [draftTag] });
   } catch (e) {
-    core.warning(`listTestScenarios failed: ${errMsg(e)}`);
+    core.warning(`queryTestScenarios (by draftTag) failed: ${errMsg(e)}`);
     return;
   }
 

@@ -8,8 +8,10 @@ export type RunStatus = 'pending' | 'running' | typeof TERMINAL_RUN_STATUSES[num
 
 export type CapabilityVersion = { id: string; capabilityId: string; version: string };
 
-import type { RemoteScenario, ScenarioBody } from './sync';
-export type { RemoteScenario, ScenarioBody };
+import type { EvalForgeBody } from './evalforge-mapper';
+
+export type RemoteScenario = { id: string; name: string; tags: string[] };
+export type ScenarioBody = EvalForgeBody;
 
 export type EvalRunInput = {
   name: string;
@@ -92,7 +94,11 @@ export class EvalForgeClient {
   }
 
   async listMcpVersions(mcpId: string, projectId: string): Promise<CapabilityVersion[]> {
-    return this.request<CapabilityVersion[]>('GET', `/projects/${enc(projectId)}/capabilities/${enc(mcpId)}/versions`);
+    const res = await this.request<{ capabilityVersions?: CapabilityVersion[] }>(
+      'GET',
+      `/v1/projects/${enc(projectId)}/capabilities/${enc(mcpId)}/versions`,
+    );
+    return res.capabilityVersions ?? [];
   }
 
   private buildMcpUrl(skillsRepo: string, headSha: string): string {
@@ -110,23 +116,32 @@ export class EvalForgeClient {
     headSha: string,
     skillsRepo: string,
   ): Promise<CapabilityVersion> {
-    return this.request<CapabilityVersion>('POST', `/projects/${enc(projectId)}/capabilities/${enc(mcpId)}/versions`, {
-      version: versionLabel,
-      origin: 'pr',
-      notes: `Auto-created for PR #${prNumber}`,
-      content: {
-        config: {
-          [MCP_CONFIG_KEY]: {
-            url: this.buildMcpUrl(skillsRepo, headSha),
-            type: 'http',
-            headers: {
-              Authorization: '{{wix-auth-token}}',
-              'wix-account-id': '{{wix-auth-user-id}}',
+    const res = await this.request<{ capabilityVersion: CapabilityVersion }>(
+      'POST',
+      `/v1/projects/${enc(projectId)}/capabilities/${enc(mcpId)}/versions`,
+      {
+        projectId,
+        capabilityId: mcpId,
+        capabilityVersion: {
+          version: versionLabel,
+          origin: 'pr',
+          notes: `Auto-created for PR #${prNumber}`,
+          mcpContent: {
+            config: {
+              [MCP_CONFIG_KEY]: {
+                url: this.buildMcpUrl(skillsRepo, headSha),
+                type: 'http',
+                headers: {
+                  Authorization: '{{wix-auth-token}}',
+                  'wix-account-id': '{{wix-auth-user-id}}',
+                },
+              },
             },
           },
         },
       },
-    });
+    );
+    return res.capabilityVersion;
   }
 
   async ensureMcpVersion(
@@ -148,22 +163,40 @@ export class EvalForgeClient {
     }
   }
 
-  async listTestScenarios(projectId: string): Promise<RemoteScenario[]> {
-    // EvalForge returns `tags: undefined` for untagged scenarios — normalize so callers can assume `string[]`.
-    const raw = await this.request<RemoteScenario[]>('GET', `/projects/${enc(projectId)}/test-scenarios`);
-    return raw.map(s => ({ ...s, tags: s.tags ?? [] }));
+  // Server-side filtered query on the proto-derived /v1 endpoint.
+  // Tags use OR semantics (scenario matches if it contains ANY of the given tags).
+  // Name uses SQL LIKE %name% (substring) — callers needing exact match should filter client-side.
+  async queryTestScenarios(
+    projectId: string,
+    filter: { tags?: string[]; name?: string },
+  ): Promise<RemoteScenario[]> {
+    const res = await this.request<{ testScenarios?: RemoteScenario[] }>(
+      'POST',
+      `/v1/projects/${enc(projectId)}/test-scenarios/query`,
+      { projectId, filter },
+    );
+    return (res.testScenarios ?? []).map(s => ({ ...s, tags: s.tags ?? [] }));
   }
 
   async createTestScenario(projectId: string, body: ScenarioBody, tags: string[]): Promise<{ id: string }> {
-    return this.request<{ id: string }>('POST', `/projects/${enc(projectId)}/test-scenarios`, { ...body, projectId, tags });
+    const res = await this.request<{ testScenario: { id: string } }>(
+      'POST',
+      `/v1/projects/${enc(projectId)}/test-scenarios`,
+      { projectId, testScenario: { ...body, tags } },
+    );
+    return { id: res.testScenario.id };
   }
 
   async updateTestScenario(projectId: string, id: string, body: ScenarioBody, tags: string[]): Promise<void> {
-    await this.request<void>('PUT', `/projects/${enc(projectId)}/test-scenarios/${enc(id)}`, { ...body, projectId, tags });
+    await this.request<void>(
+      'PATCH',
+      `/v1/projects/${enc(projectId)}/test-scenarios/${enc(id)}`,
+      { projectId, testScenario: { id, ...body, tags } },
+    );
   }
 
   async deleteTestScenario(projectId: string, id: string): Promise<void> {
-    await this.request<void>('DELETE', `/projects/${enc(projectId)}/test-scenarios/${enc(id)}`);
+    await this.request<void>('DELETE', `/v1/projects/${enc(projectId)}/test-scenarios/${enc(id)}`);
   }
 
   async createEvalRun(projectId: string, input: EvalRunInput): Promise<EvalRunCreated> {
@@ -179,7 +212,7 @@ export class EvalForgeClient {
   }
 
   async deleteMcpVersion(mcpId: string, projectId: string, versionId: string): Promise<void> {
-    await this.request<void>('DELETE', `/projects/${enc(projectId)}/capabilities/${enc(mcpId)}/versions/${enc(versionId)}`);
+    await this.request<void>('DELETE', `/v1/projects/${enc(projectId)}/capabilities/${enc(mcpId)}/versions/${enc(versionId)}`);
   }
 }
 

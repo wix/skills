@@ -34168,14 +34168,12 @@ async function runCleanup() {
     await (0, pr_cleanup_1.deletePrMcpVersions)(evalforge, config.mcpId, config.projectId, config.prNumber);
     let remote;
     try {
-        remote = await evalforge.listTestScenarios(config.projectId);
+        remote = await evalforge.queryTestScenarios(config.projectId, { tags: [draftTag] });
     }
     catch (e) {
-        core.warning(`listTestScenarios failed: ${errMsg(e)}`);
+        core.warning(`queryTestScenarios (by draftTag) failed: ${errMsg(e)}`);
         return;
     }
-    // If the workflow didn't check out base.sha into .action-src (or YAMLs fail to parse),
-    // baseEvals is empty → every draft is treated as PR-only and deleted (the prior behavior).
     const baseRoot = node_path_1.posix.join((0, workspace_1.workspaceRoot)(), paths_1.BASE_WORKSPACE_SUBDIR);
     const { scenarios: baseEvals, errors: baseErrs } = (0, evals_1.loadEvals)(baseRoot);
     for (const e of baseErrs)
@@ -34245,11 +34243,9 @@ function formatOrphanedMds(files) {
 }
 function formatUncovered(uncovered) {
     return render('❌', 'Missing Coverage', [
-        'These changed docs have no covering YAML scenario in their sibling `evals/` folder:',
+        'These changed docs have no covering YAML scenario in their **sibling** `evals/` folder (scenarios in other areas do not count):',
         '',
-        ...uncovered.map(u => `- \`${u.file}\` — expected URL: \`${u.canonicalUrl}\``),
-        '',
-        'Add a YAML under `skills/wix-manage/references/<area>/evals/` whose assertions reference the expected URL.',
+        ...uncovered.map(u => `- \`${u.file}\` — expected URL: \`${u.canonicalUrl}\` — add a scenario under \`skills/wix-manage/references/${u.area}/evals/\``),
     ]);
 }
 function formatForeignDraftConflicts(errs, _pull) {
@@ -34399,9 +34395,9 @@ exports.computeCoverage = computeCoverage;
 const url_normalize_1 = __nccwpck_require__(9462);
 const paths_1 = __nccwpck_require__(6621);
 const schema_1 = __nccwpck_require__(4482);
-function areaOf(p) {
-    const m = p.match(paths_1.AREA_RE);
-    return m ? m[1] : null;
+function areaOf(filePath) {
+    const match = filePath.match(paths_1.AREA_RE);
+    return match ? match[1] : null;
 }
 function stringValuesIn(params) {
     if (!params)
@@ -34457,7 +34453,7 @@ function computeCoverage(changedFiles, scenarios, canonicalUrlOf) {
         const inArea = scenariosByArea.get(area) ?? [];
         const matching = inArea.filter(s => s.urls.has(norm)).map(s => s.name);
         if (matching.length === 0) {
-            uncovered.push({ file: f.filename, canonicalUrl: canonical });
+            uncovered.push({ file: f.filename, canonicalUrl: canonical, area });
         }
         else {
             coveredBy.set(f.filename, matching);
@@ -34660,12 +34656,20 @@ exports.EvalRunTimeoutError = EvalRunTimeoutError;
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.toEvalForgeBody = toEvalForgeBody;
 const schema_1 = __nccwpck_require__(4482);
+// EvalForge v1 TestScenario uses assertionLinks (system-assertion references with primitive params)
+// rather than inline assertions. params must be Record<string, string | number | boolean | null>.
+// See packages/eval-types/src/assertion/assertion.ts in wix-private/evalforge.
+const SYSTEM_TOOL_CALL = 'system:tool_called_with_param';
+const SYSTEM_LLM_JUDGE = 'system:llm_judge';
+const SYSTEM_API_CALL = 'system:api_call';
+const SYSTEM_COST = 'system:cost';
+const SYSTEM_TIME_LIMIT = 'system:time_limit';
 function toEvalForgeBody(s) {
     return {
         name: s.name,
         description: s.description,
         triggerPrompt: s.triggerPrompt,
-        assertions: s.assertions.map(mapAssertion),
+        assertionLinks: s.assertions.map(mapAssertion),
     };
 }
 function mapAssertion(a) {
@@ -34677,56 +34681,59 @@ function mapAssertion(a) {
         return mapCost(a);
     if ((0, schema_1.isTimeLimit)(a))
         return mapTimeLimit(a);
-    return {
-        type: 'tool_called_with_param',
+    return mapToolCall(a);
+}
+function mapToolCall(a) {
+    const params = {
         toolName: a.tool,
         expectedParams: JSON.stringify(a.params ?? {}),
-        ...(a.negate !== undefined && { negate: a.negate }),
     };
+    if (a.negate !== undefined)
+        params.negate = a.negate;
+    return { assertionId: SYSTEM_TOOL_CALL, params };
 }
 function mapLlmJudge(a) {
-    const out = { type: 'llm_judge', prompt: a.prompt };
+    const params = { prompt: a.prompt };
     if (a.minScore !== undefined)
-        out.minScore = a.minScore;
+        params.minScore = a.minScore;
     if (a.model !== undefined)
-        out.model = a.model;
+        params.model = a.model;
     if (a.maxTokens !== undefined)
-        out.maxTokens = a.maxTokens;
+        params.maxTokens = a.maxTokens;
     if (a.temperature !== undefined)
-        out.temperature = a.temperature;
+        params.temperature = a.temperature;
     if (a.negate !== undefined)
-        out.negate = a.negate;
-    return out;
+        params.negate = a.negate;
+    return { assertionId: SYSTEM_LLM_JUDGE, params };
 }
 function mapApiCall(a) {
-    const out = {
-        type: 'api_call',
+    const params = {
         url: a.url,
         expectedResponse: jsonifyMaybe(a.expectedResponse),
     };
     if (a.method !== undefined)
-        out.method = a.method;
+        params.method = a.method;
     if (a.requestBody !== undefined)
-        out.requestBody = jsonifyMaybe(a.requestBody);
+        params.requestBody = jsonifyMaybe(a.requestBody);
     if (a.requestHeaders !== undefined)
-        out.requestHeaders = jsonifyMaybe(a.requestHeaders);
+        params.requestHeaders = jsonifyMaybe(a.requestHeaders);
     if (a.timeoutMs !== undefined)
-        out.timeoutMs = a.timeoutMs;
+        params.timeoutMs = a.timeoutMs;
     if (a.negate !== undefined)
-        out.negate = a.negate;
-    return out;
+        params.negate = a.negate;
+    return { assertionId: SYSTEM_API_CALL, params };
 }
 function mapCost(a) {
-    const out = { type: 'cost', maxCostUsd: a.maxCostUsd };
+    const params = { maxCostUsd: a.maxCostUsd };
     if (a.negate !== undefined)
-        out.negate = a.negate;
-    return out;
+        params.negate = a.negate;
+    return { assertionId: SYSTEM_COST, params };
 }
 function mapTimeLimit(a) {
-    const out = { type: 'time_limit', maxDurationMs: a.maxDurationMs };
+    const params = { maxDurationMs: a.maxDurationMs };
     if (a.negate !== undefined)
-        out.negate = a.negate;
-    return out;
+        params.negate = a.negate;
+    return { assertionId: SYSTEM_TIME_LIMIT, params };
 }
 // EvalForge expects expectedResponse/requestBody/requestHeaders as JSON STRINGS. Authors may write
 // a YAML object/array for ergonomics — stringify if so, pass through if already a string.
@@ -34792,7 +34799,8 @@ class EvalForgeClient {
         });
     }
     async listMcpVersions(mcpId, projectId) {
-        return this.request('GET', `/projects/${enc(projectId)}/capabilities/${enc(mcpId)}/versions`);
+        const res = await this.request('GET', `/v1/projects/${enc(projectId)}/capabilities/${enc(mcpId)}/versions`);
+        return res.capabilityVersions ?? [];
     }
     buildMcpUrl(skillsRepo, headSha) {
         const url = new URL(MCP_URL);
@@ -34801,23 +34809,28 @@ class EvalForgeClient {
         return url.toString();
     }
     async createMcpVersion(mcpId, projectId, versionLabel, prNumber, headSha, skillsRepo) {
-        return this.request('POST', `/projects/${enc(projectId)}/capabilities/${enc(mcpId)}/versions`, {
-            version: versionLabel,
-            origin: 'pr',
-            notes: `Auto-created for PR #${prNumber}`,
-            content: {
-                config: {
-                    [MCP_CONFIG_KEY]: {
-                        url: this.buildMcpUrl(skillsRepo, headSha),
-                        type: 'http',
-                        headers: {
-                            Authorization: '{{wix-auth-token}}',
-                            'wix-account-id': '{{wix-auth-user-id}}',
+        const res = await this.request('POST', `/v1/projects/${enc(projectId)}/capabilities/${enc(mcpId)}/versions`, {
+            projectId,
+            capabilityId: mcpId,
+            capabilityVersion: {
+                version: versionLabel,
+                origin: 'pr',
+                notes: `Auto-created for PR #${prNumber}`,
+                mcpContent: {
+                    config: {
+                        [MCP_CONFIG_KEY]: {
+                            url: this.buildMcpUrl(skillsRepo, headSha),
+                            type: 'http',
+                            headers: {
+                                Authorization: '{{wix-auth-token}}',
+                                'wix-account-id': '{{wix-auth-user-id}}',
+                            },
                         },
                     },
                 },
             },
         });
+        return res.capabilityVersion;
     }
     async ensureMcpVersion(mcpId, projectId, versionLabel, prNumber, headSha, skillsRepo) {
         try {
@@ -34833,19 +34846,22 @@ class EvalForgeClient {
             return existing;
         }
     }
-    async listTestScenarios(projectId) {
-        // EvalForge returns `tags: undefined` for untagged scenarios — normalize so callers can assume `string[]`.
-        const raw = await this.request('GET', `/projects/${enc(projectId)}/test-scenarios`);
-        return raw.map(s => ({ ...s, tags: s.tags ?? [] }));
+    // Server-side filtered query on the proto-derived /v1 endpoint.
+    // Tags use OR semantics (scenario matches if it contains ANY of the given tags).
+    // Name uses SQL LIKE %name% (substring) — callers needing exact match should filter client-side.
+    async queryTestScenarios(projectId, filter) {
+        const res = await this.request('POST', `/v1/projects/${enc(projectId)}/test-scenarios/query`, { projectId, filter });
+        return (res.testScenarios ?? []).map(s => ({ ...s, tags: s.tags ?? [] }));
     }
     async createTestScenario(projectId, body, tags) {
-        return this.request('POST', `/projects/${enc(projectId)}/test-scenarios`, { ...body, projectId, tags });
+        const res = await this.request('POST', `/v1/projects/${enc(projectId)}/test-scenarios`, { projectId, testScenario: { ...body, tags } });
+        return { id: res.testScenario.id };
     }
     async updateTestScenario(projectId, id, body, tags) {
-        await this.request('PUT', `/projects/${enc(projectId)}/test-scenarios/${enc(id)}`, { ...body, projectId, tags });
+        await this.request('PATCH', `/v1/projects/${enc(projectId)}/test-scenarios/${enc(id)}`, { projectId, testScenario: { id, ...body, tags } });
     }
     async deleteTestScenario(projectId, id) {
-        await this.request('DELETE', `/projects/${enc(projectId)}/test-scenarios/${enc(id)}`);
+        await this.request('DELETE', `/v1/projects/${enc(projectId)}/test-scenarios/${enc(id)}`);
     }
     async createEvalRun(projectId, input) {
         return this.request('POST', `/projects/${enc(projectId)}/eval-runs`, input);
@@ -34857,7 +34873,7 @@ class EvalForgeClient {
         return this.request('GET', `/projects/${enc(projectId)}/eval-runs/${enc(runId)}`);
     }
     async deleteMcpVersion(mcpId, projectId, versionId) {
-        await this.request('DELETE', `/projects/${enc(projectId)}/capabilities/${enc(mcpId)}/versions/${enc(versionId)}`);
+        await this.request('DELETE', `/v1/projects/${enc(projectId)}/capabilities/${enc(mcpId)}/versions/${enc(versionId)}`);
     }
 }
 exports.EvalForgeClient = EvalForgeClient;
@@ -34985,19 +35001,19 @@ async function runGate() {
     const allChanged = await guardedCall(() => (0, github_1.getChangedFiles)(octokit, config.owner, config.repo, config.prNumber), 'Could not retrieve PR file list', comment, config);
     if (!allChanged)
         return;
-    const klass = (0, github_1.classifyChanges)(allChanged);
-    if (klass.mdFiles.length === 0 && klass.evalsAdded.length === 0 && klass.evalsModified.length === 0 && klass.evalsRemoved.length === 0) {
+    const classifiedChanges = (0, github_1.classifyChanges)(allChanged);
+    if (classifiedChanges.mdFiles.length === 0 && classifiedChanges.evalsAdded.length === 0 && classifiedChanges.evalsModified.length === 0 && classifiedChanges.evalsRemoved.length === 0) {
         core.info('No gated changes');
         await comment((0, comment_1.formatNoChanges)());
         return;
     }
-    const orphanedMds = klass.mdFiles.filter(f => (0, doc_url_1.canonicalDocUrl)(f.filename, workspace) === null);
+    const orphanedMds = classifiedChanges.mdFiles.filter(f => (0, doc_url_1.canonicalDocUrl)(f.filename, workspace) === null);
     if (orphanedMds.length > 0) {
         await comment((0, comment_1.formatOrphanedMds)(orphanedMds.map(f => f.filename)));
         (0, github_1.fail)(`${orphanedMds.length} changed .md file(s) not registered in documentation.yaml`, config.blocking);
         return;
     }
-    const cov = (0, coverage_1.computeCoverage)(klass.mdFiles, headScenarios, (f) => (0, doc_url_1.canonicalDocUrl)(f, workspace));
+    const cov = (0, coverage_1.computeCoverage)(classifiedChanges.mdFiles, headScenarios, (f) => (0, doc_url_1.canonicalDocUrl)(f, workspace));
     if (cov.uncovered.length > 0) {
         await comment((0, comment_1.formatUncovered)(cov.uncovered));
         (0, github_1.fail)(`Missing coverage for ${cov.uncovered.length} file(s)`, config.blocking);
@@ -35009,8 +35025,8 @@ async function runGate() {
         core.warning(`Base SHA eval issue (${e.path}): ${e.message}`);
     // Restrict head to scenarios authored or modified in THIS PR — avoids spurious PUTs on every push.
     const changedEvalPaths = new Set([
-        ...klass.evalsAdded.map(f => f.filename),
-        ...klass.evalsModified.map(f => f.filename),
+        ...classifiedChanges.evalsAdded.map(f => f.filename),
+        ...classifiedChanges.evalsModified.map(f => f.filename),
     ]);
     const changedHeadScenarios = new Map();
     for (const [name, ls] of headScenarios) {
@@ -35018,7 +35034,12 @@ async function runGate() {
             changedHeadScenarios.set(name, ls);
     }
     const evalforge = new evalforge_1.EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
-    const remote = await guardedCall(() => evalforge.listTestScenarios(config.projectId), 'Could not reach EvalForge', comment, config);
+    const relevantNames = new Set([
+        ...changedHeadScenarios.keys(),
+        ...baseScenarios.keys(),
+        ...[...cov.coveredBy.values()].flat(),
+    ]);
+    const remote = await guardedCall(() => fetchRelevantRemote(evalforge, config.projectId, draftTag, relevantNames), 'Could not reach EvalForge', comment, config);
     if (!remote)
         return;
     const plan = (0, sync_1.diffSyncPlan)({ head: changedHeadScenarios, base: baseScenarios, remote, draftTag });
@@ -35066,7 +35087,7 @@ async function runGate() {
     const scenarioByPath = new Map();
     for (const ls of headScenarios.values())
         scenarioByPath.set(ls.path, ls);
-    for (const f of [...klass.evalsAdded, ...klass.evalsModified]) {
+    for (const f of [...classifiedChanges.evalsAdded, ...classifiedChanges.evalsModified]) {
         const ls = scenarioByPath.get(f.filename);
         if (!ls)
             continue;
@@ -35132,6 +35153,26 @@ async function guardedCall(fn, userMessage, comment, config) {
         (0, github_1.fail)(userMessage, config.blocking);
         return undefined;
     }
+}
+// Server-side filtered fetch via QueryTestScenarios — returns only scenarios this PR cares about:
+// (a) all of OUR drafts (so the planner sees prior-push state and detects DELETE candidates),
+// (b) scenarios in `relevantNames` (head ∪ base ∪ coveredBy — anything sync, deletion, or selection might reference).
+// The /v1 query supports filter.name as SQL LIKE %name%, so we exact-match client-side to avoid
+// false positives from substring matches across scenarios.
+async function fetchRelevantRemote(client, projectId, draftTag, relevantNames) {
+    const byName = new Map();
+    for (const r of await client.queryTestScenarios(projectId, { tags: [draftTag] })) {
+        byName.set(r.name, r);
+    }
+    const namesToQuery = [...relevantNames].filter(n => !byName.has(n));
+    const results = await Promise.all(namesToQuery.map(n => client.queryTestScenarios(projectId, { name: n })));
+    for (const matches of results) {
+        for (const r of matches) {
+            if (relevantNames.has(r.name))
+                byName.set(r.name, r);
+        }
+    }
+    return [...byName.values()];
 }
 
 
@@ -35394,21 +35435,19 @@ async function runPromote() {
     const workspace = (0, workspace_1.workspaceRoot)();
     // Cleanup workflow no longer fires on merged PRs — promote owns MCP version teardown.
     await (0, pr_cleanup_1.deletePrMcpVersions)(evalforge, config.mcpId, config.projectId, config.prNumber);
-    let remote;
+    let drafts;
     try {
-        remote = await evalforge.listTestScenarios(config.projectId);
+        drafts = await evalforge.queryTestScenarios(config.projectId, { tags: [draftTag] });
     }
     catch (e) {
-        core.warning(`listTestScenarios failed: ${e instanceof Error ? e.message : String(e)}`);
+        core.warning(`queryTestScenarios (by draftTag) failed: ${e instanceof Error ? e.message : String(e)}`);
         return;
     }
-    const remoteByName = new Map(remote.map(r => [r.name, r]));
     const headScenarios = loadEvalsWithWarnings(workspace);
     let promoted = 0;
     let stillDraft = 0;
-    for (const s of remote) {
-        if (!s.tags.includes(draftTag))
-            continue;
+    let lookupFailures = 0;
+    for (const s of drafts) {
         const ls = headScenarios.get(s.name);
         if (!ls) {
             stillDraft++;
@@ -35427,7 +35466,12 @@ async function runPromote() {
     for (const [name] of baseEvals) {
         if (headScenarios.has(name))
             continue;
-        const r = remoteByName.get(name);
+        const lookup = await lookupByName(evalforge, config.projectId, name);
+        if (lookup.error) {
+            lookupFailures++;
+            continue;
+        }
+        const r = lookup.scenario;
         if (!r)
             continue;
         if (r.tags.some(t => t.startsWith(evalforge_1.DRAFT_PREFIX)))
@@ -35444,12 +35488,24 @@ async function runPromote() {
         core.info(`Promoted ${promoted} scenarios`);
     if (stillDraft > 0)
         core.info(`Skipped ${stillDraft} (YAML missing in merged head)`);
+    if (lookupFailures > 0)
+        core.warning(`${lookupFailures} scenario lookup(s) failed during promote — YAML-removed scenarios may not have been cleaned up. Re-run the workflow to retry.`);
 }
 function loadEvalsWithWarnings(root) {
     const { scenarios, errors } = (0, evals_1.loadEvals)(root);
     for (const e of errors)
         core.warning(`Eval load issue at ${root}/${e.path}: ${e.message}`);
     return scenarios;
+}
+async function lookupByName(client, projectId, name) {
+    try {
+        const matches = await client.queryTestScenarios(projectId, { name });
+        return { scenario: matches.find(s => s.name === name), error: false };
+    }
+    catch (e) {
+        core.warning(`queryTestScenarios (by name "${name}") failed: ${e instanceof Error ? e.message : String(e)}`);
+        return { error: true };
+    }
 }
 
 
