@@ -254,7 +254,7 @@ Record the rate-limit event in `run.json` `notes[]` regardless of recovery outco
 
 ## Build & Release
 
-1. `npx @wix/cli@latest build` — if it fails, inspect `.wix/debug.log` for the specific error, fix, retry. Common failure modes are listed in `references/shared/RETURN_CONTRACT.md` § "Common failure modes".
+1. `npx @wix/cli@latest build` — if it fails, inspect `.wix/debug.log` for the specific error, fix, retry. Build failure modes are listed in § "Build failure modes" below; the Astro/React build-blockers a subagent should have caught are in `references/shared/IMPLEMENTER.md` § "Astro/React build-blockers".
 2. `npx @wix/cli@latest release` — extract the published URL from the `Site published on <url>` line in stdout. This command also populates the **Frontend link** in headless settings natively, so transactional emails link to the deployed frontend without any extra API calls.
 
 ---
@@ -275,7 +275,7 @@ The summary prose contains, in order:
 
 **Do not present timings.** No total-wall figure, no per-phase breakdown ("scaffold 26s · design-system 13s · …"), no "built in ~N min." Phase timings are machinery and the self-reported number is easy to get wrong (it has under-reported true wall in past runs); they belong in `run.json`, not the user-facing summary. The user wants their site, not a stopwatch.
 
-Then, in the same turn after the summary prose, write `.wix/run.json` silently — the observability record aggregating every subagent return (format per `references/shared/RETURN_CONTRACT.md` § "Final run.json format"), including the phase timings. Use the subagent returns already in session context — do not re-read anything to compose it.
+Then, in the same turn after the summary prose, write `.wix/run.json` silently — the observability record aggregating every subagent return (format per § "Final run.json format" below), including the phase timings. Use the subagent returns already in session context — do not re-read anything to compose it.
 
 ---
 
@@ -305,3 +305,81 @@ If a build feels slow, check whether dispatches that should have been concurrent
 2. **Serialized execution:** the runtime dispatched the batch but executed it sequentially (rare; most runtimes parallelize properly).
 
 The fix for (1) depends on the runtime — check whether your dispatch primitive supports a single concurrent batch and whether anything between the subagent invocations (status updates, narration, file writes) is splitting the batch into multiple turns. Even when (1) cannot be fixed, **background dispatch alone gives ~2× compression** by overlapping execution. Make every subagent that doesn't block downstream work a background subagent.
+
+---
+
+## Build failure modes
+
+Inspect `.wix/debug.log` after a failed `npx @wix/cli@latest build`; match the stderr against this table. (Subagents should have caught the Astro/React row before returning — see `references/shared/IMPLEMENTER.md` § "Astro/React build-blockers".)
+
+| Failure | How to detect | Fix |
+|---------|---------------|-----|
+| `Legacy HTML single-line comments` | build stderr | A Phase 2/4 agent emitted HTML comments in `.astro` frontmatter — replace with `//` or `/* */` |
+| `Missing environment variable WIX_CLIENT_ID` | build stderr | Run `npx @wix/cli@latest env pull --json` then retry |
+| `Cannot find module '@wix/…'` | build stderr | npm install didn't include that package; check the pack's `packages` list |
+
+---
+
+## Final run.json format
+
+The orchestrator is the **sole writer** of `.wix/run.json` and the one audience that needs every phase's `data` shape (the per-phase shapes are indexed in `references/shared/RETURN_CONTRACT.md` § "Where your phase-specific data shape lives"). It aggregates every agent return into one file.
+
+**Timing is required** — the `run` object MUST include `started`, `ended`, and `totalSeconds`, and every entry in `phases` MUST include `seconds`. All timing values are captured by the orchestrator (from runtime `duration_ms` for subagents, from `date -u` wraps for its own Bash calls) — agents do not self-report. If timing is missing for any phase, record `seconds: null` + `errors: [{code: "MISSING_TIMING"}]` and investigate what broke capture.
+
+For the orchestrator's own Bash calls (scaffold, env-pull, npm-install, app-install), wrap in `date -u` captures:
+
+```bash
+STARTED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+# ... run the command ...
+ENDED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+# compute seconds and append to run.json
+```
+
+Example:
+
+```json
+{
+  "version": "1.0",
+  "run": {
+    "started": "2026-01-15T09:16:14Z",
+    "ended": "2026-01-15T09:28:03Z",
+    "totalSeconds": 709,
+    "brand": "Acme Coffee",
+    "prompt": "I want to sell tables online",
+    "verticals": ["stores", "cms"],
+    "packs": ["stores", "cms"]
+  },
+  "outcome": {
+    "build": "success",
+    "previewUrl": "https://goj5lj-tabula-...-alexp775.wix-host.com",
+    "dashboardUrl": "https://manage.wix.com/dashboard/<siteId>"
+  },
+  "phases": [
+    { "phase": "scaffold", "status": "complete", "seconds": 45 },
+    { "phase": "app-install-stores", "status": "complete", "seconds": 6 },
+    { "phase": "env-pull", "status": "complete", "seconds": 4 },
+    { "phase": "npm-install", "status": "complete", "seconds": 42, "packageCount": 725 },
+    { "phase": "stores-seed", "status": "complete", "seconds": 112, "data": { ... } },
+    { "phase": "cms-seed", "status": "complete", "seconds": 98, "data": { ... } },
+    { "phase": "stores-components", "status": "complete", "seconds": 134, "data": { ... } },
+    { "phase": "design-system", "status": "complete", "seconds": 165, "data": { ... } },
+    { "phase": "designer-home", "status": "complete", "seconds": 287, "data": { ... } },
+    { "phase": "designer-static", "status": "complete", "seconds": 265, "data": { ... } },
+    { "phase": "designer-store-pages", "status": "complete", "seconds": 298, "data": { ... } },
+    { "phase": "stores-pages-products", "status": "complete", "seconds": 89, "data": { ... } },
+    { "phase": "stores-pages-cart-checkout", "status": "complete", "seconds": 67, "data": { ... } },
+    { "phase": "stores-pages-home-and-nav", "status": "complete", "seconds": 54, "data": { ... } },
+    { "phase": "pages", "status": "complete", "seconds": 78, "data": { ... } },
+    { "phase": "image-phase-1-decorative", "status": "complete", "seconds": 112, "data": { "decorativeCount": 3, ... } },
+    { "phase": "image-phase-2-entity", "status": "complete", "seconds": 287, "data": { "entityCount": { "products": 6, "cmsAboutContent": 1 }, ... } },
+    { "phase": "build", "status": "complete", "seconds": 9 },
+    { "phase": "preview", "status": "complete", "seconds": 21 }
+  ],
+  "notes": []
+}
+```
+
+Notes:
+- Total serial wall time ≈ max parallel paths, not sum of seconds
+- `data` blocks preserve what each agent returned — recoverable without re-reading agent transcripts
+- `files` lists are omitted from the aggregate; query individual phase `data` if needed
