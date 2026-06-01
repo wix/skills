@@ -1,0 +1,8 @@
+# Missing required `triggerPrompt` — schema validation must reject.
+name: forms/broken-scenario
+description: This YAML is intentionally invalid for T3.
+tags: [forms]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://example.com/x
