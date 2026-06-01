@@ -19,7 +19,7 @@ Exactly one file:
 
 You only need:
 
-1. **`<SKILL_ROOT>/templates/ecom/components-ecom.css`** — the canonical template. Read it once.
+1. **`<SKILL_ROOT>/references/astro/templates/ecom/components-ecom.css`** — the canonical template. Read it once.
 2. **`<SKILL_ROOT>/references/shared/STYLING.md`** — the styling-contract conventions (how to use `@apply`, the `@theme` token utilities, the no-default-Tailwind-colors rule, and the global-vs-scoped CSS ownership boundary).
 3. **`<SKILL_ROOT>/references/shared/RETURN_CONTRACT.md`** — the return JSON shape.
 4. **`src/styles/global.css`** in the project — read to audit for ecom-class leaks (see § "Global-CSS leak audit" below).
@@ -32,7 +32,7 @@ You do NOT need to read `INSTRUCTIONS.md`, `CART_WIRING.md`, the TSX templates, 
 ### 1. Read the template
 
 ```
-<SKILL_ROOT>/templates/ecom/components-ecom.css
+<SKILL_ROOT>/references/astro/templates/ecom/components-ecom.css
 ```
 
 This is the canonical scoped CSS for the ecom pack. Adapt sizing/spacing to the brand's aesthetic — use the design tokens from your prompt (`--color-bark`, `--color-cream`, `--spacing-md`, `--font-display`, etc.). **Do not rename the class names or state modifiers** — they must match the contract keys the TSX components reference.

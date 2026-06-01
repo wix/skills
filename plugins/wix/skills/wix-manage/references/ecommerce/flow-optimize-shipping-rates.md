@@ -27,9 +27,9 @@ Analyzes the site's catalog price distribution and current shipping rate structu
 
 ## Required APIs
 
-- [Query Shipping Options](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/shipping-delivery/shipping-options/query-shipping-options)
-- [Update Shipping Option](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/shipping-delivery/shipping-options/update-shipping-option)
-- [Create Shipping Option](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/shipping-delivery/shipping-options/create-shipping-option)
+- [Query Shipping Options](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/api-shipping#query-shipping-options)
+- [Update Shipping Option](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/api-shipping#update-shipping-option)
+- [Create Shipping Option](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/api-shipping#create-shipping-option)
 
 ---
 
@@ -360,5 +360,4 @@ Verify:
 
 ## References
 
-- [Shipping Options API](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/shipping-delivery/shipping-options/introduction)
-- [Delivery Profiles API](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/shipping-delivery/delivery-profiles/introduction)
+- [API: Shipping Delivery](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/api-shipping)

@@ -61,6 +61,7 @@ flowchart TB
         setup-coupons
         setup-shipping-regions
         setup-shipping-rates
+        api-shipping
     end
 
     subgraph TrackingAPI["Tracking API"]
@@ -74,7 +75,7 @@ flowchart TB
         troubleshoot-checkout-delivery-dropoff
     end
 
-    Config -.-> |"calls via CallWixSiteAPI / ReadFullDocsArticle"| API
+    Config -.-> |"calls via CallWixSiteAPI"| API
 
     subgraph API["Wix REST API Docs (dev.wix.com)"]
         D1["Discount Rules API"]
@@ -82,8 +83,6 @@ flowchart TB
         D3["Products V3 API"]
         D4["Categories API"]
         D5["Catalog Analytics"]
-        S1["Delivery Profiles API"]
-        S2["Shipping Options API"]
         S3["Pickup Locations API"]
         S4["Local Delivery API"]
         SD["Profile Service API (wix-profile-client)"]
@@ -100,7 +99,7 @@ flowchart TB
     class goal-increase-aov,goal-clear-inventory,goal-seasonal-revenue,goal-drive-cross-sells,goal-reduce-cart-abandonment goal
     class guardrail-discount-conflicts,guardrail-margin-protection,guardrail-shipping-health,guardrail-rate-pricing-sanity guardrail
     class flow-upsell-boost,flow-bundle-and-save,flow-stock-mover,flow-seasonal-promotion,flow-fix-coverage-gaps,flow-add-free-shipping,flow-optimize-shipping-rates flow
-    class setup-discount-rules,setup-coupons,setup-shipping-regions,setup-shipping-rates,api-recommendation-tracking config
+    class setup-discount-rules,setup-coupons,setup-shipping-regions,setup-shipping-rates,api-recommendation-tracking,api-shipping config
     class recommend-ecommerce-strategy reco
     class recipe-apply-shipping-recommendations,setup-store-pickup-location,troubleshoot-discount-not-applying,troubleshoot-checkout-delivery-dropoff standalone
     class D1,D2,D3,D4,D5,S1,S2,S3,S4,SD apidoc
@@ -132,6 +131,7 @@ flowchart TB
 | `setup-coupons.md` | Step 4c (COUPON mechanism) |
 | `setup-shipping-regions.md` | flow-fix-coverage-gaps chain |
 | `setup-shipping-rates.md` | flow-add-free-shipping / optimize chains |
+| `api-shipping.md` | Shipping flows (fix-coverage-gaps, add-free-shipping, optimize, recipe, setup-store-pickup) |
 | `recipe-apply-shipping-recommendations.md` | README direct entry |
 | `setup-store-pickup-location.md` | README direct entry |
 | `troubleshoot-discount-not-applying.md` | README direct entry |

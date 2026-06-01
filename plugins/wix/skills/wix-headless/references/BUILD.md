@@ -26,8 +26,8 @@ The user just approved; `init-site-json.mjs` wrote the slim `.wix/site.json`. **
 ### 0. Dispatch scaffold + Designer (background, immediately on entry)
 
 Fire both as one concurrent batch (`PLAN.md` § "Batching discipline") — they are independent:
-- **Scaffold** — `scaffold.sh <slug> "<brand>" --frontend <value>` (background, capture `scaffold_handle` + its stderr tempfile). Slug derivation + the command shape are `DISCOVERY.md` § "After Q1". `npm install` is **not** chained here (Setup Step 4c dispatches it).
-- **Designer** — background, capture `designer_handle`, per the prompt template in `DESIGN_SYSTEM.md`, inlining Discovery's aesthetic craft (brand, aesthetic direction, palette, type, mood, page color strategy) held in scratch. Judgment-only (~10–15 s; JSON `data.designTokens` + `data.shell`, no files). Do **not** pass application inputs (packs, nav links) — those go to the Composer.
+- **Scaffold** — `scaffold.sh <slug> "<brand>" --frontend <value>` (background, capture `scaffold_handle` + its stderr tempfile). Slug derivation + the command shape are `DISCOVERY.md` § "After Q1". `npm install` is **not** chained here (Setup Step 4c dispatches it). The stderr tempfile is for **post-hoc error inspection only** (read it *if* the scaffold reports a failure) — it is **not** a progress file to poll.
+- **Designer** — background, capture `designer_handle`. Dispatch with **Instruction file = `<SKILL_ROOT>/references/DESIGN_SYSTEM.md`** (the subagent opens it — **do not Read it in the orchestrator**, per `SKILL.md` § "Path resolution"). Inline Discovery's aesthetic craft held in scratch: brand, aesthetic direction, palette, type, mood, page color strategy. Judgment-only (~10–15 s; JSON `data.designTokens` + `data.shell`, no files). Do **not** pass application inputs (packs, nav links) — those go to the Composer.
 
 The Designer's ~13 s overlaps the scaffold's ~23 s. Setup waits on `scaffold_handle` at Step 1; the bridge (step 2) waits on `designer_handle`.
 
@@ -35,28 +35,30 @@ The Designer's ~13 s overlaps the scaffold's ~23 s. Setup waits on `scaffold_han
 
 Apply `SETUP.md` Step 1 only: wait `scaffold_handle` (load `wix-manage` in the same batch), then patch `site.json` with `siteId`/`appId`. **Do not run Setup Step 4 (the app-install batch) yet** — it goes in run-step 2 below, alongside the bridge.
 
+> **How to wait — await the notification, never sleep-poll** (`PLAN.md` § "Concurrency vocabulary" → "Wait (gate)"). "Wait `scaffold_handle`" means await the harness's background-task **completion notification**. Do **not** run a `sleep`/poll loop against the scaffold's stdout/stderr/output file — that blocks the turn for the whole scaffold wall (~20–30 s, longer if you over-sleep) and pushes back the run-step 2 super-batch, landing the Composer late. A late Composer is the longest-pole regression called out at run-step 2 (~60–90 s of wall lost). Burn zero orchestrator time here: the notification is the only signal you need.
+
 ### 2. Setup Step 4 batch **+** design-system bridge — ONE concurrent super-batch
 
-**Timing pin: these two are independent and MUST run concurrently. Do not serialize them.** Past runs that fired the Step-4 batch first, *then* the bridge after, cost ~60–90 s of Composer wall that should have been absorbed (the Composer ended up the Wave-1 longest pole, ending after both seeders). The bridge's only gates are `designer_handle` returning and the scaffold being verified — both true the instant Step 1 completes. App installs / `env pull` / `npm install` are business-track work the bridge has zero dependency on.
+**Pin:** Setup Step 4 (business) and the design-system bridge (frontend) are independent and MUST go out as **one** assistant message (`PLAN.md` § "Batching discipline" — no narration between the tool calls, or the batch splits and the Composer starts late). `designer_handle` has been running since run-step 0, so it has returned by now: the bridge's wait→emit→dispatch collapses into two direct calls in the batch.
 
-Fire as one concurrent batch (`PLAN.md` § "Batching discipline"):
+**Dispatch block — emit all of the following as siblings in ONE assistant message; no text between the tool calls:**
 
-**(a) Setup Step 4 — business track.** Apply `SETUP.md` Step 4: app installs (one curl per `pack.apps[*]`) + `env pull` + background `npm install` (capture `npm_handle` + its stderr tempfile). Frontend-blind; `SETUP.md` owns the recipes/package set.
+*business track (frontend-blind — `SETUP.md` owns the recipes/package set):*
+1. `Bash` × N — app installs, one curl per `pack.apps[*]` → `SETUP.md` § Step 4a.
+2. `Bash` — `npx @wix/cli@latest env pull --json` → `SETUP.md` § Step 4b (the `--json` flag suppresses the interactive spinner that otherwise bloats context).
+3. `Bash` (background) — `npm install …`, capture `npm_handle` + its stderr tempfile → package set in `SETUP.md` § Step 4c.
 
-**(b) Design-system bridge — frontend track.** Composer dispatch, gated only on `designer_handle` + scaffold-verified:
-- **Wait `designer_handle`** (near-instant; it has been running since run-step 0, ~10–15 s).
-- **Emit tokens:** pipe the Designer's `data.designTokens` JSON into `emit-design-tokens.mjs`. The script reads tokens from **stdin** and takes the **project directory as `argv[2]`**; if stdin is empty it exits 2 (`stdin was empty — pass the designTokens JSON object`) and the bridge stalls. Use a quoted heredoc so the JSON survives unchanged:
+*frontend track (Designer tokens already in scratch):*
+4. `Bash` — emit tokens: pipe the Designer's `data.designTokens` JSON into `emit-design-tokens.mjs` (reads tokens from **stdin**, project dir as **`argv[2]`**; empty stdin → exits 2 `stdin was empty — pass the designTokens JSON object` and the bridge stalls). Quoted heredoc so the JSON survives unchanged. Writes `.wix/design-tokens.css` + `.wix/site.d.ts`; keep `designTokens` + `shell` in scratch for the Composer prompt.
 
-  ```bash
-  node <SKILL_ROOT>/scripts/emit-design-tokens.mjs "<project-dir>" <<'TOKENS'
-  { ...paste the Designer's data.designTokens JSON object here, verbatim from scratch... }
-  TOKENS
-  ```
+   ```bash
+   node <SKILL_ROOT>/scripts/emit-design-tokens.mjs "<project-dir>" <<'TOKENS'
+   { ...paste the Designer's data.designTokens JSON object here, verbatim from scratch... }
+   TOKENS
+   ```
+5. `Agent` (background) — Composer, capture `composer_handle`. Dispatch with **Instruction file = `<SKILL_ROOT>/references/astro/COMPOSE.md`** (the subagent opens it — **do not Read it in the orchestrator**; it is 14 KB of subagent-only substitution how-to, and reading it here just bloats the dispatch turn you're composing). Inline: tokens + shell + brand + nav links + packs. **SKIP** (record `{phase: "compose", status: "skipped"}`) if `frontend !== "astro"` (defensive — custom frontends never reach `BUILD.md`).
 
-  Writes `.wix/design-tokens.css` + `.wix/site.d.ts`. Hold `designTokens` + `shell` in scratch (the Composer needs both inlined into its prompt).
-- **Dispatch the Composer** (background, capture `composer_handle`) per the prompt template in `COMPOSE.md`, inlining tokens + shell + brand + nav links + packs.
-
-> **Why concurrent, not sequential.** The Composer's only inputs are the Designer's tokens (ready from run-step 0) and the verified scaffold (ready at Setup Step 1) — neither depends on the seeders, app installs, env, or npm. Firing the bridge alongside the Step 4 batch lets its ~80–160 s authoring wall absorb into Setup + the whole seed window. **Firing it after the Step 4 batch — or worse, in the seed wave — makes it start late and land as a fresh longest pole that ends *after* the seeders.** The Composer self-retries its pre-write scaffold reads if the scaffold is somehow still in flight (`COMPOSE.md` § "Pre-write"). On `react-vite`/`user-provided` the Composer is skipped (record `{phase: "compose", status: "skipped"}`).
+> **Rationale — do not re-derive.** The two tracks are independent: the Composer's only inputs are the Designer's tokens (ready from run-step 0) and the verified scaffold (ready at Setup Step 1) — neither depends on seeders, app installs, env, or npm. App installs / `env pull` / `npm install` are business-track work the bridge has zero dependency on. Firing the bridge alongside the Step 4 batch lets its ~80–160 s authoring wall absorb into Setup + the whole seed window; firing it *after* the Step 4 batch — or worse, in the seed wave — makes it start late and land as a fresh longest pole that ends *after* the seeders (~60–90 s of Composer wall lost in past runs). The Composer self-retries its pre-write scaffold reads if the scaffold is somehow still in flight (`COMPOSE.md` § "Pre-write").
 
 ### 3. Seed wave (Wave 3) — business track + co-scheduled frontend prep
 
@@ -83,7 +85,7 @@ The `imagery` value (`"ai-generated"` | `"themed-blocks"`, captured in `DISCOVER
 
 The seed-wave dispatch list (the run's step 3). No design-system dispatch here — `composer_handle` is already running from the Setup-window bridge. Launch as **one concurrent batch** (`PLAN.md` § "Batching discipline"):
 
-- `seed-utilities.sh --template <astro|react-vite>` — frontend-track project prep (idempotent), run from the project dir. Apply `SEED.md` § "Pre-batch".
+- `seed-utilities.sh --template astro` — frontend-track project prep (idempotent), run from the project dir. Apply `SEED.md` § "Pre-batch".
 - Per-pack seed subagents (background) — apply `SEED.md` for the recipe map + seeder prompt template.
 - Image Phase 1 Decorative (background) — `<SKILL_ROOT>/references/images/INSTRUCTIONS.md`, scope `image-phase-1-decorative` — **only when `imagery === "ai-generated"`** (§ "Imagery gates").
 
@@ -101,8 +103,8 @@ See `SEED.md` § "Subagent prompt template" for the base fields (Instruction fil
 - `<SKILL_ROOT>/references/forms/INSTRUCTIONS.md` — Phase 3 Components + Phase 4 Pages
 - `<SKILL_ROOT>/references/gift-cards/INSTRUCTIONS.md` — Phase 3 Components + Phase 4 Pages (passive/dashboard-gated)
 - `<SKILL_ROOT>/references/images/INSTRUCTIONS.md` — `image-phase-1-decorative` + `image-phase-2-entity`
-- `<SKILL_ROOT>/references/DESIGN_SYSTEM.md` — Phase 2 Designer (design spec, JSON only); `<SKILL_ROOT>/references/COMPOSE.md` — Phase 2 Composer (writes the 6 design-system files)
-- `<SKILL_ROOT>/references/designer/INSTRUCTIONS.md` — all Phase 4 Page designers (`home`, `static`, `store-pages`, `blog-pages`, `contact-page`)
+- `<SKILL_ROOT>/references/DESIGN_SYSTEM.md` — Phase 2 Designer (design spec, JSON only); `<SKILL_ROOT>/references/astro/COMPOSE.md` — Phase 2 Composer (writes the 6 design-system files)
+- `<SKILL_ROOT>/references/astro/designer/INSTRUCTIONS.md` — **page-design specification** (not a separately-dispatched scope). The merged Phase 4 `pages` scopes above apply this for the visual-design spec of their routes (layout, contract classes, decorative slots, per-scope structure for `home`/`static`/`store-pages`/`blog-pages`/`contact-page`) while writing live SDK data in the same pass. There is no separate placeholder-writing page-designer dispatch — single-write merged (see § "Step 7 Dispatch").
 
 For **image subagents**, the prompt additionally includes: page list (for decorative brief), entity types to cover (products, about-content, etc.).
 
@@ -126,7 +128,7 @@ For each loaded pack whose vertical INSTRUCTIONS declares a `components` scope (
 
 ```bash
 for pack in <loaded packs with components>; do
-  cp "<SKILL_ROOT>/templates/$pack/components-$pack.css" \
+  cp "<SKILL_ROOT>/references/astro/templates/$pack/components-$pack.css" \
      "src/styles/components-$pack.css"
 done
 ```
@@ -137,7 +139,7 @@ Record `{ phase: "copy-component-css", packs: [...], seconds }` in `run.json`. I
 
 ```bash
 # only if the stores pack is loaded
-cp "<SKILL_ROOT>/templates/stores/back-in-stock.ts" "src/utils/back-in-stock.ts"
+cp "<SKILL_ROOT>/references/astro/templates/stores/back-in-stock.ts" "src/utils/back-in-stock.ts"
 ```
 
 If you skip this, the `components` subagent falls back to writing `src/utils/back-in-stock.ts` itself, and on multi-pack runs two scopes can race the same path (`File has not been read yet` / `modified since read`). Record `{ phase: "copy-utils", scope: "components", files: [...] }`.
@@ -173,7 +175,7 @@ Pre-copy the Phase-4 utility templates each pack's INSTRUCTIONS declares under "
 
 ```bash
 # only if the stores pack is loaded
-cp "<SKILL_ROOT>/templates/stores/categories.ts" "src/utils/categories.ts"
+cp "<SKILL_ROOT>/references/astro/templates/stores/categories.ts" "src/utils/categories.ts"
 ```
 
 `categories.ts` is a static, brand-agnostic SDK wrapper. **It must be pre-copied, not written by a subagent.** `pages-categories`, `pages-products`, and `pages-home-and-nav` all *import* it; if it isn't on disk, two of those concurrently-dispatched scopes each fall back to writing it and race the same path (`File has not been read yet`). Record `{ phase: "copy-utils", scope: "pages", files: ["src/utils/categories.ts"] }`.
@@ -257,17 +259,23 @@ Record the rate-limit event in `run.json` `notes[]` regardless of recovery outco
 
 ---
 
-## Final Message — emit the summary first, then write run.json
+## Final Message — summary FIRST, then run.json, in ONE turn
 
-Emit the summary per `PLAN.md` § "User-facing output" (plain prose, no machinery); then write `run.json`. Single message.
+**Ordering is strict and user-perceived latency depends on it.** The summary prose is the **first content of your final turn**; the `Write .wix/run.json` is the **last tool call in that same message**. Composing `run.json` takes ~15–25 s (it aggregates every subagent return), so writing it *before* the summary makes the user wait that whole time to see their live URL — for no reason, since `run.json` is a silent observability artifact they never read.
 
-The summary contains, in order:
+Hard rules:
+- **Do NOT write `run.json` before the summary.** A run that emits the `run.json` `Write` first (or in an earlier turn) is wrong even if the content is identical — it just delays the URL.
+- **Do NOT emit a pre-narration turn** ("Site is live, writing run.json…", "delivering the summary…"). That is orchestration machinery (`PLAN.md` § "User-facing output") and it splits the single turn. The summary prose itself is the first thing the user sees after release.
+- **One turn:** summary prose → then the `Write` tool call, as siblings in the same assistant message. The turn does not close until the `Write` completes, so the record still lands on disk before control returns — you get on-disk durability without making the user wait for it.
+
+The summary prose contains, in order:
 
 1. **Production URL** — bold link, first line (the exact `Site published on <url>` string; do not retype it).
 2. **Dashboard link** — `https://manage.wix.com/dashboard/<siteId>`.
-3. **One-line perf summary** (optional) — total wall + the headline phase timings, plain prose.
 
-After the summary text in the same turn, write `.wix/run.json` silently — the observability record aggregating every subagent return (format per `references/shared/RETURN_CONTRACT.md` § "Final run.json format"). Use the subagent returns already in session context — do not re-read anything to compose it. The turn does not close until the `run.json` write completes, so the record is guaranteed on disk before the user sees control return.
+**Do not present timings.** No total-wall figure, no per-phase breakdown ("scaffold 26s · design-system 13s · …"), no "built in ~N min." Phase timings are machinery and the self-reported number is easy to get wrong (it has under-reported true wall in past runs); they belong in `run.json`, not the user-facing summary. The user wants their site, not a stopwatch.
+
+Then, in the same turn after the summary prose, write `.wix/run.json` silently — the observability record aggregating every subagent return (format per `references/shared/RETURN_CONTRACT.md` § "Final run.json format"), including the phase timings. Use the subagent returns already in session context — do not re-read anything to compose it.
 
 ---
 

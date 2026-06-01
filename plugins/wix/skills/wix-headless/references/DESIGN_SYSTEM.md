@@ -89,7 +89,7 @@ You pick *what the brand looks like* — "surface/paper = `#FAF6EF`", "display f
 | Emit an `@theme` block, `--color-*` names, or Tailwind utilities | Return bare-key `designTokens` values; the Composer maps them |
 | Decide CSS structure, View-Transitions, `@apply`, markers, file layout | All application — the Composer's domain |
 | `Read .wix/site.json`, `STYLING.md`, templates, or `.astro` files | Every input is inlined; read only `RETURN_CONTRACT.md` |
-| Branch on framework (astro vs react-vite) or loaded packs | The spec is framework- and pack-blind by construction |
+| Branch on framework (astro vs custom) or loaded packs | The spec is framework- and pack-blind by construction |
 | Alias a container width to a spacing value | `containers.prose` ≈ `42rem`; `spacing.3xl` ≈ `5rem` — different axes |
 | Ship a thin palette ("downstream will add what it needs") | Completeness is the contract — fill every semantic role |
 | Trailing prose after the JSON block | The fenced JSON is the last content in your message |

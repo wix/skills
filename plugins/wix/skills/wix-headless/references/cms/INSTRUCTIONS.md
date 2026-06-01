@@ -11,8 +11,8 @@ Extends `references/shared/IMPLEMENTER.md`. Read that file first for phase routi
 
 | Scope | Phase | Reference |
 |-------|-------|-----------|
-| `seed` | Seed (create collections + seed items via REST) | `./CMS_FOUNDATIONS.md` (§ seeding) + use-case ref |
-| `pages` | Pages (About + FAQ pages read CMS via @wix/data inline) | `./CMS_FOUNDATIONS.md` (§ code patterns) + use-case ref |
+| `seed` | Seed (create collections + seed items via REST) | `./CMS_FOUNDATIONS.md` (seeding, business half) + use-case ref under `../astro/cms/` (collection schema + seed-with-images) |
+| `pages` | Pages (About + FAQ pages read CMS via @wix/data inline) | `../astro/cms/CMS_FOUNDATIONS.md` (code patterns) + use-case ref under `../astro/cms/` |
 
 No `components` scope — CMS pages SSR content inline via `@wix/data`; no React islands.
 
@@ -20,10 +20,10 @@ No `components` scope — CMS pages SSR content inline via `@wix/data`; no React
 
 Pick based on the business type (the orchestrator names one in your prompt):
 
-- `./FAQ_KNOWLEDGE_BASE.md` — Q&A accordions, category sections, search
-- `./PORTFOLIO.md` — project grid, category filter tabs, project detail
-- `./TEAM_DIRECTORY.md` — department-grouped directory, staff cards
-- `./RESOURCE_LIBRARY.md` — file listings, download buttons, file type badges
+- `../astro/cms/FAQ_KNOWLEDGE_BASE.md` — Q&A accordions, category sections, search
+- `../astro/cms/PORTFOLIO.md` — project grid, category filter tabs, project detail
+- `../astro/cms/TEAM_DIRECTORY.md` — department-grouped directory, staff cards
+- `../astro/cms/RESOURCE_LIBRARY.md` — file listings, download buttons, file type badges
 
 ## Files this vertical creates / contributes
 
