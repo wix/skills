@@ -7,7 +7,7 @@ import { loadEvals, type LoadedScenario } from './evals';
 import { canonicalDocUrl } from './doc-url';
 import { computeCoverage } from './coverage';
 import { diffSyncPlan } from './sync';
-import { EvalForgeClient, draftTagFor, type RemoteScenario } from './evalforge';
+import { EvalForgeClient, draftTagFor } from './evalforge';
 import { workspaceRoot } from './workspace';
 import { BASE_WORKSPACE_SUBDIR } from './paths';
 import { pollUntilDone, EvalRunTimeoutError } from './eval-run';
@@ -76,13 +76,8 @@ export async function runGate(): Promise<void> {
   }
 
   const evalforge = new EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
-  const relevantNames = new Set<string>([
-    ...changedHeadScenarios.keys(),
-    ...baseScenarios.keys(),
-    ...[...cov.coveredBy.values()].flat(),
-  ]);
   const remote = await guardedCall(
-    () => fetchRelevantRemote(evalforge, config.projectId, draftTag, relevantNames),
+    () => evalforge.listTestScenarios(config.projectId),
     'Could not reach EvalForge', comment, config,
   );
   if (!remote) return;
@@ -208,31 +203,3 @@ async function guardedCall<T>(
   }
 }
 
-// Server-side filtered fetch via QueryTestScenarios — returns only scenarios this PR cares about:
-// (a) all of OUR drafts (so the planner sees prior-push state and detects DELETE candidates),
-// (b) scenarios in `relevantNames` (head ∪ base ∪ coveredBy — anything sync, deletion, or selection might reference).
-// The /v1 query supports filter.name as SQL LIKE %name%, so we exact-match client-side to avoid
-// false positives from substring matches across scenarios.
-async function fetchRelevantRemote(
-  client: EvalForgeClient,
-  projectId: string,
-  draftTag: string,
-  relevantNames: Set<string>,
-): Promise<RemoteScenario[]> {
-  const byName = new Map<string, RemoteScenario>();
-  for (const r of await client.queryTestScenarios(projectId, { tags: [draftTag] })) {
-    byName.set(r.name, r);
-  }
-
-  const namesToQuery = [...relevantNames].filter(n => !byName.has(n));
-  const results = await Promise.all(
-    namesToQuery.map(n => client.queryTestScenarios(projectId, { name: n })),
-  );
-  for (const matches of results) {
-    for (const r of matches) {
-      if (relevantNames.has(r.name)) byName.set(r.name, r);
-    }
-  }
-
-  return [...byName.values()];
-}

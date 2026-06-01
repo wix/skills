@@ -34168,10 +34168,10 @@ async function runCleanup() {
     await (0, pr_cleanup_1.deletePrMcpVersions)(evalforge, config.mcpId, config.projectId, config.prNumber);
     let remote;
     try {
-        remote = await evalforge.queryTestScenarios(config.projectId, { tags: [draftTag] });
+        remote = await evalforge.listTestScenarios(config.projectId);
     }
     catch (e) {
-        core.warning(`queryTestScenarios (by draftTag) failed: ${errMsg(e)}`);
+        core.warning(`listTestScenarios failed: ${errMsg(e)}`);
         return;
     }
     const baseRoot = node_path_1.posix.join((0, workspace_1.workspaceRoot)(), paths_1.BASE_WORKSPACE_SUBDIR);
@@ -34799,8 +34799,7 @@ class EvalForgeClient {
         });
     }
     async listMcpVersions(mcpId, projectId) {
-        const res = await this.request('GET', `/v1/projects/${enc(projectId)}/capabilities/${enc(mcpId)}/versions`);
-        return res.capabilityVersions ?? [];
+        return this.request('GET', `/projects/${enc(projectId)}/capabilities/${enc(mcpId)}/versions`);
     }
     buildMcpUrl(skillsRepo, headSha) {
         const url = new URL(MCP_URL);
@@ -34809,28 +34808,23 @@ class EvalForgeClient {
         return url.toString();
     }
     async createMcpVersion(mcpId, projectId, versionLabel, prNumber, headSha, skillsRepo) {
-        const res = await this.request('POST', `/v1/projects/${enc(projectId)}/capabilities/${enc(mcpId)}/versions`, {
-            projectId,
-            capabilityId: mcpId,
-            capabilityVersion: {
-                version: versionLabel,
-                origin: 'pr',
-                notes: `Auto-created for PR #${prNumber}`,
-                mcpContent: {
-                    config: {
-                        [MCP_CONFIG_KEY]: {
-                            url: this.buildMcpUrl(skillsRepo, headSha),
-                            type: 'http',
-                            headers: {
-                                Authorization: '{{wix-auth-token}}',
-                                'wix-account-id': '{{wix-auth-user-id}}',
-                            },
+        return this.request('POST', `/projects/${enc(projectId)}/capabilities/${enc(mcpId)}/versions`, {
+            version: versionLabel,
+            origin: 'pr',
+            notes: `Auto-created for PR #${prNumber}`,
+            content: {
+                config: {
+                    [MCP_CONFIG_KEY]: {
+                        url: this.buildMcpUrl(skillsRepo, headSha),
+                        type: 'http',
+                        headers: {
+                            Authorization: '{{wix-auth-token}}',
+                            'wix-account-id': '{{wix-auth-user-id}}',
                         },
                     },
                 },
             },
         });
-        return res.capabilityVersion;
     }
     async ensureMcpVersion(mcpId, projectId, versionLabel, prNumber, headSha, skillsRepo) {
         try {
@@ -34846,22 +34840,19 @@ class EvalForgeClient {
             return existing;
         }
     }
-    // Server-side filtered query on the proto-derived /v1 endpoint.
-    // Tags use OR semantics (scenario matches if it contains ANY of the given tags).
-    // Name uses SQL LIKE %name% (substring) — callers needing exact match should filter client-side.
-    async queryTestScenarios(projectId, filter) {
-        const res = await this.request('POST', `/v1/projects/${enc(projectId)}/test-scenarios/query`, { projectId, filter });
-        return (res.testScenarios ?? []).map(s => ({ ...s, tags: s.tags ?? [] }));
+    async listTestScenarios(projectId) {
+        // EvalForge returns `tags: undefined` for untagged scenarios — normalize so callers can assume `string[]`.
+        const raw = await this.request('GET', `/projects/${enc(projectId)}/test-scenarios`);
+        return raw.map(s => ({ ...s, tags: s.tags ?? [] }));
     }
     async createTestScenario(projectId, body, tags) {
-        const res = await this.request('POST', `/v1/projects/${enc(projectId)}/test-scenarios`, { projectId, testScenario: { ...body, tags } });
-        return { id: res.testScenario.id };
+        return this.request('POST', `/projects/${enc(projectId)}/test-scenarios`, { ...body, projectId, tags });
     }
     async updateTestScenario(projectId, id, body, tags) {
-        await this.request('PATCH', `/v1/projects/${enc(projectId)}/test-scenarios/${enc(id)}`, { projectId, testScenario: { id, ...body, tags } });
+        await this.request('PUT', `/projects/${enc(projectId)}/test-scenarios/${enc(id)}`, { ...body, projectId, tags });
     }
     async deleteTestScenario(projectId, id) {
-        await this.request('DELETE', `/v1/projects/${enc(projectId)}/test-scenarios/${enc(id)}`);
+        await this.request('DELETE', `/projects/${enc(projectId)}/test-scenarios/${enc(id)}`);
     }
     async createEvalRun(projectId, input) {
         return this.request('POST', `/projects/${enc(projectId)}/eval-runs`, input);
@@ -34873,7 +34864,7 @@ class EvalForgeClient {
         return this.request('GET', `/projects/${enc(projectId)}/eval-runs/${enc(runId)}`);
     }
     async deleteMcpVersion(mcpId, projectId, versionId) {
-        await this.request('DELETE', `/v1/projects/${enc(projectId)}/capabilities/${enc(mcpId)}/versions/${enc(versionId)}`);
+        await this.request('DELETE', `/projects/${enc(projectId)}/capabilities/${enc(mcpId)}/versions/${enc(versionId)}`);
     }
 }
 exports.EvalForgeClient = EvalForgeClient;
@@ -35034,12 +35025,7 @@ async function runGate() {
             changedHeadScenarios.set(name, ls);
     }
     const evalforge = new evalforge_1.EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
-    const relevantNames = new Set([
-        ...changedHeadScenarios.keys(),
-        ...baseScenarios.keys(),
-        ...[...cov.coveredBy.values()].flat(),
-    ]);
-    const remote = await guardedCall(() => fetchRelevantRemote(evalforge, config.projectId, draftTag, relevantNames), 'Could not reach EvalForge', comment, config);
+    const remote = await guardedCall(() => evalforge.listTestScenarios(config.projectId), 'Could not reach EvalForge', comment, config);
     if (!remote)
         return;
     const plan = (0, sync_1.diffSyncPlan)({ head: changedHeadScenarios, base: baseScenarios, remote, draftTag });
@@ -35153,26 +35139,6 @@ async function guardedCall(fn, userMessage, comment, config) {
         (0, github_1.fail)(userMessage, config.blocking);
         return undefined;
     }
-}
-// Server-side filtered fetch via QueryTestScenarios — returns only scenarios this PR cares about:
-// (a) all of OUR drafts (so the planner sees prior-push state and detects DELETE candidates),
-// (b) scenarios in `relevantNames` (head ∪ base ∪ coveredBy — anything sync, deletion, or selection might reference).
-// The /v1 query supports filter.name as SQL LIKE %name%, so we exact-match client-side to avoid
-// false positives from substring matches across scenarios.
-async function fetchRelevantRemote(client, projectId, draftTag, relevantNames) {
-    const byName = new Map();
-    for (const r of await client.queryTestScenarios(projectId, { tags: [draftTag] })) {
-        byName.set(r.name, r);
-    }
-    const namesToQuery = [...relevantNames].filter(n => !byName.has(n));
-    const results = await Promise.all(namesToQuery.map(n => client.queryTestScenarios(projectId, { name: n })));
-    for (const matches of results) {
-        for (const r of matches) {
-            if (relevantNames.has(r.name))
-                byName.set(r.name, r);
-        }
-    }
-    return [...byName.values()];
 }
 
 
@@ -35435,19 +35401,21 @@ async function runPromote() {
     const workspace = (0, workspace_1.workspaceRoot)();
     // Cleanup workflow no longer fires on merged PRs — promote owns MCP version teardown.
     await (0, pr_cleanup_1.deletePrMcpVersions)(evalforge, config.mcpId, config.projectId, config.prNumber);
-    let drafts;
+    let remote;
     try {
-        drafts = await evalforge.queryTestScenarios(config.projectId, { tags: [draftTag] });
+        remote = await evalforge.listTestScenarios(config.projectId);
     }
     catch (e) {
-        core.warning(`queryTestScenarios (by draftTag) failed: ${e instanceof Error ? e.message : String(e)}`);
+        core.warning(`listTestScenarios failed: ${e instanceof Error ? e.message : String(e)}`);
         return;
     }
+    const remoteByName = new Map(remote.map(r => [r.name, r]));
     const headScenarios = loadEvalsWithWarnings(workspace);
     let promoted = 0;
     let stillDraft = 0;
-    let lookupFailures = 0;
-    for (const s of drafts) {
+    for (const s of remote) {
+        if (!s.tags.includes(draftTag))
+            continue;
         const ls = headScenarios.get(s.name);
         if (!ls) {
             stillDraft++;
@@ -35466,12 +35434,7 @@ async function runPromote() {
     for (const [name] of baseEvals) {
         if (headScenarios.has(name))
             continue;
-        const lookup = await lookupByName(evalforge, config.projectId, name);
-        if (lookup.error) {
-            lookupFailures++;
-            continue;
-        }
-        const r = lookup.scenario;
+        const r = remoteByName.get(name);
         if (!r)
             continue;
         if (r.tags.some(t => t.startsWith(evalforge_1.DRAFT_PREFIX)))
@@ -35488,24 +35451,12 @@ async function runPromote() {
         core.info(`Promoted ${promoted} scenarios`);
     if (stillDraft > 0)
         core.info(`Skipped ${stillDraft} (YAML missing in merged head)`);
-    if (lookupFailures > 0)
-        core.warning(`${lookupFailures} scenario lookup(s) failed during promote — YAML-removed scenarios may not have been cleaned up. Re-run the workflow to retry.`);
 }
 function loadEvalsWithWarnings(root) {
     const { scenarios, errors } = (0, evals_1.loadEvals)(root);
     for (const e of errors)
         core.warning(`Eval load issue at ${root}/${e.path}: ${e.message}`);
     return scenarios;
-}
-async function lookupByName(client, projectId, name) {
-    try {
-        const matches = await client.queryTestScenarios(projectId, { name });
-        return { scenario: matches.find(s => s.name === name), error: false };
-    }
-    catch (e) {
-        core.warning(`queryTestScenarios (by name "${name}") failed: ${e instanceof Error ? e.message : String(e)}`);
-        return { error: true };
-    }
 }
 
 
