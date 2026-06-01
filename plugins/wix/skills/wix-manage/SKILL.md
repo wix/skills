@@ -157,6 +157,7 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 
 #### Config & API References
 - [API: Recommendation Tracking](references/ecommerce/api-recommendation-tracking.md)
+- [API: Shipping Delivery](references/ecommerce/api-shipping.md)
 - [Setup: Discount Rules](references/ecommerce/setup-discount-rules.md)
 - [Setup: Coupons](references/ecommerce/setup-coupons.md)
 - [Setup: Shipping Regions](references/ecommerce/setup-shipping-regions.md)

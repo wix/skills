@@ -30,7 +30,7 @@ Before writing any form code, ensure a contact form exists on the site via the f
      "appInstance": { "appDefId": "225dd912-7dea-4738-8688-4b8c6955ffc2", "enabled": true }
    }
    ```
-   > Translate this prose-HTTP form into the full `curl` tool-call shape — pass `body` as JSON in `-d` (NOT a stringified JSON). See `../shared/AUTHENTICATION.md` for the standard REST headers.
+   > Translate this prose-HTTP form into the full `curl` tool-call shape — pass `body` as JSON in `-d` (NOT a stringified JSON). See `../../shared/AUTHENTICATION.md` for the standard REST headers.
 
    Then retry listing forms.
 3. **If forms list is empty** → create a form (two-step atomic operation):

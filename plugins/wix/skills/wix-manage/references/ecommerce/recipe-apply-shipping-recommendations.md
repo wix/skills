@@ -11,14 +11,14 @@ description: Applies AI-generated shipping recommendations to a Wix e-commerce s
 
 ## Required APIs
 
-- [Query Delivery Profiles](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/shipping-delivery/delivery-profiles/query-delivery-profiles)
-- [Get Delivery Profile](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/shipping-delivery/delivery-profiles/get-delivery-profile)
+- [Query Delivery Profiles](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/api-shipping#query-delivery-profiles)
+- [Get Delivery Profile](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/api-shipping#get-delivery-profile)
 
 ---
 
 ## Step 1: Query the current shipping configuration
 
-Call [Query Delivery Profiles](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/shipping-delivery/delivery-profiles/query-delivery-profiles) to understand the site's delivery setup — profiles, regions, carriers, and backup rates.
+Call [Query Delivery Profiles](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/api-shipping#query-delivery-profiles) to understand the site's delivery setup — profiles, regions, carriers, and backup rates.
 
 **Endpoint**: `POST https://www.wixapis.com/ecom/v1/delivery-profiles/query`
 
@@ -295,5 +295,4 @@ After applying recommendations, query shipping options again (Step 2) to confirm
 
 ## References
 
-- [Delivery Profiles API](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/shipping-delivery/delivery-profiles/introduction)
-- [Shipping Options API](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/shipping-delivery/shipping-options/introduction)
+- [API: Shipping Delivery](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/api-shipping)
