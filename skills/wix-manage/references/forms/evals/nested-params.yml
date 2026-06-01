@@ -1,0 +1,11 @@
+name: forms/nested-params-scenario
+description: Intentional schema violation — nested object in tool params (T4).
+triggerPrompt: This scenario should never reach EvalForge.
+tags: [forms]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://example.com/x
+      meta:
+        foo: 1
+        bar: nested-object-value
