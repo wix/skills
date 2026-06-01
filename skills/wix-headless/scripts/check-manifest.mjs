@@ -11,8 +11,18 @@
 //   curl -s https://dev.wix.com/skills/wix-headless/scripts/check-manifest.mjs \
 //     | node --input-type=module - <project-dir> <phase> <packs-csv>
 //
-//   <phase> ∈ { "components", "pages" }
+//   <phase> ∈ { "components", "pages" }  (astro scaffold mode)
 //   <packs-csv> = comma-separated pack names (loaded verticals), e.g. "stores,ecom,cms"
+//
+// Integration mode (frontend = "custom") — verify the CONNECTION, not pack files:
+//   node <SKILL_ROOT>/scripts/check-manifest.mjs <project-dir> integration <connection-plan.json>
+//   where <connection-plan.json> is the connection-plan subagent's returned JSON
+//   ({ data: { bindingMap, augmentation } } or that object directly). Checks that
+//   each claimed region's file now contains a Wix SDK `<script>` (createClient /
+//   @wix/sdk / OAuthStrategy), that each augmentation's inject file has its
+//   component + SDK call, and — the always-connect invariant — that at least one
+//   Wix SDK script exists somewhere. Exit 1 if any claimed connection is missing
+//   or zero connections were made.
 //
 // Note: `node <(curl ...)` does NOT work for .mjs files — Node sees /dev/fd/N
 // with no extension and rejects ESM syntax. Use the stdin form above.
@@ -86,17 +96,94 @@ async function copySkillFile(relPath, destPath) {
   return true;
 }
 
-const [, , projectDir, phase, packsCsv] = process.argv;
+// Integration-mode check: verify the connection plan was wired into the site.
+async function checkIntegration(projectDir, planPath) {
+  if (!existsSync(planPath)) {
+    console.error(`check-manifest: connection plan not found at ${planPath}`);
+    process.exit(2);
+  }
+  let plan;
+  try {
+    plan = JSON.parse(readFileSync(planPath, "utf8"));
+  } catch (e) {
+    console.error(`check-manifest: could not parse connection plan JSON: ${e.message}`);
+    process.exit(2);
+  }
+  const data = plan.data ?? plan;
+  const bindingMap = Array.isArray(data.bindingMap) ? data.bindingMap : [];
+  const augmentation = Array.isArray(data.augmentation) ? data.augmentation : [];
 
-if (!projectDir || !phase || !packsCsv) {
-  console.error("usage: check-manifest.mjs <project-dir> <phase> <packs-csv>");
+  // A Wix SDK script is present if the file imports @wix/sdk / calls createClient / OAuthStrategy.
+  const SDK_MARKER = /@wix\/sdk|createClient\s*\(|OAuthStrategy\s*\(/;
+  const fileHasSdk = (file) => {
+    const p = join(projectDir, file);
+    if (!existsSync(p)) return { exists: false, sdk: false, text: "" };
+    const text = readFileSync(p, "utf8");
+    return { exists: true, sdk: SDK_MARKER.test(text), text };
+  };
+
+  const wired = [];
+  const missing = [];
+  let anySdk = false;
+
+  // (a) Each claimed binding-map region's file must now carry a Wix SDK script.
+  for (const r of bindingMap) {
+    if (!r.file) continue;
+    const { exists, sdk } = fileHasSdk(r.file);
+    if (exists && sdk) { anySdk = true; wired.push({ kind: "binding", file: r.file, anchor: r.anchor ?? null, entity: r.entity ?? null }); }
+    else missing.push({ kind: "binding", file: r.file, anchor: r.anchor ?? null, code: exists ? "REGION_NOT_WIRED" : "FILE_MISSING",
+      remediation: exists ? `no Wix SDK <script> found in ${r.file} for region ${r.anchor} — the wiring subagent did not connect it.` : `${r.file} not found in project.` });
+  }
+
+  // (b) Each augmentation's inject file must carry the SDK call (and a <form> for form capabilities).
+  for (const a of augmentation) {
+    const file = a.injectAt?.file;
+    if (!file) { missing.push({ kind: "augmentation", file: null, code: "NO_INJECT_FILE", remediation: `augmentation "${a.capability}" has no injectAt.file.` }); continue; }
+    const { exists, sdk, text } = fileHasSdk(file);
+    const isForm = /form/i.test(a.app ?? "") || /rsvp|lead|contact|form/i.test(a.capability ?? "") || (a.component ?? "").includes("form");
+    const formOk = !isForm || (/<form/i.test(text) && /createSubmission\s*\(/.test(text));
+    if (exists && sdk && formOk) { anySdk = true; wired.push({ kind: "augmentation", file, capability: a.capability ?? null, component: a.component ?? null }); }
+    else missing.push({ kind: "augmentation", file, capability: a.capability ?? null,
+      code: !exists ? "FILE_MISSING" : !sdk ? "AUGMENT_NOT_WIRED" : "FORM_NOT_INJECTED",
+      remediation: !exists ? `${file} not found.` : !sdk ? `no Wix SDK <script> in ${file} for the "${a.capability}" augmentation.` : `expected an injected <form> + createSubmission() in ${file} for "${a.capability}".` });
+  }
+
+  // (c) Always-connect invariant: at least one connection must exist.
+  const alwaysConnect = anySdk;
+  if (!alwaysConnect) {
+    missing.push({ kind: "invariant", code: "NO_CONNECTION", remediation: "ALWAYS-CONNECT VIOLATION: no Wix SDK connection found anywhere in the site. Integration mode must wire or augment at least one capability — a hosting-only release is not acceptable." });
+  }
+
+  const summary = {
+    phase: "integration",
+    counts: { wired: wired.length, missing: missing.length, bindingRegions: bindingMap.length, augmentations: augmentation.length },
+    alwaysConnect,
+    wired,
+    missing,
+  };
+  console.log(JSON.stringify(summary, null, 2));
+  process.exit(missing.length > 0 ? 1 : 0);
+}
+
+const [, , projectDir, phase, thirdArg] = process.argv;
+
+if (!projectDir || !phase || !thirdArg) {
+  console.error("usage: check-manifest.mjs <project-dir> <phase> <packs-csv | connection-plan.json>");
   process.exit(2);
+}
+
+// --- Integration mode: verify the connection was actually wired into the HTML ---
+if (phase === "integration") {
+  await checkIntegration(projectDir, thirdArg);
+  // checkIntegration exits the process.
 }
 
 if (phase !== "components" && phase !== "pages") {
-  console.error(`check-manifest: invalid phase "${phase}" — must be "components" or "pages"`);
+  console.error(`check-manifest: invalid phase "${phase}" — must be "components", "pages", or "integration"`);
   process.exit(2);
 }
+
+const packsCsv = thirdArg;
 
 const packs = packsCsv.split(",").map((p) => p.trim()).filter(Boolean);
 

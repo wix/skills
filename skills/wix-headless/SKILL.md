@@ -108,29 +108,28 @@ Infer vertical(s) from the opening message and load the **full resolved pack set
 
 > **Do NOT call `WixSiteBuilder` MCP** for new-site requests — same intent, different flow; calling both produces a duplicated, conflicting build. This skill is the sole entry point.
 
-### Path B — Existing project → custom frontend (not available yet)
+### Path B — Existing site → connect to Wix (integration mode)
 
 Triggers: *"connect this to Wix Headless"*, *"add Wix Headless to this project"*, *"host this on Wix"*, *"deploy this to Wix"*, *"implement the features … using Wix Headless"*, or any "Wix Headless" prompt against a non-empty working directory. Decide by working-directory contents:
 
 | Working directory contents | Path |
 |---|---|
-| Empty, or freshly scaffolded by `scaffold.sh` | A (astro, supported) |
-| Source files (`index.html`, `*.jsx`, `*.tsx`, …) AND no `wix.config.json` | **custom — not available yet** |
+| Empty, or freshly scaffolded by `scaffold.sh` | A (astro, scaffold mode) |
+| A working frontend (`index.html`, `*.html`/`*.jsx`/`*.tsx`/`*.vue`, a Claude-Design bundle, …), with or without `wix.config.json` | **B (custom, integration mode)** |
 | `wix.config.json` + Astro structure (`src/`, `astro.config.mjs`) | resume a prior wix-headless run — ask "continue or start fresh?" via `AskUserQuestion` |
-| `wix.config.json` + non-Astro frontend | **custom — not available yet** |
 
-**Custom (non-astro) frontends route to the stub.** When the working directory holds a non-astro project, the run does **not** author anything — it opens `<SKILL_ROOT>/references/custom/INSTRUCTIONS.md`, surfaces the not-available message, and stops (`DISCOVERY.md` § "Custom (non-astro) — not available yet"; `PLAN.md` § "Custom (non-astro) frontends — not available yet"). The retired Integrate flow (`SETUP.md` § "Existing project flow" E1–E6, especially the E4 SDK-wiring recipe) is kept as a **historical reference** for the eventual custom authoring track — it is no longer dispatched.
+**Custom frontends run integration mode.** When the working directory holds a brought-in site, the run **connects it to a live Wix backend** — parse the site (`DISCOVERY.md` § "Custom (integration mode)"), init + shared Setup/Seed, wire existing dynamic regions to `@wix/sdk` and augment static designs with the connected feature their purpose implies, then no-build release. The frontend-track playbook is `<SKILL_ROOT>/references/custom/INSTRUCTIONS.md`; routing is owned by `PLAN.md` § "Custom (integration mode)".
 
 ### Frontend modes (the `.wix/site.json.frontend` axis)
 
-Path A vs Path B is the routing question. The `frontend` value is the **downstream branching axis** — the orchestrator holds it in session scratch and either branches on it directly or passes it to scripts as a `--frontend` flag. (It is also persisted to `.wix/site.json` as a resume fallback, but the live run reads scratch, not the file.) The axis is binary:
+Path A vs Path B is the routing question. The `frontend` value is the **downstream branching axis** — the orchestrator holds it in session scratch and either branches on it directly or passes it to scripts as a `--frontend` flag. It is persisted to `.wix/site.json` (the conductor reads it to decide whether to run `wix build` before release — astro builds, custom doesn't). The axis is binary:
 
 | `frontend` | Mode |
 |---|---|
-| `astro` | Scaffold + full build (the only supported frontend; full playbook under `references/astro/`) |
-| `custom` (anything non-astro) | **Not available yet** — routed to `references/custom/INSTRUCTIONS.md`, surfaces the not-available message, no authoring |
+| `astro` | Scaffold mode — the skill writes the site, then full `wix build` + release (playbook under `references/astro/`) |
+| `custom` | Integration mode — connect a brought-in HTML+CSS/JS site to Wix; init + shared Setup/Seed + connect/augment + **no-build** release (playbook under `references/custom/`) |
 
-`DISCOVERY.md` § "Wave 0 — Mode detection" decides which value to set and records it via `init-site-json.mjs --frontend <value>` (on the astro path only). **Which flow each value runs is owned by `PLAN.md` § "Frontend-mode routing".**
+`DISCOVERY.md` § "Wave 0 — Mode detection" decides which value to set and records it via `init-site-json.mjs --frontend <value>` (both modes). **Which flow each value runs is owned by `PLAN.md` § "Frontend-mode routing".**
 
 ### Two tracks (business vs frontend)
 
@@ -141,7 +140,7 @@ The skill runs two semi-independent tracks (business = frontend-blind site/app/s
 | Scenario | Use instead |
 |---|---|
 | Scaffold-only with no further design/wiring | `bash <SKILL_ROOT>/scripts/scaffold.sh <slug> "<Brand>"` |
-| Release an existing wix-headless project | `bash <SKILL_ROOT>/scripts/release.sh` (from project dir) |
+| Release an existing wix-headless project | from the project dir: `npx @wix/cli@latest build` then `release` (astro); `release` only (custom — no build) |
 | Install a Wix app onto an existing site | Follow `<SKILL_ROOT>/references/commands/install-app.md` |
 | Add a feature / restyle a prior wix-headless run | Resume on disk; ask whether to start fresh |
 

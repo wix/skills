@@ -2,9 +2,9 @@
 
 Runs once, immediately after the user approves the plan and Discovery has written `.wix/site.json`. This phase's domain is: install the apps the loaded packs declare, pull the Wix env, run `npm install`, and patch `site.json` with `siteId` + `appId`. Run flow (dispatch timing, background handles, waits, batching, transitions) is owned by `BUILD.md` (Setup is its first run-step).
 
-This article covers the **astro (supported) entry path** — Steps 1–5 below + "npm install recovery". The orchestrator scaffolds a fresh Astro project via `scaffold.sh` in `BUILD.md` run-step 0; astro is the only frontend built on disk today.
+This article covers the **astro scaffold-mode entry path** — Steps 1–5 below + "npm install recovery". The orchestrator scaffolds a fresh Astro project via `scaffold.sh` in `BUILD.md` run-step 0.
 
-The **Existing project flow (Path B)** at the bottom is **retired** — non-astro (custom) frontends route to the not-available-yet stub (`references/custom/INSTRUCTIONS.md`) instead of running E1–E6. That section is kept as a historical reference only; see its banner.
+**Integration mode (`frontend === "custom"`)** reuses this article's **business-track** steps — app installs (Step 4a) + `env pull` (Step 4b) — but **skips** `scaffold.sh`, the Step 4c per-pack `npm install` (custom imports `@wix/sdk` from a CDN), and `seed-utilities.sh`. Its bootstrap is `npm create @wix/new@latest init` (not `scaffold.sh`), and its frontend authoring is the per-capability wiring guides (`references/custom/<cap>/WIRING.md`), not the Composer/pages. The flow is owned by `BUILD.md` § "Integration mode"; the playbook is `references/custom/INSTRUCTIONS.md`. The **Existing project flow (Path B)** at the bottom is the **closest prior art** for integration mode's init + wiring — kept as a historical reference; the live mechanics now live in those custom guides.
 
 This path assumes DISCOVERY.md's CLI-auth pre-flight has already passed (the foreground check that runs before any `AskUserQuestion`).
 
@@ -176,7 +176,7 @@ Before transitioning to SEED.md in Step 5, verify: `siteId` + `appId` are in `.w
 
 ## Existing project flow (Path B) — RETIRED, historical reference only
 
-> **⚠️ This flow is no longer dispatched.** Non-astro (custom) frontends now route to the **not-available-yet stub** (`references/custom/INSTRUCTIONS.md`); the conductor does not run E1–E6 (`PLAN.md` § "Custom (non-astro) frontends — not available yet", `DISCOVERY.md` § "Custom (non-astro) — not available yet"). The E1–E6 mechanics below — especially the **E4 SDK-wiring recipe** — are retained as the **historical reference / closest prior art** for the eventual custom authoring track (`references/custom/INSTRUCTIONS.md` § "Intended future shape" step 3). Do **not** dispatch this flow; it is documentation, not a live path.
+> **⚠️ This exact E1–E6 sequence is not dispatched as-is.** Integration mode (`frontend === "custom"`) is now live, but its flow is owned by `BUILD.md` § "Integration mode" and `references/custom/INSTRUCTIONS.md` — not these steps. E1–E6 below is the **closest prior art / historical reference**: E1 (init), E2 (analyze for apps), E3 (install) map onto integration mode's init + Discovery inference + Setup; the **E4 SDK-wiring recipe** is superseded by the per-capability guides (`references/custom/<cap>/WIRING.md`). Read it for the mechanics; follow the custom guides for the live path.
 
 This path used to run when the user already had a working frontend on disk (Claude Design output, Vite/React app, hand-coded `index.html`) and wanted to **connect it to Wix Headless** for hosting + Business Solutions.
 
@@ -189,7 +189,7 @@ This path used to run when the user already had a working frontend on disk (Clau
 | Seeders / Designer / Pages / BUILD | Run | **Skipped** — there is no Astro structure to populate |
 | App installs | From inferred vertical packs | From a quick **project analysis** (see E2) — only apps the existing project actually needs |
 | SDK wiring into source | N/A (subagents write Astro + SDK calls from scratch) | **Required (E4)** — edit the project's existing source files in place |
-| Build / release | `npx @wix/cli@latest build` + `release` via `release.sh` | `npx @wix/cli@latest release` directly — **no build step**; existing `index.html` is published as-is |
+| Build / release | `npx @wix/cli@latest build` then `release` (inline, astro) | `npx @wix/cli@latest release` directly — **no build step**; existing `index.html` is published as-is |
 | Entry file | `src/pages/index.astro` (Astro convention) | **Must be `index.html`** at the configured `outputDirectory` |
 
 ### Step E1 — Init (replaces scaffold)
@@ -253,7 +253,7 @@ For each pack identified in E2, fire the install `curl` per § Step 4a above —
 
 ### Step E4 — SDK wiring
 
-> **The custom frontend track is the long-term home for this step.** When the custom track is built, this SDK-wiring recipe becomes per-pack wiring guides under `references/custom/<pack>/…` that inject `@wix/sdk` calls into the user's existing files (additive-only) — see `references/custom/INSTRUCTIONS.md` § "Intended future shape" step 3. Until that lands, this inline recipe is the **historical reference** (the flow itself is retired — non-astro frontends route to the stub, see the banner at the top of this section).
+> **The custom frontend track is the live home for this step.** This SDK-wiring recipe is realized as the per-capability wiring guides under `references/custom/<cap>/WIRING.md` — they inject client-side `@wix/sdk` `<script type="module">` into the brought-in HTML (additive-only, styled from the design's tokens), using the browser visitor-session pattern in `references/custom/INSTRUCTIONS.md` § "The technical spine". This inline recipe is the historical reference for the mechanics; the custom guides are the dispatched path.
 
 Installing apps in E3 only registers them against the Site — the existing frontend still ignores them until SDK calls are wired in. For each app installed in E3, find the matching feature surface in the project's source files (the same surfaces E2 detected) and wire its SDK calls inline.
 
@@ -274,7 +274,7 @@ Capture `{ phase: "sdk-wiring-<pack>", seconds }` per pack.
 
 ### Step E5 — Release (no build)
 
-**Do NOT run `release.sh`** in this flow — `release.sh` runs `npx @wix/cli@latest build` first, and there is nothing to build. The existing project's `index.html` and its sibling assets already sit at the configured `site.outputDirectory`; Wix just needs to publish that directory as-is. Calling `build` here either no-ops (wastes ~5–15 s) or fails if the project has no Astro/Vite config the Wix CLI knows how to invoke.
+**Do NOT run `npx @wix/cli@latest build`** in this flow — there is nothing to build. The existing project's `index.html` and its sibling assets already sit at the configured `site.outputDirectory`; Wix just needs to publish that directory as-is. Calling `build` here either no-ops (wastes ~5–15 s) or fails if the project has no Astro/Vite config the Wix CLI knows how to invoke.
 
 Run release directly:
 
@@ -282,7 +282,7 @@ Run release directly:
 npx @wix/cli@latest release
 ```
 
-Capture stdout. The CLI prints `Site published on <url>` on success — extract that URL (same parser logic as `release.sh` uses):
+Capture stdout. The CLI prints `Site published on <url>` on success — extract that URL:
 
 ```bash
 sed -nE 's/.*Site published on ([^[:space:]]+).*/\1/p'
@@ -290,7 +290,7 @@ sed -nE 's/.*Site published on ([^[:space:]]+).*/\1/p'
 
 Capture `{ phase: "release", seconds }` around the call. No `{ phase: "build" }` entry in `run.json` for this flow.
 
-Auth-failure recovery: same as `release.sh` — if stderr mentions login, surface `"Run \`npx @wix/cli@latest login\` and retry."` and stop. Transient errors (`ECONNRESET`, `temporarily unavailable`, etc.) — retry up to 3 times with `attempt * 5` second backoff, mirroring `release.sh`.
+Auth-failure recovery: if stderr mentions login, surface `"Run \`npx @wix/cli@latest login\` and retry."` and stop. Transient errors (`ECONNRESET`, `temporarily unavailable`, etc.) — retry up to 3 times with `attempt * 5` second backoff (`references/shared/PRODUCTION_SHARP_EDGES.md`).
 
 > **If the project needs a client build** (Vite, React, Webpack, etc.), run the project's own build command manually (e.g. `npm run build`) before `npx @wix/cli@latest release`, and make sure `site.outputDirectory` points at the build output. Do not use `wix build`.
 

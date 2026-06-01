@@ -8,7 +8,7 @@ This phase owns the *domain* of discovery only. Run FLOW — when background wor
 
 ## Wave 0 — Mode detection (BEFORE any user-facing question)
 
-Frontend mode is the single axis the frontend track branches on. Detect it from the working directory **first** — before the CLI-auth pre-flight, before Q1 — so the rest of Discovery knows which path to take. The detection is a file-existence check; cost is ~1 ms. The axis is binary: **astro (supported) vs custom (anything else, not available yet).**
+Frontend mode is the single axis the frontend track branches on. Detect it from the working directory **first** — before the CLI-auth pre-flight, before Q1 — so the rest of Discovery knows which path to take. The detection is a file-existence check; cost is ~1 ms. The axis is binary: **astro (scaffold mode — the skill writes the site) vs custom (integration mode — the user brought a finished site to connect).**
 
 ```
 Inspect CWD:
@@ -17,41 +17,41 @@ Inspect CWD:
 2. CWD contains `wix.config.json` AND Astro structure (`src/`, `astro.config.mjs`)
    → resume a prior wix-headless run. See SKILL.md § "When NOT to use this skill"
      ("continue or start fresh?" — out of pivot scope).
-3. CWD contains `wix.config.json` AND a non-Astro frontend (e.g. `index.html` at
-   root, `*.jsx`/`*.tsx`/`*.vue` files) → CUSTOM (non-astro), not available yet.
-4. CWD contains source files (`index.html`, `*.jsx`, `*.tsx`, `*.vue`,
-   `package.json` from a non-Wix template, etc.) AND no `wix.config.json`
-   → CUSTOM (non-astro), not available yet.
+3. CWD contains a working frontend (`index.html`, `*.html`, `*.jsx`/`*.tsx`/`*.vue`,
+   a Claude-Design handoff bundle, etc.) — with or without `wix.config.json`
+   → CUSTOM (integration mode): connect the brought-in site to Wix.
 ```
 
 Capture the resolved value in session scratch as `frontend`:
 
 | Scenario | `frontend` value | Wave 0 next |
 |---|---|---|
-| Scaffold mode (empty CWD) | `astro` | Continue to Pre-flight below |
-| Prompt names a non-astro frontend (Vite, React SPA, etc.) | `custom` | Route to the custom stub — see § "Custom (non-astro) — not available yet" below |
-| Existing project detected (cases 3 & 4 above) | `custom` | Route to the custom stub — see § "Custom (non-astro) — not available yet" below |
+| Scaffold mode (empty CWD) | `astro` | Continue to Pre-flight, then the Q1 interview |
+| Prompt names a non-astro frontend, OR an existing working site is detected (case 3) | `custom` | Continue to Pre-flight, then § "Custom (integration mode)" below |
 
-> **No `AskUserQuestion` for mode detection.** Mode is detected, never asked. If the working directory is ambiguous, default to `custom` and let the not-available message redirect the user (they can re-run with an empty directory for the astro path).
+> **No `AskUserQuestion` for mode detection.** Mode is detected from the directory, never asked. If the working directory is ambiguous (some source files but unclear), default to `custom` (integration mode) — connecting what's there is the safe interpretation.
 
-`frontend` flows into three places:
-- `scaffold.sh --frontend <value>` — the scaffolder's input (only `astro` is built; custom does not scaffold — see § "Custom (non-astro) — not available yet").
-- `init-site-json.mjs --frontend <value>` — "After Approval" § 2 (records it in the slim site.json snapshot; only reached on the astro path).
-- Orchestrator session scratch — every downstream branch reads the scratch value, not the file: the frontend-track project-prep script (`seed-utilities.sh --template astro`) and the SEED Layout-import bridge. (Business-track steps — app install, seeders — never read it.)
+`frontend` flows into:
+- `init-site-json.mjs --frontend <value>` — records it in `.wix/site.json` (written for **both** modes; the conductor reads it to decide whether to run `wix build` before release — astro builds, custom doesn't).
+- `scaffold.sh --frontend astro` — astro only; custom does **not** scaffold (it bootstraps via `npm create @wix/new@latest init` in the integration flow).
+- Orchestrator session scratch — every downstream branch reads the scratch value. For `custom`, the frontend track runs the integration flow (`references/custom/INSTRUCTIONS.md`); the astro-only project-prep (`seed-utilities.sh`) and the Designer/Composer do not run. (Business-track steps — app install, seeders — never read `frontend`.)
 
-## Custom (non-astro) — not available yet (when `frontend === "custom"`)
+## Custom (integration mode) — when `frontend === "custom"`
 
-Custom frontends are **not available yet** — astro is the only supported frontend. Do **not** run the interview, scaffold, Designer, Setup, or Seed. Open `<SKILL_ROOT>/references/custom/INSTRUCTIONS.md`, surface its not-available message to the user, and **stop**:
+The user brought a finished, working site (Claude Design or any tool) and wants it connected to Wix. Discovery here **parses the site instead of interviewing**, then hands off to the integration flow (`references/custom/INSTRUCTIONS.md`). Do **not** run Q1/brand suggestions, vibe, imagery, the Designer, or the scaffold.
 
-> *Custom (non-astro) frontends are not available yet — astro is the supported frontend. Re-run with the astro frontend (start from an empty directory), or check back later.*
+After the Pre-flight auth check, run integration discovery:
 
-No `.wix/site.json` is written and no `BUILD.md` flow runs. The intended future shape for the custom track (init scaffold + shared business track + per-pack SDK wiring) is recorded in `references/custom/INSTRUCTIONS.md` § "Intended future shape"; the retired Integrate (Path B) flow in `SETUP.md` is its historical reference. See `PLAN.md` § "Custom (non-astro) frontends — not available yet" for the routing.
+1. **Read the site (primary signal).** Read the entry HTML (and other pages) — markup, copy, headings/`<title>`, `<form>`s, repeated structures, and the CSS custom-property token block (`:root { --… }`). **Opportunistic enrichment:** if a Claude-Design handoff bundle is present (`README.md`, `chats/` transcript), read it to sharpen intent — but never require it; the inference must stand on markup alone.
+2. **Infer the domain → capability.** Map the site's purpose to the Wix capability + apps using the table in `references/custom/INSTRUCTIONS.md` § "Always connect" (wedding invite → RSVP/Wix Forms; store mock → Wix Stores; etc.). **Always connect:** if the site has no dynamic region, pick the connected feature its purpose implies; the universal floor is a Wix Forms contact/lead form. Also infer the **brand** (from `<title>`/copy) for `.wix/site.json` and any seeded-content naming.
+3. **Present a light plan + one-shot approval** (`AskUserQuestion` is fine here — it's a single confirmation, not an interview). State plainly what you found, what apps you'll install, what you'll **wire** (existing regions) and what you'll **add** (the connected component). Example: *"This is a wedding invitation with no RSVP. I'll install Wix Forms, add an RSVP form styled to match, and publish it live. Continue?"*
+4. **After approval**, write `.wix/site.json` via `init-site-json.mjs --frontend custom` (records `frontend`, the inferred capability set as `verticals`, and brand), then hand to `BUILD.md`'s integration flow. The frontend-track playbook is `references/custom/INSTRUCTIONS.md`; `PLAN.md` § "Custom (integration mode)" owns the pre-approval routing.
 
 ---
 
 ## Pre-flight — Verify CLI auth (BEFORE any user-facing question)
 
-The first Wix touch is the post-approval scaffold (`scaffold.sh` → `npm create @wix/new@latest headless`), which creates a business + project against the user's Wix account and so requires an active CLI session. Without one it fails — and because the scaffold now runs **after** approval (`BUILD.md` run-step 0), a logged-out user wouldn't find out until they'd done the whole interview *and* approved, only to have the build fail immediately. Run the auth check foreground here so a logged-out user sees the login prompt before any `AskUserQuestion`.
+The first Wix touch is the post-approval project bootstrap — astro: `scaffold.sh` → `npm create @wix/new@latest headless`; custom: `npm create @wix/new@latest init` — which creates a business + project against the user's Wix account and so requires an active CLI session. Without one it fails — and because the bootstrap runs **after** approval (`BUILD.md` run-step 0), a logged-out user wouldn't find out until they'd done discovery *and* approved, only to have it fail immediately. Run the auth check foreground here (both modes) so a logged-out user sees the login prompt first.
 
 ```bash
 npx @wix/cli@latest whoami >/dev/null 2>&1
@@ -116,7 +116,7 @@ These reads pre-load the `routes:`, `apps:`, `requires:`, and `disabled` fields 
 bash <SKILL_ROOT>/scripts/scaffold.sh <slug> "<brand>" --frontend <frontend> 2> <tempfile>
 ```
 
-`<frontend>` is `astro` — the only supported (and only scaffolded) frontend. The scaffold step is reached only on the astro path; a custom frontend never gets here, because Wave 0 routes it to the stub before Q1 (§ "Custom (non-astro) — not available yet"). If the opening prompt explicitly names a non-astro frontend (Vite / React SPA / etc.), Wave 0 already set `frontend = "custom"` and short-circuited — this step does not run.
+`<frontend>` is `astro` — the only scaffolded frontend. The scaffold step is reached only on the astro path; a custom frontend never gets here, because Wave 0 routes it to integration discovery (§ "Custom (integration mode)"), which bootstraps via `npm create @wix/new@latest init` instead of `scaffold.sh`. If the opening prompt names a non-astro frontend or an existing site is detected, Wave 0 already set `frontend = "custom"` — this step does not run.
 
 **Slug derivation:** lowercase the brand, then **STRIP every character not matching `[a-z0-9]` — do NOT replace them with hyphens or underscores**. Truncate to 20 chars. The `scaffold.sh` pre-flight enforces `^[a-z0-9]{3,20}$` and rejects anything else with exit 2; a rejected slug forces a re-run of the ~30 s scaffold (the indie-bookshop-class regression).
 

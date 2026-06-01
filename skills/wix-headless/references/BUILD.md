@@ -21,9 +21,32 @@ Each phase belongs to one of the two tracks (`PLAN.md` § "Two tracks"). All pha
 
 ## The run from approval (Setup → Release)
 
-The user just approved; `init-site-json.mjs` wrote the slim `.wix/site.json`. **Nothing is dispatched yet** — the funnel intentionally dispatched nothing so it could present the plan fast. Start by firing the two background jobs the rest of the run needs, then run Setup.
+The user just approved; `init-site-json.mjs` wrote the slim `.wix/site.json`. **Nothing is dispatched yet** — the funnel intentionally dispatched nothing so it could present the plan fast.
 
-### 0. Dispatch scaffold + Designer (background, immediately on entry)
+> **Branch on `frontend` first.** Everything below this line (run-steps 0–5, Step 4.5, Step 7, the astro Build & Release) is the **astro scaffold-mode** conductor. When `frontend === "custom"`, **skip all of it** and run the integration flow in the next section instead. Only the **Final Message** section (summary + run.json) is shared by both modes.
+
+### Integration mode (`frontend === "custom"`) — connect a brought-in site
+
+The frontend-track playbook is `<SKILL_ROOT>/references/custom/INSTRUCTIONS.md` (the conductor follows its § "The flow"; the subagents open the per-capability guides). No scaffold, no Designer, no Composer, no Phase 3/4 pages. The run:
+
+1. **Connection plan (background) + init (foreground), as the entry batch.**
+   - **Connection plan** — dispatch one subagent with Instruction file `<SKILL_ROOT>/references/custom/CONNECTION_PLAN.md`; inline the site's file list + inferred capabilities (from Discovery scratch). Capture `connplan_handle`. It returns the binding map + augmentation spec (JSON).
+   - **Init** — `npm create @wix/new@latest init` in the project dir (foreground; non-interactive when logged in). Then **fix `wix.config.json.site.outputDirectory`** to the dir holding the entry HTML (init defaults it to `./dist`), and patch `siteId`/`appId` into `.wix/site.json` (`SETUP.md` Step 1–2 shape). Init registers the OAuth app's `allowedDomains` for the published origin — **no separate OAuth call needed.**
+2. **Setup (business track) — app installs + `env pull`.** Apply `SETUP.md` Step 4a (app installs per inferred capability, `x-wix-request-id` capture) + 4b (`env pull`). **Skip Step 4c `npm install`** — custom imports `@wix/sdk` from a CDN. (No `scaffold.sh`, no `seed-utilities.sh`.)
+3. **Seed (business track).** Apply `SEED.md` for entity seeders (where a capability reads existing data) **and** create the **Wix Form definition / CMS collection schema** the augmentation targets. Collect seeded IDs / form IDs.
+4. **Wiring gate → dispatch wiring.** Wait `connplan_handle` + the seeders. Per capability in the connection plan, dispatch a wiring subagent with Instruction file `<SKILL_ROOT>/references/custom/<capability>/WIRING.md`; inline the relevant binding-map/augmentation-spec slice + seeded IDs + the site's CSS token names. Each injects client-side `@wix/sdk` `<script type="module">` into the existing HTML (additive; styled from the design's tokens). Shared-file writers (a single page touched by multiple capabilities) serialize.
+5. **Release (inline, NO build).** Integration mode has no build step — the HTML *is* the output, and `wix build` is astro-only. Run release directly from the project dir (timestamp-wrapped for `run.json.phases`, same as the astro Build & Release step but with **no `build` call**):
+   ```bash
+   STARTED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+   npx @wix/cli@latest release 2>&1   # parse `Site published on <url>`; NO `wix build` first
+   ```
+   Extract the published URL from the `Site published on <url>` line. Record `{ phase: "release", seconds }` (no `{ phase: "build" }` entry for integration mode). Transient release errors (`ECONNRESET`, `STATE_MISMATCH`, `temporarily unavailable`, …) — retry serially up to 3× with `attempt * 5`s backoff (`references/shared/PRODUCTION_SHARP_EDGES.md`). Then **Final Message** (shared section below).
+
+> **Manifest check.** After wiring (before release), run `node <SKILL_ROOT>/scripts/check-manifest.mjs <project-dir> integration <connection-plan.json>` to verify every binding-map region was wired — an SDK `<script>` present, the augmentation injected, and the always-connect invariant satisfied (exit 1 if zero connections). § "Build failure modes" applies the same fail-loud discipline.
+
+---
+
+### 0. Dispatch scaffold + Designer (background, immediately on entry)  *(astro scaffold mode)*
 
 Fire both as one concurrent batch (`PLAN.md` § "Batching discipline") — they are independent:
 - **Scaffold** — `scaffold.sh <slug> "<brand>" --frontend <value>` (background, capture `scaffold_handle` + its stderr tempfile). Slug derivation + the command shape are `DISCOVERY.md` § "After Q1". `npm install` is **not** chained here (Setup Step 4c dispatches it). The stderr tempfile is for **post-hoc error inspection only** (read it *if* the scaffold reports a failure) — it is **not** a progress file to poll.
@@ -196,7 +219,7 @@ For each loaded pack's `pages`:
 
 > **Shared-shell patchers serialize within the Phase 4 batch; non-overlapping scopes run concurrently.** Scopes that patch a shared shell file at a marker — `src/components/Navigation.astro` (`<!-- nav:links -->`, CartBadge) or `src/pages/index.astro` (`<!-- home:<pack> -->`, featured grid) — read-modify-write a file another scope also patches. Dispatching two such patchers concurrently trips the harness staleness guard (`File has been modified since read`). **Dispatch the shell-patching scopes one at a time** — launch one, wait for its return, then launch the next — so each sees the previous one's marker insertion. See the ecommerce-run example below: `home-and-nav` and `gift-cards pages` serialize (both touch `Navigation.astro` + `index.astro`); the private-file scopes (`product-pages`, `category-pages`, `cart-checkout`, `cms-pages`) stay in the concurrent batch. The serialized chain runs alongside the concurrent batch, not after it.
 
-> **Image Phase 2 is NOT dispatched here.** When it was launched at Step 4.5 (i.e. on an `ai-generated` run), it has been running concurrent with Phase 3 + Phase 4 and is typically finished or near-finished by the time Step 7 fires; the Step 8 hard gate waits for it before invoking `release.sh`. **On a `themed-blocks` run (the default), Image Phase 2 was not dispatched at all** — no gate wait, no images, the build runs as soon as Phase 4 finishes.
+> **Image Phase 2 is NOT dispatched here.** When it was launched at Step 4.5 (i.e. on an `ai-generated` run), it has been running concurrent with Phase 3 + Phase 4 and is typically finished or near-finished by the time Step 7 fires; the Step 8 hard gate waits for it before the Build & Release step. **On a `themed-blocks` run (the default), Image Phase 2 was not dispatched at all** — no gate wait, no images, the build runs as soon as Phase 4 finishes.
 
 ### Example (ecommerce run — stores pack contributes 4 Phase 4 scopes + cms pack 1)
 
@@ -264,7 +287,7 @@ Record the rate-limit event in `run.json` `notes[]` regardless of recovery outco
 ## Build & Release
 
 1. `npx @wix/cli@latest build` — if it fails, inspect `.wix/debug.log` for the specific error, fix, retry. Build failure modes are listed in § "Build failure modes" below; the Astro/React build-blockers a subagent should have caught are in `references/shared/IMPLEMENTER.md` § "Astro/React build-blockers".
-2. `npx @wix/cli@latest release` — extract the published URL from the `Site published on <url>` line in stdout. This command also populates the **Frontend link** in headless settings natively, so transactional emails link to the deployed frontend without any extra API calls.
+2. `npx @wix/cli@latest release` — extract the published URL from the `Site published on <url>` line in stdout. This command also populates the **Frontend link** in headless settings natively, so transactional emails link to the deployed frontend without any extra API calls. Transient release errors (`ECONNRESET`, `ETIMEDOUT`, `EAI_AGAIN`, `STATE_MISMATCH`, `temporarily unavailable`, `try again shortly`) — retry serially up to 3× with `attempt * 5`s backoff (`references/shared/PRODUCTION_SHARP_EDGES.md`). Do **not** retry build failures — those are code bugs to fix.
 
 ---
 

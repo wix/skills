@@ -28,14 +28,14 @@ The only cross-track data flow is **one-way, business → frontend**: seeders pr
 
 ## Frontend-mode routing
 
-`frontend` (captured by `DISCOVERY.md` § "Wave 0 — Mode detection") is the axis the frontend track branches on. The orchestrator holds it in scratch and uses it in two ways: it branches inline in the PLAN/BUILD orchestration on the scratch value, and it passes `--frontend <value>` to `scaffold.sh` and `init-site-json.mjs` (and `--template astro` to `seed-utilities.sh`). The axis is binary — **astro (supported) vs custom (anything else, not available yet)**:
+`frontend` (captured by `DISCOVERY.md` § "Wave 0 — Mode detection") is the axis the frontend track branches on. The orchestrator holds it in scratch and uses it in two ways: it branches inline in the PLAN/BUILD orchestration on the scratch value, and it passes `--frontend <value>` to `init-site-json.mjs` (and, astro only, to `scaffold.sh` + `--template astro` to `seed-utilities.sh`). The axis is binary — **astro (scaffold mode: the skill writes the site) vs custom (integration mode: connect a brought-in site)**:
 
 | `frontend` | Mode | Flow |
 |---|---|---|
-| `astro` | Scaffold (supported) | Wave 0 below → on approval → `BUILD.md`. The full playbook lives under `<SKILL_ROOT>/references/astro/`. |
-| anything else (custom) | Not available yet | Open `<SKILL_ROOT>/references/custom/INSTRUCTIONS.md`, surface its not-available message, and **stop** — no scaffold, no Designer/Composer, no Setup/Seed authoring, no `BUILD.md` build flow, no half-built site. |
+| `astro` | Scaffold | Wave 0 below → on approval → `BUILD.md`. The full playbook lives under `<SKILL_ROOT>/references/astro/`. |
+| `custom` | Integration | Integration discovery (parse + infer + approve) → on approval → `BUILD.md`'s integration flow. The frontend-track playbook is `<SKILL_ROOT>/references/custom/INSTRUCTIONS.md`. No scaffold, no Designer/Composer; init + shared Setup/Seed + connect/augment + no-build release. |
 
-> **Astro is the one Wix-preferred frontend the skill builds end-to-end.** Every non-astro value (a user-provided project, a Vite/React SPA, anything else) is a **custom** frontend; the custom authoring track is deferred. Route it to the stub and tell the user astro is the supported path. The intended future shape for custom is recorded in `references/custom/INSTRUCTIONS.md`.
+> **Astro is the one Wix-preferred frontend the skill *builds*; custom is the frontend the user *brings*.** Integration mode connects any working HTML+CSS/JS site to a live Wix backend — wiring existing dynamic regions and augmenting static designs with the connected feature their purpose implies. See `references/custom/INSTRUCTIONS.md`.
 
 This is the **track-selection routing layer**: `SETUP.md`'s steps assume the routing already happened; the conductor owns the branch.
 
@@ -49,11 +49,13 @@ This is the **track-selection routing layer**: `SETUP.md`'s steps assume the rou
 
 **On approval** — `init-site-json.mjs --frontend <value>` writes the slim `.wix/site.json`, then **open `BUILD.md`** and continue from its run-step 0 (which dispatches the scaffold + Designer, then runs Setup).
 
-## Custom (non-astro) frontends — not available yet
+## Custom (integration mode)
 
-When `frontend` is anything other than `astro`, the run routes to the **custom stub** and stops the frontend track. Open `<SKILL_ROOT>/references/custom/INSTRUCTIONS.md`, surface its not-available message, and do **not** attempt authoring — no scaffold, no Designer/Composer, no Setup/Seed, no `BUILD.md`, no half-built site. The user is told astro is the supported frontend.
+When `frontend === "custom"`, the funnel runs **integration discovery** (`DISCOVERY.md` § "Custom (integration mode)") instead of the Q1–Q2.5 interview: parse the brought-in site, infer the domain → Wix capability, present a light plan ("I'll install Wix Forms, add an RSVP form, and publish"), and get one-shot approval. **No scaffold, no Designer/Composer.**
 
-> **Retired: the Integrate (Path B) flow.** The skill used to run a live "Integrate" sequence for `user-provided` frontends — `DISCOVERY.md` § "Integrate-mode short flow" → `SETUP.md` § "Existing project flow" E1–E6 (E1 init → E2 analyze → E3 install apps → E4 SDK wiring → E5 release). That flow is **no longer dispatched**: non-astro frontends now hit the stub instead. The E1–E6 mechanics (especially the E4 SDK-wiring recipe) are kept in `SETUP.md` as a **historical reference** for the eventual custom authoring track (`references/custom/INSTRUCTIONS.md` § "Intended future shape"), not as a Beta deliverable.
+On approval — `init-site-json.mjs --frontend custom` writes `.wix/site.json` (frontend + inferred capabilities + brand), then **open `BUILD.md`** and run its integration flow: `npm create @wix/new@latest init` → shared Setup (app installs + `env pull`; **no per-pack `npm install`**) → shared Seed (entities + the Form definition / CMS schema the connection targets) → connection-plan + wiring (`references/custom/CONNECTION_PLAN.md` + `references/custom/<capability>/WIRING.md`) → **inline no-build release** (`npx @wix/cli@latest release` directly — no `wix build`).
+
+> **Always connect.** Integration mode must end with the site reading from or writing to Wix; `init`+`release` of a static page with no connection is not acceptable (`references/custom/INSTRUCTIONS.md` § "Two locked principles"). The retired Integrate (Path B) recipe in `SETUP.md` E1–E6 is the closest prior art for the wiring step; the per-capability `custom/<cap>/WIRING.md` guides supersede it.
 
 ## User-facing output (keep the machinery invisible)
 
