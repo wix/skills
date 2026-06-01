@@ -2,17 +2,17 @@
 # Scaffold a new Wix Managed Headless project using the CLI's preset blank template.
 #
 # Usage:
-#   bash <SKILL_ROOT>/scripts/scaffold.sh <project-slug> "<Brand Name>" [--frontend astro|react-vite]
+#   bash <SKILL_ROOT>/scripts/scaffold.sh <project-slug> "<Brand Name>" [--frontend astro|custom]
 #
 # <project-slug>: 3-20 lowercase alphanumeric chars (no hyphens, no spaces) — the
 #                 Wix CLI rejects anything else. Becomes the project directory name.
 # <Brand Name>:   human-readable business name; quote if it contains spaces.
-# --frontend:     which scaffold template to use. Defaults to "astro" (current Beta).
-#                 "react-vite" is reserved — the template isn't staged yet, so the
-#                 script exits 4 with a "not yet staged" message.
-#                 "user-provided" is an explicit rejection — integrate mode skips
-#                 scaffold entirely; Discovery should never invoke this script with
-#                 that value. Exits 2.
+# --frontend:     the frontend axis. Defaults to "astro" — the only supported (and
+#                 only scaffolded) frontend. "custom" (any non-astro frontend) is
+#                 NOT scaffolded yet: Discovery routes custom to the not-available
+#                 stub (references/custom/INSTRUCTIONS.md) before scaffold ever runs,
+#                 so this script should only ever be invoked with "astro". If it is
+#                 invoked with "custom" it exits 4 (recognized, not staged).
 #
 # After scaffold succeeds, read <project-slug>/wix.config.json to extract appId
 # (project's appId) and siteId (used as --site for `wix token` and in REST call
@@ -30,9 +30,9 @@
 #
 # Exit codes:
 #   0 — ok
-#   2 — argument validation failed (bad slug, missing args, frontend=user-provided)
+#   2 — argument validation failed (bad slug, missing args, unknown --frontend value)
 #   3 — Wix CLI not logged in (defensive; the Discovery pre-flight is the primary check)
-#   4 — frontend value recognized but the template isn't staged yet (react-vite today)
+#   4 — frontend value recognized but not scaffolded yet (custom today)
 #   <other> — npm create failed; stderr surfaced to caller for orchestrator-side
 #             recovery (auth / other scaffold failures live in the orchestrator).
 
@@ -44,7 +44,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --frontend)
       if [[ $# -lt 2 ]]; then
-        echo "scaffold.sh: --frontend requires a value (astro|react-vite|user-provided)." >&2
+        echo "scaffold.sh: --frontend requires a value (astro|custom)." >&2
         exit 2
       fi
       FRONTEND="$2"
@@ -63,25 +63,20 @@ done
 
 if [[ ${#POSITIONAL[@]} -lt 2 || -z "${POSITIONAL[0]:-}" || -z "${POSITIONAL[1]:-}" ]]; then
   echo "scaffold.sh: both positional args required. Got project-slug='${POSITIONAL[0]:-}' brand-name='${POSITIONAL[1]:-}'." >&2
-  echo "Usage: bash scaffold.sh <slug> \"<Brand Name>\" [--frontend astro|react-vite] — slug first, brand quoted." >&2
+  echo "Usage: bash scaffold.sh <slug> \"<Brand Name>\" [--frontend astro|custom] — slug first, brand quoted." >&2
   exit 2
 fi
 
 case "$FRONTEND" in
   astro)
     ;;
-  react-vite)
-    echo "scaffold.sh: --frontend=react-vite recognized but the react-vite/blank template isn't staged yet." >&2
-    echo "Per PLAN-beta-frontend-pluggability.md § Order of operations, react-vite lands after astro + user-provided." >&2
+  custom)
+    echo "scaffold.sh: --frontend=custom is not scaffolded yet — astro is the only supported frontend." >&2
+    echo "Discovery routes custom (non-astro) frontends to references/custom/INSTRUCTIONS.md (the not-available stub) before scaffold; this script should not be invoked with 'custom'." >&2
     exit 4
     ;;
-  user-provided)
-    echo "scaffold.sh: --frontend=user-provided is invalid — integrate mode skips scaffold." >&2
-    echo "Discovery should route directly to SETUP.md § 'Existing project flow' without dispatching this script." >&2
-    exit 2
-    ;;
   *)
-    echo "scaffold.sh: unknown --frontend value '$FRONTEND'. Allowed: astro, react-vite, user-provided." >&2
+    echo "scaffold.sh: unknown --frontend value '$FRONTEND'. Allowed: astro, custom." >&2
     exit 2
     ;;
 esac

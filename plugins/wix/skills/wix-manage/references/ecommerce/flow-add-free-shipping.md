@@ -27,10 +27,10 @@ Adds a free shipping option with an optimal threshold calibrated against the sit
 
 ## Required APIs
 
-- [Query Shipping Options](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/shipping-delivery/shipping-options/query-shipping-options)
-- [Create Shipping Option](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/shipping-delivery/shipping-options/create-shipping-option)
-- [Update Shipping Option](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/shipping-delivery/shipping-options/update-shipping-option)
-- [Query Delivery Profiles](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/shipping-delivery/delivery-profiles/query-delivery-profiles)
+- [Query Shipping Options](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/api-shipping#query-shipping-options)
+- [Create Shipping Option](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/api-shipping#create-shipping-option)
+- [Update Shipping Option](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/api-shipping#update-shipping-option)
+- [Query Delivery Profiles](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/api-shipping#query-delivery-profiles)
 
 ---
 
@@ -263,5 +263,4 @@ Report to the merchant:
 
 ## References
 
-- [Delivery Profiles API](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/shipping-delivery/delivery-profiles/introduction)
-- [Shipping Options API](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/shipping-delivery/shipping-options/introduction)
+- [API: Shipping Delivery](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/api-shipping)

@@ -1,6 +1,6 @@
 # Recipe: Product Catalog Data Setup (Phase 1)
 
-Replace the default sample products Wix Stores installs with on-brand products via the Stores REST API (`curl` against `wixapis.com/stores/v3/...` with the standard headers from `../shared/AUTHENTICATION.md`). This file covers the `seed-seed` scope — data seeding only. Frontend wiring lives in the Phase 2 scope references (`SHARED_WIRING.md`, `PRODUCT_PAGES.md`, `CART_CHECKOUT.md`, `HOME_AND_NAV.md`) and should not be read by `seed-seed`.
+Replace the default sample products Wix Stores installs with on-brand products via the Stores REST API (`curl` against `wixapis.com/stores/v3/...` with the standard headers from `../shared/AUTHENTICATION.md`). This file covers the `seed-seed` scope — data seeding only. Frontend wiring lives in the astro scope references (`../astro/stores/SHARED_WIRING.md`, `../astro/stores/PRODUCT_PAGES.md`, `../astro/ecom/CART_PAGES.md`, `../astro/stores/HOME_AND_NAV.md`) and should not be read by `seed-seed`.
 
 > **Critical Rules — Read Before Starting**
 > 1. **V3 only** — all endpoints under `/stores/v3/...` for products.
@@ -246,4 +246,4 @@ Phase 1 is complete after Step 7. Do **not** attempt any of the following, even 
 - Creating, renaming, or deleting any category — categories are merchant-driven (see Step 6). The auto-managed "All Products" category (handle `online_stores_all_products`) stays in place; the frontend filters it out by handle.
 - Verifying your work via additional `query` calls beyond the Step 5 verification already performed.
 
-Phase 2+ (frontend wiring) is covered in the scope-specific references (`SHARED_WIRING.md`, `PRODUCT_PAGES.md`, `CATEGORY_PAGES.md`, `CART_CHECKOUT.md`, `HOME_AND_NAV.md`) — do not read them during `seed-seed`.
+Phase 2+ (frontend wiring) is covered in the astro scope references (`../astro/stores/SHARED_WIRING.md`, `../astro/stores/PRODUCT_PAGES.md`, `../astro/stores/CATEGORY_PAGES.md`, `../astro/ecom/CART_PAGES.md`, `../astro/stores/HOME_AND_NAV.md`) — do not read them during `seed-seed`.

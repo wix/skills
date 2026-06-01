@@ -3,7 +3,7 @@
 //
 // Verifies that every file declared in each loaded pack's `creates:` array
 // for the named phase exists on disk. If a file is missing, attempts to
-// recover by copying the canonical template from <SKILL_ROOT>/templates/<pack>/.
+// recover by copying the canonical template from <SKILL_ROOT>/references/astro/templates/<pack>/.
 // Outputs a JSON summary of present / recovered / errored files.
 //
 // Usage (both modes work):
@@ -26,7 +26,7 @@
 //     `creates:` array.
 //   - For each `creates:` entry where phase matches:
 //       * If file exists in the project → "present"
-//       * If missing AND a template exists at `templates/<pack>/<tail>`
+//       * If missing AND a template exists at `references/astro/templates/<pack>/<tail>`
 //         (where <tail> is the path under src/pages/ for page files, or the
 //         basename for everything else) → copy/fetch it; record as "recovered".
 //       * Otherwise → record as "missing" with a remediation hint.
@@ -101,12 +101,12 @@ if (phase !== "components" && phase !== "pages") {
 const packs = packsCsv.split(",").map((p) => p.trim()).filter(Boolean);
 
 // Map a `creates:` file path to its template path (relative to skill root).
-// Heuristic: `src/pages/<X>` preserves <X> under templates/<pack>/; everything
-// else uses basename only.
+// Heuristic: `src/pages/<X>` preserves <X> under references/astro/templates/<pack>/;
+// everything else uses basename only.
 function templateRelPath(packName, srcPath) {
   const pagesMatch = srcPath.match(/^src\/pages\/(.+)$/);
   const tail = pagesMatch ? pagesMatch[1] : basename(srcPath);
-  return `templates/${packName}/${tail}`;
+  return `references/astro/templates/${packName}/${tail}`;
 }
 
 // Parse `creates:` block from a vertical pack's markdown frontmatter.
