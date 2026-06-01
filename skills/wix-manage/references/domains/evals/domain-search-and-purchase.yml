@@ -5,11 +5,19 @@ tags: [domains]
 assertions:
   - tool: ReadFullDocsArticle
     params:
-      url: https://dev.wix.com/docs/api-reference/account-level/domains/skills/domain-search-and-purchase
+      articleUrl: https://dev.wix.com/docs/api-reference/account-level/domains/skills/domain-search-and-purchase
   - type: llm_judge
-    prompt: |
-      The user asked how to programmatically search for and purchase a domain on Wix.
-      Pass if the agent's response describes Wix API methods for domain search and/or domain purchase
-      (e.g. mentions specific endpoints or method names from the Wix Domains Management API).
-      Fail if the response is generic, hallucinates non-existent endpoints, or describes a different feature.
     minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user's request: "How do I programmatically search for an available domain on Wix and then purchase it? Please reference the relevant API methods."
+      Intent: surface Wix Domains Management API methods/endpoints for searching availability and purchasing a domain.
+
+      Pass if the response:
+      - mentions specific Wix API endpoints, method names, or REST paths from the Wix Domains Management API for search and/or purchase, AND
+      - describes the high-level flow (search → check availability → purchase) using terminology consistent with the docs.
+
+      Fail if the response:
+      - is generic with no specific endpoints or method names, OR
+      - hallucinates endpoints not in the Wix Domains Management API, OR
+      - describes a different Wix feature (e.g. domain connection rather than purchase).
