@@ -128,7 +128,55 @@ The full styling contract (tokens-as-utilities default, when global semantic cla
 
 ## Return contract
 
-Every agent ends its message with a fenced JSON block per `RETURN_CONTRACT.md`. The JSON MUST be the last content in the message — no trailing prose. Timing fields are NOT included (the orchestrator captures timing via runtime `duration_ms`).
+Every agent ends its message with a fenced JSON block per `RETURN_CONTRACT.md` (the universal envelope: skeleton, status semantics, no-trailing-prose rule). The JSON MUST be the last content in the message — no trailing prose. Timing fields are NOT included (the orchestrator captures timing via runtime `duration_ms`).
+
+The `data` shapes for the scopes this file owns — `components` and `pages`/`pages-*` — are below. (Seed `data` shapes live in your per-vertical `INSTRUCTIONS.md` § Seed return.)
+
+**`components` scope** (`phase: "<pack>-components"`):
+
+```json
+{
+  "status": "complete",
+  "phase": "stores-components",
+  "scope": "components",
+  "summary": "Wrote React islands + utils; wired analytics; contract classes referenced: 7",
+  "data": {
+    "islands": ["ProductPurchase.tsx", "CartView.tsx", "AddToCartButton.tsx", "CartBadge.tsx"],
+    "utils": ["wix-image.ts", "analytics.ts"],
+    "astroComponents": ["SeoTags.astro"]
+  },
+  "files": [
+    "src/utils/wix-image.ts",
+    "src/utils/analytics.ts",
+    "src/components/SeoTags.astro",
+    "src/components/AddToCartButton.tsx",
+    "src/components/CartBadge.tsx",
+    "src/components/ProductPurchase.tsx",
+    "src/components/CartView.tsx"
+  ]
+}
+```
+
+**`pages` / `pages-*` scope** (`phase: "<pack>-pages[-<group>]"`):
+
+```json
+{
+  "status": "complete",
+  "phase": "stores-pages-products",
+  "scope": "pages-products",
+  "data": {
+    "pagesWired": 2,
+    "wixMetadataExported": true,
+    "seoTagsMounted": true,
+    "analyticsEvents": ["AddProductImpression", "ClickProduct", "ViewContent"]
+  },
+  "files": [
+    "src/pages/products/index.astro",
+    "src/pages/products/[slug].astro",
+    "src/components/ProductCard.astro"
+  ]
+}
+```
 
 ## Common failure modes
 
@@ -144,3 +192,13 @@ Every agent ends its message with a fenced JSON block per `RETURN_CONTRACT.md`. 
 | Fabricated timestamps in the return JSON | Do not include timing fields — orchestrator captures them |
 | Inline `style="color: red"` | Use design tokens: `style="color: var(--color-primary)"` |
 | Creating a new cross-cutting class name | Extract a shared primitive component instead |
+
+### Astro/React build-blockers — check before returning `complete`
+
+| Failure | How to detect | Fix |
+|---------|---------------|-----|
+| HTML-style comments in `.astro` frontmatter | `grep '<!--' *.astro` frontmatter | Use `//` or `/* */` — frontmatter is TypeScript. Surfaces at build as `Legacy HTML single-line comments`. |
+| Missing `wixMetadata` on `/products/[slug]` | Check exports | Add the metadata export — required for Wix platform indexing |
+| `import { products }` instead of `productsV3` | `grep 'from "@wix/stores"'` import line | V1 silently returns 0 on V3 catalogs |
+| Missing `variantId` in cart operations | Check `catalogReference.options` | Always include — single-variant products have one |
+| React island using default Tailwind color class | `grep 'bg-blue-\|bg-green-\|text-red-\|bg-gray-' *.tsx` | Use brand `@theme` utilities (`bg-bark`, `text-cream`) or contract class names |
