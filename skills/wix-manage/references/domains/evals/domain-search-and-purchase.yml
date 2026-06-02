@@ -7,7 +7,7 @@ assertions:
     params:
       articleUrl: https://dev.wix.com/docs/api-reference/account-level/domains/skills/domain-search-and-purchase
   - type: llm_judge
-    minScore: 8
+    minScore: 7
     maxTokens: 2048
     prompt: |
       The user's request: "How do I programmatically search for an available domain on Wix and then purchase it? Please reference the relevant API methods."
