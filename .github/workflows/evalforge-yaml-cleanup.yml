@@ -2,6 +2,7 @@ name: EvalForge YAML Gate Cleanup
 
 on:
   pull_request:
+    branches: [main]
     types: [closed]
 
 concurrency:
