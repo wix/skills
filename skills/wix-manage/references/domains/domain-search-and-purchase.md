@@ -13,7 +13,7 @@ Use this recipe when a user wants to:
 
 ## How Purchase Works
 
-You help the user find an available domain, then collect registration details (cycle, privacy protection, contact info) directly in the chat. Once collected, you save the contact info, create a cart with the domain + addons, and provide a checkout link where the user only needs to complete payment.
+You help the user find an available domain, then collect registration details (registration cycle, privacy protection, contact info) directly in the chat. Once collected, you save the contact info, create a cart with the domain + addons, and provide a checkout link where the user only needs to complete payment.
 
 **UX guidelines**: Keep the conversation natural. Do NOT expose internal implementation details to the user (e.g. don't say "I'm canceling the old cart", "saving to intent API", "adding line items"). Just tell them what matters: "Setting up your order..." then show the summary and checkout link.
 
