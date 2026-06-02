@@ -3,7 +3,7 @@ import { computeCoverage } from '../src/utils/coverage';
 import type { LoadedScenario } from '../src/utils/evals';
 
 const blogScenario: LoadedScenario = {
-  path: 'skills/wix-manage/references/blog/evals/x.yml',
+  path: 'yaml/wix-manage-evals/blog/x.yml',
   scenario: {
     name: 'blog/x',
     description: '', triggerPrompt: '0123456789', tags: ['blog'],
@@ -63,5 +63,27 @@ describe('computeCoverage', () => {
       () => 'https://dev.wix.com/x',
     );
     expect(result.uncovered).toEqual([]);
+  });
+
+  it('nested scenarios still count toward area coverage', () => {
+    const nestedScenario: LoadedScenario = {
+      path: 'yaml/wix-manage-evals/blog/drafts/x.yml',
+      scenario: {
+        name: 'blog/drafts/x',
+        description: '', triggerPrompt: '0123456789', tags: ['blog'],
+        assertions: [{
+          tool: 'T',
+          params: { articleUrl: 'https://dev.wix.com/docs/api-reference/business-solutions/blog/skills/how-to-create-blog-posts' },
+        }],
+      },
+    };
+    const result = computeCoverage(
+      [{ filename: 'skills/wix-manage/references/blog/how-to-create-blog-posts.md', status: 'modified' }],
+      new Map([['blog/drafts/x', nestedScenario]]),
+      () => 'https://dev.wix.com/docs/api-reference/business-solutions/blog/skills/how-to-create-blog-posts',
+    );
+    expect(result.uncovered).toEqual([]);
+    expect(result.coveredBy.get('skills/wix-manage/references/blog/how-to-create-blog-posts.md'))
+      .toEqual(['blog/drafts/x']);
   });
 });

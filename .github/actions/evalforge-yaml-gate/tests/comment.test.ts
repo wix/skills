@@ -12,7 +12,7 @@ describe('comment formatters', () => {
   it('formatUncovered includes canonical URL hint and the expected evals path', () => {
     const out = c.formatUncovered([{ file: 'skills/wix-manage/references/events/x.md', canonicalUrl: 'https://example/x', area: 'events' }]);
     expect(out).toContain('https://example/x');
-    expect(out).toContain('skills/wix-manage/references/events/evals/');
+    expect(out).toContain('yaml/wix-manage-evals/events/');
   });
 
   it('formatForeignDraftConflicts resolves PR URLs from tag format', () => {

@@ -1,7 +1,7 @@
 import type { LoadedScenario } from './evals';
 import type { ChangedFile } from './github';
 import { normalizeUrl, isUrlShaped } from './url-normalize';
-import { AREA_RE } from './paths';
+import { AREA_RE, EVALS_AREA_RE } from './paths';
 import { isToolCall } from './schema';
 
 export type { ChangedFile };
@@ -11,8 +11,13 @@ export type CoverageResult = {
   uncovered: Uncovered[];
 };
 
-function areaOf(filePath: string): string | null {
+function areaOfDoc(filePath: string): string | null {
   const match = filePath.match(AREA_RE);
+  return match ? match[1] : null;
+}
+
+function areaOfEval(filePath: string): string | null {
+  const match = filePath.match(EVALS_AREA_RE);
   return match ? match[1] : null;
 }
 
@@ -41,7 +46,7 @@ export function computeCoverage(
 
   const scenariosByArea = new Map<string, { name: string; urls: Set<string> }[]>();
   for (const [name, ls] of scenarios) {
-    const area = areaOf(ls.path);
+    const area = areaOfEval(ls.path);
     if (!area) continue;
     const urls = new Set<string>();
     for (const a of ls.scenario.assertions) {
@@ -59,7 +64,7 @@ export function computeCoverage(
   for (const f of changedFiles) {
     if (f.status === 'removed') continue;
     if (!f.filename.endsWith('.md')) continue;
-    const area = areaOf(f.filename);
+    const area = areaOfDoc(f.filename);
     if (!area) continue;
     const canonical = canonicalUrlOf(f.filename);
     if (!canonical) continue;

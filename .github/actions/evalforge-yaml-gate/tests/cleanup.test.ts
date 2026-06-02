@@ -14,7 +14,7 @@ const scenario = (name: string, tags: string[]): Scenario => ({
 });
 
 const loaded = (name: string, tags = ['production-tag']): LoadedScenario => ({
-  path: `skills/wix-manage/references/area/evals/${name.split('/').pop()}.yml`,
+  path: `yaml/wix-manage-evals/area/${name.split('/').pop()}.yml`,
   scenario: scenario(name, tags),
 });
 

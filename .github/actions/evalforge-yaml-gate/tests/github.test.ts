@@ -7,8 +7,8 @@ describe('classifyChanges', () => {
   it('separates .md and evals/*.yml', () => {
     const out = classifyChanges([
       f('skills/wix-manage/references/blog/how-to-create-blog-posts.md', 'modified'),
-      f('skills/wix-manage/references/blog/evals/create.yml', 'added'),
-      f('skills/wix-manage/references/blog/evals/delete.yml', 'removed'),
+      f('yaml/wix-manage-evals/blog/create.yml', 'added'),
+      f('yaml/wix-manage-evals/blog/delete.yml', 'removed'),
       f('README.md', 'modified'),
     ]);
     expect(out.mdFiles).toHaveLength(1);
@@ -23,7 +23,7 @@ describe('classifyChanges', () => {
   });
 
   it('treats renames as modified for evals', () => {
-    const out = classifyChanges([f('skills/wix-manage/references/blog/evals/x.yml', 'renamed')]);
+    const out = classifyChanges([f('yaml/wix-manage-evals/blog/x.yml', 'renamed')]);
     expect(out.evalsModified).toHaveLength(1);
   });
 

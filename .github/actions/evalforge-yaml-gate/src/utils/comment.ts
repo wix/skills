@@ -28,10 +28,10 @@ export function formatOrphanedMds(files: string[]): string {
 
 export function formatUncovered(uncovered: Uncovered[]): string {
   return render('❌', 'Missing Coverage', [
-    'These changed docs have no covering YAML scenario in their **sibling** `evals/` folder (scenarios in other areas do not count):',
+    'These changed docs have no covering YAML scenario for their **area** (scenarios for other areas do not count):',
     '',
     ...uncovered.map(u =>
-      `- \`${u.file}\` — expected URL: \`${u.canonicalUrl}\` — add a scenario under \`skills/wix-manage/references/${u.area}/evals/\``,
+      `- \`${u.file}\` — expected URL: \`${u.canonicalUrl}\` — add a scenario under \`yaml/wix-manage-evals/${u.area}/\``,
     ),
   ]);
 }

@@ -34243,9 +34243,9 @@ function formatOrphanedMds(files) {
 }
 function formatUncovered(uncovered) {
     return render('❌', 'Missing Coverage', [
-        'These changed docs have no covering YAML scenario in their **sibling** `evals/` folder (scenarios in other areas do not count):',
+        'These changed docs have no covering YAML scenario for their **area** (scenarios for other areas do not count):',
         '',
-        ...uncovered.map(u => `- \`${u.file}\` — expected URL: \`${u.canonicalUrl}\` — add a scenario under \`skills/wix-manage/references/${u.area}/evals/\``),
+        ...uncovered.map(u => `- \`${u.file}\` — expected URL: \`${u.canonicalUrl}\` — add a scenario under \`yaml/wix-manage-evals/${u.area}/\``),
     ]);
 }
 function formatForeignDraftConflicts(errs, _pull) {
@@ -34395,8 +34395,12 @@ exports.computeCoverage = computeCoverage;
 const url_normalize_1 = __nccwpck_require__(9462);
 const paths_1 = __nccwpck_require__(6621);
 const schema_1 = __nccwpck_require__(4482);
-function areaOf(filePath) {
+function areaOfDoc(filePath) {
     const match = filePath.match(paths_1.AREA_RE);
+    return match ? match[1] : null;
+}
+function areaOfEval(filePath) {
+    const match = filePath.match(paths_1.EVALS_AREA_RE);
     return match ? match[1] : null;
 }
 function stringValuesIn(params) {
@@ -34420,7 +34424,7 @@ function computeCoverage(changedFiles, scenarios, canonicalUrlOf) {
     const uncovered = [];
     const scenariosByArea = new Map();
     for (const [name, ls] of scenarios) {
-        const area = areaOf(ls.path);
+        const area = areaOfEval(ls.path);
         if (!area)
             continue;
         const urls = new Set();
@@ -34443,7 +34447,7 @@ function computeCoverage(changedFiles, scenarios, canonicalUrlOf) {
             continue;
         if (!f.filename.endsWith('.md'))
             continue;
-        const area = areaOf(f.filename);
+        const area = areaOfDoc(f.filename);
         if (!area)
             continue;
         const canonical = canonicalUrlOf(f.filename);
@@ -35262,16 +35266,18 @@ function makeCommenter(octokit, owner, repo, prNumber) {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.BASE_WORKSPACE_SUBDIR = exports.DOC_YAML_GLOB = exports.EVALS_GLOB = exports.AREA_RE = exports.EVALS_RE = exports.MD_RE = exports.SKILLS_ROOT = void 0;
+exports.BASE_WORKSPACE_SUBDIR = exports.DOC_YAML_GLOB = exports.EVALS_GLOB = exports.EVALS_AREA_RE = exports.AREA_RE = exports.EVALS_RE = exports.MD_RE = exports.SKILLS_ROOT = void 0;
 exports.SKILLS_ROOT = 'skills/wix-manage/references';
 // `^skills/wix-manage/references/<area>/<basename>.md`
 exports.MD_RE = /^skills\/wix-manage\/references\/[^/]+\/[^/]+\.md$/;
-// `^skills/wix-manage/references/<area>/evals/<rest>.(yml|yaml)`
-exports.EVALS_RE = /^skills\/wix-manage\/references\/[^/]+\/evals\/.+\.(ya?ml)$/;
-// Captures `<area>` from any path under SKILLS_ROOT.
+// `^yaml/wix-manage-evals/<area>/<rest>.(yml|yaml)`
+exports.EVALS_RE = /^yaml\/wix-manage-evals\/[^/]+\/.+\.(ya?ml)$/;
+// Captures `<area>` from a doc path under SKILLS_ROOT.
 exports.AREA_RE = /^skills\/wix-manage\/references\/([^/]+)\//;
+// Captures `<area>` from an eval scenario path.
+exports.EVALS_AREA_RE = /^yaml\/wix-manage-evals\/([^/]+)\//;
 // Glob pattern (relative to workspace) for loading scenario YAML files.
-exports.EVALS_GLOB = 'skills/wix-manage/references/*/evals/**/*.{yml,yaml}';
+exports.EVALS_GLOB = 'yaml/wix-manage-evals/*/**/*.{yml,yaml}';
 // Glob pattern (relative to workspace) for per-area documentation.yaml files.
 exports.DOC_YAML_GLOB = 'yaml/wix-manage/*/documentation.yaml';
 // Subdirectory used by the trusted-action-source two-checkout workflow pattern.
