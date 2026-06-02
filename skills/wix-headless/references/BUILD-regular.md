@@ -1,8 +1,8 @@
-# Build — the post-approval conductor
+# Build — regular mode (astro scaffold)
 
-Opened the moment the user approves the plan in `DISCOVERY.md`. This file owns the **execution flow** — Setup → design-system bridge → Seed → Components → Pages → Build → Release: every subagent dispatch, background handle, wait/gate, and the imagery gates. Read it top to bottom from the approval point.
+The post-approval conductor when `frontend === "astro"` (the skill scaffolds and writes the site). Opened from `BUILD.md` the moment the run branches on `frontend === "astro"`. This file owns the **astro execution flow** — Setup → design-system bridge → Seed → Components → Pages → Build → Release: every subagent dispatch, background handle, wait/gate, and the imagery gates. Read it top to bottom from the approval point.
 
-The **pre-approval** flow (mode routing, the Discovery questions, the plan + approval gate, and the background scaffold + Designer dispatches that hide latency) is in `PLAN.md`; it hands off here on approval. Three cross-cutting rules referenced below — **Two tracks**, **Batching discipline**, and **User-facing output** — also live in `PLAN.md`.
+The cross-cutting operational sections that both modes share — **Subagent rate / credit limits**, the **parallel-batch diagnostic**, the **Final Message** (summary + run.json), and the **Final run.json format** — live in `BUILD.md` (the router). The pre-approval flow is in `PLAN.md` → `PLAN-regular.md`; the three cross-cutting rules referenced below — **Two tracks**, **Batching discipline**, **User-facing output** — live in `PLAN.md`.
 
 ## Phase axis
 
@@ -21,12 +21,12 @@ Each phase belongs to one of the two tracks (`PLAN.md` § "Two tracks"). All pha
 
 ## The run from approval (Setup → Release)
 
-The user just approved; `init-site-json.mjs` wrote the slim `.wix/site.json`. **Nothing is dispatched yet** — the funnel intentionally dispatched nothing so it could present the plan fast. Start by firing the two background jobs the rest of the run needs, then run Setup.
+The user just approved; `init-site-json.mjs` wrote the slim `.wix/site.json`. **Nothing is dispatched yet** — the funnel intentionally dispatched nothing so it could present the plan fast. (`BUILD.md` already confirmed `frontend === "astro"` and routed here; the **Final Message** section it owns is the only part shared with integration mode.)
 
 ### 0. Dispatch scaffold + Designer (background, immediately on entry)
 
 Fire both as one concurrent batch (`PLAN.md` § "Batching discipline") — they are independent:
-- **Scaffold** — `scaffold.sh <slug> "<brand>" --frontend <value>` (background, capture `scaffold_handle` + its stderr tempfile). Slug derivation + the command shape are `DISCOVERY.md` § "After Q1". `npm install` is **not** chained here (Setup Step 4c dispatches it). The stderr tempfile is for **post-hoc error inspection only** (read it *if* the scaffold reports a failure) — it is **not** a progress file to poll.
+- **Scaffold** — `scaffold.sh <slug> "<brand>" --frontend <value>` (background, capture `scaffold_handle` + its stderr tempfile). Slug derivation + the command shape are `DISCOVERY-regular.md` § "After Q1". `npm install` is **not** chained here (Setup Step 4c dispatches it). The stderr tempfile is for **post-hoc error inspection only** (read it *if* the scaffold reports a failure) — it is **not** a progress file to poll.
 - **Designer** — background, capture `designer_handle`. Dispatch with **Instruction file = `<SKILL_ROOT>/references/DESIGN_SYSTEM.md`** (the subagent opens it — **do not Read it in the orchestrator**, per `SKILL.md` § "Path resolution"). Inline Discovery's aesthetic craft held in scratch: brand, aesthetic direction, palette, type, mood, page color strategy. Judgment-only (~10–15 s; JSON `data.designTokens` + `data.shell`, no files). Do **not** pass application inputs (packs, nav links) — those go to the Composer.
 
 The Designer's ~13 s overlaps the scaffold's ~23 s. Setup waits on `scaffold_handle` at Step 1; the bridge (step 2) waits on `designer_handle`.
@@ -50,7 +50,7 @@ Apply `SETUP.md` Step 1 only: wait `scaffold_handle` (load `wix-manage` in the s
    { ...paste the Designer's data.designTokens JSON object here, verbatim from scratch... }
    TOKENS
    ```
-2. `Agent` (background) — Composer, capture `composer_handle`. Dispatch with **Instruction file = `<SKILL_ROOT>/references/astro/COMPOSE.md`** (the subagent opens it — **do not Read it in the orchestrator**; it is 14 KB of subagent-only substitution how-to, and reading it here just bloats the dispatch turn you're composing). Inline: tokens + shell + brand + nav links + packs. **SKIP** (record `{phase: "compose", status: "skipped"}`) if `frontend !== "astro"` (defensive — custom frontends never reach `BUILD.md`).
+2. `Agent` (background) — Composer, capture `composer_handle`. Dispatch with **Instruction file = `<SKILL_ROOT>/references/astro/COMPOSE.md`** (the subagent opens it — **do not Read it in the orchestrator**; it is 14 KB of subagent-only substitution how-to, and reading it here just bloats the dispatch turn you're composing). Inline: tokens + shell + brand + nav links + packs. **SKIP** (record `{phase: "compose", status: "skipped"}`) if `frontend !== "astro"` (defensive — custom frontends never reach `BUILD-regular.md`).
 
 **Message 2 — business Setup Step 4 batch (immediately after Message 1), all as siblings; no text between the tool calls** (frontend-blind — `SETUP.md` owns the recipes/package set):
 
@@ -196,7 +196,7 @@ For each loaded pack's `pages`:
 
 > **Shared-shell patchers serialize within the Phase 4 batch; non-overlapping scopes run concurrently.** Scopes that patch a shared shell file at a marker — `src/components/Navigation.astro` (`<!-- nav:links -->`, CartBadge) or `src/pages/index.astro` (`<!-- home:<pack> -->`, featured grid) — read-modify-write a file another scope also patches. Dispatching two such patchers concurrently trips the harness staleness guard (`File has been modified since read`). **Dispatch the shell-patching scopes one at a time** — launch one, wait for its return, then launch the next — so each sees the previous one's marker insertion. See the ecommerce-run example below: `home-and-nav` and `gift-cards pages` serialize (both touch `Navigation.astro` + `index.astro`); the private-file scopes (`product-pages`, `category-pages`, `cart-checkout`, `cms-pages`) stay in the concurrent batch. The serialized chain runs alongside the concurrent batch, not after it.
 
-> **Image Phase 2 is NOT dispatched here.** When it was launched at Step 4.5 (i.e. on an `ai-generated` run), it has been running concurrent with Phase 3 + Phase 4 and is typically finished or near-finished by the time Step 7 fires; the Step 8 hard gate waits for it before invoking `release.sh`. **On a `themed-blocks` run (the default), Image Phase 2 was not dispatched at all** — no gate wait, no images, the build runs as soon as Phase 4 finishes.
+> **Image Phase 2 is NOT dispatched here.** When it was launched at Step 4.5 (i.e. on an `ai-generated` run), it has been running concurrent with Phase 3 + Phase 4 and is typically finished or near-finished by the time Step 7 fires; the Step 8 hard gate waits for it before the Build & Release step. **On a `themed-blocks` run (the default), Image Phase 2 was not dispatched at all** — no gate wait, no images, the build runs as soon as Phase 4 finishes.
 
 ### Example (ecommerce run — stores pack contributes 4 Phase 4 scopes + cms pack 1)
 
@@ -239,52 +239,12 @@ Skipping this gate on an ai-generated run ships previews with no product images 
 
 Also ensure the background `npm install` (`npm_handle` from `SETUP.md` Step 4c, waited on at the seed gate) completed successfully before Build. On non-zero exit, follow the recovery ladder in `SETUP.md` § "npm install recovery".
 
----
-
-## Subagent rate / credit limits
-
-Some runtimes apply per-session rate or credit limits to subagents. When a subagent return looks truncated, treat it as a rate-limit hit and recover.
-
-### Detection
-
-A subagent has hit a rate / credit limit when its return contains any of:
-- Literal text `"You've hit your limit"`, `"quota exceeded"`, `"rate limit"`
-- Total return under ~100 tokens with no fenced JSON block
-- Return ending mid-sentence without a completion indicator
-
-### Recovery procedure
-
-1. **Check the subagent's declared output files on disk.** Each scope's reference lists the files it owns (e.g., the Phase 4 store-pages scope owns `products/index.astro`, `products/[slug].astro`, `cart.astro`, `thank-you.astro`, `ProductCard.astro`). Read each expected path.
-2. **If all expected files exist on disk and look syntactically valid** (no empty files, no unterminated strings): synthesize a `status: "complete"` entry for `run.json` with `notes: "Sub-agent hit rate limit after writing all files; files on disk are valid."` Proceed with the next dispatch.
-3. **If expected files are missing or empty:** retry the subagent once with an identical prompt. If the retry also hits the limit, mark the phase `status: "partial"` in `run.json` with `errors: [{code: "RATE_LIMIT", message: "Subagent rate-limited; <N> of <M> files produced"}]` and decide per-case — the orchestrator may fall back to inline emission of the missing files if they're trivial (single-file scope), or fail the run.
-4. **Do not loop.** Retrying the same subagent more than once after a rate limit wastes budget — the limit is session-scoped and persists.
-
-Record the rate-limit event in `run.json` `notes[]` regardless of recovery outcome — it's important observability for tuning scope sizes.
-
 ## Build & Release
 
 1. `npx @wix/cli@latest build` — if it fails, inspect `.wix/debug.log` for the specific error, fix, retry. Build failure modes are listed in § "Build failure modes" below; the Astro/React build-blockers a subagent should have caught are in `references/shared/IMPLEMENTER.md` § "Astro/React build-blockers".
-2. `npx @wix/cli@latest release` — extract the published URL from the `Site published on <url>` line in stdout. This command also populates the **Frontend link** in headless settings natively, so transactional emails link to the deployed frontend without any extra API calls.
+2. `npx @wix/cli@latest release` — extract the published URL from the `Site published on <url>` line in stdout. This command also populates the **Frontend link** in headless settings natively, so transactional emails link to the deployed frontend without any extra API calls. Transient release errors (`ECONNRESET`, `ETIMEDOUT`, `EAI_AGAIN`, `STATE_MISMATCH`, `temporarily unavailable`, `try again shortly`) — retry serially up to 3× with `attempt * 5`s backoff (`references/shared/PRODUCTION_SHARP_EDGES.md`). Do **not** retry build failures — those are code bugs to fix.
 
----
-
-## Final Message — summary FIRST, then run.json, in ONE turn
-
-**Ordering is strict and user-perceived latency depends on it.** The summary prose is the **first content of your final turn**; the `Write .wix/run.json` is the **last tool call in that same message**. Composing `run.json` takes ~15–25 s (it aggregates every subagent return), so writing it *before* the summary makes the user wait that whole time to see their live URL — for no reason, since `run.json` is a silent observability artifact they never read.
-
-Hard rules:
-- **Do NOT write `run.json` before the summary.** A run that emits the `run.json` `Write` first (or in an earlier turn) is wrong even if the content is identical — it just delays the URL.
-- **Do NOT emit a pre-narration turn** ("Site is live, writing run.json…", "delivering the summary…"). That is orchestration machinery (`PLAN.md` § "User-facing output") and it splits the single turn. The summary prose itself is the first thing the user sees after release.
-- **One turn:** summary prose → then the `Write` tool call, as siblings in the same assistant message. The turn does not close until the `Write` completes, so the record still lands on disk before control returns — you get on-disk durability without making the user wait for it.
-
-The summary prose contains, in order:
-
-1. **Production URL** — bold link, first line (the exact `Site published on <url>` string; do not retype it).
-2. **Dashboard link** — `https://manage.wix.com/dashboard/<siteId>`.
-
-**Do not present timings.** No total-wall figure, no per-phase breakdown ("scaffold 26s · design-system 13s · …"), no "built in ~N min." Phase timings are machinery and the self-reported number is easy to get wrong (it has under-reported true wall in past runs); they belong in `run.json`, not the user-facing summary. The user wants their site, not a stopwatch.
-
-Then, in the same turn after the summary prose, write `.wix/run.json` silently — the observability record aggregating every subagent return (format per § "Final run.json format" below), including the phase timings. Use the subagent returns already in session context — do not re-read anything to compose it.
+Then **Final Message** (`BUILD.md` § "Final Message" — the shared summary + run.json turn).
 
 ---
 
@@ -306,17 +266,6 @@ Contract already exists when Phase 4 launches. Subagents receive the contract co
 
 ---
 
-## Diagnostic: did the concurrent batch actually run in parallel?
-
-If a build feels slow, check whether dispatches that should have been concurrent actually overlapped in execution. Two failure modes:
-
-1. **Serialized launch:** the orchestrator emitted subagent invocations one at a time across multiple turns instead of as a single batch. Symptom: multi-second gaps between subagent starts in the run log.
-2. **Serialized execution:** the runtime dispatched the batch but executed it sequentially (rare; most runtimes parallelize properly).
-
-The fix for (1) depends on the runtime — check whether your dispatch primitive supports a single concurrent batch and whether anything between the subagent invocations (status updates, narration, file writes) is splitting the batch into multiple turns. Even when (1) cannot be fixed, **background dispatch alone gives ~2× compression** by overlapping execution. Make every subagent that doesn't block downstream work a background subagent.
-
----
-
 ## Build failure modes
 
 Inspect `.wix/debug.log` after a failed `npx @wix/cli@latest build`; match the stderr against this table. (Subagents should have caught the Astro/React row before returning — see `references/shared/IMPLEMENTER.md` § "Astro/React build-blockers".)
@@ -326,69 +275,3 @@ Inspect `.wix/debug.log` after a failed `npx @wix/cli@latest build`; match the s
 | `Legacy HTML single-line comments` | build stderr | A Phase 2/4 agent emitted HTML comments in `.astro` frontmatter — replace with `//` or `/* */` |
 | `Missing environment variable WIX_CLIENT_ID` | build stderr | Run `npx @wix/cli@latest env pull --json` then retry |
 | `Cannot find module '@wix/…'` | build stderr | npm install didn't include that package; check the pack's `packages` list |
-
----
-
-## Final run.json format
-
-The orchestrator is the **sole writer** of `.wix/run.json` and the one audience that needs every phase's `data` shape (the per-phase shapes are indexed in `references/shared/RETURN_CONTRACT.md` § "Where your phase-specific data shape lives"). It aggregates every agent return into one file.
-
-**Timing is required** — the `run` object MUST include `started`, `ended`, and `totalSeconds`, and every entry in `phases` MUST include `seconds`. All timing values are captured by the orchestrator (from runtime `duration_ms` for subagents, from `date -u` wraps for its own Bash calls) — agents do not self-report. If timing is missing for any phase, record `seconds: null` + `errors: [{code: "MISSING_TIMING"}]` and investigate what broke capture.
-
-For the orchestrator's own Bash calls (scaffold, env-pull, npm-install, app-install), wrap in `date -u` captures:
-
-```bash
-STARTED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-# ... run the command ...
-ENDED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-# compute seconds and append to run.json
-```
-
-Example:
-
-```json
-{
-  "version": "1.0",
-  "run": {
-    "started": "2026-01-15T09:16:14Z",
-    "ended": "2026-01-15T09:28:03Z",
-    "totalSeconds": 709,
-    "brand": "Acme Coffee",
-    "prompt": "I want to sell tables online",
-    "verticals": ["stores", "cms"],
-    "packs": ["stores", "cms"]
-  },
-  "outcome": {
-    "build": "success",
-    "previewUrl": "https://goj5lj-tabula-...-alexp775.wix-host.com",
-    "dashboardUrl": "https://manage.wix.com/dashboard/<siteId>"
-  },
-  "phases": [
-    { "phase": "scaffold", "status": "complete", "seconds": 45 },
-    { "phase": "app-install-stores", "status": "complete", "seconds": 6 },
-    { "phase": "env-pull", "status": "complete", "seconds": 4 },
-    { "phase": "npm-install", "status": "complete", "seconds": 42, "packageCount": 725 },
-    { "phase": "stores-seed", "status": "complete", "seconds": 112, "data": { ... } },
-    { "phase": "cms-seed", "status": "complete", "seconds": 98, "data": { ... } },
-    { "phase": "stores-components", "status": "complete", "seconds": 134, "data": { ... } },
-    { "phase": "design-system", "status": "complete", "seconds": 165, "data": { ... } },
-    { "phase": "designer-home", "status": "complete", "seconds": 287, "data": { ... } },
-    { "phase": "designer-static", "status": "complete", "seconds": 265, "data": { ... } },
-    { "phase": "designer-store-pages", "status": "complete", "seconds": 298, "data": { ... } },
-    { "phase": "stores-pages-products", "status": "complete", "seconds": 89, "data": { ... } },
-    { "phase": "stores-pages-cart-checkout", "status": "complete", "seconds": 67, "data": { ... } },
-    { "phase": "stores-pages-home-and-nav", "status": "complete", "seconds": 54, "data": { ... } },
-    { "phase": "pages", "status": "complete", "seconds": 78, "data": { ... } },
-    { "phase": "image-phase-1-decorative", "status": "complete", "seconds": 112, "data": { "decorativeCount": 3, ... } },
-    { "phase": "image-phase-2-entity", "status": "complete", "seconds": 287, "data": { "entityCount": { "products": 6, "cmsAboutContent": 1 }, ... } },
-    { "phase": "build", "status": "complete", "seconds": 9 },
-    { "phase": "preview", "status": "complete", "seconds": 21 }
-  ],
-  "notes": []
-}
-```
-
-Notes:
-- Total serial wall time ≈ max parallel paths, not sum of seconds
-- `data` blocks preserve what each agent returned — recoverable without re-reading agent transcripts
-- `files` lists are omitted from the aggregate; query individual phase `data` if needed
