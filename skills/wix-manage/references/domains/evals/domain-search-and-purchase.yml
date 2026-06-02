@@ -1,5 +1,5 @@
 name: domains/domain-search-and-purchase
-description: Verifies the agent reads the domain-search-and-purchase docs when asked about searching for and purchasing a domain via the Wix API.
+description: T14 PR B — independent edit that conflicts with PR A's draft tag.
 triggerPrompt: How do I programmatically search for an available domain on Wix and then purchase it? Please reference the relevant API methods.
 tags: [domains]
 assertions:
