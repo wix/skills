@@ -10,28 +10,34 @@ This phase owns the *domain* of discovery only. Run FLOW — when background wor
 
 ## Wave 0 — Mode detection (BEFORE any user-facing question)
 
-Frontend mode is the single axis the frontend track branches on. Detect it from the working directory **first** — before the CLI-auth pre-flight, before Q1 — so the rest of Discovery knows which path to take. The detection is a file-existence check; cost is ~1 ms. The axis is binary: **astro (scaffold mode — the skill writes the site) vs custom (integration mode — the user brought a finished site to connect).**
+Frontend mode is the single axis the frontend track branches on. Detect it from **the user's prompt AND the working directory** — before the CLI-auth pre-flight, before Q1 — so the rest of Discovery knows which path to take. The axis is binary: **astro (scaffold mode — the skill writes the site from a prompt) vs custom (integration mode — the user brings a finished design to connect).**
+
+> **Intent is primary; the directory only confirms.** The bug to avoid: an *empty* CWD does **not** automatically mean scaffold. If the prompt brings a design to connect — even one that will be **fetched into the empty dir** — it's integration. Read the prompt first.
 
 ```
-Inspect CWD:
+Read the prompt, then inspect CWD:
 
-1. CWD is empty (or doesn't exist) → SCAFFOLD MODE (astro).
-2. CWD contains `wix.config.json` AND Astro structure (`src/`, `astro.config.mjs`)
-   → resume a prior wix-headless run. See SKILL.md § "When NOT to use this skill"
-     ("continue or start fresh?" — out of pivot scope).
-3. CWD contains a working frontend (`index.html`, `*.html`, `*.jsx`/`*.tsx`/`*.vue`,
-   a Claude-Design handoff bundle, etc.) — with or without `wix.config.json`
-   → CUSTOM (integration mode): connect the brought-in site to Wix.
+1. CONNECT/IMPLEMENT-AN-EXISTING-DESIGN intent in the prompt → CUSTOM (integration mode),
+   EVEN IF THE CWD IS EMPTY. Signals: "connect this to wix", "implement this design",
+   "host/deploy this site", "this is a working site", or a design-file URL to fetch +
+   implement (Claude Design / v0 / Lovable / any tool). The design arrives by fetch into
+   the empty dir — emptiness at check time does not make it scaffold.
+2. CWD already contains a working frontend (`index.html`, `*.html`, `*.jsx`/`*.tsx`/`*.vue`,
+   a design-handoff bundle) → CUSTOM (integration mode): connect the brought-in site.
+3. CWD contains `wix.config.json` → an existing wix-headless project (resume/extend; see
+   SKILL.md § "When NOT to use this skill" — out of pivot scope for now).
+4. Otherwise — empty CWD AND a CREATE-A-NEW-SITE prompt ("build me a store", "I want to
+   sell tables online", "make a blog") with no design to connect → SCAFFOLD MODE (astro).
 ```
 
 Capture the resolved value in session scratch as `frontend`:
 
 | Scenario | `frontend` value | Wave 0 next |
 |---|---|---|
-| Scaffold mode (empty CWD) | `astro` | Pre-flight, then **`DISCOVERY-regular.md`** |
-| Prompt names a non-astro frontend, OR an existing working site is detected (case 3) | `custom` | Pre-flight, then **`DISCOVERY-integration.md`** |
+| Connect/implement an existing design (prompt intent), OR a working site on disk | `custom` | Pre-flight, then **`DISCOVERY-integration.md`** |
+| Create a new site from a prompt, empty CWD, nothing to connect | `astro` | Pre-flight, then **`DISCOVERY-regular.md`** |
 
-> **No `AskUserQuestion` for mode detection.** Mode is detected from the directory, never asked. If the working directory is ambiguous (some source files but unclear), default to `custom` (integration mode) — connecting what's there is the safe interpretation.
+> **No `AskUserQuestion` for mode detection.** Mode is inferred from the prompt + directory, never asked. When intent is unclear, default to `custom` (integration) — connecting/implementing what the user brings is the safe interpretation; scaffolding a brand-new site over their intent is the destructive one. **A prompt that fetches or names a design to "connect"/"implement" is `custom` regardless of whether the CWD is empty.**
 
 `frontend` flows into:
 - `init-site-json.mjs --frontend <value>` — records it in `.wix/site.json` (written for **both** modes; the conductor reads it to decide whether to run `wix build` before release — astro builds, custom doesn't).

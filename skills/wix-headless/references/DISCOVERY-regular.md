@@ -1,6 +1,6 @@
 # Discovery — regular mode (astro scaffold)
 
-Reached when `frontend === "astro"` (empty CWD — the skill writes the site). The shared mode-detection (Wave 0) + CLI-auth pre-flight live in `DISCOVERY.md`; this file is the astro interview → plan → approval. Run FLOW (when/order/gate) is owned by `PLAN-regular.md`.
+Reached when `frontend === "astro"` (a create-a-new-site prompt in an empty CWD, nothing to connect — the skill writes the site). The shared mode-detection (Wave 0) + CLI-auth pre-flight live in `DISCOVERY.md`; this file is the astro interview → plan → approval. Run FLOW (when/order/gate) is owned by `PLAN-regular.md`.
 
 **Input processing:** the user's prompt — inferred vertical(s) + an interview (Steps 0–2.5). **Plan shape:** the full decision card (Design Direction + Features + Pages, § "Step 3 — Present the Plan").
 

@@ -102,21 +102,24 @@ the run.
 
 Explicit invocation only. **Two entry paths — decide before doing anything else.**
 
+**Decide by intent first, directory second.** An empty directory does **not** by itself mean Path A — read what the prompt is asking for. (See `DISCOVERY.md` § "Wave 0" for the authoritative rule.)
+
 ### Path A — New site from a prompt (default)
 
-Infer vertical(s) from the opening message and load the **full resolved pack set** (top-level + `requires:` transitives + always-on `cms`) in one read batch — routing examples: stores → stores+cms+ecom+gift-cards; blog → blog+cms; etc. If the prompt is too vague, ask one conversational clarifier (NOT `AskUserQuestion`): *"What do you want your site to do — sell things, publish content, take bookings?"*
+The user asks to **create a new site from scratch** ("build me a store", "I want to sell tables online", "make a blog") with **no design to connect**, in an empty directory. Infer vertical(s) from the opening message and load the **full resolved pack set** (top-level + `requires:` transitives + always-on `cms`) in one read batch — routing examples: stores → stores+cms+ecom+gift-cards; blog → blog+cms; etc. If the prompt is too vague, ask one conversational clarifier (NOT `AskUserQuestion`): *"What do you want your site to do — sell things, publish content, take bookings?"*
 
 > **Do NOT call `WixSiteBuilder` MCP** for new-site requests — same intent, different flow; calling both produces a duplicated, conflicting build. This skill is the sole entry point.
 
-### Path B — Existing site → connect to Wix (integration mode)
+### Path B — Connect an existing/brought design to Wix (integration mode)
 
-Triggers: *"connect this to Wix Headless"*, *"add Wix Headless to this project"*, *"host this on Wix"*, *"deploy this to Wix"*, *"implement the features … using Wix Headless"*, or any "Wix Headless" prompt against a non-empty working directory. Decide by working-directory contents:
+Triggers: *"connect this to Wix Headless"*, *"implement this design … connecting to wix"*, *"add Wix Headless to this project"*, *"host this on Wix"*, *"deploy this to Wix"*, *"implement the features … using Wix Headless"*, or a **design-file URL to fetch + implement** (Claude Design / v0 / Lovable / any tool). **These route to B even when the working directory is empty** — the design arrives by fetch, so emptiness at trigger time does not make it Path A.
 
-| Working directory contents | Path |
+| Signal | Path |
 |---|---|
-| Empty, or freshly scaffolded by `scaffold.sh` | A (astro, scaffold mode) |
-| A working frontend (`index.html`, `*.html`/`*.jsx`/`*.tsx`/`*.vue`, a Claude-Design bundle, …), with or without `wix.config.json` | **B (custom, integration mode)** |
-| `wix.config.json` + Astro structure (`src/`, `astro.config.mjs`) | resume a prior wix-headless run — ask "continue or start fresh?" via `AskUserQuestion` |
+| Prompt asks to **connect / implement / host an existing or fetched design** (incl. a design-file URL), **even if the CWD is empty** | **B (custom, integration mode)** |
+| A working frontend already on disk (`index.html`, `*.html`/`*.jsx`/`*.tsx`/`*.vue`, a design bundle) | **B (custom, integration mode)** |
+| Empty CWD **and** a create-a-new-site prompt, nothing to connect | A (astro, scaffold mode) |
+| `wix.config.json` present (an existing wix-headless project) | resume/extend — out of pivot scope for now |
 
 **Custom frontends run integration mode.** When the working directory holds a brought-in site, the run **connects it to a live Wix backend** — parse the site (`DISCOVERY-integration.md`), init + shared Setup/Seed, wire existing dynamic regions to `@wix/sdk` and augment static designs with the connected feature their purpose implies, then no-build release. The frontend-track playbook is `<SKILL_ROOT>/references/custom/INSTRUCTIONS.md`; routing is owned by `PLAN-integration.md`.
 

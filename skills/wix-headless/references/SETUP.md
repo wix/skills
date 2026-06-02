@@ -4,7 +4,7 @@ Runs once, immediately after the user approves the plan and Discovery has writte
 
 This article covers the **astro scaffold-mode entry path** — Steps 1–5 below + "npm install recovery". The orchestrator scaffolds a fresh Astro project via `scaffold.sh` in `BUILD-regular.md` run-step 0.
 
-**Integration mode (`frontend === "custom"`)** reuses this article's **business-track** steps — app installs (Step 4a) + `env pull` (Step 4b) — but **skips** `scaffold.sh`, the Step 4c per-pack `npm install` (custom imports `@wix/sdk` from a CDN), and `seed-utilities.sh`. Its bootstrap is `npm create @wix/new@latest init` (not `scaffold.sh`), and its frontend authoring is the per-capability wiring guides (`references/custom/<cap>/WIRING.md`), not the Composer/pages. The flow is owned by `BUILD-integration.md`; the playbook is `references/custom/INSTRUCTIONS.md`.
+**Integration mode (`frontend === "custom"`)** reuses this article's app-install step (Step 4a) — but **skips** `env pull` (Step 4b; integration inlines the `appId` from `wix.config.json` into CDN `@wix/sdk` imports, needs no `WIX_CLIENT_ID`, and the `init`-bootstrapped project has no `env` command), `scaffold.sh`, the Step 4c per-pack `npm install` (custom imports `@wix/sdk` from a CDN), and `seed-utilities.sh`. Its bootstrap is `npm create @wix/new@latest init` (not `scaffold.sh`), and its frontend authoring is the per-capability wiring guides (`references/custom/<cap>/WIRING.md`), not the Composer/pages. The flow is owned by `BUILD-integration.md`; the playbook is `references/custom/INSTRUCTIONS.md`.
 
 This path assumes DISCOVERY.md's CLI-auth pre-flight has already passed (the foreground check that runs before any `AskUserQuestion`).
 
