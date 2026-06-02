@@ -24,6 +24,36 @@ Extends `references/shared/IMPLEMENTER.md`. Read that file first for phase routi
 
 See `<SKILL_ROOT>/references/verticals/stores.md` frontmatter (`creates:` and `contributes:` blocks).
 
+## Seed return
+
+The `seed` scope emits this `data` shape in its return JSON (envelope rules in `../shared/RETURN_CONTRACT.md`). Phase 4 page agents consume `data.products[*].slug` and `data.products[*].variantId` to wire live SDK queries.
+
+```json
+{
+  "status": "complete",
+  "phase": "stores-seed",
+  "scope": "seed",
+  "summary": "Deleted 12 default products; created 3 on-brand products with variants",
+  "data": {
+    "products": [
+      {
+        "id": "2d1bce83-...",
+        "name": "Tero Dining Table",
+        "slug": "tero-dining-table",
+        "variantId": "ffc1caa2-...",
+        "price": 2890,
+        "inventory": 12,
+        "sku": "TAB-TERO-OAK"
+      }
+    ],
+    "deletedCount": 12,
+    "createdCount": 3
+  },
+  "files": [],
+  "errors": []
+}
+```
+
 ## Pre-return file-existence assertion (all page scopes)
 
 Before returning `status: "complete"` from any `pages-*` scope, verify every file listed in your scope's `files:` block (see verticals/stores.md) exists on disk. Silently dropping a file (e.g. `[slug].astro` from `pages-products`) reports `complete` to the orchestrator, but every product link 404s at runtime.
