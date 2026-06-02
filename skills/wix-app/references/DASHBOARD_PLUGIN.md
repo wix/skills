@@ -7,6 +7,8 @@ Dashboard plugins are interactive widgets that embed into predefined **slots** o
 
 Use `wix generate --params` with `extensionType: DASHBOARD_PLUGIN`. `extendsSlotId` is the back-office extension container component ID from the host Wix app — see [Slots Reference](dashboard-plugin/SLOTS.md). The CLI generates the folder, the React component, the builder file, the UUID, and the `src/extensions.ts` registration.
 
+> ⚠️ **The scaffolded component contains WDS imports — replace them entirely.** Delete all `@wix/design-system` imports and use **shadcn/ui + Tailwind** instead. Do **not** import anything from `@wix/design-system`.
+
 ## Architecture
 
 Dashboard plugins operate through two mechanisms:

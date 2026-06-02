@@ -18,6 +18,24 @@ wix generate --params '{"extensionType":"DASHBOARD_PAGE","title":"<title>","rout
 
 The CLI generates the folder, `page.tsx`, the builder file, the UUID, and the `src/extensions.ts` registration. After scaffolding, implement the page UI in the generated `page.tsx`.
 
+> ⚠️ **The scaffolded `page.tsx` contains WDS imports — replace them entirely.** The CLI template ships with `@wix/design-system` imports and `WixDesignSystemProvider`. Delete all of that and use **shadcn/ui + Tailwind** instead. The starter you should use:
+
+```tsx
+import type { FC } from 'react';
+
+const DashboardPage: FC = () => {
+  return (
+    <div className="p-6 space-y-4">
+      {/* implement page UI here */}
+    </div>
+  );
+};
+
+export default DashboardPage;
+```
+
+Use shadcn/ui components (`Card`, `Button`, `Input`, `Table`, `Select`, `Checkbox`, `Switch`, `Dialog`, `Label`, etc.) and Tailwind utility classes for all layout and styling. Do **not** import anything from `@wix/design-system` or `@wix/wix-ui-icons-common`.
+
 ## Capabilities
 
 ### Data Operations (Wix Data SDK)

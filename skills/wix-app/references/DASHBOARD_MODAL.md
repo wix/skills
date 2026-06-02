@@ -18,6 +18,8 @@ wix generate --params '{"extensionType":"DASHBOARD_MODAL","title":"<title>","fol
 
 The CLI generates the folder, the modal `.tsx`, the config file, the builder file, the UUID, and the `src/extensions.ts` registration. After scaffolding, implement the modal UI in the generated `.tsx`.
 
+> ⚠️ **The scaffolded `.tsx` contains WDS imports — replace them entirely.** Delete all `@wix/design-system` imports (including `WixDesignSystemProvider` and `CustomModalLayout`) and use **shadcn/ui `Dialog`** instead. Do **not** import anything from `@wix/design-system`.
+
 ## Quick Reference
 
 | Task | Method | Example |
