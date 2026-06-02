@@ -29,6 +29,32 @@ Pick based on the business type (the orchestrator names one in your prompt):
 
 See `<SKILL_ROOT>/references/verticals/cms.md` frontmatter.
 
+## Seed return
+
+The `seed` scope emits this `data` shape in its return JSON (envelope rules in `../shared/RETURN_CONTRACT.md`). Phase 4 CMS page agents reference these collection names; the image agent attaches entity images to CMS items by ID.
+
+```json
+{
+  "status": "complete",
+  "phase": "cms-seed",
+  "scope": "seed",
+  "data": {
+    "collections": [
+      {
+        "name": "about-content",
+        "itemIds": ["665f3363-..."],
+        "fields": ["heading", "body", "image"]
+      },
+      {
+        "name": "faq",
+        "itemIds": ["abc", "def", "ghi", "jkl", "mno", "pqr"],
+        "fields": ["question", "answer", "sortOrder"]
+      }
+    ]
+  }
+}
+```
+
 ## Page width (FAQ, About, long-form CMS)
 
 Read `references/shared/STYLING.md` § "Prose / reading width". **Do not** wrap FAQ/About body copy in `max-w-3xl` unless `--container-3xl` exists in `src/styles/global.css` `@theme`. Prefer `container-reading`, `max-w-6xl` (when `--container-6xl` is defined), or `max-w-[48rem]`. A bare `max-w-3xl` with only a spacing scale ships a ~80px column.
