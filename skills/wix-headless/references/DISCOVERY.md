@@ -68,13 +68,13 @@ Immediately after the brand name is confirmed (before Q2), emit **one concurrent
    ```
 
    - Substitute `<brand>` with the user's confirmed brand (preserve original case; quotes are passed by the shell). This is the value sent to the CLI as `--business-name`, so it owns the Wix project display name and URL-slug generation. Substitute `<folder-name>` with the validated folder name for the local directory only.
-   - The script pins `--site-template-id` to the pure-headless blank template (`212b41cb-0da6-4401-9c72-7c579e6477a2`). Vibe-compatible templates trigger an interactive prompt that blocks non-TTY runs — the template ID is intentionally hardcoded inside the script.
+   - The script pins `--site-template blank` to the pure-headless blank template. Vibe-compatible templates trigger an interactive prompt that blocks non-TTY runs — the template name is intentionally hardcoded inside the script.
    - Append timing to `.wix/run.json.phases[]` as `{ phase: "scaffold", seconds: <duration>, started: $STARTED_AT, ended: $ENDED_AT }`.
 
-  **Strict-then-recover:**
-  1. Script exit 2 (folder name or brand validation failed) → orchestrator-side bug; the orchestrator should have caught this in pre-flight. Fix the folder-name derivation and retry.
-  2. Auth error from npm/Wix CLI → run `npx @wix/cli login` yourself per SKILL.md § "Authentication" (background, surface the device code, resume) — do not stop and punt to the user.
-   3. `invalid template` error → the template ID inside `scaffold.sh` is stale. Look up the current ID via `<prefix>SearchWixCLIDocumentation` query `create headless template`, edit the script's `TEMPLATE_ID` constant, retry once, log to `.wix/run.json.commandDrift[]` so the script can be tightened.
+   **Strict-then-recover:**
+   1. Script exit 2 (folder name or brand validation failed) → orchestrator-side bug; the orchestrator should have caught this in pre-flight. Fix the folder-name derivation and retry.
+   2. Auth error from npm/Wix CLI → surface `"Run \`npx @wix/cli login\` and retry."` and stop.
+   3. `invalid template` error → the template name inside `scaffold.sh` is stale. Look up the current name via `<prefix>SearchWixCLIDocumentation` query `create headless template`, edit the script's `TEMPLATE_ID` constant (it holds the `--site-template` name, e.g. `blank`), retry once, log to `.wix/run.json.commandDrift[]` so the script can be tightened.
    4. Other errors → surface stderr to the user.
 
    Launch with background.
