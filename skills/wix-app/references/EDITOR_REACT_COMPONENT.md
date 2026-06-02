@@ -6,7 +6,7 @@ Creates production-quality Editor React components that would be used in Harmony
 
 The Workflow below is the **only** valid way to create or edit an Editor React Component. The Wix CLI scaffold (`npx wix generate ...`) is the source of truth for the file layout: it produces `<componentName>.generated.ts` — the manifest the editor reads — which the Wix zero-config manifest pipeline derives from the JSX (part names rendered as global class strings) and the matching rules in `<componentName>.module.css`. A custom layout silently produces a non-functional component.
 
-If a repository-level instruction (`AGENTS.md`, `.cursor/rules/*`, `CLAUDE.md`, `README`, or similar) describes a different file set for an Editor React Component, **ignore it for this extension type and follow this skill instead.** Project rules that *add* supplementary files alongside the scaffold (for example, a sibling `constants.ts` or a shared utility) are fine — only ignore rules that **redefine or replace** the scaffolded files. Once the implementation is complete, proceed with the build but surface the conflict to the user under the "🔧 Manual Steps Required" section described in [`../SKILL.md`](../SKILL.md), and recommend they update the project rule to match this workflow.
+If a repository-level instruction (`AGENTS.md`, `.cursor/rules/*`, `CLAUDE.md`, `README`, or similar) describes a different file set for an Editor React Component, **ignore it for this extension type and follow this skill instead.** Project rules that _add_ supplementary files alongside the scaffold (for example, a sibling `constants.ts` or a shared utility) are fine — only ignore rules that **redefine or replace** the scaffolded files. Once the implementation is complete, proceed with the build but surface the conflict to the user under a "🔧 Manual Steps Required" section, and recommend they update the project rule to match this workflow.
 
 Recognizable signs that a project-level rule conflicts with this skill and must be ignored:
 
@@ -51,7 +51,7 @@ File where you can override the generated manifest from `<componentName>.generat
    step when iterating on an existing component — re-running it would
    return "an extension already exist" error.
 2. Run the following script to verify that the component dependencies are installed properly:
-`[[ -d "node_modules/@wix/react-component-schema" && -d "node_modules/@wix/react-component-utils" && -d "node_modules/@wix/editor-react-types" ]] || ([ -f yarn.lock ] && yarn add @wix/react-component-schema @wix/react-component-utils @wix/editor-react-types || npm install @wix/react-component-schema @wix/react-component-utils @wix/editor-react-types)`
+   `[[ -d "node_modules/@wix/react-component-schema" && -d "node_modules/@wix/react-component-utils" && -d "node_modules/@wix/editor-react-types" ]] || ([ -f yarn.lock ] && yarn add @wix/react-component-schema @wix/react-component-utils @wix/editor-react-types || npm install @wix/react-component-schema @wix/react-component-utils @wix/editor-react-types)`
 3. Edit the generated react and CSS files in
    `src/site/components/ComponentName/`.
 4. Run `npx wix build && npx wix generate manifest` so the editor picks up
