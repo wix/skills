@@ -51,10 +51,10 @@ See [Dashboard API Reference](dashboard-page/DASHBOARD_API.md) for complete docu
 
 **CRITICAL: Using Modals in Dashboard Pages**
 
-When you need to display popup forms, confirmations, detail views, or any dialog overlays from a dashboard page, you **MUST** use dashboard modals, not regular React modals or WDS Modal components.
+When you need to display popup forms, confirmations, detail views, or any dialog overlays from a dashboard page, you **MUST** use dashboard modals, not inline React modal implementations.
 
 - **Use dashboard modals** for: edit forms, delete confirmations, detail views, settings dialogs, any popup content
-- **Do NOT use** WDS `Modal` component or custom React modal implementations
+- **Do NOT use** custom inline modal implementations
 - **See [Dashboard Modal reference](DASHBOARD_MODAL.md)** for complete implementation guide
 
 Dashboard modals are opened using `dashboard.openModal()` and provide proper integration with the dashboard lifecycle, state management, and navigation.
@@ -170,9 +170,7 @@ Dashboard pages are designed to accommodate various screen sizes rather than bei
 
 The base unit establishes the increment by which all elements and measurements are multiplied. This practice ensures consistency in the spacing and sizing of design elements.
 
-> **Note:** The design system is based on a 6px unit.
-
-The layout grid, spacing tokens, and nearly all visual elements and sizes adhere to multiples of six (6, 12, 18, 24, etc.), with only occasional exceptions.
+The layout grid and spacing adhere to multiples of six (6, 12, 18, 24, etc.), with only occasional exceptions.
 
 | TOKEN | SIZE | USE FOR |
 |-------|------|---------|
@@ -217,7 +215,7 @@ The dashboard app frame is used by the majority of Wix applications settings. Da
 The system uses a fluid grid layout with a fixed maximum width. It uses columns that scale and resize the content accordingly.
 
 The grid is constructed from 3 elements:
-- **Columns** - The design system uses a 12-column grid. Column width is fluid and changes according to the page width.
+- **Columns** - 12-column grid. Column width is fluid and changes according to the page width.
 - **Gutters** - The gaps between the columns. Gutter width has a fixed value of 24px.
 - **Margins** - By default, a page's content area has 48px side margins and a 48px bottom margin.
 
@@ -316,9 +314,3 @@ Wizard pages guide users through setting up a product or feature. They split com
 > **Note:** Wizards must have a final destination. After completing all steps, users should end up on a relevant page: a dashboard, a details page, or any other relevant location.
 
 
-### Related WDS Components
-
-- `<Page />` - Main page wrapper
-- `<Layout />` - Grid layout container
-- `<MarketingPageLayout />` - Marketing page wrapper
-- `<Card />` - Content container with 24px gaps between cards

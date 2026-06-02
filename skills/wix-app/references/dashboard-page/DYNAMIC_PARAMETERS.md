@@ -139,13 +139,13 @@ This dashboard page manages dynamic parameters for an embedded script. The param
 ## Example Implementation
 
 See the generated site-popup example for a complete reference implementation:
-- src/extensions/dashboard/withProviders.tsx - Provider wrapper with WDS
+- src/extensions/dashboard/withProviders.tsx - Provider wrapper
 - src/extensions/dashboard/pages/page.tsx - Dashboard page with parameter management (wrapped with withProviders)
 - src/extensions/dashboard/components/site-popup-settings.tsx - Settings form component
 - src/extensions/dashboard/types.ts - Type definitions
 
 Key implementation patterns from the example:
-1. withProviders.tsx wraps the component with WixDesignSystemProvider
+1. withProviders.tsx wraps the component with any shared providers needed
 2. page.tsx exports the component wrapped: export default withProviders(MyComponent)
 3. Parameters are saved as individual string fields, not as JSON
 4. Parameters are loaded with proper type conversion (string to boolean, string to number, etc.)
@@ -154,7 +154,7 @@ Key implementation patterns from the example:
 ## File Generation Requirements
 
 When dynamic parameters are present, you MUST generate these files:
-1. src/extensions/dashboard/withProviders.tsx - Provider wrapper (REQUIRED for WDS)
+1. src/extensions/dashboard/withProviders.tsx - Provider wrapper (REQUIRED)
 2. src/extensions/dashboard/pages/page.tsx - The main dashboard page component
 3. src/extensions/dashboard/types.ts - Type definitions for the parameters (if needed)
 4. Any additional component files (settings forms, previews, etc.)
@@ -165,21 +165,12 @@ The withProviders.tsx is NOT optional - it must always be generated when there a
 
 You MUST generate the following file: src/extensions/dashboard/withProviders.tsx
 
-This file is REQUIRED to wrap dashboard components with the Wix Design System provider.
-
 ```typescript
 import React from 'react';
-import { WixDesignSystemProvider } from '@wix/design-system';
-import { i18n } from '@wix/essentials';
 
 export default function withProviders<P extends {} = {}>(Component: React.FC<P>) {
   return function DashboardProviders(props: P) {
-    const locale = i18n.getLocale();
-    return (
-      <WixDesignSystemProvider locale={locale} features={{ newColorsBranding: true }}>
-        <Component {...props} />
-      </WixDesignSystemProvider>
-    );
+    return <Component {...props} />;
   };
 }
 
@@ -194,17 +185,14 @@ This file must be included in your generated files output.
 In your dashboard page component (page.tsx):
 1. Import the withProviders wrapper: `import withProviders from '../../withProviders';`
 2. Import embeddedScripts from '@wix/app-management'
-3. DO NOT wrap your component with WixDesignSystemProvider - the provider wrapper does this
-4. Export the component wrapped with withProviders: `export default withProviders(MyComponent);`
-5. Your component should only contain the Page component and its content, not providers
+3. Export the component wrapped with withProviders: `export default withProviders(MyComponent);`
+4. Your component should only contain the page content, not providers
 
 Example structure:
 ```typescript
 import { useEffect, useState, type FC } from 'react';
 import { dashboard } from '@wix/dashboard';
 import { embeddedScripts } from '@wix/app-management';
-import { Page, Card, Button, ... } from '@wix/design-system';
-import '@wix/design-system/styles.global.css';
 import withProviders from '../../withProviders';
 
 const MyDashboardPage: FC = () => {
@@ -241,9 +229,9 @@ const MyDashboardPage: FC = () => {
   };
 
   return (
-    <Page height="100vh">
-      {/* Page content - NO WixDesignSystemProvider here */}
-    </Page>
+    <div className="p-6 space-y-4">
+      {/* Page content */}
+    </div>
   );
 };
 
@@ -255,7 +243,6 @@ export default withProviders(MyDashboardPage);
 - Only implement UI for parameters that are relevant to your specific use case - ignore parameters that don't apply
 - ALWAYS generate withProviders.tsx when there are dynamic parameters
 - ALWAYS wrap the dashboard page export with withProviders()
-- DO NOT use WixDesignSystemProvider directly in the dashboard page component - use withProviders instead
 - ALWAYS use embeddedScripts directly from '@wix/app-management'
 - ALWAYS convert parameter values to strings when saving (embeddedScripts.embedScript must receive all string values in the parameters object)
 - ALWAYS convert string parameters back to proper types when loading (e.g., 'true' -> true for booleans, string to number for numbers)
