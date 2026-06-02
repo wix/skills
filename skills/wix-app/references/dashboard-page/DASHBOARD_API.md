@@ -2,6 +2,17 @@
 
 Complete reference for the `@wix/dashboard` host module.
 
+## Package
+
+The dashboard host module is provided by **`@wix/dashboard`** — ensure it is in your dependencies.
+
+Import pattern:
+```typescript
+import { dashboard } from '@wix/dashboard';
+```
+
+> ⚠️ **`@wix/dashboard-sdk` is deprecated and must NOT be used.** It has a different API (flat named exports, no `dashboard` namespace object) and is no longer maintained. Always import from `@wix/dashboard`.
+
 ## navigate()
 
 Host Module '@wix/dashboard' 'navigate()' method for navigating between dashboard pages.
