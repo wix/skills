@@ -33,7 +33,7 @@
           "description": { "type": "string" }
         }
       },
-      "description": "Feature blurbs for DISCOVERY-regular.md Step 3 Section B."
+      "description": "Feature blurbs for DISCOVERY-create.md Step 3 Section B."
     },
     "apps": {
       "type": "array",

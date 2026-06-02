@@ -1,12 +1,12 @@
-# Discovery — integration mode (custom)
+# Discovery — connect operation (custom)
 
-Reached when `frontend === "custom"` — the user brought a finished, working site (Claude Design or any tool) and wants it connected to Wix. The shared mode-detection (Wave 0) + CLI-auth pre-flight live in `DISCOVERY.md`; this file is the integration discovery (parse → infer → light plan → approval). Run FLOW (when/order/gate) is owned by `PLAN-integration.md`.
+Reached when `operation === "connect"` — the user brought a finished, working site (Claude Design or any tool) and wants it connected to Wix (today this implies `frontend: custom`, `frontendBuild: none`). The shared Wave-0 field resolution + CLI-auth pre-flight live in `DISCOVERY.md`; this file is the connect discovery (parse → infer → light plan → approval). Run FLOW (when/order/gate) is owned by `PLAN-connect.md`.
 
 **Input processing:** the brought-in site — parsed, not interviewed. **Plan shape:** a light plan (detected-site summary + what to wire/add + apps), not the astro Design-Direction card.
 
-Discovery here **parses the site instead of interviewing**, then hands off to the integration flow (`references/custom/INSTRUCTIONS.md`). Do **not** run brand suggestions, vibe, imagery, the Designer, or the scaffold.
+Discovery here **parses the site instead of interviewing**, then hands off to the connect flow (`references/custom/INSTRUCTIONS.md`). Do **not** run brand suggestions, vibe, imagery, the Designer, or the scaffold.
 
-After the Pre-flight auth check (`DISCOVERY.md` § "Pre-flight"), run integration discovery:
+After the Pre-flight auth check (`DISCOVERY.md` § "Pre-flight"), run connect discovery:
 
 ## 1 · Read the site (primary signal)
 
@@ -18,7 +18,7 @@ Map the site's purpose to the Wix capability + apps using the table in `referenc
 
 ## 3 · Present a light plan, then approval
 
-Same discipline as the astro path (`DISCOVERY-regular.md` § "Step 3" / `PLAN-regular.md`): **present the plan as its own message first, then ask for approval as a separate step.** The integration plan is *light* (no Design Direction — the user already designed it), but it still shows the user what will happen before they commit. Structure:
+Same discipline as the create path (`DISCOVERY-create.md` § "Step 3" / `PLAN-create.md`): **present the plan as its own message first, then ask for approval as a separate step.** The connect plan is *light* (no Design Direction — the user already designed it), but it still shows the user what will happen before they commit. Structure:
 
 - **What I found** — one line: the site's type/purpose + the pages/regions detected (e.g. *"A static wedding invitation — hero, date, venue, closing. No RSVP, no dynamic content."*).
 - **What I'll connect** — what you'll **wire** (existing dynamic regions → a Wix entity) and what you'll **add** (the connected component the purpose implies), plus the **apps** to install. (e.g. *"I'll install Wix Forms and add an RSVP form styled to match the invitation."*)
@@ -39,8 +39,8 @@ node "<SKILL_ROOT>/scripts/init-site-json.mjs" \
     --frontend custom
 ```
 
-- `--frontend custom` is what makes the conductor skip `wix build` at release (`release` is inline, no-build).
+- `--frontend custom` resolves to `frontendBuild: none` in scratch — which is what makes the conductor skip `wix build` at release (`release` is inline, no-build). Only `frontend` is persisted; `operation`/`frontendBuild` stay in scratch (the in-agent contract).
 - `<capabilities-csv>` = the inferred capability set (e.g. `"forms"`, or `"stores,ecom"`), recorded as `verticals`.
-- The script writes a slim `.wix/site.json` (`{brand, frontend, verticals}`; `siteId`/`appId` patched in by the integration flow's init step). It refuses to overwrite an existing file; surface a stale one rather than `rm`-ing it.
+- The script writes a slim `.wix/site.json` (`{brand, frontend, verticals}`; `siteId`/`appId` patched in by the connect flow's init step). It refuses to overwrite an existing file; surface a stale one rather than `rm`-ing it.
 
-Then hand to `BUILD-integration.md`. The frontend-track playbook is `references/custom/INSTRUCTIONS.md`; `PLAN-integration.md` owns the pre-approval routing.
+Then hand to `BUILD.md` — it routes Build on `frontendBuild` (`none` here) to `BUILD-own-build.md`. The frontend-track playbook is `references/custom/INSTRUCTIONS.md`; `PLAN-connect.md` owns the pre-approval routing.

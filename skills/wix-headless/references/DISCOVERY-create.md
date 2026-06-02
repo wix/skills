@@ -1,6 +1,6 @@
-# Discovery — regular mode (astro scaffold)
+# Discovery — create operation (astro)
 
-Reached when `frontend === "astro"` (a create-a-new-site prompt in an empty CWD, nothing to connect — the skill writes the site). The shared mode-detection (Wave 0) + CLI-auth pre-flight live in `DISCOVERY.md`; this file is the astro interview → plan → approval. Run FLOW (when/order/gate) is owned by `PLAN-regular.md`.
+Reached when `operation === "create"` (a create-a-new-site prompt in an empty CWD, nothing to connect — the skill writes the site; today this implies `frontend: astro`, `frontendBuild: wix`). The shared Wave-0 field resolution + CLI-auth pre-flight live in `DISCOVERY.md`; this file is the create interview → plan → approval. Run FLOW (when/order/gate) is owned by `PLAN-create.md`.
 
 **Input processing:** the user's prompt — inferred vertical(s) + an interview (Steps 0–2.5). **Plan shape:** the full decision card (Design Direction + Features + Pages, § "Step 3 — Present the Plan").
 
@@ -41,7 +41,7 @@ If the user already named the brand in the opening message, skip this step.
 
 ### After Q1 — read the loaded pack files; scaffold inputs
 
-Once the brand is confirmed, read the loaded pack contents (to compose the plan) and prepare the scaffold inputs (slug + frontend value) for later. **The scaffold is NOT dispatched during Discovery** — it is dispatched post-approval (`BUILD-regular.md` run-step 0), so the funnel can present the plan without waiting on anything. This section defines only the slug derivation + the `scaffold.sh` command shape.
+Once the brand is confirmed, read the loaded pack contents (to compose the plan) and prepare the scaffold inputs (slug + frontend value) for later. **The scaffold is NOT dispatched during Discovery** — it is dispatched post-approval (`BUILD-astro.md` run-step 0), so the funnel can present the plan without waiting on anything. This section defines only the slug derivation + the `scaffold.sh` command shape.
 
 **(a) Read every pack in the resolved set.** The full resolved set lives in SKILL.md § "When this skill triggers" (third column). For example, a `stores` run reads four files: `stores.md`, `cms.md`, `ecom.md`, `gift-cards.md`. Read the whole resolved set at once — do **not** read the top-level pack alone, then discover its `requires:` and issue a second batch.
 
@@ -55,7 +55,7 @@ These reads pre-load the `routes:`, `apps:`, `requires:`, and `disabled` fields 
 bash <SKILL_ROOT>/scripts/scaffold.sh <slug> "<brand>" --frontend <frontend> 2> <tempfile>
 ```
 
-`<frontend>` is `astro` — the only scaffolded frontend. The scaffold step is reached only on the astro path; a custom frontend never gets here, because Wave 0 routes it to integration discovery (`DISCOVERY-integration.md`), which bootstraps via `npm create @wix/new@latest init` instead of `scaffold.sh`. If the opening prompt names a non-astro frontend or an existing site is detected, Wave 0 already set `frontend = "custom"` — this step does not run.
+`<frontend>` is `astro` — the only scaffolded frontend. The scaffold step is reached only on the create/astro path; a connect run never gets here, because Wave 0 routes it to connect discovery (`DISCOVERY-connect.md`), which bootstraps via `npm create @wix/new@latest init` instead of `scaffold.sh`. If an existing/brought-in site is detected, Wave 0 already set `operation = "connect"` (`frontend = "custom"`) — this step does not run.
 
 **Slug derivation:** lowercase the brand, then **STRIP every character not matching `[a-z0-9]` — do NOT replace them with hyphens or underscores**. Truncate to 20 chars. The `scaffold.sh` pre-flight enforces `^[a-z0-9]{3,20}$` and rejects anything else with exit 2; a rejected slug forces a re-run of the ~30 s scaffold (the indie-bookshop-class regression).
 
@@ -168,7 +168,7 @@ If `balance === null`, drop the trailing *"Current balance: …"* sentence entir
 
 → **Verify Q3:** Themed blocks description ends `Uses 0 Wix AI credits.`. AI-generated description contains the substring `Uses ~<estimatedCredits> Wix AI credits (1 image = 1 credit).` (with `<estimatedCredits>` replaced by the integer). When balance is known, description also ends with `Current balance: <balance> / <cap>.`. When balance is unknown, description ends with `(1 image = 1 credit).` and no balance text follows.
 
-Capture the answer as `imagery: "themed-blocks" | "ai-generated"` in session scratch. The downstream dispatch gates that consume it are owned by `BUILD-regular.md § "Imagery gates"`.
+Capture the answer as `imagery: "themed-blocks" | "ai-generated"` in session scratch. The downstream dispatch gates that consume it are owned by `BUILD-astro.md § "Imagery gates"`.
 
 The captured `imagery` value lives in orchestrator session scratch (alongside the inferred per-vertical intent — see "After Approval" § 1). It is **not** written to `.wix/site.json`; subagents that need to branch on it receive it inlined in their prompts.
 
@@ -194,13 +194,13 @@ The Designer owns **the design itself** — it returns a framework-agnostic JSON
 
 The application inputs (loaded packs, packs-with-components, disabled packs, navigation links) are **not** passed to the Designer — they go to the **Composer**. Hold them in scratch too, but for the Composer prompt in SEED. (Nav-links example for stores+cms+ecom+gift-cards: `[{"href":"/about","label":"About"},{"href":"/faq","label":"FAQ"}]` — `/about` + `/faq` when `cms` is loaded; never `/products` (stores splices it), `/gift-cards` (disabled), or any route whose pack contributes a nav marker.)
 
-The orchestrator dispatches the Designer with these inputs **post-approval** (`BUILD-regular.md` run-step 0) — not during Discovery; the Designer's prompt template lives in `DESIGN_SYSTEM.md`. Discovery only produces and holds the inputs in scratch.
+The orchestrator dispatches the Designer with these inputs **post-approval** (`BUILD-astro.md` run-step 0) — not during Discovery; the Designer's prompt template lives in `DESIGN_SYSTEM.md`. Discovery only produces and holds the inputs in scratch.
 
 ---
 
 ## Step 3 — Present the Plan
 
-**Send the rendered plan as its own assistant message FIRST** — the full formatted markdown (Sections A/B/C + Imagery line) that the user reads. **Only then, as a separate step, use `AskUserQuestion` for approval.** Never bundle the plan into the approval question, never replace it with a one-line "here's the plan", and never skip straight to "Ready to build?" — the user must see the rendered plan before the question. (This is the only thing between Q&A and approval; there is nothing else to do here — see `PLAN-regular.md` § "Wave 0".)
+**Send the rendered plan as its own assistant message FIRST** — the full formatted markdown (Sections A/B/C + Imagery line) that the user reads. **Only then, as a separate step, use `AskUserQuestion` for approval.** Never bundle the plan into the approval question, never replace it with a one-line "here's the plan", and never skip straight to "Ready to build?" — the user must see the rendered plan before the question. (This is the only thing between Q&A and approval; there is nothing else to do here — see `PLAN-create.md` § "Wave 0".)
 
 > **Do NOT show implementation details.** Users do not want to read about scaffolding, `npm install`, `env pull`, API calls, phase agents, designer handoffs, sidecars, or build/preview steps. They care about their site. The TaskList conveys progress; the plan conveys outcome. Never open with SDK packages or CMS collection fields.
 
@@ -349,7 +349,7 @@ If the user wants to adjust, handle it conversationally (swap brand, change vibe
 
 ## After Approval — capture intent in scratch and write `.wix/site.json`
 
-On the user's "Yes, build it" approval, hold the captured intent in orchestrator session scratch and write a slim `.wix/site.json` metadata snapshot. The transition into Setup — and what Setup synchronizes on — is FLOW, owned by `PLAN-regular.md` (which hands off to `BUILD-regular.md` on approval).
+On the user's "Yes, build it" approval, hold the captured intent in orchestrator session scratch and write a slim `.wix/site.json` metadata snapshot. The transition into Setup — and what Setup synchronizes on — is FLOW, owned by `PLAN-create.md` (which hands off to `BUILD-astro.md` on approval).
 
 ### 1 · Compose the intent block in session scratch
 
@@ -386,11 +386,11 @@ node "<SKILL_ROOT>/scripts/init-site-json.mjs" \
     --frontend "<frontend>"
 ```
 
-- `<frontend>` is the value captured in Wave 0 — always `astro` on this path. (Custom frontends write their own `.wix/site.json` with `--frontend custom` via `DISCOVERY-integration.md` § 4.) Always pass it explicitly so the recorded JSON is unambiguous.
+- `<frontend>` is the value captured in Wave 0 — always `astro` on this path. (Custom frontends write their own `.wix/site.json` with `--frontend custom` via `DISCOVERY-connect.md` § 4.) Always pass it explicitly so the recorded JSON is unambiguous.
 - `<verticals-csv>` is the comma-joined list of all loaded packs (top-level + transitive via `requires:`). For a stores+cms run this is `"stores,ecom,cms,gift-cards"`.
 - `<one-line aesthetic from Q2>` is the short aesthetic tone phrase, not the full 2–3 sentence direction.
 - The script writes a slim `.wix/site.json` containing only `{brand, frontend, verticals}` (plus `siteId` / `appId` once Setup patches them in). It refuses to overwrite an existing file. If a stale site.json is present from a prior run, surface that to the user before retrying — do NOT silently `rm` it.
 - The intent block from § 1 is **not** passed to the script — it lives in orchestrator scratch and feeds seeder prompts directly.
 - **Trust the script's response.** A `{"status": "ok", "path": "..."}` return is the contract — do **not** follow up with a defensive `ls` + `Read` against `.wix/site.json` to confirm. Re-reading costs ~3s and adds nothing.
 
-Once `init-site-json.mjs` returns `{"status": "ok"}`, Discovery's domain work is complete. The transition into Setup and the rest of the run is owned by `PLAN-regular.md` (which hands off to `BUILD-regular.md` on approval).
+Once `init-site-json.mjs` returns `{"status": "ok"}`, Discovery's domain work is complete. The transition into Setup and the rest of the run is owned by `PLAN-create.md` (which hands off to `BUILD-astro.md` on approval).

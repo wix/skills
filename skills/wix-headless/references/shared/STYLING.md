@@ -53,7 +53,7 @@ If a designer's `global.css` contains rules like `.featured-section { padding-bl
 
 ## Required tokens — the component-CSS template contract
 
-The per-pack `components-<pack>.css` templates at `<SKILL_ROOT>/references/astro/templates/<pack>/components-<pack>.css` reference a fixed set of CSS custom properties via `var(--token)` (never `@apply`). Those templates are copied verbatim into the project by the orchestrator at BUILD-regular.md § Step 4.5, so **the Composer's `@theme` block MUST declare every token below** for the build to pass (the Composer maps the Designer's framework-agnostic spec onto these `--var` names, deriving any required role the Designer omitted). If a token is missing, the rule that references it collapses silently and the corresponding component renders unstyled (or worse, half-styled).
+The per-pack `components-<pack>.css` templates at `<SKILL_ROOT>/references/astro/templates/<pack>/components-<pack>.css` reference a fixed set of CSS custom properties via `var(--token)` (never `@apply`). Those templates are copied verbatim into the project by the orchestrator at BUILD-astro.md § Step 4.5, so **the Composer's `@theme` block MUST declare every token below** for the build to pass (the Composer maps the Designer's framework-agnostic spec onto these `--var` names, deriving any required role the Designer omitted). If a token is missing, the rule that references it collapses silently and the corresponding component renders unstyled (or worse, half-styled).
 
 | Token | Required? | Fallback in templates | Used by |
 |---|---|---|---|

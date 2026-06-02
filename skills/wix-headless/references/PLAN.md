@@ -1,12 +1,12 @@
 # Plan — the pre-approval funnel
 
-This file owns the run **from the first Discovery question to the user's approval of the plan** — mode routing, the questions, the background dispatches that hide latency, and the plan/approval gate. Its job is to get the user to the commitment moment **fast**, so keep it lean.
+This file owns the run **from the first Discovery question to the user's approval of the plan** — operation routing, the questions, the background dispatches that hide latency, and the plan/approval gate. Its job is to get the user to the commitment moment **fast**, so keep it lean.
 
-**This file is the funnel router.** It holds the shared funnel rules (concurrency vocabulary, the two-track model, frontend-mode routing, user-facing output, batching). The mode-specific funnel — how input is processed and how the plan looks — lives in `PLAN-regular.md` (astro) and `PLAN-integration.md` (custom). **Read `frontend` (set by `DISCOVERY.md` § Wave 0), then open the matching one and read only that:** `astro` → `PLAN-regular.md`, `custom` → `PLAN-integration.md`.
+**This file is the funnel router, and it routes on OPERATION.** It holds the shared funnel rules (concurrency vocabulary, the two-track model, operation routing, the Plan→Build contract, user-facing output, batching). The operation-specific funnel — how input is processed and how the plan looks — lives in `PLAN-create.md` (create a new site) and `PLAN-connect.md` (connect a brought-in design). **Read `operation` (set by `DISCOVERY.md` § Wave 0), then open the matching one and read only that:** `create` → `PLAN-create.md`, `connect` → `PLAN-connect.md`. (Today `create` coincides with `frontend: astro` and `connect` with `frontend: custom` — but the funnel branches on the *operation*, not the frontend; that is the seam the framework-SPA and extend plans build on.)
 
 **On approval, open `BUILD.md`** — the post-approval conductor that owns execution (Setup → design-system bridge → Seed → Components → Pages → Build → Release). Everything past the approval gate lives there, so it is not read until the user has committed.
 
-**The contract with the other files.** The domain/step files answer *what each step does* (the questions Discovery asks, the recipes, the prompt templates). This file + the mode funnels + `BUILD.md` answer *when, in what order, in parallel with what, gated on what*. The step files do not name the sequence or chain to each other; the conductor names when to apply each one. Neither prescribes a tool API — map each step to whatever subagent / parallel-execution primitive your runtime offers.
+**The contract with the other files.** The domain/step files answer *what each step does* (the questions Discovery asks, the recipes, the prompt templates). This file + the operation funnels + `BUILD.md` answer *when, in what order, in parallel with what, gated on what*. The step files do not name the sequence or chain to each other; the conductor names when to apply each one. Neither prescribes a tool API — map each step to whatever subagent / parallel-execution primitive your runtime offers.
 
 ## Concurrency vocabulary
 
@@ -28,18 +28,42 @@ The run is two semi-independent tracks that the orchestrator interleaves for wal
 
 The only cross-track data flow is **one-way, business → frontend**: seeders produce entity IDs which the orchestrator inlines into the frontend track's Page-subagent prompts. There is no frontend → business dependency.
 
-## Frontend-mode routing
+## Operation routing
 
-`frontend` (captured by `DISCOVERY.md` § "Wave 0 — Mode detection") is the axis the frontend track branches on. The orchestrator holds it in scratch and uses it in two ways: it branches inline in the PLAN/BUILD orchestration on the scratch value, and it passes `--frontend <value>` to `init-site-json.mjs` (and, astro only, to `scaffold.sh` + `--template astro` to `seed-utilities.sh`). The axis is binary — **astro (scaffold mode: the skill writes the site) vs custom (integration mode: connect a brought-in site)**:
+The Plan phase routes on **operation** — *create* (scaffold a new site from a prompt) vs *connect* (integrate a brought-in design). `operation` is captured by `DISCOVERY.md` § "Wave 0", held by the orchestrator in scratch, and selects the funnel:
 
-| `frontend` | Mode | Funnel |
+| `operation` | What it is | Funnel → Build |
 |---|---|---|
-| `astro` | Scaffold | **`PLAN-regular.md`** → on approval → `BUILD-regular.md`. The full playbook lives under `<SKILL_ROOT>/references/astro/`. |
-| `custom` | Integration | **`PLAN-integration.md`** → on approval → `BUILD-integration.md`. The frontend-track playbook is `<SKILL_ROOT>/references/custom/INSTRUCTIONS.md`. No scaffold, no Designer/Composer; init + shared Setup/Seed + connect/augment + no-build release. |
+| `create` | The user asks for a new site; the skill writes it | **`PLAN-create.md`** → on approval → `BUILD.md` routes Build on **framework**. The full astro playbook lives under `<SKILL_ROOT>/references/astro/`. |
+| `connect` | The user brings a finished design to wire to Wix | **`PLAN-connect.md`** → on approval → `BUILD.md` routes Build on **framework**. The frontend-track playbook is `<SKILL_ROOT>/references/custom/INSTRUCTIONS.md`. No scaffold, no Designer/Composer; init + shared Setup/Seed + connect/augment + no-build release. |
 
-> **Astro is the one Wix-preferred frontend the skill *builds*; custom is the frontend the user *brings*.** Integration mode connects any working HTML+CSS/JS site to a live Wix backend — wiring existing dynamic regions and augmenting static designs with the connected feature their purpose implies. See `references/custom/INSTRUCTIONS.md`.
+> **Operation ≠ frontend.** Today `create` happens to mean `frontend: astro` and `connect` means `frontend: custom`, because those are the only two combinations that exist. But the funnel branches on the *operation* (what the user is doing), not the frontend (what renders it). Keeping them distinct is what lets *create × framework-SPA* and *connect × html* become independently expressible without a new phase fork — see the framework-SPA plan and the extend plan.
 
-This is the **track-selection routing layer**: `SETUP.md`'s steps assume the routing already happened; the conductor owns the branch.
+This is the **operation-selection routing layer**: `SETUP.md`'s steps assume the routing already happened; the conductor owns the branch. **Build does NOT route on operation** — it routes on framework (`BUILD.md`); operation feeds Build only through the contract below (specifically the bootstrap/wiring cells).
+
+## The Plan→Build contract
+
+Plan resolves a small, explicit contract that Build consumes. It is carried **in the orchestrator's in-context session scratch** and threaded into each subagent's dispatch prompt — it is **not persisted to disk** (so `init-site-json.mjs` is *not* extended to record it; only `frontend` lands on disk, exactly as today). The orchestrator already resolves these fields in Wave 0 and holds them for the whole run, so a disk round-trip buys nothing.
+
+**Core (every operation resolves these identically; Build's install/build/release spine reads only these):**
+
+| Field | Today's values | Meaning |
+|---|---|---|
+| `operation` | `create` \| `connect` | what the user is doing (*extend* added later by its own plan) |
+| `frontend` | `astro` \| `custom` | what renders the site (the one field also persisted to `.wix/site.json`) |
+| `frontendBuild` | `wix` \| `none` | the build-class Build routes on: `wix` for astro, `none` for brought HTML. `own` (`npm run build`) is **reserved** for the SPA plan |
+| `verticals[]` | e.g. `["stores","ecom","cms"]` | loaded packs (top-level + transitive) |
+| `designSource` | `generate-fresh` \| `derive-from-brought` | create generates; connect derives from the brought design's own tokens |
+| `brand` | `{ name, description }` | brand metadata |
+
+`frontendBuild` derives trivially from `frontend` today (astro ⇒ `wix`, custom ⇒ `none`); resolve it in Wave 0 alongside `frontend` and hold it in scratch. Build branches its install/build/release **purely off `frontendBuild`** — never off `operation`.
+
+**Operation section (feeds ONLY the bootstrap + wiring cells, never the build/release spine):**
+- `connect` carries the **connection plan** (binding-map / augmentation spec) inferred in Discovery.
+- `create` carries nothing extra.
+- *(extend will carry existing-state + delta — added by the extend plan.)*
+
+That is the precise sense in which the contract stays uniform across operations: the build/release spine is contract-uniform (it reads only the core), and **only** the bootstrap/wiring cells read the operation-specific payload. A *fresh session over an existing project* (extend) reconstructs the equivalent core from durable disk artifacts (`@wix/astro` dep, `package.json`, on-disk pages) rather than from scratch — same contract, sourced differently by lifecycle.
 
 ## User-facing output (keep the machinery invisible)
 
