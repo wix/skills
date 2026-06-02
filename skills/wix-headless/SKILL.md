@@ -38,11 +38,11 @@ Your CWD at runtime is the **project directory** (scaffold subdir after setup), 
 
 | What | Absolute path |
 |---|---|
-| Discovery flow | `<SKILL_ROOT>/references/DISCOVERY.md` |
+| Discovery flow (router → mode files) | `<SKILL_ROOT>/references/DISCOVERY.md` → `DISCOVERY-regular.md` (astro) / `DISCOVERY-integration.md` (custom) |
 | Setup flow | `<SKILL_ROOT>/references/SETUP.md` |
 | Seed flow | `<SKILL_ROOT>/references/SEED.md` |
-| Pre-approval funnel (plan) | `<SKILL_ROOT>/references/PLAN.md` |
-| Post-approval build | `<SKILL_ROOT>/references/BUILD.md` |
+| Pre-approval funnel (plan; router → mode files) | `<SKILL_ROOT>/references/PLAN.md` → `PLAN-regular.md` (astro) / `PLAN-integration.md` (custom) |
+| Post-approval build (router → mode files) | `<SKILL_ROOT>/references/BUILD.md` → `BUILD-regular.md` (astro) / `BUILD-integration.md` (custom) |
 | Seed recipe map (human ref) | `<SKILL_ROOT>/references/seed-recipes.md` |
 | Auth + REST headers | `<SKILL_ROOT>/references/shared/AUTHENTICATION.md` |
 | Public doc endpoints | `<SKILL_ROOT>/references/shared/DOCS_SEARCH.md` |
@@ -60,7 +60,7 @@ Your CWD at runtime is the **project directory** (scaffold subdir after setup), 
 | Known app IDs | `<SKILL_ROOT>/references/commands/known-apps.json` |
 | Scripts | `<SKILL_ROOT>/scripts/` |
 
-**Do NOT Read subagent role/instruction docs in the orchestrator** — pass the absolute path; the subagent opens it. This covers **every** doc whose body is written *for a subagent to follow*, not just files literally named `INSTRUCTIONS.md`: `DESIGN_SYSTEM.md` (Designer), `astro/COMPOSE.md` (Composer), `astro/designer/INSTRUCTIONS.md` (page designers), the per-vertical `INSTRUCTIONS.md` routers, and the per-vertical guides under `references/astro/`. The orchestrator only needs to know **which inputs to inline** for each dispatch — and that list lives in `BUILD.md`'s dispatch steps, not in the role doc. Reading a role doc to "prepare a dispatch" pulls 5–14 KB of subagent-only how-to into the orchestrator's context, which it then has to reason over on the dispatch turn — measurably inflating bridge turns. The orchestrator's own reading set is the conductor/domain docs only: `PLAN.md`, `BUILD.md`, `DISCOVERY.md`, `SETUP.md`, `SEED.md`, and `references/verticals/*.md`.
+**Do NOT Read subagent role/instruction docs in the orchestrator** — pass the absolute path; the subagent opens it. This covers **every** doc whose body is written *for a subagent to follow*, not just files literally named `INSTRUCTIONS.md`: `DESIGN_SYSTEM.md` (Designer), `astro/COMPOSE.md` (Composer), `astro/designer/INSTRUCTIONS.md` (page designers), the per-vertical `INSTRUCTIONS.md` routers, and the per-vertical guides under `references/astro/`. The orchestrator only needs to know **which inputs to inline** for each dispatch — and that list lives in `BUILD.md`'s dispatch steps, not in the role doc. Reading a role doc to "prepare a dispatch" pulls 5–14 KB of subagent-only how-to into the orchestrator's context, which it then has to reason over on the dispatch turn — measurably inflating bridge turns. The orchestrator's own reading set is the conductor/domain docs only: `PLAN.md` (+ the one mode funnel it routes to — `PLAN-regular.md` *or* `PLAN-integration.md`), `BUILD.md` (+ the one mode build file — `BUILD-regular.md` *or* `BUILD-integration.md`), `DISCOVERY.md` (+ the one mode discovery file — `DISCOVERY-regular.md` *or* `DISCOVERY-integration.md`), `SETUP.md`, `SEED.md`, and `references/verticals/*.md`.
 
 When and how each subagent is dispatched (Designer, Composer, seeders, image phases, vertical Components/Pages) is owned by the conductor (`references/PLAN.md` pre-approval, `references/BUILD.md` post-approval), not listed here.
 
@@ -118,7 +118,7 @@ Triggers: *"connect this to Wix Headless"*, *"add Wix Headless to this project"*
 | A working frontend (`index.html`, `*.html`/`*.jsx`/`*.tsx`/`*.vue`, a Claude-Design bundle, …), with or without `wix.config.json` | **B (custom, integration mode)** |
 | `wix.config.json` + Astro structure (`src/`, `astro.config.mjs`) | resume a prior wix-headless run — ask "continue or start fresh?" via `AskUserQuestion` |
 
-**Custom frontends run integration mode.** When the working directory holds a brought-in site, the run **connects it to a live Wix backend** — parse the site (`DISCOVERY.md` § "Custom (integration mode)"), init + shared Setup/Seed, wire existing dynamic regions to `@wix/sdk` and augment static designs with the connected feature their purpose implies, then no-build release. The frontend-track playbook is `<SKILL_ROOT>/references/custom/INSTRUCTIONS.md`; routing is owned by `PLAN.md` § "Custom (integration mode)".
+**Custom frontends run integration mode.** When the working directory holds a brought-in site, the run **connects it to a live Wix backend** — parse the site (`DISCOVERY-integration.md`), init + shared Setup/Seed, wire existing dynamic regions to `@wix/sdk` and augment static designs with the connected feature their purpose implies, then no-build release. The frontend-track playbook is `<SKILL_ROOT>/references/custom/INSTRUCTIONS.md`; routing is owned by `PLAN-integration.md`.
 
 ### Frontend modes (the `.wix/site.json.frontend` axis)
 
