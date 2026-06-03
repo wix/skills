@@ -108,6 +108,8 @@ Explicit invocation only. **Two entry paths — decide before doing anything els
 
 The user asks to **create a new site from scratch** ("build me a store", "I want to sell tables online", "make a blog") with **no design to connect**, in an empty directory. Infer vertical(s) from the opening message and load the **full resolved pack set** (top-level + `requires:` transitives + always-on `cms`) in one read batch — routing examples: stores → stores+cms+ecom+gift-cards; blog → blog+cms; etc. If the prompt is too vague, ask one conversational clarifier (NOT `AskUserQuestion`): *"What do you want your site to do — sell things, publish content, take bookings?"*
 
+> **Framework keyword → scaffold that framework, not astro.** A create prompt that **explicitly names a client-build framework** (*"create a bakery site using vite and wix"*, react/vue/svelte/SPA) stays Path A (`operation: create`) but resolves `frontendBuild: own` — the skill scaffolds *that* framework and connects it via the SPA spine (companion case). A **bare** "create a bakery site" with no framework named stays **astro** (the default). Only an explicit keyword flips it — never infer a framework the user didn't ask for. (`DISCOVERY.md` § "Wave 0".)
+
 > **Do NOT call `WixSiteBuilder` MCP** for new-site requests — same intent, different flow; calling both produces a duplicated, conflicting build. This skill is the sole entry point.
 
 ### Path B — Connect an existing/brought design to Wix (`operation: connect`)
@@ -128,16 +130,18 @@ Triggers: *"connect this to Wix Headless"*, *"implement this design … connecti
 The skill routes each phase on its own axis — they only *happen* to coincide while there are exactly two modes:
 
 - **Operation** (Discovery + Plan route on this) — *create* (scaffold a new site from a prompt) vs *connect* (integrate a brought-in design). *(extend added later by the extend plan.)*
-- **Framework-build-class** (Build routes on this) — `frontendBuild`: `wix` (astro-native, `wix build`) vs `none` (static HTML, no build) vs `own` (own-build, `npm run build` — **reserved** for the framework-SPA plan).
+- **Framework-build-class** (Build routes on this) — `frontendBuild`: `wix` (astro-native, `wix build`) vs `none` (static HTML, no build) vs `own` (own-build SPA, the project's own `npm run build`).
 
-These plus `frontend`, `verticals[]`, `designSource`, and `brand` form the **Plan→Build contract** (`PLAN.md` § "The Plan→Build contract"), held in orchestrator scratch and threaded into dispatch prompts. Today the axes coincide trivially:
+These plus `frontend`, `verticals[]`, `designSource`, and `brand` form the **Plan→Build contract** (`PLAN.md` § "The Plan→Build contract"), held in orchestrator scratch and threaded into dispatch prompts. The axes are **orthogonal** — `frontendBuild` is derived inside the operation, not implied by it:
 
 | `operation` | `frontend` | `frontendBuild` | What runs |
 |---|---|---|---|
-| `create` | `astro` | `wix` | the skill writes the site, then `wix build` + release (`references/astro/`) |
-| `connect` | `custom` | `none` | connect a brought-in HTML+CSS/JS site; init + shared Setup/Seed + connect/augment + **no-build** release (`references/custom/`) |
+| `create` (default) | `astro` | `wix` | the skill writes the site, then `wix build` + release (`references/astro/`) |
+| `create` + explicit framework keyword (*"…using vite"*) | `custom` | `own` | scaffold the named framework (vite/vue/svelte) → minimal app → connect via the SPA spine → the project's own `npm run build` + release (companion case) |
+| `connect` (brought static HTML) | `custom` | `none` | connect a brought-in HTML+CSS/JS site; init + Setup/Seed + connect/augment + **no-build** release (`references/custom/`) |
+| `connect` (brought framework SPA) | `custom` | `own` | connect a brought-in Vite/React/Vue/Svelte SPA; bundled `@wix/sdk` + source-edit wiring (persistence swap) + the project's own build + release |
 
-`DISCOVERY.md` § "Wave 0" resolves `operation` first, then derives `frontend`/`frontendBuild`. **Only `frontend` is persisted** to `.wix/site.json` (via `init-site-json.mjs --frontend <value>`, both operations); `operation`/`frontendBuild` live in scratch and are **not** written to disk. **Operation routing is owned by `PLAN.md` § "Operation routing"; framework routing by `BUILD.md`.**
+`DISCOVERY.md` § "Wave 0" resolves `operation` first, then derives `frontend`/`frontendBuild` (connect's build-class from disk — `DISCOVERY-connect.md` § 1.5; create's from an explicit framework keyword). **Only `frontend` is persisted** to `.wix/site.json` (via `init-site-json.mjs --frontend <value>`); `operation`/`frontendBuild` live in scratch and are **not** written to disk (on scratch loss, `frontendBuild` is recovered from `package.json`). **Operation routing is owned by `PLAN.md` § "Operation routing"; framework routing by `BUILD.md`.** Framework SPAs carry **no per-framework instruction files** — one agnostic playbook; only SSR frameworks (Next.js/Nuxt) are deferred.
 
 ### Two tracks (business vs frontend)
 

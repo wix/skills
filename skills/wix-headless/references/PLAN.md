@@ -35,9 +35,9 @@ The Plan phase routes on **operation** — *create* (scaffold a new site from a 
 | `operation` | What it is | Funnel → Build |
 |---|---|---|
 | `create` | The user asks for a new site; the skill writes it | **`PLAN-create.md`** → on approval → `BUILD.md` routes Build on **framework**. The full astro playbook lives under `<SKILL_ROOT>/references/astro/`. |
-| `connect` | The user brings a finished design to wire to Wix | **`PLAN-connect.md`** → on approval → `BUILD.md` routes Build on **framework**. The frontend-track playbook is `<SKILL_ROOT>/references/custom/INSTRUCTIONS.md`. No scaffold, no Designer/Composer; init + shared Setup/Seed + connect/augment + no-build release. |
+| `connect` | The user brings a finished design to wire to Wix | **`PLAN-connect.md`** → on approval → `BUILD.md` routes Build on **framework**. The frontend-track playbook is `<SKILL_ROOT>/references/custom/INSTRUCTIONS.md`. No scaffold, no Designer/Composer; init + shared Setup/Seed + connect/augment/persistence-swap; release is no-build (`none`) or the project's own build (`own` SPA). |
 
-> **Operation ≠ frontend.** Today `create` happens to mean `frontend: astro` and `connect` means `frontend: custom`, because those are the only two combinations that exist. But the funnel branches on the *operation* (what the user is doing), not the frontend (what renders it). Keeping them distinct is what lets *create × framework-SPA* and *connect × html* become independently expressible without a new phase fork — see the framework-SPA plan and the extend plan.
+> **Operation ≠ frontend.** The funnel branches on the *operation* (what the user is doing), not the frontend (what renders it). The two are orthogonal: *create* spans `frontendBuild` `wix` (astro default) and `own` (a named framework); *connect* spans `none` (static HTML), `own` (a brought SPA), and could span `wix` (a brought astro project) — none of which forks the operation router. Keeping operation and framework distinct is what lets these combinations be independently expressible without a new phase fork — see the framework-SPA plan and the extend plan.
 
 This is the **operation-selection routing layer**: `SETUP.md`'s steps assume the routing already happened; the conductor owns the branch. **Build does NOT route on operation** — it routes on framework (`BUILD.md`); operation feeds Build only through the contract below (specifically the bootstrap/wiring cells).
 
@@ -51,12 +51,12 @@ Plan resolves a small, explicit contract that Build consumes. It is carried **in
 |---|---|---|
 | `operation` | `create` \| `connect` | what the user is doing (*extend* added later by its own plan) |
 | `frontend` | `astro` \| `custom` | what renders the site (the one field also persisted to `.wix/site.json`) |
-| `frontendBuild` | `wix` \| `none` | the build-class Build routes on: `wix` for astro, `none` for brought HTML. `own` (`npm run build`) is **reserved** for the SPA plan |
+| `frontendBuild` | `wix` \| `none` \| `own` | the build-class Build routes on: `wix` (astro, `wix build`), `none` (brought static HTML, no build), `own` (framework SPA — the project's own `npm run build`; brought-in *or* scaffolded from a named framework) |
 | `verticals[]` | e.g. `["stores","ecom","cms"]` | loaded packs (top-level + transitive) |
 | `designSource` | `generate-fresh` \| `derive-from-brought` | create generates; connect derives from the brought design's own tokens |
 | `brand` | `{ name, description }` | brand metadata |
 
-`frontendBuild` derives trivially from `frontend` today (astro ⇒ `wix`, custom ⇒ `none`); resolve it in Wave 0 alongside `frontend` and hold it in scratch. Build branches its install/build/release **purely off `frontendBuild`** — never off `operation`.
+`frontendBuild` is **derived inside the operation, not implied by it** (the axes are orthogonal): connect resolves it from the brought-in project on disk (`none` static HTML vs `own` framework SPA — `DISCOVERY-connect.md` § 1.5); create resolves it from an explicit framework keyword (`wix` astro default vs `own` named framework — `DISCOVERY.md` § "Wave 0"). Resolve it in Wave 0 alongside `frontend` and hold it in scratch (on scratch loss, recover from `package.json`). Build branches its install/build/release **purely off `frontendBuild`** — never off `operation`.
 
 **Operation section (feeds ONLY the bootstrap + wiring cells, never the build/release spine):**
 - `connect` carries the **connection plan** (binding-map / augmentation spec) inferred in Discovery.

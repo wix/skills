@@ -1,6 +1,24 @@
-# Discovery — create operation (astro)
+# Discovery — create operation
 
-Reached when `operation === "create"` (a create-a-new-site prompt in an empty CWD, nothing to connect — the skill writes the site; today this implies `frontend: astro`, `frontendBuild: wix`). The shared Wave-0 field resolution + CLI-auth pre-flight live in `DISCOVERY.md`; this file is the create interview → plan → approval. Run FLOW (when/order/gate) is owned by `PLAN-create.md`.
+Reached when `operation === "create"` (a create-a-new-site prompt in an empty CWD, nothing to connect — the skill writes the site). The shared Wave-0 field resolution + CLI-auth pre-flight live in `DISCOVERY.md`; this file is the create interview → plan → approval. Run FLOW (when/order/gate) is owned by `PLAN-create.md`.
+
+Create has **two framework branches** (Wave 0 resolved which):
+- **`frontendBuild: wix` (astro — the default).** The full astro pipeline below: interview (Steps 0–2.5) → the full decision card (Design Direction + Features + Pages) → `scaffold.sh` → Designer/Composer. **This is the rest of this file.**
+- **`frontendBuild: own` (a framework SPA — the prompt named `vite`/`react`/`vue`/`svelte`).** A **minimal-scaffold** branch that does **not** run the astro Designer/Composer/imagery pipeline — see § "Framework-SPA branch" immediately below, then skip the astro steps.
+
+## Framework-SPA branch (`frontendBuild: own`) — companion case
+
+When Wave 0 resolved `frontend: custom`, `frontendBuild: own` (an explicit framework keyword on a create prompt), **do not run Steps 0–3 below** (no vibe, no AI-imagery credit dance, no `scaffold.sh`, no astro Design-Direction card, no Designer). The first cut is a **minimal scaffold + connect** (SPA plan § Companion case 4a; re-homing the astro design pipeline onto React/Vue is 4b — **deferred**). Flow:
+
+1. **Infer** — the **brand** (from the prompt), the **vertical/capability** (same routing as astro — a bakery landing+content → `cms`; a store → `stores`; etc.), and the **named framework** (vite+react / vue / svelte) from the prompt's keyword.
+2. **Present a light plan** (its own message), then approval — same discipline as the connect plan (`DISCOVERY-connect.md` § 3): *what I'll build* (a small <framework> app with your brand's look) + *what I'll connect* (the capability → its Wix backend) + the apps. No Design-Direction card, no Pages table. For a client-state capability, state the **shared-data caveat** up front.
+3. **On approval** — `init-site-json.mjs --frontend custom` (persists `frontend: custom`; `frontendBuild: own` stays in scratch), then hand to `BUILD.md` → routes on `frontendBuild: own` → `BUILD-own-build.md`, whose **create × own** bootstrap (scaffold the framework → `init` → generate the minimal app) and wiring (write a fresh `@wix/data` data module) cells run, then the project's own build + release.
+
+The astro pipeline below (Steps 0–3, Designer inputs) does **not** apply to this branch.
+
+---
+
+## Astro branch (`frontendBuild: wix` — the default)
 
 **Input processing:** the user's prompt — inferred vertical(s) + an interview (Steps 0–2.5). **Plan shape:** the full decision card (Design Direction + Features + Pages, § "Step 3 — Present the Plan").
 
@@ -386,7 +404,7 @@ node "<SKILL_ROOT>/scripts/init-site-json.mjs" \
     --frontend "<frontend>"
 ```
 
-- `<frontend>` is the value captured in Wave 0 — always `astro` on this path. (Custom frontends write their own `.wix/site.json` with `--frontend custom` via `DISCOVERY-connect.md` § 4.) Always pass it explicitly so the recorded JSON is unambiguous.
+- `<frontend>` is the value captured in Wave 0 — `astro` on **this** (astro) branch. (The framework-SPA create branch above writes `--frontend custom` itself; connect writes `--frontend custom` via `DISCOVERY-connect.md` § 4.) Always pass it explicitly so the recorded JSON is unambiguous.
 - `<verticals-csv>` is the comma-joined list of all loaded packs (top-level + transitive via `requires:`). For a stores+cms run this is `"stores,ecom,cms,gift-cards"`.
 - `<one-line aesthetic from Q2>` is the short aesthetic tone phrase, not the full 2–3 sentence direction.
 - The script writes a slim `.wix/site.json` containing only `{brand, frontend, verticals}` (plus `siteId` / `appId` once Setup patches them in). It refuses to overwrite an existing file. If a stale site.json is present from a prior run, surface that to the user before retrying — do NOT silently `rm` it.

@@ -38,7 +38,7 @@ Create a collection in the Wix dashboard → CMS with these fields:
 ### 1. Portfolio Service Module (`src/lib/portfolio.ts`)
 
 ```typescript
-import * as items from "@wix/wix-data-items-sdk";
+import { items } from "@wix/data";
 import { auth } from "@wix/essentials";
 import { media } from "@wix/sdk";
 
