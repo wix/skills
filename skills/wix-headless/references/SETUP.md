@@ -14,15 +14,15 @@ Routing (which path runs) is owned by `PLAN.md` § "Operation routing" (operatio
 
 ## Step 1 — Read the scaffolded project config (siteId + appId)
 
-**Do not** speculatively `Read <project-slug>/wix.config.json` before the scaffold exists — the speculative read returns `File does not exist` on every fast-Q&A run (the file isn't there yet), emits a `[MED]` anomaly in the trace, and costs 3–5 s of round-trip + recovery thinking.
+**Do not** speculatively `Read <folder-name>/wix.config.json` before the scaffold exists — the speculative read returns `File does not exist` on every fast-Q&A run (the file isn't there yet), emits a `[MED]` anomaly in the trace, and costs 3–5 s of round-trip + recovery thinking.
 
-Once the scaffolded project exists, read `<project-slug>/wix.config.json` and extract:
+Once the scaffolded project exists, read `<folder-name>/wix.config.json` and extract:
 - `siteId` — the site id passed as `--site` to `npx @wix/cli@latest token` and embedded in every install body + as the `wix-site-id` header on every site-scoped REST call. Hold it in orchestrator session scratch.
 - `appId` — the project's appId. Hold it in session scratch (it goes into the SDK's `createClient` inputs in later steps).
 
 **Before `cd`, capture the current working directory as `<site-root>` and hold it in session scratch.** This is where Discovery's `init-site-json.mjs` wrote the slim `.wix/site.json` snapshot. The orchestrator is the **sole** reader/writer of that file; no subagent or downstream script reads it during the run. Hold `<site-root>` as an absolute path so the `cd` into the scaffold subdir below does not lose it.
 
-`cd` into `<project-slug>/` so all subsequent file ops + shell calls (`npm`, `npx @wix/cli@latest env pull`) are relative to the project root.
+`cd` into `<folder-name>/` so all subsequent file ops + shell calls (`npm`, `npx @wix/cli@latest env pull`) are relative to the project root.
 
 ---
 
