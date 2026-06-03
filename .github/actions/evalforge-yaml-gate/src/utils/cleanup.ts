@@ -7,6 +7,7 @@ import { loadEvals, type LoadedScenario } from './evals';
 import { toScenarioBody } from './sync';
 import { workspaceRoot } from './workspace';
 import { BASE_WORKSPACE_SUBDIR } from './paths';
+import { errMsg } from './errors';
 
 export type CleanupRestoreAction = {
   kind: 'RESTORE';
@@ -46,9 +47,9 @@ export async function runCleanup(): Promise<void> {
 
   let remote: RemoteScenario[];
   try {
-    remote = await evalforge.listTestScenarios(config.projectId);
+    remote = await evalforge.listScenariosByTag(config.projectId, draftTag);
   } catch (e) {
-    core.warning(`listTestScenarios failed: ${errMsg(e)}`);
+    core.warning(`listScenariosByTag (draftTag) failed: ${errMsg(e)}`);
     return;
   }
 
@@ -76,8 +77,4 @@ async function execute(client: EvalForgeClient, projectId: string, a: CleanupAct
     const verb = a.kind === 'RESTORE' ? 'Restore' : 'Delete draft';
     core.warning(`${verb} failed for ${a.name}: ${errMsg(e)}`);
   }
-}
-
-function errMsg(e: unknown): string {
-  return e instanceof Error ? e.message : String(e);
 }

@@ -34146,6 +34146,7 @@ const evals_1 = __nccwpck_require__(1686);
 const sync_1 = __nccwpck_require__(546);
 const workspace_1 = __nccwpck_require__(9620);
 const paths_1 = __nccwpck_require__(6621);
+const errors_1 = __nccwpck_require__(6550);
 // Pure: decide what to do with each draft-tagged scenario on PR close-without-merge.
 // If the scenario's name matches one in the base SHA's evals, it pre-existed our PR — RESTORE
 // it from the base YAML's state. Otherwise it was a PR-only draft — DELETE it.
@@ -34168,10 +34169,10 @@ async function runCleanup() {
     await (0, pr_cleanup_1.deletePrMcpVersions)(evalforge, config.mcpId, config.projectId, config.prNumber);
     let remote;
     try {
-        remote = await evalforge.listTestScenarios(config.projectId);
+        remote = await evalforge.listScenariosByTag(config.projectId, draftTag);
     }
     catch (e) {
-        core.warning(`listTestScenarios failed: ${errMsg(e)}`);
+        core.warning(`listScenariosByTag (draftTag) failed: ${(0, errors_1.errMsg)(e)}`);
         return;
     }
     const baseRoot = node_path_1.posix.join((0, workspace_1.workspaceRoot)(), paths_1.BASE_WORKSPACE_SUBDIR);
@@ -34197,11 +34198,8 @@ async function execute(client, projectId, a) {
     }
     catch (e) {
         const verb = a.kind === 'RESTORE' ? 'Restore' : 'Delete draft';
-        core.warning(`${verb} failed for ${a.name}: ${errMsg(e)}`);
+        core.warning(`${verb} failed for ${a.name}: ${(0, errors_1.errMsg)(e)}`);
     }
-}
-function errMsg(e) {
-    return e instanceof Error ? e.message : String(e);
 }
 
 
@@ -34554,6 +34552,20 @@ function canonicalDocUrl(filePath, workspace) {
 
 /***/ }),
 
+/***/ 6550:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.errMsg = errMsg;
+function errMsg(e) {
+    return e instanceof Error ? e.message : String(e);
+}
+
+
+/***/ }),
+
 /***/ 5879:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
@@ -34749,7 +34761,7 @@ function jsonifyMaybe(v) {
 /***/ }),
 
 /***/ 280:
-/***/ ((__unused_webpack_module, exports) => {
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
 
 "use strict";
 
@@ -34761,6 +34773,8 @@ exports.isHttpError = isHttpError;
 const MCP_URL = 'https://mcp.wix.com/mcp';
 const MCP_CONFIG_KEY = 'wix-mcp-remote';
 exports.TERMINAL_RUN_STATUSES = ['completed', 'failed', 'cancelled'];
+const wix_signer_1 = __nccwpck_require__(3880);
+const errors_1 = __nccwpck_require__(6550);
 exports.DRAFT_PREFIX = 'draft:';
 function draftTagFor(repo, prNumber) {
     return `${exports.DRAFT_PREFIX}${repo}#${prNumber}`;
@@ -34774,19 +34788,19 @@ function isHttpError(e) {
 }
 class EvalForgeClient {
     baseUrl;
-    headers;
+    // Cached once per client; CI runs are minutes, default token TTL is 15min.
+    authHeader;
     constructor(baseUrl, appId, appSecret) {
         this.baseUrl = baseUrl;
-        this.headers = {
-            'Content-Type': 'application/json',
-            'x-app-id': appId,
-            'x-app-secret': appSecret,
-        };
+        this.authHeader = (0, wix_signer_1.signWixToken)(appId, appSecret);
     }
     async request(method, path, body) {
         const res = await fetch(`${this.baseUrl}${path}`, {
             method,
-            headers: this.headers,
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: this.authHeader,
+            },
             body: body !== undefined ? JSON.stringify(body) : undefined,
             signal: AbortSignal.timeout(10_000),
         });
@@ -34799,11 +34813,12 @@ class EvalForgeClient {
             return undefined;
         }
         return res.json().catch((e) => {
-            throw new Error(`EvalForge ${method} ${path} → ${res.status} but invalid JSON: ${e instanceof Error ? e.message : String(e)}`);
+            throw new Error(`EvalForge ${method} ${path} → ${res.status} but invalid JSON: ${(0, errors_1.errMsg)(e)}`);
         });
     }
     async listMcpVersions(mcpId, projectId) {
-        return this.request('GET', `/projects/${enc(projectId)}/capabilities/${enc(mcpId)}/versions`);
+        const res = await this.request('GET', `/v1/projects/${enc(projectId)}/capabilities/${enc(mcpId)}/versions`);
+        return res.capabilityVersions ?? [];
     }
     buildMcpUrl(skillsRepo, headSha) {
         const url = new URL(MCP_URL);
@@ -34812,23 +34827,28 @@ class EvalForgeClient {
         return url.toString();
     }
     async createMcpVersion(mcpId, projectId, versionLabel, prNumber, headSha, skillsRepo) {
-        return this.request('POST', `/projects/${enc(projectId)}/capabilities/${enc(mcpId)}/versions`, {
-            version: versionLabel,
-            origin: 'pr',
-            notes: `Auto-created for PR #${prNumber}`,
-            content: {
-                config: {
-                    [MCP_CONFIG_KEY]: {
-                        url: this.buildMcpUrl(skillsRepo, headSha),
-                        type: 'http',
-                        headers: {
-                            Authorization: '{{wix-auth-token}}',
-                            'wix-account-id': '{{wix-auth-user-id}}',
+        const res = await this.request('POST', `/v1/projects/${enc(projectId)}/capabilities/${enc(mcpId)}/versions`, {
+            projectId,
+            capabilityId: mcpId,
+            capabilityVersion: {
+                version: versionLabel,
+                origin: 'pr',
+                notes: `Auto-created for PR #${prNumber}`,
+                mcpContent: {
+                    config: {
+                        [MCP_CONFIG_KEY]: {
+                            url: this.buildMcpUrl(skillsRepo, headSha),
+                            type: 'http',
+                            headers: {
+                                Authorization: '{{wix-auth-token}}',
+                                'wix-account-id': '{{wix-auth-user-id}}',
+                            },
                         },
                     },
                 },
             },
         });
+        return res.capabilityVersion;
     }
     async ensureMcpVersion(mcpId, projectId, versionLabel, prNumber, headSha, skillsRepo) {
         try {
@@ -34844,31 +34864,38 @@ class EvalForgeClient {
             return existing;
         }
     }
-    async listTestScenarios(projectId) {
-        // EvalForge returns `tags: undefined` for untagged scenarios — normalize so callers can assume `string[]`.
-        const raw = await this.request('GET', `/projects/${enc(projectId)}/test-scenarios`);
-        return raw.map(s => ({ ...s, tags: s.tags ?? [] }));
+    async queryTestScenarios(projectId, filter) {
+        const res = await this.request('POST', `/v1/projects/${enc(projectId)}/test-scenarios/query`, { projectId, filter });
+        return (res.testScenarios ?? []).map(s => ({ ...s, tags: s.tags ?? [] }));
+    }
+    listScenariosByTag(projectId, tag) {
+        return this.queryTestScenarios(projectId, { tags: [tag] });
+    }
+    // Server's `name` filter is SQL LIKE %name% — exact-match client-side to avoid substring hits.
+    async findScenarioByExactName(projectId, name) {
+        const matches = await this.queryTestScenarios(projectId, { name });
+        return matches.find(s => s.name === name);
     }
     async createTestScenario(projectId, body, tags) {
-        return this.request('POST', `/projects/${enc(projectId)}/test-scenarios`, { ...body, projectId, tags });
+        const res = await this.request('POST', `/v1/projects/${enc(projectId)}/test-scenarios`, { projectId, testScenario: { ...body, tags } });
+        return { id: res.testScenario.id };
     }
     async updateTestScenario(projectId, id, body, tags) {
-        await this.request('PUT', `/projects/${enc(projectId)}/test-scenarios/${enc(id)}`, { ...body, projectId, tags });
+        await this.request('PATCH', `/v1/projects/${enc(projectId)}/test-scenarios/${enc(id)}`, { projectId, testScenario: { id, ...body, tags } });
     }
     async deleteTestScenario(projectId, id) {
-        await this.request('DELETE', `/projects/${enc(projectId)}/test-scenarios/${enc(id)}`);
+        await this.request('DELETE', `/v1/projects/${enc(projectId)}/test-scenarios/${enc(id)}`);
     }
-    async createEvalRun(projectId, input) {
-        return this.request('POST', `/projects/${enc(projectId)}/eval-runs`, input);
-    }
-    async triggerEvalRun(projectId, runId) {
-        return this.request('POST', `/projects/${enc(projectId)}/eval-runs/${enc(runId)}/run`);
+    async runEvaluation(projectId, input) {
+        const res = await this.request('POST', `/v1/projects/${enc(projectId)}/eval-runs/run`, { projectId, evalRun: input });
+        return res.evalRun;
     }
     async getEvalRun(projectId, runId) {
-        return this.request('GET', `/projects/${enc(projectId)}/eval-runs/${enc(runId)}`);
+        const res = await this.request('GET', `/v1/projects/${enc(projectId)}/eval-runs/${enc(runId)}`);
+        return res.evalRun;
     }
     async deleteMcpVersion(mcpId, projectId, versionId) {
-        await this.request('DELETE', `/projects/${enc(projectId)}/capabilities/${enc(mcpId)}/versions/${enc(versionId)}`);
+        await this.request('DELETE', `/v1/projects/${enc(projectId)}/capabilities/${enc(mcpId)}/versions/${enc(versionId)}`);
     }
 }
 exports.EvalForgeClient = EvalForgeClient;
@@ -34979,6 +35006,7 @@ const evalforge_1 = __nccwpck_require__(280);
 const workspace_1 = __nccwpck_require__(9620);
 const paths_1 = __nccwpck_require__(6621);
 const eval_run_1 = __nccwpck_require__(5879);
+const errors_1 = __nccwpck_require__(6550);
 const comment_1 = __nccwpck_require__(3116);
 async function runGate() {
     const config = (0, config_1.getEvalConfig)();
@@ -35029,7 +35057,15 @@ async function runGate() {
             changedHeadScenarios.set(name, ls);
     }
     const evalforge = new evalforge_1.EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
-    const remote = await guardedCall(() => evalforge.listTestScenarios(config.projectId), 'Could not reach EvalForge', comment, config);
+    const relevantNames = new Set();
+    for (const n of changedHeadScenarios.keys())
+        relevantNames.add(n);
+    for (const n of baseScenarios.keys())
+        relevantNames.add(n);
+    for (const names of cov.coveredBy.values())
+        for (const n of names)
+            relevantNames.add(n);
+    const remote = await guardedCall(() => fetchRelevantRemote(evalforge, config.projectId, draftTag, relevantNames), 'Could not reach EvalForge', comment, config);
     if (!remote)
         return;
     const plan = (0, sync_1.diffSyncPlan)({ head: changedHeadScenarios, base: baseScenarios, remote, draftTag });
@@ -35060,7 +35096,7 @@ async function runGate() {
             }
         }
         catch (e) {
-            core.error(`Sync action ${a.kind} for ${a.name} failed: ${e instanceof Error ? e.message : String(e)}`);
+            core.error(`Sync action ${a.kind} for ${a.name} failed: ${(0, errors_1.errMsg)(e)}`);
             await comment((0, comment_1.formatServiceError)(`Sync failed for "${a.name}"`, config.blocking));
             (0, github_1.fail)(`Sync failed for ${a.name}`, config.blocking);
             return;
@@ -35093,7 +35129,7 @@ async function runGate() {
     const mcpVersion = await guardedCall(() => evalforge.ensureMcpVersion(config.mcpId, config.projectId, versionLabel, config.prNumber, config.headSha, config.mcpSkillsRepo), 'Could not create MCP version', comment, config);
     if (!mcpVersion)
         return;
-    const run = await guardedCall(() => evalforge.createEvalRun(config.projectId, {
+    const run = await guardedCall(() => evalforge.runEvaluation(config.projectId, {
         name: `PR #${config.prNumber} YAML-gate`,
         description: `Gate for PR #${config.prNumber} (${selected.size} scenarios)`,
         projectId: config.projectId,
@@ -35102,11 +35138,8 @@ async function runGate() {
         // capabilityIds is REQUIRED — without it the agent has no MCP bound at run time. Don't drop it.
         capabilityIds: [config.mcpId],
         capabilityVersions: { [config.mcpId]: mcpVersion.id },
-    }), 'Could not create eval run', comment, config);
+    }), 'Could not start eval run', comment, config);
     if (!run)
-        return;
-    const triggered = await guardedCall(() => evalforge.triggerEvalRun(config.projectId, run.id), 'Could not trigger eval run', comment, config);
-    if (!triggered)
         return;
     let finalStatus;
     try {
@@ -35118,7 +35151,7 @@ async function runGate() {
             (0, github_1.fail)(`Eval timed out (run ID: ${run.id})`, config.blocking);
             return;
         }
-        core.error(`Eval polling failed: ${e instanceof Error ? e.message : String(e)}`);
+        core.error(`Eval polling failed: ${(0, errors_1.errMsg)(e)}`);
         await comment((0, comment_1.formatServiceError)('Eval polling failed', config.blocking));
         (0, github_1.fail)('Eval polling failed', config.blocking);
         return;
@@ -35138,11 +35171,25 @@ async function guardedCall(fn, userMessage, comment, config) {
         return await fn();
     }
     catch (e) {
-        core.error(`${userMessage}: ${e instanceof Error ? e.message : String(e)}`);
+        core.error(`${userMessage}: ${(0, errors_1.errMsg)(e)}`);
         await comment((0, comment_1.formatServiceError)(userMessage, config.blocking));
         (0, github_1.fail)(userMessage, config.blocking);
         return undefined;
     }
+}
+// Returns our drafts (so the planner sees prior-push state) plus scenarios matching `relevantNames`.
+async function fetchRelevantRemote(client, projectId, draftTag, relevantNames) {
+    const byName = new Map();
+    for (const r of await client.listScenariosByTag(projectId, draftTag)) {
+        byName.set(r.name, r);
+    }
+    const namesToQuery = [...relevantNames].filter(n => !byName.has(n));
+    const found = await Promise.all(namesToQuery.map(n => client.findScenarioByExactName(projectId, n)));
+    for (const r of found) {
+        if (r)
+            byName.set(r.name, r);
+    }
+    return [...byName.values()];
 }
 
 
@@ -35400,6 +35447,7 @@ const sync_1 = __nccwpck_require__(546);
 const pr_cleanup_1 = __nccwpck_require__(7310);
 const paths_1 = __nccwpck_require__(6621);
 const workspace_1 = __nccwpck_require__(9620);
+const errors_1 = __nccwpck_require__(6550);
 async function runPromote() {
     const config = (0, config_1.getSimpleConfig)();
     const evalforge = new evalforge_1.EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
@@ -35407,21 +35455,19 @@ async function runPromote() {
     const workspace = (0, workspace_1.workspaceRoot)();
     // Cleanup workflow no longer fires on merged PRs — promote owns MCP version teardown.
     await (0, pr_cleanup_1.deletePrMcpVersions)(evalforge, config.mcpId, config.projectId, config.prNumber);
-    let remote;
+    let drafts;
     try {
-        remote = await evalforge.listTestScenarios(config.projectId);
+        drafts = await evalforge.listScenariosByTag(config.projectId, draftTag);
     }
     catch (e) {
-        core.warning(`listTestScenarios failed: ${e instanceof Error ? e.message : String(e)}`);
+        core.warning(`listScenariosByTag (draftTag) failed: ${(0, errors_1.errMsg)(e)}`);
         return;
     }
-    const remoteByName = new Map(remote.map(r => [r.name, r]));
     const headScenarios = loadEvalsWithWarnings(workspace);
     let promoted = 0;
     let stillDraft = 0;
-    for (const s of remote) {
-        if (!s.tags.includes(draftTag))
-            continue;
+    let lookupFailures = 0;
+    for (const s of drafts) {
         const ls = headScenarios.get(s.name);
         if (!ls) {
             stillDraft++;
@@ -35433,14 +35479,28 @@ async function runPromote() {
             core.info(`Promoted ${s.name}: tags = ${JSON.stringify(ls.scenario.tags)}`);
         }
         catch (e) {
-            core.warning(`Promote failed for ${s.name}: ${e instanceof Error ? e.message : String(e)}`);
+            core.warning(`Promote failed for ${s.name}: ${(0, errors_1.errMsg)(e)}`);
         }
     }
     const baseEvals = loadEvalsWithWarnings(node_path_1.posix.join(workspace, paths_1.BASE_WORKSPACE_SUBDIR));
-    for (const [name] of baseEvals) {
-        if (headScenarios.has(name))
+    const removedNames = [...baseEvals.keys()].filter(n => !headScenarios.has(n));
+    const lookups = await Promise.all(removedNames.map(async (n) => {
+        try {
+            return { ok: true, scenario: await evalforge.findScenarioByExactName(config.projectId, n) };
+        }
+        catch (e) {
+            core.warning(`findScenarioByExactName "${n}" failed: ${(0, errors_1.errMsg)(e)}`);
+            return { ok: false };
+        }
+    }));
+    for (let i = 0; i < removedNames.length; i++) {
+        const name = removedNames[i];
+        const lookup = lookups[i];
+        if (!lookup.ok) {
+            lookupFailures++;
             continue;
-        const r = remoteByName.get(name);
+        }
+        const r = lookup.scenario;
         if (!r)
             continue;
         if (r.tags.some(t => t.startsWith(evalforge_1.DRAFT_PREFIX)))
@@ -35450,13 +35510,15 @@ async function runPromote() {
             core.info(`Deleted YAML-removed scenario ${name} (${r.id})`);
         }
         catch (e) {
-            core.warning(`Delete-on-merge failed for ${name}: ${e instanceof Error ? e.message : String(e)}`);
+            core.warning(`Delete-on-merge failed for ${name}: ${(0, errors_1.errMsg)(e)}`);
         }
     }
     if (promoted > 0)
         core.info(`Promoted ${promoted} scenarios`);
     if (stillDraft > 0)
         core.info(`Skipped ${stillDraft} (YAML missing in merged head)`);
+    if (lookupFailures > 0)
+        core.warning(`${lookupFailures} scenario lookup(s) failed during promote — YAML-removed scenarios may not have been cleaned up. Re-run the workflow to retry.`);
 }
 function loadEvalsWithWarnings(root) {
     const { scenarios, errors } = (0, evals_1.loadEvals)(root);
@@ -35698,6 +35760,32 @@ function normalizeUrl(s) {
     const host = u.host.toLowerCase();
     const path = u.pathname.replace(/\/+$/, '');
     return `${scheme}//${host}${path}`;
+}
+
+
+/***/ }),
+
+/***/ 3880:
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.signWixToken = signWixToken;
+const node_crypto_1 = __nccwpck_require__(7598);
+const PREFIX = 'SRV.JWS';
+const DEFAULT_EXPIRY_SECONDS = 900;
+function signWixToken(appDefId, appSecret, expiryInSeconds = DEFAULT_EXPIRY_SECONDS) {
+    const iat = Math.floor(Date.now() / 1000);
+    const headerB64 = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
+    const payloadB64 = Buffer.from(JSON.stringify({
+        iat,
+        data: JSON.stringify({ appDefId }),
+        exp: iat + expiryInSeconds,
+    })).toString('base64url');
+    const signingInput = `${headerB64}.${payloadB64}`;
+    const signature = (0, node_crypto_1.createHmac)('sha256', appSecret).update(signingInput).digest('base64url');
+    return `${PREFIX}.${signingInput}.${signature}`;
 }
 
 
