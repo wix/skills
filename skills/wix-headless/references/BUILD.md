@@ -1,21 +1,57 @@
 # Build — the post-approval conductor (router)
 
-Opened the moment the user approves the plan (the approval gate lives in the mode discovery file — `DISCOVERY-regular.md` / `DISCOVERY-integration.md`). This file is the **router**: it branches on `frontend`, hands the run to the matching mode conductor, and owns the cross-cutting sections both modes share (rate limits, the parallel diagnostic, the Final Message, the run.json format).
+Opened the moment the user approves the plan (the approval gate lives in the operation discovery file — `DISCOVERY-create.md` / `DISCOVERY-connect.md`). This file is the **router, and it routes on FRAMEWORK-BUILD-CLASS** (`frontendBuild`), not on operation. It branches to the matching framework conductor, owns the two **(operation × framework) cell lookups** (bootstrap, wiring), owns the **shared release tail**, and owns the cross-cutting sections both framework conductors share (rate limits, the parallel diagnostic, the Final Message, the run.json format).
 
-The **pre-approval** flow (mode routing, the Discovery questions, the plan + approval gate, the background scaffold + Designer dispatches that hide latency) is in `PLAN.md`; it hands off here on approval. Three cross-cutting rules referenced below — **Two tracks**, **Batching discipline**, and **User-facing output** — also live in `PLAN.md`.
+The **pre-approval** flow (operation routing, the Discovery questions, the plan + approval gate, the background scaffold + Designer dispatches that hide latency) is in `PLAN.md`; it hands off here on approval. The **Plan→Build contract** (`PLAN.md` § "The Plan→Build contract") — `operation`, `frontend`, `frontendBuild`, `verticals[]`, `designSource`, `brand` + the operation section — is held in orchestrator scratch and threaded into dispatch prompts. Build reads its install/build/release spine **purely off `frontendBuild`** (the core) and reads the operation-specific payload **only** at the bootstrap/wiring cells. Three cross-cutting rules referenced below — **Two tracks**, **Batching discipline**, and **User-facing output** — also live in `PLAN.md`.
 
-## The run from approval — branch on `frontend`
+## The run from approval — route on `frontendBuild` (framework)
 
-The user just approved; `init-site-json.mjs` wrote the slim `.wix/site.json`. **Nothing is dispatched yet** — the funnel intentionally dispatched nothing so it could present the plan fast. Read `frontend` from `.wix/site.json` and open the matching mode conductor — **read only that one**:
+The user just approved; `init-site-json.mjs` wrote the slim `.wix/site.json` (only `frontend` persisted). **Nothing is dispatched yet** — the funnel intentionally dispatched nothing so it could present the plan fast. Read `frontendBuild` from orchestrator scratch (resolved in Wave 0; today astro ⇒ `wix`, custom ⇒ `none` — derivable from the persisted `.wix/site.json.frontend` if scratch is ever lost) and open the matching framework conductor — **read only that one**:
 
-| `frontend` | Mode | Conductor |
+| `frontendBuild` | Framework class | Conductor |
 |---|---|---|
-| `astro` | Regular (scaffold) | **`BUILD-regular.md`** — Phase axis → run-steps 0–5 → Wave 3 → Step 4.5 → Step 7 → Build & Release |
-| `custom` | Integration | **`BUILD-integration.md`** — connection plan + init → Setup → Seed → wiring → inline no-build release |
+| `wix` | astro-native (`wix build`) | **`BUILD-astro.md`** — Phase axis → run-steps 0–5 → Wave 3 → Step 4.5 → Step 7 → Build & Release |
+| `none` | static HTML (no build) | **`BUILD-own-build.md`** (none tenant) — install-skip → Seed → wiring → inline no-build release |
+| `own` | own-build (`npm run build`) | **`BUILD-own-build.md`** (own tenant) — **reserved**; the framework-SPA plan fills this |
 
-Everything mode-specific (every subagent dispatch, background handle, wait/gate, the imagery gates, the build/release step) lives in that mode file. Only the sections **below this line** belong to both modes — the mode conductors point back here for the shared tail.
+Everything framework-specific (install, build command) lives in that conductor file. The **(operation × framework) cells** (bootstrap, wiring) and the **shared release tail** are below this line — both conductors point back here for them.
 
-> **Set the model tier on every dispatch.** Both modes dispatch subagents. Tier policy lives in `SKILL.md` § "Subagent model tier" — apply it by table lookup (the Phase axis table in `BUILD-regular.md`; the seeder/wiring rows in `BUILD-integration.md`). The tier is selected via the dispatch primitive's model parameter, not the prompt; if you omit it, Default-tier roles silently run under-powered on the orchestrator's default model.
+> **Build routes on framework, not operation.** `operation` (`create`/`connect`) already routed Discovery + Plan; it does **not** re-route Build. Build's only contact with operation is the two cells below (bootstrap, wiring), which read the operation section of the contract. The install/build/release spine is operation-blind.
+
+> **Set the model tier on every dispatch.** Both framework classes dispatch subagents. Tier policy lives in `SKILL.md` § "Subagent model tier" — apply it by table lookup (the Phase axis table in `BUILD-astro.md`; the seeder/wiring rows in `BUILD-own-build.md`). The tier is selected via the dispatch primitive's model parameter, not the prompt; if you omit it, Default-tier roles silently run under-powered on the orchestrator's default model.
+
+---
+
+## The two (operation × framework) cells — bootstrap & wiring
+
+Almost everything in Build is a 1-D framework switch (install/build/release, below). **Two** sub-steps genuinely need both axes — **bootstrap** (how the project comes into being) and **wiring** (how live Wix data reaches the frontend). Each is a small lookup over (operation × framework). The cell *content* lives co-located with the conductor that runs it (read-isolation per `SKILL.md`); this section is the **seam map** — which cell resolves to where. Adding a framework (SPA) adds a row; adding an operation (extend) adds a column. No new phase files.
+
+**Bootstrap cell** — how the working project is created before Setup:
+
+| | `create` | `connect` | `extend` *(later)* |
+|---|---|---|---|
+| **astro** (`wix`) | `scaffold.sh <slug> "<brand>" --frontend astro` → `npm create @wix/new@latest headless` — `BUILD-astro.md` run-step 0 | — | add `.astro` + nav/home markers *(extend plan)* |
+| **own-build** (`own`) | create vite/… → `init` — **reserved**, the framework-SPA plan | `init` over brought source — **reserved** | add to source *(extend plan)* |
+| **none / html** (`none`) | — | `npm create @wix/new@latest init` over the brought HTML + fix `wix.config.json.site.outputDirectory` — `BUILD-own-build.md` § "Bootstrap cell" | — |
+
+**Wiring cell** — how the frontend reads/writes Wix entities:
+
+| | `create` | `connect` | `extend` *(later)* |
+|---|---|---|---|
+| **astro** (`wix`) | write `.astro` pages with live SDK queries — `BUILD-astro.md` Phase 3 Components + Phase 4 Pages | — | add `.astro` + markers *(extend plan)* |
+| **own-build** (`own`) | write fresh data module — **reserved** | rewrite source data-layer — **reserved** | add to source *(extend plan)* |
+| **none / html** (`none`) | — | inject client-side `@wix/sdk` `<script type="module">` (additive, styled from the design's tokens) — `BUILD-own-build.md` § "Wiring cell" | inject `<script>` *(extend plan)* |
+
+Reserved cells are single placeholders with a downstream-plan pointer — no empty files, no unexercised branches (the refactor's "crux" rule). Today exactly two cells per table are live: **astro-create** (in `BUILD-astro.md`) and **connect-none** (in `BUILD-own-build.md`).
+
+## Shared release tail (framework-blind)
+
+Release is one step both framework classes share — it reads a single field (`outputDirectory`) and publishes:
+
+1. **Build, if the framework has one** — `wix` runs `npx @wix/cli@latest build` (`BUILD-astro.md` § "Build & Release"); `own` runs `npm run build` (**reserved**, SPA plan); `none` has **no build** (the HTML is the deployable).
+2. **Release** — `npx @wix/cli@latest release`; extract the published URL from the `Site published on <url>` line. This also populates the **Frontend link** in headless settings natively. Transient release errors (`ECONNRESET`, `ETIMEDOUT`, `EAI_AGAIN`, `STATE_MISMATCH`, `temporarily unavailable`, `try again shortly`) — retry serially up to 3× with `attempt * 5`s backoff (`references/shared/PRODUCTION_SHARP_EDGES.md`). Do **not** retry build failures — those are code bugs to fix.
+
+`wix release` is framework-tolerant: for non-astro frontends it deploys whatever `wix.config.json.site.outputDirectory` points at. The only framework difference is step 1 (whether/how to build); release itself is identical.
 
 ---
 
@@ -135,4 +171,4 @@ Notes:
 - Total serial wall time ≈ max parallel paths, not sum of seconds
 - `data` blocks preserve what each agent returned — recoverable without re-reading agent transcripts
 - `files` lists are omitted from the aggregate; query individual phase `data` if needed
-- **Integration mode (`frontend === "custom"`)** records a `release` phase with **no** `build` or `compose` entry — the HTML is the deployable, there is no astro build step.
+- **No-build frameworks (`frontendBuild === "none"`, today the connect/custom path)** record a `release` phase with **no** `build` or `compose` entry — the HTML is the deployable, there is no astro build step.

@@ -28,7 +28,7 @@ allowed-tools:
 
 # Wix Headless
 
-**Run flow is owned by the conductor, split at the approval gate: `references/PLAN.md`** (pre-approval — mode routing, the Discovery questions, the plan + approval gate, the latency-hiding background dispatches) **then `references/BUILD.md`** (post-approval — Setup → Seed → Components → Pages → Build → Release). The domain/step files (`DISCOVERY.md`, `SETUP.md`, `SEED.md`, `DESIGN_SYSTEM.md`, `COMPOSE.md`, the per-vertical references) describe only *what* each step does; they do not name the sequence. **Start a run by opening `PLAN.md`**; open `BUILD.md` when the user approves the plan. All site operations use `npx @wix/cli@latest token` + `curl` — no MCP.
+**Run flow is owned by the conductor, split at the approval gate: `references/PLAN.md`** (pre-approval — routes on **operation** (create/connect), the Discovery questions, the plan + approval gate, the latency-hiding background dispatches) **then `references/BUILD.md`** (post-approval — routes on **framework** (`frontendBuild`); Setup → Seed → Components → Pages → Build → Release). The domain/step files (`DISCOVERY.md`, `SETUP.md`, `SEED.md`, `DESIGN_SYSTEM.md`, `COMPOSE.md`, the per-vertical references) describe only *what* each step does; they do not name the sequence. **Start a run by opening `PLAN.md`**; open `BUILD.md` when the user approves the plan. All site operations use `npx @wix/cli@latest token` + `curl` — no MCP.
 
 > **Explicit invocation only.** Do not auto-route on generic "build me a site" prompts; production `wix-headless` should win those unless the user names this skill.
 
@@ -38,11 +38,11 @@ Your CWD at runtime is the **project directory** (scaffold subdir after setup), 
 
 | What | Absolute path |
 |---|---|
-| Discovery flow (router → mode files) | `<SKILL_ROOT>/references/DISCOVERY.md` → `DISCOVERY-regular.md` (astro) / `DISCOVERY-integration.md` (custom) |
+| Discovery flow (router on OPERATION → operation files) | `<SKILL_ROOT>/references/DISCOVERY.md` → `DISCOVERY-create.md` (create) / `DISCOVERY-connect.md` (connect) |
 | Setup flow | `<SKILL_ROOT>/references/SETUP.md` |
 | Seed flow | `<SKILL_ROOT>/references/SEED.md` |
-| Pre-approval funnel (plan; router → mode files) | `<SKILL_ROOT>/references/PLAN.md` → `PLAN-regular.md` (astro) / `PLAN-integration.md` (custom) |
-| Post-approval build (router → mode files) | `<SKILL_ROOT>/references/BUILD.md` → `BUILD-regular.md` (astro) / `BUILD-integration.md` (custom) |
+| Pre-approval funnel (plan; router on OPERATION → operation files) | `<SKILL_ROOT>/references/PLAN.md` → `PLAN-create.md` (create) / `PLAN-connect.md` (connect) |
+| Post-approval build (router on FRAMEWORK → framework files) | `<SKILL_ROOT>/references/BUILD.md` → `BUILD-astro.md` (`frontendBuild: wix`) / `BUILD-own-build.md` (`frontendBuild: none`/`own`) |
 | Seed recipe map (human ref) | `<SKILL_ROOT>/references/seed-recipes.md` |
 | Auth + REST headers | `<SKILL_ROOT>/references/shared/AUTHENTICATION.md` |
 | Public doc endpoints | `<SKILL_ROOT>/references/shared/DOCS_SEARCH.md` |
@@ -60,7 +60,7 @@ Your CWD at runtime is the **project directory** (scaffold subdir after setup), 
 | Known app IDs | `<SKILL_ROOT>/references/commands/known-apps.json` |
 | Scripts | `<SKILL_ROOT>/scripts/` |
 
-**Do NOT Read subagent role/instruction docs in the orchestrator** — pass the absolute path; the subagent opens it. This covers **every** doc whose body is written *for a subagent to follow*, not just files literally named `INSTRUCTIONS.md`: `DESIGN_SYSTEM.md` (Designer), `astro/COMPOSE.md` (Composer), `astro/designer/INSTRUCTIONS.md` (page designers), the per-vertical `INSTRUCTIONS.md` routers, and the per-vertical guides under `references/astro/`. The orchestrator only needs to know **which inputs to inline** for each dispatch — and that list lives in `BUILD.md`'s dispatch steps, not in the role doc. Reading a role doc to "prepare a dispatch" pulls 5–14 KB of subagent-only how-to into the orchestrator's context, which it then has to reason over on the dispatch turn — measurably inflating bridge turns. The orchestrator's own reading set is the conductor/domain docs only: `PLAN.md` (+ the one mode funnel it routes to — `PLAN-regular.md` *or* `PLAN-integration.md`), `BUILD.md` (+ the one mode build file — `BUILD-regular.md` *or* `BUILD-integration.md`), `DISCOVERY.md` (+ the one mode discovery file — `DISCOVERY-regular.md` *or* `DISCOVERY-integration.md`), `SETUP.md`, `SEED.md`, and `references/verticals/*.md`.
+**Do NOT Read subagent role/instruction docs in the orchestrator** — pass the absolute path; the subagent opens it. This covers **every** doc whose body is written *for a subagent to follow*, not just files literally named `INSTRUCTIONS.md`: `DESIGN_SYSTEM.md` (Designer), `astro/COMPOSE.md` (Composer), `astro/designer/INSTRUCTIONS.md` (page designers), the per-vertical `INSTRUCTIONS.md` routers, and the per-vertical guides under `references/astro/`. The orchestrator only needs to know **which inputs to inline** for each dispatch — and that list lives in `BUILD.md`'s dispatch steps, not in the role doc. Reading a role doc to "prepare a dispatch" pulls 5–14 KB of subagent-only how-to into the orchestrator's context, which it then has to reason over on the dispatch turn — measurably inflating bridge turns. The orchestrator's own reading set is the conductor/domain docs only: `PLAN.md` (+ the one operation funnel it routes to — `PLAN-create.md` *or* `PLAN-connect.md`), `BUILD.md` (+ the one framework build file — `BUILD-astro.md` *or* `BUILD-own-build.md`), `DISCOVERY.md` (+ the one operation discovery file — `DISCOVERY-create.md` *or* `DISCOVERY-connect.md`), `SETUP.md`, `SEED.md`, and `references/verticals/*.md`.
 
 When and how each subagent is dispatched (Designer, Composer, seeders, image phases, vertical Components/Pages) is owned by the conductor (`references/PLAN.md` pre-approval, `references/BUILD.md` post-approval), not listed here.
 
@@ -110,29 +110,34 @@ The user asks to **create a new site from scratch** ("build me a store", "I want
 
 > **Do NOT call `WixSiteBuilder` MCP** for new-site requests — same intent, different flow; calling both produces a duplicated, conflicting build. This skill is the sole entry point.
 
-### Path B — Connect an existing/brought design to Wix (integration mode)
+### Path B — Connect an existing/brought design to Wix (`operation: connect`)
 
 Triggers: *"connect this to Wix Headless"*, *"implement this design … connecting to wix"*, *"add Wix Headless to this project"*, *"host this on Wix"*, *"deploy this to Wix"*, *"implement the features … using Wix Headless"*, or a **design-file URL to fetch + implement** (Claude Design / v0 / Lovable / any tool). **These route to B even when the working directory is empty** — the design arrives by fetch, so emptiness at trigger time does not make it Path A.
 
 | Signal | Path |
 |---|---|
-| Prompt asks to **connect / implement / host an existing or fetched design** (incl. a design-file URL), **even if the CWD is empty** | **B (custom, integration mode)** |
-| A working frontend already on disk (`index.html`, `*.html`/`*.jsx`/`*.tsx`/`*.vue`, a design bundle) | **B (custom, integration mode)** |
-| Empty CWD **and** a create-a-new-site prompt, nothing to connect | A (astro, scaffold mode) |
+| Prompt asks to **connect / implement / host an existing or fetched design** (incl. a design-file URL), **even if the CWD is empty** | **B (`operation: connect`)** |
+| A working frontend already on disk (`index.html`, `*.html`/`*.jsx`/`*.tsx`/`*.vue`, a design bundle) | **B (`operation: connect`)** |
+| Empty CWD **and** a create-a-new-site prompt, nothing to connect | A (`operation: create`) |
 | `wix.config.json` present (an existing wix-headless project) | resume/extend — out of pivot scope for now |
 
-**Custom frontends run integration mode.** When the working directory holds a brought-in site, the run **connects it to a live Wix backend** — parse the site (`DISCOVERY-integration.md`), init + shared Setup/Seed, wire existing dynamic regions to `@wix/sdk` and augment static designs with the connected feature their purpose implies, then no-build release. The frontend-track playbook is `<SKILL_ROOT>/references/custom/INSTRUCTIONS.md`; routing is owned by `PLAN-integration.md`.
+**The connect operation wires a brought-in design to Wix.** When the working directory holds a brought-in site, the run **connects it to a live Wix backend** — parse the site (`DISCOVERY-connect.md`), init + shared Setup/Seed, wire existing dynamic regions to `@wix/sdk` and augment static designs with the connected feature their purpose implies, then no-build release. The frontend-track playbook is `<SKILL_ROOT>/references/custom/INSTRUCTIONS.md`; routing is owned by `PLAN-connect.md`.
 
-### Frontend modes (the `.wix/site.json.frontend` axis)
+### Two routing axes: operation (Discovery/Plan) + framework (Build)
 
-Path A vs Path B is the routing question. The `frontend` value is the **downstream branching axis** — the orchestrator holds it in session scratch and either branches on it directly or passes it to scripts as a `--frontend` flag. It is persisted to `.wix/site.json` (the conductor reads it to decide whether to run `wix build` before release — astro builds, custom doesn't). The axis is binary:
+The skill routes each phase on its own axis — they only *happen* to coincide while there are exactly two modes:
 
-| `frontend` | Mode |
-|---|---|
-| `astro` | Scaffold mode — the skill writes the site, then full `wix build` + release (playbook under `references/astro/`) |
-| `custom` | Integration mode — connect a brought-in HTML+CSS/JS site to Wix; init + shared Setup/Seed + connect/augment + **no-build** release (playbook under `references/custom/`) |
+- **Operation** (Discovery + Plan route on this) — *create* (scaffold a new site from a prompt) vs *connect* (integrate a brought-in design). *(extend added later by the extend plan.)*
+- **Framework-build-class** (Build routes on this) — `frontendBuild`: `wix` (astro-native, `wix build`) vs `none` (static HTML, no build) vs `own` (own-build, `npm run build` — **reserved** for the framework-SPA plan).
 
-`DISCOVERY.md` § "Wave 0 — Mode detection" decides which value to set and records it via `init-site-json.mjs --frontend <value>` (both modes). **Which flow each value runs is owned by `PLAN.md` § "Frontend-mode routing".**
+These plus `frontend`, `verticals[]`, `designSource`, and `brand` form the **Plan→Build contract** (`PLAN.md` § "The Plan→Build contract"), held in orchestrator scratch and threaded into dispatch prompts. Today the axes coincide trivially:
+
+| `operation` | `frontend` | `frontendBuild` | What runs |
+|---|---|---|---|
+| `create` | `astro` | `wix` | the skill writes the site, then `wix build` + release (`references/astro/`) |
+| `connect` | `custom` | `none` | connect a brought-in HTML+CSS/JS site; init + shared Setup/Seed + connect/augment + **no-build** release (`references/custom/`) |
+
+`DISCOVERY.md` § "Wave 0" resolves `operation` first, then derives `frontend`/`frontendBuild`. **Only `frontend` is persisted** to `.wix/site.json` (via `init-site-json.mjs --frontend <value>`, both operations); `operation`/`frontendBuild` live in scratch and are **not** written to disk. **Operation routing is owned by `PLAN.md` § "Operation routing"; framework routing by `BUILD.md`.**
 
 ### Two tracks (business vs frontend)
 

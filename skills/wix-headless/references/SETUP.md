@@ -1,14 +1,14 @@
 # Setup
 
-Runs once, immediately after the user approves the plan and Discovery has written `.wix/site.json`. This phase's domain is: install the apps the loaded packs declare, pull the Wix env, run `npm install`, and patch `site.json` with `siteId` + `appId`. Run flow (dispatch timing, background handles, waits, batching, transitions) is owned by the mode conductor (`BUILD-regular.md` / `BUILD-integration.md`; Setup is an early run-step in each).
+Runs once, immediately after the user approves the plan and Discovery has written `.wix/site.json`. This phase's domain is: install the apps the loaded packs declare, pull the Wix env, run `npm install`, and patch `site.json` with `siteId` + `appId`. Run flow (dispatch timing, background handles, waits, batching, transitions) is owned by the framework conductor (`BUILD-astro.md` / `BUILD-own-build.md`; Setup is an early run-step in each).
 
-This article covers the **astro scaffold-mode entry path** — Steps 1–5 below + "npm install recovery". The orchestrator scaffolds a fresh Astro project via `scaffold.sh` in `BUILD-regular.md` run-step 0.
+This article covers the **astro framework-class entry path** (`frontendBuild === "wix"`) — Steps 1–5 below + "npm install recovery". The orchestrator scaffolds a fresh Astro project via `scaffold.sh` in `BUILD-astro.md` run-step 0.
 
-**Integration mode (`frontend === "custom"`)** reuses this article's app-install step (Step 4a) — but **skips** `env pull` (Step 4b; integration inlines the `appId` from `wix.config.json` into CDN `@wix/sdk` imports, needs no `WIX_CLIENT_ID`, and the `init`-bootstrapped project has no `env` command), `scaffold.sh`, the Step 4c per-pack `npm install` (custom imports `@wix/sdk` from a CDN), and `seed-utilities.sh`. Its bootstrap is `npm create @wix/new@latest init` (not `scaffold.sh`), and its frontend authoring is the per-capability wiring guides (`references/custom/<cap>/WIRING.md`), not the Composer/pages. The flow is owned by `BUILD-integration.md`; the playbook is `references/custom/INSTRUCTIONS.md`.
+**The no-build framework class (`frontendBuild === "none"`, today the connect/custom path)** reuses this article's app-install step (Step 4a) — but **skips** `env pull` (Step 4b; it inlines the `appId` from `wix.config.json` into CDN `@wix/sdk` imports, needs no `WIX_CLIENT_ID`, and the `init`-bootstrapped project has no `env` command), `scaffold.sh`, the Step 4c per-pack `npm install` (CDN imports `@wix/sdk`), and `seed-utilities.sh`. Its bootstrap is `npm create @wix/new@latest init` (not `scaffold.sh`), and its frontend authoring is the per-capability wiring guides (`references/custom/<cap>/WIRING.md`), not the Composer/pages. The flow is owned by `BUILD-own-build.md`; the playbook is `references/custom/INSTRUCTIONS.md`.
 
 This path assumes DISCOVERY.md's CLI-auth pre-flight has already passed (the foreground check that runs before any `AskUserQuestion`).
 
-Mode/track routing (which path runs) is owned by `PLAN.md` § "Frontend-mode routing". Steps 1–5 below are the astro business steps.
+Routing (which path runs) is owned by `PLAN.md` § "Operation routing" (operation) and `BUILD.md` (framework). Steps 1–5 below are the astro business steps.
 
 ---
 
@@ -157,7 +157,7 @@ Setup does not print a summary sentence. Setup ends once the Final-scan checks p
 
 ## npm install recovery
 
-Invoked when `npm_handle` returns non-zero. The handle is dispatched in Step 4c above; the orchestrator waits on it at the seed gate (`BUILD-regular.md`) and runs this recovery ladder there if it failed.
+Invoked when `npm_handle` returns non-zero. The handle is dispatched in Step 4c above; the orchestrator waits on it at the seed gate (`BUILD-astro.md`) and runs this recovery ladder there if it failed.
 
 If the background `npm install` fails or hangs:
 

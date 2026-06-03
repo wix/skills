@@ -17,8 +17,13 @@
 //   node init-site-json.mjs <project-dir> <brand-name> <brand-description> \
 //     <verticals-csv> --frontend <astro|custom> \
 //     [--site-id <id>] [--app-id <id>]
-//   (In practice only "astro" reaches this step — custom frontends route to the
-//    not-available stub before Discovery's approval/site.json write.)
+//   Both modes call this exactly once at Discovery's "After Approval" step:
+//   create⇒astro (DISCOVERY-create.md) and connect⇒custom (DISCOVERY-connect.md).
+//   NOTE: this script intentionally records only `frontend` — NOT the in-agent
+//   contract fields `operation`/`frontendBuild`. Those live in orchestrator
+//   session scratch for the run; the Plan→Build contract is never persisted to
+//   disk (see references/PLAN.md § "The Plan→Build contract"). Do not extend this
+//   script to write them.
 //
 // Behavior:
 //   - Refuses to overwrite an existing .wix/site.json (exit 2). The orchestrator

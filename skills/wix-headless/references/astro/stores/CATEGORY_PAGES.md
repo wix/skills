@@ -1,6 +1,6 @@
 # Phase 4 Category Pages — Stores
 
-Scope: `pages-categories`. Launched in **Step 7** alongside `pages-products` and `pages-home-and-nav`. This scope writes the dedicated category landing route and the shared `<CategoryRail/>`. The `categories.ts` helper that all three scopes import is **pre-copied by the orchestrator before this phase** (BUILD-regular.md Step 7 pre-batch) — do NOT write it here.
+Scope: `pages-categories`. Launched in **Step 7** alongside `pages-products` and `pages-home-and-nav`. This scope writes the dedicated category landing route and the shared `<CategoryRail/>`. The `categories.ts` helper that all three scopes import is **pre-copied by the orchestrator before this phase** (BUILD-astro.md Step 7 pre-batch) — do NOT write it here.
 
 **Dispatch:** all three stores Phase-4 scopes are dispatched in parallel — Astro resolves the cross-file imports at build time (Step 8). The orchestrator does not need to serialize them. Each scope only needs its own declared files to exist by the time `astro build` runs; `categories.ts` is already on disk from the pre-batch.
 

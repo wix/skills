@@ -1,8 +1,10 @@
-# Build — regular mode (astro scaffold)
+# Build — astro framework class (`frontendBuild === "wix"`)
 
-The post-approval conductor when `frontend === "astro"` (the skill scaffolds and writes the site). Opened from `BUILD.md` the moment the run branches on `frontend === "astro"`. This file owns the **astro execution flow** — Setup → design-system bridge → Seed → Components → Pages → Build → Release: every subagent dispatch, background handle, wait/gate, and the imagery gates. Read it top to bottom from the approval point.
+The post-approval conductor for the **astro-native** framework class — reached on the `create × astro` path (the skill scaffolds and writes the site). Opened from `BUILD.md` the moment the run routes on `frontendBuild === "wix"`. This file owns the **astro execution flow** — Setup → design-system bridge → Seed → Components → Pages → Build → Release: every subagent dispatch, background handle, wait/gate, and the imagery gates. Read it top to bottom from the approval point.
 
-The cross-cutting operational sections that both modes share — **Subagent rate / credit limits**, the **parallel-batch diagnostic**, the **Final Message** (summary + run.json), and the **Final run.json format** — live in `BUILD.md` (the router). The pre-approval flow is in `PLAN.md` → `PLAN-regular.md`; the three cross-cutting rules referenced below — **Two tracks**, **Batching discipline**, **User-facing output** — live in `PLAN.md`.
+> **This file is the astro framework spine *and* hosts the astro-create cells.** Per `BUILD.md` § "The two (operation × framework) cells", the **bootstrap cell** for `create × astro` is run-step 0 (scaffold → `npm create @wix/new@latest headless`) and the **wiring cell** is Phase 3 Components + Phase 4 Pages (write `.astro` with live SDK queries). They live inline here rather than as separate cell files because astro is their only tenant and the content is large. The **shared release tail** (`BUILD.md`) is the Build & Release step below.
+
+The cross-cutting operational sections that both framework classes share — **Subagent rate / credit limits**, the **parallel-batch diagnostic**, the **Final Message** (summary + run.json), and the **Final run.json format** — live in `BUILD.md` (the router). The pre-approval flow is in `PLAN.md` → `PLAN-create.md`; the three cross-cutting rules referenced below — **Two tracks**, **Batching discipline**, **User-facing output** — live in `PLAN.md`.
 
 ## Phase axis
 
@@ -21,12 +23,12 @@ Each phase belongs to one of the two tracks (`PLAN.md` § "Two tracks"). All pha
 
 ## The run from approval (Setup → Release)
 
-The user just approved; `init-site-json.mjs` wrote the slim `.wix/site.json`. **Nothing is dispatched yet** — the funnel intentionally dispatched nothing so it could present the plan fast. (`BUILD.md` already confirmed `frontend === "astro"` and routed here; the **Final Message** section it owns is the only part shared with integration mode.)
+The user just approved; `init-site-json.mjs` wrote the slim `.wix/site.json`. **Nothing is dispatched yet** — the funnel intentionally dispatched nothing so it could present the plan fast. (`BUILD.md` already confirmed `frontendBuild === "wix"` and routed here; the **Final Message** + **Shared release tail** sections it owns are the only parts shared with the own-build framework class.)
 
 ### 0. Dispatch scaffold + Designer (background, immediately on entry)
 
 Fire both as one concurrent batch (`PLAN.md` § "Batching discipline") — they are independent:
-- **Scaffold** — `scaffold.sh <slug> "<brand>" --frontend <value>` (background, capture `scaffold_handle` + its stderr tempfile). Slug derivation + the command shape are `DISCOVERY-regular.md` § "After Q1". `npm install` is **not** chained here (Setup Step 4c dispatches it). The stderr tempfile is for **post-hoc error inspection only** (read it *if* the scaffold reports a failure) — it is **not** a progress file to poll.
+- **Scaffold** — `scaffold.sh <slug> "<brand>" --frontend <value>` (background, capture `scaffold_handle` + its stderr tempfile). Slug derivation + the command shape are `DISCOVERY-create.md` § "After Q1". `npm install` is **not** chained here (Setup Step 4c dispatches it). The stderr tempfile is for **post-hoc error inspection only** (read it *if* the scaffold reports a failure) — it is **not** a progress file to poll.
 - **Designer** — background, capture `designer_handle`. Dispatch with **Instruction file = `<SKILL_ROOT>/references/DESIGN_SYSTEM.md`** (the subagent opens it — **do not Read it in the orchestrator**, per `SKILL.md` § "Path resolution"). Inline Discovery's aesthetic craft held in scratch: brand, aesthetic direction, palette, type, mood, page color strategy. Judgment-only (~10–15 s; JSON `data.designTokens` + `data.shell`, no files). Do **not** pass application inputs (packs, nav links) — those go to the Composer.
 
 The Designer's ~13 s overlaps the scaffold's ~23 s. Setup waits on `scaffold_handle` at Step 1; the bridge (step 2) waits on `designer_handle`.
@@ -50,7 +52,7 @@ Apply `SETUP.md` Step 1 only: wait `scaffold_handle` (load `wix-manage` in the s
    { ...paste the Designer's data.designTokens JSON object here, verbatim from scratch... }
    TOKENS
    ```
-2. `Agent` (background) — Composer, capture `composer_handle`. Dispatch with **Instruction file = `<SKILL_ROOT>/references/astro/COMPOSE.md`** (the subagent opens it — **do not Read it in the orchestrator**; it is 14 KB of subagent-only substitution how-to, and reading it here just bloats the dispatch turn you're composing). Inline: tokens + shell + brand + nav links + packs. **SKIP** (record `{phase: "compose", status: "skipped"}`) if `frontend !== "astro"` (defensive — custom frontends never reach `BUILD-regular.md`).
+2. `Agent` (background) — Composer, capture `composer_handle`. Dispatch with **Instruction file = `<SKILL_ROOT>/references/astro/COMPOSE.md`** (the subagent opens it — **do not Read it in the orchestrator**; it is 14 KB of subagent-only substitution how-to, and reading it here just bloats the dispatch turn you're composing). Inline: tokens + shell + brand + nav links + packs. **SKIP** (record `{phase: "compose", status: "skipped"}`) if `frontendBuild !== "wix"` (defensive — non-astro framework classes never reach `BUILD-astro.md`).
 
 **Message 2 — business Setup Step 4 batch (immediately after Message 1), all as siblings; no text between the tool calls** (frontend-blind — `SETUP.md` owns the recipes/package set):
 
