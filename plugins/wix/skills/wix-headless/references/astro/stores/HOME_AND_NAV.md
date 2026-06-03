@@ -2,7 +2,7 @@
 
 Scope: `pages-home-and-nav`. Launched in **Step 7**; imports the orchestrator-pre-copied `categories.ts` helper (and the rail `pages-categories` writes — resolved at build time). Patches the home page's stores-related placeholder data with live `productsV3` queries AND inserts the Shop submenu (categories list) into the persisted Navigation.
 
-> **You patch the shared `Navigation.astro` + `index.astro` shells**, which other packs (e.g. gift-cards) also patch at their own markers. **Touch only your markers and preserve every other scope's siblings — never rewrite either file.** (Flow is the conductor's job: it serializes shell-patching scopes so concurrent marker edits don't collide — BUILD.md Step 7.)
+> **You patch the shared `Navigation.astro` + `index.astro` shells**, which other packs (e.g. gift-cards) also patch at their own markers. **Touch only your markers and preserve every other scope's siblings — never rewrite either file.** (Flow is the conductor's job: it serializes shell-patching scopes so concurrent marker edits don't collide — BUILD-astro.md Step 7.)
 
 ## Scope
 

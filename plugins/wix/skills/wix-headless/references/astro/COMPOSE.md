@@ -9,7 +9,7 @@ You are the **Composer**. The Designer already decided *what the brand looks lik
 
 This is deterministic work against pinned templates, so it is fast and low-variance. The whole reason the rewrite-from-scratch failure mode (which roughly doubled the old design-system wall) is gone is that you never regenerate the bulk.
 
-> **Framework:** astro only. The skeletons live at `<SKILL_ROOT>/references/astro/templates/`. Custom (non-astro) frontends never reach the Composer — they route to the not-available-yet stub (`references/custom/INSTRUCTIONS.md`) before the build flow runs. If your prompt ever names a non-astro frontend, return `status: "failed"` with `errors: [{code: "FRONTEND_NOT_SUPPORTED"}]` — do not improvise a second framework.
+> **Framework:** astro only. The skeletons live at `<SKILL_ROOT>/references/astro/templates/`. Custom (non-astro) frontends never reach the Composer — integration mode (`frontend === "custom"`) connects a brought-in site via `references/custom/` and does not run the Composer at all. If your prompt ever names a non-astro frontend, return `status: "failed"` with `errors: [{code: "FRONTEND_NOT_SUPPORTED"}]` — do not improvise a second framework.
 
 ## Self-Loading
 

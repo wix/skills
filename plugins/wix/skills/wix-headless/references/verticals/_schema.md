@@ -29,13 +29,13 @@ requires: []                          # optional — verticals that must be co-l
                                       # If a pack with `requires:` is loaded, every name in the list MUST be in the same read batch.
 
 # --- Plan contribution ---
-features:                             # human-readable feature blurbs. Used in DISCOVERY.md Step 3 Section B.
+features:                             # human-readable feature blurbs. Used in DISCOVERY-create.md Step 3 Section B.
   - name: "Product catalog"
     description: "Browse products with images, prices, and variants."
 
 # --- Plan Pages table ---
 apps:                                 # zero or one entry per pack. apps[0].name fills the Source column
-  - name: "Wix Stores"                # of DISCOVERY.md Step 3 Section C.
+  - name: "Wix Stores"                # of DISCOVERY-create.md Step 3 Section C.
     appDefId: "215238eb-22a5-4c36-9e7b-e7c08025e04e"
 
 routes:                               # routes the pack ships. Each entry → one row in the Pages table.
@@ -65,7 +65,7 @@ disabled: false                       # if true, the pack ships its code but its
 | `description` | string | yes | One-line label — what the pack provides |
 | `triggers` | string[] | yes (empty allowed for transitive-only packs) | Case-insensitive substrings. SKILL.md routing table is the actual source of truth for what gets loaded; this is human reference. |
 | `requires` | string[] | no | Verticals that must be co-loaded in the same read batch |
-| `features` | object[] | yes | `{name, description}` — used in DISCOVERY.md Step 3 Section B |
+| `features` | object[] | yes | `{name, description}` — used in DISCOVERY-create.md Step 3 Section B |
 | `apps` | object[] | no | Zero or one entry. `apps[0].name` fills the Source column of the Pages table; absence implies built-in (cms uses `"CMS (builtin)"` literal). |
 | `routes` | object[] | no | `{route, name?}` — one row per entry in the Pages table |
 | `disabled` | bool | no | If true, the pack's surfaces are inactive by default. DISCOVERY plan skips disabled packs from Sections B + C. Today only `gift-cards`. Default false. |

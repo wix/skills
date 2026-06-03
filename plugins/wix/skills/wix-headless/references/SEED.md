@@ -57,7 +57,7 @@ These notes reduce dispatch-time guesswork. The recipe itself is the source of t
 
 ## Step 2 — Seed domain (recipes, inputs, prompt templates)
 
-The seeders and Image Phase 1 below are launched as one concurrent background batch — that dispatch flow (timing, single-batch discipline, the two-dispatch trap) is owned by `BUILD.md` § "Wave 3" / `PLAN.md` § "Batching discipline". This step defines only the seed domain: the pre-batch utilities script, the dispatch rows, the recipe map, the per-pack input notes, and the prompt templates.
+The seeders and Image Phase 1 below are launched as one concurrent background batch — that dispatch flow (timing, single-batch discipline, the two-dispatch trap) is owned by the conductor (`BUILD.md`, which routes to the active mode's seed step) / `PLAN.md` § "Batching discipline". This step defines only the seed domain: the pre-batch utilities script, the dispatch rows, the recipe map, the per-pack input notes, and the prompt templates.
 
 **Pre-batch — `seed-utilities.sh` (project prep):** run the project-prep script once (idempotent). Astro is the only frontend built, so the template is always `astro`:
 
@@ -76,7 +76,7 @@ Execute from the **project directory** (scaffold subdir after `cd`). Record `{ p
 
 ### Image Phase 1 gate (imagery flag)
 
-Whether the Image Phase 1 Decorative subagent is dispatched at all (the `ai-generated` vs `themed-blocks` branch) is owned by `BUILD.md` § "Imagery gates". The decorative prompt template below is the seed-side domain for that subagent when it does run.
+Whether the Image Phase 1 Decorative subagent is dispatched at all (the `ai-generated` vs `themed-blocks` branch) is owned by the conductor (`BUILD.md`). The decorative prompt template below is the seed-side domain for that subagent when it does run.
 
 For each pack on the dispatch list, dispatch a seeder subagent (`Agent` tool with `subagent_type: "general-purpose"`) with the prompt template below. Use `run_in_background: true`.
 
@@ -172,7 +172,7 @@ There are no seed-coordination files — agents return JSON inline. Do not write
 
 ## Step 4 — Aggregate the seeded map
 
-The seed gate — waiting on seeders + Composer + `npm_handle`, the post-Composer Layout-import verify, and the decorative-slot patch — is owned by `BUILD.md`. (For npm install failures, see `SETUP.md § npm install recovery`.) This step defines only the aggregation shape.
+The seed gate — waiting on seeders + Composer + `npm_handle`, the post-Composer Layout-import verify, and the decorative-slot patch — is owned by the conductor (`BUILD.md`). (For npm install failures, see `SETUP.md § npm install recovery`.) This step defines only the aggregation shape.
 
 **Aggregate seeder returns in orchestrator context.** Each seeder's return JSON is in your session context (the harness surfaces it when the subagent completes). Build a `seeded` map keyed by pack from those returns and hold it in scratch — Phase 3 Components, Phase 4 Pages, and Image Phase 2 prompts will inline the pack-specific slices.
 
