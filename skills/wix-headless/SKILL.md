@@ -147,7 +147,7 @@ The skill runs two semi-independent tracks (business = frontend-blind site/app/s
 
 | Scenario | Use instead |
 |---|---|
-| Scaffold-only with no further design/wiring | `bash <SKILL_ROOT>/scripts/scaffold.sh <slug> "<Brand>"` |
+| Scaffold-only with no further design/wiring | `bash <SKILL_ROOT>/scripts/scaffold.sh <folder-name> "<Brand>"` |
 | Release an existing wix-headless project | from the project dir: `npx @wix/cli@latest build` then `release` (astro); `release` only (custom — no build) |
 | Install a Wix app onto an existing site | Follow `<SKILL_ROOT>/references/commands/install-app.md` |
 | Add a feature / restyle a prior wix-headless run | Resume on disk; ask whether to start fresh |

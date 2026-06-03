@@ -30,7 +30,7 @@ Almost everything in Build is a 1-D framework switch (install/build/release, bel
 
 | | `create` | `connect` | `extend` *(later)* |
 |---|---|---|---|
-| **astro** (`wix`) | `scaffold.sh <slug> "<brand>" --frontend astro` → `npm create @wix/new@latest headless` — `BUILD-astro.md` run-step 0 | — | add `.astro` + nav/home markers *(extend plan)* |
+| **astro** (`wix`) | `scaffold.sh <folder-name> "<brand>" --frontend astro` → `npm create @wix/new@latest headless` — `BUILD-astro.md` run-step 0 | — | add `.astro` + nav/home markers *(extend plan)* |
 | **own-build** (`own`) | create vite/… → `init` — **reserved**, the framework-SPA plan | `init` over brought source — **reserved** | add to source *(extend plan)* |
 | **none / html** (`none`) | — | `npm create @wix/new@latest init` over the brought HTML + fix `wix.config.json.site.outputDirectory` — `BUILD-own-build.md` § "Bootstrap cell" | — |
 

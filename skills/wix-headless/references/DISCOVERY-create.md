@@ -41,7 +41,7 @@ If the user already named the brand in the opening message, skip this step.
 
 ### After Q1 — read the loaded pack files; scaffold inputs
 
-Once the brand is confirmed, read the loaded pack contents (to compose the plan) and prepare the scaffold inputs (slug + frontend value) for later. **The scaffold is NOT dispatched during Discovery** — it is dispatched post-approval (`BUILD-astro.md` run-step 0), so the funnel can present the plan without waiting on anything. This section defines only the slug derivation + the `scaffold.sh` command shape.
+Once the brand is confirmed, read the loaded pack contents (to compose the plan) and prepare the scaffold inputs (folder name + frontend value) for later. **The scaffold is NOT dispatched during Discovery** — it is dispatched post-approval (`BUILD-astro.md` run-step 0), so the funnel can present the plan without waiting on anything. This section defines only the folder-name derivation + the `scaffold.sh` command shape.
 
 **(a) Read every pack in the resolved set.** The full resolved set lives in SKILL.md § "When this skill triggers" (third column). For example, a `stores` run reads four files: `stores.md`, `cms.md`, `ecom.md`, `gift-cards.md`. Read the whole resolved set at once — do **not** read the top-level pack alone, then discover its `requires:` and issue a second batch.
 
@@ -52,25 +52,25 @@ These reads pre-load the `routes:`, `apps:`, `requires:`, and `disabled` fields 
 **(b) The scaffold inputs.** The scaffolder is invoked as:
 
 ```bash
-bash <SKILL_ROOT>/scripts/scaffold.sh <slug> "<brand>" --frontend <frontend> 2> <tempfile>
+bash <SKILL_ROOT>/scripts/scaffold.sh <folder-name> "<brand>" --frontend <frontend> 2> <tempfile>
 ```
 
 `<frontend>` is `astro` — the only scaffolded frontend. The scaffold step is reached only on the create/astro path; a connect run never gets here, because Wave 0 routes it to connect discovery (`DISCOVERY-connect.md`), which bootstraps via `npm create @wix/new@latest init` instead of `scaffold.sh`. If an existing/brought-in site is detected, Wave 0 already set `operation = "connect"` (`frontend = "custom"`) — this step does not run.
 
-**Slug derivation:** lowercase the brand, then **STRIP every character not matching `[a-z0-9]` — do NOT replace them with hyphens or underscores**. Truncate to 20 chars. The `scaffold.sh` pre-flight enforces `^[a-z0-9]{3,20}$` and rejects anything else with exit 2; a rejected slug forces a re-run of the ~30 s scaffold (the indie-bookshop-class regression).
+**Folder-name derivation:** the folder name only controls the local project directory — the Wix project display name and URL slug are derived by the CLI from `business-name` (the brand). Derive the folder name from the brand: (1) lowercase, (2) convert whitespace / punctuation runs to `-`, (3) remove every char that isn't `[a-z0-9-]`, (4) trim leading / trailing hyphens and collapse repeated hyphens. If the result is empty, ask the user explicitly for a folder name (`AskUserQuestion`). The `scaffold.sh` pre-flight enforces `^[a-z0-9][a-z0-9-]*$` (and the value must also pass npm package-name validation), rejecting anything else with exit 2; a rejected folder name forces a re-run of the ~30 s scaffold (the indie-bookshop-class regression).
 
-   - Substitute `<brand>` with the user's confirmed brand (preserve original case; quotes are passed by the shell). Substitute `<slug>` with the validated slug.
+   - Substitute `<brand>` with the user's confirmed brand (preserve original case; quotes are passed by the shell). This is sent to the CLI as `--business-name`, so it owns the Wix project display name and URL-slug generation. Substitute `<folder-name>` with the validated folder name for the local directory only.
+   - **Business-name guardrail.** Because the CLI generates the project URL slug from `business-name`, the brand must contain at least one English letter or number. If the confirmed brand is only emoji or punctuation, the CLI rejects it — ask the user for a brand that includes at least one English letter or number before scaffolding.
    - The script passes bare `--site-template` so non-interactive scaffolding stays on the blank starter. Keep the new-site flow there unless the skill is explicitly redesigned around another scaffold. (Without it, `@wix/create-new` ≥0.0.72 prompts for a template and aborts in the agent's non-TTY shell.)
    - Append timing to `.wix/run.json.phases[]` as `{ phase: "scaffold", seconds: <duration>, started: $STARTED_AT, ended: $ENDED_AT }`.
 
-Correct (strip-and-concatenate):
-- `"Bloom & Root"` → `"bloomroot"` (not `"bloom-and-root"`, not `"bloom-root"`)
-- `"Page & Ember"` → `"pageember"` (not `"page-ember"`, not `"page-and-ember"`)
-- `"ACME, Co."` → `"acmeco"`
-- `"42 Below"` → `"42below"`
-- `"Single-Origin Roasters"` → `"singleoriginroasters"` (cap at 20 → `"singleoriginroaster"` if truncation needed)
-
-**Wrong** (kebab-case / snake-case): any slug containing `-`, `_`, or any other separator. The transformation is **strip**, not **replace** — there are no separators in a valid slug.
+Examples (kebab-case is valid — hyphens are allowed):
+- `"Bloom & Root"` → `"bloom-root"`
+- `"Page & Ember"` → `"page-ember"`
+- `"ACME, Co."` → `"acme-co"`
+- `"42 Below"` → `"42-below"`
+- `"Single-Origin Roasters"` → `"single-origin-roasters"`
+- `"!!!"` (no English letters or numbers) → ask the user for a folder name, and for a brand that includes at least one English letter or number
 
 Then continue to Q2.
 
