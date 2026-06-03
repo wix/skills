@@ -2,11 +2,13 @@
 # Scaffold a new Wix Managed Headless project using the CLI's preset blank template.
 #
 # Usage:
-#   bash <SKILL_ROOT>/scripts/scaffold.sh <project-slug> "<Brand Name>" [--frontend astro|custom]
+#   bash <SKILL_ROOT>/scripts/scaffold.sh <folder-name> "<Brand Name>" [--frontend astro|custom]
 #
-# <project-slug>: 3-20 lowercase alphanumeric chars (no hyphens, no spaces) — the
-#                 Wix CLI rejects anything else. Becomes the project directory name.
-# <Brand Name>:   human-readable business name; quote if it contains spaces.
+# <folder-name>:  lowercase letters, numbers, and hyphens only; must start with a
+#                 letter or number. Becomes the local project directory name.
+# <Brand Name>:   human-readable business name; quote if it contains spaces. The
+#                 CLI derives the Wix project display-name and URL slug from it, so
+#                 it must include at least one English letter or number.
 # --frontend:     the frontend axis. Defaults to "astro" — the only supported (and
 #                 only scaffolded) frontend. "custom" (any non-astro frontend) is
 #                 NOT scaffolded yet: Discovery routes custom to the not-available
@@ -14,12 +16,12 @@
 #                 so this script should only ever be invoked with "astro". If it is
 #                 invoked with "custom" it exits 4 (recognized, not staged).
 #
-# After scaffold succeeds, read <project-slug>/wix.config.json to extract appId
+# After scaffold succeeds, read <folder-name>/wix.config.json to extract appId
 # (project's appId) and siteId (used as --site for `wix token` and in REST call
 # bodies). The orchestrator does that read; this script just runs the npm create.
 #
 # Behavior:
-#   - Pre-flight validates the slug (regex ^[a-z0-9]{3,20}$).
+#   - Pre-flight validates the folder name syntax (regex ^[a-z0-9][a-z0-9-]*$).
 #   - Pre-flight requires both positional args.
 #   - Runs `npm create @wix/new@latest headless` with --no-publish + --skip-install
 #     so the orchestrator can deferred-install with its own package set.
@@ -30,7 +32,7 @@
 #
 # Exit codes:
 #   0 — ok
-#   2 — argument validation failed (bad slug, missing args, unknown --frontend value)
+#   2 — argument validation failed (bad folder name, missing args, unknown --frontend value)
 #   3 — Wix CLI not logged in (defensive; the Discovery pre-flight is the primary check)
 #   4 — frontend value recognized but not scaffolded yet (custom today)
 #   <other> — npm create failed; stderr surfaced to caller for orchestrator-side
@@ -62,8 +64,8 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ ${#POSITIONAL[@]} -lt 2 || -z "${POSITIONAL[0]:-}" || -z "${POSITIONAL[1]:-}" ]]; then
-  echo "scaffold.sh: both positional args required. Got project-slug='${POSITIONAL[0]:-}' brand-name='${POSITIONAL[1]:-}'." >&2
-  echo "Usage: bash scaffold.sh <slug> \"<Brand Name>\" [--frontend astro|custom] — slug first, brand quoted." >&2
+  echo "scaffold.sh: both positional args required. Got folder-name='${POSITIONAL[0]:-}' brand-name='${POSITIONAL[1]:-}'." >&2
+  echo "Usage: bash scaffold.sh <folder-name> \"<Brand Name>\" [--frontend astro|custom] — folder name first, brand quoted." >&2
   exit 2
 fi
 
@@ -81,10 +83,10 @@ case "$FRONTEND" in
     ;;
 esac
 
-if [[ ! "${POSITIONAL[0]}" =~ ^[a-z0-9]{3,20}$ ]]; then
-  echo "scaffold.sh: project-slug='${POSITIONAL[0]}' is not valid." >&2
-  echo "Slug must be 3-20 lowercase alphanumeric chars (no hyphens, no spaces)." >&2
-  echo "Derive from the brand: lowercase, strip non-[a-z0-9], truncate to 20." >&2
+if [[ ! "${POSITIONAL[0]}" =~ ^[a-z0-9][a-z0-9-]*$ ]]; then
+  echo "scaffold.sh: folder-name='${POSITIONAL[0]}' is not valid." >&2
+  echo "Folder name must contain only lowercase letters, numbers, and hyphens, and start with a letter or number." >&2
+  echo "Derive it from the brand as a lowercase, npm-safe directory name." >&2
   exit 2
 fi
 
@@ -102,7 +104,7 @@ fi
 
 npm create @wix/new@latest headless -- \
   --business-name "${POSITIONAL[1]}" \
-  --project-name "${POSITIONAL[0]}" \
+  --folder-name "${POSITIONAL[0]}" \
   --site-template \
   --no-publish \
   --skip-install

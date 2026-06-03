@@ -15,7 +15,7 @@ Files this agent MUST NOT touch:
 - `src/pages/cart.astro`, `src/pages/thank-you.astro` — owned by `pages-cart-checkout`
 - `src/pages/index.astro`, `src/components/Navigation.astro` — owned by `pages-home-and-nav`
 - `src/components/CategoryRail.astro` — owned by `pages-categories`. **Import** from `../../components/CategoryRail.astro`; never `Write` it. If it's not on disk yet when you go to mount it, that means the orchestrator dispatched scopes out of order — return `status: "partial"` with `errors: [{ code: "MISSING_PAGES_CATEGORIES_OUTPUT", path: "src/components/CategoryRail.astro" }]` (never defensively `Write` it yourself — `pages-categories` is the only writer, and racing it trips the harness staleness guard).
-- `src/utils/categories.ts` — pre-copied by the orchestrator before Phase 4 (BUILD.md Step 7 pre-batch). **Import** `listStoreCategories`/etc. from `../../utils/categories`; never `Write` it.
+- `src/utils/categories.ts` — pre-copied by the orchestrator before Phase 4 (BUILD-astro.md Step 7 pre-batch). **Import** `listStoreCategories`/etc. from `../../utils/categories`; never `Write` it.
 - `global.css`, any other `.astro` page, any other component — owned by designers
 
 ## Inputs (from parent prompt)

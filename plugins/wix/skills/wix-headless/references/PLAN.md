@@ -1,10 +1,12 @@
 # Plan — the pre-approval funnel
 
-This file owns the run **from the first Discovery question to the user's approval of the plan** — mode routing, the questions, the background dispatches that hide latency, and the plan/approval gate. Its job is to get the user to the commitment moment **fast**, so keep it lean.
+This file owns the run **from the first Discovery question to the user's approval of the plan** — operation routing, the questions, the background dispatches that hide latency, and the plan/approval gate. Its job is to get the user to the commitment moment **fast**, so keep it lean.
+
+**This file is the funnel router, and it routes on OPERATION.** It holds the shared funnel rules (concurrency vocabulary, the two-track model, operation routing, the Plan→Build contract, user-facing output, batching). The operation-specific funnel — how input is processed and how the plan looks — lives in `PLAN-create.md` (create a new site) and `PLAN-connect.md` (connect a brought-in design). **Read `operation` (set by `DISCOVERY.md` § Wave 0), then open the matching one and read only that:** `create` → `PLAN-create.md`, `connect` → `PLAN-connect.md`. (Today `create` coincides with `frontend: astro` and `connect` with `frontend: custom` — but the funnel branches on the *operation*, not the frontend; that is the seam the framework-SPA and extend plans build on.)
 
 **On approval, open `BUILD.md`** — the post-approval conductor that owns execution (Setup → design-system bridge → Seed → Components → Pages → Build → Release). Everything past the approval gate lives there, so it is not read until the user has committed.
 
-**The contract with the other files.** The domain/step files answer *what each step does* (the questions Discovery asks, the recipes, the prompt templates). This file + `BUILD.md` answer *when, in what order, in parallel with what, gated on what*. The step files do not name the sequence or chain to each other; the conductor (this file → `BUILD.md`) names when to apply each one. Neither prescribes a tool API — map each step to whatever subagent / parallel-execution primitive your runtime offers.
+**The contract with the other files.** The domain/step files answer *what each step does* (the questions Discovery asks, the recipes, the prompt templates). This file + the operation funnels + `BUILD.md` answer *when, in what order, in parallel with what, gated on what*. The step files do not name the sequence or chain to each other; the conductor names when to apply each one. Neither prescribes a tool API — map each step to whatever subagent / parallel-execution primitive your runtime offers.
 
 ## Concurrency vocabulary
 
@@ -26,43 +28,51 @@ The run is two semi-independent tracks that the orchestrator interleaves for wal
 
 The only cross-track data flow is **one-way, business → frontend**: seeders produce entity IDs which the orchestrator inlines into the frontend track's Page-subagent prompts. There is no frontend → business dependency.
 
-## Frontend-mode routing
+## Operation routing
 
-`frontend` (captured by `DISCOVERY.md` § "Wave 0 — Mode detection") is the axis the frontend track branches on. The orchestrator holds it in scratch and uses it in two ways: it branches inline in the PLAN/BUILD orchestration on the scratch value, and it passes `--frontend <value>` to `scaffold.sh` and `init-site-json.mjs` (and `--template astro` to `seed-utilities.sh`). The axis is binary — **astro (supported) vs custom (anything else, not available yet)**:
+The Plan phase routes on **operation** — *create* (scaffold a new site from a prompt) vs *connect* (integrate a brought-in design). `operation` is captured by `DISCOVERY.md` § "Wave 0", held by the orchestrator in scratch, and selects the funnel:
 
-| `frontend` | Mode | Flow |
+| `operation` | What it is | Funnel → Build |
 |---|---|---|
-| `astro` | Scaffold (supported) | Wave 0 below → on approval → `BUILD.md`. The full playbook lives under `<SKILL_ROOT>/references/astro/`. |
-| anything else (custom) | Not available yet | Open `<SKILL_ROOT>/references/custom/INSTRUCTIONS.md`, surface its not-available message, and **stop** — no scaffold, no Designer/Composer, no Setup/Seed authoring, no `BUILD.md` build flow, no half-built site. |
+| `create` | The user asks for a new site; the skill writes it | **`PLAN-create.md`** → on approval → `BUILD.md` routes Build on **framework**. The full astro playbook lives under `<SKILL_ROOT>/references/astro/`. |
+| `connect` | The user brings a finished design to wire to Wix | **`PLAN-connect.md`** → on approval → `BUILD.md` routes Build on **framework**. The frontend-track playbook is `<SKILL_ROOT>/references/custom/INSTRUCTIONS.md`. No scaffold, no Designer/Composer; init + shared Setup/Seed + connect/augment + no-build release. |
 
-> **Astro is the one Wix-preferred frontend the skill builds end-to-end.** Every non-astro value (a user-provided project, a Vite/React SPA, anything else) is a **custom** frontend; the custom authoring track is deferred. Route it to the stub and tell the user astro is the supported path. The intended future shape for custom is recorded in `references/custom/INSTRUCTIONS.md`.
+> **Operation ≠ frontend.** Today `create` happens to mean `frontend: astro` and `connect` means `frontend: custom`, because those are the only two combinations that exist. But the funnel branches on the *operation* (what the user is doing), not the frontend (what renders it). Keeping them distinct is what lets *create × framework-SPA* and *connect × html* become independently expressible without a new phase fork — see the framework-SPA plan and the extend plan.
 
-This is the **track-selection routing layer**: `SETUP.md`'s steps assume the routing already happened; the conductor owns the branch.
+This is the **operation-selection routing layer**: `SETUP.md`'s steps assume the routing already happened; the conductor owns the branch. **Build does NOT route on operation** — it routes on framework (`BUILD.md`); operation feeds Build only through the contract below (specifically the bootstrap/wiring cells).
 
-## Wave 0 — Discovery → plan → approval (Path A)
+## The Plan→Build contract
 
-**The funnel dispatches nothing.** Its only job is to talk to the user, present the plan, and get approval. (The scaffold and Designer used to be dispatched here to hide their wall behind Q&A think-time — but the Designer is now ~10–15 s and the scaffold ~23 s, so the hiding isn't worth it, and those dispatches were what distracted the agent from actually showing the plan. **Both now dispatch in `BUILD.md`, post-approval.**) So the funnel is exactly three things:
+Plan resolves a small, explicit contract that Build consumes. It is carried **in the orchestrator's in-context session scratch** and threaded into each subagent's dispatch prompt — it is **not persisted to disk** (so `init-site-json.mjs` is *not* extended to record it; only `frontend` lands on disk, exactly as today). The orchestrator already resolves these fields in Wave 0 and holds them for the whole run, so a disk round-trip buys nothing.
 
-1. **Mode detection + pre-flight, then the interview** — apply `DISCOVERY.md` (mode detection, CLI auth, Q0 vertical inference, Q1 brand, Q2 vibe, Q2.5 imagery). **Read only what the next question needs** — do not pre-read `BUILD.md`; read the vertical packs for plan composition (not before the vibe question).
-2. **Compose and PRESENT the plan — as a standalone assistant message.** The moment Q&A ends and the aesthetic-direction craft is done, **render the full plan** (Design Direction from the Q2 craft + the Pages/Features tables, per `DISCOVERY.md` § plan) as a normal message the user reads. **The user MUST SEE the rendered plan before being asked to approve.** Do **not** fold the plan into the approval question, do **not** replace it with a one-line "here's the plan" + dispatch, and do **not** do any other work (no scaffold, no Designer, no scaffold-output reads) between the craft and the plan — there is nothing to dispatch here, so present the plan immediately.
-3. **Approval gate** — *only after* the plan message has been sent, ask the approval question (`AskUserQuestion`).
+**Core (every operation resolves these identically; Build's install/build/release spine reads only these):**
 
-**On approval** — `init-site-json.mjs --frontend <value>` writes the slim `.wix/site.json`, then **open `BUILD.md`** and continue from its run-step 0 (which dispatches the scaffold + Designer, then runs Setup).
+| Field | Today's values | Meaning |
+|---|---|---|
+| `operation` | `create` \| `connect` | what the user is doing (*extend* added later by its own plan) |
+| `frontend` | `astro` \| `custom` | what renders the site (the one field also persisted to `.wix/site.json`) |
+| `frontendBuild` | `wix` \| `none` | the build-class Build routes on: `wix` for astro, `none` for brought HTML. `own` (`npm run build`) is **reserved** for the SPA plan |
+| `verticals[]` | e.g. `["stores","ecom","cms"]` | loaded packs (top-level + transitive) |
+| `designSource` | `generate-fresh` \| `derive-from-brought` | create generates; connect derives from the brought design's own tokens |
+| `brand` | `{ name, description }` | brand metadata |
 
-## Custom (non-astro) frontends — not available yet
+`frontendBuild` derives trivially from `frontend` today (astro ⇒ `wix`, custom ⇒ `none`); resolve it in Wave 0 alongside `frontend` and hold it in scratch. Build branches its install/build/release **purely off `frontendBuild`** — never off `operation`.
 
-When `frontend` is anything other than `astro`, the run routes to the **custom stub** and stops the frontend track. Open `<SKILL_ROOT>/references/custom/INSTRUCTIONS.md`, surface its not-available message, and do **not** attempt authoring — no scaffold, no Designer/Composer, no Setup/Seed, no `BUILD.md`, no half-built site. The user is told astro is the supported frontend.
+**Operation section (feeds ONLY the bootstrap + wiring cells, never the build/release spine):**
+- `connect` carries the **connection plan** (binding-map / augmentation spec) inferred in Discovery.
+- `create` carries nothing extra.
+- *(extend will carry existing-state + delta — added by the extend plan.)*
 
-> **Retired: the Integrate (Path B) flow.** The skill used to run a live "Integrate" sequence for `user-provided` frontends — `DISCOVERY.md` § "Integrate-mode short flow" → `SETUP.md` § "Existing project flow" E1–E6 (E1 init → E2 analyze → E3 install apps → E4 SDK wiring → E5 release). That flow is **no longer dispatched**: non-astro frontends now hit the stub instead. The E1–E6 mechanics (especially the E4 SDK-wiring recipe) are kept in `SETUP.md` as a **historical reference** for the eventual custom authoring track (`references/custom/INSTRUCTIONS.md` § "Intended future shape"), not as a Beta deliverable.
+That is the precise sense in which the contract stays uniform across operations: the build/release spine is contract-uniform (it reads only the core), and **only** the bootstrap/wiring cells read the operation-specific payload. A *fresh session over an existing project* (extend) reconstructs the equivalent core from durable disk artifacts (`@wix/astro` dep, `package.json`, on-disk pages) rather than from scratch — same contract, sourced differently by lifecycle.
 
 ## User-facing output (keep the machinery invisible)
 
-This rule governs the **whole run**, both files. The user should see **milestones in plain language, never the orchestration machinery.** Between the Discovery approval and the final summary the run is largely silent — the orchestrator is dispatching, waiting, and gating, none of which is the user's concern.
+This rule governs the **whole run**, both modes. The user should see **milestones in plain language, never the orchestration machinery.** Between the Discovery approval and the final summary the run is largely silent — the orchestrator is dispatching, waiting, and gating, none of which is the user's concern.
 
 **Never put internal orchestration vocabulary in a user-facing message.** That includes: background-handle names (`*_handle`), dispatch markers ("→ dispatch:", "dispatching X", "launching Wave 3"), subagent START/END, "seed gate" / "all handles complete", wave/step numbers ("Wave 3", "Step 4.5"), in-flight **subagent/handle status tables** (especially any "Handle" column), and internal paths (`wix-manage-root`, the scaffold subdir). These describe *how the conductor works*, not *what the user is getting*.
 
-**The only user-facing messages in a Path A run are:**
-1. **Discovery** — the questions, the plan, and the approval gate (`DISCOVERY.md`'s domain).
+**The only user-facing messages in a run are:**
+1. **Discovery** — the questions, the plan, and the approval gate (the mode discovery file's domain).
 2. **One brief seed-progress sentence** (`SEED.md` Step 5) — plain prose naming what was seeded, no tables.
 3. **The final summary** (`BUILD.md` § "Final Message").
 
@@ -70,7 +80,7 @@ Everything else is silent. If a long phase (Components, Pages) would otherwise l
 
 ## Batching discipline
 
-This rule governs **every** concurrent batch in the run — the Wave-0 pack reads (here), and the BUILD-entry scaffold + Designer dispatch, the Setup app-installs, and the Wave-3 seed batch (all in `BUILD.md`). The step files describe *what* is in each batch; the rule that they go out as one batch lives here.
+This rule governs **every** concurrent batch in the run, in both modes — the Wave-0 pack reads (mode funnel), and the post-approval dispatch batches owned by the conductor (`BUILD.md` and its mode files): the astro BUILD-entry scaffold + Designer dispatch, the Setup app-installs, the Wave-3 seed batch, the integration connection-plan + init batch. The step files describe *what* is in each batch; the rule that they go out as one batch lives here.
 
 Historical runs lost 1–2 minutes per phase to serialized dispatch — N operations emitted one-per-turn instead of in a single concurrent batch. Even when each ran fast, the inter-dispatch gaps (12–39s in measured runs) accumulated to >25% overhead per phase.
 
