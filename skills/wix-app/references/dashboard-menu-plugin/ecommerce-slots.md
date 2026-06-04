@@ -15,3 +15,10 @@
 
 - **Dashboard path:** Sales > Orders
 - **Use case:** Add actions for individual orders in the orders list.
+
+### Edit Draft Order Page
+
+**Draft Order Fee — Slot ID:** `057f1726-f0b3-40ef-8903-1bd104e18369`
+
+- **Dashboard path:** Sales > Orders > Order > More Actions > Edit Order
+- **Use case:** Add a menu item to the edit-order screen — typically used to open a modal that adds or adjusts custom order fees.

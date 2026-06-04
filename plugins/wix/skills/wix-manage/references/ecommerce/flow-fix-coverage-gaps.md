@@ -26,9 +26,9 @@ Detects delivery regions where customers cannot see any shipping options at chec
 
 ## Required APIs
 
-- [Query Delivery Profiles](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/shipping-delivery/delivery-profiles/query-delivery-profiles)
-- [Query Shipping Options](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/shipping-delivery/shipping-options/query-shipping-options)
-- [Create Shipping Option](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/shipping-delivery/shipping-options/create-shipping-option)
+- [Query Delivery Profiles](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/api-shipping#query-delivery-profiles)
+- [Query Shipping Options](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/api-shipping#query-shipping-options)
+- [Create Shipping Option](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/api-shipping#create-shipping-option)
 
 ---
 
@@ -296,5 +296,4 @@ Use the same request from Step 2 and verify the count now covers all active, non
 
 ## References
 
-- [Delivery Profiles API](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/shipping-delivery/delivery-profiles/introduction)
-- [Shipping Options API](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/shipping-delivery/shipping-options/introduction)
+- [API: Shipping Delivery](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/api-shipping)

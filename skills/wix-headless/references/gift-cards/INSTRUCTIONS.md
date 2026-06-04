@@ -5,14 +5,14 @@ description: "Implements the passive Wix Gift Cards vertical — runtime probe u
 
 # Gift Cards Implementer
 
-Extends `references/shared/IMPLEMENTER.md`. Read that file first for phase routing, MCP prefix, site.json read pattern, return contract, style conventions, and common failure modes.
+Extends `references/shared/IMPLEMENTER.md`. Read that file first for phase routing, REST auth + doc lookups, prompt-inlined inputs (no site.json reads), return contract, style conventions, and common failure modes.
 
 ## Scope routing
 
 | Scope | Phase | Reference |
 |-------|-------|-----------|
-| `components` | Components (probe util, React island, scoped CSS) | `./COMPONENTS.md` |
-| `pages` | Pages (gift-cards landing + Navigation/index patches) | `./PAGES.md` |
+| `components` | Components (probe util, React island, scoped CSS) | `../astro/gift-cards/COMPONENTS.md` |
+| `pages` | Pages (gift-cards landing + Navigation/index patches) | `../astro/gift-cards/PAGES.md` |
 
 This pack has **no `seed` scope** — the dashboard's eGift Card template is the source of truth and we never seed denominations from code.
 
@@ -26,17 +26,17 @@ Before returning `status: "complete"` from the `pages` scope, verify every file 
 
 ## Templates
 
-Canonical templates live at `<SKILL_ROOT>/templates/gift-cards/`. Your `components` and `pages` scopes read these and adapt them — don't invent markup or logic.
+Canonical templates live at `<SKILL_ROOT>/references/astro/templates/gift-cards/`. Your `components` and `pages` scopes read these and adapt them — don't invent markup or logic.
 
 Components (`components` scope):
-- `<SKILL_ROOT>/templates/gift-cards/gift-cards.ts`
-- `<SKILL_ROOT>/templates/gift-cards/GiftCardPurchase.tsx`
-- `<SKILL_ROOT>/templates/gift-cards/components-gift-cards.css`
+- `<SKILL_ROOT>/references/astro/templates/gift-cards/gift-cards.ts`
+- `<SKILL_ROOT>/references/astro/templates/gift-cards/GiftCardPurchase.tsx`
+- `<SKILL_ROOT>/references/astro/templates/gift-cards/components-gift-cards.css`
 
 Pages (`pages` scope):
-- `<SKILL_ROOT>/templates/gift-cards/gift-cards.astro`
-- `<SKILL_ROOT>/templates/gift-cards/_nav-snippet.astro` — exact contribution to insert at `<!-- nav:links -->` in `Navigation.astro`
-- `<SKILL_ROOT>/templates/gift-cards/_home-teaser-snippet.astro` — exact contribution to insert at `<!-- home:gift-cards -->` in `index.astro`
+- `<SKILL_ROOT>/references/astro/templates/gift-cards/gift-cards.astro`
+- `<SKILL_ROOT>/references/astro/templates/gift-cards/_nav-snippet.astro` — exact contribution to insert at `<!-- nav:links -->` in `Navigation.astro`
+- `<SKILL_ROOT>/references/astro/templates/gift-cards/_home-teaser-snippet.astro` — exact contribution to insert at `<!-- home:gift-cards -->` in `index.astro`
 
 ## Gift-cards-specific failure modes
 

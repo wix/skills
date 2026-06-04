@@ -1,59 +1,88 @@
 #!/usr/bin/env node
-// Inject Image-Phase-1 decorative URLs into the designer-emitted page shells.
+// Inject Image-Phase-1 decorative URLs into the page shells.
 //
-// The Phase 2 designer writes `<div data-decorative-slot="<key>">…</div>`
-// placeholders in src/pages/*.astro. Image Phase 1 writes resolved URLs to
-// .wix/image-urls.md. This script reads both, then injects an <img> element
-// as the first child of each matching slot div — pure string substitution,
-// no LLM, no file rewrites.
+// The design-system Composer (index.astro) and the Phase 4 page designers write
+// `<div data-decorative-slot="<key>">…</div>` placeholders in src/pages/*.astro. Image Phase 1 returns a slot→URL map
+// in its JSON return; the orchestrator pipes that map (as JSON) into this
+// script's stdin. This script reads the map + walks src/pages/*.astro,
+// then injects an <img> as the first child of each matching slot div —
+// pure string substitution, no LLM, no file rewrites.
 //
 // Usage:
-//   node patch-decorative-slots.mjs <project-dir>
+//   echo '{"hero":"https://...","about":"https://..."}' \
+//     | node patch-decorative-slots.mjs <scaffold-dir>
+//
+// <scaffold-dir> is the dir that contains src/pages/. The orchestrator
+// passes the scaffold subdir explicitly — no eval-dir vs scaffold-dir
+// auto-detection is needed for the URL map (it's on stdin), but src/pages
+// is still resolved per-input since the orchestrator may call this from
+// either the scaffold subdir or the eval root.
 //
 // Behavior:
-//   - If .wix/image-urls.md doesn't exist, exit 0 silently (Image Phase 1
-//     timed out / failed; the slot placeholders look complete on their own).
+//   - Empty stdin or no slot→URL pairs → exit 0 status="skipped" (themed-
+//     blocks mode or Image Phase 1 had no URLs to publish).
+//   - src/pages missing at <scaffold-dir> and in any single subdir one
+//     level down → exit 2 status="error".
 //   - For each `data-decorative-slot="<key>"` in src/pages/*.astro:
-//       * If <key> has no URL in image-urls.md → leave the div alone.
-//       * If the div is self-closing or already has a child element other
-//         than whitespace/comments → skip with a warning (don't clobber).
+//       * Key has no URL in the input map → leave the div alone.
+//       * Div already has a non-comment child → skip with a warning.
 //       * Otherwise inject <img …> as the first child.
-//   - Output a JSON summary of patches/skips/warnings to stdout.
-//   - Exit 0 even when some slots couldn't be patched — placeholders fall
-//     back to the designer's aspect-ratio + background-color rendering.
+//   - Output JSON summary of patches/skips/warnings to stdout.
 
 import { readFileSync, writeFileSync, existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 const projectDir = process.argv[2] ?? process.cwd();
 
-const imageUrlsPath = join(projectDir, ".wix/image-urls.md");
-if (!existsSync(imageUrlsPath)) {
-  console.log(JSON.stringify({ status: "skipped", reason: "no .wix/image-urls.md (Image Phase 1 didn't write — failed or timed out)" }));
-  process.exit(0);
-}
-
-// Parse `## <key>\n- url: <url>` blocks from .wix/image-urls.md.
-const imageUrlsRaw = readFileSync(imageUrlsPath, "utf8");
-const urlMap = {};
-// Match `## key\n…- url: <url>` per section. The inner `(?:(?!^##\s)[\s\S])*?`
-// forbids the lazy span from crossing into the next `## ` line — without
-// that guard, an empty `- url:` for one slot silently steals the next
-// section's URL on partial-failure runs.
-const sectionRegex = /^##\s+(\S+)\s*\n(?:(?!^##\s)[\s\S])*?-\s*url:\s*(https?:\/\/\S+)/gm;
-let m;
-while ((m = sectionRegex.exec(imageUrlsRaw)) !== null) {
-  urlMap[m[1]] = m[2];
+let urlMap = {};
+if (!process.stdin.isTTY) {
+  const raw = readFileSync(0, "utf8").trim();
+  if (raw) {
+    try {
+      urlMap = JSON.parse(raw);
+    } catch (e) {
+      console.error(JSON.stringify({ status: "error", reason: `stdin is not valid JSON (${e.message})` }));
+      process.exit(2);
+    }
+    if (!urlMap || typeof urlMap !== "object" || Array.isArray(urlMap)) {
+      console.error(JSON.stringify({ status: "error", reason: "expected a JSON object mapping slot keys to URLs" }));
+      process.exit(2);
+    }
+  }
 }
 
 if (Object.keys(urlMap).length === 0) {
-  console.log(JSON.stringify({ status: "skipped", reason: ".wix/image-urls.md exists but has no parseable `## key` + `- url:` blocks" }));
+  console.log(JSON.stringify({ status: "skipped", reason: "no slot→URL pairs on stdin (themed-blocks mode or Image Phase 1 produced none)" }));
   process.exit(0);
 }
 
-// Find candidate page files: src/pages/*.astro, recursively (designer may emit
-// /about.astro at top level OR /pages/about.astro).
-const pagesDir = join(projectDir, "src/pages");
+function findPagesDir() {
+  const direct = join(projectDir, "src/pages");
+  if (existsSync(direct)) return { path: direct, source: "projectDir" };
+  const hits = [];
+  for (const entry of readdirSync(projectDir, { withFileTypes: true })) {
+    if (!entry.isDirectory() || entry.name.startsWith(".")) continue;
+    const candidate = join(projectDir, entry.name, "src/pages");
+    if (existsSync(candidate)) hits.push(candidate);
+  }
+  if (hits.length === 1) return { path: hits[0], source: "scaffold-subdir" };
+  if (hits.length > 1) return { path: null, source: "ambiguous", hits };
+  return { path: null, source: "missing" };
+}
+
+const pagesResolved = findPagesDir();
+if (!pagesResolved.path) {
+  console.error(JSON.stringify({
+    status: "error",
+    reason: "src/pages not found at <projectDir>/src/pages or in any scaffold subdir; pass the scaffold dir explicitly",
+    projectDir,
+    pagesSearchedAt: pagesResolved.source === "ambiguous" ? pagesResolved.hits : [join(projectDir, "src/pages")],
+  }, null, 2));
+  process.exit(2);
+}
+
+const pagesDir = pagesResolved.path;
+
 const candidates = [];
 const walk = (dir) => {
   if (!existsSync(dir)) return;
@@ -80,22 +109,17 @@ for (const file of candidates) {
   modified = modified.replace(SLOT_DIV_REGEX, (match, openTag, slotKey, inner, closeTag) => {
     const url = urlMap[slotKey];
     if (!url) {
-      skipped.push({ file, slot: slotKey, reason: "no URL for this slot in image-urls.md" });
+      skipped.push({ file, slot: slotKey, reason: "no URL for this slot in input map" });
       return match;
     }
 
-    // Strip HTML comments before any content checks — the designer's placeholder
-    // is a comment like `<!-- orchestrator injects <img> here -->`, which would
-    // otherwise false-positive both the idempotency and clobber-guard checks.
     const stripped = inner.replace(/<!--[\s\S]*?-->/g, "").trim();
 
-    // Skip if div already contains an <img> element (idempotency).
     if (/<img\b/i.test(stripped)) {
       skipped.push({ file, slot: slotKey, reason: "div already contains an <img> tag (idempotent skip)" });
       return match;
     }
 
-    // Skip if div has substantive child content beyond whitespace/comments.
     if (stripped.length > 0) {
       warnings.push({ file, slot: slotKey, reason: "div has existing non-image child content; not patching to avoid clobber" });
       return match;
@@ -104,7 +128,6 @@ for (const file of candidates) {
     fileChanged = true;
     const img = `<img src="${url}" alt="" loading="lazy" decoding="async" class="decorative-slot-img" />`;
     patched.push({ file, slot: slotKey });
-    // Preserve any whitespace inside the div (e.g., the newline + indent).
     return `${openTag}\n      ${img}${inner}${closeTag}`;
   });
 
@@ -115,10 +138,11 @@ for (const file of candidates) {
 
 const summary = {
   status: warnings.length > 0 ? "partial" : "ok",
-  imageUrls: Object.keys(urlMap),
+  slots: Object.keys(urlMap),
   filesScanned: candidates.length,
   patched,
   skipped,
   warnings,
+  pagesFrom: pagesResolved.source,
 };
 console.log(JSON.stringify(summary, null, 2));

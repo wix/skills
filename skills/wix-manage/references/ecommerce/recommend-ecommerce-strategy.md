@@ -106,9 +106,9 @@ CallWixSiteAPI(
     "fields": [
       "language",
       "merchant_business_country",
-      "success_last_30_days_industry",
-      "success_last_30_days_sub_industry",
-      "success_last_30_days_distinct_visitors",
+      "suggested_main_industry",
+      "suggested_sub_industry",
+      "last_30_days_distinct_visitors",
       "last_30_days_orders_count",
       "online_gpv_last_30_days",
       "payment_currency"
@@ -123,9 +123,9 @@ CallWixSiteAPI(
 |---|---|---|---|
 | `language` | STRING | Wix site language code | Locale-aware recommendations |
 | `merchant_business_country` | STRING | Merchant's business country (ISO alpha-2) | Holiday detection, region analysis, shipping |
-| `success_last_30_days_industry` | STRING | Dominant industry in last 30 days (user growth model) | Domain classification, goal selection |
-| `success_last_30_days_sub_industry` | STRING | Dominant sub-industry in last 30 days | Domain classification |
-| `success_last_30_days_distinct_visitors` | LONG | Distinct visitors in last 30 days (incl. app sessions) | Traffic-based thresholds |
+| `suggested_main_industry` | STRING | Dominant industry in last 30 days (user growth model) | Domain classification, goal selection |
+| `suggested_sub_industry` | STRING | Dominant sub-industry in last 30 days | Domain classification |
+| `last_30_days_distinct_visitors` | LONG | Distinct visitors in last 30 days (incl. app sessions) | Traffic-based thresholds |
 | `last_30_days_orders_count` | LONG | Order count in last 30 days | AOV calculation, goal selection |
 | `online_gpv_last_30_days` | LONG | Online Gross Payment Volume in last 30 days (site currency units) | Revenue analysis, AOV calculation |
 | `payment_currency` | STRING | Store payment currency code (ISO-4217) | Discount/shipping amount formatting |
@@ -153,7 +153,7 @@ Extracting values:
 
 **Currency rule:** All monetary values (`online_gpv_last_30_days`, `aov`, discount thresholds, shipping amounts) are in the site's `payment_currency`. Never assume USD. Always display and compute amounts using `payment_currency`.
 
-**STOP if `merchant_business_country`, `success_last_30_days_industry`, or `online_gpv_last_30_days` are missing or null.** Report: "Cannot generate recommendations — missing required site data: {fields}."
+**STOP if `merchant_business_country`, `suggested_main_industry`, or `online_gpv_last_30_days` are missing or null.** Report: "Cannot generate recommendations — missing required site data: {fields}."
 
 ---
 
