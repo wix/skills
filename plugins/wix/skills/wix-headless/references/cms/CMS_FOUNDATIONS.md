@@ -70,6 +70,8 @@ body: {
 }
 ```
 
+> **Bulk insert (N ≥ 2 items):** use the `wix-manage` skill's recipe — `wix-manage/references/cms/cms-data-items-crud.md` § "Bulk Insert Items" (`POST /wix-data/v2/bulk/items/insert`, up to 1000/call, one `dataCollectionId` per call → fire one bulk call per collection as a parallel batch). It also documents bulk update/patch/delete. Do not hand-roll N single inserts for a multi-item seed.
+
 ### Verify inserts with a live query (mandatory)
 
 After inserting all items, **query each collection once** and confirm every field you sent is present in the stored `data`. A POST without errors does NOT prove the content persisted — the API has accepted insert bodies with missing fields before, and the failure is invisible until a human opens the page.
