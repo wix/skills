@@ -48,27 +48,39 @@ Each scenario's `name` field must be unique across the whole `yaml/wix-manage-ev
 | `description` | One or two sentences describing what the scenario verifies. |
 | `triggerPrompt` | The natural-language request you'd expect a real user to make. Minimum 10 characters. |
 | `tags` | An array of one or more tags. Must include a production tag for the area (e.g. `[domains]`, `[stores]`, `[bookings]`). |
-| `assertions` | An array of assertions that decide whether the scenario passed. **Every scenario MUST include a `tool` assertion verifying that the agent actually reached the skill** (see below). |
+| `assertions` | An array of assertions that decide whether the scenario passed. **Every scenario MUST include both a `tool` assertion (proves the skill was invoked) AND an `llm_judge` assertion (proves the response was substantively correct)** — see below. |
 
-### Required assertion — the skill must be invoked
+### Required assertions
 
-> **Every scenario MUST include a `tool` assertion on `ReadFullDocsArticle` with the skill's doc URL.** This is what proves the agent actually loaded the skill's content.
+Every scenario must include **both** of the following:
+
+**1. A `tool` assertion on `ReadFullDocsArticle` with the skill's doc URL** — proves the agent actually loaded the skill's content.
 
 ```yaml
-assertions:
-  - tool: ReadFullDocsArticle
-    params:
-      articleUrl: https://dev.wix.com/docs/api-reference/<...>/skills/<skill-name>
+- tool: ReadFullDocsArticle
+  params:
+    articleUrl: https://dev.wix.com/docs/api-reference/<...>/skills/<skill-name>
 ```
 
 The `articleUrl` must match the doc URL for the skill — built as `<docsEntry>/skills/<filename>` from the skill's entry in `yaml/wix-manage/<area>/documentation.yaml`.
+
+**2. An `llm_judge` assertion** — proves the agent's response was substantively correct, not just that it loaded the docs.
+
+```yaml
+- type: llm_judge
+  minScore: 7
+  prompt: |
+    <Pass/fail criteria specific to this scenario>
+```
+
+Without the `llm_judge`, a scenario passes whenever the agent reads the doc, even if the response is wrong or unhelpful. Without the `tool` assertion, the judge can pass on a fabricated response that never touched the skill at all. You need both.
 
 ### Assertion types
 
 You can mix these in a single scenario:
 
-- **`tool`** (required, at least one) — proves the agent actually invoked the skill by asserting on the specific tool call that loads the skill's content (typically `ReadFullDocsArticle` with the skill's doc URL). Without this, the eval can pass on a response the agent fabricated without ever reaching your skill. Substring matching on string values, so a partial value is OK.
-- **`type: llm_judge`** — an LLM rubric that scores the agent's final response on a 0–10 scale. You write the pass/fail criteria in the `prompt` field. Recommended in addition to the `tool` assertion so you also catch "agent read the docs but produced a bad answer."
+- **`tool`** (required) — proves the agent actually invoked the skill by asserting on the specific tool call that loads the skill's content. Substring matching on string values, so a partial value is OK.
+- **`type: llm_judge`** (required) — an LLM rubric that scores the agent's final response on a 0–10 scale. You write the pass/fail criteria in the `prompt` field.
 - **`type: api_call`** — makes an HTTP request after the scenario runs and validates the response (use for end-to-end checks of state changes).
 - **`type: cost`** — fails if the run exceeded a USD cost ceiling.
 - **`type: time_limit`** — fails if the run exceeded a duration ceiling.
@@ -143,7 +155,7 @@ Before opening a PR, confirm:
 - The relevant `SKILL.md` index is updated.
 - Any new `wix-manage` skill is listed in the relevant `yaml/wix-manage/<area>/documentation.yaml`.
 - Any new or modified `wix-manage` skill has at least one covering eval scenario under `yaml/wix-manage-evals/<area>/`.
-- Every eval scenario includes a `tool` assertion confirming the agent actually invoked the skill (not just generated a plausible-looking response from training data).
+- Every eval scenario includes both a `tool` assertion (skill was invoked) and an `llm_judge` assertion (response was substantively correct).
 - Wix API details were checked against official docs through the Wix MCP docs tools, or distilled from a successful agent run.
 - Mutating flows ask for user confirmation before changing site or account data.
 - The skill evaluation workflow is expected to run for the changed files, if applicable.
