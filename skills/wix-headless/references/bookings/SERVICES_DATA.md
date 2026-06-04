@@ -13,7 +13,7 @@ You are seeding Wix Bookings services for a headless site. Your job:
 ## Step 1 — Mint the token
 
 ```bash
-TOKEN=$(npx @wix/cli token --site "<siteId>")
+TOKEN=$(npx @wix/cli@latest token --site "<siteId>")
 ```
 
 Cache in subagent scratch. Every subsequent `curl` reuses it. Every call carries:
