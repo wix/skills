@@ -298,74 +298,27 @@ Add `ServiceBookingFlow` to the files you own and include it in your pre-return 
 
 ## Page 3 — `/booking-confirmation.astro`
 
-### Frontmatter
+### Behavior — show the real status + cancel inline
+
+The confirmation page **re-fetches the booking** to show its **actual status** (`CONFIRMED` vs `PENDING` approval) — so the user sees whether the booking was approved, not just an optimistic "you're booked" — and embeds the cancel action. It re-uses the **anonymous-action-token** flow: the server elevates (app identity) to mint a per-booking token (`getAnonymousActionToken`), then reads it with the no-auth `bookingsGetBookingAnonymously`, falling back to the redirect params (`?bookingId=...&startDate=...&service=...`) if the lookup fails. Cancel is the same `<ManageBooking>` island used by `/manage-booking` (pass `showSummary={false}` to avoid duplicating the headline). See the canonical template `booking-confirmation.astro`.
 
 ```typescript
----
-import Layout from '../../layouts/Layout.astro';
-
-// Confirmation page reads params from the redirect URL set by ServiceBookingFlow.
-// We do NOT re-fetch the booking via SDK here — the booking was created by the
-// client island (visitor identity), and re-reading it on the confirmation page
-// adds no value over the params we already pass. (A server re-fetch of someone
-// else's booking is out of scope for this skill.) Keep it param-driven.
-// ServiceBookingFlow redirects with: ?bookingId=...&startDate=...&service=...
+// frontmatter (essentials):
 const bookingId = Astro.url.searchParams.get('bookingId');
-const startDateParam = Astro.url.searchParams.get('startDate');  // ISO string passed from client
-const serviceName = Astro.url.searchParams.get('service') ?? 'your service';
-
-const formattedDate = startDateParam
-  ? new Date(startDateParam).toLocaleString('en-US', {
-      weekday: 'long', month: 'long', day: 'numeric',
-      hour: '2-digit', minute: '2-digit',
-    })
-  : null;
-
-// If no bookingId at all, the user navigated here directly — show a generic page.
----
+const { token } = bookingId ? await auth.elevate(bookings.getAnonymousActionToken)(bookingId) : { token: null };
+const { booking, allowedAnonymousActions } = token ? await bookings.bookingsGetBookingAnonymously(token) : {};
+const status = booking?.status ?? null;            // CONFIRMED | PENDING | …
+const isPending = status === 'PENDING' || status === 'PENDING_APPROVAL';
+// Render: "You're booked / confirmed" vs "Booking received — awaiting confirmation" by status,
+// a Status badge, and <ManageBooking … canCancel={!!allowedAnonymousActions?.cancel} showSummary={false} />.
 ```
 
-> **Headless note — two different `elevate`s, don't conflate them:**
-> - **`@wix/essentials` `auth.elevate(fn)`** *works* in `@wix/astro` SSR and is the correct way to read data server-side (the listing + detail pages above use it for `services.queryServices`, and the CMS pages use it for `items.query`). It is **not** the thing that's unavailable.
-> - **`wixClient.auth.elevate`** — the instance method on a hand-built `createClient({ auth: OAuthStrategy(...) })` — is what's unavailable in headless; that's a Wix-hosted Velo/Blocks API.
->
-> This confirmation page deliberately doesn't re-fetch the booking at all: it renders from the URL params `ServiceBookingFlow` passes during the post-`createBooking` redirect (`?bookingId=...&startDate=...&service=...`). A server-side booking retrieval (e.g. for email receipts via a backend route + API key) is outside this skill's scope.
+> **Two different `elevate`s, don't conflate them:** `@wix/essentials` `auth.elevate(fn)` works in `@wix/astro` SSR (used here to mint the token and across the listing/detail/CMS pages); the unavailable one is `wixClient.auth.elevate` (the instance method on a hand-built `createClient({ auth: OAuthStrategy(...) })`).
+> **No email is sent** by this flow (client confirmation emails are deferred — see `api/confirm-booking.ts`), so the on-page status + cancel IS the user's confirmation. Don't claim "a confirmation email is on its way."
 
 ### Template
 
-```astro
-<Layout title="Booking Confirmed">
-  <main class="py-4xl">
-    <!-- `max-w-prose` (a Tailwind built-in literal = 65ch) instead of `max-w-xl`:
-         arbitrary `max-w-<size>` keys can fall through to the spacing scale and
-         collapse to a ~32px column. `max-w-prose` always resolves. -->
-    <div class="mx-auto px-lg max-w-prose text-center">
-      <!-- Success icon placeholder -->
-      <div class="w-16 h-16 rounded-full bg-[--color-primary] flex items-center justify-center mx-auto mb-xl">
-        <span class="text-white text-2xl">✓</span>
-      </div>
-
-      <h1 class="font-display text-4xl mb-md">You're booked!</h1>
-
-      {formattedDate ? (
-        <p class="text-secondary text-lg mb-xl">
-          Your spot in <strong>{serviceName}</strong> is confirmed
-          for <strong>{formattedDate}</strong>.
-        </p>
-      ) : (
-        <p class="text-secondary text-lg mb-xl">
-          Your booking is confirmed.
-        </p>
-      )}
-
-      <div class="flex flex-col gap-md items-center">
-        <a href="/services" class="btn btn--primary">Browse More Services</a>
-        <a href="/" class="text-secondary text-sm hover:text-primary">Return home</a>
-      </div>
-    </div>
-  </main>
-</Layout>
-```
+Use the canonical template verbatim and adapt copy/styling: `<SKILL_ROOT>/references/astro/templates/bookings/booking-confirmation.astro`. It renders a status-aware headline ("You're booked / confirmed" vs "Booking received — awaiting confirmation"), a Status badge, and the embedded `<ManageBooking … showSummary={false} />` cancel — wrapped in `max-w-prose` (a built-in literal; never a bare `max-w-<size>`, which can fall through to the spacing scale).
 
 ---
 

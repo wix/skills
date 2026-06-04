@@ -16,6 +16,7 @@ interface Props {
   startDate: string | null;
   status: string | null;
   canCancel: boolean;
+  showSummary?: boolean; // false when embedded under a page that already shows the service/date
 }
 
 const wixClient = createClient({
@@ -31,7 +32,7 @@ const fmt = (iso: string | null) => {
     : d.toLocaleString([], { weekday: "long", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" });
 };
 
-export default function ManageBooking({ token, revision, serviceName, startDate, status, canCancel }: Props) {
+export default function ManageBooking({ token, revision, serviceName, startDate, status, canCancel, showSummary }: Props) {
   const [state, setState] = useState<"idle" | "canceling" | "canceled" | "error">(
     status === "CANCELED" ? "canceled" : "idle",
   );
@@ -62,9 +63,11 @@ export default function ManageBooking({ token, revision, serviceName, startDate,
 
   return (
     <div className="manage-booking">
-      <p className="manage-booking-summary">
-        <strong>{serviceName}</strong>{when ? <> · {when}</> : null}
-      </p>
+      {showSummary !== false && (
+        <p className="manage-booking-summary">
+          <strong>{serviceName}</strong>{when ? <> · {when}</> : null}
+        </p>
+      )}
       {state === "error" && <p className="booking-error">Something went wrong canceling your booking. Please try again.</p>}
       {canCancel ? (
         <button type="button" className="booking-submit" onClick={handleCancel} disabled={state === "canceling"}>
