@@ -163,6 +163,8 @@ curl -sS -X POST \
 
 - **Count**: Create exactly `intent.bookings.serviceCount` services (default 3 when not specified).
 - **Type**: Use `"APPOINTMENT"` for 1-on-1 services (the default); use `"CLASS"` when `intent.bookings.serviceType === "CLASS"`. For `CLASS`, set `defaultCapacity` to the max participants (e.g. `20`) instead of `1`.
+
+> **⚠️ CLASS services need scheduled sessions before anyone can sign up.** Creating a CLASS service does **not** create any sessions. The front-end sign-up flow lists bookable sessions via `eventTimeSlots.listEventTimeSlots()`, which returns the **scheduled session events** — and a freshly seeded CLASS service has none, so its calendar is permanently empty and there is nothing to book. This seed creates the *service catalog* only; it does **not** schedule sessions (the Schedules/Calendar-Events workflow is involved and fragile to script blind). **Surface this as a stated limitation** — add a `notes` entry to your return (see below) and, for a CLASS run, the orchestrator should tell the user: *"Class services were created; add session times in the Bookings dashboard (or a recurring schedule) to open them for sign-up."* Do not report a CLASS booking flow as fully working end-to-end when no sessions exist.
 - **`sessionDurations`**: Required for APPOINTMENT. An array containing one integer (minutes). Do NOT specify for CLASS or COURSE services.
 - **Names + descriptions**: Derive from `brand.description`. Examples: a yoga studio → "60-min Vinyasa Flow" (60 min), "30-min Morning Meditation" (30 min), "90-min Deep Restore" (90 min). A hair salon → "Women's Cut & Style" (60 min, $85), "Men's Haircut" (30 min, $45), "Balayage Color" (120 min, $150). Make them brand-appropriate — not generic.
 - **Duration** (integers in minutes): Brand-appropriate. Consultation → 30; standard service → 60; premium/complex → 90–120.
@@ -215,6 +217,10 @@ Write to `<site-root>/.wix/seed-returns/bookings.json`:
 ```
 
 - `staff` is an empty array `[]` when `intent.bookings.hasStaff` is false or Step 3 was skipped.
+- **For `CLASS` services, add a `notes` entry flagging the session gap** so the orchestrator can surface it (see the CLASS warning above):
+  ```json
+  "notes": ["CLASS services created without scheduled sessions — add session times in the Bookings dashboard (or a recurring schedule) before sign-up works; the class calendar is empty until then."]
+  ```
 - On any REST error: set `status: "error"`, include the failing call's response verbatim under `"error"`.
 - Create `<site-root>/.wix/seed-returns/` if it does not exist before writing.
 

@@ -47,7 +47,15 @@ Map the Designer's `designTokens` into the `@theme` palette that goes in `global
 - `--font-{display,body}`.
 - the full `--spacing-{2xs,xs,sm,md,lg,xl,2xl,3xl,4xl}` scale.
 - `--radius-{sm,md}` (required), `--radius-{lg,xl}` (recommended).
-- a **container scale** separate from spacing: `--container-{prose,md,3xl,6xl}` minimum.
+- a **container scale** separate from spacing. Emit the **full default Tailwind container scale** so that *any* `max-w-<size>` a page author reaches for resolves to a real width — **not** just a handful of keys. Page templates across the packs use `max-w-md`, `max-w-xl`, `max-w-4xl`, etc.; any key you omit from `--container-*` silently falls back to the `--spacing-*` value of the same name (e.g. `max-w-4xl` → `--spacing-4xl` ≈ 7rem — a ~112px column, one word per line) or, if that's also undefined, the utility is dropped. Emit these standard values (literal rem; brand-agnostic), plus `prose`, regardless of what the Designer's `containers` spec includes:
+  ```css
+  --container-3xs: 16rem; --container-2xs: 18rem; --container-xs: 20rem;
+  --container-sm: 24rem;  --container-md: 28rem;  --container-lg: 32rem;
+  --container-xl: 36rem;  --container-2xl: 42rem; --container-3xl: 48rem;
+  --container-4xl: 56rem; --container-5xl: 64rem; --container-6xl: 72rem;
+  --container-7xl: 80rem; --container-prose: 65ch;
+  ```
+  Override individual values from the Designer's `containers` spec where provided, but never drop a key below — a missing one re-collapses to the spacing scale.
 
 If the Designer's spec is missing a required role, **derive** a sensible value (e.g. `ink-soft` ≈ `ink` lightened, `paper-warm` ≈ `paper` warmed) rather than dropping the token — a missing required token renders components unstyled. Map each group with the fixed prefix: `colors.<k>` → `--color-<k>`, `fonts.<k>` → `--font-<k>`, `spacing.<k>` → `--spacing-<k>`, `radii.<k>` → `--radius-<k>`, `containers.<k>` → `--container-<k>`.
 
@@ -69,8 +77,62 @@ Fully replace the scaffold stub. Substitute:
 - `{{components-css-imports}}` — one `import '../styles/components-<pack>.css';` per pack in **"Packs with components"**, in that order. Packs without components (e.g. `cms`) get **no** import — importing a file no agent writes breaks the build. If "Packs with components" is empty, remove the placeholder line entirely.
 - `{{fonts.googleHref}}` — the Google Fonts stylesheet href for the chosen `display` + `body` families (e.g. `https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@...&family=Inter:wght@400;500;600&display=swap`). If both fonts are system fonts, remove the `<link rel="stylesheet">` line.
 - `{{brand.name}}` — the default `<title>`.
+- `{{stores-nav-script}}` — **pack-specific client JS, emitted only when `stores` is in "Loaded packs".** If stores is loaded, replace the placeholder line with the script block below. If stores is **not** loaded, remove the placeholder line entirely (do not ship it — it's dead code that targets `/products`, `/category/[slug]`, and `[data-category-rail]`, none of which exist on a non-stores site).
 
-The View-Transitions `<script>`, the `nav-progress` div, the `ClientRouter`, the `Props` interface, and the `hasSeoTags` pattern are **literal** — keep them.
+  ```html
+  <script>
+    // Stores category-rail aria-current sync + rail-anchored scroll across
+    // listing↔listing navigation. PLAIN JS ONLY (inline <script> is dep-scanned
+    // by esbuild, which is not TS-aware — no generics / `as` / param type
+    // annotations, or the build fails with `Expected ";"`).
+    function syncCategoryRail() {
+      var path = window.location.pathname;
+      var activeSlug = path.indexOf("/category/") === 0
+        ? path.slice("/category/".length).replace(/\/$/, "")
+        : (path === "/products" || path === "/products/") ? "" : null;
+      if (activeSlug === null) return;
+      var pills = document.querySelectorAll("[data-category-rail] .category-pill");
+      for (var i = 0; i < pills.length; i++) {
+        var slug = pills[i].dataset.categorySlug || "";
+        if (slug === activeSlug) pills[i].setAttribute("aria-current", "page");
+        else pills[i].removeAttribute("aria-current");
+      }
+    }
+    document.addEventListener("click", function (event) {
+      var target = event.target;
+      var pill = target && target.closest ? target.closest("[data-category-rail] .category-pill") : null;
+      if (!pill) return;
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      var pills = document.querySelectorAll("[data-category-rail] .category-pill");
+      for (var i = 0; i < pills.length; i++) pills[i].removeAttribute("aria-current");
+      pill.setAttribute("aria-current", "page");
+    }, true);
+    function isListing(p) {
+      return p === "/products" || p === "/products/" || p.indexOf("/category/") === 0;
+    }
+    var railAnchorTop = null;
+    document.addEventListener("astro:before-preparation", function (event) {
+      var from = window.location.pathname;
+      var to = (event && event.to && event.to.pathname) || from;
+      var rail = document.querySelector("[data-category-rail]");
+      railAnchorTop = rail && isListing(from) && isListing(to) ? rail.getBoundingClientRect().top : null;
+    });
+    document.addEventListener("astro:after-swap", function () {
+      syncCategoryRail();
+      if (railAnchorTop !== null) {
+        var rail = document.querySelector("[data-category-rail]");
+        if (rail) {
+          var delta = rail.getBoundingClientRect().top - railAnchorTop;
+          if (Math.abs(delta) > 0.5) window.scrollBy({ top: delta, left: 0, behavior: "instant" });
+        }
+      }
+      railAnchorTop = null;
+    });
+    syncCategoryRail();
+  </script>
+  ```
+
+The universal progress-bar `<script>`, the `nav-progress` div, the `ClientRouter`, the `Props` interface, and the `hasSeoTags` pattern are **literal** — keep them. (The universal script is plain JS for the same dep-scan reason; don't reintroduce TS syntax into it.)
 
 ### 4. `Navigation.astro`
 
@@ -92,8 +154,9 @@ A pack in **"Disabled packs"** (today: only `gift-cards`) ships dormant. Its `<!
 
 1. **Component-CSS imports.** For every pack in "Packs with components", grep your written `Layout.astro` for `components-<pack>.css`. If any is missing, add it. If unrecoverable, return `status: "partial"` with `errors: [{code: "MISSING_COMPONENT_CSS_IMPORT", pack: "<name>"}]`. (The orchestrator also re-verifies this after you return — at the seed gate — but catch it here.)
 2. **Required-token coverage.** Confirm every required token from the contract above is present in the `@theme` block you wrote. A missing one renders components unstyled.
-3. **Container vs spacing.** Confirm no `--container-*` was set to a spacing value.
-4. **Marker hygiene.** No marker emitted for a pack that does not contribute; both decorative slots present and empty.
+3. **Container scale complete.** Confirm the full `--container-{3xs..7xl}` + `--container-prose` scale is present and no `--container-*` was set to a spacing value. A missing key collapses `max-w-<size>` to the spacing scale (one-word-per-line columns).
+4. **`{{stores-nav-script}}` gating.** If `stores` is loaded, the script block is present in `Layout.astro`; if not, the placeholder line is gone (not left as literal text, not shipped as dead code). Confirm no inline `<script>` body contains TS-only syntax (`<T>` generics, `as`, `(x: type)`) — esbuild's dep-scan fails the build on it.
+5. **Marker hygiene.** No marker emitted for a pack that does not contribute; both decorative slots present and empty.
 
 If a check fails and you cannot fix it, return `status: "partial"` with the specific `errors` code rather than shipping silently.
 
@@ -134,6 +197,9 @@ No trailing prose after the closing fence.
 | `import '../styles/components-cms.css'` (cms has no components) | One import only per pack in "Packs with components" |
 | Drop a required token because the Designer omitted it | Derive a sensible value — required tokens must resolve |
 | Set `--container-3xl` to `--spacing-3xl`'s value | Containers are widths (~`42rem`+), a separate axis from spacing |
+| Emit only `--container-{prose,md,3xl,6xl}` and let other `max-w-<size>` fall through | Emit the full `--container-{3xs..7xl}` + `prose` scale — any missing key collapses to the spacing value (`max-w-4xl` → ~7rem) |
+| Ship `{{stores-nav-script}}` on a non-stores site, or leave the literal placeholder text | Emit the block only when `stores` is loaded; otherwise remove the line |
+| Keep TS syntax (`querySelector<T>`, `as`, `(e: any)`) in an inline `<script>` | Inline scripts are dep-scanned by esbuild (not TS-aware) — plain JS only, or the build fails with `Expected ";"` |
 | Coin label rebrands ("Journal" → /about) or add `/products`/cart links | Nav labels verbatim; packs splice their links at the marker |
 | Add a hero CTA / footer link to a disabled-pack route | Disabled packs are code-only — markers are the sole touchpoint |
 | Emit `<!-- home:cms -->` or a marker for a non-contributing pack | One marker per contributing loaded pack only |

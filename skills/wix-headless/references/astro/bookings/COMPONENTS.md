@@ -59,24 +59,32 @@ A `client:only="react"` React island. Fetches and displays available slots for a
 interface AvailabilityCalendarProps {
   serviceId: string;
   serviceName: string;
+  serviceType: 'APPOINTMENT' | 'CLASS';  // drives which time-slots API + slot shape
   onSlotSelected: (slot: SelectedSlot) => void;
 }
 
+// APPOINTMENT and CLASS slots have DIFFERENT shapes — see "SDK wiring" below.
+// APPOINTMENT slots carry `scheduleId` + `startDate`; CLASS (event) slots carry
+// `eventInfo.eventId` and have NO `scheduleId`. Carry both optionally + the type.
 interface SelectedSlot {
-  localStartDate: string;   // YYYY-MM-DDThh:mm:ss — from timeSlot.localStartDate
-  localEndDate: string;     // YYYY-MM-DDThh:mm:ss — from timeSlot.localEndDate
-  scheduleId: string;       // timeSlot.scheduleId
-  serviceId: string;        // timeSlot.serviceId
-  timezone: string;         // result.timeZone from listAvailabilityTimeSlots response
-  locationId?: string;      // timeSlot.location.id (present only for BUSINESS locations)
+  serviceType: 'APPOINTMENT' | 'CLASS';
+  localStartDate: string;   // YYYY-MM-DDThh:mm:ss — from slot.localStartDate
+  localEndDate: string;     // YYYY-MM-DDThh:mm:ss — from slot.localEndDate
+  serviceId: string;
+  timezone: string;         // result.timeZone from the list response
+  // APPOINTMENT only:
+  scheduleId?: string;      // timeSlot.scheduleId — undefined for CLASS
+  locationId?: string;      // timeSlot.location.id (BUSINESS locations only)
   locationType?: string;    // timeSlot.location.locationType
+  // CLASS only:
+  eventId?: string;         // timeSlot.eventInfo.eventId — undefined for APPOINTMENT
 }
 ```
 
 **Behavior:**
-1. On mount, default to today's date. Fetch available slots for today via `availabilityTimeSlots.listAvailabilityTimeSlots()`.
+1. On mount, default to today's date. Fetch available slots for today via `fetchSlots(serviceId, serviceType, today)` (which picks `listAvailabilityTimeSlots` for APPOINTMENT or `listEventTimeSlots` for CLASS — see SDK wiring below).
 2. Render a simple date-navigation header (← Prev / date display / Next →) with `<button>` controls. Move by ±1 day. No full calendar grid — a date navigator is sufficient.
-3. Below the date navigator, render the available slots as a grid of `<button>` elements (`className="time-slot time-slot--available"`). On click, mark the slot as selected (`className="time-slot time-slot--selected"`) and call `onSlotSelected(slot)`.
+3. Below the date navigator, render the available slots as a grid of `<button>` elements (`className="time-slot time-slot--available"`). On click, mark the slot as selected (`className="time-slot time-slot--selected"`) and call `onSlotSelected(slot)`. **Guard the click on the type-appropriate id** — `slot.localStartDate && (slot.serviceType === 'CLASS' ? slot.eventId : slot.scheduleId)`. Guarding on `scheduleId` alone silently drops every CLASS click (event slots have no `scheduleId`), so the booking form never appears.
 4. If no slots are available for the selected date, display: `<p className="availability-empty">No availability on this date — try another day.</p>`.
 5. Loading state: display `<p className="availability-loading">Checking availability…</p>` while fetching.
 6. Error state: display `<p className="availability-error">Could not load availability — please try again.</p>` and a "Retry" button.
@@ -85,71 +93,94 @@ interface SelectedSlot {
 
 **SDK wiring:**
 
-> **Correct namespace: `availabilityTimeSlots`** — not `availability`. The SDK exports `availabilityTimeSlots` (Time Slots V2). Using `availability` will fail at runtime.
-> - For **APPOINTMENT** services: use `availabilityTimeSlots.listAvailabilityTimeSlots()`
-> - For **CLASS** services: use `availabilityTimeSlots.listEventTimeSlots()` (different method, different params)
-> The `AvailabilityCalendar` component handles APPOINTMENT services by default. CLASS support can be added later.
+> **Two different namespaces, one per service type** — both are real `@wix/bookings` exports (`availability` is not):
+> - **APPOINTMENT** → `availabilityTimeSlots.listAvailabilityTimeSlots({ serviceId: [id], … bookable: true })`. Slots carry `scheduleId` + `startDate` at the top level.
+> - **CLASS** → `eventTimeSlots.listEventTimeSlots({ serviceIds: [id], … includeNonBookable: false })`. Note the **different namespace** (`eventTimeSlots`, not `availabilityTimeSlots`), the **plural `serviceIds`**, and `includeNonBookable` (not `bookable`). Class slots carry their session id at **`eventInfo.eventId`** and have **no `scheduleId`** (and no top-level `startDate`).
+>
+> Branch on the `serviceType` prop. For CLASS the calendar is empty until the merchant schedules sessions for the class (see SERVICES_DATA.md § "CLASS session gap") — an empty state there is expected, not a bug.
+
+> **Client ID in browser islands comes from `astro:env/client`, NOT `import.meta.env`.** In `@wix/astro` the client ID is exposed to the browser through the `astro:env/client` virtual module: `import { WIX_CLIENT_ID } from "astro:env/client"`. `import.meta.env.WIX_CLIENT_ID` (and `PUBLIC_WIX_CLIENT_ID`) is **`undefined` in the browser bundle**, so `OAuthStrategy` POSTs an empty `client_id` and every client-side SDK call fails at `POST https://www.wixapis.com/oauth2/token` with `400 {"error":"invalid_request"}`. (The var is `WIX_CLIENT_ID` — no `PUBLIC_` prefix.)
 
 ```typescript
 import { createClient, OAuthStrategy } from '@wix/sdk';
-import { availabilityTimeSlots, bookings } from '@wix/bookings';
+import { availabilityTimeSlots, eventTimeSlots, bookings } from '@wix/bookings';
+import { WIX_CLIENT_ID } from 'astro:env/client';
 
 const wixClient = createClient({
-  modules: { availabilityTimeSlots, bookings },
-  auth: OAuthStrategy({ clientId: import.meta.env.PUBLIC_WIX_CLIENT_ID }),
+  modules: { availabilityTimeSlots, eventTimeSlots, bookings },
+  auth: OAuthStrategy({ clientId: WIX_CLIENT_ID }),
 });
 
-const fetchSlots = async (serviceId: string, date: Date) => {
-  // Use local date strings (YYYY-MM-DDThh:mm:ss) — NOT ISO UTC strings with Z.
-  // The API expects local time in the business timezone.
-  const pad = (n: number) => String(n).padStart(2, '0');
-  const localDate = (d: Date) =>
-    `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+// Local date strings (YYYY-MM-DDThh:mm:ss) — NOT ISO UTC strings with Z. The API
+// expects local time in the business timezone, alongside an explicit timeZone.
+const pad = (n: number) => String(n).padStart(2, '0');
+const localDate = (d: Date) =>
+  `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 
-  const start = new Date(date);
-  start.setHours(0, 0, 0, 0);
-  const end = new Date(date);
-  end.setHours(23, 59, 59, 0);
+// Returns SelectedSlot[] normalized across both service types so the rest of the
+// component (and BookingForm) never re-branches on raw API shapes.
+const fetchSlots = async (
+  serviceId: string,
+  serviceType: 'APPOINTMENT' | 'CLASS',
+  date: Date,
+): Promise<{ slots: SelectedSlot[]; timezone: string }> => {
+  const start = new Date(date); start.setHours(0, 0, 0, 0);
+  const end = new Date(date); end.setHours(23, 59, 59, 0);
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
+  if (serviceType === 'CLASS') {
+    const result = await wixClient.eventTimeSlots.listEventTimeSlots({
+      serviceIds: [serviceId],          // plural — CLASS API
+      fromLocalDate: localDate(start),
+      toLocalDate: localDate(end),
+      timeZone,
+      includeNonBookable: false,
+    });
+    const tz = result.timeZone ?? timeZone;
+    const slots: SelectedSlot[] = (result.timeSlots ?? []).map((ts: any) => ({
+      serviceType: 'CLASS',
+      serviceId,
+      localStartDate: ts.localStartDate,
+      localEndDate: ts.localEndDate,
+      eventId: ts.eventInfo?.eventId,   // session id lives here — there is NO scheduleId
+      timezone: tz,
+    }));
+    return { slots, timezone: tz };
+  }
+
+  // APPOINTMENT
   const result = await wixClient.availabilityTimeSlots.listAvailabilityTimeSlots({
-    serviceId: [serviceId],  // note: serviceId is an array in V2
+    serviceId: [serviceId],             // singular key, array value, in V2
     fromLocalDate: localDate(start),
     toLocalDate: localDate(end),
-    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    timeZone,
     bookable: true,
     cursorPaging: { limit: 50 },
   });
-  // Store the response timezone for use in booking — pass it through with each slot
-  const tz = result.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
-  return { slots: result.timeSlots ?? [], timezone: tz };
+  const tz = result.timeZone ?? timeZone;
+  const slots: SelectedSlot[] = (result.timeSlots ?? []).map((ts: any) => ({
+    serviceType: 'APPOINTMENT',
+    serviceId,
+    localStartDate: ts.localStartDate,
+    localEndDate: ts.localEndDate,
+    scheduleId: ts.scheduleId,
+    locationId: ts.location?.id,
+    locationType: ts.location?.locationType,
+    timezone: tz,
+  }));
+  return { slots, timezone: tz };
 };
 ```
 
-Each `timeSlot` in the response has fields at the TOP LEVEL (not nested under a `slot` property):
-- `timeSlot.localStartDate` / `timeSlot.localEndDate` — `YYYY-MM-DDThh:mm:ss` format (local to business timezone)
-- `timeSlot.scheduleId` — schedule ID for the booking call
-- `timeSlot.serviceId`
-- `timeSlot.location.id` / `timeSlot.location.locationType`
-- `timeSlot.bookable` — always `true` when `bookable: true` filter is used
-- `timeSlot.availableResources` — **EMPTY by default** in list results; do NOT read resource ID here
+Slot fields differ by type — both have `localStartDate`/`localEndDate` at the TOP LEVEL (not nested under a `slot` property):
+- **APPOINTMENT** (`listAvailabilityTimeSlots`): `timeSlot.scheduleId`, `timeSlot.serviceId`, `timeSlot.location.{id,locationType}`, `timeSlot.bookable`. `timeSlot.availableResources` is **EMPTY by default** — do NOT read a resource ID here.
+- **CLASS** (`listEventTimeSlots`): `timeSlot.eventInfo.eventId` (the session id), `timeSlot.totalCapacity`/`remainingCapacity`. **No `scheduleId`, no top-level `startDate`.**
 
 > **Do NOT try to read `resource._id` from list results.** Omit `resource` from the `createBooking` payload — Wix auto-assigns an available resource during booking confirmation. You only need resource details if you want to show "book with specific staff" UI (advanced use case).
 
 Format slot times for display: `new Date(timeSlot.localStartDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })`.
 
-`SelectedSlot` carries the info needed for booking:
-
-```typescript
-interface SelectedSlot {
-  localStartDate: string;   // YYYY-MM-DDThh:mm:ss — from timeSlot.localStartDate
-  localEndDate: string;     // YYYY-MM-DDThh:mm:ss — from timeSlot.localEndDate
-  scheduleId: string;       // timeSlot.scheduleId
-  serviceId: string;        // timeSlot.serviceId
-  timezone: string;         // from result.timeZone
-  locationId?: string;      // timeSlot.location.id (present only for BUSINESS locations)
-  locationType?: string;    // timeSlot.location.locationType
-}
-```
+`SelectedSlot` (defined once at the top of this component) carries the info needed for booking — including `serviceType` and, for CLASS, `eventId` instead of `scheduleId`. `BookingForm` reads `serviceType` to choose the `createBooking` payload shape.
 
 ---
 
@@ -162,6 +193,7 @@ A `client:only="react"` React island. Renders after the user selects a slot.
 interface BookingFormProps {
   serviceId: string;
   serviceName: string;
+  serviceType: 'APPOINTMENT' | 'CLASS';  // selects the createBooking slot shape
   slot: SelectedSlot;
   onSuccess: (bookingId: string, startDate: string) => void;  // startDate for confirmation page URL
   onCancel: () => void;
@@ -182,11 +214,36 @@ interface BookingFormProps {
 2. Call `bookings.createBooking(...)`:
 
 ```typescript
+import { createClient, OAuthStrategy } from '@wix/sdk';
 import { bookings } from '@wix/bookings';
+import { WIX_CLIENT_ID } from 'astro:env/client';  // browser client ID — NOT import.meta.env (see Bug-10 note)
 
-// Construct the booking payload.
-// startDate/endDate come from the timeSlot.localStartDate/localEndDate values.
-// Omit `resource` — Wix auto-assigns an available resource during confirmation.
+const wixClient = createClient({
+  modules: { bookings },
+  auth: OAuthStrategy({ clientId: WIX_CLIENT_ID }),
+});
+
+// The slot shape differs by service type — build bookedEntity.slot accordingly.
+// Omit `resource` either way — Wix auto-assigns an available resource on confirm.
+const slot = props.slot.serviceType === 'CLASS'
+  // CLASS: a class session is identified by eventId. Wix derives start/end/
+  // timezone/resource/location from the event — do NOT send scheduleId/startDate.
+  ? {
+      serviceId: props.slot.serviceId,
+      eventId: props.slot.eventId,
+    }
+  // APPOINTMENT: identified by scheduleId + explicit start/end/timezone/location.
+  : {
+      serviceId: props.slot.serviceId,
+      scheduleId: props.slot.scheduleId,
+      startDate: props.slot.localStartDate,  // pass localStartDate as startDate
+      endDate: props.slot.localEndDate,      // pass localEndDate as endDate
+      timezone: props.slot.timezone,
+      ...(props.slot.locationId
+        ? { location: { _id: props.slot.locationId, locationType: props.slot.locationType as any } }
+        : { location: { locationType: 'OWNER_BUSINESS' as const } }),
+    };
+
 const bookingPayload = {
   totalParticipants: 1,
   contactDetails: {
@@ -196,19 +253,7 @@ const bookingPayload = {
     phone: formData.phone || undefined,
   },
   selectedPaymentOption: 'OFFLINE' as const,  // "OFFLINE" = pay at session; use "ONLINE" if the service has online payment enabled
-  bookedEntity: {
-    slot: {
-      serviceId: props.slot.serviceId,
-      scheduleId: props.slot.scheduleId,
-      startDate: props.slot.localStartDate,  // pass localStartDate as startDate
-      endDate: props.slot.localEndDate,      // pass localEndDate as endDate
-      timezone: props.slot.timezone,
-      // Omit `resource` — Wix auto-assigns. Only include if you have a specific resource ID.
-      ...(props.slot.locationId
-        ? { location: { _id: props.slot.locationId, locationType: props.slot.locationType as any } }
-        : { location: { locationType: 'OWNER_BUSINESS' as const } }),
-    },
-  },
+  bookedEntity: { slot },
 };
 
 const result = await wixClient.bookings.createBooking(bookingPayload);
@@ -226,13 +271,15 @@ const result = await wixClient.bookings.createBooking(bookingPayload);
 The `/services/[slug].astro` page (written by the `pages` scope) mounts both islands in a coordinated flow:
 
 ```tsx
-// Pseudocode — actual wiring is done by the pages scope
+// Pseudocode — actual wiring is done by the pages scope.
+// `serviceType` (from service.type) MUST be threaded through so the calendar
+// picks the right time-slots API and the form builds the right createBooking shape.
 const [selectedSlot, setSelectedSlot] = useState(null);
 
 if (!selectedSlot) {
-  return <AvailabilityCalendar serviceId={id} onSlotSelected={setSelectedSlot} />;
+  return <AvailabilityCalendar serviceId={id} serviceType={type} onSlotSelected={setSelectedSlot} />;
 }
-return <BookingForm serviceId={id} slot={selectedSlot} onSuccess={handleSuccess} onCancel={() => setSelectedSlot(null)} />;
+return <BookingForm serviceId={id} serviceType={type} slot={selectedSlot} onSuccess={handleSuccess} onCancel={() => setSelectedSlot(null)} />;
 ```
 
 The components need to export cleanly so the page's React coordinator island can import both. Export each as a default export from its file.

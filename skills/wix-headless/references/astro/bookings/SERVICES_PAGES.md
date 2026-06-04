@@ -39,24 +39,27 @@ If `seeded.bookings.services` is absent or empty, fall back to live SDK query (s
 import Layout from '../../layouts/Layout.astro';
 import ServiceCard from '../../components/ServiceCard.astro';
 import { services } from '@wix/bookings';
-import { createClient, OAuthStrategy } from '@wix/sdk';
+import { auth } from '@wix/essentials';
 
-const wixClient = createClient({
-  modules: { services },
-  auth: OAuthStrategy({ clientId: import.meta.env.PUBLIC_WIX_CLIENT_ID }),
-});
-
+// SSR data access: use the ambient @wix/astro server client via @wix/essentials —
+// the SAME pattern the CMS pages use (`auth.elevate(fn)` + a direct module import).
+// Do NOT build a `createClient`/`OAuthStrategy` here keyed off `import.meta.env`:
+// the `*_WIX_CLIENT_ID` env vars are CLIENT-only in @wix/astro and `undefined`
+// during server render, so `createClient`/`OAuthStrategy` throws and the page
+// returns HTTP 500 in production. (It "works" in `astro dev` only because
+// `.env.local` is loaded there — the 500 surfaces only in the deployed runtime.)
+// Client-side islands access the ID differently — see COMPONENTS.md (`astro:env/client`).
 let serviceList: any[] = [];
 try {
-  // Use the object form — @wix/bookings services.queryServices does NOT use a builder chain.
-  // Filter out hidden services (hidden: false).
-  const result = await wixClient.services.queryServices({
-    query: {
-      filter: { hidden: false },
-      paging: { limit: 100 },
-    },
-  });
-  serviceList = result.items ?? [];
+  // queryServices uses the QUERY BUILDER, then `.find()` — NOT a
+  // `{ query: { filter, paging } }` object. In @wix/bookings the object form
+  // returns ZERO items with no error; the builder is what actually queries.
+  const result = await auth.elevate(services.queryServices)()
+    .limit(100)
+    .find();
+  // Exclude hidden services from the public listing (filter in JS — robust
+  // regardless of whether `hidden` is a queryable builder field).
+  serviceList = (result.items ?? []).filter((s: any) => !s.hidden);
 } catch (err) {
   console.error('[services] query failed:', err);
 }
@@ -132,26 +135,25 @@ const getDuration = (service: any): number =>
 import Layout from '../../layouts/Layout.astro';
 import ServiceBookingFlow from '../../components/ServiceBookingFlow';
 import { services } from '@wix/bookings';
-import { createClient, OAuthStrategy } from '@wix/sdk';
+import { auth } from '@wix/essentials';
 
 const { slug } = Astro.params;
 
-const wixClient = createClient({
-  modules: { services },
-  auth: OAuthStrategy({ clientId: import.meta.env.PUBLIC_WIX_CLIENT_ID }),
-});
-
+// SSR via @wix/essentials — same ambient pattern as the listing page above and
+// the CMS pages. No createClient/OAuthStrategy, no import.meta.env (those 500 at
+// server render — see the listing-page note).
 let service: any = null;
 try {
-  // Use the object form with filter — NOT the builder chain.
-  // services.queryServices() in @wix/bookings takes a query object, not a fluent builder.
-  const result = await wixClient.services.queryServices({
-    query: {
-      filter: { "mainSlug.name": slug },
-      paging: { limit: 1 },
-    },
-  });
-  service = result.items?.[0] ?? null;
+  // Query builder + `.find()` (the object form returns 0 items). Fetch the small
+  // catalog and match the slug in JS — robust without relying on a nested-field
+  // (`mainSlug.name`) builder filter.
+  const result = await auth.elevate(services.queryServices)()
+    .limit(100)
+    .find();
+  service =
+    (result.items ?? []).find(
+      (s: any) => (s.mainSlug?.name ?? s.supportedSlugs?.[0]?.name) === slug,
+    ) ?? null;
 } catch (err) {
   console.error(`[services/${slug}] query failed:`, err);
 }
@@ -183,35 +185,43 @@ const imageUrl = service.media?.mainMedia?.image?.url ?? service.media?.items?.[
 ### Template
 
 ```astro
+<!--
+  Width: use `container-reading` (max-width: var(--container-prose) + auto margins),
+  NOT a bare `max-w-<size>`. In this Tailwind v4 setup any `max-w-<size>` whose key
+  the Composer didn't emit in @theme `--container-*` silently falls back to the
+  `--spacing-*` scale — e.g. `max-w-4xl` → ~7rem, a ~112px column (one word per line).
+  `container-reading` is a project-owned utility that always resolves. See STYLING.md.
+-->
 <Layout title={service.name ?? 'Service'}>
   <main class="py-4xl">
-    <div class="container mx-auto px-lg max-w-4xl">
+    <div class="container-reading px-lg">
       <!-- Back link -->
       <a href="/services" class="text-secondary hover:text-primary text-sm mb-xl block">
         ← All Services
       </a>
 
-      <!-- Service hero -->
-      <div class="flex flex-col gap-xl md:flex-row md:gap-2xl mb-3xl">
-        {imageUrl && (
-          <div class="service-detail-image flex-shrink-0">
-            <img src={imageUrl} alt={service.name} class="w-full h-64 object-cover rounded-lg" />
-          </div>
+      <!-- Optional banner image — render ONLY when the service has media. The
+           default seed is text-only, so most services have no image; rendering a
+           fixed-ratio placeholder there collapses to a thin bar and crowds the
+           text. Single full-width column when image-less. -->
+      {imageUrl && (
+        <img src={imageUrl} alt={service.name} class="w-full h-64 object-cover rounded-lg mb-xl" />
+      )}
+
+      <!-- Service hero — single column -->
+      <div class="flex flex-col gap-md mb-3xl">
+        {/* V2 flat fields: name, tagLine, description (not info.name etc.) */}
+        <h1 class="font-display text-4xl">{service.name}</h1>
+        {service.tagLine && (
+          <p class="text-secondary text-lg">{service.tagLine}</p>
         )}
-        <div class="flex flex-col gap-md flex-1">
-          {/* V2 flat fields: name, tagLine, description (not info.name etc.) */}
-          <h1 class="font-display text-4xl">{service.name}</h1>
-          {service.tagLine && (
-            <p class="text-secondary text-lg">{service.tagLine}</p>
-          )}
-          <div class="flex gap-md items-center text-sm">
-            <span class="font-medium">{duration} min</span>
-            {price && <span class="text-primary font-bold text-lg">{price}</span>}
-          </div>
-          {service.description && (
-            <p class="text-base leading-relaxed">{service.description}</p>
-          )}
+        <div class="flex gap-md items-center text-sm">
+          <span class="font-medium">{duration} min</span>
+          {price && <span class="text-primary font-bold text-lg">{price}</span>}
         </div>
+        {service.description && (
+          <p class="text-base leading-relaxed">{service.description}</p>
+        )}
       </div>
 
       <!-- Booking flow — client-side islands -->
@@ -220,6 +230,7 @@ const imageUrl = service.media?.mainMedia?.image?.url ?? service.media?.items?.[
         <ServiceBookingFlow
           serviceId={service._id}
           serviceName={service.name ?? 'this service'}
+          serviceType={service.type ?? 'APPOINTMENT'}
           client:only="react"
         />
       </section>
@@ -242,9 +253,10 @@ import BookingForm from './BookingForm';
 interface Props {
   serviceId: string;
   serviceName: string;
+  serviceType: 'APPOINTMENT' | 'CLASS';  // threaded into both islands
 }
 
-export default function ServiceBookingFlow({ serviceId, serviceName }: Props) {
+export default function ServiceBookingFlow({ serviceId, serviceName, serviceType }: Props) {
   const [selectedSlot, setSelectedSlot] = useState<any>(null);
 
   const handleSuccess = (bookingId: string, startDate?: string) => {
@@ -259,6 +271,7 @@ export default function ServiceBookingFlow({ serviceId, serviceName }: Props) {
       <AvailabilityCalendar
         serviceId={serviceId}
         serviceName={serviceName}
+        serviceType={serviceType}
         onSlotSelected={setSelectedSlot}
       />
     );
@@ -268,6 +281,7 @@ export default function ServiceBookingFlow({ serviceId, serviceName }: Props) {
     <BookingForm
       serviceId={serviceId}
       serviceName={serviceName}
+      serviceType={serviceType}
       slot={selectedSlot}
       onSuccess={handleSuccess}
       onCancel={() => setSelectedSlot(null)}
@@ -289,8 +303,10 @@ Add `ServiceBookingFlow` to the files you own and include it in your pre-return 
 import Layout from '../../layouts/Layout.astro';
 
 // Confirmation page reads params from the redirect URL set by ServiceBookingFlow.
-// We do NOT re-fetch the booking via SDK here — getBooking() requires elevated
-// server-side permissions not available in OAuthStrategy (headless).
+// We do NOT re-fetch the booking via SDK here — the booking was created by the
+// client island (visitor identity), and re-reading it on the confirmation page
+// adds no value over the params we already pass. (A server re-fetch of someone
+// else's booking is out of scope for this skill.) Keep it param-driven.
 // ServiceBookingFlow redirects with: ?bookingId=...&startDate=...&service=...
 const bookingId = Astro.url.searchParams.get('bookingId');
 const startDateParam = Astro.url.searchParams.get('startDate');  // ISO string passed from client
@@ -307,14 +323,21 @@ const formattedDate = startDateParam
 ---
 ```
 
-> **Headless note**: `wixClient.auth.elevate` is not available with `OAuthStrategy` in a self-hosted headless project. To show booking details on the confirmation page, pass them as URL query params from the client during redirect. If you need server-side booking retrieval (e.g. for email receipts), use a dedicated backend route with a Wix API key — that pattern is outside the scope of this skill.
+> **Headless note — two different `elevate`s, don't conflate them:**
+> - **`@wix/essentials` `auth.elevate(fn)`** *works* in `@wix/astro` SSR and is the correct way to read data server-side (the listing + detail pages above use it for `services.queryServices`, and the CMS pages use it for `items.query`). It is **not** the thing that's unavailable.
+> - **`wixClient.auth.elevate`** — the instance method on a hand-built `createClient({ auth: OAuthStrategy(...) })` — is what's unavailable in headless; that's a Wix-hosted Velo/Blocks API.
+>
+> This confirmation page deliberately doesn't re-fetch the booking at all: it renders from the URL params `ServiceBookingFlow` passes during the post-`createBooking` redirect (`?bookingId=...&startDate=...&service=...`). A server-side booking retrieval (e.g. for email receipts via a backend route + API key) is outside this skill's scope.
 
 ### Template
 
 ```astro
 <Layout title="Booking Confirmed">
   <main class="py-4xl">
-    <div class="container mx-auto px-lg max-w-xl text-center">
+    <!-- `max-w-prose` (a Tailwind built-in literal = 65ch) instead of `max-w-xl`:
+         arbitrary `max-w-<size>` keys can fall through to the spacing scale and
+         collapse to a ~32px column. `max-w-prose` always resolves. -->
+    <div class="mx-auto px-lg max-w-prose text-center">
       <!-- Success icon placeholder -->
       <div class="w-16 h-16 rounded-full bg-[--color-primary] flex items-center justify-center mx-auto mb-xl">
         <span class="text-white text-2xl">✓</span>
