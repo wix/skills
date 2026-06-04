@@ -32,7 +32,7 @@ Create a collection in the Wix dashboard → CMS with these fields:
 ### 1. FAQ Service Module (`src/lib/faq.ts`)
 
 ```typescript
-import * as items from "@wix/wix-data-items-sdk";
+import { items } from "@wix/data";
 import { auth } from "@wix/essentials";
 
 const COLLECTION_ID = "FAQ";
