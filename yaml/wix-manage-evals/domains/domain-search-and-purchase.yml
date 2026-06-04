@@ -1,5 +1,5 @@
 name: domains/domain-search-and-purchase
-description: Verifies the agent reads the domain-search-and-purchase docs when asked about searching for and purchasing a domain via the Wix API.
+description: Verifies the agent reads the domain-search-and-purchase docs when asked how to search for and purchase a domain via the Wix API.
 triggerPrompt: How do I programmatically search for an available domain on Wix and then purchase it? Please reference the relevant API methods.
 tags: [domains]
 assertions:
