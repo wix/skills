@@ -14,15 +14,15 @@ Routing (which path runs) is owned by `PLAN.md` § "Operation routing" (operatio
 
 ## Step 1 — Read the scaffolded project config (siteId + appId)
 
-**Do not** speculatively `Read <folder-name>/wix.config.json` before the scaffold exists — the speculative read returns `File does not exist` on every fast-Q&A run (the file isn't there yet), emits a `[MED]` anomaly in the trace, and costs 3–5 s of round-trip + recovery thinking.
+> **Single folder — CWD == project == site-root.** `scaffold.sh` flattens the scaffolded project into the **current directory** (`BUILD-astro.md` run-step 0), so there is **one folder with one `.wix/`**: `.wix/site.json` + `.wix/run.json` (your config) and the project's own files (`package.json`, `src/`, `wix.config.json`, `.wix/design-tokens.css`, …) all live in CWD. **Never `cd` into a subdir and never look in a parent for `.wix`.** `<site-root>` and `<project-dir>` are the same path — the CWD. Do not deliberate cwd/subprocess mechanics: every Bash call already runs in the project root; pass absolute paths only when a call may run in its own subshell.
 
-Once the scaffolded project exists, read `<folder-name>/wix.config.json` and extract:
+**Do not** speculatively `Read ./wix.config.json` before the scaffold completes — the read returns `File does not exist` on every fast-Q&A run (it isn't there yet), emits a `[MED]` anomaly in the trace, and costs 3–5 s of round-trip + recovery thinking.
+
+Once `scaffold_handle` returns, read `./wix.config.json` (in CWD, flattened up from the scaffolded subdir) and extract:
 - `siteId` — the site id passed as `--site` to `npx @wix/cli@latest token` and embedded in every install body + as the `wix-site-id` header on every site-scoped REST call. Hold it in orchestrator session scratch.
 - `appId` — the project's appId. Hold it in session scratch (it goes into the SDK's `createClient` inputs in later steps).
 
-**Before `cd`, capture the current working directory as `<site-root>` and hold it in session scratch.** This is where Discovery's `init-site-json.mjs` wrote the slim `.wix/site.json` snapshot. The orchestrator is the **sole** reader/writer of that file; no subagent or downstream script reads it during the run. Hold `<site-root>` as an absolute path so the `cd` into the scaffold subdir below does not lose it.
-
-`cd` into `<folder-name>/` so all subsequent file ops + shell calls (`npm`, `npx @wix/cli@latest env pull`) are relative to the project root.
+Capture the CWD absolute path as `<site-root>` (== `<project-dir>`) and hold it in scratch — this is where `init-site-json.mjs` wrote `.wix/site.json`, of which the orchestrator is the **sole** reader/writer. **No `cd` step** — `npm`, `npx @wix/cli@latest env pull`, and every file op already run in the project root.
 
 ---
 
@@ -30,7 +30,7 @@ Once the scaffolded project exists, read `<folder-name>/wix.config.json` and ext
 
 Discovery wrote `<site-root>/.wix/site.json` with `brand`, `frontend`, and `verticals`. Setup's only addition is patching `siteId` and `appId` in. This is a one-shot in-process JSON edit:
 
-1. `Read <site-root>/.wix/site.json` (absolute path — `<site-root>` was captured in Step 1, before the `cd` into the scaffold).
+1. `Read <site-root>/.wix/site.json` (== `./.wix/site.json` — `<site-root>` is the CWD, captured in Step 1).
 2. Add the two top-level fields (`siteId`, `appId`) using the values held in session scratch.
 3. `Write` the updated file back to the same absolute path.
 

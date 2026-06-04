@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // ── compose.mjs — the deterministic Composer (astro design-system phase) ──────
 //
-// Replaces the former `design-system-composer` LLM subagent (references/astro/
-// COMPOSE.md). The Composer's job is MECHANICAL: take the Designer's framework-
+// Replaces the former `design-system-composer` LLM subagent (this script is now
+// the sole spec). The Composer's job is MECHANICAL: take the Designer's framework-
 // agnostic spec + the application inputs and SUBSTITUTE them into six pinned
 // skeletons at references/astro/templates/. There is no judgment in re-emitting
 // the fixed bulk (View-Transitions script, @utility btn family, view-transition
@@ -27,8 +27,8 @@
 // authored with standard roles (primary/surface/on-surface/…) maps onto the wix
 // `--color-*` vocabulary; wix-native keys pass through losslessly. `rounded` →
 // radii; a custom `containers` group + a `googleFontsHref` key are honored.
-// emit-design-tokens.mjs writes that DESIGN.md (from the Designer's spec) before
-// compose runs.
+// The Designer authors that DESIGN.md directly; emit-design-tokens.mjs projects
+// the token CSS/types from it. DESIGN.md exists on disk before compose runs.
 //
 // stdin JSON (the application inputs — NOT the design tokens, which live in DESIGN.md):
 //   - designMdPath   — optional path to the DESIGN.md (default <project-dir>/DESIGN.md).
@@ -202,7 +202,7 @@ function designMdToTokens(fm) {
 // DESIGN.md is the single token source — read it, parse frontmatter only.
 const designMdRel = input.designMdPath ?? "DESIGN.md";
 const designMdPath = isAbsolute(designMdRel) ? designMdRel : join(projectDir, designMdRel);
-if (!existsSync(designMdPath)) die("DESIGN_MD_MISSING", `no DESIGN.md at ${designMdPath} — run emit-design-tokens.mjs first`);
+if (!existsSync(designMdPath)) die("DESIGN_MD_MISSING", `no DESIGN.md at ${designMdPath} — the Designer must author it first`);
 const fm = parseFrontmatter(readFileSync(designMdPath, "utf8"));
 if (!fm) die("DESIGN_MD_BAD", `could not parse YAML frontmatter from ${designMdPath}`);
 const designTokens = designMdToTokens(fm);

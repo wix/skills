@@ -24,7 +24,7 @@ The terms below appear throughout this skill. They describe the *shape* of work;
 The run is two semi-independent tracks that the orchestrator interleaves for wall-time:
 
 - **Business track** (frontend-blind) — create/connect the site, **install Wix apps**, **seed backend data**. Inputs: `siteId`, `verticals`, `intent`, `brand`. It never reads `frontend`/template — a product (or collection, post, form) is the same regardless of what renders it. Its domain content lives in `SETUP.md` (app installs) + `SEED.md` (seeders).
-- **Frontend track** (frontend-aware) — scaffold/prep the local project, Designer + design tokens, `compose.mjs` (the Composer script), components, pages, SDK wiring, build. Every `frontend`/template branch lives here. Its domain content lives in `scaffold.sh` + `seed-utilities.sh` + `DESIGN_SYSTEM.md` + `scripts/compose.mjs` (spec: `astro/COMPOSE.md`) + the per-vertical references (frontend guides under `references/astro/`).
+- **Frontend track** (frontend-aware) — scaffold/prep the local project, Designer + design tokens, `compose.mjs` (the Composer script), components, pages, SDK wiring, build. Every `frontend`/template branch lives here. Its domain content lives in `scaffold.sh` + `seed-utilities.sh` + `DESIGN_SYSTEM.md` + `scripts/compose.mjs` (self-documenting) + the per-vertical references (frontend guides under `references/astro/`).
 
 The only cross-track data flow is **one-way, business → frontend**: seeders produce entity IDs which the orchestrator inlines into the frontend track's Page-subagent prompts. There is no frontend → business dependency.
 

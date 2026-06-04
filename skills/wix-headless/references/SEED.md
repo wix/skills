@@ -65,7 +65,7 @@ The seeders and Image Phase 1 below are launched as one concurrent background ba
 bash "<SKILL_ROOT>/scripts/seed-utilities.sh" --template astro
 ```
 
-Execute from the **project directory** (scaffold subdir after `cd`). Record `{ phase: "seed-utilities", seconds }` when composing `run.json`. (This is frontend-track project prep, not seeding — custom frontends route to the stub and never reach this article.)
+Execute from the **project directory** (== CWD — the scaffold was flattened in, no subdir). Record `{ phase: "seed-utilities", seconds }` when composing `run.json`. (This is frontend-track project prep, not seeding — custom frontends route to the stub and never reach this article.)
 
 ### Wave 3 dispatch table
 

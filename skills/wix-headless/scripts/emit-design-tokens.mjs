@@ -1,55 +1,115 @@
 #!/usr/bin/env node
-// Write the canonical DESIGN.md and project .wix/design-tokens.css + .wix/site.d.ts
-// from the Designer's design spec, piped in on stdin. Invoked by the wix-headless
-// orchestrator immediately after the Phase 2 Designer returns — the orchestrator
-// pipes designerReturn.data.design directly, no site.json round-trip.
+// Project .wix/design-tokens.css + .wix/site.d.ts from the Designer's DESIGN.md.
 //
-// The input is the DESIGN.md FRONTMATTER (DESIGN.md vocabulary — see
-// references/shared/DESIGN_MD.md): { colors, typography, spacing, rounded,
-// containers, googleFontsHref? }. There is no separate "design tokens" JSON
-// contract — DESIGN.md is the single design format.
-//
-// Why a script (not agent work): all three files are pure projections of the
-// design spec — no judgment, no brand-context dependence. An LLM emitting them
-// is wasted tokens AND a drift risk (malformed :root blocks, divergent skeletons).
-//
-// Three outputs:
-//   DESIGN.md               — the canonical, portable design artifact (DESIGN.md
-//                             frontmatter; see references/shared/DESIGN_MD.md).
-//                             Frontmatter is canonical; the body is documentation,
-//                             never parsed. compose.mjs reads this file.
+// The Designer authors DESIGN.md directly (the run is single-folder — CWD is the
+// project — so the Designer can write it during Phase 2). This script does NOT
+// write DESIGN.md; it reads the frontmatter the Designer wrote and projects the
+// two MECHANICAL artifacts an LLM must not hand-write (a malformed :root block or
+// divergent type union is a silent build/drift bug):
 //   .wix/design-tokens.css  — :root custom properties (build-consumed; any frontend imports it).
 //   .wix/site.d.ts          — typed token-name unions.
 //
+// DESIGN.md frontmatter is the single design source — compose.mjs (astro) reads
+// the same file. Runs in the Setup-window bridge, after the Designer returns. On
+// the own-build (SPA) path it runs too (the SPA imports design-tokens.css);
+// compose.mjs does NOT run there (it is astro-only).
+//
 // Usage:
-//   echo '<design-json>' | node emit-design-tokens.mjs <project-dir> ["<brand name>"]
+//   node emit-design-tokens.mjs <project-dir>                    # reads <project-dir>/DESIGN.md
+//   node emit-design-tokens.mjs <project-dir> --design-md <path> # explicit DESIGN.md path
 
-import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
 
-const projectDir = process.argv[2] ?? process.cwd();
-const brandName = process.argv[3] && process.argv[3].trim() ? process.argv[3].trim() : "Design System";
-
-if (process.stdin.isTTY) {
-  console.error("emit-design-tokens: expected the design spec JSON on stdin (pipe in the Designer's data.design block)");
-  process.exit(2);
+// ── args ─────────────────────────────────────────────────────────────────────
+const argv = process.argv.slice(2);
+let designMdPath = null;
+const positional = [];
+for (let i = 0; i < argv.length; i++) {
+  if (argv[i] === "--design-md") designMdPath = argv[++i];
+  else if (argv[i].startsWith("--design-md=")) designMdPath = argv[i].slice("--design-md=".length);
+  else positional.push(argv[i]);
 }
+const projectDir = positional[0] ?? process.cwd();
+const designMd = designMdPath ?? join(projectDir, "DESIGN.md");
 
-let design;
-try {
-  const raw = readFileSync(0, "utf8").trim();
-  if (!raw) {
-    console.error("emit-design-tokens: stdin was empty — pass the data.design (DESIGN.md frontmatter) object");
-    process.exit(2);
+// ── DESIGN.md frontmatter parser ──────────────────────────────────────────────
+// Mirrors compose.mjs's parser for the restricted DESIGN.md shape (groups of
+// `key: scalar`, typography tokens with an indented or flow-style fontFamily).
+// The format contract is references/shared/DESIGN_MD.md; both readers must agree.
+// Color values are quoted because an unquoted `#hex` after `: ` is a YAML comment.
+function unquote(v) {
+  v = v.trim();
+  const qc = v[0];
+  if (qc === '"' || qc === "'") {
+    let out = "";
+    for (let i = 1; i < v.length; i++) {
+      const c = v[i];
+      if (qc === '"' && c === "\\" && i + 1 < v.length) { out += v[++i]; continue; }
+      if (c === qc) break;
+      out += c;
+    }
+    return out;
   }
-  design = JSON.parse(raw);
-} catch (e) {
-  console.error(`emit-design-tokens: stdin is not valid JSON (${e.message})`);
-  process.exit(2);
+  const hash = v.search(/\s#/); // strip trailing inline comment on bare scalars
+  if (hash !== -1) v = v.slice(0, hash).trim();
+  return v;
+}
+function parseInlineObject(s) {
+  const inner = s.trim().replace(/^\{/, "").replace(/\}$/, "");
+  const obj = {};
+  let buf = "", inq = null;
+  const parts = [];
+  for (const ch of inner) {
+    if (inq) { if (ch === inq) inq = null; buf += ch; continue; }
+    if (ch === '"' || ch === "'") { inq = ch; buf += ch; continue; }
+    if (ch === ",") { parts.push(buf); buf = ""; continue; }
+    buf += ch;
+  }
+  if (buf.trim()) parts.push(buf);
+  for (const p of parts) {
+    const ci = p.indexOf(":");
+    if (ci === -1) continue;
+    obj[p.slice(0, ci).trim()] = unquote(p.slice(ci + 1));
+  }
+  return obj;
+}
+function parseFrontmatter(text) {
+  const m = text.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+  if (!m) return null;
+  const root = {};
+  let group = null, sub = null;
+  for (const raw of m[1].split(/\r?\n/)) {
+    if (!raw.trim() || /^\s*#/.test(raw)) continue;
+    const indent = raw.match(/^ */)[0].length;
+    const ci = raw.indexOf(":");
+    if (ci === -1) continue;
+    const key = raw.slice(0, ci).trim();
+    const rest = raw.slice(ci + 1).trim();
+    if (indent === 0) {
+      if (rest === "") { root[key] = {}; group = key; sub = null; }
+      else if (rest.startsWith("{")) { root[key] = parseInlineObject(rest); group = null; sub = null; }
+      else { root[key] = unquote(rest); group = null; sub = null; }
+    } else if (indent === 2 && group) {
+      if (rest === "") { root[group][key] = {}; sub = key; }
+      else if (rest.startsWith("{")) { root[group][key] = parseInlineObject(rest); sub = null; }
+      else { root[group][key] = unquote(rest); sub = null; }
+    } else if (indent >= 4 && group && sub) {
+      if (typeof root[group][sub] !== "object") root[group][sub] = {};
+      root[group][sub][key] = unquote(rest);
+    }
+  }
+  return root;
 }
 
-if (!design || typeof design !== "object" || Array.isArray(design) || Object.keys(design).length === 0) {
-  console.error("emit-design-tokens: design payload must be a non-empty JSON object (the DESIGN.md frontmatter)");
+// ── read + validate the Designer's DESIGN.md ──────────────────────────────────
+if (!existsSync(designMd)) {
+  console.error(`emit-design-tokens: no DESIGN.md at ${designMd} — the Designer must author it first`);
+  process.exit(2);
+}
+const design = parseFrontmatter(readFileSync(designMd, "utf8"));
+if (!design || typeof design !== "object" || Object.keys(design).length === 0) {
+  console.error(`emit-design-tokens: could not parse YAML frontmatter from ${designMd} (check it starts with '---', values are quoted, 2-space indent)`);
   process.exit(2);
 }
 
@@ -60,10 +120,15 @@ const rounded = design.rounded ?? {};
 const containers = design.containers ?? {};
 const fontFamilyOf = (lvl) => (typography[lvl] && typeof typography[lvl] === "object" ? typography[lvl].fontFamily : typography[lvl]);
 
+if (Object.keys(colors).length === 0) {
+  console.error(`emit-design-tokens: DESIGN.md frontmatter has no 'colors' group — cannot project tokens (${designMd})`);
+  process.exit(2);
+}
+
 const wixDir = join(projectDir, ".wix");
 mkdirSync(wixDir, { recursive: true });
 
-// ── .wix/design-tokens.css ──────────────────────────────────────────────────
+// ── .wix/design-tokens.css ────────────────────────────────────────────────────
 const cssLines = ["/* Generated by emit-design-tokens.mjs. Do not edit. */", ":root {"];
 for (const [k, v] of Object.entries(colors)) cssLines.push(`  --color-${k}: ${v};`);
 for (const lvl of Object.keys(typography)) {
@@ -76,7 +141,7 @@ for (const [k, v] of Object.entries(containers)) cssLines.push(`  --container-${
 cssLines.push("}", "");
 writeFileSync(join(wixDir, "design-tokens.css"), cssLines.join("\n"));
 
-// ── .wix/site.d.ts ──────────────────────────────────────────────────────────
+// ── .wix/site.d.ts ────────────────────────────────────────────────────────────
 const recordType = (keys) => {
   if (keys.length === 0) return "Record<string, string>";
   return `Record<${keys.map((k) => JSON.stringify(k)).join(" | ")}, string>`;
@@ -92,48 +157,4 @@ export type DesignTokens = {
 `;
 writeFileSync(join(wixDir, "site.d.ts"), dts);
 
-// ── DESIGN.md — the canonical, portable design artifact ───────────────────────
-// The input is already DESIGN.md frontmatter, so this is a near-verbatim
-// serialization. Color (and other string) values are QUOTED — an unquoted
-// `#hex` after `: ` is a YAML comment. Numbers (fontWeight, lineHeight) stay bare.
-const scalar = (v) => (typeof v === "number" ? String(v) : `"${String(v).replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`);
-const md = ["---", "version: alpha", `name: ${scalar(brandName)}`];
-if (Object.keys(colors).length) {
-  md.push("colors:");
-  for (const [k, v] of Object.entries(colors)) md.push(`  ${k}: ${scalar(v)}`);
-}
-if (Object.keys(typography).length) {
-  md.push("typography:");
-  for (const [lvl, tok] of Object.entries(typography)) {
-    md.push(`  ${lvl}:`);
-    if (tok && typeof tok === "object") {
-      for (const [sk, sv] of Object.entries(tok)) md.push(`    ${sk}: ${scalar(sv)}`);
-    } else {
-      md.push(`    fontFamily: ${scalar(tok)}`);
-    }
-  }
-}
-if (Object.keys(spacing).length) {
-  md.push("spacing:");
-  for (const [k, v] of Object.entries(spacing)) md.push(`  ${k}: ${scalar(v)}`);
-}
-if (Object.keys(rounded).length) {
-  md.push("rounded:");
-  for (const [k, v] of Object.entries(rounded)) md.push(`  ${k}: ${scalar(v)}`);
-}
-if (Object.keys(containers).length) {
-  md.push("containers:"); // DESIGN.md extension (content widths)
-  for (const [k, v] of Object.entries(containers)) md.push(`  ${k}: ${scalar(v)}`);
-}
-if (typeof design.googleFontsHref === "string") {
-  md.push(`googleFontsHref: ${scalar(design.googleFontsHref)}`);
-}
-md.push("---", "");
-md.push(`# ${brandName} — design tokens`, "");
-md.push("The YAML frontmatter above is the canonical, machine-read design spec");
-md.push("(see the format at references/shared/DESIGN_MD.md). This body is");
-md.push("documentation only and is never parsed. Import `.wix/design-tokens.css`");
-md.push("for the same values as CSS custom properties.", "");
-writeFileSync(join(projectDir, "DESIGN.md"), md.join("\n"));
-
-console.log(`emit-design-tokens: wrote ${join(projectDir, "DESIGN.md")}, ${join(wixDir, "design-tokens.css")} and ${join(wixDir, "site.d.ts")}`);
+console.log(`emit-design-tokens: projected ${join(wixDir, "design-tokens.css")} and ${join(wixDir, "site.d.ts")} from ${designMd}`);

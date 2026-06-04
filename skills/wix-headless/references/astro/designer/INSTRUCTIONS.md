@@ -1,6 +1,6 @@
 ---
 name: page-designer
-description: "The page-design specification for Wix Managed Headless Phase 4 routes: home, static (about/faq), store-pages, blog-pages, contact-page. This is the visual-design guidance the merged Phase 4 `pages` scopes (vertical packs, BUILD-astro.md Step 7) apply when they write each route ONCE with both visual design and live SDK data. It defines layout, contract classes, decorative-slot conventions, responsive rules, and anti-patterns — not a separate placeholder-writing pass. The design-system phase (tokens + global.css + Layout/Nav/Footer shells) is NOT here — it is split across DESIGN_SYSTEM.md (Designer) and astro/COMPOSE.md (Composer)."
+description: "The page-design specification for Wix Managed Headless Phase 4 routes: home, static (about/faq), store-pages, blog-pages, contact-page. This is the visual-design guidance the merged Phase 4 `pages` scopes (vertical packs, BUILD-astro.md Step 7) apply when they write each route ONCE with both visual design and live SDK data. It defines layout, contract classes, decorative-slot conventions, responsive rules, and anti-patterns — not a separate placeholder-writing pass. The design-system phase (tokens + global.css + Layout/Nav/Footer shells) is NOT here — it is split across DESIGN_SYSTEM.md (Designer) and scripts/compose.mjs (Composer)."
 ---
 
 # Page Designer — Scope-Based Page Design
@@ -12,8 +12,8 @@ Your prompt will contain a `Scope:` line naming exactly one of the page scopes b
 You own **page-level visual output**: the layout, typography, color, spacing, and component composition of one route group. The same merged scope also binds the live SDK data into that structure (the per-vertical reference under `references/astro/<vertical>/` supplies the exact queries).
 
 > **The design-system phase is not in this doc.** Tokens (`DESIGN.md` / `data.design`), `global.css`, `astro.config.mjs`, `Layout.astro`, `Navigation.astro`, and `Footer.astro` are produced earlier in the run by a two-role split:
-> - **Designer** (`<SKILL_ROOT>/references/DESIGN_SYSTEM.md`) — returns the framework-agnostic design spec (tokens + brand-voice strings) as JSON only.
-> - **Composer** (`<SKILL_ROOT>/scripts/compose.mjs`, a deterministic script — spec in `references/astro/COMPOSE.md`) — applies that spec to the astro skeletons and writes the 6 design-system files.
+> - **Designer** (`<SKILL_ROOT>/references/DESIGN_SYSTEM.md`) — authors `DESIGN.md` (the framework-agnostic token spec) and returns the brand-voice strings.
+> - **Composer** (`<SKILL_ROOT>/scripts/compose.mjs`, a deterministic script — self-documenting) — applies `DESIGN.md` to the astro skeletons and writes the 6 design-system files.
 >
 > By the time the Phase 4 routes are written, the `@theme` token contract, the `.astro` shells, and `.wix/design-tokens.css` already exist. You consume them; you do not write them.
 
@@ -36,7 +36,7 @@ No REST calls required. Page-design scopes are frontend-only — no `curl`, no M
 | `blog-pages` | Phase 4 — Step 7 | `src/pages/blog/index.astro`, `src/pages/blog/[slug].astro` |
 | `contact-page` | Phase 4 — Step 7 | `src/pages/contact.astro` |
 
-If your prompt's `Scope:` line names `design-system`, you have the wrong doc — that work lives in `DESIGN_SYSTEM.md` (Designer) and `astro/COMPOSE.md` (Composer). Stop and tell the parent.
+If your prompt's `Scope:` line names `design-system`, you have the wrong doc — that work lives in `DESIGN_SYSTEM.md` (Designer) and `scripts/compose.mjs` (Composer). Stop and tell the parent.
 
 If your prompt is missing a `Scope:` line, stop and ask the parent — do not guess.
 

@@ -79,7 +79,7 @@ This translation is a **compatibility layer**, not the authoring path: the Desig
 
 ## Producers & consumers in the run
 
-- **Designer** (`DESIGN_SYSTEM.md`) — authors the design as DESIGN.md frontmatter (returned as structured data; writes no files, because it runs before the project dir exists).
-- **`emit-design-tokens.mjs`** — serializes that to the canonical `DESIGN.md` (project root) and projects `.wix/design-tokens.css` + `.wix/site.d.ts`.
+- **Designer** (`DESIGN_SYSTEM.md`) — **authors `DESIGN.md` directly** (its frontmatter is the spec); returns only the brand-voice strings + the `DESIGN.md` path.
+- **`emit-design-tokens.mjs`** — reads the Designer's `DESIGN.md` and projects `.wix/design-tokens.css` + `.wix/site.d.ts` from its frontmatter. It does **not** write `DESIGN.md` (the Designer does).
 - **`compose.mjs`** — reads `DESIGN.md` frontmatter → writes the 6 astro design-system files (astro only).
 - **Non-astro (`own`) frontends** — import `.wix/design-tokens.css` for the same values; component composition stays framework-native (no `compose.mjs`).

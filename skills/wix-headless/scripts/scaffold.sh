@@ -5,7 +5,11 @@
 #   bash <SKILL_ROOT>/scripts/scaffold.sh <folder-name> "<Brand Name>" [--frontend astro|custom]
 #
 # <folder-name>:  lowercase letters, numbers, and hyphens only; must start with a
-#                 letter or number. Becomes the local project directory name.
+#                 letter or number. The CLI scaffolds into a subdir of this name,
+#                 which this script then FLATTENS into the current directory (see
+#                 "In-place flatten" below) — so the project ends up *in CWD*, not
+#                 in a nested folder. The name is still required (the CLI mandates
+#                 it) but the local folder is transient.
 # <Brand Name>:   human-readable business name; quote if it contains spaces. The
 #                 CLI derives the Wix project display-name and URL slug from it, so
 #                 it must include at least one English letter or number.
@@ -16,9 +20,10 @@
 #                 so this script should only ever be invoked with "astro". If it is
 #                 invoked with "custom" it exits 4 (recognized, not staged).
 #
-# After scaffold succeeds, read <folder-name>/wix.config.json to extract appId
-# (project's appId) and siteId (used as --site for `wix token` and in REST call
-# bodies). The orchestrator does that read; this script just runs the npm create.
+# After scaffold succeeds, the project lives in the CURRENT directory (the subdir
+# was flattened away). Read ./wix.config.json to extract appId (project's appId)
+# and siteId (used as --site for `wix token` and in REST call bodies). The
+# orchestrator does that read; this script runs the npm create + the flatten.
 #
 # Behavior:
 #   - Pre-flight validates the folder name syntax (regex ^[a-z0-9][a-z0-9-]*$).
@@ -29,12 +34,15 @@
 #     blank starter. Without it, @wix/create-new (>=0.0.72) prompts for a template
 #     choice and aborts in a non-TTY agent shell ("not supported in non-interactive
 #     terminals").
+#   - FLATTENS the scaffolded subdir into CWD (single-folder layout: one `.wix`,
+#     CWD == project == site-root). Interim until the CLI supports in-place create.
 #
 # Exit codes:
 #   0 — ok
 #   2 — argument validation failed (bad folder name, missing args, unknown --frontend value)
 #   3 — Wix CLI not logged in (defensive; the Discovery pre-flight is the primary check)
 #   4 — frontend value recognized but not scaffolded yet (custom today)
+#   5 — scaffold succeeded but the subdir could not be flattened into CWD (name collision)
 #   <other> — npm create failed; stderr surfaced to caller for orchestrator-side
 #             recovery (auth / other scaffold failures live in the orchestrator).
 
@@ -102,9 +110,47 @@ if ! npx @wix/cli@latest whoami >/dev/null 2>&1; then
   exit 3
 fi
 
+FOLDER="${POSITIONAL[0]}"
+
 npm create @wix/new@latest headless -- \
   --business-name "${POSITIONAL[1]}" \
-  --folder-name "${POSITIONAL[0]}" \
+  --folder-name "$FOLDER" \
   --site-template \
   --no-publish \
   --skip-install
+
+# --- In-place flatten (interim hack) -----------------------------------------
+# The CLI always scaffolds into a named subdir; there is NO in-place option —
+# `headless init` regex-rejects `--folder-name .` ("must contain only lowercase
+# letters, numbers, and hyphens") and offers no --cwd/--here flag. To keep the
+# whole run single-folder (one `.wix`, CWD == project == site-root, no nested
+# `.wix` to reason about), fold the scaffolded subdir up into the current dir.
+#
+# The current dir already holds `.wix/site.json` (init-site-json.mjs writes it
+# before scaffold) plus the harness's output.json/stderr.log. The scaffold subdir
+# carries the project (package.json, src/, wix.config.json, …) and its own `.wix/`
+# (build metadata, topology). Merge the subdir's `.wix/*` into the existing `.wix/`
+# WITHOUT clobbering site.json (mv -n), move the rest up, then drop the subdir.
+#
+# Remove this whole block when the CLI gains `--folder-name .` (or --cwd): pass
+# the in-place flag above and delete the flatten.
+if [[ -d "$FOLDER" ]]; then
+  shopt -s dotglob nullglob
+  mkdir -p .wix
+  if [[ -d "$FOLDER/.wix" ]]; then
+    for f in "$FOLDER"/.wix/*; do
+      mv -n "$f" .wix/    # -n: never overwrite the pre-existing site.json/run.json
+    done
+    rmdir "$FOLDER/.wix" 2>/dev/null || rm -rf "$FOLDER/.wix"
+  fi
+  for f in "$FOLDER"/*; do
+    mv -n "$f" ./
+  done
+  shopt -u dotglob nullglob
+  if ! rmdir "$FOLDER" 2>/dev/null; then
+    echo "scaffold.sh: could not fully flatten '$FOLDER' into the project dir — leftover:" >&2
+    ls -A "$FOLDER" >&2
+    exit 5
+  fi
+fi
+# -----------------------------------------------------------------------------
