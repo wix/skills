@@ -2,7 +2,7 @@
 
 You are seeding Wix Bookings services for a headless site. Your job:
 1. Mint a site-scoped token once.
-2. **If `intent.bookings.hasStaff` is `true`** — create staff members FIRST (Step 3 below). Required ordering for APPOINTMENT services: at least one resource (staff or default business-owner) must exist BEFORE a service is created, or the API rejects with `MISSING_APPOINTMENT_RESOURCES`.
+2. **If `intent.bookings.hasStaff` is `true`** — create staff members FIRST (Step 3 below), then pass their `resourceId`s on each service. **Every APPOINTMENT service needs a non-empty `staffMemberIds`** or it's rejected with `MISSING_APPOINTMENT_RESOURCES` — even when `hasStaff` is false you must pass the default **Business Owner** `resourceId` (see § "When hasStaff is false"). (CLASS services don't need a resource at create time.)
 3. Create `intent.bookings.serviceCount` services via the Bookings V2 REST API. When staff exist, pass their `resourceId` values via `staffMemberIds`.
 4. Return all created IDs in the standard return contract.
 
@@ -77,7 +77,19 @@ Save `staffMember.id` and `staffMember.resourceId` from each response. **You wil
 
 ### When `hasStaff` is `false`
 
-Skip this step entirely. For `serviceType: "CLASS"`, no staff/resource is needed at service-creation time. For `serviceType: "APPOINTMENT"` with `hasStaff: false`, the Wix Bookings app provisions a default business-owner resource at install time, which satisfies the resource requirement. If service creation in Step 4 still fails with `MISSING_APPOINTMENT_RESOURCES`, fall back to creating one staff member named after the brand and retry.
+For `serviceType: "CLASS"`, no staff/resource is needed at service-creation time — skip this step.
+
+For `serviceType: "APPOINTMENT"` with `hasStaff: false`, you **still must pass a resource** in `staffMemberIds` — an empty `[]` is **rejected** with `MISSING_APPOINTMENT_RESOURCES` (*"service of type appointment requires at least one staff member or service resource"*). The Wix Bookings app provisions a default **Business Owner** resource at install; query it and pass **its** `resourceId`:
+
+```bash
+# Get the default Business-Owner resourceId (no staff were created).
+curl -sS -X POST -H "Authorization: Bearer $TOKEN" -H "wix-site-id: <siteId>" -H "Content-Type: application/json" \
+  -d '{"query":{}}' "https://www.wixapis.com/bookings/v1/staff-members/query"
+# → take the staffMember named "Business Owner" and use its `resourceId` as the single
+#   entry in each APPOINTMENT service's `staffMemberIds`.
+```
+
+(Do **not** rely on `[]` — the default resource does not auto-satisfy the requirement at create time. CLASS services don't need this.)
 
 ---
 
@@ -131,7 +143,7 @@ curl -sS -X POST \
           "type": "BUSINESS"
         }
       ],
-      "staffMemberIds": [<resourceId values from Step 3 — pass an empty array [] when hasStaff is false>]
+      "staffMemberIds": [<resourceId values — staff from Step 3, OR the default Business-Owner resourceId when hasStaff is false. NEVER [] for APPOINTMENT — it 400s with MISSING_APPOINTMENT_RESOURCES>]
     }
   }' \
   "https://www.wixapis.com/_api/bookings/v2/services"
@@ -139,7 +151,7 @@ curl -sS -X POST \
 
 > **`locations.type` enum:** the valid values are `UNKNOWN_LOCATION_TYPE`, `CUSTOM`, `BUSINESS`, and `CUSTOMER`. Use `"BUSINESS"` for "at the business address" (the seed default). Do NOT use `"OWNER_BUSINESS"` here — that string IS valid for `createBooking.bookedEntity.slot.location.locationType` on the bookings endpoint, but the **services** endpoint rejects it. Same field name, different enum.
 
-> **`staffMemberIds`:** pass the `resourceId` values you collected in Step 3 (not the `id` values). When `intent.bookings.hasStaff` is `false`, omit the field or pass `[]` — the Bookings app's default business-owner resource handles the resource requirement for APPOINTMENT.
+> **`staffMemberIds`:** pass `resourceId` values (not staffMember `id` values). For APPOINTMENT this array must be **non-empty** — when `hasStaff` is `false`, pass the default **Business Owner** `resourceId` (query it per § "When hasStaff is false"); `[]` is rejected with `MISSING_APPOINTMENT_RESOURCES` (verified live). CLASS services don't require it.
 
 **Response shape:**
 ```json
@@ -169,7 +181,7 @@ curl -sS -X POST \
 - **Names + descriptions**: Derive from `brand.description`. Examples: a yoga studio → "60-min Vinyasa Flow" (60 min), "30-min Morning Meditation" (30 min), "90-min Deep Restore" (90 min). A hair salon → "Women's Cut & Style" (60 min, $85), "Men's Haircut" (30 min, $45), "Balayage Color" (120 min, $150). Make them brand-appropriate — not generic.
 - **Duration** (integers in minutes): Brand-appropriate. Consultation → 30; standard service → 60; premium/complex → 90–120.
 - **Price `value`**: A string, not a number. Brand-appropriate, non-trivial. A budget studio might charge `"25.00"`; a premium clinic `"250.00"`. Default to mid-range when unclear.
-- **Currency**: Use `"USD"` unless the brand's locale implies otherwise.
+- **Currency**: Set `"USD"` unless the brand's locale implies otherwise — **but note the site's business currency wins**: Services V2 silently stores the site-locale currency (e.g. a EUR-locale site stores `EUR` even when you send `USD`). This is not an error; the page templates format from the service's returned `currency`, so display stays correct. Don't fight it.
 - **Fire all service creates as a parallel batch** — they are independent calls.
 
 ### Required fields summary (V2)
@@ -223,7 +235,11 @@ curl -sS -X POST \
 
 Verify by fetching slots the way the front-end does (`eventTimeSlots.listEventTimeSlots({ serviceIds: [id], … })`) or `POST /calendar/v3/events/query` filtered by `scheduleId`. Record each session's event id in your return under `seeded.bookings.services[].sessionEventIds` if you want Phase 4 to deep-link.
 
-> **Waitlist (optional).** The front-end waitlist (Phase 4) only works if the service's booking policy has a waitlist enabled — off by default. To enable it, PATCH the default booking policy: get it from `POST /bookings/v1/booking-policies/query` (`{}`), then `PATCH /bookings/v1/booking-policies/<id>` with `{ "bookingPolicy": { "id": "<id>", "revision": "<rev>", "waitlistPolicy": { "enabled": true, "capacity": 10, "reservationTimeInMinutes": 10 } }, "fieldMask": { "paths": ["waitlistPolicy"] } }`. Skip if the build doesn't surface a waitlist.
+> **Booking-policy toggles (optional, CLASS).** Both live on the default booking policy — get it once via `POST /bookings/v1/booking-policies/query` with body `{"query":{}}` (an empty `{}` body is rejected with `query must not be empty`), then `PATCH /bookings/v1/booking-policies/<id>` with the relevant block + `fieldMask`:
+> - **Waitlist** (so a full session offers "join waitlist"): `"waitlistPolicy": { "enabled": true, "capacity": 10, "reservationTimeInMinutes": 10 }`, `fieldMask.paths: ["waitlistPolicy"]`.
+> - **Multi-participant** (party size > 1): `"participantsPolicy": { "maxParticipantsPerBooking": <N> }`, `fieldMask.paths: ["participantsPolicy"]`. **Defaults to `1`** — without raising it, the front-end party-size selector lets the user pick >1 but `createBooking` rejects it. Raise it (e.g. `4`) to actually enable multi-participant class booking.
+>
+> Skip whichever the build doesn't surface.
 
 ---
 
@@ -273,7 +289,7 @@ Write to `<site-root>/.wix/seed-returns/bookings.json`:
 | 400 `"onlineBooking is required"` | Add `"onlineBooking": { "enabled": true }` — required in V2. |
 | 400 on `payment.options` | At least one of `online` or `inPerson` must be `true`. Set `"inPerson": true` as fallback. |
 | 400 `"sessionDurations is required"` | Add `"schedule": { "availabilityConstraints": { "sessionDurations": [60] } }` for APPOINTMENT types. |
-| 400 `MISSING_APPOINTMENT_RESOURCES` on service create | APPOINTMENT services require at least one resource (staff or default business-owner) to exist before they can be created. Run Step 3 (staff creation) first if you skipped it, or create one staff member named after the brand as fallback. |
+| 400 `MISSING_APPOINTMENT_RESOURCES` on service create | An APPOINTMENT service's `staffMemberIds` must be **non-empty**. Pass the created staff `resourceId`s (Step 3), or — when `hasStaff` is false — the default **Business Owner** `resourceId` (query `/bookings/v1/staff-members/query` with `{"query":{}}`). An empty `[]` always 400s here. |
 | 400 enum error on `locations.type` | Use `"BUSINESS"`, not `"OWNER_BUSINESS"`. The services endpoint accepts `UNKNOWN_LOCATION_TYPE`, `CUSTOM`, `BUSINESS`, `CUSTOMER`. `OWNER_BUSINESS` is valid on `createBooking.bookedEntity.slot.location.locationType` only. |
 | 400 `is not a valid email/phone` on staff create | Don't send `"phone": ""` or `"email": ""`. Omit the keys entirely when you don't have a real value. |
 | `mainSlug` absent in response | Derive slug from `service.name`: lowercase, replace spaces with hyphens, strip non-alphanumeric. |
