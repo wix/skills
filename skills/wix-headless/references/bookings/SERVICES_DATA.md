@@ -164,7 +164,7 @@ curl -sS -X POST \
 - **Count**: Create exactly `intent.bookings.serviceCount` services (default 3 when not specified).
 - **Type**: Use `"APPOINTMENT"` for 1-on-1 services (the default); use `"CLASS"` when `intent.bookings.serviceType === "CLASS"`. For `CLASS`, set `defaultCapacity` to the max participants (e.g. `20`) instead of `1`.
 
-> **⚠️ CLASS services need scheduled sessions before anyone can sign up.** Creating a CLASS service does **not** create any sessions. The front-end sign-up flow lists bookable sessions via `eventTimeSlots.listEventTimeSlots()`, which returns the **scheduled session events** — and a freshly seeded CLASS service has none, so its calendar is permanently empty and there is nothing to book. This seed creates the *service catalog* only; it does **not** schedule sessions (the Schedules/Calendar-Events workflow is involved and fragile to script blind). **Surface this as a stated limitation** — add a `notes` entry to your return (see below) and, for a CLASS run, the orchestrator should tell the user: *"Class services were created; add session times in the Bookings dashboard (or a recurring schedule) to open them for sign-up."* Do not report a CLASS booking flow as fully working end-to-end when no sessions exist.
+> **⚠️ CLASS services need scheduled sessions before anyone can sign up.** Creating a CLASS service does **not** create any bookable sessions. The front-end lists bookable sessions via `eventTimeSlots.listEventTimeSlots()`, which returns scheduled **session events** — a freshly created CLASS service has none, so its calendar is permanently empty. **For CLASS services you MUST run Step 4b below** to schedule sessions; otherwise the class calendar is a dead end. (APPOINTMENT services don't need this — their bookable times come from staff working hours + `availabilityTimeSlots`.)
 - **`sessionDurations`**: Required for APPOINTMENT. An array containing one integer (minutes). Do NOT specify for CLASS or COURSE services.
 - **Names + descriptions**: Derive from `brand.description`. Examples: a yoga studio → "60-min Vinyasa Flow" (60 min), "30-min Morning Meditation" (30 min), "90-min Deep Restore" (90 min). A hair salon → "Women's Cut & Style" (60 min, $85), "Men's Haircut" (30 min, $45), "Balayage Color" (120 min, $150). Make them brand-appropriate — not generic.
 - **Duration** (integers in minutes): Brand-appropriate. Consultation → 30; standard service → 60; premium/complex → 90–120.
@@ -183,6 +183,45 @@ curl -sS -X POST \
 | `payment.rateType` | Yes | `FIXED`, `NO_FEE`, `VARIED`, or `CUSTOM` |
 | `payment.options.online` or `payment.options.inPerson` | Yes | At least one must be `true` |
 | `schedule.availabilityConstraints.sessionDurations` | APPOINTMENT only | Array with one integer (minutes) |
+
+---
+
+## Step 4b — Create class sessions (CLASS services only)
+
+A CLASS service is bookable only once its **schedule** has scheduled session events. Sessions are **Calendar Events V3** (not part of `@wix/bookings`), created via REST. Run this for every service you created with `type: "CLASS"`; skip it entirely for APPOINTMENT.
+
+**Endpoint:** `POST https://www.wixapis.com/calendar/v3/events`
+
+You need two things from earlier steps:
+- the service's **schedule id** — `service.schedule.id` from the Step 4 create response (every service has one);
+- a **resource id** — a CLASS event requires **at least one resource** (`resources` non-empty) or it's rejected. Use a staff `resourceId` from Step 3; if no staff were created, use the default Business-Owner resource's `resourceId` (query `POST /bookings/v1/staff-members/query` with `{"query":{}}` and take the one named `Business Owner`).
+
+```bash
+# One session. Repeat for several upcoming dates per class (e.g. 3 over the next
+# ~2 weeks) so the calendar isn't empty. `localDate` is local time, no `Z`.
+curl -sS -X POST \
+  -H "Authorization: Bearer $TOKEN" -H "wix-site-id: <siteId>" -H "Content-Type: application/json" \
+  -d '{
+    "event": {
+      "scheduleId": "<service.schedule.id>",
+      "type": "CLASS",
+      "start": { "localDate": "2026-06-05T09:00:00" },
+      "end":   { "localDate": "2026-06-05T10:00:00" },
+      "resources": [ { "id": "<staff resourceId>", "permissionRole": "WRITER" } ],
+      "totalCapacity": 12
+    }
+  }' \
+  "https://www.wixapis.com/calendar/v3/events"
+```
+
+> **Gotchas (verified against the live API):**
+> - `resources[].permissionRole` **must** be `"WRITER"` (or `"COMMENTER"`). Omitting it defaults to `UNKNOWN_ROLE` → `400 "resources.permissionRole must not be UNKNOWN_ROLE"`.
+> - `resources` must be **non-empty** for CLASS — a session with no resource is rejected.
+> - `start`/`end` use `{ "localDate": "YYYY-MM-DDThh:mm:ss" }` (local, no `Z`); seconds are ignored.
+> - For a recurring weekly schedule instead of one-off sessions, add `event.recurrenceRule` (`{ "frequency": "WEEKLY", "interval": 1, "days": ["MONDAY"], "until": { "localDate": "..." } }` — only `WEEKLY` and a **single** day are supported; this creates a `MASTER` event and Wix auto-generates the instances). One-off sessions are simpler and sufficient for a seed.
+> - `totalCapacity` defaults to the schedule's `defaultCapacity` if omitted; set it explicitly to the class size.
+
+Verify by fetching slots the way the front-end does (`eventTimeSlots.listEventTimeSlots({ serviceIds: [id], … })`) or `POST /calendar/v3/events/query` filtered by `scheduleId`. Record each session's event id in your return under `seeded.bookings.services[].sessionEventIds` if you want Phase 4 to deep-link.
 
 ---
 
@@ -217,10 +256,7 @@ Write to `<site-root>/.wix/seed-returns/bookings.json`:
 ```
 
 - `staff` is an empty array `[]` when `intent.bookings.hasStaff` is false or Step 3 was skipped.
-- **For `CLASS` services, add a `notes` entry flagging the session gap** so the orchestrator can surface it (see the CLASS warning above):
-  ```json
-  "notes": ["CLASS services created without scheduled sessions — add session times in the Bookings dashboard (or a recurring schedule) before sign-up works; the class calendar is empty until then."]
-  ```
+- **For `CLASS` services, schedule sessions in Step 4b** and report them (e.g. `seeded.bookings.services[].sessionEventIds`). Only if Step 4b is skipped or fails, add a `notes` entry so the orchestrator surfaces it: `"notes": ["CLASS sessions not scheduled — add session times in the Bookings dashboard before sign-up works."]`
 - On any REST error: set `status: "error"`, include the failing call's response verbatim under `"error"`.
 - Create `<site-root>/.wix/seed-returns/` if it does not exist before writing.
 
