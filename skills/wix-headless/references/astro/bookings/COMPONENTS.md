@@ -2,6 +2,8 @@
 
 You are the Phase 3 Components agent for the bookings vertical. Your scope: write the React islands and Astro shells that power the bookings UI. The orchestrator has already copied `src/styles/components-bookings.css` from the skill template — do NOT write it.
 
+> **Start from the canonical templates — don't invent the SDK wiring.** Every component in this scope has a verified template at `<SKILL_ROOT>/references/astro/templates/bookings/` (`ServiceCard.astro`, `AvailabilityCalendar.tsx`, `BookingForm.tsx`, `ServiceBookingFlow.tsx`, `ManageBooking.tsx`, `SeoTags.astro`). **Read and adapt them** (brand copy, styling) — this doc explains the *why* and the gotchas behind that wiring. The booking/confirm/availability/waitlist flow is subtle and live-verified; re-authoring it from scratch is how API-shape bugs creep in.
+
 Read `references/shared/IMPLEMENTER.md` + `references/shared/STYLING.md` first.
 
 ---

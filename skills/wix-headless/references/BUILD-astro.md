@@ -151,9 +151,17 @@ Record `{ phase: "copy-component-css", packs: [...], seconds }` in `run.json`. I
 ```bash
 # only if the stores pack is loaded
 cp "<SKILL_ROOT>/references/astro/templates/stores/back-in-stock.ts" "src/utils/back-in-stock.ts"
+
+# only if the bookings pack is loaded — the two SSR API endpoints (elevated, no
+# brand content): confirmBooking (holds the seat) + native v1 waitlist register.
+if bookings loaded; then
+  mkdir -p src/pages/api
+  cp "<SKILL_ROOT>/references/astro/templates/bookings/api/confirm-booking.ts" "src/pages/api/confirm-booking.ts"
+  cp "<SKILL_ROOT>/references/astro/templates/bookings/api/waitlist.ts"        "src/pages/api/waitlist.ts"
+fi
 ```
 
-If you skip this, the `components` subagent falls back to writing `src/utils/back-in-stock.ts` itself, and on multi-pack runs two scopes can race the same path (`File has not been read yet` / `modified since read`). Record `{ phase: "copy-utils", scope: "components", files: [...] }`.
+If you skip this, the `components` subagent falls back to writing these itself, and on multi-pack runs two scopes can race the same path (`File has not been read yet` / `modified since read`). The bookings endpoints especially must NOT be re-authored — they carry the verified elevation pattern (`auth.elevate(bookings.confirmBooking)` for the seat-holding confirm; `auth.elevate(httpClient.fetchWithAuth)` for the raw-REST waitlist register). Record `{ phase: "copy-utils", scope: "components", files: [...] }`.
 
 Then dispatch in a single concurrent batch:
 

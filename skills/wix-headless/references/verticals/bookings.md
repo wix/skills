@@ -6,9 +6,13 @@ requires: []
 
 features:
   - name: "Services catalog"
-    description: "Browse bookable services with descriptions, duration, pricing, and provider info."
+    description: "Browse bookable services (appointments or group classes) with descriptions, duration, pricing, and instructor info."
   - name: "Online booking"
     description: "Pick an available time slot, complete a booking form, and receive confirmation — all without leaving your site."
+  - name: "Group classes"
+    description: "Capacity-aware class sign-up with party size, the leading instructor per session, and a waitlist when a session is full."
+  - name: "Manage booking"
+    description: "View and cancel a booking from a confirmation/emailed link, no account login required."
 
 apps:
   - name: "Wix Bookings"
@@ -20,6 +24,8 @@ routes:
     name: "Service Detail"
   - route: "/booking-confirmation"
     name: "Booking Confirmation"
+  - route: "/manage-booking"
+    name: "Manage Booking"
 
 disabled: false
 ---

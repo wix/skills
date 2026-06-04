@@ -30,11 +30,27 @@ If any declared file is missing, return `status: "partial"` with `errors: [{ cod
 
 ## Templates
 
-The component CSS template is pre-copied by the orchestrator before Phase 3 dispatch. Do NOT write it yourself — write only `.tsx` islands and `.astro` files.
+Canonical templates live at `<SKILL_ROOT>/references/astro/templates/bookings/`. Your `components` and `pages` scopes **read these and adapt them — don't invent markup or SDK wiring** (the booking/confirm/availability/waitlist wiring is subtle and was verified against a live site; re-authoring from scratch is how the API-shape bugs crept in). Adapt brand copy, headings, and styling; keep the SDK calls and the data flow.
 
-- CSS: `<SKILL_ROOT>/references/astro/templates/bookings/components-bookings.css` — pre-copied to `src/styles/components-bookings.css` by the orchestrator's Step 4.5 pre-batch. Confirmed absent in many failures when the agent tried to write it; always assume it is already on disk.
+Components (`components` scope — `.tsx`/`.astro`, no CSS):
+- `…/templates/bookings/ServiceCard.astro`
+- `…/templates/bookings/AvailabilityCalendar.tsx` — branches on `serviceType` (APPOINTMENT → `availabilityTimeSlots`, CLASS → `eventTimeSlots`); capacity + instructor + full→waitlist
+- `…/templates/bookings/BookingForm.tsx` — `createBooking` → `/api/confirm-booking`; party size; waitlist on full
+- `…/templates/bookings/ServiceBookingFlow.tsx` — coordinator (threads `serviceType`)
+- `…/templates/bookings/ManageBooking.tsx` — cancel via anonymous token
+- `…/templates/bookings/SeoTags.astro` — service-detail SEO tags
 
-There are no other canonical templates for bookings — write all component and page files from scratch following the spec in `../astro/bookings/COMPONENTS.md` and `../astro/bookings/SERVICES_PAGES.md`.
+Pages (`pages` scope):
+- `…/templates/bookings/services/index.astro`, `…/services/[slug].astro`
+- `…/templates/bookings/booking-confirmation.astro`, `…/manage-booking.astro`
+
+### Pre-copied by the orchestrator (do NOT write these yourself)
+These are mechanical (no brand content) — the orchestrator copies them before dispatch (BUILD-astro.md § Step 4.5). Just rely on them at the listed paths:
+- `src/styles/components-bookings.css` ← `…/templates/bookings/components-bookings.css`
+- `src/pages/api/confirm-booking.ts` ← `…/templates/bookings/api/confirm-booking.ts` (elevated `confirmBooking` — holds the seat)
+- `src/pages/api/waitlist.ts` ← `…/templates/bookings/api/waitlist.ts` (elevated native v1 waitlist register)
+
+If a pre-copied file is missing at runtime, that's an orchestrator-side bug — return `status: "partial"` with `errors: [{code: "UTILITY_TEMPLATE_NOT_PRECOPIED", path: "<missing>"}]`; do not author your own version.
 
 ## CSS ownership — bookings pack
 

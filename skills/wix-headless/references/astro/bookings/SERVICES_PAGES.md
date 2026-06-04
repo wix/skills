@@ -1,6 +1,8 @@
 # Bookings Pages — Phase 4
 
-You are the Phase 4 Pages agent for the bookings vertical. Your scope: write three route files. Read `references/shared/IMPLEMENTER.md` + `references/shared/STYLING.md` first.
+You are the Phase 4 Pages agent for the bookings vertical. Your scope: write the route files. Read `references/shared/IMPLEMENTER.md` + `references/shared/STYLING.md` first.
+
+> **Start from the canonical templates — don't invent the SSR data access.** Verified templates live at `<SKILL_ROOT>/references/astro/templates/bookings/`: `services/index.astro`, `services/[slug].astro`, `booking-confirmation.astro`, `manage-booking.astro` (plus the pre-copied API endpoints `api/confirm-booking.ts`, `api/waitlist.ts`). **Read and adapt them** (copy, headings, styling) — this doc explains the *why*. The SSR query pattern (`@wix/essentials` `auth.elevate`), the confirm step, and the manage/waitlist endpoints are live-verified.
 
 ---
 

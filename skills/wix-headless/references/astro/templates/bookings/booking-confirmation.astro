@@ -1,0 +1,61 @@
+---
+// src/pages/booking-confirmation.astro — post-booking confirmation.
+// Renders from URL params set by ServiceBookingFlow's redirect (bookingId,
+// startDate, service). Does NOT re-fetch the booking (the booking was created by
+// the visitor; a manage page handles cancel via the anonymous-token flow).
+import Layout from "../layouts/Layout.astro";
+
+const bookingId = Astro.url.searchParams.get("bookingId");
+const startDateParam = Astro.url.searchParams.get("startDate");
+const serviceName = Astro.url.searchParams.get("service") ?? "your service";
+
+const formattedDate = startDateParam
+  ? new Date(startDateParam).toLocaleString("en-US", {
+      weekday: "long", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit",
+    })
+  : null;
+---
+
+<!-- `max-w-prose` (built-in literal = 65ch), not a bare max-w-<size> that could
+     collapse to the spacing scale. -->
+<Layout title="Booking Confirmed">
+  <section class="max-w-prose mx-auto px-lg py-4xl text-center">
+    <div class="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-xl"
+         style="background-color: var(--color-ink);" aria-hidden="true">
+      <span class="text-2xl" style="color: var(--color-paper);">✓</span>
+    </div>
+    <hr class="editorial-rule w-16 mx-auto mb-lg" />
+    <h1 class="font-display text-4xl md:text-5xl leading-tight mb-md">You're booked</h1>
+
+    {
+      formattedDate ? (
+        <p class="text-lg text-mute leading-relaxed mb-xl">
+          Your spot in <strong class="text-ink">{serviceName}</strong> is reserved for{" "}
+          <strong class="text-ink">{formattedDate}</strong>. A confirmation email is on its way.
+        </p>
+      ) : bookingId ? (
+        <p class="text-lg text-mute leading-relaxed mb-xl">
+          Your spot in <strong class="text-ink">{serviceName}</strong> is confirmed. Check your inbox for details.
+        </p>
+      ) : (
+        <p class="text-lg text-mute leading-relaxed mb-xl">Looking to book? Browse our services.</p>
+      )
+    }
+
+    <div class="flex flex-col gap-md items-center">
+      <a href="/services" class="inline-block font-display text-base px-xl py-md rounded-sm"
+         style="background-color: var(--color-ink); color: var(--color-paper);">Browse more services</a>
+      {
+        bookingId && (
+          <a
+            href={`/manage-booking?bookingId=${encodeURIComponent(bookingId)}&service=${encodeURIComponent(serviceName)}${startDateParam ? `&startDate=${encodeURIComponent(startDateParam)}` : ""}`}
+            class="text-sm text-mute hover:text-ink"
+          >
+            Manage or cancel this booking
+          </a>
+        )
+      }
+      <a href="/" class="text-sm text-mute hover:text-ink">Return home</a>
+    </div>
+  </section>
+</Layout>

@@ -1,0 +1,81 @@
+---
+// src/pages/services/[slug].astro — SSR service detail + client-side booking flow.
+// Two dirs deep inside src/ → import with ../../ (not three ../).
+import Layout from "../../layouts/Layout.astro";
+import SeoTags from "../../components/SeoTags.astro";
+import ServiceBookingFlow from "../../components/ServiceBookingFlow";
+import { services } from "@wix/bookings";
+import { auth } from "@wix/essentials";
+
+const { slug } = Astro.params;
+
+let service: any = null;
+try {
+  // Ambient SSR via @wix/essentials; query BUILDER (object form returns 0).
+  // Fetch the small catalog and match the slug in JS (robust without a
+  // nested-field `mainSlug.name` builder filter).
+  const result = await auth.elevate(services.queryServices)().limit(100).find();
+  service =
+    (result.items ?? []).find(
+      (s: any) => (s.mainSlug?.name ?? s.supportedSlugs?.[0]?.name) === slug,
+    ) ?? null;
+} catch (err) {
+  console.error(`[services/${slug}] detail query failed:`, err);
+}
+
+if (!service) return Astro.redirect("/services", 302);
+
+const formatPrice = (p: any): string | undefined => {
+  if (!p || p.rateType === "NO_FEE") return undefined;
+  if (p.rateType === "FIXED" && p.fixed?.price) {
+    const { value, currency } = p.fixed.price;
+    if (!value) return undefined;
+    return new Intl.NumberFormat("en-US", { style: "currency", currency: currency ?? "USD" }).format(Number(value));
+  }
+  return undefined;
+};
+const price = formatPrice(service.payment);
+const duration = service.schedule?.availabilityConstraints?.sessionDurations?.[0] ?? 60;
+const imageUrl = service.media?.mainMedia?.image?.url ?? service.media?.items?.[0]?.image?.url;
+const serviceName = service.name ?? "Service";
+const seoTags = service.seoData?.tags ?? [];
+---
+
+<!--
+  Width: use `container-reading` (max-width: var(--container-prose) + auto margins),
+  NOT a bare `max-w-<size>` — in this Tailwind v4 setup an un-emitted max-w-<size>
+  key falls back to the spacing scale (e.g. max-w-4xl → ~7rem, one word per line).
+-->
+<Layout title={serviceName} description={service.tagLine ?? service.description}>
+  <SeoTags tags={seoTags} slot="head" />
+  <section class="container-reading px-lg py-4xl">
+    <a href="/services" class="inline-block text-sm text-mute hover:text-ink mb-xl">← All services</a>
+
+    <!-- Optional banner image — only when the service has media (image-less is the
+         common seed case; rendering a fixed placeholder collapses the layout). -->
+    {imageUrl && (
+      <img src={imageUrl} alt={serviceName} class="w-full h-64 object-cover rounded-lg mb-xl" />
+    )}
+
+    <div class="flex flex-col gap-md mb-3xl">
+      <hr class="editorial-rule w-16 ml-0" />
+      <h1 class="font-display text-4xl md:text-5xl leading-tight">{serviceName}</h1>
+      {service.tagLine && <p class="text-lg text-mute leading-relaxed max-w-prose">{service.tagLine}</p>}
+      <div class="flex items-center gap-md text-sm text-mute">
+        <span>{duration} min</span>
+        {price && <span class="text-ink font-medium">{price}</span>}
+      </div>
+      {service.description && <p class="text-ink leading-relaxed max-w-prose">{service.description}</p>}
+    </div>
+
+    <section class="border-t border-rule pt-2xl">
+      <h2 class="font-display text-3xl leading-tight mb-xl">Book this service</h2>
+      <ServiceBookingFlow
+        serviceId={service._id}
+        serviceName={serviceName}
+        serviceType={service.type ?? "APPOINTMENT"}
+        client:only="react"
+      />
+    </section>
+  </section>
+</Layout>
