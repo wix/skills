@@ -6,13 +6,13 @@ The **pre-approval** flow (operation routing, the Discovery questions, the plan 
 
 ## The run from approval — route on `frontendBuild` (framework)
 
-The user just approved; `init-site-json.mjs` wrote the slim `.wix/site.json` (only `frontend` persisted). **Nothing is dispatched yet** — the funnel intentionally dispatched nothing so it could present the plan fast. Read `frontendBuild` from orchestrator scratch (resolved in Wave 0; today astro ⇒ `wix`, custom ⇒ `none` — derivable from the persisted `.wix/site.json.frontend` if scratch is ever lost) and open the matching framework conductor — **read only that one**:
+The user just approved; `init-site-json.mjs` wrote the slim `.wix/site.json` (only `frontend` persisted). **Nothing is dispatched yet** — the funnel intentionally dispatched nothing so it could present the plan fast. Read `frontendBuild` from orchestrator scratch (resolved in Wave 0 / `DISCOVERY-connect.md` § 1.5). **On scratch loss**, recover it from durable disk: `frontend: astro` ⇒ `wix`; `frontend: custom` ⇒ read `package.json` — a `scripts.build` + a client bundler/framework dep ⇒ `own`, otherwise `none` (the same signal Discovery used). Then open the matching framework conductor — **read only that one**:
 
 | `frontendBuild` | Framework class | Conductor |
 |---|---|---|
 | `wix` | astro-native (`wix build`) | **`BUILD-astro.md`** — Phase axis → run-steps 0–5 → Wave 3 → Step 4.5 → Step 7 → Build & Release |
 | `none` | static HTML (no build) | **`BUILD-own-build.md`** (none tenant) — install-skip → Seed → wiring → inline no-build release |
-| `own` | own-build (`npm run build`) | **`BUILD-own-build.md`** (own tenant) — **reserved**; the framework-SPA plan fills this |
+| `own` | own-build (`npm run build`) | **`BUILD-own-build.md`** (own tenant) — bundle `@wix/sdk` install → Seed → source-edit wiring → project's own build → release |
 
 Everything framework-specific (install, build command) lives in that conductor file. The **(operation × framework) cells** (bootstrap, wiring) and the **shared release tail** are below this line — both conductors point back here for them.
 
@@ -31,24 +31,24 @@ Almost everything in Build is a 1-D framework switch (install/build/release, bel
 | | `create` | `connect` | `extend` *(later)* |
 |---|---|---|---|
 | **astro** (`wix`) | `scaffold.sh <folder-name> "<brand>" --frontend astro` → `npm create @wix/new@latest headless` — `BUILD-astro.md` run-step 0 | — | add `.astro` + nav/home markers *(extend plan)* |
-| **own-build** (`own`) | create vite/… → `init` — **reserved**, the framework-SPA plan | `init` over brought source — **reserved** | add to source *(extend plan)* |
-| **none / html** (`none`) | — | `npm create @wix/new@latest init` over the brought HTML + fix `wix.config.json.site.outputDirectory` — `BUILD-own-build.md` § "Bootstrap cell" | — |
+| **own-build** (`own`) | scaffold framework (`npm create vite`/…) → `init` — `BUILD-own-build.md` § "Bootstrap cell → create × own" | connection plan + `init` over brought source — `BUILD-own-build.md` § "Bootstrap cell → connect × own" | add to source *(extend plan)* |
+| **none / html** (`none`) | — | `npm create @wix/new@latest init` over the brought HTML + fix `wix.config.json.site.outputDirectory` — `BUILD-own-build.md` § "Bootstrap cell → connect × none" | — |
 
 **Wiring cell** — how the frontend reads/writes Wix entities:
 
 | | `create` | `connect` | `extend` *(later)* |
 |---|---|---|---|
 | **astro** (`wix`) | write `.astro` pages with live SDK queries — `BUILD-astro.md` Phase 3 Components + Phase 4 Pages | — | add `.astro` + markers *(extend plan)* |
-| **own-build** (`own`) | write fresh data module — **reserved** | rewrite source data-layer — **reserved** | add to source *(extend plan)* |
-| **none / html** (`none`) | — | inject client-side `@wix/sdk` `<script type="module">` (additive, styled from the design's tokens) — `BUILD-own-build.md` § "Wiring cell" | inject `<script>` *(extend plan)* |
+| **own-build** (`own`) | write fresh data module (`@wix/data`) — `BUILD-own-build.md` § "Wiring cell → create × own" | rewrite source data-layer → `@wix/data` — `BUILD-own-build.md` § "Wiring cell → connect × own" | add to source *(extend plan)* |
+| **none / html** (`none`) | — | inject client-side `@wix/sdk` `<script type="module">` (additive, styled from the design's tokens) — `BUILD-own-build.md` § "Wiring cell → connect × none" | inject `<script>` *(extend plan)* |
 
-Reserved cells are single placeholders with a downstream-plan pointer — no empty files, no unexercised branches (the refactor's "crux" rule). Today exactly two cells per table are live: **astro-create** (in `BUILD-astro.md`) and **connect-none** (in `BUILD-own-build.md`).
+Reserved cells are single placeholders with a downstream-plan pointer — no empty files, no unexercised branches (the refactor's "crux" rule). Live cells: **astro-create** (in `BUILD-astro.md`); **connect-none**, **connect-own**, and **create-own** (in `BUILD-own-build.md`). Only the `extend` column remains reserved.
 
 ## Shared release tail (framework-blind)
 
 Release is one step both framework classes share — it reads a single field (`outputDirectory`) and publishes:
 
-1. **Build, if the framework has one** — `wix` runs `npx @wix/cli@latest build` (`BUILD-astro.md` § "Build & Release"); `own` runs `npm run build` (**reserved**, SPA plan); `none` has **no build** (the HTML is the deployable).
+1. **Build, if the framework has one** — `wix` runs `npx @wix/cli@latest build` (`BUILD-astro.md` § "Build & Release"); `own` runs the **project's own** `npm run build` then points `outputDirectory` at the build output (`BUILD-own-build.md` § "Release"); `none` has **no build** (the HTML is the deployable). **Never `wix build` for `own`** — that is astro-only.
 2. **Release** — `npx @wix/cli@latest release`; extract the published URL from the `Site published on <url>` line. This also populates the **Frontend link** in headless settings natively. Transient release errors (`ECONNRESET`, `ETIMEDOUT`, `EAI_AGAIN`, `STATE_MISMATCH`, `temporarily unavailable`, `try again shortly`) — retry serially up to 3× with `attempt * 5`s backoff (`references/shared/PRODUCTION_SHARP_EDGES.md`). Do **not** retry build failures — those are code bugs to fix.
 
 `wix release` is framework-tolerant: for non-astro frontends it deploys whatever `wix.config.json.site.outputDirectory` points at. The only framework difference is step 1 (whether/how to build); release itself is identical.

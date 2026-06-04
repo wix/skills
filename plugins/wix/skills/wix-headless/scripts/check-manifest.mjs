@@ -15,14 +15,24 @@
 //   <packs-csv> = comma-separated pack names (loaded verticals), e.g. "stores,ecom,cms"
 //
 // Integration mode (frontend = "custom") — verify the CONNECTION, not pack files:
-//   node <SKILL_ROOT>/scripts/check-manifest.mjs <project-dir> integration <connection-plan.json>
+//   node <SKILL_ROOT>/scripts/check-manifest.mjs <project-dir> integration <connection-plan.json> \
+//        [--build-output <dir>]
 //   where <connection-plan.json> is the connection-plan subagent's returned JSON
-//   ({ data: { bindingMap, augmentation } } or that object directly). Checks that
-//   each claimed region's file now contains a Wix SDK `<script>` (createClient /
-//   @wix/sdk / OAuthStrategy), that each augmentation's inject file has its
-//   component + SDK call, and — the always-connect invariant — that at least one
-//   Wix SDK script exists somewhere. Exit 1 if any claimed connection is missing
-//   or zero connections were made.
+//   ({ data: { bindingMap, augmentation, persistenceSwap } } or that object directly).
+//   Verifies the connection per the three connection kinds:
+//     - bindingMap     (none/static)  → each region's `file` now carries a Wix SDK script
+//                                        (createClient / @wix/sdk / OAuthStrategy)
+//     - augmentation   (none/static)  → each inject `file` has its component + SDK call
+//                                        (+ a <form> + createSubmission for form capabilities)
+//     - persistenceSwap (own/SPA)     → each `sourceFile` carries a bundled @wix/sdk import
+//                                        AND a @wix/data CRUD call (items.query/insert/update/remove)
+//   …and the always-connect invariant: at least one connection of ANY kind exists.
+//   --build-output <dir>: for own-build SPAs, assert the build output dir exists and is
+//     non-empty. Run this form POST-BUILD (the dir doesn't exist until `npm run build`);
+//     run the plain form post-wiring/pre-build to verify the source connection. Catches the
+//     "published the un-built dev entry → 404" failure (SPA plan Break 4).
+//   Exit 1 if any claimed connection is missing, zero connections were made, or
+//   --build-output was given and the dir is missing/empty.
 //
 // Note: `node <(curl ...)` does NOT work for .mjs files — Node sees /dev/fd/N
 // with no extension and rejects ESM syntax. Use the stdin form above.
@@ -43,7 +53,7 @@
 //   - Exit 0 on happy path or recoverable misses.
 //   - Exit 1 if any file is unrecoverably missing.
 
-import { readFileSync, writeFileSync, existsSync, mkdirSync, copyFileSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync, copyFileSync, readdirSync } from "node:fs";
 import { join, dirname, basename, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -97,7 +107,7 @@ async function copySkillFile(relPath, destPath) {
 }
 
 // Integration-mode check: verify the connection plan was wired into the site.
-async function checkIntegration(projectDir, planPath) {
+async function checkIntegration(projectDir, planPath, buildOutputDir) {
   if (!existsSync(planPath)) {
     console.error(`check-manifest: connection plan not found at ${planPath}`);
     process.exit(2);
@@ -112,14 +122,18 @@ async function checkIntegration(projectDir, planPath) {
   const data = plan.data ?? plan;
   const bindingMap = Array.isArray(data.bindingMap) ? data.bindingMap : [];
   const augmentation = Array.isArray(data.augmentation) ? data.augmentation : [];
+  const persistenceSwap = Array.isArray(data.persistenceSwap) ? data.persistenceSwap : [];
 
-  // A Wix SDK script is present if the file imports @wix/sdk / calls createClient / OAuthStrategy.
+  // A Wix SDK reference is present if the file imports @wix/sdk / calls createClient / OAuthStrategy.
+  // Matches BOTH the CDN form (`from "https://esm.sh/@wix/sdk"`) and the bundled form (`from "@wix/sdk"`).
   const SDK_MARKER = /@wix\/sdk|createClient\s*\(|OAuthStrategy\s*\(/;
+  // A @wix/data CRUD call is present (persistence swap wired the data layer to the collection).
+  const DATA_MARKER = /@wix\/data|items\s*\.\s*(query|insert|update|remove)\s*\(|\.items\s*\.\s*(query|insert|update|remove)\s*\(/;
   const fileHasSdk = (file) => {
     const p = join(projectDir, file);
-    if (!existsSync(p)) return { exists: false, sdk: false, text: "" };
+    if (!existsSync(p)) return { exists: false, sdk: false, data: false, text: "" };
     const text = readFileSync(p, "utf8");
-    return { exists: true, sdk: SDK_MARKER.test(text), text };
+    return { exists: true, sdk: SDK_MARKER.test(text), data: DATA_MARKER.test(text), text };
   };
 
   const wired = [];
@@ -148,16 +162,42 @@ async function checkIntegration(projectDir, planPath) {
       remediation: !exists ? `${file} not found.` : !sdk ? `no Wix SDK <script> in ${file} for the "${a.capability}" augmentation.` : `expected an injected <form> + createSubmission() in ${file} for "${a.capability}".` });
   }
 
-  // (c) Always-connect invariant: at least one connection must exist.
+  // (c) Each persistence swap's source file must carry the bundled SDK import AND a @wix/data CRUD call.
+  // (own-build SPAs: the data layer was rewritten in source — not a <script> injection.)
+  for (const s of persistenceSwap) {
+    const file = s.sourceFile;
+    if (!file) { missing.push({ kind: "persistenceSwap", file: null, code: "NO_SOURCE_FILE", remediation: `persistenceSwap entry has no sourceFile (the data-layer file to rewrite / fresh data module to write).` }); continue; }
+    const { exists, sdk, data: hasData } = fileHasSdk(file);
+    if (exists && sdk && hasData) { anySdk = true; wired.push({ kind: "persistenceSwap", file, collection: s.inferredShape?.collection ?? null }); }
+    else missing.push({ kind: "persistenceSwap", file,
+      code: !exists ? "FILE_MISSING" : !sdk ? "SDK_NOT_IMPORTED" : "DATA_NOT_WIRED",
+      remediation: !exists ? `${file} not found — the data layer was not rewritten / the fresh data module was not written.`
+        : !sdk ? `no @wix/sdk import in ${file} — the persistence swap must import createClient/OAuthStrategy (bundled, not CDN).`
+        : `no @wix/data CRUD call (items.query/insert/update/remove) in ${file} — the data layer still uses its old storage, not the Wix collection.` });
+  }
+
+  // (d) Always-connect invariant: at least one connection of ANY kind must exist.
   const alwaysConnect = anySdk;
   if (!alwaysConnect) {
-    missing.push({ kind: "invariant", code: "NO_CONNECTION", remediation: "ALWAYS-CONNECT VIOLATION: no Wix SDK connection found anywhere in the site. Integration mode must wire or augment at least one capability — a hosting-only release is not acceptable." });
+    missing.push({ kind: "invariant", code: "NO_CONNECTION", remediation: "ALWAYS-CONNECT VIOLATION: no Wix SDK connection found anywhere in the site. Integration mode must wire, augment, or persistence-swap at least one capability — a hosting-only release is not acceptable." });
+  }
+
+  // (e) Build-output assertion (own-build SPAs, post-build): the deployable dir must exist + be non-empty,
+  // so release publishes the built app — not the un-built dev entry that 404s in production.
+  let buildOutput = null;
+  if (buildOutputDir) {
+    const outPath = join(projectDir, buildOutputDir);
+    const ok = existsSync(outPath) && readdirSync(outPath).length > 0;
+    buildOutput = { dir: buildOutputDir, exists: ok };
+    if (!ok) missing.push({ kind: "buildOutput", file: buildOutputDir, code: "BUILD_OUTPUT_MISSING",
+      remediation: `build output dir "${buildOutputDir}" is missing or empty — run the project's own build (npm run build) before release and point wix.config.json.site.outputDirectory at it. Never publish the un-built source entry.` });
   }
 
   const summary = {
     phase: "integration",
-    counts: { wired: wired.length, missing: missing.length, bindingRegions: bindingMap.length, augmentations: augmentation.length },
+    counts: { wired: wired.length, missing: missing.length, bindingRegions: bindingMap.length, augmentations: augmentation.length, persistenceSwaps: persistenceSwap.length },
     alwaysConnect,
+    ...(buildOutput ? { buildOutput } : {}),
     wired,
     missing,
   };
@@ -165,16 +205,26 @@ async function checkIntegration(projectDir, planPath) {
   process.exit(missing.length > 0 ? 1 : 0);
 }
 
-const [, , projectDir, phase, thirdArg] = process.argv;
+// Parse args: positionals + optional --build-output <dir> (integration only).
+const argv = process.argv.slice(2);
+const positionals = [];
+let buildOutputDir = null;
+for (let i = 0; i < argv.length; i++) {
+  const a = argv[i];
+  if (a === "--build-output") buildOutputDir = argv[++i];
+  else if (a.startsWith("--build-output=")) buildOutputDir = a.slice("--build-output=".length);
+  else positionals.push(a);
+}
+const [projectDir, phase, thirdArg] = positionals;
 
 if (!projectDir || !phase || !thirdArg) {
-  console.error("usage: check-manifest.mjs <project-dir> <phase> <packs-csv | connection-plan.json>");
+  console.error("usage: check-manifest.mjs <project-dir> <phase> <packs-csv | connection-plan.json> [--build-output <dir>]");
   process.exit(2);
 }
 
-// --- Integration mode: verify the connection was actually wired into the HTML ---
+// --- Integration mode: verify the connection was actually wired into the site ---
 if (phase === "integration") {
-  await checkIntegration(projectDir, thirdArg);
+  await checkIntegration(projectDir, thirdArg, buildOutputDir);
   // checkIntegration exits the process.
 }
 

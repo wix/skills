@@ -127,19 +127,19 @@ npm install --no-fund --no-audit --legacy-peer-deps <package-set> \
 | | **ecom** (loaded directly or as `requires:` of stores) → `@wix/ecom @wix/redirects` |
 | | **blog** → `@wix/blog @wix/ricos @astrojs/rss @astrojs/sitemap` |
 | | **forms** → `@wix/forms` |
-| | **cms** → `@wix/data @wix/wix-data-items-sdk @wix/essentials` |
+| | **cms** → `@wix/data @wix/essentials` |
 | | **gift-cards** → (none — disabled-by-default pack ships no Astro-time imports) |
 
 Concrete example for the most common case (stores prompt; resolved set = stores + ecom + gift-cards + cms):
 ```bash
 npm install --no-fund --no-audit --legacy-peer-deps \
   @wix/sdk @wix/stores @wix/ecom @wix/redirects \
-  @wix/data @wix/wix-data-items-sdk @wix/essentials \
+  @wix/data @wix/essentials \
   tailwindcss @tailwindcss/vite \
   2> <npm-tempfile>
 ```
 
-> **Why three packages for cms?** `@wix/data` exposes collections / permissions / backups namespaces; the actual `items` API (used by every CMS page for queries) lives in `@wix/wix-data-items-sdk` since `@wix/data` 1.0.448 dropped the `items` re-export (see [astro/cms/CMS_FOUNDATIONS.md](./astro/cms/CMS_FOUNDATIONS.md) § "Import note"). `@wix/essentials` is required for `auth.elevate` — every CMS page elevates queries to bypass per-collection permission checks. Shipping only `@wix/data` produces `'items' is not exported by '@wix/data'` at `astro build`; shipping without `@wix/essentials` produces `Cannot find module '@wix/essentials'` at SSR time.
+> **Why these two packages for cms?** `@wix/data` is the Wix Data SDK — its `items` named export carries the items API (`query`/`insert`/`update`/`remove` + `bulk*`) that every CMS page uses (`import { items } from "@wix/data"`; see [astro/cms/CMS_FOUNDATIONS.md](./astro/cms/CMS_FOUNDATIONS.md) § "Import note"). `@wix/essentials` is required for `auth.elevate` — every CMS page elevates queries to bypass per-collection permission checks. Shipping without `@wix/essentials` produces `Cannot find module '@wix/essentials'` at SSR time. (Historical note: `@wix/data` 1.0.448 briefly dropped the `items` re-export, which once required the internal `@wix/wix-data-items-sdk`; current versions export `items` again, so `@wix/data` alone suffices.)
 
 Per pre-flight S0.2, `pnpm install` fails against the `@wix/cli` template — use `npm install --legacy-peer-deps`.
 
