@@ -31,11 +31,11 @@ const formattedDate = startDateParam
       formattedDate ? (
         <p class="text-lg text-mute leading-relaxed mb-xl">
           Your spot in <strong class="text-ink">{serviceName}</strong> is reserved for{" "}
-          <strong class="text-ink">{formattedDate}</strong>. A confirmation email is on its way.
+          <strong class="text-ink">{formattedDate}</strong>.
         </p>
       ) : bookingId ? (
         <p class="text-lg text-mute leading-relaxed mb-xl">
-          Your spot in <strong class="text-ink">{serviceName}</strong> is confirmed. Check your inbox for details.
+          Your spot in <strong class="text-ink">{serviceName}</strong> is confirmed.
         </p>
       ) : (
         <p class="text-lg text-mute leading-relaxed mb-xl">Looking to book? Browse our services.</p>

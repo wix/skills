@@ -158,6 +158,7 @@ if bookings loaded; then
   mkdir -p src/pages/api
   cp "<SKILL_ROOT>/references/astro/templates/bookings/api/confirm-booking.ts" "src/pages/api/confirm-booking.ts"
   cp "<SKILL_ROOT>/references/astro/templates/bookings/api/waitlist.ts"        "src/pages/api/waitlist.ts"
+  cp "<SKILL_ROOT>/references/astro/templates/bookings/SeoTags.astro"          "src/components/SeoTags.astro"
 fi
 ```
 

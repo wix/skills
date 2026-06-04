@@ -152,7 +152,7 @@ const fetchSlots = async (
 
   // APPOINTMENT
   const result = await wixClient.availabilityTimeSlots.listAvailabilityTimeSlots({
-    serviceId: [serviceId],             // singular key, array value, in V2
+    serviceId,                          // a single GUID STRING — NOT an array (the array form is the CLASS `serviceIds`)
     fromLocalDate: localDate(start),
     toLocalDate: localDate(end),
     timeZone,
@@ -207,7 +207,6 @@ interface BookingFormProps {
 - Last name (optional)
 - Email (required)
 - Phone (optional)
-- Notes / message (optional, `<textarea>`)
 - Submit button: "Confirm Booking"
 - Cancel link that calls `onCancel()`
 

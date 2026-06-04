@@ -89,6 +89,10 @@ export default function BookingForm({ serviceName, serviceType, slot, onSuccess,
       const bookingId = result.booking?._id ?? "";
       const revision = result.booking?.revision ?? "";
 
+      // Defensive: if createBooking ever returns a WAITING_LIST booking directly,
+      // treat it as joined. In practice a full session THROWS
+      // SESSION_CAPACITY_EXCEEDED (handled in catch → /api/waitlist) rather than
+      // returning this status — both paths land the user on the waitlist.
       if (status === "WAITING_LIST") { setWaitlisted(true); setSubmitting(false); return; }
 
       // CREATED → confirm server-side to hold the seat.

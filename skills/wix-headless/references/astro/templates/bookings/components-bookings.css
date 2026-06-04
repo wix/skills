@@ -354,3 +354,60 @@ body[data-navigating="true"] .service-grid {
   border-radius: var(--radius-sm);
   background: rgba(255, 0, 0, 0.04);
 }
+
+/* ── Slot capacity (CLASS) + full→waitlist (Feature 4) ─────────────────────── */
+.time-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  line-height: 1.2;
+}
+.time-slot-time {
+  font-weight: 500;
+}
+.time-slot-capacity {
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-mute, var(--color-secondary));
+}
+.time-slot--full {
+  opacity: 0.85;
+  border-style: dashed;
+}
+.time-slot--full .time-slot-capacity {
+  color: var(--color-accent);
+}
+.booking-form-note {
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  color: var(--color-mute, var(--color-secondary));
+  margin-top: var(--spacing-xs);
+}
+
+/* ── Manage booking page (Feature 3) ───────────────────────────────────────── */
+.manage-booking {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-lg);
+  align-items: flex-start;
+}
+.manage-booking-summary,
+.manage-booking-status {
+  font-family: var(--font-body);
+  font-size: 1.05rem;
+  color: var(--color-ink, var(--color-primary));
+}
+.manage-booking-note {
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  color: var(--color-mute, var(--color-secondary));
+}
+.manage-booking-link {
+  color: var(--color-ink, var(--color-primary));
+  text-decoration: underline;
+}
+.manage-booking-link:hover {
+  color: var(--color-accent);
+}

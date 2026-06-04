@@ -88,7 +88,7 @@ const fetchSlots = async (
 
   // APPOINTMENT
   const result = await wixClient.availabilityTimeSlots.listAvailabilityTimeSlots({
-    serviceId: [serviceId], // singular key, array value
+    serviceId, // a single GUID STRING — NOT an array (the array form is the CLASS `serviceIds` field)
     fromLocalDate: localDateString(start),
     toLocalDate: localDateString(end),
     timeZone,

@@ -349,12 +349,12 @@ const formattedDate = startDateParam
 
       {formattedDate ? (
         <p class="text-secondary text-lg mb-xl">
-          Your appointment for <strong>{serviceName}</strong> is confirmed
-          for <strong>{formattedDate}</strong>. A confirmation email is on its way.
+          Your spot in <strong>{serviceName}</strong> is confirmed
+          for <strong>{formattedDate}</strong>.
         </p>
       ) : (
         <p class="text-secondary text-lg mb-xl">
-          Your booking is confirmed. Check your email for details.
+          Your booking is confirmed.
         </p>
       )}
 

@@ -12,8 +12,8 @@ Extends `references/shared/IMPLEMENTER.md`. Read that file first for phase routi
 | Scope | Phase | Reference |
 |-------|-------|-----------|
 | `seed` | Seed (service creation via Wix Bookings REST API) | `./SERVICES_DATA.md` |
-| `components` | Components (ServiceCard.astro, AvailabilityCalendar.tsx, BookingForm.tsx) | `../astro/bookings/COMPONENTS.md` |
-| `pages` | Pages (`/services` listing, `/services/[slug]` detail, `/booking-confirmation`) | `../astro/bookings/SERVICES_PAGES.md` |
+| `components` | Components: `ServiceCard.astro`, `AvailabilityCalendar.tsx`, `BookingForm.tsx`, `ServiceBookingFlow.tsx`, `ManageBooking.tsx` (`SeoTags.astro` is pre-copied — see Templates) | `../astro/bookings/COMPONENTS.md` |
+| `pages` | Pages: `/services` listing, `/services/[slug]` detail, `/booking-confirmation`, `/manage-booking` | `../astro/bookings/SERVICES_PAGES.md` |
 
 ## Files this vertical creates / contributes
 
@@ -21,10 +21,11 @@ See `<SKILL_ROOT>/references/verticals/bookings.md` frontmatter.
 
 ## Pre-return file-existence assertion (pages scope)
 
-Before returning `status: "complete"` from the `pages` scope, verify all three route files exist on disk:
+Before returning `status: "complete"` from the `pages` scope, verify all route files exist on disk:
 - `src/pages/services/index.astro`
 - `src/pages/services/[slug].astro`
 - `src/pages/booking-confirmation.astro`
+- `src/pages/manage-booking.astro`
 
 If any declared file is missing, return `status: "partial"` with `errors: [{ code: "PHASE4_FILE_MISSING", path: "<expected path>" }]` rather than claiming success.
 
@@ -37,8 +38,7 @@ Components (`components` scope — `.tsx`/`.astro`, no CSS):
 - `…/templates/bookings/AvailabilityCalendar.tsx` — branches on `serviceType` (APPOINTMENT → `availabilityTimeSlots`, CLASS → `eventTimeSlots`); capacity + instructor + full→waitlist
 - `…/templates/bookings/BookingForm.tsx` — `createBooking` → `/api/confirm-booking`; party size; waitlist on full
 - `…/templates/bookings/ServiceBookingFlow.tsx` — coordinator (threads `serviceType`)
-- `…/templates/bookings/ManageBooking.tsx` — cancel via anonymous token
-- `…/templates/bookings/SeoTags.astro` — service-detail SEO tags
+- `…/templates/bookings/ManageBooking.tsx` — cancel via anonymous token (used by `manage-booking.astro`)
 
 Pages (`pages` scope):
 - `…/templates/bookings/services/index.astro`, `…/services/[slug].astro`
@@ -47,6 +47,7 @@ Pages (`pages` scope):
 ### Pre-copied by the orchestrator (do NOT write these yourself)
 These are mechanical (no brand content) — the orchestrator copies them before dispatch (BUILD-astro.md § Step 4.5). Just rely on them at the listed paths:
 - `src/styles/components-bookings.css` ← `…/templates/bookings/components-bookings.css`
+- `src/components/SeoTags.astro` ← `…/templates/bookings/SeoTags.astro` (renders `service.seoData.tags`; imported by `services/[slug].astro`)
 - `src/pages/api/confirm-booking.ts` ← `…/templates/bookings/api/confirm-booking.ts` (elevated `confirmBooking` — holds the seat)
 - `src/pages/api/waitlist.ts` ← `…/templates/bookings/api/waitlist.ts` (elevated native v1 waitlist register)
 
@@ -59,8 +60,9 @@ Bookings-specific component CSS lives in `src/styles/components-bookings.css` (p
 - `.service-card`, `.service-card-image`, `.service-card-meta`, `.service-card-price` — the service card itself, including image containment, price badge, and duration tag.
 - `.service-grid` — the layout that lists service cards on `/services`. Include `display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: var(--spacing-xl);` plus View-Transitions opacity fade.
 - `.availability-calendar` — the date-picker shell wrapping the calendar widget.
-- `.time-slot`, `.time-slot--available`, `.time-slot--selected`, `.time-slot--unavailable` — individual slot buttons rendered below the date picker.
-- `.booking-form` — the booking form revealed after a slot is selected.
+- `.time-slot`, `.time-slot--available`, `.time-slot--selected`, `.time-slot--full` (full CLASS session → waitlist), plus the `.time-slot-time` / `.time-slot-capacity` spans inside each slot button.
+- `.booking-form` (+ `.booking-form-note`) — the booking/waitlist form revealed after a slot is selected.
+- `.manage-booking`, `.manage-booking-summary`, `.manage-booking-status`, `.manage-booking-note`, `.manage-booking-link` — the `/manage-booking` view/cancel UI.
 
 If `global.css` ships a partial rule for any class above, flag it in your return JSON's `errors` array (`{code: "GLOBAL_CSS_LEAK", class: "<name>"}`) and override with the complete rule in `components-bookings.css`.
 
