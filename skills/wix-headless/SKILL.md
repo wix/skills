@@ -28,7 +28,7 @@ allowed-tools:
 
 # Wix Headless
 
-**Run flow is owned by the conductor, split at the approval gate: `references/PLAN.md`** (pre-approval — routes on **operation** (create/connect), the Discovery questions, the plan + approval gate, the latency-hiding background dispatches) **then `references/BUILD.md`** (post-approval — routes on **framework** (`frontendBuild`); Setup → Seed → Components → Pages → Build → Release). The domain/step files (`DISCOVERY.md`, `SETUP.md`, `SEED.md`, `DESIGN_SYSTEM.md`, `COMPOSE.md`, the per-vertical references) describe only *what* each step does; they do not name the sequence. **Start a run by opening `PLAN.md`**; open `BUILD.md` when the user approves the plan. All site operations use `npx @wix/cli@latest token` + `curl` — no MCP.
+**Run flow is owned by the conductor, split at the approval gate: `references/PLAN.md`** (pre-approval — routes on **operation** (create/connect), the Discovery questions, the plan + approval gate, the latency-hiding background dispatches) **then `references/BUILD.md`** (post-approval — routes on **framework** (`frontendBuild`); Setup → Seed → Components → Pages → Build → Release). The domain/step files (`DISCOVERY.md`, `SETUP.md`, `SEED.md`, `DESIGN_SYSTEM.md`, the per-vertical references) describe only *what* each step does; they do not name the sequence. **Start a run by opening `PLAN.md`**; open `BUILD.md` when the user approves the plan. All site operations use `npx @wix/cli@latest token` + `curl` — no MCP.
 
 > **Explicit invocation only.** Do not auto-route on generic "build me a site" prompts; production `wix-headless` should win those unless the user names this skill.
 
@@ -50,7 +50,7 @@ Your CWD at runtime is the **project directory** (scaffold subdir after setup), 
 | Implementer shared behavior | `<SKILL_ROOT>/references/shared/IMPLEMENTER.md` |
 | Image generation | `<SKILL_ROOT>/references/shared/IMAGE_GENERATION.md` |
 | Design-system Designer (design spec, JSON only) | `<SKILL_ROOT>/references/DESIGN_SYSTEM.md` |
-| Design-system Composer (writes the 6 files) | `<SKILL_ROOT>/references/astro/COMPOSE.md` |
+| Design-system Composer — deterministic script (writes the 6 files) | `<SKILL_ROOT>/scripts/compose.mjs` (spec: `references/astro/COMPOSE.md`) |
 | Composer astro skeletons | `<SKILL_ROOT>/references/astro/templates/` |
 | Vertical packs (discovery) | `<SKILL_ROOT>/references/verticals/` |
 | Per-vertical instructions | `<SKILL_ROOT>/references/{stores,ecom,cms,blog,forms,gift-cards,images}/INSTRUCTIONS.md` |
@@ -60,9 +60,9 @@ Your CWD at runtime is the **project directory** (scaffold subdir after setup), 
 | Known app IDs | `<SKILL_ROOT>/references/commands/known-apps.json` |
 | Scripts | `<SKILL_ROOT>/scripts/` |
 
-**Do NOT Read subagent role/instruction docs in the orchestrator** — pass the absolute path; the subagent opens it. This covers **every** doc whose body is written *for a subagent to follow*, not just files literally named `INSTRUCTIONS.md`: `DESIGN_SYSTEM.md` (Designer), `astro/COMPOSE.md` (Composer), `astro/designer/INSTRUCTIONS.md` (page designers), the per-vertical `INSTRUCTIONS.md` routers, and the per-vertical guides under `references/astro/`. The orchestrator only needs to know **which inputs to inline** for each dispatch — and that list lives in `BUILD.md`'s dispatch steps, not in the role doc. Reading a role doc to "prepare a dispatch" pulls 5–14 KB of subagent-only how-to into the orchestrator's context, which it then has to reason over on the dispatch turn — measurably inflating bridge turns. The orchestrator's own reading set is the conductor/domain docs only: `PLAN.md` (+ the one operation funnel it routes to — `PLAN-create.md` *or* `PLAN-connect.md`), `BUILD.md` (+ the one framework build file — `BUILD-astro.md` *or* `BUILD-own-build.md`), `DISCOVERY.md` (+ the one operation discovery file — `DISCOVERY-create.md` *or* `DISCOVERY-connect.md`), `SETUP.md`, `SEED.md`, and `references/verticals/*.md`.
+**Do NOT Read subagent role/instruction docs in the orchestrator** — pass the absolute path; the subagent opens it. This covers **every** doc whose body is written *for a subagent to follow*, not just files literally named `INSTRUCTIONS.md`: `DESIGN_SYSTEM.md` (Designer), `astro/designer/INSTRUCTIONS.md` (page designers), the per-vertical `INSTRUCTIONS.md` routers, and the per-vertical guides under `references/astro/`. (`astro/COMPOSE.md` is no longer a dispatched doc — the Composer is the script `scripts/compose.mjs`; that file is now its spec and the orchestrator never reads it either.) The orchestrator only needs to know **which inputs to inline** for each dispatch — and that list lives in `BUILD.md`'s dispatch steps, not in the role doc. Reading a role doc to "prepare a dispatch" pulls 5–14 KB of subagent-only how-to into the orchestrator's context, which it then has to reason over on the dispatch turn — measurably inflating bridge turns. The orchestrator's own reading set is the conductor/domain docs only: `PLAN.md` (+ the one operation funnel it routes to — `PLAN-create.md` *or* `PLAN-connect.md`), `BUILD.md` (+ the one framework build file — `BUILD-astro.md` *or* `BUILD-own-build.md`), `DISCOVERY.md` (+ the one operation discovery file — `DISCOVERY-create.md` *or* `DISCOVERY-connect.md`), `SETUP.md`, `SEED.md`, and `references/verticals/*.md`.
 
-When and how each subagent is dispatched (Designer, Composer, seeders, image phases, vertical Components/Pages) is owned by the conductor (`references/PLAN.md` pre-approval, `references/BUILD.md` post-approval), not listed here.
+When and how each subagent is dispatched (Designer, seeders, image phases, vertical Components/Pages) — and the deterministic scripts in between (`emit-design-tokens.mjs`, `compose.mjs`) — is owned by the conductor (`references/PLAN.md` pre-approval, `references/BUILD.md` post-approval), not listed here.
 
 ## Authentication
 

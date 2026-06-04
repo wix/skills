@@ -13,7 +13,7 @@ Each phase belongs to one of the two tracks (`PLAN.md` § "Two tracks"). All pha
 | Phase | Track | Tier | What | When (bg) |
 |---|---|---|---|---|
 | **Phase 1 — Seed** | business | Fast | Per-pack seeders → orchestrator collects `seeded` map in scratch | Seed wave |
-| **Phase 2 — Design System** | frontend | Default | **Designer** returns tokens + brand-voice JSON (no files); **Composer** writes the 6 files (`global.css`, `astro.config.mjs`, `Layout`, `Nav`, `Footer`, `index`) by substituting into pinned skeletons | Designer: BUILD entry (run-step 0) · Composer: Setup-window bridge |
+| **Phase 2 — Design System** | frontend | Default (Designer only) | **Designer** returns tokens + brand-voice JSON (no files); **`compose.mjs`** (deterministic script, no subagent) writes the 6 files (`global.css`, `astro.config.mjs`, `Layout`, `Nav`, `Footer`, `index`) by substituting into pinned skeletons | Designer: BUILD entry (run-step 0) · compose.mjs: Setup-window bridge (Bash) |
 | **Image Phase 1 — Decorative** | frontend | Fast | Hero/about/page-header decoratives | Seed wave (imagery-gated) |
 | **Phase 3 — Components** | frontend | Default | Per-vertical React islands, styling contract inlined per prompt | Step 4.5 |
 | **Phase 4 — Pages** | frontend | Default | Per-vertical routes; each agent writes its routes once with both visual design and live data queries | Step 7 |
@@ -29,7 +29,7 @@ The user just approved; `init-site-json.mjs` wrote the slim `.wix/site.json`. **
 
 Fire both as one concurrent batch (`PLAN.md` § "Batching discipline") — they are independent:
 - **Scaffold** — `scaffold.sh <folder-name> "<brand>" --frontend <value>` (background, capture `scaffold_handle` + its stderr tempfile). Folder-name derivation + the command shape are `DISCOVERY-create.md` § "After Q1". `npm install` is **not** chained here (Setup Step 4c dispatches it). The stderr tempfile is for **post-hoc error inspection only** (read it *if* the scaffold reports a failure) — it is **not** a progress file to poll.
-- **Designer** — background, capture `designer_handle`. Dispatch with **Instruction file = `<SKILL_ROOT>/references/DESIGN_SYSTEM.md`** (the subagent opens it — **do not Read it in the orchestrator**, per `SKILL.md` § "Path resolution"). Inline Discovery's aesthetic craft held in scratch: brand, aesthetic direction, palette, type, mood, page color strategy. Judgment-only (~10–15 s; JSON `data.designTokens` + `data.shell`, no files). Do **not** pass application inputs (packs, nav links) — those go to the Composer.
+- **Designer** — background, capture `designer_handle`. Dispatch with **Instruction file = `<SKILL_ROOT>/references/DESIGN_SYSTEM.md`** (the subagent opens it — **do not Read it in the orchestrator**, per `SKILL.md` § "Path resolution"). Inline Discovery's aesthetic craft held in scratch: brand, aesthetic direction, palette, type, mood, page color strategy. Judgment-only (~10–15 s; JSON `data.designTokens` + `data.shell`, no files). Do **not** pass application inputs (packs, nav links) — those are inlined into the `compose.mjs` input at the bridge.
 
 The Designer's ~13 s overlaps the scaffold's ~23 s. Setup waits on `scaffold_handle` at Step 1; the bridge (step 2) waits on `designer_handle`.
 
@@ -37,38 +37,53 @@ The Designer's ~13 s overlaps the scaffold's ~23 s. Setup waits on `scaffold_han
 
 Apply `SETUP.md` Step 1 only: wait `scaffold_handle` (load `wix-manage` in the same batch), then patch `site.json` with `siteId`/`appId`. **Do not run Setup Step 4 (the app-install batch) yet** — it goes in run-step 2 below, in the message right after the design-system bridge.
 
-> **How to wait — await the notification, never sleep-poll** (`PLAN.md` § "Concurrency vocabulary" → "Wait (gate)"). "Wait `scaffold_handle`" means await the harness's background-task **completion notification**. Do **not** run a `sleep`/poll loop against the scaffold's stdout/stderr/output file — that blocks the turn for the whole scaffold wall (~20–30 s, longer if you over-sleep) and pushes back the run-step 2 design-system bridge, landing the Composer late. A late Composer is the longest-pole regression called out at run-step 2 (~60–90 s of wall lost). Burn zero orchestrator time here: the notification is the only signal you need.
+> **How to wait — await the notification, never sleep-poll** (`PLAN.md` § "Concurrency vocabulary" → "Wait (gate)"). "Wait `scaffold_handle`" means await the harness's background-task **completion notification**. Do **not** run a `sleep`/poll loop against the scaffold's stdout/stderr/output file — that blocks the turn for the whole scaffold wall (~20–30 s, longer if you over-sleep) and needlessly delays the run-step 2 bridge (`compose.mjs` reads the scaffold's `astro.config.mjs`, so it can't run until the scaffold is verified). Burn zero orchestrator time here: the notification is the only signal you need.
 
-### 2. Design-system bridge first (its own lean message), then Setup Step 4 batch
+### 2. Design-system bridge (one Bash step), then Setup Step 4 batch
 
-**Pin:** dispatch the **frontend bridge** (emit tokens + Composer) as its own **minimal** assistant message *first* — no narration, no preamble, just the two tool calls — then the **business** Setup Step 4 batch in the **immediately following** message. The two tracks are independent (Rationale below); the Composer is the longest pole every later phase waits on, so dispatch it as early as possible. Keeping the bridge message lean is what gets it out early: a turn's tool calls don't dispatch until the whole turn finishes generating, so anything extra the orchestrator composes in that message delays the Composer inside it. `designer_handle` has been running since run-step 0, so its `designTokens` are already in scratch: the bridge is just emit→dispatch.
+**The bridge is now two deterministic scripts in a single `Bash` call — no subagent, sub-second.** Run it once the scaffold is verified (Setup Step 1 done) and the Designer has returned; ordering against the business batch no longer matters (Rationale below). `designer_handle` has been running since run-step 0, so its `data.designTokens` + `data.shell` are already in scratch.
 
-**Message 1 — frontend bridge: emit tokens + Composer, as siblings, no text between them:**
+**Frontend bridge — emit tokens + compose, one `Bash` call (two scripts, sequential heredocs):**
 
-1. `Bash` — emit tokens: pipe the Designer's `data.designTokens` JSON into `emit-design-tokens.mjs` (reads tokens from **stdin**, project dir as **`argv[2]`**; empty stdin → exits 2 `stdin was empty — pass the designTokens JSON object` and the bridge stalls). Quoted heredoc so the JSON survives unchanged. Writes `.wix/design-tokens.css` + `.wix/site.d.ts`; keep `designTokens` + `shell` in scratch for the Composer prompt.
+1. `emit-design-tokens.mjs` — pipe the Designer's `data.designTokens` JSON on **stdin**, project dir as **`argv[2]`**, brand name as optional **`argv[3]`** (empty stdin → exits 2 `stdin was empty — pass the designTokens JSON object`). Writes `.wix/design-tokens.css`, `.wix/site.d.ts`, **and a portable `DESIGN.md`** (the standard [design.md](https://github.com/google-labs-code/design.md) frontmatter — the standalone, framework-agnostic design artifact).
+2. `compose.mjs` — pipe the **compose-input JSON** on **stdin**, project dir as **`argv[2]`**. It substitutes the Designer's spec + the application inputs into the six pinned skeletons and writes `global.css`, `astro.config.mjs` (anchored **merge**, not clobber), `Layout.astro`, `Navigation.astro`, `Footer.astro`, `index.astro`. It prints a manifest JSON to **stdout** (same `{ status, phase: "compose", data, files }` shape the subagent used to return — parse it from stdout). **Only run it when `frontendBuild === "wix"`** (defensive — non-astro framework classes never reach `BUILD-astro.md`); otherwise record `{phase: "compose", status: "skipped"}`.
+   - **Token source.** By default (`tokenSource: "json"`, omit the field) `compose.mjs` reads tokens from the `designTokens` you inline below — the verified path. Set `tokenSource: "designmd"` to instead read them from the `DESIGN.md` frontmatter that step 1 just wrote (frontmatter only; the body is never parsed) — same values, and it also accepts a DESIGN.md authored with standard roles (`primary`/`surface`/…) via a role-translation table. Both produce byte-identical output for our own DESIGN.md; keep the default until the DESIGN.md path is eval-gated.
 
    ```bash
-   node <SKILL_ROOT>/scripts/emit-design-tokens.mjs "<project-dir>" <<'TOKENS'
-   { ...paste the Designer's data.designTokens JSON object here, verbatim from scratch... }
+   node <SKILL_ROOT>/scripts/emit-design-tokens.mjs "<project-dir>" "<brand name>" <<'TOKENS'
+   { ...the Designer's data.designTokens JSON object, verbatim from scratch... }
    TOKENS
-   ```
-2. `Agent` (background) — Composer, capture `composer_handle`. Dispatch with **Instruction file = `<SKILL_ROOT>/references/astro/COMPOSE.md`** (the subagent opens it — **do not Read it in the orchestrator**; it is 14 KB of subagent-only substitution how-to, and reading it here just bloats the dispatch turn you're composing). Inline: tokens + shell + brand + nav links + packs. **SKIP** (record `{phase: "compose", status: "skipped"}`) if `frontendBuild !== "wix"` (defensive — non-astro framework classes never reach `BUILD-astro.md`).
 
-**Message 2 — business Setup Step 4 batch (immediately after Message 1), all as siblings; no text between the tool calls** (frontend-blind — `SETUP.md` owns the recipes/package set):
+   node <SKILL_ROOT>/scripts/compose.mjs "<project-dir>" <<'COMPOSE'
+   {
+     "designTokens": { ...same data.designTokens... },
+     "shell": { ...the Designer's data.shell... },
+     "brand": { "name": "<brand>", "description": "<one-line context>" },
+     "navLinks": [ { "href": "/", "label": "Home" }, ... ],
+     "loadedPacks": ["stores", "cms", ...],
+     "packsWithComponents": ["stores", "ecom", ...],
+     "disabledPacks": ["gift-cards", ...]
+   }
+   COMPOSE
+   ```
+
+   The compose-input shape is documented in `scripts/compose.mjs`'s header (the retired `COMPOSE.md` is now its spec). `compose.mjs` guarantees the required-token contract resolves (deriving any role the Designer omitted as a fail-safe) and is idempotent — re-running it re-applies the same anchored config merge without duplicating the plugin/import.
+
+**Then the business Setup Step 4 batch** (frontend-blind — `SETUP.md` owns the recipes/package set):
 
 3. `Bash` × N — app installs, one curl per `pack.apps[*]` → `SETUP.md` § Step 4a.
 4. `Bash` — `npx @wix/cli@latest env pull --json` → `SETUP.md` § Step 4b (the `--json` flag suppresses the interactive spinner that otherwise bloats context).
 5. `Bash` (background) — `npm install …`, capture `npm_handle` + its stderr tempfile → package set in `SETUP.md` § Step 4c.
 
-> **Rationale — do not re-derive.** The two tracks are independent: the Composer's only inputs are the Designer's tokens (ready from run-step 0) and the verified scaffold (ready at Setup Step 1) — neither depends on seeders, app installs, env, or npm. App installs / `env pull` / `npm install` are business-track work the bridge has zero dependency on. Dispatching the bridge first (platform batch a beat later) starts the Composer's ~80–160 s authoring wall at the earliest possible point, where it absorbs into Setup + the whole seed window; the platform batch's own wait (`npm_handle`) is gated later at the seed gate, so a one-message delay on it costs nothing on the critical path. Firing the bridge *after* the platform batch — or worse, in the seed wave — makes the Composer start late and land as a fresh longest pole that ends *after* the seeders (~60–90 s of Composer wall lost in past runs). The Composer self-retries its pre-write scaffold reads if the scaffold is somehow still in flight (`COMPOSE.md` § "Pre-write").
+> **Rationale — the design-system phase no longer has a longest pole.** The Composer used to be an LLM subagent with an ~80–160 s authoring wall, so prior flows raced it against the seed window and dispatched it as early as possible. It is now `compose.mjs` — a deterministic, sub-second Bash step — so there is nothing to race: run the bridge whenever convenient in the Setup window, before or after the platform batch. The bridge's only inputs are the Designer's tokens (ready from run-step 0) and the verified scaffold (ready at Setup Step 1); it has zero dependency on seeders, app installs, env, or npm. There is no `composer_handle` to wait on at the seed gate anymore — the six files are on disk the moment this Bash step returns.
 
 ### 3. Seed wave (Wave 3) — business track + co-scheduled frontend prep
 
-**One concurrent batch** (§ "Wave 3" below for the detailed dispatch): `seed-utilities.sh --template <…>` (frontend project prep) + per-pack seeders (background) + Image Phase 1 Decorative (background, gated — § "Imagery gates"). Apply `SEED.md` for the recipe map + seeder prompt template. **No design-system dispatch here** — `composer_handle` is already running from the bridge in step 2.
+**One concurrent batch** (§ "Wave 3" below for the detailed dispatch): `seed-utilities.sh --template <…>` (frontend project prep) + per-pack seeders (background) + Image Phase 1 Decorative (background, gated — § "Imagery gates"). Apply `SEED.md` for the recipe map + seeder prompt template. **No design-system work here** — `compose.mjs` already wrote the six files synchronously in the bridge (step 2).
 
 ### 4. Seed gate
 
-Wait on the seeders + `composer_handle` + `npm_handle`; once `composer_handle` returns, run the post-Composer Layout-import verify; aggregate seeder returns into the `seeded` scratch map. Run `patch-decorative-slots.mjs` only when `imagery === "ai-generated"` and Image Phase 1 Decorative returned; otherwise skip and record `{phase: "decorative-slot-patch", status: "skipped"}`. Because the Composer started back in Setup, by the time the seeders return its wall is typically already complete — so the design-system phase no longer extends the seed window.
+Wait on the seeders + `npm_handle`; aggregate seeder returns into the `seeded` scratch map. (No `composer_handle` — `compose.mjs` wrote the six files synchronously in the bridge; its manifest was already parsed from stdout there. The Step 4.5 gate still re-verifies the design-system files exist on disk before dispatching.) Run `patch-decorative-slots.mjs` only when `imagery === "ai-generated"` and Image Phase 1 Decorative returned; otherwise skip and record `{phase: "decorative-slot-patch", status: "skipped"}`.
 
 ### 5. Continue
 
@@ -85,13 +100,13 @@ The `imagery` value (`"ai-generated"` | `"themed-blocks"`, captured in `DISCOVER
 
 ## Wave 3 — Seed + frontend prep + Image Phase 1
 
-The seed-wave dispatch list (the run's step 3). No design-system dispatch here — `composer_handle` is already running from the Setup-window bridge. Launch as **one concurrent batch** (`PLAN.md` § "Batching discipline"):
+The seed-wave dispatch list (the run's step 3). No design-system work here — `compose.mjs` already wrote the six files synchronously in the Setup-window bridge. Launch as **one concurrent batch** (`PLAN.md` § "Batching discipline"):
 
 - `seed-utilities.sh --template astro` — frontend-track project prep (idempotent), run from the project dir. Apply `SEED.md` § "Pre-batch".
 - Per-pack seed subagents (background) — apply `SEED.md` for the recipe map + seeder prompt template.
 - Image Phase 1 Decorative (background) — `<SKILL_ROOT>/references/images/INSTRUCTIONS.md`, scope `image-phase-1-decorative` — **only when `imagery === "ai-generated"`** (§ "Imagery gates").
 
-The **seed gate** that follows (wait on seeders + `composer_handle` + `npm_handle`, Layout-import verify, aggregate `seeded`, optional decorative patch) is run-step 4 above — then continue to **Step 4.5** below.
+The **seed gate** that follows (wait on seeders + `npm_handle`, aggregate `seeded`, optional decorative patch) is run-step 4 above — then continue to **Step 4.5** below.
 
 ### Subagent prompt template
 
@@ -105,7 +120,7 @@ See `SEED.md` § "Subagent prompt template" for the base fields (Instruction fil
 - `<SKILL_ROOT>/references/forms/INSTRUCTIONS.md` — Phase 3 Components + Phase 4 Pages
 - `<SKILL_ROOT>/references/gift-cards/INSTRUCTIONS.md` — Phase 3 Components + Phase 4 Pages (passive/dashboard-gated)
 - `<SKILL_ROOT>/references/images/INSTRUCTIONS.md` — `image-phase-1-decorative` + `image-phase-2-entity`
-- `<SKILL_ROOT>/references/DESIGN_SYSTEM.md` — Phase 2 Designer (design spec, JSON only); `<SKILL_ROOT>/references/astro/COMPOSE.md` — Phase 2 Composer (writes the 6 design-system files)
+- `<SKILL_ROOT>/references/DESIGN_SYSTEM.md` — Phase 2 Designer (design spec, JSON only). (There is no Composer subagent — `scripts/compose.mjs` writes the six design-system files deterministically in the run-step 2 bridge; see § "2. Design-system bridge".)
 - `<SKILL_ROOT>/references/astro/designer/INSTRUCTIONS.md` — **page-design specification** (not a separately-dispatched scope). The merged Phase 4 `pages` scopes above apply this for the visual-design spec of their routes (layout, contract classes, decorative slots, per-scope structure for `home`/`static`/`store-pages`/`blog-pages`/`contact-page`) while writing live SDK data in the same pass. There is no separate placeholder-writing page-designer dispatch — single-write merged (see § "Step 7 Dispatch").
 
 For **image subagents**, the prompt additionally includes: page list (for decorative brief), entity types to cover (products, about-content, etc.).
@@ -129,11 +144,11 @@ Do **not** soften this to "return the structured JSON when done." A `pages`/`com
 
 ## Step 4.5 — Phase 3 Components + Image Phase 2 Entity (one concurrent batch, all background)
 
-**Gate (from the seed gate, run-step 4):** the `seeded` map is populated and the Composer has returned. Verify **both** `.wix/design-tokens.css` **and** `.wix/site.d.ts` exist on disk, and the Composer wrote `src/layouts/Layout.astro` + `src/styles/global.css` — the `cp` pre-batch and Layout imports below depend on them. If either design-tokens file is missing, do not dispatch Step 4.5 — surface the missing path and stop. (`patch-decorative-slots.mjs` was already run or skipped at the seed gate per § "4. Seed gate" — do not re-run it here.)
+**Gate (from the seed gate, run-step 4):** the `seeded` map is populated and the bridge has run. Verify **both** `.wix/design-tokens.css` **and** `.wix/site.d.ts` exist on disk, and `compose.mjs` wrote `src/layouts/Layout.astro` + `src/styles/global.css` — the `cp` pre-batch and Layout imports below depend on them. If either design-tokens file is missing, do not dispatch Step 4.5 — surface the missing path and stop. (`patch-decorative-slots.mjs` was already run or skipped at the seed gate per § "4. Seed gate" — do not re-run it here.)
 
 Read `.wix/design-tokens.css` + `.wix/site.d.ts` once.
 
-**Pre-batch (same message, before subagent dispatches):** copy the per-pack component-CSS templates into the project. This is a deterministic `cp` — the templates are static and use direct `var(--token)` references against the standard designer vocabulary, so no subagent is needed to author them. The Phase 3 Components subagents below write only `.tsx` React islands; this step writes the matching `src/styles/components-<pack>.css`. **If you skip this `cp` step, `astro build` fails at Step 8 with `Could not resolve "../styles/components-<pack>.css"` from `src/layouts/Layout.astro`** — the Composer's Layout imports those files unconditionally for every pack that declares `components`. If the Phase 3 subagents write only `.tsx`, the build falls back to slow orchestrator recovery (`cp` + manual rewrite to strip `@apply`).
+**Pre-batch (same message, before subagent dispatches):** copy the per-pack component-CSS templates into the project. This is a deterministic `cp` — the templates are static and use direct `var(--token)` references against the standard designer vocabulary, so no subagent is needed to author them. The Phase 3 Components subagents below write only `.tsx` React islands; this step writes the matching `src/styles/components-<pack>.css`. **If you skip this `cp` step, `astro build` fails at Step 8 with `Could not resolve "../styles/components-<pack>.css"` from `src/layouts/Layout.astro`** — `compose.mjs`'s Layout imports those files unconditionally for every pack that declares `components`. If the Phase 3 subagents write only `.tsx`, the build falls back to slow orchestrator recovery (`cp` + manual rewrite to strip `@apply`).
 
 For each loaded pack whose vertical INSTRUCTIONS declares a `components` scope (today: `stores`, `ecom`, `blog`, `forms`, `gift-cards`), copy the template:
 
@@ -225,7 +240,7 @@ Each scope subagent writes its `.astro` files directly with live SDK queries, wi
 
 Scope subagents MUST NOT:
 - Modify files outside their declared scope
-- Modify CSS (`global.css` owned by the Composer; `components-<pack>.css` owned by Phase 3 Components)
+- Modify CSS (`global.css` owned by `compose.mjs` in Phase 2; `components-<pack>.css` owned by Phase 3 Components)
 - Modify React islands (owned by Phase 3 Components)
 
 ---
@@ -254,9 +269,9 @@ Then **Final Message** (`BUILD.md` § "Final Message" — the shared summary + r
 
 The **design tokens** (`.wix/design-tokens.css` + `.wix/site.d.ts`) are the coordination artifacts between subagents. Read by every downstream phase that touches styled markup.
 
-### Producer: Phase 2 (Designer Wave 0 + Composer Setup-window bridge)
+### Producer: Phase 2 (Designer at BUILD entry + `compose.mjs` in the Setup-window bridge)
 
-Dispatch timing: the Designer is dispatched at BUILD entry (run-step 0); the Composer at the Setup-window bridge (run-step 2 above). Net: `emit-design-tokens.mjs` writes `.wix/design-tokens.css` + `.wix/site.d.ts` (pure projections of the Designer's `data.designTokens`); the **Composer** writes the `@theme` palette into `global.css` from the same tokens plus the other 5 files. `designTokens` is the single source of truth — the script projects it, the Composer applies it.
+Timing: the Designer is dispatched at BUILD entry (run-step 0); the bridge runs at the Setup-window (run-step 2 above) as a single Bash step. Net: `emit-design-tokens.mjs` writes `.wix/design-tokens.css` + `.wix/site.d.ts` (pure projections of the Designer's `data.designTokens`); `compose.mjs` writes the `@theme` palette into `global.css` from the same tokens plus the other 5 files (substituting into pinned skeletons). `data.designTokens` is the single source of truth — `emit-design-tokens.mjs` projects it to the `.wix` artifacts, `compose.mjs` applies it to the site files.
 
 ### Consumer: Phase 3 Components (Step 4.5)
 

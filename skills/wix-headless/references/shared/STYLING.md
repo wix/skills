@@ -1,14 +1,14 @@
 # Styling — Three Categories, One Default
 
-Every visual decision in a generated site falls into one of three categories. Each has a single owner and a single home. This file is the canonical reference; `DESIGN_SYSTEM.md` (Designer), `COMPOSE.md` (Composer), `astro/designer/INSTRUCTIONS.md` (Phase 4 page designers), and `IMPLEMENTER.md` link here.
+Every visual decision in a generated site falls into one of three categories. Each has a single owner and a single home. This file is the canonical reference; `DESIGN_SYSTEM.md` (Designer), `scripts/compose.mjs` (Composer — deterministic script; spec in `astro/COMPOSE.md`), `astro/designer/INSTRUCTIONS.md` (Phase 4 page designers), and `IMPLEMENTER.md` link here.
 
-> **Design-system ownership (the design-vs-application split).** The **Designer** (`DESIGN_SYSTEM.md`) owns the token *values* and their *completeness* — a coherent, complete brand visual returned as a framework-agnostic JSON spec (`data.designTokens`). The **Composer** (`COMPOSE.md`) owns the *application* — it writes the `@theme` block in `global.css` from those values (mapping each semantic role to a `--var` name) and guarantees the required-token contract below resolves. Component and page authors still compose those tokens as Tailwind utilities at their call sites. So: Designer picks "paper = `#FAF6EF`"; Composer writes `--color-paper: #FAF6EF` into `@theme`; a page writes `class="bg-paper"`.
+> **Design-system ownership (the design-vs-application split).** The **Designer** (`DESIGN_SYSTEM.md`) owns the token *values* and their *completeness* — a coherent, complete brand visual returned as a framework-agnostic JSON spec (`data.designTokens`). The **Composer** (`scripts/compose.mjs`; spec in `astro/COMPOSE.md`) owns the *application* — it writes the `@theme` block in `global.css` from those values (mapping each semantic role to a `--var` name) and guarantees the required-token contract below resolves. Component and page authors still compose those tokens as Tailwind utilities at their call sites. So: Designer picks "paper = `#FAF6EF`"; Composer writes `--color-paper: #FAF6EF` into `@theme`; a page writes `class="bg-paper"`.
 
 ## The three categories
 
 | Category | Lives in | Owned by | Use for |
 |---|---|---|---|
-| **Tokens (composed as utilities)** | `@theme` block in `src/styles/global.css`, mirrored to `.wix/design-tokens.css` + `.wix/site.d.ts` (emitted by `scripts/emit-design-tokens.mjs` from Designer's `data.designTokens`) | Designer picks values (Phase 2); Composer writes `@theme` | All color, spacing, typography scale, radii, aspect ratios, shadows, transitions. Pages compose tokens at call sites as Tailwind utilities — `class="py-4xl bg-sand aspect-[16/5]"`. |
+| **Tokens (composed as utilities)** | `@theme` block in `src/styles/global.css`, mirrored to `.wix/design-tokens.css` + `.wix/site.d.ts` + a portable `DESIGN.md` (all emitted by `scripts/emit-design-tokens.mjs` from Designer's `data.designTokens`) | Designer picks values (Phase 2); `compose.mjs` writes `@theme` | All color, spacing, typography scale, radii, aspect ratios, shadows, transitions. Pages compose tokens at call sites as Tailwind utilities — `class="py-4xl bg-sand aspect-[16/5]"`. |
 | **Global semantic classes** | `src/styles/global.css` (outside `@theme`) and `src/styles/components-<pack>.css` | Designer + Phase 3 component agents | Compound multi-element patterns, interactive states (`:hover`, `:focus`, `:disabled`), and JS/React DOM query targets. |
 | **Co-located styles** | `<style>` block at the bottom of the same `.astro` file (or component CSS module for islands) | Page or component author | One-off page decoration: hero stamps, custom dividers, ornamental overlays that won't be reused elsewhere. |
 
@@ -114,7 +114,7 @@ Tokens + truly cross-cutting patterns (buttons, decorative slots, site shell) ar
 
 ### Pre-return checklist for the Composer
 
-The Composer writes `global.css` by substituting the `@theme` palette into a pinned skeleton, so the component-class leak below is **structurally prevented** — the skeleton declares no `.product-card`/`.cart-summary`-family rules at all. The check remains as a guard: before returning, confirm the Composer-written `global.css` declares none of these (it shouldn't, unless the skeleton was edited):
+`compose.mjs` writes `global.css` by substituting the `@theme` palette into a pinned skeleton, so the component-class leak below is **structurally prevented** — the skeleton declares no `.product-card`/`.cart-summary`-family rules at all, and the script never adds any. The check below is a maintainer guard for when the skeleton itself is edited: confirm the skeleton's `global.css` declares none of these:
 
 ```
 grep -r --include="*.astro" --include="*.tsx" -lE "class(\\Name)?=.*(\\.|\\b)(product-card|product-grid|product-card-media|product-card-ribbon|product-card-index|offer-callout|cart-summary|cart-total|cart-empty|checkout-btn)\\b" $SKILL_ROOT/templates/*/

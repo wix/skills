@@ -1,43 +1,51 @@
 ---
-name: design-system-composer
-description: "The Composer role of the wix-headless design-system phase. Applies the Designer's framework-agnostic design spec to the astro frontend by SUBSTITUTING into pinned skeletons at references/astro/templates/ — it does not re-author the fixed bulk. Maps semantic token values to the @theme vocabulary, writes the 6 design-system files (global.css, astro.config.mjs, Layout.astro, Navigation.astro, Footer.astro, index.astro), and owns the component-CSS token contract (every var(--token) a components-<pack>.css references must resolve). Returns a manifest."
+name: composer-spec
+description: "Specification for scripts/compose.mjs — the deterministic Composer of the wix-headless design-system phase. RETIRED as a dispatched subagent: this is no longer an instruction file handed to an LLM. It documents how compose.mjs applies the Designer's framework-agnostic spec to the astro frontend by SUBSTITUTING into pinned skeletons at references/astro/templates/ — mapping semantic token values to the @theme vocabulary, writing the 6 design-system files (global.css, astro.config.mjs, Layout.astro, Navigation.astro, Footer.astro, index.astro), owning the component-CSS token contract (every var(--token) a components-<pack>.css references must resolve), and emitting a manifest. The skeleton comments and BUILD-astro.md reference the section headings here."
 ---
 
-# Composer — how the design becomes code
+# Composer spec — how the design becomes code
 
-You are the **Composer**. The Designer already decided *what the brand looks like* and returned it as a framework-agnostic spec. Your job is *how that becomes code* for the **astro** frontend: you map the spec onto the framework's token vocabulary and **substitute it into pinned skeletons**. You do **not** re-author the fixed bulk — the View-Transitions script, the view-transition / `.nav-progress` CSS, the `@utility btn` family, the `process.env` fix, the markers — all of that is literal in the skeletons. Read a skeleton, fill its `{{…}}` slots, write the file. Substitute; do not re-write.
+> **RETIRED as a dispatched subagent.** The Composer is now the deterministic script **`scripts/compose.mjs`**, run as a `Bash` step in the design-system bridge (`BUILD-astro.md` § "2. Design-system bridge"). This file is retained as the human-readable **spec** for that script — the substitution rules, token contract, self-checks, and anti-patterns below describe what `compose.mjs` does, and the pinned skeletons + `BUILD-astro.md` cite its section headings. It is no longer opened by an LLM. The authoritative implementation is the script; if the two ever diverge, the script wins. **Why a script, not a subagent:** the work is mechanical `{{slot}}` substitution into pinned skeletons — an LLM re-emits the ~580 lines of fixed bulk every run (median ~188 s, 4× variance across 40 runs). The script does it sub-second, byte-reproducibly.
 
-This is deterministic work against pinned templates, so it is fast and low-variance. The whole reason the rewrite-from-scratch failure mode (which roughly doubled the old design-system wall) is gone is that you never regenerate the bulk.
+The Designer decides *what the brand looks like* and returns it as a framework-agnostic spec. `compose.mjs` decides *how that becomes code* for the **astro** frontend: it maps the spec onto the framework's token vocabulary and **substitutes it into pinned skeletons**. It does **not** re-author the fixed bulk — the View-Transitions script, the view-transition / `.nav-progress` CSS, the `@utility btn` family, the `process.env` fix, the markers — all of that is literal in the skeletons. Read a skeleton, fill its `{{…}}` slots, write the file. Substitute; do not re-write.
 
-> **Framework:** astro only. The skeletons live at `<SKILL_ROOT>/references/astro/templates/`. Custom (non-astro) frontends never reach the Composer — integration mode (`frontend === "custom"`) connects a brought-in site via `references/custom/` and does not run the Composer at all. If your prompt ever names a non-astro frontend, return `status: "failed"` with `errors: [{code: "FRONTEND_NOT_SUPPORTED"}]` — do not improvise a second framework.
+> **Framework:** astro only. The skeletons live at `<SKILL_ROOT>/references/astro/templates/`. Custom (non-astro) frontends never reach `compose.mjs` — integration mode (`frontend === "custom"`) connects a brought-in site via `references/custom/` and does not run it at all. The orchestrator only invokes `compose.mjs` when `frontendBuild === "wix"`.
 
-## Self-Loading
+## Reference contract (what the script is built against)
 
-1. Read `<SKILL_ROOT>/references/shared/RETURN_CONTRACT.md` — structured-return format.
-2. Read `<SKILL_ROOT>/references/shared/STYLING.md` — the three styling categories and, in particular, § "Required tokens — the component-CSS template contract" (the token set you must guarantee). You own that contract now.
+`compose.mjs` reads `<SKILL_ROOT>/references/shared/STYLING.md` § "Required tokens — the component-CSS template contract" (the token set it must guarantee) and emits the manifest shape defined in `<SKILL_ROOT>/references/shared/RETURN_CONTRACT.md`. No REST, no MCP, no `.wix/site.json` read — frontend-only, every input on stdin.
 
-No REST calls, no MCP — this is frontend-only work.
+## Inputs (the compose-input JSON on stdin; project dir as `argv[2]`)
 
-**Do NOT `Read .wix/site.json`.** Every input is inlined in your prompt.
+- **`tokenSource`** — `"json"` (default) reads tokens from `designTokens` below; `"designmd"` reads them from a portable **`DESIGN.md`** frontmatter (the file `emit-design-tokens.mjs` projects from the same spec), at `designMdPath` or `<project-dir>/DESIGN.md`.
+- **`designMdPath`** — optional DESIGN.md path (when `tokenSource: "designmd"`).
+- **`designTokens`** — the Designer's spec (`colors`, `fonts`, `spacing`, `radii`, `containers`; optional `googleFontsHref`), bare-key form. Used when `tokenSource` is `"json"`.
+- **`shell`** — brand-voice strings: `heroHeadline`, `heroSub`, `footerTagline`, `navBrandMark`. (Kept on the compose input, **not** in DESIGN.md — shell is content, not design tokens; DESIGN.md stays pure tokens.)
+- **`brand`** — `{ name, description }`.
+- **`navLinks`** — JSON array of `{href, label}`. Labels used **verbatim**.
+- **`loadedPacks`**, **`packsWithComponents`**, **`disabledPacks`** — string arrays.
+- **Project directory** — `argv[2]` (the scaffold subdir).
 
-## Inputs (entirely from your prompt)
+### DESIGN.md as the token source (the portable artifact)
 
-- **`designTokens`** — the Designer's spec (`colors`, `fonts`, `spacing`, `radii`, `containers`), bare-key form.
-- **`shell`** — brand-voice strings: `heroHeadline`, `heroSub`, `footerTagline`, `navBrandMark`.
-- **Brand** — `{ name, description }`.
-- **Navigation links** — JSON array of `{href, label}`. Use labels **verbatim**.
-- **Loaded packs**, **Packs with components**, **Disabled packs** — comma-joined lists.
-- **Project directory** — the scaffold subdir (CWD).
+`emit-design-tokens.mjs` projects the Designer's spec into a standard **`DESIGN.md`** ([design.md](https://github.com/google-labs-code/design.md) frontmatter): wix tokens map onto DESIGN.md's groups — `colors` → `colors`, `fonts` → `typography` (`fontFamily` per level), `spacing` → `spacing`, `radii` → `rounded`, `containers` → a custom `containers` group, `googleFontsHref` → a custom key. Token keys stay the wix editorial names (`paper`/`ink`/`accent`/…), which are valid DESIGN.md color names — **lossless, no role round-trip** (the JSON and DESIGN.md paths produce byte-identical output).
+
+When `tokenSource: "designmd"`, `compose.mjs` parses **frontmatter only** (the markdown body is documentation, never read) and applies a **role-translation table** so a DESIGN.md authored with *standard* roles is also consumable:
+
+| DESIGN.md role | wix `--color-*` | | DESIGN.md role | wix `--color-*` |
+|---|---|---|---|---|
+| `primary` | `accent` | | `surface` / `background` | `paper` |
+| `secondary` | `paper-warm` | | `on-surface` / `on-background` | `ink` |
+| `tertiary` | `ink-soft` | | `outline` | `rule` |
+| `neutral` | `mute` | | `error` | `error` |
+
+Keys not in the table (the wix-native names) pass through unchanged and win on conflict. `rounded` → radii; the custom `containers` group + `googleFontsHref` are honored. The required-token contract + derivation fail-safe then run exactly as for the JSON path.
 
 ## What you write (the 6 files)
 
 Read each skeleton from `<SKILL_ROOT>/references/astro/templates/`, substitute, write to the project. The fixed bulk in every skeleton is literal — change only the documented `{{…}}` slots.
 
-> **Read skeletons by file, never the directory (`EISDIR`).** `Read <SKILL_ROOT>/references/astro/templates/` fails with `EISDIR: illegal operation on a directory` and costs a wasted recovery round-trip. Read each of the six by its exact path: `<SKILL_ROOT>/references/astro/templates/global.css`, `…/astro.config.mjs`, `…/Layout.astro`, `…/Navigation.astro`, `…/Footer.astro`, `…/index.astro` (issue the six `Read`s as one concurrent batch). If you must discover them first, `Glob` the directory (`…/templates/*`) — never `Read` it.
-
-**Pre-write: scaffold may still be in flight.** A scaffold file you need (`Layout.astro` stub, `astro.config.mjs`) may not yet be present. Before reading one, if a `Read` returns "file does not exist", wait 5 s and retry, cap 6 attempts (~30 s). The 6-attempt cap is hard — do not check a 7th time; return `status: "failed"` with `errors: [{code: "SCAFFOLD_NOT_COMPLETE"}]` immediately on attempt 6's miss. (Reading the *skeletons* under `<SKILL_ROOT>` never needs this — they are always present.)
-
-**Read each destination before you overwrite it.** The scaffold ships stubs for several of your six targets (today: `src/layouts/Layout.astro`, `src/pages/index.astro`, `astro.config.mjs`). The harness **blocks a `Write` to an existing file you have not `Read` this run** (`File has not been read yet`). So your batched reads must include the *destination* project paths for any file the scaffold created — not only the `<SKILL_ROOT>` skeletons. Practically: in the same concurrent batch, `Read` both the skeleton and the destination for `Layout.astro`, `index.astro`, and `astro.config.mjs` (the latter you read anyway to merge); `global.css`, `Navigation.astro`, and `Footer.astro` are net-new, so a destination read isn't required (but is harmless if the scaffold happens to ship them).
+> **Implementation note (script-handled).** `compose.mjs` resolves the skeleton paths relative to its own location (`../references/astro/templates/`) and reads each of the six by exact filename — no directory read, no harness `Write`/`Read` ordering to manage. Of the six destinations only `astro.config.mjs` is read from the scaffold (it is a **merge** target, not a clobber); the other five are full writes. The script briefly retries reading `astro.config.mjs` if the scaffold is still in flight, then fails loud with `SCAFFOLD_NOT_COMPLETE` — but the bridge only invokes it after Setup Step 1 has verified the scaffold, so that path is belt-and-braces.
 
 ### Token contract (do this first — it gates everything)
 
@@ -99,7 +107,7 @@ If a check fails and you cannot fix it, return `status: "partial"` with the spec
 
 ## Return contract
 
-A single fenced JSON block per `<SKILL_ROOT>/references/shared/RETURN_CONTRACT.md`, last content in your message — a manifest of what you wrote:
+`compose.mjs` prints a single manifest JSON object to **stdout** (diagnostics go to stderr). The orchestrator parses it from stdout exactly as it parsed the subagent's return — same `{ status, phase: "compose", data, files }` shape per `<SKILL_ROOT>/references/shared/RETURN_CONTRACT.md`. On a self-check failure the status is `partial` and `errors` carries the specific code (`MISSING_REQUIRED_TOKEN`, `CONTAINER_EQUALS_SPACING`); on a hard failure (`SCAFFOLD_NOT_COMPLETE`, a missing config anchor like `ANCHOR_VITE` / `ANCHOR_PROCESS_ENV`, `TEMPLATE_MISSING`) it prints a `failed` manifest and exits 1. A manifest of what it wrote:
 
 ```json
 {
@@ -122,21 +130,18 @@ A single fenced JSON block per `<SKILL_ROOT>/references/shared/RETURN_CONTRACT.m
 }
 ```
 
-No trailing prose after the closing fence.
-
-## Anti-patterns
+## Anti-patterns (the failure modes the script structurally avoids)
 
 | WRONG | CORRECT |
 |---|---|
 | Re-author the View-Transitions script, btn family, or view-transition CSS | Keep the skeleton bulk literal; substitute only `{{…}}` slots |
 | Rewrite `global.css` from scratch to "clean it up" | Substitute `{{theme}}`; the rest is pinned (this is the variance win) |
-| Overwrite `astro.config.mjs` with the skeleton verbatim | Merge the two mutations into the scaffold's own config |
-| `import '../styles/components-cms.css'` (cms has no components) | One import only per pack in "Packs with components" |
+| Overwrite `astro.config.mjs` with the skeleton verbatim | Merge the two mutations into the scaffold's own config (anchored codemod) |
+| `import '../styles/components-cms.css'` (cms has no components) | One import only per pack in `packsWithComponents` |
 | Drop a required token because the Designer omitted it | Derive a sensible value — required tokens must resolve |
 | Set `--container-3xl` to `--spacing-3xl`'s value | Containers are widths (~`42rem`+), a separate axis from spacing |
 | Coin label rebrands ("Journal" → /about) or add `/products`/cart links | Nav labels verbatim; packs splice their links at the marker |
 | Add a hero CTA / footer link to a disabled-pack route | Disabled packs are code-only — markers are the sole touchpoint |
 | Emit `<!-- home:cms -->` or a marker for a non-contributing pack | One marker per contributing loaded pack only |
-| `Read <SKILL_ROOT>/references/astro/templates/` (the directory) | `EISDIR` — Read each of the six skeletons by its exact file path (batch the six Reads); `Glob` if you must discover them |
-| `Read .wix/site.json` for brand/tokens | Every input is inlined in your prompt |
-| Branch to a non-astro / custom frontend | astro only; return `FRONTEND_NOT_SUPPORTED` otherwise |
+| Silently produce a broken config when an anchor is missing | Fail loud (`ANCHOR_VITE` / `ANCHOR_PROCESS_ENV`), exit 1 |
+| Invoke for a non-astro / custom frontend | astro only; the orchestrator gates on `frontendBuild === "wix"` |

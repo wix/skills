@@ -139,7 +139,7 @@ The envelope above is universal. The exact `data` shape — plus the known `erro
 | Components | `<pack>-components` | `references/shared/IMPLEMENTER.md` § Return contract |
 | Pages | `<pack>-pages[-<group>]` | `references/shared/IMPLEMENTER.md` § Return contract |
 | Design System Designer | `design-system` | `references/DESIGN_SYSTEM.md` § What you return |
-| Design System Composer | `compose` | `references/astro/COMPOSE.md` § Return contract |
+| Design System Composer (`scripts/compose.mjs`, not a subagent — manifest printed to stdout) | `compose` | `references/astro/COMPOSE.md` § Return contract (the script's spec) |
 | Page Designer | `designer-<scope>` | `references/astro/designer/INSTRUCTIONS.md` (per-scope) |
 | Images | `image-phase-1-decorative`, `image-phase-2-entity` | `references/images/INSTRUCTIONS.md` § Return Contract |
 

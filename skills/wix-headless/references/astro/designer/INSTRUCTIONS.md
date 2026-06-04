@@ -13,7 +13,7 @@ You own **page-level visual output**: the layout, typography, color, spacing, an
 
 > **The design-system phase is not in this doc.** Tokens (`data.designTokens`), `global.css`, `astro.config.mjs`, `Layout.astro`, `Navigation.astro`, and `Footer.astro` are produced earlier in the run by a two-role split:
 > - **Designer** (`<SKILL_ROOT>/references/DESIGN_SYSTEM.md`) — returns the framework-agnostic design spec (tokens + brand-voice strings) as JSON only.
-> - **Composer** (`<SKILL_ROOT>/references/astro/COMPOSE.md`) — applies that spec to the astro skeletons and writes the 6 design-system files.
+> - **Composer** (`<SKILL_ROOT>/scripts/compose.mjs`, a deterministic script — spec in `references/astro/COMPOSE.md`) — applies that spec to the astro skeletons and writes the 6 design-system files.
 >
 > By the time the Phase 4 routes are written, the `@theme` token contract, the `.astro` shells, and `.wix/design-tokens.css` already exist. You consume them; you do not write them.
 

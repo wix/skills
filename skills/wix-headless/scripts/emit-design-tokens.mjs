@@ -5,13 +5,22 @@
 // returns — the orchestrator pipes designerReturn.data.designTokens directly,
 // no site.json round-trip.
 //
-// Why a script (not agent work): both files are pure projections of the
+// Why a script (not agent work): all three files are pure projections of the
 // designTokens JSON — no judgment, no brand-context dependence. An LLM
 // emitting them is wasted tokens AND a drift risk (malformed :root blocks,
 // missing token groups, divergent .d.ts skeletons).
 //
+// Three outputs:
+//   .wix/design-tokens.css  — :root custom properties (build-consumed; any frontend can import).
+//   .wix/site.d.ts          — typed token-name unions.
+//   DESIGN.md               — the portable design artifact (DESIGN.md frontmatter format,
+//                             https://github.com/google-labs-code/design.md). Frontmatter only
+//                             is canonical; the body is documentation, never parsed (compose.mjs
+//                             reads frontmatter only). This is the standalone, framework-agnostic
+//                             spec a non-astro frontend / human / other tool can read.
+//
 // Usage:
-//   echo '<designTokens-json>' | node emit-design-tokens.mjs <project-dir>
+//   echo '<designTokens-json>' | node emit-design-tokens.mjs <project-dir> ["<brand name>"]
 
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
@@ -80,4 +89,57 @@ export type DesignTokens = {
 `;
 writeFileSync(join(wixDir, "site.d.ts"), dts);
 
-console.log(`emit-design-tokens: wrote ${join(wixDir, "design-tokens.css")} and ${join(wixDir, "site.d.ts")}`);
+// ── DESIGN.md — the portable design artifact (frontmatter is canonical) ───────
+// Maps the wix designTokens onto DESIGN.md's groups: colors → `colors`, fonts →
+// `typography` (fontFamily per level), spacing → `spacing`, radii → `rounded`
+// (DESIGN.md's name for corner radii), containers → a custom `containers` group
+// (DESIGN.md tolerates unknown groups), googleFontsHref → a custom top-level key.
+// Color values are QUOTED — an unquoted `#hex` after `: ` is a YAML comment.
+// Token keys stay the wix-native editorial names (paper/ink/accent/…), which are
+// valid DESIGN.md color token names — lossless, no role round-trip. compose.mjs
+// translates standard DESIGN.md roles (primary/surface/…) on read for any
+// externally-authored DESIGN.md; our own emission needs no translation.
+const brandName = process.argv[3] && process.argv[3].trim() ? process.argv[3].trim() : "Design System";
+const q = (s) => `"${String(s).replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+const md = ["---", "version: alpha", `name: ${q(brandName)}`];
+
+const colorEntries = Object.entries(tokens.colors ?? {});
+if (colorEntries.length) {
+  md.push("colors:");
+  for (const [k, v] of colorEntries) md.push(`  ${k}: ${q(v)}`);
+}
+const fontEntries = Object.entries(tokens.fonts ?? {});
+if (fontEntries.length) {
+  md.push("typography:");
+  for (const [k, v] of fontEntries) {
+    md.push(`  ${k}:`);
+    md.push(`    fontFamily: ${q(v)}`);
+  }
+}
+const spacingEntries = Object.entries(tokens.spacing ?? {});
+if (spacingEntries.length) {
+  md.push("spacing:");
+  for (const [k, v] of spacingEntries) md.push(`  ${k}: ${q(v)}`);
+}
+const radiiEntries = Object.entries(tokens.radii ?? {});
+if (radiiEntries.length) {
+  md.push("rounded:");
+  for (const [k, v] of radiiEntries) md.push(`  ${k}: ${q(v)}`);
+}
+const containerEntries = Object.entries(tokens.containers ?? {});
+if (containerEntries.length) {
+  md.push("containers:"); // custom group (no container concept in the base spec)
+  for (const [k, v] of containerEntries) md.push(`  ${k}: ${q(v)}`);
+}
+if (typeof tokens.googleFontsHref === "string") {
+  md.push(`googleFontsHref: ${q(tokens.googleFontsHref)}`);
+}
+md.push("---", "");
+md.push(`# ${brandName} — design tokens`, "");
+md.push("Generated from the Designer's spec by emit-design-tokens.mjs. The YAML");
+md.push("frontmatter above is the canonical, machine-read source; this body is");
+md.push("documentation only (never parsed). Portable: import `.wix/design-tokens.css`");
+md.push("for the same values as CSS custom properties.", "");
+writeFileSync(join(projectDir, "DESIGN.md"), md.join("\n"));
+
+console.log(`emit-design-tokens: wrote ${join(wixDir, "design-tokens.css")}, ${join(wixDir, "site.d.ts")} and ${join(projectDir, "DESIGN.md")}`);
