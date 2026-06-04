@@ -1,0 +1,7 @@
+name: domains/broken-scenario
+description: Intentionally missing required triggerPrompt to verify schema validation failure.
+tags: [domains]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/account-level/domains/skills/domain-search-and-purchase
