@@ -106,6 +106,8 @@ A 200 response confirms the install. On 401/403, retry the same call once with t
 
 Foreground shell, ~5 s. Writes `WIX_CLIENT_ID` to `.env.local`. Idempotent. Skipping this causes `Missing environment variable WIX_CLIENT_ID` build failures in downstream phases.
 
+> **Applies to `astro` (`frontendBuild: wix`) ONLY — `own` and `none` SKIP this step; no conflict to reconcile.** This article is framework-blind for Step 4a (app installs), but Step 4b is astro-specific: only the astro build reads `WIX_CLIENT_ID` from `.env.local`. The `own` and `none` framework classes inline the `appId` from `wix.config.json` instead and have no `WIX_CLIENT_ID` at runtime — **`BUILD-own-build.md` § "Framework spine" is the authority for them and says skip 4b.** If you are on `own`/`none`, do not run `env pull`, and do not treat the "Skipping this causes build failures" line above as conflicting guidance — that warning is scoped to astro.
+
 > **Always pass `--json`.** Without it the CLI renders an interactive spinner; captured through the tool's non-TTY pipe, every animation frame lands as a separate line of ANSI escapes (`\x1b[2K\x1b[1A…⠙ Pulling…`) and bloats the context for zero signal. `--json` selects the CLI's non-interactive render-to-string path (one clean `{"success": true}` line), and the skill doesn't parse this command's output anyway — it only needs `.env.local` on disk.
 
 ### 4c. Dispatch background `npm install`
