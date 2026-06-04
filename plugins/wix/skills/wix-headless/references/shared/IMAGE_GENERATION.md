@@ -113,7 +113,7 @@ The following procedure prevents the observed serialization anti-pattern. Follow
 
 ### Media import and entity PATCH — parallelize with siblings
 
-Generation is one concurrent batch — whether that's one batched call or N parallel siblings. The follow-up steps (`POST /site-media/v1/files/import` per image, and entity PATCH per product/post/item) are per-entity; those can parallelize via concurrent siblings — emit all N import calls in one concurrent batch, then all N PATCH calls in one concurrent batch. See the skill's `references/ORCHESTRATION.md` § "Batching compliance" for why sibling batching beats sequential dispatch.
+Generation is one concurrent batch — whether that's one batched call or N parallel siblings. The follow-up steps (`POST /site-media/v1/files/import` per image, and entity PATCH per product/post/item) are per-entity; those can parallelize via concurrent siblings — emit all N import calls in one concurrent batch, then all N PATCH calls in one concurrent batch. See the skill's `references/PLAN.md` § "Batching discipline" for why sibling batching beats sequential dispatch.
 
 **Pattern for an image phase:** one batched generation call → N parallel imports (sibling calls in one message) → N parallel PATCHes (sibling calls in one message).
 

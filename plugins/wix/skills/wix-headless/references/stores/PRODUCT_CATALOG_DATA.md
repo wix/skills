@@ -1,6 +1,6 @@
 # Recipe: Product Catalog Data Setup (Phase 1)
 
-Replace the default sample products Wix Stores installs with on-brand products via the Stores REST API (`curl` against `wixapis.com/stores/v3/...` with the standard headers from `../shared/AUTHENTICATION.md`). This file covers the `seed-seed` scope — data seeding only. Frontend wiring lives in the Phase 2 scope references (`SHARED_WIRING.md`, `PRODUCT_PAGES.md`, `CART_CHECKOUT.md`, `HOME_AND_NAV.md`) and should not be read by `seed-seed`.
+Replace the default sample products Wix Stores installs with on-brand products via the Stores REST API (`curl` against `wixapis.com/stores/v3/...` with the standard headers from `../shared/AUTHENTICATION.md`). This file covers the `seed-seed` scope — data seeding only. Frontend wiring lives in the astro scope references (`../astro/stores/SHARED_WIRING.md`, `../astro/stores/PRODUCT_PAGES.md`, `../astro/ecom/CART_PAGES.md`, `../astro/stores/HOME_AND_NAV.md`) and should not be read by `seed-seed`.
 
 > **Critical Rules — Read Before Starting**
 > 1. **V3 only** — all endpoints under `/stores/v3/...` for products.
@@ -17,12 +17,12 @@ Replace the default sample products Wix Stores installs with on-brand products v
 
 > **Conditional:** This section only applies when ALL of these are true:
 > - The Stores app was just installed (default sample products exist)
-> - CLI auth works (`npx @wix/cli token --site "$SITE_ID"` returns a token)
+> - CLI auth works (`npx @wix/cli@latest token --site "$SITE_ID"` returns a token)
 > - Discovery context is available in your prompt (business type, brand name, style)
 >
 > **If CLI auth is not available, skip this entire section.** The 12 default products remain and can be customized later in the Wix dashboard.
 
-> **API error guard:** If any REST call in Phase 1 returns a 404 or an unexpected error, do **not** retry the same call with a guessed alternative URL or namespace. Report the failing endpoint, request body, and error verbatim to the user, then stop. Improvised endpoints have caused multi-minute silent stalls in past runs.
+> **API error guard:** If any REST call in Phase 1 returns a 404 or an unexpected error, do **not** retry the same call with a guessed alternative URL or namespace. Report the failing endpoint, request body, and error verbatim to the user, then stop.
 
 > **Stores appDefId** for install and `catalogReference.appId`: `215238eb-22a5-4c36-9e7b-e7c08025e04e`. (A different defId — `1380b703-ce81-ff05-f115-39571d94dfcd` — is used for `wixMetadata.appDefId` in Phase 2. Do not swap them.)
 
@@ -201,7 +201,7 @@ If the merchant later creates visible categories in the Wix dashboard and assign
 - The `Navigation` Shop submenu lists the categories.
 - `/category/<slug>` becomes a reachable, server-side-filtered listing.
 
-This works because the frontend (`src/utils/categories.ts`, written by the `pages-categories` scope in Phase 4) live-queries the Wix API at SSR time with a 5-min cache — no redeploy or regen is needed.
+This works because the frontend (`src/utils/categories.ts`, pre-copied by the orchestrator before Phase 4 and imported by the `pages-*` scopes) live-queries the Wix API at SSR time with a 5-min cache — no redeploy or regen is needed.
 
 ### Step 7: Return Results
 
@@ -246,4 +246,4 @@ Phase 1 is complete after Step 7. Do **not** attempt any of the following, even 
 - Creating, renaming, or deleting any category — categories are merchant-driven (see Step 6). The auto-managed "All Products" category (handle `online_stores_all_products`) stays in place; the frontend filters it out by handle.
 - Verifying your work via additional `query` calls beyond the Step 5 verification already performed.
 
-Phase 2+ (frontend wiring) is covered in the scope-specific references (`SHARED_WIRING.md`, `PRODUCT_PAGES.md`, `CATEGORY_PAGES.md`, `CART_CHECKOUT.md`, `HOME_AND_NAV.md`) — do not read them during `seed-seed`.
+Phase 2+ (frontend wiring) is covered in the astro scope references (`../astro/stores/SHARED_WIRING.md`, `../astro/stores/PRODUCT_PAGES.md`, `../astro/stores/CATEGORY_PAGES.md`, `../astro/ecom/CART_PAGES.md`, `../astro/stores/HOME_AND_NAV.md`) — do not read them during `seed-seed`.

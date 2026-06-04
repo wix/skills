@@ -13,7 +13,7 @@ Use this reference when a Wix Headless run touches production release, SEO-contr
 - `temporary system error`
 - `try again shortly`
 
-The bundled `scripts/release.sh` retries these known transient release failures. Do not retry build failures; TypeScript, Astro, missing import, and missing module failures are code issues that must be fixed before another release attempt.
+The conductor's release step (the shared release tail, `BUILD.md` § "Shared release tail" — `BUILD-astro.md` § "Build & Release" for astro, `BUILD-own-build.md` § "Release" for no-build frameworks) retries these known transient release failures serially — up to 3× with `attempt * 5`s backoff. Do not retry build failures; TypeScript, Astro, missing import, and missing module failures are code issues that must be fixed before another release attempt.
 
 For batch releases across many projects, prefer releasing failed sites one by one after the current deployment state settles. Parallel release is useful for throughput, but retry serially when Wix reports state-machine errors.
 

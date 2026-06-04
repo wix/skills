@@ -9,8 +9,8 @@ references:
 ---
 # Guardrail: Shipping Health
 
-> **Related skills** (read with `ReadFullDocsArticle` if needed):
-> - [Troubleshoot: Checkout Delivery Drop-off](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/troubleshoot-checkout-delivery-drop-off)
+> **Related skills**:
+> - [Troubleshoot: Checkout Delivery Drop-off](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/troubleshoot-checkout-delivery-dropoff)
 
 ## When to use
 

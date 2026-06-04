@@ -5,24 +5,54 @@ description: "Implements Wix Stores vertical — product catalog, categories, ad
 
 # Stores Implementer
 
-Extends `references/shared/IMPLEMENTER.md`. Read that file first for phase routing, REST auth + doc lookups, site.json read pattern, return contract, style conventions, and common failure modes.
+Extends `references/shared/IMPLEMENTER.md`. Read that file first for phase routing, REST auth + doc lookups, prompt-inlined inputs (no site.json reads), return contract, style conventions, and common failure modes.
 
 ## Scope routing
 
 | Scope | Phase | Reference |
 |-------|-------|-----------|
 | `seed` | Seed (REST catalog setup — products only; categories are merchant-driven, not seeded) | `./PRODUCT_CATALOG_DATA.md` |
-| `components` | Components (React islands + SeoTags + back-in-stock util — TSX/Astro only, **no CSS**) | `./SHARED_WIRING.md` |
-| ~~`components-css`~~ | **Deprecated.** `src/styles/components-stores.css` is now copied from `<SKILL_ROOT>/templates/stores/components-stores.css` by the orchestrator's pre-Step-4.5 batch (see ORCHESTRATION.md § Step 4.5). The template uses direct `var(--token)` CSS, so it works against any designer-published vocabulary without needing per-run rewrites. `COMPONENTS_CSS.md` is retained as historical reference only — do NOT dispatch a `components-css` subagent. | — |
-| `pages-categories` | Pages (`/category/[slug]` listing + shared CategoryRail + `utils/categories.ts`) | `./CATEGORY_PAGES.md` |
-| `pages-products` | Pages (products listing + detail + ProductCard; mounts the rail written by `pages-categories`) | `./PRODUCT_PAGES.md` |
-| `pages-home-and-nav` | Pages (home-page contribution + Shop submenu in Navigation) | `./HOME_AND_NAV.md` |
+| `components` | Components (React islands + SeoTags + back-in-stock util — TSX/Astro only, **no CSS**) | `../astro/stores/SHARED_WIRING.md` |
+| ~~`components-css`~~ | **Do not dispatch.** `src/styles/components-stores.css` is copied from `<SKILL_ROOT>/references/astro/templates/stores/components-stores.css` by the orchestrator's pre-Step-4.5 batch (see BUILD-astro.md § Step 4.5). The template uses direct `var(--token)` CSS, so it works against any designer-published vocabulary without per-run rewrites. `COMPONENTS_CSS.md` documents that CSS for reference — there is no `components-css` subagent to dispatch. | — |
+| `pages-categories` | Pages (`/category/[slug]` listing + shared CategoryRail + `utils/categories.ts`) | `../astro/stores/CATEGORY_PAGES.md` |
+| `pages-products` | Pages (products listing + detail + ProductCard; mounts the rail written by `pages-categories`) | `../astro/stores/PRODUCT_PAGES.md` |
+| `pages-home-and-nav` | Pages (home-page contribution + Shop submenu in Navigation) | `../astro/stores/HOME_AND_NAV.md` |
 
-> **Why `components` is split.** A single agent writing five .tsx/.astro files plus the scoped CSS dominated Phase 3 wall time (228 s on a 3-product run, 320 s on an 8-product run). The CSS file has no runtime coupling to the TSX components — it's referenced only by class name at build time — so it splits cleanly into a sibling agent that runs in the same dispatch batch. Each scope gets a smaller reading set and a smaller write list. See `./COMPONENTS_CSS.md` § "What this scope owns".
+> **Why `components` is split.** A single agent writing five .tsx/.astro files plus the scoped CSS dominated Phase 3 wall time (228 s on a 3-product run, 320 s on an 8-product run). The CSS file has no runtime coupling to the TSX components — it's referenced only by class name at build time — so it splits cleanly into a sibling agent that runs in the same dispatch batch. Each scope gets a smaller reading set and a smaller write list. See `../astro/stores/COMPONENTS_CSS.md` § "What this scope owns".
 
 ## Files this vertical creates / contributes
 
 See `<SKILL_ROOT>/references/verticals/stores.md` frontmatter (`creates:` and `contributes:` blocks).
+
+## Seed return
+
+The `seed` scope emits this `data` shape in its return JSON (envelope rules in `../shared/RETURN_CONTRACT.md`). Phase 4 page agents consume `data.products[*].slug` and `data.products[*].variantId` to wire live SDK queries.
+
+```json
+{
+  "status": "complete",
+  "phase": "stores-seed",
+  "scope": "seed",
+  "summary": "Deleted 12 default products; created 3 on-brand products with variants",
+  "data": {
+    "products": [
+      {
+        "id": "2d1bce83-...",
+        "name": "Tero Dining Table",
+        "slug": "tero-dining-table",
+        "variantId": "ffc1caa2-...",
+        "price": 2890,
+        "inventory": 12,
+        "sku": "TAB-TERO-OAK"
+      }
+    ],
+    "deletedCount": 12,
+    "createdCount": 3
+  },
+  "files": [],
+  "errors": []
+}
+```
 
 ## Pre-return file-existence assertion (all page scopes)
 
@@ -32,38 +62,38 @@ If a declared file is missing, return `status: "partial"` with `errors: [{ code:
 
 ## Templates
 
-Canonical templates live at `<SKILL_ROOT>/templates/stores/`. Your `components` and `pages-*` scopes read these and adapt them — don't invent markup or logic.
+Canonical templates live at `<SKILL_ROOT>/references/astro/templates/stores/`. Your `components` and `pages-*` scopes read these and adapt them — don't invent markup or logic.
 
 Components (`components` scope — TSX/Astro only):
-- `<SKILL_ROOT>/templates/stores/AddToCartButton.tsx`
-- `<SKILL_ROOT>/templates/stores/ProductPurchase.tsx`
-- `<SKILL_ROOT>/templates/stores/BackInStockForm.tsx`
-- `<SKILL_ROOT>/templates/stores/SeoTags.astro`
+- `<SKILL_ROOT>/references/astro/templates/stores/AddToCartButton.tsx`
+- `<SKILL_ROOT>/references/astro/templates/stores/ProductPurchase.tsx`
+- `<SKILL_ROOT>/references/astro/templates/stores/BackInStockForm.tsx`
+- `<SKILL_ROOT>/references/astro/templates/stores/SeoTags.astro`
 
 Components CSS (`components-css` scope — scoped CSS only):
-- `<SKILL_ROOT>/templates/stores/components-stores.css`
+- `<SKILL_ROOT>/references/astro/templates/stores/components-stores.css`
 
 Pages (`pages-products` scope):
-- `<SKILL_ROOT>/templates/stores/ProductCard.astro`
-- `<SKILL_ROOT>/templates/stores/products/index.astro`
-- `<SKILL_ROOT>/templates/stores/products/[slug].astro`
+- `<SKILL_ROOT>/references/astro/templates/stores/ProductCard.astro`
+- `<SKILL_ROOT>/references/astro/templates/stores/products/index.astro`
+- `<SKILL_ROOT>/references/astro/templates/stores/products/[slug].astro`
 
 Pages (`pages-categories` scope):
-- `<SKILL_ROOT>/templates/stores/CategoryRail.astro`
-- `<SKILL_ROOT>/templates/stores/category/[slug].astro`
+- `<SKILL_ROOT>/references/astro/templates/stores/CategoryRail.astro`
+- `<SKILL_ROOT>/references/astro/templates/stores/category/[slug].astro`
 
 ### Pre-copied by the orchestrator (do NOT write these yourself)
 
 The following utility files are deterministically copied by the orchestrator BEFORE your phase dispatches (`components` for the first, `pages` for the second). They are mechanical SDK wrappers with no brand-specific content; reading or rewriting them as part of your scope wastes tokens and risks drift. Just import the helpers at the listed paths:
 
-- `src/utils/back-in-stock.ts` — pre-copied from `<SKILL_ROOT>/templates/stores/back-in-stock.ts` before `components` dispatches.
-- `src/utils/categories.ts` — pre-copied from `<SKILL_ROOT>/templates/stores/categories.ts` before `pages` dispatches.
+- `src/utils/back-in-stock.ts` — pre-copied from `<SKILL_ROOT>/references/astro/templates/stores/back-in-stock.ts` before `components` dispatches.
+- `src/utils/categories.ts` — pre-copied from `<SKILL_ROOT>/references/astro/templates/stores/categories.ts` before `pages` dispatches.
 
 If you find one of these missing at runtime, that's an orchestrator-side bug — return `status: "partial"` with `errors: [{code: "UTILITY_TEMPLATE_NOT_PRECOPIED", path: "<missing>"}]` and continue. Do NOT write your own version; the post-phase manifest check will recover by template-copy and the right helper lands on disk.
 
 ## CSS ownership — stores pack
 
-Stores-specific component CSS lives in `src/styles/components-stores.css` (written by the `components-css` scope — see `./COMPONENTS_CSS.md`), NOT in the designer's `global.css`. The classes the pack owns:
+Stores-specific component CSS lives in `src/styles/components-stores.css` (written by the `components-css` scope — see `../astro/stores/COMPONENTS_CSS.md`), NOT in the designer's `global.css`. The classes the pack owns:
 
 - `.product-card`, `.product-card-media`, `.product-card-ribbon`, `.product-card-index` — the product card itself, including the `overflow: hidden` + `border-radius` clipping context. Whoever writes the `border-radius` here also writes any inner padding required to keep child content inside the rounded edges. Without inner padding, a price `<p>` sits flush against the rounded bottom corner and descenders get clipped. Add `padding-bottom: var(--spacing-md)` on the card plus horizontal padding on each text block when you set the radius. See `references/shared/STYLING.md` § "Component-specific CSS is owned by the component, not the designer".
 - `.product-grid` — the layout that lists product cards. Both `/products` (pages-products scope) and `/category/[slug]` (pages-categories scope) consume it from one place. Include `display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--spacing-xl);` plus the View-Transitions opacity fade for in-flight navigations.
@@ -75,8 +105,8 @@ The designer's `global.css` declares only tokens, the `.btn` family, decorative 
 
 Back-in-stock is a dashboard-toggleable feature: it ships in every stores build but only lights up when the merchant clicks "Start Collecting Requests" in the Back in Stock dashboard. The implementation is split across the two scopes the same way every other stores feature is:
 
-- **`components` scope** writes the SSR probe (`src/utils/back-in-stock.ts`) and the React form island (`src/components/BackInStockForm.tsx`). See `./BACK_IN_STOCK.md` for the full rules — especially the two app ids (use `1380b703-…` for back-in-stock, NOT the Stores install id `215238eb-…`) and the bare-fields rule (no `itemUrl`, no `image` on the SDK call).
-- **`components-css` scope** appends the back-in-stock form rules to `src/styles/components-stores.css` as part of writing that file. See `./BACK_IN_STOCK.md` § 3 for the CSS append.
+- **`components` scope** writes the SSR probe (`src/utils/back-in-stock.ts`) and the React form island (`src/components/BackInStockForm.tsx`). See `../astro/stores/BACK_IN_STOCK.md` for the full rules — especially the two app ids (use `1380b703-…` for back-in-stock, NOT the Stores install id `215238eb-…`) and the bare-fields rule (no `itemUrl`, no `image` on the SDK call).
+- **`components-css` scope** appends the back-in-stock form rules to `src/styles/components-stores.css` as part of writing that file. See `../astro/stores/BACK_IN_STOCK.md` § 3 for the CSS append.
 - **`pages-products` scope** imports `getBackInStockEnabled` in `[slug].astro`, awaits the probe, and passes `backInStockEnabled` + `priceAmount` to `<ProductPurchase>`. ProductPurchase renders the form in its three OOS branches when the prop is true.
 
 If the merchant hasn't enabled "Start Collecting Requests", the probe returns `false`, the prop stays `false`, and the form never mounts — no rebuild needed when the merchant flips the toggle in the dashboard.
