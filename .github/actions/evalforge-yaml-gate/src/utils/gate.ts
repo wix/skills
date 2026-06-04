@@ -7,11 +7,10 @@ import { loadEvals, type LoadedScenario } from './evals';
 import { canonicalDocUrl } from './doc-url';
 import { computeCoverage } from './coverage';
 import { diffSyncPlan } from './sync';
-import { EvalForgeClient, draftTagFor, type RemoteScenario } from './evalforge';
+import { EvalForgeClient, draftTagFor } from './evalforge';
 import { workspaceRoot } from './workspace';
 import { BASE_WORKSPACE_SUBDIR } from './paths';
 import { pollUntilDone, EvalRunTimeoutError } from './eval-run';
-import { errMsg } from './errors';
 import {
   formatEvalFailed, formatEvalPassed, formatEvalTimeout, formatForeignDraftConflicts,
   formatLoadErrors, formatNoChanges, formatOrphanedMds, formatServiceError, formatUncovered,
@@ -77,12 +76,8 @@ export async function runGate(): Promise<void> {
   }
 
   const evalforge = new EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
-  const relevantNames = new Set<string>();
-  for (const n of changedHeadScenarios.keys()) relevantNames.add(n);
-  for (const n of baseScenarios.keys()) relevantNames.add(n);
-  for (const names of cov.coveredBy.values()) for (const n of names) relevantNames.add(n);
   const remote = await guardedCall(
-    () => fetchRelevantRemote(evalforge, config.projectId, draftTag, relevantNames),
+    () => evalforge.listTestScenarios(config.projectId),
     'Could not reach EvalForge', comment, config,
   );
   if (!remote) return;
@@ -112,7 +107,7 @@ export async function runGate(): Promise<void> {
         core.info(`Deferring DELETE of "${a.name}" — will be handled at PR merge`);
       }
     } catch (e) {
-      core.error(`Sync action ${a.kind} for ${a.name} failed: ${errMsg(e)}`);
+      core.error(`Sync action ${a.kind} for ${a.name} failed: ${e instanceof Error ? e.message : String(e)}`);
       await comment(formatServiceError(`Sync failed for "${a.name}"`, config.blocking));
       fail(`Sync failed for ${a.name}`, config.blocking);
       return;
@@ -148,7 +143,7 @@ export async function runGate(): Promise<void> {
   if (!mcpVersion) return;
 
   const run = await guardedCall(
-    () => evalforge.runEvaluation(config.projectId, {
+    () => evalforge.createEvalRun(config.projectId, {
       name: `PR #${config.prNumber} YAML-gate`,
       description: `Gate for PR #${config.prNumber} (${selected.size} scenarios)`,
       projectId: config.projectId,
@@ -158,9 +153,15 @@ export async function runGate(): Promise<void> {
       capabilityIds: [config.mcpId],
       capabilityVersions: { [config.mcpId]: mcpVersion.id },
     }),
-    'Could not start eval run', comment, config,
+    'Could not create eval run', comment, config,
   );
   if (!run) return;
+
+  const triggered = await guardedCall(
+    () => evalforge.triggerEvalRun(config.projectId, run.id),
+    'Could not trigger eval run', comment, config,
+  );
+  if (!triggered) return;
 
   let finalStatus;
   try {
@@ -171,7 +172,7 @@ export async function runGate(): Promise<void> {
       fail(`Eval timed out (run ID: ${run.id})`, config.blocking);
       return;
     }
-    core.error(`Eval polling failed: ${errMsg(e)}`);
+    core.error(`Eval polling failed: ${e instanceof Error ? e.message : String(e)}`);
     await comment(formatServiceError('Eval polling failed', config.blocking));
     fail('Eval polling failed', config.blocking);
     return;
@@ -195,33 +196,10 @@ async function guardedCall<T>(
 ): Promise<T | undefined> {
   try { return await fn(); }
   catch (e) {
-    core.error(`${userMessage}: ${errMsg(e)}`);
+    core.error(`${userMessage}: ${e instanceof Error ? e.message : String(e)}`);
     await comment(formatServiceError(userMessage, config.blocking));
     fail(userMessage, config.blocking);
     return undefined;
   }
-}
-
-// Returns our drafts (so the planner sees prior-push state) plus scenarios matching `relevantNames`.
-async function fetchRelevantRemote(
-  client: EvalForgeClient,
-  projectId: string,
-  draftTag: string,
-  relevantNames: Set<string>,
-): Promise<RemoteScenario[]> {
-  const byName = new Map<string, RemoteScenario>();
-  for (const r of await client.listScenariosByTag(projectId, draftTag)) {
-    byName.set(r.name, r);
-  }
-
-  const namesToQuery = [...relevantNames].filter(n => !byName.has(n));
-  const found = await Promise.all(
-    namesToQuery.map(n => client.findScenarioByExactName(projectId, n)),
-  );
-  for (const r of found) {
-    if (r) byName.set(r.name, r);
-  }
-
-  return [...byName.values()];
 }
 
