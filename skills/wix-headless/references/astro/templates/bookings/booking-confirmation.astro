@@ -60,7 +60,7 @@ const formattedDate = startDate
     </div>
     <hr class="editorial-rule w-16 mx-auto mb-lg" />
     <h1 class="font-display text-4xl md:text-5xl leading-tight mb-md">
-      {isPending ? "Booking received" : "You're booked"}
+      {isPending ? "Booking received" : "Thank you for booking"}
     </h1>
 
     {
@@ -84,13 +84,12 @@ const formattedDate = startDate
       )
     }
 
-    {/* Status badge + inline cancel (same anonymous-token flow as /manage-booking). */}
+    {/* Inline cancel (same anonymous-token flow as /manage-booking). The headline
+        + message above already convey the real status (confirmed vs pending), so
+        no cold "Status:" badge — just the warm message + the ability to cancel. */}
     {
       token && bookingId && (
         <div class="mb-xl flex flex-col items-center gap-md">
-          <span class="text-xs uppercase tracking-wide text-mute">
-            Status: {isPending ? "Pending approval" : status === "CONFIRMED" ? "Confirmed" : (status ?? "Confirmed")}
-          </span>
           <ManageBooking
             token={token}
             revision={revision}
