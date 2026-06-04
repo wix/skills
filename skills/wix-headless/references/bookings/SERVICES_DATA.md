@@ -223,6 +223,8 @@ curl -sS -X POST \
 
 Verify by fetching slots the way the front-end does (`eventTimeSlots.listEventTimeSlots({ serviceIds: [id], … })`) or `POST /calendar/v3/events/query` filtered by `scheduleId`. Record each session's event id in your return under `seeded.bookings.services[].sessionEventIds` if you want Phase 4 to deep-link.
 
+> **Waitlist (optional).** The front-end waitlist (Phase 4) only works if the service's booking policy has a waitlist enabled — off by default. To enable it, PATCH the default booking policy: get it from `POST /bookings/v1/booking-policies/query` (`{}`), then `PATCH /bookings/v1/booking-policies/<id>` with `{ "bookingPolicy": { "id": "<id>", "revision": "<rev>", "waitlistPolicy": { "enabled": true, "capacity": 10, "reservationTimeInMinutes": 10 } }, "fieldMask": { "paths": ["waitlistPolicy"] } }`. Skip if the build doesn't surface a waitlist.
+
 ---
 
 ## Step 5 — Return contract

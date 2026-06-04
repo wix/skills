@@ -259,10 +259,42 @@ const bookingPayload = {
 const result = await wixClient.bookings.createBooking(bookingPayload);
 ```
 
-3. On success: call `onSuccess(result.booking?._id ?? '', props.slot.localStartDate)`. Pass `localStartDate` as the second arg so `ServiceBookingFlow` can include it in the confirmation URL. The booking ID field is `_id` (underscore prefix), not `id`.
-4. On error (409 — slot taken): display `<p className="booking-error">This time slot was just taken. Please select another.</p>` and call `onCancel()` to return to the calendar. Do NOT redirect.
-5. Show a loading state ("Confirming…") while the request is in flight.
-6. Wrap `createBooking` in try/catch — do not let it crash the island.
+3. **Confirm the booking — this is mandatory, not optional.** `createBooking` returns a booking in **`CREATED`** status, which **does not hold a seat or block availability** (only `CONFIRMED` does — [lifecycle docs](https://dev.wix.com/docs/api-reference/business-solutions/bookings/bookings/introduction)). If you stop at `createBooking`, the class **overbooks** and `remainingCapacity` never drops. Confirm via a server endpoint (next section) — `confirmBooking` needs Manage Bookings, so it can't run from this visitor client.
+4. On success (confirm returns ok): call `onSuccess(result.booking?._id ?? '', props.slot.localStartDate)`. The booking ID field is `_id` (underscore prefix), not `id`.
+5. On `SESSION_CAPACITY_EXCEEDED` (full session): route to the **waitlist** (see "Capacity, instructor & waitlist" below).
+6. On other errors: `<p className="booking-error">This time slot was just taken. Please select another.</p>` + `onCancel()`. Loading state "Confirming…" while in flight. Always wrap in try/catch.
+
+---
+
+## Booking lifecycle, capacity, instructor & waitlist (verified live)
+
+These four behaviors were all verified against a live Bookings site — they're easy to get wrong and pass `astro build` while breaking at runtime.
+
+### Confirm step (overbooking guard) — server endpoint `src/pages/api/confirm-booking.ts`
+`createBooking` → `CREATED` (holds nothing). Confirm it server-side to occupy the seat:
+```typescript
+// POST { bookingId, revision } — elevated (Manage Bookings).
+import { auth } from "@wix/essentials";
+import { bookings } from "@wix/bookings";
+const res = await auth.elevate(bookings.confirmBooking)(bookingId, String(revision), {
+  paymentStatus: "NOT_PAID",                              // pay-on-site class
+  flowControlSettings: { checkAvailabilityValidation: true }, // 409s if it just filled — the real overbooking guard
+});
+```
+`confirmBooking` is a real SDK method, so `auth.elevate(bookings.confirmBooking)` elevates correctly. The island POSTs `{ bookingId, revision }` here right after `createBooking`, and only redirects to the confirmation page when this returns ok.
+
+### Capacity (multi-participant)
+The list slot carries `totalCapacity` / `remainingCapacity` / **`bookableCapacity`** (use `bookableCapacity` — it accounts for waitlist holds). Show "N spots left"; render a "Number of spots" selector capped at `bookableCapacity` and pass it as `booking.totalParticipants` (the verified field; not `numberOfParticipants`). A slot with `bookableCapacity <= 0` is full → waitlist.
+
+### Instructor (per CLASS session)
+`listEventTimeSlots` does **not** return resources. Resolve the instructor for a chosen slot via `eventTimeSlots.getEventTimeSlot(eventId)` → `timeSlot.availableResources[].resources[].name` (take the first). Display it on the form ("with Jordan Rivera").
+
+### Waitlist (native, v1 — there is no v2/v3 waitlist)
+A full session's `createBooking` throws `SESSION_CAPACITY_EXCEEDED`, whose message contains the **v1 session id** (*"…on session `<id>`"*). Extract it and POST to a server endpoint that registers on the native waitlist (`POST /bookings/v1/waitlist/register`, needs `contactId` + Manage Bookings → elevated). See the SSR-endpoints section in `SERVICES_PAGES.md`. Front-end extraction:
+```typescript
+const full = `${err?.message ?? ""} ${JSON.stringify(err?.details ?? {})} ${String(err)}`;
+const sessionId = full.match(/on session ([^\s"}]+)/)?.[1]; // → waitingResource
+```
 
 ---
 

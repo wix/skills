@@ -367,6 +367,64 @@ const formattedDate = startDateParam
 
 ---
 
+## Server endpoints + manage-booking page (verified live)
+
+Some bookings operations require **Manage Bookings** scope and so **cannot** run from the browser `OAuthStrategy` client — they must be Astro **API routes** (`output: "server"`) that elevate to app identity. Elevation rule (important): `auth.elevate()` only grants permissions for a real **SDK function**; for raw REST with no SDK wrapper, elevate the authenticated fetch itself.
+
+### `src/pages/api/confirm-booking.ts` — hold the seat (always, for create flows)
+`createBooking` returns `CREATED`, which holds nothing. Confirm to occupy the seat + validate availability:
+```typescript
+import { auth } from "@wix/essentials";
+import { bookings } from "@wix/bookings";
+// POST { bookingId, revision }
+await auth.elevate(bookings.confirmBooking)(bookingId, String(revision), {
+  paymentStatus: "NOT_PAID",
+  flowControlSettings: { checkAvailabilityValidation: true },
+});
+```
+
+### `src/pages/api/waitlist.ts` — native waitlist (v1; no v2/v3 exists)
+Register on the native waitlist when a session is full. Resolve a `contactId` (Contacts API, by email → create if missing), then `POST /bookings/v1/waitlist/register`. All via the **elevated authenticated fetch** (raw REST, so elevate `fetchWithAuth`, not a closure):
+```typescript
+import { auth, httpClient } from "@wix/essentials";
+const ef = auth.elevate(httpClient.fetchWithAuth as typeof fetch) as typeof fetch;
+const api = (url: string, body: unknown) =>
+  ef(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+
+// 1. contactId — query then create
+let contactId = (await (await api("https://www.wixapis.com/contacts/v4/contacts/query",
+  { query: { filter: { "info.emails.email": email } } })).json()).contacts?.[0]?.id;
+if (!contactId) contactId = (await (await api("https://www.wixapis.com/contacts/v4/contacts",
+  { info: { name: { first }, emails: { items: [{ email, primary: true }] } } })).json()).contact?.id;
+
+// 2. register — waitingResource is the v1 session id from the SESSION_CAPACITY_EXCEEDED message
+await api("https://www.wixapis.com/bookings/v1/waitlist/register", {
+  waitingResource: sessionId,
+  formInfo: {
+    paymentSelection: [{ rateLabel: "general", numberOfParticipants: totalParticipants }],
+    contactDetails: { contactId, firstName: first, email },
+  },
+});
+```
+
+### `src/pages/manage-booking.astro` + `ManageBooking.tsx` — view/cancel (anonymous-token flow)
+A plain visitor token can't list/cancel bookings (`queryExtendedBookings`/`cancelBooking` are APP/MEMBER only). The supported visitor path is the **anonymous action token**: the page (SSR) elevates to **mint** a per-booking token, then the no-auth anonymous methods act on it (the token can safely go to the browser):
+```typescript
+// manage-booking.astro frontmatter — bookingId from ?bookingId=
+const { token } = await auth.elevate(bookings.getAnonymousActionToken)(bookingId);   // APP identity → elevate
+const { booking, allowedAnonymousActions } = await bookings.bookingsGetBookingAnonymously(token); // no auth
+// Pass token + booking.revision + allowedAnonymousActions.cancel to a <ManageBooking client:only> island.
+```
+In the island (no-auth, visitor client OK):
+```typescript
+await wixClient.bookings.bookingsCancelBookingAnonymously(token, revision); // cancel
+```
+Reschedule-in-place uses `bookingsRescheduleBookingAnonymously(token, slot, { revision })`, but the CLASS `V2Slot` shape isn't fully pinned — prefer **cancel-and-rebook** (link to the service) unless you've verified the class slot shape live.
+
+Link to it from the confirmation page: `/manage-booking?bookingId=<id>&service=<name>`.
+
+---
+
 ## Navigation contribution
 
 After writing your three route files, patch `src/layouts/Navigation.astro` to add the Services nav link. Insert at the `<!-- nav:links -->` marker:
