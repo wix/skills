@@ -36,11 +36,15 @@ If your prompt is missing a `Scope:` line, stop and ask the parent — do not gu
    - **400** `unsupportedDimensions` → see § "Error Handling"
    - **400** `invalidTaskUUID` → `taskUUID` must be valid UUIDv4 → see § "Quick Reference"
 
-## Quick Reference: Generation Call Shape
+## Preferred: generate + import via `generate-images.mjs`
 
-Before the first REST call, ensure the `curl` tool schema is loaded (the orchestrator's session auth covers this for the whole session per `<SKILL_ROOT>/references/commands/AUTHENTICATION.md` — only re-load if you hit a tool-not-found error). Use your runtime's AUTHENTICATION.md recovery ladder to look up the suffix.
+**Run the phase's generation + Wix Media import through `<SKILL_ROOT>/scripts/generate-images.mjs`** (see `../shared/IMAGE_GENERATION.md` § "Preferred: run the whole phase through `generate-images.mjs`"). Build the image list — one entry per slot (Phase 1) or per entity (Phase 2), each with `{key, positivePrompt, width, height}` — and pipe it in with the run's cached `WIX_TOKEN`. The script fires all generations concurrently in-process and returns a `key → {url, fileId}` map plus a `slots` (key→url) convenience map. This is the deterministic form of the "one concurrent batch" rule — it cannot serialize and cannot hit the `google:4@2` N≥3 504. Then attach: Phase 1 → `write-decorative-json.mjs`; Phase 2 → the per-entity PATCH/PUT/publish recipe in this file. **You still own prompt construction** (brand-contextual, per the guidelines) and **entity attachment**; the script owns the parallel network round-trips only.
 
-**All generation tool calls for an image phase MUST be in one concurrent batch.** The exact shape depends on the model — see `../shared/IMAGE_GENERATION.md` § "Required: minimize round-trips" for the rule. In short:
+## Quick Reference: Generation Call Shape (manual fallback)
+
+The shapes below are the **reference bodies** the script builds, and the **fallback** if you hand-drive generation. Before the first REST call, ensure the `curl` tool schema is loaded (the orchestrator's session auth covers this for the whole session per `<SKILL_ROOT>/references/commands/AUTHENTICATION.md` — only re-load if you hit a tool-not-found error). Use your runtime's AUTHENTICATION.md recovery ladder to look up the suffix.
+
+**If you do hand-drive it, all generation tool calls for an image phase MUST be in one concurrent batch.** The exact shape depends on the model — see `../shared/IMAGE_GENERATION.md` § "Required (manual fallback): minimize round-trips" for the rule. In short:
 
 - **`google:4@2` (the default):** N concurrent 1-task `curl` calls as siblings in one batch. (Batched N≥3 times out at 504 on this model.)
 - **`bfl:5@1`, `runware:400@1`:** one batched `curl` call with N tasks in the body array.
@@ -108,7 +112,7 @@ Generate site-wide decorative images that don't depend on any entity. Used by th
 **Process (must follow this order):**
 
 1. **Craft all image prompts up front** using brand context — see `IMAGE_GENERATION.md` § "Prompt guidelines".
-2. **Dispatch all generation tool calls in one concurrent batch** — siblings for `google:4@2` (1 task each, N blocks in parallel), or one batched call for other models (N tasks in `body`). Required, not optional — see `IMAGE_GENERATION.md` § "Required: minimize round-trips per image phase". Sequential 1-task calls across multiple turns is an anti-pattern; never do it.
+2. **Generate + import via `generate-images.mjs`** (preferred — § "Preferred: generate + import" above): build the `images` list (`key` = slot name, e.g. `hero`/`about`) and run the script with the cached `WIX_TOKEN`; it fires all generations concurrently and returns the `slots` map. **Manual fallback only:** dispatch all generation tool calls in one concurrent batch — siblings for `google:4@2` (1 task each, N blocks in parallel), or one batched call for other models (N tasks in `body`) — see `IMAGE_GENERATION.md` § "Required (manual fallback): minimize round-trips". Sequential 1-task calls across multiple turns is an anti-pattern; never do it.
 3. **Import each to Wix Media** via `REST: POST https://www.wixapis.com/site-media/v1/files/import`.
 4. **Collect the resolved URLs keyed by slot purpose** (e.g., `{"hero": "https://static.wixstatic.com/...", "about": "https://static.wixstatic.com/..."}`). This map goes into your return JSON under `data.slots` — see § Return below. Do NOT write `.wix/image-urls.md` or any other file; the orchestrator pipes your `data.slots` directly into `patch-decorative-slots.mjs` via stdin.
 5. Return the structured JSON block per `../shared/RETURN_CONTRACT.md` (see § Return below). The JSON return is your sole output channel.
@@ -131,12 +135,12 @@ Generate images for products, blog posts, and CMS items. Attach via REST PATCH c
 **Process per entity type (must follow):**
 
 1. **Craft all image prompts** for this entity type up front, using each entity's own context (name, description, title, etc.).
-2. **Dispatch all generation tool calls in one concurrent batch** — same dispatch shape as Phase 1 Decorative:
+2. **Generate + import via `generate-images.mjs`** (preferred — § "Preferred: generate + import" above): build the `images` list with `key` = each entity's ID, run the script with the cached `WIX_TOKEN`, and read the returned `map[entityId].url` / `.fileId` for the attach step. The script generates all entity images concurrently and isolates per-image failures (`status: "partial"`) — including the `google:4@2` 504 retry below, handled in-script. **Manual fallback only** — same dispatch shape as Phase 1 Decorative:
    - For `google:4@2` (default): N parallel sibling `curl` tool calls, one task each.
    - For `bfl:5@1` / `runware:400@1` / others: ONE batched call with all N tasks in `body`.
-   See `IMAGE_GENERATION.md` § "Required: minimize round-trips per image phase". Sequential 1-task calls across multiple turns is an anti-pattern.
+   See `IMAGE_GENERATION.md` § "Required (manual fallback): minimize round-trips". Sequential 1-task calls across multiple turns is an anti-pattern.
 
-   **`google:4@2` 504 retry.** Even with N concurrent siblings, individual tasks intermittently 504. When the response array contains an entry with `errorMessage: "Request timed out"` or HTTP 504, retry **only the failing task(s)** in a follow-up batch — do NOT re-dispatch the whole batch. Cap at 1 retry per task; if it 504s twice, fall back to `bfl:5@1` for that task or skip it (entity gets no image; user can upload from dashboard).
+   **`google:4@2` 504 retry** (manual fallback; the script does this for you). Even with N concurrent siblings, individual tasks intermittently 504. When the response array contains an entry with `errorMessage: "Request timed out"` or HTTP 504, retry **only the failing task(s)** in a follow-up batch — do NOT re-dispatch the whole batch. Cap at 1 retry per task; if it 504s twice, fall back to `bfl:5@1` for that task or skip it (entity gets no image; user can upload from dashboard).
 
    **N≥6 entities — stagger.** When you have 6 or more entities of one type, split into pairs of 3 parallel siblings rather than 6+ in one shot. Runware throttles google:4@2 above ~4 concurrent tasks per request burst, and the timeout ladder gets steeper. Two messages with 3 siblings each is reliably faster than one message with 6 + multiple retries. (Heuristic — refine after more runs collect data.)
 3. **Import each to Wix Media**. Imports can parallelize.
@@ -336,7 +340,7 @@ The JSON block MUST be the **last** content in your message (see `../shared/RETU
 
 | WRONG | CORRECT |
 |-------|---------|
-| N sequential 1-task `curl` generation calls across multiple turns | All generation tool calls in one concurrent batch — parallel siblings for `google:4@2`, or one batched call for other models. See IMAGE_GENERATION.md § "Required: minimize round-trips per image phase" |
+| N sequential 1-task `curl` generation calls across multiple turns | Run `generate-images.mjs` (it parallelizes in-process); or, hand-driving, all generation tool calls in one concurrent batch — parallel siblings for `google:4@2`, or one batched call for other models. See IMAGE_GENERATION.md § "Required (manual fallback): minimize round-trips" |
 | Poll `.wix/logs/<feature>-data.md` sidecars to learn Phase 1 Seed is done | Phase 1 Seed data is inline in your prompt — if missing, return `failed` |
 | `sleep 60` loop to wait for Phase 1 Seed | No waiting, no polling — prompt has the data or the agent fails |
 | Write `.wix/logs/images.md` or `.wix/image-urls.md` sidecar | Return structured JSON per `RETURN_CONTRACT.md` instead (decorative URLs go in `data.slots`) |

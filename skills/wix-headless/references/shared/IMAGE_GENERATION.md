@@ -58,7 +58,26 @@ If a 400 response lists supported dimensions, use one from that list — do not 
 
 Do NOT send `steps` or `CFGScale` — both are rejected with `unsupportedParameter` and cause a 400. These fields are valid for other Runware models but must be omitted for `google:4@2`.
 
-## Required: minimize round-trips per image phase
+## Preferred: run the whole phase through `generate-images.mjs`
+
+Generation + Wix Media import is **embarrassingly parallel** (N independent `generate → import` chains, no cross-image dependency) and **recipe-free** (no entity write-shapes), so it is best run by a deterministic script rather than by hand. `<SKILL_ROOT>/scripts/generate-images.mjs` does exactly this: it fires every image as a **concurrent single-task request in one process** (`Promise.all`), then imports each result to Wix Media — all in parallel — and returns a `key → {url, fileId}` map. Because each task is its **own** request (not N tasks in one body), it sidesteps the `google:4@2` N≥3-in-one-request 504 entirely, and because the parallelism lives in code it cannot degrade into the sequential-turns anti-pattern below.
+
+```bash
+echo '{
+  "siteId": "<siteId>",
+  "model": "google:4@2",
+  "images": [
+    {"key": "hero",  "positivePrompt": "<prompt>", "width": 1376, "height": 768},
+    {"key": "about", "positivePrompt": "<prompt>", "width": 1200, "height": 896}
+  ]
+}' | WIX_TOKEN="$TOKEN" node <SKILL_ROOT>/scripts/generate-images.mjs
+```
+
+`key` is a **slot name** for Phase 1 (`hero`, `about`) or an **entityId** for Phase 2. The returned `slots` map (key→url) pipes straight into `write-decorative-json.mjs` (Phase 1); the `map` (key→{url,fileId}) feeds the entity PATCH/PUT/publish recipe (Phase 2). Pass the **already-minted** site token via `WIX_TOKEN` (mint-once — `AUTHENTICATION.md`); the script mints its own only as a fallback. Per-image failures are isolated (`status: "partial"`), and `x-wix-request-id` is captured per call into `results[]` for trace analysis.
+
+The manual `curl` shapes below remain the **reference for the request bodies** the script builds, and the **fallback** when the script can't be used. The "one concurrent batch" rule still applies if you ever hand-drive a phase.
+
+## Required (manual fallback): minimize round-trips per image phase
 
 The image agent's `image-phase-1-decorative` and `image-phase-2-entity` scopes each generate multiple images. **Do not emit N one-task calls in sequential turns** — sequential dispatch across many turns adds ~30–40 s of inter-message overhead. The correct shape depends on the model:
 
