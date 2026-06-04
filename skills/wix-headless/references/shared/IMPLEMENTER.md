@@ -39,8 +39,8 @@ Every input you need is inlined in your prompt. The orchestrator is the sole rea
 | Scope | What the prompt inlines |
 |---|---|
 | `seed` | `brand`, `intent.<pack>`, `siteId`, recipe path(s). Do NOT re-derive these. |
-| `components` | `brand`, the full `designTokens` JSON (same shape Designer returned). CSS variables are also on disk at `.wix/design-tokens.css` for the build. |
-| `pages` / `pages-*` | `brand`, the `designTokens` JSON, and the relevant `seeded.<vertical>` slice (products, posts, collections IDs). Page data wiring uses live SDK queries; the `seeded` data in your prompt is for path resolution + demo content authoring. |
+| `components` | `brand`, the design tokens (the DESIGN.md token vocabulary — `colors`/`typography`/`spacing`/`rounded`/`containers`). CSS variables are also on disk at `.wix/design-tokens.css` for the build. |
+| `pages` / `pages-*` | `brand`, the design tokens (DESIGN.md vocabulary), and the relevant `seeded.<vertical>` slice (products, posts, collections IDs). Page data wiring uses live SDK queries; the `seeded` data in your prompt is for path resolution + demo content authoring. |
 
 If a required input is missing from your prompt (e.g. the orchestrator forgot to inline `seeded.stores` when dispatching you as `pages-products`), fail fast — return `status: "failed"` with `errors: [{ code: "PROMPT_INCOMPLETE", missing: "seeded.stores.products" }]`. Do NOT re-fetch from `.wix/site.json` or via curl — the data gap means an upstream phase didn't complete, and re-querying would mask the real bug.
 

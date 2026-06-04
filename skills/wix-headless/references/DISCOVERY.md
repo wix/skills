@@ -39,7 +39,7 @@ Then derive `frontend` and `frontendBuild` **within** the chosen operation, and 
 |---|---|---|---|
 | `connect` — connect/implement an existing design, OR a working site on disk | `custom` | `none` (static HTML) **or** `own` (framework SPA) — resolved from disk in `DISCOVERY-connect.md` § 1.5 | Pre-flight, then **`DISCOVERY-connect.md`** |
 | `create` — create-a-new-site prompt, **no** framework keyword (the default) | `astro` | `wix` | Pre-flight, then **`DISCOVERY-create.md`** (astro branch) |
-| `create` — create-a-new-site prompt that **explicitly names a client-build framework** (*"…using vite"*) | `custom` | `own` | Pre-flight, then **`DISCOVERY-create.md`** (own branch — minimal scaffold, no astro Designer pipeline) |
+| `create` — create-a-new-site prompt that **explicitly names a client-build framework** (*"…using vite"*) | `custom` | `own` | Pre-flight, then **`DISCOVERY-create.md`** (own branch — minimal scaffold; runs vibe + Designer for brand tokens, but not astro `compose.mjs`) |
 
 > **No `AskUserQuestion` for operation/frontend detection.** They are inferred from the prompt + directory, never asked. When intent is unclear, default to `operation: connect` — connecting/implementing what the user brings is the safe interpretation; creating a brand-new site over their intent is the destructive one. **A prompt that fetches or names a design to "connect"/"implement" is `connect` regardless of whether the CWD is empty.**
 

@@ -2,7 +2,7 @@
 
 The pre-approval funnel when `operation === "create"` (the skill writes the site). Shared funnel rules — concurrency vocabulary, the two-track model, the Plan→Build contract, user-facing output, batching discipline — live in `PLAN.md`; this file is the create funnel only. Domain (the questions, the plan content) is owned by `DISCOVERY-create.md`. The funnel **dispatches nothing** in either framework branch; it differs only in plan shape and where it hands off (Build routes on `frontendBuild`):
 - **`frontendBuild: wix` (astro — default):** the full interview + decision card below.
-- **`frontendBuild: own` (framework SPA — named-framework create):** the **light** plan from `DISCOVERY-create.md` § "Framework-SPA branch" (no decision card, no Designer); on approval, `init-site-json.mjs --frontend custom`, then `BUILD.md` routes `own` → `BUILD-own-build.md` (create × own cells). The astro funnel below does not apply.
+- **`frontendBuild: own` (framework SPA — named-framework create):** the **light** plan from `DISCOVERY-create.md` § "Framework-SPA branch" (no astro decision card, but it **does** run the vibe question + the Designer — the brand tokens are framework-agnostic and the SPA imports them); on approval, `init-site-json.mjs --frontend custom`, then `BUILD.md` routes `own` → `BUILD-own-build.md` (create × own cells). The astro funnel below does not apply.
 
 **Input = the user's prompt** (astro branch), processed by the interview (`DISCOVERY-create.md` Steps 0–2.5). **Plan shape = the full decision card** (Design Direction + Features + Pages, `DISCOVERY-create.md` § "Step 3").
 

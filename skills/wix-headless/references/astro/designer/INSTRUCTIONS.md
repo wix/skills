@@ -11,7 +11,7 @@ Your prompt will contain a `Scope:` line naming exactly one of the page scopes b
 
 You own **page-level visual output**: the layout, typography, color, spacing, and component composition of one route group. The same merged scope also binds the live SDK data into that structure (the per-vertical reference under `references/astro/<vertical>/` supplies the exact queries).
 
-> **The design-system phase is not in this doc.** Tokens (`data.designTokens`), `global.css`, `astro.config.mjs`, `Layout.astro`, `Navigation.astro`, and `Footer.astro` are produced earlier in the run by a two-role split:
+> **The design-system phase is not in this doc.** Tokens (`DESIGN.md` / `data.design`), `global.css`, `astro.config.mjs`, `Layout.astro`, `Navigation.astro`, and `Footer.astro` are produced earlier in the run by a two-role split:
 > - **Designer** (`<SKILL_ROOT>/references/DESIGN_SYSTEM.md`) — returns the framework-agnostic design spec (tokens + brand-voice strings) as JSON only.
 > - **Composer** (`<SKILL_ROOT>/scripts/compose.mjs`, a deterministic script — spec in `references/astro/COMPOSE.md`) — applies that spec to the astro skeletons and writes the 6 design-system files.
 >
@@ -20,11 +20,11 @@ You own **page-level visual output**: the layout, typography, color, spacing, an
 ## Self-Loading
 
 1. Read `../../shared/RETURN_CONTRACT.md` — structured return format.
-2. Read `../../shared/STYLING.md` — three styling categories (tokens-as-utilities, global semantic classes, co-located styles). Pages compose `@theme` tokens at call sites as Tailwind utilities; the inlined `designTokens` contract in your prompt tells you which tokens this run published.
+2. Read `../../shared/STYLING.md` — three styling categories (tokens-as-utilities, global semantic classes, co-located styles). Pages compose `@theme` tokens at call sites as Tailwind utilities; the inlined design-token vocabulary (the DESIGN.md tokens) in your prompt tells you which tokens this run published.
 
 No REST calls required. Page-design scopes are frontend-only — no `curl`, no MCP tool-discovery.
 
-**Do NOT `Read .wix/site.json`.** Every input you need (brand, the published `designTokens` contract, pages to design, pack home-section snippets) is inlined in your prompt.
+**Do NOT `Read .wix/site.json`.** Every input you need (brand, the published design-token vocabulary, pages to design, pack home-section snippets) is inlined in your prompt.
 
 ## Scope Routing
 
@@ -51,7 +51,7 @@ All page scopes share common inputs and rules. Scope-specific details follow.
 ### Common inputs (from your prompt)
 
 - **Brand context** — name, vibe, aesthetic direction, colors, fonts, mood.
-- **Published token contract** — the `designTokens` JSON (same shape the Designer returned, written into `@theme` by the Composer). Compose these tokens as Tailwind utilities; if a token you need is absent, flag it in your return (`MISSING_TOKEN`) — do not invent a class.
+- **Published token contract** — the design-token vocabulary (the DESIGN.md tokens, written into `@theme` by `compose.mjs`). Compose these tokens as Tailwind utilities; if a token you need is absent, flag it in your return (`MISSING_TOKEN`) — do not invent a class.
 - **Pages to design** — list of routes and their contract class associations.
 - **Pack home-section snippet** (home scope only) — section stubs from every loaded pack.
 - **Placeholder data instruction** — use plausible brand-contextual placeholder text, prices, images where live data is not yet available.

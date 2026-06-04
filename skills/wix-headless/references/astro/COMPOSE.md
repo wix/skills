@@ -1,11 +1,11 @@
 ---
 name: composer-spec
-description: "Specification for scripts/compose.mjs — the deterministic Composer of the wix-headless design-system phase. RETIRED as a dispatched subagent: this is no longer an instruction file handed to an LLM. It documents how compose.mjs applies the Designer's framework-agnostic spec to the astro frontend by SUBSTITUTING into pinned skeletons at references/astro/templates/ — mapping semantic token values to the @theme vocabulary, writing the 6 design-system files (global.css, astro.config.mjs, Layout.astro, Navigation.astro, Footer.astro, index.astro), owning the component-CSS token contract (every var(--token) a components-<pack>.css references must resolve), and emitting a manifest. The skeleton comments and BUILD-astro.md reference the section headings here."
+description: "Specification for scripts/compose.mjs — the deterministic Composer of the wix-headless design-system phase. It documents how compose.mjs applies the Designer's framework-agnostic spec to the astro frontend by SUBSTITUTING into pinned skeletons at references/astro/templates/ — mapping semantic token values to the @theme vocabulary, writing the 6 design-system files (global.css, astro.config.mjs, Layout.astro, Navigation.astro, Footer.astro, index.astro), owning the component-CSS token contract (every var(--token) a components-<pack>.css references must resolve), and emitting a manifest. The skeleton comments and BUILD-astro.md reference the section headings here."
 ---
 
 # Composer spec — how the design becomes code
 
-> **RETIRED as a dispatched subagent.** The Composer is now the deterministic script **`scripts/compose.mjs`**, run as a `Bash` step in the design-system bridge (`BUILD-astro.md` § "2. Design-system bridge"). This file is retained as the human-readable **spec** for that script — the substitution rules, token contract, self-checks, and anti-patterns below describe what `compose.mjs` does, and the pinned skeletons + `BUILD-astro.md` cite its section headings. It is no longer opened by an LLM. The authoritative implementation is the script; if the two ever diverge, the script wins. **Why a script, not a subagent:** the work is mechanical `{{slot}}` substitution into pinned skeletons — an LLM re-emits the ~580 lines of fixed bulk every run (median ~188 s, 4× variance across 40 runs). The script does it sub-second, byte-reproducibly.
+> **This is the spec for `scripts/compose.mjs`.** The Composer is the deterministic script **`scripts/compose.mjs`**, run as a `Bash` step in the design-system bridge (`BUILD-astro.md` § "2. Design-system bridge"). This file is the human-readable **spec** — the substitution rules, token contract, self-checks, and anti-patterns below describe what `compose.mjs` does, and the pinned skeletons + `BUILD-astro.md` cite its section headings. The authoritative implementation is the script; if the two ever diverge, the script wins. The work is mechanical `{{slot}}` substitution into pinned skeletons — deterministic, sub-second, byte-reproducible.
 
 The Designer decides *what the brand looks like* and returns it as a framework-agnostic spec. `compose.mjs` decides *how that becomes code* for the **astro** frontend: it maps the spec onto the framework's token vocabulary and **substitutes it into pinned skeletons**. It does **not** re-author the fixed bulk — the View-Transitions script, the view-transition / `.nav-progress` CSS, the `@utility btn` family, the `process.env` fix, the markers — all of that is literal in the skeletons. Read a skeleton, fill its `{{…}}` slots, write the file. Substitute; do not re-write.
 
@@ -17,20 +17,18 @@ The Designer decides *what the brand looks like* and returns it as a framework-a
 
 ## Inputs (the compose-input JSON on stdin; project dir as `argv[2]`)
 
-- **`tokenSource`** — `"json"` (default) reads tokens from `designTokens` below; `"designmd"` reads them from a portable **`DESIGN.md`** frontmatter (the file `emit-design-tokens.mjs` projects from the same spec), at `designMdPath` or `<project-dir>/DESIGN.md`.
-- **`designMdPath`** — optional DESIGN.md path (when `tokenSource: "designmd"`).
-- **`designTokens`** — the Designer's spec (`colors`, `fonts`, `spacing`, `radii`, `containers`; optional `googleFontsHref`), bare-key form. Used when `tokenSource` is `"json"`.
-- **`shell`** — brand-voice strings: `heroHeadline`, `heroSub`, `footerTagline`, `navBrandMark`. (Kept on the compose input, **not** in DESIGN.md — shell is content, not design tokens; DESIGN.md stays pure tokens.)
+- **`designMdPath`** — optional path to the `DESIGN.md` (default `<project-dir>/DESIGN.md`). The tokens come from **there, not the stdin JSON** — see "DESIGN.md is the only token source" below.
+- **`shell`** — brand-voice strings: `heroHeadline`, `heroSub`, `footerTagline`, `navBrandMark`. (On the compose input, **not** in DESIGN.md — shell is content, not design tokens; DESIGN.md stays pure tokens.)
 - **`brand`** — `{ name, description }`.
 - **`navLinks`** — JSON array of `{href, label}`. Labels used **verbatim**.
 - **`loadedPacks`**, **`packsWithComponents`**, **`disabledPacks`** — string arrays.
 - **Project directory** — `argv[2]` (the scaffold subdir).
 
-### DESIGN.md as the token source (the portable artifact)
+### DESIGN.md is the only token source
 
-`emit-design-tokens.mjs` projects the Designer's spec into a standard **`DESIGN.md`** ([design.md](https://github.com/google-labs-code/design.md) frontmatter): wix tokens map onto DESIGN.md's groups — `colors` → `colors`, `fonts` → `typography` (`fontFamily` per level), `spacing` → `spacing`, `radii` → `rounded`, `containers` → a custom `containers` group, `googleFontsHref` → a custom key. Token keys stay the wix editorial names (`paper`/`ink`/`accent`/…), which are valid DESIGN.md color names — **lossless, no role round-trip** (the JSON and DESIGN.md paths produce byte-identical output).
+There is no inline token JSON. `compose.mjs` reads the **`DESIGN.md` frontmatter** that `emit-design-tokens.mjs` wrote from the Designer's `data.design` (`references/shared/DESIGN_MD.md` is the format spec). It parses **frontmatter only** — the markdown body is documentation, never read.
 
-When `tokenSource: "designmd"`, `compose.mjs` parses **frontmatter only** (the markdown body is documentation, never read) and applies a **role-translation table** so a DESIGN.md authored with *standard* roles is also consumable:
+The DESIGN.md groups map to the wix vocabulary: `colors` → `--color-*`, `typography.<level>.fontFamily` → `--font-*`, `spacing` → `--spacing-*`, `rounded` → `--radius-*`, `containers` → `--container-*`, `googleFontsHref` → the Layout `<link>`. Our own DESIGN.md uses the wix-native color keys (`paper`/`ink`/`accent`/…) — passed through unchanged. A DESIGN.md authored with *standard* DESIGN.md roles is also consumable via the **role-translation table**:
 
 | DESIGN.md role | wix `--color-*` | | DESIGN.md role | wix `--color-*` |
 |---|---|---|---|---|
@@ -39,7 +37,7 @@ When `tokenSource: "designmd"`, `compose.mjs` parses **frontmatter only** (the m
 | `tertiary` | `ink-soft` | | `outline` | `rule` |
 | `neutral` | `mute` | | `error` | `error` |
 
-Keys not in the table (the wix-native names) pass through unchanged and win on conflict. `rounded` → radii; the custom `containers` group + `googleFontsHref` are honored. The required-token contract + derivation fail-safe then run exactly as for the JSON path.
+Keys not in the table (the wix-native names) pass through unchanged and win on conflict. The required-token contract + derivation fail-safe then run on the mapped tokens.
 
 ## What you write (the 6 files)
 
@@ -49,7 +47,7 @@ Read each skeleton from `<SKILL_ROOT>/references/astro/templates/`, substitute, 
 
 ### Token contract (do this first — it gates everything)
 
-Map the Designer's `designTokens` into the `@theme` palette that goes in `global.css`, and **guarantee every required token resolves**. Per `STYLING.md` § "Required tokens", the `components-<pack>.css` templates reference a fixed set via `var(--token)`. Your `@theme` MUST declare all of:
+Map the DESIGN.md tokens into the `@theme` palette that goes in `global.css`, and **guarantee every required token resolves**. Per `STYLING.md` § "Required tokens", the `components-<pack>.css` templates reference a fixed set via `var(--token)`. Your `@theme` MUST declare all of:
 
 - `--color-{paper,paper-warm,ink,mute,rule,accent}` (required), `--color-{ink-soft,cream,error}` (recommended).
 - `--font-{display,body}`.
@@ -107,7 +105,7 @@ If a check fails and you cannot fix it, return `status: "partial"` with the spec
 
 ## Return contract
 
-`compose.mjs` prints a single manifest JSON object to **stdout** (diagnostics go to stderr). The orchestrator parses it from stdout exactly as it parsed the subagent's return — same `{ status, phase: "compose", data, files }` shape per `<SKILL_ROOT>/references/shared/RETURN_CONTRACT.md`. On a self-check failure the status is `partial` and `errors` carries the specific code (`MISSING_REQUIRED_TOKEN`, `CONTAINER_EQUALS_SPACING`); on a hard failure (`SCAFFOLD_NOT_COMPLETE`, a missing config anchor like `ANCHOR_VITE` / `ANCHOR_PROCESS_ENV`, `TEMPLATE_MISSING`) it prints a `failed` manifest and exits 1. A manifest of what it wrote:
+`compose.mjs` prints a single manifest JSON object to **stdout** (diagnostics go to stderr). The orchestrator parses it from stdout — a `{ status, phase: "compose", data, files }` shape per `<SKILL_ROOT>/references/shared/RETURN_CONTRACT.md`. On a self-check failure the status is `partial` and `errors` carries the specific code (`MISSING_REQUIRED_TOKEN`, `CONTAINER_EQUALS_SPACING`); on a hard failure (`SCAFFOLD_NOT_COMPLETE`, a missing config anchor like `ANCHOR_VITE` / `ANCHOR_PROCESS_ENV`, `TEMPLATE_MISSING`) it prints a `failed` manifest and exits 1. A manifest of what it wrote:
 
 ```json
 {

@@ -49,7 +49,8 @@ Your CWD at runtime is the **project directory** (scaffold subdir after setup), 
 | Return contract | `<SKILL_ROOT>/references/shared/RETURN_CONTRACT.md` |
 | Implementer shared behavior | `<SKILL_ROOT>/references/shared/IMPLEMENTER.md` |
 | Image generation | `<SKILL_ROOT>/references/shared/IMAGE_GENERATION.md` |
-| Design-system Designer (design spec, JSON only) | `<SKILL_ROOT>/references/DESIGN_SYSTEM.md` |
+| Design-system Designer (authors the DESIGN.md) | `<SKILL_ROOT>/references/DESIGN_SYSTEM.md` |
+| DESIGN.md format spec (vendored; Designer self-loads) | `<SKILL_ROOT>/references/shared/DESIGN_MD.md` |
 | Design-system Composer — deterministic script (writes the 6 files) | `<SKILL_ROOT>/scripts/compose.mjs` (spec: `references/astro/COMPOSE.md`) |
 | Composer astro skeletons | `<SKILL_ROOT>/references/astro/templates/` |
 | Vertical packs (discovery) | `<SKILL_ROOT>/references/verticals/` |

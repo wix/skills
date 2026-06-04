@@ -3,18 +3,18 @@
 Reached when `operation === "create"` (a create-a-new-site prompt in an empty CWD, nothing to connect — the skill writes the site). The shared Wave-0 field resolution + CLI-auth pre-flight live in `DISCOVERY.md`; this file is the create interview → plan → approval. Run FLOW (when/order/gate) is owned by `PLAN-create.md`.
 
 Create has **two framework branches** (Wave 0 resolved which):
-- **`frontendBuild: wix` (astro — the default).** The full astro pipeline below: interview (Steps 0–2.5) → the full decision card (Design Direction + Features + Pages) → `scaffold.sh` → Designer/Composer. **This is the rest of this file.**
-- **`frontendBuild: own` (a framework SPA — the prompt named `vite`/`react`/`vue`/`svelte`).** A **minimal-scaffold** branch that does **not** run the astro Designer/Composer/imagery pipeline — see § "Framework-SPA branch" immediately below, then skip the astro steps.
+- **`frontendBuild: wix` (astro — the default).** The full astro pipeline below: interview (Steps 0–2.5) → the full decision card (Design Direction + Features + Pages) → `scaffold.sh` → Designer + `compose.mjs`. **This is the rest of this file.**
+- **`frontendBuild: own` (a framework SPA — the prompt named `vite`/`react`/`vue`/`svelte`).** A **minimal-scaffold** branch that **runs the Designer** (its output is framework-agnostic — see below) but **not** the astro `compose.mjs` (the 6 astro design-system files) or the astro imagery pipeline — see § "Framework-SPA branch" immediately below, then skip the astro-only steps.
 
 ## Framework-SPA branch (`frontendBuild: own`) — companion case
 
-When Wave 0 resolved `frontend: custom`, `frontendBuild: own` (an explicit framework keyword on a create prompt), **do not run Steps 0–3 below** (no vibe, no AI-imagery credit dance, no `scaffold.sh`, no astro Design-Direction card, no Designer). The first cut is a **minimal scaffold + connect** (SPA plan § Companion case 4a; re-homing the astro design pipeline onto React/Vue is 4b — **deferred**). Flow:
+When Wave 0 resolved `frontend: custom`, `frontendBuild: own` (an explicit framework keyword on a create prompt), **run the vibe question (Step 2), the imagery question (Step 2.5), and the Designer** — the Designer's output is a framework-agnostic `DESIGN.md` + `.wix/design-tokens.css`, which the SPA imports, so the brand look is real on this branch too. **Imagery is framework-agnostic and applies here too**: both image phases run (decorative images land in the SPA hero/about via `src/decorative-images.json`; entity product/blog/CMS images are framework-agnostic — PATCHed onto Wix entities). **Skip only the genuinely astro-only steps**: no `scaffold.sh` (the framework's own create command scaffolds), no astro Design-Direction card, and no `compose.mjs` (it writes astro files). Re-homing astro's framework-specific *component composition* onto React/Vue is SPA-plan case **4b** — still deferred; the **design tokens and imagery are not** (this branch). Flow:
 
 1. **Infer** — the **brand** (from the prompt), the **vertical/capability** (same routing as astro — a bakery landing+content → `cms`; a store → `stores`; etc.), and the **named framework** (vite+react / vue / svelte) from the prompt's keyword.
-2. **Present a light plan** (its own message), then approval — same discipline as the connect plan (`DISCOVERY-connect.md` § 3): *what I'll build* (a small <framework> app, scaffolded with the framework's default styling) + *what I'll connect* (the capability → its Wix backend) + the apps. No Design-Direction card, no Pages table. **Do not promise "your brand's look"** — this branch runs no Designer and no vibe step, so no brand design system is generated; component styling is the framework default / manual (the design tokens + vibe arrive with SPA-plan case **4b**, deferred). For a client-state capability, state the **shared-data caveat** up front.
-3. **On approval** — `init-site-json.mjs --frontend custom` (persists `frontend: custom`; `frontendBuild: own` stays in scratch), then hand to `BUILD.md` → routes on `frontendBuild: own` → `BUILD-own-build.md`, whose **create × own** bootstrap (scaffold the framework → `init` → generate the minimal app) and wiring (write a fresh `@wix/data` data module) cells run, then the project's own build + release.
+2. **Ask the vibe** (Step 2 below — the aesthetic-direction craft) — the Designer needs it — **and the imagery preference** (Step 2.5 below: the same Q3 + credit estimate + balance fetch the astro branch runs; the `imagery` flag gates both image phases in `BUILD-own-build.md`). Then **present a light plan** (its own message) and get approval — same discipline as the connect plan (`DISCOVERY-connect.md` § 3): *what I'll build* (a small <framework> app **with your brand's look** — palette + type from the design tokens, applied as CSS custom properties; full per-component composition is framework-default for now) + an **`Imagery:`** line (chosen mode + credit estimate, same format as the astro plan, §2.5 below) + *what I'll connect* (the capability → its Wix backend) + the apps. No astro Design-Direction card, no Pages table. For a client-state capability, state the **shared-data caveat** up front.
+3. **On approval** — `init-site-json.mjs --frontend custom` (persists `frontend: custom`; `frontendBuild: own` stays in scratch), then hand to `BUILD.md` → routes on `frontendBuild: own` → `BUILD-own-build.md`, whose **create × own** cells run the **Designer + `emit-design-tokens.mjs`** (DESIGN.md + token CSS), scaffold the framework → `init` → generate the minimal app (importing `.wix/design-tokens.css`), wire a fresh `@wix/data` data module, then the project's own build + release.
 
-The astro pipeline below (Steps 0–3, Designer inputs) does **not** apply to this branch.
+The astro-only steps below (the Design-Direction decision card, `scaffold.sh`, `compose.mjs`) do **not** apply to this branch — but the **vibe question (Step 2)**, the **imagery question (Step 2.5)**, and the **Designer** do; hold the aesthetic-direction craft + the `imagery` flag in scratch for the Designer + image-phase dispatches in `BUILD-own-build.md`.
 
 ---
 
@@ -122,20 +122,23 @@ In session scratch, compute `<estimatedCredits>` from the loaded packs and the p
 
 ```
 estimatedCredits =
-    1                                          // hero / home decorative
-  + 2                                          // additional section decoratives
-  + (cms loaded         ? 2                              : 0)   // /about + /faq hero images
+    <decorative term — branches on frontendBuild, see below>
   + (stores loaded      ? stores.productCount            : 0)   // default 3 when unknown
   + (blog loaded        ? blog.postCount                 : 0)   // default 6 when unknown
   + (forms loaded       ? 0                              : 0)   // forms never trigger imagery
   + (gift-cards loaded  ? 0                              : 0)   // disabled pack — skip
 ```
 
+**The decorative term branches on `frontendBuild`** (the entity terms above are identical — Image Phase 2 is framework-agnostic):
+- **astro (`frontendBuild: wix`):** `1 (hero) + 2 (section decoratives) + (cms loaded ? 2 : 0)` — the full astro page set has `/about` + `/faq` route-header images.
+- **framework-SPA (`frontendBuild: own`):** `1 (hero) + 1 (about)` = **2, fixed** — the minimal SPA emits exactly the `["hero","about"]` decorative slots (no `/about`+`/faq` route headers), so **drop the cms `+2` term**. This `["hero","about"]` set is the canonical `own` decorative slot list — it must match what the app-gen subagent emits and what Image Phase 1 is asked for (`BUILD-own-build.md`).
+
 Packs with `disabled: true` contribute 0 regardless. The integer total is what we show. **Reuse** the `productCount=3` and `postCount=6` defaults from "After Approval" § 1 — do not invent new numbers.
 
 Worked examples:
-- Skincare (stores + cms, productCount=3, no blog): `1 + 2 + 2 + 3 + 0 + 0 + 0 = 8`.
-- Coffee shop (stores + cms + blog, productCount=3, postCount=6): `1 + 2 + 2 + 3 + 6 + 0 + 0 = 14`.
+- **astro** Skincare (stores + cms, productCount=3, no blog): `1 + 2 + 2 + 3 + 0 + 0 + 0 = 8`.
+- **astro** Coffee shop (stores + cms + blog, productCount=3, postCount=6): `1 + 2 + 2 + 3 + 6 + 0 + 0 = 14`.
+- **own** Bakery in react+vite (cms + stores, productCount=3): `2 (hero+about) + 3 (products) + 0 + 0 + 0 = 5` — note the cms `+2` term is dropped on `own`.
 
 ### 2.5.2 — Fetch the AI-credit balance
 
@@ -205,7 +208,7 @@ Example:
 
 ## The Designer's inputs
 
-The Designer owns **the design itself** — it returns a JSON spec (tokens + brand-voice strings) and **writes no files**. Its *output* is framework-agnostic and application-blind by construction — the same spec regardless of which frontend or verticals load. **Note the gap between the portable output and the current orchestration:** today the Designer is **dispatched only on the astro branch** (`BUILD-astro.md` run-step 0), because its sole consumer — `compose.mjs` — is astro-only. Non-astro / framework-SPA frontends (`frontendBuild: own`) currently skip it (deferred: framework-SPA plan case **4b**). So "framework-agnostic" describes the artifact, not where it runs yet. Its inputs are *judgment* inputs only, all produced here in Discovery and held in scratch:
+The Designer owns **the design itself** — it authors a `DESIGN.md` (tokens) + brand-voice strings and **writes no files** (`emit-design-tokens.mjs` serializes the canonical DESIGN.md from its return). Its output is framework-agnostic and application-blind by construction — the same DESIGN.md regardless of which frontend or verticals load. It is dispatched on **every create branch**: astro (`BUILD-astro.md` run-step 0) *and* framework-SPA (`BUILD-own-build.md` create × own), where the SPA imports the emitted `.wix/design-tokens.css`. Only astro's framework-specific *component composition* (`compose.mjs`'s 6 files) stays astro-only — re-homing it onto React/Vue is SPA-plan case **4b**, deferred; the design tokens are not. Its inputs are *judgment* inputs only, all produced here in Discovery and held in scratch:
 
 - **Brand**: `{ name, description }` from Q1 (description = the user's opening business context, distilled to one line).
 - **Aesthetic direction, color palette, typography, mood, page color strategy**: from the craft step above.

@@ -113,7 +113,7 @@ Generate site-wide decorative images that don't depend on any entity. Used by th
 4. **Collect the resolved URLs keyed by slot purpose** (e.g., `{"hero": "https://static.wixstatic.com/...", "about": "https://static.wixstatic.com/..."}`). This map goes into your return JSON under `data.slots` — see § Return below. Do NOT write `.wix/image-urls.md` or any other file; the orchestrator pipes your `data.slots` directly into `patch-decorative-slots.mjs` via stdin.
 5. Return the structured JSON block per `../shared/RETURN_CONTRACT.md` (see § Return below). The JSON return is your sole output channel.
 
-The orchestrator runs `patch-decorative-slots.mjs` with your `data.slots` map piped in on stdin. The patch script injects `<img>` tags into the designer's `data-decorative-slot="<key>"` placeholders. If your return is missing or has no slots, the patch is a no-op and the placeholders fall back to the designer's solid-color rendering — nothing blocks.
+The orchestrator consumes your `data.slots` map via one of two deterministic scripts, depending on the frontend — **your output contract is identical either way** (a slot→URL map; you never touch frontend source): on **astro** it pipes the map into `patch-decorative-slots.mjs`, which injects `<img>` tags into the designer's `data-decorative-slot="<key>"` placeholders in `.astro` pages; on a **framework-SPA (`own`)** it pipes the map into `write-decorative-json.mjs`, which writes `src/decorative-images.json` for the generated app to import. Either way, if your return is missing or has no slots, the consumer is a no-op and the placeholders fall back to the designer's solid-color (themed-block) rendering — nothing blocks.
 
 ## Scope: `image-phase-2-entity` (Phase 1 Seed data inline)
 

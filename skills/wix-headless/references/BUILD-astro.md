@@ -29,7 +29,7 @@ The user just approved; `init-site-json.mjs` wrote the slim `.wix/site.json`. **
 
 Fire both as one concurrent batch (`PLAN.md` § "Batching discipline") — they are independent:
 - **Scaffold** — `scaffold.sh <folder-name> "<brand>" --frontend <value>` (background, capture `scaffold_handle` + its stderr tempfile). Folder-name derivation + the command shape are `DISCOVERY-create.md` § "After Q1". `npm install` is **not** chained here (Setup Step 4c dispatches it). The stderr tempfile is for **post-hoc error inspection only** (read it *if* the scaffold reports a failure) — it is **not** a progress file to poll.
-- **Designer** — background, capture `designer_handle`. Dispatch with **Instruction file = `<SKILL_ROOT>/references/DESIGN_SYSTEM.md`** (the subagent opens it — **do not Read it in the orchestrator**, per `SKILL.md` § "Path resolution"). Inline Discovery's aesthetic craft held in scratch: brand, aesthetic direction, palette, type, mood, page color strategy. Judgment-only (~10–15 s; JSON `data.designTokens` + `data.shell`, no files). Do **not** pass application inputs (packs, nav links) — those are inlined into the `compose.mjs` input at the bridge.
+- **Designer** — background, capture `designer_handle`. Dispatch with **Instruction file = `<SKILL_ROOT>/references/DESIGN_SYSTEM.md`** (the subagent opens it — **do not Read it in the orchestrator**, per `SKILL.md` § "Path resolution"). Inline Discovery's aesthetic craft held in scratch: brand, aesthetic direction, palette, type, mood, page color strategy. Judgment-only (~10–15 s; JSON `data.design` (the DESIGN.md frontmatter) + `data.shell`, no files). Do **not** pass application inputs (packs, nav links) — those are inlined into the `compose.mjs` input at the bridge.
 
 The Designer's ~13 s overlaps the scaffold's ~23 s. Setup waits on `scaffold_handle` at Step 1; the bridge (step 2) waits on `designer_handle`.
 
@@ -41,22 +41,20 @@ Apply `SETUP.md` Step 1 only: wait `scaffold_handle` (load `wix-manage` in the s
 
 ### 2. Design-system bridge (one Bash step), then Setup Step 4 batch
 
-**The bridge is now two deterministic scripts in a single `Bash` call — no subagent, sub-second.** Run it once the scaffold is verified (Setup Step 1 done) and the Designer has returned; ordering against the business batch no longer matters (Rationale below). `designer_handle` has been running since run-step 0, so its `data.designTokens` + `data.shell` are already in scratch.
+**The bridge is now two deterministic scripts in a single `Bash` call — no subagent, sub-second.** Run it once the scaffold is verified (Setup Step 1 done) and the Designer has returned; ordering against the business batch no longer matters (Rationale below). `designer_handle` has been running since run-step 0, so its `data.design` (the DESIGN.md frontmatter) + `data.shell` are already in scratch.
 
-**Frontend bridge — emit tokens + compose, one `Bash` call (two scripts, sequential heredocs):**
+**Frontend bridge — write DESIGN.md + compose, one `Bash` call (two scripts, sequential heredocs):**
 
-1. `emit-design-tokens.mjs` — pipe the Designer's `data.designTokens` JSON on **stdin**, project dir as **`argv[2]`**, brand name as optional **`argv[3]`** (empty stdin → exits 2 `stdin was empty — pass the designTokens JSON object`). Writes `.wix/design-tokens.css`, `.wix/site.d.ts`, **and a portable `DESIGN.md`** (the standard [design.md](https://github.com/google-labs-code/design.md) frontmatter — the standalone, framework-agnostic design artifact).
-2. `compose.mjs` — pipe the **compose-input JSON** on **stdin**, project dir as **`argv[2]`**. It substitutes the Designer's spec + the application inputs into the six pinned skeletons and writes `global.css`, `astro.config.mjs` (anchored **merge**, not clobber), `Layout.astro`, `Navigation.astro`, `Footer.astro`, `index.astro`. It prints a manifest JSON to **stdout** (same `{ status, phase: "compose", data, files }` shape the subagent used to return — parse it from stdout). **Only run it when `frontendBuild === "wix"`** (defensive — non-astro framework classes never reach `BUILD-astro.md`); otherwise record `{phase: "compose", status: "skipped"}`.
-   - **Token source.** By default (`tokenSource: "json"`, omit the field) `compose.mjs` reads tokens from the `designTokens` you inline below — the verified path. Set `tokenSource: "designmd"` to instead read them from the `DESIGN.md` frontmatter that step 1 just wrote (frontmatter only; the body is never parsed) — same values, and it also accepts a DESIGN.md authored with standard roles (`primary`/`surface`/…) via a role-translation table. Both produce byte-identical output for our own DESIGN.md; keep the default until the DESIGN.md path is eval-gated.
+1. `emit-design-tokens.mjs` — pipe the Designer's **`data.design`** (the DESIGN.md frontmatter object) on **stdin**, project dir as **`argv[2]`**, brand name as optional **`argv[3]`** (empty stdin → exits 2). Writes the canonical **`DESIGN.md`** (the single design format — see `references/shared/DESIGN_MD.md`) plus `.wix/design-tokens.css` + `.wix/site.d.ts` projected from it.
+2. `compose.mjs` — pipe the **application inputs** on **stdin** (shell, brand, nav links, packs — **not** tokens), project dir as **`argv[2]`**. It **reads the `DESIGN.md` frontmatter** that step 1 just wrote (the single token source; standard roles map to the wix `--color-*` vocabulary via the role table) and substitutes into the six pinned skeletons — `global.css`, `astro.config.mjs` (anchored **merge**, not clobber), `Layout.astro`, `Navigation.astro`, `Footer.astro`, `index.astro`. It prints a manifest JSON to **stdout** (same `{ status, phase: "compose", data, files }` shape — parse it from stdout). **Only run it when `frontendBuild === "wix"`** (defensive — non-astro framework classes never reach `BUILD-astro.md`); otherwise record `{phase: "compose", status: "skipped"}`.
 
    ```bash
-   node <SKILL_ROOT>/scripts/emit-design-tokens.mjs "<project-dir>" "<brand name>" <<'TOKENS'
-   { ...the Designer's data.designTokens JSON object, verbatim from scratch... }
-   TOKENS
+   node <SKILL_ROOT>/scripts/emit-design-tokens.mjs "<project-dir>" "<brand name>" <<'DESIGN'
+   { ...the Designer's data.design (DESIGN.md frontmatter) object, verbatim from scratch... }
+   DESIGN
 
    node <SKILL_ROOT>/scripts/compose.mjs "<project-dir>" <<'COMPOSE'
    {
-     "designTokens": { ...same data.designTokens... },
      "shell": { ...the Designer's data.shell... },
      "brand": { "name": "<brand>", "description": "<one-line context>" },
      "navLinks": [ { "href": "/", "label": "Home" }, ... ],
@@ -67,7 +65,7 @@ Apply `SETUP.md` Step 1 only: wait `scaffold_handle` (load `wix-manage` in the s
    COMPOSE
    ```
 
-   The compose-input shape is documented in `scripts/compose.mjs`'s header (the retired `COMPOSE.md` is now its spec). `compose.mjs` guarantees the required-token contract resolves (deriving any role the Designer omitted as a fail-safe) and is idempotent — re-running it re-applies the same anchored config merge without duplicating the plugin/import.
+   The compose-input shape is documented in `scripts/compose.mjs`'s header (the retired `COMPOSE.md` is now its spec). `compose.mjs` reads tokens from `DESIGN.md` only, guarantees the required-token contract resolves (deriving any role the Designer omitted as a fail-safe), and is idempotent — re-running it re-applies the same anchored config merge without duplicating the plugin/import.
 
 **Then the business Setup Step 4 batch** (frontend-blind — `SETUP.md` owns the recipes/package set):
 
@@ -271,7 +269,7 @@ The **design tokens** (`.wix/design-tokens.css` + `.wix/site.d.ts`) are the coor
 
 ### Producer: Phase 2 (Designer at BUILD entry + `compose.mjs` in the Setup-window bridge)
 
-Timing: the Designer is dispatched at BUILD entry (run-step 0); the bridge runs at the Setup-window (run-step 2 above) as a single Bash step. Net: `emit-design-tokens.mjs` writes `.wix/design-tokens.css` + `.wix/site.d.ts` (pure projections of the Designer's `data.designTokens`); `compose.mjs` writes the `@theme` palette into `global.css` from the same tokens plus the other 5 files (substituting into pinned skeletons). `data.designTokens` is the single source of truth — `emit-design-tokens.mjs` projects it to the `.wix` artifacts, `compose.mjs` applies it to the site files.
+Timing: the Designer is dispatched at BUILD entry (run-step 0); the bridge runs at the Setup-window (run-step 2 above) as a single Bash step. Net: `emit-design-tokens.mjs` writes the canonical `DESIGN.md` + projects `.wix/design-tokens.css` + `.wix/site.d.ts` from the Designer's `data.design`; `compose.mjs` reads `DESIGN.md` and writes the `@theme` palette into `global.css` plus the other 5 files (substituting into pinned skeletons). **`DESIGN.md` is the single source of truth** — `emit-design-tokens.mjs` writes it + the `.wix` artifacts, `compose.mjs` reads it to apply the site files.
 
 ### Consumer: Phase 3 Components (Step 4.5)
 

@@ -16,27 +16,22 @@
 //
 // Usage:
 //   node compose.mjs <project-dir> <<'JSON'
-//   { "designTokens": {...}, "shell": {...}, "brand": {...},
-//     "navLinks": [...], "loadedPacks": [...], "packsWithComponents": [...],
-//     "disabledPacks": [...] }
+//   { "shell": {...}, "brand": {...}, "navLinks": [...],
+//     "loadedPacks": [...], "packsWithComponents": [...], "disabledPacks": [...] }
 //   JSON
 //
-// stdin JSON (every field the LLM Composer received inline in its prompt):
-//   - tokenSource    — "json" (default) reads tokens from `designTokens` below;
-//                       "designmd" reads them from a portable DESIGN.md
-//                       frontmatter (the file `emit-design-tokens.mjs` projects),
-//                       at `designMdPath` (or `<project-dir>/DESIGN.md`). The
-//                       DESIGN.md path parses FRONTMATTER ONLY (the markdown body
-//                       is documentation, never read) and applies a role-
-//                       translation table so a DESIGN.md authored with standard
-//                       roles (primary/surface/on-surface/…) maps onto the wix
-//                       `--color-*` vocabulary; wix-native keys pass through
-//                       losslessly. `rounded` → radii; a custom `containers`
-//                       group + a `googleFontsHref` key are honored.
-//   - designMdPath   — optional path to the DESIGN.md (when tokenSource=designmd).
-//   - designTokens   — the Designer's spec: { colors, fonts, spacing, radii,
-//                       containers, googleFontsHref? }. Bare-key form. Used when
-//                       tokenSource is "json" (the default).
+// Tokens come from DESIGN.md — the single design format (no inline token JSON).
+// compose reads `<project-dir>/DESIGN.md` (or `designMdPath`), parses its
+// FRONTMATTER ONLY (the markdown body is documentation, never read), and applies
+// a role-translation table (references/shared/DESIGN_MD.md) so a DESIGN.md
+// authored with standard roles (primary/surface/on-surface/…) maps onto the wix
+// `--color-*` vocabulary; wix-native keys pass through losslessly. `rounded` →
+// radii; a custom `containers` group + a `googleFontsHref` key are honored.
+// emit-design-tokens.mjs writes that DESIGN.md (from the Designer's spec) before
+// compose runs.
+//
+// stdin JSON (the application inputs — NOT the design tokens, which live in DESIGN.md):
+//   - designMdPath   — optional path to the DESIGN.md (default <project-dir>/DESIGN.md).
 //   - shell          — { heroHeadline, heroSub, footerTagline, navBrandMark }.
 //   - brand          — { name, description }.
 //   - navLinks       — [ { href, label } ]; labels used VERBATIM.
@@ -121,6 +116,28 @@ function unquote(v) {
   if (hash !== -1) v = v.slice(0, hash).trim();
   return v;
 }
+// Parse a flow-style inline object — `{ fontFamily: "X", fontWeight: 600 }` —
+// splitting top-level commas while respecting quotes (so `"Helvetica, Arial"`
+// stays one value). Used for typography tokens authored in flow style.
+function parseInlineObject(s) {
+  const inner = s.trim().replace(/^\{/, "").replace(/\}$/, "");
+  const obj = {};
+  let buf = "", inq = null;
+  const parts = [];
+  for (const ch of inner) {
+    if (inq) { if (ch === inq) inq = null; buf += ch; continue; }
+    if (ch === '"' || ch === "'") { inq = ch; buf += ch; continue; }
+    if (ch === ",") { parts.push(buf); buf = ""; continue; }
+    buf += ch;
+  }
+  if (buf.trim()) parts.push(buf);
+  for (const p of parts) {
+    const ci = p.indexOf(":");
+    if (ci === -1) continue;
+    obj[p.slice(0, ci).trim()] = unquote(p.slice(ci + 1));
+  }
+  return obj;
+}
 function parseFrontmatter(text) {
   const m = text.match(/^---\r?\n([\s\S]*?)\r?\n---/);
   if (!m) return null;
@@ -135,9 +152,11 @@ function parseFrontmatter(text) {
     const rest = raw.slice(ci + 1).trim();
     if (indent === 0) {
       if (rest === "") { root[key] = {}; group = key; sub = null; }
+      else if (rest.startsWith("{")) { root[key] = parseInlineObject(rest); group = null; sub = null; }
       else { root[key] = unquote(rest); group = null; sub = null; }
     } else if (indent === 2 && group) {
       if (rest === "") { root[group][key] = {}; sub = key; }
+      else if (rest.startsWith("{")) { root[group][key] = parseInlineObject(rest); sub = null; }
       else { root[group][key] = unquote(rest); sub = null; }
     } else if (indent >= 4 && group && sub) {
       if (typeof root[group][sub] !== "object") root[group][sub] = {};
@@ -180,17 +199,13 @@ function designMdToTokens(fm) {
   };
 }
 
-let designTokens;
-if ((input.tokenSource ?? "json") === "designmd") {
-  const rel = input.designMdPath ?? "DESIGN.md";
-  const p = isAbsolute(rel) ? rel : join(projectDir, rel);
-  if (!existsSync(p)) die("DESIGN_MD_MISSING", `tokenSource=designmd but no DESIGN.md at ${p}`);
-  const fm = parseFrontmatter(readFileSync(p, "utf8"));
-  if (!fm) die("DESIGN_MD_BAD", `could not parse YAML frontmatter from ${p}`);
-  designTokens = designMdToTokens(fm);
-} else {
-  designTokens = input.designTokens ?? {};
-}
+// DESIGN.md is the single token source — read it, parse frontmatter only.
+const designMdRel = input.designMdPath ?? "DESIGN.md";
+const designMdPath = isAbsolute(designMdRel) ? designMdRel : join(projectDir, designMdRel);
+if (!existsSync(designMdPath)) die("DESIGN_MD_MISSING", `no DESIGN.md at ${designMdPath} — run emit-design-tokens.mjs first`);
+const fm = parseFrontmatter(readFileSync(designMdPath, "utf8"));
+if (!fm) die("DESIGN_MD_BAD", `could not parse YAML frontmatter from ${designMdPath}`);
+const designTokens = designMdToTokens(fm);
 const shell = input.shell ?? {};
 const brand = input.brand ?? {};
 const navLinks = Array.isArray(input.navLinks) ? input.navLinks : [];
