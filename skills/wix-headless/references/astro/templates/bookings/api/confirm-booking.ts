@@ -24,6 +24,10 @@ export const POST: APIRoute = async ({ request }) => {
   try {
     const res = await auth.elevate(bookings.confirmBooking)(bookingId, String(revision), {
       paymentStatus: "NOT_PAID", // pay-on-site reservation
+      // Send the customer the booking-confirmation email. notifyParticipants
+      // DEFAULTS TO false — without this, confirm succeeds silently and no email
+      // goes out. (The site's Bookings email automations must also be enabled.)
+      participantNotification: { notifyParticipants: true },
       flowControlSettings: { checkAvailabilityValidation: true },
     });
     return json(true, 200, { status: res.booking?.status });
