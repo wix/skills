@@ -78,12 +78,18 @@ export default function BookingForm({ serviceName, serviceType, slot, onSuccess,
     }
     setSubmitting(true);
     try {
-      const result = await wixClient.bookings.createBooking({
-        totalParticipants: participants,
-        contactDetails: contactDetails(),
-        selectedPaymentOption: "OFFLINE" as const,
-        bookedEntity: { slot: buildSlot() },
-      } as any);
+      const result = await wixClient.bookings.createBooking(
+        {
+          totalParticipants: participants,
+          contactDetails: contactDetails(),
+          selectedPaymentOption: "OFFLINE" as const,
+          bookedEntity: { slot: buildSlot() },
+        } as any,
+        // Notify the client. The dashboard toggle "Send clients an email
+        // confirmation when they book" must also be on. Also set on
+        // /api/confirm-booking so both the create and confirm paths notify.
+        { participantNotification: { notifyParticipants: true } },
+      );
 
       const status = result.booking?.status;
       const bookingId = result.booking?._id ?? "";
