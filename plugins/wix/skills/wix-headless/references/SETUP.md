@@ -128,7 +128,6 @@ npm install --no-fund --no-audit --legacy-peer-deps <package-set> \
 | | **blog** → `@wix/blog @wix/ricos @astrojs/rss @astrojs/sitemap` |
 | | **forms** → `@wix/forms` |
 | | **cms** → `@wix/data @wix/essentials` |
-| | **bookings** → `@wix/bookings` |
 | | **gift-cards** → (none — disabled-by-default pack ships no Astro-time imports) |
 
 Concrete example for the most common case (stores prompt; resolved set = stores + ecom + gift-cards + cms):

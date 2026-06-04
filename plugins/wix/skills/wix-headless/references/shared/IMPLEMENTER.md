@@ -1,6 +1,6 @@
 # Shared Implementer — Common Behavior for Every Vertical Subagent
 
-This file is **extended by every per-vertical `INSTRUCTIONS.md`** (stores, ecom, cms, blog, forms, gift-cards, bookings). Per-vertical instruction files are thin — they declare scopes and reference paths. Everything else lives here.
+This file is **extended by every per-vertical `INSTRUCTIONS.md`** (stores, ecom, cms, blog, forms, gift-cards). Per-vertical instruction files are thin — they declare scopes and reference paths. Everything else lives here.
 
 ## Self-loading
 
