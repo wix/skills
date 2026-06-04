@@ -52,6 +52,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ### [Create and Update Booking Services](references/bookings/create-and-update-booking-services.md)
 **Technical:** Full CRUD operations for Wix Bookings services using Services API. Covers service types (APPOINTMENT, CLASS, COURSE), pricing configuration, location setup, and schedule management.
 
+### [Create Booking Service from Prompt](references/bookings/create-booking-service-from-prompt.md)
+**Technical:** Autonomous creation of a booking service from a natural language prompt. Gathers business context (staff, categories, currency), applies industry-standard defaults for missing fields, creates the service as hidden for user review, and navigates to the service form.
+
 ### [End-to-End Booking Flow](references/bookings/end-to-end-booking-flow.md)
 **Technical:** Complete booking flow from service discovery to payment. Query services, check availability with Time Slots V2, create bookings, and process payment via eCommerce checkout.
 
