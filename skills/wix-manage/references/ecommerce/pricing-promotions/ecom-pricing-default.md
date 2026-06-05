@@ -1,0 +1,66 @@
+---
+name: "Pricing & Promotions — Default"
+description: Dispatch entry for all Pricing & promotions intents — coupons, discount rules, sales, bundles, ribbons, scheduling, the run-a-sale orchestrator, troubleshooting, and competitive pricing.
+---
+
+# Pricing & Promotions — Default
+
+> **Before dispatching** — confirm MerchantContext is loaded. If `siteData.country` is not in your conversation context, load it via [Load Merchant Context](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-load-context). Skip if already loaded.
+>
+> **Promotion dispatch.** Score each entry below by (a) the merchant's query → `intent:*` tags, (b) MerchantContext → context tags. Load the **highest-scoring** entry. Ties → highest `priority`. No match → follow the base recipe at the bottom.
+
+### Actions — concrete operations
+
+> - [Create coupon](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-create-coupon) — tags: `[intent:create-coupon]` · priority 0
+> - [Create discount rule (auto-apply)](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-create-discount-rule) — tags: `[intent:create-discount-rule]` · priority 0
+> - [Add sale ribbon / new ribbon](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-create-discount-rule) — tags: `[intent:add-ribbon]` · priority 0 · *ribbons are configured via Discount Rules; same recipe*
+> - [Schedule a future sale](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-create-discount-rule) — tags: `[intent:schedule-sale]` · priority 0 · *uses Discount Rules with `startTime` in the future*
+
+### Business flows — the orchestrator
+
+The single business-flow orchestrator (today's `recommend-ecommerce-strategy`, renamed/moved to `ecom-pricing-run-a-sale`) handles all strategic discount intents. It classifies internally (SEASONAL / UPSELL_BOOST / STOCK_MOVER / BUNDLE_AND_SAVE / ABANDONED_CART) and loads its `goal-*` / `flow-*` support files (flat siblings in this folder) from there.
+
+> - [Run a sale / promotion strategy](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-run-a-sale) — tags: `[intent:run-a-sale]` · priority 0
+> - [Boost my business / increase sales](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-run-a-sale) — tags: `[intent:boost-business]` · priority 0
+> - [Seasonal / holiday promotion](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-run-a-sale) — tags: `[intent:seasonal-promo]` · priority 0
+> - [Clearance / move slow stock](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-run-a-sale) — tags: `[intent:clearance]` · priority 0
+> - [Increase AOV (bundle / upsell)](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-run-a-sale) — tags: `[intent:increase-aov]` · priority 0
+
+### Info / troubleshoot / recommendation
+
+> - [Discount not applying — diagnose](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-troubleshoot-not-applying) — tags: `[intent:troubleshoot]` · priority 0
+> - [View active discounts (Coupons API)](https://dev.wix.com/docs/api-reference/business-solutions/coupons/coupons/query-coupons) — tags: `[intent:view-active-discounts]` · priority 0 · **API doc, no skill** (per §7.5)
+> - [View active discounts (Discount Rules API)](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/discount-rules/query-discount-rules) — tags: `[intent:view-active-rules]` · priority 0 · **API doc, no skill**
+> - [Coupon usage stats](https://dev.wix.com/docs/api-reference/business-solutions/coupons/coupons/get-coupon-usage) — tags: `[intent:coupon-usage-stats]` · priority 0 · **API doc, no skill**
+
+### Cross-category routes (handled in another category)
+
+> - [Change product price](https://dev.wix.com/docs/api-reference/business-solutions/stores/products-v3/update-product) — tags: `[intent:change-price]` · *price is a product field — Catalog API*
+> - [Set compare-at price](https://dev.wix.com/docs/api-reference/business-solutions/stores/products-v3/update-product) — tags: `[intent:set-compare-at]` · *Catalog*
+> - [Free shipping over $X (promo rule)](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-create-discount-rule) — tags: `[intent:free-shipping-promo]` · *belongs here as a promo rule; a $0 shipping rate is Shipping*
+
+## Tag matching
+
+The agent matches the merchant's natural-language query to an `intent:*` tag (cues are in each promotion file's `description`), AND matches MerchantContext to any context tags. A promotion's tags must ALL be satisfied for it to be eligible. Among eligible promotions, the one with the highest tag-count wins; ties broken by `priority`.
+
+### Worked examples
+
+| Merchant query | MerchantContext | Match |
+|---|---|---|
+| "Create a 20% off coupon" | any | `ecom-pricing-create-coupon` via `[intent:create-coupon]` |
+| "Run a Black Friday sale" | any | `ecom-pricing-run-a-sale` via `[intent:run-a-sale]` (orchestrator classifies as SEASONAL internally) |
+| "Help me boost my sales" | any | `ecom-pricing-run-a-sale` via `[intent:boost-business]` |
+| "My coupon code XMAS isn't working" | any | `ecom-pricing-troubleshoot-not-applying` |
+| "Show me my active discounts" | any | `query-coupons` API doc (no skill — per §7.5) |
+| "Change the price of product Y" | any | Catalog cross-route (re-dispatch to Catalog when that category exists) |
+
+## Base recipe (fallback)
+
+If nothing matches, the merchant query is too vague. Ask **one** clarifying question:
+
+> "Do you want to (a) **create** a specific discount/coupon now, (b) **strategize** a sale or promotion campaign, or (c) **fix** a discount that isn't applying?"
+
+Map the answer → re-dispatch:
+- (a) → `ecom-pricing-create-coupon` (default for "create a discount")
+- (b) → `ecom-pricing-run-a-sale`
+- (c) → `ecom-pricing-troubleshoot-not-applying`

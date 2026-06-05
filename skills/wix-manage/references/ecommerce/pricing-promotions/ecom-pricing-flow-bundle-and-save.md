@@ -13,8 +13,8 @@ references:
 # Flow: Bundle & Save Campaign
 
 > **Before executing this skill**, read these referenced skills with `ReadFullDocsArticle`:
-> - [Guardrail: Discount Conflicts](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/guardrail-discount-conflicts)
-> - [Setup: Discount Rules](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/setup-discount-rules)
+> - [Guardrail: Discount Conflicts](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-guardrail-discount-conflicts)
+> - [Setup: Discount Rules](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-create-discount-rule)
 
 Creates a discount that rewards customers for purchasing multiple items, encouraging product discovery and cross-selling. The discount activates when the cart contains a minimum number of items, and targets categories or products where bundling makes strategic sense.
 
