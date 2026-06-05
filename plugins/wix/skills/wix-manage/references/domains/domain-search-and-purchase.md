@@ -218,12 +218,17 @@ Replace `{domain}` with the chosen domain (e.g. `mybakery.com`).
 ```json
 {
   "domainRegistrationIntent": {
-    "registrantContact": { "firstName": "...", "lastName": "...", "email": "...", "phone": "...", "address": { ... } },
+    "registrantContact": {
+      "firstName": "...", "lastName": "...", "email": "...", "phone": "...",
+      "streetAddress": "...", "city": "...", "country": "...", "postalCode": "..."
+    },
     "adminContact": { ... },
     "techContact": { ... }
   }
 }
 ```
+
+> Address fields are **flat** on each contact (`streetAddress`, `city`, `country`, `postalCode`) — there is no nested `address` sub-object.
 
 - **If contacts exist**: Show the info and explicitly ask "Should I use these details, or would you like to register with different info?" Wait for the user to confirm before proceeding to Step 3. Do NOT skip this confirmation.
 - **If contacts are empty**: Ask the user for: first name, last name, email, phone number, street address, city, country, and postal code. The user can provide country as a full name (e.g. "Israel", "United States") -- convert it to the 2-letter ISO country code (e.g. "IL", "US") before sending to the API. Wait for them to provide all fields before proceeding.
@@ -249,12 +254,10 @@ Body:
       "lastName": "Smith",
       "email": "john@email.com",
       "phone": "+1.5551234567",
-      "address": {
-        "streetAddress": "123 Main St",
-        "city": "New York",
-        "country": "US",
-        "postalCode": "10001"
-      }
+      "streetAddress": "123 Main St",
+      "city": "New York",
+      "country": "US",
+      "postalCode": "10001"
     },
     "adminContact": { ... same as registrant ... },
     "techContact": { ... same as registrant ... }
