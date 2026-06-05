@@ -7,120 +7,77 @@ description: Mermaid diagram of the eCommerce routing tree — WixREADME → cat
 
 ```mermaid
 flowchart TB
-    MR["Merchant Query"] --> README
+    MR["Merchant Query"] --> README["WixREADME<br/>(portal index — category-docs surface here)"]
 
-    README["WixREADME<br/>(portal index — category-docs surface here)"]
+    README --> TAX
+    README --> PRICE
 
-    README --> TAXDOC["ecom-tax.md<br/>(category-doc)"]
-    README --> PRICEDOC["ecom-pricing.md<br/>(category-doc)"]
+    LOADER["ecom-load-context.md<br/>(L1 loader — general site data;<br/>loaded by each default before dispatch)"]
+    TAX -.-> |load context| LOADER
+    PRICE -.-> |load context| LOADER
 
-    LOADER["ecom-load-context.md<br/>(L1 loader — general site data)"]
-
-    %% ---------- Tax category ----------
-    TAXDOC --> TAXDEF
+    %% ---------- Tax L3 ----------
     subgraph TAX["Tax — tax/"]
-        TAXDEF["ecom-tax-default<br/>(dispatcher)"]
-        TAXDEF --> tax-configure
-        TAXDEF --> tax-avalara
-        TAXDEF --> tax-eu-vat
-        TAXDEF --> tax-switch-calculator
-        TAXDEF --> tax-audit
-        TAXDEF --> tax-troubleshoot-calc-wrong
+        direction TB
+        TAXDEF["ecom-tax-default · dispatcher"]
+        TC["ecom-tax-configure"]
+        TA["ecom-tax-avalara"]
+        TV["ecom-tax-eu-vat"]
+        TS["ecom-tax-switch-calculator"]
+        TU["ecom-tax-audit"]
+        TT["ecom-tax-troubleshoot-calc-wrong"]
+        TAXDEF ~~~ TC ~~~ TA ~~~ TV ~~~ TS ~~~ TU ~~~ TT
     end
 
-    %% ---------- Pricing category ----------
-    PRICEDOC --> PRICEDEF
+    %% ---------- Pricing & promotions L3 ----------
     subgraph PRICE["Pricing & promotions — pricing-promotions/"]
-        PRICEDEF["ecom-pricing-default<br/>(dispatcher)"]
-        PRICEDEF --> pricing-create-coupon
-        PRICEDEF --> pricing-create-discount-rule
-        PRICEDEF --> pricing-troubleshoot-not-applying
-        PRICEDEF --> RUNSALE["ecom-pricing-run-a-sale<br/>(business-flow orchestrator)"]
-
-        subgraph PGOALS["Support: goal-*"]
-            goal-seasonal-revenue
-            goal-clear-inventory
-            goal-increase-aov
-            goal-drive-cross-sells
-        end
-        subgraph PFLOWS["Support: flow-*"]
-            flow-seasonal-promotion
-            flow-upsell-boost
-            flow-bundle-and-save
-            flow-stock-mover
-        end
-        subgraph PGUARD["Support: guardrail-* + tracking"]
-            guardrail-discount-conflicts
-            guardrail-margin-protection
-            tracking-api
-        end
-
-        RUNSALE --> goal-seasonal-revenue
-        RUNSALE --> goal-increase-aov
-        RUNSALE --> goal-clear-inventory
-        RUNSALE --> goal-drive-cross-sells
-        RUNSALE -.-> |"Steps 2+8: persist recommendations"| tracking-api
-
-        goal-seasonal-revenue --> flow-seasonal-promotion
-        goal-clear-inventory --> flow-stock-mover
-        goal-increase-aov --> flow-upsell-boost
-        goal-increase-aov --> flow-bundle-and-save
-        goal-drive-cross-sells --> flow-bundle-and-save
-
-        flow-seasonal-promotion --> guardrail-discount-conflicts
-        flow-bundle-and-save --> guardrail-discount-conflicts
-        flow-stock-mover --> guardrail-discount-conflicts
-        flow-stock-mover --> guardrail-margin-protection
-        flow-upsell-boost --> guardrail-discount-conflicts
-        flow-upsell-boost --> guardrail-margin-protection
+        direction TB
+        PRICEDEF["ecom-pricing-default · dispatcher"]
+        PC["ecom-pricing-create-coupon"]
+        PD["ecom-pricing-create-discount-rule"]
+        PR["ecom-pricing-run-a-sale · business-flow orchestrator"]
+        PB["ecom-pricing-troubleshoot-not-applying"]
+        PG["goal-seasonal-revenue · goal-increase-aov<br/>goal-clear-inventory · goal-drive-cross-sells"]
+        PF["flow-seasonal-promotion · flow-upsell-boost<br/>flow-bundle-and-save · flow-stock-mover"]
+        PV["guardrail-discount-conflicts · guardrail-margin-protection<br/>tracking-api"]
+        PRICEDEF ~~~ PC ~~~ PD ~~~ PR ~~~ PB ~~~ PG ~~~ PF ~~~ PV
     end
 
-    %% ---------- §7.5 API-doc dispatch (no skill) ----------
-    PRICEDEF -.-> |"§7.5 — API doc, no skill"| APIDOCS["dev.wix.com API docs<br/>(query-coupons, query-discount-rules, get-coupon-usage, …)"]
-    TAXDEF -.-> |"calls"| APIDOCS
-
-    %% ---------- Dispatchers load L1 context before dispatch ----------
-    TAXDEF -.-> |"load if not in context"| LOADER
-    PRICEDEF -.-> |"load if not in context"| LOADER
-
-    %% ---------- Legacy flat — pending migration ----------
-    subgraph LEGACY["Legacy flat at ecommerce/ root — NOT yet migrated (→ Shipping & checkout categories)"]
-        setup-shipping-rates
-        setup-shipping-regions
-        setup-store-pickup-location
-        recipe-apply-shipping-recommendations
-        flow-add-free-shipping
-        flow-optimize-shipping-rates
-        flow-fix-coverage-gaps
-        guardrail-shipping-health
-        guardrail-rate-pricing-sanity
-        goal-reduce-cart-abandonment
-        troubleshoot-checkout-delivery-dropoff
-        api-shipping
+    %% ---------- Legacy flat (not yet an L3) ----------
+    subgraph LEGACY["Legacy flat at ecommerce/ root — NOT migrated (→ Shipping & checkout)"]
+        direction TB
+        L1["setup-shipping-rates"]
+        L2["setup-shipping-regions"]
+        L3["setup-store-pickup-location"]
+        L4["recipe-apply-shipping-recommendations"]
+        L5["flow-add-free-shipping"]
+        L6["flow-optimize-shipping-rates"]
+        L7["flow-fix-coverage-gaps"]
+        L8["guardrail-shipping-health"]
+        L9["guardrail-rate-pricing-sanity"]
+        L10["goal-reduce-cart-abandonment"]
+        L11["troubleshoot-checkout-delivery-dropoff"]
+        L12["api-shipping"]
+        L1 ~~~ L2 ~~~ L3 ~~~ L4 ~~~ L5 ~~~ L6 ~~~ L7 ~~~ L8 ~~~ L9 ~~~ L10 ~~~ L11 ~~~ L12
     end
+    README -.-> |direct entries today| LEGACY
 
-    classDef catdoc fill:#14b8a6,stroke:#0d9488,color:#fff
     classDef dispatcher fill:#f59e0b,stroke:#d97706,color:#fff
     classDef promotion fill:#3b82f6,stroke:#2563eb,color:#fff
     classDef orchestrator fill:#ec4899,stroke:#db2777,color:#fff
-    classDef goal fill:#8b5cf6,stroke:#6d28d9,color:#fff
-    classDef guardrail fill:#ef4444,stroke:#dc2626,color:#fff
+    classDef support fill:#8b5cf6,stroke:#6d28d9,color:#fff
     classDef loader fill:#10b981,stroke:#059669,color:#fff
     classDef legacy fill:#6b7280,stroke:#4b5563,color:#fff
-    classDef apidoc fill:#e5e7eb,stroke:#9ca3af,color:#374151
 
-    class TAXDOC,PRICEDOC catdoc
     class TAXDEF,PRICEDEF dispatcher
-    class tax-configure,tax-avalara,tax-eu-vat,tax-switch-calculator,tax-audit,tax-troubleshoot-calc-wrong,pricing-create-coupon,pricing-create-discount-rule,pricing-troubleshoot-not-applying promotion
-    class RUNSALE orchestrator
-    class goal-seasonal-revenue,goal-clear-inventory,goal-increase-aov,goal-drive-cross-sells goal
-    class flow-seasonal-promotion,flow-upsell-boost,flow-bundle-and-save,flow-stock-mover promotion
-    class guardrail-discount-conflicts,guardrail-margin-protection guardrail
-    class tracking-api promotion
+    class TC,TA,TV,TS,TU,TT,PC,PD,PB promotion
+    class PR orchestrator
+    class PG,PF,PV support
     class LOADER loader
-    class setup-shipping-rates,setup-shipping-regions,setup-store-pickup-location,recipe-apply-shipping-recommendations,flow-add-free-shipping,flow-optimize-shipping-rates,flow-fix-coverage-gaps,guardrail-shipping-health,guardrail-rate-pricing-sanity,goal-reduce-cart-abandonment,troubleshoot-checkout-delivery-dropoff,api-shipping legacy
-    class APIDOCS apidoc
+    class L1,L2,L3,L4,L5,L6,L7,L8,L9,L10,L11,L12 legacy
 ```
+
+The arrows land on each L3 **group**; inside a group, files stack vertically with the `default` dispatcher first. Internal dispatch (default → promotion) and support chains (run-a-sale → goal → flow → guardrail/tracking) are documented in the reachability table below rather than drawn as edges.
 
 ## File Reachability
 
