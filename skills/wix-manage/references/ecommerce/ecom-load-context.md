@@ -21,7 +21,7 @@ ListWixSites()
 
 - If the merchant referenced a site by name, match it.
 - If exactly one site exists, auto-select it.
-- Otherwise ask the merchant which site to use.
+- Otherwise, ask the merchant which site to use.
 
 **Do not proceed without a `siteId`.**
 
@@ -91,7 +91,7 @@ Reasoning:
 **Where category-specific runtime data is detected instead:** inside the category's `default.md` (Step before dispatch) or inside the specific promotion that needs it. The L1 loader does **not** prime per-category fields; the category does its own detection lazily, only when its own intent dispatch fires.
 
 Concretely for the categories we know about:
-- **Tax** — calculator detection (Manual vs Avalara) belongs in `tax/ecom-tax-default.md` or in each Tax promotion when it runs. Not here. (Currently Tax APIs aren't TPA-public anyway, so Tax recipes are design docs — see `tax/` and `skill-audit.md`.)
+- **Tax** — calculator detection (Manual vs Avalara) belongs in `tax/ecom-tax-default.md` or in each Tax promotion when it runs. Not here.
 - **Catalog** (when Stores migrates) — V1/V3 detection belongs in `catalog/stores-catalog-default.md`, not in a Stores L1 loader.
 - **Payments & finance** (when Get-paid migrates) — payment-provider state belongs in `finance-and-payments/get-paid-finance-default.md`.
 
