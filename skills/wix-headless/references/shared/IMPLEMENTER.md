@@ -18,7 +18,7 @@ Then read the specific reference(s) for your declared scope (see your vertical's
 
 Your prompt includes a line `Scope: <name>`. Map to exactly one reference set per your vertical's `INSTRUCTIONS.md` scope table. If the `Scope:` line is missing, stop and ask the parent — do not guess.
 
-Standard scope names (see architecture-proposal §3):
+Standard scope names:
 - `seed` — Seed phase (REST data setup, no frontend code)
 - `components` — Components phase (reusable React/Astro islands, SDK wiring)
 - `pages` — Pages phase (route files with visual design + data queries, single scope per vertical)
@@ -52,7 +52,7 @@ Agents with `Scope: seed` return their seeded entities in the `data` block of th
 
 Pages-phase agents write route files (`.astro`) with:
 
-1. **Visual design via design tokens and Tailwind.** Reference tokens as `var(--color-primary)` in `<style>` blocks or `bg-[--color-primary]` as Tailwind arbitrary values. Use canonical component templates (`agents/<vertical>/templates/*.astro`) as starting points — adapt, don't invent.
+1. **Visual design via design tokens and Tailwind.** Reference tokens as `var(--color-accent)` in `<style>` blocks or `bg-[--color-accent]` as Tailwind arbitrary values. Use canonical component templates (`agents/<vertical>/templates/*.astro`) as starting points — adapt, don't invent.
 2. **Data queries against seeded data.** The seeded entity IDs / slugs are inlined in your prompt (`seeded.<vertical>`). Pages query the Wix SDK at request time (`await productsV3.queryProducts(...)`) — that's the production-correct pattern. Use the inlined `seeded` data for path generation (e.g. `getStaticPaths` slugs) and for authoring demo content where needed; do NOT `import` `.wix/site.json` from page files.
 3. **Imports from shared components.** Pages import components your Components-phase agent wrote (`src/components/*.tsx`, `.astro`).
 4. **Imports from skill shared utilities.** `from "../utils/wix-image"` and `from "../utils/analytics"` — these are skill-shipped (copied into the project by `seed-utilities.sh` during Setup); do NOT import them from anywhere else.
@@ -117,13 +117,12 @@ The full styling contract (tokens-as-utilities default, when global semantic cla
 ## Style conventions
 
 - **camelCase for identifiers, kebab-case for filenames, PascalCase for components.** Example: `ProductCard.astro`, `queryBlogPosts` function, `cart-updated` event.
-- **No inline styles beyond design-token CSS variables.** `style={{ color: "red" }}` is forbidden; `style={{ color: "var(--color-primary)" }}` is fine.
-- **Tailwind utilities are local to the component.** Don't invent cross-cutting class names. If you need section padding, write `<section class="py-4xl">` — not `<section class="hero-section">`. If you need a flex column with gap, write `class="flex flex-col gap-md"` — not `class="product-card-body"`. If two components need the same look, extract a shared primitive component, not a shared class name. The retained list of legitimate global semantic classes is short and lives in designer `INSTRUCTIONS.md` § "Always-required global semantic classes" — anything outside that list does not belong in `global.css`.
-- **Tailwind v4 `@reference` is mandatory in any scoped CSS that uses `@apply`.** Tailwind v4 isolates `@apply` per file — utilities defined in the main entry CSS (where `@theme` lives) are NOT visible to `components-*.css` unless that file prepends `@reference "./global.css";` on line 1. Without it, `wix cli build` fails with `Cannot apply unknown utility class 'gap-sm' …`. **`tsc` and `astro check` both pass clean** — only the bundler catches the regression. If your scope writes a `components-<vertical>.css` that uses `@apply` with theme tokens (e.g., `@apply gap-sm font-display text-sm`), the file MUST start with:
+- **No inline styles beyond design-token CSS variables.** `style={{ color: "red" }}` is forbidden; `style={{ color: "var(--color-accent)" }}` is fine.
+- **Tailwind v4 `@reference` is mandatory in any scoped CSS that uses `@apply`.** Tailwind v4 isolates `@apply` per file — utilities defined in the main entry CSS (where `@theme` lives) are NOT visible to `components-*.css` unless that file prepends `@reference "./global.css";` on line 1. If your scope writes a `components-<vertical>.css` that uses `@apply` with theme tokens (e.g., `@apply gap-sm font-display text-sm`), the file MUST start with:
   ```css
   @reference "./global.css";
   ```
-  Without it, the build breaks at release time even though `tsc` and `astro check` pass clean — only the bundler catches it.
+  Without it, the build breaks at release time with `Cannot apply unknown utility class 'gap-sm' …` even though `tsc` and `astro check` pass clean — only the bundler catches it.
 - **Fail loud, never silently.** If data is missing, a required field is absent, or an REST call returns an unexpected shape, return `status: "failed"` with details. Do not invent placeholders or swallow errors.
 
 ## Return contract
@@ -190,7 +189,7 @@ The `data` shapes for the scopes this file owns — `components` and `pages`/`pa
 | Removing a marker after inserting at it | Marker stays; other verticals may contribute after you |
 | Trailing narrative prose after the return JSON | JSON block must be the last content |
 | Fabricated timestamps in the return JSON | Do not include timing fields — orchestrator captures them |
-| Inline `style="color: red"` | Use design tokens: `style="color: var(--color-primary)"` |
+| Inline `style="color: red"` | Use design tokens: `style="color: var(--color-accent)"` |
 | Creating a new cross-cutting class name | Extract a shared primitive component instead |
 
 ### Astro/React build-blockers — check before returning `complete`

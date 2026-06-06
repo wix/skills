@@ -6,7 +6,7 @@ Build a team directory using `@wix/data` — staff cards grouped by department w
 
 ## Collection Schema
 
-Create a collection in the Wix dashboard → CMS with these fields:
+The schema the `seed` scope creates via REST (see `../../cms/CMS_FOUNDATIONS.md`) — fields:
 
 | Field | Type | Purpose |
 |-------|------|---------|
@@ -156,7 +156,7 @@ const { member } = Astro.props;
 </a>
 ```
 
-> **Styling note:** TeamMemberCard styling is created by the design skill. See `COMPONENT_PATTERNS.md` → Team Member Card.
+> **Styling note:** TeamMemberCard styling is created by the design skill. See `references/shared/STYLING.md` (Team Member Card).
 
 Key details:
 - Inline SVG icons — no icon library dependency
@@ -292,8 +292,8 @@ body: {
 
 ## Testing
 
-1. Create a "Team" collection in the Wix dashboard → CMS with the schema above
-2. Add 4+ members across 2+ departments, with photos and social links
-3. Run `npx @wix/cli@latest dev`
-4. `/team` — shows members grouped by department
-5. Click a member — profile page with photo, bio, and social links
+Assumes the `seed` scope has already created the "Team" collection and inserted items via REST (see `../../cms/CMS_FOUNDATIONS.md`) — 4+ members across 2+ departments, with social links (and headshots after the image pass).
+
+1. Run `npx @wix/cli@latest dev`
+2. `/team` — shows members grouped by department
+3. Click a member — profile page with photo, bio, and social links

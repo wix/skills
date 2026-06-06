@@ -14,7 +14,7 @@ When Wave 0 resolved `frontend: custom`, `frontendBuild: own` (an explicit frame
 2. **Ask the vibe** (Step 2 below — the aesthetic-direction craft) — the Designer needs it — **and the imagery preference** (Step 2.5 below: the same Q3 + credit estimate + balance fetch the astro branch runs; the `imagery` flag gates both image phases in `BUILD-own-build.md`). Then **present a light plan** (its own message) and get approval — same discipline as the connect plan (`DISCOVERY-connect.md` § 3): *what I'll build* (a small <framework> app **with your brand's look** — palette + type from the design tokens, applied as CSS custom properties; full per-component composition is framework-default for now) + an **`Imagery:`** line (chosen mode + credit estimate, same format as the astro plan, §2.5 below) + *what I'll connect* (the capability → its Wix backend) + the apps. No astro Design-Direction card, no Pages table. For a client-state capability, state the **shared-data caveat** up front.
 3. **On approval** — `init-site-json.mjs --frontend custom` (persists `frontend: custom`; `frontendBuild: own` stays in scratch), then hand to `BUILD.md` → routes on `frontendBuild: own` → `BUILD-own-build.md`, whose **create × own** cells run the **Designer + `emit-design-tokens.mjs`** (DESIGN.md + token CSS), scaffold the framework → `init` → generate the minimal app (importing `.wix/design-tokens.css`), wire a fresh `@wix/data` data module, then the project's own build + release.
 
-The astro-only steps below (the Design-Direction decision card, `scaffold.sh`, `compose.mjs`) do **not** apply to this branch — but the **vibe question (Step 2)**, the **imagery question (Step 2.5)**, and the **Designer** do; hold the aesthetic-direction craft + the `imagery` flag in scratch for the Designer + image-phase dispatches in `BUILD-own-build.md`.
+Hold the aesthetic-direction craft + the `imagery` flag in scratch for the Designer + image-phase dispatches in `BUILD-own-build.md`.
 
 ---
 
@@ -187,7 +187,7 @@ Options:
 
 If `balance === null`, drop the trailing *"Current balance: …"* sentence entirely (do not print *"Current balance: unknown"* — silence is the contract). The AI-generated option then reads: *"Bespoke images per product and section. ~10 min build. Uses ~<estimatedCredits> Wix AI credits (1 image = 1 credit)."*
 
-→ **Verify Q3:** Themed blocks description ends `Uses 0 Wix AI credits.`. AI-generated description contains the substring `Uses ~<estimatedCredits> Wix AI credits (1 image = 1 credit).` (with `<estimatedCredits>` replaced by the integer). When balance is known, description also ends with `Current balance: <balance> / <cap>.`. When balance is unknown, description ends with `(1 image = 1 credit).` and no balance text follows.
+→ **Verify Q3:** Themed blocks description ends `Uses 0 Wix AI credits.`. AI-generated description contains the substring `Uses ~<estimatedCredits> Wix AI credits (1 image = 1 credit).` (with `<estimatedCredits>` replaced by the integer), and applies the balance-known/unknown rule above verbatim.
 
 Capture the answer as `imagery: "themed-blocks" | "ai-generated"` in session scratch. The downstream dispatch gates that consume it are owned by `BUILD-astro.md § "Imagery gates"`.
 
@@ -213,7 +213,7 @@ The Designer owns **the design itself** — it **authors `DESIGN.md` directly** 
 - **Brand**: `{ name, description }` from Q1 (description = the user's opening business context, distilled to one line).
 - **Aesthetic direction, color palette, typography, mood, page color strategy**: from the craft step above.
 
-The application inputs (loaded packs, packs-with-components, disabled packs, navigation links) are **not** passed to the Designer — they go into the **`compose.mjs` input** at the design-system bridge. Hold them in scratch too, for the compose-input JSON the bridge builds (`BUILD-astro.md` § "2. Design-system bridge"). (Nav-links example for stores+cms+ecom+gift-cards: `[{"href":"/about","label":"About"},{"href":"/faq","label":"FAQ"}]` — `/about` + `/faq` when `cms` is loaded; never `/products` (stores splices it), `/gift-cards` (disabled), or any route whose pack contributes a nav marker.)
+The application inputs (loaded packs, packs-with-components, disabled packs, navigation links) are **not** passed to the Designer — they go into the **`compose.mjs` input** at the design-system bridge. Hold them in scratch too, for the compose-input JSON the bridge builds (`BUILD-astro.md` § "2. Setup window"). (Nav-links example for stores+cms+ecom+gift-cards: `[{"href":"/about","label":"About"},{"href":"/faq","label":"FAQ"}]` — `/about` + `/faq` when `cms` is loaded; never `/products` (stores splices it), `/gift-cards` (disabled), or any route whose pack contributes a nav marker.)
 
 The orchestrator dispatches the Designer with these inputs **post-approval** (`BUILD-astro.md` run-step 0) — not during Discovery; the Designer's prompt template lives in `DESIGN_SYSTEM.md`. Discovery only produces and holds the inputs in scratch.
 

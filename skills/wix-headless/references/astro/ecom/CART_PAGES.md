@@ -1,10 +1,10 @@
 # Phase 4 Cart Pages — Ecom
 
-Scope: `ecom-pages`. Launched in **Step 7**. Mounts `CartView` island on the cart page, wires the thank-you page, and mounts `CartBadge` in Navigation.
+Scope: `cart-checkout`. Launched in **Step 7**. Mounts `CartView` island on the cart page, wires the thank-you page, and mounts `CartBadge` in Navigation.
 
 ## Scope
 
-Files this agent OWNS (rewrites from designer output):
+Files this agent OWNS (each written once — designer visual spec + live wiring together):
 
 - `src/pages/cart.astro` — mount `CartView.tsx` (client-only, no server-side cart fetch)
 - `src/pages/thank-you.astro` — read `orderId` from URL, fire `Purchase` event
@@ -100,8 +100,8 @@ Cart page → "Proceed to Checkout"
 ```json
 {
   "status": "complete",
-  "phase": "ecom-pages",
-  "scope": "ecom-pages",
+  "phase": "cart-checkout",
+  "scope": "cart-checkout",
   "summary": "Mounted CartView (client-only fetch); wired Purchase event; mounted CartBadge in Navigation",
   "data": {
     "pagesWired": 2,

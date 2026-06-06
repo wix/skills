@@ -8,7 +8,7 @@ Every visual decision in a generated site falls into one of three categories. Ea
 
 | Category | Lives in | Owned by | Use for |
 |---|---|---|---|
-| **Tokens (composed as utilities)** | the canonical `DESIGN.md` + its projections `@theme` block in `src/styles/global.css`, `.wix/design-tokens.css`, `.wix/site.d.ts` (all written by `scripts/emit-design-tokens.mjs` / `compose.mjs` from Designer's `data.design`) | Designer picks values (Phase 2); `compose.mjs` writes `@theme` | All color, spacing, typography scale, radii, aspect ratios, shadows, transitions. Pages compose tokens at call sites as Tailwind utilities — `class="py-4xl bg-sand aspect-[16/5]"`. |
+| **Tokens (composed as utilities)** | the canonical `DESIGN.md` + its projections: the `@theme` block in `src/styles/global.css` (written by `scripts/compose.mjs`), plus `.wix/design-tokens.css` and `.wix/site.d.ts` (written by `scripts/emit-design-tokens.mjs`) — all from Designer's `DESIGN.md` | Designer picks values (Phase 2); `compose.mjs` writes `@theme` | All color, spacing, typography scale, radii, aspect ratios, shadows, transitions. Pages compose tokens at call sites as Tailwind utilities — `class="py-4xl bg-sand aspect-[16/5]"`. |
 | **Global semantic classes** | `src/styles/global.css` (outside `@theme`) and `src/styles/components-<pack>.css` | Designer + Phase 3 component agents | Compound multi-element patterns, interactive states (`:hover`, `:focus`, `:disabled`), and JS/React DOM query targets. |
 | **Co-located styles** | `<style>` block at the bottom of the same `.astro` file (or component CSS module for islands) | Page or component author | One-off page decoration: hero stamps, custom dividers, ornamental overlays that won't be reused elsewhere. |
 
@@ -104,25 +104,15 @@ The fix is structural: move component-specific CSS out of `global.css` entirely.
 
 The Phase 3 components agents already write to `components-<pack>.css` (the file is imported by the designer's `Layout.astro` from the start). This change just makes it the *only* place those classes live — no parallel partial rule in `global.css`.
 
-### Why this is structural
-
-Tokens + truly cross-cutting patterns (buttons, decorative slots, site shell) are stable across verticals and brands — fine for the designer to own. Component-specific layout and spacing evolves with the component. Putting it next to the component means:
-
-- One author per class. No drift.
-- Verticals can ship new component variants without round-tripping the designer.
-- `overflow: hidden` + `border-radius` traps are caught by the same person who set the radius — no second author who has to *know* the radius value.
-
 ### Pre-return checklist for the Composer
 
-`compose.mjs` writes `global.css` by substituting the `@theme` palette into a pinned skeleton, so the component-class leak below is **structurally prevented** — the skeleton declares no `.product-card`/`.cart-summary`-family rules at all, and the script never adds any. The check below is a maintainer guard for when the skeleton itself is edited: confirm the skeleton's `global.css` declares none of these:
+`compose.mjs` writes `global.css` by substituting the `@theme` palette into a pinned skeleton, so this leak is **structurally prevented** — the skeleton declares no `.product-card`/`.cart-summary`-family rules and the script never adds any. The grep below is a maintainer guard for when the skeleton itself is edited; confirm it declares none of these:
 
 ```
-grep -r --include="*.astro" --include="*.tsx" -lE "class(\\Name)?=.*(\\.|\\b)(product-card|product-grid|product-card-media|product-card-ribbon|product-card-index|offer-callout|cart-summary|cart-total|cart-empty|checkout-btn)\\b" $SKILL_ROOT/templates/*/
+grep -r --include="*.astro" --include="*.tsx" -lE "class(\\Name)?=.*(\\.|\\b)(product-card|product-grid|product-card-media|product-card-ribbon|product-card-index|offer-callout|cart-summary|cart-total|cart-empty|checkout-btn)\\b" $SKILL_ROOT/references/astro/templates/*/
 ```
 
-For every class name listed above that the Composer's `global.css` declares: if any template references it, the class is component-specific and must NOT be in `global.css`. Move the rule to the appropriate `components-<pack>.css` template (or to a scoped `<style>` block in the component template). Do NOT ship a partial rule in `global.css` that the template "completes" — that's the leak this file is preventing.
-
-The check is mechanical and bounded — it scans templates, not the live project.
+For any listed class the Composer's `global.css` declares: if a template references it, move the rule to the appropriate `components-<pack>.css` template (or a scoped `<style>` block). Do NOT ship a partial rule in `global.css` that the template "completes".
 
 ## Co-located styles — the locality default for one-offs
 

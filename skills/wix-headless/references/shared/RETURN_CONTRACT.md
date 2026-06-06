@@ -45,17 +45,11 @@ The JSON block MUST be the **last** content in the message. The parent skill par
 
 ### Timing is NOT the agent's responsibility
 
-Prior versions of this contract asked agents to include `started` / `ended` ISO-8601 timestamps. **Remove those fields.** Agents fabricate placeholder timestamps (`T00:00:00Z` / `T00:05:00Z`) roughly 60% of the time, which makes `run.json` useless for perf comparison.
+**Emit no timing fields** (no `started` / `ended` timestamps). **Authoritative timing source is the runtime `duration_ms`** captured by the parent skill from task-notifications when the subagent completes. The orchestrator MUST prefer `duration_ms` over any agent-reported timing. If an older agent still emits `started`/`ended`, the orchestrator ignores them. No LLM-generated timestamps anywhere in the observability pipeline.
 
-**Authoritative timing source is the runtime `duration_ms`** captured by the parent skill from task-notifications when the subagent completes. The orchestrator MUST prefer `duration_ms` over any agent-reported timing. If an older agent still emits `started`/`ended`, the orchestrator ignores them. No LLM-generated timestamps anywhere in the observability pipeline.
+### No trailing prose after the fenced JSON
 
-### Observed failure mode — narrative ending instead of fenced JSON
-
-Agents sometimes end with prose like:
-
-> *"All three files are correctly written. Let me verify the key requirements… Everything looks good."*
-
-…with no fenced JSON block at the end. The parent skill then has to reconstruct `data.products` etc. from narrative text — fragile, and when a later phase relies on pre-seeded data from earlier returns, a missing JSON block means downstream agents don't get their data inline and fall back to re-querying the REST API, costing 5–15s each.
+The fenced JSON block must be the **last** content in the message. A trailing sentence — or no block at all — means the parent skill has to reconstruct `data.products` etc. from narrative text. That's fragile, and when a later phase relies on pre-seeded data from earlier returns, a missing block means downstream agents don't get their data inline and fall back to re-querying the REST API, costing 5–15s each.
 
 **Correct pattern — end with the fenced block, no trailing prose:**
 
@@ -85,14 +79,6 @@ All files written. Contract classes referenced: productCard, productGrid, option
 ```
 
 All three files are correctly written. Let me verify the key requirements are met before returning.
-~~~
-
-~~~markdown
-❌ WRONG — no JSON block at all
-
-All three files are correctly written. The ProductPurchase island uses contract classes
-throughout, AddToCartButton wires to @wix/ecom, and CartView handles the two-step
-checkout redirect. Build should pass.
 ~~~
 
 The parent skill looks for the **last** fenced JSON block in the message. A trailing sentence means it's no longer the last content; scanning falls back to heuristics. Just stop writing after the closing ` ``` `.

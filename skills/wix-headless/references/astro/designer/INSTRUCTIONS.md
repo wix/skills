@@ -175,19 +175,19 @@ All store-facing pages designed together for visual coherence.
 **Products listing (`/products`):**
 - Page heading
 - Product grid using `product-grid` class
-- 3-6 placeholder product cards using `ProductCard` component
+- Bind the live `productsV3` query (per `references/astro/stores/PRODUCT_PAGES.md`) into a grid of `ProductCard` components; render a brand-contextual empty state if the query returns nothing
 
 **Product detail (`/products/[slug]`):**
-- Product image (large, placeholder)
+- Product image (large) resolved from the live product record
 - Product info section with `product-detail` class
-- Purchase area with `product-purchase` class — placeholder price, placeholder variant selector, Add to Cart button with `add-to-cart-btn` class
+- Purchase area with `product-purchase` class — price, variant selector, and Add to Cart button (`add-to-cart-btn` class) bound to the live product/variant data
 - Product description area
 
 **ProductCard component:**
-- Accepts a single `product` prop (object with name, price, slug, image fields)
+- Accepts a single `product` prop — the full Wix product object from `productsV3`
 - Uses `product-card` class
 - Image, name, price, link to `/products/${product.slug}`
-- **Important:** Phase 2 `product-pages` rewrites this to accept the full Wix product object. Design with a simple prop interface: `{ product: { name: string; slug: string; price: number; image?: string } }`
+- Design the prop interface around the full product object: `{ product }` (the canonical `productsV3` shape — see `references/astro/stores/PRODUCT_PAGES.md`)
 
 **Cart (`/cart`):**
 - Two-column grid layout: `.cart-grid` — items column left, order summary right. Stacks vertically on mobile
@@ -199,11 +199,11 @@ All store-facing pages designed together for visual coherence.
 - Unavailable item warning with `.cart-item-unavailable` class (red text)
 - Empty state with `.cart-empty` class (centered, muted text + "Browse Products" link)
 - **All cart CSS must be in `<style is:global>`** — `CartView` is a React island; scoped Astro styles do not reach its children
-- Placeholder cart items (2-3)
+- The live `CartView` island renders the items/summary at runtime; design the surrounding structure and an empty-cart fallback
 
 **Thank you (`/thank-you`):**
 - Confirmation message with `order-summary` class
-- Placeholder order details
+- Order details bound to the live order data (per the ecom cart/checkout reference)
 
 **Return:**
 ```json
@@ -265,7 +265,7 @@ Contact page with form placeholder.
 **Contact page:**
 - Page heading and descriptive text
 - Contact CTA section using `contact-cta` class (if on home, this mirrors the home CTA's visual language)
-- Form placeholder area — a styled `<div>` where Phase 2 mounts the `ContactForm.tsx` island. Use a placeholder form layout (name, email, message fields, submit button) so the page looks complete, but Phase 2 replaces this with the real React island.
+- Form area — mount the `ContactForm.tsx` island (written by Phase 3 Components) styled to the brand, per `references/astro/forms/CONTACT_FORM.md`. Style a complete form layout (name, email, message fields, submit button) so the page reads as finished even before submissions wire up.
 - Optional: map embed placeholder, business hours, address (if brand context suggests it)
 
 **Return:**

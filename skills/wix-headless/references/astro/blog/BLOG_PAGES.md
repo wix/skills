@@ -114,8 +114,8 @@ const { title, description, pubDate, updatedDate, heroImage, tags = [] } = Astro
   <head>
     <BaseHead title={title} description={description ?? ''} />
     <style is:global>
-      /* All BlogPost layout styles are created by the design skill.
-         See COMPONENT_PATTERNS.md → Blog Post Content for the complete
+      /* All BlogPost layout styles are created by the merged pages scope.
+         See references/shared/STYLING.md (Blog Post Content) for the complete
          styling contract: .hero-image, .prose, .title, .date, .tags,
          .ricos-content overrides, etc. */
     </style>
@@ -182,8 +182,8 @@ const posts = await queryBlogPosts();
   <head>
     <BaseHead title={SITE_TITLE} description={SITE_DESCRIPTION} />
     <style>
-      /* Listing page styles are created by the design skill.
-         Feature skill only wires queryBlogPosts() data. */
+      /* The merged blog-pages scope writes this route once — applying the
+         listing styles and binding queryBlogPosts() data in the same pass. */
     </style>
   </head>
   <body>
@@ -267,6 +267,7 @@ Critical details:
 - **`client:only="react"` is required** — `@wix/ricos` is a React component; `client:only="react"` ensures it renders only on the client, avoiding SSR issues with React-dependent code.
 - **`[...slug]` (rest param)** — uses Astro's rest parameter syntax, not `[slug]`, to match the full slug path.
 - **`RicosViewer`** renders the rich content from the Wix Blog editor (images, videos, text formatting, embeds, etc.) using `quickStartViewerPlugins()` for full content-type support.
+- **Blog deliberately uses the React `RicosViewer`** (full feature set: galleries, polls, embedded media) — not a contradiction with CMS, which uses the lighter SSR `renderRicos` walker (`src/utils/ricos.ts`). Blog posts can carry the full Ricos feature set, so they need the React island; static CMS pages (about/faq/portfolio/team/resource) only need paragraphs + lists and avoid shipping ~80kb of React. See `references/astro/cms/CMS_FOUNDATIONS.md` § "Why not @wix/ricos?".
 - **No `getStaticPaths()`** — Wix headless projects use `output: "server"` (SSR on Cloudflare Workers), so pages use `Astro.params` directly instead of static path generation.
 - **404 handling** — `getPostBySlug` returns `null` for missing posts; redirect to `/blog` listing.
 - **Ricos color overrides** — The BlogPost layout's `<style is:global>` block includes `.ricos-content` overrides that force `var(--color-text)` on all Ricos elements. Without these, blog text is invisible on dark themes.

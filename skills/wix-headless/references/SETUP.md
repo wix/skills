@@ -42,7 +42,7 @@ The file's purpose at this point is **observability + resume detection** — no 
 
 > **Default — just invoke it; do not deliberate.** **Always** invoke `Skill(name="wix-manage")` here. It is near-instant, and it is the *only* thing that both publishes `<wix-manage-root>` into scratch **and loads the recipe files into context** (which Step 4's installs and the whole Seed phase then reuse — SEED.md reads recipes relative to `<wix-manage-root>` and explicitly does **not** re-invoke). **Knowing the `wix-manage` directory path from an earlier `ls`/discovery is NOT a reason to skip the invocation** — a raw filesystem path is not the same as the skill being loaded (the recipes aren't in context). Do not weigh invoke-vs-skip; invoke. The only exception is the Missing-skill fallback below.
 
-App installation is delegated to `wix-manage`. Use the harness's skill-invocation primitive — in Claude Code that's `Skill(name="wix-manage")`; other harnesses provide an analogous mechanism. **Do not** hardcode a tool-call snippet here; the prose instruction "Invoke the `wix-manage` skill" is the contract, and the harness owns the mechanics. This mirrors `wix-app/SKILL.md:241` ("Invoke the `wix-design-system` skill") and keeps the skill agent-agnostic.
+App installation is delegated to `wix-manage`. Use the harness's skill-invocation primitive — in Claude Code that's `Skill(name="wix-manage")`; other harnesses provide an analogous mechanism. **Do not** hardcode a tool-call snippet here; the prose instruction "Invoke the `wix-manage` skill" is the contract, and the harness owns the mechanics. This mirrors `wix-app/SKILL.md` ("Invoke the `wix-design-system` skill") and keeps the skill agent-agnostic.
 
 After invocation, `wix-manage`'s SKILL.md is in context with absolute paths to its `references/<topic>/` files. Read its app-install recipe by absolute path:
 
@@ -143,7 +143,7 @@ npm install --no-fund --no-audit --legacy-peer-deps \
 
 > **Why these two packages for cms?** `@wix/data` is the Wix Data SDK — its `items` named export carries the items API (`query`/`insert`/`update`/`remove` + `bulk*`) that every CMS page uses (`import { items } from "@wix/data"`; see [astro/cms/CMS_FOUNDATIONS.md](./astro/cms/CMS_FOUNDATIONS.md) § "Import note"). `@wix/essentials` is required for `auth.elevate` — every CMS page elevates queries to bypass per-collection permission checks. Shipping without `@wix/essentials` produces `Cannot find module '@wix/essentials'` at SSR time. (Historical note: `@wix/data` 1.0.448 briefly dropped the `items` re-export, which once required the internal `@wix/wix-data-items-sdk`; current versions export `items` again, so `@wix/data` alone suffices.)
 
-Per pre-flight S0.2, `pnpm install` fails against the `@wix/cli` template — use `npm install --legacy-peer-deps`.
+`pnpm install` fails against the `@wix/cli` template — use `npm install --legacy-peer-deps`.
 
 **Why per-pack packages live here, not in pack frontmatter:** `references/verticals/_schema.md` is scoped to Discovery; it deliberately excludes `packages:` to keep that schema small. The install set is owned by SETUP.md instead — the lookup table above is the contract. **If you skip the per-pack additions and ship only the always-on three, `astro build` fails at Wave 5 with `Rollup failed to resolve import "@wix/stores"` (or whichever pack-side package the run depends on) and Setup's win on the foreground wall is paid back many times over in a recovery cycle.** When this happens, the build retries after an in-flight `npm install @wix/stores @wix/ecom`, costing ~30 s.
 
@@ -164,9 +164,9 @@ Invoked when `npm_handle` returns non-zero. The handle is dispatched in Step 4c 
 If the background `npm install` fails or hangs:
 
 1. **Foreground retry** with `npm install --no-fund --no-audit --legacy-peer-deps <packages>` (90 s timeout). If that hangs, add `--prefer-offline`; if still hanging, run `npm cache clean --force` and retry once more.
-2. **Last resort:** ask the user to run `npm install --legacy-peer-deps` manually and report back. Do not silently substitute pnpm/yarn — pre-flight S0.2 confirmed pnpm fails against the `@wix/cli` template.
+2. **Last resort:** ask the user to run `npm install --legacy-peer-deps` manually and report back. Do not silently substitute pnpm/yarn — pnpm fails against the `@wix/cli` template.
 
-The package set is the union of `@wix/sdk tailwindcss @tailwindcss/vite` (always) plus each loaded pack's frontmatter `packages:` array. The current pack frontmatter does not declare `packages:` blocks — vertical packs are discovery-only at this phase, so the install set is just the always-on three. Do not invent package names.
+The package set is identical to Step 4c: the always-on three (`@wix/sdk tailwindcss @tailwindcss/vite`) ∪ the per-pack packages for every loaded pack, per the Step 4c lookup table. Reuse that table — do not invent package names.
 
 ---
 

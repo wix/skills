@@ -92,7 +92,7 @@ try {
   die("BAD_JSON", `stdin is not valid JSON (${e.message})`);
 }
 
-// ── token source: DESIGN.md frontmatter (portable) or inline JSON (default) ───
+// ── token source: DESIGN.md frontmatter (portable) ───────────────────────────
 // Minimal frontmatter parser for the restricted DESIGN.md shape (groups of
 // `key: scalar`, plus typography tokens with an indented `fontFamily:`). Not a
 // general YAML parser — the body is never read. Color values are quoted in the
@@ -262,6 +262,9 @@ ensure(colors, "mute", mix(colors.ink, colors.paper, 0.45), "--color-");
 ensure(colors, "rule", mix(colors.ink, colors.paper, 0.85), "--color-");
 ensure(colors, "paper-warm", mix(colors.paper, colors.accent, 0.06), "--color-"); // paper warmed
 ensure(colors, "ink-soft", mix(colors.ink, colors.paper, 0.25), "--color-");      // ink lightened
+// NOTE: cream is derived but not in REQUIRED; gift-cards CSS expects
+// --color-cream-deep (undeclared) and relies on the var() fallback — reconcile
+// with STYLING.md token contract.
 ensure(colors, "cream", mix(colors.paper, "#fbf3e0", 0.5), "--color-");
 ensure(colors, "error", "#c0392b", "--color-");
 
@@ -352,8 +355,8 @@ function stripAstroHeader(src) {
 }
 
 // ── Google Fonts href ─────────────────────────────────────────────────────────
-// Prefer the Designer-supplied href (Change B / tightened Designer). Otherwise
-// build a valid href deterministically with a standard weight set. Returns ""
+// Prefer the Designer-supplied href; otherwise build one deterministically with
+// a standard weight set. Returns ""
 // when both families are system fonts (caller drops the <link>).
 function buildGoogleHref() {
   if (typeof designTokens.googleFontsHref === "string" && designTokens.googleFontsHref.trim()) {

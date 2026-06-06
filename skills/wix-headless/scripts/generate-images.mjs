@@ -3,9 +3,8 @@
 //
 // WHY THIS EXISTS. Image generation is N independent (generate → import) chains
 // with no cross-image dependency, so it is embarrassingly parallel. When the
-// agent drives it by hand the chains serialize: traces show three product
-// images fired ~4 s apart across separate turns, then serial imports, then
-// serial PATCHes — minutes of avoidable wall. The agent ALSO cannot use the
+// agent drives it by hand the chains serialize into minutes of avoidable wall.
+// The agent ALSO cannot use the
 // single-array batch form on the default model (`google:4@2` 504s when one
 // request carries N≥3 tasks). This script resolves both: it fires N *separate
 // single-task* requests CONCURRENTLY in-process (Promise.all), so there is no
@@ -206,7 +205,7 @@ async function genAndImport(img) {
     };
   }
 
-  return { ...rec, status: "ok", url: file.url, fileId: file.fileUrl };
+  return { ...rec, status: "ok", url: file.url, fileId: file.fileUrl }; // Wix returns the file ID in .fileUrl (not .url)
 }
 
 // ---- run all in parallel --------------------------------------------------

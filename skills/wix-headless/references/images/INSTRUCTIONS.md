@@ -42,7 +42,7 @@ If your prompt is missing a `Scope:` line, stop and ask the parent — do not gu
 
 ## Quick Reference: Generation Call Shape (manual fallback)
 
-The shapes below are the **reference bodies** the script builds, and the **fallback** if you hand-drive generation. Before the first REST call, ensure the `curl` tool schema is loaded (the orchestrator's session auth covers this for the whole session per `<SKILL_ROOT>/references/commands/AUTHENTICATION.md` — only re-load if you hit a tool-not-found error). Use your runtime's AUTHENTICATION.md recovery ladder to look up the suffix.
+The shapes below are the **reference bodies** the script builds, and the **fallback** if you hand-drive generation. Before the first REST call, ensure the `curl` tool schema is loaded (the orchestrator's session auth covers this for the whole session per `<SKILL_ROOT>/references/shared/AUTHENTICATION.md` — only re-load if you hit a tool-not-found error). Use your runtime's AUTHENTICATION.md recovery ladder to look up the suffix.
 
 **If you do hand-drive it, all generation tool calls for an image phase MUST be in one concurrent batch.** The exact shape depends on the model — see `../shared/IMAGE_GENERATION.md` § "Required (manual fallback): minimize round-trips" for the rule. In short:
 
@@ -112,7 +112,7 @@ Generate site-wide decorative images that don't depend on any entity. Used by th
 **Process (must follow this order):**
 
 1. **Craft all image prompts up front** using brand context — see `IMAGE_GENERATION.md` § "Prompt guidelines".
-2. **Generate + import via `generate-images.mjs`** (preferred — § "Preferred: generate + import" above): build the `images` list (`key` = slot name, e.g. `hero`/`about`) and run the script with the cached `WIX_TOKEN`; it fires all generations concurrently and returns the `slots` map. **Manual fallback only:** dispatch all generation tool calls in one concurrent batch — siblings for `google:4@2` (1 task each, N blocks in parallel), or one batched call for other models (N tasks in `body`) — see `IMAGE_GENERATION.md` § "Required (manual fallback): minimize round-trips". Sequential 1-task calls across multiple turns is an anti-pattern; never do it.
+2. **Generate + import via `generate-images.mjs`** (preferred — § "Preferred: generate + import" above): build the `images` list (`key` = slot name, e.g. `hero`/`about`) and run the script with the cached `WIX_TOKEN`; it fires all generations concurrently and returns the `slots` map. **Manual fallback only:** follow § "Mandatory pre-call procedure" above (construct ALL tasks first, dispatch in one concurrent batch).
 3. **Import each to Wix Media** via `REST: POST https://www.wixapis.com/site-media/v1/files/import`.
 4. **Collect the resolved URLs keyed by slot purpose** (e.g., `{"hero": "https://static.wixstatic.com/...", "about": "https://static.wixstatic.com/..."}`). This map goes into your return JSON under `data.slots` — see § Return below. Do NOT write `.wix/image-urls.md` or any other file; the orchestrator pipes your `data.slots` directly into `patch-decorative-slots.mjs` via stdin.
 5. Return the structured JSON block per `../shared/RETURN_CONTRACT.md` (see § Return below). The JSON return is your sole output channel.
@@ -135,14 +135,11 @@ Generate images for products, blog posts, and CMS items. Attach via REST PATCH c
 **Process per entity type (must follow):**
 
 1. **Craft all image prompts** for this entity type up front, using each entity's own context (name, description, title, etc.).
-2. **Generate + import via `generate-images.mjs`** (preferred — § "Preferred: generate + import" above): build the `images` list with `key` = each entity's ID, run the script with the cached `WIX_TOKEN`, and read the returned `map[entityId].url` / `.fileId` for the attach step. The script generates all entity images concurrently and isolates per-image failures (`status: "partial"`) — including the `google:4@2` 504 retry below, handled in-script. **Manual fallback only** — same dispatch shape as Phase 1 Decorative:
-   - For `google:4@2` (default): N parallel sibling `curl` tool calls, one task each.
-   - For `bfl:5@1` / `runware:400@1` / others: ONE batched call with all N tasks in `body`.
-   See `IMAGE_GENERATION.md` § "Required (manual fallback): minimize round-trips". Sequential 1-task calls across multiple turns is an anti-pattern.
+2. **Generate + import via `generate-images.mjs`** (preferred — § "Preferred: generate + import" above): build the `images` list with `key` = each entity's ID, run the script with the cached `WIX_TOKEN`, and read the returned `map[entityId].url` / `.fileId` for the attach step. The script generates all entity images concurrently and isolates per-image failures (`status: "partial"`) — including the `google:4@2` 504 retry below, handled in-script. **Manual fallback only:** follow § "Mandatory pre-call procedure" above (construct ALL tasks first, dispatch in one concurrent batch).
 
    **`google:4@2` 504 retry** (manual fallback; the script does this for you). Even with N concurrent siblings, individual tasks intermittently 504. When the response array contains an entry with `errorMessage: "Request timed out"` or HTTP 504, retry **only the failing task(s)** in a follow-up batch — do NOT re-dispatch the whole batch. Cap at 1 retry per task; if it 504s twice, fall back to `bfl:5@1` for that task or skip it (entity gets no image; user can upload from dashboard).
 
-   **N≥6 entities — stagger.** When you have 6 or more entities of one type, split into pairs of 3 parallel siblings rather than 6+ in one shot. Runware throttles google:4@2 above ~4 concurrent tasks per request burst, and the timeout ladder gets steeper. Two messages with 3 siblings each is reliably faster than one message with 6 + multiple retries. (Heuristic — refine after more runs collect data.)
+   **N≥6 entities — stagger.** When you have 6 or more entities of one type, split into pairs of 3 parallel siblings rather than 6+ in one shot. Runware throttles google:4@2 above ~4 concurrent tasks per request burst, and the timeout ladder gets steeper. Two messages with 3 siblings each is reliably faster than one message with 6 + multiple retries.
 3. **Import each to Wix Media**. Imports can parallelize.
 4. **PATCH each entity** with its image URL / file ID. PATCH calls can also parallelize (sibling `curl` tool calls in one message).
 
@@ -284,11 +281,11 @@ At the end, emit a structured JSON block per `../shared/RETURN_CONTRACT.md`. Do 
   "summary": "Generated N decorative images; uploaded to Wix Media; returned slot→URL map",
   "data": {
     "decorativeCount": 3,
-    "purposes": ["hero", "about", "background"],
+    "purposes": ["hero", "about", "productsHeader"],
     "slots": {
       "hero":  "https://static.wixstatic.com/media/...",
       "about": "https://static.wixstatic.com/media/...",
-      "background": "https://static.wixstatic.com/media/..."
+      "productsHeader": "https://static.wixstatic.com/media/..."
     },
     "model": "google:4@2",
     "totalCredits": 0.297

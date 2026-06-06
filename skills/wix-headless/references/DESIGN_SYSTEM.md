@@ -104,7 +104,7 @@ and is never parsed.
 }
 ```
 
-### `data.design` — the DESIGN.md frontmatter (the token groups you author in `DESIGN.md`)
+### DESIGN.md frontmatter — the token groups you author
 
 Concrete values with **semantic roles**, in the DESIGN.md vocabulary (`DESIGN_MD.md` is the full spec). Use these exact group + key names — they are the contract `emit-design-tokens.mjs` projects to CSS variables and `compose.mjs` reads:
 
@@ -166,9 +166,10 @@ Color palette: <hex codes>
 Typography: { "display": "<font>", "body": "<font>" }
 Mood: <personality / visual elements>
 Page color strategy: <Uniform Light | Uniform Dark | Defined Hybrid>
+designMdPath: <absolute path to author DESIGN.md, e.g. <site-root>/DESIGN.md>
 
 Auth: not required (frontend-only).
 
-Return JSON only — data.design (the DESIGN.md frontmatter: colors / typography / spacing / rounded / containers / googleFontsHref) + data.shell. Write no files.
+Author DESIGN.md at the provided designMdPath; return only data.shell + designMdPath. Do not echo tokens inline.
 Do NOT read .wix/site.json — it is not yet written and every input is inlined above.
 ```

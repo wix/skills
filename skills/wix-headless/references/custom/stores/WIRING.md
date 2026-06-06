@@ -63,7 +63,7 @@ For each binding-map list region:
 
 - **Use `productsV3`**, never V1 `products` (V1 silently returns 0 on V3 catalogs).
 - **Description is rich text — bind `p.plainDescription`, never `p.description`.** `description` is HTML/ricos; binding it into `textContent` (or a framework `{…}` expression) renders literal `<p>…</p>` tags. Use `plainDescription` (a plain string), falling back to `description.replace(/<[^>]*>/g, "")` if absent.
-- **When you own the markup (create × own), size every image.** Wix media URLs are full-resolution; an `<img>` with no sizing overflows its card onto the text. Put each image in a fixed `aspect-ratio`/`height` slot with `width:100%; height:100%; object-fit:cover` (the brought-in static-site case is already sized by the design — this applies when the SPA is *generated*).
+- **(create × own only — N/A for brought-in static sites.)** When you *own* the markup (the SPA is generated, not brought in), size every image: Wix media URLs are full-resolution, so an `<img>` with no sizing overflows its card onto the text. Put each image in a fixed `aspect-ratio`/`height` slot with `width:100%; height:100%; object-fit:cover`. A brought-in static site is already sized by its own design — skip this.
 - Apply the binding-map's actual selectors/field paths — the snippet's `img.thumb`/`h3.name`/`span.price`/`.description` are illustrative.
 - **Categories:** if a region is `categoriesV3`, query `wix.categoriesV3.queryCategories().eq("visible", true).find()` (the builder rejects empty filters — always chain at least one predicate).
 

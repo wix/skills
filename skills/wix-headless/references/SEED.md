@@ -83,7 +83,7 @@ For each pack on the dispatch list, dispatch a seeder subagent (`Agent` tool wit
 ### Subagent prompt template
 
 ```
-You are seeding <pack> content into a Wix site as part of the wix-headless skill's Phase 3-Seed.
+You are seeding <pack> content into a Wix site as part of the wix-headless skill's Phase 1 Seed.
 
 Inputs (do not re-derive these — every value is inlined here):
 - brand: <brand JSON — inline from orchestrator scratch>
@@ -172,7 +172,7 @@ There are no seed-coordination files — agents return JSON inline. Do not write
 
 ## Step 4 — Aggregate the seeded map
 
-The seed gate — waiting on seeders + Composer + `npm_handle`, the post-Composer Layout-import verify, and the decorative-slot patch — is owned by the conductor (`BUILD.md`). (For npm install failures, see `SETUP.md § npm install recovery`.) This step defines only the aggregation shape.
+The seed gate — waiting on seeders + `npm_handle`, and the decorative-slot patch — is owned by the conductor (`BUILD.md`). (`compose.mjs` writes the six design-system files synchronously in the Setup-window bridge; there is no Composer subagent to wait on.) (For npm install failures, see `SETUP.md § npm install recovery`.) This step defines only the aggregation shape.
 
 **Aggregate seeder returns in orchestrator context.** Each seeder's return JSON is in your session context (the harness surfaces it when the subagent completes). Build a `seeded` map keyed by pack from those returns and hold it in scratch — Phase 3 Components, Phase 4 Pages, and Image Phase 2 prompts will inline the pack-specific slices.
 
@@ -201,5 +201,5 @@ Adapt the sentence to whichever packs were loaded — drop the irrelevant clause
 | -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | One subagent returns `error`                       | Surface the `error` payload verbatim; do not retry. Other packs' `seeded` data is intact in orchestrator scratch, so a re-run of the failing pack alone is bounded.                     |
 | Subagent return has no fenced JSON block           | Per `RETURN_CONTRACT.md` § "Observed failure mode" — the harness falls back to narrative parsing, which is fragile. Surface the issue; retry the failing seeder once with the same prompt. |
-| Recipe path drifted (Read fails inside a subagent) | The subagent should return `status: "error"` with the Read error in `error`. Surface it; the fix is to update seed-recipes.md, not retry.                                               |
+| Recipe path drifted (Read fails inside a subagent) | The subagent should return `status: "error"` with the Read error in `error`. Surface it; the fix is to correct the recipe path in the Step 1 table (and the wix-manage recipe), not retry.                                               |
 | Bulk product create rate limit                     | The stores recipe documents the limit; the subagent fans out into batches of 5 internally. If it still hits a limit, returns `error`.                                                   |

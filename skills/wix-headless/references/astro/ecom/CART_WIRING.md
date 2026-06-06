@@ -67,7 +67,7 @@ Class names used (template provides them — do not invent):
 
 Use template `templates/CartBadge.tsx`.
 
-Mounted once in `Navigation.astro` (by `ecom-pages` scope). Shows cart item count; listens for `cart-updated` custom event.
+Mounted once in `Navigation.astro` (by the `cart-checkout` scope). Shows cart item count; listens for `cart-updated` custom event.
 
 **No `initialCount` prop.** Cart is per-visitor — server-rendering the count breaks SSR caching. On mount, CartBadge reads the sessionStorage snapshot that CartView maintains (same `CART_CACHE_KEY`) to seed the initial count without a visible zero-flash between page navigations, then fetches fresh from the SDK and reconciles. If no snapshot exists (first-ever page load), count starts at 0 like before.
 
@@ -77,7 +77,7 @@ Contract keys: `cartBadge`, `cartBadgeCount`
 
 ### 3. `src/utils/analytics.ts` — not owned by this scope
 
-> `analytics.ts` is a shared utility (see `references/shared/analytics.ts`). Import from it (`import { trackEvent } from "../utils/analytics"`) but do not write it.
+> `analytics.ts` is a shared utility (canonical source `shared-utilities/analytics.ts`, seeded to `src/utils/analytics.ts`). Import from it (`import { trackEvent } from "../utils/analytics"`) but do not write it.
 
 ### 4. `src/styles/components-ecom.css` — not owned by this scope
 

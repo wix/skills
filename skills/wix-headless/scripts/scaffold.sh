@@ -126,31 +126,14 @@ npm create @wix/new@latest headless -- \
 # whole run single-folder (one `.wix`, CWD == project == site-root, no nested
 # `.wix` to reason about), fold the scaffolded subdir up into the current dir.
 #
-# The current dir already holds `.wix/site.json` (init-site-json.mjs writes it
-# before scaffold) plus the harness's output.json/stderr.log. The scaffold subdir
-# carries the project (package.json, src/, wix.config.json, …) and its own `.wix/`
-# (build metadata, topology). Merge the subdir's `.wix/*` into the existing `.wix/`
-# WITHOUT clobbering site.json (mv -n), move the rest up, then drop the subdir.
-#
-# Remove this whole block when the CLI gains `--folder-name .` (or --cwd): pass
-# the in-place flag above and delete the flatten.
+# The .wix-merge + mv -n + rmdir logic is identical to flatten.sh (the own-build
+# path's framework-agnostic flatten), so we delegate to it rather than duplicate.
+# flatten.sh lives next to this script; resolve its path relative to our own dir
+# so the call works regardless of CWD. (Both exit 5 on the same name-collision.)
+# When the CLI gains `--folder-name .` (or --cwd), the TODO to drop the flatten
+# lives in flatten.sh.
 if [[ -d "$FOLDER" ]]; then
-  shopt -s dotglob nullglob
-  mkdir -p .wix
-  if [[ -d "$FOLDER/.wix" ]]; then
-    for f in "$FOLDER"/.wix/*; do
-      mv -n "$f" .wix/    # -n: never overwrite the pre-existing site.json/run.json
-    done
-    rmdir "$FOLDER/.wix" 2>/dev/null || rm -rf "$FOLDER/.wix"
-  fi
-  for f in "$FOLDER"/*; do
-    mv -n "$f" ./
-  done
-  shopt -u dotglob nullglob
-  if ! rmdir "$FOLDER" 2>/dev/null; then
-    echo "scaffold.sh: could not fully flatten '$FOLDER' into the project dir — leftover:" >&2
-    ls -A "$FOLDER" >&2
-    exit 5
-  fi
+  SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  bash "$SCRIPT_DIR/flatten.sh" "$FOLDER"
 fi
 # -----------------------------------------------------------------------------

@@ -2,7 +2,7 @@
 
 `DESIGN.md` is the **single design artifact** of the wix-headless design-system phase. The Designer authors it; `emit-design-tokens.mjs` writes it + projects `.wix/design-tokens.css` and `.wix/site.d.ts` from it; `compose.mjs` reads its **frontmatter** to write the astro design-system files. It is the standalone, framework-agnostic spec a non-astro frontend, a human, or another tool can read.
 
-This file is the **canonical spec inside the skill** — do not depend on the external `design.md` project at runtime. The format below is the public DESIGN.md frontmatter format (the `design.md` spec, captured here) plus the small, documented extensions this skill uses.
+This file is the **canonical spec inside the skill** — the public DESIGN.md frontmatter format (the `design.md` spec, captured here) plus the small, documented extensions this skill uses. Do not depend on the external `design.md` project at runtime.
 
 ## Frontmatter structure
 

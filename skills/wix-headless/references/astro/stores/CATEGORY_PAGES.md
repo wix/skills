@@ -40,7 +40,7 @@ Files this agent MUST NOT touch:
 
 ## Writing the templates
 
-Read each template at `templates/stores/` and write it verbatim to the corresponding `src/` path, with three small adjustments. (`categories.ts` is **not** in this list — the orchestrator pre-copies it; you only import its helpers.)
+Read each template at `references/astro/templates/stores/` and write it verbatim to the corresponding `src/` path, with three small adjustments. (`categories.ts` is **not** in this list — the orchestrator pre-copies it; you only import its helpers.)
 
 | Template path | Site path |
 |---|---|

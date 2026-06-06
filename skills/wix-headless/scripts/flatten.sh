@@ -11,6 +11,10 @@
 # vs cp --no-clobber and BSD-vs-GNU portability). Scaffold into a temp subdir with
 # the framework's own command, then call this.
 #
+# astro's scaffold.sh ALSO delegates its in-place flatten here (same logic), so
+# this is the single source for the flatten. Remove the flatten entirely when the
+# CLI gains `--folder-name .` (or --cwd) — the in-place flag obviates it.
+#
 # Usage:
 #   bash <SKILL_ROOT>/scripts/flatten.sh <scaffold-subdir>
 #

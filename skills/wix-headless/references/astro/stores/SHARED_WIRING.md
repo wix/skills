@@ -17,6 +17,7 @@ Files this agent MUST NOT touch:
 - `src/styles/components-stores.css` — owned by the **`components-css`** sibling scope (see `./COMPONENTS_CSS.md`). Reference its class names; do not write the file.
 - `src/utils/wix-image.ts` — **shared utility shipped by the build skill.** Import `resolveWixImageUrl` from `../utils/wix-image`; do NOT write your own copy (would shadow the shared util and drop other verticals' callers). The canonical source lives at `<SKILL_ROOT>/shared-utilities/wix-image.ts`; it's copied into projects by `seed-utilities.sh` during Setup.
 - `src/components/CartView.tsx`, `src/components/CartBadge.tsx`, `src/utils/analytics.ts`, `src/styles/components-ecom.css` — owned by ecom
+- `src/utils/back-in-stock.ts` — **pre-copied by the orchestrator** before Phase 4 (BUILD-astro.md Step 7 pre-batch), same as `categories.ts`. Import `getBackInStockEnabled`/the app-id constants from `../utils/back-in-stock`; never `Write` it (see `./BACK_IN_STOCK.md`).
 - Any `.astro` page — those are designed and later rewritten by other scopes
 - `src/styles/global.css` — owned by designer foundation
 - `src/layouts/Layout.astro` — owned by designer foundation (including the `components-stores.css` import line)
