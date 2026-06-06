@@ -1,8 +1,8 @@
 # Phase 3 Components — Ecom (TSX)
 
-Scope: `components`. Launched in **Step 4.5** (after Phase 2 Design System completes, parallel to stores components and the `components-css` sibling). Writes code that depends on the **design tokens** but NOT on Phase 4 page markup.
+This is the **components** portion of the ecom **merged build agent** (the build wave — `BUILD-astro.md` § "Step 4.5"). Your agent writes these islands **first**, then the ecom pages (`cart.astro`, `thank-you.astro`) that mount them. The code here depends on the **design tokens** (inlined in your prompt) but NOT on page markup.
 
-> **CSS lives in a sibling scope.** `src/styles/components-ecom.css` is owned by the `components-css` scope (see `./COMPONENTS_CSS.md`), which runs concurrently with this one in the same Step 4.5 batch. This scope does NOT write the CSS file. Reference contract class names from the design tokens here; the CSS sibling defines the rules.
+> **CSS is pre-copied, not authored.** `src/styles/components-ecom.css` ships from the skill template, copied by the orchestrator in the build-wave pre-batch (see `./COMPONENTS_CSS.md`). This scope does NOT write the CSS file. Reference its contract class names from the design tokens here; the pre-copied stylesheet defines the rules.
 
 ## Scope
 

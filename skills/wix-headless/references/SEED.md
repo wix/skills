@@ -166,7 +166,7 @@ Every seeder ends its message with a fenced JSON block per `references/shared/RE
 
 **On error:** the subagent's return additionally carries `error: <failing recipe-call response verbatim>`. The orchestrator keeps that field on the entry it holds.
 
-There are no seed-coordination files — agents return JSON inline. Do not write or read `.wix/seed-returns/<pack>.json`; the agent return *is* the contract.
+There are no seed-coordination files **between agents** — seeders return JSON inline, and no seeder writes or reads `.wix/seed-returns/<pack>.json`; the agent return *is* the contract. (This is distinct from `.wix/seeded.json`, which the **orchestrator** writes once at the seed gate from the aggregated returns — not a seeder-authored sidecar. Seeders never touch it; it's a read-only consumer handoff. See Step 4.)
 
 ---
 
@@ -174,14 +174,14 @@ There are no seed-coordination files — agents return JSON inline. Do not write
 
 The seed gate — waiting on seeders + `npm_handle`, and the decorative-slot patch — is owned by the conductor (`BUILD.md`). (`compose.mjs` writes the six design-system files synchronously in the Setup-window bridge; there is no Composer subagent to wait on.) (For npm install failures, see `SETUP.md § npm install recovery`.) This step defines only the aggregation shape.
 
-**Aggregate seeder returns in orchestrator context.** Each seeder's return JSON is in your session context (the harness surfaces it when the subagent completes). Build a `seeded` map keyed by pack from those returns and hold it in scratch — Phase 3 Components, Phase 4 Pages, and Image Phase 2 prompts will inline the pack-specific slices.
+**Aggregate seeder returns in orchestrator context.** Each seeder's return JSON is in your session context (the harness surfaces it when the subagent completes). Build a `seeded` map keyed by pack from those returns and hold it in scratch.
 
 For each return:
 - `status: "ok"` — keep the `seeded` payload under `seeded[<pack>]`.
 - `status: "skipped"` — record `seeded[<pack>] = {status: "skipped"}`.
 - `status: "error"` — surface the `error` field verbatim. Do **not** autonomously retry; partial state for other packs is intact, so a targeted re-run is bounded.
 
-No script, no file. The orchestrator is the aggregator.
+**Then write the aggregated map to `.wix/seeded.json` — once, at the gate (the conductor owns the timing; see `BUILD-astro.md` § "4. Seed gate" + § "The `.wix/seeded.json` handoff").** This is the producer→consumer handoff the per-vertical readers (astro Phase 4 Pages, own-build wiring) pull their slice from — the orchestrator no longer inlines `seeded.<vertical>` slices into those prompts. (Image Phase 2 is a single dispatch and keeps its inlined slice.) Exactly one writer, written before any reader is dispatched; it carries seeded entity IDs only, never `.wix/site.json` observability fields. The orchestrator is the aggregator **and** the sole writer of this file.
 
 ---
 

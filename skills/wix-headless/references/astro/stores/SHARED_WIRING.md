@@ -1,8 +1,8 @@
 # Phase 3 Components — Stores (TSX/Astro)
 
-Launched in **Step 4.5** (after Phase 2 Design System completes, parallel to any running designer page scopes). Writes code that depends on the **design tokens** but NOT on Phase 4 page markup. Finishes before the Phase 4 Pages scopes run in Step 7.
+This is the **components** portion of the stores **merged build agent** (the build wave — `BUILD-astro.md` § "Step 4.5"). Your agent writes these islands **first**, then the stores pages (`pages-categories`, `pages-products`) that mount them — so the islands are on disk before the page code references them. The code here depends on the **design tokens** (inlined in your prompt) but NOT on page markup.
 
-> **CSS lives in a sibling scope.** `src/styles/components-stores.css` is owned by the `components-css` scope (see `./COMPONENTS_CSS.md`), which runs concurrently with this one in the same Step 4.5 batch. This scope does NOT write the CSS file. Reference contract class names from the design tokens here; the CSS sibling defines the rules.
+> **CSS is pre-copied, not authored.** `src/styles/components-stores.css` ships from the skill template, copied by the orchestrator in the build-wave pre-batch (see `./COMPONENTS_CSS.md`). This scope does NOT write the CSS file. Reference its contract class names from the design tokens here; the pre-copied stylesheet defines the rules.
 
 ## Scope
 
@@ -17,8 +17,8 @@ Files this agent MUST NOT touch:
 - `src/styles/components-stores.css` — owned by the **`components-css`** sibling scope (see `./COMPONENTS_CSS.md`). Reference its class names; do not write the file.
 - `src/utils/wix-image.ts` — **shared utility shipped by the build skill.** Import `resolveWixImageUrl` from `../utils/wix-image`; do NOT write your own copy (would shadow the shared util and drop other verticals' callers). The canonical source lives at `<SKILL_ROOT>/shared-utilities/wix-image.ts`; it's copied into projects by `seed-utilities.sh` during Setup.
 - `src/components/CartView.tsx`, `src/components/CartBadge.tsx`, `src/utils/analytics.ts`, `src/styles/components-ecom.css` — owned by ecom
-- `src/utils/back-in-stock.ts` — **pre-copied by the orchestrator** before Phase 4 (BUILD-astro.md Step 7 pre-batch), same as `categories.ts`. Import `getBackInStockEnabled`/the app-id constants from `../utils/back-in-stock`; never `Write` it (see `./BACK_IN_STOCK.md`).
-- Any `.astro` page — those are designed and later rewritten by other scopes
+- `src/utils/back-in-stock.ts` — **pre-copied by the orchestrator** in the build-wave pre-batch (BUILD-astro.md § "Step 4.5"), same as `categories.ts`. Import `getBackInStockEnabled`/the app-id constants from `../utils/back-in-stock`; never `Write` it (see `./BACK_IN_STOCK.md`).
+- Any `.astro` page — written by your agent's `pages-*` scopes (after the islands) or by another vertical
 - `src/styles/global.css` — owned by designer foundation
 - `src/layouts/Layout.astro` — owned by designer foundation (including the `components-stores.css` import line)
 - Any designed component (`ProductCard.astro`, `Navigation.astro`, etc.) — owned by designers

@@ -1,6 +1,6 @@
 # Phase 3 Components-CSS — Stores
 
-Sibling of the `components` scope. Launched in **Step 4.5** in the same concurrent batch — runs in parallel with the TSX/Astro work, ecom and gift-cards components, and Image Phase 2.
+**This stylesheet is pre-copied from the skill template by the orchestrator** (build-wave pre-batch, BUILD-astro.md § "Step 4.5") — there is no `components-css` subagent to dispatch. This file documents the CSS for reference so the stores `components` scope (in the merged build agent) knows the class-name surface it targets.
 
 ## What this scope owns
 

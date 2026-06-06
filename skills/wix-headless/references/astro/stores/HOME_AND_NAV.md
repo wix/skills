@@ -1,8 +1,8 @@
 # Phase 4 Home Page + Nav — Stores
 
-Scope: `pages-home-and-nav`. Launched in **Step 7**; imports the orchestrator-pre-copied `categories.ts` helper (and the rail `pages-categories` writes — resolved at build time). Patches the home page's stores-related placeholder data with live `productsV3` queries AND inserts the Shop submenu (categories list) into the persisted Navigation.
+Scope: `pages-home-and-nav` — dispatched as its **own serialized shell-patcher agent** in the build wave (NOT merged into the stores private-files agent, because it patches the shared shells). Imports the orchestrator-pre-copied `categories.ts` helper and the `CategoryRail`/`ProductCard` the stores private agent writes — **resolved at build time, so no write-ordering against that agent.** Patches the home page's stores-related placeholder data with live `productsV3` queries AND inserts the Shop submenu (categories list) into the persisted Navigation at the `<!-- nav:links -->` marker. (The `CartBadge` mount at `<!-- nav:actions -->` is ecom's; you own only `<!-- nav:links -->`.) Read your seeded slice from `.wix/seeded.json` (`seeded.stores`).
 
-> **You patch the shared `Navigation.astro` + `index.astro` shells**, which other packs (e.g. gift-cards) also patch at their own markers. **Touch only your markers and preserve every other scope's siblings — never rewrite either file.** (Flow is the conductor's job: it serializes shell-patching scopes so concurrent marker edits don't collide — BUILD-astro.md Step 7.)
+> **You patch the shared `Navigation.astro` + `index.astro` shells**, which other packs (ecom at `nav:actions`, gift-cards, blog) also patch at their own markers. **Touch only your markers and preserve every other scope's siblings — never rewrite either file.** (Flow is the conductor's job: it serializes the shell-patching agents so concurrent marker edits don't collide — BUILD-astro.md § "Step 4.5", the serialized shell chain.)
 
 ## Scope
 

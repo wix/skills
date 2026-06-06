@@ -10,7 +10,7 @@ The user just approved; `init-site-json.mjs` wrote the slim `.wix/site.json` (on
 
 | `frontendBuild` | Framework class | Conductor |
 |---|---|---|
-| `wix` | astro-native (`wix build`) | **`BUILD-astro.md`** — Phase axis → run-steps 0–5 → Wave 3 → Step 4.5 → Step 7 → Build & Release |
+| `wix` | astro-native (`wix build`) | **`BUILD-astro.md`** — Phase axis → run-steps 0–5 → Wave 3 → the build wave (merged Components + Pages per vertical) → Build & Release |
 | `none` | static HTML (no build) | **`BUILD-own-build.md`** (none tenant) — install-skip → Seed → wiring → inline no-build release |
 | `own` | own-build (`npm run build`) | **`BUILD-own-build.md`** (own tenant) — bundle `@wix/sdk` install → Seed → source-edit wiring → project's own build → release |
 
@@ -38,7 +38,7 @@ Almost everything in Build is a 1-D framework switch (install/build/release, bel
 
 | | `create` | `connect` | `extend` *(later)* |
 |---|---|---|---|
-| **astro** (`wix`) | write `.astro` pages with live SDK queries — `BUILD-astro.md` Phase 3 Components + Phase 4 Pages | — | add `.astro` + markers *(extend plan)* |
+| **astro** (`wix`) | write `.astro` pages with live SDK queries — `BUILD-astro.md` build wave (merged Components + Pages per vertical) | — | add `.astro` + markers *(extend plan)* |
 | **own-build** (`own`) | write fresh data module (`@wix/data`) — `BUILD-own-build.md` § "Wiring cell → create × own" | rewrite source data-layer → `@wix/data` — `BUILD-own-build.md` § "Wiring cell → connect × own" | add to source *(extend plan)* |
 | **none / html** (`none`) | — | inject client-side `@wix/sdk` `<script type="module">` (additive, styled from the design's tokens) — `BUILD-own-build.md` § "Wiring cell → connect × none" | inject `<script>` *(extend plan)* |
 

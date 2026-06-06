@@ -1,6 +1,6 @@
 # Phase 4 Pages — Gift Cards
 
-Launched in **Step 7** alongside other verticals' `pages` scopes. Writes the `/gift-cards` route and patches `Navigation.astro` + `index.astro` at their declared markers. The Components scope's outputs (`src/utils/gift-cards.ts`, `src/components/GiftCardPurchase.tsx`, `src/styles/components-gift-cards.css`) must already exist before this scope runs.
+The **pages** portion of the gift-cards **merged build agent** (the build wave) — written *after* its `components`. Writes the `/gift-cards` route and patches `Navigation.astro` + `index.astro` at their declared markers. Because it patches the shared shells, the gift-cards agent runs in the build wave's **serialized shell chain** (one shell-patcher at a time — `BUILD-astro.md` § "Step 4.5"). The components outputs (`src/utils/gift-cards.ts`, `src/components/GiftCardPurchase.tsx`, `src/styles/components-gift-cards.css`) were written earlier in this same agent, so they're already on disk.
 
 ## Scope
 

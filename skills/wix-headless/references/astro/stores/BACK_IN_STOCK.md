@@ -1,6 +1,6 @@
 # Phase 3 Components — Back in Stock (Stores)
 
-Split across the stores `components` scope (TSX/util files) and the `components-css` sibling (CSS rules). The matching Phase 4 wiring lives in `PRODUCT_PAGES.md` (SSR probe import + new props on `<ProductPurchase>`).
+The stores `components` scope writes the TSX/util files; the CSS rules ship in the **pre-copied** `components-stores.css` template (no agent authors them). The matching page wiring lives in `PRODUCT_PAGES.md` (SSR probe import + new props on `<ProductPurchase>`). Both the components and that page wiring run inside the **same stores merged build agent** (the build wave), components first.
 
 ## Scope
 
@@ -10,7 +10,7 @@ Files written for back-in-stock, by scope:
 - `src/components/BackInStockForm.tsx` — React island that posts via `@wix/ecom`'s `backInStockNotifications.createBackInStockNotificationRequest`
 
 **Pre-copied by the orchestrator** (do NOT author — same treatment as `categories.ts`):
-- `src/utils/back-in-stock.ts` — SSR-elevated probe of the Wix back-in-stock service, plus the canonical Stores app id constant. Pre-copied into the project before Phase 4 (BUILD-astro.md Step 7 pre-batch). **Import** `getBackInStockEnabled`/the app-id constants from `../utils/back-in-stock`; never `Write` it yourself (racing the pre-copy trips the harness staleness guard).
+- `src/utils/back-in-stock.ts` — SSR-elevated probe of the Wix back-in-stock service, plus the canonical Stores app id constant. Pre-copied into the project in the build-wave pre-batch (BUILD-astro.md § "Step 4.5"). **Import** `getBackInStockEnabled`/the app-id constants from `../utils/back-in-stock`; never `Write` it yourself (racing the pre-copy trips the harness staleness guard).
 
 **`components-css` scope** (see `./COMPONENTS_CSS.md`):
 - `src/styles/components-stores.css` — appends the back-in-stock form CSS rules at the end of the file (see § 3 below)
@@ -49,7 +49,7 @@ Do NOT modify logic, imports, the bare-fields request shape, or the app-id const
 
 ### 1. `src/utils/back-in-stock.ts` — pre-copied, not owned by this scope
 
-> Pre-copied by the orchestrator before Phase 4 (BUILD-astro.md Step 7 pre-batch) — same treatment as `categories.ts`. **Import** from `../utils/back-in-stock`; do NOT write it yourself. The exports below are documented here so callers (the form island, the `[slug].astro` probe) know the surface.
+> Pre-copied by the orchestrator in the build-wave pre-batch (BUILD-astro.md § "Step 4.5") — same treatment as `categories.ts`. **Import** from `../utils/back-in-stock`; do NOT write it yourself. The exports below are documented here so callers (the form island, the `[slug].astro` probe) know the surface.
 
 Exports:
 - `WIX_STORES_BACK_IN_STOCK_APP_ID` — string constant. Use this for the `catalogReference.appId` in the form.

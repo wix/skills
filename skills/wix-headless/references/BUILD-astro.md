@@ -1,8 +1,8 @@
 # Build — astro framework class (`frontendBuild === "wix"`)
 
-The post-approval conductor for the **astro-native** framework class — reached on the `create × astro` path (the skill scaffolds and writes the site). Opened from `BUILD.md` the moment the run routes on `frontendBuild === "wix"`. This file owns the **astro execution flow** — Setup → design-system bridge → Seed → Components → Pages → Build → Release: every subagent dispatch, background handle, wait/gate, and the imagery gates. Read it top to bottom from the approval point.
+The post-approval conductor for the **astro-native** framework class — reached on the `create × astro` path (the skill scaffolds and writes the site). Opened from `BUILD.md` the moment the run routes on `frontendBuild === "wix"`. This file owns the **astro execution flow** — Setup → design-system bridge → Seed → the build wave (merged Components + Pages) → Build → Release: every subagent dispatch, background handle, wait/gate, and the imagery gates. Read it top to bottom from the approval point.
 
-> **This file is the astro framework spine *and* hosts the astro-create cells.** Per `BUILD.md` § "The two (operation × framework) cells", the **bootstrap cell** for `create × astro` is run-step 0 (scaffold → `npm create @wix/new@latest headless`) and the **wiring cell** is Phase 3 Components + Phase 4 Pages (write `.astro` with live SDK queries). They live inline here rather than as separate cell files because astro is their only tenant and the content is large. The **shared release tail** (`BUILD.md`) is the Build & Release step below.
+> **This file is the astro framework spine *and* hosts the astro-create cells.** Per `BUILD.md` § "The two (operation × framework) cells", the **bootstrap cell** for `create × astro` is run-step 0 (scaffold → `npm create @wix/new@latest headless`) and the **wiring cell** is the build wave — per-vertical agents writing components + pages (`.astro` with live SDK queries) in one dispatch. They live inline here rather than as separate cell files because astro is their only tenant and the content is large. The **shared release tail** (`BUILD.md`) is the Build & Release step below.
 
 The cross-cutting operational sections that both framework classes share — **Subagent rate / credit limits**, the **parallel-batch diagnostic**, the **Final Message** (summary + run.json), and the **Final run.json format** — live in `BUILD.md` (the router). The pre-approval flow is in `PLAN.md` → `PLAN-create.md`; the three cross-cutting rules referenced below — **Two tracks**, **Batching discipline**, **User-facing output** — live in `PLAN.md`.
 
@@ -15,9 +15,8 @@ Each phase belongs to one of the two tracks (`PLAN.md` § "Two tracks"). All pha
 | **Phase 1 — Seed** | business | Fast | Per-pack seeders → orchestrator collects `seeded` map in scratch | Seed wave |
 | **Phase 2 — Design System** | frontend | Default (Designer only) | **Designer** returns tokens + brand-voice JSON (no files); **`compose.mjs`** (deterministic script, no subagent) writes the 6 files (`global.css`, `astro.config.mjs`, `Layout`, `Nav`, `Footer`, `index`) by substituting into pinned skeletons | Designer: BUILD entry (run-step 0) · compose.mjs: Setup-window bridge (Bash) |
 | **Image Phase 1 — Decorative** | frontend | Fast | Hero/about/page-header decoratives | Seed wave (imagery-gated) |
-| **Phase 3 — Components** | frontend | Default | Per-vertical React islands, styling contract inlined per prompt | Step 4.5 |
-| **Phase 4 — Pages** | frontend | Default | Per-vertical routes; each agent writes its routes once with both visual design and live data queries | Step 7 |
-| **Image Phase 2 — Entity** | business | Fast | Product / blog / CMS item images PATCHed onto Wix entities | Step 4.5 (imagery-gated) |
+| **Phase 3 + 4 — Components + Pages (merged)** | frontend | Default | **One merged "build" agent per vertical** writes that vertical's React islands **then** the routes that mount them (styling contract inlined; seeded slice read from `.wix/seeded.json`). Private-file verticals run concurrent; shell-patchers (ecom, stores `home-and-nav`, gift-cards) serialize | The build wave (§ "Step 4.5") |
+| **Image Phase 2 — Entity** | business | Fast | Product / blog / CMS item images PATCHed onto Wix entities | The build wave (imagery-gated) |
 
 > **Set the model tier on every dispatch.** Tier policy lives in `SKILL.md` § "Subagent model tier" — apply by table lookup. The tier is selected via the dispatch primitive's model parameter, not the prompt; if you omit it, Default-tier roles silently run under-powered on the orchestrator's default model.
 
@@ -85,16 +84,18 @@ Apply `SETUP.md` Step 1 only: wait `scaffold_handle` (load `wix-manage` in the s
 
 Wait on the seeders + `npm_handle`; aggregate seeder returns into the `seeded` scratch map. (No `composer_handle` — `compose.mjs` wrote the six files synchronously in the bridge; its manifest was already parsed from stdout there. The Step 4.5 gate still re-verifies the design-system files exist on disk before dispatching.) Run `patch-decorative-slots.mjs` only when `imagery === "ai-generated"` and Image Phase 1 Decorative returned; otherwise skip and record `{phase: "decorative-slot-patch", status: "skipped"}`.
 
+**Write `.wix/seeded.json` here — once, at the gate, before any reader is dispatched.** The moment the `seeded` scratch map is aggregated, persist it to `.wix/seeded.json` (one `Write`, by the conductor — the sole writer). This is the **producer→consumer handoff** the Phase 4 Page readers pull from instead of receiving their slice inlined — see § "The `.wix/seeded.json` handoff" below for the schema and the scoped isolation-rule exception. Because the seed gate barriers all seeders *before* this write, and the build wave (which contains every reader) dispatches only *after* it, no reader ever sees a missing or partial file. Skipped packs are written as `{"<pack>": {"status": "skipped"}}` so a reader can distinguish "seeded nothing" from "file not written yet" (the latter must never happen).
+
 ### 5. Continue
 
-**Step 4.5** (Phase 3 Components + Image Phase 2) → **Step 7** (Phase 4 Pages) → **Build & Release** → **Final message** — all detailed below.
+**The build wave** (§ "Step 4.5": merged Components + Pages per vertical + Image Phase 2) → **Build & Release** → **Final message** — all detailed below.
 
 ## Imagery gates
 
 The `imagery` value (`"ai-generated"` | `"themed-blocks"`, captured in `DISCOVERY.md` Q2.5, default `"themed-blocks"`) gates **both** image phases. The conductor owns the gate; the step files describe what each image scope does when it runs.
 
 - **Image Phase 1 — Decorative** (Wave-3 batch). Dispatch the `image-phase-1-decorative` subagent (`<SKILL_ROOT>/references/images/INSTRUCTIONS.md`) **only when `imagery === "ai-generated"`**. When `"themed-blocks"` (default): do **not** dispatch — decorative slots render as solid color blocks via the Composer-emitted decorative-slot CSS (color blocks tokenised against the Designer's palette); record `{phase: "image-phase-1-decorative", status: "skipped", notes: "themed-blocks mode"}` and **skip the post-seed `patch-decorative-slots.mjs`** too (`{phase: "decorative-slot-patch", status: "skipped"}`). Dispatching it regardless wastes ~140–175 s + 0.3–0.5 Wix AI credits.
-- **Image Phase 2 — Entity** (Step 4.5 batch). Same gate — dispatch only on `ai-generated`; on `themed-blocks` skip and record `{phase: "image-phase-2-entity", status: "skipped"}`. Detailed dispatch + the hard build gate are in § "Step 4.5" and § "Wait: Phase 4 → Build" below.
+- **Image Phase 2 — Entity** (build-wave batch). Same gate — dispatch only on `ai-generated`; on `themed-blocks` skip and record `{phase: "image-phase-2-entity", status: "skipped"}`. Detailed dispatch + the hard build gate are in § "Step 4.5" and § "Wait: build wave → Build" below.
 
 ---
 
@@ -110,28 +111,28 @@ The **seed gate** that follows (wait on seeders + `npm_handle`, aggregate `seede
 
 ### Subagent prompt template
 
-See `SEED.md` § "Subagent prompt template" for the base fields (Instruction file, Phase instruction, Scope, Project directory, siteId, Auth, Brand context). Phase 3 Components and Phase 4 Pages dispatches additionally inline the full styling-contract JSON, and Phase 3 / Phase 4 / Image Phase 2 inline the relevant pack-specific slice from the orchestrator's `seeded` scratch as JSON. Subagents do NOT read `.wix/site.json` during the run.
+See `SEED.md` § "Subagent prompt template" for the base fields (Instruction file, Phase instruction, Scope, Project directory, siteId, Auth, Brand context). Each merged build agent additionally inlines the full styling-contract JSON. **The page side of a merged agent no longer receives its seeded slice inlined** — every merged build agent is dispatched with *"read your `<vertical>` slice from `.wix/seeded.json`"* and reads it itself (§ "The `.wix/seeded.json` handoff"). (Image Phase 2's single slice stays inlined — see § "Step 4.5".) Subagents do NOT read `.wix/site.json` during the run — that rule stands; `.wix/seeded.json` is the one scoped, read-only exception.
 
-**`Instruction file` must point to one of these vertical instruction files:**
-- `<SKILL_ROOT>/references/stores/INSTRUCTIONS.md` — Phase 3 Components + Phase 4 Pages
-- `<SKILL_ROOT>/references/ecom/INSTRUCTIONS.md` — Phase 3 Components (cart/checkout — passive, required by stores)
-- `<SKILL_ROOT>/references/cms/INSTRUCTIONS.md` — Phase 4 CMS Pages
-- `<SKILL_ROOT>/references/blog/INSTRUCTIONS.md` — Phase 3 Components + Phase 4 Pages
-- `<SKILL_ROOT>/references/forms/INSTRUCTIONS.md` — Phase 3 Components + Phase 4 Pages
-- `<SKILL_ROOT>/references/gift-cards/INSTRUCTIONS.md` — Phase 3 Components + Phase 4 Pages (passive/dashboard-gated)
+**`Instruction file` must point to one of these vertical instruction files** (one merged build agent per loaded vertical opens its file and writes **components then pages** in a single dispatch — § "Step 4.5"):
+- `<SKILL_ROOT>/references/stores/INSTRUCTIONS.md` — components + pages (private pages merge; `pages-home-and-nav` is the serialized shell agent)
+- `<SKILL_ROOT>/references/ecom/INSTRUCTIONS.md` — components + cart/thank-you pages + CartBadge nav mount (shell chain; passive, required by stores)
+- `<SKILL_ROOT>/references/cms/INSTRUCTIONS.md` — CMS pages (no components scope)
+- `<SKILL_ROOT>/references/blog/INSTRUCTIONS.md` — components + pages (private — own `src/pages/blog/*`, no shared-shell patch)
+- `<SKILL_ROOT>/references/forms/INSTRUCTIONS.md` — components + pages (private)
+- `<SKILL_ROOT>/references/gift-cards/INSTRUCTIONS.md` — components + pages (shell chain; passive/dashboard-gated)
 - `<SKILL_ROOT>/references/images/INSTRUCTIONS.md` — `image-phase-1-decorative` + `image-phase-2-entity`
 - `<SKILL_ROOT>/references/DESIGN_SYSTEM.md` — Phase 2 Designer (design spec, JSON only). (There is no Composer subagent — `scripts/compose.mjs` writes the six design-system files deterministically in the run-step 2 bridge; see § "2. Setup window".)
-- `<SKILL_ROOT>/references/astro/designer/INSTRUCTIONS.md` — **page-design specification** (not a separately-dispatched scope). The merged Phase 4 `pages` scopes above apply this for the visual-design spec of their routes (layout, contract classes, decorative slots, per-scope structure for `home`/`static`/`store-pages`/`blog-pages`/`contact-page`) while writing live SDK data in the same pass. There is no separate placeholder-writing page-designer dispatch — single-write merged (see § "Step 7 Dispatch").
+- `<SKILL_ROOT>/references/astro/designer/INSTRUCTIONS.md` — **page-design specification** (not a separately-dispatched scope). The merged build agents apply this for the visual-design spec of their routes (layout, contract classes, decorative slots, per-scope structure for `home`/`static`/`store-pages`/`blog-pages`/`contact-page`) while writing their islands and live SDK data in the same pass. There is no separate placeholder-writing page-designer dispatch — single-write merged (see § "Step 4.5").
 
 For **image subagents**, the prompt additionally includes: page list (for decorative brief), entity types to cover (products, about-content, etc.).
 
-Phase 3 Components subagents (Step 4.5) additionally receive the full styling-contract JSON inlined in their prompt — they do not read `.wix/design-tokens.css` + `.wix/site.d.ts` from disk. See § "Styling contract coordination" below.
+Merged build agents additionally receive the full styling-contract JSON inlined in their prompt — they do not read `.wix/design-tokens.css` + `.wix/site.d.ts` from disk. See § "Styling contract coordination" below.
 
 ### Subagent return
 
 Every subagent returns a structured JSON block at the end of its run, per `references/shared/RETURN_CONTRACT.md`. The orchestrator parses each return as it arrives.
 
-**Put the return-contract closing line in the dispatch prompt verbatim.** Every Phase 3 Components and Phase 4 Pages prompt ends with the same line the seeder template uses (`SEED.md` § "Subagent prompt template"), naming the scope's `data` shape:
+**Put the return-contract closing line in the dispatch prompt verbatim.** Every merged build-agent prompt ends with the same line the seeder template uses (`SEED.md` § "Subagent prompt template"), naming the scope's `data` shape:
 
 ```
 Return contract (your sole output channel — end your message with this fenced JSON block; it MUST be the last content, no trailing prose, no "**What was done:**" recap after it):
@@ -142,15 +143,49 @@ Do **not** soften this to "return the structured JSON when done." A `pages`/`com
 
 ---
 
-## Step 4.5 — Phase 3 Components + Image Phase 2 Entity (one concurrent batch, all background)
+## The `.wix/seeded.json` handoff
 
-**Gate (from the seed gate, run-step 4):** the `seeded` map is populated and the bridge has run. Verify **both** `.wix/design-tokens.css` **and** `.wix/site.d.ts` exist on disk, and `compose.mjs` wrote `src/layouts/Layout.astro` + `src/styles/global.css` — the `cp` pre-batch and Layout imports below depend on them. If either design-tokens file is missing, do not dispatch Step 4.5 — surface the missing path and stop. (`patch-decorative-slots.mjs` was already run or skipped at the seed gate per § "4. Seed gate" — do not re-run it here.)
+Seeded entity IDs reach the **N Phase 4 Page subagents** through a **write-once, read-only shared artifact** — not through the orchestrator re-inlining a per-vertical slice into every page prompt. The conductor writes `.wix/seeded.json` once at the seed gate (run-step 4); each Phase 4 Page agent reads its own `<vertical>` slice from it. (Image Phase 2 is a single dispatch and keeps its inlined slice — the N-prompt marshaling cost this handoff removes only applies to the per-vertical page fan-out. Phase 3 Components need no seeded IDs at all.)
+
+**Why this is a safe exception to the "inputs are inlined / don't read shared state" rule.** That rule exists to stop subagents depending on **mutable / observability** state — `.wix/site.json` is the orchestrator's resume + run.json snapshot, rewritten across phases, racy to share, so it stays orchestrator-only (sole reader/writer). `.wix/seeded.json` is the opposite shape: a **producer→consumer handoff — exactly one writer (the seed gate), written once before any reader is dispatched, read-only thereafter, never mutated by a reader.** That is clean dataflow, not the shared-mutable-state footgun the rule guards against. The `site.json` sole-reader/writer rule is **untouched**; this is a single, named, read-only carve-out.
+
+**Scope of the exception (all three must hold):**
+- exactly one writer — the conductor at the seed gate, before any reader dispatch;
+- readers read only their own `<vertical>` slice; no reader writes the file;
+- it carries **seeded entity IDs only** (the carry-forward payload below), never the `site.json` observability fields.
+
+**Location.** `.wix/` — alongside `site.json`. `.wix/` sits **outside** the Astro/Vite bundler root, so the file never ships to `dist/` (same reason `.wix/design-tokens.css` is imported, not bundled). Readers pull it with the `Read` tool to author code (resolve slugs, generate `getStaticPaths`, author demo content); pages still query the live SDK at request time and **must not `import` `.wix/seeded.json`** into route files — same discipline as the existing "don't import `.wix/site.json` from pages" rule.
+
+**Schema** — one top-level key per loaded pack, mirroring the orchestrator's `seeded` scratch map:
+
+```json
+{
+  "stores": { "products": [{ "id": "...", "name": "...", "slug": "...", "variantId": "...", "price": 0 }], "productIds": ["..."], "categoryIds": ["..."] },
+  "cms":    { "collectionIds": { "about": "...", "faq": "..." }, "itemIds": { "about": ["..."], "faq": ["..."] } },
+  "blog":   { "postIds": ["..."], "categoryIds": ["..."] },
+  "forms":  { "formIds": ["..."] }
+}
+```
+
+Packs that seeded nothing are written as `{"<pack>": {"status": "skipped"}}`. The exact per-pack keys are the seeders' `Returns` column in `SEED.md` § "Recipe map" — pass them through verbatim.
+
+**Reader failure mode (fail loud, never silent).** A Phase 4 Page reader asserts its `<vertical>` slice is present in `.wix/seeded.json` before using it. If the file or its slice is absent, it returns `status: "partial"` with `errors: [{ code: "SEEDED_JSON_SLICE_MISSING", missing: "seeded.<vertical>" }]` — it does **not** silently render an empty/unstyled page, and does **not** fall back to reading `.wix/site.json` or re-querying via curl. A missing slice means an upstream phase didn't complete; masking it ships a broken preview.
+
+---
+
+## Step 4.5 — the build wave (Components + Pages merged per vertical) + Image Phase 2 Entity
+
+**This step replaces the old two-wave split (a Phase 3 Components wave → barrier → Phase 4 Pages wave) with ONE wave of per-vertical "build" agents.** Each merged agent writes its vertical's **components first, then the pages that mount them** — the within-agent write-order replaces the cross-agent barrier, so the orchestrator never re-enters between components and pages. (`Phase 3 Components` / `Phase 4 Pages` survive only as *labels* for the two kinds of work now done inside one agent; they are no longer two dispatches.) Image Phase 2 rides this wave too. All background.
+
+**Gate (from the seed gate, run-step 4):** the `seeded` map is populated, `.wix/seeded.json` is written, and the bridge has run. Verify **both** `.wix/design-tokens.css` **and** `.wix/site.d.ts` exist on disk, and `compose.mjs` wrote `src/layouts/Layout.astro` + `src/styles/global.css` — the `cp` pre-batch and Layout imports below depend on them. If either design-tokens file is missing, do not dispatch the wave — surface the missing path and stop. (`patch-decorative-slots.mjs` was already run or skipped at the seed gate per § "4. Seed gate" — do not re-run it here.)
 
 Read `.wix/design-tokens.css` + `.wix/site.d.ts` once.
 
-**Pre-batch (same message, before subagent dispatches):** copy the per-pack component-CSS templates into the project. This is a deterministic `cp` — the templates are static and use direct `var(--token)` references against the standard designer vocabulary, so no subagent is needed to author them. The Phase 3 Components subagents below write only `.tsx` React islands; this step writes the matching `src/styles/components-<pack>.css`. **If you skip this `cp` step, `astro build` fails at Step 8 with `Could not resolve "../styles/components-<pack>.css"` from `src/layouts/Layout.astro`** — `compose.mjs`'s Layout imports those files unconditionally for every pack that declares `components`. If the Phase 3 subagents write only `.tsx`, the build falls back to slow orchestrator recovery (`cp` + manual rewrite to strip `@apply`).
+### Pre-batch (same message, before subagent dispatches) — ALL pre-copies up front
 
-For each loaded pack whose vertical INSTRUCTIONS declares a `components` scope (today: `stores`, `ecom`, `blog`, `forms`, `gift-cards`), copy the template:
+Because each merged agent writes both islands **and** the pages that import them, **both** the old "components" pre-copies and the old "pages" pre-copies must be on disk before this single wave dispatches — there is no longer a second pre-batch between waves.
+
+**1 · Per-pack component-CSS templates.** Deterministic `cp` — static templates using direct `var(--token)` references, no subagent needed. `compose.mjs`'s Layout imports `src/styles/components-<pack>.css` unconditionally for every pack that declares `components`; **skip this and `astro build` fails at Step 8 with `Could not resolve "../styles/components-<pack>.css"`.** For each loaded pack whose vertical INSTRUCTIONS declares a `components` scope (today: `stores`, `ecom`, `blog`, `forms`, `gift-cards`):
 
 ```bash
 for pack in <loaded packs with components>; do
@@ -159,98 +194,67 @@ for pack in <loaded packs with components>; do
 done
 ```
 
-Record `{ phase: "copy-component-css", packs: [...], seconds }` in `run.json`. Idempotent — re-running overwrites identical content. Packs without a `components-<pack>.css` template (today: `cms` — SSR inline, no component CSS) are skipped silently.
+Record `{ phase: "copy-component-css", packs: [...], seconds }`. Idempotent. Packs without a `components-<pack>.css` template (today: `cms` — SSR inline) are skipped silently.
 
-**Also pre-copy the Phase-3 utility templates in the same `cp` batch.** Each vertical's INSTRUCTIONS declares utility files under "Pre-copied by the orchestrator (do NOT write these yourself)" that its `components` scope only *imports* — the conductor must put them on disk before dispatch so no subagent races to author them. Today that is the **stores** pack:
+**2 · Pre-copied utility templates (both the old components-phase AND pages-phase utils, since one agent now imports both).** Each vertical's INSTRUCTIONS lists files under "Pre-copied by the orchestrator (do NOT write these yourself)" that its scopes only *import* — the conductor puts them on disk so no merged agent races to author them. Today:
 
 ```bash
-# only if the stores pack is loaded
+# stores (loaded)
 cp "<SKILL_ROOT>/references/astro/templates/stores/back-in-stock.ts" "src/utils/back-in-stock.ts"
+cp "<SKILL_ROOT>/references/astro/templates/stores/categories.ts"     "src/utils/categories.ts"
+# ecom (loaded)
+cp "<SKILL_ROOT>/references/astro/templates/ecom/discounts.ts"        "src/utils/discounts.ts"
 ```
 
-If you skip this, the `components` subagent falls back to writing `src/utils/back-in-stock.ts` itself, and on multi-pack runs two scopes can race the same path (`File has not been read yet` / `modified since read`). Record `{ phase: "copy-utils", scope: "components", files: [...] }`.
+`categories.ts` is imported by `pages-categories`, `pages-products`, and `pages-home-and-nav`; `back-in-stock.ts` by the stores components; `discounts.ts` by ecom components + stores product pages. All are static, brand-agnostic SDK wrappers — if not pre-copied, multiple scopes fall back to authoring them and race the same path. Record `{ phase: "copy-utils", files: [...] }`.
 
-Then dispatch in a single concurrent batch:
+### Dispatch the wave — one concurrent batch (private agents) + a serialized shell chain alongside it
 
-1. **One Phase 3 Components subagent per loaded pack** that declares `components`. Each prompt carries:
-   - All standard fields (see "Subagent prompt template" above)
-   - The **full styling-contract JSON inlined** — not a file path
-   - A note: *"`src/styles/components-<pack>.css` is already on disk (copied from the skill template by the orchestrator). Do NOT write that file — write only `.tsx` islands and any `.astro` shells in your scope."*
+Dispatch **one merged "build" agent per loaded vertical** (Instruction file = that vertical's `references/<vertical>/INSTRUCTIONS.md`). Each agent owns its vertical's `components` scope **and** its private-file `pages` scopes, and writes them **islands-first, then pages** in a single dispatch. Split by whether the agent's scopes touch a **shared shell** (`src/components/Navigation.astro` or `src/pages/index.astro`):
 
-2. **One Image Phase 2 Entity subagent** — imagery-gated (§ "Imagery gates"): not dispatched on `themed-blocks` (default). On `ai-generated`, when `seeded` scratch has entities, dispatch it — the prompt inlines the relevant `seeded.<pack>` slice (entity IDs + names + descriptions) + brand context (no disk reads). Instruction file: `<SKILL_ROOT>/references/images/INSTRUCTIONS.md` § "Scope: image-phase-2-entity".
+**A · Concurrent batch — agents that own only private files:**
+- **stores-build** — `components` (AddToCartButton, ProductPurchase, BackInStockForm, SeoTags) → `pages-categories` (`category/[slug].astro`, `CategoryRail.astro`) → `pages-products` (`products/index.astro`, `products/[slug].astro`, `ProductCard.astro`). All private to stores. **Write order matters: islands → `pages-categories` (writes `CategoryRail.astro`) → `pages-products` (mounts `CategoryRail`).** Doing it in this order means every import a later scope mounts is already on disk — no cross-agent dispatch-order assertion needed.
+- **blog-build** — `components` (blog service module, RicosViewer, consts) → `pages` (listing, detail, RSS, BlogPost layout — all under `src/pages/blog/*`). Blog gets **no `home:` marker** (only stores + gift-cards contribute home sections — `compose.mjs`), so it patches no shared shell and stays private/concurrent.
+- **cms-build** — `pages` (About + FAQ wired to live `@wix/data`). No `components` scope (SSR inline).
+- **forms-build** — `components` (ContactForm island) + `pages` (`contact.astro`, private).
 
-The Phase 3 Components group is **background** regardless. Image Phase 2 (when dispatched) is also background — it starts immediately and continues running through Step 7 dispatch with no polling.
+**B · Serialized shell chain — agents whose scopes patch `Navigation.astro` / `index.astro`** (read-modify-write a shared file → concurrent dispatch trips the staleness guard `File has been modified since read`, **even when each patches a different marker** — the guard is per-file, not per-marker). **Launch one, wait for its return, then launch the next** — each sees the previous one's marker insertion. This chain runs **alongside** the concurrent batch (A), not after it. The complete set of shell-patchers (today): **ecom, stores `pages-home-and-nav`, gift-cards** — exactly the packs with `nav:` / `home:` markers.
+- **ecom-build** — `components` (CartView, CartBadge) → `pages` (`cart.astro`, `thank-you.astro` private, **+ CartBadge mount in `Navigation.astro` at `<!-- nav:actions -->`**). The Navigation patch is why the whole ecom agent joins the chain.
+- **stores-home-and-nav** — patch `index.astro` product grid at `<!-- home:stores -->` + `Navigation.astro` Shop submenu at `<!-- nav:links -->`. Writes no islands; pure shell-patcher. (Split out of stores-build precisely so the bulk of stores stays in concurrent batch A.)
+- **gift-cards-build** — `components` (probe util, GiftCardPurchase island) → `pages` (gift-cards landing + `Navigation.astro` `<!-- nav:links -->` / `index.astro` `<!-- home:gift-cards -->` patches).
 
-**Why Image Phase 2 lives here, not in Step 7.** Image Phase 2 only depends on entity IDs/names/descriptions + brand context (all inlined in its prompt). It does not read or write anything Phase 3 Components or Phase 4 Pages produce — its PATCH/PUT targets are Wix-side entities (`stores/v3/products`, `wix-data/v2/items`, `blog/v3/posts`). Launching it here lets it overlap entirely with Phase 3 (and often Phase 4 too) instead of becoming a post-Phase-4 tail blocker.
+> **Why stores splits but ecom/gift-cards don't (Open Q1 resolution).** Stores exposes three distinct `pages` scopes, so its private pages (`products`, `categories`) merge into the concurrent **stores-build** while the shell-patching `pages-home-and-nav` stays its own serialized agent — keeping the bulk of stores off the serialized critical path. Ecom and gift-cards each expose a single `pages` scope that mixes private routes with a shell patch; rather than invent a finer scope split, the whole vertical agent joins the chain. (ecom always co-occurs with stores, so its CartBadge nav mount always shares `Navigation.astro` with `pages-home-and-nav` — they must serialize.) Blog, cms, and forms patch no shared shell, so they merge fully and run in batch A. The chain runs concurrent with batch A, so it is not the critical-path pole.
+
+**Cross-vertical imports resolve at build time, not write time** — `stores-home-and-nav` imports `CategoryRail`/`ProductCard`/`utils/categories.ts` (from stores-build / pre-copy) and mounts no ecom island; ecom mounts its own `CartBadge`. Those imports resolve at Step 8, so they impose **no** write-ordering between the chain and batch A. The only ordering that matters is (i) shell-patchers serialize against each other (per-file, regardless of marker), and (ii) everything is on disk before Build.
+
+**C · Image Phase 2 Entity** (imagery-gated, § "Imagery gates") — same batch, background. Not dispatched on `themed-blocks` (default). On `ai-generated` with entities in `seeded` scratch, dispatch it; the prompt **inlines** the relevant `seeded.<pack>` slice (entity IDs + names + descriptions) + brand context — its single, battle-tested inline contract (`images/INSTRUCTIONS.md` § "Scope: image-phase-2-entity") stays inlined (only the N-prompt page readers moved to `.wix/seeded.json`). It runs through the whole wave and is gated only at Build.
+
+**Why Image Phase 2 lives here.** It depends only on entity IDs/names/descriptions + brand context, never on anything the build agents write — its PATCH/PUT targets are Wix-side entities. Launching it in this wave lets it overlap the entire build wave instead of becoming a post-wave tail blocker.
+
+### Merged-agent prompt additions (per vertical)
+
+```
+Scopes (write in this order — islands/components FIRST, then pages, and a page-scope that writes a shared component before the page-scope that mounts it): <e.g. components, pages-categories, pages-products>
+Files to own (absolute paths): <union of the scopes' files from the vertical's pack frontmatter>
+Phase 1 Seed data: read your `seeded.<vertical>` slice from `.wix/seeded.json` (written once at the seed gate; do NOT import it into route files — use it to resolve slugs / getStaticPaths / demo content, then query the live SDK at request time). Fail loud (status: "partial", errors:[{code:"SEEDED_JSON_SLICE_MISSING", missing:"seeded.<vertical>"}]) if your slice is absent — do not render an empty page or read .wix/site.json.
+Styling contract: the full styling-contract JSON is inlined above (components do not write CSS — components-<pack>.css is already on disk). .wix/design-tokens.css + .wix/site.d.ts are also on disk (already imported by the build).
+```
+
+Each merged agent writes its `.tsx` islands first, then its `.astro` routes with live SDK queries + analytics events that mount those islands — in one dispatch, no orchestrator round-trip between them.
+
+Merged agents MUST NOT:
+- Modify files outside their declared scopes (the union listed in their prompt)
+- Modify CSS (`global.css` owned by `compose.mjs`; `components-<pack>.css` is pre-copied — never authored)
+- Patch a shared shell unless they are the chain agent assigned to it (batch-A agents own only private files)
 
 ---
 
-## Wait: Phase 3 → Step 7
+## Wait: build wave → Build
 
-Phase 3 Components must complete before Step 7 dispatches — Phase 4 Pages mount the islands Components wrote, so launching early causes missing-island build failures. (Image Phase 2, if dispatched, keeps running through Phase 4 and is gated only at Build.)
+Wait on **all** build-wave agents — batch A (concurrent) **and** the full serialized shell chain (B) — to return, then:
 
-**Data carry-forward:** Phase 4 subagents receive the relevant `seeded.<vertical>` slice inlined from scratch — **Stores** → `seeded.stores` (`productIds`, slugs, categories), **CMS** → `seeded.cms` (`collectionIds`, `itemIds`). The orchestrator built the `seeded` map at the seed gate — do not re-dispatch seeders. Subagents do NOT read `.wix/site.json`.
-
----
-
-## Step 7 Dispatch — Phase 4 (Pages)
-
-### Pre-batch (same message, before subagent dispatches)
-
-Pre-copy the Phase-4 utility templates each pack's INSTRUCTIONS declares under "Pre-copied by the orchestrator (do NOT write these yourself)" — the conductor puts them on disk so no `pages-*` scope authors them. Today that is the **stores** pack's category helper:
-
-```bash
-# only if the stores pack is loaded
-cp "<SKILL_ROOT>/references/astro/templates/stores/categories.ts" "src/utils/categories.ts"
-```
-
-`categories.ts` is a static, brand-agnostic SDK wrapper. **It must be pre-copied, not written by a subagent.** `pages-categories`, `pages-products`, and `pages-home-and-nav` all *import* it; if it isn't on disk, two of those concurrently-dispatched scopes each fall back to writing it and race the same path (`File has not been read yet`). Record `{ phase: "copy-utils", scope: "pages", files: ["src/utils/categories.ts"] }`.
-
-### Concurrent batch
-
-For each loaded pack's `pages`:
-- One Phase 4 subagent per scope — **background**. Each writes its routes ONCE with both visual design and live data queries (the merged design+wire model). Earlier flows split this into a placeholder-writing dispatch followed by a page-rewrite dispatch; that double-write was eliminated.
-
-> **Shared-shell patchers serialize within the Phase 4 batch; non-overlapping scopes run concurrently.** Scopes that patch a shared shell file at a marker — `src/components/Navigation.astro` (`<!-- nav:links -->`, CartBadge) or `src/pages/index.astro` (`<!-- home:<pack> -->`, featured grid) — read-modify-write a file another scope also patches. Dispatching two such patchers concurrently trips the harness staleness guard (`File has been modified since read`). **Dispatch the shell-patching scopes one at a time** — launch one, wait for its return, then launch the next — so each sees the previous one's marker insertion. See the ecommerce-run example below: `home-and-nav` and `gift-cards pages` serialize (both touch `Navigation.astro` + `index.astro`); the private-file scopes (`product-pages`, `category-pages`, `cart-checkout`, `cms-pages`) stay in the concurrent batch. The serialized chain runs alongside the concurrent batch, not after it.
-
-> **Image Phase 2 is NOT dispatched here.** When it was launched at Step 4.5 (i.e. on an `ai-generated` run), it has been running concurrent with Phase 3 + Phase 4 and is typically finished or near-finished by the time Step 7 fires; the Step 8 hard gate waits for it before the Build & Release step. **On a `themed-blocks` run (the default), Image Phase 2 was not dispatched at all** — no gate wait, no images, the build runs as soon as Phase 4 finishes.
-
-### Example (ecommerce run — stores pack contributes 4 Phase 4 scopes + cms pack 1)
-
-Five subagents launched concurrently:
-
-1. **product-pages** — `products/index.astro`, `products/[slug].astro`, `ProductCard.astro`
-2. **category-pages** — `category/[slug].astro`, `CategoryRail.astro` (imports the pre-copied `utils/categories.ts`)
-3. **cart-checkout** — `cart.astro`, `thank-you.astro`
-4. **home-and-nav** — patch `index.astro` product grid + `Navigation.astro` (CartBadge mount + Shop submenu insert at `<!-- nav:links -->`)
-5. **cms-pages** — wire About + FAQ to live `@wix/data` queries
-
-Scopes 1, 2, 3, 5 own their files exclusively → one concurrent background batch. `home-and-nav` (scope 4) patches the shared `Navigation.astro` + `index.astro` shells; on a run that also loads gift-cards, the gift-cards `pages` scope patches the same two shells — so those two serialize against each other per the shared-shell rule above. `product-pages` and `home-and-nav` import `CategoryRail.astro` and the pre-copied `utils/categories.ts`, but those imports resolve at build time (Step 8), not write time, so they don't force ordering against `category-pages`.
-
-### Phase 4 prompt additions
-
-```
-Scope: <scope name from pack.pages[*].name>
-Files to own (absolute paths): <from pack.pages[*].files>
-Phase 1 Seed data: <the relevant seeded.<vertical> slice inlined here as JSON, from the orchestrator's scratch>
-Design tokens: the styling-contract JSON is inlined above; .wix/design-tokens.css + .wix/site.d.ts are also on disk (already imported by the build)
-```
-
-Each scope subagent writes its `.astro` files directly with live SDK queries, wires up analytics events, and mounts the React islands written by Phase 3 Components.
-
-Scope subagents MUST NOT:
-- Modify files outside their declared scope
-- Modify CSS (`global.css` owned by `compose.mjs` in Phase 2; `components-<pack>.css` owned by Phase 3 Components)
-- Modify React islands (owned by Phase 3 Components)
-
----
-
-## Wait: Phase 4 → Build
-
-Wait on all Step 7 Phase 4 Pages subagents to return, then:
-
-- **If `imagery === "ai-generated"`** (Step 4.5 dispatched `image-phase-2-entity`): wait for that handle to return, with a hard **120 s timeout** from when Phase 4 Pages finish. On timeout, proceed to Build and record `{code: "IMAGE_PHASE_2_TIMEOUT"}` in `run.json`. Image Phase 2 has been running in parallel since Step 4.5, so under that dispatch model the timeout rarely fires.
-- **If `imagery === "themed-blocks"`** (Step 4.5 skipped `image-phase-2-entity`): no wait — proceed to Build immediately.
+- **If `imagery === "ai-generated"`** (the wave dispatched `image-phase-2-entity`): wait for that handle to return, with a hard **120 s timeout** from when the build agents finish. On timeout, proceed to Build and record `{code: "IMAGE_PHASE_2_TIMEOUT"}` in `run.json`. Image Phase 2 has been running in parallel since the wave opened, so the timeout rarely fires.
+- **If `imagery === "themed-blocks"`** (the wave skipped `image-phase-2-entity`): no wait — proceed to Build immediately.
 
 Skipping this gate on an ai-generated run ships previews with no product images and leaves `run.json` recording `image-phase-2-entity` as `"in_progress"`.
 
@@ -273,13 +277,9 @@ The **design tokens** (`.wix/design-tokens.css` + `.wix/site.d.ts`) are the coor
 
 Timing: the Designer is dispatched at BUILD entry (run-step 0) and **authors `DESIGN.md`**; the bridge runs at the Setup-window (run-step 2 above) as a single Bash step. Net: `emit-design-tokens.mjs` projects `.wix/design-tokens.css` + `.wix/site.d.ts` from the Designer's `DESIGN.md` frontmatter; `compose.mjs` reads the same `DESIGN.md` and writes the `@theme` palette into `global.css` plus the other 5 files (substituting into pinned skeletons). **`DESIGN.md` is the single source of truth** — the Designer writes it, `emit-design-tokens.mjs` projects the `.wix` artifacts from it, `compose.mjs` reads it to apply the site files.
 
-### Consumer: Phase 3 Components (Step 4.5)
+### Consumer: the merged build agents (the build wave, § "Step 4.5")
 
-Phase 3 is dispatched in Step 4.5 above. The styling contract is passed inline in each Phase 3 prompt.
-
-### Consumers: Phase 4 Pages (Step 7)
-
-Contract already exists when Phase 4 launches. Subagents receive the contract contents inline in their prompt (no polling).
+The contract already exists when the build wave launches (the Designer + bridge ran in run-steps 0–2). Each merged build agent receives the styling-contract contents inline in its prompt — both for the islands it writes first and the routes it writes after (no polling, no disk read of the contract).
 
 ---
 
@@ -289,6 +289,6 @@ Inspect `.wix/debug.log` after a failed `npx @wix/cli@latest build`; match the s
 
 | Failure | How to detect | Fix |
 |---------|---------------|-----|
-| `Legacy HTML single-line comments` | build stderr | A Phase 2/4 agent emitted HTML comments in `.astro` frontmatter — replace with `//` or `/* */` |
+| `Legacy HTML single-line comments` | build stderr | A Phase 2 or build-wave agent emitted HTML comments in `.astro` frontmatter — replace with `//` or `/* */` |
 | `Missing environment variable WIX_CLIENT_ID` | build stderr | Run `npx @wix/cli@latest env pull --json` then retry |
 | `Cannot find module '@wix/…'` | build stderr | npm install didn't include that package; check the pack's `packages` list |

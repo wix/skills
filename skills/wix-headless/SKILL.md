@@ -28,7 +28,7 @@ allowed-tools:
 
 # Wix Headless
 
-**Run flow is owned by the conductor, split at the approval gate: `references/PLAN.md`** (pre-approval — routes on **operation** (create/connect), the Discovery questions, the plan + approval gate, the latency-hiding background dispatches) **then `references/BUILD.md`** (post-approval — routes on **framework** (`frontendBuild`); Setup → Seed → Components → Pages → Build → Release). The domain/step files (`DISCOVERY.md`, `SETUP.md`, `SEED.md`, `DESIGN_SYSTEM.md`, the per-vertical references) describe only *what* each step does; they do not name the sequence. **Start a run by opening `PLAN.md`**; open `BUILD.md` when the user approves the plan. All site operations use `npx @wix/cli@latest token` + `curl` — no MCP.
+**Run flow is owned by the conductor, split at the approval gate: `references/PLAN.md`** (pre-approval — routes on **operation** (create/connect), the Discovery questions, the plan + approval gate, the latency-hiding background dispatches) **then `references/BUILD.md`** (post-approval — routes on **framework** (`frontendBuild`); Setup → Seed → the build wave (merged Components + Pages per vertical) → Build → Release). The domain/step files (`DISCOVERY.md`, `SETUP.md`, `SEED.md`, `DESIGN_SYSTEM.md`, the per-vertical references) describe only *what* each step does; they do not name the sequence. **Start a run by opening `PLAN.md`**; open `BUILD.md` when the user approves the plan. All site operations use `npx @wix/cli@latest token` + `curl` — no MCP.
 
 > **Explicit invocation only.** Do not auto-route on generic "build me a site" prompts; production `wix-headless` should win those unless the user names this skill.
 
@@ -172,7 +172,7 @@ The skill runs two semi-independent tracks (business = frontend-blind site/app/s
 
 ## The run
 
-The whole run — Discovery → Setup → design-system bridge → Seed → Components → Pages → Build → Release, with every dispatch, handle, wait, and transition — is owned by the conductor: **`references/PLAN.md`** (pre-approval) then **`references/BUILD.md`** (post-approval). Open `PLAN.md` to start a run. This file does not duplicate the sequence.
+The whole run — Discovery → Setup → design-system bridge → Seed → the build wave (merged Components + Pages per vertical) → Build → Release, with every dispatch, handle, wait, and transition — is owned by the conductor: **`references/PLAN.md`** (pre-approval) then **`references/BUILD.md`** (post-approval). Open `PLAN.md` to start a run. This file does not duplicate the sequence.
 
 Wall-time targets: discovery ≤ 80 s (excl. user think-time); setup foreground ≤ 25 s; seed longest pole ≤ 120 s. Full-build target: ≤ 600 s prompt-to-live-URL when all phases run.
 
