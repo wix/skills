@@ -17,7 +17,7 @@ Extends `references/shared/IMPLEMENTER.md`. Read that file first for phase routi
 
 ## Files this vertical creates / contributes
 
-See `<SKILL_ROOT>/references/verticals/forms.md` frontmatter.
+Each scope's files are enumerated in `../astro/forms/CONTACT_FORM.md` (§ Form Setup, § React island, § Page wiring).
 
 ## Form purpose variants
 

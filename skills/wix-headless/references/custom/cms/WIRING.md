@@ -48,7 +48,7 @@ Read `INSTRUCTIONS.md` § "The technical spine" + § "Wiring discipline", and `r
 </script>
 ```
 
-Apply the binding-map's actual selectors and the seeded collection's actual field keys. The `items` API is the **`items`** named export of **`@wix/data`** (`import { items } from "@wix/data"`; CDN-pinned in the snippet above) — `items.query/insert/update/remove` plus the `bulk*` helpers.
+Apply the binding-map's actual selectors and the seeded collection's actual field keys. The `items` API is the `items` named export of `@wix/data` (CDN-pinned in the snippet above) — `items.query/insert/update/remove` plus the `bulk*` helpers. (See the import callout under § "Framework SPA — persistence swap" for the package rule.)
 
 ## Framework SPA — persistence swap (`frontendBuild: own`)
 

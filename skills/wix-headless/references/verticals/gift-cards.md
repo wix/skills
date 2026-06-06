@@ -21,4 +21,4 @@ disabled: true
 
 Passive vertical: code ships in every site that has a storefront, but every gift-card surface only renders if the **Wix Gift Card app** is enabled in the site's dashboard. Never user-triggered.
 
-> **Discovery contract.** Phase 1 reads only the frontmatter above. Because `disabled: true`, the discovery plan never promises any gift-card surface to the user. Phase 2+ implementation (runtime probe, buy flow, nav/home contributions) lives in this skill's own `templates/gift-cards/` + `references/gift-cards/INSTRUCTIONS.md`; the `astro-stores-demo` includes a working `gift-card.astro` reference.
+> **Discovery contract.** Phase 1 reads only the frontmatter above. Because `disabled: true`, the discovery plan never promises any gift-card surface to the user. Phase 2+ implementation (runtime probe, buy flow, nav/home contributions) lives in this skill's own `references/astro/templates/gift-cards/` + `references/gift-cards/INSTRUCTIONS.md`; see `references/astro/templates/gift-cards/gift-cards.astro` for the working buy-page reference.

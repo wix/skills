@@ -14,15 +14,15 @@ Routing (which path runs) is owned by `PLAN.md` § "Operation routing" (operatio
 
 ## Step 1 — Read the scaffolded project config (siteId + appId)
 
-**Do not** speculatively `Read <folder-name>/wix.config.json` before the scaffold exists — the speculative read returns `File does not exist` on every fast-Q&A run (the file isn't there yet), emits a `[MED]` anomaly in the trace, and costs 3–5 s of round-trip + recovery thinking.
+> **Single folder — CWD == project == site-root.** `scaffold.sh` flattens the scaffolded project into the **current directory** (`BUILD-astro.md` run-step 0), so there is **one folder with one `.wix/`**: `.wix/site.json` + `.wix/run.json` (your config) and the project's own files (`package.json`, `src/`, `wix.config.json`, `.wix/design-tokens.css`, …) all live in CWD. **Never `cd` into a subdir and never look in a parent for `.wix`.** `<site-root>` and `<project-dir>` are the same path — the CWD. Do not deliberate cwd/subprocess mechanics: every Bash call already runs in the project root; pass absolute paths only when a call may run in its own subshell.
 
-Once the scaffolded project exists, read `<folder-name>/wix.config.json` and extract:
+**Do not** speculatively `Read ./wix.config.json` before the scaffold completes — the read returns `File does not exist` on every fast-Q&A run (it isn't there yet), emits a `[MED]` anomaly in the trace, and costs 3–5 s of round-trip + recovery thinking.
+
+Once `scaffold_handle` returns, read `./wix.config.json` (in CWD, flattened up from the scaffolded subdir) and extract:
 - `siteId` — the site id passed as `--site` to `npx @wix/cli@latest token` and embedded in every install body + as the `wix-site-id` header on every site-scoped REST call. Hold it in orchestrator session scratch.
 - `appId` — the project's appId. Hold it in session scratch (it goes into the SDK's `createClient` inputs in later steps).
 
-**Before `cd`, capture the current working directory as `<site-root>` and hold it in session scratch.** This is where Discovery's `init-site-json.mjs` wrote the slim `.wix/site.json` snapshot. The orchestrator is the **sole** reader/writer of that file; no subagent or downstream script reads it during the run. Hold `<site-root>` as an absolute path so the `cd` into the scaffold subdir below does not lose it.
-
-`cd` into `<folder-name>/` so all subsequent file ops + shell calls (`npm`, `npx @wix/cli@latest env pull`) are relative to the project root.
+Capture the CWD absolute path as `<site-root>` (== `<project-dir>`) and hold it in scratch — this is where `init-site-json.mjs` wrote `.wix/site.json`, of which the orchestrator is the **sole** reader/writer. **No `cd` step** — `npm`, `npx @wix/cli@latest env pull`, and every file op already run in the project root.
 
 ---
 
@@ -30,7 +30,7 @@ Once the scaffolded project exists, read `<folder-name>/wix.config.json` and ext
 
 Discovery wrote `<site-root>/.wix/site.json` with `brand`, `frontend`, and `verticals`. Setup's only addition is patching `siteId` and `appId` in. This is a one-shot in-process JSON edit:
 
-1. `Read <site-root>/.wix/site.json` (absolute path — `<site-root>` was captured in Step 1, before the `cd` into the scaffold).
+1. `Read <site-root>/.wix/site.json` (== `./.wix/site.json` — `<site-root>` is the CWD, captured in Step 1).
 2. Add the two top-level fields (`siteId`, `appId`) using the values held in session scratch.
 3. `Write` the updated file back to the same absolute path.
 
@@ -42,7 +42,7 @@ The file's purpose at this point is **observability + resume detection** — no 
 
 > **Default — just invoke it; do not deliberate.** **Always** invoke `Skill(name="wix-manage")` here. It is near-instant, and it is the *only* thing that both publishes `<wix-manage-root>` into scratch **and loads the recipe files into context** (which Step 4's installs and the whole Seed phase then reuse — SEED.md reads recipes relative to `<wix-manage-root>` and explicitly does **not** re-invoke). **Knowing the `wix-manage` directory path from an earlier `ls`/discovery is NOT a reason to skip the invocation** — a raw filesystem path is not the same as the skill being loaded (the recipes aren't in context). Do not weigh invoke-vs-skip; invoke. The only exception is the Missing-skill fallback below.
 
-App installation is delegated to `wix-manage`. Use the harness's skill-invocation primitive — in Claude Code that's `Skill(name="wix-manage")`; other harnesses provide an analogous mechanism. **Do not** hardcode a tool-call snippet here; the prose instruction "Invoke the `wix-manage` skill" is the contract, and the harness owns the mechanics. This mirrors `wix-app/SKILL.md:241` ("Invoke the `wix-design-system` skill") and keeps the skill agent-agnostic.
+App installation is delegated to `wix-manage`. Use the harness's skill-invocation primitive — in Claude Code that's `Skill(name="wix-manage")`; other harnesses provide an analogous mechanism. **Do not** hardcode a tool-call snippet here; the prose instruction "Invoke the `wix-manage` skill" is the contract, and the harness owns the mechanics. This mirrors `wix-app/SKILL.md` ("Invoke the `wix-design-system` skill") and keeps the skill agent-agnostic.
 
 After invocation, `wix-manage`'s SKILL.md is in context with absolute paths to its `references/<topic>/` files. Read its app-install recipe by absolute path:
 
@@ -106,6 +106,8 @@ A 200 response confirms the install. On 401/403, retry the same call once with t
 
 Foreground shell, ~5 s. Writes `WIX_CLIENT_ID` to `.env.local`. Idempotent. Skipping this causes `Missing environment variable WIX_CLIENT_ID` build failures in downstream phases.
 
+> **Applies to `astro` (`frontendBuild: wix`) ONLY — `own` and `none` SKIP this step; no conflict to reconcile.** This article is framework-blind for Step 4a (app installs), but Step 4b is astro-specific: only the astro build reads `WIX_CLIENT_ID` from `.env.local`. The `own` and `none` framework classes inline the `appId` from `wix.config.json` instead and have no `WIX_CLIENT_ID` at runtime — **`BUILD-own-build.md` § "Framework spine" is the authority for them and says skip 4b.** If you are on `own`/`none`, do not run `env pull`, and do not treat the "Skipping this causes build failures" line above as conflicting guidance — that warning is scoped to astro.
+
 > **Always pass `--json`.** Without it the CLI renders an interactive spinner; captured through the tool's non-TTY pipe, every animation frame lands as a separate line of ANSI escapes (`\x1b[2K\x1b[1A…⠙ Pulling…`) and bloats the context for zero signal. `--json` selects the CLI's non-interactive render-to-string path (one clean `{"success": true}` line), and the skill doesn't parse this command's output anyway — it only needs `.env.local` on disk.
 
 ### 4c. Dispatch background `npm install`
@@ -141,7 +143,7 @@ npm install --no-fund --no-audit --legacy-peer-deps \
 
 > **Why these two packages for cms?** `@wix/data` is the Wix Data SDK — its `items` named export carries the items API (`query`/`insert`/`update`/`remove` + `bulk*`) that every CMS page uses (`import { items } from "@wix/data"`; see [astro/cms/CMS_FOUNDATIONS.md](./astro/cms/CMS_FOUNDATIONS.md) § "Import note"). `@wix/essentials` is required for `auth.elevate` — every CMS page elevates queries to bypass per-collection permission checks. Shipping without `@wix/essentials` produces `Cannot find module '@wix/essentials'` at SSR time. (Historical note: `@wix/data` 1.0.448 briefly dropped the `items` re-export, which once required the internal `@wix/wix-data-items-sdk`; current versions export `items` again, so `@wix/data` alone suffices.)
 
-Per pre-flight S0.2, `pnpm install` fails against the `@wix/cli` template — use `npm install --legacy-peer-deps`.
+`pnpm install` fails against the `@wix/cli` template — use `npm install --legacy-peer-deps`.
 
 **Why per-pack packages live here, not in pack frontmatter:** `references/verticals/_schema.md` is scoped to Discovery; it deliberately excludes `packages:` to keep that schema small. The install set is owned by SETUP.md instead — the lookup table above is the contract. **If you skip the per-pack additions and ship only the always-on three, `astro build` fails at Wave 5 with `Rollup failed to resolve import "@wix/stores"` (or whichever pack-side package the run depends on) and Setup's win on the foreground wall is paid back many times over in a recovery cycle.** When this happens, the build retries after an in-flight `npm install @wix/stores @wix/ecom`, costing ~30 s.
 
@@ -162,9 +164,9 @@ Invoked when `npm_handle` returns non-zero. The handle is dispatched in Step 4c 
 If the background `npm install` fails or hangs:
 
 1. **Foreground retry** with `npm install --no-fund --no-audit --legacy-peer-deps <packages>` (90 s timeout). If that hangs, add `--prefer-offline`; if still hanging, run `npm cache clean --force` and retry once more.
-2. **Last resort:** ask the user to run `npm install --legacy-peer-deps` manually and report back. Do not silently substitute pnpm/yarn — pre-flight S0.2 confirmed pnpm fails against the `@wix/cli` template.
+2. **Last resort:** ask the user to run `npm install --legacy-peer-deps` manually and report back. Do not silently substitute pnpm/yarn — pnpm fails against the `@wix/cli` template.
 
-The package set is the union of `@wix/sdk tailwindcss @tailwindcss/vite` (always) plus each loaded pack's frontmatter `packages:` array. The current pack frontmatter does not declare `packages:` blocks — vertical packs are discovery-only at this phase, so the install set is just the always-on three. Do not invent package names.
+The package set is identical to Step 4c: the always-on three (`@wix/sdk tailwindcss @tailwindcss/vite`) ∪ the per-pack packages for every loaded pack, per the Step 4c lookup table. Reuse that table — do not invent package names.
 
 ---
 

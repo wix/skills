@@ -24,7 +24,7 @@ The terms below appear throughout this skill. They describe the *shape* of work;
 The run is two semi-independent tracks that the orchestrator interleaves for wall-time:
 
 - **Business track** (frontend-blind) — create/connect the site, **install Wix apps**, **seed backend data**. Inputs: `siteId`, `verticals`, `intent`, `brand`. It never reads `frontend`/template — a product (or collection, post, form) is the same regardless of what renders it. Its domain content lives in `SETUP.md` (app installs) + `SEED.md` (seeders).
-- **Frontend track** (frontend-aware) — scaffold/prep the local project, Designer + design tokens, Composer, components, pages, SDK wiring, build. Every `frontend`/template branch lives here. Its domain content lives in `scaffold.sh` + `seed-utilities.sh` + `DESIGN_SYSTEM.md` / `astro/COMPOSE.md` + the per-vertical references (frontend guides under `references/astro/`).
+- **Frontend track** (frontend-aware) — scaffold/prep the local project, Designer + design tokens, `compose.mjs` (the Composer script), components, pages, SDK wiring, build. Every `frontend`/template branch lives here. Its domain content lives in `scaffold.sh` + `seed-utilities.sh` + `DESIGN_SYSTEM.md` + `scripts/compose.mjs` (self-documenting) + the per-vertical references (frontend guides under `references/astro/`).
 
 The only cross-track data flow is **one-way, business → frontend**: seeders produce entity IDs which the orchestrator inlines into the frontend track's Page-subagent prompts. There is no frontend → business dependency.
 
@@ -82,11 +82,11 @@ Everything else is silent. If a long phase (Components, Pages) would otherwise l
 
 This rule governs **every** concurrent batch in the run, in both modes — the Wave-0 pack reads (mode funnel), and the post-approval dispatch batches owned by the conductor (`BUILD.md` and its mode files): the astro BUILD-entry scaffold + Designer dispatch, the Setup app-installs, the Wave-3 seed batch, the integration connection-plan + init batch. The step files describe *what* is in each batch; the rule that they go out as one batch lives here.
 
-Historical runs lost 1–2 minutes per phase to serialized dispatch — N operations emitted one-per-turn instead of in a single concurrent batch. Even when each ran fast, the inter-dispatch gaps (12–39s in measured runs) accumulated to >25% overhead per phase.
+Historical runs lost 1–2 minutes per phase to serialized dispatch — N operations emitted one-per-turn instead of in a single concurrent batch. Even when each ran fast, the inter-dispatch gaps accumulated to significant overhead per phase.
 
 Two mitigations; use both:
 
-1. **Fire the whole batch as one assistant message** — N `Agent`/`Bash` tool_uses as siblings. **No narration between dispatches** ("Now installing apps:", "Dispatching seeders:"). Any text adjacent to a dispatch closes the batch and forces the rest into separate turns, adding seconds per dispatch. This holds even for a 2-item batch (a measured 2-seeder run lost 12 s to one interstitial sentence).
-2. **Use background-on-dispatch for anything that doesn't block downstream work.** Even if the runtime serializes the launch turns, background dispatch lets the work overlap in execution. Measured compression on a sequential-launch / background-execute model: ~2× wall-time vs. serial.
+1. **Fire the whole batch as one assistant message** — N `Agent`/`Bash` tool_uses as siblings. **No narration between dispatches** ("Now installing apps:", "Dispatching seeders:"). Any text adjacent to a dispatch closes the batch and forces the rest into separate turns, adding seconds per dispatch. This holds even for a 2-item batch.
+2. **Use background-on-dispatch for anything that doesn't block downstream work.** Even if the runtime serializes the launch turns, background dispatch lets the work overlap in execution, compressing wall-time substantially versus serial.
 
-If your runtime forces serialization across turns, make every subagent that can run in the background a background subagent — the Designer, Composer, seeders, and image phases all dispatch background so the foreground never blocks on them.
+If your runtime forces serialization across turns, make every subagent that can run in the background a background subagent — the Designer, seeders, and image phases all dispatch background so the foreground never blocks on them. (The Composer is no longer a subagent — it is the deterministic `compose.mjs` Bash step, sub-second and synchronous.)

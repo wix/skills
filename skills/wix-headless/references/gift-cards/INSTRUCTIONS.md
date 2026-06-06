@@ -18,11 +18,11 @@ This pack has **no `seed` scope** — the dashboard's eGift Card template is the
 
 ## Files this vertical creates / contributes
 
-See `<SKILL_ROOT>/references/verticals/gift-cards.md` frontmatter (`creates:` and `contributes:` blocks).
+See the § "Templates" list below for the files each scope produces (and the nav/home contributions it patches).
 
 ## Pre-return file-existence assertion (pages scope)
 
-Before returning `status: "complete"` from the `pages` scope, verify every file in `creates:` (phase: pages) plus the patched files in `contributes:` exists on disk. If a declared file is missing, return `status: "partial"` with `errors: [{ code: "PHASE4_FILE_MISSING", path: "<expected path>" }]` rather than claiming success.
+Before returning `status: "complete"` from the `pages` scope, verify every file the scope produces (the page templates in § "Templates" below, plus the patched `Navigation.astro` / `index.astro`) exists on disk. If a declared file is missing, return `status: "partial"` with `errors: [{ code: "PHASE4_FILE_MISSING", path: "<expected path>" }]` rather than claiming success.
 
 ## Templates
 

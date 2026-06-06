@@ -1,42 +1,42 @@
 ---
 name: page-designer
-description: "The page-design specification for Wix Managed Headless Phase 4 routes: home, static (about/faq), store-pages, blog-pages, contact-page. This is the visual-design guidance the merged Phase 4 `pages` scopes (vertical packs, BUILD-astro.md Step 7) apply when they write each route ONCE with both visual design and live SDK data. It defines layout, contract classes, decorative-slot conventions, responsive rules, and anti-patterns — not a separate placeholder-writing pass. The design-system phase (tokens + global.css + Layout/Nav/Footer shells) is NOT here — it is split across DESIGN_SYSTEM.md (Designer) and astro/COMPOSE.md (Composer)."
+description: "The page-design specification for Wix Managed Headless page routes: home, static (about/faq), store-pages, blog-pages, contact-page. This is the visual-design guidance the merged build agents' `pages` scopes (vertical packs, BUILD-astro.md § 'Step 4.5' — the build wave) apply when they write each route ONCE with both visual design and live SDK data. It defines layout, contract classes, decorative-slot conventions, responsive rules, and anti-patterns — not a separate placeholder-writing pass. The design-system phase (tokens + global.css + Layout/Nav/Footer shells) is NOT here — it is split across DESIGN_SYSTEM.md (Designer) and scripts/compose.mjs (Composer)."
 ---
 
 # Page Designer — Scope-Based Page Design
 
-> **Single-write merged model (BUILD-astro.md Step 7 is authoritative).** Phase 4 routes are written **once**, by the per-vertical `pages` scopes, with both visual design **and** live SDK queries in the same pass — there is no separate "write a design placeholder, then rewrite it with data" dispatch (that double-write was eliminated). This doc is the **visual-design specification** the merged author applies: the layout, typography, color, spacing, contract classes, decorative slots, and component composition each route should have. Where a section below says "placeholder data," read it as *the data shape* the live query maps onto — and the safe fallback to render if a query returns empty. The merged scope binds real SDK data into this structure; it does not ship hardcoded arrays as the final output.
+> **Single-write merged model (BUILD-astro.md § "Step 4.5" — the build wave — is authoritative).** Routes are written **once**, by the per-vertical merged build agents' `pages` scopes (after that agent writes its islands), with both visual design **and** live SDK queries in the same pass — there is no separate "write a design placeholder, then rewrite it with data" dispatch (that double-write was eliminated), and no separate Components→Pages wave (those are merged into one per-vertical agent). This doc is the **visual-design specification** the merged author applies: the layout, typography, color, spacing, contract classes, decorative slots, and component composition each route should have. Where a section below says "placeholder data," read it as *the data shape* the live query maps onto — and the safe fallback to render if a query returns empty. The merged scope binds real SDK data into this structure; it does not ship hardcoded arrays as the final output.
 
 Your prompt will contain a `Scope:` line naming exactly one of the page scopes below. **Read only the section for your scope. Do not read sections for other scopes — wastes context and blurs ownership.**
 
 You own **page-level visual output**: the layout, typography, color, spacing, and component composition of one route group. The same merged scope also binds the live SDK data into that structure (the per-vertical reference under `references/astro/<vertical>/` supplies the exact queries).
 
-> **The design-system phase is not in this doc.** Tokens (`data.designTokens`), `global.css`, `astro.config.mjs`, `Layout.astro`, `Navigation.astro`, and `Footer.astro` are produced earlier in the run by a two-role split:
-> - **Designer** (`<SKILL_ROOT>/references/DESIGN_SYSTEM.md`) — returns the framework-agnostic design spec (tokens + brand-voice strings) as JSON only.
-> - **Composer** (`<SKILL_ROOT>/references/astro/COMPOSE.md`) — applies that spec to the astro skeletons and writes the 6 design-system files.
+> **The design-system phase is not in this doc.** Tokens (`DESIGN.md` / `data.design`), `global.css`, `astro.config.mjs`, `Layout.astro`, `Navigation.astro`, and `Footer.astro` are produced earlier in the run by a two-role split:
+> - **Designer** (`<SKILL_ROOT>/references/DESIGN_SYSTEM.md`) — authors `DESIGN.md` (the framework-agnostic token spec) and returns the brand-voice strings.
+> - **Composer** (`<SKILL_ROOT>/scripts/compose.mjs`, a deterministic script — self-documenting) — applies `DESIGN.md` to the astro skeletons and writes the 6 design-system files.
 >
 > By the time the Phase 4 routes are written, the `@theme` token contract, the `.astro` shells, and `.wix/design-tokens.css` already exist. You consume them; you do not write them.
 
 ## Self-Loading
 
 1. Read `../../shared/RETURN_CONTRACT.md` — structured return format.
-2. Read `../../shared/STYLING.md` — three styling categories (tokens-as-utilities, global semantic classes, co-located styles). Pages compose `@theme` tokens at call sites as Tailwind utilities; the inlined `designTokens` contract in your prompt tells you which tokens this run published.
+2. Read `../../shared/STYLING.md` — three styling categories (tokens-as-utilities, global semantic classes, co-located styles). Pages compose `@theme` tokens at call sites as Tailwind utilities; the inlined design-token vocabulary (the DESIGN.md tokens) in your prompt tells you which tokens this run published.
 
 No REST calls required. Page-design scopes are frontend-only — no `curl`, no MCP tool-discovery.
 
-**Do NOT `Read .wix/site.json`.** Every input you need (brand, the published `designTokens` contract, pages to design, pack home-section snippets) is inlined in your prompt.
+**Do NOT `Read .wix/site.json`.** Every input you need (brand, the published design-token vocabulary, pages to design, pack home-section snippets) is inlined in your prompt.
 
 ## Scope Routing
 
 | Scope | Phase | Output (files) |
 |-------|-------|----------------|
-| `home` | Phase 4 — Step 7 | `src/pages/index.astro` (composes pack home-sections + brand hero/CTA into the Composer-written shell) |
-| `static` | Phase 4 — Step 7 | `src/pages/about.astro`, `src/pages/faq.astro` |
-| `store-pages` | Phase 4 — Step 7 | `src/pages/products/index.astro`, `src/pages/products/[slug].astro`, `src/components/ProductCard.astro`, `src/pages/cart.astro`, `src/pages/thank-you.astro` |
-| `blog-pages` | Phase 4 — Step 7 | `src/pages/blog/index.astro`, `src/pages/blog/[slug].astro` |
-| `contact-page` | Phase 4 — Step 7 | `src/pages/contact.astro` |
+| `home` | build wave | `src/pages/index.astro` (composes pack home-sections + brand hero/CTA into the Composer-written shell) |
+| `static` | build wave | `src/pages/about.astro`, `src/pages/faq.astro` |
+| `store-pages` | build wave | `src/pages/products/index.astro`, `src/pages/products/[slug].astro`, `src/components/ProductCard.astro`, `src/pages/cart.astro`, `src/pages/thank-you.astro` |
+| `blog-pages` | build wave | `src/pages/blog/index.astro`, `src/pages/blog/[slug].astro` |
+| `contact-page` | build wave | `src/pages/contact.astro` |
 
-If your prompt's `Scope:` line names `design-system`, you have the wrong doc — that work lives in `DESIGN_SYSTEM.md` (Designer) and `astro/COMPOSE.md` (Composer). Stop and tell the parent.
+If your prompt's `Scope:` line names `design-system`, you have the wrong doc — that work lives in `DESIGN_SYSTEM.md` (Designer) and `scripts/compose.mjs` (Composer). Stop and tell the parent.
 
 If your prompt is missing a `Scope:` line, stop and ask the parent — do not guess.
 
@@ -44,14 +44,14 @@ If your prompt is missing a `Scope:` line, stop and ask the parent — do not gu
 
 ---
 
-## Page Designer Scopes (Phase 4 — Step 7, background)
+## Page Designer Scopes (build wave, background)
 
 All page scopes share common inputs and rules. Scope-specific details follow.
 
 ### Common inputs (from your prompt)
 
 - **Brand context** — name, vibe, aesthetic direction, colors, fonts, mood.
-- **Published token contract** — the `designTokens` JSON (same shape the Designer returned, written into `@theme` by the Composer). Compose these tokens as Tailwind utilities; if a token you need is absent, flag it in your return (`MISSING_TOKEN`) — do not invent a class.
+- **Published token contract** — the design-token vocabulary (the DESIGN.md tokens, written into `@theme` by `compose.mjs`). Compose these tokens as Tailwind utilities; if a token you need is absent, flag it in your return (`MISSING_TOKEN`) — do not invent a class.
 - **Pages to design** — list of routes and their contract class associations.
 - **Pack home-section snippet** (home scope only) — section stubs from every loaded pack.
 - **Placeholder data instruction** — use plausible brand-contextual placeholder text, prices, images where live data is not yet available.
@@ -104,7 +104,7 @@ All page scopes share common inputs and rules. Scope-specific details follow.
 9. **Responsive.** All pages must work at mobile (320px), tablet (768px), and desktop (1024px+). Use Tailwind responsive prefixes (`md:`, `lg:`) and the spacing scale from `@theme`.
 10. **Use Tailwind utility classes in templates.** For layout, spacing, typography, and responsive design — use utility classes directly in the markup. Contract classes are still required for components referenced by Phase 3/4 agents. Mix both: `<div class="product-grid grid grid-cols-1 md:grid-cols-3 gap-lg">`. Always use brand `@theme` tokens (e.g., `bg-bark`, `text-cream`) — never default Tailwind colors.
 11. **No duplicate files.** If two scopes list the same file (rare), the scope whose prompt explicitly names it as "owned" takes precedence. If unclear, write it and note the overlap in your return.
-12. **Do NOT write to `src/styles/components-<pack>.css` or `src/styles/global.css`** — `components-<pack>.css` is owned by Phase 3 Components agents; `global.css` is owned by the Composer. Writing to either causes double-write conflicts.
+12. **Do NOT write to `src/styles/components-<pack>.css` or `src/styles/global.css`** — `components-<pack>.css` is pre-copied from the skill template by the orchestrator (build-wave pre-batch); `global.css` is owned by the Composer. Writing to either causes double-write conflicts.
 
 ### Scope: `home`
 
@@ -175,19 +175,19 @@ All store-facing pages designed together for visual coherence.
 **Products listing (`/products`):**
 - Page heading
 - Product grid using `product-grid` class
-- 3-6 placeholder product cards using `ProductCard` component
+- Bind the live `productsV3` query (per `references/astro/stores/PRODUCT_PAGES.md`) into a grid of `ProductCard` components; render a brand-contextual empty state if the query returns nothing
 
 **Product detail (`/products/[slug]`):**
-- Product image (large, placeholder)
+- Product image (large) resolved from the live product record
 - Product info section with `product-detail` class
-- Purchase area with `product-purchase` class — placeholder price, placeholder variant selector, Add to Cart button with `add-to-cart-btn` class
+- Purchase area with `product-purchase` class — price, variant selector, and Add to Cart button (`add-to-cart-btn` class) bound to the live product/variant data
 - Product description area
 
 **ProductCard component:**
-- Accepts a single `product` prop (object with name, price, slug, image fields)
+- Accepts a single `product` prop — the full Wix product object from `productsV3`
 - Uses `product-card` class
 - Image, name, price, link to `/products/${product.slug}`
-- **Important:** Phase 2 `product-pages` rewrites this to accept the full Wix product object. Design with a simple prop interface: `{ product: { name: string; slug: string; price: number; image?: string } }`
+- Design the prop interface around the full product object: `{ product }` (the canonical `productsV3` shape — see `references/astro/stores/PRODUCT_PAGES.md`)
 
 **Cart (`/cart`):**
 - Two-column grid layout: `.cart-grid` — items column left, order summary right. Stacks vertically on mobile
@@ -199,11 +199,11 @@ All store-facing pages designed together for visual coherence.
 - Unavailable item warning with `.cart-item-unavailable` class (red text)
 - Empty state with `.cart-empty` class (centered, muted text + "Browse Products" link)
 - **All cart CSS must be in `<style is:global>`** — `CartView` is a React island; scoped Astro styles do not reach its children
-- Placeholder cart items (2-3)
+- The live `CartView` island renders the items/summary at runtime; design the surrounding structure and an empty-cart fallback
 
 **Thank you (`/thank-you`):**
 - Confirmation message with `order-summary` class
-- Placeholder order details
+- Order details bound to the live order data (per the ecom cart/checkout reference)
 
 **Return:**
 ```json
@@ -265,7 +265,7 @@ Contact page with form placeholder.
 **Contact page:**
 - Page heading and descriptive text
 - Contact CTA section using `contact-cta` class (if on home, this mirrors the home CTA's visual language)
-- Form placeholder area — a styled `<div>` where Phase 2 mounts the `ContactForm.tsx` island. Use a placeholder form layout (name, email, message fields, submit button) so the page looks complete, but Phase 2 replaces this with the real React island.
+- Form area — mount the `ContactForm.tsx` island (written by Phase 3 Components) styled to the brand, per `references/astro/forms/CONTACT_FORM.md`. Style a complete form layout (name, email, message fields, submit button) so the page reads as finished even before submissions wire up.
 - Optional: map embed placeholder, business hours, address (if brand context suggests it)
 
 **Return:**
@@ -328,4 +328,4 @@ The JSON block MUST be the **last** content in your message — the parent parse
 
 The merged Phase 4 `pages` scope owns each route file **end to end** — visual structure **and** data wiring, written in a single pass. There is no separate page-designer agent that writes a file for a later scope to rewrite; this doc is the visual-design spec the merged author applies alongside its vertical's SDK queries (`references/astro/<vertical>/`). Each route file therefore has exactly **one** writer (its `pages` scope), which removes the cross-phase double-write the older placeholder-then-rewrite model carried.
 
-The shared shells the route composes into — `Layout.astro`, `Navigation.astro`, `index.astro`, `global.css`, `components-<pack>.css` — are owned by the Composer / Phase 3 Components, not by the route scope (see "Coordination" above and BUILD-astro.md Step 7's shared-shell-patcher serialization rule).
+The shared shells the route composes into — `Layout.astro`, `global.css` (Composer), and the marker-patched `Navigation.astro` / `index.astro` / `components-<pack>.css` (pre-copied or patched by the serialized shell-patcher agents) — are NOT owned by a private-file route scope (see "Coordination" above and BUILD-astro.md § "Step 4.5", the serialized shell chain).

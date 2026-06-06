@@ -10,7 +10,7 @@ The user just approved; `init-site-json.mjs` wrote the slim `.wix/site.json` (on
 
 | `frontendBuild` | Framework class | Conductor |
 |---|---|---|
-| `wix` | astro-native (`wix build`) | **`BUILD-astro.md`** — Phase axis → run-steps 0–5 → Wave 3 → Step 4.5 → Step 7 → Build & Release |
+| `wix` | astro-native (`wix build`) | **`BUILD-astro.md`** — Phase axis → run-steps 0–5 → Wave 3 → the build wave (merged Components + Pages per vertical) → Build & Release |
 | `none` | static HTML (no build) | **`BUILD-own-build.md`** (none tenant) — install-skip → Seed → wiring → inline no-build release |
 | `own` | own-build (`npm run build`) | **`BUILD-own-build.md`** (own tenant) — bundle `@wix/sdk` install → Seed → source-edit wiring → project's own build → release |
 
@@ -38,7 +38,7 @@ Almost everything in Build is a 1-D framework switch (install/build/release, bel
 
 | | `create` | `connect` | `extend` *(later)* |
 |---|---|---|---|
-| **astro** (`wix`) | write `.astro` pages with live SDK queries — `BUILD-astro.md` Phase 3 Components + Phase 4 Pages | — | add `.astro` + markers *(extend plan)* |
+| **astro** (`wix`) | write `.astro` pages with live SDK queries — `BUILD-astro.md` build wave (merged Components + Pages per vertical) | — | add `.astro` + markers *(extend plan)* |
 | **own-build** (`own`) | write fresh data module (`@wix/data`) — `BUILD-own-build.md` § "Wiring cell → create × own" | rewrite source data-layer → `@wix/data` — `BUILD-own-build.md` § "Wiring cell → connect × own" | add to source *(extend plan)* |
 | **none / html** (`none`) | — | inject client-side `@wix/sdk` `<script type="module">` (additive, styled from the design's tokens) — `BUILD-own-build.md` § "Wiring cell → connect × none" | inject `<script>` *(extend plan)* |
 
@@ -149,15 +149,14 @@ Example:
     { "phase": "npm-install", "status": "complete", "seconds": 42, "packageCount": 725 },
     { "phase": "stores-seed", "status": "complete", "seconds": 112, "data": { ... } },
     { "phase": "cms-seed", "status": "complete", "seconds": 98, "data": { ... } },
+    { "phase": "design-system", "status": "complete", "seconds": 13, "data": { ... } },
+    { "phase": "compose", "status": "complete", "seconds": 0, "data": { "filesWritten": [ ... 6 ... ], "componentCssImports": [ ... ], "homeMarkers": [ ... ], "tokensApplied": { ... } } },
     { "phase": "stores-components", "status": "complete", "seconds": 134, "data": { ... } },
-    { "phase": "design-system", "status": "complete", "seconds": 165, "data": { ... } },
-    { "phase": "designer-home", "status": "complete", "seconds": 287, "data": { ... } },
-    { "phase": "designer-static", "status": "complete", "seconds": 265, "data": { ... } },
-    { "phase": "designer-store-pages", "status": "complete", "seconds": 298, "data": { ... } },
-    { "phase": "stores-pages-products", "status": "complete", "seconds": 89, "data": { ... } },
-    { "phase": "stores-pages-cart-checkout", "status": "complete", "seconds": 67, "data": { ... } },
-    { "phase": "stores-pages-home-and-nav", "status": "complete", "seconds": 54, "data": { ... } },
-    { "phase": "pages", "status": "complete", "seconds": 78, "data": { ... } },
+    { "phase": "product-pages", "status": "complete", "seconds": 89, "data": { ... } },
+    { "phase": "category-pages", "status": "complete", "seconds": 72, "data": { ... } },
+    { "phase": "cart-checkout", "status": "complete", "seconds": 67, "data": { ... } },
+    { "phase": "home-and-nav", "status": "complete", "seconds": 54, "data": { ... } },
+    { "phase": "cms-pages", "status": "complete", "seconds": 78, "data": { ... } },
     { "phase": "image-phase-1-decorative", "status": "complete", "seconds": 112, "data": { "decorativeCount": 3, ... } },
     { "phase": "image-phase-2-entity", "status": "complete", "seconds": 287, "data": { "entityCount": { "products": 6, "cmsAboutContent": 1 }, ... } },
     { "phase": "build", "status": "complete", "seconds": 9 },
