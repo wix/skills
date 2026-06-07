@@ -24,7 +24,7 @@ You own **page-level visual output**: the layout, typography, color, spacing, an
 
 No REST calls required. Page-design scopes are frontend-only — no `curl`, no MCP tool-discovery.
 
-**Do NOT `Read .wix/site.json`.** Every input you need (brand, the published design-token vocabulary, pages to design, pack home-section snippets) is inlined in your prompt.
+**Every input you need (brand, the published design-token vocabulary, pages to design, pack home-section snippets) is inlined in your prompt.** Don't depend on mutable shared state.
 
 ## Scope Routing
 
@@ -307,7 +307,7 @@ The JSON block MUST be the **last** content in your message — the parent parse
 | Generic unstyled HTML | Brand-first design — every element reflects the aesthetic direction |
 | Fixed-width layouts | Responsive: mobile-first, breakpoints at 320/768/1024px |
 | `ls src/`, `Glob src/**` to discover files | Your prompt lists every file and class contract. Write directly. |
-| `Read .wix/site.json` to get brand or verticals | Every field is in your prompt |
+| Read a shared file to get brand or verticals | Every field is in your prompt |
 | Hardcode an external `<img src="https://...">` for product/content images | Resolve entity images from the live record (`media.getScaledToFillImageUrl(...)`) in this same scope; **decorative** images use the `data-decorative-slot` mechanism |
 | Omit `data-decorative-slot` on hero/about/background placeholders | Every decorative image placeholder MUST carry a slot attribute — the orchestrator's injection pass depends on it (common rule #7) |
 | Add a hero CTA / footer link to a disabled-pack route | Disabled packs (gift-cards) are dormant — no entry points to their routes |

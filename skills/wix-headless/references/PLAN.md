@@ -43,14 +43,14 @@ This is the **operation-selection routing layer**: `SETUP.md`'s steps assume the
 
 ## The Plan→Build contract
 
-Plan resolves a small, explicit contract that Build consumes. It is carried **in the orchestrator's in-context session scratch** and threaded into each subagent's dispatch prompt — it is **not persisted to disk** (so `init-site-json.mjs` is *not* extended to record it; only `frontend` lands on disk, exactly as today). The orchestrator already resolves these fields in Wave 0 and holds them for the whole run, so a disk round-trip buys nothing.
+Plan resolves a small, explicit contract that Build consumes. It is carried **in the orchestrator's in-context session scratch** and threaded into each subagent's dispatch prompt — it is **not persisted to disk** (nothing in this contract lands on disk). The orchestrator already resolves these fields in Wave 0 and holds them for the whole run, so a disk round-trip buys nothing; on scratch loss, `frontend`/`frontendBuild` are recovered from `package.json` (`@wix/astro` ⇒ astro/wix, else custom + re-derive from `scripts.build`).
 
 **Core (every operation resolves these identically; Build's install/build/release spine reads only these):**
 
 | Field | Today's values | Meaning |
 |---|---|---|
 | `operation` | `create` \| `connect` | what the user is doing (*extend* added later by its own plan) |
-| `frontend` | `astro` \| `custom` | what renders the site (the one field also persisted to `.wix/site.json`) |
+| `frontend` | `astro` \| `custom` | what renders the site (held in scratch; recovered from `package.json` on scratch loss) |
 | `frontendBuild` | `wix` \| `none` \| `own` | the build-class Build routes on: `wix` (astro, `wix build`), `none` (brought static HTML, no build), `own` (framework SPA — the project's own `npm run build`; brought-in *or* scaffolded from a named framework) |
 | `verticals[]` | e.g. `["stores","ecom","cms"]` | loaded packs (top-level + transitive) |
 | `designSource` | `generate-fresh` \| `derive-from-brought` | create generates; connect derives from the brought design's own tokens |

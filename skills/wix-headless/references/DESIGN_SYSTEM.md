@@ -17,7 +17,7 @@ Your output is small and mostly thinking: a coherent, complete brand visual expr
 
 Read `<SKILL_ROOT>/references/shared/DESIGN_MD.md` — the **DESIGN.md format spec** (the token groups, value types, the color roles you must fill). Read `<SKILL_ROOT>/references/shared/RETURN_CONTRACT.md` for the structured-return envelope. Those two are the only docs you need. Do **not** read `STYLING.md`, the templates, or any `.astro`/`.css` file — those are application concerns `compose.mjs` owns. No REST calls, no MCP, no tool discovery: this role is pure judgment.
 
-**Do NOT `Read .wix/site.json`.** Every input is inlined in your prompt (see Inputs). The file may not exist yet when you run, and it is not a coordination channel.
+**Every input is inlined in your prompt (see Inputs).** Don't depend on mutable shared state — it is not a coordination channel.
 
 ## Inputs (entirely from your prompt)
 
@@ -144,7 +144,7 @@ You pick *what the brand looks like* — "paper = `#FAF6EF`", "display face = Fr
 | Emit an `@theme` block, `--color-*` names, or Tailwind utilities | Return DESIGN.md frontmatter (`colors`/`typography`/`spacing`/`rounded`/`containers`); `compose.mjs` maps them |
 | Return the old `designTokens` shape (`fonts`, `radii`) | Use the DESIGN.md vocabulary: `typography` (with `fontFamily`), `rounded` — there is no separate token JSON anymore |
 | Decide CSS structure, View-Transitions, `@apply`, markers, file layout | All application — `compose.mjs`'s domain |
-| `Read .wix/site.json`, `STYLING.md`, templates, or `.astro` files | Every input is inlined; read only `DESIGN_MD.md` + `RETURN_CONTRACT.md` |
+| Read `STYLING.md`, templates, or `.astro` files | Every input is inlined; read only `DESIGN_MD.md` + `RETURN_CONTRACT.md` |
 | Branch on framework (astro vs custom) or loaded packs | The DESIGN.md is framework- and pack-blind by construction |
 | Alias a container width to a spacing value | `containers.prose` ≈ `42rem`; `spacing.3xl` ≈ `5rem` — different axes |
 | Ship a thin palette ("downstream will add what it needs") | Completeness is the contract — fill every semantic role |
@@ -155,7 +155,7 @@ You pick *what the brand looks like* — "paper = `#FAF6EF`", "display face = Fr
 
 ## Prompt template (the orchestrator dispatches the Designer with this)
 
-`.wix/site.json` does not exist yet when the Designer runs (`init-site-json.mjs` runs only after user approval), so the Designer cannot read brand + verticals from it. Every input is passed inline — this instruction file forbids reading `site.json` and takes every input from the prompt. The **Typography** and **Color palette** lines are **constraints, not suggestions** (the user approved them in the plan): use those exact font families and map those exact hues to roles per `data.design` above — do not substitute your own.
+Every input is passed inline — this instruction file takes brand, verticals, and every other input from the prompt, never from shared state. The **Typography** and **Color palette** lines are **constraints, not suggestions** (the user approved them in the plan): use those exact font families and map those exact hues to roles per `data.design` above — do not substitute your own.
 
 ```
 Instruction file (absolute path): <SKILL_ROOT>/references/DESIGN_SYSTEM.md
@@ -171,5 +171,5 @@ designMdPath: <absolute path to author DESIGN.md, e.g. <site-root>/DESIGN.md>
 Auth: not required (frontend-only).
 
 Author DESIGN.md at the provided designMdPath; return only data.shell + designMdPath. Do not echo tokens inline.
-Do NOT read .wix/site.json — it is not yet written and every input is inlined above.
+Every input is inlined above — don't depend on mutable shared state.
 ```

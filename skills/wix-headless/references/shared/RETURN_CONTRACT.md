@@ -2,7 +2,7 @@
 
 Coordination between agents uses **in-memory structured returns**, not sidecar files (`.wix/logs/*.md`, `.wix/seed-returns/*.json`, `.wix/image-urls.md`). Every agent returns a JSON block at the end of its completion message; the skill parses these returns directly from session context.
 
-At end of run, the skill writes ONE file (`.wix/run.json`) aggregating every return. This is the only observability artifact on the project side. Its schema is the orchestrator's concern — see `references/BUILD.md` § "Final run.json format".
+The orchestrator consumes each return directly from context; nothing is aggregated to disk. The one end-of-run file is the project-root `AGENTS.md` (see `references/shared/AGENTS_MD.md`) — content about the site, not telemetry.
 
 This document is the **universal envelope** every agent shares: the rules, the JSON skeleton, status semantics, and the generic failure shape. **The phase-specific `data` shape you must emit does NOT live here — it lives in your own role doc** (the one your scope already reads). See the index at the bottom.
 
@@ -45,7 +45,7 @@ The JSON block MUST be the **last** content in the message. The parent skill par
 
 ### Timing is NOT the agent's responsibility
 
-**Emit no timing fields** (no `started` / `ended` timestamps). **Authoritative timing source is the runtime `duration_ms`** captured by the parent skill from task-notifications when the subagent completes. The orchestrator MUST prefer `duration_ms` over any agent-reported timing. If an older agent still emits `started`/`ended`, the orchestrator ignores them. No LLM-generated timestamps anywhere in the observability pipeline.
+Agents don't self-report timing or status — the return is just `data`. Emit no `started`/`ended` timestamps; any wall-clock measurement is the harness's job, taken from the session trace.
 
 ### No trailing prose after the fenced JSON
 
@@ -129,7 +129,7 @@ The envelope above is universal. The exact `data` shape — plus the known `erro
 | Page Designer | `designer-<scope>` | `references/astro/designer/INSTRUCTIONS.md` (per-scope) |
 | Images | `image-phase-1-decorative`, `image-phase-2-entity` | `references/images/INSTRUCTIONS.md` § Return Contract |
 
-The **orchestrator** is the one audience that needs every shape — it parses each return and aggregates them into `run.json`. This table is its index; the `run.json` schema and the build/aggregation rules live in `references/BUILD.md`.
+The **orchestrator** is the one audience that needs every shape — it parses each return directly; there is no aggregated file. This table is its index.
 
 ## Notes for agent authors
 
