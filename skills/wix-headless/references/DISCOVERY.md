@@ -1,6 +1,6 @@
 # Discovery
 
-Capture brand + vibe + imagery + the per-vertical intent inferred from the user's prompt, present a slim plan, get approval, write `.wix/site.json`.
+Capture brand + vibe + imagery + the per-vertical intent inferred from the user's prompt, present a slim plan, get approval, hold the captured contract in orchestrator scratch.
 
 Infer as much as possible from the user's opening message; ask only what's genuinely unknown. Target: **~1:30 of discovery** including user think-time, **≤ 80 s** excluding it.
 
@@ -44,7 +44,7 @@ Then derive `frontend` and `frontendBuild` **within** the chosen operation, and 
 > **No `AskUserQuestion` for operation/frontend detection.** They are inferred from the prompt + directory, never asked. When intent is unclear, default to `operation: connect` — connecting/implementing what the user brings is the safe interpretation; creating a brand-new site over their intent is the destructive one. **A prompt that fetches or names a design to "connect"/"implement" is `connect` regardless of whether the CWD is empty.**
 
 These flow into:
-- `init-site-json.mjs --frontend <value>` — records **only** `frontend` in `.wix/site.json` (written for **both** operations). `operation` and `frontendBuild` are **NOT** persisted — they live in orchestrator scratch as the in-agent contract (`PLAN.md` § "The Plan→Build contract"). The conductor reads `frontendBuild` from scratch to decide whether to run `wix build` before release — `wix` builds, `none` doesn't.
+- The **Plan→Build contract** held in orchestrator scratch (`PLAN.md` § "The Plan→Build contract"). `frontend`, `operation`, and `frontendBuild` all live in scratch — **none** is persisted to disk. The conductor reads `frontendBuild` from scratch to decide whether to run `wix build` before release — `wix` builds, `none` doesn't.
 - **Bootstrap is (operation × framework)-keyed** (`BUILD.md` § "Bootstrap cell"): create+astro runs `scaffold.sh --frontend astro`; create+own runs the framework's own create command (`npm create vite`/…) then `init`; connect (own/none) does **not** scaffold — it bootstraps via `npm create @wix/new@latest init` over the brought-in/scaffolded source.
 - Orchestrator session scratch — every downstream branch reads the scratch values. For `connect`, the frontend track runs the connect flow (`references/custom/INSTRUCTIONS.md`); the create-only project-prep (`seed-utilities.sh`) and the Designer/Composer do not run. (Business-track steps — app install, seeders — never read these fields.)
 
@@ -70,7 +70,7 @@ npx @wix/cli@latest whoami >/dev/null 2>&1
 
 With `operation` (and the derived `frontend`/`frontendBuild`) resolved and auth confirmed:
 
-- **`create`** → `DISCOVERY-create.md` — the interview (Steps 0–2.5) → plan → approval → write `.wix/site.json`.
-- **`connect`** → `DISCOVERY-connect.md` — parse the brought-in site → infer domain → light plan → approval → write `.wix/site.json`.
+- **`create`** → `DISCOVERY-create.md` — the interview (Steps 0–2.5) → plan → approval → hold the contract in scratch.
+- **`connect`** → `DISCOVERY-connect.md` — parse the brought-in site → infer domain → light plan → approval → hold the contract in scratch.
 
 Read only the matching file. The pre-approval funnel (`PLAN-create.md` / `PLAN-connect.md`) names *when* to apply each discovery step.

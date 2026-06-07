@@ -21,12 +21,8 @@
 # <scaffold-subdir>: the transient directory the framework scaffolder created
 #                    (e.g. "_scaffold_tmp"). Everything inside it — including
 #                    dotfiles — is moved up into CWD; its `.wix/*` is merged into
-#                    the existing `.wix/` WITHOUT overwriting a pre-existing
-#                    site.json/run.json (mv -n); then the subdir is removed.
-#
-# CWD is assumed to already hold `.wix/site.json` (init-site-json.mjs wrote it
-# before scaffold) plus the harness's output.json/stderr.log. After this runs the
-# project (package.json, src/, etc.) sits in CWD next to that `.wix/`.
+#                    the existing `.wix/` WITHOUT overwriting any pre-existing
+#                    `.wix/` entries (mv -n); then the subdir is removed.
 #
 # Exit codes:
 #   0 — ok (or subdir absent / already flat — no-op)
@@ -49,7 +45,7 @@ shopt -s dotglob nullglob
 mkdir -p .wix
 if [[ -d "$SUBDIR/.wix" ]]; then
   for f in "$SUBDIR"/.wix/*; do
-    mv -n "$f" .wix/      # -n: never overwrite the pre-existing site.json/run.json
+    mv -n "$f" .wix/      # -n: never overwrite pre-existing `.wix/` entries
   done
   rmdir "$SUBDIR/.wix" 2>/dev/null || rm -rf "$SUBDIR/.wix"
 fi

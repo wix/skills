@@ -32,9 +32,9 @@ Scopes that call Wix APIs (`seed`, image phases) receive `siteId` in the prompt.
 
 If your scope is `components` or `pages`, you should NOT make REST calls — those scopes are frontend-only. If you find yourself needing a site API call, it's a scope violation — return `status: "partial"` with an error note, do not proceed.
 
-## Do NOT read `.wix/site.json` (one scoped exception: `.wix/seeded.json`)
+## Don't depend on mutable shared state (one scoped exception: `.wix/seeded.json`)
 
-Every input you need is either inlined in your prompt or — for seeded entity IDs — in **`.wix/seeded.json`**, the one read-only shared file you are allowed to read. The orchestrator is the **sole reader/writer of `.wix/site.json`**; that file is a mutable metadata snapshot for run.json composition + resume detection, rewritten across phases, **not** a coordination channel — never read it. `.wix/seeded.json` is the opposite: a producer→consumer handoff written **once** at the seed gate, read-only thereafter. Read **only your own `<vertical>` slice**; never write it.
+Every input you need is either inlined in your prompt or — for seeded entity IDs — in **`.wix/seeded.json`**, the one shared file you are allowed to read. The orchestrator holds run state in scratch, not on disk — it is **not** a coordination channel you can read. `.wix/seeded.json` is the one exception: a producer→consumer handoff written **once** at the seed gate, read-only thereafter. Read **only your own `<vertical>` slice**; never write it.
 
 **Phase-specific inputs:**
 
@@ -44,18 +44,18 @@ Every input you need is either inlined in your prompt or — for seeded entity I
 | `components` | All **inlined**: `brand`, the design tokens (the DESIGN.md token vocabulary — `colors`/`typography`/`spacing`/`rounded`/`containers`). CSS variables are also on disk at `.wix/design-tokens.css` for the build. Components do not need seeded IDs. |
 | `pages` / `pages-*` | **Inlined:** `brand`, the design tokens (DESIGN.md vocabulary). **Read from `.wix/seeded.json`:** your `seeded.<vertical>` slice (products, posts, collections IDs). Page data wiring uses live SDK queries; the `seeded` data is for path resolution + demo content authoring. |
 
-If a required **inlined** input is missing from your prompt, or your **`.wix/seeded.json` slice** is absent (e.g. you are dispatched as `pages-products` but `.wix/seeded.json` has no `seeded.stores`), fail fast — return `status: "failed"` with `errors: [{ code: "SEEDED_JSON_SLICE_MISSING", missing: "seeded.stores.products" }]` (or `PROMPT_INCOMPLETE` for an inlined gap). Do NOT re-fetch from `.wix/site.json` or via curl — the gap means an upstream phase didn't complete, and re-querying would mask the real bug.
+If a required **inlined** input is missing from your prompt, or your **`.wix/seeded.json` slice** is absent (e.g. you are dispatched as `pages-products` but `.wix/seeded.json` has no `seeded.stores`), fail fast — return `status: "failed"` with `errors: [{ code: "SEEDED_JSON_SLICE_MISSING", missing: "seeded.stores.products" }]` (or `PROMPT_INCOMPLETE` for an inlined gap). Do NOT re-fetch via curl — the gap means an upstream phase didn't complete, and re-querying would mask the real bug.
 
 ## Seeders return data; orchestrator aggregates → `.wix/seeded.json`
 
-Agents with `Scope: seed` return their seeded entities in the `data` block of the standard return (see `RETURN_CONTRACT.md`). The orchestrator collects every seeder return into its session scratch and writes the aggregated map **once** to `.wix/seeded.json` at the seed gate; per-vertical Page / wiring agents then read their own slice from that file (no inlined slice). (The single Image Phase 2 dispatch keeps its slice inlined.) You do NOT write `site.json` yourself, you do NOT write `.wix/seeded.json` (the orchestrator is its sole writer), and you do NOT write `.wix/seed-returns/<pack>.json` — your JSON return is the contract.
+Agents with `Scope: seed` return their seeded entities in the `data` block of the standard return (see `RETURN_CONTRACT.md`). The orchestrator collects every seeder return into its session scratch and writes the aggregated map **once** to `.wix/seeded.json` at the seed gate; per-vertical Page / wiring agents then read their own slice from that file (no inlined slice). (The single Image Phase 2 dispatch keeps its slice inlined.) You do NOT write `.wix/seeded.json` (the orchestrator is its sole writer), and you do NOT write `.wix/seed-returns/<pack>.json` — your JSON return is the contract.
 
 ## Writing page files
 
 Pages-phase agents write route files (`.astro`) with:
 
 1. **Visual design via design tokens and Tailwind.** Reference tokens as `var(--color-accent)` in `<style>` blocks or `bg-[--color-accent]` as Tailwind arbitrary values. Use canonical component templates (`agents/<vertical>/templates/*.astro`) as starting points — adapt, don't invent.
-2. **Data queries against seeded data.** Read the seeded entity IDs / slugs from your `seeded.<vertical>` slice in `.wix/seeded.json` (with the `Read` tool — not by `import`). Pages query the Wix SDK at request time (`await productsV3.queryProducts(...)`) — that's the production-correct pattern. Use the `seeded` data for path generation (e.g. `getStaticPaths` slugs) and for authoring demo content where needed; do NOT `import` `.wix/seeded.json` **or** `.wix/site.json` from page files — both sit outside the bundler root and reading them at author-time (not bundling them) keeps them out of `dist/`.
+2. **Data queries against seeded data.** Read the seeded entity IDs / slugs from your `seeded.<vertical>` slice in `.wix/seeded.json` (with the `Read` tool — not by `import`). Pages query the Wix SDK at request time (`await productsV3.queryProducts(...)`) — that's the production-correct pattern. Use the `seeded` data for path generation (e.g. `getStaticPaths` slugs) and for authoring demo content where needed; do NOT `import` `.wix/seeded.json` from page files — it sits outside the bundler root and reading it at author-time (not bundling it) keeps it out of `dist/`.
 3. **Imports from shared components.** Pages import components your Components-phase agent wrote (`src/components/*.tsx`, `.astro`).
 4. **Imports from skill shared utilities.** `from "../utils/wix-image"` and `from "../utils/analytics"` — these are skill-shipped (copied into the project by `seed-utilities.sh` during Setup); do NOT import them from anywhere else.
 
@@ -186,8 +186,8 @@ The `data` shapes for the scopes this file owns — `components` and `pages`/`pa
 | Reading references for scopes **not** listed in your prompt | Read only the references for your declared scope(s) — the union when it's a merged build dispatch |
 | Writing a page/route before the island it mounts (merged dispatch) | Write islands/components FIRST, then the pages — in the prompt's scope order |
 | Issuing REST calls from a `components` or `pages` scope | Components/Pages are frontend-only; read `seeded` data from your `.wix/seeded.json` slice (pages only) — never curl |
-| Re-querying when your `seeded.<vertical>` slice is missing from `.wix/seeded.json` | Fail fast with `SEEDED_JSON_SLICE_MISSING` — an upstream phase didn't complete (do NOT read `.wix/site.json` or re-query) |
-| Writing `.wix/site.json` from a seeder | Seeders return data; orchestrator writes site.json |
+| Re-querying when your `seeded.<vertical>` slice is missing from `.wix/seeded.json` | Fail fast with `SEEDED_JSON_SLICE_MISSING` — an upstream phase didn't complete (do NOT re-query) |
+| Depending on mutable shared state the orchestrator holds in scratch | Every input is inlined; the one shared file you may read is your `.wix/seeded.json` slice (read-only) |
 | Inventing class names for layout/spacing/typography (`.productCard`, `.heroSection`) | Tailwind utilities derived from `@theme` tokens (`class="flex flex-col gap-md"`, `class="py-4xl"`). For one-off page decoration, co-located `<style>` block. |
 | Removing a marker after inserting at it | Marker stays; other verticals may contribute after you |
 | Trailing narrative prose after the return JSON | JSON block must be the last content |

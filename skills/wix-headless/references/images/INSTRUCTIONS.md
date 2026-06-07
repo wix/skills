@@ -193,7 +193,7 @@ Generate images for products, blog posts, and CMS items. Attach via REST PATCH c
    2. Retry the PATCH once with the new revision.
    3. If the retry also fails with 409, surface the error — something else is mutating the entity faster than we can react. Don't loop.
 
-   Successful PATCHes from the original parallel batch keep their state; only the 409'd entity needs the recovery. Cap at one retry per failed entity. Append to `run.json.recoveries[]`: `{ "code": "INVALID_REVISION_RETRY", "entityId": "<id>", "originalRevision": "<x>", "actualRevision": "<y>" }`.
+   Successful PATCHes from the original parallel batch keep their state; only the 409'd entity needs the recovery. Cap at one retry per failed entity.
 
 ### Blog Posts (if `blogPosts` is in your prompt)
 

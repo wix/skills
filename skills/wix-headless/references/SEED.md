@@ -8,7 +8,7 @@ This article seeds backend data. Every loaded pack with a seed recipe gets its o
 
 The recipe map and per-pack input notes are inlined below — **do NOT separately `Read references/seed-recipes.md`**. The Step 1 table here is canonical for the run; `seed-recipes.md` exists only as a human-readable index of the same data, and reading it adds a turn and a thinking gap before the dispatch batch.
 
-From the `verticals` list in orchestrator scratch (captured in Discovery, also persisted to `.wix/site.json`), build the dispatch list. For each loaded pack:
+From the `verticals` list in orchestrator scratch (captured in Discovery), build the dispatch list. For each loaded pack:
 - If the pack has a recipe in the table below (`stores`, `cms`, `blog`, `forms`) → add to the dispatch list.
 - If the pack has no recipe (`gift-cards`, `ecom`) → record a phase entry as `{phase: "seed-<pack>", status: "skipped", notes: "no seed surface for this pack"}` directly. No subagent.
 
@@ -65,7 +65,7 @@ The seeders and Image Phase 1 below are launched as one concurrent background ba
 bash "<SKILL_ROOT>/scripts/seed-utilities.sh" --template astro
 ```
 
-Execute from the **project directory** (== CWD — the scaffold was flattened in, no subdir). Record `{ phase: "seed-utilities", seconds }` when composing `run.json`. (This is frontend-track project prep, not seeding — custom frontends route to the stub and never reach this article.)
+Execute from the **project directory** (== CWD — the scaffold was flattened in, no subdir). (This is frontend-track project prep, not seeding — custom frontends route to the stub and never reach this article.)
 
 ### Wave 3 dispatch table
 
@@ -92,7 +92,7 @@ Inputs (do not re-derive these — every value is inlined here):
 - recipe path(s): <absolute path(s) joined from <wix-manage-root>>
 - siteId: <siteId — inline from orchestrator scratch>
 
-Do NOT read .wix/site.json — every input you need is inlined above. The orchestrator is the sole reader/writer of site.json.
+Every input you need is inlined above — do not read any shared state file. Read **only** your own `seeded.json` slice (the one read-only exception, per `IMPLEMENTER.md`).
 
 Steps:
 
@@ -126,7 +126,7 @@ Do NOT write coordination files (`.wix/seed-returns/`, sidecars, etc.). The JSON
 
 The subagent decides per-call payloads from `intent.<pack>` + `brand`. The orchestrator does **not** pre-decompose the intent into per-call payloads; that defeats the point of having a subagent read the recipe.
 
-`gift-cards` and `ecom` get their phase entries recorded directly by the orchestrator (no subagent dispatch). The orchestrator records `{phase: "seed-gift-cards", status: "skipped", notes: "no seed surface for this pack"}` etc. into session context, then includes them in the final `run.json`. No files involved.
+`gift-cards` and `ecom` have no seed surface, so the orchestrator dispatches no subagent for them and simply moves on. No files involved.
 
 ### Image Phase 1 Decorative subagent prompt (background)
 
@@ -181,7 +181,7 @@ For each return:
 - `status: "skipped"` — record `seeded[<pack>] = {status: "skipped"}`.
 - `status: "error"` — surface the `error` field verbatim. Do **not** autonomously retry; partial state for other packs is intact, so a targeted re-run is bounded.
 
-**Then write the aggregated map to `.wix/seeded.json` — once, at the gate (the conductor owns the timing; see `BUILD-astro.md` § "4. Seed gate" + § "The `.wix/seeded.json` handoff").** This is the producer→consumer handoff the per-vertical readers (astro Phase 4 Pages, own-build wiring) pull their slice from — the orchestrator no longer inlines `seeded.<vertical>` slices into those prompts. (Image Phase 2 is a single dispatch and keeps its inlined slice.) Exactly one writer, written before any reader is dispatched; it carries seeded entity IDs only, never `.wix/site.json` observability fields. The orchestrator is the aggregator **and** the sole writer of this file.
+**Then write the aggregated map to `.wix/seeded.json` — once, at the gate (the conductor owns the timing; see `BUILD-astro.md` § "4. Seed gate" + § "The `.wix/seeded.json` handoff").** This is the producer→consumer handoff the per-vertical readers (astro Phase 4 Pages, own-build wiring) pull their slice from — the orchestrator no longer inlines `seeded.<vertical>` slices into those prompts. (Image Phase 2 is a single dispatch and keeps its inlined slice.) Exactly one writer, written before any reader is dispatched; it carries seeded entity IDs only. The orchestrator is the aggregator **and** the sole writer of this file.
 
 ---
 

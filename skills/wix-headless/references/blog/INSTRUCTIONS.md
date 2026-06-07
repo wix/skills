@@ -5,7 +5,7 @@ description: "Implements blog vertical via Wix Blog app — @wix/blog SDK, @wix/
 
 # Blog Implementer
 
-Extends `references/shared/IMPLEMENTER.md`. Read that file first for phase routing, REST auth + doc lookups, prompt-inlined inputs (no site.json reads), return contract, style conventions, and common failure modes.
+Extends `references/shared/IMPLEMENTER.md`. Read that file first for phase routing, REST auth + doc lookups, prompt-inlined inputs (read only your `.wix/seeded.json` slice), return contract, style conventions, and common failure modes.
 
 ## Scope routing
 
