@@ -19,7 +19,7 @@ flowchart TB
     %% ---------- Tax L3 ----------
     subgraph TAX["Tax — tax/"]
         direction TB
-        TAXDEF["ecom-tax-default · dispatcher"]
+        TAXDEF["ecom-tax · category-doc + dispatcher (merged)"]
         TC["ecom-tax-configure"]
         TA["ecom-tax-avalara"]
         TV["ecom-tax-eu-vat"]
@@ -32,7 +32,7 @@ flowchart TB
     %% ---------- Pricing & promotions L3 ----------
     subgraph PRICE["Pricing & promotions — pricing-promotions/"]
         direction TB
-        PRICEDEF["ecom-pricing-default · dispatcher"]
+        PRICEDEF["ecom-pricing · category-doc + dispatcher (merged)"]
         PC["ecom-pricing-create-coupon"]
         PD["ecom-pricing-create-discount-rule"]
         PR["ecom-pricing-run-a-sale · business-flow orchestrator"]
@@ -84,16 +84,14 @@ The arrows land on each L3 **group**; inside a group, files stack vertically wit
 | File | Role | Reached via |
 |---|---|---|
 | `ecom-load-context.md` | L1 loader | Loaded by each `*-default` dispatcher before dispatch (skipped if context already loaded) |
-| `ecom-tax.md` | category-doc | WixREADME portal index |
-| `ecom-pricing.md` | category-doc | WixREADME portal index |
-| `tax/ecom-tax-default.md` | dispatcher | `ecom-tax.md` |
+| `ecom-tax.md` | category-doc + dispatcher (merged — prototype) | WixREADME portal index; dispatches directly, no `-default` hop |
+| `ecom-pricing.md` | category-doc + dispatcher (merged) | WixREADME portal index; dispatches directly, no `-default` hop |
 | `tax/ecom-tax-configure.md` | promotion | tax dispatch `[intent:configure-tax]` |
 | `tax/ecom-tax-avalara.md` | promotion | tax dispatch `[intent:avalara]` |
 | `tax/ecom-tax-eu-vat.md` | promotion | tax dispatch `[intent:eu-vat]` |
 | `tax/ecom-tax-switch-calculator.md` | promotion | tax dispatch `[intent:switch-calculator]` |
 | `tax/ecom-tax-audit.md` | promotion | tax dispatch `[intent:audit-tax]` |
 | `tax/ecom-tax-troubleshoot-calc-wrong.md` | promotion | tax dispatch `[intent:troubleshoot]` |
-| `pricing-promotions/ecom-pricing-default.md` | dispatcher | `ecom-pricing.md` |
 | `pricing-promotions/ecom-pricing-create-coupon.md` | promotion | pricing dispatch `[intent:create-coupon]` |
 | `pricing-promotions/ecom-pricing-create-discount-rule.md` | promotion | pricing dispatch `[intent:create-discount-rule / add-ribbon / schedule-sale]` |
 | `pricing-promotions/ecom-pricing-run-a-sale.md` | business-flow | pricing dispatch `[intent:run-a-sale / boost-business / seasonal-promo / clearance / increase-aov]` |

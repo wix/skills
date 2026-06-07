@@ -122,10 +122,7 @@ When other L1 domains migrate (Stores, Get-paid, …), each gets its own `<l1>-l
 ### Tax category
 
 #### [Tax](references/ecommerce/ecom-tax.md)
-Category description (README-surfaced). Routes to the Tax dispatcher.
-
-#### [Tax — Default (dispatcher)](references/ecommerce/tax/ecom-tax-default.md)
-Picks Avalara / EU-VAT / Wix-Manual / audit / troubleshoot / switch based on the merchant's request + MerchantContext.
+README-surfaced category-doc **and** dispatcher (merged — prototype). Disambiguates the category, then picks Avalara / EU-VAT / Wix-Manual / audit / troubleshoot / switch based on the merchant's request + MerchantContext. No separate `-default` hop.
 
 #### Tax promotions
 - [Configure Tax (Wix Manual)](references/ecommerce/tax/ecom-tax-configure.md) — baseline manual calculator setup
@@ -140,10 +137,7 @@ Picks Avalara / EU-VAT / Wix-Manual / audit / troubleshoot / switch based on the
 ### Pricing & Promotions category
 
 #### [Pricing & Promotions](references/ecommerce/ecom-pricing.md)
-Category description (README-surfaced). Routes to the Pricing dispatcher.
-
-#### [Pricing & Promotions — Default (dispatcher)](references/ecommerce/pricing-promotions/ecom-pricing-default.md)
-Picks the right Pricing promotion based on the merchant's intent.
+README-surfaced category-doc **and** dispatcher (merged). Disambiguates the category, then picks the right Pricing promotion based on the merchant's intent + MerchantContext. No separate `-default` hop.
 
 #### Pricing promotions (direct merchant entry points)
 - [Create Coupon](references/ecommerce/pricing-promotions/ecom-pricing-create-coupon.md) — Coupons V2 API

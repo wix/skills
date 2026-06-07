@@ -26,11 +26,6 @@ apiDoc:
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
       tags: [ecommerce, tax, category-doc]
 
-    - file: ../../../skills/wix-manage/references/ecommerce/tax/ecom-tax-default.md
-      title: "Tax — Default"
-      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
-      tags: [ecommerce, tax, default]
-
     - file: ../../../skills/wix-manage/references/ecommerce/tax/ecom-tax-configure.md
       title: "Configure Tax (Wix Manual)"
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
@@ -65,16 +60,11 @@ apiDoc:
     # Pricing & promotions category
     # ============================================================
 
-    # Category-doc and dispatcher
+    # Category-doc + dispatcher merged into one README-surfaced file (no -default hop)
     - file: ../../../skills/wix-manage/references/ecommerce/ecom-pricing.md
       title: "Pricing & Promotions"
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
       tags: [ecommerce, pricing-promotions, category-doc]
-
-    - file: ../../../skills/wix-manage/references/ecommerce/pricing-promotions/ecom-pricing-default.md
-      title: "Pricing & Promotions — Default"
-      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
-      tags: [ecommerce, pricing-promotions, default]
 
     # Promotions (actions + the orchestrator + troubleshoot)
     - file: ../../../skills/wix-manage/references/ecommerce/pricing-promotions/ecom-pricing-create-coupon.md

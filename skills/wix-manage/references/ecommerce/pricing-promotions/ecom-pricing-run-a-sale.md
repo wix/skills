@@ -27,7 +27,7 @@ references:
 ---
 # Run a Sale (Recommend eCommerce Strategy)
 
-> **Routing note.** Reached via dispatch from [Pricing & Promotions — Default](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-default) when the merchant tags as `run-a-sale | boost-business | seasonal-promo | clearance | increase-aov`. The dispatcher pre-loaded MerchantContext via [Load Merchant Context](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-load-context) — **Step 1 (resolve siteId) and Step 3 (load business profile) below are safe to skip if `siteData.country` is already in your conversation context.** Step 2 (tracking history) is orchestrator-specific and **must still run**.
+> **Routing note.** Reached via dispatch from [Pricing & Promotions](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing) when the merchant tags as `run-a-sale | boost-business | seasonal-promo | clearance | increase-aov`. The dispatcher pre-loaded MerchantContext via [Load Merchant Context](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-load-context) — **Step 1 (resolve siteId) and Step 3 (load business profile) below are safe to skip if `siteData.country` is already in your conversation context.** Step 2 (tracking history) is orchestrator-specific and **must still run**.
 
 >
 > **After classifying domains in Step 4b**, load the matching goal skill with `ReadFullDocsArticle`:
