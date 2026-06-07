@@ -50,6 +50,7 @@ references:
 4. **Use ONLY data returned by API calls.** Never substitute reasoning, general knowledge, or doc summaries for live data. Every number you cite in `reasoning` MUST come directly from an API response — do NOT assume, infer, or fabricate data.
 5. **If a call fails or is blocked, report the exact blocker.** Do not work around it with assumptions.
 6. **All API calls use `CallWixSiteAPI`.** The internal tool names (getSiteData, getCatalogAnalytics, etc.) are NOT directly callable.
+   - The `manage.wix.com/_api/agentic-recommendations/...` and `manage.wix.com/recommendations/v1/recommendations/...-tool` endpoints are **internal Wix services** — they have NO public `dev.wix.com` docs page, but they **ARE callable via `CallWixSiteAPI`** in the authenticated editor/dashboard context the MCP runs in. Do not treat them as unavailable and do not try to `ReadFullDocsArticle` them — the request/response specs inline in this recipe (and in [API: Recommendation Tracking](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-tracking-api)) are the authoritative source.
 7. **Generate recommendations across ALL relevant domains** — not just discounts. Consider shipping, discounts, and any other domain that the data supports.
 
 ---
