@@ -22,15 +22,15 @@ references:
 # Goal: Increase Average Order Value
 
 > **Before executing this skill**, read these referenced skills with `ReadFullDocsArticle`:
-> - [Flow: Upsell Boost](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-flow-upsell-boost)
-> - [Flow: Bundle and Save](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-flow-bundle-and-save)
+> - [Flow: Upsell Boost](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-upsell-boost)
+> - [Flow: Bundle and Save](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-bundle-and-save)
 >
 > **Shipping flows that also serve AOV goals** (load if shipping domain is active):
 > - [Flow: Add Free Shipping](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-add-free-shipping) — free shipping threshold pushes carts above AOV
 > - [Flow: Optimize Shipping Rates](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-optimize-shipping-rates) — rate optimization improves conversion on higher-value orders
 >
 > **Related skills** (read with `ReadFullDocsArticle` if needed):
-> - [Guardrail: Margin Protection](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-guardrail-margin-protection)
+> - [Guardrail: Margin Protection](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/guardrail-margin-protection)
 
 Incentivize customers to spend above the store's current average order value (AOV) by creating threshold-based discounts that reward higher cart totals.
 

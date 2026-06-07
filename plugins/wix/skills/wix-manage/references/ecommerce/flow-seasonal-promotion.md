@@ -13,8 +13,8 @@ references:
 # Flow: Seasonal Promotion
 
 > **Before executing this skill**, read these referenced skills with `ReadFullDocsArticle`:
-> - [Guardrail: Discount Conflicts](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-guardrail-discount-conflicts)
-> - [Setup: Discount Rules](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-create-discount-rule)
+> - [Guardrail: Discount Conflicts](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/guardrail-discount-conflicts)
+> - [Setup: Discount Rules](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/setup-discount-rules)
 
 Creates event-driven promotional discounts tied to holidays, shopping events, or seasonal milestones. The flow identifies upcoming events based on the site's country and current date, calculates optimal campaign start/end windows, and targets event-relevant product categories with appropriately sized discounts.
 

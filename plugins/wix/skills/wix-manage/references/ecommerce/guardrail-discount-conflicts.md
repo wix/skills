@@ -10,7 +10,7 @@ references:
 # Guardrail: Discount Conflicts
 
 > **Related skills** (read with `ReadFullDocsArticle` if needed):
-> - [Troubleshoot: Discount Not Applying](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-troubleshoot-not-applying)
+> - [Troubleshoot: Discount Not Applying](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/troubleshoot-discount-not-applying)
 
 ## When to use this guardrail
 

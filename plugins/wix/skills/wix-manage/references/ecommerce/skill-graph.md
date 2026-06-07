@@ -1,111 +1,139 @@
 ---
 name: "eCommerce Skill Graph"
-description: Mermaid diagram of the eCommerce routing tree — WixREADME → category-doc → default (dispatcher) → promotion → support. Tax and Pricing migrated; Shipping & checkout still legacy flat.
+description: Mermaid diagram showing how eCommerce skills connect — unified strategy entry point, goal/flow/guardrail chain, tracking inlined, troubleshoot as direct entries.
 ---
 
 ## Skill Graph Diagram
 
 ```mermaid
 flowchart TB
-    MR["Merchant Query"] --> README["WixREADME<br/>(portal index — category-docs surface here)"]
+    MR["Merchant Request"] --> R
 
-    README --> TAX
-    README --> PRICE
-
-    LOADER["ecom-load-context.md<br/>(L1 loader — general site data;<br/>loaded by each default before dispatch)"]
-    TAX -.-> |load context| LOADER
-    PRICE -.-> |load context| LOADER
-
-    %% ---------- Tax L3 ----------
-    subgraph TAX["Tax — tax/"]
-        direction TB
-        TAXDEF["ecom-tax · category-doc + dispatcher (merged)"]
-        TC["ecom-tax-configure"]
-        TA["ecom-tax-avalara"]
-        TV["ecom-tax-eu-vat"]
-        TS["ecom-tax-switch-calculator"]
-        TU["ecom-tax-audit"]
-        TT["ecom-tax-troubleshoot-calc-wrong"]
-        TAXDEF ~~~ TC ~~~ TA ~~~ TV ~~~ TS ~~~ TU ~~~ TT
+    subgraph R["R — Unified Entry Point"]
+        recommend-ecommerce-strategy
     end
 
-    %% ---------- Pricing & promotions L3 ----------
-    subgraph PRICE["Pricing & promotions — pricing-promotions/"]
-        direction TB
-        PRICEDEF["ecom-pricing · category-doc + dispatcher (merged)"]
-        PC["ecom-pricing-create-coupon"]
-        PD["ecom-pricing-create-discount-rule"]
-        PR["ecom-pricing-run-a-sale · business-flow orchestrator"]
-        PB["ecom-pricing-troubleshoot-not-applying"]
-        PG["goal-seasonal-revenue · goal-increase-aov<br/>goal-clear-inventory · goal-drive-cross-sells"]
-        PF["flow-seasonal-promotion · flow-upsell-boost<br/>flow-bundle-and-save · flow-stock-mover"]
-        PV["guardrail-discount-conflicts · guardrail-margin-protection<br/>tracking-api"]
-        PRICEDEF ~~~ PC ~~~ PD ~~~ PR ~~~ PB ~~~ PG ~~~ PF ~~~ PV
+    R --> |"loads API ref"| Config
+    R --> |"Step 4b: loads matching goal"| Goals
+    R --> |"Step 2+8: tracking inlined"| TrackingAPI
+
+    subgraph Goals["Goals — Business Objectives"]
+        subgraph GD["Discount + Shipping"]
+            goal-increase-aov
+            goal-clear-inventory
+            goal-seasonal-revenue
+            goal-drive-cross-sells
+        end
+        subgraph GA["Abandoned Cart"]
+            goal-reduce-cart-abandonment
+        end
     end
 
-    %% ---------- Legacy flat (not yet an L3) ----------
-    subgraph LEGACY["Legacy flat at ecommerce/ root — NOT migrated (→ Shipping & checkout)"]
-        direction TB
-        L1["setup-shipping-rates"]
-        L2["setup-shipping-regions"]
-        L3["setup-store-pickup-location"]
-        L4["recipe-apply-shipping-recommendations"]
-        L5["flow-add-free-shipping"]
-        L6["flow-optimize-shipping-rates"]
-        L7["flow-fix-coverage-gaps"]
-        L8["guardrail-shipping-health"]
-        L9["guardrail-rate-pricing-sanity"]
-        L10["goal-reduce-cart-abandonment"]
-        L11["troubleshoot-checkout-delivery-dropoff"]
-        L12["api-shipping"]
-        L1 ~~~ L2 ~~~ L3 ~~~ L4 ~~~ L5 ~~~ L6 ~~~ L7 ~~~ L8 ~~~ L9 ~~~ L10 ~~~ L11 ~~~ L12
+    Goals --> |"loads matching flows"| Flows
+    goal-increase-aov --> |"also loads shipping flows"| FS
+
+    subgraph Flows["Flows — Business Logic"]
+        subgraph FD["Discount"]
+            flow-upsell-boost
+            flow-bundle-and-save
+            flow-stock-mover
+            flow-seasonal-promotion
+        end
+        subgraph FS["Shipping"]
+            flow-fix-coverage-gaps
+            flow-add-free-shipping
+            flow-optimize-shipping-rates
+        end
     end
-    README -.-> |direct entries today| LEGACY
 
-    classDef dispatcher fill:#f59e0b,stroke:#d97706,color:#fff
-    classDef promotion fill:#3b82f6,stroke:#2563eb,color:#fff
-    classDef orchestrator fill:#ec4899,stroke:#db2777,color:#fff
-    classDef support fill:#8b5cf6,stroke:#6d28d9,color:#fff
-    classDef loader fill:#10b981,stroke:#059669,color:#fff
-    classDef legacy fill:#6b7280,stroke:#4b5563,color:#fff
+    Flows --> |"loads validation"| Guardrails
+    Flows --> |"loads setup"| Config
 
-    class TAXDEF,PRICEDEF dispatcher
-    class TC,TA,TV,TS,TU,TT,PC,PD,PB promotion
-    class PR orchestrator
-    class PG,PF,PV support
-    class LOADER loader
-    class L1,L2,L3,L4,L5,L6,L7,L8,L9,L10,L11,L12 legacy
+    subgraph Guardrails["Cross-cutting: Guardrails"]
+        guardrail-discount-conflicts
+        guardrail-margin-protection
+        guardrail-shipping-health
+        guardrail-rate-pricing-sanity
+    end
+
+    subgraph Config["Config — Setup & API References"]
+        setup-discount-rules
+        setup-coupons
+        setup-shipping-regions
+        setup-shipping-rates
+        api-shipping
+    end
+
+    subgraph TrackingAPI["Tracking API"]
+        api-recommendation-tracking
+    end
+
+    subgraph Standalone["Direct Entry Points (from README)"]
+        recipe-apply-shipping-recommendations
+        setup-store-pickup-location
+        troubleshoot-discount-not-applying
+        troubleshoot-checkout-delivery-dropoff
+    end
+
+    Config -.-> |"calls via CallWixSiteAPI"| API
+
+    subgraph API["Wix REST API Docs (dev.wix.com)"]
+        D1["Discount Rules API"]
+        D2["Coupons API"]
+        D3["Products V3 API"]
+        D4["Categories API"]
+        D5["Catalog Analytics"]
+        S3["Pickup Locations API"]
+        S4["Local Delivery API"]
+        SD["Profile Service API (wix-profile-client)"]
+    end
+
+    classDef goal fill:#8b5cf6,stroke:#6d28d9,color:#fff
+    classDef guardrail fill:#ef4444,stroke:#dc2626,color:#fff
+    classDef flow fill:#3b82f6,stroke:#2563eb,color:#fff
+    classDef config fill:#f59e0b,stroke:#d97706,color:#fff
+    classDef reco fill:#ec4899,stroke:#db2777,color:#fff
+    classDef standalone fill:#6b7280,stroke:#4b5563,color:#fff
+    classDef apidoc fill:#e5e7eb,stroke:#9ca3af,color:#374151
+
+    class goal-increase-aov,goal-clear-inventory,goal-seasonal-revenue,goal-drive-cross-sells,goal-reduce-cart-abandonment goal
+    class guardrail-discount-conflicts,guardrail-margin-protection,guardrail-shipping-health,guardrail-rate-pricing-sanity guardrail
+    class flow-upsell-boost,flow-bundle-and-save,flow-stock-mover,flow-seasonal-promotion,flow-fix-coverage-gaps,flow-add-free-shipping,flow-optimize-shipping-rates flow
+    class setup-discount-rules,setup-coupons,setup-shipping-regions,setup-shipping-rates,api-recommendation-tracking,api-shipping config
+    class recommend-ecommerce-strategy reco
+    class recipe-apply-shipping-recommendations,setup-store-pickup-location,troubleshoot-discount-not-applying,troubleshoot-checkout-delivery-dropoff standalone
+    class D1,D2,D3,D4,D5,S1,S2,S3,S4,SD apidoc
 ```
-
-The arrows land on each L3 **group**; inside a group, files stack vertically with the `default` dispatcher first. Internal dispatch (default → promotion) and support chains (run-a-sale → goal → flow → guardrail/tracking) are documented in the reachability table below rather than drawn as edges.
 
 ## File Reachability
 
-| File | Role | Reached via |
-|---|---|---|
-| `ecom-load-context.md` | L1 loader | Loaded by each `*-default` dispatcher before dispatch (skipped if context already loaded) |
-| `ecom-tax.md` | category-doc + dispatcher (merged — prototype) | WixREADME portal index; dispatches directly, no `-default` hop |
-| `ecom-pricing.md` | category-doc + dispatcher (merged) | WixREADME portal index; dispatches directly, no `-default` hop |
-| `tax/ecom-tax-configure.md` | promotion | tax dispatch `[intent:configure-tax]` |
-| `tax/ecom-tax-avalara.md` | promotion | tax dispatch `[intent:avalara]` |
-| `tax/ecom-tax-eu-vat.md` | promotion | tax dispatch `[intent:eu-vat]` |
-| `tax/ecom-tax-switch-calculator.md` | promotion | tax dispatch `[intent:switch-calculator]` |
-| `tax/ecom-tax-audit.md` | promotion | tax dispatch `[intent:audit-tax]` |
-| `tax/ecom-tax-troubleshoot-calc-wrong.md` | promotion | tax dispatch `[intent:troubleshoot]` |
-| `pricing-promotions/ecom-pricing-create-coupon.md` | promotion | pricing dispatch `[intent:create-coupon]` |
-| `pricing-promotions/ecom-pricing-create-discount-rule.md` | promotion | pricing dispatch `[intent:create-discount-rule / add-ribbon / schedule-sale]` |
-| `pricing-promotions/ecom-pricing-run-a-sale.md` | business-flow | pricing dispatch `[intent:run-a-sale / boost-business / seasonal-promo / clearance / increase-aov]` |
-| `pricing-promotions/ecom-pricing-troubleshoot-not-applying.md` | promotion | pricing dispatch `[intent:troubleshoot]` |
-| `pricing-promotions/ecom-pricing-goal-seasonal-revenue.md` | support | run-a-sale → SEASONAL |
-| `pricing-promotions/ecom-pricing-goal-increase-aov.md` | support | run-a-sale → UPSELL_BOOST / SHIPPING |
-| `pricing-promotions/ecom-pricing-goal-clear-inventory.md` | support | run-a-sale → STOCK_MOVER |
-| `pricing-promotions/ecom-pricing-goal-drive-cross-sells.md` | support | run-a-sale → BUNDLE_AND_SAVE |
-| `pricing-promotions/ecom-pricing-flow-seasonal-promotion.md` | support | goal-seasonal-revenue |
-| `pricing-promotions/ecom-pricing-flow-upsell-boost.md` | support | goal-increase-aov |
-| `pricing-promotions/ecom-pricing-flow-bundle-and-save.md` | support | goal-increase-aov / goal-drive-cross-sells |
-| `pricing-promotions/ecom-pricing-flow-stock-mover.md` | support | goal-clear-inventory |
-| `pricing-promotions/ecom-pricing-guardrail-discount-conflicts.md` | support | all pricing flows |
-| `pricing-promotions/ecom-pricing-guardrail-margin-protection.md` | support | flow-upsell-boost / flow-stock-mover |
-| `pricing-promotions/ecom-pricing-tracking-api.md` | support | run-a-sale (Steps 2 + 8) |
-| Shipping & checkout legacy files | legacy flat | README direct entries today — pending migration into Shipping & fulfillment / Checkout & cart categories |
-</content>
+| File | Reached via |
+|---|---|
+| `recommend-ecommerce-strategy.md` | README routing (entry point) |
+| `api-recommendation-tracking.md` | Entry point tracking steps |
+| `goal-increase-aov.md` | Step 4b (UPSELL_BOOST) |
+| `goal-clear-inventory.md` | Step 4b (STOCK_MOVER) |
+| `goal-seasonal-revenue.md` | Step 4b (SEASONAL) |
+| `goal-drive-cross-sells.md` | Step 4b (BUNDLE_AND_SAVE) |
+| `goal-reduce-cart-abandonment.md` | Step 4b (ABANDONED_CART domain) |
+| `flow-upsell-boost.md` | goal-increase-aov chain |
+| `flow-bundle-and-save.md` | goal-increase-aov / goal-drive-cross-sells chain |
+| `flow-stock-mover.md` | goal-clear-inventory chain |
+| `flow-seasonal-promotion.md` | goal-seasonal-revenue chain |
+| `flow-fix-coverage-gaps.md` | goal-reduce-cart-abandonment chain (critical operational fix) |
+| `flow-add-free-shipping.md` | goal-increase-aov chain (shipping flows serving AOV) |
+| `flow-optimize-shipping-rates.md` | goal-increase-aov chain (shipping flows serving AOV) |
+| `guardrail-discount-conflicts.md` | flow-upsell-boost / bundle / stock / seasonal chains |
+| `guardrail-margin-protection.md` | flow-upsell-boost / stock-mover chains |
+| `guardrail-shipping-health.md` | flow-fix-coverage-gaps chain |
+| `guardrail-rate-pricing-sanity.md` | flow-add-free-shipping / optimize chains |
+| `setup-discount-rules.md` | All discount flow chains |
+| `setup-coupons.md` | Step 4c (COUPON mechanism) |
+| `setup-shipping-regions.md` | flow-fix-coverage-gaps chain |
+| `setup-shipping-rates.md` | flow-add-free-shipping / optimize chains |
+| `api-shipping.md` | Shipping flows (fix-coverage-gaps, add-free-shipping, optimize, recipe, setup-store-pickup) |
+| `recipe-apply-shipping-recommendations.md` | README direct entry |
+| `setup-store-pickup-location.md` | README direct entry |
+| `troubleshoot-discount-not-applying.md` | README direct entry |
+| `troubleshoot-checkout-delivery-dropoff.md` | README direct entry |
+| `skill-graph.md` | Documentation reference |

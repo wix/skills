@@ -16,9 +16,9 @@ references:
 # Flow: Stock Mover Clearance
 
 > **Before executing this skill**, read these referenced skills with `ReadFullDocsArticle`:
-> - [Guardrail: Discount Conflicts](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-guardrail-discount-conflicts)
-> - [Guardrail: Margin Protection](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-guardrail-margin-protection)
-> - [Setup: Discount Rules](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-create-discount-rule)
+> - [Guardrail: Discount Conflicts](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/guardrail-discount-conflicts)
+> - [Guardrail: Margin Protection](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/guardrail-margin-protection)
+> - [Setup: Discount Rules](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/setup-discount-rules)
 
 Creates a discount targeting slow-moving inventory — products with high stock levels and low sales velocity. The discount depth is proportional to how overstocked the product is, with deeper discounts for the most stagnant items. Margin protection guardrails are especially important here since clearance discounts tend to push closer to cost.
 

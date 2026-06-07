@@ -10,7 +10,7 @@ references:
 # Goal: Drive Cross-Sells and Product Discovery
 
 > **Before executing this skill**, read these referenced skills with `ReadFullDocsArticle`:
-> - [Flow: Bundle and Save](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-flow-bundle-and-save)
+> - [Flow: Bundle and Save](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-bundle-and-save)
 
 Promote product discovery and multi-item purchases by creating bundle-based discounts that reward customers for buying across categories or adding complementary items to their cart.
 
