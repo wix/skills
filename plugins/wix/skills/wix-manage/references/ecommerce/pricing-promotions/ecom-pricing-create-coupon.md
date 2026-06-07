@@ -22,7 +22,7 @@ layer: config
 
 Before creating a coupon, check for code conflicts and existing promotions on the same scope.
 
-**Endpoint**: `POST https://www.wixapis.com/v2/coupons/query`
+**Endpoint**: `POST https://www.wixapis.com/stores/v2/coupons/query`
 
 **Request**:
 ```json
@@ -70,7 +70,7 @@ Check for: duplicate codes, overlapping scopes with active coupons, and cross-me
 
 ## Step 2: Create a percentage-off coupon
 
-**Endpoint**: `POST https://www.wixapis.com/v2/coupons`
+**Endpoint**: `POST https://www.wixapis.com/stores/v2/coupons`
 
 **Request** — 15% off all store products:
 ```json

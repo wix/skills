@@ -16,9 +16,9 @@ references:
 # Flow: Upsell Boost Campaign
 
 > **Before executing this skill**, read these referenced skills with `ReadFullDocsArticle`:
-> - [Guardrail: Discount Conflicts](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/guardrail-discount-conflicts)
-> - [Guardrail: Margin Protection](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/guardrail-margin-protection)
-> - [Setup: Discount Rules](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/setup-discount-rules)
+> - [Guardrail: Discount Conflicts](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-guardrail-discount-conflicts)
+> - [Guardrail: Margin Protection](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-guardrail-margin-protection)
+> - [Setup: Discount Rules](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-create-discount-rule)
 
 Creates a discount that incentivizes customers to spend more per order by setting a minimum subtotal threshold above the store's current AOV. The discount percentage is scaled to the store's average profit margin, and the scope targets high-margin categories or products.
 
