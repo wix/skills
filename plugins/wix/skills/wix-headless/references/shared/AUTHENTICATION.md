@@ -19,7 +19,7 @@ The "stop and tell the user" path is a **last-resort fallback** for when the bac
 {"event":"awaiting_user","expiresInSeconds":600,"userCode":"TPV5HUG5","verificationUri":"https://users.wix.com/login/device-login?color=developer&studio=true"}
 ```
 
-(Earlier revisions of this doc claimed the CLI wrote human-readable prose to stderr with no JSON events — that was wrong. The events are JSON on stdout. There may be incidental Node warnings interleaved; line-by-line JSON parsing with a `try` around each line handles that cleanly.)
+The events are JSON on stdout. There may be incidental Node warnings interleaved; line-by-line JSON parsing with a `try` around each line handles that cleanly.
 
 ### How to invoke — exact shape
 
@@ -79,7 +79,7 @@ The body is the recipe's documented JSON payload, with `siteId` inlined where th
 
 ## Recovery ladder
 
-**Do not re-mint the token as a recovery step** (see token-minting note above — a re-minted token is byte-identical). Retry the *same* call with the *same* cached token.
+**Re-mint is never a recovery step — see Token minting.** Retry the *same* call with the *same* cached token.
 
 | Symptom | First response | If it still fails |
 |---|---|---|
@@ -105,6 +105,4 @@ SITE_TOKEN=$(npx @wix/cli@latest token --site "$SITE_ID")
 
 **Do not share tokens across scopes.** Site-operating calls (`wixapis.com/stores/v3/...`, `/blog/v3/...`, `/wix-data/v2/...`) need the **site** token + `wix-site-id` header; using the account token returns `403 SITE_TOKEN_REQUIRED`. Account-level calls (`manage.wix.com/credit-transactions/...`, `/subscriptions/...`) need the **account** token alone — no `wix-site-id` header; using the site token returns `403 ACCOUNT_TOKEN_REQUIRED`.
 
-Today the only account-scoped call in the skill is the Discovery Q3 balance lookup (`DISCOVERY.md` § 2.5.2). If a future phase needs another, mint a fresh account token at the call site (do not cache across the run alongside the site token — keep them in separate scratch slots so misuse is hard).
-
-**Historical note.** Earlier revisions of this file said the CLI did not expose an account-scoped primitive and concluded the balance lookup was unrecoverable. That was a misreading of `wix token --help` — the help output reads `Get a site-scoped access token` against `--site`, implying (correctly) that omitting `--site` returns the default, account-scoped token. The balance lookup was disabled for no good reason for several runs.
+Today the only account-scoped call in the skill is the Discovery Q3 balance lookup (`DISCOVERY-create.md` § 2.5.2). If a future phase needs another, mint a fresh account token at the call site (do not cache across the run alongside the site token — keep them in separate scratch slots so misuse is hard).

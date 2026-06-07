@@ -1,6 +1,6 @@
 # Discovery
 
-Capture brand + vibe + imagery + the per-vertical intent inferred from the user's prompt, present a slim plan, get approval, write `.wix/site.json`.
+Capture brand + vibe + imagery + the per-vertical intent inferred from the user's prompt, present a slim plan, get approval, hold the captured contract in orchestrator scratch.
 
 Infer as much as possible from the user's opening message; ask only what's genuinely unknown. Target: **~1:30 of discovery** including user think-time, **≤ 80 s** excluding it.
 
@@ -33,18 +33,18 @@ Read the prompt, then inspect CWD — resolve OPERATION:
 
 Then derive `frontend` and `frontendBuild` **within** the chosen operation, and capture all three in session scratch (the Plan→Build contract core, `PLAN.md` § "The Plan→Build contract"):
 
-> **Within `create`, branch `frontendBuild` on an explicit framework keyword.** A create prompt that **explicitly names a client-build framework** — `vite`, `react`, `vue`, `svelte`, "SPA", or similar (the same keyword set the connect SPA detector uses) — resolves to **`frontend: custom`, `frontendBuild: own`** (scaffold that framework, then connect via the SPA spine). A create prompt with **no** framework keyword stays **`frontend: astro`, `frontendBuild: wix`** — astro remains the default for a bare *"create a bakery site"*. **Only an explicit keyword flips it** — never infer a framework the user didn't ask for. (This reverses, narrowly, the 2026-05-31 removal of a Vite scaffold option: it returns *only* on explicit request.) A framework keyword on a *connect* prompt still routes to connect (the brought-in SPA), per `DISCOVERY-connect.md` § 1.5.
+> **Within `create`, branch `frontendBuild` on an explicit framework keyword.** A create prompt that **explicitly names a client-build framework** — `vite`, `react`, `vue`, `svelte`, "SPA", or similar (the same keyword set the connect SPA detector uses) — resolves to **`frontend: custom`, `frontendBuild: own`** (scaffold that framework, then connect via the SPA spine). A create prompt with **no** framework keyword stays **`frontend: astro`, `frontendBuild: wix`** — astro remains the default for a bare *"create a bakery site"*. **Only an explicit keyword flips it** — never infer a framework the user didn't ask for. A framework keyword on a *connect* prompt still routes to connect (the brought-in SPA), per `DISCOVERY-connect.md` § 1.5.
 
 | `operation` | `frontend` | `frontendBuild` | Wave 0 next |
 |---|---|---|---|
 | `connect` — connect/implement an existing design, OR a working site on disk | `custom` | `none` (static HTML) **or** `own` (framework SPA) — resolved from disk in `DISCOVERY-connect.md` § 1.5 | Pre-flight, then **`DISCOVERY-connect.md`** |
 | `create` — create-a-new-site prompt, **no** framework keyword (the default) | `astro` | `wix` | Pre-flight, then **`DISCOVERY-create.md`** (astro branch) |
-| `create` — create-a-new-site prompt that **explicitly names a client-build framework** (*"…using vite"*) | `custom` | `own` | Pre-flight, then **`DISCOVERY-create.md`** (own branch — minimal scaffold, no astro Designer pipeline) |
+| `create` — create-a-new-site prompt that **explicitly names a client-build framework** (*"…using vite"*) | `custom` | `own` | Pre-flight, then **`DISCOVERY-create.md`** (own branch — minimal scaffold; runs vibe + Designer for brand tokens, but not astro `compose.mjs`) |
 
 > **No `AskUserQuestion` for operation/frontend detection.** They are inferred from the prompt + directory, never asked. When intent is unclear, default to `operation: connect` — connecting/implementing what the user brings is the safe interpretation; creating a brand-new site over their intent is the destructive one. **A prompt that fetches or names a design to "connect"/"implement" is `connect` regardless of whether the CWD is empty.**
 
 These flow into:
-- `init-site-json.mjs --frontend <value>` — records **only** `frontend` in `.wix/site.json` (written for **both** operations). `operation` and `frontendBuild` are **NOT** persisted — they live in orchestrator scratch as the in-agent contract (`PLAN.md` § "The Plan→Build contract"). The conductor reads `frontendBuild` from scratch to decide whether to run `wix build` before release — `wix` builds, `none` doesn't.
+- The **Plan→Build contract** held in orchestrator scratch (`PLAN.md` § "The Plan→Build contract"). `frontend`, `operation`, and `frontendBuild` all live in scratch — **none** is persisted to disk. The conductor reads `frontendBuild` from scratch to decide whether to run `wix build` before release — `wix` builds, `none` doesn't.
 - **Bootstrap is (operation × framework)-keyed** (`BUILD.md` § "Bootstrap cell"): create+astro runs `scaffold.sh --frontend astro`; create+own runs the framework's own create command (`npm create vite`/…) then `init`; connect (own/none) does **not** scaffold — it bootstraps via `npm create @wix/new@latest init` over the brought-in/scaffolded source.
 - Orchestrator session scratch — every downstream branch reads the scratch values. For `connect`, the frontend track runs the connect flow (`references/custom/INSTRUCTIONS.md`); the create-only project-prep (`seed-utilities.sh`) and the Designer/Composer do not run. (Business-track steps — app install, seeders — never read these fields.)
 
@@ -70,7 +70,7 @@ npx @wix/cli@latest whoami >/dev/null 2>&1
 
 With `operation` (and the derived `frontend`/`frontendBuild`) resolved and auth confirmed:
 
-- **`create`** → `DISCOVERY-create.md` — the interview (Steps 0–2.5) → plan → approval → write `.wix/site.json`.
-- **`connect`** → `DISCOVERY-connect.md` — parse the brought-in site → infer domain → light plan → approval → write `.wix/site.json`.
+- **`create`** → `DISCOVERY-create.md` — the interview (Steps 0–2.5) → plan → approval → hold the contract in scratch.
+- **`connect`** → `DISCOVERY-connect.md` — parse the brought-in site → infer domain → light plan → approval → hold the contract in scratch.
 
 Read only the matching file. The pre-approval funnel (`PLAN-create.md` / `PLAN-connect.md`) names *when* to apply each discovery step.

@@ -33,10 +33,7 @@ Before writing any form code, ensure a contact form exists on the site via the f
    > Translate this prose-HTTP form into the full `curl` tool-call shape — pass `body` as JSON in `-d` (NOT a stringified JSON). See `../../shared/AUTHENTICATION.md` for the standard REST headers.
 
    Then retry listing forms.
-3. **If forms list is empty** → create a form (two-step atomic operation):
-   - **Step 3a:** POST to create the form (fields, layout, submit settings)
-   - **Step 3b:** Immediately PATCH to add `postSubmissionTriggers` (the POST silently drops this field — see step 4)
-   - Both steps must succeed. If 3a succeeds but 3b fails, log Status as `partial`.
+3. **If forms list is empty** → create a form. This is a two-step atomic operation (POST to create, then PATCH to add `postSubmissionTriggers`) — see step 4 for the full procedure and rationale.
 
    > **Namespace propagation:** If form creation fails with `UNSUPPORTED_FORM_NAMESPACE` immediately after installing the Forms app, the namespace hasn't propagated yet. Wait 10 seconds and retry up to 3 times. Do NOT silently fall back to static field definitions — forms without a `formId` cannot submit to Wix.
 
@@ -194,7 +191,7 @@ Before writing any form code, ensure a contact form exists on the site via the f
 
 ### 1. Modify the Existing Designed Page
 
-**Do NOT create a new page from scratch.** The design skill already created this page with branded styling, layout, and a `<style>` block. Modify it in place:
+**Do NOT create a new page from scratch.** The merged `contact-page` scope writes this page once — branded styling, layout, and `<style>` block alongside the form wiring (per `references/astro/designer/INSTRUCTIONS.md` → `contact-page`). When wiring an existing designed page, modify it in place:
 
 1. **Add SDK imports** to the frontmatter:
    ```astro
@@ -262,7 +259,7 @@ The React island must match the designed component's class names and use CSS var
 
 **Approach B: Component owns its styles using CSS variables.** If the page doesn't have a `<style>` block for the form, the component includes a `<style>` JSX element using only CSS custom properties.
 
-> **Styling note:** The React island uses the styling contract class names (`.form-container`, `.form-field`, `.form-label`, `.form-input`, `.form-textarea`, `.form-button`, `.form-success`, `.form-error`, `.form-field-error`, `.form-input-error`) from the designed ContactForm component's `<style is:global>` block. See the design skill's `COMPONENT_PATTERNS.md` → Contact Form.
+> **Styling note:** The React island uses the styling contract class names (`.form-container`, `.form-field`, `.form-label`, `.form-input`, `.form-textarea`, `.form-button`, `.form-success`, `.form-error`, `.form-field-error`, `.form-input-error`) from the designed ContactForm component's `<style is:global>` block. See `references/shared/STYLING.md` (Contact Form).
 
 ```tsx
 import { useState } from "react";
@@ -342,7 +339,7 @@ export default function ContactForm({ formId, fields }: ContactFormProps) {
           Uses styling contract classes: .form-container, .form-field, .form-label,
           .form-input, .form-select, .form-textarea, .form-button, .form-error,
           .form-field-error, .form-input-error.
-          See design skill's COMPONENT_PATTERNS.md → Contact Form. */}
+          See references/shared/STYLING.md (Contact Form). */}
 
       {fields.map((field) => (
         <div key={field.target} className="form-field">
@@ -411,7 +408,7 @@ export default function ContactForm({ formId, fields }: ContactFormProps) {
 }
 ```
 
-> **Adapting class names:** The class names above (`form-container`, `form-field`, `form-label`, `form-input`, `form-button`, `form-success`, `form-error`, `form-field-error`, `form-input-error`) are defaults. If the designed component uses different class names, use those instead — the styling contract from the design skill takes precedence.
+> **Adapting class names:** The class names above (`form-container`, `form-field`, `form-label`, `form-input`, `form-button`, `form-success`, `form-error`, `form-field-error`, `form-input-error`) are defaults. If the designed component uses different class names, use those instead — the styling contract from the page's own design takes precedence.
 
 ## Discovering Forms
 
@@ -457,17 +454,6 @@ field.inputOptions.stringOptions.phoneInputOptions?.label    // label for phone 
 | `company` | Text | `type="text"` |
 
 Custom fields use UUID-based targets from the form schema.
-
-## Log Results
-
-After form verification, write a sidecar file at `.wix/logs/forms-data.md` (form schema setup) or `.wix/logs/forms-implementer.md` (Phase 2 wiring) — see `../../shared/LIFECYCLE_LOG.md` for the sidecar contract. Do **not** append to `.wix/lifecycle.log.md` directly — the orchestrator concatenates all sidecars at the end. Use a `####` heading so the entry nests under `### features-orchestrator` in the assembled log:
-
-```markdown
-## forms
-- Status: complete
-- Content: "{form name}" form created (fields: {field list})
-- Images: not applicable
-```
 
 ## Testing
 
