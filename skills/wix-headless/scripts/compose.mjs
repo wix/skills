@@ -283,16 +283,8 @@ for (const [k, v] of Object.entries(SPACING_DEFAULTS)) ensure(spacing, k, v, "--
 ensure(radii, "sm", "0.25rem", "--radius-");
 ensure(radii, "md", "0.5rem", "--radius-");
 
-// Containers — content widths, a separate axis from spacing. Emit the FULL
-// Tailwind container scale (+ prose) so ANY max-w-<size> a page reaches for
-// resolves. A key missing from --container-* silently falls back to the
-// --spacing-* value of the same name (e.g. max-w-4xl → ~7rem → one word per
-// line), so don't trim this to a handful of keys.
-const CONTAINER_DEFAULTS = {
-  "3xs": "16rem", "2xs": "18rem", xs: "20rem", sm: "24rem", md: "28rem",
-  lg: "32rem", xl: "36rem", "2xl": "42rem", "3xl": "48rem", "4xl": "56rem",
-  "5xl": "64rem", "6xl": "72rem", "7xl": "80rem", prose: "42rem",
-};
+// Containers — content widths, a separate axis from spacing.
+const CONTAINER_DEFAULTS = { prose: "42rem", md: "48rem", "3xl": "60rem", "6xl": "72rem" };
 for (const [k, v] of Object.entries(CONTAINER_DEFAULTS)) ensure(containers, k, v, "--container-");
 
 // Assemble the @theme block, grouped + ordered for readability.
@@ -452,59 +444,6 @@ function buildGoogleHref() {
 const componentCssImports = packsWithComponents.map(
   (pack) => `import '../styles/components-${pack}.css';`,
 );
-
-// The stores category-rail / rail-anchor client script — emitted into Layout's
-// {{stores-nav-script}} slot ONLY when the stores pack is loaded. PLAIN JS: an
-// inline <script> is dep-scanned by esbuild (not TS-aware), so no generics /
-// `as` / param type annotations — those make the build fail with `Expected ";"`.
-// On non-stores sites the slot is removed (dead code that targets /products,
-// /category/[slug], [data-category-rail] — none of which exist there).
-const STORES_NAV_SCRIPT = `    <script>
-      function syncCategoryRail() {
-        var path = window.location.pathname;
-        var activeSlug = path.indexOf("/category/") === 0
-          ? path.slice("/category/".length).replace(/\\/$/, "")
-          : (path === "/products" || path === "/products/") ? "" : null;
-        if (activeSlug === null) return;
-        var pills = document.querySelectorAll("[data-category-rail] .category-pill");
-        for (var i = 0; i < pills.length; i++) {
-          var slug = pills[i].dataset.categorySlug || "";
-          if (slug === activeSlug) pills[i].setAttribute("aria-current", "page");
-          else pills[i].removeAttribute("aria-current");
-        }
-      }
-      document.addEventListener("click", function (event) {
-        var target = event.target;
-        var pill = target && target.closest ? target.closest("[data-category-rail] .category-pill") : null;
-        if (!pill) return;
-        if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-        var pills = document.querySelectorAll("[data-category-rail] .category-pill");
-        for (var i = 0; i < pills.length; i++) pills[i].removeAttribute("aria-current");
-        pill.setAttribute("aria-current", "page");
-      }, true);
-      function isListing(p) {
-        return p === "/products" || p === "/products/" || p.indexOf("/category/") === 0;
-      }
-      var railAnchorTop = null;
-      document.addEventListener("astro:before-preparation", function (event) {
-        var from = window.location.pathname;
-        var to = (event && event.to && event.to.pathname) || from;
-        var rail = document.querySelector("[data-category-rail]");
-        railAnchorTop = rail && isListing(from) && isListing(to) ? rail.getBoundingClientRect().top : null;
-      });
-      document.addEventListener("astro:after-swap", function () {
-        syncCategoryRail();
-        if (railAnchorTop !== null) {
-          var rail = document.querySelector("[data-category-rail]");
-          if (rail) {
-            var delta = rail.getBoundingClientRect().top - railAnchorTop;
-            if (Math.abs(delta) > 0.5) window.scrollBy({ top: delta, left: 0, behavior: "instant" });
-          }
-        }
-        railAnchorTop = null;
-      });
-      syncCategoryRail();
-    </script>`;
 {
   let out = stripAstroHeader(readTemplate("Layout.astro"));
   // {{components-css-imports}} — one import per pack, or drop the whole line.
@@ -521,13 +460,6 @@ const STORES_NAV_SCRIPT = `    <script>
     out = out.replace(/^.*\{\{fonts\.googleHref\}\}.*\n/m, "");
   }
   out = out.replaceAll("{{brand.name}}", brandName);
-  // {{stores-nav-script}} — emit the category-rail script only when stores is
-  // loaded; otherwise drop the placeholder line entirely.
-  if (loadedPacks.includes("stores")) {
-    out = out.replace(/^\s*\{\{stores-nav-script\}\}\s*$/m, STORES_NAV_SCRIPT);
-  } else {
-    out = out.replace(/^.*\{\{stores-nav-script\}\}.*\n/m, "");
-  }
   writeProject("src/layouts/Layout.astro", out);
 }
 

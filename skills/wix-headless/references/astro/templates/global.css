@@ -13,11 +13,7 @@
      every --color-*, --font-*, --spacing-* (2xs..4xl), --container-*, and
      --radius-* line. The required-token set (enforced by compose.mjs)
      MUST all be present, or components render unstyled. Container scale is
-     separate from spacing — never alias --container-3xl to --spacing-3xl, and
-     emit the FULL container scale (--container-3xs..7xl + prose, see compose.mjs):
-     any max-w-<size> key missing from --container-* silently falls back to the
-     spacing value of the same name (e.g. max-w-4xl → ~7rem) and collapses the
-     column to one word per line. */
+     separate from spacing — never alias --container-3xl to --spacing-3xl. */
 }
 
 /* Reading-width helper so prose pages center without guessing Tailwind sizes. */

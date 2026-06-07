@@ -166,20 +166,18 @@ Idempotent. Packs without a template (`cms` — SSR inline) are skipped silently
 
 ```bash
 # stores (loaded)
+cp "<SKILL_ROOT>/references/astro/templates/stores/back-in-stock.ts" "src/utils/back-in-stock.ts"
 cp "<SKILL_ROOT>/references/astro/templates/stores/categories.ts"     "src/utils/categories.ts"
 # ecom (loaded)
 cp "<SKILL_ROOT>/references/astro/templates/ecom/discounts.ts"        "src/utils/discounts.ts"
-# bookings (loaded) — SSR API endpoints (elevated, no brand content) + SeoTags:
-#   confirm-booking (holds the seat) + native v1 waitlist register.
-if bookings loaded; then
-  mkdir -p src/pages/api
-  cp "<SKILL_ROOT>/references/astro/templates/bookings/api/confirm-booking.ts" "src/pages/api/confirm-booking.ts"
-  cp "<SKILL_ROOT>/references/astro/templates/bookings/api/waitlist.ts"        "src/pages/api/waitlist.ts"
-  cp "<SKILL_ROOT>/references/astro/templates/bookings/SeoTags.astro"          "src/components/SeoTags.astro"
-fi
+# bookings (loaded) — elevated SSR API endpoints + SeoTags
+mkdir -p src/pages/api
+cp "<SKILL_ROOT>/references/astro/templates/bookings/api/confirm-booking.ts" "src/pages/api/confirm-booking.ts"
+cp "<SKILL_ROOT>/references/astro/templates/bookings/api/waitlist.ts"        "src/pages/api/waitlist.ts"
+cp "<SKILL_ROOT>/references/astro/templates/bookings/SeoTags.astro"          "src/components/SeoTags.astro"
 ```
 
-`categories.ts` is imported by `pages-categories`/`pages-products`/`pages-home-and-nav`; `back-in-stock.ts` by stores components; `discounts.ts` by ecom components + stores product pages. For **bookings**, the SSR API endpoints carry the verified elevation pattern (`auth.elevate(bookings.confirmBooking)` for the seat-holding confirm; `auth.elevate(httpClient.fetchWithAuth)` for the raw-REST waitlist register) and `SeoTags.astro` is imported by `services/[slug].astro` — all must **not** be re-authored. Static, brand-agnostic — if not pre-copied, scopes race to author them.
+`categories.ts` is imported by `pages-categories`/`pages-products`/`pages-home-and-nav`; `back-in-stock.ts` by stores components; `discounts.ts` by ecom components + stores product pages; the bookings API endpoints (elevated `confirmBooking` seat-hold + native v1 waitlist register) by `BookingForm.tsx`, and `SeoTags.astro` by `services/[slug].astro`. Static, brand-agnostic SDK wrappers — if not pre-copied, multiple scopes race to author them.
 
 ### Dispatch the wave — one concurrent batch (private agents) + a serialized shell chain alongside it
 
@@ -227,8 +225,7 @@ Ensure the background `npm install` (`npm_handle`, waited at the seed gate) exit
 ## Build & Release
 
 1. `npx @wix/cli@latest build` — on failure, inspect `.wix/debug.log`, fix, retry (§ "Build failure modes"; Astro/React build-blockers in `IMPLEMENTER.md`).
-2. `npx @wix/cli@latest release` — extract the published URL from `Site published on <url>`. Also populates the **Frontend link** in headless settings natively. Transient errors (`ECONNRESET`, `ETIMEDOUT`, `EAI_AGAIN`, `STATE_MISMATCH`, `temporarily unavailable`, `try again shortly`) — retry serially up to 3× with `attempt * 5`s backoff (`references/shared/PRODUCTION_SHARP_EDGES.md`). Do **not** retry build failures — those are code bugs. **Nor retry a `FAILED_PRECONDITION` / `Invalid Override Data` ("override not on latest major") promotion error** despite the CLI's "probably temporary" banner — it's an unrecoverable Dev Center app-version state; surface the `Extended error output` to the user.
-3. **Post-deploy smoke check — before declaring success.** A green `astro build` means the code *compiled*, not that the site *works*: SSR data access, client-island auth, and capacity/booking logic only exercise at runtime, so a passing build routinely ships silent-empty data, 500s, `oauth2/token 400`s, or dead clicks. `curl` the key routes on the **deployed URL** (release URL, or the preview URL when promotion is blocked) and assert **HTTP 200 + expected content** — not just that a response came back: every top-level route (`/`, `/about`, and each vertical's pages — e.g. `/services`, `/services/<seeded-slug>`) returns `200` with seeded content present (a seeded service/product name appears; no `Internal Server Error` / empty-state on a page that should have data). If a route 500s or shows its empty state when data was seeded, treat the build as **failed** — diagnose (almost always an SSR data-access or client-env bug) and fix before the Final Message.
+2. `npx @wix/cli@latest release` — extract the published URL from `Site published on <url>`. Also populates the **Frontend link** in headless settings natively. Transient errors (`ECONNRESET`, `ETIMEDOUT`, `EAI_AGAIN`, `STATE_MISMATCH`, `temporarily unavailable`, `try again shortly`) — retry serially up to 3× with `attempt * 5`s backoff. Do **not** retry build failures — those are code bugs.
 
 Then **Final Message** (`BUILD.md` § "Final Message" — summary + `AGENTS.md` turn).
 

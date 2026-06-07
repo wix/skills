@@ -15,9 +15,6 @@ Use this reference when a Wix Headless run touches production release, SEO-contr
 
 The conductor's release step (the shared release tail, `BUILD.md` § "Shared release tail" — `BUILD-astro.md` § "Build & Release" for astro, `BUILD-own-build.md` § "Release" for no-build frameworks) retries these known transient release failures serially — up to 3× with `attempt * 5`s backoff. Do not retry build failures; TypeScript, Astro, missing import, and missing module failures are code issues that must be fixed before another release attempt.
 
-> **The CLI's "probably a temporary system error … try again shortly" banner is unreliable — don't classify on it alone.** `wix release` prints that transient-looking message even for **permanent precondition failures** that will fail identically on every retry (observed: failing the same way across 6 attempts, including `--version-type major`). Before retrying, read the **`Extended error output`** `Code`/`Message`, not the friendly banner:
-> - `FAILED_PRECONDITION` / `Invalid Override Data` / `commitOverride: Overrides can only be promoted when they are applied to latest major` → **not retryable.** This is a Dev Center app-version state issue (the override isn't on the latest major version). Stop retrying and surface it to the user immediately with the extended error — retrying just burns the ladder. Match on the **extended `Code`**, and treat the `ECONNRESET`/`ETIMEDOUT`/`STATE_MISMATCH`/`temporary system error` signals above as retryable **only** when the extended error isn't a precondition/validation code.
-
 For batch releases across many projects, prefer releasing failed sites one by one after the current deployment state settles. Parallel release is useful for throughput, but retry serially when Wix reports state-machine errors.
 
 ## Reserved Root Paths
