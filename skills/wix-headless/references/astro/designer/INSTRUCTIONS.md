@@ -1,6 +1,6 @@
 ---
 name: page-designer
-description: "The page-design specification for Wix Managed Headless page routes: home, static (about/faq), store-pages, blog-pages, contact-page. This is the visual-design guidance the merged build agents' `pages` scopes (vertical packs, BUILD-astro.md § 'Step 4.5' — the build wave) apply when they write each route ONCE with both visual design and live SDK data. It defines layout, contract classes, decorative-slot conventions, responsive rules, and anti-patterns — not a separate placeholder-writing pass. The design-system phase (tokens + global.css + Layout/Nav/Footer shells) is NOT here — it is split across DESIGN_SYSTEM.md (Designer) and scripts/compose.mjs (Composer)."
+description: "The page-design specification for Wix Managed Headless page routes: home, static (about/faq), store-pages, services-pages, blog-pages, contact-page. This is the visual-design guidance the merged build agents' `pages` scopes (vertical packs, BUILD-astro.md § 'Step 4.5' — the build wave) apply when they write each route ONCE with both visual design and live SDK data. It defines layout, contract classes, decorative-slot conventions, responsive rules, and anti-patterns — not a separate placeholder-writing pass. The design-system phase (tokens + global.css + Layout/Nav/Footer shells) is NOT here — it is split across DESIGN_SYSTEM.md (Designer) and scripts/compose.mjs (Composer)."
 ---
 
 # Page Designer — Scope-Based Page Design
@@ -33,6 +33,7 @@ No REST calls required. Page-design scopes are frontend-only — no `curl`, no M
 | `home` | build wave | `src/pages/index.astro` (composes pack home-sections + brand hero/CTA into the Composer-written shell) |
 | `static` | build wave | `src/pages/about.astro`, `src/pages/faq.astro` |
 | `store-pages` | build wave | `src/pages/products/index.astro`, `src/pages/products/[slug].astro`, `src/components/ProductCard.astro`, `src/pages/cart.astro`, `src/pages/thank-you.astro` |
+| `services-pages` | build wave | `src/pages/services/index.astro`, `src/pages/services/[slug].astro`, `src/pages/booking-confirmation.astro`, `src/pages/manage-booking.astro` |
 | `blog-pages` | build wave | `src/pages/blog/index.astro`, `src/pages/blog/[slug].astro` |
 | `contact-page` | build wave | `src/pages/contact.astro` |
 
@@ -225,6 +226,28 @@ All store-facing pages designed together for visual coherence.
 }
 ```
 
+### Scope: `services-pages`
+
+All bookings-facing pages designed together for visual coherence. **Canonical templates exist** at `<SKILL_ROOT>/references/astro/templates/bookings/` — adapt them (copy, headings, styling); do not re-author the SDK/booking-flow wiring (`references/astro/bookings/SERVICES_PAGES.md` is the wiring spec).
+
+**Files:** `src/pages/services/index.astro`, `src/pages/services/[slug].astro`, `src/pages/booking-confirmation.astro`, `src/pages/manage-booking.astro`
+
+**Services listing (`/services`):**
+- Page heading + optional brand tagline
+- Service grid using the `service-grid` class, one `ServiceCard` per service (`service-card` class — image/placeholder, name, tagline, duration + price row)
+- Bind the live `services.queryServices` query (per `references/astro/bookings/SERVICES_PAGES.md`); brand-contextual empty state if it returns nothing
+
+**Service detail (`/services/[slug]`):**
+- `container-reading` width (never a bare `max-w-<size>`); optional banner image **only when the service has media** (image-less is the common seed case — no fixed-ratio placeholder)
+- Title, tagline, duration + price row, description
+- "Book this service" section mounting the `ServiceBookingFlow` island (`client:only="react"`, threads `serviceType`) — calendar slots use `time-slot` classes (`--available`/`--selected`/`--full`), form uses the `booking-form` family
+
+**Booking confirmation (`/booking-confirmation`):**
+- `max-w-prose`, centered; status-aware headline ("Thank you for booking" vs pending-approval) + embedded cancel (`ManageBooking` island, `showSummary={false}`)
+
+**Manage booking (`/manage-booking`):**
+- `container-reading`; booking summary + cancel via the `manage-booking` class family
+
 ### Scope: `blog-pages`
 
 Blog feed listing and post detail designed together.
@@ -319,7 +342,7 @@ The JSON block MUST be the **last** content in your message — the parent parse
 | Agent | Relationship | Rule |
 |-------|-------------|------|
 | Composer (design-system) | Wrote `global.css`, `Layout.astro`, `Navigation.astro`, `Footer.astro`, the `@theme` tokens | You consume the token contract and wrap pages in its `Layout`; you never rewrite those files |
-| Phase 3 Components (stores/blog/forms) | Writes React islands referencing contract classes + `components-<pack>.css` | They own islands + scoped CSS; the route references contract classes in markup and mounts the islands, no overlap |
+| Phase 3 Components (stores/bookings/blog/forms) | Writes React islands referencing contract classes + `components-<pack>.css` | They own islands + scoped CSS; the route references contract classes in markup and mounts the islands, no overlap |
 | Per-vertical reference (`references/astro/<vertical>/`) | Supplies the exact SDK queries + wiring the merged route binds | Apply this design spec **and** that vertical's queries together in one write — there is no second pass |
 | Image agent (Image Phase 1) | Returns decorative URLs in `data.slots` | Emit `data-decorative-slot="<key>"` placeholders; the orchestrator injects the `<img>` once Image Phase 1 returns |
 | Image agent (Image Phase 2) | PATCHes entity images onto products/posts via REST | No direct interaction — images flow through product/post records that Phase 4 queries |

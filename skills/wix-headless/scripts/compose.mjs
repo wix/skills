@@ -492,10 +492,10 @@ const navItems = navLinks
 }
 
 // ── 6. index.astro ────────────────────────────────────────────────────────────────
-// Home markers: one `<!-- home:<pack> -->` per contributing pack. Today only
-// stores + gift-cards contribute a home section. Disabled packs (gift-cards)
-// still get their marker (markers are their only acceptable touchpoint).
-const HOME_CONTRIBUTING = ["stores", "gift-cards"]; // canonical order
+// Home markers: one `<!-- home:<pack> -->` per contributing pack. Today
+// stores + bookings + gift-cards contribute a home section. Disabled packs
+// (gift-cards) still get their marker (markers are their only acceptable touchpoint).
+const HOME_CONTRIBUTING = ["stores", "bookings", "gift-cards"]; // canonical order
 const homePool = new Set([...loadedPacks, ...disabledPacks]);
 const homeMarkerPacks = HOME_CONTRIBUTING.filter((p) => homePool.has(p));
 {

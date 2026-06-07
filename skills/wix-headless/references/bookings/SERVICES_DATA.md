@@ -245,7 +245,7 @@ Verify by fetching slots the way the front-end does (`eventTimeSlots.listEventTi
 
 ## Step 5 — Return contract
 
-Write to `<site-root>/.wix/seed-returns/bookings.json`:
+**Return this JSON inline as your agent return** (per `references/shared/RETURN_CONTRACT.md`) — do **NOT** write a `.wix/seed-returns/` file; the orchestrator aggregates seeder returns and is the sole writer of `.wix/seeded.json`:
 
 ```json
 {
@@ -276,7 +276,6 @@ Write to `<site-root>/.wix/seed-returns/bookings.json`:
 - `staff` is an empty array `[]` when `intent.bookings.hasStaff` is false or Step 3 was skipped.
 - **For `CLASS` services, schedule sessions in Step 4b** and report them (e.g. `seeded.bookings.services[].sessionEventIds`). Only if Step 4b is skipped or fails, add a `notes` entry so the orchestrator surfaces it: `"notes": ["CLASS sessions not scheduled — add session times in the Bookings dashboard before sign-up works."]`
 - On any REST error: set `status: "error"`, include the failing call's response verbatim under `"error"`.
-- Create `<site-root>/.wix/seed-returns/` if it does not exist before writing.
 
 ---
 

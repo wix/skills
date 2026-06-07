@@ -12,23 +12,14 @@ You are the Phase 4 Pages agent for the bookings vertical. Your scope: write the
 |------|-------|-------------|
 | `src/pages/services/index.astro` | `/services` | SSR services listing grid |
 | `src/pages/services/[slug].astro` | `/services/[slug]` | SSR service detail + client-side booking flow |
-| `src/pages/booking-confirmation.astro` | `/booking-confirmation` | Post-booking confirmation page |
-
-Read `.wix/site.json` at `<site-root>/.wix/site.json` for `seeded.bookings.services` and `brand`.
+| `src/pages/booking-confirmation.astro` | `/booking-confirmation` | Status-aware confirmation + inline cancel |
+| `src/pages/manage-booking.astro` | `/manage-booking` | Per-booking view/cancel (anonymous token) |
 
 ---
 
-## Step 1 — Read seeded data
+## Step 1 — Read your seeded slice
 
-```typescript
-// In each page's frontmatter — example
-import { services } from '../../.wix/site';
-// OR read the JSON directly:
-const site = await Astro.locals.site; // from the site module
-const seededServices = site.seeded?.bookings?.services ?? [];
-```
-
-If `seeded.bookings.services` is absent or empty, fall back to live SDK query (see below). Do NOT crash — fail gracefully with an empty grid and a "Coming soon" placeholder.
+Read your `seeded.bookings` slice from **`.wix/seeded.json`** (written once by the orchestrator at the seed gate — see `BUILD-astro.md` § "The `.wix/seeded.json` handoff"): `services[{id, slug, name, type, durationMinutes, price, currency}]` + `staff[{id, resourceId, name}]`. Use it to know the seeded slugs/names/types while authoring — do **NOT** import it into route files; the pages query the **live SDK** at request time (below). If your slice is absent, fail loud (`status: "partial"`, `errors: [{code: "SEEDED_JSON_SLICE_MISSING", missing: "seeded.bookings"}]`) — do not render an empty page.
 
 ---
 
@@ -395,8 +386,8 @@ Follow the marker discipline rules in `references/shared/IMPLEMENTER.md` — pre
 
 ## Home page contribution
 
-Patch `src/pages/index.astro` to add a brief services teaser section. Insert at the `<!-- home:bookings -->` marker (added by the designer when bookings is loaded). The teaser should:
-- Show the first 3 seeded services (read from `seeded.bookings.services` in `.wix/site.json`)
+Patch `src/pages/index.astro` to add a brief services teaser section. Insert at the `<!-- home:bookings -->` marker (emitted by `compose.mjs` when bookings is loaded). You are a **shell-patcher** (BUILD-astro § build wave, chain B) — `index.astro`/`Navigation.astro` patches are serialized against the other shell-patching verticals. The teaser should:
+- Show the first 3 services (query the live SDK like `/services` does; your `seeded.bookings` slice tells you what exists)
 - Include a "View All Services" CTA linking to `/services`
 - Use `<ServiceCard>` for each service entry
 
@@ -410,6 +401,7 @@ Before returning `status: "complete"`, verify all of these files exist on disk:
 - `src/pages/services/index.astro`
 - `src/pages/services/[slug].astro`
 - `src/pages/booking-confirmation.astro`
+- `src/pages/manage-booking.astro`
 - `src/components/ServiceBookingFlow.tsx`
 
 Missing file → return `status: "partial"` with `errors: [{ code: "PHASE4_FILE_MISSING", path: "<path>" }]`.
@@ -427,6 +419,7 @@ Missing file → return `status: "partial"` with `errors: [{ code: "PHASE4_FILE_
     "src/pages/services/index.astro",
     "src/pages/services/[slug].astro",
     "src/pages/booking-confirmation.astro",
+    "src/pages/manage-booking.astro",
     "src/components/ServiceBookingFlow.tsx"
   ],
   "contributions": [
