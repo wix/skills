@@ -1,0 +1,65 @@
+---
+// src/pages/services/index.astro — SSR services listing grid (APPOINTMENT or CLASS).
+// One dir deep inside src/pages → ../../ reaches src/. Adapt copy/headings to the
+// brand; keep the SSR data wiring.
+import Layout from "../../layouts/Layout.astro";
+import ServiceCard from "../../components/ServiceCard.astro";
+import { services } from "@wix/bookings";
+import { auth } from "@wix/essentials";
+
+let serviceList: any[] = [];
+try {
+  // Ambient @wix/astro SSR client via @wix/essentials (same pattern as CMS pages).
+  // Do NOT build createClient({ auth: OAuthStrategy({ clientId: import.meta.env.* }) }) —
+  // that env var is client-only and undefined at server render → 500.
+  // queryServices uses the query BUILDER; the object form returns 0 items.
+  const result = await auth.elevate(services.queryServices)().limit(100).find();
+  serviceList = (result.items ?? []).filter((s: any) => !s.hidden);
+} catch (err) {
+  console.error("[services] listing query failed:", err);
+}
+
+const getSlug = (s: any): string => s.mainSlug?.name ?? s.supportedSlugs?.[0]?.name ?? s._id;
+const formatPrice = (s: any): string | undefined => {
+  const p = s.payment;
+  if (!p || p.rateType === "NO_FEE") return undefined;
+  if (p.rateType === "FIXED" && p.fixed?.price) {
+    const { value, currency } = p.fixed.price;
+    if (!value) return undefined;
+    return new Intl.NumberFormat("en-US", { style: "currency", currency: currency ?? "USD" }).format(Number(value));
+  }
+  return undefined;
+};
+const getDuration = (s: any): number => s.schedule?.availabilityConstraints?.sessionDurations?.[0] ?? 60;
+---
+
+<Layout title="Services">
+  <section class="max-w-6xl mx-auto px-lg py-4xl">
+    <header class="flex flex-col gap-md max-w-prose mb-3xl">
+      <hr class="editorial-rule w-16 ml-0" />
+      <h1 class="font-display text-4xl md:text-5xl leading-tight">Our Services</h1>
+      <!-- Optional brand tagline -->
+    </header>
+
+    {
+      serviceList.length === 0 ? (
+        <p class="text-mute">Services coming soon — check back shortly.</p>
+      ) : (
+        <div class="service-grid">
+          {serviceList.map((s) => (
+            <ServiceCard
+              id={s._id}
+              slug={getSlug(s)}
+              name={s.name ?? "Untitled"}
+              tagLine={s.tagLine ?? s.description}
+              durationMinutes={getDuration(s)}
+              price={formatPrice(s)}
+              imageUrl={s.media?.mainMedia?.image?.url ?? s.media?.items?.[0]?.image?.url}
+              type={s.type ?? "APPOINTMENT"}
+            />
+          ))}
+        </div>
+      )
+    }
+  </section>
+</Layout>

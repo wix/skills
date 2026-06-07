@@ -9,19 +9,20 @@ This article seeds backend data. Every loaded pack with a seed recipe gets its o
 The recipe map and per-pack input notes are inlined below — **do NOT separately `Read references/seed-recipes.md`**. The Step 1 table here is canonical for the run; `seed-recipes.md` exists only as a human-readable index of the same data, and reading it adds a turn and a thinking gap before the dispatch batch.
 
 From the `verticals` list in orchestrator scratch (captured in Discovery), build the dispatch list. For each loaded pack:
-- If the pack has a recipe in the table below (`stores`, `cms`, `blog`, `forms`) → add to the dispatch list.
+- If the pack has a recipe in the table below (`stores`, `cms`, `blog`, `forms`, `bookings`) → add to the dispatch list.
 - If the pack has no recipe (`gift-cards`, `ecom`) → record a phase entry as `{phase: "seed-<pack>", status: "skipped", notes: "no seed surface for this pack"}` directly. No subagent.
 
 Resolve absolute recipe paths by joining `<wix-manage-root>` (already in scratch from Phase 2 Step 4 — do **not** re-invoke `Skill(name="wix-manage")` here) + the relative paths in this table.
 
 ### Recipe map
 
-| Pack       | Recipes (relative to `<wix-manage-root>`)                                                                                                                                                                                                                                    | Returns                                                                             |
+| Pack       | Recipes                                                                                                                                                                                                                                                                      | Returns                                                                             |
 | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| stores     | `references/stores/setup-online-store-catalog-v3.md` (idempotent catalog setup) + `references/stores/bulk-create-products-with-options.md` (single bulk call for N products)                                                                                                 | `productIds[]`, `categoryIds[]` (when `intent.stores.categoriesNamed` is non-empty) |
-| cms        | `references/cms/cms-schema-management.md` (collection create) + `references/cms/cms-data-items-crud.md` (item create per collection) + `references/cms/cms-references-and-relationships.md` (only when a collection's `intent.cms.collections[N]` declares cross-references) | `collectionIds{}`, `itemIds{<collection>: []}`                                      |
-| blog       | `references/blog/how-to-create-blog-posts.md`                                                                                                                                                                                                                                | `postIds[]`, `categoryIds[]`                                                        |
-| forms      | `references/forms/create-form.md`                                                                                                                                                                                                                                            | `formIds[]`                                                                         |
+| stores     | (relative to `<wix-manage-root>`) `references/stores/setup-online-store-catalog-v3.md` (idempotent catalog setup) + `references/stores/bulk-create-products-with-options.md` (single bulk call for N products)                                                              | `productIds[]`, `categoryIds[]` (when `intent.stores.categoriesNamed` is non-empty) |
+| cms        | (relative to `<wix-manage-root>`) `references/cms/cms-schema-management.md` (collection create) + `references/cms/cms-data-items-crud.md` (item create per collection) + `references/cms/cms-references-and-relationships.md` (only when a collection's `intent.cms.collections[N]` declares cross-references) | `collectionIds{}`, `itemIds{<collection>: []}`                                      |
+| blog       | (relative to `<wix-manage-root>`) `references/blog/how-to-create-blog-posts.md`                                                                                                                                                                                              | `postIds[]`, `categoryIds[]`                                                        |
+| forms      | (relative to `<wix-manage-root>`) `references/forms/create-form.md`                                                                                                                                                                                                          | `formIds[]`                                                                         |
+| bookings   | (within skill) `<SKILL_ROOT>/references/bookings/SERVICES_DATA.md` — service creation + optional staff. Recipe path uses `<SKILL_ROOT>`, NOT `<wix-manage-root>`.                                                                                                           | `services[{id, slug, name, type, durationMinutes, price, currency}]`, `staff[{id, resourceId, name}]` |
 | gift-cards | — (no seed surface; activation lives in Phase 2 app-install)                                                                                                                                                                                                                 | `{status: "skipped"}`                                                               |
 | ecom       | — (cart/checkout vertical; no seed surface)                                                                                                                                                                                                                                  | `{status: "skipped"}`                                                               |
 
@@ -52,6 +53,14 @@ These notes reduce dispatch-time guesswork. The recipe itself is the source of t
 - One `POST /form-schema-service/v4/forms` call per entry in `intent.forms.forms`. Map `intent.forms.forms[N].fields` (string array) into the recipe's `formFields` payload using the documented field templates (`CONTACTS_FIRST_NAME`, `CONTACTS_EMAIL`, etc.).
 - `purpose` ("contact", "lead", "signup") drives the form's `name` — e.g. `"contact"` → `"Contact Form"`.
 - Wix Forms app is pre-installed via Phase 2; don't reinstall.
+
+**bookings:**
+- Recipe path is `<SKILL_ROOT>/references/bookings/SERVICES_DATA.md` — NOT under `<wix-manage-root>`. Resolve the path with `<SKILL_ROOT>` (same root as all other skill references).
+- `intent.bookings.serviceCount` services (default 3). Names + descriptions from `brand`.
+- `intent.bookings.serviceType` (`"APPOINTMENT"` or `"CLASS"`) determines the service `type` field. Default `"APPOINTMENT"`.
+- `intent.bookings.hasStaff === true` → create 2 staff members (names from brand). Skip if false or absent.
+- Wix Bookings app is pre-installed via Phase 2 (app ID `13d21c63-b5ec-5912-8397-c3a5ddb27a97`); don't reinstall.
+- Return `seeded.bookings.services[{id, slug, name, ...}]` + `seeded.bookings.staff[{id, resourceId, name}]`.
 
 ---
 
