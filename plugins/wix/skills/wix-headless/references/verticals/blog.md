@@ -26,6 +26,6 @@ disabled: false
 
 Loaded when the user's prompt mentions blogging, publishing, or editorial content.
 
-> **Discovery contract.** Phase 1 reads only the frontmatter above. Phase 2+ implementation (post seeding, RSS, page composition, ricos rendering) lives in an upstream skill plus this skill's own `templates/blog/` + `references/blog/INSTRUCTIONS.md`:
+> **Discovery contract.** Phase 1 reads only the frontmatter above. Phase 2+ implementation (post seeding, RSS, page composition, ricos rendering) lives in an upstream skill plus this skill's own `references/astro/blog/` + `references/blog/INSTRUCTIONS.md`:
 >
 > - `@skills/wix-manage` ships the seeding recipe — `references/blog/how-to-create-blog-posts.md`.

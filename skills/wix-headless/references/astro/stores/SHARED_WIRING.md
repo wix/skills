@@ -1,6 +1,6 @@
 # Phase 3 Components — Stores (TSX/Astro)
 
-This is the **components** portion of the stores **merged build agent** (the build wave — `BUILD-astro.md` § "Step 4.5"). Your agent writes these islands **first**, then the stores pages (`pages-categories`, `pages-products`) that mount them — so the islands are on disk before the page code references them. The code here depends on the **design tokens** (inlined in your prompt) but NOT on page markup.
+This is the **components** portion of the stores **merged build agent** (the build wave — `BUILD-astro.md` § "Step 4.5"). Your agent writes these islands **first**, then the stores pages (`pages-categories`, `pages-products`) that mount them — so the islands are on disk before the page code references them. The code here depends on the **design tokens** (read from `.wix/design-tokens.css` on disk) but NOT on page markup.
 
 > **CSS is pre-copied, not authored.** `src/styles/components-stores.css` ships from the skill template, copied by the orchestrator in the build-wave pre-batch (see `./COMPONENTS_CSS.md`). This scope does NOT write the CSS file. Reference its contract class names from the design tokens here; the pre-copied stylesheet defines the rules.
 
@@ -25,7 +25,7 @@ Files this agent MUST NOT touch:
 
 ## Coordination: design tokens
 
-Your parent prompt includes the design tokens inline. Use it directly — do **not** read `.wix/design-tokens.css` + `.wix/site.d.ts` from disk and do not poll for it. The parent skill serializes your launch behind designer foundation specifically so the contract is already available in your prompt when you start.
+Read the design tokens from `.wix/design-tokens.css` (on disk, gate-verified present before the wave). The parent skill serializes your launch behind the designer foundation specifically so this file is already written when you start.
 
 Reference the ACTUAL class names from the contract in React components (e.g. `className="add-to-cart-btn"`, not `className="addToCartButton"` or an invented name). See `references/shared/IMPLEMENTER.md` § "Contract class-name adaptation" for the full rule.
 

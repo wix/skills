@@ -21,7 +21,7 @@ Files this agent MUST NOT touch:
 ## Inputs (from parent prompt)
 
 - **Phase 1 stores return** — `products: [{id, name, slug, ...}]`. Needed for live query on home page; also useful for deciding how many to feature.
-- **Design tokens** — the design tokens (the DESIGN.md vocabulary) are inlined in your prompt for the published color/spacing/typography vocabulary; compose Tailwind utilities derived from those tokens at the call site rather than inventing semantic classes. See `references/shared/STYLING.md` for the three styling categories.
+- **Design tokens** — read the design tokens (the DESIGN.md vocabulary) from `.wix/design-tokens.css` (on disk) for the published color/spacing/typography vocabulary; compose Tailwind utilities derived from those tokens at the call site rather than inventing semantic classes. See `references/shared/STYLING.md` for the three styling categories.
 - **Designer output summary** — path of `src/pages/index.astro` and `src/components/Navigation.astro`, with notes on what placeholder data exists.
 - **Categories (lookup)** — if the designer used category links with hardcoded slugs, call `categoriesV3` SDK to discover real category slugs and rewrite `href`s.
 

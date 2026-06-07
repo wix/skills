@@ -23,7 +23,7 @@ disabled: false
 
 Always loaded. Provides Home + About + FAQ content pages editable from the Wix dashboard's Content Manager.
 
-> **Discovery contract.** Phase 1 reads only the frontmatter above. Phase 2+ implementation (collection schemas, item seeding, page composition) lives in an upstream skill plus this skill's own `templates/cms/` + `references/cms/INSTRUCTIONS.md`:
+> **Discovery contract.** Phase 1 reads only the frontmatter above. Phase 2+ implementation (collection schemas, item seeding, page composition) lives in an upstream skill plus this skill's own `references/astro/cms/` + `references/cms/INSTRUCTIONS.md`:
 >
 > - `@skills/wix-manage` ships the recipes — `references/cms/cms-schema-management.md`, `cms-data-items-crud.md`, `cms-references-and-relationships.md`.
 >

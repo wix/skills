@@ -21,7 +21,7 @@ Files this agent MUST NOT touch:
 ## Inputs (from parent prompt)
 
 - **Phase 1 return data** — `products: [{id, name, slug, variantId, price, inventory, sku}]` — use slugs when needed (rarely; `queryProducts` returns them already).
-- **Design tokens** — the design tokens (the DESIGN.md vocabulary) are inlined in your prompt for the published color/spacing/typography vocabulary; compose Tailwind utilities derived from those tokens (`class="py-4xl flex flex-col gap-md font-display"`) at the call site rather than inventing semantic classes for layout/spacing/typography. Retained global semantic classes are limited to compound patterns (`offer-callout`, `cart-summary`), interactive primitives (`btn-primary`, `product-card`), and JS targets — see `references/shared/STYLING.md`.
+- **Design tokens** — read the design tokens (the DESIGN.md vocabulary) from `.wix/design-tokens.css` (on disk) for the published color/spacing/typography vocabulary; compose Tailwind utilities derived from those tokens (`class="py-4xl flex flex-col gap-md font-display"`) at the call site rather than inventing semantic classes for layout/spacing/typography. Retained global semantic classes are limited to compound patterns (`offer-callout`, `cart-summary`), interactive primitives (`btn-primary`, `product-card`), and JS targets — see `references/shared/STYLING.md`.
 - **Designer visual spec** — the layout, contract classes, and decorative-slot conventions for `products/index.astro`, `products/[slug].astro`, `ProductCard.astro` (from `references/astro/designer/INSTRUCTIONS.md` → `store-pages`), applied in the same pass as the live queries.
 
 ## Critical rules (all must be honored)
