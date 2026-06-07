@@ -239,7 +239,6 @@ Because `AvailabilityCalendar` and `BookingForm` share state (the selected slot)
 ```typescript
 // src/components/ServiceBookingFlow.tsx
 import { useState } from 'react';
-import { useNavigate } from '../utils/navigate'; // simple wrapper or inline window.location
 import AvailabilityCalendar from './AvailabilityCalendar';
 import BookingForm from './BookingForm';
 

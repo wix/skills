@@ -329,7 +329,9 @@ The components need to export cleanly so the page's React coordinator island can
   "files": [
     "src/components/ServiceCard.astro",
     "src/components/AvailabilityCalendar.tsx",
-    "src/components/BookingForm.tsx"
+    "src/components/BookingForm.tsx",
+    "src/components/ServiceBookingFlow.tsx",
+    "src/components/ManageBooking.tsx"
   ]
 }
 ```
