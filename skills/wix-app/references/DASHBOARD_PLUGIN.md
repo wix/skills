@@ -7,6 +7,8 @@ Dashboard plugins are interactive widgets that embed into predefined **slots** o
 
 Use `wix generate --params` with `extensionType: DASHBOARD_PLUGIN`. `extendsSlotId` is the back-office extension container component ID from the host Wix app — see [Slots Reference](dashboard-plugin/SLOTS.md). The CLI generates the folder, the React component, the builder file, the UUID, and the `src/extensions.ts` registration.
 
+> ⚠️ **The scaffolded component contains WDS imports — replace them entirely.** Delete all `@wix/design-system` imports and use **shadcn/ui + Tailwind** instead. Do **not** import anything from `@wix/design-system`.
+
 ## Architecture
 
 Dashboard plugins operate through two mechanisms:
@@ -27,7 +29,6 @@ For the complete list of available slot IDs, see [Slots Reference](dashboard-plu
 - **React** — Component logic and state management
 - **Wix SDK** — Access Wix business solutions and site data
 - **Wix Dashboard SDK** (`@wix/dashboard`) — Interact with the dashboard page's data passed to the slot
-- **Wix Design System** (`@wix/design-system`) — Native-looking React components matching Wix's own dashboard UI
 
 ## Interacting with Dashboard Data
 
@@ -47,13 +48,9 @@ const Plugin: FC = () => {
   }, []);
 
   return (
-    <WixDesignSystemProvider features={{ newColorsBranding: true }}>
-      <Card>
-        <Card.Content size="medium">
-          <Text>Received data: {JSON.stringify(params)}</Text>
-        </Card.Content>
-      </Card>
-    </WixDesignSystemProvider>
+    <div className="p-4">
+      <p className="text-sm">Received data: {JSON.stringify(params)}</p>
+    </div>
   );
 };
 ```
