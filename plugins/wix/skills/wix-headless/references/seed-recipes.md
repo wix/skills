@@ -8,8 +8,8 @@ Per-vertical recipe lookup for the seed dispatch in `SEED.md`. Recipe paths are 
 | cms | `references/cms/cms-schema-management.md` (collection create) + `references/cms/cms-data-items-crud.md` (item create per collection) + `references/cms/cms-references-and-relationships.md` (only when a collection's `intent.cms.collections[N]` declares cross-references) | `collectionIds{}`, `itemIds{<collection>: []}` |
 | blog | `references/blog/how-to-create-blog-posts.md` | `postIds[]`, `categoryIds[]` |
 | forms | `references/forms/create-form.md` | `formIds[]` |
-| gift-cards | — (no seed surface; activation lives in Phase 2 app-install) | `{status: "skipped"}` |
-| ecom | — (cart/checkout vertical; no seed surface) | `{status: "skipped"}` |
+| gift-cards | — *(no recipe by design — no seed surface; activation lives in Phase 2 app-install)* | `{status: "skipped"}` |
+| ecom | — *(no recipe by design — cart/checkout vertical; no seed surface)* | `{status: "skipped"}` |
 
 The orchestrator dispatches one subagent per pack with a recipe. `gift-cards` and `ecom` get a phase entry of `{phase: "seed-<pack>", status: "skipped"}` recorded directly by the orchestrator without dispatching a subagent.
 

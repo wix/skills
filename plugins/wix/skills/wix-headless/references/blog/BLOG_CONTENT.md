@@ -120,9 +120,8 @@ Use these node types to build rich, varied content:
 - LIST_ITEM nodes contain PARAGRAPH nodes (not TEXT directly)
 - Mix at least 3 different node types per post for visual variety
 - Create all 3 posts in sequence (one `curl` call per post)
-- **Best practice:** include all fields (title, content, media) in the initial creation call to avoid needing a re-publish
 
-> **Re-publish after PATCH:** If you update a published post (e.g., adding a cover image via PATCH after creation), it becomes `hasUnpublishedChanges: true`. You must call `POST /blog/v3/draft-posts/{draftPostId}/publish` to re-publish. To avoid this, include media in the initial creation call.
+> **Re-publish after PATCH:** If you update a published post (e.g., the image agent adds a cover image via PATCH after creation), it becomes `hasUnpublishedChanges: true`. The agent that PATCHes must call `POST /blog/v3/draft-posts/{draftPostId}/publish` to re-publish. (This seed scope does not attach media — see Step 3.)
 
 ## Step 4: Verify
 
@@ -139,13 +138,24 @@ body: {
 
 Confirm 3 posts are returned. Report post titles to the user.
 
-### Step 5: Log Results
+## Step 5: Return Results
 
-Write a sidecar file at `.wix/logs/blog-data.md` (see `../../shared/LIFECYCLE_LOG.md` for the sidecar contract). Do **not** append to `.wix/lifecycle.log.md` directly — the orchestrator concatenates all sidecars at the end. Use a `####` heading so the entry nests under `### features-orchestrator` in the assembled log:
+Emit a structured JSON block at the end of your completion message per `../shared/RETURN_CONTRACT.md`. Do **not** write a sidecar file. Include the created posts' `id` and `title` so the image agent can attach cover images by ID:
 
-```markdown
-## blog
-- Status: complete
-- Content: {n} posts published ({post titles})
-- Images: {generated (n/n attached) | skipped (user declined) | not attempted}
+```json
+{
+  "status": "complete",
+  "phase": "blog-seed",
+  "scope": "seed",
+  "summary": "Created and published {n} on-brand blog posts",
+  "data": {
+    "blogPosts": [
+      { "id": "<uuid>", "title": "<title>" }
+    ]
+  },
+  "files": [],
+  "errors": []
+}
 ```
+
+The JSON block MUST be the last content in your message.

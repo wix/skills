@@ -1,10 +1,10 @@
 # Phase 4 Product Pages — Stores
 
-Scope: `product-pages`. Launched in **Step 7** after designer page scopes have written placeholder `.astro` files. This scope rewrites the product listing, product detail, and ProductCard component with live `productsV3` queries.
+Scope: `product-pages` (the `pages-products` scope) — written by the stores **merged build agent** (the build wave) *after* its `components` and `pages-categories` scopes. This scope writes the product listing, product detail, and ProductCard component **once** — applying the designer's visual spec (`references/astro/designer/INSTRUCTIONS.md` → `store-pages`) together with live `productsV3` queries in a single pass. Read your seeded slice from `.wix/seeded.json` (`seeded.stores`).
 
 ## Scope
 
-Files this agent OWNS (rewrites from designer output):
+Files this agent OWNS (each written once, visual structure + live queries together):
 
 - `src/pages/products/index.astro` — product listing
 - `src/pages/products/[slug].astro` — product detail with `wixMetadata` + SEO tags
@@ -12,17 +12,17 @@ Files this agent OWNS (rewrites from designer output):
 
 Files this agent MUST NOT touch:
 - `src/components/ProductPurchase.tsx`, `src/components/AddToCartButton.tsx` — owned by `components`
-- `src/pages/cart.astro`, `src/pages/thank-you.astro` — owned by `pages-cart-checkout`
+- `src/pages/cart.astro`, `src/pages/thank-you.astro` — owned by `cart-checkout`
 - `src/pages/index.astro`, `src/components/Navigation.astro` — owned by `pages-home-and-nav`
-- `src/components/CategoryRail.astro` — owned by `pages-categories`. **Import** from `../../components/CategoryRail.astro`; never `Write` it. If it's not on disk yet when you go to mount it, that means the orchestrator dispatched scopes out of order — return `status: "partial"` with `errors: [{ code: "MISSING_PAGES_CATEGORIES_OUTPUT", path: "src/components/CategoryRail.astro" }]` (never defensively `Write` it yourself — `pages-categories` is the only writer, and racing it trips the harness staleness guard).
-- `src/utils/categories.ts` — pre-copied by the orchestrator before Phase 4 (BUILD-astro.md Step 7 pre-batch). **Import** `listStoreCategories`/etc. from `../../utils/categories`; never `Write` it.
+- `src/components/CategoryRail.astro` — owned by the `pages-categories` scope, which your merged agent writes **before** this one. **Import** from `../../components/CategoryRail.astro`; never `Write` it here. By the time you mount it, the `pages-categories` step has already put it on disk. If it's somehow absent, you wrote your scopes out of order — return `status: "partial"` with `errors: [{ code: "MISSING_PAGES_CATEGORIES_OUTPUT", path: "src/components/CategoryRail.astro" }]` (write `pages-categories` before `pages-products`; never defensively `Write` it from this scope).
+- `src/utils/categories.ts` — pre-copied by the orchestrator in the build-wave pre-batch (BUILD-astro.md § "Step 4.5"). **Import** `listStoreCategories`/etc. from `../../utils/categories`; never `Write` it.
 - `global.css`, any other `.astro` page, any other component — owned by designers
 
 ## Inputs (from parent prompt)
 
 - **Phase 1 return data** — `products: [{id, name, slug, variantId, price, inventory, sku}]` — use slugs when needed (rarely; `queryProducts` returns them already).
-- **Design tokens** — the full `designTokens` JSON is inlined in your prompt for the published color/spacing/typography vocabulary; compose Tailwind utilities derived from those tokens (`class="py-4xl flex flex-col gap-md font-display"`) at the call site rather than inventing semantic classes for layout/spacing/typography. Retained global semantic classes are limited to compound patterns (`offer-callout`, `cart-summary`), interactive primitives (`btn-primary`, `product-card`), and JS targets — see `references/shared/STYLING.md`.
-- **Designer output summary** — paths of existing `products/index.astro`, `products/[slug].astro`, `ProductCard.astro` with placeholder data.
+- **Design tokens** — read the design tokens (the DESIGN.md vocabulary) from `.wix/design-tokens.css` (on disk) for the published color/spacing/typography vocabulary; compose Tailwind utilities derived from those tokens (`class="py-4xl flex flex-col gap-md font-display"`) at the call site rather than inventing semantic classes for layout/spacing/typography. Retained global semantic classes are limited to compound patterns (`offer-callout`, `cart-summary`), interactive primitives (`btn-primary`, `product-card`), and JS targets — see `references/shared/STYLING.md`.
+- **Designer visual spec** — the layout, contract classes, and decorative-slot conventions for `products/index.astro`, `products/[slug].astro`, `ProductCard.astro` (from `references/astro/designer/INSTRUCTIONS.md` → `store-pages`), applied in the same pass as the live queries.
 
 ## Critical rules (all must be honored)
 
@@ -68,9 +68,9 @@ Do NOT modify logic, imports, SDK calls, `wixMetadata` export, or prop-passing. 
 
 Use template `templates/products/index.astro`.
 
-Preserves the designer's page structure (class names, layout) and replaces the placeholder products array with a guarded, **cursor-paginated** `productsV3.queryProducts({ fields: ["CURRENCY"] }).limit(24).skipTo(cursor).find()` (cursor read from `?cursor=` on the URL; Prev/Next anchors built from `result.cursors.next` / `.prev`). Mounts the shared `<CategoryRail/>` (written by `pages-categories`) above the grid, passing `activeSlug={null}` and the prev/next hrefs. Emits the `AddProductImpression` analytics event from a client-side script that reads a JSON payload serialized at SSR.
+Applies the designer's page structure (class names, layout) and binds a guarded, **cursor-paginated** `productsV3.queryProducts({ fields: ["CURRENCY"] }).limit(24).skipTo(cursor).find()` (cursor read from `?cursor=` on the URL; Prev/Next anchors built from `result.cursors.next` / `.prev`). Mounts the shared `<CategoryRail/>` (written by `pages-categories`) above the grid, passing `activeSlug={null}` and the prev/next hrefs. Emits the `AddProductImpression` analytics event from a client-side script that reads a JSON payload serialized at SSR.
 
-> **Imports written by `pages-categories`.** Both `<CategoryRail/>` and `listStoreCategories` come from files this scope must NOT write — they're owned by the `pages-categories` scope. Import paths: `../../components/CategoryRail.astro` and `../../utils/categories`. If either import fails to resolve, return `status: "partial"` with `errors: [{ code: "MISSING_PAGES_CATEGORIES_OUTPUT", path: "<missing path>" }]` — that means the orchestrator dispatched scopes out of order.
+> **Imports you must NOT write.** `<CategoryRail/>` (`../../components/CategoryRail.astro`) is written by the `pages-categories` scope your merged agent runs *before* this one; `listStoreCategories` (`../../utils/categories`) is pre-copied by the orchestrator. Both are on disk by the time you mount them. If either fails to resolve, return `status: "partial"` with `errors: [{ code: "MISSING_PAGES_CATEGORIES_OUTPUT", path: "<missing path>" }]` — that means your agent wrote `pages-products` before `pages-categories`, or the pre-copy was skipped.
 
 > **Page size 24** — multiple of the 2/3/4-column grid, well under Wix's per-request cap of 100. Do not change without updating `CATEGORY_PAGES.md` to match.
 

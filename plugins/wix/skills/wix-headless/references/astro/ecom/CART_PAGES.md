@@ -1,21 +1,20 @@
 # Phase 4 Cart Pages — Ecom
 
-Scope: `ecom-pages`. Launched in **Step 7**. Mounts `CartView` island on the cart page, wires the thank-you page, and mounts `CartBadge` in Navigation.
+Scope: `cart-checkout` (the ecom `pages` scope) — the **pages** portion of the ecom **merged build agent** (the build wave), written *after* its `components`. Mounts `CartView` island on the cart page, wires the thank-you page, and mounts `CartBadge` in `Navigation.astro` (at the `<!-- nav:actions -->` marker). **Because it patches the shared `Navigation.astro` shell, the ecom build agent runs in the build wave's serialized shell chain** — never concurrent with the other Navigation/index patchers (stores `pages-home-and-nav`, gift-cards, blog), so concurrent marker edits can't collide (`BUILD-astro.md` § "Step 4.5").
 
 ## Scope
 
-Files this agent OWNS (rewrites from designer output):
+Files this agent OWNS (each written once — designer visual spec + live wiring together):
 
 - `src/pages/cart.astro` — mount `CartView.tsx` (client-only, no server-side cart fetch)
 - `src/pages/thank-you.astro` — read `orderId` from URL, fire `Purchase` event
 
-Files this agent PATCHES (does NOT rewrite):
+Files this agent PATCHES (does NOT rewrite) — only at its own marker:
 
-- `src/components/Navigation.astro` — mount `CartBadge` in the `nav-actions` area
+- `src/components/Navigation.astro` — mount `CartBadge` in the `nav-actions` area (`<!-- nav:actions -->`). Stores `pages-home-and-nav` patches the same file at `<!-- nav:links -->`; the serialized shell chain keeps these from colliding.
 
 Files this agent MUST NOT touch:
-- `src/components/CartView.tsx` — owned by `ecom-shared` (already written)
-- `src/components/CartBadge.tsx` — owned by `ecom-shared`
+- `src/components/CartView.tsx`, `src/components/CartBadge.tsx` — the ecom islands; written earlier in this same merged agent (the `components` scope)
 - Any product page, home page, or stores-specific component
 - `global.css`, any designed component
 
@@ -100,8 +99,8 @@ Cart page → "Proceed to Checkout"
 ```json
 {
   "status": "complete",
-  "phase": "ecom-pages",
-  "scope": "ecom-pages",
+  "phase": "cart-checkout",
+  "scope": "cart-checkout",
   "summary": "Mounted CartView (client-only fetch); wired Purchase event; mounted CartBadge in Navigation",
   "data": {
     "pagesWired": 2,
