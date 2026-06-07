@@ -59,6 +59,7 @@ The conductor interleaves these; the business track (steps 3–5) runs frontend-
 | Wedding / event invitation | **RSVP form** (+ optional responses CMS) | Wix Forms (+ CMS) | `custom/forms/WIRING.md` |
 | Store / product mock | product catalog (wire existing grid) | Wix Stores + eCom | `custom/stores/WIRING.md` |
 | Blog / publication | post list + detail (wire existing) | Wix Blog | `custom/blog/WIRING.md` |
+| Salon / spa / studio / coach landing | services list + availability + book (Wix-hosted bookings checkout) | Wix Bookings | `custom/bookings/WIRING.md` |
 | Restaurant / venue landing | reservation / contact form; optional menu CMS | Wix Forms (+ CMS) | `custom/forms/WIRING.md` |
 | SaaS / product landing | lead / waitlist signup form | Wix Forms | `custom/forms/WIRING.md` |
 | Portfolio / agency | contact form; optional projects CMS | Wix Forms (+ CMS) | `custom/forms/WIRING.md` |
