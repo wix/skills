@@ -91,7 +91,7 @@ One concurrent batch (`PLAN.md` § "Batching discipline"). No design-system work
 
 ### Subagent dispatch
 
-Base prompt fields: `SEED.md` § "Subagent prompt template". Each merged build agent additionally inlines the full styling-contract JSON and is dispatched with *"read your `<vertical>` slice from `.wix/seeded.json`"* — the page side reads its slice itself (§ "The `.wix/seeded.json` handoff"). (Image Phase 2's single slice stays inlined.) Subagents read no shared state except their own `.wix/seeded.json` slice (read-only).
+Base prompt fields: `SEED.md` § "Subagent prompt template". Each merged build agent is dispatched with *"read your `<vertical>` slice from `.wix/seeded.json`"* — the page side reads its slice itself (§ "The `.wix/seeded.json` handoff") — and *"read `.wix/design-tokens.css` for the token vocabulary"*; the orchestrator does **not** inline the token block (§ "Styling contract coordination"). (Image Phase 2's single slice stays inlined.) Subagents read no shared state except their own `.wix/seeded.json` slice and the on-disk design-token artifacts (read-only).
 
 **`Instruction file` per loaded vertical** (one merged build agent each, writes components then pages in one dispatch):
 - `stores/INSTRUCTIONS.md` — components + pages (private pages merge; `pages-home-and-nav` is the serialized shell agent)
@@ -104,7 +104,7 @@ Base prompt fields: `SEED.md` § "Subagent prompt template". Each merged build a
 - `DESIGN_SYSTEM.md` — Phase 2 Designer (no Composer subagent — `compose.mjs` writes the six files)
 - `astro/designer/INSTRUCTIONS.md` — page-design spec applied by the merged build agents while writing routes (not a separate dispatch)
 
-Merged build agents receive the full styling-contract JSON inlined — they do not read `.wix/design-tokens.css` + `.wix/site.d.ts` from disk (§ "Styling contract coordination").
+Merged build agents **read `.wix/design-tokens.css` from disk** for the token vocabulary (gate-verified present at § "Step 4.5") — the orchestrator does **not** inline the styling-contract block (§ "Styling contract coordination").
 
 **Every subagent ends with the return contract** (`references/shared/RETURN_CONTRACT.md`); the orchestrator parses each return as it arrives. Put the closing line in the dispatch prompt **verbatim** — it's the only copy a leaf agent is guaranteed to see:
 
@@ -147,7 +147,7 @@ Packs that seeded nothing → `{"<pack>": {"status":"skipped"}}`. Exact per-pack
 
 ONE wave of per-vertical "build" agents, each writing its **components first, then the pages that mount them** — the within-agent write-order replaces the old cross-agent barrier, so the orchestrator never re-enters between components and pages. Image Phase 2 rides this wave. All background.
 
-**Gate (from the seed gate):** `seeded` populated, `.wix/seeded.json` written, bridge run. Verify **both** `.wix/design-tokens.css` **and** `.wix/site.d.ts` exist on disk, and `compose.mjs` wrote `src/layouts/Layout.astro` + `src/styles/global.css`. If a design-tokens file is missing, do not dispatch — surface the path and stop. Read `.wix/design-tokens.css` + `.wix/site.d.ts` once.
+**Gate (from the seed gate):** `seeded` populated, `.wix/seeded.json` written, bridge run. Verify **both** `.wix/design-tokens.css` **and** `.wix/site.d.ts` exist on disk, and `compose.mjs` wrote `src/layouts/Layout.astro` + `src/styles/global.css`. If a design-tokens file is missing, do not dispatch — surface the path and stop. (Each merged build agent reads `.wix/design-tokens.css` itself for the token vocabulary — the orchestrator does **not** read it or inline it into dispatch prompts, which would re-emit the full token block once per agent for no benefit; the cascade reaches components through `global.css`, not the prompt.)
 
 ### Pre-batch (same message, before dispatches) — ALL pre-copies up front
 
@@ -199,7 +199,7 @@ Cross-vertical imports (`stores-home-and-nav` importing `CategoryRail`/`ProductC
 Scopes (write in this order — islands/components FIRST, then pages, and a page-scope that writes a shared component before the page-scope that mounts it): <e.g. components, pages-categories, pages-products>
 Files to own (absolute paths): <union of the scopes' files from the vertical's pack frontmatter>
 Phase 1 Seed data: read your `seeded.<vertical>` slice from `.wix/seeded.json` (written once at the seed gate; do NOT import it into route files — use it to resolve slugs / getStaticPaths / demo content, then query the live SDK at request time). Fail loud (status: "partial", errors:[{code:"SEEDED_JSON_SLICE_MISSING", missing:"seeded.<vertical>"}]) if your slice is absent — do not render an empty page.
-Styling contract: the full styling-contract JSON is inlined above (components do not write CSS — components-<pack>.css is already on disk). .wix/design-tokens.css + .wix/site.d.ts are also on disk (already imported by the build).
+Styling contract: read .wix/design-tokens.css (on disk, gate-verified) for the token vocabulary — it is NOT inlined. Components do not write CSS (components-<pack>.css is already on disk, and global.css supplies the tokens to the build); use the token names only as the var(--token) / Tailwind utility vocabulary your markup references.
 ```
 
 Merged agents MUST NOT:
@@ -226,7 +226,7 @@ Then **Final Message** (`BUILD.md` § "Final Message" — summary + `AGENTS.md` 
 
 ## Styling contract coordination
 
-`.wix/design-tokens.css` + `.wix/site.d.ts` are the coordination artifacts. **`DESIGN.md` is the single source of truth:** the Designer authors it (run-step 0); `emit-design-tokens.mjs` projects the `.wix` artifacts from it; `compose.mjs` reads it to write `global.css` + the other 5 files (run-step 2 bridge). The contract exists before the build wave launches; each merged build agent gets it **inlined** in its prompt (no polling, no disk read).
+`.wix/design-tokens.css` + `.wix/site.d.ts` are the coordination artifacts. **`DESIGN.md` is the single source of truth:** the Designer authors it (run-step 0); `emit-design-tokens.mjs` projects the `.wix` artifacts from it; `compose.mjs` reads it to write `global.css` + the other 5 files (run-step 2 bridge). The contract exists before the build wave launches; each merged build agent **reads `.wix/design-tokens.css` from disk** for the token vocabulary (gate-verified present at § "Step 4.5"). The orchestrator does **not** read it or inline it — inlining re-emits the full token block into every dispatch prompt (~one block per vertical per run) for no benefit, since the token cascade reaches components through `global.css`/`@theme`, not the prompt. The on-disk file is the single read source for the agent's token vocabulary.
 
 ## Build failure modes
 

@@ -1,6 +1,6 @@
 # Phase 3 Components — Ecom (TSX)
 
-This is the **components** portion of the ecom **merged build agent** (the build wave — `BUILD-astro.md` § "Step 4.5"). Your agent writes these islands **first**, then the ecom pages (`cart.astro`, `thank-you.astro`) that mount them. The code here depends on the **design tokens** (inlined in your prompt) but NOT on page markup.
+This is the **components** portion of the ecom **merged build agent** (the build wave — `BUILD-astro.md` § "Step 4.5"). Your agent writes these islands **first**, then the ecom pages (`cart.astro`, `thank-you.astro`) that mount them. The code here depends on the **design tokens** (read from `.wix/design-tokens.css` on disk) but NOT on page markup.
 
 > **CSS is pre-copied, not authored.** `src/styles/components-ecom.css` ships from the skill template, copied by the orchestrator in the build-wave pre-batch (see `./COMPONENTS_CSS.md`). This scope does NOT write the CSS file. Reference its contract class names from the design tokens here; the pre-copied stylesheet defines the rules.
 
@@ -20,7 +20,7 @@ Files this agent MUST NOT touch:
 
 ## Coordination: design tokens
 
-Your parent prompt includes the design tokens inline. Use it directly — do not read `.wix/design-tokens.css` + `.wix/site.d.ts` from disk.
+Read the design tokens from `.wix/design-tokens.css` (on disk, gate-verified present before the wave).
 
 For layout/spacing/typography, compose Tailwind utilities derived from `@theme` tokens at the call site (`<div class="grid grid-cols-1 md:grid-cols-[1fr_22rem] gap-2xl">`). For published global semantic classes (`cart-summary`, `cart-total`, `checkout-btn`, `cart-empty` — the compound + interactive-state patterns), use the ACTUAL class name verbatim. Row-internal class names (`cart-item-qty`, `qty-btn`, etc.) come from the template — keep them as-is and live in `components-ecom.css`. See `references/shared/STYLING.md` and `references/shared/IMPLEMENTER.md` § "Styling: tokens-first, classes as exception".
 
