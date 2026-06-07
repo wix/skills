@@ -66,7 +66,7 @@ PUT https://www.wixapis.com/promote-seo-robots-server/v2/llms
 }
 ```
 
-Do not use `default: true` for custom `llms.txt`; in observed runs it caused `/llms.txt` to return `404`.
+Do not use `default: true` for custom `llms.txt` — setting `default: true` returns `404` for custom `llms.txt` content.
 
 Wix may mutate `llms.txt` content by:
 

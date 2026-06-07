@@ -12,7 +12,7 @@ The pre-approval funnel when `operation === "connect"` (the user brought a finis
 2. **Compose and PRESENT the light plan — as a standalone assistant message.** Render the connect plan (`DISCOVERY-connect.md` § 3): *what I found* (site type + detected regions) and *what I'll connect* (regions to **wire** + the component to **add** + apps to install). The user sees the plan before being asked to approve — do not fold the plan into the approval question.
 3. **Approval gate** — *only after* the plan message has been sent, ask the approval question (`AskUserQuestion`).
 
-**On approval** — `init-site-json.mjs --frontend custom` writes `.wix/site.json` (frontend + inferred capabilities + brand; `frontendBuild` stays in scratch), then **open `BUILD.md`** — it routes Build on `frontendBuild` to `BUILD-own-build.md`:
+**On approval** — hold the contract in scratch (`frontend: custom` + inferred capabilities + brand + `frontendBuild`), then **open `BUILD.md`** — it routes Build on `frontendBuild` to `BUILD-own-build.md`:
 - **`none` (static HTML):** bootstrap cell (`init` + connection plan) → shared Setup (app installs only; **no `env pull`, no per-pack `npm install`**) → shared Seed → wiring cell (inject `<script>`) → **inline no-build release** (`npx @wix/cli@latest release` — no `wix build`).
 - **`own` (framework SPA):** bootstrap cell (`init` over the SPA + connection plan reading source) → shared Setup + **bundled `npm install @wix/sdk`** → shared Seed (incl. the CMS collection a persistence swap targets) → wiring cell (rewrite the source data layer → `@wix/data`) → **the project's own `npm run build`** → release. Never `wix build`.
 

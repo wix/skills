@@ -1,14 +1,14 @@
 # Styling — Three Categories, One Default
 
-Every visual decision in a generated site falls into one of three categories. Each has a single owner and a single home. This file is the canonical reference; `DESIGN_SYSTEM.md` (Designer), `COMPOSE.md` (Composer), `astro/designer/INSTRUCTIONS.md` (Phase 4 page designers), and `IMPLEMENTER.md` link here.
+Every visual decision in a generated site falls into one of three categories. Each has a single owner and a single home. This file is the canonical reference; `DESIGN_SYSTEM.md` (Designer), `scripts/compose.mjs` (Composer — deterministic script, self-documenting), `astro/designer/INSTRUCTIONS.md` (Phase 4 page designers), and `IMPLEMENTER.md` link here.
 
-> **Design-system ownership (the design-vs-application split).** The **Designer** (`DESIGN_SYSTEM.md`) owns the token *values* and their *completeness* — a coherent, complete brand visual returned as a framework-agnostic JSON spec (`data.designTokens`). The **Composer** (`COMPOSE.md`) owns the *application* — it writes the `@theme` block in `global.css` from those values (mapping each semantic role to a `--var` name) and guarantees the required-token contract below resolves. Component and page authors still compose those tokens as Tailwind utilities at their call sites. So: Designer picks "paper = `#FAF6EF`"; Composer writes `--color-paper: #FAF6EF` into `@theme`; a page writes `class="bg-paper"`.
+> **Design-system ownership (the design-vs-application split).** The **Designer** (`DESIGN_SYSTEM.md`) owns the token *values* and their *completeness* — a coherent, complete brand visual authored as a **DESIGN.md** (`data.design`; format spec in `shared/DESIGN_MD.md`). The **Composer** (`scripts/compose.mjs`; self-documenting) owns the *application* — it writes the `@theme` block in `global.css` from those values (mapping each semantic role to a `--var` name) and guarantees the required-token contract below resolves. Component and page authors still compose those tokens as Tailwind utilities at their call sites. So: Designer picks "paper = `#FAF6EF`"; Composer writes `--color-paper: #FAF6EF` into `@theme`; a page writes `class="bg-paper"`.
 
 ## The three categories
 
 | Category | Lives in | Owned by | Use for |
 |---|---|---|---|
-| **Tokens (composed as utilities)** | `@theme` block in `src/styles/global.css`, mirrored to `.wix/design-tokens.css` + `.wix/site.d.ts` (emitted by `scripts/emit-design-tokens.mjs` from Designer's `data.designTokens`) | Designer picks values (Phase 2); Composer writes `@theme` | All color, spacing, typography scale, radii, aspect ratios, shadows, transitions. Pages compose tokens at call sites as Tailwind utilities — `class="py-4xl bg-sand aspect-[16/5]"`. |
+| **Tokens (composed as utilities)** | the canonical `DESIGN.md` + its projections: the `@theme` block in `src/styles/global.css` (written by `scripts/compose.mjs`), plus `.wix/design-tokens.css` and `.wix/site.d.ts` (written by `scripts/emit-design-tokens.mjs`) — all from Designer's `DESIGN.md` | Designer picks values (Phase 2); `compose.mjs` writes `@theme` | All color, spacing, typography scale, radii, aspect ratios, shadows, transitions. Pages compose tokens at call sites as Tailwind utilities — `class="py-4xl bg-sand aspect-[16/5]"`. |
 | **Global semantic classes** | `src/styles/global.css` (outside `@theme`) and `src/styles/components-<pack>.css` | Designer + Phase 3 component agents | Compound multi-element patterns, interactive states (`:hover`, `:focus`, `:disabled`), and JS/React DOM query targets. |
 | **Co-located styles** | `<style>` block at the bottom of the same `.astro` file (or component CSS module for islands) | Page or component author | One-off page decoration: hero stamps, custom dividers, ornamental overlays that won't be reused elsewhere. |
 
@@ -16,7 +16,7 @@ Every visual decision in a generated site falls into one of three categories. Ea
 
 **Tokens-as-utilities is the default.** When you're about to write a class for layout, spacing, typography, alignment, simple background/text color, or aspect ratio, write Tailwind utilities derived from `@theme` instead. The site's design tokens give you `py-4xl`, `gap-sm`, `bg-paper-warm`, `text-ink`, `font-display`, `aspect-[16/5]` etc. Compose them in markup; do not invent semantic classes for these concerns.
 
-The token namespace is the contract. The orchestrator inlines the full `designTokens` JSON in your prompt (same shape Designer returned) — at start of any pages or components scope, read from your prompt to know which tokens this run published. `.wix/design-tokens.css` and `.wix/site.d.ts` are on disk for the build to consume, but you do NOT need to read them. If a token you need isn't in the inlined contract, that's a designer-side gap — flag it in your return JSON, don't paper over it with a custom class.
+The token namespace is the contract. The orchestrator inlines the design tokens (the DESIGN.md token vocabulary — `colors`/`typography`/`spacing`/`rounded`/`containers`) in your prompt — at start of any pages or components scope, read from your prompt to know which tokens this run published. `.wix/design-tokens.css` and `.wix/site.d.ts` are on disk for the build to consume, but you do NOT need to read them. If a token you need isn't in the inlined contract, that's a designer-side gap — flag it in your return JSON, don't paper over it with a custom class.
 
 ## Decision tree
 
@@ -104,25 +104,15 @@ The fix is structural: move component-specific CSS out of `global.css` entirely.
 
 The Phase 3 components agents already write to `components-<pack>.css` (the file is imported by the designer's `Layout.astro` from the start). This change just makes it the *only* place those classes live — no parallel partial rule in `global.css`.
 
-### Why this is structural
-
-Tokens + truly cross-cutting patterns (buttons, decorative slots, site shell) are stable across verticals and brands — fine for the designer to own. Component-specific layout and spacing evolves with the component. Putting it next to the component means:
-
-- One author per class. No drift.
-- Verticals can ship new component variants without round-tripping the designer.
-- `overflow: hidden` + `border-radius` traps are caught by the same person who set the radius — no second author who has to *know* the radius value.
-
 ### Pre-return checklist for the Composer
 
-The Composer writes `global.css` by substituting the `@theme` palette into a pinned skeleton, so the component-class leak below is **structurally prevented** — the skeleton declares no `.product-card`/`.cart-summary`-family rules at all. The check remains as a guard: before returning, confirm the Composer-written `global.css` declares none of these (it shouldn't, unless the skeleton was edited):
+`compose.mjs` writes `global.css` by substituting the `@theme` palette into a pinned skeleton, so this leak is **structurally prevented** — the skeleton declares no `.product-card`/`.cart-summary`-family rules and the script never adds any. The grep below is a maintainer guard for when the skeleton itself is edited; confirm it declares none of these:
 
 ```
-grep -r --include="*.astro" --include="*.tsx" -lE "class(\\Name)?=.*(\\.|\\b)(product-card|product-grid|product-card-media|product-card-ribbon|product-card-index|offer-callout|cart-summary|cart-total|cart-empty|checkout-btn)\\b" $SKILL_ROOT/templates/*/
+grep -r --include="*.astro" --include="*.tsx" -lE "class(\\Name)?=.*(\\.|\\b)(product-card|product-grid|product-card-media|product-card-ribbon|product-card-index|offer-callout|cart-summary|cart-total|cart-empty|checkout-btn)\\b" $SKILL_ROOT/references/astro/templates/*/
 ```
 
-For every class name listed above that the Composer's `global.css` declares: if any template references it, the class is component-specific and must NOT be in `global.css`. Move the rule to the appropriate `components-<pack>.css` template (or to a scoped `<style>` block in the component template). Do NOT ship a partial rule in `global.css` that the template "completes" — that's the leak this file is preventing.
-
-The check is mechanical and bounded — it scans templates, not the live project.
+For any listed class the Composer's `global.css` declares: if a template references it, move the rule to the appropriate `components-<pack>.css` template (or a scoped `<style>` block). Do NOT ship a partial rule in `global.css` that the template "completes".
 
 ## Co-located styles — the locality default for one-offs
 

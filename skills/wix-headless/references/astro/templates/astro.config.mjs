@@ -3,7 +3,7 @@
 // scaffold's generated astro.config.mjs varies (integrations args, image.domains,
 // vite.server settings differ run to run). Composer must NOT overwrite it with
 // this file — it applies exactly two mutations to the scaffold's own config and
-// preserves everything else (see COMPOSE.md § "2. astro.config.mjs"):
+// preserves everything else (see compose.mjs):
 //
 //   (1) register the Tailwind v4 Vite plugin   → vite.plugins: [tailwindcss()]
 //   (2) fix the bare `process.env` reference    → globalThis guard (TS-safe)

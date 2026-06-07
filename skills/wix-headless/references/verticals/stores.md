@@ -26,7 +26,7 @@ disabled: false
 
 Loaded when the user's prompt implies selling products.
 
-> **Discovery contract.** Phase 1 reads only the frontmatter above to compose the plan's Pages table. Phase 2+ implementation (seeding, page composition, theming) lives in an upstream skill plus this skill's own `templates/stores/` + `references/stores/INSTRUCTIONS.md`:
+> **Discovery contract.** Phase 1 reads only the frontmatter above to compose the plan's Pages table. Phase 2+ implementation (seeding, page composition, theming) lives in an upstream skill plus this skill's own `references/astro/templates/stores/` + `references/stores/INSTRUCTIONS.md`:
 >
 > - `@skills/wix-manage` ships the seeding recipes — `references/stores/setup-online-store-catalog-v3.md`, `bulk-create-products-with-options.md`, `create-product-from-image.md`.
 >

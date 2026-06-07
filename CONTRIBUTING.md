@@ -26,8 +26,92 @@ When adding a `wix-manage` skill:
 1. Add the skill markdown under `skills/wix-manage/references/<area>/<skill>.md`.
 2. Add a short entry to the relevant section in `skills/wix-manage/SKILL.md`.
 3. Add the skill to `yaml/wix-manage/<area>/documentation.yaml`.
-4. Include at least one valid EvalForge tag, for example `domains`, `stores`, `bookings`, or another existing tag that matches the skill.
-5. Keep the skill focused on public Wix REST APIs or documented SDK APIs. Do not translate internal gRPC names or internal-only APIs into public skills.
+4. **Add at least one eval scenario** for the skill under `yaml/wix-manage-evals/<area>/<skill>.yml`. See [Adding an Eval Scenario](#adding-an-eval-scenario) below.
+5. Include at least one valid EvalForge tag, for example `domains`, `stores`, `bookings`, or another existing tag that matches the skill.
+6. Keep the skill focused on public Wix REST APIs or documented SDK APIs. Do not translate internal gRPC names or internal-only APIs into public skills.
+
+## Adding an Eval Scenario
+
+Every `wix-manage` skill should have at least one **eval scenario** — a YAML file that describes a realistic user request and how to verify the agent handled it correctly. PRs that modify a skill `.md` without a covering scenario will fail the automated evaluation check.
+
+### Where to put it
+
+Put the scenario under `yaml/wix-manage-evals/<area>/` matching the skill's area in `skills/wix-manage/references/<area>/`. Subfolders are fine.
+
+Each scenario's `name` field must be unique across the whole `yaml/wix-manage-evals/` tree.
+
+### Required fields
+
+| Field | What it is |
+|---|---|
+| `name` | A stable identifier, conventionally `<area>/<skill-name>` (must be lowercase, may contain `/`, `_`, `-`). |
+| `description` | One or two sentences describing what the scenario verifies. |
+| `triggerPrompt` | The natural-language request you'd expect a real user to make. Minimum 10 characters. |
+| `tags` | An array of one or more tags. Must include a production tag for the area (e.g. `[domains]`, `[stores]`, `[bookings]`). |
+| `assertions` | An array of assertions that decide whether the scenario passed. **Every scenario MUST include both a `tool` assertion (proves the skill was invoked) AND an `llm_judge` assertion (proves the response was substantively correct)** — see below. |
+
+### Required assertions
+
+Every scenario must include **both** of the following:
+
+**1. A `tool` assertion on `ReadFullDocsArticle` with the skill's doc URL** — proves the agent actually loaded the skill's content.
+
+```yaml
+- tool: ReadFullDocsArticle
+  params:
+    articleUrl: https://dev.wix.com/docs/api-reference/<...>/skills/<skill-name>
+```
+
+The `articleUrl` must match the doc URL for the skill — built as `<docsEntry>/skills/<filename>` from the skill's entry in `yaml/wix-manage/<area>/documentation.yaml`.
+
+**2. An `llm_judge` assertion** — proves the agent's response was substantively correct, not just that it loaded the docs.
+
+```yaml
+- type: llm_judge
+  minScore: 7
+  prompt: |
+    <Pass/fail criteria specific to this scenario>
+```
+
+Without the `llm_judge`, a scenario passes whenever the agent reads the doc, even if the response is wrong or unhelpful. Without the `tool` assertion, the judge can pass on a fabricated response that never touched the skill at all. You need both.
+
+### Assertion types
+
+You can mix these in a single scenario:
+
+- **`tool`** (required) — proves the agent actually invoked the skill by asserting on the specific tool call that loads the skill's content. Substring matching on string values, so a partial value is OK.
+- **`type: llm_judge`** (required) — an LLM rubric that scores the agent's final response on a 0–10 scale. You write the pass/fail criteria in the `prompt` field.
+- **`type: api_call`** — makes an HTTP request after the scenario runs and validates the response (use for end-to-end checks of state changes).
+- **`type: cost`** — fails if the run exceeded a USD cost ceiling.
+- **`type: time_limit`** — fails if the run exceeded a duration ceiling.
+
+### Example
+
+```yaml
+name: domains/domain-search-and-purchase
+description: Verifies the agent reads the domain-search-and-purchase docs when asked about searching for and purchasing a domain via the Wix API.
+triggerPrompt: How do I programmatically search for an available domain on Wix and then purchase it? Please reference the relevant API methods.
+tags: [domains]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/account-level/domains/skills/domain-search-and-purchase
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user's request: "How do I programmatically search for an available domain on Wix and then purchase it? Please reference the relevant API methods."
+      Intent: surface Wix Domains Management API methods/endpoints for searching availability and purchasing a domain.
+
+      Pass if the response:
+      - mentions specific Wix API endpoints, method names, or REST paths from the Wix Domains Management API for search and/or purchase, AND
+      - describes the high-level flow (search → check availability → purchase) using terminology consistent with the docs.
+
+      Fail if the response:
+      - is generic with no specific endpoints or method names, OR
+      - hallucinates endpoints not in the Wix Domains Management API, OR
+      - describes a different Wix feature (e.g. domain connection rather than purchase).
+```
 
 ## Writing Wix API Skills
 
@@ -41,12 +125,17 @@ For mutating flows, ask for user confirmation before changing site or account da
 
 ## Skill Evaluation
 
-The automated skill evaluation currently runs for PR changes under:
+The automated skill evaluation runs on every PR (against `main`) that touches:
 
 - `skills/wix-manage/references/**`
 - `yaml/wix-manage/**`
+- `yaml/wix-manage-evals/**`
 
-The YAML entry is how a changed skill maps to EvalForge tags and scenarios. If a `wix-manage` skill is not added to `yaml/wix-manage/<area>/documentation.yaml`, it may not be evaluated.
+What it checks, in order:
+
+1. **Coverage.** Every changed `.md` under `skills/wix-manage/references/<area>/` must have at least one scenario under `yaml/wix-manage-evals/<area>/` asserting on its doc URL. PRs missing coverage fail with a comment pointing at the file and the expected URL.
+2. **Schema.** Every scenario YAML under `evals/` must parse against the schema (valid `name`, `triggerPrompt`, `tags`, and a non-empty `assertions` array).
+3. **Execution.** For the covering scenarios, the workflow runs the agent against the PR-version docs and reports pass/fail in a PR comment.
 
 When the workflow runs, it creates an EvalForge MCP capability version that points at the PR:
 
@@ -56,7 +145,7 @@ https://mcp.wix.com/mcp?skillsRepo=wix/skills&skillsPr=<headSha>
 
 That PR override makes the Wix MCP load skill content from the pull request instead of from `main`, so eval scenarios test the proposed skill content.
 
-Use evaluation as a loop, not a one-time check. Review the failures, tighten the skill, and rerun until performance is good enough for the target scenarios.
+Use evaluation as a loop, not a one-time check. Review the failures, tighten the skill or the scenario, and rerun until performance is good enough for the target scenarios.
 
 ## PR Checklist
 
@@ -65,6 +154,8 @@ Before opening a PR, confirm:
 - The content is in the right existing skill. New top-level skills are admin-only.
 - The relevant `SKILL.md` index is updated.
 - Any new `wix-manage` skill is listed in the relevant `yaml/wix-manage/<area>/documentation.yaml`.
+- Any new or modified `wix-manage` skill has at least one covering eval scenario under `yaml/wix-manage-evals/<area>/`.
+- Every eval scenario includes both a `tool` assertion (skill was invoked) and an `llm_judge` assertion (response was substantively correct).
 - Wix API details were checked against official docs through the Wix MCP docs tools, or distilled from a successful agent run.
 - Mutating flows ask for user confirmation before changing site or account data.
 - The skill evaluation workflow is expected to run for the changed files, if applicable.

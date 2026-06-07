@@ -8,7 +8,7 @@ This article seeds backend data. Every loaded pack with a seed recipe gets its o
 
 The recipe map and per-pack input notes are inlined below — **do NOT separately `Read references/seed-recipes.md`**. The Step 1 table here is canonical for the run; `seed-recipes.md` exists only as a human-readable index of the same data, and reading it adds a turn and a thinking gap before the dispatch batch.
 
-From the `verticals` list in orchestrator scratch (captured in Discovery, also persisted to `.wix/site.json`), build the dispatch list. For each loaded pack:
+From the `verticals` list in orchestrator scratch (captured in Discovery), build the dispatch list. For each loaded pack:
 - If the pack has a recipe in the table below (`stores`, `cms`, `blog`, `forms`, `bookings`) → add to the dispatch list.
 - If the pack has no recipe (`gift-cards`, `ecom`) → record a phase entry as `{phase: "seed-<pack>", status: "skipped", notes: "no seed surface for this pack"}` directly. No subagent.
 
@@ -74,7 +74,7 @@ The seeders and Image Phase 1 below are launched as one concurrent background ba
 bash "<SKILL_ROOT>/scripts/seed-utilities.sh" --template astro
 ```
 
-Execute from the **project directory** (scaffold subdir after `cd`). Record `{ phase: "seed-utilities", seconds }` when composing `run.json`. (This is frontend-track project prep, not seeding — custom frontends route to the stub and never reach this article.)
+Execute from the **project directory** (== CWD — the scaffold was flattened in, no subdir). (This is frontend-track project prep, not seeding — custom frontends route to the stub and never reach this article.)
 
 ### Wave 3 dispatch table
 
@@ -92,7 +92,7 @@ For each pack on the dispatch list, dispatch a seeder subagent (`Agent` tool wit
 ### Subagent prompt template
 
 ```
-You are seeding <pack> content into a Wix site as part of the wix-headless skill's Phase 3-Seed.
+You are seeding <pack> content into a Wix site as part of the wix-headless skill's Phase 1 Seed.
 
 Inputs (do not re-derive these — every value is inlined here):
 - brand: <brand JSON — inline from orchestrator scratch>
@@ -101,7 +101,7 @@ Inputs (do not re-derive these — every value is inlined here):
 - recipe path(s): <absolute path(s) joined from <wix-manage-root>>
 - siteId: <siteId — inline from orchestrator scratch>
 
-Do NOT read .wix/site.json — every input you need is inlined above. The orchestrator is the sole reader/writer of site.json.
+Every input you need is inlined above — do not read any shared state file. Read **only** your own `seeded.json` slice (the one read-only exception, per `IMPLEMENTER.md`).
 
 Steps:
 
@@ -135,7 +135,7 @@ Do NOT write coordination files (`.wix/seed-returns/`, sidecars, etc.). The JSON
 
 The subagent decides per-call payloads from `intent.<pack>` + `brand`. The orchestrator does **not** pre-decompose the intent into per-call payloads; that defeats the point of having a subagent read the recipe.
 
-`gift-cards` and `ecom` get their phase entries recorded directly by the orchestrator (no subagent dispatch). The orchestrator records `{phase: "seed-gift-cards", status: "skipped", notes: "no seed surface for this pack"}` etc. into session context, then includes them in the final `run.json`. No files involved.
+`gift-cards` and `ecom` have no seed surface, so the orchestrator dispatches no subagent for them and simply moves on. No files involved.
 
 ### Image Phase 1 Decorative subagent prompt (background)
 
@@ -175,22 +175,22 @@ Every seeder ends its message with a fenced JSON block per `references/shared/RE
 
 **On error:** the subagent's return additionally carries `error: <failing recipe-call response verbatim>`. The orchestrator keeps that field on the entry it holds.
 
-There are no seed-coordination files — agents return JSON inline. Do not write or read `.wix/seed-returns/<pack>.json`; the agent return *is* the contract.
+There are no seed-coordination files **between agents** — seeders return JSON inline, and no seeder writes or reads `.wix/seed-returns/<pack>.json`; the agent return *is* the contract. (This is distinct from `.wix/seeded.json`, which the **orchestrator** writes once at the seed gate from the aggregated returns — not a seeder-authored sidecar. Seeders never touch it; it's a read-only consumer handoff. See Step 4.)
 
 ---
 
 ## Step 4 — Aggregate the seeded map
 
-The seed gate — waiting on seeders + Composer + `npm_handle`, the post-Composer Layout-import verify, and the decorative-slot patch — is owned by the conductor (`BUILD.md`). (For npm install failures, see `SETUP.md § npm install recovery`.) This step defines only the aggregation shape.
+The seed gate — waiting on seeders + `npm_handle`, and the decorative-slot patch — is owned by the conductor (`BUILD.md`). (`compose.mjs` writes the six design-system files synchronously in the Setup-window bridge; there is no Composer subagent to wait on.) (For npm install failures, see `SETUP.md § npm install recovery`.) This step defines only the aggregation shape.
 
-**Aggregate seeder returns in orchestrator context.** Each seeder's return JSON is in your session context (the harness surfaces it when the subagent completes). Build a `seeded` map keyed by pack from those returns and hold it in scratch — Phase 3 Components, Phase 4 Pages, and Image Phase 2 prompts will inline the pack-specific slices.
+**Aggregate seeder returns in orchestrator context.** Each seeder's return JSON is in your session context (the harness surfaces it when the subagent completes). Build a `seeded` map keyed by pack from those returns and hold it in scratch.
 
 For each return:
 - `status: "ok"` — keep the `seeded` payload under `seeded[<pack>]`.
 - `status: "skipped"` — record `seeded[<pack>] = {status: "skipped"}`.
 - `status: "error"` — surface the `error` field verbatim. Do **not** autonomously retry; partial state for other packs is intact, so a targeted re-run is bounded.
 
-No script, no file. The orchestrator is the aggregator.
+**Then write the aggregated map to `.wix/seeded.json` — once, at the gate (the conductor owns the timing; see `BUILD-astro.md` § "4. Seed gate" + § "The `.wix/seeded.json` handoff").** This is the producer→consumer handoff the per-vertical readers (astro Phase 4 Pages, own-build wiring) pull their slice from — the orchestrator no longer inlines `seeded.<vertical>` slices into those prompts. (Image Phase 2 is a single dispatch and keeps its inlined slice.) Exactly one writer, written before any reader is dispatched; it carries seeded entity IDs only. The orchestrator is the aggregator **and** the sole writer of this file.
 
 ---
 
@@ -210,5 +210,5 @@ Adapt the sentence to whichever packs were loaded — drop the irrelevant clause
 | -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | One subagent returns `error`                       | Surface the `error` payload verbatim; do not retry. Other packs' `seeded` data is intact in orchestrator scratch, so a re-run of the failing pack alone is bounded.                     |
 | Subagent return has no fenced JSON block           | Per `RETURN_CONTRACT.md` § "Observed failure mode" — the harness falls back to narrative parsing, which is fragile. Surface the issue; retry the failing seeder once with the same prompt. |
-| Recipe path drifted (Read fails inside a subagent) | The subagent should return `status: "error"` with the Read error in `error`. Surface it; the fix is to update seed-recipes.md, not retry.                                               |
+| Recipe path drifted (Read fails inside a subagent) | The subagent should return `status: "error"` with the Read error in `error`. Surface it; the fix is to correct the recipe path in the Step 1 table (and the wix-manage recipe), not retry.                                               |
 | Bulk product create rate limit                     | The stores recipe documents the limit; the subagent fans out into batches of 5 internally. If it still hits a limit, returns `error`.                                                   |

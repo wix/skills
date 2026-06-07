@@ -4,7 +4,7 @@ description: Creates a form with fields (name, email, etc.) using the Form Schem
 ---
 # RECIPE: Create a Wix Form
 
-> **Standard call shape (every curl below).** The `<AUTH>` placeholder is shorthand for `Authorization: Bearer <TOKEN>` only. Every actual call ALSO needs `wix-site-id: <SITE_ID>` and (for body-bearing requests) `Content-Type: application/json`. **POST against `form-schema-service/v4/forms` returns 403 without `wix-site-id`** — recipe examples below show `<AUTH>` only for brevity, but the header is required on every call you make.
+> **Standard call shape (every curl below).** The `<AUTH>` placeholder is shorthand for `Authorization: Bearer <TOKEN>` only. Body-bearing requests also need `Content-Type: application/json`.
 
 Create a form on a Wix site that appears in the Forms & Submissions dashboard. The form collects visitor information (e.g., name, email) and can automatically upsert contacts on submission.
 
@@ -217,6 +217,7 @@ Verify the form in the dashboard: `https://manage.wix.com/dashboard/{siteId}/for
 - **CRITICAL: The `identifier` must be a recognized Wix value.** Custom identifiers like `"product_name"` or `"color_preference"` will cause the field to be silently dropped from the form — no error is thrown. For any generic/custom text field, use `"TEXT_INPUT"` as the identifier and set the display name via the `label` property in `textInputOptions`.
 - For plain text fields, use `"format": "UNKNOWN_FORMAT"`. For email fields, use `"format": "EMAIL"`. For phone fields, use `"format": "PHONE"`. Valid format values: `UNKNOWN_FORMAT`, `DATE`, `TIME`, `DATE_TIME`, `EMAIL`, `URL`, `UUID`, `PHONE`, `URI`, `HOSTNAME`, `COLOR_HEX`, `CURRENCY`, `LANGUAGE`, `DATE_OPTIONAL_TIME`.
 - The submit button is a `DISPLAY` field with `identifier: "SUBMIT_BUTTON"`.
+- **Build the complete form in one call — do not create throwaway "test" forms to probe field shapes.** A site has a **low form cap (~4 forms)**; iterative probing hits the cap (`maximum number of forms reached`), forcing you to `GET` the form list and `DELETE` the test forms before the real create can succeed. Assemble all fields (including any RADIO_GROUP/DROPDOWN per § "Choice fields") and POST once.
 
 ### Field Types Reference
 
@@ -228,8 +229,53 @@ Verify the form in the dashboard: `https://manage.wix.com/dashboard/{siteId}/for
 | `CONTACTS_EMAIL` | `TEXT_INPUT` | `EMAIL` | Contact email |
 | `CONTACTS_PHONE` | `TEXT_INPUT` | `PHONE` | Contact phone |
 | `SUBMIT_BUTTON` | N/A (`DISPLAY` field) | N/A | Submit button |
+| `TEXT_INPUT` | `RADIO_GROUP` | `UNKNOWN_FORMAT` | Single-choice from a fixed list (radio buttons) — see § "Choice fields" |
+| `TEXT_INPUT` | `DROPDOWN` | `UNKNOWN_FORMAT` | Single-choice from a fixed list (dropdown) — same shape as RADIO_GROUP |
 
 > **Note:** `LONG_TEXT_INPUT` is not supported as a `componentType` via REST — it throws `INVALID_ARGUMENT`. Use `TEXT_INPUT` for all text fields.
+
+### Choice fields (RADIO_GROUP / DROPDOWN)
+
+A single-choice field (radio buttons or a dropdown — e.g. an RSVP "Will you attend?") is a **`STRING` input field**, not a separate field type. It uses `identifier: "TEXT_INPUT"`, `inputType: "STRING"`, and sets `componentType` to `RADIO_GROUP` (or `DROPDOWN`) **inside `stringOptions`**. Two things must agree or the field breaks:
+
+1. **`stringOptions.validation.enum`** must list every option `value` (an empty `enum` is for free-text only).
+2. **`stringOptions.radioGroupOptions.options[]`** carries the rendered choices — each option needs its own **UUID `id`**, a `value`, and a `label`. (For `DROPDOWN`, use `dropdownOptions` with the same `{id, value, label}` shape.)
+
+> **CRITICAL — silent fallback to TEXT_INPUT.** If `radioGroupOptions` is missing/malformed (wrong key like `choices` instead of `options`, an option missing its `id`, or an empty `validation.enum`), the API does **not** error — it silently creates the field as a plain `TEXT_INPUT`. If a choice field renders as a text box, this is why. Build it correctly on the first call; do not probe.
+
+```json
+{
+  "id": "a1b2c3d4-1002-4e00-8001-000000000002",
+  "hidden": false,
+  "identifier": "TEXT_INPUT",
+  "fieldType": "INPUT",
+  "inputOptions": {
+    "target": "attending_0002",
+    "pii": false,
+    "required": true,
+    "inputType": "STRING",
+    "readOnly": false,
+    "stringOptions": {
+      "validation": {
+        "format": "UNKNOWN_FORMAT",
+        "enum": ["Joyfully accepts", "Regretfully declines"]
+      },
+      "componentType": "RADIO_GROUP",
+      "radioGroupOptions": {
+        "label": "Will you attend?",
+        "showLabel": true,
+        "numberOfColumns": "ONE",
+        "options": [
+          { "id": "c3d4e5f6-3001-4a00-8001-000000000001", "value": "Joyfully accepts", "label": "Joyfully accepts" },
+          { "id": "c3d4e5f6-3001-4a00-8001-000000000002", "value": "Regretfully declines", "label": "Regretfully declines" }
+        ]
+      }
+    }
+  }
+}
+```
+
+`numberOfColumns` is a string enum (`"ONE"`, `"TWO"`, `"THREE"`) controlling the radio layout — omit it and the field still works (defaults to one column).
 
 ### Layout
 
@@ -252,6 +298,8 @@ The Wix Forms app (appDefId: `14ce1214-b278-a7e4-1373-00cebd1bef7c`) must be ins
 |---|---|---|
 | `Unrecognized value passed for enum` | Invalid `componentType` value (e.g., `LONG_TEXT_INPUT`) | Use only `componentType` values from the schema: `TEXT_INPUT`, `RADIO_GROUP`, `DROPDOWN`, `DATE_TIME`, `PHONE_INPUT`, `DATE_INPUT`, `TIME_INPUT`, `DATE_PICKER`, `PASSWORD` |
 | Field silently missing from created form | Custom `identifier` value (e.g., `"product_name"`) | Use a recognized identifier like `TEXT_INPUT` and set display name via `label` |
+| Choice field rendered as a plain text box | `radioGroupOptions`/`dropdownOptions` malformed (wrong key, option missing `id`, empty `validation.enum`) — API silently falls back to `TEXT_INPUT` | Match the § "Choice fields" shape exactly: `componentType` in `stringOptions`, `options[]` each with a UUID `id`, and `validation.enum` listing all option values |
+| `maximum number of forms reached` / form-cap error | Sites cap at ~4 forms; reached by creating throwaway test forms | `GET form-schema-service/v4/forms` then `DELETE` the unwanted forms; build the real form in one call (don't probe) |
 | `Permissions for given namespace not found` | `wix.form_app.form` namespace not active | Ensure the Wix Forms app is installed; try creating a form through the UI first to activate the namespace |
 | `missing installed app` | Wix Forms app not installed | Install app `14ce1214-b278-a7e4-1373-00cebd1bef7c` via the [Install Wix Apps](../app-installation/install-wix-apps.md) recipe |
 

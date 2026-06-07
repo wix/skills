@@ -11,7 +11,7 @@
 //   curl -s https://dev.wix.com/skills/wix-headless/scripts/check-manifest.mjs \
 //     | node --input-type=module - <project-dir> <phase> <packs-csv>
 //
-//   <phase> ∈ { "components", "pages" }  (astro scaffold mode)
+//   <phase> ∈ { "components", "pages", "integration" }  (astro scaffold mode; integration = custom frontend)
 //   <packs-csv> = comma-separated pack names (loaded verticals), e.g. "stores,ecom,cms"
 //
 // Integration mode (frontend = "custom") — verify the CONNECTION, not pack files:

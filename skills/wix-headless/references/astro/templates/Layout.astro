@@ -4,17 +4,16 @@
 // and the View Transitions wiring are LITERAL fixed bulk — do not re-author.
 // That script is PLAIN JS on purpose (inline <script> bodies are dep-scanned by
 // esbuild, which is not TS-aware — no generics / `as` / param type annotations).
-// Composer's only substitutions (see COMPOSE.md § "3. Layout.astro"):
+// Composer's only substitutions (compose.mjs):
 //   {{components-css-imports}} — one `import '../styles/components-<pack>.css';`
 //        per pack in "Packs with components" (omit entirely when none).
 //   {{fonts.googleHref}} — the Google Fonts <link> href built from designTokens
 //        .fonts (display + body families). Omit the <link> if fonts are system.
 //   {{brand.name}} — default <title>.
-//   {{stores-nav-script}} — the category-rail / rail-anchor <script>, emitted
-//        ONLY when the `stores` pack is loaded (COMPOSE.md provides the block);
-//        remove the placeholder line entirely otherwise. It is pack-specific
-//        client JS — shipping it on a non-stores site is dead code that also
-//        references routes/selectors that don't exist there.
+//   {{stores-nav-script}} — the category-rail / rail-anchor <script>, emitted by
+//        compose.mjs ONLY when the `stores` pack is loaded; the placeholder line
+//        is removed otherwise. It is pack-specific client JS — shipping it on a
+//        non-stores site is dead code that targets routes/selectors absent there.
 import '../styles/global.css';
 {{components-css-imports}}
 import { ClientRouter } from 'astro:transitions';
