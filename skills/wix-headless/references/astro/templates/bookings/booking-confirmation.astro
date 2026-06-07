@@ -1,7 +1,7 @@
 ---
 // src/pages/booking-confirmation.astro — post-booking confirmation.
 //
-// Shows the REAL booking status (so the user can see it was actually
+// Shows the actual booking status (so the user can see it was actually
 // confirmed/approved — not just an optimistic "you're booked") and lets them
 // cancel inline. It re-fetches the booking with the anonymous action token: the
 // server elevates (app identity) to mint a per-booking token, then reads it with
@@ -68,7 +68,7 @@ const formattedDate = startDate
         <p class="text-lg text-mute leading-relaxed mb-md">
           Your request for <strong class="text-ink">{serviceName}</strong>
           {formattedDate ? <> on <strong class="text-ink">{formattedDate}</strong></> : null} is
-          <strong class="text-ink"> awaiting confirmation</strong>. We'll let you know once it's approved.
+          <strong class="text-ink"> awaiting confirmation</strong>. Return here anytime to check status or cancel below.
         </p>
       ) : formattedDate ? (
         <p class="text-lg text-mute leading-relaxed mb-md">
@@ -84,9 +84,7 @@ const formattedDate = startDate
       )
     }
 
-    {/* Inline cancel (same anonymous-token flow as /manage-booking). The headline
-        + message above already convey the real status (confirmed vs pending), so
-        no cold "Status:" badge — just the warm message + the ability to cancel. */}
+    {/* Inline cancel via ManageBooking (same anonymous-token flow as /manage-booking). */}
     {
       token && bookingId && (
         <div class="mb-xl flex flex-col items-center gap-md">

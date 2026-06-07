@@ -12,7 +12,7 @@ features:
   - name: "Group classes"
     description: "Capacity-aware class sign-up with party size, the leading instructor per session, and a waitlist when a session is full."
   - name: "Manage booking"
-    description: "View and cancel a booking from a confirmation/emailed link, no account login required."
+    description: "View and cancel a booking from the confirmation page or a shared manage link, no account login required."
 
 apps:
   - name: "Wix Bookings"

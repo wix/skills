@@ -26,11 +26,6 @@ export const POST: APIRoute = async ({ request }) => {
       paymentStatus: "NOT_PAID", // pay-on-site reservation
       flowControlSettings: { checkAvailabilityValidation: true },
     });
-    // NOTE (deferred): the client booking-confirmation email is NOT sent by this
-    // flow. On Wix it rides on the eCommerce checkout/Order; a headless
-    // createBooking→confirmBooking (custom checkout) must additionally call
-    // eCommerce Create Order to trigger it. Out of scope for now — add the order
-    // step later if client emails are needed. (Owner alerts fire regardless.)
     return json(true, 200, { status: res.booking?.status });
   } catch (err) {
     console.error("[api/confirm-booking] failed:", err);

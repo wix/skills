@@ -355,7 +355,7 @@ body[data-navigating="true"] .service-grid {
   background: rgba(255, 0, 0, 0.04);
 }
 
-/* ── Slot capacity (CLASS) + full→waitlist (Feature 4) ─────────────────────── */
+/* ── Slot capacity (CLASS) + full→waitlist ─────────────────────────────────── */
 .time-slot {
   display: flex;
   flex-direction: column;
@@ -386,7 +386,7 @@ body[data-navigating="true"] .service-grid {
   margin-top: var(--spacing-xs);
 }
 
-/* ── Manage booking page (Feature 3) ───────────────────────────────────────── */
+/* ── Manage booking page ─────────────────────────────────────────────────────── */
 .manage-booking {
   display: flex;
   flex-direction: column;

@@ -31,7 +31,7 @@ If any declared file is missing, return `status: "partial"` with `errors: [{ cod
 
 ## Templates
 
-Canonical templates live at `<SKILL_ROOT>/references/astro/templates/bookings/`. Your `components` and `pages` scopes **read these and adapt them — don't invent markup or SDK wiring** (the booking/confirm/availability/waitlist wiring is subtle and was verified against a live site; re-authoring from scratch is how the API-shape bugs crept in). Adapt brand copy, headings, and styling; keep the SDK calls and the data flow.
+Canonical templates live at `<SKILL_ROOT>/references/astro/templates/bookings/`. Your `components` and `pages` scopes **read these and adapt them — don't invent markup or SDK wiring** (the booking/confirm/availability/waitlist wiring is subtle and was verified against a live site; re-authoring from scratch is a common source of API-shape bugs). Adapt brand copy, headings, and styling; keep the SDK calls and the data flow.
 
 Components (`components` scope — `.tsx`/`.astro`, no CSS):
 - `…/templates/bookings/ServiceCard.astro`

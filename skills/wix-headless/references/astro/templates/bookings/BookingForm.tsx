@@ -5,7 +5,7 @@ import type { SelectedSlot } from "./AvailabilityCalendar";
 import { WIX_CLIENT_ID } from "astro:env/client"; // browser client ID, NOT import.meta.env
 
 // BookingForm.tsx — client:only="react" island. Renders after a slot is picked.
-// Flow (verified): createBooking → CREATED holds NO seat, so POST the booking to
+// Flow: createBooking → CREATED holds NO seat, so POST the booking to
 // the elevated /api/confirm-booking to occupy it (and validate availability).
 // A full CLASS session throws SESSION_CAPACITY_EXCEEDED whose message carries the
 // v1 session id → register on the native waitlist via /api/waitlist.

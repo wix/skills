@@ -305,7 +305,6 @@ const isPending = status === 'PENDING' || status === 'PENDING_APPROVAL';
 ```
 
 > **Two different `elevate`s, don't conflate them:** `@wix/essentials` `auth.elevate(fn)` works in `@wix/astro` SSR (used here to mint the token and across the listing/detail/CMS pages); the unavailable one is `wixClient.auth.elevate` (the instance method on a hand-built `createClient({ auth: OAuthStrategy(...) })`).
-> **No email is sent** by this flow (client confirmation emails are deferred — see `api/confirm-booking.ts`), so the on-page status + cancel IS the user's confirmation. Don't claim "a confirmation email is on its way."
 
 ### Template
 
