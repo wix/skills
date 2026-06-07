@@ -1,0 +1,111 @@
+---
+// src/pages/booking-confirmation.astro — post-booking confirmation.
+//
+// Shows the actual booking status (so the user can see it was actually
+// confirmed/approved — not just an optimistic "you're booked") and lets them
+// cancel inline. It re-fetches the booking with the anonymous action token: the
+// server elevates (app identity) to mint a per-booking token, then reads it with
+// the no-auth `bookingsGetBookingAnonymously`. Falls back to the redirect params
+// if the lookup fails. Cancel is handled by the same <ManageBooking> island used
+// on /manage-booking.
+import Layout from "../layouts/Layout.astro";
+import ManageBooking from "../components/ManageBooking";
+import { auth } from "@wix/essentials";
+import { bookings } from "@wix/bookings";
+
+const bookingId = Astro.url.searchParams.get("bookingId");
+const startDateParam = Astro.url.searchParams.get("startDate");
+const serviceParam = Astro.url.searchParams.get("service") ?? "your service";
+
+let token: string | null = null;
+let booking: any = null;
+let canCancel = false;
+if (bookingId) {
+  try {
+    const tokenRes = await auth.elevate(bookings.getAnonymousActionToken)(bookingId);
+    token = tokenRes.token ?? null;
+    if (token) {
+      const res = await bookings.bookingsGetBookingAnonymously(token);
+      booking = res.booking ?? null;
+      canCancel = !!res.allowedAnonymousActions?.cancel;
+    }
+  } catch (err) {
+    console.error("[booking-confirmation] status lookup failed:", err);
+  }
+}
+
+const status = (booking?.status as string | undefined) ?? null; // CONFIRMED | PENDING | …
+const isPending = status === "PENDING" || status === "PENDING_APPROVAL";
+const serviceName = booking?.bookedEntity?.title ?? serviceParam;
+const startDate =
+  (booking?.startDate as string | undefined) ??
+  booking?.bookedEntity?.slot?.startDate ??
+  startDateParam ??
+  null;
+const revision = (booking?.revision as string | undefined) ?? "";
+const formattedDate = startDate
+  ? new Date(startDate).toLocaleString("en-US", {
+      weekday: "long", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit",
+    })
+  : null;
+---
+
+<!-- `max-w-prose` (built-in literal = 65ch), not a bare max-w-<size> that could
+     collapse to the spacing scale. -->
+<Layout title={isPending ? "Booking received" : "Booking confirmed"}>
+  <section class="max-w-prose mx-auto px-lg py-4xl text-center">
+    <div class="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-xl"
+         style="background-color: var(--color-ink);" aria-hidden="true">
+      <span class="text-2xl" style="color: var(--color-paper);">{isPending ? "⏳" : "✓"}</span>
+    </div>
+    <hr class="editorial-rule w-16 mx-auto mb-lg" />
+    <h1 class="font-display text-4xl md:text-5xl leading-tight mb-md">
+      {isPending ? "Booking received" : "Thank you for booking"}
+    </h1>
+
+    {
+      isPending ? (
+        <p class="text-lg text-mute leading-relaxed mb-md">
+          Your request for <strong class="text-ink">{serviceName}</strong>
+          {formattedDate ? <> on <strong class="text-ink">{formattedDate}</strong></> : null} is
+          <strong class="text-ink"> awaiting confirmation</strong>. Return here anytime to check status or cancel below.
+        </p>
+      ) : formattedDate ? (
+        <p class="text-lg text-mute leading-relaxed mb-md">
+          Your spot in <strong class="text-ink">{serviceName}</strong> is <strong class="text-ink">confirmed</strong> for{" "}
+          <strong class="text-ink">{formattedDate}</strong>.
+        </p>
+      ) : bookingId ? (
+        <p class="text-lg text-mute leading-relaxed mb-md">
+          Your spot in <strong class="text-ink">{serviceName}</strong> is <strong class="text-ink">confirmed</strong>.
+        </p>
+      ) : (
+        <p class="text-lg text-mute leading-relaxed mb-md">Looking to book? Browse our services.</p>
+      )
+    }
+
+    {/* Inline cancel via ManageBooking (same anonymous-token flow as /manage-booking). */}
+    {
+      token && bookingId && (
+        <div class="mb-xl flex flex-col items-center gap-md">
+          <ManageBooking
+            token={token}
+            revision={revision}
+            serviceName={serviceName}
+            startDate={startDate}
+            status={status}
+            canCancel={canCancel}
+            showSummary={false}
+            client:only="react"
+          />
+        </div>
+      )
+    }
+
+    <div class="flex flex-col gap-md items-center">
+      <a href="/services" class="inline-block font-display text-base px-xl py-md rounded-sm"
+         style="background-color: var(--color-ink); color: var(--color-paper);">Browse more services</a>
+      <a href="/" class="text-sm text-mute hover:text-ink">Return home</a>
+    </div>
+  </section>
+</Layout>
