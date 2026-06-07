@@ -52,9 +52,11 @@ The user just approved; the contract lives in scratch — no disk snapshot — a
 
 ### connect × none
 
+**Normalize the entry HTML to `index.html` FIRST — before dispatching the connection plan.** Wix static hosting serves `index.html` at the site root (`/`); an entry under any other name publishes but the live root URL has no document to serve and errors at runtime — a failure `release` does **not** catch (it only confirms the upload). So as the first action of this cell, if the entry HTML is not named `index.html`, rename it (`mv "<entry>.html" index.html`) and fix any internal references to the old name. Doing this before the connection plan keeps the binding map, the wiring cell, and `outputDirectory` all keyed on `index.html`.
+
 **Connection plan (background) + init (foreground), as the entry batch:**
-- **Connection plan** — dispatch one subagent with Instruction file `<SKILL_ROOT>/references/custom/CONNECTION_PLAN.md`; inline the site's file list + inferred capabilities (from the contract's operation section / Discovery scratch). Capture `connplan_handle`. It returns the binding map + augmentation spec (JSON).
-- **Init** — `npm create @wix/new@latest init` in the project dir (foreground; non-interactive when logged in). Then **fix `wix.config.json.site.outputDirectory`** to the dir holding the entry HTML (init defaults it to `./dist`), and hold `siteId`/`appId` in scratch (durable source: `wix.config.json`) (`SETUP.md` Step 1 shape). Init registers the OAuth app's `allowedDomains` for the published origin — **no separate OAuth call needed.**
+- **Connection plan** — dispatch one subagent with Instruction file `<SKILL_ROOT>/references/custom/CONNECTION_PLAN.md`; inline the site's file list (now keyed on `index.html`) + inferred capabilities (from the contract's operation section / Discovery scratch). Capture `connplan_handle`. It returns the binding map + augmentation spec (JSON).
+- **Init** — `npm create @wix/new@latest init` in the project dir (foreground; non-interactive when logged in). Then **fix `wix.config.json.site.outputDirectory`** to the dir holding the (now-`index.html`) entry HTML (init defaults it to `./dist`), and hold `siteId`/`appId` in scratch (durable source: `wix.config.json`) (`SETUP.md` Step 1 shape). Init registers the OAuth app's `allowedDomains` for the published origin — **no separate OAuth call needed.**
 
 ### connect × own
 
@@ -141,9 +143,11 @@ The `imagery` flag (`"ai-generated"` | `"themed-blocks"`, captured in `DISCOVERY
 
 Apply the **shared release tail** (`BUILD.md` § "Shared release tail"). Step 1 (build) is **framework-keyed**:
 
-**`none`** — no build; the HTML is the deployable. Run release directly:
+**`none`** — no build; the HTML is the deployable. **Before releasing, confirm the entry HTML in `outputDirectory` is `index.html`** (the bootstrap rename in connect × none — re-verify here, because a non-`index.html` entry publishes "successfully" yet the live root URL errors at runtime, and `release` won't flag it). Then run release directly:
 
 ```bash
+test -f "$(node -p "require('./wix.config.json').site.outputDirectory")/index.html" \
+  || { echo "FAIL: no index.html in outputDirectory — rename the entry HTML before release"; exit 1; }
 npx @wix/cli@latest release 2>&1   # parse `Site published on <url>`; NO `wix build` first
 ```
 

@@ -16,7 +16,7 @@ Every visual decision in a generated site falls into one of three categories. Ea
 
 **Tokens-as-utilities is the default.** When you're about to write a class for layout, spacing, typography, alignment, simple background/text color, or aspect ratio, write Tailwind utilities derived from `@theme` instead. The site's design tokens give you `py-4xl`, `gap-sm`, `bg-paper-warm`, `text-ink`, `font-display`, `aspect-[16/5]` etc. Compose them in markup; do not invent semantic classes for these concerns.
 
-The token namespace is the contract. The orchestrator inlines the design tokens (the DESIGN.md token vocabulary — `colors`/`typography`/`spacing`/`rounded`/`containers`) in your prompt — at start of any pages or components scope, read from your prompt to know which tokens this run published. `.wix/design-tokens.css` and `.wix/site.d.ts` are on disk for the build to consume, but you do NOT need to read them. If a token you need isn't in the inlined contract, that's a designer-side gap — flag it in your return JSON, don't paper over it with a custom class.
+The token namespace is the contract. The design tokens (the DESIGN.md token vocabulary — `colors`/`typography`/`spacing`/`rounded`/`containers`) live on disk at `.wix/design-tokens.css` (gate-verified present before the build wave) — **read that file at the start of any pages or components scope** to know which tokens this run published. The orchestrator does **not** inline them in your prompt. (`.wix/site.d.ts` is also on disk for the build.) If a token you need isn't in `.wix/design-tokens.css`, that's a designer-side gap — flag it in your return JSON, don't paper over it with a custom class.
 
 ## Decision tree
 

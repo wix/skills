@@ -20,7 +20,7 @@ You own **page-level visual output**: the layout, typography, color, spacing, an
 ## Self-Loading
 
 1. Read `../../shared/RETURN_CONTRACT.md` — structured return format.
-2. Read `../../shared/STYLING.md` — three styling categories (tokens-as-utilities, global semantic classes, co-located styles). Pages compose `@theme` tokens at call sites as Tailwind utilities; the inlined design-token vocabulary (the DESIGN.md tokens) in your prompt tells you which tokens this run published.
+2. Read `../../shared/STYLING.md` — three styling categories (tokens-as-utilities, global semantic classes, co-located styles). Pages compose `@theme` tokens at call sites as Tailwind utilities; the design-token vocabulary on disk at `.wix/design-tokens.css` tells you which tokens this run published.
 
 No REST calls required. Page-design scopes are frontend-only — no `curl`, no MCP tool-discovery.
 
