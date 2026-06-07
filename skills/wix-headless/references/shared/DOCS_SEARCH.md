@@ -11,7 +11,7 @@ Operational calls in this skill use `npx @wix/cli@latest token --site "$SITE_ID"
 | Read method schema | Same URL with `schema=true` |
 | Browse REST docs menu | `GET https://dev.wix.com/docs/api/v1/get-menu-content?url=<url>&format=markdown` |
 
-**kbName values** (common): `REST_METHODS_KB_ID`, `SDK_KB_ID`, `HEADLESS_KB_ID`.
+**kbName values** (common): `REST_METHODS_KB_ID`, `SDK_METHODS_KB_ID`, `HEADLESS_KB_ID`. For SDK guide articles (not method reference) use `SDK_DOCS_KB_ID`.
 
 Example — search REST docs for app install:
 
