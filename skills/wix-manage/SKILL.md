@@ -108,7 +108,7 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 
 ## eCommerce
 
-**Routing structure** (rules + format in the `wix-skills-routing-expert` Claude Code skill — repo `ecom-ai-agents/.claude/skills/`): Each L2 category has a sibling `<category>.md` (README-surfaced description) + a `<category>/` folder with the dispatcher + promotion files. The migrated eCommerce L2 categories are **Tax**, **Pricing & promotions**, **Shipping**, **Checkout & cart**, **Abandoned carts**, and **Fulfillment**.
+**Routing structure** (rules + format in the `wix-skills-routing-expert` Claude Code skill — repo `ecom-ai-agents/.claude/skills/`): Each L2 category has a sibling `<category>.md` (README-surfaced description) + a `<category>/` folder with the dispatcher + promotion files. The migrated eCommerce L2 categories are **Tax**, **Pricing & promotions**, **Shipping**, **Checkout & cart**, **Abandoned carts**, **Fulfillment**, and **Orders**.
 
 **L1 context loader (per L1 domain, sibling to category-docs):**
 

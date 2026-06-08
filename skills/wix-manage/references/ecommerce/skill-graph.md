@@ -1,6 +1,6 @@
 ---
 name: "eCommerce Skill Graph"
-description: Mermaid diagram of the eCommerce routing tree - WixREADME to category entry, promotion, and support files. Tax, Pricing, Shipping, Checkout, Abandoned Carts, and Fulfillment are migrated.
+description: Mermaid diagram of the eCommerce routing tree - WixREADME to category entry, promotion, and support files. Migrated categories: Tax, Pricing, Shipping, Checkout, Abandoned Carts, Fulfillment, and Orders.
 ---
 
 ## Skill Graph Diagram
@@ -15,6 +15,7 @@ flowchart TB
     README --> CHECKOUT
     README --> ABANDONED
     README --> FULFILL
+    README --> ORDERS
 
     LOADER["ecom-load-context.md<br/>(L1 loader - general site data;<br/>loaded by each category before dispatch)"]
     TAX -.-> |load context| LOADER
@@ -23,6 +24,7 @@ flowchart TB
     CHECKOUT -.-> |load context| LOADER
     ABANDONED -.-> |load context| LOADER
     FULFILL -.-> |load context| LOADER
+    ORDERS -.-> |load context| LOADER
 
     subgraph TAX["Tax - tax/"]
         direction TB
@@ -94,6 +96,15 @@ flowchart TB
         FDEF ~~~ FO ~~~ FB ~~~ FL ~~~ FI
     end
 
+    subgraph ORDERS["Orders - orders/"]
+        direction TB
+        ODEF["ecom-orders - category-doc + dispatcher"]
+        OC["ecom-orders-cancel-order"]
+        OS["search / get / counts / pending -> Orders API (main-file routes)"]
+        OH["approve · return · manual-order · contact · notifications -> Dashboard / unverified"]
+        ODEF ~~~ OC ~~~ OS ~~~ OH
+    end
+
     classDef dispatcher fill:#f59e0b,stroke:#d97706,color:#fff
     classDef promotion fill:#3b82f6,stroke:#2563eb,color:#fff
     classDef orchestrator fill:#ec4899,stroke:#db2777,color:#fff
@@ -101,12 +112,12 @@ flowchart TB
     classDef loader fill:#10b981,stroke:#059669,color:#fff
     classDef legacy fill:#6b7280,stroke:#4b5563,color:#fff
 
-    class TAXDEF,PRICEDEF,SHIPDEF,CHKDEF,ACDEF,FDEF dispatcher
-    class TC,TA,TV,TS,TU,TT,PC,PD,PB,PH,SR,SG,SP,SF,SO,SX,CR,CT,CA,CH,AR,AL,AT,AH,FO,FB promotion
+    class TAXDEF,PRICEDEF,SHIPDEF,CHKDEF,ACDEF,FDEF,ODEF dispatcher
+    class TC,TA,TV,TS,TU,TT,PC,PD,PB,PH,SR,SG,SP,SF,SO,SX,CR,CT,CA,CH,AR,AL,AT,AH,FO,FB,OC promotion
     class PR orchestrator
     class PG,PF,PV,SS,FI support
     class LOADER loader
-    class CD,FL legacy
+    class CD,FL,OS,OH legacy
 ```
 
 The arrows land on each L2 group. Internal dispatch and support chains are documented in the reachability table below.
@@ -153,3 +164,7 @@ The arrows land on each L2 group. Internal dispatch and support chains are docum
 | `fulfillment/ecom-fulfillment-bulk-fulfill-orders.md` | promotion | fulfillment dispatch `[intent:bulk-fulfill]` |
 | (shipping labels) | Dashboard | fulfillment dispatch `[intent:shipping-labels]`; no public API route in this repo |
 | (invoice / packing slip) | API route | fulfillment dispatch `[intent:order-invoice]`; eCommerce Orders Invoice API |
+| `ecom-orders.md` | category-doc + dispatcher | WixREADME portal index; order lookup + lifecycle routing |
+| `orders/ecom-orders-cancel-order.md` | promotion | orders dispatch `[intent:cancel-order]` — `POST /ecom/v1/orders/{id}/cancel` |
+| (search / get / counts / pending) | API route | orders main-file routes — `POST /ecom/v1/orders/search`, `GET /ecom/v1/orders/{id}` |
+| (approve / return / manual-order / contact / notifications) | Dashboard / unverified | orders handoffs — not authored as skills until the public method is verified |
