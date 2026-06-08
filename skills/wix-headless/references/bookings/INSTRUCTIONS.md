@@ -77,6 +77,8 @@ If `global.css` ships a partial rule for any class above, flag it in your return
 | Use Services V1 API endpoint (`/bookings/v1/catalog/services`) | Services V2 is at `POST https://www.wixapis.com/_api/bookings/v2/services`. V1 has a different (nested `info.*`) payload shape. |
 | Nest service fields under `info` (`info.name`, `info.description`) | V2 uses flat fields: `name`, `description`, `tagLine` at the top level of the `service` object. |
 | Use `payment.fixed.price.amount` | V2 uses `payment.fixed.price.value` (a string like `"75.00"`). `amount` is the V1 field name. |
+| Show no price badge for `NO_FEE` services | `NO_FEE` is explicitly free — display `"Free"`, not nothing. Returning `undefined` for `NO_FEE` leaves the price row blank, which looks like missing data. |
+| Show no price badge for `VARIED` or `CUSTOM` services | `VARIED` → display `"Varies"` (the exact variant prices require a separate `serviceOptionsAndVariants` query — safe to skip on a listing page). `CUSTOM` → display `service.payment.custom.description` (e.g. `"Donation"`, `"Contact us for pricing"`). Falling through to `undefined` silently drops the price row for both. |
 | Omit `defaultCapacity` when creating a service | Required in V2. Set to `1` for APPOINTMENT; use participant count for CLASS. |
 | Omit `onlineBooking` when creating a service | Required in V2. At minimum `{ "enabled": true }`. |
 | Omit `sessionDurations` for an APPOINTMENT service | Required for APPOINTMENT: `schedule.availabilityConstraints.sessionDurations: [<minutes as int>]`. Do NOT specify for CLASS. |
