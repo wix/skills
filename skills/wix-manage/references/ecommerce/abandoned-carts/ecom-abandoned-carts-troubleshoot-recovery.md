@@ -77,7 +77,7 @@ If emails send and links work but recovery is low:
 - Check timing. One hour after abandonment is usually a good first send.
 - Check whether cart contents render in the message.
 - Check whether shipping cost, payment failure, or tax surprises caused the abandonment.
-- If abandonment is rising broadly, route to [Recovery Health Monitor](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-abandoned-carts-recovery-health) or checkout troubleshooting.
+- If abandonment is rising broadly, route to [Recovery Health Monitor](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/abandoned-carts-recovery-health) or checkout troubleshooting.
 
 ## Response shape
 

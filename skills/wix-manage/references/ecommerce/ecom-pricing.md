@@ -12,41 +12,41 @@ Discount rules, coupon codes, sales, ribbons, bundles, tiered pricing, and the s
 - A standing $0 shipping option/region rate → see **Shipping & fulfillment**.
 - Refunding a previous discounted order → route to verified Get Paid/payment docs or Dashboard guidance.
 
-> **Before dispatching** — confirm MerchantContext is loaded. If `siteData.country` is not in your conversation context, load it via [Load Merchant Context](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-load-context). Skip if already loaded.
+> **Before dispatching** — confirm MerchantContext is loaded. If `siteData.country` is not in your conversation context, load it via [Load Merchant Context](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/e-commerce-load-context). Skip if already loaded.
 >
 > **Promotion dispatch.** Score each entry below by (a) the merchant's query → `intent:*` tags, (b) MerchantContext → context tags. Load the **highest-scoring** entry. Ties → highest `priority`. No match → follow the base recipe at the bottom.
 
 ### Actions — concrete operations
 
-> - [Create coupon](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-create-coupon) — tags: `[intent:create-coupon]` · priority 0
-> - [Create discount rule (auto-apply)](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-create-discount-rule) — tags: `[intent:create-discount-rule]` · priority 0
-> - [Add sale ribbon / new ribbon](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-create-discount-rule) — tags: `[intent:add-ribbon]` · priority 0 · *ribbons are configured via Discount Rules; same recipe*
-> - [Schedule a future sale](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-create-discount-rule) — tags: `[intent:schedule-sale]` · priority 0 · *uses Discount Rules with `startTime` in the future*
+> - [Create coupon](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-coupon) — tags: `[intent:create-coupon]` · priority 0
+> - [Create discount rule (auto-apply)](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-discount-rule) — tags: `[intent:create-discount-rule]` · priority 0
+> - [Add sale ribbon / new ribbon](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-discount-rule) — tags: `[intent:add-ribbon]` · priority 0 · *ribbons are configured via Discount Rules; same recipe*
+> - [Schedule a future sale](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-discount-rule) — tags: `[intent:schedule-sale]` · priority 0 · *uses Discount Rules with `startTime` in the future*
 
 ### Business flows — the orchestrator
 
 The single business-flow orchestrator (today's `recommend-ecommerce-strategy`, renamed/moved to `ecom-pricing-run-a-sale`) handles all strategic discount intents. It classifies internally (SEASONAL / UPSELL_BOOST / STOCK_MOVER / BUNDLE_AND_SAVE / ABANDONED_CART) and loads its `goal-*` / `flow-*` support files (flat siblings in this folder) from there.
 
-> - [Run a sale / promotion strategy](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-run-a-sale) — tags: `[intent:run-a-sale]` · priority 0
-> - [Boost my business / increase sales](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-run-a-sale) — tags: `[intent:boost-business]` · priority 0
-> - [Seasonal / holiday promotion](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-run-a-sale) — tags: `[intent:seasonal-promo]` · priority 0
-> - [Clearance / move slow stock](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-run-a-sale) — tags: `[intent:clearance]` · priority 0
-> - [Increase AOV (bundle / upsell)](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-run-a-sale) — tags: `[intent:increase-aov]` · priority 0
+> - [Run a sale / promotion strategy](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-run-a-sale-recommend-e-commerce-strategy) — tags: `[intent:run-a-sale]` · priority 0
+> - [Boost my business / increase sales](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-run-a-sale-recommend-e-commerce-strategy) — tags: `[intent:boost-business]` · priority 0
+> - [Seasonal / holiday promotion](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-run-a-sale-recommend-e-commerce-strategy) — tags: `[intent:seasonal-promo]` · priority 0
+> - [Clearance / move slow stock](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-run-a-sale-recommend-e-commerce-strategy) — tags: `[intent:clearance]` · priority 0
+> - [Increase AOV (bundle / upsell)](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-run-a-sale-recommend-e-commerce-strategy) — tags: `[intent:increase-aov]` · priority 0
 
 ### Info / troubleshoot / recommendation
 
-> - [Discount not applying — diagnose](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-troubleshoot-not-applying) — tags: `[intent:troubleshoot]` · priority 0
+> - [Discount not applying — diagnose](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-discount-not-applying) — tags: `[intent:troubleshoot]` · priority 0
 > - [View active discounts (Coupons API)](https://dev.wix.com/docs/api-reference/business-solutions/coupons/coupons/query-coupons) — tags: `[intent:view-active-discounts]` · priority 0 · **API doc, no skill** (per §7.5)
 > - [View active discounts (Discount Rules API)](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/discount-rules/query-discount-rules) — tags: `[intent:view-active-rules]` · priority 0 · **API doc, no skill**
 > - [Coupon usage stats](https://dev.wix.com/docs/api-reference/business-solutions/coupons/coupons/get-coupon-usage) — tags: `[intent:coupon-usage-stats]` · priority 0 · **API doc, no skill**
-> - [Pricing & discount health (periodic review)](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-health) — tags: `[intent:pricing-health]` · priority 0 · *sweep active rules/coupons for conflicts, stale sales, margin erosion*
+> - [Pricing & discount health (periodic review)](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-discount-health) — tags: `[intent:pricing-health]` · priority 0 · *sweep active rules/coupons for conflicts, stale sales, margin erosion*
 > - Competitive pricing check (how do my prices compare?) — tags: `[intent:competitive-pricing]` · *no Wix API for competitor data — advise the merchant to benchmark externally (Google Shopping / market research); Wix only exposes their own catalog prices via Catalog API*
 
 ### Cross-category routes (handled in another category)
 
 > - [Change product price](https://dev.wix.com/docs/api-reference/business-solutions/stores/products-v3/update-product) — tags: `[intent:change-price]` · *price is a product field — Catalog API*
 > - [Set compare-at price](https://dev.wix.com/docs/api-reference/business-solutions/stores/products-v3/update-product) — tags: `[intent:set-compare-at]` · *Catalog*
-> - [Free shipping over $X (promo rule)](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-create-discount-rule) — tags: `[intent:free-shipping-promo]` · *belongs here as a promo rule; a $0 shipping rate is Shipping*
+> - [Free shipping over $X (promo rule)](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-discount-rule) — tags: `[intent:free-shipping-promo]` · *belongs here as a promo rule; a $0 shipping rate is Shipping*
 
 ## Tag matching
 

@@ -4,7 +4,7 @@ description: Detects active delivery regions with zero shipping options and crea
 ---
 # Flow: Fix Shipping Coverage Gaps
 
-> **Before executing this skill**, read [Setup: Shipping Regions](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-shipping-setup-regions) with `ReadFullDocsArticle` for region/carrier mechanics.
+> **Before executing this skill**, read [Setup: Shipping Regions](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping-set-up-regions) with `ReadFullDocsArticle` for region/carrier mechanics.
 
 ## Shipping health score (inline)
 
@@ -32,9 +32,9 @@ Detects delivery regions where customers cannot see any shipping options at chec
 
 ## Required APIs
 
-- [Query Delivery Profiles](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-shipping-api#query-delivery-profiles)
-- [Query Shipping Options](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-shipping-api#query-shipping-options)
-- [Create Shipping Option](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-shipping-api#create-shipping-option)
+- [Query Delivery Profiles](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping-api-reference#query-delivery-profiles)
+- [Query Shipping Options](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping-api-reference#query-shipping-options)
+- [Create Shipping Option](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping-api-reference#create-shipping-option)
 
 ---
 
@@ -302,4 +302,4 @@ Use the same request from Step 2 and verify the count now covers all active, non
 
 ## References
 
-- [API: Shipping Delivery](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-shipping-api)
+- [API: Shipping Delivery](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping-api-reference)

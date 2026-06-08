@@ -4,7 +4,7 @@ description: Analyzes catalog price distribution and current rate structure to r
 ---
 # Flow: Optimize Shipping Rates
 
-> **Before executing this skill**, read [Setup: Shipping Rates](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-shipping-setup-rates) with `ReadFullDocsArticle` for the rate-object mechanics.
+> **Before executing this skill**, read [Setup: Shipping Rates](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping-set-up-rates) with `ReadFullDocsArticle` for the rate-object mechanics.
 
 ## Rate pricing sanity (inline guardrail)
 
@@ -30,9 +30,9 @@ Analyzes the site's catalog price distribution and current shipping rate structu
 
 ## Required APIs
 
-- [Query Shipping Options](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-shipping-api#query-shipping-options)
-- [Update Shipping Option](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-shipping-api#update-shipping-option)
-- [Create Shipping Option](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-shipping-api#create-shipping-option)
+- [Query Shipping Options](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping-api-reference#query-shipping-options)
+- [Update Shipping Option](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping-api-reference#update-shipping-option)
+- [Create Shipping Option](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping-api-reference#create-shipping-option)
 
 ---
 
@@ -363,4 +363,4 @@ Verify:
 
 ## References
 
-- [API: Shipping Delivery](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-shipping-api)
+- [API: Shipping Delivery](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping-api-reference)

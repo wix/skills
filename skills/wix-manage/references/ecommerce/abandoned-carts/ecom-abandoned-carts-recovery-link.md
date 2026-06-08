@@ -5,7 +5,7 @@ description: Generates a one-click recovery link for an abandoned checkout using
 
 # Generate a Recovery Link
 
-Use this when the merchant wants a one-off link that returns a shopper to the checkout they abandoned. For recurring automated emails, use [Recover Abandoned Carts via Email](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-abandoned-carts-recover-email).
+Use this when the merchant wants a one-off link that returns a shopper to the checkout they abandoned. For recurring automated emails, use [Recover Abandoned Carts via Email](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/abandoned-carts-recover-via-email).
 
 Merchants often say "abandoned cart"; the API entity is **Abandoned Checkout**.
 

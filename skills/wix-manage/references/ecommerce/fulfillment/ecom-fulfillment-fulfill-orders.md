@@ -14,7 +14,7 @@ Create and manage order fulfillments via the **Order Fulfillments API** (TPA-pub
 - List for an order: `GET https://www.wixapis.com/ecom/v1/fulfillments/orders/{orderId}`
 - Search/get order first when the merchant provides an order number instead of an order ID.
 
-For many orders at once, use [Bulk Fulfill Orders](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-fulfillment-bulk-fulfill-orders).
+For many orders at once, use [Bulk Fulfill Orders](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/fulfillment-bulk-fulfill-orders).
 
 ## API constraints from public docs
 

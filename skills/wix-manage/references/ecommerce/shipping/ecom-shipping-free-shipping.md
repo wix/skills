@@ -4,7 +4,7 @@ description: Creates a free shipping option with an AOV-calibrated threshold to 
 ---
 # Flow: Add Free Shipping
 
-> **Before executing this skill**, read [Setup: Shipping Rates](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-shipping-setup-rates) with `ReadFullDocsArticle` for the rate-object mechanics.
+> **Before executing this skill**, read [Setup: Shipping Rates](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping-set-up-rates) with `ReadFullDocsArticle` for the rate-object mechanics.
 
 ## Rate pricing sanity (inline guardrail)
 
@@ -30,10 +30,10 @@ Adds a free shipping option with an optimal threshold calibrated against the sit
 
 ## Required APIs
 
-- [Query Shipping Options](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-shipping-api#query-shipping-options)
-- [Create Shipping Option](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-shipping-api#create-shipping-option)
-- [Update Shipping Option](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-shipping-api#update-shipping-option)
-- [Query Delivery Profiles](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-shipping-api#query-delivery-profiles)
+- [Query Shipping Options](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping-api-reference#query-shipping-options)
+- [Create Shipping Option](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping-api-reference#create-shipping-option)
+- [Update Shipping Option](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping-api-reference#update-shipping-option)
+- [Query Delivery Profiles](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping-api-reference#query-delivery-profiles)
 
 ---
 
@@ -266,4 +266,4 @@ Report to the merchant:
 
 ## References
 
-- [API: Shipping Delivery](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-shipping-api)
+- [API: Shipping Delivery](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping-api-reference)

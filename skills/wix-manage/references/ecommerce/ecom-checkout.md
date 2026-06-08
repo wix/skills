@@ -15,17 +15,17 @@ Improve and fix the checkout/cart experience before an order is placed - reduce 
 
 > **Heads-up — much of checkout config is Dashboard-only.** The public Checkout Settings API covers only checkout-footer **policies** and payment-step **checkboxes**. Guest checkout, minimum order amount, custom checkout fields, and checkout upsell are **not exposed via a TPA-public API** — route the merchant to the Wix Dashboard for those.
 
-> **Before dispatching** — confirm MerchantContext is loaded. If `siteData.country` is not in your conversation context, load it via [Load Merchant Context](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-load-context). Skip if already loaded.
+> **Before dispatching** — confirm MerchantContext is loaded. If `siteData.country` is not in your conversation context, load it via [Load Merchant Context](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/e-commerce-load-context). Skip if already loaded.
 >
 > **Promotion dispatch.** Score each entry below by the merchant's query → `intent:*` tags. Load the highest-scoring entry. No match → base recipe.
 
 ### Reduce abandonment & troubleshoot (recipes)
 
-> - [Reduce checkout/cart abandonment (delivery-step friction)](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-checkout-reduce-abandonment) — tags: `[intent:reduce-abandonment]` · priority 0
-> - [Troubleshoot checkout failure / delivery drop-off](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-checkout-troubleshoot-dropoff) — tags: `[intent:troubleshoot-checkout]` · priority 0
-> - [Agentic readiness / test agentic checkout](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-checkout-agentic-readiness) — tags: `[intent:agentic]` · priority 0 · *catalog data-quality audit + programmatic test-checkout; UCP enablement is Dashboard*
-> - [Store health monitor (periodic)](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-checkout-store-health) — tags: `[intent:store-health]` · priority 0 · *test checkout + config-drift + anomaly checks*
-> - Recover abandoned checkouts after the shopper leaves — tags: `[intent:recover-email]`, `[intent:view-abandoned]`, `[intent:recovery-link]` · **see [Abandoned Carts](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-abandoned-carts)**
+> - [Reduce checkout/cart abandonment (delivery-step friction)](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/checkout-reduce-abandonment) — tags: `[intent:reduce-abandonment]` · priority 0
+> - [Troubleshoot checkout failure / delivery drop-off](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/checkout-troubleshoot-delivery-drop-off) — tags: `[intent:troubleshoot-checkout]` · priority 0
+> - [Agentic readiness / test agentic checkout](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/checkout-agentic-readiness) — tags: `[intent:agentic]` · priority 0 · *catalog data-quality audit + programmatic test-checkout; UCP enablement is Dashboard*
+> - [Store health monitor (periodic)](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/checkout-store-health-monitor) — tags: `[intent:store-health]` · priority 0 · *test checkout + config-drift + anomaly checks*
+> - Recover abandoned checkouts after the shopper leaves — tags: `[intent:recover-email]`, `[intent:view-abandoned]`, `[intent:recovery-link]` · **see [Abandoned Carts](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/abandoned-carts)**
 
 ### Checkout configuration
 

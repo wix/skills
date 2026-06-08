@@ -12,7 +12,7 @@ Set up and manage how your store calculates and collects tax — what calculator
 - Product pricing or VAT-inclusive display in product listings → see **Catalog**.
 - Country availability for shipping → see **Shipping & fulfillment**.
 
-> **Before dispatching** — confirm MerchantContext is loaded. If `siteData.country` is not in your conversation context, load it via [Load Merchant Context](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-load-context). Skip if already loaded.
+> **Before dispatching** — confirm MerchantContext is loaded. If `siteData.country` is not in your conversation context, load it via [Load Merchant Context](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/e-commerce-load-context). Skip if already loaded.
 >
 > **Promotion dispatch.** Score each entry below by (a) the merchant's query → `intent:*` tags, (b) MerchantContext → context tags. Load the **highest-scoring** entry. Ties → highest `priority`. No match → follow the base recipe at the bottom.
 >

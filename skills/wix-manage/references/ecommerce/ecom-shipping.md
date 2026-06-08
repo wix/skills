@@ -13,31 +13,31 @@ Set up and tune how a store ships — what rates to charge, which regions are co
 - Marking orders fulfilled, updating tracking, bulk fulfillment, invoices, or shipping labels → see **Fulfillment**.
 - Order lifecycle (approve/cancel/search an order) → **Orders** when available; refunds/payments → existing Get Paid/payment docs or Dashboard guidance.
 
-> **Before dispatching** — confirm MerchantContext is loaded. If `siteData.country` is not in your conversation context, load it via [Load Merchant Context](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-load-context). Skip if already loaded.
+> **Before dispatching** — confirm MerchantContext is loaded. If `siteData.country` is not in your conversation context, load it via [Load Merchant Context](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/e-commerce-load-context). Skip if already loaded.
 >
 > **Promotion dispatch.** Score each entry below by (a) the merchant's query → `intent:*` tags, (b) MerchantContext → context tags. Load the **highest-scoring** entry with `ReadFullDocsArticle`. Ties → highest `priority`. No match → follow the base recipe at the bottom.
 >
-> **API reference.** All shipping endpoints (Shipping Options + Delivery Profiles) are documented inline in [Shipping API Reference](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-shipping-api) — there is no public `dev.wix.com` docs page for them, so that file is the authoritative spec. The recipes below link to it where needed.
+> **API reference.** All shipping endpoints (Shipping Options + Delivery Profiles) are documented inline in [Shipping API Reference](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping-api-reference) — there is no public `dev.wix.com` docs page for them, so that file is the authoritative spec. The recipes below link to it where needed.
 
 ### Actions — set up shipping
 
-> - [Set up shipping rates / rules](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-shipping-setup-rates) — tags: `[intent:setup-rates]` · priority 0
-> - [Set up delivery regions / coverage](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-shipping-setup-regions) — tags: `[intent:setup-regions]` · priority 0
-> - [Set up store pickup / local delivery](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-shipping-setup-pickup) — tags: `[intent:setup-pickup]` · priority 0
-> - [Add free shipping over $X](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-shipping-free-shipping) — tags: `[intent:free-shipping]` · priority 0
+> - [Set up shipping rates / rules](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping-set-up-rates) — tags: `[intent:setup-rates]` · priority 0
+> - [Set up delivery regions / coverage](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping-set-up-regions) — tags: `[intent:setup-regions]` · priority 0
+> - [Set up store pickup / local delivery](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping-set-up-pickup-local-delivery) — tags: `[intent:setup-pickup]` · priority 0
+> - [Add free shipping over $X](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping-add-free-shipping) — tags: `[intent:free-shipping]` · priority 0
 
 ### Optimize & fix
 
-> - [Optimize shipping rates (flat ↔ tiered, gaps)](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-shipping-optimize-rates) — tags: `[intent:optimize-rates]` · priority 0
-> - [Fix coverage gaps (regions with no shipping option)](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-shipping-fix-coverage) — tags: `[intent:fix-coverage]` · priority 0
+> - [Optimize shipping rates (flat ↔ tiered, gaps)](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping-optimize-rates) — tags: `[intent:optimize-rates]` · priority 0
+> - [Fix coverage gaps (regions with no shipping option)](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping-fix-coverage-gaps) — tags: `[intent:fix-coverage]` · priority 0
 
 ### Troubleshoot
 
-> - [Shipping rate incorrect (customer charged wrong shipping)](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-shipping-optimize-rates) — tags: `[intent:rate-incorrect]` · priority 0 · *audit rates via the Rate Pricing Sanity guardrail, then correct the rate structure*
+> - [Shipping rate incorrect (customer charged wrong shipping)](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping-optimize-rates) — tags: `[intent:rate-incorrect]` · priority 0 · *audit rates via the Rate Pricing Sanity guardrail, then correct the rate structure*
 
 ### Fulfillment handoff
 
-> - Mark orders fulfilled, update tracking, partial/bulk fulfill, find unshipped orders, print invoices, or export shipping labels — tags: `[intent:fulfill-order]`, `[intent:update-tracking]`, `[intent:find-unshipped]`, `[intent:shipping-labels]` · **see [Fulfillment](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-fulfillment)**
+> - Mark orders fulfilled, update tracking, partial/bulk fulfill, find unshipped orders, print invoices, or export shipping labels — tags: `[intent:fulfill-order]`, `[intent:update-tracking]`, `[intent:find-unshipped]`, `[intent:shipping-labels]` · **see [Fulfillment](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/fulfillment)**
 
 ## Tag matching
 
