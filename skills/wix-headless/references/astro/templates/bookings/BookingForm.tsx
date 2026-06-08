@@ -99,7 +99,7 @@ export default function BookingForm({ serviceName, serviceType, slot, selectedVa
                       ? { custom: selectedVariant.custom }
                       : selectedVariant.staffMemberId
                       ? { staffMemberId: selectedVariant.staffMemberId }
-                      : { duration: { minutes: selectedVariant.durationMinutes } }),
+                      : { duration: { minutes: selectedVariant.durationMinutes ?? 0 } }),
                   },
                 ],
               },

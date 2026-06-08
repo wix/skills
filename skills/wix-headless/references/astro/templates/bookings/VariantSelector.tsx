@@ -63,33 +63,36 @@ export default function VariantSelector({ serviceId, serviceName, onVariantSelec
           /* STAFF_MEMBER */              "Staff Member",
         );
 
-        const parsed: SelectedVariant[] = (sv?.variants?.values ?? []).map((v: any) => {
+        const parsed: SelectedVariant[] = (sv?.variants?.values ?? []).flatMap((v: any) => {
           const choice = v.choices?.[0] ?? {};
           const price: { value: string; currency: string } = v.price ?? { value: "0", currency: "USD" };
 
           if (optionType === "CUSTOM") {
-            return {
+            if (!choice.custom) return []; // skip malformed choice
+            return [{
               optionId, optionType,
               custom: choice.custom,
-              label: choice.custom ?? "",
+              label: choice.custom,
               price,
-            };
+            }];
           }
           if (optionType === "DURATION") {
             const mins: number | undefined = choice.duration?.minutes;
-            const name: string = choice.duration?.name ?? (mins != null ? `${mins} min` : "?");
-            return { optionId, optionType, durationMinutes: mins, label: name, price };
+            if (mins == null) return []; // skip DURATION variant without minutes — unbookable
+            const name: string = choice.duration?.name ?? `${mins} min`;
+            return [{ optionId, optionType, durationMinutes: mins, label: name, price }];
           }
           // STAFF_MEMBER — staffMemberId is a resource ID. Resolving the display name
           // requires a separate /bookings/v1/staff-members/query call with elevation
           // (staff data isn't public). For a real implementation, fetch staff members
           // SSR-side and pass a staffId→name map as a prop. Here we fall back to "Staff".
-          return {
+          if (!choice.staffMemberId) return []; // skip malformed choice
+          return [{
             optionId, optionType,
             staffMemberId: choice.staffMemberId,
             label: "Staff",
             price,
-          };
+          }];
         });
 
         setVariants(parsed);
@@ -107,8 +110,15 @@ export default function VariantSelector({ serviceId, serviceName, onVariantSelec
   if (status === "error") {
     return <p className="availability-error">Could not load pricing options — please try again.</p>;
   }
-  // "none" → no variants configured yet; ServiceBookingFlow should skip this step
-  if (status === "none") return null;
+  // "none" → VARIED service exists but no variants are configured yet.
+  // Show a message rather than null — returning null silently empties the booking section.
+  if (status === "none") {
+    return (
+      <p className="availability-empty">
+        Booking options are not yet available — check back soon or contact us to book.
+      </p>
+    );
+  }
 
   return (
     <div className="variant-selector">

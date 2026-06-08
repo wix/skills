@@ -226,11 +226,13 @@ Four `rateType` values are supported. Choose based on `brand` + `intent`; defaul
 
 ## Step 4c — Define service variants (VARIED services only)
 
-Skip unless a service was created with `rateType: "VARIED"`. This step defines the options (e.g. "Duration", "Age Group") and their per-variant prices.
+Skip unless a service was created with `rateType: "VARIED"`. This step defines the options and their per-variant prices.
 
 **Endpoint:** `POST https://www.wixapis.com/bookings/v2/services/{serviceId}/service-options-and-variants`
 
-Example — two duration variants (30 min / 60 min):
+**Use `CUSTOM` option type for seeding.** The `CUSTOM` type is the simplest: you define named choices (e.g. "Adult", "Student") and the API stores them verbatim. The front-end reads them back as `choice.custom` (a string). `DURATION` and `STAFF_MEMBER` option types have a different read-back shape (`choice.duration.minutes`, `choice.staffMemberId`) and are better configured via the Wix Dashboard (Catalog → Services → [service] → Pricing) where the UI enforces the correct structure.
+
+Example — two CUSTOM variants ("Adult" / "Student"):
 ```bash
 curl -sS -X POST \
   -H "Authorization: Bearer $TOKEN" -H "wix-site-id: <siteId>" -H "Content-Type: application/json" \
@@ -238,21 +240,22 @@ curl -sS -X POST \
     "serviceOptionsAndVariants": {
       "options": [
         {
-          "name": "Duration",
+          "name": "Age Group",
+          "optionType": "CUSTOM",
           "values": [
-            { "id": "opt-30", "caption": "30 min" },
-            { "id": "opt-60", "caption": "60 min" }
+            { "id": "adult", "value": "Adult" },
+            { "id": "student", "value": "Student" }
           ]
         }
       ],
       "variants": [
         {
-          "choices": [ { "optionId": "Duration", "value": "opt-30" } ],
-          "price": { "value": "40.00", "currency": "USD" }
+          "choices": [ { "optionId": "<server-assigned-option-id>", "custom": "Adult" } ],
+          "price": { "value": "70.00", "currency": "USD" }
         },
         {
-          "choices": [ { "optionId": "Duration", "value": "opt-60" } ],
-          "price": { "value": "70.00", "currency": "USD" }
+          "choices": [ { "optionId": "<server-assigned-option-id>", "custom": "Student" } ],
+          "price": { "value": "45.00", "currency": "USD" }
         }
       ]
     }
@@ -260,7 +263,9 @@ curl -sS -X POST \
   "https://www.wixapis.com/bookings/v2/services/<serviceId>/service-options-and-variants"
 ```
 
-> If variants are complex or the brand intent is unclear, skip this step and add to `notes`: `"VARIED service created — define variants from the Bookings dashboard (Catalog → Services → [service] → Pricing)."` The front-end safely shows "Varies" when no variant query is made.
+> **Important:** `optionId` in each variant's `choices` must be the **server-assigned ID** returned in the create response (`serviceOptionsAndVariants.options[].id`), not the option name. The call above is shown as a two-step operation in practice: (1) POST with the `options` block only to get the assigned IDs, then (2) PATCH or re-POST with `variants` referencing those IDs. Alternatively, skip this step entirely and configure variants in the dashboard.
+
+> If the brand intent is unclear or variants are complex, skip this step and add to `notes`: `"VARIED service created — define variants from the Bookings dashboard (Catalog → Services → [service] → Pricing)."` The front-end safely shows "Varies" and a "not yet configured" message when no variants are found.
 
 ### Required fields summary (V2)
 

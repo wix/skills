@@ -50,7 +50,7 @@ import { serviceOptionsAndVariants } from "@wix/bookings";
 // getServiceOptionsAndVariantsByServiceId returns { serviceVariants: { ... } }
 // Note the key is "serviceVariants" (not "serviceOptionsAndVariants") for this endpoint.
 const result = await wixClient.serviceOptionsAndVariants.getServiceOptionsAndVariantsByServiceId(serviceId);
-const sv = result.serviceVariants;
+const sv = (result as any).serviceVariants; // TS doesn't know this key — cast required
 const option = sv?.options?.values?.[0]; // only 1 option per service
 // variants: sv?.variants?.values[]  each has .choices[0] + .price
 ```
@@ -60,7 +60,7 @@ const option = sv?.options?.values?.[0]; // only 1 option per service
 - `DURATION` → `option.durationData.name` (label), `choice.duration.minutes` / `choice.duration.name`
 - `STAFF_MEMBER` → `choice.staffMemberId` (resource ID). Name resolution requires a separate staff-members query with elevation — pass a `staffId→name` map as a prop from SSR or show a generic label.
 
-Returns `null` when no variants are configured — `ServiceBookingFlow` stays at the VariantSelector step in that case (the calendar never appears). This surfaces as "no options available" which means the merchant hasn't set up variants yet; note it in `errors` on return.
+Shows a `"Booking options are not yet available"` message when no variants are configured (rather than returning `null`, which would silently empty the booking section). `ServiceBookingFlow` stays gated at this step — the calendar never appears. Note this condition in `errors` on return: the merchant must configure variants in the dashboard before the service is bookable.
 
 ---
 
