@@ -4,7 +4,7 @@ The **rendering / code-patterns** half of CMS foundations: service module templa
 
 > **Seeding lives in the business track.** Creating collections and inserting/verifying items via REST is **not** here — it is in `<SKILL_ROOT>/references/cms/CMS_FOUNDATIONS.md` (the `seed` scope's doc). This file is consumed by the `pages` scope; that file by the `seed` scope. The `cms/INSTRUCTIONS.md` router points each scope at the right half.
 
-> **Import note (read first).** Page code in this plugin uses `import * as items from "@wix/wix-data-items-sdk"` rather than the documented `import { items } from "@wix/data"`. The Wix-headless docs still show the `@wix/data` form, but `@wix/data` 1.0.448 dropped the `items` re-export — only sub-namespaces (`backups`, `collections`, `permissions`, …) remain, and the documented form fails the build with `'items' is not exported by '@wix/data'`. The actual `items` API (with `query`, `insert`, `update`, `remove`, `bulkInsert`, etc.) lives in `@wix/wix-data-items-sdk`, which `@wix/data` depends on transitively. Importing from there directly works on every current `@wix/data` version. SETUP.md's per-pack install table (Step 4c) installs `@wix/wix-data-items-sdk` (alongside `@wix/data` and `@wix/essentials`) for the cms pack so it's always present. Use the wix-data-items-sdk import everywhere.
+> **Import note (read first).** The Wix Data items API is the **`items`** named export of **`@wix/data`**: `import { items } from "@wix/data"`, then `items.query` / `items.insert` / `items.update` / `items.remove` (plus `items.bulkInsert` / `bulkSave` / `bulkPatch` / …). This is the documented form and what every CMS page here uses. Do **not** import from the internal `@wix/wix-data-items-sdk`. SETUP.md's per-pack install table (Step 4c) installs `@wix/data` + `@wix/essentials` for the cms pack.
 
 ## Rendering Ricos rich-text fields
 
@@ -14,7 +14,7 @@ For SSR Astro pages (about, faq, portfolio, team, resource), import the seeded `
 
 ```astro
 ---
-import * as items from "@wix/wix-data-items-sdk";
+import { items } from "@wix/data";
 import { auth } from "@wix/essentials";
 import { renderRicos } from "../utils/ricos";
 
@@ -46,7 +46,7 @@ The util covers the common subset (PARAGRAPH, HEADING 1-6, BULLETED_LIST / ORDER
 
 ## Prerequisites (page-side)
 
-- `@wix/data` + `@wix/wix-data-items-sdk` + `@wix/essentials` installed (collected by SETUP.md Step 4c — do NOT install independently).
+- `@wix/data` + `@wix/essentials` installed (collected by SETUP.md Step 4c — do NOT install independently).
 - The collections + items already created and seeded by the `seed` scope (see `../../cms/CMS_FOUNDATIONS.md`). Pages only **read**.
 
 ## Collection ID Format
@@ -65,7 +65,7 @@ For pages that just need to list items from a collection:
 
 ```astro
 ---
-import * as items from "@wix/wix-data-items-sdk";
+import { items } from "@wix/data";
 import { auth } from "@wix/essentials";
 
 // Always elevate queries for permission safety
@@ -93,7 +93,7 @@ const myItems = results.map((item) => ({
 Every CMS use case follows the same `src/lib/{usecase}.ts` pattern — a typed interface and query functions that pages import.
 
 ```typescript
-import * as items from "@wix/wix-data-items-sdk";
+import { items } from "@wix/data";
 import { auth } from "@wix/essentials";
 import { media } from "@wix/sdk";
 

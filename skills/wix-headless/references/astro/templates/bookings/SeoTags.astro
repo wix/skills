@@ -1,0 +1,25 @@
+---
+// SeoTags.astro — renders Wix-resolved SEO tags into <head> for service pages.
+// Pass `service.seoData.tags` (Services V2) — title/meta/link/script — so the
+// service detail page ships Wix's sitemap/SEO/social tags. Mirrors the stores
+// SeoTags template. Mount inside the Layout's `head` slot on `/services/[slug]`.
+interface SeoTag {
+  type?: string;
+  props?: Record<string, any> | null;
+  children?: string;
+  disabled?: boolean;
+}
+interface Props { tags?: SeoTag[]; }
+const { tags = [] } = Astro.props;
+const visibleTags = tags.filter((t) => !t.disabled);
+---
+{
+  visibleTags.map((tag) => {
+    const props = tag.props ?? {};
+    if (tag.type === "title") return <title set:html={tag.children ?? ""} />;
+    if (tag.type === "meta") return <meta {...props} />;
+    if (tag.type === "link") return <link {...props} />;
+    if (tag.type === "script") return <script {...props} is:inline set:html={tag.children ?? ""} />;
+    return null;
+  })
+}

@@ -50,7 +50,7 @@ body: {
 }
 ```
 
-The response returns the created item's `_id` — collect these for the Phase 1 return contract.
+The response returns the created item's `_id` — collect these for the seed return contract.
 
 **Every text field must be populated in the `data` object.** Do not create items with empty `data: {}` and expect Phase 2 or the image agent to fill in text fields — they only handle their own scope (pages and images respectively).
 
@@ -69,6 +69,8 @@ body: {
   }
 }
 ```
+
+> **Bulk insert (N ≥ 2 items):** use the `wix-manage` skill's recipe — `wix-manage/references/cms/cms-data-items-crud.md` § "Bulk Insert Items" (`POST /wix-data/v2/bulk/items/insert`, up to 1000/call, one `dataCollectionId` per call → fire one bulk call per collection as a parallel batch). It also documents bulk update/patch/delete. Do not hand-roll N single inserts for a multi-item seed.
 
 ### Verify inserts with a live query (mandatory)
 
@@ -140,7 +142,7 @@ Emit a structured JSON block at the end of your completion message per `../share
 {
   "status": "complete",
   "phase": "cms-seed",
-  "scope": "seed-seed",
+  "scope": "seed",
   "summary": "Created {N} collections; seeded {M} items; verified every field persisted",
   "data": {
     "collections": [

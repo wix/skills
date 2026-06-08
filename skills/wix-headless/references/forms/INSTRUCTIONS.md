@@ -5,7 +5,7 @@ description: "Implements contact, lead, and signup forms via @wix/forms. Scopes:
 
 # Forms Implementer
 
-Extends `references/shared/IMPLEMENTER.md`. Read that file first for phase routing, REST auth + doc lookups, prompt-inlined inputs (no site.json reads), return contract, style conventions, and common failure modes.
+Extends `references/shared/IMPLEMENTER.md`. Read that file first for phase routing, REST auth + doc lookups, prompt-inlined inputs (read only your `.wix/seeded.json` slice), return contract, style conventions, and common failure modes.
 
 ## Scope routing
 
@@ -17,7 +17,7 @@ Extends `references/shared/IMPLEMENTER.md`. Read that file first for phase routi
 
 ## Files this vertical creates / contributes
 
-See `<SKILL_ROOT>/references/verticals/forms.md` frontmatter.
+Each scope's files are enumerated in `../astro/forms/CONTACT_FORM.md` (§ Form Setup, § React island, § Page wiring).
 
 ## Form purpose variants
 

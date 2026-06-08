@@ -6,7 +6,7 @@ Build a visual portfolio using `@wix/data` — project grid with category filter
 
 ## Collection Schema
 
-Create a collection in the Wix dashboard → CMS with these fields:
+The schema the `seed` scope creates via REST (see `../../cms/CMS_FOUNDATIONS.md`) — fields:
 
 | Field | Type | Purpose |
 |-------|------|---------|
@@ -38,7 +38,7 @@ Create a collection in the Wix dashboard → CMS with these fields:
 ### 1. Portfolio Service Module (`src/lib/portfolio.ts`)
 
 ```typescript
-import * as items from "@wix/wix-data-items-sdk";
+import { items } from "@wix/data";
 import { auth } from "@wix/essentials";
 import { media } from "@wix/sdk";
 
@@ -150,7 +150,7 @@ const { categories, activeCategory, basePath } = Astro.props;
 </nav>
 ```
 
-> **Styling note:** CategoryFilter styling is created by the design skill. See `COMPONENT_PATTERNS.md` → Category Filter.
+> **Styling note:** CategoryFilter styling is created by the design skill. See `references/shared/STYLING.md` (Category Filter).
 
 > Server-rendered, no JavaScript. Category is read from `Astro.url.searchParams` in the page.
 
@@ -189,7 +189,7 @@ const { project } = Astro.props;
 </a>
 ```
 
-> **Styling note:** ProjectCard styling is created by the design skill. See `COMPONENT_PATTERNS.md` → Project Card.
+> **Styling note:** ProjectCard styling is created by the design skill. See `references/shared/STYLING.md` (Project Card).
 
 ### 4. Project Grid Page (`src/pages/work/index.astro`)
 
@@ -376,7 +376,7 @@ export default function ImageGallery({ images, alt }: Props) {
 }
 ```
 
-> **Styling note:** Uses `.gallery-grid`, `.gallery-item`, `.lightbox-overlay`, `.lightbox-image`, `.lightbox-nav`, `.lightbox-close` from the designed component's `<style is:global>` block. See `COMPONENT_PATTERNS.md` → Image Gallery / Lightbox.
+> **Styling note:** Uses `.gallery-grid`, `.gallery-item`, `.lightbox-overlay`, `.lightbox-image`, `.lightbox-nav`, `.lightbox-close` from the designed component's `<style is:global>` block. See `references/shared/STYLING.md` (Image Gallery / Lightbox).
 
 Key details:
 - Renders as a grid; clicking opens a lightbox overlay
@@ -426,7 +426,7 @@ Project showcase image for [TITLE]. [BRAND AESTHETIC]. Color palette: [BRAND COL
 Gallery image [N] for [TITLE]: [describe a specific aspect/angle of the project]. [BRAND AESTHETIC]. [BRAND COLORS]. No text, no watermarks
 ```
 
-**Patch fields:** `coverImage`, optionally `galleryImages` (as an array of wixstatic URLs)
+**Patch field:** `galleryImages` (as an array of wixstatic URLs)
 
 Example patch:
 
@@ -445,10 +445,9 @@ body: {
 
 ## Testing
 
-1. Create a "Projects" collection in the Wix dashboard → CMS with the schema above
-2. Add 3+ projects with cover images, categories, and at least one with gallery images
-3. Mark 1–2 as `featured: true`
-4. Run `npx @wix/cli@latest dev`
-5. `/work` — grid with category filter tabs
-6. Click a category — filters projects
-7. Click a project — detail page with gallery lightbox
+Assumes the `seed` scope has already created the "Projects" collection and inserted items via REST (see `../../cms/CMS_FOUNDATIONS.md`) — 3+ projects with categories (and, after the image pass, cover/gallery images), 1–2 marked `featured: true`.
+
+1. Run `npx @wix/cli@latest dev`
+2. `/work` — grid with category filter tabs
+3. Click a category — filters projects
+4. Click a project — detail page with gallery lightbox

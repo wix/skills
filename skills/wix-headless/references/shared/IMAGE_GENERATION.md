@@ -25,7 +25,7 @@ body: [
 ]
 ```
 
-Before the first call, ensure the `curl` tool schema is loaded (the orchestrator's session auth covers this — see `<SKILL_ROOT>/references/commands/AUTHENTICATION.md`) so `body` is sent as a real JSON array (not a stringified blob). Use your runtime's AUTHENTICATION.md recovery ladder if you need to (re-)load it.
+Send `body` as a real JSON array (not a stringified blob). Auth uses the CLI-minted site-scoped token and the standard headers — see `<SKILL_ROOT>/references/shared/AUTHENTICATION.md`.
 
 Extract `data[0].imageURL` from the response. This is a short-lived URL — **import to Wix Media immediately** in the same task queue.
 
@@ -44,7 +44,7 @@ Extract `data[0].imageURL` from the response. This is a short-lived URL — **im
 
 ### Allowed Dimensions (safe defaults)
 
-Runware enforces a fixed set per model. Start with these — all three were validated end-to-end this session with `google:4@2`:
+Runware enforces a fixed set per model. Start with these:
 
 | Aspect | Size | Use for |
 |--------|------|---------|
@@ -58,7 +58,26 @@ If a 400 response lists supported dimensions, use one from that list — do not 
 
 Do NOT send `steps` or `CFGScale` — both are rejected with `unsupportedParameter` and cause a 400. These fields are valid for other Runware models but must be omitted for `google:4@2`.
 
-## Required: minimize round-trips per image phase
+## Preferred: run the whole phase through `generate-images.mjs`
+
+Generation + Wix Media import is **embarrassingly parallel** (N independent `generate → import` chains, no cross-image dependency) and **recipe-free** (no entity write-shapes), so it is best run by a deterministic script rather than by hand. `<SKILL_ROOT>/scripts/generate-images.mjs` does exactly this: it fires every image as a **concurrent single-task request in one process** (`Promise.all`), then imports each result to Wix Media — all in parallel — and returns a `key → {url, fileId}` map. Because each task is its **own** request (not N tasks in one body), it sidesteps the `google:4@2` N≥3-in-one-request 504 entirely, and because the parallelism lives in code it cannot degrade into the sequential-turns anti-pattern below.
+
+```bash
+echo '{
+  "siteId": "<siteId>",
+  "model": "google:4@2",
+  "images": [
+    {"key": "hero",  "positivePrompt": "<prompt>", "width": 1376, "height": 768},
+    {"key": "about", "positivePrompt": "<prompt>", "width": 1200, "height": 896}
+  ]
+}' | WIX_TOKEN="$TOKEN" node <SKILL_ROOT>/scripts/generate-images.mjs
+```
+
+`key` is a **slot name** for Phase 1 (`hero`, `about`) or an **entityId** for Phase 2. The returned `slots` map (key→url) pipes straight into `write-decorative-json.mjs` (Phase 1); the `map` (key→{url,fileId}) feeds the entity PATCH/PUT/publish recipe (Phase 2). Pass the **already-minted** site token via `WIX_TOKEN` (mint-once — `AUTHENTICATION.md`); the script mints its own only as a fallback. Per-image failures are isolated (`status: "partial"`), and `x-wix-request-id` is captured per call into `results[]` for trace analysis.
+
+The manual `curl` shapes below remain the **reference for the request bodies** the script builds, and the **fallback** when the script can't be used. The "one concurrent batch" rule still applies if you ever hand-drive a phase.
+
+## Required (manual fallback): minimize round-trips per image phase
 
 The image agent's `image-phase-1-decorative` and `image-phase-2-entity` scopes each generate multiple images. **Do not emit N one-task calls in sequential turns** — sequential dispatch across many turns adds ~30–40 s of inter-message overhead. The correct shape depends on the model:
 
@@ -85,37 +104,19 @@ Assistant message (single turn, multiple tool calls):
   REST: POST https://www.wixapis.com/runwareschemaless/v1/request
 ```
 
-All three fire in parallel (runtime dispatches concurrent siblings concurrently). No 504, no sequential wait. The important constraint is *one concurrent batch* — splitting them across turns loses the parallelism and degenerates into the anti-pattern below.
-
-### ANTI-PATTERN (slow, regardless of model)
-
-Sequential 1-task calls across multiple turns:
-```
-Assistant msg 1:  curl  body: [ task1 ]
-(runtime waits)
-Assistant msg 2:  curl  body: [ task2 ]
-(runtime waits)
-Assistant msg 3:  curl  body: [ task3 ]
-```
-Each turn adds inter-message overhead. Whether you're using the batched pattern or parallel siblings, **all the image-generation tool calls MUST be in one concurrent batch**.
+All three fire in parallel (runtime dispatches concurrent siblings concurrently). No 504, no sequential wait. The important constraint is *one concurrent batch* — splitting them across turns loses the parallelism: sequential 1-task calls across multiple turns each add inter-message overhead.
 
 ### Procedure to enforce batching
 
-The following procedure prevents the observed serialization anti-pattern. Follow these steps in order:
+Whether you batch one request or fire parallel siblings, **all calls in each stage MUST be in one concurrent batch**. Follow these steps in order:
 
 1. **Write all prompts first.** In your text response, list every image you will generate with its positivePrompt, dimensions, and a UUID. Do not make any tool calls yet.
-2. **Compose the full body array** as a fenced JSON block in your text. Verify the task count matches the entity count.
-3. **One tool call.** Make exactly one `curl` call with that complete body array.
-4. **Parallel imports.** After the generate response arrives, emit all N `POST /site-media/v1/files/import` calls as **concurrent sibling calls in one concurrent batch**.
-5. **Parallel PATCHes.** After all imports resolve, emit all N PATCH calls as **concurrent sibling calls in one concurrent batch**.
+2. **Compose the generation call(s).** For `bfl:5@1` / `runware:400@1`, one batched call with the full body array; for `google:4@2`, N parallel 1-task sibling calls. Verify the task count matches the entity count.
+3. **Generate.** Fire that generation as one concurrent batch.
+4. **Parallel imports.** After the generate response arrives, emit all N `POST /site-media/v1/files/import` calls as concurrent sibling calls in one concurrent batch.
+5. **Parallel PATCHes.** After all imports resolve, emit all N PATCH calls as concurrent sibling calls in one concurrent batch.
 
-**Three concurrent batches total (one per stage).** If you find yourself making more, stop and check whether you're serializing.
-
-### Media import and entity PATCH — parallelize with siblings
-
-Generation is one concurrent batch — whether that's one batched call or N parallel siblings. The follow-up steps (`POST /site-media/v1/files/import` per image, and entity PATCH per product/post/item) are per-entity; those can parallelize via concurrent siblings — emit all N import calls in one concurrent batch, then all N PATCH calls in one concurrent batch. See the skill's `references/PLAN.md` § "Batching discipline" for why sibling batching beats sequential dispatch.
-
-**Pattern for an image phase:** one batched generation call → N parallel imports (sibling calls in one message) → N parallel PATCHes (sibling calls in one message).
+**Three concurrent batches total (one per stage).** If you find yourself making more, stop and check whether you're serializing. See the skill's `references/PLAN.md` § "Batching discipline" for why sibling batching beats sequential dispatch.
 
 ## Step 2: Import to Wix Media
 

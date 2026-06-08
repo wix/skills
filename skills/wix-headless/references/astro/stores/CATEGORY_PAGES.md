@@ -1,8 +1,8 @@
 # Phase 4 Category Pages — Stores
 
-Scope: `pages-categories`. Launched in **Step 7** alongside `pages-products` and `pages-home-and-nav`. This scope writes the dedicated category landing route and the shared `<CategoryRail/>`. The `categories.ts` helper that all three scopes import is **pre-copied by the orchestrator before this phase** (BUILD-regular.md Step 7 pre-batch) — do NOT write it here.
+Scope: `pages-categories` — written by the stores **merged build agent** (the build wave) *before* its `pages-products` scope, so `<CategoryRail/>` is on disk before that scope mounts it. This scope writes the dedicated category landing route and the shared `<CategoryRail/>`. The `categories.ts` helper is **pre-copied by the orchestrator in the build-wave pre-batch** (BUILD-astro.md § "Step 4.5") — do NOT write it here.
 
-**Dispatch:** all three stores Phase-4 scopes are dispatched in parallel — Astro resolves the cross-file imports at build time (Step 8). The orchestrator does not need to serialize them. Each scope only needs its own declared files to exist by the time `astro build` runs; `categories.ts` is already on disk from the pre-batch.
+**Within-agent order:** the merged stores agent writes `components` → `pages-categories` (this scope) → `pages-products`. `pages-home-and-nav` is a *separate* serialized agent (it patches the shared shells) and resolves `<CategoryRail/>` at build time (Step 8). Each scope only needs its own declared files to exist by the time `astro build` runs.
 
 ## Scope
 
@@ -23,7 +23,7 @@ Files this agent MUST NOT touch:
 ## Inputs (from parent prompt)
 
 - **Phase 1 return data** — `categories: []`. Phase 1 does not seed categories (they're merchant-driven). This scope still writes the helper + rail + route — they're harmless when no categories exist, and they light up automatically once the merchant creates visible categories with items in the dashboard. `listStoreCategories()` queries the API live at SSR time (5-min TTL cache), so no redeploy is needed when categories are added later.
-- **Design tokens** — the full `designTokens` JSON is inlined in your prompt (same shape Designer returned). Page header / breadcrumbs / pill / pagination styling should follow `references/shared/STYLING.md` (utilities derived from tokens, semantic classes only for primitives).
+- **Design tokens** — read the design tokens (the DESIGN.md vocabulary) from `.wix/design-tokens.css` (on disk). Page header / breadcrumbs / pill / pagination styling should follow `references/shared/STYLING.md` (utilities derived from tokens, semantic classes only for primitives).
 - **Designer output summary** — confirm `Layout.astro` already includes `<ClientRouter />`, `transition:persist` markers on nav/footer, and the `[data-nav-progress]` element + after-swap hook. If any of those is missing, return `status: "partial"` with `errors: [{ code: "DESIGNER_LAYOUT_MISSING_TRANSITIONS", path: "src/layouts/Layout.astro" }]`.
 
 ## Critical rules (all must be honored)
@@ -40,7 +40,7 @@ Files this agent MUST NOT touch:
 
 ## Writing the templates
 
-Read each template at `templates/stores/` and write it verbatim to the corresponding `src/` path, with three small adjustments. (`categories.ts` is **not** in this list — the orchestrator pre-copies it; you only import its helpers.)
+Read each template at `references/astro/templates/stores/` and write it verbatim to the corresponding `src/` path, with three small adjustments. (`categories.ts` is **not** in this list — the orchestrator pre-copies it; you only import its helpers.)
 
 | Template path | Site path |
 |---|---|

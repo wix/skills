@@ -1,0 +1,76 @@
+---
+// src/pages/manage-booking.astro — per-booking manage page (view + cancel).
+// Reached from the confirmation page or a shared manage link:
+//   /manage-booking?bookingId=<id>&service=<name>
+//
+// A visitor token can't list/cancel bookings (queryExtendedBookings/cancelBooking
+// are APP/MEMBER identity). The supported visitor path is the ANONYMOUS ACTION
+// TOKEN: the server elevates (app identity) to mint a per-booking token, then the
+// no-auth bookingsGet/CancelBookingAnonymously methods act on it. Minting MUST be
+// server-side; the token is then safe to hand to the browser island.
+import Layout from "../layouts/Layout.astro";
+import ManageBooking from "../components/ManageBooking";
+import { auth } from "@wix/essentials";
+import { bookings } from "@wix/bookings";
+
+const bookingId = Astro.url.searchParams.get("bookingId");
+
+let token: string | null = null;
+let booking: any = null;
+let allowed = { cancel: false, reschedule: false };
+let error: string | null = null;
+
+if (!bookingId) {
+  error = "No booking was specified.";
+} else {
+  try {
+    const tokenRes = await auth.elevate(bookings.getAnonymousActionToken)(bookingId); // APP identity → elevate
+    token = tokenRes.token ?? null;
+    if (token) {
+      const res = await bookings.bookingsGetBookingAnonymously(token); // no auth
+      booking = res.booking ?? null;
+      allowed = {
+        cancel: !!res.allowedAnonymousActions?.cancel,
+        reschedule: !!res.allowedAnonymousActions?.reschedule,
+      };
+    }
+  } catch (err) {
+    console.error("[manage-booking] load failed:", err);
+    error = "We couldn't load this booking — the link may have expired.";
+  }
+}
+
+const serviceName =
+  booking?.bookedEntity?.title ?? Astro.url.searchParams.get("service") ?? "your booking";
+const startDate =
+  (booking?.startDate as string | undefined) ??
+  booking?.bookedEntity?.slot?.startDate ??
+  Astro.url.searchParams.get("startDate") ??
+  null;
+const status = (booking?.status as string | undefined) ?? null;
+const revision = (booking?.revision as string | undefined) ?? "";
+---
+
+<Layout title="Manage your booking">
+  <section class="container-reading px-lg py-4xl">
+    <a href="/services" class="inline-block text-sm text-mute hover:text-ink mb-xl">← All services</a>
+    <hr class="editorial-rule w-16 ml-0" />
+    <h1 class="font-display text-4xl md:text-5xl leading-tight mb-xl">Manage your booking</h1>
+
+    {
+      error ? (
+        <p class="booking-error">{error}</p>
+      ) : (
+        <ManageBooking
+          token={token}
+          revision={revision}
+          serviceName={serviceName}
+          startDate={startDate}
+          status={status}
+          canCancel={allowed.cancel}
+          client:only="react"
+        />
+      )
+    }
+  </section>
+</Layout>
