@@ -16,12 +16,12 @@ Set up and manage how your store calculates and collects tax — what calculator
 >
 > **Promotion dispatch.** Score each entry below by (a) the merchant's query → `intent:*` tags, (b) MerchantContext → context tags. Load the **highest-scoring** entry. Ties → highest `priority`. No match → follow the base recipe at the bottom.
 >
-> - [Configure tax (Avalara)](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-tax-avalara) — tags: `[intent:configure, calculator:AVALARA]` · priority 1
-> - [Configure tax (EU VAT)](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-tax-eu-vat) — tags: `[intent:configure, region:EU]` · priority 1
-> - [Configure tax (Wix Manual)](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-tax-configure) — tags: `[intent:configure]` · priority 0
-> - [Switch tax calculator](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-tax-switch-calculator) — tags: `[intent:switch-calculator]` · priority 0
-> - [Audit tax setup](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-tax-audit) — tags: `[intent:audit]` · priority 0
-> - [Tax calculation wrong](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-tax-troubleshoot-calc-wrong) — tags: `[intent:troubleshoot]` · priority 0
+> - [Configure tax (Avalara)](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/tax-configure-avalara) — tags: `[intent:configure, calculator:AVALARA]` · priority 1
+> - [Configure tax (EU VAT)](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/tax-configure-eu-vat) — tags: `[intent:configure, region:EU]` · priority 1
+> - [Configure tax (Wix Manual)](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/tax-configure-wix-manual) — tags: `[intent:configure]` · priority 0
+> - [Switch tax calculator](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/tax-switch-calculator) — tags: `[intent:switch-calculator]` · priority 0
+> - [Audit tax setup](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/tax-audit-setup) — tags: `[intent:audit]` · priority 0
+> - [Tax calculation wrong](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/tax-calculation-wrong) — tags: `[intent:troubleshoot]` · priority 0
 
 ## Tag matching
 
