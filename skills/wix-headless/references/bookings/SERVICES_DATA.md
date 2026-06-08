@@ -201,10 +201,11 @@ Four `rateType` values are supported. Choose based on `brand` + `intent`; defaul
 }
 ```
 
-**VARIED** — price depends on which service variant the customer picks (e.g. 30 min vs 60 min, adult vs child, staff member). Creating the service with `VARIED` is step 1; you must also define variants via the **Service Options and Variants API** (`POST /bookings/v2/services/{serviceId}/service-options-and-variants`) — see Step 4c below. The front-end displays "Varies" until variants are queried.
+**VARIED** — price depends on which service variant the customer picks (e.g. adult vs child, 30 min vs 60 min). **Requires `varied.defaultPrice`** — the API rejects VARIED without it (`"Payment of type VARIED must include payment.rate.varied.defaultPrice"`). Set it to a reasonable mid-range fallback; the per-variant prices in Step 4c override it for each choice. The front-end displays "Varies" on the listing page and shows the real variant prices after the customer selects one in the booking flow.
 ```json
 "payment": {
   "rateType": "VARIED",
+  "varied": { "defaultPrice": { "value": "65.00", "currency": "USD" } },
   "options": { "online": true, "inPerson": false, "deposit": false, "pricingPlan": false }
 }
 ```
@@ -232,40 +233,49 @@ Skip unless a service was created with `rateType: "VARIED"`. This step defines t
 
 **Use `CUSTOM` option type for seeding.** The `CUSTOM` type is the simplest: you define named choices (e.g. "Adult", "Student") and the API stores them verbatim. The front-end reads them back as `choice.custom` (a string). `DURATION` and `STAFF_MEMBER` option types have a different read-back shape (`choice.duration.minutes`, `choice.staffMemberId`) and are better configured via the Wix Dashboard (Catalog → Services → [service] → Pricing) where the UI enforces the correct structure.
 
-Example — two CUSTOM variants ("Adult" / "Student"):
+**Request body must wrap everything in a `"serviceOptionsAndVariants"` key.** Sending `{ "options": [...] }` at the top level returns 200 with an empty body and silently stores nothing — the most common mistake with this endpoint.
+
+**`optionId` in variant choices must be the server-assigned ID** returned in the create response, not the option name string. Run two sequential calls: first POST with only `options` to get the IDs, then PUT/re-POST with `variants` referencing those IDs.
+
+**Step 4c-i** — create the option, capture the assigned ID:
 ```bash
-curl -sS -X POST \
+VARIANTS_RESP=$(curl -sS -X POST \
   -H "Authorization: Bearer $TOKEN" -H "wix-site-id: <siteId>" -H "Content-Type: application/json" \
   -d '{
     "serviceOptionsAndVariants": {
       "options": [
-        {
-          "name": "Age Group",
-          "optionType": "CUSTOM",
-          "values": [
-            { "id": "adult", "value": "Adult" },
-            { "id": "student", "value": "Student" }
-          ]
-        }
-      ],
-      "variants": [
-        {
-          "choices": [ { "optionId": "<server-assigned-option-id>", "custom": "Adult" } ],
-          "price": { "value": "70.00", "currency": "USD" }
-        },
-        {
-          "choices": [ { "optionId": "<server-assigned-option-id>", "custom": "Student" } ],
-          "price": { "value": "45.00", "currency": "USD" }
-        }
+        { "name": "Age Group", "optionType": "CUSTOM",
+          "values": [ { "id": "adult", "value": "Adult" }, { "id": "student", "value": "Student" } ] }
       ]
     }
   }' \
+  "https://www.wixapis.com/bookings/v2/services/<serviceId>/service-options-and-variants")
+
+OPTION_ID=$(echo "$VARIANTS_RESP" | node -e "const d=require('fs').readFileSync('/dev/stdin','utf8'); console.log(JSON.parse(d).serviceOptionsAndVariants?.options?.[0]?.id ?? '')")
+```
+
+**Step 4c-ii** — add variants with the server-assigned `$OPTION_ID`:
+```bash
+curl -sS -X PUT \
+  -H "Authorization: Bearer $TOKEN" -H "wix-site-id: <siteId>" -H "Content-Type: application/json" \
+  -d "{
+    \"serviceOptionsAndVariants\": {
+      \"options\": [
+        { \"id\": \"$OPTION_ID\", \"name\": \"Age Group\", \"optionType\": \"CUSTOM\",
+          \"values\": [ { \"id\": \"adult\", \"value\": \"Adult\" }, { \"id\": \"student\", \"value\": \"Student\" } ] }
+      ],
+      \"variants\": [
+        { \"choices\": [ { \"optionId\": \"$OPTION_ID\", \"custom\": \"Adult\" } ],
+          \"price\": { \"value\": \"70.00\", \"currency\": \"USD\" } },
+        { \"choices\": [ { \"optionId\": \"$OPTION_ID\", \"custom\": \"Student\" } ],
+          \"price\": { \"value\": \"45.00\", \"currency\": \"USD\" } }
+      ]
+    }
+  }" \
   "https://www.wixapis.com/bookings/v2/services/<serviceId>/service-options-and-variants"
 ```
 
-> **Important:** `optionId` in each variant's `choices` must be the **server-assigned ID** returned in the create response (`serviceOptionsAndVariants.options[].id`), not the option name. The call above is shown as a two-step operation in practice: (1) POST with the `options` block only to get the assigned IDs, then (2) PATCH or re-POST with `variants` referencing those IDs. Alternatively, skip this step entirely and configure variants in the dashboard.
-
-> If the brand intent is unclear or variants are complex, skip this step and add to `notes`: `"VARIED service created — define variants from the Bookings dashboard (Catalog → Services → [service] → Pricing)."` The front-end safely shows "Varies" and a "not yet configured" message when no variants are found.
+> If the brand intent is unclear or variants are complex, skip this step and add to `notes`: `"VARIED service created — define variants from the Bookings dashboard (Catalog → Services → [service] → Pricing)."` The front-end safely shows "Varies" on the listing page when no variants are found.
 
 ### Required fields summary (V2)
 
@@ -372,6 +382,8 @@ Verify by fetching slots the way the front-end does (`eventTimeSlots.listEventTi
 | 400 `"onlineBooking is required"` | Add `"onlineBooking": { "enabled": true }` — required in V2. |
 | 400 on `payment.options` | At least one of `online` or `inPerson` must be `true`. Set `"inPerson": true` as fallback. This applies even for `NO_FEE` services — free doesn't exempt the options requirement. |
 | 400 on CUSTOM with `online: true` only | `CUSTOM` rate type **requires** `inPerson: true`. The API rejects a CUSTOM service where only `online` is enabled. Always set `"inPerson": true` for CUSTOM (can combine with `online: true`). |
+| 400 `"Payment of type VARIED must include payment.rate.varied.defaultPrice"` | The VARIED payment block requires `"varied": { "defaultPrice": { "value": "...", "currency": "USD" } }`. Omitting it causes a 400. Set a reasonable mid-range fallback; per-variant prices from Step 4c override it per choice. |
+| Step 4c POST returns 200 with empty body, GET also returns empty | The request body was sent without the `"serviceOptionsAndVariants"` wrapper — e.g. `{ "options": [...] }` at the top level. The API silently accepts it but stores nothing. Always wrap: `{ "serviceOptionsAndVariants": { "options": [...], "variants": [...] } }`. |
 | 400 `"sessionDurations is required"` | Add `"schedule": { "availabilityConstraints": { "sessionDurations": [60] } }` for APPOINTMENT types. |
 | 400 `MISSING_APPOINTMENT_RESOURCES` on service create | An APPOINTMENT service's `staffMemberIds` must be **non-empty**. Pass the created staff `resourceId`s (Step 3), or — when `hasStaff` is false — the default **Business Owner** `resourceId` (query `/bookings/v1/staff-members/query` with `{"query":{}}`). An empty `[]` always 400s here. |
 | 400 enum error on `locations.type` | Use `"BUSINESS"`, not `"OWNER_BUSINESS"`. The services endpoint accepts `UNKNOWN_LOCATION_TYPE`, `CUSTOM`, `BUSINESS`, `CUSTOMER`. `OWNER_BUSINESS` is valid on `createBooking.bookedEntity.slot.location.locationType` only. |
