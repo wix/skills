@@ -1,7 +1,6 @@
 ---
 name: "API: Shipping Delivery"
 description: REST API reference for Shipping Options and Delivery Profiles. Covers CRUD operations, region/carrier management, and query patterns for both services. Internal reference — these APIs are not yet published in public docs.
-layer: config
 ---
 # API: Shipping Delivery
 
@@ -72,6 +71,8 @@ Creates a new shipping option and associates it with one or more delivery region
 **Endpoint**: `POST https://www.wixapis.com/ecom/v1/shipping-options`
 
 **Required fields**: `shippingOption.deliveryRegionId` (or `deliveryRegionIds`), `shippingOption.title`, `shippingOption.rates[]`
+
+> **Gotcha:** use the **singular** `deliveryRegionId` when linking an option to one region. Passing a single region in the plural `deliveryRegionIds` field returns `deliveryRegionId is not a valid GUID`.
 
 **Request**:
 ```json

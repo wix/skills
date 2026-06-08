@@ -11,16 +11,16 @@ description: Configures a pickup option for an online store so customers can cho
 
 ## Required APIs
 
-- [List Installed Delivery Carriers](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/api-shipping#list-installed-delivery-carriers)
-- [Query Delivery Profiles](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/api-shipping#query-delivery-profiles)
-- [Add Delivery Region](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/api-shipping#add-delivery-region)
-- [Add Delivery Carrier](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/api-shipping#add-delivery-carrier)
+- [List Installed Delivery Carriers](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-shipping-api#list-installed-delivery-carriers)
+- [Query Delivery Profiles](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-shipping-api#query-delivery-profiles)
+- [Add Delivery Region](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-shipping-api#add-delivery-region)
+- [Add Delivery Carrier](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-shipping-api#add-delivery-carrier)
 
 ---
 
 ## Step 1: Discover the Pickup carrier
 
-Call [List Installed Delivery Carriers](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/api-shipping#list-installed-delivery-carriers) to find the Pickup carrier's `id`.
+Call [List Installed Delivery Carriers](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-shipping-api#list-installed-delivery-carriers) to find the Pickup carrier's `id`.
 
 **Endpoint**: `GET https://www.wixapis.com/ecom/v1/delivery-profiles/installed-carriers`
 
@@ -53,7 +53,7 @@ If no Pickup carrier appears in the list, the Pickup app is not installed on the
 
 ## Step 2: Find the default delivery profile
 
-Call [Query Delivery Profiles](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/api-shipping#query-delivery-profiles) to retrieve the site's default delivery profile.
+Call [Query Delivery Profiles](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-shipping-api#query-delivery-profiles) to retrieve the site's default delivery profile.
 
 **Endpoint**: `POST https://www.wixapis.com/ecom/v1/delivery-profiles/query`
 
@@ -72,7 +72,7 @@ The response contains an array of `deliveryProfiles`. Find the one where `"defau
 
 ## Step 3: Add a delivery region for the pickup country
 
-If no region exists for the user's country in the default profile, call [Add Delivery Region](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/api-shipping#add-delivery-region) to create one.
+If no region exists for the user's country in the default profile, call [Add Delivery Region](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-shipping-api#add-delivery-region) to create one.
 
 **Endpoint**: `POST https://www.wixapis.com/ecom/v1/delivery-profiles/{deliveryProfileId}/delivery-region`
 
@@ -130,7 +130,7 @@ Save the new region's `id` from the response.
 
 ## Step 4: Add the Pickup carrier to the region
 
-Call [Add Delivery Carrier](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/api-shipping#add-delivery-carrier) to attach the Pickup carrier to the delivery region.
+Call [Add Delivery Carrier](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-shipping-api#add-delivery-carrier) to attach the Pickup carrier to the delivery region.
 
 **Endpoint**: `POST https://www.wixapis.com/ecom/v1/delivery-profiles/add-delivery-carrier`
 
@@ -205,4 +205,4 @@ Call [Add Delivery Carrier](https://dev.wix.com/docs/api-reference/business-solu
 
 ## Related Documentation
 
-- [API: Shipping Delivery](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/api-shipping)
+- [API: Shipping Delivery](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-shipping-api)

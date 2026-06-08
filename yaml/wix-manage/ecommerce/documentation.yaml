@@ -144,60 +144,54 @@ apiDoc:
       tags: [ecommerce, pricing-promotions, support]
 
     # ============================================================
-    # Shipping & checkout files — NOT YET MIGRATED
-    # These live at flat paths in references/ecommerce/ until the Shipping
-    # & fulfillment and Checkout & cart categories are migrated.
+    # Shipping & fulfillment category (migrated)
+    # NOTE: the Shipping Options + Delivery Profiles APIs have NO public
+    # dev.wix.com docs page — ecom-shipping-api.md is the inline reference.
     # ============================================================
 
-    - file: ../../../skills/wix-manage/references/ecommerce/recipe-apply-shipping-recommendations.md
-      title: "Recipe: Apply Shipping Recommendations"
+    - file: ../../../skills/wix-manage/references/ecommerce/ecom-shipping.md
+      title: "Shipping & Fulfillment"
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
-      tags: [ecommerce]
+      tags: [ecommerce, shipping, category-doc]
 
-    - file: ../../../skills/wix-manage/references/ecommerce/setup-store-pickup-location.md
-      title: Setup Store Pickup Location
+    - file: ../../../skills/wix-manage/references/ecommerce/shipping/ecom-shipping-setup-rates.md
+      title: "Shipping: Set Up Rates"
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
-      tags: [ecommerce, stores]
+      tags: [ecommerce, shipping, promotion]
 
-    - file: ../../../skills/wix-manage/references/ecommerce/setup-shipping-regions.md
-      title: "Setup: Shipping Regions"
+    - file: ../../../skills/wix-manage/references/ecommerce/shipping/ecom-shipping-setup-regions.md
+      title: "Shipping: Set Up Regions"
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
-      tags: [ecommerce]
+      tags: [ecommerce, shipping, promotion]
 
-    - file: ../../../skills/wix-manage/references/ecommerce/setup-shipping-rates.md
-      title: "Setup: Shipping Rates"
+    - file: ../../../skills/wix-manage/references/ecommerce/shipping/ecom-shipping-setup-pickup.md
+      title: "Shipping: Set Up Pickup / Local Delivery"
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
-      tags: [ecommerce]
+      tags: [ecommerce, shipping, promotion]
 
-    - file: ../../../skills/wix-manage/references/ecommerce/api-shipping.md
-      title: "API: Shipping Delivery"
+    - file: ../../../skills/wix-manage/references/ecommerce/shipping/ecom-shipping-free-shipping.md
+      title: "Shipping: Add Free Shipping"
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
-      tags: [ecommerce, ecommerce recommendations]
+      tags: [ecommerce, shipping, promotion]
 
-    - file: ../../../skills/wix-manage/references/ecommerce/flow-add-free-shipping.md
-      title: "Flow: Add Free Shipping"
+    - file: ../../../skills/wix-manage/references/ecommerce/shipping/ecom-shipping-optimize-rates.md
+      title: "Shipping: Optimize Rates"
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
-      tags: [ecommerce, ecommerce recommendations]
+      tags: [ecommerce, shipping, promotion]
 
-    - file: ../../../skills/wix-manage/references/ecommerce/flow-optimize-shipping-rates.md
-      title: "Flow: Optimize Shipping Rates"
+    - file: ../../../skills/wix-manage/references/ecommerce/shipping/ecom-shipping-fix-coverage.md
+      title: "Shipping: Fix Coverage Gaps"
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
-      tags: [ecommerce, ecommerce recommendations]
+      tags: [ecommerce, shipping, promotion]
 
-    - file: ../../../skills/wix-manage/references/ecommerce/flow-fix-coverage-gaps.md
-      title: "Flow: Fix Coverage Gaps"
+    - file: ../../../skills/wix-manage/references/ecommerce/shipping/ecom-shipping-api.md
+      title: "Shipping: API Reference"
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
-      tags: [ecommerce, ecommerce recommendations]
+      tags: [ecommerce, shipping, support]
 
-    - file: ../../../skills/wix-manage/references/ecommerce/guardrail-shipping-health.md
-      title: "Guardrail: Shipping Health"
-      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
-      tags: [ecommerce]
-
-    - file: ../../../skills/wix-manage/references/ecommerce/guardrail-rate-pricing-sanity.md
-      title: "Guardrail: Rate Pricing Sanity"
-      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
-      tags: [ecommerce]
+    # ============================================================
+    # Checkout & cart — flat at references/ecommerce/ (NOT YET MIGRATED)
+    # ============================================================
 
     - file: ../../../skills/wix-manage/references/ecommerce/troubleshoot-checkout-delivery-dropoff.md
       title: "Troubleshoot: Checkout Delivery Drop-off"

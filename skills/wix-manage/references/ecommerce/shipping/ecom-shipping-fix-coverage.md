@@ -1,20 +1,26 @@
 ---
 name: "Flow: Fix Coverage Gaps"
 description: Detects active delivery regions with zero shipping options and creates standard shipping for them. Cross-references delivery profiles with shipping options to find regions where customers cannot complete checkout.
-layer: flow
-references:
-  - name: "Guardrail: Shipping Health"
-    path: ecommerce/guardrail-shipping-health.md
-    load: true
-  - name: "Setup: Shipping Regions"
-    path: ecommerce/setup-shipping-regions.md
-    load: true
 ---
 # Flow: Fix Shipping Coverage Gaps
 
-> **Before executing this skill**, read these referenced skills with `ReadFullDocsArticle`:
-> - [Guardrail: Shipping Health](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/guardrail-shipping-health)
-> - [Setup: Shipping Regions](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/setup-shipping-regions)
+> **Before executing this skill**, read [Setup: Shipping Regions](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-shipping-setup-regions) with `ReadFullDocsArticle` for region/carrier mechanics.
+
+## Shipping health score (inline)
+
+Use to gauge urgency before fixing gaps:
+
+| Score | Key indicator | Action |
+|---|---|---|
+| CRITICAL | no profiles/options, or all regions inactive | immediate setup |
+| POOR | minimal config, low CVR, or no backup rates | fix fundamentals |
+| FAIR | basic setup, no free shipping, moderate CVR | add free shipping, expand regions |
+| GOOD | domestic + international, free shipping, good CVR | optimize rates/carriers |
+| EXCELLENT | full coverage, tiered rates, high CVR | maintain |
+
+## Business-context filter for international (MANDATORY)
+
+Before creating or recommending ANY international shipping, check the store's `industry`/`businessType` (case-insensitive) for: food, restaurant, grocery, bakery, catering, perishable, fresh, meat, produce, dairy, drink, beverage. **If matched → do NOT create/recommend international shipping** (cold-chain & regulatory barriers). A region is "international" if its `name` contains "international"/"internacional", its `destinations[]` is empty (Rest of World), or it includes countries outside the store's home country.
 
 Detects delivery regions where customers cannot see any shipping options at checkout and creates standard shipping to fill the gaps. A coverage gap is a HIGH priority blocking issue -- customers in affected destinations literally cannot complete a purchase.
 
@@ -26,9 +32,9 @@ Detects delivery regions where customers cannot see any shipping options at chec
 
 ## Required APIs
 
-- [Query Delivery Profiles](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/api-shipping#query-delivery-profiles)
-- [Query Shipping Options](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/api-shipping#query-shipping-options)
-- [Create Shipping Option](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/api-shipping#create-shipping-option)
+- [Query Delivery Profiles](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-shipping-api#query-delivery-profiles)
+- [Query Shipping Options](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-shipping-api#query-shipping-options)
+- [Create Shipping Option](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-shipping-api#create-shipping-option)
 
 ---
 
@@ -296,4 +302,4 @@ Use the same request from Step 2 and verify the count now covers all active, non
 
 ## References
 
-- [API: Shipping Delivery](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/api-shipping)
+- [API: Shipping Delivery](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-shipping-api)

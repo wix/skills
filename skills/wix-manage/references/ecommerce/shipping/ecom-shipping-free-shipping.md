@@ -1,20 +1,23 @@
 ---
 name: "Flow: Add Free Shipping"
 description: Creates a free shipping option with an AOV-calibrated threshold to reduce cart abandonment and increase average order value. Validates threshold against catalog price distribution.
-layer: flow
-references:
-  - name: "Guardrail: Rate Pricing Sanity"
-    path: ecommerce/guardrail-rate-pricing-sanity.md
-    load: true
-  - name: "Setup: Shipping Rates"
-    path: ecommerce/setup-shipping-rates.md
-    load: true
 ---
 # Flow: Add Free Shipping
 
-> **Before executing this skill**, read these referenced skills with `ReadFullDocsArticle`:
-> - [Guardrail: Rate Pricing Sanity](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/guardrail-rate-pricing-sanity)
-> - [Setup: Shipping Rates](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/setup-shipping-rates)
+> **Before executing this skill**, read [Setup: Shipping Rates](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-shipping-setup-rates) with `ReadFullDocsArticle` for the rate-object mechanics.
+
+## Rate pricing sanity (inline guardrail)
+
+Validate every rate you create or update against the store's AOV; flag any that fail:
+
+| Check | Threshold | Why / fix |
+|---|---|---|
+| Excessive rate | amount > AOV × 0.15 | top cart-abandonment driver |
+| Per-item penalty | `multiplyByQuantity: true` | penalizes larger orders → use flat/tiered |
+| Free threshold too high | threshold > AOV × 2 | unreachable; lower to ~AOV × 1.2 |
+| Free threshold too low | threshold < AOV × 0.8 | no upsell incentive; raise to ~AOV × 1.2 |
+| Backup rate shock | `backupRate.amount` > AOV × 0.15 | set to 5–10% of AOV |
+| Hidden surcharges | total `additionalCharges` > AOV × 0.10 | review necessity |
 
 Adds a free shipping option with an optimal threshold calibrated against the site's average order value and catalog price distribution. Free shipping is the single most effective lever for reducing cart abandonment at the delivery step.
 
@@ -27,10 +30,10 @@ Adds a free shipping option with an optimal threshold calibrated against the sit
 
 ## Required APIs
 
-- [Query Shipping Options](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/api-shipping#query-shipping-options)
-- [Create Shipping Option](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/api-shipping#create-shipping-option)
-- [Update Shipping Option](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/api-shipping#update-shipping-option)
-- [Query Delivery Profiles](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/api-shipping#query-delivery-profiles)
+- [Query Shipping Options](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-shipping-api#query-shipping-options)
+- [Create Shipping Option](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-shipping-api#create-shipping-option)
+- [Update Shipping Option](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-shipping-api#update-shipping-option)
+- [Query Delivery Profiles](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-shipping-api#query-delivery-profiles)
 
 ---
 
@@ -263,4 +266,4 @@ Report to the merchant:
 
 ## References
 
-- [API: Shipping Delivery](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/api-shipping)
+- [API: Shipping Delivery](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-shipping-api)

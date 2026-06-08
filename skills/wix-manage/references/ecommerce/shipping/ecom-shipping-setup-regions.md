@@ -1,7 +1,6 @@
 ---
 name: "Setup: Shipping Regions"
 description: Configures delivery profiles and regions — creating profiles, adding regions with destinations, assigning carriers, enabling backup rates, and handling externally managed regions.
-layer: config
 ---
 # Shipping Regions
 

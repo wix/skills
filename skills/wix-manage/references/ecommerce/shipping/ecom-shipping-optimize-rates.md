@@ -1,20 +1,23 @@
 ---
 name: "Flow: Optimize Shipping Rates"
 description: Analyzes catalog price distribution and current rate structure to recommend optimal shipping rate strategy. Handles flat-to-tiered conversion, tier gap detection, and per-item penalty removal.
-layer: flow
-references:
-  - name: "Guardrail: Rate Pricing Sanity"
-    path: ecommerce/guardrail-rate-pricing-sanity.md
-    load: true
-  - name: "Setup: Shipping Rates"
-    path: ecommerce/setup-shipping-rates.md
-    load: true
 ---
 # Flow: Optimize Shipping Rates
 
-> **Before executing this skill**, read these referenced skills with `ReadFullDocsArticle`:
-> - [Guardrail: Rate Pricing Sanity](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/guardrail-rate-pricing-sanity)
-> - [Setup: Shipping Rates](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/setup-shipping-rates)
+> **Before executing this skill**, read [Setup: Shipping Rates](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-shipping-setup-rates) with `ReadFullDocsArticle` for the rate-object mechanics.
+
+## Rate pricing sanity (inline guardrail)
+
+Validate every rate you create or update against the store's AOV; flag any that fail:
+
+| Check | Threshold | Why / fix |
+|---|---|---|
+| Excessive rate | amount > AOV × 0.15 | top cart-abandonment driver |
+| Per-item penalty | `multiplyByQuantity: true` | penalizes larger orders → use flat/tiered |
+| Free threshold too high | threshold > AOV × 2 | unreachable; lower to ~AOV × 1.2 |
+| Free threshold too low | threshold < AOV × 0.8 | no upsell incentive; raise to ~AOV × 1.2 |
+| Backup rate shock | `backupRate.amount` > AOV × 0.15 | set to 5–10% of AOV |
+| Hidden surcharges | total `additionalCharges` > AOV × 0.10 | review necessity |
 
 Analyzes the site's catalog price distribution and current shipping rate structure to determine if the rate strategy is optimal. Recommends and applies changes when flat rates should become tiered, when tier gaps exist, or when per-item penalties are harming conversion.
 
@@ -27,9 +30,9 @@ Analyzes the site's catalog price distribution and current shipping rate structu
 
 ## Required APIs
 
-- [Query Shipping Options](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/api-shipping#query-shipping-options)
-- [Update Shipping Option](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/api-shipping#update-shipping-option)
-- [Create Shipping Option](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/api-shipping#create-shipping-option)
+- [Query Shipping Options](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-shipping-api#query-shipping-options)
+- [Update Shipping Option](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-shipping-api#update-shipping-option)
+- [Create Shipping Option](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-shipping-api#create-shipping-option)
 
 ---
 
@@ -360,4 +363,4 @@ Verify:
 
 ## References
 
-- [API: Shipping Delivery](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/api-shipping)
+- [API: Shipping Delivery](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-shipping-api)

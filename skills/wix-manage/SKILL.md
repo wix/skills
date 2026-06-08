@@ -108,7 +108,7 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 
 ## eCommerce
 
-**Routing structure** (rules + format in the `wix-skills-routing-expert` Claude Code skill — repo `ecom-ai-agents/.claude/skills/`): Each L2 category has a sibling `<category>.md` (README-surfaced description) + a `<category>/` folder with the dispatcher + promotion files. Two categories are fully migrated: **Tax** and **Pricing & promotions**. Shipping/Checkout files remain at the flat root pending their migration.
+**Routing structure** (rules + format in the `wix-skills-routing-expert` Claude Code skill — repo `ecom-ai-agents/.claude/skills/`): Each L2 category has a sibling `<category>.md` (README-surfaced description) + a `<category>/` folder with the dispatcher + promotion files. Three categories are fully migrated: **Tax**, **Pricing & promotions**, and **Shipping & fulfillment** (each a merged category-doc + dispatcher entry). **Checkout & cart** files remain at the flat root pending their migration.
 
 **L1 context loader (per L1 domain, sibling to category-docs):**
 
@@ -164,20 +164,28 @@ README-surfaced category-doc **and** dispatcher (merged). Disambiguates the cate
 
 ---
 
-### Shipping / Checkout (not yet migrated — flat root)
+### Shipping & Fulfillment category
 
-These files remain at `references/ecommerce/` until the Shipping & fulfillment and Checkout & cart categories are migrated. They are still valid direct entry points today.
+#### [Shipping & Fulfillment](references/ecommerce/ecom-shipping.md)
+README-surfaced category-doc **and** dispatcher (merged). Covers shipping config — rates, regions/coverage, pickup/local delivery, free-shipping thresholds, rate optimization, and wrong-rate troubleshooting. (Order-fulfillment ops — mark fulfilled, tracking, labels — belong to a future Orders category.) The Shipping Options + Delivery Profiles APIs have no public docs page, so `ecom-shipping-api.md` is the inline reference.
 
-- [Recipe: Apply Shipping Recommendations](references/ecommerce/recipe-apply-shipping-recommendations.md)
-- [Setup Store Pickup Location](references/ecommerce/setup-store-pickup-location.md)
-- [Setup Shipping Regions](references/ecommerce/setup-shipping-regions.md)
-- [Setup Shipping Rates](references/ecommerce/setup-shipping-rates.md)
-- [API: Shipping Delivery](references/ecommerce/api-shipping.md)
-- [Flow: Add Free Shipping](references/ecommerce/flow-add-free-shipping.md)
-- [Flow: Optimize Shipping Rates](references/ecommerce/flow-optimize-shipping-rates.md)
-- [Flow: Fix Coverage Gaps](references/ecommerce/flow-fix-coverage-gaps.md)
-- [Guardrail: Shipping Health](references/ecommerce/guardrail-shipping-health.md)
-- [Guardrail: Rate Pricing Sanity](references/ecommerce/guardrail-rate-pricing-sanity.md)
+#### Shipping promotions
+- [Set Up Rates](references/ecommerce/shipping/ecom-shipping-setup-rates.md)
+- [Set Up Regions / Coverage](references/ecommerce/shipping/ecom-shipping-setup-regions.md)
+- [Set Up Pickup / Local Delivery](references/ecommerce/shipping/ecom-shipping-setup-pickup.md)
+- [Add Free Shipping](references/ecommerce/shipping/ecom-shipping-free-shipping.md)
+- [Optimize Rates](references/ecommerce/shipping/ecom-shipping-optimize-rates.md)
+- [Fix Coverage Gaps](references/ecommerce/shipping/ecom-shipping-fix-coverage.md)
+
+#### Shipping support (loaded via body links, not direct entries)
+- [API Reference](references/ecommerce/shipping/ecom-shipping-api.md) — inline spec (no public docs page)
+
+(Rate-pricing-sanity and shipping-health guardrails are inlined into their caller recipes — free-shipping / optimize-rates and fix-coverage. The generic "apply shipping recommendations" recipe was dissolved — the LLM applies recs directly via the create/update endpoints in the API Reference.)
+
+### Checkout & cart (not yet migrated — flat root)
+
+These remain at `references/ecommerce/` until the Checkout & cart category is migrated. Valid direct entry points today.
+
 - [Troubleshoot: Checkout Delivery Drop-off](references/ecommerce/troubleshoot-checkout-delivery-dropoff.md)
 - [Goal: Reduce Cart Abandonment](references/ecommerce/goal-reduce-cart-abandonment.md) — used by orchestrator's ABANDONED_CART branch; will move under Checkout & cart category
 

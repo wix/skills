@@ -4,21 +4,17 @@ description: Maps cart abandonment reduction to recovery automation KPIs. Covers
 layer: goal
 references:
   - name: "Flow: Fix Coverage Gaps"
-    path: ecommerce/flow-fix-coverage-gaps.md
-    load: false
-  - name: "Recipe: Apply Shipping Recommendations"
-    path: ecommerce/recipe-apply-shipping-recommendations.md
+    path: ecommerce/shipping/ecom-shipping-fix-coverage.md
     load: false
   - name: "Setup Store Pickup Location"
-    path: ecommerce/setup-store-pickup-location.md
+    path: ecommerce/shipping/ecom-shipping-setup-pickup.md
     load: false
 ---
 # Goal: Reduce Cart Abandonment
 
 > **Related skills**:
-> - [Flow: Fix Coverage Gaps](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-fix-coverage-gaps) — shipping coverage gaps block checkout entirely
-> - [Recipe: Apply Shipping Recommendations](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/recipe-apply-shipping-recommendations)
-> - [Setup Store Pickup Location](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/setup-store-pickup-location)
+> - [Flow: Fix Coverage Gaps](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-shipping-fix-coverage) — shipping coverage gaps block checkout entirely
+> - [Setup Store Pickup Location](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-shipping-setup-pickup)
 
 Reduce checkout abandonment caused by shipping friction — coverage gaps, unexpected costs, and missing free shipping options — by optimizing the delivery step of the checkout funnel.
 

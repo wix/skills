@@ -1,6 +1,6 @@
 ---
 name: "eCommerce Skill Graph"
-description: Mermaid diagram of the eCommerce routing tree — WixREADME → category-doc → default (dispatcher) → promotion → support. Tax and Pricing migrated; Shipping & checkout still legacy flat.
+description: Mermaid diagram of the eCommerce routing tree — WixREADME → category entry (merged doc+dispatcher) → promotion → support. Tax, Pricing, and Shipping migrated; Checkout & cart still legacy flat.
 ---
 
 ## Skill Graph Diagram
@@ -11,10 +11,12 @@ flowchart TB
 
     README --> TAX
     README --> PRICE
+    README --> SHIP
 
     LOADER["ecom-load-context.md<br/>(L1 loader — general site data;<br/>loaded by each default before dispatch)"]
     TAX -.-> |load context| LOADER
     PRICE -.-> |load context| LOADER
+    SHIP -.-> |load context| LOADER
 
     %% ---------- Tax L3 ----------
     subgraph TAX["Tax — tax/"]
@@ -43,22 +45,26 @@ flowchart TB
         PRICEDEF ~~~ PC ~~~ PD ~~~ PR ~~~ PB ~~~ PG ~~~ PF ~~~ PV
     end
 
-    %% ---------- Legacy flat (not yet an L3) ----------
-    subgraph LEGACY["Legacy flat at ecommerce/ root — NOT migrated (→ Shipping & checkout)"]
+    %% ---------- Shipping & fulfillment L3 (migrated) ----------
+    subgraph SHIP["Shipping & fulfillment — shipping/"]
         direction TB
-        L1["setup-shipping-rates"]
-        L2["setup-shipping-regions"]
-        L3["setup-store-pickup-location"]
-        L4["recipe-apply-shipping-recommendations"]
-        L5["flow-add-free-shipping"]
-        L6["flow-optimize-shipping-rates"]
-        L7["flow-fix-coverage-gaps"]
-        L8["guardrail-shipping-health"]
-        L9["guardrail-rate-pricing-sanity"]
+        SHIPDEF["ecom-shipping · category-doc + dispatcher (merged)"]
+        SR["ecom-shipping-setup-rates"]
+        SG["ecom-shipping-setup-regions"]
+        SP["ecom-shipping-setup-pickup"]
+        SF["ecom-shipping-free-shipping"]
+        SO["ecom-shipping-optimize-rates"]
+        SX["ecom-shipping-fix-coverage"]
+        SS["ecom-shipping-api (inline ref, no public docs)"]
+        SHIPDEF ~~~ SR ~~~ SG ~~~ SP ~~~ SF ~~~ SO ~~~ SX ~~~ SS
+    end
+
+    %% ---------- Checkout & cart — legacy flat (not migrated) ----------
+    subgraph LEGACY["Checkout & cart — legacy flat at ecommerce/ root (NOT migrated)"]
+        direction TB
         L10["goal-reduce-cart-abandonment"]
         L11["troubleshoot-checkout-delivery-dropoff"]
-        L12["api-shipping"]
-        L1 ~~~ L2 ~~~ L3 ~~~ L4 ~~~ L5 ~~~ L6 ~~~ L7 ~~~ L8 ~~~ L9 ~~~ L10 ~~~ L11 ~~~ L12
+        L10 ~~~ L11
     end
     README -.-> |direct entries today| LEGACY
 
@@ -69,12 +75,12 @@ flowchart TB
     classDef loader fill:#10b981,stroke:#059669,color:#fff
     classDef legacy fill:#6b7280,stroke:#4b5563,color:#fff
 
-    class TAXDEF,PRICEDEF dispatcher
-    class TC,TA,TV,TS,TU,TT,PC,PD,PB promotion
+    class TAXDEF,PRICEDEF,SHIPDEF dispatcher
+    class TC,TA,TV,TS,TU,TT,PC,PD,PB,SR,SG,SP,SF,SO,SX promotion
     class PR orchestrator
-    class PG,PF,PV support
+    class PG,PF,PV,SS support
     class LOADER loader
-    class L1,L2,L3,L4,L5,L6,L7,L8,L9,L10,L11,L12 legacy
+    class L10,L11 legacy
 ```
 
 The arrows land on each L3 **group**; inside a group, files stack vertically with the `default` dispatcher first. Internal dispatch (default → promotion) and support chains (run-a-sale → goal → flow → guardrail/tracking) are documented in the reachability table below rather than drawn as edges.
@@ -107,5 +113,15 @@ The arrows land on each L3 **group**; inside a group, files stack vertically wit
 | `pricing-promotions/ecom-pricing-guardrail-discount-conflicts.md` | support | all pricing flows |
 | `pricing-promotions/ecom-pricing-guardrail-margin-protection.md` | support | flow-upsell-boost / flow-stock-mover |
 | `pricing-promotions/ecom-pricing-tracking-api.md` | support | run-a-sale (Steps 2 + 8) |
-| Shipping & checkout legacy files | legacy flat | README direct entries today — pending migration into Shipping & fulfillment / Checkout & cart categories |
+| `ecom-shipping.md` | category-doc + dispatcher (merged) | WixREADME portal index; dispatches directly |
+| `shipping/ecom-shipping-setup-rates.md` | promotion | shipping dispatch `[intent:setup-rates]` |
+| `shipping/ecom-shipping-setup-regions.md` | promotion | shipping dispatch `[intent:setup-regions]` |
+| `shipping/ecom-shipping-setup-pickup.md` | promotion | shipping dispatch `[intent:setup-pickup]` |
+| `shipping/ecom-shipping-free-shipping.md` | promotion | shipping dispatch `[intent:free-shipping]`; also loaded by run-a-sale → goal-increase-aov |
+| `shipping/ecom-shipping-optimize-rates.md` | promotion | shipping dispatch `[intent:optimize-rates / rate-incorrect]`; also loaded by run-a-sale |
+| `shipping/ecom-shipping-fix-coverage.md` | promotion | shipping dispatch `[intent:fix-coverage]` |
+| `shipping/ecom-shipping-api.md` | support | inline API reference (no public docs page) — linked from every shipping recipe |
+| (rate-pricing-sanity, shipping-health) | inlined | folded into free-shipping / optimize-rates and fix-coverage — no separate files |
+| (apply-recommendations) | dissolved | redundant with the API Reference (query → create/update by rec action) — §7.5 |
+| Checkout & cart legacy files | legacy flat | `goal-reduce-cart-abandonment`, `troubleshoot-checkout-delivery-dropoff` — pending Checkout & cart migration |
 </content>
