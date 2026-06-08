@@ -39,6 +39,8 @@ The single business-flow orchestrator (today's `recommend-ecommerce-strategy`, r
 > - [View active discounts (Coupons API)](https://dev.wix.com/docs/api-reference/business-solutions/coupons/coupons/query-coupons) — tags: `[intent:view-active-discounts]` · priority 0 · **API doc, no skill** (per §7.5)
 > - [View active discounts (Discount Rules API)](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/discount-rules/query-discount-rules) — tags: `[intent:view-active-rules]` · priority 0 · **API doc, no skill**
 > - [Coupon usage stats](https://dev.wix.com/docs/api-reference/business-solutions/coupons/coupons/get-coupon-usage) — tags: `[intent:coupon-usage-stats]` · priority 0 · **API doc, no skill**
+> - [Pricing & discount health (periodic review)](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-health) — tags: `[intent:pricing-health]` · priority 0 · *sweep active rules/coupons for conflicts, stale sales, margin erosion*
+> - Competitive pricing check (how do my prices compare?) — tags: `[intent:competitive-pricing]` · *no Wix API for competitor data — advise the merchant to benchmark externally (Google Shopping / market research); Wix only exposes their own catalog prices via Catalog API*
 
 ### Cross-category routes (handled in another category)
 
@@ -71,4 +73,3 @@ Map the answer → re-dispatch:
 - (a) → `ecom-pricing-create-coupon` (default for "create a discount")
 - (b) → `ecom-pricing-run-a-sale`
 - (c) → `ecom-pricing-troubleshoot-not-applying`
-</content>

@@ -23,6 +23,8 @@ Improve and fix the checkout/cart experience — reduce abandonment, diagnose wh
 > - [Reduce checkout/cart abandonment (delivery-step friction)](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-checkout-reduce-abandonment) — tags: `[intent:reduce-abandonment]` · priority 0
 > - [Recover abandoned carts via email (automation)](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-checkout-recover-email) — tags: `[intent:recover-email]` · priority 0 · *Dashboard-configured automation; recipe guides timing/content/eligibility*
 > - [Troubleshoot checkout failure / delivery drop-off](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-checkout-troubleshoot-dropoff) — tags: `[intent:troubleshoot-checkout]` · priority 0
+> - [Agentic readiness / test agentic checkout](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-checkout-agentic-readiness) — tags: `[intent:agentic]` · priority 0 · *catalog data-quality audit + programmatic test-checkout; UCP enablement is Dashboard*
+> - [Store health monitor (periodic)](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-checkout-store-health) — tags: `[intent:store-health]` · priority 0 · *test checkout + config-drift + anomaly checks*
 
 ### Checkout configuration
 
@@ -36,11 +38,6 @@ Improve and fix the checkout/cart experience — reduce abandonment, diagnose wh
 
 > - View **abandoned checkouts** — tags: `[intent:view-abandoned]` · **API doc, no skill** — `POST https://www.wixapis.com/ecom/v1/abandoned-checkout/query` (Abandoned Checkout API, TPA-public/GA; `/search` for richer filters)
 
-### Not yet covered (gaps — pending authoring / research)
-
-> - **Test agentic checkout / agentic readiness (UCP)** — tags: `[intent:agentic]` · 🚧 **gap** — UCP / agentic-commerce; needs research (likely Dashboard + platform feature)
-> - **Store health monitor (periodic checkout testing)** — tags: `[intent:store-health]` · 🚧 **gap** — periodic orchestrator, not yet authored
-
 ## Base recipe (fallback)
 
 If nothing matches, ask **one** clarifying question:
@@ -48,4 +45,3 @@ If nothing matches, ask **one** clarifying question:
 > "Do you want to (a) **reduce abandonment** / fix checkout drop-off, (b) **configure** checkout (guest checkout, minimum order, fields — most are in the Wix Dashboard), or (c) **see** your abandoned checkouts?"
 
 Map the answer to an `intent:*` tag and re-dispatch. For configuration intents with no public API, give the merchant the Dashboard path directly.
-</content>

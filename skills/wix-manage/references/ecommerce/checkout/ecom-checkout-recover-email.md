@@ -76,4 +76,3 @@ POST https://www.wixapis.com/ecom/v1/abandoned-checkout/{abandonedCheckoutId}/re
 Returns a URL that takes the shopper straight back to their pre-filled checkout — put this in the recovery email's CTA button.
 
 **Sending the email:** prefer the **Dashboard automation** above (it handles consent, throttling, and the send). Wix's Triggered Emails API exists but is **PRIVATE / ALPHA** (no public docs page) — do not rely on it for sends; if a fully programmatic send is required, confirm it's published at `dev.wix.com/docs` first, otherwise use the Dashboard automation or your own email channel with the recovery link from Step B.
-</content>

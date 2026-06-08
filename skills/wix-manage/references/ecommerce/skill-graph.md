@@ -41,10 +41,11 @@ flowchart TB
         PD["ecom-pricing-create-discount-rule"]
         PR["ecom-pricing-run-a-sale · business-flow orchestrator"]
         PB["ecom-pricing-troubleshoot-not-applying"]
+        PH["ecom-pricing-health (periodic review)"]
         PG["goal-seasonal-revenue · goal-increase-aov<br/>goal-clear-inventory · goal-drive-cross-sells"]
         PF["flow-seasonal-promotion · flow-upsell-boost<br/>flow-bundle-and-save · flow-stock-mover"]
         PV["tracking-api (guardrails inlined into create-discount-rule / create-coupon)"]
-        PRICEDEF ~~~ PC ~~~ PD ~~~ PR ~~~ PB ~~~ PG ~~~ PF ~~~ PV
+        PRICEDEF ~~~ PC ~~~ PD ~~~ PR ~~~ PB ~~~ PH ~~~ PG ~~~ PF ~~~ PV
     end
 
     %% ---------- Shipping & fulfillment L3 (migrated) ----------
@@ -57,8 +58,9 @@ flowchart TB
         SF["ecom-shipping-free-shipping"]
         SO["ecom-shipping-optimize-rates"]
         SX["ecom-shipping-fix-coverage"]
+        SFU["ecom-shipping-fulfill-orders (mark fulfilled · tracking · partial · bulk)"]
         SS["ecom-shipping-api (inline ref, no public docs)"]
-        SHIPDEF ~~~ SR ~~~ SG ~~~ SP ~~~ SF ~~~ SO ~~~ SX ~~~ SS
+        SHIPDEF ~~~ SR ~~~ SG ~~~ SP ~~~ SF ~~~ SO ~~~ SX ~~~ SFU ~~~ SS
     end
 
     %% ---------- Checkout & cart L3 (migrated) ----------
@@ -68,9 +70,10 @@ flowchart TB
         CR["ecom-checkout-reduce-abandonment"]
         CE["ecom-checkout-recover-email"]
         CT["ecom-checkout-troubleshoot-dropoff"]
+        CA["ecom-checkout-agentic-readiness"]
+        CH["ecom-checkout-store-health"]
         CD["config intents → Wix Dashboard<br/>(guest checkout · min order · custom fields · upsell)"]
-        CG["gaps: agentic readiness · store-health"]
-        CHKDEF ~~~ CR ~~~ CE ~~~ CT ~~~ CD ~~~ CG
+        CHKDEF ~~~ CR ~~~ CE ~~~ CT ~~~ CA ~~~ CH ~~~ CD
     end
 
     classDef dispatcher fill:#f59e0b,stroke:#d97706,color:#fff
@@ -81,7 +84,7 @@ flowchart TB
     classDef legacy fill:#6b7280,stroke:#4b5563,color:#fff
 
     class TAXDEF,PRICEDEF,SHIPDEF,CHKDEF dispatcher
-    class TC,TA,TV,TS,TU,TT,PC,PD,PB,SR,SG,SP,SF,SO,SX,CR,CE,CT promotion
+    class TC,TA,TV,TS,TU,TT,PC,PD,PB,PH,SR,SG,SP,SF,SO,SX,SFU,CR,CE,CT,CA,CH promotion
     class PR orchestrator
     class PG,PF,PV,SS support
     class LOADER loader
@@ -107,6 +110,7 @@ The arrows land on each L3 **group**; inside a group, files stack vertically wit
 | `pricing-promotions/ecom-pricing-create-discount-rule.md` | promotion | pricing dispatch `[intent:create-discount-rule / add-ribbon / schedule-sale]` |
 | `pricing-promotions/ecom-pricing-run-a-sale.md` | business-flow | pricing dispatch `[intent:run-a-sale / boost-business / seasonal-promo / clearance / increase-aov]` |
 | `pricing-promotions/ecom-pricing-troubleshoot-not-applying.md` | promotion | pricing dispatch `[intent:troubleshoot]` |
+| `pricing-promotions/ecom-pricing-health.md` | promotion | pricing dispatch `[intent:pricing-health]` — periodic conflict/stale/margin sweep |
 | `pricing-promotions/ecom-pricing-goal-seasonal-revenue.md` | support | run-a-sale → SEASONAL |
 | `pricing-promotions/ecom-pricing-goal-increase-aov.md` | support | run-a-sale → UPSELL_BOOST / SHIPPING |
 | `pricing-promotions/ecom-pricing-goal-clear-inventory.md` | support | run-a-sale → STOCK_MOVER |
@@ -124,6 +128,7 @@ The arrows land on each L3 **group**; inside a group, files stack vertically wit
 | `shipping/ecom-shipping-free-shipping.md` | promotion | shipping dispatch `[intent:free-shipping]`; also loaded by run-a-sale → goal-increase-aov |
 | `shipping/ecom-shipping-optimize-rates.md` | promotion | shipping dispatch `[intent:optimize-rates / rate-incorrect]`; also loaded by run-a-sale |
 | `shipping/ecom-shipping-fix-coverage.md` | promotion | shipping dispatch `[intent:fix-coverage]` |
+| `shipping/ecom-shipping-fulfill-orders.md` | promotion | shipping dispatch `[intent:fulfill-order]` — Fulfillments API (mark fulfilled, tracking, partial, bulk) |
 | `shipping/ecom-shipping-api.md` | support | inline API reference (no public docs page) — linked from every shipping recipe |
 | (rate-pricing-sanity, shipping-health) | inlined | folded into free-shipping / optimize-rates and fix-coverage — no separate files |
 | (apply-recommendations) | dissolved | redundant with the API Reference (query → create/update by rec action) — §7.5 |
@@ -131,6 +136,6 @@ The arrows land on each L3 **group**; inside a group, files stack vertically wit
 | `checkout/ecom-checkout-reduce-abandonment.md` | promotion | checkout dispatch `[intent:reduce-abandonment]`; also loaded by run-a-sale ABANDONED_CART branch |
 | `checkout/ecom-checkout-recover-email.md` | promotion | checkout dispatch `[intent:recover-email]` — Dashboard-configured automation, recipe guides config |
 | `checkout/ecom-checkout-troubleshoot-dropoff.md` | promotion | checkout dispatch `[intent:troubleshoot-checkout]` |
+| `checkout/ecom-checkout-agentic-readiness.md` | promotion | checkout dispatch `[intent:agentic]` — catalog data-quality + test-checkout |
+| `checkout/ecom-checkout-store-health.md` | promotion | checkout dispatch `[intent:store-health]` — periodic technical health |
 | (guest-checkout, min-order, custom-fields, upsell) | Dashboard | no TPA-public API — dispatch routes to the Wix Dashboard |
-| (agentic readiness, store-health) | gaps | pending authoring / research |
-</content>

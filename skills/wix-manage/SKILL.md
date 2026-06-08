@@ -156,6 +156,7 @@ README-surfaced category-doc **and** dispatcher (merged). Disambiguates the cate
 - [Flow: Bundle and Save](references/ecommerce/pricing-promotions/ecom-pricing-flow-bundle-and-save.md)
 - [Flow: Stock Mover](references/ecommerce/pricing-promotions/ecom-pricing-flow-stock-mover.md)
 - [Flow: Seasonal Promotion](references/ecommerce/pricing-promotions/ecom-pricing-flow-seasonal-promotion.md)
+- [Pricing & Discount Health](references/ecommerce/pricing-promotions/ecom-pricing-health.md) — periodic conflict/stale-sale/margin sweep
 - [API: Recommendation Tracking](references/ecommerce/pricing-promotions/ecom-pricing-tracking-api.md)
 
 (Discount-conflict & margin guardrails are inlined into Create Discount Rule / Create Coupon — the skills they guard — rather than separate files.)
@@ -176,6 +177,7 @@ README-surfaced category-doc **and** dispatcher (merged). Covers shipping config
 - [Add Free Shipping](references/ecommerce/shipping/ecom-shipping-free-shipping.md)
 - [Optimize Rates](references/ecommerce/shipping/ecom-shipping-optimize-rates.md)
 - [Fix Coverage Gaps](references/ecommerce/shipping/ecom-shipping-fix-coverage.md)
+- [Fulfill Orders & Tracking](references/ecommerce/shipping/ecom-shipping-fulfill-orders.md) — mark fulfilled, tracking, partial & bulk fulfillment
 
 #### Shipping support (loaded via body links, not direct entries)
 - [API Reference](references/ecommerce/shipping/ecom-shipping-api.md) — inline spec (no public docs page)
@@ -185,12 +187,14 @@ README-surfaced category-doc **and** dispatcher (merged). Covers shipping config
 ### Checkout & Cart category
 
 #### [Checkout & Cart](references/ecommerce/ecom-checkout.md)
-README-surfaced category-doc **and** dispatcher (merged). Covers abandonment reduction + checkout troubleshooting (the 2 recipes below). Most checkout *config* (guest checkout, minimum order, custom fields, upsell) is **Dashboard-only** — the dispatch routes those to the Wix Dashboard. Gaps pending: agentic-checkout readiness (UCP), store-health monitor.
+README-surfaced category-doc **and** dispatcher (merged). Covers abandonment reduction, recovery email, checkout troubleshooting, agentic readiness, and store-health (the recipes below). Most checkout *config* (guest checkout, minimum order, custom fields, upsell) is **Dashboard-only** — the dispatch routes those to the Wix Dashboard.
 
 #### Checkout promotions
 - [Reduce Abandonment](references/ecommerce/checkout/ecom-checkout-reduce-abandonment.md) — delivery-step friction angle; also loaded by run-a-sale's ABANDONED_CART branch
 - [Recover Abandoned Carts via Email](references/ecommerce/checkout/ecom-checkout-recover-email.md) — Dashboard-configured automation; recipe guides timing/content/eligibility
 - [Troubleshoot Delivery Drop-off](references/ecommerce/checkout/ecom-checkout-troubleshoot-dropoff.md)
+- [Agentic Readiness](references/ecommerce/checkout/ecom-checkout-agentic-readiness.md) — catalog data-quality audit + programmatic test-checkout (AI agents)
+- [Store Health Monitor](references/ecommerce/checkout/ecom-checkout-store-health.md) — periodic checkout/config-drift/anomaly checks
 
 #### Reference
 - [Skill Graph](references/ecommerce/skill-graph.md) — author docs only, NOT a runtime skill

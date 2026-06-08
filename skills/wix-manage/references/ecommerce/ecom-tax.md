@@ -45,4 +45,3 @@ If no promotion matches, the merchant's intent is unclear. Ask **one** clarifyin
 > "Do you want to **set up tax** for the first time, **change** your current calculator (e.g. switch to Avalara), **review** your existing setup, or **fix** a wrong tax amount on an order?"
 
 Map the answer to one of the four `intent:*` tags and re-dispatch.
-</content>

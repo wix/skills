@@ -87,6 +87,11 @@ apiDoc:
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
       tags: [ecommerce, pricing-promotions, promotion]
 
+    - file: ../../../skills/wix-manage/references/ecommerce/pricing-promotions/ecom-pricing-health.md
+      title: "Pricing & Discount Health"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce, pricing-promotions, promotion]
+
     # Support files (loaded only via embedded body links from the orchestrator)
     - file: ../../../skills/wix-manage/references/ecommerce/pricing-promotions/ecom-pricing-goal-increase-aov.md
       title: "Goal: Increase AOV"
@@ -175,6 +180,11 @@ apiDoc:
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
       tags: [ecommerce, shipping, promotion]
 
+    - file: ../../../skills/wix-manage/references/ecommerce/shipping/ecom-shipping-fulfill-orders.md
+      title: "Shipping: Fulfill Orders & Tracking"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce, shipping, promotion]
+
     - file: ../../../skills/wix-manage/references/ecommerce/shipping/ecom-shipping-api.md
       title: "Shipping: API Reference"
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
@@ -203,5 +213,15 @@ apiDoc:
 
     - file: ../../../skills/wix-manage/references/ecommerce/checkout/ecom-checkout-recover-email.md
       title: "Checkout: Recover Abandoned Carts via Email"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce, checkout, promotion]
+
+    - file: ../../../skills/wix-manage/references/ecommerce/checkout/ecom-checkout-agentic-readiness.md
+      title: "Checkout: Agentic Readiness"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce, checkout, promotion]
+
+    - file: ../../../skills/wix-manage/references/ecommerce/checkout/ecom-checkout-store-health.md
+      title: "Checkout: Store Health Monitor"
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
       tags: [ecommerce, checkout, promotion]
