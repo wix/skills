@@ -12,7 +12,7 @@ Extends `references/shared/IMPLEMENTER.md`. Read that file first for phase routi
 | Scope | Phase | Reference |
 |-------|-------|-----------|
 | `seed` | Seed (service creation via Wix Bookings REST API) | `./SERVICES_DATA.md` |
-| `components` | Components: `ServiceCard.astro`, `AvailabilityCalendar.tsx`, `BookingForm.tsx`, `ServiceBookingFlow.tsx`, `ManageBooking.tsx` (`SeoTags.astro` is pre-copied — see Templates) | `../astro/bookings/COMPONENTS.md` |
+| `components` | Components: `ServiceCard.astro`, `VariantSelector.tsx`, `AvailabilityCalendar.tsx`, `BookingForm.tsx`, `ServiceBookingFlow.tsx`, `ManageBooking.tsx` (`SeoTags.astro` is pre-copied — see Templates) | `../astro/bookings/COMPONENTS.md` |
 | `pages` | Pages: `/services` listing, `/services/[slug]` detail, `/booking-confirmation`, `/manage-booking` | `../astro/bookings/SERVICES_PAGES.md` |
 
 ## Files this vertical creates / contributes
@@ -35,9 +35,10 @@ Canonical templates live at `<SKILL_ROOT>/references/astro/templates/bookings/`.
 
 Components (`components` scope — `.tsx`/`.astro`, no CSS):
 - `…/templates/bookings/ServiceCard.astro`
+- `…/templates/bookings/VariantSelector.tsx` — step 1 for VARIED-rate services; fetches service options & variants, renders choice+price buttons, exports `SelectedVariant` type
 - `…/templates/bookings/AvailabilityCalendar.tsx` — branches on `serviceType` (APPOINTMENT → `availabilityTimeSlots`, CLASS → `eventTimeSlots`); capacity + instructor + full→waitlist
-- `…/templates/bookings/BookingForm.tsx` — `createBooking` → `/api/confirm-booking`; party size; waitlist on full
-- `…/templates/bookings/ServiceBookingFlow.tsx` — coordinator (threads `serviceType`)
+- `…/templates/bookings/BookingForm.tsx` — `createBooking` → `/api/confirm-booking`; party size; waitlist on full; `participantsChoices` for VARIED
+- `…/templates/bookings/ServiceBookingFlow.tsx` — coordinator (threads `serviceType` + `rateType`; inserts VariantSelector step for VARIED)
 - `…/templates/bookings/ManageBooking.tsx` — cancel via anonymous token (used by `manage-booking.astro`)
 
 Pages (`pages` scope):
@@ -79,6 +80,9 @@ If `global.css` ships a partial rule for any class above, flag it in your return
 | Use `payment.fixed.price.amount` | V2 uses `payment.fixed.price.value` (a string like `"75.00"`). `amount` is the V1 field name. |
 | Show no price badge for `NO_FEE` services | `NO_FEE` is explicitly free — display `"Free"`, not nothing. Returning `undefined` for `NO_FEE` leaves the price row blank, which looks like missing data. |
 | Show no price badge for `VARIED` or `CUSTOM` services | `VARIED` → display `"Varies"` (the exact variant prices require a separate `serviceOptionsAndVariants` query — safe to skip on a listing page). `CUSTOM` → display `service.payment.custom.description` (e.g. `"Donation"`, `"Contact us for pricing"`). Falling through to `undefined` silently drops the price row for both. |
+| Skip `VariantSelector` for VARIED services | For VARIED-rate services the booking flow has 3 steps: `VariantSelector` → `AvailabilityCalendar` → `BookingForm`. `ServiceBookingFlow` gates step 2 on `rateType === "VARIED" && !selectedVariant`. If `rateType` is not threaded from `[slug].astro`, the variant step is silently skipped and `createBooking` is called with `totalParticipants` instead of `participantsChoices` — the API may reject it or produce a price mismatch. Always pass `rateType={service.payment?.rateType}` to `ServiceBookingFlow`. |
+| Pass `totalParticipants` for VARIED services | VARIED services require `participantsChoices` (not `totalParticipants`) in `createBooking`. Use `participantsChoices.serviceChoices[0].choices[0]` with `optionId` and the appropriate choice field (`custom`, `staffMemberId`, or `duration.minutes`). Sending `totalParticipants` for a VARIED service may silently use the default variant price instead of the chosen one, or return a 400. |
+| Read variants from `result.serviceOptionsAndVariants` when fetching by service ID | `getServiceOptionsAndVariantsByServiceId` returns `{ serviceVariants: { ... } }` — note `serviceVariants`, NOT `serviceOptionsAndVariants`. The `serviceOptionsAndVariants` key is used by the get-by-object-ID endpoint. Using the wrong key returns `undefined` and the component falls through to `status: "none"` with no options shown. |
 | Omit `defaultCapacity` when creating a service | Required in V2. Set to `1` for APPOINTMENT; use participant count for CLASS. |
 | Omit `onlineBooking` when creating a service | Required in V2. At minimum `{ "enabled": true }`. |
 | Omit `sessionDurations` for an APPOINTMENT service | Required for APPOINTMENT: `schedule.availabilityConstraints.sessionDurations: [<minutes as int>]`. Do NOT specify for CLASS. |

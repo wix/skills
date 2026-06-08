@@ -13,10 +13,54 @@ Read `references/shared/IMPLEMENTER.md` + `references/shared/STYLING.md` first.
 | File | Purpose |
 |------|---------|
 | `src/components/ServiceCard.astro` | Static card for the services listing grid |
-| `src/components/AvailabilityCalendar.tsx` | React island — date picker + slot grid |
-| `src/components/BookingForm.tsx` | React island — booking details form + submission |
+| `src/components/VariantSelector.tsx` | React island — option picker for VARIED-rate services (step 1) |
+| `src/components/AvailabilityCalendar.tsx` | React island — date picker + slot grid (step 2) |
+| `src/components/BookingForm.tsx` | React island — booking details form + submission (step 3) |
 
 Do NOT write any `.css` files — `components-bookings.css` is pre-copied and must not be modified.
+
+---
+
+## VariantSelector.tsx
+
+A `client:only="react"` island shown **only for `VARIED`-rate services**, as step 1 of the booking flow (before the calendar). Fetches the service's option and per-variant prices, renders them as a button grid, calls `onVariantSelected(variant)` on pick.
+
+**Props:**
+```typescript
+interface Props {
+  serviceId: string;
+  serviceName: string;
+  onVariantSelected: (variant: SelectedVariant) => void;
+}
+
+export interface SelectedVariant {
+  optionId: string;
+  optionType: "CUSTOM" | "STAFF_MEMBER" | "DURATION";
+  custom?: string;          // CUSTOM — the choice label, e.g. "Student"
+  staffMemberId?: string;   // STAFF_MEMBER — resource ID
+  durationMinutes?: number; // DURATION
+  label: string;            // display label shown in the form header
+  price: { value: string; currency: string };
+}
+```
+
+**SDK wiring:**
+```typescript
+import { serviceOptionsAndVariants } from "@wix/bookings";
+// getServiceOptionsAndVariantsByServiceId returns { serviceVariants: { ... } }
+// Note the key is "serviceVariants" (not "serviceOptionsAndVariants") for this endpoint.
+const result = await wixClient.serviceOptionsAndVariants.getServiceOptionsAndVariantsByServiceId(serviceId);
+const sv = result.serviceVariants;
+const option = sv?.options?.values?.[0]; // only 1 option per service
+// variants: sv?.variants?.values[]  each has .choices[0] + .price
+```
+
+**Option types + choice field:**
+- `CUSTOM` → `option.customData.name` (label), `choice.custom` (value like "Adult")
+- `DURATION` → `option.durationData.name` (label), `choice.duration.minutes` / `choice.duration.name`
+- `STAFF_MEMBER` → `choice.staffMemberId` (resource ID). Name resolution requires a separate staff-members query with elevation — pass a `staffId→name` map as a prop from SSR or show a generic label.
+
+Returns `null` when no variants are configured — `ServiceBookingFlow` stays at the VariantSelector step in that case (the calendar never appears). This surfaces as "no options available" which means the merchant hasn't set up variants yet; note it in `errors` on return.
 
 ---
 

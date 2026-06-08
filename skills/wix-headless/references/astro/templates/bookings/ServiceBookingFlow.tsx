@@ -1,21 +1,27 @@
 import { useState } from "react";
 import AvailabilityCalendar from "./AvailabilityCalendar";
 import type { SelectedSlot } from "./AvailabilityCalendar";
+import VariantSelector from "./VariantSelector";
+import type { SelectedVariant } from "./VariantSelector";
 import BookingForm from "./BookingForm";
 
-// ServiceBookingFlow.tsx — client:only="react" coordinator island. Holds the
-// selected-slot state shared between AvailabilityCalendar and BookingForm,
-// transitions between them, and redirects to the confirmation page on success.
-// serviceType MUST be threaded through so the calendar picks the right time-slots
-// API and the form builds the right createBooking shape.
+// ServiceBookingFlow.tsx — client:only="react" coordinator island.
+// Three-step flow for VARIED-rate services:
+//   1. VariantSelector  — pick an option (e.g. "Adult / Student") and see its price
+//   2. AvailabilityCalendar — pick a time slot
+//   3. BookingForm — contact details + confirm
+// For FIXED / NO_FEE / CUSTOM services step 1 is skipped.
+// serviceType MUST be threaded through so the calendar and form pick the right APIs.
 
 interface Props {
   serviceId: string;
   serviceName: string;
   serviceType: "APPOINTMENT" | "CLASS";
+  rateType?: string; // "FIXED" | "NO_FEE" | "VARIED" | "CUSTOM"; absent → treated as FIXED
 }
 
-export default function ServiceBookingFlow({ serviceId, serviceName, serviceType }: Props) {
+export default function ServiceBookingFlow({ serviceId, serviceName, serviceType, rateType }: Props) {
+  const [selectedVariant, setSelectedVariant] = useState<SelectedVariant | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<SelectedSlot | null>(null);
 
   const handleSuccess = (bookingId: string, startDate?: string) => {
@@ -26,6 +32,21 @@ export default function ServiceBookingFlow({ serviceId, serviceName, serviceType
     window.location.href = `/booking-confirmation?${params.toString()}`;
   };
 
+  // Step 1 — VARIED only: pick a variant before picking a slot.
+  // VariantSelector returns null when no variants are configured, which means
+  // onVariantSelected is never called — the calendar never appears. Guard for that
+  // by rendering null (booking unavailable until variants are set up in the dashboard).
+  if (rateType === "VARIED" && !selectedVariant) {
+    return (
+      <VariantSelector
+        serviceId={serviceId}
+        serviceName={serviceName}
+        onVariantSelected={setSelectedVariant}
+      />
+    );
+  }
+
+  // Step 2 — pick a time slot.
   if (!selectedSlot) {
     return (
       <AvailabilityCalendar
@@ -37,12 +58,14 @@ export default function ServiceBookingFlow({ serviceId, serviceName, serviceType
     );
   }
 
+  // Step 3 — contact details + confirm.
   return (
     <BookingForm
       serviceId={serviceId}
       serviceName={serviceName}
       serviceType={serviceType}
       slot={selectedSlot}
+      selectedVariant={selectedVariant ?? undefined}
       onSuccess={handleSuccess}
       onCancel={() => setSelectedSlot(null)}
     />

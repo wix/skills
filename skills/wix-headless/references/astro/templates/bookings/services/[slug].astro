@@ -77,6 +77,7 @@ const seoTags = service.seoData?.tags ?? [];
         serviceId={service._id}
         serviceName={serviceName}
         serviceType={service.type ?? "APPOINTMENT"}
+        rateType={service.payment?.rateType ?? "FIXED"}
         client:only="react"
       />
     </section>
