@@ -108,7 +108,7 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 
 ## eCommerce
 
-**Routing structure** (rules + format in the `wix-skills-routing-expert` Claude Code skill — repo `ecom-ai-agents/.claude/skills/`): Each L2 category has a sibling `<category>.md` (README-surfaced description) + a `<category>/` folder with the dispatcher + promotion files. Three categories are fully migrated: **Tax**, **Pricing & promotions**, and **Shipping & fulfillment** (each a merged category-doc + dispatcher entry). **Checkout & cart** files remain at the flat root pending their migration.
+**Routing structure** (rules + format in the `wix-skills-routing-expert` Claude Code skill — repo `ecom-ai-agents/.claude/skills/`): Each L2 category has a sibling `<category>.md` (README-surfaced description) + a `<category>/` folder with the dispatcher + promotion files. All four eCommerce L2 categories are migrated (each a merged category-doc + dispatcher entry): **Tax**, **Pricing & promotions**, **Shipping & fulfillment**, and **Checkout & cart**.
 
 **L1 context loader (per L1 domain, sibling to category-docs):**
 
@@ -182,12 +182,14 @@ README-surfaced category-doc **and** dispatcher (merged). Covers shipping config
 
 (Rate-pricing-sanity and shipping-health guardrails are inlined into their caller recipes — free-shipping / optimize-rates and fix-coverage. The generic "apply shipping recommendations" recipe was dissolved — the LLM applies recs directly via the create/update endpoints in the API Reference.)
 
-### Checkout & cart (not yet migrated — flat root)
+### Checkout & Cart category
 
-These remain at `references/ecommerce/` until the Checkout & cart category is migrated. Valid direct entry points today.
+#### [Checkout & Cart](references/ecommerce/ecom-checkout.md)
+README-surfaced category-doc **and** dispatcher (merged). Covers abandonment reduction + checkout troubleshooting (the 2 recipes below). Most checkout *config* (guest checkout, minimum order, custom fields, upsell) is **Dashboard-only** — the dispatch routes those to the Wix Dashboard. Gaps pending authoring: automated cart-recovery email, agentic-checkout readiness (UCP), store-health monitor.
 
-- [Troubleshoot: Checkout Delivery Drop-off](references/ecommerce/troubleshoot-checkout-delivery-dropoff.md)
-- [Goal: Reduce Cart Abandonment](references/ecommerce/goal-reduce-cart-abandonment.md) — used by orchestrator's ABANDONED_CART branch; will move under Checkout & cart category
+#### Checkout promotions
+- [Reduce Abandonment](references/ecommerce/checkout/ecom-checkout-reduce-abandonment.md) — delivery-step friction angle; also loaded by run-a-sale's ABANDONED_CART branch
+- [Troubleshoot Delivery Drop-off](references/ecommerce/checkout/ecom-checkout-troubleshoot-dropoff.md)
 
 #### Reference
 - [Skill Graph](references/ecommerce/skill-graph.md) — author docs only, NOT a runtime skill

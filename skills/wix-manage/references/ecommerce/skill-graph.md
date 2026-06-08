@@ -1,6 +1,6 @@
 ---
 name: "eCommerce Skill Graph"
-description: Mermaid diagram of the eCommerce routing tree — WixREADME → category entry (merged doc+dispatcher) → promotion → support. Tax, Pricing, and Shipping migrated; Checkout & cart still legacy flat.
+description: Mermaid diagram of the eCommerce routing tree — WixREADME → category entry (merged doc+dispatcher) → promotion → support. Tax, Pricing, Shipping, and Checkout & cart all migrated.
 ---
 
 ## Skill Graph Diagram
@@ -12,11 +12,13 @@ flowchart TB
     README --> TAX
     README --> PRICE
     README --> SHIP
+    README --> CHECKOUT
 
     LOADER["ecom-load-context.md<br/>(L1 loader — general site data;<br/>loaded by each default before dispatch)"]
     TAX -.-> |load context| LOADER
     PRICE -.-> |load context| LOADER
     SHIP -.-> |load context| LOADER
+    CHECKOUT -.-> |load context| LOADER
 
     %% ---------- Tax L3 ----------
     subgraph TAX["Tax — tax/"]
@@ -59,14 +61,16 @@ flowchart TB
         SHIPDEF ~~~ SR ~~~ SG ~~~ SP ~~~ SF ~~~ SO ~~~ SX ~~~ SS
     end
 
-    %% ---------- Checkout & cart — legacy flat (not migrated) ----------
-    subgraph LEGACY["Checkout & cart — legacy flat at ecommerce/ root (NOT migrated)"]
+    %% ---------- Checkout & cart L3 (migrated) ----------
+    subgraph CHECKOUT["Checkout & cart — checkout/"]
         direction TB
-        L10["goal-reduce-cart-abandonment"]
-        L11["troubleshoot-checkout-delivery-dropoff"]
-        L10 ~~~ L11
+        CHKDEF["ecom-checkout · category-doc + dispatcher (merged)"]
+        CR["ecom-checkout-reduce-abandonment"]
+        CT["ecom-checkout-troubleshoot-dropoff"]
+        CD["config intents → Wix Dashboard<br/>(guest checkout · min order · custom fields · upsell)"]
+        CG["gaps: recover-email · agentic readiness · store-health"]
+        CHKDEF ~~~ CR ~~~ CT ~~~ CD ~~~ CG
     end
-    README -.-> |direct entries today| LEGACY
 
     classDef dispatcher fill:#f59e0b,stroke:#d97706,color:#fff
     classDef promotion fill:#3b82f6,stroke:#2563eb,color:#fff
@@ -75,12 +79,12 @@ flowchart TB
     classDef loader fill:#10b981,stroke:#059669,color:#fff
     classDef legacy fill:#6b7280,stroke:#4b5563,color:#fff
 
-    class TAXDEF,PRICEDEF,SHIPDEF dispatcher
-    class TC,TA,TV,TS,TU,TT,PC,PD,PB,SR,SG,SP,SF,SO,SX promotion
+    class TAXDEF,PRICEDEF,SHIPDEF,CHKDEF dispatcher
+    class TC,TA,TV,TS,TU,TT,PC,PD,PB,SR,SG,SP,SF,SO,SX,CR,CT promotion
     class PR orchestrator
     class PG,PF,PV,SS support
     class LOADER loader
-    class L10,L11 legacy
+    class CD,CG legacy
 ```
 
 The arrows land on each L3 **group**; inside a group, files stack vertically with the `default` dispatcher first. Internal dispatch (default → promotion) and support chains (run-a-sale → goal → flow → guardrail/tracking) are documented in the reachability table below rather than drawn as edges.
@@ -123,5 +127,9 @@ The arrows land on each L3 **group**; inside a group, files stack vertically wit
 | `shipping/ecom-shipping-api.md` | support | inline API reference (no public docs page) — linked from every shipping recipe |
 | (rate-pricing-sanity, shipping-health) | inlined | folded into free-shipping / optimize-rates and fix-coverage — no separate files |
 | (apply-recommendations) | dissolved | redundant with the API Reference (query → create/update by rec action) — §7.5 |
-| Checkout & cart legacy files | legacy flat | `goal-reduce-cart-abandonment`, `troubleshoot-checkout-delivery-dropoff` — pending Checkout & cart migration |
+| `ecom-checkout.md` | category-doc + dispatcher (merged) | WixREADME portal index; dispatches directly |
+| `checkout/ecom-checkout-reduce-abandonment.md` | promotion | checkout dispatch `[intent:reduce-abandonment]`; also loaded by run-a-sale ABANDONED_CART branch |
+| `checkout/ecom-checkout-troubleshoot-dropoff.md` | promotion | checkout dispatch `[intent:troubleshoot-checkout]` |
+| (guest-checkout, min-order, custom-fields, upsell) | Dashboard | no TPA-public API — dispatch routes to the Wix Dashboard |
+| (recover-email, agentic readiness, store-health) | gaps | pending authoring / research |
 </content>

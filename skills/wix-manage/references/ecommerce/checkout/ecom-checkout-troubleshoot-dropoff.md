@@ -1,7 +1,6 @@
 ---
 name: "Troubleshoot: Checkout Delivery Drop-off"
 description: Diagnostic tree for when delivery step conversion is below benchmark. Correlates shipping issues with checkout abandonment and calculates revenue impact.
-layer: troubleshoot
 ---
 # Troubleshoot: Checkout Delivery Drop-off
 
@@ -100,7 +99,7 @@ Follow this sequence to systematically identify the root cause:
 ### 5.4 Check rate pricing sanity
 - Are any rates exceeding 15% of AOV?
 - Is `multiplyByQuantity` enabled on any rate?
-- See the **Guardrail: Rate Pricing Sanity** skill for detailed checks.
+- See the rate-pricing-sanity checks inlined in [Shipping: Optimize Rates](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-shipping-optimize-rates).
 
 ### 5.5 Check backup rates
 - Are backup rates configured on carriers?

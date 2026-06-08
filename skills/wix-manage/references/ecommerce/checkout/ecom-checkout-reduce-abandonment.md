@@ -1,14 +1,6 @@
 ---
 name: "Goal: Reduce Cart Abandonment"
 description: Maps cart abandonment reduction to recovery automation KPIs. Covers abandoned cart email automation activation, missing sales detection, and eligibility thresholds. Also references shipping flows that affect checkout drop-off.
-layer: goal
-references:
-  - name: "Flow: Fix Coverage Gaps"
-    path: ecommerce/shipping/ecom-shipping-fix-coverage.md
-    load: false
-  - name: "Setup Store Pickup Location"
-    path: ecommerce/shipping/ecom-shipping-setup-pickup.md
-    load: false
 ---
 # Goal: Reduce Cart Abandonment
 

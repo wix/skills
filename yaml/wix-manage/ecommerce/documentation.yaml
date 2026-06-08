@@ -190,15 +190,22 @@ apiDoc:
       tags: [ecommerce, shipping, support]
 
     # ============================================================
-    # Checkout & cart — flat at references/ecommerce/ (NOT YET MIGRATED)
+    # Checkout & cart category (migrated)
+    # Most checkout settings (guest checkout, min order, custom fields) are
+    # Dashboard-only — see ecom-checkout.md. Only 2 recipes exist today.
     # ============================================================
 
-    - file: ../../../skills/wix-manage/references/ecommerce/troubleshoot-checkout-delivery-dropoff.md
-      title: "Troubleshoot: Checkout Delivery Drop-off"
+    - file: ../../../skills/wix-manage/references/ecommerce/ecom-checkout.md
+      title: "Checkout & Cart"
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
-      tags: [ecommerce]
+      tags: [ecommerce, checkout, category-doc]
 
-    - file: ../../../skills/wix-manage/references/ecommerce/goal-reduce-cart-abandonment.md
-      title: "Goal: Reduce Cart Abandonment"
+    - file: ../../../skills/wix-manage/references/ecommerce/checkout/ecom-checkout-reduce-abandonment.md
+      title: "Checkout: Reduce Abandonment"
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
-      tags: [ecommerce, ecommerce recommendations]
+      tags: [ecommerce, checkout, promotion]
+
+    - file: ../../../skills/wix-manage/references/ecommerce/checkout/ecom-checkout-troubleshoot-dropoff.md
+      title: "Checkout: Troubleshoot Delivery Drop-off"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce, checkout, promotion]

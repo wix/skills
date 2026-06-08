@@ -19,7 +19,7 @@ references:
     path: ecommerce/goal-drive-cross-sells.md
     load: false
   - name: "Goal: Reduce Cart Abandonment"
-    path: ecommerce/goal-reduce-cart-abandonment.md
+    path: ecommerce/checkout/ecom-checkout-reduce-abandonment.md
     load: false
   - name: "Setup: Coupons"
     path: ecommerce/setup-coupons.md
@@ -35,7 +35,7 @@ references:
 > - **UPSELL_BOOST** / **SHIPPING** → [Goal: Increase AOV](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-goal-increase-aov) (includes both discount and shipping flows)
 > - **STOCK_MOVER** → [Goal: Clear Inventory](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-goal-clear-inventory)
 > - **BUNDLE_AND_SAVE** → [Goal: Drive Cross-Sells](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-goal-drive-cross-sells)
-> - **ABANDONED_CART** → [Goal: Reduce Cart Abandonment](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-reduce-cart-abandonment) *(will move under Checkout & cart category)*
+> - **ABANDONED_CART** → [Goal: Reduce Cart Abandonment](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-checkout-reduce-abandonment) *(will move under Checkout & cart category)*
 >
 > **If COUPON mechanism in Step 4c**, load:
 > - [Create Coupon](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-create-coupon)
@@ -210,7 +210,7 @@ Based on the merchant's request AND the site data, determine which domains to an
 
 **For ABANDONED_CART domain — load the cart abandonment goal:**
 
-[Goal: Reduce Cart Abandonment](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-reduce-cart-abandonment)
+[Goal: Reduce Cart Abandonment](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-checkout-reduce-abandonment)
 
 **The goal skill will instruct you to load flow and guardrail skills** — follow those instructions. This chain provides the detailed execution logic you need for high-quality recommendations.
 
