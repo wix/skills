@@ -43,7 +43,7 @@ flowchart TB
         PB["ecom-pricing-troubleshoot-not-applying"]
         PG["goal-seasonal-revenue · goal-increase-aov<br/>goal-clear-inventory · goal-drive-cross-sells"]
         PF["flow-seasonal-promotion · flow-upsell-boost<br/>flow-bundle-and-save · flow-stock-mover"]
-        PV["guardrail-discount-conflicts · guardrail-margin-protection<br/>tracking-api"]
+        PV["tracking-api (guardrails inlined into create-discount-rule / create-coupon)"]
         PRICEDEF ~~~ PC ~~~ PD ~~~ PR ~~~ PB ~~~ PG ~~~ PF ~~~ PV
     end
 
@@ -115,8 +115,7 @@ The arrows land on each L3 **group**; inside a group, files stack vertically wit
 | `pricing-promotions/ecom-pricing-flow-upsell-boost.md` | support | goal-increase-aov |
 | `pricing-promotions/ecom-pricing-flow-bundle-and-save.md` | support | goal-increase-aov / goal-drive-cross-sells |
 | `pricing-promotions/ecom-pricing-flow-stock-mover.md` | support | goal-clear-inventory |
-| `pricing-promotions/ecom-pricing-guardrail-discount-conflicts.md` | support | all pricing flows |
-| `pricing-promotions/ecom-pricing-guardrail-margin-protection.md` | support | flow-upsell-boost / flow-stock-mover |
+| (discount-conflicts, margin-protection) | inlined | folded into create-discount-rule (+ create-coupon) — the skills they guard |
 | `pricing-promotions/ecom-pricing-tracking-api.md` | support | run-a-sale (Steps 2 + 8) |
 | `ecom-shipping.md` | category-doc + dispatcher (merged) | WixREADME portal index; dispatches directly |
 | `shipping/ecom-shipping-setup-rates.md` | promotion | shipping dispatch `[intent:setup-rates]` |

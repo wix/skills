@@ -1,11 +1,6 @@
 ---
 name: "Goal: Drive Cross-Sells"
 description: Maps the BUNDLE_AND_SAVE business goal to multi-item purchase KPIs and bundling flows.
-layer: goal
-references:
-  - name: "Flow: Bundle and Save"
-    path: ecommerce/flow-bundle-and-save.md
-    load: true
 ---
 # Goal: Drive Cross-Sells and Product Discovery
 

@@ -1,20 +1,10 @@
 ---
 name: "Flow: Bundle and Save"
 description: Creates a discount campaign promoting product discovery and cross-selling by requiring minimum item quantities. Targets high-margin categories with complementary products.
-layer: flow
-references:
-  - name: "Guardrail: Discount Conflicts"
-    path: ecommerce/guardrail-discount-conflicts.md
-    load: true
-  - name: "Setup: Discount Rules"
-    path: ecommerce/setup-discount-rules.md
-    load: true
 ---
 # Flow: Bundle & Save Campaign
 
-> **Before executing this skill**, read these referenced skills with `ReadFullDocsArticle`:
-> - [Guardrail: Discount Conflicts](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-guardrail-discount-conflicts)
-> - [Setup: Discount Rules](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-create-discount-rule)
+> **Before executing this skill**, read [Create Discount Rule](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-create-discount-rule) with `ReadFullDocsArticle` — it contains the discount-rule mechanics **and** the pre-create guardrails (conflict/stacking, margin floor, %-sanity).
 
 Creates a discount that rewards customers for purchasing multiple items, encouraging product discovery and cross-selling. The discount activates when the cart contains a minimum number of items, and targets categories or products where bundling makes strategic sense.
 
@@ -118,29 +108,7 @@ If scope is CATEGORY, call `getCategoryIds` to convert category names to GUIDs.
 
 ## Step 7: Run guardrail checks
 
-**Run the Guardrail: Discount Conflicts checks before creating the rule.**
-
-1. Query existing active discount rules:
-
-**Endpoint**: `POST https://www.wixapis.com/ecom/v1/discount-rules/query`
-
-**Request**:
-```json
-{
-  "query": {
-    "filter": {
-      "active": true
-    },
-    "paging": {
-      "limit": 100
-    }
-  }
-}
-```
-
-2. Check for scope overlap with existing rules. Bundle discounts are especially prone to stacking — a customer buying 3 items in a category with both a bundle discount and a catalog-wide sale would get both.
-3. Check for coupon stacking risks.
-4. If conflicts found, present to merchant and get confirmation.
+**Run the pre-create guardrails in [Create Discount Rule](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-create-discount-rule) → "Guardrails" before creating the rule.** Bundle discounts are especially prone to **scope-overlap stacking** (a customer buying 3 items in a category with both a bundle discount and a catalog-wide sale gets both) and **coupon stacking** — present any conflicts to the merchant and confirm.
 
 ---
 

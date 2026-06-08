@@ -1,20 +1,10 @@
 ---
 name: "Flow: Seasonal Promotion"
 description: Creates event-driven promotional campaigns tied to holidays or seasonal events. Uses country and date context to identify upcoming events, calculates optimal campaign windows, and targets relevant categories.
-layer: flow
-references:
-  - name: "Guardrail: Discount Conflicts"
-    path: ecommerce/guardrail-discount-conflicts.md
-    load: true
-  - name: "Setup: Discount Rules"
-    path: ecommerce/setup-discount-rules.md
-    load: true
 ---
 # Flow: Seasonal Promotion
 
-> **Before executing this skill**, read these referenced skills with `ReadFullDocsArticle`:
-> - [Guardrail: Discount Conflicts](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-guardrail-discount-conflicts)
-> - [Setup: Discount Rules](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-create-discount-rule)
+> **Before executing this skill**, read [Create Discount Rule](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-create-discount-rule) with `ReadFullDocsArticle` — it contains the discount-rule mechanics **and** the pre-create guardrails (conflict/stacking, margin floor, %-sanity).
 
 Creates event-driven promotional discounts tied to holidays, shopping events, or seasonal milestones. The flow identifies upcoming events based on the site's country and current date, calculates optimal campaign start/end windows, and targets event-relevant product categories with appropriately sized discounts.
 
@@ -160,30 +150,7 @@ If scope is CATEGORY, call `getCategoryIds` to convert category names to GUIDs.
 
 ## Step 8: Run guardrail checks
 
-**Run the Guardrail: Discount Conflicts checks before creating the rule.**
-
-1. Query existing active discount rules:
-
-**Endpoint**: `POST https://www.wixapis.com/ecom/v1/discount-rules/query`
-
-**Request**:
-```json
-{
-  "query": {
-    "filter": {
-      "active": true
-    },
-    "paging": {
-      "limit": 100
-    }
-  }
-}
-```
-
-2. Check for time overlap — seasonal promotions have defined windows, so check that no existing rule covers the same period on the same scope.
-3. Check for scope overlap — a seasonal category discount stacking with an existing catalog-wide discount could create unexpectedly deep combined discounts.
-4. Check for coupon stacking — seasonal events often have high coupon usage.
-5. If conflicts found, present to merchant and get confirmation.
+**Run the pre-create guardrails in [Create Discount Rule](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-create-discount-rule) → "Guardrails" before creating the rule.** For seasonal campaigns the most relevant are **time overlap** (defined windows — ensure no existing rule covers the same period/scope), **scope overlap** (a category discount stacking with a catalog-wide one), and **coupon stacking** (seasonal events drive high coupon usage). Present any conflicts to the merchant and get confirmation.
 
 ---
 

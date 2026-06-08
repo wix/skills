@@ -126,6 +126,36 @@ Note existing rules and their scopes to avoid stacking conflicts.
 
 ---
 
+## Guardrails — run before creating or updating any discount
+
+These checks guard every discount creation (rule **or** coupon). Run them before the create/update calls below. **User input overrides all caps** — if the merchant explicitly asks for a value beyond a threshold, honor it and document the override in your reasoning.
+
+**Conflict / stacking** (uses the Step 1 query of active rules; for coupons, also query active coupons):
+- **Same-scope overlap** — a new rule conflicts with an existing active rule when scopes overlap (both `CATALOG`; `CATALOG` vs `COLLECTION`; same `COLLECTION`/`SPECIFIC_PRODUCTS` id). Wix stacks automatic rules → warn and offer to deactivate the existing one.
+- **Time overlap** — overlapping `activeTimeInfo` on the same scope (`existingStart < newEnd AND existingEnd > newStart`) → warn about the overlap window.
+- **Cross-mechanism (automatic + coupon)** — automatic discounts and coupons both apply at checkout. If creating a rule, query active coupons on overlapping scope (and vice-versa); warn with the combined effective discount. (Only one coupon per checkout, but automatic rules are unlimited.)
+
+**Margin / sanity:**
+- **Global cap** — default max discount **25%**; flag anything higher (proceed only on explicit request).
+- **Minimum margin** — default floor **15%**; if cost data is available, `effective_margin = (price − cost − discount_amount) / price × 100` must stay ≥ 15% (block + explain otherwise).
+- **% sanity** — > 50% warn (show a $100 → $(100−pct) example); = 100% block unless confirmed ("makes the product free"); > 100% always block.
+- **Stacking margin** — when a new discount overlaps existing active ones, evaluate the *combined* discount against the cap and margin floor, not just the new one in isolation.
+
+| Scenario | Action |
+|---|---|
+| Discount ≤ 25% and margin ≥ 15%, no scope overlap | Proceed |
+| Scope/time/cross-mechanism overlap | Warn; offer to deactivate existing or confirm stacking |
+| Discount 26–50% (no override) | Warn, ask to confirm |
+| Discount > 50% | Warn with $ example, confirm |
+| Discount = 100% | Block unless confirmed |
+| Discount > 100% | Block always |
+| Combined/stacked discount exceeds cap or margin floor | Warn about cumulative effect |
+| Any threshold, explicit user override | Proceed, document the override in reasoning |
+
+When a discount *isn't* applying as expected, see [Troubleshoot: Discount Not Applying](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-troubleshoot-not-applying).
+
+---
+
 ## Step 2: Create a percentage discount rule
 
 **Endpoint**: `POST https://www.wixapis.com/ecom/v1/discount-rules`

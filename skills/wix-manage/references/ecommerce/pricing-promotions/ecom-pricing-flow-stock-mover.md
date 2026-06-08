@@ -1,24 +1,10 @@
 ---
 name: "Flow: Stock Mover"
 description: Creates discount campaigns to clear slow-moving inventory by targeting products with high stock levels and low sales velocity. Uses deeper discounts proportional to inventory urgency.
-layer: flow
-references:
-  - name: "Guardrail: Discount Conflicts"
-    path: ecommerce/guardrail-discount-conflicts.md
-    load: true
-  - name: "Guardrail: Margin Protection"
-    path: ecommerce/guardrail-margin-protection.md
-    load: true
-  - name: "Setup: Discount Rules"
-    path: ecommerce/setup-discount-rules.md
-    load: true
 ---
 # Flow: Stock Mover Clearance
 
-> **Before executing this skill**, read these referenced skills with `ReadFullDocsArticle`:
-> - [Guardrail: Discount Conflicts](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-guardrail-discount-conflicts)
-> - [Guardrail: Margin Protection](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-guardrail-margin-protection)
-> - [Setup: Discount Rules](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-create-discount-rule)
+> **Before executing this skill**, read [Create Discount Rule](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-create-discount-rule) with `ReadFullDocsArticle` — it contains the discount-rule mechanics **and** the pre-create guardrails (conflict/stacking, margin floor, %-sanity).
 
 Creates a discount targeting slow-moving inventory — products with high stock levels and low sales velocity. The discount depth is proportional to how overstocked the product is, with deeper discounts for the most stagnant items. Margin protection guardrails are especially important here since clearance discounts tend to push closer to cost.
 
@@ -122,38 +108,7 @@ If scope is CATEGORY, call `getCategoryIds` to convert category names to GUIDs.
 
 ## Step 6: Run guardrail checks
 
-**IMPORTANT: Run both guardrail checks before creating the discount rule. Clearance discounts are the most likely to trigger margin warnings.**
-
-### 6a: Discount Conflicts
-
-1. Query existing active discount rules:
-
-**Endpoint**: `POST https://www.wixapis.com/ecom/v1/discount-rules/query`
-
-**Request**:
-```json
-{
-  "query": {
-    "filter": {
-      "active": true
-    },
-    "paging": {
-      "limit": 100
-    }
-  }
-}
-```
-
-2. Check for scope overlap. Clearance items that already have an active discount would stack — warn the merchant about combined discount depth.
-3. Check for coupon stacking risks. A customer combining a clearance discount with a coupon code could get an unexpectedly deep total discount.
-
-### 6b: Margin Protection
-
-This check is especially critical for clearance:
-
-- Verify `discount_percentage <= avg_profit_margin - 15%` for each candidate product.
-- If the discount would push effective margin below 15%, warn the merchant: "This clearance discount of {discount}% on {product_name} would reduce the effective margin to {remaining_margin}%. The minimum margin threshold is 15%. Proceed?"
-- If margin data is unavailable, apply extra caution — cap at 15% unless the merchant explicitly overrides.
+**Run the pre-create guardrails in [Create Discount Rule](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-create-discount-rule) → "Guardrails" before creating the rule** (conflict/stacking, %-sanity, margin floor). Clearance is the **most margin-sensitive** case: discounts push closest to cost, so the margin-floor check (effective margin ≥ 15% unless the merchant overrides) is the one most likely to fire here — verify it per candidate product.
 
 ---
 

@@ -1,23 +1,6 @@
 ---
 name: "Goal: Increase AOV"
 description: Maps the UPSELL_BOOST business goal to measurable KPIs and actionable discount flows. Covers AOV benchmarking, margin-based discount tiers, and minSubTotal strategy.
-layer: goal
-references:
-  - name: "Flow: Upsell Boost"
-    path: ecommerce/flow-upsell-boost.md
-    load: true
-  - name: "Flow: Bundle and Save"
-    path: ecommerce/flow-bundle-and-save.md
-    load: true
-  - name: "Flow: Add Free Shipping"
-    path: ecommerce/shipping/ecom-shipping-free-shipping.md
-    load: false
-  - name: "Flow: Optimize Shipping Rates"
-    path: ecommerce/shipping/ecom-shipping-optimize-rates.md
-    load: false
-  - name: "Guardrail: Margin Protection"
-    path: ecommerce/guardrail-margin-protection.md
-    load: false
 ---
 # Goal: Increase Average Order Value
 
@@ -29,8 +12,7 @@ references:
 > - [Flow: Add Free Shipping](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-shipping-free-shipping) — free shipping threshold pushes carts above AOV
 > - [Flow: Optimize Shipping Rates](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-shipping-optimize-rates) — rate optimization improves conversion on higher-value orders
 >
-> **Related skills** (read with `ReadFullDocsArticle` if needed):
-> - [Guardrail: Margin Protection](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-guardrail-margin-protection)
+> The margin/cap guardrails are enforced in [Create Discount Rule](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-create-discount-rule) → "Guardrails".
 
 Incentivize customers to spend above the store's current average order value (AOV) by creating threshold-based discounts that reward higher cart totals.
 

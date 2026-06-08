@@ -1,24 +1,10 @@
 ---
 name: "Flow: Upsell Boost"
 description: Creates a discount campaign to increase average order value by setting minimum subtotal conditions above current AOV. Uses margin-based discount tiers and targets high-margin categories.
-layer: flow
-references:
-  - name: "Guardrail: Discount Conflicts"
-    path: ecommerce/guardrail-discount-conflicts.md
-    load: true
-  - name: "Guardrail: Margin Protection"
-    path: ecommerce/guardrail-margin-protection.md
-    load: true
-  - name: "Setup: Discount Rules"
-    path: ecommerce/setup-discount-rules.md
-    load: true
 ---
 # Flow: Upsell Boost Campaign
 
-> **Before executing this skill**, read these referenced skills with `ReadFullDocsArticle`:
-> - [Guardrail: Discount Conflicts](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-guardrail-discount-conflicts)
-> - [Guardrail: Margin Protection](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-guardrail-margin-protection)
-> - [Setup: Discount Rules](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-create-discount-rule)
+> **Before executing this skill**, read [Create Discount Rule](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-create-discount-rule) with `ReadFullDocsArticle` — it contains the discount-rule mechanics **and** the pre-create guardrails (conflict/stacking, margin floor, %-sanity).
 
 Creates a discount that incentivizes customers to spend more per order by setting a minimum subtotal threshold above the store's current AOV. The discount percentage is scaled to the store's average profit margin, and the scope targets high-margin categories or products.
 
@@ -114,36 +100,7 @@ Max 3 categoryIds per discount rule.
 
 ## Step 6: Run guardrail checks
 
-**IMPORTANT: Run both guardrail checks before creating the discount rule.**
-
-### 6a: Discount Conflicts
-
-1. Query existing active discount rules:
-
-**Endpoint**: `POST https://www.wixapis.com/ecom/v1/discount-rules/query`
-
-**Request**:
-```json
-{
-  "query": {
-    "filter": {
-      "active": true
-    },
-    "paging": {
-      "limit": 100
-    }
-  }
-}
-```
-
-2. Check for scope overlap, time overlap, and coupon stacking risks with the planned upsell discount.
-3. If conflicts found, present to merchant and get confirmation before proceeding.
-
-### 6b: Margin Protection
-
-Verify that `discount_percentage <= avg_profit_margin - 15%` (minMarginPct). If the discount would push effective margin below 15%, warn the merchant.
-
-The global discount cap is 25%. Do not exceed this unless the merchant explicitly overrides it.
+**Run the pre-create guardrails in [Create Discount Rule](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-create-discount-rule) → "Guardrails" before creating the rule** — conflict/stacking (scope, time, coupon cross-stacking), the 25% cap, the 15% margin floor, and %-sanity. Present any warnings to the merchant and get confirmation before proceeding.
 
 ---
 

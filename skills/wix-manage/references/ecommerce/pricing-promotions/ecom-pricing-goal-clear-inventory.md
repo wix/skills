@@ -1,22 +1,10 @@
 ---
 name: "Goal: Clear Inventory"
 description: Maps the STOCK_MOVER business goal to inventory turnover KPIs and clearance discount flows.
-layer: goal
-references:
-  - name: "Flow: Stock Mover"
-    path: ecommerce/flow-stock-mover.md
-    load: true
-  - name: "Guardrail: Margin Protection"
-    path: ecommerce/guardrail-margin-protection.md
-    load: false
 ---
 # Goal: Clear Slow-Moving Inventory
 
-> **Before executing this skill**, read these referenced skills with `ReadFullDocsArticle`:
-> - [Flow: Stock Mover](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-flow-stock-mover)
->
-> **Related skills** (read with `ReadFullDocsArticle` if needed):
-> - [Guardrail: Margin Protection](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-guardrail-margin-protection)
+> **Before executing this skill**, read [Flow: Stock Mover](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-flow-stock-mover) with `ReadFullDocsArticle`. The margin-floor guardrail (critical for clearance) is enforced in [Create Discount Rule](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-create-discount-rule) → "Guardrails".
 
 Automate clearance discounts for products with high stock levels and low sales velocity, converting stagnant inventory into revenue before it becomes a carrying cost liability.
 

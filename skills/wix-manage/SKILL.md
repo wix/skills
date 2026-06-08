@@ -156,9 +156,9 @@ README-surfaced category-doc **and** dispatcher (merged). Disambiguates the cate
 - [Flow: Bundle and Save](references/ecommerce/pricing-promotions/ecom-pricing-flow-bundle-and-save.md)
 - [Flow: Stock Mover](references/ecommerce/pricing-promotions/ecom-pricing-flow-stock-mover.md)
 - [Flow: Seasonal Promotion](references/ecommerce/pricing-promotions/ecom-pricing-flow-seasonal-promotion.md)
-- [Guardrail: Discount Conflicts](references/ecommerce/pricing-promotions/ecom-pricing-guardrail-discount-conflicts.md)
-- [Guardrail: Margin Protection](references/ecommerce/pricing-promotions/ecom-pricing-guardrail-margin-protection.md)
 - [API: Recommendation Tracking](references/ecommerce/pricing-promotions/ecom-pricing-tracking-api.md)
+
+(Discount-conflict & margin guardrails are inlined into Create Discount Rule / Create Coupon — the skills they guard — rather than separate files.)
 
 </details>
 
