@@ -209,3 +209,8 @@ apiDoc:
       title: "Checkout: Troubleshoot Delivery Drop-off"
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
       tags: [ecommerce, checkout, promotion]
+
+    - file: ../../../skills/wix-manage/references/ecommerce/checkout/ecom-checkout-recover-email.md
+      title: "Checkout: Recover Abandoned Carts via Email"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce, checkout, promotion]

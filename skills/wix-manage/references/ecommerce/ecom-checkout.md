@@ -21,6 +21,7 @@ Improve and fix the checkout/cart experience — reduce abandonment, diagnose wh
 ### Reduce abandonment & troubleshoot (recipes)
 
 > - [Reduce checkout/cart abandonment (delivery-step friction)](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-checkout-reduce-abandonment) — tags: `[intent:reduce-abandonment]` · priority 0
+> - [Recover abandoned carts via email (automation)](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-checkout-recover-email) — tags: `[intent:recover-email]` · priority 0 · *Dashboard-configured automation; recipe guides timing/content/eligibility*
 > - [Troubleshoot checkout failure / delivery drop-off](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-checkout-troubleshoot-dropoff) — tags: `[intent:troubleshoot-checkout]` · priority 0
 
 ### Checkout configuration
@@ -33,11 +34,10 @@ Improve and fix the checkout/cart experience — reduce abandonment, diagnose wh
 
 ### Info
 
-> - View **abandoned checkouts** — tags: `[intent:view-abandoned]` · **API doc, no skill** — use the eCommerce **Abandoned Checkouts** query API *(confirm endpoint before relying)*
+> - View **abandoned checkouts** — tags: `[intent:view-abandoned]` · **API doc, no skill** — `POST https://www.wixapis.com/ecom/v1/abandoned-checkout/query` (Abandoned Checkout API, TPA-public/GA; `/search` for richer filters)
 
 ### Not yet covered (gaps — pending authoring / research)
 
-> - **Recover abandoned checkouts via automated email** — tags: `[intent:recover-email]` · 🚧 **gap** — needs a Wix Automations recipe (distinct from the shipping-friction `reduce-abandonment` recipe above)
 > - **Test agentic checkout / agentic readiness (UCP)** — tags: `[intent:agentic]` · 🚧 **gap** — UCP / agentic-commerce; needs research (likely Dashboard + platform feature)
 > - **Store health monitor (periodic checkout testing)** — tags: `[intent:store-health]` · 🚧 **gap** — periodic orchestrator, not yet authored
 

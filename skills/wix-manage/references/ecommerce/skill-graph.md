@@ -66,10 +66,11 @@ flowchart TB
         direction TB
         CHKDEF["ecom-checkout · category-doc + dispatcher (merged)"]
         CR["ecom-checkout-reduce-abandonment"]
+        CE["ecom-checkout-recover-email"]
         CT["ecom-checkout-troubleshoot-dropoff"]
         CD["config intents → Wix Dashboard<br/>(guest checkout · min order · custom fields · upsell)"]
-        CG["gaps: recover-email · agentic readiness · store-health"]
-        CHKDEF ~~~ CR ~~~ CT ~~~ CD ~~~ CG
+        CG["gaps: agentic readiness · store-health"]
+        CHKDEF ~~~ CR ~~~ CE ~~~ CT ~~~ CD ~~~ CG
     end
 
     classDef dispatcher fill:#f59e0b,stroke:#d97706,color:#fff
@@ -80,7 +81,7 @@ flowchart TB
     classDef legacy fill:#6b7280,stroke:#4b5563,color:#fff
 
     class TAXDEF,PRICEDEF,SHIPDEF,CHKDEF dispatcher
-    class TC,TA,TV,TS,TU,TT,PC,PD,PB,SR,SG,SP,SF,SO,SX,CR,CT promotion
+    class TC,TA,TV,TS,TU,TT,PC,PD,PB,SR,SG,SP,SF,SO,SX,CR,CE,CT promotion
     class PR orchestrator
     class PG,PF,PV,SS support
     class LOADER loader
@@ -129,7 +130,8 @@ The arrows land on each L3 **group**; inside a group, files stack vertically wit
 | (apply-recommendations) | dissolved | redundant with the API Reference (query → create/update by rec action) — §7.5 |
 | `ecom-checkout.md` | category-doc + dispatcher (merged) | WixREADME portal index; dispatches directly |
 | `checkout/ecom-checkout-reduce-abandonment.md` | promotion | checkout dispatch `[intent:reduce-abandonment]`; also loaded by run-a-sale ABANDONED_CART branch |
+| `checkout/ecom-checkout-recover-email.md` | promotion | checkout dispatch `[intent:recover-email]` — Dashboard-configured automation, recipe guides config |
 | `checkout/ecom-checkout-troubleshoot-dropoff.md` | promotion | checkout dispatch `[intent:troubleshoot-checkout]` |
 | (guest-checkout, min-order, custom-fields, upsell) | Dashboard | no TPA-public API — dispatch routes to the Wix Dashboard |
-| (recover-email, agentic readiness, store-health) | gaps | pending authoring / research |
+| (agentic readiness, store-health) | gaps | pending authoring / research |
 </content>

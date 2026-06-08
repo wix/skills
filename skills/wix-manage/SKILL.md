@@ -185,10 +185,11 @@ README-surfaced category-doc **and** dispatcher (merged). Covers shipping config
 ### Checkout & Cart category
 
 #### [Checkout & Cart](references/ecommerce/ecom-checkout.md)
-README-surfaced category-doc **and** dispatcher (merged). Covers abandonment reduction + checkout troubleshooting (the 2 recipes below). Most checkout *config* (guest checkout, minimum order, custom fields, upsell) is **Dashboard-only** — the dispatch routes those to the Wix Dashboard. Gaps pending authoring: automated cart-recovery email, agentic-checkout readiness (UCP), store-health monitor.
+README-surfaced category-doc **and** dispatcher (merged). Covers abandonment reduction + checkout troubleshooting (the 2 recipes below). Most checkout *config* (guest checkout, minimum order, custom fields, upsell) is **Dashboard-only** — the dispatch routes those to the Wix Dashboard. Gaps pending: agentic-checkout readiness (UCP), store-health monitor.
 
 #### Checkout promotions
 - [Reduce Abandonment](references/ecommerce/checkout/ecom-checkout-reduce-abandonment.md) — delivery-step friction angle; also loaded by run-a-sale's ABANDONED_CART branch
+- [Recover Abandoned Carts via Email](references/ecommerce/checkout/ecom-checkout-recover-email.md) — Dashboard-configured automation; recipe guides timing/content/eligibility
 - [Troubleshoot Delivery Drop-off](references/ecommerce/checkout/ecom-checkout-troubleshoot-dropoff.md)
 
 #### Reference
