@@ -127,3 +127,7 @@ Only use SP tokens for `gap`, `padding`, `margin` — not for width/height.
 import { Button, Card, Image } from "@wix/design-system";
 import { Add, Edit, Delete } from "@wix/wix-ui-icons-common";
 ```
+
+### Troubleshooting
+
+- **Components render unstyled** (plain HTML look, missing WDS spacing/typography): add `import "@wix/design-system/styles.global.css";` once to the root/main component (e.g. `page.tsx`, modal entry) — not child/tab/helper files.
