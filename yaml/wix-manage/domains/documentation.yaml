@@ -6,3 +6,7 @@ apiDoc:
       title: Domain Search and Purchase
       docsEntry: https://dev.wix.com/docs/api-reference/account-level/domains
       tags: [domains]
+    - file: ../../../skills/wix-manage/references/domains/check-and-fix-dns.md
+      title: Domain DNS Check and Fix
+      docsEntry: https://dev.wix.com/docs/api-reference/account-level/domains
+      tags: [domains]
