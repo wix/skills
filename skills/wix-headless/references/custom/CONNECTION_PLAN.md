@@ -41,7 +41,7 @@ One entry per region:
 {
   "file": "index.html",
   "anchor": "section.product-grid",     // a stable CSS selector into the existing DOM
-  "entity": "stores.products",          // stores.products | blog.posts | forms.submit | data.items
+  "entity": "stores.products",          // stores.products | blog.posts | forms.submit | data.items | bookings.services
   "shape": "list",                       // list | detail | single | submit
   "template": "article.product-card",   // the repeated child to clone per result (list shapes)
   "bindings": {                          // DOM node (relative to template) → entity field
@@ -118,7 +118,7 @@ Do **not** guess silently and do **not** call `AskUserQuestion`. Wire the region
 - **Rendered markup with dynamic regions** → binding map.
 - **Static design with no dynamic region** → augmentation.
 
-Only when there is genuinely **no** data layer, **no** rendered region, **and** no capability was inferred do you fall back to the **Forms contact-form floor** (a contact-form augmentation). Never return an empty plan (no binding map AND no augmentation AND no persistence swap) — that would violate always-connect.
+Fall back to the **Forms contact-form floor** (a contact-form augmentation) only when there is genuinely **no** data layer, **no** rendered region, **and** no capability was inferred — not for a client-state SPA (see the bullet above). Never return an empty plan (no binding map AND no augmentation AND no persistence swap) — that would violate always-connect.
 
 ## Return
 

@@ -23,12 +23,12 @@ Read the entry HTML (and other pages) — markup, copy, headings/`<title>`, `<fo
 | `@astrojs/*`/`astro` dep with an astro build *(a brought-in astro project)* | `wix` | *out of SPA-plan scope — not yet exercised; the framework-blind connect flow does not forbid it, but Build's astro tenant assumes a scaffold. Treat as `own` (run its own build) unless/until a dedicated path lands.* |
 
 - Read `package.json` once (if present) + the entry HTML. The **un-built-source entry** is the decisive signal: a built `dist/index.html` referencing hashed bundles is *not* `own` to re-build blindly — but a brought-in SPA repo with `src/` + a build script is.
-- Record `frontendBuild` in orchestrator scratch (contract core, `PLAN.md` § "The Plan→Build contract"). It is **not** persisted to `.wix/site.json` (only `frontend: custom` is) — on scratch loss it is recovered by re-reading `package.json` (this same signal).
+- Record `frontendBuild` in orchestrator scratch (contract core, `PLAN.md` § "The Plan→Build contract"). It is **not** persisted to disk — on scratch loss it is recovered by re-reading `package.json` (this same signal).
 - Pass the resolved `frontendBuild` into the connection-plan dispatch (it tells the planner to read rendered markup for `none` vs un-built `src/**` for `own` — `CONNECTION_PLAN.md` § "What to read").
 
 ## 2 · Infer the domain → capability
 
-Map the site's purpose to the Wix capability + apps using the table in `references/custom/INSTRUCTIONS.md` § "Always connect" (wedding invite → RSVP/Wix Forms; store mock → Wix Stores; **app with client/local state — todo, notes, tracker, planner — → CMS persistence swap (`@wix/data`)**; etc.). **Always connect:** if the site has no dynamic region, pick the connected feature its purpose implies; the universal floor is a Wix Forms contact/lead form — **but a client-state app maps to a CMS persistence swap, not the contact-form floor** (the connection planner detects this from source; see `CONNECTION_PLAN.md` § "(c) Persistence swap"). Also infer the **brand** (from `<title>`/copy) for `.wix/site.json` and any seeded-content naming.
+Map the site's purpose to the Wix capability + apps using the table in `references/custom/INSTRUCTIONS.md` § "Always connect" (wedding invite → RSVP/Wix Forms; store mock → Wix Stores; **app with client/local state — todo, notes, tracker, planner — → CMS persistence swap (`@wix/data`)**; etc.). **Always connect:** if the site has no dynamic region, pick the connected feature its purpose implies; the universal floor is a Wix Forms contact/lead form — **but a client-state app maps to a CMS persistence swap, not the contact-form floor** (the connection planner detects this from source; see `CONNECTION_PLAN.md` § "(c) Persistence swap"). Also infer the **brand** (from `<title>`/copy) for scratch and any seeded-content naming.
 
 ## 3 · Present a light plan, then approval
 
@@ -44,19 +44,12 @@ Then, as a separate step, ask for approval (`AskUserQuestion`): *"Ready to conne
 > Example combined shape — present this as the plan message, then ask the approval question:
 > *"This is a wedding invitation with no RSVP. I'll install Wix Forms, add an RSVP form styled to match, and publish it live."*
 
-## 4 · After approval — write `.wix/site.json`
+## 4 · After approval — hold the contract in scratch
 
-Write `.wix/site.json` via `init-site-json.mjs --frontend custom`:
+Hold the captured contract in orchestrator scratch — nothing is written to disk:
 
-```bash
-mkdir -p .wix
-node "<SKILL_ROOT>/scripts/init-site-json.mjs" \
-    "$(pwd)" "<inferred brand>" "<one-line site summary>" "<capabilities-csv>" \
-    --frontend custom
-```
-
-- `--frontend custom` persists `frontend: custom` (the only field on disk). The **`frontendBuild`** that drives Build was resolved in § 1.5 (`none` for static HTML, `own` for a framework SPA) and lives in **scratch** — `operation`/`frontendBuild` are *not* persisted (the in-agent contract, `PLAN.md` § "The Plan→Build contract"). `none` makes the conductor skip the build at release; `own` makes it run the project's own `npm run build` first.
-- `<capabilities-csv>` = the inferred capability set (e.g. `"forms"`, `"stores,ecom"`, or `"cms"` for a client-state persistence swap), recorded as `verticals`.
-- The script writes a slim `.wix/site.json` (`{brand, frontend, verticals}`; `siteId`/`appId` patched in by the connect flow's init step). It refuses to overwrite an existing file; surface a stale one rather than `rm`-ing it.
+- `frontend: custom`. The **`frontendBuild`** that drives Build was resolved in § 1.5 (`none` for static HTML, `own` for a framework SPA) and lives in **scratch** alongside `operation` (the in-agent contract, `PLAN.md` § "The Plan→Build contract"). `none` makes the conductor skip the build at release; `own` makes it run the project's own `npm run build` first.
+- `verticals` = the inferred capability set (e.g. `"forms"`, `"stores,ecom"`, or `"cms"` for a client-state persistence swap).
+- `brand` (from § 2) + the one-line site summary, for seeded-content naming and the end-of-run `AGENTS.md`.
 
 Then hand to `BUILD.md` — it routes Build on `frontendBuild` (`none` or `own`, from § 1.5) to `BUILD-own-build.md`. The frontend-track playbook is `references/custom/INSTRUCTIONS.md`; `PLAN-connect.md` owns the pre-approval routing.

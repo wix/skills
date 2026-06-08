@@ -310,6 +310,7 @@ For the full table see the [Catalog V1 to V3 Migration Guide](https://dev.wix.co
 | `manageVariants: false` (customizations) | `modifiers[i]` |
 | `collectionIds[i]` | `directCategories[i].id` |
 | `ribbon`, `brand` (string) | `ribbon.name`, `brand.name` (managed via `ribbonsV3` / `brandsV3`) |
+| `media.mainMedia.image.url` (main image URL) | `media.main.image ?? media.main.url` — in V3, `ProductMedia.image` is a `string` (Wix-hosted URL), `url` is a `string` (external URL); check both |
 
 **Pricing model** — V1 had a `discount` object; V3 removed it. Discounts are now expressed by the relationship between two fields on the variant: `actualPrice` (required, what the customer pays) vs `compareAtPrice` (optional, original price shown struck through). With discount: V1 `price`/`discountedPrice` → V3 `compareAtPrice`/`actualPrice`. Without discount: V1 `price` → V3 `actualPrice`, leave `compareAtPrice` empty.
 

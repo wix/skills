@@ -1,6 +1,6 @@
 # Phase 3 Components — Gift Cards
 
-Launched in **Step 4.5** alongside other verticals' `components` scopes (after Phase 2 Design System). Writes the runtime probe utility, the buy-flow React island, and scoped CSS. Finishes before the Phase 4 Pages scopes run in Step 7.
+This is the **components** portion of the gift-cards **merged build agent** (the build wave). Your agent writes the runtime probe utility, the buy-flow React island, and scoped CSS **first**, then its pages (`/gift-cards` route + Navigation/index patches) — so the island is on disk before the page mounts it. Because the page side patches the shared shells, the whole gift-cards agent runs in the build wave's **serialized shell chain** (`BUILD-astro.md` § "Step 4.5").
 
 ## Scope
 
@@ -18,7 +18,7 @@ Files this agent MUST NOT touch:
 
 ## Coordination: design tokens
 
-Your parent prompt includes the design tokens inline. Reference token CSS variables (`var(--color-cream)`, `var(--spacing-lg)`, etc.) from `components-gift-cards.css`. Do NOT read `.wix/design-tokens.css` from disk.
+Read the design tokens from `.wix/design-tokens.css` (on disk, gate-verified present before the wave). Reference token CSS variables (`var(--color-cream)`, `var(--spacing-lg)`, etc.) from `components-gift-cards.css`.
 
 ## Critical rules
 
