@@ -253,12 +253,19 @@ const bookingPayload = {
     email: formData.email,
     phone: formData.phone || undefined,
   },
-  selectedPaymentOption: 'OFFLINE' as const,  // "OFFLINE" = pay at session; use "ONLINE" if the service has online payment enabled
+  selectedPaymentOption: 'OFFLINE' as const,  // see note below — value depends on the service's payment.rateType and payment.options
   bookedEntity: { slot },
 };
 
 const result = await wixClient.bookings.createBooking(bookingPayload);
 ```
+
+> **`selectedPaymentOption` must reflect the service's `payment.rateType` and `payment.options`** (both are on the service object returned by `queryServices`):
+> - `rateType === 'NO_FEE'` → always `'OFFLINE'`. There is no fee; the booking is free.
+> - `rateType === 'FIXED'` and `payment.options.online === true` → `'ONLINE'` (charge now via Wix Payments) or `'OFFLINE'` (pay at session), depending on your UX.
+> - `rateType === 'FIXED'` and only `payment.options.inPerson === true` → `'OFFLINE'`.
+>
+> `'OFFLINE'` is the safe default for all cases where immediate online payment is not required. `'ONLINE'` is only valid when the service has `payment.options.online === true`.
 
 3. **Confirm the booking — this is mandatory, not optional.** `createBooking` returns a booking in **`CREATED`** status, which **does not hold a seat or block availability** (only `CONFIRMED` does — [lifecycle docs](https://dev.wix.com/docs/api-reference/business-solutions/bookings/bookings/introduction)). If you stop at `createBooking`, the class **overbooks** and `remainingCapacity` never drops. Confirm via a server endpoint (next section) — `confirmBooking` needs Manage Bookings, so it can't run from this visitor client.
 4. On success (confirm returns ok): call `onSuccess(result.booking?._id ?? '', props.slot.localStartDate)`. The booking ID field is `_id` (underscore prefix), not `id`.

@@ -81,7 +81,7 @@ export default function BookingForm({ serviceName, serviceType, slot, onSuccess,
       const result = await wixClient.bookings.createBooking({
         totalParticipants: participants, // party size
         contactDetails: contactDetails(),
-        selectedPaymentOption: "OFFLINE" as const,
+        selectedPaymentOption: "OFFLINE" as const, // NO_FEE → always OFFLINE (free, no charge); FIXED with payment.options.online → ONLINE or OFFLINE; FIXED inPerson-only → OFFLINE
         bookedEntity: { slot: buildSlot() },
       } as any);
 
