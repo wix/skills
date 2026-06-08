@@ -1,0 +1,14 @@
+name: ecommerce/abandoned-carts/recovery-link
+description: Verifies recovery-link requests load the dedicated abandoned-carts recovery-link skill.
+triggerPrompt: Generate a resume checkout link for an abandoned checkout so I can send it to the shopper.
+tags: [ecommerce]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-abandoned-carts-recovery-link
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Pass if the response describes finding the abandoned checkout with the Abandoned Checkout query/search API, confirming the target checkout, and using the redirect-to-checkout GET endpoint with metasite/site context, including that the checkout URL comes from the redirect/Location header.
+      Fail if it only discusses Dashboard email automation or omits the recovery-link endpoint.

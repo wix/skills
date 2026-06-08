@@ -1,0 +1,14 @@
+name: ecommerce/checkout/category-routing
+description: Verifies Checkout & Cart now routes abandoned recovery to Abandoned Carts while keeping live checkout drop-off.
+triggerPrompt: Customers are dropping off during checkout, but I also want to recover people who already left.
+tags: [ecommerce]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-checkout
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Pass if the response keeps live checkout drop-off and checkout configuration under Checkout & Cart, but clearly routes post-abandonment recovery or recapture to Abandoned Carts.
+      Fail if it says abandoned recovery is still owned by Checkout & Cart.

@@ -108,7 +108,7 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 
 ## eCommerce
 
-**Routing structure** (rules + format in the `wix-skills-routing-expert` Claude Code skill — repo `ecom-ai-agents/.claude/skills/`): Each L2 category has a sibling `<category>.md` (README-surfaced description) + a `<category>/` folder with the dispatcher + promotion files. All four eCommerce L2 categories are migrated (each a merged category-doc + dispatcher entry): **Tax**, **Pricing & promotions**, **Shipping & fulfillment**, and **Checkout & cart**.
+**Routing structure** (rules + format in the `wix-skills-routing-expert` Claude Code skill — repo `ecom-ai-agents/.claude/skills/`): Each L2 category has a sibling `<category>.md` (README-surfaced description) + a `<category>/` folder with the dispatcher + promotion files. The migrated eCommerce L2 categories are **Tax**, **Pricing & promotions**, **Shipping**, **Checkout & cart**, **Abandoned carts**, and **Fulfillment**.
 
 **L1 context loader (per L1 domain, sibling to category-docs):**
 
@@ -165,10 +165,10 @@ README-surfaced category-doc **and** dispatcher (merged). Disambiguates the cate
 
 ---
 
-### Shipping & Fulfillment category
+### Shipping category
 
-#### [Shipping & Fulfillment](references/ecommerce/ecom-shipping.md)
-README-surfaced category-doc **and** dispatcher (merged). Covers shipping config — rates, regions/coverage, pickup/local delivery, free-shipping thresholds, rate optimization, and wrong-rate troubleshooting. (Order-fulfillment ops — mark fulfilled, tracking, labels — belong to a future Orders category.) The Shipping Options + Delivery Profiles APIs have no public docs page, so `ecom-shipping-api.md` is the inline reference.
+#### [Shipping](references/ecommerce/ecom-shipping.md)
+README-surfaced category-doc **and** dispatcher (merged). Covers shipping config — rates, regions/coverage, pickup/local delivery, free-shipping thresholds, rate optimization, and wrong-rate troubleshooting. Order-fulfillment ops — mark fulfilled, tracking, labels — belong to **Fulfillment**. The Shipping Options + Delivery Profiles APIs have no public docs page, so `ecom-shipping-api.md` is the inline reference.
 
 #### Shipping promotions
 - [Set Up Rates](references/ecommerce/shipping/ecom-shipping-setup-rates.md)
@@ -177,7 +177,6 @@ README-surfaced category-doc **and** dispatcher (merged). Covers shipping config
 - [Add Free Shipping](references/ecommerce/shipping/ecom-shipping-free-shipping.md)
 - [Optimize Rates](references/ecommerce/shipping/ecom-shipping-optimize-rates.md)
 - [Fix Coverage Gaps](references/ecommerce/shipping/ecom-shipping-fix-coverage.md)
-- [Fulfill Orders & Tracking](references/ecommerce/shipping/ecom-shipping-fulfill-orders.md) — mark fulfilled, tracking, partial & bulk fulfillment
 
 #### Shipping support (loaded via body links, not direct entries)
 - [API Reference](references/ecommerce/shipping/ecom-shipping-api.md) — inline spec (no public docs page)
@@ -187,14 +186,41 @@ README-surfaced category-doc **and** dispatcher (merged). Covers shipping config
 ### Checkout & Cart category
 
 #### [Checkout & Cart](references/ecommerce/ecom-checkout.md)
-README-surfaced category-doc **and** dispatcher (merged). Covers abandonment reduction, recovery email, checkout troubleshooting, agentic readiness, and store-health (the recipes below). Most checkout *config* (guest checkout, minimum order, custom fields, upsell) is **Dashboard-only** — the dispatch routes those to the Wix Dashboard.
+README-surfaced category-doc **and** dispatcher (merged). Covers live checkout abandonment reduction, checkout troubleshooting, agentic readiness, and store-health. Abandoned-checkout recovery after the shopper leaves belongs to **Abandoned carts**. Most checkout *config* (guest checkout, minimum order, custom fields, upsell) is **Dashboard-only** — the dispatch routes those to the Wix Dashboard.
 
 #### Checkout promotions
 - [Reduce Abandonment](references/ecommerce/checkout/ecom-checkout-reduce-abandonment.md) — delivery-step friction angle; also loaded by run-a-sale's ABANDONED_CART branch
-- [Recover Abandoned Carts via Email](references/ecommerce/checkout/ecom-checkout-recover-email.md) — Dashboard-configured automation; recipe guides timing/content/eligibility
 - [Troubleshoot Delivery Drop-off](references/ecommerce/checkout/ecom-checkout-troubleshoot-dropoff.md)
 - [Agentic Readiness](references/ecommerce/checkout/ecom-checkout-agentic-readiness.md) — catalog data-quality audit + programmatic test-checkout (AI agents)
 - [Store Health Monitor](references/ecommerce/checkout/ecom-checkout-store-health.md) — periodic checkout/config-drift/anomaly checks
+
+### Abandoned Carts category
+
+#### [Abandoned Carts](references/ecommerce/ecom-abandoned-carts.md)
+README-surfaced category-doc **and** dispatcher (merged). Covers abandoned-checkout recovery and recapture after the shopper leaves: viewing abandoned checkouts, recovery emails, recovery links, troubleshooting recovery, and recovery health monitoring.
+
+#### Abandoned Carts promotions
+- [Recover Abandoned Carts via Email](references/ecommerce/abandoned-carts/ecom-abandoned-carts-recover-email.md) — Dashboard-configured automation; recipe guides timing/content/eligibility
+- [Generate Recovery Link](references/ecommerce/abandoned-carts/ecom-abandoned-carts-recovery-link.md) — Abandoned Checkout API link generation
+- [Troubleshoot Recovery](references/ecommerce/abandoned-carts/ecom-abandoned-carts-troubleshoot-recovery.md)
+- [Recovery Health Monitor](references/ecommerce/abandoned-carts/ecom-abandoned-carts-recovery-health.md)
+
+### Fulfillment category
+
+#### [Fulfillment](references/ecommerce/ecom-fulfillment.md)
+README-surfaced category-doc **and** dispatcher (merged). Covers post-purchase fulfillment operations: finding unshipped/problematic orders, marking orders fulfilled, updating tracking, partial fulfillment, bulk fulfillment, invoices/packing slips, and Dashboard-only shipping labels.
+
+#### Fulfillment promotions
+- [Fulfill Orders & Tracking](references/ecommerce/fulfillment/ecom-fulfillment-fulfill-orders.md) — mark fulfilled, tracking, partial fulfillment
+- [Bulk Fulfill Orders](references/ecommerce/fulfillment/ecom-fulfillment-bulk-fulfill-orders.md) — batch fulfillment with partial-failure handling
+
+### Orders category
+
+#### [Orders](references/ecommerce/ecom-orders.md)
+README-surfaced category-doc **and** dispatcher (merged). Covers eCommerce order lookup, order details/counts, order search, pending/stuck-order diagnosis, cancel-order routing, and explicit handoffs to Fulfillment and Payments.
+
+#### Orders promotions
+- [Cancel Order](references/ecommerce/orders/ecom-orders-cancel-order.md) — cancel order with restock/email/refund guardrails
 
 #### Reference
 - [Skill Graph](references/ecommerce/skill-graph.md) — author docs only, NOT a runtime skill

@@ -10,7 +10,7 @@ Discount rules, coupon codes, sales, ribbons, bundles, tiered pricing, and the s
 **Pricing & promotions is NOT:**
 - The product price itself or its description/image → see **Catalog** (those are product fields).
 - A standing $0 shipping option/region rate → see **Shipping & fulfillment**.
-- Refunding a previous discounted order → see **Finance & payments**.
+- Refunding a previous discounted order → route to verified Get Paid/payment docs or Dashboard guidance.
 
 > **Before dispatching** — confirm MerchantContext is loaded. If `siteData.country` is not in your conversation context, load it via [Load Merchant Context](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-load-context). Skip if already loaded.
 >

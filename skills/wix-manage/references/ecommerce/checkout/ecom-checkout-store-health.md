@@ -22,7 +22,7 @@ Compare current config against a healthy baseline; flag changes that block or de
 ## Check 3: Order-flow anomalies (error signal)
 
 Without an app-error API, infer trouble from order/checkout data:
-- **Abandoned-checkout spike** — `POST https://www.wixapis.com/ecom/v1/abandoned-checkout/query` and compare the recent rate to the trailing baseline. A sudden jump signals a checkout problem (payment failing, shipping gap, surprise cost).
+- **Abandoned-checkout spike** — route recovery-performance analysis to [Abandoned Carts: Recovery Health](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-abandoned-carts-recovery-health). A sudden jump can still signal a checkout problem (payment failing, shipping gap, surprise cost).
 - **Orders stalled** — recent orders stuck unpaid/unfulfilled (Orders query) relative to normal volume.
 
 ## Report

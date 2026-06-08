@@ -1,0 +1,14 @@
+name: ecommerce/ecom-pricing
+description: Verifies the Pricing & Promotions category routes discounts and separates refunds from pricing work.
+triggerPrompt: I want to create a discount, but I also need to refund a previous discounted order.
+tags: [ecommerce]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Pass if the response routes discount/coupon/sale work to Pricing & Promotions and routes refunding a previous order to verified payment/refund guidance rather than handling refunds as pricing.
+      Fail if it treats order refunds as a pricing-promotion action.

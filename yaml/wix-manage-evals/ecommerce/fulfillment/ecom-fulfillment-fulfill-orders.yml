@@ -1,0 +1,14 @@
+name: ecommerce/fulfillment/fulfill-orders
+description: Verifies single-order fulfillment and tracking requests load the fulfillment recipe.
+triggerPrompt: Mark order 10027 as fulfilled and add this UPS tracking number.
+tags: [ecommerce]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-fulfillment-fulfill-orders
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Pass if the response uses the Order Fulfillments API, explains create fulfillment or update existing tracking, and includes guardrails such as checking existing fulfillments or avoiding duplicate tracking.
+      Fail if it uses the old shipping fulfill-orders URL or treats this as shipping-rate setup.

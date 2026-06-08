@@ -1,0 +1,14 @@
+name: ecommerce/shipping/category-routing
+description: Verifies Shipping now owns shipping setup and hands fulfillment operations to Fulfillment.
+triggerPrompt: I need to set up shipping rates, but also mark shipped orders fulfilled. Which docs should I use?
+tags: [ecommerce]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-shipping
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Pass if the response keeps rates, regions, pickup, free shipping, and wrong-rate troubleshooting under Shipping, while routing mark fulfilled, tracking, labels, invoices, or unshipped-order lookup to Fulfillment.
+      Fail if it says fulfillment operations are still owned by Shipping.

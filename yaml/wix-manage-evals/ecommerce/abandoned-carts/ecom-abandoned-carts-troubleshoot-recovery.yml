@@ -1,0 +1,14 @@
+name: ecommerce/abandoned-carts/troubleshoot-recovery
+description: Verifies recovery troubleshooting loads the abandoned-carts troubleshooting skill.
+triggerPrompt: My abandoned cart recovery emails are enabled but shoppers are not coming back. Help me debug it.
+tags: [ecommerce]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-abandoned-carts-troubleshoot-recovery
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Pass if the response checks the recovery path, Dashboard automation state, shopper eligibility, API link generation, and weak-performance causes. For weak-performance or information questions, it should use Analytics APIs for counts, trends, and recovery reporting before drilling into abandoned checkout records.
+      Fail if it gives only generic marketing advice, routes the issue solely to checkout drop-off troubleshooting, or relies on the Abandoned Checkout query endpoint as the main analytics/reporting source.

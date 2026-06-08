@@ -1,16 +1,17 @@
 ---
-name: "Shipping & Fulfillment"
-description: Shipping & fulfillment for an eCommerce store — shipping rates and rules, delivery regions/coverage, store pickup, free-shipping thresholds, rate optimization, AND order fulfillment (mark fulfilled, tracking, partial/bulk fulfillment, finding unshipped orders).
+name: "Shipping"
+description: Shipping setup for an eCommerce store - shipping rates and rules, delivery regions/coverage, store pickup, free-shipping thresholds, rate optimization, and wrong-rate troubleshooting.
 ---
 
-# Shipping & Fulfillment
+# Shipping
 
 Set up and tune how a store ships — what rates to charge, which regions are covered, pickup/local-delivery options, free-shipping thresholds, and diagnosing wrong or missing shipping at checkout.
 
 **Shipping & fulfillment is NOT:**
 - Tax on shipping or destination tax → see **Tax**.
 - The checkout/delivery step conversion itself → see **Checkout & cart**.
-- Order lifecycle (approve/cancel/refund an order) → **Orders** / **Finance & payments**.
+- Marking orders fulfilled, updating tracking, bulk fulfillment, invoices, or shipping labels → see **Fulfillment**.
+- Order lifecycle (approve/cancel/search an order) → **Orders** when available; refunds/payments → existing Get Paid/payment docs or Dashboard guidance.
 
 > **Before dispatching** — confirm MerchantContext is loaded. If `siteData.country` is not in your conversation context, load it via [Load Merchant Context](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-load-context). Skip if already loaded.
 >
@@ -34,11 +35,9 @@ Set up and tune how a store ships — what rates to charge, which regions are co
 
 > - [Shipping rate incorrect (customer charged wrong shipping)](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-shipping-optimize-rates) — tags: `[intent:rate-incorrect]` · priority 0 · *audit rates via the Rate Pricing Sanity guardrail, then correct the rate structure*
 
-### Fulfillment — ship orders
+### Fulfillment handoff
 
-> - [Fulfill orders & tracking (mark fulfilled, tracking, partial, bulk)](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-shipping-fulfill-orders) — tags: `[intent:fulfill-order]` · priority 0 · *Fulfillments API: mark fulfilled, add tracking, partial & bulk fulfill*
-> - Find unshipped / pending-fulfillment orders — tags: `[intent:find-unshipped]` · **API doc, no skill** — `POST https://www.wixapis.com/ecom/v1/orders/search` filtering `fulfillmentStatus = NOT_FULFILLED`
-> - Generate invoice / packing slip for an order — tags: `[intent:order-invoice]` · **API doc, no skill** — eCommerce Orders **Invoice** API (`wix.ecom.orders.v1.invoice`); shipping-label export is Dashboard
+> - Mark orders fulfilled, update tracking, partial/bulk fulfill, find unshipped orders, print invoices, or export shipping labels — tags: `[intent:fulfill-order]`, `[intent:update-tracking]`, `[intent:find-unshipped]`, `[intent:shipping-labels]` · **see [Fulfillment](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-fulfillment)**
 
 ## Tag matching
 
@@ -60,4 +59,4 @@ If nothing matches, the merchant's intent is unclear. Ask **one** clarifying que
 
 > "Do you want to **set up** shipping (rates, regions, or pickup), **add free shipping**, **optimize** your existing rates, or **fix** a region with no shipping option?"
 
-Map the answer to one of the `intent:*` tags above and re-dispatch. (Order-fulfillment requests — mark fulfilled, add tracking, print labels — belong to **Orders**, not this category.)
+Map the answer to one of the `intent:*` tags above and re-dispatch. Order-fulfillment requests belong to **Fulfillment**.

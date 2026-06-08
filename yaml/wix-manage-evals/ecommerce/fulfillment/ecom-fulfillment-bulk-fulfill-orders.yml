@@ -1,0 +1,14 @@
+name: ecommerce/fulfillment/bulk-fulfill-orders
+description: Verifies bulk fulfillment requests load the dedicated bulk fulfillment skill.
+triggerPrompt: Bulk fulfill all paid unshipped orders from today and retry only failures.
+tags: [ecommerce]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-fulfillment-bulk-fulfill-orders
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Pass if the response selects eligible paid unfulfilled orders, uses the bulk create fulfillments API, batches safely, records per-order results, and retries only failed orders.
+      Fail if it suggests rerunning the entire batch blindly or omits partial-failure handling.

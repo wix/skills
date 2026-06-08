@@ -1,0 +1,14 @@
+name: ecommerce/checkout/store-health
+description: Verifies checkout store health references abandoned recovery health for abandoned-checkout spikes.
+triggerPrompt: Run a store health monitor and explain what to do if abandoned checkouts spike.
+tags: [ecommerce]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-checkout-store-health
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Pass if the response treats checkout store health as an end-to-end checkout/config drift check and routes abandoned-checkout recovery performance analysis to Abandoned Carts recovery health.
+      Fail if it handles all abandoned-cart monitoring only inside checkout store health.
