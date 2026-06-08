@@ -27,32 +27,32 @@ apiDoc:
       tags: [ecommerce]
 
     - file: ../../../skills/wix-manage/references/ecommerce/tax/ecom-tax-configure.md
-      title: "Configure Tax (Wix Manual)"
+      title: "Tax: Configure (Wix Manual)"
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
       tags: [ecommerce]
 
     - file: ../../../skills/wix-manage/references/ecommerce/tax/ecom-tax-avalara.md
-      title: "Configure Tax (Avalara)"
+      title: "Tax: Configure (Avalara)"
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
       tags: [ecommerce]
 
     - file: ../../../skills/wix-manage/references/ecommerce/tax/ecom-tax-eu-vat.md
-      title: "Configure Tax (EU VAT)"
+      title: "Tax: Configure (EU VAT)"
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
       tags: [ecommerce]
 
     - file: ../../../skills/wix-manage/references/ecommerce/tax/ecom-tax-switch-calculator.md
-      title: "Switch Tax Calculator"
+      title: "Tax: Switch Calculator"
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
       tags: [ecommerce]
 
     - file: ../../../skills/wix-manage/references/ecommerce/tax/ecom-tax-audit.md
-      title: "Audit Tax Setup"
+      title: "Tax: Audit Setup"
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
       tags: [ecommerce]
 
     - file: ../../../skills/wix-manage/references/ecommerce/tax/ecom-tax-troubleshoot-calc-wrong.md
-      title: "Tax Calculation Wrong"
+      title: "Tax: Calculation Wrong"
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
       tags: [ecommerce]
 
