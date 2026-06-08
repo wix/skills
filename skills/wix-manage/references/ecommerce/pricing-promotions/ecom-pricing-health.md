@@ -21,8 +21,8 @@ A periodic audit of all active discounts and coupons — surfaces problems befor
 | **Margin erosion** | any active discount > 25% cap, or combined stacked discount pushing effective margin < 15% | cap/floor breach |
 | **Orphaned / ineffective** | rules that never apply (scope matches no products, or eligibility never met) | dead rule — recommend deactivating |
 
-These are the same rules enforced at creation in [Create Discount Rule](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-create-discount-rule) → "Guardrails" — this skill applies them as a periodic sweep over everything already live.
+These are the same rules enforced at creation in [Create Discount Rule](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-discount-rule) → "Guardrails" — this skill applies them as a periodic sweep over everything already live.
 
 ## Step 3: Report
 
-Severity-ranked: **stacking/margin breaches** (costing money now) first, then **stale sales**, then **cleanup** (orphaned rules). For each, name the rule(s) and the concrete fix (deactivate, add an end date, lower the discount). To fix a discount that *should* apply but isn't, see [Troubleshoot: Discount Not Applying](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-troubleshoot-not-applying).
+Severity-ranked: **stacking/margin breaches** (costing money now) first, then **stale sales**, then **cleanup** (orphaned rules). For each, name the rule(s) and the concrete fix (deactivate, add an end date, lower the discount). To fix a discount that *should* apply but isn't, see [Troubleshoot: Discount Not Applying](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-discount-not-applying).

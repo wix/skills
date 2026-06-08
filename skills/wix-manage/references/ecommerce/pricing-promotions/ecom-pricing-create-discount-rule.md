@@ -152,7 +152,7 @@ These checks guard every discount creation (rule **or** coupon). Run them before
 | Combined/stacked discount exceeds cap or margin floor | Warn about cumulative effect |
 | Any threshold, explicit user override | Proceed, document the override in reasoning |
 
-When a discount *isn't* applying as expected, see [Troubleshoot: Discount Not Applying](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-troubleshoot-not-applying).
+When a discount *isn't* applying as expected, see [Troubleshoot: Discount Not Applying](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-discount-not-applying).
 
 ---
 

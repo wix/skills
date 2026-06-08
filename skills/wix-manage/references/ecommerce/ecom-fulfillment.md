@@ -12,14 +12,14 @@ Handle what happens after an order is placed: find orders that need shipping att
 - Checkout drop-off before an order is placed -> see **Checkout & Cart**.
 - Refunds and payments -> route to the existing Get Paid/payment docs or Dashboard-supported payment flows. Order cancellations belong to **Orders** when that category is available.
 
-> **Before dispatching** - confirm MerchantContext is loaded. If `siteData.country` is not in your conversation context, load it via [Load Merchant Context](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-load-context). Skip if already loaded.
+> **Before dispatching** - confirm MerchantContext is loaded. If `siteData.country` is not in your conversation context, load it via [Load Merchant Context](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/e-commerce-load-context). Skip if already loaded.
 >
 > **Promotion dispatch.** Score each entry below by the merchant's query -> `intent:*` tags. Load the highest-scoring entry. No match -> base recipe.
 
 ### Fulfillment actions
 
-> - [Fulfill orders & tracking](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-fulfillment-fulfill-orders) - tags: `[intent:fulfill-order]`, `[intent:update-tracking]`, `[intent:partial-fulfillment]` - priority 0 - *Fulfillments API: create fulfillment, update tracking, partial fulfillment*
-> - [Bulk fulfill orders](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-fulfillment-bulk-fulfill-orders) - tags: `[intent:bulk-fulfill]` - priority 0 - *batch fulfillment with partial-failure handling*
+> - [Fulfill orders & tracking](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/fulfillment-fulfill-orders-tracking) - tags: `[intent:fulfill-order]`, `[intent:update-tracking]`, `[intent:partial-fulfillment]` - priority 0 - *Fulfillments API: create fulfillment, update tracking, partial fulfillment*
+> - [Bulk fulfill orders](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/fulfillment-bulk-fulfill-orders) - tags: `[intent:bulk-fulfill]` - priority 0 - *batch fulfillment with partial-failure handling*
 
 ### Lookup and document routes
 

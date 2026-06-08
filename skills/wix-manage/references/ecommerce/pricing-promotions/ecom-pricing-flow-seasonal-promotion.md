@@ -4,7 +4,7 @@ description: Creates event-driven promotional campaigns tied to holidays or seas
 ---
 # Flow: Seasonal Promotion
 
-> **Before executing this skill**, read [Create Discount Rule](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-create-discount-rule) with `ReadFullDocsArticle` — it contains the discount-rule mechanics **and** the pre-create guardrails (conflict/stacking, margin floor, %-sanity).
+> **Before executing this skill**, read [Create Discount Rule](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-discount-rule) with `ReadFullDocsArticle` — it contains the discount-rule mechanics **and** the pre-create guardrails (conflict/stacking, margin floor, %-sanity).
 
 Creates event-driven promotional discounts tied to holidays, shopping events, or seasonal milestones. The flow identifies upcoming events based on the site's country and current date, calculates optimal campaign start/end windows, and targets event-relevant product categories with appropriately sized discounts.
 
@@ -150,7 +150,7 @@ If scope is CATEGORY, call `getCategoryIds` to convert category names to GUIDs.
 
 ## Step 8: Run guardrail checks
 
-**Run the pre-create guardrails in [Create Discount Rule](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-create-discount-rule) → "Guardrails" before creating the rule.** For seasonal campaigns the most relevant are **time overlap** (defined windows — ensure no existing rule covers the same period/scope), **scope overlap** (a category discount stacking with a catalog-wide one), and **coupon stacking** (seasonal events drive high coupon usage). Present any conflicts to the merchant and get confirmation.
+**Run the pre-create guardrails in [Create Discount Rule](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-discount-rule) → "Guardrails" before creating the rule.** For seasonal campaigns the most relevant are **time overlap** (defined windows — ensure no existing rule covers the same period/scope), **scope overlap** (a category discount stacking with a catalog-wide one), and **coupon stacking** (seasonal events drive high coupon usage). Present any conflicts to the merchant and get confirmation.
 
 ---
 

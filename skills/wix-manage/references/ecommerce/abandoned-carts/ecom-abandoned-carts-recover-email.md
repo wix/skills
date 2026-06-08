@@ -5,7 +5,7 @@ description: Sets up automated abandoned-cart / abandoned-checkout recovery emai
 
 # Recover Abandoned Carts via Email
 
-Set up an automated email that follows up with shoppers who started but did not finish checkout. This is the **email-recovery** lever. If the merchant wants to fix why shoppers leave during checkout, route to [Reduce Abandonment](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-checkout-reduce-abandonment).
+Set up an automated email that follows up with shoppers who started but did not finish checkout. This is the **email-recovery** lever. If the merchant wants to fix why shoppers leave during checkout, route to [Reduce Abandonment](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/checkout-reduce-abandonment).
 
 Merchants often say "abandoned carts"; the public API calls them **Abandoned Checkouts**.
 
@@ -74,7 +74,7 @@ Include, in priority order:
 
 ## API-assisted path
 
-For a custom recovery flow, use [Generate a recovery link / resume checkout](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-abandoned-carts-recovery-link). Prefer the Dashboard automation for recurring email sends because it handles consent, throttling, and send orchestration.
+For a custom recovery flow, use [Generate a recovery link / resume checkout](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/abandoned-carts-recovery-link). Prefer the Dashboard automation for recurring email sends because it handles consent, throttling, and send orchestration.
 
 ## Audit note
 

@@ -4,7 +4,7 @@ description: Creates a discount campaign promoting product discovery and cross-s
 ---
 # Flow: Bundle & Save Campaign
 
-> **Before executing this skill**, read [Create Discount Rule](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-create-discount-rule) with `ReadFullDocsArticle` — it contains the discount-rule mechanics **and** the pre-create guardrails (conflict/stacking, margin floor, %-sanity).
+> **Before executing this skill**, read [Create Discount Rule](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-discount-rule) with `ReadFullDocsArticle` — it contains the discount-rule mechanics **and** the pre-create guardrails (conflict/stacking, margin floor, %-sanity).
 
 Creates a discount that rewards customers for purchasing multiple items, encouraging product discovery and cross-selling. The discount activates when the cart contains a minimum number of items, and targets categories or products where bundling makes strategic sense.
 
@@ -108,7 +108,7 @@ If scope is CATEGORY, call `getCategoryIds` to convert category names to GUIDs.
 
 ## Step 7: Run guardrail checks
 
-**Run the pre-create guardrails in [Create Discount Rule](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-create-discount-rule) → "Guardrails" before creating the rule.** Bundle discounts are especially prone to **scope-overlap stacking** (a customer buying 3 items in a category with both a bundle discount and a catalog-wide sale gets both) and **coupon stacking** — present any conflicts to the merchant and confirm.
+**Run the pre-create guardrails in [Create Discount Rule](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-discount-rule) → "Guardrails" before creating the rule.** Bundle discounts are especially prone to **scope-overlap stacking** (a customer buying 3 items in a category with both a bundle discount and a catalog-wide sale gets both) and **coupon stacking** — present any conflicts to the merchant and confirm.
 
 ---
 

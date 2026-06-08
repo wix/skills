@@ -4,7 +4,7 @@ description: Creates a discount campaign to increase average order value by sett
 ---
 # Flow: Upsell Boost Campaign
 
-> **Before executing this skill**, read [Create Discount Rule](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-create-discount-rule) with `ReadFullDocsArticle` — it contains the discount-rule mechanics **and** the pre-create guardrails (conflict/stacking, margin floor, %-sanity).
+> **Before executing this skill**, read [Create Discount Rule](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-discount-rule) with `ReadFullDocsArticle` — it contains the discount-rule mechanics **and** the pre-create guardrails (conflict/stacking, margin floor, %-sanity).
 
 Creates a discount that incentivizes customers to spend more per order by setting a minimum subtotal threshold above the store's current AOV. The discount percentage is scaled to the store's average profit margin, and the scope targets high-margin categories or products.
 
@@ -100,7 +100,7 @@ Max 3 categoryIds per discount rule.
 
 ## Step 6: Run guardrail checks
 
-**Run the pre-create guardrails in [Create Discount Rule](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-create-discount-rule) → "Guardrails" before creating the rule** — conflict/stacking (scope, time, coupon cross-stacking), the 25% cap, the 15% margin floor, and %-sanity. Present any warnings to the merchant and get confirmation before proceeding.
+**Run the pre-create guardrails in [Create Discount Rule](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-discount-rule) → "Guardrails" before creating the rule** — conflict/stacking (scope, time, coupon cross-stacking), the 25% cap, the 15% margin floor, and %-sanity. Present any warnings to the merchant and get confirmation before proceeding.
 
 ---
 

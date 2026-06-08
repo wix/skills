@@ -5,14 +5,14 @@ description: Maps the UPSELL_BOOST business goal to measurable KPIs and actionab
 # Goal: Increase Average Order Value
 
 > **Before executing this skill**, read these referenced skills with `ReadFullDocsArticle`:
-> - [Flow: Upsell Boost](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-flow-upsell-boost)
-> - [Flow: Bundle and Save](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-flow-bundle-and-save)
+> - [Flow: Upsell Boost](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-upsell-boost)
+> - [Flow: Bundle and Save](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-bundle-and-save)
 >
 > **Shipping flows that also serve AOV goals** (load if shipping domain is active):
-> - [Flow: Add Free Shipping](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-shipping-free-shipping) — free shipping threshold pushes carts above AOV
-> - [Flow: Optimize Shipping Rates](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-shipping-optimize-rates) — rate optimization improves conversion on higher-value orders
+> - [Flow: Add Free Shipping](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping-add-free-shipping) — free shipping threshold pushes carts above AOV
+> - [Flow: Optimize Shipping Rates](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping-optimize-rates) — rate optimization improves conversion on higher-value orders
 >
-> The margin/cap guardrails are enforced in [Create Discount Rule](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-create-discount-rule) → "Guardrails".
+> The margin/cap guardrails are enforced in [Create Discount Rule](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-discount-rule) → "Guardrails".
 
 Incentivize customers to spend above the store's current average order value (AOV) by creating threshold-based discounts that reward higher cart totals.
 

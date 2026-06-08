@@ -8,17 +8,17 @@ description: eCommerce order lifecycle and lookup - search orders, view order de
 Use this category for eCommerce order lookup and lifecycle routing: search orders, get order details, count recent orders, cancel orders, diagnose pending/stuck orders, and distinguish order lifecycle from fulfillment, payments, refunds, catalog, and inventory.
 
 **Orders is NOT:**
-- Fulfillment/shipping/tracking -> see [Fulfillment](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-fulfillment).
+- Fulfillment/shipping/tracking -> see [Fulfillment](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/fulfillment).
 - Refund execution or payment reporting -> route to the existing Get Paid/payment docs or Dashboard-supported payment flows.
 - Product catalog or inventory updates -> see Stores Catalog / Stores Inventory.
 
-> **Before dispatching** - confirm MerchantContext is loaded. If `siteData.country` is not in your conversation context, load it via [Load Merchant Context](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-load-context). Skip if already loaded.
+> **Before dispatching** - confirm MerchantContext is loaded. If `siteData.country` is not in your conversation context, load it via [Load Merchant Context](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/e-commerce-load-context). Skip if already loaded.
 >
 > **Promotion dispatch.** Score each entry below by the merchant's query -> `intent:*` tags. Load the highest-scoring entry. No match -> base recipe.
 
 ### Order lifecycle actions
 
-> - [Cancel Order](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-orders-cancel-order) - tags: `[intent:cancel-order]` - priority 0 - *destructive order lifecycle mutation; confirm restock/email/payment implications before canceling*
+> - [Cancel Order](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/orders-cancel-order) - tags: `[intent:cancel-order]` - priority 0 - *destructive order lifecycle mutation; confirm restock/email/payment implications before canceling*
 
 ### Main-file API routes
 

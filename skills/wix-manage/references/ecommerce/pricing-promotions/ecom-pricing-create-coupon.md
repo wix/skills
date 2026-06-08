@@ -74,7 +74,7 @@ Check for: duplicate codes, overlapping scopes with active coupons, and cross-me
 - **Margin** — if cost data is available, ensure the discount doesn't push price below cost; otherwise warn for > 40%.
 - **User override** — explicit merchant values override these caps; document the override in your reasoning.
 
-(The automatic-rule side of these checks lives in [Create Discount Rule](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-create-discount-rule) → "Guardrails".)
+(The automatic-rule side of these checks lives in [Create Discount Rule](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-discount-rule) → "Guardrails".)
 
 ---
 

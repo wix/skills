@@ -72,10 +72,10 @@ Recovery email automation is Dashboard-managed. Ask the merchant to confirm:
 
 Route the likely cause:
 
-- Recovery automation off or misconfigured -> [Troubleshoot Abandoned-Cart Recovery](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-abandoned-carts-troubleshoot-recovery)
-- Recovery links fail -> [Generate a Recovery Link](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-abandoned-carts-recovery-link)
-- Abandonment spike at delivery step -> [Checkout & Cart](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-checkout) and shipping coverage/rate checks
-- Incentive or discount issue -> [Pricing & Promotions](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing)
+- Recovery automation off or misconfigured -> [Troubleshoot Abandoned-Cart Recovery](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/abandoned-carts-troubleshoot-recovery)
+- Recovery links fail -> [Generate a Recovery Link](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/abandoned-carts-recovery-link)
+- Abandonment spike at delivery step -> [Checkout & Cart](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/checkout-cart) and shipping coverage/rate checks
+- Incentive or discount issue -> [Pricing & Promotions](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-promotions)
 
 ## Report
 

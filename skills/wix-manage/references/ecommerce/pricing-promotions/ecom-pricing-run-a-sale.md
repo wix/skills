@@ -27,18 +27,18 @@ references:
 ---
 # Run a Sale (Recommend eCommerce Strategy)
 
-> **Routing note.** Reached via dispatch from [Pricing & Promotions](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing) when the merchant tags as `run-a-sale | boost-business | seasonal-promo | clearance | increase-aov`. The dispatcher pre-loaded MerchantContext via [Load Merchant Context](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-load-context) — **Step 1 (resolve siteId) and Step 3 (load business profile) below are safe to skip if `siteData.country` is already in your conversation context.** Step 2 (tracking history) is orchestrator-specific and **must still run**.
+> **Routing note.** Reached via dispatch from [Pricing & Promotions](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-promotions) when the merchant tags as `run-a-sale | boost-business | seasonal-promo | clearance | increase-aov`. The dispatcher pre-loaded MerchantContext via [Load Merchant Context](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/e-commerce-load-context) — **Step 1 (resolve siteId) and Step 3 (load business profile) below are safe to skip if `siteData.country` is already in your conversation context.** Step 2 (tracking history) is orchestrator-specific and **must still run**.
 
 >
 > **After classifying domains in Step 4b**, load the matching goal skill with `ReadFullDocsArticle`:
-> - **SEASONAL** → [Goal: Seasonal Revenue](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-goal-seasonal-revenue)
-> - **UPSELL_BOOST** / **SHIPPING** → [Goal: Increase AOV](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-goal-increase-aov) (includes both discount and shipping flows)
-> - **STOCK_MOVER** → [Goal: Clear Inventory](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-goal-clear-inventory)
-> - **BUNDLE_AND_SAVE** → [Goal: Drive Cross-Sells](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-goal-drive-cross-sells)
-> - **ABANDONED_CART** → [Goal: Reduce Cart Abandonment](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-checkout-reduce-abandonment) *(will move under Checkout & cart category)*
+> - **SEASONAL** → [Goal: Seasonal Revenue](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-seasonal-revenue)
+> - **UPSELL_BOOST** / **SHIPPING** → [Goal: Increase AOV](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-increase-aov) (includes both discount and shipping flows)
+> - **STOCK_MOVER** → [Goal: Clear Inventory](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-clear-inventory)
+> - **BUNDLE_AND_SAVE** → [Goal: Drive Cross-Sells](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-drive-cross-sells)
+> - **ABANDONED_CART** → [Goal: Reduce Cart Abandonment](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/checkout-reduce-abandonment) *(will move under Checkout & cart category)*
 >
 > **If COUPON mechanism in Step 4c**, load:
-> - [Create Coupon](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-create-coupon)
+> - [Create Coupon](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-coupon)
 
 ## EXECUTION RULES — READ BEFORE ANYTHING ELSE
 
@@ -50,7 +50,7 @@ references:
 4. **Use ONLY data returned by API calls.** Never substitute reasoning, general knowledge, or doc summaries for live data. Every number you cite in `reasoning` MUST come directly from an API response — do NOT assume, infer, or fabricate data.
 5. **If a call fails or is blocked, report the exact blocker.** Do not work around it with assumptions.
 6. **All API calls use `CallWixSiteAPI`.** The internal tool names (getSiteData, getCatalogAnalytics, etc.) are NOT directly callable.
-   - The `manage.wix.com/_api/agentic-recommendations/...` and `manage.wix.com/recommendations/v1/recommendations/...-tool` endpoints are **internal Wix services** — they have NO public `dev.wix.com` docs page, but they **ARE callable via `CallWixSiteAPI`** in the authenticated editor/dashboard context the MCP runs in. Do not treat them as unavailable and do not try to `ReadFullDocsArticle` them — the request/response specs inline in this recipe (and in [API: Recommendation Tracking](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-tracking-api)) are the authoritative source.
+   - The `manage.wix.com/_api/agentic-recommendations/...` and `manage.wix.com/recommendations/v1/recommendations/...-tool` endpoints are **internal Wix services** — they have NO public `dev.wix.com` docs page, but they **ARE callable via `CallWixSiteAPI`** in the authenticated editor/dashboard context the MCP runs in. Do not treat them as unavailable and do not try to `ReadFullDocsArticle` them — the request/response specs inline in this recipe (and in [API: Recommendation Tracking](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/api-recommendation-tracking)) are the authoritative source.
 7. **Generate recommendations across ALL relevant domains** — not just discounts. Consider shipping, discounts, and any other domain that the data supports.
 
 ---
@@ -200,17 +200,17 @@ Based on the merchant's request AND the site data, determine which domains to an
 
 | Discount goal | Trigger | Load this skill |
 |---|---|---|
-| SEASONAL | Holiday/event/date mentioned | [Goal: Seasonal Revenue](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-goal-seasonal-revenue) |
-| UPSELL_BOOST | "increase AOV", "spend more", "upsell" | [Goal: Increase AOV](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-goal-increase-aov) |
-| STOCK_MOVER | "clear inventory", "overstock", "clearance" | [Goal: Clear Inventory](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-goal-clear-inventory) |
-| BUNDLE_AND_SAVE | "bundle", "cross-sell", "buy together" | [Goal: Drive Cross-Sells](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing-goal-drive-cross-sells) |
+| SEASONAL | Holiday/event/date mentioned | [Goal: Seasonal Revenue](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-seasonal-revenue) |
+| UPSELL_BOOST | "increase AOV", "spend more", "upsell" | [Goal: Increase AOV](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-increase-aov) |
+| STOCK_MOVER | "clear inventory", "overstock", "clearance" | [Goal: Clear Inventory](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-clear-inventory) |
+| BUNDLE_AND_SAVE | "bundle", "cross-sell", "buy together" | [Goal: Drive Cross-Sells](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-drive-cross-sells) |
 | Generic (no clear goal) | "boost sales", ambiguous | Default to SEASONAL if holiday nearby, else UPSELL_BOOST |
 
 **For SHIPPING domain — load the same goal as discounts.** Shipping flows (free shipping threshold, rate optimization) serve the same business goals as discount flows. Load the matching discount goal above — it now includes shipping flow references.
 
 **For ABANDONED_CART domain — load the cart abandonment goal:**
 
-[Goal: Reduce Cart Abandonment](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-checkout-reduce-abandonment)
+[Goal: Reduce Cart Abandonment](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/checkout-reduce-abandonment)
 
 **The goal skill will instruct you to load flow and guardrail skills** — follow those instructions. This chain provides the detailed execution logic you need for high-quality recommendations.
 

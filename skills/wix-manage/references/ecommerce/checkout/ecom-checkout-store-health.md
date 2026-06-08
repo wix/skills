@@ -5,11 +5,11 @@ description: Periodic technical health check of the checkout/cart path — test 
 
 # Store Health Monitor
 
-A periodic, technical check of whether the store can actually take orders — distinct from the conversion-focused [Reduce Abandonment](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-checkout-reduce-abandonment) (why buyers leave) and [Troubleshoot Drop-off](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-checkout-troubleshoot-dropoff) (a reported problem). Run this proactively (e.g. as a scheduled digest) and report only what's broken or drifting.
+A periodic, technical check of whether the store can actually take orders — distinct from the conversion-focused [Reduce Abandonment](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/checkout-reduce-abandonment) (why buyers leave) and [Troubleshoot Drop-off](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/checkout-troubleshoot-delivery-drop-off) (a reported problem). Run this proactively (e.g. as a scheduled digest) and report only what's broken or drifting.
 
 ## Check 1: Checkout flow works end-to-end
 
-Reuse the test-checkout from [Agentic Readiness](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-checkout-agentic-readiness) → Part 2: create a cart with a real in-stock item, create a checkout, and confirm it resolves (shipping options + tax + totals, no blocking error). A failure here is **CRITICAL** — the store cannot take orders.
+Reuse the test-checkout from [Agentic Readiness](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/checkout-agentic-readiness) → Part 2: create a cart with a real in-stock item, create a checkout, and confirm it resolves (shipping options + tax + totals, no blocking error). A failure here is **CRITICAL** — the store cannot take orders.
 
 ## Check 2: Configuration drift
 
@@ -22,7 +22,7 @@ Compare current config against a healthy baseline; flag changes that block or de
 ## Check 3: Order-flow anomalies (error signal)
 
 Without an app-error API, infer trouble from order/checkout data:
-- **Abandoned-checkout spike** — route recovery-performance analysis to [Abandoned Carts: Recovery Health](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-abandoned-carts-recovery-health). A sudden jump can still signal a checkout problem (payment failing, shipping gap, surprise cost).
+- **Abandoned-checkout spike** — route recovery-performance analysis to [Abandoned Carts: Recovery Health](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/abandoned-carts-recovery-health). A sudden jump can still signal a checkout problem (payment failing, shipping gap, surprise cost).
 - **Orders stalled** — recent orders stuck unpaid/unfulfilled (Orders query) relative to normal volume.
 
 ## Report

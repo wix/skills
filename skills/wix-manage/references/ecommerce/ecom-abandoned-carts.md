@@ -14,19 +14,19 @@ For information and reporting queries, prefer **Analytics APIs**. Use the Abando
 - Shipping cost or delivery-step friction -> see **Shipping**.
 - Discounts and incentives used in recovery emails -> see **Pricing & Promotions**.
 
-> **Before dispatching** - confirm MerchantContext is loaded. If `siteData.country` is not in your conversation context, load it via [Load Merchant Context](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-load-context). Skip if already loaded.
+> **Before dispatching** - confirm MerchantContext is loaded. If `siteData.country` is not in your conversation context, load it via [Load Merchant Context](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/e-commerce-load-context). Skip if already loaded.
 >
 > **Promotion dispatch.** Score each entry below by the merchant's query -> `intent:*` tags. Load the highest-scoring entry. No match -> base recipe.
 
 ### Recovery actions
 
-> - [Recover abandoned carts via email](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-abandoned-carts-recover-email) — tags: `[intent:recover-email]` · priority 0 · *Dashboard-configured automation; Abandoned Checkout API can verify eligibility/activity but does not configure recurring sends*
-> - [Generate a recovery link / resume checkout](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-abandoned-carts-recovery-link) — tags: `[intent:recovery-link]` · priority 0 · *Abandoned Checkout API: find checkout, confirm target, redirect to checkout*
+> - [Recover abandoned carts via email](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/abandoned-carts-recover-via-email) — tags: `[intent:recover-email]` · priority 0 · *Dashboard-configured automation; Abandoned Checkout API can verify eligibility/activity but does not configure recurring sends*
+> - [Generate a recovery link / resume checkout](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/abandoned-carts-recovery-link) — tags: `[intent:recovery-link]` · priority 0 · *Abandoned Checkout API: find checkout, confirm target, redirect to checkout*
 
 ### Diagnose and monitor
 
-> - [Troubleshoot abandoned-cart recovery](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-abandoned-carts-troubleshoot-recovery) — tags: `[intent:troubleshoot-recovery]` · priority 0
-> - [Recovery health monitor](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-abandoned-carts-recovery-health) — tags: `[intent:recovery-health]` · priority 0
+> - [Troubleshoot abandoned-cart recovery](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/abandoned-carts-troubleshoot-recovery) — tags: `[intent:troubleshoot-recovery]` · priority 0
+> - [Recovery health monitor](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/abandoned-carts-recovery-health) — tags: `[intent:recovery-health]` · priority 0
 
 ### Info
 
