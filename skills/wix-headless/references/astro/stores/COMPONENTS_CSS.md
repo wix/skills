@@ -1,6 +1,6 @@
 # Phase 3 Components-CSS — Stores
 
-Sibling of the `components` scope. Launched in **Step 4.5** in the same concurrent batch — runs in parallel with the TSX/Astro work, ecom and gift-cards components, and Image Phase 2.
+**This stylesheet is pre-copied from the skill template by the orchestrator** (build-wave pre-batch, BUILD-astro.md § "Step 4.5") — there is no `components-css` subagent to dispatch. This file documents the CSS for reference so the stores `components` scope (in the merged build agent) knows the class-name surface it targets.
 
 ## What this scope owns
 
@@ -23,7 +23,7 @@ You only need:
 2. **`<SKILL_ROOT>/references/shared/STYLING.md`** — the styling-contract conventions (how to use `@apply`, the `@theme` token utilities, the no-default-Tailwind-colors rule, and the global-vs-scoped CSS ownership boundary).
 3. **`<SKILL_ROOT>/references/shared/RETURN_CONTRACT.md`** — the return JSON shape.
 4. **`src/styles/global.css`** in the project — read to audit for stores-class leaks (see § "Global-CSS leak audit" below).
-5. **Design tokens (inline in your prompt)** — the parent skill pastes the full `designTokens` JSON into your dispatch prompt. Use it directly; do NOT read `.wix/design-tokens.css` or `.wix/site.d.ts` from disk.
+5. **Design tokens (on disk)** — read the design tokens (the DESIGN.md vocabulary — `colors`/`typography`/`spacing`/`rounded`/`containers`) from `.wix/design-tokens.css` (gate-verified present before the wave). They are NOT inlined in your prompt.
 
 You do NOT need to read `INSTRUCTIONS.md`, `SHARED_WIRING.md`, `BACK_IN_STOCK.md`, the TSX templates, the back-in-stock util, or any other reference. Skipping those reads is the point of the split — they would consume tokens for context this scope doesn't use.
 
@@ -86,7 +86,7 @@ Write the adapted CSS to `src/styles/components-stores.css`. The first line must
 
 ## Coordination: design tokens
 
-Your parent prompt includes the design tokens JSON inline. Use it directly — do **not** read `.wix/design-tokens.css` or `.wix/site.d.ts` from disk and do not poll for them.
+Read the design tokens from `.wix/design-tokens.css` (on disk, gate-verified present before the wave) — they are NOT inlined in your prompt.
 
 ## Return format
 

@@ -2,7 +2,7 @@
 
 Coordination between agents uses **in-memory structured returns**, not sidecar files (`.wix/logs/*.md`, `.wix/seed-returns/*.json`, `.wix/image-urls.md`). Every agent returns a JSON block at the end of its completion message; the skill parses these returns directly from session context.
 
-At end of run, the skill writes ONE file (`.wix/run.json`) aggregating every return. This is the only observability artifact on the project side. Its schema is the orchestrator's concern — see `references/BUILD.md` § "Final run.json format".
+The orchestrator consumes each return directly from context; nothing is aggregated to disk. The one end-of-run file is the project-root `AGENTS.md` (see `references/shared/AGENTS_MD.md`) — content about the site, not telemetry.
 
 This document is the **universal envelope** every agent shares: the rules, the JSON skeleton, status semantics, and the generic failure shape. **The phase-specific `data` shape you must emit does NOT live here — it lives in your own role doc** (the one your scope already reads). See the index at the bottom.
 
@@ -45,17 +45,11 @@ The JSON block MUST be the **last** content in the message. The parent skill par
 
 ### Timing is NOT the agent's responsibility
 
-Prior versions of this contract asked agents to include `started` / `ended` ISO-8601 timestamps. **Remove those fields.** Agents fabricate placeholder timestamps (`T00:00:00Z` / `T00:05:00Z`) roughly 60% of the time, which makes `run.json` useless for perf comparison.
+Agents don't self-report timing or status — the return is just `data`. Emit no `started`/`ended` timestamps; any wall-clock measurement is the harness's job, taken from the session trace.
 
-**Authoritative timing source is the runtime `duration_ms`** captured by the parent skill from task-notifications when the subagent completes. The orchestrator MUST prefer `duration_ms` over any agent-reported timing. If an older agent still emits `started`/`ended`, the orchestrator ignores them. No LLM-generated timestamps anywhere in the observability pipeline.
+### No trailing prose after the fenced JSON
 
-### Observed failure mode — narrative ending instead of fenced JSON
-
-Agents sometimes end with prose like:
-
-> *"All three files are correctly written. Let me verify the key requirements… Everything looks good."*
-
-…with no fenced JSON block at the end. The parent skill then has to reconstruct `data.products` etc. from narrative text — fragile, and when a later phase relies on pre-seeded data from earlier returns, a missing JSON block means downstream agents don't get their data inline and fall back to re-querying the REST API, costing 5–15s each.
+The fenced JSON block must be the **last** content in the message. A trailing sentence — or no block at all — means the parent skill has to reconstruct `data.products` etc. from narrative text. That's fragile, and when a later phase relies on pre-seeded data from earlier returns, a missing block means downstream agents don't get their data inline and fall back to re-querying the REST API, costing 5–15s each.
 
 **Correct pattern — end with the fenced block, no trailing prose:**
 
@@ -85,14 +79,6 @@ All files written. Contract classes referenced: productCard, productGrid, option
 ```
 
 All three files are correctly written. Let me verify the key requirements are met before returning.
-~~~
-
-~~~markdown
-❌ WRONG — no JSON block at all
-
-All three files are correctly written. The ProductPurchase island uses contract classes
-throughout, AddToCartButton wires to @wix/ecom, and CartView handles the two-step
-checkout redirect. Build should pass.
 ~~~
 
 The parent skill looks for the **last** fenced JSON block in the message. A trailing sentence means it's no longer the last content; scanning falls back to heuristics. Just stop writing after the closing ` ``` `.
@@ -138,12 +124,12 @@ The envelope above is universal. The exact `data` shape — plus the known `erro
 | Seed — other verticals | `<pack>-seed` | per-vertical `INSTRUCTIONS.md` (same generic shape as stores) |
 | Components | `<pack>-components` | `references/shared/IMPLEMENTER.md` § Return contract |
 | Pages | `<pack>-pages[-<group>]` | `references/shared/IMPLEMENTER.md` § Return contract |
-| Design System Designer | `design-system` | `references/DESIGN_SYSTEM.md` § What you return |
-| Design System Composer | `compose` | `references/astro/COMPOSE.md` § Return contract |
+| Design System Designer | `design-system` | `references/DESIGN_SYSTEM.md` § What you write and return |
+| Design System Composer (`scripts/compose.mjs`, not a subagent — manifest printed to stdout) | `compose` | `scripts/compose.mjs` header (the manifest shape) |
 | Page Designer | `designer-<scope>` | `references/astro/designer/INSTRUCTIONS.md` (per-scope) |
 | Images | `image-phase-1-decorative`, `image-phase-2-entity` | `references/images/INSTRUCTIONS.md` § Return Contract |
 
-The **orchestrator** is the one audience that needs every shape — it parses each return and aggregates them into `run.json`. This table is its index; the `run.json` schema and the build/aggregation rules live in `references/BUILD.md`.
+The **orchestrator** is the one audience that needs every shape — it parses each return directly; there is no aggregated file. This table is its index.
 
 ## Notes for agent authors
 

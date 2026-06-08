@@ -4,7 +4,7 @@ The **rendering / code-patterns** half of CMS foundations: service module templa
 
 > **Seeding lives in the business track.** Creating collections and inserting/verifying items via REST is **not** here — it is in `<SKILL_ROOT>/references/cms/CMS_FOUNDATIONS.md` (the `seed` scope's doc). This file is consumed by the `pages` scope; that file by the `seed` scope. The `cms/INSTRUCTIONS.md` router points each scope at the right half.
 
-> **Import note (read first).** The Wix Data items API is the **`items`** named export of **`@wix/data`**: `import { items } from "@wix/data"`, then `items.query` / `items.insert` / `items.update` / `items.remove` (plus `items.bulkInsert` / `bulkSave` / `bulkPatch` / …). This is the documented form and what every CMS page here uses. (`@wix/data` 1.0.448 briefly dropped the `items` re-export; current versions export it again — so `import { items } from "@wix/data"` is correct. Do **not** import from the internal `@wix/wix-data-items-sdk`.) SETUP.md's per-pack install table (Step 4c) installs `@wix/data` + `@wix/essentials` for the cms pack.
+> **Import note (read first).** The Wix Data items API is the **`items`** named export of **`@wix/data`**: `import { items } from "@wix/data"`, then `items.query` / `items.insert` / `items.update` / `items.remove` (plus `items.bulkInsert` / `bulkSave` / `bulkPatch` / …). This is the documented form and what every CMS page here uses. Do **not** import from the internal `@wix/wix-data-items-sdk`. SETUP.md's per-pack install table (Step 4c) installs `@wix/data` + `@wix/essentials` for the cms pack.
 
 ## Rendering Ricos rich-text fields
 

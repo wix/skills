@@ -6,7 +6,7 @@ Build a downloadable resource library using `@wix/data` — file listings with c
 
 ## Collection Schema
 
-Create a collection in the Wix dashboard → CMS with these fields:
+The schema the `seed` scope creates via REST (see `../../cms/CMS_FOUNDATIONS.md`) — fields:
 
 | Field | Type | Purpose |
 |-------|------|---------|
@@ -146,8 +146,7 @@ const fileType = type.toUpperCase();
 ```
 
 Key details:
-- Color-coded by file type — red for PDF, blue for DOC, green for XLS, yellow for ZIP
-- Falls back to neutral gray for unknown types
+- The SVG uses `stroke="currentColor"` — any per-file-type coloring is purely CSS-driven (e.g. a `.file-type-pdf` class on the wrapper), not set here
 - File type label rendered inside the document icon SVG
 
 ### 3. Resource Card (`src/components/ResourceCard.astro`)
@@ -187,7 +186,7 @@ const { resource } = Astro.props;
 </a>
 ```
 
-> **Styling note:** ResourceCard styling is created by the design skill. See `COMPONENT_PATTERNS.md` → Resource Card.
+> **Styling note:** ResourceCard styling is created by the design skill. See `references/shared/STYLING.md` (Resource Card).
 
 ### 4. Resource Listing Page (`src/pages/resources/index.astro`)
 
@@ -347,10 +346,9 @@ body: {
 
 ## Testing
 
-1. Create a "Resources" collection in the Wix dashboard → CMS with the schema above
-2. Add 4+ resources across 2+ categories with different file types (PDF, DOC, ZIP)
-3. Include `fileUrl` links (can be any downloadable URL for testing)
-4. Run `npx @wix/cli@latest dev`
-5. `/resources` — shows all resources with category filters and file type badges
-6. Click a category — filters resources
-7. Click a resource — detail page with download button and related resources
+Assumes the `seed` scope has already created the "Resources" collection and inserted items via REST (see `../../cms/CMS_FOUNDATIONS.md`) — 4+ resources across 2+ categories with different file types (PDF, DOC, ZIP) and `fileUrl` links (any downloadable URL for testing).
+
+1. Run `npx @wix/cli@latest dev`
+2. `/resources` — shows all resources with category filters and file type badges
+3. Click a category — filters resources
+4. Click a resource — detail page with download button and related resources

@@ -17,15 +17,11 @@ In [Claude Code](https://docs.anthropic.com/en/docs/claude-code), run:
 /plugin install wix@wix
 ```
 
-### Codex Plugin
+### Codex
 
-In a terminal, register the marketplace:
+**Codex App** — [Install the Wix plugin](https://chatgpt.com/plugins/share/b15215ad8e954c96a1108d176d53f572).
 
-```bash
-codex plugin marketplace add wix/skills
-```
-
-Then in Codex CLI, run `/plugins`, select **Wix**, and choose **Install Plugin**.
+**Codex CLI** — run `/plugins`, select **Wix**, and choose **Install Plugin**.
 
 ### VS Code Plugin
 

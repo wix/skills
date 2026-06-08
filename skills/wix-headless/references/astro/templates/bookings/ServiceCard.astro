@@ -1,0 +1,45 @@
+---
+// ServiceCard.astro — static card for the services listing grid.
+// Props in, HTML out; no client-side interactivity. Works for APPOINTMENT and
+// CLASS services. Classes (.service-card, .service-card-image,
+// .service-card-meta, .service-card-price, …) are owned by
+// src/styles/components-bookings.css (pre-copied by the orchestrator).
+interface Props {
+  id: string;
+  slug: string;
+  name: string;
+  tagLine?: string;
+  durationMinutes: number;
+  price?: string; // formatted string, e.g. "$75.00" — already formatted by caller
+  currency?: string;
+  imageUrl?: string;
+  type: "APPOINTMENT" | "CLASS";
+}
+
+const { slug, name, tagLine, durationMinutes, price, imageUrl } = Astro.props;
+---
+
+<a href={`/services/${slug}`} class="service-card">
+  {
+    imageUrl ? (
+      <div class="service-card-image">
+        <img src={imageUrl} alt={name} loading="lazy" />
+      </div>
+    ) : (
+      <div
+        class="service-card-image service-card-image--placeholder"
+        aria-hidden="true"
+        style="background-color: var(--color-surface-secondary, var(--color-paper-warm, var(--color-cream)));"
+      />
+    )
+  }
+
+  <div class="service-card-meta">
+    <h3 class="service-card-name">{name}</h3>
+    {tagLine && <p class="service-card-tagline">{tagLine}</p>}
+    <div class="service-card-price">
+      <span>{durationMinutes} min</span>
+      {price && <span>{price}</span>}
+    </div>
+  </div>
+</a>
