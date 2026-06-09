@@ -3,8 +3,12 @@
 /**
  * Auto Patterns Generator Script
  *
- * Generates patterns.json and page.tsx for @wix/auto-patterns dashboard pages.
+ * Generates patterns.json and the page component for @wix/auto-patterns dashboard pages.
  * Replicates the deterministic logic from AutoPatternsGenerator.ts.
+ *
+ * The page component is written as `<folder>.tsx` (the basename of --output) to
+ * match — and overwrite — the stub the Wix CLI scaffolds and registers in
+ * `<folder>.extension.ts`. This wires the wrapper up with no manual edit.
  *
  * Usage:
  *   node scripts/generate-auto-patterns.js --input <path-to-input.json> --output <target-directory>
@@ -27,8 +31,8 @@
  * }
  *
  * Output:
- *   Writes patterns.json and page.tsx to the specified output directory.
- *   Prints JSON result to stdout: { "files": ["patterns.json", "page.tsx"] }
+ *   Writes patterns.json and <folder>.tsx to the specified output directory.
+ *   Prints JSON result to stdout: { "files": ["patterns.json", "<folder>.tsx"] }
  *
  * Exit codes:
  *   0 - Success
@@ -37,7 +41,7 @@
  */
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
-import { join, resolve } from 'path';
+import { basename, join, resolve } from 'path';
 
 // --- Argument parsing ---
 
@@ -77,8 +81,8 @@ Input JSON shape:
   }
 
 Output:
-  Writes patterns.json and page.tsx to the output directory.
-  Prints JSON to stdout: { "files": ["patterns.json", "page.tsx"] }`);
+  Writes patterns.json and <folder>.tsx to the output directory.
+  Prints JSON to stdout: { "files": ["patterns.json", "<folder>.tsx"] }`);
   process.exit(0);
 }
 
@@ -473,12 +477,19 @@ try {
 const patternsConfig = generatePatternsConfig(collection, schema);
 const pageTsx = generatePageTsx();
 
+// The Wix CLI scaffolds the page component as `<folder>.tsx` and registers THAT
+// file in the generated `<folder>.extension.ts`. Write the auto-patterns wrapper
+// to the same filename so it overwrites the CLI stub and is wired up with no
+// manual edit to the builder file. (Writing `page.tsx` would leave the wrapper
+// unregistered next to the empty stub the CLI registered.)
+const componentFileName = `${basename(resolvedOutput)}.tsx`;
+
 try {
   writeFileSync(
     join(resolvedOutput, 'patterns.json'),
     JSON.stringify(patternsConfig, null, 2),
   );
-  writeFileSync(join(resolvedOutput, 'page.tsx'), pageTsx);
+  writeFileSync(join(resolvedOutput, componentFileName), pageTsx);
 } catch (err) {
   console.error(`Error: Failed to write output files: ${err.message}`);
   process.exit(2);
@@ -488,7 +499,7 @@ try {
 console.log(
   JSON.stringify({
     success: true,
-    files: ['patterns.json', 'page.tsx'],
+    files: ['patterns.json', componentFileName],
     outputDir: resolvedOutput,
   }),
 );

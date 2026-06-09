@@ -17,7 +17,7 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
 - [ ] **Step 1:** Determined extension type(s) needed
   - [ ] Asked clarifying questions if requirements were unclear
   - [ ] **🛑 Auto-Patterns Gate (MANDATORY):** If the use case is a single-collection CRUD admin page (table/grid + entity form), you MUST use [AUTO_PATTERNS_DASHBOARD.md](references/AUTO_PATTERNS_DASHBOARD.md). Auto-patterns is the DEFAULT; custom Dashboard Pages are the opt-out. Only fall back to Dashboard Page if a disqualifier applies: multi-collection joins, custom business logic, embedded script configuration, external API integrations, or the user explicitly requested a custom React page.
-  - [ ] **🛑 Iteration Gate (MANDATORY):** Before editing ANY file under `src/extensions/dashboard/pages/<page>/`, check for a sibling `patterns.json`. If it exists, this is an auto-patterns page — you MUST follow [AUTO_PATTERNS_DASHBOARD.md](references/AUTO_PATTERNS_DASHBOARD.md) Part B and use the override topic-index (banners → `custom-slots-override.md`, header → `custom-header-override.md`, actions → `custom-actions-override.md`, columns → `custom-columns-override.md`, sections → `custom-sections-override.md`). Do NOT edit `page.tsx` to add UI elements directly.
+  - [ ] **🛑 Iteration Gate (MANDATORY):** Before editing ANY file under `src/extensions/dashboard/pages/<page>/`, check for a sibling `patterns.json`. If it exists, this is an auto-patterns page — you MUST follow [AUTO_PATTERNS_DASHBOARD.md](references/AUTO_PATTERNS_DASHBOARD.md) Part B and use the override topic-index (banners → `custom-slots-override.md`, header → `custom-header-override.md`, actions → `custom-actions-override.md`, columns → `custom-columns-override.md`, sections → `custom-sections-override.md`). Do NOT edit the page component (`<page-name>.tsx`) to add UI elements directly.
   - [ ] Checked for implicit Data Collection need — unless user provided a collection ID directly (see [Data Collection Inference](#data-collection-inference))
   - [ ] Obtained app namespace if Data Collection extension is being created
   - [ ] Determined full scoped collection IDs if Data Collection extension is being created (see [Collection ID Coordination](#collection-id-coordination))
@@ -49,7 +49,7 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
 | Reporting done without validation           | Always run validation at the end               |
 | Letting manual action items get buried      | Aggregate all manual steps at the very end     |
 | Writing custom React for single-collection CRUD when auto-patterns applies | Default to [AUTO_PATTERNS_DASHBOARD.md](references/AUTO_PATTERNS_DASHBOARD.md) for CRUD admin pages |
-| Editing `page.tsx` to add UI (banners, headers, custom actions, slots, sections) when `patterns.json` exists | Use the matching `custom-*-override.md` from [AUTO_PATTERNS_DASHBOARD.md](references/AUTO_PATTERNS_DASHBOARD.md) Part B |
+| Editing the page component (`<page-name>.tsx`) to add UI (banners, headers, custom actions, slots, sections) when `patterns.json` exists | Use the matching `custom-*-override.md` from [AUTO_PATTERNS_DASHBOARD.md](references/AUTO_PATTERNS_DASHBOARD.md) Part B |
 
 ---
 

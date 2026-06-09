@@ -1,6 +1,6 @@
 # Auto Patterns Dashboard Page
 
-Generates declarative `patterns.json` + thin `page.tsx` for simple CRUD dashboard pages using `@wix/auto-patterns`. Supports both creating new pages and updating existing ones.
+Generates declarative `patterns.json` + a thin page component (`<page-name>.tsx`) for simple CRUD dashboard pages using `@wix/auto-patterns`. Supports both creating new pages and updating existing ones.
 
 ## Quick Start Checklist
 
@@ -69,14 +69,16 @@ An auto-patterns page is a dashboard page — scaffold it with the Wix CLI:
 wix generate --params '{"extensionType":"DASHBOARD_PAGE","title":"<title>","route":"<route>"}'
 ```
 
-The CLI generates the page folder, `page.tsx`, the builder file, a unique UUID, and the `src/extensions.ts` registration — do NOT hand-write any of these. After scaffolding, the page folder looks like this:
+The CLI generates the page folder, the component stub `<page-name>.tsx`, the builder file `<page-name>.extension.ts` (which registers the extension and points its `component` at `<page-name>.tsx`), a unique UUID, and the `src/extensions.ts` registration — do NOT hand-write any of these. The folder name comes from `route`. After scaffolding, the page folder looks like this:
 
 ```
 src/extensions/dashboard/pages/<page-name>/
-├── <page-name>.ts       # Builder file (generated — registration + UUID)
-├── page.tsx             # React wrapper (overwritten in Step 3)
-└── patterns.json        # Declarative AppConfig — added in Step 3, edit this to iterate
+├── <page-name>.extension.ts   # Builder file (generated — registration + UUID, component → <page-name>.tsx)
+├── <page-name>.tsx            # CLI component stub (overwritten in Step 3)
+└── patterns.json              # Declarative AppConfig — added in Step 3, edit this to iterate
 ```
+
+> **Why this matters for Step 3:** the generator writes the auto-patterns wrapper to `<page-name>.tsx` — the SAME file the builder already registers — so it overwrites the stub and is wired up automatically. Do NOT let it produce a separate `page.tsx`; that would leave the wrapper unregistered next to the empty stub, and the dashboard would render blank.
 
 ### Step 2: Generate the Schema
 
@@ -148,11 +150,13 @@ EOF
 node scripts/generate-auto-patterns.js --input /tmp/auto-patterns-input.json --output ./src/extensions/dashboard/pages/<page-name>/
 ```
 
+The `--output` directory MUST be the exact folder the CLI scaffolded in Step 1 — the script derives the component filename from that folder's name.
+
 The script produces:
 - `patterns.json` — The declarative AppConfig
-- `page.tsx` — Thin React wrapper component (overwrites the scaffolded stub)
+- `<page-name>.tsx` — Thin React wrapper component, written to the SAME filename the CLI scaffolded and the builder already registers (overwrites the stub)
 
-The builder file and `src/extensions.ts` registration from Step 1 stay as-is — no manual registration needed.
+The builder file (`<page-name>.extension.ts`) and `src/extensions.ts` registration from Step 1 stay as-is — no manual registration edit, and no stray `page.tsx`.
 
 ### Step 4: Install Dependencies
 
@@ -168,10 +172,12 @@ Run validation per [APP_VALIDATION.md](APP_VALIDATION.md) to verify TypeScript c
 
 ## Part B: Updating an Existing Auto-Patterns Page
 
-> **🛑 STOP — UI changes go through overrides, NOT `page.tsx` edits.**
-> If you're adding a banner, custom header, action, slot, custom column rendering, or row sectioning to an auto-patterns page, you MUST use the matching `custom-*-override.md` reference (see the topic index in Step 2). Do NOT add the UI by hand-writing JSX in `page.tsx` — that bypasses the override registration and breaks the iteration model.
+> **🛑 STOP — UI changes go through overrides, NOT page-component edits.**
+> If you're adding a banner, custom header, action, slot, custom column rendering, or row sectioning to an auto-patterns page, you MUST use the matching `custom-*-override.md` reference (see the topic index in Step 2). Do NOT add the UI by hand-writing JSX in the page component (`<page-name>.tsx`) — that bypasses the override registration and breaks the iteration model.
 
-When `patterns.json` already exists in a page directory, edit it directly. **This is the iteration model**: changes to layout, columns, actions, and content are made by editing JSON — `page.tsx` only changes to register new overrides. No React rewrite, no rebuild of CRUD logic.
+When `patterns.json` already exists in a page directory, edit it directly. **This is the iteration model**: changes to layout, columns, actions, and content are made by editing JSON — the page component (`<page-name>.tsx`) only changes to register new overrides. No React rewrite, no rebuild of CRUD logic.
+
+> **Component filename:** the page component is `<page-name>.tsx` (the file the CLI scaffolded and the `<page-name>.extension.ts` builder registers). The override reference files below say "`page.tsx`" as shorthand for this component — edit the existing `<page-name>.tsx`; **never create a new `page.tsx`**, or it will sit unregistered next to the real component.
 
 ### Step 1: Read the Existing Config
 
@@ -217,7 +223,7 @@ Edit `patterns.json` based on the user's request. Key constraints:
 
 If adding custom overrides (actions, columns, components, slots, etc.):
 1. Create the override files in the appropriate `components/` subfolder
-2. Update `page.tsx` to register overrides via `PatternsWizardOverridesProvider`
+2. Update the page component (`<page-name>.tsx`) to register overrides via `PatternsWizardOverridesProvider`
 3. See the `custom-*-override.md` reference files for implementation patterns
 
 ---
