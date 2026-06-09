@@ -4,7 +4,7 @@ For each capability, create the backend content its *what* names. This step carr
 
 ## How it runs
 
-`wix-manage` is already in context (loaded in Setup). The token is in `/tmp/wix_token`. The capabilities are **independent** — no ordering or data dependency between them. For each one:
+First, **load the recipe library**: invoke `Skill(name="wix-manage")` **once** — this brings the recipe files into context (a directory path is not a substitute). The token is already in `/tmp/wix_token` from Setup. The capabilities are **independent** — no ordering or data dependency between them. For each one:
 
 1. **Find the recipe** by its capability phrase (`references/CAPABILITIES.md` → "wix-manage capability phrase") against the in-context recipe index. **Fail loud** if no recipe matches a required capability — a missing recipe is a real error, not a cue to guess.
 2. **Read the matched recipe** and build request bodies from `intent.<cap>` + `brand`. The recipe is the source of truth for URL/method/body.
