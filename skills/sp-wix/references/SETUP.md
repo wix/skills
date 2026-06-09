@@ -2,21 +2,11 @@
 
 Install the Wix apps the resolved capabilities need, on the given metasite. That is the whole of setup — the frontend toolchain stays with the host.
 
-## 1 · Load the recipe library
-
-Invoke `Skill(name="wix-manage")` **once**. This loads the recipe files into context — Setup uses the app-install recipe now, and **Seed reuses the in-context recipes** (it does not re-invoke). A directory path is not a substitute; the recipes must be in context.
-
-Then read the install recipe for the exact body shape:
-
-```
-Read <wix-manage-root>/references/app-installation/install-wix-apps.md
-```
-
-## 2 · Mint the token
+## 1 · Mint the token
 
 Per `references/AUTHENTICATION.md` § "Minting the token" — one Bash call, secret stays out of context, token to `/tmp/wix_token`. Mint once; later calls read it back.
 
-## 3 · Install one app per capability
+## 2 · Install one app per capability
 
 For each capability in `verticals[]`, look up its `appDefId` in `references/CAPABILITIES.md`:
 
@@ -25,7 +15,7 @@ For each capability in `verticals[]`, look up its `appDefId` in `references/CAPA
 - **forms** → `225dd912-7dea-4738-8688-4b8c6955ffc2`
 - **cms** → **no install** (Wix Data is core) — skip
 
-Fire one install `curl` per app (the recipe's `POST /apps-installer-service/v1/app-instance/install`), body shape from the recipe:
+Fire one install `curl` per app — `POST /apps-installer-service/v1/app-instance/install`:
 
 ```bash
 set -a; . ./.env; set +a
@@ -46,6 +36,6 @@ The installs are independent — issue them in whatever order is convenient.
 
 A **200** confirms the install. On a non-200, surface the response verbatim and stop.
 
-## 4 · Proceed to Seed
+## 3 · Proceed to Seed
 
-Confirm every required app returned 200 (cms skipped). Then continue to **`SEED.md`** — the `wix-manage` recipes are already in context.
+Confirm every required app returned 200 (cms skipped). Then continue to **`SEED.md`**, which loads the `wix-manage` recipes for content seeding.

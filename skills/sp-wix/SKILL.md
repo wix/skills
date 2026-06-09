@@ -57,4 +57,4 @@ Compute `<SKILL_ROOT>` from this file (`<SKILL_ROOT>/SKILL.md` — strip `/SKILL
 
 ## Upstream
 
-The **only** upstream dependency is **`wix-manage`** — the recipe library for app installation and content seeding, loaded via `Skill(name="wix-manage")` (Setup does this once; Seed reuses the in-context recipes). API request shapes (endpoints, payloads, field templates) live there and are the single source of truth; this skill carries the *what* (which capabilities, how much content) and searches `wix-manage` for the *how*.
+The **only** upstream dependency is **`wix-manage`** — the recipe library for **content seeding**, loaded via `Skill(name="wix-manage")` in **Seed**. Setup doesn't need it: the app-install call is a single fixed shape carried inline in `SETUP.md`. For seeding, the API request shapes (endpoints, payloads, field templates) live in the recipes and are the single source of truth; this skill carries the *what* (which content, how much) and searches `wix-manage` for the *how*.
