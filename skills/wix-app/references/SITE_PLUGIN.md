@@ -25,7 +25,7 @@ Custom element component that renders in the slot using native HTMLElement:
 
 Settings panel shown in the Wix Editor sidebar:
 
-- Uses Wix Design System (`@wix/design-system`) components — see the `wix-design-system` skill for component reference
+- Uses React components for UI
 - Manages plugin properties via `@wix/editor` widget API
 - Loads initial values with `widget.getProp('kebab-case-name')`
 - Updates properties with `widget.setProp('kebab-case-name', value)`
@@ -95,13 +95,6 @@ export default MyElement;
 // my-site-plugin.panel.tsx
 import React, { type FC, useState, useEffect, useCallback } from 'react';
 import { widget } from '@wix/editor';
-import {
-  SidePanel,
-  WixDesignSystemProvider,
-  Input,
-  FormField,
-} from '@wix/design-system';
-import '@wix/design-system/styles.global.css';
 
 const Panel: FC = () => {
   const [displayName, setDisplayName] = useState<string>('');
@@ -147,8 +140,6 @@ export default Panel;
 - Always update both local state AND widget prop in onChange handlers
 - Widget properties are bound to custom element attributes — changes automatically update the corresponding attribute
 - Wrap content in `WixDesignSystemProvider > SidePanel > SidePanel.Content`
-- Use WDS components from `@wix/design-system`
-- Import `@wix/design-system/styles.global.css` for styles
 - Include `aria-label` for accessibility
 
 ## Color & Font Picker Fields
@@ -162,7 +153,6 @@ Opens the Wix color picker with theme colors, gradients, and more — **NOT** a 
 ```typescript
 import React, { type FC } from 'react';
 import { inputs } from '@wix/editor';
-import { FormField, Box, FillPreview, SidePanel } from '@wix/design-system';
 
 interface ColorPickerFieldProps {
   label: string;
@@ -195,7 +185,6 @@ Opens the Wix font picker with font family, size, bold, italic, and other typogr
 ```typescript
 import React, { type FC } from 'react';
 import { inputs } from '@wix/editor';
-import { FormField, Button, Text, SidePanel } from '@wix/design-system';
 
 interface FontValue {
   font: string;
@@ -249,7 +238,6 @@ Site plugins use **kebab-case** consistently for HTML attributes:
 | --- | --- |
 | Complete Examples | [EXAMPLES.md](site-plugin/EXAMPLES.md) |
 | Slots (App IDs, runtime APIs, design guidelines, multiple placements) | [SLOTS.md](site-plugin/SLOTS.md) — run `wix schema generate --type SITE_PLUGIN` for the authoritative `slotId` enum |
-| WDS Components | the `wix-design-system` skill |
 
 ## Available Slots
 

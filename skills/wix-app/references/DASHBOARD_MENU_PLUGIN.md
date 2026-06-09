@@ -37,7 +37,7 @@ The `action` field determines what happens when the user clicks the menu item. C
 
 ## Icon Selection
 
-The generated builder file has an `iconKey` field. It must be a valid icon name from the Wix Design System icon set (`@wix/wix-ui-icons-common`). Use the `wix-design-system` skill to look up available icon names and update the generated builder file accordingly.
+The generated builder file has an `iconKey` field. It must be a valid icon name from the Wix icon set (`@wix/wix-ui-icons-common`). Look up available icon names in `node_modules/@wix/wix-ui-icons-common` and update the generated builder file accordingly.
 
 ## Dashboard-Menu-Plugin-specific Conventions
 

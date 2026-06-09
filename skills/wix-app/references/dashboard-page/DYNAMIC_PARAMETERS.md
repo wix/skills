@@ -139,7 +139,7 @@ This dashboard page manages dynamic parameters for an embedded script. The param
 ## Example Implementation
 
 See the generated site-popup example for a complete reference implementation:
-- src/extensions/dashboard/withProviders.tsx - Provider wrapper with WDS
+- src/extensions/dashboard/withProviders.tsx - Provider wrapper
 - src/extensions/dashboard/pages/page.tsx - Dashboard page with parameter management (wrapped with withProviders)
 - src/extensions/dashboard/components/site-popup-settings.tsx - Settings form component
 - src/extensions/dashboard/types.ts - Type definitions
@@ -154,7 +154,7 @@ Key implementation patterns from the example:
 ## File Generation Requirements
 
 When dynamic parameters are present, you MUST generate these files:
-1. src/extensions/dashboard/withProviders.tsx - Provider wrapper (REQUIRED for WDS)
+1. src/extensions/dashboard/withProviders.tsx - Provider wrapper (REQUIRED)
 2. src/extensions/dashboard/pages/page.tsx - The main dashboard page component
 3. src/extensions/dashboard/types.ts - Type definitions for the parameters (if needed)
 4. Any additional component files (settings forms, previews, etc.)
@@ -165,11 +165,10 @@ The withProviders.tsx is NOT optional - it must always be generated when there a
 
 You MUST generate the following file: src/extensions/dashboard/withProviders.tsx
 
-This file is REQUIRED to wrap dashboard components with the Wix Design System provider.
+This file is REQUIRED to wrap dashboard components with the provider.
 
 ```typescript
 import React from 'react';
-import { WixDesignSystemProvider } from '@wix/design-system';
 import { i18n } from '@wix/essentials';
 
 export default function withProviders<P extends {} = {}>(Component: React.FC<P>) {
@@ -203,8 +202,6 @@ Example structure:
 import { useEffect, useState, type FC } from 'react';
 import { dashboard } from '@wix/dashboard';
 import { embeddedScripts } from '@wix/app-management';
-import { Page, Card, Button, ... } from '@wix/design-system';
-import '@wix/design-system/styles.global.css';
 import withProviders from '../../withProviders';
 
 const MyDashboardPage: FC = () => {

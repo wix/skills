@@ -27,7 +27,7 @@ For the complete list of available slot IDs, see [Slots Reference](dashboard-plu
 - **React** — Component logic and state management
 - **Wix SDK** — Access Wix business solutions and site data
 - **Wix Dashboard SDK** (`@wix/dashboard`) — Interact with the dashboard page's data passed to the slot
-- **Wix Design System** (`@wix/design-system`) — Native-looking React components matching Wix's own dashboard UI
+- **UI Components** — Native-looking React components matching Wix's own dashboard UI
 
 ## Interacting with Dashboard Data
 

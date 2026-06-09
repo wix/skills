@@ -55,15 +55,6 @@ export default BestSellerBadge;
 ```typescript
 import React, { type FC, useState, useEffect, useCallback } from 'react';
 import { widget, inputs } from '@wix/editor';
-import {
-  SidePanel,
-  WixDesignSystemProvider,
-  Input,
-  FormField,
-  Box,
-  FillPreview,
-} from '@wix/design-system';
-import '@wix/design-system/styles.global.css';
 
 const Panel: FC = () => {
   const [badgeText, setBadgeText] = useState<string>('');
@@ -184,7 +175,6 @@ For plugins that require back-office management (especially checkout and side ca
 ```typescript
 // src/extensions/dashboard/pages/plugin-settings/page.tsx
 import { dashboard } from "@wix/dashboard";
-import { Page, WixDesignSystemProvider, Card, FormField, Input, Button } from "@wix/design-system";
 
 export default function PluginSettingsPage() {
   const handleAddToSlot = async () => {

@@ -1,10 +1,10 @@
 # Settings Panel Components Reference
 
-This reference documents components and patterns specific to widget settings panels. For general WDS component documentation (FormField, Input, Dropdown, Checkbox, ToggleSwitch, DatePicker, Box, etc.), use the the `wix-design-system` skill.
+This reference documents components and patterns specific to widget settings panels.
 
 ## Layout
 
-The scaffolded `<name>.panel.tsx` already wraps everything in `SidePanel > Header > Content > Footer`. Wrap each `FormField` in `SidePanel.Field`. For component-level props (`SidePanel`, `SidePanel.Header`/`Content`/`Field`/`Footer`, `SectionHelper`), use the wix-design-system skill.
+The scaffolded `<name>.panel.tsx` already wraps everything in `SidePanel > Header > Content > Footer`. Wrap each `FormField` in `SidePanel.Field`.
 
 ## Color & Font Picker Fields
 
@@ -12,8 +12,8 @@ Use the Wix Editor's native picker dialogs via `inputs.selectColor()` and `input
 
 | Picker | API | Preview / trigger | Value type |
 |---|---|---|---|
-| Color | `inputs.selectColor(value, { onChange })` | `FillPreview` (WDS) | `string` (CSS color) |
-| Font | `inputs.selectFont(value, { onChange })` | `Button` (WDS) | `{ font: string; textDecoration: string }` |
+| Color | `inputs.selectColor(value, { onChange })` | `FillPreview` | `string` (CSS color) |
+| Font | `inputs.selectFont(value, { onChange })` | `Button` | `{ font: string; textDecoration: string }` |
 
 Wrap each picker in the standard `<SidePanel.Field><FormField label={label}>…</FormField></SidePanel.Field>`. The picker handlers themselves:
 
