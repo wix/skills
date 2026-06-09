@@ -1,5 +1,5 @@
 ---
-name: "API: Shipping Delivery"
+name: "Shipping: API Reference"
 description: REST API reference for Shipping Options and Delivery Profiles. Covers CRUD operations, region/carrier management, and query patterns for both services. Internal reference — these APIs are not yet published in public docs.
 ---
 # API: Shipping Delivery

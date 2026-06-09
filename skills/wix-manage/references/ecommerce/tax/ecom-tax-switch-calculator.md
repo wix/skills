@@ -1,5 +1,5 @@
 ---
-name: "Switch Tax Calculator"
+name: "Tax: Switch Calculator"
 description: Switches existing tax regions to use a different installed calculator. Updates each region's `calculatorId` via PATCH. The merchant must have already installed the target calculator (e.g. Avalara) via the Wix Dashboard before this recipe can find its `calculatorId`.
 ---
 

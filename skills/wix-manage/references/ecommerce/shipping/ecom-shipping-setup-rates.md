@@ -1,5 +1,5 @@
 ---
-name: "Setup: Shipping Rates"
+name: "Shipping: Set Up Rates"
 description: Configures shipping option rates — rate types (flat, tiered, free), condition types and operators, free shipping threshold calibration, AOV sanity check, per-item penalty avoidance, and tier gap detection.
 ---
 # Shipping Rates

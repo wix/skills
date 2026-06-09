@@ -1,5 +1,5 @@
 ---
-name: "eCommerce Skill Graph"
+name: "Skill Graph"
 description: Mermaid diagram of the eCommerce routing tree - WixREADME to category entry, promotion, and support files. Migrated categories: Tax, Pricing, Shipping, Checkout, Abandoned Carts, Fulfillment, and Orders.
 ---
 

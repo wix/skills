@@ -1,5 +1,5 @@
 ---
-name: "Setup: Shipping Regions"
+name: "Shipping: Set Up Regions"
 description: Configures delivery profiles and regions — creating profiles, adding regions with destinations, assigning carriers, enabling backup rates, and handling externally managed regions.
 ---
 # Shipping Regions

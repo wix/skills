@@ -1,5 +1,5 @@
 ---
-name: "Setup: Coupons"
+name: "Pricing: Create Coupon"
 description: Creates and manages coupon codes using the Coupons V2 API. Covers coupon types (percentage, fixed amount, fixed price, free shipping), scope targeting, usage limits, and the mapping from discount recommendations to coupon API payloads.
 layer: config
 ---
