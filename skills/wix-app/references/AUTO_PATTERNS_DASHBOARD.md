@@ -226,6 +226,8 @@ If adding custom overrides (actions, columns, components, slots, etc.):
 2. Update the page component (`<page-name>.tsx`) to register overrides via `PatternsWizardOverridesProvider`
 3. See the `custom-*-override.md` reference files for implementation patterns
 
+> **🛑 Overrides ALWAYS go in their own file under `components/<type>/`** (e.g. `components/columns/status.tsx`) with a `use*` hook — **regardless of size, even for a single small override.** This is structural, required by the override-registration model. **Never inline override render logic in the page component** (`<page-name>.tsx`), and do NOT apply the general ~300-line "split only if large" rule here — it does not override this requirement.
+
 ---
 
 ## Non-Matching Intents
