@@ -1,5 +1,5 @@
 ---
-name: "Configure Tax (Avalara)"
+name: "Tax: Configure (Avalara)"
 description: Avalara setup — DASHBOARD-ONLY. The Wix Avalara credentials API (`/billing/v1/avalara-tax-credentials`) and the Avalara address-validation API (`/billing/v1/validate-taxable-address`) are NOT TPA-public, so the MCP cannot wire up Avalara directly. This skill instructs the merchant to install/configure Avalara via the Wix Dashboard, then routes the configurable parts (regions + groups) to TPA-public APIs.
 ---
 

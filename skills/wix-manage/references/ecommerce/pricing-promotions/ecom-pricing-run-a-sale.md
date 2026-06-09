@@ -1,5 +1,5 @@
 ---
-name: "Recommend: eCommerce Strategy"
+name: "Pricing: Run a Sale (Recommend eCommerce Strategy)"
 description: Unified eCommerce recommendation skill — analyzes site data across ALL domains (discounts, shipping, and future domains) and generates up to 5 actionable recommendations. Single entry point for any "help my business" request. Tracking is built-in.
 layer: R
 references:

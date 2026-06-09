@@ -1,5 +1,5 @@
 ---
-name: "Flow: Optimize Shipping Rates"
+name: "Shipping: Optimize Rates"
 description: Analyzes catalog price distribution and current rate structure to recommend optimal shipping rate strategy. Handles flat-to-tiered conversion, tier gap detection, and per-item penalty removal.
 ---
 # Flow: Optimize Shipping Rates

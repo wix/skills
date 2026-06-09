@@ -1,5 +1,5 @@
 ---
-name: "Tax Calculation Wrong"
+name: "Tax: Calculation Wrong"
 description: Diagnoses why a specific order's tax calculation looks wrong — re-runs the CalculateTax call with the order's address + line items, then cross-checks region coverage, group mappings, calculator binding, and exemptions. Read-only; no writes. Triggers on "tax wrong on this order", "tax calc is wrong", "why no tax on this order".
 ---
 

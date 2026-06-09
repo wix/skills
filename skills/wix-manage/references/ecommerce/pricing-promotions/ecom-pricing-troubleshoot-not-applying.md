@@ -1,5 +1,5 @@
 ---
-name: "Troubleshoot: Discount Not Applying"
+name: "Pricing: Discount Not Applying"
 description: Diagnostic tree for when a discount rule exists but isn't applying at checkout. Checks active status, time window, scope targeting, revision, and app installation.
 layer: troubleshoot
 ---

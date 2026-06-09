@@ -1,5 +1,5 @@
 ---
-name: "Goal: Reduce Cart Abandonment"
+name: "Checkout: Reduce Abandonment"
 description: Maps cart abandonment reduction to recovery automation KPIs. Covers abandoned cart email automation activation, missing sales detection, and eligibility thresholds. Also references shipping flows that affect checkout drop-off.
 ---
 # Goal: Reduce Cart Abandonment

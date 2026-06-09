@@ -1,5 +1,5 @@
 ---
-name: "Audit Tax Setup"
+name: "Tax: Audit Setup"
 description: Read-only audit of the site's current tax configuration. Lists available calculators, all tax regions with their calculatorId + inclusive/exclusive setting, all tax groups, all Manual rate mappings, Avalara credentials (if any), and VAT settings (if any). No writes. Triggers on "audit my taxes", "review my tax setup", "show my tax config".
 ---
 

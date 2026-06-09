@@ -1,5 +1,5 @@
 ---
-name: "Flow: Add Free Shipping"
+name: "Shipping: Add Free Shipping"
 description: Creates a free shipping option with an AOV-calibrated threshold to reduce cart abandonment and increase average order value. Validates threshold against catalog price distribution.
 ---
 # Flow: Add Free Shipping
