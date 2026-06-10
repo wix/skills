@@ -1,0 +1,23 @@
+name: ecommerce/tax/eu-vat-context-dispatch
+description: Verifies the Tax category entry dispatches to the EU VAT recipe via context-tag boost (region:EU beats the priority-0 Wix Manual entry) and that the renamed slug `tax-configure-eu-vat` is reached end-to-end.
+triggerPrompt: I sell to customers in Germany and France — how do I set up VAT for my store?
+tags: [ecommerce]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/tax-configure-eu-vat
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Evaluate the agent's response to a merchant selling to Germany and France asking how to set up VAT.
+
+      Pass if ALL of these are true:
+        1. The agent loaded the EU VAT recipe (not the Wix Manual generic configure recipe and not Avalara).
+        2. It recognized Germany/France require EU VAT and proceeded — it did NOT ask "what country are you in?" (the prompt already says Germany and France).
+        3. It referenced concrete EU VAT setup steps (tax groups, tax regions for DE/FR, inclusive vs exclusive pricing) consistent with the EU VAT recipe, not generic "configure tax" guidance.
+
+      Fail if ANY of these are true:
+        - The agent dispatched to Wix Manual or Avalara instead of EU VAT.
+        - The agent asked a clarifying question about country before dispatching.
+        - The response invents endpoints or describes setup outside the EU VAT recipe.

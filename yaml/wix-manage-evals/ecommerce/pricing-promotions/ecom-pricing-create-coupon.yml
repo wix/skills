@@ -1,0 +1,25 @@
+name: ecommerce/pricing-promotions/create-coupon-renamed-slug
+description: Verifies the Pricing & Promotions category entry dispatches to the create-coupon action recipe at its renamed slug `pricing-create-coupon` (NOT the legacy `setup-coupons` from main), and that the agent uses correct Coupons API conventions (epoch milliseconds, uniqueness check).
+triggerPrompt: Create a 20% off coupon with code SUMMER20 that expires June 30, 2026
+tags: [ecommerce]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-coupon
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Evaluate the agent's response to "Create a 20% off coupon with code SUMMER20 that expires June 30, 2026".
+
+      Pass if ALL of these are true:
+        1. The agent loaded the `pricing-create-coupon` skill (NOT the legacy `setup-coupons` slug).
+        2. Before creating, it ran a uniqueness/query check (POST https://www.wixapis.com/v2/coupons/query) to look for duplicate codes.
+        3. The create-coupon payload uses `percentOffRate: 20`, `code: "SUMMER20"`, and `expirationTime` as UNIX epoch in MILLISECONDS — value should be 1782777600000 (2026-06-30T00:00:00Z) or near it (a value ending in three zeros, in the billions/trillions range).
+        4. It explained the scope choice (typically applying to all store products by default).
+
+      Fail if ANY of these are true:
+        - The agent used the legacy `setup-coupons` slug or its content.
+        - `expirationTime` was sent in seconds (~1782777600, ten-digit integer) instead of milliseconds.
+        - The agent skipped the duplicate-code check.
+        - The agent invented coupon fields not in the Coupons API spec.
