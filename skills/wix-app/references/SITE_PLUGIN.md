@@ -30,7 +30,7 @@ Settings panel shown in the Wix Editor sidebar:
 - Loads initial values with `widget.getProp('kebab-case-name')`
 - Updates properties with `widget.setProp('kebab-case-name', value)`
 - Widget properties are bound to custom element attributes — any property change automatically updates the corresponding attribute
-- Styled with CSS Modules — see [REACT_CSS.md](REACT_CSS.md)
+- Styled with Tailwind CSS — see [TAILWIND.md](TAILWIND.md)
 
 ### 3. Extension Builder (`<plugin-name>.extension.ts`)
 
@@ -95,7 +95,7 @@ export default MyElement;
 // my-site-plugin.panel.tsx
 import React, { type FC, useState, useEffect, useCallback } from 'react';
 import { widget } from '@wix/editor';
-import styles from './my-site-plugin.panel.module.css';
+import '@styles/globals.css';
 
 const Panel: FC = () => {
   const [displayName, setDisplayName] = useState<string>('');
@@ -113,12 +113,12 @@ const Panel: FC = () => {
   }, [setDisplayName]);
 
   return (
-    <form className={styles.form}>
-      <label className={styles.field}>
-        <span className={styles.label}>Display Name</span>
+    <form className="flex flex-col gap-4 p-4">
+      <label className="flex flex-col gap-1">
+        <span className="text-sm font-medium text-gray-700">Display Name</span>
         <input
           type="text"
-          className={styles.input}
+          className="rounded-md border border-gray-300 px-3 py-2 text-sm"
           value={displayName}
           onChange={handleDisplayNameChange}
           aria-label="Display Name"
@@ -136,7 +136,7 @@ export default Panel;
 - Prop names in `widget.getProp()` and `widget.setProp()` use **kebab-case** (e.g., `"display-name"`)
 - Always update both local state AND widget prop in onChange handlers
 - Widget properties are bound to custom element attributes — changes automatically update the corresponding attribute
-- Use CSS Modules for layout and styling — see [REACT_CSS.md](REACT_CSS.md)
+- Use Tailwind CSS for layout and styling — see [TAILWIND.md](TAILWIND.md)
 - Include `aria-label` for accessibility
 
 ## Color & Font Picker Fields
@@ -150,7 +150,6 @@ Opens the Wix color picker with theme colors, gradients, and more — **NOT** a 
 ```typescript
 import React, { type FC } from 'react';
 import { inputs } from '@wix/editor';
-import styles from './ColorPickerField.module.css';
 
 interface ColorPickerFieldProps {
   label: string;
@@ -163,11 +162,11 @@ export const ColorPickerField: FC<ColorPickerFieldProps> = ({
   value,
   onChange,
 }) => (
-  <label className={styles.field}>
-    <span className={styles.label}>{label}</span>
+  <label className="flex flex-col gap-1">
+    <span className="text-sm font-medium text-gray-700">{label}</span>
     <button
       type="button"
-      className={styles.colorSwatch}
+      className="h-8 w-8 rounded border border-gray-300"
       style={{ backgroundColor: value }}
       onClick={() => inputs.selectColor(value, { onChange: (val) => { if (val) onChange(val); } })}
       aria-label={`Pick ${label}`}
@@ -183,7 +182,6 @@ Opens the Wix font picker with font family, size, bold, italic, and other typogr
 ```typescript
 import React, { type FC } from 'react';
 import { inputs } from '@wix/editor';
-import styles from './FontPickerField.module.css';
 
 interface FontValue {
   font: string;
@@ -201,11 +199,11 @@ export const FontPickerField: FC<FontPickerFieldProps> = ({
   value,
   onChange,
 }) => (
-  <label className={styles.field}>
-    <span className={styles.label}>{label}</span>
+  <label className="flex flex-col gap-1">
+    <span className="text-sm font-medium text-gray-700">{label}</span>
     <button
       type="button"
-      className={styles.fontButton}
+      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50"
       onClick={() => inputs.selectFont(value, { onChange: (val) => onChange({ font: val.font, textDecoration: val.textDecoration || "" }) })}
     >
       Change Font

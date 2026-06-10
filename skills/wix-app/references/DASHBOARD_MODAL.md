@@ -106,7 +106,7 @@ export default {
 
 ## Real-World Example
 
-End-to-end edit-item flow. Style the modal with a co-located `.module.css` — see [REACT_CSS.md](REACT_CSS.md). The unique parts are on the opener side, in `observeState`, and in the save handler.
+End-to-end edit-item flow. Style the modal with Tailwind CSS — see [TAILWIND.md](TAILWIND.md). The unique parts are on the opener side, in `observeState`, and in the save handler.
 
 ```typescript
 // Dashboard Page: open the modal with the item to edit

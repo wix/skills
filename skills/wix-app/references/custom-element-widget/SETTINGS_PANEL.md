@@ -1,10 +1,10 @@
 # Settings Panel Components Reference
 
-This reference documents components and patterns specific to widget settings panels. All UI uses **CSS Modules** — see [REACT_CSS.md](../REACT_CSS.md).
+This reference documents components and patterns specific to widget settings panels. All UI uses **Tailwind CSS** — see [TAILWIND.md](../TAILWIND.md).
 
 ## Layout
 
-The scaffolded `<name>.panel.tsx` is a React component rendered in the Wix Editor sidebar. Create `<name>.panel.module.css` next to it. Use `<form className={styles.form}>` with `<label className={styles.field}>` for each field.
+The scaffolded `<name>.panel.tsx` is a React component rendered in the Wix Editor sidebar. Use a `<form className="flex flex-col gap-4 p-4">` wrapper with `<label className="flex flex-col gap-1">` for each field.
 
 ## Color & Font Picker Fields
 
@@ -12,16 +12,16 @@ Use the Wix Editor's native picker dialogs via `inputs.selectColor()` and `input
 
 | Picker | API | Preview / trigger | Value type |
 |---|---|---|---|
-| Color | `inputs.selectColor(value, { onChange })` | Styled `<button className={styles.colorSwatch}>` with `style={{ backgroundColor: value }}` | `string` (CSS color) |
-| Font | `inputs.selectFont(value, { onChange })` | `<button className={styles.fontButton}>` | `{ font: string; textDecoration: string }` |
+| Color | `inputs.selectColor(value, { onChange })` | Styled `<button>` with `style={{ backgroundColor: value }}` | `string` (CSS color) |
+| Font | `inputs.selectFont(value, { onChange })` | `<button>` | `{ font: string; textDecoration: string }` |
 
-Wrap each picker in a `<label className={styles.field}>` with a label `<span className={styles.label}>`. The picker handlers themselves:
+Wrap each picker in a `<label className="flex flex-col gap-1">` with a label `<span>`. The picker handlers themselves:
 
 ```typescript
 // Color
 <button
   type="button"
-  className={styles.colorSwatch}
+  className="h-8 w-8 rounded border border-gray-300"
   style={{ backgroundColor: value }}
   onClick={() => inputs.selectColor(value, { onChange: (val) => { if (val) onChange(val); } })}
   aria-label="Pick color"
@@ -30,7 +30,7 @@ Wrap each picker in a `<label className={styles.field}>` with a label `<span cla
 // Font
 <button
   type="button"
-  className={styles.fontButton}
+  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50"
   onClick={() => inputs.selectFont(value, {
     onChange: (val) => onChange({ font: val.font, textDecoration: val.textDecoration || '' }),
   })}
