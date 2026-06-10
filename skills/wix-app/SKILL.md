@@ -30,6 +30,7 @@ All React UI uses **co-located CSS Modules** (`.module.css` next to each entry `
 - [ ] **Step 3:** Checked API references; used MCP discovery only for gaps
 - [ ] **Step 4a:** Scaffolded each CLI-supported extension via `wix generate --params`
 - [ ] **Step 4b:** Filled in business logic in the generated files
+  - [ ] Created `src/css-modules.d.ts` before importing any `.module.css` (see [REACT_CSS.md](references/REACT_CSS.md))
   - [ ] Created co-located `<name>.module.css` for each extension entry file (`page.tsx`, modal `.tsx`, `.panel.tsx`, plugin `.tsx`)
   - [ ] UI built with CSS Modules only — no `@wix/design-system`, no Tailwind
 - [ ] **Step 5:** Ran validation (see [Validation](#validation))

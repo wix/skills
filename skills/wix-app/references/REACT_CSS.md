@@ -17,6 +17,17 @@ All React UI in Wix CLI app extensions (dashboard pages, modals, plugins, settin
 
 No npm install or `astro.config.mjs` changes are required for styling.
 
+## TypeScript declarations
+
+Wix CLI projects do not ship a `*.module.css` type declaration. **Before importing any `.module.css`**, create `src/css-modules.d.ts` in the same turn as your first `.module.css` file (skip if the file already exists):
+
+```typescript
+declare module '*.module.css' {
+  const classes: Record<string, string>;
+  export default classes;
+}
+```
+
 ## Dashboard Page
 
 **`shift-manager.tsx`**
