@@ -8,12 +8,17 @@ Per `references/AUTHENTICATION.md` § "Minting the token" — one Bash call, sec
 
 ## 2 · Install one app per capability
 
-For each capability in `verticals[]`, look up its `appDefId` in `references/CAPABILITIES.md`:
+For each capability in `verticals[]`, install its app by `appDefId` (these are the constants the install call needs):
 
 - **stores** → `215238eb-22a5-4c36-9e7b-e7c08025e04e`
 - **blog** → `14bcded7-0066-7c35-14d7-466cb3f09103`
 - **forms** → `225dd912-7dea-4738-8688-4b8c6955ffc2`
+- **events** → `140603ad-af8d-84a5-2c80-a0f60cb47351`
+- **bookings** → `13d21c63-b5ec-5912-8397-c3a5ddb27a97`
+- **pricing-plans** → `1522827f-c56c-a5c9-2ac9-00f9e6ae12d3`
 - **cms** → **no install** (Wix Data is core) — skip
+
+For any vertical added later, its appDefId is in the docs — "Apps Created by Wix": <https://dev.wix.com/docs/api-reference/articles/work-with-wix-apis/platform/about-apps-created-by-wix.md>.
 
 Fire one install `curl` per app — `POST /apps-installer-service/v1/app-instance/install`:
 
@@ -38,4 +43,4 @@ A **200** confirms the install. On a non-200, surface the response verbatim and 
 
 ## 3 · Proceed to Seed
 
-Confirm every required app returned 200 (cms skipped). Then continue to **`SEED.md`**, which loads the `wix-manage` recipes for content seeding.
+Confirm every required app returned 200 (cms skipped). Then continue to **`SEED.md`**, which reads the live Wix REST docs for content seeding.
