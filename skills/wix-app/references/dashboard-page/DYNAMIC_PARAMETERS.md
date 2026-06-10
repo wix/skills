@@ -76,13 +76,13 @@ This dashboard page manages dynamic parameters for an embedded script. The param
 
 ### 4. Loading State
 
-- Show a Loader component while isLoading is true
+- Show a loading indicator while isLoading is true
 - Example:
   ```typescript
   {isLoading ? (
-    <Box align="center" verticalAlign="middle" height="50vh">
-      <Loader text="Loading..." />
-    </Box>
+    <div className="flex h-64 items-center justify-center">
+      <p className="text-sm text-gray-500">Loading…</p>
+    </div>
   ) : (
     // ... form content
   )}
@@ -92,21 +92,21 @@ This dashboard page manages dynamic parameters for an embedded script. The param
 
 - **IMPORTANT:** Only create form fields for parameters relevant to your use case
 - Skip parameters that don't apply to the functionality being built
-- Create appropriate WDS form fields based on parameter types:
-  * TEXT → Input component with FormField
-  * NUMBER → Input component with type="number"
-  * BOOLEAN → Checkbox or ToggleSwitch
-  * IMAGE → Custom ImagePicker component (see components/image-picker.tsx)
-  * DATE → DatePicker component
-  * SELECT → Dropdown component with options
-  * URL → Input with URL validation
-- Use FormField wrapper for labels and validation messages
+- Create Tailwind form fields based on parameter types — see [TAILWIND.md](../TAILWIND.md) for patterns:
+  * TEXT → `<input className="w-full rounded-md border px-3 py-2 text-sm" />`
+  * NUMBER → `<input type="number" className="w-full rounded-md border px-3 py-2 text-sm" />`
+  * BOOLEAN → `<input type="checkbox" className="h-4 w-4 rounded" />`
+  * IMAGE → Custom image picker using `dashboard.openMediaManager()`
+  * DATE → `<input type="date" className="w-full rounded-md border px-3 py-2 text-sm" />`
+  * SELECT → `<select className="w-full rounded-md border px-3 py-2 text-sm" />`
+  * URL → `<input type="url" className="w-full rounded-md border px-3 py-2 text-sm" />`
+- Wrap each field in `<label className="block">` with a label `<span>`
 - Set required validation based on parameter.required flag
-- Show validation errors using FormField status and statusMessage props
+- Show validation errors with `<p className="mt-1 text-sm text-red-600">`
 
 ### 6. Save Functionality
 
-- Add a Save button in the Page.Header actionsBar
+- Add a Save button in the page header
 - Make handleSave an async function
 - **CRITICAL:** All parameters must be passed as STRING values because they are used as template variables in the embedded script
 - Convert all values to strings before saving:
@@ -119,90 +119,49 @@ This dashboard page manages dynamic parameters for an embedded script. The param
 ### 7. Form Validation
 
 - Implement validation for required fields
-- Show error states on FormField components
-- Display clear error messages
+- Show error states on inputs (e.g., `border-red-500`)
+- Display clear error messages below the field
 
 ### 8. Layout and Organization
 
-- Use Card components to group related fields
-- Use Box with direction="vertical" for form layout
-- Add appropriate spacing with gap props
-- Include helpful descriptions using Card subtitle or FormField infoContent
+- Use `<section className="rounded-lg border bg-white p-6">` to group related fields
+- Use `flex flex-col gap-4` for form layout
+- Include helpful descriptions with `<p className="text-sm text-gray-500">`
 - Consider creating a separate settings component for complex forms
 
 ### 9. Preview Component (Optional but Recommended)
 
 - If applicable, create a preview component that shows how the configuration will look
-- Display the preview alongside the settings form using Layout and Cell components
+- Display the preview alongside the settings form using a grid layout (`grid grid-cols-2 gap-6`)
 - The preview should react to parameter changes in real-time
 
 ## Example Implementation
 
 See the generated site-popup example for a complete reference implementation:
-- src/extensions/dashboard/withProviders.tsx - Provider wrapper
-- src/extensions/dashboard/pages/page.tsx - Dashboard page with parameter management (wrapped with withProviders)
+- src/extensions/dashboard/pages/page.tsx - Dashboard page with parameter management
 - src/extensions/dashboard/components/site-popup-settings.tsx - Settings form component
 - src/extensions/dashboard/types.ts - Type definitions
 
 Key implementation patterns from the example:
-1. withProviders.tsx wraps the component with WixDesignSystemProvider
-2. page.tsx exports the component wrapped: export default withProviders(MyComponent)
-3. Parameters are saved as individual string fields, not as JSON
-4. Parameters are loaded with proper type conversion (string to boolean, string to number, etc.)
-5. Use embeddedScripts directly from '@wix/app-management'
+1. Import `globals.css` in page.tsx
+2. Parameters are saved as individual string fields, not as JSON
+3. Parameters are loaded with proper type conversion (string to boolean, string to number, etc.)
+4. Use embeddedScripts directly from '@wix/app-management'
 
 ## File Generation Requirements
 
-When dynamic parameters are present, you MUST generate these files:
-1. src/extensions/dashboard/withProviders.tsx - Provider wrapper (REQUIRED)
-2. src/extensions/dashboard/pages/page.tsx - The main dashboard page component
-3. src/extensions/dashboard/types.ts - Type definitions for the parameters (if needed)
-4. Any additional component files (settings forms, previews, etc.)
+When dynamic parameters are present, generate these files:
+1. src/extensions/dashboard/pages/page.tsx - The main dashboard page component
+2. src/extensions/dashboard/types.ts - Type definitions for the parameters (if needed)
+3. Any additional component files (settings forms, previews, etc.)
 
-The withProviders.tsx is NOT optional - it must always be generated when there are dynamic parameters.
+## Example Page Structure
 
-## Provider Wrapper Implementation
-
-You MUST generate the following file: src/extensions/dashboard/withProviders.tsx
-
-This file is REQUIRED to wrap dashboard components with the provider.
-
-```typescript
-import React from 'react';
-import { i18n } from '@wix/essentials';
-
-export default function withProviders<P extends {} = {}>(Component: React.FC<P>) {
-  return function DashboardProviders(props: P) {
-    const locale = i18n.getLocale();
-    return (
-      <WixDesignSystemProvider locale={locale} features={{ newColorsBranding: true }}>
-        <Component {...props} />
-      </WixDesignSystemProvider>
-    );
-  };
-}
-
-// Also export as named export for backwards compatibility
-export { withProviders };
-```
-
-This file must be included in your generated files output.
-
-## Using Provider Wrapper
-
-In your dashboard page component (page.tsx):
-1. Import the withProviders wrapper: `import withProviders from '../../withProviders';`
-2. Import embeddedScripts from '@wix/app-management'
-3. DO NOT wrap your component with WixDesignSystemProvider - the provider wrapper does this
-4. Export the component wrapped with withProviders: `export default withProviders(MyComponent);`
-5. Your component should only contain the Page component and its content, not providers
-
-Example structure:
 ```typescript
 import { useEffect, useState, type FC } from 'react';
 import { dashboard } from '@wix/dashboard';
 import { embeddedScripts } from '@wix/app-management';
-import withProviders from '../../withProviders';
+import '../../styles/globals.css';
 
 const MyDashboardPage: FC = () => {
   const [options, setOptions] = useState<MyScriptOptions>(defaultOptions);
@@ -237,22 +196,38 @@ const MyDashboardPage: FC = () => {
     }
   };
 
+  if (isLoading) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <p className="text-sm text-gray-500">Loading…</p>
+      </div>
+    );
+  }
+
   return (
-    <Page height="100vh">
-      {/* Page content - NO WixDesignSystemProvider here */}
-    </Page>
+    <main className="min-h-screen bg-gray-50 p-6">
+      <header className="mb-6 flex items-center justify-between">
+        <h1 className="text-2xl font-semibold text-gray-900">Script Settings</h1>
+        <button
+          type="button"
+          className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+          onClick={handleSave}
+          disabled={isSaving}
+        >
+          {isSaving ? 'Saving…' : 'Save'}
+        </button>
+      </header>
+      {/* Form fields */}
+    </main>
   );
 };
 
-export default withProviders(MyDashboardPage);
+export default MyDashboardPage;
 ```
 
 ## Critical Notes
 
 - Only implement UI for parameters that are relevant to your specific use case - ignore parameters that don't apply
-- ALWAYS generate withProviders.tsx when there are dynamic parameters
-- ALWAYS wrap the dashboard page export with withProviders()
-- DO NOT use WixDesignSystemProvider directly in the dashboard page component - use withProviders instead
 - ALWAYS use embeddedScripts directly from '@wix/app-management'
 - ALWAYS convert parameter values to strings when saving (embeddedScripts.embedScript must receive all string values in the parameters object)
 - ALWAYS convert string parameters back to proper types when loading (e.g., 'true' -> true for booleans, string to number for numbers)
@@ -264,3 +239,4 @@ export default withProviders(MyDashboardPage);
 - ALWAYS validate required fields and show appropriate error states
 - The parameter keys MUST match exactly what is expected in the embedded script template variables
 - Each parameter is saved as a separate field, NOT as a JSON string
+- Use Tailwind CSS for all UI — see [TAILWIND.md](../TAILWIND.md)

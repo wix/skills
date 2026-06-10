@@ -51,10 +51,10 @@ See [Dashboard API Reference](dashboard-page/DASHBOARD_API.md) for complete docu
 
 **CRITICAL: Using Modals in Dashboard Pages**
 
-When you need to display popup forms, confirmations, detail views, or any dialog overlays from a dashboard page, you **MUST** use dashboard modals, not regular React modals or WDS Modal components.
+When you need to display popup forms, confirmations, detail views, or any dialog overlays from a dashboard page, you **MUST** use dashboard modals, not custom overlay modals.
 
 - **Use dashboard modals** for: edit forms, delete confirmations, detail views, settings dialogs, any popup content
-- **Do NOT use** WDS `Modal` component or custom React modal implementations
+- **Do NOT use** custom React modal overlays or dialog components
 - **See [Dashboard Modal reference](DASHBOARD_MODAL.md)** for complete implementation guide
 
 Dashboard modals are opened using `dashboard.openModal()` and provide proper integration with the dashboard lifecycle, state management, and navigation.
@@ -70,7 +70,7 @@ When building a dashboard page to configure an embedded script, see [Dynamic Par
 - Use `embeddedScripts` from `@wix/app-management`
 - Parameters are returned as strings - handle type conversions when loading
 - All parameters must be saved as strings (convert booleans/numbers to strings)
-- Use `withProviders` wrapper when dynamic parameters are present
+- Use Tailwind CSS for all UI — see [TAILWIND.md](TAILWIND.md)
 
 ## Optional builder fields
 
@@ -316,9 +316,11 @@ Wizard pages guide users through setting up a product or feature. They split com
 > **Note:** Wizards must have a final destination. After completing all steps, users should end up on a relevant page: a dashboard, a details page, or any other relevant location.
 
 
-### Related WDS Components
+### Tailwind Layout Patterns
 
-- `<Page />` - Main page wrapper
-- `<Layout />` - Grid layout container
-- `<MarketingPageLayout />` - Marketing page wrapper
-- `<Card />` - Content container with 24px gaps between cards
+See [TAILWIND.md](TAILWIND.md) for component patterns. Common layouts:
+
+- **Page wrapper** — `<main className="min-h-screen bg-gray-50 p-6">`
+- **Card / section** — `<section className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">`
+- **Grid layout** — `<div className="grid grid-cols-1 gap-6 md:grid-cols-2">`
+- **Page header** — `<header className="mb-6 flex items-center justify-between">`
