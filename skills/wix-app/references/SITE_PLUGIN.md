@@ -95,7 +95,7 @@ export default MyElement;
 // my-site-plugin.panel.tsx
 import React, { type FC, useState, useEffect, useCallback } from 'react';
 import { widget } from '@wix/editor';
-import '../../../styles/globals.css';
+import '@styles/globals.css';
 
 const Panel: FC = () => {
   const [displayName, setDisplayName] = useState<string>('');

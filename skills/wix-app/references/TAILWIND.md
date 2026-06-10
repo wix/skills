@@ -4,25 +4,53 @@ All React UI in Wix CLI app extensions (dashboard pages, modals, plugins, editor
 
 ## Project Setup
 
-Codegen pre-installs Tailwind when the dev environment starts (`src/styles/globals.css`, `astro.config.mjs` Vite plugin, and npm dependencies). **Skip setup if already present** — only import `globals.css` in extension entry files.
+Run once per project. **Skip any step that is already present** (check before installing).
 
-If setting up manually (local project without codegen), run once:
+1. Install dependencies:
 
 ```bash
 npm install -D tailwindcss @tailwindcss/vite
 ```
 
-Create `src/styles/globals.css` with `@import "tailwindcss";` and register `@tailwindcss/vite` in `astro.config.mjs` under `vite.plugins`.
+2. Create `src/styles/globals.css`:
+
+```css
+@import "tailwindcss";
+```
+
+3. Register Tailwind in `astro.config.mjs` — add the Vite plugin and an `@styles` path alias (merge into the existing `vite` block if one already exists):
+
+```javascript
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import tailwindcss from "@tailwindcss/vite";
+
+const __dirname = fileURLToPath(new URL(".", import.meta.url));
+
+export default defineConfig({
+  // ...existing config...
+  vite: {
+    plugins: [tailwindcss()],
+    resolve: {
+      alias: {
+        "@styles": resolve(__dirname, "src/styles"),
+      },
+    },
+  },
+});
+```
+
+> **Wix codegen:** Codegen dev environments may apply these steps at startup. Verify `src/styles/globals.css`, `tailwindcss()` in `astro.config.mjs`, and the `@styles` alias before running setup.
 
 ### Import globals in each extension entry file
 
 Import once in the **main component** for each extension (`page.tsx`, modal `.tsx`, `.panel.tsx`, plugin `.tsx`) — not in child/helper files:
 
 ```typescript
-import '../../../styles/globals.css';
+import '@styles/globals.css';
 ```
 
-Adjust the relative path based on file location.
+Use this import after the `@styles` alias is configured in Project Setup. Do NOT use relative `../styles/globals.css` paths — they break for nested dashboard pages.
 
 ## UI Rules
 
@@ -40,7 +68,7 @@ Adjust the relative path based on file location.
 ### Dashboard Page
 
 ```tsx
-import '../../styles/globals.css';
+import '@styles/globals.css';
 import { dashboard } from '@wix/dashboard';
 
 export default function SettingsPage() {
@@ -79,7 +107,7 @@ export default function SettingsPage() {
 ### Dashboard Modal
 
 ```tsx
-import '../../styles/globals.css';
+import '@styles/globals.css';
 import { dashboard } from '@wix/dashboard';
 
 export default function EditItemModal() {
@@ -106,7 +134,7 @@ export default function EditItemModal() {
 ### Dashboard Plugin
 
 ```tsx
-import '../../styles/globals.css';
+import '@styles/globals.css';
 import { dashboard } from '@wix/dashboard';
 
 export default function MyPlugin() {
@@ -121,7 +149,7 @@ export default function MyPlugin() {
 ### Editor Settings Panel
 
 ```tsx
-import '../../styles/globals.css';
+import '@styles/globals.css';
 import { widget, inputs } from '@wix/editor';
 
 export default function Panel() {

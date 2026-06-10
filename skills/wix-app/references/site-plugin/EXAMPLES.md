@@ -55,7 +55,7 @@ export default BestSellerBadge;
 ```typescript
 import React, { type FC, useState, useEffect, useCallback } from 'react';
 import { widget, inputs } from '@wix/editor';
-import '../../../styles/globals.css';
+import '@styles/globals.css';
 
 const Panel: FC = () => {
   const [badgeText, setBadgeText] = useState<string>('');
@@ -172,7 +172,7 @@ For plugins that require back-office management (especially checkout and side ca
 ```typescript
 // src/extensions/dashboard/pages/plugin-settings/page.tsx
 import { dashboard } from "@wix/dashboard";
-import "../../../styles/globals.css";
+import "@styles/globals.css";
 
 export default function PluginSettingsPage() {
   const handleAddToSlot = async () => {

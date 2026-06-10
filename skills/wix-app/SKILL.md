@@ -30,8 +30,8 @@ All React UI uses **Tailwind CSS utility classes**. See [TAILWIND.md](references
 - [ ] **Step 3:** Checked API references; used MCP discovery only for gaps
 - [ ] **Step 4a:** Scaffolded each CLI-supported extension via `wix generate --params`
 - [ ] **Step 4b:** Filled in business logic in the generated files
-  - [ ] Tailwind: skip project setup if `src/styles/globals.css` and `tailwindcss()` in `astro.config.mjs` already exist (codegen pre-installs these)
-  - [ ] Tailwind: imported `globals.css` in each extension entry file (`page.tsx`, modal `.tsx`, `.panel.tsx`, plugin `.tsx`)
+  - [ ] Tailwind: project setup complete per [TAILWIND.md](references/TAILWIND.md) if not already present (`globals.css`, Vite plugin, `@styles` alias)
+  - [ ] Tailwind: imported `@styles/globals.css` in each extension entry file (`page.tsx`, modal `.tsx`, `.panel.tsx`, plugin `.tsx`)
   - [ ] UI built with Tailwind utility classes only — no `@wix/design-system`
 - [ ] **Step 5:** Ran validation (see [Validation](#validation))
   - [ ] Dependencies installed

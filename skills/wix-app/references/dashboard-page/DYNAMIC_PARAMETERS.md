@@ -161,7 +161,7 @@ When dynamic parameters are present, generate these files:
 import { useEffect, useState, type FC } from 'react';
 import { dashboard } from '@wix/dashboard';
 import { embeddedScripts } from '@wix/app-management';
-import '../../styles/globals.css';
+import '@styles/globals.css';
 
 const MyDashboardPage: FC = () => {
   const [options, setOptions] = useState<MyScriptOptions>(defaultOptions);

@@ -36,7 +36,7 @@ Use `observeState()` from the Dashboard SDK to receive data from the host dashbo
 ```typescript
 import { dashboard } from "@wix/dashboard";
 import { useEffect, useState } from "react";
-import "../../styles/globals.css";
+import "@styles/globals.css";
 
 const Plugin: FC = () => {
   const [params, setParams] = useState<Record<string, unknown>>({});
