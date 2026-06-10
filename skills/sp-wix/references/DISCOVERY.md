@@ -13,7 +13,9 @@ Hold `WIX_WIX_METASITE_ID` as `SITE_ID` in scratch.
 
 ## 1 · Resolve the capability set
 
-Map the **user intent** (+ optional project signals: `package.json` name, README, visible copy) to `verticals[]` using `references/CAPABILITIES.md` § "Intent → capability resolution". Multiple signals → multiple capabilities. On ambiguity, pick the first matching row top-to-bottom; if nothing dynamic is named, fall to the **forms** floor (a contact form). Never return an empty set.
+Read the **user intent** (+ optional project signals: `package.json` name, README, visible copy) against the vertical index in `references/CAPABILITIES.md` — each entry there carries the intent signals that point to it. Pick every vertical that genuinely fits → `verticals[]`. Multiple signals → multiple capabilities. On ambiguity, prefer the more specific vertical; if nothing dynamic is named, fall to the **forms** floor (a contact form). **Never return an empty set.**
+
+Resolve to the skill's operational set — **stores · blog · cms · forms · events · bookings · pricing-plans** (`CAPABILITIES.md` § "What this skill currently installs + seeds"). If intent points squarely at a vertical outside that set, note it plainly as not-yet-wired (per the index) and resolve the rest; don't force an unrelated capability in its place.
 
 ## 2 · Infer brand
 
@@ -21,7 +23,7 @@ A short brand object for seeded-content naming: `{ name, description, vibe? }`. 
 
 ## 3 · Derive per-capability intent
 
-For each capability, build its `intent.<cap>` block — the inputs the seed step translates into recipe calls. Use sensible brand-appropriate defaults when the user didn't specify counts:
+For each capability, build its `intent.<cap>` block — the inputs the seed step translates into REST calls. Use sensible brand-appropriate defaults when the user didn't specify counts:
 
 | Capability | `intent.<cap>` shape | Defaults when unspecified |
 |---|---|---|
@@ -29,6 +31,9 @@ For each capability, build its `intent.<cap>` block — the inputs the seed step
 | blog | `{ postCount, topics: [] }` | `postCount: 3`, topics derived from `brand.description` |
 | cms | `{ collections: [{ name, purpose, itemCount, fields? }] }` | one collection inferred from intent, `itemCount: 5` |
 | forms | `{ forms: [{ purpose, fields: [...] }] }` | one `contact` form: name, email, message |
+| events | `{ eventCount, titles: [] }` | `eventCount: 2`, titles brand-derived, future dates |
+| bookings | `{ serviceCount, servicesNamed: [] }` | `serviceCount: 2`, brand-derived service names |
+| pricing-plans | `{ planCount, tiersNamed: [] }` | `planCount: 2` (e.g. Basic / Pro), monthly billing |
 
 Counts are deliberately small (text-only seed; the host's app shows the shape, not a full catalog). Don't invent imagery — seed is text-only.
 

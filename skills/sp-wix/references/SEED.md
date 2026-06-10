@@ -1,32 +1,58 @@
 # Seed — create the backend content
 
-For each capability, create the backend content its *what* names. This step carries **only the *what*** (entities, count source, policy); the **API *how*** is found by searching the in-context `wix-manage` recipes. **No endpoints, payloads, field templates, caps, or batching mechanics live in this file** — if you find yourself writing one, it belongs to a recipe.
+For each resolved capability, create the backend content its *what* names. This file carries **only the *what*** (entities, counts, policy) and the **navigation mechanism** for finding the API *how* in the live Wix REST docs. **No endpoints, payloads, field templates, caps, or batching mechanics live here** — if you find yourself writing one, read it off the docs page instead.
 
-## How it runs
+The token is already in `/tmp/wix_token` from Setup. The capabilities are **independent** — no ordering or data dependency. For each one: navigate the docs to its create method (§1), build the body from `intent.<cap>` + `brand`, execute against `wixapis.com` with the call shape in `references/AUTHENTICATION.md` (Bearer from `/tmp/wix_token` + `wix-site-id`), and collect the created IDs into a `seeded` map keyed by capability.
 
-First, **load the recipe library**: invoke `Skill(name="wix-manage")` **once** — this brings the recipe files into context (a directory path is not a substitute). The token is already in `/tmp/wix_token` from Setup. The capabilities are **independent** — no ordering or data dependency between them. For each one:
+## 1 · The navigation mechanism — find the *how* in the docs
 
-1. **Find the recipe** by its capability phrase (`references/CAPABILITIES.md` → "wix-manage capability phrase") against the in-context recipe index. **Fail loud** if no recipe matches a required capability — a missing recipe is a real error, not a cue to guess.
-2. **Read the matched recipe** and build request bodies from `intent.<cap>` + `brand`. The recipe is the source of truth for URL/method/body.
-3. **Execute** against `wixapis.com` with the call shape in `references/AUTHENTICATION.md` (Bearer from `/tmp/wix_token` + `wix-site-id`).
-4. **Collect the created IDs** into a `seeded` map keyed by capability.
+Every Wix docs URL serves raw markdown when you append `.md` and `curl` it. A **menu page** lists links to child pages; a **content/method page** carries the endpoint, HTTP verb, and request/response schema.
 
-> **Text-only seed.** Use each recipe's documented no-image/placeholder path; don't source imagery. The host's app demonstrates the data *shape*, not a full media catalog.
+**To learn how to seed a capability, start at its `Introduction` and continue from there:**
 
-## Per-capability *what*
+1. From the base index (§2), follow the link for the capability's vertical.
+2. Open the vertical's **`Introduction`** (and any "About …" page) first — it orients you to the vertical's objects and the create flow, so you pick the *right* method instead of guessing a URL.
+3. Drill (menu → menu) to the specific **create** method page, `curl …<method>.md`, and read the endpoint, verb, and body schema **off the page**. Never invent a URL or body from memory.
+4. **Fail loud** if you can't locate a required method — a missing method page is a real error, not a cue to guess.
 
-Each block states only the entities, where their count/content comes from, the policy that is genuinely the skill's call, and the IDs to keep. The capability phrase (CAPABILITIES.md) finds the recipe that supplies the rest.
+> **Public host, not `/_api/`.** Some method pages show an internal `https://www.wixapis.com/_api/<service>/...` URL in the schema header while the examples use the bare `https://www.wixapis.com/<service>/...`. Always call the **public (non-`/_api/`) form** — that's the external/headless endpoint; the `/_api/` prefix is internal and may be rejected.
 
-- **stores** — *A product catalog.* `intent.stores.productCount` products whose names/prices fit `brand`. If `intent.stores.categoriesNamed` is non-empty, create exactly those categories and assign products into them; **if empty, create none** (skill policy — overrides any recipe default). Text-only. **Keep:** `productIds[]`, `categoryIds[]`, and product `slug`s (the frontend links by slug).
+> **Text-only seed.** Omit image fields, or use the placeholder the method's schema documents; don't source imagery. The host's app demonstrates the data *shape*, not a full media catalog.
+
+## 2 · Where to start — base links
+
+- **REST API index (per-vertical entry point):** <https://dev.wix.com/docs/api-reference/business-solutions.md> — start here for **stores**, **blog**, **cms**, and every other Business Solutions vertical.
+- **Forms (CRM portal, *not* under Business Solutions):** <https://dev.wix.com/docs/api-reference/crm/forms.md> — the standalone Wix Forms API. Its `Form Schemas ▸ Create Form` is the create method; the events/bookings "form" pages are a different thing (per-event registration forms), not this.
+
+## 3 · What to seed per capability
+
+Each entry states only the entities, where their count/content comes from, the policy that is genuinely the skill's call, and the IDs to keep. §1 finds the method that supplies the rest.
+
+- **stores** — *A product catalog.* `intent.stores.productCount` products whose names/prices fit `brand`. If `intent.stores.categoriesNamed` is non-empty, create exactly those categories and assign products into them; **if empty, create none** (skill policy — overrides any docs default). Text-only. **Keep:** `productIds[]`, `categoryIds[]`, and product `slug`s (the frontend links by slug).
 - **blog** — *Initial posts.* `intent.blog.postCount` posts on `intent.blog.topics` (or brand-derived topics). Text-only (no covers). Bulk-create when `postCount ≥ 2`. **Keep:** `postIds[]`, post `slug`s.
 - **cms** — *Content collections.* One collection per `intent.cms.collections` entry; `itemCount` items each, content from `brand`. Collections are **public-read** (visitor reads on the frontend). **Keep:** `collectionIds{<name>}`, `itemIds{<name>:[]}`, and each collection's field keys (the frontend binds by them).
 - **forms** — *Lead-capture forms.* One form per `intent.forms.forms` entry; fields from the entry; `purpose` names the form. **Keep:** `formIds[]`, and each form's field **`target`** keys (the frontend sets input `name` = target).
+- **events** — *Upcoming events.* `intent.events.eventCount` events with brand-appropriate titles and **future** start dates (a default location/timezone is fine). One create call per event. Text-only. **Keep:** `eventIds[]`, event `slug`s.
+- **bookings** — *Bookable services.* `intent.bookings.serviceCount` services (name + short description fitting `brand`, a simple duration and price). One create call per service against the **public** `POST https://www.wixapis.com/bookings/v2/services` (the method page's schema header shows the internal `/_api/bookings/v2/services` — don't use that form); keep the schedule minimal — a single default availability is enough for the experiment. **Keep:** `serviceIds[]`, service `slug`s.
+- **pricing-plans** — *Membership tiers.* `intent.pricing-plans.planCount` recurring plans (name, price, a monthly billing cycle) fitting `brand`. One create call per plan. **Keep:** `planIds[]`.
+
+> **Simple seeds (experiment).** For these newer capabilities, create the minimum that demonstrates the shape — a couple of entities with required fields only. Read the create method's `Introduction` (§1) for which fields are *required* and stop there; don't seed optional structure (variants, multi-session schedules, perks) the host's app won't exercise.
+
+## 4 · Enable the backend-backed required features
+
+A capability's **Required site features** (`references/CAPABILITIES.md`) are part of a complete site, and some of them need a backend feature switched on — not just content created. The clearest case: **blog comments** (readers commenting on posts). For each loaded capability, check its *Required site features*:
+
+- If one depends on a backend feature that isn't on by default, enable it via its docs method (navigate as in §1).
+- If it's already on by default, there's nothing to seed — but record it as **available** so the Handoff tells the host to surface it.
+- If it genuinely can't be enabled, note that, so the Handoff doesn't imply the site is complete.
+
+Don't silently skip a required feature — a bare list-and-detail with none of its required features is the "half-built site" this is meant to prevent. (Purely presentational items — showing the author, the date — need no backend and belong to the Handoff's *Implementation checklist*, not here.)
 
 ## Aggregate
 
 Hold a `seeded` map in scratch — `seeded[<capability>] = { …kept IDs… }`. This is the producer for the handoff (`SDK_HANDOFF.md`), which inlines the IDs so the host can bind immediately. Whether to also write a sidecar file is a host-preference choice (default: return-only, in the handoff message).
 
-On a per-capability error, keep the other capabilities' results and surface the failing recipe-call response verbatim; partial state is fine — a targeted re-run is bounded.
+On a per-capability error, keep the other capabilities' results and surface the failing REST-call response verbatim; partial state is fine — a targeted re-run is bounded.
 
 ## Proceed to Handoff
 

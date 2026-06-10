@@ -1,6 +1,6 @@
 ---
 name: sp-wix
-description: "Connect Wix business services (Stores, Blog, CMS, Forms) to a Stripe Projects app. Use AFTER `stripe projects add wix/*` has provisioned a Wix metasite + synced its credentials to `.env`. Given the metasite and the user's intent, this skill runs the Wix business flow — infers which Wix capabilities the app needs, installs the apps, seeds backend content — then returns an SDK-integration guide (how to call Wix from the frontend) for the host agent to use. The host keeps ownership of the frontend, the build, and the hosting. Triggers: set up Wix in this Stripe project, add a Wix store/blog/CMS/forms backend, connect Wix Headless to my Stripe app, provision Wix content for this project, I added wix with stripe projects now wire it up. NOT for: building a new Wix-hosted site from scratch (use wix-headless), or anything outside a Stripe Projects app."
+description: "Connect Wix business services (Stores, Blog, CMS, Forms, Events, Bookings, Pricing Plans) to a Stripe Projects app. Use AFTER `stripe projects add wix/*` has provisioned a Wix metasite + synced its credentials to `.env`. Given the metasite and the user's intent, this skill runs the Wix business flow — infers which Wix capabilities the app needs, installs the apps, seeds backend content — then returns an SDK-integration guide (how to call Wix from the frontend) for the host agent to use. The host keeps ownership of the frontend, the build, and the hosting. Triggers: set up Wix in this Stripe project, add a Wix store/blog/CMS/forms/events/bookings/pricing-plans backend, connect Wix Headless to my Stripe app, provision Wix content for this project, I added wix with stripe projects now wire it up. NOT for: building a new Wix-hosted site from scratch (use wix-headless), or anything outside a Stripe Projects app."
 allowed-tools:
   - Bash(curl *)
   - Bash(ls *)
@@ -10,7 +10,6 @@ allowed-tools:
   - Bash(test *)
   - Read
   - Write
-  - Skill
 ---
 
 # Wix Headless × Stripe Projects
@@ -46,7 +45,7 @@ Compute `<SKILL_ROOT>` from this file (`<SKILL_ROOT>/SKILL.md` — strip `/SKILL
 | What | Path |
 |---|---|
 | Authentication (token mint + REST contract + ladder) | `<SKILL_ROOT>/references/AUTHENTICATION.md` |
-| Capability map (intent → apps + seed-what + SDK packages) | `<SKILL_ROOT>/references/CAPABILITIES.md` |
+| Vertical index (intent matching + per-vertical site spec) | `<SKILL_ROOT>/references/CAPABILITIES.md` |
 | Discovery (infer capabilities + brand + intent) | `<SKILL_ROOT>/references/DISCOVERY.md` |
 | Setup (install apps) | `<SKILL_ROOT>/references/SETUP.md` |
 | Seed (create backend content) | `<SKILL_ROOT>/references/SEED.md` |
@@ -55,6 +54,11 @@ Compute `<SKILL_ROOT>` from this file (`<SKILL_ROOT>/SKILL.md` — strip `/SKILL
 
 **Start a run by opening `DISCOVERY.md`.**
 
-## Upstream
+## Where the *how* comes from
 
-The **only** upstream dependency is **`wix-manage`** — the recipe library for **content seeding**, loaded via `Skill(name="wix-manage")` in **Seed**. Setup doesn't need it: the app-install call is a single fixed shape carried inline in `SETUP.md`. For seeding, the API request shapes (endpoints, payloads, field templates) live in the recipes and are the single source of truth; this skill carries the *what* (which content, how much) and searches `wix-manage` for the *how*.
+This skill has **no skill upstream** — the *how* is read from the **live Wix docs** at `dev.wix.com/docs`, fetched as raw markdown via `curl` (append `.md` to any docs URL; menu pages list child links, content pages carry the schema):
+
+- **Seed** reads the **REST docs** for each capability's create method — navigated from the Business Solutions index (`api-reference/business-solutions.md`) per the mechanism in `SEED.md` (Forms lives under `api-reference/crm/forms.md`).
+- **Handoff** links the **SDK docs** for each capability's API shape, and supplies the runtime package set from the inlined map in `SDK_HANDOFF.md` (the SDK `.md` pages don't expose `@wix/*` import strings to navigation, so packages are mapped, not navigated).
+
+Setup carries its app-install call (and the appDefId constants) inline in `SETUP.md`; `CAPABILITIES.md` is the vertical index that lets Discovery match intent **and** declares, per built vertical, the *Required site features* + *Implementation checklist* that Seed enables (backend-backed features) and the Handoff carries into the guide (so the host builds a complete site, not a bare data dump). This skill carries the *what* (which capabilities, how much content, what a finished site includes) and reads the *how* off the docs.

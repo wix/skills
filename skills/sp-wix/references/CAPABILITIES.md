@@ -1,33 +1,67 @@
-# Capability map
+# Wix vertical index
 
-The skill's own **what** table — the single source the other steps key off. Each capability names: the **app to install** (Setup), the **content to seed** + the wix-manage **capability phrase** to search (Seed), and the **SDK package(s) + docs link** to hand off (Handoff). It deliberately carries **no API request shapes or call snippets** — request shapes are wix-manage's job (found by the capability phrase); frontend call shapes are the live SDK docs' job (the Handoff links to them, never reproduces them). This is the *what*; wix-manage and the SDK docs are the *how*.
+A catalog of the Wix business verticals. It does two jobs:
 
-| Capability | Install (appDefId) | Seed — *what* | wix-manage capability phrase | SDK package(s) | SDK docs (for the Handoff) |
-|---|---|---|---|---|---|
-| **stores** | Wix Stores `215238eb-22a5-4c36-9e7b-e7c08025e04e` | `intent.stores.productCount` products fitting `brand`; the named categories in `intent.stores.categoriesNamed` (none if empty) | *"set up an online store catalog and bulk-create products"* | `@wix/stores` (+ `@wix/ecom @wix/redirects` for cart/checkout) | dev.wix.com/docs/sdk/business-solutions/stores.md (cart: …/ecom.md) |
-| **blog** | Wix Blog `14bcded7-0066-7c35-14d7-466cb3f09103` | `intent.blog.postCount` posts on `intent.blog.topics` (else brand-derived) | *"create blog posts (bulk)"* | `@wix/blog` (+ `@wix/ricos` for rich content) | dev.wix.com/docs/sdk/business-solutions/blog.md |
-| **forms** | Wix Forms `225dd912-7dea-4738-8688-4b8c6955ffc2` | one form per `intent.forms.forms` entry; fields from each entry | *"create a Wix form"* | `@wix/forms` | dev.wix.com/docs/sdk/business-solutions.md (locate forms/submissions) |
-| **cms** | **none** — Wix Data is core (no install) | one collection per `intent.cms.collections` entry + `itemCount` items, content from `brand`; **public-read** | *"create a CMS collection schema"* + *"insert CMS collection items"* | `@wix/data` | dev.wix.com/docs/sdk/business-solutions/data.md |
+1. **Discovery** maps the user's words to the right vertical(s) — read every *Intent* line against what they asked for, and pick each vertical that genuinely fits.
+2. For the verticals this skill builds end-to-end, it also says **what a complete site for that vertical looks like** — the features it must have and the details that make it feel finished — so the handoff asks the host for a *real* site, not a bare data dump.
 
-Always-on package (every capability): **`@wix/sdk`** (provides `createClient` + `OAuthStrategy`).
+This file is **the what, never the how** — plain language only. No endpoints, methods, payloads, appDefIds, or SDK packages. The *how* lives in the live docs (Seed navigates the REST docs; the Handoff navigates the SDK docs); the *which apps to install* lives in `SETUP.md`.
 
-## Notes that are genuinely the skill's *what* (not recipe *how*, not SDK-usage)
+Each built vertical has three parts:
 
-- **stores** — products are **text-only** (no imagery sourced); use the recipe's documented no-image/placeholder path. Categories: create exactly `intent.stores.categoriesNamed`; **if empty, create none** (overrides any recipe default).
-- **blog** — text-only (no cover imagery). Bulk-create when `postCount ≥ 2`.
-- **cms** — collections are **public-read** (a visitor token has no per-user identity; data is shared/public — surface this to the host in the handoff). Frontend reads are visitor-safe; visitor writes go through Forms.
-- **forms** — `purpose` ("contact"/"lead"/"signup") drives the form name; the Wix Forms app is installed in Setup, so the seed step does not reinstall.
+- **Intent** — the words that point to it.
+- **Required site features** — the surfaces and capabilities the site must have to be usable. These are non-negotiable for a complete site; if one needs a backend feature switched on, Seed sets it up, and the Handoff tells the host to build the rest.
+- **Implementation checklist** — the presentation details a finished site shows, so it doesn't feel half-built. The Handoff carries these into the guide it returns.
 
-## Intent → capability resolution (used by DISCOVERY)
+## Built verticals — installed, seeded, and described in the Handoff
 
-Map the user's words to the set above. The floor is **forms** (a contact/lead form) when nothing richer fits:
+The verticals the skill operates end-to-end today: **stores · blog · cms · forms · events · bookings · pricing-plans** (with `forms` as the floor when nothing richer is named).
 
-| Signal in intent | Capabilities |
-|---|---|
-| sell / shop / products / catalog / store | `stores` (+ cart via ecom packages) |
-| blog / posts / articles / publication / news | `blog` |
-| collection / directory / portfolio / structured content / "persist my app's data" | `cms` |
-| contact / RSVP / lead / signup / waitlist / "let people reach me" | `forms` |
-| nothing dynamic named | `forms` (contact-form floor) |
+### stores — sell products
+- **Intent:** sell / shop / products / catalog / merch / store.
+- **Required site features:** a product list or grid; a page per product; categories to browse by; a cart; a checkout.
+- **Implementation checklist:** show each product's image, name, and price; show options and variants (size, colour…) where they exist; show availability / out-of-stock; a quantity picker and an add-to-cart that updates a visible cart; the product description; link each product to its category.
 
-Multiple signals → multiple capabilities. On ambiguity pick the first row that matches, top-to-bottom.
+### blog — publish posts
+- **Intent:** blog / posts / articles / publication / news.
+- **Required site features:** a list of posts; a page per post; readers can leave **comments** on a post; categories or tags to browse by topic.
+- **Implementation checklist:** show the **author** (name and photo) on each post; show the publish date and the reading time; show the cover image; render the full formatted content — headings, images, quotes, lists — not flattened to plain text; show the post's category and tags; a clear path back to the full list.
+
+### cms — structured content collections
+- **Intent:** collection / directory / portfolio-as-data / structured content / "persist my app's data".
+- **Required site features:** an index/list view of the collection; a detail page per item. (Visitor reads are public; visitor writes go through a form.)
+- **Implementation checklist:** show each item's main fields with clear labels; link the list to each item's detail page; show a sensible empty state when there are no items yet.
+
+### forms — capture leads
+- **Intent:** contact / lead / signup / waitlist / "let people reach me" / nothing dynamic named.
+- **Required site features:** a visible form; a confirmation after submitting; basic field validation.
+- **Implementation checklist:** render every field with a clear label; mark which fields are required; a clear submit button; show a thank-you / success state after sending; show a friendly message if the submit fails.
+
+### events — events and registration
+- **Intent:** event / ticket / RSVP / registration / attendees.
+- **Required site features:** a list of events; a page per event; a way to register or RSVP.
+- **Implementation checklist:** show each event's title, date and time, and location; show the description; show ticket types where they exist; a register/RSVP action; a confirmation after registering.
+
+### bookings — appointments and classes
+- **Intent:** book / appointment / schedule / class / session / reserve a slot / reserve a table.
+- **Required site features:** a list of services; a page per service; a way to pick a time and book it.
+- **Implementation checklist:** show each service's name, duration, and price; show the staff or provider; show the available time slots; a book action; a confirmation after booking.
+
+### pricing-plans — memberships and subscriptions
+- **Intent:** membership / subscription / plans / paid tiers.
+- **Required site features:** a plans / pricing page; a way to choose and subscribe to a plan.
+- **Implementation checklist:** show each plan's name, price, and billing cycle; list what each plan includes (the perks); a clear "choose plan" action; highlight a recommended tier where it makes sense.
+
+## Other verticals — recognized for intent, not yet wired
+
+If a user's intent points squarely at one of these, surface it plainly as **not-yet-wired** rather than forcing a poor fit. Extending the skill to one means adding its install in `SETUP.md` and its seed *what* in `SEED.md`, then giving it a full section above.
+
+- **eCommerce** — the shared cart, checkout, orders, and payments layer the catalog verticals (Stores, Bookings…) plug into; rarely chosen alone, it rides along when a purchase flow is needed. *Intent: checkout / cart / "let people buy".*
+- **restaurants** — menus and online food ordering; a table-reservation intent goes to **bookings** instead. *Intent: menu / restaurant / order food / dine-in.*
+- **forum** — community discussion boards: categories, threads, member posts. *Intent: forum / community / discussion board.*
+- **portfolio** — showcase collections of projects and work. *Intent: portfolio / showcase / gallery of projects / creative work.*
+- **donations** — donation campaigns and contributions. *Intent: donate / fundraise / campaign / nonprofit.*
+- **gift-cards** — issue and redeem stored-value gift cards. *Intent: gift card / store credit / voucher.*
+- **coupons** — discount codes and promotions applied at checkout. *Intent: coupon / promo code / discount.*
+- **benefit-programs** — loyalty/benefit programs that grant members perks. *Intent: loyalty / rewards / member perks / benefits.*
+- **suppliers-hub** — supplier-side B2B product catalog management. *Intent: supplier / wholesale / B2B catalog.*
