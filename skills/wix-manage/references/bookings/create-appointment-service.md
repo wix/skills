@@ -189,7 +189,7 @@ Save the `serviceId` from the response: `results[0].item.service.id`
 ## Step 4: Navigate to Service Form
 
 ```javascript
-window.location.href = `/bookings/service-form/${serviceId}?fromAria=true`;
+window.location.href = `/bookings/services/form/${serviceId}?fromAria=true`;
 ```
 
 ---
