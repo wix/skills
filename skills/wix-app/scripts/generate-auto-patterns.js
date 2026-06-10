@@ -11,8 +11,11 @@
  * `<folder>.extension.ts`. This wires the wrapper up with no manual edit.
  *
  * Usage:
- *   node scripts/generate-auto-patterns.js --input <path-to-input.json> --output <target-directory>
- *   node scripts/generate-auto-patterns.js --help
+ *   node <SKILL_ROOT>/scripts/generate-auto-patterns.js --input <path-to-input.json> --output <target-directory>
+ *   node <SKILL_ROOT>/scripts/generate-auto-patterns.js --help
+ *
+ * <SKILL_ROOT> is the absolute path to the wix-app skill bundle (the folder containing SKILL.md).
+ * The script is not installed in the user's app repo — invoke it by absolute path from the project directory.
  *
  * Input JSON shape:
  * {
@@ -57,7 +60,9 @@ if (args.includes('--help') || args.includes('-h')) {
   console.log(`Auto Patterns Generator
 
 Usage:
-  node scripts/generate-auto-patterns.js --input <path> --output <dir>
+  node <SKILL_ROOT>/scripts/generate-auto-patterns.js --input <path> --output <dir>
+
+<SKILL_ROOT> is the absolute path to the wix-app skill bundle (the folder containing SKILL.md).
 
 Options:
   --input   Path to input JSON file (required)

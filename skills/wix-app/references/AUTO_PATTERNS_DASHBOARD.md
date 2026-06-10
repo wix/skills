@@ -133,6 +133,8 @@ Include ALL fields, primary identifiers first. Display names target ≤10 charac
 
 ### Step 3: Run the Generator Script
 
+The generator script is bundled with this skill at `<SKILL_ROOT>/scripts/generate-auto-patterns.js` — it is **not** copied into the user's app repo. Run it from the project directory using the skill's absolute path (`<SKILL_ROOT>` is the folder containing this skill's `SKILL.md`).
+
 Write the input JSON to a temp file and run the script, pointing `--output` at the folder the CLI scaffolded in Step 1:
 
 ```bash
@@ -147,7 +149,7 @@ cat > /tmp/auto-patterns-input.json << 'EOF'
 EOF
 
 # Run generator
-node scripts/generate-auto-patterns.js --input /tmp/auto-patterns-input.json --output ./src/extensions/dashboard/pages/<page-name>/
+node <SKILL_ROOT>/scripts/generate-auto-patterns.js --input /tmp/auto-patterns-input.json --output ./src/extensions/dashboard/pages/<page-name>/
 ```
 
 The `--output` directory MUST be the exact folder the CLI scaffolded in Step 1 — the script derives the component filename from that folder's name.
