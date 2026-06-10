@@ -25,12 +25,12 @@ Custom element component that renders in the slot using native HTMLElement:
 
 Settings panel shown in the Wix Editor sidebar:
 
-- Uses Wix Design System (`@wix/design-system`) components — see the `wix-design-system` skill for component reference
+- Uses React components for UI
 - Manages plugin properties via `@wix/editor` widget API
 - Loads initial values with `widget.getProp('kebab-case-name')`
 - Updates properties with `widget.setProp('kebab-case-name', value)`
 - Widget properties are bound to custom element attributes — any property change automatically updates the corresponding attribute
-- Wrapped in `WixDesignSystemProvider > SidePanel > SidePanel.Content`
+- Styled with Tailwind CSS — see [TAILWIND.md](TAILWIND.md)
 
 ### 3. Extension Builder (`<plugin-name>.extension.ts`)
 
@@ -95,13 +95,7 @@ export default MyElement;
 // my-site-plugin.panel.tsx
 import React, { type FC, useState, useEffect, useCallback } from 'react';
 import { widget } from '@wix/editor';
-import {
-  SidePanel,
-  WixDesignSystemProvider,
-  Input,
-  FormField,
-} from '@wix/design-system';
-import '@wix/design-system/styles.global.css';
+import '../../../styles/globals.css';
 
 const Panel: FC = () => {
   const [displayName, setDisplayName] = useState<string>('');
@@ -119,22 +113,18 @@ const Panel: FC = () => {
   }, [setDisplayName]);
 
   return (
-    <WixDesignSystemProvider>
-      <SidePanel width="300" height="100vh">
-        <SidePanel.Content noPadding stretchVertically>
-          <SidePanel.Field>
-            <FormField label="Display Name">
-              <Input
-                type="text"
-                value={displayName}
-                onChange={handleDisplayNameChange}
-                aria-label="Display Name"
-              />
-            </FormField>
-          </SidePanel.Field>
-        </SidePanel.Content>
-      </SidePanel>
-    </WixDesignSystemProvider>
+    <form className="flex flex-col gap-4 p-4">
+      <label className="flex flex-col gap-1">
+        <span className="text-sm font-medium text-gray-700">Display Name</span>
+        <input
+          type="text"
+          className="rounded-md border border-gray-300 px-3 py-2 text-sm"
+          value={displayName}
+          onChange={handleDisplayNameChange}
+          aria-label="Display Name"
+        />
+      </label>
+    </form>
   );
 };
 
@@ -146,9 +136,7 @@ export default Panel;
 - Prop names in `widget.getProp()` and `widget.setProp()` use **kebab-case** (e.g., `"display-name"`)
 - Always update both local state AND widget prop in onChange handlers
 - Widget properties are bound to custom element attributes — changes automatically update the corresponding attribute
-- Wrap content in `WixDesignSystemProvider > SidePanel > SidePanel.Content`
-- Use WDS components from `@wix/design-system`
-- Import `@wix/design-system/styles.global.css` for styles
+- Use Tailwind CSS for layout and styling — see [TAILWIND.md](TAILWIND.md)
 - Include `aria-label` for accessibility
 
 ## Color & Font Picker Fields
@@ -162,7 +150,6 @@ Opens the Wix color picker with theme colors, gradients, and more — **NOT** a 
 ```typescript
 import React, { type FC } from 'react';
 import { inputs } from '@wix/editor';
-import { FormField, Box, FillPreview, SidePanel } from '@wix/design-system';
 
 interface ColorPickerFieldProps {
   label: string;
@@ -175,16 +162,16 @@ export const ColorPickerField: FC<ColorPickerFieldProps> = ({
   value,
   onChange,
 }) => (
-  <SidePanel.Field>
-    <FormField label={label}>
-      <Box width="30px" height="30px">
-        <FillPreview
-          fill={value}
-          onClick={() => inputs.selectColor(value, { onChange: (val) => { if (val) onChange(val); } })}
-        />
-      </Box>
-    </FormField>
-  </SidePanel.Field>
+  <label className="flex flex-col gap-1">
+    <span className="text-sm font-medium text-gray-700">{label}</span>
+    <button
+      type="button"
+      className="h-8 w-8 rounded border border-gray-300"
+      style={{ backgroundColor: value }}
+      onClick={() => inputs.selectColor(value, { onChange: (val) => { if (val) onChange(val); } })}
+      aria-label={`Pick ${label}`}
+    />
+  </label>
 );
 ```
 
@@ -195,7 +182,6 @@ Opens the Wix font picker with font family, size, bold, italic, and other typogr
 ```typescript
 import React, { type FC } from 'react';
 import { inputs } from '@wix/editor';
-import { FormField, Button, Text, SidePanel } from '@wix/design-system';
 
 interface FontValue {
   font: string;
@@ -213,23 +199,21 @@ export const FontPickerField: FC<FontPickerFieldProps> = ({
   value,
   onChange,
 }) => (
-  <SidePanel.Field>
-    <FormField label={label}>
-      <Button
-        size="small"
-        priority="secondary"
-        onClick={() => inputs.selectFont(value, { onChange: (val) => onChange({ font: val.font, textDecoration: val.textDecoration || "" }) })}
-        fullWidth
-      >
-        <Text size="small" ellipsis>Change Font</Text>
-      </Button>
-    </FormField>
-  </SidePanel.Field>
+  <label className="flex flex-col gap-1">
+    <span className="text-sm font-medium text-gray-700">{label}</span>
+    <button
+      type="button"
+      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50"
+      onClick={() => inputs.selectFont(value, { onChange: (val) => onChange({ font: val.font, textDecoration: val.textDecoration || "" }) })}
+    >
+      Change Font
+    </button>
+  </label>
 );
 ```
 
 **Important:**
-- Always use `inputs.selectColor()` from `@wix/editor` with `FillPreview` — do NOT use `<Input type="color">`
+- Always use `inputs.selectColor()` from `@wix/editor` with a styled `<button>` trigger — do NOT use `<input type="color">`
 - Always use `inputs.selectFont()` from `@wix/editor` with the callback pattern `inputs.selectFont(value, { onChange })`
 - Import `inputs` from `@wix/editor` (not from `@wix/sdk`)
 
@@ -249,7 +233,6 @@ Site plugins use **kebab-case** consistently for HTML attributes:
 | --- | --- |
 | Complete Examples | [EXAMPLES.md](site-plugin/EXAMPLES.md) |
 | Slots (App IDs, runtime APIs, design guidelines, multiple placements) | [SLOTS.md](site-plugin/SLOTS.md) — run `wix schema generate --type SITE_PLUGIN` for the authoritative `slotId` enum |
-| WDS Components | the `wix-design-system` skill |
 
 ## Available Slots
 

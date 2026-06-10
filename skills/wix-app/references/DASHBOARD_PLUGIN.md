@@ -27,7 +27,7 @@ For the complete list of available slot IDs, see [Slots Reference](dashboard-plu
 - **React** — Component logic and state management
 - **Wix SDK** — Access Wix business solutions and site data
 - **Wix Dashboard SDK** (`@wix/dashboard`) — Interact with the dashboard page's data passed to the slot
-- **Wix Design System** (`@wix/design-system`) — Native-looking React components matching Wix's own dashboard UI
+- **Tailwind CSS** — Style plugin UI with utility classes — see [TAILWIND.md](TAILWIND.md)
 
 ## Interacting with Dashboard Data
 
@@ -36,6 +36,7 @@ Use `observeState()` from the Dashboard SDK to receive data from the host dashbo
 ```typescript
 import { dashboard } from "@wix/dashboard";
 import { useEffect, useState } from "react";
+import "../../styles/globals.css";
 
 const Plugin: FC = () => {
   const [params, setParams] = useState<Record<string, unknown>>({});
@@ -47,13 +48,9 @@ const Plugin: FC = () => {
   }, []);
 
   return (
-    <WixDesignSystemProvider features={{ newColorsBranding: true }}>
-      <Card>
-        <Card.Content size="medium">
-          <Text>Received data: {JSON.stringify(params)}</Text>
-        </Card.Content>
-      </Card>
-    </WixDesignSystemProvider>
+    <section className="rounded-lg border border-gray-200 bg-white p-4">
+      <p className="text-sm text-gray-700">Received data: {JSON.stringify(params)}</p>
+    </section>
   );
 };
 ```
@@ -87,7 +84,7 @@ const Plugin: FC<Props> = (props) => {
 
 **Request:** "Create a plugin for the Wix Blog posts page that shows a promotional banner"
 
-**Output:** Plugin targeting slot `46035d51-2ea9-4128-a216-1dba68664ffe` (Blog Posts page) with a Card component displaying promotional content, using `observeState()` to access blog post data.
+**Output:** Plugin targeting slot `46035d51-2ea9-4128-a216-1dba68664ffe` (Blog Posts page) with a Tailwind-styled banner displaying promotional content, using `observeState()` to access blog post data.
 
 ### Bookings Staff Calendar Widget
 
