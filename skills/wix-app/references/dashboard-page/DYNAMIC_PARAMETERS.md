@@ -80,8 +80,8 @@ This dashboard page manages dynamic parameters for an embedded script. The param
 - Example:
   ```typescript
   {isLoading ? (
-    <div className={styles.loading}>
-      <p>Loading…</p>
+    <div className="flex h-64 items-center justify-center">
+      <p className="text-sm text-gray-500">Loading…</p>
     </div>
   ) : (
     // ... form content
@@ -92,17 +92,17 @@ This dashboard page manages dynamic parameters for an embedded script. The param
 
 - **IMPORTANT:** Only create form fields for parameters relevant to your use case
 - Skip parameters that don't apply to the functionality being built
-- Create form fields with CSS Modules — see [REACT_CSS.md](../REACT_CSS.md) for patterns:
-  * TEXT → `<input className={styles.input} />`
-  * NUMBER → `<input type="number" className={styles.input} />`
-  * BOOLEAN → `<input type="checkbox" className={styles.checkbox} />`
+- Create Tailwind form fields based on parameter types — see [TAILWIND.md](../TAILWIND.md) for patterns:
+  * TEXT → `<input className="w-full rounded-md border px-3 py-2 text-sm" />`
+  * NUMBER → `<input type="number" className="w-full rounded-md border px-3 py-2 text-sm" />`
+  * BOOLEAN → `<input type="checkbox" className="h-4 w-4 rounded" />`
   * IMAGE → Custom image picker using `dashboard.openMediaManager()`
-  * DATE → `<input type="date" className={styles.input} />`
-  * SELECT → `<select className={styles.input} />`
-  * URL → `<input type="url" className={styles.input} />`
-- Wrap each field in `<label className={styles.field}>` with a label `<span className={styles.label}>`
+  * DATE → `<input type="date" className="w-full rounded-md border px-3 py-2 text-sm" />`
+  * SELECT → `<select className="w-full rounded-md border px-3 py-2 text-sm" />`
+  * URL → `<input type="url" className="w-full rounded-md border px-3 py-2 text-sm" />`
+- Wrap each field in `<label className="block">` with a label `<span>`
 - Set required validation based on parameter.required flag
-- Show validation errors with `<p className={styles.error}>`
+- Show validation errors with `<p className="mt-1 text-sm text-red-600">`
 
 ### 6. Save Functionality
 
@@ -119,20 +119,20 @@ This dashboard page manages dynamic parameters for an embedded script. The param
 ### 7. Form Validation
 
 - Implement validation for required fields
-- Show error states on inputs (e.g., `className={styles.inputError}`)
+- Show error states on inputs (e.g., `border-red-500`)
 - Display clear error messages below the field
 
 ### 8. Layout and Organization
 
-- Use `<section className={styles.card}>` to group related fields
-- Use `styles.form` with `display: flex; flex-direction: column; gap: 16px` in `.module.css`
-- Include helpful descriptions with `<p className={styles.hint}>`
+- Use `<section className="rounded-lg border bg-white p-6">` to group related fields
+- Use `flex flex-col gap-4` for form layout
+- Include helpful descriptions with `<p className="text-sm text-gray-500">`
 - Consider creating a separate settings component for complex forms
 
 ### 9. Preview Component (Optional but Recommended)
 
 - If applicable, create a preview component that shows how the configuration will look
-- Display the preview alongside the settings form using a two-column grid in `.module.css`
+- Display the preview alongside the settings form using a grid layout (`grid grid-cols-2 gap-6`)
 - The preview should react to parameter changes in real-time
 
 ## Example Implementation
@@ -143,7 +143,7 @@ See the generated site-popup example for a complete reference implementation:
 - src/extensions/dashboard/types.ts - Type definitions
 
 Key implementation patterns from the example:
-1. Create `page.module.css` co-located with `page.tsx`
+1. Import `globals.css` in page.tsx
 2. Parameters are saved as individual string fields, not as JSON
 3. Parameters are loaded with proper type conversion (string to boolean, string to number, etc.)
 4. Use embeddedScripts directly from '@wix/app-management'
@@ -152,9 +152,8 @@ Key implementation patterns from the example:
 
 When dynamic parameters are present, generate these files:
 1. src/extensions/dashboard/pages/page.tsx - The main dashboard page component
-2. src/extensions/dashboard/pages/page.module.css - Styles for the page
-3. src/extensions/dashboard/types.ts - Type definitions for the parameters (if needed)
-4. Any additional component files (settings forms, previews, etc.)
+2. src/extensions/dashboard/types.ts - Type definitions for the parameters (if needed)
+3. Any additional component files (settings forms, previews, etc.)
 
 ## Example Page Structure
 
@@ -162,7 +161,7 @@ When dynamic parameters are present, generate these files:
 import { useEffect, useState, type FC } from 'react';
 import { dashboard } from '@wix/dashboard';
 import { embeddedScripts } from '@wix/app-management';
-import styles from './page.module.css';
+import '../../styles/globals.css';
 
 const MyDashboardPage: FC = () => {
   const [options, setOptions] = useState<MyScriptOptions>(defaultOptions);
@@ -199,19 +198,19 @@ const MyDashboardPage: FC = () => {
 
   if (isLoading) {
     return (
-      <div className={styles.loading}>
-        <p>Loading…</p>
+      <div className="flex h-64 items-center justify-center">
+        <p className="text-sm text-gray-500">Loading…</p>
       </div>
     );
   }
 
   return (
-    <main className={styles.page}>
-      <header className={styles.header}>
-        <h1 className={styles.title}>Script Settings</h1>
+    <main className="min-h-screen bg-gray-50 p-6">
+      <header className="mb-6 flex items-center justify-between">
+        <h1 className="text-2xl font-semibold text-gray-900">Script Settings</h1>
         <button
           type="button"
-          className={styles.primaryButton}
+          className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
           onClick={handleSave}
           disabled={isSaving}
         >
@@ -240,4 +239,4 @@ export default MyDashboardPage;
 - ALWAYS validate required fields and show appropriate error states
 - The parameter keys MUST match exactly what is expected in the embedded script template variables
 - Each parameter is saved as a separate field, NOT as a JSON string
-- Use CSS Modules for all UI — see [REACT_CSS.md](../REACT_CSS.md)
+- Use Tailwind CSS for all UI — see [TAILWIND.md](../TAILWIND.md)
