@@ -70,7 +70,7 @@ When building a dashboard page to configure an embedded script, see [Dynamic Par
 - Use `embeddedScripts` from `@wix/app-management`
 - Parameters are returned as strings - handle type conversions when loading
 - All parameters must be saved as strings (convert booleans/numbers to strings)
-- Use Tailwind CSS for all UI — see [TAILWIND.md](TAILWIND.md)
+- Use CSS Modules for all UI — see [REACT_CSS.md](REACT_CSS.md)
 
 ## Optional builder fields
 
@@ -147,13 +147,11 @@ When an API specification is provided, you can make API calls to those endpoints
 
 ## Layout
 
-Use **Tailwind CSS** for all layout and styling — see [TAILWIND.md](TAILWIND.md). Put primary content near the top of the page; use responsive utilities (`md:`, `lg:`) for wider screens.
+Use **CSS Modules** for all layout and styling — see [REACT_CSS.md](REACT_CSS.md). Put primary content near the top of the page.
 
-### Tailwind Layout Patterns
+Common class names in your `.module.css`:
 
-See [TAILWIND.md](TAILWIND.md) for component patterns. Common layouts:
-
-- **Page wrapper** — `<main className="min-h-screen bg-gray-50 p-6">`
-- **Card / section** — `<section className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">`
-- **Grid layout** — `<div className="grid grid-cols-1 gap-6 md:grid-cols-2">`
-- **Page header** — `<header className="mb-6 flex items-center justify-between">`
+- **Page wrapper** — `styles.page` on `<main>`
+- **Card / section** — `styles.card` on `<section>`
+- **Grid layout** — CSS `display: grid; grid-template-columns: ...` in `.module.css`
+- **Page header** — `styles.header` on `<header>`
