@@ -32,6 +32,6 @@ Once the service type is determined, follow the corresponding recipe linked abov
 
 1. Gathering business context (staff, categories, currency, duplicate check)
 2. Applying type-specific defaults (pricing, capacity, duration, staff assignment)
-3. Creating the service as hidden via `bulkCreateServices`
+3. Creating the service via `bulkCreateServices`
 4. Navigating to the service form for user review
 5. Providing a summary of what was created and assumptions made

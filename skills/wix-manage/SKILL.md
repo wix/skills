@@ -53,16 +53,16 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 **Technical:** Full CRUD operations for Wix Bookings services using Services API. Covers service types (APPOINTMENT, CLASS, COURSE), pricing configuration, location setup, and schedule management.
 
 ### [Create Booking Service from Prompt](references/bookings/create-booking-service-from-prompt.md)
-**Technical:** Autonomous creation of a booking service from a natural language prompt. Gathers business context (staff, categories, currency), applies industry-standard defaults for missing fields, creates the service as hidden for user review, and navigates to the service form.
+**Technical:** Autonomous creation of a booking service from a natural language prompt. Gathers business context (staff, categories, currency), applies industry-standard defaults for missing fields, creates the service, and navigates to the service form.
 
 ### [Create Appointment Service](references/bookings/create-appointment-service.md)
-**Technical:** Creates an APPOINTMENT booking service from a prompt. Handles staff assignment (required), session duration, and 1-on-1 capacity defaults. Creates as hidden for review.
+**Technical:** Creates an APPOINTMENT booking service from a prompt. Handles staff assignment (required), session duration, and 1-on-1 capacity defaults.
 
 ### [Create Class Service](references/bookings/create-class-service.md)
-**Technical:** Creates a CLASS booking service from a prompt. Handles group capacity, recurring session defaults. Staff assignment is not used for classes. Creates as hidden for review.
+**Technical:** Creates a CLASS booking service from a prompt. Handles group capacity, recurring session defaults. Staff assignment is not used for classes.
 
 ### [Create Course Service](references/bookings/create-course-service.md)
-**Technical:** Creates a COURSE booking service from a prompt. Handles group capacity, full-course pricing, and fixed series defaults. Staff assignment is not used for courses. Creates as hidden for review.
+**Technical:** Creates a COURSE booking service from a prompt. Handles group capacity, full-course pricing, and fixed series defaults. Staff assignment is not used for courses.
 
 ### [End-to-End Booking Flow](references/bookings/end-to-end-booking-flow.md)
 **Technical:** Complete booking flow from service discovery to payment. Query services, check availability with Time Slots V2, create bookings, and process payment via eCommerce checkout.

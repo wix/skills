@@ -1,6 +1,6 @@
 ---
 name: "Create Appointment Service"
-description: Creates a Wix Bookings APPOINTMENT service from a natural language prompt. Gathers staff, categories, and currency context, applies appointment-specific defaults, creates as hidden for review, and navigates to the service form.
+description: Creates a Wix Bookings APPOINTMENT service from a natural language prompt. Gathers staff, categories, and currency context, applies appointment-specific defaults, creates the service, and navigates to the service form.
 ---
 
 # Create Appointment Service from Prompt
@@ -79,7 +79,6 @@ For any fields the user did not explicitly specify:
 | Capacity | 1 | Appointments are typically 1-on-1 |
 | Staff | Auto-assign | Use `default: true` staff, or first available |
 | Online booking | Enabled | `onlineBooking.enabled: true` |
-| Visibility | Hidden | `hidden: true` — user reviews before publishing |
 
 ### Pricing (if not specified)
 
@@ -114,8 +113,6 @@ curl -X POST 'https://www.wixapis.com/bookings/v2/categories' \
 
 ## Step 3: Create the Appointment Service
 
-Create as **hidden** so the user can review before publishing.
-
 **Paid appointment:**
 
 ```bash
@@ -127,7 +124,7 @@ curl -X POST 'https://www.wixapis.com/bookings/v2/bulk/services/create' \
       "name": "<SERVICE_NAME>",
       "description": "<GENERATED_DESCRIPTION>",
       "type": "APPOINTMENT",
-      "hidden": true,
+
       "onlineBooking": { "enabled": true },
       "staffMemberIds": ["<RESOURCE_ID>"],
       "schedule": {
@@ -160,7 +157,7 @@ curl -X POST 'https://www.wixapis.com/bookings/v2/bulk/services/create' \
       "name": "<SERVICE_NAME>",
       "description": "<GENERATED_DESCRIPTION>",
       "type": "APPOINTMENT",
-      "hidden": true,
+
       "onlineBooking": { "enabled": true },
       "staffMemberIds": ["<RESOURCE_ID>"],
       "schedule": {
@@ -184,7 +181,6 @@ curl -X POST 'https://www.wixapis.com/bookings/v2/bulk/services/create' \
 - `staffMemberIds` is **required** — uses `resourceId` values, not staff member `id`
 - `schedule.availabilityConstraints.sessionDurations` sets the appointment length
 - Availability is based on the assigned staff member's working hours schedule
-- If the user explicitly requests visible, set `"hidden": false` but warn them
 
 Save the `serviceId` from the response: `results[0].item.service.id`
 
@@ -204,12 +200,12 @@ Provide a summary including:
 
 1. **What was created** — service name, price, duration, assigned staff member
 2. **Assumptions made** — list defaults used (e.g., "I set the duration to 60 minutes since you didn't specify")
-3. **How to publish** — "Toggle visibility ON and click Save to make this service live"
+3. **Next steps** — "Click Save to finalize, then set up your availability"
 4. **Offer to adjust** — "Want me to change the price, duration, or staff assignment?"
 
 **Example:**
 
-> I created **"Strategy Consultation"** as a hidden draft:
+> I created **"Strategy Consultation"**:
 >
 > - **Type**: Appointment (1-on-1)
 > - **Price**: $75 per session
@@ -217,7 +213,7 @@ Provide a summary including:
 > - **Staff**: Assigned to Sarah Johnson
 > - **Category**: Consulting
 >
-> I assumed a 60-minute duration since you didn't specify. The service is hidden — toggle visibility on and save to publish.
+> I assumed a 60-minute duration since you didn't specify. You can review and adjust the details in the service form.
 
 ---
 

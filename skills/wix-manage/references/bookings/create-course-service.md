@@ -1,6 +1,6 @@
 ---
 name: "Create Course Service"
-description: Creates a Wix Bookings COURSE service from a natural language prompt. Gathers categories and currency context, applies course-specific defaults (capacity, fixed series), creates as hidden for review, and navigates to the service form.
+description: Creates a Wix Bookings COURSE service from a natural language prompt. Gathers categories and currency context, applies course-specific defaults (capacity, fixed series), creates the service, and navigates to the service form.
 ---
 
 # Create Course Service from Prompt
@@ -64,7 +64,6 @@ For any fields the user did not explicitly specify:
 |---|---|---|
 | Capacity | 10 | `defaultCapacity` — required for COURSE |
 | Online booking | Enabled | `onlineBooking.enabled: true` |
-| Visibility | Hidden | `hidden: true` — user reviews before publishing |
 
 ### Pricing (if not specified)
 
@@ -101,8 +100,6 @@ curl -X POST 'https://www.wixapis.com/bookings/v2/categories' \
 
 ## Step 3: Create the Course Service
 
-Create as **hidden** so the user can review before publishing.
-
 **CRITICAL: COURSE services do NOT use `staffMemberIds` or `sessionDurations`.** These fields are ignored. Use `defaultCapacity` instead.
 
 **Paid course:**
@@ -116,7 +113,7 @@ curl -X POST 'https://www.wixapis.com/bookings/v2/bulk/services/create' \
       "name": "<SERVICE_NAME>",
       "description": "<GENERATED_DESCRIPTION>",
       "type": "COURSE",
-      "hidden": true,
+
       "onlineBooking": { "enabled": true },
       "defaultCapacity": <CAPACITY>,
       "payment": {
@@ -144,7 +141,7 @@ curl -X POST 'https://www.wixapis.com/bookings/v2/bulk/services/create' \
       "name": "<SERVICE_NAME>",
       "description": "<GENERATED_DESCRIPTION>",
       "type": "COURSE",
-      "hidden": true,
+
       "onlineBooking": { "enabled": true },
       "defaultCapacity": <CAPACITY>,
       "payment": {
@@ -165,7 +162,6 @@ curl -X POST 'https://www.wixapis.com/bookings/v2/bulk/services/create' \
 - `defaultCapacity` is **required** — sets max participants for the entire course
 - Customers must book the **entire course** (all sessions), not individual sessions
 - After creation, course sessions must be scheduled separately via `bulkCreateEvents` using the returned `service.schedule.id` (see [Create and Update Booking Services](./create-and-update-booking-services.md))
-- If the user explicitly requests visible, set `"hidden": false` but warn them
 
 Save the `serviceId` from the response: `results[0].item.service.id`
 
@@ -187,19 +183,19 @@ Provide a summary including:
 2. **Assumptions made** — list defaults used (e.g., "I set the capacity to 10 participants since you didn't specify")
 3. **Pricing clarification** — note that the price is for the entire course, not per session
 4. **Schedule note** — remind the user that course sessions (dates and times) still need to be set up
-5. **How to publish** — "Toggle visibility ON and click Save to make this service live"
+5. **Next steps** — "Click Save to finalize, then set up the course schedule"
 6. **Offer to adjust** — "Want me to change the price, capacity, or description?"
 
 **Example:**
 
-> I created **"Yoga Teacher Training"** as a hidden draft:
+> I created **"Yoga Teacher Training"**:
 >
 > - **Type**: Course (customers book the full program)
 > - **Price**: $300 for the full course
 > - **Capacity**: 10 participants
 > - **Category**: Training
 >
-> I assumed a capacity of 10 since you didn't specify. The price of $300 covers the entire course — customers pay once for all sessions. The service is hidden — toggle visibility on and save to publish.
+> I assumed a capacity of 10 since you didn't specify. The price of $300 covers the entire course — customers pay once for all sessions. You can review and adjust the details in the service form.
 >
 > **Next step:** You'll need to set up the course schedule (specific session dates and times) in the service form.
 

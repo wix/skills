@@ -1,6 +1,6 @@
 ---
 name: "Create Class Service"
-description: Creates a Wix Bookings CLASS service from a natural language prompt. Gathers categories and currency context, applies class-specific defaults (capacity, recurring sessions), creates as hidden for review, and navigates to the service form.
+description: Creates a Wix Bookings CLASS service from a natural language prompt. Gathers categories and currency context, applies class-specific defaults (capacity, recurring sessions), creates the service, and navigates to the service form.
 ---
 
 # Create Class Service from Prompt
@@ -64,7 +64,6 @@ For any fields the user did not explicitly specify:
 |---|---|---|
 | Capacity | 10 | `defaultCapacity` — required for CLASS |
 | Online booking | Enabled | `onlineBooking.enabled: true` |
-| Visibility | Hidden | `hidden: true` — user reviews before publishing |
 
 ### Pricing (if not specified)
 
@@ -99,8 +98,6 @@ curl -X POST 'https://www.wixapis.com/bookings/v2/categories' \
 
 ## Step 3: Create the Class Service
 
-Create as **hidden** so the user can review before publishing.
-
 **CRITICAL: CLASS services do NOT use `staffMemberIds` or `sessionDurations`.** These fields are ignored. Use `defaultCapacity` instead.
 
 **Paid class:**
@@ -114,7 +111,7 @@ curl -X POST 'https://www.wixapis.com/bookings/v2/bulk/services/create' \
       "name": "<SERVICE_NAME>",
       "description": "<GENERATED_DESCRIPTION>",
       "type": "CLASS",
-      "hidden": true,
+
       "onlineBooking": { "enabled": true },
       "defaultCapacity": <CAPACITY>,
       "payment": {
@@ -142,7 +139,7 @@ curl -X POST 'https://www.wixapis.com/bookings/v2/bulk/services/create' \
       "name": "<SERVICE_NAME>",
       "description": "<GENERATED_DESCRIPTION>",
       "type": "CLASS",
-      "hidden": true,
+
       "onlineBooking": { "enabled": true },
       "defaultCapacity": <CAPACITY>,
       "payment": {
@@ -162,7 +159,6 @@ curl -X POST 'https://www.wixapis.com/bookings/v2/bulk/services/create' \
 - Do **NOT** include `schedule.availabilityConstraints.sessionDurations` — not used for CLASS
 - `defaultCapacity` is **required** — sets max participants per session
 - After creation, class sessions must be scheduled separately via `bulkCreateEvents` using the returned `service.schedule.id` (see [Create and Update Booking Services](./create-and-update-booking-services.md))
-- If the user explicitly requests visible, set `"hidden": false` but warn them
 
 Save the `serviceId` from the response: `results[0].item.service.id`
 
@@ -183,19 +179,19 @@ Provide a summary including:
 1. **What was created** — service name, price per session, capacity
 2. **Assumptions made** — list defaults used (e.g., "I set the capacity to 10 participants since you didn't specify")
 3. **Schedule note** — remind the user that class sessions still need to be scheduled
-4. **How to publish** — "Toggle visibility ON and click Save to make this service live"
+4. **Next steps** — "Click Save to finalize, then set up the class schedule"
 5. **Offer to adjust** — "Want me to change the price, capacity, or description?"
 
 **Example:**
 
-> I created **"Vinyasa Yoga Class"** as a hidden draft:
+> I created **"Vinyasa Yoga Class"**:
 >
 > - **Type**: Class (group session)
 > - **Price**: $25 per session
 > - **Capacity**: 10 participants
 > - **Category**: Fitness
 >
-> I assumed a capacity of 10 since you didn't specify. The service is hidden — toggle visibility on and save to publish.
+> I assumed a capacity of 10 since you didn't specify. You can review and adjust the details in the service form.
 >
 > **Next step:** You'll need to set up the class schedule (days and times) in the service form.
 
