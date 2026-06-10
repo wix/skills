@@ -33,16 +33,16 @@ apiDoc:
     - file: ../../../skills/wix-manage/references/bookings/create-booking-service-from-prompt.md
       title: Create Booking Service from Prompt
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/bookings
-      tags: [bookings]
+      tags: [bookings, create service, booking service, appointment, class, course, consultation, session]
     - file: ../../../skills/wix-manage/references/bookings/create-appointment-service.md
       title: Create Appointment Service
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/bookings
-      tags: [bookings]
+      tags: [bookings, create service, appointment, consultation, 1-on-1, meeting, session]
     - file: ../../../skills/wix-manage/references/bookings/create-class-service.md
       title: Create Class Service
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/bookings
-      tags: [bookings]
+      tags: [bookings, create service, class, group session, yoga, fitness, pilates]
     - file: ../../../skills/wix-manage/references/bookings/create-course-service.md
       title: Create Course Service
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/bookings
-      tags: [bookings]
+      tags: [bookings, create service, course, workshop, training program, bootcamp, multi-session]

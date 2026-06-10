@@ -1,6 +1,6 @@
 ---
 name: "Create Class Service"
-description: Creates a Wix Bookings CLASS service from a natural language prompt. Gathers categories and currency context, applies class-specific defaults (capacity, recurring sessions), creates the service, and navigates to the service form.
+description: "Create a class booking service — e.g. 'create a yoga class for $50', 'set up a pilates class', 'add a group fitness session', 'create a weekly meditation class'. Handles group capacity, recurring session defaults, and pricing via bulkCreateServices API. Staff assignment is not used for classes."
 ---
 
 # Create Class Service from Prompt

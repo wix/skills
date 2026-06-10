@@ -1,6 +1,6 @@
 ---
 name: "Create Course Service"
-description: Creates a Wix Bookings COURSE service from a natural language prompt. Gathers categories and currency context, applies course-specific defaults (capacity, fixed series), creates the service, and navigates to the service form.
+description: "Create a course booking service — e.g. 'create a 6-week photography workshop', 'set up a training program', 'add a bootcamp course for $300', 'create a teacher training course'. Handles group capacity, full-course pricing, and fixed series defaults via bulkCreateServices API. Staff assignment is not used for courses."
 ---
 
 # Create Course Service from Prompt

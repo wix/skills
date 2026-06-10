@@ -1,6 +1,6 @@
 ---
 name: "Create Booking Service from Prompt"
-description: Autonomous creation of a booking service from a natural language prompt. Determines the service type (appointment, class, or course) and delegates to the appropriate type-specific recipe.
+description: "Create a booking service from a user prompt — e.g. 'create a yoga class for $50', 'set up consultations for $75', 'add a personal training appointment', 'create a 6-week photography workshop'. Determines the service type (APPOINTMENT, CLASS, or COURSE) and delegates to the type-specific recipe."
 ---
 
 # Create Booking Service from Natural Language Prompt

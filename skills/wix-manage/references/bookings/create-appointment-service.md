@@ -1,6 +1,6 @@
 ---
 name: "Create Appointment Service"
-description: Creates a Wix Bookings APPOINTMENT service from a natural language prompt. Gathers staff, categories, and currency context, applies appointment-specific defaults, creates the service, and navigates to the service form.
+description: "Create an appointment booking service — e.g. 'set up consultations', 'create a 1-on-1 session', 'add a personal training appointment', 'create a meeting service for $25'. Handles staff assignment (required), session duration, pricing, and 1-on-1 capacity defaults via bulkCreateServices API."
 ---
 
 # Create Appointment Service from Prompt
