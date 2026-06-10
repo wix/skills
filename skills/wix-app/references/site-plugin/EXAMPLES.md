@@ -55,7 +55,7 @@ export default BestSellerBadge;
 ```typescript
 import React, { type FC, useState, useEffect, useCallback } from 'react';
 import { widget, inputs } from '@wix/editor';
-import '@styles/globals.css';
+import styles from './best-seller-badge.panel.module.css';
 
 const Panel: FC = () => {
   const [badgeText, setBadgeText] = useState<string>('');
@@ -93,32 +93,32 @@ const Panel: FC = () => {
   }, []);
 
   return (
-    <form className="flex flex-col gap-4 p-4">
-      <label className="flex flex-col gap-1">
-        <span className="text-sm font-medium text-gray-700">Badge Text</span>
+    <form className={styles.form}>
+      <label className={styles.field}>
+        <span className={styles.label}>Badge Text</span>
         <input
           type="text"
-          className="rounded-md border border-gray-300 px-3 py-2 text-sm"
+          className={styles.input}
           value={badgeText}
           onChange={handleTextChange}
           aria-label="Badge Text"
         />
       </label>
-      <label className="flex flex-col gap-1">
-        <span className="text-sm font-medium text-gray-700">Background Color</span>
+      <label className={styles.field}>
+        <span className={styles.label}>Background Color</span>
         <button
           type="button"
-          className="h-8 w-8 rounded border border-gray-300"
+          className={styles.colorSwatch}
           style={{ backgroundColor: bgColor }}
           onClick={() => inputs.selectColor(bgColor, { onChange: (val) => { if (val) handleBgColorChange(val); } })}
           aria-label="Pick background color"
         />
       </label>
-      <label className="flex flex-col gap-1">
-        <span className="text-sm font-medium text-gray-700">Text Color</span>
+      <label className={styles.field}>
+        <span className={styles.label}>Text Color</span>
         <button
           type="button"
-          className="h-8 w-8 rounded border border-gray-300"
+          className={styles.colorSwatch}
           style={{ backgroundColor: textColor }}
           onClick={() => inputs.selectColor(textColor, { onChange: (val) => { if (val) handleTextColorChange(val); } })}
           aria-label="Pick text color"
@@ -172,7 +172,7 @@ For plugins that require back-office management (especially checkout and side ca
 ```typescript
 // src/extensions/dashboard/pages/plugin-settings/page.tsx
 import { dashboard } from "@wix/dashboard";
-import "@styles/globals.css";
+import styles from "./page.module.css";
 
 export default function PluginSettingsPage() {
   const handleAddToSlot = async () => {
@@ -190,13 +190,13 @@ export default function PluginSettingsPage() {
   };
 
   return (
-    <main className="min-h-screen bg-gray-50 p-6">
-      <h1 className="mb-6 text-2xl font-semibold text-gray-900">Plugin Settings</h1>
-      <section className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-        <h2 className="mb-4 text-lg font-medium text-gray-900">Manage Your Plugin</h2>
+    <main className={styles.page}>
+      <h1 className={styles.title}>Plugin Settings</h1>
+      <section className={styles.card}>
+        <h2 className={styles.subtitle}>Manage Your Plugin</h2>
         <button
           type="button"
-          className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          className={styles.primaryButton}
           onClick={handleAddToSlot}
         >
           Add Plugin to Slot

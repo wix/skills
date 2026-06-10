@@ -38,7 +38,7 @@ React component shown in the Wix Editor sidebar.
 - Manages widget properties via the `@wix/editor` `widget` API.
 - Loads initial values with `widget.getProp('kebab-case-name')`.
 - Updates properties with `widget.setProp('kebab-case-name', value)`. Always update both local React state AND the widget prop in onChange handlers.
-- Styled with Tailwind CSS — see [TAILWIND.md](TAILWIND.md). Import `globals.css` in the panel entry file.
+- Styled with CSS Modules — see [REACT_CSS.md](REACT_CSS.md). Create `<name>.panel.module.css` next to the panel entry file.
 - For color pickers, use `inputs.selectColor()` from `@wix/editor` with a styled `<button>` trigger — NOT `<input type="color">`.
 - For font pickers, use `inputs.selectFont()` from `@wix/editor` with a `<button>` — NOT a text input.
 
@@ -140,6 +140,7 @@ For color selection in settings panels, use `ColorPickerField` component with `i
 // components/ColorPickerField.tsx
 import React, { type FC } from 'react';
 import { inputs } from '@wix/editor';
+import styles from './ColorPickerField.module.css';
 
 interface ColorPickerFieldProps {
   label: string;
@@ -152,11 +153,11 @@ export const ColorPickerField: FC<ColorPickerFieldProps> = ({
   value,
   onChange,
 }) => (
-  <label className="flex flex-col gap-1">
-    <span className="text-sm font-medium text-gray-700">{label}</span>
+  <label className={styles.field}>
+    <span className={styles.label}>{label}</span>
     <button
       type="button"
-      className="h-8 w-8 rounded border border-gray-300"
+      className={styles.colorSwatch}
       style={{ backgroundColor: value }}
       onClick={() => inputs.selectColor(value, { onChange: (val) => { if (val) onChange(val); } })}
       aria-label={`Pick ${label}`}
@@ -186,6 +187,7 @@ For font selection in settings panels, use `FontPickerField` component with `inp
 // components/FontPickerField.tsx
 import React, { type FC } from 'react';
 import { inputs } from '@wix/editor';
+import styles from './FontPickerField.module.css';
 
 interface FontValue {
   font: string;
@@ -203,11 +205,11 @@ export const FontPickerField: FC<FontPickerFieldProps> = ({
   value,
   onChange,
 }) => (
-  <label className="flex flex-col gap-1">
-    <span className="text-sm font-medium text-gray-700">{label}</span>
+  <label className={styles.field}>
+    <span className={styles.label}>{label}</span>
     <button
       type="button"
-      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50"
+      className={styles.fontButton}
       onClick={() => inputs.selectFont(value, { onChange: (val) => onChange({ font: val.font, textDecoration: val.textDecoration || "" }) })}
     >
       Change Font
