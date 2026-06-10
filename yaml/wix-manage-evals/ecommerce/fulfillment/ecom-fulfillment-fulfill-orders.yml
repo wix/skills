@@ -1,6 +1,6 @@
 name: ecommerce/fulfillment/fulfill-orders
 description: Verifies single-order fulfillment and tracking requests load the fulfillment recipe.
-triggerPrompt: Mark order 10027 as fulfilled and add this UPS tracking number.
+triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) Mark order 10027 as fulfilled and add this UPS tracking number.
 tags: [ecommerce]
 assertions:
   - tool: ReadFullDocsArticle

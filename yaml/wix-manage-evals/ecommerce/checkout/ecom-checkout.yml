@@ -1,6 +1,6 @@
 name: ecommerce/checkout/category-routing
 description: Verifies Checkout & Cart now routes abandoned recovery to Abandoned Carts while keeping live checkout drop-off.
-triggerPrompt: Customers are dropping off during checkout, but I also want to recover people who already left.
+triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) Customers are dropping off during checkout, but I also want to recover people who already left.
 tags: [ecommerce]
 assertions:
   - tool: ReadFullDocsArticle

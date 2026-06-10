@@ -1,6 +1,6 @@
 name: ecommerce/abandoned-carts/troubleshoot-recovery
 description: Verifies recovery troubleshooting loads the abandoned-carts troubleshooting skill.
-triggerPrompt: My abandoned cart recovery emails are enabled but shoppers are not coming back. Help me debug it.
+triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) My abandoned cart recovery emails are enabled but shoppers are not coming back. Help me debug it.
 tags: [ecommerce]
 assertions:
   - tool: ReadFullDocsArticle

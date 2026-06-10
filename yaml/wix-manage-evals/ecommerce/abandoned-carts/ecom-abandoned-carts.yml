@@ -1,6 +1,6 @@
 name: ecommerce/ecom-abandoned-carts
 description: Verifies the agent routes abandoned-checkout recovery and lookup requests to the Abandoned Carts category.
-triggerPrompt: I want to see abandoned checkouts and decide whether to recover them with emails or links.
+triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) I want to see abandoned checkouts and decide whether to recover them with emails or links.
 tags: [ecommerce]
 assertions:
   - tool: ReadFullDocsArticle
