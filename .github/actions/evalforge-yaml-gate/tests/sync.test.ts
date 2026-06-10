@@ -1,0 +1,92 @@
+import { describe, it, expect } from 'vitest';
+import { diffSyncPlan } from '../src/utils/sync';
+import type { RemoteScenario } from '../src/utils/evalforge';
+import type { Scenario } from '../src/utils/schema';
+
+const s = (name: string): Scenario => ({
+  name, description: '', triggerPrompt: '0123456789', tags: ['blog'],
+  assertions: [{ tool: 'T', params: { url: `https://x.com/${name}` } }],
+});
+
+const r = (id: string, name: string, tags: string[] = []): RemoteScenario => ({ id, name, tags });
+
+const TAG = 'draft:wix/skills#42';
+
+describe('diffSyncPlan', () => {
+  it('plans CREATE for a new YAML not in remote', () => {
+    const plan = diffSyncPlan({
+      head: new Map([['blog/a', { path: 'a.yml', scenario: s('blog/a') }]]),
+      base: new Map(),
+      remote: [],
+      draftTag: TAG,
+    });
+    expect(plan.actions).toHaveLength(1);
+    expect(plan.actions[0]).toMatchObject({ kind: 'CREATE', name: 'blog/a', tags: [TAG] });
+    expect(plan.errors).toEqual([]);
+  });
+
+  it('plans UPDATE for a YAML modified in PR, no foreign draft tag', () => {
+    const plan = diffSyncPlan({
+      head: new Map([['blog/a', { path: 'a.yml', scenario: s('blog/a') }]]),
+      base: new Map([['blog/a', { path: 'a.yml', scenario: s('blog/a') }]]),
+      remote: [r('id-1', 'blog/a', [TAG])],
+      draftTag: TAG,
+    });
+    expect(plan.actions).toHaveLength(1);
+    expect(plan.actions[0]).toMatchObject({ kind: 'UPDATE', id: 'id-1', name: 'blog/a', tags: [TAG] });
+  });
+
+  it('plans FAIL on foreign draft tag at update site', () => {
+    const plan = diffSyncPlan({
+      head: new Map([['blog/a', { path: 'a.yml', scenario: s('blog/a') }]]),
+      base: new Map(),
+      remote: [r('id-1', 'blog/a', ['draft:wix/skills#99'])],
+      draftTag: TAG,
+    });
+    expect(plan.errors).toHaveLength(1);
+    expect(plan.errors[0]).toMatchObject({ kind: 'FOREIGN_DRAFT', name: 'blog/a' });
+    expect(plan.actions).toEqual([]);
+  });
+
+  it('plans DELETE for a YAML deleted on PR branch where existing has THIS PR draft tag', () => {
+    const plan = diffSyncPlan({
+      head: new Map(),
+      base: new Map([['blog/a', { path: 'a.yml', scenario: s('blog/a') }]]),
+      remote: [r('id-1', 'blog/a', [TAG])],
+      draftTag: TAG,
+    });
+    expect(plan.actions).toEqual([{ kind: 'DELETE', id: 'id-1', name: 'blog/a' }]);
+  });
+
+  it('plans DEFER_DELETE for a YAML deleted where existing has no draft tag (non-draft)', () => {
+    const plan = diffSyncPlan({
+      head: new Map(),
+      base: new Map([['blog/a', { path: 'a.yml', scenario: s('blog/a') }]]),
+      remote: [r('id-1', 'blog/a', ['blog'])],
+      draftTag: TAG,
+    });
+    expect(plan.actions).toEqual([{ kind: 'DEFER_DELETE', id: 'id-1', name: 'blog/a' }]);
+  });
+
+  it('plans FAIL on delete-of-foreign-draft', () => {
+    const plan = diffSyncPlan({
+      head: new Map(),
+      base: new Map([['blog/a', { path: 'a.yml', scenario: s('blog/a') }]]),
+      remote: [r('id-1', 'blog/a', ['draft:wix/skills#99'])],
+      draftTag: TAG,
+    });
+    expect(plan.errors).toHaveLength(1);
+    expect(plan.errors[0]).toMatchObject({ kind: 'FOREIGN_DRAFT', name: 'blog/a' });
+  });
+
+  it('skips removed YAML that has no remote at all (already gone)', () => {
+    const plan = diffSyncPlan({
+      head: new Map(),
+      base: new Map([['blog/a', { path: 'a.yml', scenario: s('blog/a') }]]),
+      remote: [],
+      draftTag: TAG,
+    });
+    expect(plan.actions).toEqual([]);
+    expect(plan.errors).toEqual([]);
+  });
+});

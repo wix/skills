@@ -6,7 +6,7 @@ Build a FAQ page using `@wix/data` — Q&A pairs organized by category with acco
 
 ## Collection Schema
 
-Create a collection in the Wix dashboard → CMS with these fields:
+The schema the `seed` scope creates via REST (see `../../cms/CMS_FOUNDATIONS.md`) — fields:
 
 | Field | Type | Purpose |
 |-------|------|---------|
@@ -169,7 +169,7 @@ export default function FaqSection({ categories }: Props) {
 }
 ```
 
-> **Styling note:** Uses `.faq-search`, `.faq-section`, `.faq-category`, `.faq-item`, `.faq-question`, `.faq-toggle`, `.faq-answer` from the designed component's `<style is:global>` block. See `COMPONENT_PATTERNS.md` → FAQ Accordion.
+> **Styling note:** Uses `.faq-search`, `.faq-section`, `.faq-category`, `.faq-item`, `.faq-question`, `.faq-toggle`, `.faq-answer` from the designed component's `<style is:global>` block. See `references/shared/STYLING.md` (FAQ Accordion).
 
 Key details:
 - `<details>/<summary>` for native accordion behavior — no JavaScript needed for open/close
@@ -222,10 +222,10 @@ Key details:
 
 ## Testing
 
-1. Create a "FAQ" collection in the Wix dashboard → CMS with the schema above
-2. Add 6+ FAQ items across 2+ categories, all with `published: true`
-3. Run `npx @wix/cli@latest dev`
-4. `/faq` — shows all questions grouped by category
-5. Click a question — accordion opens with the answer
-6. Type in search — filters questions in real-time
-7. Click a category jump link — scrolls to that section
+Assumes the `seed` scope has already created the "FAQ" collection and inserted items via REST (see `../../cms/CMS_FOUNDATIONS.md`) — with 6+ FAQ items across 2+ categories, all `published: true`.
+
+1. Run `npx @wix/cli@latest dev`
+2. `/faq` — shows all questions grouped by category
+3. Click a question — accordion opens with the answer
+4. Type in search — filters questions in real-time
+5. Click a category jump link — scrolls to that section

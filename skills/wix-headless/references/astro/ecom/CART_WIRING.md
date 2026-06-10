@@ -1,8 +1,8 @@
 # Phase 3 Components — Ecom (TSX)
 
-Scope: `components`. Launched in **Step 4.5** (after Phase 2 Design System completes, parallel to stores components and the `components-css` sibling). Writes code that depends on the **design tokens** but NOT on Phase 4 page markup.
+This is the **components** portion of the ecom **merged build agent** (the build wave — `BUILD-astro.md` § "Step 4.5"). Your agent writes these islands **first**, then the ecom pages (`cart.astro`, `thank-you.astro`) that mount them. The code here depends on the **design tokens** (read from `.wix/design-tokens.css` on disk) but NOT on page markup.
 
-> **CSS lives in a sibling scope.** `src/styles/components-ecom.css` is owned by the `components-css` scope (see `./COMPONENTS_CSS.md`), which runs concurrently with this one in the same Step 4.5 batch. This scope does NOT write the CSS file. Reference contract class names from the design tokens here; the CSS sibling defines the rules.
+> **CSS is pre-copied, not authored.** `src/styles/components-ecom.css` ships from the skill template, copied by the orchestrator in the build-wave pre-batch (see `./COMPONENTS_CSS.md`). This scope does NOT write the CSS file. Reference its contract class names from the design tokens here; the pre-copied stylesheet defines the rules.
 
 ## Scope
 
@@ -20,7 +20,7 @@ Files this agent MUST NOT touch:
 
 ## Coordination: design tokens
 
-Your parent prompt includes the design tokens inline. Use it directly — do not read `.wix/design-tokens.css` + `.wix/site.d.ts` from disk.
+Read the design tokens from `.wix/design-tokens.css` (on disk, gate-verified present before the wave).
 
 For layout/spacing/typography, compose Tailwind utilities derived from `@theme` tokens at the call site (`<div class="grid grid-cols-1 md:grid-cols-[1fr_22rem] gap-2xl">`). For published global semantic classes (`cart-summary`, `cart-total`, `checkout-btn`, `cart-empty` — the compound + interactive-state patterns), use the ACTUAL class name verbatim. Row-internal class names (`cart-item-qty`, `qty-btn`, etc.) come from the template — keep them as-is and live in `components-ecom.css`. See `references/shared/STYLING.md` and `references/shared/IMPLEMENTER.md` § "Styling: tokens-first, classes as exception".
 
@@ -67,7 +67,7 @@ Class names used (template provides them — do not invent):
 
 Use template `templates/CartBadge.tsx`.
 
-Mounted once in `Navigation.astro` (by `ecom-pages` scope). Shows cart item count; listens for `cart-updated` custom event.
+Mounted once in `Navigation.astro` (by the `cart-checkout` scope). Shows cart item count; listens for `cart-updated` custom event.
 
 **No `initialCount` prop.** Cart is per-visitor — server-rendering the count breaks SSR caching. On mount, CartBadge reads the sessionStorage snapshot that CartView maintains (same `CART_CACHE_KEY`) to seed the initial count without a visible zero-flash between page navigations, then fetches fresh from the SDK and reconciles. If no snapshot exists (first-ever page load), count starts at 0 like before.
 
@@ -77,7 +77,7 @@ Contract keys: `cartBadge`, `cartBadgeCount`
 
 ### 3. `src/utils/analytics.ts` — not owned by this scope
 
-> `analytics.ts` is a shared utility (see `references/shared/analytics.ts`). Import from it (`import { trackEvent } from "../utils/analytics"`) but do not write it.
+> `analytics.ts` is a shared utility (canonical source `shared-utilities/analytics.ts`, seeded to `src/utils/analytics.ts`). Import from it (`import { trackEvent } from "../utils/analytics"`) but do not write it.
 
 ### 4. `src/styles/components-ecom.css` — not owned by this scope
 
