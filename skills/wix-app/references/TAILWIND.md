@@ -2,38 +2,19 @@
 
 All React UI in Wix CLI app extensions (dashboard pages, modals, plugins, editor settings panels) uses **Tailwind CSS utility classes**. Do NOT use `@wix/design-system` or any WDS components.
 
-## One-Time Setup
+## Project Setup
 
-Run once per project when building the first UI extension:
+Codegen pre-installs Tailwind when the dev environment starts (`src/styles/globals.css`, `astro.config.mjs` Vite plugin, and npm dependencies). **Skip setup if already present** — only import `globals.css` in extension entry files.
+
+If setting up manually (local project without codegen), run once:
 
 ```bash
 npm install -D tailwindcss @tailwindcss/vite
 ```
 
-### 1. Create `src/styles/globals.css`
+Create `src/styles/globals.css` with `@import "tailwindcss";` and register `@tailwindcss/vite` in `astro.config.mjs` under `vite.plugins`.
 
-```css
-@import "tailwindcss";
-```
-
-### 2. Register the Vite plugin in `astro.config.mjs`
-
-Add the import and plugin if not already present:
-
-```javascript
-import tailwindcss from "@tailwindcss/vite";
-
-export default defineConfig({
-  vite: {
-    plugins: [tailwindcss()],
-  },
-  // ...existing config
-});
-```
-
-If `vite.plugins` already exists, append `tailwindcss()` to the array.
-
-### 3. Import globals in each extension entry file
+### Import globals in each extension entry file
 
 Import once in the **main component** for each extension (`page.tsx`, modal `.tsx`, `.panel.tsx`, plugin `.tsx`) — not in child/helper files:
 
