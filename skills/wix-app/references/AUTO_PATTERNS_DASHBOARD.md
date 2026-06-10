@@ -82,14 +82,15 @@ src/extensions/dashboard/pages/<page-name>/
 
 ### Step 2: Generate the Schema
 
-You must produce the input JSON for the generator script. The schema has these parts:
+You must produce the input JSON for the generator script. Top-level keys: `collection`, `schema`, `relevantCollectionId`, `extensionName`.
 
-**Collection info** (provided by orchestrator):
+**`collection`** (from the data collection you scaffolded):
 - `idSuffix` — the collection's short ID
 - `fields` — array of `{ key, displayName, type }` (types: TEXT, NUMBER, BOOLEAN, DATE, IMAGE, URL, RICH_TEXT, etc.)
-- `relevantCollectionId` — full scoped collection ID (e.g., `@namespace/my-collection`)
 
-**Content fields** (20 string fields you generate):
+**`relevantCollectionId`** (top-level, sibling to `collection` and `schema`) — full scoped collection ID (e.g., `@namespace/my-collection`)
+
+**`schema.content`** — 20 string fields you generate:
 - `collectionRouteId` — URL-friendly collection ID (kebab-case, e.g., "cool-gadgets")
 - `singularEntityName` — URL-friendly singular form (e.g., "cool-gadget")
 - `pageTitle` — Main page title (e.g., "Cool Gadgets Collection")
@@ -111,25 +112,27 @@ You must produce the input JSON for the generator script. The schema has these p
 - `entityPageTitle` — Entity detail page title
 - `entityPageSubtitle` — Entity detail page subtitle
 
-**Layout** — organize ALL collection fields into sections:
+**`schema.layout`** — organize ALL collection fields into sections:
 ```json
 {
   "main": [{ "title": "Basic Info", "subtitle": "Core details", "fields": ["field1", "field2"] }],
   "sidebar": [{ "title": "Status", "subtitle": "Metadata", "fields": ["isActive"] }]
 }
 ```
-Rules: Every field must appear exactly once. Main = user-facing content. Sidebar = metadata/status.
+Rules: Every field must appear exactly once. Main = user-facing content. Sidebar = metadata/status. If there are no sidebar-worthy fields, use `"sidebar": []`.
 
-**Columns** — ordered list for the table view:
+**`schema.columns`** — ordered list for the table view:
 ```json
 [{ "id": "fieldKey", "displayName": "Short Name" }]
 ```
 Include ALL fields, primary identifiers first. Display names target ≤10 characters.
 
-**Grid item** (only if IMAGE fields exist, otherwise `null`):
+**`schema.gridItem`** (only if IMAGE fields exist, otherwise `null`):
 ```json
 { "titleFieldId": "name", "subtitleFieldId": "category", "imageFieldId": "photo" }
 ```
+
+> **🛑 Nesting is required.** Content, layout, columns, and gridItem are **not** top-level keys and **not** flat siblings under `schema`. The generator rejects flat shapes like `"schema": { "collectionRouteId": "...", "main": [...] }`. Always nest as `"schema": { "content": {...}, "layout": {...}, "columns": [...], "gridItem": null }`.
 
 ### Step 3: Run the Generator Script
 
@@ -141,10 +144,52 @@ Write the input JSON to a temp file and run the script, pointing `--output` at t
 # Write input to temp file
 cat > /tmp/auto-patterns-input.json << 'EOF'
 {
-  "collection": { ... },
-  "schema": { ... },
-  "relevantCollectionId": "...",
-  "extensionName": "My Extension Name"
+  "collection": {
+    "idSuffix": "<collection-id>",
+    "fields": [
+      { "key": "<field-key>", "displayName": "<Field Label>", "type": "<TYPE>" }
+    ]
+  },
+  "schema": {
+    "content": {
+      "collectionRouteId": "<collection-route-id>",
+      "singularEntityName": "<singular-entity-name>",
+      "pageTitle": "<Page Title>",
+      "pageSubtitle": "<Page subtitle>",
+      "actionButtonLabel": "<Create button label>",
+      "toolbarTitle": "<Toolbar title>",
+      "toolbarSubtitle": "<Toolbar subtitle>",
+      "emptyStateTitle": "<Empty state title>",
+      "emptyStateSubtitle": "<Empty state subtitle>",
+      "emptyStateButtonText": "<Empty state button>",
+      "deleteModalTitle": "<Delete modal title>",
+      "deleteModalDescription": "<Delete modal description>",
+      "deleteSuccessToast": "<Delete success toast>",
+      "deleteErrorToast": "<Delete error toast>",
+      "bulkDeleteModalTitle": "<Bulk delete modal title>",
+      "bulkDeleteModalDescription": "<Bulk delete modal description>",
+      "bulkDeleteSuccessToast": "<Bulk delete success toast>",
+      "bulkDeleteErrorToast": "<Bulk delete error toast>",
+      "entityPageTitle": "<Entity page title>",
+      "entityPageSubtitle": "<Entity page subtitle>"
+    },
+    "layout": {
+      "main": [
+        {
+          "title": "<Section title>",
+          "subtitle": "<Section subtitle>",
+          "fields": ["<field-key>"]
+        }
+      ],
+      "sidebar": []
+    },
+    "columns": [
+      { "id": "<field-key>", "displayName": "<Short Name>" }
+    ],
+    "gridItem": null
+  },
+  "relevantCollectionId": "@<namespace>/<collection-id>",
+  "extensionName": "<Extension Name>"
 }
 EOF
 
