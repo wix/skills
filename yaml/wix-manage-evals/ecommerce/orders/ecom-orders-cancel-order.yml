@@ -1,6 +1,6 @@
 name: ecommerce/orders/ecom-orders-cancel-order
 description: Verifies cancel-order requests use the guarded Orders cancel skill.
-triggerPrompt: Cancel order #1053, restock the items, and notify the customer.
+triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) Cancel order #1053, restock the items, and notify the customer.
 tags: [ecommerce]
 assertions:
   - tool: ReadFullDocsArticle

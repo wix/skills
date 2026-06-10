@@ -1,6 +1,6 @@
 name: ecommerce/shipping/category-routing
 description: Verifies Shipping now owns shipping setup and hands fulfillment operations to Fulfillment.
-triggerPrompt: I need to set up shipping rates, but also mark shipped orders fulfilled. Which docs should I use?
+triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) I need to set up shipping rates, but also mark shipped orders fulfilled. Which docs should I use?
 tags: [ecommerce]
 assertions:
   - tool: ReadFullDocsArticle

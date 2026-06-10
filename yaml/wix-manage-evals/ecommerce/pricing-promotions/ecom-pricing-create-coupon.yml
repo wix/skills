@@ -1,6 +1,6 @@
 name: ecommerce/pricing-promotions/create-coupon-renamed-slug
 description: Verifies the Pricing & Promotions category entry dispatches to the create-coupon action recipe at its renamed slug `pricing-create-coupon` (NOT the legacy `setup-coupons` from main), and that the agent uses correct Coupons API conventions (epoch milliseconds, uniqueness check).
-triggerPrompt: Create a 20% off coupon with code SUMMER20 that expires June 30, 2026
+triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) Create a 20% off coupon with code SUMMER20 that expires June 30, 2026
 tags: [ecommerce]
 assertions:
   - tool: ReadFullDocsArticle

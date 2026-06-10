@@ -1,6 +1,6 @@
 name: ecommerce/tax/eu-vat-context-dispatch
 description: Verifies the Tax category entry dispatches to the EU VAT recipe via context-tag boost (region:EU beats the priority-0 Wix Manual entry) and that the renamed slug `tax-configure-eu-vat` is reached end-to-end.
-triggerPrompt: I sell to customers in Germany and France — how do I set up VAT for my store?
+triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) I sell to customers in Germany and France — how do I set up VAT for my store?
 tags: [ecommerce]
 assertions:
   - tool: ReadFullDocsArticle

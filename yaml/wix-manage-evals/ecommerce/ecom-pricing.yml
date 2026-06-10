@@ -1,6 +1,6 @@
 name: ecommerce/ecom-pricing
 description: Verifies the Pricing & Promotions category routes discounts and separates refunds from pricing work.
-triggerPrompt: I want to create a discount, but I also need to refund a previous discounted order.
+triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) I want to create a discount, but I also need to refund a previous discounted order.
 tags: [ecommerce]
 assertions:
   - tool: ReadFullDocsArticle

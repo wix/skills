@@ -1,6 +1,6 @@
 name: ecommerce/fulfillment
 description: Verifies post-purchase fulfillment requests route to the Fulfillment category.
-triggerPrompt: Find unshipped orders, update tracking, and tell me where shipping labels are handled.
+triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) Find unshipped orders, update tracking, and tell me where shipping labels are handled.
 tags: [ecommerce]
 assertions:
   - tool: ReadFullDocsArticle

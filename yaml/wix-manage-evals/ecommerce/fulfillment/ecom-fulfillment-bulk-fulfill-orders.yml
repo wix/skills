@@ -1,6 +1,6 @@
 name: ecommerce/fulfillment/bulk-fulfill-orders
 description: Verifies bulk fulfillment requests load the dedicated bulk fulfillment skill.
-triggerPrompt: Bulk fulfill all paid unshipped orders from today and retry only failures.
+triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) Bulk fulfill all paid unshipped orders from today and retry only failures.
 tags: [ecommerce]
 assertions:
   - tool: ReadFullDocsArticle
