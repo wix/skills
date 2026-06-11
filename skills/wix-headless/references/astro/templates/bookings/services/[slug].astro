@@ -26,12 +26,15 @@ try {
 if (!service) return Astro.redirect("/services", 302);
 
 const formatPrice = (p: any): string | undefined => {
-  if (!p || p.rateType === "NO_FEE") return undefined;
+  if (!p) return undefined;
+  if (p.rateType === "NO_FEE") return "Free";
   if (p.rateType === "FIXED" && p.fixed?.price) {
     const { value, currency } = p.fixed.price;
     if (!value) return undefined;
     return new Intl.NumberFormat("en-US", { style: "currency", currency: currency ?? "USD" }).format(Number(value));
   }
+  if (p.rateType === "VARIED") return "Varies";
+  if (p.rateType === "CUSTOM") return p.custom?.description ?? "Contact us";
   return undefined;
 };
 const price = formatPrice(service.payment);
@@ -74,6 +77,7 @@ const seoTags = service.seoData?.tags ?? [];
         serviceId={service._id}
         serviceName={serviceName}
         serviceType={service.type ?? "APPOINTMENT"}
+        rateType={service.payment?.rateType ?? "FIXED"}
         client:only="react"
       />
     </section>

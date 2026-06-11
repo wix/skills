@@ -2,6 +2,7 @@ import { useState } from "react";
 import { createClient, OAuthStrategy } from "@wix/sdk";
 import { bookings } from "@wix/bookings";
 import type { SelectedSlot } from "./AvailabilityCalendar";
+import type { SelectedVariant } from "./VariantSelector";
 import { WIX_CLIENT_ID } from "astro:env/client"; // browser client ID, NOT import.meta.env
 
 // BookingForm.tsx — client:only="react" island. Renders after a slot is picked.
@@ -15,6 +16,7 @@ interface Props {
   serviceName: string;
   serviceType: "APPOINTMENT" | "CLASS";
   slot: SelectedSlot;
+  selectedVariant?: SelectedVariant; // present only for VARIED-rate services
   onSuccess: (bookingId: string, startDate: string) => void;
   onCancel: () => void;
 }
@@ -31,7 +33,7 @@ const slotDisplay = (slot: SelectedSlot) =>
       })
     : "";
 
-export default function BookingForm({ serviceName, serviceType, slot, onSuccess, onCancel }: Props) {
+export default function BookingForm({ serviceName, serviceType, slot, selectedVariant, onSuccess, onCancel }: Props) {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -78,8 +80,37 @@ export default function BookingForm({ serviceName, serviceType, slot, onSuccess,
     }
     setSubmitting(true);
     try {
+      // For VARIED services the API requires participantsChoices (not totalParticipants).
+      // The choice shape mirrors the service-options-and-variants API:
+      //   CUSTOM       → { optionId, custom: "Student" }
+      //   DURATION     → { optionId, duration: { minutes: 30 } }
+      //   STAFF_MEMBER → { optionId, staffMemberId: "<resourceId>" }
+      // Verify the exact participantsChoices.serviceChoices nesting against the live
+      // API before shipping — the SDK types expose it as `as any` here intentionally.
+      const participantsChoices = selectedVariant
+        ? {
+            serviceChoices: [
+              {
+                numberOfParticipants: participants,
+                choices: [
+                  {
+                    optionId: selectedVariant.optionId,
+                    ...(selectedVariant.custom !== undefined
+                      ? { custom: selectedVariant.custom }
+                      : selectedVariant.staffMemberId
+                      ? { staffMemberId: selectedVariant.staffMemberId }
+                      : { duration: { minutes: selectedVariant.durationMinutes ?? 0 } }),
+                  },
+                ],
+              },
+            ],
+          }
+        : undefined;
+
       const result = await wixClient.bookings.createBooking({
-        totalParticipants: participants, // party size
+        ...(participantsChoices
+          ? { participantsChoices }
+          : { totalParticipants: participants }),
         contactDetails: contactDetails(),
         selectedPaymentOption: "OFFLINE" as const,
         bookedEntity: { slot: buildSlot() },
@@ -148,8 +179,19 @@ export default function BookingForm({ serviceName, serviceType, slot, onSuccess,
       <div className="booking-form-header">
         <h3 className="booking-form-title">{isWaitlist ? "Join the waitlist" : "Reserve your spot"}</h3>
         <p className="booking-form-subtitle">
-          {serviceName} · {slotDisplay(slot)}{slot.instructorName ? ` · with ${slot.instructorName}` : ""}
+          {serviceName}
+          {selectedVariant && ` · ${selectedVariant.label}`}
+          {" · "}{slotDisplay(slot)}
+          {slot.instructorName ? ` · with ${slot.instructorName}` : ""}
         </p>
+        {selectedVariant && (
+          <p className="booking-variant-price">
+            {new Intl.NumberFormat("en-US", {
+              style: "currency",
+              currency: selectedVariant.price.currency ?? "USD",
+            }).format(Number(selectedVariant.price.value))}
+          </p>
+        )}
         {isWaitlist && <p className="booking-form-note">This session is full — join the waitlist and we'll notify you if a spot opens.</p>}
       </div>
 

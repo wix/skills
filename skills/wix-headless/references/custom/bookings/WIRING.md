@@ -28,9 +28,12 @@ You wire the **bookings capability** (services list + availability + book) into 
   const { items } = await wix.services.queryServices().limit(100).find();
   const visible = items.filter((s) => !s.hidden);
   // Bind into the existing markup: name s.name, tagline s.tagLine, slug s.mainSlug?.name,
-  // duration s.schedule?.availabilityConstraints?.sessionDurations?.[0] (APPOINTMENT),
-  // price s.payment?.fixed?.price ({ value, currency } — value is a string; format from
-  // the returned currency, the site business locale wins over what was seeded).
+  // duration s.schedule?.availabilityConstraints?.sessionDurations?.[0] (APPOINTMENT).
+  // Price display — branch on rateType:
+  //   NO_FEE  → "Free"
+  //   FIXED   → format s.payment.fixed.price.value (string) + currency
+  //   VARIED  → "Varies"  (actual variants require a separate serviceOptionsAndVariants query)
+  //   CUSTOM  → s.payment.custom.description  (e.g. "Donation", "Contact us for pricing")
 </script>
 ```
 
