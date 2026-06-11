@@ -7,7 +7,7 @@ assertions:
     params:
       articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/menus/create-menu
   - type: llm_judge
-    minScore: 7
+    minScore: 8
     maxTokens: 2048
     prompt: |
       Pass if the response creates a menu, then a section under it, then an item under that section in the correct hierarchical order (Menu → Section → Item), sets the item price correctly, and confirms each step succeeded before proceeding to the next.
