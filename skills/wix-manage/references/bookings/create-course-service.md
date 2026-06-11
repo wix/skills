@@ -169,9 +169,13 @@ Save the `serviceId` from the response: `results[0].item.service.id`
 
 ## Step 4: Navigate to Service Form
 
+Use the **RUN_IN_BROWSER** tool to navigate the user to the service form for final review:
+
 ```javascript
 window.location.href = `/bookings/services/form/${serviceId}?fromAria=true`;
 ```
+
+This executes in the user's browser and redirects them to the service editing page.
 
 ---
 
