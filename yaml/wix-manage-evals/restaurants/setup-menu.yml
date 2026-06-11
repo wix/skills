@@ -10,5 +10,5 @@ assertions:
     minScore: 7
     maxTokens: 2048
     prompt: |
-      Pass if the response creates a menu, then a section under it, then an item under that section in the correct hierarchical order (Menu → Section → Item), and sets the item price correctly.
-      Fail if it skips any level of the hierarchy, creates items without a section, or uses incorrect API endpoints.
+      Pass if the response creates a menu, then a section under it, then an item under that section in the correct hierarchical order (Menu → Section → Item), sets the item price correctly, and confirms each step succeeded before proceeding to the next.
+      Fail if it skips any level of the hierarchy, creates items without a section, uses incorrect API endpoints, or proceeds without verifying the previous step completed successfully.
