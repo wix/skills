@@ -54,10 +54,11 @@ File where you can override the generated manifest from `<componentName>.generat
 `[[ -d "node_modules/@wix/react-component-schema" && -d "node_modules/@wix/react-component-utils" && -d "node_modules/@wix/editor-react-types" ]] || ([ -f yarn.lock ] && yarn add @wix/react-component-schema @wix/react-component-utils @wix/editor-react-types || npm install @wix/react-component-schema @wix/react-component-utils @wix/editor-react-types)`
 3. Edit the generated react and CSS files in
    `src/site/components/ComponentName/`.
-4. Run `npx wix build && npx wix generate manifest` so the editor picks up
+4. Run the A11y Review on the edited component per [`editor-react-component/A11Y-REVIEW.md`](editor-react-component/A11Y-REVIEW.md). It runs two scanners over the component's `.tsx`/`.jsx` files, triages findings, and applies fixes before the manifest is regenerated.
+5. Run `npx wix build && npx wix generate manifest` so the editor picks up
    the new/updated prop schema. This command regenerates manifest
    parts for all components.
-5. Update `Component.extensions.ts` file according to [`editor-react-component/COMPONENT-CONFIGURATION.md`](editor-react-component/COMPONENT-CONFIGURATION.md)
+6. Update `Component.extensions.ts` file according to [`editor-react-component/COMPONENT-CONFIGURATION.md`](editor-react-component/COMPONENT-CONFIGURATION.md)
 
 Reference: when modifying an _existing_ component, follow
 [`editor-react-component/EDIT-FLOW.md`](editor-react-component/EDIT-FLOW.md).
@@ -69,6 +70,7 @@ Core rules and workflow: [`editor-react-component/REACT-GUIDELINES.md`](editor-r
 Topic-focused references (rules + patterns + common mistakes in one place):
 
 - [`editor-react-component/ACCESSIBILITY.md`](editor-react-component/ACCESSIBILITY.md) — ARIA/a11y rules and patterns
+- [`editor-react-component/A11Y-REVIEW.md`](editor-react-component/A11Y-REVIEW.md) — Automated a11y scan + triage workflow to run after editing
 - [`editor-react-component/DIRECTIONALITY.md`](editor-react-component/DIRECTIONALITY.md) — RTL/LTR rules and patterns
 - [`editor-react-component/PROPS-VS-CSS.md`](editor-react-component/PROPS-VS-CSS.md) — What should be a React prop vs CSS
 - [`editor-react-component/COMPONENT-API.md`](editor-react-component/COMPONENT-API.md) — Props structure, elementProps, data types, file splitting, containers, array props
