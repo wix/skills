@@ -20,6 +20,8 @@ The frontend authenticates as an **anonymous visitor** via `OAuthStrategy`, with
 - <https://dev.wix.com/docs/sdk/articles/set-up-a-client.md>
 - <https://dev.wix.com/docs/sdk/articles/set-up-a-client/authorization-strategies.md>
 
+> **Confirm the `clientId` reached the built bundle before deploying.** Public-env wiring fails silently — a mis-wired public var inlines as `undefined`, and then *every* visitor token call from the live site 400s with no other clue. After the production build, verify the **actual `clientId` value** is present in the built output (check that the value resolves — not merely that the variable *name* appears somewhere). Doing this pre-deploy stops it from being mistaken for an origin/CORS problem afterward.
+
 ### 3 · Per-capability packages + API docs (package from the map; link for shapes)
 For each loaded capability, give the host the **package(s)** from the map below and the **SDK module doc link** — the current API shape, methods, and version live on that page; let the host read them there rather than snippeting.
 
@@ -62,12 +64,12 @@ For each loaded capability, carry its **Required site features** and **Implement
 > - To get a menu page, truncate any URL to a parent path and append `.md` (e.g. `https://dev.wix.com/docs/sdk.md`, `https://dev.wix.com/docs/sdk/business-solutions.md`).
 > - Top-level index of all portals: <https://dev.wix.com/docs/llms.txt>
 > - Full concatenated docs: <https://dev.wix.com/docs/llms-full.txt>
-> - Or use the `SearchWixSDKDocumentation` tool for a targeted lookup.
+> - **Prefer `SearchWixSDKDocumentation` when the host exposes it.** Curling a module menu (e.g. `…/sdk/business-solutions/blog.md`) often surfaces only dashboard/extension pages, not the runtime query functions — `SearchWixSDKDocumentation "blog query posts"` returns the actual `posts.queryPosts`/`listPosts` shapes (with `?apiView=SDK` schema links) that the menu doesn't expose. Fall back to curling `.md` only when no MCP doc tool is present.
 
-## One required step remains: register the deployed origin
+## After deploy: publish the site and register the origin
 
-The guide describes the backend, but the frontend's visitor calls will be **rejected from the live site until its origin is registered on the OAuth app** (the step `init` does for hosted sites; here the deployed URL is only known after deploy). So after deployment, register the origin per `references/REGISTER_ORIGIN.md` — once per URL. If deployment is out of this agent flow, tell the user plainly that this step is required before the frontend can call Wix (`REGISTER_ORIGIN.md` has the wording).
+The guide describes the backend, but the frontend's visitor calls will be **rejected from the live site until its origin is registered on the OAuth app** (the step `init` does for hosted sites; here the deployed URL is only known after deploy). So after deployment, run `references/DEPLOYMENT_CHECKLIST.md` — **publish the metasite** and **register the origin** (once per URL). If deployment is out of this agent flow, tell the user plainly that the origin step is required before the frontend can call Wix (`DEPLOYMENT_CHECKLIST.md` has the wording).
 
 ## After emitting the document
 
-Once the guide is emitted and the deployed origin is registered (or the user has been flagged), the skill's work is done. Close with a short plain-prose summary of what was set up (apps installed, content seeded per capability, origin registered or pending). What happens with the guide — installing packages, wiring components, choosing a framework — is the host's to decide.
+Once the guide is emitted and the deployment checklist is done — site published, origin registered (or the user has been flagged) — the skill's work is done. Close with a short plain-prose summary of what was set up (apps installed, content seeded per capability, site published, origin registered or pending). What happens with the guide — installing packages, wiring components, choosing a framework — is the host's to decide.

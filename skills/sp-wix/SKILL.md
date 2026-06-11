@@ -3,11 +3,6 @@ name: sp-wix
 description: "Connect Wix business services (Stores, Blog, CMS, Forms, Events, Bookings, Pricing Plans) to a Stripe Projects app. Use AFTER `stripe projects add wix/*` has provisioned a Wix metasite + synced its credentials to `.env`. Given the metasite and the user's intent, this skill runs the Wix business flow — infers which Wix capabilities the app needs, installs the apps, seeds backend content — then returns an SDK-integration guide (how to call Wix from the frontend) for the host agent to use. The host keeps ownership of the frontend, the build, and the hosting. Triggers: set up Wix in this Stripe project, add a Wix store/blog/CMS/forms/events/bookings/pricing-plans backend, connect Wix Headless to my Stripe app, provision Wix content for this project, I added wix with stripe projects now wire it up. NOT for: building a new Wix-hosted site from scratch (use wix-headless), or anything outside a Stripe Projects app."
 allowed-tools:
   - Bash(curl *)
-  - Bash(ls *)
-  - Bash(cat *)
-  - Bash(grep *)
-  - Bash(head *)
-  - Bash(test *)
   - Read
   - Write
 ---
@@ -34,7 +29,7 @@ When invoked, **run these four steps in order, start to finish.** Steps 1–3 ar
 2. **Setup** (`references/SETUP.md`) — **install** the Wix apps those capabilities need on the metasite.
 3. **Seed** (`references/SEED.md`) — **create** the backend content for each capability (products, posts, collections + items, forms).
 4. **Handoff** (`references/SDK_HANDOFF.md`) — **only after Setup and Seed have run**, return the integration guide: the SDK bootstrap, per-capability call shapes, the **seeded IDs** (which exist only because Seed ran), and the `@wix/*` package list.
-5. **Register origin** (`references/REGISTER_ORIGIN.md`) — **after the site is deployed**, register its URL on the OAuth app (the admin call `init` normally does for hosted sites). Do it **once per URL** (skip if already registered). If deployment isn't part of this flow, **flag to the user** that this step is required before the frontend can call Wix.
+5. **Finalize deployment** (`references/DEPLOYMENT_CHECKLIST.md`) — **after the site is deployed**, run the two one-time backend steps: **publish the metasite** (always), and **register the deployed origin** on the OAuth app (the admin call `init` normally does for hosted sites; once per URL, skip if already registered). If deployment isn't part of this flow, **flag to the user** that the origin step is required before the frontend can call Wix.
 
 Steps 1–4 run in one pass; step 5 happens once the deployed URL exists (the skill performs it if it sees the deploy, otherwise flags the user). The guide in step 4 describes the backend that Setup and Seed built. Each Wix call uses a token minted from `.env` (`references/AUTHENTICATION.md`). The skill runs non-interactively, inferring from the user's words rather than asking.
 
@@ -50,7 +45,7 @@ Compute `<SKILL_ROOT>` from this file (`<SKILL_ROOT>/SKILL.md` — strip `/SKILL
 | Setup (install apps) | `<SKILL_ROOT>/references/SETUP.md` |
 | Seed (create backend content) | `<SKILL_ROOT>/references/SEED.md` |
 | SDK-integration handoff (the returned document) | `<SKILL_ROOT>/references/SDK_HANDOFF.md` |
-| Register the deployed origin on the OAuth app (post-deploy) | `<SKILL_ROOT>/references/REGISTER_ORIGIN.md` |
+| Finalize deployment — publish the site + register the deployed origin (post-deploy) | `<SKILL_ROOT>/references/DEPLOYMENT_CHECKLIST.md` |
 
 **Start a run by opening `DISCOVERY.md`.**
 
