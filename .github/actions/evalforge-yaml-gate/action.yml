@@ -2,7 +2,7 @@ name: 'EvalForge YAML Gate'
 description: 'Authors YAML scenarios in PRs and runs EvalForge evaluations against PR-version docs'
 inputs:
   mode:
-    description: 'Action mode: "create-version" registers the per-PR MCP capability version; "eval" (default) runs the gate; "promote" applies YAML tags on PR merge; "cleanup" deletes MCP versions and restores or removes draft scenarios on PR close'
+    description: 'Action mode: "eval" (default) runs the gate on a PR; "promote" applies YAML tags on PR merge; "cleanup" deletes MCP versions and restores or removes draft scenarios on PR close'
     required: false
     default: 'eval'
   github-token:
@@ -30,17 +30,10 @@ inputs:
     description: 'Override skillsRepo URL param when creating the per-PR MCP version (defaults to GITHUB_REPOSITORY)'
     required: false
     default: ''
-  mcp-version-id:
-    description: 'MCP capability version ID created by a prior create-version step; passed to eval mode so it can reference the correct version without re-creating it'
-    required: false
-    default: ''
   blocking:
     description: 'Fail the check on gate errors or scenario failures (set to true to block merges)'
     required: false
     default: 'false'
-outputs:
-  mcp-version-id:
-    description: 'ID of the MCP capability version created or resolved by create-version mode'
 runs:
   using: 'node20'
   main: 'dist/index.js'
