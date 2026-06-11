@@ -1,0 +1,14 @@
+name: restaurants/setup-menu
+description: Verifies restaurant menu setup requests use the Wix Restaurants Setup skill.
+triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) create a Dinner menu with a Main Courses section and add a Grilled Salmon item priced at $24.
+tags: [restaurants]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/menus/create-menu
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Pass if the response creates a menu, then a section under it, then an item under that section in the correct hierarchical order (Menu → Section → Item), and sets the item price correctly.
+      Fail if it skips any level of the hierarchy, creates items without a section, or uses incorrect API endpoints.
