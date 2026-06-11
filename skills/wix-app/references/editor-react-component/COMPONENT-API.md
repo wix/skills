@@ -163,6 +163,20 @@ When creating TypeScript interfaces for component props, use types from `@wix/ed
 import type { Link } from "@wix/editor-react-types"; // Reference at node_modules/@wix/react-component-schema/dist/editor-react-types.d.ts
 ```
 
+#### Field-name gotchas
+
+Don't guess field names — these are the ones agents most often get wrong:
+
+- **`Link`**: the URL field is **`href`**, not `url`. Shape: `{ href?: string; target?: '_self' | '_blank'; rel?: string }`.
+  ```tsx
+  // ✅ Correct
+  <a href={ctaLink?.href ?? '#'} target={ctaLink?.target ?? '_self'}>{ctaLabel}</a>
+
+  // ❌ Wrong — `Link.url` doesn't exist; tsc will error
+  <a href={ctaLink?.url ?? '#'} />
+  ```
+- **`Image`**: the source field is **`url`** (the absolute Wix-hosted URL); **`uri`** is the bare `fileName`. Both should be populated together when you author defaults. See the "Default values for `Image` props" section below.
+
 ### External resources are forbidden
 
 All resources rendered or fetched by the component (images, icons, fonts,
