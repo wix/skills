@@ -47,14 +47,6 @@ export async function runGate(): Promise<void> {
     return;
   }
 
-  const evalforge = new EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
-  const versionLabel = `pr-${config.prNumber}-${config.headSha.slice(0, 7)}`;
-  const mcpVersion = await guardedCall(
-    () => evalforge.ensureMcpVersion(config.mcpId, config.projectId, versionLabel, config.prNumber, config.headSha, config.mcpSkillsRepo),
-    'Could not create MCP version', comment, config,
-  );
-  if (!mcpVersion) return;
-
   const orphanedMds = classifiedChanges.mdFiles.filter(f => canonicalDocUrl(f.filename, workspace) === null);
   if (orphanedMds.length > 0) {
     await comment(formatOrphanedMds(orphanedMds.map(f => f.filename)));
@@ -83,6 +75,7 @@ export async function runGate(): Promise<void> {
     if (changedEvalPaths.has(ls.path)) changedHeadScenarios.set(name, ls);
   }
 
+  const evalforge = new EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
   const remote = await guardedCall(
     () => evalforge.listTestScenarios(config.projectId),
     'Could not reach EvalForge', comment, config,
@@ -121,6 +114,12 @@ export async function runGate(): Promise<void> {
     }
   }
 
+  const mcpVersionId = config.mcpVersionId;
+  if (!mcpVersionId) {
+    core.warning('No MCP version ID provided — skipping eval run');
+    return;
+  }
+
   const selected = new Set<string>();
   for (const names of cov.coveredBy.values()) {
     for (const n of names) {
@@ -151,7 +150,7 @@ export async function runGate(): Promise<void> {
       scenarioIds: [...selected],
       // capabilityIds is REQUIRED — without it the agent has no MCP bound at run time. Don't drop it.
       capabilityIds: [config.mcpId],
-      capabilityVersions: { [config.mcpId]: mcpVersion.id },
+      capabilityVersions: { [config.mcpId]: mcpVersionId },
     }),
     'Could not create eval run', comment, config,
   );

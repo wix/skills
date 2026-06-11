@@ -2,8 +2,10 @@ import * as core from '@actions/core';
 import { runGate } from './utils/gate';
 import { runPromote } from './utils/promote';
 import { runCleanup } from './utils/cleanup';
+import { runCreateVersion } from './utils/create-version';
 
 const modes: Record<string, () => Promise<void>> = {
+  'create-version': runCreateVersion,
   eval: runGate,
   promote: runPromote,
   cleanup: runCleanup,

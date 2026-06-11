@@ -17,6 +17,7 @@ export type Config = SimpleConfig & {
   agentId: string;
   headSha: string;
   mcpSkillsRepo: string;
+  mcpVersionId: string | undefined;
   blocking: boolean;
 };
 
@@ -70,6 +71,7 @@ export function getEvalConfig(): Config {
     agentId: core.getInput('evalforge-agent-id', { required: true }),
     headSha,
     mcpSkillsRepo,
+    mcpVersionId: core.getInput('mcp-version-id') || undefined,
     blocking: core.getInput('blocking') === 'true',
   };
 }
