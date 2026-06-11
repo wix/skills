@@ -85,7 +85,7 @@ The hosted flow collects contact details, takes payment when the service is paid
 
 ## On-site booking flow (server runtime — `@wix/astro`)
 
-When the project **has** a server runtime (a `@wix/astro` headless project — e.g. a brought-in design overlaid on the `headless-blank` template), wire the full on-site flow instead of the hosted-checkout redirect. The complete component implementation lives in the astro vertical (`references/astro/bookings/`); for a brought-in design whose own UI must stay intact, the minimal verified wiring is two server routes the design fetches:
+When the project **has** a server runtime (any `@wix/astro` project, however it was set up), wire the full on-site flow instead of the hosted-checkout redirect. The complete component implementation lives in the astro vertical (`references/astro/bookings/`); when the site's existing UI must stay intact (a brought-in design you should not rewrite), the minimal verified wiring is two server routes the existing front-end fetches:
 
 1. **Render only real availability — replace the mock's displayed data, not just its submit.** A brought-in design's date/time pickers are mocks: hardcoded times, seeded "taken" flags, day lists pinned to the date the design was generated. Add `GET /api/availability` — elevated (`@wix/essentials` `auth.elevate`) `availabilityTimeSlots.listAvailabilityTimeSlots` over the next ~14 days, grouped into `{ days: { "YYYY-MM-DD": ["HH:mm", …] } }` — and drive the picker **only** from it, so everything selectable is actually bookable. Re-validate the exact slot server-side at submit time (it can be taken between fetch and submit; return a friendly "slot taken" rather than booking a different time).
 
