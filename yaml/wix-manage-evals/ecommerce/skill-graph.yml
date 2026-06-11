@@ -12,3 +12,4 @@ assertions:
     prompt: |
       Pass if the response identifies the eCommerce routing graph and includes Abandoned Carts and Fulfillment as separate categories alongside Tax, Pricing, Shipping, and Checkout.
       Fail if it describes only the older four-category graph.
+
