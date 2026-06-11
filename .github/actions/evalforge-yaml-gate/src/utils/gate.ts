@@ -114,6 +114,13 @@ export async function runGate(): Promise<void> {
     }
   }
 
+  const versionLabel = `pr-${config.prNumber}-${config.headSha.slice(0, 7)}`;
+  const mcpVersion = await guardedCall(
+    () => evalforge.ensureMcpVersion(config.mcpId, config.projectId, versionLabel, config.prNumber, config.headSha, config.mcpSkillsRepo),
+    'Could not create MCP version', comment, config,
+  );
+  if (!mcpVersion) return;
+
   const selected = new Set<string>();
   for (const names of cov.coveredBy.values()) {
     for (const n of names) {
@@ -134,13 +141,6 @@ export async function runGate(): Promise<void> {
     core.info('Nothing to run');
     return;
   }
-
-  const versionLabel = `pr-${config.prNumber}-${config.headSha.slice(0, 7)}`;
-  const mcpVersion = await guardedCall(
-    () => evalforge.ensureMcpVersion(config.mcpId, config.projectId, versionLabel, config.prNumber, config.headSha, config.mcpSkillsRepo),
-    'Could not create MCP version', comment, config,
-  );
-  if (!mcpVersion) return;
 
   const run = await guardedCall(
     () => evalforge.createEvalRun(config.projectId, {
