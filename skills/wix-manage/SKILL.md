@@ -52,6 +52,18 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ### [Create and Update Booking Services](references/bookings/create-and-update-booking-services.md)
 **Technical:** Full CRUD operations for Wix Bookings services using Services API. Covers service types (APPOINTMENT, CLASS, COURSE), pricing configuration, location setup, and schedule management.
 
+### [Create Booking Service from Prompt](references/bookings/create-booking-service-from-prompt.md)
+**Technical:** Use when the user wants to create a booking service — e.g. "create a yoga class for $50", "set up consultations", "add a personal training appointment". Routes to the correct type-specific recipe (APPOINTMENT, CLASS, or COURSE), gathers business context, applies defaults, and creates the service.
+
+### [Create Appointment Service](references/bookings/create-appointment-service.md)
+**Technical:** Use when the user wants to create an appointment/consultation/1-on-1 service — e.g. "set up consultations for $75", "create a meeting service". Handles staff assignment, session duration, and pricing via bulkCreateServices API.
+
+### [Create Class Service](references/bookings/create-class-service.md)
+**Technical:** Use when the user wants to create a group class — e.g. "create a yoga class for $50", "set up a pilates class". Handles group capacity, recurring sessions, and pricing via bulkCreateServices API.
+
+### [Create Course Service](references/bookings/create-course-service.md)
+**Technical:** Use when the user wants to create a multi-session course — e.g. "create a 6-week workshop", "set up a training program for $300". Handles group capacity, full-course pricing, and fixed series via bulkCreateServices API.
+
 ### [End-to-End Booking Flow](references/bookings/end-to-end-booking-flow.md)
 **Technical:** Complete booking flow from service discovery to payment. Query services, check availability with Time Slots V2, create bookings, and process payment via eCommerce checkout.
 
