@@ -9,7 +9,7 @@ Read **only** the files your scope needs. The reading set varies by scope:
 | Your scope | Mandatory | Conditional |
 |---|---|---|
 | `seed` | this file, `RETURN_CONTRACT.md`, `DOCS_SEARCH.md` | — |
-| `components`, `components-css`, `pages`, `pages-*` | this file, `RETURN_CONTRACT.md`, `STYLING.md` | — |
+| `components`, `components-css`, `pages`, `pages-*` | this file, `RETURN_CONTRACT.md`, `STYLING.md` | `DOCS_SEARCH.md` — when looking up a Wix API not covered by your recipe (use it before WebSearch) |
 | Image scopes | (read `references/images/INSTRUCTIONS.md` § Self-Loading) | — |
 
 Then read the specific reference(s) for your declared scope(s) (see your vertical's `INSTRUCTIONS.md` scope table). Do NOT read references for scopes **not** named in your prompt — wastes context and blurs ownership.
