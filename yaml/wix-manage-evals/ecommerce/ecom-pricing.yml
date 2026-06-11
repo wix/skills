@@ -5,7 +5,7 @@ tags: [ecommerce]
 assertions:
   - tool: ReadFullDocsArticle
     params:
-      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/ecom-pricing
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-promotions
   - type: llm_judge
     minScore: 7
     maxTokens: 2048
