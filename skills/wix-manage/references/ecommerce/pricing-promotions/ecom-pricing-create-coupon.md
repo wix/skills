@@ -1,9 +1,10 @@
 ---
 name: "Pricing: Create Coupon"
 description: Creates and manages coupon codes using the Coupons V2 API. Covers coupon types (percentage, fixed amount, fixed price, free shipping), scope targeting, usage limits, and the mapping from discount recommendations to coupon API payloads.
-layer: config
 ---
-# Setup Coupons
+# Pricing: Create Coupon
+
+> **This skill is the single source for coupon creation.** Do NOT load `…/skills/setup-coupons` — that legacy slug pre-dates the routing tree migration and its content has been merged into this file. If the WixREADME index surfaces it, ignore it.
 
 ## Prerequisites
 

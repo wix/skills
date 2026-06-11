@@ -26,6 +26,11 @@ If the merchant gives an order number such as `#1053`, search orders first to re
 - `fulfillmentStatus`
 - line items and Wix Stores inventory relevance
 
+**If the order number returns zero matches**, do NOT stop at "which order?". Instead:
+1. List up to 5 candidate recent orders (number, status, paymentStatus, total) so the merchant can correct the number.
+2. Walk through Steps 2–5 below in narrative form — what the side-effect confirmation, the cancel API call, and the post-cancel verification WOULD look like for the order once identified. Make clear no API call has been made yet.
+3. End with a single confirmation question that includes the placeholder `{orderNumber/orderId}` slots from Step 3.
+
 Do not cancel if multiple orders match. Ask one clarifying question.
 
 ## Step 2: Clarify side effects

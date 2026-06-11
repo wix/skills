@@ -17,6 +17,8 @@ For information and reporting queries, prefer **Analytics APIs**. Use the Abando
 > **Before dispatching** - confirm MerchantContext is loaded. If `siteData.country` is not in your conversation context, load it via [Load Merchant Context](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/e-commerce-load-context). Skip if already loaded.
 >
 > **Promotion dispatch.** Score each entry below by the merchant's query -> `intent:*` tags. Load the highest-scoring entry. No match -> base recipe.
+>
+> **Hard guardrail — the recurring abandoned-cart recovery email is Dashboard-only.** Configuring the recurring recovery automation is **NOT** TPA-public via the Automations V2 API. Do NOT call `https://www.wixapis.com/automations-service/v2/automations/{id}` (POST or PATCH) to create or update the recovery automation — those calls reject built-in templates with `INVALID_ORIGIN_TYPE` (HTTP 400). If a sub-recipe slug below returns a transient 404 (rawdocs ingestion delay), do NOT improvise via the Automations API — instead route the merchant to **Wix Dashboard → Marketing → Automations → "Recover abandoned carts"** and retry the sub-recipe slug once. The only TPA-public Abandoned-Checkout APIs are: `POST /ecom/v1/abandoned-checkout/query` (read-only) and `GET /ecom/v1/abandoned-checkout/{id}/redirect-to-checkout` (one-off custom recovery links).
 
 ### Recovery actions
 

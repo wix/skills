@@ -1,29 +1,6 @@
 ---
 name: "Pricing: Run a Sale (Recommend eCommerce Strategy)"
 description: Unified eCommerce recommendation skill — analyzes site data across ALL domains (discounts, shipping, and future domains) and generates up to 5 actionable recommendations. Single entry point for any "help my business" request. Tracking is built-in.
-layer: R
-references:
-  - name: "API: Recommendation Tracking"
-    path: ecommerce/api-recommendation-tracking.md
-    load: false
-  - name: "Goal: Increase AOV"
-    path: ecommerce/goal-increase-aov.md
-    load: false
-  - name: "Goal: Clear Inventory"
-    path: ecommerce/goal-clear-inventory.md
-    load: false
-  - name: "Goal: Seasonal Revenue"
-    path: ecommerce/goal-seasonal-revenue.md
-    load: false
-  - name: "Goal: Drive Cross-Sells"
-    path: ecommerce/goal-drive-cross-sells.md
-    load: false
-  - name: "Goal: Reduce Cart Abandonment"
-    path: ecommerce/checkout/ecom-checkout-reduce-abandonment.md
-    load: false
-  - name: "Setup: Coupons"
-    path: ecommerce/setup-coupons.md
-    load: false
 ---
 # Run a Sale (Recommend eCommerce Strategy)
 

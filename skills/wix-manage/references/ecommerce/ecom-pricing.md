@@ -15,6 +15,8 @@ Discount rules, coupon codes, sales, ribbons, bundles, tiered pricing, and the s
 > **Before dispatching** — confirm MerchantContext is loaded. If `siteData.country` is not in your conversation context, load it via [Load Merchant Context](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/e-commerce-load-context). Skip if already loaded.
 >
 > **Promotion dispatch.** Score each entry below by (a) the merchant's query → `intent:*` tags, (b) MerchantContext → context tags. Load the **highest-scoring** entry. Ties → highest `priority`. No match → follow the base recipe at the bottom.
+>
+> **Do not fall back to legacy `setup-*` or `flow-*` pricing slugs.** The skills below replaced earlier `…/skills/setup-coupons` and `…/skills/flow-<name>` articles during the routing-tree migration. If a slug below returns a transient 404 (rawdocs ingestion delay), **retry the same URL after a brief pause** — do NOT load any `setup-coupons` or `flow-*` legacy version even if it appears in the WixREADME index; that content is stale pre-migration material that contradicts this dispatcher.
 
 ### Actions — concrete operations
 

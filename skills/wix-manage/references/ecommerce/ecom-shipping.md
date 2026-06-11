@@ -17,6 +17,8 @@ Set up and tune how a store ships — what rates to charge, which regions are co
 >
 > **Promotion dispatch.** Score each entry below by (a) the merchant's query → `intent:*` tags, (b) MerchantContext → context tags. Load the **highest-scoring** entry with `ReadFullDocsArticle`. Ties → highest `priority`. No match → follow the base recipe at the bottom.
 >
+> **Do not fall back to legacy `flow-*` slugs.** The skills below replaced earlier `…/skills/flow-<name>` articles (e.g. `flow-add-free-shipping`) during the routing-tree migration. If a slug below returns a transient 404 from the docs backend (rawdocs ingestion delay on a freshly-renamed slug), **retry the same URL after a brief pause** — do NOT load the legacy `flow-*` version, which carries stale pre-migration content that contradicts this dispatcher.
+>
 > **API reference.** All shipping endpoints (Shipping Options + Delivery Profiles) are documented inline in [Shipping API Reference](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping-api-reference) — there is no public `dev.wix.com` docs page for them, so that file is the authoritative spec. The recipes below link to it where needed.
 
 ### Actions — set up shipping
