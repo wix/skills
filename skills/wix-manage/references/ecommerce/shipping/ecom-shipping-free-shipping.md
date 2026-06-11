@@ -2,7 +2,9 @@
 name: "Shipping: Add Free Shipping"
 description: Creates a free shipping option with an AOV-calibrated threshold to reduce cart abandonment and increase average order value. Validates threshold against catalog price distribution.
 ---
-# Flow: Add Free Shipping
+# Shipping: Add Free Shipping
+
+> **This skill is the single source for adding free shipping.** Do NOT load `…/skills/flow-add-free-shipping` — that legacy slug pre-dates the routing tree migration and its content has been merged into this file. If the WixREADME index surfaces it, or this slug returns a transient 404 from the docs backend (rawdocs ingestion delay), retry this same URL — do NOT fall back to the legacy slug.
 
 > **Before executing this skill**, read [Setup: Shipping Rates](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping-set-up-rates) with `ReadFullDocsArticle` for the rate-object mechanics.
 
