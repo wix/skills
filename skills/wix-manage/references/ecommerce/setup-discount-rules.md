@@ -1,6 +1,6 @@
 ---
 name: "Setup: Discount Rules"
-description: Configures automatic discount rules using the eCommerce Discount Rules API. Covers percentage and fixed-amount discounts, scope targeting (catalog-wide, specific collections, or individual products), and scheduling active periods.
+description: Configures automatic discount rules using the eCommerce Discount Rules API. Covers percentage and fixed-amount discounts, scope targeting (catalog-wide, specific collections, or individual products), scheduling active periods, and the find-by-name + update pattern.
 layer: config
 ---
 # Setup Discount Rules
@@ -20,22 +20,65 @@ layer: config
 
 ---
 
-## Step 1: Query existing discount rules
+## Critical: `discounts` structure
 
-Before creating new rules, check what already exists to avoid conflicts.
+**The API always returns the full normalized structure.** Never assume a simplified form. Each discount entry looks like:
+
+```json
+{
+  "targetType": "SPECIFIC_ITEMS",
+  "specificItemsInfo": {
+    "scopes": [
+      {
+        "id": "all_215238eb-22a5-4c36-9e7b-e7c08025e04e",
+        "type": "CATALOG_ITEM",
+        "catalogItemFilter": {
+          "catalogAppId": "215238eb-22a5-4c36-9e7b-e7c08025e04e"
+        }
+      }
+    ]
+  },
+  "discount": {
+    "discountType": "PERCENTAGE",
+    "percentage": 20
+  }
+}
+```
+
+When updating a rule, always use the `discounts` array as returned from the query/get, modifying only the specific fields you need. **Do not reconstruct from scratch unless creating a new rule.**
+
+---
+
+## Step 1: Query existing discount rules
 
 **Endpoint**: `POST https://www.wixapis.com/ecom/v1/discount-rules/query`
 
-**Request**:
+> **Paging**: This API uses **cursor paging** (`cursorPaging`), not offset paging. Using `paging` instead of `cursorPaging` will fail.
+
+**Request** — list all rules:
 ```json
 {
   "query": {
-    "paging": {
+    "cursorPaging": {
       "limit": 100
     }
   }
 }
 ```
+
+**Request** — find by name (exact match):
+```json
+{
+  "query": {
+    "filter": {
+      "name": { "$eq": "Summer Sale" }
+    },
+    "cursorPaging": { "limit": 10 }
+  }
+}
+```
+
+Filterable fields: `id`, `name`, `active`, `revision`, `created_date`, `updated_date`, `active_time_info.start`, `active_time_info.end`
 
 **Response**:
 ```json
@@ -52,20 +95,28 @@ Before creating new rules, check what already exists to avoid conflicts.
       },
       "discounts": [
         {
+          "targetType": "SPECIFIC_ITEMS",
+          "specificItemsInfo": {
+            "scopes": [
+              {
+                "id": "all_215238eb-22a5-4c36-9e7b-e7c08025e04e",
+                "type": "CATALOG_ITEM",
+                "catalogItemFilter": {
+                  "catalogAppId": "215238eb-22a5-4c36-9e7b-e7c08025e04e"
+                }
+              }
+            ]
+          },
           "discount": {
             "discountType": "PERCENTAGE",
             "percentage": 10
-          },
-          "scope": {
-            "id": "catalog",
-            "type": "CATALOG"
           }
         }
       ]
     }
   ],
   "pagingMetadata": {
-    "count": 1,
+    "cursors": {},
     "hasNext": false
   }
 }
@@ -91,44 +142,27 @@ Note existing rules and their scopes to avoid stacking conflicts.
     },
     "discounts": [
       {
+        "targetType": "SPECIFIC_ITEMS",
+        "specificItemsInfo": {
+          "scopes": [
+            {
+              "id": "all_215238eb-22a5-4c36-9e7b-e7c08025e04e",
+              "type": "CATALOG_ITEM",
+              "catalogItemFilter": {
+                "catalogAppId": "215238eb-22a5-4c36-9e7b-e7c08025e04e"
+              }
+            }
+          ]
+        },
         "discount": {
           "discountType": "PERCENTAGE",
           "percentage": 20
-        },
-        "scope": {
-          "id": "catalog",
-          "type": "CATALOG"
         }
       }
-    ]
-  }
-}
-```
-
-**Response**:
-```json
-{
-  "discountRule": {
-    "id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
-    "revision": "1",
-    "name": "Flash Sale 20% Off",
-    "active": true,
-    "activeTimeInfo": {
-      "start": "2026-05-01T00:00:00.000Z",
-      "end": "2026-05-03T23:59:59.000Z"
-    },
-    "discounts": [
-      {
-        "discount": {
-          "discountType": "PERCENTAGE",
-          "percentage": 20
-        },
-        "scope": {
-          "id": "catalog",
-          "type": "CATALOG"
-        }
-      }
-    ]
+    ],
+    "settings": {
+      "appliesTo": "ALL_ITEMS"
+    }
   }
 }
 ```
@@ -141,16 +175,30 @@ Note existing rules and their scopes to avoid stacking conflicts.
     "active": true,
     "discounts": [
       {
+        "targetType": "SPECIFIC_ITEMS",
+        "specificItemsInfo": {
+          "scopes": [
+            {
+              "id": "collections_215238eb-22a5-4c36-9e7b-e7c08025e04e",
+              "type": "CUSTOM_FILTER",
+              "customFilter": {
+                "appId": "215238eb-22a5-4c36-9e7b-e7c08025e04e",
+                "params": {
+                  "collectionIds": ["collection-uuid-here"]
+                }
+              }
+            }
+          ]
+        },
         "discount": {
           "discountType": "PERCENTAGE",
           "percentage": 15
-        },
-        "scope": {
-          "id": "collection-uuid-here",
-          "type": "COLLECTION"
         }
       }
-    ]
+    ],
+    "settings": {
+      "appliesTo": "ALL_ITEMS"
+    }
   }
 }
 ```
@@ -167,16 +215,28 @@ Note existing rules and their scopes to avoid stacking conflicts.
     "active": true,
     "discounts": [
       {
+        "targetType": "SPECIFIC_ITEMS",
+        "specificItemsInfo": {
+          "scopes": [
+            {
+              "id": "specific_215238eb-22a5-4c36-9e7b-e7c08025e04e",
+              "type": "CATALOG_ITEM",
+              "catalogItemFilter": {
+                "catalogAppId": "215238eb-22a5-4c36-9e7b-e7c08025e04e",
+                "catalogItemIds": ["product-uuid-here"]
+              }
+            }
+          ]
+        },
         "discount": {
           "discountType": "FIXED_AMOUNT",
           "fixedAmount": "5.00"
-        },
-        "scope": {
-          "id": "product-uuid-here",
-          "type": "SPECIFIC_PRODUCTS"
         }
       }
-    ]
+    ],
+    "settings": {
+      "appliesTo": "ALL_ITEMS"
+    }
   }
 }
 ```
@@ -185,36 +245,107 @@ Note existing rules and their scopes to avoid stacking conflicts.
 
 ## Step 4: Update a discount rule
 
-**Endpoint**: `PATCH https://www.wixapis.com/ecom/v1/discount-rules/{discountRuleId}`
+Always fetch the rule first (via Get or Query), then modify only the fields you need. The `mask` field tells the API which fields to update — omit it to replace all writable fields.
 
-**Request**:
+**Endpoint**: `PATCH https://www.wixapis.com/ecom/v1/discount-rules/{discountRule.id}`
+
+**Required**: `discountRule.id`, `discountRule.revision` (must match current revision)
+
+**Request** — change percentage on an existing rule (full discounts replacement):
 ```json
 {
   "discountRule": {
-    "id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+    "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
     "revision": "1",
-    "name": "Extended Flash Sale 25% Off",
     "discounts": [
       {
+        "targetType": "SPECIFIC_ITEMS",
+        "specificItemsInfo": {
+          "scopes": [
+            {
+              "id": "all_215238eb-22a5-4c36-9e7b-e7c08025e04e",
+              "type": "CATALOG_ITEM",
+              "catalogItemFilter": {
+                "catalogAppId": "215238eb-22a5-4c36-9e7b-e7c08025e04e"
+              }
+            }
+          ]
+        },
         "discount": {
           "discountType": "PERCENTAGE",
           "percentage": 25
-        },
-        "scope": {
-          "id": "catalog",
-          "type": "CATALOG"
         }
       }
     ]
+  },
+  "mask": { "paths": ["discounts"] }
+}
+```
+
+**Request** — change only `active` status (field mask for partial update):
+```json
+{
+  "discountRule": {
+    "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "revision": "2",
+    "active": false
+  },
+  "mask": { "paths": ["active"] }
+}
+```
+
+---
+
+## Step 5: Find by name and update (complete pattern)
+
+The safe pattern for "find a rule by name and update its percentage":
+
+1. Query with name filter → get the rule's `id`, `revision`, and `discounts` array
+2. Modify only the `discount.percentage` inside each discount entry, keeping all other fields intact
+3. PATCH with the modified `discounts` and `mask: { paths: ["discounts"] }`
+
+**Step 5a — Query by name**:
+```json
+POST https://www.wixapis.com/ecom/v1/discount-rules/query
+{
+  "query": {
+    "filter": { "name": { "$eq": "My Rule Name" } },
+    "cursorPaging": { "limit": 1 }
   }
 }
 ```
 
-The `revision` field is required and must match the current revision.
+Extract from response: `discountRules[0].id`, `discountRules[0].revision`, `discountRules[0].discounts`
+
+**Step 5b — Update percentage** (modify the returned discounts in-place):
+
+Take the `discounts` array from the query response and update only `discount.percentage` on each entry:
+```json
+PATCH https://www.wixapis.com/ecom/v1/discount-rules/{id}
+{
+  "discountRule": {
+    "id": "<id from query>",
+    "revision": "<revision from query>",
+    "discounts": [
+      {
+        "targetType": "SPECIFIC_ITEMS",
+        "specificItemsInfo": { "<scopes unchanged from query response>" },
+        "discount": {
+          "discountType": "PERCENTAGE",
+          "percentage": 10
+        }
+      }
+    ]
+  },
+  "mask": { "paths": ["discounts"] }
+}
+```
+
+> **Important**: Copy `targetType`, `specificItemsInfo.scopes` verbatim from the query response — do not reconstruct them. Only change `discount.discountType` and `discount.percentage`/`discount.fixedAmount`.
 
 ---
 
-## Step 5: Deactivate or delete a discount rule
+## Step 6: Deactivate or delete a discount rule
 
 To deactivate without deleting:
 ```json
@@ -223,7 +354,8 @@ To deactivate without deleting:
     "id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
     "revision": "2",
     "active": false
-  }
+  },
+  "mask": { "paths": ["active"] }
 }
 ```
 
@@ -237,23 +369,28 @@ To delete permanently:
 
 | Field | Required | Notes |
 |---|---|---|
-| `name` | Yes | Internal name for the rule |
+| `name` | Yes | Internal name for the rule. Filterable in query. |
 | `active` | Yes | Whether the rule is currently applied |
 | `activeTimeInfo.start` | No | ISO 8601 start time. Omit for immediate activation |
 | `activeTimeInfo.end` | No | ISO 8601 end time. Omit for no expiration |
-| `discounts[].discount.discountType` | Yes | `PERCENTAGE` or `FIXED_AMOUNT` |
+| `discounts[].targetType` | Yes | Always `"SPECIFIC_ITEMS"` for standard rules |
+| `discounts[].specificItemsInfo.scopes[]` | Yes | Array of scope objects — see Scope types below |
+| `discounts[].discount.discountType` | Yes | `"PERCENTAGE"` or `"FIXED_AMOUNT"` or `"FIXED_PRICE"` |
 | `discounts[].discount.percentage` | If PERCENTAGE | Integer 1-100 |
 | `discounts[].discount.fixedAmount` | If FIXED_AMOUNT | Decimal string (e.g., `"5.00"`) |
-| `discounts[].scope.type` | Yes | `CATALOG`, `COLLECTION`, or `SPECIFIC_PRODUCTS` |
-| `discounts[].scope.id` | Yes | `"catalog"` for CATALOG type, or the collection/product UUID |
+| `settings.appliesTo` | Yes on create | Always `"ALL_ITEMS"` |
+| `revision` | On update/delete | Must match current value — fetch first |
+| `mask.paths[]` | On update | Recommended — list fields being changed (e.g., `["discounts"]`, `["active"]`) |
 
 ## Scope types
 
-| Scope Type | `scope.id` value | Description |
-|---|---|---|
-| `CATALOG` | `"catalog"` | Applies to all products in the store |
-| `COLLECTION` | Collection UUID | Applies to all products in a specific collection |
-| `SPECIFIC_PRODUCTS` | Product UUID | Applies to a single product (use multiple discount entries for multiple products) |
+| Scope | `type` | `id` prefix | When to use |
+|---|---|---|---|
+| All products | `"CATALOG_ITEM"` | `all_<appId>` | `catalogItemFilter.catalogAppId` only, no `catalogItemIds` |
+| Specific products | `"CATALOG_ITEM"` | `specific_<appId>` | `catalogItemFilter.catalogAppId` + `catalogItemFilter.catalogItemIds` |
+| Collection | `"CUSTOM_FILTER"` | `collections_<appId>` | `customFilter.appId` + `customFilter.params.collectionIds` |
+
+**Store catalog app ID** (required in all scopes): `215238eb-22a5-4c36-9e7b-e7c08025e04e`
 
 ## Recommendation → API Mapping
 

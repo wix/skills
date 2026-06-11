@@ -1,0 +1,7 @@
+lib
+dist/*.map
+node_modules
+package-lock.json
+.pnp.*
+.yarn/cache
+.yarn/install-state.gz

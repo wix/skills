@@ -1,12 +1,12 @@
 ---
 name: wix-manage
-description: "Wix business solution management recipes — REST API operations for configuring and managing Wix business solutions. Routes to: stores, bookings, get-paid, CMS, contacts, events, forms, media, app-installation, pricing-plans, restaurants, rich-content, sites, blog, calendar, domains, site-properties, ecommerce."
+description: "Wix business solution management recipes — REST API operations for configuring and managing Wix business solutions. Routes to: stores, bookings, get-paid, CMS, contacts, forms, media, app-installation, pricing-plans, restaurants, rich-content, sites, blog, calendar, domains, site-properties, ecommerce."
 compatibility: Requires Wix REST API access (API key or OAuth).
 ---
 
 # Management Recipes Index
 
-> **Standard call shape for every curl example across these recipes.** The `<AUTH>` placeholder in example curls is shorthand for the `Authorization` header only; every actual call ALSO needs `wix-site-id: <SITE_ID>` and `Content-Type: application/json`. **POST/PATCH against `wix-data/*`, `form-schema-service/*`, `stores/v3/*`, `blog/v3/*`, and other site-scoped REST families return 403 without `wix-site-id`** — observed seeder regression cost ~100 s rediscovering this on a 2026-05-24 run. Mint the token via `npx @wix/cli token --site "$SITE_ID"`.
+> **Standard call shape for every curl example across these recipes.** The `<AUTH>` placeholder in example curls is shorthand for the `Authorization` header only; body-bearing calls also need `Content-Type: application/json`.
 
 ## What Are Management Recipes?
 
@@ -157,6 +157,7 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 
 #### Config & API References
 - [API: Recommendation Tracking](references/ecommerce/api-recommendation-tracking.md)
+- [API: Shipping Delivery](references/ecommerce/api-shipping.md)
 - [Setup: Discount Rules](references/ecommerce/setup-discount-rules.md)
 - [Setup: Coupons](references/ecommerce/setup-coupons.md)
 - [Setup: Shipping Regions](references/ecommerce/setup-shipping-regions.md)
@@ -170,13 +171,6 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 - [Skill Graph](references/ecommerce/skill-graph.md)
 
 </details>
-
----
-
-## Events
-
-### [List Events](references/events/list-events.md)
-**Technical:** Queries events from Wix Events using Events API. Covers field sets (DETAILS, URLS, REGISTRATION), filtering by status/date, and pagination.
 
 ---
 

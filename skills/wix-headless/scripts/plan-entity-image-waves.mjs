@@ -155,7 +155,7 @@ for (const p of prompts) {
       process.exit(1);
     }
     // Read-merge-PUT: echo every existing data field, set the image field
-    // to the placeholder URL. Wipes nothing (the bug observed in 2026-04-19).
+    // to the placeholder URL. Echoing every existing field is what prevents wiping the rest of the record.
     const mergedData = { ...detail.data, [detail.imageField]: "__IMAGE_URL__" };
     patches.push({
       taskUUID: p.taskUUID,

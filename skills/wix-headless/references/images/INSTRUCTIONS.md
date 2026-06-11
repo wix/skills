@@ -1,11 +1,11 @@
 ---
 name: images-agent
-description: "Generates images for the site. Two scopes: image-phase-1-decorative (hero/about/background art, no dependencies, dispatched in SEED.md Step 2 Wave 3 batch) and image-phase-2-entity (product/blog/CMS item images, needs Phase 1 Seed entity IDs, dispatched in ORCHESTRATION Step 4.5 alongside Phase 3 Components)."
+description: "Generates images for the site. Two scopes: image-phase-1-decorative (hero/about/background art) and image-phase-2-entity (product/blog/CMS item images, needs Phase 1 Seed entity IDs)."
 ---
 
 # Images Agent — Scope-Based Image Generation
 
-Generates site images in two scopes dispatched separately by the parent skill. Uses Wix AI (Runware) for generation and Wix Media for hosting — all via `curl` against `wixapis.com` using the CLI-minted REST token (see `../shared/AUTHENTICATION.md`).
+Generates site images in two scopes. Uses Wix AI (Runware) for generation and Wix Media for hosting — all via `curl` against `wixapis.com` using the CLI-minted REST token (see `../shared/AUTHENTICATION.md`).
 
 **Nothing else blocks on image generation.** Phases 1–4 and the core pipeline all proceed independently. Products, posts, and pages work without images. Each image phase enriches them when it finishes.
 
@@ -13,10 +13,10 @@ Generates site images in two scopes dispatched separately by the parent skill. U
 
 Your prompt includes `Scope: <name>`. Map it to an image phase:
 
-| Scope | When dispatched | Depends on | Output |
-|---|---|---|---|
-| `image-phase-1-decorative` | `SEED.md` Step 2 (background) | Brand context only | Decorative images for hero / about / backgrounds; written to `.wix/image-urls.md` |
-| `image-phase-2-entity` | Step 4.5 (background, alongside Phase 3 Components) | Phase 1 Seed return data (entity IDs in prompt) | Entity images attached to products / blog posts / CMS items via REST PATCH |
+| Scope | Depends on | Output |
+|---|---|---|
+| `image-phase-1-decorative` | Brand context only | Decorative images for hero / about / backgrounds; slot→URL map returned in `data.slots` |
+| `image-phase-2-entity` | Phase 1 Seed return data (entity IDs in prompt) | Entity images attached to products / blog posts / CMS items via REST PATCH |
 
 If your prompt is missing a `Scope:` line, stop and ask the parent — do not guess.
 
@@ -36,11 +36,15 @@ If your prompt is missing a `Scope:` line, stop and ask the parent — do not gu
    - **400** `unsupportedDimensions` → see § "Error Handling"
    - **400** `invalidTaskUUID` → `taskUUID` must be valid UUIDv4 → see § "Quick Reference"
 
-## Quick Reference: Generation Call Shape
+## Preferred: generate + import via `generate-images.mjs`
 
-Before the first REST call, ensure the `curl` tool schema is loaded (the orchestrator's session auth covers this for the whole session per `<SKILL_ROOT>/references/commands/AUTHENTICATION.md` — only re-load if you hit a tool-not-found error). Use your runtime's AUTHENTICATION.md recovery ladder to look up the suffix.
+**Run the phase's generation + Wix Media import through `<SKILL_ROOT>/scripts/generate-images.mjs`** (see `../shared/IMAGE_GENERATION.md` § "Preferred: run the whole phase through `generate-images.mjs`"). Build the image list — one entry per slot (Phase 1) or per entity (Phase 2), each with `{key, positivePrompt, width, height}` — and pipe it in with the run's cached `WIX_TOKEN`. The script fires all generations concurrently in-process and returns a `key → {url, fileId}` map plus a `slots` (key→url) convenience map. This is the deterministic form of the "one concurrent batch" rule — it cannot serialize and cannot hit the `google:4@2` N≥3 504. Then attach: Phase 1 → `write-decorative-json.mjs`; Phase 2 → the per-entity PATCH/PUT/publish recipe in this file. **You still own prompt construction** (brand-contextual, per the guidelines) and **entity attachment**; the script owns the parallel network round-trips only.
 
-**All generation tool calls for an image phase MUST be in one concurrent batch.** The exact shape depends on the model — see `../shared/IMAGE_GENERATION.md` § "Required: minimize round-trips" for the rule. In short:
+## Quick Reference: Generation Call Shape (manual fallback)
+
+The shapes below are the **reference bodies** the script builds, and the **fallback** if you hand-drive generation. Before the first REST call, ensure the `curl` tool schema is loaded (the orchestrator's session auth covers this for the whole session per `<SKILL_ROOT>/references/shared/AUTHENTICATION.md` — only re-load if you hit a tool-not-found error). Use your runtime's AUTHENTICATION.md recovery ladder to look up the suffix.
+
+**If you do hand-drive it, all generation tool calls for an image phase MUST be in one concurrent batch.** The exact shape depends on the model — see `../shared/IMAGE_GENERATION.md` § "Required (manual fallback): minimize round-trips" for the rule. In short:
 
 - **`google:4@2` (the default):** N concurrent 1-task `curl` calls as siblings in one batch. (Batched N≥3 times out at 504 on this model.)
 - **`bfl:5@1`, `runware:400@1`:** one batched `curl` call with N tasks in the body array.
@@ -93,11 +97,11 @@ Concurrent siblings are safe across all three stages (gen, import, PATCH). Wix M
 
 Image Phase 2 for N products + M CMS items: ~1 schema-load + 1 product query + 1 batched generate + (N+M) imports + (N+M) PATCHes ≈ 2(N+M) + 3 calls. For 4 entities that's ~11 calls. If above 20, check for unnecessary doc reads or re-queries.
 
-## Scope: `image-phase-1-decorative` (`SEED.md` Step 2 — no dependencies)
+## Scope: `image-phase-1-decorative` (no dependencies)
 
 Generate site-wide decorative images that don't depend on any entity. Used by the Phase 2 Design System agent + Phase 4 Pages agents for hero sections, about pages, and backgrounds.
 
-**What to generate** is determined by the `decorativeSlots` list in your prompt — generate exactly those keys, no more, no less. Typical canonical keys: `hero`, `about`, `productsHeader`, `cmsHeader`. Do not invent additional keys (`background`, `aboutFeature`, etc.) — orphan keys ship as unused images and unfilled slots show as empty placeholders. The orchestrator composes this list from the loaded verticals + the designer's slot vocabulary (`references/designer/INSTRUCTIONS.md` § common rule #7); the two must agree.
+**What to generate** is determined by the `decorativeSlots` list in your prompt — generate exactly those keys, no more, no less. Typical canonical keys: `hero`, `about`, `productsHeader`, `cmsHeader`. Do not invent additional keys (`background`, `aboutFeature`, etc.) — orphan keys ship as unused images and unfilled slots show as empty placeholders. The orchestrator composes this list from the loaded verticals + the designer's slot vocabulary (`references/astro/designer/INSTRUCTIONS.md` § common rule #7); the two must agree.
 
 **Inputs (from your prompt):**
 - Brand name, business type, aesthetic direction
@@ -108,24 +112,14 @@ Generate site-wide decorative images that don't depend on any entity. Used by th
 **Process (must follow this order):**
 
 1. **Craft all image prompts up front** using brand context — see `IMAGE_GENERATION.md` § "Prompt guidelines".
-2. **Dispatch all generation tool calls in one concurrent batch** — siblings for `google:4@2` (1 task each, N blocks in parallel), or one batched call for other models (N tasks in `body`). Required, not optional — see `IMAGE_GENERATION.md` § "Required: minimize round-trips per image phase". Sequential 1-task calls across multiple turns is an anti-pattern; never do it.
+2. **Generate + import via `generate-images.mjs`** (preferred — § "Preferred: generate + import" above): build the `images` list (`key` = slot name, e.g. `hero`/`about`) and run the script with the cached `WIX_TOKEN`; it fires all generations concurrently and returns the `slots` map. **Manual fallback only:** follow § "Mandatory pre-call procedure" above (construct ALL tasks first, dispatch in one concurrent batch).
 3. **Import each to Wix Media** via `REST: POST https://www.wixapis.com/site-media/v1/files/import`.
-4. **Write `<site-root>/.wix/image-urls.md`** with all resolved URLs, keyed by purpose. **Use the absolute `<site-root>` path passed in your inputs** — do **not** use a relative `.wix/image-urls.md`. Your CWD is the scaffold subdir (orchestrator `cd`'d into it during Setup), so a relative write lands at `<scaffold>/.wix/image-urls.md` instead of `<site-root>/.wix/image-urls.md`, and the post-bridge `patch-decorative-slots.mjs` invocation (passed `<site-root>`) can't find it. Both prior runs hit this — the orchestrator had to `cp` the file across before retrying the patch script, costing ~50 s of recovery wall.
+4. **Collect the resolved URLs keyed by slot purpose** (e.g., `{"hero": "https://static.wixstatic.com/...", "about": "https://static.wixstatic.com/..."}`). This map goes into your return JSON under `data.slots` — see § Return below. Do NOT write `.wix/image-urls.md` or any other file; the orchestrator pipes your `data.slots` directly into `patch-decorative-slots.mjs` via stdin.
+5. Return the structured JSON block per `../shared/RETURN_CONTRACT.md` (see § Return below). The JSON return is your sole output channel.
 
-   ```markdown
-   # Image URLs
+The orchestrator consumes your `data.slots` map via one of two deterministic scripts, depending on the frontend — **your output contract is identical either way** (a slot→URL map; you never touch frontend source): on **astro** it pipes the map into `patch-decorative-slots.mjs`, which injects `<img>` tags into the designer's `data-decorative-slot="<key>"` placeholders in `.astro` pages; on a **framework-SPA (`own`)** it pipes the map into `write-decorative-json.mjs`, which writes `src/decorative-images.json` for the generated app to import. Either way, if your return is missing or has no slots, the consumer is a no-op and the placeholders fall back to the designer's solid-color (themed-block) rendering — nothing blocks.
 
-   ## hero
-   - url: https://static.wixstatic.com/media/...
-
-   ## about
-   - url: https://static.wixstatic.com/media/...
-   ```
-5. Return the structured JSON block per `../shared/RETURN_CONTRACT.md` (see § Return below).
-
-Page design agents read `<site-root>/.wix/image-urls.md` and use the URLs. If the file doesn't exist when a page agent runs, the page agent uses placeholder styling instead — nothing blocks.
-
-## Scope: `image-phase-2-entity` (Step 4.5 — Phase 1 Seed data inline)
+## Scope: `image-phase-2-entity` (Phase 1 Seed data inline)
 
 Generate images for products, blog posts, and CMS items. Attach via REST PATCH calls (`curl` against `wixapis.com`).
 
@@ -136,19 +130,16 @@ Generate images for products, blog posts, and CMS items. Attach via REST PATCH c
 - `collections: [{name, itemIds, fields}, ...]` — if cms pack loaded
 - `blogPosts: [{id, title, ...}, ...]` — if blog pack loaded
 
-**Do not poll for sidecars.** `.wix/logs/<feature>-data.md` is a deprecated coordination pattern (see `../shared/RETURN_CONTRACT.md`). If the `Phase 1 Seed return data:` block is missing from your prompt, return `status: "failed"` with `reason: "Phase 1 Seed return data not provided; image-phase-2-entity cannot run without entity IDs"` — do not sleep, do not read sidecars, do not re-query Phase 1 Seed data.
+**Do not poll for sidecars.** Do not read `.wix/logs/<feature>-data.md` or any coordination file (see `../shared/RETURN_CONTRACT.md`). If the `Phase 1 Seed return data:` block is missing from your prompt, return `status: "failed"` with `reason: "Phase 1 Seed return data not provided; image-phase-2-entity cannot run without entity IDs"` — do not sleep, do not read sidecars, do not re-query Phase 1 Seed data.
 
 **Process per entity type (must follow):**
 
 1. **Craft all image prompts** for this entity type up front, using each entity's own context (name, description, title, etc.).
-2. **Dispatch all generation tool calls in one concurrent batch** — same dispatch shape as Phase 1 Decorative:
-   - For `google:4@2` (default): N parallel sibling `curl` tool calls, one task each.
-   - For `bfl:5@1` / `runware:400@1` / others: ONE batched call with all N tasks in `body`.
-   See `IMAGE_GENERATION.md` § "Required: minimize round-trips per image phase". Sequential 1-task calls across multiple turns is an anti-pattern.
+2. **Generate + import via `generate-images.mjs`** (preferred — § "Preferred: generate + import" above): build the `images` list with `key` = each entity's ID, run the script with the cached `WIX_TOKEN`, and read the returned `map[entityId].url` / `.fileId` for the attach step. The script generates all entity images concurrently and isolates per-image failures (`status: "partial"`) — including the `google:4@2` 504 retry below, handled in-script. **Manual fallback only:** follow § "Mandatory pre-call procedure" above (construct ALL tasks first, dispatch in one concurrent batch).
 
-   **`google:4@2` 504 retry.** Even with N concurrent siblings, individual tasks intermittently 504. When the response array contains an entry with `errorMessage: "Request timed out"` or HTTP 504, retry **only the failing task(s)** in a follow-up batch — do NOT re-dispatch the whole batch. Cap at 1 retry per task; if it 504s twice, fall back to `bfl:5@1` for that task or skip it (entity gets no image; user can upload from dashboard).
+   **`google:4@2` 504 retry** (manual fallback; the script does this for you). Even with N concurrent siblings, individual tasks intermittently 504. When the response array contains an entry with `errorMessage: "Request timed out"` or HTTP 504, retry **only the failing task(s)** in a follow-up batch — do NOT re-dispatch the whole batch. Cap at 1 retry per task; if it 504s twice, fall back to `bfl:5@1` for that task or skip it (entity gets no image; user can upload from dashboard).
 
-   **N≥6 entities — stagger.** When you have 6 or more entities of one type, split into pairs of 3 parallel siblings rather than 6+ in one shot. Runware throttles google:4@2 above ~4 concurrent tasks per request burst, and the timeout ladder gets steeper. Two messages with 3 siblings each is reliably faster than one message with 6 + multiple retries. (Heuristic — refine after more runs collect data.)
+   **N≥6 entities — stagger.** When you have 6 or more entities of one type, split into pairs of 3 parallel siblings rather than 6+ in one shot. Runware throttles google:4@2 above ~4 concurrent tasks per request burst, and the timeout ladder gets steeper. Two messages with 3 siblings each is reliably faster than one message with 6 + multiple retries.
 3. **Import each to Wix Media**. Imports can parallelize.
 4. **PATCH each entity** with its image URL / file ID. PATCH calls can also parallelize (sibling `curl` tool calls in one message).
 
@@ -202,7 +193,7 @@ Generate images for products, blog posts, and CMS items. Attach via REST PATCH c
    2. Retry the PATCH once with the new revision.
    3. If the retry also fails with 409, surface the error — something else is mutating the entity faster than we can react. Don't loop.
 
-   Successful PATCHes from the original parallel batch keep their state; only the 409'd entity needs the recovery. Cap at one retry per failed entity. Append to `run.json.recoveries[]`: `{ "code": "INVALID_REVISION_RETRY", "entityId": "<id>", "originalRevision": "<x>", "actualRevision": "<y>" }`.
+   Successful PATCHes from the original parallel batch keep their state; only the 409'd entity needs the recovery. Cap at one retry per failed entity.
 
 ### Blog Posts (if `blogPosts` is in your prompt)
 
@@ -278,7 +269,7 @@ Your prompt includes a `siteId (for token mint):` line. Use it for every Wix RES
 
 ## Return Contract
 
-At the end, emit a structured JSON block per `../shared/RETURN_CONTRACT.md`. Do **not** write `.wix/logs/images.md` — sidecars are deprecated; the parent reads your return JSON directly.
+At the end, emit a structured JSON block per `../shared/RETURN_CONTRACT.md`. Do **not** write `.wix/logs/images.md` or any sidecar file; the parent reads your return JSON directly.
 
 ### `image-phase-1-decorative` return
 
@@ -287,14 +278,19 @@ At the end, emit a structured JSON block per `../shared/RETURN_CONTRACT.md`. Do 
   "status": "complete" | "partial" | "failed",
   "phase": "image-phase-1-decorative",
   "scope": "image-phase-1-decorative",
-  "summary": "Generated N decorative images; uploaded to Wix Media; wrote <site-root>/.wix/image-urls.md",
+  "summary": "Generated N decorative images; uploaded to Wix Media; returned slot→URL map",
   "data": {
     "decorativeCount": 3,
-    "purposes": ["hero", "about", "background"],
+    "purposes": ["hero", "about", "productsHeader"],
+    "slots": {
+      "hero":  "https://static.wixstatic.com/media/...",
+      "about": "https://static.wixstatic.com/media/...",
+      "productsHeader": "https://static.wixstatic.com/media/..."
+    },
     "model": "google:4@2",
     "totalCredits": 0.297
   },
-  "files": ["<site-root>/.wix/image-urls.md"],
+  "files": [],
   "errors": []
 }
 ```
@@ -341,10 +337,10 @@ The JSON block MUST be the **last** content in your message (see `../shared/RETU
 
 | WRONG | CORRECT |
 |-------|---------|
-| N sequential 1-task `curl` generation calls across multiple turns | All generation tool calls in one concurrent batch — parallel siblings for `google:4@2`, or one batched call for other models. See IMAGE_GENERATION.md § "Required: minimize round-trips per image phase" |
+| N sequential 1-task `curl` generation calls across multiple turns | Run `generate-images.mjs` (it parallelizes in-process); or, hand-driving, all generation tool calls in one concurrent batch — parallel siblings for `google:4@2`, or one batched call for other models. See IMAGE_GENERATION.md § "Required (manual fallback): minimize round-trips" |
 | Poll `.wix/logs/<feature>-data.md` sidecars to learn Phase 1 Seed is done | Phase 1 Seed data is inline in your prompt — if missing, return `failed` |
 | `sleep 60` loop to wait for Phase 1 Seed | No waiting, no polling — prompt has the data or the agent fails |
-| Write `.wix/logs/images.md` sidecar | Sidecars are deprecated — return structured JSON per `RETURN_CONTRACT.md` |
+| Write `.wix/logs/images.md` or `.wix/image-urls.md` sidecar | Return structured JSON per `RETURN_CONTRACT.md` instead (decorative URLs go in `data.slots`) |
 | Re-query Phase 1 Seed entity IDs via the REST API | IDs are in your prompt; re-querying wastes a round-trip |
 | Generic prompts ("a product photo") | Use brand context, product name, aesthetic direction |
 | Ignore color palette from prompt | Reference actual hex codes in image prompts |
@@ -353,7 +349,7 @@ The JSON block MUST be the **last** content in your message (see `../shared/RETU
 | Use free-form sizes (e.g., `800×600`) | Use allowed dimensions only — `1024×1024`, `1376×768`, `1200×896` |
 | Use blog post `file.url` for cover image | Blog posts need `file.fileUrl` (file ID) for `media.wixMedia.image.id` |
 | Block on image failures | Skip failed images, continue with others |
-| Write `.wix/image-urls.md` with a relative path | Use the absolute `<site-root>/.wix/image-urls.md` — your CWD is the scaffold subdir, not site-root, and a relative write lands in the wrong directory (`patch-decorative-slots.mjs` then can't find it; observed in two prior runs) |
+| Write any coordination file (`.wix/image-urls.md`, sidecars) | Return slot→URL map in `data.slots`; the orchestrator pipes it to `patch-decorative-slots.mjs` via stdin |
 | PATCH products without `options`/`variantsInfo` | Always query products first for these fields — PATCH returns 428 without them (see § "Products" step 1) |
 | PUT a CMS item with only `{data: {image: "..."}}` | Read-merge-write: query the item, merge image into existing `data`, PUT the full record (see § "CMS Items" step 4). Writing only `image` erases seeded heading/body/etc. |
 | Use `PATCH /wix-data/v2/items/{itemId}` with `{dataItem: {data}}` | PATCH requires JsonPatch `fieldModifications` — use read-merge-PUT instead (see § "CMS Items") |

@@ -5,17 +5,17 @@ description: "Implements vertical-agnostic ecommerce — cart page, checkout red
 
 # Ecom Implementer
 
-Extends `references/shared/IMPLEMENTER.md`. Read that file first for phase routing, REST auth + doc lookups, site.json read pattern, return contract, style conventions, and common failure modes.
+Extends `references/shared/IMPLEMENTER.md`. Read that file first for phase routing, REST auth + doc lookups, prompt-inlined inputs (read only your `.wix/seeded.json` slice), return contract, style conventions, and common failure modes.
 
 ## Scope routing
 
 | Scope | Phase | Reference |
 |-------|-------|-----------|
-| `components` | Components (CartView, CartBadge — TSX only, **no CSS**) — `src/utils/discounts.ts` is pre-copied by the orchestrator | `./CART_WIRING.md` |
-| ~~`components-css`~~ | **Deprecated.** `src/styles/components-ecom.css` is now copied from `<SKILL_ROOT>/templates/ecom/components-ecom.css` by the orchestrator's pre-Step-4.5 batch (see ORCHESTRATION.md § Step 4.5). The template uses direct `var(--token)` CSS, so it works against any designer-published vocabulary without needing per-run rewrites. `COMPONENTS_CSS.md` is retained as historical reference only — do NOT dispatch a `components-css` subagent. | — |
-| `pages` | Pages (cart.astro, thank-you.astro, Navigation CartBadge mount) | `./CART_PAGES.md` |
+| `components` | Components (CartView, CartBadge — TSX only, **no CSS**) — `src/utils/discounts.ts` is pre-copied by the orchestrator | `../astro/ecom/CART_WIRING.md` |
+| ~~`components-css`~~ | **Do not dispatch.** `src/styles/components-ecom.css` is copied from `<SKILL_ROOT>/references/astro/templates/ecom/components-ecom.css` by the orchestrator's pre-Step-4.5 batch (see BUILD-astro.md § Step 4.5). The template uses direct `var(--token)` CSS, so it works against any designer-published vocabulary without per-run rewrites. `COMPONENTS_CSS.md` documents that CSS for reference — there is no `components-css` subagent to dispatch. | — |
+| `pages` | Pages (cart.astro, thank-you.astro, Navigation CartBadge mount) | `../astro/ecom/CART_PAGES.md` |
 
-> **Why `components` is split.** A single agent writing the .tsx islands plus the scoped CSS was Phase 3's critical path on the most recent run (204 s for ecom alone). The CSS file has no runtime coupling to the TSX components — it's referenced only by class name at build time — so it splits cleanly into a sibling agent that runs in the same dispatch batch. Mirrors the stores split. See `./COMPONENTS_CSS.md` § "What this scope owns".
+> **Why `components` is TSX-only.** The scoped CSS (`src/styles/components-ecom.css`) has no runtime coupling to the TSX components — it's referenced only by class name at build time — so it ships pre-copied from the template by the orchestrator (see the `components-css` scope-routing row above) rather than being written by an agent. Mirrors the stores split. See `../astro/ecom/COMPONENTS_CSS.md` § "What this scope owns".
 
 Note: `ecom` is never triggered independently — it's co-loaded by verticals that require it (`stores` today; `bookings`, `events` in the future). No `seed` scope — ecom has no data of its own; it works off line items from whichever catalog app is installed.
 
@@ -26,21 +26,21 @@ See `<SKILL_ROOT>/references/verticals/ecom.md` frontmatter.
 ## Templates
 
 Components (`components` scope — TSX only):
-- `<SKILL_ROOT>/templates/ecom/CartView.tsx`
-- `<SKILL_ROOT>/templates/ecom/CartBadge.tsx`
+- `<SKILL_ROOT>/references/astro/templates/ecom/CartView.tsx`
+- `<SKILL_ROOT>/references/astro/templates/ecom/CartBadge.tsx`
 
-Components CSS (`components-css` scope — scoped CSS only):
-- `<SKILL_ROOT>/templates/ecom/components-ecom.css`
+Components CSS (pre-copied by the orchestrator — no agent writes it):
+- `<SKILL_ROOT>/references/astro/templates/ecom/components-ecom.css`
 
 ### Pre-copied by the orchestrator (do NOT write this yourself)
 
-- `src/utils/discounts.ts` — pre-copied from `<SKILL_ROOT>/templates/ecom/discounts.ts` BEFORE your `components` scope dispatches. Wix Ecom Discount Rules fetch + per-product match utility; consumers are stores `pages-products` / `pages-home-and-nav` (ProductCard ribbon + product-detail offer callout). Uses `auth.elevate()` from `@wix/essentials` — `discountRules.queryDiscountRules` requires `ECOM.DISCOUNT_RULES_READ`, a visitor client returns empty silently without elevation.
+- `src/utils/discounts.ts` — pre-copied from `<SKILL_ROOT>/references/astro/templates/ecom/discounts.ts` BEFORE your `components` scope dispatches. Wix Ecom Discount Rules fetch + per-product match utility; consumers are stores `pages-products` / `pages-home-and-nav` (ProductCard ribbon + product-detail offer callout). Uses `auth.elevate()` from `@wix/essentials` — `discountRules.queryDiscountRules` requires `ECOM.DISCOUNT_RULES_READ`, a visitor client returns empty silently without elevation.
 
   Just import from this path; never rewrite the file. Regenerating it has shipped a no-op stub that satisfied the manifest but caused the discount ribbon to silently never render. The pre-copy makes that regression structurally impossible.
 
 ## CSS ownership — ecom pack
 
-Ecom-specific component CSS lives in `src/styles/components-ecom.css` (written by your `components` scope), NOT in the designer's `global.css`. The classes you own:
+Ecom-specific component CSS lives in `src/styles/components-ecom.css` (pre-copied from the template by the orchestrator before Step 4.5 — see the `components-css` scope-routing row above; your `components` scope imports it, never writes it), NOT in the designer's `global.css`. The classes the pack owns:
 
 - `.cart-summary` — the bordered/sticky summary panel on `/cart`. Compound bordered card; sticky on desktop.
 - `.cart-total` — the row inside the summary that anchors the total amount with a top rule and display-serif typography.
