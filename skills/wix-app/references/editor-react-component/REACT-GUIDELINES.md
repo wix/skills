@@ -8,7 +8,8 @@ This guide defines rules and guidance on **how to implement** production-quality
 - [`DIRECTIONALITY.md`](DIRECTIONALITY.md) — RTL/LTR rules and patterns
 - [`PROPS-VS-CSS.md`](PROPS-VS-CSS.md) — What should be a React prop vs CSS
 - [`COMPONENT-API.md`](COMPONENT-API.md) — Props structure, elementProps, data types, file splitting, containers, array props
-- [`REACT-PATTERNS.md`](REACT-PATTERNS.md) — SSR-safe patterns, CSS rules, common mistakes
+- [`SSR.md`](SSR.md) — Server-side rendering rules (mandatory)
+- [`REACT-PATTERNS.md`](REACT-PATTERNS.md) — CSS rules, common mistakes
 
 ## React 18 features are not supported
 
@@ -42,6 +43,10 @@ Direction support is mandatory — see [`DIRECTIONALITY.md`](DIRECTIONALITY.md).
 
 See [`ACCESSIBILITY.md`](ACCESSIBILITY.md) for full rules and patterns.
 
+### SSR Safety
+
+Components are server-rendered, then hydrated — they MUST render correctly, completely, and identically on the server. See [`SSR.md`](SSR.md) for full rules and patterns.
+
 ### TypeScript
 
 - All components must be fully typed
@@ -66,11 +71,11 @@ All components MUST follow these patterns:
 
 **1. SSR-Safe Implementation**
 
-- NO browser APIs at module scope (window, document, navigator, etc.)
-- Guard browser APIs with typeof checks or useEffect
-- All browser-dependent logic must run client-side only
+- NO browser APIs at module scope or during render (window, document, navigator, etc.) — guard inside `useEffect`
+- First render must be complete and deterministic; effects are client-only enhancement
+- Internal ids via `useStableId`; NO `useLayoutEffect`
 
-See [`REACT-PATTERNS.md`](REACT-PATTERNS.md) §1.1 for code examples.
+See [`SSR.md`](SSR.md) for full rules and code examples.
 
 **2. Clean Code**
 
@@ -161,6 +166,6 @@ See [`PROPS-VS-CSS.md`](PROPS-VS-CSS.md) and [`COMPONENT-API.md`](COMPONENT-API.
 
 **Phase 1: Analysis** — Parse information, map component structure (see Part 0)
 
-**Phase 2: Component File** — Apply all §1.1 mandatory features and §1.2 implementation standards
+**Phase 2: Component File** — Apply all §1.1 mandatory features and §1.2 implementation standards; verify SSR safety against [`SSR.md`](SSR.md)
 
 **Phase 3: Styles** — Apply Part 2 SCSS rules
