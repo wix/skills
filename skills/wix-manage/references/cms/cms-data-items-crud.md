@@ -8,7 +8,7 @@ This recipe covers basic Create, Read, Update, Delete (CRUD) operations for Wix 
 
 ## Prerequisites
 
-1. Wix CMS enabled on the site
+1. Wix CMS enabled on the site (appDefId: `e593b0bd-b783-45b8-97c2-873d42aacaf4`)
 2. Collections already created (see [CMS Schema Management](cms-schema-management.md))
 3. API access with CMS permissions
 
@@ -411,6 +411,7 @@ curl -X DELETE \
 | `WDE0007` | Bulk update: wrong ID field name | Use `id` not `_id` at element level |
 | `WDE0080` | Validation failed (multiple causes) | Bulk update: don't include `_id` in `data`; Bulk patch: use `patches` array not `dataItems` |
 | `WDE0303` | Can't set multi-reference field via data operations | Use reference endpoints: `insert-references`, `replace-references` |
+| `WDE0110` | Wix CMS (Wix Data) application is not installed | Install application with appDefId: `e593b0bd-b783-45b8-97c2-873d42aacaf4` |
 
 ---
 

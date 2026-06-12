@@ -51,30 +51,8 @@ Use the returned `appId` as the `appDefId` in Step 2.
 - The `appDefId` field in the install request and the `appId` field returned here are the same value
 - If multiple results come back, match on `basicInfo.name` to confirm you have the right app before installing
 - Only listings with `status: "PUBLISHED"` can be installed
-## Step 1: Enable Velo (Wix Code) if Needed
 
-If you receive the error `WDE0110: Wix Code not enabled`, you must first enable Velo on the site.
-
-**Endpoint**: `POST https://www.wixapis.com/mcp-serverless/v1/velo/provision`
-
-**Request**:
-```bash
-curl -X POST \
-  'https://www.wixapis.com/mcp-serverless/v1/velo/provision/' \
-  -H 'Authorization: <AUTH>' \
-  -H 'Content-Type: application/json' \
-  -d '{}'
-```
-
-**Response**: Empty body on success.
-
-### IMPORTANT NOTES:
-- Only call this endpoint if you receive the `WDE0110` error
-- This is a one-time operation per site
-
----
-
-## Step 2: Install the Wix App
+## Install the Wix App
 
 Use the Apps Installer API to install any Wix app on a site.
 
@@ -122,6 +100,7 @@ Some common apps:
 | Wix Blog | `14bcded7-0066-7c35-14d7-466cb3f09103` |
 | Wix Events | `140603ad-af8d-84a5-2c80-a0f60cb47351` |
 | Wix Pricing Plans | `1522827f-c56c-a5c9-2ac9-00f9e6ae12d3` |
+| Wix CMS | `e593b0bd-b783-45b8-97c2-873d42aacaf4` |
 
 ### IMPORTANT NOTES:
 - NEVER guess the `appDefId`. For Wix-built apps, use the table above. For any other app, resolve the ID using Step 0 (Search Market Listings).
@@ -134,9 +113,6 @@ Some common apps:
 
 ### App Not Installed Error
 If you receive an error indicating a required app is not installed, use this recipe to install it before proceeding.
-
-### WDE0110: Wix Code not enabled
-Call the Velo provision endpoint (Step 1) first, then retry the original operation.
 
 ---
 

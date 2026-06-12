@@ -8,7 +8,7 @@ This recipe covers managing the structure (schema) of Wix CMS collections using 
 
 ## Prerequisites
 
-1. Wix CMS enabled on the site
+1. Wix CMS application installed on the site (appDefId: `e593b0bd-b783-45b8-97c2-873d42aacaf4`)
 2. API access with CMS permissions (Manage Data Collections scope)
 
 ## Required APIs
