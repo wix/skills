@@ -11,4 +11,4 @@ assertions:
     maxTokens: 2048
     prompt: |
       Pass if the response uses Orders Search/Get for order lookup, diagnoses pending orders by status/payment/fulfillment, and routes fulfillment to Fulfillment and refunds/payments to Get Paid.
-      Fail if it treats generic order lookup as fulfillment-only or immediately refunds/cancels without routing/confirmation.
+      Fail if it treats generic order lookup as fulfillment-only or immediately refunds/cancels without routing/confirmation
