@@ -6,13 +6,11 @@ requires: []
 
 features:
   - name: "Services catalog"
-    description: "Browse bookable services (appointments or group classes) with descriptions, duration, pricing, and instructor info."
+    description: "Browse bookable appointment services with descriptions, duration, and pricing."
   - name: "Online booking"
-    description: "Pick an available time slot, complete a booking form, and receive confirmation — all without leaving your site."
-  - name: "Group classes"
-    description: "Capacity-aware class sign-up with party size, the leading instructor per session, and a waitlist when a session is full."
-  - name: "Manage booking"
-    description: "View and cancel a booking from the confirmation page or a shared manage link, no account login required."
+    description: "Pick an available time slot on a calendar, complete the service's booking form, and confirm."
+  - name: "Secure checkout"
+    description: "Free or pay-in-person bookings confirm instantly; paid services hand off to Wix's secure hosted checkout."
 
 apps:
   - name: "Wix Bookings"
@@ -24,8 +22,8 @@ routes:
     name: "Service Detail"
   - route: "/booking-confirmation"
     name: "Booking Confirmation"
-  - route: "/manage-booking"
-    name: "Manage Booking"
+  - route: "Hosted by Wix"
+    name: "Secure Checkout"
 
 disabled: false
 ---

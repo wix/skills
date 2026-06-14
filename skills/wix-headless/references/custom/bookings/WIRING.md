@@ -1,88 +1,138 @@
 ---
 name: custom-bookings-wiring
-description: "Integration-mode wiring subagent for the bookings capability. Wires a services list + availability + a book action into a brought-in site — @wix/bookings reads client-side via @wix/sdk, and a redirect to Wix-hosted bookings checkout for the booking itself (mirrors the ecom checkout-redirect pattern). No server runtime required."
+description: "Integration-mode wiring subagent for the bookings capability. Wires a services list + availability + a schema-driven booking form into a brought-in site, then books via the ecom Cart V2 sequence (createBooking → cart → placeOrder / hosted-checkout redirect). Client-side @wix/sdk; no server runtime, no confirmBooking."
 ---
 
-# Bookings — integration wiring
+# Bookings — integration wiring (own / static)
 
-You wire the **bookings capability** (services list + availability + book) into a brought-in site (`frontend = "custom"`). Client-side `@wix/sdk` — CDN imports for `none`-build, bundled imports for `own`-build (same calls). Read `INSTRUCTIONS.md` § "The technical spine" + § "Wiring discipline" first.
+You wire the **bookings capability** into a brought-in site (`frontend = "custom"`).
+Client-side `@wix/sdk` — CDN imports for `none`-build, bundled for `own`-build
+(same calls). Read `INSTRUCTIONS.md` § "The technical spine" + § "Wiring discipline".
 
-> **Scope.** Beta does **services display + availability + redirect-to-Wix-hosted bookings checkout**. The hosted checkout owns payment, the seat-holding confirm, and the customer email — exactly the pieces a client-only site cannot do itself: `confirmBooking` requires the Manage Bookings scope (server-side elevation), and a bare client `createBooking` leaves the booking **`CREATED`, which holds no seat** (the class/slot stays bookable → overbooking). Do NOT ship a client-side `createBooking` as a complete flow. An on-site booking flow (calendar + form + elevated confirm, as in the astro vertical) needs the server runtime — **deferred**.
+> **The logic is shared.** The step model, the booking SDK sequence, the
+> schema-driven form, and the gotchas are in `../../bookings/FLOW.md` — read it
+> first. The astro vertical's React examples
+> (`../../astro/templates/bookings/*` incl. `bookingDriver.ts`) are the reference
+> implementation; here you run the **same SDK calls** through an `OAuthStrategy`
+> visitor client (adapt the React idiom to whatever framework the site uses).
+
+> **Scope (same as the astro vertical — the astro/own distinction collapses).**
+> Services display + a week-calendar availability picker + a schema-driven booking
+> form + the **ecom Cart V2 booking sequence**, all client-side under the visitor
+> identity (no server elevation): `createBooking` (→ `CREATED`) → `createCart` →
+> `calculateCart` → `isCheckoutRequired ? ecomCheckout redirect : placeOrder`.
+> **No `confirmBooking`** — the cart holds the seat, so a client-only site
+> completes the whole flow.
 
 ## Inputs (inlined in your prompt)
-
 - **`appId`** — `OAuthStrategy` `clientId`.
-- **Seeded services** — read your `bookings` slice from `.wix/seeded.json` (`services[{id, slug, name, type, durationMinutes, price, currency}]`).
+- **Seeded services** — read your `bookings` slice from `.wix/seeded.json`.
 - The site's CSS token names (style additively from them).
 
-## Render services (wire an existing region, or inject a section)
+## The client (acquire once)
+```js
+import { createClient, OAuthStrategy } from "https://esm.sh/@wix/sdk@1"; // bundled for own-build
+import { services, availabilityTimeSlots, eventTimeSlots, bookings } from "https://esm.sh/@wix/bookings@1";
+import { forms } from "https://esm.sh/@wix/forms@1";
+import * as cartV2 from "https://esm.sh/@wix/auto_sdk_ecom_cart-v-2@1";
+import { redirects } from "https://esm.sh/@wix/redirects@1";
 
-```html
-<script type="module">
-  import { createClient, OAuthStrategy } from "https://esm.sh/@wix/sdk@1";
-  import { services } from "https://esm.sh/@wix/bookings@1";
-
-  const wix = createClient({ modules: { services }, auth: OAuthStrategy({ clientId: "REPLACE_WITH_APP_ID" }) });
-
-  // Query BUILDER + .find() — the { query: {...} } object form returns 0 items silently.
-  const { items } = await wix.services.queryServices().limit(100).find();
-  const visible = items.filter((s) => !s.hidden);
-  // Bind into the existing markup: name s.name, tagline s.tagLine, slug s.mainSlug?.name,
-  // duration s.schedule?.availabilityConstraints?.sessionDurations?.[0] (APPOINTMENT),
-  // price s.payment?.fixed?.price ({ value, currency } — value is a string; format from
-  // the returned currency, the site business locale wins over what was seeded).
-</script>
+const wix = createClient({
+  modules: { services, availabilityTimeSlots, eventTimeSlots, bookings, forms, redirects, ...cartV2 },
+  auth: OAuthStrategy({ clientId: "REPLACE_WITH_APP_ID" }),
+});
 ```
 
-## Availability (per selected service)
-
+## Render services
 ```js
-import { availabilityTimeSlots, eventTimeSlots } from "https://esm.sh/@wix/bookings@1";
-// register the module(s) in createClient({ modules: { ... } })
+// The filter MUST include appId; pass conditionalFields, then .find().
+const BOOKING_APP_ID = "13d21c63-b5ec-5912-8397-c3a5ddb27a97";
+const { items } = await wix.services.queryServices({
+  query: { filter: { appId: BOOKING_APP_ID }, paging: { limit: 100 } },
+  conditionalFields: ["STAFF_MEMBER_DETAILS"],
+}).find();
+const visible = items.filter((s) => !s.hidden);
+// name s.name · tagline s.tagLine · slug s.mainSlug?.name ·
+// duration s.schedule?.availabilityConstraints?.sessionDurations?.[0] ·
+// price s.payment?.fixed?.price ({ value, currency } — value is a string).
+```
 
-// APPOINTMENT — serviceId is a single GUID STRING (NOT an array):
-const a = await wix.availabilityTimeSlots.listAvailabilityTimeSlots({
-  serviceId, fromLocalDate, toLocalDate, timeZone, bookable: true, cursorPaging: { limit: 50 },
-});
-// slots: a.timeSlots[] — localStartDate/localEndDate/scheduleId at the TOP level.
-
+## Availability (week calendar)
+Render a **week calendar** (day strip → the day's times), not a flat grid — see
+`../../bookings/FLOW.md` § 5. `fromLocalDate`/`toLocalDate` are **local** strings
+(`YYYY-MM-DDThh:mm:ss`, no `Z`) + a `timeZone`.
+```js
+// APPOINTMENT — serviceId is a single GUID STRING:
+const a = await wix.availabilityTimeSlots.listAvailabilityTimeSlots({ serviceId, fromLocalDate, toLocalDate, timeZone, bookable: true, cursorPaging: { limit: 100 } });
+// slots a.timeSlots[] — localStartDate/localEndDate/scheduleId at the TOP level.
 // CLASS — different namespace, PLURAL serviceIds; slots carry eventInfo.eventId, no scheduleId:
-const c = await wix.eventTimeSlots.listEventTimeSlots({
-  serviceIds: [serviceId], fromLocalDate, toLocalDate, timeZone, includeNonBookable: false,
-});
+const c = await wix.eventTimeSlots.listEventTimeSlots({ serviceIds: [serviceId], fromLocalDate, toLocalDate, timeZone, includeNonBookable: false });
 ```
 
-`fromLocalDate`/`toLocalDate` are **local** date strings (`YYYY-MM-DDThh:mm:ss`, no `Z`) with an explicit `timeZone`.
-
-## Book — redirect to Wix-hosted bookings checkout
-
-Same pattern as the ecom guide's hosted checkout: create a redirect session for the chosen slot and send the visitor to Wix.
-
+## Booking form — schema-driven
+The booking form is a `@wix/forms` form on the service (`service.form._id`). Read
+its schema and render fields by `componentType`, collecting values keyed by
+`target` (`../../bookings/FLOW.md` § 4):
 ```js
-import { redirects } from "https://esm.sh/@wix/redirects@1"; // register in modules
-
-const { redirectSession } = await wix.redirects.createRedirectSession({
-  bookingsCheckout: {
-    slotAvailability: {
-      slot: {
-        serviceId: slot.serviceId,
-        scheduleId: slot.scheduleId,        // APPOINTMENT slots
-        startDate: slot.localStartDate,
-        endDate: slot.localEndDate,
-        timezone: timeZone,
-      },
-    },
-    timezone: timeZone,
-  },
-  callbacks: { postFlowUrl: window.location.href }, // return to the brought-in site after checkout
-});
-window.location.href = redirectSession.fullUrl;
+const { form } = await wix.forms.getForm(service.form._id);
+const RENDERABLE = ["TEXT_INPUT", "PHONE_INPUT", "DROPDOWN"];
+const fields = (form.formFields ?? []).filter(
+  (f) => f.fieldType === "INPUT" && !f.hidden &&
+         RENDERABLE.includes(f.inputOptions?.stringOptions?.componentType),
+);
+// render each by f.inputOptions.stringOptions.componentType; collect values by f.inputOptions.target.
+// SKIP complex object-valued fields (e.g. multi-line ADDRESS, no string componentType) —
+// sending a string for them fails createBooking with "must be object". Only
+// first_name/last_name/email are enforced, so skipping optional complex fields is safe.
 ```
 
-The hosted flow collects contact details, takes payment when the service is paid, **confirms the booking (holds the seat)**, and sends the customer email — none of which the client site has to implement.
+## Book — the ecom Cart V2 sequence
+Mirror `../../astro/templates/bookings/bookingDriver.ts` (the exact payloads).
+Run the same sequence through `wix.*`; the cart holds the seat, so no elevation.
+```js
+const BOOKING_APP_ID = "13d21c63-b5ec-5912-8397-c3a5ddb27a97";
+const STAFF_MEMBER_RESOURCE_TYPE_ID = "1cd44cf8-756f-41c3-bd90-3e2ffcaf1155";
 
-> **CLASS sessions:** the verified `slotAvailability.slot` shape above is the APPOINTMENT one. For a CLASS service, slots come from `eventTimeSlots` with `eventInfo.eventId` and no `scheduleId` — verify the class slot→redirect mapping against the redirects SDK docs at wiring time before wiring a CLASS service; don't guess the shape.
+// Build the slot. APPOINTMENT carries scheduleId; CLASS carries eventId (Wix
+// derives the rest). No staff chosen → the ANY_RESOURCE fallback.
+const slot =
+  slotType === "CLASS"
+    ? { serviceId, eventId, timezone }
+    : {
+        serviceId, scheduleId, startDate, endDate, timezone,
+        resourceSelections: [{ resourceTypeId: STAFF_MEMBER_RESOURCE_TYPE_ID, selectionMethod: "ANY_RESOURCE" }],
+        location: { locationType: "OWNER_BUSINESS" },
+      };
 
-## Deferred (needs the server runtime — `@wix/astro`)
+// 1. createBooking → CREATED. Arg 1 is the BOOKING object (slot nested under
+//    bookedEntity); formSubmission/sendSmsReminder go in the options arg.
+const { booking } = await wix.bookings.createBooking(
+  { selectedPaymentOption: "ONLINE", totalParticipants: 1, bookedEntity: { slot } },
+  { formSubmission, sendSmsReminder: true }, // formSubmission keyed by each field's `target`
+);
+// 2. createCart — one catalog item per booking._id, catalogReference.appId = BOOKING_APP_ID, channel WEB.
+const cart = await wix.createCart({ catalogItems: [{ quantity: 1, catalogReference: { catalogItemId: booking._id, appId: BOOKING_APP_ID } }], cart: { source: { channelType: "WEB" } } });
+// 3. calculateCart → { cart, summary }, then compute the checkout decision.
+const { cart: calc, summary } = await wix.calculateCart(cart._id);
+const checkoutRequired =
+  service.bookingPolicy?.cancellationFeePolicy?.enabled
+    ? true
+    : Number(summary?.priceSummary?.total?.amount ?? 0) === 0
+      ? false
+      : calc?.lineItems?.[0]?.paymentConfig?.paymentOption !== "FULL_PAYMENT_OFFLINE";
+// 4. paid → redirect (ecomCheckout.checkoutId = cartId) ; free/offline → placeOrder.
+if (checkoutRequired) {
+  const { redirectSession } = await wix.redirects.createRedirectSession({ ecomCheckout: { checkoutId: cart._id }, callbacks: { postFlowUrl: window.location.href } });
+  window.location.href = redirectSession.fullUrl;
+} else {
+  await wix.placeOrder(cart._id); // booked — no redirect
+}
+```
 
-On-site booking flow (calendar + form + elevated `confirmBooking` seat-hold), manage/cancel via anonymous action tokens, and the native waitlist (v1, Manage Bookings scope) — all implemented in the astro vertical (`references/astro/bookings/`); out of scope for client-only integration.
+> Confirm the `@wix/auto_sdk_ecom_cart-v-2` function registration shape on a
+> CDN/own client at wiring time; the payloads above match the astro `bookingDriver.ts`.
+
+## Out of v1
+Waitlist and on-site manage/cancel — out of scope (same as the astro vertical).
+Show bookable slots only; post-booking self-service is handled by the Wix-hosted
+flow / member area.
