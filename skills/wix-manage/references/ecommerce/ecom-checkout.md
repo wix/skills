@@ -1,11 +1,13 @@
 ---
 name: "Checkout & Cart"
-description: Checkout and cart experience - reducing live checkout/cart abandonment, troubleshooting checkout failures and delivery-step drop-off, checkout policies, and pointers to the Dashboard-managed checkout settings (guest checkout, minimum order, custom fields).
+description: Checkout & Cart boundary owner — live checkout drop-off, checkout-failure troubleshooting, checkout policies, Dashboard-managed checkout settings. **Always load this dispatcher first when a question touches both live checkout (drop-off, troubleshooting, config) and post-abandonment recovery** — the rules for which side owns each topic live in this file, not in this README line.
 ---
 
 # Checkout & Cart
 
 Improve and fix the checkout/cart experience before an order is placed - reduce live checkout drop-off, diagnose why customers cannot complete checkout, configure checkout policies, and adjust the checkout settings that drive conversion.
+
+> **Routing rule (READ FIRST).** Any merchant query that mentions BOTH a live-checkout topic (drop-off, can't-complete-checkout, checkout policies, guest checkout, minimum order, custom checkout fields) AND a post-abandonment topic (recover shoppers who already left, abandoned-cart email, recovery link, recovery rate) MUST be answered by loading this dispatcher first AND [Abandoned Carts](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/abandoned-carts). Do NOT route mixed live-checkout + recovery questions from the WixREADME index alone; the binding decision lives here.
 
 **Checkout & cart is NOT:**
 - Shipping rates / regions / pickup setup → see **Shipping & fulfillment** (though delivery-step friction is the #1 abandonment cause and is handled here + there).

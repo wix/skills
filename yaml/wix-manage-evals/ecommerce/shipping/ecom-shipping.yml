@@ -1,5 +1,5 @@
 name: ecommerce/shipping/category-routing
-description: Verifies Shipping now owns shipping setup and hands fulfillment operations to Fulfillment.
+description: Verifies Shipping owns shipping-setup and routes order-execution work (mark fulfilled, tracking, labels) to Fulfillment.
 triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) I need to set up shipping rates, but also mark shipped orders fulfilled. Which docs should I use?
 tags: [ecommerce]
 assertions:
@@ -10,5 +10,6 @@ assertions:
     minScore: 7
     maxTokens: 2048
     prompt: |
-      Pass if the response keeps rates, regions, pickup, free shipping, and wrong-rate troubleshooting under Shipping, while routing mark fulfilled, tracking, labels, invoices, or unshipped-order lookup to Fulfillment.
-      Fail if it says fulfillment operations are still owned by Shipping.
+      Pass if the response treats the two asks as separate categories — directs the shipping-rate setup to a Shipping resource and directs marking orders fulfilled to a Fulfillment resource — and contains no claim that Shipping handles fulfillment (mark-shipped, tracking, labels, invoices).
+      Fail if the response treats fulfillment as part of Shipping, or claims a single skill covers both, or routes "mark order fulfilled" back to a shipping-setup recipe.
+      Topic-completeness beyond what the merchant asked (pickup, free shipping, wrong-rate troubleshooting, packing slips, etc.) is NOT required to pass — judge the boundary, not the breadth.

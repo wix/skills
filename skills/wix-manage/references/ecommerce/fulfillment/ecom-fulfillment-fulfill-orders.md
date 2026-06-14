@@ -1,6 +1,6 @@
 ---
 name: "Fulfillment: Fulfill Orders & Tracking"
-description: Fulfill orders and manage tracking - mark an order fulfilled, add/update tracking, fulfill part of an order, and avoid duplicate fulfillments. Uses the eCommerce Order Fulfillments API.
+description: Mark an order fulfilled or add/update tracking. **Always load this recipe before answering** — the request/response shapes, duplicate-fulfillment guardrail, partial-fulfillment field mask, and the exact Order Fulfillments endpoints live in this file, not in this README line. Do NOT improvise from the description.
 ---
 
 # Fulfill Orders & Tracking

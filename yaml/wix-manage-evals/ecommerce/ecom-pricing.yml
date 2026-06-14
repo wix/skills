@@ -10,5 +10,6 @@ assertions:
     minScore: 7
     maxTokens: 2048
     prompt: |
-      Pass if the response routes discount/coupon/sale work to Pricing & Promotions and routes refunding a previous order to verified payment/refund guidance rather than handling refunds as pricing.
-      Fail if it treats order refunds as a pricing-promotion action.
+      Pass if the response treats the two asks as separate categories — directs the discount/coupon creation to a Pricing & Promotions resource and directs the order refund to a separate payment/refund / Get Paid / Dashboard resource — and contains no claim that refunding an order is a Pricing & Promotions action.
+      Fail if the response treats refunds as a pricing-promotion action, claims a single skill covers both, or routes the refund back to a discount/coupon recipe.
+      Topic-completeness beyond the two asks (ribbons, bundles, sale-scheduling, etc.) is NOT required to pass — judge the boundary, not the breadth.

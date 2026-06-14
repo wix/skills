@@ -10,5 +10,6 @@ assertions:
     minScore: 7
     maxTokens: 2048
     prompt: |
-      Pass if the response keeps live checkout drop-off and checkout configuration under Checkout & Cart, but clearly routes post-abandonment recovery or recapture to Abandoned Carts.
-      Fail if it says abandoned recovery is still owned by Checkout & Cart.
+      Pass if the response treats the two asks as separate categories — directs the live checkout drop-off work to a Checkout & Cart resource and directs the post-abandonment recovery to an Abandoned Carts resource — and contains no claim that abandoned-cart recovery is owned by Checkout & Cart.
+      Fail if the response treats recovery as part of Checkout & Cart, claims a single skill covers both, or routes "recover people who already left" back to a checkout-config / live-drop-off recipe.
+      Topic-completeness beyond the two asks (guest checkout, minimum order, custom fields, recovery-link generation, etc.) is NOT required to pass — judge the boundary, not the breadth.

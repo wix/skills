@@ -10,5 +10,6 @@ assertions:
     minScore: 7
     maxTokens: 2048
     prompt: |
-      Pass if the response uses the Order Fulfillments API, explains create fulfillment or update existing tracking, and includes guardrails such as checking existing fulfillments or avoiding duplicate tracking.
-      Fail if it uses the old shipping fulfill-orders URL or treats this as shipping-rate setup.
+      Pass if the response uses the Order Fulfillments API (create-fulfillment or PATCH existing tracking) and surfaces at least one recipe guardrail — checking existing fulfillments before create, avoiding duplicate tracking, or noting that an update needs a fulfillmentId. Recovery from a legacy "shipping fulfill-orders" URL is OK as long as the agent corrects to the new Order Fulfillments endpoint before mutating.
+      Fail if the response invents a non-Order-Fulfillments endpoint, treats this as a shipping-rate-setup task, or omits ALL duplicate / existing-fulfillment guardrails.
+      Topic-completeness beyond the two asks (mark fulfilled + add tracking) is NOT required to pass — judge the API choice and guardrail surfacing, not the breadth.

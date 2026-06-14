@@ -10,5 +10,6 @@ assertions:
     minScore: 7
     maxTokens: 2048
     prompt: |
-      Pass if the response treats post-purchase order execution as Fulfillment, distinguishes it from shipping setup, and routes unshipped-order lookup, fulfill/update tracking, invoices, and Dashboard-only labels appropriately.
-      Fail if it routes fulfillment operations back to shipping rates or shipping setup.
+      Pass if the response treats post-purchase order execution (find unshipped, mark fulfilled, update tracking) as belonging to Fulfillment and identifies shipping-label export as Dashboard-only, with no claim that shipping rates / regions / free-shipping setup belong to Fulfillment.
+      Fail if it routes fulfillment operations back to shipping-setup, or claims Fulfillment handles rate or region configuration, or merges the two categories into one skill.
+      Topic-completeness beyond the three asks (unshipped lookup, tracking, label location) is NOT required to pass — judge the boundary, not the breadth.

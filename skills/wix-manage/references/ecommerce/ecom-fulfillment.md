@@ -1,11 +1,13 @@
 ---
 name: "Fulfillment"
-description: Post-purchase fulfillment operations for eCommerce orders - find unshipped or problematic orders, mark orders fulfilled, update tracking, handle partial and bulk fulfillment, route invoice/packing-slip requests, and direct shipping-label export to Dashboard.
+description: Post-purchase fulfillment boundary owner for eCommerce orders. **Always load this dispatcher first whenever a question touches both shipping and order fulfillment** — the rules for which side owns mark-shipped, tracking, labels, invoices, unshipped lookup, rates, regions, and free shipping live in this file, not in this README line.
 ---
 
 # Fulfillment
 
 Handle what happens after an order is placed: find orders that need shipping attention, create fulfillments, update tracking, handle partial or bulk fulfillment, and route shipping documents correctly.
+
+> **Routing rule (READ FIRST).** Any merchant query that mentions BOTH a post-purchase / order-execution topic (mark shipped, update tracking, partial/bulk fulfill, shipping labels, packing slips, invoices, "find unshipped orders") AND a shipping-setup topic (rates, regions, pickup, free shipping, wrong-rate) MUST be answered by loading this dispatcher first AND [Shipping](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping) — even if the WixREADME index already describes both. Do NOT route mixed shipping+fulfillment questions from the README index alone; the binding decision lives here.
 
 **Fulfillment is NOT:**
 - Shipping rates, delivery regions, pickup, or free-shipping setup -> see **Shipping**.

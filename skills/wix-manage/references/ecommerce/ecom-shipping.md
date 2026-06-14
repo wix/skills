@@ -1,11 +1,13 @@
 ---
 name: "Shipping"
-description: Shipping setup for an eCommerce store - shipping rates and rules, delivery regions/coverage, store pickup, free-shipping thresholds, rate optimization, and wrong-rate troubleshooting.
+description: Shipping-setup boundary owner for an eCommerce store. **Always load this dispatcher first whenever a question touches both shipping and order fulfillment** — the rules for which side owns rates, regions, pickup, free shipping, mark-shipped, tracking, labels, and invoices live in this file, not in this README line.
 ---
 
 # Shipping
 
 Set up and tune how a store ships — what rates to charge, which regions are covered, pickup/local-delivery options, free-shipping thresholds, and diagnosing wrong or missing shipping at checkout.
+
+> **Routing rule (READ FIRST).** Any merchant query that mentions BOTH a shipping-setup topic (rates, regions, pickup, free shipping, wrong-rate) AND a post-purchase / order-execution topic (mark shipped, update tracking, partial/bulk fulfill, shipping labels, packing slips, invoices, "find unshipped orders") MUST be answered by loading this dispatcher first AND [Fulfillment](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/fulfillment) — even if the WixREADME index already describes both. Do NOT route mixed shipping+fulfillment questions from the README index alone; the binding decision lives here.
 
 **Shipping & fulfillment is NOT:**
 - Tax on shipping or destination tax → see **Tax**.

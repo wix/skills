@@ -1,6 +1,6 @@
 ---
 name: "Abandoned Carts"
-description: Abandoned checkout recovery and recapture for an eCommerce store - view abandoned checkouts, recover them with Dashboard automation or API-generated recovery links, troubleshoot recovery flows, and monitor recovery health.
+description: Abandoned Carts boundary owner — post-abandonment recovery, recovery emails, recovery links, recovery troubleshooting, recovery health. **Always load this dispatcher first when a question touches both post-abandonment recovery and live checkout (drop-off, config, troubleshooting)** — the rules for which side owns each topic live in this file, not in this README line.
 ---
 
 # Abandoned Carts
@@ -8,6 +8,8 @@ description: Abandoned checkout recovery and recapture for an eCommerce store - 
 Recover shoppers who already left checkout. Merchants often say "abandoned carts"; the Wix API surface calls these **Abandoned Checkouts**. Use this category for abandoned-checkout recovery emails, recovery links, recovery troubleshooting, and recovery performance monitoring.
 
 For information and reporting queries, prefer **Analytics APIs**. Use the Abandoned Checkout API only when the agent needs to inspect or act on specific abandoned checkout records.
+
+> **Routing rule (READ FIRST).** Any merchant query that mentions BOTH a post-abandonment topic (recover shoppers who already left, abandoned-cart email, recovery link, recovery rate, recovery automation) AND a live-checkout topic (drop-off, can't-complete-checkout, checkout policies, guest checkout, minimum order) MUST be answered by loading this dispatcher first AND [Checkout & Cart](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/checkout-cart). Do NOT route mixed recovery + live-checkout questions from the WixREADME index alone; the binding decision lives here.
 
 **Abandoned carts is NOT:**
 - Reducing live checkout drop-off before the shopper leaves -> see **Checkout & Cart**.

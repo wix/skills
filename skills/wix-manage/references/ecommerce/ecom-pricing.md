@@ -1,11 +1,13 @@
 ---
 name: "Pricing & Promotions"
-description: All discount, coupon, sale, bundle, and promotional pricing for the store. Includes strategic flows (run a sale, multi-channel pricing) and operational troubleshooting (discount not applying).
+description: Pricing & Promotions boundary owner — discounts, coupons, sales, ribbons, bundles. **Always load this dispatcher first when a question touches both discount work and refunds, payments, product-price edits, or shipping rates** — the rules for which side owns each topic live in this file, not in this README line.
 ---
 
 # Pricing & Promotions
 
 Discount rules, coupon codes, sales, ribbons, bundles, tiered pricing, and the strategic side of "run a promotion to grow revenue".
+
+> **Routing rule (READ FIRST).** Any merchant query that mentions BOTH a Pricing-side topic (discount, coupon, sale, ribbon, bundle, promotion strategy) AND a NON-pricing-side topic (refunding a past order, processing a payment, editing the product's base price, shipping rates) MUST be answered by loading this dispatcher first AND the relevant other category (refunds → Get Paid / Dashboard; price → Catalog; shipping rates → Shipping). Do NOT route mixed queries from the WixREADME index alone; the binding decision lives here.
 
 **Pricing & promotions is NOT:**
 - The product price itself or its description/image → see **Catalog** (those are product fields).
