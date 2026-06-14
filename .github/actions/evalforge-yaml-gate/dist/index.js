@@ -35036,7 +35036,7 @@ async function runGate() {
     const remote = await guardedCall(() => evalforge.listTestScenarios(config.projectId), 'Could not reach EvalForge', comment, config);
     if (!remote)
         return;
-    const plan = (0, sync_1.diffSyncPlan)({ head: changedHeadScenarios, base: baseScenarios, remote, draftTag });
+    const plan = (0, sync_1.diffSyncPlan)({ changedHead: changedHeadScenarios, head: headScenarios, base: baseScenarios, remote, draftTag });
     if (plan.errors.length > 0) {
         await comment((0, comment_1.formatForeignDraftConflicts)(plan.errors, { owner: config.owner, repo: config.repo }));
         (0, github_1.fail)(`Scenario(s) held by other PRs: ${plan.errors.map(e => e.name).join(', ')}`, config.blocking);
@@ -35644,11 +35644,11 @@ function foreignDraftTags(tags, myTag) {
     return tags.filter(t => t.startsWith('draft:') && t !== myTag);
 }
 function diffSyncPlan(input) {
-    const { head, base, remote, draftTag } = input;
+    const { changedHead, head, base, remote, draftTag } = input;
     const remoteByName = new Map(remote.map(r => [r.name, r]));
     const actions = [];
     const errors = [];
-    for (const [name, ls] of head) {
+    for (const [name, ls] of changedHead) {
         const r = remoteByName.get(name);
         if (!r) {
             actions.push({ kind: 'CREATE', name, body: toScenarioBody(ls.scenario), tags: [draftTag] });
