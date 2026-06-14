@@ -98,7 +98,7 @@ Concretely for the categories we know about:
 ## What this file does NOT do
 
 - **Does not detect per-category runtime state** (see architectural rule above).
-- **Does not load tracking history.** Orchestrator-specific — only `ecom-pricing-run-a-sale` and similar load it (today's `recommend-ecommerce-strategy` Step 2).
+- **Does not load tracking history.** But: if any recipe in this session generates a recommendation to present to the merchant — regardless of which eCommerce category — it MUST load [API: Recommendation Tracking](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/api-recommendation-tracking) and follow the lifecycle: load history before generating (Query), persist as PROPOSED via BatchCreate before presenting, and track execution via MarkExecuting / MarkDone / MarkFailed. This obligation applies to ALL eCommerce domains.
 - **Does not load catalog analytics.** Orchestrator-specific.
 - **Does not load non-eCommerce L1 fields** (catalog V1/V3, payment provider, …). Those belong inside the owning L1's category-level files (per the architectural rule).
 - **Does not enforce dispatch.** The category's `default.md` is what scores tags and picks a promotion — this file only fills general site context.

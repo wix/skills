@@ -14,6 +14,18 @@ apiDoc:
       tags: [ecommerce]
 
     # ============================================================
+    # Cross-domain tracking — sibling to the L1 loader.
+    # Used by any recipe (in any category) that generates recommendations.
+    # MUST stay at the ecommerce root; placing it under a category subfolder
+    # scopes tracking to that category and breaks cross-domain coverage.
+    # ============================================================
+
+    - file: ../../../skills/wix-manage/references/ecommerce/api-recommendation-tracking.md
+      title: "API: Recommendation Tracking"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    # ============================================================
     # Tax category
     # ============================================================
     # Verified TPA-public via dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/tax/.
@@ -130,12 +142,6 @@ apiDoc:
 
     - file: ../../../skills/wix-manage/references/ecommerce/pricing-promotions/ecom-pricing-flow-seasonal-promotion.md
       title: "Flow: Seasonal Promotion"
-      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
-      tags: [ecommerce]
-
-
-    - file: ../../../skills/wix-manage/references/ecommerce/pricing-promotions/ecom-pricing-tracking-api.md
-      title: "API: Recommendation Tracking"
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
       tags: [ecommerce]
 

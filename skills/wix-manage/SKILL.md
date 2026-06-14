@@ -169,7 +169,7 @@ README-surfaced category-doc **and** dispatcher (merged). Disambiguates the cate
 - [Flow: Stock Mover](references/ecommerce/pricing-promotions/ecom-pricing-flow-stock-mover.md)
 - [Flow: Seasonal Promotion](references/ecommerce/pricing-promotions/ecom-pricing-flow-seasonal-promotion.md)
 - [Pricing & Discount Health](references/ecommerce/pricing-promotions/ecom-pricing-health.md) — periodic conflict/stale-sale/margin sweep
-- [API: Recommendation Tracking](references/ecommerce/pricing-promotions/ecom-pricing-tracking-api.md)
+- [API: Recommendation Tracking](references/ecommerce/api-recommendation-tracking.md) — cross-domain support (sibling to the L1 loader, NOT scoped to Pricing)
 
 (Discount-conflict & margin guardrails are inlined into Create Discount Rule / Create Coupon — the skills they guard — rather than separate files.)
 

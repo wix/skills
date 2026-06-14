@@ -26,6 +26,9 @@ flowchart TB
     FULFILL -.-> |load context| LOADER
     ORDERS -.-> |load context| LOADER
 
+    TRACKING["api-recommendation-tracking<br/>(cross-domain — any recipe that<br/>generates recommendations loads this)"]
+    PR --> |"Steps 2+8: load history + BatchCreate"| TRACKING
+
     subgraph TAX["Tax - tax/"]
         direction TB
         TAXDEF["ecom-tax - category-doc + dispatcher"]
@@ -48,8 +51,7 @@ flowchart TB
         PH["ecom-pricing-health"]
         PG["goal-* support files"]
         PF["flow-* support files"]
-        PV["tracking-api"]
-        PRICEDEF ~~~ PC ~~~ PD ~~~ PR ~~~ PB ~~~ PH ~~~ PG ~~~ PF ~~~ PV
+        PRICEDEF ~~~ PC ~~~ PD ~~~ PR ~~~ PB ~~~ PH ~~~ PG ~~~ PF
     end
 
     subgraph SHIP["Shipping - shipping/"]
@@ -115,8 +117,9 @@ flowchart TB
     class TAXDEF,PRICEDEF,SHIPDEF,CHKDEF,ACDEF,FDEF,ODEF dispatcher
     class TC,TA,TV,TS,TU,TT,PC,PD,PB,PH,SR,SG,SP,SF,SO,SX,CR,CT,CA,CH,AR,AL,AT,AH,FO,FB,OC promotion
     class PR orchestrator
-    class PG,PF,PV,SS,FI support
+    class PG,PF,SS,FI support
     class LOADER loader
+    class TRACKING support
     class CD,FL,OS,OH legacy
 ```
 
@@ -127,6 +130,7 @@ The arrows land on each L2 group. Internal dispatch and support chains are docum
 | File | Role | Reached via |
 |---|---|---|
 | `ecom-load-context.md` | L1 loader | Loaded by eCommerce category dispatchers when MerchantContext is missing |
+| `api-recommendation-tracking.md` | cross-domain support | loaded by any recipe that generates recommendations (currently: `ecom-pricing-run-a-sale`; future: any category orchestrator) |
 | `ecom-tax.md` | category-doc + dispatcher | WixREADME portal index |
 | `tax/ecom-tax-configure.md` | promotion | tax dispatch `[intent:configure-tax]` |
 | `tax/ecom-tax-avalara.md` | promotion | tax dispatch `[intent:avalara]` |
