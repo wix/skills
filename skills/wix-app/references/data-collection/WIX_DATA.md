@@ -52,6 +52,8 @@ If you see any method with `DataItem` in the name, it is **wrong**.
 
 ### WixDataItem
 
+> **Not importable.** `WixDataItem` is not exported from `@wix/data` — `import type { WixDataItem } from "@wix/data"` will fail. Define your own interface based on the shape below.
+
 ```ts
 interface WixDataItem {
   _id: string;
