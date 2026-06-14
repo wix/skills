@@ -43,6 +43,20 @@ curl -sS -X POST \
 
 ---
 
+## Step 2b — Ensure a business location exists (APPOINTMENT)
+
+APPOINTMENT services are booked against a business **location**, and a freshly app-installed site often has **none** (`POST /locations/v1/locations/query` → `{ "locations": [] }`). Without one the service is created against the placeholder location `123e4567-e89b-12d3-a456-426614174000`, which can't resolve at booking time. This is **Step 1 of the official [Set Up a Service](https://dev.wix.com/docs/api-reference/business-solutions/bookings/flow-set-up-a-service) flow** — do it before creating services. Query existing locations; if none, create a default one:
+
+```bash
+curl -sS -X POST -H "Authorization: Bearer $TOKEN" -H "wix-site-id: <siteId>" -H "Content-Type: application/json" \
+  -d '{"location":{"name":"<brand>","status":"ACTIVE","locationType":"BRANCH","default":true,"timeZone":"<IANA tz, e.g. Asia/Jerusalem>","address":{"country":"<ISO>","city":"…"}}}' \
+  "https://www.wixapis.com/locations/v1/locations"
+```
+
+`timeZone` is **required** (omitting it 400s with `timeZone must not be empty`). Bookings then resolve against `location.locationType: "OWNER_BUSINESS"` at booking time (see `INSTRUCTIONS.md`). If the dashboard/CLI already created a location, the query returns it — skip the create.
+
+---
+
 ## Step 3 — Create staff members (when `intent.bookings.hasStaff` is `true`)
 
 Execute this step BEFORE Step 4 when staff are required. APPOINTMENT services need at least one resource to exist before they can be created.
@@ -287,6 +301,7 @@ Verify by fetching slots the way the front-end does (`eventTimeSlots.listEventTi
 | 400 `"defaultCapacity is required"` | Add `"defaultCapacity": 1` to the payload (required in V2, not obvious from V1 docs). |
 | 400 `"onlineBooking is required"` | Add `"onlineBooking": { "enabled": true }` — required in V2. |
 | 400 on `payment.options` | At least one of `online` or `inPerson` must be `true`. Set `"inPerson": true` as fallback. |
+| 400 `payment.options.online ... applicable only to ... FIXED or VARIED` | The service is **free** (`payment.rateType: "NO_FEE"`). With `NO_FEE`, `online` must be `false` — set `"inPerson": true` (and `"online": false`) instead. `online: true` is only allowed for `FIXED`/`VARIED` rate types. |
 | 400 `"sessionDurations is required"` | Add `"schedule": { "availabilityConstraints": { "sessionDurations": [60] } }` for APPOINTMENT types. |
 | 400 `MISSING_APPOINTMENT_RESOURCES` on service create | An APPOINTMENT service's `staffMemberIds` must be **non-empty**. Pass the created staff `resourceId`s (Step 3), or — when `hasStaff` is false — the default **Business Owner** `resourceId` (query `/bookings/v1/staff-members/query` with `{"query":{}}`). An empty `[]` always 400s here. |
 | 400 enum error on `locations.type` | Use `"BUSINESS"`, not `"OWNER_BUSINESS"`. The services endpoint accepts `UNKNOWN_LOCATION_TYPE`, `CUSTOM`, `BUSINESS`, `CUSTOMER`. `OWNER_BUSINESS` is valid on `createBooking.bookedEntity.slot.location.locationType` only. |
