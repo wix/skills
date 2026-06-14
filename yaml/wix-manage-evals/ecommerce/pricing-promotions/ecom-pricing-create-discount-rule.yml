@@ -1,0 +1,14 @@
+name: ecommerce/pricing-promotions/create-discount-rule
+description: Verifies a "create an automatic discount" request dispatches to the create-discount-rule recipe (NOT create-coupon) and uses the eCommerce Discount Rules API with scope + scheduling.
+triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) Create an automatic 15% off discount on the "Winter Collection" category that runs from December 1 to December 31, 2026 — no coupon code needed.
+tags: [ecommerce]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-discount-rule
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Pass if the response loads the create-discount-rule recipe (NOT create-coupon) and (a) uses POST `ecom/v1/discount-rules` with `percentage: 15`, (b) scopes the rule to the Winter Collection (SPECIFIC catalog scope, not CATALOG-wide), (c) sets an active period bounded to December 1–31 2026, and (d) surfaces at least one inlined guardrail (conflict/stacking, 25% cap, 15% margin floor, or %-sanity).
+      Fail if it routes to create-coupon (a coupon needs a code; the merchant explicitly said no code), invents endpoints outside `ecom/v1/discount-rules`, omits the scope filter, or omits ALL guardrails.

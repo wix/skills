@@ -1,0 +1,14 @@
+name: ecommerce/tax/configure-wix-manual
+description: Verifies the Tax category dispatches a non-Avalara, non-EU manual-setup request to the Wix Manual configure recipe.
+triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) I sell in Australia and I want to manually set up tax myself without Avalara. Walk me through configuring it.
+tags: [ecommerce]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/tax-configure-wix-manual
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Pass if the response loads the Wix Manual tax-configure recipe (NOT Avalara, NOT EU VAT) and walks through the 4-step manual setup — list tax calculators, create/use a tax region, define tax groups, and create manual tax mappings — using the `billing/v1/...` endpoints. It should choose Australia as the region and acknowledge that rates live inside manual-tax-mappings (not on the region itself).
+      Fail if it dispatches to Avalara or EU VAT, invents endpoints outside `billing/v1`, or treats this as a Pricing/Catalog question.

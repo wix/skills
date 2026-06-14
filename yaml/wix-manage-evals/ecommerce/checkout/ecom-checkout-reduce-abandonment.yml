@@ -1,0 +1,14 @@
+name: ecommerce/checkout/reduce-abandonment
+description: Verifies a "reduce delivery-step drop-off" request dispatches to the reduce-abandonment recipe and uses delivery_step_cvr metrics + shipping skills, not abandoned-cart recovery.
+triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) Customers are abandoning right at the delivery step in checkout. What can I change so fewer drop off?
+tags: [ecommerce]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/checkout-reduce-abandonment
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Pass if the response loads the reduce-abandonment recipe, reads the `delivery_step_cvr` (or equivalent delivery-step) metric, and proposes upstream changes — free-shipping threshold tuning, rate restructure, region/profile coverage, additional shipping options — routed via Shipping skills. It must treat this as LIVE checkout drop-off (NOT post-abandonment recovery).
+      Fail if it routes the issue to Abandoned Carts recovery, proposes only marketing emails, or skips the delivery-step metric entirely.

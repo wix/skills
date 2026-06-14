@@ -6,6 +6,9 @@ assertions:
   - tool: ReadFullDocsArticle
     params:
       articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-clear-inventory
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-stock-mover
   - type: llm_judge
     minScore: 7
     maxTokens: 2048

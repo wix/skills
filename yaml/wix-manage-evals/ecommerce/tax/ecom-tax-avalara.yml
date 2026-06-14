@@ -1,0 +1,14 @@
+name: ecommerce/tax/configure-avalara
+description: Verifies an explicit Avalara request dispatches to the Avalara configure recipe and recognizes Avalara is dashboard-installed (not configurable via tax-mappings).
+triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) I've installed Avalara from the App Market. How do I finish wiring it up for US sales tax across all states I sell into?
+tags: [ecommerce]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/tax-configure-avalara
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Pass if the response loads the Avalara configure recipe and (a) confirms Avalara is installed via the Wix Dashboard / App Market (not the API), (b) binds tax regions to Avalara's `calculatorId` via `billing/v1/tax-regions`, and (c) notes that manual tax mappings are inert under Avalara.
+      Fail if it routes to the Wix Manual configure recipe, claims Avalara can be installed via the API, or proposes creating manual-tax-mappings as the way to "configure" Avalara.
