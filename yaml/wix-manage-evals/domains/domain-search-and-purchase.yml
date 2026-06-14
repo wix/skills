@@ -1,5 +1,5 @@
 name: domains/domain-search-and-purchase
-description: Verifies the agent reads the domain-search-and-purchase docs when asked about programmatic Wix domain search and purchase.
+description: TEST-B-INTERMEDIATE Verifies the agent reads the domain-search-and-purchase docs when asked about programmatic Wix domain search and purchase.
 triggerPrompt: How do I programmatically search for an available domain on Wix and then purchase it? Please reference the relevant API methods.
 tags: [domains]
 assertions:
