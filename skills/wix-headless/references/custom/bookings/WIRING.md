@@ -104,10 +104,18 @@ const slot =
         location: { locationType: "OWNER_BUSINESS" },
       };
 
+// selectedPaymentOption must match the service: online-only → ONLINE,
+// in-person-only → OFFLINE, else ONLINE. DERIVE it — do not hardcode ONLINE: a
+// free / pay-in-person service booked ONLINE is rejected by the cart with
+// INSUFFICIENT_INVENTORY (it's the only service kind that reaches placeOrder).
+const o = service.payment?.options;
+const selectedPaymentOption =
+  o?.online && !o?.inPerson ? "ONLINE" : !o?.online && o?.inPerson ? "OFFLINE" : "ONLINE";
+
 // 1. createBooking → CREATED. Arg 1 is the BOOKING object (slot nested under
 //    bookedEntity); formSubmission/sendSmsReminder go in the options arg.
 const { booking } = await wix.bookings.createBooking(
-  { selectedPaymentOption: "ONLINE", totalParticipants: 1, bookedEntity: { slot } },
+  { selectedPaymentOption, totalParticipants: 1, bookedEntity: { slot } },
   { formSubmission, sendSmsReminder: true }, // formSubmission keyed by each field's `target`
 );
 // 2. createCart — one catalog item per booking._id, catalogReference.appId = BOOKING_APP_ID, channel WEB.
