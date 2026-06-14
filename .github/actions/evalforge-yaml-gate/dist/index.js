@@ -34987,6 +34987,11 @@ async function runGate() {
     const workspace = (0, workspace_1.workspaceRoot)();
     const draftTag = (0, evalforge_1.draftTagFor)(`${config.owner}/${config.repo}`, config.prNumber);
     core.info(`EvalForge YAML gate — PR #${config.prNumber}`);
+    const evalforge = new evalforge_1.EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
+    const versionLabel = `pr-${config.prNumber}-${config.headSha.slice(0, 7)}`;
+    const mcpVersion = await guardedCall(() => evalforge.ensureMcpVersion(config.mcpId, config.projectId, versionLabel, config.prNumber, config.headSha, config.mcpSkillsRepo), 'Could not create MCP version', comment, config);
+    if (!mcpVersion)
+        return;
     const { scenarios: headScenarios, errors: loadErrors } = (0, evals_1.loadEvals)(workspace);
     if (loadErrors.length > 0) {
         await comment((0, comment_1.formatLoadErrors)(loadErrors));
@@ -35028,7 +35033,6 @@ async function runGate() {
         if (changedEvalPaths.has(ls.path))
             changedHeadScenarios.set(name, ls);
     }
-    const evalforge = new evalforge_1.EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
     const remote = await guardedCall(() => evalforge.listTestScenarios(config.projectId), 'Could not reach EvalForge', comment, config);
     if (!remote)
         return;
@@ -35089,10 +35093,6 @@ async function runGate() {
         core.info('Nothing to run');
         return;
     }
-    const versionLabel = `pr-${config.prNumber}-${config.headSha.slice(0, 7)}`;
-    const mcpVersion = await guardedCall(() => evalforge.ensureMcpVersion(config.mcpId, config.projectId, versionLabel, config.prNumber, config.headSha, config.mcpSkillsRepo), 'Could not create MCP version', comment, config);
-    if (!mcpVersion)
-        return;
     const run = await guardedCall(() => evalforge.createEvalRun(config.projectId, {
         name: `PR #${config.prNumber} YAML-gate`,
         description: `Gate for PR #${config.prNumber} (${selected.size} scenarios)`,
