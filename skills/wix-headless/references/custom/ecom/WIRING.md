@@ -62,6 +62,13 @@ You wire the **ecom capability** (add-to-cart + checkout) into a brought-in stat
 - The Wix Stores catalog `appId` (`215238eb-…`) is a platform constant (the catalog provider), distinct from the site's OAuth `appId`/`clientId`.
 - Cart badge is a minimal indicator; a full cart-contents page is out of Beta scope (no SSR persistence).
 
+## React-SPA design with a server runtime (`@wix/astro`)
+
+When the brought-in design is a **React SPA** (its own cart/checkout state in JS, e.g. a Claude-Design app that renders into `#root` via CDN React) rather than static card markup, two things change:
+
+- **Keep checkout client-side — server-side `checkout.createCheckout` 403s.** It needs eCom *admin* scope the headless OAuth app doesn't hold, and the cart is **visitor-owned**. So even with a server runtime available, do the checkout with the **visitor identity** (`currentCart.addToCurrentCart` -> `currentCart.createCheckoutFromCurrentCart` -> `redirects.createRedirectSession` -> hosted checkout), exactly as above. Don't reach for a server route here (unlike Bookings, whose `confirmBooking` *is* app-scoped and must be server-elevated — the two verticals differ).
+- **The SPA can't `import` the SDK** (its code runs via in-browser Babel, no module system). Put the eCom logic in a **bundled Astro `<script>` island** (a real `<script>`, NOT `is:inline`, so Astro bundles it with `@wix/sdk`/`@wix/ecom`/`@wix/redirects` and `WIX_CLIENT_ID` from `astro:env/client`) that exposes a `window.<fn>`; the SPA's checkout button calls it. **Map the design's own product ids to real `catalogItemId`s** — seed the catalog from the design's product data and persist a `designId -> productId` map (e.g. `src/lib/catalog-map.json`) the island reads. Clear the current cart before adding, so repeat checkouts don't accumulate.
+
 ## Discipline & return
 
 Additive; inline the site `appId`; guard calls. Return per `shared/RETURN_CONTRACT.md`: files edited, controls wired (add-to-cart count, checkout button), and note that persistent cart UI is deferred.
