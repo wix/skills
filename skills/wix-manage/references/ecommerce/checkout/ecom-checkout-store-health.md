@@ -22,7 +22,7 @@ Compare current config against a healthy baseline; flag changes that block or de
 ## Check 3: Order-flow anomalies (error signal)
 
 Without an app-error API, infer trouble from order/checkout data:
-- **Abandoned-checkout spike** — note the spike here as a checkout-side signal (payment failing, shipping gap, surprise cost), but **the recovery-performance analysis itself does NOT belong in this report**. Route recovery diagnostics — recovery rate, recovery-email health, recovery-link generation — to [Abandoned Carts: Recovery Health](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/abandoned-carts-recovery-health) explicitly, and surface that handoff in the report ("for recovery performance, see Abandoned Carts: Recovery Health").
+- **Abandoned-checkout spike** — note the spike here only as a checkout-side signal (payment failing, shipping gap, surprise cost). Anything that analyzes the *recovery* side — recovery rate, recovery-email diagnostics, recovery-link health, recovery automation state, or a recovery playbook / recovery-action list — belongs in [Abandoned Carts: Recovery Health](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/abandoned-carts-recovery-health), not here.
 - **Orders stalled** — recent orders stuck unpaid/unfulfilled (Orders query) relative to normal volume.
 
 ## Report
@@ -32,4 +32,4 @@ Severity-ranked digest:
 - **WARNING** — abandonment spike, drifted config, tax gaps.
 - **OK** — checkout resolves and config matches baseline; note the green state.
 
-For each issue, link the fixing skill (shipping coverage, tax, checkout config) rather than re-explaining it. Whenever the report mentions an abandonment spike, it MUST explicitly hand off recovery-performance analysis to [Abandoned Carts: Recovery Health](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/abandoned-carts-recovery-health) — a one-line "for recovery analytics, see <link>" is enough, but do not mix recovery analytics into the store-health narrative.
+For each issue, link the fixing skill (shipping coverage, tax, checkout config) rather than re-explaining it. Inline next-step suggestions are fine for checkout-side fixes (payment, shipping, tax, checkout config). When the report flags an abandoned-checkout spike, the report's role ends with a one-line referral to [Abandoned Carts: Recovery Health](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/abandoned-carts-recovery-health) for the recovery side — the recipe explicitly excludes recovery diagnostics, recovery-action playbooks, and recovery-email/automation analysis from this report; that's the Recovery Health skill's job.
