@@ -1,8 +1,0 @@
-name: domains/temp-orphan-test
-description: Test scenario for the promote orphan-cleanup fix. Will be removed on the next push before merge.
-triggerPrompt: This is a placeholder prompt used only to satisfy schema validation during the orphan-fix integration test.
-tags: [domains]
-assertions:
-  - tool: ReadFullDocsArticle
-    params:
-      articleUrl: https://dev.wix.com/docs/api-reference/account-level/domains/skills/domain-search-and-purchase
