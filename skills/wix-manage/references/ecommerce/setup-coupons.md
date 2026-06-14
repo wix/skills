@@ -11,10 +11,10 @@ layer: config
 
 ## Required APIs
 
-- [Create Coupon](https://dev.wix.com/docs/api-reference/business-solutions/coupons/coupons/create-a-coupon) — `POST /v2/coupons`
-- [Update Coupon](https://dev.wix.com/docs/api-reference/business-solutions/coupons/coupons/update-a-coupon) — `PATCH /v2/coupons/{id}`
-- [Query Coupons](https://dev.wix.com/docs/api-reference/business-solutions/coupons/coupons/query-coupons) — `POST /v2/coupons/query`
-- [Delete Coupon](https://dev.wix.com/docs/api-reference/business-solutions/coupons/coupons/delete-a-coupon) — `DELETE /v2/coupons/{id}`
+- [Create Coupon](https://dev.wix.com/docs/api-reference/business-solutions/coupons/coupons/create-a-coupon) — `POST /stores/v2/coupons`
+- [Update Coupon](https://dev.wix.com/docs/api-reference/business-solutions/coupons/coupons/update-a-coupon) — `PATCH /stores/v2/coupons/{id}`
+- [Query Coupons](https://dev.wix.com/docs/api-reference/business-solutions/coupons/coupons/query-coupons) — `POST /stores/v2/coupons/query`
+- [Delete Coupon](https://dev.wix.com/docs/api-reference/business-solutions/coupons/coupons/delete-a-coupon) — `DELETE /stores/v2/coupons/{id}`
 
 ---
 
@@ -22,7 +22,7 @@ layer: config
 
 Before creating a coupon, check for code conflicts and existing promotions on the same scope.
 
-**Endpoint**: `POST https://www.wixapis.com/v2/coupons/query`
+**Endpoint**: `POST https://www.wixapis.com/stores/v2/coupons/query`
 
 **Request**:
 ```json
@@ -70,7 +70,7 @@ Check for: duplicate codes, overlapping scopes with active coupons, and cross-me
 
 ## Step 2: Create a percentage-off coupon
 
-**Endpoint**: `POST https://www.wixapis.com/v2/coupons`
+**Endpoint**: `POST https://www.wixapis.com/stores/v2/coupons`
 
 **Request** — 15% off all store products:
 ```json
