@@ -1,139 +1,170 @@
 ---
-name: "eCommerce Skill Graph"
-description: Mermaid diagram showing how eCommerce skills connect — unified strategy entry point, goal/flow/guardrail chain, tracking inlined, troubleshoot as direct entries.
+name: "Skill Graph"
+description: Mermaid diagram of the eCommerce routing tree - WixREADME to category entry, promotion, and support files. Migrated categories: Tax, Pricing, Shipping, Checkout, Abandoned Carts, Fulfillment, and Orders.
 ---
 
 ## Skill Graph Diagram
 
 ```mermaid
 flowchart TB
-    MR["Merchant Request"] --> R
+    MR["Merchant Query"] --> README["WixREADME<br/>(portal index - category-docs surface here)"]
 
-    subgraph R["R — Unified Entry Point"]
-        recommend-ecommerce-strategy
+    README --> TAX
+    README --> PRICE
+    README --> SHIP
+    README --> CHECKOUT
+    README --> ABANDONED
+    README --> FULFILL
+    README --> ORDERS
+
+    LOADER["ecom-load-context.md<br/>(L1 loader - general site data;<br/>loaded by each category before dispatch)"]
+    TAX -.-> |load context| LOADER
+    PRICE -.-> |load context| LOADER
+    SHIP -.-> |load context| LOADER
+    CHECKOUT -.-> |load context| LOADER
+    ABANDONED -.-> |load context| LOADER
+    FULFILL -.-> |load context| LOADER
+    ORDERS -.-> |load context| LOADER
+
+    subgraph TAX["Tax - tax/"]
+        direction TB
+        TAXDEF["ecom-tax - category-doc + dispatcher"]
+        TC["ecom-tax-configure"]
+        TA["ecom-tax-avalara"]
+        TV["ecom-tax-eu-vat"]
+        TS["ecom-tax-switch-calculator"]
+        TU["ecom-tax-audit"]
+        TT["ecom-tax-troubleshoot-calc-wrong"]
+        TAXDEF ~~~ TC ~~~ TA ~~~ TV ~~~ TS ~~~ TU ~~~ TT
     end
 
-    R --> |"loads API ref"| Config
-    R --> |"Step 4b: loads matching goal"| Goals
-    R --> |"Step 2+8: tracking inlined"| TrackingAPI
-
-    subgraph Goals["Goals — Business Objectives"]
-        subgraph GD["Discount + Shipping"]
-            goal-increase-aov
-            goal-clear-inventory
-            goal-seasonal-revenue
-            goal-drive-cross-sells
-        end
-        subgraph GA["Abandoned Cart"]
-            goal-reduce-cart-abandonment
-        end
+    subgraph PRICE["Pricing & promotions - pricing-promotions/"]
+        direction TB
+        PRICEDEF["ecom-pricing - category-doc + dispatcher"]
+        PC["ecom-pricing-create-coupon"]
+        PD["ecom-pricing-create-discount-rule"]
+        PR["ecom-pricing-run-a-sale - business-flow orchestrator"]
+        PB["ecom-pricing-troubleshoot-not-applying"]
+        PH["ecom-pricing-health"]
+        PG["goal-* support files"]
+        PF["flow-* support files"]
+        PV["tracking-api"]
+        PRICEDEF ~~~ PC ~~~ PD ~~~ PR ~~~ PB ~~~ PH ~~~ PG ~~~ PF ~~~ PV
     end
 
-    Goals --> |"loads matching flows"| Flows
-    goal-increase-aov --> |"also loads shipping flows"| FS
-
-    subgraph Flows["Flows — Business Logic"]
-        subgraph FD["Discount"]
-            flow-upsell-boost
-            flow-bundle-and-save
-            flow-stock-mover
-            flow-seasonal-promotion
-        end
-        subgraph FS["Shipping"]
-            flow-fix-coverage-gaps
-            flow-add-free-shipping
-            flow-optimize-shipping-rates
-        end
+    subgraph SHIP["Shipping - shipping/"]
+        direction TB
+        SHIPDEF["ecom-shipping - category-doc + dispatcher"]
+        SR["ecom-shipping-setup-rates"]
+        SG["ecom-shipping-setup-regions"]
+        SP["ecom-shipping-setup-pickup"]
+        SF["ecom-shipping-free-shipping"]
+        SO["ecom-shipping-optimize-rates"]
+        SX["ecom-shipping-fix-coverage"]
+        SS["ecom-shipping-api"]
+        SHIPDEF ~~~ SR ~~~ SG ~~~ SP ~~~ SF ~~~ SO ~~~ SX ~~~ SS
     end
 
-    Flows --> |"loads validation"| Guardrails
-    Flows --> |"loads setup"| Config
-
-    subgraph Guardrails["Cross-cutting: Guardrails"]
-        guardrail-discount-conflicts
-        guardrail-margin-protection
-        guardrail-shipping-health
-        guardrail-rate-pricing-sanity
+    subgraph CHECKOUT["Checkout & cart - checkout/"]
+        direction TB
+        CHKDEF["ecom-checkout - category-doc + dispatcher"]
+        CR["ecom-checkout-reduce-abandonment"]
+        CT["ecom-checkout-troubleshoot-dropoff"]
+        CA["ecom-checkout-agentic-readiness"]
+        CH["ecom-checkout-store-health"]
+        CD["config intents -> Wix Dashboard"]
+        CHKDEF ~~~ CR ~~~ CT ~~~ CA ~~~ CH ~~~ CD
     end
 
-    subgraph Config["Config — Setup & API References"]
-        setup-discount-rules
-        setup-coupons
-        setup-shipping-regions
-        setup-shipping-rates
-        api-shipping
+    subgraph ABANDONED["Abandoned carts - abandoned-carts/"]
+        direction TB
+        ACDEF["ecom-abandoned-carts - category-doc + dispatcher"]
+        AR["ecom-abandoned-carts-recover-email"]
+        AL["ecom-abandoned-carts-recovery-link"]
+        AT["ecom-abandoned-carts-troubleshoot-recovery"]
+        AH["ecom-abandoned-carts-recovery-health"]
+        ACDEF ~~~ AR ~~~ AL ~~~ AT ~~~ AH
     end
 
-    subgraph TrackingAPI["Tracking API"]
-        api-recommendation-tracking
+    subgraph FULFILL["Fulfillment - fulfillment/"]
+        direction TB
+        FDEF["ecom-fulfillment - category-doc + dispatcher"]
+        FO["ecom-fulfillment-fulfill-orders"]
+        FB["ecom-fulfillment-bulk-fulfill-orders"]
+        FL["labels -> Wix Dashboard"]
+        FI["invoice / packing slip -> API route"]
+        FDEF ~~~ FO ~~~ FB ~~~ FL ~~~ FI
     end
 
-    subgraph Standalone["Direct Entry Points (from README)"]
-        recipe-apply-shipping-recommendations
-        setup-store-pickup-location
-        troubleshoot-discount-not-applying
-        troubleshoot-checkout-delivery-dropoff
+    subgraph ORDERS["Orders - orders/"]
+        direction TB
+        ODEF["ecom-orders - category-doc + dispatcher"]
+        OC["ecom-orders-cancel-order"]
+        OS["search / get / counts / pending -> Orders API (main-file routes)"]
+        OH["approve · return · manual-order · contact · notifications -> Dashboard / unverified"]
+        ODEF ~~~ OC ~~~ OS ~~~ OH
     end
 
-    Config -.-> |"calls via CallWixSiteAPI"| API
+    classDef dispatcher fill:#f59e0b,stroke:#d97706,color:#fff
+    classDef promotion fill:#3b82f6,stroke:#2563eb,color:#fff
+    classDef orchestrator fill:#ec4899,stroke:#db2777,color:#fff
+    classDef support fill:#8b5cf6,stroke:#6d28d9,color:#fff
+    classDef loader fill:#10b981,stroke:#059669,color:#fff
+    classDef legacy fill:#6b7280,stroke:#4b5563,color:#fff
 
-    subgraph API["Wix REST API Docs (dev.wix.com)"]
-        D1["Discount Rules API"]
-        D2["Coupons API"]
-        D3["Products V3 API"]
-        D4["Categories API"]
-        D5["Catalog Analytics"]
-        S3["Pickup Locations API"]
-        S4["Local Delivery API"]
-        SD["Profile Service API (wix-profile-client)"]
-    end
-
-    classDef goal fill:#8b5cf6,stroke:#6d28d9,color:#fff
-    classDef guardrail fill:#ef4444,stroke:#dc2626,color:#fff
-    classDef flow fill:#3b82f6,stroke:#2563eb,color:#fff
-    classDef config fill:#f59e0b,stroke:#d97706,color:#fff
-    classDef reco fill:#ec4899,stroke:#db2777,color:#fff
-    classDef standalone fill:#6b7280,stroke:#4b5563,color:#fff
-    classDef apidoc fill:#e5e7eb,stroke:#9ca3af,color:#374151
-
-    class goal-increase-aov,goal-clear-inventory,goal-seasonal-revenue,goal-drive-cross-sells,goal-reduce-cart-abandonment goal
-    class guardrail-discount-conflicts,guardrail-margin-protection,guardrail-shipping-health,guardrail-rate-pricing-sanity guardrail
-    class flow-upsell-boost,flow-bundle-and-save,flow-stock-mover,flow-seasonal-promotion,flow-fix-coverage-gaps,flow-add-free-shipping,flow-optimize-shipping-rates flow
-    class setup-discount-rules,setup-coupons,setup-shipping-regions,setup-shipping-rates,api-recommendation-tracking,api-shipping config
-    class recommend-ecommerce-strategy reco
-    class recipe-apply-shipping-recommendations,setup-store-pickup-location,troubleshoot-discount-not-applying,troubleshoot-checkout-delivery-dropoff standalone
-    class D1,D2,D3,D4,D5,S1,S2,S3,S4,SD apidoc
+    class TAXDEF,PRICEDEF,SHIPDEF,CHKDEF,ACDEF,FDEF,ODEF dispatcher
+    class TC,TA,TV,TS,TU,TT,PC,PD,PB,PH,SR,SG,SP,SF,SO,SX,CR,CT,CA,CH,AR,AL,AT,AH,FO,FB,OC promotion
+    class PR orchestrator
+    class PG,PF,PV,SS,FI support
+    class LOADER loader
+    class CD,FL,OS,OH legacy
 ```
+
+The arrows land on each L2 group. Internal dispatch and support chains are documented in the reachability table below.
 
 ## File Reachability
 
-| File | Reached via |
-|---|---|
-| `recommend-ecommerce-strategy.md` | README routing (entry point) |
-| `api-recommendation-tracking.md` | Entry point tracking steps |
-| `goal-increase-aov.md` | Step 4b (UPSELL_BOOST) |
-| `goal-clear-inventory.md` | Step 4b (STOCK_MOVER) |
-| `goal-seasonal-revenue.md` | Step 4b (SEASONAL) |
-| `goal-drive-cross-sells.md` | Step 4b (BUNDLE_AND_SAVE) |
-| `goal-reduce-cart-abandonment.md` | Step 4b (ABANDONED_CART domain) |
-| `flow-upsell-boost.md` | goal-increase-aov chain |
-| `flow-bundle-and-save.md` | goal-increase-aov / goal-drive-cross-sells chain |
-| `flow-stock-mover.md` | goal-clear-inventory chain |
-| `flow-seasonal-promotion.md` | goal-seasonal-revenue chain |
-| `flow-fix-coverage-gaps.md` | goal-reduce-cart-abandonment chain (critical operational fix) |
-| `flow-add-free-shipping.md` | goal-increase-aov chain (shipping flows serving AOV) |
-| `flow-optimize-shipping-rates.md` | goal-increase-aov chain (shipping flows serving AOV) |
-| `guardrail-discount-conflicts.md` | flow-upsell-boost / bundle / stock / seasonal chains |
-| `guardrail-margin-protection.md` | flow-upsell-boost / stock-mover chains |
-| `guardrail-shipping-health.md` | flow-fix-coverage-gaps chain |
-| `guardrail-rate-pricing-sanity.md` | flow-add-free-shipping / optimize chains |
-| `setup-discount-rules.md` | All discount flow chains |
-| `setup-coupons.md` | Step 4c (COUPON mechanism) |
-| `setup-shipping-regions.md` | flow-fix-coverage-gaps chain |
-| `setup-shipping-rates.md` | flow-add-free-shipping / optimize chains |
-| `api-shipping.md` | Shipping flows (fix-coverage-gaps, add-free-shipping, optimize, recipe, setup-store-pickup) |
-| `recipe-apply-shipping-recommendations.md` | README direct entry |
-| `setup-store-pickup-location.md` | README direct entry |
-| `troubleshoot-discount-not-applying.md` | README direct entry |
-| `troubleshoot-checkout-delivery-dropoff.md` | README direct entry |
-| `skill-graph.md` | Documentation reference |
+| File | Role | Reached via |
+|---|---|---|
+| `ecom-load-context.md` | L1 loader | Loaded by eCommerce category dispatchers when MerchantContext is missing |
+| `ecom-tax.md` | category-doc + dispatcher | WixREADME portal index |
+| `tax/ecom-tax-configure.md` | promotion | tax dispatch `[intent:configure-tax]` |
+| `tax/ecom-tax-avalara.md` | promotion | tax dispatch `[intent:avalara]` |
+| `tax/ecom-tax-eu-vat.md` | promotion | tax dispatch `[intent:eu-vat]` |
+| `tax/ecom-tax-switch-calculator.md` | promotion | tax dispatch `[intent:switch-calculator]` |
+| `tax/ecom-tax-audit.md` | promotion | tax dispatch `[intent:audit-tax]` |
+| `tax/ecom-tax-troubleshoot-calc-wrong.md` | promotion | tax dispatch `[intent:troubleshoot]` |
+| `ecom-pricing.md` | category-doc + dispatcher | WixREADME portal index |
+| `pricing-promotions/ecom-pricing-create-coupon.md` | promotion | pricing dispatch `[intent:create-coupon]` |
+| `pricing-promotions/ecom-pricing-create-discount-rule.md` | promotion | pricing dispatch `[intent:create-discount-rule / add-ribbon / schedule-sale]` |
+| `pricing-promotions/ecom-pricing-run-a-sale.md` | business-flow | pricing dispatch `[intent:run-a-sale / boost-business / seasonal-promo / clearance / increase-aov]` |
+| `pricing-promotions/ecom-pricing-troubleshoot-not-applying.md` | promotion | pricing dispatch `[intent:troubleshoot]` |
+| `pricing-promotions/ecom-pricing-health.md` | promotion | pricing dispatch `[intent:pricing-health]` |
+| `pricing-promotions/ecom-pricing-*.md` support files | support | loaded by the pricing orchestrator or linked recipes |
+| `ecom-shipping.md` | category-doc + dispatcher | WixREADME portal index; shipping setup and rate/coverage optimization |
+| `shipping/ecom-shipping-setup-rates.md` | promotion | shipping dispatch `[intent:setup-rates]` |
+| `shipping/ecom-shipping-setup-regions.md` | promotion | shipping dispatch `[intent:setup-regions]` |
+| `shipping/ecom-shipping-setup-pickup.md` | promotion | shipping dispatch `[intent:setup-pickup]` |
+| `shipping/ecom-shipping-free-shipping.md` | promotion | shipping dispatch `[intent:free-shipping]`; also loaded by run-a-sale |
+| `shipping/ecom-shipping-optimize-rates.md` | promotion | shipping dispatch `[intent:optimize-rates / rate-incorrect]` |
+| `shipping/ecom-shipping-fix-coverage.md` | promotion | shipping dispatch `[intent:fix-coverage]` |
+| `shipping/ecom-shipping-api.md` | support | inline API reference for Shipping Options and Delivery Profiles |
+| `ecom-checkout.md` | category-doc + dispatcher | WixREADME portal index; live checkout/cart setup and troubleshooting |
+| `checkout/ecom-checkout-reduce-abandonment.md` | promotion | checkout dispatch `[intent:reduce-abandonment]`; also loaded by run-a-sale ABANDONED_CART branch |
+| `checkout/ecom-checkout-troubleshoot-dropoff.md` | promotion | checkout dispatch `[intent:troubleshoot-checkout]` |
+| `checkout/ecom-checkout-agentic-readiness.md` | promotion | checkout dispatch `[intent:agentic]` |
+| `checkout/ecom-checkout-store-health.md` | promotion | checkout dispatch `[intent:store-health]` |
+| `ecom-abandoned-carts.md` | category-doc + dispatcher | WixREADME portal index; recovery/recapture after checkout abandonment |
+| `abandoned-carts/ecom-abandoned-carts-recover-email.md` | promotion | abandoned-carts dispatch `[intent:recover-email]` |
+| `abandoned-carts/ecom-abandoned-carts-recovery-link.md` | promotion | abandoned-carts dispatch `[intent:recovery-link]` |
+| `abandoned-carts/ecom-abandoned-carts-troubleshoot-recovery.md` | promotion | abandoned-carts dispatch `[intent:troubleshoot-recovery]` |
+| `abandoned-carts/ecom-abandoned-carts-recovery-health.md` | promotion | abandoned-carts dispatch `[intent:recovery-health]` |
+| `ecom-fulfillment.md` | category-doc + dispatcher | WixREADME portal index; post-purchase fulfillment and shipping-document routing |
+| `fulfillment/ecom-fulfillment-fulfill-orders.md` | promotion | fulfillment dispatch `[intent:fulfill-order / update-tracking / partial-fulfillment]` |
+| `fulfillment/ecom-fulfillment-bulk-fulfill-orders.md` | promotion | fulfillment dispatch `[intent:bulk-fulfill]` |
+| (shipping labels) | Dashboard | fulfillment dispatch `[intent:shipping-labels]`; no public API route in this repo |
+| (invoice / packing slip) | API route | fulfillment dispatch `[intent:order-invoice]`; eCommerce Orders Invoice API |
+| `ecom-orders.md` | category-doc + dispatcher | WixREADME portal index; order lookup + lifecycle routing |
+| `orders/ecom-orders-cancel-order.md` | promotion | orders dispatch `[intent:cancel-order]` — `POST /ecom/v1/orders/{id}/cancel` |
+| (search / get / counts / pending) | API route | orders main-file routes — `POST /ecom/v1/orders/search`, `GET /ecom/v1/orders/{id}` |
+| (approve / return / manual-order / contact / notifications) | Dashboard / unverified | orders handoffs — not authored as skills until the public method is verified |

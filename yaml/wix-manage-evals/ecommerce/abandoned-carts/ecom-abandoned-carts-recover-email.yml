@@ -1,0 +1,14 @@
+name: ecommerce/abandoned-carts/recover-email
+description: Verifies abandoned-cart recovery email guidance loads the new abandoned-carts skill.
+triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) Set up abandoned cart recovery emails for shoppers who left checkout.
+tags: [ecommerce]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/abandoned-carts-recover-via-email
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Pass if the response explains that recurring abandoned-cart recovery email is configured in Wix Dashboard automation, includes practical setup guidance such as trigger, timing, content, or eligibility, and does not claim a public API sends the recurring email. If it discusses measurement, it should use Analytics APIs for recovery performance/reporting and reserve the Abandoned Checkout API for record-level verification or custom recovery links.
+      Fail if it routes to the old checkout recover-email skill or says the automation can be fully configured through an unsupported public API.

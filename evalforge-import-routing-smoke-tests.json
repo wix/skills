@@ -1,0 +1,92 @@
+{
+  "scenarios": [
+    {
+      "name": "ecom-tax-eu-vat-context-dispatch",
+      "description": "Tax category entry dispatches to the EU VAT recipe via context-tag boost (region:EU beats the priority-0 Wix Manual entry). Verifies the renamed slug `tax-configure-eu-vat` resolves and that the L1 loader populates region from country.",
+      "triggerPrompt": "For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) I sell to customers in Germany and France — how do I set up VAT for my store?",
+      "tags": ["ecommerce", "tax", "routing-smoke-test", "slug-rename-verification", "context-tag-dispatch"],
+      "assertionLinks": [
+        {
+          "assertionId": "system:skill_was_called",
+          "params": {
+            "skillNames": "[\"tax\", \"tax-configure-eu-vat\"]"
+          }
+        },
+        {
+          "assertionId": "system:llm_judge",
+          "params": {
+            "prompt": "Evaluate the agent's response to a merchant selling to Germany and France asking how to set up VAT.\n\nPASS if ALL of these are true:\n  1. The agent loaded the `tax-configure-eu-vat` skill (NOT `tax-configure-wix-manual` and NOT `tax-configure-avalara`).\n  2. It recognized Germany/France require EU VAT and proceeded — it did NOT ask 'what country are you in?' (the prompt already says Germany and France).\n  3. It referenced concrete EU VAT setup steps (tax groups / regions / inclusive vs exclusive pricing) consistent with the EU VAT recipe, not generic 'configure tax' guidance.\n\nFAIL if ANY of these are true:\n  - The agent dispatched to Wix Manual or Avalara instead of EU VAT.\n  - The agent asked a clarifying question about country before dispatching.\n  - The agent's output mirrors a legacy 'Setup: Coupons'-era response or a pre-rename slug name from main.\n\nScore 0-10 where 10 = clearly passed all criteria.",
+            "minScore": 7
+          }
+        },
+        {
+          "assertionId": "system:time_limit",
+          "params": {
+            "maxDurationMs": 300000
+          }
+        }
+      ]
+    },
+    {
+      "name": "ecom-pricing-create-coupon-renamed-slug",
+      "description": "Pricing & Promotions category entry dispatches to the create-coupon action recipe. Specifically validates the slug renamed in commit 8c39b00 (pricing-create-coupon) resolves end-to-end and that the agent doesn't fall back to the legacy `setup-coupons` slug still appearing in the main-union portal index.",
+      "triggerPrompt": "For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) Create a 20% off coupon with code SUMMER20 that expires June 30, 2026",
+      "tags": ["ecommerce", "pricing-promotions", "routing-smoke-test", "slug-rename-verification", "action-recipe"],
+      "assertionLinks": [
+        {
+          "assertionId": "system:skill_was_called",
+          "params": {
+            "skillNames": "[\"pricing-promotions\", \"pricing-create-coupon\"]"
+          }
+        },
+        {
+          "assertionId": "system:tool_called_with_param",
+          "params": {
+            "toolName": "CallWixSiteAPI",
+            "expectedParams": "{\"url\":\"https://www.wixapis.com/v2/coupons\"}"
+          }
+        },
+        {
+          "assertionId": "system:llm_judge",
+          "params": {
+            "prompt": "Evaluate the agent's response to 'Create a 20% off coupon with code SUMMER20 that expires June 30, 2026'.\n\nPASS if ALL of these are true:\n  1. The agent loaded `pricing-create-coupon` (NOT the legacy `setup-coupons` slug from main).\n  2. Before creating, it ran a uniqueness/query check via `POST https://www.wixapis.com/v2/coupons/query` to check for duplicate codes.\n  3. The create-coupon payload uses `percentOffRate: 20`, `code: \"SUMMER20\"`, and `expirationTime` as UNIX epoch in MILLISECONDS (not seconds) — value should be 1782777600000 (2026-06-30T00:00:00Z) or close to it (a value ending in three zeros, billions-range integer).\n  4. It explained the scope choice (e.g., applying to all store products by default).\n\nFAIL if ANY of these are true:\n  - The agent used the legacy `setup-coupons` slug or its content.\n  - `expirationTime` was sent in seconds (~1782777600, ten-digit integer) instead of milliseconds.\n  - The agent skipped the duplicate-code check.\n  - The agent invented coupon fields not in the Coupons API spec.\n\nScore 0-10 where 10 = clearly passed all criteria.",
+            "minScore": 7
+          }
+        },
+        {
+          "assertionId": "system:time_limit",
+          "params": {
+            "maxDurationMs": 300000
+          }
+        }
+      ]
+    },
+    {
+      "name": "ecom-shipping-add-free-shipping-renamed-slug",
+      "description": "Shipping category entry dispatches to the free-shipping action recipe. Validates the renamed slug `shipping-add-free-shipping` (formerly `flow-add-free-shipping` on main) and the inline API-reference pattern — shipping has no public dev.wix.com API docs so the recipe must reference `shipping-api-reference` for endpoint details.",
+      "triggerPrompt": "For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) Add free shipping for orders over $50 in the US",
+      "tags": ["ecommerce", "shipping", "routing-smoke-test", "slug-rename-verification", "inline-api-reference"],
+      "assertionLinks": [
+        {
+          "assertionId": "system:skill_was_called",
+          "params": {
+            "skillNames": "[\"shipping\", \"shipping-add-free-shipping\"]"
+          }
+        },
+        {
+          "assertionId": "system:llm_judge",
+          "params": {
+            "prompt": "Evaluate the agent's response to 'Add free shipping for orders over $50 in the US'.\n\nPASS if ALL of these are true:\n  1. The agent loaded `shipping-add-free-shipping` (NOT the legacy `flow-add-free-shipping` slug from main).\n  2. It either loaded `shipping-api-reference` or quoted endpoint details from that inline spec — it did NOT invent shipping API URLs (there is no public dev.wix.com page for the Shipping Options / Delivery Profiles APIs).\n  3. The proposed delivery option uses a cost-based threshold: condition `subtotal >= 50` (or equivalent), `cost: 0`, scoped to a US delivery region/profile.\n  4. The agent did NOT confuse this with a Pricing & Promotions discount-rule 'free-shipping-promo' flow — this is a shipping rate change, not a coupon/discount-rule.\n\nFAIL if ANY of these are true:\n  - The agent used the legacy `flow-add-free-shipping` slug or content.\n  - The agent invented a shipping endpoint URL not present in `shipping-api-reference`.\n  - The free-shipping rate is unconditional (no $50 threshold) or applies globally instead of US-only.\n  - The agent routed to Pricing & Promotions / Discount Rules instead of Shipping.\n\nScore 0-10 where 10 = clearly passed all criteria.",
+            "minScore": 7
+          }
+        },
+        {
+          "assertionId": "system:time_limit",
+          "params": {
+            "maxDurationMs": 300000
+          }
+        }
+      ]
+    }
+  ]
+}
