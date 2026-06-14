@@ -5,25 +5,76 @@ import Layout from "../../layouts/Layout.astro";
 import SeoTags from "../../components/SeoTags.astro";
 import ServiceBookingFlow from "../../components/ServiceBookingFlow";
 import { services } from "@wix/bookings";
+import { forms } from "@wix/forms";
 import { auth } from "@wix/essentials";
 
+const BOOKING_APP_ID = "13d21c63-b5ec-5912-8397-c3a5ddb27a97";
 const { slug } = Astro.params;
 
 let service: any = null;
 try {
-  // Ambient SSR via @wix/essentials; query BUILDER (object form returns 0).
-  // Fetch the small catalog and match the slug in JS (robust without a
-  // nested-field `mainSlug.name` builder filter).
-  const result = await auth.elevate(services.queryServices)().limit(100).find();
-  service =
-    (result.items ?? []).find(
-      (s: any) => (s.mainSlug?.name ?? s.supportedSlugs?.[0]?.name) === slug,
-    ) ?? null;
+  // Ambient SSR via @wix/essentials. Single service by slug: the .eq() builder
+  // chain on mainSlug.name + appId (the form the @wix/bookings SDK expects).
+  const result = await auth
+    .elevate(services.queryServices)({ conditionalFields: ["STAFF_MEMBER_DETAILS"] })
+    .eq("mainSlug.name", slug)
+    .eq("appId", BOOKING_APP_ID)
+    .limit(1)
+    .find();
+  service = result.items?.[0] ?? null;
 } catch (err) {
   console.error(`[services/${slug}] detail query failed:`, err);
 }
 
 if (!service) return Astro.redirect("/services", 302);
+
+// Booking-form SCHEMA — the form belongs to the service (service.form._id) in the
+// bookings namespace. Read it server-side and pass the field list to the island.
+// Same renderer the forms vertical uses (references/astro/forms/CONTACT_FORM.md):
+// keep the field's `target` — that is the key createBooking expects in formSubmission.
+let formFields: any[] = [];
+try {
+  const formId = service.form?._id;
+  if (formId) {
+    const res: any = await auth.elevate(forms.getForm)(formId);
+    const form = res?.form ?? res;
+    // Only render field types we can submit as a simple value. Skip complex,
+    // object-valued fields (e.g. a multi-line ADDRESS) — they carry no string
+    // `componentType`, and sending a string for them fails createBooking with
+    // "must be object". The booking enforces only the contact basics
+    // (first_name/last_name/email), so skipping optional complex fields is safe.
+    const RENDERABLE = ["TEXT_INPUT", "PHONE_INPUT", "DROPDOWN"];
+    formFields = (form?.formFields ?? [])
+      .filter(
+        (f: any) =>
+          f.fieldType === "INPUT" &&
+          !f.hidden &&
+          RENDERABLE.includes(f.inputOptions?.stringOptions?.componentType),
+      )
+      .map((f: any) => {
+        const opts = f.inputOptions;
+        const str = opts?.stringOptions;
+        const label =
+          str?.textInputOptions?.label ??
+          str?.dropdownOptions?.label ??
+          str?.phoneInputOptions?.label ??
+          "";
+        return {
+          label,
+          target: opts?.target ?? "",
+          required: opts?.required ?? false,
+          componentType: str?.componentType ?? "TEXT_INPUT",
+          identifier: f.identifier ?? "",
+          options: str?.dropdownOptions?.options?.map((o: any) => ({
+            value: o.value ?? o.label ?? "",
+            label: o.label ?? o.value ?? "",
+          })),
+        };
+      });
+  }
+} catch (err) {
+  console.error(`[services/${slug}] booking form schema failed:`, err);
+}
 
 const formatPrice = (p: any): string | undefined => {
   if (!p || p.rateType === "NO_FEE") return undefined;
@@ -71,9 +122,10 @@ const seoTags = service.seoData?.tags ?? [];
     <section class="border-t border-rule pt-2xl">
       <h2 class="font-display text-3xl leading-tight mb-xl">Book this service</h2>
       <ServiceBookingFlow
-        serviceId={service._id}
+        service={service}
         serviceName={serviceName}
         serviceType={service.type ?? "APPOINTMENT"}
+        fields={formFields}
         client:only="react"
       />
     </section>

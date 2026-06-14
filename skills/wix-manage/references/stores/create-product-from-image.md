@@ -246,7 +246,7 @@ After the card, present the action options:
 
 > 1. **Refine** — tell me what to change (e.g., "make the description shorter", "the price should be lower")
 > 2. **Regenerate** — I'll start the analysis over, optionally with additional context from you
-> 3. **Approve** — proceed to options and product creation
+> 3. **Approve** — lock in these details and continue to the next steps
 
 If the user provided a text note that **contradicts** what's visible in the image (e.g., image shows blue but note says "available in red"), ask the user to clarify before proceeding.
 
@@ -341,6 +341,16 @@ If no options were detected:
 ---
 
 ## V3 STEP 6: Create the Product
+
+Before making the API call, ask the user one final time:
+
+> Everything is ready. Shall I create the product now?
+> - **Yes, create it** — I'll submit the product to your store now.
+> - **No, go back** — return to a previous step to make changes.
+
+**Wait for confirmation.** Only proceed with the API call if the user says Yes.
+
+---
 
 **API Endpoint:** `POST https://www.wixapis.com/stores/v3/products`
 
@@ -793,7 +803,7 @@ Before reporting success to the user, verify ALL of the following:
 - [ ] V3 STEP 4 completed: User reviewed and approved the generated details.
 - [ ] V3 STEP 4.5 completed (if applicable): Subscription eligibility was evaluated. If eligible, user was asked and their choice (Yes/No) was applied before proceeding to STEP 5.
 - [ ] V3 STEP 5 completed: User confirmed, modified, or skipped product options.
-- [ ] V3 STEP 6 completed: Product was created via API and you received a product ID.
+- [ ] V3 STEP 6 completed: User confirmed "create now", product was created via API and you received a product ID.
 
 ---
 

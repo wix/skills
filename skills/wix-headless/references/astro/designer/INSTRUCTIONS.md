@@ -33,7 +33,7 @@ No REST calls required. Page-design scopes are frontend-only — no `curl`, no M
 | `home` | build wave | `src/pages/index.astro` (composes pack home-sections + brand hero/CTA into the Composer-written shell) |
 | `static` | build wave | `src/pages/about.astro`, `src/pages/faq.astro` |
 | `store-pages` | build wave | `src/pages/products/index.astro`, `src/pages/products/[slug].astro`, `src/components/ProductCard.astro`, `src/pages/cart.astro`, `src/pages/thank-you.astro` |
-| `services-pages` | build wave | `src/pages/services/index.astro`, `src/pages/services/[slug].astro`, `src/pages/booking-confirmation.astro`, `src/pages/manage-booking.astro` |
+| `services-pages` | build wave | `src/pages/services/index.astro`, `src/pages/services/[slug].astro`, `src/pages/booking-confirmation.astro` |
 | `blog-pages` | build wave | `src/pages/blog/index.astro`, `src/pages/blog/[slug].astro` |
 | `contact-page` | build wave | `src/pages/contact.astro` |
 
@@ -230,7 +230,7 @@ All store-facing pages designed together for visual coherence.
 
 All bookings-facing pages designed together for visual coherence. **Canonical templates exist** at `<SKILL_ROOT>/references/astro/templates/bookings/` — adapt them (copy, headings, styling); do not re-author the SDK/booking-flow wiring (`references/astro/bookings/SERVICES_PAGES.md` is the wiring spec).
 
-**Files:** `src/pages/services/index.astro`, `src/pages/services/[slug].astro`, `src/pages/booking-confirmation.astro`, `src/pages/manage-booking.astro`
+**Files:** `src/pages/services/index.astro`, `src/pages/services/[slug].astro`, `src/pages/booking-confirmation.astro`
 
 **Services listing (`/services`):**
 - Page heading + optional brand tagline
@@ -240,13 +240,10 @@ All bookings-facing pages designed together for visual coherence. **Canonical te
 **Service detail (`/services/[slug]`):**
 - `container-reading` width (never a bare `max-w-<size>`); optional banner image **only when the service has media** (image-less is the common seed case — no fixed-ratio placeholder)
 - Title, tagline, duration + price row, description
-- "Book this service" section mounting the `ServiceBookingFlow` island (`client:only="react"`, threads `serviceType`) — calendar slots use `time-slot` classes (`--available`/`--selected`/`--full`), form uses the `booking-form` family
+- "Book this service" section mounting the `ServiceBookingFlow` island (`client:only="react"`, threads `serviceType`) — the week calendar uses the `availability-*` classes (week strip + `availability-day`), slots use `time-slot` classes (`--available`/`--selected`), and the form uses the `booking-*` family
 
 **Booking confirmation (`/booking-confirmation`):**
-- `max-w-prose`, centered; status-aware headline ("Thank you for booking" vs pending-approval) + embedded cancel (`ManageBooking` island, `showSummary={false}`)
-
-**Manage booking (`/manage-booking`):**
-- `container-reading`; booking summary + cancel via the `manage-booking` class family
+- `max-w-prose`, centered; "Thank you for booking" headline + the service name and time (read from the `service`/`startDate` query params) + a link back to `/services`. No re-fetch, no cancel UI (manage/cancel is out of scope).
 
 ### Scope: `blog-pages`
 

@@ -34266,19 +34266,22 @@ function formatServiceError(message, blocking) {
     const { icon } = failIcon(blocking);
     return render(icon, blocking ? 'Error' : 'Warning', [message]);
 }
-function formatEvalPassed(m, runId) {
-    return render('✅', 'Passed', [`Pass rate: ${m.passRate}%`, `Run ID: ${runId}`]);
+function runLink(runId, runUrl) {
+    return `Run: [${runId}](${runUrl})`;
 }
-function formatEvalFailed(m, runId, blocking) {
+function formatEvalPassed(m, runId, runUrl) {
+    return render('✅', 'Passed', [`Pass rate: ${m.passRate}%`, runLink(runId, runUrl)]);
+}
+function formatEvalFailed(m, runId, runUrl, blocking) {
     const { icon, label } = failIcon(blocking);
     return render(icon, label, [
         `Pass rate: ${m.passRate}%`,
         `${m.failed} failed, ${m.errors} errored, ${m.passed}/${m.totalAssertions} passed`,
-        `Run ID: ${runId}`,
+        runLink(runId, runUrl),
     ]);
 }
-function formatEvalTimeout(runId, blocking) {
-    return render(blocking ? '⏱' : '⚠️', 'Timed Out', [`Run ID: ${runId}`]);
+function formatEvalTimeout(runId, runUrl, blocking) {
+    return render(blocking ? '⏱' : '⚠️', 'Timed Out', [runLink(runId, runUrl)]);
 }
 function formatNoChanges() {
     return render('✅', 'No Gated Changes', ['Nothing under `evals/` or sibling `.md` changed.']);
@@ -34508,14 +34511,13 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.resolveDocsEntry = resolveDocsEntry;
 exports.canonicalDocUrl = canonicalDocUrl;
 const node_fs_1 = __nccwpck_require__(3024);
 const node_path_1 = __nccwpck_require__(6760);
 const glob_1 = __nccwpck_require__(1363);
 const jsYaml = __importStar(__nccwpck_require__(4281));
 const paths_1 = __nccwpck_require__(6621);
-const indexCache = new Map(); // workspace → built index
+const indexCache = new Map();
 function buildDocIndex(workspace) {
     const cached = indexCache.get(workspace);
     if (cached)
@@ -34532,23 +34534,34 @@ function buildDocIndex(workspace) {
         const raw = (0, node_fs_1.readFileSync)(abs, 'utf8');
         const parsed = jsYaml.load(raw, { schema: jsYaml.CORE_SCHEMA }) ?? {};
         for (const e of parsed.apiDoc?.docs ?? []) {
-            if (!e.file || !e.docsEntry)
+            if (!e.file || !e.docsEntry || !e.title)
                 continue;
-            index.set((0, node_path_1.resolve)(yamlDir, e.file), e.docsEntry);
+            index.set((0, node_path_1.resolve)(yamlDir, e.file), { docsEntry: e.docsEntry, title: e.title });
         }
     }
     indexCache.set(workspace, index);
     return index;
 }
-function resolveDocsEntry(filePath, workspace) {
-    return buildDocIndex(workspace).get((0, node_path_1.resolve)(workspace, filePath)) ?? null;
+function slugify(displayName) {
+    const shouldAddDollarPrefix = displayName.startsWith('$');
+    const slug = displayName
+        .replace(/\(\)$|\( \)$/, '')
+        .replace(/[ \W_]+/g, '-')
+        .replace(/[a-z][A-Z]/g, (m) => m[0] + '-' + m[1].toLowerCase());
+    let trimmedSlug = slug[0]?.match(/[ \W_]/) ? slug.slice(1) : slug;
+    if (trimmedSlug.length > 0 && trimmedSlug.slice(-1).match(/[ \W_]/)) {
+        trimmedSlug = trimmedSlug.slice(0, -1);
+    }
+    return `${shouldAddDollarPrefix ? '$' : ''}${trimmedSlug.toLowerCase()}`;
 }
 function canonicalDocUrl(filePath, workspace) {
-    const docsEntry = resolveDocsEntry(filePath, workspace);
-    if (!docsEntry)
+    const info = buildDocIndex(workspace).get((0, node_path_1.resolve)(workspace, filePath));
+    if (!info)
         return null;
-    const stem = (0, node_path_1.basename)(filePath, '.md');
-    return `${docsEntry.replace(/\/+$/, '')}/skills/${stem}`;
+    const slug = slugify(info.title);
+    if (!slug)
+        return null;
+    return `${info.docsEntry.replace(/\/+$/, '')}/skills/${slug}`;
 }
 
 
@@ -34755,6 +34768,7 @@ function jsonifyMaybe(v) {
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.EvalForgeClient = exports.DRAFT_PREFIX = exports.TERMINAL_RUN_STATUSES = void 0;
+exports.evalRunUrl = evalRunUrl;
 exports.draftTagFor = draftTagFor;
 exports.parseDraftTag = parseDraftTag;
 exports.isHttpError = isHttpError;
@@ -34762,6 +34776,11 @@ const MCP_URL = 'https://mcp.wix.com/mcp';
 const MCP_CONFIG_KEY = 'wix-mcp-remote';
 exports.TERMINAL_RUN_STATUSES = ['completed', 'failed', 'cancelled'];
 exports.DRAFT_PREFIX = 'draft:';
+// Human-facing EvalForge results page (distinct from the REST `baseUrl` the client calls).
+const UI_BASE = 'https://bo.wix.com/pages/evalforge';
+function evalRunUrl(projectId, runId) {
+    return `${UI_BASE}/${projectId}/results?runId=${runId}`;
+}
 function draftTagFor(repo, prNumber) {
     return `${exports.DRAFT_PREFIX}${repo}#${prNumber}`;
 }
@@ -34987,6 +35006,11 @@ async function runGate() {
     const workspace = (0, workspace_1.workspaceRoot)();
     const draftTag = (0, evalforge_1.draftTagFor)(`${config.owner}/${config.repo}`, config.prNumber);
     core.info(`EvalForge YAML gate — PR #${config.prNumber}`);
+    const evalforge = new evalforge_1.EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
+    const versionLabel = `pr-${config.prNumber}-${config.headSha.slice(0, 7)}`;
+    const mcpVersion = await guardedCall(() => evalforge.ensureMcpVersion(config.mcpId, config.projectId, versionLabel, config.prNumber, config.headSha, config.mcpSkillsRepo), 'Could not create MCP version', comment, config);
+    if (!mcpVersion)
+        return;
     const { scenarios: headScenarios, errors: loadErrors } = (0, evals_1.loadEvals)(workspace);
     if (loadErrors.length > 0) {
         await comment((0, comment_1.formatLoadErrors)(loadErrors));
@@ -35028,11 +35052,10 @@ async function runGate() {
         if (changedEvalPaths.has(ls.path))
             changedHeadScenarios.set(name, ls);
     }
-    const evalforge = new evalforge_1.EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
     const remote = await guardedCall(() => evalforge.listTestScenarios(config.projectId), 'Could not reach EvalForge', comment, config);
     if (!remote)
         return;
-    const plan = (0, sync_1.diffSyncPlan)({ head: changedHeadScenarios, base: baseScenarios, remote, draftTag });
+    const plan = (0, sync_1.diffSyncPlan)({ changedHead: changedHeadScenarios, head: headScenarios, base: baseScenarios, remote, draftTag });
     if (plan.errors.length > 0) {
         await comment((0, comment_1.formatForeignDraftConflicts)(plan.errors, { owner: config.owner, repo: config.repo }));
         (0, github_1.fail)(`Scenario(s) held by other PRs: ${plan.errors.map(e => e.name).join(', ')}`, config.blocking);
@@ -35089,10 +35112,6 @@ async function runGate() {
         core.info('Nothing to run');
         return;
     }
-    const versionLabel = `pr-${config.prNumber}-${config.headSha.slice(0, 7)}`;
-    const mcpVersion = await guardedCall(() => evalforge.ensureMcpVersion(config.mcpId, config.projectId, versionLabel, config.prNumber, config.headSha, config.mcpSkillsRepo), 'Could not create MCP version', comment, config);
-    if (!mcpVersion)
-        return;
     const run = await guardedCall(() => evalforge.createEvalRun(config.projectId, {
         name: `PR #${config.prNumber} YAML-gate`,
         description: `Gate for PR #${config.prNumber} (${selected.size} scenarios)`,
@@ -35105,6 +35124,7 @@ async function runGate() {
     }), 'Could not create eval run', comment, config);
     if (!run)
         return;
+    const runUrl = (0, evalforge_1.evalRunUrl)(config.projectId, run.id);
     const triggered = await guardedCall(() => evalforge.triggerEvalRun(config.projectId, run.id), 'Could not trigger eval run', comment, config);
     if (!triggered)
         return;
@@ -35114,7 +35134,7 @@ async function runGate() {
     }
     catch (e) {
         if (e instanceof eval_run_1.EvalRunTimeoutError) {
-            await comment((0, comment_1.formatEvalTimeout)(run.id, config.blocking));
+            await comment((0, comment_1.formatEvalTimeout)(run.id, runUrl, config.blocking));
             (0, github_1.fail)(`Eval timed out (run ID: ${run.id})`, config.blocking);
             return;
         }
@@ -35125,11 +35145,11 @@ async function runGate() {
     }
     const m = finalStatus.aggregateMetrics;
     if (finalStatus.status === 'completed' && m.failed === 0 && m.errors === 0) {
-        await comment((0, comment_1.formatEvalPassed)(m, run.id));
+        await comment((0, comment_1.formatEvalPassed)(m, run.id, runUrl));
         core.info(`Eval passed — ${m.passed}/${m.totalAssertions} (run ID: ${run.id})`);
     }
     else {
-        await comment((0, comment_1.formatEvalFailed)(m, run.id, config.blocking));
+        await comment((0, comment_1.formatEvalFailed)(m, run.id, runUrl, config.blocking));
         (0, github_1.fail)(`Eval failed (${m.passRate}%)`, config.blocking);
     }
 }
@@ -35418,13 +35438,23 @@ async function runPromote() {
     const remoteByName = new Map(remote.map(r => [r.name, r]));
     const headScenarios = loadEvalsWithWarnings(workspace);
     let promoted = 0;
-    let stillDraft = 0;
+    let droppedDrafts = 0;
     for (const s of remote) {
         if (!s.tags.includes(draftTag))
             continue;
         const ls = headScenarios.get(s.name);
         if (!ls) {
-            stillDraft++;
+            // Scenario was created or stamped by this PR but no YAML survived to the merged head
+            // (e.g. user added then removed the file, or force-pushed past the add). The merge
+            // commit is the source of truth — delete the orphan rather than leaving it draft-tagged.
+            try {
+                await evalforge.deleteTestScenario(config.projectId, s.id);
+                droppedDrafts++;
+                core.info(`Deleted orphaned draft ${s.name} (${s.id}) — no matching YAML in merged head`);
+            }
+            catch (e) {
+                core.warning(`Delete orphaned draft failed for ${s.name}: ${e instanceof Error ? e.message : String(e)}`);
+            }
             continue;
         }
         try {
@@ -35455,8 +35485,8 @@ async function runPromote() {
     }
     if (promoted > 0)
         core.info(`Promoted ${promoted} scenarios`);
-    if (stillDraft > 0)
-        core.info(`Skipped ${stillDraft} (YAML missing in merged head)`);
+    if (droppedDrafts > 0)
+        core.info(`Deleted ${droppedDrafts} orphaned draft scenario(s)`);
 }
 function loadEvalsWithWarnings(root) {
     const { scenarios, errors } = (0, evals_1.loadEvals)(root);
@@ -35634,11 +35664,11 @@ function foreignDraftTags(tags, myTag) {
     return tags.filter(t => t.startsWith('draft:') && t !== myTag);
 }
 function diffSyncPlan(input) {
-    const { head, base, remote, draftTag } = input;
+    const { changedHead, head, base, remote, draftTag } = input;
     const remoteByName = new Map(remote.map(r => [r.name, r]));
     const actions = [];
     const errors = [];
-    for (const [name, ls] of head) {
+    for (const [name, ls] of changedHead) {
         const r = remoteByName.get(name);
         if (!r) {
             actions.push({ kind: 'CREATE', name, body: toScenarioBody(ls.scenario), tags: [draftTag] });
