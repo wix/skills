@@ -34987,6 +34987,11 @@ async function runGate() {
     const workspace = (0, workspace_1.workspaceRoot)();
     const draftTag = (0, evalforge_1.draftTagFor)(`${config.owner}/${config.repo}`, config.prNumber);
     core.info(`EvalForge YAML gate — PR #${config.prNumber}`);
+    const evalforge = new evalforge_1.EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
+    const versionLabel = `pr-${config.prNumber}-${config.headSha.slice(0, 7)}`;
+    const mcpVersion = await guardedCall(() => evalforge.ensureMcpVersion(config.mcpId, config.projectId, versionLabel, config.prNumber, config.headSha, config.mcpSkillsRepo), 'Could not create MCP version', comment, config);
+    if (!mcpVersion)
+        return;
     const { scenarios: headScenarios, errors: loadErrors } = (0, evals_1.loadEvals)(workspace);
     if (loadErrors.length > 0) {
         await comment((0, comment_1.formatLoadErrors)(loadErrors));
@@ -35028,11 +35033,10 @@ async function runGate() {
         if (changedEvalPaths.has(ls.path))
             changedHeadScenarios.set(name, ls);
     }
-    const evalforge = new evalforge_1.EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
     const remote = await guardedCall(() => evalforge.listTestScenarios(config.projectId), 'Could not reach EvalForge', comment, config);
     if (!remote)
         return;
-    const plan = (0, sync_1.diffSyncPlan)({ head: changedHeadScenarios, base: baseScenarios, remote, draftTag });
+    const plan = (0, sync_1.diffSyncPlan)({ changedHead: changedHeadScenarios, head: headScenarios, base: baseScenarios, remote, draftTag });
     if (plan.errors.length > 0) {
         await comment((0, comment_1.formatForeignDraftConflicts)(plan.errors, { owner: config.owner, repo: config.repo }));
         (0, github_1.fail)(`Scenario(s) held by other PRs: ${plan.errors.map(e => e.name).join(', ')}`, config.blocking);
@@ -35089,10 +35093,6 @@ async function runGate() {
         core.info('Nothing to run');
         return;
     }
-    const versionLabel = `pr-${config.prNumber}-${config.headSha.slice(0, 7)}`;
-    const mcpVersion = await guardedCall(() => evalforge.ensureMcpVersion(config.mcpId, config.projectId, versionLabel, config.prNumber, config.headSha, config.mcpSkillsRepo), 'Could not create MCP version', comment, config);
-    if (!mcpVersion)
-        return;
     const run = await guardedCall(() => evalforge.createEvalRun(config.projectId, {
         name: `PR #${config.prNumber} YAML-gate`,
         description: `Gate for PR #${config.prNumber} (${selected.size} scenarios)`,
@@ -35418,13 +35418,23 @@ async function runPromote() {
     const remoteByName = new Map(remote.map(r => [r.name, r]));
     const headScenarios = loadEvalsWithWarnings(workspace);
     let promoted = 0;
-    let stillDraft = 0;
+    let droppedDrafts = 0;
     for (const s of remote) {
         if (!s.tags.includes(draftTag))
             continue;
         const ls = headScenarios.get(s.name);
         if (!ls) {
-            stillDraft++;
+            // Scenario was created or stamped by this PR but no YAML survived to the merged head
+            // (e.g. user added then removed the file, or force-pushed past the add). The merge
+            // commit is the source of truth — delete the orphan rather than leaving it draft-tagged.
+            try {
+                await evalforge.deleteTestScenario(config.projectId, s.id);
+                droppedDrafts++;
+                core.info(`Deleted orphaned draft ${s.name} (${s.id}) — no matching YAML in merged head`);
+            }
+            catch (e) {
+                core.warning(`Delete orphaned draft failed for ${s.name}: ${e instanceof Error ? e.message : String(e)}`);
+            }
             continue;
         }
         try {
@@ -35455,8 +35465,8 @@ async function runPromote() {
     }
     if (promoted > 0)
         core.info(`Promoted ${promoted} scenarios`);
-    if (stillDraft > 0)
-        core.info(`Skipped ${stillDraft} (YAML missing in merged head)`);
+    if (droppedDrafts > 0)
+        core.info(`Deleted ${droppedDrafts} orphaned draft scenario(s)`);
 }
 function loadEvalsWithWarnings(root) {
     const { scenarios, errors } = (0, evals_1.loadEvals)(root);
@@ -35634,11 +35644,11 @@ function foreignDraftTags(tags, myTag) {
     return tags.filter(t => t.startsWith('draft:') && t !== myTag);
 }
 function diffSyncPlan(input) {
-    const { head, base, remote, draftTag } = input;
+    const { changedHead, head, base, remote, draftTag } = input;
     const remoteByName = new Map(remote.map(r => [r.name, r]));
     const actions = [];
     const errors = [];
-    for (const [name, ls] of head) {
+    for (const [name, ls] of changedHead) {
         const r = remoteByName.get(name);
         if (!r) {
             actions.push({ kind: 'CREATE', name, body: toScenarioBody(ls.scenario), tags: [draftTag] });
