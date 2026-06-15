@@ -12,10 +12,13 @@ const r = (id: string, name: string, tags: string[] = []): RemoteScenario => ({ 
 
 const TAG = 'draft:wix/skills#42';
 
+const ls = (name: string) => ({ path: `${name}.yml`, scenario: s(name) });
+
 describe('diffSyncPlan', () => {
   it('plans CREATE for a new YAML not in remote', () => {
     const plan = diffSyncPlan({
-      head: new Map([['blog/a', { path: 'a.yml', scenario: s('blog/a') }]]),
+      changedHead: new Map([['blog/a', ls('blog/a')]]),
+      head: new Map([['blog/a', ls('blog/a')]]),
       base: new Map(),
       remote: [],
       draftTag: TAG,
@@ -27,8 +30,9 @@ describe('diffSyncPlan', () => {
 
   it('plans UPDATE for a YAML modified in PR, no foreign draft tag', () => {
     const plan = diffSyncPlan({
-      head: new Map([['blog/a', { path: 'a.yml', scenario: s('blog/a') }]]),
-      base: new Map([['blog/a', { path: 'a.yml', scenario: s('blog/a') }]]),
+      changedHead: new Map([['blog/a', ls('blog/a')]]),
+      head: new Map([['blog/a', ls('blog/a')]]),
+      base: new Map([['blog/a', ls('blog/a')]]),
       remote: [r('id-1', 'blog/a', [TAG])],
       draftTag: TAG,
     });
@@ -38,7 +42,8 @@ describe('diffSyncPlan', () => {
 
   it('plans FAIL on foreign draft tag at update site', () => {
     const plan = diffSyncPlan({
-      head: new Map([['blog/a', { path: 'a.yml', scenario: s('blog/a') }]]),
+      changedHead: new Map([['blog/a', ls('blog/a')]]),
+      head: new Map([['blog/a', ls('blog/a')]]),
       base: new Map(),
       remote: [r('id-1', 'blog/a', ['draft:wix/skills#99'])],
       draftTag: TAG,
@@ -50,8 +55,9 @@ describe('diffSyncPlan', () => {
 
   it('plans DELETE for a YAML deleted on PR branch where existing has THIS PR draft tag', () => {
     const plan = diffSyncPlan({
+      changedHead: new Map(),
       head: new Map(),
-      base: new Map([['blog/a', { path: 'a.yml', scenario: s('blog/a') }]]),
+      base: new Map([['blog/a', ls('blog/a')]]),
       remote: [r('id-1', 'blog/a', [TAG])],
       draftTag: TAG,
     });
@@ -60,8 +66,9 @@ describe('diffSyncPlan', () => {
 
   it('plans DEFER_DELETE for a YAML deleted where existing has no draft tag (non-draft)', () => {
     const plan = diffSyncPlan({
+      changedHead: new Map(),
       head: new Map(),
-      base: new Map([['blog/a', { path: 'a.yml', scenario: s('blog/a') }]]),
+      base: new Map([['blog/a', ls('blog/a')]]),
       remote: [r('id-1', 'blog/a', ['blog'])],
       draftTag: TAG,
     });
@@ -70,8 +77,9 @@ describe('diffSyncPlan', () => {
 
   it('plans FAIL on delete-of-foreign-draft', () => {
     const plan = diffSyncPlan({
+      changedHead: new Map(),
       head: new Map(),
-      base: new Map([['blog/a', { path: 'a.yml', scenario: s('blog/a') }]]),
+      base: new Map([['blog/a', ls('blog/a')]]),
       remote: [r('id-1', 'blog/a', ['draft:wix/skills#99'])],
       draftTag: TAG,
     });
@@ -81,9 +89,26 @@ describe('diffSyncPlan', () => {
 
   it('skips removed YAML that has no remote at all (already gone)', () => {
     const plan = diffSyncPlan({
+      changedHead: new Map(),
       head: new Map(),
-      base: new Map([['blog/a', { path: 'a.yml', scenario: s('blog/a') }]]),
+      base: new Map([['blog/a', ls('blog/a')]]),
       remote: [],
+      draftTag: TAG,
+    });
+    expect(plan.actions).toEqual([]);
+    expect(plan.errors).toEqual([]);
+  });
+
+  // Regression: user modified scenario then reverted it while keeping other PR changes.
+  // The scenario is in head AND base (matches base after revert), but absent from changedHead
+  // (no net file diff). It must NOT be treated as a removal — the previous code passed
+  // changedHead as `head` to the base loop and incorrectly DELETEd the remote.
+  it('does NOT delete a scenario that is unchanged in net diff but still present in head', () => {
+    const plan = diffSyncPlan({
+      changedHead: new Map(),
+      head: new Map([['blog/a', ls('blog/a')]]),
+      base: new Map([['blog/a', ls('blog/a')]]),
+      remote: [r('id-1', 'blog/a', [TAG])],
       draftTag: TAG,
     });
     expect(plan.actions).toEqual([]);

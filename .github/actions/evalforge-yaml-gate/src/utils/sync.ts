@@ -25,17 +25,22 @@ function foreignDraftTags(tags: string[], myTag: string): string[] {
 }
 
 export function diffSyncPlan(input: {
+  // Scenarios this PR's net diff actually touched — get CREATE/UPDATE actions.
+  changedHead: Map<string, LoadedScenario>;
+  // All scenarios in the PR's head YAMLs — used to detect real removals vs. unchanged.
+  // A scenario can be in `head` but not in `changedHead` (unchanged by this PR's net diff,
+  // e.g. user reverted it). Treating that as a removal would wrongly DELETE it.
   head: Map<string, LoadedScenario>;
   base: Map<string, LoadedScenario>;
   remote: RemoteScenario[];
   draftTag: string;
 }): { actions: SyncAction[]; errors: SyncError[] } {
-  const { head, base, remote, draftTag } = input;
+  const { changedHead, head, base, remote, draftTag } = input;
   const remoteByName = new Map(remote.map(r => [r.name, r]));
   const actions: SyncAction[] = [];
   const errors: SyncError[] = [];
 
-  for (const [name, ls] of head) {
+  for (const [name, ls] of changedHead) {
     const r = remoteByName.get(name);
     if (!r) {
       actions.push({ kind: 'CREATE', name, body: toScenarioBody(ls.scenario), tags: [draftTag] });

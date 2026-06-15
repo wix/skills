@@ -28,12 +28,24 @@ export async function runPromote(): Promise<void> {
 
   const headScenarios = loadEvalsWithWarnings(workspace);
   let promoted = 0;
-  let stillDraft = 0;
+  let droppedDrafts = 0;
 
   for (const s of remote) {
     if (!s.tags.includes(draftTag)) continue;
     const ls = headScenarios.get(s.name);
-    if (!ls) { stillDraft++; continue; }
+    if (!ls) {
+      // Scenario was created or stamped by this PR but no YAML survived to the merged head
+      // (e.g. user added then removed the file, or force-pushed past the add). The merge
+      // commit is the source of truth — delete the orphan rather than leaving it draft-tagged.
+      try {
+        await evalforge.deleteTestScenario(config.projectId, s.id);
+        droppedDrafts++;
+        core.info(`Deleted orphaned draft ${s.name} (${s.id}) — no matching YAML in merged head`);
+      } catch (e) {
+        core.warning(`Delete orphaned draft failed for ${s.name}: ${e instanceof Error ? e.message : String(e)}`);
+      }
+      continue;
+    }
     try {
       await evalforge.updateTestScenario(config.projectId, s.id, toScenarioBody(ls.scenario), ls.scenario.tags);
       promoted++;
@@ -58,7 +70,7 @@ export async function runPromote(): Promise<void> {
   }
 
   if (promoted > 0) core.info(`Promoted ${promoted} scenarios`);
-  if (stillDraft > 0) core.info(`Skipped ${stillDraft} (YAML missing in merged head)`);
+  if (droppedDrafts > 0) core.info(`Deleted ${droppedDrafts} orphaned draft scenario(s)`);
 }
 
 function loadEvalsWithWarnings(root: string): Map<string, LoadedScenario> {
