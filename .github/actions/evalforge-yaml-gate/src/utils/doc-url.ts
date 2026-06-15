@@ -36,8 +36,6 @@ function buildDocIndex(workspace: string): DocIndex {
   return index;
 }
 
-// Port of `toSlug` in wix-private/docs (docs-common/src/utils/routing.ts).
-// Keep in sync with that source — it determines the public dev.wix.com URL.
 function slugify(displayName: string): string {
   const shouldAddDollarPrefix = displayName.startsWith('$');
   const slug = displayName
