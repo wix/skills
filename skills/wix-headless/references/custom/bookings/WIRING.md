@@ -1,13 +1,13 @@
 ---
 name: custom-bookings-wiring
-description: "Integration-mode wiring subagent for the bookings capability. Wires a services list + availability + a book action into a brought-in site — @wix/bookings reads client-side via @wix/sdk, and a redirect to Wix-hosted bookings checkout for the booking itself (mirrors the ecom checkout-redirect pattern). No server runtime required."
+description: "Integration-mode wiring subagent for the bookings capability. Wires services + availability into a brought-in site; use Wix-hosted checkout for client-only sites, or the on-site create+confirm flow when an @wix/astro server runtime is available."
 ---
 
 # Bookings — integration wiring
 
-You wire the **bookings capability** (services list + availability + book) into a brought-in site (`frontend = "custom"`). Client-side `@wix/sdk` — CDN imports for `none`-build, bundled imports for `own`-build (same calls). Read `INSTRUCTIONS.md` § "The technical spine" + § "Wiring discipline" first.
+You wire the **bookings capability** (services list + availability + book) into a brought-in site (`frontend = "custom"`). For client-only sites, use client-side `@wix/sdk` — CDN imports for `none`-build, bundled imports for `own`-build (same calls). For `@wix/astro` projects with a server runtime, use the on-site flow below for create + confirm. Read `INSTRUCTIONS.md` § "The technical spine" + § "Wiring discipline" first.
 
-> **Scope.** Beta does **services display + availability + redirect-to-Wix-hosted bookings checkout**. The hosted checkout owns payment, the seat-holding confirm, and the customer email — exactly the pieces a client-only site cannot do itself: `confirmBooking` requires the Manage Bookings scope (server-side elevation), and a bare client `createBooking` leaves the booking **`CREATED`, which holds no seat** (the class/slot stays bookable → overbooking). Do NOT ship a client-side `createBooking` as a complete flow. An on-site booking flow (calendar + form + elevated confirm, as in the astro vertical) needs the server runtime — **deferred**.
+> **Scope.** For **client-only** sites, wire **services display + availability + redirect-to-Wix-hosted bookings checkout**. The hosted checkout owns payment, the seat-holding confirm, and the customer email — exactly the pieces a client-only site cannot do itself: `confirmBooking` requires the Manage Bookings scope (server-side elevation), and a bare client `createBooking` leaves the booking **`CREATED`, which holds no seat** (the class/slot stays bookable → overbooking). Do NOT ship a client-side `createBooking` as a complete flow. When the project has an `@wix/astro` server runtime, use the **On-site booking flow** below instead: server routes can create + confirm while the existing UI stays intact.
 
 ## Inputs (inlined in your prompt)
 
@@ -97,4 +97,4 @@ When the project **has** a server runtime (any `@wix/astro` project, however it 
 
 4. **Handle the confirm revision race.** With `formSubmission`, Bookings processes the submission/contact **asynchronously after create** and bumps the booking's revision — so `confirmBooking` with the create-time revision can fail with `INVALID_REVISION` ("Outdated revision for entity id: …", the entity being the booking itself). Do **not** re-create (that orphans `CREATED` bookings): loop the confirm — on `INVALID_REVISION`, re-read the booking's current `revision` (query `POST /_api/bookings-service/v2/bookings/query` filtered by id, via `auth.elevate(httpClient.fetchWithAuth)`) and confirm again, a few attempts with small backoff.
 
-Still client-only-deferred: manage/cancel via anonymous action tokens and the native waitlist (v1, Manage Bookings scope) — implemented in the astro vertical.
+Still out of scope for this custom wiring recipe: manage/cancel via anonymous action tokens and the native waitlist (v1, Manage Bookings scope) — implemented in the astro vertical.
