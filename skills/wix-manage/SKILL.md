@@ -146,7 +146,7 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 <summary>Internal skills (loaded automatically by the entry points above — do NOT use directly)</summary>
 
 #### Goals
-- [Goal: Increase AOV](references/ecommerce/goal-increase-aov.md) — UPSELL_BOOST
+- [Goal: Increase AOV](references/ecommerce/ecom-pricing-goal-increase-aov.md) — UPSELL_BOOST
 - [Goal: Clear Inventory](references/ecommerce/goal-clear-inventory.md) — STOCK_MOVER
 - [Goal: Seasonal Revenue](references/ecommerce/goal-seasonal-revenue.md) — SEASONAL
 - [Goal: Drive Cross-Sells](references/ecommerce/goal-drive-cross-sells.md) — BUNDLE_AND_SAVE

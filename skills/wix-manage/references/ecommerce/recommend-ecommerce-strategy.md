@@ -7,7 +7,7 @@ references:
     path: ecommerce/api-recommendation-tracking.md
     load: false
   - name: "Goal: Increase AOV"
-    path: ecommerce/goal-increase-aov.md
+    path: ecommerce/ecom-pricing-goal-increase-aov.md
     load: false
   - name: "Goal: Clear Inventory"
     path: ecommerce/goal-clear-inventory.md
