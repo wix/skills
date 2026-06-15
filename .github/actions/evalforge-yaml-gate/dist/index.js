@@ -34508,14 +34508,13 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.resolveDocsEntry = resolveDocsEntry;
 exports.canonicalDocUrl = canonicalDocUrl;
 const node_fs_1 = __nccwpck_require__(3024);
 const node_path_1 = __nccwpck_require__(6760);
 const glob_1 = __nccwpck_require__(1363);
 const jsYaml = __importStar(__nccwpck_require__(4281));
 const paths_1 = __nccwpck_require__(6621);
-const indexCache = new Map(); // workspace → built index
+const indexCache = new Map();
 function buildDocIndex(workspace) {
     const cached = indexCache.get(workspace);
     if (cached)
@@ -34532,23 +34531,36 @@ function buildDocIndex(workspace) {
         const raw = (0, node_fs_1.readFileSync)(abs, 'utf8');
         const parsed = jsYaml.load(raw, { schema: jsYaml.CORE_SCHEMA }) ?? {};
         for (const e of parsed.apiDoc?.docs ?? []) {
-            if (!e.file || !e.docsEntry)
+            if (!e.file || !e.docsEntry || !e.title)
                 continue;
-            index.set((0, node_path_1.resolve)(yamlDir, e.file), e.docsEntry);
+            index.set((0, node_path_1.resolve)(yamlDir, e.file), { docsEntry: e.docsEntry, title: e.title });
         }
     }
     indexCache.set(workspace, index);
     return index;
 }
-function resolveDocsEntry(filePath, workspace) {
-    return buildDocIndex(workspace).get((0, node_path_1.resolve)(workspace, filePath)) ?? null;
+// Port of `toSlug` in wix-private/docs (docs-common/src/utils/routing.ts).
+// Keep in sync with that source — it determines the public dev.wix.com URL.
+function slugify(displayName) {
+    const shouldAddDollarPrefix = displayName.startsWith('$');
+    const slug = displayName
+        .replace(/\(\)$|\( \)$/, '')
+        .replace(/[ \W_]+/g, '-')
+        .replace(/[a-z][A-Z]/g, (m) => m[0] + '-' + m[1].toLowerCase());
+    let trimmedSlug = slug[0]?.match(/[ \W_]/) ? slug.slice(1) : slug;
+    if (trimmedSlug.length > 0 && trimmedSlug.slice(-1).match(/[ \W_]/)) {
+        trimmedSlug = trimmedSlug.slice(0, -1);
+    }
+    return `${shouldAddDollarPrefix ? '$' : ''}${trimmedSlug.toLowerCase()}`;
 }
 function canonicalDocUrl(filePath, workspace) {
-    const docsEntry = resolveDocsEntry(filePath, workspace);
-    if (!docsEntry)
+    const info = buildDocIndex(workspace).get((0, node_path_1.resolve)(workspace, filePath));
+    if (!info)
         return null;
-    const stem = (0, node_path_1.basename)(filePath, '.md');
-    return `${docsEntry.replace(/\/+$/, '')}/skills/${stem}`;
+    const slug = slugify(info.title);
+    if (!slug)
+        return null;
+    return `${info.docsEntry.replace(/\/+$/, '')}/skills/${slug}`;
 }
 
 
