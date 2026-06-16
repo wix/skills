@@ -1,39 +1,23 @@
 /* src/styles/components-bookings.css
  *
- * Bookings-pack component CSS. Pre-copied by the orchestrator at Step 4.5
- * before Phase 3 Components dispatches. Do NOT write or modify this file
- * from a Phase 3 or Phase 4 subagent — it is already on disk.
+ * Bookings-pack component CSS. Pre-copied by the orchestrator before the build
+ * wave (it is brand-agnostic var(--token) CSS). The designer's global.css does
+ * NOT publish these classes — they live here. See references/shared/STYLING.md
+ * § "Component-specific CSS is owned by the component, not the designer".
  *
- * This file is the SINGLE source of truth for bookings-component classes.
- * The designer's global.css does NOT publish .service-card, .service-grid,
- * .availability-calendar, .time-slot, or .booking-form — those all live
- * here. See references/shared/STYLING.md § "Component-specific CSS is
- * owned by the component, not the designer".
+ * Class groups:
+ * - .service-card / .service-grid / .service-card-*  → ServiceCard.astro, services/index.astro
+ * - .availability-* / .time-slot*                    → AvailabilityCalendar.tsx (week calendar + slots)
+ * - .booking-*                                        → BookingForm.tsx (schema-driven form)
  *
- * Class groups in this file:
- * - .service-card / .service-grid / .service-card-* → ServiceCard.astro,
- *   services/index.astro, index.astro home teaser
- * - .availability-calendar / .time-slot / .time-slot-* / .availability-*
- *   → AvailabilityCalendar.tsx date picker + slot grid
- * - .booking-form / .booking-field / .booking-* → BookingForm.tsx
- *   details form + submit button
+ * Primary actions (a selected slot, the confirm button) use var(--color-accent)
+ * so the flow matches the site's primary-action styling.
  *
- * Rules use direct CSS (`var(--token)`) only — no `@apply`. Tailwind v4
- * `@apply` in a non-entrypoint file only resolves utilities whose theme keys
- * the designer's `@theme` block declares. Direct `var(--color-ink)` /
- * `var(--spacing-sm)` calls work against any designer-published token set as
- * long as the core scales exist (they always do). Use fallback chains
- * (`var(--color-paper-warm, var(--color-paper, var(--color-cream)))`) for
- * sometimes-published tokens.
+ * Direct var(--token) only (no @apply). Fallback chains for sometimes-published
+ * tokens, e.g. var(--color-paper-warm, var(--color-paper, var(--color-cream))).
  */
 
-/* =========================================================================
-   Service grid + card — owned here, NOT in global.css.
-   .service-card uses overflow: hidden + border-radius, so inner padding
-   is the responsibility of THIS file (whoever sets the radius owns the
-   inset). The image is clipped by the card's overflow; content needs
-   padding-inline so text doesn't sit flush against the rounded edge.
-   ========================================================================= */
+/* ── Service grid + card ────────────────────────────────────────────────────── */
 .service-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
@@ -75,9 +59,6 @@ body[data-navigating="true"] .service-grid {
   object-fit: cover;
   transition: transform 600ms ease;
 }
-.service-card-image--placeholder {
-  /* fallback when no image is provided */
-}
 
 .service-card-meta {
   display: flex;
@@ -86,7 +67,6 @@ body[data-navigating="true"] .service-grid {
   padding: var(--spacing-md) var(--spacing-md) var(--spacing-lg);
   flex: 1;
 }
-
 .service-card-name {
   margin: 0;
   font-family: var(--font-display);
@@ -94,7 +74,6 @@ body[data-navigating="true"] .service-grid {
   line-height: 1.25;
   color: var(--color-ink);
 }
-
 .service-card-tagline {
   margin: 0;
   font-family: var(--font-body);
@@ -102,7 +81,6 @@ body[data-navigating="true"] .service-grid {
   color: var(--color-ink-soft, var(--color-mute));
   line-height: 1.45;
 }
-
 .service-card-price {
   display: flex;
   align-items: center;
@@ -119,17 +97,14 @@ body[data-navigating="true"] .service-grid {
   color: var(--color-rule);
 }
 
-/* =========================================================================
-   Availability calendar — date navigator + slot grid.
-   Owned here, NOT in global.css.
-   ========================================================================= */
+/* ── Availability — week calendar ───────────────────────────────────────────── */
 .availability-calendar {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-lg);
 }
 
-.availability-date-nav {
+.availability-week-nav {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -137,8 +112,7 @@ body[data-navigating="true"] .service-grid {
   padding: var(--spacing-sm) 0;
   border-bottom: 1px solid var(--color-rule);
 }
-
-.availability-date-label {
+.availability-week-label {
   font-family: var(--font-display);
   font-size: 1rem;
   color: var(--color-ink);
@@ -166,12 +140,57 @@ body[data-navigating="true"] .service-grid {
   cursor: not-allowed;
 }
 
-.availability-slots {
+/* The 7-day strip. */
+.availability-day-strip {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  grid-template-columns: repeat(7, 1fr);
   gap: var(--spacing-sm);
 }
+.availability-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: var(--spacing-sm) 0;
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-sm);
+  background: var(--color-paper, var(--color-cream));
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  cursor: pointer;
+  transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease;
+}
+.availability-day-name {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-mute);
+}
+.availability-day-num {
+  font-size: 1rem;
+  font-weight: 600;
+}
+.availability-day--has-slots:hover {
+  border-color: var(--color-accent);
+}
+.availability-day--empty {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.availability-day--selected {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-paper);
+}
+.availability-day--selected .availability-day-name {
+  color: var(--color-paper);
+}
 
+.availability-slots {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: var(--spacing-sm);
+}
 .availability-loading,
 .availability-empty,
 .availability-error {
@@ -181,14 +200,17 @@ body[data-navigating="true"] .service-grid {
   padding: var(--spacing-lg) 0;
   text-align: center;
 }
+.availability-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-md);
+}
 .availability-error {
   color: var(--color-error, var(--color-accent));
 }
 
-/* =========================================================================
-   Time slot buttons — individual slot items in the grid.
-   Three states: available (default), selected, unavailable.
-   ========================================================================= */
+/* ── Time-slot buttons ──────────────────────────────────────────────────────── */
 .time-slot {
   padding: var(--spacing-sm) var(--spacing-md);
   border: 1px solid var(--color-rule);
@@ -201,29 +223,25 @@ body[data-navigating="true"] .service-grid {
   cursor: pointer;
   transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease;
 }
+.time-slot-time {
+  font-weight: 500;
+}
 .time-slot--available {
   border-color: var(--color-ink);
 }
 .time-slot--available:hover {
-  background: var(--color-ink);
+  background: var(--color-accent);
+  border-color: var(--color-accent);
   color: var(--color-paper);
 }
 .time-slot--selected {
-  background: var(--color-ink);
+  background: var(--color-accent);
+  border-color: var(--color-accent);
   color: var(--color-paper);
-  border-color: var(--color-ink);
   font-weight: 600;
 }
-.time-slot--unavailable {
-  opacity: 0.3;
-  cursor: not-allowed;
-  border-color: var(--color-rule);
-}
 
-/* =========================================================================
-   Booking form — rendered after a slot is selected.
-   Owned here, NOT in global.css.
-   ========================================================================= */
+/* ── Booking form (schema-driven) ───────────────────────────────────────────── */
 .booking-form {
   display: flex;
   flex-direction: column;
@@ -234,22 +252,37 @@ body[data-navigating="true"] .service-grid {
   background: var(--color-paper-warm, var(--color-paper, var(--color-cream)));
 }
 
-.booking-form-header {
+.booking-form-summary {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-xs);
+  padding-bottom: var(--spacing-md);
+  border-bottom: 1px solid var(--color-rule);
 }
-.booking-form-title {
+.booking-form-summary strong {
   font-family: var(--font-display);
-  font-size: 1.25rem;
+  font-size: 1.125rem;
   color: var(--color-ink);
-  margin: 0;
 }
-.booking-form-subtitle {
+.booking-form-summary span {
   font-family: var(--font-body);
-  font-size: 0.875rem;
+  font-size: 0.9375rem;
   color: var(--color-ink-soft, var(--color-mute));
-  margin: 0;
+}
+.booking-form-change {
+  align-self: flex-start;
+  margin-top: var(--spacing-xs);
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: var(--font-body);
+  font-size: 0.8125rem;
+  color: var(--color-mute);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.booking-form-change:hover {
+  color: var(--color-ink);
 }
 
 .booking-field {
@@ -257,17 +290,6 @@ body[data-navigating="true"] .service-grid {
   flex-direction: column;
   gap: var(--spacing-xs);
 }
-.booking-field-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--spacing-md);
-}
-@media (max-width: 480px) {
-  .booking-field-row {
-    grid-template-columns: 1fr;
-  }
-}
-
 .booking-label {
   font-family: var(--font-display);
   font-size: 0.75rem;
@@ -275,13 +297,11 @@ body[data-navigating="true"] .service-grid {
   letter-spacing: 0.05em;
   color: var(--color-ink-soft, var(--color-mute));
 }
-.booking-label--required::after {
-  content: " *";
+.booking-required {
   color: var(--color-accent);
 }
 
-.booking-input,
-.booking-textarea {
+.booking-input {
   width: 100%;
   padding: var(--spacing-sm) var(--spacing-md);
   font-family: var(--font-body);
@@ -293,56 +313,13 @@ body[data-navigating="true"] .service-grid {
   transition: border-color 150ms ease;
   box-sizing: border-box;
 }
-.booking-input:focus,
-.booking-textarea:focus {
+.booking-input:focus {
   outline: none;
-  border-color: var(--color-ink);
+  border-color: var(--color-accent);
 }
-.booking-textarea {
+textarea.booking-input {
   resize: vertical;
   min-height: 6rem;
-}
-
-.booking-submit {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--spacing-md) var(--spacing-xl);
-  font-family: var(--font-display);
-  font-size: 0.9375rem;
-  font-weight: 500;
-  background: var(--color-ink);
-  color: var(--color-paper);
-  border: 1px solid var(--color-ink);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  width: 100%;
-  margin-top: var(--spacing-sm);
-  transition: background-color 150ms ease, box-shadow 150ms ease;
-}
-.booking-submit:hover:not(:disabled) {
-  background: var(--color-ink-soft, var(--color-ink));
-}
-.booking-submit:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.booking-cancel {
-  display: block;
-  text-align: center;
-  font-family: var(--font-body);
-  font-size: 0.875rem;
-  color: var(--color-mute);
-  cursor: pointer;
-  background: none;
-  border: none;
-  text-decoration: underline;
-  padding: 0;
-  margin-top: var(--spacing-xs);
-}
-.booking-cancel:hover {
-  color: var(--color-ink);
 }
 
 .booking-error {
@@ -352,62 +329,28 @@ body[data-navigating="true"] .service-grid {
   padding: var(--spacing-sm) var(--spacing-md);
   border: 1px solid var(--color-error, var(--color-accent));
   border-radius: var(--radius-sm);
-  background: rgba(255, 0, 0, 0.04);
 }
 
-/* ── Slot capacity (CLASS) + full→waitlist ─────────────────────────────────── */
-.time-slot {
-  display: flex;
-  flex-direction: column;
+.booking-cta {
+  display: inline-flex;
   align-items: center;
-  gap: 2px;
-  line-height: 1.2;
-}
-.time-slot-time {
+  justify-content: center;
+  width: 100%;
+  padding: var(--spacing-md) var(--spacing-xl);
+  font-family: var(--font-display);
+  font-size: 0.9375rem;
   font-weight: 500;
+  background: var(--color-accent);
+  color: var(--color-paper);
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: opacity 150ms ease;
 }
-.time-slot-capacity {
-  font-size: 0.7rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--color-mute, var(--color-secondary));
+.booking-cta:hover:not(:disabled) {
+  opacity: 0.9;
 }
-.time-slot--full {
-  opacity: 0.85;
-  border-style: dashed;
-}
-.time-slot--full .time-slot-capacity {
-  color: var(--color-accent);
-}
-.booking-form-note {
-  font-family: var(--font-body);
-  font-size: 0.875rem;
-  color: var(--color-mute, var(--color-secondary));
-  margin-top: var(--spacing-xs);
-}
-
-/* ── Manage booking page ─────────────────────────────────────────────────────── */
-.manage-booking {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-lg);
-  align-items: flex-start;
-}
-.manage-booking-summary,
-.manage-booking-status {
-  font-family: var(--font-body);
-  font-size: 1.05rem;
-  color: var(--color-ink, var(--color-primary));
-}
-.manage-booking-note {
-  font-family: var(--font-body);
-  font-size: 0.875rem;
-  color: var(--color-mute, var(--color-secondary));
-}
-.manage-booking-link {
-  color: var(--color-ink, var(--color-primary));
-  text-decoration: underline;
-}
-.manage-booking-link:hover {
-  color: var(--color-accent);
+.booking-cta:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }

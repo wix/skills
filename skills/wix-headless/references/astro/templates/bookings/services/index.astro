@@ -7,13 +7,21 @@ import ServiceCard from "../../components/ServiceCard.astro";
 import { services } from "@wix/bookings";
 import { auth } from "@wix/essentials";
 
+// Wix Bookings app id — the base filter must scope queryServices to it.
+const BOOKING_APP_ID = "13d21c63-b5ec-5912-8397-c3a5ddb27a97";
+
 let serviceList: any[] = [];
 try {
   // Ambient @wix/astro SSR client via @wix/essentials (same pattern as CMS pages).
   // Do NOT build createClient({ auth: OAuthStrategy({ clientId: import.meta.env.* }) }) —
   // that env var is client-only and undefined at server render → 500.
-  // queryServices uses the query BUILDER; the object form returns 0 items.
-  const result = await auth.elevate(services.queryServices)().limit(100).find();
+  // Pass the request object (filter must include appId) + conditionalFields, then .find().
+  const result = await auth
+    .elevate(services.queryServices)({
+      query: { filter: { appId: BOOKING_APP_ID }, paging: { limit: 100 } },
+      conditionalFields: ["STAFF_MEMBER_DETAILS"],
+    })
+    .find();
   serviceList = (result.items ?? []).filter((s: any) => !s.hidden);
 } catch (err) {
   console.error("[services] listing query failed:", err);

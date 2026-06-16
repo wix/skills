@@ -1,26 +1,30 @@
 import { useState } from "react";
 import AvailabilityCalendar from "./AvailabilityCalendar";
-import type { SelectedSlot } from "./AvailabilityCalendar";
-import BookingForm from "./BookingForm";
+import BookingForm, { type BookingFormField } from "./BookingForm";
+import type { SelectedSlot } from "./bookingDriver";
 
 // ServiceBookingFlow.tsx — client:only="react" coordinator island. Holds the
-// selected-slot state shared between AvailabilityCalendar and BookingForm,
-// transitions between them, and redirects to the confirmation page on success.
-// serviceType MUST be threaded through so the calendar picks the right time-slots
-// API and the form builds the right createBooking shape.
+// selected-slot state shared between the calendar and the form, transitions
+// between them, and redirects to the confirmation page on success. The SSR
+// detail page passes the full `service` (the driver reads its payment/policy)
+// and the booking-form `fields` (the @wix/forms schema) through to the form.
+//
+// This is the framework-agnostic flow shape (a step coordinator + shared
+// selection state). On another framework, the same two steps + shared state can
+// be route-driven instead — see references/bookings/FLOW.md.
 
 interface Props {
-  serviceId: string;
+  service: any;
   serviceName: string;
   serviceType: "APPOINTMENT" | "CLASS";
+  fields: BookingFormField[];
 }
 
-export default function ServiceBookingFlow({ serviceId, serviceName, serviceType }: Props) {
+export default function ServiceBookingFlow({ service, serviceName, serviceType, fields }: Props) {
   const [selectedSlot, setSelectedSlot] = useState<SelectedSlot | null>(null);
 
-  const handleSuccess = (bookingId: string, startDate?: string) => {
+  const handleSuccess = (_orderId: string, startDate?: string) => {
     const params = new URLSearchParams();
-    if (bookingId) params.set("bookingId", bookingId);
     if (startDate) params.set("startDate", startDate);
     if (serviceName) params.set("service", serviceName);
     window.location.href = `/booking-confirmation?${params.toString()}`;
@@ -29,7 +33,7 @@ export default function ServiceBookingFlow({ serviceId, serviceName, serviceType
   if (!selectedSlot) {
     return (
       <AvailabilityCalendar
-        serviceId={serviceId}
+        serviceId={service._id}
         serviceName={serviceName}
         serviceType={serviceType}
         onSlotSelected={setSelectedSlot}
@@ -39,10 +43,10 @@ export default function ServiceBookingFlow({ serviceId, serviceName, serviceType
 
   return (
     <BookingForm
-      serviceId={serviceId}
+      service={service}
       serviceName={serviceName}
-      serviceType={serviceType}
       slot={selectedSlot}
+      fields={fields}
       onSuccess={handleSuccess}
       onCancel={() => setSelectedSlot(null)}
     />
