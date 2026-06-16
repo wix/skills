@@ -5,6 +5,8 @@ description: Diagnoses why a specific order's tax calculation looks wrong — re
 
 # Tax Calculation Wrong
 
+> **Always load this recipe before diagnosing.** The 3-branch diagnostic tree, exact `billing/v1` endpoints, and error-code interpretations live here — do NOT improvise from the dispatcher or training knowledge. Do NOT recommend a fix before completing the diagnostic steps below.
+
 Diagnostic tree. No writes — the fix lives in the configure/switch promotions once the cause is identified.
 
 

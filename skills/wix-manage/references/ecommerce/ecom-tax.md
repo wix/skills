@@ -22,6 +22,8 @@ Set up and manage how your store calculates and collects tax — what calculator
 > - [Switch tax calculator](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/tax-switch-calculator) — tags: `[intent:switch-calculator]` · priority 0
 > - [Audit tax setup](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/tax-audit-setup) — tags: `[intent:audit]` · priority 0
 > - [Tax calculation wrong](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/tax-calculation-wrong) — tags: `[intent:troubleshoot]` · priority 0
+>
+> **Routing rule:** After identifying the matching skill above, call `ReadFullDocsArticle` on it BEFORE making any API calls or offering a diagnosis. The diagnostic steps, exact API endpoints, and guardrails live in the child skill — not in this dispatcher. Do NOT improvise from the dispatcher context alone. If the article returns a 404, try the next-best match from the list above rather than proceeding without a recipe.
 
 ## Tag matching
 
