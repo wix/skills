@@ -1,5 +1,5 @@
 import { useState } from "react";
-import AvailabilityCalendar, { type StaffMemberOption } from "./AvailabilityCalendar";
+import AvailabilityCalendar, { type StaffMemberOption, type LocationOption } from "./AvailabilityCalendar";
 import BookingForm, { type BookingFormField } from "./BookingForm";
 import type { SelectedSlot } from "./bookingDriver";
 
@@ -8,8 +8,9 @@ import type { SelectedSlot } from "./bookingDriver";
 // between them, and redirects to the confirmation page on success. The SSR
 // detail page passes the full `service` (the driver reads its payment/policy),
 // the booking-form `fields` (the @wix/forms schema), the service's `staffMembers`
-// (for the optional staff picker), and the selected `locationId`/`locationType`
-// (carried from the catalog's location selector, if any) through to the calendar.
+// (for the optional staff picker), the service's business `locations` + the
+// catalog-chosen `locationId` (so the calendar scopes availability to one
+// location — see AvailabilityCalendar) through to the calendar.
 //
 // This is the framework-agnostic flow shape (a step coordinator + shared
 // selection state). On another framework, the same two steps + shared state can
@@ -21,8 +22,8 @@ interface Props {
   serviceType: "APPOINTMENT" | "CLASS";
   fields: BookingFormField[];
   staffMembers?: StaffMemberOption[];
+  locations?: LocationOption[];
   locationId?: string;
-  locationType?: string;
 }
 
 export default function ServiceBookingFlow({
@@ -31,8 +32,8 @@ export default function ServiceBookingFlow({
   serviceType,
   fields,
   staffMembers,
+  locations,
   locationId,
-  locationType,
 }: Props) {
   const [selectedSlot, setSelectedSlot] = useState<SelectedSlot | null>(null);
 
@@ -50,8 +51,8 @@ export default function ServiceBookingFlow({
         serviceName={serviceName}
         serviceType={serviceType}
         staffMembers={staffMembers}
+        locations={locations}
         locationId={locationId}
-        locationType={locationType}
         onSlotSelected={setSelectedSlot}
       />
     );

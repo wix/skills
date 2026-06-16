@@ -17,7 +17,7 @@ Read `references/shared/IMPLEMENTER.md` + `references/shared/STYLING.md` first.
 | File | From template | Role |
 |------|---------------|------|
 | `src/components/ServiceBookingFlow.tsx` | `…/ServiceBookingFlow.tsx` | `client:only` coordinator — holds the selected slot, swaps calendar → form, redirects on success. Mounted by `services/[slug].astro`. |
-| `src/components/AvailabilityCalendar.tsx` | `…/AvailabilityCalendar.tsx` | the **week calendar** — week strip + nav → the picked day's slots. APPOINTMENT → `availabilityTimeSlots`; CLASS → `eventTimeSlots`. Optional **staff picker** (shown when >1 staff; filters availability + records `slot.resource`) and **location** scoping — both via props from the SSR page. |
+| `src/components/AvailabilityCalendar.tsx` | `…/AvailabilityCalendar.tsx` | the **week calendar** — week strip + nav → the picked day's slots. APPOINTMENT → `availabilityTimeSlots`; CLASS → `eventTimeSlots`. Optional **staff picker** (shown when >1 staff; filters availability + records `slot.resource`) and **location picker** (shown when the service has >1 business location; **always scopes availability to one location** — defaulting to the carried/first — so a multi-location service doesn't return duplicate per-location slots). Both fed by props from the SSR page. |
 | `src/components/BookingForm.tsx` | `…/BookingForm.tsx` | the **schema-driven** form — renders the `@wix/forms` field list (passed in from the SSR page), keys values by `target`, calls `bookingDriver.book()`. |
 
 ## astro-specific rules

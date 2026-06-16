@@ -84,8 +84,15 @@ else if (locationId) filter["locations.business.id"] = { $hasSome: [locationId] 
 Render a **week calendar** (day strip → the day's times), not a flat grid — see
 `../../bookings/FLOW.md` § 5. `fromLocalDate`/`toLocalDate` are **local** strings
 (`YYYY-MM-DDThh:mm:ss`, no `Z`) + a `timeZone`.
+
+> **Multi-location: always scope to ONE business location.** Unscoped,
+> `listAvailabilityTimeSlots` returns **one slot per location** per time → duplicate
+> rows. Derive the service's business locations from `service.locations`
+> (`{ _id: l.business?._id, name: l.business?.name }`, BUSINESS only), default to the
+> carried/first, and always pass the single-location filter below (staff does NOT
+> multiply rows — only location does). See FLOW.md §7.
 ```js
-// APPOINTMENT — serviceId is a single GUID STRING. Staff (§8) + location are OPTIONAL:
+// APPOINTMENT — serviceId is a single GUID STRING. Staff (§8) OPTIONAL; location ALWAYS when >1:
 const a = await wix.availabilityTimeSlots.listAvailabilityTimeSlots({
   serviceId, fromLocalDate, toLocalDate, timeZone, bookable: true, cursorPaging: { limit: 100 },
   // staff:    resourceTypes: [{ resourceTypeId: STAFF_MEMBER_RESOURCE_TYPE_ID, resourceIds: [resourceId] }], includeResourceTypeIds: [STAFF_MEMBER_RESOURCE_TYPE_ID],

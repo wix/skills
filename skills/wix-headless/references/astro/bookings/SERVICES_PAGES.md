@@ -48,9 +48,11 @@ Plus the nav/home links (shell chain — see below).
    complex object-valued fields (e.g. the default form's multi-line `ADDRESS`), or
    `createBooking` fails with "must be object". Pass the full `service` too — the
    booking step reads its payment/policy. Same field-mapping as `../forms/CONTACT_FORM.md`.
-   Also pass `service.staffMemberDetails?.staffMembers` (for the staff picker — the
-   service was queried with `STAFF_MEMBER_DETAILS`) and the `?locationId`/`?locationType`
-   read from the request URL, through to `<ServiceBookingFlow>`.
+   Also pass, through to `<ServiceBookingFlow>`: `service.staffMemberDetails?.staffMembers`
+   (the staff picker — the service was queried with `STAFF_MEMBER_DETAILS`); the
+   service's **business `locations`** derived from `service.locations` (`{ _id: l.business?._id, name: l.business?.name }`, BUSINESS only) so the calendar can scope
+   availability to one location and avoid duplicate per-location slots (FLOW.md §7);
+   and the `?locationId` read from the request URL (the picker's default).
 3. **Only the read pages are SSR.** The detail page SSRs the service info for SEO,
    then the booking UI runs in the `client:only` island. Do not SSR availability.
 4. **Confirmation renders from query params.** The booking step redirects with

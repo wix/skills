@@ -11,11 +11,11 @@ import { auth } from "@wix/essentials";
 const BOOKING_APP_ID = "13d21c63-b5ec-5912-8397-c3a5ddb27a97";
 const { slug } = Astro.params;
 
-// Carried from the catalog's location selector (when the site has >1 location).
-// Scopes availability to the chosen location; absent on single-location sites.
+// Carried from the catalog's location selector (when the site has >1 location):
+// the default location the availability picker scopes to. Absent on single-location
+// sites (and on deep links — the picker then defaults to the service's first location).
 const reqUrl = new URL(Astro.request.url);
 const locationId = reqUrl.searchParams.get("locationId") ?? undefined;
-const locationType = reqUrl.searchParams.get("locationType") ?? undefined;
 
 let service: any = null;
 try {
@@ -104,6 +104,15 @@ const seoTags = service.seoData?.tags ?? [];
 // shows the picker only when there is more than one; empty/absent → "any staff
 // member" (the ANY_RESOURCE fallback).
 const staffMembers = service.staffMemberDetails?.staffMembers ?? [];
+
+// Business locations the service is offered at — availability is always scoped to
+// ONE of these so a multi-location service doesn't return duplicate per-location
+// time slots (listAvailabilityTimeSlots returns one slot per location otherwise).
+// The business location id is on `location.business._id`; the calendar's picker
+// defaults to the carried location (if any) or the first.
+const serviceLocations = (service.locations ?? [])
+  .filter((l: any) => (l.type ?? "BUSINESS") === "BUSINESS" && (l.business?._id ?? l._id))
+  .map((l: any) => ({ _id: l.business?._id ?? l._id, name: l.business?.name ?? "Location" }));
 ---
 
 <!--
@@ -141,8 +150,8 @@ const staffMembers = service.staffMemberDetails?.staffMembers ?? [];
         serviceType={service.type ?? "APPOINTMENT"}
         fields={formFields}
         staffMembers={staffMembers}
+        locations={serviceLocations}
         locationId={locationId}
-        locationType={locationType}
         client:only="react"
       />
     </section>

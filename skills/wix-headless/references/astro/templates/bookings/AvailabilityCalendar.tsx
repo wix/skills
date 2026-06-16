@@ -18,16 +18,17 @@ import { STAFF_MEMBER_RESOURCE_TYPE_ID } from "./bookingDriver";
 //   CLASS       → eventTimeSlots.listEventTimeSlots() (serviceIds is an array;
 //                 slots carry eventInfo.eventId and NO scheduleId).
 //
-// Optional staff + location filtering (both auto-skip when not applicable):
-//   staff    — a "any staff member / pick one" control above the calendar (shown
-//              only when the service has >1 staff). Filters availability to that
-//              staff and records the chosen resource on the slot; the booking
-//              driver books that specific resource. "Any" leaves the ANY_RESOURCE
-//              fallback in place.
-//   location — when a business location was chosen on the catalog, its id/type are
-//              passed here and forwarded into the availability query so slots are
-//              scoped to that location. The slot still carries its own location for
-//              the booking (the driver maps it).
+// LOCATION SCOPING (multi-location): listAvailabilityTimeSlots returns one slot
+// PER LOCATION per time — "if locations is not specified, returns time slots for
+// all locations where the service is available". A service offered at >1 location
+// therefore yields DUPLICATE same-time rows unless the call is scoped to a single
+// location. So availability is ALWAYS scoped to one business location: the picker
+// below defaults to the carried/first location and the call always passes a
+// single-element `locations` filter. (One location per availability call — the
+// same single-location guarantee the location-first SoT gets from its selector.)
+//
+// STAFF: a single slot carries multiple staff in availableResources, so staff is
+// a per-slot dropdown — it never multiplies rows. Only location multiplies rows.
 // Re-export SelectedSlot from bookingDriver so the form/driver share one shape.
 export type { SelectedSlot } from "./bookingDriver";
 
@@ -41,20 +42,25 @@ export interface StaffMemberOption {
   name?: string;
 }
 
+// A business location the service is offered at (derived from service.locations[]).
+export interface LocationOption {
+  _id: string;
+  name?: string;
+}
+
 interface Props {
   serviceId: string;
   serviceName: string;
   serviceType: "APPOINTMENT" | "CLASS";
   staffMembers?: StaffMemberOption[];
-  locationId?: string; // selected business location id (from the catalog), if any
-  locationType?: string; // its type — "BUSINESS" by default
+  locations?: LocationOption[]; // business locations the service offers
+  locationId?: string; // the location chosen on the catalog (the default scope), if any
   onSlotSelected: (slot: SelectedSlot) => void;
 }
 
 interface FetchOpts {
   resourceId?: string; // a staff resource id to filter by (omit for "any staff")
-  locationId?: string;
-  locationType?: string;
+  locationId?: string; // a business location id to scope to (omit only when the service has none)
 }
 
 const DAY_MS = 86_400_000;
@@ -91,17 +97,12 @@ const fetchWeek = async (
   const timeZone = tz();
   let raw: any[] = [];
 
-  // Id-based location filtering applies to BUSINESS locations only (a custom/
-  // customer location has no fixed per-id availability). The catalog already
-  // scoped the service list; here we only narrow business-location slots.
-  const filterByBusinessLocation = !!opts.locationId && (!opts.locationType || opts.locationType === "BUSINESS");
-
   if (serviceType === "CLASS") {
     // CLASS filters via eventFilter: staff by resources.id ($hasSome), location by
     // location.id (a bare array, NOT a $hasSome operator).
     const eventFilter: Record<string, any> = {};
     if (opts.resourceId) eventFilter["resources.id"] = { $hasSome: [opts.resourceId] };
-    if (filterByBusinessLocation) eventFilter["location.id"] = [opts.locationId];
+    if (opts.locationId) eventFilter["location.id"] = [opts.locationId];
     const result = await eventTimeSlots.listEventTimeSlots({
       serviceIds: [serviceId], // CLASS API takes an array
       fromLocalDate: localDateString(from),
@@ -121,6 +122,7 @@ const fetchWeek = async (
     }));
   } else {
     // APPOINTMENT filters staff via resourceTypes (resourceIds), location via locations[].
+    // Scoping to a single location collapses the per-location duplicate rows.
     const result = await availabilityTimeSlots.listAvailabilityTimeSlots({
       serviceId, // single GUID string — NOT an array
       fromLocalDate: localDateString(from),
@@ -136,8 +138,8 @@ const fetchWeek = async (
             includeResourceTypeIds: [STAFF_MEMBER_RESOURCE_TYPE_ID],
           }
         : {}),
-      ...(filterByBusinessLocation
-        ? { locations: [{ _id: opts.locationId as string, locationType: "BUSINESS" as const }] }
+      ...(opts.locationId
+        ? { locations: [{ _id: opts.locationId, locationType: "BUSINESS" as const }] }
         : {}),
     });
     raw = (result.timeSlots ?? []).map((s: any) => ({
@@ -165,8 +167,8 @@ export default function AvailabilityCalendar({
   serviceName,
   serviceType,
   staffMembers,
+  locations,
   locationId,
-  locationType,
   onSlotSelected,
 }: Props) {
   const thisMonday = useMemo(() => mondayOf(new Date()), []);
@@ -178,8 +180,7 @@ export default function AvailabilityCalendar({
   // The chosen staff resource id ("" = any staff member → ANY_RESOURCE fallback).
   const [selectedResource, setSelectedResource] = useState<string>(ANY_STAFF);
 
-  // Staff options keyed by resource id (the id the availability filter + the booking
-  // resource use). Show the picker only when the service has more than one staff.
+  // Staff options keyed by resource id; picker shown only when >1 staff.
   const staffOptions = useMemo(
     () =>
       (staffMembers ?? [])
@@ -188,6 +189,19 @@ export default function AvailabilityCalendar({
     [staffMembers],
   );
   const showStaffPicker = staffOptions.length > 1;
+
+  // Business-location options. Availability is always scoped to ONE of these (the
+  // carried location if it's one of them, else the first), so multi-location
+  // services don't return duplicate per-location rows. Picker shown only when >1.
+  const locationOptions = useMemo(
+    () => (locations ?? []).filter((l) => l._id),
+    [locations],
+  );
+  const [selectedLocation, setSelectedLocation] = useState<string>(() => {
+    if (locationId && locationOptions.some((l) => l._id === locationId)) return locationId;
+    return locationOptions[0]?._id ?? "";
+  });
+  const showLocationPicker = locationOptions.length > 1;
 
   const days = useMemo(
     () => Array.from({ length: 7 }, (_, i) => new Date(weekStart.getTime() + i * DAY_MS)),
@@ -198,10 +212,9 @@ export default function AvailabilityCalendar({
   const fetchOpts = useCallback(
     (): FetchOpts => ({
       resourceId: selectedResource || undefined,
-      locationId: locationId || undefined,
-      locationType,
+      locationId: selectedLocation || undefined,
     }),
-    [selectedResource, locationId, locationType],
+    [selectedResource, selectedLocation],
   );
 
   const load = useCallback(async (start: Date) => {
@@ -218,7 +231,7 @@ export default function AvailabilityCalendar({
     }
   }, [serviceId, serviceType, fetchOpts]);
 
-  // Reload whenever the week OR the staff filter changes.
+  // Reload whenever the week OR the staff/location filter changes.
   useEffect(() => { void load(weekStart); }, [weekStart, load]);
 
   const shiftWeek = (deltaWeeks: number) =>
@@ -259,20 +272,39 @@ export default function AvailabilityCalendar({
 
   return (
     <div className="availability-calendar">
-      {showStaffPicker && (
-        <div className="availability-staff">
-          <label className="availability-staff-label" htmlFor="staff-select">Staff member</label>
-          <select
-            id="staff-select"
-            className="availability-staff-select"
-            value={selectedResource}
-            onChange={(e) => { setSelectedResource(e.target.value); setSelectedKey(null); }}
-          >
-            <option value={ANY_STAFF}>Any staff member</option>
-            {staffOptions.map((o) => (
-              <option key={o.id} value={o.id}>{o.name}</option>
-            ))}
-          </select>
+      {(showLocationPicker || showStaffPicker) && (
+        <div className="availability-filters">
+          {showLocationPicker && (
+            <div className="availability-staff">
+              <label className="availability-staff-label" htmlFor="location-select">Location</label>
+              <select
+                id="location-select"
+                className="availability-staff-select"
+                value={selectedLocation}
+                onChange={(e) => { setSelectedLocation(e.target.value); setSelectedKey(null); }}
+              >
+                {locationOptions.map((o) => (
+                  <option key={o._id} value={o._id}>{o.name ?? "Location"}</option>
+                ))}
+              </select>
+            </div>
+          )}
+          {showStaffPicker && (
+            <div className="availability-staff">
+              <label className="availability-staff-label" htmlFor="staff-select">Staff member</label>
+              <select
+                id="staff-select"
+                className="availability-staff-select"
+                value={selectedResource}
+                onChange={(e) => { setSelectedResource(e.target.value); setSelectedKey(null); }}
+              >
+                <option value={ANY_STAFF}>Any staff member</option>
+                {staffOptions.map((o) => (
+                  <option key={o.id} value={o.id}>{o.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
       )}
 

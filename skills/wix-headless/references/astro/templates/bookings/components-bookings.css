@@ -133,7 +133,17 @@ body[data-navigating="true"] .service-grid {
   gap: var(--spacing-lg);
 }
 
-/* Staff picker (shown only when a service has >1 staff). */
+/* Filter row — holds the optional location + staff pickers side by side. */
+.availability-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-md);
+}
+.availability-filters > * {
+  flex: 1 1 12rem;
+}
+
+/* Location / staff picker (shown only when there's >1 option). */
 .availability-staff {
   display: flex;
   flex-direction: column;
