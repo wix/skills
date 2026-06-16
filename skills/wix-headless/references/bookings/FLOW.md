@@ -15,7 +15,7 @@ the client acquisition differ (see "Client identity" below).
 
 The flow covers **appointments and classes**. APPOINTMENT and CLASS share the
 same booking sequence; they differ only in the availability call (`availabilityTimeSlots`
-vs `eventTimeSlots`, noted inline). **Add-ons are out of scope.**
+vs `eventTimeSlots`, noted inline). **Courses and add-ons are out of scope.**
 
 ---
 
@@ -28,9 +28,9 @@ category, ≤1 staff), so a plain single-location single-staff site sees the sim
 five-step path:
 
 ```
-0. Location   (optional) pick a location — only shown when the site has >1     → scopes the catalog + availability
+0. Location   (optional) pick a location — only shown when the site has >1 locations → scopes the catalog + availability
 1. Catalog    list bookable services (optionally filtered by location/category) → pick a service
-2. Slots      week calendar of availability (optionally filtered by staff)      → pick a time slot
+2. Slots      availability calendar (optionally filtered by staff)               → pick a time slot
 3. Details    the service's booking form (collect contact)                      → submit
 4. Book       run the SDK sequence (§3)
 5a. paid      → redirect to the Wix-hosted checkout → returns to the confirmation page
@@ -96,7 +96,7 @@ Key facts the driver encodes (do not deviate):
   server elevation.
 - **ANY_RESOURCE fallback (staff)** — when no staff is chosen (the default, and on
   single-staff services), `createBooking` sends
-  `resourceSelections:[{ resourceTypeId:"1cd44cf8-…", selectionMethod:"ANY_RESOURCE" }]`
+  `resourceSelections:[{ resourceTypeId:"1cd44cf8-756f-41c3-bd90-3e2ffcaf1155", selectionMethod:"ANY_RESOURCE" }]`
   and Wix auto-assigns a bookable staff resource (appointment slots return
   `availableResources:[]` yet book fine this way). A specific staff choice sets
   `slot.resource` instead (§8).
@@ -173,14 +173,16 @@ The booking form is a **`@wix/forms` form** attached to the service
 `target`. The default booking form's targets are snake_case `first_name` /
 `last_name` / `email` / `phone`. Reference example: `../astro/templates/bookings/BookingForm.tsx`.
 
-## 5. The day-calendar (slots step)
+## 5. The availability calendar (slots step)
 
-Show a **week calendar**, not a flat list of every slot: a 7-day strip with
-week navigation → the picked day's times. A flat grid with time-only labels
-leaves the visitor unable to tell which day a slot is on. Fetch availability for
-the visible window (`fromLocalDate`/`toLocalDate` = the week bounds), group slots
-by calendar day, and offer a **"check next availability"** action that probes
-forward when a week is empty. Reference example:
+**Group slots by day — don't render a flat list of every slot with time-only
+labels** (the visitor can't tell which day a slot is on; that flat grid was the
+original usability failure). The calendar **shape is your / the brand's choice** —
+week, month, or N-day. The reference example uses a **week view** (a 7-day strip
+with week navigation → the picked day's times); fetch availability for the visible
+window (`fromLocalDate`/`toLocalDate` = that window's bounds), group by calendar
+day, and offer a **"check next availability"** action that probes forward when the
+window is empty. Reference example:
 `../astro/templates/bookings/AvailabilityCalendar.tsx`.
 
 ## 6. Client identity (per framework)

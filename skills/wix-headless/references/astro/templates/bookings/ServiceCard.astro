@@ -24,7 +24,8 @@ const { slug, name, tagLine, durationMinutes, price, imageUrl, locationId, locat
 const q = new URLSearchParams();
 if (locationId) q.set("locationId", locationId);
 if (locationType) q.set("locationType", locationType);
-const href = q.toString() ? `/services/${slug}?${q.toString()}` : `/services/${slug}`;
+const qs = q.toString();
+const href = qs ? `/services/${slug}?${qs}` : `/services/${slug}`;
 ---
 
 <a href={href} class="service-card">

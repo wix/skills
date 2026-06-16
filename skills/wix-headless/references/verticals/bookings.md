@@ -10,7 +10,7 @@ features:
   - name: "Staff selection"
     description: "On multi-staff services, choose a specific staff member (or any) and see that staff's availability."
   - name: "Online booking"
-    description: "Pick an available time slot on a week calendar, complete the service's booking form, and confirm."
+    description: "Pick an available time slot on a day-grouped availability calendar, complete the service's booking form, and confirm."
   - name: "Secure checkout"
     description: "Free or pay-in-person bookings confirm instantly; paid services hand off to Wix's secure hosted checkout."
 
