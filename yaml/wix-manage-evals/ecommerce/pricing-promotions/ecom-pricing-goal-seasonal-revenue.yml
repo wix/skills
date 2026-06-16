@@ -9,13 +9,10 @@ assertions:
   - tool: ReadFullDocsArticle
     params:
       articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-seasonal-promotion
-  - tool: ReadFullDocsArticle
-    params:
-      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-run-a-sale-recommend-e-commerce-strategy
   - type: llm_judge
     minScore: 7
     maxTokens: 2048
     prompt: |
-      Pass if the response (a) lands on the Pricing run-a-sale orchestrator and classifies as SEASONAL (the priority rule in the orchestrator dictates that any holiday/event/date trigger MUST be SEASONAL even if other signals like "maximize revenue" suggest UPSELL_BOOST), (b) generates time-windowed recommendations tied to the named event (Black Friday) — at minimum each recommendation should reference a start/end window or campaign duration, and (c) loads or references api-recommendation-tracking and persists the recommendations as PROPOSED via BatchCreate before presenting.
+      Pass if the response (a) classifies the request as SEASONAL (the priority rule dictates that any holiday/event/date trigger MUST be SEASONAL even if other signals like "maximize revenue" suggest UPSELL_BOOST), (b) generates time-windowed recommendations tied to the named event (Black Friday) — at minimum each recommendation should reference a start/end window or campaign duration, and (c) loads or references api-recommendation-tracking and persists the recommendations as PROPOSED via BatchCreate before presenting.
       Fail if the response classifies as UPSELL_BOOST / STOCK_MOVER / BUNDLE_AND_SAVE (ignoring the holiday priority rule), produces recommendations with no time window or seasonal hook, or skips tracking.
-      Topic-completeness across all four seasonal levers (discount depth, scope, urgency banners, post-event recapture) is NOT required to pass — judge the classification + time-binding + tracking lifecycle, not the breadth.
+      Topic-completeness across all four seasonal levers (discount depth, scope, urgency banners, post-event recapture) is NOT required to pass — judge the classification + time-binding + tracking lifecycle, not the breadth. Loading the run-a-sale orchestrator is NOT required — direct routing to goal-seasonal-revenue when the holiday signal is unambiguous is acceptable.
