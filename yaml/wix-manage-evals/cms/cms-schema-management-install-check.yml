@@ -1,0 +1,32 @@
+name: cms/cms-schema-management-install-check
+description: >-
+  Verifies the agent reads the cms-schema-management skill and, before creating a collection,
+  checks whether the Wix CMS app is installed and installs it (correct appDefId) when missing.
+triggerPrompt: >-
+  Before I create a new CMS collection schema on my site, how can I check whether the Wix CMS
+  app is already installed, and install it if it's missing? Then I want to create the collection.
+tags: [cms]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/cms/skills/cms-schema-management
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user wants to create a CMS collection schema but first wants to verify the Wix CMS app
+      is installed and install it if missing.
+      Intent: check installed apps, install Wix CMS with the correct appDefId when absent, then create the collection.
+
+      Pass if the response:
+      - describes checking installed apps first (Apps Installer get-installed-apps / list app instances, e.g.
+        GET .../apps-installer-service/v1/app-instances) and matching on the Wix CMS appDefId, AND
+      - states that if the Wix CMS app is missing it should be installed using appDefId
+        `e593b0bd-b783-45b8-97c2-873d42aacaf4` via the Apps Installer install endpoint, AND
+      - then references creating the collection via the Collections / Data Collections API.
+
+      Fail if the response:
+      - skips the installed-apps check entirely, OR
+      - tells the user to enable Velo / call a velo provision endpoint (that flow was removed), OR
+      - invents a different appDefId for Wix CMS, OR
+      - only explains collection creation without addressing the install/verify step the user asked about.
