@@ -1,6 +1,6 @@
 ---
 name: "Flow: Stock Mover"
-description: Stock-mover clearance sub-flow — load [Goal: Clear Inventory] FIRST (it owns the routing). Velocity-ratio tiers, discount math, and the **margin-floor guardrail** that must be surfaced per recommendation live in the body, not in this README line.
+description: Stock-mover clearance sub-flow — load [Goal: Clear Inventory] FIRST (it owns the routing); this is a sub-step.
 ---
 # Flow: Stock Mover Clearance
 

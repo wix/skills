@@ -1,6 +1,6 @@
 ---
 name: "Goal: Seasonal Revenue"
-description: SEASONAL goal — always load this recipe before recommending any holiday / event / date-tied promotion. The event calendar, campaign-window math, the priority rule (holiday beats UPSELL_BOOST when both signals are present), and the **per-recommendation time-window requirement** live in the body, not in this README line.
+description: SEASONAL goal — always load BEFORE recommending any holiday / event / date-tied promotion. Owns the priority rule (holiday beats UPSELL_BOOST when both signals are present).
 ---
 # Goal: Capitalize on Seasonal Events
 

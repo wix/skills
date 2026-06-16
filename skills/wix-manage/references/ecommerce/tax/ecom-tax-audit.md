@@ -1,9 +1,11 @@
 ---
 name: "Tax: Audit Setup"
-description: Read-only audit of the site's current tax configuration. Lists available calculators, all tax regions with their calculatorId + inclusive/exclusive setting, all tax groups, all Manual rate mappings, Avalara credentials (if any), and VAT settings (if any). No writes. Triggers on "audit my taxes", "review my tax setup", "show my tax config".
+description: Site-wide tax-setup audit — always load BEFORE answering review / audit / setup-state questions about the merchant's tax configuration. NOT for diagnosing a specific order's tax (use [Tax: Calculation Wrong] for that, even when phrased as "what went wrong with my tax").
 ---
 
 # Audit Tax Setup
+
+> **Routing rule (READ FIRST).** This recipe is for SITE-WIDE setup reviews ("audit my taxes", "is my tax setup correct?", "what calculators/regions do I have?"). It is NOT the right recipe when the merchant is asking about a SPECIFIC order's tax being wrong — for that, load [Tax: Calculation Wrong](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/tax-calculation-wrong) instead, which owns the per-order 3-branch diagnostic tree.
 
 Read-only diagnostic. No writes — the fix lives in the configure/switch promotions once gaps are identified.
 

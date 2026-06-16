@@ -1,6 +1,6 @@
 ---
 name: "Goal: Increase AOV"
-description: UPSELL_BOOST goal — always load this recipe before recommending AOV / upsell / "boost my sales" / shipping-threshold actions. minSubTotal math, margin tiers, the cross-domain lever map (discounts + shipping + bundles), and the **multi-lever recommendation-mix requirement** live in the body, not in this README line.
+description: UPSELL_BOOST goal — always load BEFORE recommending AOV / upsell / "boost my sales" / shipping-threshold actions. Owns the cross-domain lever map (discount + shipping + bundle) for open-ended sales prompts.
 ---
 # Goal: Increase Average Order Value
 

@@ -1,6 +1,6 @@
 ---
 name: "Goal: Clear Inventory"
-description: STOCK_MOVER clearance goal — always load this recipe before recommending any clearance / overstock / slow-stock action. Velocity-ratio scoring, progressive discount-depth tiers, and the **margin-floor guardrail** (critical for clearance) live in the body, not in this README line.
+description: STOCK_MOVER clearance goal — always load BEFORE recommending any clearance / overstock / slow-stock / dead-inventory action.
 ---
 # Goal: Clear Slow-Moving Inventory
 

@@ -1,6 +1,6 @@
 ---
 name: "Goal: Drive Cross-Sells"
-description: BUNDLE_AND_SAVE goal — always load this recipe before recommending bundling / cross-sell / multi-item / "buy together" actions. minItemQuantity tiers, catalog-profile→bundle matching, and the **multi-item-structure requirement** (NOT plain % off) live in the body, not in this README line.
+description: BUNDLE_AND_SAVE goal — always load BEFORE recommending bundling / cross-sell / multi-item / "buy together" actions.
 ---
 # Goal: Drive Cross-Sells and Product Discovery
 

@@ -1,11 +1,11 @@
 ---
 name: "Tax: Calculation Wrong"
-description: Diagnoses why a specific order's tax calculation looks wrong — re-runs the CalculateTax call with the order's address + line items, then cross-checks region coverage, group mappings, calculator binding, and exemptions. Read-only; no writes. Triggers on "tax wrong on this order", "tax calc is wrong", "why no tax on this order".
+description: Tax-calculation troubleshooting — always load BEFORE diagnosing any wrong / missing / unexpected tax outcome on a specific order or checkout. NOT a site-wide setup audit (use [Tax: Audit Setup] for that, including "my tax setup looks broken" without a specific order).
 ---
 
 # Tax Calculation Wrong
 
-> **Always load this recipe before diagnosing.** The 3-branch diagnostic tree, exact `billing/v1` endpoints, and error-code interpretations live here — do NOT improvise from the dispatcher or training knowledge. Do NOT recommend a fix before completing the diagnostic steps below.
+> **Routing rule (READ FIRST).** Any merchant query about wrong / missing / unexpected tax on a SPECIFIC order or checkout (e.g. "$0 tax on a Texas order", "customer was charged 8% instead of 8.25%", "no VAT on a German order") MUST load this recipe before answering. Do NOT pick `tax-audit-setup` for a per-order complaint — that recipe is for full-setup reviews and does NOT contain the per-order diagnostic tree. Do NOT improvise from the dispatcher, training knowledge, or raw API calls. Do NOT recommend a fix before completing the 3-branch diagnostic below.
 
 Diagnostic tree. No writes — the fix lives in the configure/switch promotions once the cause is identified.
 
