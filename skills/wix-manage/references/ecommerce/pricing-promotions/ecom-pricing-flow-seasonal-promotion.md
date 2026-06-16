@@ -10,11 +10,9 @@ Creates event-driven promotional discounts tied to holidays, shopping events, or
 
 ## Prerequisites
 
-- Wix Stores installed on the site
-- Products exist in the catalog
-- Access to `getCatalogAnalytics`, `getProductCatalogData`, and `getSiteData` tools
+- Products exist in the catalog (`siteData.hasCatalog === true`, checked at context load)
 - `current_date` available for event scheduling
-- Site `country` known for region-specific event mapping
+- Site `country` known for region-specific event mapping (`siteData.country`, loaded by eCommerce Load Context)
 
 ## Required APIs
 
@@ -72,27 +70,18 @@ For Black Friday + Cyber Monday, use a single extended window: start the precedi
 
 ---
 
-## Step 3: Gather catalog data
+## Step 3: Use pre-loaded catalog data
 
-Call `getCatalogAnalytics` and `getProductCatalogData` concurrently.
+Catalog analytics and product data are already in conversation context — do NOT re-fetch:
 
-**getCatalogAnalytics** call:
-```
-aggregates: sum(ordersCount), quantiles([0.5, 0.9], price), avg(profitMargin)
-```
+- `siteData.catalogAnalytics` — category groups with `sum(ordersCount)`, `quantiles([0.5,0.9], price)`, `avg(profitMargin)`. Loaded by the eCommerce Load Context.
+- `siteData.productCatalogData` — per-product list sorted `ordersCount DESC` for SEASONAL goal. Loaded by the run-a-sale orchestrator Step 5.
 
-**getProductCatalogData** call:
-```
-ordered: ordersCount DESC
-```
-
-This sort order surfaces the best-selling products first — seasonal campaigns should lead with proven sellers to maximize revenue.
-
-Save the following values:
-- `total_orders` — overall sales volume
-- `price_p50`, `price_p90` — price distribution for discount sizing
+Extract from context:
+- `total_orders` — `sum(ordersCount)` from the "All Products" group in `siteData.catalogAnalytics`
+- `price_p50`, `price_p90` — from quantiles in `siteData.catalogAnalytics`
 - `avg_profit_margin` — sets discount ceiling
-- Top products by sales volume
+- Top products by sales volume — from `siteData.productCatalogData`
 
 ---
 

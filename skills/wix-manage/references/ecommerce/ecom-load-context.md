@@ -65,6 +65,37 @@ Missing fields ⇒ no data for that field (don't fabricate). If `merchant_busine
 
 **Derived value:** `siteData.aov = parseInt(gpv30d) / parseInt(orders30d)` — in `siteData.currency` units.
 
+## Step 2b — Detect catalog presence and load analytics
+
+Call `GetCatalogAnalytics` once here so all downstream pricing/promotions flows can reference `siteData.catalogAnalytics` without re-fetching.
+
+```
+CallWixSiteAPI(
+  url: "https://manage.wix.com/recommendations/v1/recommendations/get-catalog-analytics-tool",
+  method: "POST",
+  body: {
+    "aggregates": [
+      {"op":"count","field":"price"},
+      {"op":"min","field":"price"},
+      {"op":"max","field":"price"},
+      {"op":"avg","field":"profitMargin"},
+      {"op":"quantiles","field":"price","q":[0.5,0.75,0.9]},
+      {"op":"sum","field":"quantity"},
+      {"op":"sum","field":"ordersCount"}
+    ],
+    "minMarginPct": 0.15
+  }
+)
+```
+
+Save the full `categoryGroups` array as `siteData.catalogAnalytics`. From the "All Products" group extract:
+- `siteData.catalogProductCount` = `count()` value (0 if missing or call fails)
+- `siteData.hasCatalog` = `siteData.catalogProductCount > 0`
+
+If the call fails, set `siteData.hasCatalog = true` (assume catalog exists; let downstream fail naturally).
+
+**This data is used by all pricing & promotions discount flows.** Flows that require a product catalog (Bundle & Save, Upsell Boost, Stock Mover, Seasonal) MUST check `siteData.hasCatalog` before proceeding — if `false`, stop with: "This site has no products. Set up your product catalog first before running promotions."
+
 ## Step 3 — Derive region (used by dispatch context tags)
 
 From `siteData.country`, set `siteData.region`:
@@ -92,15 +123,14 @@ Reasoning:
 
 Concretely for the categories we know about:
 - **Tax** — calculator detection (Manual vs Avalara) belongs in `ecom-tax.md` (the merged category-doc + dispatcher) or in each Tax promotion when it runs. Not here.
-- **Catalog** (when Stores migrates) — V1/V3 detection belongs in `catalog/stores-catalog-default.md`, not in a Stores L1 loader.
+- **Catalog V1/V3 version detection** — belongs in the Stores category loader when Stores migrates. `getCatalogAnalytics` (product count/margin/price) is already loaded here as a cross-cutting concern; V1/V3 detection is a separate, Stores-specific signal.
 - **Payments & finance** (when Get-paid migrates) — payment-provider state belongs in `finance-and-payments/get-paid-finance-default.md`.
 
 ## What this file does NOT do
 
 - **Does not detect per-category runtime state** (see architectural rule above).
 - **Does not load tracking history.** But: if any recipe in this session generates a recommendation to present to the merchant — regardless of which eCommerce category — it MUST load [API: Recommendation Tracking](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/api-recommendation-tracking) and follow the lifecycle: load history before generating (Query), persist as PROPOSED via BatchCreate before presenting, and track execution via MarkExecuting / MarkDone / MarkFailed. This obligation applies to ALL eCommerce domains.
-- **Does not load catalog analytics.** Orchestrator-specific.
-- **Does not load non-eCommerce L1 fields** (catalog V1/V3, payment provider, …). Those belong inside the owning L1's category-level files (per the architectural rule).
+- **Does not load non-eCommerce L1 fields** (catalog V1/V3 version detection, payment provider, …). Those belong inside the owning L1's category-level files (per the architectural rule). Note: `getCatalogAnalytics` (product count, margin, price distribution) IS loaded here as a cross-cutting concern; Catalog V1/V3 version detection is separate and belongs in the Stores category's own loader.
 - **Does not enforce dispatch.** The category's `default.md` is what scores tags and picks a promotion — this file only fills general site context.
 
 ## Pattern for future L1 loaders

@@ -217,55 +217,11 @@ Based on the merchant's request AND the site data, determine which domains to an
 
 **Permission**: `ecom:discounts_recommendations:v1:recommendation:build_recommendation`
 
-Call both APIs concurrently:
+**Catalog analytics are pre-loaded.** `siteData.catalogAnalytics` (category groups with count, min/max price, avg margin, quantiles, sum quantity/orders) was loaded by the eCommerce Load Context — do not re-call `GetCatalogAnalytics`. Use it directly.
 
-### Call 1: GetCatalogAnalytics
+**Empty catalog guard:** If `siteData.hasCatalog === false`, stop here and respond: "This site has no products. Set up your product catalog first before running promotions."
 
-```
-CallWixSiteAPI(
-  url: "https://manage.wix.com/recommendations/v1/recommendations/get-catalog-analytics-tool",
-  method: "POST",
-  body: {
-    "aggregates": <see table below>,
-    "minMarginPct": 0.15
-  }
-)
-```
-
-Valid `aggregates` values: `op` ∈ `count|sum|avg|min|max|stddev|quantiles` · `field` ∈ `quantity|price|cost|profit|profitMargin|ordersCount` · `q` required only for `quantiles` (array of 0.0–1.0, max 20)
-
-**Aggregates by goal:**
-
-| Goal | `aggregates` array |
-|---|---|
-| UPSELL_BOOST | `[{"op":"count","field":"price"}, {"op":"quantiles","field":"price","q":[0.5,0.75,0.9]}, {"op":"avg","field":"profitMargin"}]` |
-| BUNDLE_AND_SAVE | `[{"op":"min","field":"price"}, {"op":"max","field":"price"}, {"op":"avg","field":"profitMargin"}, {"op":"count","field":"price"}]` |
-| STOCK_MOVER | `[{"op":"sum","field":"quantity"}, {"op":"sum","field":"ordersCount"}, {"op":"avg","field":"profitMargin"}]` |
-| SEASONAL | `[{"op":"sum","field":"ordersCount"}, {"op":"quantiles","field":"price","q":[0.5,0.9]}, {"op":"avg","field":"profitMargin"}]` |
-| SHIPPING | `[{"op":"count","field":"price"}, {"op":"quantiles","field":"price","q":[0.5,0.75]}, {"op":"avg","field":"profitMargin"}]` |
-
-**Response shape:**
-```json
-{
-  "categoryGroups": [
-    {
-      "categoryName": "Electronics",
-      "fields": {
-        "count()": 45,
-        "quantiles([0.5,0.75,0.9],price)": [
-          { "quantile": 0.5, "value": 89.99 },
-          { "quantile": 0.75, "value": 149.99 }
-        ],
-        "avg(profitMargin)": 0.42
-      }
-    },
-    { "categoryName": "All Products", "fields": { "count()": 120, "avg(profitMargin)": 0.35 } }
-  ]
-}
-```
-**Important**: Use "All Products" only for overall catalog stats. Exclude it from category-level analysis.
-
-### Call 2: GetProductCatalogData
+### Call: GetProductCatalogData
 
 ```
 CallWixSiteAPI(
@@ -308,6 +264,8 @@ CallWixSiteAPI(
 ```
 `price` and `profit` are in `payment_currency` units. `id` is the product UUID — use for `productIds` in rules.
 
+**Save the result as `siteData.productCatalogData`** — flow skills (Bundle & Save, Upsell Boost, Stock Mover, Seasonal) reference this from context instead of re-calling GetProductCatalogData.
+
 ### Step 5b: Convert category names to GUIDs (if using CATEGORY scope)
 
 **MANDATORY before outputting any categoryIds.** Never output category names as IDs.
@@ -328,8 +286,7 @@ If `categoryIds` is empty: category doesn't exist — fall back to SITE scope an
 
 ### Failure handling
 
-- Both calls fail: Fall back to SITE scope using only site profile data.
-- One fails: Use whichever succeeded.
+- GetProductCatalogData fails: Fall back to SITE scope using only site profile data from `siteData.catalogAnalytics`.
 
 ---
 

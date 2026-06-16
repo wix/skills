@@ -4,8 +4,7 @@ description: Maps the BUNDLE_AND_SAVE business goal to multi-item purchase KPIs 
 ---
 # Goal: Drive Cross-Sells and Product Discovery
 
-> **Before executing this skill**, read these referenced skills with `ReadFullDocsArticle`:
-> - [Flow: Bundle and Save](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-bundle-and-save)
+> **Routing rule:** BEFORE taking any action, call `ReadFullDocsArticle` on [Flow: Bundle and Save](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-bundle-and-save). Do NOT execute any API calls until that recipe is loaded. It defines the required discount-rule mechanics (minItemQuantity condition, catalog data steps, guardrails) for this goal.
 
 Promote product discovery and multi-item purchases by creating bundle-based discounts that reward customers for buying across categories or adding complementary items to their cart.
 

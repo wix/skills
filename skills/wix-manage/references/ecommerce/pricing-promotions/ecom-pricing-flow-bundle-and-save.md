@@ -10,9 +10,7 @@ Creates a discount that rewards customers for purchasing multiple items, encoura
 
 ## Prerequisites
 
-- Wix Stores installed on the site
-- Products exist in the catalog across multiple categories
-- Access to `getCatalogAnalytics` and `getProductCatalogData` tools
+- Products exist in the catalog across multiple categories (`siteData.hasCatalog === true`, checked at context load)
 - Categories with 2+ products suitable for bundling
 
 ## Required APIs
@@ -22,25 +20,18 @@ Creates a discount that rewards customers for purchasing multiple items, encoura
 
 ---
 
-## Step 1: Gather catalog data
+## Step 1: Use pre-loaded catalog data
 
-Call `getCatalogAnalytics` and `getProductCatalogData` concurrently to assess the catalog's bundle potential.
+Catalog analytics and product data are already in conversation context — do NOT re-fetch:
 
-**getCatalogAnalytics** call:
-```
-aggregates: min(price), max(price), avg(profitMargin), count
-```
+- `siteData.catalogAnalytics` — category groups with `min(price)`, `max(price)`, `avg(profitMargin)`, `count()`. Loaded by the eCommerce Load Context.
+- `siteData.productCatalogData` — per-product list sorted `price DESC, ordersCount DESC` for BUNDLE_AND_SAVE goal. Loaded by the run-a-sale orchestrator Step 5.
 
-**getProductCatalogData** call:
-```
-ordered: price DESC, ordersCount DESC
-```
-
-Save the following values:
-- `min_price`, `max_price` — price range determines viable bundle combinations
+Extract the following from context:
+- `min_price`, `max_price` — from the "All Products" group in `siteData.catalogAnalytics`
 - `avg_profit_margin` — sets the discount ceiling
 - `count` — catalog breadth; more products = more bundling options
-- Top products by price and order count — identifies popular items for bundle anchoring
+- Top products by price and order count — from `siteData.productCatalogData`
 
 ---
 

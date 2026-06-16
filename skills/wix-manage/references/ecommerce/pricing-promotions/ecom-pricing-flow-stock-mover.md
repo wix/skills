@@ -10,9 +10,7 @@ Creates a discount targeting slow-moving inventory — products with high stock 
 
 ## Prerequisites
 
-- Wix Stores installed on the site
-- Products exist in the catalog with inventory (quantity) data
-- Access to `getCatalogAnalytics` and `getProductCatalogData` tools
+- Products exist in the catalog with inventory (quantity) data (`siteData.hasCatalog === true`, checked at context load)
 - Inventory tracking enabled for target products
 
 ## Required APIs
@@ -22,27 +20,18 @@ Creates a discount targeting slow-moving inventory — products with high stock 
 
 ---
 
-## Step 1: Gather inventory and sales data
+## Step 1: Use pre-loaded catalog data
 
-Call `getCatalogAnalytics` and `getProductCatalogData` concurrently to assess stock levels and sales velocity.
+Catalog analytics and product data are already in conversation context — do NOT re-fetch:
 
-**getCatalogAnalytics** call:
-```
-aggregates: sum(quantity), sum(ordersCount), avg(profitMargin)
-```
+- `siteData.catalogAnalytics` — category groups with `sum(quantity)`, `sum(ordersCount)`, `avg(profitMargin)`. Loaded by the eCommerce Load Context.
+- `siteData.productCatalogData` — per-product list sorted `quantity DESC, ordersCount ASC` for STOCK_MOVER goal. Loaded by the run-a-sale orchestrator Step 5.
 
-**getProductCatalogData** call:
-```
-ordered: quantity DESC, ordersCount ASC
-```
-
-This sort order surfaces products with the most stock and the fewest sales first — the primary candidates for clearance.
-
-Save the following values:
-- `total_quantity` — total stock across catalog
-- `total_orders` — total sales across catalog
-- `avg_profit_margin` — average profit margin (sets discount ceiling)
-- Per-product: `quantity`, `ordersCount`, `price`, `name`, `id`, `categoryId`
+Extract from context:
+- `total_quantity` — `sum(quantity)` from the "All Products" group in `siteData.catalogAnalytics`
+- `total_orders` — `sum(ordersCount)` from the "All Products" group
+- `avg_profit_margin` — sets the discount ceiling
+- Per-product: `quantity`, `ordersCount`, `price`, `name`, `id`, `categoryId` — from `siteData.productCatalogData`
 
 ---
 

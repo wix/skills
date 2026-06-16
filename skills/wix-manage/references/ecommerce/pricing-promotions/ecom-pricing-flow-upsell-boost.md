@@ -10,10 +10,8 @@ Creates a discount that incentivizes customers to spend more per order by settin
 
 ## Prerequisites
 
-- Wix Stores installed on the site
-- Products exist in the catalog with price data
-- Access to `getCatalogAnalytics` and `getProductCatalogData` tools
-- AOV data available from site metrics (revenue / ordersCount)
+- Products exist in the catalog with price data (`siteData.hasCatalog === true`, checked at context load)
+- AOV data available from site metrics (`siteData.aov`, loaded by eCommerce Load Context)
 
 ## Required APIs
 
@@ -22,27 +20,19 @@ Creates a discount that incentivizes customers to spend more per order by settin
 
 ---
 
-## Step 1: Gather catalog data and site metrics
+## Step 1: Use pre-loaded catalog data
 
-Call `getCatalogAnalytics` and `getProductCatalogData` concurrently to collect pricing, margin, and product data.
+Catalog analytics and product data are already in conversation context — do NOT re-fetch:
 
-**getCatalogAnalytics** call:
-```
-aggregates: count, quantiles([0.5, 0.75, 0.9], price), avg(profitMargin)
-```
+- `siteData.catalogAnalytics` — category groups with `count()`, `quantiles([0.5,0.75,0.9], price)`, `avg(profitMargin)`. Loaded by the eCommerce Load Context.
+- `siteData.productCatalogData` — per-product list sorted `price DESC, ordersCount DESC` for UPSELL_BOOST goal. Loaded by the run-a-sale orchestrator Step 5.
+- `siteData.aov` — site-level AOV (revenue / ordersCount). Loaded by eCommerce Load Context.
 
-**getProductCatalogData** call:
-```
-ordered: price DESC, ordersCount DESC
-```
-
-Also retrieve site-level AOV from `getSiteData` (AOV = revenue / ordersCount). Run the AOV sanity check: if AOV < price_p25, override with price_p50 as the effective AOV.
-
-Save the following values:
-- `effective_aov` — the validated average order value
-- `avg_profit_margin` — average profit margin across the catalog
-- `price_p50`, `price_p75`, `price_p90` — pricing quantiles
-- Top products by price and order volume
+Extract from context:
+- `effective_aov` — use `siteData.aov`; run AOV sanity check: if AOV < price_p25, override with price_p50 as effective AOV
+- `avg_profit_margin` — from the "All Products" group in `siteData.catalogAnalytics`
+- `price_p50`, `price_p75`, `price_p90` — from quantiles in `siteData.catalogAnalytics`
+- Top products by price and order volume — from `siteData.productCatalogData`
 
 ---
 
