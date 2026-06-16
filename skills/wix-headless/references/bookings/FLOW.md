@@ -14,7 +14,10 @@ only the UI idiom (`useState`/`useEffect` → a store / `onMounted` / signals) a
 the client acquisition differ (see "Client identity" below).
 
 The flow is **appointment booking**. CLASS sign-up reuses the same sequence with
-an event-slot branch (noted inline) and is a fast-follow, not v1.
+an event-slot branch (noted inline) and is a fast-follow, not v1. **Location and
+staff selection are likewise a fast-follow (a separate PR); add-ons are out of
+scope.** v1 threads a single service selection — the shared state below holds no
+location / staff / add-on choice yet.
 
 ---
 
@@ -31,13 +34,15 @@ A single customer journey, five steps, holding one shared selection:
 5b. free/offline → place the order → confirmation page
 ```
 
-How the steps are arranged is the **target framework's choice**:
-- **astro** — SSR `.astro` pages for catalog + detail (SEO), a `client:only` island for slots + form + book.
-- **a SPA** (react-router / vue-router / …) — routes `/services`, `/services/:slug`, a booking step, `/booking-confirmation`.
-- **plain HTML** — pages or one page with state in `sessionStorage`.
+**The catalog is the entry point but optional** — a visitor can land directly on a
+service page and start at the Slots step. Every step rehydrates from the URL (§2),
+so deep links work.
 
-The recommended routes (advertised in `../verticals/bookings.md`): `/services`,
-`/services/[slug]`, `/booking-confirmation`. Adapt to the framework's router.
+Mapping the steps onto pages/routes is the **target framework's choice** — translate
+the step model to whatever router the framework uses. The skill recommends the routes
+`/services`, `/services/[slug]`, `/booking-confirmation` (advertised in
+`../verticals/bookings.md`). On astro specifically, SSR the catalog + detail pages
+for SEO and run slots + form + book in a `client:only` island.
 
 ## 2. Shared booking state
 
@@ -79,14 +84,20 @@ book({ service, slot, formSubmission, timezone }) →
 ```
 
 Key facts the driver encodes (do not deviate):
-- **No `confirmBooking`** — the ecom cart holds the seat. This is why a client-only
-  site can complete the whole flow with no server elevation.
-- **ANY_RESOURCE fallback** — when no staff is chosen, `createBooking` sends
-  `resourceSelections:[{ resourceTypeId:"1cd44cf8-…", selectionMethod:"ANY_RESOURCE" }]`;
-  Wix auto-assigns a bookable resource (appointment slots return
-  `availableResources:[]` yet book fine this way).
-- **Checkout decision** — `isCheckoutRequired`: cancellation-fee policy → checkout;
-  else total 0 → place; else `FULL_PAYMENT_OFFLINE` → place; else checkout.
+- **No `confirmBooking`** — `confirmBooking` is the classic Bookings server-side
+  confirm step (it moves a booking from `CREATED` to `CONFIRMED`). Here the **ecom
+  cart holds the seat** instead — `placeOrder` (free/offline) or the hosted checkout
+  (paid) drives confirmation — so a client-only site completes the whole flow with no
+  server elevation.
+- **ANY_RESOURCE fallback (staff)** — v1 has **no staff picker**, so `createBooking`
+  always sends `resourceSelections:[{ resourceTypeId:"1cd44cf8-…", selectionMethod:"ANY_RESOURCE" }]`
+  and Wix auto-assigns a bookable staff resource (appointment slots return
+  `availableResources:[]` yet book fine this way). (Explicit staff selection is a
+  fast-follow.)
+- **Checkout decision** — `isCheckoutRequired`: if the service's booking policy charges
+  a **cancellation fee** (`service.bookingPolicy.cancellationFeePolicy.enabled`) →
+  checkout (a card must be on file); else total 0 → place; else `FULL_PAYMENT_OFFLINE`
+  → place; else checkout.
 - **Redirect shape** — paid bookings hand the cart to the Wix-hosted **ecom**
   checkout: `createRedirectSession({ ecomCheckout: { checkoutId: cartId }, callbacks:{ postFlowUrl } })`.
 

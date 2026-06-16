@@ -12,8 +12,8 @@ Extends `references/shared/IMPLEMENTER.md`. Read that file first for phase routi
 The booking **logic** — the step model, the shared selection state, the exact
 `@wix` SDK sequence, and the schema-driven form — is framework-agnostic and lives
 in **`./FLOW.md`**. Read it first. The astro guides below are the astro *wiring* of
-that logic; the code examples under `../astro/templates/bookings/` are React (the
-astro islands use them directly). For an own/static build, the wiring guide is
+that logic; the code examples under `<SKILL_ROOT>/references/astro/templates/bookings/`
+are React (the astro islands use them directly). For an own/static build, the wiring guide is
 `../custom/bookings/WIRING.md` (same logic, client-side `@wix/sdk`).
 
 ## Scope routing
@@ -32,20 +32,20 @@ copy, headings, and styling; keep the SDK calls, payload shapes, and the data
 flow (re-authoring the SDK wiring from scratch is the main source of API-shape bugs).
 
 Components (`components` scope — TSX only, no CSS):
-- `…/templates/bookings/AvailabilityCalendar.tsx` — the week calendar (week strip → the day's slots; APPOINTMENT via `availabilityTimeSlots`, CLASS via `eventTimeSlots`).
-- `…/templates/bookings/BookingForm.tsx` — the schema-driven form (renders the `@wix/forms` field list, keys values by `target`) that drives `bookingDriver.book()`.
-- `…/templates/bookings/ServiceBookingFlow.tsx` — the coordinator island (holds the selected slot; calendar → form → redirect).
+- `<SKILL_ROOT>/references/astro/templates/bookings/AvailabilityCalendar.tsx` — the week calendar (week strip → the day's slots; APPOINTMENT via `availabilityTimeSlots`, CLASS via `eventTimeSlots`).
+- `<SKILL_ROOT>/references/astro/templates/bookings/BookingForm.tsx` — the schema-driven form (renders the `@wix/forms` field list, keys values by `target`) that drives `bookingDriver.book()`.
+- `<SKILL_ROOT>/references/astro/templates/bookings/ServiceBookingFlow.tsx` — the coordinator island (holds the selected slot; calendar → form → redirect).
 
 Pages (`pages` scope):
-- `…/templates/bookings/ServiceCard.astro`
-- `…/templates/bookings/services/index.astro`, `…/services/[slug].astro`
-- `…/templates/bookings/booking-confirmation.astro`
+- `<SKILL_ROOT>/references/astro/templates/bookings/ServiceCard.astro`
+- `<SKILL_ROOT>/references/astro/templates/bookings/services/index.astro`, `<SKILL_ROOT>/references/astro/templates/bookings/services/[slug].astro`
+- `<SKILL_ROOT>/references/astro/templates/bookings/booking-confirmation.astro`
 
 ### Pre-copied by the orchestrator (do NOT write these yourself)
 Mechanical, brand-agnostic — the orchestrator copies them before dispatch (BUILD-astro.md § build wave). Rely on them at the listed paths:
-- `src/components/bookingDriver.ts` ← `…/templates/bookings/bookingDriver.ts` — the booking SDK sequence (`book()`, `navigateToCheckout()`). The islands import it; never re-author it.
-- `src/components/SeoTags.astro` ← `…/templates/bookings/SeoTags.astro` — renders `service.seoData.tags`; imported by `services/[slug].astro`.
-- `src/styles/components-bookings.css` ← `…/templates/bookings/components-bookings.css` — the flow's component classes.
+- `src/components/bookingDriver.ts` ← `<SKILL_ROOT>/references/astro/templates/bookings/bookingDriver.ts` — the booking SDK sequence (`book()`, `navigateToCheckout()`). The islands import it; never re-author it.
+- `src/components/SeoTags.astro` ← `<SKILL_ROOT>/references/astro/templates/bookings/SeoTags.astro` — renders `service.seoData.tags`; imported by `services/[slug].astro`.
+- `src/styles/components-bookings.css` ← `<SKILL_ROOT>/references/astro/templates/bookings/components-bookings.css` — the flow's component classes.
 
 If a pre-copied file is missing at runtime, that's an orchestrator-side bug — return `status: "partial"` with `errors: [{code: "UTILITY_TEMPLATE_NOT_PRECOPIED", path: "<missing>"}]`; do not author your own version.
 
