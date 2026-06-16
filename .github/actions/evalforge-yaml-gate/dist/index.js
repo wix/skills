@@ -34266,19 +34266,22 @@ function formatServiceError(message, blocking) {
     const { icon } = failIcon(blocking);
     return render(icon, blocking ? 'Error' : 'Warning', [message]);
 }
-function formatEvalPassed(m, runId) {
-    return render('✅', 'Passed', [`Pass rate: ${m.passRate}%`, `Run ID: ${runId}`]);
+function runLink(runId, runUrl) {
+    return `Run: [${runId}](${runUrl})`;
 }
-function formatEvalFailed(m, runId, blocking) {
+function formatEvalPassed(m, runId, runUrl) {
+    return render('✅', 'Passed', [`Pass rate: ${m.passRate}%`, runLink(runId, runUrl)]);
+}
+function formatEvalFailed(m, runId, runUrl, blocking) {
     const { icon, label } = failIcon(blocking);
     return render(icon, label, [
         `Pass rate: ${m.passRate}%`,
         `${m.failed} failed, ${m.errors} errored, ${m.passed}/${m.totalAssertions} passed`,
-        `Run ID: ${runId}`,
+        runLink(runId, runUrl),
     ]);
 }
-function formatEvalTimeout(runId, blocking) {
-    return render(blocking ? '⏱' : '⚠️', 'Timed Out', [`Run ID: ${runId}`]);
+function formatEvalTimeout(runId, runUrl, blocking) {
+    return render(blocking ? '⏱' : '⚠️', 'Timed Out', [runLink(runId, runUrl)]);
 }
 function formatNoChanges() {
     return render('✅', 'No Gated Changes', ['Nothing under `evals/` or sibling `.md` changed.']);
@@ -34755,6 +34758,7 @@ function jsonifyMaybe(v) {
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.EvalForgeClient = exports.DRAFT_PREFIX = exports.TERMINAL_RUN_STATUSES = void 0;
+exports.evalRunUrl = evalRunUrl;
 exports.draftTagFor = draftTagFor;
 exports.parseDraftTag = parseDraftTag;
 exports.isHttpError = isHttpError;
@@ -34762,6 +34766,11 @@ const MCP_URL = 'https://mcp.wix.com/mcp';
 const MCP_CONFIG_KEY = 'wix-mcp-remote';
 exports.TERMINAL_RUN_STATUSES = ['completed', 'failed', 'cancelled'];
 exports.DRAFT_PREFIX = 'draft:';
+// Human-facing EvalForge results page (distinct from the REST `baseUrl` the client calls).
+const UI_BASE = 'https://bo.wix.com/pages/evalforge';
+function evalRunUrl(projectId, runId) {
+    return `${UI_BASE}/${projectId}/results?runId=${runId}`;
+}
 function draftTagFor(repo, prNumber) {
     return `${exports.DRAFT_PREFIX}${repo}#${prNumber}`;
 }
@@ -35105,6 +35114,7 @@ async function runGate() {
     }), 'Could not create eval run', comment, config);
     if (!run)
         return;
+    const runUrl = (0, evalforge_1.evalRunUrl)(config.projectId, run.id);
     const triggered = await guardedCall(() => evalforge.triggerEvalRun(config.projectId, run.id), 'Could not trigger eval run', comment, config);
     if (!triggered)
         return;
@@ -35114,7 +35124,7 @@ async function runGate() {
     }
     catch (e) {
         if (e instanceof eval_run_1.EvalRunTimeoutError) {
-            await comment((0, comment_1.formatEvalTimeout)(run.id, config.blocking));
+            await comment((0, comment_1.formatEvalTimeout)(run.id, runUrl, config.blocking));
             (0, github_1.fail)(`Eval timed out (run ID: ${run.id})`, config.blocking);
             return;
         }
@@ -35125,11 +35135,11 @@ async function runGate() {
     }
     const m = finalStatus.aggregateMetrics;
     if (finalStatus.status === 'completed' && m.failed === 0 && m.errors === 0) {
-        await comment((0, comment_1.formatEvalPassed)(m, run.id));
+        await comment((0, comment_1.formatEvalPassed)(m, run.id, runUrl));
         core.info(`Eval passed — ${m.passed}/${m.totalAssertions} (run ID: ${run.id})`);
     }
     else {
-        await comment((0, comment_1.formatEvalFailed)(m, run.id, config.blocking));
+        await comment((0, comment_1.formatEvalFailed)(m, run.id, runUrl, config.blocking));
         (0, github_1.fail)(`Eval failed (${m.passRate}%)`, config.blocking);
     }
 }
