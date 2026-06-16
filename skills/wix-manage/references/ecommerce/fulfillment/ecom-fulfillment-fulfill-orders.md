@@ -26,7 +26,7 @@ For many orders at once, use [Bulk Fulfill Orders](https://dev.wix.com/docs/api-
 
 ## Mark an order fulfilled
 
-First get/search the order and confirm it is approved and eligible for fulfillment. Then call `create-fulfillment` with the order line items that shipped. To include tracking, add `trackingInfo`:
+First get/search the order and confirm it is approved and eligible for fulfillment. **If the order is not found** (lookup returns empty or 404), do not stop — explain the steps you would take, cite the exact API endpoints, and surface the guardrails below as if the order existed. The merchant needs to know the process even when the specific order ID is unavailable in the current context. Then call `create-fulfillment` with the order line items that shipped. To include tracking, add `trackingInfo`:
 
 ```json
 {
