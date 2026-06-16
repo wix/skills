@@ -1,10 +1,12 @@
 ---
 name: "Goal: Drive Cross-Sells"
-description: Maps the BUNDLE_AND_SAVE business goal to multi-item purchase KPIs and bundling flows.
+description: BUNDLE_AND_SAVE goal — always load this recipe before recommending bundling / cross-sell / multi-item / "buy together" actions. minItemQuantity tiers, catalog-profile→bundle matching, and the **multi-item-structure requirement** (NOT plain % off) live in the body, not in this README line.
 ---
 # Goal: Drive Cross-Sells and Product Discovery
 
-> **Routing rule:** BEFORE taking any action, call `ReadFullDocsArticle` on [Flow: Bundle and Save](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-bundle-and-save). Do NOT execute any API calls until that recipe is loaded. It defines the required discount-rule mechanics (minItemQuantity condition, catalog data steps, guardrails) for this goal.
+> **Routing rule (READ FIRST).** Any merchant query about cross-sells, bundling, "buy together", multi-item purchases, or items-per-order MUST load this recipe before any flow-* recipe. Do NOT route directly to [Flow: Bundle and Save](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-bundle-and-save) from the WixREADME index — this goal owns the catalog-profile→bundle-shape matrix and the **per-recommendation multi-item-structure requirement** (every recommendation MUST use `minItemQuantity` or an equivalent multi-item condition — plain single-item percent-off recommendations FAIL this goal). The flow is a sub-step.
+>
+> **Then** call `ReadFullDocsArticle` on [Flow: Bundle and Save](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-bundle-and-save) before executing any API call — it defines the required discount-rule mechanics (minItemQuantity condition, catalog data steps, guardrails) for this goal.
 
 Promote product discovery and multi-item purchases by creating bundle-based discounts that reward customers for buying across categories or adding complementary items to their cart.
 
@@ -72,6 +74,24 @@ The sole action for this goal. Creates a percentage discount with a `minItemQuan
 | Curated complementary items | 2 | ITEMS (specific products) | "Buy these together, save 15%" |
 | Low-price items (avg < price_p25) | 3-4 | CATEGORY or SITE | "Buy 4+, save 20%" |
 | High-price items (avg > price_p75) | 2 | CATEGORY | "Buy 2 premium items, save 10%" |
+
+---
+
+## Presentation requirement — every recommendation MUST carry a multi-item condition
+
+**Every cross-sell recommendation presented to the merchant MUST use a `minItemQuantity` (or equivalent multi-item) condition** — plain single-item percentage discounts FAIL this goal's intent. The merchant must be able to see, per recommendation, the quantity threshold that triggers the discount and the scope it applies to.
+
+Acceptable shapes:
+- `apply_discount` with `conditions.minItemQuantity: 2` (or 3, 4) scoped to a category or specific products
+- "Buy 2+ accessories, save 15%" — minItemQuantity 2 on the accessories category
+- "Buy any 3 items, save 10%" — minItemQuantity 3 site-wide
+- "Buy these 2 together, save 15%" — minItemQuantity 2 on ITEMS scope with specific productIds
+
+NOT acceptable for this goal:
+- "20% off accessories" — no quantity threshold, defeats the cross-sell mechanic
+- "Site-wide 10% off" — no multi-item incentive
+
+State the quantity threshold and scope per recommendation in the `reasoning` / `why` field (e.g., "Buy 3+ items → 10% off site-wide; targets the multi-category catalog profile"). If you cannot construct a multi-item condition for a candidate, drop it; never present a plain percent-off as a cross-sell recommendation.
 
 ---
 

@@ -1,10 +1,12 @@
 ---
 name: "Goal: Seasonal Revenue"
-description: Maps the SEASONAL business goal to event-driven revenue KPIs and promotional flows.
+description: SEASONAL goal — always load this recipe before recommending any holiday / event / date-tied promotion. The event calendar, campaign-window math, the priority rule (holiday beats UPSELL_BOOST when both signals are present), and the **per-recommendation time-window requirement** live in the body, not in this README line.
 ---
 # Goal: Capitalize on Seasonal Events
 
-> **Routing rule:** BEFORE taking any action, call `ReadFullDocsArticle` on [Flow: Seasonal Promotion](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-seasonal-promotion). Do NOT execute any API calls until that recipe is loaded — it defines the event calendar, campaign window calculation, and scope/discount sizing logic required for time-windowed seasonal recommendations.
+> **Routing rule (READ FIRST).** Any merchant query that mentions a holiday, cultural event, season, or specific date tied to a discount MUST load this recipe before any flow-* recipe. Do NOT route directly to [Flow: Seasonal Promotion](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-seasonal-promotion) from the WixREADME index — this goal owns the **priority rule** ("holiday/event/date beats all other signals — even 'maximize revenue' / 'boost sales' must classify as SEASONAL when a date is named"), the event calendar, and the per-recommendation time-window presentation rules. The flow is a sub-step.
+>
+> **Then** call `ReadFullDocsArticle` on [Flow: Seasonal Promotion](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-seasonal-promotion) before executing any API call — it defines the event calendar, campaign window calculation, and scope/discount sizing logic required for time-windowed seasonal recommendations.
 
 Capitalize on holidays, cultural events, and seasonal moments to drive revenue spikes through time-limited promotional campaigns.
 
@@ -98,6 +100,19 @@ For quick, high-urgency promotions with short windows (24-72 hours). Creates imm
 - Short duration (typically 24-48 hours)
 - Can use deeper discounts than standard campaigns due to limited exposure
 - Urgency messaging: "24-hour flash sale" or "ends midnight"
+
+---
+
+## Presentation requirement — every recommendation MUST carry a time window
+
+**Every seasonal recommendation presented to the merchant MUST include an explicit campaign window** in its `reasoning` / `why` field — either `startDate` + `endDate` in the rule params, or a duration phrase in the human-readable reasoning. The merchant must be able to see, per recommendation, when it activates and when it expires.
+
+Acceptable phrasings:
+- "Runs Nov 25 – Dec 1 (Black Friday weekend)."
+- "Campaign window: 7 days starting Dec 18; ends Christmas Eve."
+- "Active from event launch through Cyber Monday (Nov 28)."
+
+A seasonal recommendation with no time window is NOT acceptable — even if everything else is correct, the absence of a window means the discount runs indefinitely and defeats the seasonal framing. If you cannot determine a window for an item, drop it; never present a windowless seasonal recommendation.
 
 ---
 

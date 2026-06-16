@@ -1,10 +1,12 @@
 ---
 name: "Goal: Increase AOV"
-description: Maps the UPSELL_BOOST business goal to measurable KPIs and actionable discount flows. Covers AOV benchmarking, margin-based discount tiers, and minSubTotal strategy.
+description: UPSELL_BOOST goal — always load this recipe before recommending AOV / upsell / "boost my sales" / shipping-threshold actions. minSubTotal math, margin tiers, the cross-domain lever map (discounts + shipping + bundles), and the **multi-lever recommendation-mix requirement** live in the body, not in this README line.
 ---
 # Goal: Increase Average Order Value
 
-> **Routing rule:** BEFORE taking any action, call `ReadFullDocsArticle` on [Flow: Upsell Boost](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-upsell-boost). Do NOT execute any API calls until that recipe is loaded — it defines the minSubTotal mechanics, margin tiers, and guardrails required for this goal.
+> **Routing rule (READ FIRST).** Any merchant query about increasing AOV, upselling, "boosting sales", or open-ended "help my business" prompts MUST load this recipe before any flow-* recipe. Do NOT route directly to [Flow: Upsell Boost](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-upsell-boost) from the WixREADME index — this goal owns the cross-domain lever map (discount + shipping + bundle), the catalog→lever-selection rules, and the per-recommendation **multi-lever mix requirement** that an open "boost sales" prompt must satisfy. The flows are sub-steps.
+>
+> **Then** call `ReadFullDocsArticle` on [Flow: Upsell Boost](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-upsell-boost) before executing any API call — it defines the minSubTotal mechanics, margin tiers, and guardrails required for this goal.
 >
 > If the merchant's request also covers bundle/cross-sell intent, also load [Flow: Bundle and Save](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-bundle-and-save).
 >
@@ -75,6 +77,24 @@ A complementary action that increases AOV by encouraging multi-item purchases. I
 - minItemQuantity condition (typically 2-3 items)
 - Targets categories with cross-sell potential
 - Can run alongside an upsell boost if scoped to different categories
+
+---
+
+## Presentation requirement — open prompts demand a multi-lever mix
+
+When the merchant's query is open-ended (e.g., "boost my sales", "help my business", "give me 3 to 5 actions"), the recommendation set **MUST mix at least two of the following lever types** — never propose an all-discount set:
+
+| Lever type | Example action |
+|---|---|
+| Discount rule (auto-apply) | `apply_discount` with `minSubTotal` above AOV |
+| Coupon | code-gated discount for subscribers / influencers |
+| Free-shipping / shipping change | `create_shipping_option` with AOV-calibrated threshold |
+| Bundle / `minItemQuantity` rule | multi-item discount targeting cross-sell categories |
+| `minSubTotal` / AOV-threshold rule | spend-based discount above current AOV |
+
+State the lever type per recommendation in the `reasoning` / `why` field (e.g., "Lever: free-shipping threshold — pushes carts above current AOV $X"). A recommendation set containing only `apply_discount` actions FAILS the UPSELL_BOOST goal's open-prompt intent.
+
+If the merchant's prompt names a specific lever (e.g., "give me a coupon"), this rule does NOT apply — focus all recommendations on that lever. The multi-lever requirement is for OPEN prompts where the lever is the agent's call.
 
 ---
 

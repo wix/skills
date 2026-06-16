@@ -1,10 +1,12 @@
 ---
 name: "Flow: Stock Mover"
-description: Creates discount campaigns to clear slow-moving inventory by targeting products with high stock levels and low sales velocity. Uses deeper discounts proportional to inventory urgency.
+description: Stock-mover clearance sub-flow — load [Goal: Clear Inventory] FIRST (it owns the routing). Velocity-ratio tiers, discount math, and the **margin-floor guardrail** that must be surfaced per recommendation live in the body, not in this README line.
 ---
 # Flow: Stock Mover Clearance
 
-> **Before executing this skill**, read [Create Discount Rule](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-discount-rule) with `ReadFullDocsArticle` — it contains the discount-rule mechanics **and** the pre-create guardrails (conflict/stacking, margin floor, %-sanity).
+> **Routing rule (READ FIRST).** This recipe is a sub-step of [Goal: Clear Inventory](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-clear-inventory). If you arrived here directly from the WixREADME index, load the goal recipe NOW before executing — it owns the velocity scoring, classification cues, and the per-recommendation presentation rules (including the **margin-floor guardrail** surfacing requirement).
+>
+> **Then** read [Create Discount Rule](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-discount-rule) with `ReadFullDocsArticle` — it contains the discount-rule mechanics **and** the pre-create guardrails (conflict/stacking, margin floor, %-sanity).
 
 Creates a discount targeting slow-moving inventory — products with high stock levels and low sales velocity. The discount depth is proportional to how overstocked the product is, with deeper discounts for the most stagnant items. Margin protection guardrails are especially important here since clearance discounts tend to push closer to cost.
 
@@ -222,7 +224,19 @@ Save the returned `id` and `revision` for later management.
 1. Query discount rules to confirm the new rule exists and is `active: true`
 2. Verify the correct products or category are targeted
 3. Report to the merchant:
-   > "Clearance discount is live: {discount}% off {number_of_products} slow-moving items. These products had a velocity ratio of {avg_velocity}, indicating high stock relative to sales. Monitor inventory levels — once stock clears, consider deactivating the rule."
+   > "Clearance discount is live: {discount}% off {number_of_products} slow-moving items. These products had a velocity ratio of {avg_velocity}, indicating high stock relative to sales. **Margin floor enforced — effective margin stays ≥ 15% on every targeted SKU.** Monitor inventory levels — once stock clears, consider deactivating the rule."
+
+---
+
+## Presentation requirement — margin guardrail line is mandatory
+
+When generating recommendations for the merchant (whether persisted as PROPOSED via the tracking API or returned inline), **every clearance recommendation MUST include explicit margin-floor language in its `reasoning` / `why` field.** Examples:
+
+- "Discount keeps effective margin ≥ 15% (minMarginPct floor)."
+- "Pre-discount margin {X}%, post-discount {Y}% — above 15% breakeven floor."
+- "Margin protected: 20% off does NOT push `{product}` below the 15% floor."
+
+Urgency labels, stock level, capital tied up, and the "Why {N}%" velocity rationale are NOT substitutes — the merchant must see a per-item margin protection statement on every clearance line. If you cannot meet the floor at the velocity-tier discount, either reduce the discount or drop the item; never silently breach the floor.
 
 ---
 

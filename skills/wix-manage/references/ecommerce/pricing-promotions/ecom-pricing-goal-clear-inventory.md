@@ -1,10 +1,12 @@
 ---
 name: "Goal: Clear Inventory"
-description: Maps the STOCK_MOVER business goal to inventory turnover KPIs and clearance discount flows.
+description: STOCK_MOVER clearance goal — always load this recipe before recommending any clearance / overstock / slow-stock action. Velocity-ratio scoring, progressive discount-depth tiers, and the **margin-floor guardrail** (critical for clearance) live in the body, not in this README line.
 ---
 # Goal: Clear Slow-Moving Inventory
 
-> **Routing rule:** BEFORE taking any action, call `ReadFullDocsArticle` on [Flow: Stock Mover](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-stock-mover). Do NOT execute any API calls until that recipe is loaded — it defines the velocity-ratio scoring, discount depth tiers, and the margin-floor guardrail (critical for clearance). The guardrail is also enforced in [Create Discount Rule](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-discount-rule) → "Guardrails".
+> **Routing rule (READ FIRST).** Any merchant query about clearing slow / overstocked / dead / stagnant inventory MUST load this recipe before any other clearance recipe. Do NOT route directly to [Flow: Stock Mover](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-stock-mover) from the WixREADME index — this goal owns the velocity scoring, discount tiers, **margin-floor guardrail**, and the per-recommendation presentation rules. The flow is a sub-step.
+>
+> **Then:** call `ReadFullDocsArticle` on [Flow: Stock Mover](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-stock-mover) before executing any API call. The guardrail is also enforced in [Create Discount Rule](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-discount-rule) → "Guardrails".
 
 Automate clearance discounts for products with high stock levels and low sales velocity, converting stagnant inventory into revenue before it becomes a carrying cost liability.
 
@@ -64,6 +66,21 @@ The sole action for this goal. Identifies slow-moving products using the velocit
 - High quantity + low ordersCount = primary candidates
 - Products with 0 orders in 30+ days = urgent candidates
 - Products approaching seasonal irrelevance = time-sensitive candidates
+
+---
+
+## Presentation requirement — surface the margin guardrail
+
+**Every clearance recommendation presented to the merchant MUST explicitly reference the margin-floor guardrail in its `reasoning` / `why` field.** Clearance discounts push closest to cost, so the merchant needs to see — per item — that the discount stays above the floor.
+
+Acceptable phrasings:
+- "Discount keeps effective margin ≥ 15% (minMarginPct floor)."
+- "Stays above breakeven — current margin {X}%, post-discount {Y}%, floor 15%."
+- "Margin protected: this discount does NOT push below the 15% floor on `{product}`."
+
+If a candidate item would violate the floor at the velocity-tier discount, **either** lower the discount to stay above the floor and say so, **or** drop the item and note "skipped — would breach margin floor."
+
+Do NOT present a clearance recommendation that omits margin language. Urgency / stock level / "why this %" are not substitutes — the guardrail line is required.
 
 ---
 
