@@ -4,7 +4,7 @@ description: Analyzes catalog price distribution and current rate structure to r
 ---
 # Flow: Optimize Shipping Rates
 
-> **Before executing this skill**, read [Setup: Shipping Rates](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping-set-up-rates) with `ReadFullDocsArticle` for the rate-object mechanics.
+> **Routing rule:** BEFORE taking any action, call `ReadFullDocsArticle` on [Shipping API Reference](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping-api-reference). The Query Shipping Options and Update/Create Shipping Option endpoints used in Steps 2–4 live there. Do NOT query or modify any shipping options without loading it first.
 
 ## Rate pricing sanity (inline guardrail)
 

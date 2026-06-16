@@ -4,6 +4,8 @@ description: Configures a pickup option for an online store so customers can cho
 ---
 # Set Up Store Pickup Location
 
+> **Routing rule:** BEFORE taking any action, call `ReadFullDocsArticle` on [Shipping API Reference](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping-api-reference). The endpoint shapes for List Installed Delivery Carriers, Query Delivery Profiles, Add Delivery Region, and Add Delivery Carrier all live there. Do NOT call any of these APIs without loading it first.
+
 ## Prerequisites
 
 - Wix Stores (or another eCommerce business solution) installed on the site
