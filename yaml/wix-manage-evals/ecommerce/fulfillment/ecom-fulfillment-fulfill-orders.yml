@@ -1,6 +1,6 @@
 name: ecommerce/fulfillment/fulfill-orders
 description: Verifies single-order fulfillment and tracking requests load the fulfillment recipe.
-triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) I just shipped order 10027 via UPS — please mark it as fulfilled and add tracking number 1Z999AA10123456784. What should I check before creating the fulfillment?
+triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) how do I mark an order as fulfilled and add UPS tracking number 1Z999AA10123456784? What should I check before creating the fulfillment?
 tags: [ecommerce]
 assertions:
   - tool: ReadFullDocsArticle
