@@ -54,6 +54,8 @@ Examples: `"Bloom & Root"` → `bloom-root` · `"ACME, Co."` → `acme-co` · `"
 
 (e.g. for jewelry: Bold & premium · Clean & modern · Warm & approachable · Something else.) If "Something else", follow up with an `AskUserQuestion` text input.
 
+Capture `vibe` in scratch — the selected option's label **verbatim** (or the free-text from "Something else"). This is the **binding** input to the aesthetic craft step below; it is **not** re-derived from the vertical, and it is **not** discarded after the question. (Mirrors the `imagery` capture in Step 2.5 — a vibe asked but not recorded is a vibe ignored.)
+
 ---
 
 ## Step 2.5 — Imagery preference
@@ -104,7 +106,7 @@ If `balance === null`, drop the trailing *"Current balance: …"* sentence entir
 
 ## Craft the aesthetic direction (in scratch)
 
-From vertical + personality + audience, craft a **2–3 sentence aesthetic direction** like a designer — decide, don't ask more questions. Example: *"For Bloom & Root, an organic editorial aesthetic — Kinfolk meets a botanical garden. Warm cream backgrounds, deep forest green accents, Playfair Display + Source Sans 3, generous whitespace."* **Do NOT print it as a standalone message** — hold it in scratch and weave it into the plan's Design Direction (printing it separately detaches the most important content; keep Q2 → plan tight).
+From the captured `vibe` (Step 2) — **the binding driver** — plus vertical + audience, craft a **2–3 sentence aesthetic direction** like a designer; decide, don't ask more questions. The palette, type pairing, and mood **must follow from the selected `vibe`**: a different `vibe` must yield a visibly different palette and type direction — e.g. *Bold & premium* → high-contrast, saturated or dark surfaces, a strong display face; *Clean & modern* → cool/monochrome neutrals, a geometric sans; *Warm & approachable* → soft warm neutrals, a friendly humanist pairing. **Anti-default:** do NOT reuse the example palette below, the running-example look, or any prior run's palette — derive colors and fonts from THIS run's `vibe`. If the crafted direction would be identical regardless of which `vibe` was chosen, it is wrong. Example (vibe *Bold & premium*, a jewelry brand): *"For Lumen, a high-contrast modern-luxe aesthetic — gallery-like restraint. Near-black backgrounds, bright ivory text, a single brass accent. Archivo (condensed display) + Inter (grotesque body), tight headline spacing."* (Illustrates how a vibe drives the look — a *Warm & approachable* brand would land on soft warm neutrals and a humanist pairing instead; do not copy these specific colors/fonts.) **Do NOT print it as a standalone message** — hold it in scratch and weave it into the plan's Design Direction (printing it separately detaches the most important content; keep Q2 → plan tight).
 
 ## The Designer's inputs
 
@@ -148,18 +150,20 @@ Compose rows from each loaded pack's `routes:` array (top-level + transitive via
 
 ### Example (skincare ecommerce)
 
+> The palette, fonts, and mood below are an **illustration of format only** — they are NOT a default. Generate Section A from THIS run's captured `design` (the vibe-driven craft step), never by copying this example's colors or fonts. This example shows a *Clean & modern* vibe; the craft-step example above shows a *Bold & premium* one — two different vibes, two different looks.
+
 ```markdown
 Here's my plan for **Bloom & Root**:
 
 ## Design Direction
 
-For Bloom & Root, **clean luxury with organic warmth** — a curated boutique
-where every product feels considered. Warm cream backgrounds, deep charcoal
-text, rose gold accents. Cormorant Garamond headlines + DM Sans body.
+For Bloom & Root, **clean modern minimalism** — calm, airy, and precise, where
+the product is the only ornament. Cool off-white surfaces, slate ink, a single
+muted sage accent. Space Grotesk headlines + Inter body, generous negative space.
 
-- **Colors:** Warm cream (#FFF8F0), deep charcoal (#1A1A1A), rose gold (#B76E79)
-- **Fonts:** Cormorant Garamond (headings) + DM Sans (body)
-- **Mood:** Premium, approachable, tactile
+- **Colors:** Off-white (#F7F8F7), slate (#23282B), muted sage (#7C9A82)
+- **Fonts:** Space Grotesk (headings) + Inter (body)
+- **Mood:** Minimal, precise, calm
 - **Color strategy:** Uniform Light
 
 ## Features
@@ -201,13 +205,21 @@ Should I proceed?
 
 ## After Approval — capture intent in scratch
 
-On "Yes, build it", hold the captured intent (brand, frontend, verticals, the per-vertical intent block) in scratch — **nothing is written to disk**. The transition into Setup is FLOW, owned by `PLAN-create.md` (which hands off to `BUILD-astro.md`).
+On "Yes, build it", hold the captured intent (brand, frontend, verticals, the design direction, the per-vertical intent block) in scratch — **nothing is written to disk**. The transition into Setup is FLOW, owned by `PLAN-create.md` (which hands off to `BUILD-astro.md`).
 
 Build a single intent JSON in scratch (only blocks for loaded verticals); seeders receive the relevant `intent.<pack>` slice inlined (`SEED.md` Step 2):
 
 ```json
 {
   "imagery": "themed-blocks",
+  "design": {
+    "vibe":          "<selected Step 2 label verbatim>",
+    "aesthetic":     "<the 2–3 sentence direction from the craft step>",
+    "palette":       ["#...", "#...", "#..."],
+    "typography":    { "display": "<font>", "body": "<font>" },
+    "mood":          "<personality / key visuals>",
+    "colorStrategy": "Uniform Light | Uniform Dark | Defined Hybrid"
+  },
   "stores":     { "productCount": 3, "categoriesNamed": ["..."] },
   "cms":        { "collections": [{ "purpose": "about", "itemCount": 1 }] },
   "blog":       { "postCount": 6, "topics": ["..."] },
@@ -218,6 +230,7 @@ Build a single intent JSON in scratch (only blocks for loaded verticals); seeder
 
 Inference:
 - **`imagery`** — exactly the Step 2.5 value.
+- **`design`** — the captured `vibe` (Step 2) plus the crafted aesthetic direction, palette, type pairing, mood, and page color strategy. These are exactly what the approved plan's **Design Direction (Section A)** showed — copy them **verbatim**, do not re-craft. This is the one design decision that must survive to `BUILD-astro.md` run-step 0, which inlines it into the Designer dispatch; leaving it as loose scratch is what makes the agent regress to a default theme.
 - **`stores.productCount`** — implied count (*"a few candles"*→3, *"a full catalog"*→8); default 3. **`categoriesNamed`** — explicitly-named strings only; else `[]`.
 - **`cms.collections`** — one per CMS-driven page (≥ `{purpose:"about"}` + `{purpose:"faq"}` for any cms run); `itemCount` only when a number was implied.
 - **`blog.postCount`** — implied count, default 6; **`topics`** explicit-only.
