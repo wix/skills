@@ -56,21 +56,25 @@ export function formatServiceError(message: string, blocking: boolean): string {
   return render(icon, blocking ? 'Error' : 'Warning', [message]);
 }
 
-export function formatEvalPassed(m: EvalRunStatus['aggregateMetrics'], runId: string): string {
-  return render('✅', 'Passed', [`Pass rate: ${m.passRate}%`, `Run ID: ${runId}`]);
+function runLink(runId: string, runUrl: string): string {
+  return `Run: [${runId}](${runUrl})`;
 }
 
-export function formatEvalFailed(m: EvalRunStatus['aggregateMetrics'], runId: string, blocking: boolean): string {
+export function formatEvalPassed(m: EvalRunStatus['aggregateMetrics'], runId: string, runUrl: string): string {
+  return render('✅', 'Passed', [`Pass rate: ${m.passRate}%`, runLink(runId, runUrl)]);
+}
+
+export function formatEvalFailed(m: EvalRunStatus['aggregateMetrics'], runId: string, runUrl: string, blocking: boolean): string {
   const { icon, label } = failIcon(blocking);
   return render(icon, label, [
     `Pass rate: ${m.passRate}%`,
     `${m.failed} failed, ${m.errors} errored, ${m.passed}/${m.totalAssertions} passed`,
-    `Run ID: ${runId}`,
+    runLink(runId, runUrl),
   ]);
 }
 
-export function formatEvalTimeout(runId: string, blocking: boolean): string {
-  return render(blocking ? '⏱' : '⚠️', 'Timed Out', [`Run ID: ${runId}`]);
+export function formatEvalTimeout(runId: string, runUrl: string, blocking: boolean): string {
+  return render(blocking ? '⏱' : '⚠️', 'Timed Out', [runLink(runId, runUrl)]);
 }
 
 export function formatNoChanges(): string {
