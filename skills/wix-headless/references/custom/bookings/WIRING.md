@@ -32,16 +32,17 @@ Client-side `@wix/sdk` — CDN imports for `none`-build, bundled for `own`-build
 ## The client (acquire once)
 ```js
 import { createClient, OAuthStrategy } from "https://esm.sh/@wix/sdk@1"; // bundled for own-build
-import { services, availabilityTimeSlots, eventTimeSlots, bookings } from "https://esm.sh/@wix/bookings@1";
+import { services, availabilityTimeSlots, eventTimeSlots, bookings, categoriesV2 } from "https://esm.sh/@wix/bookings@1";
 import { forms } from "https://esm.sh/@wix/forms@1";
 import * as cartV2 from "https://esm.sh/@wix/auto_sdk_ecom_cart-v-2@1";
 import { redirects } from "https://esm.sh/@wix/redirects@1";
 
 const wix = createClient({
-  modules: { services, availabilityTimeSlots, eventTimeSlots, bookings, forms, redirects, ...cartV2 },
+  modules: { services, availabilityTimeSlots, eventTimeSlots, bookings, categoriesV2, forms, redirects, ...cartV2 },
   auth: OAuthStrategy({ clientId: "REPLACE_WITH_APP_ID" }),
 });
 ```
+(`categoriesV2` + `services.queryLocations` power the optional catalog filters; drop them if you don't surface filters.)
 
 ## Render services
 ```js
@@ -54,7 +55,29 @@ const { items } = await wix.services.queryServices({
 const visible = items.filter((s) => !s.hidden);
 // name s.name · tagline s.tagLine · slug s.mainSlug?.name ·
 // duration s.schedule?.availabilityConstraints?.sessionDurations?.[0] ·
-// price s.payment?.fixed?.price ({ value, currency } — value is a string).
+// price s.payment?.fixed?.price ({ value, currency } — value is a string) ·
+// staff s.staffMemberDetails?.staffMembers ([{ staffMemberId, name }] — staffMemberId IS the resource id).
+```
+
+## Optional catalog filters — location & category
+Both auto-skip when there's nothing to choose (see `../../bookings/FLOW.md` §7).
+Merge the chosen filter into the **same** `queryServices` filter and re-query.
+```js
+// Locations — show the selector only when count > 1.
+const loc = await wix.services.queryLocations();
+const businessLocations = loc.businessLocations?.locations ?? []; // [{ _id, type, business: { name } }]
+const count = businessLocations.length + (loc.customLocations?.exists ? 1 : 0) + (loc.customerLocations?.exists ? 1 : 0);
+// Categories — non-fatal; show the bar only when > 1.
+const cats = (await wix.categoriesV2.queryCategories().find()).items ?? []; // [{ _id, name }]
+
+// Merge into the services filter:
+const filter = { appId: BOOKING_APP_ID };
+if (categoryId) filter["category.id"] = { $eq: categoryId };
+if (locationId === "custom") filter["locations.type"] = { $hasSome: ["CUSTOM"] };
+else if (locationId === "customer") filter["locations.type"] = { $hasSome: ["CUSTOMER"] };
+else if (locationId) filter["locations.business.id"] = { $hasSome: [locationId] };
+// → wix.services.queryServices({ query: { filter, paging: { limit: 100 } }, conditionalFields: ["STAFF_MEMBER_DETAILS"] }).find()
+// Carry locationId/locationType into the availability call so slots are scoped to it.
 ```
 
 ## Availability (week calendar)
@@ -62,12 +85,28 @@ Render a **week calendar** (day strip → the day's times), not a flat grid — 
 `../../bookings/FLOW.md` § 5. `fromLocalDate`/`toLocalDate` are **local** strings
 (`YYYY-MM-DDThh:mm:ss`, no `Z`) + a `timeZone`.
 ```js
-// APPOINTMENT — serviceId is a single GUID STRING:
-const a = await wix.availabilityTimeSlots.listAvailabilityTimeSlots({ serviceId, fromLocalDate, toLocalDate, timeZone, bookable: true, cursorPaging: { limit: 100 } });
+// APPOINTMENT — serviceId is a single GUID STRING. Staff (§8) + location are OPTIONAL:
+const a = await wix.availabilityTimeSlots.listAvailabilityTimeSlots({
+  serviceId, fromLocalDate, toLocalDate, timeZone, bookable: true, cursorPaging: { limit: 100 },
+  // staff:    resourceTypes: [{ resourceTypeId: STAFF_MEMBER_RESOURCE_TYPE_ID, resourceIds: [resourceId] }], includeResourceTypeIds: [STAFF_MEMBER_RESOURCE_TYPE_ID],
+  // location: locations: [{ _id: locationId, locationType: "BUSINESS" }],
+});
 // slots a.timeSlots[] — localStartDate/localEndDate/scheduleId at the TOP level.
-// CLASS — different namespace, PLURAL serviceIds; slots carry eventInfo.eventId, no scheduleId:
-const c = await wix.eventTimeSlots.listEventTimeSlots({ serviceIds: [serviceId], fromLocalDate, toLocalDate, timeZone, includeNonBookable: false });
+// CLASS — different namespace, PLURAL serviceIds; slots carry eventInfo.eventId, no scheduleId.
+// CLASS filters staff + location via eventFilter:
+const c = await wix.eventTimeSlots.listEventTimeSlots({
+  serviceIds: [serviceId], fromLocalDate, toLocalDate, timeZone, includeNonBookable: false,
+  // eventFilter: { "resources.id": { $hasSome: [resourceId] }, "location.id": [locationId] },
+});
 ```
+
+## Optional staff selection
+The staff list is on the service (`s.staffMemberDetails.staffMembers` → `[{ staffMemberId, name }]`;
+`staffMemberId` IS the resource id despite the name). Show a picker only when >1 staff.
+Filtering uses that `staffMemberId` (the `resourceId`/`resourceIds` above).
+When a specific staff is chosen, set `slot.resource = { _id: staffMemberId, name }` on the
+slot you pass to `createBooking` (the booking books that resource); leave it unset for
+"any staff" → the **ANY_RESOURCE fallback** already in the booking snippet below.
 
 ## Booking form — schema-driven
 The booking form is a `@wix/forms` form on the service (`service.form._id`). Read
@@ -95,6 +134,8 @@ const STAFF_MEMBER_RESOURCE_TYPE_ID = "1cd44cf8-756f-41c3-bd90-3e2ffcaf1155";
 
 // Build the slot. APPOINTMENT carries scheduleId; CLASS carries eventId (Wix
 // derives the rest). No staff chosen → the ANY_RESOURCE fallback.
+// When a specific staff was chosen, use `resource: { _id: resourceId, name }`
+// INSTEAD of `resourceSelections` (drop the ANY_RESOURCE fallback for that slot).
 const slot =
   slotType === "CLASS"
     ? { serviceId, eventId, timezone }
@@ -140,7 +181,8 @@ if (checkoutRequired) {
 > Confirm the `@wix/auto_sdk_ecom_cart-v-2` function registration shape on a
 > CDN/own client at wiring time; the payloads above match the astro `bookingDriver.ts`.
 
-## Out of v1
-Waitlist and on-site manage/cancel — out of scope (same as the astro vertical).
+## Out of scope
+Waitlist and on-site manage/cancel — out of scope (same as the astro vertical;
+neither has a headless SoT — display-only policy flags only, no join/cancel logic).
 Show bookable slots only; post-booking self-service is handled by the Wix-hosted
 flow / member area.

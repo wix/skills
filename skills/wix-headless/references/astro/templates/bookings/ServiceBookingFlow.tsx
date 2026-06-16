@@ -1,13 +1,15 @@
 import { useState } from "react";
-import AvailabilityCalendar from "./AvailabilityCalendar";
+import AvailabilityCalendar, { type StaffMemberOption } from "./AvailabilityCalendar";
 import BookingForm, { type BookingFormField } from "./BookingForm";
 import type { SelectedSlot } from "./bookingDriver";
 
 // ServiceBookingFlow.tsx — client:only="react" coordinator island. Holds the
 // selected-slot state shared between the calendar and the form, transitions
 // between them, and redirects to the confirmation page on success. The SSR
-// detail page passes the full `service` (the driver reads its payment/policy)
-// and the booking-form `fields` (the @wix/forms schema) through to the form.
+// detail page passes the full `service` (the driver reads its payment/policy),
+// the booking-form `fields` (the @wix/forms schema), the service's `staffMembers`
+// (for the optional staff picker), and the selected `locationId`/`locationType`
+// (carried from the catalog's location selector, if any) through to the calendar.
 //
 // This is the framework-agnostic flow shape (a step coordinator + shared
 // selection state). On another framework, the same two steps + shared state can
@@ -18,9 +20,20 @@ interface Props {
   serviceName: string;
   serviceType: "APPOINTMENT" | "CLASS";
   fields: BookingFormField[];
+  staffMembers?: StaffMemberOption[];
+  locationId?: string;
+  locationType?: string;
 }
 
-export default function ServiceBookingFlow({ service, serviceName, serviceType, fields }: Props) {
+export default function ServiceBookingFlow({
+  service,
+  serviceName,
+  serviceType,
+  fields,
+  staffMembers,
+  locationId,
+  locationType,
+}: Props) {
   const [selectedSlot, setSelectedSlot] = useState<SelectedSlot | null>(null);
 
   const handleSuccess = (_orderId: string, startDate?: string) => {
@@ -36,6 +49,9 @@ export default function ServiceBookingFlow({ service, serviceName, serviceType, 
         serviceId={service._id}
         serviceName={serviceName}
         serviceType={serviceType}
+        staffMembers={staffMembers}
+        locationId={locationId}
+        locationType={locationType}
         onSlotSelected={setSelectedSlot}
       />
     );

@@ -29,6 +29,17 @@ Plus the nav/home links (shell chain — see below).
    in frontmatter 500s in the deployed runtime (the env var is client-only).
    Always include **`appId`** in the filter. Single service by slug: the
    `.eq("mainSlug.name", slug).eq("appId", BOOKING_APP_ID).limit(1).find()` chain.
+   The same elevation works for `services.queryLocations` and
+   `categoriesV2.queryCategories` (used by the optional catalog filters, below).
+1b. **Optional catalog filters (location + category) — auto-skip; see `../../bookings/FLOW.md` §7.**
+   The catalog page reads `?locationId`/`?category` from the request URL and merges
+   them into the **same** `queryServices` filter (location → `locations.business.id`
+   $hasSome, or the synthetic `locations.type` mapping; category → `category.id` $eq).
+   It SSRs `queryLocations()` (show the selector only when business+custom+customer
+   count > 1) and `queryCategories().find()` (non-fatal — render without the bar on
+   failure; show only when > 1 category). The chosen location is carried into the
+   detail link (`ServiceCard` `locationId`/`locationType` props) so availability is
+   scoped to it. Reference: `…/templates/bookings/services/index.astro`.
 2. **The detail page fetches the booking-form schema server-side.** Read
    `service.form._id`'s form via `@wix/forms` (`auth.elevate(forms.getForm)(formId)`),
    map `formFields` to `{ label, target, required, componentType, identifier, options }`,
@@ -37,6 +48,9 @@ Plus the nav/home links (shell chain — see below).
    complex object-valued fields (e.g. the default form's multi-line `ADDRESS`), or
    `createBooking` fails with "must be object". Pass the full `service` too — the
    booking step reads its payment/policy. Same field-mapping as `../forms/CONTACT_FORM.md`.
+   Also pass `service.staffMemberDetails?.staffMembers` (for the staff picker — the
+   service was queried with `STAFF_MEMBER_DETAILS`) and the `?locationId`/`?locationType`
+   read from the request URL, through to `<ServiceBookingFlow>`.
 3. **Only the read pages are SSR.** The detail page SSRs the service info for SEO,
    then the booking UI runs in the `client:only` island. Do not SSR availability.
 4. **Confirmation renders from query params.** The booking step redirects with

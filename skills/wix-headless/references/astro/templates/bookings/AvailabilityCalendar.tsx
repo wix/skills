@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { availabilityTimeSlots, eventTimeSlots } from "@wix/bookings";
 import type { SelectedSlot } from "./bookingDriver";
+import { STAFF_MEMBER_RESOURCE_TYPE_ID } from "./bookingDriver";
 
 // AvailabilityCalendar.tsx — client:only="react" island. A week calendar: a
 // 7-day strip with week navigation, then the picked day's time slots. This is
@@ -16,18 +17,49 @@ import type { SelectedSlot } from "./bookingDriver";
 //                 a single GUID string; slots carry scheduleId).
 //   CLASS       → eventTimeSlots.listEventTimeSlots() (serviceIds is an array;
 //                 slots carry eventInfo.eventId and NO scheduleId).
+//
+// Optional staff + location filtering (both auto-skip when not applicable):
+//   staff    — a "any staff member / pick one" control above the calendar (shown
+//              only when the service has >1 staff). Filters availability to that
+//              staff and records the chosen resource on the slot; the booking
+//              driver books that specific resource. "Any" leaves the ANY_RESOURCE
+//              fallback in place.
+//   location — when a business location was chosen on the catalog, its id/type are
+//              passed here and forwarded into the availability query so slots are
+//              scoped to that location. The slot still carries its own location for
+//              the booking (the driver maps it).
 // Re-export SelectedSlot from bookingDriver so the form/driver share one shape.
 export type { SelectedSlot } from "./bookingDriver";
+
+// A staff member as carried on the service (service.staffMemberDetails.staffMembers[]),
+// fetched via conditionalFields:["STAFF_MEMBER_DETAILS"]. NOTE: the id field is
+// `staffMemberId` which — despite the name — IS the resource id (it matches the
+// service's staffMemberIds and the Staff Members API resourceId). That id is what
+// filters availability and books the resource.
+export interface StaffMemberOption {
+  staffMemberId?: string;
+  name?: string;
+}
 
 interface Props {
   serviceId: string;
   serviceName: string;
   serviceType: "APPOINTMENT" | "CLASS";
+  staffMembers?: StaffMemberOption[];
+  locationId?: string; // selected business location id (from the catalog), if any
+  locationType?: string; // its type — "BUSINESS" by default
   onSlotSelected: (slot: SelectedSlot) => void;
+}
+
+interface FetchOpts {
+  resourceId?: string; // a staff resource id to filter by (omit for "any staff")
+  locationId?: string;
+  locationType?: string;
 }
 
 const DAY_MS = 86_400_000;
 const HORIZON_WEEKS = 13; // how far "check next availability" probes forward
+const ANY_STAFF = ""; // the "any staff member" sentinel for the select value
 
 const pad = (n: number) => String(n).padStart(2, "0");
 // Local date string YYYY-MM-DDThh:mm:ss (no Z) — availability expects local time.
@@ -52,13 +84,24 @@ const fetchWeek = async (
   serviceId: string,
   serviceType: "APPOINTMENT" | "CLASS",
   weekStart: Date,
+  opts: FetchOpts = {},
 ): Promise<Record<string, SelectedSlot[]>> => {
   const from = startOfDay(weekStart);
   const to = new Date(from.getTime() + 7 * DAY_MS);
   const timeZone = tz();
   let raw: any[] = [];
 
+  // Id-based location filtering applies to BUSINESS locations only (a custom/
+  // customer location has no fixed per-id availability). The catalog already
+  // scoped the service list; here we only narrow business-location slots.
+  const filterByBusinessLocation = !!opts.locationId && (!opts.locationType || opts.locationType === "BUSINESS");
+
   if (serviceType === "CLASS") {
+    // CLASS filters via eventFilter: staff by resources.id ($hasSome), location by
+    // location.id (a bare array, NOT a $hasSome operator).
+    const eventFilter: Record<string, any> = {};
+    if (opts.resourceId) eventFilter["resources.id"] = { $hasSome: [opts.resourceId] };
+    if (filterByBusinessLocation) eventFilter["location.id"] = [opts.locationId];
     const result = await eventTimeSlots.listEventTimeSlots({
       serviceIds: [serviceId], // CLASS API takes an array
       fromLocalDate: localDateString(from),
@@ -66,6 +109,7 @@ const fetchWeek = async (
       timeZone,
       includeNonBookable: false,
       cursorPaging: { limit: 100 },
+      ...(Object.keys(eventFilter).length ? { eventFilter } : {}),
     });
     raw = (result.timeSlots ?? []).map((s: any) => ({
       serviceType: "CLASS" as const,
@@ -76,6 +120,7 @@ const fetchWeek = async (
       eventId: s.eventInfo?.eventId, // session id — no scheduleId on event slots
     }));
   } else {
+    // APPOINTMENT filters staff via resourceTypes (resourceIds), location via locations[].
     const result = await availabilityTimeSlots.listAvailabilityTimeSlots({
       serviceId, // single GUID string — NOT an array
       fromLocalDate: localDateString(from),
@@ -83,6 +128,17 @@ const fetchWeek = async (
       timeZone,
       bookable: true,
       cursorPaging: { limit: 100 },
+      ...(opts.resourceId
+        ? {
+            resourceTypes: [
+              { resourceTypeId: STAFF_MEMBER_RESOURCE_TYPE_ID, resourceIds: [opts.resourceId] },
+            ],
+            includeResourceTypeIds: [STAFF_MEMBER_RESOURCE_TYPE_ID],
+          }
+        : {}),
+      ...(filterByBusinessLocation
+        ? { locations: [{ _id: opts.locationId as string, locationType: "BUSINESS" as const }] }
+        : {}),
     });
     raw = (result.timeSlots ?? []).map((s: any) => ({
       serviceType: "APPOINTMENT" as const,
@@ -104,13 +160,34 @@ const fetchWeek = async (
   return byDay;
 };
 
-export default function AvailabilityCalendar({ serviceId, serviceName, serviceType, onSlotSelected }: Props) {
+export default function AvailabilityCalendar({
+  serviceId,
+  serviceName,
+  serviceType,
+  staffMembers,
+  locationId,
+  locationType,
+  onSlotSelected,
+}: Props) {
   const thisMonday = useMemo(() => mondayOf(new Date()), []);
   const [weekStart, setWeekStart] = useState<Date>(thisMonday);
   const [byDay, setByDay] = useState<Record<string, SelectedSlot[]>>({});
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "error" | "searching">("loading");
+  // The chosen staff resource id ("" = any staff member → ANY_RESOURCE fallback).
+  const [selectedResource, setSelectedResource] = useState<string>(ANY_STAFF);
+
+  // Staff options keyed by resource id (the id the availability filter + the booking
+  // resource use). Show the picker only when the service has more than one staff.
+  const staffOptions = useMemo(
+    () =>
+      (staffMembers ?? [])
+        .map((s) => ({ id: s.staffMemberId ?? "", name: s.name ?? "Staff member" }))
+        .filter((s) => s.id),
+    [staffMembers],
+  );
+  const showStaffPicker = staffOptions.length > 1;
 
   const days = useMemo(
     () => Array.from({ length: 7 }, (_, i) => new Date(weekStart.getTime() + i * DAY_MS)),
@@ -118,10 +195,19 @@ export default function AvailabilityCalendar({ serviceId, serviceName, serviceTy
   );
   const atFirstWeek = weekStart.getTime() <= thisMonday.getTime();
 
+  const fetchOpts = useCallback(
+    (): FetchOpts => ({
+      resourceId: selectedResource || undefined,
+      locationId: locationId || undefined,
+      locationType,
+    }),
+    [selectedResource, locationId, locationType],
+  );
+
   const load = useCallback(async (start: Date) => {
     setStatus("loading"); setSelectedKey(null);
     try {
-      const grouped = await fetchWeek(serviceId, serviceType, start);
+      const grouped = await fetchWeek(serviceId, serviceType, start, fetchOpts());
       setByDay(grouped);
       const firstDayWithSlots = Object.keys(grouped).sort()[0] ?? null;
       setSelectedDay(firstDayWithSlots);
@@ -130,8 +216,9 @@ export default function AvailabilityCalendar({ serviceId, serviceName, serviceTy
       console.error("[availability] list failed:", err);
       setStatus("error");
     }
-  }, [serviceId, serviceType]);
+  }, [serviceId, serviceType, fetchOpts]);
 
+  // Reload whenever the week OR the staff filter changes.
   useEffect(() => { void load(weekStart); }, [weekStart, load]);
 
   const shiftWeek = (deltaWeeks: number) =>
@@ -143,7 +230,7 @@ export default function AvailabilityCalendar({ serviceId, serviceName, serviceTy
     let cursor = new Date(weekStart.getTime() + 7 * DAY_MS);
     for (let i = 0; i < HORIZON_WEEKS; i++) {
       try {
-        const grouped = await fetchWeek(serviceId, serviceType, cursor);
+        const grouped = await fetchWeek(serviceId, serviceType, cursor, fetchOpts());
         if (Object.keys(grouped).length > 0) {
           setWeekStart(cursor); // triggers load() via the effect
           return;
@@ -152,13 +239,18 @@ export default function AvailabilityCalendar({ serviceId, serviceName, serviceTy
       cursor = new Date(cursor.getTime() + 7 * DAY_MS);
     }
     setStatus("ready"); // nothing found within the horizon
-  }, [serviceId, serviceType, weekStart]);
+  }, [serviceId, serviceType, weekStart, fetchOpts]);
 
   const handleSelect = (s: SelectedSlot) => {
     const id = s.serviceType === "CLASS" ? s.eventId : s.scheduleId;
     if (!s.localStartDate || !id) return;
     setSelectedKey(`${s.localStartDate}|${id}`);
-    onSlotSelected(s);
+    // When a specific staff was chosen, record it on the slot so the booking books
+    // that resource; otherwise the driver emits the ANY_RESOURCE fallback.
+    const chosen = selectedResource
+      ? staffOptions.find((o) => o.id === selectedResource)
+      : null;
+    onSlotSelected(chosen ? { ...s, resource: { _id: chosen.id, name: chosen.name } } : s);
   };
 
   const weekLabel = `${days[0].toLocaleDateString([], { month: "short", day: "numeric" })} – ${days[6].toLocaleDateString([], { month: "short", day: "numeric" })}`;
@@ -167,6 +259,23 @@ export default function AvailabilityCalendar({ serviceId, serviceName, serviceTy
 
   return (
     <div className="availability-calendar">
+      {showStaffPicker && (
+        <div className="availability-staff">
+          <label className="availability-staff-label" htmlFor="staff-select">Staff member</label>
+          <select
+            id="staff-select"
+            className="availability-staff-select"
+            value={selectedResource}
+            onChange={(e) => { setSelectedResource(e.target.value); setSelectedKey(null); }}
+          >
+            <option value={ANY_STAFF}>Any staff member</option>
+            {staffOptions.map((o) => (
+              <option key={o.id} value={o.id}>{o.name}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
       <div className="availability-week-nav">
         <button type="button" className="availability-nav-btn" onClick={() => shiftWeek(-1)} disabled={atFirstWeek} aria-label="Previous week">← Prev week</button>
         <span className="availability-week-label">{weekLabel}</span>

@@ -93,6 +93,66 @@ curl -sS -X POST -H "Authorization: Bearer $TOKEN" -H "wix-site-id: <siteId>" -H
 
 ---
 
+## Step 3b — Create categories (OPTIONAL — only to surface the catalog category filter)
+
+A fresh Bookings install has **one** default category ("Our Services"), so the
+front-end's category filter bar stays hidden (it shows only when >1 category
+exists). Create extra categories **only when the build wants a category filter**
+(e.g. `intent.bookings.categories` is set, or several distinct service groups).
+Skip this step otherwise — it's not needed for a basic seed.
+
+```bash
+# Create a category. Returns { category: { id, ... } } — save the id.
+curl -sS -X POST \
+  -H "Authorization: Bearer $TOKEN" -H "wix-site-id: <siteId>" -H "Content-Type: application/json" \
+  -d '{ "category": { "name": "<Category name, e.g. Massage>" } }' \
+  "https://www.wixapis.com/bookings/v2/categories"
+```
+
+Then **assign each service to a category** by including `category` in the Step-4
+create payload: `"category": { "id": "<categoryId>" }`. (If a create rejects
+`category`, assign it after creation via Update Service — `PATCH
+/_api/bookings/v2/services/{id}` with `service.category.id` + the current
+`revision` — per the docs' "create a category and connect a service" flow.) A
+service can belong to **one** category. Distribute services across 2+ categories
+so the filter is meaningful.
+
+> The front-end reads categories via `categoriesV2.queryCategories().find()` and
+> filters services with `filter["category.id"] = { $eq: id }`. No category data →
+> no filter bar (graceful).
+
+---
+
+## Step 3c — Multiple business locations (OPTIONAL — only for a multi-location demo)
+
+The front-end's location selector auto-skips when the site has ≤1 location, so a
+single-location seed needs nothing here (and the booking flow is unaffected).
+Create a second business location **only** for a multi-location build
+(`intent.bookings.multiLocation`):
+
+```bash
+# Create a business location. Returns { location: { id, ... } }.
+curl -sS -X POST \
+  -H "Authorization: Bearer $TOKEN" -H "wix-site-id: <siteId>" -H "Content-Type: application/json" \
+  -d '{ "location": { "name": "<Branch name>", "status": "ACTIVE", "locationType": "BUSINESS",
+        "address": { "city": "<City>", "country": "<ISO country>" } } }' \
+  "https://www.wixapis.com/locations/v1/locations"
+```
+
+Then attach locations to each service's `locations` array on create (Step 4):
+`"locations": [ { "type": "BUSINESS", "business": { "id": "<locationId>" } }, … ]`.
+
+> **Caveat (verified-behavior limitation, not a bug):** filtering *availability*
+> by location also depends on each staff member's **working-hours location
+> coverage** (the `STAFF_WORKING_HOURS_LOCATIONS` setting). Seeding that reliably
+> is as fragile as custom working hours (see Step 3's warning), so for a seed,
+> create the location + attach it to services to exercise the **catalog** location
+> filter, and configure per-location staff hours from the Bookings dashboard if you
+> need per-location availability to differ. The selector + service filtering work
+> from the seed alone; per-location *slot* differences need the dashboard step.
+
+---
+
 ## Step 4 — Create services (Services V2 API)
 
 **Endpoint:** `POST https://www.wixapis.com/_api/bookings/v2/services`

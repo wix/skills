@@ -7,7 +7,8 @@
  *
  * Class groups:
  * - .service-card / .service-grid / .service-card-*  → ServiceCard.astro, services/index.astro
- * - .availability-* / .time-slot*                    → AvailabilityCalendar.tsx (week calendar + slots)
+ * - .booking-filter-bar / .booking-filter-chip*      → services/index.astro (location + category filters)
+ * - .availability-* / .time-slot*                    → AvailabilityCalendar.tsx (week calendar, slots, staff picker)
  * - .booking-*                                        → BookingForm.tsx (schema-driven form)
  *
  * Primary actions (a selected slot, the confirm button) use var(--color-accent)
@@ -97,11 +98,68 @@ body[data-navigating="true"] .service-grid {
   color: var(--color-rule);
 }
 
+/* ── Catalog filters (location + category) ──────────────────────────────────── */
+.booking-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-xl);
+}
+.booking-filter-chip {
+  padding: var(--spacing-xs) var(--spacing-md);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-pill, 999px);
+  background: var(--color-paper, var(--color-cream));
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease;
+}
+.booking-filter-chip:hover {
+  border-color: var(--color-ink);
+}
+.booking-filter-chip--active {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-paper);
+}
+
 /* ── Availability — week calendar ───────────────────────────────────────────── */
 .availability-calendar {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-lg);
+}
+
+/* Staff picker (shown only when a service has >1 staff). */
+.availability-staff {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+.availability-staff-label {
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-ink-soft, var(--color-mute));
+}
+.availability-staff-select {
+  width: 100%;
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-family: var(--font-body);
+  font-size: 0.9375rem;
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-sm);
+  background: var(--color-paper, var(--color-cream));
+  color: var(--color-ink);
+  box-sizing: border-box;
+}
+.availability-staff-select:focus {
+  outline: none;
+  border-color: var(--color-accent);
 }
 
 .availability-week-nav {

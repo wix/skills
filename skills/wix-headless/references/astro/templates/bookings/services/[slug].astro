@@ -11,6 +11,12 @@ import { auth } from "@wix/essentials";
 const BOOKING_APP_ID = "13d21c63-b5ec-5912-8397-c3a5ddb27a97";
 const { slug } = Astro.params;
 
+// Carried from the catalog's location selector (when the site has >1 location).
+// Scopes availability to the chosen location; absent on single-location sites.
+const reqUrl = new URL(Astro.request.url);
+const locationId = reqUrl.searchParams.get("locationId") ?? undefined;
+const locationType = reqUrl.searchParams.get("locationType") ?? undefined;
+
 let service: any = null;
 try {
   // Ambient SSR via @wix/essentials. Single service by slug: the .eq() builder
@@ -90,6 +96,14 @@ const duration = service.schedule?.availabilityConstraints?.sessionDurations?.[0
 const imageUrl = service.media?.mainMedia?.image?.url ?? service.media?.items?.[0]?.image?.url;
 const serviceName = service.name ?? "Service";
 const seoTags = service.seoData?.tags ?? [];
+
+// Staff for the optional staff picker — carried on the service via the
+// STAFF_MEMBER_DETAILS conditional field (already requested in the query above).
+// Each entry is { staffMemberId, name } — `staffMemberId` is, despite the name,
+// the resource id (the calendar filters availability + books by it). The calendar
+// shows the picker only when there is more than one; empty/absent → "any staff
+// member" (the ANY_RESOURCE fallback).
+const staffMembers = service.staffMemberDetails?.staffMembers ?? [];
 ---
 
 <!--
@@ -126,6 +140,9 @@ const seoTags = service.seoData?.tags ?? [];
         serviceName={serviceName}
         serviceType={service.type ?? "APPOINTMENT"}
         fields={formFields}
+        staffMembers={staffMembers}
+        locationId={locationId}
+        locationType={locationType}
         client:only="react"
       />
     </section>
