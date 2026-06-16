@@ -4,9 +4,9 @@ description: Maps the UPSELL_BOOST business goal to measurable KPIs and actionab
 ---
 # Goal: Increase Average Order Value
 
-> **Before executing this skill**, read these referenced skills with `ReadFullDocsArticle`:
-> - [Flow: Upsell Boost](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-upsell-boost)
-> - [Flow: Bundle and Save](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-bundle-and-save)
+> **Routing rule:** BEFORE taking any action, call `ReadFullDocsArticle` on [Flow: Upsell Boost](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-upsell-boost). Do NOT execute any API calls until that recipe is loaded — it defines the minSubTotal mechanics, margin tiers, and guardrails required for this goal.
+>
+> If the merchant's request also covers bundle/cross-sell intent, also load [Flow: Bundle and Save](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-bundle-and-save).
 >
 > **Shipping flows that also serve AOV goals** (load if shipping domain is active):
 > - [Flow: Add Free Shipping](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping-add-free-shipping) — free shipping threshold pushes carts above AOV

@@ -4,7 +4,7 @@ description: Maps the STOCK_MOVER business goal to inventory turnover KPIs and c
 ---
 # Goal: Clear Slow-Moving Inventory
 
-> **Before executing this skill**, read [Flow: Stock Mover](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-stock-mover) with `ReadFullDocsArticle`. The margin-floor guardrail (critical for clearance) is enforced in [Create Discount Rule](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-discount-rule) → "Guardrails".
+> **Routing rule:** BEFORE taking any action, call `ReadFullDocsArticle` on [Flow: Stock Mover](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-stock-mover). Do NOT execute any API calls until that recipe is loaded — it defines the velocity-ratio scoring, discount depth tiers, and the margin-floor guardrail (critical for clearance). The guardrail is also enforced in [Create Discount Rule](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-discount-rule) → "Guardrails".
 
 Automate clearance discounts for products with high stock levels and low sales velocity, converting stagnant inventory into revenue before it becomes a carrying cost liability.
 

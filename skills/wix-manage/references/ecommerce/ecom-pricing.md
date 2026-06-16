@@ -36,6 +36,12 @@ The single business-flow orchestrator (today's `recommend-ecommerce-strategy`, r
 > - [Seasonal / holiday promotion](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-run-a-sale-recommend-e-commerce-strategy) — tags: `[intent:seasonal-promo]` · priority 0
 > - [Clearance / move slow stock](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-run-a-sale-recommend-e-commerce-strategy) — tags: `[intent:clearance]` · priority 0
 > - [Increase AOV (bundle / upsell)](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-run-a-sale-recommend-e-commerce-strategy) — tags: `[intent:increase-aov]` · priority 0
+>
+> **If the orchestrator above returns a 404** — do not stop. Classify the merchant intent directly and load the matching goal skill via `ReadFullDocsArticle`, then follow its routing chain into the flow skill:
+> - Holiday / event / date mentioned (SEASONAL — takes priority over all other signals) → [Goal: Seasonal Revenue](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-seasonal-revenue)
+> - "Boost sales", "increase AOV", "upsell", "spend more" (UPSELL_BOOST) → [Goal: Increase AOV](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-increase-aov)
+> - "Clearance", "slow stock", "overstock", "move inventory" (STOCK_MOVER) → [Goal: Clear Inventory](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-clear-inventory)
+> - "Bundle", "cross-sell", "buy together", "more items per order" (BUNDLE_AND_SAVE) → [Goal: Drive Cross-Sells](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-drive-cross-sells)
 
 ### Info / troubleshoot / recommendation
 

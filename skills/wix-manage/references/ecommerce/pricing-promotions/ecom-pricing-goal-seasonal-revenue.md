@@ -4,8 +4,7 @@ description: Maps the SEASONAL business goal to event-driven revenue KPIs and pr
 ---
 # Goal: Capitalize on Seasonal Events
 
-> **Before executing this skill**, read these referenced skills with `ReadFullDocsArticle`:
-> - [Flow: Seasonal Promotion](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-seasonal-promotion)
+> **Routing rule:** BEFORE taking any action, call `ReadFullDocsArticle` on [Flow: Seasonal Promotion](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-seasonal-promotion). Do NOT execute any API calls until that recipe is loaded — it defines the event calendar, campaign window calculation, and scope/discount sizing logic required for time-windowed seasonal recommendations.
 
 Capitalize on holidays, cultural events, and seasonal moments to drive revenue spikes through time-limited promotional campaigns.
 
