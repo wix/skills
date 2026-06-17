@@ -41,13 +41,13 @@ These are layout/spacing/typography concerns that should always be utilities, ne
 
 ### Prose / reading width (CMS, FAQ, About)
 
-Tailwind v4 resolves `max-w-3xl` to `var(--container-3xl)`, **not** `var(--spacing-3xl)`. If the designer published `--spacing-3xl: 5rem` but no `--container-3xl`, FAQ/About columns collapse to ~80px.
+**The spacing scale is named with t-shirt sizes (`2xs`…`4xl`) — the same names Tailwind's width utilities use — so `max-w-<size>` resolves to the SPACING token, not a container.** Verified in the compiled CSS: `.max-w-3xl { max-width: var(--spacing-3xl) }` (6rem → ~96px) **even when `--container-3xl` is also defined** (the spacing token wins). So `max-w-md/lg/xl/2xl/3xl/4xl` (and `xs/sm`) all collapse text columns to a tiny width — often one word per line. The `--container-*` aliases of those names are emitted but shadowed.
 
-**Page agents (Phase 4):**
+**Width rule — for everyone who authors markup (page agents, hero/home generators):**
 
-- **Do not** use `max-w-2xl`, `max-w-3xl`, etc. unless `global.css` `@theme` documents the matching `--container-*` key (grep `@theme` before choosing).
-- **Prefer** `container-reading` (designer `@utility`), `max-w-6xl` when `--container-6xl` exists, or explicit arbitrary width `max-w-[48rem]`.
-- **Do not** confuse spacing scale with container scale — `py-3xl` uses `--spacing-3xl`; `max-w-3xl` uses `--container-3xl`.
+- **Only** use `max-w-6xl` (there is no `--spacing-6xl`, so it correctly maps to `--container-6xl`), `container-reading` (the designer `@utility`), or an explicit arbitrary width like `max-w-[48rem]`.
+- **Never** use `max-w-md/lg/xl/2xl/3xl/4xl/xs/sm` — they are booby-trapped by the spacing collision, **regardless of any matching `--container-*`** you see in `@theme`.
+- Spacing utilities are unaffected: `py-3xl` / `gap-md` / `px-lg` correctly use the spacing scale — the collision only bites the *width* family (`max-w-`/`w-`/`min-w-`).
 
 If a designer's `global.css` contains rules like `.featured-section { padding-block: var(--spacing-4xl); }` or `.product-card-body { display: flex; flex-direction: column; gap: var(--spacing-xs); }`, those are misplaced — they belong in markup as utilities. Inventing such classes ships broken layouts: every consumer needs the designer to have pre-declared the class, and Tailwind v4 silently drops the references when the rule is missing.
 
