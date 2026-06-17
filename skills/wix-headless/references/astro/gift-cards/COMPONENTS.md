@@ -81,7 +81,7 @@ Scoped styles for:
 
 The page-section and teaser styles live here (not inside the .astro `<style>` blocks) so the same separation as `components-stores.css` / `components-ecom.css` holds. The pages-scope agent imports this stylesheet via `Layout.astro`'s existing CSS chain (designer foundation already wires up the `components-*.css` import).
 
-Use brand `@theme` utilities (`bg-cream`, `text-ink`, etc.) where natural; fall back to `var(--color-*)` / `var(--spacing-*)` directly when a property isn't covered. Do not introduce new design-token names.
+Use brand `@theme` utilities (`bg-cream`, `text-ink`, etc.) where natural; fall back to `var(--color-*)` directly (spacing is Tailwind's numeric scale — `gap-4`, `py-24`) when a property isn't covered. Do not introduce new design-token names.
 
 ## Return format
 
