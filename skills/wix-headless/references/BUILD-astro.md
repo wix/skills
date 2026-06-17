@@ -39,7 +39,7 @@ The whole Setup window is a single message of sibling `Bash` calls — **emit th
 **Frontend bridge — one `Bash` call, two deterministic scripts (both read `DESIGN.md`):**
 
 1. `emit-design-tokens.mjs <project-dir>` — projects `.wix/design-tokens.css` + `.wix/site.d.ts` from `DESIGN.md` frontmatter (format: `references/shared/DESIGN_MD.md`). Does not write `DESIGN.md`.
-2. `compose.mjs` — app inputs on **stdin**, project dir as `argv[2]`. Reads `DESIGN.md` frontmatter (the single token source; roles map to the wix `--color-*` vocabulary) and substitutes into the six pinned skeletons — `global.css`, `astro.config.mjs` (anchored **merge**, not clobber), `Layout.astro`, `Navigation.astro`, `Footer.astro`, `index.astro`. Prints a `{status, phase:"compose", data, files}` manifest to **stdout** — parse it there. **astro-only** (defensive — non-astro classes never reach here); else record `{phase:"compose", status:"skipped"}`. Idempotent; derives any role the Designer omitted as a fail-safe.
+2. `compose.mjs` — app inputs on **stdin**, project dir as `argv[2]`. Reads `DESIGN.md` frontmatter (the single token source; roles map to the wix `--color-*` vocabulary) and substitutes into the pinned **shell** skeletons — `global.css`, `astro.config.mjs` (anchored **merge**, not clobber), `Layout.astro`, `Navigation.astro`, `Footer.astro` — and writes the **LLM-generated** `index.astro` verbatim from `homePath` (no index template on this branch). Prints a `{status, phase:"compose", data, files}` manifest to **stdout** — parse it there. **astro-only** (defensive — non-astro classes never reach here); else record `{phase:"compose", status:"skipped"}`. Idempotent; derives any role the Designer omitted as a fail-safe.
 
    ```bash
    node <SKILL_ROOT>/scripts/emit-design-tokens.mjs "<project-dir>"
@@ -51,12 +51,15 @@ The whole Setup window is a single message of sibling `Bash` calls — **emit th
      "navLinks": [ { "href": "/", "label": "Home" }, ... ],
      "loadedPacks": ["stores", "cms", ...],
      "packsWithComponents": ["stores", "ecom", ...],
-     "disabledPacks": ["gift-cards", ...]
+     "disabledPacks": ["gift-cards", ...],
+     "homePath": ".wix/home.astro"
    }
    COMPOSE
    ```
 
    The compose-input shape is documented in `scripts/compose.mjs`'s header.
+
+   **The home page is LLM-generated — there is no index template (this branch).** `compose.mjs` still writes the deterministic shell (`global.css`, `astro.config.mjs`, `Layout.astro`, `Navigation.astro`, `Footer.astro`), but the **entire main page is authored by an LLM**. Between `emit-design-tokens.mjs` and `compose.mjs`, dispatch a **Default-tier** home-page generator (it reads the published token vocabulary at `.wix/design-tokens.css`) and have it author the **complete `src/pages/index.astro`** to **`<project-dir>/.wix/home.astro`**; then pass `homePath: ".wix/home.astro"`. **Home contract** — the generated file MUST: open with Astro frontmatter that imports the Layout (`---\nimport Layout from '../layouts/Layout.astro';\n---`) and wrap the page body in `<Layout>…</Layout>`; compose the design tokens as utility classes (`font-display`, `text-ink`, `bg-paper`, `px-lg py-4xl`, …) so it matches the theme; write real brand-voice copy directly (no `{{…}}` placeholders); include one `data-decorative-slot="hero"` (+ an `about`/section slot) so Image Phase 1 / `patch-decorative-slots.mjs` can inject imagery (themed-block otherwise); and emit one `<!-- home:<pack> -->` marker for **each loaded home-contributing pack** (stores/bookings/gift-cards) so the build-wave agents can splice their home sections. `compose.mjs` writes this file verbatim as `src/pages/index.astro` and **errors if `homePath` is missing** (no template fallback).
 
 **In the SAME message — the business Setup Step 4 batch** (frontend-blind; `SETUP.md` owns recipes/package set). These overlap the bridge's `compose.mjs` (~20 s) so it adds no serial wall:
 
