@@ -3,7 +3,18 @@ description: Verifies the agent reads the domain-search-and-purchase docs when a
 triggerPrompt: How do I programmatically search for an available domain on Wix and then purchase it? Please reference the relevant API methods.
 tags: [domains]
 siteSetup:
-  templateId: default
+  templateId: ecommerce
+  bootstrap:
+    steps:
+      - label: seed a product
+        method: post
+        url: https://www.wixapis.com/stores/v1/products
+        body:
+          product:
+            name: Bootstrap Test Product
+            productType: physical
+            priceData:
+              price: 19.99
 assertions:
   - tool: ReadFullDocsArticle
     params:
