@@ -1,5 +1,5 @@
 name: ecommerce/shipping/setup-rates
-description: Verifies a "set up shipping rates" request dispatches to the setup-rates recipe and chooses a rate type with AOV sanity / per-item-penalty awareness.
+description: Set up shipping rates for my US delivery region — I sell mostly $30–$80 items and ship via standard ground.
 triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) Set up shipping rates for my US delivery region — I sell mostly $30–$80 items and ship via standard ground.
 tags: [ecommerce]
 assertions:

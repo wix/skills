@@ -1,5 +1,5 @@
 name: ecommerce/shipping/setup-pickup
-description: Verifies a "set up in-store pickup" request dispatches to the setup-pickup recipe and uses shipping-api-reference for endpoint details (Pickup-carrier discovery + region attach).
+description: Enable in-store pickup at checkout so local customers can pick up their orders for free instead of paying for shipping.
 triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) Enable in-store pickup at checkout so local customers can pick up their orders for free instead of paying for shipping.
 tags: [ecommerce]
 assertions:

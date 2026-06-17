@@ -1,5 +1,5 @@
 name: ecommerce/tax/configure-wix-manual
-description: Verifies the Tax category dispatches a non-Avalara, non-EU manual-setup request to the Wix Manual configure recipe.
+description: I sell in Australia and want to set up tax manually myself without Avalara — walk me through configuring it.
 triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) I sell in Australia and I want to manually set up tax myself without Avalara. Walk me through configuring it.
 tags: [ecommerce]
 assertions:

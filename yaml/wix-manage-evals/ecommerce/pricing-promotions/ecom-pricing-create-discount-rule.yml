@@ -1,5 +1,5 @@
 name: ecommerce/pricing-promotions/create-discount-rule
-description: Verifies a "create an automatic discount" request dispatches to the create-discount-rule recipe (NOT create-coupon) and uses the eCommerce Discount Rules API with scope + scheduling.
+description: Create an automatic 15% off discount on the Winter Collection category that runs December 1 through December 31 — no coupon code needed.
 triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) Create an automatic 15% off discount on the "Winter Collection" category that runs from December 1 to December 31, 2026 — no coupon code needed.
 tags: [ecommerce]
 assertions:

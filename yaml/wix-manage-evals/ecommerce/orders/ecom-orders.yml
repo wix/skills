@@ -1,5 +1,5 @@
 name: ecommerce/orders/ecom-orders
-description: Verifies the Orders category routes order lookup, search, pending diagnosis, and handoffs without confusing fulfillment or payments ownership.
+description: Show me today's orders, then explain what to do if one order is stuck pending or needs a refund.
 triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) Show me today's orders, then explain what to do if one order is stuck pending or needs a refund.
 tags: [ecommerce]
 assertions:

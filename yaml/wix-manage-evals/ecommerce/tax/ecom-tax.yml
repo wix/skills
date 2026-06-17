@@ -1,5 +1,5 @@
 name: ecommerce/tax/ecom-tax
-description: Verifies the Tax category entry routes tax-setup questions through the tax dispatcher (Avalara vs EU VAT vs Wix Manual) and acknowledges the calculator choice before dispatching.
+description: Help me set up tax for my store and explain when to use Avalara vs Wix Manual.
 triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) Help me set up tax for my store and explain when to use Avalara vs Wix Manual.
 tags: [ecommerce]
 assertions:

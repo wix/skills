@@ -1,5 +1,5 @@
 name: ecommerce/skill-graph
-description: Verifies the eCommerce skill graph reflects the six current eCommerce routing categories.
+description: Show me the eCommerce skill graph and explain where abandoned carts and fulfillment fit.
 triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) Show me the eCommerce skill graph and explain where abandoned carts and fulfillment fit.
 tags: [ecommerce]
 assertions:

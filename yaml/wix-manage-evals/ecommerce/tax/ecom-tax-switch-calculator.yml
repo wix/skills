@@ -1,5 +1,5 @@
 name: ecommerce/tax/switch-calculator
-description: Verifies a switch-calculator request loads the switch-calculator recipe and updates the per-region `calculatorId` (not a global toggle).
+description: I'm currently on Wix Manual tax — switch my US regions to Avalara while keeping Australia on manual. How do I do it?
 triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) I'm currently using Wix Manual tax but I want to switch my US regions to Avalara while keeping Australia on manual. How do I do it?
 tags: [ecommerce]
 assertions:

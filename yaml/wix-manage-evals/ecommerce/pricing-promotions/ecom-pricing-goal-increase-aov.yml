@@ -1,5 +1,5 @@
 name: ecommerce/pricing-promotions/run-a-sale-increase-sales
-description: Verifies a "boost my sales" trigger classifies as UPSELL_BOOST/SHIPPING and produces a mix of discount AND non-discount recommendations (per goal-increase-aov "includes both discount and shipping flows"), with the recommendation-tracking lifecycle followed.
+description: Help me boost my sales — give me 3 to 5 concrete actions across discounts, AOV, and shipping that I can approve or reject.
 triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) Help me boost my sales — give me 3 to 5 concrete actions I can take across discounts, AOV, and shipping. I want to approve or reject each one.
 tags: [ecommerce]
 assertions:

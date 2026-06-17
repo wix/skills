@@ -1,5 +1,5 @@
 name: ecommerce/ecom-load-context
-description: Verifies the L1 eCommerce context loader runs before category tag-matching to resolve siteId, country, currency, and other shared context.
+description: Resolve my eCommerce site context (siteId, country, currency) before I ask anything else about my store.
 triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) Resolve my eCommerce site context (siteId, country, currency) before I ask anything else about my store.
 tags: [ecommerce]
 assertions:

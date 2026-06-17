@@ -1,5 +1,5 @@
 name: ecommerce/pricing-promotions/run-a-sale-orchestrator
-description: Verifies an ambiguous mechanism-decision trigger lands on the run-a-sale orchestrator, exercises its Step 4c (AUTOMATIC vs COUPON mechanism reasoning), and produces tracked recommendations. This is the orchestrator's unique value — no goal recipe owns the mechanism decision.
+description: I want to run a promotion this month to grow revenue — not sure if I should use an automatic discount or a coupon code. Help me decide and propose 3 actions to approve.
 triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) I want to run a promotion this month to grow revenue. I'm not sure if I should use an automatic discount or a coupon code — help me decide which mechanism makes more sense for my store, and then propose 3 concrete actions I can approve or reject.
 tags: [ecommerce]
 assertions:

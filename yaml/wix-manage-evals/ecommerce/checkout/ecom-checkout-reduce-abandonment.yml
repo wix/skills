@@ -1,5 +1,5 @@
 name: ecommerce/checkout/reduce-abandonment
-description: Verifies a "reduce delivery-step drop-off" request dispatches to the reduce-abandonment recipe and uses delivery_step_cvr metrics + shipping skills, not abandoned-cart recovery.
+description: Customers are abandoning right at the delivery step in checkout — what can I change so fewer drop off?
 triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) Customers are abandoning right at the delivery step in checkout. What can I change so fewer drop off?
 tags: [ecommerce]
 assertions:

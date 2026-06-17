@@ -1,5 +1,5 @@
 name: ecommerce/pricing-promotions/run-a-sale-clearance
-description: Verifies a "clear slow stock" trigger classifies as STOCK_MOVER, loads goal-clear-inventory, and produces deeper-discount recommendations on slow-moving SKUs with the tracking lifecycle.
+description: I have a lot of slow-moving inventory to clear before Q4 — give me concrete actions targeted at the overstocked SKUs that I can approve or reject.
 triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) I have a lot of slow-moving inventory I need to clear before Q4. Give me concrete actions targeted at the overstocked SKUs — I'll approve or reject each.
 tags: [ecommerce]
 assertions:

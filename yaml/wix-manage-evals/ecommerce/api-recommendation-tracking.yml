@@ -1,5 +1,5 @@
 name: ecommerce/api-recommendation-tracking
-description: Verifies tracking is treated as a cross-domain obligation — a recommendation request originating outside Pricing still loads api-recommendation-tracking and follows the PROPOSED-lifecycle (Query before generating, BatchCreate before presenting).
+description: Give me 3 concrete actions to improve my checkout conversion that I can approve or reject.
 triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) Give me 3 recommendations to improve my checkout conversion. I want concrete actions I can approve or reject.
 tags: [ecommerce]
 assertions:

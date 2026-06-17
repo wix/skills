@@ -1,5 +1,5 @@
 name: ecommerce/tax/troubleshoot-calc-wrong
-description: Verifies a "tax is wrong at checkout" complaint dispatches to the tax-troubleshoot recipe and uses the 3-branch diagnostic tree (region, mappings, calculator) before guessing.
+description: A customer in Texas just paid $0 tax on a $200 order, but I expect ~8.25%. What went wrong?
 triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) A customer in Texas just paid $0 tax on a $200 order, but I expect ~8.25%. What went wrong?
 tags: [ecommerce]
 assertions:

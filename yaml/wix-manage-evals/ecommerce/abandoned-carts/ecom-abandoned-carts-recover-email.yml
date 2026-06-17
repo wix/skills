@@ -1,5 +1,5 @@
 name: ecommerce/abandoned-carts/recover-email
-description: Verifies abandoned-cart recovery email guidance loads the new abandoned-carts skill.
+description: Set up abandoned-cart recovery emails for shoppers who didn't complete checkout.
 triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) Set up abandoned cart recovery emails for shoppers who left checkout.
 tags: [ecommerce]
 assertions:

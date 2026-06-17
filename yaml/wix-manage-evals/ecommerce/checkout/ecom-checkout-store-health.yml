@@ -1,5 +1,5 @@
 name: ecommerce/checkout/store-health
-description: Verifies checkout store health references abandoned recovery health for abandoned-checkout spikes.
+description: Run a store health monitor and tell me what to do if abandoned checkouts spike.
 triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) Run a store health monitor and explain what to do if abandoned checkouts spike.
 tags: [ecommerce]
 assertions:

@@ -1,5 +1,5 @@
 name: ecommerce/shipping/add-free-shipping-renamed-slug
-description: Verifies the Shipping category entry dispatches to the free-shipping action recipe at its renamed slug `shipping-add-free-shipping` (NOT the legacy `flow-add-free-shipping` from main), and that the agent uses the inline `shipping-api-reference` for endpoint details (no public dev.wix.com docs page for Shipping Options / Delivery Profiles APIs).
+description: Add free shipping for orders over $50 in the US.
 triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) Add free shipping for orders over $50 in the US
 tags: [ecommerce]
 assertions:

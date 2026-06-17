@@ -1,5 +1,5 @@
 name: ecommerce/shipping/fix-coverage
-description: Verifies a "regions with no shipping options" complaint dispatches to fix-coverage and detects zero-option regions before adding standard shipping.
+description: Some customers can't check out because their delivery region has no shipping options — find the gaps and fix them.
 triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) I just noticed some customers can't check out because their delivery region has no shipping options. Find the gaps and fix them.
 tags: [ecommerce]
 assertions:

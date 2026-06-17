@@ -1,5 +1,5 @@
 name: ecommerce/pricing-promotions/run-a-sale-seasonal
-description: Verifies a holiday-mentioning trigger classifies as SEASONAL (priority rule — holidays beat generic goals), loads goal-seasonal-revenue, and produces time-windowed recommendations with the tracking lifecycle.
+description: Black Friday is coming up — what should I do to maximize revenue during the sale weekend? Give me concrete actions I can approve.
 triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) Black Friday is coming up in three weeks. What should I do to maximize revenue during the sale weekend? Give me concrete actions I can approve.
 tags: [ecommerce]
 assertions:

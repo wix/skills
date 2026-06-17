@@ -1,5 +1,5 @@
 name: ecommerce/abandoned-carts/recovery-health
-description: Verifies recovery health requests load the abandoned-carts recovery-health skill.
+description: Monitor abandoned-checkout recovery health and alert me when recovery performance drops.
 triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) Monitor abandoned checkout recovery health and tell me if recovery performance dropped.
 tags: [ecommerce]
 assertions:

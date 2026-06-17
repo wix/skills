@@ -1,5 +1,5 @@
 name: ecommerce/tax/audit-setup
-description: Verifies a tax-audit request loads the tax audit recipe and performs the 5 parallel reads to cross-correlate calculators, regions, groups, defaults, and mappings.
+description: Audit my tax setup end-to-end and tell me if anything is broken or inconsistent.
 triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) Audit my tax setup end-to-end and tell me if anything is broken or inconsistent.
 tags: [ecommerce]
 assertions:

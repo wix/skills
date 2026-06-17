@@ -1,5 +1,5 @@
 name: ecommerce/checkout/agentic-readiness
-description: Verifies an "is my store ready for agentic / AI checkout" request dispatches to agentic-readiness and runs a product-data audit + programmatic test-checkout via the PUBLIC Cart/Checkout APIs.
+description: Is my store ready for AI agents to discover products and check out programmatically? Audit my catalog and test the checkout end-to-end.
 triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) Is my store ready for AI agents to discover products and check out programmatically? Audit my catalog and test the checkout end-to-end.
 tags: [ecommerce]
 assertions:

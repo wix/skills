@@ -1,5 +1,5 @@
 name: ecommerce/shipping/setup-regions
-description: Verifies a "set up delivery regions" request dispatches to the setup-regions recipe and uses the Delivery Profiles API correctly.
+description: Set up delivery regions for my store — one region for the continental US and a separate region for Hawaii/Alaska with their own carriers.
 triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) Set up delivery regions for my store — I want one region for the continental US and a separate region for Hawaii/Alaska with their own carriers.
 tags: [ecommerce]
 assertions:

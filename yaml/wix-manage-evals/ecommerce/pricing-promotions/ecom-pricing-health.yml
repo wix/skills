@@ -1,5 +1,5 @@
 name: ecommerce/pricing-promotions/discount-health
-description: Verifies a "review my discounts" periodic-sweep request dispatches to the pricing-health recipe and surfaces stacking conflicts, stale sales, and margin erosion.
+description: Run a pricing health check across all my active discounts and coupons — tell me what's broken, stacking dangerously, or quietly eroding margin.
 triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) Run a pricing health check across all my active discounts and coupons — tell me what's broken, stacking dangerously, or quietly eroding margin.
 tags: [ecommerce]
 assertions:

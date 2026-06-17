@@ -1,5 +1,5 @@
 name: ecommerce/abandoned-carts/recovery-link
-description: Verifies recovery-link requests load the dedicated abandoned-carts recovery-link skill.
+description: Generate a resume-checkout link for an abandoned cart so I can send it to the shopper.
 triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) Generate a resume checkout link for an abandoned checkout so I can send it to the shopper.
 tags: [ecommerce]
 assertions:

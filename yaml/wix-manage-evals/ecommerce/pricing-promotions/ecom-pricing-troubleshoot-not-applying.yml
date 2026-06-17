@@ -1,5 +1,5 @@
 name: ecommerce/pricing-promotions/troubleshoot-not-applying
-description: Verifies a "discount exists but isn't applying" complaint dispatches to the troubleshoot-not-applying diagnostic tree.
+description: I created a discount rule but it isn't applying at checkout — help me figure out why.
 triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) I created a discount rule called "Spring Promo" but it isn't applying at checkout. Help me figure out why.
 tags: [ecommerce]
 assertions:

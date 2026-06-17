@@ -1,5 +1,5 @@
 name: ecommerce/checkout/troubleshoot-dropoff
-description: Verifies a "diagnose checkout drop-off + quantify lost revenue" request dispatches to the troubleshoot-dropoff diagnostic, not reduce-abandonment.
+description: My checkout drop-off rate jumped last week — diagnose what's happening and tell me how much revenue I'm losing per day.
 triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) My checkout drop-off rate jumped last week. Diagnose what's happening and tell me how much revenue I'm losing per day.
 tags: [ecommerce]
 assertions:
