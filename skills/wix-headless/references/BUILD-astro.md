@@ -51,12 +51,21 @@ The whole Setup window is a single message of sibling `Bash` calls — **emit th
      "navLinks": [ { "href": "/", "label": "Home" }, ... ],
      "loadedPacks": ["stores", "cms", ...],
      "packsWithComponents": ["stores", "ecom", ...],
-     "disabledPacks": ["gift-cards", ...]
+     "disabledPacks": ["gift-cards", ...],
+     "navPath": ".wix/nav.astro",
+     "footerPath": ".wix/footer.astro",
+     "homePath": ".wix/home.astro"
    }
    COMPOSE
    ```
 
    The compose-input shape is documented in `scripts/compose.mjs`'s header.
+
+   **The entire visible page is LLM-generated (this branch).** `compose.mjs` still writes the plumbing — `global.css`, `astro.config.mjs`, and `Layout.astro` (the `<html>`/`<head>` shell that imports the fonts, `global.css`, ClientRouter, and the `<Navigation/>`+`<Footer/>` components) — but the **header, footer, and home page are authored by an LLM**, not from templates (there are no `Navigation.astro` / `Footer.astro` / `index.astro` templates anymore). Between `emit-design-tokens.mjs` and `compose.mjs`, dispatch a **Default-tier** generator that reads the token vocabulary at `.wix/design-tokens.css` and authors three files, then pass their paths:
+   - `.wix/nav.astro` → `Navigation.astro` (site header). Contract: one `<header class="site-nav" transition:persist="site-nav">` with brand mark + real nav links (`/`, `/about`, `/faq`), a `<!-- nav:links -->` + `<!-- nav:actions -->` marker and an empty `<div class="nav-actions">` for later vertical patches, and a no-JS mobile toggle.
+   - `.wix/footer.astro` → `Footer.astro`. Contract: one `<footer class="site-footer">` with brand, a short tagline, and the nav links.
+   - `.wix/home.astro` → `index.astro` (full home page). Contract: frontmatter importing `Layout` + a `<Layout>…</Layout>` wrapper; one `data-decorative-slot="hero"` (+ a section slot); one `<!-- home:<pack> -->` marker per loaded home-contributing pack.
+   - **All three:** compose tokens as utility classes so they match the theme; write real copy (no `{{…}}`); keep `transition:persist` + the `site-nav`/`site-footer` classes (the View-Transitions + `global.css` styling target them). `compose.mjs` writes each verbatim and **errors if any path is missing** (`NO_NAV`/`NO_FOOTER`/`NO_HOME`). Manifest records `nav`/`footer`/`home` = `"llm-generated"`.
 
 **In the SAME message — the business Setup Step 4 batch** (frontend-blind; `SETUP.md` owns recipes/package set). These overlap the bridge's `compose.mjs` (~20 s) so it adds no serial wall:
 
