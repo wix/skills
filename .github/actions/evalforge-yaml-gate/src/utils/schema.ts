@@ -74,6 +74,32 @@ export type CostAssertion = z.infer<typeof CostAssertionSchema>;
 export type TimeLimitAssertion = z.infer<typeof TimeLimitAssertionSchema>;
 export type Assertion = z.infer<typeof AssertionSchema>;
 
+// Site provisioning — mirrors EvalForge's TestScenario.siteSetup (wix-private/evalforge
+// packages/eval-types/src/scenario/site-setup.ts). Only `template` mode is supported here.
+const SiteBootstrapStepSchema = z.object({
+  label: z.string().optional(),
+  method: z.enum(['get', 'post', 'put', 'patch', 'delete']),
+  url: z.string().min(1),
+  body: z.record(z.string(), z.unknown()).optional(),
+}).strict();
+
+const SiteBootstrapSchema = z.object({
+  steps: z.array(SiteBootstrapStepSchema).default([]),
+}).strict();
+
+// `templateId` accepts a curated Wix template alias (e.g. "ecommerce") OR an origin-template GUID;
+// EvalForge resolves it server-side via resolveWixOriginTemplateId. The canonical alias list lives
+// in @wix/evalforge-types (wix-private/evalforge .../scenario/wix-origin-template-ids.ts) and is not
+// exported as a constant, so we keep this a free string rather than duplicating the enum.
+const SiteSetupSchema = z.object({
+  mode: z.literal('template').default('template'),
+  templateId: z.string().min(1),
+  bootstrap: SiteBootstrapSchema.optional(),
+}).strict();
+
+export type SiteBootstrapStep = z.infer<typeof SiteBootstrapStepSchema>;
+export type SiteSetup = z.infer<typeof SiteSetupSchema>;
+
 export const ScenarioSchema = z.object({
   name: z.string().min(1).regex(NamePattern, 'name must match /^[a-z0-9][a-z0-9/_-]*$/'),
   description: z.string(),
@@ -83,7 +109,18 @@ export const ScenarioSchema = z.object({
     { message: 'tags must not include reserved namespaces (draft:*, pending:*, rejected:*) — the action manages those' },
   ),
   assertions: z.array(AssertionSchema).min(1),
-}).strict();
+  siteSetup: SiteSetupSchema.optional(),
+}).strict().superRefine((data, ctx) => {
+  // EvalForge parity: an active siteSetup and a {{site-id}} run variable are mutually exclusive —
+  // the provisioned site replaces the manual id.
+  if (data.siteSetup && /\{\{\s*site-id\s*\}\}/.test(data.triggerPrompt)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'siteSetup cannot be combined with a {{site-id}} run variable in triggerPrompt — the provisioned site replaces it',
+      path: ['triggerPrompt'],
+    });
+  }
+});
 
 export type Scenario = z.infer<typeof ScenarioSchema>;
 

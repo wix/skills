@@ -1,7 +1,8 @@
 import {
   isApiCall, isCost, isLlmJudge, isTimeLimit,
   type ApiCallAssertion, type Assertion, type CostAssertion,
-  type LlmJudgeAssertion, type Scenario, type TimeLimitAssertion,
+  type LlmJudgeAssertion, type Scenario, type SiteBootstrapStep, type SiteSetup,
+  type TimeLimitAssertion,
 } from './schema';
 
 // EvalForge v1 TestScenario uses assertionLinks (system-assertion references with primitive params)
@@ -21,20 +22,53 @@ export type ScenarioAssertionLink = {
   params?: LinkParams;
 };
 
+export type EvalForgeBootstrapStep = {
+  label?: string;
+  method: SiteBootstrapStep['method'];
+  url: string;
+  body?: Record<string, unknown>;
+};
+
+export type EvalForgeSiteSetup = {
+  mode: 'template';
+  templateId: string;
+  bootstrap?: { steps: EvalForgeBootstrapStep[] };
+};
+
 export type EvalForgeBody = {
   name: string;
   description: string;
   triggerPrompt: string;
   assertionLinks: ScenarioAssertionLink[];
+  siteSetup?: EvalForgeSiteSetup;
 };
 
 export function toEvalForgeBody(s: Scenario): EvalForgeBody {
-  return {
+  const body: EvalForgeBody = {
     name: s.name,
     description: s.description,
     triggerPrompt: s.triggerPrompt,
     assertionLinks: s.assertions.map(mapAssertion),
   };
+  if (s.siteSetup) body.siteSetup = mapSiteSetup(s.siteSetup);
+  return body;
+}
+
+function mapSiteSetup(s: SiteSetup): EvalForgeSiteSetup {
+  // Propagate s.mode (not a hardcoded literal) so adding a mode later can't silently mis-map.
+  const out: EvalForgeSiteSetup = { mode: s.mode, templateId: s.templateId };
+  // Empty steps ≡ no bootstrap (EvalForge normalization) — omit rather than send an empty list.
+  if (s.bootstrap && s.bootstrap.steps.length > 0) {
+    out.bootstrap = { steps: s.bootstrap.steps.map(mapBootstrapStep) };
+  }
+  return out;
+}
+
+function mapBootstrapStep(step: SiteBootstrapStep): EvalForgeBootstrapStep {
+  const out: EvalForgeBootstrapStep = { method: step.method, url: step.url };
+  if (step.label !== undefined) out.label = step.label;
+  if (step.body !== undefined) out.body = step.body;
+  return out;
 }
 
 function mapAssertion(a: Assertion): ScenarioAssertionLink {
