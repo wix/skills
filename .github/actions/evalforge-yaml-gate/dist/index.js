@@ -34672,12 +34672,32 @@ const SYSTEM_API_CALL = 'system:api_call';
 const SYSTEM_COST = 'system:cost';
 const SYSTEM_TIME_LIMIT = 'system:time_limit';
 function toEvalForgeBody(s) {
-    return {
+    const body = {
         name: s.name,
         description: s.description,
         triggerPrompt: s.triggerPrompt,
         assertionLinks: s.assertions.map(mapAssertion),
     };
+    if (s.siteSetup)
+        body.siteSetup = mapSiteSetup(s.siteSetup);
+    return body;
+}
+function mapSiteSetup(s) {
+    // Propagate s.mode (not a hardcoded literal) so adding a mode later can't silently mis-map.
+    const out = { mode: s.mode, templateId: s.templateId };
+    // Empty steps ≡ no bootstrap (EvalForge normalization) — omit rather than send an empty list.
+    if (s.bootstrap && s.bootstrap.steps.length > 0) {
+        out.bootstrap = { steps: s.bootstrap.steps.map(mapBootstrapStep) };
+    }
+    return out;
+}
+function mapBootstrapStep(step) {
+    const out = { method: step.method, url: step.url };
+    if (step.label !== undefined)
+        out.label = step.label;
+    if (step.body !== undefined)
+        out.body = step.body;
+    return out;
 }
 function mapAssertion(a) {
     if ((0, schema_1.isLlmJudge)(a))
@@ -35592,13 +35612,44 @@ const AssertionSchema = zod_1.z.union([
     CostAssertionSchema,
     TimeLimitAssertionSchema,
 ]);
+// Site provisioning — mirrors EvalForge's TestScenario.siteSetup (wix-private/evalforge
+// packages/eval-types/src/scenario/site-setup.ts). Only `template` mode is supported here.
+const SiteBootstrapStepSchema = zod_1.z.object({
+    label: zod_1.z.string().optional(),
+    method: zod_1.z.enum(['get', 'post', 'put', 'patch', 'delete']),
+    url: zod_1.z.string().min(1),
+    body: zod_1.z.record(zod_1.z.string(), zod_1.z.unknown()).optional(),
+}).strict();
+const SiteBootstrapSchema = zod_1.z.object({
+    steps: zod_1.z.array(SiteBootstrapStepSchema).default([]),
+}).strict();
+// `templateId` accepts a curated Wix template alias (e.g. "ecommerce") OR an origin-template GUID;
+// EvalForge resolves it server-side via resolveWixOriginTemplateId. The canonical alias list lives
+// in @wix/evalforge-types (wix-private/evalforge .../scenario/wix-origin-template-ids.ts) and is not
+// exported as a constant, so we keep this a free string rather than duplicating the enum.
+const SiteSetupSchema = zod_1.z.object({
+    mode: zod_1.z.literal('template').default('template'),
+    templateId: zod_1.z.string().min(1),
+    bootstrap: SiteBootstrapSchema.optional(),
+}).strict();
 exports.ScenarioSchema = zod_1.z.object({
     name: zod_1.z.string().min(1).regex(NamePattern, 'name must match /^[a-z0-9][a-z0-9/_-]*$/'),
     description: zod_1.z.string(),
     triggerPrompt: zod_1.z.string().min(10),
     tags: zod_1.z.array(zod_1.z.string().min(1)).min(1).refine(tags => tags.every(t => !exports.RESERVED_TAG_PREFIXES.some(p => t.startsWith(p))), { message: 'tags must not include reserved namespaces (draft:*, pending:*, rejected:*) — the action manages those' }),
     assertions: zod_1.z.array(AssertionSchema).min(1),
-}).strict();
+    siteSetup: SiteSetupSchema.optional(),
+}).strict().superRefine((data, ctx) => {
+    // EvalForge parity: an active siteSetup and a {{site-id}} run variable are mutually exclusive —
+    // the provisioned site replaces the manual id.
+    if (data.siteSetup && /\{\{\s*site-id\s*\}\}/.test(data.triggerPrompt)) {
+        ctx.addIssue({
+            code: zod_1.z.ZodIssueCode.custom,
+            message: 'siteSetup cannot be combined with a {{site-id}} run variable in triggerPrompt — the provisioned site replaces it',
+            path: ['triggerPrompt'],
+        });
+    }
+});
 function isLlmJudge(a) {
     return a.type === 'llm_judge';
 }
