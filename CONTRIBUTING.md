@@ -119,7 +119,7 @@ By default a scenario runs against a shared test site. To run against a **fresh,
 
 ```yaml
 siteSetup:
-  templateId: ecommerce          # Wix template alias or template GUID
+  templateId: stores-v3-editor   # Wix template alias or template GUID
   bootstrap:                     # optional — seed data into the fresh site
     steps:
       - label: seed a product
@@ -137,7 +137,7 @@ siteSetup:
                   visible: true
 ```
 
-- `templateId` — a curated template alias (e.g. `ecommerce`, `default`, `blog`) or a template GUID.
+- `templateId` — a Wix template alias (e.g. `stores-v3-editor`, `blank-editor`, `bookings-editor`) or a template GUID.
 - `bootstrap.steps` — ordered HTTP calls run against the new site before the agent runs. They are fail-fast: a non-2xx step fails the run.
 - Do **not** use a `{{site-id}}` run variable in `triggerPrompt` together with `siteSetup` — the provisioned site supplies the id.
 
