@@ -40,6 +40,10 @@
 //                       in order (COMPOSE § Layout.astro).
 //   - disabledPacks  — string[]; dormant packs still get their home/nav markers,
 //                       never a visible entry point.
+//   - heroPath       — optional path to an LLM-generated hero <section> (hybrid
+//                       mode). When set, that markup fills the hero slot instead
+//                       of a pinned hero fragment; about + nav remain fragment-
+//                       composed. Absent ⇒ fully-deterministic fragment hero.
 //   - layoutSeed     — optional integer. The homepage is ASSEMBLED from one
 //                       randomly chosen fragment per slot (hero, about) plus a
 //                       random nav, drawn from references/astro/templates/
@@ -359,6 +363,11 @@ function makeRng(seed) {
 const layoutSeed = Number.isInteger(input.layoutSeed) ? (input.layoutSeed >>> 0) : Math.floor(Math.random() * 0x7fffffff);
 const rng = makeRng(layoutSeed);
 const chosenLayout = {};
+// Hybrid mode: when heroPath points to a file (an LLM-generated hero <section>),
+// use it for the hero slot instead of a pinned fragment. About + nav stay
+// fragment-composed. Absent ⇒ fully-deterministic fragment hero (unchanged).
+const heroPathRaw = typeof input.heroPath === "string" ? input.heroPath.trim() : "";
+const heroPath = heroPathRaw ? (isAbsolute(heroPathRaw) ? heroPathRaw : join(projectDir, heroPathRaw)) : null;
 function pickFragment(slot) {
   const dir = join(FRAGMENTS, slot);
   if (!existsSync(dir)) return null;
@@ -531,7 +540,13 @@ const HOME_CONTRIBUTING = ["stores", "bookings", "gift-cards"]; // canonical ord
 const homePool = new Set([...loadedPacks, ...disabledPacks]);
 const homeMarkerPacks = HOME_CONTRIBUTING.filter((p) => homePool.has(p));
 {
-  const heroFrag = pickFragment("hero");
+  let heroFrag;
+  if (heroPath && existsSync(heroPath)) {
+    heroFrag = readFileSync(heroPath, "utf8");
+    chosenLayout.hero = "llm-generated";
+  } else {
+    heroFrag = pickFragment("hero");
+  }
   const aboutFrag = pickFragment("about");
   if (!heroFrag) die("NO_HERO_FRAGMENT", `no hero fragments in ${join(FRAGMENTS, "hero")}`);
   if (!aboutFrag) die("NO_ABOUT_FRAGMENT", `no about fragments in ${join(FRAGMENTS, "about")}`);
