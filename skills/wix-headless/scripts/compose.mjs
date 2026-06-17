@@ -40,6 +40,13 @@
 //                       in order (COMPOSE § Layout.astro).
 //   - disabledPacks  — string[]; dormant packs still get their home/nav markers,
 //                       never a visible entry point.
+//   - layoutSeed     — optional integer. The homepage is ASSEMBLED from one
+//                       randomly chosen fragment per slot (hero, about) plus a
+//                       random nav, drawn from references/astro/templates/
+//                       fragments/<slot>/. Selection is random per run by default
+//                       (Math.random) so every build differs; pass an integer
+//                       layoutSeed to make the pick reproducible (tests). The
+//                       chosen combo is reported in the manifest (data.layout).
 //
 // What it writes (the 6 design-system files), by substituting {{…}} slots into
 // the pinned skeletons — the fixed bulk is copied byte-for-byte:
@@ -63,7 +70,7 @@
 // astro only. Custom (non-astro) frontends never reach the Composer — the
 // orchestrator only invokes this when frontend === "astro".
 
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from "node:fs";
 import { join, dirname, resolve, isAbsolute } from "node:path";
 import { fileURLToPath } from "node:url";
 import { execSync } from "node:child_process";
@@ -337,6 +344,30 @@ function readTemplate(name) {
   if (!existsSync(p)) die("TEMPLATE_MISSING", `skeleton not found at ${p}`);
   return readFileSync(p, "utf8");
 }
+
+// ── layout fragment assembly ──────────────────────────────────────────────────
+const FRAGMENTS = join(TEMPLATES, "fragments");
+function makeRng(seed) {
+  let s = seed >>> 0;
+  return () => {
+    s = (s + 0x6d2b79f5) | 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const layoutSeed = Number.isInteger(input.layoutSeed) ? (input.layoutSeed >>> 0) : Math.floor(Math.random() * 0x7fffffff);
+const rng = makeRng(layoutSeed);
+const chosenLayout = {};
+function pickFragment(slot) {
+  const dir = join(FRAGMENTS, slot);
+  if (!existsSync(dir)) return null;
+  const files = readdirSync(dir).filter((f) => f.endsWith(".astro")).sort();
+  if (!files.length) return null;
+  const file = files[Math.floor(rng() * files.length)];
+  chosenLayout[slot] = file.replace(/\.astro$/, "");
+  return readFileSync(join(dir, file), "utf8");
+}
 function writeProject(rel, content) {
   const dest = join(projectDir, rel);
   mkdirSync(dirname(dest), { recursive: true });
@@ -468,9 +499,10 @@ const navItems = navLinks
   .filter((l) => l && l.href != null && l.label != null)
   .map((l) => ({ href: String(l.href), label: String(l.label) }));
 
-// ── 4. Navigation.astro ──────────────────────────────────────────────────────────
+// ── 4. Navigation.astro (one random nav fragment; legacy fallback) ────────────
 {
-  let out = stripAstroHeader(readTemplate("Navigation.astro"));
+  const navFrag = pickFragment("nav");
+  let out = stripAstroHeader(navFrag ?? readTemplate("Navigation.astro"));
   out = out.replaceAll("{{shell.navBrandMark}}", shell.navBrandMark ?? brandName);
   const links = navItems
     .map((l) => `        <li class="site-nav-item"><a href="${escAttr(l.href)}">${l.label}</a></li>`)
@@ -499,7 +531,13 @@ const HOME_CONTRIBUTING = ["stores", "bookings", "gift-cards"]; // canonical ord
 const homePool = new Set([...loadedPacks, ...disabledPacks]);
 const homeMarkerPacks = HOME_CONTRIBUTING.filter((p) => homePool.has(p));
 {
+  const heroFrag = pickFragment("hero");
+  const aboutFrag = pickFragment("about");
+  if (!heroFrag) die("NO_HERO_FRAGMENT", `no hero fragments in ${join(FRAGMENTS, "hero")}`);
+  if (!aboutFrag) die("NO_ABOUT_FRAGMENT", `no about fragments in ${join(FRAGMENTS, "about")}`);
   let out = stripAstroHeader(readTemplate("index.astro"));
+  out = out.replace("{{hero}}", () => heroFrag);
+  out = out.replace("{{about}}", () => aboutFrag);
   out = out.replaceAll("{{shell.heroHeadline}}", shell.heroHeadline ?? brandName);
   out = out.replaceAll("{{shell.heroSub}}", shell.heroSub ?? "");
   out = out.replaceAll("{{brand.name}}", brandName);
@@ -522,6 +560,7 @@ const manifest = {
   phase: "compose",
   data: {
     filesWritten,
+    layout: { seed: layoutSeed, ...chosenLayout },
     componentCssImports: packsWithComponents,
     homeMarkers: homeMarkerPacks.map((p) => `home:${p}`),
     tokensApplied: {

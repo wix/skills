@@ -58,6 +58,8 @@ The whole Setup window is a single message of sibling `Bash` calls — **emit th
 
    The compose-input shape is documented in `scripts/compose.mjs`'s header.
 
+   **Layout is assembled + randomized by `compose.mjs` — no input required.** The homepage is composed from one random hero fragment + one random about fragment, with a random nav, drawn from `references/astro/templates/fragments/<slot>/`, so every build comes out structurally different (the theme/skin still tracks the vibe via `DESIGN.md`). The run is non-reproducible by design; the chosen combo is recorded in the manifest's `data.layout`. (For a reproducible layout in tests, pass an integer `layoutSeed` in the compose input.)
+
 **In the SAME message — the business Setup Step 4 batch** (frontend-blind; `SETUP.md` owns recipes/package set). These overlap the bridge's `compose.mjs` (~20 s) so it adds no serial wall:
 
 3. `Bash` × N — app installs, one curl per `pack.apps[*]` → `SETUP.md` § Step 4a. Packs with no `apps[*]` (`cms`, `ecom`, `gift-cards`) install nothing — skip them.

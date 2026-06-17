@@ -1,0 +1,16 @@
+  <!-- hero fragment: centered-banner — centered copy above a wide banner image -->
+  <section class="relative">
+    <div class="max-w-6xl mx-auto px-lg py-4xl flex flex-col items-center gap-xl text-center">
+      <div class="flex flex-col gap-lg items-center max-w-prose">
+        <h1 class="font-display text-4xl md:text-5xl leading-tight">{{shell.heroHeadline}}</h1>
+        <p class="text-lg text-mute">{{shell.heroSub}}</p>
+      </div>
+      <div
+        class="hero-image rounded-md w-full"
+        data-decorative-slot="hero"
+        style="aspect-ratio: 16/7; background-color: var(--color-paper-warm);"
+      >
+        <!-- orchestrator injects <img src={decorativeImages.hero} …> here -->
+      </div>
+    </div>
+  </section>
