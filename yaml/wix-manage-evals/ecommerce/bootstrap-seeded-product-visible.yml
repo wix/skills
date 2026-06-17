@@ -1,0 +1,37 @@
+name: ecommerce/bootstrap-seeded-product-visible
+description: >
+  End-to-end site-provisioning check. Provisions a fresh Stores site, seeds a
+  uniquely-named product via a bootstrap step, then asks the agent to list the
+  store's products and verifies the seeded product is actually present.
+triggerPrompt: >
+  List every product in my Wix store and report each product's exact name. If the
+  store has no products, say so explicitly.
+tags: [ecommerce]
+siteSetup:
+  templateId: ecommerce
+  bootstrap:
+    steps:
+      - label: seed a uniquely-named product
+        method: post
+        url: https://www.wixapis.com/stores/v1/products
+        body:
+          product:
+            name: Zorblax Quantum Widget 7782
+            productType: physical
+            priceData:
+              price: 42.50
+assertions:
+  - type: llm_judge
+    minScore: 8
+    maxTokens: 2048
+    prompt: |
+      The store was seeded (before this prompt) with a product named exactly
+      "Zorblax Quantum Widget 7782".
+
+      Pass only if the response lists/mentions a product named
+      "Zorblax Quantum Widget 7782" (exact or near-exact spelling).
+
+      Fail if the response:
+      - does not mention that product, OR
+      - reports the store as empty, OR
+      - only mentions generic/template placeholder products.
