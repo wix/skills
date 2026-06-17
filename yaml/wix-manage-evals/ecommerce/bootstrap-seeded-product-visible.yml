@@ -11,15 +11,21 @@ siteSetup:
   templateId: ecommerce
   bootstrap:
     steps:
-      - label: seed a uniquely-named product
+      - label: seed a uniquely-named product (Catalog V3)
         method: post
-        url: https://www.wixapis.com/stores/v1/products
+        url: https://www.wixapis.com/stores/v3/products
         body:
           product:
             name: Zorblax Quantum Widget 7782
-            productType: physical
-            priceData:
-              price: 42.50
+            productType: PHYSICAL
+            physicalProperties: {}
+            variantsInfo:
+              variants:
+                - price:
+                    actualPrice:
+                      amount: "42.50"
+                  physicalProperties: {}
+                  visible: true
 assertions:
   - type: llm_judge
     minScore: 8
