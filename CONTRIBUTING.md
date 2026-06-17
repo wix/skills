@@ -113,6 +113,36 @@ assertions:
       - describes a different Wix feature (e.g. domain connection rather than purchase).
 ```
 
+### Site provisioning (optional)
+
+By default a scenario runs against a shared test site. To run against a **fresh, isolated site** instead, add a `siteSetup` block. The site is provisioned before the run, its ID is made available to the agent, and it is torn down afterward.
+
+```yaml
+siteSetup:
+  templateId: ecommerce          # Wix template alias or template GUID
+  bootstrap:                     # optional — seed data into the fresh site
+    steps:
+      - label: seed a product
+        method: post             # get | post | put | patch | delete
+        url: https://www.wixapis.com/stores/v3/products
+        body:
+          product:
+            name: Demo Product
+            productType: PHYSICAL
+            physicalProperties: {}
+            variantsInfo:
+              variants:
+                - price: { actualPrice: { amount: "42.50" } }
+                  physicalProperties: {}
+                  visible: true
+```
+
+- `templateId` — a curated template alias (e.g. `ecommerce`, `default`, `blog`) or a template GUID.
+- `bootstrap.steps` — ordered HTTP calls run against the new site before the agent runs. They are fail-fast: a non-2xx step fails the run. Use `{{siteId}}` in a step's `url` or `body` to reference the provisioned site.
+- Do **not** use a `{{site-id}}` run variable in `triggerPrompt` together with `siteSetup` — the provisioned site supplies the id.
+
+**Seed into the API version the site actually uses.** A modern `ecommerce` template serves the **Catalog V3** Stores API, so seed products via `POST /stores/v3/products` (uppercase `productType`, prices as strings under `variantsInfo`). Seeding the legacy V1 API writes to a catalog the site does not read, so the data will not appear.
+
 ## Writing Wix API Skills
 
 Connect an agent to the Wix MCP and use official docs, examples, and method schemas to verify any API skill. Do not rely on memory, copied internal service names, or old examples.

@@ -55,9 +55,8 @@ export function toEvalForgeBody(s: Scenario): EvalForgeBody {
 }
 
 function mapSiteSetup(s: SiteSetup): EvalForgeSiteSetup {
-  // Propagate s.mode (not a hardcoded literal) so adding a mode later can't silently mis-map.
   const out: EvalForgeSiteSetup = { mode: s.mode, templateId: s.templateId };
-  // Empty steps ≡ no bootstrap (EvalForge normalization) — omit rather than send an empty list.
+  // Omit bootstrap when it has no steps.
   if (s.bootstrap && s.bootstrap.steps.length > 0) {
     out.bootstrap = { steps: s.bootstrap.steps.map(mapBootstrapStep) };
   }
