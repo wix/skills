@@ -18,7 +18,7 @@ Files this agent MUST NOT touch:
 
 ## Coordination: design tokens
 
-Read the design tokens from `.wix/design-tokens.css` (on disk, gate-verified present before the wave). Reference token CSS variables (`var(--color-cream)`, `var(--spacing-lg)`, etc.) from `components-gift-cards.css`.
+Read the design tokens from `.wix/design-tokens.css` (on disk, gate-verified present before the wave). Reference token CSS variables (`var(--color-cream)`, `1.5rem`, etc.) from `components-gift-cards.css`.
 
 ## Critical rules
 

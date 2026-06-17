@@ -20,8 +20,8 @@
 .gift-card-form {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-lg);
-  margin-top: var(--spacing-lg);
+  gap: 1.5rem;
+  margin-top: 1.5rem;
 }
 
 .gift-card-fieldset {
@@ -33,14 +33,14 @@
 .gift-card-amounts {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--spacing-sm);
-  margin-top: var(--spacing-sm);
+  gap: 0.75rem;
+  margin-top: 0.75rem;
 }
 
 .gift-card-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: var(--spacing-md);
+  gap: 1rem;
 }
 
 .gift-card-field {
@@ -101,20 +101,20 @@
 .gift-card-page {
   max-width: 80rem;
   margin: 0 auto;
-  padding: var(--spacing-3xl) var(--spacing-lg) var(--spacing-4xl);
+  padding: 4rem 1.5rem 6rem;
 }
 
 .gift-card-grid-wrap {
   display: grid;
   grid-template-columns: 1fr;
-  gap: var(--spacing-2xl);
+  gap: 3rem;
   align-items: start;
 }
 
 @media (min-width: 768px) {
   .gift-card-grid-wrap {
     grid-template-columns: 1fr 1fr;
-    gap: var(--spacing-4xl);
+    gap: 6rem;
   }
 }
 
@@ -139,7 +139,7 @@
 }
 
 .gift-card-body h1 {
-  margin: var(--spacing-md) 0 var(--spacing-md);
+  margin: 1rem 0 1rem;
 }
 
 .gift-card-lede {
@@ -148,11 +148,11 @@
   line-height: 1.7;
   color: var(--color-ink-soft);
   max-width: 48ch;
-  margin: 0 0 var(--spacing-xl);
+  margin: 0 0 2rem;
 }
 
 .gift-card-fineprint {
-  margin-top: var(--spacing-lg);
+  margin-top: 1.5rem;
   font-family: var(--font-body);
   font-size: 0.8125rem;
   line-height: 1.6;
@@ -165,14 +165,14 @@
 /* -------------------------------------------------------------------------- */
 
 .gift-card-teaser {
-  padding: var(--spacing-4xl) var(--spacing-lg);
+  padding: 6rem 1.5rem;
   background: var(--color-cream-deep, var(--color-paper, var(--color-cream)));
 }
 
 .gift-card-teaser-link {
   display: grid;
   grid-template-columns: 1fr;
-  gap: var(--spacing-2xl);
+  gap: 3rem;
   max-width: 80rem;
   margin: 0 auto;
   align-items: center;
@@ -183,7 +183,7 @@
 @media (min-width: 768px) {
   .gift-card-teaser-link {
     grid-template-columns: 1fr 1fr;
-    gap: var(--spacing-4xl);
+    gap: 6rem;
   }
 }
 
@@ -206,7 +206,7 @@
 }
 
 .gift-card-teaser-body h2 {
-  margin: var(--spacing-md) 0 var(--spacing-md);
+  margin: 1rem 0 1rem;
 }
 
 .gift-card-teaser-lede {
@@ -215,5 +215,5 @@
   line-height: 1.7;
   color: var(--color-ink-soft);
   max-width: 44ch;
-  margin: 0 0 var(--spacing-lg);
+  margin: 0 0 1.5rem;
 }

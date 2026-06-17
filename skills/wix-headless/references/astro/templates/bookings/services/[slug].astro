@@ -99,28 +99,28 @@ const seoTags = service.seoData?.tags ?? [];
 -->
 <Layout title={serviceName} description={service.tagLine ?? service.description}>
   <SeoTags tags={seoTags} slot="head" />
-  <section class="container-reading px-lg py-4xl">
-    <a href="/services" class="inline-block text-sm text-mute hover:text-ink mb-xl">← All services</a>
+  <section class="container-reading px-6 py-24">
+    <a href="/services" class="inline-block text-sm text-mute hover:text-ink mb-8">← All services</a>
 
     <!-- Optional banner image — only when the service has media (image-less is the
          common seed case; rendering a fixed placeholder collapses the layout). -->
     {imageUrl && (
-      <img src={imageUrl} alt={serviceName} class="w-full h-64 object-cover rounded-lg mb-xl" />
+      <img src={imageUrl} alt={serviceName} class="w-full h-64 object-cover rounded-lg mb-8" />
     )}
 
-    <div class="flex flex-col gap-md mb-3xl">
+    <div class="flex flex-col gap-4 mb-16">
       <hr class="editorial-rule w-16 ml-0" />
       <h1 class="font-display text-4xl md:text-5xl leading-tight">{serviceName}</h1>
       {service.tagLine && <p class="text-lg text-mute leading-relaxed max-w-prose">{service.tagLine}</p>}
-      <div class="flex items-center gap-md text-sm text-mute">
+      <div class="flex items-center gap-4 text-sm text-mute">
         <span>{duration} min</span>
         {price && <span class="text-ink font-medium">{price}</span>}
       </div>
       {service.description && <p class="text-ink leading-relaxed max-w-prose">{service.description}</p>}
     </div>
 
-    <section class="border-t border-rule pt-2xl">
-      <h2 class="font-display text-3xl leading-tight mb-xl">Book this service</h2>
+    <section class="border-t border-rule pt-12">
+      <h2 class="font-display text-3xl leading-tight mb-8">Book this service</h2>
       <ServiceBookingFlow
         service={service}
         serviceName={serviceName}

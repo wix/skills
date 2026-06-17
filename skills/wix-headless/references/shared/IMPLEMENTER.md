@@ -120,11 +120,11 @@ The full styling contract (tokens-as-utilities default, when global semantic cla
 
 - **camelCase for identifiers, kebab-case for filenames, PascalCase for components.** Example: `ProductCard.astro`, `queryBlogPosts` function, `cart-updated` event.
 - **No inline styles beyond design-token CSS variables.** `style={{ color: "red" }}` is forbidden; `style={{ color: "var(--color-accent)" }}` is fine.
-- **Tailwind v4 `@reference` is mandatory in any scoped CSS that uses `@apply`.** Tailwind v4 isolates `@apply` per file — utilities defined in the main entry CSS (where `@theme` lives) are NOT visible to `components-*.css` unless that file prepends `@reference "./global.css";` on line 1. If your scope writes a `components-<vertical>.css` that uses `@apply` with theme tokens (e.g., `@apply gap-sm font-display text-sm`), the file MUST start with:
+- **Tailwind v4 `@reference` is mandatory in any scoped CSS that uses `@apply`.** Tailwind v4 isolates `@apply` per file — utilities defined in the main entry CSS (where `@theme` lives) are NOT visible to `components-*.css` unless that file prepends `@reference "./global.css";` on line 1. If your scope writes a `components-<vertical>.css` that uses `@apply` with theme tokens (e.g., `@apply gap-3 font-display text-sm`), the file MUST start with:
   ```css
   @reference "./global.css";
   ```
-  Without it, the build breaks at release time with `Cannot apply unknown utility class 'gap-sm' …` even though `tsc` and `astro check` pass clean — only the bundler catches it.
+  Without it, the build breaks at release time with `Cannot apply unknown utility class 'gap-3' …` even though `tsc` and `astro check` pass clean — only the bundler catches it.
 - **Fail loud, never silently.** If data is missing, a required field is absent, or an REST call returns an unexpected shape, return `status: "failed"` with details. Do not invent placeholders or swallow errors.
 
 ## Return contract
@@ -188,7 +188,7 @@ The `data` shapes for the scopes this file owns — `components` and `pages`/`pa
 | Issuing REST calls from a `components` or `pages` scope | Components/Pages are frontend-only; read `seeded` data from your `.wix/seeded.json` slice (pages only) — never curl |
 | Re-querying when your `seeded.<vertical>` slice is missing from `.wix/seeded.json` | Fail fast with `SEEDED_JSON_SLICE_MISSING` — an upstream phase didn't complete (do NOT re-query) |
 | Depending on mutable shared state the orchestrator holds in scratch | Every input is inlined; the one shared file you may read is your `.wix/seeded.json` slice (read-only) |
-| Inventing class names for layout/spacing/typography (`.productCard`, `.heroSection`) | Tailwind utilities derived from `@theme` tokens (`class="flex flex-col gap-md"`, `class="py-4xl"`). For one-off page decoration, co-located `<style>` block. |
+| Inventing class names for layout/spacing/typography (`.productCard`, `.heroSection`) | Tailwind utilities derived from `@theme` tokens (`class="flex flex-col gap-4"`, `class="py-24"`). For one-off page decoration, co-located `<style>` block. |
 | Removing a marker after inserting at it | Marker stays; other verticals may contribute after you |
 | Trailing narrative prose after the return JSON | JSON block must be the last content |
 | Fabricated timestamps in the return JSON | Do not include timing fields — orchestrator captures them |

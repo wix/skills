@@ -46,7 +46,7 @@ The first two non-comment lines of `components-ecom.css` MUST be:
 @reference "./global.css";
 ```
 
-Without these, Tailwind v4 fails the build with `"Cannot apply unknown utility class"` on any `@apply` rule that uses a utility like `size-6` or `gap-md`. The template ships them; do not remove.
+Without these, Tailwind v4 fails the build with `"Cannot apply unknown utility class"` on any `@apply` rule that uses a utility like `size-6` or `gap-4`. The template ships them; do not remove.
 
 ### 3. Class ownership
 

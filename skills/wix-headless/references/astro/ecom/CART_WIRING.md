@@ -22,7 +22,7 @@ Files this agent MUST NOT touch:
 
 Read the design tokens from `.wix/design-tokens.css` (on disk, gate-verified present before the wave).
 
-For layout/spacing/typography, compose Tailwind utilities derived from `@theme` tokens at the call site (`<div class="grid grid-cols-1 md:grid-cols-[1fr_22rem] gap-2xl">`). For published global semantic classes (`cart-summary`, `cart-total`, `checkout-btn`, `cart-empty` — the compound + interactive-state patterns), use the ACTUAL class name verbatim. Row-internal class names (`cart-item-qty`, `qty-btn`, etc.) come from the template — keep them as-is and live in `components-ecom.css`. See `references/shared/STYLING.md` and `references/shared/IMPLEMENTER.md` § "Styling: tokens-first, classes as exception".
+For layout/spacing/typography, compose Tailwind utilities derived from `@theme` tokens at the call site (`<div class="grid grid-cols-1 md:grid-cols-[1fr_22rem] gap-12">`). For published global semantic classes (`cart-summary`, `cart-total`, `checkout-btn`, `cart-empty` — the compound + interactive-state patterns), use the ACTUAL class name verbatim. Row-internal class names (`cart-item-qty`, `qty-btn`, etc.) come from the template — keep them as-is and live in `components-ecom.css`. See `references/shared/STYLING.md` and `references/shared/IMPLEMENTER.md` § "Styling: tokens-first, classes as exception".
 
 ## Template files
 
@@ -61,7 +61,7 @@ Full cart display with two-column layout, quantity editing, remove, unavailable 
 Class names used (template provides them — do not invent):
 - **Global semantic classes** (in `global.css`, designer-owned): `cart-summary`, `cart-total`, `checkout-btn`, `cart-empty` — compound patterns + interactive states
 - **Row-internal classes** (in `components-ecom.css`, written by this scope): `cart-item-qty`, `qty-btn`, `qty-value`, `cart-item-unavailable`, `cart-item-actions`, `cart-item-prices`, `cart-item-full-price`, `cart-item-unit-price`, `cart-item-line-total`, `cart-item-remove`, `cart-item-image-link`, `cart-item-name-link`, `cart-discount`, `cart-discount-name`, `cart-discount-amount`, `cart-applied-discounts`, `cart-applied-discounts-name`, `cart-item-option`, `cart-item-modifiers`
-- **Layout/spacing in markup as utilities**: `cart-grid` → `<div class="grid grid-cols-1 md:grid-cols-[1fr_22rem] gap-2xl md:gap-3xl md:items-start">`; `cart-items` → `<div class="flex flex-col gap-lg">`; `cart-item` → `<div class="flex gap-lg pb-lg border-b border-rule last:border-0">`; `cart-subtotal` → `<div class="flex justify-between items-baseline">`; `cart-item-image` → utilities; `cart-item-info` → utilities; `cart-item-name` → `class="font-display text-lg leading-tight"`
+- **Layout/spacing in markup as utilities**: `cart-grid` → `<div class="grid grid-cols-1 md:grid-cols-[1fr_22rem] gap-12 md:gap-16 md:items-start">`; `cart-items` → `<div class="flex flex-col gap-6">`; `cart-item` → `<div class="flex gap-6 pb-6 border-b border-rule last:border-0">`; `cart-subtotal` → `<div class="flex justify-between items-baseline">`; `cart-item-image` → utilities; `cart-item-info` → utilities; `cart-item-name` → `class="font-display text-lg leading-tight"`
 
 ### 2. `src/components/CartBadge.tsx`
 
