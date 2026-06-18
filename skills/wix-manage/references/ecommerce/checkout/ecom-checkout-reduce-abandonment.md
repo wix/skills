@@ -1,6 +1,6 @@
 ---
 name: "Checkout: Reduce Abandonment"
-description: Maps cart abandonment reduction to recovery automation KPIs. Covers abandoned cart email automation activation, missing sales detection, and eligibility thresholds. Also references shipping flows that affect checkout drop-off.
+description: Action recipe for LIVE checkout drop-off at the delivery step. Always load BEFORE proposing changes to reduce delivery-step abandonment. NOT a diagnostic — use [Checkout: Troubleshoot Delivery Drop-off] for "why is CVR low"; NOT post-purchase recovery — that's Abandoned Carts.
 ---
 # Goal: Reduce Cart Abandonment
 

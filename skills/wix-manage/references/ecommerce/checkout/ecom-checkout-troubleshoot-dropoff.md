@@ -1,6 +1,6 @@
 ---
 name: "Checkout: Troubleshoot Delivery Drop-off"
-description: Diagnostic tree for when delivery step conversion is below benchmark. Correlates shipping issues with checkout abandonment and calculates revenue impact.
+description: Diagnostic tree for "why did checkout drop-off spike" / "what changed at the delivery step". Always load BEFORE diagnosing live delivery-step CVR drops. NOT for "what changes should I make to reduce drop-off" (use [Checkout: Reduce Abandonment] for that).
 ---
 # Troubleshoot: Checkout Delivery Drop-off
 
