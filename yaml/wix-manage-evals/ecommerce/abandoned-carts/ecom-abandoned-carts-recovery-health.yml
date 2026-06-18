@@ -10,5 +10,6 @@ assertions:
     minScore: 7
     maxTokens: 2048
     prompt: |
-      Pass if the response covers abandoned-checkout volume, recovery rate or baseline comparison, automation/link health, and a routed next action. It should use Analytics APIs for information/reporting metrics and only use the Abandoned Checkout API for record-level drill-down, activity evidence, or recovery-link verification.
-      Fail if it only runs a generic checkout health check without abandoned-cart recovery metrics, or if it treats the Abandoned Checkout query endpoint as the primary reporting/analytics source for trend questions.
+      Pass if the response covers (a) abandoned-checkout volume, (b) recovery rate with a baseline/benchmark comparison, and (c) automation/link health (status, recent activity, or eligibility check).
+      Fail if it only runs a generic checkout health check without abandoned-cart recovery metrics, omits baseline comparison entirely, or routes the question to Checkout & Cart instead of Abandoned Carts.
+      A "routed next action" suggestion is a nice-to-have but NOT required to pass. The Abandoned Checkout query endpoint is an acceptable source for these metrics — do not penalize the agent for using it.

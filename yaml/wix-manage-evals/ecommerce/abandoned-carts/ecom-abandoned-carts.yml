@@ -10,5 +10,6 @@ assertions:
     minScore: 7
     maxTokens: 2048
     prompt: |
-      Pass if the response routes abandoned-checkout lookup and recovery after the shopper leaves to the Abandoned Carts category, distinguishes it from live checkout drop-off prevention, and mentions at least one route such as analytics/reporting for information queries, recovery email, recovery link, troubleshooting, or recovery health. It should prefer Analytics APIs for counts, trends, and reports, while using the Abandoned Checkout API for record-level lookup or recovery actions.
-      Fail if the response treats abandoned-cart recovery as owned by Checkout & Cart or gives only generic checkout advice.
+      Pass if the response covers post-shopper-leaves recovery (abandoned-checkout lookup + at least one of: recovery email, recovery link, troubleshooting, recovery health) AND keeps it distinct from live checkout drop-off prevention.
+      Fail if the response treats abandoned-cart recovery as owned by Checkout & Cart, gives only generic checkout advice, or conflates live drop-off with post-shopper-leaves recovery.
+      Loading a specific Abandoned Carts sub-recipe (recover-email, recovery-link, troubleshoot, health) is fine and counts as routing to the category — topic-completeness beyond one or two recovery paths is NOT required.

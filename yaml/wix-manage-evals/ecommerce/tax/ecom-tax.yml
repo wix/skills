@@ -10,5 +10,6 @@ assertions:
     minScore: 7
     maxTokens: 2048
     prompt: |
-      Pass if the response loads the Tax category dispatcher and references the calculator choice (Wix Manual, Avalara, EU VAT) before recommending a configure recipe — i.e. it dispatches via context tags rather than inventing tax steps.
-      Fail if it skips the calculator-choice step, dispatches straight to a generic configure recipe without acknowledging Wix Manual vs Avalara, or treats this as a Pricing/Catalog question.
+      Pass if the response explains the Wix Manual vs Avalara choice (and surfaces EU VAT when relevant) and grounds its recommendation in the store's current tax state (existing calculator/regions/mappings, or country/region context). It must treat this as a Tax question.
+      Fail if it skips the calculator comparison, treats this as a Pricing/Catalog/Checkout question, or invents tax steps detached from the store's actual configuration.
+      Topic-completeness beyond Avalara vs Wix Manual is NOT required to pass — judge the calculator choice and grounding, not the breadth.
