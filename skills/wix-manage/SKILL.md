@@ -120,7 +120,7 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 
 ## eCommerce
 
-**Routing structure** (rules + format in the `wix-skills-routing-expert` Claude Code skill — repo `ecom-ai-agents/.claude/skills/`): Each L2 category has a sibling `<category>.md` (README-surfaced description) + a `<category>/` folder with the dispatcher + promotion files. The migrated eCommerce L2 categories are **Tax**, **Pricing & promotions**, **Checkout & cart**, **Fulfillment**, and **Orders**. Shipping and Abandoned Carts use the legacy flat-file routing (see below) until their migration lands.
+**Routing structure** (rules + format in the `wix-skills-routing-expert` Claude Code skill — repo `ecom-ai-agents/.claude/skills/`): Each L2 category has a sibling `<category>.md` (README-surfaced description) + a `<category>/` folder with the dispatcher + promotion files. The migrated eCommerce L2 categories are **Tax**, **Pricing & promotions**, **Checkout & cart**, **Fulfillment**, **Orders**, **Shipping**, and **Abandoned Carts**.
 
 **L1 context loader (per L1 domain, sibling to category-docs):**
 
@@ -207,24 +207,40 @@ README-surfaced category-doc **and** dispatcher (merged). Covers eCommerce order
 
 ---
 
-### Shipping (legacy flat routing — migration pending)
+### Shipping category
 
-- **Apply previously generated shipping recommendations** → use [Recipe: Apply Shipping Recommendations](references/ecommerce/recipe-apply-shipping-recommendations.md)
-- **Store pickup configuration** → use [Setup Store Pickup Location](references/ecommerce/setup-store-pickup-location.md)
+#### [Shipping](references/ecommerce/ecom-shipping.md)
+README-surfaced category-doc **and** dispatcher (merged). Covers delivery profiles, shipping options, rates, regions, free shipping, pickup/local-delivery setup. Boundary: shipping-SETUP only — post-purchase fulfillment (mark shipped, tracking) belongs to **Fulfillment**.
+
+#### Shipping promotions
+- [Fix Coverage Gaps](references/ecommerce/shipping/ecom-shipping-fix-coverage-gaps.md) — detect regions with zero shipping options and create standard shipping
+- [Add Free Shipping](references/ecommerce/shipping/ecom-shipping-add-free-shipping.md) — AOV-calibrated free shipping threshold
+- [Optimize Rates](references/ecommerce/shipping/ecom-shipping-optimize-rates.md) — flat-to-tiered conversion, tier gap detection, per-item penalty removal
+- [Set Up Pickup & Local Delivery](references/ecommerce/shipping/ecom-shipping-set-up-pickup-local-delivery.md) — Delivery Profiles API: discover Pickup carrier, add region, attach carrier
 
 <details>
-<summary>Shipping internal skills (loaded automatically — do NOT use directly)</summary>
+<summary>Shipping legacy support files (loaded by sub-skills — do NOT use directly as entry points)</summary>
 
 - [API: Shipping Delivery](references/ecommerce/api-shipping.md)
-- [Flow: Add Free Shipping](references/ecommerce/flow-add-free-shipping.md)
-- [Flow: Optimize Shipping Rates](references/ecommerce/flow-optimize-shipping-rates.md)
-- [Flow: Fix Coverage Gaps](references/ecommerce/flow-fix-coverage-gaps.md)
+- [Recipe: Apply Shipping Recommendations](references/ecommerce/recipe-apply-shipping-recommendations.md)
 - [Setup: Shipping Regions](references/ecommerce/setup-shipping-regions.md)
 - [Setup: Shipping Rates](references/ecommerce/setup-shipping-rates.md)
 - [Guardrail: Shipping Health](references/ecommerce/guardrail-shipping-health.md)
 - [Guardrail: Rate Pricing Sanity](references/ecommerce/guardrail-rate-pricing-sanity.md)
 
 </details>
+
+---
+
+### Abandoned Carts category
+
+#### [Abandoned Carts](references/ecommerce/ecom-abandoned-carts.md)
+README-surfaced category-doc **and** dispatcher (merged). Covers post-abandonment recovery: abandoned cart email automation, recovery links, and recovery rate monitoring. Boundary: AFTER the shopper left — live drop-off while still on site belongs to **Checkout & Cart**.
+
+#### Abandoned Carts promotions
+- [Recovery Health](references/ecommerce/abandoned-carts/ecom-abandoned-carts-recovery-health.md) — check automation status, recovery rate KPIs, missing sales estimate
+
+---
 
 #### Reference
 - [Skill Graph](references/ecommerce/skill-graph.md)
