@@ -50,9 +50,12 @@ Plus the nav/home links (shell chain — see below).
    booking step reads its payment/policy. Same field-mapping as `../forms/CONTACT_FORM.md`.
    Also pass, through to `<ServiceBookingFlow>`: `service.staffMemberDetails?.staffMembers`
    (the staff picker — the service was queried with `STAFF_MEMBER_DETAILS`); the
-   service's **business `locations`** derived from `service.locations` (`{ _id: l.business?._id, name: l.business?.name }`, BUSINESS only) so the calendar can scope
-   availability to one location and avoid duplicate per-location slots (FLOW.md §7);
-   and the `?locationId` read from the request URL (the picker's default).
+   service's **business `locations`** — sourced from `auth.elevate(services.queryLocations)()`
+   (the site's real business locations) intersected with the service's own location ids,
+   NOT from `service.locations` alone (its ids can be ones the availability engine doesn't
+   recognize → 0 slots) — so the calendar scopes availability to one location and avoids
+   duplicate per-location slots (FLOW.md §7); and the `?locationId` read from the request
+   URL (the picker's default).
 3. **Only the read pages are SSR.** The detail page SSRs the service info for SEO,
    then the booking UI runs in the `client:only` island. Do not SSR availability.
 4. **Confirmation renders from query params.** The booking step redirects with

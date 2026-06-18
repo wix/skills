@@ -105,14 +105,31 @@ const seoTags = service.seoData?.tags ?? [];
 // member" (the ANY_RESOURCE fallback).
 const staffMembers = service.staffMemberDetails?.staffMembers ?? [];
 
-// Business locations the service is offered at — availability is always scoped to
-// ONE of these so a multi-location service doesn't return duplicate per-location
-// time slots (listAvailabilityTimeSlots returns one slot per location otherwise).
-// The business location id is on `location.business._id`; the calendar's picker
-// defaults to the carried location (if any) or the first.
-const serviceLocations = (service.locations ?? [])
-  .filter((l: any) => (l.type ?? "BUSINESS") === "BUSINESS" && (l.business?._id ?? l._id))
-  .map((l: any) => ({ _id: l.business?._id ?? l._id, name: l.business?.name ?? "Location" }));
+// Business locations the service is offered at — sourced from `queryLocations()`
+// (the site's real business locations, whose ids the availability engine
+// recognizes), intersected with the service's own location ids. Availability is
+// scoped to one of these so a multi-location service doesn't return duplicate
+// per-location time slots (listAvailabilityTimeSlots returns one slot per location
+// otherwise). Source from `queryLocations()`, NOT from `service.locations` alone:
+// a service's location entry can carry an id the availability engine doesn't
+// recognize, and scoping to it returns zero slots. When the site has no business
+// locations this resolves to [] and the calendar fetches unscoped.
+let serviceLocations: { _id: string; name?: string }[] = [];
+try {
+  const locResult: any = await auth.elevate(services.queryLocations)();
+  const businessLocations = locResult?.businessLocations?.locations ?? [];
+  const serviceLocationIds = new Set(
+    (service.locations ?? [])
+      .filter((l: any) => (l.type ?? "BUSINESS") === "BUSINESS")
+      .map((l: any) => l.business?._id ?? l._id)
+      .filter(Boolean),
+  );
+  serviceLocations = businessLocations
+    .filter((l: any) => serviceLocationIds.has(l._id))
+    .map((l: any) => ({ _id: l._id, name: l.business?.name ?? "Location" }));
+} catch (err) {
+  console.error(`[services/${slug}] queryLocations failed:`, err);
+}
 ---
 
 <!--

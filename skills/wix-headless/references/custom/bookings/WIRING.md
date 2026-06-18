@@ -85,12 +85,14 @@ Render a **week calendar** (day strip → the day's times), not a flat grid — 
 `../../bookings/FLOW.md` § 5. `fromLocalDate`/`toLocalDate` are **local** strings
 (`YYYY-MM-DDThh:mm:ss`, no `Z`) + a `timeZone`.
 
-> **Multi-location: always scope to ONE business location.** Unscoped,
+> **Multi-location: scope to ONE business location.** Unscoped,
 > `listAvailabilityTimeSlots` returns **one slot per location** per time → duplicate
-> rows. Derive the service's business locations from `service.locations`
-> (`{ _id: l.business?._id, name: l.business?.name }`, BUSINESS only), default to the
-> carried/first, and always pass the single-location filter below (staff does NOT
-> multiply rows — only location does). See FLOW.md §7.
+> rows. Source the location list from **`queryLocations()`** (the site's real business
+> locations, whose ids the availability engine recognizes) intersected with the
+> service's own location ids — NOT from `service.locations` alone (its entries can
+> carry an id the engine doesn't recognize → scoping returns 0 slots). Default to the
+> carried/first and pass the single-location filter below; with no business locations,
+> leave it unscoped. (Staff does NOT multiply rows — only location does.) See FLOW.md §7.
 ```js
 // APPOINTMENT — serviceId is a single GUID STRING. Staff (§8) OPTIONAL; location ALWAYS when >1:
 const a = await wix.availabilityTimeSlots.listAvailabilityTimeSlots({
