@@ -62,7 +62,7 @@ Every scenario must include **both** of the following:
     articleUrl: https://dev.wix.com/docs/api-reference/<...>/skills/<skill-name>
 ```
 
-The `articleUrl` must match the doc URL for the skill — built as `<docsEntry>/skills/<filename>` from the skill's entry in `yaml/wix-manage/<area>/documentation.yaml`.
+The `articleUrl` must match the doc URL for the skill — built as `<docsEntry>/skills/<slug>`, where `<docsEntry>` and the skill's `title` come from its entry in `yaml/wix-manage/<area>/documentation.yaml`, and `<slug>` is that `title` slugified (lowercased, spaces/punctuation → `-`). For example `title: "Abandoned Carts"` → `…/skills/abandoned-carts`.
 
 **2. An `llm_judge` assertion** — proves the agent's response was substantively correct, not just that it loaded the docs.
 
