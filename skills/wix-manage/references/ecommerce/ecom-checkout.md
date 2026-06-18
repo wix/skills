@@ -19,6 +19,8 @@ Improve and fix the checkout/cart experience before an order is placed - reduce 
 
 > **Before dispatching** — confirm MerchantContext is loaded. If `siteData.country` is not in your conversation context, load it via [Load Merchant Context](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/e-commerce-load-context). Skip if already loaded.
 >
+> **Generating recommendations for the merchant?** If the merchant's intent is "give me N recommendations / concrete actions to improve checkout conversion" (rather than diagnose / fix / configure), this is cross-cutting and MUST go through [API: Recommendation Tracking](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/api-recommendation-tracking) — load it BEFORE generating, Query existing history to skip re-proposing PROPOSED/DONE items, BatchCreate the new list as PROPOSED before presenting, then MarkExecuting → MarkDone/MarkFailed as the merchant approves each. This obligation applies even when the recommendation surface is checkout-side (free-shipping threshold, rate restructure, abandoned-cart email, etc.).
+>
 > **Promotion dispatch.** Score each entry below by the merchant's query → `intent:*` tags. Load the highest-scoring entry. No match → base recipe.
 
 ### Reduce abandonment & troubleshoot (recipes)

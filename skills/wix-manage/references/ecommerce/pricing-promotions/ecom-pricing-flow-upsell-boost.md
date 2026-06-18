@@ -1,6 +1,6 @@
 ---
 name: "Flow: Upsell Boost"
-description: Creates a discount campaign to increase average order value by setting minimum subtotal conditions above current AOV. Uses margin-based discount tiers and targets high-margin categories.
+description: UPSELL_BOOST sub-flow — load [Goal: Increase AOV] FIRST (it owns classification and routing); this is a sub-step, NOT a direct entry from README.
 ---
 # Flow: Upsell Boost Campaign
 

@@ -1,6 +1,6 @@
 ---
 name: "Flow: Seasonal Promotion"
-description: Creates event-driven promotional campaigns tied to holidays or seasonal events. Uses country and date context to identify upcoming events, calculates optimal campaign windows, and targets relevant categories.
+description: SEASONAL sub-flow — load [Goal: Seasonal Revenue] FIRST (it owns classification and routing); this is a sub-step, NOT a direct entry from README.
 ---
 # Flow: Seasonal Promotion
 

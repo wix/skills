@@ -1,6 +1,6 @@
 ---
 name: "Flow: Bundle and Save"
-description: Creates a discount campaign promoting product discovery and cross-selling by requiring minimum item quantities. Targets high-margin categories with complementary products.
+description: BUNDLE_AND_SAVE sub-flow — load [Goal: Drive Cross-Sells] FIRST (it owns classification and routing); this is a sub-step, NOT a direct entry from README.
 ---
 # Flow: Bundle & Save Campaign
 

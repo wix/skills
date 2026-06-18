@@ -1,6 +1,6 @@
 ---
 name: "Pricing: Run a Sale (Recommend eCommerce Strategy)"
-description: Unified eCommerce recommendation skill — analyzes site data across ALL domains (discounts, shipping, and future domains) and generates up to 5 actionable recommendations. Single entry point for any "help my business" request. Tracking is built-in.
+description: PRICING-side promotion strategy orchestrator. Always load BEFORE proposing a discount/sale/promotion plan — classifies as SEASONAL / UPSELL_BOOST / STOCK_MOVER / BUNDLE_AND_SAVE and routes into the matching goal recipe. Tracking is built-in via [API: Recommendation Tracking]. NOT for checkout/shipping/abandoned-cart recommendation prompts — those route via their own category dispatcher (which also loads tracking).
 ---
 # Run a Sale (Recommend eCommerce Strategy)
 
