@@ -34682,12 +34682,31 @@ const SYSTEM_API_CALL = 'system:api_call';
 const SYSTEM_COST = 'system:cost';
 const SYSTEM_TIME_LIMIT = 'system:time_limit';
 function toEvalForgeBody(s) {
-    return {
+    const body = {
         name: s.name,
         description: s.description,
         triggerPrompt: s.triggerPrompt,
         assertionLinks: s.assertions.map(mapAssertion),
     };
+    if (s.siteSetup)
+        body.siteSetup = mapSiteSetup(s.siteSetup);
+    return body;
+}
+function mapSiteSetup(s) {
+    const out = { mode: s.mode, templateId: s.templateId };
+    // Omit bootstrap when it has no steps.
+    if (s.bootstrap && s.bootstrap.steps.length > 0) {
+        out.bootstrap = { steps: s.bootstrap.steps.map(mapBootstrapStep) };
+    }
+    return out;
+}
+function mapBootstrapStep(step) {
+    const out = { method: step.method, url: step.url };
+    if (step.label !== undefined)
+        out.label = step.label;
+    if (step.body !== undefined)
+        out.body = step.body;
+    return out;
 }
 function mapAssertion(a) {
     if ((0, schema_1.isLlmJudge)(a))
@@ -35602,13 +35621,40 @@ const AssertionSchema = zod_1.z.union([
     CostAssertionSchema,
     TimeLimitAssertionSchema,
 ]);
+// Optional per-scenario site provisioning. Only `template` mode is supported.
+const SiteBootstrapStepSchema = zod_1.z.object({
+    label: zod_1.z.string().optional(),
+    method: zod_1.z.enum(['get', 'post', 'put', 'patch', 'delete']),
+    url: zod_1.z.string().min(1),
+    body: zod_1.z.record(zod_1.z.string(), zod_1.z.unknown()).optional(),
+}).strict();
+const SiteBootstrapSchema = zod_1.z.object({
+    steps: zod_1.z.array(SiteBootstrapStepSchema).default([]),
+}).strict();
+// `templateId` is a Wix template alias (e.g. "ecommerce") or a template GUID, resolved at
+// provisioning time — any non-empty string is accepted here.
+const SiteSetupSchema = zod_1.z.object({
+    mode: zod_1.z.literal('template').default('template'),
+    templateId: zod_1.z.string().min(1),
+    bootstrap: SiteBootstrapSchema.optional(),
+}).strict();
 exports.ScenarioSchema = zod_1.z.object({
     name: zod_1.z.string().min(1).regex(NamePattern, 'name must match /^[a-z0-9][a-z0-9/_-]*$/'),
     description: zod_1.z.string(),
     triggerPrompt: zod_1.z.string().min(10),
     tags: zod_1.z.array(zod_1.z.string().min(1)).min(1).refine(tags => tags.every(t => !exports.RESERVED_TAG_PREFIXES.some(p => t.startsWith(p))), { message: 'tags must not include reserved namespaces (draft:*, pending:*, rejected:*) — the action manages those' }),
     assertions: zod_1.z.array(AssertionSchema).min(1),
-}).strict();
+    siteSetup: SiteSetupSchema.optional(),
+}).strict().superRefine((data, ctx) => {
+    // A provisioned site supplies the site id, so siteSetup can't be combined with a {{site-id}} variable.
+    if (data.siteSetup && /\{\{\s*site-id\s*\}\}/.test(data.triggerPrompt)) {
+        ctx.addIssue({
+            code: zod_1.z.ZodIssueCode.custom,
+            message: 'siteSetup cannot be combined with a {{site-id}} run variable in triggerPrompt — the provisioned site replaces it',
+            path: ['triggerPrompt'],
+        });
+    }
+});
 function isLlmJudge(a) {
     return a.type === 'llm_judge';
 }

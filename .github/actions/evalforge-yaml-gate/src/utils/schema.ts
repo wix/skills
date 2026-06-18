@@ -74,6 +74,29 @@ export type CostAssertion = z.infer<typeof CostAssertionSchema>;
 export type TimeLimitAssertion = z.infer<typeof TimeLimitAssertionSchema>;
 export type Assertion = z.infer<typeof AssertionSchema>;
 
+// Optional per-scenario site provisioning. Only `template` mode is supported.
+const SiteBootstrapStepSchema = z.object({
+  label: z.string().optional(),
+  method: z.enum(['get', 'post', 'put', 'patch', 'delete']),
+  url: z.string().min(1),
+  body: z.record(z.string(), z.unknown()).optional(),
+}).strict();
+
+const SiteBootstrapSchema = z.object({
+  steps: z.array(SiteBootstrapStepSchema).default([]),
+}).strict();
+
+// `templateId` is a Wix template alias (e.g. "ecommerce") or a template GUID, resolved at
+// provisioning time — any non-empty string is accepted here.
+const SiteSetupSchema = z.object({
+  mode: z.literal('template').default('template'),
+  templateId: z.string().min(1),
+  bootstrap: SiteBootstrapSchema.optional(),
+}).strict();
+
+export type SiteBootstrapStep = z.infer<typeof SiteBootstrapStepSchema>;
+export type SiteSetup = z.infer<typeof SiteSetupSchema>;
+
 export const ScenarioSchema = z.object({
   name: z.string().min(1).regex(NamePattern, 'name must match /^[a-z0-9][a-z0-9/_-]*$/'),
   description: z.string(),
@@ -83,7 +106,17 @@ export const ScenarioSchema = z.object({
     { message: 'tags must not include reserved namespaces (draft:*, pending:*, rejected:*) — the action manages those' },
   ),
   assertions: z.array(AssertionSchema).min(1),
-}).strict();
+  siteSetup: SiteSetupSchema.optional(),
+}).strict().superRefine((data, ctx) => {
+  // A provisioned site supplies the site id, so siteSetup can't be combined with a {{site-id}} variable.
+  if (data.siteSetup && /\{\{\s*site-id\s*\}\}/.test(data.triggerPrompt)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'siteSetup cannot be combined with a {{site-id}} run variable in triggerPrompt — the provisioned site replaces it',
+      path: ['triggerPrompt'],
+    });
+  }
+});
 
 export type Scenario = z.infer<typeof ScenarioSchema>;
 
