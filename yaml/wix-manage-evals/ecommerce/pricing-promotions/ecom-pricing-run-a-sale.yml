@@ -1,0 +1,15 @@
+name: ecommerce/pricing-promotions/run-a-sale-orchestrator
+description: I want to run a promotion this month to grow revenue — not sure if I should use an automatic discount or a coupon code. Help me decide and propose 3 actions to approve.
+triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) I want to run a promotion this month to grow revenue. I'm not sure if I should use an automatic discount or a coupon code — help me decide which mechanism makes more sense for my store, and then propose 3 concrete actions I can approve or reject.
+tags: [ecommerce]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-run-a-sale-recommend-e-commerce-strategy
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Pass if the response (a) lands on the Pricing run-a-sale orchestrator (loads `pricing-run-a-sale-recommend-e-commerce-strategy`) — this trigger explicitly asks for mechanism reasoning, which is the orchestrator's Step 4c and is NOT owned by any goal recipe, (b) makes an explicit AUTOMATIC vs COUPON recommendation with reasoning tied to the merchant's store/audience (e.g., "AUTOMATIC because you want to drive site-wide revenue" or "COUPON because you want code-gated audiences like subscribers"), and (c) loads or references api-recommendation-tracking and persists the 3 recommendations as PROPOSED via BatchCreate before presenting.
+      Fail if the response skips the orchestrator and routes straight to a goal/flow recipe without deciding the mechanism, picks a mechanism with no reasoning, proposes recommendations without a `mechanism` field per Step 4c, or skips tracking.
+      Topic-completeness beyond the mechanism decision + 3 recommendations is NOT required to pass — judge the orchestrator path + Step 4c mechanism reasoning + tracking lifecycle, not the breadth.
