@@ -41,11 +41,12 @@ describe('comment formatters', () => {
     expect(c.formatServiceError('boom', false)).toContain('⚠️');
   });
 
-  it('formatEvalPassed includes pass rate + run id', () => {
+  it('formatEvalPassed includes pass rate + run link', () => {
     const metrics = { totalAssertions: 1, passed: 1, failed: 0, skipped: 0, errors: 0, passRate: 100, avgDuration: 0, totalDuration: 0 };
-    const out = c.formatEvalPassed(metrics, 'run-1');
+    const out = c.formatEvalPassed(metrics, 'run-1', 'https://bo.wix.com/pages/evalforge/proj-1/results?runId=run-1');
     expect(out).toContain('100%');
     expect(out).toContain('run-1');
+    expect(out).toContain('(https://bo.wix.com/pages/evalforge/proj-1/results?runId=run-1)');
   });
 
   it('formatNoChanges signals success', () => {

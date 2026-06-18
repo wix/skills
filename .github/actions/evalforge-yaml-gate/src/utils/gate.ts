@@ -7,7 +7,7 @@ import { loadEvals, type LoadedScenario } from './evals';
 import { canonicalDocUrl } from './doc-url';
 import { computeCoverage } from './coverage';
 import { diffSyncPlan } from './sync';
-import { EvalForgeClient, draftTagFor } from './evalforge';
+import { EvalForgeClient, draftTagFor, evalRunUrl } from './evalforge';
 import { workspaceRoot } from './workspace';
 import { BASE_WORKSPACE_SUBDIR } from './paths';
 import { pollUntilDone, EvalRunTimeoutError } from './eval-run';
@@ -156,6 +156,7 @@ export async function runGate(): Promise<void> {
     'Could not create eval run', comment, config,
   );
   if (!run) return;
+  const runUrl = evalRunUrl(config.projectId, run.id);
 
   const triggered = await guardedCall(
     () => evalforge.triggerEvalRun(config.projectId, run.id),
@@ -168,7 +169,7 @@ export async function runGate(): Promise<void> {
     finalStatus = await pollUntilDone(evalforge, config.projectId, run.id);
   } catch (e) {
     if (e instanceof EvalRunTimeoutError) {
-      await comment(formatEvalTimeout(run.id, config.blocking));
+      await comment(formatEvalTimeout(run.id, runUrl, config.blocking));
       fail(`Eval timed out (run ID: ${run.id})`, config.blocking);
       return;
     }
@@ -180,10 +181,10 @@ export async function runGate(): Promise<void> {
 
   const m = finalStatus.aggregateMetrics;
   if (finalStatus.status === 'completed' && m.failed === 0 && m.errors === 0) {
-    await comment(formatEvalPassed(m, run.id));
+    await comment(formatEvalPassed(m, run.id, runUrl));
     core.info(`Eval passed — ${m.passed}/${m.totalAssertions} (run ID: ${run.id})`);
   } else {
-    await comment(formatEvalFailed(m, run.id, config.blocking));
+    await comment(formatEvalFailed(m, run.id, runUrl, config.blocking));
     fail(`Eval failed (${m.passRate}%)`, config.blocking);
   }
 }
