@@ -48,11 +48,11 @@ Each scenario's `name` field must be unique across the whole `yaml/wix-manage-ev
 | `description` | One or two sentences describing what the scenario verifies. |
 | `triggerPrompt` | The natural-language request you'd expect a real user to make. Minimum 10 characters. |
 | `tags` | An array of one or more tags. Must include a production tag for the area (e.g. `[domains]`, `[stores]`, `[bookings]`). |
-| `assertions` | An array of assertions that decide whether the scenario passed. **Every scenario MUST include both a `tool` assertion (proves the skill was invoked) AND an `llm_judge` assertion (proves the response was substantively correct)** — see below. |
+| `assertions` | A non-empty array of assertions that decide whether the scenario passed. The schema requires at least one; you should include both a `tool` assertion (proves the skill was invoked) and an `llm_judge` assertion (proves the response was correct) — see below. |
 
-### Required assertions
+### Assertions to include
 
-Every scenario must include **both** of the following:
+Include **both** of the following — the `tool` assertion is what makes a scenario cover its doc, and the `llm_judge` checks the response is correct:
 
 **1. A `tool` assertion on `ReadFullDocsArticle` with the skill's doc URL** — proves the agent actually loaded the skill's content.
 
@@ -73,14 +73,14 @@ The `articleUrl` must match the doc URL for the skill — built as `<docsEntry>/
     <Pass/fail criteria specific to this scenario>
 ```
 
-Without the `llm_judge`, a scenario passes whenever the agent reads the doc, even if the response is wrong or unhelpful. Without the `tool` assertion, the judge can pass on a fabricated response that never touched the skill at all. You need both.
+Without the `llm_judge`, a scenario passes whenever the agent reads the doc, even if the response is wrong or unhelpful. Without the `tool` assertion, the judge can pass on a fabricated response that never touched the skill at all — and the scenario won't cover its doc. That's why you should include both.
 
 ### Assertion types
 
 You can mix these in a single scenario:
 
-- **`tool`** (required) — proves the agent actually invoked the skill by asserting on the specific tool call that loads the skill's content. Substring matching on string values, so a partial value is OK.
-- **`type: llm_judge`** (required) — an LLM rubric that scores the agent's final response on a 0–10 scale. You write the pass/fail criteria in the `prompt` field.
+- **`tool`** (required for doc coverage) — proves the agent actually invoked the skill by asserting on the specific tool call that loads the skill's content. Substring matching on string values, so a partial value is OK.
+- **`type: llm_judge`** (recommended) — an LLM rubric that scores the agent's final response on a 0–10 scale. You write the pass/fail criteria in the `prompt` field.
 - **`type: api_call`** — makes an HTTP request after the scenario runs and validates the response (use for end-to-end checks of state changes).
 - **`type: cost`** — fails if the run exceeded a USD cost ceiling.
 - **`type: time_limit`** — fails if the run exceeded a duration ceiling.
