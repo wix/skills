@@ -64,6 +64,15 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ### [Create Course Service](references/bookings/create-course-service.md)
 **Technical:** Use when the user wants to create a multi-session course — e.g. "create a 6-week workshop", "set up a training program for $300". Handles group capacity, full-course pricing, and fixed series via bulkCreateServices API.
 
+### [SMB Create Appointment Service](references/bookings/smb-create-appointment-service.md)
+**Technical:** SMB eval-pilot recipe (frozen fitness/US cohort). Creates a *bookable* APPOINTMENT service but refuses to finish until an instructor with real working hours is assigned, and confirms with the owner before creating. Not for merge.
+
+### [SMB Draft Cancellation Notification](references/bookings/smb-draft-cancellation-notification.md)
+**Technical:** SMB eval-pilot recipe (frozen fitness/US cohort). When a business-side cancellation occurs, drafts an owner-approved apology that names the instructor and proposes concrete rebook slots from that instructor's real availability. Not for merge.
+
+### [SMB Turn Intake Form Into First Booking](references/bookings/smb-turn-intake-form-into-first-booking.md)
+**Technical:** SMB eval-pilot recipe (frozen fitness/US cohort). On a new intake-form submission, finds/creates the contact, matches interest+availability to the real schedule, proposes specific slots, and waits for owner approval before sending. Not for merge.
+
 ### [End-to-End Booking Flow](references/bookings/end-to-end-booking-flow.md)
 **Technical:** Complete booking flow from service discovery to payment. Query services, check availability with Time Slots V2, create bookings, and process payment via eCommerce checkout.
 

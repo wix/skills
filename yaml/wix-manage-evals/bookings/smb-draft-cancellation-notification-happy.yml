@@ -1,0 +1,35 @@
+name: bookings/smb-draft-cancellation-notification-happy
+description: >-
+  Verifies the agent reads the smb-draft-cancellation-notification skill and drafts a business-side
+  apology that names the instructor and proposes concrete rebook slots from that instructor's availability.
+triggerPrompt: >-
+  We had to cancel member Maya's class with instructor Dana tomorrow because Dana is
+  out sick. Draft a message to let Maya know and help her rebook.
+tags: [bookings]
+siteSetup:
+  templateId: scheduler
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/bookings/skills/smb-draft-cancellation-notification
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The owner had to cancel member Maya's class with instructor Dana (Dana is sick) and wants to notify
+      Maya and help her rebook.
+      Intent: draft a business-side apology that names the instructor and offers 2-3 concrete rebook slots
+      from the same instructor's real upcoming availability, for owner approval before sending.
+
+      Pass if the response:
+      - apologizes for a business-side cancellation, AND
+      - names the instructor (Dana), AND
+      - proposes 2-3 specific rebook slots (and indicates it would pull them from the instructor's real
+        availability, e.g. via an availability query), AND
+      - presents the draft for owner approval rather than sending immediately.
+
+      Fail if the response:
+      - is a generic "your booking was canceled" with no apology or no concrete slots, OR
+      - does not name the instructor, OR
+      - silently swaps to a different instructor without saying so, OR
+      - sends without any owner-approval step.

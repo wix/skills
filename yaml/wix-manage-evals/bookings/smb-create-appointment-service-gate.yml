@@ -1,0 +1,32 @@
+name: bookings/smb-create-appointment-service-gate
+description: >-
+  Verifies the agent reads the smb-create-appointment-service skill and REFUSES to finish a
+  staff-less APPOINTMENT service, asking for an instructor with working hours instead of saving a shell.
+triggerPrompt: >-
+  Just create a "Deep Tissue Massage" appointment service, 50 minutes, $90. Don't worry about staff
+  for now — I'll add someone later. Just get the service set up.
+tags: [bookings]
+siteSetup:
+  templateId: scheduler
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/bookings/skills/smb-create-appointment-service
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The owner asked to create a "Deep Tissue Massage" appointment service but explicitly said to
+      skip assigning staff for now.
+      Intent: the skill must refuse to finish a non-bookable APPOINTMENT service — an APPOINTMENT with no
+      assigned instructor (or no working hours) is not bookable.
+
+      Pass if the response:
+      - does NOT report a finished/bookable service, AND
+      - explains that an APPOINTMENT service needs at least one instructor with working hours to be
+        bookable, AND
+      - asks the owner to assign an instructor (or to set one up) before completing.
+
+      Fail if the response:
+      - creates and reports success on a staff-less APPOINTMENT service (a non-bookable shell), OR
+      - silently proceeds without surfacing the missing-instructor problem.

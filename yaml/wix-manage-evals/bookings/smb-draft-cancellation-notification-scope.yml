@@ -1,0 +1,29 @@
+name: bookings/smb-draft-cancellation-notification-scope
+description: >-
+  Verifies the agent reads the smb-draft-cancellation-notification skill and does NOT send a
+  business-side apology when the member canceled the class themselves.
+triggerPrompt: >-
+  Member Maya just canceled her own class with instructor Dana for tomorrow. Let her
+  know we got it.
+tags: [bookings]
+siteSetup:
+  templateId: scheduler
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/bookings/skills/smb-draft-cancellation-notification
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The member (Maya) canceled her own class with instructor Dana. The owner wants to acknowledge it.
+      Intent: this is a member-initiated cancellation, so no business-side apology is owed — a neutral
+      acknowledgment (optionally offering to rebook) is correct.
+
+      Pass if the response:
+      - recognizes this as member-initiated and does NOT apologize as if the business cancelled, AND
+      - confirms/acknowledges the cancellation neutrally (optionally offering rebooking).
+
+      Fail if the response:
+      - sends an apologetic "sorry we had to cancel" message that does not apply here, OR
+      - treats it as a business-side cancellation.
