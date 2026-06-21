@@ -4,9 +4,9 @@ description: >-
   wix.portfolio.portfolio_app.v1.portfolio_settings entity and (via llm_judge) passes only if the
   answer contains the override sentinel — proving the staged preview revision is being served
   instead of the published docs. Paired with .github/fixtures/example-settings.json (shared tag
-  `example-revision-eval`).
+  `beta`).
 triggerPrompt: provide me the Create Portfolio Settings method description
-tags: [example-revision-eval]
+tags: [beta]
 assertions:
   - type: llm_judge
     minScore: 7
