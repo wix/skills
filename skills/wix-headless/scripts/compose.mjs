@@ -40,15 +40,20 @@
 //                       in order (COMPOSE § Layout.astro).
 //   - disabledPacks  — string[]; dormant packs still get their home/nav markers,
 //                       never a visible entry point.
+//   - homePath       — REQUIRED. Path to the complete, LLM-generated home page
+//                       (src/pages/index.astro). This skill version has NO index
+//                       template — the whole main page is generated; compose
+//                       writes the file verbatim.
 //
-// What it writes (the 6 design-system files), by substituting {{…}} slots into
-// the pinned skeletons — the fixed bulk is copied byte-for-byte:
+// What it writes, by substituting {{…}} slots into the pinned skeletons — the
+// fixed bulk is copied byte-for-byte (the home page is the exception: written
+// verbatim from homePath):
 //   1. src/styles/global.css            — {{theme}} ← @theme palette
 //   2. astro.config.mjs                 — MERGE (anchored codemod, not clobber)
 //   3. src/layouts/Layout.astro         — imports, fonts href, brand title
 //   4. src/components/Navigation.astro  — brand mark, nav links
 //   5. src/components/Footer.astro      — brand, tagline, nav links
-//   6. src/pages/index.astro            — hero copy, brand, home markers
+//   6. src/pages/index.astro            — LLM-generated, written verbatim (homePath)
 //
 // Token contract: guarantees the required-token set (STYLING.md § "Required
 // tokens — the component-CSS template contract") resolves in @theme. Missing
@@ -212,6 +217,10 @@ const navLinks = Array.isArray(input.navLinks) ? input.navLinks : [];
 const loadedPacks = Array.isArray(input.loadedPacks) ? input.loadedPacks : [];
 const packsWithComponents = Array.isArray(input.packsWithComponents) ? input.packsWithComponents : [];
 const disabledPacks = Array.isArray(input.disabledPacks) ? input.disabledPacks : [];
+// Full LLM-generated home page (this skill version has no index template). The
+// generator authors the complete src/pages/index.astro; compose writes it verbatim.
+const homePathRaw = typeof input.homePath === "string" ? input.homePath.trim() : "";
+const homePath = homePathRaw ? (isAbsolute(homePathRaw) ? homePathRaw : join(projectDir, homePathRaw)) : null;
 
 const brandName = brand.name ?? "Brand";
 
@@ -499,13 +508,14 @@ const HOME_CONTRIBUTING = ["stores", "bookings", "gift-cards"]; // canonical ord
 const homePool = new Set([...loadedPacks, ...disabledPacks]);
 const homeMarkerPacks = HOME_CONTRIBUTING.filter((p) => homePool.has(p));
 {
-  let out = stripAstroHeader(readTemplate("index.astro"));
-  out = out.replaceAll("{{shell.heroHeadline}}", shell.heroHeadline ?? brandName);
-  out = out.replaceAll("{{shell.heroSub}}", shell.heroSub ?? "");
-  out = out.replaceAll("{{brand.name}}", brandName);
-  const markers = homeMarkerPacks.map((p) => `  <!-- home:${p} -->`).join("\n");
-  out = out.replace(/^\s*\{\{home-markers\}\}\s*$/m, markers);
-  writeProject("src/pages/index.astro", out);
+  // No index template — the whole home page is LLM-generated. The generator
+  // authors the complete src/pages/index.astro (Layout wrapper + hero + story +
+  // a `<!-- home:<pack> -->` marker per loaded home-contributing pack); compose
+  // writes it verbatim.
+  if (!homePath || !existsSync(homePath)) {
+    die("NO_HOME", `this skill version generates the home page with an LLM — pass homePath to the authored index.astro (none found at ${homePath ?? "<unset>"})`);
+  }
+  writeProject("src/pages/index.astro", readFileSync(homePath, "utf8"));
 }
 
 // ── manifest (the orchestrator parses this off stdout) ────────────────────────
@@ -522,6 +532,7 @@ const manifest = {
   phase: "compose",
   data: {
     filesWritten,
+    home: "llm-generated",
     componentCssImports: packsWithComponents,
     homeMarkers: homeMarkerPacks.map((p) => `home:${p}`),
     tokensApplied: {
