@@ -41,7 +41,7 @@ Every input you need is either inlined in your prompt or — for seeded entity I
 | Scope | Where its inputs come from |
 |---|---|
 | `seed` | All **inlined**: `brand`, `intent.<pack>`, `siteId`, recipe path(s). Do NOT re-derive these. |
-| `components` | **Inlined**: `brand`. **Read from disk**: the design tokens (the DESIGN.md vocabulary — `colors`/`typography`/`spacing`/`rounded`/`containers`) from `.wix/design-tokens.css` (gate-verified present; also the CSS variables the build consumes). Components do not need seeded IDs. |
+| `components` | **Inlined**: `brand`. **Read from disk**: the design tokens (the DESIGN.md vocabulary — `colors`/`typography`/`rounded`/`containers`; spacing is Tailwind's numeric scale, not a token) from `.wix/design-tokens.css` (gate-verified present; also the CSS variables the build consumes). Components do not need seeded IDs. |
 | `pages` / `pages-*` | **Inlined:** `brand`. **Read from disk:** the design tokens (`.wix/design-tokens.css`, DESIGN.md vocabulary); your `seeded.<vertical>` slice from `.wix/seeded.json` (products, posts, collections IDs). Page data wiring uses live SDK queries; the `seeded` data is for path resolution + demo content authoring. |
 
 If a required **inlined** input is missing from your prompt, or your **`.wix/seeded.json` slice** is absent (e.g. you are dispatched as `pages-products` but `.wix/seeded.json` has no `seeded.stores`), fail fast — return `status: "failed"` with `errors: [{ code: "SEEDED_JSON_SLICE_MISSING", missing: "seeded.stores.products" }]` (or `PROMPT_INCOMPLETE` for an inlined gap). Do NOT re-fetch via curl — the gap means an upstream phase didn't complete, and re-querying would mask the real bug.

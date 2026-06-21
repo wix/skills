@@ -10,10 +10,12 @@
 
 @theme {
   /* {{theme}} — Composer substitutes the full palette here from designTokens:
-     every --color-*, --font-*, --spacing-* (2xs..4xl), --container-*, and
-     --radius-* line. The required-token set (enforced by compose.mjs)
-     MUST all be present, or components render unstyled. Container scale is
-     separate from spacing — never alias --container-3xl to --spacing-3xl. */
+     every --color-*, --font-*, --container-*, and --radius-* line. The
+     required-token set (enforced by compose.mjs) MUST all be present, or
+     components render unstyled. Spacing is NOT a token here — it uses
+     Tailwind's built-in numeric scale (gap-4, py-24, …); never add a named
+     --spacing-* scale, since that namespace also powers the width utilities
+     (max-w-*/w-*) and would shadow them. */
 }
 
 /* Reading-width helper so prose pages center without guessing Tailwind sizes. */
