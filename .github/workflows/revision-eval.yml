@@ -12,8 +12,6 @@ concurrency:
 
 jobs:
   revision-eval:
-    # NOTE: the open-api-resolver (/entity-to-revision) lives at an internal endpoint
-    # (bo.wix.com/_serverless/open-api-resolver).
     runs-on: ubuntu-latest
     permissions:
       contents: read
