@@ -7,7 +7,7 @@ triggerPrompt: >-
   we don't run anything that early. Follow up.
 tags: [bookings]
 siteSetup:
-  templateId: bookings-editor
+  templateId: bookings-harmony
 assertions:
   - tool: ReadFullDocsArticle
     params:

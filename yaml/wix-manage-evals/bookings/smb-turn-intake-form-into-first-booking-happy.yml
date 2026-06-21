@@ -7,7 +7,7 @@ triggerPrompt: >-
   training, available weekday evenings. Follow up to get them booked.
 tags: [bookings]
 siteSetup:
-  templateId: bookings-editor
+  templateId: bookings-harmony
 assertions:
   - tool: ReadFullDocsArticle
     params:

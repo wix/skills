@@ -7,7 +7,7 @@ triggerPrompt: >-
   for now — I'll add someone later. Just get the service set up.
 tags: [bookings]
 siteSetup:
-  templateId: bookings-editor
+  templateId: bookings-harmony
 assertions:
   - tool: ReadFullDocsArticle
     params:
