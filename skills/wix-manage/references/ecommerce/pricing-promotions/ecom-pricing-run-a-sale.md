@@ -14,8 +14,7 @@ description: PRICING-side promotion strategy orchestrator. Always load BEFORE pr
 > - **BUNDLE_AND_SAVE** → [Goal: Drive Cross-Sells](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-drive-cross-sells)
 > - **ABANDONED_CART** → [Goal: Reduce Cart Abandonment](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/checkout-reduce-abandonment) *(will move under Checkout & cart category)*
 >
-> **If COUPON mechanism in Step 4c**, load:
-> - [Create Coupon](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-coupon)
+> **If COUPON mechanism in Step 4c**, use the [Coupons V2 API](https://dev.wix.com/docs/api-reference/business-solutions/coupons/coupons/create-a-coupon) directly — map `discountType` → `percentOffRate`/`moneyOffAmount`, `scope` → namespace/group, dates → UNIX milliseconds.
 
 ## EXECUTION RULES — READ BEFORE ANYTHING ELSE
 

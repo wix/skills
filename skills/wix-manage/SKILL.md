@@ -150,7 +150,6 @@ README-surfaced category-doc **and** dispatcher (merged — prototype). Disambig
 README-surfaced category-doc **and** dispatcher (merged). Disambiguates the category, then picks the right Pricing promotion based on the merchant's intent + MerchantContext. No separate `-default` hop.
 
 #### Pricing promotions (direct merchant entry points)
-- [Create Coupon](references/ecommerce/pricing-promotions/ecom-pricing-create-coupon.md) — Coupons V2 API
 - [Create Discount Rule](references/ecommerce/pricing-promotions/ecom-pricing-create-discount-rule.md) — auto-apply discount rules
 - [Run a Sale (orchestrator)](references/ecommerce/pricing-promotions/ecom-pricing-run-a-sale.md) — the cross-domain strategy orchestrator (formerly `recommend-ecommerce-strategy`)
 - [Discount Not Applying](references/ecommerce/pricing-promotions/ecom-pricing-troubleshoot-not-applying.md) — diagnostic tree

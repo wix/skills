@@ -22,7 +22,6 @@ Discount rules, coupon codes, sales, ribbons, bundles, tiered pricing, and the s
 
 ### Actions — concrete operations
 
-> - [Create coupon](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-coupon) — tags: `[intent:create-coupon]` · priority 0
 > - [Create discount rule (auto-apply)](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-discount-rule) — tags: `[intent:create-discount-rule]` · priority 0
 > - [Add sale ribbon / new ribbon](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-discount-rule) — tags: `[intent:add-ribbon]` · priority 0 · *ribbons are configured via Discount Rules; same recipe*
 > - [Schedule a future sale](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-discount-rule) — tags: `[intent:schedule-sale]` · priority 0 · *uses Discount Rules with `startTime` in the future*
@@ -66,7 +65,7 @@ The agent matches the merchant's natural-language query to an `intent:*` tag (cu
 
 | Merchant query | MerchantContext | Match |
 |---|---|---|
-| "Create a 20% off coupon" | any | `ecom-pricing-create-coupon` via `[intent:create-coupon]` |
+| "Create a 20% off coupon" | any | [Coupons V2 API](https://dev.wix.com/docs/api-reference/business-solutions/coupons/coupons/create-a-coupon) directly — no skill needed (§7.5) |
 | "Run a Black Friday sale" | any | `ecom-pricing-run-a-sale` via `[intent:run-a-sale]` (orchestrator classifies as SEASONAL internally) |
 | "Help me boost my sales" | any | `ecom-pricing-run-a-sale` via `[intent:boost-business]` |
 | "My coupon code XMAS isn't working" | any | `ecom-pricing-troubleshoot-not-applying` |
@@ -80,6 +79,6 @@ If nothing matches, the merchant query is too vague. Ask **one** clarifying ques
 > "Do you want to (a) **create** a specific discount/coupon now, (b) **strategize** a sale or promotion campaign, or (c) **fix** a discount that isn't applying?"
 
 Map the answer → re-dispatch:
-- (a) → `ecom-pricing-create-coupon` (default for "create a discount")
+- (a) → use [Coupons V2 API](https://dev.wix.com/docs/api-reference/business-solutions/coupons/coupons/create-a-coupon) directly for coupons, or `ecom-pricing-create-discount-rule` for auto-apply rules
 - (b) → `ecom-pricing-run-a-sale`
 - (c) → `ecom-pricing-troubleshoot-not-applying`
