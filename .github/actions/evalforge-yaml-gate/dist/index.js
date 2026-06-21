@@ -34223,6 +34223,8 @@ exports.formatEvalPassed = formatEvalPassed;
 exports.formatEvalFailed = formatEvalFailed;
 exports.formatEvalTimeout = formatEvalTimeout;
 exports.formatNoChanges = formatNoChanges;
+exports.formatComparisonResult = formatComparisonResult;
+exports.formatComparisonTimeout = formatComparisonTimeout;
 exports.COMMENT_MARKER = '<!-- evalforge-yaml-gate-action -->';
 const HEADING = 'EvalForge YAML Gate';
 function render(icon, label, body) {
@@ -34285,6 +34287,42 @@ function formatEvalTimeout(runId, runUrl, blocking) {
 }
 function formatNoChanges() {
     return render('✅', 'No Gated Changes', ['Nothing under `evals/` or sibling `.md` changed.']);
+}
+function formatComparisonResult(result) {
+    const { verdict, tag, scenarios } = result.result;
+    const verdictIcon = verdict === 'not-required' ? '✅' : '⚠️';
+    const lines = [
+        exports.COMMENT_MARKER,
+        `## ${verdictIcon} ${HEADING}: Eval Comparison`,
+        '',
+        `**Verdict:** \`${verdict}\` | **Tag:** \`${tag}\``,
+        '',
+        '| Scenario | Required | Winner | Cost (with/without) | Tokens (with/without) | Time (with/without) |',
+        '|---|---|---|---|---|---|',
+    ];
+    for (const s of (scenarios ?? [])) {
+        const winnerIcon = s.pairwiseJudgement.winner === 'tie' ? '≈' : s.pairwiseJudgement.winner === 'with' ? '⬆️' : '⬇️';
+        const costWith = s.with.totalCostUsd.toFixed(3);
+        const costWithout = s.without.totalCostUsd.toFixed(3);
+        const tokWith = `${(s.with.totalTokens / 1000).toFixed(1)}K`;
+        const tokWithout = `${(s.without.totalTokens / 1000).toFixed(1)}K`;
+        const timeWith = `${(s.with.durationMs / 1000).toFixed(1)}s`;
+        const timeWithout = `${(s.without.durationMs / 1000).toFixed(1)}s`;
+        lines.push(`| ${s.scenarioName} | ${s.required ? '✅' : '—'} | ${winnerIcon} ${s.pairwiseJudgement.winner} (${s.pairwiseJudgement.confidence}) | $${costWith} / $${costWithout} | ${tokWith} / ${tokWithout} | ${timeWith} / ${timeWithout} |`);
+    }
+    for (const s of (scenarios ?? [])) {
+        lines.push('', `<details><summary>${s.scenarioName}</summary>`, '', s.reason, '');
+        lines.push('**Assertions (with):**', ...s.with.assertions.map(a => `- ${a.status === 'passed' ? '✅' : '❌'} ${a.name}${a.score !== undefined ? ` (${a.score}/10)` : ''}${a.message ? `: ${a.message}` : ''}`), '');
+        lines.push('**Assertions (without):**', ...s.without.assertions.map(a => `- ${a.status === 'passed' ? '✅' : '❌'} ${a.name}${a.score !== undefined ? ` (${a.score}/10)` : ''}${a.message ? `: ${a.message}` : ''}`), '');
+        if (s.pairwiseJudgement.dimensions) {
+            lines.push('**Dimensions:**', ...Object.entries(s.pairwiseJudgement.dimensions).map(([k, v]) => `- ${k}: **${v.winner}**`), '');
+        }
+        lines.push('</details>');
+    }
+    return lines.join('\n');
+}
+function formatComparisonTimeout(comparisonGroupId, blocking) {
+    return render(blocking ? '⏱' : '⚠️', 'Comparison Timed Out', [`comparisonGroupId: ${comparisonGroupId}`]);
 }
 
 
@@ -34382,6 +34420,10 @@ function getEvalConfig() {
         headSha,
         mcpSkillsRepo,
         blocking: core.getInput('blocking') === 'true',
+        evalPipelineUrl: core.getInput('eval-pipeline-url') || 'https://www.wixapis.com/_api/eval-pipeline',
+        agentName: core.getInput('agent-name') || 'agent',
+        autoApprove: core.getInput('auto-approve') === 'true',
+        triggerEvalCompare: core.getInput('eval-compare') !== 'false',
     };
 }
 
@@ -34567,7 +34609,7 @@ function canonicalDocUrl(filePath, workspace) {
 
 /***/ }),
 
-/***/ 5879:
+/***/ 3942:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
 "use strict";
@@ -34606,17 +34648,16 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.EvalRunTimeoutError = void 0;
-exports.pollUntilDone = pollUntilDone;
+exports.ComparisonTimeoutError = exports.EvalPipelineClient = void 0;
+exports.pollUntilComparisonDone = pollUntilComparisonDone;
 const core = __importStar(__nccwpck_require__(7484));
-const evalforge_1 = __nccwpck_require__(280);
-function isTerminal(status) {
-    return evalforge_1.TERMINAL_RUN_STATUSES.includes(status);
-}
-const POLL_INTERVAL_MS = 30_000;
+const POLL_INTERVAL_MS = 2 * 60_000;
 const POLL_TIMEOUT_MS = 30 * 60 * 1_000;
 const RETRY_LIMIT = 5;
 const RETRY_DELAY_MS = 10_000;
+function delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, Math.max(0, ms)));
+}
 function isRetriable(e) {
     const status = e.status;
     if (status && status >= 500)
@@ -34625,21 +34666,50 @@ function isRetriable(e) {
         return true;
     return false;
 }
-function delay(ms) {
-    return new Promise(resolve => setTimeout(resolve, Math.max(0, ms)));
+class EvalPipelineClient {
+    baseUrl;
+    headers;
+    constructor(baseUrl, appId, appSecret) {
+        this.baseUrl = baseUrl;
+        this.headers = {
+            'Content-Type': 'application/json',
+            'x-app-id': appId,
+            'x-app-secret': appSecret,
+        };
+    }
+    async post(path, body) {
+        const res = await fetch(`${this.baseUrl}${path}`, {
+            method: 'POST',
+            headers: this.headers,
+            body: JSON.stringify(body),
+            signal: AbortSignal.timeout(30_000),
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw Object.assign(new Error(`EvalPipeline POST ${path} → ${res.status}: ${err.error ?? ''}`), { status: res.status });
+        }
+        return res.json();
+    }
+    async runComparison(tags, agentName) {
+        return this.post('/run-comparison', { tags, agentName });
+    }
+    async compareGroup(comparisonGroupId) {
+        return this.post('/compare-group', { comparisonGroupId });
+    }
 }
-async function pollUntilDone(client, projectId, runId) {
+exports.EvalPipelineClient = EvalPipelineClient;
+async function pollUntilComparisonDone(client, comparisonGroupId) {
     const deadline = Date.now() + POLL_TIMEOUT_MS;
     while (Date.now() < deadline) {
-        let status;
+        let result;
         for (let attempt = 0; attempt <= RETRY_LIMIT; attempt++) {
             try {
-                status = await client.getEvalRun(projectId, runId);
+                result = await client.compareGroup(comparisonGroupId);
                 break;
             }
             catch (e) {
                 if (isRetriable(e) && attempt < RETRY_LIMIT) {
-                    core.warning(`Poll attempt failed (retry ${attempt + 1}/${RETRY_LIMIT}): ${e instanceof Error ? e.message : String(e)}`);
+                    core.warning(`compare-group poll failed (retry ${attempt + 1}/${RETRY_LIMIT}): ${e instanceof Error ? e.message : String(e)}`);
                     await delay(RETRY_DELAY_MS);
                 }
                 else {
@@ -34647,20 +34717,23 @@ async function pollUntilDone(client, projectId, runId) {
                 }
             }
         }
-        if (isTerminal(status.status))
-            return status;
-        core.info(`Eval run ${runId}: ${status.status}...`);
+        if (result.status === 'complete') {
+            core.info(`compare-group complete response: ${JSON.stringify(result)}`);
+            return result;
+        }
+        const r = result;
+        core.info(`Comparison ${comparisonGroupId}: ${r.completedRuns}/${r.totalRuns} runs complete...`);
         await delay(Math.min(POLL_INTERVAL_MS, deadline - Date.now()));
     }
-    throw new EvalRunTimeoutError('Eval run timed out after 30 minutes');
+    throw new ComparisonTimeoutError(`Comparison ${comparisonGroupId} timed out after 30 minutes`);
 }
-class EvalRunTimeoutError extends Error {
+class ComparisonTimeoutError extends Error {
     constructor(message) {
         super(message);
-        this.name = 'EvalRunTimeoutError';
+        this.name = 'ComparisonTimeoutError';
     }
 }
-exports.EvalRunTimeoutError = EvalRunTimeoutError;
+exports.ComparisonTimeoutError = ComparisonTimeoutError;
 
 
 /***/ }),
@@ -35014,10 +35087,13 @@ const doc_url_1 = __nccwpck_require__(8515);
 const coverage_1 = __nccwpck_require__(4035);
 const sync_1 = __nccwpck_require__(546);
 const evalforge_1 = __nccwpck_require__(280);
+const eval_pipeline_1 = __nccwpck_require__(3942);
 const workspace_1 = __nccwpck_require__(9620);
 const paths_1 = __nccwpck_require__(6621);
-const eval_run_1 = __nccwpck_require__(5879);
 const comment_1 = __nccwpck_require__(3116);
+function allScenariosRequired(result) {
+    return result.scenarios.length > 0 && result.scenarios.every(s => s.required);
+}
 async function runGate() {
     const config = (0, config_1.getEvalConfig)();
     const octokit = github.getOctokit(config.githubToken);
@@ -35108,68 +35184,43 @@ async function runGate() {
             return;
         }
     }
-    const selected = new Set();
-    for (const names of cov.coveredBy.values()) {
-        for (const n of names) {
-            const id = nameToId.get(n);
-            if (id)
-                selected.add(id);
-        }
-    }
-    const scenarioByPath = new Map();
-    for (const ls of headScenarios.values())
-        scenarioByPath.set(ls.path, ls);
-    for (const f of [...classifiedChanges.evalsAdded, ...classifiedChanges.evalsModified]) {
-        const ls = scenarioByPath.get(f.filename);
-        if (!ls)
-            continue;
-        const id = nameToId.get(ls.scenario.name);
-        if (id)
-            selected.add(id);
-    }
-    if (selected.size === 0) {
-        core.info('Nothing to run');
+    const hasUpserts = plan.actions.some(a => a.kind === 'CREATE' || a.kind === 'UPDATE');
+    if (!hasUpserts) {
+        core.info('No scenarios created or updated — skipping eval pipeline comparison');
         return;
     }
-    const run = await guardedCall(() => evalforge.createEvalRun(config.projectId, {
-        name: `PR #${config.prNumber} YAML-gate`,
-        description: `Gate for PR #${config.prNumber} (${selected.size} scenarios)`,
-        projectId: config.projectId,
-        agentId: config.agentId,
-        scenarioIds: [...selected],
-        // capabilityIds is REQUIRED — without it the agent has no MCP bound at run time. Don't drop it.
-        capabilityIds: [config.mcpId],
-        capabilityVersions: { [config.mcpId]: mcpVersion.id },
-    }), 'Could not create eval run', comment, config);
-    if (!run)
+    if (!config.triggerEvalCompare) {
+        core.info('Eval compare disabled (TRIGGER_EVAL_COMPARE=false) — skipping comparison');
         return;
-    const runUrl = (0, evalforge_1.evalRunUrl)(config.projectId, run.id);
-    const triggered = await guardedCall(() => evalforge.triggerEvalRun(config.projectId, run.id), 'Could not trigger eval run', comment, config);
-    if (!triggered)
+    }
+    const pipeline = new eval_pipeline_1.EvalPipelineClient(config.evalPipelineUrl, config.appId, config.appSecret);
+    const comparison = await guardedCall(() => pipeline.runComparison([draftTag], config.agentName), 'Could not start eval pipeline comparison', comment, config);
+    if (!comparison)
         return;
-    let finalStatus;
+    core.info(`Eval pipeline comparison started: comparisonGroupId=${comparison.comparisonGroupId}`);
     try {
-        finalStatus = await (0, eval_run_1.pollUntilDone)(evalforge, config.projectId, run.id);
+        const done = await (0, eval_pipeline_1.pollUntilComparisonDone)(pipeline, comparison.comparisonGroupId);
+        await comment((0, comment_1.formatComparisonResult)(done));
+        if (config.autoApprove && allScenariosRequired(done.result)) {
+            await octokit.rest.pulls.createReview({
+                owner: config.owner,
+                repo: config.repo,
+                pull_number: config.prNumber,
+                event: 'APPROVE',
+                body: 'All required eval scenarios passed — auto-approved.',
+            });
+            core.info('PR auto-approved: all required scenarios passed');
+        }
     }
     catch (e) {
-        if (e instanceof eval_run_1.EvalRunTimeoutError) {
-            await comment((0, comment_1.formatEvalTimeout)(run.id, runUrl, config.blocking));
-            (0, github_1.fail)(`Eval timed out (run ID: ${run.id})`, config.blocking);
+        if (e instanceof eval_pipeline_1.ComparisonTimeoutError) {
+            await comment((0, comment_1.formatComparisonTimeout)(comparison.comparisonGroupId, config.blocking));
+            (0, github_1.fail)(e.message, config.blocking);
             return;
         }
-        core.error(`Eval polling failed: ${e instanceof Error ? e.message : String(e)}`);
-        await comment((0, comment_1.formatServiceError)('Eval polling failed', config.blocking));
-        (0, github_1.fail)('Eval polling failed', config.blocking);
-        return;
-    }
-    const m = finalStatus.aggregateMetrics;
-    if (finalStatus.status === 'completed' && m.failed === 0 && m.errors === 0) {
-        await comment((0, comment_1.formatEvalPassed)(m, run.id, runUrl));
-        core.info(`Eval passed — ${m.passed}/${m.totalAssertions} (run ID: ${run.id})`);
-    }
-    else {
-        await comment((0, comment_1.formatEvalFailed)(m, run.id, runUrl, config.blocking));
-        (0, github_1.fail)(`Eval failed (${m.passRate}%)`, config.blocking);
+        core.error(`compare-group failed: ${e instanceof Error ? e.message : String(e)}`);
+        await comment((0, comment_1.formatServiceError)('Eval pipeline comparison failed', config.blocking));
+        (0, github_1.fail)('Eval pipeline comparison failed', config.blocking);
     }
 }
 async function guardedCall(fn, userMessage, comment, config) {
