@@ -124,7 +124,7 @@ The Designer owns the design — it **authors `DESIGN.md`** (the tokens) and ret
 
 The plan has two halves: a **decision card** (Sections A + B — what the user weighs in on) and a **technical scope** block (Section C + Imagery — "for free" from the loaded packs, skimmable).
 
-**Section A — Design Direction** (lead): the aesthetic paragraph, then a compact block — aesthetic tone · palette (2–3 colors + hex) · type pairing (display + body) · mood/key visuals · page color strategy (Uniform Light / Uniform Dark / Defined Hybrid).
+**Section A — Design Direction** (lead): the aesthetic paragraph, then a compact block — aesthetic tone · palette (2–3 colors + hex) · type pairing (display + body) · mood/key visuals · page color strategy (Uniform Light / Uniform Dark / Defined Hybrid). (Don't promise a specific page layout — the structural composition is assembled + randomized at build time by `compose.mjs`, after approval.)
 
 **Section B — Features**: 1–2 line bullets of user-facing functionality per pack; tag CMS-powered ones **(CMS-based)**. **Skip features from `disabled: true` packs** (today: `gift-cards`) — the code still ships (page + nav/home contributions) but the plan stays silent until the user enables the app. Non-disabled packs (incl. transitive ones like ecom) contribute normally.
 

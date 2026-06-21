@@ -1,0 +1,20 @@
+  <!-- about fragment: image-left — image left, brand story right -->
+  <section class="max-w-6xl mx-auto px-lg py-4xl grid grid-cols-1 md:grid-cols-2 gap-3xl items-center">
+    <div
+      class="about-image rounded-md order-last md:order-first"
+      data-decorative-slot="about"
+      style="aspect-ratio: 4/3; background-color: var(--color-paper-warm);"
+    >
+      <!-- orchestrator injects <img src={decorativeImages.about} …> here -->
+    </div>
+    <div class="flex flex-col gap-md max-w-prose">
+      <hr class="editorial-rule w-16 ml-0" />
+      <h2 class="font-display text-3xl leading-tight">The story behind {{brand.name}}</h2>
+      <p class="text-ink leading-relaxed">
+        A short, brand-contextual paragraph about what makes {{brand.name}} distinct.
+      </p>
+      <p class="text-mute leading-relaxed">
+        A second paragraph adding warmth and detail to the brand story.
+      </p>
+    </div>
+  </section>
