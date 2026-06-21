@@ -36,6 +36,8 @@ No auth headers required on these endpoints.
 
 Your skill directory includes `.md` reference files with API recipes and error handling for your scope. **Read those first.** Use the doc endpoints above only when you hit an error or endpoint not covered by the bundled recipe — each external doc read costs a tool call and 15–30 s.
 
+**Lookup order for any Wix API:** bundled references → docs-search API (above) → WebSearch. The docs-search API is the source of truth and is always fresher than the open web — reach for it before WebSearch, which is only a fallback when docs-search comes up empty.
+
 ## Absolute paths
 
 Subagents run with the **project directory** as CWD, not the skill root. Every dispatch prompt must include `Instruction file (absolute path): <SKILL_ROOT>/references/<scope>/INSTRUCTIONS.md`. Read that path only; use the absolute sibling paths it lists. Never resolve `references/...` against the project CWD.
