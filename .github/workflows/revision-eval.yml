@@ -20,11 +20,11 @@ jobs:
       pull-requests: write
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-        with:
-          ref: ${{ github.event.pull_request.base.sha }}
-          path: .action-src
-      - uses: ./.action-src/.github/actions/revision-eval
+      # BOOTSTRAP: running the action from the PR checkout so the eval can run on the PR that introduces the action (base branch doesn't have it yet). Once this is on main, revert tothe base-branch checkout pattern below so untrusted PR code can't run with secrets:
+      #   - uses: actions/checkout@<sha>   # v4
+      #     with: { ref: ${{ github.event.pull_request.base.sha }}, path: .action-src }
+      #   - uses: ./.action-src/.github/actions/revision-eval
+      - uses: ./.github/actions/revision-eval
         with:
           mode: eval
           github-token: ${{ secrets.GITHUB_TOKEN }}
