@@ -1,14 +1,16 @@
 ---
 name: bookings
-description: "Service-based booking — services catalog, availability calendar, and booking flow via Wix Bookings."
+description: "Service-based booking — services catalog (with location + category filters and staff selection), availability calendar, and booking flow for appointments and classes via Wix Bookings."
 triggers: ["booking", "appointment", "schedule", "reserve", "class", "session", "consult", "therapy", "lesson", "coaching", "trainer", "tutor", "salon", "spa", "clinic"]
 requires: []
 
 features:
   - name: "Services catalog"
-    description: "Browse bookable appointment services with descriptions, duration, and pricing."
+    description: "Browse bookable appointment and class services with descriptions, duration, and pricing — filterable by category and (for multi-location businesses) by location."
+  - name: "Staff selection"
+    description: "On multi-staff services, choose a specific staff member (or any) and see that staff's availability."
   - name: "Online booking"
-    description: "Pick an available time slot on a calendar, complete the service's booking form, and confirm."
+    description: "Pick an available time slot on a day-grouped availability calendar, complete the service's booking form, and confirm."
   - name: "Secure checkout"
     description: "Free or pay-in-person bookings confirm instantly; paid services hand off to Wix's secure hosted checkout."
 
