@@ -34072,7 +34072,7 @@ else {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.OpenApiResolverClient = exports.EvalForgeClient = exports.HttpMethod = void 0;
+exports.OpenApiResolverClient = exports.EvalForgeClient = exports.EvalRunStatusStatus = exports.HttpMethod = void 0;
 exports.buildMcpOverrideUrl = buildMcpOverrideUrl;
 const reporting_1 = __nccwpck_require__(175);
 var HttpMethod;
@@ -34083,6 +34083,14 @@ var HttpMethod;
 })(HttpMethod || (exports.HttpMethod = HttpMethod = {}));
 const MCP_URL = "https://mcp.wix.com/mcp";
 const MCP_CONFIG_KEY = "wix-mcp-remote";
+var EvalRunStatusStatus;
+(function (EvalRunStatusStatus) {
+    EvalRunStatusStatus["Pending"] = "pending";
+    EvalRunStatusStatus["Running"] = "running";
+    EvalRunStatusStatus["Completed"] = "completed";
+    EvalRunStatusStatus["Failed"] = "failed";
+    EvalRunStatusStatus["Cancelled"] = "cancelled";
+})(EvalRunStatusStatus || (exports.EvalRunStatusStatus = EvalRunStatusStatus = {}));
 function buildMcpOverrideUrl(commitHash) {
     return `${MCP_URL}?skillsPr=${encodeURIComponent(commitHash)}`;
 }
@@ -34415,7 +34423,7 @@ async function createMcpVersionOrReport(octokit, pr, evalforge, mcpId, projectId
         return mcpVersion.id;
     }
     catch (e) {
-        const status = e.status;
+        const status = (0, reporting_1.getErrorStatus)(e);
         if (status === 409) {
             core.warning(`MCP version ${commitHash} already exists — looking up existing version`);
             try {
@@ -34447,28 +34455,29 @@ async function createMcpVersionOrReport(octokit, pr, evalforge, mcpId, projectId
 }
 async function reportEvalResult(octokit, pr, finalStatus, runId, blocking) {
     const { aggregateMetrics: m } = finalStatus;
-    if (finalStatus.status === "completed") {
-        if (m.failed === 0 && m.errors === 0) {
-            await (0, reporting_1.upsertComment)(octokit, pr, (0, reporting_1.formatEvalPassed)(m, runId));
-            core.info(`Eval passed — ${m.passed}/${m.totalAssertions} assertions passed (pass rate: ${m.passRate}%, run ID: ${runId})`);
-        }
-        else {
-            await (0, reporting_1.upsertComment)(octokit, pr, (0, reporting_1.formatEvalFailed)(m, runId, blocking));
-            core.info(`Eval result — ${m.failed} assertions failed, ${m.errors} errors, ${m.passed}/${m.totalAssertions} passed (pass rate: ${m.passRate}%, run ID: ${runId})`);
-            (0, reporting_1.fail)(`Revision evaluation failed (pass rate: ${m.passRate}%)`, blocking);
-        }
-    }
-    else if (finalStatus.status === "failed") {
-        await (0, reporting_1.upsertComment)(octokit, pr, (0, reporting_1.formatServiceError)(`Eval run failed — contact a repository maintainer if this persists (run ID: ${runId})`, blocking));
-        (0, reporting_1.fail)(`Eval run failed (run ID: ${runId})`, blocking);
-    }
-    else if (finalStatus.status === "cancelled") {
-        await (0, reporting_1.upsertComment)(octokit, pr, (0, reporting_1.formatServiceError)(`Eval run was cancelled (run ID: ${runId})`, blocking));
-        (0, reporting_1.fail)(`Eval run was cancelled (run ID: ${runId})`, blocking);
-    }
-    else {
-        await (0, reporting_1.upsertComment)(octokit, pr, (0, reporting_1.formatServiceError)(`Eval run ended with unexpected status: ${finalStatus.status} (run ID: ${runId})`, blocking));
-        (0, reporting_1.fail)(`Eval run ended with unexpected status: ${finalStatus.status}`, blocking);
+    switch (finalStatus.status) {
+        case clients_1.EvalRunStatusStatus.Completed:
+            if (m.failed === 0 && m.errors === 0) {
+                await (0, reporting_1.upsertComment)(octokit, pr, (0, reporting_1.formatEvalPassed)(m, runId));
+                core.info(`Eval passed — ${m.passed}/${m.totalAssertions} assertions passed (pass rate: ${m.passRate}%, run ID: ${runId})`);
+            }
+            else {
+                await (0, reporting_1.upsertComment)(octokit, pr, (0, reporting_1.formatEvalFailed)(m, runId, blocking));
+                core.info(`Eval result — ${m.failed} assertions failed, ${m.errors} errors, ${m.passed}/${m.totalAssertions} passed (pass rate: ${m.passRate}%, run ID: ${runId})`);
+                (0, reporting_1.fail)(`${reporting_1.ErrorMessage.RevisionEvaluationFailed} (pass rate: ${m.passRate}%)`, blocking);
+            }
+            return;
+        case clients_1.EvalRunStatusStatus.Failed:
+            await (0, reporting_1.upsertComment)(octokit, pr, (0, reporting_1.formatServiceError)(`${reporting_1.ErrorMessage.EvalRunFailed} ${reporting_1.MAINTAINER_SUFFIX} (run ID: ${runId})`, blocking));
+            (0, reporting_1.fail)(`${reporting_1.ErrorMessage.EvalRunFailed} (run ID: ${runId})`, blocking);
+            return;
+        case clients_1.EvalRunStatusStatus.Cancelled:
+            await (0, reporting_1.upsertComment)(octokit, pr, (0, reporting_1.formatServiceError)(`${reporting_1.ErrorMessage.EvalRunCancelled} (run ID: ${runId})`, blocking));
+            (0, reporting_1.fail)(`${reporting_1.ErrorMessage.EvalRunCancelled} (run ID: ${runId})`, blocking);
+            return;
+        default:
+            await (0, reporting_1.upsertComment)(octokit, pr, (0, reporting_1.formatServiceError)(`${reporting_1.ErrorMessage.EvalRunUnexpectedStatus} ${finalStatus.status} (run ID: ${runId})`, blocking));
+            (0, reporting_1.fail)(`${reporting_1.ErrorMessage.EvalRunUnexpectedStatus} ${finalStatus.status}`, blocking);
     }
 }
 async function createEvalRunOrReport(octokit, pr, evalforge, projectId, prNumber, tags, agentId, mcpId, mcpVersionId, blocking) {
@@ -34486,13 +34495,6 @@ async function createEvalRunOrReport(octokit, pr, evalforge, projectId, prNumber
         return run.id;
     }
     catch (e) {
-        const status = e.status;
-        if (status === 400) {
-            core.error(`createEvalRun 400 — treating as no matching scenarios. Full error: ${(0, reporting_1.getErrorMessage)(e)}`);
-            await (0, reporting_1.upsertComment)(octokit, pr, (0, reporting_1.formatNoScenarios)(tags, blocking));
-            (0, reporting_1.fail)(`Revision evaluation failed: no scenarios matched tags: ${tags.join(", ")}`, blocking);
-            return null;
-        }
         await (0, reporting_1.reportServiceFailure)(octokit, pr, {
             log: `Failed to create eval run: ${(0, reporting_1.getErrorMessage)(e)}`,
             comment: `${reporting_1.ErrorMessage.EvalRunCreateFailed} ${reporting_1.MAINTAINER_SUFFIX}`,
@@ -34511,8 +34513,8 @@ async function triggerEvalRunOrReport(octokit, pr, evalforge, projectId, runId, 
     catch (e) {
         await (0, reporting_1.reportServiceFailure)(octokit, pr, {
             log: `Failed to trigger eval run: ${(0, reporting_1.getErrorMessage)(e)}`,
-            comment: `Could not trigger eval run ${reporting_1.MAINTAINER_SUFFIX}`,
-            failReason: "Could not trigger eval run",
+            comment: `${reporting_1.ErrorMessage.EvalRunTriggerFailed} ${reporting_1.MAINTAINER_SUFFIX}`,
+            failReason: reporting_1.ErrorMessage.EvalRunTriggerFailed,
             blocking,
         });
         return false;
@@ -34524,15 +34526,15 @@ async function pollEvalRunOrReport(octokit, pr, evalforge, projectId, runId, blo
         return await pollUntilDone(evalforge, projectId, runId);
     }
     catch (e) {
-        if (e.timeout) {
+        if ((0, reporting_1.isTimeoutError)(e)) {
             await (0, reporting_1.upsertComment)(octokit, pr, (0, reporting_1.formatEvalTimeout)(runId, blocking));
-            (0, reporting_1.fail)(`Revision evaluation timed out (run ID: ${runId})`, blocking);
+            (0, reporting_1.fail)(reporting_1.ErrorMessage.EvalRunPollingTimedOut.replace("{runId}", runId), blocking);
             return null;
         }
         await (0, reporting_1.reportServiceFailure)(octokit, pr, {
             log: `Eval run polling failed: ${(0, reporting_1.getErrorMessage)(e)}`,
-            comment: `Eval run polling failed ${reporting_1.MAINTAINER_SUFFIX}`,
-            failReason: "Eval run polling failed",
+            comment: `${reporting_1.ErrorMessage.EvalRunPollingFailed} ${reporting_1.MAINTAINER_SUFFIX}`,
+            failReason: reporting_1.ErrorMessage.EvalRunPollingFailed,
             blocking,
         });
         return null;
@@ -34586,13 +34588,16 @@ async function runEval() {
     await reportEvalResult(octokit, pr, finalStatus, runId, blocking);
 }
 function isRetriable(e) {
-    const status = e.status;
+    const status = (0, reporting_1.getErrorStatus)(e);
     if (status && status >= 500)
         return true;
     if (e instanceof Error &&
         (e.name === "AbortError" || e.name === "TimeoutError"))
         return true;
     return false;
+}
+function isTerminalRunStatus(status) {
+    return (status === "completed" || status === "failed" || status === "cancelled");
 }
 function delay(ms) {
     return new Promise((resolve) => setTimeout(resolve, Math.max(0, ms)));
@@ -34616,10 +34621,8 @@ async function pollUntilDone(client, projectId, runId) {
                 }
             }
         }
-        const terminal = status.status === "completed" ||
-            status.status === "failed" ||
-            status.status === "cancelled";
-        if (terminal)
+        const terminalStatus = isTerminalRunStatus(status.status);
+        if (terminalStatus)
             return status;
         core.info(`Eval run ${runId}: ${status.status}...`);
         await delay(Math.min(POLL_INTERVAL_MS, deadline - Date.now()));
@@ -34701,6 +34704,8 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.MAINTAINER_SUFFIX = exports.ErrorMessage = exports.COMMENT_MARKER = void 0;
 exports.getErrorMessage = getErrorMessage;
+exports.getErrorStatus = getErrorStatus;
+exports.isTimeoutError = isTimeoutError;
 exports.fail = fail;
 exports.formatValidationErrors = formatValidationErrors;
 exports.formatServiceError = formatServiceError;
@@ -34725,10 +34730,23 @@ var ErrorMessage;
     ErrorMessage["McpVersionCreateFailed"] = "Could not create MCP version";
     ErrorMessage["McpVersionLookupFailed"] = "Could not look up existing MCP version";
     ErrorMessage["EvalRunCreateFailed"] = "Could not create eval run";
+    ErrorMessage["EvalRunTriggerFailed"] = "Could not trigger eval run";
+    ErrorMessage["EvalRunPollingFailed"] = "Could not poll eval run";
+    ErrorMessage["EvalRunPollingTimedOut"] = "Revision evaluation timed out (run ID: {runId})";
+    ErrorMessage["EvalRunFailed"] = "Eval run failed";
+    ErrorMessage["EvalRunCancelled"] = "Eval run was cancelled";
+    ErrorMessage["EvalRunUnexpectedStatus"] = "Eval run ended with unexpected status:";
+    ErrorMessage["RevisionEvaluationFailed"] = "Revision evaluation failed";
 })(ErrorMessage || (exports.ErrorMessage = ErrorMessage = {}));
 exports.MAINTAINER_SUFFIX = "— contact a repository maintainer if this persists";
 function getErrorMessage(err) {
     return err instanceof Error ? err.message : String(err);
+}
+function getErrorStatus(err) {
+    return err.status;
+}
+function isTimeoutError(err) {
+    return Boolean(err.timeout);
 }
 function fail(message, blocking) {
     if (blocking)
