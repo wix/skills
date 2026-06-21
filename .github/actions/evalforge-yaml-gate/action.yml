@@ -2,12 +2,13 @@ name: 'EvalForge YAML Gate'
 description: 'Authors YAML scenarios in PRs and runs EvalForge evaluations against PR-version docs'
 inputs:
   mode:
-    description: 'Action mode: "eval" (default) runs the gate on a PR; "promote" applies YAML tags on PR merge; "cleanup" deletes MCP versions and restores or removes draft scenarios on PR close'
+    description: 'Action mode: "eval" (default) runs the gate on a PR; "promote" applies YAML tags on PR merge; "cleanup" deletes MCP versions and restores or removes draft scenarios on PR close; "run-all" runs all production scenarios on a schedule'
     required: false
     default: 'eval'
   github-token:
-    description: 'GitHub token for PR comments'
-    required: true
+    description: 'GitHub token for PR comments (required for eval, promote, cleanup modes)'
+    required: false
+    default: ''
   evalforge-url:
     description: 'EvalForge API base URL'
     required: true
@@ -15,11 +16,12 @@ inputs:
     description: 'EvalForge project ID'
     required: true
   evalforge-agent-id:
-    description: 'EvalForge agent ID for eval runs (required for eval mode)'
+    description: 'EvalForge agent ID for eval runs (required for eval and run-all modes)'
     required: false
   evalforge-mcp-id:
-    description: 'EvalForge MCP capability ID'
-    required: true
+    description: 'EvalForge MCP capability ID (required for eval, promote, cleanup modes)'
+    required: false
+    default: ''
   evalforge-app-id:
     description: 'EvalForge app ID for authentication'
     required: true
@@ -50,6 +52,27 @@ inputs:
     description: 'Run the eval pipeline comparison (set to false to skip, e.g. via TRIGGER_EVAL_COMPARE repo var)'
     required: false
     default: 'true'
+  run-name:
+    description: 'Name for the eval run (run-all mode only)'
+    required: false
+    default: 'scheduled-run'
+outputs:
+  status:
+    description: 'Eval run terminal status: completed, failed, cancelled, timeout, or skipped (run-all mode only)'
+  passed:
+    description: 'Number of passed assertions (run-all mode only)'
+  failed:
+    description: 'Number of failed assertions (run-all mode only)'
+  total:
+    description: 'Total number of assertions (run-all mode only)'
+  pass-rate:
+    description: 'Pass rate as an integer percentage 0-100 (run-all mode only)'
+  run-id:
+    description: 'EvalForge eval run ID (run-all mode only)'
+  run-url:
+    description: 'Link to EvalForge results page (run-all mode only)'
+  summary:
+    description: 'Human-readable one-line summary of the run (run-all mode only)'
 runs:
   using: 'node20'
   main: 'dist/index.js'
