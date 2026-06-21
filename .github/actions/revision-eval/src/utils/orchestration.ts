@@ -62,7 +62,6 @@ export async function loadFixtureOrReport(
   octokit: Octokit,
   pr: PrContext,
   workspaceRoot: string,
-  blocking: boolean,
 ): Promise<Fixture | null> {
   try {
     return loadFixture(workspaceRoot);
@@ -71,7 +70,6 @@ export async function loadFixtureOrReport(
       log: `Failed to load entity fixture: ${getErrorMessage(e)}`,
       comment: `Could not load entity fixture ${MAINTAINER_SUFFIX}`,
       failReason: "Could not load entity fixture",
-      blocking,
     });
     return null;
   }
@@ -84,7 +82,6 @@ export async function stageRevisionOrReport(
   appSecret: string,
   fixture: Fixture,
   commitHash: string,
-  blocking: boolean,
 ): Promise<string | null> {
   const resolver = new OpenApiResolverClient(appId, appSecret);
   try {
@@ -101,7 +98,6 @@ export async function stageRevisionOrReport(
       log: `Failed to stage revision for ${fixture.path}: ${getErrorMessage(e)}`,
       comment: `${ErrorMessage.RevisionStageFailed} \`${fixture.path}\` ${MAINTAINER_SUFFIX}`,
       failReason: `${ErrorMessage.RevisionStageFailed} ${fixture.path}`,
-      blocking,
     });
     return null;
   }
@@ -115,7 +111,6 @@ export async function createMcpVersionOrReport(
   projectId: string,
   commitHash: string,
   prNumber: number,
-  blocking: boolean,
 ): Promise<string | null> {
   try {
     const mcpVersion = await evalforge.createMcpVersion(
@@ -146,7 +141,6 @@ export async function createMcpVersionOrReport(
           log: `Failed to look up existing MCP version: ${getErrorMessage(lookupErr)}`,
           comment: `${ErrorMessage.McpVersionLookupFailed} ${MAINTAINER_SUFFIX}`,
           failReason: ErrorMessage.McpVersionLookupFailed,
-          blocking,
         });
         return null;
       }
@@ -156,7 +150,6 @@ export async function createMcpVersionOrReport(
       log: `Failed to create MCP version: ${getErrorMessage(e)}`,
       comment: `${ErrorMessage.McpVersionCreateFailed} ${MAINTAINER_SUFFIX}`,
       failReason: ErrorMessage.McpVersionCreateFailed,
-      blocking,
     });
     return null;
   }
@@ -167,7 +160,6 @@ export async function reportEvalResult(
   pr: PrContext,
   finalStatus: EvalRunStatus,
   runId: string,
-  blocking: boolean,
 ): Promise<void> {
   const { aggregateMetrics: m } = finalStatus;
 
@@ -179,14 +171,11 @@ export async function reportEvalResult(
           `Eval passed — ${m.passed}/${m.totalAssertions} assertions passed (pass rate: ${m.passRate}%, run ID: ${runId})`,
         );
       } else {
-        await upsertComment(octokit, pr, formatEvalFailed(m, runId, blocking));
+        await upsertComment(octokit, pr, formatEvalFailed(m, runId));
         core.info(
           `Eval result — ${m.failed} assertions failed, ${m.errors} errors, ${m.passed}/${m.totalAssertions} passed (pass rate: ${m.passRate}%, run ID: ${runId})`,
         );
-        fail(
-          `${ErrorMessage.RevisionEvaluationFailed} (pass rate: ${m.passRate}%)`,
-          blocking,
-        );
+        fail(`${ErrorMessage.RevisionEvaluationFailed} (pass rate: ${m.passRate}%)`);
       }
       return;
     case EvalRunStatusStatus.Failed:
@@ -195,21 +184,17 @@ export async function reportEvalResult(
         pr,
         formatServiceError(
           `${ErrorMessage.EvalRunFailed} ${MAINTAINER_SUFFIX} (run ID: ${runId})`,
-          blocking,
         ),
       );
-      fail(`${ErrorMessage.EvalRunFailed} (run ID: ${runId})`, blocking);
+      fail(`${ErrorMessage.EvalRunFailed} (run ID: ${runId})`);
       return;
     case EvalRunStatusStatus.Cancelled:
       await upsertComment(
         octokit,
         pr,
-        formatServiceError(
-          `${ErrorMessage.EvalRunCancelled} (run ID: ${runId})`,
-          blocking,
-        ),
+        formatServiceError(`${ErrorMessage.EvalRunCancelled} (run ID: ${runId})`),
       );
-      fail(`${ErrorMessage.EvalRunCancelled} (run ID: ${runId})`, blocking);
+      fail(`${ErrorMessage.EvalRunCancelled} (run ID: ${runId})`);
       return;
     default:
       await upsertComment(
@@ -217,13 +202,9 @@ export async function reportEvalResult(
         pr,
         formatServiceError(
           `${ErrorMessage.EvalRunUnexpectedStatus} ${finalStatus.status} (run ID: ${runId})`,
-          blocking,
         ),
       );
-      fail(
-        `${ErrorMessage.EvalRunUnexpectedStatus} ${finalStatus.status}`,
-        blocking,
-      );
+      fail(`${ErrorMessage.EvalRunUnexpectedStatus} ${finalStatus.status}`);
   }
 }
 
@@ -237,7 +218,6 @@ export async function createEvalRunOrReport(
   agentId: string,
   mcpId: string,
   mcpVersionId: string,
-  blocking: boolean,
 ): Promise<string | null> {
   try {
     const run = await evalforge.createEvalRun(projectId, {
@@ -259,7 +239,6 @@ export async function createEvalRunOrReport(
       log: `Failed to create eval run: ${getErrorMessage(e)}`,
       comment: `${ErrorMessage.EvalRunCreateFailed} ${MAINTAINER_SUFFIX}`,
       failReason: ErrorMessage.EvalRunCreateFailed,
-      blocking,
     });
     return null;
   }
@@ -271,7 +250,6 @@ export async function triggerEvalRunOrReport(
   evalforge: EvalForgeClient,
   projectId: string,
   runId: string,
-  blocking: boolean,
 ): Promise<boolean> {
   try {
     await evalforge.triggerEvalRun(projectId, runId);
@@ -282,7 +260,6 @@ export async function triggerEvalRunOrReport(
       log: `Failed to trigger eval run: ${getErrorMessage(e)}`,
       comment: `${ErrorMessage.EvalRunTriggerFailed} ${MAINTAINER_SUFFIX}`,
       failReason: ErrorMessage.EvalRunTriggerFailed,
-      blocking,
     });
     return false;
   }
@@ -294,25 +271,20 @@ export async function pollEvalRunOrReport(
   evalforge: EvalForgeClient,
   projectId: string,
   runId: string,
-  blocking: boolean,
 ): Promise<EvalRunStatus | null> {
   core.info(`Polling eval run ${runId}...`);
   try {
     return await pollUntilDone(evalforge, projectId, runId);
   } catch (e) {
     if (isTimeoutError(e)) {
-      await upsertComment(octokit, pr, formatEvalTimeout(runId, blocking));
-      fail(
-        ErrorMessage.EvalRunPollingTimedOut.replace("{runId}", runId),
-        blocking,
-      );
+      await upsertComment(octokit, pr, formatEvalTimeout(runId));
+      fail(ErrorMessage.EvalRunPollingTimedOut.replace("{runId}", runId));
       return null;
     }
     await reportServiceFailure(octokit, pr, {
       log: `Eval run polling failed: ${getErrorMessage(e)}`,
       comment: `${ErrorMessage.EvalRunPollingFailed} ${MAINTAINER_SUFFIX}`,
       failReason: ErrorMessage.EvalRunPollingFailed,
-      blocking,
     });
     return null;
   }
@@ -332,7 +304,6 @@ export async function runEval(): Promise<void> {
     headSha,
     owner,
     repo,
-    blocking,
   } = getEvalConfig();
   const octokit = github.getOctokit(githubToken);
   const pr = { owner, repo, prNumber };
@@ -360,12 +331,7 @@ export async function runEval(): Promise<void> {
     return;
   }
 
-  const fixture = await loadFixtureOrReport(
-    octokit,
-    pr,
-    workspaceRoot,
-    blocking,
-  );
+  const fixture = await loadFixtureOrReport(octokit, pr, workspaceRoot);
   if (!fixture) {
     return;
   }
@@ -382,7 +348,6 @@ export async function runEval(): Promise<void> {
     appSecret,
     fixture,
     commitHash,
-    blocking,
   );
   if (!resourceId) {
     return;
@@ -398,7 +363,6 @@ export async function runEval(): Promise<void> {
     projectId,
     commitHash,
     prNumber,
-    blocking,
   );
   if (!mcpVersionId) {
     return;
@@ -414,7 +378,6 @@ export async function runEval(): Promise<void> {
     agentId,
     mcpId,
     mcpVersionId,
-    blocking,
   );
   if (!runId) {
     return;
@@ -426,7 +389,6 @@ export async function runEval(): Promise<void> {
     evalforge,
     projectId,
     runId,
-    blocking,
   );
   if (!triggered) {
     return;
@@ -438,13 +400,12 @@ export async function runEval(): Promise<void> {
     evalforge,
     projectId,
     runId,
-    blocking,
   );
   if (!finalStatus) {
     return;
   }
 
-  await reportEvalResult(octokit, pr, finalStatus, runId, blocking);
+  await reportEvalResult(octokit, pr, finalStatus, runId);
 }
 
 function isRetriable(e: unknown): boolean {

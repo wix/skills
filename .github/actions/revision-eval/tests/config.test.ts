@@ -37,7 +37,6 @@ const ALL_INPUTS: Record<string, string> = {
   "evalforge-mcp-id": "mcp-1",
   "evalforge-app-id": "app-1",
   "evalforge-app-secret": "secret-1",
-  blocking: "true",
 };
 
 beforeEach(() => {
@@ -80,13 +79,6 @@ describe("getEvalConfig", () => {
     expect(vi.mocked(core.setSecret)).toHaveBeenCalledWith("secret-1");
   });
 
-  it("blocking is true when input is absent (empty string)", () => {
-    vi.mocked(core.getInput).mockImplementation(
-      (name: string) => ({ ...ALL_INPUTS, blocking: "" })[name] ?? "",
-    );
-    expect(getEvalConfig().blocking).toBe(true);
-  });
-
   it("throws when a URL input is not HTTPS", () => {
     vi.mocked(core.getInput).mockImplementation(
       (name: string) =>
@@ -123,10 +115,9 @@ describe("getCleanupConfig", () => {
     expect(config.prNumber).toBe(42);
   });
 
-  it("does not include agentId, blocking, baseSha, headSha, owner, or repo", () => {
+  it("does not include agentId, baseSha, headSha, owner, or repo", () => {
     const config = getCleanupConfig();
     expect(config).not.toHaveProperty("agentId");
-    expect(config).not.toHaveProperty("blocking");
     expect(config).not.toHaveProperty("baseSha");
     expect(config).not.toHaveProperty("headSha");
     expect(config).not.toHaveProperty("owner");

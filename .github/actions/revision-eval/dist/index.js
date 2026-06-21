@@ -34301,7 +34301,6 @@ function getEvalConfig() {
         headSha,
         owner: github.context.repo.owner,
         repo: github.context.repo.repo,
-        blocking: core.getInput("blocking") !== "false",
     };
 }
 function getCleanupConfig() {
@@ -34391,7 +34390,7 @@ async function collectScenarioTagsOrReport(octokit, pr, changedScenarios, worksp
         return null;
     }
 }
-async function loadFixtureOrReport(octokit, pr, workspaceRoot, blocking) {
+async function loadFixtureOrReport(octokit, pr, workspaceRoot) {
     try {
         return (0, config_1.loadFixture)(workspaceRoot);
     }
@@ -34400,12 +34399,11 @@ async function loadFixtureOrReport(octokit, pr, workspaceRoot, blocking) {
             log: `Failed to load entity fixture: ${(0, reporting_1.getErrorMessage)(e)}`,
             comment: `Could not load entity fixture ${reporting_1.MAINTAINER_SUFFIX}`,
             failReason: "Could not load entity fixture",
-            blocking,
         });
         return null;
     }
 }
-async function stageRevisionOrReport(octokit, pr, appId, appSecret, fixture, commitHash, blocking) {
+async function stageRevisionOrReport(octokit, pr, appId, appSecret, fixture, commitHash) {
     const resolver = new clients_1.OpenApiResolverClient(appId, appSecret);
     try {
         const { resourceId } = await resolver.entityToRevision(fixture.entity, commitHash);
@@ -34417,12 +34415,11 @@ async function stageRevisionOrReport(octokit, pr, appId, appSecret, fixture, com
             log: `Failed to stage revision for ${fixture.path}: ${(0, reporting_1.getErrorMessage)(e)}`,
             comment: `${reporting_1.ErrorMessage.RevisionStageFailed} \`${fixture.path}\` ${reporting_1.MAINTAINER_SUFFIX}`,
             failReason: `${reporting_1.ErrorMessage.RevisionStageFailed} ${fixture.path}`,
-            blocking,
         });
         return null;
     }
 }
-async function createMcpVersionOrReport(octokit, pr, evalforge, mcpId, projectId, commitHash, prNumber, blocking) {
+async function createMcpVersionOrReport(octokit, pr, evalforge, mcpId, projectId, commitHash, prNumber) {
     try {
         const mcpVersion = await evalforge.createMcpVersion(mcpId, projectId, commitHash, prNumber);
         core.info(`Created MCP version ${commitHash} (${mcpVersion.id})`);
@@ -34445,7 +34442,6 @@ async function createMcpVersionOrReport(octokit, pr, evalforge, mcpId, projectId
                     log: `Failed to look up existing MCP version: ${(0, reporting_1.getErrorMessage)(lookupErr)}`,
                     comment: `${reporting_1.ErrorMessage.McpVersionLookupFailed} ${reporting_1.MAINTAINER_SUFFIX}`,
                     failReason: reporting_1.ErrorMessage.McpVersionLookupFailed,
-                    blocking,
                 });
                 return null;
             }
@@ -34454,12 +34450,11 @@ async function createMcpVersionOrReport(octokit, pr, evalforge, mcpId, projectId
             log: `Failed to create MCP version: ${(0, reporting_1.getErrorMessage)(e)}`,
             comment: `${reporting_1.ErrorMessage.McpVersionCreateFailed} ${reporting_1.MAINTAINER_SUFFIX}`,
             failReason: reporting_1.ErrorMessage.McpVersionCreateFailed,
-            blocking,
         });
         return null;
     }
 }
-async function reportEvalResult(octokit, pr, finalStatus, runId, blocking) {
+async function reportEvalResult(octokit, pr, finalStatus, runId) {
     const { aggregateMetrics: m } = finalStatus;
     switch (finalStatus.status) {
         case clients_1.EvalRunStatusStatus.Completed:
@@ -34468,25 +34463,25 @@ async function reportEvalResult(octokit, pr, finalStatus, runId, blocking) {
                 core.info(`Eval passed — ${m.passed}/${m.totalAssertions} assertions passed (pass rate: ${m.passRate}%, run ID: ${runId})`);
             }
             else {
-                await (0, reporting_1.upsertComment)(octokit, pr, (0, reporting_1.formatEvalFailed)(m, runId, blocking));
+                await (0, reporting_1.upsertComment)(octokit, pr, (0, reporting_1.formatEvalFailed)(m, runId));
                 core.info(`Eval result — ${m.failed} assertions failed, ${m.errors} errors, ${m.passed}/${m.totalAssertions} passed (pass rate: ${m.passRate}%, run ID: ${runId})`);
-                (0, reporting_1.fail)(`${reporting_1.ErrorMessage.RevisionEvaluationFailed} (pass rate: ${m.passRate}%)`, blocking);
+                (0, reporting_1.fail)(`${reporting_1.ErrorMessage.RevisionEvaluationFailed} (pass rate: ${m.passRate}%)`);
             }
             return;
         case clients_1.EvalRunStatusStatus.Failed:
-            await (0, reporting_1.upsertComment)(octokit, pr, (0, reporting_1.formatServiceError)(`${reporting_1.ErrorMessage.EvalRunFailed} ${reporting_1.MAINTAINER_SUFFIX} (run ID: ${runId})`, blocking));
-            (0, reporting_1.fail)(`${reporting_1.ErrorMessage.EvalRunFailed} (run ID: ${runId})`, blocking);
+            await (0, reporting_1.upsertComment)(octokit, pr, (0, reporting_1.formatServiceError)(`${reporting_1.ErrorMessage.EvalRunFailed} ${reporting_1.MAINTAINER_SUFFIX} (run ID: ${runId})`));
+            (0, reporting_1.fail)(`${reporting_1.ErrorMessage.EvalRunFailed} (run ID: ${runId})`);
             return;
         case clients_1.EvalRunStatusStatus.Cancelled:
-            await (0, reporting_1.upsertComment)(octokit, pr, (0, reporting_1.formatServiceError)(`${reporting_1.ErrorMessage.EvalRunCancelled} (run ID: ${runId})`, blocking));
-            (0, reporting_1.fail)(`${reporting_1.ErrorMessage.EvalRunCancelled} (run ID: ${runId})`, blocking);
+            await (0, reporting_1.upsertComment)(octokit, pr, (0, reporting_1.formatServiceError)(`${reporting_1.ErrorMessage.EvalRunCancelled} (run ID: ${runId})`));
+            (0, reporting_1.fail)(`${reporting_1.ErrorMessage.EvalRunCancelled} (run ID: ${runId})`);
             return;
         default:
-            await (0, reporting_1.upsertComment)(octokit, pr, (0, reporting_1.formatServiceError)(`${reporting_1.ErrorMessage.EvalRunUnexpectedStatus} ${finalStatus.status} (run ID: ${runId})`, blocking));
-            (0, reporting_1.fail)(`${reporting_1.ErrorMessage.EvalRunUnexpectedStatus} ${finalStatus.status}`, blocking);
+            await (0, reporting_1.upsertComment)(octokit, pr, (0, reporting_1.formatServiceError)(`${reporting_1.ErrorMessage.EvalRunUnexpectedStatus} ${finalStatus.status} (run ID: ${runId})`));
+            (0, reporting_1.fail)(`${reporting_1.ErrorMessage.EvalRunUnexpectedStatus} ${finalStatus.status}`);
     }
 }
-async function createEvalRunOrReport(octokit, pr, evalforge, projectId, prNumber, tags, agentId, mcpId, mcpVersionId, blocking) {
+async function createEvalRunOrReport(octokit, pr, evalforge, projectId, prNumber, tags, agentId, mcpId, mcpVersionId) {
     try {
         const run = await evalforge.createEvalRun(projectId, {
             name: `PR #${prNumber} revision eval`,
@@ -34505,12 +34500,11 @@ async function createEvalRunOrReport(octokit, pr, evalforge, projectId, prNumber
             log: `Failed to create eval run: ${(0, reporting_1.getErrorMessage)(e)}`,
             comment: `${reporting_1.ErrorMessage.EvalRunCreateFailed} ${reporting_1.MAINTAINER_SUFFIX}`,
             failReason: reporting_1.ErrorMessage.EvalRunCreateFailed,
-            blocking,
         });
         return null;
     }
 }
-async function triggerEvalRunOrReport(octokit, pr, evalforge, projectId, runId, blocking) {
+async function triggerEvalRunOrReport(octokit, pr, evalforge, projectId, runId) {
     try {
         await evalforge.triggerEvalRun(projectId, runId);
         core.info(`Triggered eval run ${runId}`);
@@ -34521,33 +34515,31 @@ async function triggerEvalRunOrReport(octokit, pr, evalforge, projectId, runId, 
             log: `Failed to trigger eval run: ${(0, reporting_1.getErrorMessage)(e)}`,
             comment: `${reporting_1.ErrorMessage.EvalRunTriggerFailed} ${reporting_1.MAINTAINER_SUFFIX}`,
             failReason: reporting_1.ErrorMessage.EvalRunTriggerFailed,
-            blocking,
         });
         return false;
     }
 }
-async function pollEvalRunOrReport(octokit, pr, evalforge, projectId, runId, blocking) {
+async function pollEvalRunOrReport(octokit, pr, evalforge, projectId, runId) {
     core.info(`Polling eval run ${runId}...`);
     try {
         return await pollUntilDone(evalforge, projectId, runId);
     }
     catch (e) {
         if ((0, reporting_1.isTimeoutError)(e)) {
-            await (0, reporting_1.upsertComment)(octokit, pr, (0, reporting_1.formatEvalTimeout)(runId, blocking));
-            (0, reporting_1.fail)(reporting_1.ErrorMessage.EvalRunPollingTimedOut.replace("{runId}", runId), blocking);
+            await (0, reporting_1.upsertComment)(octokit, pr, (0, reporting_1.formatEvalTimeout)(runId));
+            (0, reporting_1.fail)(reporting_1.ErrorMessage.EvalRunPollingTimedOut.replace("{runId}", runId));
             return null;
         }
         await (0, reporting_1.reportServiceFailure)(octokit, pr, {
             log: `Eval run polling failed: ${(0, reporting_1.getErrorMessage)(e)}`,
             comment: `${reporting_1.ErrorMessage.EvalRunPollingFailed} ${reporting_1.MAINTAINER_SUFFIX}`,
             failReason: reporting_1.ErrorMessage.EvalRunPollingFailed,
-            blocking,
         });
         return null;
     }
 }
 async function runEval() {
-    const { githubToken, scenariosDir, evalforgeUrl, projectId, agentId, mcpId, appId, appSecret, prNumber, headSha, owner, repo, blocking, } = (0, config_1.getEvalConfig)();
+    const { githubToken, scenariosDir, evalforgeUrl, projectId, agentId, mcpId, appId, appSecret, prNumber, headSha, owner, repo, } = (0, config_1.getEvalConfig)();
     const octokit = github.getOctokit(githubToken);
     const pr = { owner, repo, prNumber };
     core.info(`Revision eval — PR #${prNumber}`);
@@ -34564,34 +34556,34 @@ async function runEval() {
     if (!tags) {
         return;
     }
-    const fixture = await loadFixtureOrReport(octokit, pr, workspaceRoot, blocking);
+    const fixture = await loadFixtureOrReport(octokit, pr, workspaceRoot);
     if (!fixture) {
         return;
     }
     const commitHash = `pr-${prNumber}-${headSha.slice(0, 7)}`;
     core.info(`Eval tags: ${tags.join(", ")}\nFixture: ${fixture.path}\ncommitHash: ${commitHash}`);
-    const resourceId = await stageRevisionOrReport(octokit, pr, appId, appSecret, fixture, commitHash, blocking);
+    const resourceId = await stageRevisionOrReport(octokit, pr, appId, appSecret, fixture, commitHash);
     if (!resourceId) {
         return;
     }
     const evalforge = new clients_1.EvalForgeClient(evalforgeUrl, appId, appSecret);
-    const mcpVersionId = await createMcpVersionOrReport(octokit, pr, evalforge, mcpId, projectId, commitHash, prNumber, blocking);
+    const mcpVersionId = await createMcpVersionOrReport(octokit, pr, evalforge, mcpId, projectId, commitHash, prNumber);
     if (!mcpVersionId) {
         return;
     }
-    const runId = await createEvalRunOrReport(octokit, pr, evalforge, projectId, prNumber, tags, agentId, mcpId, mcpVersionId, blocking);
+    const runId = await createEvalRunOrReport(octokit, pr, evalforge, projectId, prNumber, tags, agentId, mcpId, mcpVersionId);
     if (!runId) {
         return;
     }
-    const triggered = await triggerEvalRunOrReport(octokit, pr, evalforge, projectId, runId, blocking);
+    const triggered = await triggerEvalRunOrReport(octokit, pr, evalforge, projectId, runId);
     if (!triggered) {
         return;
     }
-    const finalStatus = await pollEvalRunOrReport(octokit, pr, evalforge, projectId, runId, blocking);
+    const finalStatus = await pollEvalRunOrReport(octokit, pr, evalforge, projectId, runId);
     if (!finalStatus) {
         return;
     }
-    await reportEvalResult(octokit, pr, finalStatus, runId, blocking);
+    await reportEvalResult(octokit, pr, finalStatus, runId);
 }
 function isRetriable(e) {
     const status = (0, reporting_1.getErrorStatus)(e);
@@ -34746,7 +34738,13 @@ var ErrorMessage;
 })(ErrorMessage || (exports.ErrorMessage = ErrorMessage = {}));
 exports.MAINTAINER_SUFFIX = "— contact a repository maintainer if this persists";
 function getErrorMessage(err) {
-    return err instanceof Error ? err.message : String(err);
+    if (!(err instanceof Error))
+        return String(err);
+    const cause = err.cause;
+    if (cause instanceof Error && cause.message) {
+        return `${err.message}: ${cause.message}`;
+    }
+    return err.message;
 }
 function getErrorStatus(err) {
     return err.status;
@@ -34754,11 +34752,8 @@ function getErrorStatus(err) {
 function isTimeoutError(err) {
     return Boolean(err.timeout);
 }
-function fail(message, blocking) {
-    if (blocking)
-        core.setFailed(message);
-    else
-        core.warning(message);
+function fail(message) {
+    core.setFailed(message);
 }
 function formatValidationErrors(errors) {
     const lines = errors
@@ -34766,17 +34761,13 @@ function formatValidationErrors(errors) {
         .join("\n");
     return [exports.COMMENT_MARKER, "## ❌ Revision Validation: Failed", "", lines].join("\n");
 }
-function formatServiceError(message, blocking = true) {
-    const icon = blocking ? "❌" : "⚠️";
-    const heading = blocking
-        ? "Revision Evaluation: Error"
-        : "Revision Evaluation: Warning";
-    return `${exports.COMMENT_MARKER}\n## ${icon} ${heading}\n\n${message}`;
+function formatServiceError(message) {
+    return `${exports.COMMENT_MARKER}\n## ❌ Revision Evaluation: Error\n\n${message}`;
 }
 async function reportServiceFailure(octokit, pr, opts) {
     core.error(opts.log);
-    await upsertComment(octokit, pr, formatServiceError(opts.comment, opts.blocking));
-    fail(opts.failReason, opts.blocking);
+    await upsertComment(octokit, pr, formatServiceError(opts.comment));
+    fail(opts.failReason);
 }
 function formatEvalPassed(metrics, runId) {
     return [
@@ -34787,33 +34778,27 @@ function formatEvalPassed(metrics, runId) {
         `Run ID: ${runId}`,
     ].join("\n");
 }
-function formatEvalFailed(metrics, runId, blocking) {
-    const icon = blocking ? "❌" : "⚠️";
-    const label = blocking
-        ? "Revision Evaluation: Failed"
-        : "Revision Evaluation: Warning";
+function formatEvalFailed(metrics, runId) {
     return [
         exports.COMMENT_MARKER,
-        `## ${icon} ${label}`,
+        `## ❌ Revision Evaluation: Failed`,
         "",
         `Pass rate: ${metrics.passRate}%`,
         `Run ID: ${runId}`,
     ].join("\n");
 }
-function formatEvalTimeout(runId, blocking) {
-    const icon = blocking ? "⏱" : "⚠️";
+function formatEvalTimeout(runId) {
     return [
         exports.COMMENT_MARKER,
-        `## ${icon} Revision Evaluation: Timed Out`,
+        `## ⏱ Revision Evaluation: Timed Out`,
         "",
         `Run ID: ${runId}`,
     ].join("\n");
 }
-function formatNoScenarios(tags, blocking) {
-    const icon = blocking ? "❌" : "⚠️";
+function formatNoScenarios(tags) {
     return [
         exports.COMMENT_MARKER,
-        `## ${icon} Revision Evaluation: No Matching Scenarios`,
+        `## ❌ Revision Evaluation: No Matching Scenarios`,
         "",
         `No scenarios matched tags: ${tags.map((t) => `\`${t}\``).join(", ")}`,
     ].join("\n");

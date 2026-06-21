@@ -16,7 +16,6 @@ export interface ServiceFailure {
   log: string;
   comment: string;
   failReason: string;
-  blocking: boolean;
 }
 
 export const COMMENT_MARKER = "<!-- revision-eval-action -->";
@@ -44,7 +43,12 @@ export const MAINTAINER_SUFFIX =
   "— contact a repository maintainer if this persists";
 
 export function getErrorMessage(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
+  if (!(err instanceof Error)) return String(err);
+  const cause = (err as { cause?: unknown }).cause;
+  if (cause instanceof Error && cause.message) {
+    return `${err.message}: ${cause.message}`;
+  }
+  return err.message;
 }
 
 export function getErrorStatus(err: unknown): number | undefined {
@@ -55,9 +59,8 @@ export function isTimeoutError(err: unknown): boolean {
   return Boolean((err as { timeout?: boolean }).timeout);
 }
 
-export function fail(message: string, blocking: boolean): void {
-  if (blocking) core.setFailed(message);
-  else core.warning(message);
+export function fail(message: string): void {
+  core.setFailed(message);
 }
 
 export function formatValidationErrors(errors: ValidationError[]): string {
@@ -69,12 +72,8 @@ export function formatValidationErrors(errors: ValidationError[]): string {
   );
 }
 
-export function formatServiceError(message: string, blocking = true): string {
-  const icon = blocking ? "❌" : "⚠️";
-  const heading = blocking
-    ? "Revision Evaluation: Error"
-    : "Revision Evaluation: Warning";
-  return `${COMMENT_MARKER}\n## ${icon} ${heading}\n\n${message}`;
+export function formatServiceError(message: string): string {
+  return `${COMMENT_MARKER}\n## ❌ Revision Evaluation: Error\n\n${message}`;
 }
 
 export async function reportServiceFailure(
@@ -83,12 +82,8 @@ export async function reportServiceFailure(
   opts: ServiceFailure,
 ): Promise<void> {
   core.error(opts.log);
-  await upsertComment(
-    octokit,
-    pr,
-    formatServiceError(opts.comment, opts.blocking),
-  );
-  fail(opts.failReason, opts.blocking);
+  await upsertComment(octokit, pr, formatServiceError(opts.comment));
+  fail(opts.failReason);
 }
 
 export function formatEvalPassed(
@@ -107,36 +102,29 @@ export function formatEvalPassed(
 export function formatEvalFailed(
   metrics: EvalRunStatus["aggregateMetrics"],
   runId: string,
-  blocking: boolean,
 ): string {
-  const icon = blocking ? "❌" : "⚠️";
-  const label = blocking
-    ? "Revision Evaluation: Failed"
-    : "Revision Evaluation: Warning";
   return [
     COMMENT_MARKER,
-    `## ${icon} ${label}`,
+    `## ❌ Revision Evaluation: Failed`,
     "",
     `Pass rate: ${metrics.passRate}%`,
     `Run ID: ${runId}`,
   ].join("\n");
 }
 
-export function formatEvalTimeout(runId: string, blocking: boolean): string {
-  const icon = blocking ? "⏱" : "⚠️";
+export function formatEvalTimeout(runId: string): string {
   return [
     COMMENT_MARKER,
-    `## ${icon} Revision Evaluation: Timed Out`,
+    `## ⏱ Revision Evaluation: Timed Out`,
     "",
     `Run ID: ${runId}`,
   ].join("\n");
 }
 
-export function formatNoScenarios(tags: string[], blocking: boolean): string {
-  const icon = blocking ? "❌" : "⚠️";
+export function formatNoScenarios(tags: string[]): string {
   return [
     COMMENT_MARKER,
-    `## ${icon} Revision Evaluation: No Matching Scenarios`,
+    `## ❌ Revision Evaluation: No Matching Scenarios`,
     "",
     `No scenarios matched tags: ${tags.map((t) => `\`${t}\``).join(", ")}`,
   ].join("\n");

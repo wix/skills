@@ -27,7 +27,6 @@ const config: Config = {
   headSha: "def456",
   owner: "wix",
   repo: "skills",
-  blocking: true,
 };
 
 vi.mock("@actions/core", () => ({
@@ -91,94 +90,34 @@ describe("eval result formatters", () => {
     const body = formatEvalFailed(
       { ...metrics, passed: 8, failed: 2, passRate: 80 },
       "run-123",
-      true,
     );
     expect(body).toContain(COMMENT_MARKER);
     expect(body).toContain("❌");
+    expect(body).toContain("Revision Evaluation: Failed");
     expect(body).toContain("80%");
     expect(body).toContain("run-123");
   });
 
   it("formatEvalTimeout includes run ID", () => {
-    const body = formatEvalTimeout("run-123", true);
+    const body = formatEvalTimeout("run-123");
     expect(body).toContain(COMMENT_MARKER);
     expect(body).toContain("⏱");
     expect(body).toContain("run-123");
   });
 
   it("formatNoScenarios includes tags", () => {
-    const body = formatNoScenarios(["stores", "calendar"], true);
+    const body = formatNoScenarios(["stores", "calendar"]);
     expect(body).toContain(COMMENT_MARKER);
     expect(body).toContain("❌");
     expect(body).toContain("stores");
     expect(body).toContain("calendar");
   });
-});
 
-describe("non-blocking comment formatters", () => {
-  const metrics = {
-    totalAssertions: 10,
-    passed: 8,
-    failed: 2,
-    skipped: 0,
-    errors: 0,
-    passRate: 80,
-    avgDuration: 500,
-    totalDuration: 5000,
-  };
-
-  it("formatServiceError uses ⚠️ heading when non-blocking", () => {
-    const body = formatServiceError("timeout", false);
+  it("formatServiceError uses the ❌ error heading", () => {
+    const body = formatServiceError("timeout");
     expect(body).toContain(COMMENT_MARKER);
-    expect(body).toContain("⚠️");
-    expect(body).toContain("Revision Evaluation: Warning");
-    expect(body).not.toContain("❌");
-  });
-
-  it("formatServiceError uses ❌ heading when blocking", () => {
-    const body = formatServiceError("timeout", true);
     expect(body).toContain("❌");
     expect(body).toContain("Revision Evaluation: Error");
-    expect(body).not.toContain("⚠️");
-  });
-
-  it("formatEvalFailed uses ⚠️ heading when non-blocking", () => {
-    const body = formatEvalFailed(metrics, "run-123", false);
-    expect(body).toContain("⚠️");
-    expect(body).toContain("Revision Evaluation: Warning");
-    expect(body).not.toContain("❌");
-  });
-
-  it("formatEvalFailed uses ❌ heading when blocking", () => {
-    const body = formatEvalFailed(metrics, "run-123", true);
-    expect(body).toContain("❌");
-    expect(body).toContain("Revision Evaluation: Failed");
-    expect(body).not.toContain("⚠️");
-  });
-
-  it("formatEvalTimeout uses ⚠️ when non-blocking", () => {
-    const body = formatEvalTimeout("run-123", false);
-    expect(body).toContain(COMMENT_MARKER);
-    expect(body).toContain("⚠️");
-    expect(body).toContain("run-123");
-  });
-
-  it("formatEvalTimeout uses ⏱ when blocking", () => {
-    const body = formatEvalTimeout("run-123", true);
-    expect(body).toContain("⏱");
-    expect(body).not.toContain("⚠️");
-  });
-
-  it("formatNoScenarios uses ⚠️ when non-blocking", () => {
-    const body = formatNoScenarios(["stores"], false);
-    expect(body).toContain("⚠️");
-    expect(body).not.toContain("❌");
-  });
-
-  it("formatNoScenarios uses ❌ when blocking", () => {
-    const body = formatNoScenarios(["stores"], true);
-    expect(body).toContain("❌");
-    expect(body).not.toContain("⚠️");
   });
 });
 
@@ -198,16 +137,9 @@ function makeOctokit(comments: { id: number; body: string }[]) {
 describe("fail", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("calls core.setFailed when blocking is true", () => {
-    fail("something broke", true);
+  it("calls core.setFailed", () => {
+    fail("something broke");
     expect(vi.mocked(core.setFailed)).toHaveBeenCalledWith("something broke");
-    expect(vi.mocked(core.warning)).not.toHaveBeenCalled();
-  });
-
-  it("calls core.warning when blocking is false", () => {
-    fail("something broke", false);
-    expect(vi.mocked(core.warning)).toHaveBeenCalledWith("something broke");
-    expect(vi.mocked(core.setFailed)).not.toHaveBeenCalled();
   });
 });
 

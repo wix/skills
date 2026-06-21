@@ -18,7 +18,6 @@ export type Config = {
   headSha: string;
   owner: string;
   repo: string;
-  blocking: boolean;
 };
 
 export type CleanupConfig = {
@@ -121,7 +120,6 @@ export function getEvalConfig(): Config {
     headSha,
     owner: github.context.repo.owner,
     repo: github.context.repo.repo,
-    blocking: core.getInput("blocking") !== "false",
   };
 }
 
