@@ -2,30 +2,93 @@
 // src/pages/services/index.astro — SSR services listing grid (APPOINTMENT or CLASS).
 // One dir deep inside src/pages → ../../ reaches src/. Adapt copy/headings to the
 // brand; keep the SSR data wiring.
+//
+// Optional catalog filters (both auto-skip when there's nothing to filter):
+//   location — a location selector, shown ONLY when the site has >1 location
+//              (business + custom + customer). Mirrors the SoT's location-first
+//              flow without forcing a separate step: single-location sites never
+//              see it. The choice is carried as ?locationId (+?locationType) and
+//              forwarded into both the services query and the detail page's
+//              availability.
+//   category — a category filter bar, shown ONLY when >1 category exists. The
+//              choice is carried as ?category and merged into the services query.
+// Both are plain links that re-SSR with query params (re-query, like the SoT) —
+// no client JS on the catalog.
 import Layout from "../../layouts/Layout.astro";
 import ServiceCard from "../../components/ServiceCard.astro";
-import { services } from "@wix/bookings";
+import { services, categoriesV2 } from "@wix/bookings";
 import { auth } from "@wix/essentials";
 
 // Wix Bookings app id — the base filter must scope queryServices to it.
 const BOOKING_APP_ID = "13d21c63-b5ec-5912-8397-c3a5ddb27a97";
 
-let serviceList: any[] = [];
-try {
-  // Ambient @wix/astro SSR client via @wix/essentials (same pattern as CMS pages).
-  // Do NOT build createClient({ auth: OAuthStrategy({ clientId: import.meta.env.* }) }) —
-  // that env var is client-only and undefined at server render → 500.
-  // Pass the request object (filter must include appId) + conditionalFields, then .find().
-  const result = await auth
-    .elevate(services.queryServices)({
-      query: { filter: { appId: BOOKING_APP_ID }, paging: { limit: 100 } },
-      conditionalFields: ["STAFF_MEMBER_DETAILS"],
-    })
-    .find();
-  serviceList = (result.items ?? []).filter((s: any) => !s.hidden);
-} catch (err) {
-  console.error("[services] listing query failed:", err);
-}
+const reqUrl = new URL(Astro.request.url);
+const selectedCategory = reqUrl.searchParams.get("category") ?? "";
+const selectedLocation = reqUrl.searchParams.get("locationId") ?? "";
+const selectedLocationType = reqUrl.searchParams.get("locationType") ?? "";
+
+// ── Services filter (appId + optional category + optional location) ─────────
+// A real business-location id filters by locations.business.id; the synthetic
+// "custom"/"customer" ids map to a location-TYPE filter (the SoT mapping). Built
+// from URL params only, so it doesn't depend on the locations/categories reads.
+const filter: Record<string, any> = { appId: BOOKING_APP_ID };
+if (selectedCategory) filter["category.id"] = { $eq: selectedCategory };
+if (selectedLocation === "custom") filter["locations.type"] = { $hasSome: ["CUSTOM"] };
+else if (selectedLocation === "customer") filter["locations.type"] = { $hasSome: ["CUSTOMER"] };
+else if (selectedLocation) filter["locations.business.id"] = { $hasSome: [selectedLocation] };
+
+// ── Catalog reads — three INDEPENDENT queries, fetched concurrently ─────────
+// queryServices (the filtered list) + queryLocations (selector) + queryCategories
+// (bar) don't depend on each other, so run them in parallel (the SoT fetches
+// services + categories with Promise.allSettled likewise) — one round-trip's
+// latency, not three. Each is individually non-fatal: a failed read degrades only
+// its own piece (an empty list / a hidden selector or bar), never the whole page.
+// Ambient @wix/astro SSR client via @wix/essentials — do NOT build
+// createClient({ auth: OAuthStrategy({ clientId: import.meta.env.* }) }); that env
+// var is client-only and undefined at server render → 500.
+const [servicesResult, locResult, catResult] = await Promise.all([
+  auth
+    .elevate(services.queryServices)({ query: { filter, paging: { limit: 100 } }, conditionalFields: ["STAFF_MEMBER_DETAILS"] })
+    .find()
+    .catch((err: any) => { console.error("[services] listing query failed:", err); return null; }),
+  auth.elevate(services.queryLocations)().catch((err: any) => { console.error("[services] queryLocations failed:", err); return null; }),
+  auth.elevate(categoriesV2.queryCategories)().find().catch((err: any) => { console.error("[services] queryCategories failed:", err); return null; }),
+]);
+
+const serviceList: any[] = (servicesResult?.items ?? []).filter((s: any) => !s.hidden);
+
+// Locations — auto-skip the selector when ≤1 (business + custom + customer).
+const businessLocations: any[] = locResult?.businessLocations?.locations ?? [];
+const hasCustomLocations: boolean = locResult?.customLocations?.exists ?? false;
+const hasCustomerLocations: boolean = locResult?.customerLocations?.exists ?? false;
+const locationCount =
+  businessLocations.length + (hasCustomLocations ? 1 : 0) + (hasCustomerLocations ? 1 : 0);
+const showLocationSelector = locationCount > 1;
+
+// Categories — non-fatal; show the bar only when >1 (a fresh site has one default).
+const categories: any[] = catResult?.items ?? [];
+const showCategoryBar = categories.length > 1;
+
+// Build a /services href preserving the current selection, applying overrides.
+// Pass null to clear a param. locationType is always paired with locationId.
+const hrefWith = (patch: Record<string, string | null>): string => {
+  const p = new URLSearchParams();
+  if (selectedCategory) p.set("category", selectedCategory);
+  if (selectedLocation) {
+    p.set("locationId", selectedLocation);
+    if (selectedLocationType) p.set("locationType", selectedLocationType);
+  }
+  for (const [k, v] of Object.entries(patch)) {
+    if (v === null) p.delete(k);
+    else p.set(k, v);
+  }
+  if (patch.locationId === null) p.delete("locationType");
+  const qs = p.toString();
+  return qs ? `/services?${qs}` : "/services";
+};
+
+// Is a filter narrowing the list right now? Drives the empty-state copy.
+const filterActive = Boolean(selectedCategory || selectedLocation);
 
 const getSlug = (s: any): string => s.mainSlug?.name ?? s.supportedSlugs?.[0]?.name ?? s._id;
 const formatPrice = (s: any): string | undefined => {
@@ -39,6 +102,7 @@ const formatPrice = (s: any): string | undefined => {
   return undefined;
 };
 const getDuration = (s: any): number => s.schedule?.availabilityConstraints?.sessionDurations?.[0] ?? 60;
+const locationName = (loc: any): string => loc?.business?.name ?? loc?.calculatedAddress?.city ?? "Location";
 ---
 
 <Layout title="Services">
@@ -50,8 +114,50 @@ const getDuration = (s: any): number => s.schedule?.availabilityConstraints?.ses
     </header>
 
     {
+      showLocationSelector && (
+        <nav class="booking-filter-bar" aria-label="Filter by location">
+          <a href={hrefWith({ locationId: null })} class={`booking-filter-chip${selectedLocation ? "" : " booking-filter-chip--active"}`}>All locations</a>
+          {businessLocations.map((loc: any) => (
+            <a
+              href={hrefWith({ locationId: loc._id, locationType: "BUSINESS" })}
+              class={`booking-filter-chip${selectedLocation === loc._id ? " booking-filter-chip--active" : ""}`}
+            >
+              {locationName(loc)}
+            </a>
+          ))}
+          {hasCustomLocations && (
+            <a href={hrefWith({ locationId: "custom", locationType: "CUSTOM" })} class={`booking-filter-chip${selectedLocation === "custom" ? " booking-filter-chip--active" : ""}`}>Custom location</a>
+          )}
+          {hasCustomerLocations && (
+            <a href={hrefWith({ locationId: "customer", locationType: "CUSTOMER" })} class={`booking-filter-chip${selectedLocation === "customer" ? " booking-filter-chip--active" : ""}`}>My location</a>
+          )}
+        </nav>
+      )
+    }
+
+    {
+      showCategoryBar && (
+        <nav class="booking-filter-bar" aria-label="Filter by category">
+          <a href={hrefWith({ category: null })} class={`booking-filter-chip${selectedCategory ? "" : " booking-filter-chip--active"}`}>All</a>
+          {categories.map((cat: any) => (
+            <a
+              href={hrefWith({ category: cat._id })}
+              class={`booking-filter-chip${selectedCategory === cat._id ? " booking-filter-chip--active" : ""}`}
+            >
+              {cat.name ?? "Category"}
+            </a>
+          ))}
+        </nav>
+      )
+    }
+
+    {
       serviceList.length === 0 ? (
-        <p class="text-mute">Services coming soon — check back shortly.</p>
+        <p class="text-mute">
+          {filterActive
+            ? "No services match your selection — try a different filter."
+            : "Services coming soon — check back shortly."}
+        </p>
       ) : (
         <div class="service-grid">
           {serviceList.map((s) => (
@@ -64,6 +170,8 @@ const getDuration = (s: any): number => s.schedule?.availabilityConstraints?.ses
               price={formatPrice(s)}
               imageUrl={s.media?.mainMedia?.image?.url ?? s.media?.items?.[0]?.image?.url}
               type={s.type ?? "APPOINTMENT"}
+              locationId={selectedLocation || undefined}
+              locationType={selectedLocationType || undefined}
             />
           ))}
         </div>

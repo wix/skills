@@ -13,26 +13,31 @@ framework, translate the examples** — the SDK calls and payloads are identical
 only the UI idiom (`useState`/`useEffect` → a store / `onMounted` / signals) and
 the client acquisition differ (see "Client identity" below).
 
-The flow is **appointment booking**. CLASS sign-up reuses the same sequence with
-an event-slot branch (noted inline) and is a fast-follow, not v1. **Location and
-staff selection are likewise a fast-follow (a separate PR); add-ons are out of
-scope.** v1 threads a single service selection — the shared state below holds no
-location / staff / add-on choice yet.
+The flow covers **appointments and classes**. APPOINTMENT and CLASS share the
+same booking sequence; they differ only in the availability call (`availabilityTimeSlots`
+vs `eventTimeSlots`, noted inline). **Courses and add-ons are out of scope.**
 
 ---
 
 ## 1. The step model
 
-A single customer journey, five steps, holding one shared selection:
+A single customer journey, holding one shared selection. The catalog optionally
+filters by **location** and **category**; the slots step optionally filters by
+**staff**. All three auto-skip when there's nothing to choose (≤1 location, ≤1
+category, ≤1 staff), so a plain single-location single-staff site sees the simple
+five-step path:
 
 ```
-1. Catalog    list bookable services                         → pick a service
-2. Slots      week calendar of availability for that service → pick a time slot
-3. Details    the service's booking form (collect contact)   → submit
+0. Location   (optional) pick a location — only shown when the site has >1 locations → scopes the catalog + availability
+1. Catalog    list bookable services (optionally filtered by location/category) → pick a service
+2. Slots      availability calendar (optionally filtered by staff)               → pick a time slot
+3. Details    the service's booking form (collect contact)                      → submit
 4. Book       run the SDK sequence (§3)
 5a. paid      → redirect to the Wix-hosted checkout → returns to the confirmation page
 5b. free/offline → place the order → confirmation page
 ```
+
+The location/category filters and the staff picker are covered in §§7–8.
 
 **The catalog is the entry point but optional** — a visitor can land directly on a
 service page and start at the Slots step. Every step rehydrates from the URL (§2),
@@ -49,8 +54,8 @@ for SEO and run slots + form + book in a `client:only` island.
 Steps 1–4 build up one selection (this is exactly `BookParams` + `SelectedSlot`
 in `../astro/templates/bookings/bookingDriver.ts`):
 
-- **`service`** — the chosen service object (the booking step reads `service.payment` + `service.bookingPolicy`).
-- **`slot`** — `{ serviceType, serviceId, localStartDate, localEndDate, timezone, scheduleId?, eventId?, locationId?, locationType? }`.
+- **`service`** — the chosen service object (the booking step reads `service.payment` + `service.bookingPolicy`; the slots step reads `service.staffMemberDetails.staffMembers` for the staff picker — §8).
+- **`slot`** — `{ serviceType, serviceId, localStartDate, localEndDate, timezone, scheduleId?, eventId?, locationId?, locationType?, resource? }`. `resource = { _id, name }` is set only when a specific staff was chosen (§8); otherwise the driver emits the ANY_RESOURCE fallback. `locationId`/`locationType` come from the slot's own `location` (the booking books at that location).
 - **`formSubmission`** — the booking-form values, **keyed by each field's `target`** (§4).
 
 Hold it however the framework prefers (React state lifted to a coordinator, a
@@ -89,11 +94,12 @@ Key facts the driver encodes (do not deviate):
   cart holds the seat** instead — `placeOrder` (free/offline) or the hosted checkout
   (paid) drives confirmation — so a client-only site completes the whole flow with no
   server elevation.
-- **ANY_RESOURCE fallback (staff)** — v1 has **no staff picker**, so `createBooking`
-  always sends `resourceSelections:[{ resourceTypeId:"1cd44cf8-…", selectionMethod:"ANY_RESOURCE" }]`
+- **ANY_RESOURCE fallback (staff)** — when no staff is chosen (the default, and on
+  single-staff services), `createBooking` sends
+  `resourceSelections:[{ resourceTypeId:"1cd44cf8-756f-41c3-bd90-3e2ffcaf1155", selectionMethod:"ANY_RESOURCE" }]`
   and Wix auto-assigns a bookable staff resource (appointment slots return
-  `availableResources:[]` yet book fine this way). (Explicit staff selection is a
-  fast-follow.)
+  `availableResources:[]` yet book fine this way). A specific staff choice sets
+  `slot.resource` instead (§8).
 - **Checkout decision** — `isCheckoutRequired`: if the service's booking policy charges
   a **cancellation fee** (`service.bookingPolicy.cancellationFeePolicy.enabled`) →
   checkout (a card must be on file); else total 0 → place; else `FULL_PAYMENT_OFFLINE`
@@ -106,9 +112,11 @@ Key facts the driver encodes (do not deviate):
 Mirror what the Bookings SDK does (`services.queryServices` is the raw SDK, not a component):
 
 ```js
-// Catalog (list) — the filter MUST include appId; pass conditionalFields, then .find():
+// Catalog (list) — the filter MUST include appId; pass conditionalFields, then .find().
+// Merge the optional category/location filters into the SAME filter object (§7):
 services.queryServices({
-  query: { filter: { appId: BOOKING_APP_ID }, paging: { limit: 100 } },
+  query: { filter: { appId: BOOKING_APP_ID /* , "category.id": { $eq: catId },
+                       "locations.business.id": { $hasSome: [locId] } */ }, paging: { limit: 100 } },
   conditionalFields: ["STAFF_MEMBER_DETAILS"],
 }).find();                                   // → result.items ; filter out s.hidden
 
@@ -116,13 +124,21 @@ services.queryServices({
 services.queryServices({ conditionalFields: ["STAFF_MEMBER_DETAILS"] })
   .eq("mainSlug.name", slug).eq("appId", BOOKING_APP_ID).limit(1).find();
 
-// Availability (APPOINTMENT) — serviceId is a single GUID STRING:
+// Availability (APPOINTMENT) — serviceId is a single GUID STRING. The staff (§8)
+// and location filters are OPTIONAL params on the same call:
 availabilityTimeSlots.listAvailabilityTimeSlots({
   serviceId, fromLocalDate, toLocalDate, timeZone, bookable: true, cursorPaging: { limit: 100 },
+  // staff:    resourceTypes: [{ resourceTypeId: STAFF_MEMBER_RESOURCE_TYPE_ID, resourceIds: [staffResourceId] }],
+  //           includeResourceTypeIds: [STAFF_MEMBER_RESOURCE_TYPE_ID],
+  // location: locations: [{ _id: locationId, locationType: "BUSINESS" }],
 });                                          // slots: result.timeSlots[] (localStartDate/localEndDate/scheduleId at top level)
 
-// Availability (CLASS) — different namespace, PLURAL serviceIds; slots carry eventInfo.eventId, no scheduleId:
-eventTimeSlots.listEventTimeSlots({ serviceIds: [serviceId], fromLocalDate, toLocalDate, timeZone, includeNonBookable: false });
+// Availability (CLASS) — different namespace, PLURAL serviceIds; slots carry eventInfo.eventId, no scheduleId.
+// CLASS filters staff + location via eventFilter instead:
+eventTimeSlots.listEventTimeSlots({
+  serviceIds: [serviceId], fromLocalDate, toLocalDate, timeZone, includeNonBookable: false,
+  // eventFilter: { "resources.id": { $hasSome: [staffResourceId] }, "location.id": [locationId] },
+});
 ```
 
 `fromLocalDate`/`toLocalDate` are **local** date strings `YYYY-MM-DDThh:mm:ss`
@@ -157,14 +173,16 @@ The booking form is a **`@wix/forms` form** attached to the service
 `target`. The default booking form's targets are snake_case `first_name` /
 `last_name` / `email` / `phone`. Reference example: `../astro/templates/bookings/BookingForm.tsx`.
 
-## 5. The day-calendar (slots step)
+## 5. The availability calendar (slots step)
 
-Show a **week calendar**, not a flat list of every slot: a 7-day strip with
-week navigation → the picked day's times. A flat grid with time-only labels
-leaves the visitor unable to tell which day a slot is on. Fetch availability for
-the visible window (`fromLocalDate`/`toLocalDate` = the week bounds), group slots
-by calendar day, and offer a **"check next availability"** action that probes
-forward when a week is empty. Reference example:
+**Group slots by day — don't render a flat list of every slot with time-only
+labels** (the visitor can't tell which day a slot is on; that flat grid was the
+original usability failure). The calendar **shape is your / the brand's choice** —
+week, month, or N-day. The reference example uses a **week view** (a 7-day strip
+with week navigation → the picked day's times); fetch availability for the visible
+window (`fromLocalDate`/`toLocalDate` = that window's bounds), group by calendar
+day, and offer a **"check next availability"** action that probes forward when the
+window is empty. Reference example:
 `../astro/templates/bookings/AvailabilityCalendar.tsx`.
 
 ## 6. Client identity (per framework)
@@ -178,8 +196,51 @@ The SDK calls are identical everywhere; only how you get the client differs:
   `createClient({ modules, auth: OAuthStrategy({ clientId: appId }) })` and call
   the same functions on it. CDN imports for `none`, bundled for `own`.
 
-## 7. Out of v1
+## 7. Catalog filters — location & category (both auto-skip)
 
-Waitlist, on-site manage/cancel, location selector, staff filter, payment
-breakdown, and CLASS sign-up are out of v1. Show bookable slots only;
-post-booking self-service is handled by the Wix-hosted flow / member area.
+Both filter the **catalog query** and re-render the list. The cleanest
+framework-agnostic shape is a re-query driven by a query param (`?locationId`,
+`?category`) — links/SSR on a static catalog, or a store/router on a SPA. **Show
+each filter only when there is more than one choice**, exactly as the SoT does.
+
+**Location** (the SoT is location-first; here it auto-skips ≤1 location):
+1. `services.queryLocations()` → `{ businessLocations: { locations: [{ _id, type, business: { name } }] }, customLocations: { exists }, customerLocations: { exists } }`.
+2. Count = `businessLocations.locations.length + (customLocations.exists ? 1 : 0) + (customerLocations.exists ? 1 : 0)`. **Show the selector only when count > 1.**
+3. The chosen location filters the catalog query:
+   - a real business id → `filter["locations.business.id"] = { $hasSome: [id] }`;
+   - the synthetic `"custom"` / `"customer"` → `filter["locations.type"] = { $hasSome: ["CUSTOM"|"CUSTOMER"] }` (the SoT's synthetic-id mapping).
+4. **Scope availability to exactly ONE location — always, on a multi-location service.** `listAvailabilityTimeSlots` returns **one slot per location** per time ("if `locations` is not specified, returns time slots for all locations where the service is available"), so an unscoped call on a 2-location service shows every time **twice**. Pass a single-element filter: APPOINTMENT → `locations: [{ _id, locationType: "BUSINESS" }]`; CLASS → `eventFilter: { "location.id": [id] }`. (Staff does **not** multiply rows — one slot carries many `availableResources`; only location does.) The slots step builds its location list from **`queryLocations()`** (the site's real business locations, whose ids the availability engine recognizes) **intersected with the service's own location ids** — not from `service.locations` alone, whose entries can carry an id the availability engine doesn't recognize (scoping to it returns zero slots). A **location picker** defaults to the catalog-carried location (or the first) and scopes the call when there's a real location to scope to; when the site has no business locations the list is empty and the call stays unscoped (one location → no duplicates). The booked slot carries its own `location`, so the booking books at that location (the driver maps it).
+
+**Category:**
+1. `categoriesV2.queryCategories().find()` → `result.items: [{ _id, name }]`. **Non-fatal** — if it fails, render the catalog without the bar.
+2. **Show the bar only when `items.length > 1`** (a fresh site has one default category).
+3. The chosen category filters the catalog query: `filter["category.id"] = { $eq: categoryId }`. A service carries its category at `service.category._id`.
+
+Reference example: `../astro/templates/bookings/services/index.astro` (both filters, link-driven, auto-skipping).
+
+## 8. Staff / resource selection (auto-skips ≤1 staff)
+
+A service carries its staff on the service object via the **`STAFF_MEMBER_DETAILS`
+conditional field** (already requested in the catalog/detail query):
+`service.staffMemberDetails.staffMembers: [{ staffMemberId, name }]`. The id used
+for filtering and booking is **`staffMemberId`** — which, **despite the name, IS the
+resource GUID** (it matches the service's `staffMemberIds` and the Staff Members API
+`resourceId`). Below, `resourceId` is that value.
+
+1. Show a "Any staff member / pick one" control above the calendar **only when
+   there is more than one staff**.
+2. Selecting a staff re-fetches availability filtered to that resource:
+   - APPOINTMENT → `resourceTypes: [{ resourceTypeId: STAFF_MEMBER_RESOURCE_TYPE_ID, resourceIds: [resourceId] }]` (plus `includeResourceTypeIds: [STAFF_MEMBER_RESOURCE_TYPE_ID]`);
+   - CLASS → `eventFilter: { "resources.id": { $hasSome: [resourceId] } }`.
+3. When a slot is picked **with a specific staff selected**, set `slot.resource = { _id: resourceId, name }`. The driver books that resource. With **"any staff"**, leave `resource` unset — the driver emits the **ANY_RESOURCE fallback** and Wix auto-assigns a bookable resource (appointment slots can return `availableResources: []` yet book fine this way).
+
+`STAFF_MEMBER_RESOURCE_TYPE_ID = "1cd44cf8-756f-41c3-bd90-3e2ffcaf1155"` (exported from `bookingDriver.ts`). Reference example: `../astro/templates/bookings/AvailabilityCalendar.tsx` (the staff `<select>` + the filtered fetch).
+
+## 9. Out of scope
+
+Waitlist, on-site manage/cancel, payment/deposit breakdown, and multi-service /
+day-range are out of scope. (Waitlist and manage/cancel have **no headless SoT** —
+neither the components nor the vibe plugin implement join/cancel logic, only
+display-only policy flags — so they are deliberately not built here.) Show
+bookable slots only; post-booking self-service is handled by the Wix-hosted flow /
+member area.
