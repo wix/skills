@@ -34561,7 +34561,8 @@ async function runEval() {
         return;
     }
     const commitHash = `pr-${prNumber}-${headSha.slice(0, 7)}`;
-    core.info(`Eval tags: ${tags.join(", ")}\nFixture: ${fixture.path}\ncommitHash: ${commitHash}`);
+    const draftTag = `draft:${owner}/${repo}#${prNumber}`;
+    core.info(`Eval tag: ${draftTag}\nFixture: ${fixture.path}\ncommitHash: ${commitHash}`);
     const resourceId = await stageRevisionOrReport(octokit, pr, appId, appSecret, fixture, commitHash);
     if (!resourceId) {
         return;
@@ -34571,7 +34572,7 @@ async function runEval() {
     if (!mcpVersionId) {
         return;
     }
-    const runId = await createEvalRunOrReport(octokit, pr, evalforge, projectId, prNumber, tags, agentId, mcpId, mcpVersionId);
+    const runId = await createEvalRunOrReport(octokit, pr, evalforge, projectId, prNumber, [draftTag], agentId, mcpId, mcpVersionId);
     if (!runId) {
         return;
     }

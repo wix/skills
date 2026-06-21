@@ -337,8 +337,9 @@ export async function runEval(): Promise<void> {
   }
 
   const commitHash = `pr-${prNumber}-${headSha.slice(0, 7)}`;
+  const draftTag = `draft:${owner}/${repo}#${prNumber}`;
   core.info(
-    `Eval tags: ${tags.join(", ")}\nFixture: ${fixture.path}\ncommitHash: ${commitHash}`,
+    `Eval tag: ${draftTag}\nFixture: ${fixture.path}\ncommitHash: ${commitHash}`,
   );
 
   const resourceId = await stageRevisionOrReport(
@@ -374,7 +375,7 @@ export async function runEval(): Promise<void> {
     evalforge,
     projectId,
     prNumber,
-    tags,
+    [draftTag],
     agentId,
     mcpId,
     mcpVersionId,
