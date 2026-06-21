@@ -34,6 +34,22 @@ inputs:
     description: 'Fail the check on gate errors or scenario failures (set to true to block merges)'
     required: false
     default: 'false'
+  eval-pipeline-url:
+    description: 'Eval pipeline API base URL'
+    required: false
+    default: 'https://www.wixapis.com/_api/eval-pipeline'
+  agent-name:
+    description: 'Agent name to pass to the eval pipeline run-comparison call'
+    required: false
+    default: 'agent'
+  auto-approve:
+    description: 'Automatically approve the PR when all required eval scenarios pass'
+    required: false
+    default: 'false'
+  eval-compare:
+    description: 'Run the eval pipeline comparison (set to false to skip, e.g. via TRIGGER_EVAL_COMPARE repo var)'
+    required: false
+    default: 'true'
 runs:
   using: 'node20'
   main: 'dist/index.js'
