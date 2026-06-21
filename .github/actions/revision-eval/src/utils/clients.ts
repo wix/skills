@@ -10,7 +10,7 @@ type HttpError = Error & { status: number };
 
 const MCP_URL = "https://mcp.wix.com/mcp";
 const MCP_CONFIG_KEY = "wix-mcp-remote";
-const OPEN_API_RESOLVER_URL = "https://bo.wix.com/_serverless/open-api-resolver";
+const OPEN_API_RESOLVER_URL = "https://dev.wix.com/api/v1/open-api-resolver";
 
 export type EntityToRevisionResult = { resourceId: string };
 
