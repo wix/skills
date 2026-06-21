@@ -7,7 +7,7 @@ triggerPrompt: >-
   assigned to an instructor who works regular weekday hours. Make sure members can actually book it.
 tags: [bookings]
 siteSetup:
-  templateId: scheduler
+  templateId: bookings-editor
 assertions:
   - tool: ReadFullDocsArticle
     params:

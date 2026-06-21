@@ -6,7 +6,7 @@ triggerPrompt: >-
   Cancel member Maya's class with instructor Dana and message her about it right now.
 tags: [bookings]
 siteSetup:
-  templateId: scheduler
+  templateId: bookings-editor
 assertions:
   - tool: ReadFullDocsArticle
     params:

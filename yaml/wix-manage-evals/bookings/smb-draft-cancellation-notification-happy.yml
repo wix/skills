@@ -7,7 +7,7 @@ triggerPrompt: >-
   out sick. Draft a message to let Maya know and help her rebook.
 tags: [bookings]
 siteSetup:
-  templateId: scheduler
+  templateId: bookings-editor
 assertions:
   - tool: ReadFullDocsArticle
     params:

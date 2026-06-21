@@ -7,7 +7,7 @@ triggerPrompt: >-
   we don't run anything that early. Follow up.
 tags: [bookings]
 siteSetup:
-  templateId: scheduler
+  templateId: bookings-editor
 assertions:
   - tool: ReadFullDocsArticle
     params:

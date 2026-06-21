@@ -7,7 +7,7 @@ triggerPrompt: >-
   Thursday evenings. The number is the price — use my store's currency.
 tags: [bookings]
 siteSetup:
-  templateId: scheduler
+  templateId: bookings-editor
 assertions:
   - tool: ReadFullDocsArticle
     params:

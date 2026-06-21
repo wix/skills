@@ -7,7 +7,7 @@ triggerPrompt: >-
   for now — I'll add someone later. Just get the service set up.
 tags: [bookings]
 siteSetup:
-  templateId: scheduler
+  templateId: bookings-editor
 assertions:
   - tool: ReadFullDocsArticle
     params:
