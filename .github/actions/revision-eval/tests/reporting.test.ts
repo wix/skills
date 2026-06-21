@@ -15,7 +15,6 @@ import type { Config } from "../src/utils/config";
 
 const config: Config = {
   githubToken: "token",
-  openApiResolverUrl: "https://resolver.example.com",
   scenariosDir: "yaml/wix-manage-evals",
   evalforgeUrl: "https://evalforge.example.com",
   projectId: "proj-1",

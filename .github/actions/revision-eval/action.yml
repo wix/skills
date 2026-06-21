@@ -8,9 +8,6 @@ inputs:
   github-token:
     description: 'GitHub token for PR comments'
     required: true
-  open-api-resolver-url:
-    description: 'open-api-resolver base URL (hosts /entity-to-revision); required for eval mode'
-    required: false
   scenarios-dir:
     description: 'Directory (repo-relative) holding EvalForge scenario YAML files (tags are read from these)'
     required: false
@@ -38,5 +35,5 @@ inputs:
     required: false
     default: 'true'
 runs:
-  using: 'node20'
+  using: 'node24'
   main: 'dist/index.js'

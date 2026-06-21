@@ -28,7 +28,6 @@ jobs:
         with:
           mode: eval
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          open-api-resolver-url: ${{ vars.OPEN_API_RESOLVER_URL }}
           evalforge-url: ${{ vars.EVALFORGE_URL }}
           evalforge-project-id: ${{ vars.AUTO_SKILLS_PIPELINE_PROJECT_ID }}
           evalforge-agent-id: ${{ vars.AUTO_SKILLS_PIPELINE_AGENT_ID }}

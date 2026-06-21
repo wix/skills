@@ -80,12 +80,11 @@ export async function loadFixtureOrReport(
 export async function stageRevisionOrReport(
   octokit: Octokit,
   pr: PrContext,
-  openApiResolverUrl: string,
   fixture: Fixture,
   commitHash: string,
   blocking: boolean,
 ): Promise<string | null> {
-  const resolver = new OpenApiResolverClient(openApiResolverUrl);
+  const resolver = new OpenApiResolverClient();
   try {
     const { resourceId } = await resolver.entityToRevision(
       fixture.entity,
@@ -320,7 +319,6 @@ export async function pollEvalRunOrReport(
 export async function runEval(): Promise<void> {
   const {
     githubToken,
-    openApiResolverUrl,
     scenariosDir,
     evalforgeUrl,
     projectId,
@@ -378,7 +376,6 @@ export async function runEval(): Promise<void> {
   const resourceId = await stageRevisionOrReport(
     octokit,
     pr,
-    openApiResolverUrl,
     fixture,
     commitHash,
     blocking,

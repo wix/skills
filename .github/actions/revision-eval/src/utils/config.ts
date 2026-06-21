@@ -6,7 +6,6 @@ import { getErrorMessage, ErrorMessage } from "./reporting";
 
 export type Config = {
   githubToken: string;
-  openApiResolverUrl: string;
   scenariosDir: string;
   evalforgeUrl: string;
   projectId: string;
@@ -115,10 +114,6 @@ export function getEvalConfig(): Config {
   return {
     ...evalForgeInputs(),
     githubToken: requiredSecret("github-token"),
-    openApiResolverUrl: requireHttps(
-      requiredInput("open-api-resolver-url"),
-      "open-api-resolver-url",
-    ),
     scenariosDir: core.getInput("scenarios-dir") || "yaml/wix-manage-evals",
     agentId: requiredInput("evalforge-agent-id"),
     prNumber,

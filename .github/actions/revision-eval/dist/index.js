@@ -34083,6 +34083,7 @@ var HttpMethod;
 })(HttpMethod || (exports.HttpMethod = HttpMethod = {}));
 const MCP_URL = "https://mcp.wix.com/mcp";
 const MCP_CONFIG_KEY = "wix-mcp-remote";
+const OPEN_API_RESOLVER_URL = "https://bo.wix.com/_serverless/open-api-resolver";
 var EvalRunStatusStatus;
 (function (EvalRunStatusStatus) {
     EvalRunStatusStatus["Pending"] = "pending";
@@ -34158,7 +34159,7 @@ class EvalForgeClient {
 exports.EvalForgeClient = EvalForgeClient;
 class OpenApiResolverClient {
     baseUrl;
-    constructor(baseUrl) {
+    constructor(baseUrl = OPEN_API_RESOLVER_URL) {
         this.baseUrl = baseUrl;
     }
     async entityToRevision(entity, commitHash) {
@@ -34287,7 +34288,6 @@ function getEvalConfig() {
     return {
         ...evalForgeInputs(),
         githubToken: requiredSecret("github-token"),
-        openApiResolverUrl: requireHttps(requiredInput("open-api-resolver-url"), "open-api-resolver-url"),
         scenariosDir: core.getInput("scenarios-dir") || "yaml/wix-manage-evals",
         agentId: requiredInput("evalforge-agent-id"),
         prNumber,
@@ -34399,8 +34399,8 @@ async function loadFixtureOrReport(octokit, pr, workspaceRoot, blocking) {
         return null;
     }
 }
-async function stageRevisionOrReport(octokit, pr, openApiResolverUrl, fixture, commitHash, blocking) {
-    const resolver = new clients_1.OpenApiResolverClient(openApiResolverUrl);
+async function stageRevisionOrReport(octokit, pr, fixture, commitHash, blocking) {
+    const resolver = new clients_1.OpenApiResolverClient();
     try {
         const { resourceId } = await resolver.entityToRevision(fixture.entity, commitHash);
         core.info(`Staged revision for ${fixture.path} → resourceId ${resourceId} (commitHash ${commitHash})`);
@@ -34541,7 +34541,7 @@ async function pollEvalRunOrReport(octokit, pr, evalforge, projectId, runId, blo
     }
 }
 async function runEval() {
-    const { githubToken, openApiResolverUrl, scenariosDir, evalforgeUrl, projectId, agentId, mcpId, appId, appSecret, prNumber, headSha, owner, repo, blocking, } = (0, config_1.getEvalConfig)();
+    const { githubToken, scenariosDir, evalforgeUrl, projectId, agentId, mcpId, appId, appSecret, prNumber, headSha, owner, repo, blocking, } = (0, config_1.getEvalConfig)();
     const octokit = github.getOctokit(githubToken);
     const pr = { owner, repo, prNumber };
     core.info(`Revision eval — PR #${prNumber}`);
@@ -34564,7 +34564,7 @@ async function runEval() {
     }
     const commitHash = `pr-${prNumber}-${headSha.slice(0, 7)}`;
     core.info(`Eval tags: ${tags.join(", ")}\nFixture: ${fixture.path}\ncommitHash: ${commitHash}`);
-    const resourceId = await stageRevisionOrReport(octokit, pr, openApiResolverUrl, fixture, commitHash, blocking);
+    const resourceId = await stageRevisionOrReport(octokit, pr, fixture, commitHash, blocking);
     if (!resourceId) {
         return;
     }

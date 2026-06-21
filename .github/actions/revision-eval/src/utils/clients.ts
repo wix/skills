@@ -10,6 +10,7 @@ type HttpError = Error & { status: number };
 
 const MCP_URL = "https://mcp.wix.com/mcp";
 const MCP_CONFIG_KEY = "wix-mcp-remote";
+const OPEN_API_RESOLVER_URL = "https://bo.wix.com/_serverless/open-api-resolver";
 
 export type EntityToRevisionResult = { resourceId: string };
 
@@ -181,7 +182,7 @@ export class EvalForgeClient {
 }
 
 export class OpenApiResolverClient {
-  constructor(private readonly baseUrl: string) {}
+  constructor(private readonly baseUrl: string = OPEN_API_RESOLVER_URL) {}
 
   async entityToRevision(
     entity: unknown,

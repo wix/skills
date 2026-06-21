@@ -30,7 +30,6 @@ import {
 
 const ALL_INPUTS: Record<string, string> = {
   "github-token": "ghs_token",
-  "open-api-resolver-url": "https://resolver.example.com",
   "scenarios-dir": "",
   "evalforge-url": "https://ef.example.com/api",
   "evalforge-project-id": "proj-1",
@@ -60,7 +59,6 @@ describe("getEvalConfig", () => {
   it("returns config with all fields populated", () => {
     const config = getEvalConfig();
     expect(config.githubToken).toBe("ghs_token");
-    expect(config.openApiResolverUrl).toBe("https://resolver.example.com");
     expect(config.scenariosDir).toBe("yaml/wix-manage-evals");
     expect(config.evalforgeUrl).toBe("https://ef.example.com/api");
     expect(config.projectId).toBe("proj-1");
@@ -101,16 +99,16 @@ describe("getEvalConfig", () => {
 
   it("throws when a required input is missing", () => {
     vi.mocked(core.getInput).mockImplementation((name, opts) => {
-      if (name === "open-api-resolver-url") {
+      if (name === "evalforge-agent-id") {
         if (opts?.required)
           throw new Error(
-            "Input required and not supplied: open-api-resolver-url",
+            "Input required and not supplied: evalforge-agent-id",
           );
         return "";
       }
       return ALL_INPUTS[name] ?? "";
     });
-    expect(() => getEvalConfig()).toThrow("open-api-resolver-url");
+    expect(() => getEvalConfig()).toThrow("evalforge-agent-id");
   });
 });
 
@@ -125,9 +123,8 @@ describe("getCleanupConfig", () => {
     expect(config.prNumber).toBe(42);
   });
 
-  it("does not include resolver, agentId, blocking, baseSha, headSha, owner, or repo", () => {
+  it("does not include agentId, blocking, baseSha, headSha, owner, or repo", () => {
     const config = getCleanupConfig();
-    expect(config).not.toHaveProperty("openApiResolverUrl");
     expect(config).not.toHaveProperty("agentId");
     expect(config).not.toHaveProperty("blocking");
     expect(config).not.toHaveProperty("baseSha");
