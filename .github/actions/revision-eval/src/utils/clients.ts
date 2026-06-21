@@ -182,7 +182,19 @@ export class EvalForgeClient {
 }
 
 export class OpenApiResolverClient {
-  constructor(private readonly baseUrl: string = OPEN_API_RESOLVER_URL) {}
+  private readonly headers: Record<string, string>;
+
+  constructor(
+    appId: string,
+    appSecret: string,
+    private readonly baseUrl: string = OPEN_API_RESOLVER_URL,
+  ) {
+    this.headers = {
+      "Content-Type": "application/json",
+      "x-app-id": appId,
+      "x-app-secret": appSecret,
+    };
+  }
 
   async entityToRevision(
     entity: unknown,
@@ -191,7 +203,7 @@ export class OpenApiResolverClient {
     const path = "/entity-to-revision";
     const res = await fetch(`${this.baseUrl}${path}`, {
       method: HttpMethod.Post,
-      headers: { "Content-Type": "application/json" },
+      headers: this.headers,
       body: JSON.stringify({ entity, commitHash }),
       signal: AbortSignal.timeout(30_000),
     });

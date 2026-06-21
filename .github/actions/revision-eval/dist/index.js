@@ -34159,14 +34159,20 @@ class EvalForgeClient {
 exports.EvalForgeClient = EvalForgeClient;
 class OpenApiResolverClient {
     baseUrl;
-    constructor(baseUrl = OPEN_API_RESOLVER_URL) {
+    headers;
+    constructor(appId, appSecret, baseUrl = OPEN_API_RESOLVER_URL) {
         this.baseUrl = baseUrl;
+        this.headers = {
+            "Content-Type": "application/json",
+            "x-app-id": appId,
+            "x-app-secret": appSecret,
+        };
     }
     async entityToRevision(entity, commitHash) {
         const path = "/entity-to-revision";
         const res = await fetch(`${this.baseUrl}${path}`, {
             method: HttpMethod.Post,
-            headers: { "Content-Type": "application/json" },
+            headers: this.headers,
             body: JSON.stringify({ entity, commitHash }),
             signal: AbortSignal.timeout(30_000),
         });
@@ -34399,8 +34405,8 @@ async function loadFixtureOrReport(octokit, pr, workspaceRoot, blocking) {
         return null;
     }
 }
-async function stageRevisionOrReport(octokit, pr, fixture, commitHash, blocking) {
-    const resolver = new clients_1.OpenApiResolverClient();
+async function stageRevisionOrReport(octokit, pr, appId, appSecret, fixture, commitHash, blocking) {
+    const resolver = new clients_1.OpenApiResolverClient(appId, appSecret);
     try {
         const { resourceId } = await resolver.entityToRevision(fixture.entity, commitHash);
         core.info(`Staged revision for ${fixture.path} → resourceId ${resourceId} (commitHash ${commitHash})`);
@@ -34564,7 +34570,7 @@ async function runEval() {
     }
     const commitHash = `pr-${prNumber}-${headSha.slice(0, 7)}`;
     core.info(`Eval tags: ${tags.join(", ")}\nFixture: ${fixture.path}\ncommitHash: ${commitHash}`);
-    const resourceId = await stageRevisionOrReport(octokit, pr, fixture, commitHash, blocking);
+    const resourceId = await stageRevisionOrReport(octokit, pr, appId, appSecret, fixture, commitHash, blocking);
     if (!resourceId) {
         return;
     }

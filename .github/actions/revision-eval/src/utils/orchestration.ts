@@ -80,11 +80,13 @@ export async function loadFixtureOrReport(
 export async function stageRevisionOrReport(
   octokit: Octokit,
   pr: PrContext,
+  appId: string,
+  appSecret: string,
   fixture: Fixture,
   commitHash: string,
   blocking: boolean,
 ): Promise<string | null> {
-  const resolver = new OpenApiResolverClient();
+  const resolver = new OpenApiResolverClient(appId, appSecret);
   try {
     const { resourceId } = await resolver.entityToRevision(
       fixture.entity,
@@ -376,6 +378,8 @@ export async function runEval(): Promise<void> {
   const resourceId = await stageRevisionOrReport(
     octokit,
     pr,
+    appId,
+    appSecret,
     fixture,
     commitHash,
     blocking,
