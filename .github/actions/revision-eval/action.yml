@@ -1,0 +1,42 @@
+name: 'Revision Eval'
+description: 'Stages preview REST-docs revisions from entity fixtures and runs EvalForge evaluations on PRs'
+inputs:
+  mode:
+    description: 'Action mode: "eval" (default) stages revisions and runs the evaluation; "cleanup" deletes MCP versions on PR close'
+    required: false
+    default: 'eval'
+  github-token:
+    description: 'GitHub token for PR comments'
+    required: true
+  open-api-resolver-url:
+    description: 'open-api-resolver base URL (hosts /entity-to-revision); required for eval mode'
+    required: false
+  scenarios-dir:
+    description: 'Directory (repo-relative) holding EvalForge scenario YAML files (tags are read from these)'
+    required: false
+    default: 'yaml/wix-manage-evals'
+  evalforge-url:
+    description: 'EvalForge API base URL'
+    required: true
+  evalforge-project-id:
+    description: 'EvalForge project ID'
+    required: true
+  evalforge-agent-id:
+    description: 'EvalForge agent ID for eval runs (required for eval mode)'
+    required: false
+  evalforge-mcp-id:
+    description: 'EvalForge MCP capability ID'
+    required: true
+  evalforge-app-id:
+    description: 'EvalForge app ID for authentication'
+    required: true
+  evalforge-app-secret:
+    description: 'EvalForge app secret for authentication'
+    required: true
+  blocking:
+    description: 'Fail the check on EvalForge errors or eval failures (set to false to make eval non-blocking)'
+    required: false
+    default: 'true'
+runs:
+  using: 'node20'
+  main: 'dist/index.js'

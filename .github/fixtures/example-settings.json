@@ -1,0 +1,1840 @@
+{
+  "entity": {
+    "info": {
+      "fqdn": "wix.portfolio.portfolio_app.v1.portfolio_settings",
+      "title": "Portfolio Settings",
+      "version": "",
+      "createdDate": "2024-10-31T15:42:21.821Z",
+      "updatedDate": "2026-06-16T05:47:31.627Z",
+      "versions": [],
+      "schemaName": "com.wixpress.portfolio.portfolioapp.PortfolioSettings",
+      "commonMethods": {
+        "create": {
+          "actionName": "CreatePortfolioSettings",
+          "itemField": "portfolioSettings"
+        }
+      },
+      "actions": [
+        {
+          "title": "Create Portfolio Settings",
+          "methodName": "CreatePortfolioSettings",
+          "description": "Fake description — this method description is intentionally a placeholder that the eval should override.",
+          "permissions": [
+            "PORTFOLIO.SETTINGS_CREATE"
+          ],
+          "serviceName": "com.wixpress.portfolio.portfolioapp.PortfolioSettingsService",
+          "supportedProtocols": {
+            "rest": true,
+            "grpc": true,
+            "jsonRpc": false
+          },
+          "primaryHttpMapping": {
+            "path": "/api/v1/portfolio/settings",
+            "httpMethod": "POST",
+            "pathParams": []
+          },
+          "additionalHttpMappings": [],
+          "request": {
+            "schemaName": "com.wixpress.portfolio.portfolioapp.CreatePortfolioSettingsRequest",
+            "requiredFieldNames": [
+              "CreatePortfolioSettingsRequest.portfolioSettings",
+              "CreatePortfolioSettingsRequest.portfolioSettings.projectItemSettings"
+            ]
+          },
+          "response": {
+            "schemaName": "com.wixpress.portfolio.portfolioapp.CreatePortfolioSettingsResponse"
+          },
+          "errors": [],
+          "exposure": "PUBLIC",
+          "maturity": "GA",
+          "triggeredEvents": [
+            {
+              "title": "Portfolio Settings Created",
+              "description": "Fake description — triggered when portfolio settings are created.",
+              "permissions": [
+                "PORTFOLIO.SETTINGS_READ"
+              ],
+              "exposure": "PUBLIC",
+              "maturity": "GA",
+              "slug": "created",
+              "eventTopic": "domain_events_wix.portfolio.portfolio_app.v1.portfolio_settings",
+              "serviceName": "",
+              "domainEvent": "CREATED",
+              "externalPermissionScopes": [],
+              "eventType": "wix.portfolio.portfolio_app.v1.portfolio_settings_created",
+              "permissionsInfo": [
+                {
+                  "name": "PORTFOLIO.SETTINGS_READ",
+                  "manual": false
+                }
+              ],
+              "tenancy": "SITE"
+            }
+          ],
+          "sdkSignatures": {
+            "args": [
+              {
+                "field": {
+                  "path": "portfolioSettings"
+                }
+              }
+            ],
+            "argsWithoutSpreadingOneof": [
+              {
+                "field": {
+                  "path": "portfolioSettings"
+                }
+              }
+            ]
+          },
+          "applicableIdentities": [
+            "APP"
+          ],
+          "externalPermissionScopes": [
+            {
+              "name": "Manage Portfolio",
+              "scopeId": "SCOPE.PORTFOLIO.MANAGE-PORTFOLIO"
+            }
+          ],
+          "permissionsInfo": [
+            {
+              "name": "PORTFOLIO.SETTINGS_CREATE",
+              "manual": false
+            }
+          ],
+          "readOperation": false
+        },
+        {
+          "title": "Get Portfolio Settings",
+          "methodName": "GetPortfolioSettings",
+          "description": "Fake description — retrieves a site's portfolio settings.",
+          "permissions": [
+            "PORTFOLIO.SETTINGS_READ"
+          ],
+          "serviceName": "com.wixpress.portfolio.portfolioapp.PortfolioSettingsService",
+          "supportedProtocols": {
+            "rest": true,
+            "grpc": true,
+            "jsonRpc": false
+          },
+          "primaryHttpMapping": {
+            "path": "/api/v1/portfolio/settings",
+            "httpMethod": "GET",
+            "pathParams": []
+          },
+          "additionalHttpMappings": [],
+          "request": {
+            "schemaName": "com.wixpress.portfolio.portfolioapp.GetPortfolioSettingsRequest",
+            "requiredFieldNames": []
+          },
+          "response": {
+            "schemaName": "com.wixpress.portfolio.portfolioapp.GetPortfolioSettingsResponse"
+          },
+          "errors": [],
+          "exposure": "PUBLIC",
+          "maturity": "GA",
+          "triggeredEvents": [],
+          "sdkSignatures": {
+            "args": [],
+            "argsWithoutSpreadingOneof": []
+          },
+          "applicableIdentities": [
+            "APP"
+          ],
+          "externalPermissionScopes": [
+            {
+              "name": "Manage Portfolio",
+              "scopeId": "SCOPE.PORTFOLIO.MANAGE-PORTFOLIO"
+            }
+          ],
+          "permissionsInfo": [
+            {
+              "name": "PORTFOLIO.SETTINGS_READ",
+              "manual": false
+            }
+          ],
+          "readOperation": false
+        },
+        {
+          "title": "Update Portfolio Settings",
+          "methodName": "UpdatePortfolioSettings",
+          "description": "Fake description — updates a site's portfolio settings.",
+          "permissions": [
+            "PORTFOLIO.SETTINGS_UPDATE"
+          ],
+          "serviceName": "com.wixpress.portfolio.portfolioapp.PortfolioSettingsService",
+          "supportedProtocols": {
+            "rest": true,
+            "grpc": true,
+            "jsonRpc": false
+          },
+          "primaryHttpMapping": {
+            "path": "/api/v1/portfolio/settings",
+            "httpMethod": "PATCH",
+            "pathParams": []
+          },
+          "additionalHttpMappings": [],
+          "request": {
+            "schemaName": "com.wixpress.portfolio.portfolioapp.UpdatePortfolioSettingsRequest",
+            "requiredFieldNames": [
+              "UpdatePortfolioSettingsRequest.portfolioSettings",
+              "UpdatePortfolioSettingsRequest.portfolioSettings.revision"
+            ]
+          },
+          "response": {
+            "schemaName": "com.wixpress.portfolio.portfolioapp.UpdatePortfolioSettingsResponse"
+          },
+          "errors": [],
+          "exposure": "PUBLIC",
+          "maturity": "GA",
+          "triggeredEvents": [],
+          "sdkSignatures": {
+            "args": [
+              {
+                "field": {
+                  "path": "portfolioSettings"
+                }
+              },
+              {
+                "parent": {
+                  "name": "options",
+                  "fields": [
+                    {
+                      "path": "mask"
+                    }
+                  ]
+                }
+              }
+            ],
+            "argsWithoutSpreadingOneof": [
+              {
+                "field": {
+                  "path": "portfolioSettings"
+                }
+              },
+              {
+                "parent": {
+                  "name": "options",
+                  "fields": [
+                    {
+                      "path": "mask"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "inferredFieldmask": {
+            "fieldmaskField": "mask",
+            "inferredFromField": "portfolio_settings"
+          },
+          "applicableIdentities": [
+            "APP"
+          ],
+          "externalPermissionScopes": [
+            {
+              "name": "Manage Portfolio",
+              "scopeId": "SCOPE.PORTFOLIO.MANAGE-PORTFOLIO"
+            }
+          ],
+          "permissionsInfo": [
+            {
+              "name": "PORTFOLIO.SETTINGS_UPDATE",
+              "manual": false
+            }
+          ],
+          "readOperation": false
+        }
+      ],
+      "events": [
+        {
+          "title": "Portfolio Settings Created",
+          "description": "Fake description — portfolio settings created event.",
+          "permissions": [
+            "PORTFOLIO.SETTINGS_READ"
+          ],
+          "exposure": "PUBLIC",
+          "maturity": "GA",
+          "slug": "created",
+          "eventTopic": "domain_events_wix.portfolio.portfolio_app.v1.portfolio_settings",
+          "serviceName": "",
+          "domainEvent": "CREATED",
+          "externalPermissionScopes": [
+            {
+              "name": "Manage Portfolio",
+              "scopeId": "SCOPE.PORTFOLIO.MANAGE-PORTFOLIO"
+            }
+          ],
+          "eventType": "wix.portfolio.portfolio_app.v1.portfolio_settings_created",
+          "permissionsInfo": [
+            {
+              "name": "PORTFOLIO.SETTINGS_READ",
+              "manual": false
+            }
+          ],
+          "tenancy": "SITE"
+        }
+      ],
+      "appendices": [
+        {
+          "type": "AUTO_VELO",
+          "path": "appendices/velo/portfolio_settings",
+          "files": {},
+          "remoteFiles": {}
+        },
+        {
+          "type": "DOCS_CONF",
+          "path": "appendices/docs",
+          "files": {},
+          "remoteFiles": {}
+        }
+      ],
+      "protoArtifactId": "com.wixpress.portfolio:portfolio-app-service",
+      "oldFqdn": "",
+      "implementsInterfaceFqdns": [],
+      "domainEventsReadPermission": "PORTFOLIO.SETTINGS_READ",
+      "versionInsensitiveFqdn": "wix.portfolio.portfolio_app.*.portfolio_settings",
+      "exposure": "PUBLIC",
+      "containsPii": false,
+      "segment": "PUBLIC"
+    },
+    "services": {
+      "com.wixpress.portfolio.portfolioapp.PortfolioSettingsService": {
+        "name": "com.wixpress.portfolio.portfolioapp.PortfolioSettingsService",
+        "package": "",
+        "protoSrc": "",
+        "protoArtifactId": "com.wixpress.portfolio:portfolio-app-service",
+        "protoArtifactVersion": "",
+        "serviceArtifactId": "com.wixpress.portfolio.portfolio-app-service",
+        "servers": [
+          {
+            "mappingType": "UNKNOWN_MAPPING",
+            "sourcePath": "/_api/portfolio-app-service",
+            "destinationPath": "/api",
+            "url": "manage._base_domain_"
+          },
+          {
+            "mappingType": "UNKNOWN_MAPPING",
+            "sourcePath": "/_api/portfolio-app-service",
+            "destinationPath": "/api",
+            "url": "editor._base_domain_"
+          },
+          {
+            "mappingType": "UNKNOWN_MAPPING",
+            "sourcePath": "/_api/portfolio-app-service",
+            "destinationPath": "/api",
+            "url": "blocks._base_domain_"
+          },
+          {
+            "mappingType": "UNKNOWN_MAPPING",
+            "sourcePath": "/_api/portfolio-app-service",
+            "destinationPath": "/api",
+            "url": "create.editorx"
+          },
+          {
+            "mappingType": "UNKNOWN_MAPPING",
+            "sourcePath": "/_api/portfolio-app-service",
+            "destinationPath": "/api",
+            "url": "_"
+          },
+          {
+            "mappingType": "INTERNAL_RPC",
+            "sourcePath": "/_api/portfolio-app-service",
+            "destinationPath": "/api",
+            "url": "api._api_base_domain_"
+          },
+          {
+            "mappingType": "UNKNOWN_MAPPING",
+            "sourcePath": "/portfolio/v1/settings",
+            "destinationPath": "/api/v1/portfolio/settings",
+            "url": "www.wixapis.com"
+          },
+          {
+            "mappingType": "UNKNOWN_MAPPING",
+            "sourcePath": "/portfolio/portfolio-app/api/v1/portfolio/settings",
+            "destinationPath": "/api/v1/portfolio/settings",
+            "url": "*.dev.wix-code.com"
+          },
+          {
+            "mappingType": "UNKNOWN_MAPPING",
+            "sourcePath": "/portfolio/portfolio-app/api/v1/portfolio/settings",
+            "destinationPath": "/api/v1/portfolio/settings",
+            "url": "www.wixapis.com"
+          },
+          {
+            "mappingType": "UNKNOWN_MAPPING",
+            "sourcePath": "/portfolio/project-items/api/v1/portfolio/project/items/media",
+            "destinationPath": "/api/v1/portfolio/project/items/media",
+            "url": "www.wixapis.com"
+          },
+          {
+            "mappingType": "UNKNOWN_MAPPING",
+            "sourcePath": "/portfolio/project-items/api/v1/portfolio/project/items/media",
+            "destinationPath": "/api/v1/portfolio/project/items/media",
+            "url": "*.dev.wix-code.com"
+          }
+        ],
+        "description": "Fake description — private service for client use.",
+        "appendices": [],
+        "ownershipTag": {
+          "tagName": "photography-server",
+          "owners": [
+            "noyamo@wix.com",
+            "alonl@wix.com",
+            "anisb@wix.com",
+            "shirgi@wix.com",
+            "vladyslavi@wix.com",
+            "nitzanst@wix.com",
+            "omriam@wix.com",
+            "giladf@wix.com"
+          ],
+          "slackInfo": {
+            "main": "photography-dev",
+            "ci": "photography-server-ci",
+            "urgent": "photography-urgent",
+            "important": "photography-important",
+            "custom": {
+              "migration": "photography_migration",
+              "wix-standards": "photography-important"
+            }
+          },
+          "mainOwner": "anisb@wix.com"
+        }
+      }
+    },
+    "schemas": {
+      "com.wixpress.iptf.v1.webhooks.AccountInfo": {
+        "name": "com.wixpress.iptf.v1.webhooks.AccountInfo",
+        "description": "",
+        "definition": {
+          "members": [
+            {
+              "field": {
+                "name": "accountId",
+                "description": "Fake description — ID of the Wix account associated with the event.",
+                "type": "OBJECT",
+                "schemaName": "google.protobuf.StringValue",
+                "repeated": false,
+                "mapKeyType": "UNKNOWN_TYPE",
+                "mapValueType": "UNKNOWN_TYPE",
+                "exposure": "PUBLIC",
+                "pii": false,
+                "validations": [
+                  {
+                    "type": "FORMAT",
+                    "value": "GUID"
+                  }
+                ],
+                "maturity": "GA"
+              }
+            },
+            {
+              "field": {
+                "name": "parentAccountId",
+                "description": "Fake description — ID of the parent Wix account.",
+                "type": "OBJECT",
+                "schemaName": "google.protobuf.StringValue",
+                "repeated": false,
+                "mapKeyType": "UNKNOWN_TYPE",
+                "mapValueType": "UNKNOWN_TYPE",
+                "exposure": "PUBLIC",
+                "pii": false,
+                "validations": [
+                  {
+                    "type": "FORMAT",
+                    "value": "GUID"
+                  }
+                ],
+                "maturity": "GA"
+              }
+            },
+            {
+              "field": {
+                "name": "siteId",
+                "description": "Fake description — ID of the Wix site associated with the event.",
+                "type": "OBJECT",
+                "schemaName": "google.protobuf.StringValue",
+                "repeated": false,
+                "mapKeyType": "UNKNOWN_TYPE",
+                "mapValueType": "UNKNOWN_TYPE",
+                "exposure": "PUBLIC",
+                "pii": false,
+                "validations": [
+                  {
+                    "type": "FORMAT",
+                    "value": "GUID"
+                  }
+                ],
+                "maturity": "GA"
+              }
+            }
+          ],
+          "uniqueCombinations": []
+        }
+      },
+      "com.wixpress.iptf.v1.webhooks.IdentificationData": {
+        "name": "com.wixpress.iptf.v1.webhooks.IdentificationData",
+        "description": "",
+        "definition": {
+          "members": [
+            {
+              "oneOf": {
+                "fields": [
+                  {
+                    "name": "anonymousVisitorId",
+                    "description": "Fake description — ID of a site visitor that has not logged in to the site.",
+                    "type": "STRING",
+                    "repeated": false,
+                    "mapKeyType": "UNKNOWN_TYPE",
+                    "mapValueType": "UNKNOWN_TYPE",
+                    "exposure": "PUBLIC",
+                    "pii": false,
+                    "validations": [
+                      {
+                        "type": "FORMAT",
+                        "value": "GUID"
+                      }
+                    ],
+                    "maturity": "GA"
+                  },
+                  {
+                    "name": "memberId",
+                    "description": "Fake description — ID of a site visitor that has logged in to the site.",
+                    "type": "STRING",
+                    "repeated": false,
+                    "mapKeyType": "UNKNOWN_TYPE",
+                    "mapValueType": "UNKNOWN_TYPE",
+                    "exposure": "PUBLIC",
+                    "pii": false,
+                    "referencedEntity": "wix.members.v1.member",
+                    "validations": [
+                      {
+                        "type": "FORMAT",
+                        "value": "GUID"
+                      }
+                    ],
+                    "maturity": "GA"
+                  },
+                  {
+                    "name": "wixUserId",
+                    "description": "Fake description — ID of a Wix user (site owner, contributor, etc.).",
+                    "type": "STRING",
+                    "repeated": false,
+                    "mapKeyType": "UNKNOWN_TYPE",
+                    "mapValueType": "UNKNOWN_TYPE",
+                    "exposure": "PUBLIC",
+                    "pii": false,
+                    "validations": [
+                      {
+                        "type": "FORMAT",
+                        "value": "GUID"
+                      }
+                    ],
+                    "maturity": "GA"
+                  },
+                  {
+                    "name": "appId",
+                    "description": "Fake description — ID of an app.",
+                    "type": "STRING",
+                    "repeated": false,
+                    "mapKeyType": "UNKNOWN_TYPE",
+                    "mapValueType": "UNKNOWN_TYPE",
+                    "exposure": "PUBLIC",
+                    "pii": false,
+                    "validations": [
+                      {
+                        "type": "FORMAT",
+                        "value": "GUID"
+                      }
+                    ],
+                    "maturity": "GA"
+                  }
+                ],
+                "name": "id"
+              }
+            },
+            {
+              "field": {
+                "name": "identityType",
+                "description": "",
+                "type": "ENUM",
+                "schemaName": "com.wixpress.iptf.v1.webhooks.IdentificationData.WebhookIdentityType",
+                "repeated": false,
+                "mapKeyType": "UNKNOWN_TYPE",
+                "mapValueType": "UNKNOWN_TYPE",
+                "exposure": "PUBLIC",
+                "pii": false,
+                "validations": [
+                  {
+                    "type": "READ_ONLY",
+                    "value": true
+                  }
+                ],
+                "maturity": "GA"
+              }
+            }
+          ],
+          "uniqueCombinations": [],
+          "decompositeOfEntity": "wix.common.IdentificationData"
+        }
+      },
+      "com.wixpress.iptf.v1.webhooks.IdentificationData.WebhookIdentityType": {
+        "name": "com.wixpress.iptf.v1.webhooks.IdentificationData.WebhookIdentityType",
+        "description": "",
+        "enum": {
+          "items": [
+            {
+              "order": 0,
+              "value": "UNKNOWN",
+              "description": "",
+              "maturity": "GA",
+              "exposure": "PUBLIC"
+            },
+            {
+              "order": 1,
+              "value": "ANONYMOUS_VISITOR",
+              "description": "",
+              "maturity": "GA",
+              "exposure": "PUBLIC"
+            },
+            {
+              "order": 2,
+              "value": "MEMBER",
+              "description": "",
+              "maturity": "GA",
+              "exposure": "PUBLIC"
+            },
+            {
+              "order": 3,
+              "value": "WIX_USER",
+              "description": "",
+              "maturity": "GA",
+              "exposure": "PUBLIC"
+            },
+            {
+              "order": 4,
+              "value": "APP",
+              "description": "",
+              "maturity": "GA",
+              "exposure": "PUBLIC"
+            }
+          ]
+        }
+      },
+      "com.wixpress.iptf.v1.webhooks.MessageEnvelope": {
+        "name": "com.wixpress.iptf.v1.webhooks.MessageEnvelope",
+        "description": "",
+        "definition": {
+          "members": [
+            {
+              "field": {
+                "name": "instanceId",
+                "description": "Fake description — app instance ID.",
+                "type": "OBJECT",
+                "schemaName": "google.protobuf.StringValue",
+                "repeated": false,
+                "mapKeyType": "UNKNOWN_TYPE",
+                "mapValueType": "UNKNOWN_TYPE",
+                "exposure": "PUBLIC",
+                "pii": false,
+                "validations": [
+                  {
+                    "type": "FORMAT",
+                    "value": "GUID"
+                  }
+                ],
+                "maturity": "GA"
+              }
+            },
+            {
+              "field": {
+                "name": "eventType",
+                "description": "Fake description — event type.",
+                "type": "STRING",
+                "repeated": false,
+                "mapKeyType": "UNKNOWN_TYPE",
+                "mapValueType": "UNKNOWN_TYPE",
+                "exposure": "PUBLIC",
+                "pii": false,
+                "validations": [
+                  {
+                    "type": "MAX_LENGTH",
+                    "value": 150
+                  }
+                ],
+                "maturity": "GA"
+              }
+            },
+            {
+              "field": {
+                "name": "identity",
+                "description": "Fake description — the identification type and identity data.",
+                "type": "OBJECT",
+                "schemaName": "com.wixpress.iptf.v1.webhooks.IdentificationData",
+                "repeated": false,
+                "mapKeyType": "UNKNOWN_TYPE",
+                "mapValueType": "UNKNOWN_TYPE",
+                "exposure": "PUBLIC",
+                "pii": false,
+                "validations": [],
+                "maturity": "GA"
+              }
+            },
+            {
+              "field": {
+                "name": "data",
+                "description": "Fake description — stringify payload.",
+                "type": "STRING",
+                "repeated": false,
+                "mapKeyType": "UNKNOWN_TYPE",
+                "mapValueType": "UNKNOWN_TYPE",
+                "exposure": "PUBLIC",
+                "pii": false,
+                "validations": [],
+                "maturity": "GA"
+              }
+            },
+            {
+              "field": {
+                "name": "accountInfo",
+                "description": "Fake description — details related to the account.",
+                "type": "OBJECT",
+                "schemaName": "com.wixpress.iptf.v1.webhooks.AccountInfo",
+                "repeated": false,
+                "mapKeyType": "UNKNOWN_TYPE",
+                "mapValueType": "UNKNOWN_TYPE",
+                "exposure": "PUBLIC",
+                "pii": false,
+                "validations": [],
+                "maturity": "BETA"
+              }
+            }
+          ],
+          "uniqueCombinations": []
+        }
+      },
+      "com.wixpress.portfolio.portfolioapp.AddItemDirection": {
+        "name": "com.wixpress.portfolio.portfolioapp.AddItemDirection",
+        "description": "",
+        "enum": {
+          "items": [
+            {
+              "order": 0,
+              "value": "GALLERY_START",
+              "description": "Fake description — add new project items to the beginning of the gallery.",
+              "maturity": "GA",
+              "exposure": "PUBLIC"
+            },
+            {
+              "order": 1,
+              "value": "GALLERY_END",
+              "description": "Fake description — add new project items to the end of the gallery.",
+              "maturity": "GA",
+              "exposure": "PUBLIC"
+            }
+          ]
+        }
+      },
+      "com.wixpress.portfolio.portfolioapp.CreatePortfolioSettingsRequest": {
+        "name": "com.wixpress.portfolio.portfolioapp.CreatePortfolioSettingsRequest",
+        "description": "",
+        "definition": {
+          "members": [
+            {
+              "field": {
+                "name": "portfolioSettings",
+                "description": "Fake description — the portfolio settings to create.",
+                "type": "OBJECT",
+                "schemaName": "com.wixpress.portfolio.portfolioapp.PortfolioSettings",
+                "repeated": false,
+                "mapKeyType": "UNKNOWN_TYPE",
+                "mapValueType": "UNKNOWN_TYPE",
+                "exposure": "PUBLIC",
+                "pii": false,
+                "validations": [],
+                "maturity": "GA"
+              }
+            }
+          ],
+          "uniqueCombinations": []
+        }
+      },
+      "com.wixpress.portfolio.portfolioapp.CreatePortfolioSettingsResponse": {
+        "name": "com.wixpress.portfolio.portfolioapp.CreatePortfolioSettingsResponse",
+        "description": "",
+        "definition": {
+          "members": [
+            {
+              "field": {
+                "name": "portfolioSettings",
+                "description": "Fake description — newly created portfolio settings.",
+                "type": "OBJECT",
+                "schemaName": "com.wixpress.portfolio.portfolioapp.PortfolioSettings",
+                "repeated": false,
+                "mapKeyType": "UNKNOWN_TYPE",
+                "mapValueType": "UNKNOWN_TYPE",
+                "exposure": "PUBLIC",
+                "pii": false,
+                "validations": [],
+                "maturity": "GA"
+              }
+            }
+          ],
+          "uniqueCombinations": []
+        }
+      },
+      "com.wixpress.portfolio.portfolioapp.DefaultItemName": {
+        "name": "com.wixpress.portfolio.portfolioapp.DefaultItemName",
+        "description": "",
+        "enum": {
+          "items": [
+            {
+              "order": 0,
+              "value": "FILE_NAME",
+              "description": "Fake description — file name assigned as the title.",
+              "maturity": "GA",
+              "exposure": "PUBLIC"
+            },
+            {
+              "order": 1,
+              "value": "EMPTY",
+              "description": "Fake description — no title assigned.",
+              "maturity": "GA",
+              "exposure": "PUBLIC"
+            }
+          ]
+        }
+      },
+      "com.wixpress.portfolio.portfolioapp.GetPortfolioSettingsRequest": {
+        "name": "com.wixpress.portfolio.portfolioapp.GetPortfolioSettingsRequest",
+        "description": "",
+        "definition": {
+          "members": [],
+          "uniqueCombinations": []
+        }
+      },
+      "com.wixpress.portfolio.portfolioapp.GetPortfolioSettingsResponse": {
+        "name": "com.wixpress.portfolio.portfolioapp.GetPortfolioSettingsResponse",
+        "description": "",
+        "definition": {
+          "members": [
+            {
+              "field": {
+                "name": "portfolioSettings",
+                "description": "Fake description — portfolio settings.",
+                "type": "OBJECT",
+                "schemaName": "com.wixpress.portfolio.portfolioapp.PortfolioSettings",
+                "repeated": false,
+                "mapKeyType": "UNKNOWN_TYPE",
+                "mapValueType": "UNKNOWN_TYPE",
+                "exposure": "PUBLIC",
+                "pii": false,
+                "validations": [],
+                "maturity": "GA"
+              }
+            }
+          ],
+          "uniqueCombinations": []
+        }
+      },
+      "com.wixpress.portfolio.portfolioapp.MediaSettings": {
+        "name": "com.wixpress.portfolio.portfolioapp.MediaSettings",
+        "description": "",
+        "definition": {
+          "members": [
+            {
+              "field": {
+                "name": "folderId",
+                "description": "Fake description — ID of the folder containing the media.",
+                "type": "OBJECT",
+                "schemaName": "google.protobuf.StringValue",
+                "repeated": false,
+                "mapKeyType": "UNKNOWN_TYPE",
+                "mapValueType": "UNKNOWN_TYPE",
+                "exposure": "PUBLIC",
+                "pii": false,
+                "validations": [],
+                "maturity": "GA"
+              }
+            }
+          ],
+          "uniqueCombinations": []
+        }
+      },
+      "com.wixpress.portfolio.portfolioapp.PortfolioSettings": {
+        "name": "com.wixpress.portfolio.portfolioapp.PortfolioSettings",
+        "description": "",
+        "definition": {
+          "members": [
+            {
+              "field": {
+                "name": "revision",
+                "description": "Fake description — revision number, incremented on each update.",
+                "type": "OBJECT",
+                "schemaName": "google.protobuf.UInt64Value",
+                "repeated": false,
+                "mapKeyType": "UNKNOWN_TYPE",
+                "mapValueType": "UNKNOWN_TYPE",
+                "exposure": "PUBLIC",
+                "pii": false,
+                "validations": [
+                  {
+                    "type": "READ_ONLY",
+                    "value": true
+                  }
+                ],
+                "maturity": "GA"
+              }
+            },
+            {
+              "field": {
+                "name": "projectItemSettings",
+                "description": "Fake description — portfolio's project item settings.",
+                "type": "OBJECT",
+                "schemaName": "com.wixpress.portfolio.portfolioapp.ProjectItemSettings",
+                "repeated": false,
+                "mapKeyType": "UNKNOWN_TYPE",
+                "mapValueType": "UNKNOWN_TYPE",
+                "exposure": "PUBLIC",
+                "pii": false,
+                "validations": [],
+                "maturity": "GA"
+              }
+            },
+            {
+              "field": {
+                "name": "mediaSettings",
+                "description": "Fake description — portfolio's media settings.",
+                "type": "OBJECT",
+                "schemaName": "com.wixpress.portfolio.portfolioapp.MediaSettings",
+                "repeated": false,
+                "mapKeyType": "UNKNOWN_TYPE",
+                "mapValueType": "UNKNOWN_TYPE",
+                "exposure": "PUBLIC",
+                "pii": false,
+                "validations": [],
+                "maturity": "GA"
+              }
+            },
+            {
+              "field": {
+                "name": "siteMenuSettings",
+                "description": "Fake description — the site menu settings.",
+                "type": "OBJECT",
+                "schemaName": "com.wixpress.portfolio.portfolioapp.SiteMenuSettings",
+                "repeated": false,
+                "mapKeyType": "UNKNOWN_TYPE",
+                "mapValueType": "UNKNOWN_TYPE",
+                "exposure": "INTERNAL",
+                "pii": false,
+                "validations": [],
+                "maturity": "GA"
+              }
+            },
+            {
+              "field": {
+                "name": "createdDate",
+                "description": "Fake description — date and time the portfolio settings were created.",
+                "type": "OBJECT",
+                "schemaName": "google.protobuf.Timestamp",
+                "repeated": false,
+                "mapKeyType": "UNKNOWN_TYPE",
+                "mapValueType": "UNKNOWN_TYPE",
+                "exposure": "PUBLIC",
+                "pii": false,
+                "validations": [
+                  {
+                    "type": "READ_ONLY",
+                    "value": true
+                  }
+                ],
+                "maturity": "GA"
+              }
+            },
+            {
+              "field": {
+                "name": "updatedDate",
+                "description": "Fake description — date and time the portfolio settings were updated.",
+                "type": "OBJECT",
+                "schemaName": "google.protobuf.Timestamp",
+                "repeated": false,
+                "mapKeyType": "UNKNOWN_TYPE",
+                "mapValueType": "UNKNOWN_TYPE",
+                "exposure": "PUBLIC",
+                "pii": false,
+                "validations": [
+                  {
+                    "type": "READ_ONLY",
+                    "value": true
+                  }
+                ],
+                "maturity": "GA"
+              }
+            }
+          ],
+          "uniqueCombinations": []
+        }
+      },
+      "com.wixpress.portfolio.portfolioapp.ProjectItemSettings": {
+        "name": "com.wixpress.portfolio.portfolioapp.ProjectItemSettings",
+        "description": "",
+        "definition": {
+          "members": [
+            {
+              "field": {
+                "name": "addItemDirection",
+                "description": "Fake description — the direction in which to add new project items to a gallery. Default: `GALLERY_START`.",
+                "type": "ENUM",
+                "schemaName": "com.wixpress.portfolio.portfolioapp.AddItemDirection",
+                "repeated": false,
+                "mapKeyType": "UNKNOWN_TYPE",
+                "mapValueType": "UNKNOWN_TYPE",
+                "exposure": "PUBLIC",
+                "pii": false,
+                "validations": [],
+                "maturity": "GA"
+              }
+            },
+            {
+              "field": {
+                "name": "defaultItemName",
+                "description": "Fake description — default title assigned to a project item if none is provided. Default: `FILE_NAME`.",
+                "type": "ENUM",
+                "schemaName": "com.wixpress.portfolio.portfolioapp.DefaultItemName",
+                "repeated": false,
+                "mapKeyType": "UNKNOWN_TYPE",
+                "mapValueType": "UNKNOWN_TYPE",
+                "exposure": "PUBLIC",
+                "pii": false,
+                "validations": [],
+                "maturity": "GA"
+              }
+            }
+          ],
+          "uniqueCombinations": []
+        }
+      },
+      "com.wixpress.portfolio.portfolioapp.SiteMenuSettings": {
+        "name": "com.wixpress.portfolio.portfolioapp.SiteMenuSettings",
+        "description": "",
+        "definition": {
+          "members": [
+            {
+              "field": {
+                "name": "autoUpdateMenu",
+                "description": "Fake description — whether to automatically update the site menu.",
+                "type": "OBJECT",
+                "schemaName": "google.protobuf.BoolValue",
+                "repeated": false,
+                "mapKeyType": "UNKNOWN_TYPE",
+                "mapValueType": "UNKNOWN_TYPE",
+                "exposure": "PUBLIC",
+                "pii": false,
+                "validations": [],
+                "maturity": "GA"
+              }
+            }
+          ],
+          "uniqueCombinations": []
+        }
+      },
+      "com.wixpress.portfolio.portfolioapp.UpdatePortfolioSettingsRequest": {
+        "name": "com.wixpress.portfolio.portfolioapp.UpdatePortfolioSettingsRequest",
+        "description": "",
+        "definition": {
+          "members": [
+            {
+              "field": {
+                "name": "portfolioSettings",
+                "description": "Fake description — the portfolio settings to update.",
+                "type": "OBJECT",
+                "schemaName": "com.wixpress.portfolio.portfolioapp.PortfolioSettings",
+                "repeated": false,
+                "mapKeyType": "UNKNOWN_TYPE",
+                "mapValueType": "UNKNOWN_TYPE",
+                "exposure": "PUBLIC",
+                "pii": false,
+                "validations": [],
+                "maturity": "GA"
+              }
+            },
+            {
+              "field": {
+                "name": "mask",
+                "description": "Fake description — explicit list of fields to update.",
+                "type": "OBJECT",
+                "schemaName": "google.protobuf.FieldMask",
+                "repeated": false,
+                "mapKeyType": "UNKNOWN_TYPE",
+                "mapValueType": "UNKNOWN_TYPE",
+                "exposure": "INTERNAL",
+                "pii": false,
+                "validations": [],
+                "maturity": "GA"
+              }
+            }
+          ],
+          "uniqueCombinations": []
+        }
+      },
+      "com.wixpress.portfolio.portfolioapp.UpdatePortfolioSettingsResponse": {
+        "name": "com.wixpress.portfolio.portfolioapp.UpdatePortfolioSettingsResponse",
+        "description": "",
+        "definition": {
+          "members": [
+            {
+              "field": {
+                "name": "updatedPortfolioSettings",
+                "description": "Fake description — updated portfolio settings.",
+                "type": "OBJECT",
+                "schemaName": "com.wixpress.portfolio.portfolioapp.PortfolioSettings",
+                "repeated": false,
+                "mapKeyType": "UNKNOWN_TYPE",
+                "mapValueType": "UNKNOWN_TYPE",
+                "exposure": "PUBLIC",
+                "pii": false,
+                "validations": [],
+                "maturity": "GA"
+              }
+            }
+          ],
+          "uniqueCombinations": []
+        }
+      },
+      "google.protobuf.BoolValue": {
+        "name": "google.protobuf.BoolValue",
+        "description": "",
+        "definition": {
+          "members": [
+            {
+              "field": {
+                "name": "value",
+                "description": "",
+                "type": "BOOL",
+                "repeated": false,
+                "mapKeyType": "UNKNOWN_TYPE",
+                "mapValueType": "UNKNOWN_TYPE",
+                "exposure": "PUBLIC",
+                "pii": false,
+                "validations": [],
+                "maturity": "GA"
+              }
+            }
+          ],
+          "uniqueCombinations": []
+        }
+      },
+      "google.protobuf.FieldMask": {
+        "name": "google.protobuf.FieldMask",
+        "description": "",
+        "definition": {
+          "members": [
+            {
+              "field": {
+                "name": "paths",
+                "description": "",
+                "type": "STRING",
+                "repeated": true,
+                "mapKeyType": "UNKNOWN_TYPE",
+                "mapValueType": "UNKNOWN_TYPE",
+                "exposure": "PUBLIC",
+                "pii": false,
+                "validations": [],
+                "maturity": "GA"
+              }
+            }
+          ],
+          "uniqueCombinations": []
+        }
+      },
+      "google.protobuf.Int64Value": {
+        "name": "google.protobuf.Int64Value",
+        "description": "",
+        "definition": {
+          "members": [
+            {
+              "field": {
+                "name": "value",
+                "description": "",
+                "type": "INT64",
+                "repeated": false,
+                "mapKeyType": "UNKNOWN_TYPE",
+                "mapValueType": "UNKNOWN_TYPE",
+                "exposure": "PUBLIC",
+                "pii": false,
+                "validations": [],
+                "maturity": "GA"
+              }
+            }
+          ],
+          "uniqueCombinations": []
+        }
+      },
+      "google.protobuf.ListValue": {
+        "name": "google.protobuf.ListValue",
+        "description": "",
+        "definition": {
+          "members": [
+            {
+              "field": {
+                "name": "values",
+                "description": "",
+                "type": "OBJECT",
+                "schemaName": "google.protobuf.Value",
+                "repeated": true,
+                "mapKeyType": "UNKNOWN_TYPE",
+                "mapValueType": "UNKNOWN_TYPE",
+                "exposure": "PUBLIC",
+                "pii": false,
+                "validations": [],
+                "maturity": "GA"
+              }
+            }
+          ],
+          "uniqueCombinations": []
+        }
+      },
+      "google.protobuf.NullValue": {
+        "name": "google.protobuf.NullValue",
+        "description": "",
+        "enum": {
+          "items": [
+            {
+              "order": 0,
+              "value": "NULL_VALUE",
+              "description": "",
+              "maturity": "GA",
+              "exposure": "PUBLIC"
+            }
+          ]
+        }
+      },
+      "google.protobuf.StringValue": {
+        "name": "google.protobuf.StringValue",
+        "description": "",
+        "definition": {
+          "members": [
+            {
+              "field": {
+                "name": "value",
+                "description": "",
+                "type": "STRING",
+                "repeated": false,
+                "mapKeyType": "UNKNOWN_TYPE",
+                "mapValueType": "UNKNOWN_TYPE",
+                "exposure": "PUBLIC",
+                "pii": false,
+                "validations": [],
+                "maturity": "GA"
+              }
+            }
+          ],
+          "uniqueCombinations": []
+        }
+      },
+      "google.protobuf.Struct": {
+        "name": "google.protobuf.Struct",
+        "description": "",
+        "definition": {
+          "members": [
+            {
+              "field": {
+                "name": "fields",
+                "description": "",
+                "type": "MAP",
+                "schemaName": "google.protobuf.Value",
+                "repeated": false,
+                "mapKeyType": "STRING",
+                "mapValueType": "OBJECT",
+                "exposure": "PUBLIC",
+                "pii": false,
+                "validations": [],
+                "maturity": "GA"
+              }
+            }
+          ],
+          "uniqueCombinations": []
+        }
+      },
+      "google.protobuf.Timestamp": {
+        "name": "google.protobuf.Timestamp",
+        "description": "",
+        "definition": {
+          "members": [
+            {
+              "field": {
+                "name": "seconds",
+                "description": "",
+                "type": "INT64",
+                "repeated": false,
+                "mapKeyType": "UNKNOWN_TYPE",
+                "mapValueType": "UNKNOWN_TYPE",
+                "exposure": "PUBLIC",
+                "pii": false,
+                "validations": [],
+                "maturity": "GA"
+              }
+            },
+            {
+              "field": {
+                "name": "nanos",
+                "description": "",
+                "type": "INT32",
+                "repeated": false,
+                "mapKeyType": "UNKNOWN_TYPE",
+                "mapValueType": "UNKNOWN_TYPE",
+                "exposure": "PUBLIC",
+                "pii": false,
+                "validations": [],
+                "maturity": "GA"
+              }
+            }
+          ],
+          "uniqueCombinations": []
+        }
+      },
+      "google.protobuf.UInt64Value": {
+        "name": "google.protobuf.UInt64Value",
+        "description": "",
+        "definition": {
+          "members": [
+            {
+              "field": {
+                "name": "value",
+                "description": "",
+                "type": "UINT64",
+                "repeated": false,
+                "mapKeyType": "UNKNOWN_TYPE",
+                "mapValueType": "UNKNOWN_TYPE",
+                "exposure": "PUBLIC",
+                "pii": false,
+                "validations": [],
+                "maturity": "GA"
+              }
+            }
+          ],
+          "uniqueCombinations": []
+        }
+      },
+      "google.protobuf.Value": {
+        "name": "google.protobuf.Value",
+        "description": "",
+        "definition": {
+          "members": [
+            {
+              "oneOf": {
+                "fields": [
+                  {
+                    "name": "nullValue",
+                    "description": "",
+                    "type": "ENUM",
+                    "schemaName": "google.protobuf.NullValue",
+                    "repeated": false,
+                    "mapKeyType": "UNKNOWN_TYPE",
+                    "mapValueType": "UNKNOWN_TYPE",
+                    "exposure": "PUBLIC",
+                    "pii": false,
+                    "validations": [],
+                    "maturity": "GA"
+                  },
+                  {
+                    "name": "numberValue",
+                    "description": "",
+                    "type": "DOUBLE",
+                    "repeated": false,
+                    "mapKeyType": "UNKNOWN_TYPE",
+                    "mapValueType": "UNKNOWN_TYPE",
+                    "exposure": "PUBLIC",
+                    "pii": false,
+                    "validations": [],
+                    "maturity": "GA"
+                  },
+                  {
+                    "name": "stringValue",
+                    "description": "",
+                    "type": "STRING",
+                    "repeated": false,
+                    "mapKeyType": "UNKNOWN_TYPE",
+                    "mapValueType": "UNKNOWN_TYPE",
+                    "exposure": "PUBLIC",
+                    "pii": false,
+                    "validations": [],
+                    "maturity": "GA"
+                  },
+                  {
+                    "name": "boolValue",
+                    "description": "",
+                    "type": "BOOL",
+                    "repeated": false,
+                    "mapKeyType": "UNKNOWN_TYPE",
+                    "mapValueType": "UNKNOWN_TYPE",
+                    "exposure": "PUBLIC",
+                    "pii": false,
+                    "validations": [],
+                    "maturity": "GA"
+                  },
+                  {
+                    "name": "structValue",
+                    "description": "",
+                    "type": "OBJECT",
+                    "schemaName": "google.protobuf.Struct",
+                    "repeated": false,
+                    "mapKeyType": "UNKNOWN_TYPE",
+                    "mapValueType": "UNKNOWN_TYPE",
+                    "exposure": "PUBLIC",
+                    "pii": false,
+                    "validations": [],
+                    "maturity": "GA"
+                  },
+                  {
+                    "name": "listValue",
+                    "description": "",
+                    "type": "OBJECT",
+                    "schemaName": "google.protobuf.ListValue",
+                    "repeated": false,
+                    "mapKeyType": "UNKNOWN_TYPE",
+                    "mapValueType": "UNKNOWN_TYPE",
+                    "exposure": "PUBLIC",
+                    "pii": false,
+                    "validations": [],
+                    "maturity": "GA"
+                  }
+                ],
+                "name": "kind"
+              }
+            }
+          ],
+          "uniqueCombinations": []
+        }
+      },
+      "wix.common.domainevents.ActionEvent": {
+        "name": "wix.common.domainevents.ActionEvent",
+        "description": "",
+        "definition": {
+          "members": [
+            {
+              "field": {
+                "name": "bodyAsJson",
+                "description": "",
+                "type": "STRING",
+                "repeated": false,
+                "mapKeyType": "UNKNOWN_TYPE",
+                "mapValueType": "UNKNOWN_TYPE",
+                "exposure": "PUBLIC",
+                "pii": true,
+                "validations": [],
+                "maturity": "GA"
+              }
+            }
+          ],
+          "uniqueCombinations": []
+        },
+        "javaPackage": "com.wix.common.domainevents"
+      },
+      "wix.common.domainevents.DomainEvent": {
+        "name": "wix.common.domainevents.DomainEvent",
+        "description": "",
+        "definition": {
+          "members": [
+            {
+              "oneOf": {
+                "fields": [
+                  {
+                    "name": "createdEvent",
+                    "description": "",
+                    "type": "OBJECT",
+                    "schemaName": "wix.common.domainevents.EntityCreatedEvent",
+                    "repeated": false,
+                    "mapKeyType": "UNKNOWN_TYPE",
+                    "mapValueType": "UNKNOWN_TYPE",
+                    "exposure": "PUBLIC",
+                    "pii": false,
+                    "validations": [],
+                    "maturity": "GA"
+                  },
+                  {
+                    "name": "updatedEvent",
+                    "description": "",
+                    "type": "OBJECT",
+                    "schemaName": "wix.common.domainevents.EntityUpdatedEvent",
+                    "repeated": false,
+                    "mapKeyType": "UNKNOWN_TYPE",
+                    "mapValueType": "UNKNOWN_TYPE",
+                    "exposure": "PUBLIC",
+                    "pii": false,
+                    "validations": [],
+                    "maturity": "GA"
+                  },
+                  {
+                    "name": "deletedEvent",
+                    "description": "",
+                    "type": "OBJECT",
+                    "schemaName": "wix.common.domainevents.EntityDeletedEvent",
+                    "repeated": false,
+                    "mapKeyType": "UNKNOWN_TYPE",
+                    "mapValueType": "UNKNOWN_TYPE",
+                    "exposure": "PUBLIC",
+                    "pii": false,
+                    "validations": [],
+                    "maturity": "GA"
+                  },
+                  {
+                    "name": "actionEvent",
+                    "description": "",
+                    "type": "OBJECT",
+                    "schemaName": "wix.common.domainevents.ActionEvent",
+                    "repeated": false,
+                    "mapKeyType": "UNKNOWN_TYPE",
+                    "mapValueType": "UNKNOWN_TYPE",
+                    "exposure": "PUBLIC",
+                    "pii": false,
+                    "validations": [],
+                    "maturity": "GA"
+                  }
+                ],
+                "name": "body"
+              }
+            },
+            {
+              "field": {
+                "name": "id",
+                "description": "Fake description — event ID, used to spot and ignore duplicate events.",
+                "type": "STRING",
+                "repeated": false,
+                "mapKeyType": "UNKNOWN_TYPE",
+                "mapValueType": "UNKNOWN_TYPE",
+                "exposure": "PUBLIC",
+                "pii": false,
+                "validations": [],
+                "maturity": "GA"
+              }
+            },
+            {
+              "field": {
+                "name": "entityFqdn",
+                "description": "Fake description — fully qualified domain name of an entity.",
+                "type": "STRING",
+                "repeated": false,
+                "mapKeyType": "UNKNOWN_TYPE",
+                "mapValueType": "UNKNOWN_TYPE",
+                "exposure": "PUBLIC",
+                "pii": false,
+                "validations": [],
+                "maturity": "GA"
+              }
+            },
+            {
+              "field": {
+                "name": "slug",
+                "description": "Fake description — event action name (e.g. created/updated/deleted).",
+                "type": "STRING",
+                "repeated": false,
+                "mapKeyType": "UNKNOWN_TYPE",
+                "mapValueType": "UNKNOWN_TYPE",
+                "exposure": "PUBLIC",
+                "pii": false,
+                "validations": [],
+                "maturity": "GA"
+              }
+            },
+            {
+              "field": {
+                "name": "entityId",
+                "description": "Fake description — ID of the entity associated with the event.",
+                "type": "STRING",
+                "repeated": false,
+                "mapKeyType": "UNKNOWN_TYPE",
+                "mapValueType": "UNKNOWN_TYPE",
+                "exposure": "PUBLIC",
+                "pii": false,
+                "validations": [],
+                "maturity": "GA"
+              }
+            },
+            {
+              "field": {
+                "name": "eventTime",
+                "description": "Fake description — event timestamp in ISO-8601 UTC format.",
+                "type": "OBJECT",
+                "schemaName": "google.protobuf.Timestamp",
+                "repeated": false,
+                "mapKeyType": "UNKNOWN_TYPE",
+                "mapValueType": "UNKNOWN_TYPE",
+                "exposure": "PUBLIC",
+                "pii": false,
+                "validations": [],
+                "maturity": "GA"
+              }
+            },
+            {
+              "field": {
+                "name": "triggeredByAnonymizeRequest",
+                "description": "Fake description — whether the event was triggered by a privacy regulation application.",
+                "type": "OBJECT",
+                "schemaName": "google.protobuf.BoolValue",
+                "repeated": false,
+                "mapKeyType": "UNKNOWN_TYPE",
+                "mapValueType": "UNKNOWN_TYPE",
+                "exposure": "PUBLIC",
+                "pii": false,
+                "validations": [],
+                "maturity": "GA"
+              }
+            },
+            {
+              "field": {
+                "name": "originatedFrom",
+                "description": "Fake description — if present, indicates the action that triggered the event.",
+                "type": "OBJECT",
+                "schemaName": "google.protobuf.StringValue",
+                "repeated": false,
+                "mapKeyType": "UNKNOWN_TYPE",
+                "mapValueType": "UNKNOWN_TYPE",
+                "exposure": "PUBLIC",
+                "pii": false,
+                "validations": [],
+                "maturity": "GA"
+              }
+            },
+            {
+              "field": {
+                "name": "entityEventSequence",
+                "description": "Fake description — sequence number indicating the order of updates to an entity.",
+                "type": "OBJECT",
+                "schemaName": "google.protobuf.Int64Value",
+                "repeated": false,
+                "mapKeyType": "UNKNOWN_TYPE",
+                "mapValueType": "UNKNOWN_TYPE",
+                "exposure": "PUBLIC",
+                "pii": false,
+                "validations": [],
+                "maturity": "GA"
+              }
+            }
+          ],
+          "uniqueCombinations": []
+        },
+        "javaPackage": "com.wix.common.domainevents"
+      },
+      "wix.common.domainevents.EntityCreatedEvent": {
+        "name": "wix.common.domainevents.EntityCreatedEvent",
+        "description": "",
+        "definition": {
+          "members": [
+            {
+              "field": {
+                "name": "entityAsJson",
+                "description": "",
+                "type": "STRING",
+                "repeated": false,
+                "mapKeyType": "UNKNOWN_TYPE",
+                "mapValueType": "UNKNOWN_TYPE",
+                "exposure": "PUBLIC",
+                "pii": true,
+                "validations": [],
+                "maturity": "GA"
+              }
+            },
+            {
+              "field": {
+                "name": "triggeredByUndelete",
+                "description": "Fake description — indicates the event was triggered by a restore-from-trashbin operation.",
+                "type": "OBJECT",
+                "schemaName": "google.protobuf.BoolValue",
+                "repeated": false,
+                "mapKeyType": "UNKNOWN_TYPE",
+                "mapValueType": "UNKNOWN_TYPE",
+                "exposure": "PRIVATE",
+                "pii": false,
+                "validations": [],
+                "maturity": "GA"
+              }
+            },
+            {
+              "field": {
+                "name": "restoreInfo",
+                "description": "Fake description — indicates the event was triggered by a restore-from-trashbin operation.",
+                "type": "OBJECT",
+                "schemaName": "wix.common.domainevents.RestoreInfo",
+                "repeated": false,
+                "mapKeyType": "UNKNOWN_TYPE",
+                "mapValueType": "UNKNOWN_TYPE",
+                "exposure": "PUBLIC",
+                "pii": false,
+                "validations": [],
+                "maturity": "GA"
+              }
+            },
+            {
+              "field": {
+                "name": "additionalMetadataAsJson",
+                "description": "Fake description — optional domain-specific metadata, encoded as JSON.",
+                "type": "OBJECT",
+                "schemaName": "google.protobuf.StringValue",
+                "repeated": false,
+                "mapKeyType": "UNKNOWN_TYPE",
+                "mapValueType": "UNKNOWN_TYPE",
+                "exposure": "PRIVATE",
+                "pii": true,
+                "validations": [],
+                "maturity": "GA"
+              }
+            }
+          ],
+          "uniqueCombinations": []
+        },
+        "javaPackage": "com.wix.common.domainevents"
+      },
+      "wix.common.domainevents.EntityDeletedEvent": {
+        "name": "wix.common.domainevents.EntityDeletedEvent",
+        "description": "",
+        "definition": {
+          "members": [
+            {
+              "field": {
+                "name": "movedToTrash",
+                "description": "Fake description — indicates if the entity is sent to trash-bin.",
+                "type": "OBJECT",
+                "schemaName": "google.protobuf.BoolValue",
+                "repeated": false,
+                "mapKeyType": "UNKNOWN_TYPE",
+                "mapValueType": "UNKNOWN_TYPE",
+                "exposure": "PRIVATE",
+                "pii": false,
+                "validations": [],
+                "maturity": "GA"
+              }
+            },
+            {
+              "field": {
+                "name": "deletedEntityAsJson",
+                "description": "Fake description — entity that was deleted.",
+                "type": "OBJECT",
+                "schemaName": "google.protobuf.StringValue",
+                "repeated": false,
+                "mapKeyType": "UNKNOWN_TYPE",
+                "mapValueType": "UNKNOWN_TYPE",
+                "exposure": "PUBLIC",
+                "pii": true,
+                "validations": [],
+                "maturity": "GA"
+              }
+            },
+            {
+              "field": {
+                "name": "additionalMetadataAsJson",
+                "description": "Fake description — optional domain-specific metadata, encoded as JSON.",
+                "type": "OBJECT",
+                "schemaName": "google.protobuf.StringValue",
+                "repeated": false,
+                "mapKeyType": "UNKNOWN_TYPE",
+                "mapValueType": "UNKNOWN_TYPE",
+                "exposure": "PRIVATE",
+                "pii": true,
+                "validations": [],
+                "maturity": "GA"
+              }
+            }
+          ],
+          "uniqueCombinations": []
+        },
+        "javaPackage": "com.wix.common.domainevents"
+      },
+      "wix.common.domainevents.EntityUpdatedEvent": {
+        "name": "wix.common.domainevents.EntityUpdatedEvent",
+        "description": "",
+        "definition": {
+          "members": [
+            {
+              "field": {
+                "name": "currentEntityAsJson",
+                "description": "Fake description — current entity state as JSON.",
+                "type": "STRING",
+                "repeated": false,
+                "mapKeyType": "UNKNOWN_TYPE",
+                "mapValueType": "UNKNOWN_TYPE",
+                "exposure": "PUBLIC",
+                "pii": true,
+                "validations": [],
+                "maturity": "GA"
+              }
+            },
+            {
+              "field": {
+                "name": "previousEntityAsJson",
+                "description": "Fake description — previous entity state as JSON.",
+                "type": "OBJECT",
+                "schemaName": "google.protobuf.StringValue",
+                "repeated": false,
+                "mapKeyType": "UNKNOWN_TYPE",
+                "mapValueType": "UNKNOWN_TYPE",
+                "exposure": "INTERNAL",
+                "pii": true,
+                "deprecated": {},
+                "validations": [],
+                "maturity": "GA"
+              }
+            },
+            {
+              "field": {
+                "name": "modifiedFields",
+                "description": "Fake description — map of changed field paths to their previous values.",
+                "type": "MAP",
+                "schemaName": "google.protobuf.Value",
+                "repeated": false,
+                "mapKeyType": "STRING",
+                "mapValueType": "OBJECT",
+                "exposure": "PRIVATE",
+                "pii": true,
+                "validations": [],
+                "maturity": "GA"
+              }
+            },
+            {
+              "field": {
+                "name": "additionalMetadataAsJson",
+                "description": "Fake description — optional domain-specific metadata, encoded as JSON.",
+                "type": "OBJECT",
+                "schemaName": "google.protobuf.StringValue",
+                "repeated": false,
+                "mapKeyType": "UNKNOWN_TYPE",
+                "mapValueType": "UNKNOWN_TYPE",
+                "exposure": "PRIVATE",
+                "pii": true,
+                "validations": [],
+                "maturity": "GA"
+              }
+            }
+          ],
+          "uniqueCombinations": []
+        },
+        "javaPackage": "com.wix.common.domainevents"
+      },
+      "wix.common.domainevents.RestoreInfo": {
+        "name": "wix.common.domainevents.RestoreInfo",
+        "description": "",
+        "definition": {
+          "members": [
+            {
+              "field": {
+                "name": "deletedDate",
+                "description": "",
+                "type": "OBJECT",
+                "schemaName": "google.protobuf.Timestamp",
+                "repeated": false,
+                "mapKeyType": "UNKNOWN_TYPE",
+                "mapValueType": "UNKNOWN_TYPE",
+                "exposure": "PUBLIC",
+                "pii": false,
+                "validations": [],
+                "maturity": "GA"
+              }
+            }
+          ],
+          "uniqueCombinations": []
+        },
+        "javaPackage": "com.wix.common.domainevents"
+      }
+    }
+  }
+}
