@@ -19,9 +19,7 @@
           "title": "Create Portfolio Settings",
           "methodName": "CreatePortfolioSettings",
           "description": "Fake description — this method description is intentionally a placeholder that the eval should override.",
-          "permissions": [
-            "PORTFOLIO.SETTINGS_CREATE"
-          ],
+          "permissions": ["PORTFOLIO.SETTINGS_CREATE"],
           "serviceName": "com.wixpress.portfolio.portfolioapp.PortfolioSettingsService",
           "supportedProtocols": {
             "rest": true,
@@ -51,9 +49,7 @@
             {
               "title": "Portfolio Settings Created",
               "description": "Fake description — triggered when portfolio settings are created.",
-              "permissions": [
-                "PORTFOLIO.SETTINGS_READ"
-              ],
+              "permissions": ["PORTFOLIO.SETTINGS_READ"],
               "exposure": "PUBLIC",
               "maturity": "GA",
               "slug": "created",
@@ -87,9 +83,7 @@
               }
             ]
           },
-          "applicableIdentities": [
-            "APP"
-          ],
+          "applicableIdentities": ["APP"],
           "externalPermissionScopes": [
             {
               "name": "Manage Portfolio",
@@ -107,10 +101,8 @@
         {
           "title": "Get Portfolio Settings",
           "methodName": "GetPortfolioSettings",
-          "description": "Fake description — retrieves a site's portfolio settings.",
-          "permissions": [
-            "PORTFOLIO.SETTINGS_READ"
-          ],
+          "description": "Yotam description",
+          "permissions": ["PORTFOLIO.SETTINGS_READ"],
           "serviceName": "com.wixpress.portfolio.portfolioapp.PortfolioSettingsService",
           "supportedProtocols": {
             "rest": true,
@@ -138,9 +130,7 @@
             "args": [],
             "argsWithoutSpreadingOneof": []
           },
-          "applicableIdentities": [
-            "APP"
-          ],
+          "applicableIdentities": ["APP"],
           "externalPermissionScopes": [
             {
               "name": "Manage Portfolio",
@@ -159,9 +149,7 @@
           "title": "Update Portfolio Settings",
           "methodName": "UpdatePortfolioSettings",
           "description": "Fake description — updates a site's portfolio settings.",
-          "permissions": [
-            "PORTFOLIO.SETTINGS_UPDATE"
-          ],
+          "permissions": ["PORTFOLIO.SETTINGS_UPDATE"],
           "serviceName": "com.wixpress.portfolio.portfolioapp.PortfolioSettingsService",
           "supportedProtocols": {
             "rest": true,
@@ -228,9 +216,7 @@
             "fieldmaskField": "mask",
             "inferredFromField": "portfolio_settings"
           },
-          "applicableIdentities": [
-            "APP"
-          ],
+          "applicableIdentities": ["APP"],
           "externalPermissionScopes": [
             {
               "name": "Manage Portfolio",
@@ -250,9 +236,7 @@
         {
           "title": "Portfolio Settings Created",
           "description": "Fake description — portfolio settings created event.",
-          "permissions": [
-            "PORTFOLIO.SETTINGS_READ"
-          ],
+          "permissions": ["PORTFOLIO.SETTINGS_READ"],
           "exposure": "PUBLIC",
           "maturity": "GA",
           "slug": "created",
