@@ -11,6 +11,9 @@
   "bugs": {
     "url": "https://github.com/wix/skills/issues"
   },
+  "scripts": {
+    "version": "node .github/scripts/sync-plugin-versions.mjs && git add .claude-plugin/plugin.json .codex-plugin/plugin.json .cursor-plugin/plugin.json plugin.json gemini-extension.json"
+  },
   "files": [
     "skills/**",
     "README.md",
