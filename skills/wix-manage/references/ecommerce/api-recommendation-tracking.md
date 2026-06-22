@@ -1,7 +1,6 @@
 ---
 name: "API: Recommendation Tracking"
-description: CRUD API for persisting and managing the lifecycle of AI-generated recommendations. Tracks state transitions from PROPOSED through APPROVED, EXECUTING, to DONE/FAILED/REJECTED. Every recommendation must be persisted here before presenting to the merchant.
-layer: config
+description: Cross-cutting tracking API for AI-generated recommendations across all eCommerce categories (checkout, shipping, pricing, abandoned-carts). ALWAYS LOAD BEFORE generating a "give me N recommendations / concrete actions" response, in addition to the category recipe.
 ---
 # API: Recommendation Tracking Service
 
@@ -10,6 +9,8 @@ This service persists recommendations in a database and tracks their lifecycle s
 **Service**: `wix.ecom.agentic.recommendations.v1.AgenticRecommendationsService`
 
 **Base URL**: `https://manage.wix.com/_api/agentic-recommendations/v1/agentic-recommendations`
+
+> **Internal-but-callable API.** This is a Wix-internal service with NO public `dev.wix.com` docs page. It **IS callable via `CallWixSiteAPI`** in the authenticated editor/dashboard context the MCP runs in (verified: the endpoints return auth/validation errors, not 404). This file is the authoritative spec — do not try to `ReadFullDocsArticle` an external doc for it.
 
 ## How to call these APIs
 
