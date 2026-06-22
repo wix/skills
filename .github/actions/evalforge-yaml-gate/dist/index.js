@@ -34690,8 +34690,8 @@ class EvalPipelineClient {
         }
         return res.json();
     }
-    async runComparison(tags, agentName) {
-        return this.post('/run-comparison', { tags, agentName });
+    async runComparison(tags, agentName, commitSha, skillsRepo) {
+        return this.post('/run-comparison', { tags, agentName, commitSha, skillsRepo });
     }
     async compareGroup(comparisonGroupId) {
         return this.post('/compare-group', { comparisonGroupId });
@@ -35101,6 +35101,7 @@ async function runGate() {
     const workspace = (0, workspace_1.workspaceRoot)();
     const draftTag = (0, evalforge_1.draftTagFor)(`${config.owner}/${config.repo}`, config.prNumber);
     core.info(`EvalForge YAML gate — PR #${config.prNumber}`);
+    core.info(`MCP params — skillsRepo: ${config.mcpSkillsRepo}, headSha: ${config.headSha}`);
     const evalforge = new evalforge_1.EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
     const versionLabel = `pr-${config.prNumber}-${config.headSha.slice(0, 7)}`;
     const mcpVersion = await guardedCall(() => evalforge.ensureMcpVersion(config.mcpId, config.projectId, versionLabel, config.prNumber, config.headSha, config.mcpSkillsRepo), 'Could not create MCP version', comment, config);
@@ -35194,7 +35195,7 @@ async function runGate() {
         return;
     }
     const pipeline = new eval_pipeline_1.EvalPipelineClient(config.evalPipelineUrl, config.appId, config.appSecret);
-    const comparison = await guardedCall(() => pipeline.runComparison([draftTag], config.agentName), 'Could not start eval pipeline comparison', comment, config);
+    const comparison = await guardedCall(() => pipeline.runComparison([draftTag], config.agentName, config.headSha, config.mcpSkillsRepo), 'Could not start eval pipeline comparison', comment, config);
     if (!comparison)
         return;
     core.info(`Eval pipeline comparison started: comparisonGroupId=${comparison.comparisonGroupId}`);

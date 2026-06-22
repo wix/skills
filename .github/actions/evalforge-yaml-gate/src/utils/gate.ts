@@ -32,6 +32,7 @@ export async function runGate(): Promise<void> {
   const draftTag = draftTagFor(`${config.owner}/${config.repo}`, config.prNumber);
 
   core.info(`EvalForge YAML gate — PR #${config.prNumber}`);
+  core.info(`MCP params — skillsRepo: ${config.mcpSkillsRepo}, headSha: ${config.headSha}`);
 
   const evalforge = new EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
   const versionLabel = `pr-${config.prNumber}-${config.headSha.slice(0, 7)}`;
@@ -140,7 +141,7 @@ export async function runGate(): Promise<void> {
 
   const pipeline = new EvalPipelineClient(config.evalPipelineUrl, config.appId, config.appSecret);
   const comparison = await guardedCall(
-    () => pipeline.runComparison([draftTag], config.agentName),
+    () => pipeline.runComparison([draftTag], config.agentName, config.headSha, config.mcpSkillsRepo),
     'Could not start eval pipeline comparison', comment, config,
   );
   if (!comparison) return;
