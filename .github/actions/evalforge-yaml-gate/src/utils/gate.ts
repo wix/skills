@@ -8,15 +8,21 @@ import { canonicalDocUrl } from './doc-url';
 import { computeCoverage } from './coverage';
 import { diffSyncPlan } from './sync';
 import { EvalForgeClient, draftTagFor } from './evalforge';
+import { EvalPipelineClient, pollUntilComparisonDone, ComparisonTimeoutError } from './eval-pipeline';
 import { workspaceRoot } from './workspace';
 import { BASE_WORKSPACE_SUBDIR } from './paths';
-import { pollUntilDone, EvalRunTimeoutError } from './eval-run';
+import type { ComparisonGroupResult } from './eval-pipeline';
 import {
-  formatEvalFailed, formatEvalPassed, formatEvalTimeout, formatForeignDraftConflicts,
+  formatForeignDraftConflicts,
   formatLoadErrors, formatNoChanges, formatOrphanedMds, formatServiceError, formatUncovered,
+  formatComparisonResult, formatComparisonTimeout,
 } from './comment';
 
 type Commenter = ReturnType<typeof makeCommenter>;
+
+function allScenariosRequired(result: ComparisonGroupResult): boolean {
+  return result.scenarios.length > 0 && result.scenarios.every(s => s.required);
+}
 
 export async function runGate(): Promise<void> {
   const config = getEvalConfig();
@@ -121,71 +127,49 @@ export async function runGate(): Promise<void> {
     }
   }
 
-  const selected = new Set<string>();
-  for (const names of cov.coveredBy.values()) {
-    for (const n of names) {
-      const id = nameToId.get(n);
-      if (id) selected.add(id);
-    }
-  }
-  const scenarioByPath = new Map<string, LoadedScenario>();
-  for (const ls of headScenarios.values()) scenarioByPath.set(ls.path, ls);
-  for (const f of [...classifiedChanges.evalsAdded, ...classifiedChanges.evalsModified]) {
-    const ls = scenarioByPath.get(f.filename);
-    if (!ls) continue;
-    const id = nameToId.get(ls.scenario.name);
-    if (id) selected.add(id);
-  }
-
-  if (selected.size === 0) {
-    core.info('Nothing to run');
+  const hasUpserts = plan.actions.some(a => a.kind === 'CREATE' || a.kind === 'UPDATE');
+  if (!hasUpserts) {
+    core.info('No scenarios created or updated — skipping eval pipeline comparison');
     return;
   }
 
-  const run = await guardedCall(
-    () => evalforge.createEvalRun(config.projectId, {
-      name: `PR #${config.prNumber} YAML-gate`,
-      description: `Gate for PR #${config.prNumber} (${selected.size} scenarios)`,
-      projectId: config.projectId,
-      agentId: config.agentId,
-      scenarioIds: [...selected],
-      // capabilityIds is REQUIRED — without it the agent has no MCP bound at run time. Don't drop it.
-      capabilityIds: [config.mcpId],
-      capabilityVersions: { [config.mcpId]: mcpVersion.id },
-    }),
-    'Could not create eval run', comment, config,
-  );
-  if (!run) return;
+  if (!config.triggerEvalCompare) {
+    core.info('Eval compare disabled (TRIGGER_EVAL_COMPARE=false) — skipping comparison');
+    return;
+  }
 
-  const triggered = await guardedCall(
-    () => evalforge.triggerEvalRun(config.projectId, run.id),
-    'Could not trigger eval run', comment, config,
+  const pipeline = new EvalPipelineClient(config.evalPipelineUrl, config.appId, config.appSecret);
+  const comparison = await guardedCall(
+    () => pipeline.runComparison([draftTag], config.agentName),
+    'Could not start eval pipeline comparison', comment, config,
   );
-  if (!triggered) return;
+  if (!comparison) return;
+  core.info(`Eval pipeline comparison started: comparisonGroupId=${comparison.comparisonGroupId}`);
 
-  let finalStatus;
   try {
-    finalStatus = await pollUntilDone(evalforge, config.projectId, run.id);
+    const done = await pollUntilComparisonDone(pipeline, comparison.comparisonGroupId);
+    await comment(formatComparisonResult(done));
+    if (config.autoApprove && allScenariosRequired(done.result)) {
+      await octokit.rest.pulls.createReview({
+        owner: config.owner,
+        repo: config.repo,
+        pull_number: config.prNumber,
+        event: 'APPROVE',
+        body: 'All required eval scenarios passed — auto-approved.',
+      });
+      core.info('PR auto-approved: all required scenarios passed');
+    }
   } catch (e) {
-    if (e instanceof EvalRunTimeoutError) {
-      await comment(formatEvalTimeout(run.id, config.blocking));
-      fail(`Eval timed out (run ID: ${run.id})`, config.blocking);
+    if (e instanceof ComparisonTimeoutError) {
+      await comment(formatComparisonTimeout(comparison.comparisonGroupId, config.blocking));
+      fail(e.message, config.blocking);
       return;
     }
-    core.error(`Eval polling failed: ${e instanceof Error ? e.message : String(e)}`);
-    await comment(formatServiceError('Eval polling failed', config.blocking));
-    fail('Eval polling failed', config.blocking);
-    return;
+    core.error(`compare-group failed: ${e instanceof Error ? e.message : String(e)}`);
+    await comment(formatServiceError('Eval pipeline comparison failed', config.blocking));
+    fail('Eval pipeline comparison failed', config.blocking);
   }
 
-  const m = finalStatus.aggregateMetrics;
-  if (finalStatus.status === 'completed' && m.failed === 0 && m.errors === 0) {
-    await comment(formatEvalPassed(m, run.id));
-    core.info(`Eval passed — ${m.passed}/${m.totalAssertions} (run ID: ${run.id})`);
-  } else {
-    await comment(formatEvalFailed(m, run.id, config.blocking));
-    fail(`Eval failed (${m.passRate}%)`, config.blocking);
-  }
 }
 
 async function guardedCall<T>(
@@ -202,4 +186,3 @@ async function guardedCall<T>(
     return undefined;
   }
 }
-

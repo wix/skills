@@ -18,6 +18,10 @@ export type Config = SimpleConfig & {
   headSha: string;
   mcpSkillsRepo: string;
   blocking: boolean;
+  evalPipelineUrl: string;
+  agentName: string;
+  autoApprove: boolean;
+  triggerEvalCompare: boolean;
 };
 
 function ensureHttps(url: string): string {
@@ -71,5 +75,9 @@ export function getEvalConfig(): Config {
     headSha,
     mcpSkillsRepo,
     blocking: core.getInput('blocking') === 'true',
+    evalPipelineUrl: core.getInput('eval-pipeline-url') || 'https://www.wixapis.com/_api/eval-pipeline',
+    agentName: core.getInput('agent-name') || 'agent',
+    autoApprove: core.getInput('auto-approve') === 'true',
+    triggerEvalCompare: core.getInput('eval-compare') !== 'false',
   };
 }

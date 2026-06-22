@@ -2,6 +2,7 @@ import type { LoadError } from './evals';
 import type { Uncovered } from './coverage';
 import type { SyncError } from './sync';
 import type { EvalRunStatus } from './evalforge';
+import type { CompareGroupComplete, ScenarioComparison } from './eval-pipeline';
 
 export const COMMENT_MARKER = '<!-- evalforge-yaml-gate-action -->';
 const HEADING = 'EvalForge YAML Gate';
@@ -56,23 +57,68 @@ export function formatServiceError(message: string, blocking: boolean): string {
   return render(icon, blocking ? 'Error' : 'Warning', [message]);
 }
 
-export function formatEvalPassed(m: EvalRunStatus['aggregateMetrics'], runId: string): string {
-  return render('✅', 'Passed', [`Pass rate: ${m.passRate}%`, `Run ID: ${runId}`]);
+function runLink(runId: string, runUrl: string): string {
+  return `Run: [${runId}](${runUrl})`;
 }
 
-export function formatEvalFailed(m: EvalRunStatus['aggregateMetrics'], runId: string, blocking: boolean): string {
+export function formatEvalPassed(m: EvalRunStatus['aggregateMetrics'], runId: string, runUrl: string): string {
+  return render('✅', 'Passed', [`Pass rate: ${m.passRate}%`, runLink(runId, runUrl)]);
+}
+
+export function formatEvalFailed(m: EvalRunStatus['aggregateMetrics'], runId: string, runUrl: string, blocking: boolean): string {
   const { icon, label } = failIcon(blocking);
   return render(icon, label, [
     `Pass rate: ${m.passRate}%`,
     `${m.failed} failed, ${m.errors} errored, ${m.passed}/${m.totalAssertions} passed`,
-    `Run ID: ${runId}`,
+    runLink(runId, runUrl),
   ]);
 }
 
-export function formatEvalTimeout(runId: string, blocking: boolean): string {
-  return render(blocking ? '⏱' : '⚠️', 'Timed Out', [`Run ID: ${runId}`]);
+export function formatEvalTimeout(runId: string, runUrl: string, blocking: boolean): string {
+  return render(blocking ? '⏱' : '⚠️', 'Timed Out', [runLink(runId, runUrl)]);
 }
 
 export function formatNoChanges(): string {
   return render('✅', 'No Gated Changes', ['Nothing under `evals/` or sibling `.md` changed.']);
+}
+
+export function formatComparisonResult(result: CompareGroupComplete): string {
+  const { verdict, tag, scenarios } = result.result;
+  const verdictIcon = verdict === 'not-required' ? '✅' : '⚠️';
+  const lines: string[] = [
+    COMMENT_MARKER,
+    `## ${verdictIcon} ${HEADING}: Eval Comparison`,
+    '',
+    `**Verdict:** \`${verdict}\` | **Tag:** \`${tag}\``,
+    '',
+    '| Scenario | Required | Winner | Cost (with/without) | Tokens (with/without) | Time (with/without) |',
+    '|---|---|---|---|---|---|',
+  ];
+
+  for (const s of (scenarios ?? [])) {
+    const winnerIcon = s.pairwiseJudgement.winner === 'tie' ? '≈' : s.pairwiseJudgement.winner === 'with' ? '⬆️' : '⬇️';
+    const costWith = s.with.totalCostUsd.toFixed(3);
+    const costWithout = s.without.totalCostUsd.toFixed(3);
+    const tokWith = `${(s.with.totalTokens / 1000).toFixed(1)}K`;
+    const tokWithout = `${(s.without.totalTokens / 1000).toFixed(1)}K`;
+    const timeWith = `${(s.with.durationMs / 1000).toFixed(1)}s`;
+    const timeWithout = `${(s.without.durationMs / 1000).toFixed(1)}s`;
+    lines.push(`| ${s.scenarioName} | ${s.required ? '✅' : '—'} | ${winnerIcon} ${s.pairwiseJudgement.winner} (${s.pairwiseJudgement.confidence}) | $${costWith} / $${costWithout} | ${tokWith} / ${tokWithout} | ${timeWith} / ${timeWithout} |`);
+  }
+
+  for (const s of (scenarios ?? [])) {
+    lines.push('', `<details><summary>${s.scenarioName}</summary>`, '', s.reason, '');
+    lines.push('**Assertions (with):**', ...s.with.assertions.map(a => `- ${a.status === 'passed' ? '✅' : '❌'} ${a.name}${a.score !== undefined ? ` (${a.score}/10)` : ''}${a.message ? `: ${a.message}` : ''}`), '');
+    lines.push('**Assertions (without):**', ...s.without.assertions.map(a => `- ${a.status === 'passed' ? '✅' : '❌'} ${a.name}${a.score !== undefined ? ` (${a.score}/10)` : ''}${a.message ? `: ${a.message}` : ''}`), '');
+    if (s.pairwiseJudgement.dimensions) {
+      lines.push('**Dimensions:**', ...Object.entries(s.pairwiseJudgement.dimensions).map(([k, v]) => `- ${k}: **${v.winner}**`), '');
+    }
+    lines.push('</details>');
+  }
+
+  return lines.join('\n');
+}
+
+export function formatComparisonTimeout(comparisonGroupId: string, blocking: boolean): string {
+  return render(blocking ? '⏱' : '⚠️', 'Comparison Timed Out', [`comparisonGroupId: ${comparisonGroupId}`]);
 }
