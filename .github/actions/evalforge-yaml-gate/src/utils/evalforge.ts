@@ -45,8 +45,9 @@ export const DRAFT_PREFIX = 'draft:';
 // Human-facing EvalForge results page (distinct from the REST `baseUrl` the client calls).
 const UI_BASE = 'https://bo.wix.com/pages/evalforge';
 
-export function evalRunUrl(projectId: string, runId: string): string {
-  return `${UI_BASE}/${projectId}/results?runId=${runId}`;
+export function evalRunUrl(projectId: string, runId: string, name?: string): string {
+  const nameParam = name ? `&name=${encodeURIComponent(name)}` : '';
+  return `${UI_BASE}/${projectId}/results?runId=${runId}${nameParam}`;
 }
 
 export function draftTagFor(repo: string, prNumber: number): string {

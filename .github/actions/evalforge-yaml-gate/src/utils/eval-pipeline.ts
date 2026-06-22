@@ -12,6 +12,8 @@ export type ScenarioAssertion = {
 };
 
 export type ScenarioRunResult = {
+  runId?: string;
+  name?: string;
   passed: number;
   failed: number;
   totalCostUsd: number;
