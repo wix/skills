@@ -1,16 +1,8 @@
 #!/usr/bin/env node
-// Syncs the version of every per-platform plugin manifest to match the
-// `version` in package.json (the single source of truth, @wix/agent-skills).
-//
-// Run automatically via the `version` npm lifecycle hook during
-// `npm version <strategy>`, so manifests are bumped as part of every release.
-// Can also be run manually: `node .github/scripts/sync-plugin-versions.mjs`.
-
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
-// repo root = two levels up from this script (.github/scripts/ -> root)
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 const MANIFESTS = [
