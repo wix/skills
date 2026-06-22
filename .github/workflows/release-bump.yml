@@ -56,9 +56,6 @@ jobs:
         if: ${{ github.event.inputs.dry_run == 'false' }}
         id: bump
         run: |
-          # Don't capture `npm version` stdout: the `version` lifecycle hook
-          # prints sync logs to stdout, so read the bumped version from
-          # package.json instead (always a clean single value).
           npm version ${{ github.event.inputs.version_strategy }} --no-git-tag-version
           NEW_VERSION="v$(node -p "require('./package.json').version")"
           echo "version=${NEW_VERSION}" >> $GITHUB_OUTPUT
@@ -68,8 +65,6 @@ jobs:
         if: ${{ github.event.inputs.dry_run == 'false' }}
         run: |
           git checkout -b ${{ steps.bump.outputs.branch }}
-          # package.json is left unstaged by `npm version --no-git-tag-version`;
-          # the plugin manifests were already staged by the `version` npm hook.
           git add package.json
           git commit -m "chore: release @wix/agent-skills ${{ steps.bump.outputs.version }}"
           git push -u origin ${{ steps.bump.outputs.branch }}
