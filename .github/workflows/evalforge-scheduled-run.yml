@@ -2,7 +2,7 @@ name: EvalForge Scheduled Run
 
 on:
   schedule:
-    - cron: '0 0 */2 * *'  # Every 48 hours at midnight UTC
+    - cron: '0 0 * * 1'  # Every Monday at midnight UTC
   workflow_dispatch: {}     # Allow manual trigger
 
 permissions:
@@ -29,7 +29,8 @@ jobs:
       - name: Post Slack notification
         if: always()
         env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID }}
           PASS_RATE: ${{ steps.eval.outputs.pass-rate }}
           PASSED: ${{ steps.eval.outputs.passed }}
           FAILED: ${{ steps.eval.outputs.failed }}
@@ -50,12 +51,14 @@ jobs:
             --arg run_url "${RUN_URL}" \
             --arg wf_url "${WORKFLOW_URL}" \
             --arg run_no "${RUN_NUMBER}" \
+            --arg channel "$SLACK_CHANNEL_ID" \
             '{
+              channel: $channel,
               text: ($emoji + " *EvalForge Scheduled Run #" + $run_no + "* — " + $rate + "% pass rate (" + $passed + "/" + $total + " passed, " + $failed + " failed)"),
               blocks: [
                 {
                   type: "header",
-                  text: { type: "plain_text", text: ($emoji + " EvalForge Scheduled Run · #" + $run_no) }
+                  text: { type: "plain_text", text: ($emoji + " EvalForge Scheduled Run · #" + $run_no), emoji: true }
                 },
                 {
                   type: "section",
@@ -75,4 +78,7 @@ jobs:
                 }
               ]
             }' \
-          | curl -s -X POST -H "Content-Type: application/json" -d @- "$SLACK_WEBHOOK_URL"
+          | curl -s -X POST \
+              -H "Content-Type: application/json" \
+              -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+              -d @- "https://slack.com/api/chat.postMessage"
