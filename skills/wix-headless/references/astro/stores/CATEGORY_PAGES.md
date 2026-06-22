@@ -1,6 +1,6 @@
 # Phase 4 Category Pages — Stores
 
-Scope: `pages-categories` — written by the stores **merged build agent** (the build wave) *before* its `pages-products` scope, so `<CategoryRail/>` is on disk before that scope mounts it. This scope writes the dedicated category landing route and the shared `<CategoryRail/>`. The `categories.ts` helper is **pre-copied by the orchestrator in the build-wave pre-batch** (BUILD-astro.md § "Step 4.5") — do NOT write it here.
+Scope: `pages-categories` — written by the stores **merged build agent** (the build wave) *before* its `pages-products` scope, so `<CategoryRail/>` is on disk before that scope mounts it. This scope writes the dedicated category landing route, the shared `<CategoryRail/>`, and the `categories.ts` helper.
 
 **Within-agent order:** the merged stores agent writes `components` → `pages-categories` (this scope) → `pages-products`. `pages-home-and-nav` is a *separate* serialized agent (it patches the shared shells) and resolves `<CategoryRail/>` at build time (Step 8). Each scope only needs its own declared files to exist by the time `astro build` runs.
 
@@ -8,11 +8,9 @@ Scope: `pages-categories` — written by the stores **merged build agent** (the 
 
 Files this agent OWNS (writes):
 
+- `src/utils/categories.ts` — TTL-cached helpers (`listStoreCategories`, `getCategoryBySlug`, `listProductsInCategory`). Write this first — `pages-products` and `pages-home-and-nav` both import from it.
 - `src/pages/category/[slug].astro` — category landing (server-side filtered, cursor-paginated)
 - `src/components/CategoryRail.astro` — shared rail + Prev/Next pagination, persisted across `<ClientRouter />` swaps
-
-Files this agent imports but MUST NOT write:
-- `src/utils/categories.ts` — TTL-cached helpers (`listStoreCategories`, `getCategoryBySlug`, `listProductsInCategory`). **Pre-copied by the orchestrator** before this phase (it's a static, brand-agnostic SDK wrapper); import the helpers, never author the file. Writing it races `pages-products`/`pages-home-and-nav`, which import the same path.
 
 Files this agent MUST NOT touch:
 - `src/pages/products/index.astro`, `[slug].astro`, `src/components/ProductCard.astro` — owned by `pages-products`
@@ -33,34 +31,36 @@ Files this agent MUST NOT touch:
 3. **`queryCategories(...)` rejects empty filters.** The SDK builder's `.find()` validates that at least one predicate has been chained. Always include `.eq("visible", true)` (the constraint we want anyway). Provided template already does this.
 4. **Filter out the auto-managed "All Products" category** by `handle === "online_stores_all_products"`. It's installed by Wix Stores automatically and contains every product; surfacing it in the rail makes the All pill duplicate.
 5. **Filter out empty categories** by `itemCounter === 0` so the rail doesn't show buckets that 404 in practice (the route still works, but the pill leads to "Nothing in <name> just now").
-6. **`STORES_APP_ID` lives in the pre-copied `categories.ts`** — the template already sets it to the Stores app id `215238eb-22a5-4c36-9e7b-e7c08025e04e` (same id used for cart ops and Phase 1 product seed; NOT the back-in-stock id `1380b703-…`). You do not write that file; this is documented so the helpers you import behave as expected.
+6. **`STORES_APP_ID` in `categories.ts`** — set it to the Stores app id `215238eb-22a5-4c36-9e7b-e7c08025e04e` (same id used for cart ops and Phase 1 product seed; NOT the back-in-stock id `1380b703-…`). The TTL cache, the `queryCategories` call structure, and the `@wix/auto_sdk_categories_categories` import are all specified in the rules below.
 7. **Cursor pagination** uses `productsV3.queryProducts().limit(24).skipTo(cursor)`. Cursor lives in `?cursor=…` on the URL, surfaced from `result.cursors.next` / `result.cursors.prev`. Prev/Next links use `data-astro-prefetch="hover"` so hovering them warms the cache.
 8. **Module-level TTL cache (5 min)** in `categories.ts` is opportunistic; safe under the Cloudflare-style fetch adapter (each worker isolate is single-tenant). Errors don't poison the cache.
 9. **Two-call pipeline** in `listProductsInCategory`: first `listItemsInCategory(categoryId, { appNamespace: "@wix/stores" })` for IDs, then `productsV3.queryProducts().in("_id", ids).limit(24).skipTo(cursor).find()`. There is no Wix endpoint that does category filter + cursor paging in one shot — don't attempt `listCategoriesForItems` from the SDK; it ships items via GET querystring and breaks on arrays. If you need product → categories mapping (e.g. for breadcrumbs on product detail), call the REST POST endpoint directly: `POST /categories/v1/categories/list-categories-for-items`.
 
-## Writing the templates
+## Writing the files
 
-Read each template at `references/astro/templates/stores/` and write it verbatim to the corresponding `src/` path, with three small adjustments. (`categories.ts` is **not** in this list — the orchestrator pre-copies it; you only import its helpers.)
+Write `categories.ts` first (both other scopes import from it), then `CategoryRail.astro`, then `category/[slug].astro`.
 
-| Template path | Site path |
-|---|---|
-| `templates/CategoryRail.astro` | `src/components/CategoryRail.astro` |
-| `templates/category/[slug].astro` | `src/pages/category/[slug].astro` |
+**`src/utils/categories.ts`** — Write the TTL-cached SDK wrapper from scratch. Export:
+- `listStoreCategories()` — queries visible, non-empty categories; filters out `handle === "online_stores_all_products"`; 5-min module-level cache.
+- `getCategoryBySlug(slug)` — single category lookup by slug; 5-min cache.
+- `listProductsInCategory(categoryId, cursor?)` — two-call pipeline (list item IDs, then `productsV3.queryProducts().in("_id", ids).limit(24).skipTo(cursor)`); 5-min cache.
+- `STORES_APP_ID` — `"215238eb-22a5-4c36-9e7b-e7c08025e04e"`.
+Import `@wix/auto_sdk_categories_categories` (not `@wix/categories`); see critical rules 2 and 8.
 
-Adjustments at the call site:
-
-1. The category page header copy ("Shop", breadcrumbs, lede) should adapt to brand tone. The template ships generic ("Browse our X collection"); rewrite the breadcrumb middle anchor and the empty-state line to match the rest of the site's voice. Keep semantics — same elements, same classes, same `data-*` markers.
-2. If the brand uses an editorial eyebrow pattern on `/products` (e.g. "Issue No. 01 · The Collection"), mirror it on `/category/[slug]` (e.g. "Category · Lounge Chairs"). Otherwise omit.
-3. Page-header CSS class names (`page-header`, `page-header-title`, `page-header-lede`, `breadcrumbs`, `page-header-image`) must match what the designer published. If the designer used different names, rename inside the template — do NOT introduce new ones.
+**`src/components/CategoryRail.astro`** and **`src/pages/category/[slug].astro`** — write these from scratch following the patterns below. Adapt brand tone:
+1. Category page header copy ("Shop", breadcrumbs, lede) should match the rest of the site's voice.
+2. If the brand uses an editorial eyebrow pattern on `/products`, mirror it on `/category/[slug]`.
+3. CSS class names (`page-header`, `page-header-title`, etc.) must match what the designer published — do NOT introduce new ones.
 
 ## Pre-return file-existence assertion
 
-Before returning `status: "complete"`, verify the two files you write exist:
+Before returning `status: "complete"`, verify all three files exist on disk:
 
+- `src/utils/categories.ts`
 - `src/components/CategoryRail.astro`
 - `src/pages/category/[slug].astro`
 
-If either is missing, return `status: "partial"` with `errors: [{ code: "PHASE4_FILE_MISSING", path: "<expected path>" }]`. The orchestrator's manifest check will also catch this, but an agent-side assertion gives a faster and more precise failure. Also confirm the pre-copied `src/utils/categories.ts` is on disk (you import it); if it's missing, that's an orchestrator-side bug — return `status: "partial"` with `errors: [{ code: "UTILITY_TEMPLATE_NOT_PRECOPIED", path: "src/utils/categories.ts" }]` and do NOT write your own.
+If any is missing, return `status: "partial"` with `errors: [{ code: "PHASE4_FILE_MISSING", path: "<expected path>" }]`.
 
 ## Return contract
 
@@ -69,10 +69,11 @@ If either is missing, return `status: "partial"` with `errors: [{ code: "PHASE4_
   "status": "complete",
   "phase": "stores-pages",
   "scope": "pages-categories",
-  "summary": "Wrote shared CategoryRail + /category/[slug] route (imports the pre-copied categories helper); route renders M categories.",
+  "summary": "Wrote categories.ts helper, CategoryRail, and /category/[slug] route; route renders M categories.",
   "data": {
     "categoriesRendered": 0,
     "filesWritten": [
+      "src/utils/categories.ts",
       "src/components/CategoryRail.astro",
       "src/pages/category/[slug].astro"
     ]

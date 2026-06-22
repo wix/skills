@@ -1,6 +1,6 @@
-# Phase 3 Components-CSS — Stores
+# Components CSS — Stores
 
-**This stylesheet is pre-copied from the skill template by the orchestrator** (build-wave pre-batch, BUILD-astro.md § "Step 4.5") — there is no `components-css` subagent to dispatch. This file documents the CSS for reference so the stores `components` scope (in the merged build agent) knows the class-name surface it targets.
+The `components` scope of the stores vertical writes `src/styles/components-stores.css` as its **first file** (before any TSX). This doc specifies the class-name surface and token conventions.
 
 ## What this scope owns
 
@@ -13,29 +13,20 @@ Exactly one file:
 - Any `.tsx` or `.astro` file. Those are the `components` sibling scope (`./SHARED_WIRING.md`).
 - `src/styles/global.css` — owned by the designer foundation. **You read it (to audit for stores-class leaks) but never write it.**
 - `src/styles/components-ecom.css`, `src/styles/components-gift-cards.css` — owned by other packs' `components` (or `components-css`) scopes.
-- `src/utils/back-in-stock.ts` — pre-copied by the orchestrator before this dispatch; not your concern.
+- `src/utils/back-in-stock.ts` — written by the `components` scope alongside this file; not your concern from a CSS perspective.
 
 ## Reading set
 
-You only need:
-
-1. **`<SKILL_ROOT>/references/astro/templates/stores/components-stores.css`** — the canonical template. Read it once.
-2. **`<SKILL_ROOT>/references/shared/STYLING.md`** — the styling-contract conventions (how to use `@apply`, the `@theme` token utilities, the no-default-Tailwind-colors rule, and the global-vs-scoped CSS ownership boundary).
-3. **`<SKILL_ROOT>/references/shared/RETURN_CONTRACT.md`** — the return JSON shape.
-4. **`src/styles/global.css`** in the project — read to audit for stores-class leaks (see § "Global-CSS leak audit" below).
-5. **Design tokens (on disk)** — read the design tokens (the DESIGN.md vocabulary — `colors`/`typography`/`rounded`/`containers`; spacing is Tailwind's numeric scale, not a token) from `.wix/design-tokens.css` (gate-verified present before the wave). They are NOT inlined in your prompt.
-
-You do NOT need to read `INSTRUCTIONS.md`, `SHARED_WIRING.md`, `BACK_IN_STOCK.md`, the TSX templates, the back-in-stock util, or any other reference. Skipping those reads is the point of the split — they would consume tokens for context this scope doesn't use.
+1. **`<SKILL_ROOT>/references/shared/STYLING.md`** — styling-contract conventions (`@apply`, `@theme` token utilities, no-default-Tailwind-colors rule, global-vs-scoped ownership boundary).
+2. **`<SKILL_ROOT>/references/shared/RETURN_CONTRACT.md`** — return JSON shape.
+3. **`src/styles/global.css`** in the project — read to audit for stores-class leaks (§ "Global-CSS leak audit" below).
+4. **`.wix/design-tokens.css`** — design tokens (gate-verified present before the wave); NOT inlined in prompt.
 
 ## Implementation
 
-### 1. Read the template
+### 1. Write the CSS
 
-```
-<SKILL_ROOT>/references/astro/templates/stores/components-stores.css
-```
-
-This is the canonical scoped CSS for the stores pack. Adapt sizing/spacing to the brand's aesthetic — use the design tokens from your prompt (`--color-bark`, `--color-cream`, `--radius-md`, `--font-display`, etc.); spacing uses Tailwind's numeric scale (`gap-4`, `py-24`), not a token. **Do not rename the class names or state modifiers** — they must match the contract keys the TSX components reference.
+Author `src/styles/components-stores.css` from scratch using the brand tokens from `.wix/design-tokens.css`. Spacing uses Tailwind's numeric scale (`gap-4`, `py-24`), not named tokens. **Do not rename the class names or state modifiers** — they are contract keys the TSX components reference by exact name.
 
 ### 2. Use `@apply` with brand `@theme` utilities
 
@@ -82,7 +73,7 @@ If you find a leak, do NOT edit `global.css` (the designer owns it). Instead:
 
 ### 5. Write the file
 
-Write the adapted CSS to `src/styles/components-stores.css`. The first line must be `@reference "./global.css";` so Tailwind's `@apply` resolves the `@theme` utilities. The orchestrator's post-Phase-3 manifest check verifies the file exists; it does not verify the `@reference` line.
+Write `src/styles/components-stores.css`. The first line must be `@reference "./global.css";` so Tailwind's `@apply` resolves the `@theme` utilities.
 
 ## Coordination: design tokens
 
@@ -95,7 +86,7 @@ Read the design tokens from `.wix/design-tokens.css` (on disk, gate-verified pre
   "status": "complete",
   "phase": "stores-components-css",
   "scope": "components-css",
-  "summary": "Wrote components-stores.css from template, adapted to brand tokens",
+  "summary": "Wrote components-stores.css from brand tokens",
   "data": {
     "scopedCssFile": "src/styles/components-stores.css",
     "scopedCssRules": 18,

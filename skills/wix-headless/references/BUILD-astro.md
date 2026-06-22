@@ -39,7 +39,7 @@ The whole Setup window is a single message of sibling `Bash` calls — **emit th
 **Frontend bridge — one `Bash` call, two deterministic scripts (both read `DESIGN.md`):**
 
 1. `emit-design-tokens.mjs <project-dir>` — projects `.wix/design-tokens.css` + `.wix/site.d.ts` from `DESIGN.md` frontmatter (format: `references/shared/DESIGN_MD.md`). Does not write `DESIGN.md`.
-2. `compose.mjs` — app inputs on **stdin**, project dir as `argv[2]`. Reads `DESIGN.md` frontmatter (the single token source; roles map to the wix `--color-*` vocabulary) and substitutes into the six pinned skeletons — `global.css`, `astro.config.mjs` (anchored **merge**, not clobber), `Layout.astro`, `Navigation.astro`, `Footer.astro`, `index.astro`. Prints a `{status, phase:"compose", data, files}` manifest to **stdout** — parse it there. **astro-only** (defensive — non-astro classes never reach here); else record `{phase:"compose", status:"skipped"}`. Idempotent; derives any role the Designer omitted as a fail-safe.
+2. `compose.mjs` — app inputs on **stdin**, project dir as `argv[2]`. Reads `DESIGN.md` frontmatter (the single token source; roles map to the wix `--color-*` vocabulary) and writes the three design-system files — `global.css` (with `@theme` token block), `astro.config.mjs` (anchored **merge**, not clobber), `Layout.astro` (the `<html>`/`<head>` shell). Navigation.astro, Footer.astro, and index.astro are LLM-generated and written verbatim from `navPath`/`footerPath`/`homePath` (no templates). Prints a `{status, phase:"compose", data, files}` manifest to **stdout** — parse it there. **astro-only** (defensive — non-astro classes never reach here); else record `{phase:"compose", status:"skipped"}`. Idempotent; derives any role the Designer omitted as a fail-safe.
 
    ```bash
    node <SKILL_ROOT>/scripts/emit-design-tokens.mjs "<project-dir>"
@@ -92,7 +92,7 @@ See § "Wave 3" below for the dispatch. The **seed gate**: wait on the seeders +
 
 ## Wave 3 — Seed + frontend prep + Image Phase 1
 
-One concurrent batch (`PLAN.md` § "Batching discipline"). No design-system work here — `compose.mjs` already wrote the six files in the bridge.
+One concurrent batch (`PLAN.md` § "Batching discipline"). No design-system work here — `compose.mjs` already wrote the three design-system files (`global.css`, `astro.config.mjs`, `Layout.astro`) in the bridge.
 
 - `seed-utilities.sh --template astro` — frontend project prep (idempotent), from the project dir. `SEED.md` § "Pre-batch".
 - Per-pack seed subagents (background) — `SEED.md` recipe map + seeder prompt template.
@@ -111,7 +111,7 @@ Base prompt fields: `SEED.md` § "Subagent prompt template". Each merged build a
 - `bookings/INSTRUCTIONS.md` — components + pages (shell chain — patches `Navigation.astro` `<!-- nav:links -->` + `index.astro` `<!-- home:bookings -->`)
 - `gift-cards/INSTRUCTIONS.md` — components + pages (shell chain; passive/dashboard-gated)
 - `images/INSTRUCTIONS.md` — `image-phase-1-decorative` + `image-phase-2-entity` (image subagents also get: page list, entity types to cover)
-- `DESIGN_SYSTEM.md` — Phase 2 Designer (no Composer subagent — `compose.mjs` writes the six files)
+- `DESIGN_SYSTEM.md` — Phase 2 Designer (no Composer subagent — `compose.mjs` writes the three design-system files)
 - `astro/designer/INSTRUCTIONS.md` — page-design spec applied by the merged build agents while writing routes (not a separate dispatch)
 
 Merged build agents **read `.wix/design-tokens.css` from disk** for the token vocabulary (gate-verified present at § "Step 4.5") — the orchestrator does **not** inline the styling-contract block (§ "Styling contract coordination").
@@ -159,34 +159,6 @@ ONE wave of per-vertical "build" agents, each writing its **components first, th
 
 **Gate (from the seed gate):** `seeded` populated, `.wix/seeded.json` written, bridge run. Verify **both** `.wix/design-tokens.css` **and** `.wix/site.d.ts` exist on disk, and `compose.mjs` wrote `src/layouts/Layout.astro` + `src/styles/global.css`. If a design-tokens file is missing, do not dispatch — surface the path and stop. (Each merged build agent reads `.wix/design-tokens.css` itself for the token vocabulary — the orchestrator does **not** read it or inline it into dispatch prompts, which would re-emit the full token block once per agent for no benefit; the cascade reaches components through `global.css`, not the prompt.)
 
-### Pre-batch (same message, before dispatches) — ALL pre-copies up front
-
-**1 · Per-pack component-CSS templates** (deterministic `cp`; static `var(--token)` CSS, no subagent). `compose.mjs`'s Layout imports `src/styles/components-<pack>.css` for every pack with `components`; **skip this and `astro build` fails with `Could not resolve "../styles/components-<pack>.css"`.** For each loaded pack with a `components` scope (today: `stores`, `ecom`, `blog`, `forms`, `gift-cards`, `bookings`):
-
-```bash
-for pack in <loaded packs with components>; do
-  cp "<SKILL_ROOT>/references/astro/templates/$pack/components-$pack.css" \
-     "src/styles/components-$pack.css"
-done
-```
-
-Idempotent. Packs without a template (`cms` — SSR inline) are skipped silently.
-
-**2 · Pre-copied utility templates** (both components- and pages-phase utils, since one agent imports both). Each vertical's INSTRUCTIONS lists files under "Pre-copied by the orchestrator (do NOT write these yourself)":
-
-```bash
-# stores (loaded)
-cp "<SKILL_ROOT>/references/astro/templates/stores/back-in-stock.ts" "src/utils/back-in-stock.ts"
-cp "<SKILL_ROOT>/references/astro/templates/stores/categories.ts"     "src/utils/categories.ts"
-# ecom (loaded)
-cp "<SKILL_ROOT>/references/astro/templates/ecom/discounts.ts"        "src/utils/discounts.ts"
-# bookings (loaded) — the booking SDK module + SeoTags
-cp "<SKILL_ROOT>/references/astro/templates/bookings/bookingDriver.ts" "src/components/bookingDriver.ts"
-cp "<SKILL_ROOT>/references/astro/templates/bookings/SeoTags.astro"    "src/components/SeoTags.astro"
-```
-
-`categories.ts` is imported by `pages-categories`/`pages-products`/`pages-home-and-nav`; `back-in-stock.ts` by stores components; `discounts.ts` by ecom components + stores product pages; `bookingDriver.ts` (the ecom-Cart-V2 booking sequence — `book()`/`navigateToCheckout()`) by the bookings islands, and `SeoTags.astro` by `services/[slug].astro`. Static, brand-agnostic SDK wrappers — if not pre-copied, multiple scopes race to author them.
-
 ### Dispatch the wave — one concurrent batch (private agents) + a serialized shell chain alongside it
 
 One merged "build" agent per loaded vertical (Instruction file = that vertical's `INSTRUCTIONS.md`), owning its `components` scope **and** its private `pages` scopes, written islands-first then pages. Split by whether the agent's scopes touch a **shared shell** (`src/components/Navigation.astro` or `src/pages/index.astro`):
@@ -200,7 +172,7 @@ One merged "build" agent per loaded vertical (Instruction file = that vertical's
 **B · Serialized shell chain — agents that patch `Navigation.astro` / `index.astro`** (read-modify-write a shared file → concurrent dispatch trips the staleness guard `File has been modified since read`, **per-file, not per-marker**). **Launch one, wait for its return, launch the next** — each sees the previous one's insertion. Runs **alongside** batch A, not after it. The shell-patchers (today): **ecom, stores `pages-home-and-nav`, bookings, gift-cards** — exactly the packs with `nav:`/`home:` markers:
 - **ecom-build** — `components` (CartView, CartBadge) → `pages` (`cart.astro`, `thank-you.astro` private, **+ CartBadge mount in `Navigation.astro` at `<!-- nav:actions -->`**).
 - **stores-home-and-nav** — patch `index.astro` product grid at `<!-- home:stores -->` + `Navigation.astro` Shop submenu at `<!-- nav:links -->`. Writes no islands; pure shell-patcher.
-- **bookings-build** — `components` (AvailabilityCalendar, BookingForm, ServiceBookingFlow islands; `bookingDriver.ts` + `SeoTags.astro` are pre-copied) → `pages` (`services/index.astro`, `services/[slug].astro`, `ServiceCard.astro`, `booking-confirmation.astro` private, **+ Services link in `Navigation.astro` at `<!-- nav:links -->` / services teaser in `index.astro` at `<!-- home:bookings -->`**).
+- **bookings-build** — `components` (AvailabilityCalendar, BookingForm, ServiceBookingFlow islands; `bookingDriver.ts`, `SeoTags.astro`, `components-bookings.css`) → `pages` (`services/index.astro`, `services/[slug].astro`, `ServiceCard.astro`, `booking-confirmation.astro` private, **+ Services link in `Navigation.astro` at `<!-- nav:links -->` / services teaser in `index.astro` at `<!-- home:bookings -->`**).
 - **gift-cards-build** — `components` (probe util, GiftCardPurchase island) → `pages` (gift-cards landing + `Navigation.astro` `<!-- nav:links -->` / `index.astro` `<!-- home:gift-cards -->`).
 
 Cross-vertical imports (`stores-home-and-nav` importing `CategoryRail`/`ProductCard`/`utils/categories.ts`) resolve at **build time**, not write time, so they impose no write-ordering between the chain and batch A. The only ordering: (i) shell-patchers serialize against each other (per-file), (ii) everything is on disk before Build.
@@ -213,12 +185,12 @@ Cross-vertical imports (`stores-home-and-nav` importing `CategoryRail`/`ProductC
 Scopes (write in this order — islands/components FIRST, then pages, and a page-scope that writes a shared component before the page-scope that mounts it): <e.g. components, pages-categories, pages-products>
 Files to own (absolute paths): <union of the scopes' files from the vertical's pack frontmatter>
 Phase 1 Seed data: read your `seeded.<vertical>` slice from `.wix/seeded.json` (written once at the seed gate; do NOT import it into route files — use it to resolve slugs / getStaticPaths / demo content, then query the live SDK at request time). Fail loud (status: "partial", errors:[{code:"SEEDED_JSON_SLICE_MISSING", missing:"seeded.<vertical>"}]) if your slice is absent — do not render an empty page.
-Styling contract: read .wix/design-tokens.css (on disk, gate-verified) for the token vocabulary — it is NOT inlined. Components do not write CSS (components-<pack>.css is already on disk, and global.css supplies the tokens to the build); use the token names only as the var(--token) / Tailwind utility vocabulary your markup references.
+Styling contract: read .wix/design-tokens.css (on disk, gate-verified) for the token vocabulary — it is NOT inlined. The `components` scope writes `src/styles/components-<pack>.css` as its first file (before any TSX); global.css supplies the token cascade. Use var(--token) / Tailwind utilities from the @theme vocabulary only — no default Tailwind colors.
 ```
 
 Merged agents MUST NOT:
 - Modify files outside their declared scopes (the union in their prompt)
-- Modify CSS (`global.css` owned by `compose.mjs`; `components-<pack>.css` is pre-copied — never authored)
+- Modify `global.css` (owned by `compose.mjs`)
 - Patch a shared shell unless they are the chain agent assigned to it
 
 ---

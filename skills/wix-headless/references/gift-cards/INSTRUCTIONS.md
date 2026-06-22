@@ -24,19 +24,17 @@ See the § "Templates" list below for the files each scope produces (and the nav
 
 Before returning `status: "complete"` from the `pages` scope, verify every file the scope produces (the page templates in § "Templates" below, plus the patched `Navigation.astro` / `index.astro`) exists on disk. If a declared file is missing, return `status: "partial"` with `errors: [{ code: "PHASE4_FILE_MISSING", path: "<expected path>" }]` rather than claiming success.
 
-## Templates
+## Files to write
 
-Canonical templates live at `<SKILL_ROOT>/references/astro/templates/gift-cards/`. Your `components` and `pages` scopes read these and adapt them — don't invent markup or logic.
+The `components` scope writes (CSS first, then TS/TSX):
+- `src/styles/components-gift-cards.css` — scoped CSS for gift-cards contract classes. First line must be `@reference "./global.css";`. Read `.wix/design-tokens.css` for the token vocabulary.
+- `src/utils/gift-cards.ts` — runtime probe util (`getGiftCardProduct()`); module-level cache promise (Navigation, home, and page coalesce to one fetch).
+- `src/components/GiftCardPurchase.tsx` — the purchase island.
 
-Components (`components` scope):
-- `<SKILL_ROOT>/references/astro/templates/gift-cards/gift-cards.ts`
-- `<SKILL_ROOT>/references/astro/templates/gift-cards/GiftCardPurchase.tsx`
-- `<SKILL_ROOT>/references/astro/templates/gift-cards/components-gift-cards.css`
-
-Pages (`pages` scope):
-- `<SKILL_ROOT>/references/astro/templates/gift-cards/gift-cards.astro`
-- `<SKILL_ROOT>/references/astro/templates/gift-cards/_nav-snippet.astro` — exact contribution to insert at `<!-- nav:links -->` in `Navigation.astro`
-- `<SKILL_ROOT>/references/astro/templates/gift-cards/_home-teaser-snippet.astro` — exact contribution to insert at `<!-- home:gift-cards -->` in `index.astro`
+The `pages` scope writes:
+- `src/pages/gift-cards.astro` — gift-cards landing; redirects to `/` when probe returns `null`.
+- Inserts at `<!-- nav:links -->` in `Navigation.astro` (the gift-cards nav entry).
+- Inserts at `<!-- home:gift-cards -->` in `index.astro` (the home-page teaser).
 
 ## Gift-cards-specific failure modes
 
