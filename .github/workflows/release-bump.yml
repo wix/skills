@@ -50,6 +50,7 @@ jobs:
         run: |
           CURRENT=$(node -p "require('./package.json').version")
           echo "Would bump @wix/agent-skills from $CURRENT using strategy: ${{ github.event.inputs.version_strategy }}"
+          echo "All plugin manifests (.claude-plugin, .codex-plugin, .cursor-plugin, plugin.json, gemini-extension.json) would be synced to the new version."
 
       - name: Bump version
         if: ${{ github.event.inputs.dry_run == 'false' }}
@@ -63,6 +64,8 @@ jobs:
         if: ${{ github.event.inputs.dry_run == 'false' }}
         run: |
           git checkout -b ${{ steps.bump.outputs.branch }}
+          # package.json is left unstaged by `npm version --no-git-tag-version`;
+          # the plugin manifests were already staged by the `version` npm hook.
           git add package.json
           git commit -m "chore: release @wix/agent-skills ${{ steps.bump.outputs.version }}"
           git push -u origin ${{ steps.bump.outputs.branch }}
