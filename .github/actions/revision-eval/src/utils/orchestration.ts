@@ -129,27 +129,20 @@ export async function createMcpVersionOrReport(
     const status = getErrorStatus(e);
     if (status === 409) {
       core.warning(
-        `MCP version ${versionLabel} already exists — replacing it to refresh the override URL`,
+        `MCP version ${versionLabel} already exists — reusing it`,
       );
       try {
         const versions = await evalforge.listMcpVersions(mcpId, projectId);
         const existing = versions.find((v) => v.version === versionLabel);
-        if (existing) {
-          await evalforge.deleteMcpVersion(mcpId, projectId, existing.id);
-        }
-        const recreated = await evalforge.createMcpVersion(
-          mcpId,
-          projectId,
-          versionLabel,
-          skillsRepo,
-          skillsPr,
-          prNumber,
+        if (!existing)
+          throw new Error(`Version ${versionLabel} not found after 409`);
+        core.info(
+          `Reusing existing MCP version ${versionLabel} (${existing.id})`,
         );
-        core.info(`Recreated MCP version ${versionLabel} (${recreated.id})`);
-        return recreated.id;
-      } catch (replaceErr) {
+        return existing.id;
+      } catch (lookupErr) {
         await reportServiceFailure(octokit, pr, {
-          log: `Failed to replace existing MCP version: ${getErrorMessage(replaceErr)}`,
+          log: `Failed to look up existing MCP version: ${getErrorMessage(lookupErr)}`,
           comment: `${ErrorMessage.McpVersionLookupFailed} ${MAINTAINER_SUFFIX}`,
           failReason: ErrorMessage.McpVersionLookupFailed,
         });
