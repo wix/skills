@@ -10,10 +10,12 @@
 
 @theme {
   /* {{theme}} — Composer substitutes the full palette here from designTokens:
-     every --color-*, --font-*, --spacing-* (2xs..4xl), --container-*, and
-     --radius-* line. The required-token set (enforced by compose.mjs)
-     MUST all be present, or components render unstyled. Container scale is
-     separate from spacing — never alias --container-3xl to --spacing-3xl. */
+     every --color-*, --font-*, --container-*, and --radius-* line. The
+     required-token set (enforced by compose.mjs) MUST all be present, or
+     components render unstyled. Spacing is NOT a token here — it uses
+     Tailwind's built-in numeric scale (gap-4, py-24, …); never add a named
+     --spacing-* scale, since that namespace also powers the width utilities
+     (max-w-*/w-*) and would shadow them. */
 }
 
 /* Reading-width helper so prose pages center without guessing Tailwind sizes. */
@@ -25,7 +27,7 @@
 /* Shared button primitive — declared with @utility so the variants below can
    @apply it (a plain contract class is NOT @apply-able in Tailwind v4). */
 @utility btn {
-  @apply inline-flex items-center justify-center px-lg py-md rounded-md font-medium;
+  @apply inline-flex items-center justify-center px-6 py-4 rounded-md font-medium;
   transition: background-color 200ms ease, color 200ms ease, border-color 200ms ease;
 }
 
@@ -130,7 +132,7 @@
   height: 1px;
   background: var(--color-accent);
   opacity: 0.6;
-  margin-block: var(--spacing-lg);
+  margin-block: 1.5rem;
 }
 
 /* ── Universal site chrome ────────────────────────────────────────────────── */
@@ -204,8 +206,8 @@ body[data-navigating="true"] .product-grid {
   min-width: 12rem;
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-2xs);
-  padding: var(--spacing-sm);
+  gap: 0.25rem;
+  padding: 0.75rem;
   background: var(--color-paper);
   border: 1px solid var(--color-rule);
   border-radius: var(--radius-md);
@@ -223,7 +225,7 @@ body[data-navigating="true"] .product-grid {
 .site-nav-sublink {
   font-size: 0.875rem;
   color: var(--color-ink-soft, var(--color-mute));
-  padding-block: var(--spacing-2xs);
+  padding-block: 0.25rem;
 }
 .site-nav-sublink:hover,
 .site-nav-sublink[aria-current="page"] {
@@ -237,13 +239,13 @@ body[data-navigating="true"] .product-grid {
 .category-rail-inner {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--spacing-sm);
-  padding-block: var(--spacing-md);
+  gap: 0.75rem;
+  padding-block: 1rem;
 }
 .category-pill {
   display: inline-flex;
   align-items: center;
-  padding: var(--spacing-2xs) var(--spacing-md);
+  padding: 0.25rem 1rem;
   border: 1px solid var(--color-rule);
   border-radius: var(--radius-sm);
   font-size: 0.8125rem;
@@ -262,12 +264,12 @@ body[data-navigating="true"] .product-grid {
   border-color: var(--color-ink);
 }
 .pagination {
-  margin-block: var(--spacing-xl);
+  margin-block: 2rem;
 }
 .pagination-inner {
   display: flex;
   justify-content: space-between;
-  gap: var(--spacing-md);
+  gap: 1rem;
 }
 .pagination-link {
   color: var(--color-ink);
@@ -282,5 +284,5 @@ body[data-navigating="true"] .product-grid {
 .breadcrumbs {
   font-size: 0.8125rem;
   color: var(--color-mute);
-  margin-bottom: var(--spacing-sm);
+  margin-bottom: 0.75rem;
 }

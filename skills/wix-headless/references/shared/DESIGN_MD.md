@@ -21,8 +21,6 @@ typography:
     fontWeight: <number>         # optional
     lineHeight: <Dimension|number>  # optional
     letterSpacing: <Dimension>   # optional
-spacing:
-  <scale-level>: <Dimension|number>
 rounded:                # corner radii (DESIGN.md's name for radius tokens)
   <scale-level>: <Dimension>
 containers:             # EXTENSION (this skill): content/reading widths
@@ -51,10 +49,11 @@ googleFontsHref: <string>   # EXTENSION (this skill): the ready Google Fonts <li
 |---|---|---|
 | `colors` | `--color-<key>` | semantic role keys (see color roles below) |
 | `typography.<level>.fontFamily` | `--font-<level>` | `display` + `body` required; `mono` optional |
-| `spacing` | `--spacing-<key>` | full `2xs…4xl` rhythm scale |
 | `rounded` | `--radius-<key>` | `sm` + `md` required |
 | `containers` | `--container-<key>` | **extension** — content widths, a separate axis from spacing (`prose, md, 3xl, 6xl`) |
 | `googleFontsHref` | the Layout `<link>` href | **extension** — the ready stylesheet URL for the chosen families |
+
+> **Spacing is not a DESIGN.md token.** The build uses Tailwind v4's built-in numeric spacing scale directly (`gap-4`, `py-24`, `px-6`, …). A named `--spacing-<size>` scale was removed because its t-shirt names (`md`, `3xl`, …) collided with the width utilities (`max-w-3xl` resolved to `--spacing-3xl` instead of `--container-3xl`). Do not author a `spacing` group.
 
 ### Color roles — wix-native keys are the contract
 

@@ -115,7 +115,6 @@ if (!design || typeof design !== "object" || Object.keys(design).length === 0) {
 
 const colors = design.colors ?? {};
 const typography = design.typography ?? {};
-const spacing = design.spacing ?? {};
 const rounded = design.rounded ?? {};
 const containers = design.containers ?? {};
 const fontFamilyOf = (lvl) => (typography[lvl] && typeof typography[lvl] === "object" ? typography[lvl].fontFamily : typography[lvl]);
@@ -136,7 +135,6 @@ for (const lvl of Object.keys(typography)) {
   if (fam) cssLines.push(`  --font-${lvl}: ${fam};`);
 }
 for (const [k, v] of Object.entries(rounded)) cssLines.push(`  --radius-${k}: ${v};`);
-for (const [k, v] of Object.entries(spacing)) cssLines.push(`  --spacing-${k}: ${v};`);
 for (const [k, v] of Object.entries(containers)) cssLines.push(`  --container-${k}: ${v};`);
 cssLines.push("}", "");
 writeFileSync(join(wixDir, "design-tokens.css"), cssLines.join("\n"));
@@ -151,7 +149,6 @@ export type DesignTokens = {
   colors: ${recordType(Object.keys(colors))};
   fonts: ${recordType(Object.keys(typography))};
   radii: ${recordType(Object.keys(rounded))};
-  spacing: ${recordType(Object.keys(spacing))};
   containers: ${recordType(Object.keys(containers))};
 };
 `;

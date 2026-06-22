@@ -180,7 +180,7 @@ Key details:
 
 ### 3. FAQ Page (`src/pages/faq/index.astro`)
 
-**Layout width:** Center the page column with `container-reading` (from designer `global.css`) or `max-w-6xl mx-auto px-lg` when `--container-6xl` exists in `@theme`. **Do not** use `max-w-3xl` unless `--container-3xl` is declared in `@theme` — with only a spacing scale, Tailwind maps `max-w-3xl` to ~5rem and the FAQ collapses to one word per line. See `references/shared/STYLING.md` § "Prose / reading width".
+**Layout width:** Center the page column with `container-reading` (from designer `global.css`) or `max-w-6xl mx-auto px-6` when `--container-6xl` exists in `@theme`. **Do not** use `max-w-3xl` unless `--container-3xl` is declared in `@theme` — with only a spacing scale, Tailwind maps `max-w-3xl` to ~5rem and the FAQ collapses to one word per line. See `references/shared/STYLING.md` § "Prose / reading width".
 
 ```astro
 ---
@@ -195,7 +195,7 @@ const categories = [...grouped.entries()].map(([name, items]) => ({ name, items 
 
 <Layout title="FAQ">
   <main>
-    <div class="container-reading px-lg">
+    <div class="container-reading px-6">
       <h1>Frequently Asked Questions</h1>
       <p>Find answers to common questions below, or use the search to find what you need.</p>
 
