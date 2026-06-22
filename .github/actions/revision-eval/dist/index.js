@@ -34084,6 +34084,7 @@ var HttpMethod;
 const MCP_URL = "https://mcp.wix.com/mcp";
 const MCP_CONFIG_KEY = "wix-mcp-remote";
 const OPEN_API_RESOLVER_URL = "https://dev.wix.com/docs/api/v1/open-api-resolver";
+const DISABLED_MCP_TOOLS = "SearchWixRESTDocumentation,SearchWixAPISpec,ReadFullDocsMethodSchema";
 var EvalRunStatusStatus;
 (function (EvalRunStatusStatus) {
     EvalRunStatusStatus["Pending"] = "pending";
@@ -34096,6 +34097,7 @@ function buildMcpOverrideUrl(skillsRepo, skillsPr) {
     const url = new URL(MCP_URL);
     url.searchParams.set("skillsRepo", skillsRepo);
     url.searchParams.set("skillsPr", skillsPr);
+    url.searchParams.set("disableTools", DISABLED_MCP_TOOLS);
     return url.toString();
 }
 class EvalForgeClient {
