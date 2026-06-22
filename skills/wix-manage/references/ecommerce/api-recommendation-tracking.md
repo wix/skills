@@ -1,6 +1,6 @@
 ---
 name: "API: Recommendation Tracking"
-description: Cross-cutting tracking API for AI-generated recommendations across all eCommerce categories (checkout, shipping, pricing, abandoned-carts). ALWAYS LOAD BEFORE generating a "give me N recommendations / concrete actions" response, in addition to the category recipe.
+description: Cross-cutting tracking API for AI-generated recommendations across eCommerce categories (checkout, shipping, pricing). ALWAYS LOAD BEFORE generating a "give me N recommendations / concrete actions" response, in addition to the category recipe.
 ---
 # API: Recommendation Tracking Service
 

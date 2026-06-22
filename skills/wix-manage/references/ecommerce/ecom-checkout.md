@@ -1,19 +1,19 @@
 ---
 name: "Checkout & Cart"
-description: Checkout & Cart boundary owner — live checkout drop-off, checkout-failure troubleshooting, checkout policies, Dashboard-managed checkout settings. **Always load this dispatcher first when a question touches both live checkout (drop-off, troubleshooting, config) and post-abandonment recovery** — the rules for which side owns each topic live in this file, not in this README line.
+description: Checkout & Cart boundary owner — diagnose live checkout/delivery-step drop-off and route checkout-config questions. **Always load this dispatcher first when a question touches the live checkout experience** (drop-off, troubleshooting, policies, Dashboard-only settings).
 ---
 
 # Checkout & Cart
 
 Improve and fix the checkout/cart experience before an order is placed - reduce live checkout drop-off, diagnose why customers cannot complete checkout, configure checkout policies, and adjust the checkout settings that drive conversion.
 
-> **Routing rule (READ FIRST).** Any merchant query that mentions BOTH a live-checkout topic (drop-off, can't-complete-checkout, checkout policies, guest checkout, minimum order, custom checkout fields) AND a post-abandonment topic (recover shoppers who already left, abandoned-cart email, recovery link, recovery rate) MUST be answered by loading this dispatcher first AND [Abandoned Carts](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/abandoned-carts). Do NOT route mixed live-checkout + recovery questions from the WixREADME index alone; the binding decision lives here.
+> **Routing rule (READ FIRST).** This dispatcher owns the **live checkout** experience — drop-off diagnosis, can't-complete-checkout failures, checkout policies, and Dashboard-only checkout settings. Post-abandonment recovery work (recovery emails, recovery links) is not in this routing tree; configure abandoned-cart automation via the Wix Dashboard (Marketing → Automations → Abandoned Cart).
 
 **Checkout & cart is NOT:**
-- Shipping rates / regions / pickup setup → see **Shipping & fulfillment** (though delivery-step friction is the #1 abandonment cause and is handled here + there).
+- Shipping rates / regions / pickup setup → see **Shipping** (though delivery-step friction is the #1 abandonment cause and is handled here + there).
 - Discounts / coupons applied at checkout → see **Pricing & promotions**.
-- Tax shown at checkout → see **Tax**.
-- Recovery after the shopper already left checkout → see **Abandoned Carts**.
+- Tax shown at checkout → tax APIs / Dashboard.
+- Recovery after the shopper already left checkout → configure in the Wix Dashboard (Marketing → Automations → Abandoned Cart).
 
 > **Heads-up — much of checkout config is Dashboard-only.** The public Checkout Settings API covers only checkout-footer **policies** and payment-step **checkboxes**. Guest checkout, minimum order amount, custom checkout fields, and checkout upsell are **not exposed via a TPA-public API** — route the merchant to the Wix Dashboard for those.
 
@@ -25,11 +25,8 @@ Improve and fix the checkout/cart experience before an order is placed - reduce 
 
 ### Reduce abandonment & troubleshoot (recipes)
 
-> - [Reduce checkout/cart abandonment (delivery-step friction)](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/checkout-reduce-abandonment) — tags: `[intent:reduce-abandonment]` · priority 0
-> - [Troubleshoot checkout failure / delivery drop-off](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/checkout-troubleshoot-delivery-drop-off) — tags: `[intent:troubleshoot-checkout]` · priority 0
-> - [Agentic readiness / test agentic checkout](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/checkout-agentic-readiness) — tags: `[intent:agentic]` · priority 0 · *catalog data-quality audit + programmatic test-checkout; UCP enablement is Dashboard*
-> - [Store health monitor (periodic)](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/checkout-store-health-monitor) — tags: `[intent:store-health]` · priority 0 · *test checkout + config-drift + anomaly checks*
-> - Recover abandoned checkouts after the shopper leaves — tags: `[intent:recover-email]`, `[intent:view-abandoned]`, `[intent:recovery-link]` · **see [Abandoned Carts](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/abandoned-carts)**
+> - [Troubleshoot checkout failure / delivery drop-off](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/checkout-troubleshoot-delivery-drop-off) — tags: `[intent:troubleshoot-checkout]`, `[intent:reduce-abandonment]` · priority 0
+> - Recover abandoned checkouts after the shopper leaves — tags: `[intent:recover-email]`, `[intent:view-abandoned]`, `[intent:recovery-link]` · *no recipe in this routing tree; abandoned-cart recovery automation is configured via the Wix Dashboard*
 
 ### Checkout configuration
 
@@ -45,4 +42,4 @@ If nothing matches, ask **one** clarifying question:
 
 > "Do you want to (a) **reduce live checkout drop-off**, (b) **configure** checkout (guest checkout, minimum order, fields — most are in the Wix Dashboard), or (c) **recover shoppers who already abandoned checkout**?"
 
-Map the answer to an `intent:*` tag and re-dispatch. For recovery/recapture, route to **Abandoned Carts**. For configuration intents with no public API, give the merchant the Dashboard path directly.
+Map the answer to an `intent:*` tag and re-dispatch. For recovery/recapture, route the merchant to the Wix Dashboard (Marketing → Automations → Abandoned Cart). For configuration intents with no public API, give the merchant the Dashboard path directly.

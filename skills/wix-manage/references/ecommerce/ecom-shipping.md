@@ -1,19 +1,19 @@
 ---
 name: "Shipping"
-description: Shipping-setup boundary owner for an eCommerce store. **Always load this dispatcher first whenever a question touches both shipping and order fulfillment** — the rules for which side owns rates, regions, pickup, free shipping, mark-shipped, tracking, labels, and invoices live in this file, not in this README line.
+description: Shipping-setup boundary owner for an eCommerce store. **Always load this dispatcher first whenever a question touches shipping setup** — rates, regions, pickup, free-shipping thresholds, and diagnosing wrong/missing shipping. Order fulfillment (mark shipped, tracking, labels, invoices) is currently handled outside the routing tree.
 ---
 
 # Shipping
 
 Set up and tune how a store ships — what rates to charge, which regions are covered, pickup/local-delivery options, free-shipping thresholds, and diagnosing wrong or missing shipping at checkout.
 
-> **Routing rule (READ FIRST).** Any merchant query that mentions BOTH a shipping-setup topic (rates, regions, pickup, free shipping, wrong-rate) AND a post-purchase / order-execution topic (mark shipped, update tracking, partial/bulk fulfill, shipping labels, packing slips, invoices, "find unshipped orders") MUST be answered by loading this dispatcher first AND [Fulfillment](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/fulfillment) — even if the WixREADME index already describes both. Do NOT route mixed shipping+fulfillment questions from the README index alone; the binding decision lives here.
+> **Routing rule (READ FIRST).** This dispatcher owns shipping *setup* — rates, regions, pickup, free-shipping thresholds, and diagnosing wrong/missing shipping at checkout. Post-purchase / order-execution work (mark shipped, update tracking, partial/bulk fulfill, shipping labels, packing slips, invoices, "find unshipped orders") is not yet in the routing tree — fall back to the relevant API docs or Dashboard guidance for those.
 
-**Shipping & fulfillment is NOT:**
-- Tax on shipping or destination tax → see **Tax**.
+**Shipping is NOT:**
+- Tax on shipping or destination tax → tax APIs / Dashboard.
 - The checkout/delivery step conversion itself → see **Checkout & cart**.
-- Marking orders fulfilled, updating tracking, bulk fulfillment, invoices, or shipping labels → see **Fulfillment**.
-- Order lifecycle (approve/cancel/search an order) → **Orders** when available; refunds/payments → existing Get Paid/payment docs or Dashboard guidance.
+- Marking orders fulfilled, updating tracking, bulk fulfillment, invoices, or shipping labels → not covered here; use the Order Fulfillments API directly or the Wix Dashboard.
+- Order lifecycle (approve/cancel/search an order), refunds/payments → existing Get Paid/payment docs or Dashboard guidance.
 
 > **Before dispatching** — confirm MerchantContext is loaded. If `siteData.country` is not in your conversation context, load it via [Load Merchant Context](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/e-commerce-load-context). Skip if already loaded.
 >
@@ -41,10 +41,6 @@ Set up and tune how a store ships — what rates to charge, which regions are co
 
 > - [Shipping rate incorrect (customer charged wrong shipping)](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping-optimize-rates) — tags: `[intent:rate-incorrect]` · priority 0 · *audit rates via the Rate Pricing Sanity guardrail, then correct the rate structure*
 
-### Fulfillment handoff
-
-> - Mark orders fulfilled, update tracking, partial/bulk fulfill, find unshipped orders, print invoices, or export shipping labels — tags: `[intent:fulfill-order]`, `[intent:update-tracking]`, `[intent:find-unshipped]`, `[intent:shipping-labels]` · **see [Fulfillment](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/fulfillment)**
-
 ## Tag matching
 
 The agent matches the merchant's natural-language query to an `intent:*` tag (cues are in each file's `description`), AND matches MerchantContext to any context tags (e.g. `country`, `region`). All of an entry's tags must be satisfied for it to be eligible; highest tag-count wins; ties → `priority`.
@@ -65,4 +61,4 @@ If nothing matches, the merchant's intent is unclear. Ask **one** clarifying que
 
 > "Do you want to **set up** shipping (rates, regions, or pickup), **add free shipping**, **optimize** your existing rates, or **fix** a region with no shipping option?"
 
-Map the answer to one of the `intent:*` tags above and re-dispatch. Order-fulfillment requests belong to **Fulfillment**.
+Map the answer to one of the `intent:*` tags above and re-dispatch. Order-fulfillment requests fall outside this dispatcher — use the Order Fulfillments API or Wix Dashboard.

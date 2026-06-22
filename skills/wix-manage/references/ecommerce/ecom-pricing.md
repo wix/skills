@@ -29,13 +29,13 @@ Discount rules, coupon codes, sales, ribbons, bundles, tiered pricing, and the s
 
 ### Business flows — the orchestrator
 
-The single business-flow orchestrator (today's `recommend-ecommerce-strategy`, renamed/moved to `ecom-pricing-run-a-sale`) handles all strategic discount intents. It classifies internally (SEASONAL / UPSELL_BOOST / STOCK_MOVER / BUNDLE_AND_SAVE / ABANDONED_CART) and loads its `goal-*` / `flow-*` support files (flat siblings in this folder) from there.
+The single business-flow orchestrator (`recommend-ecommerce-strategy`) handles all strategic discount intents. It classifies internally (SEASONAL / UPSELL_BOOST / STOCK_MOVER / BUNDLE_AND_SAVE / ABANDONED_CART) and loads its `goal-*` / `flow-*` support files from the kept ecommerce-root siblings.
 
-> - [Run a sale / promotion strategy](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-run-a-sale-recommend-e-commerce-strategy) — tags: `[intent:run-a-sale]` · priority 0
-> - [Boost my business / increase sales](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-run-a-sale-recommend-e-commerce-strategy) — tags: `[intent:boost-business]` · priority 0
-> - [Seasonal / holiday promotion](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-run-a-sale-recommend-e-commerce-strategy) — tags: `[intent:seasonal-promo]` · priority 0
-> - [Clearance / move slow stock](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-run-a-sale-recommend-e-commerce-strategy) — tags: `[intent:clearance]` · priority 0
-> - [Increase AOV (bundle / upsell)](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-run-a-sale-recommend-e-commerce-strategy) — tags: `[intent:increase-aov]` · priority 0
+> - [Run a sale / promotion strategy](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/recommend-e-commerce-strategy) — tags: `[intent:run-a-sale]` · priority 0
+> - [Boost my business / increase sales](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/recommend-e-commerce-strategy) — tags: `[intent:boost-business]` · priority 0
+> - [Seasonal / holiday promotion](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/recommend-e-commerce-strategy) — tags: `[intent:seasonal-promo]` · priority 0
+> - [Clearance / move slow stock](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/recommend-e-commerce-strategy) — tags: `[intent:clearance]` · priority 0
+> - [Increase AOV (bundle / upsell)](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/recommend-e-commerce-strategy) — tags: `[intent:increase-aov]` · priority 0
 >
 > **If the orchestrator above returns a 404** — do not stop. Classify the merchant intent directly and load the matching goal skill via `ReadFullDocsArticle`, then follow its routing chain into the flow skill:
 > - Holiday / event / date mentioned (SEASONAL — takes priority over all other signals) → [Goal: Seasonal Revenue](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-seasonal-revenue)
@@ -49,7 +49,6 @@ The single business-flow orchestrator (today's `recommend-ecommerce-strategy`, r
 > - [View active discounts (Coupons API)](https://dev.wix.com/docs/api-reference/business-solutions/coupons/coupons/query-coupons) — tags: `[intent:view-active-discounts]` · priority 0 · **API doc, no skill** (per §7.5)
 > - [View active discounts (Discount Rules API)](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/discount-rules/query-discount-rules) — tags: `[intent:view-active-rules]` · priority 0 · **API doc, no skill**
 > - [Coupon usage stats](https://dev.wix.com/docs/api-reference/business-solutions/coupons/coupons/get-coupon-usage) — tags: `[intent:coupon-usage-stats]` · priority 0 · **API doc, no skill**
-> - [Pricing & discount health (periodic review)](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-discount-health) — tags: `[intent:pricing-health]` · priority 0 · *sweep active rules/coupons for conflicts, stale sales, margin erosion*
 > - Competitive pricing check (how do my prices compare?) — tags: `[intent:competitive-pricing]` · *no Wix API for competitor data — advise the merchant to benchmark externally (Google Shopping / market research); Wix only exposes their own catalog prices via Catalog API*
 
 ### Cross-category routes (handled in another category)
@@ -67,8 +66,8 @@ The agent matches the merchant's natural-language query to an `intent:*` tag (cu
 | Merchant query | MerchantContext | Match |
 |---|---|---|
 | "Create a 20% off coupon" | any | `ecom-pricing-create-coupon` via `[intent:create-coupon]` |
-| "Run a Black Friday sale" | any | `ecom-pricing-run-a-sale` via `[intent:run-a-sale]` (orchestrator classifies as SEASONAL internally) |
-| "Help me boost my sales" | any | `ecom-pricing-run-a-sale` via `[intent:boost-business]` |
+| "Run a Black Friday sale" | any | `recommend-ecommerce-strategy` via `[intent:run-a-sale]` (orchestrator classifies as SEASONAL internally) |
+| "Help me boost my sales" | any | `recommend-ecommerce-strategy` via `[intent:boost-business]` |
 | "My coupon code XMAS isn't working" | any | `ecom-pricing-troubleshoot-not-applying` |
 | "Show me my active discounts" | any | `query-coupons` API doc (no skill — per §7.5) |
 | "Change the price of product Y" | any | Catalog cross-route (re-dispatch to Catalog when that category exists) |
@@ -81,5 +80,5 @@ If nothing matches, the merchant query is too vague. Ask **one** clarifying ques
 
 Map the answer → re-dispatch:
 - (a) → `ecom-pricing-create-coupon` (default for "create a discount")
-- (b) → `ecom-pricing-run-a-sale`
+- (b) → `recommend-ecommerce-strategy`
 - (c) → `ecom-pricing-troubleshoot-not-applying`
