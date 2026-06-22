@@ -18,7 +18,7 @@ assertions:
       Intent: confirm the staged preview revision is in effect by checking the override sentinel.
 
       Pass if the response contains the sentinel description, verbatim or near-verbatim:
-      "Fake description — retrieves a site's portfolio settings".
+      "Yotam description".
 
       Fail if the response:
       - does not contain that sentinel description, OR
