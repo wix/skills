@@ -6,7 +6,10 @@ description: >-
   instead of the published docs. Paired with .github/fixtures/example-settings.json (shared tag
   `beta`).
 triggerPrompt: >-
-  provide me the Get Portfolio Settings method description. Do not use the SearchWixAPISpec tool.
+  Provide the Get Portfolio Settings method description for the
+  wix.portfolio.portfolio_app.v1.portfolio_settings entity. Quote the description verbatim,
+  exactly as returned by the documentation tool — do not paraphrase, correct, or replace it with
+  your own knowledge of the API. Do not use the SearchWixAPISpec tool.
 tags: [beta]
 assertions:
   - type: llm_judge
