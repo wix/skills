@@ -56,7 +56,11 @@ jobs:
         if: ${{ github.event.inputs.dry_run == 'false' }}
         id: bump
         run: |
-          NEW_VERSION=$(npm version ${{ github.event.inputs.version_strategy }} --no-git-tag-version)
+          # Don't capture `npm version` stdout: the `version` lifecycle hook
+          # prints sync logs to stdout, so read the bumped version from
+          # package.json instead (always a clean single value).
+          npm version ${{ github.event.inputs.version_strategy }} --no-git-tag-version
+          NEW_VERSION="v$(node -p "require('./package.json').version")"
           echo "version=${NEW_VERSION}" >> $GITHUB_OUTPUT
           echo "branch=release/${NEW_VERSION}" >> $GITHUB_OUTPUT
 
