@@ -102,8 +102,8 @@ All page scopes share common inputs and rules. Scope-specific details follow.
     </section>
     ```
 8. **Comments in frontmatter.** Use `//` or `/* */` — never HTML `<!-- -->` comments in `.astro` frontmatter (it's TypeScript, not HTML). HTML comments in the template section are fine.
-9. **Responsive.** All pages must work at mobile (320px), tablet (768px), and desktop (1024px+). Use Tailwind responsive prefixes (`md:`, `lg:`) and the spacing scale from `@theme`.
-10. **Use Tailwind utility classes in templates.** For layout, spacing, typography, and responsive design — use utility classes directly in the markup. Contract classes are still required for components referenced by Phase 3/4 agents. Mix both: `<div class="product-grid grid grid-cols-1 md:grid-cols-3 gap-lg">`. Always use brand `@theme` tokens (e.g., `bg-bark`, `text-cream`) — never default Tailwind colors.
+9. **Responsive.** All pages must work at mobile (320px), tablet (768px), and desktop (1024px+). Use Tailwind responsive prefixes (`md:`, `lg:`) and Tailwind's numeric spacing scale (`gap-4`, `py-24`, …).
+10. **Use Tailwind utility classes in templates.** For layout, spacing, typography, and responsive design — use utility classes directly in the markup. Contract classes are still required for components referenced by Phase 3/4 agents. Mix both: `<div class="product-grid grid grid-cols-1 md:grid-cols-3 gap-6">`. Always use brand `@theme` tokens (e.g., `bg-bark`, `text-cream`) — never default Tailwind colors.
 11. **No duplicate files.** If two scopes list the same file (rare), the scope whose prompt explicitly names it as "owned" takes precedence. If unclear, write it and note the overlap in your return.
 12. **Do NOT write to `src/styles/components-<pack>.css` or `src/styles/global.css`** — `components-<pack>.css` is pre-copied from the skill template by the orchestrator (build-wave pre-batch); `global.css` is owned by the Composer. Writing to either causes double-write conflicts.
 
@@ -317,7 +317,7 @@ The JSON block MUST be the **last** content in your message — the parent parse
 | Author a `.tsx` React island in a page scope | Phase 3 Components writes the islands; the route only **mounts** them (`client:load`) |
 | Ship hardcoded data arrays as the final page | Query live SDK data in frontmatter (per the vertical reference) and bind it; hardcoded shapes are only a fallback for empty queries |
 | Write `global.css` or `@theme` tokens | The Composer owns `global.css`; you consume the published token contract |
-| Invent global semantic classes for layout/spacing/typography (`.featured-section`, `.page-header`) | Use Tailwind utilities derived from `@theme` tokens at the call site (`<section class="py-4xl">`); see `../../shared/STYLING.md` |
+| Invent global semantic classes for layout/spacing/typography (`.featured-section`, `.page-header`) | Use Tailwind utilities derived from `@theme` tokens at the call site (`<section class="py-24">`); see `../../shared/STYLING.md` |
 | Override `global.css` rules from page `<style>` blocks | Pages can add co-located styles for one-off decoration; never override Composer-owned global classes |
 | HTML `<!-- comment -->` in `.astro` frontmatter | Use `//` or `/* */` — frontmatter is TypeScript |
 | Use external placeholder image services (picsum, unsplash) | Use colored `<div>` placeholders with `data-decorative-slot` — the orchestrator injects Image Phase 1 URLs later |

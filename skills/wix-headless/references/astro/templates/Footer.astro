@@ -10,18 +10,18 @@
 const year = new Date().getFullYear();
 ---
 <footer class="site-footer" transition:persist="site-footer">
-  <div class="max-w-6xl mx-auto px-lg py-3xl flex flex-col md:flex-row md:items-start md:justify-between gap-xl">
-    <div class="flex flex-col gap-sm max-w-prose">
+  <div class="max-w-6xl mx-auto px-6 py-16 flex flex-col md:flex-row md:items-start md:justify-between gap-8">
+    <div class="flex flex-col gap-3 max-w-prose">
       <span class="font-display text-lg text-ink">{{brand.name}}</span>
       <p class="text-sm">{{shell.footerTagline}}</p>
     </div>
     <nav>
-      <ul class="flex flex-col gap-sm text-sm">
+      <ul class="flex flex-col gap-3 text-sm">
         {{nav.links}}
       </ul>
     </nav>
   </div>
-  <div class="max-w-6xl mx-auto px-lg pb-xl text-xs">
+  <div class="max-w-6xl mx-auto px-6 pb-8 text-xs">
     <p>© {year} {{brand.name}}. All rights reserved.</p>
   </div>
 </footer>

@@ -1,6 +1,6 @@
 ---
 name: design-system-designer
-description: "The Designer role of the wix-headless design-system phase. Picks the brand's visual identity and authors it as DESIGN.md — the single, portable design-token format (palette, type, spacing, rounded, content widths) plus a small block of brand-voice strings. Writes DESIGN.md directly (its only file, at the dispatch's designMdPath) and returns just data.shell + the designMdPath, so the orchestrator never re-emits the tokens. emit-design-tokens.mjs reads DESIGN.md's frontmatter and projects .wix/design-tokens.css + .wix/site.d.ts; compose.mjs (astro) reads DESIGN.md to write the design-system files. Makes no rendering decision (no CSS, no Tailwind, no Astro)."
+description: "The Designer role of the wix-headless design-system phase. Picks the brand's visual identity and authors it as DESIGN.md — the single, portable design-token format (palette, type, rounded, content widths) plus a small block of brand-voice strings. Writes DESIGN.md directly (its only file, at the dispatch's designMdPath) and returns just data.shell + the designMdPath, so the orchestrator never re-emits the tokens. emit-design-tokens.mjs reads DESIGN.md's frontmatter and projects .wix/design-tokens.css + .wix/site.d.ts; compose.mjs (astro) reads DESIGN.md to write the design-system files. Makes no rendering decision (no CSS, no Tailwind, no Astro)."
 ---
 
 # Designer — the design itself
@@ -11,7 +11,7 @@ You author **`DESIGN.md`** (its YAML frontmatter is the spec) — see "What you 
 
 Your output is small and mostly thinking: a coherent, complete brand visual expressed as `DESIGN.md` frontmatter, plus a handful of brand-voice strings (returned as `data.shell`). Speed comes from staying in this lane — one small spec file + a small return, not site files.
 
-> **DESIGN.md is the single design artifact — there is no separate "design tokens" JSON contract.** What you author *is* the DESIGN.md frontmatter (DESIGN.md vocabulary: `colors` / `typography` / `spacing` / `rounded` / `containers` / `googleFontsHref`). **You write `DESIGN.md` directly**; `emit-design-tokens.mjs` then projects `.wix/design-tokens.css` + `.wix/site.d.ts` from its frontmatter; `compose.mjs` (astro) reads the same frontmatter to write the site files; non-astro frontends import the token CSS. Because the **frontmatter** is what every consumer reads, your completeness bar is the whole game — a thin spec yields a thin DESIGN.md.
+> **DESIGN.md is the single design artifact — there is no separate "design tokens" JSON contract.** What you author *is* the DESIGN.md frontmatter (DESIGN.md vocabulary: `colors` / `typography` / `rounded` / `containers` / `googleFontsHref`). **You write `DESIGN.md` directly**; `emit-design-tokens.mjs` then projects `.wix/design-tokens.css` + `.wix/site.d.ts` from its frontmatter; `compose.mjs` (astro) reads the same frontmatter to write the site files; non-astro frontends import the token CSS. Because the **frontmatter** is what every consumer reads, your completeness bar is the whole game — a thin spec yields a thin DESIGN.md.
 
 ## Self-Loading
 
@@ -38,7 +38,7 @@ You do **not** receive (and do not need) loaded packs, navigation links, disable
 - Open the file with `---` on its own line and close the frontmatter with `---`.
 - **QUOTE every string value with double quotes — especially hex colors** (`paper: "#FFFBF0"`). An unquoted `#hex` after `: ` is read as a YAML comment and the token vanishes.
 - **2-space indent** for nested groups. `typography` entries may use an indented `fontFamily:` line or flow style `{ fontFamily: "..." }`.
-- Groups: `colors`, `typography`, `spacing`, `rounded`, `containers`; plus the top-level `googleFontsHref`. Fill every color role (completeness is your bar — see below).
+- Groups: `colors`, `typography`, `rounded`, `containers`; plus the top-level `googleFontsHref`. Fill every color role (completeness is your bar — see below).
 
 **The `DESIGN.md` you write** (frontmatter is canonical; the body is documentation, never parsed):
 
@@ -59,16 +59,6 @@ colors:
 typography:
   display: { fontFamily: "..." }
   body: { fontFamily: "..." }
-spacing:
-  2xs: "..."
-  xs: "..."
-  sm: "..."
-  md: "..."
-  lg: "..."
-  xl: "..."
-  2xl: "..."
-  3xl: "..."
-  4xl: "..."
 rounded:
   sm: "..."
   md: "..."
@@ -111,7 +101,7 @@ Concrete values with **semantic roles**, in the DESIGN.md vocabulary (`DESIGN_MD
 - **`colors`** — a complete palette covering semantic roles, not just brand accents. **All six core roles are required** (emit every one): `paper` (primary background), `paper-warm` (secondary surface), `ink` (primary text / dark fills), `mute` (muted text), `rule` (borders / dividers), `accent` (brand emphasis). Also emit the recommended `ink-soft`, `cream`, `error`. Every value a concrete hex string. These wix-native role names are valid DESIGN.md color tokens — use them directly. **Map the approved palette to roles — do not re-pick hues.** The **accent** hex from the Color palette input → `accent`; the dominant **background** → `paper`; the primary **text** → `ink`. The remaining roles (`paper-warm`, `ink-soft`, `mute`, `rule`, `cream`, `error`) are **tonal derivatives of that approved palette** — lighten/darken/desaturate **within the same hue family**, never a new hue and never a generic editorial default set. **`compose.mjs` derives a missing role only as a last-resort fail-safe** (e.g. `ink-soft` ≈ `ink` lightened) — that yields a less intentional palette, so completeness is on you.
 - **`typography`** — a map of levels to type tokens. **Use the exact `display` and `body` font families from the Typography input, verbatim** — no substitution, no "better" pairing, no swapping the approved serif for a different serif. The families are **given to you, not chosen by you**; you decide only `fontSize`/`fontWeight`/`lineHeight`/`letterSpacing` (optional — the wix pipeline consumes only `fontFamily`). Each level is `{ "fontFamily": "<the given family>" }` (e.g. `"Fraunces"`, `"Inter"`). Add `mono` only if the brand needs it.
 - **`googleFontsHref`** (top-level key in `data.design`) — the **ready** Google Fonts stylesheet href for the **given** `display` + `body` families, with the weight/optical axes each family actually supports. Emit the finished URL for those exact families: e.g. `"https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600&family=Inter:wght@400;500;600&display=swap"`. If **both** families are system fonts (`system-ui`, `sans-serif`, etc.), emit `""` (the `<link>` is dropped). (If you omit it, `compose.mjs` builds a valid fallback with a standard 400–700 weight set, but the family-specific axes are lost — so emit it.)
-- **`spacing`** — a full rhythm scale, every step `2xs` through `4xl` (`2xs, xs, sm, md, lg, xl, 2xl, 3xl, 4xl`), each a concrete length (e.g. `"1rem"`). The brand's spacing rhythm, not container widths.
+- **(no `spacing`)** — do not author a spacing scale. The build uses Tailwind v4's built-in numeric spacing (`gap-4`, `py-24`, …); a named `--spacing-<size>` scale was removed because its t-shirt names collided with the width utilities. Spacing is not your concern.
 - **`rounded`** — corner radii (DESIGN.md's name for radius tokens): `sm` and `md` required; `lg`, `xl` if the brand uses larger curves. Concrete lengths.
 - **`containers`** — content/reading widths (a DESIGN.md extension this skill uses), **conceptually separate from spacing**: `prose` (a readable text column, ~`42rem`), plus `md`, `3xl`, `6xl` as page max-widths. Widths, not spacing steps — never reuse a spacing value as a container value (a reading column is ~`42rem`, not `5rem`).
 
@@ -141,12 +131,12 @@ You pick *what the brand looks like* — "paper = `#FAF6EF`", "display face = Fr
 | Write `global.css`, token CSS, or any **site** file | Write **only** `DESIGN.md` (your design spec) — `emit-design-tokens.mjs` projects the token CSS from it, `compose.mjs` authors site files |
 | Echo the tokens inline in your return | They live in `DESIGN.md`; return only `data.shell` + the `designMdPath` you wrote (keeps the tokens out of the orchestrator's output) |
 | Unquoted hex in frontmatter (`paper: #FFFBF0`) | Quote every string value (`paper: "#FFFBF0"`) — an unquoted `#hex` parses as a comment and the token is lost |
-| Emit an `@theme` block, `--color-*` names, or Tailwind utilities | Return DESIGN.md frontmatter (`colors`/`typography`/`spacing`/`rounded`/`containers`); `compose.mjs` maps them |
+| Emit an `@theme` block, `--color-*` names, or Tailwind utilities | Return DESIGN.md frontmatter (`colors`/`typography`/`rounded`/`containers`); `compose.mjs` maps them |
 | Return the old `designTokens` shape (`fonts`, `radii`) | Use the DESIGN.md vocabulary: `typography` (with `fontFamily`), `rounded` — there is no separate token JSON anymore |
 | Decide CSS structure, View-Transitions, `@apply`, markers, file layout | All application — `compose.mjs`'s domain |
 | Read `STYLING.md`, templates, or `.astro` files | Every input is inlined; read only `DESIGN_MD.md` + `RETURN_CONTRACT.md` |
 | Branch on framework (astro vs custom) or loaded packs | The DESIGN.md is framework- and pack-blind by construction |
-| Alias a container width to a spacing value | `containers.prose` ≈ `42rem`; `spacing.3xl` ≈ `5rem` — different axes |
+| Author a `spacing` scale | Removed — the build uses Tailwind's numeric spacing (`gap-4`, `py-24`); only `colors`/`typography`/`rounded`/`containers`/`googleFontsHref` |
 | Ship a thin palette ("downstream will add what it needs") | Completeness is the contract — fill every semantic role |
 | Substitute or "upgrade" the display/body family (swap the approved Fraunces for Playfair) | Use the exact `display`/`body` families from the Typography input verbatim; you choose only weights/axes |
 | Introduce a hue not in the approved palette for `paper`/`ink`/`accent`, or "improve" the brand color | `accent` = approved accent hex, `paper` = approved background, `ink` = approved text; other roles are tonal variants of those |

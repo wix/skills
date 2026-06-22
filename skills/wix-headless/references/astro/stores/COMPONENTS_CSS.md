@@ -23,7 +23,7 @@ You only need:
 2. **`<SKILL_ROOT>/references/shared/STYLING.md`** — the styling-contract conventions (how to use `@apply`, the `@theme` token utilities, the no-default-Tailwind-colors rule, and the global-vs-scoped CSS ownership boundary).
 3. **`<SKILL_ROOT>/references/shared/RETURN_CONTRACT.md`** — the return JSON shape.
 4. **`src/styles/global.css`** in the project — read to audit for stores-class leaks (see § "Global-CSS leak audit" below).
-5. **Design tokens (on disk)** — read the design tokens (the DESIGN.md vocabulary — `colors`/`typography`/`spacing`/`rounded`/`containers`) from `.wix/design-tokens.css` (gate-verified present before the wave). They are NOT inlined in your prompt.
+5. **Design tokens (on disk)** — read the design tokens (the DESIGN.md vocabulary — `colors`/`typography`/`rounded`/`containers`; spacing is Tailwind's numeric scale, not a token) from `.wix/design-tokens.css` (gate-verified present before the wave). They are NOT inlined in your prompt.
 
 You do NOT need to read `INSTRUCTIONS.md`, `SHARED_WIRING.md`, `BACK_IN_STOCK.md`, the TSX templates, the back-in-stock util, or any other reference. Skipping those reads is the point of the split — they would consume tokens for context this scope doesn't use.
 
@@ -35,7 +35,7 @@ You do NOT need to read `INSTRUCTIONS.md`, `SHARED_WIRING.md`, `BACK_IN_STOCK.md
 <SKILL_ROOT>/references/astro/templates/stores/components-stores.css
 ```
 
-This is the canonical scoped CSS for the stores pack. Adapt sizing/spacing to the brand's aesthetic — use the design tokens from your prompt (`--color-bark`, `--color-cream`, `--spacing-md`, `--font-display`, etc.). **Do not rename the class names or state modifiers** — they must match the contract keys the TSX components reference.
+This is the canonical scoped CSS for the stores pack. Adapt sizing/spacing to the brand's aesthetic — use the design tokens from your prompt (`--color-bark`, `--color-cream`, `--radius-md`, `--font-display`, etc.); spacing uses Tailwind's numeric scale (`gap-4`, `py-24`), not a token. **Do not rename the class names or state modifiers** — they must match the contract keys the TSX components reference.
 
 ### 2. Use `@apply` with brand `@theme` utilities
 
@@ -49,8 +49,8 @@ Do **NOT** use default Tailwind colors (`bg-green-50`, `text-red-600`). The bran
 
 Classes you own (define rules in `components-stores.css`):
 
-- **`.product-card`, `.product-card-media`, `.product-card-ribbon`, `.product-card-index`** — the product card itself, including the `overflow: hidden` + `border-radius` clipping context. Whoever writes the `border-radius` here also writes any inner padding required to keep child content inside the rounded edges. Without inner padding, a price `<p>` sits flush against the rounded bottom corner and descenders get clipped. Add `padding-bottom: var(--spacing-md)` on the card plus horizontal padding on each text block when you set the radius.
-- **`.product-grid`** — the layout that lists product cards. Both `/products` (pages-products scope) and `/category/[slug]` (pages-categories scope) consume it from one place. Include `display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--spacing-xl);` plus the View-Transitions opacity fade for in-flight navigations.
+- **`.product-card`, `.product-card-media`, `.product-card-ribbon`, `.product-card-index`** — the product card itself, including the `overflow: hidden` + `border-radius` clipping context. Whoever writes the `border-radius` here also writes any inner padding required to keep child content inside the rounded edges. Without inner padding, a price `<p>` sits flush against the rounded bottom corner and descenders get clipped. Add `padding-bottom: 1rem` on the card plus horizontal padding on each text block when you set the radius.
+- **`.product-grid`** — the layout that lists product cards. Both `/products` (pages-products scope) and `/category/[slug]` (pages-categories scope) consume it from one place. Include `display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 2rem;` plus the View-Transitions opacity fade for in-flight navigations.
 - **`.offer-callout` family (`.offer-callout`, `-item`, `-badge`, `-name`, `-detail`, `-foot`)** — discount panel rendered above `<ProductPurchase>` on `/products/[slug]`.
 - **Option-selector contract classes** — `option-group`, `option-label`, `option-choices`, `option-pill` (with `.selected` state modifier).
 - **Quantity-stepper contract classes** — `quantity-selector`, `quantity-btn`, `quantity-value`.
