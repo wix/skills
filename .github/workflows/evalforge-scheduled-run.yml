@@ -29,8 +29,7 @@ jobs:
       - name: Post Slack notification
         if: always()
         env:
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-          SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           PASS_RATE: ${{ steps.eval.outputs.pass-rate }}
           PASSED: ${{ steps.eval.outputs.passed }}
           FAILED: ${{ steps.eval.outputs.failed }}
@@ -51,9 +50,7 @@ jobs:
             --arg run_url "${RUN_URL}" \
             --arg wf_url "${WORKFLOW_URL}" \
             --arg run_no "${RUN_NUMBER}" \
-            --arg channel "$SLACK_CHANNEL_ID" \
             '{
-              channel: $channel,
               text: ($emoji + " *EvalForge Scheduled Run #" + $run_no + "* — " + $rate + "% pass rate (" + $passed + "/" + $total + " passed, " + $failed + " failed)"),
               blocks: [
                 {
@@ -80,5 +77,4 @@ jobs:
             }' \
           | curl -s -X POST \
               -H "Content-Type: application/json" \
-              -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
-              -d @- "https://slack.com/api/chat.postMessage"
+              -d @- "$SLACK_WEBHOOK_URL"
