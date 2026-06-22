@@ -34092,8 +34092,11 @@ var EvalRunStatusStatus;
     EvalRunStatusStatus["Failed"] = "failed";
     EvalRunStatusStatus["Cancelled"] = "cancelled";
 })(EvalRunStatusStatus || (exports.EvalRunStatusStatus = EvalRunStatusStatus = {}));
-function buildMcpOverrideUrl(commitHash) {
-    return `${MCP_URL}?skillsPr=${encodeURIComponent(commitHash)}`;
+function buildMcpOverrideUrl(skillsRepo, skillsPr) {
+    const url = new URL(MCP_URL);
+    url.searchParams.set("skillsRepo", skillsRepo);
+    url.searchParams.set("skillsPr", skillsPr);
+    return url.toString();
 }
 class EvalForgeClient {
     baseUrl;
@@ -34124,7 +34127,7 @@ class EvalForgeClient {
     async listMcpVersions(mcpId, projectId) {
         return this.request(HttpMethod.Get, `/projects/${projectId}/capabilities/${mcpId}/versions`);
     }
-    async createMcpVersion(mcpId, projectId, versionLabel, skillsPr, prNumber) {
+    async createMcpVersion(mcpId, projectId, versionLabel, skillsRepo, skillsPr, prNumber) {
         return this.request(HttpMethod.Post, `/projects/${projectId}/capabilities/${mcpId}/versions`, {
             version: versionLabel,
             origin: "pr",
@@ -34132,7 +34135,7 @@ class EvalForgeClient {
             content: {
                 config: {
                     [MCP_CONFIG_KEY]: {
-                        url: buildMcpOverrideUrl(skillsPr),
+                        url: buildMcpOverrideUrl(skillsRepo, skillsPr),
                         type: "http",
                         headers: {
                             Authorization: "{{wix-auth-token}}",
@@ -34419,9 +34422,9 @@ async function stageRevisionOrReport(octokit, pr, appId, appSecret, fixture, com
         return null;
     }
 }
-async function createMcpVersionOrReport(octokit, pr, evalforge, mcpId, projectId, versionLabel, skillsPr, prNumber) {
+async function createMcpVersionOrReport(octokit, pr, evalforge, mcpId, projectId, versionLabel, skillsRepo, skillsPr, prNumber) {
     try {
-        const mcpVersion = await evalforge.createMcpVersion(mcpId, projectId, versionLabel, skillsPr, prNumber);
+        const mcpVersion = await evalforge.createMcpVersion(mcpId, projectId, versionLabel, skillsRepo, skillsPr, prNumber);
         core.info(`Created MCP version ${versionLabel} (${mcpVersion.id})`);
         return mcpVersion.id;
     }
@@ -34435,7 +34438,7 @@ async function createMcpVersionOrReport(octokit, pr, evalforge, mcpId, projectId
                 if (existing) {
                     await evalforge.deleteMcpVersion(mcpId, projectId, existing.id);
                 }
-                const recreated = await evalforge.createMcpVersion(mcpId, projectId, versionLabel, skillsPr, prNumber);
+                const recreated = await evalforge.createMcpVersion(mcpId, projectId, versionLabel, skillsRepo, skillsPr, prNumber);
                 core.info(`Recreated MCP version ${versionLabel} (${recreated.id})`);
                 return recreated.id;
             }
@@ -34563,6 +34566,7 @@ async function runEval() {
         return;
     }
     const skillsPr = headSha;
+    const skillsRepo = `${owner}/${repo}`;
     const versionLabel = `pr-${prNumber}-${headSha.slice(0, 7)}`;
     const draftTag = `draft:${owner}/${repo}#${prNumber}`;
     core.info(`Eval tag: ${draftTag}\nFixture: ${fixture.path}\nskillsPr: ${skillsPr}`);
@@ -34571,7 +34575,7 @@ async function runEval() {
         return;
     }
     const evalforge = new clients_1.EvalForgeClient(evalforgeUrl, appId, appSecret);
-    const mcpVersionId = await createMcpVersionOrReport(octokit, pr, evalforge, mcpId, projectId, versionLabel, skillsPr, prNumber);
+    const mcpVersionId = await createMcpVersionOrReport(octokit, pr, evalforge, mcpId, projectId, versionLabel, skillsRepo, skillsPr, prNumber);
     if (!mcpVersionId) {
         return;
     }

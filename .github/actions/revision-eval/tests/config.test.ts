@@ -46,10 +46,10 @@ beforeEach(() => {
 });
 
 describe("buildMcpOverrideUrl", () => {
-  it("sets skillsPr to the commitHash and never sets skillsRepo", () => {
-    const url = buildMcpOverrideUrl("pr-42-abc1234");
-    expect(url).toContain("skillsPr=pr-42-abc1234");
-    expect(url).not.toContain("skillsRepo");
+  it("sets skillsRepo and skillsPr", () => {
+    const url = buildMcpOverrideUrl("wix/skills", "abc1234def");
+    expect(url).toContain("skillsRepo=wix%2Fskills");
+    expect(url).toContain("skillsPr=abc1234def");
     expect(url.startsWith("https://mcp.wix.com/mcp?")).toBe(true);
   });
 });

@@ -110,6 +110,7 @@ export async function createMcpVersionOrReport(
   mcpId: string,
   projectId: string,
   versionLabel: string,
+  skillsRepo: string,
   skillsPr: string,
   prNumber: number,
 ): Promise<string | null> {
@@ -118,6 +119,7 @@ export async function createMcpVersionOrReport(
       mcpId,
       projectId,
       versionLabel,
+      skillsRepo,
       skillsPr,
       prNumber,
     );
@@ -139,6 +141,7 @@ export async function createMcpVersionOrReport(
           mcpId,
           projectId,
           versionLabel,
+          skillsRepo,
           skillsPr,
           prNumber,
         );
@@ -349,6 +352,7 @@ export async function runEval(): Promise<void> {
   }
 
   const skillsPr = headSha;
+  const skillsRepo = `${owner}/${repo}`;
   const versionLabel = `pr-${prNumber}-${headSha.slice(0, 7)}`;
   const draftTag = `draft:${owner}/${repo}#${prNumber}`;
   core.info(
@@ -376,6 +380,7 @@ export async function runEval(): Promise<void> {
     mcpId,
     projectId,
     versionLabel,
+    skillsRepo,
     skillsPr,
     prNumber,
   );

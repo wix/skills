@@ -56,8 +56,14 @@ export type EvalRunStatus = {
   };
 };
 
-export function buildMcpOverrideUrl(commitHash: string): string {
-  return `${MCP_URL}?skillsPr=${encodeURIComponent(commitHash)}`;
+export function buildMcpOverrideUrl(
+  skillsRepo: string,
+  skillsPr: string,
+): string {
+  const url = new URL(MCP_URL);
+  url.searchParams.set("skillsRepo", skillsRepo);
+  url.searchParams.set("skillsPr", skillsPr);
+  return url.toString();
 }
 
 export class EvalForgeClient {
@@ -116,6 +122,7 @@ export class EvalForgeClient {
     mcpId: string,
     projectId: string,
     versionLabel: string,
+    skillsRepo: string,
     skillsPr: string,
     prNumber: number,
   ): Promise<CapabilityVersion> {
@@ -129,7 +136,7 @@ export class EvalForgeClient {
         content: {
           config: {
             [MCP_CONFIG_KEY]: {
-              url: buildMcpOverrideUrl(skillsPr),
+              url: buildMcpOverrideUrl(skillsRepo, skillsPr),
               type: "http",
               headers: {
                 Authorization: "{{wix-auth-token}}",
