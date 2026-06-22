@@ -57,6 +57,7 @@ export async function runSchedule(): Promise<void> {
   core.setOutput('failed', String(failed));
   core.setOutput('total', String(totalAssertions));
   core.setOutput('pass-rate', String(pct));
+  core.setOutput('run-url', runUrl);
   core.setOutput('summary', `${pct}% pass rate — ${passed}/${totalAssertions} assertions passed, ${failed} failed`);
 
   if (result.status === 'failed' || failed > 0) {
