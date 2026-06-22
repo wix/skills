@@ -5,7 +5,8 @@ description: >-
   answer contains the override sentinel — proving the staged preview revision is being served
   instead of the published docs. Paired with .github/fixtures/example-settings.json (shared tag
   `beta`).
-triggerPrompt: provide me the Get Portfolio Settings method description
+triggerPrompt: >-
+  provide me the Get Portfolio Settings method description. Do not use the SearchWixAPISpec tool.
 tags: [beta]
 assertions:
   - type: llm_judge
