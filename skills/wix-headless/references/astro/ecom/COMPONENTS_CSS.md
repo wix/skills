@@ -23,7 +23,7 @@ You only need:
 2. **`<SKILL_ROOT>/references/shared/STYLING.md`** — the styling-contract conventions (how to use `@apply`, the `@theme` token utilities, the no-default-Tailwind-colors rule, and the global-vs-scoped CSS ownership boundary).
 3. **`<SKILL_ROOT>/references/shared/RETURN_CONTRACT.md`** — the return JSON shape.
 4. **`src/styles/global.css`** in the project — read to audit for ecom-class leaks (see § "Global-CSS leak audit" below).
-5. **Design tokens (on disk)** — read the design tokens (the DESIGN.md vocabulary — `colors`/`typography`/`spacing`/`rounded`/`containers`) from `.wix/design-tokens.css` (gate-verified present before the wave). They are NOT inlined in your prompt.
+5. **Design tokens (on disk)** — read the design tokens (the DESIGN.md vocabulary — `colors`/`typography`/`rounded`/`containers`; spacing is Tailwind's numeric scale, not a token) from `.wix/design-tokens.css` (gate-verified present before the wave). They are NOT inlined in your prompt.
 
 You do NOT need to read `INSTRUCTIONS.md`, `CART_WIRING.md`, the TSX templates, the `discounts.ts` util, or any other reference. Skipping those reads is the point of the split.
 
@@ -35,7 +35,7 @@ You do NOT need to read `INSTRUCTIONS.md`, `CART_WIRING.md`, the TSX templates, 
 <SKILL_ROOT>/references/astro/templates/ecom/components-ecom.css
 ```
 
-This is the canonical scoped CSS for the ecom pack. Adapt sizing/spacing to the brand's aesthetic — use the design tokens from your prompt (`--color-bark`, `--color-cream`, `--spacing-md`, `--font-display`, etc.). **Do not rename the class names or state modifiers** — they must match the contract keys the TSX components reference.
+This is the canonical scoped CSS for the ecom pack. Adapt sizing/spacing to the brand's aesthetic — use the design tokens from your prompt (`--color-bark`, `--color-cream`, `--radius-md`, `--font-display`, etc.); spacing uses Tailwind's numeric scale (`gap-4`, `py-24`), not a token. **Do not rename the class names or state modifiers** — they must match the contract keys the TSX components reference.
 
 ### 2. The two `@reference` directives are mandatory
 
@@ -46,7 +46,7 @@ The first two non-comment lines of `components-ecom.css` MUST be:
 @reference "./global.css";
 ```
 
-Without these, Tailwind v4 fails the build with `"Cannot apply unknown utility class"` on any `@apply` rule that uses a utility like `size-6` or `gap-md`. The template ships them; do not remove.
+Without these, Tailwind v4 fails the build with `"Cannot apply unknown utility class"` on any `@apply` rule that uses a utility like `size-6` or `gap-4`. The template ships them; do not remove.
 
 ### 3. Class ownership
 

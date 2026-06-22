@@ -89,14 +89,14 @@ const viewContentPayload = {
   hasSeoTags={hasSeoTags}
 >
   {hasSeoTags && <SeoTags slot="head" tags={seoTags} />}
-  <main class="py-3xl">
-    <div class="max-w-wide mx-auto px-xl">
+  <main class="py-16">
+    <div class="max-w-wide mx-auto px-8">
       <a href="/products" class="text-mute text-sm tracking-wide uppercase">&larr; Back to products</a>
-      <div class="grid grid-cols-1 md:grid-cols-[7fr_5fr] gap-2xl md:gap-4xl mt-xl items-start">
+      <div class="grid grid-cols-1 md:grid-cols-[7fr_5fr] gap-12 md:gap-24 mt-8 items-start">
         <div class="aspect-[4/5] bg-cream rounded-sm overflow-hidden">
           {imageUrl && <img src={imageUrl} alt={product.name ?? "Product"} class="w-full h-full object-cover" />}
         </div>
-        <div class="flex flex-col gap-lg md:sticky md:top-2xl">
+        <div class="flex flex-col gap-6 md:sticky md:top-12">
           <h1 class="font-display text-4xl leading-tight">{product.name}</h1>
           {price && <p class="text-xl text-ink-soft">{price}</p>}
           {description && <p class="text-ink-soft leading-relaxed">{description}</p>}

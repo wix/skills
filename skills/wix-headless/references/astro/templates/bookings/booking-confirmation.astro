@@ -19,29 +19,29 @@ const formattedDate = startDateParam
 <!-- `max-w-prose` (built-in literal = 65ch), not a bare max-w-<size> that could
      collapse to the spacing scale. -->
 <Layout title="Booking confirmed">
-  <section class="max-w-prose mx-auto px-lg py-4xl text-center">
-    <div class="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-xl"
+  <section class="max-w-prose mx-auto px-6 py-24 text-center">
+    <div class="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-8"
          style="background-color: var(--color-accent);" aria-hidden="true">
       <span class="text-2xl" style="color: var(--color-paper);">✓</span>
     </div>
-    <hr class="editorial-rule w-16 mx-auto mb-lg" />
-    <h1 class="font-display text-4xl md:text-5xl leading-tight mb-md">Thank you for booking</h1>
+    <hr class="editorial-rule w-16 mx-auto mb-6" />
+    <h1 class="font-display text-4xl md:text-5xl leading-tight mb-4">Thank you for booking</h1>
 
     {
       formattedDate ? (
-        <p class="text-lg text-mute leading-relaxed mb-md">
+        <p class="text-lg text-mute leading-relaxed mb-4">
           Your spot in <strong class="text-ink">{serviceName}</strong> is <strong class="text-ink">confirmed</strong> for{" "}
           <strong class="text-ink">{formattedDate}</strong>. We've sent the details to your email.
         </p>
       ) : (
-        <p class="text-lg text-mute leading-relaxed mb-md">
+        <p class="text-lg text-mute leading-relaxed mb-4">
           Your booking for <strong class="text-ink">{serviceName}</strong> is <strong class="text-ink">confirmed</strong>. We've sent the details to your email.
         </p>
       )
     }
 
-    <div class="flex flex-col gap-md items-center">
-      <a href="/services" class="inline-block font-display text-base px-xl py-md rounded-sm"
+    <div class="flex flex-col gap-4 items-center">
+      <a href="/services" class="inline-block font-display text-base px-8 py-4 rounded-sm"
          style="background-color: var(--color-accent); color: var(--color-paper);">Browse more services</a>
       <a href="/" class="text-sm text-mute hover:text-ink">Return home</a>
     </div>
