@@ -13,7 +13,6 @@ description: "Create an appointment booking service — e.g. 'set up consultatio
 
 ## Prerequisites
 
-- **Wix Bookings app installed** (App ID: `13d21c63-b5ec-5912-8397-c3a5ddb27a97`). Use [List Installed Apps](../app-installation/list-installed-apps.md) to verify, and [Install Wix Apps](../app-installation/install-wix-apps.md) to install if missing.
 - For full API field definitions, validation rules, and troubleshooting, see [Create and Update Booking Services](./create-and-update-booking-services.md)
 
 ---
@@ -47,16 +46,7 @@ curl -X POST 'https://www.wixapis.com/bookings/v2/categories/query' \
   -d '{ "query": {} }'
 ```
 
-### 1c. Get Site Currency
-
-```bash
-curl -X GET 'https://www.wixapis.com/site-properties/v4/properties' \
-  -H 'Authorization: <AUTH>'
-```
-
-Extract `properties.paymentCurrency`. Fall back to `USD` if unavailable.
-
-### 1d. Query Existing Services (Duplicate Check)
+### 1c. Query Existing Services (Duplicate Check)
 
 ```bash
 curl -X POST 'https://www.wixapis.com/bookings/v2/services/query' \
@@ -82,7 +72,6 @@ For any fields the user did not explicitly specify:
 
 ### Pricing (if not specified)
 
-- Use the site's currency from Step 1c
 - If user specifies a price → `rateType: "FIXED"`
 - If user says "free" → `rateType: "NO_FEE"`, `options.inPerson: true`, `options.online: false`
 - If no price mentioned → infer from context (consultations ~$50-100, sessions ~$30-60) or default to free
@@ -136,7 +125,7 @@ curl -X POST 'https://www.wixapis.com/bookings/v2/bulk/services/create' \
         "rateType": "FIXED",
         "options": { "online": true, "inPerson": false },
         "fixed": {
-          "price": { "value": "<PRICE>", "currency": "<CURRENCY>" }
+          "price": { "value": "<PRICE>" }
         }
       },
       "category": {
@@ -213,7 +202,6 @@ Provide a summary including:
 
 | Error | Cause | Action |
 |---|---|---|
-| 428 "App not installed" | Bookings not installed | Install using [Install Wix Apps](../app-installation/install-wix-apps.md) |
 | 400 "staffMemberIds required" | No staff assigned | Query staff; if none exist, create one via [Bookings Staff Setup](./bookings-staff-setup.md) |
 | 400 "INVALID_PAYMENT_OPTIONS" | Payment misconfigured | Free: `inPerson: true`, `online: false`. Paid: price > 0 |
 | 403 | Permission denied | Inform user they lack permission |
@@ -249,6 +237,5 @@ Provide a summary including:
 - [Create Category](https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/categories-v2/create-category)
 - [Query Staff Members](https://dev.wix.com/docs/api-reference/business-solutions/bookings/staff-members/staff-members/query-staff-members)
 - [Create Staff Member](https://dev.wix.com/docs/api-reference/business-solutions/bookings/staff-members/staff-members/create-staff-member)
-- [Site Properties](https://dev.wix.com/docs/api-reference/business-management/site-management/site-properties/properties/read)
 - [About Service Types](https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/about-service-types)
 - [About Service Payments](https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/about-service-payments)
