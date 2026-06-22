@@ -10,13 +10,6 @@ description: "Create a booking service from a user prompt — e.g. 'create a yog
 - User describes a service they want to create using natural language (e.g., "create a yoga class for $50", "set up consultation sessions", "add a personal training appointment")
 - The intent is autonomous creation — fill in reasonable defaults rather than asking the user for every field
 
-## Prerequisites
-
-- **Wix Bookings app installed** (App ID: `13d21c63-b5ec-5912-8397-c3a5ddb27a97`)
-- If Bookings is not installed, use [Install Wix Apps](../app-installation/install-wix-apps.md) to install it first
-
----
-
 ## Step 1: Determine Service Type
 
 | User mentions | Type | Recipe |
@@ -30,7 +23,7 @@ description: "Create a booking service from a user prompt — e.g. 'create a yog
 
 Once the service type is determined, follow the corresponding recipe linked above. Each recipe covers:
 
-1. Gathering business context (staff, categories, currency, duplicate check)
+1. Gathering business context (staff where required, categories, duplicate check)
 2. Applying type-specific defaults (pricing, capacity, duration, staff assignment)
 3. Creating the service via `bulkCreateServices`
 4. Navigating to the service form for user review
