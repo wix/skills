@@ -22,7 +22,7 @@
 .service-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: var(--spacing-xl);
+  gap: 2rem;
   transition: opacity 200ms ease;
 }
 body[data-navigating="true"] .service-grid {
@@ -64,8 +64,8 @@ body[data-navigating="true"] .service-grid {
 .service-card-meta {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-xs);
-  padding: var(--spacing-md) var(--spacing-md) var(--spacing-lg);
+  gap: 0.5rem;
+  padding: 1rem 1rem 1.5rem;
   flex: 1;
 }
 .service-card-name {
@@ -85,16 +85,16 @@ body[data-navigating="true"] .service-grid {
 .service-card-price {
   display: flex;
   align-items: center;
-  gap: var(--spacing-sm);
+  gap: 0.75rem;
   margin-top: auto;
-  padding-top: var(--spacing-sm);
+  padding-top: 0.75rem;
   font-family: var(--font-body);
   font-size: 0.875rem;
   color: var(--color-mute);
 }
 .service-card-price span + span::before {
   content: "·";
-  padding-right: var(--spacing-sm);
+  padding-right: 0.75rem;
   color: var(--color-rule);
 }
 
@@ -102,11 +102,11 @@ body[data-navigating="true"] .service-grid {
 .booking-filter-bar {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--spacing-sm);
-  margin-bottom: var(--spacing-xl);
+  gap: 0.75rem;
+  margin-bottom: 2rem;
 }
 .booking-filter-chip {
-  padding: var(--spacing-xs) var(--spacing-md);
+  padding: 0.5rem 1rem;
   border: 1px solid var(--color-rule);
   border-radius: var(--radius-pill, 999px);
   background: var(--color-paper, var(--color-cream));
@@ -130,14 +130,14 @@ body[data-navigating="true"] .service-grid {
 .availability-calendar {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-lg);
+  gap: 1.5rem;
 }
 
 /* Filter row — holds the optional location + staff pickers side by side. */
 .availability-filters {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--spacing-md);
+  gap: 1rem;
 }
 .availability-filters > * {
   flex: 1 1 12rem;
@@ -147,7 +147,7 @@ body[data-navigating="true"] .service-grid {
 .availability-staff {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-xs);
+  gap: 0.5rem;
 }
 .availability-staff-label {
   font-family: var(--font-display);
@@ -158,7 +158,7 @@ body[data-navigating="true"] .service-grid {
 }
 .availability-staff-select {
   width: 100%;
-  padding: var(--spacing-sm) var(--spacing-md);
+  padding: 0.75rem 1rem;
   font-family: var(--font-body);
   font-size: 0.9375rem;
   border: 1px solid var(--color-rule);
@@ -176,8 +176,8 @@ body[data-navigating="true"] .service-grid {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--spacing-md);
-  padding: var(--spacing-sm) 0;
+  gap: 1rem;
+  padding: 0.75rem 0;
   border-bottom: 1px solid var(--color-rule);
 }
 .availability-week-label {
@@ -189,7 +189,7 @@ body[data-navigating="true"] .service-grid {
 }
 
 .availability-nav-btn {
-  padding: var(--spacing-sm) var(--spacing-md);
+  padding: 0.75rem 1rem;
   background: transparent;
   border: 1px solid var(--color-rule);
   border-radius: var(--radius-sm);
@@ -212,14 +212,14 @@ body[data-navigating="true"] .service-grid {
 .availability-day-strip {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: var(--spacing-sm);
+  gap: 0.75rem;
 }
 .availability-day {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  padding: var(--spacing-sm) 0;
+  padding: 0.75rem 0;
   border: 1px solid var(--color-rule);
   border-radius: var(--radius-sm);
   background: var(--color-paper, var(--color-cream));
@@ -257,7 +257,7 @@ body[data-navigating="true"] .service-grid {
 .availability-slots {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
-  gap: var(--spacing-sm);
+  gap: 0.75rem;
 }
 .availability-loading,
 .availability-empty,
@@ -265,14 +265,14 @@ body[data-navigating="true"] .service-grid {
   font-family: var(--font-body);
   font-size: 0.9375rem;
   color: var(--color-ink-soft, var(--color-mute));
-  padding: var(--spacing-lg) 0;
+  padding: 1.5rem 0;
   text-align: center;
 }
 .availability-empty {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--spacing-md);
+  gap: 1rem;
 }
 .availability-error {
   color: var(--color-error, var(--color-accent));
@@ -280,7 +280,7 @@ body[data-navigating="true"] .service-grid {
 
 /* ── Time-slot buttons ──────────────────────────────────────────────────────── */
 .time-slot {
-  padding: var(--spacing-sm) var(--spacing-md);
+  padding: 0.75rem 1rem;
   border: 1px solid var(--color-rule);
   border-radius: var(--radius-sm);
   background: var(--color-paper, var(--color-cream));
@@ -313,8 +313,8 @@ body[data-navigating="true"] .service-grid {
 .booking-form {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-lg);
-  padding: var(--spacing-xl);
+  gap: 1.5rem;
+  padding: 2rem;
   border: 1px solid var(--color-rule);
   border-radius: var(--radius-md);
   background: var(--color-paper-warm, var(--color-paper, var(--color-cream)));
@@ -323,8 +323,8 @@ body[data-navigating="true"] .service-grid {
 .booking-form-summary {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-xs);
-  padding-bottom: var(--spacing-md);
+  gap: 0.5rem;
+  padding-bottom: 1rem;
   border-bottom: 1px solid var(--color-rule);
 }
 .booking-form-summary strong {
@@ -339,7 +339,7 @@ body[data-navigating="true"] .service-grid {
 }
 .booking-form-change {
   align-self: flex-start;
-  margin-top: var(--spacing-xs);
+  margin-top: 0.5rem;
   background: none;
   border: none;
   padding: 0;
@@ -356,7 +356,7 @@ body[data-navigating="true"] .service-grid {
 .booking-field {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-xs);
+  gap: 0.5rem;
 }
 .booking-label {
   font-family: var(--font-display);
@@ -371,7 +371,7 @@ body[data-navigating="true"] .service-grid {
 
 .booking-input {
   width: 100%;
-  padding: var(--spacing-sm) var(--spacing-md);
+  padding: 0.75rem 1rem;
   font-family: var(--font-body);
   font-size: 0.9375rem;
   border: 1px solid var(--color-rule);
@@ -394,7 +394,7 @@ textarea.booking-input {
   font-family: var(--font-body);
   font-size: 0.875rem;
   color: var(--color-error, var(--color-accent));
-  padding: var(--spacing-sm) var(--spacing-md);
+  padding: 0.75rem 1rem;
   border: 1px solid var(--color-error, var(--color-accent));
   border-radius: var(--radius-sm);
 }
@@ -404,7 +404,7 @@ textarea.booking-input {
   align-items: center;
   justify-content: center;
   width: 100%;
-  padding: var(--spacing-md) var(--spacing-xl);
+  padding: 1rem 2rem;
   font-family: var(--font-display);
   font-size: 0.9375rem;
   font-weight: 500;

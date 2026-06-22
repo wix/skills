@@ -192,7 +192,6 @@ function designMdToTokens(fm) {
   return {
     colors,
     fonts,
-    spacing: fm.spacing ?? {},
     radii: fm.rounded ?? {},        // DESIGN.md calls corner radii `rounded`
     containers: fm.containers ?? {}, // custom group
     ...(typeof fm.googleFontsHref === "string" ? { googleFontsHref: fm.googleFontsHref } : {}),
@@ -241,7 +240,6 @@ const SYSTEM_FONTS = new Set([
 
 const colors = { ...(designTokens.colors ?? {}) };
 const fonts = { ...(designTokens.fonts ?? {}) };
-const spacing = { ...(designTokens.spacing ?? {}) };
 const radii = { ...(designTokens.radii ?? {}) };
 const containers = { ...(designTokens.containers ?? {}) };
 
@@ -272,12 +270,10 @@ ensure(colors, "error", "#c0392b", "--color-");
 ensure(fonts, "display", "Georgia, serif", "--font-");
 ensure(fonts, "body", "system-ui, sans-serif", "--font-");
 
-// Spacing — full 2xs..4xl scale.
-const SPACING_DEFAULTS = {
-  "2xs": "0.25rem", xs: "0.5rem", sm: "0.75rem", md: "1rem", lg: "1.5rem",
-  xl: "2rem", "2xl": "3rem", "3xl": "4rem", "4xl": "6rem",
-};
-for (const [k, v] of Object.entries(SPACING_DEFAULTS)) ensure(spacing, k, v, "--spacing-");
+// Spacing is NOT a named scale — Tailwind v4's built-in numeric spacing
+// (`--spacing` base → gap-4, py-24, …) is used directly. Emitting named
+// --spacing-<t-shirt> tokens collided with the width utilities (max-w-3xl etc.
+// drew from --spacing-3xl), so the named scale was removed (CODEAI-696).
 
 // Radii — sm + md required.
 ensure(radii, "sm", "0.25rem", "--radius-");
@@ -296,8 +292,6 @@ emitGroup("--color-", colors);
 themeLines.push("");
 emitGroup("--font-", fonts);
 themeLines.push("");
-emitGroup("--spacing-", spacing);
-themeLines.push("");
 emitGroup("--radius-", radii);
 themeLines.push("");
 emitGroup("--container-", containers);
@@ -310,25 +304,17 @@ const errors = [];
 const REQUIRED = [
   ...["paper", "paper-warm", "ink", "mute", "rule", "accent"].map((k) => `--color-${k}`),
   "--font-display", "--font-body",
-  ...["2xs", "xs", "sm", "md", "lg", "xl", "2xl", "3xl", "4xl"].map((k) => `--spacing-${k}`),
   "--radius-sm", "--radius-md",
   ...["prose", "md", "3xl", "6xl"].map((k) => `--container-${k}`),
 ];
 const present = new Set([
   ...Object.keys(colors).map((k) => `--color-${k}`),
   ...Object.keys(fonts).map((k) => `--font-${k}`),
-  ...Object.keys(spacing).map((k) => `--spacing-${k}`),
   ...Object.keys(radii).map((k) => `--radius-${k}`),
   ...Object.keys(containers).map((k) => `--container-${k}`),
 ]);
 for (const tok of REQUIRED) {
   if (!present.has(tok)) errors.push({ code: "MISSING_REQUIRED_TOKEN", token: tok });
-}
-
-// Container ≠ spacing: a --container-* value must never equal a --spacing-* value.
-const spacingValues = new Set(Object.values(spacing));
-for (const [k, v] of Object.entries(containers)) {
-  if (spacingValues.has(v)) errors.push({ code: "CONTAINER_EQUALS_SPACING", token: `--container-${k}`, value: v });
 }
 
 // ── skeleton load + substitution helpers ──────────────────────────────────────
@@ -526,7 +512,6 @@ const manifest = {
     homeMarkers: homeMarkerPacks.map((p) => `home:${p}`),
     tokensApplied: {
       colors: Object.keys(colors).length,
-      spacing: Object.keys(spacing).length,
       containers: Object.keys(containers).length,
       radii: Object.keys(radii).length,
       fonts: Object.keys(fonts).length,

@@ -77,11 +77,11 @@ The `components-stores.css` template already covers options/quantity/modifiers/s
 ```css
 /* --- Back-in-stock subscribe form (BackInStockForm.tsx) --- */
 .back-in-stock-form {
-  @apply flex flex-col gap-md mt-md p-lg border border-rule rounded;
+  @apply flex flex-col gap-4 mt-4 p-6 border border-rule rounded;
   background-color: var(--color-cream);
 }
 .back-in-stock-headline {
-  @apply flex flex-col gap-sm;
+  @apply flex flex-col gap-3;
 }
 .back-in-stock-eyebrow {
   @apply font-heading text-xs uppercase tracking-wider text-bark/70;
@@ -94,10 +94,10 @@ The `components-stores.css` template already covers options/quantity/modifiers/s
   @apply font-heading text-xs uppercase tracking-wider text-bark/70;
 }
 .back-in-stock-row {
-  @apply flex flex-row flex-wrap gap-sm;
+  @apply flex flex-row flex-wrap gap-3;
 }
 .back-in-stock-input {
-  @apply flex-1 px-md py-sm font-body text-sm border border-rule rounded bg-parchment text-ink;
+  @apply flex-1 px-4 py-3 font-body text-sm border border-rule rounded bg-parchment text-ink;
   min-width: 0;
   transition: border-color 0.15s ease;
 }
@@ -108,7 +108,7 @@ The `components-stores.css` template already covers options/quantity/modifiers/s
   @apply border-rust;
 }
 .back-in-stock-submit {
-  @apply px-lg py-sm font-heading text-xs uppercase tracking-wider bg-bark text-cream rounded cursor-pointer transition-colors;
+  @apply px-6 py-3 font-heading text-xs uppercase tracking-wider bg-bark text-cream rounded cursor-pointer transition-colors;
   border: 1px solid var(--color-bark);
 }
 .back-in-stock-submit:hover:not(:disabled) {
@@ -121,7 +121,7 @@ The `components-stores.css` template already covers options/quantity/modifiers/s
   @apply font-body text-sm text-rust;
 }
 .back-in-stock-success {
-  @apply mt-md p-lg border border-rule rounded;
+  @apply mt-4 p-6 border border-rule rounded;
   background-color: var(--color-cream);
 }
 .back-in-stock-success-headline {
@@ -134,7 +134,7 @@ The `components-stores.css` template already covers options/quantity/modifiers/s
   margin: 0;
 }
 .stock-status.back-in-stock-alt {
-  @apply mt-sm font-body text-sm italic text-bark/70;
+  @apply mt-3 font-body text-sm italic text-bark/70;
 }
 ```
 

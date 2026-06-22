@@ -354,9 +354,9 @@ export default function CartView() {
   const hasUnavailable = items.some(isItemUnavailable);
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-[1fr_22rem] gap-2xl md:gap-3xl md:items-start">
+    <div className="grid grid-cols-1 md:grid-cols-[1fr_22rem] gap-12 md:gap-16 md:items-start">
       {/* ── Left column: line items ── */}
-      <div className="flex flex-col gap-lg">
+      <div className="flex flex-col gap-6">
         {items.map((item) => {
           const unavailable = isItemUnavailable(item);
           const maxQty = item.availability?.quantityAvailable ?? 99;
@@ -367,7 +367,7 @@ export default function CartView() {
           return (
             <div
               key={item._id}
-              className={`flex gap-lg pb-lg border-b border-rule last:border-0${unavailable ? " unavailable" : ""}`}
+              className={`flex gap-6 pb-6 border-b border-rule last:border-0${unavailable ? " unavailable" : ""}`}
             >
               {/* Product image + name link back to the product detail page
                   for available items. Unavailable lines render as plain text. */}
