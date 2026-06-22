@@ -133,9 +133,9 @@ try {
 ---
 
 <!--
-  Width: use `container-reading` (max-width: var(--container-prose) + auto margins),
-  NOT a bare `max-w-<size>` — in this Tailwind v4 setup an un-emitted max-w-<size>
-  key falls back to the spacing scale (e.g. max-w-4xl → ~7rem, one word per line).
+  Width: use `container-reading` (max-width: var(--container-prose) + auto margins)
+  for a deliberate prose measure. Bare `max-w-<size>` keys resolve to Tailwind's
+  --container-* scale, which is wider than ideal for reading text.
 -->
 <Layout title={serviceName} description={service.tagLine ?? service.description}>
   <SeoTags tags={seoTags} slot="head" />

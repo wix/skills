@@ -43,8 +43,9 @@ These are layout/spacing/typography concerns that should always be utilities, ne
 
 **Spacing is Tailwind's built-in numeric scale** — `gap-4`, `py-24`, `px-6`, `mt-16`, etc. There is **no** named `--spacing-<size>` scale (it was removed: its t-shirt names `md`/`3xl`/… collided with the width utilities, so `max-w-3xl` resolved to `--spacing-3xl` ≈ 96px). Common steps: `1`=0.25rem, `2`=0.5, `3`=0.75, `4`=1rem, `6`=1.5, `8`=2, `12`=3, `16`=4, `24`=6rem.
 
-**Width / reading columns:** `max-w-md`, `max-w-3xl`, `max-w-6xl`, `max-w-prose` now resolve correctly to the `--container-*` keys (no spacing collision), so use them freely; `container-reading` (the designer `@utility`) or an arbitrary `max-w-[48rem]` also work.
+> **Never reintroduce a named `--spacing-*` scale.** In Tailwind v4 the `--spacing-*` namespace also generates the width/sizing families (`max-w-*`, `w-*`, `min-w-*`, …), so any `--spacing-<key>` token shadows the matching `max-w-<key>`. The current fix works because the skill's spacing steps happen to equal Tailwind's numeric defaults — but if a brand ever needs genuinely *custom* spacing **values**, put them under a different namespace (e.g. `--rhythm-*`) or use arbitrary values (`py-[5.5rem]`); do not revive `--spacing-*`.
 
+**Width / reading columns:** `max-w-md`, `max-w-3xl`, `max-w-6xl`, `max-w-prose` now resolve correctly to the `--container-*` keys (no spacing collision), so use them freely; `container-reading` (the designer `@utility`) or an arbitrary `max-w-[48rem]` also work.
 If a designer's `global.css` contains rules like `.featured-section { padding-block: 6rem; }` or `.product-card-body { display: flex; flex-direction: column; gap: 0.5rem; }`, those are misplaced — they belong in markup as utilities (`py-24`, `flex flex-col gap-2`). Inventing such classes ships broken layouts: every consumer needs the designer to have pre-declared the class, and Tailwind v4 silently drops the references when the rule is missing.
 
 ## Required tokens — the component-CSS template contract

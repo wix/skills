@@ -102,7 +102,7 @@ All page scopes share common inputs and rules. Scope-specific details follow.
     </section>
     ```
 8. **Comments in frontmatter.** Use `//` or `/* */` — never HTML `<!-- -->` comments in `.astro` frontmatter (it's TypeScript, not HTML). HTML comments in the template section are fine.
-9. **Responsive.** All pages must work at mobile (320px), tablet (768px), and desktop (1024px+). Use Tailwind responsive prefixes (`md:`, `lg:`) and the spacing scale from `@theme`.
+9. **Responsive.** All pages must work at mobile (320px), tablet (768px), and desktop (1024px+). Use Tailwind responsive prefixes (`md:`, `lg:`) and Tailwind's numeric spacing scale (`gap-4`, `py-24`, …).
 10. **Use Tailwind utility classes in templates.** For layout, spacing, typography, and responsive design — use utility classes directly in the markup. Contract classes are still required for components referenced by Phase 3/4 agents. Mix both: `<div class="product-grid grid grid-cols-1 md:grid-cols-3 gap-6">`. Always use brand `@theme` tokens (e.g., `bg-bark`, `text-cream`) — never default Tailwind colors.
 11. **No duplicate files.** If two scopes list the same file (rare), the scope whose prompt explicitly names it as "owned" takes precedence. If unclear, write it and note the overlap in your return.
 12. **Do NOT write to `src/styles/components-<pack>.css` or `src/styles/global.css`** — `components-<pack>.css` is pre-copied from the skill template by the orchestrator (build-wave pre-batch); `global.css` is owned by the Composer. Writing to either causes double-write conflicts.

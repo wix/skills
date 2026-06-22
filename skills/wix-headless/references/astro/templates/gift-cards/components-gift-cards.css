@@ -8,8 +8,9 @@
  * Reuses tokens declared by the designer foundation: --color-cream,
  * --color-cream-deep, --color-ink, --color-ink-soft, --color-muted,
  * --color-rule, --color-paper, --color-bark/espresso/gold-deep,
- * --spacing-{sm,md,lg,xl,2xl,3xl,4xl}, --radius-sm, --font-body,
- * --font-display. If a token isn't in your design system, fall back to a
+ * --radius-sm, --font-body, --font-display. (Spacing uses Tailwind's numeric
+ * scale — gap-4, py-24 — not a design token.) If a token isn't in your design
+ * system, fall back to a
  * sibling token; do NOT invent new ones.
  */
 
