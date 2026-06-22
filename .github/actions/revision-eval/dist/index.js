@@ -34124,15 +34124,15 @@ class EvalForgeClient {
     async listMcpVersions(mcpId, projectId) {
         return this.request(HttpMethod.Get, `/projects/${projectId}/capabilities/${mcpId}/versions`);
     }
-    async createMcpVersion(mcpId, projectId, commitHash, prNumber) {
+    async createMcpVersion(mcpId, projectId, versionLabel, skillsPr, prNumber) {
         return this.request(HttpMethod.Post, `/projects/${projectId}/capabilities/${mcpId}/versions`, {
-            version: commitHash,
+            version: versionLabel,
             origin: "pr",
             notes: `Auto-created for PR #${prNumber}`,
             content: {
                 config: {
                     [MCP_CONFIG_KEY]: {
-                        url: buildMcpOverrideUrl(commitHash),
+                        url: buildMcpOverrideUrl(skillsPr),
                         type: "http",
                         headers: {
                             Authorization: "{{wix-auth-token}}",
@@ -34419,22 +34419,22 @@ async function stageRevisionOrReport(octokit, pr, appId, appSecret, fixture, com
         return null;
     }
 }
-async function createMcpVersionOrReport(octokit, pr, evalforge, mcpId, projectId, commitHash, prNumber) {
+async function createMcpVersionOrReport(octokit, pr, evalforge, mcpId, projectId, versionLabel, skillsPr, prNumber) {
     try {
-        const mcpVersion = await evalforge.createMcpVersion(mcpId, projectId, commitHash, prNumber);
-        core.info(`Created MCP version ${commitHash} (${mcpVersion.id})`);
+        const mcpVersion = await evalforge.createMcpVersion(mcpId, projectId, versionLabel, skillsPr, prNumber);
+        core.info(`Created MCP version ${versionLabel} (${mcpVersion.id})`);
         return mcpVersion.id;
     }
     catch (e) {
         const status = (0, reporting_1.getErrorStatus)(e);
         if (status === 409) {
-            core.warning(`MCP version ${commitHash} already exists — looking up existing version`);
+            core.warning(`MCP version ${versionLabel} already exists — looking up existing version`);
             try {
                 const versions = await evalforge.listMcpVersions(mcpId, projectId);
-                const existing = versions.find((v) => v.version === commitHash);
+                const existing = versions.find((v) => v.version === versionLabel);
                 if (!existing)
-                    throw new Error(`Version ${commitHash} not found after 409`);
-                core.info(`Reusing existing MCP version ${commitHash} (${existing.id})`);
+                    throw new Error(`Version ${versionLabel} not found after 409`);
+                core.info(`Reusing existing MCP version ${versionLabel} (${existing.id})`);
                 return existing.id;
             }
             catch (lookupErr) {
@@ -34560,15 +34560,16 @@ async function runEval() {
     if (!fixture) {
         return;
     }
-    const commitHash = `pr-${prNumber}-${headSha.slice(0, 7)}`;
+    const skillsPr = headSha;
+    const versionLabel = `pr-${prNumber}-${headSha.slice(0, 7)}`;
     const draftTag = `draft:${owner}/${repo}#${prNumber}`;
-    core.info(`Eval tag: ${draftTag}\nFixture: ${fixture.path}\ncommitHash: ${commitHash}`);
-    const resourceId = await stageRevisionOrReport(octokit, pr, appId, appSecret, fixture, commitHash);
+    core.info(`Eval tag: ${draftTag}\nFixture: ${fixture.path}\nskillsPr: ${skillsPr}`);
+    const resourceId = await stageRevisionOrReport(octokit, pr, appId, appSecret, fixture, skillsPr);
     if (!resourceId) {
         return;
     }
     const evalforge = new clients_1.EvalForgeClient(evalforgeUrl, appId, appSecret);
-    const mcpVersionId = await createMcpVersionOrReport(octokit, pr, evalforge, mcpId, projectId, commitHash, prNumber);
+    const mcpVersionId = await createMcpVersionOrReport(octokit, pr, evalforge, mcpId, projectId, versionLabel, skillsPr, prNumber);
     if (!mcpVersionId) {
         return;
     }

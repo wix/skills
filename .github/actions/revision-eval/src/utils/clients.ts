@@ -115,20 +115,21 @@ export class EvalForgeClient {
   async createMcpVersion(
     mcpId: string,
     projectId: string,
-    commitHash: string,
+    versionLabel: string,
+    skillsPr: string,
     prNumber: number,
   ): Promise<CapabilityVersion> {
     return this.request<CapabilityVersion>(
       HttpMethod.Post,
       `/projects/${projectId}/capabilities/${mcpId}/versions`,
       {
-        version: commitHash,
+        version: versionLabel,
         origin: "pr",
         notes: `Auto-created for PR #${prNumber}`,
         content: {
           config: {
             [MCP_CONFIG_KEY]: {
-              url: buildMcpOverrideUrl(commitHash),
+              url: buildMcpOverrideUrl(skillsPr),
               type: "http",
               headers: {
                 Authorization: "{{wix-auth-token}}",

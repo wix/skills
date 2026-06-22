@@ -109,31 +109,33 @@ export async function createMcpVersionOrReport(
   evalforge: EvalForgeClient,
   mcpId: string,
   projectId: string,
-  commitHash: string,
+  versionLabel: string,
+  skillsPr: string,
   prNumber: number,
 ): Promise<string | null> {
   try {
     const mcpVersion = await evalforge.createMcpVersion(
       mcpId,
       projectId,
-      commitHash,
+      versionLabel,
+      skillsPr,
       prNumber,
     );
-    core.info(`Created MCP version ${commitHash} (${mcpVersion.id})`);
+    core.info(`Created MCP version ${versionLabel} (${mcpVersion.id})`);
     return mcpVersion.id;
   } catch (e) {
     const status = getErrorStatus(e);
     if (status === 409) {
       core.warning(
-        `MCP version ${commitHash} already exists — looking up existing version`,
+        `MCP version ${versionLabel} already exists — looking up existing version`,
       );
       try {
         const versions = await evalforge.listMcpVersions(mcpId, projectId);
-        const existing = versions.find((v) => v.version === commitHash);
+        const existing = versions.find((v) => v.version === versionLabel);
         if (!existing)
-          throw new Error(`Version ${commitHash} not found after 409`);
+          throw new Error(`Version ${versionLabel} not found after 409`);
         core.info(
-          `Reusing existing MCP version ${commitHash} (${existing.id})`,
+          `Reusing existing MCP version ${versionLabel} (${existing.id})`,
         );
         return existing.id;
       } catch (lookupErr) {
@@ -175,7 +177,9 @@ export async function reportEvalResult(
         core.info(
           `Eval result — ${m.failed} assertions failed, ${m.errors} errors, ${m.passed}/${m.totalAssertions} passed (pass rate: ${m.passRate}%, run ID: ${runId})`,
         );
-        fail(`${ErrorMessage.RevisionEvaluationFailed} (pass rate: ${m.passRate}%)`);
+        fail(
+          `${ErrorMessage.RevisionEvaluationFailed} (pass rate: ${m.passRate}%)`,
+        );
       }
       return;
     case EvalRunStatusStatus.Failed:
@@ -192,7 +196,9 @@ export async function reportEvalResult(
       await upsertComment(
         octokit,
         pr,
-        formatServiceError(`${ErrorMessage.EvalRunCancelled} (run ID: ${runId})`),
+        formatServiceError(
+          `${ErrorMessage.EvalRunCancelled} (run ID: ${runId})`,
+        ),
       );
       fail(`${ErrorMessage.EvalRunCancelled} (run ID: ${runId})`);
       return;
@@ -336,10 +342,11 @@ export async function runEval(): Promise<void> {
     return;
   }
 
-  const commitHash = `pr-${prNumber}-${headSha.slice(0, 7)}`;
+  const skillsPr = headSha;
+  const versionLabel = `pr-${prNumber}-${headSha.slice(0, 7)}`;
   const draftTag = `draft:${owner}/${repo}#${prNumber}`;
   core.info(
-    `Eval tag: ${draftTag}\nFixture: ${fixture.path}\ncommitHash: ${commitHash}`,
+    `Eval tag: ${draftTag}\nFixture: ${fixture.path}\nskillsPr: ${skillsPr}`,
   );
 
   const resourceId = await stageRevisionOrReport(
@@ -348,7 +355,7 @@ export async function runEval(): Promise<void> {
     appId,
     appSecret,
     fixture,
-    commitHash,
+    skillsPr,
   );
   if (!resourceId) {
     return;
@@ -362,7 +369,8 @@ export async function runEval(): Promise<void> {
     evalforge,
     mcpId,
     projectId,
-    commitHash,
+    versionLabel,
+    skillsPr,
     prNumber,
   );
   if (!mcpVersionId) {
