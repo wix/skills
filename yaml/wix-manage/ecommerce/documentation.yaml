@@ -117,3 +117,58 @@ apiDoc:
       title: "Recommend: eCommerce Strategy"
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
       tags: [ecommerce, ecommerce recommendations]
+    # Dispatcher category files (L2 routers)
+    - file: ../../../skills/wix-manage/references/ecommerce/ecom-load-context.md
+      title: "eCommerce: Load Context"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+    - file: ../../../skills/wix-manage/references/ecommerce/ecom-tax.md
+      title: "Tax"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+    - file: ../../../skills/wix-manage/references/ecommerce/ecom-pricing.md
+      title: "Pricing & Promotions"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+    - file: ../../../skills/wix-manage/references/ecommerce/ecom-checkout.md
+      title: "Checkout & Cart"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+    - file: ../../../skills/wix-manage/references/ecommerce/ecom-fulfillment.md
+      title: "Fulfillment"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+    - file: ../../../skills/wix-manage/references/ecommerce/ecom-orders.md
+      title: "Orders"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+    # Shipping dispatcher + sub-skills
+    - file: ../../../skills/wix-manage/references/ecommerce/ecom-shipping.md
+      title: "Shipping"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+    - file: ../../../skills/wix-manage/references/ecommerce/shipping/ecom-shipping-fix-coverage-gaps.md
+      title: "Shipping: Fix Coverage Gaps"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+    - file: ../../../skills/wix-manage/references/ecommerce/shipping/ecom-shipping-add-free-shipping.md
+      title: "Shipping: Add Free Shipping"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+    - file: ../../../skills/wix-manage/references/ecommerce/shipping/ecom-shipping-optimize-rates.md
+      title: "Shipping: Optimize Rates"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+    - file: ../../../skills/wix-manage/references/ecommerce/shipping/ecom-shipping-set-up-pickup-local-delivery.md
+      title: "Shipping: Set Up Pickup & Local Delivery"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+    # Abandoned Carts dispatcher + sub-skills
+    - file: ../../../skills/wix-manage/references/ecommerce/ecom-abandoned-carts.md
+      title: "Abandoned Carts"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+    - file: ../../../skills/wix-manage/references/ecommerce/abandoned-carts/ecom-abandoned-carts-recovery-health.md
+      title: "Abandoned Carts: Recovery Health"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]

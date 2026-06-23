@@ -120,69 +120,129 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 
 ## eCommerce
 
-**Routing — pick the right entry point:**
-- **Any sales/business improvement request** (boost sales, promotions, help my business, holiday deals, improve revenue, discounts, shipping, coupons, clearance) → use [Recommend: eCommerce Strategy](references/ecommerce/recommend-ecommerce-strategy.md). This is the **default entry point** — it analyzes ALL domains (discounts, shipping, future: gift cards, taxes) and generates cross-domain recommendations. Do NOT ask clarifying questions.
-- **Apply previously generated shipping recommendations** → use [Recipe: Apply Shipping Recommendations](references/ecommerce/recipe-apply-shipping-recommendations.md)
-- **Store pickup configuration** → use [Setup Store Pickup Location](references/ecommerce/setup-store-pickup-location.md)
-- **Discount not working at checkout** → use [Troubleshoot: Discount Not Applying](references/ecommerce/troubleshoot-discount-not-applying.md)
-- **Checkout delivery step drop-off** → use [Troubleshoot: Checkout Delivery Drop-off](references/ecommerce/troubleshoot-checkout-delivery-dropoff.md)
+**Routing structure** (rules + format in the `wix-skills-routing-expert` Claude Code skill — repo `ecom-ai-agents/.claude/skills/`): Each L2 category has a sibling `<category>.md` (README-surfaced description) + a `<category>/` folder with the dispatcher + promotion files. The migrated eCommerce L2 categories are **Tax**, **Pricing & promotions**, **Checkout & cart**, **Fulfillment**, **Orders**, **Shipping**, and **Abandoned Carts**.
 
-### [Recommend: eCommerce Strategy](references/ecommerce/recommend-ecommerce-strategy.md)
-**THE entry point for all eCommerce recommendation requests.** Unified skill that analyzes site data across ALL domains (discounts + shipping), generates up to 5 cross-domain recommendations, and persists them to the tracking database. Covers discount strategies (seasonal, upsell, stock mover, bundling) AND shipping optimization (coverage gaps, free shipping, rate strategy, carrier backup). Use this for ANY business improvement request.
+**L1 context loader (per L1 domain, sibling to category-docs):**
 
-### [Recipe: Apply Shipping Recommendations](references/ecommerce/recipe-apply-shipping-recommendations.md)
-**Technical:** Applies AI-generated shipping recommendations. Creates or updates shipping options based on recommendation data.
+### [eCommerce: Load Context](references/ecommerce/ecom-load-context.md)
+Per-L1 context loader for the eCommerce domain. Loads site profile (country, region, industry, currency, AOV, etc.) + eCommerce-specific runtime fields (tax `calculator`). Referenced from every eCommerce category's `default.md`. Skip if already loaded.
 
-### [Setup Store Pickup Location](references/ecommerce/setup-store-pickup-location.md)
-**Technical:** Configures in-store pickup at checkout using Delivery Profiles API.
+---
 
-### [Troubleshoot: Discount Not Applying](references/ecommerce/troubleshoot-discount-not-applying.md)
-**Technical:** Diagnostic tree for inactive discounts — checks active status, time window, scope targeting, revision mismatch, app installation.
+### Tax category
 
-### [Troubleshoot: Checkout Delivery Drop-off](references/ecommerce/troubleshoot-checkout-delivery-dropoff.md)
-**Technical:** Diagnostic tree for delivery step conversion below 65% benchmark.
+#### [Tax](references/ecommerce/ecom-tax.md)
+README-surfaced category-doc **and** dispatcher (merged — prototype). Disambiguates the category, then picks Avalara / EU-VAT / Wix-Manual / audit / troubleshoot / switch based on the merchant's request + MerchantContext. No separate `-default` hop.
+
+#### Tax promotions
+- [Configure Tax (Wix Manual)](references/ecommerce/tax/ecom-tax-configure.md) — baseline manual calculator setup
+- [Configure Tax (Avalara)](references/ecommerce/tax/ecom-tax-avalara.md) — context promotion `[calculator:AVALARA]`
+- [Configure Tax (EU VAT)](references/ecommerce/tax/ecom-tax-eu-vat.md) — context promotion `[region:EU]`
+- [Switch Tax Calculator](references/ecommerce/tax/ecom-tax-switch-calculator.md)
+- [Audit Tax Setup](references/ecommerce/tax/ecom-tax-audit.md) (read-only)
+- [Tax Calculation Wrong](references/ecommerce/tax/ecom-tax-troubleshoot-calc-wrong.md) (diagnostic)
+
+---
+
+### Pricing & Promotions category
+
+#### [Pricing & Promotions](references/ecommerce/ecom-pricing.md)
+README-surfaced category-doc **and** dispatcher (merged). Disambiguates the category, then picks the right Pricing promotion based on the merchant's intent + MerchantContext. No separate `-default` hop.
+
+#### Pricing promotions (direct merchant entry points)
+- [Create Discount Rule](references/ecommerce/pricing-promotions/ecom-pricing-create-discount-rule.md) — auto-apply discount rules
+- [Run a Sale (orchestrator)](references/ecommerce/pricing-promotions/ecom-pricing-run-a-sale.md) — the cross-domain strategy orchestrator (formerly `recommend-ecommerce-strategy`)
+- [Discount Not Applying](references/ecommerce/pricing-promotions/ecom-pricing-troubleshoot-not-applying.md) — diagnostic tree
 
 <details>
-<summary>Internal skills (loaded automatically by the entry points above — do NOT use directly)</summary>
+<summary>Pricing support files (goal-* / flow-* / tracking-api) — flat in pricing-promotions/, loaded by the orchestrator, NOT direct entry points</summary>
 
-#### Goals
-- [Goal: Increase AOV](references/ecommerce/goal-increase-aov.md) — UPSELL_BOOST
-- [Goal: Clear Inventory](references/ecommerce/goal-clear-inventory.md) — STOCK_MOVER
-- [Goal: Seasonal Revenue](references/ecommerce/goal-seasonal-revenue.md) — SEASONAL
-- [Goal: Drive Cross-Sells](references/ecommerce/goal-drive-cross-sells.md) — BUNDLE_AND_SAVE
-- [Goal: Reduce Cart Abandonment](references/ecommerce/goal-reduce-cart-abandonment.md) — Shipping
+- [Goal: Increase AOV](references/ecommerce/pricing-promotions/ecom-pricing-goal-increase-aov.md) — UPSELL_BOOST
+- [Goal: Clear Inventory](references/ecommerce/pricing-promotions/ecom-pricing-goal-clear-inventory.md) — STOCK_MOVER
+- [Goal: Seasonal Revenue](references/ecommerce/pricing-promotions/ecom-pricing-goal-seasonal-revenue.md) — SEASONAL
+- [Goal: Drive Cross-Sells](references/ecommerce/pricing-promotions/ecom-pricing-goal-drive-cross-sells.md) — BUNDLE_AND_SAVE
+- [Flow: Upsell Boost](references/ecommerce/pricing-promotions/ecom-pricing-flow-upsell-boost.md)
+- [Flow: Bundle and Save](references/ecommerce/pricing-promotions/ecom-pricing-flow-bundle-and-save.md)
+- [Flow: Stock Mover](references/ecommerce/pricing-promotions/ecom-pricing-flow-stock-mover.md)
+- [Flow: Seasonal Promotion](references/ecommerce/pricing-promotions/ecom-pricing-flow-seasonal-promotion.md)
+- [Pricing & Discount Health](references/ecommerce/pricing-promotions/ecom-pricing-health.md) — periodic conflict/stale-sale/margin sweep
+- [API: Recommendation Tracking](references/ecommerce/api-recommendation-tracking.md) — cross-domain support
 
-#### Flows
-- [Flow: Upsell Boost](references/ecommerce/flow-upsell-boost.md)
-- [Flow: Bundle and Save](references/ecommerce/flow-bundle-and-save.md)
-- [Flow: Stock Mover](references/ecommerce/flow-stock-mover.md)
-- [Flow: Seasonal Promotion](references/ecommerce/flow-seasonal-promotion.md)
-- [Flow: Fix Coverage Gaps](references/ecommerce/flow-fix-coverage-gaps.md)
-- [Flow: Add Free Shipping](references/ecommerce/flow-add-free-shipping.md)
-- [Flow: Optimize Shipping Rates](references/ecommerce/flow-optimize-shipping-rates.md)
+</details>
 
-#### Guardrails
-- [Guardrail: Discount Conflicts](references/ecommerce/guardrail-discount-conflicts.md)
-- [Guardrail: Margin Protection](references/ecommerce/guardrail-margin-protection.md)
+---
+
+### Checkout & Cart category
+
+#### [Checkout & Cart](references/ecommerce/ecom-checkout.md)
+README-surfaced category-doc **and** dispatcher (merged). Covers live checkout abandonment reduction, checkout troubleshooting, agentic readiness, and store-health. Most checkout *config* (guest checkout, minimum order, custom fields) is **Dashboard-only**.
+
+#### Checkout promotions
+- [Reduce Abandonment](references/ecommerce/checkout/ecom-checkout-reduce-abandonment.md) — delivery-step friction angle
+- [Troubleshoot Delivery Drop-off](references/ecommerce/checkout/ecom-checkout-troubleshoot-dropoff.md)
+- [Agentic Readiness](references/ecommerce/checkout/ecom-checkout-agentic-readiness.md) — catalog data-quality audit + programmatic test-checkout
+- [Store Health Monitor](references/ecommerce/checkout/ecom-checkout-store-health.md) — periodic checkout/config-drift/anomaly checks
+
+---
+
+### Fulfillment category
+
+#### [Fulfillment](references/ecommerce/ecom-fulfillment.md)
+README-surfaced category-doc **and** dispatcher (merged). Covers post-purchase fulfillment operations: marking orders fulfilled, updating tracking, partial fulfillment, and bulk fulfillment.
+
+#### Fulfillment promotions
+- [Fulfill Orders & Tracking](references/ecommerce/fulfillment/ecom-fulfillment-fulfill-orders.md) — mark fulfilled, tracking, partial fulfillment
+- [Bulk Fulfill Orders](references/ecommerce/fulfillment/ecom-fulfillment-bulk-fulfill-orders.md) — batch fulfillment with partial-failure handling
+
+---
+
+### Orders category
+
+#### [Orders](references/ecommerce/ecom-orders.md)
+README-surfaced category-doc **and** dispatcher (merged). Covers eCommerce order lookup, order details/counts, order search, pending/stuck-order diagnosis, cancel-order routing, and explicit handoffs to Fulfillment.
+
+#### Orders promotions
+- [Cancel Order](references/ecommerce/orders/ecom-orders-cancel-order.md) — cancel order with restock/email/refund guardrails
+
+---
+
+### Shipping category
+
+#### [Shipping](references/ecommerce/ecom-shipping.md)
+README-surfaced category-doc **and** dispatcher (merged). Covers delivery profiles, shipping options, rates, regions, free shipping, pickup/local-delivery setup. Boundary: shipping-SETUP only — post-purchase fulfillment (mark shipped, tracking) belongs to **Fulfillment**.
+
+#### Shipping promotions
+- [Fix Coverage Gaps](references/ecommerce/shipping/ecom-shipping-fix-coverage-gaps.md) — detect regions with zero shipping options and create standard shipping
+- [Add Free Shipping](references/ecommerce/shipping/ecom-shipping-add-free-shipping.md) — AOV-calibrated free shipping threshold
+- [Optimize Rates](references/ecommerce/shipping/ecom-shipping-optimize-rates.md) — flat-to-tiered conversion, tier gap detection, per-item penalty removal
+- [Set Up Pickup & Local Delivery](references/ecommerce/shipping/ecom-shipping-set-up-pickup-local-delivery.md) — Delivery Profiles API: discover Pickup carrier, add region, attach carrier
+
+<details>
+<summary>Shipping legacy support files (loaded by sub-skills — do NOT use directly as entry points)</summary>
+
+- [API: Shipping Delivery](references/ecommerce/api-shipping.md)
+- [Recipe: Apply Shipping Recommendations](references/ecommerce/recipe-apply-shipping-recommendations.md)
+- [Setup: Shipping Regions](references/ecommerce/setup-shipping-regions.md)
+- [Setup: Shipping Rates](references/ecommerce/setup-shipping-rates.md)
 - [Guardrail: Shipping Health](references/ecommerce/guardrail-shipping-health.md)
 - [Guardrail: Rate Pricing Sanity](references/ecommerce/guardrail-rate-pricing-sanity.md)
 
-#### Config & API References
-- [API: Recommendation Tracking](references/ecommerce/api-recommendation-tracking.md)
-- [API: Shipping Delivery](references/ecommerce/api-shipping.md)
-- [Setup: Discount Rules](references/ecommerce/setup-discount-rules.md)
-- [Setup: Coupons](references/ecommerce/setup-coupons.md)
-- [Setup: Shipping Regions](references/ecommerce/setup-shipping-regions.md)
-- [Setup: Shipping Rates](references/ecommerce/setup-shipping-rates.md)
+</details>
 
-#### Tracking
-- Tracking is built into [Recommend: eCommerce Strategy](references/ecommerce/recommend-ecommerce-strategy.md) (Steps 2 + 8) — no separate skill needed
-- [API: Recommendation Tracking](references/ecommerce/api-recommendation-tracking.md) — CRUD API reference for the tracking service
+---
+
+### Abandoned Carts category
+
+#### [Abandoned Carts](references/ecommerce/ecom-abandoned-carts.md)
+README-surfaced category-doc **and** dispatcher (merged). Covers post-abandonment recovery: abandoned cart email automation, recovery links, and recovery rate monitoring. Boundary: AFTER the shopper left — live drop-off while still on site belongs to **Checkout & Cart**.
+
+#### Abandoned Carts promotions
+- [Recovery Health](references/ecommerce/abandoned-carts/ecom-abandoned-carts-recovery-health.md) — check automation status, recovery rate KPIs, missing sales estimate
+
+---
 
 #### Reference
 - [Skill Graph](references/ecommerce/skill-graph.md)
-
-</details>
 
 ---
 

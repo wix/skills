@@ -1,0 +1,14 @@
+name: ecommerce/checkout/agentic-readiness
+description: Is my store ready for AI agents to discover products and check out programmatically? Audit my catalog and test the checkout end-to-end.
+triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) Is my store ready for AI agents to discover products and check out programmatically? Audit my catalog and test the checkout end-to-end.
+tags: [ecommerce]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/checkout-agentic-readiness
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Pass if the response loads the agentic-readiness recipe and (a) audits AI-discovery data quality on Products (descriptions, attributes, images, structured fields), (b) runs a programmatic test-checkout via the PUBLIC Cart/Checkout APIs, and (c) notes that UCP enablement is a Dashboard action (no public API).
+      Fail if it claims UCP can be turned on via API, skips the data-quality audit, or runs only theoretical checks without a test-checkout.
