@@ -1,0 +1,14 @@
+name: ecommerce/tax/audit-setup
+description: Audit my tax setup end-to-end and tell me if anything is broken or inconsistent.
+triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) Audit my tax setup end-to-end and tell me if anything is broken or inconsistent.
+tags: [ecommerce]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/tax-audit-setup
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Pass if the response loads the tax audit recipe and runs the 5 parallel `billing/v1` reads (calculators, tax-regions, tax-groups, default-groups, manual-tax-mappings), then cross-correlates them to surface issues — e.g. regions with no mappings, default tax groups missing, calculator mismatch — before recommending fixes.
+      Fail if it skips the parallel-read step, treats the audit as a single endpoint call, or jumps to "fix" advice without surfacing detected issues first.

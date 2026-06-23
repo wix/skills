@@ -1,0 +1,15 @@
+name: ecommerce/abandoned-carts/recovery-health
+description: Monitor abandoned-checkout recovery health and alert me when recovery performance drops.
+triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) Monitor abandoned checkout recovery health and tell me if recovery performance dropped.
+tags: [ecommerce]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/abandoned-carts-recovery-health
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Pass if the response covers (a) abandoned-checkout volume, (b) recovery rate with a baseline/benchmark comparison, and (c) automation/link health (status, recent activity, or eligibility check).
+      Fail if it only runs a generic checkout health check without abandoned-cart recovery metrics, omits baseline comparison entirely, or routes the question to Checkout & Cart instead of Abandoned Carts.
+      A "routed next action" suggestion is a nice-to-have but NOT required to pass. The Abandoned Checkout query endpoint is an acceptable source for these metrics — do not penalize the agent for using it.

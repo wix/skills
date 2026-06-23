@@ -1,0 +1,14 @@
+name: ecommerce/checkout/troubleshoot-dropoff
+description: My checkout drop-off rate jumped last week — diagnose what's happening and tell me how much revenue I'm losing per day.
+triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) My checkout drop-off rate jumped last week. Diagnose what's happening and tell me how much revenue I'm losing per day.
+tags: [ecommerce]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/checkout-troubleshoot-delivery-drop-off
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Pass if the response loads the troubleshoot-dropoff recipe, pulls `delivery_step_cvr` (or equivalent step-CVR) site metrics over time to detect the regression, isolates a likely cause (region/rate/shipping-option change), and presents a concrete revenue-impact estimate (drops × AOV × days).
+      Fail if it jumps to "reduce abandonment" recommendations without diagnosing, treats the issue as Abandoned Carts recovery, or omits the revenue-impact math.

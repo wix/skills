@@ -1,0 +1,15 @@
+name: ecommerce/fulfillment
+description: Find unshipped orders, update tracking, and tell me where shipping labels are handled.
+triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) Find unshipped orders, update tracking, and tell me where shipping labels are handled.
+tags: [ecommerce]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/fulfillment
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Pass if the response treats post-purchase order execution (find unshipped, mark fulfilled, update tracking) as belonging to Fulfillment and identifies shipping-label export as Dashboard-only, with no claim that shipping rates / regions / free-shipping setup belong to Fulfillment.
+      Fail if it routes fulfillment operations back to shipping-setup, or claims Fulfillment handles rate or region configuration, or merges the two categories into one skill.
+      Topic-completeness beyond the three asks (unshipped lookup, tracking, label location) is NOT required to pass — judge the boundary, not the breadth.

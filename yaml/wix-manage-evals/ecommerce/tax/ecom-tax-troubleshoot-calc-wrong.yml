@@ -1,0 +1,14 @@
+name: ecommerce/tax/troubleshoot-calc-wrong
+description: A customer in Texas just paid $0 tax on a $200 order, but I expect ~8.25%. What went wrong?
+triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) A customer in Texas just paid $0 tax on a $200 order, but I expect ~8.25%. What went wrong?
+tags: [ecommerce]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/tax-calculation-wrong
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Pass if the response loads the tax troubleshoot recipe and walks the 3-branch diagnostic: (1) reproduce via `billing/v1/calculate-tax` with the same cart/shipping address, (2) query `billing/v1/tax-regions` for Texas coverage, (3) query `billing/v1/manual-tax-mappings` to confirm a Texas rate is mapped to the relevant group. It should NOT guess a fix before running the diagnostic.
+      Fail if it skips `calculate-tax` reproduction, recommends recreating the tax setup before diagnosis, or routes the issue to Checkout/Pricing.

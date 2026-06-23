@@ -2,118 +2,289 @@ apiDoc:
   title: Wix eCommerce Management Recipes
 
   docs:
-    - file: ../../../skills/wix-manage/references/ecommerce/recipe-apply-shipping-recommendations.md
-      title: "Recipe: Apply Shipping Recommendations"
+
+    # ============================================================
+    # L1 context loader (sibling to category-docs, not in a subfolder)
+    # Each L1 domain owns its own loader — see ecom-load-context.md "Pattern for future L1 loaders".
+    # ============================================================
+
+    - file: ../../../skills/wix-manage/references/ecommerce/ecom-load-context.md
+      title: "eCommerce: Load Context"
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
       tags: [ecommerce]
-    - file: ../../../skills/wix-manage/references/ecommerce/setup-store-pickup-location.md
-      title: Setup Store Pickup Location
-      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
-      tags: [ecommerce, stores]
-    - file: ../../../skills/wix-manage/references/ecommerce/guardrail-discount-conflicts.md
-      title: "Guardrail: Discount Conflicts"
-      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
-      tags: [ecommerce]
-    - file: ../../../skills/wix-manage/references/ecommerce/setup-discount-rules.md
-      title: "Setup: Discount Rules"
-      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
-      tags: [ecommerce]
-    # Config & API References
-    - file: ../../../skills/wix-manage/references/ecommerce/api-shipping.md
-      title: "API: Shipping Delivery"
-      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
-      tags: [ecommerce, ecommerce recommendations]
-    - file: ../../../skills/wix-manage/references/ecommerce/setup-coupons.md
-      title: "Setup: Coupons"
-      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/coupons
-      tags: [ecommerce]
-    - file: ../../../skills/wix-manage/references/ecommerce/setup-shipping-regions.md
-      title: "Setup: Shipping Regions"
-      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
-      tags: [ecommerce]
-    - file: ../../../skills/wix-manage/references/ecommerce/setup-shipping-rates.md
-      title: "Setup: Shipping Rates"
-      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
-      tags: [ecommerce]
-    # Flows — Discount
-    - file: ../../../skills/wix-manage/references/ecommerce/flow-upsell-boost.md
-      title: "Flow: Upsell Boost"
-      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
-      tags: [ecommerce, ecommerce recommendations]
-    - file: ../../../skills/wix-manage/references/ecommerce/flow-bundle-and-save.md
-      title: "Flow: Bundle and Save"
-      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
-      tags: [ecommerce, ecommerce recommendations]
-    - file: ../../../skills/wix-manage/references/ecommerce/flow-stock-mover.md
-      title: "Flow: Stock Mover"
-      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
-      tags: [ecommerce, ecommerce recommendations]
-    - file: ../../../skills/wix-manage/references/ecommerce/flow-seasonal-promotion.md
-      title: "Flow: Seasonal Promotion"
-      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
-      tags: [ecommerce, ecommerce recommendations]
-    # Flows — Shipping
-    - file: ../../../skills/wix-manage/references/ecommerce/flow-fix-coverage-gaps.md
-      title: "Flow: Fix Coverage Gaps"
-      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
-      tags: [ecommerce, ecommerce recommendations]
-    - file: ../../../skills/wix-manage/references/ecommerce/flow-add-free-shipping.md
-      title: "Flow: Add Free Shipping"
-      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
-      tags: [ecommerce, ecommerce recommendations]
-    - file: ../../../skills/wix-manage/references/ecommerce/flow-optimize-shipping-rates.md
-      title: "Flow: Optimize Shipping Rates"
-      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
-      tags: [ecommerce, ecommerce recommendations]
-    # Guardrails & Troubleshooting
-    - file: ../../../skills/wix-manage/references/ecommerce/guardrail-margin-protection.md
-      title: "Guardrail: Margin Protection"
-      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
-      tags: [ecommerce]
-    - file: ../../../skills/wix-manage/references/ecommerce/troubleshoot-discount-not-applying.md
-      title: "Troubleshoot: Discount Not Applying"
-      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
-      tags: [ecommerce]
-    - file: ../../../skills/wix-manage/references/ecommerce/guardrail-shipping-health.md
-      title: "Guardrail: Shipping Health"
-      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
-      tags: [ecommerce]
-    - file: ../../../skills/wix-manage/references/ecommerce/guardrail-rate-pricing-sanity.md
-      title: "Guardrail: Rate Pricing Sanity"
-      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
-      tags: [ecommerce]
-    - file: ../../../skills/wix-manage/references/ecommerce/troubleshoot-checkout-delivery-dropoff.md
-      title: "Troubleshoot: Checkout Delivery Drop-off"
-      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
-      tags: [ecommerce]
-    # Goals
-    - file: ../../../skills/wix-manage/references/ecommerce/goal-increase-aov.md
-      title: "Goal: Increase AOV"
-      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
-      tags: [ecommerce, ecommerce recommendations]
-    - file: ../../../skills/wix-manage/references/ecommerce/goal-clear-inventory.md
-      title: "Goal: Clear Inventory"
-      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
-      tags: [ecommerce, ecommerce recommendations]
-    - file: ../../../skills/wix-manage/references/ecommerce/goal-seasonal-revenue.md
-      title: "Goal: Seasonal Revenue"
-      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
-      tags: [ecommerce, ecommerce recommendations]
-    - file: ../../../skills/wix-manage/references/ecommerce/goal-drive-cross-sells.md
-      title: "Goal: Drive Cross-Sells"
-      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
-      tags: [ecommerce, ecommerce recommendations]
-    - file: ../../../skills/wix-manage/references/ecommerce/goal-reduce-cart-abandonment.md
-      title: "Goal: Reduce Cart Abandonment"
-      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
-      tags: [ecommerce, ecommerce recommendations]
-    # Tracking API
+
+    # ============================================================
+    # Cross-domain tracking — sibling to the L1 loader.
+    # Used by any recipe (in any category) that generates recommendations.
+    # MUST stay at the ecommerce root; placing it under a category subfolder
+    # scopes tracking to that category and breaks cross-domain coverage.
+    # ============================================================
+
     - file: ../../../skills/wix-manage/references/ecommerce/api-recommendation-tracking.md
       title: "API: Recommendation Tracking"
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
-      tags: [ecommerce, ecommerce recommendations]
-    # R — Recommendation Orchestration
-    - file: ../../../skills/wix-manage/references/ecommerce/recommend-ecommerce-strategy.md
-      title: "Recommend: eCommerce Strategy"
+      tags: [ecommerce]
+
+    # ============================================================
+    # Tax category
+    # ============================================================
+    # Verified TPA-public via dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/tax/.
+    # Earlier "INTERNAL exposure" interpretation was wrong — that's a docs-platform marker, not a TPA-runtime
+    # marker. The operational rule is simpler: if the docs page exists under dev.wix.com/.../business-solutions/,
+    # the MCP can call it. URL paths corrected to /billing/v1/<kebab-case>.
+
+    - file: ../../../skills/wix-manage/references/ecommerce/ecom-tax.md
+      title: "Tax"
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
-      tags: [ecommerce, ecommerce recommendations]
+      tags: [ecommerce]
+
+    - file: ../../../skills/wix-manage/references/ecommerce/tax/ecom-tax-configure.md
+      title: "Tax: Configure (Wix Manual)"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    - file: ../../../skills/wix-manage/references/ecommerce/tax/ecom-tax-avalara.md
+      title: "Tax: Configure (Avalara)"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    - file: ../../../skills/wix-manage/references/ecommerce/tax/ecom-tax-eu-vat.md
+      title: "Tax: Configure (EU VAT)"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    - file: ../../../skills/wix-manage/references/ecommerce/tax/ecom-tax-switch-calculator.md
+      title: "Tax: Switch Calculator"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    - file: ../../../skills/wix-manage/references/ecommerce/tax/ecom-tax-audit.md
+      title: "Tax: Audit Setup"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    - file: ../../../skills/wix-manage/references/ecommerce/tax/ecom-tax-troubleshoot-calc-wrong.md
+      title: "Tax: Calculation Wrong"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    # ============================================================
+    # Pricing & promotions category
+    # ============================================================
+
+    # Category-doc + dispatcher merged into one README-surfaced file (no -default hop)
+    - file: ../../../skills/wix-manage/references/ecommerce/ecom-pricing.md
+      title: "Pricing & Promotions"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    # Promotions (actions + the orchestrator + troubleshoot)
+    - file: ../../../skills/wix-manage/references/ecommerce/pricing-promotions/ecom-pricing-create-coupon.md
+      title: "Pricing: Create Coupon"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    - file: ../../../skills/wix-manage/references/ecommerce/pricing-promotions/ecom-pricing-create-discount-rule.md
+      title: "Pricing: Create Discount Rule"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    - file: ../../../skills/wix-manage/references/ecommerce/pricing-promotions/ecom-pricing-run-a-sale.md
+      title: "Pricing: Run a Sale (Recommend eCommerce Strategy)"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    - file: ../../../skills/wix-manage/references/ecommerce/pricing-promotions/ecom-pricing-troubleshoot-not-applying.md
+      title: "Pricing: Discount Not Applying"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    - file: ../../../skills/wix-manage/references/ecommerce/pricing-promotions/ecom-pricing-health.md
+      title: "Pricing & Discount Health"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    # Support files (loaded only via embedded body links from the orchestrator)
+    - file: ../../../skills/wix-manage/references/ecommerce/pricing-promotions/ecom-pricing-goal-increase-aov.md
+      title: "Goal: Increase AOV"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    - file: ../../../skills/wix-manage/references/ecommerce/pricing-promotions/ecom-pricing-goal-clear-inventory.md
+      title: "Goal: Clear Inventory"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    - file: ../../../skills/wix-manage/references/ecommerce/pricing-promotions/ecom-pricing-goal-seasonal-revenue.md
+      title: "Goal: Seasonal Revenue"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    - file: ../../../skills/wix-manage/references/ecommerce/pricing-promotions/ecom-pricing-goal-drive-cross-sells.md
+      title: "Goal: Drive Cross-Sells"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    - file: ../../../skills/wix-manage/references/ecommerce/pricing-promotions/ecom-pricing-flow-upsell-boost.md
+      title: "Flow: Upsell Boost"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    - file: ../../../skills/wix-manage/references/ecommerce/pricing-promotions/ecom-pricing-flow-bundle-and-save.md
+      title: "Flow: Bundle and Save"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    - file: ../../../skills/wix-manage/references/ecommerce/pricing-promotions/ecom-pricing-flow-stock-mover.md
+      title: "Flow: Stock Mover"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    - file: ../../../skills/wix-manage/references/ecommerce/pricing-promotions/ecom-pricing-flow-seasonal-promotion.md
+      title: "Flow: Seasonal Promotion"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    # ============================================================
+    # Shipping category (migrated)
+    # NOTE: the Shipping Options + Delivery Profiles APIs have NO public
+    # dev.wix.com docs page — ecom-shipping-api.md is the inline reference.
+    # ============================================================
+
+    - file: ../../../skills/wix-manage/references/ecommerce/ecom-shipping.md
+      title: "Shipping"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    - file: ../../../skills/wix-manage/references/ecommerce/shipping/ecom-shipping-setup-rates.md
+      title: "Shipping: Set Up Rates"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    - file: ../../../skills/wix-manage/references/ecommerce/shipping/ecom-shipping-setup-regions.md
+      title: "Shipping: Set Up Regions"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    - file: ../../../skills/wix-manage/references/ecommerce/shipping/ecom-shipping-setup-pickup.md
+      title: "Shipping: Set Up Pickup / Local Delivery"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    - file: ../../../skills/wix-manage/references/ecommerce/shipping/ecom-shipping-free-shipping.md
+      title: "Shipping: Add Free Shipping"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    - file: ../../../skills/wix-manage/references/ecommerce/shipping/ecom-shipping-optimize-rates.md
+      title: "Shipping: Optimize Rates"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    - file: ../../../skills/wix-manage/references/ecommerce/shipping/ecom-shipping-fix-coverage.md
+      title: "Shipping: Fix Coverage Gaps"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    - file: ../../../skills/wix-manage/references/ecommerce/shipping/ecom-shipping-api.md
+      title: "Shipping: API Reference"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    # ============================================================
+    # Checkout & cart category (migrated)
+    # Most checkout settings (guest checkout, min order, custom fields) are
+    # Dashboard-only — see ecom-checkout.md.
+    # ============================================================
+
+    - file: ../../../skills/wix-manage/references/ecommerce/ecom-checkout.md
+      title: "Checkout & Cart"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    - file: ../../../skills/wix-manage/references/ecommerce/checkout/ecom-checkout-reduce-abandonment.md
+      title: "Checkout: Reduce Abandonment"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    - file: ../../../skills/wix-manage/references/ecommerce/checkout/ecom-checkout-troubleshoot-dropoff.md
+      title: "Checkout: Troubleshoot Delivery Drop-off"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    - file: ../../../skills/wix-manage/references/ecommerce/checkout/ecom-checkout-agentic-readiness.md
+      title: "Checkout: Agentic Readiness"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    - file: ../../../skills/wix-manage/references/ecommerce/checkout/ecom-checkout-store-health.md
+      title: "Checkout: Store Health Monitor"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    # ============================================================
+    # Abandoned carts category
+    # ============================================================
+
+    - file: ../../../skills/wix-manage/references/ecommerce/ecom-abandoned-carts.md
+      title: "Abandoned Carts"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    - file: ../../../skills/wix-manage/references/ecommerce/abandoned-carts/ecom-abandoned-carts-recover-email.md
+      title: "Abandoned Carts: Recover via Email"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    - file: ../../../skills/wix-manage/references/ecommerce/abandoned-carts/ecom-abandoned-carts-recovery-link.md
+      title: "Abandoned Carts: Recovery Link"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    - file: ../../../skills/wix-manage/references/ecommerce/abandoned-carts/ecom-abandoned-carts-troubleshoot-recovery.md
+      title: "Abandoned Carts: Troubleshoot Recovery"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    - file: ../../../skills/wix-manage/references/ecommerce/abandoned-carts/ecom-abandoned-carts-recovery-health.md
+      title: "Abandoned Carts: Recovery Health"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    # ============================================================
+    # Fulfillment category
+    # ============================================================
+
+    - file: ../../../skills/wix-manage/references/ecommerce/ecom-fulfillment.md
+      title: "Fulfillment"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    - file: ../../../skills/wix-manage/references/ecommerce/fulfillment/ecom-fulfillment-fulfill-orders.md
+      title: "Fulfillment: Fulfill Orders & Tracking"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    - file: ../../../skills/wix-manage/references/ecommerce/fulfillment/ecom-fulfillment-bulk-fulfill-orders.md
+      title: "Fulfillment: Bulk Fulfill Orders"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    # ============================================================
+    # Orders category
+    # ============================================================
+
+    - file: ../../../skills/wix-manage/references/ecommerce/ecom-orders.md
+      title: "Orders"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    - file: ../../../skills/wix-manage/references/ecommerce/orders/ecom-orders-cancel-order.md
+      title: "Orders: Cancel Order"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    - file: ../../../skills/wix-manage/references/ecommerce/skill-graph.md
+      title: "Skill Graph"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
