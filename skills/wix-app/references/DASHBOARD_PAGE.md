@@ -51,10 +51,10 @@ See [Dashboard API Reference](dashboard-page/DASHBOARD_API.md) for complete docu
 
 **CRITICAL: Using Modals in Dashboard Pages**
 
-When you need to display popup forms, confirmations, detail views, or any dialog overlays from a dashboard page, you **MUST** use dashboard modals, not regular React modals or WDS Modal components.
+When you need to display popup forms, confirmations, detail views, or any dialog overlays from a dashboard page, you **MUST** use dashboard modals — not hand-rolled overlay `<div>`s or fixed-position React modals.
 
 - **Use dashboard modals** for: edit forms, delete confirmations, detail views, settings dialogs, any popup content
-- **Do NOT use** WDS `Modal` component or custom React modal implementations
+- **Do NOT** hand-roll your own overlay/backdrop with absolute/fixed-positioned Tailwind divs — use a Dashboard Modal extension via `dashboard.openModal()`
 - **See [Dashboard Modal reference](DASHBOARD_MODAL.md)** for complete implementation guide
 
 Dashboard modals are opened using `dashboard.openModal()` and provide proper integration with the dashboard lifecycle, state management, and navigation.
@@ -70,7 +70,7 @@ When building a dashboard page to configure an embedded script, see [Dynamic Par
 - Use `embeddedScripts` from `@wix/app-management`
 - Parameters are returned as strings - handle type conversions when loading
 - All parameters must be saved as strings (convert booleans/numbers to strings)
-- Use `withProviders` wrapper when dynamic parameters are present
+- Import `styles/tailwind.css` once in the page entry file (no provider wrapper needed)
 
 ## Optional builder fields
 
@@ -316,9 +316,38 @@ Wizard pages guide users through setting up a product or feature. They split com
 > **Note:** Wizards must have a final destination. After completing all steps, users should end up on a relevant page: a dashboard, a details page, or any other relevant location.
 
 
-### Related WDS Components
+### Building the layout with Tailwind
 
-- `<Page />` - Main page wrapper
-- `<Layout />` - Grid layout container
-- `<MarketingPageLayout />` - Marketing page wrapper
-- `<Card />` - Content container with 24px gaps between cards
+Build dashboard pages with **plain React elements + Tailwind utilities** — do NOT import `@wix/design-system`. The 6px base unit and 1248px max content width above still apply; express them with Tailwind spacing (`p-6`=24px, `gap-6`=24px, etc.) and `max-w-[1248px]`.
+
+| Layout role | Plain React + Tailwind |
+| --- | --- |
+| Page wrapper (was `<Page />`) | `<div className="p-6 max-w-[1248px] mx-auto">` |
+| Page header (was `<Page.Header />`) | `<div className="mb-6 flex items-center justify-between"><h1 className="text-2xl font-semibold">Title</h1><div className="flex gap-2">{actions}</div></div>` |
+| Grid layout (was `<Layout />`) | `<div className="grid grid-cols-12 gap-6">` with `col-span-*` children |
+| Content container (was `<Card />`) | `<div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">` — keep 24px (`gap-6`) gaps between cards |
+| Data table (was `<Table />`) | `<table className="w-full border-collapse">` with `<th className="text-left p-2 border-b">` / `<td className="p-2 border-b">` |
+| Empty state (was `<EmptyState />`) | `<div className="flex flex-col items-center justify-center gap-2 py-16 text-center text-gray-500">` with a CTA `<button>` |
+
+Use 24px (`gap-6`) between cards both vertically and horizontally. Keep primary content near the top (top 600px is visible to most users).
+
+### Admin-only access
+
+To restrict a dashboard page to site admins, gate rendering on the current member's roles using `@wix/site-members`:
+
+```typescript
+import { currentMember } from '@wix/site-members';
+import { useEffect, useState } from 'react';
+
+// inside the component
+const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+
+useEffect(() => {
+  currentMember
+    .getRoles()
+    .then((roles) => setIsAdmin(roles.some((r) => r.title === 'Admin')))
+    .catch(() => setIsAdmin(false));
+}, []);
+```
+
+While `isAdmin === null` render the spinner (loading); when `false` render an access-denied message and do not render the management UI. Add `@wix/site-members` to the app's dependencies (`npm i @wix/site-members`).

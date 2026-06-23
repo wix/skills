@@ -27,15 +27,16 @@ For the complete list of available slot IDs, see [Slots Reference](dashboard-plu
 - **React** — Component logic and state management
 - **Wix SDK** — Access Wix business solutions and site data
 - **Wix Dashboard SDK** (`@wix/dashboard`) — Interact with the dashboard page's data passed to the slot
-- **Wix Design System** (`@wix/design-system`) — Native-looking React components matching Wix's own dashboard UI
+- **Tailwind utility classes** — Style plain React elements directly. Do NOT import `@wix/design-system`; import the app's `styles/tailwind.css` once in the plugin entry file.
 
 ## Interacting with Dashboard Data
 
 Use `observeState()` from the Dashboard SDK to receive data from the host dashboard page:
 
-```typescript
+```tsx
 import { dashboard } from "@wix/dashboard";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FC } from "react";
+import "../../styles/tailwind.css"; // adjust relative depth to reach src/styles/tailwind.css
 
 const Plugin: FC = () => {
   const [params, setParams] = useState<Record<string, unknown>>({});
@@ -47,16 +48,14 @@ const Plugin: FC = () => {
   }, []);
 
   return (
-    <WixDesignSystemProvider features={{ newColorsBranding: true }}>
-      <Card>
-        <Card.Content size="medium">
-          <Text>Received data: {JSON.stringify(params)}</Text>
-        </Card.Content>
-      </Card>
-    </WixDesignSystemProvider>
+    <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+      <p className="text-sm text-gray-700">Received data: {JSON.stringify(params)}</p>
+    </div>
   );
 };
 ```
+
+Build the plugin UI with Tailwind utilities on plain React elements (a `Card` becomes a bordered `<div>`). Do NOT import `@wix/design-system` and do NOT wrap in `<WixDesignSystemProvider>`.
 
 ### Typed Props from Host Apps
 
@@ -87,7 +86,7 @@ const Plugin: FC<Props> = (props) => {
 
 **Request:** "Create a plugin for the Wix Blog posts page that shows a promotional banner"
 
-**Output:** Plugin targeting slot `46035d51-2ea9-4128-a216-1dba68664ffe` (Blog Posts page) with a Card component displaying promotional content, using `observeState()` to access blog post data.
+**Output:** Plugin targeting slot `46035d51-2ea9-4128-a216-1dba68664ffe` (Blog Posts page) with a bordered card `<div>` (Tailwind) displaying promotional content, using `observeState()` to access blog post data.
 
 ### Bookings Staff Calendar Widget
 
