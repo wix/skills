@@ -2,7 +2,7 @@
 name: "Bulk Delete Contacts"
 description: Deletes multiple contacts using filter-based bulk delete. Covers safe deletion patterns, GDPR compliance, soft delete alternatives, and batch processing strategies.
 ---
-# Bulk Delete Contacts
+# Bulk Delete Contacts 
 
 ## Description
 Deletes multiple contacts using the Wix Contacts REST API.
