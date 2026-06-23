@@ -189,9 +189,9 @@ describe('toEvalForgeBody', () => {
     expect(toEvalForgeBody(scenario)).not.toHaveProperty('siteSetup');
   });
 
-  it('maps a template siteSetup (mode + templateId, no bootstrap)', () => {
+  it('maps a template siteSetup to the V1 oneof shape (mode + templateOptions, no bootstrap)', () => {
     const s: Scenario = { ...scenario, siteSetup: { mode: 'template', templateId: 'ecommerce' } };
-    expect(toEvalForgeBody(s).siteSetup).toEqual({ mode: 'template', templateId: 'ecommerce' });
+    expect(toEvalForgeBody(s).siteSetup).toEqual({ mode: 'TEMPLATE', templateOptions: { templateId: 'ecommerce' } });
   });
 
   it('omits bootstrap when steps is empty (matches EvalForge normalization)', () => {
@@ -199,10 +199,10 @@ describe('toEvalForgeBody', () => {
       ...scenario,
       siteSetup: { mode: 'template', templateId: 'ecommerce', bootstrap: { steps: [] } },
     };
-    expect(toEvalForgeBody(s).siteSetup).toEqual({ mode: 'template', templateId: 'ecommerce' });
+    expect(toEvalForgeBody(s).siteSetup).toEqual({ mode: 'TEMPLATE', templateOptions: { templateId: 'ecommerce' } });
   });
 
-  it('maps bootstrap steps through, dropping undefined optionals', () => {
+  it('maps bootstrap steps through, uppercasing method and dropping undefined optionals', () => {
     const s: Scenario = {
       ...scenario,
       siteSetup: {
@@ -212,9 +212,9 @@ describe('toEvalForgeBody', () => {
       },
     };
     expect(toEvalForgeBody(s).siteSetup).toEqual({
-      mode: 'template',
-      templateId: 'ecommerce',
-      bootstrap: { steps: [{ method: 'post', url: 'https://x', body: { a: 1 } }] },
+      mode: 'TEMPLATE',
+      templateOptions: { templateId: 'ecommerce' },
+      bootstrap: { steps: [{ method: 'POST', url: 'https://x', body: { a: 1 } }] },
     });
   });
 });
