@@ -22,16 +22,19 @@ export type ScenarioAssertionLink = {
   params?: LinkParams;
 };
 
+// V1 SiteBootstrapHttpMethod enum names are uppercase.
 export type EvalForgeBootstrapStep = {
   label?: string;
-  method: SiteBootstrapStep['method'];
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   url: string;
   body?: Record<string, unknown>;
 };
 
+// V1 SiteSetupConfig is a discriminator enum (`mode`) + an aligned oneof. For
+// `TEMPLATE`, the template id goes under the `templateOptions` branch — not flat.
 export type EvalForgeSiteSetup = {
-  mode: 'template';
-  templateId: string;
+  mode: 'TEMPLATE';
+  templateOptions: { templateId: string };
   bootstrap?: { steps: EvalForgeBootstrapStep[] };
 };
 
@@ -55,7 +58,7 @@ export function toEvalForgeBody(s: Scenario): EvalForgeBody {
 }
 
 function mapSiteSetup(s: SiteSetup): EvalForgeSiteSetup {
-  const out: EvalForgeSiteSetup = { mode: s.mode, templateId: s.templateId };
+  const out: EvalForgeSiteSetup = { mode: 'TEMPLATE', templateOptions: { templateId: s.templateId } };
   // Omit bootstrap when it has no steps.
   if (s.bootstrap && s.bootstrap.steps.length > 0) {
     out.bootstrap = { steps: s.bootstrap.steps.map(mapBootstrapStep) };
@@ -64,7 +67,11 @@ function mapSiteSetup(s: SiteSetup): EvalForgeSiteSetup {
 }
 
 function mapBootstrapStep(step: SiteBootstrapStep): EvalForgeBootstrapStep {
-  const out: EvalForgeBootstrapStep = { method: step.method, url: step.url };
+  // Schema methods are lowercase; V1's SiteBootstrapHttpMethod enum is uppercase.
+  const out: EvalForgeBootstrapStep = {
+    method: step.method.toUpperCase() as EvalForgeBootstrapStep['method'],
+    url: step.url,
+  };
   if (step.label !== undefined) out.label = step.label;
   if (step.body !== undefined) out.body = step.body;
   return out;

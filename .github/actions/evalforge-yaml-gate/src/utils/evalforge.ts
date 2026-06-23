@@ -1,7 +1,14 @@
+import { TokenProvider } from './auth';
+
 export type HttpError = Error & { status: number };
 
 const MCP_URL = 'https://mcp.wix.com/mcp';
 const MCP_CONFIG_KEY = 'wix-mcp-remote';
+
+// OAuth token endpoint — a fixed public Wix endpoint, independent of the EvalForge
+// API base (the internal `/_api/evalforge-backend` gateway). The token is minted
+// here, then used as a Bearer credential against the V1 API at `baseUrl`.
+const OAUTH_TOKEN_URL = 'https://www.wixapis.com/oauth2/token';
 
 export const TERMINAL_RUN_STATUSES = ['completed', 'failed', 'cancelled'] as const;
 export type RunStatus = 'pending' | 'running' | typeof TERMINAL_RUN_STATUSES[number];
@@ -63,33 +70,60 @@ export function isHttpError(e: unknown): e is HttpError {
   return e instanceof Error && typeof (e as { status?: unknown }).status === 'number';
 }
 
+// ── Raw V1 wire shapes (camelCase JSON from www.wixapis.com) ──────────────────
+type RawCapabilityVersion = { id: string; capabilityId: string; version: string };
+type RawScenario = { id: string; name: string; tags?: string[] };
+type RawMetrics = Partial<EvalRunStatus['aggregateMetrics']>;
+type RawEvalRun = { id: string; status: string; progress?: number; aggregateMetrics?: RawMetrics };
+
+// V1's EvalStatus enum is UPPERCASE (COMPLETED/FAILED/…); the rest of the action
+// works in lowercase. The enum NAMES match, so a lowercase is the full mapping.
+function normalizeStatus(s: string): RunStatus {
+  return String(s).toLowerCase() as RunStatus;
+}
+
+// V1 `pass_rate` is a fraction (0.0–1.0); the action's internal contract (and
+// comment.ts) expects an integer percentage (0–100).
+function toPercent(fraction: number | undefined): number {
+  return Math.round((fraction ?? 0) * 100);
+}
+
+// Client for the EvalForge V1 REST API (`${baseUrl}/v1/...`, e.g.
+// https://manage.wix.com/_api/evalforge-backend/v1/...), authenticated with an
+// OAuth client-credentials Bearer token minted at the fixed public token
+// endpoint. This class is the translation boundary: it speaks V1 on the wire
+// (Bearer auth, `/v1` paths, wrapped envelopes, UPPERCASE status, 0–1 pass rate)
+// but returns the action's stable internal types (bare RemoteScenario[]/
+// EvalRunStatus, lowercase status, 0–100 pass rate) so callers are unaffected.
 export class EvalForgeClient {
-  private readonly headers: Record<string, string>;
+  private readonly tokens: TokenProvider;
 
   constructor(
-    private readonly baseUrl: string,
-    appId: string,
-    appSecret: string,
+    private readonly baseUrl: string, // EvalForge API base (EVALFORGE_URL), e.g. https://manage.wix.com/_api/evalforge-backend
+    clientId: string,                 // Wix app def id (OAuth client_id)
+    clientSecret: string,             // Wix app secret (OAuth client_secret)
   ) {
-    this.headers = {
-      'Content-Type': 'application/json',
-      'x-app-id': appId,
-      'x-app-secret': appSecret,
-    };
+    // Token is minted at the fixed public endpoint, NOT under `baseUrl`.
+    this.tokens = new TokenProvider(OAUTH_TOKEN_URL, clientId, clientSecret);
   }
 
   private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
-    const res = await fetch(`${this.baseUrl}${path}`, {
+    const token = await this.tokens.getToken();
+    const res = await fetch(`${this.baseUrl}/v1${path}`, {
       method,
-      headers: this.headers,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
       body: body !== undefined ? JSON.stringify(body) : undefined,
-      signal: AbortSignal.timeout(10_000),
+      signal: AbortSignal.timeout(15_000),
     });
     if (!res.ok) {
-      const err = await res.json().catch(() => ({})) as { error?: string; details?: unknown };
+      const err = (await res.json().catch(() => ({}))) as { message?: string; error?: string; details?: unknown };
+      const msg = err.message ?? err.error ?? '';
       const detail = err.details !== undefined ? ` details=${JSON.stringify(err.details)}` : '';
       throw Object.assign(
-        new Error(`EvalForge ${method} ${path} → ${res.status}: ${err.error ?? ''}${detail}`),
+        new Error(`EvalForge ${method} /v1${path} → ${res.status}: ${msg}${detail}`),
         { status: res.status },
       ) as HttpError;
     }
@@ -97,12 +131,16 @@ export class EvalForgeClient {
       return undefined as T;
     }
     return res.json().catch((e: unknown) => {
-      throw new Error(`EvalForge ${method} ${path} → ${res.status} but invalid JSON: ${e instanceof Error ? e.message : String(e)}`);
+      throw new Error(`EvalForge ${method} /v1${path} → ${res.status} but invalid JSON: ${e instanceof Error ? e.message : String(e)}`);
     }) as Promise<T>;
   }
 
   async listMcpVersions(mcpId: string, projectId: string): Promise<CapabilityVersion[]> {
-    return this.request<CapabilityVersion[]>('GET', `/projects/${enc(projectId)}/capabilities/${enc(mcpId)}/versions`);
+    const res = await this.request<{ capabilityVersions?: RawCapabilityVersion[] }>(
+      'GET',
+      `/projects/${enc(projectId)}/capabilities/${enc(mcpId)}/versions`,
+    );
+    return (res.capabilityVersions ?? []).map(v => ({ id: v.id, capabilityId: v.capabilityId, version: v.version }));
   }
 
   private buildMcpUrl(skillsRepo: string, headSha: string): string {
@@ -120,23 +158,33 @@ export class EvalForgeClient {
     headSha: string,
     skillsRepo: string,
   ): Promise<CapabilityVersion> {
-    return this.request<CapabilityVersion>('POST', `/projects/${enc(projectId)}/capabilities/${enc(mcpId)}/versions`, {
-      version: versionLabel,
-      origin: 'pr',
-      notes: `Auto-created for PR #${prNumber}`,
-      content: {
-        config: {
-          [MCP_CONFIG_KEY]: {
-            url: this.buildMcpUrl(skillsRepo, headSha),
-            type: 'http',
-            headers: {
-              Authorization: '{{wix-auth-token}}',
-              'wix-account-id': '{{wix-auth-user-id}}',
+    const res = await this.request<{ capabilityVersion: RawCapabilityVersion }>(
+      'POST',
+      `/projects/${enc(projectId)}/capabilities/${enc(mcpId)}/versions`,
+      {
+        capabilityVersion: {
+          capabilityId: mcpId,
+          version: versionLabel,
+          origin: 'pr',
+          notes: `Auto-created for PR #${prNumber}`,
+          // V1 capability content is a oneof — MCP capabilities use `mcpContent`.
+          mcpContent: {
+            config: {
+              [MCP_CONFIG_KEY]: {
+                url: this.buildMcpUrl(skillsRepo, headSha),
+                type: 'http',
+                headers: {
+                  Authorization: '{{wix-auth-token}}',
+                  'wix-account-id': '{{wix-auth-user-id}}',
+                },
+              },
             },
           },
         },
       },
-    });
+    );
+    const v = res.capabilityVersion;
+    return { id: v.id, capabilityId: v.capabilityId, version: v.version };
   }
 
   async ensureMcpVersion(
@@ -158,34 +206,117 @@ export class EvalForgeClient {
     }
   }
 
-  async listTestScenarios(projectId: string): Promise<RemoteScenario[]> {
-    // EvalForge returns `tags: undefined` for untagged scenarios — normalize so callers can assume `string[]`.
-    const raw = await this.request<RemoteScenario[]>('GET', `/projects/${enc(projectId)}/test-scenarios`);
-    return raw.map(s => ({ ...s, tags: s.tags ?? [] }));
+  // Without `names`: lists ALL scenarios via an empty-filter query (used by
+  // promote / cleanup / run-all). With `names`: fetches only those scenarios —
+  // the V1 `name` filter is a substring match, so each name is queried and then
+  // narrowed to exact hits (deduped by id). EvalForge omits `tags` for untagged
+  // scenarios — normalize so callers can assume `string[]`.
+  async listTestScenarios(projectId: string, names?: string[]): Promise<RemoteScenario[]> {
+    if (names === undefined) {
+      const res = await this.request<{ testScenarios?: RawScenario[] }>(
+        'POST',
+        `/projects/${enc(projectId)}/test-scenarios/query`,
+        { filter: {} },
+      );
+      return (res.testScenarios ?? []).map(s => ({ id: s.id, name: s.name, tags: s.tags ?? [] }));
+    }
+    const unique = [...new Set(names)];
+    if (unique.length === 0) return [];
+    const pages = await Promise.all(unique.map(name =>
+      this.request<{ testScenarios?: RawScenario[] }>(
+        'POST',
+        `/projects/${enc(projectId)}/test-scenarios/query`,
+        { filter: { name } },
+      ).then(res => (res.testScenarios ?? []).filter(s => s.name === name)),
+    ));
+    const byId = new Map<string, RemoteScenario>();
+    for (const page of pages) {
+      for (const s of page) byId.set(s.id, { id: s.id, name: s.name, tags: s.tags ?? [] });
+    }
+    return [...byId.values()];
+  }
+
+  // Fetch only the scenarios carrying a given tag (e.g. this PR's draft tag) —
+  // used by promote/cleanup, which operate on the PR's draft-tagged scenarios.
+  async listTestScenariosByTag(projectId: string, tag: string): Promise<RemoteScenario[]> {
+    const res = await this.request<{ testScenarios?: RawScenario[] }>(
+      'POST',
+      `/projects/${enc(projectId)}/test-scenarios/query`,
+      { filter: { tags: [tag] } },
+    );
+    return (res.testScenarios ?? []).map(s => ({ id: s.id, name: s.name, tags: s.tags ?? [] }));
   }
 
   async createTestScenario(projectId: string, body: ScenarioBody, tags: string[]): Promise<{ id: string }> {
-    return this.request<{ id: string }>('POST', `/projects/${enc(projectId)}/test-scenarios`, { ...body, projectId, tags });
+    const res = await this.request<{ testScenario: { id: string } }>(
+      'POST',
+      `/projects/${enc(projectId)}/test-scenarios`,
+      { testScenario: { ...body, tags } },
+    );
+    return { id: res.testScenario.id };
   }
 
   async updateTestScenario(projectId: string, id: string, body: ScenarioBody, tags: string[]): Promise<void> {
-    await this.request<void>('PUT', `/projects/${enc(projectId)}/test-scenarios/${enc(id)}`, { ...body, projectId, tags });
+    // PATCH; the gateway infers the field mask from the provided `testScenario` fields.
+    await this.request<void>(
+      'PATCH',
+      `/projects/${enc(projectId)}/test-scenarios/${enc(id)}`,
+      { testScenario: { id, ...body, tags } },
+    );
   }
 
   async deleteTestScenario(projectId: string, id: string): Promise<void> {
     await this.request<void>('DELETE', `/projects/${enc(projectId)}/test-scenarios/${enc(id)}`);
   }
 
+  // V1 `RunEvaluation` creates AND queues the run in a single call, so this maps
+  // to that endpoint. `triggerEvalRun` below is kept as a no-op for caller
+  // compatibility (the express API needed a separate trigger; V1 does not).
   async createEvalRun(projectId: string, input: EvalRunInput): Promise<EvalRunCreated> {
-    return this.request<EvalRunCreated>('POST', `/projects/${enc(projectId)}/eval-runs`, input);
+    const res = await this.request<{ evalRun: { id: string; status: string } }>(
+      'POST',
+      `/projects/${enc(projectId)}/eval-runs/run`,
+      {
+        evalRun: {
+          name: input.name,
+          description: input.description,
+          agentId: input.agentId,
+          scenarioIds: input.scenarioIds,
+          capabilityIds: input.capabilityIds,
+          capabilityVersions: input.capabilityVersions,
+        },
+      },
+    );
+    return { id: res.evalRun.id, status: normalizeStatus(res.evalRun.status) };
   }
 
-  async triggerEvalRun(projectId: string, runId: string): Promise<{ evalRunId: string }> {
-    return this.request<{ evalRunId: string }>('POST', `/projects/${enc(projectId)}/eval-runs/${enc(runId)}/run`);
+  // No-op: V1's RunEvaluation (in createEvalRun) already queued the run. Retained
+  // so callers that follow create-then-trigger keep working unchanged.
+  async triggerEvalRun(_projectId: string, runId: string): Promise<{ evalRunId: string }> {
+    return { evalRunId: runId };
   }
 
   async getEvalRun(projectId: string, runId: string): Promise<EvalRunStatus> {
-    return this.request<EvalRunStatus>('GET', `/projects/${enc(projectId)}/eval-runs/${enc(runId)}`);
+    const res = await this.request<{ evalRun: RawEvalRun }>(
+      'GET',
+      `/projects/${enc(projectId)}/eval-runs/${enc(runId)}`,
+    );
+    const r = res.evalRun;
+    const m = r.aggregateMetrics ?? {};
+    return {
+      status: normalizeStatus(r.status),
+      progress: r.progress ?? 0,
+      aggregateMetrics: {
+        totalAssertions: m.totalAssertions ?? 0,
+        passed: m.passed ?? 0,
+        failed: m.failed ?? 0,
+        skipped: m.skipped ?? 0,
+        errors: m.errors ?? 0,
+        passRate: toPercent(m.passRate),
+        avgDuration: m.avgDuration ?? 0,
+        totalDuration: m.totalDuration ?? 0,
+      },
+    };
   }
 
   async deleteMcpVersion(mcpId: string, projectId: string, versionId: string): Promise<void> {

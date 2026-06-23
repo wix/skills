@@ -90,8 +90,15 @@ export async function runGate(): Promise<void> {
     if (changedEvalPaths.has(ls.path)) changedHeadScenarios.set(name, ls);
   }
 
+  // Fetch only the scenarios the sync needs: those changed in this PR, plus those
+  // removed since the base (to detect deletes) — not the whole project.
+  const namesToFetch = new Set<string>(changedHeadScenarios.keys());
+  for (const name of baseScenarios.keys()) {
+    if (!headScenarios.has(name)) namesToFetch.add(name);
+  }
+
   const remote = await guardedCall(
-    () => evalforge.listTestScenarios(config.projectId),
+    () => evalforge.listTestScenarios(config.projectId, [...namesToFetch]),
     'Could not reach EvalForge', comment, config,
   );
   if (!remote) return;

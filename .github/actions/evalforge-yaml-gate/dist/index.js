@@ -34096,6 +34096,76 @@ else {
 
 /***/ }),
 
+/***/ 6087:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+// OAuth2 client-credentials token provider for the Wix public API.
+//
+// The EvalForge V1 API (www.wixapis.com) is called with a Bearer token minted
+// from the app's OAuth credentials. Tokens are short-lived (~300s), but an eval
+// run can poll for up to 30 minutes — so we cache the token and transparently
+// re-mint it shortly before it expires rather than minting once up front.
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.TokenProvider = void 0;
+// Re-mint this many ms before the stated expiry to avoid using a token that
+// expires mid-request.
+const EXPIRY_SKEW_MS = 30_000;
+class TokenProvider {
+    tokenUrl;
+    clientId;
+    clientSecret;
+    token = null;
+    expiresAt = 0; // epoch ms
+    // In-flight mint shared by concurrent callers, so a burst of parallel requests
+    // (e.g. the gate's per-name scenario queries) mints once, not once each.
+    inflight = null;
+    constructor(tokenUrl, // e.g. https://www.wixapis.com/oauth2/token
+    clientId, // Wix app def id
+    clientSecret) {
+        this.tokenUrl = tokenUrl;
+        this.clientId = clientId;
+        this.clientSecret = clientSecret;
+    }
+    async getToken() {
+        if (this.token && Date.now() < this.expiresAt - EXPIRY_SKEW_MS) {
+            return this.token;
+        }
+        if (!this.inflight) {
+            this.inflight = this.mint().finally(() => { this.inflight = null; });
+        }
+        return this.inflight;
+    }
+    async mint() {
+        const res = await fetch(this.tokenUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                grant_type: 'client_credentials',
+                client_id: this.clientId,
+                client_secret: this.clientSecret,
+            }),
+            signal: AbortSignal.timeout(10_000),
+        });
+        if (!res.ok) {
+            const text = await res.text().catch(() => '');
+            throw new Error(`OAuth token request → ${res.status}: ${text.replace(/\s+/g, ' ').trim().slice(0, 300)}`);
+        }
+        const json = (await res.json());
+        if (!json.access_token) {
+            throw new Error('OAuth token response missing access_token');
+        }
+        this.token = json.access_token;
+        this.expiresAt = Date.now() + (json.expires_in ?? 300) * 1000;
+        return this.token;
+    }
+}
+exports.TokenProvider = TokenProvider;
+
+
+/***/ }),
+
 /***/ 6157:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
@@ -34168,10 +34238,10 @@ async function runCleanup() {
     await (0, pr_cleanup_1.deletePrMcpVersions)(evalforge, config.mcpId, config.projectId, config.prNumber);
     let remote;
     try {
-        remote = await evalforge.listTestScenarios(config.projectId);
+        remote = await evalforge.listTestScenariosByTag(config.projectId, draftTag);
     }
     catch (e) {
-        core.warning(`listTestScenarios failed: ${errMsg(e)}`);
+        core.warning(`listTestScenariosByTag failed: ${errMsg(e)}`);
         return;
     }
     const baseRoot = node_path_1.posix.join((0, workspace_1.workspaceRoot)(), paths_1.BASE_WORKSPACE_SUBDIR);
@@ -34304,12 +34374,12 @@ function formatComparisonResult(result, projectId) {
         '',
         `**Verdict:** \`${verdict}\` | **Tag:** \`${tag}\``,
         '',
-        '| Scenario | Required | Winner | Cost (with draft/without) | Tokens (with draft/without) | Time (with draft/without) |',
+        '| Scenario | Required | Winner | Cost (PR / prod) | Tokens (PR / prod) | Time (PR / prod) |',
         '|---|---|---|---|---|---|',
     ];
     for (const s of (scenarios ?? [])) {
         const winner = s.pairwiseJudgement.winner;
-        const winnerLabel = winner === 'tie' ? '≈ tie' : winner === 'with' ? '⬆️ with draft' : '⬇️ without draft';
+        const winnerLabel = winner === 'tie' ? '≈ tie' : winner === 'with' ? '⬆️ PR' : '⬇️ prod';
         const costWith = s.with.totalCostUsd.toFixed(3);
         const costWithout = s.without.totalCostUsd.toFixed(3);
         const tokWith = `${(s.with.totalTokens / 1000).toFixed(1)}K`;
@@ -34321,11 +34391,14 @@ function formatComparisonResult(result, projectId) {
     for (const s of (scenarios ?? [])) {
         lines.push('', `<details><summary>${s.scenarioName}</summary>`, '', s.reason, '');
         if (projectId && s.with.runId)
-            lines.push(`[View run (with draft tag)](${(0, evalforge_1.evalRunUrl)(projectId, s.with.runId, s.with.name)})`, '');
+            lines.push(`[View run (PR)](${(0, evalforge_1.evalRunUrl)(projectId, s.with.runId, s.with.name)})`, '');
         if (projectId && s.without.runId)
-            lines.push(`[View run (without draft tag)](${(0, evalforge_1.evalRunUrl)(projectId, s.without.runId, s.without.name)})`, '');
-        lines.push('**Assertions (with draft tag):**', ...s.with.assertions.map(assertionLine), '');
-        lines.push('**Assertions (without draft tag):**', ...s.without.assertions.map(assertionLine), '');
+            lines.push(`[View run (prod)](${(0, evalforge_1.evalRunUrl)(projectId, s.without.runId, s.without.name)})`, '');
+        lines.push('**Assertions (PR):**', ...s.with.assertions.map(assertionLine), '');
+        lines.push('**Assertions (prod):**', ...s.without.assertions.map(assertionLine), '');
+        if (s.pairwiseJudgement.reasoning) {
+            lines.push(`**Compare result:** ${s.pairwiseJudgement.reasoning}`, '');
+        }
         if (s.pairwiseJudgement.dimensions) {
             lines.push('**Dimensions:**', ...Object.entries(s.pairwiseJudgement.dimensions).map(([k, v]) => `- ${k}: **${v.winner}**`), '');
         }
@@ -34778,7 +34851,7 @@ function toEvalForgeBody(s) {
     return body;
 }
 function mapSiteSetup(s) {
-    const out = { mode: s.mode, templateId: s.templateId };
+    const out = { mode: 'TEMPLATE', templateOptions: { templateId: s.templateId } };
     // Omit bootstrap when it has no steps.
     if (s.bootstrap && s.bootstrap.steps.length > 0) {
         out.bootstrap = { steps: s.bootstrap.steps.map(mapBootstrapStep) };
@@ -34786,7 +34859,11 @@ function mapSiteSetup(s) {
     return out;
 }
 function mapBootstrapStep(step) {
-    const out = { method: step.method, url: step.url };
+    // Schema methods are lowercase; V1's SiteBootstrapHttpMethod enum is uppercase.
+    const out = {
+        method: step.method.toUpperCase(),
+        url: step.url,
+    };
     if (step.label !== undefined)
         out.label = step.label;
     if (step.body !== undefined)
@@ -34866,7 +34943,7 @@ function jsonifyMaybe(v) {
 /***/ }),
 
 /***/ 280:
-/***/ ((__unused_webpack_module, exports) => {
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
 
 "use strict";
 
@@ -34876,8 +34953,13 @@ exports.evalRunUrl = evalRunUrl;
 exports.draftTagFor = draftTagFor;
 exports.parseDraftTag = parseDraftTag;
 exports.isHttpError = isHttpError;
+const auth_1 = __nccwpck_require__(6087);
 const MCP_URL = 'https://mcp.wix.com/mcp';
 const MCP_CONFIG_KEY = 'wix-mcp-remote';
+// OAuth token endpoint — a fixed public Wix endpoint, independent of the EvalForge
+// API base (the internal `/_api/evalforge-backend` gateway). The token is minted
+// here, then used as a Bearer credential against the V1 API at `baseUrl`.
+const OAUTH_TOKEN_URL = 'https://www.wixapis.com/oauth2/token';
 exports.TERMINAL_RUN_STATUSES = ['completed', 'failed', 'cancelled'];
 exports.DRAFT_PREFIX = 'draft:';
 // Human-facing EvalForge results page (distinct from the REST `baseUrl` the client calls).
@@ -34896,38 +34978,60 @@ function parseDraftTag(tag) {
 function isHttpError(e) {
     return e instanceof Error && typeof e.status === 'number';
 }
+// V1's EvalStatus enum is UPPERCASE (COMPLETED/FAILED/…); the rest of the action
+// works in lowercase. The enum NAMES match, so a lowercase is the full mapping.
+function normalizeStatus(s) {
+    return String(s).toLowerCase();
+}
+// V1 `pass_rate` is a fraction (0.0–1.0); the action's internal contract (and
+// comment.ts) expects an integer percentage (0–100).
+function toPercent(fraction) {
+    return Math.round((fraction ?? 0) * 100);
+}
+// Client for the EvalForge V1 REST API (`${baseUrl}/v1/...`, e.g.
+// https://manage.wix.com/_api/evalforge-backend/v1/...), authenticated with an
+// OAuth client-credentials Bearer token minted at the fixed public token
+// endpoint. This class is the translation boundary: it speaks V1 on the wire
+// (Bearer auth, `/v1` paths, wrapped envelopes, UPPERCASE status, 0–1 pass rate)
+// but returns the action's stable internal types (bare RemoteScenario[]/
+// EvalRunStatus, lowercase status, 0–100 pass rate) so callers are unaffected.
 class EvalForgeClient {
     baseUrl;
-    headers;
-    constructor(baseUrl, appId, appSecret) {
+    tokens;
+    constructor(baseUrl, // EvalForge API base (EVALFORGE_URL), e.g. https://manage.wix.com/_api/evalforge-backend
+    clientId, // Wix app def id (OAuth client_id)
+    clientSecret) {
         this.baseUrl = baseUrl;
-        this.headers = {
-            'Content-Type': 'application/json',
-            'x-app-id': appId,
-            'x-app-secret': appSecret,
-        };
+        // Token is minted at the fixed public endpoint, NOT under `baseUrl`.
+        this.tokens = new auth_1.TokenProvider(OAUTH_TOKEN_URL, clientId, clientSecret);
     }
     async request(method, path, body) {
-        const res = await fetch(`${this.baseUrl}${path}`, {
+        const token = await this.tokens.getToken();
+        const res = await fetch(`${this.baseUrl}/v1${path}`, {
             method,
-            headers: this.headers,
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+            },
             body: body !== undefined ? JSON.stringify(body) : undefined,
-            signal: AbortSignal.timeout(10_000),
+            signal: AbortSignal.timeout(15_000),
         });
         if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
+            const err = (await res.json().catch(() => ({})));
+            const msg = err.message ?? err.error ?? '';
             const detail = err.details !== undefined ? ` details=${JSON.stringify(err.details)}` : '';
-            throw Object.assign(new Error(`EvalForge ${method} ${path} → ${res.status}: ${err.error ?? ''}${detail}`), { status: res.status });
+            throw Object.assign(new Error(`EvalForge ${method} /v1${path} → ${res.status}: ${msg}${detail}`), { status: res.status });
         }
         if (res.status === 204 || res.headers.get('content-length') === '0') {
             return undefined;
         }
         return res.json().catch((e) => {
-            throw new Error(`EvalForge ${method} ${path} → ${res.status} but invalid JSON: ${e instanceof Error ? e.message : String(e)}`);
+            throw new Error(`EvalForge ${method} /v1${path} → ${res.status} but invalid JSON: ${e instanceof Error ? e.message : String(e)}`);
         });
     }
     async listMcpVersions(mcpId, projectId) {
-        return this.request('GET', `/projects/${enc(projectId)}/capabilities/${enc(mcpId)}/versions`);
+        const res = await this.request('GET', `/projects/${enc(projectId)}/capabilities/${enc(mcpId)}/versions`);
+        return (res.capabilityVersions ?? []).map(v => ({ id: v.id, capabilityId: v.capabilityId, version: v.version }));
     }
     buildMcpUrl(skillsRepo, headSha) {
         const url = new URL(MCP_URL);
@@ -34936,23 +35040,29 @@ class EvalForgeClient {
         return url.toString();
     }
     async createMcpVersion(mcpId, projectId, versionLabel, prNumber, headSha, skillsRepo) {
-        return this.request('POST', `/projects/${enc(projectId)}/capabilities/${enc(mcpId)}/versions`, {
-            version: versionLabel,
-            origin: 'pr',
-            notes: `Auto-created for PR #${prNumber}`,
-            content: {
-                config: {
-                    [MCP_CONFIG_KEY]: {
-                        url: this.buildMcpUrl(skillsRepo, headSha),
-                        type: 'http',
-                        headers: {
-                            Authorization: '{{wix-auth-token}}',
-                            'wix-account-id': '{{wix-auth-user-id}}',
+        const res = await this.request('POST', `/projects/${enc(projectId)}/capabilities/${enc(mcpId)}/versions`, {
+            capabilityVersion: {
+                capabilityId: mcpId,
+                version: versionLabel,
+                origin: 'pr',
+                notes: `Auto-created for PR #${prNumber}`,
+                // V1 capability content is a oneof — MCP capabilities use `mcpContent`.
+                mcpContent: {
+                    config: {
+                        [MCP_CONFIG_KEY]: {
+                            url: this.buildMcpUrl(skillsRepo, headSha),
+                            type: 'http',
+                            headers: {
+                                Authorization: '{{wix-auth-token}}',
+                                'wix-account-id': '{{wix-auth-user-id}}',
+                            },
                         },
                     },
                 },
             },
         });
+        const v = res.capabilityVersion;
+        return { id: v.id, capabilityId: v.capabilityId, version: v.version };
     }
     async ensureMcpVersion(mcpId, projectId, versionLabel, prNumber, headSha, skillsRepo) {
         try {
@@ -34968,28 +35078,83 @@ class EvalForgeClient {
             return existing;
         }
     }
-    async listTestScenarios(projectId) {
-        // EvalForge returns `tags: undefined` for untagged scenarios — normalize so callers can assume `string[]`.
-        const raw = await this.request('GET', `/projects/${enc(projectId)}/test-scenarios`);
-        return raw.map(s => ({ ...s, tags: s.tags ?? [] }));
+    // Without `names`: lists ALL scenarios via an empty-filter query (used by
+    // promote / cleanup / run-all). With `names`: fetches only those scenarios —
+    // the V1 `name` filter is a substring match, so each name is queried and then
+    // narrowed to exact hits (deduped by id). EvalForge omits `tags` for untagged
+    // scenarios — normalize so callers can assume `string[]`.
+    async listTestScenarios(projectId, names) {
+        if (names === undefined) {
+            const res = await this.request('POST', `/projects/${enc(projectId)}/test-scenarios/query`, { filter: {} });
+            return (res.testScenarios ?? []).map(s => ({ id: s.id, name: s.name, tags: s.tags ?? [] }));
+        }
+        const unique = [...new Set(names)];
+        if (unique.length === 0)
+            return [];
+        const pages = await Promise.all(unique.map(name => this.request('POST', `/projects/${enc(projectId)}/test-scenarios/query`, { filter: { name } }).then(res => (res.testScenarios ?? []).filter(s => s.name === name))));
+        const byId = new Map();
+        for (const page of pages) {
+            for (const s of page)
+                byId.set(s.id, { id: s.id, name: s.name, tags: s.tags ?? [] });
+        }
+        return [...byId.values()];
+    }
+    // Fetch only the scenarios carrying a given tag (e.g. this PR's draft tag) —
+    // used by promote/cleanup, which operate on the PR's draft-tagged scenarios.
+    async listTestScenariosByTag(projectId, tag) {
+        const res = await this.request('POST', `/projects/${enc(projectId)}/test-scenarios/query`, { filter: { tags: [tag] } });
+        return (res.testScenarios ?? []).map(s => ({ id: s.id, name: s.name, tags: s.tags ?? [] }));
     }
     async createTestScenario(projectId, body, tags) {
-        return this.request('POST', `/projects/${enc(projectId)}/test-scenarios`, { ...body, projectId, tags });
+        const res = await this.request('POST', `/projects/${enc(projectId)}/test-scenarios`, { testScenario: { ...body, tags } });
+        return { id: res.testScenario.id };
     }
     async updateTestScenario(projectId, id, body, tags) {
-        await this.request('PUT', `/projects/${enc(projectId)}/test-scenarios/${enc(id)}`, { ...body, projectId, tags });
+        // PATCH; the gateway infers the field mask from the provided `testScenario` fields.
+        await this.request('PATCH', `/projects/${enc(projectId)}/test-scenarios/${enc(id)}`, { testScenario: { id, ...body, tags } });
     }
     async deleteTestScenario(projectId, id) {
         await this.request('DELETE', `/projects/${enc(projectId)}/test-scenarios/${enc(id)}`);
     }
+    // V1 `RunEvaluation` creates AND queues the run in a single call, so this maps
+    // to that endpoint. `triggerEvalRun` below is kept as a no-op for caller
+    // compatibility (the express API needed a separate trigger; V1 does not).
     async createEvalRun(projectId, input) {
-        return this.request('POST', `/projects/${enc(projectId)}/eval-runs`, input);
+        const res = await this.request('POST', `/projects/${enc(projectId)}/eval-runs/run`, {
+            evalRun: {
+                name: input.name,
+                description: input.description,
+                agentId: input.agentId,
+                scenarioIds: input.scenarioIds,
+                capabilityIds: input.capabilityIds,
+                capabilityVersions: input.capabilityVersions,
+            },
+        });
+        return { id: res.evalRun.id, status: normalizeStatus(res.evalRun.status) };
     }
-    async triggerEvalRun(projectId, runId) {
-        return this.request('POST', `/projects/${enc(projectId)}/eval-runs/${enc(runId)}/run`);
+    // No-op: V1's RunEvaluation (in createEvalRun) already queued the run. Retained
+    // so callers that follow create-then-trigger keep working unchanged.
+    async triggerEvalRun(_projectId, runId) {
+        return { evalRunId: runId };
     }
     async getEvalRun(projectId, runId) {
-        return this.request('GET', `/projects/${enc(projectId)}/eval-runs/${enc(runId)}`);
+        const res = await this.request('GET', `/projects/${enc(projectId)}/eval-runs/${enc(runId)}`);
+        const r = res.evalRun;
+        const m = r.aggregateMetrics ?? {};
+        return {
+            status: normalizeStatus(r.status),
+            progress: r.progress ?? 0,
+            aggregateMetrics: {
+                totalAssertions: m.totalAssertions ?? 0,
+                passed: m.passed ?? 0,
+                failed: m.failed ?? 0,
+                skipped: m.skipped ?? 0,
+                errors: m.errors ?? 0,
+                passRate: toPercent(m.passRate),
+                avgDuration: m.avgDuration ?? 0,
+                totalDuration: m.totalDuration ?? 0,
+            },
+        };
     }
     async deleteMcpVersion(mcpId, projectId, versionId) {
         await this.request('DELETE', `/projects/${enc(projectId)}/capabilities/${enc(mcpId)}/versions/${enc(versionId)}`);
@@ -35161,7 +35326,14 @@ async function runGate() {
         if (changedEvalPaths.has(ls.path))
             changedHeadScenarios.set(name, ls);
     }
-    const remote = await guardedCall(() => evalforge.listTestScenarios(config.projectId), 'Could not reach EvalForge', comment, config);
+    // Fetch only the scenarios the sync needs: those changed in this PR, plus those
+    // removed since the base (to detect deletes) — not the whole project.
+    const namesToFetch = new Set(changedHeadScenarios.keys());
+    for (const name of baseScenarios.keys()) {
+        if (!headScenarios.has(name))
+            namesToFetch.add(name);
+    }
+    const remote = await guardedCall(() => evalforge.listTestScenarios(config.projectId, [...namesToFetch]), 'Could not reach EvalForge', comment, config);
     if (!remote)
         return;
     const plan = (0, sync_1.diffSyncPlan)({ changedHead: changedHeadScenarios, head: headScenarios, base: baseScenarios, remote, draftTag });
@@ -35517,21 +35689,19 @@ async function runPromote() {
     const workspace = (0, workspace_1.workspaceRoot)();
     // Cleanup workflow no longer fires on merged PRs — promote owns MCP version teardown.
     await (0, pr_cleanup_1.deletePrMcpVersions)(evalforge, config.mcpId, config.projectId, config.prNumber);
-    let remote;
+    // Only this PR's draft-tagged scenarios need promoting (vs. listing the project).
+    let tagged;
     try {
-        remote = await evalforge.listTestScenarios(config.projectId);
+        tagged = await evalforge.listTestScenariosByTag(config.projectId, draftTag);
     }
     catch (e) {
-        core.warning(`listTestScenarios failed: ${e instanceof Error ? e.message : String(e)}`);
+        core.warning(`listTestScenariosByTag failed: ${e instanceof Error ? e.message : String(e)}`);
         return;
     }
-    const remoteByName = new Map(remote.map(r => [r.name, r]));
     const headScenarios = loadEvalsWithWarnings(workspace);
     let promoted = 0;
     let droppedDrafts = 0;
-    for (const s of remote) {
-        if (!s.tags.includes(draftTag))
-            continue;
+    for (const s of tagged) {
         const ls = headScenarios.get(s.name);
         if (!ls) {
             // Scenario was created or stamped by this PR but no YAML survived to the merged head
@@ -35556,21 +35726,28 @@ async function runPromote() {
             core.warning(`Promote failed for ${s.name}: ${e instanceof Error ? e.message : String(e)}`);
         }
     }
+    // Scenarios present at base but removed in the merged head. They may be live
+    // (non-draft), so fetch them by name and delete those not held by any draft.
     const baseEvals = loadEvalsWithWarnings(node_path_1.posix.join(workspace, paths_1.BASE_WORKSPACE_SUBDIR));
-    for (const [name] of baseEvals) {
-        if (headScenarios.has(name))
-            continue;
-        const r = remoteByName.get(name);
-        if (!r)
-            continue;
-        if (r.tags.some(t => t.startsWith(evalforge_1.DRAFT_PREFIX)))
-            continue;
+    const removedNames = [...baseEvals.keys()].filter(name => !headScenarios.has(name));
+    if (removedNames.length > 0) {
+        let removedRemote = [];
         try {
-            await evalforge.deleteTestScenario(config.projectId, r.id);
-            core.info(`Deleted YAML-removed scenario ${name} (${r.id})`);
+            removedRemote = await evalforge.listTestScenarios(config.projectId, removedNames);
         }
         catch (e) {
-            core.warning(`Delete-on-merge failed for ${name}: ${e instanceof Error ? e.message : String(e)}`);
+            core.warning(`listTestScenarios failed: ${e instanceof Error ? e.message : String(e)}`);
+        }
+        for (const r of removedRemote) {
+            if (r.tags.some(t => t.startsWith(evalforge_1.DRAFT_PREFIX)))
+                continue;
+            try {
+                await evalforge.deleteTestScenario(config.projectId, r.id);
+                core.info(`Deleted YAML-removed scenario ${r.name} (${r.id})`);
+            }
+            catch (e) {
+                core.warning(`Delete-on-merge failed for ${r.name}: ${e instanceof Error ? e.message : String(e)}`);
+            }
         }
     }
     if (promoted > 0)
