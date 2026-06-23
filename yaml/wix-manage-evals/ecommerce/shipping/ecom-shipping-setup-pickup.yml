@@ -3,9 +3,8 @@ description: Enable in-store pickup at checkout so local customers can pick up t
 triggerPrompt: For my Wix store, enable in-store pickup at checkout so local customers can pick up their orders for free instead of paying for shipping.
 tags: [ecommerce]
 siteSetup:
-  mode: TEMPLATE
-  templateOptions:
-    templateId: stores-v3-editor
+  mode: template
+  templateId: stores-v3-editor
 assertions:
   - tool: ReadFullDocsArticle
     params:

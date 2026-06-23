@@ -3,9 +3,8 @@ description: Set up shipping rates for my US delivery region — I sell mostly $
 triggerPrompt: For my Wix store, set up shipping rates for my US delivery region — I sell mostly $30–$80 items and ship via standard ground.
 tags: [ecommerce]
 siteSetup:
-  mode: TEMPLATE
-  templateOptions:
-    templateId: stores-v3-editor
+  mode: template
+  templateId: stores-v3-editor
 assertions:
   - tool: ReadFullDocsArticle
     params:

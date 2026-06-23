@@ -3,9 +3,8 @@ description: Set up delivery regions for my store — one region for the contine
 triggerPrompt: For my Wix store, set up delivery regions — I want one region for the continental US and a separate region for Hawaii/Alaska with their own carriers.
 tags: [ecommerce]
 siteSetup:
-  mode: TEMPLATE
-  templateOptions:
-    templateId: stores-v3-editor
+  mode: template
+  templateId: stores-v3-editor
 assertions:
   - tool: ReadFullDocsArticle
     params:

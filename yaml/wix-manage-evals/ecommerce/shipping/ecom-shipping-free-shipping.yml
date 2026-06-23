@@ -3,9 +3,8 @@ description: Add free shipping for orders over $50 in the US.
 triggerPrompt: For my Wix store, add free shipping for orders over $50 in the US
 tags: [ecommerce]
 siteSetup:
-  mode: TEMPLATE
-  templateOptions:
-    templateId: stores-v3-editor
+  mode: template
+  templateId: stores-v3-editor
 assertions:
   - tool: ReadFullDocsArticle
     params:

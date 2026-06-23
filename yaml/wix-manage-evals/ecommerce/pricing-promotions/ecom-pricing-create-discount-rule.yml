@@ -19,9 +19,8 @@ triggerPrompt: |
   Convert this recommendation into a discount rule using the Wix Discount Rules API.
 tags: [ecommerce]
 siteSetup:
-  mode: TEMPLATE
-  templateOptions:
-    templateId: stores-v3-editor
+  mode: template
+  templateId: stores-v3-editor
 assertions:
   - tool: ReadFullDocsArticle
     params:
