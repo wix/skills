@@ -1,0 +1,31 @@
+name: site-properties/change-payment-currency-site-properties
+description: >-
+  Verifies the agent reads the change-payment-currency-site-properties skill and correctly
+  guides the user to update the payment currency via PATCH /site-properties/v4/properties,
+  including the required field mask and a valid ISO-4217 currency code.
+triggerPrompt: >-
+  How can I change the payment currency for my Wix site from USD to EUR using the Site Properties API?
+tags: [site-properties]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/site-properties/skills/change-payment-currency-site-properties
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user wants to update their Wix site's payment currency from USD to EUR using the Site Properties API.
+      Intent: call PATCH /site-properties/v4/properties with the new currency code and a field mask.
+
+      Pass if the response:
+      - references the PATCH endpoint `https://www.wixapis.com/site-properties/v4/properties`, AND
+      - includes `properties.paymentCurrency` set to a valid ISO-4217 3-letter currency code (e.g. "EUR"), AND
+      - includes the required `fields.paths` field mask containing `"paymentCurrency"`, AND
+      - mentions that omitting the field mask will result in a 400 error.
+
+      Fail if the response:
+      - omits the `fields.paths` field mask entirely, OR
+      - uses a wrong or non-existent endpoint for updating site currency, OR
+      - uses an invalid currency code format (not a 3-letter ISO-4217 code), OR
+      - only explains how to read site properties without covering the update step.
+
