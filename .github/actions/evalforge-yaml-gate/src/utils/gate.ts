@@ -7,7 +7,7 @@ import { loadEvals, type LoadedScenario } from './evals';
 import { canonicalDocUrl } from './doc-url';
 import { computeCoverage } from './coverage';
 import { diffSyncPlan } from './sync';
-import { EvalForgeClient, draftTagFor } from './evalforge';
+import { EvalForgeClient, draftTagFor, evalRunUrl } from './evalforge';
 import { EvalPipelineClient, pollUntilComparisonDone, ComparisonTimeoutError } from './eval-pipeline';
 import { workspaceRoot } from './workspace';
 import { BASE_WORKSPACE_SUBDIR } from './paths';
@@ -32,6 +32,7 @@ export async function runGate(): Promise<void> {
   const draftTag = draftTagFor(`${config.owner}/${config.repo}`, config.prNumber);
 
   core.info(`EvalForge YAML gate — PR #${config.prNumber}`);
+  core.info(`MCP params — skillsRepo: ${config.mcpSkillsRepo}, headSha: ${config.headSha}`);
 
   const evalforge = new EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
   const versionLabel = `pr-${config.prNumber}-${config.headSha.slice(0, 7)}`;
@@ -140,7 +141,7 @@ export async function runGate(): Promise<void> {
 
   const pipeline = new EvalPipelineClient(config.evalPipelineUrl, config.appId, config.appSecret);
   const comparison = await guardedCall(
-    () => pipeline.runComparison([draftTag], config.agentName),
+    () => pipeline.runComparison([draftTag], config.agentName, config.headSha, config.mcpSkillsRepo),
     'Could not start eval pipeline comparison', comment, config,
   );
   if (!comparison) return;
@@ -148,7 +149,11 @@ export async function runGate(): Promise<void> {
 
   try {
     const done = await pollUntilComparisonDone(pipeline, comparison.comparisonGroupId);
-    await comment(formatComparisonResult(done));
+    for (const s of (done.result.scenarios ?? [])) {
+      if (s.with.runId) core.info(`${s.scenarioName} [with draft tag]: ${evalRunUrl(config.projectId, s.with.runId, s.with.name)}`);
+      if (s.without.runId) core.info(`${s.scenarioName} [without draft tag]: ${evalRunUrl(config.projectId, s.without.runId, s.without.name)}`);
+    }
+    await comment(formatComparisonResult(done, config.projectId));
     if (config.autoApprove && allScenariosRequired(done.result)) {
       await octokit.rest.pulls.createReview({
         owner: config.owner,
