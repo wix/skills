@@ -1,7 +1,11 @@
 name: ecommerce/shipping/add-free-shipping-renamed-slug
 description: Add free shipping for orders over $50 in the US.
-triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) Add free shipping for orders over $50 in the US
+triggerPrompt: For my Wix store, add free shipping for orders over $50 in the US
 tags: [ecommerce]
+siteSetup:
+  mode: TEMPLATE
+  templateOptions:
+    templateId: stores-v3-editor
 assertions:
   - tool: ReadFullDocsArticle
     params:

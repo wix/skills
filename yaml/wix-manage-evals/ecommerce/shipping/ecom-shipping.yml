@@ -1,7 +1,11 @@
 name: ecommerce/shipping/category-routing
 description: I want to set up shipping rates for my US region AND mark today's orders as shipped with tracking — help with both or tell me what's outside your scope.
-triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) I need to set up shipping rates for my US delivery region, and I also need to mark today's paid orders as shipped with tracking numbers. Handle both, or tell me which one I should ask about somewhere else.
+triggerPrompt: For my Wix store, I need to set up shipping rates for my US delivery region, and I also need to mark today's paid orders as shipped with tracking numbers. Handle both, or tell me which one I should ask about somewhere else.
 tags: [ecommerce]
+siteSetup:
+  mode: TEMPLATE
+  templateOptions:
+    templateId: stores-v3-editor
 assertions:
   - tool: ReadFullDocsArticle
     params:
