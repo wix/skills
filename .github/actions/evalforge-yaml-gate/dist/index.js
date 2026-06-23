@@ -34208,7 +34208,7 @@ function errMsg(e) {
 /***/ }),
 
 /***/ 3116:
-/***/ ((__unused_webpack_module, exports) => {
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
 
 "use strict";
 
@@ -34225,6 +34225,7 @@ exports.formatEvalTimeout = formatEvalTimeout;
 exports.formatNoChanges = formatNoChanges;
 exports.formatComparisonResult = formatComparisonResult;
 exports.formatComparisonTimeout = formatComparisonTimeout;
+const evalforge_1 = __nccwpck_require__(280);
 exports.COMMENT_MARKER = '<!-- evalforge-yaml-gate-action -->';
 const HEADING = 'EvalForge YAML Gate';
 function render(icon, label, body) {
@@ -34288,7 +34289,13 @@ function formatEvalTimeout(runId, runUrl, blocking) {
 function formatNoChanges() {
     return render('✅', 'No Gated Changes', ['Nothing under `evals/` or sibling `.md` changed.']);
 }
-function formatComparisonResult(result) {
+function assertionLine(a) {
+    const icon = a.status === 'passed' ? '✅' : '❌';
+    const score = a.score !== undefined ? ` (${a.score}/10)` : '';
+    const detail = a.verdict ? `: ${a.verdict}` : a.message ? `: ${a.message}` : '';
+    return `- ${icon} ${a.name}${score}${detail}`;
+}
+function formatComparisonResult(result, projectId) {
     const { verdict, tag, scenarios } = result.result;
     const verdictIcon = verdict === 'not-required' ? '✅' : '⚠️';
     const lines = [
@@ -34297,23 +34304,28 @@ function formatComparisonResult(result) {
         '',
         `**Verdict:** \`${verdict}\` | **Tag:** \`${tag}\``,
         '',
-        '| Scenario | Required | Winner | Cost (with/without) | Tokens (with/without) | Time (with/without) |',
+        '| Scenario | Required | Winner | Cost (with draft/without) | Tokens (with draft/without) | Time (with draft/without) |',
         '|---|---|---|---|---|---|',
     ];
     for (const s of (scenarios ?? [])) {
-        const winnerIcon = s.pairwiseJudgement.winner === 'tie' ? '≈' : s.pairwiseJudgement.winner === 'with' ? '⬆️' : '⬇️';
+        const winner = s.pairwiseJudgement.winner;
+        const winnerLabel = winner === 'tie' ? '≈ tie' : winner === 'with' ? '⬆️ with draft' : '⬇️ without draft';
         const costWith = s.with.totalCostUsd.toFixed(3);
         const costWithout = s.without.totalCostUsd.toFixed(3);
         const tokWith = `${(s.with.totalTokens / 1000).toFixed(1)}K`;
         const tokWithout = `${(s.without.totalTokens / 1000).toFixed(1)}K`;
         const timeWith = `${(s.with.durationMs / 1000).toFixed(1)}s`;
         const timeWithout = `${(s.without.durationMs / 1000).toFixed(1)}s`;
-        lines.push(`| ${s.scenarioName} | ${s.required ? '✅' : '—'} | ${winnerIcon} ${s.pairwiseJudgement.winner} (${s.pairwiseJudgement.confidence}) | $${costWith} / $${costWithout} | ${tokWith} / ${tokWithout} | ${timeWith} / ${timeWithout} |`);
+        lines.push(`| ${s.scenarioName} | ${s.required ? '✅' : '—'} | ${winnerLabel} (${s.pairwiseJudgement.confidence}) | $${costWith} / $${costWithout} | ${tokWith} / ${tokWithout} | ${timeWith} / ${timeWithout} |`);
     }
     for (const s of (scenarios ?? [])) {
         lines.push('', `<details><summary>${s.scenarioName}</summary>`, '', s.reason, '');
-        lines.push('**Assertions (with):**', ...s.with.assertions.map(a => `- ${a.status === 'passed' ? '✅' : '❌'} ${a.name}${a.score !== undefined ? ` (${a.score}/10)` : ''}${a.message ? `: ${a.message}` : ''}`), '');
-        lines.push('**Assertions (without):**', ...s.without.assertions.map(a => `- ${a.status === 'passed' ? '✅' : '❌'} ${a.name}${a.score !== undefined ? ` (${a.score}/10)` : ''}${a.message ? `: ${a.message}` : ''}`), '');
+        if (projectId && s.with.runId)
+            lines.push(`[View run (with draft tag)](${(0, evalforge_1.evalRunUrl)(projectId, s.with.runId, s.with.name)})`, '');
+        if (projectId && s.without.runId)
+            lines.push(`[View run (without draft tag)](${(0, evalforge_1.evalRunUrl)(projectId, s.without.runId, s.without.name)})`, '');
+        lines.push('**Assertions (with draft tag):**', ...s.with.assertions.map(assertionLine), '');
+        lines.push('**Assertions (without draft tag):**', ...s.without.assertions.map(assertionLine), '');
         if (s.pairwiseJudgement.dimensions) {
             lines.push('**Dimensions:**', ...Object.entries(s.pairwiseJudgement.dimensions).map(([k, v]) => `- ${k}: **${v.winner}**`), '');
         }
@@ -34870,8 +34882,9 @@ exports.TERMINAL_RUN_STATUSES = ['completed', 'failed', 'cancelled'];
 exports.DRAFT_PREFIX = 'draft:';
 // Human-facing EvalForge results page (distinct from the REST `baseUrl` the client calls).
 const UI_BASE = 'https://bo.wix.com/pages/evalforge';
-function evalRunUrl(projectId, runId) {
-    return `${UI_BASE}/${projectId}/results?runId=${runId}`;
+function evalRunUrl(projectId, runId, name) {
+    const nameParam = name ? `&name=${encodeURIComponent(name)}` : '';
+    return `${UI_BASE}/${projectId}/results?runId=${runId}${nameParam}`;
 }
 function draftTagFor(repo, prNumber) {
     return `${exports.DRAFT_PREFIX}${repo}#${prNumber}`;
@@ -35201,7 +35214,13 @@ async function runGate() {
     core.info(`Eval pipeline comparison started: comparisonGroupId=${comparison.comparisonGroupId}`);
     try {
         const done = await (0, eval_pipeline_1.pollUntilComparisonDone)(pipeline, comparison.comparisonGroupId);
-        await comment((0, comment_1.formatComparisonResult)(done));
+        for (const s of (done.result.scenarios ?? [])) {
+            if (s.with.runId)
+                core.info(`${s.scenarioName} [with draft tag]: ${(0, evalforge_1.evalRunUrl)(config.projectId, s.with.runId, s.with.name)}`);
+            if (s.without.runId)
+                core.info(`${s.scenarioName} [without draft tag]: ${(0, evalforge_1.evalRunUrl)(config.projectId, s.without.runId, s.without.name)}`);
+        }
+        await comment((0, comment_1.formatComparisonResult)(done, config.projectId));
         if (config.autoApprove && allScenariosRequired(done.result)) {
             await octokit.rest.pulls.createReview({
                 owner: config.owner,
