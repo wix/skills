@@ -101,8 +101,8 @@ export class EvalPipelineClient {
     return res.json() as Promise<T>;
   }
 
-  async runComparison(tags: string[], agentName: string): Promise<ComparisonResult> {
-    return this.post<ComparisonResult>('/run-comparison', { tags, agentName });
+  async runComparison(tags: string[], agentName: string, commitSha?: string, skillsRepo?: string): Promise<ComparisonResult> {
+    return this.post<ComparisonResult>('/run-comparison', { tags, agentName, commitSha, skillsRepo });
   }
 
   async compareGroup(comparisonGroupId: string): Promise<CompareGroupStatus> {
