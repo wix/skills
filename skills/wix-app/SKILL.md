@@ -377,3 +377,13 @@ Stop and report errors if any step fails. Check `.wix/debug.log` on failures.
 ## Documentation
 
 For links to official Wix CLI documentation for all extension types, see [DOCUMENTATION.md](references/DOCUMENTATION.md).
+
+## CSS modules — typing (do this right to avoid build loops)
+
+This project ships an ambient declaration at `src/css-modules.d.ts` for `*.module.css`,
+so `import styles from './x.module.css'` typechecks out of the box.
+
+- Do **NOT** hand-write your own CSS-module `.d.ts` — a malformed one causes `TS1127` /
+  `TS1434` errors and a wasted fix loop.
+- If `tsc` ever reports `TS2307: Cannot find module './x.module.css'`, run `npx astro sync`
+  (which regenerates `.astro/types.d.ts`) instead of creating a declaration file.
