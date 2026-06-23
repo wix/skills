@@ -124,7 +124,6 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 - **Any sales/business improvement request** (boost sales, promotions, help my business, holiday deals, improve revenue, discounts, shipping, coupons, clearance) → use [Recommend: eCommerce Strategy](references/ecommerce/recommend-ecommerce-strategy.md). This is the **default entry point** — it analyzes ALL domains (discounts, shipping) and generates cross-domain recommendations. Do NOT ask clarifying questions.
 - **Pricing & promotions** (coupons, discount rules, ribbons, sales) → use the [Pricing & Promotions](references/ecommerce/ecom-pricing.md) dispatcher.
 - **Shipping setup** (rates, regions, pickup, free shipping, fix coverage) → use the [Shipping](references/ecommerce/ecom-shipping.md) dispatcher.
-- **Checkout drop-off / configuration** → use the [Checkout & Cart](references/ecommerce/ecom-checkout.md) dispatcher.
 
 ### [eCommerce: Load Context](references/ecommerce/ecom-load-context.md)
 **L1 loader** — loads general site data (siteId, country, currency, industry, catalog analytics) needed by every eCommerce category. Each category dispatcher loads this before tag-matching; runs once per session.
@@ -137,9 +136,6 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 
 ### [Shipping](references/ecommerce/ecom-shipping.md)
 **Dispatcher** — routes shipping-setup requests (rates, regions, pickup, free shipping, fix coverage, optimize rates) to the right leaf recipe. The Shipping Options + Delivery Profiles APIs have no public docs page; `ecom-shipping-api.md` is the authoritative inline reference.
-
-### [Checkout & Cart](references/ecommerce/ecom-checkout.md)
-**Dispatcher** — routes live checkout drop-off / failure questions to `ecom-checkout-troubleshoot-dropoff`. Most checkout *configuration* (guest checkout, minimum order, custom fields) is Dashboard-only — the dispatcher tells the merchant where to go.
 
 <details>
 <summary>Internal skills (loaded automatically by the dispatchers / orchestrator above — do NOT use directly)</summary>
@@ -160,14 +156,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 - [Fix Coverage Gaps](references/ecommerce/shipping/ecom-shipping-fix-coverage.md)
 - [API Reference](references/ecommerce/shipping/ecom-shipping-api.md) — inline spec for Shipping Options + Delivery Profiles
 
-#### Checkout leaves (loaded by the Checkout dispatcher)
-- [Troubleshoot Delivery Drop-off](references/ecommerce/checkout/ecom-checkout-troubleshoot-dropoff.md)
-
 #### Cross-cutting tracking
 - [API: Recommendation Tracking](references/ecommerce/api-recommendation-tracking.md) — load BEFORE generating any recommendation; persists PROPOSED state and tracks MarkExecuting → MarkDone/MarkFailed.
 
-#### Reference
-- [Skill Graph](references/ecommerce/skill-graph.md)
 
 </details>
 
