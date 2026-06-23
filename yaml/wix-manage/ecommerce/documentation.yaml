@@ -136,22 +136,6 @@ apiDoc:
       tags: [ecommerce]
 
     # ============================================================
-    # Checkout & cart category
-    # Most checkout settings (guest checkout, min order, custom fields) are
-    # Dashboard-only — see ecom-checkout.md.
-    # ============================================================
-
-    - file: ../../../skills/wix-manage/references/ecommerce/ecom-checkout.md
-      title: "Checkout & Cart"
-      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
-      tags: [ecommerce]
-
-    - file: ../../../skills/wix-manage/references/ecommerce/checkout/ecom-checkout-troubleshoot-dropoff.md
-      title: "Checkout: Troubleshoot Delivery Drop-off"
-      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
-      tags: [ecommerce]
-
-    # ============================================================
     # Carry-forward root orchestrator (not yet in routing tree)
     # The strategy orchestrator is preserved at its main-branch URL.
     # ABANDONED_CART branch removed; classification falls back to the
@@ -161,11 +145,5 @@ apiDoc:
 
     - file: ../../../skills/wix-manage/references/ecommerce/recommend-ecommerce-strategy.md
       title: "Recommend: eCommerce Strategy"
-      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
-      tags: [ecommerce]
-
-    # Author / planning aid — Mermaid diagram of the kept routing tree.
-    - file: ../../../skills/wix-manage/references/ecommerce/skill-graph.md
-      title: "Skill Graph"
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
       tags: [ecommerce]
