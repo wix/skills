@@ -1,7 +1,30 @@
-name: ecommerce/pricing-promotions/create-coupon-renamed-slug
-description: Create a 20% off coupon with code SUMMER20 that expires June 30, 2026.
-triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) Create a 20% off coupon with code SUMMER20 that expires June 30, 2026
+name: ecommerce/pricing-promotions/create-coupon
+description: Convert a COUPON recommendation from the eCommerce strategy into a Wix coupon via the Coupons API.
+triggerPrompt: |
+  For my Wix store, I ran the eCommerce strategy and got this recommendation output:
+
+  {
+    "mechanism": "COUPON",
+    "scope": "SITE",
+    "categoryIds": [],
+    "name": "Tech Insider Deal",
+    "discountType": "PERCENTAGE",
+    "discount": 20,
+    "code": "TECH20",
+    "usageLimit": 100,
+    "limitPerCustomer": 1,
+    "conditions": {
+      "startDate": "2026-06-01",
+      "endDate": "2026-06-30"
+    }
+  }
+
+  Convert this recommendation into a coupon using the Wix Coupons API.
 tags: [ecommerce]
+siteSetup:
+  mode: TEMPLATE
+  templateOptions:
+    templateId: stores-v3-editor
 assertions:
   - tool: ReadFullDocsArticle
     params:
@@ -10,16 +33,16 @@ assertions:
     minScore: 7
     maxTokens: 2048
     prompt: |
-      Evaluate the agent's response to "Create a 20% off coupon with code SUMMER20 that expires June 30, 2026".
+      The agent received a COUPON recommendation object and was asked to convert it into a Wix coupon.
+
+      The agent is converting a pre-approved recommendation — guardrails already ran in the strategy orchestrator, so they are NOT required here.
 
       Pass if ALL of these are true:
-        1. The agent loaded the `pricing-create-coupon` skill (NOT the legacy `setup-coupons` slug).
-        2. Before creating, it ran a uniqueness/query check (POST https://www.wixapis.com/v2/coupons/query) to look for duplicate codes.
-        3. The create-coupon payload uses `percentOffRate: 20`, `code: "SUMMER20"`, and `expirationTime` as UNIX epoch in MILLISECONDS — value should be 1782777600000 (2026-06-30T00:00:00Z) or near it (a value ending in three zeros, in the billions/trillions range).
-        4. It explained the scope choice (typically applying to all store products by default).
+        1. The agent loaded the `pricing-create-coupon` recipe (NOT the legacy `setup-coupons` slug).
+        2. The create payload correctly maps recommendation fields: `percentOffRate: 20`, `code: "TECH20"`, `usageLimit: 100`, `limitPerCustomer: 1`, and `expirationTime` in UNIX milliseconds for 2026-06-30 (value ~1782777600000, ending in three zeros).
+        3. It applied the recommendation's `scope: "SITE"` — no category filter.
 
       Fail if ANY of these are true:
         - The agent used the legacy `setup-coupons` slug or its content.
-        - `expirationTime` was sent in seconds (~1782777600, ten-digit integer) instead of milliseconds.
-        - The agent skipped the duplicate-code check.
-        - The agent invented coupon fields not in the Coupons API spec.
+        - `expirationTime` was sent in seconds (ten-digit integer) instead of milliseconds.
+        - The agent ignored the recommendation fields and invented its own coupon parameters.

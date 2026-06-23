@@ -226,6 +226,8 @@ Instead of targeting a scope, you can require a minimum cart subtotal. This is a
 | Free shipping | `freeShipping` | Boolean `true` | `"freeShipping": true` |
 | Buy X Get Y | `buyXGetY` | Object with `x` and `y` fields | `"buyXGetY": {"x": 2, "y": 1}` |
 
+> **Note**: Free shipping as an **automatic discount rule** is NOT supported — use the `freeShipping` coupon type here, or configure a free-shipping rate via the Shipping Options API.
+
 ## Scope values for Wix Stores
 
 | Scope target | `namespace` | `group.name` | `group.entityId` |
@@ -338,6 +340,7 @@ When the recommendation output has `mechanism: "COUPON"`, use this mapping to co
 
 | Error | Cause | Fix |
 |---|---|---|
+| `"When scope or minimumSubtotal is not used - only FreeShipping coupon is allowed"` | Coupon sent without `scope` or `minimumSubtotal` | Add `scope: { "namespace": "stores", "group": { "name": "product" } }` for site-wide, or set `minimumSubtotal` |
 | Duplicate code | Another coupon uses the same code | Generate a different code |
 | Invalid startTime | Value too low (must be epoch ms, not seconds) | Multiply by 1000 if in seconds |
 | Both scope and minimumSubtotal set | These are oneOf — cannot use both | Choose scope OR minimumSubtotal |

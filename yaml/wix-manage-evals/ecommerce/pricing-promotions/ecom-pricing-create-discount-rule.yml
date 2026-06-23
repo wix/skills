@@ -1,7 +1,27 @@
 name: ecommerce/pricing-promotions/create-discount-rule
-description: Create an automatic 15% off discount on the Winter Collection category that runs December 1 through December 31 — no coupon code needed.
-triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) Create an automatic 15% off discount on the "Winter Collection" category that runs from December 1 to December 31, 2026 — no coupon code needed.
+description: Convert a DISCOUNT_RULE recommendation from the eCommerce strategy into a Wix discount rule via the Discount Rules API.
+triggerPrompt: |
+  For my Wix store, I ran the eCommerce strategy and got this recommendation output:
+
+  {
+    "mechanism": "DISCOUNT_RULE",
+    "scope": "SPECIFIC",
+    "categoryIds": ["summer-clearance"],
+    "name": "Summer Clearance",
+    "discountType": "PERCENTAGE",
+    "discount": 25,
+    "conditions": {
+      "startDate": "2026-07-01",
+      "endDate": "2026-07-31"
+    }
+  }
+
+  Convert this recommendation into a discount rule using the Wix Discount Rules API.
 tags: [ecommerce]
+siteSetup:
+  mode: TEMPLATE
+  templateOptions:
+    templateId: stores-v3-editor
 assertions:
   - tool: ReadFullDocsArticle
     params:
@@ -10,5 +30,17 @@ assertions:
     minScore: 7
     maxTokens: 2048
     prompt: |
-      Pass if the response loads the create-discount-rule recipe (NOT create-coupon) and (a) uses POST `ecom/v1/discount-rules` with `percentage: 15`, (b) scopes the rule to the Winter Collection (SPECIFIC catalog scope, not CATALOG-wide), (c) sets an active period bounded to December 1–31 2026, and (d) surfaces at least one inlined guardrail (conflict/stacking, 25% cap, 15% margin floor, or %-sanity).
-      Fail if it routes to create-coupon (a coupon needs a code; the merchant explicitly said no code), invents endpoints outside `ecom/v1/discount-rules`, omits the scope filter, or omits ALL guardrails.
+      The agent received a DISCOUNT_RULE recommendation object and was asked to convert it into a Wix discount rule.
+
+      The agent is converting a pre-approved recommendation — guardrails already ran in the strategy orchestrator, so they are NOT required here.
+
+      Pass if ALL of these are true:
+        1. The agent loaded the `pricing-create-discount-rule` recipe (NOT create-coupon — no code is involved).
+        2. The create payload maps recommendation fields: `percentage: 25`, name "Summer Clearance", scoped to the "summer-clearance" category (SPECIFIC scope, not CATALOG-wide).
+        3. The active period is bounded to July 1–31 2026.
+
+      Fail if ANY of these are true:
+        - The agent routed to create-coupon or added a coupon code.
+        - Scope is CATALOG-wide instead of the specific category.
+        - The agent invented endpoints outside `ecom/v1/discount-rules`.
+        - The agent ignored the recommendation fields and invented its own parameters.
