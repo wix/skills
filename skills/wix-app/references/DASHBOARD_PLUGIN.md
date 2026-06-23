@@ -27,15 +27,17 @@ For the complete list of available slot IDs, see [Slots Reference](dashboard-plu
 - **React** — Component logic and state management
 - **Wix SDK** — Access Wix business solutions and site data
 - **Wix Dashboard SDK** (`@wix/dashboard`) — Interact with the dashboard page's data passed to the slot
-- **Wix Design System** (`@wix/design-system`) — Native-looking React components matching Wix's own dashboard UI
+- **Plain React + CSS modules** — Build the plugin UI with plain React elements styled via a co-located `<name>.module.css`. Do NOT import `@wix/design-system`.
 
 ## Interacting with Dashboard Data
 
 Use `observeState()` from the Dashboard SDK to receive data from the host dashboard page:
 
 ```typescript
+// plugin.tsx
 import { dashboard } from "@wix/dashboard";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FC } from "react";
+import styles from "./plugin.module.css";
 
 const Plugin: FC = () => {
   const [params, setParams] = useState<Record<string, unknown>>({});
@@ -47,15 +49,29 @@ const Plugin: FC = () => {
   }, []);
 
   return (
-    <WixDesignSystemProvider features={{ newColorsBranding: true }}>
-      <Card>
-        <Card.Content size="medium">
-          <Text>Received data: {JSON.stringify(params)}</Text>
-        </Card.Content>
-      </Card>
-    </WixDesignSystemProvider>
+    <div className={styles.card}>
+      <p className={styles.text}>Received data: {JSON.stringify(params)}</p>
+    </div>
   );
 };
+
+export default Plugin;
+```
+
+```css
+/* plugin.module.css */
+.card {
+  background: #fff;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+  padding: 24px;
+}
+
+.text {
+  margin: 0;
+  font-size: 14px;
+  color: #333;
+}
 ```
 
 ### Typed Props from Host Apps

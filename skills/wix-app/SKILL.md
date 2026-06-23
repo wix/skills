@@ -24,8 +24,7 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
 - [ ] **Step 3:** Checked API references; used MCP discovery only for gaps
 - [ ] **Step 4a:** Scaffolded each CLI-supported extension via `wix generate --params`
 - [ ] **Step 4b:** Filled in business logic in the generated files
-  - [ ] Invoked `wix-design-system` skill ONLY before editing the first `.tsx`/`.jsx` file that imports `@wix/design-system`. Skip for backend-only or data-only extensions.
-  - [ ] WDS: imported `@wix/design-system/styles.global.css` in the main component entry file (`page.tsx`, modal `.tsx`, etc.) — not child/tab/helper files.
+  - [ ] Built all UI with **plain React + CSS modules** (a co-located `<name>.module.css`). Did NOT import `@wix/design-system` and did NOT load the `wix-design-system` skill.
 - [ ] **Step 5:** Ran validation (see [Validation](#validation))
   - [ ] Dependencies installed
   - [ ] TypeScript compiled
@@ -257,9 +256,36 @@ If the command fails because of unknown or invalid params, run `npx wix schema g
 
 Open every path returned in `newFiles` and replace stubbed handler bodies / UI / queries with the user's actual logic, guided by the extension reference file's API and configuration sections.
 
-- ⚠️ MANDATORY when using WDS: Invoke the `wix-design-system` skill **before editing your first `.tsx`/`.jsx` file that imports `@wix/design-system`**. Do NOT invoke it preemptively for backend-only or data-only jobs — it adds large content to context that you won't use.
-- ⚠️ MANDATORY when using WDS: Add `import "@wix/design-system/styles.global.css";` in the **main component** entry file (`page.tsx`, modal `.tsx`, etc.) — not in child/tab/helper files.
+- ⚠️ MANDATORY for all UI: Build dashboard pages, modals, plugins, settings panels, and widgets with **plain React + CSS modules**. Each styled component imports a co-located `<name>.module.css` (`import styles from './<name>.module.css'`) and uses `className={styles.*}`. Do NOT import `@wix/design-system`, do NOT render `<WixDesignSystemProvider>`, and do NOT load the `wix-design-system` skill. The CLI scaffolds entry files wired to WDS; the scaffolding tool already rewrites them to a plain React + CSS-modules skeleton (with a sibling `.module.css` exposing `styles.root/header/title/content`) — extend that skeleton, never re-add WDS.
+- ⚠️ See the [WDS → plain React + CSS modules mapping](#wds--plain-react--css-modules-mapping) below to translate any WDS-shaped guidance in the references into plain elements + CSS classes.
 - ⚠️ MANDATORY when using Data Collections: Use the EXACT collection ID from `idSuffix` (case-sensitive). If `idSuffix` is `"product-recommendations"`, use `<app-namespace>/product-recommendations` NOT `productRecommendations`.
+
+#### WDS → plain React + CSS modules mapping
+
+The reference files describe layouts in Wix Design System terms. Translate every WDS component to a plain HTML element styled with a CSS-module class. **No `@wix/design-system` import may appear anywhere.** Keep the dashboard design guidance (6px spacing unit, 1248px max content width, 24px card gaps) — express it in the `.module.css`.
+
+| WDS component | Plain React + CSS modules |
+| --- | --- |
+| `<WixDesignSystemProvider>` | Remove entirely — no provider needed |
+| `<Page>` / `<Page.Content>` | `<div className={styles.page}>` / `<div className={styles.content}>` |
+| `<Page.Header title=… actionsBar=…>` | `<header className={styles.header}>` with an `<h1>` + an actions `<div>` |
+| `<Card>` / `<Card.Header>` / `<Card.Content>` | `<div className={styles.card}>` / `<div className={styles.cardHeader}>` / `<div className={styles.cardContent}>` |
+| `<Layout>` / `<Cell>` | `<div className={styles.layout}>` (CSS grid/flex) / `<div className={styles.cell}>` |
+| `<FormField label=…>` | `<label className={styles.field}>` with a `<span className={styles.label}>` |
+| `<Input>` | `<input className={styles.input}>` |
+| `<Dropdown>` / `<Dropdown options>` | `<select className={styles.select}>` with `<option>` children |
+| `<Checkbox>` / `<ToggleSwitch>` | `<input type="checkbox" className={styles.checkbox}>` |
+| `<Button>` | `<button className={styles.button}>` |
+| `<Table>` / `<TableToolbar>` | `<table className={styles.table}>` + `<thead>`/`<tbody>`/`<tr>`/`<th>`/`<td>` |
+| `<EmptyState>` | `<div className={styles.emptyState}>` with a heading, text, and CTA `<button>` |
+| `<Loader>` | a spinner `<div className={styles.loader} role="status" aria-label="Loading">` (animate with CSS `@keyframes`) |
+| `<Text>` | `<span>` / `<p>` |
+| `<Heading>` | `<h1>`/`<h2>`/`<h3>` |
+| `<Box>` | `<div>` (flex/grid via the class) |
+| `<Badge>` | `<span className={styles.badge}>` |
+| `<FillPreview>` (color swatch) | `<button className={styles.swatch} style={{ background: value }}>` |
+
+Color/font pickers still use `inputs.selectColor()` / `inputs.selectFont()` from `@wix/editor` — only the visual trigger changes from a WDS `FillPreview`/`Button` to a plain swatch `<button>`.
 
 ### Step 5: Run Validation
 
@@ -346,7 +372,7 @@ Stop and report errors if any step fails. Check `.wix/debug.log` on failures.
 - **Skip discovery** when all required APIs are in reference files
 - **maxResults: 5** for all MCP SDK searches
 - **ReadFullDocsMethodSchema** for SDK method schemas; **ReadFullDocsArticle** for prose guides only
-- **Invoke wix-design-system** first when using WDS (prevents import errors)
+- **Build UI with plain React + CSS modules** — no `@wix/design-system`, no `wix-design-system` skill (it would add large unused content to context)
 
 ## Documentation
 
