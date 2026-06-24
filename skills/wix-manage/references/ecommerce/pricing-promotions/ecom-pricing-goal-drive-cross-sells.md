@@ -6,7 +6,11 @@ description: BUNDLE_AND_SAVE goal — always load BEFORE recommending bundling /
 
 > **Routing rule (READ FIRST).** Any merchant query about cross-sells, bundling, "buy together", multi-item purchases, or items-per-order MUST load this recipe before any flow-* recipe. Do NOT route directly to [Flow: Bundle and Save](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-bundle-and-save) from the WixREADME index — this goal owns the catalog-profile→bundle-shape matrix and the **per-recommendation multi-item-structure requirement** (every recommendation MUST use `minItemQuantity` or an equivalent multi-item condition — plain single-item percent-off recommendations FAIL this goal). The flow is a sub-step.
 >
-> **Then** call `ReadFullDocsArticle` on [Flow: Bundle and Save](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-bundle-and-save) before executing any API call — it defines the required discount-rule mechanics (minItemQuantity condition, catalog data steps, guardrails) for this goal.
+> ⛔ **MANDATORY — call this NOW before any API call or recommendation generation:**
+> ```
+> ReadFullDocsArticle("https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-bundle-and-save")
+> ```
+> The flow defines the required discount-rule mechanics (minItemQuantity condition, catalog data steps, guardrails). Without it, your recommendations will lack the correct structure.
 
 Promote product discovery and multi-item purchases by creating bundle-based discounts that reward customers for buying across categories or adding complementary items to their cart.
 

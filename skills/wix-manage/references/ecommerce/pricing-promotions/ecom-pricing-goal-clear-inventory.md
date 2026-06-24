@@ -6,7 +6,11 @@ description: STOCK_MOVER clearance goal — always load BEFORE recommending any 
 
 > **Routing rule (READ FIRST).** Any merchant query about clearing slow / overstocked / dead / stagnant inventory MUST load this recipe before any other clearance recipe. Do NOT route directly to [Flow: Stock Mover](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-stock-mover) from the WixREADME index — this goal owns the velocity scoring, discount tiers, **margin-floor guardrail**, and the per-recommendation presentation rules. The flow is a sub-step.
 >
-> **Then:** call `ReadFullDocsArticle` on [Flow: Stock Mover](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-stock-mover) before executing any API call. The guardrail is also enforced in [Create Discount Rule](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-discount-rule) → "Guardrails".
+> ⛔ **MANDATORY — call this NOW before any API call or recommendation generation:**
+> ```
+> ReadFullDocsArticle("https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-stock-mover")
+> ```
+> The guardrail is also enforced in [Pricing: Create Discount Rule](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-discount-rule) → "Guardrails".
 
 Automate clearance discounts for products with high stock levels and low sales velocity, converting stagnant inventory into revenue before it becomes a carrying cost liability.
 

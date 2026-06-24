@@ -6,9 +6,14 @@ description: UPSELL_BOOST goal — always load BEFORE recommending AOV / upsell 
 
 > **Routing rule (READ FIRST).** Any merchant query about increasing AOV, upselling, "boosting sales", or open-ended "help my business" prompts MUST load this recipe before any flow-* recipe. Do NOT route directly to [Flow: Upsell Boost](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-upsell-boost) from the WixREADME index — this goal owns the cross-domain lever map (discount + shipping + bundle), the catalog→lever-selection rules, and the per-recommendation **multi-lever mix requirement** that an open "boost sales" prompt must satisfy. The flows are sub-steps.
 >
-> **Then** call `ReadFullDocsArticle` on [Flow: Upsell Boost](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-upsell-boost) before executing any API call — it defines the minSubTotal mechanics, margin tiers, and guardrails required for this goal.
->
-> If the merchant's request also covers bundle/cross-sell intent, also load [Flow: Bundle and Save](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-bundle-and-save).
+> ⛔ **MANDATORY — call these NOW before any API call or recommendation generation:**
+> ```
+> ReadFullDocsArticle("https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-upsell-boost")
+> ```
+> If the request covers bundle/cross-sell intent too:
+> ```
+> ReadFullDocsArticle("https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-bundle-and-save")
+> ```
 >
 > **Shipping flows that also serve AOV goals** (load if shipping domain is active):
 > - [Flow: Add Free Shipping](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping-add-free-shipping) — free shipping threshold pushes carts above AOV

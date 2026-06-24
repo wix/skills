@@ -1,6 +1,6 @@
 name: ecommerce/ecom-load-context
-description: Resolve my eCommerce site context (siteId, country, currency) before I ask anything else about my store.
-triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) Resolve my eCommerce site context (siteId, country, currency) before I ask anything else about my store.
+description: Load my full eCommerce store context — siteId, country, currency, industry, last-30-day visitor count, order count, and GPV.
+triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) load my full eCommerce store context before I ask about anything else. I need siteId, country, currency, industry type, last-30-day visitor count, order count, and gross payment volume (GPV).
 tags: [ecommerce]
 assertions:
   - tool: ReadFullDocsArticle
@@ -10,5 +10,5 @@ assertions:
     minScore: 7
     maxTokens: 2048
     prompt: |
-      Pass if the response loads the eCommerce Load Context recipe, resolves siteId for Gracia (either via ListWixSites or by recognizing the site from the prompt), and reports or describes loading at least siteId plus country and currency before dispatching to any category.
-      Fail if the response skips context loading and dispatches directly to a category recipe, or invents fields that are not in the load-context recipe.
+      Pass if the response loads the eCommerce Load Context recipe, resolves siteId for Gracia, and reports all of: siteId, country, currency, industry, last-30-day visitor count (visitors30d), last-30-day order count (orders30d), and GPV — using the wix-profile-client metasite endpoint (NOT just site-properties).
+      Fail if the response uses only the site-properties endpoint and misses visitor count, order count, or GPV. Fail if the response skips loading the recipe and invents field values.

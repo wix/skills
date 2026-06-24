@@ -24,15 +24,21 @@ references:
 ---
 # Recommend: eCommerce Strategy
 
+> ⛔ **MANDATORY PRE-STEP — do this BEFORE Step 1 (before any API call).**
 >
-> **After classifying domains in Step 4b**, load the matching goal skill with `ReadFullDocsArticle`:
-> - **SEASONAL** → [Goal: Seasonal Revenue](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-seasonal-revenue)
-> - **UPSELL_BOOST** / **SHIPPING** → [Goal: Increase AOV](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-increase-aov) (includes both discount and shipping flows)
-> - **STOCK_MOVER** → [Goal: Clear Inventory](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-clear-inventory)
-> - **BUNDLE_AND_SAVE** → [Goal: Drive Cross-Sells](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-drive-cross-sells)
+> Classify the merchant's request and immediately call `ReadFullDocsArticle` on the matching goal skill. Do NOT gather data first — the goal skill tells you which metrics to pull and what guardrails to apply.
 >
-> **If COUPON mechanism in Step 4c**, load:
-> - [Setup: Coupons](https://dev.wix.com/docs/api-reference/business-solutions/coupons)
+> | Merchant intent | Goal to load |
+> |---|---|
+> | Holiday / event / date mentioned | `ReadFullDocsArticle` → [Goal: Seasonal Revenue](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-seasonal-revenue) |
+> | "increase AOV", "spend more", "upsell", "boost sales", generic sales improvement | `ReadFullDocsArticle` → [Goal: Increase AOV](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-increase-aov) |
+> | "clear inventory", "overstock", "clearance", "slow-moving" | `ReadFullDocsArticle` → [Goal: Clear Inventory](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-clear-inventory) |
+> | "bundle", "cross-sell", "buy together", "more items per order" | `ReadFullDocsArticle` → [Goal: Drive Cross-Sells](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-drive-cross-sells) |
+>
+> After loading the goal skill, continue from Step 1 below. The goal skill will instruct you to load the matching flow skill — follow those instructions too.
+>
+> **If COUPON mechanism in Step 4c**, also load:
+> - [Pricing: Create Coupon](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-coupon)
 
 ## EXECUTION RULES — READ BEFORE ANYTHING ELSE
 
@@ -436,7 +442,13 @@ Analyze the site's shipping configuration using the rules below. All shipping re
 
 **MANDATORY — do NOT skip unless the user said `SKIP_TRACKING`.**
 
-Call `BatchCreate` to persist ALL recommendations as PROPOSED:
+Before calling BatchCreate, load the tracking recipe to get the exact request body shape:
+
+```
+ReadFullDocsArticle("https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/api-recommendation-tracking")
+```
+
+Then call `BatchCreate` to persist ALL recommendations as PROPOSED:
 
 ```
 CallWixSiteAPI(
