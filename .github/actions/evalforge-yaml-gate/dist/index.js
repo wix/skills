@@ -34218,6 +34218,7 @@ exports.formatLoadErrors = formatLoadErrors;
 exports.formatOrphanedMds = formatOrphanedMds;
 exports.formatUncovered = formatUncovered;
 exports.formatForeignDraftConflicts = formatForeignDraftConflicts;
+exports.formatTooManyNewSkills = formatTooManyNewSkills;
 exports.formatServiceError = formatServiceError;
 exports.formatEvalPassed = formatEvalPassed;
 exports.formatEvalFailed = formatEvalFailed;
@@ -34265,6 +34266,18 @@ function formatForeignDraftConflicts(errs, _pull) {
         ...lines,
     ]);
 }
+function formatTooManyNewSkills(count, areas) {
+    return render('❌', 'Too Many New Skills', [
+        `This PR creates **${count} new skill areas**, exceeding the limit of **5 per PR**.`,
+        '',
+        'New skill areas created:',
+        ...areas.map(a => `- \`${a}\``),
+        '',
+        'Please either:',
+        '- Split across multiple PRs',
+        '- Update existing skills instead of creating new ones',
+    ]);
+}
 function formatServiceError(message, blocking) {
     const { icon } = failIcon(blocking);
     return render(icon, blocking ? 'Error' : 'Warning', [message]);
@@ -34304,12 +34317,12 @@ function formatComparisonResult(result, projectId) {
         '',
         `**Verdict:** \`${verdict}\` | **Tag:** \`${tag}\``,
         '',
-        '| Scenario | Required | Winner | Cost (with draft/without) | Tokens (with draft/without) | Time (with draft/without) |',
+        '| Scenario | Required | Winner | Cost (PR / prod) | Tokens (PR / prod) | Time (PR / prod) |',
         '|---|---|---|---|---|---|',
     ];
     for (const s of (scenarios ?? [])) {
         const winner = s.pairwiseJudgement.winner;
-        const winnerLabel = winner === 'tie' ? '≈ tie' : winner === 'with' ? '⬆️ with draft' : '⬇️ without draft';
+        const winnerLabel = winner === 'tie' ? '≈ tie' : winner === 'with' ? '⬆️ PR' : '⬇️ prod';
         const costWith = s.with.totalCostUsd.toFixed(3);
         const costWithout = s.without.totalCostUsd.toFixed(3);
         const tokWith = `${(s.with.totalTokens / 1000).toFixed(1)}K`;
@@ -34321,11 +34334,14 @@ function formatComparisonResult(result, projectId) {
     for (const s of (scenarios ?? [])) {
         lines.push('', `<details><summary>${s.scenarioName}</summary>`, '', s.reason, '');
         if (projectId && s.with.runId)
-            lines.push(`[View run (with draft tag)](${(0, evalforge_1.evalRunUrl)(projectId, s.with.runId, s.with.name)})`, '');
+            lines.push(`[View run (PR)](${(0, evalforge_1.evalRunUrl)(projectId, s.with.runId, s.with.name)})`, '');
         if (projectId && s.without.runId)
-            lines.push(`[View run (without draft tag)](${(0, evalforge_1.evalRunUrl)(projectId, s.without.runId, s.without.name)})`, '');
-        lines.push('**Assertions (with draft tag):**', ...s.with.assertions.map(assertionLine), '');
-        lines.push('**Assertions (without draft tag):**', ...s.without.assertions.map(assertionLine), '');
+            lines.push(`[View run (prod)](${(0, evalforge_1.evalRunUrl)(projectId, s.without.runId, s.without.name)})`, '');
+        lines.push('**Assertions (PR):**', ...s.with.assertions.map(assertionLine), '');
+        lines.push('**Assertions (prod):**', ...s.without.assertions.map(assertionLine), '');
+        if (s.pairwiseJudgement.reasoning) {
+            lines.push(`**Compare result:** ${s.pairwiseJudgement.reasoning}`, '');
+        }
         if (s.pairwiseJudgement.dimensions) {
             lines.push('**Dimensions:**', ...Object.entries(s.pairwiseJudgement.dimensions).map(([k, v]) => `- ${k}: **${v.winner}**`), '');
         }
@@ -35141,6 +35157,12 @@ async function runGate() {
         (0, github_1.fail)(`${orphanedMds.length} changed .md file(s) not registered in documentation.yaml`, config.blocking);
         return;
     }
+    if (classifiedChanges.newSkillAreas.size > 5) {
+        const newAreas = Array.from(classifiedChanges.newSkillAreas).sort();
+        await comment((0, comment_1.formatTooManyNewSkills)(newAreas.length, newAreas));
+        (0, github_1.fail)(`Cannot create more than 5 new skill areas per PR (${newAreas.length} found)`, config.blocking);
+        return;
+    }
     const cov = (0, coverage_1.computeCoverage)(classifiedChanges.mdFiles, headScenarios, (f) => (0, doc_url_1.canonicalDocUrl)(f, workspace));
     if (cov.uncovered.length > 0) {
         await comment((0, comment_1.formatUncovered)(cov.uncovered));
@@ -35305,10 +35327,15 @@ const core = __importStar(__nccwpck_require__(7484));
 const comment_1 = __nccwpck_require__(3116);
 const paths_1 = __nccwpck_require__(6621);
 function classifyChanges(files) {
-    const c = { mdFiles: [], evalsAdded: [], evalsModified: [], evalsRemoved: [] };
+    const c = { mdFiles: [], evalsAdded: [], evalsModified: [], evalsRemoved: [], newSkillAreas: new Set() };
     for (const f of files) {
         if (paths_1.MD_RE.test(f.filename) && f.status !== 'removed') {
             c.mdFiles.push(f);
+            if (f.status === 'added') {
+                const match = paths_1.SKILL_AREA_CAPTURE_RE.exec(f.filename);
+                if (match)
+                    c.newSkillAreas.add(match[1]);
+            }
         }
         else if (paths_1.EVALS_RE.test(f.filename)) {
             if (f.status === 'added')
@@ -35376,10 +35403,12 @@ function makeCommenter(octokit, owner, repo, prNumber) {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.BASE_WORKSPACE_SUBDIR = exports.DOC_YAML_GLOB = exports.EVALS_GLOB = exports.EVALS_AREA_RE = exports.AREA_RE = exports.EVALS_RE = exports.MD_RE = exports.SKILLS_ROOT = void 0;
+exports.BASE_WORKSPACE_SUBDIR = exports.DOC_YAML_GLOB = exports.EVALS_GLOB = exports.EVALS_AREA_RE = exports.AREA_RE = exports.EVALS_RE = exports.SKILL_AREA_CAPTURE_RE = exports.MD_RE = exports.SKILLS_ROOT = void 0;
 exports.SKILLS_ROOT = 'skills/wix-manage/references';
 // `^skills/wix-manage/references/<area>/<basename>.md`
 exports.MD_RE = /^skills\/wix-manage\/references\/[^/]+\/[^/]+\.md$/;
+// Regex to extract skill area from references path (used for detecting new skill areas)
+exports.SKILL_AREA_CAPTURE_RE = /^skills\/wix-manage\/references\/([^/]+)\//;
 // `^yaml/wix-manage-evals/<area>/<rest>.(yml|yaml)`
 exports.EVALS_RE = /^yaml\/wix-manage-evals\/[^/]+\/.+\.(ya?ml)$/;
 // Captures `<area>` from a doc path under SKILLS_ROOT.

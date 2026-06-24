@@ -53,6 +53,19 @@ export function formatForeignDraftConflicts(errs: SyncError[], _pull: { owner: s
   ]);
 }
 
+export function formatTooManyNewSkills(count: number, areas: string[]): string {
+  return render('❌', 'Too Many New Skills', [
+    `This PR creates **${count} new skill areas**, exceeding the limit of **5 per PR**.`,
+    '',
+    'New skill areas created:',
+    ...areas.map(a => `- \`${a}\``),
+    '',
+    'Please either:',
+    '- Split across multiple PRs',
+    '- Update existing skills instead of creating new ones',
+  ]);
+}
+
 export function formatServiceError(message: string, blocking: boolean): string {
   const { icon } = failIcon(blocking);
   return render(icon, blocking ? 'Error' : 'Warning', [message]);

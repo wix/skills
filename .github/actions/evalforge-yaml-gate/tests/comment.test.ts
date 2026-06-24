@@ -52,4 +52,32 @@ describe('comment formatters', () => {
   it('formatNoChanges signals success', () => {
     expect(c.formatNoChanges()).toContain('No Gated Changes');
   });
+
+  it('formatTooManyNewSkills includes count and area names', () => {
+    const out = c.formatTooManyNewSkills(7, ['payments', 'invoicing', 'shipping', 'subscriptions', 'refunds', 'taxes', 'compliance']);
+    expect(out).toContain('7');
+    expect(out).toContain('payments');
+    expect(out).toContain('invoicing');
+    expect(out).toContain('shipping');
+    expect(out).toContain('Too Many New Skills');
+    expect(out).toContain(c.COMMENT_MARKER);
+  });
+
+  it('formatTooManyNewSkills suggests splitting PRs', () => {
+    const out = c.formatTooManyNewSkills(6, ['a', 'b', 'c', 'd', 'e', 'f']);
+    expect(out).toContain('Split across multiple PRs');
+  });
+
+  it('formatTooManyNewSkills shows limit of 5', () => {
+    const out = c.formatTooManyNewSkills(8, ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']);
+    expect(out).toContain('5');
+  });
+
+  it('formatTooManyNewSkills lists all areas', () => {
+    const areas = ['area-one', 'area-two', 'area-three'];
+    const out = c.formatTooManyNewSkills(3, areas);
+    areas.forEach(area => {
+      expect(out).toContain(`\`${area}\``);
+    });
+  });
 });
