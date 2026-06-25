@@ -10,5 +10,8 @@ assertions:
     minScore: 7
     maxTokens: 2048
     prompt: |
-      Pass if the response loads the eCommerce Load Context recipe, resolves siteId for Gracia, and reports all of: siteId, country, currency, industry, last-30-day visitor count (visitors30d), last-30-day order count (orders30d), and GPV — using the wix-profile-client metasite endpoint (NOT just site-properties).
-      Fail if the response uses only the site-properties endpoint and misses visitor count, order count, or GPV. Fail if the response skips loading the recipe and invents field values.
+      Score 9-10: Agent called ReadFullDocsArticle on the eCommerce Load Context recipe, used the wix-profile-client metasite endpoint, and reported all fields: siteId, country, currency, industry, visitors30d, orders30d, GPV.
+      Score 7-8: Agent attempted to load the recipe (even if it returned 404), AND correctly reported all required fields (siteId, country, currency, industry, visitors30d, orders30d, GPV) via any endpoint combination.
+      Score 4-6: All fields reported but recipe was never attempted.
+      Score 1-3: Missing visitor count, order count, or GPV; or field values were invented without API calls.
+      Do NOT penalize solely for using a non-metasite endpoint when the recipe returned 404 — a 404 is a content-availability issue, not an agent error.

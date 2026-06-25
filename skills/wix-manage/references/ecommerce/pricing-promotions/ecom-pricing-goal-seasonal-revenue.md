@@ -6,7 +6,11 @@ description: SEASONAL goal — always load BEFORE recommending any holiday / eve
 
 > **Routing rule (READ FIRST).** Any merchant query that mentions a holiday, cultural event, season, or specific date tied to a discount MUST load this recipe before any flow-* recipe. Do NOT route directly to [Flow: Seasonal Promotion](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-seasonal-promotion) from the WixREADME index — this goal owns the **priority rule** ("holiday/event/date beats all other signals — even 'maximize revenue' / 'boost sales' must classify as SEASONAL when a date is named"), the event calendar, and the per-recommendation time-window presentation rules. The flow is a sub-step.
 >
-> **Then** call `ReadFullDocsArticle` on [Flow: Seasonal Promotion](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-seasonal-promotion) before executing any API call — it defines the event calendar, campaign window calculation, and scope/discount sizing logic required for time-windowed seasonal recommendations.
+> ⛔ **MANDATORY — call this NOW before any API call or recommendation generation:**
+> ```
+> ReadFullDocsArticle("https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-seasonal-promotion")
+> ```
+> Do NOT skip this or defer it — the flow defines the event calendar, campaign window calculation, and discount-sizing logic required to produce correct seasonal recommendations.
 
 Capitalize on holidays, cultural events, and seasonal moments to drive revenue spikes through time-limited promotional campaigns.
 

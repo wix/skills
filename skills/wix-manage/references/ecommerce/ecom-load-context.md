@@ -1,6 +1,6 @@
 ---
 name: "eCommerce: Load Context"
-description: L1-level context loader for the eCommerce domain. Loads ONLY general / cross-cutting site data (siteId, country, region, industry, currency, AOV, traffic signals). Called from every eCommerce category's default.md before tag-matching. Per-category runtime state (Tax calculator, Catalog version, payment provider, …) is detected inside the owning category, NOT here. Skip if already loaded.
+description: "eCommerce L1 context loader — calls wix-profile-client/v4/profile/metasite (NOT site-properties) to load siteId, country, currency, industry, last-30-day visitors/orders/GPV. Skip if already loaded."
 ---
 
 # eCommerce: Load Context

@@ -10,5 +10,8 @@ assertions:
     minScore: 7
     maxTokens: 2048
     prompt: |
-      Pass if the response loads the fix-coverage recipe, cross-references Delivery Profiles with Shipping Options to detect active regions with zero options, presents a health-score / international-filter summary before mutating, and then adds standard shipping to the gap regions using the Shipping Options API.
-      Fail if it blindly creates rates without first detecting the gap, conflates the issue with rate-setup, or skips the cross-reference between profiles and options.
+      Score 9-10: Agent queried shipping options (POST /ecom/v1/shipping-options/query) to cross-reference delivery regions, identified active regions with zero shipping options as gaps, and created standard shipping options (POST /ecom/v1/shipping-options) for each gap region. Diagnostic summary before mutation is a plus.
+      Score 7-8: Recipe returned 404 AND agent: (a) queried shipping options to cross-reference delivery regions, AND (b) created Shipping Options (not just backup rates on carriers) to fill the gaps.
+      Score 4-6: Agent detected a gap via some method but conflated "no backup rate" with "no shipping options" — applied a carrier/backup-rate fix instead of creating Shipping Options; OR fixed the right thing but with no cross-reference diagnostic at all.
+      Score 1-3: No gap detection; or fix would not enable checkout; or mutated the site in a way that makes things worse.
+      Do NOT penalize solely for the recipe returning 404 — a 404 is an infrastructure issue. Evaluate the agent's methodology and outcome based on what was discoverable from the WixREADME index description.

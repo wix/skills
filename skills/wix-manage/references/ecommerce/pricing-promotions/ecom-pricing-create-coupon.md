@@ -1,6 +1,6 @@
 ---
 name: "Pricing: Create Coupon"
-description: Creates and manages coupon codes using the Coupons V2 API. Covers coupon types (percentage, fixed amount, fixed price, free shipping), scope targeting, usage limits, and the mapping from discount recommendations to coupon API payloads.
+description: "PREFERRED recipe for converting a COUPON recommendation (mechanism: COUPON) into a Wix coupon. Use THIS entry — NOT the legacy setup-coupons entry which is superseded. Maps scope/discountType/conditions to Coupons V2 API fields."
 ---
 # Pricing: Create Coupon
 

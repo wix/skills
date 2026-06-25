@@ -1,6 +1,6 @@
 ---
 name: "Shipping: Fix Coverage Gaps"
-description: Detects active delivery regions with zero shipping options and creates standard shipping for them. Cross-references delivery profiles with shipping options to find regions where customers cannot complete checkout.
+description: "Coverage gap = active delivery region with ZERO Shipping Options (NOT zero carriers or no backup rate). Step 1: POST /ecom/v1/delivery-profiles/query. Step 2: POST /ecom/v1/shipping-options/query — count options per region; gap = active region with count 0. Step 3: POST /ecom/v1/shipping-options to create standard shipping for each gap region."
 ---
 # Flow: Fix Shipping Coverage Gaps
 

@@ -1,6 +1,6 @@
 ---
 name: "Shipping: API Reference"
-description: REST API reference for Shipping Options and Delivery Profiles. Covers CRUD operations, region/carrier management, and query patterns for both services. Internal reference — these APIs are not yet published in public docs.
+description: "Shipping Options API: POST /ecom/v1/shipping-options/query (list all), POST /ecom/v1/shipping-options (create), PATCH /ecom/v1/shipping-options/{id} (update), DELETE /ecom/v1/shipping-options/{id} (delete). Delivery Profiles API: POST /ecom/v1/delivery-profiles/query. Base: https://www.wixapis.com/ecom"
 ---
 # API: Shipping Delivery
 

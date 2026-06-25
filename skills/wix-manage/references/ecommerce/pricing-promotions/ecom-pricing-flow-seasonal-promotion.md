@@ -4,7 +4,11 @@ description: SEASONAL sub-flow — load [Goal: Seasonal Revenue] FIRST (it owns 
 ---
 # Flow: Seasonal Promotion
 
-> **Before executing this skill**, read [Create Discount Rule](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-discount-rule) with `ReadFullDocsArticle` — it contains the discount-rule mechanics **and** the pre-create guardrails (conflict/stacking, margin floor, %-sanity).
+> ⛔ **Routing gate — [Goal: Seasonal Revenue](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-seasonal-revenue) must be loaded before this flow.**
+>
+> This flow is a sub-step, not a direct entry point. If you have not yet called `ReadFullDocsArticle` on [Goal: Seasonal Revenue](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-seasonal-revenue) in this conversation, **stop and load it now**. The goal skill owns the SEASONAL classification rule, the time-window presentation requirement, and the priority rule that gates access to this flow.
+>
+> **Before executing this flow**, also read [Create Discount Rule](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-discount-rule) with `ReadFullDocsArticle` — it contains the discount-rule mechanics **and** the pre-create guardrails (conflict/stacking, margin floor, %-sanity).
 
 Creates event-driven promotional discounts tied to holidays, shopping events, or seasonal milestones. The flow identifies upcoming events based on the site's country and current date, calculates optimal campaign start/end windows, and targets event-relevant product categories with appropriately sized discounts.
 
