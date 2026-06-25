@@ -53,6 +53,19 @@ export function formatForeignDraftConflicts(errs: SyncError[], _pull: { owner: s
   ]);
 }
 
+export function formatTooManyNewSkills(count: number, limit: number, files: string[]): string {
+  return render('❌', 'Too Many New Skills', [
+    `This PR creates **${count} new Wix Manage skill .md files**, exceeding the limit of **${limit} per PR**.`,
+    '',
+    'New skill files added:',
+    ...files.map(f => `- \`${f}\``),
+    '',
+    'Please either:',
+    '- Split across multiple PRs',
+    '- Update existing skills instead of creating new ones',
+  ]);
+}
+
 export function formatServiceError(message: string, blocking: boolean): string {
   const { icon } = failIcon(blocking);
   return render(icon, blocking ? 'Error' : 'Warning', [message]);
