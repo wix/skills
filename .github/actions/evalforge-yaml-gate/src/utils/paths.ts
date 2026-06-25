@@ -3,9 +3,6 @@ export const SKILLS_ROOT = 'skills/wix-manage/references';
 // `^skills/wix-manage/references/<area>/<basename>.md`
 export const MD_RE = /^skills\/wix-manage\/references\/[^/]+\/[^/]+\.md$/;
 
-// Regex to extract skill area from references path (used for detecting new skill areas)
-export const SKILL_AREA_CAPTURE_RE = /^skills\/wix-manage\/references\/([^/]+)\//;
-
 // `^yaml/wix-manage-evals/<area>/<rest>.(yml|yaml)`
 export const EVALS_RE = /^yaml\/wix-manage-evals\/[^/]+\/.+\.(ya?ml)$/;
 

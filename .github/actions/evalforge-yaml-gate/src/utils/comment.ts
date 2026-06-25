@@ -53,12 +53,12 @@ export function formatForeignDraftConflicts(errs: SyncError[], _pull: { owner: s
   ]);
 }
 
-export function formatTooManyNewSkills(count: number, areas: string[]): string {
+export function formatTooManyNewSkills(count: number, limit: number, files: string[]): string {
   return render('❌', 'Too Many New Skills', [
-    `This PR creates **${count} new skill areas**, exceeding the limit of **5 per PR**.`,
+    `This PR creates **${count} new Wix Manage skill .md files**, exceeding the limit of **${limit} per PR**.`,
     '',
-    'New skill areas created:',
-    ...areas.map(a => `- \`${a}\``),
+    'New skill files added:',
+    ...files.map(f => `- \`${f}\``),
     '',
     'Please either:',
     '- Split across multiple PRs',

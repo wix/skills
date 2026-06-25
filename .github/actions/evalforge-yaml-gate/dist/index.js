@@ -34266,12 +34266,12 @@ function formatForeignDraftConflicts(errs, _pull) {
         ...lines,
     ]);
 }
-function formatTooManyNewSkills(count, areas) {
+function formatTooManyNewSkills(count, limit, files) {
     return render('❌', 'Too Many New Skills', [
-        `This PR creates **${count} new skill areas**, exceeding the limit of **5 per PR**.`,
+        `This PR creates **${count} new Wix Manage skill .md files**, exceeding the limit of **${limit} per PR**.`,
         '',
-        'New skill areas created:',
-        ...areas.map(a => `- \`${a}\``),
+        'New skill files added:',
+        ...files.map(f => `- \`${f}\``),
         '',
         'Please either:',
         '- Split across multiple PRs',
@@ -34420,6 +34420,14 @@ function getPrNumber() {
         throw new Error('PR payload missing number');
     return n;
 }
+function getPositiveIntegerInput(name, fallback) {
+    const raw = core.getInput(name) || String(fallback);
+    const value = Number(raw);
+    if (!Number.isInteger(value) || value < 1) {
+        throw new Error(`${name} must be a positive integer (received: ${raw})`);
+    }
+    return value;
+}
 function getSimpleConfig() {
     return {
         githubToken: safeGetSecret('github-token'),
@@ -34452,6 +34460,7 @@ function getEvalConfig() {
         agentName: core.getInput('agent-name') || 'agent',
         autoApprove: core.getInput('auto-approve') === 'true',
         triggerEvalCompare: core.getInput('eval-compare') !== 'false',
+        maxNewSkills: getPositiveIntegerInput('max-new-skills', 1),
     };
 }
 
@@ -35157,10 +35166,13 @@ async function runGate() {
         (0, github_1.fail)(`${orphanedMds.length} changed .md file(s) not registered in documentation.yaml`, config.blocking);
         return;
     }
-    if (classifiedChanges.newSkillAreas.size > 5) {
-        const newAreas = Array.from(classifiedChanges.newSkillAreas).sort();
-        await comment((0, comment_1.formatTooManyNewSkills)(newAreas.length, newAreas));
-        (0, github_1.fail)(`Cannot create more than 5 new skill areas per PR (${newAreas.length} found)`, config.blocking);
+    const newSkillFiles = classifiedChanges.mdFiles
+        .filter(f => f.status === 'added')
+        .map(f => f.filename)
+        .sort();
+    if (newSkillFiles.length > config.maxNewSkills) {
+        await comment((0, comment_1.formatTooManyNewSkills)(newSkillFiles.length, config.maxNewSkills, newSkillFiles));
+        (0, github_1.fail)(`Cannot create more than ${config.maxNewSkills} new skill .md files per PR (${newSkillFiles.length} found)`, config.blocking);
         return;
     }
     const cov = (0, coverage_1.computeCoverage)(classifiedChanges.mdFiles, headScenarios, (f) => (0, doc_url_1.canonicalDocUrl)(f, workspace));
@@ -35327,15 +35339,10 @@ const core = __importStar(__nccwpck_require__(7484));
 const comment_1 = __nccwpck_require__(3116);
 const paths_1 = __nccwpck_require__(6621);
 function classifyChanges(files) {
-    const c = { mdFiles: [], evalsAdded: [], evalsModified: [], evalsRemoved: [], newSkillAreas: new Set() };
+    const c = { mdFiles: [], evalsAdded: [], evalsModified: [], evalsRemoved: [] };
     for (const f of files) {
         if (paths_1.MD_RE.test(f.filename) && f.status !== 'removed') {
             c.mdFiles.push(f);
-            if (f.status === 'added') {
-                const match = paths_1.SKILL_AREA_CAPTURE_RE.exec(f.filename);
-                if (match)
-                    c.newSkillAreas.add(match[1]);
-            }
         }
         else if (paths_1.EVALS_RE.test(f.filename)) {
             if (f.status === 'added')
@@ -35403,12 +35410,10 @@ function makeCommenter(octokit, owner, repo, prNumber) {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.BASE_WORKSPACE_SUBDIR = exports.DOC_YAML_GLOB = exports.EVALS_GLOB = exports.EVALS_AREA_RE = exports.AREA_RE = exports.EVALS_RE = exports.SKILL_AREA_CAPTURE_RE = exports.MD_RE = exports.SKILLS_ROOT = void 0;
+exports.BASE_WORKSPACE_SUBDIR = exports.DOC_YAML_GLOB = exports.EVALS_GLOB = exports.EVALS_AREA_RE = exports.AREA_RE = exports.EVALS_RE = exports.MD_RE = exports.SKILLS_ROOT = void 0;
 exports.SKILLS_ROOT = 'skills/wix-manage/references';
 // `^skills/wix-manage/references/<area>/<basename>.md`
 exports.MD_RE = /^skills\/wix-manage\/references\/[^/]+\/[^/]+\.md$/;
-// Regex to extract skill area from references path (used for detecting new skill areas)
-exports.SKILL_AREA_CAPTURE_RE = /^skills\/wix-manage\/references\/([^/]+)\//;
 // `^yaml/wix-manage-evals/<area>/<rest>.(yml|yaml)`
 exports.EVALS_RE = /^yaml\/wix-manage-evals\/[^/]+\/.+\.(ya?ml)$/;
 // Captures `<area>` from a doc path under SKILLS_ROOT.

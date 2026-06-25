@@ -69,10 +69,13 @@ export async function runGate(): Promise<void> {
     return;
   }
 
-  if (classifiedChanges.newSkillAreas.size > 5) {
-    const newAreas = Array.from(classifiedChanges.newSkillAreas).sort();
-    await comment(formatTooManyNewSkills(newAreas.length, newAreas));
-    fail(`Cannot create more than 5 new skill areas per PR (${newAreas.length} found)`, config.blocking);
+  const newSkillFiles = classifiedChanges.mdFiles
+    .filter(f => f.status === 'added')
+    .map(f => f.filename)
+    .sort();
+  if (newSkillFiles.length > config.maxNewSkills) {
+    await comment(formatTooManyNewSkills(newSkillFiles.length, config.maxNewSkills, newSkillFiles));
+    fail(`Cannot create more than ${config.maxNewSkills} new skill .md files per PR (${newSkillFiles.length} found)`, config.blocking);
     return;
   }
 

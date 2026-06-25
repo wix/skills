@@ -91,5 +91,9 @@ describe('EvalForge YAML Gate Workflow', () => {
     it('passes github-token to action', () => {
       expect(workflowContent).toContain('github-token:');
     });
+
+    it('passes max new skills from GitHub config with a default', () => {
+      expect(workflowContent).toContain("max-new-skills: ${{ vars.EVAL_MAX_NEW_SKILLS || '1' }}");
+    });
   });
 });

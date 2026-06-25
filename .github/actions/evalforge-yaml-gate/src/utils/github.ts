@@ -1,7 +1,7 @@
 import * as core from '@actions/core';
 import * as github from '@actions/github';
 import { COMMENT_MARKER } from './comment';
-import { MD_RE, EVALS_RE, SKILL_AREA_CAPTURE_RE } from './paths';
+import { MD_RE, EVALS_RE } from './paths';
 
 type Octokit = ReturnType<typeof github.getOctokit>;
 export type ChangedFile = { filename: string; status: string; previousFilename?: string };
@@ -11,18 +11,13 @@ export type Classification = {
   evalsAdded: ChangedFile[];
   evalsModified: ChangedFile[];
   evalsRemoved: ChangedFile[];
-  newSkillAreas: Set<string>;
 };
 
 export function classifyChanges(files: ChangedFile[]): Classification {
-  const c: Classification = { mdFiles: [], evalsAdded: [], evalsModified: [], evalsRemoved: [], newSkillAreas: new Set() };
+  const c: Classification = { mdFiles: [], evalsAdded: [], evalsModified: [], evalsRemoved: [] };
   for (const f of files) {
     if (MD_RE.test(f.filename) && f.status !== 'removed') {
       c.mdFiles.push(f);
-      if (f.status === 'added') {
-        const match = SKILL_AREA_CAPTURE_RE.exec(f.filename);
-        if (match) c.newSkillAreas.add(match[1]);
-      }
     } else if (EVALS_RE.test(f.filename)) {
       if (f.status === 'added') c.evalsAdded.push(f);
       else if (f.status === 'removed') c.evalsRemoved.push(f);
