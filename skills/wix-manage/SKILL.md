@@ -124,6 +124,7 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 - **Any sales/business improvement request** (boost sales, promotions, help my business, holiday deals, improve revenue, discounts, shipping, coupons, clearance) → use [Recommend: eCommerce Strategy](references/ecommerce/recommend-ecommerce-strategy.md). This is the **default entry point** — it analyzes ALL domains (discounts, shipping) and generates cross-domain recommendations. Do NOT ask clarifying questions.
 - **Pricing & promotions** (coupons, discount rules, ribbons, sales) → use the [Pricing & Promotions](references/ecommerce/ecom-pricing.md) dispatcher.
 - **Shipping setup** (rates, regions, pickup, free shipping, fix coverage) → use the [Shipping](references/ecommerce/ecom-shipping.md) dispatcher.
+- **Abandoned carts** (recovery emails, recovery links, recovery health, troubleshoot recovery) → use the [Abandoned Carts](references/ecommerce/ecom-abandoned-carts.md) dispatcher.
 
 ### [eCommerce: Load Context](references/ecommerce/ecom-load-context.md)
 **L1 loader** — loads general site data (siteId, country, currency, industry, catalog analytics) needed by every eCommerce category. Each category dispatcher loads this before tag-matching; runs once per session.
@@ -136,6 +137,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 
 ### [Shipping](references/ecommerce/ecom-shipping.md)
 **Dispatcher** — routes shipping-setup requests (rates, regions, pickup, free shipping, fix coverage, optimize rates) to the right leaf recipe. The Shipping Options + Delivery Profiles APIs have no public docs page; `ecom-shipping-api.md` is the authoritative inline reference.
+
+### [Abandoned Carts](references/ecommerce/ecom-abandoned-carts.md)
+**Dispatcher** — routes post-abandonment recovery requests (recovery emails, recovery links, recovery health, troubleshooting recovery) to the right leaf recipe. Merchants often say "abandoned carts"; the API entity is **Abandoned Checkout**. Recovery emails are configured via Wix Dashboard automation; recovery links are generated via the Abandoned Checkout API.
 
 <details>
 <summary>Internal skills (loaded automatically by the dispatchers / orchestrator above — do NOT use directly)</summary>
@@ -155,6 +159,12 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 - [Optimize Rates](references/ecommerce/shipping/ecom-shipping-optimize-rates.md)
 - [Fix Coverage Gaps](references/ecommerce/shipping/ecom-shipping-fix-coverage.md)
 - [API Reference](references/ecommerce/shipping/ecom-shipping-api.md) — inline spec for Shipping Options + Delivery Profiles
+
+#### Abandoned Carts leaves (loaded by the Abandoned Carts dispatcher)
+- [Recover via Email](references/ecommerce/abandoned-carts/ecom-abandoned-carts-recover-email.md) — Wix Dashboard automation setup (no public API for the recurring send)
+- [Recovery Link](references/ecommerce/abandoned-carts/ecom-abandoned-carts-recovery-link.md) — one-off resume-checkout link via the Abandoned Checkout API
+- [Recovery Health](references/ecommerce/abandoned-carts/ecom-abandoned-carts-recovery-health.md) — periodic recovery-performance monitor
+- [Troubleshoot Recovery](references/ecommerce/abandoned-carts/ecom-abandoned-carts-troubleshoot-recovery.md) — diagnostic when emails aren't sending or links aren't working
 
 #### Cross-cutting tracking
 - [API: Recommendation Tracking](references/ecommerce/api-recommendation-tracking.md) — load BEFORE generating any recommendation; persists PROPOSED state and tracks MarkExecuting → MarkDone/MarkFailed.

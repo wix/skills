@@ -1,0 +1,30 @@
+name: ecommerce/abandoned-carts/recovery-health
+description: How's my abandoned-cart recovery doing — is it working or is something off?
+triggerPrompt: |
+  Can you check how my abandoned-cart recovery is doing? I want to know if it's working or if performance has dropped.
+tags: [ecommerce]
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/abandoned-carts-recovery-health
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The merchant asked the agent to check recovery health on a **fresh `stores-v3-editor` template with no abandoned-checkout history**. The reads return a known empty state: zero abandoned checkouts in the query, no recent automation activity, no recovery events to measure. The correct finding is: "there's no recovery activity yet — set up the Dashboard automation if you haven't, and there's no data to benchmark until carts actually start being abandoned."
+
+      Pass if ALL of these are true:
+        1. The agent dispatched to the `abandoned-carts-recovery-health` recipe.
+        2. It actually queried `POST /ecom/v1/abandoned-checkout/query` (and/or the Analytics surface) to inspect state — NOT just answered from generic knowledge.
+        3. It correctly recognized the empty state: no abandoned checkouts, no recovery activity to measure on this site yet.
+        4. It recommended the right next step: confirm/set up the Dashboard recovery-email automation (route to `abandoned-carts-recover-via-email`), and re-check once shoppers have actually started abandoning.
+        5. For metrics framing, it used **Analytics APIs** as the canonical source for recovery rate / volume / trends (the Abandoned Checkout query endpoint is acceptable for record-level drill-down but not the primary reporting surface).
+
+      Fail if ANY of these are true:
+        - The agent answered without making any read calls — pure narration.
+        - It hallucinated metrics (e.g. "your recovery rate is 8%") despite there being no data on a fresh template.
+        - It claimed recovery was "broken" or proposed a fix before surfacing that there is no data to measure.
+        - It routed the question to Checkout & Cart (live drop-off prevention) instead of Abandoned Carts.
