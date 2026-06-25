@@ -28,4 +28,4 @@ assertions:
       - uses a wrong or non-existent endpoint for updating site currency, OR
       - uses an invalid currency code format (not a 3-letter ISO-4217 code), OR
       - only explains how to read site properties without covering the update step.
-
+# dummy: trigger eval pipeline
