@@ -121,7 +121,7 @@ Compute `<SKILL_ROOT>` from this file (`<SKILL_ROOT>/SKILL.md` — strip `/SKILL
 
 This skill has **no skill upstream** — the *how* is read from the **live Wix docs** at `dev.wix.com/docs`, fetched as raw markdown via `curl` (append `.md` to any docs URL; menu pages list child links, content pages carry the schema):
 
-- **Seed** reads the **REST docs** for each capability's create method — navigated from the Business Solutions index (`api-reference/business-solutions.md`) per the mechanism in `SEED.md` (Forms lives under `api-reference/crm/forms.md`).
+- **Seed** reads the **REST docs** for each capability's create method — the exact pages to read are pinned per capability in `SEED_RECIPES.md`; anything not pinned is navigated from the Business Solutions index (`api-reference/business-solutions.md`) per the mechanism in `SEED.md` (Forms lives under `api-reference/crm/forms.md`).
 - **Handoff** links the **SDK docs** for each capability's API shape, and supplies the runtime package set from the inlined map in `SDK_HANDOFF.md` (the SDK `.md` pages don't expose `@wix/*` import strings to navigation, so packages are mapped, not navigated).
 
 Setup carries its app-install call (and the appDefId constants) inline in `SETUP.md`; `CAPABILITIES.md` is the vertical index that lets Discovery match intent **and** declares, per built vertical, the *Required site features* + *Implementation checklist* that Seed enables (backend-backed features) and the Handoff carries into the guide (so the host builds a complete site, not a bare data dump). This skill carries the *what* (which capabilities, how much content, what a finished site includes) and reads the *how* off the docs.

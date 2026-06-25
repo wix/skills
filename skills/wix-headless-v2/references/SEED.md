@@ -6,6 +6,8 @@ Use `$TOKEN` / `$SITE_ID` from the provided authentication mechanism (see `<TYPE
 
 ## 1 · The navigation mechanism — find the *how* in the docs
 
+> **First, check the pinned index — `SEED_RECIPES.md`.** It maps each capability to the exact doc pages to read (in order) before the first call, so you read-then-act instead of guess-then-fail. If the capability has an entry there, **read its pinned pages and skip the search below** — the search/menu-walk in the rest of this section is the **fallback** for capabilities not yet pinned (and the method you use to *build* future entries).
+
 Every Wix docs URL serves raw markdown when you append `.md` and `curl` it. A **menu page** lists links to child pages; a **content/method page** carries the endpoint, HTTP verb, and request/response schema.
 
 > **Prefer the Wix MCP doc tools when the host exposes them** (`SearchWixRESTDocumentation`, `SearchWixAPISpec`). They beat curling `.md` for two reasons: targeted search reaches the method without walking the menu, and `SearchWixAPISpec → getResourceSchema(<resource>)` returns the **whole resource** (every method + the shared object schema) in one payload — so a requirement documented on a *sibling* method surfaces even when the method you're calling omits it. (Concretely: the blog **bulk**-create page never says 3rd-party apps must send a post-owner `memberId`, but the sibling **single**-create method does, and the resource view carries both — curling the isolated bulk `.md` page hides it.) **Fall back to curling `.md`** when no MCP doc tool is present.
@@ -16,7 +18,7 @@ Every Wix docs URL serves raw markdown when you append `.md` and `curl` it. A **
 
 1. From the base index (§2), follow the link for the capability's vertical.
 2. Open the vertical's **`Introduction`** (and any "About …" page) first — it orients you to the vertical's objects and the create flow, so you pick the *right* method instead of guessing a URL.
-3. Drill (menu → menu) to the specific **create** method page, `curl …<method>.md`, and read the endpoint, verb, and body schema **off the page**. Never invent a URL or body from memory.
+3. Drill to the specific **create** method page — walk the menu with `BrowseWixRESTDocsMenu` (fallback: curl the menu's `.md` pages), then read the endpoint, verb, and body schema **off the page** with `SearchWixAPISpec → getResourceSchemaByUrl` / `ReadFullDocsArticle` (fallback: `curl …<method>.md`). Use one mode consistently per the "prefer MCP, fall back to curl" rule above — don't mix a curled URL into an MCP tool. Never invent a URL or body from memory.
 4. **Fail loud** if you can't locate a required method — a missing method page is a real error, not a cue to guess.
 
 > **Public host, not `/_api/`.** Some method pages show an internal `https://www.wixapis.com/_api/<service>/...` URL in the schema header while the examples use the bare `https://www.wixapis.com/<service>/...`. Always call the **public (non-`/_api/`) form** — that's the external/headless endpoint; the `/_api/` prefix is internal and may be rejected.
