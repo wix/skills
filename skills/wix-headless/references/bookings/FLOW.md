@@ -148,30 +148,72 @@ eventTimeSlots.listEventTimeSlots({
 
 The booking form is a **`@wix/forms` form** attached to the service
 (`service.form._id`, namespace `wix.bookings.v2.bookings`). Render it
-**schema-driven** — read the field list and render inputs by field type — the
-**same renderer the forms vertical uses** (`../astro/forms/CONTACT_FORM.md`):
+**schema-driven** — read the field list and render an input per field type,
+collecting each value with the **correct JS type**:
 
 1. Fetch the form by `service.form._id` (`@wix/forms` `getForm`; server-side/elevated
-   where the framework allows). Read `form.formFields`.
-2. Keep `fieldType === "INPUT" && !hidden` **and** a recognized string
-   `componentType` (`TEXT_INPUT` / `PHONE_INPUT` / `DROPDOWN`). For each, take
-   `inputOptions.target`, `inputOptions.required`, `inputOptions.stringOptions.componentType`,
-   and the label from `inputOptions.stringOptions.{textInputOptions|dropdownOptions|phoneInputOptions}.label`.
-   **Skip complex, object-valued fields** — e.g. a multi-line `ADDRESS` — they carry
-   no string `componentType`; rendering them as a text input sends a string and
-   `createBooking` rejects it with **"must be object"**. The booking enforces only
-   the contact basics (`first_name`/`last_name`/`email`), so omitting an optional
-   complex field is safe (do **not** default unknown field types to a text input).
-3. Render generic inputs by `componentType`: `TEXT_INPUT` → text input,
-   `DROPDOWN` → select, `PHONE_INPUT` → `type=tel`; treat `identifier === "TEXT_AREA"`
-   (or `target` containing `message`) as a textarea (its `componentType` is still `TEXT_INPUT`).
-4. Collect the values into an object **keyed by each field's `target`** — that is
-   `formSubmission`. Pass it to `book()`. Only include fields the visitor filled;
-   never send a value for a field you didn't render.
+   where the framework allows). **Read `form.formFields`** — the documented field array
+   (the `inputOptions` shape). (`form.fields` is an internal runtime field; don't use it.)
+2. For each field (`!hidden`, has a `target`), read: `field.target` (the submission
+   key), `field.validation.required`, the label from `field.view.label` (a string, or
+   a Ricos rich-content object — walk its nodes for text), and choice `field.view.options`
+   (`[{ value, label }]`). Determine the **value type from `field.validation`**'s sub-key:
+   - `validation.string` → `string`. Sub-render by `format` / options: `DATE`→date,
+     `DATE_TIME`→datetime, `TIME`→time; has `options`→select (or radio); `EMAIL`→email,
+     `PHONE`→tel; `identifier === "TEXT_AREA"`→textarea; else text input.
+   - `validation.number` → **`number`** (parse the input; never submit a numeric string).
+   - `validation.array` → **`string[]`** (checkbox-group / tags; toggle option `value`s).
+   - `validation.boolean` (often the only marker is a boolean default) → `boolean` (checkbox).
+   - `validation.predefined.format === "MULTILINE_ADDRESS"` → **nested object** (see below).
+   - `validation.predefined.format === "WIX_FILE"` → **`WixFile[]`** (file/signature; see below).
+   - DISPLAY fields (no `target` — e.g. a heading) render read-only / are skipped.
+3. **The submission value TYPE is the contract.** `createBooking` validates it
+   server-side and a wrong type rejects the *whole* booking (e.g. a number field sent
+   as `"2"`, or an address sent as a string → rejected). Match the table above exactly.
+4. **Multi-line address** → one nested object at the field's `target`, of **ISO codes**.
+   The validator is strict: `country` must be a valid ISO-2 code (an enum) and
+   `subdivision` a valid code **for that country** — free-text ("United States",
+   "Texas") is **rejected**, which is why the Wix dashboard renders Country/Region as
+   **dropdowns**. The sub-field set is **per-country** (US = address/city/region-dropdown/zip;
+   most countries = address/city/postal; some use streetName/streetNumber). Render this
+   faithfully with `addressData.ts` (baked from Wix's own per-country address templates):
+   a **Country `<select>`** (`ADDRESS_COUNTRIES` + `Intl.DisplayNames` for names) →
+   `addressSubFields(country)` gives the sub-fields to render, each a `<select>` when it
+   has `options` (e.g. US states) else a text input. Changing country resets the object.
+   See `../astro/templates/bookings/BookingForm.tsx` (`case "address"`).
+   **Render address ONLY when the selected slot is a CUSTOMER location**
+   (`slot.locationType === "CUSTOMER"`) — same as the native Wix booking form. The
+   server requires address only for customer locations; for BUSINESS/other locations
+   it accepts a booking with no address even though the schema marks it `required`, so
+   showing it there is wrong. (The renderer filters it out for non-CUSTOMER slots.)
+5. **File upload / signature** → `WixFile[]`. The `FileField` (in `BookingForm.tsx`)
+   does the documented pure-SDK round-trip: `submissions.getMediaUploadUrl(formId,
+   filename, mimeType)` → `PUT` the bytes to the returned URL → store
+   `[{ fileId, displayName, fileType, url? }]` at the field's `target`. `formId` =
+   `service.form._id`. `createBooking` accepts the resulting `WixFile[]`.
+6. **Order fields by the form's layout, not the array.** Sort by `form.steps[].layout.large.items`
+   (`row`, then `column`) — that's the order the merchant arranged in the dashboard.
+   (`[slug].astro` does this after mapping.) Hidden / no-`target` fields are dropped.
+7. Collect the values into an object **keyed by each field's `target`** — that is
+   `formSubmission`. Pass it to `book()`. Include only filled fields; never send a
+   value for a field you didn't render. Empty → omit (or `null`); keep `0` / `false`.
+
+**Phone** (`PHONE_INPUT`) renders a **country-code dropdown + number input** via
+`libphonenumber-js` (`PhoneField` in `BookingForm.tsx`), emitting an E.164 string
+(`"+14155551234"`). **Inline validation** runs on blur from the schema's own rules
+(`formValidation.ts`, built on `ajv` + `ajv-formats` + a libphonenumber phone check):
+required / minLength / maxLength / pattern / format (email…) / min / max / minItems /
+maxItems, shown per-field; the server still validates authoritatively on submit, so
+this is a UX layer. **Files shipped with the renderer:** `BookingForm.tsx`,
+`addressData.ts` (baked per-country address templates), `formValidation.ts`. **Deps
+to install:** `libphonenumber-js ajv ajv-formats` (SETUP.md Step 4c bookings row).
 
 **Do not** submit `contactDetails`, and **do not** hardcode field names — key by
-`target`. The default booking form's targets are snake_case `first_name` /
-`last_name` / `email` / `phone`. Reference example: `../astro/templates/bookings/BookingForm.tsx`.
+`target`. Wix derives `contactDetails` (and `fullAddress`) from the contact-mapped
+fields. The default booking form's targets are snake_case `first_name` / `last_name` /
+`email` / `phone` (+ a `MULTILINE_ADDRESS` `address`). Reference example:
+`../astro/templates/bookings/BookingForm.tsx` (renderer) and `services/[slug].astro`
+(the `normalizeFormField` schema mapping).
 
 ## 5. The availability calendar (slots step)
 

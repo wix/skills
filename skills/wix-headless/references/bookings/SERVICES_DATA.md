@@ -252,7 +252,7 @@ curl -sS -X POST \
 | `name` | Yes | Display name |
 | `defaultCapacity` | Yes | `1` for APPOINTMENT; participant count for CLASS |
 | `onlineBooking.enabled` | Yes | Set to `true` for online booking |
-| `payment.rateType` | Yes | `FIXED`, `NO_FEE`, `VARIED`, or `CUSTOM` |
+| `payment.rateType` | Yes | `FIXED`, `NO_FEE`, `VARIED`, or `CUSTOM`. **When formatting price for display, `NO_FEE` must render as "Free" — not a blank/missing price.** Only `FIXED` (with `payment.fixed.price`) yields a currency amount; `VARIED`/`CUSTOM` have no single price to show. |
 | `payment.options.online` or `payment.options.inPerson` | Yes | At least one must be `true` |
 | `schedule.availabilityConstraints.sessionDurations` | APPOINTMENT only | Array with one integer (minutes) |
 
@@ -302,6 +302,36 @@ Verify by fetching slots the way the front-end does (`eventTimeSlots.listEventTi
 > Skip whichever the build doesn't surface.
 
 ---
+
+## Step 4c — Custom booking form fields (OPTIONAL)
+
+Every service ships with the **default** booking form (`service.form._id` =
+`00000000-0000-0000-0000-000000000000`: first/last name, email, phone, a
+multi-line address, a message). Only add custom fields when the build needs to
+collect more (e.g. an experience level, party size, a waiver checkbox). Recipe
+(Wix Forms API; namespace `wix.bookings.v2.bookings`):
+
+1. **Clone** the default form — `POST /form-schema-service/v4/forms/00000000-0000-0000-0000-000000000000/clone` (empty body). Save the returned `form.id`.
+2. **Add fields** — `PATCH /form-schema-service/v4/forms/{id}` with `{ form: { revision, formFields: [...existing, ...new], steps }, fieldMask: { paths: ["formFields","steps"] } }`. Each new field is `{ id: <uuid>, fieldType: "INPUT", inputOptions: { target, required, inputType, <typeOptions> } }` where `<typeOptions>` is `stringOptions` / `numberOptions` / `booleanOptions` / `arrayOptions` (its `componentType` + `validation` + label block).
+3. **Attach** — `PATCH /_api/bookings/v2/services/{serviceId}` with `{ service: { revision, form: { id } }, fieldMask: { paths: ["form.id"] } }`.
+
+> **Three field-shape rules (verified live — get them wrong and `createBooking`
+> rejects the WHOLE booking server-side, not just the field):**
+> - **Array fields** (`CHECKBOX_GROUP` / `TAGS`) **must declare an item type**:
+>   `arrayOptions.validation.items` (e.g. an empty string item type). Missing it →
+>   `"Required to specify items type for array"`.
+> - **Checkbox** (`booleanOptions` / `CHECKBOX`) **must declare `validation.boolean`**
+>   (even `{}`). Without it the field validates as an object → `"<target> must NOT
+>   have additional properties"` when you submit `true`.
+> - **Choice groups** (`RADIO_GROUP` / `CHECKBOX_GROUP`) need a `numberOfColumns`
+>   enum (`"ONE"`…) — `UNKNOWN_NUMBER_OF_COLUMNS` otherwise.
+>
+> Read fields back with `getForm` from **`form.formFields`** (the documented field
+> array; `form.fields` is an internal runtime field — don't use it). For `MULTILINE_ADDRESS`,
+> the submission is a nested object of **ISO codes** (`country` enum + a valid
+> `subdivision` code per country) — the front-end renders country/region as dropdowns
+> with per-country sub-fields (`addressData.ts`); see `FLOW.md` § 4. A business-only
+> service that doesn't need a client address can simply omit the `address` field.
 
 ## Step 5 — Return contract
 

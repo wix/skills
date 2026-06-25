@@ -42,12 +42,13 @@ Plus the nav/home links (shell chain — see below).
    scoped to it. Reference: `…/templates/bookings/services/index.astro`.
 2. **The detail page fetches the booking-form schema server-side.** Read
    `service.form._id`'s form via `@wix/forms` (`auth.elevate(forms.getForm)(formId)`),
-   map `formFields` to `{ label, target, required, componentType, identifier, options }`,
-   and pass the array as `fields` into `<ServiceBookingFlow>`. **Filter to fields with a
-   recognized string `componentType`** (`TEXT_INPUT`/`PHONE_INPUT`/`DROPDOWN`) — skip
-   complex object-valued fields (e.g. the default form's multi-line `ADDRESS`), or
-   `createBooking` fails with "must be object". Pass the full `service` too — the
-   booking step reads its payment/policy. Same field-mapping as `../forms/CONTACT_FORM.md`.
+   read its **`form.formFields`** (the documented field array — `form.fields` is an
+   internal runtime field, don't use it), run the `normalizeFormField` mapping from
+   `…/services/[slug].astro` (it derives each field's render type **and** submission value
+   type — including the multi-line address nested object, choice groups, number/date/file —
+   so **render every field type; do not skip complex fields**), order by `steps[].layout`,
+   and pass the array as `fields` into `<ServiceBookingFlow>`. Pass the full `service` too —
+   the booking step reads its payment/policy.
    Also pass, through to `<ServiceBookingFlow>`: `service.staffMemberDetails?.staffMembers`
    (the staff picker — the service was queried with `STAFF_MEMBER_DETAILS`); the
    service's **business `locations`** — sourced from `auth.elevate(services.queryLocations)()`

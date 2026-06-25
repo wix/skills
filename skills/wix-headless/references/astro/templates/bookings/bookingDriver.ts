@@ -227,15 +227,20 @@ export async function book(params: BookParams): Promise<BookResult> {
 }
 
 // ── navigateToCheckout ────────────────────────────────────────────────────────
-// Paid services: hand the cart to the Wix-hosted ecom checkout. Same shape on
-// every path — ecomCheckout.checkoutId = the cartId.
+// Paid services: hand the cart to the Wix-hosted ecom checkout.
+// `thankYouPageUrl` is hit ONLY on successful completion (Wix appends `?orderId=…`);
+// `postFlowUrl` is hit on completion, abandonment, OR interruption. Pass the real
+// confirmation page as thankYouPageUrl and a NEUTRAL page (e.g. the catalog) as
+// postFlowUrl — otherwise "continue browsing" / abandoning the checkout lands the
+// visitor on the confirmation page as if the booking completed.
 export async function navigateToCheckout(
   cartId: string,
+  thankYouPageUrl: string,
   postFlowUrl: string,
 ): Promise<void> {
   const { redirectSession } = await redirects.createRedirectSession({
     ecomCheckout: { checkoutId: cartId },
-    callbacks: { postFlowUrl },
+    callbacks: { thankYouPageUrl, postFlowUrl },
   });
   if (redirectSession?.fullUrl) {
     window.location.href = redirectSession.fullUrl;

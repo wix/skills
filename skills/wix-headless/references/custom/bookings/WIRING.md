@@ -117,22 +117,36 @@ When a specific staff is chosen, set `slot.resource = { _id: staffMemberId, name
 slot you pass to `createBooking` (the booking books that resource); leave it unset for
 "any staff" → the **ANY_RESOURCE fallback** already in the booking snippet below.
 
-## Booking form — schema-driven
-The booking form is a `@wix/forms` form on the service (`service.form._id`). Read
-its schema and render fields by `componentType`, collecting values keyed by
-`target` (`../../bookings/FLOW.md` § 4):
-```js
-const { form } = await wix.forms.getForm(service.form._id);
-const RENDERABLE = ["TEXT_INPUT", "PHONE_INPUT", "DROPDOWN"];
-const fields = (form.formFields ?? []).filter(
-  (f) => f.fieldType === "INPUT" && !f.hidden &&
-         RENDERABLE.includes(f.inputOptions?.stringOptions?.componentType),
-);
-// render each by f.inputOptions.stringOptions.componentType; collect values by f.inputOptions.target.
-// SKIP complex object-valued fields (e.g. multi-line ADDRESS, no string componentType) —
-// sending a string for them fails createBooking with "must be object". Only
-// first_name/last_name/email are enforced, so skipping optional complex fields is safe.
-```
+## Booking form — PORT the full schema-driven renderer (do NOT hand-roll a contact form)
+The booking form is a `@wix/forms` form on the service (`service.form._id`). You **must
+port the full schema-driven renderer** — **`../../astro/templates/bookings/BookingForm.tsx`**
+plus its helpers **`addressData.ts`** and **`formValidation.ts`** — into the host
+framework. **Do NOT** hand-roll a name/email/phone contact form: that silently drops
+the address, custom fields (dropdowns/checkboxes/dates), the phone country widget, file
+upload, and inline validation, and produces wrong/missing submissions. The renderer is
+plain React state + inputs — adapt the idiom (React/Vue/Svelte) but keep every field
+type, value shape, the phone widget (`libphonenumber-js`), and the validator (`ajv`).
+
+Adaptation rules (vs the astro original):
+- **Schema read:** swap the astro SSR `auth.elevate(forms.getForm)` for the bundled
+  `wix.forms.getForm(service.form._id)` (the visitor token reads the form — no elevation
+  needed). Unwrap defensively — `const res = await wix.forms.getForm(id); const form = res?.form ?? res;`
+  — the SDK may return the form bare or wrapped as `{ form }`; a `const { form } = …`
+  destructure on the bare shape yields `undefined`. Read the field list from
+  **`form.formFields`** (the documented field array; `form.fields` is internal — don't
+  use it) and run the same `normalizeFormField` mapping + layout-order sort
+  `[slug].astro` uses, client-side.
+- **Value type** comes from each field's `validation` sub-key: string→string, number→
+  number, array→string[], boolean→boolean, predefined MULTILINE_ADDRESS→nested object of
+  ISO codes (country + per-country sub-fields via `addressData.ts`, country/region as
+  dropdowns), predefined WIX_FILE→`WixFile[]` via `wix.submissions.getMediaUploadUrl`→PUT.
+  A wrong type rejects the whole `createBooking`.
+- **Address** renders only when the selected slot is a CUSTOMER location
+  (`slot.locationType === "CUSTOMER"`) — same as the astro renderer / native Wix.
+- **Submit:** the renderer collects the `formSubmission` map (keyed by `target`) and
+  hands it to the booking sequence (below) — which passes it to `createBooking`
+  unchanged. Don't re-derive the submission from a few contact fields.
+- **Deps:** `libphonenumber-js ajv ajv-formats` (already in the own-build install set).
 
 ## Book — the ecom Cart V2 sequence
 Mirror `../../astro/templates/bookings/bookingDriver.ts` (the exact payloads).
@@ -180,12 +194,28 @@ const checkoutRequired =
       : calc?.lineItems?.[0]?.paymentConfig?.paymentOption !== "FULL_PAYMENT_OFFLINE";
 // 4. paid → redirect (ecomCheckout.checkoutId = cartId) ; free/offline → placeOrder.
 if (checkoutRequired) {
-  const { redirectSession } = await wix.redirects.createRedirectSession({ ecomCheckout: { checkoutId: cart._id }, callbacks: { postFlowUrl: window.location.href } });
+  // thankYouPageUrl fires ONLY on completion; postFlowUrl fires on completion,
+  // abandonment, OR interruption. Send success → confirmation, abandon → a neutral
+  // page (catalog). Do NOT use window.location.href for postFlowUrl — "continue
+  // browsing" would land back here as if booked. (Use hash routes if the SPA is
+  // HashRouter — see § routing below.)
+  const { redirectSession } = await wix.redirects.createRedirectSession({
+    ecomCheckout: { checkoutId: cart._id },
+    callbacks: {
+      thankYouPageUrl: `${origin}/booking-confirmation`,
+      postFlowUrl: `${origin}/services`,
+    },
+  });
   window.location.href = redirectSession.fullUrl;
 } else {
   await wix.placeOrder(cart._id); // booked — no redirect
 }
 ```
+
+> **SPA routing:** if the SPA is client-routed, its routes must survive a hard load —
+> see `../../BUILD-own-build.md` § SPA fallback. Whatever scheme you choose, make the
+> checkout callback URLs above match it (e.g. `${origin}/#/booking-confirmation` and
+> `${origin}/#/services` under a hash router).
 
 > Confirm the `@wix/auto_sdk_ecom_cart-v-2` function registration shape on a
 > CDN/own client at wiring time; the payloads above match the astro `bookingDriver.ts`.

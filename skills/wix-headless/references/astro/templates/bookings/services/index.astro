@@ -93,7 +93,8 @@ const filterActive = Boolean(selectedCategory || selectedLocation);
 const getSlug = (s: any): string => s.mainSlug?.name ?? s.supportedSlugs?.[0]?.name ?? s._id;
 const formatPrice = (s: any): string | undefined => {
   const p = s.payment;
-  if (!p || p.rateType === "NO_FEE") return undefined;
+  if (!p) return undefined;
+  if (p.rateType === "NO_FEE") return "Free";
   if (p.rateType === "FIXED" && p.fixed?.price) {
     const { value, currency } = p.fixed.price;
     if (!value) return undefined;
