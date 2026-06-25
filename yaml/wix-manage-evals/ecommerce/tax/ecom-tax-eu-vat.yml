@@ -1,0 +1,36 @@
+name: ecommerce/tax/eu-vat-context-dispatch
+description: I sell to Germany and France — set up VAT for me (DE 19%, FR 20%).
+triggerPrompt: |
+  I sell to customers in Germany and France and I need to start charging VAT. Can you set it up? Germany is 19% and France is 20%.
+tags: [ecommerce]
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/tax-configure-eu-vat
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The merchant asked the agent to **actually configure** EU VAT for Germany (19%) and France (20%) on a fresh site with no tax pre-configured. Grade on **execution and outcome**, not exact HTTP methods or field names — the Wix billing API has request wrappers and field names that the agent may need to discover via spec lookups, and that's fine as long as it reached the right end state.
+
+      Pass if ALL of these are true:
+        1. The agent dispatched to the `tax-configure-eu-vat` recipe (NOT Wix Manual, NOT Avalara).
+        2. It did NOT ask "what country are you in?" — Germany and France are both in the prompt.
+        3. It called the **list-tax-calculators** endpoint (`/billing/v1/list-tax-calculators` — HTTP method GET or POST is fine) and captured the Manual calculator's identifier from the response (not hardcoded). The identifier field name (`appId` vs `calculatorId`) does not matter.
+        4. It created tax regions **once per country** (DE and FR) by calling `POST /billing/v1/tax-regions` per country, each bound to the Manual calculator and with `taxIncludedInPrice: true`. If any call returns `ALREADY_EXISTS` (409), recover via the query endpoint instead of abandoning. Single-create looped (NOT a bulk-create regions endpoint — that doesn't exist on the TPA-public surface).
+        5. It created at least a "Standard VAT" tax group via `POST /billing/v1/tax-groups` (additional groups like Reduced/Zero/Exempt are acceptable but not required).
+        6. It used the **bulk manual-tax-mappings create** endpoint (any of `/billing/v1/bulk/manual-tax-mappings/create` or the equivalent bulk URL the API exposes — NOT looped single-create) to map the Standard group to DE at a rate equivalent to **19%** and FR at a rate equivalent to **20%**. Any equivalent encoding is acceptable: `"0.19"`/`"0.20"` (decimal), `"19"`/`"20"` (percent). The specific `taxType` value ("vat", "VAT/GST", "VAT", etc.) and the `jurisdiction*` field shapes are the API's choice and not part of the grade.
+        7. It surfaced that OSS / reverse-charge / home-country must be set via **Wix Dashboard → Settings → Taxes** (the `tax-settings` entity is not TPA-public).
+        8. It reported the resulting state back to the merchant — at minimum: DE region with 19% VAT, FR region with 20% VAT, inclusive pricing. Reporting the calculator name, tax group names, or IDs is a plus but not required.
+
+      Fail if ANY of these are true:
+        - The agent only **described** the recipe without making the API calls.
+        - Any EU region was created with `taxIncludedInPrice: false`.
+        - It used Avalara, Wix Manual generic recipe, or tried to default-create all 27 EU countries.
+        - It looped single `manual-tax-mappings` POSTs instead of using the bulk endpoint.
+        - It claimed OSS / reverse-charge / home-country can be set via the API.
+        - It configured rates that aren't equivalent to 19% (DE) and 20% (FR) — e.g. it sent `"19"`/`"20"` as `taxRate` and the API interpreted them as 1900%/2000%.
+        - It abandoned the flow on the first `ALREADY_EXISTS` error instead of recovering.

@@ -136,6 +136,31 @@ apiDoc:
       tags: [ecommerce]
 
     # ============================================================
+    # Tax category
+    # ============================================================
+    # Verified TPA-public via dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/tax/.
+
+    - file: ../../../skills/wix-manage/references/ecommerce/ecom-tax.md
+      title: "Tax"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    - file: ../../../skills/wix-manage/references/ecommerce/tax/ecom-tax-configure.md
+      title: "Tax: Configure (Wix Manual)"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    - file: ../../../skills/wix-manage/references/ecommerce/tax/ecom-tax-eu-vat.md
+      title: "Tax: Configure (EU VAT)"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    - file: ../../../skills/wix-manage/references/ecommerce/tax/ecom-tax-troubleshoot-calc-wrong.md
+      title: "Tax: Calculation Wrong"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    # ============================================================
     # Carry-forward root orchestrator (not yet in routing tree)
     # The strategy orchestrator is preserved at its main-branch URL.
     # ABANDONED_CART branch removed; classification falls back to the

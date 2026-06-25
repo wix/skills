@@ -1,0 +1,30 @@
+name: ecommerce/tax/troubleshoot-calc-wrong
+description: A Texas customer paid $0 tax on a $200 order — give me a plan to debug it (no changes yet).
+triggerPrompt: |
+  A customer in Texas just paid $0 tax on a $200 order, but I was expecting around 8.25%. Don't change anything yet — just walk me through how you'd diagnose what went wrong, step by step. I want to see your plan before we touch the store.
+tags: [ecommerce]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/tax-calculation-wrong
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      **Exception to the action-oriented pattern.** The merchant explicitly asked for a **diagnostic plan only** — no API calls, no fixes. The store's actual tax state is intentionally unknown to this test; we are evaluating the quality of the proposed plan, not its execution.
+
+      Pass if ALL of these are true:
+        1. The agent dispatched to the `tax-calculation-wrong` recipe.
+        2. The plan describes the 3-branch diagnostic in the right order:
+           a. **Reproduce** — simulate the same cart + Texas shipping address against `POST /billing/v1/calculate-tax` to confirm the engine itself returns $0 (not just trust the historical order line).
+           b. **Coverage** — query `POST /billing/v1/tax-regions/query` to check whether a US region exists, whether it's subdivisioned for Texas, and which `calculatorId` it's bound to.
+           c. **Mapping** — query `POST /billing/v1/manual-tax-mappings` to verify a Texas-applicable rate is mapped to the relevant tax group (only meaningful if the region is on the Manual calculator).
+        3. The plan respects the "no changes yet" constraint — it does NOT propose any POST/PATCH that would mutate tax state before findings are reported.
+        4. The plan ends with: surface findings to the merchant first, then propose the targeted fix.
+
+      Fail if ANY of these are true:
+        - The plan skips the `calculate-tax` reproduction step and jumps straight to inspecting state.
+        - The plan recommends a fix (creating regions/mappings, switching calculator, recreating tax setup) before surfacing the detected root cause.
+        - It routes the issue to Checkout, Orders, or Pricing instead of Tax.
+        - It ignores the "give me a plan, don't change anything" instruction and starts making mutating API calls.
+        - It guesses the root cause (e.g. "Texas isn't mapped") without proposing the diagnostic to confirm it.
