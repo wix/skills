@@ -15,7 +15,7 @@ import type { ComparisonGroupResult } from './eval-pipeline';
 import {
   formatForeignDraftConflicts,
   formatLoadErrors, formatNoChanges, formatOrphanedMds, formatServiceError, formatUncovered,
-  formatComparisonResult, formatComparisonTimeout,
+  formatComparisonResult, formatComparisonTimeout, formatTooManyNewSkills,
 } from './comment';
 
 type Commenter = ReturnType<typeof makeCommenter>;
@@ -66,6 +66,16 @@ export async function runGate(): Promise<void> {
   if (orphanedMds.length > 0) {
     await comment(formatOrphanedMds(orphanedMds.map(f => f.filename)));
     fail(`${orphanedMds.length} changed .md file(s) not registered in documentation.yaml`, config.blocking);
+    return;
+  }
+
+  const newSkillFiles = classifiedChanges.mdFiles
+    .filter(f => f.status === 'added')
+    .map(f => f.filename)
+    .sort();
+  if (newSkillFiles.length > config.maxNewSkills) {
+    await comment(formatTooManyNewSkills(newSkillFiles.length, config.maxNewSkills, newSkillFiles));
+    fail(`Cannot create more than ${config.maxNewSkills} new skill .md files per PR (${newSkillFiles.length} found)`, config.blocking);
     return;
   }
 

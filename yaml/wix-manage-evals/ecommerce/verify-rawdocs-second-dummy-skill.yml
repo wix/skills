@@ -1,0 +1,25 @@
+name: ecommerce/verify-rawdocs-second-dummy-skill
+description: >-
+  Verifies the agent reads the second rawdocs dummy skill fixture so this PR changes
+  more than one skill while still satisfying per-skill eval coverage.
+triggerPrompt: >-
+  Test the second rawdocs dummy skill and explain why it exists in this PR.
+tags: [ecommerce]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/verify-rawdocs-second-dummy-skill
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user wants to verify the second dummy skill added for PR validation.
+
+      Pass if the response:
+      - identifies this as the second dummy skill in the PR, AND
+      - explains that it exists to trigger validation that rejects PRs adding more than one skill, AND
+      - does not present it as production Wix eCommerce guidance.
+
+      Fail if the response:
+      - treats the fixture as production guidance, OR
+      - does not explain the more-than-one-skill validation purpose.

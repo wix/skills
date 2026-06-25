@@ -34218,6 +34218,7 @@ exports.formatLoadErrors = formatLoadErrors;
 exports.formatOrphanedMds = formatOrphanedMds;
 exports.formatUncovered = formatUncovered;
 exports.formatForeignDraftConflicts = formatForeignDraftConflicts;
+exports.formatTooManyNewSkills = formatTooManyNewSkills;
 exports.formatServiceError = formatServiceError;
 exports.formatEvalPassed = formatEvalPassed;
 exports.formatEvalFailed = formatEvalFailed;
@@ -34265,6 +34266,18 @@ function formatForeignDraftConflicts(errs, _pull) {
         ...lines,
     ]);
 }
+function formatTooManyNewSkills(count, limit, files) {
+    return render('❌', 'Too Many New Skills', [
+        `This PR creates **${count} new Wix Manage skill .md files**, exceeding the limit of **${limit} per PR**.`,
+        '',
+        'New skill files added:',
+        ...files.map(f => `- \`${f}\``),
+        '',
+        'Please either:',
+        '- Split across multiple PRs',
+        '- Update existing skills instead of creating new ones',
+    ]);
+}
 function formatServiceError(message, blocking) {
     const { icon } = failIcon(blocking);
     return render(icon, blocking ? 'Error' : 'Warning', [message]);
@@ -34304,12 +34317,12 @@ function formatComparisonResult(result, projectId) {
         '',
         `**Verdict:** \`${verdict}\` | **Tag:** \`${tag}\``,
         '',
-        '| Scenario | Required | Winner | Cost (with draft/without) | Tokens (with draft/without) | Time (with draft/without) |',
+        '| Scenario | Required | Winner | Cost (PR / prod) | Tokens (PR / prod) | Time (PR / prod) |',
         '|---|---|---|---|---|---|',
     ];
     for (const s of (scenarios ?? [])) {
         const winner = s.pairwiseJudgement.winner;
-        const winnerLabel = winner === 'tie' ? '≈ tie' : winner === 'with' ? '⬆️ with draft' : '⬇️ without draft';
+        const winnerLabel = winner === 'tie' ? '≈ tie' : winner === 'with' ? '⬆️ PR' : '⬇️ prod';
         const costWith = s.with.totalCostUsd.toFixed(3);
         const costWithout = s.without.totalCostUsd.toFixed(3);
         const tokWith = `${(s.with.totalTokens / 1000).toFixed(1)}K`;
@@ -34321,11 +34334,14 @@ function formatComparisonResult(result, projectId) {
     for (const s of (scenarios ?? [])) {
         lines.push('', `<details><summary>${s.scenarioName}</summary>`, '', s.reason, '');
         if (projectId && s.with.runId)
-            lines.push(`[View run (with draft tag)](${(0, evalforge_1.evalRunUrl)(projectId, s.with.runId, s.with.name)})`, '');
+            lines.push(`[View run (PR)](${(0, evalforge_1.evalRunUrl)(projectId, s.with.runId, s.with.name)})`, '');
         if (projectId && s.without.runId)
-            lines.push(`[View run (without draft tag)](${(0, evalforge_1.evalRunUrl)(projectId, s.without.runId, s.without.name)})`, '');
-        lines.push('**Assertions (with draft tag):**', ...s.with.assertions.map(assertionLine), '');
-        lines.push('**Assertions (without draft tag):**', ...s.without.assertions.map(assertionLine), '');
+            lines.push(`[View run (prod)](${(0, evalforge_1.evalRunUrl)(projectId, s.without.runId, s.without.name)})`, '');
+        lines.push('**Assertions (PR):**', ...s.with.assertions.map(assertionLine), '');
+        lines.push('**Assertions (prod):**', ...s.without.assertions.map(assertionLine), '');
+        if (s.pairwiseJudgement.reasoning) {
+            lines.push(`**Compare result:** ${s.pairwiseJudgement.reasoning}`, '');
+        }
         if (s.pairwiseJudgement.dimensions) {
             lines.push('**Dimensions:**', ...Object.entries(s.pairwiseJudgement.dimensions).map(([k, v]) => `- ${k}: **${v.winner}**`), '');
         }
@@ -34404,6 +34420,14 @@ function getPrNumber() {
         throw new Error('PR payload missing number');
     return n;
 }
+function getPositiveIntegerInput(name, fallback) {
+    const raw = core.getInput(name) || String(fallback);
+    const value = Number(raw);
+    if (!Number.isInteger(value) || value < 1) {
+        throw new Error(`${name} must be a positive integer (received: ${raw})`);
+    }
+    return value;
+}
 function getSimpleConfig() {
     return {
         githubToken: safeGetSecret('github-token'),
@@ -34436,6 +34460,7 @@ function getEvalConfig() {
         agentName: core.getInput('agent-name') || 'agent',
         autoApprove: core.getInput('auto-approve') === 'true',
         triggerEvalCompare: core.getInput('eval-compare') !== 'false',
+        maxNewSkills: getPositiveIntegerInput('max-new-skills', 1),
     };
 }
 
@@ -35139,6 +35164,15 @@ async function runGate() {
     if (orphanedMds.length > 0) {
         await comment((0, comment_1.formatOrphanedMds)(orphanedMds.map(f => f.filename)));
         (0, github_1.fail)(`${orphanedMds.length} changed .md file(s) not registered in documentation.yaml`, config.blocking);
+        return;
+    }
+    const newSkillFiles = classifiedChanges.mdFiles
+        .filter(f => f.status === 'added')
+        .map(f => f.filename)
+        .sort();
+    if (newSkillFiles.length > config.maxNewSkills) {
+        await comment((0, comment_1.formatTooManyNewSkills)(newSkillFiles.length, config.maxNewSkills, newSkillFiles));
+        (0, github_1.fail)(`Cannot create more than ${config.maxNewSkills} new skill .md files per PR (${newSkillFiles.length} found)`, config.blocking);
         return;
     }
     const cov = (0, coverage_1.computeCoverage)(classifiedChanges.mdFiles, headScenarios, (f) => (0, doc_url_1.canonicalDocUrl)(f, workspace));
