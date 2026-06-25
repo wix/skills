@@ -103,6 +103,15 @@ const formatPrice = (s: any): string | undefined => {
   return undefined;
 };
 const getDuration = (s: any): number => s.schedule?.availabilityConstraints?.sessionDurations?.[0] ?? 60;
+// COURSE date range from the service schedule (courses have no per-session duration).
+const getCourseDateRange = (s: any): string | undefined => {
+  const start = s.schedule?.firstSessionStart;
+  const end = s.schedule?.lastSessionEnd;
+  if (!start) return undefined;
+  const f = (d: string, withYear: boolean) =>
+    new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", ...(withYear ? { year: "numeric" } : {}) });
+  return end ? `${f(start, false)} – ${f(end, true)}` : f(start, true);
+};
 const locationName = (loc: any): string => loc?.business?.name ?? loc?.calculatedAddress?.city ?? "Location";
 ---
 
@@ -168,6 +177,7 @@ const locationName = (loc: any): string => loc?.business?.name ?? loc?.calculate
               name={s.name ?? "Untitled"}
               tagLine={s.tagLine ?? s.description}
               durationMinutes={getDuration(s)}
+              dateRange={s.type === "COURSE" ? getCourseDateRange(s) : undefined}
               price={formatPrice(s)}
               imageUrl={s.media?.mainMedia?.image?.url ?? s.media?.items?.[0]?.image?.url}
               type={s.type ?? "APPOINTMENT"}

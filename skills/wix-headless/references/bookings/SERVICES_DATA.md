@@ -234,7 +234,7 @@ curl -sS -X POST \
 ### Service creation guidelines
 
 - **Count**: Create exactly `intent.bookings.serviceCount` services (default 3 when not specified).
-- **Type**: Use `"APPOINTMENT"` for 1-on-1 services (the default); use `"CLASS"` when `intent.bookings.serviceType === "CLASS"`. For `CLASS`, set `defaultCapacity` to the max participants (e.g. `20`) instead of `1`.
+- **Type**: Use `"APPOINTMENT"` for 1-on-1 services (the default); use `"CLASS"` when `intent.bookings.serviceType === "CLASS"`. For `CLASS`, set `defaultCapacity` to the max participants (e.g. `20`) instead of `1`. Use `"COURSE"` when `intent.bookings.serviceType === "COURSE"` — a fixed-date, multi-session program customers book as a whole series; set `defaultCapacity` to the max participants and do **not** set `sessionDurations`. A COURSE needs scheduled sessions before anyone can enroll (Step 4d), just like a CLASS.
 
 > **⚠️ CLASS services need scheduled sessions before anyone can sign up.** Creating a CLASS service does **not** create any bookable sessions. The front-end lists bookable sessions via `eventTimeSlots.listEventTimeSlots()`, which returns scheduled **session events** — a freshly created CLASS service has none, so its calendar is permanently empty. **For CLASS services you MUST run Step 4b below** to schedule sessions; otherwise the class calendar is a dead end. (APPOINTMENT services don't need this — their bookable times come from staff working hours + `availabilityTimeSlots`.)
 - **`sessionDurations`**: Required for APPOINTMENT. An array containing one integer (minutes). Do NOT specify for CLASS or COURSE services.
@@ -303,6 +303,33 @@ Verify by fetching slots the way the front-end does (`eventTimeSlots.listEventTi
 
 ---
 
+## Step 4d — Create course sessions (COURSE services only)
+
+A COURSE, like a CLASS, is bookable only once its schedule has session events — but a
+course's sessions are **type `COURSE`**, and a course is a fixed series, so create
+sessions spanning its whole run. Run Step 4b's `POST /calendar/v3/events` recipe with
+these differences:
+
+- `event.type: "COURSE"` (not `"CLASS"`).
+- `event.scheduleId` = the course service's **`service.schedule.id`** (from the Step 4
+  create response — every service has one).
+- `resources` non-empty with `permissionRole: "WRITER"` (same requirement as CLASS).
+- Create the sessions across the run. A recurring schedule is the natural fit — add
+  `event.recurrenceRule` (`{ "frequency": "WEEKLY", "interval": 1, "days": ["MONDAY"], "until": { "localDate": "..." } }`;
+  only `WEEKLY` + a single day are supported → creates a `MASTER` and Wix generates the
+  instances). Several one-off sessions also work.
+
+The service's `schedule.firstSessionStart` / `lastSessionEnd` are derived from these
+sessions; the front-end reads them and lists the sessions via Calendar Events V3
+(`events.queryEvents` by `scheduleId` — see FLOW.md §10). Record the created event ids in
+`seeded.bookings.services[].sessionEventIds`.
+
+> **Verified live:** `POST /calendar/v3/events` with `"type":"COURSE"` → 200. Same gotchas
+> as Step 4b (`permissionRole` must be `WRITER`; `resources` non-empty; `localDate` no `Z`).
+> Calendar Events V3 has **cancel, not delete** (`POST /calendar/v3/events/{id}/cancel`).
+
+---
+
 ## Step 4c — Custom booking form fields (OPTIONAL)
 
 Every service ships with the **default** booking form (`service.form._id` =
@@ -364,7 +391,7 @@ collect more (e.g. an experience level, party size, a waiver checkbox). Recipe
 ```
 
 - `staff` is an empty array `[]` when `intent.bookings.hasStaff` is false or Step 3 was skipped.
-- **For `CLASS` services, schedule sessions in Step 4b** and report them (e.g. `seeded.bookings.services[].sessionEventIds`). Only if Step 4b is skipped or fails, add a `notes` entry so the orchestrator surfaces it: `"notes": ["CLASS sessions not scheduled — add session times in the Bookings dashboard before sign-up works."]`
+- **For `CLASS` services, schedule sessions in Step 4b; for `COURSE` services, in Step 4d** — and report them (e.g. `seeded.bookings.services[].sessionEventIds`). Only if that step is skipped or fails, add a `notes` entry so the orchestrator surfaces it: `"notes": ["CLASS/COURSE sessions not scheduled — add session times in the Bookings dashboard before sign-up works."]`
 - On any REST error: set `status: "error"`, include the failing call's response verbatim under `"error"`.
 
 ---

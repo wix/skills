@@ -234,9 +234,15 @@ export default function BookingForm({ service, serviceName, slot, fields: allFie
       return { ...prev, [target]: next };
     });
 
-  const when = new Date(slot.localStartDate).toLocaleString([], {
-    weekday: "long", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit",
-  });
+  // A course is enrolled as a whole series — show its date range, not a single time.
+  const isCourse = slot.serviceType === "COURSE";
+  const fmtDay = (d: string) =>
+    new Date(d).toLocaleDateString([], { month: "long", day: "numeric", year: "numeric" });
+  const when = isCourse
+    ? `${fmtDay(slot.localStartDate)} – ${fmtDay(slot.localEndDate)}`
+    : new Date(slot.localStartDate).toLocaleString([], {
+        weekday: "long", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit",
+      });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -399,7 +405,9 @@ export default function BookingForm({ service, serviceName, slot, fields: allFie
       <div className="booking-form-summary">
         <strong>{serviceName}</strong>
         <span>{when}</span>
-        <button type="button" className="booking-form-change" onClick={onCancel}>Choose another time</button>
+        {!isCourse && (
+          <button type="button" className="booking-form-change" onClick={onCancel}>Choose another time</button>
+        )}
       </div>
 
       {fields.map((field) => (
@@ -422,7 +430,9 @@ export default function BookingForm({ service, serviceName, slot, fields: allFie
       {error && <p className="booking-error" role="alert">{error}</p>}
 
       <button type="submit" className="booking-cta" disabled={status === "submitting"}>
-        {status === "submitting" ? "Booking…" : "Confirm booking"}
+        {status === "submitting"
+          ? (isCourse ? "Enrolling…" : "Booking…")
+          : (isCourse ? "Confirm enrollment" : "Confirm booking")}
       </button>
     </form>
   );

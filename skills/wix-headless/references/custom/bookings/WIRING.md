@@ -117,6 +117,31 @@ When a specific staff is chosen, set `slot.resource = { _id: staffMemberId, name
 slot you pass to `createBooking` (the booking books that resource); leave it unset for
 "any staff" → the **ANY_RESOURCE fallback** already in the booking snippet below.
 
+## Courses (COURSE — no calendar)
+A **course** is enrolled as a whole series — **skip the availability/staff steps**. The
+course detail page shows the schedule + capacity + an Enroll action; enrollment reuses the
+same booking form and `book()` sequence. See `../../bookings/FLOW.md` §10. Read the
+sessions, capacity, staff, and location from Calendar Events V3 (`@wix/calendar`) on the
+**visitor client** — the native public course page does this un-elevated:
+```js
+import { events as calendarEvents } from "@wix/calendar"; // add to modules: {...}
+const res = await wix.events.queryEvents({
+  filter: { scheduleId: service.schedule._id },   // NOT service.schedule.id (SDK uses _id)
+  cursorPaging: { limit: 100 },
+});
+// res.events[] per session: start/end ({localDate, utcDate}; utcDate is a Date OBJECT in
+//   the SDK — new Date(d).toISOString() before comparing), totalCapacity/remainingCapacity
+//   (the "available spots"), resources[] (staff — filter to type "1cd44cf8-…"), location.
+// If your visitor context can't read events, fall back to service.defaultCapacity text and
+// let createBooking enforce capacity.
+```
+Then enroll with a COURSE selection — `{ serviceType: "COURSE", serviceId: service._id,
+scheduleId: service.schedule._id, timezone, localStartDate: firstSessionStart,
+localEndDate: lastSessionEnd }` — through the **same `book()`** in `bookingDriver.ts`
+(it sends `bookedEntity.schedule.scheduleId` for courses). Reference island:
+`../../astro/templates/bookings/CourseEnrollFlow.tsx`. Gate Enroll on full / started-and-no-
+`bookAfterStart` / no-sessions.
+
 ## Booking form — PORT the full schema-driven renderer (do NOT hand-roll a contact form)
 The booking form is a `@wix/forms` form on the service (`service.form._id`). You **must
 port the full schema-driven renderer** — **`../../astro/templates/bookings/BookingForm.tsx`**
