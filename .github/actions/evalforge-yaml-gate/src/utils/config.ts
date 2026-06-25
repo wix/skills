@@ -59,6 +59,26 @@ export function getSimpleConfig(): SimpleConfig {
   };
 }
 
+export type ScheduleConfig = {
+  evalforgeUrl: string;
+  projectId: string;
+  agentId: string;
+  appId: string;
+  appSecret: string;
+  runName: string;
+};
+
+export function getScheduleConfig(): ScheduleConfig {
+  return {
+    evalforgeUrl: ensureHttps(core.getInput('evalforge-url', { required: true })),
+    projectId: core.getInput('evalforge-project-id', { required: true }),
+    agentId: core.getInput('evalforge-agent-id', { required: true }),
+    appId: safeGetSecret('evalforge-app-id'),
+    appSecret: safeGetSecret('evalforge-app-secret'),
+    runName: core.getInput('run-name') || 'scheduled-run',
+  };
+}
+
 export function getEvalConfig(): Config {
   const pr = github.context.payload.pull_request!;
   const headSha = (pr.head as { sha?: string } | undefined)?.sha;
