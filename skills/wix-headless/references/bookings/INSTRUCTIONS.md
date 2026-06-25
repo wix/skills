@@ -62,7 +62,7 @@ If any declared file is missing, return `status: "partial"` with `errors: [{ cod
 ## Dependencies (Setup installs these — see SETUP.md)
 
 `@wix/bookings @wix/essentials @wix/forms @wix/redirects @wix/auto_sdk_ecom_cart-v-2 @wix/calendar`.
-`@wix/forms` renders the booking-form schema; `@wix/redirects` + `@wix/auto_sdk_ecom_cart-v-2` run the cart/checkout sequence; `@wix/calendar` reads a **course's** session schedule + capacity (Calendar Events V3 — see FLOW.md §10). Install `@wix/calendar` only when the build includes courses.
+`@wix/forms` renders the booking-form schema; `@wix/redirects` + `@wix/auto_sdk_ecom_cart-v-2` run the cart/checkout sequence; `@wix/calendar` reads a **course's** session schedule + capacity (Calendar Events V3 — see FLOW.md §10). **Install all of these on every bookings build** — including `@wix/calendar` even when no course is seeded — so the site handles all three service types (a merchant can add a course from the dashboard later and it works without a rebuild).
 
 ## CSS ownership — bookings pack
 

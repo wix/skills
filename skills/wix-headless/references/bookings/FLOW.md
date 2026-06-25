@@ -309,6 +309,14 @@ enrollment reuses the **same booking form and the same cart/checkout** as everyt
 else. The headless components SoT recognizes COURSE but does **not** make it bookable, so
 this flow is built from the documented SDK/REST calls below (all verified live).
 
+**Course support is part of the standard bookings build — always generate it**, the same
+way the catalog/detail always handle the CLASS path even on an appointment-only site. The
+catalog and detail page query *all* services by `appId` and branch on `service.type`, so a
+COURSE that the merchant adds from the dashboard *after* the build shows up and routes to
+the course UI with no rebuild — but only if the generated site already ships
+`CourseEnrollFlow` + `@wix/calendar` + the `service.type === "COURSE"` branch. So include
+them even when no course is seeded (the per-type cost is one component + one small dep).
+
 ### What a course exposes (on the `service` object, from `queryServices`)
 - `service.type === "COURSE"`; `service.schedule._id` (the course's schedule id — note
   **`_id`**, the SDK convention; REST returns `schedule.id`);
