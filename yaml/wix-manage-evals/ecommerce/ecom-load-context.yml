@@ -1,6 +1,6 @@
 name: ecommerce/ecom-load-context
 description: Load my full eCommerce store context — siteId, country, currency, industry, last-30-day visitor count, order count, and GPV.
-triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) load my full eCommerce store context before I ask about anything else. I need siteId, country, currency, industry type, last-30-day visitor count, order count, and gross payment volume (GPV).
+triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) load my full eCommerce store context before I ask about anything else. I need siteId, country, currency, industry type, last-30-day visitor count, order count, GPV last 30 days and AOV.
 tags: [ecommerce]
 assertions:
   - tool: ReadFullDocsArticle
