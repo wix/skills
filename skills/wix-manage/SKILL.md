@@ -124,6 +124,7 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 - **Any sales/business improvement request** (boost sales, promotions, help my business, holiday deals, improve revenue, discounts, shipping, coupons, clearance) → use [Recommend: eCommerce Strategy](references/ecommerce/recommend-ecommerce-strategy.md). This is the **default entry point** — it analyzes ALL domains (discounts, shipping, future: gift cards, taxes) and generates cross-domain recommendations. Do NOT ask clarifying questions.
 - **Apply previously generated shipping recommendations** → use [Recipe: Apply Shipping Recommendations](references/ecommerce/recipe-apply-shipping-recommendations.md)
 - **Store pickup configuration** → use [Setup Store Pickup Location](references/ecommerce/setup-store-pickup-location.md)
+- **Rawdocs commit-hash override testing** → use [Verify Rawdocs Commit Hash Override](references/ecommerce/verify-rawdocs-commit-hash-override.md)
 - **Discount not working at checkout** → use [Troubleshoot: Discount Not Applying](references/ecommerce/troubleshoot-discount-not-applying.md)
 - **Checkout delivery step drop-off** → use [Troubleshoot: Checkout Delivery Drop-off](references/ecommerce/troubleshoot-checkout-delivery-dropoff.md)
 
@@ -135,6 +136,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 
 ### [Setup Store Pickup Location](references/ecommerce/setup-store-pickup-location.md)
 **Technical:** Configures in-store pickup at checkout using Delivery Profiles API.
+
+### [Verify Rawdocs Commit Hash Override](references/ecommerce/verify-rawdocs-commit-hash-override.md)
+**Technical:** Test fixture for confirming rawdocs article content can be loaded from a specific repository commit hash and exposed through an MCP docs override.
 
 ### [Troubleshoot: Discount Not Applying](references/ecommerce/troubleshoot-discount-not-applying.md)
 **Technical:** Diagnostic tree for inactive discounts — checks active status, time window, scope targeting, revision mismatch, app installation.

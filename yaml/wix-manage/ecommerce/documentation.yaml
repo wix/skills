@@ -7,9 +7,13 @@ apiDoc:
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
       tags: [ecommerce]
     - file: ../../../skills/wix-manage/references/ecommerce/setup-store-pickup-location.md
-      title: Setup Store Pickup Location
+      title: "Setup: Store Pickup Location"
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
       tags: [ecommerce, stores]
+    - file: ../../../skills/wix-manage/references/ecommerce/verify-rawdocs-commit-hash-override.md
+      title: Verify Rawdocs Commit Hash Override
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
     - file: ../../../skills/wix-manage/references/ecommerce/guardrail-discount-conflicts.md
       title: "Guardrail: Discount Conflicts"
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce

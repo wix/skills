@@ -1,0 +1,32 @@
+name: ecommerce/verify-rawdocs-commit-hash-override
+description: >-
+  Verifies the agent reads the rawdocs commit-hash override test fixture when asked to test
+  eCommerce article content loading from a specific repository commit.
+triggerPrompt: >-
+  Test whether rawdocs can load the eCommerce introduction article from repo wix-private/ecom
+  at commit c7cfe260f71533ebeac80e7ae88e610ddbd7d083, and explain what MCP override commit
+  supplied this skill content.
+tags: [ecommerce]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/verify-rawdocs-commit-hash-override
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user wants to test rawdocs article content loading for the Wix eCommerce introduction
+      from repo wix-private/ecom at a specific commit hash, and wants the agent to identify the
+      MCP override commit that supplied the skill content.
+
+      Pass if the response:
+      - preserves the exact articleUrl, repo, and commitHash values from the request, AND
+      - explains that article content should be loaded from wix-private/ecom at commit
+        c7cfe260f71533ebeac80e7ae88e610ddbd7d083, AND
+      - reports success or the rawdocs error without silently falling back to main-branch docs, AND
+      - mentions the override commit or PR SHA that supplied this skill content.
+
+      Fail if the response:
+      - changes the commit hash, repo, or article URL, OR
+      - claims success without checking or reporting the rawdocs result, OR
+      - answers using generic eCommerce documentation instead of the override test fixture.
