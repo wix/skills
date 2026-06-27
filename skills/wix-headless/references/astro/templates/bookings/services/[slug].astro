@@ -180,19 +180,13 @@ const isCourse = serviceType === "COURSE";
 const bookHeading = isCourse ? "Enroll in this course" : "Book this service";
 
 // ── COURSE details (appointments/classes skip all of this) ───────────────────
-// A course is enrolled as a whole SERIES (no per-slot calendar): the detail page
-// shows the schedule + capacity + an Enroll action. Start/end live on the service
-// schedule (visitor-readable); the per-session list, capacity, staff, and location
-// all come from ONE Calendar Events V3 query (`events.queryEvents` by scheduleId) —
-// exactly how the native Wix course page does it. `listEventTimeSlots` returns
-// NOTHING for a COURSE (it's class-only), so this is the path. Capacity comes
-// straight off the events' remainingCapacity/totalCapacity (the native page does NOT
-// use Query Extended Bookings for it). Elevated here on astro SSR; an own/static build
-// can call queryEvents as a visitor (the native public page does — see WIRING.md).
-// Normalize schedule dates to ISO strings: the SDK can deserialize these to Date
-// OBJECTS (same as the event dates below). A raw Date flows into the confirmation
-// `startDate` query param as a locale-dependent Date.toString(), which the
-// confirmation page can't reliably parse — keep them ISO strings everywhere.
+// A course is enrolled as a whole series (no per-slot calendar): the detail page shows
+// the schedule + capacity + an Enroll action. The per-session list, capacity, staff, and
+// location come from ONE Calendar Events V3 query (`events.queryEvents` by scheduleId);
+// `listEventTimeSlots` returns nothing for a COURSE. Elevated here for SSR. See FLOW.md §10.
+// Normalize schedule dates to ISO strings: the SDK can deserialize these to Date objects
+// (like the event dates below); a raw Date reaches the confirmation `startDate` query param
+// as a locale-dependent Date.toString() the confirmation page can't reliably parse.
 const toIso = (d: any): string | undefined => (d ? new Date(d).toISOString() : undefined);
 const firstSessionStart = toIso(service.schedule?.firstSessionStart);
 const lastSessionEnd = toIso(service.schedule?.lastSessionEnd);

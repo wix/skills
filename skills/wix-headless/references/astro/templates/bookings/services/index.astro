@@ -5,15 +5,12 @@
 //
 // Optional catalog filters (both auto-skip when there's nothing to filter):
 //   location — a location selector, shown ONLY when the site has >1 location
-//              (business + custom + customer). Mirrors the SoT's location-first
-//              flow without forcing a separate step: single-location sites never
-//              see it. The choice is carried as ?locationId (+?locationType) and
-//              forwarded into both the services query and the detail page's
-//              availability.
+//              (business + custom + customer); single-location sites never see it.
+//              The choice is carried as ?locationId (+?locationType) and forwarded
+//              into both the services query and the detail page's availability.
 //   category — a category filter bar, shown ONLY when >1 category exists. The
 //              choice is carried as ?category and merged into the services query.
-// Both are plain links that re-SSR with query params (re-query, like the SoT) —
-// no client JS on the catalog.
+// Both are plain links that re-SSR with query params — no client JS on the catalog.
 import Layout from "../../layouts/Layout.astro";
 import ServiceCard from "../../components/ServiceCard.astro";
 import { services, categoriesV2 } from "@wix/bookings";
@@ -29,8 +26,8 @@ const selectedLocationType = reqUrl.searchParams.get("locationType") ?? "";
 
 // ── Services filter (appId + optional category + optional location) ─────────
 // A real business-location id filters by locations.business.id; the synthetic
-// "custom"/"customer" ids map to a location-TYPE filter (the SoT mapping). Built
-// from URL params only, so it doesn't depend on the locations/categories reads.
+// "custom"/"customer" ids map to a location-TYPE filter. Built from URL params
+// only, so it doesn't depend on the locations/categories reads.
 const filter: Record<string, any> = { appId: BOOKING_APP_ID };
 if (selectedCategory) filter["category.id"] = { $eq: selectedCategory };
 if (selectedLocation === "custom") filter["locations.type"] = { $hasSome: ["CUSTOM"] };
@@ -39,8 +36,7 @@ else if (selectedLocation) filter["locations.business.id"] = { $hasSome: [select
 
 // ── Catalog reads — three INDEPENDENT queries, fetched concurrently ─────────
 // queryServices (the filtered list) + queryLocations (selector) + queryCategories
-// (bar) don't depend on each other, so run them in parallel (the SoT fetches
-// services + categories with Promise.allSettled likewise) — one round-trip's
+// (bar) don't depend on each other, so run them in parallel — one round-trip's
 // latency, not three. Each is individually non-fatal: a failed read degrades only
 // its own piece (an empty list / a hidden selector or bar), never the whole page.
 // Ambient @wix/astro SSR client via @wix/essentials — do NOT build

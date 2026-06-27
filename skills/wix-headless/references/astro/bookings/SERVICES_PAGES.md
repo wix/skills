@@ -58,15 +58,11 @@ Plus the nav/home links (shell chain — see below).
    duplicate per-location slots (FLOW.md §7); and the `?locationId` read from the request
    URL (the picker's default).
 2b. **COURSE detail branches — no calendar.** When `service.type === "COURSE"`, mount
-   **`<CourseEnrollFlow>`** instead of `<ServiceBookingFlow>` (a course is enrolled as a
-   whole series; there's no availability calendar). SSR-read the course's sessions +
-   capacity in ONE elevated call — `auth.elevate(events.queryEvents)({ filter: { scheduleId:
-   service.schedule._id }, cursorPaging: { limit: 100 } })` (`@wix/calendar`; **`_id`**, not
-   `.id`) — derive capacity from the events' `remainingCapacity`/`totalCapacity`, the upcoming
-   session list (⚠️ event `utcDate` is a **Date object** — `toISOString()` before comparing),
-   staff (resources of type `1cd44cf8-…`), and location; pass them + the same `fields` into
-   `<CourseEnrollFlow>`. `listEventTimeSlots` returns nothing for a course. Full recipe:
-   `../../bookings/FLOW.md` §10; reference `…/templates/bookings/services/[slug].astro`.
+   **`<CourseEnrollFlow>`** instead of `<ServiceBookingFlow>`. SSR-read the course's
+   sessions + capacity with one elevated `auth.elevate(events.queryEvents)(...)` call
+   (`@wix/calendar`) and pass them + the same `fields` into the island. The call, the
+   derivations, and the gotchas (schedule `_id` not `.id`; `utcDate` is a Date object) are
+   in **`../../bookings/FLOW.md` §10**; reference `…/templates/bookings/services/[slug].astro`.
 3. **Only the read pages are SSR.** The detail page SSRs the service info for SEO,
    then the booking UI runs in the `client:only` island. Do not SSR availability.
 4. **Confirmation renders from query params.** The booking step redirects with

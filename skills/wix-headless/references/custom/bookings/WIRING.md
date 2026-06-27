@@ -122,7 +122,7 @@ A **course** is enrolled as a whole series — **skip the availability/staff ste
 course detail page shows the schedule + capacity + an Enroll action; enrollment reuses the
 same booking form and `book()` sequence. See `../../bookings/FLOW.md` §10. Read the
 sessions, capacity, staff, and location from Calendar Events V3 (`@wix/calendar`) on the
-**visitor client** — the native public course page does this un-elevated:
+**visitor client** (it's visitor-readable — no elevation):
 ```js
 import { events as calendarEvents } from "@wix/calendar"; // add to modules: {...}
 const res = await wix.events.queryEvents({
@@ -167,7 +167,7 @@ Adaptation rules (vs the astro original):
   dropdowns), predefined WIX_FILE→`WixFile[]` via `wix.submissions.getMediaUploadUrl`→PUT.
   A wrong type rejects the whole `createBooking`.
 - **Address** renders only when the selected slot is a CUSTOMER location
-  (`slot.locationType === "CUSTOMER"`) — same as the astro renderer / native Wix.
+  (`slot.locationType === "CUSTOMER"`) — same as the astro renderer.
 - **Submit:** the renderer collects the `formSubmission` map (keyed by `target`) and
   hands it to the booking sequence (below) — which passes it to `createBooking`
   unchanged. Don't re-derive the submission from a few contact fields.
@@ -246,7 +246,5 @@ if (checkoutRequired) {
 > CDN/own client at wiring time; the payloads above match the astro `bookingDriver.ts`.
 
 ## Out of scope
-Waitlist and on-site manage/cancel — out of scope (same as the astro vertical;
-neither has a headless SoT — display-only policy flags only, no join/cancel logic).
-Show bookable slots only; post-booking self-service is handled by the Wix-hosted
-flow / member area.
+Waitlist and on-site manage/cancel — not built here. Show bookable slots only;
+post-booking self-service is handled by the Wix-hosted flow / member area.

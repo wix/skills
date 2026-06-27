@@ -106,8 +106,7 @@ function buildBookingRequest(params: BookParams) {
 
   // COURSE — enrolled as a whole series. The entity is a `schedule` (the service's
   // own schedule id), NOT a `slot`: no per-session time, no resource pick. Wix
-  // derives the booking's startDate/endDate from the course schedule. Verified live:
-  // bookedEntity.schedule.scheduleId → 200 CREATED.
+  // derives the booking's startDate/endDate from the course schedule.
   const bookedEntity =
     slot.serviceType === "COURSE"
       ? {

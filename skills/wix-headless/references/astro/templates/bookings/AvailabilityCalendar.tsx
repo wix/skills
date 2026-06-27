@@ -24,8 +24,7 @@ import { STAFF_MEMBER_RESOURCE_TYPE_ID } from "./bookingDriver";
 // therefore yields DUPLICATE same-time rows unless the call is scoped to a single
 // location. So availability is ALWAYS scoped to one business location: the picker
 // below defaults to the carried/first location and the call always passes a
-// single-element `locations` filter. (One location per availability call — the
-// same single-location guarantee the location-first SoT gets from its selector.)
+// single-element `locations` filter (one location per availability call).
 //
 // STAFF: a single slot carries multiple staff in availableResources, so staff is
 // a per-slot dropdown — it never multiplies rows. Only location multiplies rows.

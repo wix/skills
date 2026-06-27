@@ -211,7 +211,7 @@ curl -sS -X POST \
 
 > **`locations.type` enum:** the valid values are `UNKNOWN_LOCATION_TYPE`, `CUSTOM`, `BUSINESS`, and `CUSTOMER`. Use `"BUSINESS"` for "at the business address" (the seed default). Do NOT use `"OWNER_BUSINESS"` here — that string IS valid for `createBooking.bookedEntity.slot.location.locationType` on the bookings endpoint, but the **services** endpoint rejects it. Same field name, different enum.
 
-> **`staffMemberIds`:** pass `resourceId` values (not staffMember `id` values). For APPOINTMENT this array must be **non-empty** — when `hasStaff` is `false`, pass the default **Business Owner** `resourceId` (query it per § "When hasStaff is false"); `[]` is rejected with `MISSING_APPOINTMENT_RESOURCES` (verified live). CLASS services don't require it.
+> **`staffMemberIds`:** pass `resourceId` values (not staffMember `id` values). For APPOINTMENT this array must be **non-empty** — when `hasStaff` is `false`, pass the default **Business Owner** `resourceId` (query it per § "When hasStaff is false"); `[]` is rejected with `MISSING_APPOINTMENT_RESOURCES`. CLASS services don't require it.
 
 **Response shape:**
 ```json
@@ -324,9 +324,9 @@ sessions; the front-end reads them and lists the sessions via Calendar Events V3
 (`events.queryEvents` by `scheduleId` — see FLOW.md §10). Record the created event ids in
 `seeded.bookings.services[].sessionEventIds`.
 
-> **Verified live:** `POST /calendar/v3/events` with `"type":"COURSE"` → 200. Same gotchas
-> as Step 4b (`permissionRole` must be `WRITER`; `resources` non-empty; `localDate` no `Z`).
-> Calendar Events V3 has **cancel, not delete** (`POST /calendar/v3/events/{id}/cancel`).
+> **Gotchas (same as Step 4b):** `permissionRole` must be `WRITER`; `resources` non-empty;
+> `localDate` is local, no `Z`. Calendar Events V3 has **cancel, not delete**
+> (`POST /calendar/v3/events/{id}/cancel`).
 
 ---
 
@@ -342,7 +342,7 @@ collect more (e.g. an experience level, party size, a waiver checkbox). Recipe
 2. **Add fields** — `PATCH /form-schema-service/v4/forms/{id}` with `{ form: { revision, formFields: [...existing, ...new], steps }, fieldMask: { paths: ["formFields","steps"] } }`. Each new field is `{ id: <uuid>, fieldType: "INPUT", inputOptions: { target, required, inputType, <typeOptions> } }` where `<typeOptions>` is `stringOptions` / `numberOptions` / `booleanOptions` / `arrayOptions` (its `componentType` + `validation` + label block).
 3. **Attach** — `PATCH /_api/bookings/v2/services/{serviceId}` with `{ service: { revision, form: { id } }, fieldMask: { paths: ["form.id"] } }`.
 
-> **Three field-shape rules (verified live — get them wrong and `createBooking`
+> **Three field-shape rules (get them wrong and `createBooking`
 > rejects the WHOLE booking server-side, not just the field):**
 > - **Array fields** (`CHECKBOX_GROUP` / `TAGS`) **must declare an item type**:
 >   `arrayOptions.validation.items` (e.g. an empty string item type). Missing it →

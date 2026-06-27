@@ -529,124 +529,48 @@ textarea.booking-input {
 }
 
 /* ── Course enrollment (COURSE services) ──────────────────────────────────────
- * A course is enrolled as a whole series — no availability calendar. The detail
- * page renders the schedule + remaining capacity and an Enroll action. */
-.course-enroll {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-lg);
-}
-.course-schedule {
+ * Structural layout only (a course detail = schedule + capacity + paginated
+ * sessions + Enroll). Colour/spacing inherit the pack's design tokens; restyle
+ * to taste. .course-note-full / .booking-cta etc. are reused from above. */
+.course-enroll,
+.course-sessions,
+.course-sessions-list {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-sm);
+}
+.course-enroll { gap: var(--spacing-lg); }
+.course-sessions-list { list-style: none; margin: 0; padding: 0; }
+.course-schedule {
   margin: 0;
   padding: var(--spacing-lg);
   border: 1px solid var(--color-rule);
   border-radius: var(--radius-md, 8px);
-  background: var(--color-paper-warm, var(--color-surface-secondary, var(--color-cream)));
 }
-.course-schedule-row {
+.course-schedule-row,
+.course-sessions-item,
+.course-sessions-pager {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   gap: var(--spacing-md);
 }
-.course-schedule-row dt {
-  color: var(--color-mute);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  font-size: 0.72rem;
-}
-.course-schedule-row dd {
-  margin: 0;
-  color: var(--color-ink);
-  font-weight: 500;
-}
-.course-note {
-  color: var(--color-mute);
-  font-size: 0.9rem;
-}
-.course-note-full {
-  color: var(--color-accent);
-  font-weight: 500;
-}
-
-/* Upcoming sessions list (COURSE) */
-.course-sessions {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-sm);
-}
-.course-sessions-title {
-  font-size: 0.78rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--color-mute);
-}
-.course-sessions-count {
-  font-size: 0.85rem;
-  color: var(--color-mute);
-  margin: calc(-1 * var(--spacing-xs)) 0 0;
-}
-.course-sessions-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-xs);
-}
+.course-schedule-row dt { color: var(--color-mute); }
+.course-schedule-row dd { margin: 0; font-weight: 500; }
 .course-sessions-item {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
   padding: var(--spacing-sm) var(--spacing-md);
   border: 1px solid var(--color-rule);
   border-radius: var(--radius-sm, 6px);
-  color: var(--color-ink);
-  font-size: 0.9rem;
 }
-.course-sessions-item::before {
-  content: "";
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--color-accent);
-  flex: 0 0 auto;
-}
-.course-sessions-when {
-  flex: 1 1 auto;
-}
-.course-sessions-meta {
-  flex: 0 0 auto;
-  color: var(--color-mute);
-  font-size: 0.82rem;
-  text-align: right;
-}
-.course-sessions-pager {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--spacing-md);
-  margin-top: var(--spacing-xs);
-}
-.course-sessions-pager-status {
-  font-size: 0.82rem;
-  color: var(--color-mute);
-}
+.course-sessions-when { flex: 1 1 auto; }
+.course-sessions-meta,
+.course-sessions-count,
+.course-sessions-pager-status { color: var(--color-mute); font-size: 0.85rem; }
+.course-note-full { color: var(--color-accent); }
 .course-sessions-pager-btn {
   padding: var(--spacing-xs) var(--spacing-md);
   border: 1px solid var(--color-rule);
   border-radius: var(--radius-sm, 6px);
-  background: var(--color-paper, var(--color-cream));
-  color: var(--color-ink);
-  font-size: 0.85rem;
   cursor: pointer;
 }
-.course-sessions-pager-btn:hover:not(:disabled) {
-  border-color: var(--color-ink);
-}
-.course-sessions-pager-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
+.course-sessions-pager-btn:disabled { opacity: 0.4; cursor: not-allowed; }
