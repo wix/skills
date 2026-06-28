@@ -50,6 +50,10 @@ inputs:
     description: 'Run the eval pipeline comparison (set to false to skip, e.g. via TRIGGER_EVAL_COMPARE repo var)'
     required: false
     default: 'true'
+  max-new-skills:
+    description: 'Maximum number of new wix-manage skill .md files allowed in one PR'
+    required: false
+    default: '1'
 runs:
   using: 'node20'
   main: 'dist/index.js'

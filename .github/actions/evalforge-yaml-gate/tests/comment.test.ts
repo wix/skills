@@ -52,4 +52,34 @@ describe('comment formatters', () => {
   it('formatNoChanges signals success', () => {
     expect(c.formatNoChanges()).toContain('No Gated Changes');
   });
+
+  it('formatTooManyNewSkills includes count and file names', () => {
+    const out = c.formatTooManyNewSkills(2, 1, [
+      'skills/wix-manage/references/payments/process.md',
+      'skills/wix-manage/references/invoicing/create.md',
+    ]);
+    expect(out).toContain('2');
+    expect(out).toContain('payments/process.md');
+    expect(out).toContain('invoicing/create.md');
+    expect(out).toContain('Too Many New Skills');
+    expect(out).toContain(c.COMMENT_MARKER);
+  });
+
+  it('formatTooManyNewSkills suggests splitting PRs', () => {
+    const out = c.formatTooManyNewSkills(2, 1, ['a.md', 'b.md']);
+    expect(out).toContain('Split across multiple PRs');
+  });
+
+  it('formatTooManyNewSkills shows configured limit', () => {
+    const out = c.formatTooManyNewSkills(4, 3, ['a.md', 'b.md', 'c.md', 'd.md']);
+    expect(out).toContain('3');
+  });
+
+  it('formatTooManyNewSkills lists all files', () => {
+    const files = ['area-one/skill.md', 'area-two/skill.md', 'area-three/skill.md'];
+    const out = c.formatTooManyNewSkills(files.length, 1, files);
+    files.forEach(file => {
+      expect(out).toContain(`\`${file}\``);
+    });
+  });
 });
