@@ -34,13 +34,13 @@ Key authoring rules:
 
 React component shown in the Wix Editor sidebar.
 
-- Uses Wix Design System components (see [SETTINGS_PANEL.md](custom-element-widget/SETTINGS_PANEL.md)).
+- Built with **plain React + CSS modules** — a co-located `<name>.panel.module.css` (see [SETTINGS_PANEL.md](custom-element-widget/SETTINGS_PANEL.md)). Do NOT import `@wix/design-system`.
 - Manages widget properties via the `@wix/editor` `widget` API.
 - Loads initial values with `widget.getProp('kebab-case-name')`.
 - Updates properties with `widget.setProp('kebab-case-name', value)`. Always update both local React state AND the widget prop in onChange handlers.
-- Wrapped in `WixDesignSystemProvider > SidePanel > SidePanel.Content`.
-- For color pickers, use `inputs.selectColor()` from `@wix/editor` with `FillPreview` — NOT `<Input type="color">`.
-- For font pickers, use `inputs.selectFont()` from `@wix/editor` with a `Button` — NOT a text Input.
+- Structure with a plain container, e.g. `<div className={styles.panel}>` wrapping `<label>` + `<input>`/`<select>` fields. No provider, no `SidePanel`.
+- For color pickers, use `inputs.selectColor()` from `@wix/editor` with a plain swatch `<button>` trigger — NOT `<input type="color">`.
+- For font pickers, use `inputs.selectFont()` from `@wix/editor` with a plain `<button>` trigger — NOT a text input.
 
 ## Builder file (`<name>.extension.ts`)
 
@@ -60,9 +60,9 @@ The CLI scaffolds the builder file with sensible defaults — edit it only to cu
 | `element` | path | `./extensions/site/widgets/<name>/<name>.tsx` | Path to the widget custom element file. Don't change unless renaming files. |
 | `settings` | path | `./extensions/site/widgets/<name>/<name>.panel.tsx` | Path to the settings panel file. Don't change unless renaming files. |
 
-- Import `@wix/design-system/styles.global.css` for styles
-- For colors, use `ColorPickerField` with `inputs.selectColor()` from `@wix/editor` — NOT `<Input type="color">`
-- For fonts, use `FontPickerField` with `inputs.selectFont()` from `@wix/editor` — NOT a text Input
+- Style the panel with a co-located `<name>.panel.module.css` (CSS modules) — do NOT import `@wix/design-system/styles.global.css`
+- For colors, use a `ColorPickerField` backed by `inputs.selectColor()` from `@wix/editor` with a swatch `<button>` trigger — NOT `<input type="color">`
+- For fonts, use a `FontPickerField` backed by `inputs.selectFont()` from `@wix/editor` with a `<button>` trigger — NOT a text input
 - Font values are stored as JSON strings via `JSON.stringify()` / `JSON.parse()`
 
 ## Props Naming Convention
@@ -135,13 +135,13 @@ export default MyWidget;
 
 ## Color Selection
 
-For color selection in settings panels, use `ColorPickerField` component with `inputs.selectColor()` from `@wix/editor`. Do NOT use `<Input type="color">`.
+For color selection in settings panels, use a `ColorPickerField` backed by `inputs.selectColor()` from `@wix/editor` with a plain swatch `<button>` trigger. Do NOT use `<input type="color">`.
 
 ```typescript
 // components/ColorPickerField.tsx
 import React, { type FC } from 'react';
 import { inputs } from '@wix/editor';
-import { FormField, Box, FillPreview, SidePanel } from '@wix/design-system';
+import styles from './ColorPickerField.module.css';
 
 interface ColorPickerFieldProps {
   label: string;
@@ -154,17 +154,24 @@ export const ColorPickerField: FC<ColorPickerFieldProps> = ({
   value,
   onChange,
 }) => (
-  <SidePanel.Field>
-    <FormField label={label}>
-      <Box width="30px" height="30px">
-        <FillPreview
-          fill={value}
-          onClick={() => inputs.selectColor(value, { onChange: (val) => { if (val) onChange(val); } })}
-        />
-      </Box>
-    </FormField>
-  </SidePanel.Field>
+  <div className={styles.field}>
+    <span className={styles.label}>{label}</span>
+    <button
+      type="button"
+      className={styles.swatch}
+      style={{ backgroundColor: value }}
+      aria-label={label}
+      onClick={() => inputs.selectColor(value, { onChange: (val) => { if (val) onChange(val); } })}
+    />
+  </div>
 );
+```
+
+```css
+/* components/ColorPickerField.module.css */
+.field { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 0; }
+.label { font-size: 14px; color: #333; }
+.swatch { width: 30px; height: 30px; border: 1px solid #ccc; border-radius: 4px; cursor: pointer; }
 ```
 
 Usage in panel:
@@ -178,17 +185,17 @@ const handleBgColorChange = (value: string) => {
 <ColorPickerField label="Background Color" value={bgColor} onChange={handleBgColorChange} />
 ```
 
-**Important:** Use `inputs.selectColor(value, { onChange })` from `@wix/editor` with `FillPreview` from WDS. This opens the native Wix color picker with theme colors, gradients, and more. Never use `<Input type="color">`.
+**Important:** Use `inputs.selectColor(value, { onChange })` from `@wix/editor` with a plain swatch `<button>`. This opens the native Wix color picker with theme colors, gradients, and more. Never use `<input type="color">`.
 
 ## Font Selection
 
-For font selection in settings panels, use `FontPickerField` component with `inputs.selectFont()` from `@wix/editor`. Do NOT use a text Input.
+For font selection in settings panels, use a `FontPickerField` backed by `inputs.selectFont()` from `@wix/editor` with a plain `<button>` trigger. Do NOT use a text input.
 
 ```typescript
 // components/FontPickerField.tsx
 import React, { type FC } from 'react';
 import { inputs } from '@wix/editor';
-import { FormField, Button, Text, SidePanel } from '@wix/design-system';
+import styles from './FontPickerField.module.css';
 
 interface FontValue {
   font: string;
@@ -206,19 +213,29 @@ export const FontPickerField: FC<FontPickerFieldProps> = ({
   value,
   onChange,
 }) => (
-  <SidePanel.Field>
-    <FormField label={label}>
-      <Button
-        size="small"
-        priority="secondary"
-        onClick={() => inputs.selectFont(value, { onChange: (val) => onChange({ font: val.font, textDecoration: val.textDecoration || "" }) })}
-        fullWidth
-      >
-        <Text size="small" ellipsis>Change Font</Text>
-      </Button>
-    </FormField>
-  </SidePanel.Field>
+  <div className={styles.field}>
+    <span className={styles.label}>{label}</span>
+    <button
+      type="button"
+      className={styles.button}
+      onClick={() => inputs.selectFont(value, { onChange: (val) => onChange({ font: val.font, textDecoration: val.textDecoration || "" }) })}
+    >
+      Change Font
+    </button>
+  </div>
 );
+```
+
+```css
+/* components/FontPickerField.module.css */
+.field { display: flex; flex-direction: column; gap: 6px; padding: 6px 0; }
+.label { font-size: 14px; color: #333; }
+.button {
+  width: 100%; padding: 8px 12px; font-size: 14px; cursor: pointer;
+  background: #fff; border: 1px solid #ccc; border-radius: 4px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.button:hover { background: #f5f5f5; }
 ```
 
 Usage in panel:
@@ -234,7 +251,7 @@ const handleFontChange = (value: FontValue) => {
 <FontPickerField label="Text Font" value={font} onChange={handleFontChange} />
 ```
 
-**Important:** Use `inputs.selectFont(value, { onChange })` from `@wix/editor` with the callback pattern. This provides a rich font picker dialog with bold, italic, size, and typography features. Font values are stored as JSON strings.
+**Important:** Use `inputs.selectFont(value, { onChange })` from `@wix/editor` with the callback pattern and a plain `<button>` trigger. This provides a rich font picker dialog with bold, italic, size, and typography features. Font values are stored as JSON strings.
 
 ## Examples
 

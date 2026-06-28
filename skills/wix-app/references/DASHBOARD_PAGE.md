@@ -51,10 +51,10 @@ See [Dashboard API Reference](dashboard-page/DASHBOARD_API.md) for complete docu
 
 **CRITICAL: Using Modals in Dashboard Pages**
 
-When you need to display popup forms, confirmations, detail views, or any dialog overlays from a dashboard page, you **MUST** use dashboard modals, not regular React modals or WDS Modal components.
+When you need to display popup forms, confirmations, detail views, or any dialog overlays from a dashboard page, you **MUST** use dashboard modals, not hand-rolled React overlays.
 
 - **Use dashboard modals** for: edit forms, delete confirmations, detail views, settings dialogs, any popup content
-- **Do NOT use** WDS `Modal` component or custom React modal implementations
+- **Do NOT** hand-roll your own overlay (a fixed-position `<div>` backdrop) and do NOT pull in `@wix/design-system` for a `Modal` — use a separate Dashboard Modal extension instead
 - **See [Dashboard Modal reference](DASHBOARD_MODAL.md)** for complete implementation guide
 
 Dashboard modals are opened using `dashboard.openModal()` and provide proper integration with the dashboard lifecycle, state management, and navigation.
@@ -70,7 +70,7 @@ When building a dashboard page to configure an embedded script, see [Dynamic Par
 - Use `embeddedScripts` from `@wix/app-management`
 - Parameters are returned as strings - handle type conversions when loading
 - All parameters must be saved as strings (convert booleans/numbers to strings)
-- Use `withProviders` wrapper when dynamic parameters are present
+- Build the form with plain React + CSS modules (no provider wrapper needed)
 
 ## Optional builder fields
 
@@ -316,9 +316,51 @@ Wizard pages guide users through setting up a product or feature. They split com
 > **Note:** Wizards must have a final destination. After completing all steps, users should end up on a relevant page: a dashboard, a details page, or any other relevant location.
 
 
-### Related WDS Components
+### Building the layout with CSS modules
 
-- `<Page />` - Main page wrapper
-- `<Layout />` - Grid layout container
-- `<MarketingPageLayout />` - Marketing page wrapper
-- `<Card />` - Content container with 24px gaps between cards
+Build the page with plain React elements and a co-located `page.module.css` (CSS modules). Keep the design guidance above: base everything on the **6px spacing unit** (6, 12, 18, 24…), cap the content area at **1248px**, and use **24px gaps** between cards. Do NOT import `@wix/design-system`.
+
+| WDS concept | Plain React + CSS module |
+| --- | --- |
+| `<Page>` | `<div className={styles.page}>` — outer wrapper |
+| `<Page.Header title actionsBar>` | `<header className={styles.header}>` with `<h1>` + an actions `<div className={styles.actions}>` |
+| `<Page.Content>` | `<div className={styles.content}>` — max-width 1248px, centered |
+| `<Layout>` / `<Cell>` (12-col grid) | `<div className={styles.layout}>` with `display: grid` and `<div className={styles.cell}>` children |
+| `<Card>` / `<Card.Header>` / `<Card.Content>` | `<div className={styles.card}>` (24px gaps) / `<div className={styles.cardHeader}>` / `<div className={styles.cardContent}>` |
+| `<Table>` | `<table className={styles.table}>` |
+| `<EmptyState>` | `<div className={styles.emptyState}>` with heading, text, and a CTA `<button>` |
+
+```css
+/* page.module.css */
+.page { display: flex; flex-direction: column; min-height: 100vh; }
+.header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 24px 48px; border-bottom: 1px solid #e5e5e5;
+}
+.header h1 { margin: 0; font-size: 24px; font-weight: 600; }
+.actions { display: flex; gap: 12px; }
+.content { width: 100%; max-width: 1248px; margin: 0 auto; padding: 24px 48px; }
+.card {
+  background: #fff; border: 1px solid #e5e5e5; border-radius: 8px;
+  padding: 24px; margin-bottom: 24px;
+}
+.table { width: 100%; border-collapse: collapse; }
+.table th, .table td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; }
+.emptyState { text-align: center; padding: 48px 24px; color: #666; }
+```
+
+### Admin-only access
+
+For pages that should be visible to site admins only, gate the page on the current member's roles. Add `@wix/site-members` to dependencies and check for the `Admin` role on mount; render a "not authorized" message (or redirect) for non-admins.
+
+```typescript
+import { currentMember } from '@wix/site-members';
+
+const roles = await currentMember.getRoles();
+const isAdmin = roles.some((role) => role.title === 'Admin' || role.role === 'Admin');
+if (!isAdmin) {
+  // render an "Admins only" message instead of the page content
+}
+```
+
+Hold the result in state (e.g. `const [isAdmin, setIsAdmin] = useState<boolean | null>(null)`), show a spinner div while it is `null`, and only render the management UI once `isAdmin === true`.

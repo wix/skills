@@ -25,12 +25,14 @@ Custom element component that renders in the slot using native HTMLElement:
 
 Settings panel shown in the Wix Editor sidebar:
 
-- Uses Wix Design System (`@wix/design-system`) components — see the `wix-design-system` skill for component reference
+- Built with **plain React + CSS modules** — a co-located `<plugin-name>.panel.module.css`. Do NOT import `@wix/design-system`.
 - Manages plugin properties via `@wix/editor` widget API
 - Loads initial values with `widget.getProp('kebab-case-name')`
 - Updates properties with `widget.setProp('kebab-case-name', value)`
 - Widget properties are bound to custom element attributes — any property change automatically updates the corresponding attribute
-- Wrapped in `WixDesignSystemProvider > SidePanel > SidePanel.Content`
+- Structure with a plain container (`<div className={styles.panel}>`) wrapping `<label>` + `<input>` fields — no provider, no `SidePanel`
+
+> **Note:** This applies only to the settings **panel** (`.panel.tsx`), which is a normal React component. The plugin custom element (`<plugin-name>.tsx`) still extends `HTMLElement` and renders via `this.innerHTML` with **inline styles** (CSS imports are not supported in custom elements) — see the Plugin Component Pattern below.
 
 ### 3. Extension Builder (`<plugin-name>.extension.ts`)
 
@@ -95,13 +97,7 @@ export default MyElement;
 // my-site-plugin.panel.tsx
 import React, { type FC, useState, useEffect, useCallback } from 'react';
 import { widget } from '@wix/editor';
-import {
-  SidePanel,
-  WixDesignSystemProvider,
-  Input,
-  FormField,
-} from '@wix/design-system';
-import '@wix/design-system/styles.global.css';
+import styles from './my-site-plugin.panel.module.css';
 
 const Panel: FC = () => {
   const [displayName, setDisplayName] = useState<string>('');
@@ -119,26 +115,30 @@ const Panel: FC = () => {
   }, [setDisplayName]);
 
   return (
-    <WixDesignSystemProvider>
-      <SidePanel width="300" height="100vh">
-        <SidePanel.Content noPadding stretchVertically>
-          <SidePanel.Field>
-            <FormField label="Display Name">
-              <Input
-                type="text"
-                value={displayName}
-                onChange={handleDisplayNameChange}
-                aria-label="Display Name"
-              />
-            </FormField>
-          </SidePanel.Field>
-        </SidePanel.Content>
-      </SidePanel>
-    </WixDesignSystemProvider>
+    <div className={styles.panel}>
+      <label className={styles.field}>
+        <span className={styles.label}>Display Name</span>
+        <input
+          type="text"
+          className={styles.input}
+          value={displayName}
+          onChange={handleDisplayNameChange}
+          aria-label="Display Name"
+        />
+      </label>
+    </div>
   );
 };
 
 export default Panel;
+```
+
+```css
+/* my-site-plugin.panel.module.css */
+.panel { display: flex; flex-direction: column; gap: 18px; padding: 18px; width: 300px; }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.label { font-size: 14px; color: #333; }
+.input { padding: 8px 12px; font-size: 14px; border: 1px solid #ccc; border-radius: 4px; }
 ```
 
 **Key Points:**
@@ -146,9 +146,8 @@ export default Panel;
 - Prop names in `widget.getProp()` and `widget.setProp()` use **kebab-case** (e.g., `"display-name"`)
 - Always update both local state AND widget prop in onChange handlers
 - Widget properties are bound to custom element attributes — changes automatically update the corresponding attribute
-- Wrap content in `WixDesignSystemProvider > SidePanel > SidePanel.Content`
-- Use WDS components from `@wix/design-system`
-- Import `@wix/design-system/styles.global.css` for styles
+- Style with a co-located `<plugin-name>.panel.module.css` (CSS modules); do NOT import `@wix/design-system` or its global CSS
+- Use plain React elements (`<div>`, `<label>`, `<input>`, `<button>`)
 - Include `aria-label` for accessibility
 
 ## Color & Font Picker Fields
@@ -157,12 +156,12 @@ Site plugin settings panels can use `inputs.selectColor()` and `inputs.selectFon
 
 ### ColorPickerField
 
-Opens the Wix color picker with theme colors, gradients, and more — **NOT** a basic HTML `<input type="color">`.
+Opens the Wix color picker with theme colors, gradients, and more — **NOT** a basic HTML `<input type="color">`. Use a plain swatch `<button>` as the trigger.
 
 ```typescript
 import React, { type FC } from 'react';
 import { inputs } from '@wix/editor';
-import { FormField, Box, FillPreview, SidePanel } from '@wix/design-system';
+import styles from './my-site-plugin.panel.module.css';
 
 interface ColorPickerFieldProps {
   label: string;
@@ -175,27 +174,27 @@ export const ColorPickerField: FC<ColorPickerFieldProps> = ({
   value,
   onChange,
 }) => (
-  <SidePanel.Field>
-    <FormField label={label}>
-      <Box width="30px" height="30px">
-        <FillPreview
-          fill={value}
-          onClick={() => inputs.selectColor(value, { onChange: (val) => { if (val) onChange(val); } })}
-        />
-      </Box>
-    </FormField>
-  </SidePanel.Field>
+  <div className={styles.field}>
+    <span className={styles.label}>{label}</span>
+    <button
+      type="button"
+      className={styles.swatch}
+      style={{ backgroundColor: value }}
+      aria-label={label}
+      onClick={() => inputs.selectColor(value, { onChange: (val) => { if (val) onChange(val); } })}
+    />
+  </div>
 );
 ```
 
 ### FontPickerField
 
-Opens the Wix font picker with font family, size, bold, italic, and other typography features.
+Opens the Wix font picker with font family, size, bold, italic, and other typography features. Use a plain `<button>` as the trigger.
 
 ```typescript
 import React, { type FC } from 'react';
 import { inputs } from '@wix/editor';
-import { FormField, Button, Text, SidePanel } from '@wix/design-system';
+import styles from './my-site-plugin.panel.module.css';
 
 interface FontValue {
   font: string;
@@ -213,24 +212,33 @@ export const FontPickerField: FC<FontPickerFieldProps> = ({
   value,
   onChange,
 }) => (
-  <SidePanel.Field>
-    <FormField label={label}>
-      <Button
-        size="small"
-        priority="secondary"
-        onClick={() => inputs.selectFont(value, { onChange: (val) => onChange({ font: val.font, textDecoration: val.textDecoration || "" }) })}
-        fullWidth
-      >
-        <Text size="small" ellipsis>Change Font</Text>
-      </Button>
-    </FormField>
-  </SidePanel.Field>
+  <div className={styles.field}>
+    <span className={styles.label}>{label}</span>
+    <button
+      type="button"
+      className={styles.button}
+      onClick={() => inputs.selectFont(value, { onChange: (val) => onChange({ font: val.font, textDecoration: val.textDecoration || "" }) })}
+    >
+      Change Font
+    </button>
+  </div>
 );
 ```
 
+```css
+/* add to my-site-plugin.panel.module.css */
+.swatch { width: 30px; height: 30px; border: 1px solid #ccc; border-radius: 4px; cursor: pointer; }
+.button {
+  width: 100%; padding: 8px 12px; font-size: 14px; cursor: pointer;
+  background: #fff; border: 1px solid #ccc; border-radius: 4px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.button:hover { background: #f5f5f5; }
+```
+
 **Important:**
-- Always use `inputs.selectColor()` from `@wix/editor` with `FillPreview` — do NOT use `<Input type="color">`
-- Always use `inputs.selectFont()` from `@wix/editor` with the callback pattern `inputs.selectFont(value, { onChange })`
+- Always use `inputs.selectColor()` from `@wix/editor` with a plain swatch `<button>` — do NOT use `<input type="color">`
+- Always use `inputs.selectFont()` from `@wix/editor` with the callback pattern `inputs.selectFont(value, { onChange })` and a plain `<button>` trigger
 - Import `inputs` from `@wix/editor` (not from `@wix/sdk`)
 
 ## Attribute Naming Convention
@@ -249,7 +257,7 @@ Site plugins use **kebab-case** consistently for HTML attributes:
 | --- | --- |
 | Complete Examples | [EXAMPLES.md](site-plugin/EXAMPLES.md) |
 | Slots (App IDs, runtime APIs, design guidelines, multiple placements) | [SLOTS.md](site-plugin/SLOTS.md) — run `wix schema generate --type SITE_PLUGIN` for the authoritative `slotId` enum |
-| WDS Components | the `wix-design-system` skill |
+| Settings panel UI | Plain React + CSS modules (see the Settings Panel Pattern above) — do NOT use `@wix/design-system` |
 
 ## Available Slots
 

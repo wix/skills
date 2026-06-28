@@ -55,15 +55,7 @@ export default BestSellerBadge;
 ```typescript
 import React, { type FC, useState, useEffect, useCallback } from 'react';
 import { widget, inputs } from '@wix/editor';
-import {
-  SidePanel,
-  WixDesignSystemProvider,
-  Input,
-  FormField,
-  Box,
-  FillPreview,
-} from '@wix/design-system';
-import '@wix/design-system/styles.global.css';
+import styles from './best-seller-badge.panel.module.css';
 
 const Panel: FC = () => {
   const [badgeText, setBadgeText] = useState<string>('');
@@ -101,46 +93,51 @@ const Panel: FC = () => {
   }, []);
 
   return (
-    <WixDesignSystemProvider>
-      <SidePanel width="300" height="100vh">
-        <SidePanel.Content noPadding stretchVertically>
-          <SidePanel.Field>
-            <FormField label="Badge Text">
-              <Input
-                type="text"
-                value={badgeText}
-                onChange={handleTextChange}
-                aria-label="Badge Text"
-              />
-            </FormField>
-          </SidePanel.Field>
-          <SidePanel.Field>
-            <FormField label="Background Color">
-              <Box width="30px" height="30px">
-                <FillPreview
-                  fill={bgColor}
-                  onClick={() => inputs.selectColor(bgColor, { onChange: (val) => { if (val) handleBgColorChange(val); } })}
-                />
-              </Box>
-            </FormField>
-          </SidePanel.Field>
-          <SidePanel.Field>
-            <FormField label="Text Color">
-              <Box width="30px" height="30px">
-                <FillPreview
-                  fill={textColor}
-                  onClick={() => inputs.selectColor(textColor, { onChange: (val) => { if (val) handleTextColorChange(val); } })}
-                />
-              </Box>
-            </FormField>
-          </SidePanel.Field>
-        </SidePanel.Content>
-      </SidePanel>
-    </WixDesignSystemProvider>
+    <div className={styles.panel}>
+      <label className={styles.field}>
+        <span className={styles.label}>Badge Text</span>
+        <input
+          type="text"
+          className={styles.input}
+          value={badgeText}
+          onChange={handleTextChange}
+          aria-label="Badge Text"
+        />
+      </label>
+      <div className={styles.field}>
+        <span className={styles.label}>Background Color</span>
+        <button
+          type="button"
+          className={styles.swatch}
+          style={{ backgroundColor: bgColor }}
+          aria-label="Background Color"
+          onClick={() => inputs.selectColor(bgColor, { onChange: (val) => { if (val) handleBgColorChange(val); } })}
+        />
+      </div>
+      <div className={styles.field}>
+        <span className={styles.label}>Text Color</span>
+        <button
+          type="button"
+          className={styles.swatch}
+          style={{ backgroundColor: textColor }}
+          aria-label="Text Color"
+          onClick={() => inputs.selectColor(textColor, { onChange: (val) => { if (val) handleTextColorChange(val); } })}
+        />
+      </div>
+    </div>
   );
 };
 
 export default Panel;
+```
+
+```css
+/* best-seller-badge.panel.module.css */
+.panel { display: flex; flex-direction: column; gap: 18px; padding: 18px; width: 300px; box-sizing: border-box; }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.label { font-size: 14px; color: #333; }
+.input { padding: 8px 12px; font-size: 14px; border: 1px solid #ccc; border-radius: 4px; }
+.swatch { width: 30px; height: 30px; border: 1px solid #ccc; border-radius: 4px; cursor: pointer; }
 ```
 
 ### Extension Configuration (`best-seller-badge.extension.ts`)
@@ -184,7 +181,7 @@ For plugins that require back-office management (especially checkout and side ca
 ```typescript
 // src/extensions/dashboard/pages/plugin-settings/page.tsx
 import { dashboard } from "@wix/dashboard";
-import { Page, WixDesignSystemProvider, Card, FormField, Input, Button } from "@wix/design-system";
+import styles from "./page.module.css";
 
 export default function PluginSettingsPage() {
   const handleAddToSlot = async () => {
@@ -202,21 +199,42 @@ export default function PluginSettingsPage() {
   };
 
   return (
-    <WixDesignSystemProvider>
-      <Page>
-        <Page.Header title="Plugin Settings" />
-        <Page.Content>
-          <Card>
-            <Card.Header title="Manage Your Plugin" />
-            <Card.Content>
-              <Button onClick={handleAddToSlot}>Add Plugin to Slot</Button>
-            </Card.Content>
-          </Card>
-        </Page.Content>
-      </Page>
-    </WixDesignSystemProvider>
+    <div className={styles.page}>
+      <header className={styles.header}>
+        <h1>Plugin Settings</h1>
+      </header>
+      <div className={styles.content}>
+        <div className={styles.card}>
+          <div className={styles.cardHeader}>
+            <h2>Manage Your Plugin</h2>
+          </div>
+          <div className={styles.cardContent}>
+            <button className={styles.button} onClick={handleAddToSlot}>
+              Add Plugin to Slot
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
+```
+
+```css
+/* src/extensions/dashboard/pages/plugin-settings/page.module.css */
+.page { display: flex; flex-direction: column; min-height: 100vh; }
+.header { padding: 24px 48px; border-bottom: 1px solid #e5e5e5; }
+.header h1 { margin: 0; font-size: 24px; font-weight: 600; }
+.content { width: 100%; max-width: 1248px; margin: 0 auto; padding: 24px 48px; }
+.card { background: #fff; border: 1px solid #e5e5e5; border-radius: 8px; }
+.cardHeader { padding: 18px 24px; border-bottom: 1px solid #eee; }
+.cardHeader h2 { margin: 0; font-size: 18px; font-weight: 600; }
+.cardContent { padding: 24px; }
+.button {
+  padding: 8px 18px; font-size: 14px; cursor: pointer; color: #fff;
+  background: #116dff; border: none; border-radius: 18px;
+}
+.button:hover { background: #0f5ce0; }
 ```
 
 ## Wix Data API Integration
