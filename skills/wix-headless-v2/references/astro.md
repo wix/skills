@@ -8,10 +8,10 @@ Astro is the **documented default** frontend for Wix-managed headless — pick i
 
 **How to use it.** Before scaffolding, wiring, or releasing, look the task up here and read its pinned pages top-to-bottom until you can act — read-then-act, never invent a URL or a config from memory. If a task has no entry, navigate from the doc index in §4.
 
-**URL form & how to read it.** Each pinned link is the **`.md` twin** of a docs article (the article URL with `.md` appended). The two read paths take **different URL forms** — don't mix them:
+**URL form & how to read it.** Each pinned link is the **`.md` twin** of a docs article (the article URL with `.md` appended). A page pinned here is **already curated — read it directly; don't re-discover it with search.** The two read paths take **different URL forms** — don't mix them:
 
-- **MCP doc tools — preferred when the host exposes them. Pass the URL *without* the `.md` suffix.** Use `ReadFullDocsArticle` for the guide/article pages here, and `SearchWixCLIDocumentation` / `SearchWixHeadlessDocumentation` / `SearchWixSDKDocumentation` to reach the exact command or method page.
-- **`curl` — fallback when no MCP doc tool is present. Fetch the link as-is (keep the `.md`)** for raw markdown.
+- **`curl` the pinned link — first priority. Fetch it as-is (keep the `.md`)** for raw markdown.
+- **MCP doc tools — second priority** (discovery of a page this file doesn't pin, or a fallback if a fetch fails). **Pass the URL *without* the `.md` suffix:** `ReadFullDocsArticle` for the guide/article pages here; `SearchWixCLIDocumentation` / `SearchWixHeadlessDocumentation` / `SearchWixSDKDocumentation` to reach an unpinned command or method page.
 
 ---
 
@@ -79,7 +79,7 @@ The heart of the file: tribal knowledge the docs won't surface. These are **guid
 | **A3 — Guard every SSR SDK call** | Wrap every Wix SDK call in `.astro` frontmatter in `try/catch` — an unguarded throw truncates the response mid-stream (white screen). Memoize repeated SSR probes at module scope to coalesce duplicate calls within a request. |
 | **A4 — Islands reading browser-only state must be `client:only="react"`** | An island that reads browser-only state (cart badge via `sessionStorage`, availability/booking widgets) must be `client:only="react"`, not `client:load` — otherwise SSR renders a zero/empty state and hydration flashes it to the real value. |
 | **A5 — No HTML comments in `.astro` frontmatter** | `.astro` frontmatter is TypeScript — use `//`, never `<!-- -->`, or the build fails. |
-| **A6 — Wix media + rich text** | Constrain Wix image URLs (`aspect-ratio` + `object-fit: cover`) or they render at intrinsic size and overflow the layout. Render rich-text fields as their `.plain` variant — never inject raw HTML/Ricos into `textContent`. |
+| **A6 — Wix media + rich text** | Constrain Wix image URLs (`aspect-ratio` + `object-fit: cover`) or they render at intrinsic size and overflow the layout. **Rich text:** the ban is on dumping *raw* HTML/Ricos into a text node — when you bind a rich-text field into a layout slot (a card excerpt, a `textContent` string), use its `.plain` variant. This is **not** a "render plain text" rule: a **blog post body is `richContent` (Ricos) and must render formatted** — via `@wix/ricos`, or by converting Ricos → sanitized HTML and rendering with `set:html` (SDK_HANDOFF §3/§6 require full formatted content, not flattened text). Plain `.plain` is for short bound fields; formatted Ricos is for the post body. |
 | **A7 — `clientId` is off-path here** | In managed-Astro there is no client, so `appId`-as-`clientId` only matters on the self-managed / non-Astro path (see `non-astro.md`). Don't construct one here. |
 
 > **Seeding token (cross-link, not duplicated):** build-time seeding still mints a REST token via the Wix CLI — that token is **byte-identical on every re-mint**, so mint once and reuse. The full token mechanism lives in `managed/AUTHENTICATION.md`; don't restate it here.

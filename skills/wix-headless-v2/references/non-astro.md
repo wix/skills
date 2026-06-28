@@ -10,10 +10,10 @@ This is the framework reference for any **non-Astro** frontend — React/Vue/Sve
 
 **How to use it.** Before authenticating or wiring data, read the pinned pages top-to-bottom — read-then-act, never invent a URL or a body from memory.
 
-**URL form & how to read it.** Each link is the **`.md` twin** of a docs article. The two read paths take **different URL forms** — don't mix them:
+**URL form & how to read it.** Each link is the **`.md` twin** of a docs article. A page pinned here is **already curated — read it directly; don't re-discover it with search.** The two read paths take **different URL forms** — don't mix them:
 
-- **MCP doc tools — preferred. Pass the URL *without* the `.md` suffix.** Use `ReadFullDocsArticle` for the article pages here and `SearchWixSDKDocumentation` to reach exact SDK methods.
-- **`curl` — fallback. Fetch the link as-is (keep the `.md`)** for raw markdown.
+- **`curl` the link — first priority. Fetch it as-is (keep the `.md`)** for raw markdown.
+- **MCP doc tools — second priority** (discovery of a page this file doesn't pin, or a fallback if a fetch fails). Pass the URL *without* the `.md` suffix — `ReadFullDocsArticle` for the article pages here, `SearchWixSDKDocumentation` to reach SDK methods this file doesn't pin.
 
 ---
 

@@ -4,10 +4,10 @@ This is an **index of doc pages**, not a set of payloads. For each capability it
 
 **How to use it.** Before seeding a capability, look it up here and read its pinned pages top-to-bottom (Tier 1 → 3) until you can build the call. Only if a capability has **no entry** (or its entry is marked *to be pinned*), fall back to the generic navigation mechanism in `SEED.md` §1.
 
-**URL form & how to read it.** Each pinned link is the **`.md` twin** of a docs article (the canonical article URL with `.md` appended). The two read paths take **different URL forms** — don't mix them:
+**URL form & how to read it.** Each pinned link is the **`.md` twin** of a docs article (the canonical article URL with `.md` appended). A page pinned here is **already curated — read it directly; don't re-discover it with search.** The two read paths take **different URL forms** — don't mix them:
 
-- **MCP doc tools — preferred when the host exposes them. Pass the URL *without* the `.md` suffix.** Use `ReadFullDocsArticle` for recipe/flow/article pages (**Tier 1–2**) and `SearchWixAPISpec → getResourceSchemaByUrl` for method/schema pages (**Tier 3**). `getResourceSchemaByUrl` resolves **only** method pages — it does **not** work on `…/skills/…` or other article pages, so read those with `ReadFullDocsArticle`.
-- **`curl` — fallback when no MCP doc tool is present. Fetch the link as-is (keep the `.md`)** for raw markdown.
+- **`curl` the pinned link — first priority. Fetch it as-is (keep the `.md`)** for raw markdown. The pin *is* the exact page to read, so a direct fetch is the fastest and most deterministic path.
+- **MCP doc tools — second priority** (discovery of a page this index doesn't pin, or a fallback if a fetch fails). **Pass the URL *without* the `.md` suffix:** `ReadFullDocsArticle` for recipe/flow/article pages (**Tier 1–2**), `SearchWixAPISpec → getResourceSchemaByUrl` for method/schema pages (**Tier 3**; resolves method pages only — read `…/skills/…` and other articles with `ReadFullDocsArticle`).
 
 Never invent a URL or body from memory.
 

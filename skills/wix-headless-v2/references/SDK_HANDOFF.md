@@ -35,7 +35,7 @@ For each loaded capability, give the host the **package(s)** from the map below 
 | Capability | Package(s) | SDK module docs (read for the API shape) |
 |---|---|---|
 | stores | `@wix/stores` (+ `@wix/ecom`, `@wix/redirects` for cart/checkout) | <https://dev.wix.com/docs/sdk/business-solutions/stores.md> · cart: <https://dev.wix.com/docs/sdk/business-solutions/ecom.md> |
-| blog | `@wix/blog` (+ `@wix/ricos` to render `richContent` — follow the blog page to the current viewer API, don't pin a version blind) | <https://dev.wix.com/docs/sdk/business-solutions/blog.md> |
+| blog | `@wix/blog` (+ `@wix/ricos` to render `richContent` — follow the blog page to the current viewer API, don't pin a version blind; **`@wix/comments` + `@wix/members` whenever the blog has comments** — author name/photo from `memberId`, and the comments flow in §5) | <https://dev.wix.com/docs/sdk/business-solutions/blog.md> · **comments has no pinned menu page — reach shapes via `SearchWixSDKDocumentation "comments queryComments createComment"`** |
 | cms | `@wix/data` | <https://dev.wix.com/docs/sdk/business-solutions/data.md> |
 | forms | `@wix/forms` | under CRM: <https://dev.wix.com/docs/sdk/business-solutions/crm.md> (forms/submissions module) |
 | events | `@wix/events` | <https://dev.wix.com/docs/sdk/business-solutions/events.md> |
@@ -70,6 +70,7 @@ From the `seeded` map — the IDs only this run knows:
 - The visitor token has **no per-user identity** → seeded **CMS collections are public/shared** across all visitors (not per-user, not cross-device). Per-user storage needs member auth.
 - Frontend CMS access is **read**; visitor writes go through **Forms** submissions.
 - **Donations and gift-card purchases complete through the eCommerce cart/checkout** (`catalogReference`) — the same `@wix/ecom` / `@wix/redirects` path as stores, not a payment API of their own. For donations, `catalogReference.appId` is the Donations app id and `catalogItemId` is the `campaignId`.
+- **Blog comments are member-gated — read public, write authenticated.** Querying/rendering comments is public, so list them server-side in SSR. **Submitting** needs a logged-in member, so don't gate the form behind an upfront login check (that branch is what burns deliberation): render the form always and resolve identity at submit — POST to a backend endpoint (`src/pages/api/*.ts`) that calls `createComment` with the request session; if the caller isn't a member, redirect to the built-in `/api/auth/login?returnUrl=…` (astro.md member-login row). **Do not build the comment form as a client island** — the API-endpoint + session path is the documented shape and avoids the browser-auth detour. The comments API keys off the post's **`referenceId`** (request the `REFERENCE_ID` fieldset when fetching posts): `contextId` = `resourceId` = `post.referenceId`, and `appId` = the Wix Blog appDefId (`14bcded7-0066-7c35-14d7-466cb3f09103`, the one Setup installed). Author name/photo: look up `post.memberId` via `@wix/members`.
 
 ### 6 · What a complete site must include (per loaded capability)
 For each loaded capability, carry its **Required site features** and **Implementation checklist** from `references/CAPABILITIES.md` into the guide — in plain product language, lightly tailored to what was seeded. **This is the build spec, not optional polish:** the host should build every *required feature* and cover every *checklist* item. For example, a blog must show the **author** (name + photo), the publish date and reading time, the cover image, the **full formatted content** (not flattened text), and let readers **comment** — a posts-list-plus-plain-text-body is incomplete. The host maps these onto its own components using the packages/docs in §3 and the seeded IDs in §4.
@@ -84,7 +85,8 @@ For each loaded capability, carry its **Required site features** and **Implement
 > - To get a menu page, truncate any URL to a parent path and append `.md` (e.g. `https://dev.wix.com/docs/sdk.md`, `https://dev.wix.com/docs/sdk/business-solutions.md`).
 > - Top-level index of all portals: <https://dev.wix.com/docs/llms.txt>
 > - Full concatenated docs: <https://dev.wix.com/docs/llms-full.txt>
-> - **Prefer `SearchWixSDKDocumentation` when the host exposes it.** Curling a module menu (e.g. `…/sdk/business-solutions/blog.md`) often surfaces only dashboard/extension pages, not the runtime query functions — `SearchWixSDKDocumentation "blog query posts"` returns the actual `posts.queryPosts`/`listPosts` shapes (with `?apiView=SDK` schema links) that the menu doesn't expose. Fall back to curling `.md` only when no MCP doc tool is present.
+> - **A pinned SDK link (the module-doc links in §3) — `curl` its `.md` directly (first priority).** It's already curated; read it as-is, don't re-discover it.
+> - **`SearchWixSDKDocumentation` is second priority — for *discovering* a method §3 doesn't pin, or when a menu hides the runtime functions.** Curling a module *menu* (e.g. `…/sdk/business-solutions/blog.md`) often surfaces only dashboard/extension pages, not the runtime query functions — `SearchWixSDKDocumentation "blog query posts"` returns the actual `posts.queryPosts`/`listPosts` shapes (with `?apiView=SDK` schema links) the menu doesn't expose.
 
 ## After deploy: finalize per the project type
 
