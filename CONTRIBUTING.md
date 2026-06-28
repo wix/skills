@@ -48,6 +48,7 @@ Each scenario's `name` field must be unique across the whole `yaml/wix-manage-ev
 | `description` | One or two sentences describing what the scenario verifies. |
 | `triggerPrompt` | The natural-language request you'd expect a real user to make. Minimum 10 characters. |
 | `tags` | An array of one or more tags. Must include a production tag for the area (e.g. `[domains]`, `[stores]`, `[bookings]`). |
+| `maxTokens` | Optional top-level PR-run token budget for this scenario. If the PR eval run exceeds this total token count, the GitHub Actions gate fails. |
 | `assertions` | A non-empty array of assertions that decide whether the scenario passed. The schema requires at least one; you should include both a `tool` assertion (proves the skill was invoked) and an `llm_judge` assertion (proves the response was correct) — see below. |
 
 ### Assertions to include
@@ -92,6 +93,7 @@ name: domains/domain-search-and-purchase
 description: Verifies the agent reads the domain-search-and-purchase docs when asked about searching for and purchasing a domain via the Wix API.
 triggerPrompt: How do I programmatically search for an available domain on Wix and then purchase it? Please reference the relevant API methods.
 tags: [domains]
+maxTokens: 25000
 assertions:
   - tool: ReadFullDocsArticle
     params:
@@ -112,6 +114,8 @@ assertions:
       - hallucinates endpoints not in the Wix Domains Management API, OR
       - describes a different Wix feature (e.g. domain connection rather than purchase).
 ```
+
+Top-level `maxTokens` is enforced by this repository's GitHub Actions gate after the PR-vs-production eval comparison finishes. It applies to the PR run's total tokens for the whole scenario. This is different from `llm_judge.maxTokens`, which is passed to the judge model as an output/config limit for that assertion only.
 
 ### Site provisioning (optional)
 

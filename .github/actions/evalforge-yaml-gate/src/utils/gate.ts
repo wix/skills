@@ -15,8 +15,9 @@ import type { ComparisonGroupResult } from './eval-pipeline';
 import {
   formatForeignDraftConflicts,
   formatLoadErrors, formatNoChanges, formatOrphanedMds, formatServiceError, formatUncovered,
-  formatComparisonResult, formatComparisonTimeout, formatTooManyNewSkills,
+  formatComparisonResult, formatComparisonTimeout, formatTokenBudgetExceeded, formatTooManyNewSkills,
 } from './comment';
+import { findTokenBudgetViolations, formatTokenBudgetFailureMessage } from './token-budget';
 
 type Commenter = ReturnType<typeof makeCommenter>;
 
@@ -164,6 +165,12 @@ export async function runGate(): Promise<void> {
       if (s.without.runId) core.info(`${s.scenarioName} [without draft tag]: ${evalRunUrl(config.projectId, s.without.runId, s.without.name)}`);
     }
     await comment(formatComparisonResult(done, config.projectId));
+    const tokenBudgetViolations = findTokenBudgetViolations(done.result.scenarios ?? [], headScenarios);
+    if (tokenBudgetViolations.length > 0) {
+      await comment(formatTokenBudgetExceeded(tokenBudgetViolations, config.projectId));
+      fail(formatTokenBudgetFailureMessage(tokenBudgetViolations), config.blocking);
+      return;
+    }
     if (config.autoApprove && allScenariosRequired(done.result)) {
       await octokit.rest.pulls.createReview({
         owner: config.owner,
