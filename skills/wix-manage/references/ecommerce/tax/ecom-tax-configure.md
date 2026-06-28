@@ -5,7 +5,7 @@ description: Sets up tax using Wix's Manual calculator — discovers available c
 
 # Configure Tax (Wix Manual)
 
-Baseline tax setup using Wix's built-in Manual calculator. Dispatcher routes here for `[intent:configure]` when neither `calculator:AVALARA` nor `region:EU` context tags match. EU merchants go to `ecom-tax-eu-vat` instead; merchants already on Avalara go to `ecom-tax-avalara`.
+Baseline tax setup using Wix's built-in Manual calculator. Dispatcher routes here for `[intent:configure]` when neither `calculator:AVALARA` nor `region:EU` context tags match. EU merchants go to `ecom-tax-eu-vat` instead; merchants already on Avalara configure it via the Wix Dashboard (the Avalara onboarding flow is not exposed via TPA-public API).
 
 
 ## Prerequisites
@@ -41,7 +41,7 @@ Response shape:
 }
 ```
 
-Locate the entry whose `displayName` contains "Manual" and capture its `appId`. If only Avalara appears with the merchant already onboarded, **stop and re-dispatch** to `ecom-tax-avalara`.
+Locate the entry whose `displayName` contains "Manual" and capture its `appId`. If only Avalara appears with the merchant already onboarded, **stop** and tell the merchant they're already on Avalara — Avalara setup is managed via the Wix Dashboard, not via this recipe.
 
 ## Step 2 — Create a tax region for the merchant's country
 
@@ -113,7 +113,7 @@ CallWixSiteAPI(
 ```
 
 **Country-default rates (verify with merchant — rates change):**
-- US — varies by **state**; do NOT apply a flat country rate. Either (a) create per-state regions via `subdivision` in Step 2 and a `manualTaxMapping` per state, or (b) recommend the merchant switch to Avalara (`ecom-tax-switch-calculator`).
+- US — varies by **state**; do NOT apply a flat country rate. Either (a) create per-state regions via `subdivision` in Step 2 and a `manualTaxMapping` per state, or (b) recommend the merchant install Avalara via the Wix Dashboard for automated rate management.
 - GB — 20% VAT. DE/FR/IT/ES — 19/20/22/21% (but EU merchants should be on `ecom-tax-eu-vat`).
 - AU — 10% GST. NZ — 15% GST. JP — 10% consumption tax.
 - CA — 5% federal GST + provincial. Use `subdivision` regions per province.
@@ -156,7 +156,7 @@ Surface the calculated tax amount to the merchant for sanity check.
 
 ## Guardrails (inline)
 
-- **US warning.** If `siteData.country = "US"`, surface: "US sales tax requires per-state rates and nexus tracking. The Manual calculator supports it but is high-maintenance; consider Avalara via the Switch Calculator recipe."
-- **No duplicate regions.** If Step 2 returns `ALREADY_EXISTS`, ask the merchant before recreating — there's already a region for that country.
+- **US warning.** If `siteData.country = "US"`, surface: "US sales tax requires per-state rates and nexus tracking. The Manual calculator supports it but is high-maintenance; consider installing Avalara via the Wix Dashboard for automated rate management."
+- **No duplicate regions.** If Step 2 returns `ALREADY_EXISTS`, recover via the `/tax-regions/query` lookup (see Step 2 errors) rather than abandoning — don't recreate.
 - **EU sites → route away.** If `siteData.country` is EU and you somehow landed here (dispatcher should have routed to `ecom-tax-eu-vat`), surface: "EU VAT has special requirements (OSS, reverse-charge, inclusive pricing). Switching to the EU-VAT setup recipe." and re-dispatch.
-- **No Avalara collision.** If Step 1 shows the merchant already has Avalara credentials, ask: "You're already on Avalara — configure there instead?" and re-dispatch.
+- **No Avalara collision.** If Step 1 shows the merchant already has Avalara credentials, stop and tell them: "You're already on Avalara — configure it via the Wix Dashboard rather than setting up Wix Manual tax."

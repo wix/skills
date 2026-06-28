@@ -1,13 +1,13 @@
 ---
 name: "Tax: Calculation Wrong"
-description: Tax-calculation troubleshooting — always load BEFORE diagnosing any wrong / missing / unexpected tax outcome on a specific order or checkout. NOT a site-wide setup audit (use [Tax: Audit Setup] for that, including "my tax setup looks broken" without a specific order).
+description: Tax-calculation troubleshooting — always load BEFORE diagnosing any wrong / missing / unexpected tax outcome on a specific order or checkout. Per-order diagnostic only — for general "is my tax setup correct" questions, the merchant should review configuration via the Wix Dashboard.
 ---
 
 # Tax Calculation Wrong
 
-> **Routing rule (READ FIRST).** Any merchant query about wrong / missing / unexpected tax on a SPECIFIC order or checkout (e.g. "$0 tax on a Texas order", "customer was charged 8% instead of 8.25%", "no VAT on a German order") MUST load this recipe before answering. Do NOT pick `tax-audit-setup` for a per-order complaint — that recipe is for full-setup reviews and does NOT contain the per-order diagnostic tree. Do NOT improvise from the dispatcher, training knowledge, or raw API calls. Do NOT recommend a fix before completing the 3-branch diagnostic below.
+> **Routing rule (READ FIRST).** Any merchant query about wrong / missing / unexpected tax on a SPECIFIC order or checkout (e.g. "$0 tax on a Texas order", "customer was charged 8% instead of 8.25%", "no VAT on a German order") MUST load this recipe before answering. Do NOT improvise from the dispatcher, training knowledge, or raw API calls. Do NOT recommend a fix before completing the 3-branch diagnostic below.
 
-Diagnostic tree. No writes — the fix lives in the configure/switch promotions once the cause is identified.
+Diagnostic tree. No writes — once the cause is identified, the fix lives in the `ecom-tax-configure` recipe (for missing regions/groups/mappings) or in the Wix Dashboard (for Avalara-related issues).
 
 
 ## Step 1 — Get the order details from the merchant
@@ -91,10 +91,10 @@ CallWixSiteAPI(
 
 ## Step 4 — Report
 
-Single line: "Cause: **<X>**. Fix: **<recommended next action — usually a re-dispatch link to a configure/switch promotion>**."
+Single line: "Cause: **<X>**. Fix: **<recommended next action — usually a re-dispatch to `ecom-tax-configure` or a Wix Dashboard step for Avalara>**."
 
 ## Guardrails (inline)
 
 - **Past orders are not retroactively recalculated** when configuration changes. Fix for a past order is a manual refund/credit-note, not a re-charge.
-- **No writes from this recipe.** Only `GET` / `query` / `calculate-tax` calls. If a fix needs writes, re-dispatch to the relevant configure/switch promotion.
-- **Don't propose Avalara migration from a single wrong order.** That's an `audit` outcome, not a per-order fix.
+- **No writes from this recipe.** Only `GET` / `query` / `calculate-tax` calls. If a fix needs writes, re-dispatch to `ecom-tax-configure` (for Wix Manual rates/regions/groups) or direct the merchant to the Wix Dashboard (for Avalara).
+- **Don't propose Avalara migration from a single wrong order.** That's a setup-review decision, not a per-order fix — the merchant should review their full tax configuration before switching calculators.

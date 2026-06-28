@@ -14,12 +14,12 @@ This file documents only what isn't general knowledge: how the Wix Tax API binds
 1. **`taxIncludedInPrice` is per-region, set at region creation.** For every EU country region, this MUST be `true` (consumer-law compliance is a region-level setting in Wix Tax, not a global one).
 2. **No public bulk-create for tax regions.** The TPA-public surface has `POST /billing/v1/tax-regions` (single) only — loop per country.
 3. **`POST /billing/v1/bulk/manual-tax-mappings/create`** IS available for rate mappings — use it to create per-country rates in one call.
-4. **EU regions use the Manual calculator's `appId`** (Avalara has its own EU VAT flow — if Avalara is installed, the dispatcher routes to `ecom-tax-avalara` instead). The identifier comes from `list-tax-calculators` and is the field `appId` on the API.
+4. **EU regions use the Manual calculator's `appId`** (Avalara has its own EU VAT flow — if Avalara is installed, configure it via the Wix Dashboard instead of this recipe). The identifier comes from `list-tax-calculators` and is the field `appId` on the API.
 5. **OSS / reverse-charge / home-country flags are dashboard-only.** The `tax-settings` entity is not exposed via TPA-public API. Tell the merchant to set OSS-registered status, reverse-charge-B2B, and home country via the **Wix Dashboard → Settings → Taxes**.
 
 ## Prerequisites
 - `region:EU` is in MerchantContext (from `ecom-load-context` Step 3).
-- Avalara not installed (otherwise dispatcher routes to `ecom-tax-avalara`).
+- Avalara not installed (otherwise the merchant configures Avalara via the Wix Dashboard instead).
 
 ## APIs used (TPA-public only)
 - `GET /billing/v1/list-tax-calculators` — discover the Manual calculator's `appId`.
