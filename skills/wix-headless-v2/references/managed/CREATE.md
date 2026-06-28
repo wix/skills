@@ -10,14 +10,29 @@ Run these in order:
 
 ## 1 · Scaffold the project
 
+Run the **documented** create command (flags and rationale: `references/astro.md` §1). Derive
+`<folder-name>` as a lowercase, npm-safe name from the brand (lowercase letters, numbers, hyphens;
+starts with a letter or number):
+
 ```bash
-bash <SKILL_ROOT>/scripts/scaffold.sh <folder-name> "<Brand Name>"
+npm create @wix/new@latest -- headless \
+  --folder-name <folder-name> \
+  --business-name "<Brand Name>" \
+  --site-template \
+  --skip-install \
+  --no-publish
 ```
 
-It runs `npm create @wix/new@latest headless --site-template --no-publish --skip-install` and
-**flattens** the scaffolded subdir into the **current directory** — so the run is single-folder
-(CWD == project == site-root, one `.wix/`). `<folder-name>` is a lowercase/npm-safe name derived
-from the brand. Afterwards read `./wix.config.json` → hold `SITE_ID` (the `siteId`) in scratch.
+- The `--` separator is required. Bare `--site-template` (no value) keeps it on the **blank** starter —
+  the model owns design, so don't adopt a business template; a value, or omitting the flag, would
+  prompt and abort in a non-interactive shell.
+- The command provisions the Wix site + private app and writes `wix.config.json`. It requires a
+  logged-in CLI session (step 2 handles login if needed).
+- It creates the project in a **subdirectory named `<folder-name>`** — there is no in-place option, so
+  **`cd <folder-name>`** and run the rest of the flow from inside it (it's the project root, with the
+  single `.wix/`). Then read `./wix.config.json` → hold `SITE_ID` (the `siteId`) in scratch.
+- `--skip-install` defers dependency install to step 4 (which adds the SDK package set); run
+  `npm install` there before building.
 
 ## 2 · Authenticate
 

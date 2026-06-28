@@ -113,7 +113,7 @@ Compute `<SKILL_ROOT>` from this file (`<SKILL_ROOT>/SKILL.md` — strip `/SKILL
 | **Deployment** — finalize the live site (project-type-specific) | `<TYPE_DIR>/DEPLOYMENT.md` |
 | Managed **create** conductor (scaffold a new project) | `<SKILL_ROOT>/references/managed/CREATE.md` |
 | Managed **connect** conductor (wire an existing project) | `<SKILL_ROOT>/references/managed/CONNECT.md` |
-| Scaffolding scripts (managed create) | `<SKILL_ROOT>/scripts/scaffold.sh`, `flatten.sh` |
+| Frontend-axis references (how a frontend wires to Wix) | `<SKILL_ROOT>/references/astro.md`, `non-astro.md` |
 
 **Start a run by opening `DISCOVERY.md`.** The flow files (`CAPABILITIES`, `DISCOVERY`, `SETUP`, `SEED`, `SDK_HANDOFF`, `IMAGE_GENERATION`) are project-type-agnostic; the per-type specifics live under `<TYPE_DIR>/` (`AUTHENTICATION.md`, `DEPLOYMENT.md`, and — managed only — `CREATE.md`/`CONNECT.md`).
 
