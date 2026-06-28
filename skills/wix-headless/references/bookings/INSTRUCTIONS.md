@@ -1,6 +1,6 @@
 ---
 name: bookings-implementer
-description: "Implements the Wix Bookings vertical — services catalog (with optional location + category filters), a service detail page with a week-calendar availability picker (with optional staff selection), a schema-driven booking form, and confirmation, for appointments and classes. The booking runs client-side via the @wix SDK (ecom Cart V2 — no confirmBooking). Scopes: seed, components, pages. Extends references/shared/IMPLEMENTER.md."
+description: "Implements the Wix Bookings vertical — services catalog (with optional location + category filters), a service detail page with a week-calendar availability picker (with optional staff selection), a schema-driven booking form, and confirmation, for appointments and classes; plus courses (a course detail page showing the session schedule + capacity + an Enroll action, no calendar). The booking/enrollment runs client-side via the @wix SDK (ecom Cart V2 — no confirmBooking). Scopes: seed, components, pages. Extends references/shared/IMPLEMENTER.md."
 ---
 
 # Bookings Implementer
@@ -34,7 +34,8 @@ flow (re-authoring the SDK wiring from scratch is the main source of API-shape b
 Components (`components` scope — TSX only, no CSS):
 - `<SKILL_ROOT>/references/astro/templates/bookings/AvailabilityCalendar.tsx` — the week calendar (week strip → the day's slots; APPOINTMENT via `availabilityTimeSlots`, CLASS via `eventTimeSlots`).
 - `<SKILL_ROOT>/references/astro/templates/bookings/BookingForm.tsx` — the schema-driven form (renders the `@wix/forms` field list, keys values by `target`) that drives `bookingDriver.book()`.
-- `<SKILL_ROOT>/references/astro/templates/bookings/ServiceBookingFlow.tsx` — the coordinator island (holds the selected slot; calendar → form → redirect).
+- `<SKILL_ROOT>/references/astro/templates/bookings/ServiceBookingFlow.tsx` — the coordinator island for APPOINTMENT/CLASS (holds the selected slot; calendar → form → redirect).
+- `<SKILL_ROOT>/references/astro/templates/bookings/CourseEnrollFlow.tsx` — the COURSE coordinator island (no calendar): renders the session schedule + capacity + location, paginates upcoming sessions, and an Enroll action → the same `BookingForm` with a whole-series COURSE selection. The detail page mounts this instead of `ServiceBookingFlow` when `service.type === "COURSE"`.
 
 Pages (`pages` scope):
 - `<SKILL_ROOT>/references/astro/templates/bookings/ServiceCard.astro`
@@ -60,8 +61,8 @@ If any declared file is missing, return `status: "partial"` with `errors: [{ cod
 
 ## Dependencies (Setup installs these — see SETUP.md)
 
-`@wix/bookings @wix/essentials @wix/forms @wix/redirects @wix/auto_sdk_ecom_cart-v-2`.
-`@wix/forms` renders the booking-form schema; `@wix/redirects` + `@wix/auto_sdk_ecom_cart-v-2` run the cart/checkout sequence.
+`@wix/bookings @wix/essentials @wix/forms @wix/redirects @wix/auto_sdk_ecom_cart-v-2 @wix/calendar`.
+`@wix/forms` renders the booking-form schema; `@wix/redirects` + `@wix/auto_sdk_ecom_cart-v-2` run the cart/checkout sequence; `@wix/calendar` reads a **course's** session schedule + capacity (Calendar Events V3 — see FLOW.md §10). **Install all of these on every bookings build** — including `@wix/calendar` even when no course is seeded — so the site handles all three service types (a merchant can add a course from the dashboard later and it works without a rebuild).
 
 ## CSS ownership — bookings pack
 
@@ -93,4 +94,6 @@ Bookings-specific CSS lives in `src/styles/components-bookings.css` (pre-copied 
 | Use `service.id` / `result.booking.id` | Entity ids are `_id` (underscore): `service._id`, `booking._id`. |
 | Mount the calendar/form without `client:only="react"` | Availability + booking are timezone/session-specific — always `client:only="react"`. SSR only the read pages (catalog/detail) for SEO. |
 | Omit try/catch on the booking | `createBooking` can reject (e.g. a slot taken between fetch and submit, or strict phone validation). Catch and surface a friendly message; don't crash. |
-| Ship a payment/deposit breakdown, multi-service stacking, waitlist, or on-site manage/cancel | Out of scope. **Waitlist and manage/cancel have no headless SoT** (the components + vibe plugin expose only display-only policy flags — no join/cancel logic) — do not invent them on the REST/anonymous-token layer. Post-booking self-service is handled by the Wix-hosted flow / member area. |
+| Treat a **COURSE** like an appointment/class (calendar, `bookedEntity.slot`, time-slots) | A course is a whole-series enrollment: mount **`CourseEnrollFlow`** (not the calendar), read its sessions + capacity via **`@wix/calendar` `events.queryEvents`** (time-slots return nothing for a course), and book via **`bookedEntity.schedule.scheduleId`** (the driver does this for `serviceType === "COURSE"`). The full recipe + gotchas are in **`FLOW.md` §10**. |
+| Read the course schedule id as `service.schedule.id` | It's **`service.schedule._id`** (SDK `_id` convention; REST returns `.id`). `.id` is `undefined` via the SDK → no Enroll + null capacity. |
+| Ship a payment/deposit breakdown, multi-service stacking, waitlist, course subscriptions (multi-cycle), or on-site manage/cancel | Out of scope — don't build join/cancel or multi-cycle billing on the REST/anonymous-token layer. Post-booking self-service is handled by the Wix-hosted flow / member area. |

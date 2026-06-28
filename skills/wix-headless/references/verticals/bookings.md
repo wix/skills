@@ -1,16 +1,18 @@
 ---
 name: bookings
-description: "Service-based booking — services catalog (with location + category filters and staff selection), availability calendar, and booking flow for appointments and classes via Wix Bookings."
-triggers: ["booking", "appointment", "schedule", "reserve", "class", "session", "consult", "therapy", "lesson", "coaching", "trainer", "tutor", "salon", "spa", "clinic"]
+description: "Service-based booking — services catalog (with location + category filters and staff selection), availability calendar, and booking flow for appointments and classes, plus course enrollment, via Wix Bookings."
+triggers: ["booking", "appointment", "schedule", "reserve", "class", "session", "course", "enroll", "program", "workshop", "consult", "therapy", "lesson", "coaching", "trainer", "tutor", "salon", "spa", "clinic"]
 requires: []
 
 features:
   - name: "Services catalog"
-    description: "Browse bookable appointment and class services with descriptions, duration, and pricing — filterable by category and (for multi-location businesses) by location."
+    description: "Browse bookable appointment, class, and course services with descriptions, duration/dates, and pricing — filterable by category and (for multi-location businesses) by location."
   - name: "Staff selection"
     description: "On multi-staff services, choose a specific staff member (or any) and see that staff's availability."
   - name: "Online booking"
     description: "Pick an available time slot on a day-grouped availability calendar, complete the service's booking form, and confirm."
+  - name: "Course enrollment"
+    description: "Enroll in a multi-session course as a whole series — see the session schedule, instructor, available spots, and dates — then complete the same booking form. No per-slot calendar."
   - name: "Secure checkout"
     description: "Free or pay-in-person bookings confirm instantly; paid services hand off to Wix's secure hosted checkout."
 

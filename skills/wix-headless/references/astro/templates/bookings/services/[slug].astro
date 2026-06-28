@@ -4,7 +4,9 @@
 import Layout from "../../layouts/Layout.astro";
 import SeoTags from "../../components/SeoTags.astro";
 import ServiceBookingFlow from "../../components/ServiceBookingFlow";
+import CourseEnrollFlow from "../../components/CourseEnrollFlow";
 import { services } from "@wix/bookings";
+import { events as calendarEvents } from "@wix/calendar";
 import { forms } from "@wix/forms";
 import { auth } from "@wix/essentials";
 
@@ -173,6 +175,64 @@ const duration = service.schedule?.availabilityConstraints?.sessionDurations?.[0
 const imageUrl = service.media?.mainMedia?.image?.url ?? service.media?.items?.[0]?.image?.url;
 const serviceName = service.name ?? "Service";
 const seoTags = service.seoData?.tags ?? [];
+const serviceType = service.type ?? "APPOINTMENT";
+const isCourse = serviceType === "COURSE";
+const bookHeading = isCourse ? "Enroll in this course" : "Book this service";
+
+// ── COURSE details (appointments/classes skip all of this) ───────────────────
+// A course is enrolled as a whole series (no per-slot calendar): the detail page shows
+// the schedule + capacity + an Enroll action. The per-session list, capacity, staff, and
+// location come from ONE Calendar Events V3 query (`events.queryEvents` by scheduleId);
+// `listEventTimeSlots` returns nothing for a COURSE. Elevated here for SSR. See FLOW.md §10.
+// Normalize schedule dates to ISO strings: the SDK can deserialize these to Date objects
+// (like the event dates below); a raw Date reaches the confirmation `startDate` query param
+// as a locale-dependent Date.toString() the confirmation page can't reliably parse.
+const toIso = (d: any): string | undefined => (d ? new Date(d).toISOString() : undefined);
+const firstSessionStart = toIso(service.schedule?.firstSessionStart);
+const lastSessionEnd = toIso(service.schedule?.lastSessionEnd);
+const bookAfterStart = !!service.bookingPolicy?.bookAfterStartPolicy?.enabled;
+const STAFF_RESOURCE_TYPE_ID = "1cd44cf8-756f-41c3-bd90-3e2ffcaf1155";
+let courseCapacity: any = null;
+let courseSessions: { start: string; end?: string; durationMin?: number; staff?: string }[] = [];
+let courseSessionCount = 0;
+let courseLocation: string | undefined;
+if (isCourse && service.schedule?._id) {
+  try {
+    const nowIso = new Date().toISOString();
+    const res: any = await auth.elevate(calendarEvents.queryEvents)({
+      filter: { scheduleId: service.schedule._id },
+      cursorPaging: { limit: 100 },
+    });
+    // (event start/end .utcDate are also Date OBJECTS from the SDK — the shared toIso
+    // above normalizes them, or the upcoming-filter would silently drop every session.)
+    const staffName = (e: any): string | undefined =>
+      ((e.resources ?? []).filter((r: any) => r.type === STAFF_RESOURCE_TYPE_ID).map((r: any) => r.name).filter(Boolean).join(", ")) || undefined;
+    const locationLabel = (loc: any): string | undefined =>
+      !loc ? undefined : loc.name || (loc.type === "CUSTOM" ? "Custom location" : loc.type === "CUSTOMER" ? "Your location" : "In person");
+
+    const events = (res?.events ?? []).filter((e: any) => e.status !== "CANCELLED");
+    const cap = events[0]; // each session carries the course-level total/remaining
+    if (cap) {
+      const totalCapacity = cap.totalCapacity ?? service.defaultCapacity ?? 0;
+      const remaining = cap.remainingCapacity ?? totalCapacity;
+      courseCapacity = { totalCapacity, remaining, isFull: totalCapacity > 0 && remaining <= 0 };
+    }
+    courseLocation = locationLabel(cap?.location);
+    const upcoming = events
+      .map((e: any) => {
+        const start = toIso(e.start?.utcDate ?? e.start?.localDate);
+        const end = toIso(e.end?.utcDate ?? e.end?.localDate);
+        const durationMin = start && end ? Math.round((Date.parse(end) - Date.parse(start)) / 60000) : undefined;
+        return { start, end, durationMin, staff: staffName(e) };
+      })
+      .filter((e: any) => e.start && (e.end ?? e.start) >= nowIso) // upcoming only
+      .sort((a: any, b: any) => a.start!.localeCompare(b.start!));
+    courseSessionCount = upcoming.length; // true total
+    courseSessions = upcoming; // all upcoming (bounded by the 100-event query); the island paginates
+  } catch (err) {
+    console.error(`[services/${slug}] course details query failed:`, err);
+  }
+}
 
 // Staff for the optional staff picker — carried on the service via the
 // STAFF_MEMBER_DETAILS conditional field (already requested in the query above).
@@ -230,24 +290,48 @@ try {
       <h1 class="font-display text-4xl md:text-5xl leading-tight">{serviceName}</h1>
       {service.tagLine && <p class="text-lg text-mute leading-relaxed max-w-prose">{service.tagLine}</p>}
       <div class="flex items-center gap-4 text-sm text-mute">
-        <span>{duration} min</span>
+        {isCourse
+          ? firstSessionStart && (
+              <span>
+                {new Date(firstSessionStart).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                {lastSessionEnd && ` – ${new Date(lastSessionEnd).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`}
+              </span>
+            )
+          : <span>{duration} min</span>}
         {price && <span class="text-ink font-medium">{price}</span>}
       </div>
       {service.description && <p class="text-ink leading-relaxed max-w-prose">{service.description}</p>}
     </div>
 
     <section class="border-t border-rule pt-12">
-      <h2 class="font-display text-3xl leading-tight mb-8">Book this service</h2>
-      <ServiceBookingFlow
-        service={service}
-        serviceName={serviceName}
-        serviceType={service.type ?? "APPOINTMENT"}
-        fields={formFields}
-        staffMembers={staffMembers}
-        locations={serviceLocations}
-        locationId={locationId}
-        client:only="react"
-      />
+      <h2 class="font-display text-3xl leading-tight mb-8">{bookHeading}</h2>
+      {isCourse ? (
+        <CourseEnrollFlow
+          service={service}
+          serviceName={serviceName}
+          fields={formFields}
+          scheduleId={service.schedule?._id}
+          firstSessionStart={firstSessionStart}
+          lastSessionEnd={lastSessionEnd}
+          capacity={courseCapacity}
+          sessions={courseSessions}
+          sessionCount={courseSessionCount}
+          location={courseLocation}
+          bookAfterStart={bookAfterStart}
+          client:only="react"
+        />
+      ) : (
+        <ServiceBookingFlow
+          service={service}
+          serviceName={serviceName}
+          serviceType={serviceType}
+          fields={formFields}
+          staffMembers={staffMembers}
+          locations={serviceLocations}
+          locationId={locationId}
+          client:only="react"
+        />
+      )}
     </section>
   </section>
 </Layout>

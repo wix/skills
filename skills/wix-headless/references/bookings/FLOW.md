@@ -13,9 +13,13 @@ framework, translate the examples** — the SDK calls and payloads are identical
 only the UI idiom (`useState`/`useEffect` → a store / `onMounted` / signals) and
 the client acquisition differ (see "Client identity" below).
 
-The flow covers **appointments and classes**. APPOINTMENT and CLASS share the
-same booking sequence; they differ only in the availability call (`availabilityTimeSlots`
-vs `eventTimeSlots`, noted inline). **Courses and add-ons are out of scope.**
+The flow covers **appointments, classes, and courses**. APPOINTMENT and CLASS share
+the same booking sequence; they differ only in the availability call (`availabilityTimeSlots`
+vs `eventTimeSlots`, noted inline). **COURSE is different**: a course is enrolled as a
+**whole series** — no availability calendar, no per-slot time — so it has its own detail
+page (schedule + capacity + an Enroll action) and a `bookedEntity.schedule` create shape.
+The course specifics are in **§10**; the rest of this file is the appointment/class flow.
+**Add-ons are out of scope.**
 
 ---
 
@@ -38,6 +42,10 @@ five-step path:
 ```
 
 The location/category filters and the staff picker are covered in §§7–8.
+
+**Courses take a shorter path** (§10): catalog → **course detail (schedule + capacity +
+Enroll)** → Details (the same booking form) → Book. There is **no Slots step and no
+calendar** — a course is enrolled as a whole series, not a picked time.
 
 **The catalog is the entry point but optional** — a visitor can land directly on a
 service page and start at the Slots step. Every step rehydrates from the URL (§2),
@@ -94,6 +102,11 @@ Key facts the driver encodes (do not deviate):
   cart holds the seat** instead — `placeOrder` (free/offline) or the hosted checkout
   (paid) drives confirmation — so a client-only site completes the whole flow with no
   server elevation.
+- **COURSE uses `bookedEntity.schedule`, not `slot`** — when `slot.serviceType === "COURSE"`
+  the driver sends `bookedEntity: { schedule: { scheduleId, serviceId, location, timezone },
+  tags: ["COURSE"] }` (the course's own `service.schedule._id`) — **no slot, no eventId, no
+  resource selection**. Wix derives the booking's start/end from the schedule. The cart /
+  checkout half is identical to appointments/classes. See §10.
 - **ANY_RESOURCE fallback (staff)** — when no staff is chosen (the default, and on
   single-staff services), `createBooking` sends
   `resourceSelections:[{ resourceTypeId:"1cd44cf8-756f-41c3-bd90-3e2ffcaf1155", selectionMethod:"ANY_RESOURCE" }]`
@@ -243,14 +256,14 @@ The SDK calls are identical everywhere; only how you get the client differs:
 Both filter the **catalog query** and re-render the list. The cleanest
 framework-agnostic shape is a re-query driven by a query param (`?locationId`,
 `?category`) — links/SSR on a static catalog, or a store/router on a SPA. **Show
-each filter only when there is more than one choice**, exactly as the SoT does.
+each filter only when there is more than one choice**.
 
-**Location** (the SoT is location-first; here it auto-skips ≤1 location):
+**Location** (auto-skips ≤1 location):
 1. `services.queryLocations()` → `{ businessLocations: { locations: [{ _id, type, business: { name } }] }, customLocations: { exists }, customerLocations: { exists } }`.
 2. Count = `businessLocations.locations.length + (customLocations.exists ? 1 : 0) + (customerLocations.exists ? 1 : 0)`. **Show the selector only when count > 1.**
 3. The chosen location filters the catalog query:
    - a real business id → `filter["locations.business.id"] = { $hasSome: [id] }`;
-   - the synthetic `"custom"` / `"customer"` → `filter["locations.type"] = { $hasSome: ["CUSTOM"|"CUSTOMER"] }` (the SoT's synthetic-id mapping).
+   - the synthetic `"custom"` / `"customer"` → `filter["locations.type"] = { $hasSome: ["CUSTOM"|"CUSTOMER"] }`.
 4. **Scope availability to exactly ONE location — always, on a multi-location service.** `listAvailabilityTimeSlots` returns **one slot per location** per time ("if `locations` is not specified, returns time slots for all locations where the service is available"), so an unscoped call on a 2-location service shows every time **twice**. Pass a single-element filter: APPOINTMENT → `locations: [{ _id, locationType: "BUSINESS" }]`; CLASS → `eventFilter: { "location.id": [id] }`. (Staff does **not** multiply rows — one slot carries many `availableResources`; only location does.) The slots step builds its location list from **`queryLocations()`** (the site's real business locations, whose ids the availability engine recognizes) **intersected with the service's own location ids** — not from `service.locations` alone, whose entries can carry an id the availability engine doesn't recognize (scoping to it returns zero slots). A **location picker** defaults to the catalog-carried location (or the first) and scopes the call when there's a real location to scope to; when the site has no business locations the list is empty and the call stays unscoped (one location → no duplicates). The booked slot carries its own `location`, so the booking books at that location (the driver maps it).
 
 **Category:**
@@ -280,9 +293,63 @@ resource GUID** (it matches the service's `staffMemberIds` and the Staff Members
 
 ## 9. Out of scope
 
-Waitlist, on-site manage/cancel, payment/deposit breakdown, and multi-service /
-day-range are out of scope. (Waitlist and manage/cancel have **no headless SoT** —
-neither the components nor the vibe plugin implement join/cancel logic, only
-display-only policy flags — so they are deliberately not built here.) Show
-bookable slots only; post-booking self-service is handled by the Wix-hosted flow /
-member area.
+Waitlist, on-site manage/cancel, payment/deposit breakdown, multi-service / day-range,
+and course subscriptions (multi-cycle payments) are not built here — post-booking
+self-service is handled by the Wix-hosted flow / member area. Show bookable slots /
+open courses only.
+
+## 10. Course enrollment (the COURSE service type)
+
+A **course** is a fixed-date program of multiple sessions, booked as a **whole series**
+(not a per-session time). It drops the Slots step and the calendar: the detail page shows
+the schedule + capacity + an **Enroll** action, and enrollment reuses the **same booking
+form (§4) and the same cart/checkout (§3)**.
+
+Course support is part of the standard bookings build — always ship `CourseEnrollFlow` +
+`@wix/calendar` + the `service.type === "COURSE"` branch, the same way the catalog/detail
+always handle the CLASS path. Both query *all* services by `appId` and branch on
+`service.type`, so a course the merchant adds from the dashboard after the build works
+with no rebuild.
+
+### On the `service` object (from `queryServices`)
+- `service.schedule._id` — the course schedule id. Use **`_id`** (SDK convention), not `.id`.
+- `service.schedule.firstSessionStart` / `lastSessionEnd` — the run dates.
+- `service.defaultCapacity` — max participants for the whole course.
+- `service.bookingPolicy.bookAfterStartPolicy.enabled` — may a customer join after the first session?
+
+### Sessions + capacity + staff + location — one `@wix/calendar` call
+Courses don't use Time Slots V2 (`listEventTimeSlots` returns nothing for a course). The
+sessions are Calendar Events V3 events on the course schedule:
+
+```js
+import { events as calendarEvents } from "@wix/calendar";
+// astro SSR: wrap in auth.elevate(...). own/static: call on the visitor client (see WIRING.md).
+const res = await calendarEvents.queryEvents({
+  filter: { scheduleId: service.schedule._id },   // NOT .id
+  cursorPaging: { limit: 100 },
+});
+// res.events[] — one per session, each carrying:
+//   start/end  → { localDate, utcDate, timeZone }. ⚠️ utcDate is a Date OBJECT via the SDK —
+//                new Date(d).toISOString() before comparing/sorting, or the upcoming filter drops all.
+//   totalCapacity / remainingCapacity → the course's available spots (same on every session;
+//                isFull = remainingCapacity <= 0).
+//   resources[] → staff/instructor; filter to staff resource type
+//                 "1cd44cf8-756f-41c3-bd90-3e2ffcaf1155" → .name.
+//   location    → { type, name? }: BUSINESS → "In person", CUSTOMER → "Your location".
+//   status      → skip "CANCELLED".
+```
+
+Keep upcoming events (`end >= now`), sort by start, and show an **Upcoming sessions** list
+(time · duration · instructor), **paginated** rather than capped. Show **available spots**
+and **location**.
+
+### Enrolling
+Build a selection — `serviceType: "COURSE"`, `serviceId: service._id`, `scheduleId:
+service.schedule._id`, `timezone`, and `localStartDate/localEndDate` = first/last session
+(display only) — and pass it through the same `book()`; the driver sends
+`bookedEntity.schedule.scheduleId` (§3). Gate the Enroll action: hide it when `isFull`,
+when the course has started (`now > firstSessionStart`) and `bookAfterStart` is false, or
+when there are no sessions. `createBooking` rejects a full/closed course server-side —
+catch it and show a friendly message.
+
+Reference: `../astro/templates/bookings/{CourseEnrollFlow.tsx, services/[slug].astro}`.

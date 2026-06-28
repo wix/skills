@@ -16,7 +16,7 @@ wiring + the gotchas. Read `references/shared/IMPLEMENTER.md` +
 |------|---------------|------|
 | `src/pages/services/index.astro` | `…/services/index.astro` | SSR catalog grid (SEO). `queryServices` via ambient `@wix/essentials`. |
 | `src/components/ServiceCard.astro` | `…/ServiceCard.astro` | static service card for the grid. |
-| `src/pages/services/[slug].astro` | `…/services/[slug].astro` | SSR detail (SEO) + mounts `<ServiceBookingFlow client:only="react">`. Also fetches the **booking-form schema** and passes `fields` to the island. |
+| `src/pages/services/[slug].astro` | `…/services/[slug].astro` | SSR detail (SEO) + mounts `<ServiceBookingFlow client:only="react">` (APPOINTMENT/CLASS) **or `<CourseEnrollFlow>`** when `service.type === "COURSE"`. Also fetches the **booking-form schema** and passes `fields` to the island; for a course it also SSR-reads the session schedule + capacity (see rule 2b). |
 | `src/pages/booking-confirmation.astro` | `…/booking-confirmation.astro` | confirmation — renders from the `service`/`startDate` query params (no re-fetch). |
 
 Plus the nav/home links (shell chain — see below).
@@ -57,6 +57,12 @@ Plus the nav/home links (shell chain — see below).
    recognize → 0 slots) — so the calendar scopes availability to one location and avoids
    duplicate per-location slots (FLOW.md §7); and the `?locationId` read from the request
    URL (the picker's default).
+2b. **COURSE detail branches — no calendar.** When `service.type === "COURSE"`, mount
+   **`<CourseEnrollFlow>`** instead of `<ServiceBookingFlow>`. SSR-read the course's
+   sessions + capacity with one elevated `auth.elevate(events.queryEvents)(...)` call
+   (`@wix/calendar`) and pass them + the same `fields` into the island. The call, the
+   derivations, and the gotchas (schedule `_id` not `.id`; `utcDate` is a Date object) are
+   in **`../../bookings/FLOW.md` §10**; reference `…/templates/bookings/services/[slug].astro`.
 3. **Only the read pages are SSR.** The detail page SSRs the service info for SEO,
    then the booking UI runs in the `client:only` island. Do not SSR availability.
 4. **Confirmation renders from query params.** The booking step redirects with
