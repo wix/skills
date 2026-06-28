@@ -1,6 +1,6 @@
 ---
 name: wix-headless
-description: "Build a complete Wix Managed Headless site from a single prompt, OR connect an existing project (HTML/JSX/Vite app, Claude Design output, etc.) to Wix Headless for hosting + Business Solutions. Entry point for both: (1) new-site requests — runs discovery, design, feature wiring, and preview; and (2) existing-project requests — runs `npm create @wix/new@latest init`, analyzes the project for needed Business Solutions, installs apps, **wires the Wix SDK into the existing source files so each installed app actually powers its corresponding feature**, and releases. Triggers: build me a site, create a website, make me a website, new website, online store, I want to sell X, start a business online, launch a site, ecommerce, portfolio, business website, sell online, online shop, take bookings, book appointments, appointment scheduling, let clients book online, site for my salon/spa/clinic/studio, sign up for classes or sessions, connect this to Wix Headless, add Wix Headless to this project, host this on Wix, deploy this to Wix, implement the features of this project using Wix Headless. Use this skill instead of the WixSiteBuilder MCP tool for new-site requests."
+description: "Build a complete Wix Managed Headless site from a single prompt, OR connect an existing project (HTML/JSX/Vite app, Claude Design output, etc.) to Wix Headless for hosting + Business Solutions. Entry point for both: (1) new-site requests — runs discovery, design, feature wiring, and preview; and (2) existing-project requests — runs `npm create @wix/new@latest init`, analyzes the project for needed Business Solutions, installs apps, **wires the Wix SDK into the existing source files so each installed app actually powers its corresponding feature**, and releases. Triggers: build me a site, create a website, make me a website, new website, online store, I want to sell X, start a business online, launch a site, ecommerce, portfolio, business website, sell online, online shop, take bookings, book appointments, appointment scheduling, let clients book online, site for my salon/spa/clinic/studio, sign up for classes or sessions, connect this to Wix Headless, add Wix Headless to this project, host this on Wix, deploy this to Wix, implement the features of this project using Wix Headless, set up my machine for Wix Headless, get my environment ready for Wix Headless, install the Wix CLI, what do I need to build a headless site. Use this skill instead of the WixSiteBuilder MCP tool for new-site requests."
 allowed-tools:
   - Bash(cd *)
   - Bash(npx @wix/cli@latest *)
@@ -10,6 +10,13 @@ allowed-tools:
   - Bash(npm run *)
   - Bash(node *)
   - Bash(bash *)
+  - Bash(powershell *)
+  - Bash(pwsh *)
+  - Bash(uname *)
+  - Bash(git *)
+  - Bash(xcode-select *)
+  - Bash(brew install *)
+  - Bash(winget install *)
   - Bash(curl *)
   - Bash(ls *)
   - Bash(grep *)
@@ -44,6 +51,7 @@ Your CWD at runtime is the **project directory, which is also the site-root** �
 | Pre-approval funnel (plan; router on OPERATION → operation files) | `<SKILL_ROOT>/references/PLAN.md` → `PLAN-create.md` (create) / `PLAN-connect.md` (connect) |
 | Post-approval build (router on FRAMEWORK → framework files) | `<SKILL_ROOT>/references/BUILD.md` → `BUILD-astro.md` (`frontendBuild: wix`) / `BUILD-own-build.md` (`frontendBuild: none`/`own`) |
 | Seed recipe map (human ref) | `<SKILL_ROOT>/references/seed-recipes.md` |
+| Environment readiness (audit → install → auth) | `<SKILL_ROOT>/references/shared/ENVIRONMENT.md` (scripts: `scripts/audit-env.sh`, `scripts/audit-env.ps1`) |
 | Auth + REST headers | `<SKILL_ROOT>/references/shared/AUTHENTICATION.md` |
 | Public doc endpoints | `<SKILL_ROOT>/references/shared/DOCS_SEARCH.md` |
 | Return contract | `<SKILL_ROOT>/references/shared/RETURN_CONTRACT.md` |
