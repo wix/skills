@@ -46,7 +46,7 @@ export async function runCleanup(): Promise<void> {
 
   let remote: RemoteScenario[];
   try {
-    remote = await evalforge.listTestScenarios(config.projectId);
+    remote = await evalforge.listTestScenarios(config.projectId, { tags: [draftTag] });
   } catch (e) {
     core.warning(`listTestScenarios failed: ${errMsg(e)}`);
     return;

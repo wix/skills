@@ -34168,7 +34168,7 @@ async function runCleanup() {
     await (0, pr_cleanup_1.deletePrMcpVersions)(evalforge, config.mcpId, config.projectId, config.prNumber);
     let remote;
     try {
-        remote = await evalforge.listTestScenarios(config.projectId);
+        remote = await evalforge.listTestScenarios(config.projectId, { tags: [draftTag] });
     }
     catch (e) {
         core.warning(`listTestScenarios failed: ${errMsg(e)}`);
@@ -34901,8 +34901,10 @@ exports.evalRunUrl = evalRunUrl;
 exports.draftTagFor = draftTagFor;
 exports.parseDraftTag = parseDraftTag;
 exports.isHttpError = isHttpError;
+exports.uniqueRemoteScenarios = uniqueRemoteScenarios;
 const MCP_URL = 'https://mcp.wix.com/mcp';
 const MCP_CONFIG_KEY = 'wix-mcp-remote';
+const MAX_TEST_SCENARIO_NAMES_PER_REQUEST = 50;
 exports.TERMINAL_RUN_STATUSES = ['completed', 'failed', 'cancelled'];
 exports.DRAFT_PREFIX = 'draft:';
 // Human-facing EvalForge results page (distinct from the REST `baseUrl` the client calls).
@@ -34920,6 +34922,15 @@ function parseDraftTag(tag) {
 }
 function isHttpError(e) {
     return e instanceof Error && typeof e.status === 'number';
+}
+/**
+ * Deduplicates scenarios returned by multiple filtered EvalForge list calls.
+ */
+function uniqueRemoteScenarios(scenarios) {
+    const byId = new Map();
+    for (const scenario of scenarios)
+        byId.set(scenario.id, scenario);
+    return [...byId.values()];
 }
 class EvalForgeClient {
     baseUrl;
@@ -34993,9 +35004,17 @@ class EvalForgeClient {
             return existing;
         }
     }
-    async listTestScenarios(projectId) {
+    /**
+     * Lists test scenarios, optionally narrowing the REST response by scenario name and/or tag.
+     */
+    async listTestScenarios(projectId, filters = {}) {
+        if ((filters.names?.length ?? 0) > MAX_TEST_SCENARIO_NAMES_PER_REQUEST) {
+            const chunks = chunk(filters.names, MAX_TEST_SCENARIO_NAMES_PER_REQUEST);
+            const batches = await Promise.all(chunks.map(names => this.listTestScenarios(projectId, { ...filters, names })));
+            return uniqueRemoteScenarios(batches.flat());
+        }
         // EvalForge returns `tags: undefined` for untagged scenarios — normalize so callers can assume `string[]`.
-        const raw = await this.request('GET', `/projects/${enc(projectId)}/test-scenarios`);
+        const raw = await this.request('GET', testScenariosPath(projectId, filters));
         return raw.map(s => ({ ...s, tags: s.tags ?? [] }));
     }
     async createTestScenario(projectId, body, tags) {
@@ -35023,6 +35042,21 @@ class EvalForgeClient {
 exports.EvalForgeClient = EvalForgeClient;
 function enc(segment) {
     return encodeURIComponent(segment);
+}
+function testScenariosPath(projectId, filters) {
+    const params = new URLSearchParams();
+    for (const name of filters.names ?? [])
+        params.append('name', name);
+    for (const tag of filters.tags ?? [])
+        params.append('tags', tag);
+    const query = params.toString();
+    return `/projects/${enc(projectId)}/test-scenarios${query ? `?${query}` : ''}`;
+}
+function chunk(items, size) {
+    const chunks = [];
+    for (let i = 0; i < items.length; i += size)
+        chunks.push(items.slice(i, i + size));
+    return chunks;
 }
 
 
@@ -35114,6 +35148,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.remoteScenarioFiltersForGate = remoteScenarioFiltersForGate;
 exports.runGate = runGate;
 const core = __importStar(__nccwpck_require__(7484));
 const github = __importStar(__nccwpck_require__(3228));
@@ -35131,6 +35166,17 @@ const paths_1 = __nccwpck_require__(6621);
 const comment_1 = __nccwpck_require__(3116);
 function allScenariosRequired(result) {
     return result.scenarios.length > 0 && result.scenarios.every(s => s.required);
+}
+/**
+ * Computes the smallest remote scenario lookup needed to sync this PR.
+ */
+function remoteScenarioFiltersForGate(input) {
+    const names = new Set(input.changedHead.keys());
+    for (const [name] of input.base) {
+        if (!input.head.has(name))
+            names.add(name);
+    }
+    return { names: [...names].sort(), tags: [input.draftTag] };
 }
 async function runGate() {
     const config = (0, config_1.getEvalConfig)();
@@ -35195,7 +35241,8 @@ async function runGate() {
         if (changedEvalPaths.has(ls.path))
             changedHeadScenarios.set(name, ls);
     }
-    const remote = await guardedCall(() => evalforge.listTestScenarios(config.projectId), 'Could not reach EvalForge', comment, config);
+    const filters = remoteScenarioFiltersForGate({ changedHead: changedHeadScenarios, head: headScenarios, base: baseScenarios, draftTag });
+    const remote = await guardedCall(() => listRemoteScenariosForGate(evalforge, config.projectId, filters), 'Could not reach EvalForge', comment, config);
     if (!remote)
         return;
     const plan = (0, sync_1.diffSyncPlan)({ changedHead: changedHeadScenarios, head: headScenarios, base: baseScenarios, remote, draftTag });
@@ -35276,6 +35323,13 @@ async function runGate() {
         await comment((0, comment_1.formatServiceError)('Eval pipeline comparison failed', config.blocking));
         (0, github_1.fail)('Eval pipeline comparison failed', config.blocking);
     }
+}
+async function listRemoteScenariosForGate(evalforge, projectId, filters) {
+    const [byName, byDraftTag] = await Promise.all([
+        filters.names.length > 0 ? evalforge.listTestScenarios(projectId, { names: filters.names }) : Promise.resolve([]),
+        evalforge.listTestScenarios(projectId, { tags: filters.tags }),
+    ]);
+    return (0, evalforge_1.uniqueRemoteScenarios)([...byName, ...byDraftTag]);
 }
 async function guardedCall(fn, userMessage, comment, config) {
     try {
@@ -35551,16 +35605,26 @@ async function runPromote() {
     const workspace = (0, workspace_1.workspaceRoot)();
     // Cleanup workflow no longer fires on merged PRs — promote owns MCP version teardown.
     await (0, pr_cleanup_1.deletePrMcpVersions)(evalforge, config.mcpId, config.projectId, config.prNumber);
+    const headScenarios = loadEvalsWithWarnings(workspace);
+    const baseEvals = loadEvalsWithWarnings(node_path_1.posix.join(workspace, paths_1.BASE_WORKSPACE_SUBDIR));
+    const deletedScenarioNames = [...baseEvals.keys()]
+        .filter(name => !headScenarios.has(name))
+        .sort();
     let remote;
     try {
-        remote = await evalforge.listTestScenarios(config.projectId);
+        const [drafts, deleted] = await Promise.all([
+            evalforge.listTestScenarios(config.projectId, { tags: [draftTag] }),
+            deletedScenarioNames.length > 0
+                ? evalforge.listTestScenarios(config.projectId, { names: deletedScenarioNames })
+                : Promise.resolve([]),
+        ]);
+        remote = (0, evalforge_1.uniqueRemoteScenarios)([...drafts, ...deleted]);
     }
     catch (e) {
         core.warning(`listTestScenarios failed: ${e instanceof Error ? e.message : String(e)}`);
         return;
     }
     const remoteByName = new Map(remote.map(r => [r.name, r]));
-    const headScenarios = loadEvalsWithWarnings(workspace);
     let promoted = 0;
     let droppedDrafts = 0;
     for (const s of remote) {
@@ -35590,7 +35654,6 @@ async function runPromote() {
             core.warning(`Promote failed for ${s.name}: ${e instanceof Error ? e.message : String(e)}`);
         }
     }
-    const baseEvals = loadEvalsWithWarnings(node_path_1.posix.join(workspace, paths_1.BASE_WORKSPACE_SUBDIR));
     for (const [name] of baseEvals) {
         if (headScenarios.has(name))
             continue;
