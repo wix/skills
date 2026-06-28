@@ -34226,7 +34226,9 @@ exports.formatEvalTimeout = formatEvalTimeout;
 exports.formatNoChanges = formatNoChanges;
 exports.formatComparisonResult = formatComparisonResult;
 exports.formatComparisonTimeout = formatComparisonTimeout;
+exports.formatTokenBudgetExceeded = formatTokenBudgetExceeded;
 const evalforge_1 = __nccwpck_require__(280);
+const token_budget_1 = __nccwpck_require__(5984);
 exports.COMMENT_MARKER = '<!-- evalforge-yaml-gate-action -->';
 const HEADING = 'EvalForge YAML Gate';
 function render(icon, label, body) {
@@ -34351,6 +34353,21 @@ function formatComparisonResult(result, projectId) {
 }
 function formatComparisonTimeout(comparisonGroupId, blocking) {
     return render(blocking ? '⏱' : '⚠️', 'Comparison Timed Out', [`comparisonGroupId: ${comparisonGroupId}`]);
+}
+function formatTokenBudgetExceeded(violations, projectId) {
+    const lines = [
+        'These scenarios exceeded their configured top-level `maxTokens` budget on the PR run:',
+        '',
+        '| Scenario | Max tokens | PR tokens | Prod tokens | PR run |',
+        '|---|---:|---:|---:|---|',
+    ];
+    for (const v of violations) {
+        const run = projectId && v.prRunId
+            ? `[${v.prRunId}](${(0, evalforge_1.evalRunUrl)(projectId, v.prRunId, v.prRunName)})`
+            : '—';
+        lines.push(`| ${v.scenarioName} | ${(0, token_budget_1.formatTokenCount)(v.maxTokens)} | ${(0, token_budget_1.formatTokenCount)(v.prTokens)} | ${(0, token_budget_1.formatTokenCount)(v.prodTokens)} | ${run} |`);
+    }
+    return render('❌', 'Token Budget Exceeded', lines);
 }
 
 
@@ -35129,6 +35146,7 @@ const eval_pipeline_1 = __nccwpck_require__(3942);
 const workspace_1 = __nccwpck_require__(9620);
 const paths_1 = __nccwpck_require__(6621);
 const comment_1 = __nccwpck_require__(3116);
+const token_budget_1 = __nccwpck_require__(5984);
 function allScenariosRequired(result) {
     return result.scenarios.length > 0 && result.scenarios.every(s => s.required);
 }
@@ -35255,6 +35273,12 @@ async function runGate() {
                 core.info(`${s.scenarioName} [without draft tag]: ${(0, evalforge_1.evalRunUrl)(config.projectId, s.without.runId, s.without.name)}`);
         }
         await comment((0, comment_1.formatComparisonResult)(done, config.projectId));
+        const tokenBudgetViolations = (0, token_budget_1.findTokenBudgetViolations)(done.result.scenarios ?? [], headScenarios);
+        if (tokenBudgetViolations.length > 0) {
+            await comment((0, comment_1.formatTokenBudgetExceeded)(tokenBudgetViolations, config.projectId));
+            (0, github_1.fail)((0, token_budget_1.formatTokenBudgetFailureMessage)(tokenBudgetViolations), config.blocking);
+            return;
+        }
         if (config.autoApprove && allScenariosRequired(done.result)) {
             await octokit.rest.pulls.createReview({
                 owner: config.owner,
@@ -35748,6 +35772,7 @@ exports.ScenarioSchema = zod_1.z.object({
     description: zod_1.z.string(),
     triggerPrompt: zod_1.z.string().min(10),
     tags: zod_1.z.array(zod_1.z.string().min(1)).min(1).refine(tags => tags.every(t => !exports.RESERVED_TAG_PREFIXES.some(p => t.startsWith(p))), { message: 'tags must not include reserved namespaces (draft:*, pending:*, rejected:*) — the action manages those' }),
+    maxTokens: zod_1.z.number().int().positive().optional(),
     assertions: zod_1.z.array(AssertionSchema).min(1),
     siteSetup: SiteSetupSchema.optional(),
 }).strict().superRefine((data, ctx) => {
@@ -35851,6 +35876,46 @@ function diffSyncPlan(input) {
         }
     }
     return { actions, errors };
+}
+
+
+/***/ }),
+
+/***/ 5984:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.findTokenBudgetViolations = findTokenBudgetViolations;
+exports.formatTokenBudgetFailureMessage = formatTokenBudgetFailureMessage;
+exports.formatTokenCount = formatTokenCount;
+function findTokenBudgetViolations(comparisons, scenarios) {
+    const violations = [];
+    for (const comparison of comparisons) {
+        const maxTokens = scenarios.get(comparison.scenarioName)?.scenario.maxTokens;
+        if (maxTokens === undefined || comparison.with.totalTokens <= maxTokens)
+            continue;
+        violations.push({
+            scenarioName: comparison.scenarioName,
+            maxTokens,
+            prTokens: comparison.with.totalTokens,
+            prodTokens: comparison.without.totalTokens,
+            prRunId: comparison.with.runId,
+            prRunName: comparison.with.name,
+        });
+    }
+    return violations;
+}
+function formatTokenBudgetFailureMessage(violations) {
+    if (violations.length === 1) {
+        const v = violations[0];
+        return `Token budget exceeded for ${v.scenarioName}: PR used ${formatTokenCount(v.prTokens)} tokens, max is ${formatTokenCount(v.maxTokens)}`;
+    }
+    return `Token budget exceeded for ${violations.length} scenarios: ${violations.map(v => v.scenarioName).join(', ')}`;
+}
+function formatTokenCount(tokens) {
+    return Math.round(tokens).toLocaleString('en-US');
 }
 
 

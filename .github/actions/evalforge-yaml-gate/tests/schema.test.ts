@@ -19,6 +19,17 @@ describe('parseScenario', () => {
     expect(s.tags).toEqual(['blog']);
     expect(s.assertions).toHaveLength(1);
   });
+  it('accepts a top-level maxTokens budget', () => {
+    const s = parseScenario(minimalYaml.replace('tags: [blog]', 'tags: [blog]\nmaxTokens: 25000'));
+    expect(s.maxTokens).toBe(25000);
+  });
+  it('rejects non-positive top-level maxTokens budgets', () => {
+    expect(() => parseScenario(minimalYaml.replace('tags: [blog]', 'tags: [blog]\nmaxTokens: 0'))).toThrow(/maxTokens/);
+    expect(() => parseScenario(minimalYaml.replace('tags: [blog]', 'tags: [blog]\nmaxTokens: -1'))).toThrow(/maxTokens/);
+  });
+  it('rejects non-integer top-level maxTokens budgets', () => {
+    expect(() => parseScenario(minimalYaml.replace('tags: [blog]', 'tags: [blog]\nmaxTokens: 1.5'))).toThrow(/maxTokens/);
+  });
   it('rejects missing required fields', () => {
     expect(() => parseScenario('name: foo')).toThrow();
   });
