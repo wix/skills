@@ -46,3 +46,16 @@ apiDoc:
       title: Create Course Service
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/bookings
       tags: [bookings]
+    # --- SMB eval pilot (frozen fitness/US cohort; not for merge) ---
+    - file: ../../../skills/wix-manage/references/bookings/smb-create-appointment-service.md
+      title: SMB Create Appointment Service
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/bookings
+      tags: [bookings]
+    - file: ../../../skills/wix-manage/references/bookings/smb-draft-cancellation-notification.md
+      title: SMB Draft Cancellation Notification
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/bookings
+      tags: [bookings]
+    - file: ../../../skills/wix-manage/references/bookings/smb-turn-intake-form-into-first-booking.md
+      title: SMB Turn Intake Form Into First Booking
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/bookings
+      tags: [bookings]

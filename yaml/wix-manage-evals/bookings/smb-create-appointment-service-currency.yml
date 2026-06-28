@@ -1,0 +1,33 @@
+name: bookings/smb-create-appointment-service-currency
+description: >-
+  Verifies the agent reads the smb-create-appointment-service skill and prices the service in the live
+  site currency (read from site properties) rather than blindly assuming USD.
+triggerPrompt: >-
+  Add a 45-minute "Nutrition Consult" service at 65, assigned to an instructor who works Tuesday and
+  Thursday evenings. The number is the price — use my store's currency.
+tags: [bookings]
+siteSetup:
+  templateId: bookings-harmony
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/bookings/skills/smb-create-appointment-service
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The owner asked to add a 45-min "Nutrition Consult" at 65 in their store's currency, assigned to a
+      instructor with Tue/Thu evening hours.
+      Intent: price the service in the LIVE site currency (read via the site-properties API) instead of
+      assuming USD, and confirm the instructor has working hours before finishing.
+
+      Pass if the response:
+      - reads the live site currency (site-properties / paymentCurrency) and prices 65 in that currency, AND
+      - assigns an instructor and confirms that instructor has working hours before treating the service as
+        bookable, AND
+      - creates an APPOINTMENT service via the Wix Bookings services API.
+
+      Fail if the response:
+      - hard-codes USD without checking the site currency, OR
+      - skips the instructor working-hours check, OR
+      - is generic with no Wix Bookings / site-properties API methods.

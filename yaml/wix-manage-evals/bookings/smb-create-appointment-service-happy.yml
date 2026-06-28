@@ -1,0 +1,35 @@
+name: bookings/smb-create-appointment-service-happy
+description: >-
+  Verifies the agent reads the smb-create-appointment-service skill and creates a bookable
+  APPOINTMENT service, assigning an instructor who has working hours (never a non-bookable shell).
+triggerPrompt: >-
+  Create a 60-minute private personal-training session called "Personal Training" priced at $77,
+  assigned to an instructor who works regular weekday hours. Make sure members can actually book it.
+tags: [bookings]
+siteSetup:
+  templateId: bookings-harmony
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/bookings/skills/smb-create-appointment-service
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The owner asked to create a bookable 60-min "Personal Training" appointment service at $77,
+      assigned to an instructor with working hours.
+      Intent: create an APPOINTMENT-type Wix Bookings service that is actually bookable — assigned to a
+      instructor (staff member) whose schedule has working hours.
+
+      Pass if the response:
+      - creates (or clearly prepares + gets approval to create) an APPOINTMENT service named
+        "Personal Training", 60 min, $77, AND
+      - assigns an instructor/staff member and verifies that instructor has working hours before treating the
+        service as bookable (querying staff and the staff schedule/working hours), AND
+      - uses the Wix Bookings services create API (e.g. bulk create services) with type APPOINTMENT.
+
+      Fail if the response:
+      - reports the service as done without any assigned instructor, OR
+      - never checks the instructor's working hours / availability, OR
+      - creates a CLASS or COURSE instead of an APPOINTMENT, OR
+      - is generic with no Wix Bookings API methods.

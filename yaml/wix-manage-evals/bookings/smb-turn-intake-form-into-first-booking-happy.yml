@@ -1,0 +1,33 @@
+name: bookings/smb-turn-intake-form-into-first-booking-happy
+description: >-
+  Verifies the agent reads the smb-turn-intake-form-into-first-booking skill and turns a fresh intake
+  submission into a contact + an owner-approved follow-up proposing specific bookable slots.
+triggerPrompt: >-
+  A new lead just submitted our intake form: name Jordan Lee, jordan@example.com, interested in personal
+  training, available weekday evenings. Follow up to get them booked.
+tags: [bookings]
+siteSetup:
+  templateId: bookings-harmony
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/bookings/skills/smb-turn-intake-form-into-first-booking
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      A new intake submission came in (Jordan Lee, jordan@example.com, wants personal training, free
+      weekday evenings). The owner wants to follow up to drive a first booking.
+      Intent: find/create the contact, match the interest + availability to the real schedule, propose
+      2-3 specific weekday-evening slots, and draft an owner-approved follow-up.
+
+      Pass if the response:
+      - finds or creates a contact for Jordan (contacts API), AND
+      - matches "personal training" to a real service and queries availability for weekday-evening slots, AND
+      - proposes 2-3 specific slots in the lead's window, AND
+      - drafts the follow-up for owner approval before sending.
+
+      Fail if the response:
+      - sends a generic "thanks for your interest" with no concrete slots, OR
+      - skips contact handling, OR
+      - sends without an owner-approval step.

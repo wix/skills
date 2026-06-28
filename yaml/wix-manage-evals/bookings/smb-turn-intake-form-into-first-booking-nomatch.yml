@@ -1,0 +1,30 @@
+name: bookings/smb-turn-intake-form-into-first-booking-nomatch
+description: >-
+  Verifies the agent reads the smb-turn-intake-form-into-first-booking skill and, when nothing matches
+  the lead's requested window, proposes nearest real alternatives instead of inventing slots.
+triggerPrompt: >-
+  New intake just came in: Sam Rivera, sam@example.com, wants a weekday 6am personal-training slot — but
+  we don't run anything that early. Follow up.
+tags: [bookings]
+siteSetup:
+  templateId: bookings-harmony
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/bookings/skills/smb-turn-intake-form-into-first-booking
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      A new intake (Sam Rivera) wants a weekday 6am slot that the business does not offer.
+      Intent: handle the no-match gracefully — do not fabricate availability; propose the nearest real
+      alternatives and say the requested time isn't available, or flag the gap to the owner.
+
+      Pass if the response:
+      - does NOT invent 6am slots that don't exist, AND
+      - either proposes the closest real available slots (and notes the requested time isn't offered) or
+        flags the gap to the owner for a decision.
+
+      Fail if the response:
+      - fabricates 6am availability, OR
+      - dead-ends with "no times available" and offers no alternative or owner hand-off.
