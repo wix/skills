@@ -52,18 +52,10 @@ export default BestSellerBadge;
 
 ### Settings Panel (`best-seller-badge.panel.tsx`)
 
-```typescript
+```tsx
 import React, { type FC, useState, useEffect, useCallback } from 'react';
 import { widget, inputs } from '@wix/editor';
-import {
-  SidePanel,
-  WixDesignSystemProvider,
-  Input,
-  FormField,
-  Box,
-  FillPreview,
-} from '@wix/design-system';
-import '@wix/design-system/styles.global.css';
+import '../../styles/tailwind.css'; // adjust relative depth to reach src/styles/tailwind.css
 
 const Panel: FC = () => {
   const [badgeText, setBadgeText] = useState<string>('');
@@ -101,42 +93,38 @@ const Panel: FC = () => {
   }, []);
 
   return (
-    <WixDesignSystemProvider>
-      <SidePanel width="300" height="100vh">
-        <SidePanel.Content noPadding stretchVertically>
-          <SidePanel.Field>
-            <FormField label="Badge Text">
-              <Input
-                type="text"
-                value={badgeText}
-                onChange={handleTextChange}
-                aria-label="Badge Text"
-              />
-            </FormField>
-          </SidePanel.Field>
-          <SidePanel.Field>
-            <FormField label="Background Color">
-              <Box width="30px" height="30px">
-                <FillPreview
-                  fill={bgColor}
-                  onClick={() => inputs.selectColor(bgColor, { onChange: (val) => { if (val) handleBgColorChange(val); } })}
-                />
-              </Box>
-            </FormField>
-          </SidePanel.Field>
-          <SidePanel.Field>
-            <FormField label="Text Color">
-              <Box width="30px" height="30px">
-                <FillPreview
-                  fill={textColor}
-                  onClick={() => inputs.selectColor(textColor, { onChange: (val) => { if (val) handleTextColorChange(val); } })}
-                />
-              </Box>
-            </FormField>
-          </SidePanel.Field>
-        </SidePanel.Content>
-      </SidePanel>
-    </WixDesignSystemProvider>
+    <div className="flex w-[300px] flex-col gap-4 p-4">
+      <label className="flex flex-col gap-1 text-sm">
+        <span>Badge Text</span>
+        <input
+          type="text"
+          value={badgeText}
+          onChange={handleTextChange}
+          aria-label="Badge Text"
+          className="rounded border border-gray-300 px-2 py-1"
+        />
+      </label>
+      <label className="flex items-center justify-between gap-2 text-sm">
+        <span>Background Color</span>
+        <button
+          type="button"
+          aria-label="Background Color"
+          style={{ backgroundColor: bgColor }}
+          className="h-8 w-8 rounded border border-gray-300"
+          onClick={() => inputs.selectColor(bgColor, { onChange: (val) => { if (val) handleBgColorChange(val); } })}
+        />
+      </label>
+      <label className="flex items-center justify-between gap-2 text-sm">
+        <span>Text Color</span>
+        <button
+          type="button"
+          aria-label="Text Color"
+          style={{ backgroundColor: textColor }}
+          className="h-8 w-8 rounded border border-gray-300"
+          onClick={() => inputs.selectColor(textColor, { onChange: (val) => { if (val) handleTextColorChange(val); } })}
+        />
+      </label>
+    </div>
   );
 };
 
@@ -181,10 +169,10 @@ For plugins that require back-office management (especially checkout and side ca
 
 > **Note:** The `placement` option in `addSitePlugin()` is optional. If omitted, the plugin is placed in the first available slot based on the priority order configured in the plugin's installation settings in your app's dashboard.
 
-```typescript
+```tsx
 // src/extensions/dashboard/pages/plugin-settings/page.tsx
 import { dashboard } from "@wix/dashboard";
-import { Page, WixDesignSystemProvider, Card, FormField, Input, Button } from "@wix/design-system";
+import "../../../styles/tailwind.css"; // adjust relative depth to reach src/styles/tailwind.css
 
 export default function PluginSettingsPage() {
   const handleAddToSlot = async () => {
@@ -202,19 +190,19 @@ export default function PluginSettingsPage() {
   };
 
   return (
-    <WixDesignSystemProvider>
-      <Page>
-        <Page.Header title="Plugin Settings" />
-        <Page.Content>
-          <Card>
-            <Card.Header title="Manage Your Plugin" />
-            <Card.Content>
-              <Button onClick={handleAddToSlot}>Add Plugin to Slot</Button>
-            </Card.Content>
-          </Card>
-        </Page.Content>
-      </Page>
-    </WixDesignSystemProvider>
+    <div className="mx-auto max-w-[1248px] p-6">
+      <h1 className="mb-6 text-2xl font-semibold">Plugin Settings</h1>
+      <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+        <h2 className="mb-4 text-lg font-medium">Manage Your Plugin</h2>
+        <button
+          type="button"
+          onClick={handleAddToSlot}
+          className="rounded bg-blue-600 px-4 py-2 text-white"
+        >
+          Add Plugin to Slot
+        </button>
+      </div>
+    </div>
   );
 }
 ```

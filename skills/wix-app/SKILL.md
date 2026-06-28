@@ -24,8 +24,8 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
 - [ ] **Step 3:** Checked API references; used MCP discovery only for gaps
 - [ ] **Step 4a:** Scaffolded each CLI-supported extension via `wix generate --params`
 - [ ] **Step 4b:** Filled in business logic in the generated files
-  - [ ] Invoked `wix-design-system` skill ONLY before editing the first `.tsx`/`.jsx` file that imports `@wix/design-system`. Skip for backend-only or data-only extensions.
-  - [ ] WDS: imported `@wix/design-system/styles.global.css` in the main component entry file (`page.tsx`, modal `.tsx`, etc.) — not child/tab/helper files.
+  - [ ] Built ALL UI with Tailwind utility classes on plain React elements — never `@wix/design-system`. See [Tailwind UI Setup](#tailwind-ui-setup).
+  - [ ] Imported the app's `styles/tailwind.css` ONCE in the main component entry file (`page.tsx`, modal `.tsx`, etc.) — not in child/tab/helper files.
 - [ ] **Step 5:** Ran validation (see [Validation](#validation))
   - [ ] Dependencies installed
   - [ ] TypeScript compiled
@@ -257,8 +257,8 @@ If the command fails because of unknown or invalid params, run `npx wix schema g
 
 Open every path returned in `newFiles` and replace stubbed handler bodies / UI / queries with the user's actual logic, guided by the extension reference file's API and configuration sections.
 
-- ⚠️ MANDATORY when using WDS: Invoke the `wix-design-system` skill **before editing your first `.tsx`/`.jsx` file that imports `@wix/design-system`**. Do NOT invoke it preemptively for backend-only or data-only jobs — it adds large content to context that you won't use.
-- ⚠️ MANDATORY when using WDS: Add `import "@wix/design-system/styles.global.css";` in the **main component** entry file (`page.tsx`, modal `.tsx`, etc.) — not in child/tab/helper files.
+- ⚠️ MANDATORY for UI: Build every dashboard/panel/widget UI with **Tailwind utility classes on plain React elements**. Do NOT import `@wix/design-system` and do NOT add `<WixDesignSystemProvider>`. See [Tailwind UI Setup](#tailwind-ui-setup) for the config, import, and a WDS→plain-React+Tailwind component mapping.
+- ⚠️ MANDATORY for UI: Import the app's `styles/tailwind.css` **once** in the **main component** entry file (`page.tsx`, modal `.tsx`, etc.) via a relative path — not in child/tab/helper files.
 - ⚠️ MANDATORY when using Data Collections: Use the EXACT collection ID from `idSuffix` (case-sensitive). If `idSuffix` is `"product-recommendations"`, use `<app-namespace>/product-recommendations` NOT `productRecommendations`.
 
 ### Step 5: Run Validation
@@ -346,7 +346,69 @@ Stop and report errors if any step fails. Check `.wix/debug.log` on failures.
 - **Skip discovery** when all required APIs are in reference files
 - **maxResults: 5** for all MCP SDK searches
 - **ReadFullDocsMethodSchema** for SDK method schemas; **ReadFullDocsArticle** for prose guides only
-- **Invoke wix-design-system** first when using WDS (prevents import errors)
+- **Build UI with Tailwind utilities on plain React** — never `@wix/design-system`; import `styles/tailwind.css` once in the entry file (see [Tailwind UI Setup](#tailwind-ui-setup))
+
+## Tailwind UI Setup
+
+All UI (dashboard pages, modals, settings panels, plugin widgets) is built with **Tailwind utility classes on plain React elements**. Do NOT import `@wix/design-system`, do NOT render `<WixDesignSystemProvider>`, and do NOT load a `wix-design-system` skill.
+
+### Shipped config
+
+The app ships a Tailwind v3 setup (the codegen scaffold emits it):
+
+- **`tailwind.config.cjs`** (CJS — the template is `type: "module"`):
+  ```js
+  /** @type {import('tailwindcss').Config} */
+  module.exports = {
+    content: ['./src/**/*.{ts,tsx,js,jsx,astro,mdx,html}'],
+    theme: { extend: {} },
+    plugins: [],
+  };
+  ```
+- **`postcss.config.cjs`** — Astro auto-runs PostCSS, so no `astro.config` change is needed:
+  ```js
+  module.exports = { plugins: { tailwindcss: {}, autoprefixer: {} } };
+  ```
+- **`src/styles/tailwind.css`** — the 3-layer stylesheet:
+  ```css
+  @tailwind base;
+  @tailwind components;
+  @tailwind utilities;
+  ```
+
+Dev dependencies: `tailwindcss@^3 postcss autoprefixer`.
+
+### How to import it
+
+Import the stylesheet **once**, in the main component **entry file** of each UI extension (`page.tsx`, modal `.tsx`, panel `.tsx`), using a relative path — never in child/tab/helper files:
+
+```tsx
+import '../../styles/tailwind.css'; // adjust the relative depth to reach src/styles/tailwind.css
+```
+
+### WDS → plain React + Tailwind mapping
+
+| WDS component | Plain React + Tailwind |
+| --- | --- |
+| `<Page>` | `<div className="p-6 max-w-[1248px] mx-auto">` |
+| `<Page.Header title=…>` | `<div className="mb-6 flex items-center justify-between"><h1 className="text-2xl font-semibold">…</h1></div>` |
+| `<Card>` | `<div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">` |
+| `<Card.Header title=…>` | `<h2 className="mb-4 text-lg font-medium">…</h2>` |
+| `<Input>` | `<input className="border rounded px-2 py-1" />` |
+| `<Button>` | `<button className="rounded bg-blue-600 px-4 py-2 text-white">` |
+| secondary `<Button>` | `<button className="rounded border border-gray-300 px-4 py-2">` |
+| `<Table>` | `<table className="w-full border-collapse">` + `<thead>/<tbody>/<tr>/<th class="text-left p-2 border-b">/<td class="p-2 border-b">` |
+| `<EmptyState>` | centered div: `<div className="flex flex-col items-center justify-center gap-2 py-16 text-center text-gray-500">` |
+| `<Loader>` | spinner div: `<div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-300 border-t-blue-600" />` |
+| `<FillPreview>` (color swatch) | swatch `<button>`: `<button style={{ backgroundColor: value }} className="h-8 w-8 rounded border border-gray-300" />` |
+| `<Dropdown>` | `<select className="border rounded px-2 py-1">` |
+| `<Checkbox>` / `<ToggleSwitch>` | `<input type="checkbox" />` |
+| `<FormField label=…>` | `<label className="flex flex-col gap-1 text-sm"><span>…</span>{children}</label>` |
+| `<Tabs>` | row of `<button>` triggers + conditional content panel |
+| `<Text>` | `<span>` / `<p>` |
+| `<WixDesignSystemProvider>` | remove entirely — no provider needed |
+
+Keep all non-UI behavior unchanged: Wix Data CRUD, `dashboard.showToast`, `dashboard.openModal`/`closeModal`, `@wix/editor` `inputs.selectColor`/`inputs.selectFont` pickers, extension registration, and the validation workflow.
 
 ## Documentation
 
