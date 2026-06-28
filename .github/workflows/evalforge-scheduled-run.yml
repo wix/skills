@@ -13,9 +13,32 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # need full history to inspect commits over the past week
+
+      - name: Check for recent commits to skills/wix-manage
+        id: check
+        run: |
+          # Only run scenarios if skills/wix-manage changed in the last 7 days.
+          # On manual runs (workflow_dispatch) always run, regardless of recency.
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "Manual trigger — running regardless of recent commits."
+            echo "should-run=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          COMMITS=$(git log --since="7 days ago" --oneline -- skills/wix-manage)
+          if [ -n "$COMMITS" ]; then
+            echo "Found commits to skills/wix-manage in the last week:"
+            echo "$COMMITS"
+            echo "should-run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No commits to skills/wix-manage in the last week — skipping eval run."
+            echo "should-run=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Run all eval scenarios
         id: eval
+        if: steps.check.outputs.should-run == 'true'
         uses: ./.github/actions/evalforge-yaml-gate
         with:
           mode: run-all
@@ -27,7 +50,7 @@ jobs:
           run-name: scheduled-${{ github.run_number }}
 
       - name: Post Slack notification
-        if: always()
+        if: always() && steps.check.outputs.should-run == 'true'
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           PASS_RATE: ${{ steps.eval.outputs.pass-rate }}
