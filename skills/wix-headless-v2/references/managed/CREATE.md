@@ -32,11 +32,18 @@ Run the agnostic flow against the scaffolded site:
 
 ## 4 · Build the frontend (wired to the backend)
 
-Build the pages the user's intent calls for, **wired to the live backend**, using
-**`references/SDK_HANDOFF.md`** as the reference (packages to install, the `OAuthStrategy` client
-setup, the seeded IDs to bind, and the per-capability SDK docs). Install the SDK packages the loaded
-verticals need, author the pages/components directly in the scaffolded project, and bind them to the
-seeded content. Keep it scoped to what was asked — no speculative pages.
+**Read the frontend reference for *how to connect* first.** The scaffold (step 1) is **Astro** — the
+documented default — so read **`references/astro.md`**: managed-Astro auto-authenticates, so the
+frontend creates **no client** (no `OAuthStrategy`, no `clientId`) — you `import { x } from "@wix/<pkg>"`
+and call methods. astro.md also carries the load-bearing caveats (the always-on `astro.config.mjs`
+integrations, SSR error guards, island hydration). Only if the user named a **non-Astro** framework,
+use **`references/non-astro.md`** instead (the manual `OAuthStrategy` client path — and the model
+scaffolds that framework's own project per non-astro.md Caveat N1, since Wix has no non-Astro scaffolder).
+
+Then build the pages the user's intent calls for, **wired to the live backend**, using
+**`references/SDK_HANDOFF.md`** for the per-capability packages, the SDK docs, and the seeded IDs to
+bind. Install the SDK packages the loaded verticals need, author the pages/components directly in the
+project, and bind them to the seeded content. Keep it scoped to what was asked — no speculative pages.
 
 If `imagery` is on and a surface needs an image (e.g. a homepage hero, an about-section visual),
 generate it per **`references/IMAGE_GENERATION.md`** and use its `file.url`. Generate only what the

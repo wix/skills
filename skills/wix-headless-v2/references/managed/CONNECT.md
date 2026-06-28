@@ -35,8 +35,14 @@ Per `references/managed/AUTHENTICATION.md` — `whoami`/login if needed, then mi
 
 ## 4 · Wire the existing UI
 
-Connect the existing project to the live backend using **`references/SDK_HANDOFF.md`** as the
-reference. Install the SDK packages the loaded verticals need; then, with **additive** edits:
+**Read the frontend reference for *how to connect* first**, keyed on the brought project's framework:
+an **Astro** project → **`references/astro.md`** (auto-auth, no client); **any other framework or a
+static design** → **`references/non-astro.md`** (manual `OAuthStrategy` client). The chosen file carries
+the connect mechanics and the framework caveats; **`references/SDK_HANDOFF.md`** carries the
+per-capability packages, the SDK docs, and the seeded IDs.
+
+Connect the existing project to the live backend. Install the SDK packages the loaded verticals need;
+then, with **additive** edits:
 - bind seeded content into the regions that already exist (product grids, post lists, item pages…);
 - add the connected feature the intent implies where it's missing (e.g. a contact/RSVP form, a cart);
 - always guard SDK calls (try/catch + fallback) so a failed call never blanks the page.
@@ -48,7 +54,9 @@ wired is not an acceptable outcome. If `imagery` is on and a surface needs an im
 ## 5 · Build & release
 
 If the project has its own build (`package.json` with a `build` script), run `npm run build` and point
-`wix.config.json`'s `site.outputDirectory` at the build output; a static site (plain `index.html`) needs
-no build. Then finalize per **`references/managed/DEPLOYMENT.md`** (`npx @wix/cli@latest release` — Wix
+`wix.config.json`'s `site.outputDirectory` at the build output. A **static** site (no build) needs the
+static-hosting fixes in **`references/managed/DEPLOYMENT.md`** — the entry file must be named
+`index.html`, and `outputDirectory` must point at the directory holding it (init's `./dist` default is
+wrong for static). Then finalize per **`references/managed/DEPLOYMENT.md`** (`npx @wix/cli@latest release` — Wix
 publishes + registers the origin OOTB). Close with a short summary (apps installed, content seeded, what
 was wired, live URL).
