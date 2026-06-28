@@ -61,7 +61,7 @@ The boundary: **rules referenced by exactly one pack's TSX live in that pack's s
 
 Before writing your file, **read `src/styles/global.css`** and grep for any class your scope owns. Stores-specific rules sometimes leak into the designer's foundation:
 
-- `.product-grid` and `body[data-navigating="true"] .product-grid` — designer drift; should be in `components-stores.css`, not `global.css`.
+- `.product-grid` and `body[data-navigating="true"] .product-grid` — owned solely by `components-stores.css`; `compose.mjs` no longer ships them in `global.css`. If you still find them in the foundation (e.g. designer drift), they don't belong there.
 - Any `.product-card-*` rule.
 - Any `.offer-callout-*` rule.
 - Any contract class that maps to a key in `contractKeys.scoped.stores`.

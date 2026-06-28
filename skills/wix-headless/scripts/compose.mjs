@@ -516,16 +516,6 @@ ${themeBlock}
   transition: transform 200ms ease, opacity 240ms ease 60ms;
 }
 
-/* Dim the product grid while ClientRouter fetches/swaps for immediate feedback. */
-body[data-navigating="true"] .product-grid {
-  opacity: 0.55;
-  transition: opacity 140ms ease;
-  pointer-events: none;
-}
-.product-grid {
-  transition: opacity 200ms ease;
-}
-
 /* ── Navigation submenu + CategoryRail/pagination (stores pack) ───────────────
    These reference declared tokens and stay inert when stores is not loaded (no
    markup uses them), so they ship unconditionally as fixed bulk. */
