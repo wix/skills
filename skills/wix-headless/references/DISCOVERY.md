@@ -48,9 +48,27 @@ These flow into:
 - **Bootstrap is (operation × framework)-keyed** (`BUILD.md` § "Bootstrap cell"): create+astro runs `scaffold.sh --frontend astro`; create+own runs the framework's own create command (`npm create vite`/…) then `init`; connect (own/none) does **not** scaffold — it bootstraps via `npm create @wix/new@latest init` over the brought-in/scaffolded source.
 - Orchestrator session scratch — every downstream branch reads the scratch values. For `connect`, the frontend track runs the connect flow (`references/custom/INSTRUCTIONS.md`); the create-only project-prep (`seed-utilities.sh`) and the Designer/Composer do not run. (Business-track steps — app install, seeders — never read these fields.)
 
-## Pre-flight — Verify CLI auth (BEFORE any user-facing question)
+## Pre-flight — Verify environment + CLI auth (BEFORE any user-facing question)
 
-The first Wix touch is the post-approval project bootstrap — create/astro: `scaffold.sh` → `npm create @wix/new@latest headless`; connect: `npm create @wix/new@latest init` — which creates a business + project against the user's Wix account and so requires an active CLI session. Without one it fails — and because the bootstrap runs **after** approval (`BUILD-astro.md` run-step 0 / the connect bootstrap cell, `BUILD.md` § "Bootstrap cell"), a logged-out user wouldn't find out until they'd done discovery *and* approved, only to have it fail immediately. Run the auth check foreground here (both operations) so a logged-out user sees the login prompt first.
+Two checks run foreground here, in order, both before any `AskUserQuestion`: **(1) the toolchain is ready**, then **(2) the CLI is authenticated**. Doing them up front means a machine that's missing Node or logged out finds out *first* — not after discovery + approval, when the post-approval bootstrap (`scaffold.sh` / `npm create @wix/new@latest init`) would otherwise fail immediately.
+
+### 1. Environment audit
+
+Run the OS-appropriate audit script (read-only, fast, no installs):
+
+```bash
+bash <SKILL_ROOT>/scripts/audit-env.sh                                            # macOS / Linux
+powershell -NoProfile -ExecutionPolicy Bypass -File <SKILL_ROOT>\scripts\audit-env.ps1   # Windows
+```
+
+- **All requirements green** (Node `present` && `ok`, npm, git, git identity, macOS CLT) → go to the CLI-auth check below.
+- **Any gap** → open [`shared/ENVIRONMENT.md`](shared/ENVIRONMENT.md) and run its install-with-consent flow, then resume here. Don't push past a stale Node (`present:true, ok:false`) — the build will break later if you do.
+
+(`<SKILL_ROOT>` is the absolute path you bound from `SKILL.md`; see `SKILL.md` § "Path resolution".)
+
+### 2. CLI auth
+
+The post-approval bootstrap creates a business + project against the user's Wix account, so it requires an active CLI session:
 
 ```bash
 npx @wix/cli@latest whoami >/dev/null 2>&1

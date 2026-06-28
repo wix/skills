@@ -4,6 +4,7 @@ Every Wix API call this skill makes goes through `@wix/cli` + `curl` — no MCP,
 
 ## Prerequisites
 
+- A ready toolchain: **Node ≥ 20.11.0**, npm, and **git** (with `user.name`/`user.email` set). This is verified by the Discovery pre-flight's environment audit; the install-with-consent flow for any gap is owned by [`shared/ENVIRONMENT.md`](./ENVIRONMENT.md).
 - `@wix/cli` resolvable via `npx`. The scaffold installs it project-local, so `npx @wix/cli …` works without a global install.
 - An authenticated CLI session. Test with `npx @wix/cli@latest whoami` — exits **0** when logged in (prints the authenticated email + user id), **non-zero** when logged out.
 
