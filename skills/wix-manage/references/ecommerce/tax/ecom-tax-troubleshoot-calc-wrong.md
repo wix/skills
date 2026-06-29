@@ -1,11 +1,6 @@
 ---
 name: "Tax: Calculation Wrong"
-description: |
-  Diagnose wrong, missing, or unexpected tax on a SPECIFIC order or checkout (per-order diagnostic — NOT a site-wide setup audit). Walks a 3-branch tree: (1) reproduce via `calculate-tax` with the order's address + line items, (2) check tax-region coverage for the order's country/subdivision, (3) check manual-tax-mapping for the relevant (region, taxGroup) pair.
-
-  Triggers on: "$0 tax on order #1234", "customer in Texas was charged the wrong tax", "no VAT on a German order", "8% tax instead of 8.25%", "tax came out wrong on this order", "this order's tax is missing", "why was no tax charged", "why was the wrong tax charged".
-
-  For general "is my tax setup correct?" questions WITHOUT a specific order, the merchant should review configuration via the Wix Dashboard. For initial tax setup, use Tax: Configure (Wix Manual) or Tax: Configure (EU VAT). No writes from this recipe — only `GET` / `query` / `calculate-tax` calls.
+description: Tax-calculation troubleshooting — always load BEFORE diagnosing any wrong / missing / unexpected tax outcome on a specific order or checkout. Per-order diagnostic only — for general "is my tax setup correct" questions, the merchant should review configuration via the Wix Dashboard.
 ---
 
 # Tax Calculation Wrong
