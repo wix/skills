@@ -116,6 +116,18 @@ trackEvent("AddToCart", { … }); // fires after; can't break the cart if it fai
 
 The full styling contract (tokens-as-utilities default, when global semantic classes are appropriate, co-located styles for one-offs, the always-required class list) lives in `STYLING.md`. Read it before any `components` / `pages` work — it's the canonical source. Do not reinvent class names; do not duplicate rules across files.
 
+### SDK access — call the module directly (no client object)
+
+This is an Astro + `@wix/astro` site, so auth is **ambient**: import each `@wix/<area>` SDK module and call its methods directly. There is **no client object to construct.** Use exactly this shape:
+
+```ts
+import { currentCart } from "@wix/ecom";
+import { productsV3 } from "@wix/stores";
+await currentCart.addToCurrentCart({ … });
+```
+
+Do **NOT** use `getWixClient`, `createClient`, `OAuthStrategy`, the `@wix/astro/client` subpath, or `client.use(<module>)` — none of these exist in this setup and they break the build (`@wix/astro` exports only `.` and `./builders*`; `OAuthStrategy` is for own/static builds, not astro). If you think you need a client, you don't: import the `@wix/<area>` module and call it.
+
 ## Style conventions
 
 - **camelCase for identifiers, kebab-case for filenames, PascalCase for components.** Example: `ProductCard.astro`, `queryBlogPosts` function, `cart-updated` event.

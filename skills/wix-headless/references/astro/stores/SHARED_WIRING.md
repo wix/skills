@@ -65,7 +65,7 @@ Renders merchant-edited SEO from the Wix dashboard into `<head>`. Mounted on the
 
 Optimistic add-to-cart button. Shows "Added ✓" immediately; fires API in background; reverts on failure. Dispatches `cart-updated` events so CartBadge can update badge count instantly.
 
-Uses `@wix/ecom` `currentCart.addToCurrentCart`. `WIX_STORES_APP_ID` is the Stores appDefId constant (`215238eb-22a5-4c36-9e7b-e7c08025e04e`) used in `catalogReference.appId`.
+Uses `@wix/ecom` `currentCart.addToCurrentCart`. Import the module and call it directly — `import { currentCart } from "@wix/ecom";` then `await currentCart.addToCurrentCart({ … })`. There is no client object: do **not** use `getWixClient` / `@wix/astro/client` / `client.use(...)` (they don't exist here — see `IMPLEMENTER.md` § "SDK access — call the module directly"). `WIX_STORES_APP_ID` is the Stores appDefId constant (`215238eb-22a5-4c36-9e7b-e7c08025e04e`) used in `catalogReference.appId`.
 
 **Modifier support** — accepts pre-flattened `modifierChoices` and `customTextFields` from ProductPurchase and merges them into `catalogReference.options` per the Wix Stores Catalog V3 contract. ProductPurchase owns the flattening; this component just passes them through.
 
