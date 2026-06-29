@@ -5,6 +5,8 @@ import type { LoadedScenario } from '../src/utils/evals';
 import type { Scenario } from '../src/utils/schema';
 
 const TAG = 'draft:wix/skills#100';
+const REPO = 'wix/skills';
+const MANAGED = ['created-via-code', 'repo:wix/skills'];
 
 const remote = (id: string, name: string, tags: string[]): RemoteScenario => ({ id, name, tags });
 
@@ -24,6 +26,7 @@ describe('planCleanup', () => {
       [remote('id1', 'events/list-events', [TAG])],
       new Map(),                     // empty base = no pre-existing
       TAG,
+      REPO,
     );
     expect(plan).toEqual([{ kind: 'DELETE', id: 'id1', name: 'events/list-events' }]);
   });
@@ -34,13 +37,14 @@ describe('planCleanup', () => {
       [remote('id1', 'events/list-events', [TAG])],
       baseEvals,
       TAG,
+      REPO,
     );
     expect(plan).toHaveLength(1);
     expect(plan[0]).toMatchObject({
       kind: 'RESTORE',
       id: 'id1',
       name: 'events/list-events',
-      tags: ['events'],            // base YAML's tags, NOT the draft tag
+      tags: ['events', ...MANAGED], // base YAML's tags + managed code-origin tags, NOT the draft tag
     });
     // body should be the mapped EvalForge shape from the base scenario
     if (plan[0].kind === 'RESTORE') {
@@ -57,6 +61,7 @@ describe('planCleanup', () => {
       ],
       new Map(),
       TAG,
+      REPO,
     );
     expect(plan).toEqual([]);
   });
@@ -71,12 +76,13 @@ describe('planCleanup', () => {
       ],
       baseEvals,
       TAG,
+      REPO,
     );
     expect(plan.map(a => a.kind)).toEqual(['RESTORE', 'DELETE']);
     expect(plan.map(a => a.name)).toEqual(['events/list-events', 'events/new-scenario']);
   });
 
-  it('preserves base YAML tags exactly (does not include the draft tag)', () => {
+  it('restores base YAML tags plus managed tags, dropping the draft and any leftover tags', () => {
     const baseEvals = new Map([
       ['blog/post', loaded('blog/post', ['blog', 'blog-v2', 'reviewed'])],
     ]);
@@ -84,9 +90,10 @@ describe('planCleanup', () => {
       [remote('id1', 'blog/post', [TAG, 'leftover-tag'])],
       baseEvals,
       TAG,
+      REPO,
     );
     if (plan[0].kind !== 'RESTORE') throw new Error('expected RESTORE');
-    expect(plan[0].tags).toEqual(['blog', 'blog-v2', 'reviewed']);
+    expect(plan[0].tags).toEqual(['blog', 'blog-v2', 'reviewed', ...MANAGED]);
     expect(plan[0].tags).not.toContain(TAG);
     expect(plan[0].tags).not.toContain('leftover-tag');
   });
