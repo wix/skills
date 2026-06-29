@@ -43,6 +43,49 @@ describe('EvalForgeClient — test-scenarios', () => {
     expect(r).toEqual([{ id: 'a', name: 'x', tags: ['t'] }]);
   });
 
+  it('listTestScenarios appends repeated name and tags filters', async () => {
+    mockFetch(({ url, method }) => {
+      expect(method).toBe('GET');
+      const parsed = new URL(url);
+      expect(parsed.pathname).toBe('/projects/P/test-scenarios');
+      expect(parsed.searchParams.getAll('name')).toEqual(['blog/a', 'stores/product setup']);
+      expect(parsed.searchParams.getAll('tags')).toEqual(['draft:wix/skills#42', 'stores']);
+      return { status: 200, body: [{ id: 'a', name: 'blog/a' }] };
+    });
+    const c = new EvalForgeClient(URL_BASE, APP_ID, APP_SECRET);
+    const r = await c.listTestScenarios('P', {
+      names: ['blog/a', 'stores/product setup'],
+      tags: ['draft:wix/skills#42', 'stores'],
+    });
+    expect(r).toEqual([{ id: 'a', name: 'blog/a', tags: [] }]);
+  });
+
+  it('listTestScenarios splits large name filters into bounded requests', async () => {
+    const calls: string[][] = [];
+    mockFetch(({ url, method }) => {
+      expect(method).toBe('GET');
+      const names = new URL(url).searchParams.getAll('name');
+      calls.push(names);
+      expect(names.length).toBeLessThanOrEqual(50);
+      return {
+        status: 200,
+        body: [
+          { id: 'shared', name: 'blog/shared', tags: ['blog'] },
+          { id: `call-${calls.length}`, name: names[0], tags: ['blog'] },
+        ],
+      };
+    });
+    const c = new EvalForgeClient(URL_BASE, APP_ID, APP_SECRET);
+    const names = Array.from({ length: 51 }, (_, i) => `blog/${i}`);
+
+    const r = await c.listTestScenarios('P', { names });
+
+    expect(calls).toHaveLength(2);
+    expect(calls[0]).toHaveLength(50);
+    expect(calls[1]).toEqual(['blog/50']);
+    expect(r.map(s => s.id)).toEqual(['shared', 'call-1', 'call-2']);
+  });
+
   it('createTestScenario POSTs body+projectId+tags and returns id', async () => {
     mockFetch(({ url, method, body }) => {
       expect(method).toBe('POST');

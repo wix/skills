@@ -1,7 +1,7 @@
 import * as core from '@actions/core';
 import { posix } from 'node:path';
 import { getSimpleConfig } from './config';
-import { EvalForgeClient, DRAFT_PREFIX, draftTagFor } from './evalforge';
+import { EvalForgeClient, DRAFT_PREFIX, draftTagFor, uniqueRemoteScenarios } from './evalforge';
 import { loadEvals, type LoadedScenario } from './evals';
 import { toScenarioBody } from './sync';
 import { deletePrMcpVersions } from './pr-cleanup';
@@ -17,16 +17,27 @@ export async function runPromote(): Promise<void> {
   // Cleanup workflow no longer fires on merged PRs — promote owns MCP version teardown.
   await deletePrMcpVersions(evalforge, config.mcpId, config.projectId, config.prNumber);
 
+  const headScenarios = loadEvalsWithWarnings(workspace);
+  const baseEvals = loadEvalsWithWarnings(posix.join(workspace, BASE_WORKSPACE_SUBDIR));
+  const deletedScenarioNames = [...baseEvals.keys()]
+    .filter(name => !headScenarios.has(name))
+    .sort();
+
   let remote;
   try {
-    remote = await evalforge.listTestScenarios(config.projectId);
+    const [drafts, deleted] = await Promise.all([
+      evalforge.listTestScenarios(config.projectId, { tags: [draftTag] }),
+      deletedScenarioNames.length > 0
+        ? evalforge.listTestScenarios(config.projectId, { names: deletedScenarioNames })
+        : Promise.resolve([]),
+    ]);
+    remote = uniqueRemoteScenarios([...drafts, ...deleted]);
   } catch (e) {
     core.warning(`listTestScenarios failed: ${e instanceof Error ? e.message : String(e)}`);
     return;
   }
   const remoteByName = new Map(remote.map(r => [r.name, r]));
 
-  const headScenarios = loadEvalsWithWarnings(workspace);
   let promoted = 0;
   let droppedDrafts = 0;
 
@@ -55,7 +66,6 @@ export async function runPromote(): Promise<void> {
     }
   }
 
-  const baseEvals = loadEvalsWithWarnings(posix.join(workspace, BASE_WORKSPACE_SUBDIR));
   for (const [name] of baseEvals) {
     if (headScenarios.has(name)) continue;
     const r = remoteByName.get(name);
