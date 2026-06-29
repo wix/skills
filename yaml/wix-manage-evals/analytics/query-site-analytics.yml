@@ -1,0 +1,36 @@
+name: analytics/query-site-analytics
+description: >-
+  Verifies the agent reads the query-site-analytics skill and explains how to retrieve a Wix
+  site's analytics via the Semantic Model API using the List -> Get -> Query flow with a
+  required time interval.
+triggerPrompt: >-
+  How do I retrieve my Wix site's traffic analytics (like sessions and page views by referrer)
+  through the REST API? Please reference the relevant Semantic Model API methods and the request
+  shape I need.
+tags: [analytics]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/analytics/skills/query-site-analytics
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user wants to retrieve their Wix site's traffic analytics (sessions, page views by
+      referrer) through the REST API and asked for the relevant Semantic Model API methods and
+      request shape.
+      Intent: surface the Semantic Model API List -> Get -> Query flow and the required query inputs.
+
+      Pass if the response:
+      - describes discovering models with List Semantic Models and inspecting a model's schema with
+        Get Semantic Model to find the available field names (measures/dimensions), AND
+      - explains querying data via Query Semantic Model Data
+        (POST .../analytics/semantic-model/v3/semantic-models/query-data) with semanticModelId,
+        fields, and a REQUIRED time interval, AND
+      - notes that field names in the query must come from Get Semantic Model (not guessed).
+
+      Fail if the response:
+      - omits the required interval, OR
+      - hallucinates endpoints or field names not in the Semantic Model API, OR
+      - only points at the Analytics Data API / Sessions API instead of the Semantic Model API, OR
+      - is generic with no specific methods or request fields.
