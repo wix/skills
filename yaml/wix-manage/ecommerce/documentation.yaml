@@ -39,7 +39,7 @@ apiDoc:
       tags: [ecommerce]
 
     - file: ../../../skills/wix-manage/references/ecommerce/pricing-promotions/ecom-pricing-create-discount-rule.md
-      title: "Pricing: Create Discount Rule"
+      title: "Pricing: Create Discount Rule YAML Rename Repro"
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
       tags: [ecommerce]
 
