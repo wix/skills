@@ -136,14 +136,9 @@ apiDoc:
       tags: [ecommerce]
 
     # ============================================================
-    # Tax category
+    # Tax category (no dispatcher — leaves are README-surfaced directly)
     # ============================================================
     # Verified TPA-public via dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/tax/.
-
-    - file: ../../../skills/wix-manage/references/ecommerce/ecom-tax.md
-      title: "Tax"
-      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
-      tags: [ecommerce]
 
     - file: ../../../skills/wix-manage/references/ecommerce/tax/ecom-tax-configure.md
       title: "Tax: Configure (Wix Manual)"
