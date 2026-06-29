@@ -7,7 +7,7 @@ import { loadEvals, type LoadedScenario } from './evals';
 import { canonicalDocUrl } from './doc-url';
 import { computeCoverage } from './coverage';
 import { diffSyncPlan } from './sync';
-import { EvalForgeClient, draftTagFor, evalRunUrl } from './evalforge';
+import { EvalForgeClient, draftTagFor, evalRunUrl, uniqueRemoteScenarios, type RemoteScenario } from './evalforge';
 import { EvalPipelineClient, pollUntilComparisonDone, ComparisonTimeoutError } from './eval-pipeline';
 import { workspaceRoot } from './workspace';
 import { BASE_WORKSPACE_SUBDIR } from './paths';
@@ -15,13 +15,35 @@ import type { ComparisonGroupResult } from './eval-pipeline';
 import {
   formatForeignDraftConflicts,
   formatLoadErrors, formatNoChanges, formatOrphanedMds, formatServiceError, formatUncovered,
-  formatComparisonResult, formatComparisonTimeout,
+  formatComparisonResult, formatComparisonTimeout, formatTokenBudgetExceeded, formatTooManyNewSkills,
 } from './comment';
+import { findTokenBudgetViolations, formatTokenBudgetFailureMessage } from './token-budget';
 
 type Commenter = ReturnType<typeof makeCommenter>;
 
 function allScenariosRequired(result: ComparisonGroupResult): boolean {
   return result.scenarios.length > 0 && result.scenarios.every(s => s.required);
+}
+
+export type RemoteScenarioFilters = {
+  names: string[];
+  tags: string[];
+};
+
+/**
+ * Computes the smallest remote scenario lookup needed to sync this PR.
+ */
+export function remoteScenarioFiltersForGate(input: {
+  changedHead: Map<string, LoadedScenario>;
+  head: Map<string, LoadedScenario>;
+  base: Map<string, LoadedScenario>;
+  draftTag: string;
+}): RemoteScenarioFilters {
+  const names = new Set<string>(input.changedHead.keys());
+  for (const [name] of input.base) {
+    if (!input.head.has(name)) names.add(name);
+  }
+  return { names: [...names].sort(), tags: [input.draftTag] };
 }
 
 export async function runGate(): Promise<void> {
@@ -69,6 +91,16 @@ export async function runGate(): Promise<void> {
     return;
   }
 
+  const newSkillFiles = classifiedChanges.mdFiles
+    .filter(f => f.status === 'added')
+    .map(f => f.filename)
+    .sort();
+  if (newSkillFiles.length > config.maxNewSkills) {
+    await comment(formatTooManyNewSkills(newSkillFiles.length, config.maxNewSkills, newSkillFiles));
+    fail(`Cannot create more than ${config.maxNewSkills} new skill .md files per PR (${newSkillFiles.length} found)`, config.blocking);
+    return;
+  }
+
   const cov = computeCoverage(classifiedChanges.mdFiles, headScenarios, (f) => canonicalDocUrl(f, workspace));
   if (cov.uncovered.length > 0) {
     await comment(formatUncovered(cov.uncovered));
@@ -90,8 +122,9 @@ export async function runGate(): Promise<void> {
     if (changedEvalPaths.has(ls.path)) changedHeadScenarios.set(name, ls);
   }
 
+  const filters = remoteScenarioFiltersForGate({ changedHead: changedHeadScenarios, head: headScenarios, base: baseScenarios, draftTag });
   const remote = await guardedCall(
-    () => evalforge.listTestScenarios(config.projectId),
+    () => listRemoteScenariosForGate(evalforge, config.projectId, filters),
     'Could not reach EvalForge', comment, config,
   );
   if (!remote) return;
@@ -154,6 +187,12 @@ export async function runGate(): Promise<void> {
       if (s.without.runId) core.info(`${s.scenarioName} [without draft tag]: ${evalRunUrl(config.projectId, s.without.runId, s.without.name)}`);
     }
     await comment(formatComparisonResult(done, config.projectId));
+    const tokenBudgetViolations = findTokenBudgetViolations(done.result.scenarios ?? [], headScenarios);
+    if (tokenBudgetViolations.length > 0) {
+      await comment(formatTokenBudgetExceeded(tokenBudgetViolations, config.projectId));
+      fail(formatTokenBudgetFailureMessage(tokenBudgetViolations), config.blocking);
+      return;
+    }
     if (config.autoApprove && allScenariosRequired(done.result)) {
       await octokit.rest.pulls.createReview({
         owner: config.owner,
@@ -175,6 +214,18 @@ export async function runGate(): Promise<void> {
     fail('Eval pipeline comparison failed', config.blocking);
   }
 
+}
+
+async function listRemoteScenariosForGate(
+  evalforge: EvalForgeClient,
+  projectId: string,
+  filters: RemoteScenarioFilters,
+): Promise<RemoteScenario[]> {
+  const [byName, byDraftTag] = await Promise.all([
+    filters.names.length > 0 ? evalforge.listTestScenarios(projectId, { names: filters.names }) : Promise.resolve([]),
+    evalforge.listTestScenarios(projectId, { tags: filters.tags }),
+  ]);
+  return uniqueRemoteScenarios([...byName, ...byDraftTag]);
 }
 
 async function guardedCall<T>(

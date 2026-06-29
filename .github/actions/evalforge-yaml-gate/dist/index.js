@@ -34168,7 +34168,7 @@ async function runCleanup() {
     await (0, pr_cleanup_1.deletePrMcpVersions)(evalforge, config.mcpId, config.projectId, config.prNumber);
     let remote;
     try {
-        remote = await evalforge.listTestScenarios(config.projectId);
+        remote = await evalforge.listTestScenarios(config.projectId, { tags: [draftTag] });
     }
     catch (e) {
         core.warning(`listTestScenarios failed: ${errMsg(e)}`);
@@ -34218,6 +34218,7 @@ exports.formatLoadErrors = formatLoadErrors;
 exports.formatOrphanedMds = formatOrphanedMds;
 exports.formatUncovered = formatUncovered;
 exports.formatForeignDraftConflicts = formatForeignDraftConflicts;
+exports.formatTooManyNewSkills = formatTooManyNewSkills;
 exports.formatServiceError = formatServiceError;
 exports.formatEvalPassed = formatEvalPassed;
 exports.formatEvalFailed = formatEvalFailed;
@@ -34225,7 +34226,9 @@ exports.formatEvalTimeout = formatEvalTimeout;
 exports.formatNoChanges = formatNoChanges;
 exports.formatComparisonResult = formatComparisonResult;
 exports.formatComparisonTimeout = formatComparisonTimeout;
+exports.formatTokenBudgetExceeded = formatTokenBudgetExceeded;
 const evalforge_1 = __nccwpck_require__(280);
+const token_budget_1 = __nccwpck_require__(5984);
 exports.COMMENT_MARKER = '<!-- evalforge-yaml-gate-action -->';
 const HEADING = 'EvalForge YAML Gate';
 function render(icon, label, body) {
@@ -34263,6 +34266,18 @@ function formatForeignDraftConflicts(errs, _pull) {
         'These scenarios are draft-tagged for other PRs. Wait for those PRs to merge/close, or coordinate with their authors:',
         '',
         ...lines,
+    ]);
+}
+function formatTooManyNewSkills(count, limit, files) {
+    return render('❌', 'Too Many New Skills', [
+        `This PR creates **${count} new Wix Manage skill .md files**, exceeding the limit of **${limit} per PR**.`,
+        '',
+        'New skill files added:',
+        ...files.map(f => `- \`${f}\``),
+        '',
+        'Please either:',
+        '- Split across multiple PRs',
+        '- Update existing skills instead of creating new ones',
     ]);
 }
 function formatServiceError(message, blocking) {
@@ -34304,12 +34319,12 @@ function formatComparisonResult(result, projectId) {
         '',
         `**Verdict:** \`${verdict}\` | **Tag:** \`${tag}\``,
         '',
-        '| Scenario | Required | Winner | Cost (with draft/without) | Tokens (with draft/without) | Time (with draft/without) |',
+        '| Scenario | Required | Winner | Cost (PR / prod) | Tokens (PR / prod) | Time (PR / prod) |',
         '|---|---|---|---|---|---|',
     ];
     for (const s of (scenarios ?? [])) {
         const winner = s.pairwiseJudgement.winner;
-        const winnerLabel = winner === 'tie' ? '≈ tie' : winner === 'with' ? '⬆️ with draft' : '⬇️ without draft';
+        const winnerLabel = winner === 'tie' ? '≈ tie' : winner === 'with' ? '⬆️ PR' : '⬇️ prod';
         const costWith = s.with.totalCostUsd.toFixed(3);
         const costWithout = s.without.totalCostUsd.toFixed(3);
         const tokWith = `${(s.with.totalTokens / 1000).toFixed(1)}K`;
@@ -34321,11 +34336,14 @@ function formatComparisonResult(result, projectId) {
     for (const s of (scenarios ?? [])) {
         lines.push('', `<details><summary>${s.scenarioName}</summary>`, '', s.reason, '');
         if (projectId && s.with.runId)
-            lines.push(`[View run (with draft tag)](${(0, evalforge_1.evalRunUrl)(projectId, s.with.runId, s.with.name)})`, '');
+            lines.push(`[View run (PR)](${(0, evalforge_1.evalRunUrl)(projectId, s.with.runId, s.with.name)})`, '');
         if (projectId && s.without.runId)
-            lines.push(`[View run (without draft tag)](${(0, evalforge_1.evalRunUrl)(projectId, s.without.runId, s.without.name)})`, '');
-        lines.push('**Assertions (with draft tag):**', ...s.with.assertions.map(assertionLine), '');
-        lines.push('**Assertions (without draft tag):**', ...s.without.assertions.map(assertionLine), '');
+            lines.push(`[View run (prod)](${(0, evalforge_1.evalRunUrl)(projectId, s.without.runId, s.without.name)})`, '');
+        lines.push('**Assertions (PR):**', ...s.with.assertions.map(assertionLine), '');
+        lines.push('**Assertions (prod):**', ...s.without.assertions.map(assertionLine), '');
+        if (s.pairwiseJudgement.reasoning) {
+            lines.push(`**Compare result:** ${s.pairwiseJudgement.reasoning}`, '');
+        }
         if (s.pairwiseJudgement.dimensions) {
             lines.push('**Dimensions:**', ...Object.entries(s.pairwiseJudgement.dimensions).map(([k, v]) => `- ${k}: **${v.winner}**`), '');
         }
@@ -34335,6 +34353,21 @@ function formatComparisonResult(result, projectId) {
 }
 function formatComparisonTimeout(comparisonGroupId, blocking) {
     return render(blocking ? '⏱' : '⚠️', 'Comparison Timed Out', [`comparisonGroupId: ${comparisonGroupId}`]);
+}
+function formatTokenBudgetExceeded(violations, projectId) {
+    const lines = [
+        'These scenarios exceeded their configured top-level `maxTokens` budget on the PR run:',
+        '',
+        '| Scenario | Max tokens | PR tokens | Prod tokens | PR run |',
+        '|---|---:|---:|---:|---|',
+    ];
+    for (const v of violations) {
+        const run = projectId && v.prRunId
+            ? `[${v.prRunId}](${(0, evalforge_1.evalRunUrl)(projectId, v.prRunId, v.prRunName)})`
+            : '—';
+        lines.push(`| ${v.scenarioName} | ${(0, token_budget_1.formatTokenCount)(v.maxTokens)} | ${(0, token_budget_1.formatTokenCount)(v.prTokens)} | ${(0, token_budget_1.formatTokenCount)(v.prodTokens)} | ${run} |`);
+    }
+    return render('❌', 'Token Budget Exceeded', lines);
 }
 
 
@@ -34404,6 +34437,14 @@ function getPrNumber() {
         throw new Error('PR payload missing number');
     return n;
 }
+function getPositiveIntegerInput(name, fallback) {
+    const raw = core.getInput(name) || String(fallback);
+    const value = Number(raw);
+    if (!Number.isInteger(value) || value < 1) {
+        throw new Error(`${name} must be a positive integer (received: ${raw})`);
+    }
+    return value;
+}
 function getSimpleConfig() {
     return {
         githubToken: safeGetSecret('github-token'),
@@ -34436,6 +34477,7 @@ function getEvalConfig() {
         agentName: core.getInput('agent-name') || 'agent',
         autoApprove: core.getInput('auto-approve') === 'true',
         triggerEvalCompare: core.getInput('eval-compare') !== 'false',
+        maxNewSkills: getPositiveIntegerInput('max-new-skills', 1),
     };
 }
 
@@ -34876,8 +34918,10 @@ exports.evalRunUrl = evalRunUrl;
 exports.draftTagFor = draftTagFor;
 exports.parseDraftTag = parseDraftTag;
 exports.isHttpError = isHttpError;
+exports.uniqueRemoteScenarios = uniqueRemoteScenarios;
 const MCP_URL = 'https://mcp.wix.com/mcp';
 const MCP_CONFIG_KEY = 'wix-mcp-remote';
+const MAX_TEST_SCENARIO_NAMES_PER_REQUEST = 50;
 exports.TERMINAL_RUN_STATUSES = ['completed', 'failed', 'cancelled'];
 exports.DRAFT_PREFIX = 'draft:';
 // Human-facing EvalForge results page (distinct from the REST `baseUrl` the client calls).
@@ -34895,6 +34939,15 @@ function parseDraftTag(tag) {
 }
 function isHttpError(e) {
     return e instanceof Error && typeof e.status === 'number';
+}
+/**
+ * Deduplicates scenarios returned by multiple filtered EvalForge list calls.
+ */
+function uniqueRemoteScenarios(scenarios) {
+    const byId = new Map();
+    for (const scenario of scenarios)
+        byId.set(scenario.id, scenario);
+    return [...byId.values()];
 }
 class EvalForgeClient {
     baseUrl;
@@ -34968,9 +35021,17 @@ class EvalForgeClient {
             return existing;
         }
     }
-    async listTestScenarios(projectId) {
+    /**
+     * Lists test scenarios, optionally narrowing the REST response by scenario name and/or tag.
+     */
+    async listTestScenarios(projectId, filters = {}) {
+        if ((filters.names?.length ?? 0) > MAX_TEST_SCENARIO_NAMES_PER_REQUEST) {
+            const chunks = chunk(filters.names, MAX_TEST_SCENARIO_NAMES_PER_REQUEST);
+            const batches = await Promise.all(chunks.map(names => this.listTestScenarios(projectId, { ...filters, names })));
+            return uniqueRemoteScenarios(batches.flat());
+        }
         // EvalForge returns `tags: undefined` for untagged scenarios — normalize so callers can assume `string[]`.
-        const raw = await this.request('GET', `/projects/${enc(projectId)}/test-scenarios`);
+        const raw = await this.request('GET', testScenariosPath(projectId, filters));
         return raw.map(s => ({ ...s, tags: s.tags ?? [] }));
     }
     async createTestScenario(projectId, body, tags) {
@@ -34998,6 +35059,21 @@ class EvalForgeClient {
 exports.EvalForgeClient = EvalForgeClient;
 function enc(segment) {
     return encodeURIComponent(segment);
+}
+function testScenariosPath(projectId, filters) {
+    const params = new URLSearchParams();
+    for (const name of filters.names ?? [])
+        params.append('name', name);
+    for (const tag of filters.tags ?? [])
+        params.append('tags', tag);
+    const query = params.toString();
+    return `/projects/${enc(projectId)}/test-scenarios${query ? `?${query}` : ''}`;
+}
+function chunk(items, size) {
+    const chunks = [];
+    for (let i = 0; i < items.length; i += size)
+        chunks.push(items.slice(i, i + size));
+    return chunks;
 }
 
 
@@ -35089,6 +35165,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.remoteScenarioFiltersForGate = remoteScenarioFiltersForGate;
 exports.runGate = runGate;
 const core = __importStar(__nccwpck_require__(7484));
 const github = __importStar(__nccwpck_require__(3228));
@@ -35104,8 +35181,20 @@ const eval_pipeline_1 = __nccwpck_require__(3942);
 const workspace_1 = __nccwpck_require__(9620);
 const paths_1 = __nccwpck_require__(6621);
 const comment_1 = __nccwpck_require__(3116);
+const token_budget_1 = __nccwpck_require__(5984);
 function allScenariosRequired(result) {
     return result.scenarios.length > 0 && result.scenarios.every(s => s.required);
+}
+/**
+ * Computes the smallest remote scenario lookup needed to sync this PR.
+ */
+function remoteScenarioFiltersForGate(input) {
+    const names = new Set(input.changedHead.keys());
+    for (const [name] of input.base) {
+        if (!input.head.has(name))
+            names.add(name);
+    }
+    return { names: [...names].sort(), tags: [input.draftTag] };
 }
 async function runGate() {
     const config = (0, config_1.getEvalConfig)();
@@ -35141,6 +35230,15 @@ async function runGate() {
         (0, github_1.fail)(`${orphanedMds.length} changed .md file(s) not registered in documentation.yaml`, config.blocking);
         return;
     }
+    const newSkillFiles = classifiedChanges.mdFiles
+        .filter(f => f.status === 'added')
+        .map(f => f.filename)
+        .sort();
+    if (newSkillFiles.length > config.maxNewSkills) {
+        await comment((0, comment_1.formatTooManyNewSkills)(newSkillFiles.length, config.maxNewSkills, newSkillFiles));
+        (0, github_1.fail)(`Cannot create more than ${config.maxNewSkills} new skill .md files per PR (${newSkillFiles.length} found)`, config.blocking);
+        return;
+    }
     const cov = (0, coverage_1.computeCoverage)(classifiedChanges.mdFiles, headScenarios, (f) => (0, doc_url_1.canonicalDocUrl)(f, workspace));
     if (cov.uncovered.length > 0) {
         await comment((0, comment_1.formatUncovered)(cov.uncovered));
@@ -35161,7 +35259,8 @@ async function runGate() {
         if (changedEvalPaths.has(ls.path))
             changedHeadScenarios.set(name, ls);
     }
-    const remote = await guardedCall(() => evalforge.listTestScenarios(config.projectId), 'Could not reach EvalForge', comment, config);
+    const filters = remoteScenarioFiltersForGate({ changedHead: changedHeadScenarios, head: headScenarios, base: baseScenarios, draftTag });
+    const remote = await guardedCall(() => listRemoteScenariosForGate(evalforge, config.projectId, filters), 'Could not reach EvalForge', comment, config);
     if (!remote)
         return;
     const plan = (0, sync_1.diffSyncPlan)({ changedHead: changedHeadScenarios, head: headScenarios, base: baseScenarios, remote, draftTag });
@@ -35221,6 +35320,12 @@ async function runGate() {
                 core.info(`${s.scenarioName} [without draft tag]: ${(0, evalforge_1.evalRunUrl)(config.projectId, s.without.runId, s.without.name)}`);
         }
         await comment((0, comment_1.formatComparisonResult)(done, config.projectId));
+        const tokenBudgetViolations = (0, token_budget_1.findTokenBudgetViolations)(done.result.scenarios ?? [], headScenarios);
+        if (tokenBudgetViolations.length > 0) {
+            await comment((0, comment_1.formatTokenBudgetExceeded)(tokenBudgetViolations, config.projectId));
+            (0, github_1.fail)((0, token_budget_1.formatTokenBudgetFailureMessage)(tokenBudgetViolations), config.blocking);
+            return;
+        }
         if (config.autoApprove && allScenariosRequired(done.result)) {
             await octokit.rest.pulls.createReview({
                 owner: config.owner,
@@ -35242,6 +35347,13 @@ async function runGate() {
         await comment((0, comment_1.formatServiceError)('Eval pipeline comparison failed', config.blocking));
         (0, github_1.fail)('Eval pipeline comparison failed', config.blocking);
     }
+}
+async function listRemoteScenariosForGate(evalforge, projectId, filters) {
+    const [byName, byDraftTag] = await Promise.all([
+        filters.names.length > 0 ? evalforge.listTestScenarios(projectId, { names: filters.names }) : Promise.resolve([]),
+        evalforge.listTestScenarios(projectId, { tags: filters.tags }),
+    ]);
+    return (0, evalforge_1.uniqueRemoteScenarios)([...byName, ...byDraftTag]);
 }
 async function guardedCall(fn, userMessage, comment, config) {
     try {
@@ -35517,16 +35629,26 @@ async function runPromote() {
     const workspace = (0, workspace_1.workspaceRoot)();
     // Cleanup workflow no longer fires on merged PRs — promote owns MCP version teardown.
     await (0, pr_cleanup_1.deletePrMcpVersions)(evalforge, config.mcpId, config.projectId, config.prNumber);
+    const headScenarios = loadEvalsWithWarnings(workspace);
+    const baseEvals = loadEvalsWithWarnings(node_path_1.posix.join(workspace, paths_1.BASE_WORKSPACE_SUBDIR));
+    const deletedScenarioNames = [...baseEvals.keys()]
+        .filter(name => !headScenarios.has(name))
+        .sort();
     let remote;
     try {
-        remote = await evalforge.listTestScenarios(config.projectId);
+        const [drafts, deleted] = await Promise.all([
+            evalforge.listTestScenarios(config.projectId, { tags: [draftTag] }),
+            deletedScenarioNames.length > 0
+                ? evalforge.listTestScenarios(config.projectId, { names: deletedScenarioNames })
+                : Promise.resolve([]),
+        ]);
+        remote = (0, evalforge_1.uniqueRemoteScenarios)([...drafts, ...deleted]);
     }
     catch (e) {
         core.warning(`listTestScenarios failed: ${e instanceof Error ? e.message : String(e)}`);
         return;
     }
     const remoteByName = new Map(remote.map(r => [r.name, r]));
-    const headScenarios = loadEvalsWithWarnings(workspace);
     let promoted = 0;
     let droppedDrafts = 0;
     for (const s of remote) {
@@ -35556,7 +35678,6 @@ async function runPromote() {
             core.warning(`Promote failed for ${s.name}: ${e instanceof Error ? e.message : String(e)}`);
         }
     }
-    const baseEvals = loadEvalsWithWarnings(node_path_1.posix.join(workspace, paths_1.BASE_WORKSPACE_SUBDIR));
     for (const [name] of baseEvals) {
         if (headScenarios.has(name))
             continue;
@@ -35714,6 +35835,7 @@ exports.ScenarioSchema = zod_1.z.object({
     description: zod_1.z.string(),
     triggerPrompt: zod_1.z.string().min(10),
     tags: zod_1.z.array(zod_1.z.string().min(1)).min(1).refine(tags => tags.every(t => !exports.RESERVED_TAG_PREFIXES.some(p => t.startsWith(p))), { message: 'tags must not include reserved namespaces (draft:*, pending:*, rejected:*) — the action manages those' }),
+    maxTokens: zod_1.z.number().int().positive().optional(),
     assertions: zod_1.z.array(AssertionSchema).min(1),
     siteSetup: SiteSetupSchema.optional(),
 }).strict().superRefine((data, ctx) => {
@@ -35817,6 +35939,46 @@ function diffSyncPlan(input) {
         }
     }
     return { actions, errors };
+}
+
+
+/***/ }),
+
+/***/ 5984:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.findTokenBudgetViolations = findTokenBudgetViolations;
+exports.formatTokenBudgetFailureMessage = formatTokenBudgetFailureMessage;
+exports.formatTokenCount = formatTokenCount;
+function findTokenBudgetViolations(comparisons, scenarios) {
+    const violations = [];
+    for (const comparison of comparisons) {
+        const maxTokens = scenarios.get(comparison.scenarioName)?.scenario.maxTokens;
+        if (maxTokens === undefined || comparison.with.totalTokens <= maxTokens)
+            continue;
+        violations.push({
+            scenarioName: comparison.scenarioName,
+            maxTokens,
+            prTokens: comparison.with.totalTokens,
+            prodTokens: comparison.without.totalTokens,
+            prRunId: comparison.with.runId,
+            prRunName: comparison.with.name,
+        });
+    }
+    return violations;
+}
+function formatTokenBudgetFailureMessage(violations) {
+    if (violations.length === 1) {
+        const v = violations[0];
+        return `Token budget exceeded for ${v.scenarioName}: PR used ${formatTokenCount(v.prTokens)} tokens, max is ${formatTokenCount(v.maxTokens)}`;
+    }
+    return `Token budget exceeded for ${violations.length} scenarios: ${violations.map(v => v.scenarioName).join(', ')}`;
+}
+function formatTokenCount(tokens) {
+    return Math.round(tokens).toLocaleString('en-US');
 }
 
 
