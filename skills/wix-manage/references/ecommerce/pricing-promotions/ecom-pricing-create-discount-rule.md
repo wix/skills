@@ -1,5 +1,5 @@
 ---
-name: "Pricing: Create Discount Rule Repro"
+name: "Pricing: Create Discount Rule"
 description: Configures automatic discount rules using the eCommerce Discount Rules API. Covers percentage and fixed-amount discounts, scope targeting (catalog-wide, specific collections, or individual products), scheduling active periods, and the find-by-name + update pattern.
 layer: config
 ---
