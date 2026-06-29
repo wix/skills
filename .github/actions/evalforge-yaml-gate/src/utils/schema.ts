@@ -74,8 +74,7 @@ export type CostAssertion = z.infer<typeof CostAssertionSchema>;
 export type TimeLimitAssertion = z.infer<typeof TimeLimitAssertionSchema>;
 export type Assertion = z.infer<typeof AssertionSchema>;
 
-// Site provisioning — mirrors EvalForge's TestScenario.siteSetup (wix-private/evalforge
-// packages/eval-types/src/scenario/site-setup.ts). Only `template` mode is supported here.
+// Optional per-scenario site provisioning. Only `template` mode is supported.
 const SiteBootstrapStepSchema = z.object({
   label: z.string().optional(),
   method: z.enum(['get', 'post', 'put', 'patch', 'delete']),
@@ -87,10 +86,8 @@ const SiteBootstrapSchema = z.object({
   steps: z.array(SiteBootstrapStepSchema).default([]),
 }).strict();
 
-// `templateId` accepts a curated Wix template alias (e.g. "ecommerce") OR an origin-template GUID;
-// EvalForge resolves it server-side via resolveWixOriginTemplateId. The canonical alias list lives
-// in @wix/evalforge-types (wix-private/evalforge .../scenario/wix-origin-template-ids.ts) and is not
-// exported as a constant, so we keep this a free string rather than duplicating the enum.
+// `templateId` is a Wix template alias (e.g. "ecommerce") or a template GUID, resolved at
+// provisioning time — any non-empty string is accepted here.
 const SiteSetupSchema = z.object({
   mode: z.literal('template').default('template'),
   templateId: z.string().min(1),
@@ -111,8 +108,7 @@ export const ScenarioSchema = z.object({
   assertions: z.array(AssertionSchema).min(1),
   siteSetup: SiteSetupSchema.optional(),
 }).strict().superRefine((data, ctx) => {
-  // EvalForge parity: an active siteSetup and a {{site-id}} run variable are mutually exclusive —
-  // the provisioned site replaces the manual id.
+  // A provisioned site supplies the site id, so siteSetup can't be combined with a {{site-id}} variable.
   if (data.siteSetup && /\{\{\s*site-id\s*\}\}/.test(data.triggerPrompt)) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,

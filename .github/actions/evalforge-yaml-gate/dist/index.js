@@ -34168,7 +34168,7 @@ async function runCleanup() {
     await (0, pr_cleanup_1.deletePrMcpVersions)(evalforge, config.mcpId, config.projectId, config.prNumber);
     let remote;
     try {
-        remote = await evalforge.listTestScenarios(config.projectId);
+        remote = await evalforge.listTestScenarios(config.projectId, { tags: [draftTag] });
     }
     catch (e) {
         core.warning(`listTestScenarios failed: ${errMsg(e)}`);
@@ -34208,7 +34208,7 @@ function errMsg(e) {
 /***/ }),
 
 /***/ 3116:
-/***/ ((__unused_webpack_module, exports) => {
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
 
 "use strict";
 
@@ -34218,11 +34218,15 @@ exports.formatLoadErrors = formatLoadErrors;
 exports.formatOrphanedMds = formatOrphanedMds;
 exports.formatUncovered = formatUncovered;
 exports.formatForeignDraftConflicts = formatForeignDraftConflicts;
+exports.formatTooManyNewSkills = formatTooManyNewSkills;
 exports.formatServiceError = formatServiceError;
 exports.formatEvalPassed = formatEvalPassed;
 exports.formatEvalFailed = formatEvalFailed;
 exports.formatEvalTimeout = formatEvalTimeout;
 exports.formatNoChanges = formatNoChanges;
+exports.formatComparisonResult = formatComparisonResult;
+exports.formatComparisonTimeout = formatComparisonTimeout;
+const evalforge_1 = __nccwpck_require__(280);
 exports.COMMENT_MARKER = '<!-- evalforge-yaml-gate-action -->';
 const HEADING = 'EvalForge YAML Gate';
 function render(icon, label, body) {
@@ -34262,6 +34266,18 @@ function formatForeignDraftConflicts(errs, _pull) {
         ...lines,
     ]);
 }
+function formatTooManyNewSkills(count, limit, files) {
+    return render('❌', 'Too Many New Skills', [
+        `This PR creates **${count} new Wix Manage skill .md files**, exceeding the limit of **${limit} per PR**.`,
+        '',
+        'New skill files added:',
+        ...files.map(f => `- \`${f}\``),
+        '',
+        'Please either:',
+        '- Split across multiple PRs',
+        '- Update existing skills instead of creating new ones',
+    ]);
+}
 function formatServiceError(message, blocking) {
     const { icon } = failIcon(blocking);
     return render(icon, blocking ? 'Error' : 'Warning', [message]);
@@ -34285,6 +34301,56 @@ function formatEvalTimeout(runId, runUrl, blocking) {
 }
 function formatNoChanges() {
     return render('✅', 'No Gated Changes', ['Nothing under `evals/` or sibling `.md` changed.']);
+}
+function assertionLine(a) {
+    const icon = a.status === 'passed' ? '✅' : '❌';
+    const score = a.score !== undefined ? ` (${a.score}/10)` : '';
+    const detail = a.verdict ? `: ${a.verdict}` : a.message ? `: ${a.message}` : '';
+    return `- ${icon} ${a.name}${score}${detail}`;
+}
+function formatComparisonResult(result, projectId) {
+    const { verdict, tag, scenarios } = result.result;
+    const verdictIcon = verdict === 'not-required' ? '✅' : '⚠️';
+    const lines = [
+        exports.COMMENT_MARKER,
+        `## ${verdictIcon} ${HEADING}: Eval Comparison`,
+        '',
+        `**Verdict:** \`${verdict}\` | **Tag:** \`${tag}\``,
+        '',
+        '| Scenario | Required | Winner | Cost (PR / prod) | Tokens (PR / prod) | Time (PR / prod) |',
+        '|---|---|---|---|---|---|',
+    ];
+    for (const s of (scenarios ?? [])) {
+        const winner = s.pairwiseJudgement.winner;
+        const winnerLabel = winner === 'tie' ? '≈ tie' : winner === 'with' ? '⬆️ PR' : '⬇️ prod';
+        const costWith = s.with.totalCostUsd.toFixed(3);
+        const costWithout = s.without.totalCostUsd.toFixed(3);
+        const tokWith = `${(s.with.totalTokens / 1000).toFixed(1)}K`;
+        const tokWithout = `${(s.without.totalTokens / 1000).toFixed(1)}K`;
+        const timeWith = `${(s.with.durationMs / 1000).toFixed(1)}s`;
+        const timeWithout = `${(s.without.durationMs / 1000).toFixed(1)}s`;
+        lines.push(`| ${s.scenarioName} | ${s.required ? '✅' : '—'} | ${winnerLabel} (${s.pairwiseJudgement.confidence}) | $${costWith} / $${costWithout} | ${tokWith} / ${tokWithout} | ${timeWith} / ${timeWithout} |`);
+    }
+    for (const s of (scenarios ?? [])) {
+        lines.push('', `<details><summary>${s.scenarioName}</summary>`, '', s.reason, '');
+        if (projectId && s.with.runId)
+            lines.push(`[View run (PR)](${(0, evalforge_1.evalRunUrl)(projectId, s.with.runId, s.with.name)})`, '');
+        if (projectId && s.without.runId)
+            lines.push(`[View run (prod)](${(0, evalforge_1.evalRunUrl)(projectId, s.without.runId, s.without.name)})`, '');
+        lines.push('**Assertions (PR):**', ...s.with.assertions.map(assertionLine), '');
+        lines.push('**Assertions (prod):**', ...s.without.assertions.map(assertionLine), '');
+        if (s.pairwiseJudgement.reasoning) {
+            lines.push(`**Compare result:** ${s.pairwiseJudgement.reasoning}`, '');
+        }
+        if (s.pairwiseJudgement.dimensions) {
+            lines.push('**Dimensions:**', ...Object.entries(s.pairwiseJudgement.dimensions).map(([k, v]) => `- ${k}: **${v.winner}**`), '');
+        }
+        lines.push('</details>');
+    }
+    return lines.join('\n');
+}
+function formatComparisonTimeout(comparisonGroupId, blocking) {
+    return render(blocking ? '⏱' : '⚠️', 'Comparison Timed Out', [`comparisonGroupId: ${comparisonGroupId}`]);
 }
 
 
@@ -34354,6 +34420,14 @@ function getPrNumber() {
         throw new Error('PR payload missing number');
     return n;
 }
+function getPositiveIntegerInput(name, fallback) {
+    const raw = core.getInput(name) || String(fallback);
+    const value = Number(raw);
+    if (!Number.isInteger(value) || value < 1) {
+        throw new Error(`${name} must be a positive integer (received: ${raw})`);
+    }
+    return value;
+}
 function getSimpleConfig() {
     return {
         githubToken: safeGetSecret('github-token'),
@@ -34382,6 +34456,11 @@ function getEvalConfig() {
         headSha,
         mcpSkillsRepo,
         blocking: core.getInput('blocking') === 'true',
+        evalPipelineUrl: core.getInput('eval-pipeline-url') || 'https://www.wixapis.com/_api/eval-pipeline',
+        agentName: core.getInput('agent-name') || 'agent',
+        autoApprove: core.getInput('auto-approve') === 'true',
+        triggerEvalCompare: core.getInput('eval-compare') !== 'false',
+        maxNewSkills: getPositiveIntegerInput('max-new-skills', 1),
     };
 }
 
@@ -34511,14 +34590,13 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.resolveDocsEntry = resolveDocsEntry;
 exports.canonicalDocUrl = canonicalDocUrl;
 const node_fs_1 = __nccwpck_require__(3024);
 const node_path_1 = __nccwpck_require__(6760);
 const glob_1 = __nccwpck_require__(1363);
 const jsYaml = __importStar(__nccwpck_require__(4281));
 const paths_1 = __nccwpck_require__(6621);
-const indexCache = new Map(); // workspace → built index
+const indexCache = new Map();
 function buildDocIndex(workspace) {
     const cached = indexCache.get(workspace);
     if (cached)
@@ -34535,29 +34613,40 @@ function buildDocIndex(workspace) {
         const raw = (0, node_fs_1.readFileSync)(abs, 'utf8');
         const parsed = jsYaml.load(raw, { schema: jsYaml.CORE_SCHEMA }) ?? {};
         for (const e of parsed.apiDoc?.docs ?? []) {
-            if (!e.file || !e.docsEntry)
+            if (!e.file || !e.docsEntry || !e.title)
                 continue;
-            index.set((0, node_path_1.resolve)(yamlDir, e.file), e.docsEntry);
+            index.set((0, node_path_1.resolve)(yamlDir, e.file), { docsEntry: e.docsEntry, title: e.title });
         }
     }
     indexCache.set(workspace, index);
     return index;
 }
-function resolveDocsEntry(filePath, workspace) {
-    return buildDocIndex(workspace).get((0, node_path_1.resolve)(workspace, filePath)) ?? null;
+function slugify(displayName) {
+    const shouldAddDollarPrefix = displayName.startsWith('$');
+    const slug = displayName
+        .replace(/\(\)$|\( \)$/, '')
+        .replace(/[ \W_]+/g, '-')
+        .replace(/[a-z][A-Z]/g, (m) => m[0] + '-' + m[1].toLowerCase());
+    let trimmedSlug = slug[0]?.match(/[ \W_]/) ? slug.slice(1) : slug;
+    if (trimmedSlug.length > 0 && trimmedSlug.slice(-1).match(/[ \W_]/)) {
+        trimmedSlug = trimmedSlug.slice(0, -1);
+    }
+    return `${shouldAddDollarPrefix ? '$' : ''}${trimmedSlug.toLowerCase()}`;
 }
 function canonicalDocUrl(filePath, workspace) {
-    const docsEntry = resolveDocsEntry(filePath, workspace);
-    if (!docsEntry)
+    const info = buildDocIndex(workspace).get((0, node_path_1.resolve)(workspace, filePath));
+    if (!info)
         return null;
-    const stem = (0, node_path_1.basename)(filePath, '.md');
-    return `${docsEntry.replace(/\/+$/, '')}/skills/${stem}`;
+    const slug = slugify(info.title);
+    if (!slug)
+        return null;
+    return `${info.docsEntry.replace(/\/+$/, '')}/skills/${slug}`;
 }
 
 
 /***/ }),
 
-/***/ 5879:
+/***/ 3942:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
 "use strict";
@@ -34596,17 +34685,16 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.EvalRunTimeoutError = void 0;
-exports.pollUntilDone = pollUntilDone;
+exports.ComparisonTimeoutError = exports.EvalPipelineClient = void 0;
+exports.pollUntilComparisonDone = pollUntilComparisonDone;
 const core = __importStar(__nccwpck_require__(7484));
-const evalforge_1 = __nccwpck_require__(280);
-function isTerminal(status) {
-    return evalforge_1.TERMINAL_RUN_STATUSES.includes(status);
-}
-const POLL_INTERVAL_MS = 30_000;
+const POLL_INTERVAL_MS = 2 * 60_000;
 const POLL_TIMEOUT_MS = 30 * 60 * 1_000;
 const RETRY_LIMIT = 5;
 const RETRY_DELAY_MS = 10_000;
+function delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, Math.max(0, ms)));
+}
 function isRetriable(e) {
     const status = e.status;
     if (status && status >= 500)
@@ -34615,21 +34703,50 @@ function isRetriable(e) {
         return true;
     return false;
 }
-function delay(ms) {
-    return new Promise(resolve => setTimeout(resolve, Math.max(0, ms)));
+class EvalPipelineClient {
+    baseUrl;
+    headers;
+    constructor(baseUrl, appId, appSecret) {
+        this.baseUrl = baseUrl;
+        this.headers = {
+            'Content-Type': 'application/json',
+            'x-app-id': appId,
+            'x-app-secret': appSecret,
+        };
+    }
+    async post(path, body) {
+        const res = await fetch(`${this.baseUrl}${path}`, {
+            method: 'POST',
+            headers: this.headers,
+            body: JSON.stringify(body),
+            signal: AbortSignal.timeout(30_000),
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw Object.assign(new Error(`EvalPipeline POST ${path} → ${res.status}: ${err.error ?? ''}`), { status: res.status });
+        }
+        return res.json();
+    }
+    async runComparison(tags, agentName, commitSha, skillsRepo) {
+        return this.post('/run-comparison', { tags, agentName, commitSha, skillsRepo });
+    }
+    async compareGroup(comparisonGroupId) {
+        return this.post('/compare-group', { comparisonGroupId });
+    }
 }
-async function pollUntilDone(client, projectId, runId) {
+exports.EvalPipelineClient = EvalPipelineClient;
+async function pollUntilComparisonDone(client, comparisonGroupId) {
     const deadline = Date.now() + POLL_TIMEOUT_MS;
     while (Date.now() < deadline) {
-        let status;
+        let result;
         for (let attempt = 0; attempt <= RETRY_LIMIT; attempt++) {
             try {
-                status = await client.getEvalRun(projectId, runId);
+                result = await client.compareGroup(comparisonGroupId);
                 break;
             }
             catch (e) {
                 if (isRetriable(e) && attempt < RETRY_LIMIT) {
-                    core.warning(`Poll attempt failed (retry ${attempt + 1}/${RETRY_LIMIT}): ${e instanceof Error ? e.message : String(e)}`);
+                    core.warning(`compare-group poll failed (retry ${attempt + 1}/${RETRY_LIMIT}): ${e instanceof Error ? e.message : String(e)}`);
                     await delay(RETRY_DELAY_MS);
                 }
                 else {
@@ -34637,20 +34754,23 @@ async function pollUntilDone(client, projectId, runId) {
                 }
             }
         }
-        if (isTerminal(status.status))
-            return status;
-        core.info(`Eval run ${runId}: ${status.status}...`);
+        if (result.status === 'complete') {
+            core.info(`compare-group complete response: ${JSON.stringify(result)}`);
+            return result;
+        }
+        const r = result;
+        core.info(`Comparison ${comparisonGroupId}: ${r.completedRuns}/${r.totalRuns} runs complete...`);
         await delay(Math.min(POLL_INTERVAL_MS, deadline - Date.now()));
     }
-    throw new EvalRunTimeoutError('Eval run timed out after 30 minutes');
+    throw new ComparisonTimeoutError(`Comparison ${comparisonGroupId} timed out after 30 minutes`);
 }
-class EvalRunTimeoutError extends Error {
+class ComparisonTimeoutError extends Error {
     constructor(message) {
         super(message);
-        this.name = 'EvalRunTimeoutError';
+        this.name = 'ComparisonTimeoutError';
     }
 }
-exports.EvalRunTimeoutError = EvalRunTimeoutError;
+exports.ComparisonTimeoutError = ComparisonTimeoutError;
 
 
 /***/ }),
@@ -34683,9 +34803,8 @@ function toEvalForgeBody(s) {
     return body;
 }
 function mapSiteSetup(s) {
-    // Propagate s.mode (not a hardcoded literal) so adding a mode later can't silently mis-map.
     const out = { mode: s.mode, templateId: s.templateId };
-    // Empty steps ≡ no bootstrap (EvalForge normalization) — omit rather than send an empty list.
+    // Omit bootstrap when it has no steps.
     if (s.bootstrap && s.bootstrap.steps.length > 0) {
         out.bootstrap = { steps: s.bootstrap.steps.map(mapBootstrapStep) };
     }
@@ -34782,14 +34901,17 @@ exports.evalRunUrl = evalRunUrl;
 exports.draftTagFor = draftTagFor;
 exports.parseDraftTag = parseDraftTag;
 exports.isHttpError = isHttpError;
+exports.uniqueRemoteScenarios = uniqueRemoteScenarios;
 const MCP_URL = 'https://mcp.wix.com/mcp';
 const MCP_CONFIG_KEY = 'wix-mcp-remote';
+const MAX_TEST_SCENARIO_NAMES_PER_REQUEST = 50;
 exports.TERMINAL_RUN_STATUSES = ['completed', 'failed', 'cancelled'];
 exports.DRAFT_PREFIX = 'draft:';
 // Human-facing EvalForge results page (distinct from the REST `baseUrl` the client calls).
 const UI_BASE = 'https://bo.wix.com/pages/evalforge';
-function evalRunUrl(projectId, runId) {
-    return `${UI_BASE}/${projectId}/results?runId=${runId}`;
+function evalRunUrl(projectId, runId, name) {
+    const nameParam = name ? `&name=${encodeURIComponent(name)}` : '';
+    return `${UI_BASE}/${projectId}/results?runId=${runId}${nameParam}`;
 }
 function draftTagFor(repo, prNumber) {
     return `${exports.DRAFT_PREFIX}${repo}#${prNumber}`;
@@ -34800,6 +34922,15 @@ function parseDraftTag(tag) {
 }
 function isHttpError(e) {
     return e instanceof Error && typeof e.status === 'number';
+}
+/**
+ * Deduplicates scenarios returned by multiple filtered EvalForge list calls.
+ */
+function uniqueRemoteScenarios(scenarios) {
+    const byId = new Map();
+    for (const scenario of scenarios)
+        byId.set(scenario.id, scenario);
+    return [...byId.values()];
 }
 class EvalForgeClient {
     baseUrl;
@@ -34873,9 +35004,17 @@ class EvalForgeClient {
             return existing;
         }
     }
-    async listTestScenarios(projectId) {
+    /**
+     * Lists test scenarios, optionally narrowing the REST response by scenario name and/or tag.
+     */
+    async listTestScenarios(projectId, filters = {}) {
+        if ((filters.names?.length ?? 0) > MAX_TEST_SCENARIO_NAMES_PER_REQUEST) {
+            const chunks = chunk(filters.names, MAX_TEST_SCENARIO_NAMES_PER_REQUEST);
+            const batches = await Promise.all(chunks.map(names => this.listTestScenarios(projectId, { ...filters, names })));
+            return uniqueRemoteScenarios(batches.flat());
+        }
         // EvalForge returns `tags: undefined` for untagged scenarios — normalize so callers can assume `string[]`.
-        const raw = await this.request('GET', `/projects/${enc(projectId)}/test-scenarios`);
+        const raw = await this.request('GET', testScenariosPath(projectId, filters));
         return raw.map(s => ({ ...s, tags: s.tags ?? [] }));
     }
     async createTestScenario(projectId, body, tags) {
@@ -34903,6 +35042,21 @@ class EvalForgeClient {
 exports.EvalForgeClient = EvalForgeClient;
 function enc(segment) {
     return encodeURIComponent(segment);
+}
+function testScenariosPath(projectId, filters) {
+    const params = new URLSearchParams();
+    for (const name of filters.names ?? [])
+        params.append('name', name);
+    for (const tag of filters.tags ?? [])
+        params.append('tags', tag);
+    const query = params.toString();
+    return `/projects/${enc(projectId)}/test-scenarios${query ? `?${query}` : ''}`;
+}
+function chunk(items, size) {
+    const chunks = [];
+    for (let i = 0; i < items.length; i += size)
+        chunks.push(items.slice(i, i + size));
+    return chunks;
 }
 
 
@@ -34994,6 +35148,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.remoteScenarioFiltersForGate = remoteScenarioFiltersForGate;
 exports.runGate = runGate;
 const core = __importStar(__nccwpck_require__(7484));
 const github = __importStar(__nccwpck_require__(3228));
@@ -35005,10 +35160,24 @@ const doc_url_1 = __nccwpck_require__(8515);
 const coverage_1 = __nccwpck_require__(4035);
 const sync_1 = __nccwpck_require__(546);
 const evalforge_1 = __nccwpck_require__(280);
+const eval_pipeline_1 = __nccwpck_require__(3942);
 const workspace_1 = __nccwpck_require__(9620);
 const paths_1 = __nccwpck_require__(6621);
-const eval_run_1 = __nccwpck_require__(5879);
 const comment_1 = __nccwpck_require__(3116);
+function allScenariosRequired(result) {
+    return result.scenarios.length > 0 && result.scenarios.every(s => s.required);
+}
+/**
+ * Computes the smallest remote scenario lookup needed to sync this PR.
+ */
+function remoteScenarioFiltersForGate(input) {
+    const names = new Set(input.changedHead.keys());
+    for (const [name] of input.base) {
+        if (!input.head.has(name))
+            names.add(name);
+    }
+    return { names: [...names].sort(), tags: [input.draftTag] };
+}
 async function runGate() {
     const config = (0, config_1.getEvalConfig)();
     const octokit = github.getOctokit(config.githubToken);
@@ -35016,6 +35185,7 @@ async function runGate() {
     const workspace = (0, workspace_1.workspaceRoot)();
     const draftTag = (0, evalforge_1.draftTagFor)(`${config.owner}/${config.repo}`, config.prNumber);
     core.info(`EvalForge YAML gate — PR #${config.prNumber}`);
+    core.info(`MCP params — skillsRepo: ${config.mcpSkillsRepo}, headSha: ${config.headSha}`);
     const evalforge = new evalforge_1.EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
     const versionLabel = `pr-${config.prNumber}-${config.headSha.slice(0, 7)}`;
     const mcpVersion = await guardedCall(() => evalforge.ensureMcpVersion(config.mcpId, config.projectId, versionLabel, config.prNumber, config.headSha, config.mcpSkillsRepo), 'Could not create MCP version', comment, config);
@@ -35042,6 +35212,15 @@ async function runGate() {
         (0, github_1.fail)(`${orphanedMds.length} changed .md file(s) not registered in documentation.yaml`, config.blocking);
         return;
     }
+    const newSkillFiles = classifiedChanges.mdFiles
+        .filter(f => f.status === 'added')
+        .map(f => f.filename)
+        .sort();
+    if (newSkillFiles.length > config.maxNewSkills) {
+        await comment((0, comment_1.formatTooManyNewSkills)(newSkillFiles.length, config.maxNewSkills, newSkillFiles));
+        (0, github_1.fail)(`Cannot create more than ${config.maxNewSkills} new skill .md files per PR (${newSkillFiles.length} found)`, config.blocking);
+        return;
+    }
     const cov = (0, coverage_1.computeCoverage)(classifiedChanges.mdFiles, headScenarios, (f) => (0, doc_url_1.canonicalDocUrl)(f, workspace));
     if (cov.uncovered.length > 0) {
         await comment((0, comment_1.formatUncovered)(cov.uncovered));
@@ -35062,7 +35241,8 @@ async function runGate() {
         if (changedEvalPaths.has(ls.path))
             changedHeadScenarios.set(name, ls);
     }
-    const remote = await guardedCall(() => evalforge.listTestScenarios(config.projectId), 'Could not reach EvalForge', comment, config);
+    const filters = remoteScenarioFiltersForGate({ changedHead: changedHeadScenarios, head: headScenarios, base: baseScenarios, draftTag });
+    const remote = await guardedCall(() => listRemoteScenariosForGate(evalforge, config.projectId, filters), 'Could not reach EvalForge', comment, config);
     if (!remote)
         return;
     const plan = (0, sync_1.diffSyncPlan)({ changedHead: changedHeadScenarios, head: headScenarios, base: baseScenarios, remote, draftTag });
@@ -35099,69 +35279,57 @@ async function runGate() {
             return;
         }
     }
-    const selected = new Set();
-    for (const names of cov.coveredBy.values()) {
-        for (const n of names) {
-            const id = nameToId.get(n);
-            if (id)
-                selected.add(id);
-        }
-    }
-    const scenarioByPath = new Map();
-    for (const ls of headScenarios.values())
-        scenarioByPath.set(ls.path, ls);
-    for (const f of [...classifiedChanges.evalsAdded, ...classifiedChanges.evalsModified]) {
-        const ls = scenarioByPath.get(f.filename);
-        if (!ls)
-            continue;
-        const id = nameToId.get(ls.scenario.name);
-        if (id)
-            selected.add(id);
-    }
-    if (selected.size === 0) {
-        core.info('Nothing to run');
+    const hasUpserts = plan.actions.some(a => a.kind === 'CREATE' || a.kind === 'UPDATE');
+    if (!hasUpserts) {
+        core.info('No scenarios created or updated — skipping eval pipeline comparison');
         return;
     }
-    const run = await guardedCall(() => evalforge.createEvalRun(config.projectId, {
-        name: `PR #${config.prNumber} YAML-gate`,
-        description: `Gate for PR #${config.prNumber} (${selected.size} scenarios)`,
-        projectId: config.projectId,
-        agentId: config.agentId,
-        scenarioIds: [...selected],
-        // capabilityIds is REQUIRED — without it the agent has no MCP bound at run time. Don't drop it.
-        capabilityIds: [config.mcpId],
-        capabilityVersions: { [config.mcpId]: mcpVersion.id },
-    }), 'Could not create eval run', comment, config);
-    if (!run)
+    if (!config.triggerEvalCompare) {
+        core.info('Eval compare disabled (TRIGGER_EVAL_COMPARE=false) — skipping comparison');
         return;
-    const runUrl = (0, evalforge_1.evalRunUrl)(config.projectId, run.id);
-    const triggered = await guardedCall(() => evalforge.triggerEvalRun(config.projectId, run.id), 'Could not trigger eval run', comment, config);
-    if (!triggered)
+    }
+    const pipeline = new eval_pipeline_1.EvalPipelineClient(config.evalPipelineUrl, config.appId, config.appSecret);
+    const comparison = await guardedCall(() => pipeline.runComparison([draftTag], config.agentName, config.headSha, config.mcpSkillsRepo), 'Could not start eval pipeline comparison', comment, config);
+    if (!comparison)
         return;
-    let finalStatus;
+    core.info(`Eval pipeline comparison started: comparisonGroupId=${comparison.comparisonGroupId}`);
     try {
-        finalStatus = await (0, eval_run_1.pollUntilDone)(evalforge, config.projectId, run.id);
+        const done = await (0, eval_pipeline_1.pollUntilComparisonDone)(pipeline, comparison.comparisonGroupId);
+        for (const s of (done.result.scenarios ?? [])) {
+            if (s.with.runId)
+                core.info(`${s.scenarioName} [with draft tag]: ${(0, evalforge_1.evalRunUrl)(config.projectId, s.with.runId, s.with.name)}`);
+            if (s.without.runId)
+                core.info(`${s.scenarioName} [without draft tag]: ${(0, evalforge_1.evalRunUrl)(config.projectId, s.without.runId, s.without.name)}`);
+        }
+        await comment((0, comment_1.formatComparisonResult)(done, config.projectId));
+        if (config.autoApprove && allScenariosRequired(done.result)) {
+            await octokit.rest.pulls.createReview({
+                owner: config.owner,
+                repo: config.repo,
+                pull_number: config.prNumber,
+                event: 'APPROVE',
+                body: 'All required eval scenarios passed — auto-approved.',
+            });
+            core.info('PR auto-approved: all required scenarios passed');
+        }
     }
     catch (e) {
-        if (e instanceof eval_run_1.EvalRunTimeoutError) {
-            await comment((0, comment_1.formatEvalTimeout)(run.id, runUrl, config.blocking));
-            (0, github_1.fail)(`Eval timed out (run ID: ${run.id})`, config.blocking);
+        if (e instanceof eval_pipeline_1.ComparisonTimeoutError) {
+            await comment((0, comment_1.formatComparisonTimeout)(comparison.comparisonGroupId, config.blocking));
+            (0, github_1.fail)(e.message, config.blocking);
             return;
         }
-        core.error(`Eval polling failed: ${e instanceof Error ? e.message : String(e)}`);
-        await comment((0, comment_1.formatServiceError)('Eval polling failed', config.blocking));
-        (0, github_1.fail)('Eval polling failed', config.blocking);
-        return;
+        core.error(`compare-group failed: ${e instanceof Error ? e.message : String(e)}`);
+        await comment((0, comment_1.formatServiceError)('Eval pipeline comparison failed', config.blocking));
+        (0, github_1.fail)('Eval pipeline comparison failed', config.blocking);
     }
-    const m = finalStatus.aggregateMetrics;
-    if (finalStatus.status === 'completed' && m.failed === 0 && m.errors === 0) {
-        await comment((0, comment_1.formatEvalPassed)(m, run.id, runUrl));
-        core.info(`Eval passed — ${m.passed}/${m.totalAssertions} (run ID: ${run.id})`);
-    }
-    else {
-        await comment((0, comment_1.formatEvalFailed)(m, run.id, runUrl, config.blocking));
-        (0, github_1.fail)(`Eval failed (${m.passRate}%)`, config.blocking);
-    }
+}
+async function listRemoteScenariosForGate(evalforge, projectId, filters) {
+    const [byName, byDraftTag] = await Promise.all([
+        filters.names.length > 0 ? evalforge.listTestScenarios(projectId, { names: filters.names }) : Promise.resolve([]),
+        evalforge.listTestScenarios(projectId, { tags: filters.tags }),
+    ]);
+    return (0, evalforge_1.uniqueRemoteScenarios)([...byName, ...byDraftTag]);
 }
 async function guardedCall(fn, userMessage, comment, config) {
     try {
@@ -35437,16 +35605,26 @@ async function runPromote() {
     const workspace = (0, workspace_1.workspaceRoot)();
     // Cleanup workflow no longer fires on merged PRs — promote owns MCP version teardown.
     await (0, pr_cleanup_1.deletePrMcpVersions)(evalforge, config.mcpId, config.projectId, config.prNumber);
+    const headScenarios = loadEvalsWithWarnings(workspace);
+    const baseEvals = loadEvalsWithWarnings(node_path_1.posix.join(workspace, paths_1.BASE_WORKSPACE_SUBDIR));
+    const deletedScenarioNames = [...baseEvals.keys()]
+        .filter(name => !headScenarios.has(name))
+        .sort();
     let remote;
     try {
-        remote = await evalforge.listTestScenarios(config.projectId);
+        const [drafts, deleted] = await Promise.all([
+            evalforge.listTestScenarios(config.projectId, { tags: [draftTag] }),
+            deletedScenarioNames.length > 0
+                ? evalforge.listTestScenarios(config.projectId, { names: deletedScenarioNames })
+                : Promise.resolve([]),
+        ]);
+        remote = (0, evalforge_1.uniqueRemoteScenarios)([...drafts, ...deleted]);
     }
     catch (e) {
         core.warning(`listTestScenarios failed: ${e instanceof Error ? e.message : String(e)}`);
         return;
     }
     const remoteByName = new Map(remote.map(r => [r.name, r]));
-    const headScenarios = loadEvalsWithWarnings(workspace);
     let promoted = 0;
     let droppedDrafts = 0;
     for (const s of remote) {
@@ -35476,7 +35654,6 @@ async function runPromote() {
             core.warning(`Promote failed for ${s.name}: ${e instanceof Error ? e.message : String(e)}`);
         }
     }
-    const baseEvals = loadEvalsWithWarnings(node_path_1.posix.join(workspace, paths_1.BASE_WORKSPACE_SUBDIR));
     for (const [name] of baseEvals) {
         if (headScenarios.has(name))
             continue;
@@ -35612,8 +35789,7 @@ const AssertionSchema = zod_1.z.union([
     CostAssertionSchema,
     TimeLimitAssertionSchema,
 ]);
-// Site provisioning — mirrors EvalForge's TestScenario.siteSetup (wix-private/evalforge
-// packages/eval-types/src/scenario/site-setup.ts). Only `template` mode is supported here.
+// Optional per-scenario site provisioning. Only `template` mode is supported.
 const SiteBootstrapStepSchema = zod_1.z.object({
     label: zod_1.z.string().optional(),
     method: zod_1.z.enum(['get', 'post', 'put', 'patch', 'delete']),
@@ -35623,10 +35799,8 @@ const SiteBootstrapStepSchema = zod_1.z.object({
 const SiteBootstrapSchema = zod_1.z.object({
     steps: zod_1.z.array(SiteBootstrapStepSchema).default([]),
 }).strict();
-// `templateId` accepts a curated Wix template alias (e.g. "ecommerce") OR an origin-template GUID;
-// EvalForge resolves it server-side via resolveWixOriginTemplateId. The canonical alias list lives
-// in @wix/evalforge-types (wix-private/evalforge .../scenario/wix-origin-template-ids.ts) and is not
-// exported as a constant, so we keep this a free string rather than duplicating the enum.
+// `templateId` is a Wix template alias (e.g. "ecommerce") or a template GUID, resolved at
+// provisioning time — any non-empty string is accepted here.
 const SiteSetupSchema = zod_1.z.object({
     mode: zod_1.z.literal('template').default('template'),
     templateId: zod_1.z.string().min(1),
@@ -35640,8 +35814,7 @@ exports.ScenarioSchema = zod_1.z.object({
     assertions: zod_1.z.array(AssertionSchema).min(1),
     siteSetup: SiteSetupSchema.optional(),
 }).strict().superRefine((data, ctx) => {
-    // EvalForge parity: an active siteSetup and a {{site-id}} run variable are mutually exclusive —
-    // the provisioned site replaces the manual id.
+    // A provisioned site supplies the site id, so siteSetup can't be combined with a {{site-id}} variable.
     if (data.siteSetup && /\{\{\s*site-id\s*\}\}/.test(data.triggerPrompt)) {
         ctx.addIssue({
             code: zod_1.z.ZodIssueCode.custom,
