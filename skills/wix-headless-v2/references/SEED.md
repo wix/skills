@@ -6,7 +6,7 @@ Use `$TOKEN` / `$SITE_ID` from the provided authentication mechanism (see `<TYPE
 
 ## 1 · The navigation mechanism — find the *how* in the docs
 
-> **First, check the pinned index — `SEED_RECIPES.md`.** It maps each capability to the exact doc pages to read (in order) before the first call, so you read-then-act instead of guess-then-fail. If the capability has an entry there, **`curl` its pinned `.md` pages directly and skip the search below** — a linked page is already curated, so read it, don't re-discover it. The search/menu-walk in the rest of this section is the **fallback** for capabilities not yet pinned (and the method you use to *build* future entries).
+> **First, check the pinned index — `SEED_RECIPES.md`.** It maps each capability to the exact doc pages to read (in order) before the first call, so you read-then-act instead of guess-then-fail. If the capability has an entry there, **read its pinned pages directly and skip the search below** — a pinned page is already curated, so read it, don't re-discover it. **A pinned `https://…` URL → `curl` it; a pinned local path (e.g. `inline-recipes/*.md`, relative to `references/`) → open it with the file Read tool, not `curl`.** The search/menu-walk in the rest of this section is the **fallback** for capabilities not yet pinned (and the method you use to *build* future entries).
 
 Every Wix docs URL serves raw markdown when you append `.md` and `curl` it. A **menu page** lists links to child pages; a **content/method page** carries the endpoint, HTTP verb, and request/response schema.
 

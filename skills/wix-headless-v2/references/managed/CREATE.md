@@ -8,11 +8,24 @@ user's intent, using `SDK_HANDOFF.md` as the integration reference.
 
 Run these in order:
 
+## 0 · Resolve the frontend framework
+
+Default is **Astro** — the documented managed default. Set `frontendFramework` to a non-Astro
+framework **only if the user names one**: "Vite", "React", "Vue", "Svelte", "Next", "plain HTML/static",
+or any "not Astro / don't use Astro" phrasing. Never infer a framework the user didn't name
+(`references/non-astro.md` Caveat N1). Hold `frontendFramework` in scratch — it selects the **scaffold
+command (§1)**, the **wiring reference (§4)**, and the **build command (§5)**. Derive `<folder-name>` as
+a lowercase, npm-safe name from the brand (lowercase letters, numbers, hyphens; starts with a letter or
+number).
+
 ## 1 · Scaffold the project
 
-Run the **documented** create command (flags and rationale: `references/astro.md` §1). Derive
-`<folder-name>` as a lowercase, npm-safe name from the brand (lowercase letters, numbers, hyphens;
-starts with a letter or number):
+Branch on `frontendFramework` from §0. **Both** branches end with a `wix.config.json` (the Wix link:
+`siteId` + private-app `appId`) in the project root — read it → hold `SITE_ID` (the `siteId`) in scratch.
+
+### Astro (default)
+
+Run the **documented** create command (flags and rationale: `references/astro.md` §1):
 
 ```bash
 npm create @wix/new@latest -- headless \
@@ -30,9 +43,32 @@ npm create @wix/new@latest -- headless \
   logged-in CLI session (step 2 handles login if needed).
 - It creates the project in a **subdirectory named `<folder-name>`** — there is no in-place option, so
   **`cd <folder-name>`** and run the rest of the flow from inside it (it's the project root, with the
-  single `.wix/`). Then read `./wix.config.json` → hold `SITE_ID` (the `siteId`) in scratch.
+  single `.wix/`).
 - `--skip-install` defers dependency install to step 4 (which adds the SDK package set); run
   `npm install` there before building.
+
+### Non-Astro (a framework was named)
+
+There is **no Wix scaffolder for a non-Astro site** (`non-astro.md` N1) — so scaffold the framework's
+**own** project first, then `init` it onto Wix (two steps, in this order):
+
+```bash
+# 1. the framework's OWN documented scaffolder — e.g. Vite + React:
+npm create vite@latest <folder-name> -- --template react
+cd <folder-name>
+# 2. connect this folder to a fresh Wix headless project, IN PLACE:
+npm create @wix/new@latest init
+```
+
+- Use the framework's documented create command (read its docs if unsure of the template flag) — Vite,
+  Next, SvelteKit, Vue, etc. For **plain static HTML** there's no scaffolder: create the folder and an
+  `index.html` yourself, then run `init`.
+- `npm create @wix/new@latest init` runs **in place** (no new subdirectory, no Astro files added): it
+  signs you in, provisions the Wix site + private app, and writes `wix.config.json`
+  (`siteId`, `appId`, `site.outputDirectory: "./dist"`). It takes no flags. Run it **from inside**
+  `<folder-name>` *after* the framework scaffold exists.
+- A static (no-build) frontend builds to no `dist` — fix `site.outputDirectory` per
+  `managed/DEPLOYMENT.md` ("Static frontends") before release.
 
 ## 2 · Authenticate
 
@@ -47,13 +83,15 @@ Run the agnostic flow against the scaffolded site:
 
 ## 4 · Build the frontend (wired to the backend)
 
-**Read the frontend reference for *how to connect* first.** The scaffold (step 1) is **Astro** — the
-documented default — so read **`references/astro.md`**: managed-Astro auto-authenticates, so the
-frontend creates **no client** (no `OAuthStrategy`, no `clientId`) — you `import { x } from "@wix/<pkg>"`
-and call methods. astro.md also carries the load-bearing caveats (the always-on `astro.config.mjs`
-integrations, SSR error guards, island hydration). Only if the user named a **non-Astro** framework,
-use **`references/non-astro.md`** instead (the manual `OAuthStrategy` client path — and the model
-scaffolds that framework's own project per non-astro.md Caveat N1, since Wix has no non-Astro scaffolder).
+**Read the frontend reference for *how to connect* first — pick it by `frontendFramework` (§0):**
+
+- **Astro** (default) → **`references/astro.md`**: managed-Astro auto-authenticates, so the frontend
+  creates **no client** (no `OAuthStrategy`, no `clientId`) — you `import { x } from "@wix/<pkg>"` and
+  call methods. astro.md also carries the load-bearing caveats (the always-on `astro.config.mjs`
+  integrations, SSR error guards, island hydration).
+- **Non-Astro** → **`references/non-astro.md`**: the manual `OAuthStrategy` visitor-client path
+  (`createClient({ modules, auth: OAuthStrategy({ clientId }) })`), where `clientId` is the public
+  `appId` from the `wix.config.json` written by `init` (§1).
 
 Then build the pages the user's intent calls for, **wired to the live backend**, using
 **`references/SDK_HANDOFF.md`** for the per-capability packages, the SDK docs, and the seeded IDs to
@@ -66,6 +104,12 @@ pages actually use.
 
 ## 5 · Build & release
 
-`npx @wix/cli@latest build`, then finalize per **`references/managed/DEPLOYMENT.md`**
-(`npx @wix/cli@latest release` — Wix publishes the site and registers the origin OOTB). Close with a
-short summary (apps installed, content seeded, pages built, live URL).
+Produce the build output, then finalize per **`references/managed/DEPLOYMENT.md`**
+(`npx @wix/cli@latest release` — Wix publishes the site and registers the origin OOTB). The build step
+depends on `frontendFramework` (§0):
+
+- **Astro** → `npx @wix/cli@latest build`.
+- **Non-Astro** → the framework's own build (e.g. `npm run build`); a static (no-build) site skips this.
+  `release` publishes whatever `site.outputDirectory` points at (default `./dist`).
+
+Close with a short summary (apps installed, content seeded, pages built, live URL).
