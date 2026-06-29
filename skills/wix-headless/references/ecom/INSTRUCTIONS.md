@@ -25,7 +25,12 @@ See `<SKILL_ROOT>/references/verticals/ecom.md` frontmatter.
 
 The `components` scope writes (CSS first, then TSX):
 - `src/styles/components-ecom.css` — scoped CSS for ecom contract classes. First line must be `@reference "./global.css";`. See `../astro/ecom/COMPONENTS_CSS.md`.
-- `src/utils/discounts.ts` — Wix Ecom Discount Rules fetch + per-product match utility. Uses `auth.elevate()` from `@wix/essentials` (`discountRules.queryDiscountRules` requires `ECOM.DISCOUNT_RULES_READ`; a visitor client returns empty silently without elevation). Consumers: stores `pages-products` / `pages-home-and-nav` (ProductCard ribbon + offer callout). Write this before CartView/CartBadge — they import it.
+- `src/utils/discounts.ts` — Wix Ecom Discount Rules fetch + per-product match utility. **It MUST export exactly these two names** — the stores consumers import them verbatim (`../astro/stores/PRODUCT_PAGES.md`, `../astro/stores/HOME_AND_NAV.md`), so renaming them breaks the product pages at build time (`"fetchLiveOffers" is not exported by discounts.ts`):
+  ```ts
+  export async function fetchLiveOffers(): Promise<Offer[]>;          // memoized per-request discount-rules fetch (auth.elevate)
+  export function offersForProduct(offers: Offer[], productId: string): Offer[];  // offers matching one product
+  ```
+  Do **not** rename them to `getDiscountRules` / `findDiscountForProduct` / etc. Uses `auth.elevate()` from `@wix/essentials` (`discountRules.queryDiscountRules` requires `ECOM.DISCOUNT_RULES_READ`; a visitor client returns empty silently without elevation). Consumers: stores `pages-products` / `pages-home-and-nav` (ProductCard ribbon + offer callout). Write this before CartView/CartBadge — they import it.
 - `src/components/CartView.tsx`
 - `src/components/CartBadge.tsx`
 
