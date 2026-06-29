@@ -1,0 +1,22 @@
+name: domains/eval-gate-pr454-smoke
+description: Smoke scenario used to exercise the EvalForge YAML gate's filtered scenario-lookup path (PR #454) end-to-end against a live project.
+triggerPrompt: How do I programmatically check whether a specific domain name is available for purchase on Wix? Reference the relevant API method.
+tags: [domains]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/account-level/domains/skills/domain-search-and-purchase
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user's request: "How do I programmatically check whether a specific domain name is available for purchase on Wix? Reference the relevant API method."
+      Intent: surface the Wix Domains Management API method/endpoint for checking domain availability.
+
+      Pass if the response:
+      - names a specific Wix Domains Management API method, endpoint, or REST path used to check domain availability, AND
+      - uses terminology consistent with the docs (search / check availability).
+
+      Fail if the response:
+      - is generic with no specific endpoint or method name, OR
+      - hallucinates an endpoint not in the Wix Domains Management API.
