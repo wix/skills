@@ -34,7 +34,7 @@ For each loaded capability, give the host the **package(s)** from the map below 
 
 | Capability | Package(s) | SDK module docs (read for the API shape) |
 |---|---|---|
-| stores | `@wix/stores` (+ `@wix/ecom`, `@wix/redirects` for cart/checkout) | <https://dev.wix.com/docs/sdk/business-solutions/stores.md> · cart: <https://dev.wix.com/docs/sdk/business-solutions/ecom.md> |
+| stores | `@wix/stores` (+ `@wix/ecom`, `@wix/redirects` for cart/checkout) | **Read `inline-recipes/how-to-code-a-store.md`** (local — Read it, don't curl): the pinned Catalog V3 read/cart contract. |
 | blog | `@wix/blog` (+ `@wix/ricos` to render `richContent` — follow the blog page to the current viewer API, don't pin a version blind; **`@wix/comments` + `@wix/members` whenever the blog has comments** — author name/photo from `memberId`, and the comments flow in §5) | <https://dev.wix.com/docs/sdk/business-solutions/blog.md> · **comments has no pinned menu page — reach shapes via `SearchWixSDKDocumentation "comments queryComments createComment"`** |
 | cms | `@wix/data` | <https://dev.wix.com/docs/sdk/business-solutions/data.md> |
 | forms | `@wix/forms` | under CRM: <https://dev.wix.com/docs/sdk/business-solutions/crm.md> (forms/submissions module) |
