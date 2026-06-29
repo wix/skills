@@ -1,6 +1,11 @@
 ---
 name: "Tax: Configure (Wix Manual)"
-description: Sets up tax using Wix's Manual calculator — discovers available calculators, creates tax regions with the Manual calculatorId, defines tax groups, and creates per-(region, group) rate mappings. Default recipe for the `[intent:configure]` dispatch tag. Triggers on "set up tax", "configure sales tax", "do I need to charge tax".
+description: |
+  Set up sales tax for a Wix store using the built-in Wix Manual tax calculator — for any non-EU country: AU (GST 10%), NZ (GST 15%), GB (VAT 20%), US (per-state sales tax), CA (federal GST + provincial), JP (consumption 10%), and similar. Discovers the Manual calculator's appId, creates a tax region for the country, defines a tax group, and stores the rate via manual-tax-mappings.
+
+  Triggers on: "set up tax for my store", "configure sales tax", "charge GST", "I sell in <country>, set up tax", "add VAT for my <non-EU country> shop", "do I need to charge tax", "configure tax manually".
+
+  NOT for EU VAT (use Tax: Configure (EU VAT) for EU countries — Germany, France, Italy, Spain, etc.). NOT for Avalara setup (Avalara is installed via Wix Dashboard, not the API). For diagnosing wrong tax on an existing order, use Tax: Calculation Wrong.
 ---
 
 # Configure Tax (Wix Manual)

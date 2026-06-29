@@ -1,6 +1,11 @@
 ---
 name: "Tax: Configure (EU VAT)"
-description: Wix-specific bindings for EU VAT setup — per-region `taxIncludedInPrice: true`, per-country tax regions, VAT groups + manual-tax-mappings. OSS / reverse-charge / home-country flags are DASHBOARD-ONLY (no TPA-public `tax-settings` API). Used when `region:EU` is in MerchantContext and merchant is not on Avalara.
+description: |
+  Set up VAT for an EU-selling Wix store — for any EU member state (Germany 19%, France 20%, Italy 22%, Spain 21%, Netherlands 21%, Belgium 21%, Austria 20%, Sweden 25%, Denmark 25%, Finland 24%, Greece 24%, Portugal 23%, Ireland 23%, Poland 23%, and the rest of the EU27). Loops a per-country tax region with tax-inclusive pricing (EU consumer-law compliance), creates VAT groups, and bulk-creates per-country rate mappings via `manualTaxMappings`.
+
+  Triggers on: "set up VAT", "configure VAT for EU customers", "I sell to Germany / France / Italy / Spain / <EU country> — set up VAT", "charge VAT in the EU", "EU VAT compliance", "OSS setup", "B2B reverse-charge".
+
+  OSS / reverse-charge / home-country flags are dashboard-only — the API can set up regions and rates, but those compliance flags must be set in Wix Dashboard → Settings → Taxes. UK (GB) is NOT EU since Brexit — use Tax: Configure (Wix Manual) for GB. For non-EU countries, use Tax: Configure (Wix Manual). For diagnosing wrong VAT on a specific order, use Tax: Calculation Wrong.
 ---
 
 # Configure Tax (EU VAT)
