@@ -13,6 +13,46 @@ description: Creates and publishes blog posts using Blog Posts API. Covers Ricos
 
 This article demonstrates how to create and immediately publish blog posts using Wix Blog REST API, including handling external images, rich content formatting, and proper media management workflow.
 
+## The Authoring Loop — plan → compose → audit (before you POST)
+
+Always in this order. **Never jump straight to emitting Ricos nodes.** A flat wall of identical paragraphs is what happens when you skip planning. A blog post **inherits the site's theme, fonts, and colors — you do not design the page.** Your craft is **editorial: the structure, the depth, and the right rich-content device for each idea.** Parts 0–3 below are the mechanical steps (auth, media, endpoints); this loop governs the *quality* of what goes into `richContent`.
+
+### Phase 1 — Plan the post before any nodes
+
+Decide, in your own words, *before* composing:
+
+1. **The one takeaway.** What should the reader leave with? State it in a single sentence; every section serves it.
+2. **Audience & angle.** Who is this for, and what is the specific angle — how-to, announcement, opinion, deep-dive, listicle? This sets the tone and the depth.
+3. **Outline the sections.** List the H2 sections in order as a real arc — hook → body sections → takeaway/CTA — not a generic dump. If the user asked for a post "covering X, Y, and Z," the outline must contain a real section for **each**; never ship one section and a bullet mentioning the rest.
+4. **One device per section — and vary them.** For each section, name the rich-content device that best carries it: intro `PARAGRAPH`, `BULLETED_LIST`/`ORDERED_LIST` for steps or criteria, a `TABLE` for comparisons, a `BLOCKQUOTE` for a key quote, an `IMAGE` + caption to break up long stretches, a `CODE_BLOCK` for snippets. **A post where every section is just heading + one paragraph is the generic failure.**
+5. **Title & imagery.** Choose a specific, non-generic title (this becomes the post's `title` field). Decide whether a cover image and/or in-body images earn their place.
+
+Write this outline down (section → device) and commit to it before building.
+
+### Phase 2 — Compose with real substance
+
+**Rich-content devices are not a substitute for content.** The recurring failure is beautiful structure wrapped around one-line paragraphs.
+
+- Body paragraphs are **2–4 full sentences (~40–80 words)**. A section is a heading + intro + one or two real paragraphs (or a paragraph + a list) — never a single sentence as the entire section body. One-liners are fine only for captions, labels, or list items.
+- Rough content budgets — match what the user asked for: short post ≈ **300–500 words**; standard how-to / listicle ≈ **600–1000 words** across 4+ H2 sections; deep-dive ≈ **1200+ words**.
+- **Use 2–3 different devices across the post**, not the same heading+paragraph block repeated. If you catch yourself emitting an identical "heading + one paragraph" for every section, stop and apply the devices you committed to in Phase 1.
+- The JSON examples in this skill use one-line placeholder text to stay compact — copy their **structure**, never their content density.
+
+### Phase 3 — Self-audit the Ricos JSON (deterministic — before the API call)
+
+All of these are decidable from the JSON itself, so catch them here — it is free and reliable:
+
+1. **Every `type` is a bare string** — search your JSON for `"type": {`; there should be zero hits. An object-valued `type` passes validation but renders as a broken/uneditable block.
+2. **TEXT nesting** — no TEXT node sits directly in the root `nodes` array, a `LIST_ITEM`, a `BLOCKQUOTE`, or a `TABLE_CELL`; each is wrapped in a `PARAGRAPH` or `HEADING`. (See the [Nesting rules](#nesting-rules-quick-reference) table.)
+3. **Container nesting is complete** — `LIST → LIST_ITEM → PARAGRAPH → TEXT` and `TABLE → TABLE_ROW → TABLE_CELL → PARAGRAPH → TEXT`, with no level skipped.
+4. **Heading hierarchy** — the post title lives in the `draftPost.title` field, **not** as a body H1; in-body section headers start at `level: 2` and nest logically (don't jump from H2 to H4).
+5. **No `\n` inside `textData.text`** — one visual line = one node; split multi-line text into sibling `PARAGRAPH`/`HEADING` nodes. Mixed inline formatting → split into multiple TEXT runs within the same paragraph.
+6. **Images** — every `IMAGE` uses an **imported Wix Media `id`** (Part 1), never a raw external URL; both `width` and `height` are present; a meaningful `altText` is set.
+7. **Links** — every `LINK` decoration has a valid `url` and a `target`.
+8. **Content depth** — no stub sections; every section the brief named is present at the Phase-2 depth. An editorial post under ~300 words of body is too thin.
+
+Then execute Parts 0–3 below to create and publish.
+
 ### Part 0: Get an Author/Member ID (Required for 3rd-Party Apps)
 
 **IMPORTANT**: When calling the Blog API as a 3rd-party app (not as the site owner), `draftPost.memberId` is **required**. The API will reject requests with "Missing post owner information" if omitted.
