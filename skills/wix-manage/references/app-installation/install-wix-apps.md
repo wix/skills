@@ -106,6 +106,8 @@ Some common apps:
 - NEVER guess the `appDefId`. For Wix-built apps, use the table above. For any other app, resolve the ID using Step 0 (Search Market Listings).
 - The `tenantType` MUST be `SITE`
 - The `id` in tenant is the site's metaSiteId
+- Installing an app only adds/enables the app on the site. Do not tell the user that app-specific setup, payout rules, automations, products, or other configuration are complete unless you successfully performed those steps through verified app-specific APIs.
+- For third-party apps, the Apps Installer API usually cannot configure the app's internal setup wizard or vendor dashboard. After installation, tell the user the app is installed and guide them to open the app's own dashboard/settings for any remaining setup.
 
 ---
 
@@ -114,13 +116,22 @@ Some common apps:
 ### App Not Installed Error
 If you receive an error indicating a required app is not installed, use this recipe to install it before proceeding.
 
+### Third-party app dashboard does not load
+If a third-party app's dashboard, settings panel, or setup wizard does not load after installation:
+- Do not keep claiming the app is configured or that the user's business rules were applied.
+- First use Wix Help Center guidance for app panels that do not open: try an incognito/private window, allow popups for the Wix dashboard, disable ad blockers/privacy extensions for the Wix dashboard, and hard-refresh the page.
+- Ask the user for the exact visible state: blank page, endless spinner, popup blocked message, browser console error, or screenshot.
+- If the Wix dashboard itself works but only the third-party app iframe/page still fails after those checks, explain that the app's in-app setup is owned by the third-party provider and direct the user to the app's App Market support/contact option or Wix Customer Care with the app name, site name, browser, and screenshot/error.
+- Offer to continue once the app screen loads, using the user's saved setup choices to guide field-by-field configuration.
+
 ---
 
 ## Next Steps
 
 After installing an app:
-- Configure the app's settings using its specific APIs
-- Set up any required app-specific data (products for Stores, services for Bookings, etc.)
+- For Wix-built apps, configure settings or data only through documented APIs for that app (for example, products for Stores or services for Bookings).
+- For third-party apps, open the app's own dashboard/settings and guide the user through what they see. Do not invent internal fields or setup steps.
+- If no verified app-specific API or visible setup screen is available, stop at installation confirmation and ask the user to open the app UI or contact the app provider.
 
 ---
 
