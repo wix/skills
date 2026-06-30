@@ -82,4 +82,23 @@ describe('comment formatters', () => {
       expect(out).toContain(`\`${file}\``);
     });
   });
+
+  it('formatTokenBudgetExceeded lists budget details and the PR run link', () => {
+    const out = c.formatTokenBudgetExceeded([{
+      scenarioName: 'ecommerce/ecom-load-context',
+      maxTokens: 25_000,
+      prTokens: 31_420,
+      prodTokens: 18_000,
+      prRunId: 'run-pr',
+      prRunName: 'PR run',
+    }], 'project-1');
+
+    expect(out).toContain('Token Budget Exceeded');
+    expect(out).toContain('ecommerce/ecom-load-context');
+    expect(out).toContain('25,000');
+    expect(out).toContain('31,420');
+    expect(out).toContain('18,000');
+    expect(out).toContain('run-pr');
+    expect(out).toContain(c.COMMENT_MARKER);
+  });
 });

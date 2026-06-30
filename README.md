@@ -92,6 +92,10 @@ Run the [`release-bump`](.github/workflows/release-bump.yml) workflow from the *
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on adding new skills.
 
+### Eval Token Budgets
+
+Eval scenarios under `yaml/wix-manage-evals/` may define a top-level `maxTokens` value. The GitHub Actions eval gate compares that budget against the PR run's total tokens for the scenario and fails the PR check when the budget is exceeded. This gate-owned field is separate from `llm_judge.maxTokens`, which only configures the judge assertion.
+
 ## License
 
 MIT
