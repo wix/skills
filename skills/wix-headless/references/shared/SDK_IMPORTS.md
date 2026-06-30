@@ -24,6 +24,20 @@ await currentCart.addToCurrentCart({ … });   // call the module directly
 
 This list covers the common surface. If a capability needs a module not here, confirm the exact export against the **installed** package (`node -e "console.log(Object.keys(require('@wix/<pkg>')))"` or the package's `.d.ts`) before importing it. Never guess an export name or a subpath.
 
+## Shipped logic layer — pre-copied; import, never write
+
+These pure-SDK wrappers are **brand-invariant** and **shipped verbatim** — copied into the project in the build-wave pre-batch (like `wix-image.ts`/`analytics.ts`), so they are already on disk before you run. **Import them; do not author them.** Writing your own re-introduces the exact SDK-shape guesses they exist to prevent (e.g. inventing `cart`/`checkout` namespaces or a `getDiscountRules` export).
+
+| On disk | Vertical | Import as |
+|---|---|---|
+| `src/utils/categories.ts` | stores | `import * as categories from "../utils/categories"` (helpers: `listStoreCategories`, `getCategoryBySlug`, …) |
+| `src/utils/back-in-stock.ts` | stores | `import { getBackInStockEnabled } from "../utils/back-in-stock"` |
+| `src/utils/discounts.ts` | ecom | `import { fetchLiveOffers, offersForProduct } from "../utils/discounts"` |
+| `src/components/bookingDriver.ts` | bookings | `import { book, navigateToCheckout, BookResultType, type SelectedSlot } from "./bookingDriver"` |
+| `src/utils/gift-cards.ts` | gift-cards | `import { getGiftCardProduct } from "../utils/gift-cards"` |
+
+If one is missing on disk, that's an orchestrator/copy-step bug — return `status: "partial"` with `{code:"UTILITY_NOT_PRECOPIED", path:"…"}`; do **not** write your own.
+
 ## Cross-cutting (any vertical that queries/render-elevates)
 ```ts
 import { auth } from "@wix/essentials";        // auth.elevate(fn)(...) for SSR reads needing app perms
@@ -62,11 +76,11 @@ import { httpClient } from "@wix/essentials";   // runtime probe (gift-cards.ts)
 ```ts
 import { services, categoriesV2 } from "@wix/bookings";
 import { availabilityTimeSlots, eventTimeSlots } from "@wix/bookings";   // APPOINTMENT → availabilityTimeSlots; CLASS → eventTimeSlots
-import { createCart, calculateCart, placeOrder } from "@wix/auto_sdk_ecom_cart-v-2";  // the cart-v2 sequence — NO "checkout" export
 import { redirects } from "@wix/redirects";
 import { forms } from "@wix/forms";             // the booking-form schema
+import { book, navigateToCheckout } from "./bookingDriver";  // the cart-v2 sequence is SHIPPED here — import it
 ```
-- **Never** import `checkout` from `@wix/auto_sdk_ecom_cart-v-2` — it isn't exported; the sequence is `createCart → calculateCart → placeOrder` (+ `redirects` to the hosted checkout). Driver contract: `references/bookings/FLOW.md`.
+- **The cart-v2 booking sequence lives in the pre-copied `bookingDriver.ts` (shipped — do NOT write it).** Import the driver; **never import `@wix/auto_sdk_ecom_cart-v-2` directly from an island** — that's exactly where `cart`/`checkout`/`createCart` get mis-guessed (the package exports flat functions: `createCart`, `calculateCart`, `placeOrder`; no `cart`/`checkout` namespaces). See "Shipped logic layer" above + `references/bookings/FLOW.md`.
 
 ### cms
 ```ts
