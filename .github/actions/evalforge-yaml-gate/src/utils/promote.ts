@@ -1,7 +1,7 @@
 import * as core from '@actions/core';
 import { posix } from 'node:path';
 import { getSimpleConfig } from './config';
-import { EvalForgeClient, DRAFT_PREFIX, draftTagFor, uniqueRemoteScenarios } from './evalforge';
+import { EvalForgeClient, DRAFT_PREFIX, draftTagFor, uniqueRemoteScenarios, withManagedTags } from './evalforge';
 import { loadEvals, type LoadedScenario } from './evals';
 import { toScenarioBody } from './sync';
 import { deletePrMcpVersions } from './pr-cleanup';
@@ -11,7 +11,8 @@ import { workspaceRoot } from './workspace';
 export async function runPromote(): Promise<void> {
   const config = getSimpleConfig();
   const evalforge = new EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
-  const draftTag = draftTagFor(`${config.owner}/${config.repo}`, config.prNumber);
+  const repo = `${config.owner}/${config.repo}`;
+  const draftTag = draftTagFor(repo, config.prNumber);
   const workspace = workspaceRoot();
 
   // Cleanup workflow no longer fires on merged PRs — promote owns MCP version teardown.
@@ -58,9 +59,10 @@ export async function runPromote(): Promise<void> {
       continue;
     }
     try {
-      await evalforge.updateTestScenario(config.projectId, s.id, toScenarioBody(ls.scenario), ls.scenario.tags);
+      const tags = withManagedTags(ls.scenario.tags, repo);
+      await evalforge.updateTestScenario(config.projectId, s.id, toScenarioBody(ls.scenario), tags);
       promoted++;
-      core.info(`Promoted ${s.name}: tags = ${JSON.stringify(ls.scenario.tags)}`);
+      core.info(`Promoted ${s.name}: tags = ${JSON.stringify(tags)}`);
     } catch (e) {
       core.warning(`Promote failed for ${s.name}: ${e instanceof Error ? e.message : String(e)}`);
     }

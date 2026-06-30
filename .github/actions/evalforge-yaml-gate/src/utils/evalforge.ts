@@ -64,6 +64,31 @@ export function parseDraftTag(tag: string): { repo: string; prNumber: number } |
   return m ? { repo: m[1], prNumber: Number(m[2]) } : null;
 }
 
+// Tags the action stamps on every scenario it manages — they record that a scenario was authored
+// in code and which repo it came from, and (unlike draft tags) they survive promotion. Reserved:
+// authors can't set them in YAML (see schema) since the action owns them.
+export const CODE_TAG = 'created-via-code';
+export const REPO_PREFIX = 'repo:';
+
+/** Repo-origin tag for a code-managed scenario, e.g. `repo:wix/skills`. */
+export function repoTagFor(repo: string): string {
+  return `${REPO_PREFIX}${repo}`;
+}
+
+/** The managed tags stamped on every scenario authored from `repo` via code. */
+export function managedTagsFor(repo: string): string[] {
+  return [CODE_TAG, repoTagFor(repo)];
+}
+
+/** Returns `tags` with the managed code-origin tags ensured present — order-preserving and deduped. */
+export function withManagedTags(tags: string[], repo: string): string[] {
+  const result = [...tags];
+  for (const tag of managedTagsFor(repo)) {
+    if (!result.includes(tag)) result.push(tag);
+  }
+  return result;
+}
+
 export function isHttpError(e: unknown): e is HttpError {
   return e instanceof Error && typeof (e as { status?: unknown }).status === 'number';
 }
