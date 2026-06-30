@@ -157,7 +157,7 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 - [API Reference](references/ecommerce/shipping/ecom-shipping-api.md) — inline spec for Shipping Options + Delivery Profiles
 
 #### Cross-cutting tracking
-- [API: Recommendation Tracking](references/ecommerce/api-recommendation-tracking.md) — load BEFORE generating any recommendation; persists PROPOSED state and tracks MarkExecuting → MarkDone/MarkFailed.
+- [API: Recommendation Tracking](references/ecommerce/api-recommendation-tracking.md) — internal reference for recommendation persistence. Do not call a public `dev.wix.com` tracking article; use the active recommendation recipe's inline Query/BatchCreate schema before presenting recommendations, then MarkExecuting → MarkDone/MarkFailed during execution.
 
 
 </details>
