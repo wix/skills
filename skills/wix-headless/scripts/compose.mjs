@@ -212,6 +212,14 @@ const loadedPacks = Array.isArray(input.loadedPacks) ? input.loadedPacks : [];
 const packsWithComponents = Array.isArray(input.packsWithComponents) ? input.packsWithComponents : [];
 const disabledPacks = Array.isArray(input.disabledPacks) ? input.disabledPacks : [];
 
+// Full-page LLM generation (this branch): the LLM authors the entire visible
+// page — header (Navigation.astro), footer (Footer.astro), and home page
+// (index.astro). compose writes each verbatim; there are no templates for them.
+const resolveIn = (p) => { const s = typeof p === "string" ? p.trim() : ""; return s ? (isAbsolute(s) ? s : join(projectDir, s)) : null; };
+const navPath = resolveIn(input.navPath);
+const footerPath = resolveIn(input.footerPath);
+const homePath = resolveIn(input.homePath);
+
 const brandName = brand.name ?? "Brand";
 
 // ── small color helper (derivation fail-safe only) ────────────────────────────
@@ -454,27 +462,16 @@ const navItems = navLinks
   .filter((l) => l && l.href != null && l.label != null)
   .map((l) => ({ href: String(l.href), label: String(l.label) }));
 
-// ── 4. Navigation.astro ──────────────────────────────────────────────────────────
+// ── 4. Navigation.astro (LLM-generated, verbatim) ─────────────────────────────
 {
-  let out = stripAstroHeader(readTemplate("Navigation.astro"));
-  out = out.replaceAll("{{shell.navBrandMark}}", shell.navBrandMark ?? brandName);
-  const links = navItems
-    .map((l) => `        <li class="site-nav-item"><a href="${escAttr(l.href)}">${l.label}</a></li>`)
-    .join("\n");
-  out = out.replace(/^\s*\{\{nav\.links\}\}\s*$/m, links);
-  writeProject("src/components/Navigation.astro", out);
+  if (!navPath || !existsSync(navPath)) die("NO_NAV", `LLM-generated header required via navPath (none at ${navPath ?? "<unset>"})`);
+  writeProject("src/components/Navigation.astro", readFileSync(navPath, "utf8"));
 }
 
-// ── 5. Footer.astro ──────────────────────────────────────────────────────────────
+// ── 5. Footer.astro (LLM-generated, verbatim) ─────────────────────────────────
 {
-  let out = stripAstroHeader(readTemplate("Footer.astro"));
-  out = out.replaceAll("{{brand.name}}", brandName);
-  out = out.replaceAll("{{shell.footerTagline}}", shell.footerTagline ?? "");
-  const links = navItems
-    .map((l) => `        <li><a href="${escAttr(l.href)}">${l.label}</a></li>`)
-    .join("\n");
-  out = out.replace(/^\s*\{\{nav\.links\}\}\s*$/m, links);
-  writeProject("src/components/Footer.astro", out);
+  if (!footerPath || !existsSync(footerPath)) die("NO_FOOTER", `LLM-generated footer required via footerPath (none at ${footerPath ?? "<unset>"})`);
+  writeProject("src/components/Footer.astro", readFileSync(footerPath, "utf8"));
 }
 
 // ── 6. index.astro ────────────────────────────────────────────────────────────────
@@ -485,13 +482,8 @@ const HOME_CONTRIBUTING = ["stores", "bookings", "gift-cards"]; // canonical ord
 const homePool = new Set([...loadedPacks, ...disabledPacks]);
 const homeMarkerPacks = HOME_CONTRIBUTING.filter((p) => homePool.has(p));
 {
-  let out = stripAstroHeader(readTemplate("index.astro"));
-  out = out.replaceAll("{{shell.heroHeadline}}", shell.heroHeadline ?? brandName);
-  out = out.replaceAll("{{shell.heroSub}}", shell.heroSub ?? "");
-  out = out.replaceAll("{{brand.name}}", brandName);
-  const markers = homeMarkerPacks.map((p) => `  <!-- home:${p} -->`).join("\n");
-  out = out.replace(/^\s*\{\{home-markers\}\}\s*$/m, markers);
-  writeProject("src/pages/index.astro", out);
+  if (!homePath || !existsSync(homePath)) die("NO_HOME", `LLM-generated home page required via homePath (none at ${homePath ?? "<unset>"})`);
+  writeProject("src/pages/index.astro", readFileSync(homePath, "utf8"));
 }
 
 // ── manifest (the orchestrator parses this off stdout) ────────────────────────
@@ -508,6 +500,9 @@ const manifest = {
   phase: "compose",
   data: {
     filesWritten,
+    nav: "llm-generated",
+    footer: "llm-generated",
+    home: "llm-generated",
     componentCssImports: packsWithComponents,
     homeMarkers: homeMarkerPacks.map((p) => `home:${p}`),
     tokensApplied: {
