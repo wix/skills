@@ -23,11 +23,11 @@ The `pages` scope of the events vertical. Read `../../events/FLOW.md` first. Thi
 
 ## Shell chain — nav + home (serialized; this agent patches shared files)
 
-This vertical is a **shell patcher** (BUILD-astro.md § "Dispatch the wave" batch B). In addition to its private pages, it inserts at the markers `compose.mjs` left in the shell:
+This vertical is a **shell patcher** (BUILD-astro.md § "Dispatch the wave" batch B). In addition to its private pages, it inserts at the markers the composed shell exposes — wherever those shell files come from (template-composed or LLM-generated, the marker contract is the same):
 - **`src/components/Navigation.astro`** at `<!-- nav:links -->` — an **Events** link to `/events`.
 - **`src/pages/index.astro`** at `<!-- home:events -->` — a short events teaser (next event or an "Upcoming events" block linking to `/events`).
 
-Insert at the marker; never restructure the shell. These shared-file writes are why events runs in the serialized shell chain, not the concurrent batch.
+Insert at the marker; never restructure the shell. If a marker is absent (the shell was authored without it), **skip that insertion and note it** (`{code:"MARKER_MISSING", marker:"<!-- home:events -->"}`) rather than fabricating a section or restructuring the page. These shared-file writes are why events runs in the serialized shell chain, not the concurrent batch.
 
 ## Pre-return file-existence assertion
 
