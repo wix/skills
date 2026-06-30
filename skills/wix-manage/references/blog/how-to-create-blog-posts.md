@@ -157,13 +157,19 @@ The natural intuition is "the bulk endpoint reuses the single-post `{draftPost: 
 
 2. Structure rich content using Ricos JSON format. Reference [Ricos documentation](https://dev.wix.com/docs/api-reference/assets/rich-content/ricos-documents/introduction) for complete node structure. Common node types:
    - `PARAGRAPH` for text content
-   - `HEADING` for section headers
+   - `HEADING` for section headers (level 1–6)
    - `IMAGE` for embedded images (requires Wix Media ID)
    - `ORDERED_LIST` and `BULLETED_LIST` for lists
-   - `BLOCKQUOTE` for quoted text
    - `LIST_ITEM` for individual list items
+   - `BLOCKQUOTE` for quoted text
+   - `DIVIDER` for horizontal rules between sections
+   - `TABLE` for structured/tabular data
+   - `CODE_BLOCK` for preformatted code
 
-   **CRITICAL**: All TEXT nodes MUST be wrapped in PARAGRAPH nodes within their parent containers.
+   **Universal rules for every node:**
+   - **`type` is always a bare string** — `"type": "PARAGRAPH"`, never an object like `"type": { "type": "PARAGRAPH" }`.
+   - Every node carries a `type`, an optional `id`, and (for container nodes) a `nodes` array of children. Node `id`s are optional in create requests — the API generates them; the examples below omit `id` for brevity.
+   - **All TEXT nodes MUST be wrapped in a PARAGRAPH (or HEADING) node** — never placed directly inside `BLOCKQUOTE`, `LIST_ITEM`, `TABLE_CELL`, or the root `nodes` array. See the [Nesting rules](#nesting-rules-quick-reference) table below.
 
    **Correct Ricos structure example:**
 
@@ -228,6 +234,93 @@ The natural intuition is "the bulk endpoint reuses the single-post `{draftPost: 
    }
    ```
 
+   **PARAGRAPH** (the base text container). An empty paragraph — `{ "type": "PARAGRAPH" }` — acts as a vertical spacer. `paragraphData.textStyle.textAlignment` accepts `AUTO`·`LEFT`·`CENTER`·`RIGHT`·`JUSTIFY`:
+
+   ```json
+   {
+     "type": "PARAGRAPH",
+     "nodes": [
+       { "type": "TEXT", "textData": { "text": "Body copy.", "decorations": [] } }
+     ],
+     "paragraphData": { "textStyle": { "textAlignment": "AUTO" } }
+   }
+   ```
+
+   **HEADING** — same TEXT-in-container shape as PARAGRAPH, with the level (1–6) in `headingData`:
+
+   ```json
+   {
+     "type": "HEADING",
+     "nodes": [
+       { "type": "TEXT", "textData": { "text": "Section Title", "decorations": [] } }
+     ],
+     "headingData": { "level": 2, "textStyle": { "textAlignment": "AUTO" } }
+   }
+   ```
+
+   **BULLETED_LIST / ORDERED_LIST** — nesting is `LIST → LIST_ITEM → PARAGRAPH → TEXT`. Ordered lists use `orderedListData` in place of `bulletedListData`:
+
+   ```json
+   {
+     "type": "BULLETED_LIST",
+     "nodes": [
+       {
+         "type": "LIST_ITEM",
+         "nodes": [
+           {
+             "type": "PARAGRAPH",
+             "nodes": [
+               { "type": "TEXT", "textData": { "text": "First item", "decorations": [] } }
+             ]
+           }
+         ]
+       }
+     ],
+     "bulletedListData": { "indentation": 0 }
+   }
+   ```
+
+   **DIVIDER** — a standalone horizontal rule (no children). `lineStyle`: `SINGLE`·`DOUBLE`·`DASHED`·`DOTTED`; `width`: `LARGE`·`MEDIUM`·`SMALL`:
+
+   ```json
+   {
+     "type": "DIVIDER",
+     "dividerData": { "lineStyle": "SINGLE", "width": "LARGE", "alignment": "CENTER" }
+   }
+   ```
+
+   **TABLE** — nesting is `TABLE → TABLE_ROW → TABLE_CELL → PARAGRAPH → TEXT`. `tableData.dimensions.colsWidthRatio` sets relative column widths. Fill a header row or zebra-stripe body rows with `tableCellData.cellStyle.backgroundColor` (a hex string):
+
+   ```json
+   {
+     "type": "TABLE",
+     "nodes": [
+       {
+         "type": "TABLE_ROW",
+         "nodes": [
+           {
+             "type": "TABLE_CELL",
+             "tableCellData": { "cellStyle": { "verticalAlignment": "MIDDLE", "backgroundColor": "#116DFF" }, "borderColors": {} },
+             "nodes": [
+               { "type": "PARAGRAPH", "nodes": [ { "type": "TEXT", "textData": { "text": "Header A", "decorations": [] } } ] }
+             ]
+           },
+           {
+             "type": "TABLE_CELL",
+             "tableCellData": { "cellStyle": { "verticalAlignment": "MIDDLE", "backgroundColor": "#116DFF" }, "borderColors": {} },
+             "nodes": [
+               { "type": "PARAGRAPH", "nodes": [ { "type": "TEXT", "textData": { "text": "Header B", "decorations": [] } } ] }
+             ]
+           }
+         ]
+       }
+     ],
+     "tableData": { "dimensions": { "colsWidthRatio": [50, 50], "colsMinWidth": [120, 120], "rowsHeight": [47] } }
+   }
+   ```
+
+   **CODE_BLOCK** — children are TEXT nodes (one per line, or `\n`-joined): `{ "type": "CODE_BLOCK", "nodes": [ ... ], "codeBlockData": { "textStyle": { "textAlignment": "AUTO" } } }`.
+
 3. For embedded images in rich content, use IMAGE nodes with Wix Media IDs:
 
    ```json
@@ -249,7 +342,37 @@ The natural intuition is "the bulk endpoint reuses the single-post `{draftPost: 
    }
    ```
 
-4. Set `publish: true` to immediately publish the post rather than saving as draft.
+   An IMAGE may also carry an optional `CAPTION` child: `"nodes": [ { "type": "CAPTION", "nodes": [ { "type": "TEXT", "textData": { "text": "Figure 1", "decorations": [] } } ] } ]`.
+
+4. Apply inline text formatting with the `decorations` array on a TEXT node. Each decoration is an object with a `type` and (for some types) a data field:
+
+   ```json
+   {
+     "type": "TEXT",
+     "textData": {
+       "text": "Bold, colored, and linked",
+       "decorations": [
+         { "type": "BOLD", "fontWeightValue": 700 },
+         { "type": "COLOR", "colorData": { "foreground": "#116DFF" } },
+         { "type": "LINK", "linkData": { "link": { "url": "https://example.com", "target": "BLANK" } } }
+       ]
+     }
+   }
+   ```
+
+   | Decoration | Data field |
+   | ------------------------------------------ | ---------------------------------------------------------- |
+   | `BOLD`                                     | `fontWeightValue: 700`                                     |
+   | `ITALIC`                                   | `italicData: true`                                         |
+   | `UNDERLINE`                                | _(none)_                                                   |
+   | `STRIKETHROUGH`                            | `strikethroughData: true`                                  |
+   | `COLOR`                                    | `colorData: { foreground: "#hex" }` (add `background` for highlight) |
+   | `LINK`                                     | `linkData: { link: { url, target: "BLANK" } }`             |
+   | `FONT_SIZE`                                | `fontSizeData: { unit: "PX", value: 24 }`                  |
+
+   **Mixed formatting in one paragraph → split into multiple TEXT nodes** (one per style run) inside the same PARAGRAPH. A single TEXT node carries one consistent set of decorations. Use a plain hex string in `foreground` for colors.
+
+5. Set `publish: true` to immediately publish the post rather than saving as draft.
 
 ### Part 3: Handle Categories and Tags (Optional)
 
@@ -278,12 +401,25 @@ The natural intuition is "the bulk endpoint reuses the single-post `{draftPost: 
 
 ### CRITICAL RICOS JSON STRUCTURE RULES:
 
-- **NEVER place TEXT nodes directly in BLOCKQUOTE, LIST_ITEM, or other container nodes**
+- **NEVER place TEXT nodes directly in BLOCKQUOTE, LIST_ITEM, TABLE_CELL, or other container nodes**
 - **ALL TEXT nodes MUST be wrapped in PARAGRAPH nodes within their parent containers**
 - **BLOCKQUOTE nodes must contain PARAGRAPH nodes, which contain TEXT nodes**
 - **LIST_ITEM nodes must contain PARAGRAPH nodes, which contain TEXT nodes**
 - **Failure to follow proper nesting will result in parsing errors: "Expected a paragraph node but found TEXT"**
 - **Always validate Ricos structure before sending to ensure TEXT nodes are properly nested**
+
+#### Nesting rules (quick reference)
+
+| Parent | Valid children |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------- |
+| Root `nodes`                         | PARAGRAPH, HEADING, BULLETED_LIST, ORDERED_LIST, BLOCKQUOTE, DIVIDER, IMAGE, TABLE, CODE_BLOCK         |
+| PARAGRAPH / HEADING / CODE_BLOCK     | TEXT                                                                                                  |
+| BULLETED_LIST / ORDERED_LIST         | LIST_ITEM                                                                                             |
+| LIST_ITEM / BLOCKQUOTE               | PARAGRAPH (which then contains TEXT)                                                                  |
+| TABLE → TABLE_ROW → TABLE_CELL       | cell contains PARAGRAPH / HEADING / IMAGE                                                              |
+| IMAGE                                | CAPTION (optional)                                                                                    |
+
+- TEXT is a **leaf** node — it only ever lives inside PARAGRAPH, HEADING, or CODE_BLOCK; never in the root array or a structural container directly.
 
 ### Troubleshooting
 
