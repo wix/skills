@@ -129,7 +129,7 @@ export async function runGate(): Promise<void> {
   );
   if (!remote) return;
 
-  const plan = diffSyncPlan({ changedHead: changedHeadScenarios, head: headScenarios, base: baseScenarios, remote, draftTag });
+  const plan = diffSyncPlan({ changedHead: changedHeadScenarios, head: headScenarios, base: baseScenarios, remote, draftTag, repo: `${config.owner}/${config.repo}` });
   if (plan.errors.length > 0) {
     await comment(formatForeignDraftConflicts(plan.errors, { owner: config.owner, repo: config.repo }));
     fail(`Scenario(s) held by other PRs: ${plan.errors.map(e => e.name).join(', ')}`, config.blocking);

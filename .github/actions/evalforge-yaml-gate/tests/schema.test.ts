@@ -45,6 +45,12 @@ describe('parseScenario', () => {
   it('rejects rejected:* in tags', () => {
     expect(() => parseScenario(minimalYaml.replace('tags: [blog]', 'tags: [blog, "rejected:wix/skills#1"]'))).toThrow(/rejected|reserved/i);
   });
+  it('rejects repo:* in tags (action-managed code-origin tag)', () => {
+    expect(() => parseScenario(minimalYaml.replace('tags: [blog]', 'tags: [blog, "repo:wix/skills"]'))).toThrow(/repo|reserved/i);
+  });
+  it('rejects the created-via-code tag (action-managed)', () => {
+    expect(() => parseScenario(minimalYaml.replace('tags: [blog]', 'tags: [blog, "created-via-code"]'))).toThrow(/created-via-code|reserved/i);
+  });
   it('rejects empty assertions', () => {
     expect(() => parseScenario(minimalYaml.replace(/assertions:[\s\S]*$/, 'assertions: []'))).toThrow(/assertions/);
   });
