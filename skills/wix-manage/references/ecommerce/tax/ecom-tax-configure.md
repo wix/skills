@@ -1,6 +1,6 @@
 ---
 name: "Tax: Configure (Wix Manual)"
-description: Sets up tax using Wix's Manual calculator — discovers available calculators, creates tax regions with the Manual calculatorId, defines tax groups, and creates per-(region, group) rate mappings. Default recipe for the `[intent:configure]` dispatch tag. Triggers on "set up tax", "configure sales tax", "do I need to charge tax".
+description: Set up tax via Wix's Manual calculator (non-EU countries). Loaded by the [Tax dispatcher](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/tax) — see the dispatcher for country lists, trigger keywords, and routing boundaries (UK ≠ EU, Avalara → dashboard).
 ---
 
 # Configure Tax (Wix Manual)

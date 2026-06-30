@@ -1,6 +1,6 @@
 ---
 name: "Tax: Configure (EU VAT)"
-description: Wix-specific bindings for EU VAT setup — per-region `taxIncludedInPrice: true`, per-country tax regions, VAT groups + manual-tax-mappings. OSS / reverse-charge / home-country flags are DASHBOARD-ONLY (no TPA-public `tax-settings` API). Used when `region:EU` is in MerchantContext and merchant is not on Avalara.
+description: Set up EU VAT (per-country regions, tax-inclusive pricing, bulk rate mappings). Loaded by the [Tax dispatcher](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/tax) — see the dispatcher for the EU27 country list, trigger keywords, and the UK ≠ EU boundary rule.
 ---
 
 # Configure Tax (EU VAT)

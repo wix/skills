@@ -1,6 +1,6 @@
 ---
 name: "Tax: Calculation Wrong"
-description: Tax-calculation troubleshooting — always load BEFORE diagnosing any wrong / missing / unexpected tax outcome on a specific order or checkout. Per-order diagnostic only — for general "is my tax setup correct" questions, the merchant should review configuration via the Wix Dashboard.
+description: Diagnose wrong / missing tax on a specific order or checkout (per-order, NOT a site-wide audit). Loaded by the [Tax dispatcher](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/tax) — see the dispatcher for trigger keywords and the per-order vs site-wide boundary rule.
 ---
 
 # Tax Calculation Wrong
