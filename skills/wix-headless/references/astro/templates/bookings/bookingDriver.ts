@@ -1,234 +1,152 @@
-// bookingDriver.ts — the booking sequence in plain @wix SDK calls.
-// Framework-agnostic: no React, no signals, no UI. Any framework's booking step
-// imports book()/navigateToCheckout() and drives them; APPOINTMENT and CLASS
-// share the same sequence.
+// bookingDriver.ts — the framework-agnostic booking SDK sequence.
 //
-// Mechanism = ecom Cart V2 on every path: createBooking leaves the booking
-// CREATED, then the cart holds the seat — a paid service hands off to the
-// Wix-hosted checkout, a free / pay-in-person service places the order directly.
-//
-// On @wix/astro the SDK calls run ambiently (the visitor client is provided by
-// @wix/essentials, like the ecom CartView island) — no createClient/OAuthStrategy
-// needed. On an own/own-build SPA, acquire a visitor client with
-// createClient({ modules, auth: OAuthStrategy({ clientId }) }) and call the same
-// functions through it. Keep the SDK calls, payload shapes, and the sequence;
-// adapt only brand copy/styling in the UI that drives this module.
-
+// createBooking (→ CREATED) → createCart → calculateCart → isCheckoutRequired
+//   ? hosted-checkout redirect : placeOrder.
+// No confirmBooking — the ecom Cart V2 holds the seat. On astro islands the @wix
+// modules are ambient (the @wix/astro visitor client); no createClient/OAuthStrategy.
 import { bookings } from "@wix/bookings";
-import { createCart, calculateCart, placeOrder } from "@wix/auto_sdk_ecom_cart-v-2";
 import { redirects } from "@wix/redirects";
+import { createCart, calculateCart, placeOrder } from "@wix/auto_sdk_ecom_cart-v-2";
 
-// ── Constants (C:src/services/constants.ts) ────────────────────────────────
 export const BOOKING_APP_ID = "13d21c63-b5ec-5912-8397-c3a5ddb27a97";
-export const STAFF_MEMBER_RESOURCE_TYPE_ID = "1cd44cf8-756f-41c3-bd90-3e2ffcaf1155";
+export const STAFF_MEMBER_RESOURCE_TYPE_ID =
+  "1cd44cf8-756f-41c3-bd90-3e2ffcaf1155";
 
-// ── Types ───────────────────────────────────────────────────────────────────
-// FormValues = the submitted booking-form values, keyed by each field's `target`
-// (NOT hardcoded field names). The default booking form's targets are snake_case
-// `first_name`/`last_name`/`email`/`phone`; read them from the form schema and key
-// the values by `target` — never hardcode the keys here.
-export type FormValues = Record<string, unknown>;
-
-export interface SelectedSlot {
+export type SelectedSlot = {
   serviceType: "APPOINTMENT" | "CLASS";
   serviceId: string;
-  localStartDate: string; // local "YYYY-MM-DDTHH:mm:ss" (NOT UTC) — maps to slot.startDate
-  localEndDate: string; //   "                            " → slot.endDate
+  localStartDate: string;
+  localEndDate: string;
   timezone: string;
-  // APPOINTMENT:
   scheduleId?: string;
-  locationId?: string; // from slot.location._id  (the id field is `_id`, not `.id`)
-  locationType?: string; // "BUSINESS" | "CUSTOMER" | "CUSTOM"
-  // CLASS:
   eventId?: string;
-  // Resource chosen on the slot (flow 5). When absent the driver emits the
-  // ANY_RESOURCE fallback so Wix auto-assigns a bookable staff member.
+  locationId?: string;
+  locationType?: string;
+  // Set only when a specific staff was chosen; otherwise the ANY_RESOURCE fallback.
   resource?: { _id: string; name?: string };
-}
+};
 
-export interface BookParams {
-  service: any; // the @wix/bookings Service (read payment.options + bookingPolicy)
+export type BookParams = {
+  service: any;
   slot: SelectedSlot;
-  formSubmission: FormValues; // values from the @wix/forms Form, keyed by target
+  formSubmission: Record<string, unknown>;
   timezone: string;
-  totalParticipants?: number;
-  /** consumer override; when omitted, derived from service.payment.options */
-  selectedPaymentOption?: "ONLINE" | "OFFLINE";
+};
+
+export enum BookResultType {
+  CheckoutRequired = "CheckoutRequired",
+  CheckoutSkipped = "CheckoutSkipped",
 }
 
-export const BookResultType = {
-  CheckoutRequired: "checkout_required",
-  CheckoutSkipped: "checkout_skipped",
-} as const;
 export type BookResult =
-  | { type: typeof BookResultType.CheckoutRequired; cartId: string }
-  | { type: typeof BookResultType.CheckoutSkipped; orderId: string };
+  | { type: BookResultType.CheckoutRequired; cartId: string }
+  | { type: BookResultType.CheckoutSkipped; orderId?: string };
 
-// ── Payment derivation ───────────────────────────────────────────────────────
-function deriveSelectedPaymentOption(service: any): "ONLINE" | "OFFLINE" {
-  const options = service?.payment?.options;
-  if (options?.online && !options?.inPerson) return "ONLINE";
-  if (!options?.online && options?.inPerson) return "OFFLINE";
-  return "ONLINE"; // both / neither → ONLINE (consumer override wins, see below)
-}
-
-// LocationType maps from the availability slot's type → the booking endpoint enum.
-function mapLocationType(slotType?: string): string {
-  switch (slotType) {
-    case "BUSINESS":
-      return "OWNER_BUSINESS";
-    case "CUSTOMER":
-      return "CUSTOM";
-    case "CUSTOM":
-      return "OWNER_CUSTOM";
-    default:
-      return "OWNER_BUSINESS";
+function buildBookedSlot(slot: SelectedSlot) {
+  if (slot.serviceType === "CLASS") {
+    return {
+      serviceId: slot.serviceId,
+      eventId: slot.eventId,
+      timezone: slot.timezone,
+    };
   }
-}
-
-// ── buildBookingRequest ───────────────────────────────────────────────────────
-function buildBookingRequest(params: BookParams) {
-  const { service, slot, formSubmission, timezone } = params;
-  const resource = slot.resource; // prefer the slot's chosen resource when present
-
-  return {
-    booking: {
-      // Consumer override wins over the service-config heuristic.
-      selectedPaymentOption:
-        params.selectedPaymentOption ?? deriveSelectedPaymentOption(service),
-      totalParticipants: params.totalParticipants || 1,
-      bookedEntity: {
-        slot: {
-          serviceId: slot.serviceId,
-          // APPOINTMENT carries scheduleId; CLASS carries eventId (Wix derives the rest).
-          scheduleId: slot.scheduleId ?? undefined,
-          startDate: slot.localStartDate,
-          endDate: slot.localEndDate,
-          timezone,
-          eventId: slot.eventId ?? undefined,
-          // Resource: use the chosen one, else the ANY_RESOURCE fallback so Wix
-          // auto-assigns a bookable staff member. Appointment availability slots
-          // return availableResources:[] yet book fine via ANY_RESOURCE.
-          ...(resource
-            ? { resource: { _id: resource._id, name: resource.name } }
-            : {
-                resourceSelections: [
-                  {
-                    resourceTypeId: STAFF_MEMBER_RESOURCE_TYPE_ID,
-                    selectionMethod: "ANY_RESOURCE",
-                  },
-                ],
-              }),
-          location:
-            slot.locationId || slot.locationType
-              ? {
-                  ...(slot.locationId ? { _id: slot.locationId } : {}),
-                  locationType: mapLocationType(slot.locationType),
-                }
-              : { locationType: "OWNER_BUSINESS" },
+  // A specific staff choice books that resource; otherwise the ANY_RESOURCE
+  // fallback lets Wix auto-assign a bookable staff resource.
+  const resourceSelections = slot.resource
+    ? [
+        {
+          resourceTypeId: STAFF_MEMBER_RESOURCE_TYPE_ID,
+          selectionMethod: "SELECTED_RESOURCES",
+          resources: [{ resourceId: slot.resource._id }],
         },
-      },
-    },
-    participantNotification: {
-      metadata: { channels: "EMAIL,SMS" },
-      notifyParticipants: true,
-    },
-    sendSmsReminder: true,
-    formSubmission,
-  };
-}
-
-// ── buildCartRequest ──────────────────────────────────────────────────────────
-function buildCartRequest(args: {
-  bookingIds: string[];
-  contactDetails?: any;
-  businessLocationId?: string | null;
-}) {
-  const cart: any = { source: { channelType: "WEB" } };
-  if (args.businessLocationId)
-    cart.businessInfo = { locationId: args.businessLocationId };
-  if (args.contactDetails) {
-    cart.customerInfo = args.contactDetails.email
-      ? { email: args.contactDetails.email }
-      : {};
-    if (args.contactDetails.fullAddress?.country) {
-      cart.deliveryInfo = { address: { ...args.contactDetails.fullAddress } };
-      cart.paymentInfo = {
-        billingAddress: { ...args.contactDetails.fullAddress },
-      };
-    }
-  }
+      ]
+    : [
+        {
+          resourceTypeId: STAFF_MEMBER_RESOURCE_TYPE_ID,
+          selectionMethod: "ANY_RESOURCE",
+        },
+      ];
   return {
-    catalogItems: args.bookingIds.map((id) => ({
-      quantity: 1,
-      catalogReference: { catalogItemId: id, appId: BOOKING_APP_ID },
-    })),
-    cart,
+    serviceId: slot.serviceId,
+    scheduleId: slot.scheduleId,
+    startDate: slot.localStartDate,
+    endDate: slot.localEndDate,
+    timezone: slot.timezone,
+    resourceSelections,
+    location: slot.locationId
+      ? { _id: slot.locationId, locationType: slot.locationType ?? "OWNER_BUSINESS" }
+      : { locationType: "OWNER_BUSINESS" },
   };
 }
 
-// ── isCheckoutRequired ────────────────────────────────────────────────────────
-function isCheckoutRequired(cart: any, summary: any, service: any): boolean {
-  if (service?.bookingPolicy?.cancellationFeePolicy?.enabled) return true;
-  const total = Number(summary?.priceSummary?.total?.amount ?? 0);
-  if (total === 0) return false;
-  if (cart?.lineItems?.[0]?.paymentConfig?.paymentOption === "FULL_PAYMENT_OFFLINE")
-    return false;
-  return true;
+// Derive the payment option from the service — never hardcode ONLINE. A free /
+// pay-in-person service booked ONLINE is rejected by the cart with
+// INSUFFICIENT_INVENTORY (it is the only kind that reaches placeOrder).
+function derivePaymentOption(service: any): "ONLINE" | "OFFLINE" {
+  const o = service?.payment?.options;
+  if (o?.online && !o?.inPerson) return "ONLINE";
+  if (!o?.online && o?.inPerson) return "OFFLINE";
+  return "ONLINE";
 }
 
-// ── canBook ───────────────────────────────────────────────────────────────────
-function canBook(params: BookParams): boolean {
-  const slotOk =
-    !!params.slot &&
-    !!params.slot.localStartDate &&
-    (params.slot.serviceType === "CLASS"
-      ? !!params.slot.eventId
-      : !!params.slot.scheduleId);
-  return slotOk && params.formSubmission != null;
-}
-
-// ── book — the full sequence ──────────────────────────────────────────────────
 export async function book(params: BookParams): Promise<BookResult> {
-  if (!canBook(params))
-    throw new Error("Cannot book: missing slot or form submission");
+  const { service, slot, formSubmission } = params;
+  const selectedPaymentOption = derivePaymentOption(service);
 
-  // 1. createBooking → CREATED (the cart holds the seat)
-  const req = buildBookingRequest(params);
-  const created = await bookings.createBooking(req.booking as any, {
-    participantNotification: req.participantNotification,
-    sendSmsReminder: req.sendSmsReminder,
-    formSubmission: req.formSubmission as any,
-  });
-  const bookingId = created?.booking?._id;
-  if (!bookingId) throw new Error("Failed to create booking");
-  const contactDetails = created?.booking?.contactDetails;
-
-  // 2. createCart — one catalog item per booking id (channel WEB, bookings appId)
-  const businessLocationId = params.slot.locationId ?? undefined;
-  const cart = await createCart(
-    buildCartRequest({ bookingIds: [bookingId], contactDetails, businessLocationId }),
+  // 1. createBooking → CREATED. The slot nests under bookedEntity; the
+  //    formSubmission goes in the options arg (keyed by each field's target).
+  const { booking } = await bookings.createBooking(
+    {
+      selectedPaymentOption,
+      totalParticipants: 1,
+      bookedEntity: { slot: buildBookedSlot(slot) },
+    } as any,
+    { formSubmission, sendSmsReminder: true } as any,
   );
-  const cartId = cart?._id;
-  if (!cartId) throw new Error("Failed to create cart");
 
-  // 3. calculateCart → totals (not stored on the Cart V2 entity)
-  const { cart: calculatedCart, summary } = await calculateCart(cartId);
-  if (!calculatedCart || !summary) throw new Error("Failed to calculate cart");
+  if (!booking?._id) throw new Error("Booking was not created");
 
-  // 4. checkout required? → redirect (paid) ; else placeOrder (free/offline)
-  if (isCheckoutRequired(calculatedCart, summary, params.service)) {
+  // 2. createCart — one catalog item per bookingId, appId = BOOKING_APP_ID, WEB.
+  const cart = await createCart({
+    catalogItems: [
+      {
+        quantity: 1,
+        catalogReference: { catalogItemId: booking._id, appId: BOOKING_APP_ID },
+      },
+    ],
+    cart: { source: { channelType: "WEB" } },
+  } as any);
+
+  const cartId = cart?._id as string;
+  if (!cartId) throw new Error("Cart was not created");
+
+  // 3. calculateCart → { cart, summary }. Totals at summary.priceSummary.total.amount.
+  const { cart: calc, summary } = await calculateCart(cartId);
+
+  const total = Number((summary as any)?.priceSummary?.total?.amount ?? 0);
+  const offlinePayment =
+    (calc as any)?.lineItems?.[0]?.paymentConfig?.paymentOption ===
+    "FULL_PAYMENT_OFFLINE";
+  const cancellationFee =
+    service?.bookingPolicy?.cancellationFeePolicy?.enabled === true;
+
+  // 4. Checkout decision: cancellation fee → checkout (card on file); zero total
+  //    → place; offline → place; else checkout.
+  const checkoutRequired = cancellationFee
+    ? true
+    : total === 0
+      ? false
+      : !offlinePayment;
+
+  if (checkoutRequired) {
     return { type: BookResultType.CheckoutRequired, cartId };
   }
-  const order = await placeOrder(cartId);
-  const orderId = order?.orderId;
-  if (!orderId) throw new Error("Failed to place order");
-  return { type: BookResultType.CheckoutSkipped, orderId };
+
+  const placed = await placeOrder(cartId);
+  return { type: BookResultType.CheckoutSkipped, orderId: placed?.orderId };
 }
 
-// ── navigateToCheckout ────────────────────────────────────────────────────────
-// Paid services: hand the cart to the Wix-hosted ecom checkout. Same shape on
-// every path — ecomCheckout.checkoutId = the cartId.
+// Hand the cart to the Wix-hosted ecom checkout and redirect.
 export async function navigateToCheckout(
   cartId: string,
   postFlowUrl: string,
@@ -236,10 +154,7 @@ export async function navigateToCheckout(
   const { redirectSession } = await redirects.createRedirectSession({
     ecomCheckout: { checkoutId: cartId },
     callbacks: { postFlowUrl },
-  });
-  if (redirectSession?.fullUrl) {
-    window.location.href = redirectSession.fullUrl;
-  } else {
-    throw new Error("Failed to create redirect session");
-  }
+  } as any);
+  const url = redirectSession?.fullUrl;
+  if (url) window.location.href = url;
 }

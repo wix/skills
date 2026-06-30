@@ -24,30 +24,20 @@ are React (the astro islands use them directly). For an own/static build, the wi
 | `components` | Components — the client islands (week calendar, schema-driven form, the flow coordinator) | `./FLOW.md` + `../astro/bookings/COMPONENTS.md` |
 | `pages` | Pages — `/services` listing, `/services/[slug]` detail, `/booking-confirmation`, + nav/home links | `./FLOW.md` + `../astro/bookings/SERVICES_PAGES.md` |
 
-## Templates — read and adapt (don't invent)
+## Files to write
 
-Canonical examples live at `<SKILL_ROOT>/references/astro/templates/bookings/`.
-Your `components` and `pages` scopes **read these and adapt them** — adapt brand
-copy, headings, and styling; keep the SDK calls, payload shapes, and the data
-flow (re-authoring the SDK wiring from scratch is the main source of API-shape bugs).
+The `components` scope writes (CSS first, then TSX):
+- `src/styles/components-bookings.css` — scoped CSS for bookings contract classes (`.service-card*`, `.service-grid`, `.availability-*`, `.time-slot*`, `.booking-*`). First line must be `@reference "./global.css";`. Read `.wix/design-tokens.css` for the token vocabulary.
+- `src/components/bookingDriver.ts` — the booking SDK sequence (`book()`, `navigateToCheckout()`). See `../astro/bookings/COMPONENTS.md` for the exact API shape.
+- `src/components/SeoTags.astro` — renders `service.seoData.tags`; imported by `services/[slug].astro`.
+- `src/components/AvailabilityCalendar.tsx` — the week calendar (week strip → the day's slots; APPOINTMENT via `availabilityTimeSlots`, CLASS via `eventTimeSlots`). See `../astro/bookings/COMPONENTS.md`.
+- `src/components/BookingForm.tsx` — schema-driven form (renders `@wix/forms` field list, keys values by `target`) that drives `bookingDriver.book()`.
+- `src/components/ServiceBookingFlow.tsx` — coordinator island (holds selected slot; calendar → form → redirect).
 
-Components (`components` scope — TSX only, no CSS):
-- `<SKILL_ROOT>/references/astro/templates/bookings/AvailabilityCalendar.tsx` — the week calendar (week strip → the day's slots; APPOINTMENT via `availabilityTimeSlots`, CLASS via `eventTimeSlots`).
-- `<SKILL_ROOT>/references/astro/templates/bookings/BookingForm.tsx` — the schema-driven form (renders the `@wix/forms` field list, keys values by `target`) that drives `bookingDriver.book()`.
-- `<SKILL_ROOT>/references/astro/templates/bookings/ServiceBookingFlow.tsx` — the coordinator island (holds the selected slot; calendar → form → redirect).
-
-Pages (`pages` scope):
-- `<SKILL_ROOT>/references/astro/templates/bookings/ServiceCard.astro`
-- `<SKILL_ROOT>/references/astro/templates/bookings/services/index.astro`, `<SKILL_ROOT>/references/astro/templates/bookings/services/[slug].astro`
-- `<SKILL_ROOT>/references/astro/templates/bookings/booking-confirmation.astro`
-
-### Pre-copied by the orchestrator (do NOT write these yourself)
-Mechanical, brand-agnostic — the orchestrator copies them before dispatch (BUILD-astro.md § build wave). Rely on them at the listed paths:
-- `src/components/bookingDriver.ts` ← `<SKILL_ROOT>/references/astro/templates/bookings/bookingDriver.ts` — the booking SDK sequence (`book()`, `navigateToCheckout()`). The islands import it; never re-author it.
-- `src/components/SeoTags.astro` ← `<SKILL_ROOT>/references/astro/templates/bookings/SeoTags.astro` — renders `service.seoData.tags`; imported by `services/[slug].astro`.
-- `src/styles/components-bookings.css` ← `<SKILL_ROOT>/references/astro/templates/bookings/components-bookings.css` — the flow's component classes.
-
-If a pre-copied file is missing at runtime, that's an orchestrator-side bug — return `status: "partial"` with `errors: [{code: "UTILITY_TEMPLATE_NOT_PRECOPIED", path: "<missing>"}]`; do not author your own version.
+The `pages` scope writes:
+- `src/components/ServiceCard.astro`
+- `src/pages/services/index.astro`, `src/pages/services/[slug].astro`
+- `src/pages/booking-confirmation.astro`
 
 ## Pre-return file-existence assertion (pages scope)
 
@@ -65,7 +55,7 @@ If any declared file is missing, return `status: "partial"` with `errors: [{ cod
 
 ## CSS ownership — bookings pack
 
-Bookings-specific CSS lives in `src/styles/components-bookings.css` (pre-copied — see above), NOT in `global.css`. Classes the pack owns: `.service-card*`, `.service-grid`, `.availability-*`, `.time-slot*`, `.booking-*`. If `global.css` ships a partial rule for any of these, flag it (`{code:"GLOBAL_CSS_LEAK", class:"<name>"}`) and override in `components-bookings.css`.
+Bookings-specific CSS lives in `src/styles/components-bookings.css` (written by the `components` scope), NOT in `global.css`. Classes the pack owns: `.service-card*`, `.service-grid`, `.availability-*`, `.time-slot*`, `.booking-*`. If `global.css` ships a partial rule for any of these, flag it (`{code:"GLOBAL_CSS_LEAK", class:"<name>"}`) and override in `components-bookings.css`.
 
 ## Bookings-specific failure modes
 

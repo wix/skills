@@ -1,6 +1,6 @@
 # Phase 3 Components — Back in Stock (Stores)
 
-The stores `components` scope writes the TSX/util files; the CSS rules ship in the **pre-copied** `components-stores.css` template (no agent authors them). The matching page wiring lives in `PRODUCT_PAGES.md` (SSR probe import + new props on `<ProductPurchase>`). Both the components and that page wiring run inside the **same stores merged build agent** (the build wave), components first.
+The stores `components` scope writes the TSX/util files; the CSS rules ship in `components-stores.css` (written by the `components` scope as its first file — see `./COMPONENTS_CSS.md`). The matching page wiring lives in `PRODUCT_PAGES.md` (SSR probe import + new props on `<ProductPurchase>`). Both the components and that page wiring run inside the **same stores merged build agent** (the build wave), components first.
 
 ## Scope
 
@@ -9,13 +9,10 @@ Files written for back-in-stock, by scope:
 **`components` scope** (see `./SHARED_WIRING.md`):
 - `src/components/BackInStockForm.tsx` — React island that posts via `@wix/ecom`'s `backInStockNotifications.createBackInStockNotificationRequest`
 
-**Pre-copied by the orchestrator** (do NOT author — same treatment as `categories.ts`):
-- `src/utils/back-in-stock.ts` — SSR-elevated probe of the Wix back-in-stock service, plus the canonical Stores app id constant. Pre-copied into the project in the build-wave pre-batch (BUILD-astro.md § "Step 4.5"). **Import** `getBackInStockEnabled`/the app-id constants from `../utils/back-in-stock`; never `Write` it yourself (racing the pre-copy trips the harness staleness guard).
+**Also written by the `components` scope** (write before the TSX islands that import it):
+- `src/utils/back-in-stock.ts` — SSR-elevated probe of the Wix back-in-stock service, plus the canonical Stores app id constant. Write this before the TSX islands. **Import** `getBackInStockEnabled`/the app-id constants from `../utils/back-in-stock` in the form island and the `[slug].astro` probe.
 
-**`components-css` scope** (see `./COMPONENTS_CSS.md`):
-- `src/styles/components-stores.css` — appends the back-in-stock form CSS rules at the end of the file (see § 3 below)
-
-This file is read by both scopes. Sections covering the SDK / probe / form island are for the `components` scope; § 3 (CSS append) is for the `components-css` scope.
+The scoped CSS (back-in-stock form rules) is part of `src/styles/components-stores.css` (see `./COMPONENTS_CSS.md` — write it first, then append the back-in-stock rules at the end).
 
 ## Critical rules
 
@@ -37,19 +34,11 @@ These come from live trials on Catalog-V3 sites. Encode them verbatim — none o
 
 5. **Module-memoize the probe.** `getBackInStockEnabled()` holds one in-flight `Promise<boolean>` at module scope so multiple SSR awaits in the same request coalesce. Same pattern as `gift-cards.ts`'s `getGiftCardProduct()`.
 
-## Template files
+## Implementation
 
-This scope uses **template files** instead of inline code. For each file below:
+### 1. `src/utils/back-in-stock.ts` — write this first
 
-1. Read the template from `<Agent location>/templates/<path>`
-2. Write it to the project at the target path
-3. Adapt CSS class names if the design tokens map them differently
-
-Do NOT modify logic, imports, the bare-fields request shape, or the app-id constants.
-
-### 1. `src/utils/back-in-stock.ts` — pre-copied, not owned by this scope
-
-> Pre-copied by the orchestrator in the build-wave pre-batch (BUILD-astro.md § "Step 4.5") — same treatment as `categories.ts`. **Import** from `../utils/back-in-stock`; do NOT write it yourself. The exports below are documented here so callers (the form island, the `[slug].astro` probe) know the surface.
+Write this file before the form island that imports it. The interface is:
 
 Exports:
 - `WIX_STORES_BACK_IN_STOCK_APP_ID` — string constant. Use this for the `catalogReference.appId` in the form.
@@ -57,11 +46,9 @@ Exports:
 - `getBackInStockEnabled(): Promise<boolean>` — memoized SSR probe.
 - `SETTINGS_URL` — the `getSettings` REST URL, exported in case future scopes need it.
 
-The probe header comment block documents the app-id discrepancy in detail. Keep that block intact when copying — it's the only place the next maintainer will see the rationale.
+The probe header comment block documents the app-id discrepancy in detail — include it when writing the file.
 
 ### 2. `src/components/BackInStockForm.tsx`
-
-Use template `templates/BackInStockForm.tsx`.
 
 Props: `{ productId, variantId?, productName, productPrice: number | string, variantLabel? }`. The form accepts price as either a number or a numeric string and normalizes internally.
 

@@ -1,23 +1,23 @@
 # Phase 3 Components — Stores (TSX/Astro)
 
-This is the **components** portion of the stores **merged build agent** (the build wave — `BUILD-astro.md` § "Step 4.5"). Your agent writes these islands **first**, then the stores pages (`pages-categories`, `pages-products`) that mount them — so the islands are on disk before the page code references them. The code here depends on the **design tokens** (read from `.wix/design-tokens.css` on disk) but NOT on page markup.
+This is the **components** portion of the stores **merged build agent** (the build wave — `BUILD-astro.md` § "Step 4.5"). Your agent writes these files **first** (CSS → util → islands), then the stores pages (`pages-categories`, `pages-products`) that mount them — so everything is on disk before the page code references it. The code here depends on the **design tokens** (read from `.wix/design-tokens.css` on disk) but NOT on page markup.
 
-> **CSS is pre-copied, not authored.** `src/styles/components-stores.css` ships from the skill template, copied by the orchestrator in the build-wave pre-batch (see `./COMPONENTS_CSS.md`). This scope does NOT write the CSS file. Reference its contract class names from the design tokens here; the pre-copied stylesheet defines the rules.
+**Write in this order:** `components-stores.css` → `back-in-stock.ts` → `SeoTags.astro` → TSX islands. See `./COMPONENTS_CSS.md` for the CSS contract and `./BACK_IN_STOCK.md` for the probe util spec.
 
 ## Scope
 
 Files this agent OWNS (creates fresh, no designer output to read):
 
+- `src/styles/components-stores.css` — scoped CSS for all stores contract classes + back-in-stock form. Write first; see `./COMPONENTS_CSS.md`.
+- `src/utils/back-in-stock.ts` — SSR probe util. Write before the TSX islands that import it; see `./BACK_IN_STOCK.md`.
 - `src/components/SeoTags.astro` — Renders `product.seoData.tags` into `<head>`
 - `src/components/AddToCartButton.tsx` — React island; optimistic add-to-cart
 - `src/components/ProductPurchase.tsx` — React island; option selectors + variant resolution + wraps AddToCartButton
 - `src/components/BackInStockForm.tsx` — React island; back-in-stock subscription form
 
 Files this agent MUST NOT touch:
-- `src/styles/components-stores.css` — owned by the **`components-css`** sibling scope (see `./COMPONENTS_CSS.md`). Reference its class names; do not write the file.
 - `src/utils/wix-image.ts` — **shared utility shipped by the build skill.** Import `resolveWixImageUrl` from `../utils/wix-image`; do NOT write your own copy (would shadow the shared util and drop other verticals' callers). The canonical source lives at `<SKILL_ROOT>/shared-utilities/wix-image.ts`; it's copied into projects by `seed-utilities.sh` during Setup.
 - `src/components/CartView.tsx`, `src/components/CartBadge.tsx`, `src/utils/analytics.ts`, `src/styles/components-ecom.css` — owned by ecom
-- `src/utils/back-in-stock.ts` — **pre-copied by the orchestrator** in the build-wave pre-batch (BUILD-astro.md § "Step 4.5"), same as `categories.ts`. Import `getBackInStockEnabled`/the app-id constants from `../utils/back-in-stock`; never `Write` it (see `./BACK_IN_STOCK.md`).
 - Any `.astro` page — written by your agent's `pages-*` scopes (after the islands) or by another vertical
 - `src/styles/global.css` — owned by designer foundation
 - `src/layouts/Layout.astro` — owned by designer foundation (including the `components-stores.css` import line)
@@ -37,23 +37,17 @@ Reference the ACTUAL class names from the contract in React components (e.g. `cl
 4. **Use brand-token Tailwind utilities on React islands** (e.g., `bg-bark`, `text-cream`), never default Tailwind colors (`bg-green-50`, `text-red-600`). See IMPLEMENTER.md § "Contract class-name adaptation" for the class-name rule itself.
 5. **Analytics is fire-and-forget** — see `references/shared/IMPLEMENTER.md` § "Fire-and-forget analytics".
 
-## Template files
-
-This scope uses **template files** instead of inline code. For each file below:
-
-1. Read the template from `<Agent location>/templates/<filename>`
-2. Write it to the project at the target path
-3. Adapt CSS class names if the design tokens maps them differently than the defaults
-
-Do NOT modify logic, imports, or component structure.
-
 ## Implementation
 
-### 1. `src/styles/components-stores.css` — not owned by this scope
+### 1. `src/styles/components-stores.css` — write this first
 
-> Owned by the **`components-css`** sibling scope. See `./COMPONENTS_CSS.md`. Reference the contract class names from the design tokens in your TSX/Astro files; the CSS sibling defines the rules.
+See `./COMPONENTS_CSS.md` for the full contract. Write before any TSX that references its class names.
 
-### 2. `src/utils/analytics.ts` — not owned by this scope
+### 2. `src/utils/back-in-stock.ts` — write before the form island
+
+See `./BACK_IN_STOCK.md` for the full spec and exports.
+
+### 3. `src/utils/analytics.ts` — not owned by this scope
 
 > Import from it (`import { trackEvent } from "../utils/analytics"`) but do not write it. Shipped by the build skill as a seeded shared utility.
 
@@ -63,19 +57,15 @@ Do NOT modify logic, imports, or component structure.
 
 ### 4. `src/components/SeoTags.astro`
 
-Use template `templates/SeoTags.astro`.
-
 Renders merchant-edited SEO from the Wix dashboard into `<head>`. Mounted on the product detail page (by `product-pages` scope) via `Layout`'s `head` slot.
 
 `product.seoData` is returned by default from `getProductBySlug` — no `fields` flag needed.
 
 ### 5. `src/components/AddToCartButton.tsx`
 
-Use template `templates/AddToCartButton.tsx`.
-
 Optimistic add-to-cart button. Shows "Added ✓" immediately; fires API in background; reverts on failure. Dispatches `cart-updated` events so CartBadge can update badge count instantly.
 
-Uses `@wix/ecom` `currentCart.addToCurrentCart`. `WIX_STORES_APP_ID` is the Stores appDefId constant (`215238eb-22a5-4c36-9e7b-e7c08025e04e`) used in `catalogReference.appId`.
+Uses `@wix/ecom` `currentCart.addToCurrentCart`. Import the module and call it directly — `import { currentCart } from "@wix/ecom";` then `await currentCart.addToCurrentCart({ … })`. There is no client object: do **not** use `getWixClient` / `@wix/astro/client` / `client.use(...)` (they don't exist here — see `IMPLEMENTER.md` § "SDK access — call the module directly"). `WIX_STORES_APP_ID` is the Stores appDefId constant (`215238eb-22a5-4c36-9e7b-e7c08025e04e`) used in `catalogReference.appId`.
 
 **Modifier support** — accepts pre-flattened `modifierChoices` and `customTextFields` from ProductPurchase and merges them into `catalogReference.options` per the Wix Stores Catalog V3 contract. ProductPurchase owns the flattening; this component just passes them through.
 
@@ -86,8 +76,6 @@ Class from contract: `addToCartButton` → `"add-to-cart-btn"`.
 > Do not write this file. AddToCartButton dispatches `cart-updated` CustomEvents that CartBadge (owned by ecom) listens for.
 
 ### 7. `src/components/ProductPurchase.tsx`
-
-Use template `templates/ProductPurchase.tsx`.
 
 Handles variant selection, quantity selector, stock awareness, and wraps `AddToCartButton`. Mounted on product detail pages (by `product-pages` scope) as:
 
@@ -109,7 +97,7 @@ Classes from contract (stores pack):
 
 - **Global** (CSS in foundation's `global.css`):
   - `productPurchase` → `"product-purchase"` (outer wrapper — use on the root `<div>`)
-- **Scoped** (CSS in `components-stores.css`, owned by the `components-css` sibling scope — see `./COMPONENTS_CSS.md`):
+- **Scoped** (CSS in `components-stores.css`, written by this scope — see `./COMPONENTS_CSS.md`):
   - `optionGroup` → `"option-group"`
   - `optionLabel` → `"option-label"`
   - `optionChoices` → `"option-choices"`
@@ -132,7 +120,7 @@ Classes from contract (stores pack):
   "status": "complete",
   "phase": "stores-components",
   "scope": "components",
-  "summary": "Wrote React islands and Astro components from templates (CSS handled by components-css sibling)",
+  "summary": "Wrote components-stores.css, back-in-stock probe util, and React islands",
   "data": {
     "islands": ["ProductPurchase.tsx", "AddToCartButton.tsx", "BackInStockForm.tsx"],
     "astroComponents": ["SeoTags.astro"],
@@ -140,6 +128,8 @@ Classes from contract (stores pack):
     "scopedContractClassesReferenced": ["optionGroup", "optionLabel", "optionChoices", "optionPill", "stockStatus", "quantitySelector", "quantityBtn", "quantityValue"]
   },
   "files": [
+    "src/styles/components-stores.css",
+    "src/utils/back-in-stock.ts",
     "src/components/SeoTags.astro",
     "src/components/AddToCartButton.tsx",
     "src/components/ProductPurchase.tsx",

@@ -1,155 +1,160 @@
-// Wix Stores Categories — visible, in-use categories under the @wix/stores
-// tree. Drops the auto-provisioned "All Products" root and any category
-// with zero items so the storefront only surfaces curator-meaningful
-// buckets. Returns [] on any failure so consumers can render gracefully.
-//
-// Only one category-tree is in scope here: @wix/stores. Sites with multiple
-// stores trees (B2B, marketplaces) should pass an explicit treeKey.
+/**
+ * TTL-cached Wix Stores category helpers.
+ *
+ * Uses `@wix/auto_sdk_categories_categories` (already on disk via transitive deps)
+ * — NOT `@wix/categories` (importing the published name triggers a fresh install).
+ *
+ * Module-level 5-min cache is opportunistic and safe under the Cloudflare-style
+ * fetch adapter (each worker isolate is single-tenant). Errors are not cached.
+ */
 
-// The official `@wix/categories` package re-exports these functions; the
-// auto_sdk module is already on disk via every other @wix/* package's
-// transitive deps, so no extra `npm install` is needed.
 import * as categories from "@wix/auto_sdk_categories_categories";
 import { productsV3 } from "@wix/stores";
 
-const STORES_NAMESPACE = "@wix/stores";
-const STORES_APP_ID = "215238eb-22a5-4c36-9e7b-e7c08025e04e";
+// Wix Stores install/catalog app id — the same id Wix Stores writes to its
+// products and the value used for cart ops + Phase 1 seed. NOT the back-in-stock
+// id (1380b703-…).
+export const STORES_APP_ID = "215238eb-22a5-4c36-9e7b-e7c08025e04e";
+
 const ALL_PRODUCTS_HANDLE = "online_stores_all_products";
-
-// Module-level TTL cache — opportunistic across requests on warm worker
-// isolates, harmless on cold starts. Categories rarely change; 5 min is fine.
-// Errors are NOT cached so a transient failure doesn't lock out the listing.
-const CATEGORIES_TTL_MS = 5 * 60 * 1000;
-let categoriesCache: { at: number; data: StoreCategory[]; bySlug: Map<string, StoreCategory> } | null = null;
-let inflightCategories: Promise<StoreCategory[]> | null = null;
-
-// Per-category product-ID list — cached under the same TTL so the
-// 2-call listProductsInCategory pipeline doesn't re-fetch IDs on every page.
-const categoryItemIdsCache = new Map<string, { at: number; ids: string[] }>();
+const TTL_MS = 5 * 60 * 1000;
+const PAGE_SIZE = 24;
 
 export interface StoreCategory {
-  id: string;
+  _id: string;
   name: string;
   slug: string;
-  description?: string;
-  itemCounter: number;
-  imageUrl?: string;
+  itemCount: number;
 }
 
-function toStoreCategory(c: any): StoreCategory | null {
-  if (!c?._id || !c?.slug || !c?.name) return null;
+interface CacheEntry<T> {
+  value: T;
+  expires: number;
+}
+
+const categoriesCache = new Map<string, CacheEntry<any>>();
+
+function readCache<T>(key: string): T | undefined {
+  const hit = categoriesCache.get(key);
+  if (hit && hit.expires > Date.now()) return hit.value as T;
+  if (hit) categoriesCache.delete(key);
+  return undefined;
+}
+
+function writeCache<T>(key: string, value: T): T {
+  categoriesCache.set(key, { value, expires: Date.now() + TTL_MS });
+  return value;
+}
+
+function toStoreCategory(c: any): StoreCategory {
   return {
-    id: c._id,
-    name: c.name,
-    slug: c.slug,
-    description: c.description ?? undefined,
-    itemCounter: typeof c.itemCounter === "number" ? c.itemCounter : 0,
-    imageUrl: c.image?.url ?? undefined,
+    _id: c._id ?? c.id ?? "",
+    name: c.name ?? "",
+    slug: c.slug ?? "",
+    itemCount: c.itemCount ?? c.itemCounter ?? 0,
   };
 }
 
-async function fetchCategories(): Promise<StoreCategory[]> {
-  // The SDK builder rejects empty filter expressions with INVALID_FILTER.
-  // `.eq("visible", true)` is the constraint we want anyway and satisfies
-  // the validator.
-  const res = await categories
-    .queryCategories({
-      treeReference: { appNamespace: STORES_NAMESPACE },
-    })
-    .eq("visible", true)
-    .ascending("name")
-    .limit(100)
-    .find();
-  return (res.items ?? [])
-    .filter((c: any) => c?.handle !== ALL_PRODUCTS_HANDLE)
-    .filter((c: any) => typeof c?.itemCounter === "number" && c.itemCounter > 0)
-    .map(toStoreCategory)
-    .filter((c): c is StoreCategory => c !== null);
-}
-
+/**
+ * Visible, non-empty categories, excluding the auto-managed "All Products"
+ * bucket. 5-min cache.
+ */
 export async function listStoreCategories(): Promise<StoreCategory[]> {
-  if (categoriesCache && Date.now() - categoriesCache.at < CATEGORIES_TTL_MS) {
-    return categoriesCache.data;
-  }
-  if (inflightCategories) return inflightCategories;
-  inflightCategories = (async () => {
-    try {
-      const data = await fetchCategories();
-      const bySlug = new Map(data.map((c) => [c.slug, c]));
-      categoriesCache = { at: Date.now(), data, bySlug };
-      return data;
-    } catch (err) {
-      console.error("[categories] list failed:", err);
-      return [];
-    } finally {
-      inflightCategories = null;
-    }
-  })();
-  return inflightCategories;
-}
+  const cached = readCache<StoreCategory[]>("list");
+  if (cached) return cached;
 
-export async function getCategoryBySlug(slug: string): Promise<StoreCategory | null> {
-  const all = await listStoreCategories();
-  return categoriesCache?.bySlug.get(slug) ?? all.find((c) => c.slug === slug) ?? null;
-}
-
-async function fetchCategoryItemIds(categoryId: string): Promise<string[]> {
   try {
-    const res = await categories.listItemsInCategory(
-      categoryId,
-      { appNamespace: STORES_NAMESPACE },
-    );
-    return (res.items ?? [])
-      .map((it: any) => it?.catalogItemId)
-      .filter((id: any): id is string => typeof id === "string" && id.length > 0);
+    // queryCategories rejects empty filters — always chain at least one predicate.
+    const result = await categories.queryCategories({ treeReference: { appNamespace: "@wix/stores" } } as any)
+      .eq("visible", true)
+      .find();
+    const items = (result.items ?? [])
+      .map(toStoreCategory)
+      .filter(
+        (c) =>
+          c.slug !== ALL_PRODUCTS_HANDLE &&
+          (c as any).handle !== ALL_PRODUCTS_HANDLE,
+      )
+      .filter((c) => c.itemCount > 0);
+    return writeCache("list", items);
   } catch (err) {
-    console.error("[categories] listItemsInCategory failed:", err);
+    console.error("[categories] listStoreCategories failed:", err);
     return [];
   }
 }
 
-async function getCategoryItemIds(categoryId: string): Promise<string[]> {
-  const cached = categoryItemIdsCache.get(categoryId);
-  if (cached && Date.now() - cached.at < CATEGORIES_TTL_MS) return cached.ids;
-  const ids = await fetchCategoryItemIds(categoryId);
-  categoryItemIdsCache.set(categoryId, { at: Date.now(), ids });
-  return ids;
-}
+/** Single category by slug. 5-min cache. */
+export async function getCategoryBySlug(
+  slug: string,
+): Promise<StoreCategory | null> {
+  const key = `slug:${slug}`;
+  const cached = readCache<StoreCategory | null>(key);
+  if (cached !== undefined) return cached;
 
-export interface ProductPage {
-  items: any[];
-  nextCursor: string | null;
-  prevCursor: string | null;
-}
-
-// Cursor-paginated product list for a single category. Two calls under the
-// hood — there is no Wix endpoint that does category filter + cursor paging
-// in one shot. The cursor we surface is the productsV3 cursor, so paging is
-// stable as long as the category membership doesn't change mid-session.
-export async function listProductsInCategory(
-  categoryId: string,
-  opts: { limit: number; cursor?: string },
-): Promise<ProductPage> {
   try {
-    const ids = await getCategoryItemIds(categoryId);
-    if (ids.length === 0) {
-      return { items: [], nextCursor: null, prevCursor: null };
-    }
-    let builder = productsV3
-      .queryProducts({ fields: ["CURRENCY"] })
-      .in("_id", ids)
-      .limit(opts.limit);
-    if (opts.cursor) builder = builder.skipTo(opts.cursor);
-    const result = await builder.find();
-    return {
-      items: result.items ?? [],
-      nextCursor: result.cursors?.next ?? null,
-      prevCursor: result.cursors?.prev ?? null,
-    };
+    const result: any = await (categories as any).getCategoryBySlug(slug, {
+      treeReference: { appNamespace: "@wix/stores" },
+    });
+    const category = result?.category ?? result;
+    if (!category?._id && !category?.id) return writeCache(key, null);
+    return writeCache(key, toStoreCategory(category));
   } catch (err) {
-    console.error(`[categories] listProductsInCategory(${categoryId}) failed:`, err);
-    return { items: [], nextCursor: null, prevCursor: null };
+    console.error(`[categories] getCategoryBySlug(${slug}) failed:`, err);
+    return null;
   }
 }
 
-export { STORES_APP_ID };
+export interface CategoryProductsResult {
+  items: any[];
+  cursors: { next?: string | null; prev?: string | null };
+}
+
+/**
+ * Two-call pipeline: list item IDs in the category, then fetch those products
+ * with cursor paging. There is no single endpoint that does category filter +
+ * cursor paging in one shot. 5-min cache per (categoryId, cursor).
+ */
+export async function listProductsInCategory(
+  categoryId: string,
+  cursor?: string | null,
+): Promise<CategoryProductsResult> {
+  const key = `cat:${categoryId}:${cursor ?? ""}`;
+  const cached = readCache<CategoryProductsResult>(key);
+  if (cached) return cached;
+
+  try {
+    const idsResult: any = await categories.listItemsInCategory(categoryId, {
+      appNamespace: "@wix/stores",
+    } as any);
+    const ids: string[] = (idsResult?.items ?? idsResult?.itemIds ?? [])
+      .map((it: any) =>
+        typeof it === "string" ? it : it.catalogItemId ?? it._id ?? it.id,
+      )
+      .filter(Boolean);
+
+    if (ids.length === 0) {
+      return writeCache(key, { items: [], cursors: {} });
+    }
+
+    let builder = productsV3
+      .queryProducts({ fields: ["CURRENCY"] })
+      .in("_id", ids)
+      .limit(PAGE_SIZE);
+    if (cursor) builder = builder.skipTo(cursor);
+    const result: any = await builder.find();
+
+    return writeCache(key, {
+      items: result.items ?? [],
+      cursors: {
+        next: result.cursors?.next ?? null,
+        prev: result.cursors?.prev ?? null,
+      },
+    });
+  } catch (err) {
+    console.error(
+      `[categories] listProductsInCategory(${categoryId}) failed:`,
+      err,
+    );
+    return { items: [], cursors: {} };
+  }
+}

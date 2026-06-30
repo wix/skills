@@ -1,6 +1,6 @@
 # Phase 4 Home Page + Nav — Stores
 
-Scope: `pages-home-and-nav` — dispatched as its **own serialized shell-patcher agent** in the build wave (NOT merged into the stores private-files agent, because it patches the shared shells). Imports the orchestrator-pre-copied `categories.ts` helper and the `CategoryRail`/`ProductCard` the stores private agent writes — **resolved at build time, so no write-ordering against that agent.** Patches the home page's stores-related placeholder data with live `productsV3` queries AND inserts the Shop submenu (categories list) into the persisted Navigation at the `<!-- nav:links -->` marker. (The `CartBadge` mount at `<!-- nav:actions -->` is ecom's; you own only `<!-- nav:links -->`.) Read your seeded slice from `.wix/seeded.json` (`seeded.stores`).
+Scope: `pages-home-and-nav` — dispatched as its **own serialized shell-patcher agent** in the build wave (NOT merged into the stores private-files agent, because it patches the shared shells). Imports `categories.ts` (written by the `pages-categories` scope) and `CategoryRail`/`ProductCard` (also written by the stores private agent) — **resolved at build time, so no write-ordering against that agent.** Patches the home page's stores-related placeholder data with live `productsV3` queries AND inserts the Shop submenu (categories list) into the persisted Navigation at the `<!-- nav:links -->` marker. (The `CartBadge` mount at `<!-- nav:actions -->` is ecom's; you own only `<!-- nav:links -->`.) Read your seeded slice from `.wix/seeded.json` (`seeded.stores`).
 
 > **You patch the shared `Navigation.astro` + `index.astro` shells**, which other packs (ecom at `nav:actions`, gift-cards, blog) also patch at their own markers. **Touch only your markers and preserve every other scope's siblings — never rewrite either file.** (Flow is the conductor's job: it serializes the shell-patching agents so concurrent marker edits don't collide — BUILD-astro.md § "Step 4.5", the serialized shell chain.)
 
@@ -14,7 +14,7 @@ Files this agent PATCHES (does NOT rewrite):
 Files this agent MUST NOT touch:
 - Any other part of `index.astro` — hero, copy, newsletter, decorative ornaments are designer-owned
 - Any part of `Navigation.astro` outside the `<!-- nav:links -->` marker — designer/ecom-owned (the marker model lets multiple verticals contribute siblings without conflict)
-- `src/utils/categories.ts` — pre-copied by the orchestrator; this scope only **imports** `listStoreCategories` from it. `src/components/CategoryRail.astro`, `src/pages/category/[slug].astro` — owned by `pages-categories`
+- `src/utils/categories.ts` — written by the `pages-categories` scope; this scope only **imports** `listStoreCategories` from it. `src/components/CategoryRail.astro`, `src/pages/category/[slug].astro` — also owned by `pages-categories`
 - Any other component, page, or CSS
 - `global.css`
 
@@ -130,7 +130,7 @@ Handle this:
 
 The designer scaffolds `Navigation.astro` with a `<!-- nav:links -->` marker that vertical packs replace with their primary nav contributions. Stores contributes the Shop link (always) and a hover/focus submenu listing the merchant's visible categories (when any exist — empty by default, since Phase 1 does not seed them).
 
-Import `listStoreCategories` from `src/utils/categories.ts` (already on disk — pre-copied by the orchestrator). At the marker, insert:
+Import `listStoreCategories` from `src/utils/categories.ts` (written by the `pages-categories` scope — resolved at build time). At the marker, insert:
 
 ```astro
 ---
@@ -215,7 +215,7 @@ Keep the marker comment immediately after the inserted `<li>` so other vertical 
 - **Do NOT mutate** categories in the catalog — read-only.
 - **Do NOT touch** `Navigation.astro` outside the `<!-- nav:links -->` marker. Other vertical packs use the same marker model and write siblings.
 - **Do NOT touch** `CartBadge.tsx` or `CartView.tsx` — owned by ecom.
-- **Do NOT rewrite** `src/utils/categories.ts` (pre-copied by the orchestrator — import only) or `src/components/CategoryRail.astro` (owned by `pages-categories`).
+- **Do NOT rewrite** `src/utils/categories.ts` (written by `pages-categories` — import only) or `src/components/CategoryRail.astro` (owned by `pages-categories`).
 - If home page already has a live query (another agent wired it), leave alone and note in return.
 
 ## Anti-patterns

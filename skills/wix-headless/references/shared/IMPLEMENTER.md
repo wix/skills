@@ -9,7 +9,7 @@ Read **only** the files your scope needs. The reading set varies by scope:
 | Your scope | Mandatory | Conditional |
 |---|---|---|
 | `seed` | this file, `RETURN_CONTRACT.md`, `DOCS_SEARCH.md` | — |
-| `components`, `components-css`, `pages`, `pages-*` | this file, `RETURN_CONTRACT.md`, `STYLING.md` | — |
+| `components`, `components-css`, `pages`, `pages-*` | this file, `RETURN_CONTRACT.md`, `STYLING.md`, `SDK_IMPORTS.md` | — |
 | Image scopes | (read `references/images/INSTRUCTIONS.md` § Self-Loading) | — |
 
 Then read the specific reference(s) for your declared scope(s) (see your vertical's `INSTRUCTIONS.md` scope table). Do NOT read references for scopes **not** named in your prompt — wastes context and blurs ownership.
@@ -115,6 +115,20 @@ trackEvent("AddToCart", { … }); // fires after; can't break the cart if it fai
 ### Styling
 
 The full styling contract (tokens-as-utilities default, when global semantic classes are appropriate, co-located styles for one-offs, the always-required class list) lives in `STYLING.md`. Read it before any `components` / `pages` work — it's the canonical source. Do not reinvent class names; do not duplicate rules across files.
+
+### SDK access — call the module directly (no client object)
+
+This is an Astro + `@wix/astro` site, so auth is **ambient**: import each `@wix/<area>` SDK module and call its methods directly. There is **no client object to construct.** Use exactly this shape:
+
+```ts
+import { currentCart } from "@wix/ecom";
+import { productsV3 } from "@wix/stores";
+await currentCart.addToCurrentCart({ … });
+```
+
+Do **NOT** use `getWixClient`, `createClient`, `OAuthStrategy`, the `@wix/astro/client` subpath, or `client.use(<module>)` — none of these exist in this setup and they break the build (`@wix/astro` exports only `.` and `./builders*`; `OAuthStrategy` is for own/static builds, not astro). If you think you need a client, you don't: import the `@wix/<area>` module and call it.
+
+**Your vertical's exact legal import lines are enumerated in `SDK_IMPORTS.md` (mandatory reading) — copy them verbatim; do not derive `@wix/*` imports from memory.** If you need a module not listed there, verify its export against the installed package before importing — never guess a package, subpath, or export name.
 
 ## Style conventions
 

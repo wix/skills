@@ -3,21 +3,19 @@
 //
 // Replaces the former `design-system-composer` LLM subagent (this script is now
 // the sole spec). The Composer's job is MECHANICAL: take the Designer's framework-
-// agnostic spec + the application inputs and SUBSTITUTE them into six pinned
-// skeletons at references/astro/templates/. There is no judgment in re-emitting
-// the fixed bulk (View-Transitions script, @utility btn family, view-transition
-// CSS), so an LLM is pure cost + run-to-run variance. This script does it in
-// sub-second, byte-reproducibly.
+// agnostic spec + the application inputs and WRITE the design-system files —
+// global.css (theme tokens + fixed bulk) and Layout.astro (html/head shell) —
+// from inline content. There are no template files on disk; all fixed bulk is
+// inlined here so an LLM and a filesystem read are both unnecessary.
 //
 // It is a sibling of emit-design-tokens.mjs / patch-decorative-slots.mjs and,
 // like them, reads its input as a JSON object on stdin and takes the project
-// dir as argv[2]. It locates the skeletons relative to its own path (no
-// SKILL_ROOT needed).
+// dir as argv[2].
 //
 // Usage:
 //   node compose.mjs <project-dir> <<'JSON'
-//   { "shell": {...}, "brand": {...}, "navLinks": [...],
-//     "loadedPacks": [...], "packsWithComponents": [...], "disabledPacks": [...] }
+//   { "brand": {...}, "loadedPacks": [...], "packsWithComponents": [...],
+//     "disabledPacks": [...], "navPath": "...", "footerPath": "...", "homePath": "..." }
 //   JSON
 //
 // Tokens come from DESIGN.md — the single design format (no inline token JSON).
@@ -31,24 +29,23 @@
 // the token CSS/types from it. DESIGN.md exists on disk before compose runs.
 //
 // stdin JSON (the application inputs — NOT the design tokens, which live in DESIGN.md):
-//   - designMdPath   — optional path to the DESIGN.md (default <project-dir>/DESIGN.md).
-//   - shell          — { heroHeadline, heroSub, footerTagline, navBrandMark }.
-//   - brand          — { name, description }.
-//   - navLinks       — [ { href, label } ]; labels used VERBATIM.
-//   - loadedPacks    — string[] of loaded vertical packs.
+//   - designMdPath       — optional path to the DESIGN.md (default <project-dir>/DESIGN.md).
+//   - brand              — { name, description }.
+//   - loadedPacks        — string[] of loaded vertical packs.
 //   - packsWithComponents — string[]; one components-<pack>.css import per entry,
-//                       in order (COMPOSE § Layout.astro).
-//   - disabledPacks  — string[]; dormant packs still get their home/nav markers,
-//                       never a visible entry point.
+//                          in order (Layout.astro frontmatter).
+//   - disabledPacks      — string[]; dormant packs still get home markers.
+//   - navPath            — path to LLM-generated Navigation.astro (required).
+//   - footerPath         — path to LLM-generated Footer.astro (required).
+//   - homePath           — path to LLM-generated index.astro (required).
 //
-// What it writes (the 6 design-system files), by substituting {{…}} slots into
-// the pinned skeletons — the fixed bulk is copied byte-for-byte:
-//   1. src/styles/global.css            — {{theme}} ← @theme palette
+// What it writes:
+//   1. src/styles/global.css            — @theme palette + fixed bulk (inline)
 //   2. astro.config.mjs                 — MERGE (anchored codemod, not clobber)
-//   3. src/layouts/Layout.astro         — imports, fonts href, brand title
-//   4. src/components/Navigation.astro  — brand mark, nav links
-//   5. src/components/Footer.astro      — brand, tagline, nav links
-//   6. src/pages/index.astro            — hero copy, brand, home markers
+//   3. src/layouts/Layout.astro         — html/head shell (inline)
+//   4. src/components/Navigation.astro  — LLM-generated (verbatim from navPath)
+//   5. src/components/Footer.astro      — LLM-generated (verbatim from footerPath)
+//   6. src/pages/index.astro            — LLM-generated (verbatim from homePath)
 //
 // Token contract: guarantees the required-token set (STYLING.md § "Required
 // tokens — the component-CSS template contract") resolves in @theme. Missing
@@ -64,12 +61,8 @@
 // orchestrator only invokes this when frontend === "astro".
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
-import { join, dirname, resolve, isAbsolute } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join, dirname, isAbsolute } from "node:path";
 import { execSync } from "node:child_process";
-
-const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
-const TEMPLATES = resolve(SCRIPT_DIR, "..", "references", "astro", "templates");
 
 const projectDir = process.argv[2] ?? process.cwd();
 
@@ -205,16 +198,14 @@ if (!existsSync(designMdPath)) die("DESIGN_MD_MISSING", `no DESIGN.md at ${desig
 const fm = parseFrontmatter(readFileSync(designMdPath, "utf8"));
 if (!fm) die("DESIGN_MD_BAD", `could not parse YAML frontmatter from ${designMdPath}`);
 const designTokens = designMdToTokens(fm);
-const shell = input.shell ?? {};
 const brand = input.brand ?? {};
-const navLinks = Array.isArray(input.navLinks) ? input.navLinks : [];
 const loadedPacks = Array.isArray(input.loadedPacks) ? input.loadedPacks : [];
 const packsWithComponents = Array.isArray(input.packsWithComponents) ? input.packsWithComponents : [];
 const disabledPacks = Array.isArray(input.disabledPacks) ? input.disabledPacks : [];
 
-// Full-page LLM generation (this branch): the LLM authors the entire visible
-// page — header (Navigation.astro), footer (Footer.astro), and home page
-// (index.astro). compose writes each verbatim; there are no templates for them.
+// Full-page LLM generation: the LLM authors the entire visible page —
+// header (Navigation.astro), footer (Footer.astro), and home page (index.astro).
+// compose writes each verbatim; there are no templates for them.
 const resolveIn = (p) => { const s = typeof p === "string" ? p.trim() : ""; return s ? (isAbsolute(s) ? s : join(projectDir, s)) : null; };
 const navPath = resolveIn(input.navPath);
 const footerPath = resolveIn(input.footerPath);
@@ -325,33 +316,16 @@ for (const tok of REQUIRED) {
   if (!present.has(tok)) errors.push({ code: "MISSING_REQUIRED_TOKEN", token: tok });
 }
 
-// ── skeleton load + substitution helpers ──────────────────────────────────────
-function readTemplate(name) {
-  const p = join(TEMPLATES, name);
-  if (!existsSync(p)) die("TEMPLATE_MISSING", `skeleton not found at ${p}`);
-  return readFileSync(p, "utf8");
-}
 function writeProject(rel, content) {
   const dest = join(projectDir, rel);
   mkdirSync(dirname(dest), { recursive: true });
   writeFileSync(dest, content);
 }
-function escAttr(s) {
-  return String(s ?? "").replace(/"/g, "&quot;");
-}
-// Strip the leading "// ── Composer skeleton: … ──" authoring-comment block from
-// an .astro skeleton's frontmatter. Those lines document the {{…}} slots (and
-// thus contain placeholder text that must NOT be substituted) and are not part
-// of the shipped site — the real Composer output drops them too. Removes the
-// contiguous run of `//` comment lines immediately after the opening `---`.
-function stripAstroHeader(src) {
-  return src.replace(/^(---\n)((?:[ \t]*\/\/.*\n)+)/, "$1");
-}
 
 // ── Google Fonts href ─────────────────────────────────────────────────────────
 // Prefer the Designer-supplied href; otherwise build one deterministically with
-// a standard weight set. Returns ""
-// when both families are system fonts (caller drops the <link>).
+// a standard weight set. Returns "" when both families are system fonts (caller
+// drops the <link>).
 function buildGoogleHref() {
   if (typeof designTokens.googleFontsHref === "string" && designTokens.googleFontsHref.trim()) {
     return designTokens.googleFontsHref.trim();
@@ -370,15 +344,282 @@ function buildGoogleHref() {
   return `https://fonts.googleapis.com/css2?${q}&display=swap`;
 }
 
-// ── 1. global.css ──────────────────────────────────────────────────────────────
-{
-  const skeleton = readTemplate("global.css");
-  // Replace the first `@theme { … }` block (its comment has no braces, so the
-  // first `}` is its close). Everything else is literal fixed bulk.
-  const out = skeleton.replace(/@theme\s*\{[\s\S]*?\n\}/, `@theme {\n${themeBlock}\n}`);
-  if (out === skeleton) die("ANCHOR_THEME", "could not locate the @theme block in global.css skeleton");
-  writeProject("src/styles/global.css", out);
+// ── 1. global.css ─────────────────────────────────────────────────────────────
+writeProject("src/styles/global.css", `@import "tailwindcss";
+
+@theme {
+${themeBlock}
 }
+
+/* Reading-width helper so prose pages center without guessing Tailwind sizes. */
+@utility container-reading {
+  max-width: var(--container-prose);
+  margin-inline: auto;
+}
+
+/* Shared button primitive — declared with @utility so the variants below can
+   @apply it (a plain contract class is NOT @apply-able in Tailwind v4). */
+@utility btn {
+  @apply inline-flex items-center justify-center px-6 py-4 rounded-md font-medium;
+  transition: background-color 200ms ease, color 200ms ease, border-color 200ms ease;
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    margin: 0;
+    background: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-body);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+    line-height: 1.15;
+    margin: 0;
+  }
+  p {
+    margin: 0;
+  }
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+  button {
+    font: inherit;
+    cursor: pointer;
+  }
+  input, textarea, select {
+    font: inherit;
+  }
+  img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+  }
+  ul, ol {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+}
+
+/* ── Button family — used on every page in every vertical ─────────────────── */
+.btn-primary {
+  @apply btn;
+  background: var(--color-ink);
+  color: var(--color-paper);
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--color-accent);
+}
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.btn-secondary {
+  @apply btn;
+  background: transparent;
+  color: var(--color-ink);
+  border: 1px solid var(--color-rule);
+}
+.btn-secondary:hover:not(:disabled) {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+.btn-secondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.btn-ghost {
+  @apply btn;
+  background: transparent;
+  color: var(--color-ink);
+}
+.btn-ghost:hover:not(:disabled) {
+  background: var(--color-paper-warm);
+}
+.btn-ghost:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Cross-cutting decorative patterns ────────────────────────────────────── */
+[data-decorative-slot] {
+  position: relative;
+  overflow: hidden;
+}
+[data-decorative-slot] > img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.editorial-rule {
+  border: 0;
+  height: 1px;
+  background: var(--color-accent);
+  opacity: 0.6;
+  margin-block: 1.5rem;
+}
+
+/* ── Universal site chrome ────────────────────────────────────────────────── */
+.site-nav {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: color-mix(in srgb, var(--color-paper) 88%, transparent);
+  backdrop-filter: saturate(1.1) blur(8px);
+  border-bottom: 1px solid var(--color-rule);
+}
+.site-footer {
+  border-top: 1px solid var(--color-rule);
+  background: var(--color-paper-warm);
+  color: var(--color-mute);
+}
+
+/* ── View Transitions wiring (paired with Layout.astro <script>) ──────────────
+   Disable the default ClientRouter root cross-fade; the progress bar + grid-dim
+   carry navigation feedback instead. Do not split into a separate file. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+.nav-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--color-accent, currentColor);
+  transform: scaleX(0);
+  transform-origin: left;
+  z-index: 1000;
+  pointer-events: none;
+  opacity: 0;
+}
+.nav-progress[data-state="loading"] {
+  opacity: 1;
+  transform: scaleX(0.85);
+  transition: transform 1.6s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 120ms ease;
+}
+.nav-progress[data-state="done"] {
+  opacity: 0;
+  transform: scaleX(1);
+  transition: transform 200ms ease, opacity 240ms ease 60ms;
+}
+
+/* Dim the product grid while ClientRouter fetches/swaps for immediate feedback. */
+body[data-navigating="true"] .product-grid {
+  opacity: 0.55;
+  transition: opacity 140ms ease;
+  pointer-events: none;
+}
+.product-grid {
+  transition: opacity 200ms ease;
+}
+
+/* ── Navigation submenu + CategoryRail/pagination (stores pack) ───────────────
+   These reference declared tokens and stay inert when stores is not loaded (no
+   markup uses them), so they ship unconditionally as fixed bulk. */
+.site-nav-item.has-submenu {
+  position: relative;
+}
+.site-nav-submenu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  min-width: 12rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem;
+  background: var(--color-paper);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-md);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(4px);
+  transition: opacity 160ms ease, transform 160ms ease, visibility 160ms;
+}
+.site-nav-item.has-submenu:hover .site-nav-submenu,
+.site-nav-item.has-submenu:focus-within .site-nav-submenu {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+.site-nav-sublink {
+  font-size: 0.875rem;
+  color: var(--color-ink-soft, var(--color-mute));
+  padding-block: 0.25rem;
+}
+.site-nav-sublink:hover,
+.site-nav-sublink[aria-current="page"] {
+  color: var(--color-accent);
+}
+
+.category-rail {
+  background: var(--color-paper-warm);
+  border-bottom: 1px solid var(--color-rule);
+}
+.category-rail-inner {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding-block: 1rem;
+}
+.category-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 1rem;
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-sm);
+  font-size: 0.8125rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-ink-soft, var(--color-ink));
+  transition: border-color 160ms ease, color 160ms ease, background-color 160ms ease;
+}
+.category-pill:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+.category-pill[aria-current="page"] {
+  background: var(--color-ink);
+  color: var(--color-paper);
+  border-color: var(--color-ink);
+}
+.pagination {
+  margin-block: 2rem;
+}
+.pagination-inner {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.pagination-link {
+  color: var(--color-ink);
+}
+.pagination-link:hover {
+  color: var(--color-accent);
+}
+.pagination-link.is-disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+.breadcrumbs {
+  font-size: 0.8125rem;
+  color: var(--color-mute);
+  margin-bottom: 0.75rem;
+}
+`);
 
 // ── 2. astro.config.mjs (anchored MERGE, fail loud on missing anchor) ─────────
 {
@@ -439,28 +680,136 @@ const componentCssImports = packsWithComponents.map(
   (pack) => `import '../styles/components-${pack}.css';`,
 );
 {
-  let out = stripAstroHeader(readTemplate("Layout.astro"));
-  // {{components-css-imports}} — one import per pack, or drop the whole line.
-  if (componentCssImports.length) {
-    out = out.replace(/^\{\{components-css-imports\}\}\s*$/m, componentCssImports.join("\n"));
-  } else {
-    out = out.replace(/^\{\{components-css-imports\}\}\s*\n/m, "");
-  }
-  // {{fonts.googleHref}} — drop the <link> when no web fonts.
+  const cssImportBlock = componentCssImports.length
+    ? componentCssImports.join("\n") + "\n"
+    : "";
   const href = buildGoogleHref();
-  if (href) {
-    out = out.replace(/\{\{fonts\.googleHref\}\}/g, escAttr(href));
-  } else {
-    out = out.replace(/^.*\{\{fonts\.googleHref\}\}.*\n/m, "");
-  }
-  out = out.replaceAll("{{brand.name}}", brandName);
-  writeProject("src/layouts/Layout.astro", out);
-}
+  const fontLine = href
+    ? `    <link rel="stylesheet" href="${href.replace(/"/g, "&quot;")}" />\n`
+    : "";
+  writeProject("src/layouts/Layout.astro", `---
+import '../styles/global.css';
+${cssImportBlock}import { ClientRouter } from 'astro:transitions';
+import Navigation from '../components/Navigation.astro';
+import Footer from '../components/Footer.astro';
 
-// ── nav-link rendering ──────────────────────────────────────────────────────────
-const navItems = navLinks
-  .filter((l) => l && l.href != null && l.label != null)
-  .map((l) => ({ href: String(l.href), label: String(l.label) }));
+interface Props {
+  title?: string;
+  description?: string;
+  hasSeoTags?: boolean;
+}
+const { title, description, hasSeoTags = false } = Astro.props;
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+${fontLine}    {!hasSeoTags && (
+      <>
+        <title>{title ? \`\${title} · ${brandName}\` : "${brandName}"}</title>
+        {description && <meta name="description" content={description} />}
+      </>
+    )}
+    <slot name="head" />
+    <ClientRouter />
+  </head>
+  <body>
+    <div class="nav-progress" data-nav-progress aria-hidden="true"></div>
+    <Navigation />
+    <main><slot /></main>
+    <Footer />
+    <script>
+      // Persisted rail aria-current sync + top loading bar + rail-anchored
+      // scroll across listing-to-listing navigation. Stores pack relies on
+      // all three; do not split into separate scripts.
+      function syncCategoryRail() {
+        const path = window.location.pathname;
+        const activeSlug = path.startsWith("/category/")
+          ? path.slice("/category/".length).replace(/\\/$/, "")
+          : path === "/products" || path === "/products/"
+            ? ""
+            : null;
+        if (activeSlug === null) return;
+        const pills = document.querySelectorAll<HTMLAnchorElement>(
+          "[data-category-rail] .category-pill",
+        );
+        for (const pill of pills) {
+          const slug = pill.dataset.categorySlug ?? "";
+          if (slug === activeSlug) pill.setAttribute("aria-current", "page");
+          else pill.removeAttribute("aria-current");
+        }
+      }
+      // Eager click feedback — flip aria-current before the network call.
+      document.addEventListener("click", (event) => {
+        const target = event.target as HTMLElement | null;
+        const pill = target?.closest<HTMLAnchorElement>(
+          "[data-category-rail] .category-pill",
+        );
+        if (!pill) return;
+        if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+        const pills = document.querySelectorAll<HTMLAnchorElement>(
+          "[data-category-rail] .category-pill",
+        );
+        for (const p of pills) p.removeAttribute("aria-current");
+        pill.setAttribute("aria-current", "page");
+      }, true);
+      const progress = document.querySelector<HTMLElement>("[data-nav-progress]");
+      function startProgress() {
+        if (!progress) return;
+        progress.dataset.state = "loading";
+        document.body.dataset.navigating = "true";
+      }
+      function endProgress() {
+        if (!progress) return;
+        progress.dataset.state = "done";
+        delete document.body.dataset.navigating;
+        window.setTimeout(() => {
+          if (progress.dataset.state === "done") delete progress.dataset.state;
+        }, 320);
+      }
+      // Anchor the persisted rail across listing-to-listing navigation. The
+      // page-header above the rail differs between /products and /category/[slug]
+      // (breadcrumbs, lede, optional image), so naive scroll preservation reads
+      // as a jump. Capture rail.getBoundingClientRect().top before the swap and
+      // re-equalize after.
+      const isListing = (p: string) =>
+        p === "/products" || p === "/products/" || p.startsWith("/category/");
+      let railAnchorTop: number | null = null;
+      document.addEventListener("astro:before-preparation", (event: any) => {
+        const from = window.location.pathname;
+        const to = event?.to?.pathname ?? from;
+        const rail = document.querySelector<HTMLElement>("[data-category-rail]");
+        railAnchorTop =
+          rail && isListing(from) && isListing(to)
+            ? rail.getBoundingClientRect().top
+            : null;
+        startProgress();
+      });
+      document.addEventListener("astro:after-swap", () => {
+        syncCategoryRail();
+        if (railAnchorTop !== null) {
+          const rail = document.querySelector<HTMLElement>("[data-category-rail]");
+          if (rail) {
+            const delta = rail.getBoundingClientRect().top - railAnchorTop;
+            if (Math.abs(delta) > 0.5) {
+              window.scrollBy({ top: delta, left: 0, behavior: "instant" as ScrollBehavior });
+            }
+          }
+        }
+        railAnchorTop = null;
+        endProgress();
+      });
+      document.addEventListener("astro:page-load", endProgress);
+      syncCategoryRail();
+    </script>
+  </body>
+</html>
+`);
+}
 
 // ── 4. Navigation.astro (LLM-generated, verbatim) ─────────────────────────────
 {
@@ -474,7 +823,7 @@ const navItems = navLinks
   writeProject("src/components/Footer.astro", readFileSync(footerPath, "utf8"));
 }
 
-// ── 6. index.astro ────────────────────────────────────────────────────────────────
+// ── 6. index.astro (LLM-generated, verbatim) ─────────────────────────────────
 // Home markers: one `<!-- home:<pack> -->` per contributing pack. Today
 // stores + bookings + gift-cards contribute a home section. Disabled packs
 // (gift-cards) still get their marker (markers are their only acceptable touchpoint).

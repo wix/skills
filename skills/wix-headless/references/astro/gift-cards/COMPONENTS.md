@@ -60,7 +60,7 @@ Props: `{ product: GiftCardProduct }`.
 
 State machine: `"idle" | "adding" | "added" | "error"`. Submit handler:
 1. Validate selected `variantId`, `recipientFirstName`, `recipientEmail` (regex).
-2. Call `currentCart.addToCurrentCart` with the catalogReference shape from gift-cards.md ("Wix Gift Card app reference data" section).
+2. Call `currentCart.addToCurrentCart` (import it directly — `import { currentCart } from "@wix/ecom";` — there is no client wrapper; do **not** use `getWixClient` / `@wix/astro/client` / `client.use(...)`, see `IMPLEMENTER.md` § "SDK access — call the module directly") with the catalogReference shape from gift-cards.md ("Wix Gift Card app reference data" section).
 3. Dispatch `cart-updated` CustomEvent (so CartBadge updates).
 4. `trackEvent("AddToCart", { … })` — fire-and-forget; same pattern as stores.
 5. `window.location.href = "/cart"` on success.
