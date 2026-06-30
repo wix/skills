@@ -50,12 +50,14 @@ jobs:
         run: |
           CURRENT=$(node -p "require('./package.json').version")
           echo "Would bump @wix/agent-skills from $CURRENT using strategy: ${{ github.event.inputs.version_strategy }}"
+          echo "All plugin manifests (.claude-plugin, .codex-plugin, .cursor-plugin, plugin.json, gemini-extension.json) would be synced to the new version."
 
       - name: Bump version
         if: ${{ github.event.inputs.dry_run == 'false' }}
         id: bump
         run: |
-          NEW_VERSION=$(npm version ${{ github.event.inputs.version_strategy }} --no-git-tag-version)
+          npm version ${{ github.event.inputs.version_strategy }} --no-git-tag-version
+          NEW_VERSION="v$(node -p "require('./package.json').version")"
           echo "version=${NEW_VERSION}" >> $GITHUB_OUTPUT
           echo "branch=release/${NEW_VERSION}" >> $GITHUB_OUTPUT
 

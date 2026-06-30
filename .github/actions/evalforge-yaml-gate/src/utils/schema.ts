@@ -105,6 +105,7 @@ export const ScenarioSchema = z.object({
     tags => tags.every(t => !RESERVED_TAG_PREFIXES.some(p => t.startsWith(p))),
     { message: 'tags must not include reserved namespaces (draft:*, pending:*, rejected:*) — the action manages those' },
   ),
+  maxTokens: z.number().int().positive().optional(),
   assertions: z.array(AssertionSchema).min(1),
   siteSetup: SiteSetupSchema.optional(),
 }).strict().superRefine((data, ctx) => {
