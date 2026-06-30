@@ -1,8 +1,10 @@
 import { z } from 'zod';
 import * as jsYaml from 'js-yaml';
+import { CODE_TAG, REPO_PREFIX } from './evalforge';
 
 const NamePattern = /^[a-z0-9][a-z0-9/_-]*$/;
-export const RESERVED_TAG_PREFIXES = ['draft:', 'pending:', 'rejected:'] as const;
+export const RESERVED_TAG_PREFIXES = ['draft:', 'pending:', 'rejected:', REPO_PREFIX] as const;
+export const RESERVED_TAGS = [CODE_TAG] as const;
 
 const ParamScalarSchema = z.union([z.string(), z.number(), z.boolean()]);
 
@@ -102,8 +104,9 @@ export const ScenarioSchema = z.object({
   description: z.string(),
   triggerPrompt: z.string().min(10),
   tags: z.array(z.string().min(1)).min(1).refine(
-    tags => tags.every(t => !RESERVED_TAG_PREFIXES.some(p => t.startsWith(p))),
-    { message: 'tags must not include reserved namespaces (draft:*, pending:*, rejected:*) — the action manages those' },
+    tags => tags.every(t =>
+      !RESERVED_TAG_PREFIXES.some(p => t.startsWith(p)) && !RESERVED_TAGS.some(r => t === r)),
+    { message: 'tags must not include reserved namespaces (draft:*, pending:*, rejected:*, repo:*) or reserved tags (created-via-code) — the action manages those' },
   ),
   maxTokens: z.number().int().positive().optional(),
   assertions: z.array(AssertionSchema).min(1),

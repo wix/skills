@@ -1,7 +1,7 @@
 import type { LoadedScenario } from './evals';
 import type { Scenario } from './schema';
 import { toEvalForgeBody } from './evalforge-mapper';
-import type { RemoteScenario, ScenarioBody } from './evalforge';
+import { withManagedTags, type RemoteScenario, type ScenarioBody } from './evalforge';
 
 export type CreateAction = { kind: 'CREATE'; name: string; body: ScenarioBody; tags: string[] };
 export type UpdateAction = { kind: 'UPDATE'; id: string; name: string; body: ScenarioBody; tags: string[] };
@@ -34,8 +34,10 @@ export function diffSyncPlan(input: {
   base: Map<string, LoadedScenario>;
   remote: RemoteScenario[];
   draftTag: string;
+  // `owner/repo` the scenarios are authored from — stamped as a managed code-origin tag.
+  repo: string;
 }): { actions: SyncAction[]; errors: SyncError[] } {
-  const { changedHead, head, base, remote, draftTag } = input;
+  const { changedHead, head, base, remote, draftTag, repo } = input;
   const remoteByName = new Map(remote.map(r => [r.name, r]));
   const actions: SyncAction[] = [];
   const errors: SyncError[] = [];
@@ -43,7 +45,7 @@ export function diffSyncPlan(input: {
   for (const [name, ls] of changedHead) {
     const r = remoteByName.get(name);
     if (!r) {
-      actions.push({ kind: 'CREATE', name, body: toScenarioBody(ls.scenario), tags: [draftTag] });
+      actions.push({ kind: 'CREATE', name, body: toScenarioBody(ls.scenario), tags: withManagedTags([draftTag], repo) });
       continue;
     }
     const foreign = foreignDraftTags(r.tags, draftTag);
@@ -51,7 +53,7 @@ export function diffSyncPlan(input: {
       errors.push({ kind: 'FOREIGN_DRAFT', name, foreignTags: foreign, path: ls.path });
       continue;
     }
-    actions.push({ kind: 'UPDATE', id: r.id, name, body: toScenarioBody(ls.scenario), tags: [draftTag] });
+    actions.push({ kind: 'UPDATE', id: r.id, name, body: toScenarioBody(ls.scenario), tags: withManagedTags([draftTag], repo) });
   }
 
   for (const [name, ls] of base) {

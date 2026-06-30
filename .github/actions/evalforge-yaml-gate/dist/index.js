@@ -34149,14 +34149,14 @@ const paths_1 = __nccwpck_require__(6621);
 // Pure: decide what to do with each draft-tagged scenario on PR close-without-merge.
 // If the scenario's name matches one in the base SHA's evals, it pre-existed our PR — RESTORE
 // it from the base YAML's state. Otherwise it was a PR-only draft — DELETE it.
-function planCleanup(remote, baseEvals, draftTag) {
+function planCleanup(remote, baseEvals, draftTag, repo) {
     const actions = [];
     for (const s of remote) {
         if (!s.tags.includes(draftTag))
             continue;
         const baseLs = baseEvals.get(s.name);
         actions.push(baseLs
-            ? { kind: 'RESTORE', id: s.id, name: s.name, body: (0, sync_1.toScenarioBody)(baseLs.scenario), tags: baseLs.scenario.tags }
+            ? { kind: 'RESTORE', id: s.id, name: s.name, body: (0, sync_1.toScenarioBody)(baseLs.scenario), tags: (0, evalforge_1.withManagedTags)(baseLs.scenario.tags, repo) }
             : { kind: 'DELETE', id: s.id, name: s.name });
     }
     return actions;
@@ -34178,7 +34178,7 @@ async function runCleanup() {
     const { scenarios: baseEvals, errors: baseErrs } = (0, evals_1.loadEvals)(baseRoot);
     for (const e of baseErrs)
         core.warning(`Base SHA eval issue at ${baseRoot}/${e.path}: ${e.message}`);
-    const plan = planCleanup(remote, baseEvals, draftTag);
+    const plan = planCleanup(remote, baseEvals, draftTag, `${config.owner}/${config.repo}`);
     const summary = plan.reduce((a, p) => ({ ...a, [p.kind]: (a[p.kind] ?? 0) + 1 }), {});
     core.info(`Cleanup plan: ${plan.length} action(s) — RESTORE=${summary.RESTORE ?? 0} DELETE=${summary.DELETE ?? 0}`);
     for (const a of plan)
@@ -34913,10 +34913,13 @@ function jsonifyMaybe(v) {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.EvalForgeClient = exports.DRAFT_PREFIX = exports.TERMINAL_RUN_STATUSES = void 0;
+exports.EvalForgeClient = exports.REPO_PREFIX = exports.CODE_TAG = exports.DRAFT_PREFIX = exports.TERMINAL_RUN_STATUSES = void 0;
 exports.evalRunUrl = evalRunUrl;
 exports.draftTagFor = draftTagFor;
 exports.parseDraftTag = parseDraftTag;
+exports.repoTagFor = repoTagFor;
+exports.managedTagsFor = managedTagsFor;
+exports.withManagedTags = withManagedTags;
 exports.isHttpError = isHttpError;
 exports.uniqueRemoteScenarios = uniqueRemoteScenarios;
 const MCP_URL = 'https://mcp.wix.com/mcp';
@@ -34936,6 +34939,28 @@ function draftTagFor(repo, prNumber) {
 function parseDraftTag(tag) {
     const m = tag.match(/^draft:([^#]+)#(\d+)$/);
     return m ? { repo: m[1], prNumber: Number(m[2]) } : null;
+}
+// Tags the action stamps on every scenario it manages — they record that a scenario was authored
+// in code and which repo it came from, and (unlike draft tags) they survive promotion. Reserved:
+// authors can't set them in YAML (see schema) since the action owns them.
+exports.CODE_TAG = 'created-via-code';
+exports.REPO_PREFIX = 'repo:';
+/** Repo-origin tag for a code-managed scenario, e.g. `repo:wix/skills`. */
+function repoTagFor(repo) {
+    return `${exports.REPO_PREFIX}${repo}`;
+}
+/** The managed tags stamped on every scenario authored from `repo` via code. */
+function managedTagsFor(repo) {
+    return [exports.CODE_TAG, repoTagFor(repo)];
+}
+/** Returns `tags` with the managed code-origin tags ensured present — order-preserving and deduped. */
+function withManagedTags(tags, repo) {
+    const result = [...tags];
+    for (const tag of managedTagsFor(repo)) {
+        if (!result.includes(tag))
+            result.push(tag);
+    }
+    return result;
 }
 function isHttpError(e) {
     return e instanceof Error && typeof e.status === 'number';
@@ -35263,7 +35288,7 @@ async function runGate() {
     const remote = await guardedCall(() => listRemoteScenariosForGate(evalforge, config.projectId, filters), 'Could not reach EvalForge', comment, config);
     if (!remote)
         return;
-    const plan = (0, sync_1.diffSyncPlan)({ changedHead: changedHeadScenarios, head: headScenarios, base: baseScenarios, remote, draftTag });
+    const plan = (0, sync_1.diffSyncPlan)({ changedHead: changedHeadScenarios, head: headScenarios, base: baseScenarios, remote, draftTag, repo: `${config.owner}/${config.repo}` });
     if (plan.errors.length > 0) {
         await comment((0, comment_1.formatForeignDraftConflicts)(plan.errors, { owner: config.owner, repo: config.repo }));
         (0, github_1.fail)(`Scenario(s) held by other PRs: ${plan.errors.map(e => e.name).join(', ')}`, config.blocking);
@@ -35625,7 +35650,8 @@ const workspace_1 = __nccwpck_require__(9620);
 async function runPromote() {
     const config = (0, config_1.getSimpleConfig)();
     const evalforge = new evalforge_1.EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
-    const draftTag = (0, evalforge_1.draftTagFor)(`${config.owner}/${config.repo}`, config.prNumber);
+    const repo = `${config.owner}/${config.repo}`;
+    const draftTag = (0, evalforge_1.draftTagFor)(repo, config.prNumber);
     const workspace = (0, workspace_1.workspaceRoot)();
     // Cleanup workflow no longer fires on merged PRs — promote owns MCP version teardown.
     await (0, pr_cleanup_1.deletePrMcpVersions)(evalforge, config.mcpId, config.projectId, config.prNumber);
@@ -35670,9 +35696,10 @@ async function runPromote() {
             continue;
         }
         try {
-            await evalforge.updateTestScenario(config.projectId, s.id, (0, sync_1.toScenarioBody)(ls.scenario), ls.scenario.tags);
+            const tags = (0, evalforge_1.withManagedTags)(ls.scenario.tags, repo);
+            await evalforge.updateTestScenario(config.projectId, s.id, (0, sync_1.toScenarioBody)(ls.scenario), tags);
             promoted++;
-            core.info(`Promoted ${s.name}: tags = ${JSON.stringify(ls.scenario.tags)}`);
+            core.info(`Promoted ${s.name}: tags = ${JSON.stringify(tags)}`);
         }
         catch (e) {
             core.warning(`Promote failed for ${s.name}: ${e instanceof Error ? e.message : String(e)}`);
@@ -35748,7 +35775,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.ScenarioSchema = exports.RESERVED_TAG_PREFIXES = void 0;
+exports.ScenarioSchema = exports.RESERVED_TAGS = exports.RESERVED_TAG_PREFIXES = void 0;
 exports.isLlmJudge = isLlmJudge;
 exports.isApiCall = isApiCall;
 exports.isCost = isCost;
@@ -35757,8 +35784,10 @@ exports.isToolCall = isToolCall;
 exports.parseScenario = parseScenario;
 const zod_1 = __nccwpck_require__(924);
 const jsYaml = __importStar(__nccwpck_require__(4281));
+const evalforge_1 = __nccwpck_require__(280);
 const NamePattern = /^[a-z0-9][a-z0-9/_-]*$/;
-exports.RESERVED_TAG_PREFIXES = ['draft:', 'pending:', 'rejected:'];
+exports.RESERVED_TAG_PREFIXES = ['draft:', 'pending:', 'rejected:', evalforge_1.REPO_PREFIX];
+exports.RESERVED_TAGS = [evalforge_1.CODE_TAG];
 const ParamScalarSchema = zod_1.z.union([zod_1.z.string(), zod_1.z.number(), zod_1.z.boolean()]);
 const ParamValueSchema = zod_1.z.union([
     ParamScalarSchema,
@@ -35834,7 +35863,7 @@ exports.ScenarioSchema = zod_1.z.object({
     name: zod_1.z.string().min(1).regex(NamePattern, 'name must match /^[a-z0-9][a-z0-9/_-]*$/'),
     description: zod_1.z.string(),
     triggerPrompt: zod_1.z.string().min(10),
-    tags: zod_1.z.array(zod_1.z.string().min(1)).min(1).refine(tags => tags.every(t => !exports.RESERVED_TAG_PREFIXES.some(p => t.startsWith(p))), { message: 'tags must not include reserved namespaces (draft:*, pending:*, rejected:*) — the action manages those' }),
+    tags: zod_1.z.array(zod_1.z.string().min(1)).min(1).refine(tags => tags.every(t => !exports.RESERVED_TAG_PREFIXES.some(p => t.startsWith(p)) && !exports.RESERVED_TAGS.some(r => t === r)), { message: 'tags must not include reserved namespaces (draft:*, pending:*, rejected:*, repo:*) or reserved tags (created-via-code) — the action manages those' }),
     maxTokens: zod_1.z.number().int().positive().optional(),
     assertions: zod_1.z.array(AssertionSchema).min(1),
     siteSetup: SiteSetupSchema.optional(),
@@ -35896,6 +35925,7 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.toScenarioBody = toScenarioBody;
 exports.diffSyncPlan = diffSyncPlan;
 const evalforge_mapper_1 = __nccwpck_require__(7648);
+const evalforge_1 = __nccwpck_require__(280);
 function toScenarioBody(s) {
     return (0, evalforge_mapper_1.toEvalForgeBody)(s);
 }
@@ -35903,14 +35933,14 @@ function foreignDraftTags(tags, myTag) {
     return tags.filter(t => t.startsWith('draft:') && t !== myTag);
 }
 function diffSyncPlan(input) {
-    const { changedHead, head, base, remote, draftTag } = input;
+    const { changedHead, head, base, remote, draftTag, repo } = input;
     const remoteByName = new Map(remote.map(r => [r.name, r]));
     const actions = [];
     const errors = [];
     for (const [name, ls] of changedHead) {
         const r = remoteByName.get(name);
         if (!r) {
-            actions.push({ kind: 'CREATE', name, body: toScenarioBody(ls.scenario), tags: [draftTag] });
+            actions.push({ kind: 'CREATE', name, body: toScenarioBody(ls.scenario), tags: (0, evalforge_1.withManagedTags)([draftTag], repo) });
             continue;
         }
         const foreign = foreignDraftTags(r.tags, draftTag);
@@ -35918,7 +35948,7 @@ function diffSyncPlan(input) {
             errors.push({ kind: 'FOREIGN_DRAFT', name, foreignTags: foreign, path: ls.path });
             continue;
         }
-        actions.push({ kind: 'UPDATE', id: r.id, name, body: toScenarioBody(ls.scenario), tags: [draftTag] });
+        actions.push({ kind: 'UPDATE', id: r.id, name, body: toScenarioBody(ls.scenario), tags: (0, evalforge_1.withManagedTags)([draftTag], repo) });
     }
     for (const [name, ls] of base) {
         if (head.has(name))
