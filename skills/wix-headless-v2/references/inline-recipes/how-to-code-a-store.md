@@ -47,6 +47,39 @@ A concise contract for writing the **frontend code** of a storefront against a C
 
 ---
 
+## The shapes you read (field cheat-sheet)
+
+The exact field paths the storefront reads, and the **plausible-wrong sibling** each is mistaken for — the sections below reference these instead of re-describing them. All `amount`s are **strings**. These are **read** shapes; the cart-add body (under *Adding to cart*) is a separate **write** shape, and the `_id` rule applies to read **entities**, not to method-return wrappers (note `checkoutId`).
+
+```jsonc
+// productsV3.queryProducts() / .searchProducts()  →  result.items[]
+product = {
+  _id,                                            // links · cart catalogItemId · variant filter   (NOT .id → empty → HTTP 500)
+  slug, name, visible,                            // only visible:true is returned to a visitor token
+  actualPriceRange:    { minValue: { amount } },  // PRICE   (NOT price.actualPrice.amount — that's the seed/WRITE shape → $NaN)
+  compareAtPriceRange: { minValue: { amount } },  // strike-through price
+  inventory: { availabilityStatus },              // product-level stock, "IN_STOCK"
+  media: { main: { image } },                     // image is a wix:image:// id → resolve it (see Rendering images)
+  plainDescription,                               // plain string; description.nodes is the rich-text form
+}
+
+// readOnlyVariantsV3.queryVariants().eq('productData.productId', product._id).find()  →  result.items[]
+// variants are a SEPARATE resource — queryProducts / getProduct return variantsInfo: null
+variant = {
+  variantId,                                      // → cart options.variantId   (use variant.variantId ?? variant._id)
+  optionChoices: [{ optionChoiceNames: { optionName, choiceName } }],  // match the buyer's Size/Color selection
+  inventoryStatus: { inStock },                   // variant-level stock (boolean)
+}
+
+// currentCart.getCurrentCart()  →  { lineItems: [...] }
+lineItem = { quantity, price: { amount }, image }  // price is HERE (NOT actualPriceRange); image is wix:image:// too → resolve
+
+// currentCart.createCheckoutFromCurrentCart({ channelType })  →  { checkoutId }   // a STRING — NOT { checkout }, NOT _id
+// redirects.createRedirectSession({ ecomCheckout: { checkoutId }, callbacks })  →  { redirectSession: { fullUrl } }
+```
+
+---
+
 ## The storefront features (build the ones the site needs)
 
 Each section below is a **self-contained storefront feature** — implement only the ones the site uses; they don't have to be built in order, and some sites need just a few of them. The only ordering is *within* a feature (e.g. resolve the variant before adding it to the cart).
@@ -58,11 +91,17 @@ Doc: <https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v
 
 **⚠️ CRITICAL: the entity id is `_id`, NOT `id`.** The SDK normalizes every entity's id to **`_id`**. `product.id` is `undefined` in SDK code. This is the cart-killer: feeding `product.id` into the cart's `catalogItemId` sends an empty string and the add returns **HTTP 500** (`"catalogItemId" has size 0`). Use `product._id` everywhere — in links, as the cart `catalogItemId`, and as the variant-query filter value. (If a field name surprises you, you are probably reading the REST doc view — re-open it with `?apiView=SDK`.)
 
+**Scope of the `_id` rule — entity reads only.** `_id` is the id of a read **entity** (product, variant, cart line item). It is **not** a universal "every id field is `_id`" rule: method results name their own fields (e.g. `createCheckoutFromCurrentCart` returns `checkoutId`, *not* `_id` — see Checkout). Don't assume a method's return wrapper exposes `_id`.
+
 **Visibility:** only `visible: true` products are returned to a visitor token, so a missing product usually means it wasn't seeded visible — not a query bug.
+
+**Price** comes from `actualPriceRange.minValue.amount` (see the cheat-sheet) — **not** `price.actualPrice.amount` (the seed/write shape), which reads `undefined` → `$NaN`.
 
 ### Filtering products by category
 
 **✅ DEFAULT — filter client-side by `_id`.** Keep the category→`productIds` map you already have for the storefront, fetch the full product list once with `productsV3.queryProducts()`, and filter it **client-side**: `products.filter(p => categoryProductIds.includes(p._id))`. The SDK `_id` matches the seeded product ids. This is the **only approach proven to work reliably** — it sidesteps every server-filter pitfall below. Prefer it.
+
+**⚠️ Filter on the seeded `productIds` map — NOT on `product.directCategoriesInfo`.** A tempting wrong turn is to filter client-side by reading each product's own category membership (`product.directCategoriesInfo?.categories`). A plain `queryProducts()` does **not** return `directCategoriesInfo` — it's only populated if you request the `DIRECT_CATEGORIES_INFO` fieldset — so the array is empty and the filter **silently matches nothing** ("No pieces found" on every category). Use the productIds map you already hold from seeding; don't re-derive membership from the product object.
 
 **Server-side filtering (only if you truly can't filter client-side):**
 
@@ -121,7 +160,16 @@ await currentCart.addToCurrentCart({
 Create a checkout from the current cart, then redirect the buyer to the hosted checkout.
 Docs: <https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart/create-checkout-from-current-cart.md?apiView=SDK> · <https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart/get-current-cart.md?apiView=SDK>
 
-Use `currentCart.createCheckoutFromCurrentCart(...)` to get a `checkoutId`, then `redirects.createRedirectSession(...)` with that checkout to obtain the hosted-checkout URL and send the buyer there.
+```js
+const checkout = await currentCart.createCheckoutFromCurrentCart({ channelType: currentCart.ChannelType.WEB });
+const session = await redirects.createRedirectSession({
+  ecomCheckout: { checkoutId: checkout.checkoutId },   // checkout.checkoutId — NOT checkout._id
+  callbacks: { postFlowUrl: `${origin}/`, thankYouPageUrl: `${origin}/` },
+});
+window.location.href = session.redirectSession.fullUrl; // the hosted-checkout URL
+```
+
+**⚠️ Return shapes are in the cheat-sheet** — `createCheckoutFromCurrentCart` gives **`checkout.checkoutId`** (a string), not `checkout._id`. Reading `checkout._id` (over-applying the `_id` rule) throws *"Cannot read properties of undefined (reading '_id')"* — the silent checkout crash.
 
 ### Showing stock state
 
@@ -129,14 +177,23 @@ Read the **V3** inventory fields: product-level in-stock is `product.inventory.a
 
 ### Rendering product images
 
-Product media may come back as a **`wix:image://v1/<hash>/<file>#originWidth=…` identifier, not a ready URL** — this is what the SDK returns for images stored in Wix Media (e.g. once brand imagery is attached). Putting that string straight into `<img src>` shows nothing. Resolve it with the SDK media module:
+Product media may come back as a **`wix:image://v1/<hash>/<file>#originWidth=…` identifier, not a ready URL** — this is what the SDK returns for images stored in Wix Media (e.g. once brand imagery is attached). Putting that string straight into `<img src>` shows nothing. `media.main` may carry **either** an already-absolute `.url` (e.g. an Unsplash placeholder seeded when imagery is off) **or** an `.image` that is a `wix:image://` id needing resolution — handle both with **one** helper and reuse it on every page that renders an image:
 
 ```js
 import { media } from '@wix/sdk';
-const src = media.getScaledToFillImageUrl(product.media.main.image, 600, 600); // or media.getImageUrl(...).url for the original
+function imgSrc(mediaMain, w = 600, h = 600) {
+  const v = mediaMain?.image ?? mediaMain?.url ?? mediaMain;   // the value can be a string or {url}
+  if (!v) return '';
+  if (typeof v === 'string' && v.startsWith('wix:image://')) return media.getScaledToFillImageUrl(v, w, h);
+  return typeof v === 'string' ? v : (v.url ?? '');            // already an absolute https URL
+}
 ```
 
-**Never hand-build a `static.wixstatic.com/.../v1/fit/...` URL** — the format is easy to get wrong and the image then **403s**. Only `wix:image://` values need resolving; an already-absolute `https://` URL (e.g. an Unsplash placeholder seeded when imagery is off) goes straight into `<img src>`. Doc: <https://dev.wix.com/docs/sdk/core-modules/sdk/media>
+**⚠️ Do NOT write `m.url ?? m.image` (or `image?.url ?? image`).** That returns the bare **`wix:image://` string** whenever `.url` is absent — which is exactly the Wix-Media case — and the browser fails it with **`ERR_UNKNOWN_URL_SCHEME`** (blank image). The `wix:image://` branch must go through `media.getScaledToFillImageUrl`; never return it raw. Define the helper **once** and call it from every render path (home, listing, product, cart) — resolving on some pages but not others is the common partial failure.
+
+**Never hand-build a `static.wixstatic.com/.../v1/fit/...` URL** either — the format is easy to get wrong and the image then **403s**. Only `wix:image://` values need resolving; an already-absolute `https://` URL goes straight into `<img src>`. Doc: <https://dev.wix.com/docs/sdk/core-modules/sdk/media>
+
+**This applies to cart line-item images too, not just product reads.** A cart `lineItem.image` is the same `wix:image://` identifier — run it through the same `imgSrc()` helper before `<img src>`. (If you build the cart over an API route, resolve there and return a ready URL so the component never sees a `wix:image://`.)
 
 ### Rendering product descriptions
 
