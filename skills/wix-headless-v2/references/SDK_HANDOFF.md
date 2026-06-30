@@ -36,7 +36,7 @@ For each loaded capability, give the host the **package(s)** from the map below 
 |---|---|---|
 | stores | `@wix/stores` (+ `@wix/ecom`, `@wix/redirects` for cart/checkout) | **Read `inline-recipes/how-to-code-a-store.md`** (local — Read it, don't curl): the pinned Catalog V3 read/cart contract. |
 | blog | `@wix/blog` (+ `@wix/ricos` to render `richContent` — follow the blog page to the current viewer API, don't pin a version blind; **`@wix/comments` + `@wix/members` whenever the blog has comments** — author name/photo from `memberId`, and the comments flow in §5) | <https://dev.wix.com/docs/sdk/business-solutions/blog.md> · **comments has no pinned menu page — reach shapes via `SearchWixSDKDocumentation "comments queryComments createComment"`** |
-| cms | `@wix/data` | <https://dev.wix.com/docs/sdk/business-solutions/data.md> |
+| cms | `@wix/data` | **Read `inline-recipes/how-to-code-cms.md`** (local — Read it, don't curl): the pinned `items.query` read contract — fields-on-the-item (not `item.data`), `_id`, public-read so no `auth.elevate`, image + Ricos rendering. |
 | forms | `@wix/forms` | under CRM: <https://dev.wix.com/docs/sdk/business-solutions/crm.md> (forms/submissions module) |
 | events | `@wix/events` | <https://dev.wix.com/docs/sdk/business-solutions/events.md> |
 | bookings | `@wix/bookings` (+ `@wix/auto_sdk_ecom_cart-v-2`, `@wix/redirects` for the cart/checkout that holds the seat; `@wix/forms` for the schema-driven booking form) | **Read `inline-recipes/how-to-code-bookings.md`** (local — Read it, don't curl): the pinned Services V2 read + `createBooking → ecom Cart V2 → checkout-or-place` contract. |

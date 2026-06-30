@@ -46,15 +46,7 @@ Never invent a URL or body from memory.
 
 *SEED.md §3: one collection per `intent.cms.collections` entry, `itemCount` items each; collections are **public-read**; keep `collectionIds{}`, `itemIds{}`, field keys.*
 
-| Tier | Page | What it settles |
-|---|---|---|
-| 1 | <https://dev.wix.com/docs/api-reference/business-solutions/cms/skills/cms-schema-management.md> | Collection creation: the field schema + permissions block, with the critical gotcha that **read must be public (ANYONE)** while writes stay admin-only, so visitors can read on the frontend. |
-| 1 | <https://dev.wix.com/docs/api-reference/business-solutions/cms/skills/cms-data-items-crud.md> | Populating: items insert only into an existing collection; bulk-insert (with entity return) seeds many items and returns their IDs; data keys must match the schema; multi-reference fields can't be set at insert. |
-| 2 | <https://dev.wix.com/docs/api-reference/business-solutions/cms/sample-flows.md> | End-to-end ordering: create each public-read collection first, then bulk-insert its items; shows reference wiring between collections. |
-| 3 | <https://dev.wix.com/docs/api-reference/business-solutions/cms/collection-management/data-collections/create-data-collection.md> | Method schema for create-collection: needs an id, at least one field, and a permissions object (omit any and it fails); returns the collection ID. |
-| 3 | <https://dev.wix.com/docs/api-reference/business-solutions/cms/data-items/bulk-insert-data-items.md> | Method schema for bulk item insert — request/response shape and returned item IDs. |
-
-> Optional: <https://dev.wix.com/docs/api-reference/business-solutions/cms/collection-management/data-permissions/update-permissions.md> — only if a collection was created without public read; flips item-read to public after the fact.
+**Read `inline-recipes/setup-cms.md`** (local — Read it, don't curl). It is **self-contained** — every endpoint, request body, and representative response is inlined, so read it and seed from it alone; **do not go fetch the Wix Data method/flow doc pages** (they're superseded by the recipe). It covers the full create flow: **create each collection with a `permissions` block whose `read` is `ANYONE`** (anything else and the headless visitor frontend reads back zero items — the #1 empty-page cause; native collection `id`s carry no namespace), then **bulk-insert each collection's items with real field values** in `data` (`bulk/items/insert`, `returnEntity: true`, keys matching the schema; read created items from `results[].dataItem`), then **verify every field persisted** with a query before wiring any **multi-references** (`bulk/items/insert-references` with a `dataItemReferences[]` body — a multi-reference set at insert is silently dropped, not rejected, and its field must be created with `referencedCollectionId` or links never resolve; single `REFERENCE`s can be set at insert). Also covers a **visitor-writable** collection variant (`insert`/`update`/`remove: ANYONE`) for collaborative data. The public-read permissions gotcha, the transient fresh-site provisioning race (403-on-create / `400 WDE0117`-on-insert, retry-once), and the empty-`data` blank-record trap are all inlined.
 
 ---
 
