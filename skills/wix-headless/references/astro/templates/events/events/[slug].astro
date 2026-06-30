@@ -1,0 +1,107 @@
+---
+// src/pages/events/[slug].astro — SSR event detail + the registration island.
+// Two dirs deep inside src/ → import with ../../.
+//
+// SSR reads are ambient + auth.elevate (server). The registration island
+// (TicketPicker / RsvpForm) is client:only="react" and runs the VISITOR flow
+// (reserve→redirect / createRsvp) — never elevated, never a server route.
+import Layout from "../../layouts/Layout.astro";
+import TicketPicker from "../../components/TicketPicker";
+import RsvpForm from "../../components/RsvpForm";
+import { wixEventsV2, ticketDefinitions } from "@wix/events";
+import { auth } from "@wix/essentials";
+
+const { slug } = Astro.params;
+
+let event: any = null;
+try {
+  // getEventBySlug — request the display + registration fieldsets.
+  const res: any = await auth.elevate(wixEventsV2.getEventBySlug)(slug!, {
+    fields: ["DETAILS", "TEXTS", "REGISTRATION", "URLS"],
+  });
+  event = res?.event ?? null;
+} catch (err) {
+  console.error(`[events/${slug}] detail query failed:`, err);
+}
+if (!event) return Astro.redirect("/events", 302);
+
+const eventType: "TICKETING" | "RSVP" =
+  event.registration?.initialType === "RSVP" ? "RSVP" : "TICKETING";
+
+// Ticket tiers (ticketed events only). Confirm the query builder/object shape
+// against live docs if it drifts; the REST twin is POST /events/v3/ticket-definitions/query
+// with { query: { filter: { eventId } }, fields: ["SALES_DETAILS"] }.
+let tiers: any[] = [];
+if (eventType === "TICKETING") {
+  try {
+    const res: any = await auth.elevate(ticketDefinitions.queryTicketDefinitions)({
+      query: { filter: { eventId: event._id } },
+      fields: ["SALES_DETAILS"],
+    });
+    tiers = res?.ticketDefinitions ?? res?.items ?? [];
+  } catch (err) {
+    console.error(`[events/${slug}] ticket definitions query failed:`, err);
+  }
+}
+
+const fmtPrice = (def: any): string | undefined => {
+  const v = def?.pricingMethod?.fixedPrice?.value;
+  if (v == null) return undefined;
+  const cur = def?.pricingMethod?.fixedPrice?.currency ?? "USD";
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: cur }).format(Number(v));
+};
+const tierProps = tiers.map((d: any) => ({
+  id: d._id,
+  name: d.name,
+  description: d.description,
+  price: d.free ? undefined : fmtPrice(d),
+  soldOut: d.salesDetails?.soldOut ?? false,
+}));
+
+const title = event.title ?? "Event";
+const dateLabel = event.dateAndTimeSettings?.formatted?.dateAndTime;
+const imageUrl = event.mainImage?.url;
+const ticketLimitPerOrder = event.registration?.tickets?.ticketLimitPerOrder ?? 8;
+const allowDecline = event.registration?.rsvp?.responseType === "YES_AND_NO";
+---
+
+<Layout title={title} description={event.shortDescription}>
+  <section class="container-reading px-6 py-24">
+    <a href="/events" class="inline-block text-sm text-mute hover:text-ink mb-8">← All events</a>
+
+    {imageUrl && (
+      <img src={imageUrl} alt={title} class="w-full h-64 object-cover rounded-lg mb-8" />
+    )}
+
+    <div class="event-detail-head flex flex-col gap-4 mb-16">
+      <hr class="editorial-rule w-16 ml-0" />
+      <h1 class="font-display text-4xl md:text-5xl leading-tight">{title}</h1>
+      <div class="flex flex-wrap items-center gap-4 text-sm text-mute">
+        {dateLabel && <span>{dateLabel}</span>}
+        {event.location?.name && <span class="text-ink font-medium">{event.location.name}</span>}
+      </div>
+      {event.shortDescription && <p class="text-ink leading-relaxed max-w-prose">{event.shortDescription}</p>}
+    </div>
+
+    <section class="border-t border-rule pt-12">
+      {
+        eventType === "TICKETING" ? (
+          <>
+            <h2 class="font-display text-3xl leading-tight mb-8">Tickets</h2>
+            <TicketPicker
+              eventSlug={event.slug}
+              tiers={tierProps}
+              ticketLimitPerOrder={ticketLimitPerOrder}
+              client:only="react"
+            />
+          </>
+        ) : (
+          <>
+            <h2 class="font-display text-3xl leading-tight mb-8">RSVP</h2>
+            <RsvpForm eventId={event._id} allowDecline={allowDecline} client:only="react" />
+          </>
+        )
+      }
+    </section>
+  </section>
+</Layout>

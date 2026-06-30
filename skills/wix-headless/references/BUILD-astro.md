@@ -100,6 +100,7 @@ Base prompt fields: `SEED.md` § "Subagent prompt template". Each merged build a
 - `blog/INSTRUCTIONS.md` — components + pages (private — own `src/pages/blog/*`)
 - `forms/INSTRUCTIONS.md` — components + pages (private)
 - `bookings/INSTRUCTIONS.md` — components + pages (shell chain — patches `Navigation.astro` `<!-- nav:links -->` + `index.astro` `<!-- home:bookings -->`)
+- `events/INSTRUCTIONS.md` — components + pages (shell chain — patches `Navigation.astro` `<!-- nav:links -->` + `index.astro` `<!-- home:events -->`)
 - `gift-cards/INSTRUCTIONS.md` — components + pages (shell chain; passive/dashboard-gated)
 - `images/INSTRUCTIONS.md` — `image-phase-1-decorative` + `image-phase-2-entity` (image subagents also get: page list, entity types to cover)
 - `DESIGN_SYSTEM.md` — Phase 2 Designer (no Composer subagent — `compose.mjs` writes the six files)
@@ -152,7 +153,7 @@ ONE wave of per-vertical "build" agents, each writing its **components first, th
 
 ### Pre-batch (same message, before dispatches) — ALL pre-copies up front
 
-**1 · Per-pack component-CSS templates** (deterministic `cp`; static `var(--token)` CSS, no subagent). `compose.mjs`'s Layout imports `src/styles/components-<pack>.css` for every pack with `components`; **skip this and `astro build` fails with `Could not resolve "../styles/components-<pack>.css"`.** For each loaded pack with a `components` scope (today: `stores`, `ecom`, `blog`, `forms`, `gift-cards`, `bookings`):
+**1 · Per-pack component-CSS templates** (deterministic `cp`; static `var(--token)` CSS, no subagent). `compose.mjs`'s Layout imports `src/styles/components-<pack>.css` for every pack with `components`; **skip this and `astro build` fails with `Could not resolve "../styles/components-<pack>.css"`.** For each loaded pack with a `components` scope (today: `stores`, `ecom`, `blog`, `forms`, `gift-cards`, `bookings`, `events`):
 
 ```bash
 for pack in <loaded packs with components>; do
@@ -174,9 +175,11 @@ cp "<SKILL_ROOT>/references/astro/templates/ecom/discounts.ts"        "src/utils
 # bookings (loaded) — the booking SDK module + SeoTags
 cp "<SKILL_ROOT>/references/astro/templates/bookings/bookingDriver.ts" "src/components/bookingDriver.ts"
 cp "<SKILL_ROOT>/references/astro/templates/bookings/SeoTags.astro"    "src/components/SeoTags.astro"
+# events (loaded) — the reserve→redirect / RSVP SDK module
+cp "<SKILL_ROOT>/references/astro/templates/events/eventsDriver.ts"    "src/components/eventsDriver.ts"
 ```
 
-`categories.ts` is imported by `pages-categories`/`pages-products`/`pages-home-and-nav`; `back-in-stock.ts` by stores components; `discounts.ts` by ecom components + stores product pages; `bookingDriver.ts` (the ecom-Cart-V2 booking sequence — `book()`/`navigateToCheckout()`) by the bookings islands, and `SeoTags.astro` by `services/[slug].astro`. Static, brand-agnostic SDK wrappers — if not pre-copied, multiple scopes race to author them.
+`categories.ts` is imported by `pages-categories`/`pages-products`/`pages-home-and-nav`; `back-in-stock.ts` by stores components; `discounts.ts` by ecom components + stores product pages; `bookingDriver.ts` (the ecom-Cart-V2 booking sequence — `book()`/`navigateToCheckout()`) by the bookings islands, and `SeoTags.astro` by `services/[slug].astro`; `eventsDriver.ts` (the reserve→redirect ticketing sequence + `rsvp()`) by the events islands. Static, brand-agnostic SDK wrappers — if not pre-copied, multiple scopes race to author them.
 
 ### Dispatch the wave — one concurrent batch (private agents) + a serialized shell chain alongside it
 
@@ -192,6 +195,7 @@ One merged "build" agent per loaded vertical (Instruction file = that vertical's
 - **ecom-build** — `components` (CartView, CartBadge) → `pages` (`cart.astro`, `thank-you.astro` private, **+ CartBadge mount in `Navigation.astro` at `<!-- nav:actions -->`**).
 - **stores-home-and-nav** — patch `index.astro` product grid at `<!-- home:stores -->` + `Navigation.astro` Shop submenu at `<!-- nav:links -->`. Writes no islands; pure shell-patcher.
 - **bookings-build** — `components` (AvailabilityCalendar, BookingForm, ServiceBookingFlow islands; `bookingDriver.ts` + `SeoTags.astro` are pre-copied) → `pages` (`services/index.astro`, `services/[slug].astro`, `ServiceCard.astro`, `booking-confirmation.astro` private, **+ Services link in `Navigation.astro` at `<!-- nav:links -->` / services teaser in `index.astro` at `<!-- home:bookings -->`**).
+- **events-build** — `components` (TicketPicker, RsvpForm islands; `eventsDriver.ts` is pre-copied) → `pages` (`events/index.astro`, `events/[slug].astro`, `EventCard.astro`, `event-confirmation.astro` private, **+ Events link in `Navigation.astro` at `<!-- nav:links -->` / events teaser in `index.astro` at `<!-- home:events -->`**).
 - **gift-cards-build** — `components` (probe util, GiftCardPurchase island) → `pages` (gift-cards landing + `Navigation.astro` `<!-- nav:links -->` / `index.astro` `<!-- home:gift-cards -->`).
 
 Cross-vertical imports (`stores-home-and-nav` importing `CategoryRail`/`ProductCard`/`utils/categories.ts`) resolve at **build time**, not write time, so they impose no write-ordering between the chain and batch A. The only ordering: (i) shell-patchers serialize against each other (per-file), (ii) everything is on disk before Build.

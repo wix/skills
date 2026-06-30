@@ -1,0 +1,73 @@
+---
+// src/pages/events/index.astro — SSR events listing grid.
+// One dir deep inside src/pages → ../../ reaches src/. Adapt copy/headings to the
+// brand; keep the SSR data wiring.
+//
+// SSR READS use the ambient @wix/astro client via @wix/essentials, wrapped in
+// auth.elevate(...) — same pattern as the bookings catalog. Do NOT build
+// createClient({ auth: OAuthStrategy({ clientId: import.meta.env.* }) }) here; that
+// env var is client-only and undefined at server render → 500. (The visitor
+// CHECKOUT, by contrast, runs in the browser island and is NOT elevated.)
+import Layout from "../../layouts/Layout.astro";
+import EventCard from "../../components/EventCard.astro";
+import { wixEventsV2 } from "@wix/events";
+import { auth } from "@wix/essentials";
+
+// Query upcoming events. NOTE: the Events V3 query filter is finicky — an empty or
+// over-broad filter can return total>0 with count 0, and some status operators
+// 428. Confirm the exact filter/sort/fields against the live docs
+// (SearchWixSDKDocumentation "events query events" / api-reference events query).
+// The shape below requests the display fieldsets and sorts by start date.
+let events: any[] = [];
+try {
+  const res: any = await auth.elevate(wixEventsV2.customQueryEvents)({
+    query: {
+      filter: { "status": { $hasSome: ["UPCOMING", "STARTED"] } },
+      sort: [{ fieldName: "dateAndTimeSettings.startDate", order: "ASC" }],
+      paging: { limit: 100 },
+    },
+    fields: ["DETAILS", "TEXTS", "URLS", "REGISTRATION"],
+  });
+  events = res?.events ?? res?.items ?? [];
+} catch (err) {
+  console.error("[events] listing query failed:", err);
+}
+
+const lowestPrice = (ev: any): string | undefined => {
+  const p = ev?.registration?.tickets?.lowestPrice;
+  if (!p?.value) return undefined;
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: p.currency ?? "USD" }).format(Number(p.value));
+};
+const eventType = (ev: any): "TICKETING" | "RSVP" =>
+  ev?.registration?.initialType === "RSVP" ? "RSVP" : "TICKETING";
+---
+
+<Layout title="Events">
+  <section class="max-w-6xl mx-auto px-6 py-24">
+    <header class="flex flex-col gap-4 max-w-prose mb-16">
+      <hr class="editorial-rule w-16 ml-0" />
+      <h1 class="font-display text-4xl md:text-5xl leading-tight">Upcoming Events</h1>
+    </header>
+
+    {
+      events.length === 0 ? (
+        <p class="text-mute">No upcoming events right now — check back soon.</p>
+      ) : (
+        <div class="event-grid">
+          {events.map((ev) => (
+            <EventCard
+              slug={ev.slug}
+              title={ev.title ?? "Untitled event"}
+              dateLabel={ev.dateAndTimeSettings?.formatted?.dateAndTime}
+              locationName={ev.location?.name}
+              shortDescription={ev.shortDescription}
+              imageUrl={ev.mainImage?.url}
+              type={eventType(ev)}
+              priceFrom={lowestPrice(ev)}
+            />
+          ))}
+        </div>
+      )
+    }
+  </section>
+</Layout>
