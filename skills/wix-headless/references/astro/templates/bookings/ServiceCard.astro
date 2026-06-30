@@ -13,12 +13,13 @@ interface Props {
   price?: string; // formatted string, e.g. "$75.00" — already formatted by caller
   currency?: string;
   imageUrl?: string;
-  type: "APPOINTMENT" | "CLASS";
+  type: "APPOINTMENT" | "CLASS" | "COURSE";
+  dateRange?: string; // COURSE only — preformatted date range (a course has no per-session duration)
   locationId?: string; // when a location is selected on the catalog, carry it to the detail page
   locationType?: string;
 }
 
-const { slug, name, tagLine, durationMinutes, price, imageUrl, locationId, locationType } = Astro.props;
+const { slug, name, tagLine, durationMinutes, price, imageUrl, type, dateRange, locationId, locationType } = Astro.props;
 
 // Carry the selected location into the detail page so availability is scoped to it.
 const q = new URLSearchParams();
@@ -47,7 +48,7 @@ const href = qs ? `/services/${slug}?${qs}` : `/services/${slug}`;
     <h3 class="service-card-name">{name}</h3>
     {tagLine && <p class="service-card-tagline">{tagLine}</p>}
     <div class="service-card-price">
-      <span>{durationMinutes} min</span>
+      <span>{type === "COURSE" ? (dateRange ?? "Course") : `${durationMinutes} min`}</span>
       {price && <span>{price}</span>}
     </div>
   </div>

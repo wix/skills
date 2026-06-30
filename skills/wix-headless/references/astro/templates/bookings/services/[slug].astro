@@ -4,7 +4,9 @@
 import Layout from "../../layouts/Layout.astro";
 import SeoTags from "../../components/SeoTags.astro";
 import ServiceBookingFlow from "../../components/ServiceBookingFlow";
+import CourseEnrollFlow from "../../components/CourseEnrollFlow";
 import { services } from "@wix/bookings";
+import { events as calendarEvents } from "@wix/calendar";
 import { forms } from "@wix/forms";
 import { auth } from "@wix/essentials";
 
@@ -34,56 +36,133 @@ try {
 
 if (!service) return Astro.redirect("/services", 302);
 
+// Extract plain text from a label that may be a string or Ricos RichContent object.
+function labelText(label: any): string {
+  if (!label) return "";
+  if (typeof label === "string") return label;
+  const out: string[] = [];
+  const walk = (n: any) => {
+    if (!n) return;
+    if (n.textData?.text) out.push(n.textData.text);
+    (n.nodes ?? []).forEach(walk);
+  };
+  (label.nodes ?? []).forEach(walk);
+  return out.join(" ").trim();
+}
+
+// Normalize one @wix/forms field into a render descriptor for the island.
+// READ `form.formFields` — the documented field array (the `inputOptions` shape).
+// (`form.fields` is an internal runtime field; do not use it.) Each field's
+// `validation` sub-key (string/number/boolean/array/predefined) determines the
+// SUBMISSION VALUE TYPE createBooking expects; a wrong type rejects the whole
+// booking. Returns null for non-input / hidden fields.
+function normalizeFormField(f: any): any {
+  // Coerce the `formFields` (inputOptions) shape into the intermediate the
+  // render-type derivation below works on.
+  if (f.inputOptions) {
+    const io = f.inputOptions;
+    const to = io.stringOptions || io.numberOptions || io.booleanOptions || io.arrayOptions || io.addressOptions || io.wixFileOptions || {};
+    const optsBlock = to.dropdownOptions || to.radioGroupOptions || to.checkboxGroupOptions || to.tagsOptions;
+    const label = (to.textInputOptions || to.dropdownOptions || to.phoneInputOptions || to.numberInputOptions || to.multilineAddressOptions || optsBlock || {}).label;
+    const validation =
+      io.stringOptions ? { string: to.validation ?? {}, required: io.required }
+      : io.numberOptions ? { number: to.validation ?? {}, required: io.required }
+      : io.booleanOptions ? { boolean: to.validation ?? {}, required: io.required }
+      : io.arrayOptions ? { array: to.validation ?? {}, required: io.required }
+      : io.addressOptions ? { predefined: { format: "MULTILINE_ADDRESS", multilineAddressOptions: to.validation }, required: io.required }
+      : io.wixFileOptions ? { predefined: { format: "WIX_FILE" }, required: io.required }
+      : { required: io.required };
+    f = { id: f.id ?? f._id, hidden: f.hidden, identifier: f.identifier, target: io.target,
+          validation, view: { label, options: optsBlock?.options, componentType: to.componentType, fieldType: f.identifier } };
+  }
+
+  const target = f.target;
+  if (!target || f.hidden) return null; // DISPLAY header / hidden → not collected
+  const v = f.validation ?? {};
+  const view = f.view ?? {};
+  const ct = view.componentType; // from the coerced inputOptions shape (componentType)
+  const required = !!v.required;
+  const label = labelText(view.label) || target;
+  const options = (view.options ?? []).map((o: any) => ({
+    value: o.value ?? o.label ?? "",
+    label: o.label ?? o.value ?? "",
+  }));
+
+  let renderType = "text";
+  let valueType = "string";
+  if (v.string) {
+    const fmt = v.string.format;
+    if (ct === "RADIO_GROUP") renderType = "radio";
+    else if (ct === "DROPDOWN" || ct === "SERVICES_DROPDOWN") renderType = "dropdown";
+    else if (ct === "DATE_PICKER" || ct === "DATE_INPUT" || fmt === "DATE") renderType = "date";
+    else if (ct === "DATE_TIME" || fmt === "DATE_TIME") renderType = "datetime";
+    else if (ct === "TIME_INPUT" || fmt === "TIME") renderType = "time";
+    else if (ct === "PHONE_INPUT" || fmt === "PHONE" || view.fieldType === "BOOKINGS_PHONE" || target === "phone") renderType = "tel";
+    else if (options.length) renderType = "dropdown"; // radio also submits a string; dropdown is safe
+    else if (f.identifier === "TEXT_AREA" || view.fieldType === "TEXT_AREA") renderType = "textarea";
+    else if (fmt === "EMAIL" || target === "email") renderType = "email";
+    else renderType = "text";
+  } else if (v.number) {
+    valueType = "number"; renderType = "number";
+  } else if (v.array) {
+    valueType = "array"; renderType = "checkbox_group";
+  } else if (v.predefined?.format === "MULTILINE_ADDRESS") {
+    valueType = "address"; renderType = "address";
+  } else if (v.predefined?.format === "WIX_FILE") {
+    valueType = "file"; renderType = "file";
+  } else {
+    valueType = "boolean"; renderType = "checkbox"; // checkbox: validation type often absent
+  }
+
+  const out: any = { id: f.id ?? f._id, target, label, required, renderType, valueType };
+  if (options.length) out.options = options;
+  if (view.addOther) out.addOther = true;
+  if (renderType === "address") {
+    out.addressFields = v.predefined?.multilineAddressOptions?.fields ?? {};
+    out.allowedCountries = v.predefined?.multilineAddressOptions?.allowedCountries ?? [];
+  }
+  if (renderType === "file") out.fileLimit = view.valueSliderLimit ?? 1;
+  const fmt = v.string?.format;
+  out.validation = {
+    minLength: v.string?.minLength, maxLength: v.string?.maxLength, pattern: v.string?.pattern,
+    format: fmt && fmt !== "UNDEFINED" ? fmt : undefined,
+    enum: v.string?.enum?.length ? v.string.enum : undefined,
+    minimum: v.number?.minimum, maximum: v.number?.maximum, multipleOf: v.number?.multipleOf,
+    minItems: v.array?.minItems, maxItems: v.array?.maxItems,
+  };
+  return out;
+}
+
 // Booking-form SCHEMA — the form belongs to the service (service.form._id) in the
-// bookings namespace. Read it server-side and pass the field list to the island.
-// Same renderer the forms vertical uses (references/astro/forms/CONTACT_FORM.md):
-// keep the field's `target` — that is the key createBooking expects in formSubmission.
+// bookings namespace. Read it server-side and pass the normalized field list to the
+// island, which renders each field by type and collects the correctly-typed value.
 let formFields: any[] = [];
 try {
   const formId = service.form?._id;
   if (formId) {
     const res: any = await auth.elevate(forms.getForm)(formId);
     const form = res?.form ?? res;
-    // Only render field types we can submit as a simple value. Skip complex,
-    // object-valued fields (e.g. a multi-line ADDRESS) — they carry no string
-    // `componentType`, and sending a string for them fails createBooking with
-    // "must be object". The booking enforces only the contact basics
-    // (first_name/last_name/email), so skipping optional complex fields is safe.
-    const RENDERABLE = ["TEXT_INPUT", "PHONE_INPUT", "DROPDOWN"];
-    formFields = (form?.formFields ?? [])
-      .filter(
-        (f: any) =>
-          f.fieldType === "INPUT" &&
-          !f.hidden &&
-          RENDERABLE.includes(f.inputOptions?.stringOptions?.componentType),
-      )
-      .map((f: any) => {
-        const opts = f.inputOptions;
-        const str = opts?.stringOptions;
-        const label =
-          str?.textInputOptions?.label ??
-          str?.dropdownOptions?.label ??
-          str?.phoneInputOptions?.label ??
-          "";
-        return {
-          label,
-          target: opts?.target ?? "",
-          required: opts?.required ?? false,
-          componentType: str?.componentType ?? "TEXT_INPUT",
-          identifier: f.identifier ?? "",
-          options: str?.dropdownOptions?.options?.map((o: any) => ({
-            value: o.value ?? o.label ?? "",
-            label: o.label ?? o.value ?? "",
-          })),
-        };
-      });
+    const raw: any[] = form?.formFields ?? [];
+    formFields = raw.map(normalizeFormField).filter(Boolean);
+    // Order fields by the form's LAYOUT grid (steps[].layout.large.items: row, column),
+    // NOT the fields[] array order — this is the order the merchant configured.
+    const layoutItems = (form?.steps ?? []).flatMap((s: any) => s?.layout?.large?.items ?? []);
+    const pos = new Map<string, { row: number; col: number }>(
+      layoutItems.map((it: any, i: number) => [it.fieldId, { row: it.row ?? i, col: it.column ?? 0 }]),
+    );
+    formFields.sort((a: any, b: any) => {
+      const pa = pos.get(a.id) ?? { row: 1e9, col: 0 };
+      const pb = pos.get(b.id) ?? { row: 1e9, col: 0 };
+      return pa.row - pb.row || pa.col - pb.col;
+    });
   }
 } catch (err) {
   console.error(`[services/${slug}] booking form schema failed:`, err);
 }
 
 const formatPrice = (p: any): string | undefined => {
-  if (!p || p.rateType === "NO_FEE") return undefined;
+  if (!p) return undefined;
+  if (p.rateType === "NO_FEE") return "Free";
   if (p.rateType === "FIXED" && p.fixed?.price) {
     const { value, currency } = p.fixed.price;
     if (!value) return undefined;
@@ -96,6 +175,64 @@ const duration = service.schedule?.availabilityConstraints?.sessionDurations?.[0
 const imageUrl = service.media?.mainMedia?.image?.url ?? service.media?.items?.[0]?.image?.url;
 const serviceName = service.name ?? "Service";
 const seoTags = service.seoData?.tags ?? [];
+const serviceType = service.type ?? "APPOINTMENT";
+const isCourse = serviceType === "COURSE";
+const bookHeading = isCourse ? "Enroll in this course" : "Book this service";
+
+// ── COURSE details (appointments/classes skip all of this) ───────────────────
+// A course is enrolled as a whole series (no per-slot calendar): the detail page shows
+// the schedule + capacity + an Enroll action. The per-session list, capacity, staff, and
+// location come from ONE Calendar Events V3 query (`events.queryEvents` by scheduleId);
+// `listEventTimeSlots` returns nothing for a COURSE. Elevated here for SSR. See FLOW.md §10.
+// Normalize schedule dates to ISO strings: the SDK can deserialize these to Date objects
+// (like the event dates below); a raw Date reaches the confirmation `startDate` query param
+// as a locale-dependent Date.toString() the confirmation page can't reliably parse.
+const toIso = (d: any): string | undefined => (d ? new Date(d).toISOString() : undefined);
+const firstSessionStart = toIso(service.schedule?.firstSessionStart);
+const lastSessionEnd = toIso(service.schedule?.lastSessionEnd);
+const bookAfterStart = !!service.bookingPolicy?.bookAfterStartPolicy?.enabled;
+const STAFF_RESOURCE_TYPE_ID = "1cd44cf8-756f-41c3-bd90-3e2ffcaf1155";
+let courseCapacity: any = null;
+let courseSessions: { start: string; end?: string; durationMin?: number; staff?: string }[] = [];
+let courseSessionCount = 0;
+let courseLocation: string | undefined;
+if (isCourse && service.schedule?._id) {
+  try {
+    const nowIso = new Date().toISOString();
+    const res: any = await auth.elevate(calendarEvents.queryEvents)({
+      filter: { scheduleId: service.schedule._id },
+      cursorPaging: { limit: 100 },
+    });
+    // (event start/end .utcDate are also Date OBJECTS from the SDK — the shared toIso
+    // above normalizes them, or the upcoming-filter would silently drop every session.)
+    const staffName = (e: any): string | undefined =>
+      ((e.resources ?? []).filter((r: any) => r.type === STAFF_RESOURCE_TYPE_ID).map((r: any) => r.name).filter(Boolean).join(", ")) || undefined;
+    const locationLabel = (loc: any): string | undefined =>
+      !loc ? undefined : loc.name || (loc.type === "CUSTOM" ? "Custom location" : loc.type === "CUSTOMER" ? "Your location" : "In person");
+
+    const events = (res?.events ?? []).filter((e: any) => e.status !== "CANCELLED");
+    const cap = events[0]; // each session carries the course-level total/remaining
+    if (cap) {
+      const totalCapacity = cap.totalCapacity ?? service.defaultCapacity ?? 0;
+      const remaining = cap.remainingCapacity ?? totalCapacity;
+      courseCapacity = { totalCapacity, remaining, isFull: totalCapacity > 0 && remaining <= 0 };
+    }
+    courseLocation = locationLabel(cap?.location);
+    const upcoming = events
+      .map((e: any) => {
+        const start = toIso(e.start?.utcDate ?? e.start?.localDate);
+        const end = toIso(e.end?.utcDate ?? e.end?.localDate);
+        const durationMin = start && end ? Math.round((Date.parse(end) - Date.parse(start)) / 60000) : undefined;
+        return { start, end, durationMin, staff: staffName(e) };
+      })
+      .filter((e: any) => e.start && (e.end ?? e.start) >= nowIso) // upcoming only
+      .sort((a: any, b: any) => a.start!.localeCompare(b.start!));
+    courseSessionCount = upcoming.length; // true total
+    courseSessions = upcoming; // all upcoming (bounded by the 100-event query); the island paginates
+  } catch (err) {
+    console.error(`[services/${slug}] course details query failed:`, err);
+  }
+}
 
 // Staff for the optional staff picker — carried on the service via the
 // STAFF_MEMBER_DETAILS conditional field (already requested in the query above).
@@ -153,24 +290,48 @@ try {
       <h1 class="font-display text-4xl md:text-5xl leading-tight">{serviceName}</h1>
       {service.tagLine && <p class="text-lg text-mute leading-relaxed max-w-prose">{service.tagLine}</p>}
       <div class="flex items-center gap-4 text-sm text-mute">
-        <span>{duration} min</span>
+        {isCourse
+          ? firstSessionStart && (
+              <span>
+                {new Date(firstSessionStart).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                {lastSessionEnd && ` – ${new Date(lastSessionEnd).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`}
+              </span>
+            )
+          : <span>{duration} min</span>}
         {price && <span class="text-ink font-medium">{price}</span>}
       </div>
       {service.description && <p class="text-ink leading-relaxed max-w-prose">{service.description}</p>}
     </div>
 
     <section class="border-t border-rule pt-12">
-      <h2 class="font-display text-3xl leading-tight mb-8">Book this service</h2>
-      <ServiceBookingFlow
-        service={service}
-        serviceName={serviceName}
-        serviceType={service.type ?? "APPOINTMENT"}
-        fields={formFields}
-        staffMembers={staffMembers}
-        locations={serviceLocations}
-        locationId={locationId}
-        client:only="react"
-      />
+      <h2 class="font-display text-3xl leading-tight mb-8">{bookHeading}</h2>
+      {isCourse ? (
+        <CourseEnrollFlow
+          service={service}
+          serviceName={serviceName}
+          fields={formFields}
+          scheduleId={service.schedule?._id}
+          firstSessionStart={firstSessionStart}
+          lastSessionEnd={lastSessionEnd}
+          capacity={courseCapacity}
+          sessions={courseSessions}
+          sessionCount={courseSessionCount}
+          location={courseLocation}
+          bookAfterStart={bookAfterStart}
+          client:only="react"
+        />
+      ) : (
+        <ServiceBookingFlow
+          service={service}
+          serviceName={serviceName}
+          serviceType={serviceType}
+          fields={formFields}
+          staffMembers={staffMembers}
+          locations={serviceLocations}
+          locationId={locationId}
+          client:only="react"
+        />
+      )}
     </section>
   </section>
 </Layout>

@@ -13,9 +13,13 @@ framework, translate the examples** — the SDK calls and payloads are identical
 only the UI idiom (`useState`/`useEffect` → a store / `onMounted` / signals) and
 the client acquisition differ (see "Client identity" below).
 
-The flow covers **appointments and classes**. APPOINTMENT and CLASS share the
-same booking sequence; they differ only in the availability call (`availabilityTimeSlots`
-vs `eventTimeSlots`, noted inline). **Courses and add-ons are out of scope.**
+The flow covers **appointments, classes, and courses**. APPOINTMENT and CLASS share
+the same booking sequence; they differ only in the availability call (`availabilityTimeSlots`
+vs `eventTimeSlots`, noted inline). **COURSE is different**: a course is enrolled as a
+**whole series** — no availability calendar, no per-slot time — so it has its own detail
+page (schedule + capacity + an Enroll action) and a `bookedEntity.schedule` create shape.
+The course specifics are in **§10**; the rest of this file is the appointment/class flow.
+**Add-ons are out of scope.**
 
 ---
 
@@ -38,6 +42,10 @@ five-step path:
 ```
 
 The location/category filters and the staff picker are covered in §§7–8.
+
+**Courses take a shorter path** (§10): catalog → **course detail (schedule + capacity +
+Enroll)** → Details (the same booking form) → Book. There is **no Slots step and no
+calendar** — a course is enrolled as a whole series, not a picked time.
 
 **The catalog is the entry point but optional** — a visitor can land directly on a
 service page and start at the Slots step. Every step rehydrates from the URL (§2),
@@ -94,6 +102,11 @@ Key facts the driver encodes (do not deviate):
   cart holds the seat** instead — `placeOrder` (free/offline) or the hosted checkout
   (paid) drives confirmation — so a client-only site completes the whole flow with no
   server elevation.
+- **COURSE uses `bookedEntity.schedule`, not `slot`** — when `slot.serviceType === "COURSE"`
+  the driver sends `bookedEntity: { schedule: { scheduleId, serviceId, location, timezone },
+  tags: ["COURSE"] }` (the course's own `service.schedule._id`) — **no slot, no eventId, no
+  resource selection**. Wix derives the booking's start/end from the schedule. The cart /
+  checkout half is identical to appointments/classes. See §10.
 - **ANY_RESOURCE fallback (staff)** — when no staff is chosen (the default, and on
   single-staff services), `createBooking` sends
   `resourceSelections:[{ resourceTypeId:"1cd44cf8-756f-41c3-bd90-3e2ffcaf1155", selectionMethod:"ANY_RESOURCE" }]`
@@ -148,30 +161,72 @@ eventTimeSlots.listEventTimeSlots({
 
 The booking form is a **`@wix/forms` form** attached to the service
 (`service.form._id`, namespace `wix.bookings.v2.bookings`). Render it
-**schema-driven** — read the field list and render inputs by field type — the
-**same renderer the forms vertical uses** (`../astro/forms/CONTACT_FORM.md`):
+**schema-driven** — read the field list and render an input per field type,
+collecting each value with the **correct JS type**:
 
 1. Fetch the form by `service.form._id` (`@wix/forms` `getForm`; server-side/elevated
-   where the framework allows). Read `form.formFields`.
-2. Keep `fieldType === "INPUT" && !hidden` **and** a recognized string
-   `componentType` (`TEXT_INPUT` / `PHONE_INPUT` / `DROPDOWN`). For each, take
-   `inputOptions.target`, `inputOptions.required`, `inputOptions.stringOptions.componentType`,
-   and the label from `inputOptions.stringOptions.{textInputOptions|dropdownOptions|phoneInputOptions}.label`.
-   **Skip complex, object-valued fields** — e.g. a multi-line `ADDRESS` — they carry
-   no string `componentType`; rendering them as a text input sends a string and
-   `createBooking` rejects it with **"must be object"**. The booking enforces only
-   the contact basics (`first_name`/`last_name`/`email`), so omitting an optional
-   complex field is safe (do **not** default unknown field types to a text input).
-3. Render generic inputs by `componentType`: `TEXT_INPUT` → text input,
-   `DROPDOWN` → select, `PHONE_INPUT` → `type=tel`; treat `identifier === "TEXT_AREA"`
-   (or `target` containing `message`) as a textarea (its `componentType` is still `TEXT_INPUT`).
-4. Collect the values into an object **keyed by each field's `target`** — that is
-   `formSubmission`. Pass it to `book()`. Only include fields the visitor filled;
-   never send a value for a field you didn't render.
+   where the framework allows). **Read `form.formFields`** — the documented field array
+   (the `inputOptions` shape). (`form.fields` is an internal runtime field; don't use it.)
+2. For each field (`!hidden`, has a `target`), read: `field.target` (the submission
+   key), `field.validation.required`, the label from `field.view.label` (a string, or
+   a Ricos rich-content object — walk its nodes for text), and choice `field.view.options`
+   (`[{ value, label }]`). Determine the **value type from `field.validation`**'s sub-key:
+   - `validation.string` → `string`. Sub-render by `format` / options: `DATE`→date,
+     `DATE_TIME`→datetime, `TIME`→time; has `options`→select (or radio); `EMAIL`→email,
+     `PHONE`→tel; `identifier === "TEXT_AREA"`→textarea; else text input.
+   - `validation.number` → **`number`** (parse the input; never submit a numeric string).
+   - `validation.array` → **`string[]`** (checkbox-group / tags; toggle option `value`s).
+   - `validation.boolean` (often the only marker is a boolean default) → `boolean` (checkbox).
+   - `validation.predefined.format === "MULTILINE_ADDRESS"` → **nested object** (see below).
+   - `validation.predefined.format === "WIX_FILE"` → **`WixFile[]`** (file/signature; see below).
+   - DISPLAY fields (no `target` — e.g. a heading) render read-only / are skipped.
+3. **The submission value TYPE is the contract.** `createBooking` validates it
+   server-side and a wrong type rejects the *whole* booking (e.g. a number field sent
+   as `"2"`, or an address sent as a string → rejected). Match the table above exactly.
+4. **Multi-line address** → one nested object at the field's `target`, of **ISO codes**.
+   The validator is strict: `country` must be a valid ISO-2 code (an enum) and
+   `subdivision` a valid code **for that country** — free-text ("United States",
+   "Texas") is **rejected**, which is why the Wix dashboard renders Country/Region as
+   **dropdowns**. The sub-field set is **per-country** (US = address/city/region-dropdown/zip;
+   most countries = address/city/postal; some use streetName/streetNumber). Render this
+   faithfully with `addressData.ts` (baked from Wix's own per-country address templates):
+   a **Country `<select>`** (`ADDRESS_COUNTRIES` + `Intl.DisplayNames` for names) →
+   `addressSubFields(country)` gives the sub-fields to render, each a `<select>` when it
+   has `options` (e.g. US states) else a text input. Changing country resets the object.
+   See `../astro/templates/bookings/BookingForm.tsx` (`case "address"`).
+   **Render address ONLY when the selected slot is a CUSTOMER location**
+   (`slot.locationType === "CUSTOMER"`) — same as the native Wix booking form. The
+   server requires address only for customer locations; for BUSINESS/other locations
+   it accepts a booking with no address even though the schema marks it `required`, so
+   showing it there is wrong. (The renderer filters it out for non-CUSTOMER slots.)
+5. **File upload / signature** → `WixFile[]`. The `FileField` (in `BookingForm.tsx`)
+   does the documented pure-SDK round-trip: `submissions.getMediaUploadUrl(formId,
+   filename, mimeType)` → `PUT` the bytes to the returned URL → store
+   `[{ fileId, displayName, fileType, url? }]` at the field's `target`. `formId` =
+   `service.form._id`. `createBooking` accepts the resulting `WixFile[]`.
+6. **Order fields by the form's layout, not the array.** Sort by `form.steps[].layout.large.items`
+   (`row`, then `column`) — that's the order the merchant arranged in the dashboard.
+   (`[slug].astro` does this after mapping.) Hidden / no-`target` fields are dropped.
+7. Collect the values into an object **keyed by each field's `target`** — that is
+   `formSubmission`. Pass it to `book()`. Include only filled fields; never send a
+   value for a field you didn't render. Empty → omit (or `null`); keep `0` / `false`.
+
+**Phone** (`PHONE_INPUT`) renders a **country-code dropdown + number input** via
+`libphonenumber-js` (`PhoneField` in `BookingForm.tsx`), emitting an E.164 string
+(`"+14155551234"`). **Inline validation** runs on blur from the schema's own rules
+(`formValidation.ts`, built on `ajv` + `ajv-formats` + a libphonenumber phone check):
+required / minLength / maxLength / pattern / format (email…) / min / max / minItems /
+maxItems, shown per-field; the server still validates authoritatively on submit, so
+this is a UX layer. **Files shipped with the renderer:** `BookingForm.tsx`,
+`addressData.ts` (baked per-country address templates), `formValidation.ts`. **Deps
+to install:** `libphonenumber-js ajv ajv-formats` (SETUP.md Step 4c bookings row).
 
 **Do not** submit `contactDetails`, and **do not** hardcode field names — key by
-`target`. The default booking form's targets are snake_case `first_name` /
-`last_name` / `email` / `phone`. Reference example: `../astro/templates/bookings/BookingForm.tsx`.
+`target`. Wix derives `contactDetails` (and `fullAddress`) from the contact-mapped
+fields. The default booking form's targets are snake_case `first_name` / `last_name` /
+`email` / `phone` (+ a `MULTILINE_ADDRESS` `address`). Reference example:
+`../astro/templates/bookings/BookingForm.tsx` (renderer) and `services/[slug].astro`
+(the `normalizeFormField` schema mapping).
 
 ## 5. The availability calendar (slots step)
 
@@ -201,14 +256,14 @@ The SDK calls are identical everywhere; only how you get the client differs:
 Both filter the **catalog query** and re-render the list. The cleanest
 framework-agnostic shape is a re-query driven by a query param (`?locationId`,
 `?category`) — links/SSR on a static catalog, or a store/router on a SPA. **Show
-each filter only when there is more than one choice**, exactly as the SoT does.
+each filter only when there is more than one choice**.
 
-**Location** (the SoT is location-first; here it auto-skips ≤1 location):
+**Location** (auto-skips ≤1 location):
 1. `services.queryLocations()` → `{ businessLocations: { locations: [{ _id, type, business: { name } }] }, customLocations: { exists }, customerLocations: { exists } }`.
 2. Count = `businessLocations.locations.length + (customLocations.exists ? 1 : 0) + (customerLocations.exists ? 1 : 0)`. **Show the selector only when count > 1.**
 3. The chosen location filters the catalog query:
    - a real business id → `filter["locations.business.id"] = { $hasSome: [id] }`;
-   - the synthetic `"custom"` / `"customer"` → `filter["locations.type"] = { $hasSome: ["CUSTOM"|"CUSTOMER"] }` (the SoT's synthetic-id mapping).
+   - the synthetic `"custom"` / `"customer"` → `filter["locations.type"] = { $hasSome: ["CUSTOM"|"CUSTOMER"] }`.
 4. **Scope availability to exactly ONE location — always, on a multi-location service.** `listAvailabilityTimeSlots` returns **one slot per location** per time ("if `locations` is not specified, returns time slots for all locations where the service is available"), so an unscoped call on a 2-location service shows every time **twice**. Pass a single-element filter: APPOINTMENT → `locations: [{ _id, locationType: "BUSINESS" }]`; CLASS → `eventFilter: { "location.id": [id] }`. (Staff does **not** multiply rows — one slot carries many `availableResources`; only location does.) The slots step builds its location list from **`queryLocations()`** (the site's real business locations, whose ids the availability engine recognizes) **intersected with the service's own location ids** — not from `service.locations` alone, whose entries can carry an id the availability engine doesn't recognize (scoping to it returns zero slots). A **location picker** defaults to the catalog-carried location (or the first) and scopes the call when there's a real location to scope to; when the site has no business locations the list is empty and the call stays unscoped (one location → no duplicates). The booked slot carries its own `location`, so the booking books at that location (the driver maps it).
 
 **Category:**
@@ -238,9 +293,63 @@ resource GUID** (it matches the service's `staffMemberIds` and the Staff Members
 
 ## 9. Out of scope
 
-Waitlist, on-site manage/cancel, payment/deposit breakdown, and multi-service /
-day-range are out of scope. (Waitlist and manage/cancel have **no headless SoT** —
-neither the components nor the vibe plugin implement join/cancel logic, only
-display-only policy flags — so they are deliberately not built here.) Show
-bookable slots only; post-booking self-service is handled by the Wix-hosted flow /
-member area.
+Waitlist, on-site manage/cancel, payment/deposit breakdown, multi-service / day-range,
+and course subscriptions (multi-cycle payments) are not built here — post-booking
+self-service is handled by the Wix-hosted flow / member area. Show bookable slots /
+open courses only.
+
+## 10. Course enrollment (the COURSE service type)
+
+A **course** is a fixed-date program of multiple sessions, booked as a **whole series**
+(not a per-session time). It drops the Slots step and the calendar: the detail page shows
+the schedule + capacity + an **Enroll** action, and enrollment reuses the **same booking
+form (§4) and the same cart/checkout (§3)**.
+
+Course support is part of the standard bookings build — always ship `CourseEnrollFlow` +
+`@wix/calendar` + the `service.type === "COURSE"` branch, the same way the catalog/detail
+always handle the CLASS path. Both query *all* services by `appId` and branch on
+`service.type`, so a course the merchant adds from the dashboard after the build works
+with no rebuild.
+
+### On the `service` object (from `queryServices`)
+- `service.schedule._id` — the course schedule id. Use **`_id`** (SDK convention), not `.id`.
+- `service.schedule.firstSessionStart` / `lastSessionEnd` — the run dates.
+- `service.defaultCapacity` — max participants for the whole course.
+- `service.bookingPolicy.bookAfterStartPolicy.enabled` — may a customer join after the first session?
+
+### Sessions + capacity + staff + location — one `@wix/calendar` call
+Courses don't use Time Slots V2 (`listEventTimeSlots` returns nothing for a course). The
+sessions are Calendar Events V3 events on the course schedule:
+
+```js
+import { events as calendarEvents } from "@wix/calendar";
+// astro SSR: wrap in auth.elevate(...). own/static: call on the visitor client (see WIRING.md).
+const res = await calendarEvents.queryEvents({
+  filter: { scheduleId: service.schedule._id },   // NOT .id
+  cursorPaging: { limit: 100 },
+});
+// res.events[] — one per session, each carrying:
+//   start/end  → { localDate, utcDate, timeZone }. ⚠️ utcDate is a Date OBJECT via the SDK —
+//                new Date(d).toISOString() before comparing/sorting, or the upcoming filter drops all.
+//   totalCapacity / remainingCapacity → the course's available spots (same on every session;
+//                isFull = remainingCapacity <= 0).
+//   resources[] → staff/instructor; filter to staff resource type
+//                 "1cd44cf8-756f-41c3-bd90-3e2ffcaf1155" → .name.
+//   location    → { type, name? }: BUSINESS → "In person", CUSTOMER → "Your location".
+//   status      → skip "CANCELLED".
+```
+
+Keep upcoming events (`end >= now`), sort by start, and show an **Upcoming sessions** list
+(time · duration · instructor), **paginated** rather than capped. Show **available spots**
+and **location**.
+
+### Enrolling
+Build a selection — `serviceType: "COURSE"`, `serviceId: service._id`, `scheduleId:
+service.schedule._id`, `timezone`, and `localStartDate/localEndDate` = first/last session
+(display only) — and pass it through the same `book()`; the driver sends
+`bookedEntity.schedule.scheduleId` (§3). Gate the Enroll action: hide it when `isFull`,
+when the course has started (`now > firstSessionStart`) and `bookAfterStart` is false, or
+when there are no sessions. `createBooking` rejects a full/closed course server-side —
+catch it and show a friendly message.
+
+Reference: `../astro/templates/bookings/{CourseEnrollFlow.tsx, services/[slug].astro}`.

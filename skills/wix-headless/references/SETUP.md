@@ -96,7 +96,7 @@ npm install --no-fund --no-audit --legacy-peer-deps <package-set> \
 | | **blog** → `@wix/blog @wix/ricos @astrojs/rss @astrojs/sitemap` |
 | | **forms** → `@wix/forms` |
 | | **cms** → `@wix/data @wix/essentials` |
-| | **bookings** → `@wix/bookings @wix/essentials @wix/forms @wix/redirects @wix/auto_sdk_ecom_cart-v-2` |
+| | **bookings** → `@wix/bookings @wix/essentials @wix/forms @wix/redirects @wix/auto_sdk_ecom_cart-v-2 @wix/calendar libphonenumber-js ajv ajv-formats` (`@wix/calendar` reads a course's sessions + capacity — install it for **every** bookings build, not only when a course is seeded, so a course added later via the dashboard works) |
 | | **gift-cards** → (none — disabled-by-default pack ships no Astro-time imports) |
 
 Example (resolved set = stores + ecom + gift-cards + cms):

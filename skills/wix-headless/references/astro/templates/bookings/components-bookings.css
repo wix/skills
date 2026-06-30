@@ -172,6 +172,45 @@ body[data-navigating="true"] .service-grid {
   border-color: var(--color-accent);
 }
 
+/* Filter row — holds the optional location + staff pickers side by side. */
+.availability-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-md);
+}
+.availability-filters > * {
+  flex: 1 1 12rem;
+}
+
+/* Location / staff picker (shown only when there's >1 option). */
+.availability-staff {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+.availability-staff-label {
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-ink-soft, var(--color-mute));
+}
+.availability-staff-select {
+  width: 100%;
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-family: var(--font-body);
+  font-size: 0.9375rem;
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-sm);
+  background: var(--color-paper, var(--color-cream));
+  color: var(--color-ink);
+  box-sizing: border-box;
+}
+.availability-staff-select:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
 .availability-week-nav {
   display: flex;
   align-items: center;
@@ -390,6 +429,72 @@ textarea.booking-input {
   min-height: 6rem;
 }
 
+/* choice groups (radio / checkbox-group) */
+.booking-choice-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+.booking-choice {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-family: var(--font-body);
+  font-size: 0.9375rem;
+  color: var(--color-ink);
+  cursor: pointer;
+}
+.booking-choice input {
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--color-accent);
+}
+/* multi-line address sub-fields */
+.booking-address {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-sm);
+}
+.booking-address .booking-input {
+  width: 100%;
+}
+.booking-note {
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  color: var(--color-mute);
+}
+.booking-files {
+  list-style: none;
+  margin: var(--spacing-xs) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+}
+.booking-files li {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+/* per-field validation error */
+.booking-field-error {
+  font-family: var(--font-body);
+  font-size: 0.8125rem;
+  color: #c0392b;
+  margin-top: 2px;
+}
+/* phone: country-code select + number input */
+.booking-phone {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 1.4fr;
+  gap: var(--spacing-sm);
+}
+.booking-phone .booking-input {
+  width: 100%;
+}
+
 .booking-error {
   font-family: var(--font-body);
   font-size: 0.875rem;
@@ -422,3 +527,50 @@ textarea.booking-input {
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* ── Course enrollment (COURSE services) ──────────────────────────────────────
+ * Structural layout only (a course detail = schedule + capacity + paginated
+ * sessions + Enroll). Colour/spacing inherit the pack's design tokens; restyle
+ * to taste. .course-note-full / .booking-cta etc. are reused from above. */
+.course-enroll,
+.course-sessions,
+.course-sessions-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+.course-enroll { gap: var(--spacing-lg); }
+.course-sessions-list { list-style: none; margin: 0; padding: 0; }
+.course-schedule {
+  margin: 0;
+  padding: var(--spacing-lg);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-md, 8px);
+}
+.course-schedule-row,
+.course-sessions-item,
+.course-sessions-pager {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+.course-schedule-row dt { color: var(--color-mute); }
+.course-schedule-row dd { margin: 0; font-weight: 500; }
+.course-sessions-item {
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-sm, 6px);
+}
+.course-sessions-when { flex: 1 1 auto; }
+.course-sessions-meta,
+.course-sessions-count,
+.course-sessions-pager-status { color: var(--color-mute); font-size: 0.85rem; }
+.course-note-full { color: var(--color-accent); }
+.course-sessions-pager-btn {
+  padding: var(--spacing-xs) var(--spacing-md);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-sm, 6px);
+  cursor: pointer;
+}
+.course-sessions-pager-btn:disabled { opacity: 0.4; cursor: not-allowed; }

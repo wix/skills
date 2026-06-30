@@ -16,7 +16,7 @@ wiring + the gotchas. Read `references/shared/IMPLEMENTER.md` +
 |------|---------------|------|
 | `src/pages/services/index.astro` | `…/services/index.astro` | SSR catalog grid (SEO). `queryServices` via ambient `@wix/essentials`. |
 | `src/components/ServiceCard.astro` | `…/ServiceCard.astro` | static service card for the grid. |
-| `src/pages/services/[slug].astro` | `…/services/[slug].astro` | SSR detail (SEO) + mounts `<ServiceBookingFlow client:only="react">`. Also fetches the **booking-form schema** and passes `fields` to the island. |
+| `src/pages/services/[slug].astro` | `…/services/[slug].astro` | SSR detail (SEO) + mounts `<ServiceBookingFlow client:only="react">` (APPOINTMENT/CLASS) **or `<CourseEnrollFlow>`** when `service.type === "COURSE"`. Also fetches the **booking-form schema** and passes `fields` to the island; for a course it also SSR-reads the session schedule + capacity (see rule 2b). |
 | `src/pages/booking-confirmation.astro` | `…/booking-confirmation.astro` | confirmation — renders from the `service`/`startDate` query params (no re-fetch). |
 
 Plus the nav/home links (shell chain — see below).
@@ -42,12 +42,13 @@ Plus the nav/home links (shell chain — see below).
    scoped to it. Reference: `…/templates/bookings/services/index.astro`.
 2. **The detail page fetches the booking-form schema server-side.** Read
    `service.form._id`'s form via `@wix/forms` (`auth.elevate(forms.getForm)(formId)`),
-   map `formFields` to `{ label, target, required, componentType, identifier, options }`,
-   and pass the array as `fields` into `<ServiceBookingFlow>`. **Filter to fields with a
-   recognized string `componentType`** (`TEXT_INPUT`/`PHONE_INPUT`/`DROPDOWN`) — skip
-   complex object-valued fields (e.g. the default form's multi-line `ADDRESS`), or
-   `createBooking` fails with "must be object". Pass the full `service` too — the
-   booking step reads its payment/policy. Same field-mapping as `../forms/CONTACT_FORM.md`.
+   read its **`form.formFields`** (the documented field array — `form.fields` is an
+   internal runtime field, don't use it), run the `normalizeFormField` mapping from
+   `…/services/[slug].astro` (it derives each field's render type **and** submission value
+   type — including the multi-line address nested object, choice groups, number/date/file —
+   so **render every field type; do not skip complex fields**), order by `steps[].layout`,
+   and pass the array as `fields` into `<ServiceBookingFlow>`. Pass the full `service` too —
+   the booking step reads its payment/policy.
    Also pass, through to `<ServiceBookingFlow>`: `service.staffMemberDetails?.staffMembers`
    (the staff picker — the service was queried with `STAFF_MEMBER_DETAILS`); the
    service's **business `locations`** — sourced from `auth.elevate(services.queryLocations)()`
@@ -56,6 +57,12 @@ Plus the nav/home links (shell chain — see below).
    recognize → 0 slots) — so the calendar scopes availability to one location and avoids
    duplicate per-location slots (FLOW.md §7); and the `?locationId` read from the request
    URL (the picker's default).
+2b. **COURSE detail branches — no calendar.** When `service.type === "COURSE"`, mount
+   **`<CourseEnrollFlow>`** instead of `<ServiceBookingFlow>`. SSR-read the course's
+   sessions + capacity with one elevated `auth.elevate(events.queryEvents)(...)` call
+   (`@wix/calendar`) and pass them + the same `fields` into the island. The call, the
+   derivations, and the gotchas (schedule `_id` not `.id`; `utcDate` is a Date object) are
+   in **`../../bookings/FLOW.md` §10**; reference `…/templates/bookings/services/[slug].astro`.
 3. **Only the read pages are SSR.** The detail page SSRs the service info for SEO,
    then the booking UI runs in the `client:only` island. Do not SSR availability.
 4. **Confirmation renders from query params.** The booking step redirects with

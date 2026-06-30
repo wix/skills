@@ -211,7 +211,7 @@ curl -sS -X POST \
 
 > **`locations.type` enum:** the valid values are `UNKNOWN_LOCATION_TYPE`, `CUSTOM`, `BUSINESS`, and `CUSTOMER`. Use `"BUSINESS"` for "at the business address" (the seed default). Do NOT use `"OWNER_BUSINESS"` here — that string IS valid for `createBooking.bookedEntity.slot.location.locationType` on the bookings endpoint, but the **services** endpoint rejects it. Same field name, different enum.
 
-> **`staffMemberIds`:** pass `resourceId` values (not staffMember `id` values). For APPOINTMENT this array must be **non-empty** — when `hasStaff` is `false`, pass the default **Business Owner** `resourceId` (query it per § "When hasStaff is false"); `[]` is rejected with `MISSING_APPOINTMENT_RESOURCES` (verified live). CLASS services don't require it.
+> **`staffMemberIds`:** pass `resourceId` values (not staffMember `id` values). For APPOINTMENT this array must be **non-empty** — when `hasStaff` is `false`, pass the default **Business Owner** `resourceId` (query it per § "When hasStaff is false"); `[]` is rejected with `MISSING_APPOINTMENT_RESOURCES`. CLASS services don't require it.
 
 **Response shape:**
 ```json
@@ -234,7 +234,7 @@ curl -sS -X POST \
 ### Service creation guidelines
 
 - **Count**: Create exactly `intent.bookings.serviceCount` services (default 3 when not specified).
-- **Type**: Use `"APPOINTMENT"` for 1-on-1 services (the default); use `"CLASS"` when `intent.bookings.serviceType === "CLASS"`. For `CLASS`, set `defaultCapacity` to the max participants (e.g. `20`) instead of `1`.
+- **Type**: Use `"APPOINTMENT"` for 1-on-1 services (the default); use `"CLASS"` when `intent.bookings.serviceType === "CLASS"`. For `CLASS`, set `defaultCapacity` to the max participants (e.g. `20`) instead of `1`. Use `"COURSE"` when `intent.bookings.serviceType === "COURSE"` — a fixed-date, multi-session program customers book as a whole series; set `defaultCapacity` to the max participants and do **not** set `sessionDurations`. A COURSE needs scheduled sessions before anyone can enroll (Step 4d), just like a CLASS.
 
 > **⚠️ CLASS services need scheduled sessions before anyone can sign up.** Creating a CLASS service does **not** create any bookable sessions. The front-end lists bookable sessions via `eventTimeSlots.listEventTimeSlots()`, which returns scheduled **session events** — a freshly created CLASS service has none, so its calendar is permanently empty. **For CLASS services you MUST run Step 4b below** to schedule sessions; otherwise the class calendar is a dead end. (APPOINTMENT services don't need this — their bookable times come from staff working hours + `availabilityTimeSlots`.)
 - **`sessionDurations`**: Required for APPOINTMENT. An array containing one integer (minutes). Do NOT specify for CLASS or COURSE services.
@@ -252,7 +252,7 @@ curl -sS -X POST \
 | `name` | Yes | Display name |
 | `defaultCapacity` | Yes | `1` for APPOINTMENT; participant count for CLASS |
 | `onlineBooking.enabled` | Yes | Set to `true` for online booking |
-| `payment.rateType` | Yes | `FIXED`, `NO_FEE`, `VARIED`, or `CUSTOM` |
+| `payment.rateType` | Yes | `FIXED`, `NO_FEE`, `VARIED`, or `CUSTOM`. **When formatting price for display, `NO_FEE` must render as "Free" — not a blank/missing price.** Only `FIXED` (with `payment.fixed.price`) yields a currency amount; `VARIED`/`CUSTOM` have no single price to show. |
 | `payment.options.online` or `payment.options.inPerson` | Yes | At least one must be `true` |
 | `schedule.availabilityConstraints.sessionDurations` | APPOINTMENT only | Array with one integer (minutes) |
 
@@ -303,6 +303,63 @@ Verify by fetching slots the way the front-end does (`eventTimeSlots.listEventTi
 
 ---
 
+## Step 4d — Create course sessions (COURSE services only)
+
+A COURSE, like a CLASS, is bookable only once its schedule has session events — but a
+course's sessions are **type `COURSE`**, and a course is a fixed series, so create
+sessions spanning its whole run. Run Step 4b's `POST /calendar/v3/events` recipe with
+these differences:
+
+- `event.type: "COURSE"` (not `"CLASS"`).
+- `event.scheduleId` = the course service's **`service.schedule.id`** (from the Step 4
+  create response — every service has one).
+- `resources` non-empty with `permissionRole: "WRITER"` (same requirement as CLASS).
+- Create the sessions across the run. A recurring schedule is the natural fit — add
+  `event.recurrenceRule` (`{ "frequency": "WEEKLY", "interval": 1, "days": ["MONDAY"], "until": { "localDate": "..." } }`;
+  only `WEEKLY` + a single day are supported → creates a `MASTER` and Wix generates the
+  instances). Several one-off sessions also work.
+
+The service's `schedule.firstSessionStart` / `lastSessionEnd` are derived from these
+sessions; the front-end reads them and lists the sessions via Calendar Events V3
+(`events.queryEvents` by `scheduleId` — see FLOW.md §10). Record the created event ids in
+`seeded.bookings.services[].sessionEventIds`.
+
+> **Gotchas (same as Step 4b):** `permissionRole` must be `WRITER`; `resources` non-empty;
+> `localDate` is local, no `Z`. Calendar Events V3 has **cancel, not delete**
+> (`POST /calendar/v3/events/{id}/cancel`).
+
+---
+
+## Step 4c — Custom booking form fields (OPTIONAL)
+
+Every service ships with the **default** booking form (`service.form._id` =
+`00000000-0000-0000-0000-000000000000`: first/last name, email, phone, a
+multi-line address, a message). Only add custom fields when the build needs to
+collect more (e.g. an experience level, party size, a waiver checkbox). Recipe
+(Wix Forms API; namespace `wix.bookings.v2.bookings`):
+
+1. **Clone** the default form — `POST /form-schema-service/v4/forms/00000000-0000-0000-0000-000000000000/clone` (empty body). Save the returned `form.id`.
+2. **Add fields** — `PATCH /form-schema-service/v4/forms/{id}` with `{ form: { revision, formFields: [...existing, ...new], steps }, fieldMask: { paths: ["formFields","steps"] } }`. Each new field is `{ id: <uuid>, fieldType: "INPUT", inputOptions: { target, required, inputType, <typeOptions> } }` where `<typeOptions>` is `stringOptions` / `numberOptions` / `booleanOptions` / `arrayOptions` (its `componentType` + `validation` + label block).
+3. **Attach** — `PATCH /_api/bookings/v2/services/{serviceId}` with `{ service: { revision, form: { id } }, fieldMask: { paths: ["form.id"] } }`.
+
+> **Three field-shape rules (get them wrong and `createBooking`
+> rejects the WHOLE booking server-side, not just the field):**
+> - **Array fields** (`CHECKBOX_GROUP` / `TAGS`) **must declare an item type**:
+>   `arrayOptions.validation.items` (e.g. an empty string item type). Missing it →
+>   `"Required to specify items type for array"`.
+> - **Checkbox** (`booleanOptions` / `CHECKBOX`) **must declare `validation.boolean`**
+>   (even `{}`). Without it the field validates as an object → `"<target> must NOT
+>   have additional properties"` when you submit `true`.
+> - **Choice groups** (`RADIO_GROUP` / `CHECKBOX_GROUP`) need a `numberOfColumns`
+>   enum (`"ONE"`…) — `UNKNOWN_NUMBER_OF_COLUMNS` otherwise.
+>
+> Read fields back with `getForm` from **`form.formFields`** (the documented field
+> array; `form.fields` is an internal runtime field — don't use it). For `MULTILINE_ADDRESS`,
+> the submission is a nested object of **ISO codes** (`country` enum + a valid
+> `subdivision` code per country) — the front-end renders country/region as dropdowns
+> with per-country sub-fields (`addressData.ts`); see `FLOW.md` § 4. A business-only
+> service that doesn't need a client address can simply omit the `address` field.
+
 ## Step 5 — Return contract
 
 **Return this JSON inline as your agent return** (per `references/shared/RETURN_CONTRACT.md`) — do **NOT** write a `.wix/seed-returns/` file; the orchestrator aggregates seeder returns and is the sole writer of `.wix/seeded.json`:
@@ -334,7 +391,7 @@ Verify by fetching slots the way the front-end does (`eventTimeSlots.listEventTi
 ```
 
 - `staff` is an empty array `[]` when `intent.bookings.hasStaff` is false or Step 3 was skipped.
-- **For `CLASS` services, schedule sessions in Step 4b** and report them (e.g. `seeded.bookings.services[].sessionEventIds`). Only if Step 4b is skipped or fails, add a `notes` entry so the orchestrator surfaces it: `"notes": ["CLASS sessions not scheduled — add session times in the Bookings dashboard before sign-up works."]`
+- **For `CLASS` services, schedule sessions in Step 4b; for `COURSE` services, in Step 4d** — and report them (e.g. `seeded.bookings.services[].sessionEventIds`). Only if that step is skipped or fails, add a `notes` entry so the orchestrator surfaces it: `"notes": ["CLASS/COURSE sessions not scheduled — add session times in the Bookings dashboard before sign-up works."]`
 - On any REST error: set `status: "error"`, include the failing call's response verbatim under `"error"`.
 
 ---

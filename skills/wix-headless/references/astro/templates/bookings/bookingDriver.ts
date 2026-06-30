@@ -30,12 +30,17 @@ export const STAFF_MEMBER_RESOURCE_TYPE_ID = "1cd44cf8-756f-41c3-bd90-3e2ffcaf11
 export type FormValues = Record<string, unknown>;
 
 export interface SelectedSlot {
-  serviceType: "APPOINTMENT" | "CLASS";
+  serviceType: "APPOINTMENT" | "CLASS" | "COURSE";
   serviceId: string;
   localStartDate: string; // local "YYYY-MM-DDTHH:mm:ss" (NOT UTC) — maps to slot.startDate
   localEndDate: string; //   "                            " → slot.endDate
   timezone: string;
-  // APPOINTMENT:
+  // APPOINTMENT + COURSE both carry scheduleId. For APPOINTMENT it's the slot's
+  // schedule; for COURSE it's the SERVICE's own schedule (service.schedule._id) —
+  // a course is enrolled as a whole series (no per-slot time), so the driver sends
+  // bookedEntity.schedule.scheduleId instead of a slot (see buildBookingRequest).
+  // For COURSE, localStartDate/localEndDate are the course's firstSessionStart /
+  // lastSessionEnd (display only — Wix derives the booking's real dates).
   scheduleId?: string;
   locationId?: string; // from slot.location._id  (the id field is `_id`, not `.id`)
   locationType?: string; // "BUSINESS" | "CUSTOMER" | "CUSTOM"
@@ -91,43 +96,61 @@ function buildBookingRequest(params: BookParams) {
   const { service, slot, formSubmission, timezone } = params;
   const resource = slot.resource; // prefer the slot's chosen resource when present
 
+  const location =
+    slot.locationId || slot.locationType
+      ? {
+          ...(slot.locationId ? { _id: slot.locationId } : {}),
+          locationType: mapLocationType(slot.locationType),
+        }
+      : { locationType: "OWNER_BUSINESS" };
+
+  // COURSE — enrolled as a whole series. The entity is a `schedule` (the service's
+  // own schedule id), NOT a `slot`: no per-session time, no resource pick. Wix
+  // derives the booking's startDate/endDate from the course schedule.
+  const bookedEntity =
+    slot.serviceType === "COURSE"
+      ? {
+          schedule: {
+            scheduleId: slot.scheduleId,
+            serviceId: slot.serviceId,
+            location,
+            timezone,
+          },
+          tags: ["COURSE"],
+        }
+      : {
+          slot: {
+            serviceId: slot.serviceId,
+            // APPOINTMENT carries scheduleId; CLASS carries eventId (Wix derives the rest).
+            scheduleId: slot.scheduleId ?? undefined,
+            startDate: slot.localStartDate,
+            endDate: slot.localEndDate,
+            timezone,
+            eventId: slot.eventId ?? undefined,
+            // Resource: use the chosen one, else the ANY_RESOURCE fallback so Wix
+            // auto-assigns a bookable staff member. Appointment availability slots
+            // return availableResources:[] yet book fine via ANY_RESOURCE.
+            ...(resource
+              ? { resource: { _id: resource._id, name: resource.name } }
+              : {
+                  resourceSelections: [
+                    {
+                      resourceTypeId: STAFF_MEMBER_RESOURCE_TYPE_ID,
+                      selectionMethod: "ANY_RESOURCE",
+                    },
+                  ],
+                }),
+            location,
+          },
+        };
+
   return {
     booking: {
       // Consumer override wins over the service-config heuristic.
       selectedPaymentOption:
         params.selectedPaymentOption ?? deriveSelectedPaymentOption(service),
       totalParticipants: params.totalParticipants || 1,
-      bookedEntity: {
-        slot: {
-          serviceId: slot.serviceId,
-          // APPOINTMENT carries scheduleId; CLASS carries eventId (Wix derives the rest).
-          scheduleId: slot.scheduleId ?? undefined,
-          startDate: slot.localStartDate,
-          endDate: slot.localEndDate,
-          timezone,
-          eventId: slot.eventId ?? undefined,
-          // Resource: use the chosen one, else the ANY_RESOURCE fallback so Wix
-          // auto-assigns a bookable staff member. Appointment availability slots
-          // return availableResources:[] yet book fine via ANY_RESOURCE.
-          ...(resource
-            ? { resource: { _id: resource._id, name: resource.name } }
-            : {
-                resourceSelections: [
-                  {
-                    resourceTypeId: STAFF_MEMBER_RESOURCE_TYPE_ID,
-                    selectionMethod: "ANY_RESOURCE",
-                  },
-                ],
-              }),
-          location:
-            slot.locationId || slot.locationType
-              ? {
-                  ...(slot.locationId ? { _id: slot.locationId } : {}),
-                  locationType: mapLocationType(slot.locationType),
-                }
-              : { locationType: "OWNER_BUSINESS" },
-        },
-      },
+      bookedEntity,
     },
     participantNotification: {
       metadata: { channels: "EMAIL,SMS" },
@@ -227,15 +250,20 @@ export async function book(params: BookParams): Promise<BookResult> {
 }
 
 // ── navigateToCheckout ────────────────────────────────────────────────────────
-// Paid services: hand the cart to the Wix-hosted ecom checkout. Same shape on
-// every path — ecomCheckout.checkoutId = the cartId.
+// Paid services: hand the cart to the Wix-hosted ecom checkout.
+// `thankYouPageUrl` is hit ONLY on successful completion (Wix appends `?orderId=…`);
+// `postFlowUrl` is hit on completion, abandonment, OR interruption. Pass the real
+// confirmation page as thankYouPageUrl and a NEUTRAL page (e.g. the catalog) as
+// postFlowUrl — otherwise "continue browsing" / abandoning the checkout lands the
+// visitor on the confirmation page as if the booking completed.
 export async function navigateToCheckout(
   cartId: string,
+  thankYouPageUrl: string,
   postFlowUrl: string,
 ): Promise<void> {
   const { redirectSession } = await redirects.createRedirectSession({
     ecomCheckout: { checkoutId: cartId },
-    callbacks: { postFlowUrl },
+    callbacks: { thankYouPageUrl, postFlowUrl },
   });
   if (redirectSession?.fullUrl) {
     window.location.href = redirectSession.fullUrl;
