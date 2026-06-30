@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { EvalForgeClient } from '../src/utils/evalforge';
+import { EvalForgeClient, CODE_TAG, repoTagFor, managedTagsFor, withManagedTags } from '../src/utils/evalforge';
 
 const APP_ID = 'aid';
 const APP_SECRET = 'sec';
@@ -124,5 +124,35 @@ describe('EvalForgeClient — test-scenarios', () => {
     mockFetch(() => ({ status: 404, body: { error: 'not found' } }));
     const c = new EvalForgeClient(URL_BASE, APP_ID, APP_SECRET);
     await expect(c.deleteTestScenario('P', 'missing')).rejects.toMatchObject({ status: 404 });
+  });
+});
+
+describe('managed code-origin tags', () => {
+  it('repoTagFor builds a repo:<owner>/<repo> tag', () => {
+    expect(repoTagFor('wix/skills')).toBe('repo:wix/skills');
+  });
+
+  it('managedTagsFor returns the marker tag and the repo tag', () => {
+    expect(managedTagsFor('wix/skills')).toEqual([CODE_TAG, 'repo:wix/skills']);
+  });
+
+  it('withManagedTags appends both managed tags, preserving existing order', () => {
+    expect(withManagedTags(['ecommerce'], 'wix/skills'))
+      .toEqual(['ecommerce', 'created-via-code', 'repo:wix/skills']);
+  });
+
+  it('withManagedTags is idempotent and does not duplicate existing managed tags', () => {
+    const once = withManagedTags(['ecommerce'], 'wix/skills');
+    expect(withManagedTags(once, 'wix/skills')).toEqual(once);
+  });
+
+  it('withManagedTags keeps a draft tag alongside the managed tags', () => {
+    expect(withManagedTags(['draft:wix/skills#7'], 'wix/skills'))
+      .toEqual(['draft:wix/skills#7', 'created-via-code', 'repo:wix/skills']);
+  });
+
+  it('withManagedTags fills in only the missing managed tag', () => {
+    expect(withManagedTags(['created-via-code'], 'wix/skills'))
+      .toEqual(['created-via-code', 'repo:wix/skills']);
   });
 });
