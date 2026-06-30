@@ -171,6 +171,8 @@ window.location.href = session.redirectSession.fullUrl; // the hosted-checkout U
 
 **⚠️ Return shapes are in the cheat-sheet** — `createCheckoutFromCurrentCart` gives **`checkout.checkoutId`** (a string), not `checkout._id`. Reading `checkout._id` (over-applying the `_id` rule) throws *"Cannot read properties of undefined (reading '_id')"* — the silent checkout crash.
 
+**⚠️ CRITICAL: `origin` for `postFlowUrl`/`thankYouPageUrl` MUST be the `https://` published host — derive it from `window.location.origin`, NEVER `new URL(request.url).origin`.** The Headless redirect allowlist registers the site's **`https://`** host and treats **`http://<same host>` as a different, unlisted origin**. When the buyer returns from the hosted checkout (e.g. clicks "Continue Browsing"), the redirect goes through the allowlist — and an `http://` `postFlowUrl` **403s** with *"… isn't listed as an allowed redirect domain."* If you build the redirect session in a **server route** (`src/pages/api/*`), `new URL(request.url).origin` resolves to **`http://`** behind Wix's TLS-terminating proxy → guaranteed 403 on return. So **pass `window.location.origin` from the client** into the route (don't read the origin off the request), or force the scheme to `https`. Doc: <https://dev.wix.com/docs/go-headless/getting-started/setup/manage-urls/add-allowed-redirect-domains>.
+
 ### Showing stock state
 
 Read the **V3** inventory fields: product-level in-stock is `product.inventory.availabilityStatus` (`"IN_STOCK"`); variant-level is `variant.inventoryStatus.inStock`. Reading the V1 inventory field on V3 data returns `undefined` → everything renders out-of-stock (the all-OOS bug). These come from `productsV3` / `readOnlyVariantsV3`, not the V1 module.

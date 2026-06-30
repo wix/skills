@@ -38,14 +38,7 @@ Never invent a URL or body from memory.
 
 *SEED.md §3: `intent.stores.productCount` products fitting `brand`; named categories only if `categoriesNamed` is non-empty; text-only; keep `productIds[]`, `categoryIds[]`, slugs.*
 
-| Tier | Page | What it settles |
-|---|---|---|
-| 1 | `inline-recipes/setup-online-store.md` (local — Read it, don't curl) | Master ordering + the full create flow, self-contained: **clean the install's default products first** (`products/query` → `bulk/products/delete`), then **bulk-create products with options/variants/inventory** (`bulk/products-with-inventory/create`) **with `visible: true`** so they appear on the live site (omitting it leaves the catalog empty to visitors), then categories (separate API, no bulk create). Rich-text descriptions, media shape, and options/variants structure are all inlined. |
-| 2 | <https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/online-store-catalog-setup-flow.md> | Alternate full setup-flow view (locations → inventory → product, optional brands/ribbons) for the create-supporting-elements-first rationale. |
-| 3 | <https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/bulk-create-products-with-inventory.md> | Method schema for the bundled in-stock bulk create — request/response shape and the returned product IDs, slugs, and variant IDs. |
-| 3 | <https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/bulk-delete-products.md> | Method schema for the STEP-1 clean: bulk delete products by `productIds` (≤100/call); pair with `POST /stores/v3/products/query` to collect the ids first. |
-| 3 | <https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/categories/create-category.md> | Method schema for creating one category; returns the category ID. |
-| 3 | <https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/categories/bulk-add-items-to-category.md> | Method schema for assigning products into a category; returns per-item success. |
+**Read `inline-recipes/setup-online-store.md`** (local — Read it, don't curl). It is **self-contained** — every endpoint, request body, and representative response is inlined, so read it and seed from it alone; **do not go fetch the Catalog-V3 method/flow doc pages** (they're superseded by the recipe and only add confusion). It covers the full create flow: **clean the install's default products first** (`products/query` → `bulk/products/delete`), then **bulk-create products with options/variants/inventory** (`bulk/products-with-inventory/create`) **with `visible: true`** so they appear on the live site (omitting it leaves the catalog empty to visitors), then categories (separate API, sequential, no bulk create). Rich-text descriptions, media shape, and options/variants structure are all inlined.
 
 ---
 
@@ -94,14 +87,7 @@ Never invent a URL or body from memory.
 
 *SEED.md §3: `intent.bookings.serviceCount` services (name + short description, simple duration and price); use the **public** services endpoint, not the internal `/_api/` form; minimal availability; keep `serviceIds[]`, slugs.*
 
-| Tier | Page | What it settles |
-|---|---|---|
-| 1 | <https://dev.wix.com/docs/api-reference/business-solutions/bookings/skills/create-and-update-booking-services.md> | The gold recipe: ordering (categories → staff → service → availability), online-booking must be enabled, payment-option validation rules, appointment services need staff by their **resource** id, and class/course need capacity + events. |
-| 2 | <https://dev.wix.com/docs/api-reference/business-solutions/bookings/flow-set-up-a-service.md> | Step-ordered setup across service types (locations/staff/schedule/services/form) — what must exist before a service is bookable. |
-| 3 | <https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/create-service.md> | Create Service schema: required fields, duration via session durations, price under the payment block. Use the **public** services endpoint shown in the curl examples — NOT the internal `/_api/` form in the schema header. |
-
-> Optional: <https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/bulk-create-services.md> — use when seeding multiple services in one call.
-> Optional: <https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/about-service-types.md> — read only if unsure which service type to use, since that drives staff/schedule requirements.
+**Read `inline-recipes/setup-bookings.md`** (local — Read it, don't curl). It is **self-contained** — every endpoint, request body, and representative response is inlined, so read it and seed from it alone; **do not go fetch the Bookings method/flow doc pages** (they're superseded by the recipe and the Create-Service page even shows the internal `/_api/` form the recipe tells you to avoid). It covers the full create flow: **resolve a staff `resourceId` (APPOINTMENT needs one) and CREATE a category (a fresh install ships ZERO categories; no `category.id` → service invisible on the live site) FIRST**, then **bulk-create** services on the **public** `bookings/v2/bulk/services/create` (flat V2 shape — `onlineBooking.enabled`, `defaultCapacity`, valid `payment.options`, `sessionDurations` for appointments; read created services from `results[].item`), then **bulk-schedule Calendar Events V3 sessions for CLASS** (`calendar/v3/bulk/events/create`, each wrapped `{event:{…}}`; else the class calendar is empty). Payment-option validation table, the `BUSINESS` vs `OWNER_BUSINESS` enum trap, and the staff `resourceId`-not-`id` rule are all inlined.
 
 ---
 

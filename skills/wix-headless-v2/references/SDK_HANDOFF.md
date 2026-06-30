@@ -39,7 +39,7 @@ For each loaded capability, give the host the **package(s)** from the map below 
 | cms | `@wix/data` | <https://dev.wix.com/docs/sdk/business-solutions/data.md> |
 | forms | `@wix/forms` | under CRM: <https://dev.wix.com/docs/sdk/business-solutions/crm.md> (forms/submissions module) |
 | events | `@wix/events` | <https://dev.wix.com/docs/sdk/business-solutions/events.md> |
-| bookings | `@wix/bookings` | <https://dev.wix.com/docs/sdk/business-solutions/bookings.md> |
+| bookings | `@wix/bookings` (+ `@wix/auto_sdk_ecom_cart-v-2`, `@wix/redirects` for the cart/checkout that holds the seat; `@wix/forms` for the schema-driven booking form) | **Read `inline-recipes/how-to-code-bookings.md`** (local — Read it, don't curl): the pinned Services V2 read + `createBooking → ecom Cart V2 → checkout-or-place` contract. |
 | pricing-plans | `@wix/pricing-plans` | <https://dev.wix.com/docs/sdk/frontend-modules/pricing-plans.md> (lives under frontend-modules, not business-solutions) |
 | gift-cards | `@wix/gift-vouchers` (npm name differs from the app name) | <https://dev.wix.com/docs/api-reference/business-solutions/gift-cards/gift-card-products/introduction> — open with `?apiView=SDK` |
 | portfolio | `@wix/portfolio` | <https://dev.wix.com/docs/api-reference/business-solutions/portfolio/projects/introduction> — open with `?apiView=SDK` |
