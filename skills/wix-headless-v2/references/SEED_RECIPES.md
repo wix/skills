@@ -61,17 +61,11 @@ Never invent a URL or body from memory.
 
 ---
 
-## events — an RSVP occasion, or upcoming events
+## events — ticketed or RSVP occasions
 
-*SEED.md §3: an **RSVP occasion** = one RSVP-type event with real details + a **future** date/time (registration form is built-in, so no form fields); or a **listing** = `intent.events.eventCount` events with future start dates. Keep `eventIds[]`, slugs.*
+*SEED.md §3: `intent.events.eventCount` events (default 1), each **`TICKETING`** (paid, with ticket tiers) or **`RSVP`** (free, built-in name+email form so no form fields), all with **future** dates. Keep `eventIds[]`, slugs, and per ticketed event its `ticketDefinitionIds[]`.*
 
-| Tier | Page | What it settles |
-|---|---|---|
-| 2 | <https://dev.wix.com/docs/api-reference/business-solutions/events/rsvp-business-flow.md> | The RSVP-occasion flow: mark the event RSVP-type and put details in the RSVP registration block; the form is **built-in** (name + email required, can't be removed), so no form fields are seeded; create then publish to go live. |
-| 2 | <https://dev.wix.com/docs/api-reference/business-solutions/events/event-management/sample-flow.md> | Worked example for full event setup (create → categorize → publish) — for the listing case; shows where the id and slug land and which fields are set at create. |
-| 3 | <https://dev.wix.com/docs/api-reference/business-solutions/events/event-management/events-v3/create-event.md> | Current create-event method: location + date/time settings (use **future** start/end), RSVP vs ticketed initial type (the two can't be converted later), and the draft flag. |
-
-> Optional: <https://dev.wix.com/docs/api-reference/business-solutions/events/event-management/events-v3/publish-draft-event.md> — only if you create events as drafts; publishing is one-way, so seed published directly unless staging.
+**Read `inline-recipes/setup-events.md`** (local — Read it, don't curl). It is **self-contained** — every endpoint, request body, and representative response is inlined, so read it and seed from it alone; **do not go fetch the Events V3 method/flow doc pages** (they're superseded by the recipe). It covers the full create flow: **create each event as a draft** (`events/v3/events`, `"draft": true`) with an **immutable `registration.initialType`** (`TICKETING` or `RSVP`) and **future** dates (a past event isn't purchasable/registerable or listed), then — **ticketed only** — **create the ticket definitions** (`events/v3/ticket-definitions`, `fixedPrice.value` a decimal **string**, `name` ≤ 30 chars, a `feeType`) **before** publishing, then **publish** (`events/v3/events/{id}/publish`, **one-way**). RSVP events seed no tickets and no form fields. The paid-ticket precondition (a live purchase needs a premium plan + a configured payment method — **note it, don't fail**) and the create→tickets→publish ordering (both `initialType` and publish are one-way) are inlined.
 
 ---
 
