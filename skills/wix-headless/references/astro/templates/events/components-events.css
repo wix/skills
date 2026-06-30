@@ -1,0 +1,277 @@
+/* src/styles/components-events.css
+ *
+ * Events-pack component CSS. Pre-copied by the orchestrator before the build wave
+ * (brand-agnostic var(--token) CSS). The designer's global.css does NOT publish
+ * these classes — they live here. See references/shared/STYLING.md
+ * § "Component-specific CSS is owned by the component, not the designer".
+ *
+ * Class groups:
+ * - .event-grid / .event-card*           → EventCard.astro, events/index.astro
+ * - .event-detail*                       → events/[slug].astro
+ * - .ticket-picker / .ticket-tier* / .ticket-qty* / .ticket-cta / .ticket-note / .ticket-error → TicketPicker.tsx
+ * - .rsvp-form / .rsvp-field* / .rsvp-cta / .rsvp-decline / .rsvp-error / .rsvp-done / .rsvp-check → RsvpForm.tsx
+ * - .event-confirmation-check            → event-confirmation.astro
+ *
+ * Primary actions (checkout, RSVP) use var(--color-accent) so the flow matches the
+ * site's primary-action styling. Direct var(--token) only (no @apply); fallback
+ * chains for sometimes-published tokens.
+ */
+
+/* ── Event grid + card ─────────────────────────────────────────────────────── */
+.event-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 2rem;
+}
+
+.event-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--color-paper, var(--color-cream));
+  border-radius: var(--radius-xl, 12px);
+  overflow: hidden;
+  text-decoration: none;
+  color: inherit;
+  box-shadow: var(--shadow-card, 0 4px 16px -8px rgba(0, 0, 0, 0.15));
+  transition: transform 280ms ease, box-shadow 280ms ease;
+}
+.event-card:hover {
+  transform: translateY(-4px);
+}
+.event-card-img {
+  aspect-ratio: 3 / 2;
+  width: 100%;
+  object-fit: cover;
+  background: var(--color-paper-warm, var(--color-surface-secondary, var(--color-cream)));
+}
+.event-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1.25rem 1.25rem 1.5rem;
+  flex: 1;
+}
+.event-card-date {
+  font-size: 0.8125rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-accent, var(--color-ink));
+}
+.event-card-title {
+  font-family: var(--font-display, inherit);
+  font-size: 1.375rem;
+  line-height: 1.2;
+  color: var(--color-ink);
+}
+.event-card-loc {
+  font-size: 0.875rem;
+  color: var(--color-mute, #666);
+}
+.event-card-desc {
+  font-size: 0.9375rem;
+  color: var(--color-mute, #666);
+  line-height: 1.5;
+}
+.event-card-cta {
+  margin-top: auto;
+  padding-top: 0.5rem;
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+/* ── Ticket picker ─────────────────────────────────────────────────────────── */
+.ticket-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  max-width: 36rem;
+}
+.ticket-tier-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.ticket-tier {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--color-rule, rgba(0, 0, 0, 0.12));
+  border-radius: var(--radius-lg, 10px);
+}
+.ticket-tier--soldout {
+  opacity: 0.55;
+}
+.ticket-tier-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.ticket-tier-name {
+  font-weight: 600;
+  color: var(--color-ink);
+}
+.ticket-tier-desc {
+  font-size: 0.8125rem;
+  color: var(--color-mute, #666);
+}
+.ticket-tier-price {
+  font-family: var(--font-display, inherit);
+  font-size: 1.125rem;
+  color: var(--color-ink);
+}
+.ticket-tier-soldout {
+  font-size: 0.8125rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-mute, #888);
+}
+.ticket-qty {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.ticket-qty button {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  border: 1px solid var(--color-rule, rgba(0, 0, 0, 0.2));
+  background: transparent;
+  color: var(--color-ink);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.ticket-qty button:hover {
+  border-color: var(--color-accent);
+}
+.ticket-qty-value {
+  min-width: 1.25rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.ticket-cta {
+  align-self: flex-start;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-display, inherit);
+  font-size: 1rem;
+  padding: 0.9rem 2rem;
+  border-radius: var(--radius-sm, 4px);
+  background: var(--color-accent);
+  color: var(--color-paper, #fff);
+  transition: transform 80ms ease, opacity 200ms ease;
+}
+.ticket-cta:hover:not(:disabled) {
+  transform: translateY(-2px);
+}
+.ticket-cta:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.ticket-note {
+  font-size: 0.8125rem;
+  color: var(--color-mute, #666);
+}
+.ticket-error {
+  color: var(--color-error, #c0392b);
+  font-size: 0.9rem;
+}
+
+/* ── RSVP form ─────────────────────────────────────────────────────────────── */
+.rsvp-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-width: 32rem;
+}
+.rsvp-field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+.rsvp-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.rsvp-field > span {
+  font-size: 0.8125rem;
+  color: var(--color-mute, #666);
+}
+.rsvp-field input {
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--color-rule, rgba(0, 0, 0, 0.2));
+  border-radius: var(--radius-sm, 4px);
+  background: var(--color-paper, #fff);
+  color: var(--color-ink);
+  font: inherit;
+}
+.rsvp-field input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+.rsvp-cta {
+  align-self: flex-start;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-display, inherit);
+  font-size: 1rem;
+  padding: 0.9rem 2rem;
+  border-radius: var(--radius-sm, 4px);
+  background: var(--color-accent);
+  color: var(--color-paper, #fff);
+}
+.rsvp-cta:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.rsvp-decline {
+  align-self: flex-start;
+  background: none;
+  border: none;
+  color: var(--color-mute, #666);
+  cursor: pointer;
+  font-size: 0.875rem;
+  text-decoration: underline;
+}
+.rsvp-error {
+  color: var(--color-error, #c0392b);
+  font-size: 0.9rem;
+}
+.rsvp-done {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+.rsvp-check,
+.event-confirmation-check {
+  width: 3.25rem;
+  height: 3.25rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  background: var(--color-accent);
+  color: var(--color-paper, #fff);
+}
+.rsvp-done h3 {
+  font-family: var(--font-display, inherit);
+  font-size: 1.5rem;
+  color: var(--color-ink);
+}
+.rsvp-done p {
+  color: var(--color-mute, #666);
+}
+
+@media (max-width: 600px) {
+  .rsvp-field-row { grid-template-columns: 1fr; }
+  .ticket-tier { grid-template-columns: 1fr auto; }
+}

@@ -41,7 +41,7 @@ One entry per region:
 {
   "file": "index.html",
   "anchor": "section.product-grid",     // a stable CSS selector into the existing DOM
-  "entity": "stores.products",          // stores.products | blog.posts | forms.submit | data.items | bookings.services
+  "entity": "stores.products",          // stores.products | blog.posts | forms.submit | data.items | bookings.services | events.events
   "shape": "list",                       // list | detail | single | submit
   "template": "article.product-card",   // the repeated child to clone per result (list shapes)
   "bindings": {                          // DOM node (relative to template) → entity field

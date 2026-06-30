@@ -8,6 +8,7 @@ Per-vertical recipe lookup for the seed dispatch in `SEED.md`. Recipe paths are 
 | cms | `references/cms/cms-schema-management.md` (collection create) + `references/cms/cms-data-items-crud.md` (item create per collection) + `references/cms/cms-references-and-relationships.md` (only when a collection's `intent.cms.collections[N]` declares cross-references) | `collectionIds{}`, `itemIds{<collection>: []}` |
 | blog | `references/blog/how-to-create-blog-posts.md` | `postIds[]`, `categoryIds[]` |
 | forms | `references/forms/create-form.md` | `formIds[]` |
+| events | **(within skill, NOT `<wix-manage-root>`)** `<SKILL_ROOT>/references/events/EVENTS_DATA.md` (event create + ticket definitions + publish) | `events[{id, slug, title, type, ticketDefinitionIds[]}]` |
 | gift-cards | — *(no recipe by design — no seed surface; activation lives in Phase 2 app-install)* | `{status: "skipped"}` |
 | ecom | — *(no recipe by design — cart/checkout vertical; no seed surface)* | `{status: "skipped"}` |
 
@@ -47,3 +48,10 @@ These notes reduce dispatch-time guesswork. The recipe itself is the source of t
 - One `POST /form-schema-service/v4/forms` call per entry in `intent.forms.forms`. The subagent maps `intent.forms.forms[N].fields` (a string array like `["name", "email", "message"]`) into the recipe's `formFields` payload using the recipe's documented field templates (`CONTACTS_FIRST_NAME`, `CONTACTS_EMAIL`, etc.).
 - `purpose` ("contact", "lead", "signup") drives the form's `name` field — e.g. `"contact"` → `"Contact Form"`.
 - Wix Forms app is usually pre-installed via Phase 2 — the recipe notes this and the seeder does not need to install it again.
+
+### events
+
+- Recipe is **within the skill** (`<SKILL_ROOT>/references/events/EVENTS_DATA.md`), not under `<wix-manage-root>`.
+- `intent.events.eventType` (`TICKETING`|`RSVP`, immutable after create) drives the flow: TICKETING creates the event then one ticket definition per `intent.events.ticketTiers[]`; RSVP relies on the built-in name+email form (no fields, no tickets).
+- Always use **future** event dates, and **publish** the draft after creating tickets (publish is one-way).
+- Paid tickets require a premium plan + a payment method (dashboard) to *complete a purchase* — seeding succeeds regardless; note the prerequisite plainly. Free/RSVP events need neither.
