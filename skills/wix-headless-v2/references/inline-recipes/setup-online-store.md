@@ -97,11 +97,24 @@ Storefront product queries (`searchProducts` / `queryProducts`) return **only vi
 
 **⚠️ CRITICAL FORMAT REQUIREMENTS:**
 - **Description MUST be rich-text nodes**, not a plain string — a plain string causes an `"Expected an object"` error. Use the `{ "nodes": [...], "metadata": {...} }` shape shown.
-- **Media MUST include both `main` and `itemsInfo.items`** with real image URLs (append `?w=400&h=400&fit=crop&crop=center`).
+- **Media — gated by the `imagery` policy (`SEED.md` §1, §5), no exception for stores.** When `imagery` is **off** (the default), seed **text-only**: omit `media` (or use the schema's documented placeholder). When `imagery` is **on**, include both `main` and `itemsInfo.items`; the Entity-images step attaches generated brand images. The shape, when you do include it, is `media.main` + `media.itemsInfo.items`, each `{ url, altText }` (real image URL, append `?w=400&h=400&fit=crop&crop=center`).
 - **Physical products MUST set `"productType": "PHYSICAL"` and an empty `"physicalProperties": {}`** (on the product and on each variant).
 - **Options:** text options use `"optionRenderType": "TEXT_CHOICES"` + `"choiceType": "CHOICE_TEXT"`; color options use `"optionRenderType": "SWATCH_CHOICES"` + `"choiceType": "ONE_COLOR"` + a `colorCode`.
 - **Variants = the full Cartesian product** of all option choices; each variant references **all** options via `optionChoiceNames`, sets `price.actualPrice.amount` (+ optional `compareAtPrice.amount`) as **strings**, and `inventoryItem.quantity`.
 - If part of the bulk request fails, retry the failed products **once** with the exact same format; do not loop.
+
+**⚠️ CRITICAL: options/variants are for things the buyer *selects and buys* — not for attributes you only filter or display by.** Make something an `option` (and thus a variant) **only if the buyer picks it to purchase a distinct SKU** (Size, Color, Format). An attribute you merely **filter, badge, or display by** — roast level, material, genre, "new arrival" — is **not** a variant: encode it in the **product name**, its **category**, or `description`, and never as an option. Modeling a display-only attribute as an option multiplies the variant Cartesian product for nothing (slower seeding, larger payload) and produces a buyer-facing selector that shouldn't exist. (A single-variant product is fine — give it one variant with no options.)
+
+**⚠️ Reading the response — created products are under `productResults.results[]`, NOT a top-level `results`.** A successful bulk create returns `200` with this shape:
+
+```json
+{ "productResults": { "results": [
+  { "itemMetadata": { "id": "<productId>", "originalIndex": 0, "success": true },
+    "item": { "id": "<productId>", "slug": "<slug>", "name": "…", "visible": true, … } }
+] } }
+```
+
+Read each product's **`id`** (→ the `catalogItemId` you'll assign to categories in STEP 4 and the frontend will use) and **`slug`** from `productResults.results[].item`. There is **no** top-level `results` key — reading `response.results` finds nothing and makes a successful create look like it returned zero products. Check `productResults.results` first; **do not re-create on an empty top-level `results`**.
 
 ### STEP 3: Create the store's categories
 

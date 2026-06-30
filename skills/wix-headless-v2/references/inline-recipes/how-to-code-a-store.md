@@ -127,6 +127,17 @@ Use `currentCart.createCheckoutFromCurrentCart(...)` to get a `checkoutId`, then
 
 Read the **V3** inventory fields: product-level in-stock is `product.inventory.availabilityStatus` (`"IN_STOCK"`); variant-level is `variant.inventoryStatus.inStock`. Reading the V1 inventory field on V3 data returns `undefined` → everything renders out-of-stock (the all-OOS bug). These come from `productsV3` / `readOnlyVariantsV3`, not the V1 module.
 
+### Rendering product images
+
+Product media may come back as a **`wix:image://v1/<hash>/<file>#originWidth=…` identifier, not a ready URL** — this is what the SDK returns for images stored in Wix Media (e.g. once brand imagery is attached). Putting that string straight into `<img src>` shows nothing. Resolve it with the SDK media module:
+
+```js
+import { media } from '@wix/sdk';
+const src = media.getScaledToFillImageUrl(product.media.main.image, 600, 600); // or media.getImageUrl(...).url for the original
+```
+
+**Never hand-build a `static.wixstatic.com/.../v1/fit/...` URL** — the format is easy to get wrong and the image then **403s**. Only `wix:image://` values need resolving; an already-absolute `https://` URL (e.g. an Unsplash placeholder seeded when imagery is off) goes straight into `<img src>`. Doc: <https://dev.wix.com/docs/sdk/core-modules/sdk/media>
+
 ### Rendering product descriptions
 
 Don't print the raw node object. A product description is rich text (`description.nodes`). Render the rich-text nodes, or use `plainDescription` for a plain string. Printing the raw node object dumps literal `<p>…</p>` into the page.
