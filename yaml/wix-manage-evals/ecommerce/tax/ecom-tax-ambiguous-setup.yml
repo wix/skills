@@ -1,0 +1,29 @@
+name: ecommerce/tax/ecom-tax-ambiguous-setup
+description: I'm just starting out and someone said I need to think about tax — can you help?
+triggerPrompt: |
+  I'm starting to sell stuff online and someone told me I need to think about tax. Can you help?
+tags: [ecommerce]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/tax
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The merchant's question is **intentionally ambiguous** — no country, no rate, no order ID, no calculator preference. This test exercises the **dispatcher's clarifying-question fallback** (the "Base recipe" branch in `ecom-tax.md`). Without the dispatcher, the agent would have to pick one of the 3 leaves on similarity alone, likely starting an API setup the merchant didn't ask for.
+
+      Pass if ALL of these are true:
+        1. The agent called `ReadFullDocsArticle` on the **Tax dispatcher** (slug `tax`) — NOT on a specific leaf as the first action.
+        2. It recognized the query is ambiguous (no country, no rate, no order context) and hit the dispatcher's Base-recipe fallback.
+        3. It asked **exactly one** clarifying question, framed along the dispatcher's wording — something like "Do you want to **set up tax** for the first time (and which country are you selling in?), or **fix** a wrong tax amount on a specific order?".
+        4. It made **zero** mutating API calls before the merchant answers. Read-only discovery calls (e.g. `list-tax-calculators`) are acceptable but not required. No `POST /billing/v1/tax-regions`, `POST /billing/v1/tax-groups`, or `POST /billing/v1/manual-tax-mappings`.
+
+      Fail if ANY of these are true:
+        - The agent skipped the dispatcher and went straight to a leaf recipe (e.g. dispatched directly to `tax-configure-wix-manual` because it sounded most generic).
+        - It made any mutating tax API calls before clarifying.
+        - It asked multiple clarifying questions in one turn (the dispatcher specifies ONE).
+        - It picked a calculator or country on the merchant's behalf without asking.
+        - It treated this as a non-Tax question (Pricing, Catalog, Checkout).
+
+      **Why this test exists:** the dispatcher's value over leaf-only routing is precisely this case — when the merchant's intent is under-specified, the dispatcher's tag-based scoring fails to match any leaf, triggering the clarifying-question branch. A leaf-only architecture has no equivalent fallback.
