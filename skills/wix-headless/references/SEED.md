@@ -9,7 +9,7 @@ This article seeds backend data. Every loaded pack with a seed recipe gets its o
 The recipe map and per-pack input notes are inlined below — **do NOT separately `Read references/seed-recipes.md`**. The Step 1 table here is canonical for the run; `seed-recipes.md` exists only as a human-readable index of the same data, and reading it adds a turn and a thinking gap before the dispatch batch.
 
 From the `verticals` list in orchestrator scratch (captured in Discovery), build the dispatch list. For each loaded pack:
-- If the pack has a recipe in the table below (`stores`, `cms`, `blog`, `forms`, `bookings`) → add to the dispatch list.
+- If the pack has a recipe in the table below (`stores`, `cms`, `blog`, `forms`, `bookings`, `events`) → add to the dispatch list.
 - If the pack has no recipe (`gift-cards`, `ecom`) → record a phase entry as `{phase: "seed-<pack>", status: "skipped", notes: "no seed surface for this pack"}` directly. No subagent.
 
 Resolve absolute recipe paths by joining `<wix-manage-root>` (already in scratch from Phase 2 Step 4 — do **not** re-invoke `Skill(name="wix-manage")` here) + the relative paths in this table.
@@ -23,6 +23,7 @@ Resolve absolute recipe paths by joining `<wix-manage-root>` (already in scratch
 | blog       | (relative to `<wix-manage-root>`) `references/blog/how-to-create-blog-posts.md`                                                                                                                                                                                              | `postIds[]`, `categoryIds[]`                                                        |
 | forms      | (relative to `<wix-manage-root>`) `references/forms/create-form.md`                                                                                                                                                                                                          | `formIds[]`                                                                         |
 | bookings   | (within skill) `<SKILL_ROOT>/references/bookings/SERVICES_DATA.md` — service creation + optional staff. Recipe path uses `<SKILL_ROOT>`, NOT `<wix-manage-root>`.                                                                                                           | `services[{id, slug, name, type, durationMinutes, price, currency}]`, `staff[{id, resourceId, name}]` |
+| events | (within skill) `<SKILL_ROOT>/references/events/EVENTS_DATA.md` — event create (`TICKETING` or `RSVP`) + ticket definitions (ticketed) + publish. Recipe path uses `<SKILL_ROOT>`, NOT `<wix-manage-root>`. | `events[{id, slug, title, type, ticketDefinitionIds[]}]` |
 | gift-cards | — (no seed surface; activation lives in Phase 2 app-install)                                                                                                                                                                                                                 | `{status: "skipped"}`                                                               |
 | ecom       | — (cart/checkout vertical; no seed surface)                                                                                                                                                                                                                                  | `{status: "skipped"}`                                                               |
 
@@ -61,6 +62,15 @@ These notes reduce dispatch-time guesswork. The recipe itself is the source of t
 - `intent.bookings.hasStaff === true` → create 2 staff members (names from brand). Skip if false or absent.
 - Wix Bookings app is pre-installed via Phase 2 (app ID `13d21c63-b5ec-5912-8397-c3a5ddb27a97`); don't reinstall.
 - Return `seeded.bookings.services[{id, slug, name, ...}]` + `seeded.bookings.staff[{id, resourceId, name}]`.
+
+**events:**
+- Recipe path is `<SKILL_ROOT>/references/events/EVENTS_DATA.md` — NOT under `<wix-manage-root>`. Resolve with `<SKILL_ROOT>`.
+- `intent.events.eventCount` events (default 1). Titles + descriptions + venue from `brand`/`intent.events`. **Use FUTURE start/end dates** — a past event isn't purchasable; `initialType` (`TICKETING`|`RSVP`) is immutable after create.
+- `intent.events.eventType === "TICKETING"` → create the event with `registration.initialType: "TICKETING"`, then create one ticket definition per `intent.events.ticketTiers[]` (name + price; default a single "General Admission" tier if none given). `"RSVP"` → `registration.initialType: "RSVP"`; the registration form is built-in (name + email, can't be removed) so **seed no form fields** and **no ticket definitions**.
+- **Publish** the draft event after creating tickets (publishing is one-way — seed published, not draft).
+- **Paid-ticket precondition (note, don't block):** selling paid tickets requires a premium plan + a configured payment method (a dashboard step). Seeding still succeeds — the event and ticket definitions are created and live; only completing a *paid* purchase needs that setup. Free/RSVP events need neither. Surface this plainly in the run summary; never imply tickets are payable when no payment method is configured.
+- Wix Events app is pre-installed via Phase 2 (app ID `140603ad-af8d-84a5-2c80-a0f60cb47351`); don't reinstall.
+- Return `seeded.events.events[{id, slug, title, type, ticketDefinitionIds[]}]` (`ticketDefinitionIds` empty for RSVP events).
 
 ---
 

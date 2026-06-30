@@ -12,7 +12,7 @@ The opening message usually names what they want (*"build me a skincare store"*,
 - **Vertical(s)** — which packs to load (routing table: `SKILL.md` § "When This Skill Triggers").
 - **Business / product context** — feeds brand-name suggestions, vibe options, product templates, image prompts.
 
-If too vague to infer a vertical (*"build me a site"*), ask **one conversational clarifier** (NOT `AskUserQuestion`): *"What do you want your site to do — sell things, publish content, take bookings?"* Only if you genuinely cannot infer. **Do not ask what features they want** — features follow from the vertical; the user adjusts at the plan.
+If too vague to infer a vertical (*"build me a site"*), ask **one conversational clarifier** (NOT `AskUserQuestion`): *"What do you want your site to do — sell things, publish content, take bookings, or sell event tickets?"* Only if you genuinely cannot infer. **Do not ask what features they want** — features follow from the vertical; the user adjusts at the plan.
 
 ---
 
