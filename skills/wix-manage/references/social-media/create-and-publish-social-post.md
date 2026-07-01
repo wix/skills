@@ -1,6 +1,6 @@
 ---
 name: "Create and Publish a Social Media Post (with AI generation)"
-description: "End-to-end flow to create a social media post — optionally generating it with AI — and publish or schedule it to a site's connected channel (Instagram, Facebook, LinkedIn, TikTok, Pinterest, YouTube, Google Business Profile) using the Wix Publisher API. Can generate a full per-channel post from a free-text idea or from the site's own assets (products, blog posts, events, bookings, coupons, categories), generate caption/title suggestions, and generate or edit the post image with AI. Then confirms the channel is connected, checks premium quota, creates a draft, and publishes now or schedules it. Use for 'create a post', 'generate a post from my product/idea', 'write a caption', 'make a post image', 'post to Instagram/Facebook/TikTok', or 'schedule a post'."
+description: "End-to-end flow to create a social media post — optionally generating it with AI — and publish or schedule it to a site's connected channel (Instagram, Facebook, LinkedIn, TikTok, Pinterest, YouTube, Google Business Profile) using the Wix Publisher API. Can generate a full per-channel post from a free-text idea or from the site's own assets (products, blog posts, events, bookings, coupons, categories), generate caption/title suggestions, and edit an existing image with AI. Then confirms the channel is connected, checks premium quota, creates a draft, and publishes now or schedules it. Use for 'create a post', 'generate a post from my product/idea', 'write a caption', 'edit a post image with AI', 'post to Instagram/Facebook/TikTok', or 'schedule a post'."
 ---
 # RECIPE: Create and Publish a Social Media Post (with AI generation)
 
@@ -34,7 +34,7 @@ Produces ready-to-use, per-channel payloads that drop straight into STEP 5. This
 
 Provide `userInput`, `siteAssets`, or both.
 
-**Scope:** this method produces standard image-**post** payloads for the six channels above only. It does **not** generate YouTube content or story/reel/video formats — for those, generate a caption (1b) and image (1c) and assemble the content object yourself in STEP 5.
+**Scope:** this method produces standard image-**post** payloads for the six channels above only. It does **not** generate YouTube content or story/reel/video formats — for those, use 1b (caption) and 1c (image edit) and assemble the content object yourself in STEP 5.
 
 **Example — from an idea + an image, for Instagram and Facebook:**
 
@@ -93,13 +93,13 @@ Use when the user just wants caption suggestions to place into a post.
 
 **Expected response:** `{ "results": [ { "caption": "…", "title": "…" } ] }`. Put the chosen `caption` (and `title` where the channel uses one) into the content object in STEP 5.
 
-### 1c. Generate or edit the post image
+### 1c. Edit an image with AI
 
-Generates an image from a text prompt applied to a **source image** — use it to create a visual or to edit/enhance an existing one (e.g. add a sale banner to a product photo). Runs asynchronously.
+Transforms an existing **source image** according to a text prompt (e.g. add a sale banner to a product photo, restyle a background). This is AI image-to-image editing — it requires a source image and does **not** generate an image from a prompt alone. Runs asynchronously.
 
 **API Endpoint:** `POST https://www.wixapis.com/social-publisher/v1/generate-image`
 
-Both `userInput` (prompt) and `imageUrl` (source image) are required:
+Both `userInput` (prompt) and `imageUrl` (the source image to edit) are required:
 
 ```json
 {
@@ -300,7 +300,7 @@ The post appears on the site's Social Media Marketing page in the dashboard. To 
 | `412 FAILED_PRECONDITION` / `INELIGIBLE_FOR_FEATURE` on publish or schedule | Site's plan doesn't cover publishing/scheduling this post | Check STEP 4 first; advise upgrading the plan |
 | `429 RESOURCE_EXHAUSTED` / `PUBLISH_LIMIT_EXCEEDED` | Publishing rate limit hit | Back off and retry later |
 | `UNSUPPORTED_CHANNEL` | Targeting a sunset channel (e.g. `TWITTER`, non-functional as of July 31, 2026) | Use a supported channel |
-| Create item rejected for missing media | Instagram and story types require media (GBP needs `description` and/or media) | Provide a public image/video URL (or generate one in STEP 1c) |
+| Create item rejected for missing media | Instagram and story types require media (GBP needs `description` and/or media) | Provide a public image/video URL (or edit one from a source image in STEP 1c) |
 | Reschedule/cancel returns `ITEM_NOT_EXISTS`, `ITEM_IS_PUBLISHED`, or `ITEM_IS_DELETED` | The item can't be rescheduled/canceled in its current state | Only reschedule/cancel items still in `SCHEDULED` status |
 | Publish returns `status: FAILED` | Content/type mismatch or channel rejected the post | Verify the `type` + content object match the channel's supported combination and that media URLs are public |
 
