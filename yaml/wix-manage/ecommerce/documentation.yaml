@@ -33,7 +33,7 @@ apiDoc:
       tags: [ecommerce]
 
     # Promotions (actions + troubleshoot)
-    - file: ../../../skills/wix-manage/references/ecommerce/pricing-promotions/ecom-pricing-create-coupon.md
+    - file: ../../../skills/wix-manage/references/ecommerce/pricing-promotions/ecom-pricing-create-coupon-codex-file-change.md
       title: "Pricing: Create Coupon"
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
       tags: [ecommerce]
