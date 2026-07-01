@@ -64,7 +64,7 @@ apiDoc:
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
       tags: [ecommerce]
 
-    - file: ../../../skills/wix-manage/references/ecommerce/pricing-promotions/ecom-pricing-goal-drive-cross-sells.md
+    - file: ../../../skills/wix-manage/references/ecommerce/pricing-promotions/ecom-pricing-goal-drive-cross-sells-codex-file-change.md
       title: "Goal: Drive Cross-Sells"
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
       tags: [ecommerce]
