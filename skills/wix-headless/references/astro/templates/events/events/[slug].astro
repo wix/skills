@@ -2,21 +2,22 @@
 // src/pages/events/[slug].astro — SSR event detail + the registration island.
 // Two dirs deep inside src/ → import with ../../.
 //
-// SSR reads are ambient + auth.elevate (server). The registration island
-// (TicketPicker / RsvpForm) is client:only="react" and runs the VISITOR flow
-// (reserve→redirect / createRsvp) — never elevated, never a server route.
+// SSR reads run as the ambient VISITOR — NO auth.elevate. The event detail and
+// its ticket tiers are public storefront reads; elevating them over-permissions
+// a public page AND makes it SSR-only (an elevated call can't run on a SPA — no
+// server to elevate on). The registration island (TicketPicker / RsvpForm) is
+// client:only="react" and runs the same visitor flow (reserve→redirect / createRsvp).
 import Layout from "../../layouts/Layout.astro";
 import TicketPicker from "../../components/TicketPicker";
 import RsvpForm from "../../components/RsvpForm";
-import { wixEventsV2, ticketDefinitions } from "@wix/events";
-import { auth } from "@wix/essentials";
+import { wixEventsV2, orders } from "@wix/events";
 
 const { slug } = Astro.params;
 
 let event: any = null;
 try {
-  // getEventBySlug — request the display + registration fieldsets.
-  const res: any = await auth.elevate(wixEventsV2.getEventBySlug)(slug!, {
+  // getEventBySlug — ambient visitor read; request the display + registration fieldsets.
+  const res: any = await wixEventsV2.getEventBySlug(slug!, {
     fields: ["DETAILS", "TEXTS", "REGISTRATION", "URLS"],
   });
   event = res?.event ?? null;
@@ -28,26 +29,34 @@ if (!event) return Astro.redirect("/events", 302);
 const eventType: "TICKETING" | "RSVP" =
   event.registration?.initialType === "RSVP" ? "RSVP" : "TICKETING";
 
-// Ticket tiers (ticketed events only). Confirm the query builder/object shape
-// against live docs if it drifts; the REST twin is POST /events/v3/ticket-definitions/query
-// with { query: { filter: { eventId } }, fields: ["SALES_DETAILS"] }.
+// Ticket tiers (ticketed events only) via the VISITOR-PUBLIC storefront read
+// orders.queryAvailableTickets (a.k.a. checkout.queryAvailableTickets in the
+// headless quick-start). It's server-filtered by eventId and needs NO elevation.
+// Do NOT use ticketDefinitions(V2).queryTicketDefinitions here: those are
+// MANAGEMENT endpoints (MANAGE-TICKET-DEF) that 403 the visitor identity, so
+// they'd force auth.elevate — over-permissioning a public read and breaking on
+// any non-Astro/SPA client. NOTE: `limit` is REQUIRED — it defaults to 0, which
+// returns only metadata (no definitions).
 let tiers: any[] = [];
 if (eventType === "TICKETING") {
   try {
-    const res: any = await auth.elevate(ticketDefinitions.queryTicketDefinitions)({
-      query: { filter: { eventId: event._id } },
-      fields: ["SALES_DETAILS"],
+    const res: any = await orders.queryAvailableTickets({
+      filter: { eventId: event._id },
+      limit: 50,
     });
-    tiers = res?.ticketDefinitions ?? res?.items ?? [];
+    tiers = res?.definitions ?? [];
   } catch (err) {
-    console.error(`[events/${slug}] ticket definitions query failed:`, err);
+    console.error(`[events/${slug}] available-tickets query failed:`, err);
   }
 }
 
+// queryAvailableTickets tier shape: def._id, def.name, def.description,
+// def.price.value (string) + def.price.currency, def.free, def.saleStatus
+// ("SALE_SCHEDULED" | "SALE_STARTED" | "SALE_ENDED"), def.limitPerCheckout.
 const fmtPrice = (def: any): string | undefined => {
-  const v = def?.pricingMethod?.fixedPrice?.value;
+  const v = def?.price?.value ?? def?.pricing?.fixedPrice?.value;
   if (v == null) return undefined;
-  const cur = def?.pricingMethod?.fixedPrice?.currency ?? "USD";
+  const cur = def?.price?.currency ?? def?.pricing?.fixedPrice?.currency ?? "USD";
   return new Intl.NumberFormat("en-US", { style: "currency", currency: cur }).format(Number(v));
 };
 const tierProps = tiers.map((d: any) => ({
@@ -55,7 +64,7 @@ const tierProps = tiers.map((d: any) => ({
   name: d.name,
   description: d.description,
   price: d.free ? undefined : fmtPrice(d),
-  soldOut: d.salesDetails?.soldOut ?? false,
+  soldOut: d.saleStatus === "SALE_ENDED",
 }));
 
 const title = event.title ?? "Event";
