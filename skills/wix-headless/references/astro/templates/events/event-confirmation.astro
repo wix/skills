@@ -1,0 +1,33 @@
+---
+// src/pages/event-confirmation.astro — post-checkout confirmation.
+//
+// Wix's hosted ticket checkout returns the visitor here after payment, appending
+// ?orderNumber=…&eventId=…. Render from those query params — do NOT re-fetch a
+// stranger's order from this public page. (RSVP events confirm inline in the
+// RsvpForm island and don't route here.)
+import Layout from "../layouts/Layout.astro";
+
+const orderNumber = Astro.url.searchParams.get("orderNumber");
+---
+
+<Layout title="You're going!">
+  <section class="max-w-prose mx-auto px-6 py-24 text-center">
+    <div class="event-confirmation-check w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-8"
+         style="background-color: var(--color-accent);" aria-hidden="true">
+      <span class="text-2xl" style="color: var(--color-paper);">✓</span>
+    </div>
+    <hr class="editorial-rule w-16 mx-auto mb-6" />
+    <h1 class="font-display text-4xl md:text-5xl leading-tight mb-4">You're going!</h1>
+
+    <p class="text-lg text-mute leading-relaxed mb-4">
+      Your order is confirmed{orderNumber ? <> — <strong class="text-ink">#{orderNumber}</strong></> : null}.
+      We've emailed your ticket with a check-in QR code. See you at the show.
+    </p>
+
+    <div class="flex flex-col gap-4 items-center">
+      <a href="/events" class="inline-block font-display text-base px-8 py-4 rounded-sm"
+         style="background-color: var(--color-accent); color: var(--color-paper);">Browse more events</a>
+      <a href="/" class="text-sm text-mute hover:text-ink">Return home</a>
+    </div>
+  </section>
+</Layout>
