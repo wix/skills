@@ -1,0 +1,116 @@
+---
+// src/pages/events/[slug].astro — SSR event detail + the registration island.
+// Two dirs deep inside src/ → import with ../../.
+//
+// SSR reads run as the ambient VISITOR — NO auth.elevate. The event detail and
+// its ticket tiers are public storefront reads; elevating them over-permissions
+// a public page AND makes it SSR-only (an elevated call can't run on a SPA — no
+// server to elevate on). The registration island (TicketPicker / RsvpForm) is
+// client:only="react" and runs the same visitor flow (reserve→redirect / createRsvp).
+import Layout from "../../layouts/Layout.astro";
+import TicketPicker from "../../components/TicketPicker";
+import RsvpForm from "../../components/RsvpForm";
+import { wixEventsV2, orders } from "@wix/events";
+
+const { slug } = Astro.params;
+
+let event: any = null;
+try {
+  // getEventBySlug — ambient visitor read; request the display + registration fieldsets.
+  const res: any = await wixEventsV2.getEventBySlug(slug!, {
+    fields: ["DETAILS", "TEXTS", "REGISTRATION", "URLS"],
+  });
+  event = res?.event ?? null;
+} catch (err) {
+  console.error(`[events/${slug}] detail query failed:`, err);
+}
+if (!event) return Astro.redirect("/events", 302);
+
+const eventType: "TICKETING" | "RSVP" =
+  event.registration?.initialType === "RSVP" ? "RSVP" : "TICKETING";
+
+// Ticket tiers (ticketed events only) via the VISITOR-PUBLIC storefront read
+// orders.queryAvailableTickets (a.k.a. checkout.queryAvailableTickets in the
+// headless quick-start). It's server-filtered by eventId and needs NO elevation.
+// Do NOT use ticketDefinitions(V2).queryTicketDefinitions here: those are
+// MANAGEMENT endpoints (MANAGE-TICKET-DEF) that 403 the visitor identity, so
+// they'd force auth.elevate — over-permissioning a public read and breaking on
+// any non-Astro/SPA client. NOTE: `limit` is REQUIRED — it defaults to 0, which
+// returns only metadata (no definitions).
+let tiers: any[] = [];
+if (eventType === "TICKETING") {
+  try {
+    const res: any = await orders.queryAvailableTickets({
+      filter: { eventId: event._id },
+      limit: 50,
+    });
+    tiers = res?.definitions ?? [];
+  } catch (err) {
+    console.error(`[events/${slug}] available-tickets query failed:`, err);
+  }
+}
+
+// queryAvailableTickets tier shape: def._id, def.name, def.description,
+// def.price.value (string) + def.price.currency, def.free, def.saleStatus
+// ("SALE_SCHEDULED" | "SALE_STARTED" | "SALE_ENDED"), def.limitPerCheckout.
+const fmtPrice = (def: any): string | undefined => {
+  const v = def?.price?.value ?? def?.pricing?.fixedPrice?.value;
+  if (v == null) return undefined;
+  const cur = def?.price?.currency ?? def?.pricing?.fixedPrice?.currency ?? "USD";
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: cur }).format(Number(v));
+};
+const tierProps = tiers.map((d: any) => ({
+  id: d._id,
+  name: d.name,
+  description: d.description,
+  price: d.free ? undefined : fmtPrice(d),
+  soldOut: d.saleStatus === "SALE_ENDED",
+}));
+
+const title = event.title ?? "Event";
+const dateLabel = event.dateAndTimeSettings?.formatted?.dateAndTime;
+const imageUrl = event.mainImage?.url;
+const ticketLimitPerOrder = event.registration?.tickets?.ticketLimitPerOrder ?? 8;
+const allowDecline = event.registration?.rsvp?.responseType === "YES_AND_NO";
+---
+
+<Layout title={title} description={event.shortDescription}>
+  <section class="container-reading px-6 py-24">
+    <a href="/events" class="inline-block text-sm text-mute hover:text-ink mb-8">← All events</a>
+
+    {imageUrl && (
+      <img src={imageUrl} alt={title} class="w-full h-64 object-cover rounded-lg mb-8" />
+    )}
+
+    <div class="event-detail-head flex flex-col gap-4 mb-16">
+      <hr class="editorial-rule w-16 ml-0" />
+      <h1 class="font-display text-4xl md:text-5xl leading-tight">{title}</h1>
+      <div class="flex flex-wrap items-center gap-4 text-sm text-mute">
+        {dateLabel && <span>{dateLabel}</span>}
+        {event.location?.name && <span class="text-ink font-medium">{event.location.name}</span>}
+      </div>
+      {event.shortDescription && <p class="text-ink leading-relaxed max-w-prose">{event.shortDescription}</p>}
+    </div>
+
+    <section class="border-t border-rule pt-12">
+      {
+        eventType === "TICKETING" ? (
+          <>
+            <h2 class="font-display text-3xl leading-tight mb-8">Tickets</h2>
+            <TicketPicker
+              eventSlug={event.slug}
+              tiers={tierProps}
+              ticketLimitPerOrder={ticketLimitPerOrder}
+              client:only="react"
+            />
+          </>
+        ) : (
+          <>
+            <h2 class="font-display text-3xl leading-tight mb-8">RSVP</h2>
+            <RsvpForm eventId={event._id} allowDecline={allowDecline} client:only="react" />
+          </>
+        )
+      }
+    </section>
+  </section>
+</Layout>

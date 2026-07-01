@@ -56,7 +56,8 @@ The conductor interleaves these; the business track (steps 3–5) runs frontend-
 
 | Inferred domain | Connected feature (wire and/or add) | App(s) | Wiring guide |
 |---|---|---|---|
-| Wedding / event invitation | **RSVP form** (+ optional responses CMS) | Wix Forms (+ CMS) | `custom/forms/WIRING.md` |
+| Wedding / event invitation / party | **RSVP** via Wix Events (built-in name+email registration → attendee list + confirmation email); a plain Forms RSVP is the lighter fallback for a purely static one-pager with no attendee management | Wix Events (or Wix Forms) | `custom/events/WIRING.md` (or `custom/forms/WIRING.md`) |
+| Event / concert / conference / meetup / festival / fundraiser (sell tickets or collect RSVPs) | events listing + per-event detail; **ticketed** → reserve + redirect to Wix's hosted checkout (PDF/QR ticket email), **free** → RSVP registration | Wix Events | `custom/events/WIRING.md` |
 | Store / product mock | product catalog (wire existing grid) | Wix Stores + eCom | `custom/stores/WIRING.md` |
 | Blog / publication | post list + detail (wire existing) | Wix Blog | `custom/blog/WIRING.md` |
 | Salon / spa / studio / coach landing | services list + availability + book (Wix-hosted bookings checkout) | Wix Bookings | `custom/bookings/WIRING.md` |

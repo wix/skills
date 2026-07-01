@@ -1,0 +1,30 @@
+---
+// EventCard.astro — static card for the events grid. No interactivity.
+// Adapt copy/markup to the brand; keep the field reads.
+interface Props {
+  slug: string;
+  title: string;
+  dateLabel?: string;   // event.dateAndTimeSettings.formatted.dateAndTime (or a derived label)
+  locationName?: string; // event.location.name
+  shortDescription?: string;
+  imageUrl?: string;     // event.mainImage?.url
+  type: "TICKETING" | "RSVP";
+  priceFrom?: string;    // formatted lowest tier price, ticketed only
+}
+const { slug, title, dateLabel, locationName, shortDescription, imageUrl, type, priceFrom } = Astro.props;
+---
+
+<a href={`/events/${slug}`} class="event-card">
+  {imageUrl && (
+    <img src={imageUrl} alt={title} loading="lazy" class="event-card-img" />
+  )}
+  <div class="event-card-body">
+    {dateLabel && <span class="event-card-date">{dateLabel}</span>}
+    <h3 class="event-card-title">{title}</h3>
+    {locationName && <span class="event-card-loc">{locationName}</span>}
+    {shortDescription && <p class="event-card-desc">{shortDescription}</p>}
+    <span class="event-card-cta">
+      {type === "RSVP" ? "RSVP" : priceFrom ? `Tickets from ${priceFrom}` : "Get tickets"}
+    </span>
+  </div>
+</a>
