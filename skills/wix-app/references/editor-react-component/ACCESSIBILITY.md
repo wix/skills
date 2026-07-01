@@ -13,20 +13,6 @@ Rules and patterns for ARIA accessibility support in Editor React components.
 - The `A11y` type includes: `ariaLabel`, `ariaDescribedBy`, `ariaLabelledBy`, `role`, `ariaHidden`, `ariaLive`, and all other ARIA attributes.
 - Users provide ARIA values through the `a11y` prop: `<Component a11y={{ ariaLabel: "..." }} />`
 
-### Stable IDs for Element Relationships
-
-ARIA relationships (`aria-controls`, `aria-labelledby`, `aria-describedby`) and `htmlFor` need element ids. Generate them with `useStableId` from `@wix/react-component-utils` — passing the `id` prop as the override — never `Math.random()`, a manual counter, or a bare `React.useId()` (those break SSR/hydration). See [`SSR.md`](SSR.md) for the full rule.
-
-```tsx
-import { useStableId } from '@wix/react-component-utils';
-
-const rootId = useStableId(id);
-const panelId = `${rootId}-panel`;
-
-<button aria-controls={panelId}>{label}</button>
-<div id={panelId} role="tabpanel">{content}</div>
-```
-
 ### ARIA Label Rules
 
 ARIA labels are user-facing content and must NEVER be hardcoded as string literals in JSX.
@@ -150,3 +136,4 @@ export interface TabsProps {
 ```
 
 **Why:** The `A11y` type from `@wix/editor-react-types` provides a standardized way to handle ALL ARIA attributes (ariaLabel, ariaDescribedBy, ariaLabelledBy, role, ariaHidden, ariaLive, etc.). Individual ARIA props fragment the API and make it harder to use.
+
