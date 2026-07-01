@@ -33,7 +33,7 @@ The verticals the skill operates end-to-end today: **stores · blog · cms · fo
 
 ### cms — structured content collections
 - **Intent:** collection / directory / portfolio-as-data / structured content / "persist my app's data".
-- **Required site features:** an index/list view of the collection; a detail page per item. (Visitor reads are public; visitor writes go through a form.)
+- **Required site features:** an index/list view of the collection; a detail page per item. (Visitor reads are public; visitor writes go through a form.) **(Opt-in, with members)** when the brief asks for per-user-private data ("my saved items", a personal list) or member-only content **and** members login is in the run, a collection can instead be **member-scoped** — each member sees/edits only their own rows, or any logged-in member reads shared member-only content. Added only on that intent, never by default; see the members cross-cutting entry and `setup-cms.md`.
 - **Implementation checklist:** show each item's main fields with clear labels; link the list to each item's detail page; show a sensible empty state when there are no items yet.
 
 ### forms — capture leads
@@ -53,7 +53,7 @@ The verticals the skill operates end-to-end today: **stores · blog · cms · fo
 
 ### pricing-plans — memberships and subscriptions
 - **Intent:** membership / subscription / plans / paid tiers.
-- **Required site features:** a plans / pricing page; a way to choose and subscribe to a plan.
+- **Required site features:** a plans / pricing page; a way to choose and subscribe to a plan. **Subscribing requires a logged-in member** — the plans grid is public, but the *subscribe* action and any *my subscription* surface need the **members** cross-cutting capability (below); it's a hard dependency, not optional.
 - **Implementation checklist:** show each plan's name, price, and billing cycle; list what each plan includes (the perks); a clear "choose plan" action; highlight a recommended tier where it makes sense.
 
 ### gift-cards — sell gift cards
@@ -78,10 +78,11 @@ The verticals the skill operates end-to-end today: **stores · blog · cms · fo
 
 ## Cross-cutting capabilities — usable, but ride on a parent vertical
 
-These are **not standalone verticals** — they aren't installed or seeded on their own, so they don't go in `verticals[]` and have no app to install in `SETUP.md`. But they **are fully usable**, and the agent should reach for them when a built vertical is present and intent calls for them. They attach to whatever catalog vertical the run already set up. Don't list these as "not-yet-wired" — they're wired *through* their parent.
+These are **not standalone verticals** — they aren't seeded on their own and don't go in `verticals[]`. Most have no app to install (eCommerce installs as a dependency; coupons need no install; members' identity layer is the OAuth app). But they **are fully usable**, and the agent should reach for them when a built vertical is present and intent calls for them. They attach to whatever catalog vertical the run already set up. Don't list these as "not-yet-wired" — they're wired *through* their parent. (One conditional install exists: the **members** *profile* layer needs the Wix Members Area app — see its entry and `SETUP.md`.)
 
 - **eCommerce** — the shared cart, checkout, orders, and payments layer. It has no catalog of its own; it's **installed automatically as a dependency** by Stores, Bookings, Events, Donations, and Gift Cards, and it's how every purchase actually completes. The frontend uses it via `@wix/ecom` (+ `@wix/redirects`) — already carried in the Handoff for those verticals. Reach for the eCommerce Cart/Checkout APIs (find the *how* in the docs) whenever a purchase flow needs to be built or customized. *Intent: checkout / cart / "let people buy".*
 - **coupons** — discount codes and promotions applied at checkout. **No standalone app** — requires a parent already installed (stores / bookings / events / pricing-plans). When intent calls for discounts and such a parent is present, **create coupons on demand** scoped to that parent — find the create method in the docs (`SEED.md` §1) and surface `@wix/marketing` in the Handoff. *Intent: coupon / promo code / discount.*
+- **members** — the **identity layer**: member sign-up / log-in / log-out and member-gated surfaces. **Not seeded, and login needs no app install** (it's the headless OAuth app) — so it doesn't go in `verticals[]`. **Reading member profile data** (name / photo / roles / badges, an editable my-account page), however, needs the **Wix Members Area app installed** (`SETUP.md`) — keep the identity layer and the profile layer separate. Sign-up and log-in are the **same** mechanism (the Wix login page logs in *or* registers); what changes is the frontend axis — Astro ships built-in `/api/auth/login` routes, non-Astro drives a manual `OAuthStrategy` handshake (the two `how-to-code-members-*.md` recipes). **Hard dependency edge → pricing-plans**: subscribing to a plan requires a logged-in member, so whenever `pricing-plans` is present, members is implied (surface login + my-subscription). **Soft edges** to the other verticals' "my …" surfaces (my orders / my bookings / my registrations) and to **blog comments** (already wired) — the action runs as an anonymous visitor; only the account view of it needs a member. A logged-in member reading **their own** data needs **no `auth.elevate`** (that's the separate admin/permission axis). *Intent: login / sign up / account / my profile / members area / member-only / gated content / subscriber / paywall — plus any pricing-plans intent (membership / subscription / paid tiers), which can't be purchased without it.*
 
 ## Other verticals — recognized for intent, not yet wired
 

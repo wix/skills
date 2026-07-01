@@ -32,6 +32,10 @@ For each capability in `verticals[]`, install its app by `appDefId` (these are t
 
 For any vertical added later, its appDefId is in the docs — "Apps Created by Wix": <https://dev.wix.com/docs/api-reference/articles/work-with-wix-apis/platform/about-apps-created-by-wix.md>.
 
+> **members — install is conditional on the layer, and only the *profile* layer installs anything.** Members is a cross-cutting capability (`CAPABILITIES.md`), not a `verticals[]` entry, so it has no unconditional row above. Split by layer:
+> - **Identity only** (sign-up / log-in / log-out, "logged-in vs not" gating — the common case, and all that pricing-plans' subscribe flow needs) → **no install.** It's the headless OAuth app; members self-register. Skip, exactly like cms.
+> - **Profile / Members Area** (the site *displays or edits* member data — name / photo / roles / badges, a my-account page) → install the **Wix Members Area app**, `appDefId` **`14cc59bc-f0b7-15b8-e1c7-89ce41d0e0c9`** (via the same `apps-installer-service` call above; it pulls in its Site-Members dependency automatically). **Wrinkle:** Members Area is **not** in the "Apps Created by Wix" table (that table has Stores, Blog, Pricing Plans, Groups… but no Members Area), so the GUID can't be grabbed from there — it was resolved live from the App Market (<https://www.wix.com/app-market/web-solution/members-area>) and confirmed by two independent live installs. Install it **only when the run genuinely needs profile data**; pure "logged-in vs not" gating (the common case) is the identity layer and needs no install.
+
 Fire one install `curl` per app — `POST /apps-installer-service/v1/app-instance/install`:
 
 ```bash
