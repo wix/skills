@@ -64,6 +64,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ### [Create Course Service](references/bookings/create-course-service.md)
 **Technical:** Use when the user wants to create a multi-session course — e.g. "create a 6-week workshop", "set up a training program for $300". Handles group capacity, full-course pricing, and fixed series via bulkCreateServices API.
 
+### [Diagnose Bookings Availability Issues](references/bookings/diagnose-availability-issues.md)
+**Technical:** Use when a service has no bookable time slots / "customers can't book". Runs the DiagnoseAvailability endpoint (`POST /v2/time-slots/diagnose`) for automated setup/config reason codes, then performs manual checks for cases the endpoint doesn't yet emit — staff not serving the service's location, and working-hours gaps that miss part of a multi-day service (e.g. a 3-day service whose hours end at 23:59).
+
 ### [End-to-End Booking Flow](references/bookings/end-to-end-booking-flow.md)
 **Technical:** Complete booking flow from service discovery to payment. Query services, check availability with Time Slots V2, create bookings, and process payment via eCommerce checkout.
 
