@@ -10,6 +10,8 @@ A concise contract for wiring **login / sign-up / logout and member-gated surfac
 
 > **One mechanism, not three.** Sign-up, log-in and log-out are the *same* flow. The Wix login page **logs in an existing member or registers a new one** in the same step; you never build a separate "sign up" call. Log-out is the inverse of the same flow.
 
+> **Login surface — this recipe is the Wix-hosted login page (the default).** If the brief **explicitly** asks for a **custom/branded in-app login form or custom sign-up fields** (full name / username / address / arbitrary fields), that's the *custom login page* surface — **read `how-to-code-members-custom-login.md`**. Note custom login is a client-driven `OAuthStrategy` flow with **no client** under Astro auto-auth, so on Astro it means instantiating an explicit `OAuthStrategy` client in a backend route — take it on only on real intent; otherwise the built-in routes below are the default. The choice is **intent, not project type**.
+
 Pinned docs (read before wiring — `curl` the `.md` directly):
 - Member login on Astro: <https://dev.wix.com/docs/go-headless/wix-managed-headless/authentication/handle-member-login-using-wix-s-astro-integration.md>
 - The integration keystone (auto-auth, "no client"): <https://dev.wix.com/docs/go-headless/wix-managed-headless/authentication/about-the-astro-integration.md>

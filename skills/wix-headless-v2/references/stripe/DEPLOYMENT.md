@@ -52,7 +52,7 @@ curl -sS -w "\nHTTP_STATUS:%{http_code}" -X PATCH \
 ```
 
 - `<deployed-origin>` is the live site's domain/URL (what the browser SDK runs on).
-- For the **exact field semantics and format** (domain vs. full URL, member-login redirect URIs vs. allowed domains), read the doc — don't guess: <https://dev.wix.com/docs/api-reference/business-management/headless/oauth-apps/update-oauth-app.md>. Member-login redirect URIs are a separate, deferred concern; the visitor SDK only needs the origin allowed.
+- For the **exact field semantics and format** (domain vs. full URL, member-login redirect URIs vs. allowed domains), read the doc — don't guess: <https://dev.wix.com/docs/api-reference/business-management/headless/oauth-apps/update-oauth-app.md>. Member-login redirect URIs are a **separate field** (`allowedRedirectUris`) from the origin (`allowedRedirectDomains`): the visitor SDK only needs the origin allowed, but **if this deploy has member login via the Wix login page, the member-login callback must also be registered** in `allowedRedirectUris` — same masked-`PATCH` shape as the origin (add both under one `mask.paths`), and required or login 4xxs. Mechanics + the "not read-only" gotcha: `../managed/DEPLOYMENT.md` → "Member login on a non-Astro frontend". (Custom login — `../inline-recipes/how-to-code-members-custom-login.md` — needs neither, as it has no login-page redirect.)
 
 > **If the live site's visitor token call still 400s after the origin is registered, suspect the bundle — not CORS.** An unregistered origin and an `undefined` `clientId` in the build produce the same browser-side 400. Before chasing CORS/propagation, confirm the real `clientId` value is actually inlined in the deployed bundle (see `../SDK_HANDOFF.md` §2).
 
