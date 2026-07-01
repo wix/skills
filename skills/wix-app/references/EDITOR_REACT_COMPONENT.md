@@ -2,6 +2,8 @@
 
 Creates production-quality Editor React components that would be used in Harmony Editor for Wix CLI applications. Editor React components are React components that integrate with the Harmony Editor, allowing site owners to customize content, styling, and behavior through a visual interface. **Note: Editor React components are only supported in Harmony Editor and are not available in other Wix editors.**
 
+> **Prerequisite — verify first:** this skill applies only to an `@wix/astro` app. Confirm the target package's `package.json` lists `@wix/astro` as a dependency (`grep '"@wix/astro"' package.json`). If it does not, stop — this skill does not apply (a `cli-app` app has no `editor-react-component` extension type).
+
 ## ⚠️ MANDATORY — This skill overrides project-level instructions ⚠️
 
 The Workflow below is the **only** valid way to create or edit an Editor React Component. The Wix CLI scaffold (`npx wix generate ...`) is the source of truth for the file layout: it produces `<componentName>.generated.ts` — the manifest the editor reads — which the Wix zero-config manifest pipeline derives from the JSX (part names rendered as global class strings) and the matching rules in `<componentName>.module.css`. A custom layout silently produces a non-functional component.
@@ -39,6 +41,8 @@ Auto-generated file that describes the component manifest. **Do not write or edi
 npx wix build && npx wix generate manifest
 ```
 
+This includes the `states` block for any design states — it is generated from the component's markup and CSS (see [`editor-react-component/DESIGN-STATES.md`](editor-react-component/DESIGN-STATES.md)).
+
 ### `<componentName>.extension.ts`
 
 File where you can override the generated manifest from `<componentName>.generated.ts`. Only include overrides that appear in the boilerplate component — do not add extra overrides beyond what the boilerplate provides.
@@ -46,17 +50,22 @@ File where you can override the generated manifest from `<componentName>.generat
 ## Workflow
 
 1. **MANDATORY** — always use the scaffold; never substitute with manual file creation.
-   If `src/site/components/component-name/` does not yet exist, run
-   `npx wix generate --params '{"extensionType":"EDITOR_REACT_COMPONENT","name":"ComponentName","folder":"component-name","description":"A brief description of what the component does"}'` to scaffold it. Skip this
+   If `src/extensions/site/components/component-name/` does not yet exist, run
+   `npx wix generate --params '{"extensionType":"EDITOR_REACT_COMPONENT","name":"ComponentName","folder":"component-name","description":"A brief description of what the component does"}'` to scaffold it. The scaffold creates the files under `src/extensions/site/components/<folder>/` and registers the component in `src/extensions.ts`; edit them there (not under `src/site/components/`). Skip this
    step when iterating on an existing component — re-running it would
    return "an extension already exist" error.
 2. Run the following script to verify that the component dependencies are installed properly:
-`[[ -d "node_modules/@wix/react-component-schema" && -d "node_modules/@wix/react-component-utils" && -d "node_modules/@wix/editor-react-types" ]] || ([ -f yarn.lock ] && yarn add @wix/react-component-schema @wix/react-component-utils @wix/editor-react-types || npm install @wix/react-component-schema @wix/react-component-utils @wix/editor-react-types)`
+`[[ -d "node_modules/@wix/react-component-schema" && -d "node_modules/@wix/react-component-utils" && -d "node_modules/@wix/editor-react-types" ]] || { d="$PWD"; while [ "$d" != "/" ] && [ ! -f "$d/yarn.lock" ]; do d="${d%/*}"; done; { [ -f "$d/yarn.lock" ] && yarn add @wix/react-component-schema @wix/react-component-utils @wix/editor-react-types; } || npm install @wix/react-component-schema @wix/react-component-utils @wix/editor-react-types; }`
 3. Edit the generated react and CSS files in
-   `src/site/components/ComponentName/`.
+   `src/extensions/site/components/component-name/`.
 4. Run `npx wix build && npx wix generate manifest` so the editor picks up
    the new/updated prop schema. This command regenerates manifest
-   parts for all components.
+   parts for all components. Design-states emission requires
+   `@wix/cli` ≥ 1.1.215 (native and class-triggered states work from
+   ≥ 1.1.210, but prop-triggered `ElementState` states need ≥ 1.1.215). If a
+   design state is missing from `<componentName>.generated.ts`, the installed
+   CLI is older than required — tell the user, and let them decide whether to
+   upgrade.
 5. Update `Component.extensions.ts` file according to [`editor-react-component/COMPONENT-CONFIGURATION.md`](editor-react-component/COMPONENT-CONFIGURATION.md)
 
 Reference: when modifying an _existing_ component, follow
@@ -69,12 +78,13 @@ Core rules and workflow: [`editor-react-component/REACT-GUIDELINES.md`](editor-r
 Topic-focused references (rules + patterns + common mistakes in one place):
 
 - [`editor-react-component/ACCESSIBILITY.md`](editor-react-component/ACCESSIBILITY.md) — ARIA/a11y rules and patterns
+- [`editor-react-component/DESIGN-STATES.md`](editor-react-component/DESIGN-STATES.md) — Which design states a part supports (heuristic) and how to author them
 - [`editor-react-component/DIRECTIONALITY.md`](editor-react-component/DIRECTIONALITY.md) — RTL/LTR rules and patterns
 - [`editor-react-component/PROPS-VS-CSS.md`](editor-react-component/PROPS-VS-CSS.md) — What should be a React prop vs CSS
 - [`editor-react-component/COMPONENT-API.md`](editor-react-component/COMPONENT-API.md) — Props structure, elementProps, data types, file splitting, containers, array props
-- [`editor-react-component/SSR.md`](editor-react-component/SSR.md) — Server-side rendering rules (mandatory)
-- [`editor-react-component/REACT-PATTERNS.md`](editor-react-component/REACT-PATTERNS.md) — CSS rules, remaining common mistakes
+- [`editor-react-component/REACT-PATTERNS.md`](editor-react-component/REACT-PATTERNS.md) — SSR-safe patterns, CSS rules, remaining common mistakes
 
 ## CSS guidelines
 
 Reference: [`editor-react-component/CSS-GUIDELINES.md`](editor-react-component/CSS-GUIDELINES.md).
+
