@@ -59,6 +59,7 @@ npx skills add wix/skills -g
 | [wix-design-system](skills/wix-design-system/SKILL.md) | Wix Design System reference      | Looking up WDS component props, examples, icons                                                                                     |
 | [wix-manage](skills/wix-manage/SKILL.md) | Wix business solution management | REST API operations for configuring and managing Wix business solutions                                                             |
 | [wix-headless](skills/wix-headless/SKILL.md) | Build a complete Wix Managed Headless site | Building a new site end-to-end from a single prompt — discovery, design, feature wiring, and preview |
+| [wix-vibe-headless](skills/wix-vibe-headless/SKILL.md) | Connect an existing front end to Wix over client-only REST | Wiring a vibe-coded / HTML / Vite app to a live Wix site (storefront, bookings, blog, events, portfolio, restaurants, CMS, pricing plans) from the browser with a public `WIX_CLIENT_ID` — no SDK, no backend |
 | [replatform](replatform/README.md) | Migrate sites from WordPress and other platforms into Wix | Migrating an exiting business from another platform into Wix. Both backend data and website. `npx skills add wix/skills/replatform` |
 
 ## Supported Agents

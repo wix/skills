@@ -15,7 +15,8 @@
     "./skills/wix-design-system",
     "./skills/wix-app",
     "./skills/wix-manage",
-    "./skills/wix-headless"
+    "./skills/wix-headless",
+    "./skills/wix-vibe-headless"
   ],
   "logo": "assets/logo.svg"
 }
