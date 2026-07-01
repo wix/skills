@@ -234,7 +234,14 @@ Create the post as a draft. The response returns the draft's `id`, which STEP 6 
 
 **API Endpoint:** `POST https://www.wixapis.com/social-publisher/v1/items`
 
-Set `item.channel` (`name` + `accountId` from STEP 1), `item.type` (STEP 4), and one channel-specific content object — either the payload from STEP 3a or content you assembled from STEP 3b/3c or the user.
+Build the request from `item.channel` (`name` + the `accountId` from STEP 1), `item.type` (from the STEP 4 table), and exactly one channel-specific content object.
+
+**Assembling the content object:**
+- If you generated with **STEP 3a** (`generate-post-data`), the returned per-channel object (e.g. `instagramPost`) **is** the content object — pass it through as-is.
+- Otherwise, build it from the STEP 4 table row for your channel + `type`: the text field (`caption` for Instagram/Facebook/LinkedIn, `description` for YouTube/Pinterest/GBP/TikTok), the media (`mediaWrapper`, or `imageUrl`/`videoUrl` for a single item), and any channel-specific fields — the ID from the STEP 1 account object (`pageId` for Facebook, `boardId` for Pinterest, `locationId` for GBP), plus `authorId` (LinkedIn), `privacyLevel` (TikTok, one of the account's `privacyLevelOptions`), and `title` where the channel uses one.
+- Instagram and story types require media.
+
+**Example — Instagram image post:**
 
 ```json
 {
@@ -253,6 +260,39 @@ For multiple media, use `mediaWrapper` instead of `imageUrl`/`videoUrl`:
 
 ```json
 "instagramPost": { "mediaWrapper": { "media": [{ "type": "IMAGE", "url": "https://static.wixstatic.com/media/....jpg" }] }, "caption": "..." }
+```
+
+**Example — Facebook image post** (needs `pageId` from the STEP 1 account):
+
+```json
+{
+  "item": {
+    "channel": { "name": "FACEBOOK", "accountId": "1022334455667788" },
+    "type": "POST",
+    "facebookPost": {
+      "pageId": "102938475610293",
+      "imageUrl": "https://static.wixstatic.com/media/cf2434_4b3a2d8eb7f54bc89c0d4524430a2af3~mv2.jpg",
+      "caption": "Summer sale is on — 20% off all handmade ceramic mugs this week!"
+    }
+  }
+}
+```
+
+**Example — TikTok photo post** (needs `privacyLevel`; `description` is the text field):
+
+```json
+{
+  "item": {
+    "channel": { "name": "TIKTOK", "accountId": "7c9f0a12-4e6d-4a8b-9c3f-2d5e1a7b0c94" },
+    "type": "POST",
+    "tiktokPhoto": {
+      "title": "Summer sale",
+      "description": "20% off handmade ceramic mugs this week ☀️ #ceramics #handmade",
+      "privacyLevel": "PUBLIC_TO_EVERYONE",
+      "mediaWrapper": { "media": [{ "type": "IMAGE", "url": "https://static.wixstatic.com/media/cf2434_4b3a2d8eb7f54bc89c0d4524430a2af3~mv2.jpg" }] }
+    }
+  }
+}
 ```
 
 **Expected response** (abridged) — save `id`:
