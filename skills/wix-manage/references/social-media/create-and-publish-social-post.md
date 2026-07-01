@@ -4,16 +4,16 @@ description: "End-to-end flow to create a social media post — optionally gener
 ---
 # RECIPE: Create and Publish a Social Media Post (with AI generation)
 
-This recipe creates a post — called an **item** — and publishes it to one of a site's connected social channels, or schedules it for a future date. You can generate the post content with AI (STEP 2) or bring your own. Each item targets a single channel, and its `type` and content must match a combination the channel supports.
+This recipe creates a post — called an **item** — and publishes it to one of a site's connected social channels, or schedules it for a future date. You can generate the post content with AI (STEP 3) or bring your own. Each item targets a single channel, and its `type` and content must match a combination the channel supports.
 
 Base URL for all endpoints: `https://www.wixapis.com/social-publisher/v1`.
 
 **Prerequisites:**
 - The target channel must be connected by the site owner (verified in STEP 1; connect it in STEP 1.5 if not).
-- Media must be a publicly accessible URL. Images edited in STEP 2c already are.
-- AI generation (STEP 2) is optional. Skip it if the user supplies their own caption and media.
+- Media must be a publicly accessible URL. Images edited in STEP 3c already are.
+- AI generation (STEP 3) is optional. Skip it if the user supplies their own caption and media.
 
-**Flow:** STEP 1 confirm the channel is connected (connect if needed) → STEP 2 generate content (optional) → STEP 3 pick channel/type → STEP 4 check quota → STEP 5 create the draft → STEP 6 publish or schedule. Checking the connection first avoids generating content for a channel that can't receive it.
+**Flow:** STEP 1 confirm the channel is connected (connect if needed) → STEP 2 check premium features → STEP 3 generate content (optional) → STEP 4 pick channel/type → STEP 5 create the draft → STEP 6 publish or schedule. Checking connection and premium first avoids generating content for a channel that can't receive it or an action the plan doesn't allow.
 
 ---
 
@@ -65,11 +65,42 @@ If the user declines to connect, stop: the post can't be published to an unconne
 
 ---
 
-## STEP 2: Generate the post content with AI (optional)
+## STEP 2: Check premium features
 
-Pick the approach that fits the request. To generate AI content, the site's plan must allow it — check `GET /social-publisher/v1/features/AI_TOOLS` first (same response shape as STEP 4); if `enabled` is `false`, skip AI generation and have the user provide content.
+One call tells you what the site's plan allows — whether you can generate with AI and whether you can publish or schedule — so you fail fast before generating or creating anything.
 
-### 2a. Generate a full post — from an idea and/or the site's own assets
+**API Endpoint:** `GET https://www.wixapis.com/social-publisher/v1/features?featureTypes=AI_TOOLS&featureTypes=PUBLISH_POST&featureTypes=SCHEDULE_POST`
+
+**Expected response:**
+
+```json
+{
+  "features": [
+    { "type": "AI_TOOLS", "enabled": true },
+    { "type": "PUBLISH_POST", "enabled": true, "quotaInfo": { "limit": 30, "currentUsage": 4, "remainingUsage": 26, "period": "MONTH" } },
+    { "type": "SCHEDULE_POST", "enabled": true, "quotaInfo": { "limit": 30, "currentUsage": 4, "remainingUsage": 26, "period": "MONTH" } }
+  ],
+  "monetizationEnabled": true
+}
+```
+
+(To check a single feature instead, `GET /social-publisher/v1/features/{featureType}` returns `{ "featureData": {...}, "monetizationEnabled": ... }`.)
+
+`quotaInfo` is present only when the feature is metered — when quotas don't apply, `monetizationEnabled` is `false` and each entry carries just `type` and `enabled`. `period` is one of `NO_PERIOD`, `MILLISECOND`, `SECOND`, `MINUTE`, `HOUR`, `DAY`, `WEEK`, `MONTH`, `YEAR` (`NO_PERIOD` means the quota doesn't reset).
+
+**Decision point:**
+- `AI_TOOLS` `enabled: false` → skip AI generation in STEP 3; have the user provide the caption and media themselves.
+- The action you'll use — `PUBLISH_POST` (publish now) or `SCHEDULE_POST` (schedule) — `enabled: false` → the plan doesn't include it; advise upgrading the social media marketing plan.
+- `monetizationEnabled: true` and that action's `quotaInfo.remainingUsage` is `0` → quota exhausted; tell the user when it resets (`period`, unless `NO_PERIOD`) or to upgrade.
+- Otherwise → proceed. When `monetizationEnabled` is `false`, quotas aren't enforced; rely on `enabled`.
+
+---
+
+## STEP 3: Generate the post content with AI (optional)
+
+Pick the approach that fits the request. Only generate if STEP 2 showed `AI_TOOLS` `enabled: true`; otherwise skip this step and have the user provide the content.
+
+### 3a. Generate a full post — from an idea and/or the site's own assets
 
 Produces ready-to-use, per-channel payloads that drop straight into STEP 5. This is the best default for "create a post about …".
 
@@ -82,7 +113,7 @@ Produces ready-to-use, per-channel payloads that drop straight into STEP 5. This
 
 Provide `userInput`, `siteAssets`, or both.
 
-**Scope:** this method produces standard image-**post** payloads for the six channels above only. It does **not** generate YouTube content or story/reel/video formats — for those, use 2b (caption) and 2c (image edit) and assemble the content object yourself in STEP 5.
+**Scope:** this method produces standard image-**post** payloads for the six channels above only. It does **not** generate YouTube content or story/reel/video formats — for those, use 3b (caption) and 3c (image edit) and assemble the content object yourself in STEP 5.
 
 **Example — from an idea + an image, for Instagram and Facebook:**
 
@@ -121,7 +152,7 @@ Provide `userInput`, `siteAssets`, or both.
 
 Use the payload for your chosen channel as the content object in STEP 5. Review it with the user before publishing.
 
-### 2b. Generate only a caption or title
+### 3b. Generate only a caption or title
 
 Use when the user just wants caption suggestions to place into a post.
 
@@ -141,7 +172,7 @@ Use when the user just wants caption suggestions to place into a post.
 
 **Expected response:** `{ "results": [ { "caption": "…", "title": "…" } ] }`. Put the chosen `caption` (and `title` where the channel uses one) into the content object in STEP 5.
 
-### 2c. Edit an image with AI
+### 3c. Edit an image with AI
 
 Transforms an existing **source image** according to a text prompt (e.g. add a sale banner to a product photo, restyle a background). This is AI image-to-image editing — it requires a source image and does **not** generate an image from a prompt alone. Runs asynchronously.
 
@@ -168,9 +199,9 @@ Both `userInput` (prompt) and `imageUrl` (the source image to edit) are required
 
 ---
 
-## STEP 3: Choose the channel and type
+## STEP 4: Choose the channel and type
 
-For the connected channel from STEP 1, pick the item `type` and the matching content object (from STEP 2's output or the user's own content).
+For the connected channel from STEP 1, pick the item `type` and the matching content object (from STEP 3's output or the user's own content).
 
 | Channel (`channel.name`) | `type` | Content object | Main content fields |
 | --- | --- | --- | --- |
@@ -197,39 +228,13 @@ Notes:
 
 ---
 
-## STEP 4: Check the publishing quota
-
-**API Endpoint:** `GET https://www.wixapis.com/social-publisher/v1/features/PUBLISH_POST`
-
-Use `PUBLISH_POST` to publish now, or `SCHEDULE_POST` to schedule.
-
-**Expected response:**
-
-```json
-{
-  "featureData": { "type": "PUBLISH_POST", "enabled": true, "quotaInfo": { "limit": 30, "currentUsage": 4, "remainingUsage": 26, "period": "MONTH" } },
-  "monetizationEnabled": true
-}
-```
-
-`quotaInfo` is present only when the feature is metered — when quotas don't apply, `monetizationEnabled` is `false` and `featureData` has just `type` and `enabled`. `period` is one of `NO_PERIOD`, `MILLISECOND`, `SECOND`, `MINUTE`, `HOUR`, `DAY`, `WEEK`, `MONTH`, `YEAR` (`NO_PERIOD` means the quota doesn't reset).
-
-**Decision point:**
-- `enabled: false` → the plan doesn't include this action; advise upgrading the social media marketing plan.
-- `monetizationEnabled: true` and `quotaInfo.remainingUsage` is `0` → quota exhausted; tell the user when it resets (`period`, unless `NO_PERIOD`) or to upgrade.
-- Otherwise → proceed. When `monetizationEnabled` is `false`, quotas aren't enforced; rely on `enabled`.
-
-**Tip — check several features in one call:** `GET https://www.wixapis.com/social-publisher/v1/features?featureTypes=AI_TOOLS&featureTypes=PUBLISH_POST&featureTypes=SCHEDULE_POST` returns `{ "features": [ { "type": "...", "enabled": true, "quotaInfo": {...} } ], "monetizationEnabled": true }` — one round-trip for the STEP 2 (`AI_TOOLS`) and this step's checks.
-
----
-
 ## STEP 5: Create the draft item
 
 Create the post as a draft. The response returns the draft's `id`, which STEP 6 publishes.
 
 **API Endpoint:** `POST https://www.wixapis.com/social-publisher/v1/items`
 
-Set `item.channel` (`name` + `accountId` from STEP 1), `item.type` (STEP 3), and one channel-specific content object — either the payload from STEP 2a or content you assembled from STEP 2b/2c or the user.
+Set `item.channel` (`name` + `accountId` from STEP 1), `item.type` (STEP 4), and one channel-specific content object — either the payload from STEP 3a or content you assembled from STEP 3b/3c or the user.
 
 ```json
 {
@@ -268,7 +273,7 @@ For multiple media, use `mediaWrapper` instead of `imageUrl`/`videoUrl`:
 { "id": "ac01c174-5244-49df-8085-84d87cd0345a" }
 ```
 
-**Schedule for a future date** — include `scheduledDate` (ISO 8601, in the future; confirm STEP 4 with `SCHEDULE_POST`):
+**Schedule for a future date** — include `scheduledDate` (ISO 8601, in the future; confirm `SCHEDULE_POST` in STEP 2):
 
 ```json
 { "id": "ac01c174-5244-49df-8085-84d87cd0345a", "scheduledDate": "2026-08-08T09:00:00.000Z" }
@@ -292,13 +297,13 @@ The post appears on the site's Social Media Marketing page in the dashboard. To 
 | --- | --- | --- |
 | STEP 1 returns empty `accounts` | Channel not connected | Run STEP 1.5 to connect the channel, or ask the owner to connect it in the dashboard, then retry |
 | `428 FAILED_PRECONDITION` / `NO_PAGES_FOR_USER` on List Accounts | Connected Facebook user has no pages | Ask the owner to connect a Facebook page |
-| STEP 2 AI call rejected / `AI_TOOLS` `enabled: false` | Plan doesn't include AI tools | Skip AI generation; have the user provide content |
+| STEP 2 shows `AI_TOOLS` `enabled: false` (or an AI call is rejected) | Plan doesn't include AI tools | Skip AI generation; have the user provide content |
 | Generate Image poll returns `404 GENERATED_IMAGE_NOT_FOUND` | `executionId` invalid or expired | Re-run Generate Image and poll the new `executionId` |
-| STEP 4 `enabled: false` or `remainingUsage: 0` | Plan doesn't allow the action, or quota used up | Advise upgrading, or wait for quota reset |
-| `412 FAILED_PRECONDITION` / `INELIGIBLE_FOR_FEATURE` on publish or schedule | Site's plan doesn't cover publishing/scheduling this post | Check STEP 4 first; advise upgrading the plan |
+| STEP 2 shows the publish/schedule feature `enabled: false` or `remainingUsage: 0` | Plan doesn't allow the action, or quota used up | Advise upgrading, or wait for quota reset |
+| `412 FAILED_PRECONDITION` / `INELIGIBLE_FOR_FEATURE` on publish or schedule | Site's plan doesn't cover publishing/scheduling this post | Check STEP 2 first; advise upgrading the plan |
 | `429 RESOURCE_EXHAUSTED` / `PUBLISH_LIMIT_EXCEEDED` | Publishing rate limit hit | Back off and retry later |
 | `UNSUPPORTED_CHANNEL` | Targeting a sunset channel (e.g. `TWITTER`, non-functional as of July 31, 2026) | Use a supported channel |
-| Create item rejected for missing media | Instagram and story types require media (GBP needs `description` and/or media) | Provide a public image/video URL (or edit one from a source image in STEP 2c) |
+| Create item rejected for missing media | Instagram and story types require media (GBP needs `description` and/or media) | Provide a public image/video URL (or edit one from a source image in STEP 3c) |
 | Reschedule/cancel returns `ITEM_NOT_EXISTS`, `ITEM_IS_PUBLISHED`, or `ITEM_IS_DELETED` | The item can't be rescheduled/canceled in its current state | Only reschedule/cancel items still in `SCHEDULED` status |
 | Publish returns `status: FAILED` | Content/type mismatch or channel rejected the post | Verify the `type` + content object match the channel's supported combination and that media URLs are public |
 
@@ -308,11 +313,11 @@ The post appears on the site's Social Media Marketing page in the dashboard. To 
 - [List Accounts](https://dev.wix.com/docs/api-reference/business-management/marketing/social-media/account-v1/list-accounts)
 - [Get Connect Url](https://dev.wix.com/docs/api-reference/business-management/marketing/social-media/account-v1/get-connect-url)
 - [Get Long Lived Token Status](https://dev.wix.com/docs/api-reference/business-management/marketing/social-media/account-v1/get-long-lived-token-status)
+- [Get Feature Data](https://dev.wix.com/docs/api-reference/business-management/marketing/social-media/premium-feature-v1/get-feature-data)
 - [Generate Post Data](https://dev.wix.com/docs/api-reference/business-management/marketing/social-media/generated-content-v1/generate-post-data)
 - [Generate Text](https://dev.wix.com/docs/api-reference/business-management/marketing/social-media/generated-content-v1/generate-text)
 - [Generate Image](https://dev.wix.com/docs/api-reference/business-management/marketing/social-media/generated-content-v1/generate-image)
 - [Get Generated Image](https://dev.wix.com/docs/api-reference/business-management/marketing/social-media/generated-content-v1/get-generated-image)
-- [Get Feature Data](https://dev.wix.com/docs/api-reference/business-management/marketing/social-media/premium-feature-v1/get-feature-data)
 - [Create Draft Item](https://dev.wix.com/docs/api-reference/business-management/marketing/social-media/item-v1/create-draft-item)
 - [Publish Item By ID](https://dev.wix.com/docs/api-reference/business-management/marketing/social-media/item-v1/publish-item-by-id)
 - [Publisher API sample flows](https://dev.wix.com/docs/api-reference/business-management/marketing/social-media/sample-flows)
