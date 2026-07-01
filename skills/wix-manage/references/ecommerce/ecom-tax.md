@@ -79,8 +79,25 @@ The agent matches the merchant's natural-language query to an `intent:*` tag (pe
 
 ## Base recipe (fallback)
 
-If no promotion matches — typically because the merchant gave no country, no rate, no order ID, and no calculator preference — the intent is unclear. **Do NOT pick a leaf at random.** Ask **one** clarifying question:
+If no promotion matches — typically because the merchant gave no country, no rate, no order ID, and no calculator preference — the intent is unclear. **Do NOT pick a leaf at random.** Branch on what the merchant asked for:
+
+### If the merchant asked to **act** (set up something, fix something, change something)
+
+Ask **one** clarifying question — the setup-vs-fix question is the default when intent is genuinely unclear, but if the merchant has signaled one path from context (e.g. "starting to sell" → setup; "order #X is wrong" → fix), ask the most-relevant remaining piece instead (country, order ID, target calculator, …). Do not ask more than one question in a single turn. Make no API calls before the merchant answers.
+
+Default clarifying question:
 
 > "Do you want to **set up tax** for the first time (and which country are you selling in?), or **fix** a wrong tax amount on a specific order?"
 
-Map the answer to one of the `intent:*` tags and re-dispatch. Make no API calls before the merchant answers.
+Map the answer to one of the `intent:*` tags and re-dispatch.
+
+### If the merchant asked to **explain / walk through / understand** the options (no action requested)
+
+**Do NOT ask a clarifying question.** Provide a complete summary of the routing options from this catalog so the merchant has the full picture. The summary MUST include:
+
+1. **The two setup paths** — Wix Manual (non-EU countries) vs EU VAT (EU27 member states) — and the country-driven choice between them.
+2. **At least one boundary rule** — most importantly **UK is NOT EU** (Brexit; GB routes to Wix Manual, not EU VAT), and **Avalara is dashboard-only** (installed via Wix App Market — the onboarding API is not TPA-public; the recipe can bind regions to Avalara only after the dashboard install completes).
+3. **The per-order diagnostic path** — "Tax on a specific order is wrong" is a separate flow (troubleshoot / calculation-wrong), not a setup path.
+4. **Where to go next** — invite the merchant to come back with their specifics (country, calculator preference, or an order ID) so the appropriate recipe can run.
+
+Make no API calls in the explanation branch — the merchant explicitly did not request action.

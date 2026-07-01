@@ -1,6 +1,6 @@
 ---
 name: "Tax: Configure (EU VAT)"
-description: Set up EU VAT (per-country regions, tax-inclusive pricing, bulk rate mappings). Loaded by the [Tax dispatcher](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/tax) — see the dispatcher for the EU27 country list, trigger keywords, and the UK ≠ EU boundary rule.
+description: "Internal Tax recipe — do NOT route here from the README. Always load the [Tax dispatcher](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/tax) first; it owns all tax routing and will direct you to this recipe only if it's the right one."
 ---
 
 # Configure Tax (EU VAT)

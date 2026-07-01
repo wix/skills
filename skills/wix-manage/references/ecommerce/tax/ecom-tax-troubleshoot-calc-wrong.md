@@ -1,6 +1,6 @@
 ---
 name: "Tax: Calculation Wrong"
-description: Diagnose wrong / missing tax on a specific order or checkout (per-order, NOT a site-wide audit). Loaded by the [Tax dispatcher](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/tax) — see the dispatcher for trigger keywords and the per-order vs site-wide boundary rule.
+description: "Internal Tax recipe — do NOT route here from the README. Always load the [Tax dispatcher](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/tax) first; it owns all tax routing and will direct you to this recipe only if it's the right one."
 ---
 
 # Tax Calculation Wrong

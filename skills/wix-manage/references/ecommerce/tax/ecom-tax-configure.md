@@ -1,6 +1,6 @@
 ---
 name: "Tax: Configure (Wix Manual)"
-description: Set up tax via Wix's Manual calculator (non-EU countries). Loaded by the [Tax dispatcher](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/tax) — see the dispatcher for country lists, trigger keywords, and routing boundaries (UK ≠ EU, Avalara → dashboard).
+description: "Internal Tax recipe — do NOT route here from the README. Always load the [Tax dispatcher](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/tax) first; it owns all tax routing and will direct you to this recipe only if it's the right one."
 ---
 
 # Configure Tax (Wix Manual)
