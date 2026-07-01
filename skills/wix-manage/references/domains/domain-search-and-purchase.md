@@ -128,7 +128,7 @@ GET https://www.wixapis.com/domain-search/v2/suggest-domains?query=mybusiness&pa
 ```
 
 When presenting suggestions:
-- **Always show the 1-year price next to each domain.** Fetch prices by TLD using the offering API (same call as Step 2a — `POST .../offering/72af0602...` with the relevant TLD). Batch by unique TLD: fetch once per TLD, then apply that price to all domains sharing it. Display as a table:
+- **Always show the 1-year price next to each domain.** Fetch the price for each domain individually using the offering API (same call as Step 2a — `POST .../offering/72af0602...` with the relevant TLD). Do NOT batch by TLD — the same TLD can return different prices per domain (e.g. premium domains are priced higher than standard ones). Display as a table:
 
   | Domain | 1-Year Price |
   |--------|-------------|
@@ -158,8 +158,15 @@ The response includes each site's `id` and `name`. If the user has multiple site
 Once a site is selected, remember the `siteId` (also called `msid`) -- you'll use it in the checkout link (Step 4d).
 
 **Based on the site's plan status**, you can offer different guidance:
-- **Site has a premium plan**: "Great, after purchasing the domain you can connect it to your site."
-- **Site has no premium plan**: Present the user with a clear two-option choice:
+- **Site has a premium plan**: "Your domain will be automatically connected to your site after purchase."
+- **Site has no premium plan**: First, check if the chosen domain's TLD is eligible for a voucher (free domain with plan upgrade) by calling:
+  ```
+  com.wixpress.premium.domain.tlds.DomainTld/ListTlds
+  Body: { "filter": { "tlds": ["com"] } }
+  ```
+  Replace `"com"` with the actual TLD (without the dot). If the response includes `"coupons_applicable": true` for that TLD, the free domain offer applies. Also check if an active premium sale is running — if so, surface it as an additional reason to upgrade (it's a major conversion driver).
+
+  **If voucher-eligible**: Present the user with a clear two-option choice:
 
   > 🎁 **Free domain offer**: Your site doesn't have a premium plan yet. If you upgrade, you can get this domain free for the first year!
   >
@@ -169,6 +176,8 @@ Once a site is selected, remember the `siteId` (also called `msid`) -- you'll us
 
   - If user picks **option 1**: generate and share `[Get domain free with a site plan](https://manage.wix.com/premium-domains/split-page?domainName={DOMAIN_NAME})` and end the flow — the user completes it on that page.
   - If user picks **option 2**: proceed to Step 2 as a standalone purchase (no site attached).
+
+  **If NOT voucher-eligible**: Skip the free domain offer and proceed to Step 2 as a standalone purchase.
 - **No sites at all**: "No problem, we'll proceed with a standalone domain purchase."
 
 If the user says no or wants to skip, proceed without a site context.
@@ -437,7 +446,7 @@ This opens the checkout page with the pre-filled cart. The user only needs to co
 1. User is in the Business Manager of "My Bakery Site" (msid: abc-123). User: "Buy mybakery.com and connect it to my site"
 2. Check availability -> available: true
 3. Site context already known (msid: abc-123) -- skip ListWixSites
-4. Site has premium plan -> "Great, we'll connect it after purchase"
+4. Site has premium plan -> "Your domain will be automatically connected to your site after purchase."
 5. Get pricing, user picks 1 year, wants privacy, confirms contact info
 6. Save contact, create cart, share checkout link with msid: `https://manage.wix.com/cart/checkout?msid=abc-123`
 
@@ -446,7 +455,7 @@ This opens the checkout page with the pre-filled cart. The user only needs to co
 1. User has no active site context. User: "Buy mybakery.com and connect it to my site"
 2. Check availability -> available: true
 3. No site context available -> ask "Which site would you like to connect it to?" -> call ListWixSites -> user picks "My Bakery Site" (msid: abc-123)
-4. Site has premium plan -> "Great, we'll connect it after purchase"
+4. Site has premium plan -> "Your domain will be automatically connected to your site after purchase."
 5. Get pricing, user picks 1 year, wants privacy, confirms contact info
 6. Save contact, create cart, share checkout link with msid: `https://manage.wix.com/cart/checkout?msid=abc-123`
 
@@ -455,8 +464,9 @@ This opens the checkout page with the pre-filled cart. The user only needs to co
 1. User is in the Business Manager of "My Bakery Site" (msid: abc-123). User: "I want mybakery.com for my website"
 2. Check availability -> available: true
 3. Site context already known (msid: abc-123) -- skip ListWixSites
-4. Site has no premium plan -> present two-option choice: upgrade (free domain) or purchase only
-5. User picks upgrade -> share: [Get domain free with a site plan](https://manage.wix.com/premium-domains/split-page?domainName=mybakery.com)
+4. Site has no premium plan -> call ListTlds for `.com` -> `coupons_applicable: true` -> voucher eligible
+5. Present two-option choice: upgrade (get domain free for first year) or purchase only
+6. User picks upgrade -> share: [Get domain free with a site plan](https://manage.wix.com/premium-domains/split-page?domainName=mybakery.com)
 
 ### Flow 6: Unsupported TLD
 
