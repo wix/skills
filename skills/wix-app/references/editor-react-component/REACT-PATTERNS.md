@@ -6,7 +6,23 @@ Code patterns and common mistakes for Editor React components.
 
 ## 1.1 SSR-Safe Implementation
 
-Components are server-rendered then hydrated. See [`SSR.md`](SSR.md) for the full rules and code examples (browser globals, complete first render, deterministic output, `useStableId`, no `useLayoutEffect`).
+Avoid browser-only APIs at module scope or during render; use them inside `useEffect` with `typeof window !== 'undefined'`.
+
+**❌ Wrong:**
+
+```typescript
+const userAgent = window.navigator.userAgent;
+```
+
+**✅ Correct:**
+
+```typescript
+useEffect(() => {
+  if (typeof window !== "undefined") {
+    const userAgent = window.navigator.userAgent;
+  }
+}, []);
+```
 
 ## 1.2 Element Visibility (Platform-Managed)
 
@@ -85,8 +101,6 @@ different — they go through a JS-toggled modifier class; see
 ```
 
 ## 3.2 Browser APIs at module scope
-
-See [`SSR.md`](SSR.md) for the full SSR rules.
 
 **❌ Wrong:**
 
