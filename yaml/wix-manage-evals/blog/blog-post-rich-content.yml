@@ -2,7 +2,7 @@ name: blog/blog-post-rich-content
 description: Verifies the agent reads the blog post creation recipe and builds well-formed Ricos rich content — headings, lists, a table, and inline text decorations — when asked to create and publish a Wix blog post.
 triggerPrompt: How do I create and publish a blog post on my Wix site via the REST API? I want a formatted body with a section heading, a bulleted list, a comparison table, and a bolded link in one of the paragraphs.
 tags: [blog]
-maxTokens: 30000
+maxTokens: 160000
 assertions:
   - tool: ReadFullDocsArticle
     params:
