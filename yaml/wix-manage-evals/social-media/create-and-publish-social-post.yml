@@ -1,0 +1,43 @@
+name: social-media/create-and-publish-social-post
+description: >-
+  Verifies the agent reads the "Create and Publish a Social Media Post" skill and
+  follows its connection-first guardrail — confirm the channel is connected before
+  publishing, offer the OAuth connect flow when it isn't, and never publish to an
+  unconnected channel.
+triggerPrompt: >-
+  Using the Wix Publisher "Create and Publish a Social Media Post" skill, walk me
+  through publishing an image post to Instagram: how to confirm the channel is
+  connected and what to do if it isn't, how to check the publishing quota, and the
+  exact calls to create the draft and publish it. Keep it to what the skill prescribes.
+tags: [marketing]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/marketing/social-media/skills/create-and-publish-a-social-media-post-with-ai-generation
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked how to publish an Instagram post using the Wix Publisher
+      "Create and Publish a Social Media Post" skill.
+      Intent: explain the skill's flow, leading with the connection check and its
+      not-connected branch.
+
+      Pass if the response:
+      - checks the channel is connected FIRST via List Accounts
+        (GET /social-publisher/v1/accounts) before creating or publishing, AND
+      - states that if no account is connected it should offer the OAuth connect
+        flow (Get Connect URL, then poll Get Long Lived Token Status until VALID)
+        rather than publishing, AND
+      - checks the publishing quota via the Premium Features endpoint
+        (/social-publisher/v1/features) before publishing, AND
+      - creates a draft with Create Draft Item (POST /social-publisher/v1/items)
+        and then publishes it with Publish Item By ID
+        (POST /social-publisher/v1/publish-by-id), AND
+      - uses the real base path https://www.wixapis.com/social-publisher/v1.
+
+      Fail if the response:
+      - tells the user to publish to an unconnected channel, OR
+      - skips the connection check, OR
+      - invents endpoints or fields not in the skill, OR
+      - fabricates an account id instead of reading it from List Accounts.
