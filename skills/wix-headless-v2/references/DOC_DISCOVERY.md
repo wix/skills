@@ -4,9 +4,12 @@ You're here because a **pinned** page or recipe didn't cover what you need — a
 an error, or an unpinned method. Doc discovery is the **fallback for both tracks**, never the first
 move:
 
-- **Seeding** → try the capability's **`wix-manage`** recipe first (pinned per capability in
-  `SEED_RECIPES.md` — those `…/business-solutions/<vertical>/skills/…` pages *are* `wix-manage`'s
-  published recipes).
+- **Seeding** → try the capability's **pinned recipe** in `SEED_RECIPES.md` first. For every built
+  capability that's a **self-contained local `inline-recipes/*.md`** that inlines the calls and
+  **supersedes** the REST doc pages — seed from it alone. Only a capability with **no** inline
+  recipe drops to the **`wix-manage`** recipes (the `…/business-solutions/<vertical>/skills/…` doc
+  pages — the seeding authority for *unpinned* verticals, and what inline recipes are distilled
+  from).
 - **Code-writing** → try the pinned pages in `astro.md` / `non-astro.md` + `inline-recipes/*`.
 - Only when those fall short, discover from the live docs (below).
 
