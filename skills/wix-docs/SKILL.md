@@ -63,16 +63,10 @@ curl -sS -X POST 'https://www.wixapis.com/mcp-docs-search/v1/docs/search/markdow
 
 > Use **markdown** when you just want to read the top hits; use **JSON** when you need to pull a
 > specific field (each hit's `url` is the docs page — read it in full in Step 2).
-
-Two more curl-only discovery aids when you'd rather browse than search:
-
-- **Portal index:** `curl https://dev.wix.com/docs/llms.txt` — a grep-able list of every portal
-  page as `.md` links (`https://dev.wix.com/docs/llms-full.txt` is the full corpus).
-- **Menu page:** truncate any docs URL to a parent path and append `.md` — e.g.
-  `curl https://dev.wix.com/docs/api-reference/business-solutions/bookings.md`.
-
-> If the Wix MCP is available, its search tools (Lane 2) return richer whole-resource schemas —
-> prefer them when present.
+>
+> Prefer to **browse** the tree instead of searching (the `llms.txt` index, menu pages)? See
+> `references/LARGE_DOCS.md`. If the Wix MCP is available, its search tools (Lane 2) return richer
+> whole-resource schemas — prefer them when present.
 
 ### Step 2 — Read the page: two variants (both verified)
 
@@ -102,56 +96,15 @@ curl -sS --get 'https://dev.wix.com/rawdocs/api/get-article-content' \
 - **B works only on real article/method URLs** — it returns `{"ok":false}` (HTTP 404) for a menu
   URL, so use **A** to browse menus and **B** to pull a concrete method's schema.
 
-### Step 3 — Big pages: slice, don't swallow
+### Going deeper (references)
 
-A single method page is often **huge** (Create Booking's `.md` is ~144 KB / 900+ lines). It
-carries **both** a `## REST API` and a `## JavaScript SDK` section (~70 KB each), and each has
-its own `### Schema` (the bulk — 60 KB+ of inline, deeply-nested types) and a much smaller
-`### Examples`. **Never read the whole thing into context** — map it, then cut to the one piece
-you need. All of the below are plain `curl | awk/grep`, no dependencies:
-
-**1. Map first — outline only (cheap, ~18 lines):**
-
-```bash
-curl -sS "$URL.md" | grep -nE '^#{1,3} '
-# 26:## REST API   28:### Schema   329:### Examples   481:## JavaScript SDK   483:### Schema ...
-```
-
-**2. Keep only the API you use** — halves the page. (Better: search with `document_type: REST`
-*or* `SDK` in Step 1 so hits already point at the right half.)
-
-```bash
-curl -sS "$URL.md" | awk '/^## REST API/{f=1} /^## JavaScript SDK/{f=0} f'   # REST only
-curl -sS "$URL.md" | awk '/^## JavaScript SDK/{f=1} f'                       # SDK only
-```
-
-**3. Prefer Examples over Schema to model a call** — the examples block is small (~9 KB) and
-usually enough to copy a working request:
-
-```bash
-curl -sS "$URL.md" | awk '/^## REST API/{r=1} r&&/^### Examples/{f=1} /^## JavaScript SDK/{f=0} f'
-```
-
-**4. Drill into a giant Schema by field — don't read it whole.** Schema lines are one-per-field:
-`- name: <field> | type: <Type> | description: … | validation: …`. Grep the field(s) you care
-about (each appears once for the request, once for the response — you get both shape + rules):
-
-```bash
-curl -sS "$URL.md" | grep -nE 'name: (selectedPaymentOption|totalParticipants)'
-# to resolve a referenced type's enum values, grep the Type name, e.g.:  grep -nE 'SelectedPaymentOption'
-```
-
-**5. For deep/nested schemas, don't slice markdown — query the structured spec.** The JSON read
-(`get-article-content … schema=true`, Step 2B) returns just the method schema. Better, for exact
-request/response shapes, field types, enums, and error codes: **`POST https://mcp.wix.com/api/code-mode/search`**
-— an unauthenticated endpoint that runs a JS query over the API spec (`lightIndex` +
-`getResourceSchema`), the no-MCP equivalent of `SearchWixAPISpec`. It's powerful but its usage is
-involved, so it lives in a reference: **`references/API_SPEC_SEARCH.md`**. (If the Wix MCP *is*
-present, use its `SearchWixAPISpec → getResourceSchemaByUrl` instead — Lane 2.)
-
-**6. Cap the search response** — on `…/docs/search/markdown`, pass `maximum_results` (1–20) and
-`lines_in_each_result` (1–200) so each hit is truncated with a "Read more here: `<url>`" hint
-instead of dumping full pages.
+- **Big pages / browsing the tree** → `references/LARGE_DOCS.md`. Method pages are large and carry
+  **both** a `## REST API` and a `## JavaScript SDK` section (~70 KB each) — don't read one whole;
+  map its outline and slice to the section/field you need. Also covers browsing the `llms.txt`
+  index and menu pages.
+- **Exact structured schema / enums / error codes, without MCP** → `references/API_SPEC_SEARCH.md`.
+  An unauthenticated `POST https://mcp.wix.com/api/code-mode/search` runs a JS query over the API
+  spec (`lightIndex` + `getResourceSchema`) — the no-MCP equivalent of `SearchWixAPISpec`.
 
 ## Lane 2 — Wix MCP doc tools (only if your agent has them)
 
