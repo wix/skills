@@ -17,9 +17,9 @@ or the Wix MCP doc tools if your agent has them (Lane 2).
 The docs are one tree of markdown pages: **append `.md` to any `https://dev.wix.com/docs/…` URL**
 to get that page as markdown. No SDK, no MCP.
 
-### 1. Find the page — search *or* browse
+### 1. Find the page — search, browse, or query the index
 
-Two ways to reach the right page — use whichever fits.
+Three ways to reach the right page — use whichever fits.
 
 **A. Semantic search.** Describe what you want in natural language ("let a customer book an
 appointment"), not just keywords; hits come back ranked by relevance, each with a docs `url`. Two
@@ -65,7 +65,25 @@ curl -sS https://dev.wix.com/docs/api-reference/business-solutions/bookings/book
 ```
 
 A 2-level map of the API-reference portal (all verticals, one level down) is in
-`references/EXTRACTING.md`. If the Wix MCP is present, its search/browse tools are richer — Lane 2.
+`references/EXTRACTING.md`.
+
+**C. Query the API index — one call, structured.** The `code-mode` search endpoint runs a JS
+function over `lightIndex` (the whole REST API spec: every resource + method with `operationId`,
+`httpMethod`, `menuPath`, `docsUrl`, and executable `publicUrl`). Best when you want to
+**enumerate/filter methods programmatically** — browse a vertical, or grep across *all* methods —
+and get the `docsUrl` + `publicUrl` back in one shot, no menu-drilling:
+
+```bash
+# every bookings method with its docsUrl + publicUrl, in one request
+curl -sS -X POST 'https://mcp.wix.com/api/code-mode/search' -H 'Content-Type: application/json' \
+  --data-raw '{"code":"async function(){ return lightIndex.filter(r=>r.menuPath.includes(\"bookings\")).flatMap(r=>r.methods).map(m=>({op:m.operationId, method:m.httpMethod, publicUrl:m.publicUrl, docsUrl:m.docsUrl})); }"}'
+```
+
+Scope: **REST API methods only** (not concept/guide articles, headless prose, or SDK-only surfaces
+— use A/B for those). More examples (keyword search, `menuPath` browse, whole-resource schema) and
+the `getResourceSchema` reader → **`references/API_SPEC_SEARCH.md`**.
+
+If the Wix MCP is present, its search/browse tools are richer — Lane 2.
 
 ### 2. Read what you land on
 

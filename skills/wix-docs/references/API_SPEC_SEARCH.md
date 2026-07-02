@@ -1,10 +1,14 @@
 # Structured API-spec search over `curl` (no MCP)
 
-The markdown doc pages (`SKILL.md`) are great for reading prose and copying examples, but their
-inline schemas are huge and unstructured. When you need the **exact request/response shape, field
-types, enums, or error codes** — and you don't have the Wix MCP — query the API spec directly.
-This is the no-MCP equivalent of the MCP `SearchWixAPISpec` / `getResourceSchemaByUrl` tools, over
-one endpoint.
+A single `curl` endpoint that runs a JS query over the Wix REST API spec — the no-MCP equivalent of
+the MCP `SearchWixAPISpec` / `getResourceSchemaByUrl` tools. It does two jobs:
+
+- **Find / browse** — `lightIndex` is the whole API index (every resource + method with
+  `operationId`, `httpMethod`, `menuPath`, `docsUrl`, `publicUrl`). Filter or enumerate it to locate
+  methods programmatically — a third find-path alongside semantic search and `.md` browsing (`SKILL.md`).
+- **Read the schema** — `getResourceSchemaByUrl(docsUrl)` returns the **exact request/response shape,
+  field types, enums, and error codes** for a method (the markdown pages bury these in huge inline
+  schemas).
 
 > **Endpoint:** `POST https://mcp.wix.com/api/code-mode/search` — body `{ "code": "<async function() {…}>" }`.
 > The `code` is a JS `async function()` that runs in a read-only sandbox and returns any
@@ -201,8 +205,9 @@ async function() {
 
 ## When to use this vs. the other lanes
 
-- **Find / read / examples / a quick field** → `SKILL.md` (semantic doc-search, `.md` twin).
-- **Exact structured schema, enums, error codes — and no MCP** → this endpoint.
+- **Find by intent / read prose / a quick field** → `SKILL.md` (semantic doc-search, `.md` twin/browse).
+- **Enumerate or filter API methods** (browse a vertical, grep across all methods, get `publicUrl`s) → `lightIndex`, here.
+- **Exact structured schema, enums, error codes — and no MCP** → `getResourceSchema[ByUrl]`, here.
 - **You have the Wix MCP** → prefer `SearchWixAPISpec` → `getResourceSchemaByUrl` (same data, native tool).
 
 Always confirm the endpoint, HTTP verb, and body shape here before writing the call — never guess.
