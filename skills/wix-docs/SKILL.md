@@ -74,14 +74,15 @@ function over `lightIndex` (the whole REST API spec: every resource + method wit
 and get the `docsUrl` + `publicUrl` back in one shot, no menu-drilling:
 
 ```bash
-# every bookings method with its docsUrl + publicUrl, in one request
+# pinpoint a method by keyword across the whole index → its docsUrl + executable publicUrl
 curl -sS -X POST 'https://mcp.wix.com/api/code-mode/search' -H 'Content-Type: application/json' \
-  --data-raw '{"code":"async function(){ return lightIndex.filter(r=>r.menuPath.includes(\"bookings\")).flatMap(r=>r.methods).map(m=>({op:m.operationId, method:m.httpMethod, publicUrl:m.publicUrl, docsUrl:m.docsUrl})); }"}'
+  --data-raw '{"code":"async function(){ return lightIndex.flatMap(r=>r.methods).filter(m=>/createBooking$/i.test(m.operationId)).map(m=>({op:m.operationId, httpMethod:m.httpMethod, publicUrl:m.publicUrl, docsUrl:m.docsUrl})); }"}'
 ```
 
-Scope: **REST API methods only** (not concept/guide articles, headless prose, or SDK-only surfaces
-— use A/B for those). More examples (keyword search, `menuPath` browse, whole-resource schema) and
-the `getResourceSchema` reader → **`references/API_SPEC_SEARCH.md`**.
+**Filter narrowly and return only the fields you need** — the index is large, so an unfiltered dump
+is huge. Scope: **REST API methods only** (not concept/guide articles, headless prose, or SDK-only
+surfaces — use A/B for those). More examples (browse a whole vertical, `menuPath` walk,
+whole-resource schema) and the `getResourceSchema` reader → **`references/API_SPEC_SEARCH.md`**.
 
 If the Wix MCP is present, it exposes these same capabilities as native tools (no `curl`/JSON
 boilerplate) — Lane 2.
