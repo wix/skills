@@ -78,16 +78,20 @@ handle it accordingly:
 
   For the exact **structured** schema and enum values, don't hand-slice the markdown — query the API
   spec with a `curl` `POST` to `https://mcp.wix.com/api/code-mode/search` (the no-MCP equivalent of
-  the MCP `SearchWixAPISpec`). The `code` is a JS function with `getResourceSchemaByUrl(docsUrl)` /
-  `lightIndex` in scope; return only what you need:
+  the MCP `SearchWixAPISpec`). The `code` is a JS function with `lightIndex` and
+  `getResourceSchemaByUrl(docsUrl)` in scope; return only what you need:
 
   ```bash
+  # find a method by keyword → its docsUrl + executable publicUrl
   curl -sS -X POST 'https://mcp.wix.com/api/code-mode/search' -H 'Content-Type: application/json' \
-    --data-raw '{"code":"async function(){ const u=\"<method-docs-url>\"; const s=await getResourceSchemaByUrl(u); const m=s.methods.find(x=>x.docsUrl===u); return { publicUrl:m.publicUrl, httpMethod:m.httpMethod, requestBody:m.requestBody, responses:m.responses }; }"}'
-  # → { publicUrl, httpMethod, requestBody, responses }  (resolve $circular type refs via s.components.schemas)
+    --data-raw '{"code":"async function(){ return lightIndex.flatMap(r=>r.methods).filter(m=>/createBooking$/i.test(m.operationId)).map(m=>({op:m.operationId, httpMethod:m.httpMethod, publicUrl:m.publicUrl, docsUrl:m.docsUrl})); }"}'
+
+  # pull one method's request/response schema by its docsUrl (resolve $circular refs via s.components.schemas)
+  curl -sS -X POST 'https://mcp.wix.com/api/code-mode/search' -H 'Content-Type: application/json' \
+    --data-raw '{"code":"async function(){ const u=\"https://dev.wix.com/docs/api-reference/business-solutions/bookings/bookings/bookings-writer-v2/create-booking\"; const s=await getResourceSchemaByUrl(u); const m=s.methods.find(x=>x.docsUrl===u); return { publicUrl:m.publicUrl, requestBody:m.requestBody, responses:m.responses }; }"}'
   ```
 
-  Full example set (keyword search, resource listing, enum/nested-ref expansion) →
+  Full example set (resource listing, partial-URL resolution, enum/nested-ref expansion) →
   `references/API_SPEC_SEARCH.md`.
 
 ## Lane 2 — Wix MCP doc tools (only if your agent has them)
