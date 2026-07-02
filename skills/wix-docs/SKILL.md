@@ -74,9 +74,21 @@ handle it accordingly:
   curl -sS "$URL.md" | grep -nE 'name: (selectedPaymentOption|totalParticipants)'       # 3. grep specific schema fields
   ```
 
-  More recipes (split REST vs SDK, resolve an enum) → `references/EXTRACTING.md`. For the exact
-  **structured** schema and enum values, see `references/API_SPEC_SEARCH.md` (a `curl` query over the
-  API spec — the no-MCP equivalent of the MCP `SearchWixAPISpec`).
+  More recipes (split REST vs SDK, resolve an enum) → `references/EXTRACTING.md`.
+
+  For the exact **structured** schema and enum values, don't hand-slice the markdown — query the API
+  spec with a `curl` `POST` to `https://mcp.wix.com/api/code-mode/search` (the no-MCP equivalent of
+  the MCP `SearchWixAPISpec`). The `code` is a JS function with `getResourceSchemaByUrl(docsUrl)` /
+  `lightIndex` in scope; return only what you need:
+
+  ```bash
+  curl -sS -X POST 'https://mcp.wix.com/api/code-mode/search' -H 'Content-Type: application/json' \
+    --data-raw '{"code":"async function(){ const u=\"<method-docs-url>\"; const s=await getResourceSchemaByUrl(u); const m=s.methods.find(x=>x.docsUrl===u); return { publicUrl:m.publicUrl, httpMethod:m.httpMethod, requestBody:m.requestBody, responses:m.responses }; }"}'
+  # → { publicUrl, httpMethod, requestBody, responses }  (resolve $circular type refs via s.components.schemas)
+  ```
+
+  Full example set (keyword search, resource listing, enum/nested-ref expansion) →
+  `references/API_SPEC_SEARCH.md`.
 
 ## Lane 2 — Wix MCP doc tools (only if your agent has them)
 
