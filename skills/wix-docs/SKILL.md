@@ -42,18 +42,31 @@ curl -sS -X POST 'https://www.wixapis.com/mcp-docs-search/v1/docs/search/markdow
 ```
 
 **B. Browse the tree from the root, like a menu.** Every docs path has a `.md` twin, so you can
-navigate the docs as a menu tree — no search needed:
+navigate the docs as a menu tree — no search needed. `curl https://dev.wix.com/docs/llms.txt` is the
+top-level map; the portals under it:
 
-- **Start at the index:** `curl https://dev.wix.com/docs/llms.txt` — the top-level map of every
-  portal (API reference, SDK, Go Headless, Velo). `https://dev.wix.com/docs/api-reference.md` is the
-  authoritative root for all Wix APIs (each API page documents **both** its REST and SDK usage).
-- **Drill like a menu:** append `.md` to any path — a *section* path returns a **menu** (a list of
-  child links); a *leaf* returns the content/method page. Truncate a path to go up, extend it to go
-  down.
-- **Read the sibling articles too** — a module's menu lists intro / "About …" / sample-flow pages
-  next to the endpoints; those often explain the API better than the method page alone.
+| Portal | Start here for |
+|---|---|
+| [`api-reference.md`](https://dev.wix.com/docs/api-reference.md) | **All backend / business-solution APIs — the main one.** Each page documents **both** REST and SDK usage. |
+| [`sdk.md`](https://dev.wix.com/docs/sdk.md) | Frontend-only SDK modules not in the API reference (npm `@wix/<module>`). |
+| [`go-headless.md`](https://dev.wix.com/docs/go-headless.md) | Headless setup, auth, hosting, framework integration. |
+| [`build-apps.md`](https://dev.wix.com/docs/build-apps.md) | Building Wix apps / extensions. |
+| [`wix-cli.md`](https://dev.wix.com/docs/wix-cli.md) · [`velo.md`](https://dev.wix.com/docs/velo.md) | Wix CLI commands; Velo site-coding APIs. |
 
-If the Wix MCP is present, its search/browse tools are richer — Lane 2.
+**Drill like a menu** — append `.md` to any path (a *section* → a menu of child links, a *leaf* →
+the content/method page); truncate to go up, extend to go down. **Read the sibling intro / "About …"
+/ flow articles too**, not just the method page. Example — drill to the create-booking method,
+grepping each menu for the next link:
+
+```bash
+curl -sS https://dev.wix.com/docs/api-reference/business-solutions.md            | grep -i bookings   # → .../bookings.md
+curl -sS https://dev.wix.com/docs/api-reference/business-solutions/bookings.md   | grep -iE 'bookings|flow'  # → resource/flow pages
+curl -sS https://dev.wix.com/docs/api-reference/business-solutions/bookings/bookings.md | grep -i create      # → the create method leaf
+curl -sS https://dev.wix.com/docs/api-reference/business-solutions/bookings/bookings/bookings-writer-v2/create-booking.md  # read it
+```
+
+A 2-level map of the API-reference portal (all verticals, one level down) is in
+`references/EXTRACTING.md`. If the Wix MCP is present, its search/browse tools are richer — Lane 2.
 
 ### 2. Read what you land on
 

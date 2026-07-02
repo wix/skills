@@ -23,6 +23,21 @@ read it whole:
   page; `https://dev.wix.com/docs/llms-full.txt` is the full concatenated corpus (very large — grep,
   don't read).
 
+### A 2-level map to start from
+
+A partial map of the **`api-reference`** portal (the main one) — its top sections, and the Business
+Solutions verticals one level deeper. A starting point, not exhaustive; re-derive from the `.md`
+menus when in doubt.
+
+- [**API Reference**](https://dev.wix.com/docs/api-reference.md) — all backend APIs; each page = REST + SDK
+  - [**Business Solutions**](https://dev.wix.com/docs/api-reference/business-solutions.md) — [Stores](https://dev.wix.com/docs/api-reference/business-solutions/stores.md) · [eCommerce](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce.md) · [Bookings](https://dev.wix.com/docs/api-reference/business-solutions/bookings.md) · [Events](https://dev.wix.com/docs/api-reference/business-solutions/events.md) · [Blog](https://dev.wix.com/docs/api-reference/business-solutions/blog.md) · [CMS](https://dev.wix.com/docs/api-reference/business-solutions/cms.md) · [Pricing Plans](https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans.md) · [Restaurants](https://dev.wix.com/docs/api-reference/business-solutions/restaurants.md) · [Portfolio](https://dev.wix.com/docs/api-reference/business-solutions/portfolio.md) · [Gift Cards](https://dev.wix.com/docs/api-reference/business-solutions/gift-cards.md) · [Coupons](https://dev.wix.com/docs/api-reference/business-solutions/coupons.md) · [Donations](https://dev.wix.com/docs/api-reference/business-solutions/donations.md)
+  - [**CRM**](https://dev.wix.com/docs/api-reference/crm.md) — contacts, members, forms, inbox, loyalty
+  - [**Business Management**](https://dev.wix.com/docs/api-reference/business-management.md) — payments, invoices, SEO, site properties, automations
+  - [**App Management**](https://dev.wix.com/docs/api-reference/app-management.md) — install apps, OAuth, app instance/installations
+  - [**Assets**](https://dev.wix.com/docs/api-reference/assets.md) — media, rich content
+  - [**Account Level**](https://dev.wix.com/docs/api-reference/account-level.md) — sites, domains
+- Other portals: [SDK](https://dev.wix.com/docs/sdk.md) · [Go Headless](https://dev.wix.com/docs/go-headless.md) · [Build Apps](https://dev.wix.com/docs/build-apps.md) · [Wix CLI](https://dev.wix.com/docs/wix-cli.md) · [Velo](https://dev.wix.com/docs/velo.md)
+
 ## Method pages — slice, don't swallow
 
 A method page is often **huge** (Create Booking's `.md` is ~144 KB / 900+ lines). It carries **both**
