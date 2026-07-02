@@ -47,7 +47,8 @@ top-level map; the portals under it:
 
 | Portal | Start here for |
 |---|---|
-| [`api-reference.md`](https://dev.wix.com/docs/api-reference.md) | **All backend / business-solution APIs — the main one, and where SDK lives too:** each page documents **both** its REST and SDK usage (`.md?apiView=SDK` for the SDK view). |
+| [`api-reference.md`](https://dev.wix.com/docs/api-reference.md) | **All backend / business-solution APIs — the main one.** Each page documents **both** its REST and SDK usage (`.md?apiView=SDK` for the SDK view). |
+| [`sdk.md`](https://dev.wix.com/docs/sdk.md) | **SDK-only surfaces not in the API reference:** client setup (`createClient`, `OAuthStrategy`), core modules (`@wix/sdk`, `@wix/essentials`), host modules (`dashboard`/`editor`/`site`), and frontend modules (`members`, `pay`, `seo`, `storage`, `pricing-plans`, …). |
 | [`go-headless.md`](https://dev.wix.com/docs/go-headless.md) | Headless setup, auth, hosting, framework integration. |
 | [`build-apps.md`](https://dev.wix.com/docs/build-apps.md) | Building Wix apps / extensions. |
 | [`wix-cli.md`](https://dev.wix.com/docs/wix-cli.md) · [`velo.md`](https://dev.wix.com/docs/velo.md) | Wix CLI commands; Velo site-coding APIs. |
