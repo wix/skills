@@ -83,7 +83,8 @@ Scope: **REST API methods only** (not concept/guide articles, headless prose, or
 — use A/B for those). More examples (keyword search, `menuPath` browse, whole-resource schema) and
 the `getResourceSchema` reader → **`references/API_SPEC_SEARCH.md`**.
 
-If the Wix MCP is present, its search/browse tools are richer — Lane 2.
+If the Wix MCP is present, it exposes these same capabilities as native tools (no `curl`/JSON
+boilerplate) — Lane 2.
 
 ### 2. Read what you land on
 
@@ -137,8 +138,10 @@ handle it accordingly:
 
 ## Lane 2 — Wix MCP doc tools (only if your agent has them)
 
-If the Wix MCP is connected, these beat blind curling for **discovery** and for the
-**whole-resource** view. Optional — skip this lane entirely if the tools aren't present.
+If the Wix MCP is connected, these are the **same backends as Lane 1** (the doc-search service and
+the API-spec index) wrapped as native tools — schema-validated, response-size handled, no
+`curl`/JSON boilerplate. A convenience over the curl lane, **not a richer data source**; use them
+when present, fall back to Lane 1 when not. Optional — skip this lane if the tools aren't present.
 
 | Tool | Use for |
 |---|---|
