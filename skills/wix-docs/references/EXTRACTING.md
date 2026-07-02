@@ -33,14 +33,22 @@ for anything not shown.
 ```text
 dev.wix.com/docs/                                      ← append .md to any path below
 ├── api-reference/                                     all backend APIs — REST + SDK on every page
-│   ├── business-solutions/
-│   │   ├── stores/                                    products, inventory, categories
-│   │   │   └── catalog-v3/products-v3/query-products  ← a method page (leaf: schema + examples)
+│   ├── business-solutions/                            vertical → app/version → resource → method
+│   │   ├── stores/
+│   │   │   └── catalog-v3/                            V3 catalog (introduction · e-commerce-integration · …)
+│   │   │       ├── products-v3/                       the products resource
+│   │   │       │   ├── query-products                 ← method page (leaf: schema + examples)
+│   │   │       │   ├── create-product-with-inventory  ← method (create + stock in one call)
+│   │   │       │   └── get-product · search-products · update-product · count-products · …
+│   │   │       └── inventory-items-v3/ · categories/ · customizations-v3/ · brands-v3/ · …
 │   │   ├── bookings/
-│   │   │   └── bookings/bookings-writer-v2/create-booking   ← a method page (leaf)
+│   │   │   └── bookings/                              the bookings resource group
+│   │   │       ├── bookings-writer-v2/                writes
+│   │   │       │   └── create-booking                 ← method (leaf); + bulk-create-booking · …
+│   │   │       └── bookings-reader-v2/ · attendance/ · waitlist/ · …
 │   │   ├── e-commerce/                                cart, checkout, orders, discounts
 │   │   ├── cms/                                       Wix Data — data-items, collections
-│   │   ├── blog/ · events/ · pricing-plans/ · restaurants/ · portfolio/ · gift-cards/ · coupons/ · donations/ · …
+│   │   └── blog/ · events/ · pricing-plans/ · restaurants/ · portfolio/ · gift-cards/ · coupons/ · donations/ · …
 │   ├── crm/                                           contacts, members, forms, inbox, loyalty
 │   ├── business-management/                           payments, invoices, SEO, site-properties, automations
 │   ├── app-management/                                install apps, OAuth, app-instance/installations
