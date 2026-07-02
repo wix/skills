@@ -1,8 +1,8 @@
 name: blog/blog-post-rich-content
-description: Verifies the agent reads the blog post creation recipe and builds well-formed Ricos rich content — headings, lists, a table, and inline text decorations — when asked to create and publish a Wix blog post.
-triggerPrompt: How do I create and publish a blog post on my Wix site via the REST API? I want a formatted body with a section heading, a bulleted list, a comparison table, and a bolded link in one of the paragraphs.
+description: Verifies the agent handles the blog-specific create-and-publish flow — 3rd-party memberId, importing an external cover image to Media Manager before use, the bulk draft-posts envelope, and publish — when creating Wix blog posts. Ricos node-shape correctness is covered by the rich-content evals.
+triggerPrompt: I'm building a 3rd-party app. Using the Wix REST API, how do I create and immediately publish two blog posts on a site, where each post has a cover image supplied as an external image URL? Give the exact endpoints and request bodies.
 tags: [blog]
-maxTokens: 320000
+maxTokens: 200000
 assertions:
   - tool: ReadFullDocsArticle
     params:
@@ -11,14 +11,16 @@ assertions:
     minScore: 7
     maxTokens: 2048
     prompt: |
-      The user asked how to create and publish a Wix blog post via REST with a formatted body containing a section heading, a bulleted list, a comparison table, and a bolded link inside a paragraph.
+      The user is a 3rd-party app asking how to create and publish TWO Wix blog posts via REST, each with a cover image given as an external URL. Judge whether the response gets the blog-specific flow right (NOT whether the Ricos body is elaborate — that is out of scope here).
 
       Pass if the response:
-      - points at the Wix Blog Draft Posts API (Create Draft Post `POST /blog/v3/draft-posts` or the bulk create endpoint) and sets `publish: true`, AND
-      - represents the body as Ricos `richContent` with correctly nested nodes: a HEADING node carrying its level, a BULLETED_LIST nested as LIST_ITEM → PARAGRAPH → TEXT, a TABLE nested as TABLE_ROW → TABLE_CELL → PARAGRAPH → TEXT, and a TEXT node using a `decorations` array (e.g. BOLD plus LINK) for the bolded link, AND
-      - keeps every TEXT node wrapped in a PARAGRAPH or HEADING (never placed directly in a list item, table cell, blockquote, or the root nodes array).
+      - states that `memberId` (post owner) is REQUIRED for a 3rd-party app and shows how to obtain one (e.g. List Members), AND
+      - imports each external image to the Media Manager first (Import File / `POST /site-media/v1/files/import`) and uses the returned media id in the post — never a raw external URL, AND
+      - uses the BULK create endpoint `POST /blog/v3/bulk/draft-posts/create` with the FLAT shape (each item in `draftPosts` is the post object directly, NOT wrapped in a `draftPost` field), AND
+      - sets `publish: true` to publish immediately.
 
       Fail if the response:
-      - places TEXT nodes directly inside LIST_ITEM, TABLE_CELL, or the root `nodes` array, OR
-      - invents node shapes not in the recipe (e.g. a `type` object, or a DOC/pageDesign/theme wrapper that does not belong to a blog post), OR
-      - omits the rich-content structure entirely and only returns prose or a flat string body.
+      - omits the `memberId` requirement for 3rd-party apps, OR
+      - puts the external image URL straight into the post without importing it to Media Manager first, OR
+      - uses a wrong bulk path (e.g. `/blog/v3/draft-posts/bulk`) or wraps each bulk item in a `draftPost` field, OR
+      - does not publish the posts.
