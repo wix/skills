@@ -6,31 +6,29 @@ Operational calls in this skill use `npx @wix/cli@latest token --site "$SITE_ID"
 
 | Need | Endpoint |
 |---|---|
-| Search REST / SDK / headless docs | `GET https://www.wixapis.com/mcp-docs-search/v1/search?kbName=<KB>&searchTerm=<q>&maxResults=<n>` |
-| Read a full article | `GET https://dev.wix.com/rawdocs/api/get-article-content?articleUrl=<url>&schema=false` |
-| Read method schema | Same URL with `schema=true` |
-| Browse REST docs menu | `GET https://dev.wix.com/docs/api/v1/get-menu-content?url=<url>&format=markdown` |
+| Search the docs (semantic, natural language) | `POST https://www.wixapis.com/mcp-docs-search/v1/docs/search` — body `{ "search_term": "…", "document_type": "…" }`; append `/docs/search/markdown` for one ready-to-read markdown string |
+| Read a page | Append `.md` to any `https://dev.wix.com/docs/…` URL |
+| Browse a section | Truncate a docs URL to a parent path + `.md` (a list of child links) |
 
-**kbName values** (common): `REST_METHODS_KB_ID`, `SDK_KB_ID`, `HEADLESS_KB_ID`.
+`document_type`: `REST` (default) · `SDK` · `WIX_HEADLESS` · `BUSINESS_SOLUTIONS` · `VELO` · `WDS` · `BUILD_APPS` · `CLI`. Body also takes `maximum_results` (1–20) and `lines_in_each_result` (1–200).
 
 Example — search REST docs for app install:
 
 ```bash
-curl -sS --get 'https://www.wixapis.com/mcp-docs-search/v1/search' \
-  --data-urlencode 'kbName=REST_METHODS_KB_ID' \
-  --data-urlencode 'searchTerm=install app instance' \
-  --data-urlencode 'maxResults=3'
+curl -sS -X POST 'https://www.wixapis.com/mcp-docs-search/v1/docs/search/markdown' \
+  -H 'Content-Type: application/json' \
+  --data-raw '{"search_term":"install app instance","document_type":"REST","maximum_results":3}'
 ```
 
-Example — fetch article body:
+Example — read a specific page:
 
 ```bash
-curl -sS --get 'https://dev.wix.com/rawdocs/api/get-article-content' \
-  --data-urlencode 'articleUrl=https://dev.wix.com/docs/...' \
-  --data-urlencode 'schema=false'
+curl -sS 'https://dev.wix.com/docs/api-reference/business-management/app-installation/app-installation/install-app.md'
 ```
 
 No auth headers required on these endpoints.
+
+> For the full doc-lookup playbook — semantic-search variants, slicing big method pages, and structured API-spec queries (`getResourceSchemaByUrl`, no MCP) — see the **`wix-docs`** skill (`<SKILL_ROOT>/../wix-docs/SKILL.md` when co-installed).
 
 ## Prefer bundled references
 
