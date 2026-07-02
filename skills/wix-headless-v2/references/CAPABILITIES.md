@@ -28,7 +28,8 @@ The verticals the skill operates end-to-end today: **stores · blog · cms · fo
 
 ### blog — publish posts
 - **Intent:** blog / posts / articles / publication / news.
-- **Required site features:** a list of posts; a page per post; readers can leave **comments** on a post; categories or tags to browse by topic.
+- **Required site features:** a list of posts; a page per post; categories or tags to browse by topic.
+- **Optional (intent-gated):** reader **comments** on a post — build **only if the brief asks for discussion/interaction.** Comments hard-depend on members/login, so adding them unrequested drags in an unrequested login gate; they are **not** part of the baseline blog surface (see `inline-recipes/how-to-code-a-blog.md` §Comments).
 - **Implementation checklist:** show the **author** (name and photo) on each post; show the publish date and the reading time; show the cover image; render the full formatted content — headings, images, quotes, lists — not flattened to plain text; show the post's category and tags; a clear path back to the full list.
 
 ### cms — structured content collections

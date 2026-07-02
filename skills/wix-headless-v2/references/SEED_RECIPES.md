@@ -22,15 +22,7 @@ Never invent a URL or body from memory.
 
 *SEED.md §3: `intent.blog.postCount` posts on `intent.blog.topics`; text-only; bulk-create when `postCount ≥ 2`; keep `postIds[]` + slugs.*
 
-| Tier | Page | What it settles |
-|---|---|---|
-| 1 | <https://dev.wix.com/docs/api-reference/business-solutions/blog/skills/how-to-create-blog-posts.md> | The author `memberId` requirement for 3rd-party callers (and how to fetch one); the bulk endpoint to reach for; the **flat** per-item body shape vs. the nested shape that fails; Ricos nesting rules; publishing inline; asking for the post URL/slug in the response. **Read this first — it settles every known blog seeding failure.** |
-| 2 | <https://dev.wix.com/docs/api-reference/business-solutions/blog/blog-business-flow.md> | Step ordering: draft post → categories (optional) → tags (optional) → publish → verify. |
-| 3 | <https://dev.wix.com/docs/api-reference/crm/members-contacts/members/member-management/members/list-members.md> | Fetch a valid author `memberId` — a prerequisite for the create call as a 3rd-party app. |
-| 3 | <https://dev.wix.com/docs/api-reference/business-solutions/blog/draft-posts/bulk-create-draft-posts.md> | Request/response shape for the bulk create (`postCount ≥ 2`); per-item success flags. |
-| 3 | <https://dev.wix.com/docs/api-reference/business-solutions/blog/draft-posts/create-draft-post.md> | Single-post create shape (`postCount = 1`). |
-
-> Optional, only if intent calls for it: <https://dev.wix.com/docs/api-reference/business-solutions/blog/category/create-category.md> and <https://dev.wix.com/docs/api-reference/business-solutions/blog/tags/create-tag.md> for grouping posts.
+**Read `inline-recipes/setup-blog.md`** (local — Read it, don't curl). It is **self-contained** — every endpoint, request body, and representative response is inlined, so read it and seed from it alone; **do not go fetch the Blog-V3 method/flow doc pages** (they're superseded by the recipe). It covers the full create flow: **fetch an author `memberId` first** (required for 3rd-party callers — a `GET /members` lookup; note `memberId` is author *attribution*, the caller stays APP, so this does **not** let members author posts), then **bulk-create published posts** (`bulk/draft-posts/create`, `publish:true`) with the **flat** per-item body shape (title/memberId/richContent directly in each `draftPosts[]` element — NOT the nested `draftPost` envelope, which 400s), valid **Ricos `richContent`** (TEXT-in-PARAGRAPH nesting, or "Expected a paragraph node"), text-only, then **collect slugs via `posts/query`** (the bulk response carries ids only). Optional categories/tags only if the request names them (re-publish after any PATCH). The single-post endpoint (`postCount=1`) and its nested `{draftPost:{…}}` envelope are inlined too.
 
 ---
 
