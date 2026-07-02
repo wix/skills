@@ -1,6 +1,6 @@
 ---
 name: "Create and Publish a Social Media Post (with AI generation)"
-description: "End-to-end flow to create a social media post — optionally generating it with AI — and publish or schedule it to a site's connected channel (Instagram, Facebook, LinkedIn, TikTok, Pinterest, YouTube, Google Business Profile) using the Wix Publisher API. Can generate a full per-channel post from a free-text idea or from the site's own assets (products, blog posts, events, bookings, coupons, categories), generate caption/title suggestions, and edit an existing image with AI. Then confirms the channel is connected, checks premium quota, creates a draft, and publishes now or schedules it. Use for 'create a post', 'generate a post from my product/idea', 'write a caption', 'edit a post image with AI', 'post to Instagram/Facebook/TikTok', or 'schedule a post'."
+description: "End-to-end flow to create a social media post — optionally generating it with AI — and publish or schedule it to a site's connected channel (Instagram, Facebook, LinkedIn, X/Twitter, TikTok, Pinterest, YouTube, Google Business Profile) using the Wix Publisher API. Can generate a full per-channel post from a free-text idea or from the site's own assets (products, blog posts, events, bookings, coupons, categories), generate caption/title suggestions, and edit an existing image with AI. Then confirms the channel is connected, checks premium quota, creates a draft, and publishes now or schedules it. Use for 'create a post', 'generate a post from my product/idea', 'write a caption', 'edit a post image with AI', 'post to Instagram/Facebook/TikTok', or 'schedule a post'."
 ---
 # RECIPE: Create and Publish a Social Media Post (with AI generation)
 
@@ -21,7 +21,7 @@ Base URL for all endpoints: `https://www.wixapis.com/social-publisher/v1`.
 
 ## STEP 1: Confirm the channel is connected
 
-Determine the target channel from the request (`INSTAGRAM`, `FACEBOOK`, `YOUTUBE`, `LINKEDIN`, `PINTEREST`, `GBP`, `TIKTOK`), then get the account to publish to and confirm the channel is connected. Do this first — you can't publish to an unconnected channel, and connecting is an interactive step best surfaced up front.
+Determine the target channel from the request (`INSTAGRAM`, `FACEBOOK`, `YOUTUBE`, `LINKEDIN`, `PINTEREST`, `GBP`, `TIKTOK`, `TWITTER`), then get the account to publish to and confirm the channel is connected. `TWITTER` (X) is available only through **July 31, 2026** — see the cutoff rule in STEP 4 and STEP 6. Do this first — you can't publish to an unconnected channel, and connecting is an interactive step best surfaced up front.
 
 **API Endpoint:** `GET https://www.wixapis.com/social-publisher/v1/accounts?channelName=INSTAGRAM`
 
@@ -232,6 +232,7 @@ For the connected channel from STEP 1, pick the item `type` and the matching con
 | `YOUTUBE` | `VIDEO` | `youtubeVideo` | `title`, `description`, `videoUrl`, `channelId` |
 | `YOUTUBE` | `SHORT` | `youtubeShort` | `title`, `description`, `videoUrl`, `channelId` |
 | `LINKEDIN` | `POST` | `linkedinPost` | `caption`, `authorId`, `mediaWrapper` or `linkMetadata` |
+| `TWITTER` (X) | `POST` | `twitterPost` | `caption`, `imageUrl`/`videoUrl`/`link` or `mediaWrapper` — **available only until July 31, 2026** (see STEP 6) |
 | `PINTEREST` | `POST` | `pinterestPost` | `title`, `description`, `boardId`, `link`, `mediaWrapper` |
 | `GBP` | `POST` | `gbpPost` | `locationId`, `description` and/or `mediaWrapper`, optional `callToAction` |
 | `TIKTOK` | `POST` | `tiktokPhoto` | `title`, `description`, `privacyLevel`, `mediaWrapper` |
@@ -240,17 +241,19 @@ For the connected channel from STEP 1, pick the item `type` and the matching con
 Notes:
 - Media items in `mediaWrapper.media[]` are `{ "type": "IMAGE" | "VIDEO", "url": "<public-url>" }`.
 - Instagram and story types **require** media (GBP needs `description` and/or media). No endpoint creates an image from text alone (STEP 3c only edits an existing image), so if the user has none, source one — see **Media handling** below.
-- `caption` is the text field for Instagram, Facebook, LinkedIn; `description` for YouTube, Pinterest, Google Business Profile, TikTok.
+- `caption` is the text field for Instagram, Facebook, LinkedIn, and X/Twitter; `description` for YouTube, Pinterest, Google Business Profile, and TikTok.
 - `pageId` (Facebook), `boardId` (Pinterest), `locationId` (Google Business Profile) come from the account object in STEP 1.
-- TikTok `privacyLevel` must be one of the account's `privacyLevelOptions` from STEP 1 (e.g. `PUBLIC_TO_EVERYONE`).
-- `TWITTER` (X) is being sunset — don't target it; treat an `UNSUPPORTED_CHANNEL` error as authoritative.
+- TikTok `privacyLevel` must be one of the account's `privacyLevelOptions` from STEP 1 — one of `PUBLIC_TO_EVERYONE`, `FOLLOWER_OF_CREATOR`, `MUTUAL_FOLLOW_FRIENDS`, `SELF_ONLY`.
+- Text length limits: Instagram `caption` ≤ 2200 (about 30 hashtags / 20 mentions); Pinterest `title` ≤ 100, `description` ≤ 800, `link` ≤ 2048; Google Business Profile `description` ≤ 1500; TikTok photo `title` ≤ 90 and `description` ≤ 4000, TikTok video `description` ≤ 2200. AI-generated captions/titles (STEP 3b) are ≤ 1000.
+- GBP `callToAction` (optional) is one of `BOOK`, `ORDER`, `SHOP`, `LEARN_MORE`, `SIGN_UP`.
+- `TWITTER` (X) works like any other channel **only through July 31, 2026**; after that it's no longer functional (see STEP 6). Treat an `UNSUPPORTED_CHANNEL` error as authoritative.
 
 **Media handling.** Post media **must be a Wix Media Manager URL** — `static.wixstatic.com` for images, `video.wixstatic.com` for videos. Always use one, even for media that came from elsewhere. (The API only validates a generic URL and won't reject a non-Wix link, but don't rely on that: an external URL has to stay reachable when the post publishes — a real risk for scheduled posts — and skips the Media Manager processing channels expect. Treat a Wix URL as required.) In the content object, `url` is that Wix URL; `fileId` is derived from it.
 
 Getting media into the Media Manager:
 - **Already there** (a site asset's image, a STEP 3c generated image, or a previously uploaded file) → use its `static.wixstatic.com` `url` directly.
 - **A public external URL** → import it; Wix fetches it server-side, no local download: `POST https://www.wixapis.com/site-media/v1/files/import` with `{ "url": "<external-url>", "mimeType": "image/jpeg", "displayName": "post.jpg" }`.
-- **A local file (no public URL)** → `POST https://www.wixapis.com/site-media/v1/files/generate-upload-url`, then upload the bytes to the returned `uploadUrl` (see the Media Manager Upload API).
+- **A local file (no public URL)** → `POST https://www.wixapis.com/site-media/v1/files/generate-upload-url`, then **`PUT` the raw file bytes to the returned `uploadUrl`** (set `Content-Type` to the file's MIME type); the response returns the file descriptor. See the Media Manager Upload API.
 
 After import/upload the file returns `operationStatus: PENDING` — poll `GET https://www.wixapis.com/site-media/v1/files/{id}` until `operationStatus` is `READY`, then use its `static.wixstatic.com` `url` in the post.
 
@@ -268,6 +271,8 @@ Build the request from `item.channel` (`name` + the `accountId` from STEP 1), `i
 - If you generated with **STEP 3a** (`generate-post-data`), the returned per-channel object (e.g. `instagramPost`) **is** the content object — pass it through as-is.
 - Otherwise, build it from the STEP 4 table row for your channel + `type`: the text field (`caption` for Instagram/Facebook/LinkedIn, `description` for YouTube/Pinterest/GBP/TikTok), the media (`mediaWrapper`, or `imageUrl`/`videoUrl` for a single item), and any channel-specific fields — the ID from the STEP 1 account object (`pageId` for Facebook, `boardId` for Pinterest, `locationId` for GBP), plus `authorId` (LinkedIn), `privacyLevel` (TikTok, one of the account's `privacyLevelOptions`), and `title` where the channel uses one.
 - Instagram and story types require media.
+
+**Idempotency (retry safety).** To make create/publish safe to retry, set a stable, caller-defined `item.referenceId`. Publishing a second item with the same `referenceId` fails with `REFERENCE_ID_ALREADY_EXIST` instead of posting a duplicate — so if a call times out, retry with the **same** `referenceId` rather than risk double-posting.
 
 **Example — Instagram image post:**
 
@@ -349,6 +354,8 @@ For multiple media, use `mediaWrapper` instead of `imageUrl`/`videoUrl`:
 { "id": "ac01c174-5244-49df-8085-84d87cd0345a", "scheduledDate": "<future-ISO-8601-datetime>" }
 ```
 
+**X (Twitter) cutoff.** X is no longer functional after **July 31, 2026**. Don't publish to X once that date has passed, and don't schedule an X post with a `scheduledDate` after it — a post scheduled to fire past the cutoff won't be published.
+
 **Expected response:** the item with an updated `status`:
 - `PUBLISHED` — live on the channel; `externalItemUrl` links to the post.
 - `SCHEDULED` — will publish automatically at `scheduledDate`.
@@ -366,13 +373,14 @@ The post appears on the site's Social Media Marketing page in the dashboard. To 
 | Symptom | Cause | Fix |
 | --- | --- | --- |
 | STEP 1 returns empty `accounts` | Channel not connected | Run STEP 1.5 to connect the channel, or ask the owner to connect it in the dashboard, then retry |
-| `428 FAILED_PRECONDITION` / `NO_PAGES_FOR_USER` on List Accounts | Connected Facebook user has no pages | Ask the owner to connect a Facebook page |
+| `FAILED_PRECONDITION` / `NO_PAGES_FOR_USER` on List Accounts | Connected Facebook/Instagram user has no page with a linked postable account | Ask the owner to grant a Facebook page (with a linked Instagram Business/Creator account) during authorization, then retry |
 | STEP 2 shows `AI_TOOLS` `enabled: false` (or an AI call is rejected) | Plan doesn't include AI tools | Skip AI generation; have the user provide content |
 | Generate Image poll returns `404 GENERATED_IMAGE_NOT_FOUND` | `executionId` invalid or expired | Re-run Generate Image and poll the new `executionId` |
 | STEP 2 shows the publish/schedule feature `enabled: false` or `remainingUsage: 0` | Plan doesn't allow the action, or quota used up | Advise upgrading, or wait for quota reset |
-| `412 FAILED_PRECONDITION` / `INELIGIBLE_FOR_FEATURE` on publish or schedule | Site's plan doesn't cover publishing/scheduling this post | Check STEP 2 first; advise upgrading the plan |
+| `FAILED_PRECONDITION` / `INELIGIBLE_FOR_FEATURE` on publish or schedule | Site's plan doesn't cover publishing/scheduling this post | Check STEP 2 first; advise upgrading the plan |
 | `429 RESOURCE_EXHAUSTED` / `PUBLISH_LIMIT_EXCEEDED` | Publishing rate limit hit | Back off and retry later |
-| `UNSUPPORTED_CHANNEL` | Targeting a sunset/unsupported channel (e.g. `TWITTER`/X) | Use a supported channel |
+| `ALREADY_EXISTS` / `REFERENCE_ID_ALREADY_EXIST` on publish | An item with the same `referenceId` already exists | Expected when safely retrying a publish that already succeeded — don't re-publish with a new `referenceId` |
+| `FAILED_PRECONDITION` / `UNSUPPORTED_CHANNEL` | Targeting an unsupported channel, or X/Twitter after its July 31, 2026 cutoff | Use a supported channel; target X only before the cutoff |
 | Create item rejected for missing media | Instagram and story types require media (GBP needs `description` and/or media) | Provide a public image/video URL (or edit one from a source image in STEP 3c) |
 | Reschedule/cancel returns `ITEM_NOT_EXISTS`, `ITEM_IS_PUBLISHED`, or `ITEM_IS_DELETED` | The item can't be rescheduled/canceled in its current state | Only reschedule/cancel items still in `SCHEDULED` status |
 | Publish returns `status: FAILED` | Content/type mismatch or channel rejected the post | Verify the `type` + content object match the channel's supported combination and that media URLs are public |
