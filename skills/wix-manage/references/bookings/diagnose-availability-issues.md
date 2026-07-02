@@ -85,6 +85,8 @@ curl -X POST 'https://www.wixapis.com/_api/service-availability/v2/time-slots/di
 
 ### Reason codes → owner fix
 
+> These codes and `suggestedAction` values are for **your** interpretation — do not show them to the user. Translate the result into plain language (see [Presenting the diagnosis](#presenting-the-diagnosis-to-the-user)).
+
 | `code` | `suggestedAction` | Meaning & fix |
 |--------|-------------------|---------------|
 | `NO_ASSIGNED_STAFF_OR_RESOURCES` | `ASSIGN_STAFF_OR_RESOURCES` | No staff/resources assigned to the service. Assign at least one. |
@@ -123,6 +125,37 @@ Empty `reasons` + still no bookable slots usually means the cause is one the end
 If **no slots come back at all**, re-check the inputs: the diagnosed window isn't entirely in the past, and any `locations` filter is actually offered by the service.
 
 See [End-to-End Booking Flow](end-to-end-booking-flow.md) for the `ListAvailabilityTimeSlots` request shape.
+
+---
+
+## Presenting the diagnosis to the user
+
+The diagnosis is part of a conversation with a site owner. Reply in plain, friendly language:
+
+- **Don't expose the internals** — no reason codes, `suggestedAction` enums, raw JSON, endpoint names, or field paths.
+- **Lead with the cause in plain English**, then give the concrete fix as the next step. One or two short sentences is usually enough.
+- **Use the owner's own terms** — "your service", "your staff", "the dates you're looking at", real location names from `resolvedLocations`.
+- **Offer to help with the fix** rather than only stating it.
+- If the result is inconclusive, say you couldn't find a setup problem and describe what you'll check next (policy/capacity) — don't imply the service is fine.
+
+**Plain-language phrasing per cause:**
+
+| Cause | Say something like |
+|-------|--------------------|
+| No staff/resources on the service | "This service doesn't have any staff assigned yet, so there's nothing to book. Want me to help you add someone?" |
+| Provider isn't on the service | "That staff member isn't assigned to this service, so their times don't show. I can add them to it." |
+| Provider has no working hours | "The staff for this service don't have any working hours set, so there are no times to offer. Let's set their hours." |
+| Provider works only at other locations | "Your staff have working hours, but not at the location(s) this service is offered at. We can either add hours at one of the service's locations, or offer the service where they already work." |
+| No working-hours windows in range | "None of the staff for this service have working hours in the dates you're checking. Let's add or extend their hours — or try a different date range." |
+| Service too long / buffer too large | "The service is longer than any open gap in your staff's schedule (the duration plus buffer doesn't fit). Shortening it a bit, or widening working hours, would open up slots." |
+| Requested location not offered | "This service isn't offered at the location you picked. Want me to add that location to the service, or check a different one?" |
+| Slots exist but aren't bookable (Step 2) | "There are times available, but customers can't book them right now — [e.g. they're fully booked / it's too early or late to book per your policy]. Here's how to adjust that." |
+
+**Example conversational reply** (for a location-mismatch result):
+
+> I looked into why no times are showing for **[service name]**. Your staff do have working hours, but none of them are at the locations this service is offered at (**Jerusalem2** and **Holon**) — so there's nothing available to book.
+>
+> To fix it you can either add working hours for a staff member at Jerusalem2 or Holon, or offer the service at the location where your staff already work. Want me to set that up?
 
 ---
 
