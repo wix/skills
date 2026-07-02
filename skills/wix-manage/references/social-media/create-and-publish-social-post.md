@@ -10,7 +10,7 @@ Base URL for all endpoints: `https://www.wixapis.com/social-publisher/v1`.
 
 **Prerequisites:**
 - The target channel must be connected by the site owner (verified in STEP 1; connect it in STEP 1.5 if not).
-- Media must be a publicly accessible URL. Images edited in STEP 3c already are.
+- Post media must be a **Wix Media Manager URL** (`static.wixstatic.com`); see **Media handling** in STEP 4. Images edited in STEP 3c are already hosted there.
 - AI generation (STEP 3) is optional. Skip it if the user supplies their own caption and media.
 
 **Flow:** STEP 1 confirm the channel is connected (connect if needed) → STEP 2 check premium features → STEP 3 generate content (optional) → STEP 4 pick channel/type → STEP 5 create the draft → STEP 6 publish or schedule. Checking connection and premium first avoids generating content for a channel that can't receive it or an action the plan doesn't allow.
@@ -222,11 +222,20 @@ For the connected channel from STEP 1, pick the item `type` and the matching con
 
 Notes:
 - Media items in `mediaWrapper.media[]` are `{ "type": "IMAGE" | "VIDEO", "url": "<public-url>" }`.
-- Instagram and story types **require** media. If the user has no image for a required-media channel, source one first — a site asset's own image, a Media Manager file, or a user-provided URL. No endpoint here creates an image from text alone (STEP 3c only edits an existing source image).
+- Instagram and story types **require** media (GBP needs `description` and/or media). No endpoint creates an image from text alone (STEP 3c only edits an existing image), so if the user has none, source one — see **Media handling** below.
 - `caption` is the text field for Instagram, Facebook, LinkedIn; `description` for YouTube, Pinterest, Google Business Profile, TikTok.
 - `pageId` (Facebook), `boardId` (Pinterest), `locationId` (Google Business Profile) come from the account object in STEP 1.
 - TikTok `privacyLevel` must be one of the account's `privacyLevelOptions` from STEP 1 (e.g. `PUBLIC_TO_EVERYONE`).
 - `TWITTER` (X) is being sunset — don't target it; treat an `UNSUPPORTED_CHANNEL` error as authoritative.
+
+**Media handling.** Post media **must be a Wix Media Manager URL** — `static.wixstatic.com` for images, `video.wixstatic.com` for videos. Always use one, even for media that came from elsewhere. (The API only validates a generic URL and won't reject a non-Wix link, but don't rely on that: an external URL has to stay reachable when the post publishes — a real risk for scheduled posts — and skips the Media Manager processing channels expect. Treat a Wix URL as required.) In the content object, `url` is that Wix URL; `fileId` is derived from it.
+
+Getting media into the Media Manager:
+- **Already there** (a site asset's image, a STEP 3c generated image, or a previously uploaded file) → use its `static.wixstatic.com` `url` directly.
+- **A public external URL** → import it; Wix fetches it server-side, no local download: `POST https://www.wixapis.com/site-media/v1/files/import` with `{ "url": "<external-url>", "mimeType": "image/jpeg", "displayName": "post.jpg" }`.
+- **A local file (no public URL)** → `POST https://www.wixapis.com/site-media/v1/files/generate-upload-url`, then upload the bytes to the returned `uploadUrl` (see the Media Manager Upload API).
+
+After import/upload the file returns `operationStatus: PENDING` — poll `GET https://www.wixapis.com/site-media/v1/files/{id}` until `operationStatus` is `READY`, then use its `static.wixstatic.com` `url` in the post.
 
 ---
 
@@ -366,4 +375,6 @@ The post appears on the site's Social Media Marketing page in the dashboard. To 
 - [Publish Item By ID](https://dev.wix.com/docs/api-reference/business-management/marketing/social-media/item-v1/publish-item-by-id)
 - [Reschedule Item](https://dev.wix.com/docs/api-reference/business-management/marketing/social-media/item-v1/reschedule-item)
 - [Cancel Scheduled Item](https://dev.wix.com/docs/api-reference/business-management/marketing/social-media/item-v1/cancel-scheduled-item)
+- [Media Manager: Import File](https://dev.wix.com/docs/api-reference/assets/media/media-manager/files/import-file)
+- [Media Manager: Generate File Upload URL](https://dev.wix.com/docs/api-reference/assets/media/media-manager/files/generate-file-upload-url)
 - [Publisher API sample flows](https://dev.wix.com/docs/api-reference/business-management/marketing/social-media/sample-flows)
