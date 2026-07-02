@@ -38,8 +38,15 @@ Determine the target channel from the request (`INSTAGRAM`, `FACEBOOK`, `YOUTUBE
 ```
 
 **Decision point:**
-- **Accounts returned** → use the account object's `id` as `channel.accountId` in STEP 5. If several are returned, pick `settings.default: true` or ask the user.
-- **`accounts` is empty** → the channel isn't connected. Offer to connect it (STEP 1.5) instead of just stopping.
+- **One account returned** → use its `id` as `channel.accountId` in STEP 5.
+- **Several accounts returned** (one per connected page/account) → pick the one with `settings.default: true`, or ask the user which page/account to post to, and use that `id` as `channel.accountId`. To **change the default** (what the dashboard's page picker does), call **Update Account Settings**: `PATCH https://www.wixapis.com/social-publisher/v1/{channelName}/settings` with the channel-specific default field:
+  - Instagram → `{ "instagram": { "defaultAccountId": "<id>" } }`
+  - Facebook → `{ "facebook": { "defaultPageId": "<id>" } }`
+  - Pinterest → `{ "pinterest": { "defaultBoardId": "<id>" } }`
+  - Google Business Profile → `{ "gbp": { "defaultLocationId": "<id>" } }`
+  - TikTok → `{ "tiktok": { "defaultAccountId": "<id>" } }`
+  - LinkedIn → `{ "linkedin": { "defaultChannelId": "<id>" } }`
+- **`accounts` is empty** → the channel isn't connected — offer to connect it (STEP 1.5). If `long-lived-token-status` is already `VALID` but this still returns empty (or `NO_PAGES_FOR_USER`), the token was created but no Facebook Page with a linked Instagram **Business/Creator** account was granted during authorization — treat it as "not connected" and re-run STEP 1.5, telling the user to grant the Page.
 
 Note the extra IDs some channels need in STEP 5: Facebook `facebook.page.id`, Pinterest `pinterest.board.id`, Google Business Profile `gbp.location.id`.
 
@@ -376,6 +383,7 @@ The post appears on the site's Social Media Marketing page in the dashboard. To 
 - [List Accounts](https://dev.wix.com/docs/api-reference/business-management/marketing/social-media/account-v1/list-accounts)
 - [Get Connect Url](https://dev.wix.com/docs/api-reference/business-management/marketing/social-media/account-v1/get-connect-url)
 - [Get Long Lived Token Status](https://dev.wix.com/docs/api-reference/business-management/marketing/social-media/account-v1/get-long-lived-token-status)
+- [Update Account Settings](https://dev.wix.com/docs/api-reference/business-management/marketing/social-media/account-v1/update-account-settings)
 - [Get Feature Data](https://dev.wix.com/docs/api-reference/business-management/marketing/social-media/premium-feature-v1/get-feature-data)
 - [Generate Post Data](https://dev.wix.com/docs/api-reference/business-management/marketing/social-media/generated-content-v1/generate-post-data)
 - [Generate Text](https://dev.wix.com/docs/api-reference/business-management/marketing/social-media/generated-content-v1/generate-text)
