@@ -1,6 +1,6 @@
 ---
 name: wix-docs
-description: "Look up the Wix API/SDK documentation to confirm an exact endpoint, HTTP method, request/response shape, field, enum, or error before writing Wix code — never guess a Wix API from memory. A lookup is a short flow: find the right page, then read it. Two ways: (1) plain `curl` (zero dependencies) — a semantic search endpoint (`POST /mcp-docs-search/v1/docs/search`, natural-language `{ search_term, document_type }`) to find pages, then read any page by appending `.md` to its docs URL; and (2) the Wix MCP doc tools when your agent has them. Triggers: look up a Wix API, find the Wix endpoint/method, confirm a Wix request body or field, verify a Wix API shape, explore Wix docs, which Wix API do I call, read a Wix method schema."
+description: "Look up the Wix API/SDK documentation to confirm an exact endpoint, HTTP method, request/response shape, field, enum, or error before writing Wix code — never guess a Wix API from memory. A lookup is a short flow: find the right page, then read it. Two ways: (1) plain `curl` (zero dependencies) — find a page by **semantic search** (`POST /mcp-docs-search/v1/docs/search`, natural-language `{ search_term, document_type }`) **or by browsing** the docs tree as a menu from the `llms.txt` root (append `.md` to any docs path), then read the page by appending `.md` to its URL; and (2) the Wix MCP doc tools when your agent has them. Triggers: look up a Wix API, find the Wix endpoint/method, confirm a Wix request body or field, verify a Wix API shape, explore Wix docs, which Wix API do I call, read a Wix method schema."
 ---
 
 # Wix Docs — look up the Wix API/SDK documentation
@@ -17,11 +17,13 @@ or the Wix MCP doc tools if your agent has them (Lane 2).
 The docs are one tree of markdown pages: **append `.md` to any `https://dev.wix.com/docs/…` URL**
 to get that page as markdown. No SDK, no MCP.
 
-### 1. Find the page
+### 1. Find the page — search *or* browse
 
-Fastest is a **semantic** search — describe what you want in natural language ("let a customer book
-an appointment"), not just keywords; hits come back ranked by relevance, each with a docs `url`.
-It has two variants — append `/markdown` for the second:
+Two ways to reach the right page — use whichever fits.
+
+**A. Semantic search.** Describe what you want in natural language ("let a customer book an
+appointment"), not just keywords; hits come back ranked by relevance, each with a docs `url`. Two
+variants — append `/markdown` for the second:
 
 | Variant | URL | Returns |
 |---|---|---|
@@ -33,24 +35,45 @@ Same JSON body: `search_term` (required, 1–500), `document_type` (`REST` defau
 (1–20, def 15), `lines_in_each_result` (1–200, def 20).
 
 ```bash
-# markdown — hand straight to the model; append nothing for JSON to parse result[].url
+# markdown — hand straight to the model; drop /markdown for JSON to parse result[].url
 curl -sS -X POST 'https://www.wixapis.com/mcp-docs-search/v1/docs/search/markdown' \
   -H 'Content-Type: application/json' \
   --data-raw '{"search_term":"create a booking","document_type":"REST","maximum_results":3}'
 ```
 
-Each hit's `url` is the page to read next. (Rather navigate by hand? Start at a menu page — see
-below. If the Wix MCP is present, its search is richer — Lane 2.)
+**B. Browse the tree from the root, like a menu.** Every docs path has a `.md` twin, so you can
+navigate the docs as a menu tree — no search needed. `curl https://dev.wix.com/docs/llms.txt` is the
+top-level map; the portals under it:
+
+| Portal | Start here for |
+|---|---|
+| [`api-reference.md`](https://dev.wix.com/docs/api-reference.md) | **All backend / business-solution APIs — the main one, and where SDK lives too:** each page documents **both** its REST and SDK usage (`.md?apiView=SDK` for the SDK view). |
+| [`go-headless.md`](https://dev.wix.com/docs/go-headless.md) | Headless setup, auth, hosting, framework integration. |
+| [`build-apps.md`](https://dev.wix.com/docs/build-apps.md) | Building Wix apps / extensions. |
+| [`wix-cli.md`](https://dev.wix.com/docs/wix-cli.md) · [`velo.md`](https://dev.wix.com/docs/velo.md) | Wix CLI commands; Velo site-coding APIs. |
+
+**Drill like a menu** — append `.md` to any path (a *section* → a menu of child links, a *leaf* →
+the content/method page); truncate to go up, extend to go down. **Read the sibling intro / "About …"
+/ flow articles too**, not just the method page. Example — drill to the create-booking method,
+grepping each menu for the next link:
+
+```bash
+curl -sS https://dev.wix.com/docs/api-reference/business-solutions.md            | grep -i bookings   # → .../bookings.md
+curl -sS https://dev.wix.com/docs/api-reference/business-solutions/bookings.md   | grep -iE 'bookings|flow'  # → resource/flow pages
+curl -sS https://dev.wix.com/docs/api-reference/business-solutions/bookings/bookings.md | grep -i create      # → the create method leaf
+curl -sS https://dev.wix.com/docs/api-reference/business-solutions/bookings/bookings/bookings-writer-v2/create-booking.md  # read it
+```
+
+A 2-level map of the API-reference portal (all verticals, one level down) is in
+`references/EXTRACTING.md`. If the Wix MCP is present, its search/browse tools are richer — Lane 2.
 
 ### 2. Read what you land on
 
 Appending `.md` to a URL gives one of **three kinds of page**. Know which you're looking at, and
 handle it accordingly:
 
-- **Menu page** — what a *section* path returns (truncate any URL to a parent + `.md`, e.g.
-  `…/business-solutions/bookings.md`; the root of the tree is `https://dev.wix.com/docs/llms.txt`).
-  It's a list of links to child pages and can be tens of KB — **don't read it whole; `grep` it** for
-  the child you want, then drill in:
+- **Menu page** — a *section* path (from browsing, §1B). A list of child links, often tens of KB —
+  **don't read it whole; `grep` it** for the child you want, then drill into that page:
 
   ```bash
   curl -sS 'https://dev.wix.com/docs/api-reference/business-solutions/bookings.md' | grep -i 'booking'

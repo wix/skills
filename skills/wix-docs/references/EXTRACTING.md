@@ -23,6 +23,36 @@ read it whole:
   page; `https://dev.wix.com/docs/llms-full.txt` is the full concatenated corpus (very large — grep,
   don't read).
 
+### A partial map to orient from
+
+Paths under `https://dev.wix.com/docs/` — **append `.md` to any of them** to read that page.
+**This is a pruned map, not the full tree** — `…` marks where real children were left out; the
+deep leaves are cherry-picked to show how far it goes. Re-derive from the `.md` menus / `llms.txt`
+for anything not shown.
+
+```text
+dev.wix.com/docs/                                      ← append .md to any path below
+├── api-reference/                                     all backend APIs — REST + SDK on every page
+│   ├── business-solutions/
+│   │   ├── stores/                                    products, inventory, categories
+│   │   │   └── catalog-v3/products-v3/query-products  ← a method page (leaf: schema + examples)
+│   │   ├── bookings/
+│   │   │   └── bookings/bookings-writer-v2/create-booking   ← a method page (leaf)
+│   │   ├── e-commerce/                                cart, checkout, orders, discounts
+│   │   ├── cms/                                       Wix Data — data-items, collections
+│   │   ├── blog/ · events/ · pricing-plans/ · restaurants/ · portfolio/ · gift-cards/ · coupons/ · donations/ · …
+│   ├── crm/                                           contacts, members, forms, inbox, loyalty
+│   ├── business-management/                           payments, invoices, SEO, site-properties, automations
+│   ├── app-management/                                install apps, OAuth, app-instance/installations
+│   ├── assets/                                        media, rich-content
+│   └── account-level/ · site/ · tools/ · articles/    domains/sites, site config, auth/query guides
+├── go-headless/                                       headless setup, auth, hosting, framework integration
+├── build-apps/                                        building Wix apps / extensions
+├── wix-cli/                                           CLI commands
+├── velo/ · develop-websites/                          Velo site-coding APIs + guides
+└── …                                                  (full portal list: curl llms.txt)
+```
+
 ## Method pages — slice, don't swallow
 
 A method page is often **huge** (Create Booking's `.md` is ~144 KB / 900+ lines). It carries **both**
