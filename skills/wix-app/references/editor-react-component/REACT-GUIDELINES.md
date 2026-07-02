@@ -4,12 +4,12 @@ This guide defines rules and guidance on **how to implement** production-quality
 
 **Topic reference files:**
 - [`PARTS.md`](PARTS.md) — What qualifies as a named part (mandatory filter)
+- [`DESIGN-STATES.md`](DESIGN-STATES.md) — Which design states a part supports, and how to author them
 - [`ACCESSIBILITY.md`](ACCESSIBILITY.md) — ARIA/a11y rules and patterns
 - [`DIRECTIONALITY.md`](DIRECTIONALITY.md) — RTL/LTR rules and patterns
 - [`PROPS-VS-CSS.md`](PROPS-VS-CSS.md) — What should be a React prop vs CSS
 - [`COMPONENT-API.md`](COMPONENT-API.md) — Props structure, elementProps, data types, file splitting, containers, array props
-- [`SSR.md`](SSR.md) — Server-side rendering rules (mandatory)
-- [`REACT-PATTERNS.md`](REACT-PATTERNS.md) — CSS rules, common mistakes
+- [`REACT-PATTERNS.md`](REACT-PATTERNS.md) — SSR-safe patterns, CSS rules, common mistakes
 
 ## React 18 features are not supported
 
@@ -24,8 +24,9 @@ Understand the component and infer its behavior. Extract what is provided; use r
 1. **Identity** — Component name.
 2. **Structure** — Identify named parts by applying the mandatory filter in [`PARTS.md`](PARTS.md) to every candidate element before accepting it as a part. Include content/data props (labels, items, types, required vs optional) and configuration (toggles, choices, ranges, modes).
 3. **Interactions** — Clicks, hover/focus; what is exposed as event props vs handled internally.
+4. **States** — For every part, decide which design states it supports (native: `hover`/`focus`/`disabled`/`invalid`; custom: `selected`/`active`/`open`/… ) by applying the heuristic in [`DESIGN-STATES.md`](DESIGN-STATES.md), and record them in the plan. These become the editor's per-element state styling controls.
 
-**Understanding → implementation (checklist):** For every part, decide `elementProps` vs CSS-only; build the props interface (data + behavior); wire interaction in React (`useState`, `useEffect`, refs, native event handlers); generate TS + CSS. Infer reasonable defaults where anything is unspecified.
+**Understanding → implementation (checklist):** For every part, decide `elementProps` vs CSS-only and which design states it supports ([`DESIGN-STATES.md`](DESIGN-STATES.md)); build the props interface (data + behavior); wire interaction in React (`useState`, `useEffect`, refs, native event handlers); give every named inner element an `elementProps` entry and spread it + merge its `className` ([`COMPONENT-API.md`](COMPONENT-API.md)); generate TS + CSS. Infer reasonable defaults where anything is unspecified.
 
 # Part 1: Standards & Conventions
 
@@ -42,10 +43,6 @@ Direction support is mandatory — see [`DIRECTIONALITY.md`](DIRECTIONALITY.md).
 ### Accessibility ARIA Support
 
 See [`ACCESSIBILITY.md`](ACCESSIBILITY.md) for full rules and patterns.
-
-### SSR Safety
-
-Components are server-rendered, then hydrated — they MUST render correctly, completely, and identically on the server. See [`SSR.md`](SSR.md) for full rules and patterns.
 
 ### TypeScript
 
@@ -72,11 +69,11 @@ All components MUST follow these patterns:
 
 **1. SSR-Safe Implementation**
 
-- NO browser APIs at module scope or during render (window, document, navigator, etc.) — guard inside `useEffect`
-- First render must be complete and deterministic; effects are client-only enhancement
-- Internal ids via `useStableId`; NO `useLayoutEffect`
+- NO browser APIs at module scope (window, document, navigator, etc.)
+- Guard browser APIs with typeof checks or useEffect
+- All browser-dependent logic must run client-side only
 
-See [`SSR.md`](SSR.md) for full rules and code examples.
+See [`REACT-PATTERNS.md`](REACT-PATTERNS.md) §1.1 for code examples.
 
 **2. Clean Code**
 
@@ -139,6 +136,8 @@ For each part of the component, decide:
 - ✅ Has state or behavior
 - ✅ Needs event handlers
 
+For the same part, also decide which **design states** it supports (native + custom) per [`DESIGN-STATES.md`](DESIGN-STATES.md).
+
 See [`COMPONENT-API.md`](COMPONENT-API.md) and [`PROPS-VS-CSS.md`](PROPS-VS-CSS.md) for the decision trees.
 
 ### Step 2: Build Props Interface
@@ -152,7 +151,7 @@ Combine:
 
 ### Step 3: Implement
 
-Follow Part 2 templates with mandatory patterns applied.
+Follow Part 2 templates with mandatory patterns applied. For each part's supported design states, author the interactive markup / class toggles and the state CSS per [`DESIGN-STATES.md`](DESIGN-STATES.md).
 
 # Part 2: CSS Rules
 
@@ -165,8 +164,9 @@ See [`PROPS-VS-CSS.md`](PROPS-VS-CSS.md) and [`COMPONENT-API.md`](COMPONENT-API.
 
 ## 3.1 Implementation Checklist
 
-**Phase 1: Analysis** — Parse information, map component structure (see Part 0)
+**Phase 1: Analysis** — Parse information, map component structure and supported design states (see Part 0)
 
-**Phase 2: Component File** — Apply all §1.1 mandatory features and §1.2 implementation standards; verify SSR safety against [`SSR.md`](SSR.md)
+**Phase 2: Component File** — Apply all §1.1 mandatory features and §1.2 implementation standards; toggle custom-state classes from data ([`DESIGN-STATES.md`](DESIGN-STATES.md))
 
-**Phase 3: Styles** — Apply Part 2 SCSS rules
+**Phase 3: Styles** — Apply Part 2 SCSS rules, including state styles ([`DESIGN-STATES.md`](DESIGN-STATES.md))
+

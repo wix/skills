@@ -33,31 +33,36 @@ Client-side `@wix/sdk` — CDN imports for `none`-build, bundled for `own`-build
 ## The client (acquire once)
 ```js
 import { createClient, OAuthStrategy } from "https://esm.sh/@wix/sdk@1"; // bundled for own-build
-import { wixEventsV2, ticketDefinitions, ticketReservations, rsvp } from "https://esm.sh/@wix/events@1";
+import { wixEventsV2, orders, ticketReservations, rsvp } from "https://esm.sh/@wix/events@1";
 import { redirects } from "https://esm.sh/@wix/redirects@1";
 
 const wix = createClient({
-  modules: { wixEventsV2, ticketDefinitions, ticketReservations, rsvp, redirects },
+  modules: { wixEventsV2, orders, ticketReservations, rsvp, redirects },
   auth: OAuthStrategy({ clientId: "REPLACE_WITH_APP_ID" }),
 });
 ```
 
 ## Render events
 ```js
-// Detail by slug (the reliable read; the V3 list filter is finicky — confirm
-// against live docs if you list multiple events):
+// Detail by slug — visitor read, no elevation (a SPA has no server to elevate on):
 const { event } = await wix.wixEventsV2.getEventBySlug(slug, {
   fields: ["DETAILS", "TEXTS", "REGISTRATION", "URLS"],
 });
 // event._id · event.slug · event.title · event.shortDescription ·
 // event.mainImage?.url · event.dateAndTimeSettings?.formatted?.dateAndTime ·
 // event.location?.name · event.registration?.initialType ("TICKETING"|"RSVP")
+// (To list events instead: wix.wixEventsV2.queryEvents({ fields }).in("status",
+//  ["UPCOMING","STARTED"]).ascending("dateAndTimeSettings.startDate").find() → res.items.
+//  There is no customQueryEvents export.)
 
-// Ticket tiers (ticketed):
-const { ticketDefinitions: tiers } = await wix.ticketDefinitions.queryTicketDefinitions({
-  query: { filter: { eventId: event._id } }, fields: ["SALES_DETAILS"],
+// Ticket tiers (ticketed) — the VISITOR-PUBLIC storefront read. Do NOT use
+// ticketDefinitions.queryTicketDefinitions: it's a management endpoint that 403s
+// the visitor (fatal here — there's no server to elevate on). `limit` is required.
+const { definitions: tiers } = await wix.orders.queryAvailableTickets({
+  filter: { eventId: event._id }, limit: 50,
 });
-// per tier: t._id · t.name · t.pricingMethod?.fixedPrice?.value (string) · t.salesDetails?.soldOut
+// per tier: t._id · t.name · t.description · t.price.value (string) + t.price.currency ·
+//           t.free · t.saleStatus ("SALE_ENDED" ⇒ unavailable) · t.limitPerCheckout
 ```
 Wire these into the brought-in design's existing event markup (a hero, a date/location block, a ticket list). If the design has no registration control, **add the one** the event needs (a ticket picker or an RSVP form), styled from the site's CSS tokens — additive, never a redesign.
 

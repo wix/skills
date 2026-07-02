@@ -67,10 +67,13 @@ Reserving a **paid** ticket as a visitor fails with **`403 "No payment method co
 - **Astro (managed):** components call the `@wix` modules **ambiently** — the `@wix/astro` visitor client authenticates automatically. No `createClient`, no `OAuthStrategy`, no `clientId` in app code. SSR reads (the events listing + detail) use the ambient client too; guard them in try/catch.
 - **Own / static (connect):** build one `OAuthStrategy` visitor client with `clientId = appId` and call the same modules through it. (`../custom/events/WIRING.md`.)
 
-## 6 · Listing & detail reads
+## 6 · Listing & detail reads (all visitor-public — no elevation)
 
-- **List events:** `import { wixEventsV2 } from "@wix/events"` (or the events query module) → query events filtered to upcoming/published, ordered by start date. Read `title`, `slug` (`event.slug`), `dateAndTimeSettings.formatted`, `location`, `shortDescription`, `mainImage`.
-- **One event by slug:** query with the slug filter (`.eq("slug", slug)`), then read its ticket definitions (`ticketDefinitions.queryTicketDefinitions({ filter: { eventId } })`) for the tier list + prices. Entity ids are `_id`; price is `pricingMethod.fixedPrice.value` (a string).
+The listing, the detail, and the ticket-tier read are all **public storefront reads**. Run them as the **ambient/visitor** identity — **no `auth.elevate`**. Elevation over-permissions a public page and is SSR-only (it can't run on a SPA — there's no server to elevate on), so the *same* read code works on both astro (ambient) and own/static (`OAuthStrategy` visitor client).
+
+- **List events:** `import { wixEventsV2 } from "@wix/events"` → `wixEventsV2.queryEvents({ fields: ["DETAILS","TEXTS","URLS","REGISTRATION"] }).in("status", ["UPCOMING","STARTED"]).ascending("dateAndTimeSettings.startDate").find()` (there is **no** `customQueryEvents` export — use the `queryEvents` builder). Results are on `res.items`. Read `title`, `slug`, `dateAndTimeSettings.formatted`, `location`, `shortDescription`, `mainImage`.
+- **One event by slug:** `wixEventsV2.getEventBySlug(slug, { fields: ["DETAILS","TEXTS","REGISTRATION","URLS"] })` (ambient — no elevate).
+- **Ticket tiers:** use the **visitor-public** storefront read **`orders.queryAvailableTickets({ filter: { eventId }, limit })`** (`import { orders } from "@wix/events"`; a.k.a. `checkout.queryAvailableTickets` in the headless quick-start). **Do NOT** use `ticketDefinitions(V2).queryTicketDefinitions` — those are **management** endpoints (`MANAGE-TICKET-DEF`) that **403 the visitor** and would force `auth.elevate`. `limit` is **required** (defaults to `0` = metadata only). Results on `res.definitions`; per tier read `def._id`, `def.name`, `def.description`, `def.price.value` (a **string**) + `def.price.currency`, `def.free`, `def.saleStatus` (`SALE_SCHEDULED`|`SALE_STARTED`|`SALE_ENDED`), `def.limitPerCheckout`. Entity ids are `_id`.
 - Single-event sites: the listing collapses to the one event — lead the home page straight into its detail.
 
 ## 7 · Out of scope

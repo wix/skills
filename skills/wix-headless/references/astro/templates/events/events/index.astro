@@ -3,32 +3,28 @@
 // One dir deep inside src/pages → ../../ reaches src/. Adapt copy/headings to the
 // brand; keep the SSR data wiring.
 //
-// SSR READS use the ambient @wix/astro client via @wix/essentials, wrapped in
-// auth.elevate(...) — same pattern as the bookings catalog. Do NOT build
-// createClient({ auth: OAuthStrategy({ clientId: import.meta.env.* }) }) here; that
-// env var is client-only and undefined at server render → 500. (The visitor
-// CHECKOUT, by contrast, runs in the browser island and is NOT elevated.)
+// The events listing is a PUBLIC read — call it as the ambient visitor, NO
+// auth.elevate (elevation over-permissions a public page and is SSR-only). Do NOT
+// build createClient({ auth: OAuthStrategy({ clientId: import.meta.env.* }) }) here
+// either; that env var is client-only and undefined at server render → 500.
+// (The visitor CHECKOUT runs in the browser island and is likewise not elevated.)
 import Layout from "../../layouts/Layout.astro";
 import EventCard from "../../components/EventCard.astro";
 import { wixEventsV2 } from "@wix/events";
-import { auth } from "@wix/essentials";
 
-// Query upcoming events. NOTE: the Events V3 query filter is finicky — an empty or
-// over-broad filter can return total>0 with count 0, and some status operators
-// 428. Confirm the exact filter/sort/fields against the live docs
-// (SearchWixSDKDocumentation "events query events" / api-reference events query).
-// The shape below requests the display fieldsets and sorts by start date.
+// Query upcoming + in-progress events. Use the queryEvents BUILDER (there is no
+// `customQueryEvents` export). `fields` requests the display fieldsets; `.in`
+// filters by status and `.ascending` sorts by start date. Result items are on
+// `res.items`. Wrap in try/catch and degrade to an empty state — never crash.
 let events: any[] = [];
 try {
-  const res: any = await auth.elevate(wixEventsV2.customQueryEvents)({
-    query: {
-      filter: { "status": { $hasSome: ["UPCOMING", "STARTED"] } },
-      sort: [{ fieldName: "dateAndTimeSettings.startDate", order: "ASC" }],
-      paging: { limit: 100 },
-    },
-    fields: ["DETAILS", "TEXTS", "URLS", "REGISTRATION"],
-  });
-  events = res?.events ?? res?.items ?? [];
+  const res: any = await wixEventsV2
+    .queryEvents({ fields: ["DETAILS", "TEXTS", "URLS", "REGISTRATION"] })
+    .in("status", ["UPCOMING", "STARTED"])
+    .ascending("dateAndTimeSettings.startDate")
+    .limit(100)
+    .find();
+  events = res?.items ?? [];
 } catch (err) {
   console.error("[events] listing query failed:", err);
 }
