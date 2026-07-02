@@ -15,7 +15,8 @@
     "./skills/wix-app",
     "./skills/wix-manage",
     "./skills/wix-headless",
-    "./skills/wix-vibe-headless"
+    "./skills/wix-vibe-headless",
+    "./skills/wix-docs"
   ],
   "mcpServers": "./.mcp.json"
 }
