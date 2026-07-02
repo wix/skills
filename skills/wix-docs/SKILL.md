@@ -1,6 +1,6 @@
 ---
 name: wix-docs
-description: "Look up the Wix API/SDK documentation to confirm an exact endpoint, HTTP method, request/response shape, field, enum, or error before writing Wix code — never guess a Wix API from memory. Two lookup lanes: (1) plain `curl` (zero dependencies): search the docs via `POST /mcp-docs-search/v1/docs/search` (JSON) or `/docs/search/markdown` (LLM-ready markdown), passing `{ search_term, document_type }` — then read any page in two variants, markdown (append `.md` to the URL) or JSON (the `get-article-content` endpoint, `schema=true` for a method's request/response schema); and (2) the Wix MCP doc tools when your agent has them. Triggers: look up a Wix API, find the Wix endpoint/method, confirm a Wix request body or field, verify a Wix API shape, explore Wix docs, which Wix API do I call, read a Wix method schema."
+description: "Look up the Wix API/SDK documentation to confirm an exact endpoint, HTTP method, request/response shape, field, enum, or error before writing Wix code — never guess a Wix API from memory. Two lookup lanes: (1) plain `curl` (zero dependencies): semantic search over the docs via `POST /mcp-docs-search/v1/docs/search` (JSON) or `/docs/search/markdown` (LLM-ready markdown), passing a natural-language `{ search_term, document_type }` — then read any page in two variants, markdown (append `.md` to the URL) or JSON (the `get-article-content` endpoint, `schema=true` for a method's request/response schema); and (2) the Wix MCP doc tools when your agent has them. Triggers: look up a Wix API, find the Wix endpoint/method, confirm a Wix request body or field, verify a Wix API shape, explore Wix docs, which Wix API do I call, read a Wix method schema."
 ---
 
 # Wix Docs — look up the Wix API/SDK documentation
@@ -18,8 +18,10 @@ Plain `curl` — no SDK, no MCP. The right lane for client-only / dependency-fre
 
 ### Step 1 — Search the docs (curl-only)
 
-**`POST https://www.wixapis.com/mcp-docs-search/v1/docs/search`** has **two variants** returning
-the same hits in different formats; append `/markdown` for the markdown one:
+**`POST https://www.wixapis.com/mcp-docs-search/v1/docs/search`** is a **semantic** search —
+describe what you want in natural language (e.g. "let a customer book an appointment"), not just
+keywords; hits come back ranked by relevance. It has **two variants** returning the same hits in
+different formats; append `/markdown` for the markdown one:
 
 | Variant | URL | Returns |
 |---|---|---|
