@@ -1,14 +1,13 @@
 name: bookings/diagnose-availability-issues
 description: >-
   Verifies the agent reads the diagnose-availability-issues recipe when a site
-  owner asks why an appointment service has no bookable times, and replies with a
-  plain-language cause and fix (not raw API/reason-code details).
+  owner asks why an appointment service has no bookable times, and explains the
+  likely causes and plain-language fixes.
 triggerPrompt: >-
-  Customers keep telling me they can't book one of my Wix Bookings appointment
-  services — there are no available times showing. Can you figure out why and
-  tell me how to fix it?
+  One of my Wix Bookings appointment services isn't showing any available times
+  for customers to book. Walk me through the possible reasons a service ends up
+  with no availability and how I'd fix each one.
 tags: [bookings]
-maxTokens: 30000
 assertions:
   - tool: ReadFullDocsArticle
     params:
@@ -17,23 +16,21 @@ assertions:
     minScore: 7
     maxTokens: 2048
     prompt: |
-      The user is a Wix site owner asking, in a conversation, why one of their appointment
-      services shows no available times and how to fix it.
-      Intent: diagnose the likely cause of empty availability and give an actionable fix,
-      in plain language suitable for a business owner.
+      The user is a Wix site owner asking why an appointment service shows no available
+      times and how to fix it, in plain language.
+      Intent: explain the likely causes of empty availability and the fix for each.
 
       Pass if the response:
-      - identifies one or more concrete, service-setup causes of empty availability — such as
-        no staff/resources assigned, staff have no working hours, staff don't work at the
-        service's location(s), no availability in the date range, or duration/buffer too large
-        for the schedule, AND
-      - gives an actionable next step to fix the identified cause (e.g. assign staff, set or
-        extend working hours, align staff/service locations, adjust the dates or duration), AND
+      - names several concrete, service-setup causes of empty availability — e.g. no staff/resources
+        assigned, the provider isn't assigned to the service, staff have no working hours, staff don't
+        work at the service's location(s), no availability in the date range, or the duration/buffer is
+        too large for the schedule, AND
+      - gives an actionable fix for the causes it names (assign staff, set/extend working hours, align
+        staff and service locations, adjust dates or duration, fix the offered locations), AND
       - is written in plain language for an owner.
 
       Fail if the response:
-      - is generic troubleshooting with no specific availability cause or fix, OR
-      - dumps implementation internals at the user — raw reason codes, suggestedAction enum
-        values, JSON, field paths, or instructions for the user to call an API/endpoint
-        themselves, OR
+      - is generic troubleshooting with no specific availability causes or fixes, OR
+      - dumps implementation internals at the user — raw reason codes, suggestedAction enum values,
+        JSON, field paths, or instructions for the user to call an API/endpoint themselves, OR
       - invents causes or fixes unrelated to Wix Bookings availability.
