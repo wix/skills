@@ -13,6 +13,44 @@ description: Creates and publishes blog posts using Blog Posts API. Covers Ricos
 
 This article demonstrates how to create and immediately publish blog posts using Wix Blog REST API, including handling external images, rich content formatting, and proper media management workflow.
 
+> **Rich content (Ricos) node shapes live in a shared recipe.** A blog post's `richContent` is a Ricos document. For the full node-shape reference — headings, lists, blockquotes, dividers, tables (with cell fills), code blocks, images, inline text decorations, and the nesting rules — see **[Author Ricos Rich Content](../rich-content/author-ricos-rich-content.md)**. This recipe covers the blog-specific flow (author/member id, image import, endpoints, publish); consult the Ricos recipe for *how to build the body*.
+
+## The Authoring Loop — plan → compose → audit (before you POST)
+
+Always in this order. **Never jump straight to emitting Ricos nodes.** A flat wall of identical paragraphs is what happens when you skip planning. A blog post **inherits the site's theme, fonts, and colors — you do not design the page.** Your craft is **editorial: the structure, the depth, and the right rich-content device for each idea.** Parts 0–3 below are the mechanical steps (auth, media, endpoints); this loop governs the *quality* of what goes into `richContent`.
+
+### Phase 1 — Plan the post before any nodes
+
+Decide, in your own words, *before* composing:
+
+1. **The one takeaway.** What should the reader leave with? State it in a single sentence; every section serves it.
+2. **Audience & angle.** Who is this for, and what is the specific angle — how-to, announcement, opinion, deep-dive, listicle? This sets the tone and the depth.
+3. **Outline the sections.** List the H2 sections in order as a real arc — hook → body sections → takeaway/CTA — not a generic dump. If the user asked for a post "covering X, Y, and Z," the outline must contain a real section for **each**; never ship one section and a bullet mentioning the rest.
+4. **One device per section — and vary them.** For each section, name the rich-content device that best carries it: intro `PARAGRAPH`, `BULLETED_LIST`/`ORDERED_LIST` for steps or criteria, a `TABLE` for comparisons, a `BLOCKQUOTE` for a key quote, an `IMAGE` + caption to break up long stretches, a `CODE_BLOCK` for snippets. **A post where every section is just heading + one paragraph is the generic failure.**
+5. **Title & imagery.** Choose a specific, non-generic title (this becomes the post's `title` field). Decide whether a cover image and/or in-body images earn their place.
+
+Write this outline down (section → device) and commit to it before building.
+
+### Phase 2 — Compose with real substance
+
+**Rich-content devices are not a substitute for content.** The recurring failure is beautiful structure wrapped around one-line paragraphs.
+
+- Body paragraphs are **2–4 full sentences (~40–80 words)**. A section is a heading + intro + one or two real paragraphs (or a paragraph + a list) — never a single sentence as the entire section body. One-liners are fine only for captions, labels, or list items.
+- Rough content budgets — match what the user asked for: short post ≈ **300–500 words**; standard how-to / listicle ≈ **600–1000 words** across 4+ H2 sections; deep-dive ≈ **1200+ words**.
+- **Use 2–3 different devices across the post**, not the same heading+paragraph block repeated. If you catch yourself emitting an identical "heading + one paragraph" for every section, stop and apply the devices you committed to in Phase 1.
+- Build the body's node tree per **[Author Ricos Rich Content](../rich-content/author-ricos-rich-content.md)**; the shape examples there use one-line placeholder text — copy their **structure**, never their content density.
+
+### Phase 3 — Self-audit before you POST
+
+Quick checks, all decidable from the JSON (the Ricos recipe's self-audit covers node validity; these are the blog-level ones):
+
+1. **Heading hierarchy** — the post title lives in the `draftPost.title` field, **not** as a body H1; in-body section headers start at `level: 2` and nest logically.
+2. **Images** use an **imported Wix Media `id`** (Part 1), never a raw external URL; `width`, `height`, and a meaningful `altText` are set.
+3. **Content depth** — no stub sections; every section the brief named is present at the Phase-2 depth.
+4. **Ricos validity** — run the node self-audit from the [Author Ricos Rich Content](../rich-content/author-ricos-rich-content.md) recipe (bare-string `type`, TEXT wrapped in PARAGRAPH/HEADING, complete list/table nesting, no `\n` inside `textData.text`).
+
+Then execute Parts 0–3 below to create and publish.
+
 ### Part 0: Get an Author/Member ID (Required for 3rd-Party Apps)
 
 **IMPORTANT**: When calling the Blog API as a 3rd-party app (not as the site owner), `draftPost.memberId` is **required**. The API will reject requests with "Missing post owner information" if omitted.

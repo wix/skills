@@ -1,0 +1,26 @@
+name: blog/blog-post-rich-content
+description: Verifies the agent handles the blog-specific create-and-publish flow — 3rd-party memberId, importing an external cover image to Media Manager before use, the bulk draft-posts envelope, and publish — when creating Wix blog posts. Ricos node-shape correctness is covered by the rich-content evals.
+triggerPrompt: I'm building a 3rd-party app. Using the Wix REST API, how do I create and immediately publish two blog posts on a site, where each post has a cover image supplied as an external image URL? Give the exact endpoints and request bodies.
+tags: [blog]
+maxTokens: 300000
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/blog/skills/how-to-create-blog-posts
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user is a 3rd-party app asking how to create and publish TWO Wix blog posts via REST, each with a cover image given as an external URL. Judge whether the response gets the blog-specific flow right (NOT whether the Ricos body is elaborate — that is out of scope here).
+
+      Pass if the response:
+      - states that `memberId` (post owner) is REQUIRED for a 3rd-party app and shows how to obtain one (e.g. List Members), AND
+      - imports each external image to the Media Manager first (Import File / `POST /site-media/v1/files/import`) and uses the returned media id in the post — never a raw external URL, AND
+      - uses the BULK create endpoint `POST /blog/v3/bulk/draft-posts/create` with the FLAT shape (each item in `draftPosts` is the post object directly, NOT wrapped in a `draftPost` field), AND
+      - sets `publish: true` to publish immediately.
+
+      Fail if the response:
+      - omits the `memberId` requirement for 3rd-party apps, OR
+      - puts the external image URL straight into the post without importing it to Media Manager first, OR
+      - uses a wrong bulk path (e.g. `/blog/v3/draft-posts/bulk`) or wraps each bulk item in a `draftPost` field, OR
+      - does not publish the posts.
