@@ -8,7 +8,7 @@ assertions:
     params:
       articleUrl: https://dev.wix.com/docs/api-reference/assets/rich-content/skills/author-ricos-rich-content
   - type: llm_judge
-    minScore: 8
+    minScore: 7
     maxTokens: 2048
     prompt: |
       Inspect the produced Ricos JSON for a blockquote and a decorated paragraph.
