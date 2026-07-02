@@ -11,8 +11,8 @@ spec directly. This is the no-MCP equivalent of the MCP `SearchWixAPISpec` +
 > Response envelope: `{ "result": <your return value> }` (or `{ "error": "<message>" }`).
 
 > Internal/undocumented and pre-GA — treat it as best-effort; the contract could change. For
-> reading a single known page, the `.md` twin / `get-article-content`
-> in `SKILL.md` are simpler — reach here when you specifically need the **structured spec**.
+> reading a single known page, the `.md` twin in `SKILL.md` is simpler — reach here when you
+> specifically need the **structured spec**.
 
 ## Sandbox globals
 
@@ -78,7 +78,7 @@ curl -sS -X POST 'https://mcp.wix.com/api/code-mode/search' \
 
 ## When to use this vs. the other lanes
 
-- **Reading / examples / a quick field** → `SKILL.md` Lane 1 (`.md` twin, `get-article-content`, doc-search).
+- **Reading / examples / a quick field** → `SKILL.md` Lane 1 (semantic doc-search, `.md` twin).
 - **Exact structured schema, enums, error codes — and no MCP** → this endpoint.
 - **You have the Wix MCP** → prefer `SearchWixAPISpec` → `getResourceSchemaByUrl` (same data, native tool).
 

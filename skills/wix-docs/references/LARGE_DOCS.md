@@ -12,8 +12,7 @@ to cut it down. All dependency-free (`curl` + `awk`/`grep`), no MCP.
 - **Menu page:** truncate any docs URL to a parent path and append `.md` — it renders as a list of
   child links. E.g. `curl https://dev.wix.com/docs/api-reference/business-solutions/bookings.md`
   lists the Bookings resources; `https://dev.wix.com/docs/sdk.md` lists the SDK portal.
-- Reminder: the `.md` twin is for **`curl`**. `get-article-content` and the MCP tools take the URL
-  **without** `.md`.
+- Reminder: append `.md` only when `curl`-ing a page. The MCP tools take the URL **without** `.md`.
 
 ## Big pages: slice, don't swallow
 

@@ -1,6 +1,6 @@
 ---
 name: wix-docs
-description: "Look up the Wix API/SDK documentation to confirm an exact endpoint, HTTP method, request/response shape, field, enum, or error before writing Wix code — never guess a Wix API from memory. Two lookup lanes: (1) plain `curl` (zero dependencies): semantic search over the docs via `POST /mcp-docs-search/v1/docs/search` (JSON) or `/docs/search/markdown` (LLM-ready markdown), passing a natural-language `{ search_term, document_type }` — then read any page in two variants, markdown (append `.md` to the URL) or JSON (the `get-article-content` endpoint, `schema=true` for a method's request/response schema); and (2) the Wix MCP doc tools when your agent has them. Triggers: look up a Wix API, find the Wix endpoint/method, confirm a Wix request body or field, verify a Wix API shape, explore Wix docs, which Wix API do I call, read a Wix method schema."
+description: "Look up the Wix API/SDK documentation to confirm an exact endpoint, HTTP method, request/response shape, field, enum, or error before writing Wix code — never guess a Wix API from memory. Two lookup lanes: (1) plain `curl` (zero dependencies): semantic search over the docs via `POST /mcp-docs-search/v1/docs/search` (JSON) or `/docs/search/markdown` (LLM-ready markdown), passing a natural-language `{ search_term, document_type }` — then read any page as markdown by appending `.md` to its URL; and (2) the Wix MCP doc tools when your agent has them. Triggers: look up a Wix API, find the Wix endpoint/method, confirm a Wix request body or field, verify a Wix API shape, explore Wix docs, which Wix API do I call, read a Wix method schema."
 ---
 
 # Wix Docs — look up the Wix API/SDK documentation
@@ -56,33 +56,16 @@ curl -sS -X POST 'https://www.wixapis.com/mcp-docs-search/v1/docs/search/markdow
 > `references/LARGE_DOCS.md`. If the Wix MCP is available, its search tools (Lane 2) return richer
 > whole-resource schemas — prefer them when present.
 
-### Step 2 — Read the page: two variants
+### Step 2 — Read a page
 
-Same content, two formats. Pick by what you're doing:
-
-**A. Markdown — append `.md` to the page URL** (the documented surface; best for reading prose
-+ code examples, and it also renders menu pages):
+**Append `.md` to any docs URL** for its raw markdown — the full article with REST + SDK examples:
 
 ```bash
 curl -sS 'https://dev.wix.com/docs/api-reference/business-solutions/bookings/bookings/bookings-writer-v2/create-booking.md'
-# → Content-Type: text/markdown — raw article + SDK/REST examples
 ```
 
-**B. JSON — `get-article-content`** (parseable envelope `{ ok, articleContent, resourceId }`;
-add `schema=true` for the method's **request/response schema**, `schema=false` for prose):
-
-```bash
-# Method request/response schema, as JSON
-curl -sS --get 'https://dev.wix.com/rawdocs/api/get-article-content' \
-  --data-urlencode 'articleUrl=https://dev.wix.com/docs/api-reference/business-solutions/bookings/bookings/bookings-writer-v2/create-booking' \
-  --data-urlencode 'schema=true'
-# → {"ok":true,"articleContent":"... Method: createBooking ...","resourceId":"..."}
-```
-
-- Use **A (`.md`)** to skim/read and for **menu** pages. Use **B (JSON)** when you want to parse
-  the result programmatically or specifically need the method **schema** (`schema=true`).
-- **B works only on real article/method URLs** — it returns `{"ok":false}` (HTTP 404) for a menu
-  URL, so use **A** to browse menus and **B** to pull a concrete method's schema.
+Method pages are large (create-booking's is ~144 KB) — don't read one whole; see **Going deeper**
+below for slicing them and for pulling a method's exact structured schema.
 
 ### Going deeper (references)
 
@@ -118,10 +101,8 @@ If the Wix MCP is connected, these beat blind curling for **discovery** and for 
 
 ## The one rule about the `.md` suffix
 
-**Only the markdown-twin read (variant A) uses `.md`.** `get-article-content` (variant B) and
-every MCP tool take the plain docs URL **without** `.md`. So: append `.md` only when you're
-`curl`-ing the page directly for markdown; strip it everywhere else. Never feed a `.md` URL to
-an MCP tool or to `get-article-content`.
+**Append `.md` only when `curl`-ing a page directly** (Step 2). The MCP tools take the plain docs
+URL **without** `.md` — never feed a `.md` URL to an MCP tool.
 
 ## Before you write the code
 
