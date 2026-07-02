@@ -68,7 +68,7 @@ curl -sS -X POST 'https://www.wixapis.com/mcp-docs-search/v1/docs/search/markdow
 > `references/LARGE_DOCS.md`. If the Wix MCP is available, its search tools (Lane 2) return richer
 > whole-resource schemas — prefer them when present.
 
-### Step 2 — Read the page: two variants (both verified)
+### Step 2 — Read the page: two variants
 
 Same content, two formats. Pick by what you're doing:
 

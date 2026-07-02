@@ -47,7 +47,7 @@ curl -sS -X POST 'https://mcp.wix.com/api/code-mode/search' \
 The `code` value is a JS `async function() { … }` **serialized as a JSON string** (escape quotes).
 Keep the returned payload small.
 
-## Worked examples (all verified, unauthenticated)
+## Worked examples
 
 **1. Find a method by keyword → its `operationId`, `publicUrl`, `resourceId`:**
 
