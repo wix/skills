@@ -42,6 +42,7 @@ Always follow **List → Get → Query**. You cannot construct a valid query wit
 - **Result cap: 1,000 rows per query.** `results` is capped at 1,000 rows — paginate with `paging.offset` for larger datasets.
 - **Formatting is opt-in.** Set `formattingEnabled: true` to also receive a human-readable `formattedValue` per cell (e.g. `1500` → `"$1,500.00"` or `1.5K`). Raw typed values are always returned.
 - **Totals are opt-in.** Set `totalsIncluded: true` to get a `totals` row summing numeric fields across the **full (unpaginated)** result set.
+- **Unique fields are not additive.** For `unique` measures (e.g. unique visitors), query the exact time range you want in a **single request** — never sum values from separate date-range queries. Uniques are deduplicated within each queried range, so adding per-range results double-counts anyone who appears in more than one range and overstates the true total.
 
 ## Step 1: List semantic models
 
