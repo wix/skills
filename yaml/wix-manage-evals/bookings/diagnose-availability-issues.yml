@@ -1,12 +1,12 @@
 name: bookings/diagnose-availability-issues
 description: >-
-  Verifies the agent reads the diagnose-availability-issues recipe when asked why
-  an appointment service has no bookable time slots, and explains the
-  DiagnoseAvailability endpoint plus how to interpret its reasons.
+  Verifies the agent reads the diagnose-availability-issues recipe when a site
+  owner asks why an appointment service has no bookable times, and replies with a
+  plain-language cause and fix (not raw API/reason-code details).
 triggerPrompt: >-
-  Customers say they can't book one of my Wix Bookings appointment services —
-  the calendar shows no available time slots. How do I programmatically figure
-  out why there's no availability? Reference the relevant Wix API.
+  Customers keep telling me they can't book one of my Wix Bookings appointment
+  services — there are no available times showing. Can you figure out why and
+  tell me how to fix it?
 tags: [bookings]
 maxTokens: 30000
 assertions:
@@ -17,21 +17,23 @@ assertions:
     minScore: 7
     maxTokens: 2048
     prompt: |
-      The user's request: "Customers say they can't book one of my Wix Bookings appointment
-      services — no available time slots. How do I programmatically figure out why?"
-      Intent: diagnose why an appointment service has no bookable availability using the Wix API.
+      The user is a Wix site owner asking, in a conversation, why one of their appointment
+      services shows no available times and how to fix it.
+      Intent: diagnose the likely cause of empty availability and give an actionable fix,
+      in plain language suitable for a business owner.
 
       Pass if the response:
-      - tells the user to call the DiagnoseAvailability endpoint (POST to the service-availability
-        time-slots diagnose path) with a serviceId (and optionally a resourceId), AND
-      - explains that the endpoint returns machine-readable reason codes, each with a suggested
-        owner action (e.g. assign staff/resources, check staff working hours, check work
-        locations, reduce duration/buffer), AND
-      - describes a fallback for when the endpoint returns no reasons — using ListAvailabilityTimeSlots
-        to inspect booking-policy / capacity reasons the diagnose endpoint does not evaluate.
+      - identifies one or more concrete, service-setup causes of empty availability — such as
+        no staff/resources assigned, staff have no working hours, staff don't work at the
+        service's location(s), no availability in the date range, or duration/buffer too large
+        for the schedule, AND
+      - gives an actionable next step to fix the identified cause (e.g. assign staff, set or
+        extend working hours, align staff/service locations, adjust the dates or duration), AND
+      - is written in plain language for an owner.
 
       Fail if the response:
-      - is generic troubleshooting with no specific Wix endpoint or method names, OR
-      - hallucinates endpoints or fields not in the recipe, OR
-      - claims the diagnose endpoint evaluates booking policy or remaining capacity, OR
-      - tells the user the endpoint's `deep` mode is available/usable (it is not supported yet).
+      - is generic troubleshooting with no specific availability cause or fix, OR
+      - dumps implementation internals at the user — raw reason codes, suggestedAction enum
+        values, JSON, field paths, or instructions for the user to call an API/endpoint
+        themselves, OR
+      - invents causes or fixes unrelated to Wix Bookings availability.
