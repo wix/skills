@@ -46,6 +46,11 @@ dev.wix.com/docs/                                      ← append .md to any pat
 │   ├── app-management/                                install apps, OAuth, app-instance/installations
 │   ├── assets/                                        media, rich-content
 │   └── account-level/ · site/ · tools/ · articles/    domains/sites, site config, auth/query guides
+├── sdk/                                               SDK-only surfaces (not in api-reference)
+│   ├── articles/set-up-a-client                       createClient + OAuthStrategy setup
+│   ├── core-modules/                                  @wix/sdk (createClient, OAuthStrategy), essentials, realtime
+│   ├── host-modules/                                  dashboard · editor · site (build on Wix surfaces)
+│   └── frontend-modules/                              members · pay · seo · storage · pricing-plans · …
 ├── go-headless/                                       headless setup, auth, hosting, framework integration
 ├── build-apps/                                        building Wix apps / extensions
 ├── wix-cli/                                           CLI commands
