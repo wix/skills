@@ -1,28 +1,16 @@
 ---
 name: wix-docs
-description: "Best-practices reference for looking up the Wix API/SDK documentation when you need to confirm an exact endpoint, HTTP method, request/response shape, field, enum, or error before writing Wix code — never guess a Wix API from memory. Two lookup lanes: (1) unauthenticated `curl` (zero dependencies, no token — the default): search the docs via `POST /mcp-docs-search/v1/docs/search` (JSON) or `/docs/search/markdown` (LLM-ready markdown), passing `{ search_term, document_type }` — then read any page in two variants, markdown (append `.md` to the URL) or JSON (the `get-article-content` endpoint, `schema=true` for a method's request/response schema); and (2) the Wix MCP doc tools when your agent has them. This skill is a shared FALLBACK referenced by other Wix skills (wix-vibe-headless, wix-headless, wix-manage, …): those skills' bundled templates, recipes, and helpers are the primary implementation path — reach for docs lookup only to fill a gap they don't cover, or when iterating on an error. Triggers: look up a Wix API, find the Wix endpoint/method, confirm a Wix request body or field, verify a Wix API shape, explore Wix docs, which Wix API do I call, read a Wix method schema."
+description: "Look up the Wix API/SDK documentation to confirm an exact endpoint, HTTP method, request/response shape, field, enum, or error before writing Wix code — never guess a Wix API from memory. Two lookup lanes: (1) unauthenticated `curl` (zero dependencies, no token): search the docs via `POST /mcp-docs-search/v1/docs/search` (JSON) or `/docs/search/markdown` (LLM-ready markdown), passing `{ search_term, document_type }` — then read any page in two variants, markdown (append `.md` to the URL) or JSON (the `get-article-content` endpoint, `schema=true` for a method's request/response schema); and (2) the Wix MCP doc tools when your agent has them. Triggers: look up a Wix API, find the Wix endpoint/method, confirm a Wix request body or field, verify a Wix API shape, explore Wix docs, which Wix API do I call, read a Wix method schema."
 ---
 
-# Wix Docs — how to look things up (a fallback, not a first step)
+# Wix Docs — look up the Wix API/SDK documentation
 
-Use this when you need the **exact** truth about a Wix API — endpoint, HTTP method,
-request/response body, a field, an enum value, or an error — and the code you already
-have doesn't cover it. **Never invent a Wix endpoint, path, body, or enum from memory.**
+Use this to get the **exact** truth about a Wix API — endpoint, HTTP method, request/response
+body, a field, an enum value, or an error. **Never invent a Wix endpoint, path, body, or enum
+from memory** — confirm it here first.
 
-## Read this discipline first
-
-**Docs lookup is a fallback for iteration — not the starting point.**
-
-If you arrived here from another Wix skill (`wix-vibe-headless`, `wix-headless`,
-`wix-manage`, …), that skill's **bundled templates, recipes, and helper snippets are the
-implementation**. Build from them first. Come here only when:
-
-- a shipped snippet/recipe doesn't cover the use case (a field, an endpoint, a flow), or
-- a call errored and you need to confirm the correct shape to fix it, or
-- you're extending the client with a new call the skill didn't ship.
-
-A pinned/linked doc page is already curated — **read it directly; don't re-discover it with
-search.** Search and menu-walking are for *finding* a page nothing pinned for you.
+If you already have a specific page URL, **read it directly** (Step 2); search and menu-walking
+are for *finding* a page you don't have yet.
 
 ## Lane 1 — `curl` the public doc endpoints (default: zero-dependency, no auth)
 
