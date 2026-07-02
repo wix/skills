@@ -1,0 +1,24 @@
+name: blog/blog-post-rich-content-baseline
+description: Baseline run of the blog rich-content scenario against the UNMODIFIED How to Create Blog Posts skill. Added on its own (no doc change) to show how the current skill performs before the rich-content guidance improvements in the companion PR.
+triggerPrompt: How do I create and publish a blog post on my Wix site via the REST API? I want a formatted body with a section heading, a bulleted list, a comparison table, and a bolded link in one of the paragraphs.
+tags: [blog]
+maxTokens: 160000
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/blog/skills/how-to-create-blog-posts
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked how to create and publish a Wix blog post via REST with a formatted body containing a section heading, a bulleted list, a comparison table, and a bolded link inside a paragraph.
+
+      Pass if the response:
+      - points at the Wix Blog Draft Posts API (Create Draft Post `POST /blog/v3/draft-posts` or the bulk create endpoint) and sets `publish: true`, AND
+      - represents the body as Ricos `richContent` with correctly nested nodes: a HEADING node carrying its level, a BULLETED_LIST nested as LIST_ITEM → PARAGRAPH → TEXT, a TABLE nested as TABLE_ROW → TABLE_CELL → PARAGRAPH → TEXT, and a TEXT node using a `decorations` array (e.g. BOLD plus LINK) for the bolded link, AND
+      - keeps every TEXT node wrapped in a PARAGRAPH or HEADING (never placed directly in a list item, table cell, blockquote, or the root nodes array).
+
+      Fail if the response:
+      - places TEXT nodes directly inside LIST_ITEM, TABLE_CELL, or the root `nodes` array, OR
+      - invents node shapes not in the recipe (e.g. a `type` object, or a DOC/pageDesign/theme wrapper that does not belong to a blog post), OR
+      - omits the rich-content structure entirely and only returns prose or a flat string body.
