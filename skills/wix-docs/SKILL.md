@@ -141,10 +141,13 @@ curl -sS "$URL.md" | grep -nE 'name: (selectedPaymentOption|totalParticipants)'
 # to resolve a referenced type's enum values, grep the Type name, e.g.:  grep -nE 'SelectedPaymentOption'
 ```
 
-**5. For deep/nested schemas, skip markdown entirely.** The JSON read (`get-article-content …
-schema=true`, Step 2B) returns just the method schema; and if the Wix MCP is present,
-`SearchWixAPISpec → getResourceSchemaByUrl` returns the **whole resource** (every method + shared
-types) in one compact structured payload — far easier than slicing 60 KB of prose.
+**5. For deep/nested schemas, don't slice markdown — query the structured spec.** The JSON read
+(`get-article-content … schema=true`, Step 2B) returns just the method schema. Better, for exact
+request/response shapes, field types, enums, and error codes: **`POST https://mcp.wix.com/api/code-mode/search`**
+— an unauthenticated endpoint that runs a JS query over the API spec (`lightIndex` +
+`getResourceSchema`), the no-MCP equivalent of `SearchWixAPISpec`. It's powerful but its usage is
+involved, so it lives in a reference: **`references/API_SPEC_SEARCH.md`**. (If the Wix MCP *is*
+present, use its `SearchWixAPISpec → getResourceSchemaByUrl` instead — Lane 2.)
 
 **6. Cap the search response** — on `…/docs/search/markdown`, pass `maximum_results` (1–20) and
 `lines_in_each_result` (1–200) so each hit is truncated with a "Read more here: `<url>`" hint
