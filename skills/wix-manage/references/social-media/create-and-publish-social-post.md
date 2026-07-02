@@ -109,7 +109,17 @@ Produces ready-to-use, per-channel payloads that drop straight into STEP 5. This
 **API Endpoint:** `POST https://www.wixapis.com/social-publisher/v1/generate-post-data`
 
 - `userInput` — free-text idea to base the post on.
-- `siteAssets` — the site's own content to ground the post in, as `{ "id": "<asset-guid>", "type": "<asset-type>" }`. **Exactly one asset per call** (multiple assets aren't supported yet). Supported `type` values: `STORES_PRODUCT`, `STORES_CATEGORY`, `STORES_COUPON`, `BLOG_POST`, `EVENT`, `BOOKINGS_SERVICE`. Resolve the `id` via the owning app's query API before calling this (e.g. Stores Query Products for `STORES_PRODUCT`, Blog for `BLOG_POST`, Events for `EVENT`) — this recipe doesn't look assets up for you.
+- `siteAssets` — the site's own content to ground the post in, as `{ "id": "<asset-guid>", "type": "<asset-type>" }`. **Exactly one asset per call** (multiple assets aren't supported yet). This recipe doesn't look assets up for you — resolve the `id` from the owning app's query API first, then pick the asset the user meant. The linked method docs are authoritative: read them for the exact request/response, or if an inline call stops working.
+
+  | `type` | Owning app | Endpoint | Docs |
+  | --- | --- | --- | --- |
+  | `STORES_PRODUCT` | Wix Stores | `POST https://www.wixapis.com/stores/v3/products/query` (body `{ "query": {} }`) | [Query Products](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/query-products) |
+  | `STORES_CATEGORY` | Wix Stores | `POST https://www.wixapis.com/categories/v1/categories/query` — **requires** `treeReference`, e.g. `{ "treeReference": { "appNamespace": "@wix/stores" } }` | [Query Categories](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/categories/query-categories) |
+  | `STORES_COUPON` | Wix Stores | `POST https://www.wixapis.com/stores/v2/coupons/query` (body `{ "query": {} }`) | [Query Coupons](https://dev.wix.com/docs/api-reference/business-solutions/coupons/coupons/query-coupons) |
+  | `BLOG_POST` | Wix Blog | `POST https://www.wixapis.com/blog/v3/posts/query` (body `{ "paging": { "limit": 10 } }`) | [Query Posts](https://dev.wix.com/docs/api-reference/business-solutions/blog/posts-stats/query-posts) |
+  | `EVENT` | Wix Events | `POST https://www.wixapis.com/events/v3/events/query` (body `{ "query": { "paging": { "limit": 10 } } }` — `paging.limit` must be > 0) | [Query Events](https://dev.wix.com/docs/api-reference/business-solutions/events/event-management/events-v3/query-events) |
+  | `BOOKINGS_SERVICE` | Wix Bookings | `POST https://www.wixapis.com/bookings/v2/services/query` (body `{ "query": {} }`) | [Query Services](https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/query-services) |
+
 - `media` — candidate images to include, as `{ "type": "IMAGE", "url": "<public-url>" }` (images only).
 - `channels` — which channels to generate for. Omit to get one result for each of `INSTAGRAM`, `FACEBOOK`, `LINKEDIN`, `PINTEREST`, `GBP`, and `TIKTOK`.
 
