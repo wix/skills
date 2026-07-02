@@ -64,11 +64,19 @@ handle it accordingly:
   ```
 
 - **Method page** — one API method, and the heavy one: it carries **both** a REST and a JavaScript
-  SDK section, the full request/response schema, and code examples — often 100 KB+. The **examples**
-  are usually all you need; **don't swallow the whole page.** To pull just the example/section/field,
-  see `references/READING_PAGES.md`. For the exact structured schema and enum values, see
-  `references/API_SPEC_SEARCH.md` (a `curl` query over the API spec — the no-MCP equivalent of the
-  MCP `SearchWixAPISpec`).
+  SDK section, the full request/response schema, and code examples — often 100 KB+. **Don't swallow
+  the whole page** — map it, then pull the part you need (the examples are usually enough to model a
+  call):
+
+  ```bash
+  curl -sS "$URL.md" | grep -nE '^#{1,3} '                                              # 1. map the outline
+  curl -sS "$URL.md" | awk '/^## REST API/{r=1} r&&/^### Examples/{f=1} /^## JavaScript SDK/{f=0} f'  # 2. just the REST examples
+  curl -sS "$URL.md" | grep -nE 'name: (selectedPaymentOption|totalParticipants)'       # 3. grep specific schema fields
+  ```
+
+  More recipes (split REST vs SDK, resolve an enum) → `references/EXTRACTING.md`. For the exact
+  **structured** schema and enum values, see `references/API_SPEC_SEARCH.md` (a `curl` query over the
+  API spec — the no-MCP equivalent of the MCP `SearchWixAPISpec`).
 
 ## Lane 2 — Wix MCP doc tools (only if your agent has them)
 

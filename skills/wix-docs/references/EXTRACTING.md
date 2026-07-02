@@ -1,9 +1,9 @@
-# Reading Wix doc pages efficiently
+# Extracting what you need from big doc pages
 
 `SKILL.md`'s flow — find a page, then read it — covers the common case. This is the detail for the
 **two heavy pages** you hit along the way: big **menu** pages (when you navigate by hand) and big
-**method** pages (the actual API reference). The goal both times: pull only what you need, never
-swallow the whole page. All `curl` + `awk`/`grep`, no dependencies.
+**method** pages (the actual API reference). The goal both times: pull only the part you need with
+`curl` + `grep`/`awk`, never swallow the whole page. No dependencies.
 
 ## Menu pages — find the child link fast
 
