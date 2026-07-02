@@ -1,0 +1,37 @@
+name: bookings/diagnose-availability-issues
+description: >-
+  Verifies the agent reads the diagnose-availability-issues recipe when asked why
+  an appointment service has no bookable time slots, and explains the
+  DiagnoseAvailability endpoint plus how to interpret its reasons.
+triggerPrompt: >-
+  Customers say they can't book one of my Wix Bookings appointment services —
+  the calendar shows no available time slots. How do I programmatically figure
+  out why there's no availability? Reference the relevant Wix API.
+tags: [bookings]
+maxTokens: 30000
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/bookings/skills/diagnose-bookings-availability-issues
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user's request: "Customers say they can't book one of my Wix Bookings appointment
+      services — no available time slots. How do I programmatically figure out why?"
+      Intent: diagnose why an appointment service has no bookable availability using the Wix API.
+
+      Pass if the response:
+      - tells the user to call the DiagnoseAvailability endpoint (POST to the service-availability
+        time-slots diagnose path) with a serviceId (and optionally a resourceId), AND
+      - explains that the endpoint returns machine-readable reason codes, each with a suggested
+        owner action (e.g. assign staff/resources, check staff working hours, check work
+        locations, reduce duration/buffer), AND
+      - describes a fallback for when the endpoint returns no reasons — using ListAvailabilityTimeSlots
+        to inspect booking-policy / capacity reasons the diagnose endpoint does not evaluate.
+
+      Fail if the response:
+      - is generic troubleshooting with no specific Wix endpoint or method names, OR
+      - hallucinates endpoints or fields not in the recipe, OR
+      - claims the diagnose endpoint evaluates booking policy or remaining capacity, OR
+      - tells the user the endpoint's `deep` mode is available/usable (it is not supported yet).
