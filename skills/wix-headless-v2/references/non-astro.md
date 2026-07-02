@@ -14,6 +14,7 @@ This is the framework reference for any **non-Astro** frontend — React/Vue/Sve
 
 - **`curl` the link — first priority. Fetch it as-is (keep the `.md`)** for raw markdown.
 - **MCP doc tools — second priority** (discovery of a page this file doesn't pin, or a fallback if a fetch fails). Pass the URL *without* the `.md` suffix — `ReadFullDocsArticle` for the article pages here, `SearchWixSDKDocumentation` to reach SDK methods this file doesn't pin.
+- **No MCP, or a shape not pinned anywhere → doc discovery** (`DOC_DISCOVERY.md`): a `curl` semantic search (`document_type: SDK`/`WIX_HEADLESS`) plus structured schema lookup, then read the hit's `.md?apiView=SDK`.
 
 ---
 

@@ -12,6 +12,7 @@ Astro is the **documented default** frontend for Wix-managed headless — pick i
 
 - **`curl` the pinned link — first priority. Fetch it as-is (keep the `.md`)** for raw markdown.
 - **MCP doc tools — second priority** (discovery of a page this file doesn't pin, or a fallback if a fetch fails). **Pass the URL *without* the `.md` suffix:** `ReadFullDocsArticle` for the guide/article pages here; `SearchWixCLIDocumentation` / `SearchWixHeadlessDocumentation` / `SearchWixSDKDocumentation` to reach an unpinned command or method page.
+- **No MCP, or a shape not pinned anywhere → doc discovery** (`DOC_DISCOVERY.md`): a `curl` semantic search (`document_type: SDK`/`WIX_HEADLESS`) plus structured schema lookup, then read the hit's `.md?apiView=SDK`.
 
 ---
 
