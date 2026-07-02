@@ -1,0 +1,25 @@
+name: ecommerce/ecom-abandoned-carts
+description: Some shoppers added stuff to cart and never finished — help me decide whether to chase them with emails or links.
+triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) Some shoppers added stuff to cart and never finished. Can you show me what's been abandoned and help me decide whether to chase them with emails or send them a link back to checkout?
+tags: [ecommerce]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/abandoned-carts
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The merchant asked about **post-abandonment recovery** — finding abandoned checkouts and choosing between recovery email vs recovery link. This is a routing test for the Abandoned Carts dispatcher.
+
+      Pass if the response:
+        - Treats this as post-shopper-leaves recovery (Abandoned Carts category), distinct from live checkout drop-off prevention (Checkout & Cart).
+        - References looking up abandoned checkouts via the Abandoned Checkout API AND at least one of the recovery paths owned by this category — Recover via Email, Recovery Link, Troubleshoot Recovery, or Recovery Health.
+        - Optionally points the merchant at one of the leaf skills for next steps.
+
+      Fail if the response:
+        - Treats abandoned-cart recovery as owned by Checkout & Cart (live drop-off prevention).
+        - Routes the merchant to Pricing/Promotions for "discount to win them back" without first sending them to the recovery path.
+        - Conflates live checkout drop-off with post-shopper-leaves recovery.
+
+      Topic-completeness beyond one or two recovery paths is NOT required — judge the boundary (Abandoned Carts vs Checkout) and the lookup endpoint, not the breadth.
