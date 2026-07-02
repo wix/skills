@@ -32,7 +32,7 @@ Diagnosis is **endpoint-first**:
 `DiagnoseAvailability` is a read-only custom action that explains **why availability is empty** rather than returning slots.
 
 - **Endpoint:** `POST https://www.wixapis.com/_api/service-availability/v2/time-slots/diagnose`
-- **Maturity:** ALPHA, behind a feature toggle. Its checks roll out progressively — if it returns **no reasons** for a service that clearly has none, treat the result as inconclusive and go to Step 2.
+- **Maturity:** ALPHA, behind the `diagnoseAvailabilityEndpoint` feature toggle (deployed and available in production). If it returns **no reasons** for a service you'd expect to be broken, treat the result as inconclusive and go to Step 2.
 - **`hasAvailability`** is set `true` only on the **service paths**, when the availability-window check confirms real availability — and for `serviceId`-only, only when the service needs a single staff resource type. It is **never** asserted `true` for `serviceId`+`resourceId` (one resource can't confirm the whole service) or for resource-only. So `hasAvailability: false` with an empty `reasons` array means **inconclusive** ("no blocking cause found"), not necessarily "no availability."
 
 ### Which inputs to pass (prefer a service)
@@ -197,7 +197,7 @@ Popular reasons a service shows no availability, and where each surfaces:
 ## Gotchas
 
 - **`hasAvailability: false` + empty `reasons` ≠ a confirmed problem.** It means "no blocking cause detected." Always confirm with `ListAvailabilityTimeSlots`.
-- **The endpoint's checks roll out progressively (ALPHA).** If it returns nothing for an obviously broken service, it may be toggled off or the relevant check isn't live yet — use Step 2.
+- **The endpoint is ALPHA and feature-toggled.** If it returns nothing for an obviously broken service, the `diagnoseAvailabilityEndpoint` toggle may be off — fall back to Step 2.
 - **`deep: true` is unsupported** and returns `DIAGNOSTIC_DEPTH_NOT_SUPPORTED`.
 - **The endpoint ignores booking policy and capacity** — those are Step 2.
 - **Resource-only diagnosis is shallow.** Passing `resourceId` without `serviceId` runs setup checks only (no availability-window or location check) and can return "inconclusive" even when the resource has zero availability. It's a valid mode when there's no service context (e.g. the staff editor); otherwise pair the resource with a service.
