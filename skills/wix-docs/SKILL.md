@@ -22,23 +22,36 @@ to get that page as markdown. No SDK, no MCP.
 Three ways to reach the right page — use whichever fits.
 
 **A. Semantic search.** Describe what you want in natural language ("let a customer book an
-appointment"), not just keywords; hits come back ranked by relevance, each with a docs `url`. Two
-variants — append `/markdown` for the second:
+appointment"), not just keywords; hits come back ranked by relevance. Same `POST` body for both
+variants: `search_term` (required, 1–500), `document_type` (`REST` default · `SDK` · `WIX_HEADLESS` ·
+`BUSINESS_SOLUTIONS` · `VELO` · `WDS` · `BUILD_APPS` · `CLI`), `maximum_results` (1–20, def 15),
+`lines_in_each_result` (1–200, def 20). Two variants — pick by what you're doing:
 
-| Variant | URL | Returns |
-|---|---|---|
-| **JSON** | `POST …/mcp-docs-search/v1/docs/search` | `{ results: [ { title, url, content, relevance_score, … } ] }` |
-| **Markdown** | `POST …/docs/search/markdown` | `{ content: "<one LLM-ready markdown string of all hits>" }` |
-
-Same JSON body: `search_term` (required, 1–500), `document_type` (`REST` default · `SDK` ·
-`WIX_HEADLESS` · `BUSINESS_SOLUTIONS` · `VELO` · `WDS` · `BUILD_APPS` · `CLI`), `maximum_results`
-(1–20, def 15), `lines_in_each_result` (1–200, def 20).
+**`/docs/search/markdown` → read it (start here).** Returns JSON with a single `content` field
+holding one LLM-ready markdown string (extract it with `jq -r '.content'`) where each hit is a
+**condensed method doc**: the API **endpoint**, **real request code examples**, the **response
+shape**, and the **method description** (with its gotchas) — each truncated to `lines_in_each_result`
+with a "read more" link. For *"how do I call X?"* this is usually all you need in **one call** — hand
+it straight to the model; no page fetch, no schema dig.
 
 ```bash
-# markdown — hand straight to the model; drop /markdown for JSON to parse result[].url
 curl -sS -X POST 'https://www.wixapis.com/mcp-docs-search/v1/docs/search/markdown' \
   -H 'Content-Type: application/json' \
-  --data-raw '{"search_term":"create a booking","document_type":"REST","maximum_results":3}'
+  --data-raw '{"search_term":"create a booking","document_type":"REST","maximum_results":3}' \
+  | jq -r '.content'      # no jq? → python3 -c 'import sys,json;print(json.load(sys.stdin)["content"])'
+```
+
+**`/docs/search` (JSON) → route on it.** Returns `{ results: [ { title, url, content,
+relevance_score, … } ] }` — structured hits. Use it when you want to **pick/route programmatically**:
+grab a hit's `url` to read that page (§2) or feed it to the schema query (§C). (Method hits carry a
+`url`; article hits keep their link inside `content`.)
+
+```bash
+curl -sS -X POST 'https://www.wixapis.com/mcp-docs-search/v1/docs/search' \
+  -H 'Content-Type: application/json' \
+  --data-raw '{"search_term":"create a booking","document_type":"REST","maximum_results":5}' \
+  | jq -r '.results[] | select(.url) | "\(.title)\t\(.url)"'
+# no jq? → python3 -c 'import sys,json;[print(r["title"],r["url"]) for r in json.load(sys.stdin)["results"] if r.get("url")]'
 ```
 
 **B. Browse the tree from the root, like a menu.** Every docs path has a `.md` twin, so you can
