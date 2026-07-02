@@ -23,20 +23,35 @@ read it whole:
   page; `https://dev.wix.com/docs/llms-full.txt` is the full concatenated corpus (very large — grep,
   don't read).
 
-### A 2-level map to start from
+### A partial map to orient from
 
-A partial map of the **`api-reference`** portal (the main one) — its top sections, and the Business
-Solutions verticals one level deeper. A starting point, not exhaustive; re-derive from the `.md`
-menus when in doubt.
+Paths under `https://dev.wix.com/docs/` — **append `.md` to any of them** to read that page.
+**This is a pruned map, not the full tree** — `…` marks where real children were left out; the
+deep leaves are cherry-picked to show how far it goes. Re-derive from the `.md` menus / `llms.txt`
+for anything not shown.
 
-- [**API Reference**](https://dev.wix.com/docs/api-reference.md) — all backend APIs; each page = REST + SDK
-  - [**Business Solutions**](https://dev.wix.com/docs/api-reference/business-solutions.md) — [Stores](https://dev.wix.com/docs/api-reference/business-solutions/stores.md) · [eCommerce](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce.md) · [Bookings](https://dev.wix.com/docs/api-reference/business-solutions/bookings.md) · [Events](https://dev.wix.com/docs/api-reference/business-solutions/events.md) · [Blog](https://dev.wix.com/docs/api-reference/business-solutions/blog.md) · [CMS](https://dev.wix.com/docs/api-reference/business-solutions/cms.md) · [Pricing Plans](https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans.md) · [Restaurants](https://dev.wix.com/docs/api-reference/business-solutions/restaurants.md) · [Portfolio](https://dev.wix.com/docs/api-reference/business-solutions/portfolio.md) · [Gift Cards](https://dev.wix.com/docs/api-reference/business-solutions/gift-cards.md) · [Coupons](https://dev.wix.com/docs/api-reference/business-solutions/coupons.md) · [Donations](https://dev.wix.com/docs/api-reference/business-solutions/donations.md)
-  - [**CRM**](https://dev.wix.com/docs/api-reference/crm.md) — contacts, members, forms, inbox, loyalty
-  - [**Business Management**](https://dev.wix.com/docs/api-reference/business-management.md) — payments, invoices, SEO, site properties, automations
-  - [**App Management**](https://dev.wix.com/docs/api-reference/app-management.md) — install apps, OAuth, app instance/installations
-  - [**Assets**](https://dev.wix.com/docs/api-reference/assets.md) — media, rich content
-  - [**Account Level**](https://dev.wix.com/docs/api-reference/account-level.md) — sites, domains
-- Other portals: [SDK](https://dev.wix.com/docs/sdk.md) · [Go Headless](https://dev.wix.com/docs/go-headless.md) · [Build Apps](https://dev.wix.com/docs/build-apps.md) · [Wix CLI](https://dev.wix.com/docs/wix-cli.md) · [Velo](https://dev.wix.com/docs/velo.md)
+```text
+dev.wix.com/docs/                                      ← append .md to any path below
+├── api-reference/                                     all backend APIs — REST + SDK on every page
+│   ├── business-solutions/
+│   │   ├── stores/                                    products, inventory, categories
+│   │   │   └── catalog-v3/products-v3/query-products  ← a method page (leaf: schema + examples)
+│   │   ├── bookings/
+│   │   │   └── bookings/bookings-writer-v2/create-booking   ← a method page (leaf)
+│   │   ├── e-commerce/                                cart, checkout, orders, discounts
+│   │   ├── cms/                                       Wix Data — data-items, collections
+│   │   ├── blog/ · events/ · pricing-plans/ · restaurants/ · portfolio/ · gift-cards/ · coupons/ · donations/ · …
+│   ├── crm/                                           contacts, members, forms, inbox, loyalty
+│   ├── business-management/                           payments, invoices, SEO, site-properties, automations
+│   ├── app-management/                                install apps, OAuth, app-instance/installations
+│   ├── assets/                                        media, rich-content
+│   └── account-level/ · site/ · tools/ · articles/    domains/sites, site config, auth/query guides
+├── go-headless/                                       headless setup, auth, hosting, framework integration
+├── build-apps/                                        building Wix apps / extensions
+├── wix-cli/                                           CLI commands
+├── velo/ · develop-websites/                          Velo site-coding APIs + guides
+└── …                                                  (full portal list: curl llms.txt)
+```
 
 ## Method pages — slice, don't swallow
 
