@@ -16,10 +16,12 @@ There are two kinds of classes, determined by whether the element is a named par
 
 | Element type | className | Why |
 |---|---|---|
-| Named part | `classNames('heading', styles.heading)` | Global string → zeroConfig creates an editor element; module class → applies the component's own CSS |
+| Named part | `classNames('profile-card-heading', styles.heading)` | Global string → zeroConfig creates an editor element; module class → applies the component's own CSS |
 | Non-part (layout/structural) | `styles.contentWrapper` | Module class only — invisible to zeroConfig, no spurious editor element created |
 
-**Named parts** get both a global plain string and a module class. The global string (`'<component-name>'` for root, `'<part-name>'` for inner parts — kebab-case) is what zeroConfig scans. The module class is what carries the component's structural CSS for that element.
+**Named parts** get both a global plain string and a module class. The global string is what zeroConfig scans: use `'<component-name>'` for the root and **`'<component-name>-<part-name>'` for every inner part** (kebab-case) — always prefix inner parts with the component name. The module class is what carries the component's structural CSS for that element; it stays short (`styles.heading`) because module classes are hashed and scoped, so they never need the prefix.
+
+**Why prefix inner parts:** the global string is a literal class that ends up on the live page, and its design-state variants are derived from it (`<component-name>-<part>--<state>`, e.g. `profile-card-cta--hover`). Those state classes are applied at runtime as global literals, so they must be unique across every component that can share a page — a bare `cta--hover` would collide between two different components. Prefixing with the component name guarantees uniqueness.
 
 **Non-part elements** (layout wrappers, grouping containers, structural helpers) get only a module class. CSS module classes are mangled and invisible to zeroConfig.
 
@@ -34,18 +36,18 @@ import styles from './ProfileCard.module.css';
 // ✅ Root: global string + module class + consumer className
 <div className={classNames(className, 'profile-card', styles.root)} id={id}>
 
-  {/* ✅ Named part: global string + module class */}
-  <h2 className={classNames('heading', styles.heading)}>{heading}</h2>
+  {/* ✅ Named part: prefixed global string + short module class */}
+  <h2 className={classNames('profile-card-heading', styles.heading)}>{heading}</h2>
 
   {/* ✅ Non-part layout wrapper: module class only */}
   <div className={styles.contentWrapper}>
-    <span className={classNames('label', styles.label)}>{label}</span>
+    <span className={classNames('profile-card-label', styles.label)}>{label}</span>
   </div>
 </div>
 
 // ✅ Internal sub-components — same pattern on part slots
-<CardHeader className={classNames('header', styles.header)}>
-  <CardTitle className={classNames('title', styles.title)}>{title}</CardTitle>
+<CardHeader className={classNames('profile-card-header', styles.header)}>
+  <CardTitle className={classNames('profile-card-title', styles.title)}>{title}</CardTitle>
 </CardHeader>
 ```
 
@@ -63,6 +65,9 @@ either two elements share a rule or one element's appearance depends
 on context — either way the editor cannot decide which rule to
 modify when a user changes a property. CSS nesting compiles to
 descendant selectors and has the same effect.
+
+A state modifier on the element's own class (`.title:hover`,
+`.title:global(.profile-card-title--featured)`) is allowed — see [`DESIGN-STATES.md`](DESIGN-STATES.md).
 
 ```css
 /* ✅ Do: Single-class selector — unambiguous mapping to an editor control */
@@ -417,102 +422,10 @@ refined default costs nothing.
 | Hierarchy | Interactive elements visually distinct from static via weight, fill, or elevation |
 | Touch targets | Interactive elements ≥ 44×44 px |
 
-### Don't author state styles (`:hover`, `:focus`, `:disabled`, `[data-state]`)
+### Design states
 
-State pseudo-classes and state attribute selectors are not allowed
-in component CSS. That includes `:hover`, `:focus`, `:focus-visible`,
-`:active`, `:disabled`, and attribute selectors like
-`[data-state='open']` or `[aria-selected='true']`.
-
-**Why:** the editor owns state styling. Hover, focus, disabled, and
-similar interaction states are exposed to the site owner as
-editable visual states — the platform writes those rules itself
-based on what the user configures. State styles authored in the
-component compete with the platform's rules and produce two
-sources of truth for the same state.
-
-```css
-/* ❌ Don't: hover/focus/disabled state — platform owns these */
-.button:hover {
-  background-color: #f0f0f0;
-}
-.button:focus {
-  outline: 2px solid blue;
-}
-.button:disabled {
-  opacity: 0.5;
-}
-
-/* ❌ Don't: state attribute selectors — same problem */
-.panel[data-state='open'] {
-  background-color: #fafafa;
-}
-
-/* ✅ Do: Style the resting state only — platform layers state styling on top */
-.button {
-  background-color: #ffffff;
-  color: #111;
-}
-```
-
-### Express selection / mode variants with JS-toggled modifier classes
-
-The previous rule banned **interaction states** (`:hover`, `:focus`,
-`:focus-visible`, `:active`, `:disabled`, `[data-state]`,
-`[aria-selected]`) — those are user-controlled and platform-owned.
-**Selection / mode variants** (`selected`, `active`, `current`,
-`open`, `expanded`) are different: they are part of the component's
-own data model and the component owns their styling.
-
-Express each variant as a **JS-toggled modifier class**, applied
-alongside the base class via `classNames`. Each class — base and
-modifier — is its own **single-class** CSS rule. The decision of
-which class applies is made in JSX from props/state, not by a CSS
-selector.
-
-**Why:** the modifier class is decided in JSX, not in CSS. zeroConfig
-still sees one selector per rule (both classes are single-class
-rules), so the editor's mapping stays unambiguous. `PARTS.md`
-excludes "state or variant" from the named-parts taxonomy — the
-modifier is CSS-only, not a part.
-
-```tsx
-/* ✅ Do: JS-toggled modifier class, applied alongside the base */
-<button
-  className={classNames(
-    styles.toggleSegment,
-    isSelected && styles.toggleSegmentSelected,
-  )}
-/>
-```
-
-```css
-/* ✅ Do: each class is its own single-class rule */
-.toggleSegment {
-  background: transparent;
-  color: #475569;
-  font-weight: 500;
-}
-
-.toggleSegmentSelected {
-  background: #ffffff;
-  color: #0f172a;
-  font-weight: 600;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(15, 23, 42, 0.1);
-}
-
-/* ❌ Don't: compound selector — banned by the single-class-selector rule */
-.toggleSegment.selected {
-}
-
-/* ❌ Don't: attribute selector keyed on ARIA — banned by the no-state-CSS rule */
-.toggleSegment[aria-selected='true'] {
-}
-
-/* ❌ Don't: pseudo-class — that's an interaction state, platform-owned */
-.toggleSegment:checked {
-}
-```
+Style interaction and selection states (`hover`, `focus`, `disabled`,
+`selected`, …) per [`DESIGN-STATES.md`](DESIGN-STATES.md).
 
 ### Don't add transitions or animations unless functionally required
 
@@ -528,9 +441,7 @@ shorthand (`transition: 0.2s ease`).
 configures the component — colors, font, padding, border width,
 even layout properties on parent classes. Animating those mutations
 makes the editor visibly laggy: values meant to update instantly
-slide instead. State transitions like hover and focus are owned by
-the platform (see the rule above), so the component shouldn't
-author them either.
+slide instead.
 
 ```css
 /* ❌ Don't: decorative transition with no functional reason */
@@ -574,3 +485,4 @@ published site, where the wrapper is gone.
   pointer-events: auto;
 }
 ```
+
