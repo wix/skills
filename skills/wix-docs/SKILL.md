@@ -17,9 +17,9 @@ or the Wix MCP doc tools if your agent has them (Lane 2).
 The docs are one tree of markdown pages: **append `.md` to any `https://dev.wix.com/docs/…` URL**
 to get that page as markdown. No SDK, no MCP.
 
-### 1. Find the page — search *or* browse
+### 1. Find the page — search, browse, or query the index
 
-Two ways to reach the right page — use whichever fits.
+Three ways to reach the right page — use whichever fits.
 
 **A. Semantic search.** Describe what you want in natural language ("let a customer book an
 appointment"), not just keywords; hits come back ranked by relevance, each with a docs `url`. Two
@@ -65,7 +65,27 @@ curl -sS https://dev.wix.com/docs/api-reference/business-solutions/bookings/book
 ```
 
 A 2-level map of the API-reference portal (all verticals, one level down) is in
-`references/EXTRACTING.md`. If the Wix MCP is present, its search/browse tools are richer — Lane 2.
+`references/EXTRACTING.md`.
+
+**C. Query the API index — one call, structured.** The `code-mode` search endpoint runs a JS
+function over `lightIndex` (the whole REST API spec: every resource + method with `operationId`,
+`httpMethod`, `menuPath`, `docsUrl`, and executable `publicUrl`). Best when you want to
+**enumerate/filter methods programmatically** — browse a vertical, or grep across *all* methods —
+and get the `docsUrl` + `publicUrl` back in one shot, no menu-drilling:
+
+```bash
+# pinpoint a method by keyword across the whole index → its docsUrl + executable publicUrl
+curl -sS -X POST 'https://mcp.wix.com/api/code-mode/search' -H 'Content-Type: application/json' \
+  --data-raw '{"code":"async function(){ return lightIndex.flatMap(r=>r.methods).filter(m=>/createBooking$/i.test(m.operationId)).map(m=>({op:m.operationId, httpMethod:m.httpMethod, publicUrl:m.publicUrl, docsUrl:m.docsUrl})); }"}'
+```
+
+**Filter narrowly and return only the fields you need** — the index is large, so an unfiltered dump
+is huge. Scope: **REST API methods only** (not concept/guide articles, headless prose, or SDK-only
+surfaces — use A/B for those). More examples (browse a whole vertical, `menuPath` walk,
+whole-resource schema) and the `getResourceSchema` reader → **`references/API_SPEC_SEARCH.md`**.
+
+If the Wix MCP is present, it exposes these same capabilities as native tools (no `curl`/JSON
+boilerplate) — Lane 2.
 
 ### 2. Read what you land on
 
@@ -119,8 +139,10 @@ handle it accordingly:
 
 ## Lane 2 — Wix MCP doc tools (only if your agent has them)
 
-If the Wix MCP is connected, these beat blind curling for **discovery** and for the
-**whole-resource** view. Optional — skip this lane entirely if the tools aren't present.
+If the Wix MCP is connected, these are the **same backends as Lane 1** (the doc-search service and
+the API-spec index) wrapped as native tools — schema-validated, response-size handled, no
+`curl`/JSON boilerplate. A convenience over the curl lane, **not a richer data source**; use them
+when present, fall back to Lane 1 when not. Optional — skip this lane if the tools aren't present.
 
 | Tool | Use for |
 |---|---|
