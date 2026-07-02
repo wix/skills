@@ -213,6 +213,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ### [Ricos Converter Service](references/rich-content/ricos-converter-service.md)
 **Technical:** Validates and converts content between Ricos documents and HTML/Markdown/plain text using the Ricos Documents API. Covers plugin configuration, format conversion in both directions, and document validation.
 
+### [Author Ricos Rich Content](references/rich-content/author-ricos-rich-content.md)
+**Technical:** Hand-authoring valid Ricos rich-content JSON (the richContent/nodes tree) reused across Blog, Stores, Events, and CMS. Covers every common node shape — paragraphs, headings, lists, blockquotes, dividers, tables with cell fills, code blocks, images — plus inline text decorations and the nesting rules the format enforces.
+
 ---
 
 ## Site Properties

@@ -1,0 +1,28 @@
+name: rich-content/ricos-full-surface
+description: Verifies the agent reads the Author Ricos Rich Content recipe and hand-builds a Ricos document that exercises the full node surface — heading, bulleted and ordered lists, blockquote, filled-header table, divider, code block, and decorated text — all correctly nested.
+triggerPrompt: Build me a Ricos rich-content JSON document (the nodes tree) for a product update. It must include an H2 section heading, a bulleted list and a separate numbered list, a blockquote, a comparison table with a colored/filled header row, a horizontal divider between sections, a code block with a sample snippet, and one paragraph that contains bold text and a hyperlink. Output the full richContent JSON.
+tags: [rich-content]
+maxTokens: 150000
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/assets/rich-content/skills/author-ricos-rich-content
+  - type: llm_judge
+    minScore: 8
+    maxTokens: 2048
+    prompt: |
+      The user asked for a single Ricos rich-content JSON document (a `nodes` tree) that exercises the full node surface. Inspect the JSON the response produced.
+
+      This is a STRICT capability check — every one of the following node types must ACTUALLY be present in the JSON, correctly shaped, not merely mentioned in prose:
+      - a HEADING node with `headingData.level` set (level 2),
+      - a BULLETED_LIST AND an ORDERED_LIST, each nested LIST → LIST_ITEM → PARAGRAPH → TEXT,
+      - a BLOCKQUOTE wrapping a PARAGRAPH (not a bare TEXT),
+      - a TABLE nested TABLE → TABLE_ROW → TABLE_CELL → PARAGRAPH → TEXT, with a header row cell carrying `tableCellData.cellStyle.backgroundColor` (a hex fill),
+      - a DIVIDER node with `dividerData`,
+      - a CODE_BLOCK node whose children are TEXT,
+      - a PARAGRAPH containing a TEXT node with a `decorations` array that includes BOTH a BOLD decoration and a LINK decoration (as separate style runs / TEXT nodes if needed).
+
+      Score 9-10: ALL node types above are present and correctly nested, `type` values are bare strings, and no TEXT node sits directly inside the root array, a LIST_ITEM, a BLOCKQUOTE, or a TABLE_CELL.
+      Score 6-8: all node types present but with one nesting or field mistake (e.g. a missing table cell fill, or a heading missing its level).
+      Score 3-5: two or more required node types are missing, OR TEXT nodes are mis-nested (placed directly in a container), OR a `type` is an object instead of a string.
+      Score 0-2: the response is prose only, returns a flat/plain-text body, or omits the Ricos structure entirely.
