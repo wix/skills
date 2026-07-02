@@ -102,6 +102,54 @@ curl -sS --get 'https://dev.wix.com/rawdocs/api/get-article-content' \
 - **B works only on real article/method URLs** — it returns `{"ok":false}` (HTTP 404) for a menu
   URL, so use **A** to browse menus and **B** to pull a concrete method's schema.
 
+### Step 3 — Big pages: slice, don't swallow
+
+A single method page is often **huge** (Create Booking's `.md` is ~144 KB / 900+ lines). It
+carries **both** a `## REST API` and a `## JavaScript SDK` section (~70 KB each), and each has
+its own `### Schema` (the bulk — 60 KB+ of inline, deeply-nested types) and a much smaller
+`### Examples`. **Never read the whole thing into context** — map it, then cut to the one piece
+you need. All of the below are plain `curl | awk/grep`, no dependencies:
+
+**1. Map first — outline only (cheap, ~18 lines):**
+
+```bash
+curl -sS "$URL.md" | grep -nE '^#{1,3} '
+# 26:## REST API   28:### Schema   329:### Examples   481:## JavaScript SDK   483:### Schema ...
+```
+
+**2. Keep only the API you use** — halves the page. (Better: search with `document_type: REST`
+*or* `SDK` in Step 1 so hits already point at the right half.)
+
+```bash
+curl -sS "$URL.md" | awk '/^## REST API/{f=1} /^## JavaScript SDK/{f=0} f'   # REST only
+curl -sS "$URL.md" | awk '/^## JavaScript SDK/{f=1} f'                       # SDK only
+```
+
+**3. Prefer Examples over Schema to model a call** — the examples block is small (~9 KB) and
+usually enough to copy a working request:
+
+```bash
+curl -sS "$URL.md" | awk '/^## REST API/{r=1} r&&/^### Examples/{f=1} /^## JavaScript SDK/{f=0} f'
+```
+
+**4. Drill into a giant Schema by field — don't read it whole.** Schema lines are one-per-field:
+`- name: <field> | type: <Type> | description: … | validation: …`. Grep the field(s) you care
+about (each appears once for the request, once for the response — you get both shape + rules):
+
+```bash
+curl -sS "$URL.md" | grep -nE 'name: (selectedPaymentOption|totalParticipants)'
+# to resolve a referenced type's enum values, grep the Type name, e.g.:  grep -nE 'SelectedPaymentOption'
+```
+
+**5. For deep/nested schemas, skip markdown entirely.** The JSON read (`get-article-content …
+schema=true`, Step 2B) returns just the method schema; and if the Wix MCP is present,
+`SearchWixAPISpec → getResourceSchemaByUrl` returns the **whole resource** (every method + shared
+types) in one compact structured payload — far easier than slicing 60 KB of prose.
+
+**6. Cap the search response** — on `…/docs/search/markdown`, pass `maximum_results` (1–20) and
+`lines_in_each_result` (1–200) so each hit is truncated with a "Read more here: `<url>`" hint
+instead of dumping full pages.
+
 ## Lane 2 — Wix MCP doc tools (only if your agent has them)
 
 If the Wix MCP is connected, these beat blind curling for **discovery** and for the
