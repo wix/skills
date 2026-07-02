@@ -1,0 +1,16 @@
+name: stores/create-product-route-to-image-recipe
+description: When the user chooses to create the product from an image, the skill should route to the Create Product from Image recipe rather than insisting on a text description.
+triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) I want to create a new store product from a photo of it that I'll upload.
+tags: [stores, media]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/stores/skills/create-product-from-image
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Context: the user explicitly wants to create the product from an uploaded image.
+      Pass if the response accepts the image-based path and routes to the Create Product from Image recipe (references or loads create-product-from-image) — e.g. asking the user to upload the image(s) and preparing to extract product info from them.
+      Fail if the response refuses the image path, insists the user type out a full text description instead, or fabricates product details without either the image or a text description from the user.
+      Completing the product creation in this turn is NOT required — judge that the request is correctly routed to the image recipe.
