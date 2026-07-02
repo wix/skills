@@ -174,6 +174,57 @@ Apply formatting with the `decorations` array on a TEXT node. Each decoration is
 - Use a plain hex string in `foreground` for colors.
 - **No `\n` inside `textData.text`** — one visual line is one node. Emit separate sibling PARAGRAPH/HEADING nodes for separate lines.
 
+## A complete worked example
+
+Assemble the shapes above into one valid `richContent` document. This example exercises **every** common node type — heading, bulleted list, ordered list, blockquote, filled-header table, divider, code block, and a paragraph with mixed bold + link runs — all correctly nested. Copy its **structure**; replace the placeholder text with real content.
+
+```json
+{
+  "nodes": [
+    { "type": "HEADING", "nodes": [ { "type": "TEXT", "textData": { "text": "What's New in v2.1", "decorations": [] } } ], "headingData": { "level": 2, "textStyle": { "textAlignment": "AUTO" } } },
+    { "type": "PARAGRAPH", "nodes": [ { "type": "TEXT", "textData": { "text": "This release focuses on speed and clarity.", "decorations": [] } } ], "paragraphData": { "textStyle": { "textAlignment": "AUTO" } } },
+
+    { "type": "HEADING", "nodes": [ { "type": "TEXT", "textData": { "text": "Highlights", "decorations": [] } } ], "headingData": { "level": 3 } },
+    { "type": "BULLETED_LIST", "nodes": [
+      { "type": "LIST_ITEM", "nodes": [ { "type": "PARAGRAPH", "nodes": [ { "type": "TEXT", "textData": { "text": "Faster page loads", "decorations": [] } } ] } ] },
+      { "type": "LIST_ITEM", "nodes": [ { "type": "PARAGRAPH", "nodes": [ { "type": "TEXT", "textData": { "text": "Redesigned dashboard", "decorations": [] } } ] } ] }
+    ], "bulletedListData": { "indentation": 0 } },
+
+    { "type": "HEADING", "nodes": [ { "type": "TEXT", "textData": { "text": "How to upgrade", "decorations": [] } } ], "headingData": { "level": 3 } },
+    { "type": "ORDERED_LIST", "nodes": [
+      { "type": "LIST_ITEM", "nodes": [ { "type": "PARAGRAPH", "nodes": [ { "type": "TEXT", "textData": { "text": "Back up your data", "decorations": [] } } ] } ] },
+      { "type": "LIST_ITEM", "nodes": [ { "type": "PARAGRAPH", "nodes": [ { "type": "TEXT", "textData": { "text": "Run the migration", "decorations": [] } } ] } ] }
+    ], "orderedListData": { "indentation": 0 } },
+
+    { "type": "BLOCKQUOTE", "nodes": [ { "type": "PARAGRAPH", "nodes": [ { "type": "TEXT", "textData": { "text": "The new dashboard cut our reporting time in half.", "decorations": [] } } ] } ], "blockquoteData": { "indentation": 1 } },
+
+    { "type": "DIVIDER", "dividerData": { "lineStyle": "SINGLE", "width": "LARGE", "alignment": "CENTER" } },
+
+    { "type": "HEADING", "nodes": [ { "type": "TEXT", "textData": { "text": "Plan comparison", "decorations": [] } } ], "headingData": { "level": 3 } },
+    { "type": "TABLE", "nodes": [
+      { "type": "TABLE_ROW", "nodes": [
+        { "type": "TABLE_CELL", "tableCellData": { "cellStyle": { "verticalAlignment": "MIDDLE", "backgroundColor": "#116DFF" }, "borderColors": {} }, "nodes": [ { "type": "PARAGRAPH", "nodes": [ { "type": "TEXT", "textData": { "text": "Plan", "decorations": [ { "type": "BOLD", "fontWeightValue": 700 }, { "type": "COLOR", "colorData": { "foreground": "#FFFFFF" } } ] } } ] } ] },
+        { "type": "TABLE_CELL", "tableCellData": { "cellStyle": { "verticalAlignment": "MIDDLE", "backgroundColor": "#116DFF" }, "borderColors": {} }, "nodes": [ { "type": "PARAGRAPH", "nodes": [ { "type": "TEXT", "textData": { "text": "Price", "decorations": [ { "type": "BOLD", "fontWeightValue": 700 }, { "type": "COLOR", "colorData": { "foreground": "#FFFFFF" } } ] } } ] } ] }
+      ] },
+      { "type": "TABLE_ROW", "nodes": [
+        { "type": "TABLE_CELL", "tableCellData": { "cellStyle": { "verticalAlignment": "MIDDLE" }, "borderColors": {} }, "nodes": [ { "type": "PARAGRAPH", "nodes": [ { "type": "TEXT", "textData": { "text": "Starter", "decorations": [] } } ] } ] },
+        { "type": "TABLE_CELL", "tableCellData": { "cellStyle": { "verticalAlignment": "MIDDLE" }, "borderColors": {} }, "nodes": [ { "type": "PARAGRAPH", "nodes": [ { "type": "TEXT", "textData": { "text": "$0", "decorations": [] } } ] } ] }
+      ] }
+    ], "tableData": { "dimensions": { "colsWidthRatio": [50, 50], "colsMinWidth": [120, 120], "rowsHeight": [47, 47] } } },
+
+    { "type": "CODE_BLOCK", "nodes": [ { "type": "TEXT", "textData": { "text": "npm install @wix/sdk@latest", "decorations": [] } } ], "codeBlockData": { "textStyle": { "textAlignment": "AUTO" } } },
+
+    { "type": "PARAGRAPH", "nodes": [
+      { "type": "TEXT", "textData": { "text": "Read the ", "decorations": [] } },
+      { "type": "TEXT", "textData": { "text": "full release notes", "decorations": [ { "type": "BOLD", "fontWeightValue": 700 }, { "type": "LINK", "linkData": { "link": { "url": "https://example.com/release-notes", "target": "BLANK" } } } ] } },
+      { "type": "TEXT", "textData": { "text": " for details.", "decorations": [] } }
+    ], "paragraphData": { "textStyle": { "textAlignment": "AUTO" } } }
+  ]
+}
+```
+
+Note the mixed-run paragraph at the end: the linked words are their own TEXT node carrying `BOLD` + `LINK`, while the surrounding words are separate plain TEXT runs — that is how you apply formatting to *part* of a sentence.
+
 ## Nesting rules
 
 | Parent | Valid children |
