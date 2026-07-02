@@ -51,9 +51,13 @@ This skill is the deliberately **client-only, REST-only** path. It is independen
   redirect-session / Wix-hosted form — **never hand-build a `/checkout` or purchase URL**.
 - **Fail loudly.** The helpers throw on out-of-stock, empty carts, unbookable slots, expired
   holds, and payment-still-owed. A green path means it really worked — don't swallow the error.
-- **Beyond the snippets, look it up — never guess.** The snippets cover the common paths. For
-  anything else, extend the client with `wixApiRequest`, but confirm the exact endpoint, method,
-  and body in the official Wix API reference first: https://dev.wix.com/docs/api-reference.md
+- **Beyond the snippets, look it up — never guess.** The templates and the shipped
+  `references/<vertical>/` helpers are the implementation — build from them first. Only when
+  you hit a genuine gap (a field, an endpoint, an error the snippets don't cover) extend the
+  client with `wixApiRequest`, confirming the exact endpoint, method, and body first. For **how**
+  to look it up (unauthenticated `curl` doc-search + the `.md`-twin trick, and the Wix MCP tools
+  if your agent has them), see the **`wix-docs`** skill (`../wix-docs/SKILL.md` when co-installed)
+  — it's the shared docs-lookup fallback. Reference index: https://dev.wix.com/docs/api-reference.md
 
 ## How this skill is structured
 
