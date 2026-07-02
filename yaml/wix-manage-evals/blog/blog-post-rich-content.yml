@@ -2,7 +2,7 @@ name: blog/blog-post-rich-content
 description: Verifies the agent handles the blog-specific create-and-publish flow — 3rd-party memberId, importing an external cover image to Media Manager before use, the bulk draft-posts envelope, and publish — when creating Wix blog posts. Ricos node-shape correctness is covered by the rich-content evals.
 triggerPrompt: I'm building a 3rd-party app. Using the Wix REST API, how do I create and immediately publish two blog posts on a site, where each post has a cover image supplied as an external image URL? Give the exact endpoints and request bodies.
 tags: [blog]
-maxTokens: 200000
+maxTokens: 300000
 assertions:
   - tool: ReadFullDocsArticle
     params:
