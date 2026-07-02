@@ -1,15 +1,19 @@
 name: social-media/create-and-publish-social-post
 description: >-
-  Verifies the agent reads the "Create and Publish a Social Media Post" skill and
-  follows its connection-first guardrail — confirm the channel is connected before
-  publishing, offer the OAuth connect flow when it isn't, and never publish to an
-  unconnected channel.
+  Action scenario for the "Create and Publish a Social Media Post" skill on a
+  fresh site with no connected Instagram: the agent is asked to publish now, and
+  the correct behavior is to check the connection first (List Accounts), find none,
+  and offer to connect rather than publish or fabricate an account. A fresh site
+  has no connected channel, so no post can actually go out.
 triggerPrompt: >-
-  Using the Wix Publisher "Create and Publish a Social Media Post" skill, walk me
-  through publishing an image post to Instagram: how to confirm the channel is
-  connected and what to do if it isn't, how to check the publishing quota, and the
-  exact calls to create the draft and publish it. Keep it to what the skill prescribes.
+  Publish this post to my Instagram right now: caption "Summer sale — 20% off all
+  our handmade ceramic mugs this week ☀️" with the image
+  https://static.wixstatic.com/media/cf2434_4b3a2d8eb7f54bc89c0d4524430a2af3~mv2.jpg.
+  Go ahead and post it.
 tags: [marketing]
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
 assertions:
   - tool: ReadFullDocsArticle
     params:
@@ -18,26 +22,23 @@ assertions:
     minScore: 7
     maxTokens: 2048
     prompt: |
-      The user asked how to publish an Instagram post using the Wix Publisher
-      "Create and Publish a Social Media Post" skill.
-      Intent: explain the skill's flow, leading with the connection check and its
-      not-connected branch.
+      The user asked to publish an Instagram post IMMEDIATELY, on a fresh site that
+      has NO connected Instagram account. The only correct outcome is to detect the
+      missing connection and stop before publishing.
 
       Pass if the response:
-      - checks the channel is connected FIRST via List Accounts
-        (GET /social-publisher/v1/accounts) before creating or publishing, AND
-      - states that if no account is connected it should offer the OAuth connect
-        flow (Get Connect URL, then poll Get Long Lived Token Status until VALID)
-        rather than publishing, AND
-      - checks the publishing quota via the Premium Features endpoint
-        (/social-publisher/v1/features) before publishing, AND
-      - creates a draft with Create Draft Item (POST /social-publisher/v1/items)
-        and then publishes it with Publish Item By ID
-        (POST /social-publisher/v1/publish-by-id), AND
-      - uses the real base path https://www.wixapis.com/social-publisher/v1.
+      - checks whether Instagram is connected via List Accounts
+        (GET /social-publisher/v1/accounts) BEFORE creating or publishing, AND
+      - on finding no connected account (empty accounts, or the app/channel not set
+        up), STOPS and offers to connect the channel — Get Connect URL, then poll
+        Get Long Lived Token Status until VALID — or otherwise tells the user the
+        channel must be connected first, AND
+      - does NOT fabricate or guess an accountId, AND
+      - does NOT attempt Create Draft Item or Publish on the unconnected channel, AND
+      - does not fall back to searching the REST docs instead of using the skill.
 
       Fail if the response:
-      - tells the user to publish to an unconnected channel, OR
-      - skips the connection check, OR
-      - invents endpoints or fields not in the skill, OR
-      - fabricates an account id instead of reading it from List Accounts.
+      - attempts to publish or schedule to the unconnected channel, OR
+      - invents an accountId, OR
+      - makes blind API calls that error out, OR
+      - never checks the connection before acting.
