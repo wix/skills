@@ -4,15 +4,14 @@ The **markdown** doc pages (`SKILL.md` Lane 1) are great for reading prose and c
 but their inline schemas are huge and unstructured. When you need the **exact request/response
 shape, field types, enums, or error codes** — and you don't have the Wix MCP — query the API
 spec directly. This is the no-MCP equivalent of the MCP `SearchWixAPISpec` +
-`getResourceSchemaByUrl` tools, over one unauthenticated endpoint.
+`getResourceSchemaByUrl` tools, over one endpoint.
 
-> **Endpoint (unauthenticated, no token):**
-> `POST https://mcp.wix.com/api/code-mode/search` — body `{ "code": "<async function() {…}>" }`.
+> **Endpoint:** `POST https://mcp.wix.com/api/code-mode/search` — body `{ "code": "<async function() {…}>" }`.
 > The function runs in a sandbox with two globals and returns any JSON-serializable value.
 > Response envelope: `{ "result": <your return value> }` (or `{ "error": "<message>" }`).
 
-> Internal/undocumented and pre-GA — treat it as best-effort. It responds unauthenticated today;
-> the contract could change. For reading a single known page, the `.md` twin / `get-article-content`
+> Internal/undocumented and pre-GA — treat it as best-effort; the contract could change. For
+> reading a single known page, the `.md` twin / `get-article-content`
 > in `SKILL.md` are simpler — reach here when you specifically need the **structured spec**.
 
 ## Sandbox globals

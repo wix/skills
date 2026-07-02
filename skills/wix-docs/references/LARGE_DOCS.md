@@ -2,7 +2,7 @@
 
 Advanced `curl`-only techniques for when **search** (`SKILL.md` Lane 1, Step 1) isn't the right
 move — either you'd rather **navigate** the doc tree, or you've landed on a **huge** page and need
-to cut it down. All dependency-free (`curl` + `awk`/`grep`), no token, no MCP.
+to cut it down. All dependency-free (`curl` + `awk`/`grep`), no MCP.
 
 ## Browse the index (navigate instead of search)
 
