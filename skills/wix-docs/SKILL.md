@@ -1,81 +1,74 @@
 ---
 name: wix-docs
-description: "Look up the Wix API/SDK documentation to confirm an exact endpoint, HTTP method, request/response shape, field, enum, or error before writing Wix code — never guess a Wix API from memory. Two lookup lanes: (1) plain `curl` (zero dependencies): semantic search over the docs via `POST /mcp-docs-search/v1/docs/search` (JSON) or `/docs/search/markdown` (LLM-ready markdown), passing a natural-language `{ search_term, document_type }` — then read any page as markdown by appending `.md` to its URL; and (2) the Wix MCP doc tools when your agent has them. Triggers: look up a Wix API, find the Wix endpoint/method, confirm a Wix request body or field, verify a Wix API shape, explore Wix docs, which Wix API do I call, read a Wix method schema."
+description: "Look up the Wix API/SDK documentation to confirm an exact endpoint, HTTP method, request/response shape, field, enum, or error before writing Wix code — never guess a Wix API from memory. A lookup is a short flow: find the right page, then read it. Two ways: (1) plain `curl` (zero dependencies) — a semantic search endpoint (`POST /mcp-docs-search/v1/docs/search`, natural-language `{ search_term, document_type }`) to find pages, then read any page by appending `.md` to its docs URL; and (2) the Wix MCP doc tools when your agent has them. Triggers: look up a Wix API, find the Wix endpoint/method, confirm a Wix request body or field, verify a Wix API shape, explore Wix docs, which Wix API do I call, read a Wix method schema."
 ---
 
 # Wix Docs — look up the Wix API/SDK documentation
 
-Use this to get the **exact** truth about a Wix API — endpoint, HTTP method, request/response
-body, a field, an enum value, or an error. **Never invent a Wix endpoint, path, body, or enum
-from memory** — confirm it here first.
+Get the **exact** truth about a Wix API — endpoint, HTTP method, request/response body, a field, an
+enum, or an error. **Never invent a Wix endpoint, path, body, or enum from memory** — confirm it
+here first.
 
-If you already have a specific page URL, **read it directly** (Step 2); search and menu-walking
-are for *finding* a page you don't have yet.
+A lookup is a short flow: **find the right page, then read it.** Do it with `curl` (default, below)
+or the Wix MCP doc tools if your agent has them (Lane 2).
 
-## Lane 1 — `curl` the public doc endpoints
+## Lane 1 — `curl` (default)
 
-Plain `curl` — no SDK, no MCP. The right lane for client-only / dependency-free contexts.
+The docs are one tree of markdown pages: **append `.md` to any `https://dev.wix.com/docs/…` URL**
+to get that page as markdown. No SDK, no MCP.
 
-### Step 1 — Search the docs (curl-only)
+### 1. Find the page
 
-**`POST https://www.wixapis.com/mcp-docs-search/v1/docs/search`** is a **semantic** search —
-describe what you want in natural language (e.g. "let a customer book an appointment"), not just
-keywords; hits come back ranked by relevance. It has **two variants** returning the same hits in
-different formats; append `/markdown` for the markdown one:
+Fastest is a **semantic** search — describe what you want in natural language ("let a customer book
+an appointment"), not just keywords; hits come back ranked by relevance, each with a docs `url`.
+It has two variants — append `/markdown` for the second:
 
 | Variant | URL | Returns |
 |---|---|---|
-| **JSON** | `…/v1/docs/search` | `{ results: [ { id, title, content, url, relevance_score, kb_name } ] }` |
-| **Markdown** | `…/v1/docs/search/markdown` | `{ content: "<one LLM-ready markdown string of all hits>" }` |
+| **JSON** | `POST …/mcp-docs-search/v1/docs/search` | `{ results: [ { title, url, content, relevance_score, … } ] }` |
+| **Markdown** | `POST …/docs/search/markdown` | `{ content: "<one LLM-ready markdown string of all hits>" }` |
 
-Both take the same JSON body:
-
-| Field | Notes |
-|---|---|
-| `search_term` | required, 1–500 chars |
-| `document_type` | `REST` (default) · `SDK` · `WIX_HEADLESS` · `BUSINESS_SOLUTIONS` · `VELO` · `WDS` · `BUILD_APPS` · `CLI` |
-| `maximum_results` | default 15, range 1–20 |
-| `lines_in_each_result` | default 20, range 1–200 |
+Same JSON body: `search_term` (required, 1–500), `document_type` (`REST` default · `SDK` ·
+`WIX_HEADLESS` · `BUSINESS_SOLUTIONS` · `VELO` · `WDS` · `BUILD_APPS` · `CLI`), `maximum_results`
+(1–20, def 15), `lines_in_each_result` (1–200, def 20).
 
 ```bash
-# JSON variant — parse result[].url / .content
-curl -sS -X POST 'https://www.wixapis.com/mcp-docs-search/v1/docs/search' \
-  -H 'Content-Type: application/json' \
-  --data-raw '{"search_term":"create booking","document_type":"REST","maximum_results":3}'
-
-# Markdown variant — one ready-to-read string (best to hand straight to the model)
+# markdown — hand straight to the model; append nothing for JSON to parse result[].url
 curl -sS -X POST 'https://www.wixapis.com/mcp-docs-search/v1/docs/search/markdown' \
   -H 'Content-Type: application/json' \
-  --data-raw '{"search_term":"create booking","document_type":"REST","maximum_results":3}'
+  --data-raw '{"search_term":"create a booking","document_type":"REST","maximum_results":3}'
 ```
 
-> Use **markdown** when you just want to read the top hits; use **JSON** when you need to pull a
-> specific field (each hit's `url` is the docs page — read it in full in Step 2).
->
-> Prefer to **browse** the tree instead of searching (the `llms.txt` index, menu pages)? See
-> `references/LARGE_DOCS.md`. If the Wix MCP is available, its search tools (Lane 2) return richer
-> whole-resource schemas — prefer them when present.
+Each hit's `url` is the page to read next. (Rather navigate by hand? Start at a menu page — see
+below. If the Wix MCP is present, its search is richer — Lane 2.)
 
-### Step 2 — Read a page
+### 2. Read what you land on
 
-**Append `.md` to any docs URL** for its raw markdown — the full article with REST + SDK examples:
+Appending `.md` to a URL gives one of **three kinds of page**. Know which you're looking at, and
+handle it accordingly:
 
-```bash
-curl -sS 'https://dev.wix.com/docs/api-reference/business-solutions/bookings/bookings/bookings-writer-v2/create-booking.md'
-```
+- **Menu page** — what a *section* path returns (truncate any URL to a parent + `.md`, e.g.
+  `…/business-solutions/bookings.md`; the root of the tree is `https://dev.wix.com/docs/llms.txt`).
+  It's a list of links to child pages and can be tens of KB — **don't read it whole; `grep` it** for
+  the child you want, then drill in:
 
-Method pages are large (create-booking's is ~144 KB) — don't read one whole; see **Going deeper**
-below for slicing them and for pulling a method's exact structured schema.
+  ```bash
+  curl -sS 'https://dev.wix.com/docs/api-reference/business-solutions/bookings.md' | grep -i 'booking'
+  ```
 
-### Going deeper (references)
+- **Article / guide** — introductions, concepts, sample-flow pages. Prose markdown, usually small —
+  **read it whole**:
 
-- **Big pages / browsing the tree** → `references/LARGE_DOCS.md`. Method pages are large and carry
-  **both** a `## REST API` and a `## JavaScript SDK` section (~70 KB each) — don't read one whole;
-  map its outline and slice to the section/field you need. Also covers browsing the `llms.txt`
-  index and menu pages.
-- **Exact structured schema / enums / error codes, without MCP** → `references/API_SPEC_SEARCH.md`.
-  A `POST https://mcp.wix.com/api/code-mode/search` runs a JS query over the API
-  spec (`lightIndex` + `getResourceSchema`) — the no-MCP equivalent of `SearchWixAPISpec`.
+  ```bash
+  curl -sS 'https://dev.wix.com/docs/api-reference/business-solutions/bookings/bookings/introduction.md'
+  ```
+
+- **Method page** — one API method, and the heavy one: it carries **both** a REST and a JavaScript
+  SDK section, the full request/response schema, and code examples — often 100 KB+. The **examples**
+  are usually all you need; **don't swallow the whole page.** To pull just the example/section/field,
+  see `references/READING_PAGES.md`. For the exact structured schema and enum values, see
+  `references/API_SPEC_SEARCH.md` (a `curl` query over the API spec — the no-MCP equivalent of the
+  MCP `SearchWixAPISpec`).
 
 ## Lane 2 — Wix MCP doc tools (only if your agent has them)
 
@@ -99,14 +92,14 @@ If the Wix MCP is connected, these beat blind curling for **discovery** and for 
   cross-step gotchas, and the one bundled endpoint that does the whole job — which a
   per-method schema won't flag.
 
-## The one rule about the `.md` suffix
+## The `.md` suffix
 
-**Append `.md` only when `curl`-ing a page directly** (Step 2). The MCP tools take the plain docs
-URL **without** `.md` — never feed a `.md` URL to an MCP tool.
+Append `.md` only when `curl`-ing a page directly. The MCP tools and the search endpoint take the
+plain docs URL **without** `.md` — never feed a `.md` URL to an MCP tool.
 
 ## Before you write the code
 
-Confirm on the page — not from memory — the endpoint, the HTTP verb, the request body
-shape, required fields, and any enum values. Then write the call. If you're extending a
-skill's shipped client, keep the skill's existing transport/helper style; you're adding one
-call, not re-architecting.
+Confirm on the page — not from memory — the endpoint, the HTTP verb, the request body shape,
+required fields, and any enum values. Then write the call. If you're extending a skill's shipped
+client, keep the skill's existing transport/helper style; you're adding one call, not
+re-architecting.
