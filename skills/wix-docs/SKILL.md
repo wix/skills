@@ -1,6 +1,6 @@
 ---
 name: wix-docs
-description: "Best-practices reference for looking up the Wix API/SDK documentation when you need to confirm an exact endpoint, HTTP method, request/response shape, field, enum, or error before writing Wix code — never guess a Wix API from memory. Two lookup lanes: (1) unauthenticated `curl` against the public doc-search + rawdocs endpoints (zero dependencies, no token — the default), and (2) the Wix MCP doc tools when your agent has them. Also covers the `.md`-twin trick for raw markdown. This skill is a shared FALLBACK referenced by other Wix skills (wix-vibe-headless, wix-headless, wix-manage, …): those skills' bundled templates, recipes, and helpers are the primary implementation path — reach for docs lookup only to fill a gap they don't cover, or when iterating on an error. Triggers: look up a Wix API, find the Wix endpoint/method, confirm a Wix request body or field, verify a Wix API shape, explore Wix docs, which Wix API do I call, read a Wix method schema."
+description: "Best-practices reference for looking up the Wix API/SDK documentation when you need to confirm an exact endpoint, HTTP method, request/response shape, field, enum, or error before writing Wix code — never guess a Wix API from memory. Two lookup lanes: (1) unauthenticated `curl` (zero dependencies, no token — the default): discover pages via the `llms.txt` index or a menu page, then read any page in two variants — markdown (append `.md` to the URL) or JSON (the `get-article-content` endpoint, with `schema=true` for a method's request/response schema); and (2) the Wix MCP doc tools when your agent has them. There is no public search HTTP endpoint — search is the MCP tools or grepping `llms.txt`. This skill is a shared FALLBACK referenced by other Wix skills (wix-vibe-headless, wix-headless, wix-manage, …): those skills' bundled templates, recipes, and helpers are the primary implementation path — reach for docs lookup only to fill a gap they don't cover, or when iterating on an error. Triggers: look up a Wix API, find the Wix endpoint/method, confirm a Wix request body or field, verify a Wix API shape, explore Wix docs, which Wix API do I call, read a Wix method schema."
 ---
 
 # Wix Docs — how to look things up (a fallback, not a first step)
@@ -26,41 +26,48 @@ search.** Search and menu-walking are for *finding* a page nothing pinned for yo
 
 ## Lane 1 — `curl` the public doc endpoints (default: zero-dependency, no auth)
 
-These are **unauthenticated** public endpoints — plain `curl`, no token, no SDK, no MCP.
-This is the right lane for client-only / dependency-free contexts.
+These are **unauthenticated** public GET requests — plain `curl`, no token, no SDK, no MCP.
+The right lane for client-only / dependency-free contexts. No auth headers on any of them.
 
-| Need | Request |
-|---|---|
-| Search REST / SDK / headless docs | `GET https://www.wixapis.com/mcp-docs-search/v1/search?kbName=<KB>&searchTerm=<q>&maxResults=<n>` |
-| Read a full article | `GET https://dev.wix.com/rawdocs/api/get-article-content?articleUrl=<url>&schema=false` |
-| Read a method's request/response schema | Same URL with `schema=true` |
-| Browse the REST docs menu tree | `GET https://dev.wix.com/docs/api/v1/get-menu-content?url=<url>&format=markdown` |
+> There is **no public "search" HTTP endpoint** — real search is the Wix MCP tools (Lane 2).
+> With `curl` alone you **discover** a page via the `llms.txt` index or a menu page, then
+> **read** it. (Don't call `…/mcp-docs-search/…`; it's an internal endpoint, not a stable API.)
 
-`kbName` values: `REST_METHODS_KB_ID`, `SDK_KB_ID`, `HEADLESS_KB_ID`.
+### Step 1 — Discover the page URL (curl-only)
+
+- **Portal index:** `curl https://dev.wix.com/docs/llms.txt` — a structured, grep-able list of
+  every portal page as `.md` links. `https://dev.wix.com/docs/llms-full.txt` is the full corpus.
+- **Menu page:** truncate any docs URL to a parent path and append `.md` — e.g.
+  `curl https://dev.wix.com/docs/api-reference/business-solutions/bookings.md` lists the child
+  method links. (If the Wix MCP is available, `SearchWixRESTDocumentation` beats grepping — Lane 2.)
+
+### Step 2 — Read the page: two variants (both verified)
+
+Same content, two formats. Pick by what you're doing:
+
+**A. Markdown — append `.md` to the page URL** (the documented surface; best for reading prose
++ code examples, and it also renders menu pages):
 
 ```bash
-# Find the method (search)
-curl -sS --get 'https://www.wixapis.com/mcp-docs-search/v1/search' \
-  --data-urlencode 'kbName=REST_METHODS_KB_ID' \
-  --data-urlencode 'searchTerm=create booking' \
-  --data-urlencode 'maxResults=3'
+curl -sS 'https://dev.wix.com/docs/api-reference/business-solutions/bookings/bookings/bookings-writer-v2/create-booking.md'
+# → Content-Type: text/markdown — raw article + SDK/REST examples
+```
 
-# Read the method's request/response schema (schema=true)
+**B. JSON — `get-article-content`** (parseable envelope `{ ok, articleContent, resourceId }`;
+add `schema=true` for the method's **request/response schema**, `schema=false` for prose):
+
+```bash
+# Method request/response schema, as JSON
 curl -sS --get 'https://dev.wix.com/rawdocs/api/get-article-content' \
   --data-urlencode 'articleUrl=https://dev.wix.com/docs/api-reference/business-solutions/bookings/bookings/bookings-writer-v2/create-booking' \
   --data-urlencode 'schema=true'
+# → {"ok":true,"articleContent":"... Method: createBooking ...","resourceId":"..."}
 ```
 
-No auth headers required on any of these.
-
-### The `.md`-twin trick (works for any docs URL)
-
-- **Append `.md`** to any `https://dev.wix.com/docs/...` URL to get its raw markdown
-  (content pages carry the schema; menu pages list child links).
-- **Truncate to a parent path + `.md`** for a menu page — e.g.
-  `https://dev.wix.com/docs/sdk.md`, `.../business-solutions.md`.
-- Portal indexes: `https://dev.wix.com/docs/llms.txt` (all portals) and
-  `https://dev.wix.com/docs/llms-full.txt` (full concatenated docs).
+- Use **A (`.md`)** to skim/read and for **menu** pages. Use **B (JSON)** when you want to parse
+  the result programmatically or specifically need the method **schema** (`schema=true`).
+- **B works only on real article/method URLs** — it returns `{"ok":false}` (HTTP 404) for a menu
+  URL, so use **A** to browse menus and **B** to pull a concrete method's schema.
 
 ## Lane 2 — Wix MCP doc tools (only if your agent has them)
 
@@ -84,10 +91,12 @@ If the Wix MCP is connected, these beat blind curling for **discovery** and for 
   cross-step gotchas, and the one bundled endpoint that does the whole job — which a
   per-method schema won't flag.
 
-## The one rule that keeps the lanes straight
+## The one rule about the `.md` suffix
 
-**`curl` uses the `.md` suffix; the MCP tools take the URL *without* `.md`.** Don't feed a
-`.md` URL into an MCP tool, and don't strip `.md` when curling. Pick one lane per lookup.
+**Only the markdown-twin read (variant A) uses `.md`.** `get-article-content` (variant B) and
+every MCP tool take the plain docs URL **without** `.md`. So: append `.md` only when you're
+`curl`-ing the page directly for markdown; strip it everywhere else. Never feed a `.md` URL to
+an MCP tool or to `get-article-content`.
 
 ## Before you write the code
 
