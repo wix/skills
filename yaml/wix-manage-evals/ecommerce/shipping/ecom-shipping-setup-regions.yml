@@ -1,0 +1,17 @@
+name: ecommerce/shipping/setup-regions
+description: Set up delivery regions for my store — one region for the continental US and a separate region for Hawaii/Alaska with their own carriers.
+triggerPrompt: For my Wix store, set up delivery regions — I want one region for the continental US and a separate region for Hawaii/Alaska with their own carriers.
+tags: [ecommerce]
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping-set-up-regions
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Pass if the response loads the setup-regions recipe and uses the Delivery Profiles API to create/update a profile with TWO regions (continental US, Hawaii/Alaska), attaches carriers to each, and surfaces the backup-rate behavior (silent-fail rule) or addresses externally-managed-region handling.
+      Fail if it conflates regions with shipping rates, invents endpoints outside Delivery Profiles, or merges both regions into one without distinguishing carriers.

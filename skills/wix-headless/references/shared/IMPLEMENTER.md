@@ -1,6 +1,6 @@
 # Shared Implementer — Common Behavior for Every Vertical Subagent
 
-This file is **extended by every per-vertical `INSTRUCTIONS.md`** (stores, ecom, cms, blog, forms, gift-cards, bookings). Per-vertical instruction files are thin — they declare scopes and reference paths. Everything else lives here.
+This file is **extended by every per-vertical `INSTRUCTIONS.md`** (stores, ecom, cms, blog, forms, gift-cards, bookings, events). Per-vertical instruction files are thin — they declare scopes and reference paths. Everything else lives here.
 
 ## Self-loading
 
@@ -41,7 +41,7 @@ Every input you need is either inlined in your prompt or — for seeded entity I
 | Scope | Where its inputs come from |
 |---|---|
 | `seed` | All **inlined**: `brand`, `intent.<pack>`, `siteId`, recipe path(s). Do NOT re-derive these. |
-| `components` | **Inlined**: `brand`. **Read from disk**: the design tokens (the DESIGN.md vocabulary — `colors`/`typography`/`spacing`/`rounded`/`containers`) from `.wix/design-tokens.css` (gate-verified present; also the CSS variables the build consumes). Components do not need seeded IDs. |
+| `components` | **Inlined**: `brand`. **Read from disk**: the design tokens (the DESIGN.md vocabulary — `colors`/`typography`/`rounded`/`containers`; spacing is Tailwind's numeric scale, not a token) from `.wix/design-tokens.css` (gate-verified present; also the CSS variables the build consumes). Components do not need seeded IDs. |
 | `pages` / `pages-*` | **Inlined:** `brand`. **Read from disk:** the design tokens (`.wix/design-tokens.css`, DESIGN.md vocabulary); your `seeded.<vertical>` slice from `.wix/seeded.json` (products, posts, collections IDs). Page data wiring uses live SDK queries; the `seeded` data is for path resolution + demo content authoring. |
 
 If a required **inlined** input is missing from your prompt, or your **`.wix/seeded.json` slice** is absent (e.g. you are dispatched as `pages-products` but `.wix/seeded.json` has no `seeded.stores`), fail fast — return `status: "failed"` with `errors: [{ code: "SEEDED_JSON_SLICE_MISSING", missing: "seeded.stores.products" }]` (or `PROMPT_INCOMPLETE` for an inlined gap). Do NOT re-fetch via curl — the gap means an upstream phase didn't complete, and re-querying would mask the real bug.
@@ -120,11 +120,11 @@ The full styling contract (tokens-as-utilities default, when global semantic cla
 
 - **camelCase for identifiers, kebab-case for filenames, PascalCase for components.** Example: `ProductCard.astro`, `queryBlogPosts` function, `cart-updated` event.
 - **No inline styles beyond design-token CSS variables.** `style={{ color: "red" }}` is forbidden; `style={{ color: "var(--color-accent)" }}` is fine.
-- **Tailwind v4 `@reference` is mandatory in any scoped CSS that uses `@apply`.** Tailwind v4 isolates `@apply` per file — utilities defined in the main entry CSS (where `@theme` lives) are NOT visible to `components-*.css` unless that file prepends `@reference "./global.css";` on line 1. If your scope writes a `components-<vertical>.css` that uses `@apply` with theme tokens (e.g., `@apply gap-sm font-display text-sm`), the file MUST start with:
+- **Tailwind v4 `@reference` is mandatory in any scoped CSS that uses `@apply`.** Tailwind v4 isolates `@apply` per file — utilities defined in the main entry CSS (where `@theme` lives) are NOT visible to `components-*.css` unless that file prepends `@reference "./global.css";` on line 1. If your scope writes a `components-<vertical>.css` that uses `@apply` with theme tokens (e.g., `@apply gap-3 font-display text-sm`), the file MUST start with:
   ```css
   @reference "./global.css";
   ```
-  Without it, the build breaks at release time with `Cannot apply unknown utility class 'gap-sm' …` even though `tsc` and `astro check` pass clean — only the bundler catches it.
+  Without it, the build breaks at release time with `Cannot apply unknown utility class 'gap-3' …` even though `tsc` and `astro check` pass clean — only the bundler catches it.
 - **Fail loud, never silently.** If data is missing, a required field is absent, or an REST call returns an unexpected shape, return `status: "failed"` with details. Do not invent placeholders or swallow errors.
 
 ## Return contract
@@ -188,7 +188,7 @@ The `data` shapes for the scopes this file owns — `components` and `pages`/`pa
 | Issuing REST calls from a `components` or `pages` scope | Components/Pages are frontend-only; read `seeded` data from your `.wix/seeded.json` slice (pages only) — never curl |
 | Re-querying when your `seeded.<vertical>` slice is missing from `.wix/seeded.json` | Fail fast with `SEEDED_JSON_SLICE_MISSING` — an upstream phase didn't complete (do NOT re-query) |
 | Depending on mutable shared state the orchestrator holds in scratch | Every input is inlined; the one shared file you may read is your `.wix/seeded.json` slice (read-only) |
-| Inventing class names for layout/spacing/typography (`.productCard`, `.heroSection`) | Tailwind utilities derived from `@theme` tokens (`class="flex flex-col gap-md"`, `class="py-4xl"`). For one-off page decoration, co-located `<style>` block. |
+| Inventing class names for layout/spacing/typography (`.productCard`, `.heroSection`) | Tailwind utilities derived from `@theme` tokens (`class="flex flex-col gap-4"`, `class="py-24"`). For one-off page decoration, co-located `<style>` block. |
 | Removing a marker after inserting at it | Marker stays; other verticals may contribute after you |
 | Trailing narrative prose after the return JSON | JSON block must be the last content |
 | Fabricated timestamps in the return JSON | Do not include timing fields — orchestrator captures them |

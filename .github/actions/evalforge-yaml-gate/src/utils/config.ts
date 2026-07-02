@@ -22,6 +22,7 @@ export type Config = SimpleConfig & {
   agentName: string;
   autoApprove: boolean;
   triggerEvalCompare: boolean;
+  maxNewSkills: number;
 };
 
 function ensureHttps(url: string): string {
@@ -43,6 +44,15 @@ function getPrNumber(): number {
   const n = pr.number as number | undefined;
   if (!n) throw new Error('PR payload missing number');
   return n;
+}
+
+function getPositiveIntegerInput(name: string, fallback: number): number {
+  const raw = core.getInput(name) || String(fallback);
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < 1) {
+    throw new Error(`${name} must be a positive integer (received: ${raw})`);
+  }
+  return value;
 }
 
 export function getSimpleConfig(): SimpleConfig {
@@ -99,5 +109,6 @@ export function getEvalConfig(): Config {
     agentName: core.getInput('agent-name') || 'agent',
     autoApprove: core.getInput('auto-approve') === 'true',
     triggerEvalCompare: core.getInput('eval-compare') !== 'false',
+    maxNewSkills: getPositiveIntegerInput('max-new-skills', 1),
   };
 }

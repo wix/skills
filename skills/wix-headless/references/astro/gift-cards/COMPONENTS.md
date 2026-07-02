@@ -18,7 +18,7 @@ Files this agent MUST NOT touch:
 
 ## Coordination: design tokens
 
-Read the design tokens from `.wix/design-tokens.css` (on disk, gate-verified present before the wave). Reference token CSS variables (`var(--color-cream)`, `var(--spacing-lg)`, etc.) from `components-gift-cards.css`.
+Read the design tokens from `.wix/design-tokens.css` (on disk, gate-verified present before the wave). Reference token CSS variables (`var(--color-cream)`, `1.5rem`, etc.) from `components-gift-cards.css`.
 
 ## Critical rules
 
@@ -81,7 +81,7 @@ Scoped styles for:
 
 The page-section and teaser styles live here (not inside the .astro `<style>` blocks) so the same separation as `components-stores.css` / `components-ecom.css` holds. The pages-scope agent imports this stylesheet via `Layout.astro`'s existing CSS chain (designer foundation already wires up the `components-*.css` import).
 
-Use brand `@theme` utilities (`bg-cream`, `text-ink`, etc.) where natural; fall back to `var(--color-*)` / `var(--spacing-*)` directly when a property isn't covered. Do not introduce new design-token names.
+Use brand `@theme` utilities (`bg-cream`, `text-ink`, etc.) where natural; fall back to `var(--color-*)` directly (spacing is Tailwind's numeric scale — `gap-4`, `py-24`) when a property isn't covered. Do not introduce new design-token names.
 
 ## Return format
 

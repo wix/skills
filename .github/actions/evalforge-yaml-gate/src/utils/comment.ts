@@ -2,7 +2,9 @@ import type { LoadError } from './evals';
 import type { Uncovered } from './coverage';
 import type { SyncError } from './sync';
 import type { EvalRunStatus } from './evalforge';
+import { evalRunUrl } from './evalforge';
 import type { CompareGroupComplete, ScenarioComparison } from './eval-pipeline';
+import { formatTokenCount, type TokenBudgetViolation } from './token-budget';
 
 export const COMMENT_MARKER = '<!-- evalforge-yaml-gate-action -->';
 const HEADING = 'EvalForge YAML Gate';
@@ -52,6 +54,19 @@ export function formatForeignDraftConflicts(errs: SyncError[], _pull: { owner: s
   ]);
 }
 
+export function formatTooManyNewSkills(count: number, limit: number, files: string[]): string {
+  return render('❌', 'Too Many New Skills', [
+    `This PR creates **${count} new Wix Manage skill .md files**, exceeding the limit of **${limit} per PR**.`,
+    '',
+    'New skill files added:',
+    ...files.map(f => `- \`${f}\``),
+    '',
+    'Please either:',
+    '- Split across multiple PRs',
+    '- Update existing skills instead of creating new ones',
+  ]);
+}
+
 export function formatServiceError(message: string, blocking: boolean): string {
   const { icon } = failIcon(blocking);
   return render(icon, blocking ? 'Error' : 'Warning', [message]);
@@ -82,7 +97,14 @@ export function formatNoChanges(): string {
   return render('✅', 'No Gated Changes', ['Nothing under `evals/` or sibling `.md` changed.']);
 }
 
-export function formatComparisonResult(result: CompareGroupComplete): string {
+function assertionLine(a: { status: string; name: string; score?: number; verdict?: string; message?: string }): string {
+  const icon = a.status === 'passed' ? '✅' : '❌';
+  const score = a.score !== undefined ? ` (${a.score}/10)` : '';
+  const detail = a.verdict ? `: ${a.verdict}` : a.message ? `: ${a.message}` : '';
+  return `- ${icon} ${a.name}${score}${detail}`;
+}
+
+export function formatComparisonResult(result: CompareGroupComplete, projectId?: string): string {
   const { verdict, tag, scenarios } = result.result;
   const verdictIcon = verdict === 'not-required' ? '✅' : '⚠️';
   const lines: string[] = [
@@ -91,25 +113,31 @@ export function formatComparisonResult(result: CompareGroupComplete): string {
     '',
     `**Verdict:** \`${verdict}\` | **Tag:** \`${tag}\``,
     '',
-    '| Scenario | Required | Winner | Cost (with/without) | Tokens (with/without) | Time (with/without) |',
+    '| Scenario | Required | Winner | Cost (PR / prod) | Tokens (PR / prod) | Time (PR / prod) |',
     '|---|---|---|---|---|---|',
   ];
 
   for (const s of (scenarios ?? [])) {
-    const winnerIcon = s.pairwiseJudgement.winner === 'tie' ? '≈' : s.pairwiseJudgement.winner === 'with' ? '⬆️' : '⬇️';
+    const winner = s.pairwiseJudgement.winner;
+    const winnerLabel = winner === 'tie' ? '≈ tie' : winner === 'with' ? '⬆️ PR' : '⬇️ prod';
     const costWith = s.with.totalCostUsd.toFixed(3);
     const costWithout = s.without.totalCostUsd.toFixed(3);
     const tokWith = `${(s.with.totalTokens / 1000).toFixed(1)}K`;
     const tokWithout = `${(s.without.totalTokens / 1000).toFixed(1)}K`;
     const timeWith = `${(s.with.durationMs / 1000).toFixed(1)}s`;
     const timeWithout = `${(s.without.durationMs / 1000).toFixed(1)}s`;
-    lines.push(`| ${s.scenarioName} | ${s.required ? '✅' : '—'} | ${winnerIcon} ${s.pairwiseJudgement.winner} (${s.pairwiseJudgement.confidence}) | $${costWith} / $${costWithout} | ${tokWith} / ${tokWithout} | ${timeWith} / ${timeWithout} |`);
+    lines.push(`| ${s.scenarioName} | ${s.required ? '✅' : '—'} | ${winnerLabel} (${s.pairwiseJudgement.confidence}) | $${costWith} / $${costWithout} | ${tokWith} / ${tokWithout} | ${timeWith} / ${timeWithout} |`);
   }
 
   for (const s of (scenarios ?? [])) {
     lines.push('', `<details><summary>${s.scenarioName}</summary>`, '', s.reason, '');
-    lines.push('**Assertions (with):**', ...s.with.assertions.map(a => `- ${a.status === 'passed' ? '✅' : '❌'} ${a.name}${a.score !== undefined ? ` (${a.score}/10)` : ''}${a.message ? `: ${a.message}` : ''}`), '');
-    lines.push('**Assertions (without):**', ...s.without.assertions.map(a => `- ${a.status === 'passed' ? '✅' : '❌'} ${a.name}${a.score !== undefined ? ` (${a.score}/10)` : ''}${a.message ? `: ${a.message}` : ''}`), '');
+    if (projectId && s.with.runId) lines.push(`[View run (PR)](${evalRunUrl(projectId, s.with.runId, s.with.name)})`, '');
+    if (projectId && s.without.runId) lines.push(`[View run (prod)](${evalRunUrl(projectId, s.without.runId, s.without.name)})`, '');
+    lines.push('**Assertions (PR):**', ...s.with.assertions.map(assertionLine), '');
+    lines.push('**Assertions (prod):**', ...s.without.assertions.map(assertionLine), '');
+    if (s.pairwiseJudgement.reasoning) {
+      lines.push(`**Compare result:** ${s.pairwiseJudgement.reasoning}`, '');
+    }
     if (s.pairwiseJudgement.dimensions) {
       lines.push('**Dimensions:**', ...Object.entries(s.pairwiseJudgement.dimensions).map(([k, v]) => `- ${k}: **${v.winner}**`), '');
     }
@@ -121,4 +149,22 @@ export function formatComparisonResult(result: CompareGroupComplete): string {
 
 export function formatComparisonTimeout(comparisonGroupId: string, blocking: boolean): string {
   return render(blocking ? '⏱' : '⚠️', 'Comparison Timed Out', [`comparisonGroupId: ${comparisonGroupId}`]);
+}
+
+export function formatTokenBudgetExceeded(violations: TokenBudgetViolation[], projectId?: string): string {
+  const lines = [
+    'These scenarios exceeded their configured top-level `maxTokens` budget on the PR run:',
+    '',
+    '| Scenario | Max tokens | PR tokens | Prod tokens | PR run |',
+    '|---|---:|---:|---:|---|',
+  ];
+
+  for (const v of violations) {
+    const run = projectId && v.prRunId
+      ? `[${v.prRunId}](${evalRunUrl(projectId, v.prRunId, v.prRunName)})`
+      : '—';
+    lines.push(`| ${v.scenarioName} | ${formatTokenCount(v.maxTokens)} | ${formatTokenCount(v.prTokens)} | ${formatTokenCount(v.prodTokens)} | ${run} |`);
+  }
+
+  return render('❌', 'Token Budget Exceeded', lines);
 }

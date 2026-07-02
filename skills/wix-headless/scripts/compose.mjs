@@ -192,7 +192,6 @@ function designMdToTokens(fm) {
   return {
     colors,
     fonts,
-    spacing: fm.spacing ?? {},
     radii: fm.rounded ?? {},        // DESIGN.md calls corner radii `rounded`
     containers: fm.containers ?? {}, // custom group
     ...(typeof fm.googleFontsHref === "string" ? { googleFontsHref: fm.googleFontsHref } : {}),
@@ -212,6 +211,14 @@ const navLinks = Array.isArray(input.navLinks) ? input.navLinks : [];
 const loadedPacks = Array.isArray(input.loadedPacks) ? input.loadedPacks : [];
 const packsWithComponents = Array.isArray(input.packsWithComponents) ? input.packsWithComponents : [];
 const disabledPacks = Array.isArray(input.disabledPacks) ? input.disabledPacks : [];
+
+// Full-page LLM generation (this branch): the LLM authors the entire visible
+// page — header (Navigation.astro), footer (Footer.astro), and home page
+// (index.astro). compose writes each verbatim; there are no templates for them.
+const resolveIn = (p) => { const s = typeof p === "string" ? p.trim() : ""; return s ? (isAbsolute(s) ? s : join(projectDir, s)) : null; };
+const navPath = resolveIn(input.navPath);
+const footerPath = resolveIn(input.footerPath);
+const homePath = resolveIn(input.homePath);
 
 const brandName = brand.name ?? "Brand";
 
@@ -241,7 +248,6 @@ const SYSTEM_FONTS = new Set([
 
 const colors = { ...(designTokens.colors ?? {}) };
 const fonts = { ...(designTokens.fonts ?? {}) };
-const spacing = { ...(designTokens.spacing ?? {}) };
 const radii = { ...(designTokens.radii ?? {}) };
 const containers = { ...(designTokens.containers ?? {}) };
 
@@ -272,12 +278,10 @@ ensure(colors, "error", "#c0392b", "--color-");
 ensure(fonts, "display", "Georgia, serif", "--font-");
 ensure(fonts, "body", "system-ui, sans-serif", "--font-");
 
-// Spacing — full 2xs..4xl scale.
-const SPACING_DEFAULTS = {
-  "2xs": "0.25rem", xs: "0.5rem", sm: "0.75rem", md: "1rem", lg: "1.5rem",
-  xl: "2rem", "2xl": "3rem", "3xl": "4rem", "4xl": "6rem",
-};
-for (const [k, v] of Object.entries(SPACING_DEFAULTS)) ensure(spacing, k, v, "--spacing-");
+// Spacing is NOT a named scale — Tailwind v4's built-in numeric spacing
+// (`--spacing` base → gap-4, py-24, …) is used directly. Emitting named
+// --spacing-<t-shirt> tokens collided with the width utilities (max-w-3xl etc.
+// drew from --spacing-3xl), so the named scale was removed (CODEAI-696).
 
 // Radii — sm + md required.
 ensure(radii, "sm", "0.25rem", "--radius-");
@@ -296,8 +300,6 @@ emitGroup("--color-", colors);
 themeLines.push("");
 emitGroup("--font-", fonts);
 themeLines.push("");
-emitGroup("--spacing-", spacing);
-themeLines.push("");
 emitGroup("--radius-", radii);
 themeLines.push("");
 emitGroup("--container-", containers);
@@ -310,25 +312,17 @@ const errors = [];
 const REQUIRED = [
   ...["paper", "paper-warm", "ink", "mute", "rule", "accent"].map((k) => `--color-${k}`),
   "--font-display", "--font-body",
-  ...["2xs", "xs", "sm", "md", "lg", "xl", "2xl", "3xl", "4xl"].map((k) => `--spacing-${k}`),
   "--radius-sm", "--radius-md",
   ...["prose", "md", "3xl", "6xl"].map((k) => `--container-${k}`),
 ];
 const present = new Set([
   ...Object.keys(colors).map((k) => `--color-${k}`),
   ...Object.keys(fonts).map((k) => `--font-${k}`),
-  ...Object.keys(spacing).map((k) => `--spacing-${k}`),
   ...Object.keys(radii).map((k) => `--radius-${k}`),
   ...Object.keys(containers).map((k) => `--container-${k}`),
 ]);
 for (const tok of REQUIRED) {
   if (!present.has(tok)) errors.push({ code: "MISSING_REQUIRED_TOKEN", token: tok });
-}
-
-// Container ≠ spacing: a --container-* value must never equal a --spacing-* value.
-const spacingValues = new Set(Object.values(spacing));
-for (const [k, v] of Object.entries(containers)) {
-  if (spacingValues.has(v)) errors.push({ code: "CONTAINER_EQUALS_SPACING", token: `--container-${k}`, value: v });
 }
 
 // ── skeleton load + substitution helpers ──────────────────────────────────────
@@ -468,44 +462,28 @@ const navItems = navLinks
   .filter((l) => l && l.href != null && l.label != null)
   .map((l) => ({ href: String(l.href), label: String(l.label) }));
 
-// ── 4. Navigation.astro ──────────────────────────────────────────────────────────
+// ── 4. Navigation.astro (LLM-generated, verbatim) ─────────────────────────────
 {
-  let out = stripAstroHeader(readTemplate("Navigation.astro"));
-  out = out.replaceAll("{{shell.navBrandMark}}", shell.navBrandMark ?? brandName);
-  const links = navItems
-    .map((l) => `        <li class="site-nav-item"><a href="${escAttr(l.href)}">${l.label}</a></li>`)
-    .join("\n");
-  out = out.replace(/^\s*\{\{nav\.links\}\}\s*$/m, links);
-  writeProject("src/components/Navigation.astro", out);
+  if (!navPath || !existsSync(navPath)) die("NO_NAV", `LLM-generated header required via navPath (none at ${navPath ?? "<unset>"})`);
+  writeProject("src/components/Navigation.astro", readFileSync(navPath, "utf8"));
 }
 
-// ── 5. Footer.astro ──────────────────────────────────────────────────────────────
+// ── 5. Footer.astro (LLM-generated, verbatim) ─────────────────────────────────
 {
-  let out = stripAstroHeader(readTemplate("Footer.astro"));
-  out = out.replaceAll("{{brand.name}}", brandName);
-  out = out.replaceAll("{{shell.footerTagline}}", shell.footerTagline ?? "");
-  const links = navItems
-    .map((l) => `        <li><a href="${escAttr(l.href)}">${l.label}</a></li>`)
-    .join("\n");
-  out = out.replace(/^\s*\{\{nav\.links\}\}\s*$/m, links);
-  writeProject("src/components/Footer.astro", out);
+  if (!footerPath || !existsSync(footerPath)) die("NO_FOOTER", `LLM-generated footer required via footerPath (none at ${footerPath ?? "<unset>"})`);
+  writeProject("src/components/Footer.astro", readFileSync(footerPath, "utf8"));
 }
 
 // ── 6. index.astro ────────────────────────────────────────────────────────────────
 // Home markers: one `<!-- home:<pack> -->` per contributing pack. Today
-// stores + bookings + gift-cards contribute a home section. Disabled packs
+// stores + bookings + events + gift-cards contribute a home section. Disabled packs
 // (gift-cards) still get their marker (markers are their only acceptable touchpoint).
-const HOME_CONTRIBUTING = ["stores", "bookings", "gift-cards"]; // canonical order
+const HOME_CONTRIBUTING = ["stores", "bookings", "events", "gift-cards"]; // canonical order
 const homePool = new Set([...loadedPacks, ...disabledPacks]);
 const homeMarkerPacks = HOME_CONTRIBUTING.filter((p) => homePool.has(p));
 {
-  let out = stripAstroHeader(readTemplate("index.astro"));
-  out = out.replaceAll("{{shell.heroHeadline}}", shell.heroHeadline ?? brandName);
-  out = out.replaceAll("{{shell.heroSub}}", shell.heroSub ?? "");
-  out = out.replaceAll("{{brand.name}}", brandName);
-  const markers = homeMarkerPacks.map((p) => `  <!-- home:${p} -->`).join("\n");
-  out = out.replace(/^\s*\{\{home-markers\}\}\s*$/m, markers);
-  writeProject("src/pages/index.astro", out);
+  if (!homePath || !existsSync(homePath)) die("NO_HOME", `LLM-generated home page required via homePath (none at ${homePath ?? "<unset>"})`);
+  writeProject("src/pages/index.astro", readFileSync(homePath, "utf8"));
 }
 
 // ── manifest (the orchestrator parses this off stdout) ────────────────────────
@@ -522,11 +500,13 @@ const manifest = {
   phase: "compose",
   data: {
     filesWritten,
+    nav: "llm-generated",
+    footer: "llm-generated",
+    home: "llm-generated",
     componentCssImports: packsWithComponents,
     homeMarkers: homeMarkerPacks.map((p) => `home:${p}`),
     tokensApplied: {
       colors: Object.keys(colors).length,
-      spacing: Object.keys(spacing).length,
       containers: Object.keys(containers).length,
       radii: Object.keys(radii).length,
       fonts: Object.keys(fonts).length,

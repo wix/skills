@@ -20,7 +20,7 @@
  * used `@apply text-bark/70 bg-tobacco …` (stale token vocabulary) and
  * `@apply size-6` (built-in utility that needs `@reference` to be visible
  * here), and both classes built-failed against current designer output.
- * Direct `var(--color-ink)` / `var(--spacing-sm)` calls work against any
+ * Direct `var(--color-ink)` / `0.75rem` calls work against any
  * designer-published token set as long as the core scales exist (they always
  * do). Use fallback chains (`var(--color-paper-warm, var(--color-paper, var(--color-cream)))`)
  * for sometimes-published tokens.
@@ -33,22 +33,22 @@
 .cart-summary {
   background: var(--color-paper-warm, var(--color-paper, var(--color-cream)));
   border: 1px solid var(--color-rule);
-  padding: var(--spacing-xl);
+  padding: 2rem;
   border-radius: var(--radius-md);
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-sm);
+  gap: 0.75rem;
 }
 @media (min-width: 768px) {
   .cart-summary {
     position: sticky;
-    top: var(--spacing-xl);
+    top: 2rem;
   }
 }
 
 .cart-empty {
   text-align: center;
-  padding-block: var(--spacing-3xl);
+  padding-block: 4rem;
   color: var(--color-mute);
 }
 .cart-empty .checkout-btn {
@@ -66,7 +66,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: var(--spacing-md) var(--spacing-lg);
+  padding: 1rem 1.5rem;
   font-family: var(--font-display);
   font-size: 0.9375rem;
   font-weight: 500;
@@ -76,7 +76,7 @@
   border-radius: var(--radius-sm);
   cursor: pointer;
   width: 100%;
-  margin-top: var(--spacing-md);
+  margin-top: 1rem;
   transition: background-color 150ms ease, box-shadow 150ms ease;
 }
 .checkout-btn:hover:not(:disabled) {
@@ -123,7 +123,7 @@
 .cart-item {
   display: flex;
   flex-direction: row;
-  gap: var(--spacing-md);
+  gap: 1rem;
 }
 .cart-item-image {
   flex-shrink: 0;
@@ -171,8 +171,8 @@
 .cart-item-qty {
   display: inline-flex;
   align-items: center;
-  gap: var(--spacing-sm);
-  margin-top: var(--spacing-sm);
+  gap: 0.75rem;
+  margin-top: 0.75rem;
   width: fit-content;
 }
 .qty-btn {
@@ -221,7 +221,7 @@
 .cart-item-prices {
   display: flex;
   align-items: center;
-  gap: var(--spacing-sm);
+  gap: 0.75rem;
 }
 .cart-item-full-price {
   font-family: var(--font-body);
@@ -258,10 +258,10 @@
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: var(--spacing-sm);
+  gap: 0.75rem;
   font-family: var(--font-body);
   font-size: 0.875rem;
-  margin-top: var(--spacing-sm);
+  margin-top: 0.75rem;
 }
 .cart-discount-name {
   font-size: 0.75rem;
@@ -272,8 +272,8 @@
 }
 .cart-total {
   border-top: 1px solid var(--color-rule);
-  padding-top: var(--spacing-md);
-  margin-top: var(--spacing-sm);
+  padding-top: 1rem;
+  margin-top: 0.75rem;
   font-family: var(--font-display);
   font-size: 1.25rem;
   font-weight: 500;
@@ -290,10 +290,10 @@
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: var(--spacing-sm);
+  gap: 0.75rem;
   font-family: var(--font-body);
   font-size: 0.875rem;
-  margin-top: var(--spacing-sm);
+  margin-top: 0.75rem;
 }
 .cart-applied-discounts-name {
   text-align: right;

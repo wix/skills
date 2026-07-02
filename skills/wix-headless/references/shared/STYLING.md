@@ -8,15 +8,15 @@ Every visual decision in a generated site falls into one of three categories. Ea
 
 | Category | Lives in | Owned by | Use for |
 |---|---|---|---|
-| **Tokens (composed as utilities)** | the canonical `DESIGN.md` + its projections: the `@theme` block in `src/styles/global.css` (written by `scripts/compose.mjs`), plus `.wix/design-tokens.css` and `.wix/site.d.ts` (written by `scripts/emit-design-tokens.mjs`) — all from Designer's `DESIGN.md` | Designer picks values (Phase 2); `compose.mjs` writes `@theme` | All color, spacing, typography scale, radii, aspect ratios, shadows, transitions. Pages compose tokens at call sites as Tailwind utilities — `class="py-4xl bg-sand aspect-[16/5]"`. |
+| **Tokens (composed as utilities)** | the canonical `DESIGN.md` + its projections: the `@theme` block in `src/styles/global.css` (written by `scripts/compose.mjs`), plus `.wix/design-tokens.css` and `.wix/site.d.ts` (written by `scripts/emit-design-tokens.mjs`) — all from Designer's `DESIGN.md` | Designer picks values (Phase 2); `compose.mjs` writes `@theme` | All color, typography scale, radii, aspect ratios, shadows, transitions (spacing is Tailwind's built-in numeric scale). Pages compose tokens at call sites as Tailwind utilities — `class="py-24 bg-sand aspect-[16/5]"`. |
 | **Global semantic classes** | `src/styles/global.css` (outside `@theme`) and `src/styles/components-<pack>.css` | Designer + Phase 3 component agents | Compound multi-element patterns, interactive states (`:hover`, `:focus`, `:disabled`), and JS/React DOM query targets. |
 | **Co-located styles** | `<style>` block at the bottom of the same `.astro` file (or component CSS module for islands) | Page or component author | One-off page decoration: hero stamps, custom dividers, ornamental overlays that won't be reused elsewhere. |
 
 ## Default direction
 
-**Tokens-as-utilities is the default.** When you're about to write a class for layout, spacing, typography, alignment, simple background/text color, or aspect ratio, write Tailwind utilities derived from `@theme` instead. The site's design tokens give you `py-4xl`, `gap-sm`, `bg-paper-warm`, `text-ink`, `font-display`, `aspect-[16/5]` etc. Compose them in markup; do not invent semantic classes for these concerns.
+**Tokens-as-utilities is the default.** When you're about to write a class for layout, spacing, typography, alignment, simple background/text color, or aspect ratio, write Tailwind utilities derived from `@theme` instead. The site's design tokens give you `bg-paper-warm`, `text-ink`, `font-display`, `aspect-[16/5]` etc.; spacing is Tailwind-numeric (`py-24`, `gap-3`). Compose them in markup; do not invent semantic classes for these concerns.
 
-The token namespace is the contract. The design tokens (the DESIGN.md token vocabulary — `colors`/`typography`/`spacing`/`rounded`/`containers`) live on disk at `.wix/design-tokens.css` (gate-verified present before the build wave) — **read that file at the start of any pages or components scope** to know which tokens this run published. The orchestrator does **not** inline them in your prompt. (`.wix/site.d.ts` is also on disk for the build.) If a token you need isn't in `.wix/design-tokens.css`, that's a designer-side gap — flag it in your return JSON, don't paper over it with a custom class.
+The token namespace is the contract. The design tokens (the DESIGN.md token vocabulary — `colors`/`typography`/`rounded`/`containers`) live on disk at `.wix/design-tokens.css` (gate-verified present before the build wave) — **read that file at the start of any pages or components scope** to know which tokens this run published. The orchestrator does **not** inline them in your prompt. (`.wix/site.d.ts` is also on disk for the build.) If a token you need isn't in `.wix/design-tokens.css`, that's a designer-side gap — flag it in your return JSON, don't paper over it with a custom class.
 
 ## Decision tree
 
@@ -32,24 +32,21 @@ If none fit, you're probably trying to do something the tokens don't support yet
 
 These are layout/spacing/typography concerns that should always be utilities, never standalone classes:
 
-- Section padding / margins (`py-4xl`, `mt-3xl`, `mb-2xl`)
-- Flex / grid layouts (`flex flex-col gap-md`, `grid grid-cols-3 gap-lg`)
+- Section padding / margins (`py-24`, `mt-16`, `mb-12`)
+- Flex / grid layouts (`flex flex-col gap-4`, `grid grid-cols-3 gap-6`)
 - Aspect ratios (`aspect-[4/5]`, `aspect-square`)
 - Plain typography choices (`text-display-lg font-display`, `text-mute uppercase tracking-wide`)
 - Background / foreground color application without state (`bg-paper`, `text-ink-soft`)
-- Container widths derived from tokens (`max-w-prose`, `w-full`) **only when** the designer declared matching `--container-*` keys in `@theme`
+- Container widths (`max-w-prose`, `max-w-6xl`, `max-w-3xl`, `w-full`) — these resolve to the `--container-*` keys the designer declared.
 
-### Prose / reading width (CMS, FAQ, About)
+### Spacing & reading width
 
-Tailwind v4 resolves `max-w-3xl` to `var(--container-3xl)`, **not** `var(--spacing-3xl)`. If the designer published `--spacing-3xl: 5rem` but no `--container-3xl`, FAQ/About columns collapse to ~80px.
+**Spacing is Tailwind's built-in numeric scale** — `gap-4`, `py-24`, `px-6`, `mt-16`, etc. There is **no** named `--spacing-<size>` scale (it was removed: its t-shirt names `md`/`3xl`/… collided with the width utilities, so `max-w-3xl` resolved to `--spacing-3xl` ≈ 96px). Common steps: `1`=0.25rem, `2`=0.5, `3`=0.75, `4`=1rem, `6`=1.5, `8`=2, `12`=3, `16`=4, `24`=6rem.
 
-**Page agents (Phase 4):**
+> **Never reintroduce a named `--spacing-*` scale.** In Tailwind v4 the `--spacing-*` namespace also generates the width/sizing families (`max-w-*`, `w-*`, `min-w-*`, …), so any `--spacing-<key>` token shadows the matching `max-w-<key>`. The current fix works because the skill's spacing steps happen to equal Tailwind's numeric defaults — but if a brand ever needs genuinely *custom* spacing **values**, put them under a different namespace (e.g. `--rhythm-*`) or use arbitrary values (`py-[5.5rem]`); do not revive `--spacing-*`.
 
-- **Do not** use `max-w-2xl`, `max-w-3xl`, etc. unless `global.css` `@theme` documents the matching `--container-*` key (grep `@theme` before choosing).
-- **Prefer** `container-reading` (designer `@utility`), `max-w-6xl` when `--container-6xl` exists, or explicit arbitrary width `max-w-[48rem]`.
-- **Do not** confuse spacing scale with container scale — `py-3xl` uses `--spacing-3xl`; `max-w-3xl` uses `--container-3xl`.
-
-If a designer's `global.css` contains rules like `.featured-section { padding-block: var(--spacing-4xl); }` or `.product-card-body { display: flex; flex-direction: column; gap: var(--spacing-xs); }`, those are misplaced — they belong in markup as utilities. Inventing such classes ships broken layouts: every consumer needs the designer to have pre-declared the class, and Tailwind v4 silently drops the references when the rule is missing.
+**Width / reading columns:** `max-w-md`, `max-w-3xl`, `max-w-6xl`, `max-w-prose` now resolve correctly to the `--container-*` keys (no spacing collision), so use them freely; `container-reading` (the designer `@utility`) or an arbitrary `max-w-[48rem]` also work.
+If a designer's `global.css` contains rules like `.featured-section { padding-block: 6rem; }` or `.product-card-body { display: flex; flex-direction: column; gap: 0.5rem; }`, those are misplaced — they belong in markup as utilities (`py-24`, `flex flex-col gap-2`). Inventing such classes ships broken layouts: every consumer needs the designer to have pre-declared the class, and Tailwind v4 silently drops the references when the rule is missing.
 
 ## Required tokens — the component-CSS template contract
 
@@ -68,11 +65,10 @@ The per-pack `components-<pack>.css` templates at `<SKILL_ROOT>/references/astro
 | `--color-error` | optional | `var(--color-accent)` or hardcode | ecom cart-item-unavailable, stores back-in-stock-error |
 | `--font-display` | **required** | — | every pack — headings + labels |
 | `--font-body` | **required** | — | every pack — body text + UI |
-| `--spacing-2xs` … `--spacing-4xl` | **required (full scale)** | — | every template uses `gap: var(--spacing-md)` and similar |
 | `--radius-sm`, `--radius-md` | **required** | — | buttons, inputs, cards |
 | `--radius-lg`, `--radius-xl` | optional | — | stores product-card |
 
-The templates do NOT use `@apply` — every rule is `property: var(--token);` directly. This means missing utilities don't fail at build time (the way `@apply gap-sm` would). Missing tokens degrade silently to `var(missing) → unset → initial`. That makes the failure mode "ugly component" not "broken build" — easier to recover from but harder to detect, so verify the full set above is in `@theme` before returning.
+The templates do NOT use `@apply` — every rule is `property: var(--token);` directly. This means missing utilities don't fail at build time (the way `@apply gap-3` would). Missing tokens degrade silently to `var(missing) → unset → initial`. That makes the failure mode "ugly component" not "broken build" — easier to recover from but harder to detect, so verify the full set above is in `@theme` before returning.
 
 **Why this contract exists.** The component templates are authored against a stable, brand-agnostic token vocabulary so they don't need to be regenerated per run. Using `@apply` against brand-specific tokens (e.g. `bark`, `cream`, `parchment`) that designers don't publish fails the build with `Cannot apply unknown utility class`. Direct `var()` against the required-token list above avoids that class of failure entirely.
 
@@ -119,15 +115,15 @@ For any listed class the Composer's `global.css` declares: if a template referen
 Astro's `<style>` blocks scope automatically to the `.astro` file by default — no class-name collision risk across routes. When a page needs decoration that doesn't fit utilities and isn't reusable, the rule lives next to its only caller:
 
 ```astro
-<section class="relative py-4xl">
+<section class="relative py-24">
   <div class="hero-stamp">Made in small batches</div>
 </section>
 
 <style>
   .hero-stamp {
     position: absolute;
-    bottom: var(--spacing-lg);
-    right: var(--spacing-lg);
+    bottom: 1.5rem;
+    right: 1.5rem;
     background: rgba(27, 26, 23, 0.75);
     color: var(--color-paper);
     padding: 0.5rem 0.875rem;

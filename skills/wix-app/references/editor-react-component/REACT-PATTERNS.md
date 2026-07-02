@@ -6,7 +6,23 @@ Code patterns and common mistakes for Editor React components.
 
 ## 1.1 SSR-Safe Implementation
 
-Components are server-rendered then hydrated. See [`SSR.md`](SSR.md) for the full rules and code examples (browser globals, complete first render, deterministic output, `useStableId`, no `useLayoutEffect`).
+Avoid browser-only APIs at module scope or during render; use them inside `useEffect` with `typeof window !== 'undefined'`.
+
+**❌ Wrong:**
+
+```typescript
+const userAgent = window.navigator.userAgent;
+```
+
+**✅ Correct:**
+
+```typescript
+useEffect(() => {
+  if (typeof window !== "undefined") {
+    const userAgent = window.navigator.userAgent;
+  }
+}, []);
+```
 
 ## 1.2 Element Visibility (Platform-Managed)
 
@@ -23,70 +39,25 @@ Authoritative SCSS rules: `REACT-GUIDELINES.md` Part 2. For RTL/logical CSS patt
 ```scss
 // ❌ NEVER include:
 
-// State CSS
-&:hover { ... }              // ❌
-&:focus { ... }              // ❌
-&:disabled { ... }           // ❌
-&[data-state='open'] { ... } // ❌
-
 // Transitions/Animations
 transition: all 0.3s;        // ❌
 animation: fadeIn 0.5s;      // ❌
 ```
 
+> Design states (`hover`, `focus`, `selected`, …) are authored per
+> [`DESIGN-STATES.md`](DESIGN-STATES.md).
+
 ---
 
 # Part 3: Common Mistakes
 
-## 3.1 Adding interaction-state CSS to parts
+## 3.1 Custom-state classes
 
-The resting visual (background, color, border-radius, padding, font)
-belongs in the component's CSS — see `CSS-GUIDELINES.md` §"Keep all
-styling in CSS". What does NOT belong is **interaction-state CSS**
-(`:hover`, `:focus`, `:focus-visible`, `:active`, `:disabled`,
-`[data-state]`, `[aria-selected]`) — the platform owns those.
-Selection / mode variants (`selected`, `active`, `open`) are
-different — they go through a JS-toggled modifier class; see
-`CSS-GUIDELINES.md` §"Express selection / mode variants".
-
-**❌ Wrong — pseudo-class rules must be removed:**
-
-```scss
-.button {
-  background-color: #ffffff;
-  color: #0f172a;
-  border-radius: 8px;
-  padding-block: 8px;
-  padding-inline: 16px;
-}
-
-.button:hover { /* ❌ Interaction state — platform owns this */
-  background-color: #f0f0f0;
-}
-
-.button:disabled { /* ❌ Interaction state — platform owns this */
-  opacity: 0.5;
-}
-```
-
-**✅ Correct — keep the resting visual; drop the pseudo-class rules:**
-
-```scss
-.button {
-  display: flex;
-  align-items: center;
-  background-color: #ffffff;
-  color: #0f172a;
-  border-radius: 8px;
-  padding-block: 8px;
-  padding-inline: 16px;
-  box-sizing: border-box;
-}
-```
+For a custom design state, toggle the element's **global** state class from
+its data in JSX (e.g. `isSelected && 'pricing-card-row--selected'`, using the
+component-name-prefixed class) — don't express it as a module-scoped class. State styling lives in [`DESIGN-STATES.md`](DESIGN-STATES.md).
 
 ## 3.2 Browser APIs at module scope
-
-See [`SSR.md`](SSR.md) for the full SSR rules.
 
 **❌ Wrong:**
 
@@ -121,3 +92,4 @@ For lists, breadcrumbs, tabs, menus, and similar collection-style UI, render the
 ```
 
 Handle separators with CSS pseudo-elements or inside each item.
+
