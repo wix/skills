@@ -23,7 +23,7 @@ Diagnosis is **endpoint-first**:
 
 > **Note:** If Bookings APIs return errors, the app may not be installed. Use [List Installed Apps](../app-installation/list-installed-apps.md) to verify and [Install Wix Apps](../app-installation/install-wix-apps.md) to install it.
 
-- You need the `serviceId`, and (optionally) a staff member's `resourceId` to scope the check to one provider.
+- You need the `serviceId`. To scope the check to one provider, also pass that staff member's `resourceId` — always alongside the `serviceId`, not on its own (see [Which inputs to pass](#which-inputs-to-pass-prefer-a-service)).
 
 ---
 
@@ -34,6 +34,16 @@ Diagnosis is **endpoint-first**:
 - **Endpoint:** `POST https://www.wixapis.com/_api/service-availability/v2/time-slots/diagnose`
 - **Maturity:** ALPHA, behind a feature toggle. Its checks roll out progressively — if it returns **no reasons** for a service that clearly has none, treat the result as inconclusive and go to Step 2.
 - **`hasAvailability` is not set to `true` yet** — the endpoint detects *problems*; it does not positively confirm availability. So `hasAvailability: false` with an empty `reasons` array means **"no blocking cause found"**, not "no availability."
+
+### Which inputs to pass (prefer a service)
+
+**Always include `serviceId`.** To diagnose a specific staff member, pass `serviceId` **and** `resourceId` together — not `resourceId` alone.
+
+The service is what makes the diagnosis deep. With a service, the endpoint knows the duration, buffer, and offered locations, so it actually checks whether the resource has real availability windows in the range (and at the right locations). **Resource-only** (`resourceId` with no `serviceId`) runs shallow setup checks only: it confirms a working-hours *schedule exists* but never inspects whether that schedule has any windows, and it can't resolve locations. So a resource whose schedule is empty (genuinely zero availability) comes back **inconclusive** on the resource-only path but is correctly caught as `NO_RESOURCE_AVAILABILITY_WINDOWS` when a service is supplied.
+
+- Owner reports a **service** has no availability → pass `serviceId`.
+- Concern is a **specific provider** → pass `serviceId` + `resourceId` (use a service they're assigned to).
+- Only have a `resourceId` → look up a service the resource is assigned to and pass both; a bare resource-only call can miss real problems.
 
 ### Request
 
@@ -52,7 +62,7 @@ curl -X POST 'https://www.wixapis.com/_api/service-availability/v2/time-slots/di
 | Field | Notes |
 |-------|-------|
 | `serviceId` | Service to diagnose. Provide this or `resourceId`. |
-| `resourceId` | Staff member / resource to diagnose. Provide this or `serviceId`. Provide **both** to check a specific provider in the context of a specific service. |
+| `resourceId` | Staff member / resource to diagnose. Pair it with `serviceId` (see [Which inputs to pass](#which-inputs-to-pass-prefer-a-service)). Resource-only (no `serviceId`) runs shallow checks and can miss real problems. |
 | `fromLocalDate` | `YYYY-MM-DDThh:mm:ss` (ISO-8601). Optional; defaults to now. |
 | `toLocalDate` | Optional; defaults to `fromLocalDate` + 90 days. |
 | `timeZone` | IANA tz (e.g. `America/New_York`). Defaults to the site's time zone. |
@@ -182,6 +192,7 @@ Popular reasons a service shows no availability, and where each surfaces:
 - **The endpoint's checks roll out progressively (ALPHA).** If it returns nothing for an obviously broken service, it may be toggled off or the relevant check isn't live yet — use Step 2.
 - **`deep: true` is unsupported** and returns `DIAGNOSTIC_DEPTH_NOT_SUPPORTED`.
 - **The endpoint ignores booking policy and capacity** — those are Step 2.
+- **Resource-only diagnosis is shallow.** Passing `resourceId` without `serviceId` runs setup checks only (no availability-window or location check) and can return "inconclusive" even when the resource has zero availability. Always pair a resource with a service.
 - **Appointment-based services only.**
 
 ## API Documentation References
