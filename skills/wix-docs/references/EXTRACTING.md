@@ -41,8 +41,8 @@ dev.wix.com/docs/                                      ← append .md to any pat
 │   │   │       │   ├── create-product-with-inventory  ← method (create + stock in one call)
 │   │   │       │   └── get-product · search-products · update-product · count-products · …
 │   │   │       └── inventory-items-v3/ · categories/ · customizations-v3/ · brands-v3/ · …
-│   │   ├── bookings/
-│   │   │   └── bookings/                              the bookings resource group
+│   │   ├── bookings/                                  the vertical
+│   │   │   └── bookings/                              core resource group (yes — nested under the vertical)
 │   │   │       ├── bookings-writer-v2/                writes
 │   │   │       │   └── create-booking                 ← method (leaf); + bulk-create-booking · …
 │   │   │       └── bookings-reader-v2/ · attendance/ · waitlist/ · …
@@ -56,12 +56,20 @@ dev.wix.com/docs/                                      ← append .md to any pat
 │   └── account-level/ · site/ · tools/ · articles/    domains/sites, site config, auth/query guides
 ├── sdk/                                               SDK-only surfaces (not in api-reference)
 │   ├── articles/set-up-a-client                       createClient + OAuthStrategy setup
-│   ├── core-modules/                                  @wix/sdk (createClient, OAuthStrategy), essentials, realtime
+│   ├── core-modules/
+│   │   ├── sdk/                                       @wix/sdk
+│   │   │   ├── wix-client · oauth-strategy · setup    client creation + auth strategies
+│   │   │   └── media · api-key-strategy · app-strategy · …
+│   │   └── essentials/ · realtime/ · web-methods/     elevate/host-bridge · realtime · web methods
 │   ├── host-modules/                                  dashboard · editor · site (build on Wix surfaces)
-│   └── frontend-modules/                              members · pay · seo · storage · pricing-plans · …
+│   └── frontend-modules/
+│       ├── members/                                  introduction · custom-fields · …
+│       └── pay/ · seo/ · storage/ · pricing-plans/ · location/ · …
 ├── go-headless/                                       headless setup, auth, hosting, framework integration
 ├── build-apps/                                        building Wix apps / extensions
-├── wix-cli/                                           CLI commands
+├── wix-cli/
+│   ├── guides/                                        project-structure · about-the-wix-cli · …
+│   └── command-reference/                             project-creation · project-commands · global-commands
 ├── velo/ · develop-websites/                          Velo site-coding APIs + guides
 └── …                                                  (full portal list: curl llms.txt)
 ```
