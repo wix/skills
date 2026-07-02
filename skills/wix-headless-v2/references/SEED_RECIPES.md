@@ -69,15 +69,11 @@ Never invent a URL or body from memory.
 
 ---
 
-## pricing-plans — membership tiers
+## pricing-plans — membership tiers (+ bookings membership integration)
 
-*SEED.md §3: `intent.pricing-plans.planCount` recurring plans (name, price, a **monthly** billing cycle); one create call per plan; keep `planIds[]`.*
+*SEED.md §3: `intent.pricing-plans.planCount` recurring plans (name, price, a **monthly** billing cycle); one create call per plan; keep `planIds[]`. When bookings is also in the run, attach covered services so a plan is a bookings membership.*
 
-| Tier | Page | What it settles |
-|---|---|---|
-| 1 | <https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans/skills/create-and-update-pricing-plans.md> | The gold recipe: end-to-end create/update for Plans V3. |
-| 2 | <https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans/plans-v3/sample-flows.md> | Step ordering for common plan-setup flows. |
-| 3 | <https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans/plans-v3/create-plan.md> | Create-plan method: a recurring monthly plan needs a monthly billing cycle on its pricing variant (on-purchase start, until-cancelled end) plus the flat-rate price. |
+**Read `inline-recipes/setup-pricing-plans.md`** (local — Read it, don't curl). It is **self-contained** — every endpoint, request body, and representative response is inlined, so read it and seed from it alone; **do not go fetch the Plans-V3 / Benefit-Programs method/flow doc pages** (they're superseded by the recipe and their headers even show the internal `/_api/` form the recipe tells you to avoid). It covers: **create each plan** (`pricing-plans/v3/plans`, one call per plan, no bulk) with pricing under `pricingVariants[].billingTerms` (cycle) + `pricingStrategies[].flatRate.amount` (a decimal **string**) — recurring / one-time / free are three `billingTerms`+amount shapes, currency is site-derived, `perks` are display-only; then — **only when bookings is in the run** — **attach bookings services via the Benefit Programs API** (a *separate* API, not a plan field): read the auto-created program definition (`GET …/benefit-programs/v1/program-definitions/by-namespace-and-external-id`, namespace `@wix/pricing-plans`) → create one pool definition (`providerAppId` = Bookings `13d21c63-…`, `price:"0"` = unlimited) → bulk-create items whose `externalId` is each covered bookings **service id**. The `pricingVariants`-not-`price` shape, decimal-string amounts, the strict `plan.id → programDefinition.id → itemSetId → items` ordering, the program-definition provisioning lag, and the `/bulk/items/create` vs `/bulk/items` path discrepancy are all inlined.
 
 ---
 
