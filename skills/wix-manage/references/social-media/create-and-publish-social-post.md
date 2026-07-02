@@ -15,6 +15,8 @@ Base URL for all endpoints: `https://www.wixapis.com/social-publisher/v1`.
 
 **Flow:** STEP 1 confirm the channel is connected (connect if needed) → STEP 2 check premium features → STEP 3 generate content (optional) → STEP 4 pick channel/type → STEP 5 create the draft → STEP 6 publish or schedule. Checking connection and premium first avoids generating content for a channel that can't receive it or an action the plan doesn't allow.
 
+**Not covered here:** editing or analyzing already-published posts, post analytics/insights, or connecting a channel as a standalone goal (connection is handled here only as a precondition for publishing).
+
 ---
 
 ## STEP 1: Confirm the channel is connected
@@ -22,6 +24,8 @@ Base URL for all endpoints: `https://www.wixapis.com/social-publisher/v1`.
 Determine the target channel from the request (`INSTAGRAM`, `FACEBOOK`, `YOUTUBE`, `LINKEDIN`, `PINTEREST`, `GBP`, `TIKTOK`), then get the account to publish to and confirm the channel is connected. Do this first — you can't publish to an unconnected channel, and connecting is an interactive step best surfaced up front.
 
 **API Endpoint:** `GET https://www.wixapis.com/social-publisher/v1/accounts?channelName=INSTAGRAM`
+
+(Channel-name placement differs by endpoint: `accounts` and `features` take it as a **query** param; `connect-url` and `long-lived-token-status` take it as a **path** segment.)
 
 **Expected response:**
 
@@ -51,13 +55,13 @@ Ask the user if they'd like to connect the channel now. If yes, run the OAuth co
 
 2. **Surface `connectUrl` to the user** and ask them to open it and authorize the channel. The channel's OAuth redirect completes the connection server-side.
 
-3. **Poll the connection status** — `GET https://www.wixapis.com/social-publisher/v1/INSTAGRAM/long-lived-token-status` every few seconds until `status` is `VALID`:
+3. **Poll the connection status** — `GET https://www.wixapis.com/social-publisher/v1/INSTAGRAM/long-lived-token-status` every few seconds, for up to ~2 minutes, until `status` is `VALID`:
 
    ```json
    { "status": "VALID" }
    ```
 
-   `status` values: `NEVER_CREATED` (not connected yet — keep waiting for the user to authorize), `VALID` (connected — proceed), `INVALID` (connection expired — reconnect with the same flow), `DISCONNECTED` (was disconnected — reconnect).
+   `status` values: `NEVER_CREATED` (not connected yet — keep polling until the timeout), `VALID` (connected — proceed), `INVALID` (connection expired — reconnect with the same flow), `DISCONNECTED` (was disconnected — reconnect). If it's still not `VALID` after ~2 minutes, stop and tell the user the connection wasn't completed and they can retry.
 
 4. **Re-run STEP 1** (`List Accounts`) to get the now-connected account's `id` for `channel.accountId`.
 
@@ -84,8 +88,6 @@ One call tells you what the site's plan allows — whether you can generate with
 }
 ```
 
-(To check a single feature instead, `GET /social-publisher/v1/features/{featureType}` returns `{ "featureData": {...}, "monetizationEnabled": ... }`.)
-
 `quotaInfo` is present only when the feature is metered — when quotas don't apply, `monetizationEnabled` is `false` and each entry carries just `type` and `enabled`. `period` is one of `NO_PERIOD`, `MILLISECOND`, `SECOND`, `MINUTE`, `HOUR`, `DAY`, `WEEK`, `MONTH`, `YEAR` (`NO_PERIOD` means the quota doesn't reset).
 
 **Decision point:**
@@ -107,7 +109,7 @@ Produces ready-to-use, per-channel payloads that drop straight into STEP 5. This
 **API Endpoint:** `POST https://www.wixapis.com/social-publisher/v1/generate-post-data`
 
 - `userInput` — free-text idea to base the post on.
-- `siteAssets` — the site's own content to ground the post in, as `{ "id": "<asset-guid>", "type": "<asset-type>" }`. **Exactly one asset per call** (multiple assets aren't supported yet). Supported `type` values: `STORES_PRODUCT`, `STORES_CATEGORY`, `STORES_COUPON`, `BLOG_POST`, `EVENT`, `BOOKINGS_SERVICE`. Get the asset's `id` from that app's own API (for example, query Wix Stores products to get a `STORES_PRODUCT` id).
+- `siteAssets` — the site's own content to ground the post in, as `{ "id": "<asset-guid>", "type": "<asset-type>" }`. **Exactly one asset per call** (multiple assets aren't supported yet). Supported `type` values: `STORES_PRODUCT`, `STORES_CATEGORY`, `STORES_COUPON`, `BLOG_POST`, `EVENT`, `BOOKINGS_SERVICE`. Resolve the `id` via the owning app's query API before calling this (e.g. Stores Query Products for `STORES_PRODUCT`, Blog for `BLOG_POST`, Events for `EVENT`) — this recipe doesn't look assets up for you.
 - `media` — candidate images to include, as `{ "type": "IMAGE", "url": "<public-url>" }` (images only).
 - `channels` — which channels to generate for. Omit to get one result for each of `INSTAGRAM`, `FACEBOOK`, `LINKEDIN`, `PINTEREST`, `GBP`, and `TIKTOK`.
 
@@ -134,7 +136,7 @@ Provide `userInput`, `siteAssets`, or both.
 }
 ```
 
-**Expected response** — one entry per channel, each holding a channel-specific payload (`instagramPost`, `facebookPost`, …) shaped exactly like the content in STEP 5:
+**Expected response** — one entry per **requested** channel, each holding a channel-specific payload (`instagramPost`, `facebookPost`, …) shaped exactly like the content in STEP 5 (Instagram shown below; the two-channel request above also returns a `facebookPost` entry):
 
 ```json
 {
@@ -189,13 +191,13 @@ Both `userInput` (prompt) and `imageUrl` (the source image to edit) are required
 
 **Response:** `{ "status": "OK", "executionId": "b7c2f0a1-4e6d-4a8b-9c3f-2d5e1a7b0c94" }`.
 
-**Poll** for the result: `GET https://www.wixapis.com/social-publisher/v1/generated-image/{executionId}` about every few seconds until `status` is `READY` or `FAILED`:
+**Poll** for the result: `GET https://www.wixapis.com/social-publisher/v1/generated-image/{executionId}` about every few seconds, for up to ~2 minutes, until `status` is `READY` or `FAILED`:
 
 ```json
 { "status": "READY", "imageUrl": "https://static.wixstatic.com/media/cf2434_generated-image.jpg", "fileId": "cf2434_abc123def456~mv2.jpg" }
 ```
 
-`status` values: `IN_PROGRESS` (keep polling), `READY` (use `imageUrl` — and `fileId` — as the post media), `FAILED`. A `404 GENERATED_IMAGE_NOT_FOUND` means the `executionId` is invalid or expired. The generated image is also saved to the site's "Social Marketing AI Media" Media Manager folder.
+`status` values: `IN_PROGRESS` (keep polling; if still `IN_PROGRESS` after ~2 minutes, stop and report), `READY` (use `imageUrl` — and `fileId` — as the post media), `FAILED`. A `404 GENERATED_IMAGE_NOT_FOUND` means the `executionId` is invalid or expired. The generated image is also saved to the site's "Social Marketing AI Media" Media Manager folder.
 
 ---
 
@@ -220,11 +222,11 @@ For the connected channel from STEP 1, pick the item `type` and the matching con
 
 Notes:
 - Media items in `mediaWrapper.media[]` are `{ "type": "IMAGE" | "VIDEO", "url": "<public-url>" }`.
-- Instagram and story types **require** media.
+- Instagram and story types **require** media. If the user has no image for a required-media channel, source one first — a site asset's own image, a Media Manager file, or a user-provided URL. No endpoint here creates an image from text alone (STEP 3c only edits an existing source image).
 - `caption` is the text field for Instagram, Facebook, LinkedIn; `description` for YouTube, Pinterest, Google Business Profile, TikTok.
 - `pageId` (Facebook), `boardId` (Pinterest), `locationId` (Google Business Profile) come from the account object in STEP 1.
 - TikTok `privacyLevel` must be one of the account's `privacyLevelOptions` from STEP 1 (e.g. `PUBLIC_TO_EVERYONE`).
-- `TWITTER` is no longer functional as of July 31, 2026 — don't publish to it.
+- `TWITTER` (X) is being sunset — don't target it; treat an `UNSUPPORTED_CHANNEL` error as authoritative.
 
 ---
 
@@ -305,6 +307,8 @@ For multiple media, use `mediaWrapper` instead of `imageUrl`/`videoUrl`:
 
 ## STEP 6: Publish now or schedule
 
+**Confirm before publishing.** Publishing immediately is public and can't be undone (you can only delete the post afterward). Show the user the final content and target channel and get explicit confirmation before this call. Scheduling is reversible (reschedule/cancel), so a lighter confirmation is fine there.
+
 **API Endpoint:** `POST https://www.wixapis.com/social-publisher/v1/publish-by-id`
 
 **Publish immediately** — omit `scheduledDate`:
@@ -313,10 +317,10 @@ For multiple media, use `mediaWrapper` instead of `imageUrl`/`videoUrl`:
 { "id": "ac01c174-5244-49df-8085-84d87cd0345a" }
 ```
 
-**Schedule for a future date** — include `scheduledDate` (ISO 8601, in the future; confirm `SCHEDULE_POST` in STEP 2):
+**Schedule for a future date** — include `scheduledDate` (ISO 8601, must be in the future; confirm `SCHEDULE_POST` in STEP 2). Compute it from the current date/time, resolving the user's relative wording ("next Monday 9am") in the site's timezone if known, otherwise UTC, and confirm the resolved date with the user:
 
 ```json
-{ "id": "ac01c174-5244-49df-8085-84d87cd0345a", "scheduledDate": "2026-08-08T09:00:00.000Z" }
+{ "id": "ac01c174-5244-49df-8085-84d87cd0345a", "scheduledDate": "<future-ISO-8601-datetime>" }
 ```
 
 **Expected response:** the item with an updated `status`:
@@ -342,7 +346,7 @@ The post appears on the site's Social Media Marketing page in the dashboard. To 
 | STEP 2 shows the publish/schedule feature `enabled: false` or `remainingUsage: 0` | Plan doesn't allow the action, or quota used up | Advise upgrading, or wait for quota reset |
 | `412 FAILED_PRECONDITION` / `INELIGIBLE_FOR_FEATURE` on publish or schedule | Site's plan doesn't cover publishing/scheduling this post | Check STEP 2 first; advise upgrading the plan |
 | `429 RESOURCE_EXHAUSTED` / `PUBLISH_LIMIT_EXCEEDED` | Publishing rate limit hit | Back off and retry later |
-| `UNSUPPORTED_CHANNEL` | Targeting a sunset channel (e.g. `TWITTER`, non-functional as of July 31, 2026) | Use a supported channel |
+| `UNSUPPORTED_CHANNEL` | Targeting a sunset/unsupported channel (e.g. `TWITTER`/X) | Use a supported channel |
 | Create item rejected for missing media | Instagram and story types require media (GBP needs `description` and/or media) | Provide a public image/video URL (or edit one from a source image in STEP 3c) |
 | Reschedule/cancel returns `ITEM_NOT_EXISTS`, `ITEM_IS_PUBLISHED`, or `ITEM_IS_DELETED` | The item can't be rescheduled/canceled in its current state | Only reschedule/cancel items still in `SCHEDULED` status |
 | Publish returns `status: FAILED` | Content/type mismatch or channel rejected the post | Verify the `type` + content object match the channel's supported combination and that media URLs are public |
@@ -360,4 +364,6 @@ The post appears on the site's Social Media Marketing page in the dashboard. To 
 - [Get Generated Image](https://dev.wix.com/docs/api-reference/business-management/marketing/social-media/generated-content-v1/get-generated-image)
 - [Create Draft Item](https://dev.wix.com/docs/api-reference/business-management/marketing/social-media/item-v1/create-draft-item)
 - [Publish Item By ID](https://dev.wix.com/docs/api-reference/business-management/marketing/social-media/item-v1/publish-item-by-id)
+- [Reschedule Item](https://dev.wix.com/docs/api-reference/business-management/marketing/social-media/item-v1/reschedule-item)
+- [Cancel Scheduled Item](https://dev.wix.com/docs/api-reference/business-management/marketing/social-media/item-v1/cancel-scheduled-item)
 - [Publisher API sample flows](https://dev.wix.com/docs/api-reference/business-management/marketing/social-media/sample-flows)
