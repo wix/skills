@@ -1,0 +1,36 @@
+name: ecommerce/tax/ecom-tax-ambiguous-setup
+description: Explain the tax setup decision tree — I'm evaluating options before committing.
+triggerPrompt: |
+  I'm trying to understand how tax setup works for a Wix store before I commit to a specific country. Don't ask me anything back — walk me through the decision tree: what setup paths exist, how to choose based on where I'm selling, and any key boundary rules I should know about (e.g. UK vs EU, when Avalara comes in). I'll come back with my specifics once I understand the options.
+tags: [ecommerce]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/tax
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The merchant asked for a **walkthrough of the tax setup decision tree** and explicitly instructed the agent NOT to ask anything back. This test exercises the **dispatcher's value as the single source of routing truth** under the lean-leaves architecture: the leaf README descriptions are opaque ("do not route here from README"), so if the agent produces a substantive routing walkthrough that includes dispatcher-only facts (country-based routing, UK ≠ EU boundary, Avalara-is-dashboard-only), that content came from the dispatcher — proving it was loaded and used.
+
+      Pass if ALL of these are true:
+        1. The agent called `ReadFullDocsArticle` on the **Tax dispatcher** (slug `tax`) as its first (or first-parallel) action. Loading a leaf in parallel is acceptable as long as the dispatcher was among the loads.
+        2. The agent produced a **complete walkthrough** — it did NOT stop at a clarifying question. It respected the merchant's "don't ask me back" instruction.
+        3. The walkthrough surfaces the two setup paths and the country-driven choice between them:
+           - **Wix Manual** for non-EU countries (e.g. US, AU, GB, NZ, JP, CA).
+           - **EU VAT** for EU27 member states (e.g. Germany, France, Italy, Spain, …).
+        4. The walkthrough includes at least ONE dispatcher-only boundary rule — either:
+           - **UK (GB) is NOT EU** since Brexit, so UK routes to Wix Manual not EU VAT; OR
+           - **Avalara is dashboard-only** (installed via Wix App Market, credentials API not TPA-public — the API can bind regions to Avalara once it's onboarded, but the onboarding itself is not scriptable).
+        5. The walkthrough mentions that **wrong tax on a specific existing order** is a separate diagnostic flow (per-order, not a setup path), so the merchant knows there's a third path if they end up needing it later.
+        6. Zero mutating API calls (no `POST /billing/v1/tax-regions`, `POST /billing/v1/tax-groups`, `POST /billing/v1/manual-tax-mappings`). Read-only calls (e.g. `list-tax-calculators`) are acceptable but not required.
+
+      Fail if ANY of these are true:
+        - The agent skipped the dispatcher and answered from the README titles or generic training knowledge (no `ReadFullDocsArticle` on `tax` slug).
+        - The response is a clarifying question or stops mid-walkthrough — this is the previous failure mode we're explicitly fixing.
+        - The walkthrough OMITS both boundary rules (UK ≠ EU AND Avalara is dashboard-only). Missing both is a strong signal the dispatcher wasn't actually consulted, because these facts don't exist in the lean leaf descriptions.
+        - The walkthrough treats UK as EU or claims Avalara can be onboarded via the API.
+        - The agent made mutating tax API calls despite the merchant asking for an explanation only.
+        - It treated this as a non-Tax question (Pricing, Catalog, Checkout).
+
+      **Why this test exists (post-lean-leaves architecture):** the leaf README descriptions are now opaque, so the only way the agent knows about UK ≠ EU or Avalara-is-dashboard-only is by loading the dispatcher. Presence of these facts in the response = proof the dispatcher was loaded and used. A leaf-only architecture (or an agent that bypasses the dispatcher) will produce a walkthrough that lacks these specifics.

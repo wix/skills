@@ -1,0 +1,35 @@
+name: ecommerce/tax/configure-wix-manual
+description: I sell in Australia and need to charge GST. Set it up for me — the rate is 10%.
+triggerPrompt: |
+  I sell in Australia and I need to charge GST on my products. Can you set it up for me? The rate is 10%.
+tags: [ecommerce]
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/tax-configure-wix-manual
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The merchant asked the agent to **actually configure** Australian tax at 10% GST using the Wix Manual calculator on a fresh site (no tax pre-configured). Grade on **execution and outcome**, not exact HTTP methods or field names — the Wix billing API has request wrappers and field names that the agent may need to discover via spec lookups, and that's fine as long as it reached the right end state.
+
+      Pass if ALL of these are true:
+        1. The agent dispatched to the Wix Manual `tax-configure` recipe (NOT Avalara, NOT EU VAT).
+        2. It called the **list-tax-calculators** endpoint (`/billing/v1/list-tax-calculators` — HTTP method GET or POST is fine) and captured the Manual calculator's identifier from the response (not hardcoded). Whether that identifier is called `appId` or `calculatorId` in the agent's code does not matter.
+        3. It called the **create tax-region** endpoint (`POST /billing/v1/tax-regions`) for country `AU` with the Manual calculator identifier and `taxIncludedInPrice: true` (AU is an inclusive-pricing market). If the call returns `ALREADY_EXISTS` (409), the agent should recover by querying the existing region (e.g. via `/tax-regions/query`) rather than abandoning the flow.
+        4. It called the **create tax-group** endpoint (`POST /billing/v1/tax-groups`) to create a tax group (any sensible name — "Standard", "GST", "Standard GST", etc.).
+        5. It called the **create manual-tax-mapping** endpoint (`POST /billing/v1/manual-tax-mappings`) binding the AU region id + group id with a rate equivalent to **10% GST**. Any equivalent encoding is acceptable: `"0.1"` (decimal), `"10"` (percent), `0.10`, `10.0`. The agent should also set a human-readable tax name like "GST" — the specific `taxType` value ("gst", "VAT/GST", "GST", etc.) is the API's choice and not part of the grade.
+        6. It reported the resulting state back to the merchant — at minimum: country AU, rate 10%, tax-inclusive pricing. Reporting the calculator name, tax group name, or generated IDs is a plus but not required.
+
+      Fail if ANY of these are true:
+        - The agent only **described** the recipe without making the API calls.
+        - It dispatched to Avalara or EU VAT.
+        - It asked clarifying questions about country or rate — both are in the prompt.
+        - It hardcoded a calculator identifier without first listing calculators.
+        - It created the manual-tax-mapping without first creating (or recovering) the region and group.
+        - The configured rate is not equivalent to 10% (e.g. it sent `taxRate: "10"` and the API interpreted that as 1000%, or it sent 0.01 = 1%).
+        - It configured the AU region as tax-exclusive (`taxIncludedInPrice: false`).
+        - It abandoned the flow on the first `ALREADY_EXISTS` error instead of recovering (querying or proceeding with the existing region).
