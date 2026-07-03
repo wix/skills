@@ -20,4 +20,4 @@ The Wix Skills Registry provides self-contained context packages — instruction
 | `GET /skills/{name}/{path}` | Raw file at path | Targeted reads of a single reference, script, or schema |
 | `GET /skills/{name}.tgz` | Compressed archive | Downloading the skill locally |
 
-> The list of available skills below is generated live from this repository.
+> The list of available skills below is generated live from the [`wix/skills`](https://github.com/wix/skills) repository.
