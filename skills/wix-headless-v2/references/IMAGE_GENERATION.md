@@ -3,7 +3,7 @@
 A single reusable capability: generate an image with **Wix AI (Runware)** via the `wixapis.com` proxy, import it into Wix Media, and attach it where it's needed. **Opt-in** — only runs when `imagery` is on (resolved in `DISCOVERY.md`; default off → text-only). It's **agnostic to the project type**: it uses `$TOKEN`/`$SITE_ID` from the provided authentication mechanism, exactly like every other call.
 
 Use it **intelligently, by need** — there's no fixed slot list:
-- **Entity images** — during Seed, attach images to seeded image-bearing entities (stores products, blog covers, CMS items, **bookings services**, restaurant items). **Attaching the generated image to the entity is a required second step** — a seeder creates the entity in pass 1 (text-first), then a pass-2 update/patch writes the image onto it. An entity is not "done" until its image is attached (or the attach is skipped because imagery is off / it failed — then it stays text-only, which is fine).
+- **Entity images** — during Seed, attach images to seeded image-bearing entities (stores products, blog covers, CMS items, **bookings services**, restaurant items, **portfolio projects + collection covers**). **Attaching the generated image to the entity is a required second step** — a seeder creates the entity in pass 1 (text-first), then a pass-2 update/patch writes the image onto it. An entity is not "done" until its image is attached (or the attach is skipped because imagery is off / it failed — then it stays text-only, which is fine).
 - **Contextual / decorative images** — when the skill is building a frontend (the create/connect conductors) and the agent or user decides a surface needs one (e.g. a homepage hero, an about-section visual). Generate only what the page actually uses, up to the per-run `imageCap` (`DISCOVERY.md` §4); a slot over the cap or off gets the **themed-block fallback** (below), not an empty gap.
 
 ## 1 · Generate
@@ -44,6 +44,7 @@ The pass-2 **write shape belongs in each capability's seed recipe** — right ne
 - **Blog post** — PATCH the cover via `media.wixMedia.image.id = "<file.fileUrl>"`, then **re-publish** the post (the PATCH unpublishes it).
 - **CMS item** — **read-merge-PUT** (the shape now lives in `setup-cms.md` STEP 5, next to the create/insert calls): `POST /wix-data/v2/items/query` for the item, merge the image URL into its `data`, then PUT the whole record (PATCH needs JsonPatch; PUT is stable). Use `file.url`.
 - **Bookings service** — `PATCH /bookings/v2/services/{id}` with `media.image` as an **object** `{ id, url, width, height, altText }` (a plain-string image → `400`); fetch the service's `revision` first. Full shape in `setup-bookings.md` STEP 5.
+- **Portfolio project / collection** — `PATCH /portfolio/v1/projects/{id}` (or `…/collections/{id}`) with `coverImage.imageInfo` as `{ id, height, width }` (the WixMedia image id + its dimensions; `url` is read-only); echo the entity's current `revision`, no field mask. Full shape in `setup-portfolio.md` STEP 3.
 - **Frontend** (when building a site) — drop `file.url` into the `<img src>` / CSS `background-image` of the page being built.
 
 ## Prompts

@@ -19,7 +19,7 @@ Each built vertical has three parts (the latter two scoped to `create`/backend-o
 
 ## Built verticals — installed, seeded, and described in the Handoff
 
-The verticals the skill operates end-to-end today: **stores · blog · cms · forms · events · bookings · pricing-plans · restaurants** (with `forms` as the floor when nothing richer is named).
+The verticals the skill operates end-to-end today: **stores · blog · cms · forms · events · bookings · pricing-plans · restaurants · portfolio** (with `forms` as the floor when nothing richer is named).
 
 ### stores — sell products
 - **Intent:** sell / shop / products / catalog / merch / store.
@@ -61,6 +61,11 @@ The verticals the skill operates end-to-end today: **stores · blog · cms · fo
 - **Intent:** menu / restaurant / cafe / food / dish list / order food / dine-in.
 - **Required site features:** a menu organized into sections; each item with a name, description, and price. (Online ordering and table reservations are optional add-ons — separate apps; see `SETUP.md`.)
 - **Implementation checklist:** show the menu grouped into sections in order; each item's name, description, price, and labels (vegan, spicy…) and modifiers / variants where they exist; an order action if online ordering is wired; a reserve-a-table action if reservations are wired.
+
+### portfolio — showcase projects
+- **Intent:** portfolio / showcase / gallery of projects / creative work / case studies.
+- **Required site features:** a gallery of projects; projects grouped by collection; a page per project.
+- **Implementation checklist:** show each project's cover, title, and description; group / filter by collection; on the project page show its details (role, year…) and media in order with a viewer / lightbox; a clear path back to the gallery. (Text-only seed shows the structure; media is omitted.)
 
 ## Cross-cutting capabilities — usable, but ride on a parent vertical
 
