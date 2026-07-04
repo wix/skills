@@ -1,6 +1,6 @@
 ---
 name: "Setup Forms"
-description: Initializes a Wix Forms backend — deletes the install's default sample form, then creates one lead-capture form schema per requested form (fields + human-readable `target` keys + a `steps` layout so submissions render in the dashboard, `namespace` wix.form_app.form) and verifies each persisted. Specifies the *how* (calls + format); which forms, their fields, and counts come from the request (via `SEED.md` §3).
+description: Initializes a Wix Forms backend — deletes the install's default sample form, then creates one lead-capture form schema per requested form (fields + human-readable `target` keys + each INPUT's `CONTACTS_*` system `identifier` + a `steps` layout, so the form and its submissions render in the dashboard, `namespace` wix.form_app.form) and verifies each persisted via the form summary. Specifies the *how* (calls + format); which forms, their fields, and counts come from the request (via `SEED.md` §3).
 ---
 **RECIPE**: Business Recipe – Initial Setup for Wix Forms (Form Schemas v4)
 
@@ -51,17 +51,17 @@ STEP=$(lc)                     # the layout step (page)
     "name": "Get in touch",
     "namespace": "wix.form_app.form",
     "formFields": [
-      { "id": "$SUBMIT", "identifier": "SUBMIT_BUTTON", "fieldType": "DISPLAY",
+      { "id": "$SUBMIT", "hidden": false, "identifier": "SUBMIT_BUTTON", "fieldType": "DISPLAY",
         "displayOptions": { "displayFieldType": "PAGE_NAVIGATION", "pageNavigationOptions": { "nextPageText": "Next", "previousPageText": "Back", "submitText": "Submit" } } },
-      { "id": "$F1", "fieldType": "INPUT", "inputOptions": {
-          "target": "first_name", "pii": true, "required": true, "inputType": "STRING",
+      { "id": "$F1", "hidden": false, "identifier": "CONTACTS_FIRST_NAME", "fieldType": "INPUT", "inputOptions": {
+          "target": "first_name", "pii": true, "required": true, "inputType": "STRING", "readOnly": false,
           "stringOptions": { "validation": { "format": "UNKNOWN_FORMAT", "enum": [] }, "componentType": "TEXT_INPUT", "textInputOptions": { "label": "First name", "showLabel": true } } } },
-      { "id": "$F2", "fieldType": "INPUT", "inputOptions": {
-          "target": "email", "pii": true, "required": true, "inputType": "STRING",
+      { "id": "$F2", "hidden": false, "identifier": "CONTACTS_EMAIL", "fieldType": "INPUT", "inputOptions": {
+          "target": "email", "pii": true, "required": true, "inputType": "STRING", "readOnly": false,
           "stringOptions": { "validation": { "format": "EMAIL", "enum": [] }, "componentType": "TEXT_INPUT", "textInputOptions": { "label": "Email", "showLabel": true } } } },
-      { "id": "$F3", "fieldType": "INPUT", "inputOptions": {
-          "target": "message", "required": false, "inputType": "STRING",
-          "stringOptions": { "validation": { "format": "UNKNOWN_FORMAT", "enum": [] }, "componentType": "TEXT_INPUT", "textInputOptions": { "label": "Message", "showLabel": true } } } }
+      { "id": "$F3", "hidden": false, "identifier": "CONTACTS_PHONE", "fieldType": "INPUT", "inputOptions": {
+          "target": "phone", "pii": true, "required": false, "inputType": "STRING", "readOnly": false,
+          "stringOptions": { "validation": { "format": "PHONE", "enum": [] }, "componentType": "TEXT_INPUT", "textInputOptions": { "label": "Phone", "showLabel": true } } } }
     ],
     "steps": [
       { "id": "$STEP", "name": "Page 1", "layout": { "large": { "items": [
@@ -80,7 +80,7 @@ STEP=$(lc)                     # the layout step (page)
 - **`namespace` MUST be `"wix.form_app.form"`** (the Wix Forms namespace) — any other value fails with `400 UNSUPPORTED_FORM_NAMESPACE`. It is immutable after create.
 - **Every INPUT field MUST carry a non-empty `target`** — the human-readable key the frontend binds to (input `name` = `target`). An empty/missing target fails with `400 UNSUPPORTED_FIELD_TARGETS_NAME` (`MISSING_FIELD_TARGETS`). Targets are **immutable** (set once).
 - **Targets MUST be unique within a form** — two fields sharing a target → `400 DUPLICATED_FIELD_TARGETS`. Use lowercase snake_case keys the frontend can reuse verbatim (`first_name`, `email`, `phone`, `message`).
-- **Field envelope:** each field is `{ id, fieldType: "INPUT", inputOptions: { target, inputType: "STRING", stringOptions: { validation: { format, enum: [] }, componentType: "TEXT_INPUT", textInputOptions: { label, showLabel } } } }`. Use `inputType: "STRING"` + `componentType: "TEXT_INPUT"` for text fields. Set `required: true` on the fields the form must collect (defaults to `false`); mark `pii: true` on personal fields (name/email/phone). Richer field types (number, dropdown, checkbox group) follow the same envelope with a different `inputType`/`stringOptions`/`arrayOptions` — but plain STRING text covers the lead-capture case.
+- **Field envelope:** each field is `{ id, hidden: false, identifier: "<CONTACTS_*>", fieldType: "INPUT", inputOptions: { target, readOnly: false, inputType: "STRING", stringOptions: { validation: { format, enum: [] }, componentType: "TEXT_INPUT", textInputOptions: { label, showLabel } } } }`. The `identifier` is MANDATORY for dashboard rendering — see the CRITICAL identifier block below. Use `inputType: "STRING"` + `componentType: "TEXT_INPUT"` for text fields. Set `required: true` on the fields the form must collect (defaults to `false`); mark `pii: true` on personal fields (name/email/phone). Richer field types (number, dropdown, checkbox group) follow the same envelope with a different `inputType`/`stringOptions`/`arrayOptions` — but plain STRING text covers the lead-capture case.
 
 **⚠️ CRITICAL: every field MUST carry a `stringOptions.validation` block, or the field is NOT submittable — a visitor submission of it fails with `400 "must NOT have additional properties"`.** The submission validator builds its allowed-keys schema **only from fields that have a `validation` block**. A field created without one exists on the form and even renders, but any submission that includes its `target` is rejected as an unknown property (and `required` is silently dropped too) — the form looks fine but silently rejects real submissions. So give **every** field a `validation` block:
   - Plain text / name / message → `"validation": { "format": "UNKNOWN_FORMAT", "enum": [] }`.
@@ -94,6 +94,11 @@ STEP=$(lc)                     # the layout step (page)
   - Add a **single `steps` entry** whose `layout.large.items[]` places **every** field (each INPUT + the submit button) by `fieldId`, one per row.
   - **Each `items[].fieldId` MUST equal the corresponding `formFields[].id`** — this is why the ids are generated **lowercase** up front (the server lowercases stored field ids; an uppercased layout `fieldId` would no longer match and the dashboard layout silently breaks).
   - A **single create call with the layout persists it** (verified) — no follow-up PATCH needed. (Omitting the layout was the confirmed cause of blank dashboard submissions; adding it via PATCH to an already-created form also fixes them retroactively.)
+
+**⚠️⚠️ CRITICAL: every INPUT field MUST carry a system `identifier`, or it is DROPPED FROM `formFields[]` and NEVER shows in the dashboard.** This is the #1 dashboard-blank cause and it is SEPARATE from (and stronger than) the layout requirement above — a form can have a perfect `steps` layout and still be blank. Confirmed live (2026-07-04, 5 probes) against `form-schema-service/v4`: on create, the server keeps an INPUT field's component in `formFields[]` **only if its `identifier` is a recognized system value.** Without a recognized identifier (no identifier, a custom string, an extended-field key like `custom.x`, or a GUID — all fail) the field is normalized into the legacy `fields[]` array **only**, `formFields[]` comes back holding just the `SUBMIT_BUTTON`, and `GET .../{formId}/summary` returns **zero fields** → the Wix dashboard renders the form and every submission **blank**. (The public headless site still submits fine — the submission service matches by `target` — so this defect is invisible from the frontend; you must verify it server-side in STEP 3.)
+  - **Map each field to its contact identifier.** Set `identifier` on every INPUT field to the `CONTACTS_*` value for what it collects. Verified working: `CONTACTS_FIRST_NAME`, `CONTACTS_LAST_NAME`, `CONTACTS_EMAIL`, `CONTACTS_PHONE`. (The contacts schema has more system fields — address, company, birthdate, etc.; use the matching `CONTACTS_*` identifier. `SUBMIT_BUTTON` is the identifier for the DISPLAY submit field.)
+  - **⚠️ Custom (non-contact) fields do NOT render in the dashboard via this API.** A field with no matching `CONTACTS_*` identifier (e.g. "medical conditions", "fitness goal", a waiver checkbox) cannot be made to appear in the Wix Forms dashboard through `form-schema-service/v4/forms` — registering a Contacts extended field and referencing its `custom.<key>` does **not** work (tested). Such fields still store submission data correctly (frontend + `fields[]` + submission records) but the owner won't see them in the dashboard UI. **So: for lead-capture forms the request should lean on contact-mappable fields (name / email / phone / address / company / birthdate). If the request genuinely needs custom fields, seed them anyway (data is captured) but do NOT report the dashboard as fully rendering — only the contact-mapped fields will show.** This is a platform limitation, not a seed bug; surface it rather than silently shipping a half-blank dashboard.
+  - Also set `hidden: false` on each field and `readOnly: false` in `inputOptions` (matches the docs' known-good shape).
 
 **⚠️ Do NOT rely on `postSubmissionTriggers.upsertContact` (contact mapping) through this endpoint — it is SILENTLY DROPPED.** The docs' create example includes a `postSubmissionTriggers.upsertContact.fieldsMapping` block to auto-create a CRM contact from a submission. Live, the create returns `200` **but the trigger is not persisted** (absent from a follow-up GET — the same silent-drop pattern as CMS multi-refs at insert). Don't depend on it in the seed. You don't need it: **form submissions are recorded against the schema regardless**, so leads are captured by the seeded form's `formId` on their own. The seed's job ends at the schema + targets.
 
@@ -112,13 +117,17 @@ STEP=$(lc)                     # the layout step (page)
 } }
 ```
 
-Read the **`form.id`** (→ the `formId` to keep and hand to the frontend) and each **`form.fields[].target`** (→ the input `name`s the frontend renders). The field definitions are normalized into **`fields`** (read `target`s here); because you sent a layout, **`formFields`** (the components) and **`steps`** (the layout) come back **populated** (a form seeded without a layout returns them empty — that's the blank-dashboard case above). The field `id`s are echoed **lowercased** — which is exactly why you generated them lowercase, so the `steps[].…fieldId`s still match. Downstream, the frontend binds by **`target`**, never by field id.
+Read the **`form.id`** (→ the `formId` to keep and hand to the frontend) and each **`form.fields[].target`** (→ the input `name`s the frontend renders). **All** field definitions are normalized into **`fields[]`** (read `target`s here) — but **`formFields[]` only echoes back the components the server materialized: the `SUBMIT_BUTTON` plus each INPUT that carried a recognized `CONTACTS_*` identifier** (see the CRITICAL identifier block above). `steps` echoes the layout you sent. So `fields[]` having all N fields does NOT mean the dashboard will render them — `formFields[]` / summary is the dashboard-truth source. The field `id`s are echoed **lowercased** — which is exactly why you generated them lowercase, so the `steps[].…fieldId`s still match. Downstream, the frontend binds by **`target`**, never by field id.
 
 ### STEP 3: Verify each form persisted (mandatory)
 
 A `200` on create is not proof the form is queryable. After creating, **list once** and confirm every seeded form is present with its targets:
 
-`GET https://www.wixapis.com/form-schema-service/v4/forms?namespace=wix.form_app.form` — for each form you created, confirm its `id` appears, its `fields[].target` set matches what you sent, and its **`steps`** is non-empty (the layout persisted — a `steps: []` here means the dashboard will show blank submissions). If a form is missing or its layout didn't persist, re-create it once and re-verify; if it still fails, surface the response verbatim rather than reporting success.
+`GET https://www.wixapis.com/form-schema-service/v4/forms?namespace=wix.form_app.form` — for each form you created, confirm its `id` appears, its `fields[].target` set matches what you sent, and its **`steps`** is non-empty (a `steps: []` means the layout didn't persist).
+
+**⚠️ Then verify the dashboard will actually render — call `GET https://www.wixapis.com/form-schema-service/v4/forms/{formId}/summary` and assert `formSummary.fields` is NON-EMPTY and its count equals the number of contact-mapped INPUT fields you seeded.** This is the reliable dashboard-truth check: the summary returns exactly the fields the Wix dashboard shows (i.e. the `formFields[]` components, minus the submit button). A `summary.fields: []` (or a count short of your contact-mapped inputs) means the identifier mapping failed and the dashboard is blank for those fields — **do not report success; fix the `identifier`s (STEP 2 CRITICAL block) and re-create.** Expect the summary count to equal your contact-mappable fields only; if the form has custom (non-`CONTACTS_*`) fields, they will be legitimately absent from the summary (platform limitation) — call that out in the handoff rather than treating it as a pass or a hard failure.
+
+If a form is missing, its layout didn't persist, or its summary is unexpectedly empty, re-create it once and re-verify; if it still fails, surface the response verbatim rather than reporting success.
 
 **Keep** per form: the **`formId`** and the ordered list of field **`target`** keys (with each field's label and `required`) — that map is the producer for the coding handoff (the frontend sets each input's `name` = `target` and submits against the `formId`).
 
@@ -129,7 +138,8 @@ Following these steps **in order** sets up a Wix Forms backend:
 - Starts from a **clean form list** — any pre-existing form (the install's occasional default "Get in touch") is listed-then-deleted first (a safe no-op when none exists), avoiding the silent name-collision auto-suffix when a default is present.
 - Contains exactly the forms the request calls for, each created in the **`wix.form_app.form`** namespace with unique, non-empty, immutable **`target`** keys per field.
 - **Every field carries a `stringOptions.validation` block** (`UNKNOWN_FORMAT` for plain text, `EMAIL`/`PHONE`/… otherwise) — without it the field is created but **not submittable** (visitor submissions 400 as "additional properties"). This is what makes the seeded form actually accept the frontend's submissions.
-- Each form is created **with a `steps` layout + a `SUBMIT_BUTTON`** whose `fieldId`s match the (lowercase) field ids — so the site owner's **Wix dashboard renders each submission's values** (a form seeded without a layout stores the data fine but the dashboard shows every submission blank).
+- Each form is created **with a `steps` layout + a `SUBMIT_BUTTON`**, AND **every INPUT field carries its `CONTACTS_*` system `identifier`** — both are required for the site owner's **Wix dashboard to render** the form and its submissions. A field with no recognized identifier is dropped from `formFields[]`/summary and shows blank (the data is still stored). Custom (non-contact) fields cannot render in the dashboard via this API (platform limitation) — captured as data only.
+- Dashboard rendering is **verified via `GET .../forms/{formId}/summary`** (non-empty, count == contact-mapped inputs), not merely by `steps` being present.
 - Contact-mapping (`postSubmissionTriggers`) is **not** relied upon (silently dropped here); submissions are captured against the schema regardless.
 - Every form is **verified present** via a namespace list before completion.
 - **Keep** per form the `formId` and its field `target` keys — the producer for the coding handoff.
