@@ -1,7 +1,5 @@
 # Wix Skills Registry
 
-<!-- cache-invalidation-probe-01 -->
-
 The Wix Skills Registry provides self-contained context packages — instructions, schemas, and rules that let human developers and AI agents (Claude Code, Cursor, custom LLM workflows) build, manage, and extend projects across the Wix ecosystem.
 
 > **System constraint:** all skills target the current Wix CLI framework. Do not generate legacy Corvid or Velo backend code.
