@@ -20,20 +20,22 @@ A contract for the **frontend code** of a pricing-plans site: showing the plans 
 
 | Need | Package | Module / namespace |
 |---|---|---|
-| List / read plans (the grid) | `@wix/pricing-plans` | `plans` (Plans V3 — `queryPlans`) |
+| List / read plans (the grid) | `@wix/pricing-plans` | `plansV3` (Plans V3 — `queryPlans`, `getPlan`) |
 | Order a plan + read a member's orders | `@wix/pricing-plans` | `orders` (`createOnlineOrder`, `memberListOrders` / `listOrders`, `getOrder`) |
 | Member login / current member | `@wix/members` + `@wix/sdk` auth | see the members recipe (`getCurrentMember`, `loggedIn()`) |
 | Book a service with a membership (integration) | `@wix/bookings` + `@wix/ecom` (+ `@wix/redirects`) | `bookings` (`createBooking`), ecom `checkout` (`membershipOptions`) — see *Booking with a membership* |
 
 **Never** import `@wix/site-pricing-plans` in headless code, and don't reach for a V1 `plans`-collection query — Plans V3 (`queryPlans` → `pricingVariants`) is the shape the seed creates.
 
+> **⚠️ The read module is `plansV3`, not `plans`.** In the pinned `@wix/pricing-plans` SDK, `queryPlans`/`getPlan` live on the **`plansV3`** namespace (`import { plansV3, orders } from '@wix/pricing-plans'`). Importing `plans` and calling `plans.queryPlans()` fails to type-check (`Property 'queryPlans' does not exist`). `orders` keeps its own namespace.
+
 **Auth / client — framework split** (same split as every other coding recipe):
-- **Astro (Wix-managed):** auth is ambient — call `plans` / `orders` directly from server components / `src/pages/api/*`. Member identity rides on the call automatically after login (`how-to-code-members-astro.md`). **No `createClient`, no `OAuthStrategy`, no `clientId`.** A member reading their own orders needs **no `auth.elevate`**.
+- **Astro (Wix-managed):** auth is ambient — call `plansV3` / `orders` directly from server components / `src/pages/api/*`. Member identity rides on the call automatically after login (`how-to-code-members-astro.md`). **No `createClient`, no `OAuthStrategy`, no `clientId`.** A member reading their own orders needs **no `auth.elevate`**.
 - **Non-Astro (Vite/React/Vue/static):** build one manual client and reuse it — the **same** `OAuthStrategy` client the members/visitor flow already builds (don't make a second one). After the member-login handshake sets member tokens on it, `orders.*` runs as that member:
   ```js
   import { createClient, OAuthStrategy } from '@wix/sdk';
-  import { plans, orders } from '@wix/pricing-plans';
-  const client = createClient({ modules: { plans, orders }, auth: OAuthStrategy({ clientId: /* public OAuth id */ }) });
+  import { plansV3, orders } from '@wix/pricing-plans';
+  const client = createClient({ modules: { plansV3, orders }, auth: OAuthStrategy({ clientId: /* public OAuth id */ }) });
   ```
 
 > **The connected site must be PUBLISHED** — the Pricing Plans APIs return nothing / error against an unpublished site and don't work in preview (same precondition as member login). Publish before testing.
@@ -47,7 +49,7 @@ Each subsection is self-contained — build only what the site uses.
 ### Listing plans for the grid (public, and the `_id` rule)
 
 ```js
-const { items } = await plans.queryPlans()
+const { items } = await plansV3.queryPlans()
   .eq('visibility', 'PUBLIC')
   .find();                                    // items[] of Plan
 ```
@@ -57,7 +59,7 @@ Doc: <https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans/pl
 - **⚠️ Entity id is `_id`, not `id`** — `plan._id` is what you order by and key React lists on. (`plan.id` is `undefined` in SDK code — you're reading the REST view if you see `id`.)
 - **⚠️ Price lives in `pricingVariants[]`, NOT a top-level `price`.** Read the amount from `plan.pricingVariants[0].pricingStrategies[0].flatRate.amount` (a **decimal string** — parse before math) and the cycle from `plan.pricingVariants[0].billingTerms.billingCycle` (`{ period: "MONTH", count: "1" }`). A free plan has no `flatRate` amount; a one-time plan has different `billingTerms` (see the seed recipe). `plan.currency` is the site's currency — format from it, don't assume USD.
 - **Show only `buyable` plans with a buy button.** `visibility: "PUBLIC"` can still be `buyable: false` (assign-only) — render those without a subscribe action, or filter them out.
-- **Perks** for the plan card are `plan.perks[]` (each `{ _id, description }`) — display-only text. (`queryPlans` returns them; if a summary trims them, `plans.getPlan(planId)` returns the full object.)
+- **Perks** for the plan card are `plan.perks[]` (each `{ _id, description }`) — display-only text. (`queryPlans` returns them; if a summary trims them, `plansV3.getPlan(planId)` returns the full object.)
 
 ### Subscribing (ordering) a plan — login-gated
 
@@ -114,8 +116,8 @@ This is the payoff of the seed's STEP 2: a member who holds a plan that **covers
 
 ## Conclusion
 A correct Pricing Plans frontend:
-- imports **`@wix/pricing-plans`** (`plans`, `orders`) — **never** `@wix/site-pricing-plans` (its `startOnlinePurchase` is Wix-site page-code, not headless);
-- lists the grid publicly with **`plans.queryPlans().eq('visibility','PUBLIC')`**, reads **`plan._id`** and price from **`pricingVariants[].pricingStrategies[].flatRate.amount`** (decimal string) — never a top-level `price` — and only shows a buy button on `buyable` plans;
+- imports **`@wix/pricing-plans`** (`plansV3`, `orders`) — **never** `@wix/site-pricing-plans` (its `startOnlinePurchase` is Wix-site page-code, not headless);
+- lists the grid publicly with **`plansV3.queryPlans().eq('visibility','PUBLIC')`**, reads **`plan._id`** and price from **`pricingVariants[].pricingStrategies[].flatRate.amount`** (decimal string) — never a top-level `price` — and only shows a buy button on `buyable` plans;
 - treats **subscribe and my-subscription as login-gated** (the hard members dependency), orders with **`orders.createOnlineOrder(planId)`** (no `onBehalf`, no elevate), renders free plans as `ACTIVE` immediately, and drives paid plans through a payment redirect (**exact headless redirect to be confirmed in a live build**) — and **stops at the redirect**: no payments-account connect, no order activation / mark-as-paid from code (see *Out of scope*);
 - for the Bookings integration, books a covered service by setting **`selectedPaymentOption: "MEMBERSHIP"`** on `createBooking`, applies the membership on the **ecom checkout** (`membershipOptions`), never calls `confirmBooking`, and falls back to matching the member's active-order `planId`s to the service's coverage when the checkout eligibility field isn't readable client-side.
 

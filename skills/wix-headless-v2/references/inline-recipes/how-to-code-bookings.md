@@ -96,15 +96,17 @@ Always filter by `appId`, request `STAFF_MEMBER_DETAILS`, and call `.find()`:
 ```js
 // Catalog (list):
 const { items } = await services
-  .queryServices({ query: { filter: { appId: BOOKING_APP_ID }, paging: { limit: 100 } }, conditionalFields: ['STAFF_MEMBER_DETAILS'] })
-  .find();                                  // filter out items where s.hidden
+  .queryServices({ conditionalFields: ['STAFF_MEMBER_DETAILS'] })
+  .eq('appId', BOOKING_APP_ID).limit(100).find();   // filter out items where s.hidden
 
-// Single service by slug — the .eq() builder chain:
+// Single service by slug — the same .eq() builder chain:
 const { items: [service] } = await services
   .queryServices({ conditionalFields: ['STAFF_MEMBER_DETAILS'] })
   .eq('mainSlug.name', slug).eq('appId', BOOKING_APP_ID).limit(1).find();
 ```
 Doc: <https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/query-services.md?apiView=SDK>
+
+- **⚠️ `queryServices` is a fluent builder — its only argument is `QueryServicesOptions` (`conditionalFields`, etc.), NOT a `{ query: { filter, paging } }` object.** Apply the `appId` filter and paging as `.eq(...)` / `.limit(...)` chain calls, then `.find()`. The `{query:{filter,paging}}` form is the REST body shape; it does **not** type-check against the SDK (`'query' does not exist in type 'QueryServicesOptions'`), and the SDK reference page still shows the stale object-param form — trust the installed builder, not that doc example.
 
 - **`appId` filter is required** — omitting it returns services from other apps / nothing useful.
 - **Read V2 flat fields** (cheat-sheet): slug `mainSlug.name` (**not** `service.slug`), `name`/`description`/`tagLine`, duration `schedule.availabilityConstraints.sessionDurations[0]`, price `payment.fixed.price.value` (a **string**). A missing service usually means it wasn't seeded **with a category** (the visibility invariant), not a query bug.

@@ -16,7 +16,7 @@ A concise checklist for turning a freshly provisioned Wix site with the **Wix Bo
 ---
 
 ## Article: Steps for Setting Up Wix Bookings
-**YOU MUST** complete all the following steps **in the given order** (1-4) without skipping any and **without requiring additional user input**.
+**YOU MUST** complete the following steps **in the given order** (1-4) without skipping any and **without requiring additional user input**. STEP 5 (attach a service image) runs **only when imagery is on** — skip it entirely otherwise.
 
 **⚠️ CRITICAL ORDER REQUIREMENT: resolve a staff resource (STEP 1) and a category (STEP 2) BEFORE creating services (STEP 3).** An APPOINTMENT service is rejected (`MISSING_APPOINTMENT_RESOURCES`) unless `staffMemberIds` is non-empty, and **any service without a `category.id` is invisible on the live site** (see STEP 3). For CLASS services, sessions are created **after** the service (STEP 4) because they need the service's returned `schedule.id`.
 
@@ -116,7 +116,7 @@ Create **all the services in a single bulk call** against the **public** endpoin
 - **`staffMemberIds`** — required and **non-empty for APPOINTMENT** (pass the `resourceId`(s) from STEP 1; the default Business-Owner `resourceId` when the request names no staff). **Ignored for CLASS/COURSE** — omit it.
 - **`locations[].type`** — use **`"BUSINESS"`**, never `"OWNER_BUSINESS"` (the services endpoint rejects it; `OWNER_BUSINESS` is valid only on `createBooking`'s slot location — same field name, different enum).
 - **Currency** — the **site's business currency wins**: a EUR-locale site stores `EUR` even if you send `USD`. This is not an error; don't fight it (the frontend formats from the returned `currency`).
-- **Imagery is opt-in** (`SEED.md` §1, §5). Seed **text-only** by default — omit `media`. Attach `service.media.mainMedia` only in the dedicated images step when imagery is on.
+- **Imagery is opt-in** (`SEED.md` §1, §5). Seed **text-only** by default — omit `media` here. When imagery is on, attach the image in the dedicated pass-2 step (**STEP 5**) after the service exists.
 
 **Payment-options validation** (rejecting combos return `INVALID_PAYMENT_OPTIONS`):
 
@@ -185,6 +185,34 @@ Creating a CLASS service does **not** create any bookable sessions; the frontend
 
 Keep each session's event id — it's `results[].itemMetadata.id` (the events bulk sends no `returnEntity`, so there is **no `item`** in its response, only `itemMetadata`) — under `seeded.services[].sessionEventIds` if the frontend will deep-link. If STEP 4 is skipped or fails, record a `notes` entry so it's surfaced: *"CLASS sessions not scheduled — add session times in the Bookings dashboard before sign-up works."*
 
+### STEP 5: Attach a service image (imagery ON only — skip otherwise)
+
+**Only when `imagery` is on** (`SEED.md` §5). This is the bookings entry in the required pass-2 "attach the generated image to the entity" flow — the service was created text-only in STEP 3; now write the image onto it. Generate + import the image per `references/IMAGE_GENERATION.md` (→ keep `file.url` and its `file.id`), then patch the service.
+
+**⚠️ CRITICAL: `media.image` is an OBJECT, not a string — a plain-string image (URL *or* file id) returns `400`.** The write shape is:
+
+```json
+{
+  "service": {
+    "id": "<serviceId>",
+    "revision": "<current revision>",
+    "media": { "image": { "id": "<file.id>", "url": "<file.url>", "width": 1024, "height": 1024, "altText": "<brand-appropriate alt>" } }
+  }
+}
+```
+
+```bash
+# GET the service first for its current revision (a stale/omitted revision → conflict):
+curl -X PATCH 'https://www.wixapis.com/bookings/v2/services/<serviceId>' \
+  -H 'Authorization: <AUTH>' \
+  -H 'Content-Type: application/json' \
+  -d '{ "service": { "id": "<serviceId>", "revision": "<current revision>", "media": { "image": { "id": "<file.id>", "url": "<file.url>", "width": 1024, "height": 1024, "altText": "…" } } } }'
+```
+
+- **Fetch the current `revision` first** (`GET https://www.wixapis.com/bookings/v2/services/<serviceId>`, or reuse the `item.revision` from STEP 3's `returnEntity` response) and echo it back — a services V2 update is revision-checked.
+- **Do not brute-force the shape.** Plain-string `"image": "<url>"` and `"image": "<fileId>"` both `400`; the working shape is the object above (`id` + `url` + dimensions + `altText`). `width`/`height` are the generated image's dimensions (IMAGE_GENERATION §1 uses `1024×1024` for squares).
+- **Never block on image failure** (`SEED.md` §5 / IMAGE_GENERATION "Credits & failure") — on failure, skip and leave the service text-only.
+
 ---
 
 ## Conclusion
@@ -193,4 +221,5 @@ Following these steps **in order** sets up a new Services V2 Wix Bookings site:
 - Every APPOINTMENT carries a non-empty **`staffMemberIds`** of staff **`resourceId`** values (the default Business-Owner resource when no staff are named), so it isn't rejected with `MISSING_APPOINTMENT_RESOURCES`.
 - Services use the correct **flat Services V2** shape on the **public** host, with `onlineBooking.enabled`, `defaultCapacity`, a valid `payment.options` combo, and `sessionDurations` for appointments.
 - Every CLASS has scheduled **Calendar Events V3** sessions, so its calendar is bookable rather than empty.
+- **When imagery is on**, each service's image is attached in the pass-2 STEP 5 via `PATCH …/services/{id}` with `media.image` as an **object** (`{id,url,width,height,altText}` — a plain string `400`s), revision-checked; on failure the service stays text-only.
 - IDs kept for the coding handoff: `serviceIds[]`, service `slug`s (`mainSlug.name`), staff `resourceId`s, category ids, and CLASS `sessionEventIds`.

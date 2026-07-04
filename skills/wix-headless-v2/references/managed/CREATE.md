@@ -98,11 +98,23 @@ Then build the pages the user's intent calls for, **wired to the live backend**,
 bind. Install the SDK packages the loaded verticals need, author the pages/components directly in the
 project, and bind them to the seeded content. Keep it scoped to what was asked — no speculative pages.
 
+> **`npm install` note (Astro):** run the install with the optional native build skipped —
+> **`npm install --no-optional`** (or `--ignore-scripts`). Astro pulls `sharp` as an *optional*
+> transitive dep for local image optimization this headless flow never uses (all imagery is remote Wix
+> Media URLs), and its from-source build can fail and abort the whole install. A failed/absent `sharp`
+> is **expected and harmless here — do not try to repair it** (`astro.md` Caveat A9).
+
 If `imagery` is on and a surface needs an image (e.g. a homepage hero, an about-section visual),
-generate it per **`references/IMAGE_GENERATION.md`** and use its `file.url`. Generate only what the
-pages actually use.
+generate it per **`references/IMAGE_GENERATION.md`** and use its `file.url` — up to the per-run
+`imageCap` (Discovery §4). Generate only what the pages actually use. For any slot **not** generated
+(imagery off, over the cap, or a generation failure), render the **themed-block fallback** — a styled
+`div` on the site's design tokens — never an empty slot or a broken `<img>` (`IMAGE_GENERATION.md`).
 
 ## 5 · Build & release
+
+**Release once, at the very end.** Do **not** `build && release` mid-flow to "preview" progress. Reach this step only after **all** of the earlier work is done: Setup (§3), Seed **including the entity-image attach** (`SEED.md` §5 — pass-2 patches), the frontend wiring (§4), and any page imagery. A single release at the end is the target; each extra build+release cycle is wasted wall time.
+
+**A re-release does not refresh backend content — don't reach for one to "fix" seeded data or images.** A headless frontend fetches seeded backend content **and entity images at runtime** (via the SDK / REST), so that content is *not* baked into the build output. If you change a seeded entity or attach an image **after** releasing, the live site already reflects it on the next request — there is nothing to re-publish. Re-release **only** when the **frontend build output itself** changed. In particular, a backend image that isn't showing is an **attach-shape bug** (wrong write shape → the entity has no image — see `SEED.md` §5 / `setup-bookings.md` STEP 5), **not** a stale CDN cache; don't re-release to "clear a cache" for it.
 
 Produce the build output, then finalize per **`references/managed/DEPLOYMENT.md`**
 (`npx @wix/cli@latest release` — Wix publishes the site and registers the origin OOTB). The build step

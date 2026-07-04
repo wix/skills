@@ -89,6 +89,8 @@ Each section below is a **self-contained storefront feature** — implement only
 Query products with `productsV3.queryProducts()` / `.searchProducts()`.
 Doc: <https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/query-products.md?apiView=SDK>
 
+**⚠️ `queryProducts()` takes NO arguments — it returns a builder, not a Promise.** Chain `.eq(...)`/`.limit(...)`/`.find()` on it (e.g. `await productsV3.queryProducts().limit(50).find()`). Passing a query object (`queryProducts({...})`) does **not** type-check and returns a `Promise` that has no `.limit`/`.eq`/`.find` to chain — the SDK reference page still shows the stale `(query, options)→Promise` signature, so trust the installed no-arg builder over that example. (`searchProducts` is the one that *does* take a query — see category filtering below.)
+
 **⚠️ CRITICAL: the entity id is `_id`, NOT `id`.** The SDK normalizes every entity's id to **`_id`**. `product.id` is `undefined` in SDK code. This is the cart-killer: feeding `product.id` into the cart's `catalogItemId` sends an empty string and the add returns **HTTP 500** (`"catalogItemId" has size 0`). Use `product._id` everywhere — in links, as the cart `catalogItemId`, and as the variant-query filter value. (If a field name surprises you, you are probably reading the REST doc view — re-open it with `?apiView=SDK`.)
 
 **Scope of the `_id` rule — entity reads only.** `_id` is the id of a read **entity** (product, variant, cart line item). It is **not** a universal "every id field is `_id`" rule: method results name their own fields (e.g. `createCheckoutFromCurrentCart` returns `checkoutId`, *not* `_id` — see Checkout). Don't assume a method's return wrapper exposes `_id`.

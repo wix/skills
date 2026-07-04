@@ -49,9 +49,13 @@ then, with **additive** edits:
 
 A run must end with the site actually reading from / writing to Wix — `init` + `release` with nothing
 wired is not an acceptable outcome. If `imagery` is on and a surface needs an image, generate it per
-**`references/IMAGE_GENERATION.md`**.
+**`references/IMAGE_GENERATION.md`** (up to the per-run `imageCap`, Discovery §4); for any slot not
+generated — off, over the cap, or a failure — render the **themed-block fallback** (a styled `div` on
+the design tokens), never an empty or broken slot.
 
 ## 5 · Build & release
+
+**Release once, at the very end** — only after Setup (§3), Seed **including the entity-image attach** (`SEED.md` §5), the UI wiring (§4), and any imagery are all complete. Don't `build && release` mid-flow to preview. **A re-release does not refresh backend content:** a headless frontend fetches seeded content and entity images at **runtime**, so they're not in the build output — changing a seeded entity or attaching an image after release is live on the next request with **no** re-publish. Re-release only when the **frontend build output** changed. A backend image that isn't showing is an attach-shape bug (`SEED.md` §5), not a stale cache — don't re-release to clear one.
 
 If the project has its own build (`package.json` with a `build` script), run `npm run build` and point
 `wix.config.json`'s `site.outputDirectory` at the build output. A **static** site (no build) needs the

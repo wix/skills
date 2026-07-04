@@ -41,7 +41,17 @@ Resolve an `imagery` flag — whether to generate AI images for seeded content (
 - If the prompt **signals imagery** ("with photos", "product photos", "AI images", "hero image"), set `imagery: on`.
 - Otherwise **ask one question** — text-only (default) vs AI-generated images, noting it costs ~1 Wix AI credit per image. Default to off on no answer.
 
-When `imagery` is on, `SEED.md` attaches images to seeded entities and `IMAGE_GENERATION.md` is used for any page images a frontend build calls for. This flag is project-type-agnostic.
+**Bound the *cost*, not just the on/off decision.** `imagery: on` authorizes the *feature*, not unlimited *volume* — a single "imagery throughout" phrase can otherwise fan out to dozens of images (≈1 Wix AI credit each) with the spend never surfaced. So when imagery resolves on:
+
+- **Surface the projected cost** in the brief pre-work line (§5): state the plan in credits — *"~N images ≈ N Wix AI credits"* — so the spend is visible even when nobody asked about volume. Always safe, no interactivity.
+- **Apply a per-run image cap** (`imageCap`, default **~12**). Generate up to the cap; for surfaces/entities beyond it, render the **themed-block fallback** instead of generating (see below). Log what was capped so it's not silently dropped.
+- **Confirm only when interactive *and* over the cap** — never a mandatory "always ask" gate (that would reintroduce the hang the eval policy prevents). A non-interactive run honors the cap and fills the rest with themed blocks; it never stalls.
+
+**Themed-block fallback (the not-generating path).** Whenever an image is *not* generated — imagery off, over the cap, declined, or a generation failure — a **frontend** image slot renders a **styled `div` that follows the site's own design tokens** (palette, radius, spacing, maybe a label or gradient), *not* an empty slot or a broken `<img>`. The layout stays intentional and on-brand at **zero credits**, and it's deterministic/headless-safe. (This applies to page surfaces; a *seeded entity* with no image simply stays text-only — `SEED.md` §5.)
+
+When `imagery` is on, `SEED.md` attaches images to seeded entities and `IMAGE_GENERATION.md` is used for any page images a frontend build calls for (including the cap + themed-block mechanics). Hold `imageCap` alongside `imagery` in scratch. This flag is project-type-agnostic.
+
+> **Scope note:** the eval harness's *"never call AskUserQuestion"* rule governs runs, not skill design — a confirmation step is legitimate in the skill. The **themed-block fallback + cap** is what keeps headless/eval runs deterministic regardless of whether the confirm ever fires.
 
 ## 5 · Hold the contract, proceed
 
