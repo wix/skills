@@ -117,6 +117,14 @@ Never invent a URL or body from memory.
 
 ---
 
+## restaurants — table reservations (add-on; NO menu dependency)
+
+*SEED.md §3: only when the request calls for table reservations. Install the Table Reservations app (appDefId `f9c07de2-…`). Nothing to bulk-seed and no menu dependency. Verify + configure the auto-provisioned location; enabling online reservations is premium-gated. Keep `reservationLocationId`.*
+
+**Read `inline-recipes/setup-restaurant-reservations.md`** (local — Read it, don't curl). It is **self-contained** — every endpoint, request body, and representative response is inlined, so read it and seed from it alone. **Key insights (confirmed live):** (1) **there is NOTHING to bulk-seed** — reservations are created by *visitors at runtime*; and **a reservation location canNOT be created via this API** (only Dashboard / Locations API — the Reservation Locations API just queries/updates). (2) **Installing the app AUTO-provisions one default reservation location** (`default: true`) with a full config (`approval.mode: "AUTOMATIC"` = manual approval OFF, `partySize {1,6}`, 7-day `businessSchedule`, `timeSlotInterval`, tables) — **but `onlineReservationsEnabled: false`**. (3) **Turning online reservations on is PREMIUM-ONLY** — `PATCH …onlineReservationsEnabled:true` returns **`428 PREMIUM_ONLY`** on a non-premium/headless site (note as a premium precondition, don't fail); non-enable config PATCHes (partySize, hours) *do* work on non-premium. (4) **NO menu dependency** — reservations bind to a location, not a menu (don't copy the orders "menu-first" rule). It covers: discover the default location (`GET table-reservations/reservation-locations/v1/reservation-locations`; never POST — no create method; retry-once if empty else fail loud), customize config via PATCH (revision mandatory; `location` object immutable here; **post-Jan-2026 field names** — `partySize`/`approval`/`tables.ids`/`ignoreConflicts`), and attempt the premium-gated enable. Keep `reservationLocationId`.
+
+---
+
 ## donations — a fundraising campaign
 
 *SEED.md §3: `intent.donations.campaignCount` campaign(s) with a goal, predefined amounts, and custom-amount enabled; one create call per campaign; keep `campaignIds[]`. Checkout rides on eCommerce (frontend's job).*
