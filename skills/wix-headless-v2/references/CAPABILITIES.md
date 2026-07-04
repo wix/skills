@@ -19,7 +19,7 @@ Each built vertical has three parts (the latter two scoped to `create`/backend-o
 
 ## Built verticals — installed, seeded, and described in the Handoff
 
-The verticals the skill operates end-to-end today: **stores · blog · cms · forms · events · bookings · pricing-plans · gift-cards · portfolio · restaurants · donations** (with `forms` as the floor when nothing richer is named).
+The verticals the skill operates end-to-end today: **stores · blog · cms · forms · events · bookings · pricing-plans · restaurants** (with `forms` as the floor when nothing richer is named).
 
 ### stores — sell products
 - **Intent:** sell / shop / products / catalog / merch / store.
@@ -57,31 +57,16 @@ The verticals the skill operates end-to-end today: **stores · blog · cms · fo
 - **Required site features:** a plans / pricing page; a way to choose and subscribe to a plan. **Subscribing requires a logged-in member** — the plans grid is public, but the *subscribe* action and any *my subscription* surface need the **members** cross-cutting capability (below); it's a hard dependency, not optional.
 - **Implementation checklist:** show each plan's name, price, and billing cycle; list what each plan includes (the perks); a clear "choose plan" action; highlight a recommended tier where it makes sense.
 
-### gift-cards — sell gift cards
-- **Intent:** gift card / store credit / voucher / "let people buy a gift".
-- **Required site features:** a gift-card product with selectable denominations; a way to buy / send it. (Redemption applies as store credit at the checkout of other purchases.)
-- **Implementation checklist:** show each denomination, plus a custom-amount field where it's enabled; collect recipient details (email, message) when the card is sent as a gift; a clear buy action; a confirmation after purchase.
-
-### portfolio — showcase projects
-- **Intent:** portfolio / showcase / gallery of projects / creative work / case studies.
-- **Required site features:** a gallery of projects; projects grouped by collection; a page per project.
-- **Implementation checklist:** show each project's cover, title, and description; group / filter by collection; on the project page show its media items in order with a viewer / lightbox; a clear path back to the gallery. (Text-only seed shows the structure; media is omitted.)
-
 ### restaurants — menus and food
 - **Intent:** menu / restaurant / cafe / food / dish list / order food / dine-in.
 - **Required site features:** a menu organized into sections; each item with a name, description, and price. (Online ordering and table reservations are optional add-ons — separate apps; see `SETUP.md`.)
 - **Implementation checklist:** show the menu grouped into sections in order; each item's name, description, price, and labels (vegan, spicy…) and modifiers / variants where they exist; an order action if online ordering is wired; a reserve-a-table action if reservations are wired.
 
-### donations — fundraising campaigns
-- **Intent:** donate / fundraise / campaign / nonprofit / "accept donations".
-- **Required site features:** a campaign with a goal and progress; a way to choose or enter a donation amount; a way to complete the donation (rides on the eCommerce checkout).
-- **Implementation checklist:** show each campaign's name, description, goal and progress toward it; predefined amount options plus a custom-amount field where enabled; one-time vs recurring frequency where enabled; a donate action that adds to the cart / checkout; a thank-you / confirmation.
-
 ## Cross-cutting capabilities — usable, but ride on a parent vertical
 
 These are **not standalone verticals** — they aren't seeded on their own and don't go in `verticals[]`. Most have no app to install (eCommerce installs as a dependency; coupons need no install; members' identity layer is the OAuth app). But they **are fully usable**, and the agent should reach for them when a built vertical is present and intent calls for them. They attach to whatever catalog vertical the run already set up. Don't list these as "not-yet-wired" — they're wired *through* their parent. (One conditional install exists: the **members** *profile* layer needs the Wix Members Area app — see its entry and `SETUP.md`.)
 
-- **eCommerce** — the shared cart, checkout, orders, and payments layer. It has no catalog of its own; it's **installed automatically as a dependency** by Stores, Bookings, Events, Donations, and Gift Cards, and it's how every purchase actually completes. The frontend uses it via `@wix/ecom` (+ `@wix/redirects`) — already carried in the Handoff for those verticals. Reach for the eCommerce Cart/Checkout APIs (find the *how* in the docs) whenever a purchase flow needs to be built or customized. *Intent: checkout / cart / "let people buy".*
+- **eCommerce** — the shared cart, checkout, orders, and payments layer. It has no catalog of its own; it's **installed automatically as a dependency** by Stores, Bookings, and Events, and it's how every purchase actually completes. The frontend uses it via `@wix/ecom` (+ `@wix/redirects`) — already carried in the Handoff for those verticals. Reach for the eCommerce Cart/Checkout APIs (find the *how* in the docs) whenever a purchase flow needs to be built or customized. *Intent: checkout / cart / "let people buy".*
 - **coupons** — discount codes and promotions applied at checkout. **No standalone app** — requires a parent already installed (stores / bookings / events / pricing-plans). When intent calls for discounts and such a parent is present, **create coupons on demand** scoped to that parent — find the create method in the docs (`SEED.md` §1) and surface `@wix/marketing` in the Handoff. *Intent: coupon / promo code / discount.*
 - **members** — the **identity layer**: member sign-up / log-in / log-out and member-gated surfaces. **Not seeded, and login needs no app install** (it's the headless OAuth app) — so it doesn't go in `verticals[]`. **Reading member profile data** (name / photo / roles / badges, an editable my-account page), however, needs the **Wix Members Area app installed** (`SETUP.md`) — keep the identity layer and the profile layer separate. Sign-up and log-in are the **same** mechanism (one login page logs in *or* registers). Two things vary. **(1) The frontend axis** — Astro ships built-in `/api/auth/login` routes, non-Astro drives a manual `OAuthStrategy` handshake (the two `how-to-code-members-*.md` recipes). **(2) The login *surface*, chosen by intent — not by project type.** The default is the **Wix-hosted login page** (zero UI to build); reach for a **custom login page** (you build a branded/in-app form, and can collect custom sign-up fields like full name / username / address) **only when the brief explicitly asks for a custom login form or custom sign-up fields** (`how-to-code-members-custom-login.md`). Custom login works on **any** project type (managed or self-managed) — the choice is the user's stated intent, so don't gate it on managed-vs-self-managed. **Hard dependency edge → pricing-plans**: subscribing to a plan requires a logged-in member, so whenever `pricing-plans` is present, members is implied (surface login + my-subscription). **Soft edges** to the other verticals' "my …" surfaces (my orders / my bookings / my registrations) and to **blog comments** (already wired) — the action runs as an anonymous visitor; only the account view of it needs a member. A logged-in member reading **their own** data needs **no `auth.elevate`** (that's the separate admin/permission axis). *Intent: login / sign up / account / my profile / members area / member-only / gated content / subscriber / paywall — plus any pricing-plans intent (membership / subscription / paid tiers), which can't be purchased without it.*
 

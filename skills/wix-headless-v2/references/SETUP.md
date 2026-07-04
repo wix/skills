@@ -24,10 +24,7 @@ For each capability in `verticals[]`, install its app by `appDefId` (these are t
 - **events** → `140603ad-af8d-84a5-2c80-a0f60cb47351`
 - **bookings** → `13d21c63-b5ec-5912-8397-c3a5ddb27a97`
 - **pricing-plans** → `1522827f-c56c-a5c9-2ac9-00f9e6ae12d3`
-- **gift-cards** → `d80111c5-a0f4-47a8-b63a-65b54d774a27`
-- **portfolio** → `d90652a2-f5a1-4c7c-84c4-d4cdcc41f130`
 - **restaurants** → `b278a256-2757-4f19-9313-c05c783bec92` (Wix Restaurants **Menus** — the seedable core). Online ordering and table reservations are **separate optional apps**, install only if intent calls for them: Orders (New) → `9a5d83fd-8570-482e-81ab-cfa88942ee60`, Table Reservations → `f9c07de2-5341-40c6-b096-8eb39de391fb`.
-- **donations** → `333b456e-dd48-4d6b-b32b-9fd48d74e163`
 - **cms** → **no install** (Wix Data is core) — skip
 
 For any vertical added later, its appDefId is in the docs — "Apps Created by Wix": <https://dev.wix.com/docs/api-reference/articles/work-with-wix-apis/platform/about-apps-created-by-wix.md>.

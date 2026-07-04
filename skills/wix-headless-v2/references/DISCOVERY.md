@@ -8,7 +8,7 @@ Discovery is pure inference — it needs **no authentication** and is **agnostic
 
 Read the **user intent** (+ optional project signals: `package.json` name, README, visible copy) against the vertical index in `references/CAPABILITIES.md` — each entry there carries the intent signals that point to it. Pick every vertical that genuinely fits → `verticals[]`. Multiple signals → multiple capabilities. On ambiguity, prefer the more specific vertical; if nothing dynamic is named, fall to the **forms** floor (a contact form). **Never return an empty set.**
 
-Resolve to the skill's operational set — **stores · blog · cms · forms · events · bookings · pricing-plans · gift-cards · portfolio · restaurants · donations** (`CAPABILITIES.md` § "Built verticals"). If intent points squarely at a vertical outside that set, note it plainly as not-yet-wired (per the index) and resolve the rest; don't force an unrelated capability in its place.
+Resolve to the skill's operational set — **stores · blog · cms · forms · events · bookings · pricing-plans · restaurants** (`CAPABILITIES.md` § "Built verticals"). If intent points squarely at a vertical outside that set, note it plainly as not-yet-wired (per the index) and resolve the rest; don't force an unrelated capability in its place.
 
 ## 2 · Infer brand
 
@@ -27,10 +27,7 @@ For each capability, build its `intent.<cap>` block — the inputs the seed step
 | events | `{ eventCount, titles: [] }` | `eventCount: 2`, titles brand-derived, future dates |
 | bookings | `{ serviceCount, servicesNamed: [] }` | `serviceCount: 2`, brand-derived service names |
 | pricing-plans | `{ planCount, tiersNamed: [] }` | `planCount: 2` (e.g. Basic / Pro), monthly billing |
-| gift-cards | `{ denominations: [] }` | one gift-card product, `denominations: [25, 50, 100]` |
-| portfolio | `{ collections: [{ name }], projectCount }` | one brand-derived collection, `projectCount: 3` |
 | restaurants | `{ menuName, sections: [{ name, itemCount }] }` | one menu, 2 sections, `itemCount: 3` each |
-| donations | `{ campaignCount, goalsNamed: [] }` | `campaignCount: 1`, a brand-derived goal |
 
 Counts are deliberately small (the seed shows the shape, not a full catalog).
 

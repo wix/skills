@@ -74,33 +74,6 @@ Never invent a URL or body from memory.
 
 ---
 
-## gift-cards — a purchasable gift card
-
-*SEED.md §3: one gift-card **product** whose amount options are `intent.gift-cards.denominations`; don't issue individual instances (those are created at purchase); keep `giftCardProductId`.*
-
-| Tier | Page | What it settles |
-|---|---|---|
-| 2 | <https://dev.wix.com/docs/api-reference/business-solutions/gift-cards/gift-card-products/sample-flows.md> | Step ordering for setting up a gift-card product, including preset denominations and promo pricing. |
-| 3 | <https://dev.wix.com/docs/api-reference/business-solutions/gift-cards/gift-card-products/create-gift-card-product.md> | The create method: denominations go in the product's preset variants (each with a value/price); a site allows only one gift-card product, so create vs. update accordingly. |
-
-> Optional: <https://dev.wix.com/docs/api-reference/business-solutions/gift-cards/gift-card-products/introduction.md> — only if the preset-vs-custom variant distinction or expiration policy is unclear.
-
----
-
-## portfolio — a project showcase
-
-*SEED.md §3: create `intent.portfolio.collections`, then `projectCount` projects assigned to them — **collections before projects**; text-only; keep `collectionIds{}`, `projectIds[]`, slugs.*
-
-| Tier | Page | What it settles |
-|---|---|---|
-| 2 | <https://dev.wix.com/docs/api-reference/business-solutions/portfolio/sample-flow.md> | Confirms ordering: create and save collections first, then projects reference collection ids (collections-before-projects). |
-| 3 | <https://dev.wix.com/docs/api-reference/business-solutions/portfolio/collections/create-collection.md> | Create-collection schema; returns the collection id to capture for the project step. |
-| 3 | <https://dev.wix.com/docs/api-reference/business-solutions/portfolio/projects/create-project.md> | Create-project schema: assign to collections via the collection-ids array; returns project id + slug. Omit media to stay text-only. |
-
-> Optional: <https://dev.wix.com/docs/api-reference/business-solutions/portfolio/introduction.md> — only to confirm the Portfolio app must be installed first.
-
----
-
 ## restaurants — a menu
 
 *SEED.md §3: one menu, then its `sections`, then `itemCount` items per section — **menu → sections → items** (items reference their section); keep `menuId`, `sectionIds[]`, `itemIds[]`.*
@@ -122,19 +95,6 @@ Never invent a URL or body from memory.
 *SEED.md §3: only when the request calls for table reservations. Install the Table Reservations app (appDefId `f9c07de2-…`). Nothing to bulk-seed and no menu dependency. Verify + configure the auto-provisioned location; enabling online reservations is premium-gated. Keep `reservationLocationId`.*
 
 **Read `inline-recipes/setup-restaurant-reservations.md`** (local — Read it, don't curl). It is **self-contained** — every endpoint, request body, and representative response is inlined, so read it and seed from it alone. **Key insights (confirmed live):** (1) **there is NOTHING to bulk-seed** — reservations are created by *visitors at runtime*; and **a reservation location canNOT be created via this API** (only Dashboard / Locations API — the Reservation Locations API just queries/updates). (2) **Installing the app AUTO-provisions one default reservation location** (`default: true`) with a full config (`approval.mode: "AUTOMATIC"` = manual approval OFF, `partySize {1,6}`, 7-day `businessSchedule`, `timeSlotInterval`, tables) — **but `onlineReservationsEnabled: false`**. (3) **Turning online reservations on is PREMIUM-ONLY** — `PATCH …onlineReservationsEnabled:true` returns **`428 PREMIUM_ONLY`** on a non-premium/headless site (note as a premium precondition, don't fail); non-enable config PATCHes (partySize, hours) *do* work on non-premium. (4) **NO menu dependency** — reservations bind to a location, not a menu (don't copy the orders "menu-first" rule). It covers: discover the default location (`GET table-reservations/reservation-locations/v1/reservation-locations`; never POST — no create method; retry-once if empty else fail loud), customize config via PATCH (revision mandatory; `location` object immutable here; **post-Jan-2026 field names** — `partySize`/`approval`/`tables.ids`/`ignoreConflicts`), and attempt the premium-gated enable. Keep `reservationLocationId`.
-
----
-
-## donations — a fundraising campaign
-
-*SEED.md §3: `intent.donations.campaignCount` campaign(s) with a goal, predefined amounts, and custom-amount enabled; one create call per campaign; keep `campaignIds[]`. Checkout rides on eCommerce (frontend's job).*
-
-| Tier | Page | What it settles |
-|---|---|---|
-| 2 | <https://dev.wix.com/docs/api-reference/business-solutions/donations/donation-campaigns/sample-flows.md> | Step ordering: create the campaign with a goal, predefined amounts, and custom-amount enabled, then verify. |
-| 3 | <https://dev.wix.com/docs/api-reference/business-solutions/donations/donation-campaigns/create-donation-campaign.md> | Create-campaign method: requires a name plus predefined amounts and/or custom-amount enabled; the goal carries a target (optional end date). |
-
-> Optional: <https://dev.wix.com/docs/api-reference/business-solutions/donations/donation-campaigns/introduction.md> — only to confirm the amounts/frequencies model before composing the payload.
 
 ---
 
