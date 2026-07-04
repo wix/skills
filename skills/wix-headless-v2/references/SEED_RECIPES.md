@@ -109,6 +109,14 @@ Never invent a URL or body from memory.
 
 ---
 
+## restaurants — online ordering (add-on; requires a seeded menu)
+
+*SEED.md §3: only when the request calls for online ordering. Install the Orders app (appDefId `9a5d83fd-…`, auto-installs Menus) **after/with** seeding the menu; the install auto-provisions a working setup. Verify + customize to the request; keep `operationId`, `fulfillmentMethodIds[]`.*
+
+**Read `inline-recipes/setup-restaurant-orders.md`** (local — Read it, don't curl). It is **self-contained** — every endpoint, request body, and representative response is inlined, so read it and seed from it alone; **do not go fetch the Online-Orders method/flow doc pages** (they're superseded by the recipe, and their fulfillment-method cURL sample still shows the old `restaurants/v1/…` host + snake_case wrapper the recipe tells you to avoid). **Key insight (confirmed live): installing the Orders app AUTO-provisions a fully working ordering setup** — an **ENABLED** operation (`onlineOrderingStatus`) with **Pickup + Delivery already attached** (plus a disabled DoorDash), and a **menu-ordering-settings object per menu already `onlineOrderingEnabled: true`** and bound to the operation (for menus existing at install *and* created later). So a site with a seeded menu is **orderable the moment Orders is installed**; the recipe **verifies** that baseline and **reshapes it to the request** — it does **not** build ordering from scratch. It covers: **discover the auto-created operation** (`GET restaurants-operations/v1/operations`; never POST — operations/groups are auto-created; retry-once if empty, else fail loud), **reconcile fulfillment methods** (`GET/PATCH/POST fulfillment-methods/v1/fulfillment-methods` — customize/disable the auto ones, or create extra ones; **a created method is NOT auto-attached — you must PATCH the operation's `fulfillmentIds` to attach it**; camelCase `fulfillmentMethod` wrapper, decimal-string `fee`/`minOrderPrice`, per-weekday `availability`), and **verify each menu orderable** (`menu-ordering-settings/v1/…/query` then PATCH only if an entry shows `onlineOrderingEnabled:false`/`operationId:"none"`). Each Orders micro-service is on its **own host prefix** (`restaurants-operations` / `fulfillment-methods` / `menu-ordering-settings`); `revision` is mandatory on every PATCH. Real paid checkout additionally needs a premium plan + payment method (note, don't fail).
+
+---
+
 ## donations — a fundraising campaign
 
 *SEED.md §3: `intent.donations.campaignCount` campaign(s) with a goal, predefined amounts, and custom-amount enabled; one create call per campaign; keep `campaignIds[]`. Checkout rides on eCommerce (frontend's job).*
