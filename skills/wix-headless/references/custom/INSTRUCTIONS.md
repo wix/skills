@@ -56,7 +56,8 @@ The conductor interleaves these; the business track (steps 3–5) runs frontend-
 
 | Inferred domain | Connected feature (wire and/or add) | App(s) | Wiring guide |
 |---|---|---|---|
-| Wedding / event invitation | **RSVP form** (+ optional responses CMS) | Wix Forms (+ CMS) | `custom/forms/WIRING.md` |
+| Wedding / event invitation / party | **RSVP** via Wix Events (built-in name+email registration → attendee list + confirmation email); a plain Forms RSVP is the lighter fallback for a purely static one-pager with no attendee management | Wix Events (or Wix Forms) | `custom/events/WIRING.md` (or `custom/forms/WIRING.md`) |
+| Event / concert / conference / meetup / festival / fundraiser (sell tickets or collect RSVPs) | events listing + per-event detail; **ticketed** → reserve + redirect to Wix's hosted checkout (PDF/QR ticket email), **free** → RSVP registration | Wix Events | `custom/events/WIRING.md` |
 | Store / product mock | product catalog (wire existing grid) | Wix Stores + eCom | `custom/stores/WIRING.md` |
 | Blog / publication | post list + detail (wire existing) | Wix Blog | `custom/blog/WIRING.md` |
 | Salon / spa / studio / coach landing | services list + availability + book (Wix-hosted bookings checkout) | Wix Bookings | `custom/bookings/WIRING.md` |
@@ -73,10 +74,12 @@ The conductor interleaves these; the business track (steps 3–5) runs frontend-
 ## Wiring discipline (applies to every `custom/<cap>/WIRING.md`)
 
 - **Additive only.** Never restructure the user's layout or CSS. Swap the *data source* behind a region; inject new components self-contained. For a persistence swap, change only the load/save functions — leave the component tree and styling untouched.
+- **Render the real backend data, not the design's mock.** A brought-in region's *shown* data — lists, options, availability — is placeholder; wire the read so it renders live Wix data, not just the write/submit action. Everything the user can see and select must map to something real.
 - **Style from the design's tokens.** Read the site's CSS custom properties (`:root { --… }`) and reuse them verbatim in any injected component so it looks designed-in.
 - **Inline `appId` literally** from `wix.config.json` as the `OAuthStrategy` `clientId`. No env vars at runtime.
 - **The wiring *mechanic* is framework-keyed** (CDN `<script>` for `none`, bundled `import` + source edit for `own`) — the Build layer's concern, not fixed here (see § "The technical spine"). The per-capability guides describe the SDK *call shapes* (framework-blind); the Build cell decides the injection form. (For `none`: one `<script type="module">` per capability, or a shared client bootstrap + per-region render calls.)
 - **Guard every SDK call** in try/catch. On a read error, leave the original sample markup visible; the injected component degrades gracefully if the backend is unreachable.
+- **Resolve UI state to real Wix ids before writing, and never silently drop what doesn't map.** A brought-in UI keys its state by client-only ids/composites that aren't Wix ids (e.g. a cart row keyed `productId + "::" + option`); map to the real id before you write. A `.filter(Boolean)` that quietly discards unmatched entries makes them vanish from the order/submission with no error — surface the mismatch instead.
 
 ## Scope — deferred (tell the user plainly when relevant)
 

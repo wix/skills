@@ -97,6 +97,7 @@ npm install --no-fund --no-audit --legacy-peer-deps <package-set> \
 | | **forms** → `@wix/forms` |
 | | **cms** → `@wix/data @wix/essentials` |
 | | **bookings** → `@wix/bookings @wix/essentials @wix/forms @wix/redirects @wix/auto_sdk_ecom_cart-v-2` |
+| | **events** → `@wix/events @wix/redirects @wix/essentials` |
 | | **gift-cards** → (none — disabled-by-default pack ships no Astro-time imports) |
 
 Example (resolved set = stores + ecom + gift-cards + cms):

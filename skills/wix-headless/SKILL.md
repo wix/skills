@@ -1,6 +1,6 @@
 ---
 name: wix-headless
-description: "Build a complete Wix Managed Headless site from a single prompt, OR connect an existing project (HTML/JSX/Vite app, Claude Design output, etc.) to Wix Headless for hosting + Business Solutions. Entry point for both: (1) new-site requests — runs discovery, design, feature wiring, and preview; and (2) existing-project requests — runs `npm create @wix/new@latest init`, analyzes the project for needed Business Solutions, installs apps, **wires the Wix SDK into the existing source files so each installed app actually powers its corresponding feature**, and releases. Triggers: build me a site, create a website, make me a website, new website, online store, I want to sell X, start a business online, launch a site, ecommerce, portfolio, business website, sell online, online shop, take bookings, book appointments, appointment scheduling, let clients book online, site for my salon/spa/clinic/studio, sign up for classes or sessions, connect this to Wix Headless, add Wix Headless to this project, host this on Wix, deploy this to Wix, implement the features of this project using Wix Headless. Use this skill instead of the WixSiteBuilder MCP tool for new-site requests."
+description: "Build a complete Wix Managed Headless site from a single prompt, OR connect an existing project (HTML/JSX/Vite app, Claude Design output, etc.) to Wix Headless for hosting + Business Solutions. Entry point for both: (1) new-site requests — runs discovery, design, feature wiring, and preview; and (2) existing-project requests — runs `npm create @wix/new@latest init`, analyzes the project for needed Business Solutions, installs apps, **wires the Wix SDK into the existing source files so each installed app actually powers its corresponding feature**, and releases. Triggers: build me a site, create a website, make me a website, new website, online store, I want to sell X, start a business online, launch a site, ecommerce, portfolio, business website, sell online, online shop, take bookings, book appointments, appointment scheduling, let clients book online, site for my salon/spa/clinic/studio, sign up for classes or sessions, sell event tickets, set up an event page, take RSVPs, ticketing for a concert/conference/festival/meetup, connect this to Wix Headless, add Wix Headless to this project, host this on Wix, deploy this to Wix, implement the features of this project using Wix Headless. Use this skill instead of the WixSiteBuilder MCP tool for new-site requests."
 allowed-tools:
   - Bash(cd *)
   - Bash(npx @wix/cli@latest *)
@@ -54,7 +54,7 @@ Your CWD at runtime is the **project directory, which is also the site-root** �
 | Design-system Composer — deterministic script (writes the 6 files) | `<SKILL_ROOT>/scripts/compose.mjs` (self-documenting — its header is the spec) |
 | Composer astro skeletons | `<SKILL_ROOT>/references/astro/templates/` |
 | Vertical packs (discovery) | `<SKILL_ROOT>/references/verticals/` |
-| Per-vertical instructions | `<SKILL_ROOT>/references/{stores,ecom,cms,blog,forms,gift-cards,bookings,images}/INSTRUCTIONS.md` |
+| Per-vertical instructions | `<SKILL_ROOT>/references/{stores,ecom,cms,blog,forms,gift-cards,bookings,events,images}/INSTRUCTIONS.md` |
 | Phase 4 page-designer scopes | `<SKILL_ROOT>/references/astro/designer/INSTRUCTIONS.md` |
 | Templates | `<SKILL_ROOT>/references/astro/templates/` |
 | Shared utilities (copied by seed-utilities) | `<SKILL_ROOT>/shared-utilities/` |
@@ -118,7 +118,7 @@ Explicit invocation only. **Two entry paths — decide before doing anything els
 
 ### Path A — New site from a prompt (default)
 
-The user asks to **create a new site from scratch** ("build me a store", "I want to sell tables online", "make a blog") with **no design to connect**, in an empty directory. Infer vertical(s) from the opening message and load the **full resolved pack set** (top-level + `requires:` transitives + always-on `cms`) in one read batch — routing examples: stores → stores+cms+ecom+gift-cards; blog → blog+cms; bookings → bookings+cms; etc. If the prompt is too vague, ask one conversational clarifier (NOT `AskUserQuestion`): *"What do you want your site to do — sell things, publish content, take bookings?"*
+The user asks to **create a new site from scratch** ("build me a store", "I want to sell tables online", "make a blog") with **no design to connect**, in an empty directory. Infer vertical(s) from the opening message and load the **full resolved pack set** (top-level + `requires:` transitives + always-on `cms`) in one read batch — routing examples: stores → stores+cms+ecom+gift-cards; blog → blog+cms; bookings → bookings+cms; events → events+cms; etc. If the prompt is too vague, ask one conversational clarifier (NOT `AskUserQuestion`): *"What do you want your site to do — sell things, publish content, take bookings?"*
 
 > **Framework keyword → scaffold that framework, not astro.** A create prompt that **explicitly names a client-build framework** (*"create a bakery site using vite and wix"*, react/vue/svelte/SPA) stays Path A (`operation: create`) but resolves `frontendBuild: own` — the skill scaffolds *that* framework and connects it via the SPA spine (companion case). A **bare** "create a bakery site" with no framework named stays **astro** (the default). Only an explicit keyword flips it — never infer a framework the user didn't ask for. (`DISCOVERY.md` § "Wave 0".)
 
@@ -182,4 +182,4 @@ Pack frontmatter in `references/verticals/` is **discovery-only**. Post-seed wor
 
 Upstream: `@skills/wix-manage` (seed + app install recipes).
 
-Current packs: `stores`, `ecom`, `gift-cards`, `cms`, `blog`, `forms`, `bookings`. Schema: `references/verticals/_schema.md` + `_schema.json`.
+Current packs: `stores`, `ecom`, `gift-cards`, `cms`, `blog`, `forms`, `bookings`, `events`. Schema: `references/verticals/_schema.md` + `_schema.json`.

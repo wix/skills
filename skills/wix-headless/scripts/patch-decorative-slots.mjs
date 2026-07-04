@@ -2,10 +2,11 @@
 // Inject Image-Phase-1 decorative URLs into the page shells.
 //
 // The design-system Composer (index.astro) and the Phase 4 page designers write
-// `<div data-decorative-slot="<key>">…</div>` placeholders in src/pages/*.astro. Image Phase 1 returns a slot→URL map
-// in its JSON return; the orchestrator pipes that map (as JSON) into this
+// `<el data-decorative-slot="<key>">…</el>` placeholders in src/pages/*.astro
+// (any element — <div>, <section>, <figure>…). Image Phase 1 returns a slot→URL
+// map in its JSON return; the orchestrator pipes that map (as JSON) into this
 // script's stdin. This script reads the map + walks src/pages/*.astro,
-// then injects an <img> as the first child of each matching slot div —
+// then injects an <img> as the first child of each matching empty slot element —
 // pure string substitution, no LLM, no file rewrites.
 //
 // Usage:
@@ -23,9 +24,9 @@
 //     blocks mode or Image Phase 1 had no URLs to publish).
 //   - src/pages missing at <scaffold-dir> and in any single subdir one
 //     level down → exit 2 status="error".
-//   - For each `data-decorative-slot="<key>"` in src/pages/*.astro:
-//       * Key has no URL in the input map → leave the div alone.
-//       * Div already has a non-comment child → skip with a warning.
+//   - For each `data-decorative-slot="<key>"` element in src/pages/*.astro:
+//       * Key has no URL in the input map → leave the element alone.
+//       * Element already has a non-comment child → skip with a warning.
 //       * Otherwise inject <img …> as the first child.
 //   - Output JSON summary of patches/skips/warnings to stdout.
 
@@ -99,14 +100,19 @@ const patched = [];
 const skipped = [];
 const warnings = [];
 
-const SLOT_DIV_REGEX = /(<div[^>]*\bdata-decorative-slot="([^"]+)"[^>]*>)([\s\S]*?)(<\/div>)/g;
+// Match ANY element carrying data-decorative-slot, not just <div>. Full-page
+// LLM generation routinely puts the slot on a <section>/<figure>/<picture>;
+// the closing tag is matched by backreference (\2) to the opening tag name.
+// Slots are empty placeholders by contract, so the non-greedy body cannot
+// straddle a sibling element of the same tag.
+const SLOT_REGEX = /(<([a-zA-Z][\w-]*)[^>]*\bdata-decorative-slot="([^"]+)"[^>]*>)([\s\S]*?)(<\/\2>)/g;
 
 for (const file of candidates) {
   const original = readFileSync(file, "utf8");
   let modified = original;
   let fileChanged = false;
 
-  modified = modified.replace(SLOT_DIV_REGEX, (match, openTag, slotKey, inner, closeTag) => {
+  modified = modified.replace(SLOT_REGEX, (match, openTag, _tagName, slotKey, inner, closeTag) => {
     const url = urlMap[slotKey];
     if (!url) {
       skipped.push({ file, slot: slotKey, reason: "no URL for this slot in input map" });
@@ -121,7 +127,7 @@ for (const file of candidates) {
     }
 
     if (stripped.length > 0) {
-      warnings.push({ file, slot: slotKey, reason: "div has existing non-image child content; not patching to avoid clobber" });
+      warnings.push({ file, slot: slotKey, reason: "slot element has existing non-image child content; not patching to avoid clobber" });
       return match;
     }
 
