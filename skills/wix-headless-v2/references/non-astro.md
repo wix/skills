@@ -1,6 +1,6 @@
 # Non-Astro — the pinned docs to read *before* wiring a non-Astro frontend to Wix
 
-This is the framework reference for any **non-Astro** frontend — React/Vue/Svelte/Vite SPA or plain static HTML. Astro stays the default (`astro.md`); read this when the user **names a framework** or **brings a non-Astro design**. Like `astro.md` / `SEED_RECIPES.md`, it's an **index of doc pages** with one-line "what it settles" notes, **then a Caveats section**. It carries **no design, templates, payloads, or per-framework code** — the model designs and writes the whole frontend; this file says only *how it connects*.
+This is the framework reference for any **non-Astro** frontend — React/Vue/Svelte/Vite SPA or plain static HTML. Astro stays the default (`astro.md`); read this when the user **names a framework** or **brings a non-Astro design**. Like `astro.md`, it's an **index of doc pages** with one-line "what it settles" notes, **then a Caveats section**. It carries **no design, templates, payloads, or per-framework code** — the model designs and writes the whole frontend; this file says only *how it connects*.
 
 **This file is framework-axis only — it is mode-agnostic.** It is read in **both** the managed and self-managed flows, so it contains **no managed-vs-self-managed branching**: no `init` vs OAuth-app, no `wix release` vs external host, no `outputDirectory`, no `wix.config.json`. Anything that differs by *who hosts* lives in the project-type files (`managed/`, `self-managed/`) — the conductor is already reading those in a known mode. Here is only what's **identical across both flows**: a non-Astro frontend talks to Wix through a manual `OAuthStrategy` visitor client + the SDK, the same way no matter who hosts it.
 
@@ -32,7 +32,7 @@ This is the framework reference for any **non-Astro** frontend — React/Vue/Sve
 
 ## 2 — Frontend data access (identical in both flows)
 
-All reads and writes go through the client from §1 — the SDK call shapes are framework-identical (the model adapts the idiom: React effect / Vue `onMounted` / Svelte store). For **which packages** a capability needs and the **SDK module docs** for each call shape, use `SDK_HANDOFF.md` §3 (the package map) — don't restate it here. For **what was seeded** and the IDs to bind, cross-link `SEED.md` / `SEED_RECIPES.md`; the frontend reads it with the visitor client.
+All reads and writes go through the client from §1 — the SDK call shapes are framework-identical (the model adapts the idiom: React effect / Vue `onMounted` / Svelte store). For **which packages** a capability needs and the **SDK module docs** for each call shape, use `SDK_HANDOFF.md` §3 (the package map) — don't restate it here. For **what was seeded** and the IDs to bind, cross-link `SEED.md`; the frontend reads it with the visitor client.
 
 | Page | What it settles |
 |---|---|

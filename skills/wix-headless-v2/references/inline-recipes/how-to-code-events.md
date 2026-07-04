@@ -97,7 +97,7 @@ Doc: <https://dev.wix.com/docs/api-reference/business-solutions/events/event-man
 - **⚠️ `paging.limit` MUST be > 0.** Even with the flat shape, `queryEvents` defaults `paging.limit` to **`0`, which returns zero events**. Always set a positive limit.
 - The result array is **`result.events`** (not `.items`).
 - **Filter to upcoming/published and never list or link a past event** — a past event isn't purchasable/registerable (the seed uses future dates). Filter by `status` (above) or by a future `startDate`.
-- Read `event._id` / `event.slug` / `event.title`. A **single-event** site collapses the listing — lead the home page straight into the one event's detail.
+- Read `event._id` / `event.slug` / `event.title`. A **single-event** site collapses the listing — lead the home page straight into the one event's detail. **Still drive that homepage from the listing query** (take the first/only result), never a hardcoded lone slug — so a second event the owner adds later automatically brings the listing back instead of staying invisible.
 
 ### One event by slug + its ticket tiers
 

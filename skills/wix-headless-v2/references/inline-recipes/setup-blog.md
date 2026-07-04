@@ -113,26 +113,13 @@ Create the posts in a **single bulk request** to `POST https://www.wixapis.com/b
 ] }
 ```
 
-The bulk call returns `200` **even if some items fail** — check each `results[i].itemMetadata.success` individually; it does **not** throw on partial failure. The response gives the post **`id`** but **no `slug`** — collect the slugs in Step 2b. If part of the batch fails, retry **only the failed items** **once** with the exact same format; do not loop.
+The bulk call returns `200` **even if some items fail** — check each `results[i].itemMetadata.success` individually; it does **not** throw on partial failure. If part of the batch fails, retry **only the failed items** **once** with the exact same format; do not loop. (You need only confirm each post was created — the frontend links posts by **slug read from a live `queryPosts` result / the URL**, so there's no need to collect slugs at seed time.)
 
 **⚠️ CRITICAL: a transient `401 "No identity found"` on draft-post creation is a known server-side async-identity defect, NOT a body error.** It is not caused by your token or payload (categories/members/CMS calls succeed with the same token). If you hit it, **retry the create once**; do not rewrite the body and do not retry-spiral — a spiralling retry is a wasted headless run.
 
-#### Step 2b: Collect the slugs
-
-Bulk responses omit slugs, but the frontend links posts by slug. Query the published posts to map id → slug, asking for the `URL` fieldset:
-
-```bash
-curl -sS -X POST "https://www.wixapis.com/blog/v3/posts/query" \
-  -H "Authorization: <AUTH>" \
-  -H "Content-Type: application/json" \
-  -d '{ "query": { "paging": { "limit": 50 } }, "fieldsets": ["URL"] }'
-```
-
-Read each `posts[].id` and `posts[].slug` (and `posts[].url`) and keep them.
-
 #### Single-post endpoint (only when `postCount = 1`)
 
-`POST https://www.wixapis.com/blog/v3/draft-posts` with the **nested** envelope and `publish: true`. The single-post response includes the full created post (id **and** slug), so no separate slug query is needed:
+`POST https://www.wixapis.com/blog/v3/draft-posts` with the **nested** envelope and `publish: true`:
 
 ```json
 {
@@ -166,4 +153,4 @@ Following these steps **in order** populates a new Blog V3 site:
 - The **bulk** endpoint is used for `postCount ≥ 2` (flat per-item shape), the single endpoint for one post.
 - Posts are **text-only** (covers attached later only when imagery is on).
 - Categories/tags exist **only if** the request named them, with posts assigned and re-published after any PATCH.
-- `postIds[]` and `slug`s are collected for the coding handoff.
+- Posts are then discovered **live** by the frontend (`queryPosts`, `[...slug]` routes) — no per-post ids/slugs need to be carried into the coding handoff.

@@ -94,9 +94,9 @@ Run the agnostic flow against the scaffolded site:
   `appId` from the `wix.config.json` written by `init` (§1).
 
 Then build the pages the user's intent calls for, **wired to the live backend**, using
-**`references/SDK_HANDOFF.md`** for the per-capability packages, the SDK docs, and the seeded IDs to
-bind. Install the SDK packages the loaded verticals need, author the pages/components directly in the
-project, and bind them to the seeded content. Keep it scoped to what was asked — no speculative pages.
+**`references/SDK_HANDOFF.md`** for the per-capability packages, the SDK docs, and the seeded schema to
+bind (collection/form names + field keys; all other content is queried live). Install the SDK packages the loaded verticals need, author the pages/components directly in the
+project, and bind them to the live backend content. Keep it scoped to what was asked — no speculative pages.
 
 > **`npm install` note (Astro):** run the install with the optional native build skipped —
 > **`npm install --no-optional`** (or `--ignore-scripts`). Astro pulls `sharp` as an *optional*

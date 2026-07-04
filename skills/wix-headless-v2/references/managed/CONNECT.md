@@ -39,7 +39,7 @@ Per `references/managed/AUTHENTICATION.md` — `whoami`/login if needed, then mi
 an **Astro** project → **`references/astro.md`** (auto-auth, no client); **any other framework or a
 static design** → **`references/non-astro.md`** (manual `OAuthStrategy` client). The chosen file carries
 the connect mechanics and the framework caveats; **`references/SDK_HANDOFF.md`** carries the
-per-capability packages, the SDK docs, and the seeded IDs.
+per-capability packages, the SDK docs, and the seeded schema (all other content is queried live).
 
 Connect the existing project to the live backend. Install the SDK packages the loaded verticals need;
 then, with **additive** edits:

@@ -1,6 +1,6 @@
 # Astro — the pinned docs to read *before* connecting an Astro frontend to Wix
 
-Astro is the **documented default** frontend for Wix-managed headless — pick it unless the user names another framework (then read `non-astro.md` instead). This file is to *wiring an Astro frontend to the Wix backend* what `SEED_RECIPES.md` is to seeding: an **index of doc pages**, each with a one-line "what it settles" note, **followed by a Caveats section** carrying the things the docs don't say. It holds **no config blobs, page skeletons, design tokens, or payloads** — the model designs and writes the whole frontend; this file only says *how to connect it* and *what to watch out for*.
+Astro is the **documented default** frontend for Wix-managed headless — pick it unless the user names another framework (then read `non-astro.md` instead). This file is to *wiring an Astro frontend to the Wix backend* what `SEED.md` is to seeding: the pointer to *how* it connects — an **index of doc pages**, each with a one-line "what it settles" note, **followed by a Caveats section** carrying the things the docs don't say. It holds **no config blobs, page skeletons, design tokens, or payloads** — the model designs and writes the whole frontend; this file only says *how to connect it* and *what to watch out for*.
 
 **Auto-auth is the whole point.** On managed-Astro you create **no client** — no `createClient`, no `OAuthStrategy`, no `clientId`, no token handling in app code. You `import { x } from "@wix/<pkg>"` and call methods; `@wix/astro` + the session middleware authenticate every call automatically (§2, §3). The manual OAuth client survives **only** off this path — self-managed or non-Astro frontends (`non-astro.md`).
 
@@ -46,7 +46,7 @@ This is what makes managed-Astro different from every other path: authentication
 | <https://dev.wix.com/docs/sdk/articles/set-up-a-client/about-the-wix-client.md> | **Confirms managed-Astro is on the "don't need a client" list** — the client/`OAuthStrategy` is for self-managed only. Read it to be sure you should *not* be constructing a client here. |
 | <https://dev.wix.com/docs/api-reference/articles/sdk-setup-and-usage/develop-with-the-sdk.md> | **Develop with the SDK** — calling SDK methods across SSR / islands / backend endpoints, and where elevation fits. |
 
-One line on what reaches the frontend: **visitor-scoped reads work out of the box** with no wiring. **Admin-only data is seeded at build time** (see `SEED.md` / `SEED_RECIPES.md`) — don't reach for runtime elevation unless the data genuinely can't be seeded ahead of time.
+One line on what reaches the frontend: **visitor-scoped reads work out of the box** with no wiring. **Admin-only data is seeded at build time** (see `SEED.md`) — don't reach for runtime elevation unless the data genuinely can't be seeded ahead of time.
 
 ## 4 — CLI, project structure, dev loop, release
 

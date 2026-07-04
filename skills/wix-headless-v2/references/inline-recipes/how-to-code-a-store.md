@@ -99,13 +99,22 @@ Doc: <https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v
 
 **Price** comes from `actualPriceRange.minValue.amount` (see the cheat-sheet) — **not** `price.actualPrice.amount` (the seed/write shape), which reads `undefined` → `$NaN`.
 
+### Category navigation — list categories live
+
+**Build the category nav/rail from a live `categories` query (`@wix/categories`), never from a seeded category list** — a category the owner adds later then self-registers in the nav with no code change. Query at render time and read each `{ _id, name, slug }`; render the bar only when it returns **more than one** category, and treat it as **non-fatal** (wrap in try/catch, render without the bar if it fails).
+
+```js
+import { categories } from '@wix/categories';
+const res = await categories.queryCategories({
+  treeReference: { appNamespace: '@wix/stores' },
+}).find();               // read the returned array per the SDK doc; ids are `_id`; link each to /category/<slug>
+```
+
+**⚠️ Do NOT add a server-side field filter (e.g. `.eq('visible', true)`) to this query — it returns EMPTY.** Seeded categories are created `visible: true`, but `visible` is **not declared filterable** on `queryCategories`, so `.eq('visible', true)` triggers the same silently-swallowed `400` as the product-filter trap below and the nav renders blank (confirmed live on a seeded store). Query **unfiltered** and, if you ever need to hide a category, filter the returned array **client-side**. (`getCategoryBySlug(slug, { appNamespace: '@wix/stores' })` on the category page is unaffected — it takes no filter, which is why category pages resolve while a `.eq('visible')`-filtered nav comes back blank.) This is a **distinct API from bookings' `categoriesV2`** — don't copy that module's query shape here; read the exact result-array key + field names from the `@wix/categories` SDK doc: <https://dev.wix.com/docs/sdk/business-solutions/categories/introduction.md?apiView=SDK>.
+
 ### Filtering products by category
 
-**✅ DEFAULT — filter client-side by `_id`.** Keep the category→`productIds` map you already have for the storefront, fetch the full product list once with `productsV3.queryProducts()`, and filter it **client-side**: `products.filter(p => categoryProductIds.includes(p._id))`. The SDK `_id` matches the seeded product ids. This is the **only approach proven to work reliably** — it sidesteps every server-filter pitfall below. Prefer it.
-
-**⚠️ Filter on the seeded `productIds` map — NOT on `product.directCategoriesInfo`.** A tempting wrong turn is to filter client-side by reading each product's own category membership (`product.directCategoriesInfo?.categories`). A plain `queryProducts()` does **not** return `directCategoriesInfo` — it's only populated if you request the `DIRECT_CATEGORIES_INFO` fieldset — so the array is empty and the filter **silently matches nothing** ("No pieces found" on every category). Use the productIds map you already hold from seeding; don't re-derive membership from the product object.
-
-**Server-side filtering (only if you truly can't filter client-side):**
+**Filter server-side by the live `categoryId` — keyed on the stable category id, so products the owner adds to a category later appear with no code change or re-publish.** This is the **prescribed** approach; do **not** freeze a seed-time `category→productIds` map into the code and filter client-side against it (a product added to that category in the backoffice would never appear on its category page — the exact "owner edit is lost" failure this recipe exists to prevent).
 
 **⚠️ CRITICAL: category filtering MUST use `searchProducts`, NOT `queryProducts`.** `directCategoriesInfo.categories` is **not declared as filterable in `queryProducts`** — passing it there returns HTTP `400 "... is not declared as filterable"`, which the SDK **swallows silently**, leaving an empty category page that looks like "no products". This is the #1 way this breaks. Use Search Products:
 
@@ -115,6 +124,7 @@ const { items } = await productsV3.searchProducts({
 });
 ```
 
+- **`categoryId`** is the stable id from the live `categories.queryCategories()` result above (a category's `_id`) — read it from the render context, never a hardcoded seed-time id list.
 - **Method:** `searchProducts`, never `queryProducts` (the field is only filterable in search).
 - **Operator:** `$matchItems`, never `$hasSome` (the natural-looking guess returns nothing).
 - **Inner key:** `id` (the category GUID), inside `$matchItems: [{ id: … }]`.
@@ -210,5 +220,5 @@ A correct Catalog V3 storefront frontend:
 - imports **`productsV3` / `readOnlyVariantsV3` / `categories` / `currentCart` / `redirects`** — never the V1 `products`/`collections` modules;
 - uses **`product._id`** (never `product.id`) as the cart's `catalogItemId`;
 - resolves the **mandatory `variantId`** via `readOnlyVariantsV3` and passes it as `options.variantId` (not `options.options`);
-- filters categories **client-side by `_id`** (default), or server-side with **`searchProducts` + `$matchItems`** — never `queryProducts` for category filtering, never `$hasSome`, never V1 `collectionIds`;
+- builds its category nav from a **live `categories.queryCategories()`** and filters category pages server-side with **`searchProducts` + `$matchItems: [{ id: categoryId }]`** keyed on the live `categoryId` — never a frozen seed-time `productIds` map, never `queryProducts` for category filtering, never `$hasSome`, never V1 `collectionIds`;
 - reads inventory from the **V3** shape and renders rich-text descriptions, not raw nodes.
