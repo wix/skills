@@ -105,13 +105,7 @@ Never invent a URL or body from memory.
 
 *SEED.md §3: one menu, then its `sections`, then `itemCount` items per section — **menu → sections → items** (items reference their section); keep `menuId`, `sectionIds[]`, `itemIds[]`.*
 
-| Tier | Page | What it settles |
-|---|---|---|
-| 1 | <https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/build-a-complete-menu.md> | The recipe: recommended build order and how the menu → sections → items hierarchy is wired via id arrays. |
-| 2 | <https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/sample-flows.md> | Menus-level sample flows for assembling a complete menu end to end. |
-| 3 | <https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/menus/create-menu.md> | Create-menu schema: sections attach via the section-ids array; returns the menu id. |
-| 3 | <https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/sections/create-section.md> | Create-section schema: items attach via the item-ids array; returns the section id. |
-| 3 | <https://dev.wix.com/docs/api-reference/business-solutions/restaurants/menus/items/items/create-item.md> | Create-item schema: name + price info; returns the item id its section references. |
+**Read `inline-recipes/setup-restaurants.md`** (local — Read it, don't curl). It is **self-contained** — every endpoint, request body, and representative response is inlined, so read it and seed from it alone; **do not go fetch the Restaurants-Menus method/flow doc pages** (they're superseded by the recipe). It covers the full create flow: **clean the install's default sample "Dinner Menu" first** (a fresh install ships ~1 menu / 4 sections / ~21 items — GET each level, then `bulk/items/delete` + `bulk/sections/delete` with `{ids:[…]}`, then one `DELETE /menus/{id}` per menu; no bulk-delete for menus), then build the hierarchy **bottom-up**: **bulk-create items** (`bulk/items/create`, price as a decimal **string** under `priceInfo.price` — **not** the deprecated top-level `price`; currency is site-derived; plain-string `description`), then **bulk-create sections** carrying their **`itemIds`** (`bulk/sections/create`), then **create the menu** carrying its **`sectionIds`** (single `POST /menus` wraps the body in `{menu:{…}}`; bulk exists for multiple). All under the Menus **V1** service (`restaurants/menus/v1/…`). REST **flattens the protobuf wrappers** — send `visible: true` / plain `description`, never `{value:…}`; set **`visible: true` explicitly** at item, section, and menu level or the entity may not render for visitors. Read created ids from **`results[].item.id`** (bulk) / **`menu.id`** (single-create menu). `businessLocationId` is optional (defaults to the main location). Keep `menuId`, `sectionIds[]`, `itemIds[]`.
 
 ---
 
