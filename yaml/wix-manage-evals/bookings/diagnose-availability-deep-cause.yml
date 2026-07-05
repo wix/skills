@@ -5,10 +5,10 @@ description: >-
   (outside working hours) from "staff booked/blocked" — with a fix for each, in
   plain language.
 triggerPrompt: >-
-  My Wix Bookings appointment service shows no available times at all for the next
-  few weeks. How can I tell whether it's because my staff aren't scheduled to work
-  then, or because they're already fully booked or blocked — and how do I fix each
-  case?
+  For a Wix Bookings appointment service that shows no available times at all, I
+  understand it can be either because the staff aren't scheduled to work in that
+  period or because they're already fully booked or blocked. What's the difference
+  between those two cases, and how would I fix each?
 tags: [bookings]
 assertions:
   - tool: ReadFullDocsArticle
