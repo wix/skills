@@ -1,6 +1,6 @@
 ---
 name: wix-manage
-description: "Wix business solution management recipes — REST API operations for configuring and managing Wix business solutions. Routes to: stores, bookings, get-paid, CMS, contacts, forms, media, app-installation, pricing-plans, restaurants, rich-content, sites, blog, calendar, domains, site-properties, ecommerce, social media."
+description: "Wix business solution management recipes — REST API operations for configuring and managing Wix business solutions. Routes to: stores, bookings, get-paid, CMS, contacts, forms, media, app-installation, pricing-plans, restaurants, rich-content, sites, blog, calendar, domains, site-properties, ecommerce, social media, marketing plans."
 compatibility: Requires Wix REST API access (API key or OAuth).
 ---
 
@@ -181,6 +181,13 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 
 ### [Payment Links for Bookings](references/get-paid/payment-links-for-bookings.md)
 **Technical:** Creates payment links for unpaid bookings using Payment Links API. Links booking IDs to payment requests with proper redirect handling.
+
+---
+
+## Marketing Plan
+
+### [Generate a Marketing Plan and Schedule Its Posts](references/marketing-plan/generate-and-publish-marketing-plan.md)
+**Technical:** Generates a site's AI social media marketing plan (a calendar of marketing activities, each with per-channel post drafts) via the Marketing Plan API, then schedules the drafts for publishing. Covers optional marketing settings (goal, channels, tone, frequency, content pillars), asynchronous generation with polling until `ACTIVE`, scheduling `DRAFT` posts (only for channels connected through the Publisher), and generating posts for additional activities. Use for "generate a marketing plan", "create a social media plan/calendar", or "schedule my plan's posts".
 
 ---
 

@@ -1,0 +1,42 @@
+name: marketing-plan/generate-and-publish-marketing-plan
+description: >-
+  Action scenario for the "Generate a Marketing Plan and Schedule Its Posts" skill
+  on a fresh site with no marketing plan yet: the agent is asked to schedule the
+  plan's posts, and the correct behavior is to check the plan first (Get Social
+  Marketing Plan), find none (NEVER_CREATED), and explain that a plan must be
+  generated first (asynchronously), rather than fabricating posts or blindly
+  scheduling. A fresh site has no plan, so nothing can actually be scheduled.
+triggerPrompt: >-
+  Schedule this week's posts from my marketing plan.
+tags: [marketing]
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/marketing/marketing-plan/skills/generate-a-marketing-plan-and-schedule-its-posts
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked to schedule this week's marketing-plan posts, on a fresh site
+      that has NO marketing plan yet (Get Social Marketing Plan returns NEVER_CREATED).
+      The only correct outcome is to detect that no plan exists and not fabricate or
+      blindly schedule anything.
+
+      Pass if the response:
+      - checks the plan status via Get Social Marketing Plan
+        (GET /promote/marketing-plan-service/v1/marketing-plan) BEFORE scheduling, AND
+      - on finding no plan (status NEVER_CREATED, or no activities/drafts), explains a
+        plan must be generated first with Generate Marketing Plan (noting generation is
+        asynchronous and must be polled until ACTIVE), or offers to generate it, AND
+      - does NOT fabricate marketing activities, draft IDs, or posts, AND
+      - does NOT call Schedule Drafts with made-up IDs, AND
+      - does not fall back to searching the REST docs instead of using the skill.
+
+      Fail if the response:
+      - calls Schedule Drafts with invented IDs, OR
+      - fabricates a plan or its activities/posts, OR
+      - treats generation as synchronous, OR
+      - never checks the plan before acting.
