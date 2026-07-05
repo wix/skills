@@ -10,7 +10,7 @@ Base URL for all endpoints: `https://www.wixapis.com/promote/marketing-plan-serv
 
 **Prerequisites:**
 - The site must be **published** — generation draws on the published site. This isn't validated at call time; an unpublished site yields a `FAILED` plan or an `ACTIVE` plan with no posts. Verify before generating.
-- For posts to be **scheduled/published**, the target channels must be connected through the Publisher (see the [Publish or Schedule a Social Media Post](https://dev.wix.com/docs/api-reference/business-management/marketing/social-media/skills) recipe). Drafts for unconnected channels stay as drafts.
+- For posts to be **scheduled/published**, the target channels must be connected through the Publisher (see the [Create and Publish a Social Media Post](https://dev.wix.com/docs/api-reference/business-management/marketing/social-media/skills) recipe for the connect flow). Drafts for unconnected channels silently stay as drafts (STEP 4).
 
 ---
 
@@ -65,7 +65,7 @@ To change any of these, edit them at the site level, then (re)generate the plan 
 
 To fetch selectable values at runtime, call `GET .../marketing-settings/plan-goal-options` (goals) and `GET .../marketing-settings/defaults` (the site's default goal, channels, and frequency); point-of-view values are the fixed enum above. (Two fields are accepted but currently ignored by generation: `settings.imageGenerationSettings` and `topics.coreTopic`.)
 
-**Note:** If you changed `topics` on an existing plan, regenerate with `RegenerateMarketingPlanWithKeywordResearch` (`POST .../marketing-plan/regenerate-marketing-plan-with-keyword-research`) so keyword research reruns.
+**Note — settings only take effect on (re)generation.** Editing settings never changes an existing plan on its own. To apply changes to an existing plan, regenerate it (STEP 2, `regenerate-marketing-plan`). **If you changed `topics`, use `RegenerateMarketingPlanWithKeywordResearch` instead** (`POST .../marketing-plan/regenerate-marketing-plan-with-keyword-research`) so keyword research reruns for the new content pillars.
 
 ---
 
@@ -133,7 +133,7 @@ Posts are generated automatically only for the **near-term** activities (how far
 
 ## STEP 4: Schedule the draft posts
 
-Collect the `id` of every `item` whose `status` is `DRAFT`, from the activities you want to publish, then schedule them.
+Collect the `id` of every `item` whose `status` is `DRAFT` from the activities you want to publish. **Before scheduling, show the user what will be published** — each draft's caption and media (render the image inline if the surface supports it, otherwise post its URL as a clickable link) — and get their approval. The drafts are AI-generated and scheduling publishes them, so never schedule content the user hasn't reviewed.
 
 **API Endpoint:** `POST https://www.wixapis.com/promote/marketing-plan-service/v1/marketing-plan/schedule-drafts`
 
@@ -149,10 +149,10 @@ Collect the `id` of every `item` whose `status` is `DRAFT`, from the activities 
 { "items": [ { "id": "834dc801-3e5c-416a-bd14-b130a95d100e", "status": "SCHEDULED", "channel": { "name": "INSTAGRAM" } } ] }
 ```
 
-Behavior:
+**Check the response — scheduling can partially and silently succeed:**
 - Only `DRAFT` items are scheduled; non-draft IDs are silently ignored.
-- Only drafts for channels connected through the Publisher are scheduled; drafts for unconnected channels are silently skipped and stay drafts.
-- Requires the site's plan to include the schedule-posts premium feature; otherwise the call returns `FAILED_PRECONDITION`.
+- **Only drafts for Publisher-connected channels are scheduled; drafts for unconnected channels are silently skipped and stay `DRAFT` — with no error.** A `200` does not mean everything was scheduled. **Diff the returned `items` against the `draftIds` you sent:** any id not returned as `SCHEDULED` is still a draft. Tell the user which channels those drafts belong to and that the channel needs connecting — connect it via the [Create and Publish a Social Media Post](https://dev.wix.com/docs/api-reference/business-management/marketing/social-media/skills) recipe's connect flow, then reschedule those ids.
+- Requires the site's plan to include the schedule-posts premium feature; otherwise the call returns `FAILED_PRECONDITION` (advise upgrading the social media marketing plan).
 
 The scheduled posts are managed by the Publisher and appear on the site's Social Media Marketing page.
 
