@@ -33,6 +33,8 @@ Diagnosis is **endpoint-first**:
 
 - Typically the `serviceId` (optionally with a staff member's `resourceId` to scope to one provider). A `resourceId` on its own is also supported for the staff editor, where no service is in context — see [Which inputs to pass](#which-inputs-to-pass-prefer-a-service).
 
+- **Authorization:** the caller needs the `bookings:availability:v2:time_slot:diagnose_availability` permission. A plain site/owner token can come back **403 (empty body)** if that permission isn't granted to the caller — that's an auth problem, not "no cause found." Ensure the calling context carries the permission before treating a 403 as inconclusive.
+
 ---
 
 ## Step 1 — Run the diagnosis
@@ -134,7 +136,8 @@ curl -X POST 'https://www.wixapis.com/_api/service-availability/v2/time-slots/di
 |------|-------------------|-------|
 | 400 | `MISSING_ARGUMENTS` | Neither `serviceId` nor `resourceId` provided; or `deep: true` sent without a `serviceId`. |
 | 400 | `INVALID_TIME_ZONE` | `timeZone` isn't a valid IANA zone. |
-| 404 | `SERVICE_NOT_FOUND` / `RESOURCE_NOT_FOUND` | Service / staff record missing. |
+| 400 | `INVALID_SERVICE_IDS_PROVIDED` | The `serviceId` doesn't resolve to a service on the site. In practice a well-formed-but-nonexistent `serviceId` (not only a malformed one) currently surfaces here rather than as a 404 — re-check the ID. |
+| 404 | `SERVICE_NOT_FOUND` / `RESOURCE_NOT_FOUND` | Service / staff record missing. (A missing `serviceId` may instead surface as the 400 `INVALID_SERVICE_IDS_PROVIDED` above.) |
 | 404 | `NO_IMPLEMENTERS_FOUND` / `MULTIPLE_IMPLEMENTERS_FOUND` | No / multiple availability providers configured. |
 | 403 | `UNAUTHORIZED_OPERATION` | Caller lacks `bookings:availability:v2:time_slot:diagnose_availability`. |
 
@@ -217,6 +220,7 @@ Popular reasons a service shows no availability, and where each surfaces:
 
 - **`hasAvailability: false` + empty `reasons` ≠ a confirmed problem.** It means "no blocking cause detected." Always confirm with `ListAvailabilityTimeSlots`.
 - **The endpoint is ALPHA and feature-toggled.** If it returns nothing for an obviously broken service, the `diagnoseAvailabilityEndpoint` toggle may be off — fall back to Step 2.
+- **A 403 is an auth problem, not a diagnosis.** The action needs the `bookings:availability:v2:time_slot:diagnose_availability` permission; a caller without it gets a 403 with an empty body. Don't read that as "no cause found" — confirm the caller has the permission (see [Prerequisites](#prerequisites)).
 - **`deep: true` needs a `serviceId`** (resource-only + `deep` → `MISSING_ARGUMENTS`) and only refines a "no windows" result — it does nothing when windows already exist.
 - **The endpoint ignores booking policy and capacity** — those are Step 2.
 - **Resource-only diagnosis is lighter.** Passing `resourceId` without `serviceId` catches missing/empty working hours but skips the window, location, and deep checks, so it can return "inconclusive" for service-dependent problems. Valid when there's no service context (e.g. the staff editor); otherwise pair the resource with a service.
