@@ -107,6 +107,8 @@ One call tells you what the site's plan allows — whether you can publish or sc
 
 AI generation works on **every** site — it isn't gated by the plan (no premium check applies), so offer it by default. Unless the user has already handed you a finished caption and media, **lead with an offer to generate the post for them** rather than asking them to write it: propose **3a** first — a full, ready-to-publish post built from a one-line idea *or* from one of the site's own assets (a product, blog post, event, booking, coupon, or category). A good opener is "Want me to draft it from an idea, or build it around one of your products / blog posts / events?" Fall back to 3b/3c or the user's own content only if they decline or 3a doesn't fit (e.g. YouTube or a story/reel/video format). Pick the approach that fits the request.
 
+**Always produce the content by calling these endpoints — never write the caption or title yourself.** When the user asks you to generate, draft, or suggest a post (or gives you only a topic like "promote yoga for beginners"), you **must call** `generate-post-data` (3a) or `generate-text` (3b) and present *its* output. Do not compose captions from your own language model and skip the API — the endpoints produce on-brand, per-channel, asset-grounded content that hand-written text can't match, and skipping them is the most common failure of this recipe. The only time you don't call them is when the user pastes their own finished text.
+
 ### 3a. Generate a full post — from an idea and/or the site's own assets
 
 Produces ready-to-use, per-channel payloads that drop straight into STEP 5. **This is the default** — lead with it for any "create a post" request, offering both the idea-based and asset-based paths.
