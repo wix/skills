@@ -84,16 +84,19 @@ const post = items[0];
 if (!post) { /* 404 → redirect to /blog */ }
 ```
 
-**Astro page routing — `wixMetadata` is required.** A blog-post detail page (`src/pages/blog/[...slug].astro`) must export `wixMetadata` so the Wix platform recognizes it as a blog-post page (routing + SEO):
+**Astro page routing + SEO (Wix-managed) — `wixMetadata` is required.** A blog-post detail page (`src/pages/blog/[...slug].astro`) is a Wix **item page**: its `<title>`/description/OG/canonical come from what the owner sets in the dashboard. Wire it per the canonical guide — **[Add SEO Support to Item Pages](https://dev.wix.com/docs/go-headless/wix-managed-headless/seo/add-seo-support-to-item-pages.md)** — which covers all three steps: export `wixMetadata` (registers the route → sitemap + dashboard SEO editor), call `loadSEOTagsServiceConfig(...)`, and render `<SEO.Tags>` (from `@wix/seo`; deps + `@wix/essentials ≥ 1.0.10` are in the guide's "Before you begin"). Source `wixMetadata` from `WIX_APPS`, referenced **directly** inside the export (it's evaluated in module scope):
 
 ```js
+import { WIX_APPS } from "@wix/essentials";
+import { seoTags } from "@wix/seo";           // → itemType: seoTags.ItemType.BLOG_POST
+
 export const wixMetadata = {
-  appDefId: "14bcded7-0066-7c35-14d7-466cb3f09103",
-  pageIdentifier: "wix.blog.sub_pages.post",
-  identifiers: { slug: "BLOG.POST.SLUG" },
+  appDefId: WIX_APPS.blogs.id,
+  pageIdentifier: WIX_APPS.blogs.postPageMetadata.pageIdentifier,
+  identifiers: { slug: WIX_APPS.blogs.postPageMetadata.identifiers.slug },
 };
 ```
-Use the `[...slug]` **rest** param (not `[slug]`), and `Astro.params` directly — Wix headless projects run `output: "server"` (SSR), so there's no `getStaticPaths()`.
+Use the `[...slug]` **rest** param (not `[slug]`), and `Astro.params` directly — Wix headless projects run `output: "server"` (SSR), so there's no `getStaticPaths()`. **If you add a blog category route** (e.g. `/category/[slug]`), wire it the same way with `WIX_APPS.blogs.categoryPageMetadata` + `seoTags.ItemType.BLOG_CATEGORY`. ⚠️ As of testing, dashboard SEO *overrides* for blog **categories** aren't honored by the resolver (it returns label-derived defaults) — the route still registers and gets valid default tags; this is a Wix-side gap, not a wiring bug.
 
 ### Rendering the post body (Ricos rich content)
 

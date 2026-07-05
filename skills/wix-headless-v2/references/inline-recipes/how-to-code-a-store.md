@@ -213,6 +213,18 @@ function imgSrc(mediaMain, w = 600, h = 600) {
 
 Don't print the raw node object. A product description is rich text (`description.nodes`). Render the rich-text nodes, or use `plainDescription` for a plain string. Printing the raw node object dumps literal `<p>…</p>` into the page.
 
+### SEO on item pages (Astro, Wix-managed)
+
+A **product detail** page is a Wix **item page**: its `<title>`/description/OG/canonical come from what the owner sets in the dashboard. On the Astro (Wix-managed) frontend, wire it per the canonical guide — **[Add SEO Support to Item Pages](https://dev.wix.com/docs/go-headless/wix-managed-headless/seo/add-seo-support-to-item-pages.md)** — which covers the three steps: export `wixMetadata` (registers the route → sitemap + dashboard SEO editor), call `loadSEOTagsServiceConfig(...)`, and render `<SEO.Tags>` (from `@wix/seo`; deps + `@wix/essentials ≥ 1.0.10` are in the guide's "Before you begin").
+
+For a product page use:
+- **`wixMetadata`** from `WIX_APPS.checkoutAndOrders.productPageMetadata` — referenced **directly** in the export (module scope). ⚠️ It's `WIX_APPS.checkoutAndOrders`, **not** `WIX_APPS.stores` (`stores.id` is the catalog id for `catalogReference`, a different value). The `identifiers` key is your route param; the token is `…productPageMetadata.identifiers.handle`.
+- **`itemType`**: `seoTags.ItemType.STORES_PRODUCT`.
+
+**If you build a dedicated category route** (e.g. `/category/[slug]` or `/search/[collection]`), wire it the same way with `WIX_APPS.checkoutAndOrders.categoryPageMetadata` + `seoTags.ItemType.STORES_CATEGORY`. (A category rendered only as a query-string *filter* on the products listing is a main page — it gets its SEO from automatic injection, no `wixMetadata` needed.)
+
+Optional: render a `Product` schema.org JSON-LD `<script>` from the fetched product for rich results (see the guide's structured-data step).
+
 ---
 
 ## Conclusion
