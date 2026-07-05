@@ -56,40 +56,40 @@ The script emits one JSON object per line:
 
 ### Pick the mode
 
-Once you're logged in, set up the project for the situation you're in:
+Once you're logged in, set up the project for the situation you're in. All Wix CLI commands below are prefixed with `CI=1` — it switches the CLI's interactive spinner UI to plain line-by-line output. Without it, captured (non-TTY) output — the normal case when an agent runs the command — fills with ANSI spinner redraw frames (megabytes of them on the scaffold).
 
 **Continuing a deployed site** — the user gave you a Wix download URL, or you're already in a folder with a `wix.config.json`:
 
 1. Adjust `wix.config.json` (set `outputDirectory`) accordingly.
-2. Release the project: `wix release`.
+2. Release the project: `CI=1 wix release`.
 
 **Connecting an existing codebase to a new Wix site** — you're in a non-empty directory that has no `wix.config.json`:
 
-1. Init a new Wix site: `npx @wix/create-new@latest init`.
+1. Init a new Wix site: `CI=1 npx @wix/create-new@latest init`.
 2. Adjust `wix.config.json` (set `outputDirectory`) accordingly.
 3. Build the project (if needed).
-4. Release the project: `wix release`.
+4. Release the project: `CI=1 wix release`.
 
 **Starting from scratch** — a prompt with no existing project (empty directory). Derive a human **business name** and a kebab-case **folder name** from the prompt, then create a new Wix CLI Headless project:
 
 ```bash
-npm create @wix/new@latest headless -- \
+CI=1 npm create @wix/new@latest headless -- \
   --business-name "<Brand>" \
   --folder-name "<brand-slug>" \
   --site-template "blank" \
   --no-publish
 ```
 
-`<business-name>` must contain at least one letter or number; `<folder-name>` must match `^[a-z0-9][a-z0-9-]*$` (e.g. `Acme Bakery` → `acme-bakery`). Ask the user if you can't derive a sensible name.
+`<business-name>` must contain at least one letter or number; `<folder-name>` must match `^[a-z0-9][a-z0-9-]*$` (e.g. `Acme Bakery` → `acme-bakery`). Ask the user if you can't derive a sensible name. The three flags are required, not just convenient — without `--business-name`, `--folder-name`, and `--site-template` the command refuses to run in a non-interactive terminal.
 
 ## Phase 2 — Connect a Business Solution (agentic)
 
 ### Install the Wix Headless skills
 
 ```bash
-wix skills add
+CI=1 wix skills add
 # Fallback if 'wix skills' isn't registered for this project type:
-npx skills@latest add wix/skills --yes
+CI=1 npx skills@latest add wix/skills --yes
 ```
 
 The skills land in `.agents/skills/`.
