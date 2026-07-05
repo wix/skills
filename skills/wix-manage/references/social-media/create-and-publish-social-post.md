@@ -47,6 +47,9 @@ Determine the target channel from the request (`INSTAGRAM`, `FACEBOOK`, `YOUTUBE
   - TikTok → `{ "tiktok": { "defaultAccountId": "<id>" } }`
   - LinkedIn → `{ "linkedin": { "defaultChannelId": "<id>" } }`
 - **`accounts` is empty** → the channel isn't connected — offer to connect it (STEP 1.5). If `long-lived-token-status` is already `VALID` but this still returns empty (or `NO_PAGES_FOR_USER`), the token was created but no Facebook Page with a linked Instagram **Business/Creator** account was granted during authorization — treat it as "not connected" and re-run STEP 1.5, telling the user to grant the Page.
+- **A `400 USER_NOT_EXIST_FOR_CHANNEL` error** (instead of an empty list) → same meaning: **this channel** has no connected user. Treat it exactly like "not connected" and offer STEP 1.5.
+
+**This call is per-channel — never generalize from it to the whole site.** `accounts?channelName=X` (empty *or* a `USER_NOT_EXIST_FOR_CHANNEL` error) tells you only about channel **X**. It says nothing about any other channel. Do **not** tell the user "you have no social accounts connected on this site" from a single-channel check — you have no basis for that. Scope every statement to the channel you actually queried (e.g. "Pinterest isn't connected yet"). If you genuinely need to know what else is connected, query the other channels.
 
 Note the extra IDs some channels need in STEP 5: Facebook `facebook.page.id`, Pinterest `pinterest.board.id`, Google Business Profile `gbp.location.id`.
 
@@ -59,6 +62,10 @@ Ask the user if they'd like to connect the channel now. If yes, run the OAuth co
    ```json
    { "connectUrl": "https://www.instagram.com/oauth/authorize?client_id=...&redirect_uri=...&state=..." }
    ```
+
+   If this returns a `428 INELIGIBLE_FOR_FEATURE` ("metasite is ineligible for feature"), the site has **reached the number of channels its plan allows it to connect** — connecting *this* channel isn't blocked specifically; the plan caps *how many* channels can be connected, and that cap is used up (e.g. free plans allow only one connected channel, so a site that already has one connected can't add another). Reconnecting an already-connected channel is always free; only adding a *new* one counts against the cap. Stop the connect flow and explain this plainly: to connect another channel they can **upgrade the social media marketing plan** — otherwise they can post to the channel they **already have connected**.
+
+**Do not suggest connecting a *different* new channel** (e.g. "connect Instagram or Facebook instead") — the cap applies to *any* new channel equally, so that hits the same 428. The cap being full means at least one channel is already connected; find out which by calling `List Accounts` for the other channels (or just ask the user), and offer to post to **that** channel. Also don't suggest disconnecting or switching the existing channel to free a slot. So the only real options are: upgrade, or use the channel that's already connected.
 
 2. **Surface `connectUrl` to the user** and ask them to open it and authorize the channel. The channel's OAuth redirect completes the connection server-side.
 
@@ -105,9 +112,21 @@ One call tells you what the site's plan allows — whether you can publish or sc
 
 ## STEP 3: Generate the post content with AI
 
-AI generation works on **every** site — it isn't gated by the plan (no premium check applies), so offer it by default. Unless the user has already handed you a finished caption and media, **lead with an offer to generate the post for them** rather than asking them to write it: propose **3a** first — a full, ready-to-publish post built from a one-line idea *or* from one of the site's own assets (a product, blog post, event, booking, coupon, or category). Fall back to 3b/3c or the user's own content only if they decline or 3a doesn't fit (e.g. YouTube or a story/reel/video format).
+AI generation works on **every** site — it isn't gated by the plan (no premium check applies), so offer it by default. Don't assume the user wants generation, and don't assume they'll write it themselves — **ask which**, and if generating, ask what to base it on. Lead with this branching question before doing anything else in this step:
 
-**Get the subject from the user before generating — do not invent it.** The one thing you always need first is *what the post is about*. If the user hasn't said, **ask**, e.g. "What should the post be about — give me a one-line idea, or should I build it around one of your products / blog posts / events?" Wait for their answer, then pass it as `userInput` (their idea) and/or `siteAssets` (the asset they picked). Never fabricate a topic or generate a generic post about the business off your own assumption — a draft the user never described their intent for is the failure this step must avoid. (Resolving *which* specific asset still comes from the site's query API per 3a, but *that they want an asset-based post, and which one* comes from the user.)
+1. **Do they already have the content, or want it generated?** e.g. "Do you already have the post text (paste it), or should I generate it for you?"
+2. **If generating — from a free-text idea, or from one of the site's own assets?** e.g. "Should I write it from a one-line idea you give me, or build it around one of your products, blog posts, events, bookings, or coupons?"
+
+Then follow the branch:
+- **User has their own content** → skip generation; use their text as the content object in STEP 5 (still surface any media per STEP 6).
+- **Generate from an idea** → 3a (or 3b for caption/title only) with their idea as `userInput`.
+- **Generate from an asset** → 3a with the chosen asset as `siteAssets`.
+
+Fall back to 3b/3c only when 3a doesn't fit (e.g. YouTube or a story/reel/video format).
+
+**Get the subject from the user before generating — do not invent it.** Whichever generate branch they pick, the one thing you always need first is *what the post is about* — a one-line idea, or which specific asset. Wait for their answer, then pass it as `userInput` (their idea) and/or `siteAssets` (the asset they picked). Never fabricate a topic or generate a generic post about the business off your own assumption — a draft the user never described their intent for is the failure this step must avoid.
+
+The subject is a **hard gate**: do not call `generate-post-data` / `generate-text` until the user has told you, in their own words, what the post is about. Watch for this trap — if you asked for the account *and* the topic in one message and the user replies with just the account (e.g. "1" or "personal"), they have **not** given you a topic. Treat the topic as still missing: ask for it again and stop; do not proceed to generate. A short reply that answers only one of your questions is not permission to invent the rest. (Resolving *which* specific asset still comes from the site's query API per 3a, but *that they want an asset-based post, and which one* comes from the user.)
 
 **Always produce the content by calling these endpoints — never write the caption or title yourself.** Once you have the subject, you **must call** `generate-post-data` (3a) or `generate-text` (3b) and present *its* output. Do not compose captions from your own language model and skip the API — the endpoints produce on-brand, per-channel, asset-grounded content that hand-written text can't match, and skipping them is a common failure of this recipe. The only time you don't call them is when the user pastes their own finished text.
 
@@ -375,6 +394,8 @@ The post appears on the site's Social Media Marketing page in the dashboard. To 
 | Symptom | Cause | Fix |
 | --- | --- | --- |
 | STEP 1 returns empty `accounts` | Channel not connected | Run STEP 1.5 to connect the channel, or ask the owner to connect it in the dashboard, then retry |
+| `400 USER_NOT_EXIST_FOR_CHANNEL` on List Accounts | The **queried channel** has no connected user (same as "not connected") | Treat as not-connected for that channel only; offer STEP 1.5. Don't conclude the whole site has no connected accounts — the check is per-channel |
+| `428 INELIGIBLE_FOR_FEATURE` on Get Connect Url | Site has hit its plan's cap on **number of connected channels** (e.g. free = 1), not a channel-specific block | Explain the channel-count limit; offer to upgrade, or find the already-connected channel (List Accounts / ask) and offer to post there. Don't suggest connecting a *different* new channel (same cap), don't suggest disconnecting/switching, don't retry the connect flow |
 | `FAILED_PRECONDITION` / `NO_PAGES_FOR_USER` on List Accounts | Connected Facebook/Instagram user has no page with a linked postable account | Ask the owner to grant a Facebook page (with a linked Instagram Business/Creator account) during authorization, then retry |
 | Generate Image poll returns `404 GENERATED_IMAGE_NOT_FOUND` | `executionId` invalid or expired | Re-run Generate Image and poll the new `executionId` |
 | STEP 2 shows the publish/schedule feature `enabled: false` or `remainingUsage: 0` | Plan doesn't allow the action, or quota used up | Advise upgrading, or wait for quota reset |
