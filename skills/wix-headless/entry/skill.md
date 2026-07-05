@@ -56,7 +56,7 @@ The script emits one JSON object per line:
 
 ### Pick the mode
 
-Once you're logged in, set up the project for the situation you're in. All Wix CLI commands below are prefixed with `CI=1` — it switches the CLI's interactive spinner UI to plain line-by-line output. Without it, captured (non-TTY) output — the normal case when an agent runs the command — fills with ANSI spinner redraw frames (megabytes of them on the scaffold).
+Once you're logged in, set up the project for the situation you're in:
 
 **Continuing a deployed site** — the user gave you a Wix download URL, or you're already in a folder with a `wix.config.json`:
 
