@@ -49,7 +49,7 @@ Determine the target channel from the request (`INSTAGRAM`, `FACEBOOK`, `YOUTUBE
 - **`accounts` is empty** → the channel isn't connected — offer to connect it (STEP 1.5). If `long-lived-token-status` is already `VALID` but this still returns empty (or `NO_PAGES_FOR_USER`), the token was created but no Facebook Page with a linked Instagram **Business/Creator** account was granted during authorization — treat it as "not connected" and re-run STEP 1.5, telling the user to grant the Page.
 - **A `400 USER_NOT_EXIST_FOR_CHANNEL` error** (instead of an empty list) → same meaning: **this channel** has no connected user. Treat it exactly like "not connected" and offer STEP 1.5.
 
-**This call is per-channel — never generalize from it to the whole site.** `accounts?channelName=X` (empty *or* a `USER_NOT_EXIST_FOR_CHANNEL` error) tells you only about channel **X**. It says nothing about any other channel. Do **not** tell the user "you have no social accounts connected on this site" from a single-channel check — you have no basis for that. Scope every statement to the channel you actually queried (e.g. "Pinterest isn't connected yet"). If you genuinely need to know what else is connected, query the other channels.
+**This call is per-channel** — an empty list or a `USER_NOT_EXIST_FOR_CHANNEL` error tells you only about the channel you queried, nothing about others. Scope statements to that channel ("Pinterest isn't connected yet"); never say "no accounts connected on this site" from a single-channel check.
 
 Note the extra IDs some channels need in STEP 5: Facebook `facebook.page.id`, Pinterest `pinterest.board.id`, Google Business Profile `gbp.location.id`.
 
@@ -63,9 +63,7 @@ Ask the user if they'd like to connect the channel now. If yes, run the OAuth co
    { "connectUrl": "https://www.instagram.com/oauth/authorize?client_id=...&redirect_uri=...&state=..." }
    ```
 
-   If this returns a `428 INELIGIBLE_FOR_FEATURE` ("metasite is ineligible for feature"), the site has **reached the number of channels its plan allows it to connect** — connecting *this* channel isn't blocked specifically; the plan caps *how many* channels can be connected, and that cap is used up (e.g. free plans allow only one connected channel, so a site that already has one connected can't add another). Reconnecting an already-connected channel is always free; only adding a *new* one counts against the cap. Stop the connect flow and explain this plainly: to connect another channel they can **upgrade the social media marketing plan** — otherwise they can post to the channel they **already have connected**.
-
-**Do not suggest connecting a *different* new channel** (e.g. "connect Instagram or Facebook instead") — the cap applies to *any* new channel equally, so that hits the same 428. The cap being full means at least one channel is already connected; find out which by calling `List Accounts` for the other channels (or just ask the user), and offer to post to **that** channel. Also don't suggest disconnecting or switching the existing channel to free a slot. So the only real options are: upgrade, or use the channel that's already connected.
+   A `428 INELIGIBLE_FOR_FEATURE` here means the site has hit its plan's cap on **how many** channels it can connect (free plans allow one), not that this channel is blocked. Since the cap is full, another channel is already connected — offer only two options: **upgrade the plan**, or **post to the already-connected channel** (find it via `List Accounts` on the other channels, or ask). Don't suggest connecting a different new channel (same cap, same 428) or disconnecting the existing one.
 
 2. **Surface `connectUrl` to the user** and ask them to open it and authorize the channel. The channel's OAuth redirect completes the connection server-side.
 
@@ -105,6 +103,7 @@ One call tells you what the site's plan allows — whether you can publish or sc
 
 **Decision point:**
 - The action you'll use — `PUBLISH_POST` (publish now) or `SCHEDULE_POST` (schedule) — `enabled: false` → the plan doesn't include it; advise upgrading the social media marketing plan.
+- **If `SCHEDULE_POST` is `enabled: false`, drop scheduling from the conversation entirely** — treat "publish now" as the only action. Don't offer a "publish now or schedule?" choice anywhere in the flow, and don't present scheduling while noting it's unavailable. At most mention once that scheduling would need a plan upgrade.
 - `monetizationEnabled: true` and that action's `quotaInfo.remainingUsage` is `0` → quota exhausted; tell the user when it resets (`period`, unless `NO_PERIOD`) or to upgrade.
 - Otherwise → proceed. When `monetizationEnabled` is `false`, quotas aren't enforced; rely on `enabled`.
 
@@ -112,23 +111,18 @@ One call tells you what the site's plan allows — whether you can publish or sc
 
 ## STEP 3: Generate the post content with AI
 
-AI generation works on **every** site — it isn't gated by the plan (no premium check applies), so offer it by default. Don't assume the user wants generation, and don't assume they'll write it themselves — **ask which**, and if generating, ask what to base it on. Lead with this branching question before doing anything else in this step:
+AI generation isn't gated by the plan (no premium check applies), so offer it by default. Don't assume whether the user wants to write the post or have it generated — **ask, before anything else in this step:**
 
-1. **Do they already have the content, or want it generated?** e.g. "Do you already have the post text (paste it), or should I generate it for you?"
-2. **If generating — from a free-text idea, or from one of the site's own assets?** e.g. "Should I write it from a one-line idea you give me, or build it around one of your products, blog posts, events, bookings, or coupons?"
+1. **Own content, or generated?** — "Do you already have the post text, or should I generate it?"
+2. **If generated — from a one-line idea, or built around a site asset** (product, blog post, event, booking, coupon)?
 
-Then follow the branch:
-- **User has their own content** → skip generation; use their text as the content object in STEP 5 (still surface any media per STEP 6).
-- **Generate from an idea** → 3a (or 3b for caption/title only) with their idea as `userInput`.
-- **Generate from an asset** → 3a with the chosen asset as `siteAssets`.
+Then route:
+- **Has their own text** → skip generation; use it as the content object in STEP 5 (still surface any media per STEP 6).
+- **Generated** → **default to `generate-post-data` (3a)** — it returns a full post, caption **and** image. Pass the idea as `userInput` and/or the chosen asset as `siteAssets`. Use `generate-text` (3b, caption/title only, no image) *only* when the user wants just a caption; use 3c only when 3a doesn't fit (YouTube, story/reel/video).
 
-Fall back to 3b/3c only when 3a doesn't fit (e.g. YouTube or a story/reel/video format).
+**Get the subject before generating.** You need, in the user's own words, *what the post is about* — a one-line idea or which specific asset — before calling the API. Never invent the topic or generate a generic post from your own assumption; if the user hasn't supplied it yet, ask and wait.
 
-**Get the subject from the user before generating — do not invent it.** Whichever generate branch they pick, the one thing you always need first is *what the post is about* — a one-line idea, or which specific asset. Wait for their answer, then pass it as `userInput` (their idea) and/or `siteAssets` (the asset they picked). Never fabricate a topic or generate a generic post about the business off your own assumption — a draft the user never described their intent for is the failure this step must avoid.
-
-The subject is a **hard gate**: do not call `generate-post-data` / `generate-text` until the user has told you, in their own words, what the post is about. Watch for this trap — if you asked for the account *and* the topic in one message and the user replies with just the account (e.g. "1" or "personal"), they have **not** given you a topic. Treat the topic as still missing: ask for it again and stop; do not proceed to generate. A short reply that answers only one of your questions is not permission to invent the rest. (Resolving *which* specific asset still comes from the site's query API per 3a, but *that they want an asset-based post, and which one* comes from the user.)
-
-**Always produce the content by calling these endpoints — never write the caption or title yourself.** Once you have the subject, you **must call** `generate-post-data` (3a) or `generate-text` (3b) and present *its* output. Do not compose captions from your own language model and skip the API — the endpoints produce on-brand, per-channel, asset-grounded content that hand-written text can't match, and skipping them is a common failure of this recipe. The only time you don't call them is when the user pastes their own finished text.
+**Never hand-write the caption or title.** Producing the post means calling the API (3a/3b) and presenting *its* output — don't compose captions in-model and skip the call. The only time you skip it is when the user pasted their own text.
 
 ### 3a. Generate a full post — from an idea and/or the site's own assets
 
@@ -190,7 +184,7 @@ Provide `userInput`, `siteAssets`, or both.
 }
 ```
 
-Use the payload for your chosen channel as the content object in STEP 5. Review it with the user before publishing — and review the **whole** payload, not just the caption. If the response includes an image or video in `mediaWrapper.media[]` (`generate-post-data` returns an AI-generated image when you pass no `media` of your own), you **must** surface that media to the user: display/render the image inline in the chat if the surface supports it, otherwise post the media URL as a clickable link. Either way the user must be able to see the media. A user should never be asked to approve a post whose image they haven't seen.
+Use the payload for your chosen channel as the content object in STEP 5. Note that when you pass no `media` of your own, `generate-post-data` returns an AI-generated image in `mediaWrapper.media[]` — review the **whole** payload with the user and surface that media, not just the caption (see STEP 6).
 
 ### 3b. Generate only a caption or title
 
@@ -359,7 +353,9 @@ For multiple media, use `mediaWrapper` instead of `imageUrl`/`videoUrl`:
 
 ## STEP 6: Publish now or schedule
 
-**Confirm before publishing.** Publishing immediately is public and can't be undone (you can only delete the post afterward). Show the user the final content — **the caption *and* the media** — and the target channel, then get explicit confirmation before this call. If the post has an image or video, **display/render it inline in the chat** if the surface supports images, otherwise **post the media URL as a clickable link** — don't just describe it or show the caption alone. Either way the user must be able to see the actual image they're about to publish. Scheduling is reversible (reschedule/cancel), so a lighter confirmation is fine there, but still surface the media.
+Only offer scheduling if `SCHEDULE_POST` was `enabled: true` in STEP 2 (per that step's decision point); otherwise publish now is the only option.
+
+**Confirm before publishing.** Publishing immediately is public and can't be undone (you can only delete the post afterward). Before this call, show the user the final content — the caption, the target channel, **and the media**: render the image inline if the surface supports it, otherwise post its URL as a clickable link. Never ask them to approve a post whose image they haven't seen. Scheduling is reversible, so a lighter confirmation is fine there, but still surface the media.
 
 **API Endpoint:** `POST https://www.wixapis.com/social-publisher/v1/publish-by-id`
 
