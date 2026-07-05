@@ -1,6 +1,6 @@
 ---
 name: "Generate a Marketing Plan and Schedule Its Posts"
-description: "End-to-end flow to generate an AI-powered social media marketing plan for a site and schedule its generated posts for publishing, using the Wix Marketing Plan API. Optionally configures marketing settings (goal, channels, tone, content pillars, frequency) first, generates the plan asynchronously, polls until it's ready, then schedules the DRAFT posts. Includes generating posts for additional activities. Use for 'generate a marketing plan', 'create a social media plan/calendar', or 'schedule my plan's posts' requests."
+description: "End-to-end flow to generate an AI-powered social media marketing plan for a site and schedule its generated posts for publishing, using the Wix Marketing Plan API. Recommends configuring marketing settings (goal, tone, cadence, content pillars) before the first generation, generates the plan asynchronously, polls until it's ready, then schedules the DRAFT posts. Includes generating posts for additional activities. Use for 'generate a marketing plan', 'create a social media plan/calendar', or 'schedule my plan's posts' requests."
 ---
 # RECIPE: Generate a Marketing Plan and Schedule Its Posts
 
@@ -14,48 +14,58 @@ Base URL for all endpoints: `https://www.wixapis.com/promote/marketing-plan-serv
 
 ---
 
-## STEP 1 (optional): Tailor the plan with marketing settings
+## STEP 1 (recommended before your first plan): Tailor the plan with marketing settings
 
-Settings are optional — sensible defaults apply if unset. Configure them only to customize the output. Skip to STEP 2 to generate with defaults.
+For a first-time plan, configure marketing settings **before** generating (STEP 2), so the first plan reflects the brand's goal, voice, and cadence. Settings are optional — the service applies per-site defaults if you skip this — but they're read **only at generation time**, so a plan generated with defaults won't change until you regenerate. After a plan exists, changing settings requires a regenerate (STEP 2) to take effect.
 
 **API Endpoint:** `POST https://www.wixapis.com/promote/marketing-plan-service/v1/marketing-settings`
 
-Both `marketingSettings` and `fieldMask` are **required**. `fieldMask` lists the paths to write, and **every path in `fieldMask` must be present** in `marketingSettings` (otherwise `FAILED_PRECONDITION`).
+Both `marketingSettings` and `fieldMask` are **required**. `fieldMask` lists the paths to write, and **every path in `fieldMask` must be present** in `marketingSettings` (otherwise the call fails with `INVALID_FIELD_MASK_ERROR`).
 
 ```json
 {
   "marketingSettings": {
     "settings": {
       "marketingPlanGoal": { "goalKey": "BOOST_SALES" },
-      "socialChannels": ["INSTAGRAM", "FACEBOOK", "TIKTOK"],
       "marketingTools": ["SOCIAL_MARKETING"],
+      "topics": { "included": ["handmade ceramics", "studio life"], "excluded": ["politics"] },
+      "toneOfVoice": "warm and playful",
       "pointOfView": "SECOND_PERSON",
-      "frequency": { "interval": "WEEK", "count": 3 },
-      "topics": { "included": ["handmade ceramics", "studio life"], "excluded": ["politics"] }
+      "businessProfile": { "valueProposition": "hand-thrown stoneware for everyday rituals", "targetAudience": "design-conscious home cooks" }
+    },
+    "overrides": {
+      "socialMarketing": { "frequency": { "interval": "WEEK", "count": 3 } }
     }
   },
   "fieldMask": [
     "settings.marketingPlanGoal",
-    "settings.socialChannels",
     "settings.marketingTools",
+    "settings.topics",
+    "settings.toneOfVoice",
     "settings.pointOfView",
-    "settings.frequency",
-    "settings.topics"
+    "settings.businessProfile",
+    "overrides.socialMarketing.frequency"
   ]
 }
 ```
 
-Key fields:
-- `marketingPlanGoal.goalKey`: `DRIVE_TRAFFIC`, `BRAND_AWARENESS`, `BOOST_SALES`, or `COLLECT_LEADS` (or use `customGoal` free text instead).
-- `socialChannels`: `FACEBOOK`, `INSTAGRAM`, `LINKEDIN`, `PINTEREST`, `GBP`, `TIKTOK`, `TWITTER`. `TWITTER` (X) is being sunset — it's no longer functional after **July 31, 2026**, so don't include it in a plan whose posts would publish on or after that date.
-- `marketingTools`: must include `SOCIAL_MARKETING` for social post drafts to be generated (also `BLOGS`, `EMAIL_MARKETING`).
-- `pointOfView`: `FIRST_PERSON`, `SECOND_PERSON`, `THIRD_PERSON`.
-- `frequency`: `{ interval: WEEK | MONTH | YEAR, count: 1–30 }`.
-- `topics.included` / `topics.excluded`: content pillars to focus on or avoid.
+**What each field shapes.** Generation has two stages, and fields feed different stages:
+- **The activities** (what to post about, and when): `marketingPlanGoal` (`goalKey` ∈ `DRIVE_TRAFFIC`, `BRAND_AWARENESS`, `BOOST_SALES`, `COLLECT_LEADS`, or `customGoal` free text), `topics.included`/`topics.excluded` (content pillars), `businessProfile` (`valueProposition`, `targetAudience`, `businessGoal`), `calendar.ids` (which calendars feed the plan), and per-tool cadence `overrides.<socialMarketing|emailMarketing|blogs>.frequency` (`{ interval: WEEK | MONTH | YEAR, count: 1–30 }`).
+- **The post drafts** (captions and images): `toneOfVoice` (free text), `pointOfView` (`FIRST_PERSON`/`SECOND_PERSON`/`THIRD_PERSON`), `customContentGuidelines` (free text), `imageGuidelines` (free text), and `businessProfile.targetAudience`.
+- `marketingTools` must include `SOCIAL_MARKETING` for social post drafts to be generated (also `BLOGS`, `EMAIL_MARKETING`).
 
-To fetch the selectable values at runtime instead of hardcoding them, call `GET .../marketing-settings/plan-goal-options` and `GET .../marketing-settings/point-of-view-options`; `GET .../marketing-settings/defaults` returns the site's default goal, channels, and frequency.
+**`socialChannels` does not limit channels.** The plan generates post drafts for **all** supported channels; `settings.socialChannels` is only a hint to the caption generator, not a filter. To avoid publishing to a channel, simply don't schedule (or connect) it in STEP 4 — don't rely on `socialChannels` to exclude it. Supported channels: `FACEBOOK`, `INSTAGRAM`, `LINKEDIN`, `PINTEREST`, `GBP`, `TIKTOK`, `TWITTER` (X, sunset — no longer functional after **July 31, 2026**).
 
-**Note:** Settings shape the plan only at generation time. If a plan already exists, changing settings requires a regenerate (STEP 2) to take effect. If you changed `topics`, use `RegenerateMarketingPlanWithKeywordResearch` (`POST .../marketing-plan/regenerate-marketing-plan-with-keyword-research`) instead.
+**What you can't set here (site-derived, read-only).** Several inputs that shape the plan are **not** part of marketing settings and can't be changed through this endpoint — they come from the site, and setting them via Upsert Marketing Settings has no effect:
+- **Language / region** — from the site's Language & Region settings (`settings.language` is read-only here).
+- **Business / target locations** — from the site's SEO business-location settings (`settings.businessLocation` / `settings.targetLocations` are read-only here).
+- **Industry, SEO summary, and published site content** (products, blog posts, events) — from the published site itself.
+
+To change any of these, edit them at the site level, then (re)generate the plan (STEP 2) so it picks them up.
+
+To fetch selectable values at runtime, call `GET .../marketing-settings/plan-goal-options` (goals) and `GET .../marketing-settings/defaults` (the site's default goal, channels, and frequency); point-of-view values are the fixed enum above. (Two fields are accepted but currently ignored by generation: `settings.imageGenerationSettings` and `topics.coreTopic`.)
+
+**Note:** If you changed `topics` on an existing plan, regenerate with `RegenerateMarketingPlanWithKeywordResearch` (`POST .../marketing-plan/regenerate-marketing-plan-with-keyword-research`) so keyword research reruns.
 
 ---
 
@@ -115,7 +125,7 @@ Poll this endpoint until `status` is `ACTIVE` (ready) or `FAILED`. Poll about ev
 }
 ```
 
-`PlanStatus` values: `NEVER_CREATED`, `GENERATING` (keep polling), `ACTIVE` (ready), `INACTIVE` (deactivated after long inactivity — regenerate to reactivate), `FAILED` (retry with STEP 2).
+`PlanStatus` values: `NEVER_CREATED`, `GENERATING` (keep polling), `ACTIVE` (ready), `INACTIVE` (auto-deactivated after ~6 weeks idle — and calling this endpoint on a stale plan can itself trigger the transition; regenerate to reactivate), `FAILED` (retry with STEP 2).
 
 Posts are generated automatically only for the **near-term** activities (how far ahead depends on the site's premium plan). Later activities have no `items` yet — see STEP 5 to generate them.
 
@@ -158,6 +168,8 @@ For activities that have no `items` yet, generate their posts, then schedule the
    { "marketingActivityIds": ["b3f9d2e1-7a4c-4d68-9f02-1c5e8a6b4d30"] }
    ```
 
+   Note: this generates drafts for **all** supported channels (it ignores `socialChannels`) and doesn't re-check `SOCIAL_MARKETING` in `marketingTools`.
+
 2. **Poll** — `POST https://www.wixapis.com/promote/marketing-plan-service/v1/marketing-activity-posts` with the same activity IDs until posts appear:
 
    ```json
@@ -175,7 +187,8 @@ For activities that have no `items` yet, generate their posts, then schedule the
 | Symptom | Cause | Fix |
 | --- | --- | --- |
 | Plan `status: FAILED`, or `ACTIVE` with no posts | Site not published, or `SOCIAL_MARKETING` not enabled in settings | Publish the site; ensure `settings.marketingTools` includes `SOCIAL_MARKETING`, then regenerate (STEP 2) |
-| `FAILED_PRECONDITION` on Upsert Marketing Settings | A `fieldMask` path is missing from `marketingSettings` | Include every `fieldMask` path in the `marketingSettings` body |
+| `INVALID_FIELD_MASK_ERROR` on Upsert Marketing Settings | A `fieldMask` path is missing from `marketingSettings` | Include every `fieldMask` path in the `marketingSettings` body |
+| Language, region, or location "won't change" via Upsert Marketing Settings | Those fields are read-only here (site-derived) | Change them in the site's Language & Region / SEO business-location settings, then regenerate |
 | `FAILED_PRECONDITION` on Schedule Drafts | Plan lacks the schedule-posts premium feature | Advise upgrading the social media marketing plan |
 | `FAILED_PRECONDITION` / `PLAN_ALREADY_GENERATING_ERROR` on Regenerate | A generation is already in progress | Wait for STEP 3 to reach `ACTIVE` or `FAILED` before regenerating |
 | Drafts remain `DRAFT` after Schedule Drafts | Their channels aren't connected through the Publisher | Connect those channels (Publisher Accounts API), then reschedule |
