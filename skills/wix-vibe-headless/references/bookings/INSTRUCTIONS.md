@@ -1,7 +1,12 @@
 
 # Wix Bookings Skill
 
-> **Source files (in this skill):** the shared transport `references/shared/wix-client.js` and this vertical's `references/bookings/wix-bookings.js`. Copy **both** into your app's `src/rest/` side by side — the helper does `import { wixApiRequest } from "./wix-client.js"`, so they must land in the same folder.
+> **Source files (in this skill):** the shared transport `references/shared/wix-client.js` and both bookings helpers from `references/bookings/`. All helpers import from `"./wix-client.js"`, so copy them into the same folder (e.g. `src/rest/`). Copy **both** for the full booking flow:
+>
+> | File | What it covers |
+> |---|---|
+> | `wix-bookings-services.js` | Service listing, slot availability, media URL helper |
+> | `wix-bookings-checkout.js` | Create booking, hosted checkout, bookAndCheckout convenience |
 
 Builds a real, client-only Wix Bookings front end. The browser talks to Wix directly over a
 public `WIX_CLIENT_ID`. Never mock services or slots; never hand-build a `/checkout` URL —
@@ -38,14 +43,14 @@ adjust import paths:
   id from the prompt (replace the `<YOUR-CLIENT-ID>` placeholder). The visitor refresh token IS
   the booking visitor identity; it is persisted to localStorage. Do not re-mint anonymously per
   load.
-- `src/rest/wix-bookings.js` — exports:
-  - **Services:** `queryServices`, `getService`, `countServices`
-  - **Availability:** `listAvailableSlots`, `getAvailableSlot`
-  - **Booking & checkout:** `createBooking`, `checkoutBooking`, `bookAndCheckout`
-  - **Media:** `mediaUrl` (resolve a service image to an absolute URL)
+- `src/rest/wix-bookings-services.js` — **Services & availability:**
+  `queryServices`, `getService`, `countServices`, `listAvailableSlots`, `getAvailableSlot`,
+  `mediaUrl` (resolve a service image to an absolute URL)
+- `src/rest/wix-bookings-checkout.js` — **Booking & checkout:**
+  `createBooking`, `checkoutBooking`, `bookAndCheckout`
 
 The `Service`, `TimeSlot`, and `Booking` shapes are documented as JSDoc comments at the top of
-`wix-bookings.js`. Read them before building the UI — they describe the key fields and link to
+each helper file. Read them before building the UI — they describe the key fields and link to
 the full API reference for anything not shown.
 
 ## How to wire it (UI is the project's choice)

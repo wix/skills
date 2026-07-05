@@ -1,7 +1,12 @@
 
 # Wix Events Skill
 
-> **Source files (in this skill):** the shared transport `references/shared/wix-client.js` and this vertical's `references/events/wix-events.js`. Copy **both** into your app's `src/rest/` side by side — the helper does `import { wixApiRequest } from "./wix-client.js"`, so they must land in the same folder.
+> **Source files (in this skill):** the shared transport `references/shared/wix-client.js` and the helper file(s) you need from `references/events/`. All helpers import from `"./wix-client.js"`, so copy them into the same folder (e.g. `src/rest/`).
+>
+> | Need | Copy |
+> |---|---|
+> | Event listing + detail (always) | `wix-events-browse.js` |
+> | RSVP, ticketing, registration | `wix-events-registration.js` |
 
 Builds a real, client-only Wix Events site. The browser talks to Wix directly over a
 public `WIX_CLIENT_ID`. Never mock events; never hand-build registration or payment URLs —
@@ -37,15 +42,14 @@ adjust import paths:
   id from the prompt (replace the `<YOUR-CLIENT-ID>` placeholder). The visitor refresh token is
   persisted to localStorage and IS the identity of the visitor's ticket reservation/cart — do
   not re-mint anonymously per load.
-- `src/rest/wix-events.js` — exports:
-  - **Browse:** `queryEvents`, `getEventBySlug`, `countUpcomingEvents`
-  - **Categories:** `queryEventCategories`, `listEventsByCategory`
-  - **RSVP:** `createRsvp`
-  - **Ticketing:** `queryTicketDefinitions`, `reserveTickets`, `getTicketCheckoutUrl`, `checkoutTickets`
+- `src/rest/wix-events-browse.js` — **Browse & discovery:**
+  `queryEvents`, `getEventBySlug`, `countUpcomingEvents`, `queryEventCategories`, `listEventsByCategory`
+- `src/rest/wix-events-registration.js` — **RSVP & ticketing:**
+  `createRsvp`, `queryTicketDefinitions`, `reserveTickets`, `getTicketCheckoutUrl`, `checkoutTickets`
 
 The `Event`, `TicketDefinition`, and `RSVP`/`Order` shapes are documented as JSDoc comments at
-the top of `wix-events.js`. Read them before building the UI — they describe the key fields and
-link to the full API reference for anything not shown.
+the top of each helper file. Read the relevant file(s) before building the UI — they describe
+the key fields and link to the full API reference for anything not shown.
 
 ## How to wire it (UI is the project's choice)
 - **Event grid** — `queryEvents()` lists live (UPCOMING/STARTED) events, soonest first. Render
