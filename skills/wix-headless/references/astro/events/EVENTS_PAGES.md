@@ -8,7 +8,7 @@ The `pages` scope of the events vertical. Read `../../events/FLOW.md` first. Thi
 |---|---|
 | `events/index.astro` | SSR listing grid of upcoming events |
 | `EventCard.astro` | Static card (no interactivity) used by the grid |
-| `events/[slug].astro` | SSR event detail; mounts `TicketPicker` (ticketed) or `RsvpForm` (RSVP) |
+| `events/[slug].astro` | SSR event detail — **item page**: exports `wixMetadata` + renders `<SEO.Tags>` (`@wix/seo`) + JSON-LD; mounts `TicketPicker` (ticketed) or `RsvpForm` (RSVP) |
 | `event-confirmation.astro` | Post-checkout confirmation, rendered from `?orderNumber=` query params |
 
 ## Astro-specific rules
@@ -20,6 +20,7 @@ The `pages` scope of the events vertical. Read `../../events/FLOW.md` first. Thi
 5. **Branch the detail page on type** to mount the right island, both `client:only="react"`: `TICKETING` → `<TicketPicker eventSlug tiers ticketLimitPerOrder>`; `RSVP` → `<RsvpForm eventId allowDecline>`.
 6. **Confirmation reads query params only** — Wix's hosted checkout returns to `/event-confirmation?orderNumber=…&eventId=…`. Render from those; do **not** re-fetch a stranger's order on this public page. (RSVP confirms inline in the island — it does not route here.)
 7. **Entity ids are `_id`**; prices are strings; filter listings to upcoming/published events (a past event isn't purchasable).
+8. **SEO on the detail page (canonical `@wix/seo`).** The detail route is a Wix *item page*, so it must (a) export `wixMetadata` sourced from `WIX_APPS.events.eventPageMetadata` (reference `WIX_APPS` **directly** in the export — module scope; one throwing `wixMetadata` clears all of `/_wix/pages.json`), and (b) resolve tags via `loadSEOTagsServiceConfig({ itemType: seoTags.ItemType.EVENTS_PAGE, itemData: { slug } })` and render `<SEO.Tags slot="head">`, passing `hasSeoTags={Boolean(seoTagsServiceConfig)}` to the Layout. Run the resolve in the **same `Promise.all`** as the ambient `getEventBySlug` read, with `.catch(() => null)` so a SEO hiccup falls back to the layout's default title instead of 500ing (`loadSEOTagsServiceConfig` needs only the slug — it's still an ambient visitor-safe call). Optionally render an `Event` JSON-LD `<script slot="head">` from the fetched event (the template includes one). The listing/confirmation pages are main pages — no `wixMetadata`, SEO auto-injected. Deps: `@wix/seo` + `@wix/essentials` ≥ 1.0.10 (see `SETUP.md`).
 
 ## Shell chain — nav + home (serialized; this agent patches shared files)
 

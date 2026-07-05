@@ -2,11 +2,24 @@
 // src/pages/services/[slug].astro — SSR service detail + client-side booking flow.
 // Two dirs deep inside src/ → import with ../../ (not three ../).
 import Layout from "../../layouts/Layout.astro";
-import SeoTags from "../../components/SeoTags.astro";
 import ServiceBookingFlow from "../../components/ServiceBookingFlow";
 import { services } from "@wix/bookings";
 import { forms } from "@wix/forms";
-import { auth } from "@wix/essentials";
+import { auth, WIX_APPS } from "@wix/essentials";
+import { SEO } from "@wix/seo/components";
+import { loadSEOTagsServiceConfig } from "@wix/seo/services";
+import { seoTags } from "@wix/seo";
+
+// Register this item-page route so it appears in /_wix/pages.json (feeds the
+// sitemap + the dashboard SEO editor). Reference WIX_APPS directly here — this
+// export is evaluated in module scope, where component-body vars don't exist.
+export const wixMetadata = {
+  appDefId: WIX_APPS.bookings.id,
+  pageIdentifier: WIX_APPS.bookings.servicePageMetadata.pageIdentifier,
+  identifiers: {
+    slug: WIX_APPS.bookings.servicePageMetadata.identifiers.slug,
+  },
+};
 
 const BOOKING_APP_ID = "13d21c63-b5ec-5912-8397-c3a5ddb27a97";
 const { slug } = Astro.params;
@@ -18,16 +31,32 @@ const reqUrl = new URL(Astro.request.url);
 const locationId = reqUrl.searchParams.get("locationId") ?? undefined;
 
 let service: any = null;
+// Wix-resolved SEO tags for this service (title/description/OG/canonical as the
+// Wix user set them in the dashboard). Fetched in parallel with the service read.
+let seoTagsServiceConfig: any = null;
 try {
   // Ambient SSR via @wix/essentials. Single service by slug: the .eq() builder
   // chain on mainSlug.name + appId (the form the @wix/bookings SDK expects).
-  const result = await auth
-    .elevate(services.queryServices)({ conditionalFields: ["STAFF_MEMBER_DETAILS"] })
-    .eq("mainSlug.name", slug)
-    .eq("appId", BOOKING_APP_ID)
-    .limit(1)
-    .find();
+  // Resolve the SEO config concurrently (it needs only the slug) to avoid an
+  // extra round trip; a SEO failure is non-fatal (falls back to layout tags).
+  const [result, seoCfg] = await Promise.all([
+    auth
+      .elevate(services.queryServices)({ conditionalFields: ["STAFF_MEMBER_DETAILS"] })
+      .eq("mainSlug.name", slug)
+      .eq("appId", BOOKING_APP_ID)
+      .limit(1)
+      .find(),
+    loadSEOTagsServiceConfig({
+      pageUrl: Astro.url.href,
+      itemType: seoTags.ItemType.BOOKINGS_SERVICE,
+      itemData: { slug: slug! },
+    }).catch((err: any) => {
+      console.error(`[services/${slug}] SEO tags resolve failed:`, err);
+      return null;
+    }),
+  ]);
   service = result.items?.[0] ?? null;
+  seoTagsServiceConfig = seoCfg;
 } catch (err) {
   console.error(`[services/${slug}] detail query failed:`, err);
 }
@@ -95,7 +124,21 @@ const price = formatPrice(service.payment);
 const duration = service.schedule?.availabilityConstraints?.sessionDurations?.[0] ?? 60;
 const imageUrl = service.media?.mainMedia?.image?.url ?? service.media?.items?.[0]?.image?.url;
 const serviceName = service.name ?? "Service";
-const seoTags = service.seoData?.tags ?? [];
+
+// schema.org structured data for rich results (a Service). Item-derived — the
+// <SEO.Tags> resolver covers the dashboard-managed tags; this adds the JSON-LD
+// the resolver doesn't generate. Optional but recommended.
+const priceValue = service.payment?.fixed?.price?.value;
+const priceCurrency = service.payment?.fixed?.price?.currency;
+const serviceJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "Service",
+  name: serviceName,
+  description: service.description ?? service.tagLine ?? undefined,
+  ...(priceValue
+    ? { offers: { "@type": "Offer", price: priceValue, priceCurrency: priceCurrency ?? "USD" } }
+    : {}),
+};
 
 // Staff for the optional staff picker — carried on the service via the
 // STAFF_MEMBER_DETAILS conditional field (already requested in the query above).
@@ -137,8 +180,9 @@ try {
   for a deliberate prose measure. Bare `max-w-<size>` keys resolve to Tailwind's
   --container-* scale, which is wider than ideal for reading text.
 -->
-<Layout title={serviceName} description={service.tagLine ?? service.description}>
-  <SeoTags tags={seoTags} slot="head" />
+<Layout title={serviceName} description={service.tagLine ?? service.description} hasSeoTags={Boolean(seoTagsServiceConfig)}>
+  {seoTagsServiceConfig && <SEO.Tags seoTagsServiceConfig={seoTagsServiceConfig} slot="head" />}
+  <script type="application/ld+json" set:html={JSON.stringify(serviceJsonLd)} is:inline slot="head" />
   <section class="container-reading px-6 py-24">
     <a href="/services" class="inline-block text-sm text-mute hover:text-ink mb-8">← All services</a>
 

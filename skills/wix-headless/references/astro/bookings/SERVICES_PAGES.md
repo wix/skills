@@ -16,7 +16,7 @@ wiring + the gotchas. Read `references/shared/IMPLEMENTER.md` +
 |------|---------------|------|
 | `src/pages/services/index.astro` | `…/services/index.astro` | SSR catalog grid (SEO). `queryServices` via ambient `@wix/essentials`. |
 | `src/components/ServiceCard.astro` | `…/ServiceCard.astro` | static service card for the grid. |
-| `src/pages/services/[slug].astro` | `…/services/[slug].astro` | SSR detail (SEO) + mounts `<ServiceBookingFlow client:only="react">`. Also fetches the **booking-form schema** and passes `fields` to the island. |
+| `src/pages/services/[slug].astro` | `…/services/[slug].astro` | SSR detail — **item page**: exports `wixMetadata` + renders `<SEO.Tags>` (`@wix/seo`) + JSON-LD. Mounts `<ServiceBookingFlow client:only="react">`. Also fetches the **booking-form schema** and passes `fields` to the island. |
 | `src/pages/booking-confirmation.astro` | `…/booking-confirmation.astro` | confirmation — renders from the `service`/`startDate` query params (no re-fetch). |
 
 Plus the nav/home links (shell chain — see below).
@@ -62,6 +62,7 @@ Plus the nav/home links (shell chain — see below).
    `?service=…&startDate=…`; render those. Do not re-fetch a stranger's booking
    from this public page.
 5. **Two dirs deep** (`services/[slug].astro`) → import with `../../`, not `../../../`.
+6. **SEO on the detail page (canonical `@wix/seo`).** The detail route is a Wix *item page*, so it must (a) export `wixMetadata` sourced from `WIX_APPS.bookings.servicePageMetadata` (reference `WIX_APPS` **directly** in the export — module scope; one throwing `wixMetadata` clears all of `/_wix/pages.json`), and (b) resolve tags via `loadSEOTagsServiceConfig({ itemType: seoTags.ItemType.BOOKINGS_SERVICE, itemData: { slug } })` and render `<SEO.Tags slot="head">`, passing `hasSeoTags={Boolean(seoTagsServiceConfig)}` to the Layout. Run the resolve in the same `Promise.all` as the service read, with `.catch(() => null)` so a SEO hiccup falls back to the layout's default title instead of 500ing. Do NOT read `service.seoData` or hand-roll a `SeoTags` component — the template already does all of this. Optionally render a `Service` JSON-LD `<script slot="head">` from the fetched service (the template includes one). Deps: `@wix/seo` + `@wix/essentials` ≥ 1.0.10 (see `SETUP.md`).
 
 ## Shell chain — nav + home (this scope patches shared files)
 

@@ -96,8 +96,8 @@ npm install --no-fund --no-audit --legacy-peer-deps <package-set> \
 | | **blog** → `@wix/blog @wix/ricos @astrojs/rss @astrojs/sitemap @wix/seo @wix/essentials` |
 | | **forms** → `@wix/forms` |
 | | **cms** → `@wix/data @wix/essentials` |
-| | **bookings** → `@wix/bookings @wix/essentials @wix/forms @wix/redirects @wix/auto_sdk_ecom_cart-v-2` |
-| | **events** → `@wix/events @wix/redirects @wix/essentials` |
+| | **bookings** → `@wix/bookings @wix/essentials @wix/forms @wix/redirects @wix/auto_sdk_ecom_cart-v-2 @wix/seo` |
+| | **events** → `@wix/events @wix/redirects @wix/essentials @wix/seo` |
 | | **gift-cards** → (none — disabled-by-default pack ships no Astro-time imports) |
 
 Example (resolved set = stores + ecom + gift-cards + cms):
@@ -112,7 +112,7 @@ npm install --no-fund --no-audit --legacy-peer-deps \
 
 Use `npm --legacy-peer-deps` — `pnpm` fails against the `@wix/cli` template. **Skipping the per-pack additions makes `astro build` fail with `Rollup failed to resolve import "@wix/<pack>"`** (~30 s recovery). Don't invent packages beyond the table; extend the table for a new vertical.
 
-> **`@wix/seo` + `@wix/essentials` (stores, blog).** These power canonical item-page SEO (`wixMetadata` from `WIX_APPS` + `loadSEOTagsServiceConfig`/`<SEO.Tags>`) on product/category/post/category routes. `@wix/essentials` ships in the scaffold but may be pinned below **1.0.10**, the floor where `WIX_APPS.checkoutAndOrders.*PageMetadata` / `WIX_APPS.blogs.*PageMetadata` exist — listing it in the install bumps it to a satisfying version. See `astro/stores/PRODUCT_PAGES.md` and `astro/blog/BLOG_PAGES.md`.
+> **`@wix/seo` + `@wix/essentials` (stores, blog, bookings, events).** These power canonical item-page SEO (`wixMetadata` from `WIX_APPS` + `loadSEOTagsServiceConfig`/`<SEO.Tags>`) on every parameterized item route: Stores product/category, blog post/category, bookings service, events. `@wix/essentials` ships in the scaffold but may be pinned below **1.0.10**, the floor where the `WIX_APPS.<solution>.*PageMetadata` accessors exist (`checkoutAndOrders`, `blogs`, `bookings`, `events`) — listing it in the install bumps it to a satisfying version. See `astro/stores/PRODUCT_PAGES.md`, `astro/blog/BLOG_PAGES.md`, `astro/bookings/SERVICES_PAGES.md`, `astro/events/EVENTS_PAGES.md`.
 
 ---
 

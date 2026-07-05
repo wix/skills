@@ -44,7 +44,6 @@ Pages (`pages` scope):
 ### Pre-copied by the orchestrator (do NOT write these yourself)
 Mechanical, brand-agnostic — the orchestrator copies them before dispatch (BUILD-astro.md § build wave). Rely on them at the listed paths:
 - `src/components/bookingDriver.ts` ← `<SKILL_ROOT>/references/astro/templates/bookings/bookingDriver.ts` — the booking SDK sequence (`book()`, `navigateToCheckout()`). The islands import it; never re-author it.
-- `src/components/SeoTags.astro` ← `<SKILL_ROOT>/references/astro/templates/bookings/SeoTags.astro` — renders `service.seoData.tags`; imported by `services/[slug].astro`.
 - `src/styles/components-bookings.css` ← `<SKILL_ROOT>/references/astro/templates/bookings/components-bookings.css` — the flow's component classes.
 
 If a pre-copied file is missing at runtime, that's an orchestrator-side bug — return `status: "partial"` with `errors: [{code: "UTILITY_TEMPLATE_NOT_PRECOPIED", path: "<missing>"}]`; do not author your own version.

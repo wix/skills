@@ -11,16 +11,46 @@ import Layout from "../../layouts/Layout.astro";
 import TicketPicker from "../../components/TicketPicker";
 import RsvpForm from "../../components/RsvpForm";
 import { wixEventsV2, orders } from "@wix/events";
+import { WIX_APPS } from "@wix/essentials";
+import { SEO } from "@wix/seo/components";
+import { loadSEOTagsServiceConfig } from "@wix/seo/services";
+import { seoTags } from "@wix/seo";
+
+// Register this item-page route so it appears in /_wix/pages.json (feeds the
+// sitemap + the dashboard SEO editor). Reference WIX_APPS directly here — this
+// export is evaluated in module scope, where component-body vars don't exist.
+export const wixMetadata = {
+  appDefId: WIX_APPS.events.id,
+  pageIdentifier: WIX_APPS.events.eventPageMetadata.pageIdentifier,
+  identifiers: {
+    slug: WIX_APPS.events.eventPageMetadata.identifiers.slug,
+  },
+};
 
 const { slug } = Astro.params;
 
 let event: any = null;
+// Wix-resolved SEO tags for this event; fetched in parallel with the event read.
+let seoTagsServiceConfig: any = null;
 try {
-  // getEventBySlug — ambient visitor read; request the display + registration fieldsets.
-  const res: any = await wixEventsV2.getEventBySlug(slug!, {
-    fields: ["DETAILS", "TEXTS", "REGISTRATION", "URLS"],
-  });
-  event = res?.event ?? null;
+  // getEventBySlug — ambient visitor read; request the display + registration
+  // fieldsets. Resolve the SEO config concurrently (needs only the slug); a SEO
+  // failure is non-fatal (falls back to the layout's default tags).
+  const [res, seoCfg] = await Promise.all([
+    wixEventsV2.getEventBySlug(slug!, {
+      fields: ["DETAILS", "TEXTS", "REGISTRATION", "URLS"],
+    }),
+    loadSEOTagsServiceConfig({
+      pageUrl: Astro.url.href,
+      itemType: seoTags.ItemType.EVENTS_PAGE,
+      itemData: { slug: slug! },
+    }).catch((err: any) => {
+      console.error(`[events/${slug}] SEO tags resolve failed:`, err);
+      return null;
+    }),
+  ]);
+  event = (res as any)?.event ?? null;
+  seoTagsServiceConfig = seoCfg;
 } catch (err) {
   console.error(`[events/${slug}] detail query failed:`, err);
 }
@@ -72,9 +102,26 @@ const dateLabel = event.dateAndTimeSettings?.formatted?.dateAndTime;
 const imageUrl = event.mainImage?.url;
 const ticketLimitPerOrder = event.registration?.tickets?.ticketLimitPerOrder ?? 8;
 const allowDecline = event.registration?.rsvp?.responseType === "YES_AND_NO";
+
+// schema.org structured data for rich results (an Event). Item-derived — the
+// <SEO.Tags> resolver covers the dashboard-managed tags; this adds the JSON-LD.
+const eventJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "Event",
+  name: title,
+  description: event.shortDescription ?? undefined,
+  startDate: event.dateAndTimeSettings?.startDate ?? undefined,
+  endDate: event.dateAndTimeSettings?.endDate ?? undefined,
+  ...(event.location?.name
+    ? { location: { "@type": "Place", name: event.location.name } }
+    : {}),
+  ...(imageUrl ? { image: imageUrl } : {}),
+};
 ---
 
-<Layout title={title} description={event.shortDescription}>
+<Layout title={title} description={event.shortDescription} hasSeoTags={Boolean(seoTagsServiceConfig)}>
+  {seoTagsServiceConfig && <SEO.Tags seoTagsServiceConfig={seoTagsServiceConfig} slot="head" />}
+  <script type="application/ld+json" set:html={JSON.stringify(eventJsonLd)} is:inline slot="head" />
   <section class="container-reading px-6 py-24">
     <a href="/events" class="inline-block text-sm text-mute hover:text-ink mb-8">← All events</a>
 
