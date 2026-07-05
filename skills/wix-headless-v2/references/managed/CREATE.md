@@ -28,7 +28,7 @@ Branch on `frontendFramework` from §0. **Both** branches end with a `wix.config
 Run the **documented** create command (flags and rationale: `references/astro.md` §1):
 
 ```bash
-npm create @wix/new@latest -- headless \
+CI=1 npm create @wix/new@latest -- headless \
   --folder-name <folder-name> \
   --business-name "<Brand Name>" \
   --site-template \
@@ -36,6 +36,8 @@ npm create @wix/new@latest -- headless \
   --no-publish
 ```
 
+- The `CI=1` prefix (use it on every Wix CLI command in this flow) switches the CLI's interactive
+  spinner UI to plain line output — without it, captured non-TTY output fills with ANSI redraw frames.
 - The `--` separator is required. Bare `--site-template` (no value) keeps it on the **blank** starter —
   the model owns design, so don't adopt a business template; a value, or omitting the flag, would
   prompt and abort in a non-interactive shell.
@@ -57,7 +59,7 @@ There is **no Wix scaffolder for a non-Astro site** (`non-astro.md` N1) — so s
 npm create vite@latest <folder-name> -- --template react
 cd <folder-name>
 # 2. connect this folder to a fresh Wix headless project, IN PLACE:
-npm create @wix/new@latest init
+CI=1 npm create @wix/new@latest init
 ```
 
 - Use the framework's documented create command (read its docs if unsure of the template flag) — Vite,

@@ -11,7 +11,7 @@ Run these in order:
 ## 1 · Init the existing project
 
 ```bash
-npm create @wix/new@latest init
+CI=1 npm create @wix/new@latest init
 ```
 
 Run from the project directory. It creates `wix.config.json` (with the `siteId` and the headless

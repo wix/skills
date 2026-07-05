@@ -54,12 +54,12 @@ The script emits one JSON object per line:
 
 ## Phase 2 — Install the skill and hand off
 
-Install the Wix Headless skills:
+Install the Wix Headless skills (the `CI=1` prefix — here and on every Wix CLI command in this skill — switches the CLI's interactive spinner UI to plain line output; without it, captured non-TTY output fills with ANSI redraw frames):
 
 ```bash
-wix skills add
+CI=1 wix skills add
 # Fallback if 'wix skills' isn't registered for this project type:
-npx skills@latest add wix/skills --yes
+CI=1 npx skills@latest add wix/skills --yes
 ```
 
 The skills land in `.agents/skills/`.

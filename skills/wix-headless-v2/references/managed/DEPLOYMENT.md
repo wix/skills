@@ -7,7 +7,7 @@ For a **managed** project, Wix owns the hosting, so finalizing the live site is 
 From the project directory:
 
 ```bash
-npx @wix/cli@latest release
+CI=1 npx @wix/cli@latest release
 ```
 
 - Publishes whatever the managed project is configured to deploy to Wix's hosting/CDN, and brings the live site up.
