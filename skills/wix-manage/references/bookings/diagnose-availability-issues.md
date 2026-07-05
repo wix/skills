@@ -4,6 +4,14 @@ description: "Diagnoses why an appointment-based Wix Bookings service has no boo
 ---
 # Diagnose Bookings Availability Issues
 
+> ## ⚠️ Output rule (read first)
+> You are talking to a **site owner**, not a developer. Use everything below — the endpoint, JSON, reason codes, `suggestedAction` values, field names — **only to run the diagnosis**. Your **reply to the user must be plain language**: the cause in everyday words plus the fix, and an offer to help.
+>
+> **Never put any of these in your reply:** endpoint paths or curl, JSON, reason-code names (e.g. `RESOURCE_NOT_AVAILABLE_AT_SERVICE_LOCATION`), `suggestedAction` enums, or field names. Translate them. See [Presenting the diagnosis](#presenting-the-diagnosis-to-the-user).
+>
+> ✅ "Your staff don't have working hours at the location this service is offered at, so there's nothing to book. Want me to add hours there?"
+> ❌ "`DiagnoseAvailability` returned `RESOURCE_NOT_AVAILABLE_AT_SERVICE_LOCATION` / `CHECK_WORK_LOCATIONS`."
+
 ## When to use
 
 A site owner reports that an **appointment-based** service has **no bookable time slots** — the calendar shows nothing available, or customers can't book. This recipe finds the cause.
@@ -101,9 +109,9 @@ curl -X POST 'https://www.wixapis.com/_api/service-availability/v2/time-slots/di
 - `resolvedContext` echoes the inputs actually used (resolved locations, duration, buffer, window, time zone) — use it to confirm you diagnosed what you meant to.
 - Empty `reasons` ⇒ **inconclusive** → go to **Step 2**.
 
-### Reason codes → owner fix
+### Reason codes → owner fix (agent-internal — never shown to the user)
 
-> These codes and `suggestedAction` values are for **your** interpretation — do not show them to the user. Translate the result into plain language (see [Presenting the diagnosis](#presenting-the-diagnosis-to-the-user)).
+> This table is for **your** interpretation only. Map the returned code to the plain-language cause and fix, then write the reply in everyday words — the code names and `suggestedAction` values must not appear in your response. See [Presenting the diagnosis](#presenting-the-diagnosis-to-the-user).
 
 | `code` | `suggestedAction` | Meaning & fix |
 |--------|-------------------|---------------|
