@@ -11,9 +11,9 @@ Base URL for all endpoints: `https://www.wixapis.com/social-publisher/v1`.
 **Prerequisites:**
 - The target channel must be connected by the site owner (verified in STEP 1; connect it in STEP 1.5 if not).
 - Post media must be a **Wix Media Manager URL** (`static.wixstatic.com`); see **Media handling** in STEP 4. Images edited in STEP 3c are already hosted there.
-- AI generation (STEP 3) is optional. Skip it if the user supplies their own caption and media.
+- AI generation (STEP 3) is available on every site — it is **not** plan-gated. Offer it by default; skip it only if the user brings their own caption and media.
 
-**Flow:** STEP 1 confirm the channel is connected (connect if needed) → STEP 2 check premium features → STEP 3 generate content (optional) → STEP 4 pick channel/type → STEP 5 create the draft → STEP 6 publish or schedule. Checking connection and premium first avoids generating content for a channel that can't receive it or an action the plan doesn't allow.
+**Flow:** STEP 1 confirm the channel is connected (connect if needed) → STEP 2 check premium features → STEP 3 generate content (offer this proactively) → STEP 4 pick channel/type → STEP 5 create the draft → STEP 6 publish or schedule. Checking connection and premium first avoids generating content for a channel that can't receive it or an action the plan doesn't allow.
 
 **Not covered here:** editing or analyzing already-published posts, post analytics/insights, or connecting a channel as a standalone goal (connection is handled here only as a precondition for publishing).
 
@@ -78,16 +78,15 @@ If the user declines to connect, stop: the post can't be published to an unconne
 
 ## STEP 2: Check premium features
 
-One call tells you what the site's plan allows — whether you can generate with AI and whether you can publish or schedule — so you fail fast before generating or creating anything.
+One call tells you what the site's plan allows — whether you can publish or schedule — so you fail fast before creating anything. (AI generation is **not** gated by this call — see STEP 3 — so there's no need to check for it here.)
 
-**API Endpoint:** `GET https://www.wixapis.com/social-publisher/v1/features?featureTypes=AI_TOOLS&featureTypes=PUBLISH_POST&featureTypes=SCHEDULE_POST`
+**API Endpoint:** `GET https://www.wixapis.com/social-publisher/v1/features?featureTypes=PUBLISH_POST&featureTypes=SCHEDULE_POST`
 
 **Expected response:**
 
 ```json
 {
   "features": [
-    { "type": "AI_TOOLS", "enabled": true },
     { "type": "PUBLISH_POST", "enabled": true, "quotaInfo": { "limit": 30, "currentUsage": 4, "remainingUsage": 26, "period": "MONTH" } },
     { "type": "SCHEDULE_POST", "enabled": true, "quotaInfo": { "limit": 30, "currentUsage": 4, "remainingUsage": 26, "period": "MONTH" } }
   ],
@@ -98,20 +97,19 @@ One call tells you what the site's plan allows — whether you can generate with
 `quotaInfo` is present only when the feature is metered — when quotas don't apply, `monetizationEnabled` is `false` and each entry carries just `type` and `enabled`. `period` is one of `NO_PERIOD`, `MILLISECOND`, `SECOND`, `MINUTE`, `HOUR`, `DAY`, `WEEK`, `MONTH`, `YEAR` (`NO_PERIOD` means the quota doesn't reset).
 
 **Decision point:**
-- `AI_TOOLS` `enabled: false` → skip AI generation in STEP 3; have the user provide the caption and media themselves.
 - The action you'll use — `PUBLISH_POST` (publish now) or `SCHEDULE_POST` (schedule) — `enabled: false` → the plan doesn't include it; advise upgrading the social media marketing plan.
 - `monetizationEnabled: true` and that action's `quotaInfo.remainingUsage` is `0` → quota exhausted; tell the user when it resets (`period`, unless `NO_PERIOD`) or to upgrade.
 - Otherwise → proceed. When `monetizationEnabled` is `false`, quotas aren't enforced; rely on `enabled`.
 
 ---
 
-## STEP 3: Generate the post content with AI (optional)
+## STEP 3: Generate the post content with AI
 
-Pick the approach that fits the request. Only generate if STEP 2 showed `AI_TOOLS` `enabled: true`; otherwise skip this step and have the user provide the content.
+AI generation works on **every** site — it isn't gated by the plan (no premium check applies), so offer it by default. Unless the user has already handed you a finished caption and media, **lead with an offer to generate the post for them** rather than asking them to write it: propose **3a** first — a full, ready-to-publish post built from a one-line idea *or* from one of the site's own assets (a product, blog post, event, booking, coupon, or category). A good opener is "Want me to draft it from an idea, or build it around one of your products / blog posts / events?" Fall back to 3b/3c or the user's own content only if they decline or 3a doesn't fit (e.g. YouTube or a story/reel/video format). Pick the approach that fits the request.
 
 ### 3a. Generate a full post — from an idea and/or the site's own assets
 
-Produces ready-to-use, per-channel payloads that drop straight into STEP 5. This is the best default for "create a post about …".
+Produces ready-to-use, per-channel payloads that drop straight into STEP 5. **This is the default** — lead with it for any "create a post" request, offering both the idea-based and asset-based paths.
 
 **API Endpoint:** `POST https://www.wixapis.com/social-publisher/v1/generate-post-data`
 
@@ -374,7 +372,6 @@ The post appears on the site's Social Media Marketing page in the dashboard. To 
 | --- | --- | --- |
 | STEP 1 returns empty `accounts` | Channel not connected | Run STEP 1.5 to connect the channel, or ask the owner to connect it in the dashboard, then retry |
 | `FAILED_PRECONDITION` / `NO_PAGES_FOR_USER` on List Accounts | Connected Facebook/Instagram user has no page with a linked postable account | Ask the owner to grant a Facebook page (with a linked Instagram Business/Creator account) during authorization, then retry |
-| STEP 2 shows `AI_TOOLS` `enabled: false` (or an AI call is rejected) | Plan doesn't include AI tools | Skip AI generation; have the user provide content |
 | Generate Image poll returns `404 GENERATED_IMAGE_NOT_FOUND` | `executionId` invalid or expired | Re-run Generate Image and poll the new `executionId` |
 | STEP 2 shows the publish/schedule feature `enabled: false` or `remainingUsage: 0` | Plan doesn't allow the action, or quota used up | Advise upgrading, or wait for quota reset |
 | `FAILED_PRECONDITION` / `INELIGIBLE_FOR_FEATURE` on publish or schedule | Site's plan doesn't cover publishing/scheduling this post | Check STEP 2 first; advise upgrading the plan |
