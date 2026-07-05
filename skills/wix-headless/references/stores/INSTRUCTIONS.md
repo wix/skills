@@ -12,7 +12,7 @@ Extends `references/shared/IMPLEMENTER.md`. Read that file first for phase routi
 | Scope | Phase | Reference |
 |-------|-------|-----------|
 | `seed` | Seed (REST catalog setup — products only; categories are merchant-driven, not seeded) | `./PRODUCT_CATALOG_DATA.md` |
-| `components` | Components (React islands + SeoTags + back-in-stock util — TSX/Astro only, **no CSS**) | `../astro/stores/SHARED_WIRING.md` |
+| `components` | Components (React islands + back-in-stock util — TSX only, **no CSS**; SEO is `@wix/seo` in the pages, no SeoTags component) | `../astro/stores/SHARED_WIRING.md` |
 | ~~`components-css`~~ | **Do not dispatch.** `src/styles/components-stores.css` is copied from `<SKILL_ROOT>/references/astro/templates/stores/components-stores.css` by the orchestrator's pre-Step-4.5 batch (see BUILD-astro.md § Step 4.5). The template uses direct `var(--token)` CSS, so it works against any designer-published vocabulary without per-run rewrites. `COMPONENTS_CSS.md` documents that CSS for reference — there is no `components-css` subagent to dispatch. | — |
 | `pages-categories` | Pages (`/category/[slug]` listing + shared CategoryRail + `utils/categories.ts`) | `../astro/stores/CATEGORY_PAGES.md` |
 | `pages-products` | Pages (products listing + detail + ProductCard; mounts the rail written by `pages-categories`) | `../astro/stores/PRODUCT_PAGES.md` |
@@ -64,11 +64,10 @@ If a declared file is missing, return `status: "partial"` with `errors: [{ code:
 
 Canonical templates live at `<SKILL_ROOT>/references/astro/templates/stores/`. Your `components` and `pages-*` scopes read these and adapt them — don't invent markup or logic.
 
-Components (`components` scope — TSX/Astro only):
+Components (`components` scope — TSX only):
 - `<SKILL_ROOT>/references/astro/templates/stores/AddToCartButton.tsx`
 - `<SKILL_ROOT>/references/astro/templates/stores/ProductPurchase.tsx`
 - `<SKILL_ROOT>/references/astro/templates/stores/BackInStockForm.tsx`
-- `<SKILL_ROOT>/references/astro/templates/stores/SeoTags.astro`
 
 Components CSS (pre-copied by the orchestrator — no agent writes it):
 - `<SKILL_ROOT>/references/astro/templates/stores/components-stores.css`

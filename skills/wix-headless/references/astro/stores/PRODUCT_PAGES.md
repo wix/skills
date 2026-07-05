@@ -29,7 +29,7 @@ Files this agent MUST NOT touch:
 1. **Use `productsV3`, not `products`** — V1 silently returns 0 on V3 catalogs.
 2. **Product detail MUST use `getProductBySlug()`**, not `queryProducts()`. `queryProducts` omits variant data (`options`, `variantsInfo`), making add-to-cart silently fail.
 3. **Product detail MUST export `wixMetadata`** — required for Wix sitemap, SEO editor, and dashboard deep links. Without it, the sitemap has zero product entries.
-4. **Mount `SeoTags` on the detail page** — pipe `product.seoData.tags` through `Layout`'s `head` slot so merchant SEO edits in the Wix dashboard reach the live site. `seoData` is returned by default — no `fields` flag needed.
+4. **Resolve SEO with `@wix/seo` on the detail page** — call `loadSEOTagsServiceConfig({ itemType: seoTags.ItemType.STORES_PRODUCT, itemData: { slug } })` and render `<SEO.Tags slot="head">` through `Layout`'s `head` slot (with `hasSeoTags`) so merchant SEO edits in the Wix dashboard reach the live site. This is the canonical approach — do NOT read `product.seoData` or hand-roll a `SeoTags` component; the resolver produces the dashboard-managed tags (title, description, canonical, OG/Twitter) from `itemType` + `slug`. Optional: for `Product` schema.org JSON-LD, render your own `<script type="application/ld+json">` from the fetched product (as `bean-bliss` does) — that's item-derived structured data the resolver doesn't manage.
 5. **Mount `ProductPurchase` with `client:load` and a single `product` prop, plus the back-in-stock probe + price props.** `<ProductPurchase client:load product={product} inventoryByVariant={inventoryByVariant} backInStockEnabled={backInStockEnabled} priceAmount={priceAmount} />`. The component destructures internally; passing flat props (`productId={product._id}`, `options={product.options}`, …) silently renders nothing because the new contract expects `product`. The `backInStockEnabled` boolean comes from `await getBackInStockEnabled()` (template imports it from `../../utils/back-in-stock`); `priceAmount` is the numeric price already computed in the frontmatter. See `BACK_IN_STOCK.md` for why both are needed.
 6. **SSR only — do NOT add `export const prerender = true` or `getStaticPaths()`.** The productsV3 SDK depends on request-context auth (tenant resolution, site headers). At prerender time there is no request, and `.queryProducts().limit()` short-circuits to `"is not a function"`. Keep `[slug].astro` server-rendered with `Astro.params.slug`.
 7. **No HTML comments in `.astro` frontmatter.** Build fails with "Legacy HTML single-line comments are not allowed".
@@ -97,10 +97,10 @@ Class from contract: `productCard` → `"product-card"`. If the designer already
 Use template `templates/products/[slug].astro`.
 
 The template:
-- Exports `wixMetadata` with the Stores sub-page appDefId (`1380b703-…`) and `STORES.PRODUCT.SLUG` token for platform expansion
+- Exports `wixMetadata` sourced from `WIX_APPS.checkoutAndOrders.productPageMetadata` (see "Critical details" below)
 - Uses `getProductBySlug()` (NOT `queryProducts()` — it omits variant data)
 - Queries `inventoryItemsV3.queryInventoryItems({ filter: { productId } })` and builds a `variantId → { quantity, trackQuantity, preorderEnabled }` map. This is the AUTHORITATIVE OOS signal; `variantsInfo[].inventoryStatus.inStock` is a stale cached flag.
-- Pipes `product.seoData.tags` through Layout's `head` slot via `<SeoTags slot="head" tags={seoTags} />` (rendered only when any tag is visible)
+- Resolves SEO tags via `loadSEOTagsServiceConfig({ itemType: seoTags.ItemType.STORES_PRODUCT, itemData: { slug } })` (from `@wix/seo`) and renders `<SEO.Tags slot="head">` through Layout's `head` slot (with `hasSeoTags`). No `product.seoData` read, no hand-rolled `SeoTags` component.
 - Calls `await getBackInStockEnabled()` from `../../utils/back-in-stock` to learn whether the dashboard's "Start Collecting Requests" toggle is on for Wix Stores; passes the boolean and `priceAmount` to `<ProductPurchase>`. The back-in-stock subscribe form renders inside ProductPurchase's three OOS branches when the prop is true. See `BACK_IN_STOCK.md` for the app-id discrepancy and the bare-fields rule.
 - Mounts `<ProductPurchase client:load product={product} inventoryByVariant={inventoryByVariant} backInStockEnabled={backInStockEnabled} priceAmount={priceAmount} />` with the canonical `{ product }` contract
 - Wraps both SDK awaits in try/catch so an SDK error produces a 404 redirect (product fetch) or an empty inventory map (inventory fetch), never a torn page (the back-in-stock probe is internally wrapped — it returns `false` on any failure, so it doesn't need an outer try/catch)
@@ -108,11 +108,13 @@ The template:
 **Critical details on `wixMetadata`:**
 
 - **Required for Wix platform indexing.** Without it, the product detail route is invisible to Wix's sitemap generator, SEO editor, and deep-link resolver.
-- **`appDefId`: `1380b703-ce81-ff05-f115-39571d94dfcd`** is the Stores page-registration defId — do NOT confuse with the Stores install/catalog defId (`215238eb-...`) used in Phase 1 and `catalogReference.appId`.
-- **`pageIdentifier`: `"wix.stores.sub_pages.product"`** is the canonical Wix identifier — constant.
-- **`identifiers.slug`**: maps the Astro route param to Wix's identifier token. Route is `[slug].astro`, so key is `slug`. Value `"STORES.PRODUCT.SLUG"` tells Wix to expand with each product's slug.
+- **Source from `WIX_APPS`, reference it directly.** The template uses `appDefId: WIX_APPS.checkoutAndOrders.id`, `pageIdentifier: WIX_APPS.checkoutAndOrders.productPageMetadata.pageIdentifier`, and `identifiers.slug: WIX_APPS.checkoutAndOrders.productPageMetadata.identifiers.handle`. Reference `WIX_APPS` **directly inside the `wixMetadata` object** — do NOT read it into a variable first (module-scope eval; one throwing `wixMetadata` clears the entire `/_wix/pages.json`).
+- **Use `checkoutAndOrders`, not `stores`.** `WIX_APPS.checkoutAndOrders.id` (`1380b703-…`) is the page-registration defId. `WIX_APPS.stores.id` (`215238eb-…`) is the catalog ID used for `catalogReference.appId` in cart ops — a *different* value. (These resolve to the same constants the doc cites above; sourcing from `WIX_APPS` keeps them correct if Wix changes them.)
+- **`identifiers` key = the route param filename.** Route is `[slug].astro`, so the key is `slug`; the *value* is the token `WIX_APPS.checkoutAndOrders.productPageMetadata.identifiers.handle` (`"STORES.PRODUCT.SLUG"`). The key matches your file's param even though the token accessor is named `handle`.
 
-**Layout `head` slot** — the `Layout.astro` written by the Design System phase must accept a `head` slot and a `hasSeoTags` prop. When `hasSeoTags` is true, the Layout omits its default `<title>`/`<meta description>` and instead renders the `head` slot contents into `<head>`. This lets `SeoTags` entirely replace the default metadata. If the Layout signature doesn't match, the Design System brief is missing it — flag this in the return's `errors` array and continue with a fallback (non-merchant-editable) title.
+**`loadSEOTagsServiceConfig` + `<SEO.Tags>`** — resolve at request time from `itemType` (`seoTags.ItemType.STORES_PRODUCT`) + `itemData: { slug }` (the key is literally `slug`; the value is the route param). The resolver returns the full tag set — you do NOT fetch `product.seoData`. Requires SSR (no `prerender`/`getStaticPaths`). Dependencies: `@wix/seo` + `@wix/essentials` ≥ 1.0.10 (see `SETUP.md`).
+
+**Layout `head` slot** — the `Layout.astro` written by the Design System phase must accept a `head` slot and a `hasSeoTags` prop. When `hasSeoTags` is true, the Layout omits its default `<title>`/`<meta description>` and instead renders the `head` slot contents into `<head>`. This lets `<SEO.Tags>` own the metadata without duplicating the layout's defaults. If the Layout signature doesn't match, the Design System brief is missing it — flag this in the return's `errors` array and continue with a fallback (non-merchant-editable) title. (`bean-bliss` and the Wix docs use a dedicated `seo-tags` slot with no default title; the `head` + `hasSeoTags` mechanism here is the skill's equivalent — either works.)
 
 ## Live offers (discount-rule indicators)
 
@@ -174,7 +176,7 @@ When the site has no active rules (first deploys, or the user hasn't created any
   "status": "complete",
   "phase": "stores-pages-products",
   "scope": "product-pages",
-  "summary": "Wired product listing + detail + ProductCard to productsV3; wixMetadata + SeoTags mounted",
+  "summary": "Wired product listing + detail + ProductCard to productsV3; wixMetadata + @wix/seo SEO.Tags mounted",
   "data": {
     "pagesWired": 2,
     "wixMetadataExported": true,
@@ -201,9 +203,10 @@ If any of `wixMetadataExported`, `seoTagsMounted`, `useGetProductBySlug` ends up
 | Use `queryProducts()` on detail page | `getProductBySlug()` — `queryProducts` omits variant data |
 | `export const prerender = true` + `getStaticPaths()` on `[slug].astro` | SSR only — productsV3 needs request-context auth; prerender short-circuits it |
 | Pass flat props to `<ProductPurchase>` (`productId`, `options`, `variantsInfo`, …) | Pass the whole product: `<ProductPurchase client:load product={product} inventoryByVariant={inventoryByVariant} />` |
-| Hardcode `<title>` from `product.name` | Pipe `product.seoData.tags` through `SeoTags` slot, fall back to `product.name` only when tags are empty/disabled |
+| Hardcode `<title>` from `product.name`, or hand-roll a `SeoTags` component | Resolve with `loadSEOTagsServiceConfig(...STORES_PRODUCT...)` + `<SEO.Tags slot="head">` (canonical `@wix/seo`) |
+| Read `product.seoData` / add `fields: ["SEO_DATA"]` to feed the tags | The resolver takes only `itemType` + `slug` — don't fetch `seoData` at all |
+| Read `WIX_APPS` into a var before `wixMetadata`, or use `WIX_APPS.stores.id` | Reference `WIX_APPS` directly; use `WIX_APPS.checkoutAndOrders` for the appDefId |
 | Omit `wixMetadata` export | Required — platform indexing breaks silently without it |
-| Add `fields: ["SEO_DATA"]` | `seoData` is returned by default — no such enum value exists |
 | Write `src/utils/wix-image.ts` inline | Import `resolveWixImageUrl` from `../utils/wix-image` — shared util already exposes it |
 | `ls src/` to find designer output | Parent prompt lists every existing `src/` file — read directly |
 | Rename designer class names | Keep them; use contract classes when ADDING new markup |

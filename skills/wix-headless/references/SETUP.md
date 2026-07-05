@@ -91,9 +91,9 @@ npm install --no-fund --no-audit --legacy-peer-deps <package-set> \
 | Always | Add when pack is loaded |
 |---|---|
 | `@wix/sdk tailwindcss @tailwindcss/vite` | — |
-| | **stores** → `@wix/stores` |
+| | **stores** → `@wix/stores @wix/seo @wix/essentials` |
 | | **ecom** (direct or via stores `requires:`) → `@wix/ecom @wix/redirects` |
-| | **blog** → `@wix/blog @wix/ricos @astrojs/rss @astrojs/sitemap` |
+| | **blog** → `@wix/blog @wix/ricos @astrojs/rss @astrojs/sitemap @wix/seo @wix/essentials` |
 | | **forms** → `@wix/forms` |
 | | **cms** → `@wix/data @wix/essentials` |
 | | **bookings** → `@wix/bookings @wix/essentials @wix/forms @wix/redirects @wix/auto_sdk_ecom_cart-v-2` |
@@ -111,6 +111,8 @@ npm install --no-fund --no-audit --legacy-peer-deps \
 ```
 
 Use `npm --legacy-peer-deps` — `pnpm` fails against the `@wix/cli` template. **Skipping the per-pack additions makes `astro build` fail with `Rollup failed to resolve import "@wix/<pack>"`** (~30 s recovery). Don't invent packages beyond the table; extend the table for a new vertical.
+
+> **`@wix/seo` + `@wix/essentials` (stores, blog).** These power canonical item-page SEO (`wixMetadata` from `WIX_APPS` + `loadSEOTagsServiceConfig`/`<SEO.Tags>`) on product/category/post/category routes. `@wix/essentials` ships in the scaffold but may be pinned below **1.0.10**, the floor where `WIX_APPS.checkoutAndOrders.*PageMetadata` / `WIX_APPS.blogs.*PageMetadata` exist — listing it in the install bumps it to a satisfying version. See `astro/stores/PRODUCT_PAGES.md` and `astro/blog/BLOG_PAGES.md`.
 
 ---
 

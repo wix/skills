@@ -156,7 +156,6 @@ The full components scope return must mention back-in-stock:
     "backInStockWired": true
   },
   "files": [
-    "src/components/SeoTags.astro",
     "src/components/AddToCartButton.tsx",
     "src/components/ProductPurchase.tsx",
     "src/components/BackInStockForm.tsx",

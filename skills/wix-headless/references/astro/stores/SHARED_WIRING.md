@@ -8,7 +8,6 @@ This is the **components** portion of the stores **merged build agent** (the bui
 
 Files this agent OWNS (creates fresh, no designer output to read):
 
-- `src/components/SeoTags.astro` — Renders `product.seoData.tags` into `<head>`
 - `src/components/AddToCartButton.tsx` — React island; optimistic add-to-cart
 - `src/components/ProductPurchase.tsx` — React island; option selectors + variant resolution + wraps AddToCartButton
 - `src/components/BackInStockForm.tsx` — React island; back-in-stock subscription form
@@ -61,13 +60,9 @@ Do NOT modify logic, imports, or component structure.
 
 > Import `resolveWixImageUrl` from `../utils/wix-image` but do not write it. Shipped by the build skill as a seeded shared utility that already exposes `resolveWixImageUrl(image, width?, height?)`. Writing your own copy shadows and breaks callers in other verticals (blog, cms).
 
-### 4. `src/components/SeoTags.astro`
+### 4. SEO — no component to author
 
-Use template `templates/SeoTags.astro`.
-
-Renders merchant-edited SEO from the Wix dashboard into `<head>`. Mounted on the product detail page (by `product-pages` scope) via `Layout`'s `head` slot.
-
-`product.seoData` is returned by default from `getProductBySlug` — no `fields` flag needed.
+SEO is handled by the **`@wix/seo`** package directly in the product and category pages (`loadSEOTagsServiceConfig` + `<SEO.Tags>`), not by a hand-rolled component. This scope no longer writes a `SeoTags.astro`. See `./PRODUCT_PAGES.md` and `./CATEGORY_PAGES.md` § SEO. (`@wix/seo` + `@wix/essentials` are installed via `SETUP.md`.)
 
 ### 5. `src/components/AddToCartButton.tsx`
 
@@ -135,12 +130,11 @@ Classes from contract (stores pack):
   "summary": "Wrote React islands and Astro components from templates (CSS handled by components-css sibling)",
   "data": {
     "islands": ["ProductPurchase.tsx", "AddToCartButton.tsx", "BackInStockForm.tsx"],
-    "astroComponents": ["SeoTags.astro"],
+    "astroComponents": [],
     "globalContractClassesReferenced": ["addToCartButton", "productPurchase"],
     "scopedContractClassesReferenced": ["optionGroup", "optionLabel", "optionChoices", "optionPill", "stockStatus", "quantitySelector", "quantityBtn", "quantityValue"]
   },
   "files": [
-    "src/components/SeoTags.astro",
     "src/components/AddToCartButton.tsx",
     "src/components/ProductPurchase.tsx",
     "src/components/BackInStockForm.tsx"

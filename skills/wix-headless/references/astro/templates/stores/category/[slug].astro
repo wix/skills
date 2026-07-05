@@ -5,6 +5,10 @@
 //
 // The CategoryRail is shared with /products via transition:persist, so
 // switching categories swaps only the grid and header.
+import { WIX_APPS } from "@wix/essentials";
+import { SEO } from "@wix/seo/components";
+import { loadSEOTagsServiceConfig } from "@wix/seo/services";
+import { seoTags } from "@wix/seo";
 import Layout from "../../layouts/Layout.astro";
 import ProductCard from "../../components/ProductCard.astro";
 import CategoryRail from "../../components/CategoryRail.astro";
@@ -13,6 +17,18 @@ import {
   listProductsInCategory,
   listStoreCategories,
 } from "../../utils/categories";
+
+// Register this route as the Stores "category" sub-page (sitemap, dashboard
+// SEO editor, deep links). Reference WIX_APPS DIRECTLY inside the export —
+// module scope; and use `checkoutAndOrders`, not `stores` (see product page).
+export const wixMetadata = {
+  appDefId: WIX_APPS.checkoutAndOrders.id,
+  pageIdentifier: WIX_APPS.checkoutAndOrders.categoryPageMetadata.pageIdentifier,
+  identifiers: {
+    // Key is this route's param (`[slug].astro` → `slug`); value is the token.
+    slug: WIX_APPS.checkoutAndOrders.categoryPageMetadata.identifiers.collection,
+  },
+};
 
 const PAGE_SIZE = 24;
 const { slug } = Astro.params;
@@ -25,6 +41,13 @@ const category = await getCategoryBySlug(slug);
 if (!category) {
   return new Response("Category not found", { status: 404 });
 }
+
+// Resolve the category's SEO tags at request time via the Wix SEO service.
+const seoTagsServiceConfig = await loadSEOTagsServiceConfig({
+  pageUrl: Astro.url.href,
+  itemType: seoTags.ItemType.STORES_CATEGORY,
+  itemData: { slug: slug! },
+});
 
 const cursor = Astro.url.searchParams.get("cursor") ?? undefined;
 const page = await listProductsInCategory(category.id, {
@@ -57,7 +80,9 @@ function pageHref(c: string | null): string | null {
 <Layout
   title={`${category.name}`}
   description={category.description ?? `Browse our ${category.name.toLowerCase()} collection.`}
+  hasSeoTags
 >
+  <SEO.Tags seoTagsServiceConfig={seoTagsServiceConfig} slot="head" />
   <section class="page-header">
     <div class="container-page">
       <nav class="breadcrumbs" aria-label="Breadcrumb">

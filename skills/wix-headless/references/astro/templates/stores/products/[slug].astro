@@ -4,20 +4,28 @@
 // at compile time with no request, and `.queryProducts().limit()` short-
 // circuits to "is not a function". Keep this page server-rendered; do NOT
 // add prerender=true or getStaticPaths.
+import { WIX_APPS } from "@wix/essentials";
+import { SEO } from "@wix/seo/components";
+import { loadSEOTagsServiceConfig } from "@wix/seo/services";
+import { seoTags } from "@wix/seo";
 import Layout from "../../layouts/Layout.astro";
 import ProductPurchase from "../../components/ProductPurchase.tsx";
-import SeoTags from "../../components/SeoTags.astro";
 import { productsV3, inventoryItemsV3 } from "@wix/stores";
 import { resolveWixImageUrl } from "../../utils/wix-image";
 import { getBackInStockEnabled } from "../../utils/back-in-stock";
 
 // Tell Wix platform this route is the Stores "product" sub-page.
-// Drives sitemap, dashboard SEO editor, deep links.
+// Drives sitemap, dashboard SEO editor, deep links. Source values from
+// WIX_APPS (the source of truth) and reference it DIRECTLY inside the export —
+// don't destructure into a variable, this is evaluated in module scope.
+// For Stores the accessor is `checkoutAndOrders`, NOT `stores`
+// (WIX_APPS.stores.id is the catalog ID, a different value).
 export const wixMetadata = {
-  appDefId: "1380b703-ce81-ff05-f115-39571d94dfcd",
-  pageIdentifier: "wix.stores.sub_pages.product",
+  appDefId: WIX_APPS.checkoutAndOrders.id,
+  pageIdentifier: WIX_APPS.checkoutAndOrders.productPageMetadata.pageIdentifier,
   identifiers: {
-    slug: "STORES.PRODUCT.SLUG",
+    // Key is this route's param (`[slug].astro` → `slug`); value is the token.
+    slug: WIX_APPS.checkoutAndOrders.productPageMetadata.identifiers.handle,
   },
 };
 
@@ -35,6 +43,17 @@ try {
 }
 
 if (!product) return Astro.redirect("/404");
+
+// Resolve the product's SEO tags at request time via the Wix SEO service.
+// Merchant edits (dashboard → product SEO) flow through this — you do NOT
+// read product.seoData here. itemData key is literally "slug"; the value is
+// this route's param. Can be run in Promise.all with the fetch above; kept
+// separate here so an SEO hiccup never 404s a valid product.
+const seoTagsServiceConfig = await loadSEOTagsServiceConfig({
+  pageUrl: Astro.url.href,
+  itemType: seoTags.ItemType.STORES_PRODUCT,
+  itemData: { slug: slug! },
+});
 
 // Live per-variant stock from inventoryItemsV3 — the authoritative source of
 // truth for OOS gating. productsV3's variantsInfo[].inventoryStatus.inStock is
@@ -69,11 +88,6 @@ const description = product.plainDescription?.replace(/<[^>]*>/g, "").trim();
 // silently hides if the probe / auth fails. See references/BACK_IN_STOCK.md.
 const backInStockEnabled = await getBackInStockEnabled();
 
-// Merchant-edited SEO from dashboard (product settings → SEO).
-// product.seoData.tags returned by default — no fields flag needed.
-const seoTags = product.seoData?.tags ?? [];
-const hasSeoTags = seoTags.some((t: any) => !t.disabled);
-
 const viewContentPayload = {
   id: product._id,
   name: product.name,
@@ -86,9 +100,9 @@ const viewContentPayload = {
 <Layout
   title={product.name ?? "Product"}
   description={description?.slice(0, 160)}
-  hasSeoTags={hasSeoTags}
+  hasSeoTags
 >
-  {hasSeoTags && <SeoTags slot="head" tags={seoTags} />}
+  <SEO.Tags seoTagsServiceConfig={seoTagsServiceConfig} slot="head" />
   <main class="py-16">
     <div class="max-w-wide mx-auto px-8">
       <a href="/products" class="text-mute text-sm tracking-wide uppercase">&larr; Back to products</a>
