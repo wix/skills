@@ -132,3 +132,9 @@ Authorization: Bearer {siteToken}
 ```
 
 Returns `{ contacts: […] }`.
+
+---
+
+For the full Wix REST API reference — endpoints, request/response shapes, and field details — see [https://www.wix.com/skills/docs](https://www.wix.com/skills/docs).
+
+For REST API recipes covering common management operations (stores, bookings, contacts, CMS, and more) — see [https://www.wix.com/skills/manage](https://www.wix.com/skills/manage).
