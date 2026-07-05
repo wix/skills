@@ -28,6 +28,10 @@ curl -sS 'https://dev.wix.com/docs/api-reference/business-management/app-install
 
 No auth headers required on these endpoints.
 
+## Skip `@wix/site-*` frontend modules
+
+Doc discovery surfaces `@wix/site-*` **Frontend Modules** (`@wix/site-ecom`, `@wix/site-seo`, `@wix/site-members`, …). These require Wix hosting and are **not headless-compatible** — they look right and fail silently. Use the vertical's REST recipe or the `@wix/<vertical>` SDK client via `createClient` instead (e.g. `@wix/seo`, not `@wix/site-seo`). Rule of thumb: `@wix/site-…` = site-runtime, wrong for headless; `@wix/…` without `site-` = headless-safe.
+
 > For the full doc-lookup playbook — semantic-search variants, slicing big method pages, and structured API-spec queries (`getResourceSchemaByUrl`, no MCP) — see the **`wix-docs`** skill (`<SKILL_ROOT>/../wix-docs/SKILL.md` when co-installed).
 
 ## Prefer bundled references
