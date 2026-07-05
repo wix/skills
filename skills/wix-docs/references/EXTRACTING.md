@@ -23,6 +23,57 @@ read it whole:
   page; `https://dev.wix.com/docs/llms-full.txt` is the full concatenated corpus (very large — grep,
   don't read).
 
+### A partial map to orient from
+
+Paths under `https://dev.wix.com/docs/` — **append `.md` to any of them** to read that page.
+**This is a pruned map, not the full tree** — `…` marks where real children were left out; the
+deep leaves are cherry-picked to show how far it goes. Re-derive from the `.md` menus / `llms.txt`
+for anything not shown.
+
+```text
+dev.wix.com/docs/                                      ← append .md to any path below
+├── api-reference/                                     all backend APIs — REST + SDK on every page
+│   ├── business-solutions/                            vertical → app/version → resource → method
+│   │   ├── stores/
+│   │   │   └── catalog-v3/                            V3 catalog (introduction · e-commerce-integration · …)
+│   │   │       ├── products-v3/                       the products resource
+│   │   │       │   ├── query-products                 ← method page (leaf: schema + examples)
+│   │   │       │   ├── create-product-with-inventory  ← method (create + stock in one call)
+│   │   │       │   └── get-product · search-products · update-product · count-products · …
+│   │   │       └── inventory-items-v3/ · categories/ · customizations-v3/ · brands-v3/ · …
+│   │   ├── bookings/
+│   │   │   └── bookings/                              core resource group (nested under the vertical)
+│   │   │       ├── bookings-writer-v2/                writes
+│   │   │       │   └── create-booking                 ← method (leaf); + bulk-create-booking · …
+│   │   │       └── bookings-reader-v2/ · attendance/ · waitlist/ · …
+│   │   ├── e-commerce/                                cart, checkout, orders, discounts
+│   │   ├── cms/                                       Wix Data — data-items, collections
+│   │   └── blog/ · events/ · pricing-plans/ · restaurants/ · portfolio/ · gift-cards/ · coupons/ · donations/ · …
+│   ├── crm/                                           contacts, members, forms, inbox, loyalty
+│   ├── business-management/                           payments, invoices, SEO, site-properties, automations
+│   ├── app-management/                                install apps, OAuth, app-instance/installations
+│   ├── assets/                                        media, rich-content
+│   └── account-level/ · site/ · tools/ · articles/    domains/sites, site config, auth/query guides
+├── sdk/                                               SDK-only surfaces (not in api-reference)
+│   ├── articles/set-up-a-client                       createClient + OAuthStrategy setup
+│   ├── core-modules/
+│   │   ├── sdk/                                       @wix/sdk
+│   │   │   ├── wix-client · oauth-strategy · setup    client creation + auth strategies
+│   │   │   └── media · api-key-strategy · app-strategy · …
+│   │   └── essentials/ · realtime/ · web-methods/     elevate/host-bridge · realtime · web methods
+│   ├── host-modules/                                  dashboard · editor · site (build on Wix surfaces)
+│   └── frontend-modules/
+│       ├── members/                                  introduction · custom-fields · …
+│       └── pay/ · seo/ · storage/ · pricing-plans/ · location/ · …
+├── go-headless/                                       headless setup, auth, hosting, framework integration
+├── build-apps/                                        building Wix apps / extensions
+├── wix-cli/
+│   ├── guides/                                        project-structure · about-the-wix-cli · …
+│   └── command-reference/                             project-creation · project-commands · global-commands
+├── velo/ · develop-websites/                          Velo site-coding APIs + guides
+└── …                                                  (full portal list: curl llms.txt)
+```
+
 ## Method pages — slice, don't swallow
 
 A method page is often **huge** (Create Booking's `.md` is ~144 KB / 900+ lines). It carries **both**
