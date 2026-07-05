@@ -171,7 +171,7 @@ Provide `userInput`, `siteAssets`, or both.
 }
 ```
 
-Use the payload for your chosen channel as the content object in STEP 5. Review it with the user before publishing.
+Use the payload for your chosen channel as the content object in STEP 5. Review it with the user before publishing — and review the **whole** payload, not just the caption. If the response includes an image or video in `mediaWrapper.media[]` (`generate-post-data` returns an AI-generated image when you pass no `media` of your own), you **must** surface that media to the user: display the image inline in the chat (render its URL) so they can see exactly what will be posted. A user should never be asked to approve a post whose image they haven't seen.
 
 ### 3b. Generate only a caption or title
 
@@ -340,7 +340,7 @@ For multiple media, use `mediaWrapper` instead of `imageUrl`/`videoUrl`:
 
 ## STEP 6: Publish now or schedule
 
-**Confirm before publishing.** Publishing immediately is public and can't be undone (you can only delete the post afterward). Show the user the final content and target channel and get explicit confirmation before this call. Scheduling is reversible (reschedule/cancel), so a lighter confirmation is fine there.
+**Confirm before publishing.** Publishing immediately is public and can't be undone (you can only delete the post afterward). Show the user the final content — **the caption *and* the media** — and the target channel, then get explicit confirmation before this call. If the post has an image or video, **display it inline in the chat** (render the media URL); don't just describe it or show the caption alone. The user must see the actual image they're about to publish. Scheduling is reversible (reschedule/cancel), so a lighter confirmation is fine there, but still show the media.
 
 **API Endpoint:** `POST https://www.wixapis.com/social-publisher/v1/publish-by-id`
 
