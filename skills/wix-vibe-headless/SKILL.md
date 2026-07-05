@@ -80,14 +80,14 @@ prerequisites, the exported API, how to wire it, the hard rules, and a verificat
 Load the vertical(s) the user's app needs; a project may combine several (e.g. a restaurant
 with a blog, or a store with pricing plans).
 
-| The user wants… | Vertical | Read | Helper to copy (+ `shared/wix-client.js`) |
+| The user wants… | Vertical | Read | Helper(s) to copy (+ `shared/wix-client.js`) |
 |---|---|---|---|
-| Online store: products, categories, cart, checkout | **storefront** | `references/storefront/INSTRUCTIONS.md` | `references/storefront/wix-store.js` |
-| Appointments: services, time slots, booking, checkout | **bookings** | `references/bookings/INSTRUCTIONS.md` | `references/bookings/wix-bookings.js` |
+| Online store: products, categories, cart, checkout | **storefront** | `references/storefront/INSTRUCTIONS.md` | `wix-store-catalog.js` + `wix-store-cart.js` |
+| Appointments: services, time slots, booking, checkout | **bookings** | `references/bookings/INSTRUCTIONS.md` | `wix-bookings-services.js` + `wix-bookings-checkout.js` |
 | Blog/news: post feed, post pages, categories, tags | **blog** | `references/blog/INSTRUCTIONS.md` | `references/blog/wix-blog.js` |
-| Events: browse, event page, RSVP, ticketing | **events** | `references/events/INSTRUCTIONS.md` | `references/events/wix-events.js` |
+| Events: browse, event page, RSVP, ticketing | **events** | `references/events/INSTRUCTIONS.md` | `wix-events-browse.js` (always) + `wix-events-registration.js` (RSVP/tickets) |
 | Portfolio/showcase: collections, projects, media galleries | **portfolio** | `references/portfolio/INSTRUCTIONS.md` | `references/portfolio/wix-portfolio.js` |
-| Restaurant: menu, online ordering, table reservations | **restaurants** | `references/restaurants/INSTRUCTIONS.md` | `references/restaurants/wix-restaurants.js` |
+| Restaurant: menu, online ordering, table reservations | **restaurants** | `references/restaurants/INSTRUCTIONS.md` | `wix-restaurants-menu.js` (always) + `wix-restaurants-ordering.js` + `wix-restaurants-reservations.js` as needed |
 | CMS content: list/detail, filter/search, forms, data CRUD | **cms** | `references/cms/INSTRUCTIONS.md` | `references/cms/wix-cms.js` |
 | Plans & pricing: memberships/subscriptions, subscribe, my plans | **pricing-plans** | `references/pricing-plans/INSTRUCTIONS.md` | `references/pricing-plans/wix-pricing-plans.js` |
 

@@ -1,73 +1,29 @@
 import { wixApiRequest } from "./wix-client.js";
 
 /**
- * Wix Pricing Plans V3 Plan — key fields for building a "Plans & Pricing" page.
+ * Wix Pricing Plans V3 Plan — key fields for a Plans & Pricing page.
  * Full model: https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans/plans-v3/plan-object.md
  *
- *   id                                      {string}   Plan GUID. Pass to getPlanById / checkout.
- *   name                                    {string}   Plan name shown to customers.
- *   description                             {string}   Short explanation of what the plan offers.
- *   slug                                    {string}   URL slug for plan-detail routing.
- *   image                                   {object}   Plan image: { id, width, height, altText }.
- *                                                      `id` is a WixMedia id — resolve to a URL via your media handling.
- *   termsAndConditions                      {string}   T&C text buyers agree to at checkout (may be empty).
- *   currency                                {string}   ISO-4217 currency code for the plan's prices (e.g. "USD").
- *   visibility                              {string}   "PUBLIC"  — listed and buyable by anyone.
- *                                                      "PRIVATE" — hidden; only reachable via a direct link.
- *                                                      queryPlans returns PUBLIC plans only.
- *   buyable                                 {boolean}  Whether a customer can purchase it themselves. When false the
- *                                                      merchant assigns it manually in the dashboard — hide the buy button.
- *   buyerCanCancel                          {boolean}  Whether buyers may cancel their own subscription.
- *   perks                                   {array}    What the plan includes, for display only:
- *                                                      [{ id, description }]   // render description as a feature bullet
- *   pricingVariants                         {array}    Billing/pricing options. Currently exactly 1 variant per plan.
- *     [].id                                 {string}   Pricing variant GUID.
- *     [].name                               {string}   Variant label, e.g. "Monthly".
- *     [].freeTrialDays                      {number}   Free days before the first charge. 0 = no trial. Recurring plans only.
- *     [].promotion                          {string}   Optional promo message to show with the price.
- *     [].pricingStrategies[].flatRate.amount {string}  The price as a decimal string, e.g. "9.99" (no currency symbol —
- *                                                      pair it with the plan-level `currency`). "0" / "0.00" = free plan.
- *     [].billingTerms.billingCycle          {object}   Length of one cycle: { period: "DAY"|"WEEK"|"MONTH"|"YEAR", count }.
- *                                                      Present for recurring (subscription) plans; omitted for single-payment plans.
- *     [].billingTerms.startType             {string}   "ON_PURCHASE" | "CUSTOM" (buyer picks a start date).
- *     [].billingTerms.endType               {string}   "UNTIL_CANCELLED" — recurs until canceled.
- *                                                      "CYCLES_COMPLETED" — ends after a fixed number of cycles
- *                                                        (count in billingTerms.cyclesCompletedDetails.billingCycleCount).
- *     [].fees                               {array}    Extra fees: [{ id, name, priceType:"FIXED_AMOUNT",
- *                                                      fixedAmountOptions.amount, appliedAt:"FIRST_PAYMENT" }].
+ *   id {string}, name {string}, description {string}, slug {string},
+ *   image {object} — { id, width, height, altText } (id is a WixMedia id),
+ *   currency {string} — ISO-4217 e.g. "USD", termsAndConditions {string},
+ *   visibility "PUBLIC"|"PRIVATE" — queryPlans returns PUBLIC only,
+ *   buyable {boolean} — hide buy button when false, buyerCanCancel {boolean},
+ *   perks {array} — [{ id, description }] feature bullets,
+ *   pricingVariants {array} — 1 variant per plan:
+ *     [{ id, name, freeTrialDays, pricingStrategies[0].flatRate.amount (decimal string, "0" = free),
+ *        billingTerms: { billingCycle: { period "DAY"|"WEEK"|"MONTH"|"YEAR", count },
+ *        startType "ON_PURCHASE"|"CUSTOM", endType "UNTIL_CANCELLED"|"CYCLES_COMPLETED" } }]
+ * Display price: amount = v.pricingStrategies[0].flatRate.amount + plan.currency.
+ * Never compute a final charge — Wix settles price, tax, and schedule at hosted checkout.
  *
- * Reading the price for display, per variant `v = plan.pricingVariants[0]`:
- *   - amount   = v.pricingStrategies[0].flatRate.amount     (decimal string; "0" means free)
- *   - currency = plan.currency
- *   - recurring? = Boolean(v.billingTerms?.billingCycle)
- *       → e.g. `${currency} ${amount} / ${cycle.count} ${cycle.period.toLowerCase()}`
- *   - one-time? = no billingCycle → single payment (for a duration, or unlimited/lifetime)
- *   - trial = v.freeTrialDays > 0 → "Includes a {n}-day free trial"
- * The plan object is display-only. Never compute or fake a final charge — the real price, tax,
- * proration, and schedule are settled by Wix during the hosted checkout (see `checkout`).
- */
-
-/**
- * Wix Pricing Plans Order (a member's purchase/subscription) — key fields for a "My plans" screen.
+ * Order (member's purchase) — key fields for "My plans" screen.
  * Full model: https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans/orders/order-object.md
- *
- *   id                                      {string}  Order GUID.
- *   planId                                  {string}  GUID of the purchased plan.
- *   planName                                {string}  Plan name captured at purchase time.
- *   planDescription                         {string}  Plan description captured at purchase time.
- *   status                                  {string}  "DRAFT" (payment not processed) | "PENDING" (starts in the future) |
- *                                                     "ACTIVE" (usable now) | "PAUSED" | "ENDED" | "CANCELED".
- *   lastPaymentStatus                       {string}  "PAID" | "REFUNDED" | "FAILED" | "UNPAID" | "PENDING" |
- *                                                     "NOT_APPLICABLE" (free plan / free trial).
- *   startDate                               {string}  ISO date-time the plan starts.
- *   endDate                                 {string}  ISO date-time it ends. Omitted for until-canceled plans still ACTIVE.
- *   freeTrialDays                           {number}  Free-trial length for this order, if any (recurring plans).
- *   currentCycle                            {object}  { index, startedDate, endedDate }. index is 0 during a free trial,
- *                                                     1+ otherwise. Omitted if CANCELED/ENDED or not yet started.
- *   pricing                                 {object}  Settled pricing model + amounts (see Order Object reference):
- *                                                     one of subscription / singlePaymentForDuration / singlePaymentUnlimited,
- *                                                     plus prices[].price { subtotal, tax, discount, total, currency }.
- *   autoRenewCanceled                       {boolean} True if the subscription won't renew at the next payment date.
+ *   id {string}, planId {string}, planName {string},
+ *   status "DRAFT"|"PENDING"|"ACTIVE"|"PAUSED"|"ENDED"|"CANCELED",
+ *   lastPaymentStatus "PAID"|"REFUNDED"|"FAILED"|"UNPAID"|"NOT_APPLICABLE",
+ *   startDate {string}, endDate {string}, freeTrialDays {number},
+ *   currentCycle { index, startedDate, endedDate }, autoRenewCanceled {boolean}
  */
 
 const REDIRECT_SESSION_URL = "/headless/v1/redirect-session";

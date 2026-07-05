@@ -1,84 +1,29 @@
 import { wixApiRequest } from "./wix-client.js";
 
 /**
- * Wix Portfolio is a read-only showcase. The model is a 3-level tree:
- *   Collection (a gallery / grouping)  →  Project (a single piece of work)  →  Project Item (one image or video).
- * A project can belong to several collections (`project.collectionIds`). The merchant
- * manages all content in the Wix dashboard — this client only reads it.
+ * Wix Portfolio — read-only showcase. 3-level tree:
+ *   Collection → Project → Project Item (image or video)
+ * Hidden entities (hidden: true) are editor-only — every helper here filters them out.
  *
- * Hidden entities (`hidden: true` on collections/projects) are editor-only and must NOT be
- * shown to visitors. Every list helper here filters `hidden` out for you.
- */
-
-/**
- * Wix Portfolio Collection — key fields for a collections gallery.
+ * Collection: { id, title, description, slug, hidden, sortOrder,
+ *   coverImage.imageInfo: { id, url, height, width, altText },
+ *   url: { relativePath, url } (only when includePageUrl=true) }
  * Full model: https://dev.wix.com/docs/api-reference/business-solutions/portfolio/collections/collection-object.md
  *
- *   id                              {string}   Collection GUID.
- *   title                           {string}   Display title.
- *   description                     {string}   Description (plain text).
- *   slug                            {string}   URL slug for routing.
- *   hidden                          {boolean}  Editor-only when true — never show to visitors.
- *   sortOrder                       {number}   Display order index (ascending).
- *   coverImage.imageInfo            {object}   Cover image: { id, url, height, width, altText, filename }.
- *   coverImage.focalPoint           {object}   { x, y } focal point for cropping.
- *   url                             {object}   { relativePath, url } — only when includePageUrl=true.
- *   createdDate / updatedDate       {string}   ISO date-time.
- *
- * NOTE: `coverImage.imageInfo.url` is a Wix Media URL. It may be a static
- * `https://static.wixstatic.com/...` URL (render directly) or a `wix:image://` URI for some
- * legacy assets — prefer `imageInfo.url` and render it as-is when it starts with "http".
- */
-
-/**
- * Wix Portfolio Project — key fields for a project grid + project page header.
+ * Project: { id, title, description, slug, hidden, collectionIds {string[]},
+ *   details {array} — [{ label, text? OR link: { text, url, target } }],
+ *   coverImage.imageInfo: { id, url, height, width, altText } (ONE-OF with coverVideo),
+ *   coverVideo.videoInfo: { id, url, posters, resolutions },
+ *   url: { relativePath, url } (only when includePageUrl=true) }
+ * Full media gallery is in Project Items — fetch with listProjectItems(project.id).
  * Full model: https://dev.wix.com/docs/api-reference/business-solutions/portfolio/projects/project-object.md
  *
- *   id                              {string}   Project GUID.
- *   title                           {string}   Display title.
- *   description                     {string}   Description (plain text).
- *   slug                            {string}   URL slug for routing.
- *   hidden                          {boolean}  Editor-only when true — never show to visitors.
- *   collectionIds                   {string[]} GUIDs of the collections this project belongs to.
- *   details                         {array}    Labeled metadata rows. Each entry is ONE-OF text|link:
- *                                              [{
- *                                                label,                 // row label, e.g. "Client", "Year"
- *                                                text,                  // present for plain-text details
- *                                                link: { text, url, target }  // present for link details ('_blank' | '_self')
- *                                              }]
- *   coverImage.imageInfo            {object}   Cover image (ONE-OF with coverVideo):
- *                                              { id, url, height, width, altText, filename }.
- *   coverVideo.videoInfo            {object}   Cover video (ONE-OF with coverImage):
- *                                              { id, url, filename, posters: [Image],
- *                                                resolutions: [{ url, height, width, format, quality, filename }] }.
- *   url                             {object}   { relativePath, url } — only when includePageUrl=true.
- *   createdDate / updatedDate       {string}   ISO date-time.
- *
- * A project carries only its cover here. The full media gallery lives in its Project Items —
- * fetch them with listProjectItems(project.id).
- */
-
-/**
- * Wix Portfolio Project Item — one media tile inside a project (image or video).
+ * Project Item: { id, projectId, sortOrder, title, description,
+ *   type "IMAGE"|"VIDEO"|"UNDEFINED",
+ *   image.imageInfo: { id, url, height, width, altText } (when IMAGE),
+ *   video.videoInfo: { id, url, posters, resolutions } (when VIDEO; render first resolution),
+ *   link: { text, url, target } }
  * Full model: https://dev.wix.com/docs/api-reference/business-solutions/portfolio/project-items/project-item-object.md
- *
- *   id                              {string}   Project item GUID.
- *   projectId                       {string}   Parent project GUID.
- *   sortOrder                       {number}   Display order index (ascending).
- *   title                           {string}   Item title (may be empty).
- *   description                     {string}   Item description (may be empty).
- *   type                            {string}   "IMAGE" | "VIDEO" | "UNDEFINED".
- *   image.imageInfo                 {object}   Present when type === "IMAGE":
- *                                              { id, url, height, width, altText, filename } (+ focalPoint).
- *   video.videoInfo                 {object}   Present when type === "VIDEO":
- *                                              { id, url, filename, posters: [Image],
- *                                                resolutions: [{ url, height, width, format, quality, filename }] }.
- *   link                            {object}   Optional click-through: { text, url, target } ('_blank' | '_self').
- *   createdDate / updatedDate       {string}   ISO date-time.
- *
- * Render IMAGE items from image.imageInfo.url; render VIDEO items from the first
- * video.videoInfo.resolutions[] entry (highest quality first) with a poster from
- * video.videoInfo.posters[0].
  */
 
 const COLLECTIONS_QUERY_URL = "/portfolio/v1/collections/query";
