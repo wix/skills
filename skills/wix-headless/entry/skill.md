@@ -80,7 +80,7 @@ CI=1 npm create @wix/new@latest headless -- \
   --no-publish
 ```
 
-`<business-name>` must contain at least one letter or number; `<folder-name>` must match `^[a-z0-9][a-z0-9-]*$` (e.g. `Acme Bakery` → `acme-bakery`). Ask the user if you can't derive a sensible name. The three flags are required, not just convenient — without `--business-name`, `--folder-name`, and `--site-template` the command refuses to run in a non-interactive terminal.
+`<business-name>` must contain at least one letter or number; `<folder-name>` must match `^[a-z0-9][a-z0-9-]*$` (e.g. `Acme Bakery` → `acme-bakery`). Ask the user if you can't derive a sensible name.
 
 ## Phase 2 — Connect a Business Solution (agentic)
 
