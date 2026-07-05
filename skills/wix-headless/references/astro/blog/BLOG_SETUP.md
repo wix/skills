@@ -11,8 +11,10 @@ Prerequisites, dependencies, blog service module, and astro config changes for t
 ## Package Installation
 
 ```bash
-npm install @wix/blog @wix/ricos @astrojs/rss @astrojs/sitemap
+npm install @wix/blog @wix/ricos @astrojs/rss @astrojs/sitemap @wix/seo
 ```
+
+> **SEO deps.** `@wix/seo` powers the canonical item-page SEO for post + category routes (see `BLOG_PAGES.md` § "SEO"). It pairs with `@wix/essentials` (already a scaffold dependency) — ensure it's **≥ 1.0.10**, which is when `WIX_APPS.blogs.postPageMetadata` / `categoryPageMetadata` became available. If the scaffold pinned an older version, run `npm install @wix/essentials@latest`.
 
 ## Files to Create / Modify
 
@@ -216,3 +218,49 @@ Key details:
 - `getPostBySlug` returns `null` for missing posts — pages must handle this with a redirect
 - `queryBlogPosts()` sorts by `firstPublishedDate` descending (newest first)
 - `RICH_CONTENT` fieldset is required to get renderable content for `RicosViewer`
+
+---
+
+## 5. Category Helpers (`src/lib/blog.ts`)
+
+The blog **category route** (`BLOG_PAGES.md` § "Category page") needs to resolve a category by its URL slug and list that category's posts. Add these to the same service module:
+
+```typescript
+export interface BlogCategory {
+  id: string;
+  label: string;
+  slug: string;
+  description?: string;
+}
+
+export async function getCategoryBySlug(slug: string): Promise<BlogCategory | null> {
+  try {
+    const { category } = await categories.getCategoryBySlug(slug);
+    if (!category) return null;
+    return {
+      id: category._id!,
+      label: category.label!,
+      slug: category.slug!,
+      description: category.description,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function getPostsByCategory(categoryId: string, limit = 50): Promise<BlogPost[]> {
+  const { items } = await posts
+    .queryPosts({ fieldsets: ["RICH_CONTENT", "CONTENT_TEXT"] })
+    .hasSome("categoryIds", [categoryId])
+    .descending("firstPublishedDate")
+    .limit(limit)
+    .find();
+  // reuse the same mapping as queryBlogPosts (categories/tags/media resolution)
+  return Promise.all(items.map(mapPost));
+}
+```
+
+Key details:
+- `categories.getCategoryBySlug(slug)` returns `{ category }` (envelope) — destructure it. Returns the category by its URL slug (the same slug the `/category/[slug]` route receives).
+- **The SEO resolver does not need `seoData` from these calls.** `loadSEOTagsServiceConfig()` (see `BLOG_PAGES.md`) resolves a category's tags from just its `itemType` + `slug` via the Wix SEO service — you do NOT fetch `category.seoData` here. These helpers exist only to render the category's *listing* (title, description, its posts).
+- Factor the per-post mapping in `queryBlogPosts`/`getPostBySlug` into a shared `mapPost(item)` helper so `getPostsByCategory` reuses it rather than duplicating the categories/tags/media resolution.
