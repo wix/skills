@@ -53,13 +53,13 @@ The service is what makes the diagnosis deep. Only the service paths run the L2 
 |--------|-----------|-------|-------------------|
 | `serviceId` + `resourceId` *(preferred)* | Why a specific provider has no slots for the service | L1 setup + L2 window/location | never asserted `true` |
 | `serviceId` only | Whole-service availability across assigned staff/locations | L1 setup + L2 window/location | `true` only if the service needs a single staff resource type |
-| `resourceId` only | Staff-editor check, no service context | **L1 only** | never asserted `true` |
+| `resourceId` only | Staff-editor check, no service context | L1 setup + missing/empty working-hours check (no window/location; `deep` not allowed) | never asserted `true` |
 
-**Resource-only is a valid mode, but shallow.** It exists for contexts where there is no service — e.g. the **staff editor**, diagnosing a staff member on their own. With no service there's no configuration to run the L2 check, so it only verifies that a working-hours *schedule ID exists* — it detects a **missing** schedule but **not an empty one** (a schedule with no hours), and it can't resolve locations. A staff member whose schedule is empty (genuinely zero availability) therefore comes back **inconclusive** on the resource-only path, but is correctly caught as `NO_RESOURCE_AVAILABILITY_WINDOWS` when a service is supplied.
+**Resource-only is a valid mode, but lighter.** It exists for contexts where there is no service — e.g. the **staff editor**, diagnosing a staff member on their own. It catches a **missing or empty** working-hours schedule (`RESOURCE_HAS_NO_WORKING_HOURS`), but with no service configuration it can't run the availability-window or location checks, can't resolve locations, and can't use `deep`. So problems that only surface against a service — no windows despite having hours, a location mismatch, duration/buffer — are caught only when a `serviceId` is supplied.
 
 - Owner reports a **service** has no availability → pass `serviceId`.
 - Concern is a **specific provider**, and you have (or can find) a service → pass `serviceId` + `resourceId` (use a service they're assigned to) for the fullest diagnosis.
-- **Only a `resourceId` is available** (e.g. from the staff editor, with no service in context) → use resource-only, but treat an inconclusive result with care: it can't see an empty schedule or location issues. When you can, re-run with a service the resource is assigned to.
+- **Only a `resourceId` is available** (e.g. from the staff editor, with no service in context) → use resource-only; it flags missing/empty working hours, but treat an inconclusive result with care — it can't check windows, locations, or run `deep`. When you can, re-run with a service the resource is assigned to.
 
 ### Request
 
@@ -78,12 +78,12 @@ curl -X POST 'https://www.wixapis.com/_api/service-availability/v2/time-slots/di
 | Field | Notes |
 |-------|-------|
 | `serviceId` | Service to diagnose. Provide this or `resourceId`. |
-| `resourceId` | Staff member / resource to diagnose. Pair it with `serviceId` (see [Which inputs to pass](#which-inputs-to-pass-prefer-a-service)). Resource-only (no `serviceId`) runs shallow checks and can miss real problems. |
+| `resourceId` | Staff member / resource to diagnose. Pair it with `serviceId` (see [Which inputs to pass](#which-inputs-to-pass-prefer-a-service)). Resource-only (no `serviceId`) runs a lighter check — missing/empty working hours only, no window/location/`deep` — and can miss service-dependent problems. |
 | `fromLocalDate` | `YYYY-MM-DDThh:mm:ss` (ISO-8601). Optional; defaults to now. |
 | `toLocalDate` | Optional; defaults to `fromLocalDate` + 90 days. |
 | `timeZone` | IANA tz (e.g. `America/New_York`). Defaults to the site's time zone. |
 | `locations` | Locations to diagnose. Empty ⇒ all locations the service offers. |
-| `deep` | **Leave `false`.** `true` currently returns `DIAGNOSTIC_DEPTH_NOT_SUPPORTED`. |
+| `deep` | Optional (default `false`). Set `true` **with a `serviceId`** to refine a "no availability windows" result into *why* — outside working hours vs. blocked/busy time. Extra sampling call; only acts when no windows exist; rejected on the resource-only path (`MISSING_ARGUMENTS`). See [Deep mode](#deep-mode). |
 
 ### Response
 
@@ -125,19 +125,26 @@ curl -X POST 'https://www.wixapis.com/_api/service-availability/v2/time-slots/di
 | `BUFFER_TIME_ELIMINATES_WINDOWS` | `REDUCE_DURATION_OR_BUFFER` | Buffer time consumes all otherwise-free windows. Reduce the buffer or lengthen working hours. |
 | `SERVICE_AVAILABILITY_CONFIGURATION_MISSING` | — | The service's availability configuration is missing. |
 | `RESOURCE_TYPE_RESOLUTION_FAILED` | — | The service's resource types couldn't be resolved. |
-| `RESOURCE_NOT_IN_WORKING_HOURS` | `CHECK_STAFF_WORKING_HOURS` | Resource not within working hours in range. **`deep`-only — not yet supported.** |
-| `RESOURCE_BLOCKED` | `CHECK_BLOCKED_TIME` | Resource blocked by events / external calendars. **`deep`-only — not yet supported.** |
+| `RESOURCE_NOT_IN_WORKING_HOURS` | `CHECK_STAFF_WORKING_HOURS` | The resource works, but not during the empty range — it's outside their working hours. **Reported only with `deep: true`.** Fix: adjust/extend working hours. |
+| `RESOURCE_BLOCKED` | `CHECK_BLOCKED_TIME` | The resource is within working hours but blocked by existing bookings, calendar events, or an external calendar. **Reported only with `deep: true`.** Fix: free up the blocked time. |
 
 ### Endpoint errors
 
 | HTTP | `application_code` | Cause |
 |------|-------------------|-------|
-| 400 | `MISSING_ARGUMENTS` | Neither `serviceId` nor `resourceId` provided. |
+| 400 | `MISSING_ARGUMENTS` | Neither `serviceId` nor `resourceId` provided; or `deep: true` sent without a `serviceId`. |
 | 400 | `INVALID_TIME_ZONE` | `timeZone` isn't a valid IANA zone. |
-| 412 | `DIAGNOSTIC_DEPTH_NOT_SUPPORTED` | `deep: true` (not supported yet). |
 | 404 | `SERVICE_NOT_FOUND` / `RESOURCE_NOT_FOUND` | Service / staff record missing. |
 | 404 | `NO_IMPLEMENTERS_FOUND` / `MULTIPLE_IMPLEMENTERS_FOUND` | No / multiple availability providers configured. |
 | 403 | `UNAUTHORIZED_OPERATION` | Caller lacks `bookings:availability:v2:time_slot:diagnose_availability`. |
+
+### Deep mode
+
+`deep: true` (with a `serviceId`) refines a **no-availability-windows** result — it tells you *why* there are no windows: the staff are **outside their working hours** for that range (`RESOURCE_NOT_IN_WORKING_HOURS`) vs. within hours but **blocked/busy** (`RESOURCE_BLOCKED`, e.g. existing bookings or an external calendar).
+
+- **When to use:** the standard call returns `NO_RESOURCE_AVAILABILITY_WINDOWS` and you want to tell the owner whether to *add hours* or *free up blocked time*.
+- **How it works:** it samples a handful of slots across the range and makes one availability check, then attributes the cause. It runs **only when no windows exist** — it does nothing when availability is already present.
+- **Constraints:** requires a `serviceId` (resource-only + `deep` → `MISSING_ARGUMENTS`); it's a best-effort refinement and silently falls back to the generic `NO_RESOURCE_AVAILABILITY_WINDOWS` cause if the sampling is inconclusive.
 
 ---
 
@@ -173,6 +180,8 @@ The diagnosis is part of a conversation with a site owner. Reply in plain, frien
 | Provider has no working hours | "The staff for this service don't have any working hours set, so there are no times to offer. Let's set their hours." |
 | Provider works only at other locations | "Your staff have working hours, but not at the location(s) this service is offered at. We can either add hours at one of the service's locations, or offer the service where they already work." |
 | No working-hours windows in range | "None of the staff for this service have working hours in the dates you're checking. Let's add or extend their hours — or try a different date range." |
+| Outside working hours (deep) | "For those dates, your staff simply aren't scheduled to work, so there's nothing to offer. Let's add working hours in that period." |
+| Within hours but blocked/busy (deep) | "Your staff are scheduled to work then, but that time is already taken up — by existing bookings or events on their calendar. Freeing some of it up will open slots." |
 | Service too long / buffer too large | "The service is longer than any open gap in your staff's schedule (the duration plus buffer doesn't fit). Shortening it a bit, or widening working hours, would open up slots." |
 | Requested location not offered | "This service isn't offered at the location you picked. Want me to add that location to the service, or check a different one?" |
 | Slots exist but aren't bookable (Step 2) | "There are times available, but customers can't book them right now — [e.g. they're fully booked / it's too early or late to book per your policy]. Here's how to adjust that." |
@@ -196,6 +205,8 @@ Popular reasons a service shows no availability, and where each surfaces:
 | Provider has no working hours | `RESOURCE_HAS_NO_WORKING_HOURS` | Configure working hours. |
 | Provider works only at other locations | `RESOURCE_NOT_AVAILABLE_AT_SERVICE_LOCATION` | Align staff work locations with the service's offered locations. |
 | No working-hours windows in range | `NO_RESOURCE_AVAILABILITY_WINDOWS` | Add working hours / widen the range. |
+| No windows — outside working hours (deep) | `RESOURCE_NOT_IN_WORKING_HOURS` (`deep: true`) | Add or extend working hours in the range. |
+| No windows — within hours but blocked/busy (deep) | `RESOURCE_BLOCKED` (`deep: true`) | Free up blocked time / check the external calendar. |
 | Service too long / buffer too large for the windows | `DURATION_TOO_LONG_FOR_AVAILABLE_WINDOWS`, `BUFFER_TIME_ELIMINATES_WINDOWS` | Shorten duration/buffer or lengthen hours. |
 | Requested location not offered | `REQUESTED_LOCATION_NOT_OFFERED_BY_SERVICE` | Fix the location filter or the service's locations. |
 | Slots exist but aren't bookable (fully booked, too early/late, online booking off) | Step 2 — `ListAvailabilityTimeSlots` `nonBookableReasons` / `bookingPolicyViolations` | Adjust capacity or booking policy. |
@@ -206,9 +217,9 @@ Popular reasons a service shows no availability, and where each surfaces:
 
 - **`hasAvailability: false` + empty `reasons` ≠ a confirmed problem.** It means "no blocking cause detected." Always confirm with `ListAvailabilityTimeSlots`.
 - **The endpoint is ALPHA and feature-toggled.** If it returns nothing for an obviously broken service, the `diagnoseAvailabilityEndpoint` toggle may be off — fall back to Step 2.
-- **`deep: true` is unsupported** and returns `DIAGNOSTIC_DEPTH_NOT_SUPPORTED`.
+- **`deep: true` needs a `serviceId`** (resource-only + `deep` → `MISSING_ARGUMENTS`) and only refines a "no windows" result — it does nothing when windows already exist.
 - **The endpoint ignores booking policy and capacity** — those are Step 2.
-- **Resource-only diagnosis is shallow.** Passing `resourceId` without `serviceId` runs setup checks only (no availability-window or location check) and can return "inconclusive" even when the resource has zero availability. It's a valid mode when there's no service context (e.g. the staff editor); otherwise pair the resource with a service.
+- **Resource-only diagnosis is lighter.** Passing `resourceId` without `serviceId` catches missing/empty working hours but skips the window, location, and deep checks, so it can return "inconclusive" for service-dependent problems. Valid when there's no service context (e.g. the staff editor); otherwise pair the resource with a service.
 - **Appointment-based services only.**
 
 ## API Documentation References
