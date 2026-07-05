@@ -36,8 +36,6 @@ CI=1 npm create @wix/new@latest -- headless \
   --no-publish
 ```
 
-- The `CI=1` prefix (use it on every Wix CLI command in this flow) switches the CLI's interactive
-  spinner UI to plain line output — without it, captured non-TTY output fills with ANSI redraw frames.
 - The `--` separator is required. Bare `--site-template` (no value) keeps it on the **blank** starter —
   the model owns design, so don't adopt a business template; a value, or omitting the flag, would
   prompt and abort in a non-interactive shell.

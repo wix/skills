@@ -54,7 +54,7 @@ The script emits one JSON object per line:
 
 ## Phase 2 — Install the skill and hand off
 
-Install the Wix Headless skills (the `CI=1` prefix — here and on every Wix CLI command in this skill — switches the CLI's interactive spinner UI to plain line output; without it, captured non-TTY output fills with ANSI redraw frames):
+Install the Wix Headless skills:
 
 ```bash
 CI=1 wix skills add
