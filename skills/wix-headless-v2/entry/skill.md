@@ -54,7 +54,7 @@ The script emits one JSON object per line:
 
 ## Phase 2 — Install the skill and hand off
 
-Install the Wix Headless skills:
+Install the Wix Headless skills (`CI=1` forces plain non-interactive CLI output — keep it on every Wix CLI command):
 
 ```bash
 CI=1 wix skills add
