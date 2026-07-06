@@ -1,4 +1,4 @@
-name: marketing-plan/generate-and-publish-marketing-plan
+name: marketing/generate-and-publish-marketing-plan
 description: >-
   Action scenario for the "Generate a Marketing Plan and Schedule Its Posts" skill:
   the user asks to set up the plan for a French-speaking Paris audience and to boost
@@ -16,7 +16,7 @@ siteSetup:
 assertions:
   - tool: ReadFullDocsArticle
     params:
-      articleUrl: https://dev.wix.com/docs/api-reference/business-management/marketing/marketing-plan/skills/generate-a-marketing-plan-and-schedule-its-posts
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/marketing/skills/generate-a-marketing-plan-and-schedule-its-posts
   - type: llm_judge
     minScore: 7
     maxTokens: 2048

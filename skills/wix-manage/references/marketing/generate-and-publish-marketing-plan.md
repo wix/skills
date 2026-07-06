@@ -10,7 +10,7 @@ Base URL for all endpoints: `https://www.wixapis.com/promote/marketing-plan-serv
 
 **Prerequisites:**
 - The site must be **published** — generation draws on the published site. This isn't validated at call time; an unpublished site yields a `FAILED` plan or an `ACTIVE` plan with no posts. Verify before generating.
-- For posts to be **scheduled/published**, the target channels must be connected through the Publisher (see the [Create and Publish a Social Media Post](https://dev.wix.com/docs/api-reference/business-management/marketing/social-media/skills) recipe for the connect flow). Drafts for unconnected channels silently stay as drafts (STEP 4).
+- For posts to be **scheduled/published**, the target channels must be connected through the Publisher (see the [Create and Publish a Social Media Post](https://dev.wix.com/docs/api-reference/business-management/marketing/skills) recipe for the connect flow). Drafts for unconnected channels silently stay as drafts (STEP 4).
 
 ---
 
@@ -151,7 +151,7 @@ Collect the `id` of every `item` whose `status` is `DRAFT` from the activities y
 
 **Check the response — scheduling can partially and silently succeed:**
 - Only `DRAFT` items are scheduled; non-draft IDs are silently ignored.
-- **Only drafts for Publisher-connected channels are scheduled; drafts for unconnected channels are silently skipped and stay `DRAFT` — with no error.** A `200` does not mean everything was scheduled. **Diff the returned `items` against the `draftIds` you sent:** any id not returned as `SCHEDULED` is still a draft. Tell the user which channels those drafts belong to and that the channel needs connecting — connect it via the [Create and Publish a Social Media Post](https://dev.wix.com/docs/api-reference/business-management/marketing/social-media/skills) recipe's connect flow, then reschedule those ids.
+- **Only drafts for Publisher-connected channels are scheduled; drafts for unconnected channels are silently skipped and stay `DRAFT` — with no error.** A `200` does not mean everything was scheduled. **Diff the returned `items` against the `draftIds` you sent:** any id not returned as `SCHEDULED` is still a draft. Tell the user which channels those drafts belong to and that the channel needs connecting — connect it via the [Create and Publish a Social Media Post](https://dev.wix.com/docs/api-reference/business-management/marketing/skills) recipe's connect flow, then reschedule those ids.
 - Requires the site's plan to include the schedule-posts premium feature; otherwise the call returns `FAILED_PRECONDITION` (advise upgrading the social media marketing plan).
 
 The scheduled posts are managed by the Publisher and appear on the site's Social Media Marketing page.
