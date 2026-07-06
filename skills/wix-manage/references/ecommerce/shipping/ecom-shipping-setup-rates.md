@@ -4,6 +4,8 @@ description: Configures shipping option rates — rate types (flat, tiered, free
 ---
 # Shipping Rates
 
+> **Before creating or updating rates**, read [Shipping API Reference](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping-api-reference). Shipping Options endpoints are documented only in that inline reference, not as public method pages in `SearchWixAPISpec`; do not search the public docs/spec index for Shipping Options URLs before calling them.
+
 ## AOV Sanity Check
 
 **MANDATORY before any threshold calculation that references AOV.** Raw AOV can be misleading due to data issues or bulk purchases.
