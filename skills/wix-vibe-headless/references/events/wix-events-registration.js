@@ -4,19 +4,20 @@ import { wixApiRequest } from "./wix-client.js";
 // Event shape (for getEventBySlug): see wix-events-browse.js
 
 /**
- * Wix Events Ticket Definition V3 — a ticket type for a ticketed event.
- * Full model: https://dev.wix.com/docs/api-reference/business-solutions/events/event-management/ticket-definitions-v3/ticket-definition-object.md
+ * Wix Events Ticket Definition — a ticket type returned by the checkout/available-tickets endpoint.
+ * Full model: https://dev.wix.com/docs/api-reference/business-solutions/events/registration/ticketing/orders/list-available-tickets
  *
  *   id {string}, eventId {string}, name {string}, description {string},
- *   hidden {boolean} — exclude hidden tickets,
- *   pricingMethod ONE-OF:
- *     fixedPrice { value, currency } — same price for everyone,
- *     guestPrice { value, currency } — "pay what you want"; pass chosen amount as ticketInfo.guestPrice,
- *     pricingOptions.optionDetails [{ optionId, name, price }] — pass chosen optionId as ticketInfo.pricingOptionId,
- *     free {boolean},
+ *   free {boolean} — true when the ticket is free,
+ *   price { amount, currency } — the display price (use pricing.* for full detail),
+ *   pricing ONE-OF:
+ *     fixedPrice { amount, currency } — same price for everyone,
+ *     minPrice { amount, currency } — minimum for "pay what you want" (donation); pass chosen amount as ticketInfo.guestPrice,
+ *     pricingOptions.options [{ id, name, price { amount, currency } }] — tiered; pass chosen option id as ticketInfo.pricingOptionId,
+ *   pricingType {string} — "STANDARD" | "DONATION" | "OPTIONS",
  *   saleStatus {string} — "SALE_STARTED" is the only buyable state,
- *   salesDetails { unsoldCount, soldOut } (SALES_DETAILS fieldset),
- *   limitPerCheckout {number}
+ *   limitPerCheckout {number},
+ *   orderIndex {number} — display order
  *
  * RSVP: { id, eventId, status ("YES"|"NO"|"WAITLIST"), totalGuests, firstName, lastName, email }
  *   status "WAITLIST" when the event is full and waitlist is enabled.
@@ -72,21 +73,26 @@ export async function createRsvp(eventId, { firstName, lastName, email, status =
 
 /**
  * Query the buyable ticket definitions for a ticketed event (with availability).
- * Filters out hidden tickets. Pass includeSoldOut: false to also drop sold-out ones.
- * https://dev.wix.com/docs/api-reference/business-solutions/events/event-management/ticket-definitions-v3/query-ticket-definitions.md
+ *
+ * Uses GET /events/v1/checkout/available-tickets (WIX_EVENTS.READ_CHECKOUT) — the visitor-facing
+ * checkout endpoint. The V3 /ticket-definitions/query endpoint requires WIX_EVENTS.READ_TICKET_DEFINITIONS
+ * (scope SCOPE.DC-EVENTS.MANAGE-TICKET-DEF), an admin-only scope that anonymous visitor tokens do
+ * not carry, so it 403s in a headless SPA context.
+ *
+ * This endpoint already filters to non-hidden, SALE_STARTED tickets, so the result is ready to
+ * render directly. Pass includeSoldOut: false to additionally drop sold-out tiers.
+ *
+ * https://dev.wix.com/docs/api-reference/business-solutions/events/registration/ticketing/orders/list-available-tickets
  * @param {string} eventId
  * @param {{ includeSoldOut?: boolean }} [options]
  * @returns {Promise<object[]>}
  */
 export async function queryTicketDefinitions(eventId, { includeSoldOut = true } = {}) {
-  const res = await wixApiRequest("/events/v3/ticket-definitions/query", {
-    method: "POST",
-    body: {
-      query: { filter: { eventId, hidden: false } },
-      fields: ["SALES_DETAILS"],
-    },
+  const res = await wixApiRequest("/events/v1/checkout/available-tickets", {
+    method: "GET",
+    query: { eventId, limit: "100" },
   });
-  let defs = res?.ticketDefinitions ?? [];
+  let defs = res?.definitions ?? [];
   if (!includeSoldOut) defs = defs.filter((d) => !d.salesDetails?.soldOut);
   return defs;
 }
