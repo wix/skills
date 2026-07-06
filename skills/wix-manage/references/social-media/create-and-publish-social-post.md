@@ -120,7 +120,7 @@ Then route:
 - **Has their own text** → skip generation; use it as the content object in STEP 5 (still surface any media per STEP 6).
 - **Generated** → **default to `generate-post-data` (3a)** — it returns a full post, caption **and** image. Pass the idea as `userInput` and/or the chosen asset as `siteAssets`. Use `generate-text` (3b, caption/title only, no image) *only* when the user wants just a caption; use 3c only when 3a doesn't fit (YouTube, story/reel/video).
 
-**Get the subject before generating.** You need, in the user's own words, *what the post is about* — a one-line idea or which specific asset — before calling the API. Never invent the topic or generate a generic post from your own assumption; if the user hasn't supplied it yet, ask and wait.
+**Get the subject before generating.** You need, in the user's own words, *what the post is about* — a one-line idea or which specific asset — before calling the API. Never invent the topic or generate a generic post from your own assumption; if the user hasn't supplied it yet, ask and wait. A reply that answers only part of your question (e.g. "1" or "personal" when you also asked for the topic) does **not** supply the subject — ask again and wait.
 
 **Never hand-write the caption or title.** Producing the post means calling the API (3a/3b) and presenting *its* output — don't compose captions in-model and skip the call. The only time you skip it is when the user pasted their own text.
 
@@ -184,7 +184,7 @@ Provide `userInput`, `siteAssets`, or both.
 }
 ```
 
-Use the payload for your chosen channel as the content object in STEP 5. Note that when you pass no `media` of your own, `generate-post-data` returns an AI-generated image in `mediaWrapper.media[]` — review the **whole** payload with the user and surface that media, not just the caption (see STEP 6).
+Use the payload for your chosen channel as the content object in STEP 5. Note that when you pass no `media` of your own, `generate-post-data` returns an AI-generated image in `mediaWrapper.media[]` — review the **whole** payload with the user and surface that media, not just the caption (see STEP 6). The generated image's URL may live on a temporary external host rather than `static.wixstatic.com` — treat it like any external image: import it to the Media Manager first (see **Media handling** in STEP 4) and use the imported URL in the post.
 
 ### 3b. Generate only a caption or title
 
