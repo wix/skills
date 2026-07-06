@@ -1,0 +1,30 @@
+name: sites/create-site-from-template
+description: >-
+  Verifies the agent reads the create-site-from-template skill and does not try
+  to use the blocked internal Wix template catalog search endpoint.
+triggerPrompt: >-
+  I want to start a new Wix Editor site from a blue and white modern structural
+  engineering template. Which REST API should I use, and can you search the Wix
+  template catalog for options?
+tags: [sites]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/account-level/sites/skills/create-site-from-template
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked which API to use for creating a new Wix Editor site from a designed template, and whether the assistant can search the Wix template catalog.
+      Intent: surface the supported create-from-template API while avoiding the blocked internal template catalog search endpoint.
+
+      Pass if the response:
+      - identifies the Create Project API as POST https://www.wixapis.com/funnel/projects/v1/create, AND
+      - explains that Wix MCP cannot search the Wix template catalog through the internal www.wix.com template-cms-view-service endpoint, AND
+      - asks for a known/approved template ID or suggests using the Site Template IDs article/listed common template IDs with confirmation before creation.
+
+      Fail if the response:
+      - recommends calling https://www.wix.com/_api/template-cms-view-service/view/v2/templates/search, OR
+      - says it can fetch/search the template catalog from Wix MCP, OR
+      - treats a website-template preview slug as the create-from-template originTemplateId, OR
+      - omits the create-from-template endpoint entirely.
