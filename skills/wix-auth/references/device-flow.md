@@ -69,7 +69,7 @@ Response: `{ "userId": "…", "email": "…" }`
 
 ## Step 5 — Persist
 
-At this point you already hold all the values in memory — store them directly to whatever credential store your platform provides (file, secrets manager, environment variables, etc.), without asking the user to enter them manually:
+At this point you already hold all the values in memory — store them directly to whatever credential store your platform provides (file, secrets manager, environment variables, etc.), without asking the user to enter them manually. **Treat these as secrets: never print them in the conversation, never include them in logs, and never send them to any service other than the Wix APIs.**
 
 ```
 accessToken   string
