@@ -1,74 +1,27 @@
 import { wixApiRequest } from "./wix-client.js";
 
 /**
- * Wix CMS (Wix Data) — thin REST helpers for reading and writing data items in a
- * site's data collections. The direct analog of `wix-store.js`, but for the generic
- * content layer instead of a product catalog.
+ * Wix CMS (Wix Data) — REST helpers for reading and writing data items in site data collections.
  *
- * ─────────────────────────────────────────────────────────────────────────────
- * COLLECTIONS & PERMISSIONS — read this first.
- *
- * A collection (e.g. "Tutorials", "TeamMembers", "ContactForm") is identified by its
- * `dataCollectionId` — the collection name the site owner set in the dashboard, NOT a
- * GUID. You pass it to every call. Field keys (e.g. "title", "publishDate") are also
- * set in the dashboard; read them off the items you fetch, or from the collection
- * schema (see "Beyond the snippets" in SKILL.md).
- *
- * Every collection has per-role PERMISSIONS for Read / Insert / Update / Delete. This
- * skill runs as an ANONYMOUS VISITOR, so a call only succeeds if the collection grants
- * that action to "Anyone":
- *   - Listing/reading public content  → Read must be "Anyone".
- *   - A public form (contact, RSVP)    → Insert must be "Anyone".
- *   - Update/Delete by a visitor       → rarely granted to "Anyone"; usually admin- or
- *                                         author-only. Expect these to fail unless the
- *                                         collection is explicitly opened up.
- * A permission-denied call throws (HTTP 403) — that's by design, not a bug. The site
- * owner sets permissions in the Wix dashboard (CMS → collection → Permissions). See:
+ * COLLECTIONS & PERMISSIONS: A collection (e.g. "Tutorials") is identified by its
+ * dataCollectionId — the name set in the dashboard, NOT a GUID. Field keys are also set
+ * in the dashboard. This skill runs as an ANONYMOUS VISITOR — a call only succeeds if the
+ * collection grants that action to "Anyone" (Read for listing, Insert for forms, etc.).
+ * Permission-denied throws HTTP 403 by design. Set permissions in Wix dashboard → CMS → Permissions.
  * https://dev.wix.com/docs/api-reference/business-solutions/cms/collection-management/data-permissions/data-permissions-object.md
- * ─────────────────────────────────────────────────────────────────────────────
- */
-
-/**
- * Wix Data Item — the shape returned by every read helper here.
+ *
+ * Data Item — every read helper returns the item's `data` payload:
+ *   _id {string} — GUID (route key, itemId for get/update/remove),
+ *   _createdDate, _updatedDate {string} — ISO 8601 (use { "$date": "..." } in filters),
+ *   _ownerId {string}, ...fields — collection field values keyed by field key
  * Full reference: https://dev.wix.com/docs/api-reference/business-solutions/cms/data-items/data-item-object.md
  *
- * Helpers in this file return the item's `data` payload directly (the object below),
- * which is the flat bag of field values PLUS these read-only system fields:
- *
- *   _id           {string}  Item GUID. Use it as the route key for detail pages and as
- *                           the `itemId` for getDataItem / updateDataItem / removeDataItem.
- *   _createdDate  {string}  ISO 8601 — when the item was added. Serialized as { $date: "..." }
- *                           in filters; returned as an ISO string in the payload.
- *   _updatedDate  {string}  ISO 8601 — when the item was last modified.
- *   _ownerId      {string}  GUID of the user who created the item.
- *   ...fields                Every collection field, keyed by its field key, e.g.
- *                           { title: "Hello", body: "...", publishDate: "2026-01-02T..." }.
- *
- * Field VALUE TYPES follow the collection's field types (text, number, boolean, date,
- * URL, image/media, reference, multi-reference, array, object). Image fields hold a Wix
- * media URL (e.g. "wix:image://..."); render via the Wix media URL or the field's
- * resolved URL. Reference fields hold the referenced item's `_id`; pass `includeReferences`
- * to queryDataItems to inline the full referenced item instead of just its id.
- * Data types: https://dev.wix.com/docs/api-reference/business-solutions/cms/data-types-in-wix-data.md
- */
-
-/**
- * FILTERS & SORT (Wix API Query Language) — used by queryDataItems / getDataItemBy / countDataItems.
+ * FILTERS & SORT (Wix API Query Language):
+ *   filter: { field: value } for equality; { field: { $op: value } } for operators:
+ *     $eq $ne $gt $gte $lt $lte $in $nin $startsWith $exists $isEmpty $hasSome $hasAll
+ *   Combine with $and / $or / $not. Dates: { "$date": "2026-05-05T00:00:00.000Z" }.
+ *   sort: [{ fieldName: "publishDate", order: "DESC" }]
  * Full reference: https://dev.wix.com/docs/api-reference/articles/work-with-wix-apis/data-retrieval/about-the-wix-api-query-language.md
- *
- *   filter  {object}  Equality is `{ field: value }`. Operators are
- *                     `{ field: { $op: value } }`. Supported $ops:
- *                       $eq $ne $gt $gte $lt $lte    — comparison
- *                       $in $nin                      — value in / not in an array
- *                       $startsWith                   — string prefix (not case-sensitive)
- *                       $exists                       — field is present & non-null (true/false)
- *                       $isEmpty                      — string/array empty (true/false)
- *                       $hasSome $hasAll              — array contains some / all of the values
- *                     Combine clauses with $and / $or / $not (arrays of filter objects).
- *                     Dates must be `{ "$date": "2026-05-05T00:00:00.000Z" }`.
- *                     Example: { category: "guides", views: { $gte: 100 } }
- *   sort    {Array}   [{ fieldName: "publishDate", order: "DESC" }, ...]. order is
- *                     "ASC" | "DESC" (default ASC). Earlier entries take precedence.
  */
 
 /**
