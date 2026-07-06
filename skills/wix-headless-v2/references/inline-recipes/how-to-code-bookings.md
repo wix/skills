@@ -249,6 +249,16 @@ if (checkoutRequired) {
 - **Image**: `service.media.mainMedia.image.url` (already an absolute URL in V2 reads). An already-`https://` URL goes straight into `<img src>`.
 - **Mount slots + form + book in a `client:only="react"` island** (Astro) — availability is timezone/session-specific. SSR only the read pages (catalog/detail) for SEO.
 
+### SEO on item pages (Astro, Wix-managed)
+
+A **service detail** page is a Wix **item page**: its `<title>`/description/OG/canonical come from what the owner sets in the dashboard. On the Astro (Wix-managed) frontend, wire it per the canonical guide — **[Add SEO Support to Item Pages](https://dev.wix.com/docs/go-headless/wix-managed-headless/seo/add-seo-support-to-item-pages.md)** — which covers the three steps: export `wixMetadata` (registers the route → sitemap + dashboard SEO editor), call `loadSEOTagsServiceConfig(...)`, and render `<SEO.Tags>` (from `@wix/seo`; deps + `@wix/essentials ≥ 1.0.10` are in the guide's "Before you begin").
+
+For a service page use:
+- **`wixMetadata`** from `WIX_APPS.bookings.servicePageMetadata` — referenced **directly** in the export (module scope). Route param `slug` → `identifiers.slug`.
+- **`itemType`**: `seoTags.ItemType.BOOKINGS_SERVICE`.
+
+Run `loadSEOTagsServiceConfig` in the same `Promise.all` as the service read, with `.catch(() => null)`, so a SEO hiccup falls back to the layout's default title instead of failing the page. Optional: render a `Service` schema.org JSON-LD `<script>` from the fetched service (see the guide's structured-data step).
+
 ### Out of scope
 Waitlist, on-site manage/cancel, payment/deposit breakdown, multi-service packages, and COURSE bookings. Waitlist and manage/cancel have **no headless source of truth** — don't invent them on the anonymous-token layer; post-booking self-service is the Wix-hosted flow / member area.
 

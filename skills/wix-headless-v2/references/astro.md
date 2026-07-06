@@ -69,7 +69,17 @@ Prefer the documented `wix …` / `npm run dev\|build\|release` forms (the scaff
 
 This is for *custom* vars only. Because there's no client on managed-Astro, app code doesn't read `WIX_CLIENT_ID` at all (that's the v1 `import.meta.env.WIX_CLIENT_ID` pattern — drop it; it was the manual-client path).
 
-## 6 — Caveats (the gaps the docs don't mention)
+## 6 — SEO: let owners manage tags on item pages
+
+Main pages (home, listings, about) get their SEO tags **automatically** on managed-Astro — nothing to write. **Item pages** — any parameterized detail route (`/blog/[...slug]`, a product / service / event detail, an optional category/collection route) — do **not**: they need code so the tags a site owner edits in the dashboard reach the live `<head>`. Wire this on **every managed site that renders item/detail routes** — it's what lets owners control each item's `<title>`/description/OG/canonical without touching code, and it registers the route for the sitemap + dashboard SEO editor. Skipping it leaves detail pages with a generic fallback title the owner can't fix.
+
+| Page | What it settles |
+|---|---|
+| <https://dev.wix.com/docs/go-headless/wix-managed-headless/seo/add-seo-support-to-item-pages.md> | **The item-page SEO contract.** The three steps every detail route needs — export `wixMetadata` (route registration), call `loadSEOTagsServiceConfig(...)`, render `<SEO.Tags>` — plus the deps (`@wix/seo` + `@wix/essentials ≥ 1.0.10`), the `WIX_APPS` sourcing rule (reference it directly in the export), per-page-type values, and how to verify. Read it before writing any `[slug]` / `[...slug]` detail page. |
+
+The **per-vertical values** — which `WIX_APPS.*PageMetadata` accessor + `seoTags.ItemType.*` to pass — live in each capability's `inline-recipes/how-to-code-*.md` (blog, store, bookings, events each name theirs).
+
+## 7 — Caveats (the gaps the docs don't mention)
 
 The heart of the file: tribal knowledge the docs won't surface. These are **guidance the model must follow when it writes the frontend** — not things this skill writes for it.
 

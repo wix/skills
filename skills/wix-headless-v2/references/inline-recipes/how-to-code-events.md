@@ -171,6 +171,16 @@ Doc: <https://dev.wix.com/docs/api-reference/business-solutions/events/registrat
 - **Price**: `tier.price.value` (string) + `tier.price.currency` (the event's stored currency — format from it, don't assume USD).
 - **Mount the ticket picker / RSVP form in a `client:only="react"` island** (Astro) — they run visitor-session SDK calls and redirect. **SSR only the read pages** (listing/detail) for SEO.
 
+### SEO on item pages (Astro, Wix-managed)
+
+An **event detail** page is a Wix **item page**: its `<title>`/description/OG/canonical come from what the owner sets in the dashboard. On the Astro (Wix-managed) frontend, wire it per the canonical guide — **[Add SEO Support to Item Pages](https://dev.wix.com/docs/go-headless/wix-managed-headless/seo/add-seo-support-to-item-pages.md)** — which covers the three steps: export `wixMetadata` (registers the route → sitemap + dashboard SEO editor), call `loadSEOTagsServiceConfig(...)`, and render `<SEO.Tags>` (from `@wix/seo`; deps + `@wix/essentials ≥ 1.0.10` are in the guide's "Before you begin").
+
+For an event page use:
+- **`wixMetadata`** from `WIX_APPS.events.eventPageMetadata` — referenced **directly** in the export (module scope). Route param `slug` → `identifiers.slug`.
+- **`itemType`**: `seoTags.ItemType.EVENTS_PAGE`.
+
+Fold `loadSEOTagsServiceConfig` into the same `Promise.all` as the ambient `getEventBySlug` read, with `.catch(() => null)` (it needs only the slug — still a visitor-safe ambient call), so a SEO hiccup falls back to the layout's default title. Optional: render an `Event` schema.org JSON-LD `<script>` from the fetched event (see the guide's structured-data step).
+
 ### Out of scope
 Assigned seating / seat maps (display + reserve flat ticket definitions only); coupons & gift cards at checkout (Wix's hosted checkout handles those — don't build a discount UI); on-site order management / cancel / refund (handled by the hosted flow + the buyer's email); manual `orders.checkout` inline payment (use the hosted redirect).
 
