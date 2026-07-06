@@ -43,7 +43,7 @@ URL:  {verificationUri}?color=developer&studio=true
 Code: {userCode}
 ```
 
-The user opens the URL in a browser, logs in, and enters the code.
+Make sure the user has copied or noted the code **before** opening the link — they'll need to enter it on the page. Present the URL as a clickable link that opens in a new tab if your interface supports it.
 
 ## Step 3 — Poll for the token
 
