@@ -93,7 +93,7 @@ If the site already has a plan and you want to refresh it, call `POST .../market
 
 Poll this endpoint until `status` is `ACTIVE` (ready) or `FAILED`. Poll about every **5 seconds**, and stop after ~15 minutes as a safety timeout.
 
-**API Endpoint:** `GET https://www.wixapis.com/promote/marketing-plan-service/v1/marketing-plan?timeframe.startDate=2026-07-01T00:00:00.000Z&timeframe.endDate=2026-08-31T23:59:59.999Z`
+**API Endpoint:** `GET https://www.wixapis.com/promote/marketing-plan-service/v1/marketing-plan?timeframe.startDate=2026-07-01T00:00:00.000Z&timeframe.endDate=2026-08-31T23:59:59.999Z` (example dates — compute the timeframe from today's date through the end of next month)
 
 `timeframe` is optional; omit it to return all activities from today onward.
 
@@ -133,7 +133,7 @@ Posts are generated automatically only for the **near-term** activities (how far
 
 ## STEP 4: Schedule the draft posts
 
-Collect the `id` of every `item` whose `status` is `DRAFT` from the activities you want to publish. **Before scheduling, show the user what will be published** — each draft's caption and media (render the image inline if the surface supports it, otherwise post its URL as a clickable link) — and get their approval. The drafts are AI-generated and scheduling publishes them, so never schedule content the user hasn't reviewed.
+Collect the `id` of every `item` whose `status` is `DRAFT` from the activities you want to publish. **Before scheduling, show the user what will be published** — each draft's caption and media (render the image inline if the surface supports it, otherwise post its URL as a clickable link) — and get their approval. The drafts are AI-generated and scheduling publishes them, so never schedule content the user hasn't reviewed. Skip `TWITTER` drafts whose activity date falls after **July 31, 2026** — X is sunset then, and a post scheduled past the cutoff will never publish.
 
 **API Endpoint:** `POST https://www.wixapis.com/promote/marketing-plan-service/v1/marketing-plan/schedule-drafts`
 
