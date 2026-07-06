@@ -91,7 +91,7 @@ This avoids the server-filter fragility and one extra round-trip; portfolios are
 
 ### Project detail page (resolve by slug, then its media)
 
-Detail routes resolve a **`slug`** from the URL (v2 is SSR — resolve at request time, no `getStaticPaths`). Resolve the project **client-side from the list** (reliable), then optionally load its media items:
+Detail routes resolve a **`slug`** from the URL (the site is SSR — resolve at request time, no `getStaticPaths`). Resolve the project **client-side from the list** (reliable), then optionally load its media items:
 
 ```ts
 const project = projs.find(p => p.slug === params.slug);        // from listProjects()

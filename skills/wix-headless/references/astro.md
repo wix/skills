@@ -67,7 +67,7 @@ Prefer the documented `wix …` / `npm run dev\|build\|release` forms (the scaff
 | <https://dev.wix.com/docs/go-headless/wix-managed-headless/project-development/environment-variables/manage-environment-variables.md> | **The documented mechanism.** Declare each var in the `envField` schema in `astro.config.mjs` (`context: client\|server`, `access: public\|secret`); import from **`astro:env/client`** / **`astro:env/server`**; set with **`wix env set --key=… --value=…`**, pull with **`wix env pull`** (no `--json`). **Never edit the `WIX_CLIENT_*` vars** — the CLI manages them. |
 | <https://dev.wix.com/docs/go-headless/wix-managed-headless/project-development/environment-variables/about-environment-variables-in-the-cli.md> | The four var types (client/server × public/secret) — read when choosing the right `context`/`access`. |
 
-This is for *custom* vars only. Because there's no client on managed-Astro, app code doesn't read `WIX_CLIENT_ID` at all (that's the v1 `import.meta.env.WIX_CLIENT_ID` pattern — drop it; it was the manual-client path).
+This is for *custom* vars only. Because there's no client on managed-Astro, app code doesn't read `WIX_CLIENT_ID` at all (don't reach for the `import.meta.env.WIX_CLIENT_ID` manual-client pattern — managed-Astro has no client, so there's nothing to read it into).
 
 ## 6 — SEO: let owners manage tags on item pages
 

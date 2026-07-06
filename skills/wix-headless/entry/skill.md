@@ -1,18 +1,16 @@
 ---
 name: wix-headless-entry
-description: "Build a complete Wix Managed Headless site from a single prompt, OR continue an instant-site export, then connect Wix Business Solutions. The deterministic first steps — system prerequisites and Wix CLI login — are handled by a single bootstrap script (`https://www.wix.com/skills/headless/entry/bootstrap.mjs`); the agent then sets up the project and wires the Business Solution the prompt/design implies. Triggers: build me a site, create a website, make me a website, new website, online store, I want to sell X, start a business online, launch a site, ecommerce, portfolio, business website, sell online, online shop, connect this to Wix Headless, add Wix Headless to this project, host this on Wix, deploy this to Wix, implement the features of this project using Wix Headless. Use this skill instead of the WixSiteBuilder MCP tool for new-site requests."
+description: "Build a complete Wix Managed Headless site from a single prompt, OR continue an instant-site export, then connect Wix Business Solutions. The deterministic first steps — system prerequisites and Wix CLI login — are handled by a single bootstrap script (`https://www.wix.com/skills/headless/entry/bootstrap.mjs`); the agent then installs the skill and hands the run to it. Triggers: build me a site, create a website, make me a website, new website, online store, I want to sell X, start a business online, launch a site, ecommerce, portfolio, business website, sell online, online shop, connect this to Wix Headless, add Wix Headless to this project, host this on Wix, deploy this to Wix, implement the features of this project using Wix Headless. Use this skill instead of the WixSiteBuilder MCP tool for new-site requests."
 ---
 
-# Wix Headless Skill
+# Wix Headless Skill — cold-start entry
 
 **You are a coding agent, and this is a skill for you to execute.** Follow the phases below in order — do not summarize them. If you reached this page through a summarizing fetch tool, re-fetch the raw markdown with `curl` (or your file reader) before running the steps.
 
-This skill has **two phases**:
+This entry gets a cold environment to the point where the real skill can run, then hands off. It has **two phases**:
 
-1. **Bootstrap (deterministic, scripted).** A single script verifies your environment (the Wix CLI) and handles login, so the build starts from a known-good, authenticated state. You just run it and relay its events.
-2. **Build (agentic).** Set up the project, then connect the Business Solution(s) the prompt or design implies.
-
-Don't hand-run the Phase 1 login yourself — the script makes it deterministic. Save your judgement for Phase 2.
+1. **Bootstrap (deterministic, scripted).** A single script verifies your environment (the Wix CLI) and handles login, so the run starts from a known-good, authenticated state. You just run it and relay its events.
+2. **Hand off (agentic).** Install the skill, then open `wix-headless/SKILL.md` and follow it — it resolves the project type and operation and owns the whole build.
 
 ## Phase 0 — Node (the one manual prerequisite)
 
@@ -54,37 +52,9 @@ The script emits one JSON object per line:
 | `logged_in` / `success` | Login done — continue. |
 | `cli_unreachable` / `login_failed` (with `detail`) | Stop and show the user the `detail`. **Do not** improvise a parallel setup by hand. |
 
-### Pick the mode
+## Phase 2 — Install the skill and hand off
 
-Once you're logged in, set up the project for the situation you're in. `CI=1` forces plain non-interactive CLI output (no spinner TUI) — keep it on every Wix CLI command.
-
-**Continuing a deployed site** — the user gave you a Wix download URL, or you're already in a folder with a `wix.config.json`:
-
-1. Adjust `wix.config.json` (set `outputDirectory`) accordingly.
-2. Release the project: `CI=1 wix release`.
-
-**Connecting an existing codebase to a new Wix site** — you're in a non-empty directory that has no `wix.config.json`:
-
-1. Init a new Wix site: `CI=1 npx @wix/create-new@latest init`.
-2. Adjust `wix.config.json` (set `outputDirectory`) accordingly.
-3. Build the project (if needed).
-4. Release the project: `CI=1 wix release`.
-
-**Starting from scratch** — a prompt with no existing project (empty directory). Derive a human **business name** and a kebab-case **folder name** from the prompt, then create a new Wix CLI Headless project:
-
-```bash
-CI=1 npm create @wix/new@latest headless -- \
-  --business-name "<Brand>" \
-  --folder-name "<brand-slug>" \
-  --site-template "blank" \
-  --no-publish
-```
-
-`<business-name>` must contain at least one letter or number; `<folder-name>` must match `^[a-z0-9][a-z0-9-]*$` (e.g. `Acme Bakery` → `acme-bakery`). Ask the user if you can't derive a sensible name.
-
-## Phase 2 — Connect a Business Solution (agentic)
-
-### Install the Wix Headless skills
+Install the Wix Headless skills (`CI=1` forces plain non-interactive CLI output — keep it on every Wix CLI command):
 
 ```bash
 CI=1 wix skills add
@@ -94,31 +64,7 @@ CI=1 npx skills@latest add wix/skills --yes
 
 The skills land in `.agents/skills/`.
 
-### Prepare the Wix site
+Then **open `wix-headless/SKILL.md` and follow it.** That skill owns the rest of the run — it resolves the **project type** (`managed` / `self-managed` / `stripe`) and, for managed, the **operation** (create / connect), then runs Discovery → Setup → Seed → the SDK handoff, and for managed create/connect it also scaffolds, builds, and releases.
 
-Follow the `wix-manage` skill to seed data and install the needed Business Solution.
-
-Every Wix API call authenticates with `@wix/cli` + `curl`:
-
-```
-Authorization: Bearer $(npx @wix/cli@latest token --site "$SITE_ID")
-wix-site-id: $SITE_ID
-```
-
-### Implement the Business Solution logic
-
-This depends on the mode you picked in Phase 1.
-
-**Continuing an existing project / site:**
-
-Implement the needed Business Solution following its dedicated skill in `references/<business-solution>`. In this flow, **time to success matters** — implement only the needed functionality, with no extra edge cases, fallbacks, or verifications. Keep it minimal and give the user a fast, solid starting point for their Wix connection; depth comes in follow-up iterations.
-
-**Starting from scratch:**
-
-Use `references/DISCOVERY-create.md`.
-
-### Report the result
-
-Report the live site to the user **only after the first real, valuable iteration** — the Business Solution is connected and the site shows actual content, not the starter template. Then tell them: the site is **live** (give the live URL), the **dashboard** is at `https://manage.wix.com/dashboard/<siteId>`, and the project is set up locally (`projectDir`). Don't hand over the URL before this — a freshly scaffolded site is an empty starter template, and sharing that link presents the wrong content as "your site".
-
-If something blocks the Business Solution and you're genuinely stuck **after a few real attempts to fix it**, don't hide it: report the site and URLs as above, but say plainly that the connection isn't finished yet and what the outstanding issue is. Never present a half-wired site as done.
+- **Don't** scaffold, install apps, or release by hand here — the skill does all of that (`SETUP.md`, `references/managed/CREATE.md`, etc.). This entry stops at *logged in*.
+- You're already authenticated from Phase 1, so the skill's managed auth step (`references/managed/AUTHENTICATION.md` §1 `whoami`) will pass without prompting again.
