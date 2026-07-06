@@ -47,10 +47,7 @@ Before creating a coupon, check for code conflicts and existing promotions on th
         "code": "SUMMER20",
         "percentOffRate": 20,
         "scope": {
-          "namespace": "stores",
-          "group": {
-            "name": "product"
-          }
+          "namespace": "stores"
         },
         "startTime": 1717200000000,
         "expirationTime": 1719792000000,
@@ -91,10 +88,7 @@ Check for: duplicate codes, overlapping scopes with active coupons, and cross-me
     "code": "SPRING15",
     "percentOffRate": 15,
     "scope": {
-      "namespace": "stores",
-      "group": {
-        "name": "product"
-      }
+      "namespace": "stores"
     },
     "startTime": 1714521600000,
     "usageLimit": 200,
@@ -167,10 +161,7 @@ Check for: duplicate codes, overlapping scopes with active coupons, and cross-me
     "code": "SAVE10",
     "moneyOffAmount": 10,
     "scope": {
-      "namespace": "stores",
-      "group": {
-        "name": "product"
-      }
+      "namespace": "stores"
     },
     "startTime": 1714521600000,
     "active": true
@@ -230,11 +221,15 @@ Instead of targeting a scope, you can require a minimum cart subtotal. This is a
 
 ## Scope values for Wix Stores
 
-| Scope target | `namespace` | `group.name` | `group.entityId` |
-|---|---|---|---|
-| All store products | `"stores"` | `"product"` | Omit (applies to all) |
-| Specific product | `"stores"` | `"product"` | Product UUID |
-| Specific collection | `"stores"` | `"collection"` | Collection UUID |
+> **Scope rule (READ THIS — the API enforces it strictly).** `group` is **optional**. If you want the coupon to apply to **everything** in a namespace (site-wide), **omit `group` entirely** — send `scope: { "namespace": "stores" }`. `group.name` is valid **only when paired with a `group.entityId`** (a specific product/collection UUID). Sending `group: { "name": "product" }` **without** an `entityId` is rejected with `400 — "The provided combination of scope and coupon type is invalid"` (`group=product, entityId=empty`). This applies to every namespace (`stores`, `bookings`, `pricingPlans`, `onlinePrograms`, `events`).
+
+| Scope target | `namespace` | `group` |
+|---|---|---|
+| All store products (site-wide) | `"stores"` | **Omit `group`** |
+| Specific product | `"stores"` | `{ "name": "product", "entityId": "<product UUID>" }` |
+| Specific collection | `"stores"` | `{ "name": "collection", "entityId": "<collection UUID>" }` |
+
+For other business solutions, the same rule holds — omit `group` for all-items, add `group.name` + `group.entityId` for a specific entity: `bookings` (`group.name: "service"`), `pricingPlans` (`"plan"`), `onlinePrograms` (`"program"`), `events` (`"event"` / `"ticket"`). See [Valid Scope Values](https://dev.wix.com/docs/api-reference/business-solutions/coupons/coupons/valid-scope-values) for the full matrix.
 
 ---
 
@@ -246,7 +241,7 @@ When the recommendation output has `mechanism: "COUPON"`, use this mapping to co
 
 | Recommendation `scope` | Coupon `scope` |
 |---|---|
-| `SITE` | `{ "namespace": "stores", "group": { "name": "product" } }` (all products, no entityId) |
+| `SITE` | `{ "namespace": "stores" }` — **omit `group`** for all products. Do NOT send `group: { "name": "product" }` without an `entityId`; the API rejects it. |
 | `CATEGORY` | `{ "namespace": "stores", "group": { "name": "collection", "entityId": "<first categoryId>" } }` |
 | `ITEMS` | `{ "namespace": "stores", "group": { "name": "product", "entityId": "<first productId>" } }` |
 
@@ -340,7 +335,9 @@ When the recommendation output has `mechanism: "COUPON"`, use this mapping to co
 
 | Error | Cause | Fix |
 |---|---|---|
-| `"When scope or minimumSubtotal is not used - only FreeShipping coupon is allowed"` | Coupon sent without `scope` or `minimumSubtotal` | Add `scope: { "namespace": "stores", "group": { "name": "product" } }` for site-wide, or set `minimumSubtotal` |
+| `"The provided combination of scope and coupon type is invalid"` (`group=product, entityId=empty`) | `group.name` was sent without a `group.entityId` — most often when trying to target the whole site | For site-wide, **omit `group`**: `scope: { "namespace": "stores" }`. Only include `group` when you also have a `group.entityId` (specific product/collection). |
+| `"When scope or minimumSubtotal is not used - only FreeShipping coupon is allowed"` | Coupon sent without `scope` or `minimumSubtotal` | Add `scope: { "namespace": "stores" }` for site-wide, or set `minimumSubtotal` |
+| `"Updating coupons: field mask is missing"` (on `PATCH /v2/coupons/{id}`) | Update Coupon requires a field mask listing the fields you changed | Send a `fieldMask` alongside `specification`, e.g. `"fieldMask": { "paths": ["scope", "name"] }` |
 | Duplicate code | Another coupon uses the same code | Generate a different code |
 | Invalid startTime | Value too low (must be epoch ms, not seconds) | Multiply by 1000 if in seconds |
 | Both scope and minimumSubtotal set | These are oneOf — cannot use both | Choose scope OR minimumSubtotal |
