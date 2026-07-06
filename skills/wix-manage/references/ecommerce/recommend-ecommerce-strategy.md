@@ -1,6 +1,6 @@
 ---
 name: "Recommend: eCommerce Strategy"
-description: Sales-growth orchestrator for sites with a Wix online store — turns "boost sales / run a promotion / clear stock / increase AOV" intents into up to 5 actionable discount + shipping recommendations with tracking. Do NOT load for analytics/reporting questions (order counts, revenue trends, best sellers — answer those via the Analytics APIs) or for sites without a store.
+description: Sales-growth orchestrator for sites with a Wix online store — turns "boost sales / run a promotion / clear stock / increase AOV" intents into up to 5 actionable discount + shipping recommendations with tracking. Do NOT load for analytics/reporting questions (order counts, revenue trends, best sellers) or for sites without a store.
 ---
 # Recommend: eCommerce Strategy
 
@@ -154,7 +154,7 @@ Check if the merchant's request includes anything unsupported. **Reject** these:
 |---|---|
 | Buy one get one (BOGO) | Explain: not supported by Discount Rules API |
 | Fixed-price bundles ("3 for $100") | Explain: requires custom pricing logic |
-| Analytics / reporting question ("how many orders", "revenue report", "best sellers") | STOP — this recipe generates recommendations, not reports. Answer via the [Analytics Semantic Model API](https://dev.wix.com/docs/api-reference/business-management/analytics/semantic-models/query-semantic-model-data) |
+| Analytics / reporting question ("how many orders", "revenue report", "best sellers") | STOP — this recipe generates recommendations, not reports. The question is out of scope for this skill |
 | Site has no online store | STOP — explain that sales recommendations require a Wix online store |
 | Unrelated to eCommerce | Decline politely |
 
