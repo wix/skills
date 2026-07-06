@@ -172,7 +172,7 @@ The diagnosis is part of a conversation with a site owner. Reply in plain, frien
 - **Lead with the cause in plain English**, then give the concrete fix as the next step. One or two short sentences is usually enough.
 - **Use the owner's own terms** — "your service", "your staff", "the dates you're looking at", real location names from `resolvedLocations`.
 - **Offer to help with the fix** rather than only stating it.
-- If the result is inconclusive, say you couldn't find a setup problem and describe what you'll check next (policy/capacity) — don't imply the service is fine.
+- If the result is inconclusive (empty `reasons`), say only that you **couldn't find a blocking problem**, and describe what you'll check next (policy/capacity, or re-run against a service for a resource-only check). **Do not state or imply that anything is set up correctly** — an empty `reasons` array means "no blocker detected," *not* "working hours / locations / setup are present." In particular, on the resource-only path never say the staff "have working hours set"; the check doesn't verify that. Don't imply the service is fine.
 
 **Plain-language phrasing per cause:**
 

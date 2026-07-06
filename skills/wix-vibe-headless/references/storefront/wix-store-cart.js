@@ -59,8 +59,14 @@ export async function addToCart(catalogItemId, variantId, quantity = 1, { modifi
   const line = (res?.cart?.lineItems ?? []).find(
     (l) => l.catalogReference?.catalogItemId === catalogItemId && (!variantId || l.catalogReference?.options?.variantId === variantId),
   );
+  // Wix returns 200 even when stock is exhausted — guard both signals:
+  // 1. availability.status set to something other than AVAILABLE
+  // 2. quantity 0 (stock exhausted, no availability field populated)
   if (line?.availability?.status && line.availability.status !== "AVAILABLE") {
     throw new Error(`Item not available for sale (status: ${line.availability.status}). Is it in stock?`);
+  }
+  if (!line || line.quantity === 0) {
+    throw new Error("Item could not be added to the cart — it may be out of stock.");
   }
   return res?.cart;
 }

@@ -71,8 +71,10 @@ the key fields and link to the full API reference for anything not shown.
   `"YES_AND_NO"`. If the event is full with a waitlist enabled, the returned RSVP comes back with
   status `"WAITLIST"` — tell the guest. Completes fully client-side; no redirect.
 - **Ticketing** — show tickets, reserve, then complete on the hosted form:
-  1. `queryTicketDefinitions(eventId)` → render each ticket's `name`, price (`pricingMethod.fixedPrice.value`
-     + currency, or `pricingOptions`/`guestPrice`), and availability (`salesDetails.soldOut`).
+  1. `queryTicketDefinitions(eventId)` → render each ticket's `name`, price (`pricing.fixedPrice.amount`
+     + `currency` for standard tickets; `free` boolean for free tickets; `pricing.minPrice` for
+     donation/"pay what you want"; `pricing.pricingOptions.options` for tiered), and filter on
+     `saleStatus === "SALE_STARTED"`. The endpoint already returns only non-hidden, available tickets.
   2. `reserveTickets([{ ticketDefinitionId, quantity, guestPrice?, pricingOptionId? }])` → holds the
      tickets; returns `{ id, expirationDate }`. Show a countdown to `expirationDate` if you like.
   3. `window.location.href = getTicketCheckoutUrl(event, reservation.id)` → the Wix-hosted ticket
