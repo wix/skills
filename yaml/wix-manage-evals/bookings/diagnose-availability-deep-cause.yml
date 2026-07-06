@@ -1,0 +1,40 @@
+name: bookings/diagnose-availability-deep-cause
+description: >-
+  Verifies the agent reads the diagnose-availability-issues recipe and, for a
+  service with no times at all, distinguishes "staff not scheduled to work"
+  (outside working hours) from "staff booked/blocked" — with a fix for each, in
+  plain language.
+triggerPrompt: >-
+  For a Wix Bookings appointment service that shows no available times at all, I
+  understand it can be either because the staff aren't scheduled to work in that
+  period or because they're already fully booked or blocked. What's the difference
+  between those two cases, and how would I fix each?
+tags: [bookings]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/bookings/skills/diagnose-bookings-availability-issues
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user is a Wix site owner whose appointment service has no available times, asking how
+      to tell whether the cause is that staff aren't scheduled to work in that period vs. that
+      they're already booked/blocked — and how to fix each.
+      Intent: distinguish the two "no availability windows" causes and give a fix for each.
+
+      Pass if the response:
+      - distinguishes the two causes — (a) staff are outside their working hours / not scheduled
+        to work in that range, vs (b) staff are within working hours but their time is taken up by
+        existing bookings, calendar events, or a connected external calendar, AND
+      - gives an actionable, plain-language fix for each — (a) add/extend working hours in that
+        period, (b) free up or unblock the taken time / check the external calendar, AND
+      - is written for a site owner, not a developer.
+
+      Fail if the response:
+      - treats "no availability" as a single undifferentiated cause with no distinction between
+        not-scheduled and booked/blocked, OR
+      - is generic with no actionable fixes, OR
+      - dumps implementation internals at the user — raw reason codes, suggestedAction enum
+        values, JSON, field paths, the `deep` parameter, or instructions to call an API/endpoint
+        themselves.

@@ -1,7 +1,7 @@
 export const SKILLS_ROOT = 'skills/wix-manage/references';
 
-// `^skills/wix-manage/references/<area>/<basename>.md`
-export const MD_RE = /^skills\/wix-manage\/references\/[^/]+\/[^/]+\.md$/;
+// `^skills/wix-manage/references/<area>/<nested/path>.md`
+export const MD_RE = /^skills\/wix-manage\/references\/[^/]+\/.+\.md$/;
 
 // `^yaml/wix-manage-evals/<area>/<rest>.(yml|yaml)`
 export const EVALS_RE = /^yaml\/wix-manage-evals\/[^/]+\/.+\.(ya?ml)$/;

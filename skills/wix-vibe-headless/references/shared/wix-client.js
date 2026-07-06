@@ -17,7 +17,10 @@ export const WIX_CLIENT_ID = "<YOUR-CLIENT-ID>";
 export const WIX_API_BASE = "https://www.wixapis.com";
 const OAUTH_TOKEN_URL = `${WIX_API_BASE}/oauth2/token`;
 
-const TOKEN_STORAGE_KEY = "wix-visitor-token";
+// Scope the storage key by client id so two headless sites served from the same
+// origin (e.g. localhost:4321 across projects) don't share one visitor token —
+// which would load site A's token for site B and mix up carts/identity.
+const TOKEN_STORAGE_KEY = `wix-visitor-token-${WIX_CLIENT_ID}`;
 let tokenCache = null;
 
 function loadToken() {

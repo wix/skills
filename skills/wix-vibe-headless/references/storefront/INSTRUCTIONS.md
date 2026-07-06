@@ -1,7 +1,12 @@
 
 # Wix Storefront Skill
 
-> **Source files (in this skill):** the shared transport `references/shared/wix-client.js` and this vertical's `references/storefront/wix-store.js`. Copy **both** into your app's `src/rest/` side by side — the helper does `import { wixApiRequest } from "./wix-client.js"`, so they must land in the same folder.
+> **Source files (in this skill):** the shared transport `references/shared/wix-client.js` and both storefront helpers from `references/storefront/`. All helpers import from `"./wix-client.js"`, so copy them into the same folder (e.g. `src/rest/`). Copy **both** for a full storefront:
+>
+> | File | What it covers |
+> |---|---|
+> | `wix-store-catalog.js` | Products, categories, product detail, search |
+> | `wix-store-cart.js` | Add to cart, cart management, checkout |
 
 Builds a real, client-only Wix storefront. The browser talks to Wix directly over a
 public `WIX_CLIENT_ID`. Never mock products; never hand-build `/checkout` URLs — always
@@ -33,13 +38,13 @@ however the project wants; wire it to these two snippets. Copy them into the app
   the id from the prompt (replace the `<YOUR-CLIENT-ID>` placeholder). The visitor refresh
   token IS the cart identity; it is persisted to localStorage. Do not re-mint anonymously
   per load or the cart silently empties.
-- `src/rest/wix-store.js` — exports:
-  - **Products:** `queryProducts`, `queryProductsByCategory`, `getProductBySlug`, `countProducts`
-  - **Categories:** `queryCategories`, `getCategoryBySlug`
-  - **Cart:** `addToCart`, `updateCartItemQuantity`, `removeFromCart`, `getCurrentCart`
-  - **Checkout:** `checkout`
+- `src/rest/wix-store-catalog.js` — **Catalog:**
+  `queryProducts`, `queryProductsByCategory`, `getProductBySlug`, `countProducts`,
+  `queryCategories`, `getCategoryBySlug`
+- `src/rest/wix-store-cart.js` — **Cart & checkout:**
+  `addToCart`, `getCurrentCart`, `updateCartItemQuantity`, `removeFromCart`, `checkout`
 
-The Product and Cart shapes are documented as JSDoc comments at the top of `wix-store.js`.
+The Product and Cart shapes are documented as JSDoc comments at the top of each helper file.
 Read them before building the UI — they describe the key fields and link to the full API
 reference for anything not shown.
 
