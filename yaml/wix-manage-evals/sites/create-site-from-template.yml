@@ -3,9 +3,10 @@ description: >-
   Verifies the agent reads the create-site-from-template skill and does not try
   to use the blocked internal Wix template catalog search endpoint.
 triggerPrompt: >-
-  I want to start a new Wix Editor site from a blue and white modern structural
+  Read the Wix Manage create-site-from-template recipe before answering. I want
+  to start a new Wix Editor site from a blue and white modern structural
   engineering template. Which REST API should I use, and can you search the Wix
-  template catalog for options?
+  template catalog for options from Wix MCP?
 tags: [sites]
 assertions:
   - tool: ReadFullDocsArticle
