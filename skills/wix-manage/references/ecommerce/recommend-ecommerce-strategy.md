@@ -7,19 +7,19 @@ references:
     path: ecommerce/api-recommendation-tracking.md
     load: false
   - name: "Goal: Increase AOV"
-    path: ecommerce/goal-increase-aov.md
+    path: ecommerce/pricing-promotions/ecom-pricing-goal-increase-aov.md
     load: false
   - name: "Goal: Clear Inventory"
-    path: ecommerce/goal-clear-inventory.md
+    path: ecommerce/pricing-promotions/ecom-pricing-goal-clear-inventory.md
     load: false
   - name: "Goal: Seasonal Revenue"
-    path: ecommerce/goal-seasonal-revenue.md
+    path: ecommerce/pricing-promotions/ecom-pricing-goal-seasonal-revenue.md
     load: false
   - name: "Goal: Drive Cross-Sells"
-    path: ecommerce/goal-drive-cross-sells.md
+    path: ecommerce/pricing-promotions/ecom-pricing-goal-drive-cross-sells.md
     load: false
   - name: "Setup: Coupons"
-    path: ecommerce/setup-coupons.md
+    path: ecommerce/pricing-promotions/ecom-pricing-create-coupon.md
     load: false
 ---
 # Recommend: eCommerce Strategy
