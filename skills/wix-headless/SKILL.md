@@ -60,9 +60,10 @@ Hold the resolved type in scratch; it selects `<TYPE_DIR>` (see Path resolution)
 
 ### Resolving the operation (managed only)
 
-create/connect are **managed-only**. For `managed`, resolve the operation **by intent first, directory second** — never let an empty directory override what the user is asking for:
+create/connect/iterate are **managed-only**. For `managed`, resolve the operation **by intent first, directory second** — never let an empty directory override what the user is asking for. Check `iterate` first (it's decided by an unambiguous on-disk signal):
 
-- **`connect`** → `references/managed/CONNECT.md`. The user **brings a design and wants it wired to Wix**: a frontend project already on disk, **or** a brought-in/fetched design (a `.zip`/folder/file you unzip or read, a design-file URL, a Claude-Design/v0/Lovable export), **or** language like "connect this / implement this design (… connecting to Wix) / host this on Wix / deploy this to Wix / add Wix Headless to this project". **A brought-in or fetched design is `connect` even when the current directory is empty** — the design arrives from elsewhere (zip/fetch/URL), so emptiness at trigger time is *not* a create signal. (`CONNECT.md` step 1 places the brought design into CWD, then `init`s it.)
+- **`iterate`** → `references/managed/CONNECT.md`. The project is **already connected to Wix** — a `wix.config.json` (or `.wix/`) is already present — and the owner wants to add or change capabilities. Same conductor as `connect`, but §1 **skips `init`** and reuses the existing `wix.config.json`; **never re-`init` an already-connected project**.
+- **`connect`** → `references/managed/CONNECT.md`. The user **brings a design not yet connected to Wix and wants it wired**: a frontend project on disk **without** a `wix.config.json`, **or** a brought-in/fetched design (a `.zip`/folder/file you unzip or read, a design-file URL, a Claude-Design/v0/Lovable export), **or** language like "connect this / implement this design (… connecting to Wix) / host this on Wix / deploy this to Wix / add Wix Headless to this project". **A brought-in or fetched design is `connect` even when the current directory is empty** — the design arrives from elsewhere (zip/fetch/URL), so emptiness at trigger time is *not* a create signal. (`CONNECT.md` step 1 places the brought design into CWD, then `init`s it.)
 - **`create`** → `references/managed/CREATE.md`. The user wants a **new site built from a prompt with nothing brought in** — "build me a site / store / blog…", no design file, no project on disk.
 - **`backend-only`** — the user only wants the backend configured (no frontend work). → the shared spine + emit the SDK handoff.
 
@@ -88,9 +89,10 @@ If the credentials are absent, the Wix backend isn't reachable — **stop with a
 4. **Handoff** (`references/SDK_HANDOFF.md`) — after Setup and Seed, **emit** the integration guide: SDK bootstrap, per-capability call shapes, the **seeded IDs**, and the `@wix/*` package list.
 5. **Finalize deployment** (`<TYPE_DIR>/DEPLOYMENT.md`) — run the project-type's finalize steps.
 
-**Managed create / connect** — after Discovery, hand the whole run to the conductor:
+**Managed create / connect / iterate** — after Discovery, hand the whole run to the conductor:
 - **create** → **`references/managed/CREATE.md`** (scaffold → Setup → Seed → build the frontend → release).
 - **connect** → **`references/managed/CONNECT.md`** (init → Setup → Seed → wire the existing UI → release).
+- **iterate** → **`references/managed/CONNECT.md`** — the project is already connected, so it reuses the existing `wix.config.json` (no `init`). Setup / Seed / wiring are **incremental**: it may already be set up and seeded from a prior run, so the agent **checks current state first** (installed apps, already-seeded content, existing wiring) and applies only the delta the new intent needs — never blindly re-installing or re-seeding. Re-release only if the frontend build output changed.
   These reuse the same `SETUP.md`/`SEED.md`/`SDK_HANDOFF.md`, but **apply** the SDK guide to build/wire the frontend themselves rather than emitting it, and release via `managed/DEPLOYMENT.md`.
 
 Each Wix call uses the universal call shape (`SETUP.md` §1) with `$TOKEN`/`$SITE_ID` obtained per `<TYPE_DIR>/AUTHENTICATION.md`. The skill runs non-interactively except for the one imagery question (and asking the project type if it can't be resolved).
