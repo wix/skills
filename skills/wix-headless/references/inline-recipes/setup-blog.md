@@ -115,6 +115,8 @@ Create the posts in a **single bulk request** to `POST https://www.wixapis.com/b
 
 The bulk call returns `200` **even if some items fail** — check each `results[i].itemMetadata.success` individually; it does **not** throw on partial failure. If part of the batch fails, retry **only the failed items** **once** with the exact same format; do not loop. (You need only confirm each post was created — the frontend links posts by **slug read from a live `queryPosts` result / the URL**, so there's no need to collect slugs at seed time.)
 
+**⚠️ CRITICAL: a `504` (deadline exceeded) on the bulk create is NOT atomic — it may still create some posts asynchronously.** A bulk create of several rich-content posts can time out at the gateway with `504` yet create one or more of them a few seconds later. **Do not blindly re-send the whole batch** — that produces duplicates. On a `504`, **re-query (`queryPosts`) first** and only create the posts that are actually missing. For rich content or small counts, prefer the single-post endpoint (below) — it's slower but avoids the bulk deadline.
+
 **⚠️ CRITICAL: a transient `401 "No identity found"` on draft-post creation is a known server-side async-identity defect, NOT a body error.** It is not caused by your token or payload (categories/members/CMS calls succeed with the same token). If you hit it, **retry the create once**; do not rewrite the body and do not retry-spiral — a spiralling retry is a wasted headless run.
 
 #### Single-post endpoint (only when `postCount = 1`)
@@ -136,9 +138,9 @@ The bulk call returns `200` **even if some items fail** — check each `results[
 
 Only create categories or tags **if the request explicitly groups the posts** (e.g. "a blog with Recipes and Brewing-Tips sections"). If it doesn't, **create none** — skip this step entirely (skill policy; overrides any docs default).
 
-- **Categories:** `POST https://www.wixapis.com/blog/v3/categories` per category; keep each returned category `id`.
-- **Tags:** `POST https://www.wixapis.com/blog/v3/tags` per tag; keep each returned tag `id`.
-- **Assign:** include the resolved ids in each post's `categoryIds` / `tagIds` array — set them **in the Step-2 create body** when you already know the grouping, or PATCH the post afterward via `POST https://www.wixapis.com/blog/v3/draft-posts/{draftPostId}/update`.
+- **Categories:** `POST https://www.wixapis.com/blog/v3/categories` per category, body **wrapped**: `{ "category": { "label": "<Label>" } }`; keep each returned category `id`.
+- **Tags:** `POST https://www.wixapis.com/blog/v3/tags` per tag. **⚠️ The tag body is FLAT — `{ "label": "<Label>" }` at the top level, NOT wrapped in a `tag` object** (unlike categories). Sending `{ "tag": { "label": … } }` fails `400 "label must not be empty"` (the API reads `label` at the root). Keep each returned tag `id`.
+- **Assign:** include the resolved ids in each post's `categoryIds` / `tagIds` array — set them **in the Step-2 create body** when you already know the grouping, or update the post afterward via **`PATCH https://www.wixapis.com/blog/v3/draft-posts/{draftPostId}`** (a `{ "draftPost": { … } }` body). **Not** `POST …/draft-posts/{id}/update` — that path `404`s.
 
 **⚠️ CRITICAL: re-publish after any PATCH.** Updating an already-published post sets `hasUnpublishedChanges: true` — the live site keeps showing the old version until you call `POST https://www.wixapis.com/blog/v3/draft-posts/{draftPostId}/publish` again. (Seeding categoryIds/tagIds directly in the Step-2 create body avoids this round-trip.)
 
