@@ -32,6 +32,18 @@ curl -X POST \
 
 **Response**: `200` with `{"pagesAdded": ["<widgetId>", ...]}` when the call completes within the gateway timeout. On sites with many installed apps the call usually does **not** complete in time — see the notes below.
 
+### If the User Already Got a 504
+
+Answer as troubleshooting, not as a failed install:
+
+| What happened | What to do | Why |
+| --- | --- | --- |
+| `504 Gateway Timeout` after ~30 seconds | Wait 1–2 minutes, then verify that the cart/checkout pages exist and checkout works | The gateway timed out while the server-side install may still be running |
+| Pages now exist | Do not call the endpoint again | The repair completed despite the timeout |
+| Pages are still missing after waiting | Call the endpoint once more, then verify again | A second call is only warranted after the first run had time to finish |
+
+Do not describe an immediate retry as harmless or normally idempotent. The endpoint only adds missing pages, but each call still starts a full scan/add/republish pass, so retrying before the first pass finishes can create overlapping work and another publish.
+
 ### IMPORTANT NOTES:
 - This endpoint adds missing store pages (cart, checkout) if they don't exist
 - The request body is empty - no parameters needed
