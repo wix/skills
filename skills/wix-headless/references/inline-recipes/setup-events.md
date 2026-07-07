@@ -47,8 +47,8 @@ curl -X POST 'https://www.wixapis.com/events/v3/events' \
         "address": { "addressLine": "120 Harbor St", "city": "Seattle", "subdivision": "US-WA", "postalCode": "98101", "country": "US" }
       },
       "dateAndTimeSettings": {
-        "startDate": "2026-09-20T03:30:00.000Z",
-        "endDate":   "2026-09-20T07:00:00.000Z",
+        "startDate": "<FUTURE_DATE>T03:30:00.000Z",
+        "endDate":   "<FUTURE_DATE>T07:00:00.000Z",
         "timeZoneId": "America/Los_Angeles",
         "showTimeZone": true
       },

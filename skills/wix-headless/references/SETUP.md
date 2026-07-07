@@ -55,4 +55,4 @@ A **200** confirms the install. On a non-200, surface the response verbatim and 
 
 ## 3 · Proceed to Seed
 
-Confirm every required app returned 200 (cms skipped). Then continue to **`SEED.md`**, which reads the live Wix REST docs for content seeding.
+Confirm every required app returned 200 (cms skipped). Then continue to **`SEED.md`**, which seeds from the local inline recipes.

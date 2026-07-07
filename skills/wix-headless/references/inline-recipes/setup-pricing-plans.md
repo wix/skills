@@ -205,7 +205,7 @@ Response — standard bulk shape; each covered service lands under `results[].it
 ```
 
 - **`externalId` is the bookings SERVICE id** (`item.id` from `setup-bookings.md` STEP 3) — one item per service the plan should cover. Up to **100** items per call.
-- **`category` is an empty string `""`** (per the Tier-1 recipe), and **`namespace`/`providerAppId`** repeat the STEP-2b values on every item.
+- **`category` is an empty string `""`**, and **`namespace`/`providerAppId`** repeat the STEP-2b values on every item.
 - **The public path is `POST …/benefit-programs/v1/bulk/items/create`** (verified live — `200`, both items `success: true`). Some docs examples show a bare `…/bulk/items`; ignore that and use the `/bulk/items/create` form shown here.
 - **Check `results[].itemMetadata.success` per item** (`false` populates `.error`); retry only the failed items **once** with the same format.
 

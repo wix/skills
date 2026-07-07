@@ -166,8 +166,8 @@ Creating a CLASS service does **not** create any bookable sessions; the frontend
       "event": {
         "scheduleId": "<item.schedule.id of a CLASS FROM STEP 3>",
         "type": "CLASS",
-        "start": { "localDate": "2026-07-06T09:00:00" },
-        "end":   { "localDate": "2026-07-06T10:00:00" },
+        "start": { "localDate": "<FUTURE_DATE>T09:00:00" },
+        "end":   { "localDate": "<FUTURE_DATE>T10:00:00" },
         "resources": [ { "id": "<RESOURCE_ID_FROM_STEP_1>", "permissionRole": "WRITER" } ],
         "totalCapacity": 12
       }
@@ -211,7 +211,7 @@ curl -X PATCH 'https://www.wixapis.com/bookings/v2/services/<serviceId>' \
 
 - **Fetch the current `revision` first** (`GET https://www.wixapis.com/bookings/v2/services/<serviceId>`, or reuse the `item.revision` from STEP 3's `returnEntity` response) and echo it back — a services V2 update is revision-checked.
 - **Do not brute-force the shape.** Plain-string `"image": "<url>"` and `"image": "<fileId>"` both `400`; the working shape is the object above (`id` + `url` + dimensions + `altText`). `width`/`height` are the generated image's dimensions (IMAGE_GENERATION §1 uses `1024×1024` for squares).
-- **Never block on image failure** (`SEED.md` § "Entity images" / IMAGE_GENERATION "Credits & failure") — on failure, skip and leave the service text-only.
+- **Never block on image failure** (`SEED.md` § "Entity images" / IMAGE_GENERATION "Credits, cost & the not-generating fallback") — on failure, skip and leave the service text-only.
 
 ---
 

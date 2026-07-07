@@ -26,10 +26,10 @@ CI=1 npx @wix/cli@latest release
 ID="<clientId>"   # the OAuth app id == the public clientId
 # 1) GET first and append — the PATCH REPLACES the array, so include what's already there:
 curl -sS -D /tmp/_h.$$ https://www.wixapis.com/oauth-app/v1/oauth-apps/$ID \
-  -H "Authorization: $TOKEN" && grep -i '^x-wix-request-id:' /tmp/_h.$$; rm -f /tmp/_h.$$
+  -H "Authorization: Bearer $TOKEN" && grep -i '^x-wix-request-id:' /tmp/_h.$$; rm -f /tmp/_h.$$
 # 2) PATCH with the field mask (register BOTH the exact callback and the versioned-preview wildcard):
 curl -sS -D /tmp/_h.$$ -X PATCH https://www.wixapis.com/oauth-app/v1/oauth-apps/$ID \
-  -H "Authorization: $TOKEN" -H 'content-type: application/json' \
+  -H "Authorization: Bearer $TOKEN" -H 'content-type: application/json' \
   -w "\nHTTP_STATUS:%{http_code}" -d '{
     "oAuthApp": { "id": "'"$ID"'",
       "allowedRedirectUris": [ <existing…>, "https://<host>/callback", "https://*-<host>/callback" ] },

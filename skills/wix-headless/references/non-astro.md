@@ -47,7 +47,7 @@ This file **stops at "produce the build output."** *Where that output is deploye
 
 ## 4 — Caveats (framework-invariant only)
 
-These hold regardless of who hosts. Host-specific gotchas (static `outputDirectory`, the `index.html` rename) are filed in `managed/DEPLOYMENT.md`, where you're in a known mode.
+These hold regardless of who hosts. Host-specific gotchas (static `outputDirectory`, the `index.html` rename) are filed in `managed/DEPLOYMENT.md`, where you're in a known mode. (Numbering: N2/N3 were retired; the gap is intentional and the remaining IDs are kept stable so inbound references don't shift.)
 
 | Caveat | What it says |
 |---|---|

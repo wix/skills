@@ -184,7 +184,7 @@ Use **Bulk Insert Reference Data Items**: `POST https://www.wixapis.com/wix-data
 ```
 
 - **PUT replaces the entire record** — you must send back **all** existing fields (from step 1), not just the image, or the omitted fields are wiped. This is why you read-merge-PUT rather than sending the image alone.
-- **Never block on image failure** (`SEED.md` § "Entity images" / IMAGE_GENERATION "Credits & failure") — on failure, skip and leave the item text-only.
+- **Never block on image failure** (`SEED.md` § "Entity images" / IMAGE_GENERATION "Credits, cost & the not-generating fallback") — on failure, skip and leave the item text-only.
 
 ---
 
