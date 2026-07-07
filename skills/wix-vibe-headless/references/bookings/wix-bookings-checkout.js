@@ -53,13 +53,26 @@ export async function createBooking(slot, contactDetails, { totalParticipants = 
 
   const resource = slot.availableResources?.[0]?.resources?.[0];
 
+  // The availability slot's location uses the SERVICE location enum (e.g. "BUSINESS"), but the
+  // createBooking endpoint expects the BOOKING location enum [UNDEFINED, OWNER_BUSINESS,
+  // OWNER_CUSTOM, CUSTOM]. Passing slot.location straight through 400s
+  // ("slot.location.locationType enum must be in [...]"). Remap before sending.
+  const bookingLocation = (() => {
+    const loc = slot.location;
+    if (!loc) return null;
+    const valid = ["UNDEFINED", "OWNER_BUSINESS", "OWNER_CUSTOM", "CUSTOM"];
+    const map = { BUSINESS: "OWNER_BUSINESS", CUSTOM: "CUSTOM", CUSTOMER: "CUSTOM" };
+    const locationType = map[loc.locationType] || (valid.includes(loc.locationType) ? loc.locationType : "OWNER_BUSINESS");
+    return { ...loc, locationType };
+  })();
+
   const bookedSlot = {
     serviceId: slot.serviceId,
     scheduleId: slot.scheduleId,
     startDate: slot.localStartDate,
     endDate: slot.localEndDate,
     timezone: timeZone || defaultTimeZone(),
-    ...(slot.location ? { location: slot.location } : {}),
+    ...(bookingLocation ? { location: bookingLocation } : {}),
     ...(resource ? { resource: { id: resource.id, name: resource.name } } : {}),
   };
 
