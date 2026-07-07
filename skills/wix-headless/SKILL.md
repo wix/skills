@@ -29,6 +29,8 @@ What happens with the frontend depends on the project type and operation:
 - **Backend-only** (self-managed, stripe, or a managed "just set up the backend" run) — the skill **emits the SDK guide** as its final output; the **host owns** the frontend, build, and hosting.
 - **Managed create / connect** — the skill **also owns the frontend**: it scaffolds a new project (create) or attaches Wix to an existing one (connect), wires it to the backend using that same guide, builds, and releases to Wix. (There is no Designer or template library — the frontend is built ad-hoc to intent.)
 
+> **On a backend-only run the skill does not own the project scaffolding.** When the work needs a frontend, **scaffold it according to user intent** — framework and structure follow the prompt; the skill's job is the Wix backend plus the **emitted SDK guide** describing how to call Wix from whatever frontend exists, not choosing or generating the app. This is the norm for a **stripe** run: the project is provisioned via Stripe Projects (credentials land in `.env` — see `stripe/AUTHENTICATION.md`), the skill configures the backend and emits the guide, and the live site is finalized per `stripe/DEPLOYMENT.md` — while the frontend is scaffolded and wired to intent, by the host.
+
 ## Project types
 
 The skill behaves identically across project types **except for authentication and deployment**, which are isolated in a per-type folder under `references/`:
