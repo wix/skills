@@ -1,6 +1,6 @@
 ---
 name: "Create and Update Booking Services"
-description: Full CRUD operations for Wix Bookings services using Services API. Covers service types (APPOINTMENT, CLASS, COURSE), pricing configuration, location setup, and schedule management.
+description: Full CRUD operations for Wix Bookings services using Services API. Covers service types (APPOINTMENT, CLASS, COURSE), pricing configuration, price variation troubleshooting, location setup, and schedule management.
 ---
 
 # Technical Step-by-Step Instructions: Creating or Updating a Wix Bookings Service (Real-World, API-First)
@@ -348,6 +348,16 @@ curl -X PATCH 'https://www.wixapis.com/bookings/v2/services/<SERVICE_ID>' \
     }
   }'
 ```
+
+**Existing service pricing editor shows a technical error:**
+
+Use this branch when the user is already editing a Wix Bookings service and says the pricing section, **Precio por sesión**, **Different prices**, **Diferentes precios**, **Manage variations**, or **Administrar variaciones** shows a technical-error banner or does not load.
+
+1. First determine whether the user wants help with the dashboard UI or wants you to update the service through the Services API.
+2. If the current dashboard page is available, inspect it with a small page check before giving pricing instructions. Verify whether the service editor is open, whether the visible text contains the technical-error banner, and whether a real variation control is present. Do not claim **Administrar variaciones** is available when the page inspection shows only unrelated buttons such as **Administrar apps** or **Administrar recursos**.
+3. If the pricing editor is blocked by a technical-error banner, treat it as a dashboard/product loading failure. Give bounded recovery steps: hard refresh, private/incognito window with extensions disabled, another browser/network, and the direct **Servicios de reserva** dashboard path. If it happens on every service, tell the user this is not a single-service configuration issue and they should contact Wix Customer Care with the affected site, service names, screenshot, browser, and time of failure.
+4. Do not present API mutation as an automatic workaround for a broken dashboard editor. Only offer to update prices via API if the user explicitly asks you to change the service data and provides the desired price/variation details. Before any API update, get the current service with `getService`, keep its `revision`, and ask for confirmation before sending `updateService` or bulk update requests.
+5. If the user only wants guidance, explain the normal path for a working editor: **Precio y pago** -> **Tipo de precio: Diferentes precios** -> **+ Agregar variaciones** or **Administrar variaciones**. Make clear that this path cannot be completed while the pricing editor is showing the technical-error banner.
 
 ### 3. Set the availability of the service
 
