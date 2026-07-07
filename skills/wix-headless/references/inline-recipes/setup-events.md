@@ -154,7 +154,7 @@ Seeding **succeeds** and the event goes live regardless of payment setup. But **
 - a **premium plan**, and
 - at least one **configured payment method** (Wix Payments / Stripe / PayPal).
 
-Free / RSVP events need neither. This is **not** a seeding failure and **not** something to fix here — record it in the kept `notes` so the orchestrator can surface it plainly (*"Paid tickets require a premium plan + a configured payment method in the dashboard to complete a purchase."*). Never imply tickets are payable when no payment method is configured, and never fail the seed over it.
+Free / RSVP events need neither. This is **not** a seeding failure and **not** something to fix here — record it in the kept `notes` so it's surfaced plainly (*"Paid tickets require a premium plan + a configured payment method in the dashboard to complete a purchase."*). Never imply tickets are payable when no payment method is configured, and never fail the seed over it.
 
 ---
 

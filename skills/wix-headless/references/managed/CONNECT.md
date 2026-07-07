@@ -1,6 +1,6 @@
 # Connect — wire an existing project to a managed Wix backend
 
-**Managed only.** This conductor runs when the project type is `managed` and the operation is
+**Managed only.** This flow runs when the project type is `managed` and the operation is
 `connect` — a frontend project is already on disk (or a design URL was fetched into CWD) and the
 user wants it hosted on Wix and powered by Wix Business Solutions. It attaches Wix to the existing
 project, runs the shared backend flow, wires the existing UI to that backend, builds, and releases.

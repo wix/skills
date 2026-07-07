@@ -1,6 +1,6 @@
 # Create — scaffold a new managed Wix Headless project
 
-**Managed only.** This conductor runs when the project type is `managed` and the operation is
+**Managed only.** This flow runs when the project type is `managed` and the operation is
 `create` (an empty directory + a "build me a site" intent). It scaffolds a fresh Wix Headless
 project, runs the shared backend flow against it, builds the frontend wired to that backend, and
 releases. There is **no Designer and no template library** — the frontend is built ad-hoc to the

@@ -90,7 +90,7 @@ If the credentials are absent, the Wix backend isn't reachable — **stop with a
 4. **Handoff** (`references/SDK_HANDOFF.md`) — after Setup and Seed, **emit** the integration guide: SDK bootstrap, per-capability call shapes, the **seeded IDs**, and the `@wix/*` package list.
 5. **Finalize deployment** (`<TYPE_DIR>/DEPLOYMENT.md`) — run the project-type's finalize steps.
 
-**Managed create / connect** — after Discovery, hand the whole run to the conductor:
+**Managed create / connect** — after Discovery, hand the whole run to the managed flow:
 - **create** → **`references/managed/CREATE.md`** (scaffold → Setup → Seed → build the frontend → release).
 - **connect** → **`references/managed/CONNECT.md`** (init → Setup → Seed → wire the existing UI → release).
   These reuse the same `SETUP.md`/`SEED.md`/`SDK_HANDOFF.md`, but **apply** the SDK guide to build/wire the frontend themselves rather than emitting it, and release via `managed/DEPLOYMENT.md`.
@@ -115,8 +115,8 @@ Compute `<SKILL_ROOT>` from this file (`<SKILL_ROOT>/SKILL.md` — strip `/SKILL
 | Image generation (opt-in; agnostic) | `<SKILL_ROOT>/references/IMAGE_GENERATION.md` |
 | **Authentication** — obtain `$TOKEN`/`$SITE_ID`/`clientId` (project-type-specific) | `<TYPE_DIR>/AUTHENTICATION.md` |
 | **Deployment** — finalize the live site (project-type-specific) | `<TYPE_DIR>/DEPLOYMENT.md` |
-| Managed **create** conductor (scaffold a new project) | `<SKILL_ROOT>/references/managed/CREATE.md` |
-| Managed **connect** conductor (wire an existing project) | `<SKILL_ROOT>/references/managed/CONNECT.md` |
+| Managed **create** flow (scaffold a new project) | `<SKILL_ROOT>/references/managed/CREATE.md` |
+| Managed **connect** flow (wire an existing project) | `<SKILL_ROOT>/references/managed/CONNECT.md` |
 | Frontend-axis references (how a frontend wires to Wix) | `<SKILL_ROOT>/references/astro.md`, `non-astro.md` |
 
 **Start a run by opening `DISCOVERY.md`.** The flow files (`CAPABILITIES`, `DISCOVERY`, `SETUP`, `SEED`, `SDK_HANDOFF`, `IMAGE_GENERATION`) are project-type-agnostic; the per-type specifics live under `<TYPE_DIR>/` (`AUTHENTICATION.md`, `DEPLOYMENT.md`, and — managed only — `CREATE.md`/`CONNECT.md`).

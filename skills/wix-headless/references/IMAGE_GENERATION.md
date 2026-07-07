@@ -4,7 +4,7 @@ A single reusable capability: generate an image with **Wix AI (Runware)** via th
 
 Use it **intelligently, by need** — there's no fixed slot list:
 - **Entity images** — during Seed, attach images to seeded image-bearing entities (stores products, blog covers, CMS items, **bookings services**, restaurant items, **portfolio projects + collection covers**). **Attaching the generated image to the entity is a required second step** — a seeder creates the entity in pass 1 (text-first), then a pass-2 update/patch writes the image onto it. An entity is not "done" until its image is attached (or the attach is skipped because imagery is off / it failed — then it stays text-only, which is fine).
-- **Contextual / decorative images** — when the skill is building a frontend (the create/connect conductors) and the agent or user decides a surface needs one (e.g. a homepage hero, an about-section visual). Generate only what the page actually uses, up to the per-run `imageCap` (`DISCOVERY.md` §4); a slot over the cap or off gets the **themed-block fallback** (below), not an empty gap.
+- **Contextual / decorative images** — when the skill is building a frontend (the create/connect flows) and the agent or user decides a surface needs one (e.g. a homepage hero, an about-section visual). Generate only what the page actually uses, up to the per-run `imageCap` (`DISCOVERY.md` §4); a slot over the cap or off gets the **themed-block fallback** (below), not an empty gap.
 
 ## 1 · Generate
 
