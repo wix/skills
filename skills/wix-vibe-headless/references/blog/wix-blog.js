@@ -9,7 +9,9 @@ import { wixApiRequest } from "./wix-client.js";
  *   firstPublishedDate {string} — ISO date, default sort key DESC,
  *   pinned {boolean}, featured {boolean}, minutesToRead {number},
  *   categoryIds {string[]}, tagIds {string[]}, hashtags {string[]},
- *   heroImage {object} — { id, url, height, width, altText } — use url for card thumbnails,
+ *   media {object} — cover image at media.wixMedia.image { id, url, height, width, filename, altText? };
+ *     media.wixMedia.image.url is a ready-to-use https URL (returned by default, incl. the list query).
+ *     media.displayed / media.custom are booleans,
  *   contentText {string} — plain text body (CONTENT_TEXT fieldset; getPostBySlug requests it),
  *   richContent {object} — Ricos document (RICH_CONTENT fieldset; getPostBySlug requests it),
  *   url {object} — { base, path } live post URL (URL fieldset; build full link as base+path)
