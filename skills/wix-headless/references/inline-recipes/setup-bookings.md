@@ -1,6 +1,6 @@
 ---
 name: "Setup Bookings"
-description: Initializes a Wix Bookings backend with Services V2 — resolves a staff resource + a category, then creates bookable services (APPOINTMENT/CLASS) with duration, price, and online booking enabled, and schedules sessions for classes. Specifies the *how* (calls + format); counts and the specific services/durations/prices come from the request (via `SEED.md` §3).
+description: Initializes a Wix Bookings backend with Services V2 — resolves a staff resource + a category, then creates bookable services (APPOINTMENT/CLASS) with duration, price, and online booking enabled, and schedules sessions for classes. Specifies the *how* (calls + format); counts and the specific services/durations/prices come from the request.
 ---
 **RECIPE**: Business Recipe – Initial Setup for Wix Bookings (Services V2)
 
@@ -116,7 +116,7 @@ Create **all the services in a single bulk call** against the **public** endpoin
 - **`staffMemberIds`** — required and **non-empty for APPOINTMENT** (pass the `resourceId`(s) from STEP 1; the default Business-Owner `resourceId` when the request names no staff). **Ignored for CLASS/COURSE** — omit it.
 - **`locations[].type`** — use **`"BUSINESS"`**, never `"OWNER_BUSINESS"` (the services endpoint rejects it; `OWNER_BUSINESS` is valid only on `createBooking`'s slot location — same field name, different enum).
 - **Currency** — the **site's business currency wins**: a EUR-locale site stores `EUR` even if you send `USD`. This is not an error; don't fight it (the frontend formats from the returned `currency`).
-- **Imagery is opt-in** (`SEED.md` §1, §5). Seed **text-only** by default — omit `media` here. When imagery is on, attach the image in the dedicated pass-2 step (**STEP 5**) after the service exists.
+- **Imagery is opt-in** (`SEED.md` § "Entity images"). Seed **text-only** by default — omit `media` here. When imagery is on, attach the image in the dedicated pass-2 step (**STEP 5**) after the service exists.
 
 **Payment-options validation** (rejecting combos return `INVALID_PAYMENT_OPTIONS`):
 
@@ -187,7 +187,7 @@ Keep each session's event id — it's `results[].itemMetadata.id` (the events bu
 
 ### STEP 5: Attach a service image (imagery ON only — skip otherwise)
 
-**Only when `imagery` is on** (`SEED.md` §5). This is the bookings entry in the required pass-2 "attach the generated image to the entity" flow — the service was created text-only in STEP 3; now write the image onto it. Generate + import the image per `references/IMAGE_GENERATION.md` (→ keep `file.url` and its `file.id`), then patch the service.
+**Only when `imagery` is on** (`SEED.md` § "Entity images"). This is the bookings entry in the required pass-2 "attach the generated image to the entity" flow — the service was created text-only in STEP 3; now write the image onto it. Generate + import the image per `references/IMAGE_GENERATION.md` (→ keep `file.url` and its `file.id`), then patch the service.
 
 **⚠️ CRITICAL: `media.image` is an OBJECT, not a string — a plain-string image (URL *or* file id) returns `400`.** The write shape is:
 
@@ -211,7 +211,7 @@ curl -X PATCH 'https://www.wixapis.com/bookings/v2/services/<serviceId>' \
 
 - **Fetch the current `revision` first** (`GET https://www.wixapis.com/bookings/v2/services/<serviceId>`, or reuse the `item.revision` from STEP 3's `returnEntity` response) and echo it back — a services V2 update is revision-checked.
 - **Do not brute-force the shape.** Plain-string `"image": "<url>"` and `"image": "<fileId>"` both `400`; the working shape is the object above (`id` + `url` + dimensions + `altText`). `width`/`height` are the generated image's dimensions (IMAGE_GENERATION §1 uses `1024×1024` for squares).
-- **Never block on image failure** (`SEED.md` §5 / IMAGE_GENERATION "Credits & failure") — on failure, skip and leave the service text-only.
+- **Never block on image failure** (`SEED.md` § "Entity images" / IMAGE_GENERATION "Credits & failure") — on failure, skip and leave the service text-only.
 
 ---
 

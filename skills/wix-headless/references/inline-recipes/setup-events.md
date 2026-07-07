@@ -1,6 +1,6 @@
 ---
 name: "Setup Events"
-description: Initializes a Wix Events (Events V3) backend — creates one or more events (each TICKETING or RSVP) as drafts with future dates, adds ticket definitions for ticketed events, then publishes. Specifies the *how* (calls + format); counts, which events are ticketed vs RSVP, dates, and ticket tiers come from the request (via `SEED.md` §3).
+description: Initializes a Wix Events (Events V3) backend — creates one or more events (each TICKETING or RSVP) as drafts with future dates, adds ticket definitions for ticketed events, then publishes. Specifies the *how* (calls + format); counts, which events are ticketed vs RSVP, dates, and ticket tiers come from the request.
 ---
 **RECIPE**: Business Recipe – Initial Setup for Wix Events (Events V3)
 

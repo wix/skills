@@ -1,6 +1,6 @@
 ---
 name: "Setup Restaurant Orders"
-description: Configures Wix Restaurants **Online Ordering** on top of an already-seeded Menus backend. Installing the Orders app AUTO-PROVISIONS a working ordering setup (an ENABLED operation with Pickup + Delivery attached, and every menu ordering-enabled), so this recipe VERIFIES that baseline and CUSTOMIZES the fulfillment methods to the request — it does NOT build ordering from scratch. Specifies the *how* (calls + format); which methods/fees/hours and which menus come from the request (via `SEED.md` §3).
+description: Configures Wix Restaurants **Online Ordering** on top of an already-seeded Menus backend. Installing the Orders app AUTO-PROVISIONS a working ordering setup (an ENABLED operation with Pickup + Delivery attached, and every menu ordering-enabled), so this recipe VERIFIES that baseline and CUSTOMIZES the fulfillment methods to the request — it does NOT build ordering from scratch. Specifies the *how* (calls + format); which methods/fees/hours and which menus come from the request.
 ---
 **RECIPE**: Business Recipe – Online-Ordering Setup for Wix Restaurants (Orders app)
 
@@ -18,7 +18,7 @@ A checklist for online ordering on a Wix site that already has a **Restaurants M
 
 > **⚠️ DEPENDS ON MENUS — the menu must exist.** A customer orders **menu items**, and each menu is bound to the ordering operation through a **menu-ordering-settings** object. This recipe assumes the **Menus** backend is already seeded (`setup-restaurants.md` — menu → sections → items, all `visible: true`) and its `menuId`(s) are in hand. Installing the **Orders** app **auto-installs the Menus app** and **auto-creates one menu-ordering-settings object per menu** — for menus that already exist *and* (confirmed live) for menus created *after* install — each already `onlineOrderingEnabled: true` and bound to the operation. So whichever order you install Orders vs. seed menus, every menu ends up orderable automatically; STEP 3 only verifies it.
 
-> **This recipe is the *how*, not the *what*.** Which fulfillment methods to offer (pickup, delivery, or both), their fees / minimum-order amounts / hours / delivery area, and which menus are orderable come from the request you're fulfilling (via `SEED.md` §3). This recipe only specifies the calls and the request format; it does not decide those quantities. Per the "simple seeds" default, **if the request names no ordering specifics, keep the auto-provisioned defaults** and do only the verification steps.
+> **This recipe is the *how*, not the *what*.** Which fulfillment methods to offer (pickup, delivery, or both), their fees / minimum-order amounts / hours / delivery area, and which menus are orderable come from the request you're fulfilling. This recipe only specifies the calls and the request format; it does not decide those quantities. Per the "simple seeds" default, **if the request names no ordering specifics, keep the auto-provisioned defaults** and do only the verification steps.
 
 > **⚠️ API surfaces — this vertical spans SEVERAL micro-services, each on its OWN host prefix** (unlike Menus, which is all under `restaurants/menus/v1`). Do not "normalize" them to a single prefix:
 > - **Operations** — `https://www.wixapis.com/restaurants-operations/v1/operations`

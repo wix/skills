@@ -1,6 +1,6 @@
 ---
 name: "Setup Pricing Plans"
-description: Initializes a Wix Pricing Plans backend with Plans V3 — creates recurring / one-time / free membership plans (billing cycle + flat-rate price), then (only when bookings is also in the run) attaches bookings services to a plan through the Benefit Programs API so a member's plan covers those services. Specifies the *how* (calls + format); counts and the specific plans/prices/cycles come from the request (via `SEED.md` §3).
+description: Initializes a Wix Pricing Plans backend with Plans V3 — creates recurring / one-time / free membership plans (billing cycle + flat-rate price), then (only when bookings is also in the run) attaches bookings services to a plan through the Benefit Programs API so a member's plan covers those services. Specifies the *how* (calls + format); counts and the specific plans/prices/cycles come from the request.
 ---
 **RECIPE**: Business Recipe – Initial Setup for Wix Pricing Plans (Plans V3) + Bookings membership integration
 
@@ -9,7 +9,7 @@ description: Initializes a Wix Pricing Plans backend with Plans V3 — creates r
 A concise checklist for turning a freshly provisioned Wix site with the **Wix Pricing Plans** app installed into a set of purchasable membership plans — and, when the site also has **Wix Bookings**, for wiring those plans to cover bookable services so members can book with their membership.
 **Notice** that this recipe is **NOT** meant for coding purposes and is **ONLY** meant for initial Pricing Plans backend setup. (The frontend read/subscribe/book-with-plan contract is the sibling recipe `how-to-code-pricing-plans.md`.)
 
-> **This recipe is the *how*, not the *what*.** What to seed — how many plans, their names, prices, and billing cycles, and which bookings services a plan covers — is determined by the request you're fulfilling (`SEED.md` §3). This recipe only specifies the calls and the request format; it does not decide quantities, prices, or which plans to create.
+> **This recipe is the *how*, not the *what*.** What to seed — how many plans, their names, prices, and billing cycles, and which bookings services a plan covers — is determined by the request you're fulfilling. This recipe only specifies the calls and the request format; it does not decide quantities, prices, or which plans to create.
 
 > **API surfaces:** plans use **Plans V3** on the **public** host `https://www.wixapis.com/pricing-plans/v3/...`. The bookings integration uses the **Benefit Programs V1** API (`https://www.wixapis.com/benefit-programs/v1/...`) — a *separate* API from Pricing Plans. Both APIs' method-article headers may show an internal `…/_api/…` form — **do not use that**; call the public non-`/_api/` form shown below. Relevant **app def ids** (constants the integration needs): Wix **Bookings** = `13d21c63-b5ec-5912-8397-c3a5ddb27a97`, Wix **Pricing Plans** = `1522827f-c56c-a5c9-2ac9-00f9e6ae12d3`.
 
@@ -67,7 +67,7 @@ curl -sS -D /tmp/_h.$$ -w "\nHTTP:%{http_code}" -X POST 'https://www.wixapis.com
 **⚠️ CRITICAL FORMAT REQUIREMENTS:**
 - **Pricing lives under `pricingVariants[]`, NOT a top-level `price`.** Each variant carries `billingTerms` (the cycle) + `pricingStrategies` (the amount). Send **one** `pricingVariant` with **one** `pricingStrategy` — the schema nominally allows up to 20 variants but documents "currently limited to 1", so one is the norm.
 - **All amounts and money-ish values are decimal STRINGS**, not numbers: `flatRate.amount` = `"20.00"` (≥ `"0"`, ≤ 4 decimals). A number is rejected.
-- **`billingTerms` selects the plan type** (`SEED.md` §3 decides which):
+- **`billingTerms` selects the plan type** (the request decides which):
   - **Recurring** (subscription): `billingCycle: { "period": "DAY|WEEK|MONTH|YEAR", "count": 1 }`, `startType: "ON_PURCHASE"`, `endType: "UNTIL_CANCELLED"`. **Default to `MONTH`/`1`** unless the request names another cycle.
   - **One-time** (bill once, then ends): `endType: "CYCLES_COMPLETED"` + `cyclesCompletedDetails: { "billingCycleCount": 1 }`. A one-time plan with *no* end date instead sets `"billingCycle": null` + `endType: "UNTIL_CANCELLED"`.
   - **Free**: `pricingStrategies: [ { "flatRate": { "amount": "0" } } ]`; cap reuse with `"purchaseLimits": { "type": "PER_MEMBER_LIFETIME", "count": 1 }` (the older `maxPurchasesPerBuyer: 1` is deprecated — removal targeted 2026-11-30 — prefer `purchaseLimits`).

@@ -1,6 +1,6 @@
 ---
 name: "Setup Forms"
-description: Initializes a Wix Forms backend — deletes the install's default sample form, then creates one lead-capture form schema per requested form (fields + human-readable `target` keys + each INPUT's `CONTACTS_*` system `identifier` + a `steps` layout, so the form and its submissions render in the dashboard, `namespace` wix.form_app.form) and verifies each persisted via the form summary. Specifies the *how* (calls + format); which forms, their fields, and counts come from the request (via `SEED.md` §3).
+description: Initializes a Wix Forms backend — deletes the install's default sample form, then creates one lead-capture form schema per requested form (fields + human-readable `target` keys + each INPUT's `CONTACTS_*` system `identifier` + a `steps` layout, so the form and its submissions render in the dashboard, `namespace` wix.form_app.form) and verifies each persisted via the form summary. Specifies the *how* (calls + format); which forms, their fields, and counts come from the request.
 ---
 **RECIPE**: Business Recipe – Initial Setup for Wix Forms (Form Schemas v4)
 
@@ -9,7 +9,7 @@ description: Initializes a Wix Forms backend — deletes the install's default s
 A concise checklist for preparing any new Wix site that uses the **Wix Forms** app to capture leads (contact / inquiry / signup / RSVP-style forms).
 **Notice** this recipe is for **initial backend setup ONLY**, not for coding the frontend.
 
-> **This recipe is the *how*, not the *what*.** How many forms, each form's fields, and their labels come from the request you're fulfilling (via `SEED.md` §3). This recipe only specifies the calls and the request format; it does not decide which forms or fields to create.
+> **This recipe is the *how*, not the *what*.** How many forms, each form's fields, and their labels come from the request you're fulfilling. This recipe only specifies the calls and the request format; it does not decide which forms or fields to create.
 
 > **API surfaces:** Wix Forms is a **standalone CRM API** — a form **schema** (the field definitions) is created on the **Form Schemas v4** service at `https://www.wixapis.com/form-schema-service/v4/forms`. In the docs portal this lives under **CRM ▸ Forms ▸ Form Schemas**, *not* under Business Solutions. This is **NOT** the events/bookings per-event registration form (a different thing). The Forms app's `appDefId` is `225dd912-7dea-4738-8688-4b8c6955ffc2`; an `UNSUPPORTED_FORM_NAMESPACE` error means the app isn't installed. Call the **public** host shown above (no `/_api/` prefix). There is no bulk endpoint — one POST per form.
 

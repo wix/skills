@@ -1,6 +1,6 @@
 ---
 name: "Setup Restaurant Reservations"
-description: Configures Wix **Table Reservations**. Installing the app AUTO-provisions a default reservation location with a full config (approval AUTOMATIC, party size, weekly schedule, tables) — but with online reservations turned OFF. This recipe VERIFIES that location, CUSTOMIZES its config to the request, and TURNS ON online reservations (premium-gated). There is nothing to bulk-seed and no menu dependency. Specifies the *how* (calls + format); party sizes / hours come from the request (via `SEED.md` §3).
+description: Configures Wix **Table Reservations**. Installing the app AUTO-provisions a default reservation location with a full config (approval AUTOMATIC, party size, weekly schedule, tables) — but with online reservations turned OFF. This recipe VERIFIES that location, CUSTOMIZES its config to the request, and TURNS ON online reservations (premium-gated). There is nothing to bulk-seed and no menu dependency. Specifies the *how* (calls + format); party sizes / hours come from the request.
 ---
 **RECIPE**: Business Recipe – Table-Reservations Setup for Wix Restaurants (Table Reservations app)
 
@@ -15,7 +15,7 @@ A checklist for turning on **table reservations** for a Wix site.
 
 > **⚠️ NO menu dependency.** Reservations bind to a **location**, not a menu (unlike online ordering, which is menu-first). Do **not** copy the orders "seed the menu first" constraint — reservations can be set up with no menu at all.
 
-> **This recipe is the *how*, not the *what*.** Party-size limits, business hours, turnover time, and reservation-notice come from the request you're fulfilling (via `SEED.md` §3). This recipe only specifies the calls and the request format. Per the "simple seeds" default, if the request names no reservation specifics, keep the auto-provisioned config and just do STEP 1 + STEP 3.
+> **This recipe is the *how*, not the *what*.** Party-size limits, business hours, turnover time, and reservation-notice come from the request you're fulfilling. This recipe only specifies the calls and the request format. Per the "simple seeds" default, if the request names no reservation specifics, keep the auto-provisioned config and just do STEP 1 + STEP 3.
 
 > **API surface:** the **Reservation Locations** API on `https://www.wixapis.com/table-reservations/reservation-locations/v1/reservation-locations` (list `GET`, query `POST …/query`, get `GET …/{id}`, update `PATCH …/{id}`). The frontend visitor flow (time slots, held/reserve) is a separate concern — see `how-to-code-restaurant-reservations.md`.
 
