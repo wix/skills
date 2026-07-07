@@ -29,7 +29,7 @@ When adding a `wix-manage` skill:
 4. **Add at least one eval scenario** for the skill under `yaml/wix-manage-evals/<area>/<skill>.yml`. See [Adding an Eval Scenario](#adding-an-eval-scenario) below.
 5. Include at least one valid EvalForge tag, for example `domains`, `stores`, `bookings`, or another existing tag that matches the skill.
 6. Keep the skill focused on public Wix REST APIs or documented SDK APIs. Do not translate internal gRPC names or internal-only APIs into public skills.
-7. Keep the skill's `description` short and specific — 1024 characters is a hard cap, not a target.
+7. Keep the skill's `description` to at most 1024 characters.
 
 ## Adding an Eval Scenario
 
@@ -185,7 +185,7 @@ Use evaluation as a loop, not a one-time check. Review the failures, tighten the
 Before opening a PR, confirm:
 
 - The content is in the right existing skill. New top-level skills are admin-only.
-- Each skill's `description` is concise and within the 1024-character cap.
+- Each skill's `description` is at most 1024 characters.
 - The relevant `SKILL.md` index is updated.
 - Any new `wix-manage` skill is listed in the relevant `yaml/wix-manage/<area>/documentation.yaml`.
 - Any new or modified `wix-manage` skill has at least one covering eval scenario under `yaml/wix-manage-evals/<area>/`.
