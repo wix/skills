@@ -56,7 +56,13 @@ the key fields and link to the full API reference for anything not shown.
   `title`, `mainImage.url`, `dateAndTimeSettings.formatted.dateAndTime`, `location.name`, and
   `shortDescription`. Use `offset`/`nextOffset` from the result to page. Link each card by `slug`.
 - **Event detail** — `getEventBySlug(slug)`; returns null on miss — show a not-found state, never
-  invent an event. Branch the registration UI on `event.registration.type`:
+  invent an event.
+  - **Description fields:** `event.shortDescription` is a **plain string** (safe teaser). The full
+    `event.description` is **Ricos rich content** — an object shaped `{ nodes: [...] }`, **not a string**.
+    Render it with a Ricos viewer (`@wix/ricos`) or walk `nodes` to extract text; **never** call string
+    methods (`.split`/`.slice`/`.substring`) on it — that crashes the page. When you only need text, use
+    `shortDescription`.
+  - Branch the registration UI on `event.registration.type`:
   - `"RSVP"` → render the RSVP form (fields from `event.form.controls`).
   - `"TICKETING"` → render the ticket picker.
   - `"EXTERNAL"` → link out to `event.registration.external.url`.

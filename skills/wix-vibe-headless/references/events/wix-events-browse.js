@@ -8,7 +8,12 @@ import { wixApiRequest } from "./wix-client.js";
  *
  *   id {string}, title {string}, slug {string},
  *   status {string} — "UPCOMING"|"STARTED"|"ENDED"|"CANCELED"|"DRAFT" (only UPCOMING/STARTED are live),
- *   shortDescription {string} — teaser text (DETAILS fieldset),
+ *   shortDescription {string} — PLAIN-TEXT teaser, safe to render directly (DETAILS fieldset),
+ *   description {object} — RICH CONTENT (Ricos), shape { nodes: [...] } — NOT a string (TEXTS fieldset,
+ *     returned by getEventBySlug). Render it with a Ricos viewer (@wix/ricos) or walk `nodes` to extract
+ *     text; NEVER call string methods (.split/.slice/.substring/.trim) on it — that crashes the page.
+ *     For a plain-string teaser use shortDescription instead.
+ *   detailedDescription {string} — legacy plain/HTML description (TEXTS fieldset); prefer description/shortDescription,
  *   mainImage {object} — { id, url, width, height, altText } (DETAILS fieldset),
  *   dateAndTimeSettings {object}:
  *     startDate, endDate {string} — ISO-8601; absent when dateAndTimeTbd is true,
