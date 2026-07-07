@@ -30,14 +30,14 @@ If that errors (Node not installed) or prints a version below 20.11, install or 
 
 Download the bootstrap script, then run it. It verifies the Wix CLI and handles login, emitting **one JSON event per line** on stdout. **Run it as a background/streaming process and relay its events to the user.**
 
+The script is safe and inspectable: it only checks the Wix CLI via `npx` and drives `wix login` (a device-code flow) — no other network calls, no filesystem writes. Read it first if your sandbox flags externally-downloaded code — either at the URL below or after downloading; both are the same file.
+
 ```bash
 # macOS/Linux:
 curl -fsSL -O https://www.wix.com/skills/headless/entry/bootstrap.mjs
 # Windows PowerShell:
 iwr https://www.wix.com/skills/headless/entry/bootstrap.mjs -OutFile bootstrap.mjs
-```
 
-```bash
 node bootstrap.mjs
 ```
 
