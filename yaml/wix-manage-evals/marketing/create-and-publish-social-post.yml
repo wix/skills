@@ -1,4 +1,4 @@
-name: social-media/create-and-publish-social-post
+name: marketing/create-and-publish-social-post
 description: >-
   Action scenario for the "Create and Publish a Social Media Post" skill on a
   fresh site with no connected Instagram: the agent is asked to publish now, and
@@ -17,7 +17,7 @@ siteSetup:
 assertions:
   - tool: ReadFullDocsArticle
     params:
-      articleUrl: https://dev.wix.com/docs/api-reference/business-management/marketing/social-media/skills/create-and-publish-a-social-media-post-with-ai-generation
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/marketing/skills/create-and-publish-a-social-media-post-with-ai-generation
   - type: llm_judge
     minScore: 7
     maxTokens: 2048

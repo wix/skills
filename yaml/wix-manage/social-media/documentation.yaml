@@ -1,8 +1,0 @@
-apiDoc:
-  title: Wix Social Media Publisher Recipes
-
-  docs:
-    - file: ../../../skills/wix-manage/references/social-media/create-and-publish-social-post.md
-      title: Create and Publish a Social Media Post (with AI generation)
-      docsEntry: https://dev.wix.com/docs/api-reference/business-management/marketing/social-media
-      tags: [marketing]
