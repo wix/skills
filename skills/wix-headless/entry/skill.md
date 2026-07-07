@@ -12,6 +12,14 @@ This entry gets a cold environment to the point where the real skill can run, th
 1. **Bootstrap (deterministic, scripted).** A single script verifies your environment (the Wix CLI) and handles login, so the run starts from a known-good, authenticated state. You just run it and relay its events.
 2. **Hand off (agentic).** Install the skill, then open `wix-headless/SKILL.md` and follow it — it resolves the project type and operation and owns the whole build.
 
+Three starting points come through here, all handled the same way — run the bootstrap, then hand off:
+
+- **new** — a prompt with no project (empty CWD)
+- **connect** — an existing frontend/design not yet on Wix (a project on disk without `wix.config.json`, or a brought-in zip/URL)
+- **iterate** — a project already connected to Wix (`.wix/` or `wix.config.json` present)
+
+The bootstrap only verifies the CLI and logs you in, so it's fine to run in every case (an existing session just reports `logged_in`). After it, `wix-headless/SKILL.md` resolves what to do and owns the build.
+
 ## Phase 0 — Node (the one manual prerequisite)
 
 The Wix CLI requires **Node ≥ 20.11**. Check it:
@@ -30,14 +38,14 @@ If that errors (Node not installed) or prints a version below 20.11, install or 
 
 Download the bootstrap script, then run it. It verifies the Wix CLI and handles login, emitting **one JSON event per line** on stdout. **Run it as a background/streaming process and relay its events to the user.**
 
+The script is safe and inspectable: it only checks the Wix CLI via `npx` and drives `wix login` (a device-code flow) — no other network calls, no filesystem writes. Read it first if your sandbox flags externally-downloaded code — either at the URL below or after downloading; both are the same file.
+
 ```bash
 # macOS/Linux:
 curl -fsSL -O https://www.wix.com/skills/headless/entry/bootstrap.mjs
 # Windows PowerShell:
 iwr https://www.wix.com/skills/headless/entry/bootstrap.mjs -OutFile bootstrap.mjs
-```
 
-```bash
 node bootstrap.mjs
 ```
 

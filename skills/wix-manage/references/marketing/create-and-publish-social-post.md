@@ -4,6 +4,29 @@ description: "End-to-end flow to create a social media post, optionally generati
 ---
 # RECIPE: Create and Publish a Social Media Post (with AI generation)
 
+## THE PROTOCOL (read this first — every rule is mandatory)
+
+Run every post request through these steps, in this order. Skip a question only when the user's own words in this conversation already answered it.
+
+1. **Connection first.** Confirm the target channel is connected (STEP 1). If it isn't, offer the connect flow (STEP 1.5) before anything else.
+2. **Plan second.** Check `PUBLISH_POST` / `SCHEDULE_POST` (STEP 2). If `SCHEDULE_POST` is disabled, never present scheduling as an option. AI generation is **never** plan-gated; never tell the user it is.
+3. **Ask: own or generated?** "Do you already have the post text (and image), or should I generate it?" Wait for the answer.
+4. **If generating, ask: idea or asset?** "From an idea, or built around one of your site's assets (a product, blog post, event, booking, or coupon)?" Offer the asset option explicitly, every time. Wait for the answer.
+5. **The subject is a hard gate.** Before any generation call you need, in the user's own words, what the post is about: an idea or a chosen asset. A reply that answers only part of a question (an account pick, a bare "you generate it") does **not** supply the subject. Never derive a topic from the site's profile or content on your own. Ask again and wait.
+6. **Route exactly one way:**
+   - User has their own text → use it **verbatim**; skip generation (go to STEP 5).
+   - Idea → `generate-post-data` with `userInput` (STEP 3a; returns caption **and** image).
+   - Asset → resolve the asset id, then `generate-post-data` with `siteAssets` (STEP 3a).
+   - User explicitly wants **only** a caption → `generate-text` (STEP 3b).
+   - User wants an **existing image edited** → `generate-image` (STEP 3c; requires a source image URL).
+
+   Any request to generate an image for the post means `generate-post-data`. `generate-image` cannot create an image from text alone (it returns 400 without a source image); no endpoint can.
+7. **Present the tool's output** to the user: the caption **and** the image (rendered inline, or its URL). Never hand-write the caption or claim generated content you didn't get from the API. Get explicit approval on the final content before publishing (STEP 6).
+
+The rest of this recipe is the reference for executing each step.
+
+---
+
 This recipe creates a post — called an **item** — and publishes it to one of a site's connected social channels, or schedules it for a future date. You can generate the post content with AI (STEP 3) or bring your own. Each item targets a single channel, and its `type` and content must match a combination the channel supports.
 
 Base URL for all endpoints: `https://www.wixapis.com/social-publisher/v1`.
@@ -111,18 +134,7 @@ One call tells you what the site's plan allows — whether you can publish or sc
 
 ## STEP 3: Generate the post content with AI
 
-AI generation isn't gated by the plan (no premium check applies), so offer it by default. Don't assume whether the user wants to write the post or have it generated — **ask, before anything else in this step:**
-
-1. **Own content, or generated?** — "Do you already have the post text, or should I generate it?"
-2. **If generated — from a one-line idea, or built around a site asset** (product, blog post, event, booking, coupon)?
-
-Then route:
-- **Has their own text** → skip generation; use it as the content object in STEP 5 (still surface any media per STEP 6).
-- **Generated** → **default to `generate-post-data` (3a)** — it returns a full post, caption **and** image. Pass the idea as `userInput` and/or the chosen asset as `siteAssets`. Use `generate-text` (3b, caption/title only, no image) *only* when the user wants just a caption; use 3c only when 3a doesn't fit (YouTube, story/reel/video).
-
-**Get the subject before generating.** You need, in the user's own words, *what the post is about* — a one-line idea or which specific asset — before calling the API. Never invent the topic or generate a generic post from your own assumption; if the user hasn't supplied it yet, ask and wait. A reply that answers only part of your question (e.g. "1" or "personal" when you also asked for the topic) does **not** supply the subject — ask again and wait.
-
-**Never hand-write the caption or title.** Producing the post means calling the API (3a/3b) and presenting *its* output — don't compose captions in-model and skip the call. The only time you skip it is when the user pasted their own text.
+AI generation isn't gated by the plan (no premium check applies), so offer it by default. **THE PROTOCOL at the top of this recipe governs this step**: ask own-or-generated (rule 3), offer idea-or-asset (rule 4), hold the subject gate (rule 5), and route per rule 6. Never hand-write the caption or title; producing the post means calling the API below and presenting *its* output.
 
 ### 3a. Generate a full post — from an idea and/or the site's own assets
 

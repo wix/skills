@@ -1,6 +1,6 @@
 ---
 name: "Diagnose Bookings Availability Issues"
-description: "Diagnoses why an appointment-based Wix Bookings service has no bookable time slots. Runs the DiagnoseAvailability endpoint for ordered, machine-readable reasons — each with a suggested owner action — and interprets them, with a manual fallback for causes the endpoint doesn't evaluate. Use when a service shows no availability or customers can't book."
+description: "Diagnoses why an appointment-based Wix Bookings service has no bookable time slots or why customers can't book it. First rules out service-level blockers the availability endpoint can't see — the service being hidden from the site or having online booking turned off — then runs the DiagnoseAvailability endpoint for ordered, machine-readable staff/setup reasons, with a manual fallback for booking-policy and capacity causes. Use when a service shows no availability or customers can't book or find it."
 ---
 # Diagnose Bookings Availability Issues
 
@@ -14,12 +14,16 @@ description: "Diagnoses why an appointment-based Wix Bookings service has no boo
 
 ## When to use
 
-A site owner reports that an **appointment-based** service has **no bookable time slots** — the calendar shows nothing available, or customers can't book. This recipe finds the cause.
+A site owner reports that an **appointment-based** service has **no bookable time slots**, or that **customers can't book (or can't even find) the service**. This recipe finds the cause.
 
-Diagnosis is **endpoint-first**:
+Diagnosis runs in order — **cheapest, most common blockers first:**
 
-1. **Call `DiagnoseAvailability`.** It returns ordered, machine-readable reason codes — each with a suggested owner action — for setup/configuration problems. Fix what it reports and re-check.
+0. **Rule out service-level blockers.** Before touching availability, confirm the service is actually **visible** and **open to online booking**. A service that's hidden from the site, or has online booking turned off, can't be booked no matter how much staff availability exists — and `DiagnoseAvailability` does **not** check either. This is the single most common reason a customer "can't book" a service. See [Step 0](#step-0--rule-out-service-level-blockers-visibility--online-booking).
+1. **Call `DiagnoseAvailability`.** It returns ordered, machine-readable reason codes — each with a suggested owner action — for staff/resource setup and configuration problems. Fix what it reports and re-check.
 2. **Fall back to `ListAvailabilityTimeSlots`** only when the endpoint is inconclusive. The endpoint detects setup/configuration problems; it does **not** evaluate booking policy or remaining capacity, so those are checked here.
+
+> ### ⚠️ Don't skip Step 0
+> If the owner's complaint is "customers can't book / can't see this service" (as opposed to "the calendar is empty"), **Step 0 is very likely the answer.** Jumping straight to `DiagnoseAvailability` / `ListAvailabilityTimeSlots` on a hidden service will surface a real-but-irrelevant availability or policy detail (e.g. "too late to book") and give the owner the **wrong** diagnosis. Always confirm visibility and online booking first.
 
 > **Scope:** appointment-based services.
 
@@ -34,6 +38,27 @@ Diagnosis is **endpoint-first**:
 - Typically the `serviceId` (optionally with a staff member's `resourceId` to scope to one provider). A `resourceId` on its own is also supported for the staff editor, where no service is in context — see [Which inputs to pass](#which-inputs-to-pass-prefer-a-service).
 
 - **Authorization:** the caller needs the `bookings:availability:v2:time_slot:diagnose_availability` permission. A plain site/owner token can come back **403 (empty body)** if that permission isn't granted to the caller — that's an auth problem, not "no cause found." Ensure the calling context carries the permission before treating a 403 as inconclusive.
+
+---
+
+## Step 0 — Rule out service-level blockers (visibility & online booking)
+
+Two service settings block booking **entirely**, regardless of staff availability, and are invisible to `DiagnoseAvailability` and `ListAvailabilityTimeSlots`. Check them **first** with a single read of the service.
+
+- **Endpoint:** `GET https://www.wixapis.com/_api/bookings/v2/services/{serviceId}`
+
+Inspect two fields on the returned `service`:
+
+| Field | Blocking value | What it means (the "Visible on your site and app" toggle is `hidden` inverted) |
+|-------|----------------|------------------|
+| `hidden` | `true` | The service is **hidden from the site and app**. Customers can't see or book it. In the dashboard this is the **"Visible on your site and app"** toggle turned **off**. |
+| `onlineBooking.enabled` | `false` | **Online booking is turned off** for this service. It may be visible, but customers can't book it online (staff can still book it manually). |
+
+- If **`hidden: true`** → that's the cause. Stop here; don't run the availability diagnosis. Fix: make the service visible (offer to flip the toggle for them).
+- If **`onlineBooking.enabled: false`** → that's the cause (for "can't book online"). Fix: turn online booking on.
+- If both are fine (`hidden: false`, `onlineBooking.enabled: true`) → proceed to Step 1.
+
+> **Why this comes first:** a hidden service can still have staff, working hours, and internally-generated time slots — so the availability endpoint and `ListAvailabilityTimeSlots` will happily report on those slots (including policy details like "too late to book"). None of that is the real reason the customer can't book. Confirming visibility first prevents a confidently-wrong answer.
 
 ---
 
@@ -178,6 +203,8 @@ The diagnosis is part of a conversation with a site owner. Reply in plain, frien
 
 | Cause | Say something like |
 |-------|--------------------|
+| Service is hidden from the site (`hidden: true`) | "This service is currently hidden from your site and app, so customers can't see or book it. Want me to make it visible?" |
+| Online booking turned off (`onlineBooking.enabled: false`) | "Online booking is turned off for this service, so customers can't book it themselves online (you can still book it for them manually). Want me to turn online booking on?" |
 | No staff/resources on the service | "This service doesn't have any staff assigned yet, so there's nothing to book. Want me to help you add someone?" |
 | Provider isn't on the service | "That staff member isn't assigned to this service, so their times don't show. I can add them to it." |
 | Provider has no working hours | "The staff for this service don't have any working hours set, so there are no times to offer. Let's set their hours." |
@@ -203,6 +230,8 @@ Popular reasons a service shows no availability, and where each surfaces:
 
 | Situation | Where it surfaces | Fix |
 |-----------|-------------------|-----|
+| Service hidden from the site/app | Step 0 — `service.hidden: true` | Make the service visible ("Visible on your site and app" toggle). |
+| Online booking turned off | Step 0 — `service.onlineBooking.enabled: false` | Turn online booking on for the service. |
 | No staff/resources on the service | `NO_ASSIGNED_STAFF_OR_RESOURCES` | Assign staff/resources. |
 | Provider isn't on the service | `RESOURCE_NOT_ASSIGNED_TO_SERVICE` | Assign the provider. |
 | Provider has no working hours | `RESOURCE_HAS_NO_WORKING_HOURS` | Configure working hours. |
@@ -218,6 +247,7 @@ Popular reasons a service shows no availability, and where each surfaces:
 
 ## Gotchas
 
+- **A hidden service is the classic wrong-diagnosis trap.** `hidden: true` (or `onlineBooking.enabled: false`) blocks booking entirely, but a hidden service can still have staff and internally-generated slots — so `DiagnoseAvailability` and `ListAvailabilityTimeSlots` will report on those slots and their policy details (e.g. "too late to book"), none of which is the real reason. **Always run Step 0 first**, especially when the complaint is "customers can't book / can't see this service."
 - **`hasAvailability: false` + empty `reasons` ≠ a confirmed problem.** It means "no blocking cause detected." Always confirm with `ListAvailabilityTimeSlots`.
 - **The endpoint is ALPHA and feature-toggled.** If it returns nothing for an obviously broken service, the `diagnoseAvailabilityEndpoint` toggle may be off — fall back to Step 2.
 - **A 403 is an auth problem, not a diagnosis.** The action needs the `bookings:availability:v2:time_slot:diagnose_availability` permission; a caller without it gets a 403 with an empty body. Don't read that as "no cause found" — confirm the caller has the permission (see [Prerequisites](#prerequisites)).
