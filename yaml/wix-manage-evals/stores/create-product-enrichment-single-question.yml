@@ -1,7 +1,10 @@
 name: stores/create-product-enrichment-single-question
 description: When both mandatory inputs (name and price) are provided, the skill should ask at most ONE enrichment question that bundles options (sizes/colors) with an offer to generate SEO description and/or info sections — not split them into multiple rounds.
-triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) create a product called "Handmade Ceramic Mug" priced at $24.
+triggerPrompt: For my Wix store, create a product called "Handmade Ceramic Mug" priced at $24.
 tags: [stores]
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
 assertions:
   - tool: ReadFullDocsArticle
     params:

@@ -1,7 +1,10 @@
 name: stores/create-product-ask-missing-mandatory
 description: When a mandatory input (name or price) is missing, the skill should ask for it — or offer to generate it — with at most 1–2 follow-up questions, rather than silently inventing values or creating a bare product.
-triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) create a product called "Handmade Ceramic Mug".
+triggerPrompt: For my Wix store, create a product called "Handmade Ceramic Mug".
 tags: [stores]
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
 assertions:
   - tool: ReadFullDocsArticle
     params:

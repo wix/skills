@@ -1,7 +1,10 @@
 name: stores/create-product-opening-and-start-path
 description: When the user wants to create a product but hasn't named one, the skill should open by asking what product to create and offer a starting path — from an uploaded image or from a text description.
-triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) I'd like to add a new product to my store.
+triggerPrompt: For my Wix store, I'd like to add a new product.
 tags: [stores]
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
 assertions:
   - tool: ReadFullDocsArticle
     params:

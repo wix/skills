@@ -18,17 +18,17 @@ The goal of this step is not just to create *a* product, but to help the user cr
 
 ### 0a. Opening the conversation
 
-**If this skill was triggered from within the Business Manager (i.e., the user landed here without naming a product yet), open the conversation with this exact question, displayed up front:**
+**If the user hasn't named a product yet, open the conversation with this question up front:**
 
 > **What product would you like to create?**
 
-Otherwise, use whatever product details the user already gave you and go straight to the gap check in 0b.
+If the user already gave you product details, skip the opening question and go straight to the gap check in 0b.
 
 **Offer a starting path.** When opening the conversation (and the user hasn't already committed to a method), let them choose how to provide the product details:
 
 > "You can either **upload a product image** and I'll create the product info from it, or just **describe the product in text** and I'll take it from there. Which would you prefer?"
 
-- If the user wants to start from an image → follow the **[Create Product from Image](create-product-from-image.md)** recipe to extract the product name, description, price, and any visible options from the image(s), then continue the conversation from 0b with whatever that recipe couldn't fill in.
+- If the user wants to start from an image → follow the **[Create Product from Image](https://dev.wix.com/docs/api-reference/business-solutions/stores/skills/create-product-from-image)** recipe to extract the product name, description, price, and any visible options from the image(s), then continue the conversation from 0b with whatever that recipe couldn't fill in.
 - If the user prefers text / a prompt → continue with the gap check in 0b as usual.
 
 > **Count this toward the 1–2 question budget.** If you ask the image-vs-text question, keep the remaining follow-ups to one so the total conversation stays short.
