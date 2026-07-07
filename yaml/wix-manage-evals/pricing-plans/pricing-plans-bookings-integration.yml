@@ -1,0 +1,49 @@
+name: pricing-plans/pricing-plans-bookings-integration
+description: >-
+  Verifies the agent reads the Pricing Plans Bookings Integration recipe and
+  explains the safe Benefit Programs flow for attaching booking services without
+  using pool-definition-items/add-items-to-benefit as the first attach step.
+triggerPrompt: >-
+  I have Wix Bookings appointment services and Pricing Plans for driving lesson
+  packages. I want customers to buy the package once and then book sessions using
+  the plan. Explain the API flow to connect the plans to the booking services,
+  including what to do if an earlier attempt got a 403 from add-items-to-benefit.
+tags: [bookings, pricing-plans]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans/skills/pricing-plans-bookings-integration
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user has Wix Bookings appointment services and Pricing Plans for lesson
+      packages. They want the plan to grant booking sessions, and they mention an
+      earlier 403 from `add-items-to-benefit`.
+      Intent: describe the safe Pricing Plans -> Benefit Programs -> Bookings setup
+      path and avoid the failure mode where the agent directly calls
+      `pool-definition-items/add-items-to-benefit`, catches 403s, and reports
+      partial success.
+
+      Pass if the response:
+      - loads the `pricing-plans-bookings-integration` recipe, AND
+      - describes the sequence: pricing plan -> find/create program definition
+        with `externalId` equal to the plan ID and namespace `@wix/pricing-plans`
+        -> create or reuse a pool definition with a Bookings benefit -> create
+        Benefit Programs Items for booking service IDs using the benefit
+        `itemSetId`, AND
+      - says not to use `pool-definition-items/add-items-to-benefit` as the first
+        Bookings attach step after a 403, and instead resume from existing
+        definitions and create the missing benefit items, AND
+      - says mutating errors should fail fast or be reported with the failed
+        endpoint and relevant IDs, not swallowed inside an overall success result.
+
+      Fail if the response:
+      - recommends directly calling `pool-definition-items/add-items-to-benefit`
+        to attach the booking service, OR
+      - tells the user to use `category: "service"` for the booking item without
+        checking the Items API docs, OR
+      - treats a 403 from a mutating Benefit Programs call as successful or safe
+        to ignore, OR
+      - omits the `itemSetId` relationship between the pool definition benefit
+        and the created benefit item.
