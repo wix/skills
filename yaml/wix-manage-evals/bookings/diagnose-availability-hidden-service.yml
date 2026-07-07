@@ -1,0 +1,39 @@
+name: bookings/diagnose-availability-hidden-service
+description: >-
+  Verifies that when a site owner asks why customers can't book a service, the
+  agent first checks the service-level blockers the availability endpoint can't
+  see — the service being hidden from the site or online booking turned off —
+  instead of jumping to an availability/booking-policy cause.
+triggerPrompt: >-
+  Customers say they can't book one of my Wix Bookings appointment services.
+  Why can't they book it, and how do I fix it?
+tags: [bookings]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/bookings/skills/diagnose-bookings-availability-issues
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user is a Wix site owner asking why customers can't book an appointment service.
+      A very common cause is that the service is hidden from the site (the "Visible on your
+      site and app" toggle is off) or that online booking is turned off — both block booking
+      entirely and are NOT detected by the availability diagnosis, which will otherwise report
+      irrelevant slot/policy details (e.g. "too late to book").
+      Intent: rule out service-level visibility / online-booking blockers first.
+
+      Pass if the response:
+      - checks or asks about whether the service is visible on the site/app (not hidden) and/or
+        whether online booking is enabled, treating that as a leading candidate, AND
+      - gives an actionable, plain-language fix (make the service visible / turn on online
+        booking), AND
+      - is written for a site owner, not a developer.
+
+      Fail if the response:
+      - jumps straight to an availability or booking-policy cause (no staff, no working hours,
+        "too early/too late to book", fully booked) as the diagnosis without first ruling out
+        the service being hidden or online booking being off, OR
+      - dumps implementation internals at the user — raw reason codes, suggestedAction enum
+        values, JSON, field paths, or instructions for the user to call an API/endpoint
+        themselves.
