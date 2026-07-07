@@ -1,0 +1,19 @@
+name: stores/create-product-ask-missing-mandatory
+description: When a mandatory input (name or price) is missing, the skill should ask for it — or offer to generate it — with at most 1–2 follow-up questions, rather than silently inventing values or creating a bare product.
+triggerPrompt: For my Wix store, create a product called "Handmade Ceramic Mug".
+tags: [stores]
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/stores/skills/create-product-with-options-catalog-v3
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Context: name and price are the two mandatory inputs for creating a product. Here the user gave a name ("Handmade Ceramic Mug") but no price.
+      Pass if the response (a) loads the create-product-with-options-catalog-v3 skill, (b) recognizes that price (a mandatory input) is missing, and (c) either asks the user for the price OR offers to suggest/generate a price for them — combining any missing-field asks into a single question and keeping total follow-up questions to at most 2.
+      Fail if the response silently invents a price and creates the product without asking or offering to generate it, asks 3 or more follow-up questions, re-asks for the name that was already provided, or ignores the missing mandatory field entirely.
+      It is NOT required that the product be created in this turn — judge the gap detection and the ask/offer behavior, not completion.

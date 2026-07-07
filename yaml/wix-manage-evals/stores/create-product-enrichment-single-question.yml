@@ -1,0 +1,19 @@
+name: stores/create-product-enrichment-single-question
+description: When both mandatory inputs (name and price) are provided, the skill should ask at most ONE enrichment question that bundles options (sizes/colors) with an offer to generate SEO description and/or info sections — not split them into multiple rounds.
+triggerPrompt: For my Wix store, create a product called "Handmade Ceramic Mug" priced at $24.
+tags: [stores]
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/stores/skills/create-product-with-options-catalog-v3
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Context: both mandatory inputs are present (name "Handmade Ceramic Mug" and price $24). The skill should now move the product toward "ready to sell" by asking a single enrichment question.
+      Pass if the response (a) loads the create-product-with-options-catalog-v3 skill, (b) does NOT re-ask for name or price, and (c) asks at most ONE enrichment question that bundles asking whether the product has different sizes/colors (options & choices) with an offer to generate a SEO description and/or info sections.
+      Fail if the response asks about options and about SEO/info sections as two separate sequential questions (exceeding the 1–2 question budget), asks 3 or more follow-up questions, re-requests the already-provided name or price, or skips the enrichment offer entirely and creates a bare product with no attempt to make it more complete.
+      The user's eventual choice (options vs. no options, generate vs. skip) does NOT affect the verdict — judge whether the enrichment question is offered and kept to a single bundled ask.
