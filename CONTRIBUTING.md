@@ -30,6 +30,12 @@ When adding a `wix-manage` skill:
 5. Include at least one valid EvalForge tag, for example `domains`, `stores`, `bookings`, or another existing tag that matches the skill.
 6. Keep the skill focused on public Wix REST APIs or documented SDK APIs. Do not translate internal gRPC names or internal-only APIs into public skills.
 
+### Frontmatter `description` length (max 1024 characters)
+
+Keep each skill's frontmatter `description` at **1024 characters or fewer**. This is the limit the [Agent Skills spec](https://agentskills.io/home) already sets for `description`, and Wix depends on it: when a skill syncs to the Wix Docs portal, its `description` is mirrored verbatim into the docs article **summary**, which is capped at 1024 characters.
+
+If the `description` exceeds that limit, the docs sync **silently fails to publish the skill** — the underlying revision is rejected, so the skill renders empty in the portal's edit view and never appears on the live portal, with no error surfaced back to the PR. Staying within the spec limit avoids this.
+
 ## Adding an Eval Scenario
 
 Every `wix-manage` skill should have at least one **eval scenario** — a YAML file that describes a realistic user request and how to verify the agent handled it correctly. PRs that modify a skill `.md` without a covering scenario will fail the automated evaluation check.
@@ -184,6 +190,7 @@ Use evaluation as a loop, not a one-time check. Review the failures, tighten the
 Before opening a PR, confirm:
 
 - The content is in the right existing skill. New top-level skills are admin-only.
+- Each skill's frontmatter `description` is 1024 characters or fewer (it's mirrored into the Wix Docs summary; over the limit the docs sync silently fails to publish).
 - The relevant `SKILL.md` index is updated.
 - Any new `wix-manage` skill is listed in the relevant `yaml/wix-manage/<area>/documentation.yaml`.
 - Any new or modified `wix-manage` skill has at least one covering eval scenario under `yaml/wix-manage-evals/<area>/`.
