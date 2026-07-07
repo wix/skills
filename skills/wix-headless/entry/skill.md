@@ -12,7 +12,7 @@ This entry gets a cold environment to the point where the real skill can run, th
 1. **Bootstrap (deterministic, scripted).** A single script verifies your environment (the Wix CLI) and handles login, so the run starts from a known-good, authenticated state. You just run it and relay its events.
 2. **Hand off (agentic).** Install the skill, then open `wix-headless/SKILL.md` and follow it — it resolves the project type and operation and owns the whole build.
 
-Both entry modes take these same two phases — a **new** build from a prompt (empty CWD), or **connecting an existing project/design** (a frontend on disk, a `wix.config.json`, or a brought-in zip/URL). Nothing here branches on it: run the bootstrap, hand off, and let `wix-headless/SKILL.md` resolve *create* vs *connect*.
+These two phases are the same whether you're building **new** from a prompt (empty CWD) or **connecting an existing project/design** (a frontend on disk, a `wix.config.json`, or a brought-in zip/URL). Nothing here branches on it: run the bootstrap, hand off, and let `wix-headless/SKILL.md` resolve *create* vs *connect*.
 
 ## Phase 0 — Node (the one manual prerequisite)
 
