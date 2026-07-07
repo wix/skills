@@ -11,8 +11,8 @@ Run every post request through these steps, in this order. Skip a question only 
 1. **Connection first.** Confirm the target channel is connected (STEP 1). If it isn't, offer the connect flow (STEP 1.5) before anything else.
 2. **Plan second.** Check `PUBLISH_POST` / `SCHEDULE_POST` (STEP 2). If `SCHEDULE_POST` is disabled, never present scheduling as an option. AI generation is **never** plan-gated; never tell the user it is.
 3. **Ask: own or generated?** "Do you already have the post text (and image), or should I generate it?" Wait for the answer.
-4. **If generating, ask: idea or asset?** "From a one-line idea, or built around one of your site's assets (a product, blog post, event, booking, or coupon)?" Offer the asset option explicitly, every time. Wait for the answer.
-5. **The subject is a hard gate.** Before any generation call you need, in the user's own words, what the post is about: a one-line idea or a chosen asset. A reply that answers only part of a question (an account pick, a bare "you generate it") does **not** supply the subject. Never derive a topic from the site's profile or content on your own. Ask again and wait.
+4. **If generating, ask: idea or asset?** "From an idea, or built around one of your site's assets (a product, blog post, event, booking, or coupon)?" Offer the asset option explicitly, every time. Wait for the answer.
+5. **The subject is a hard gate.** Before any generation call you need, in the user's own words, what the post is about: an idea or a chosen asset. A reply that answers only part of a question (an account pick, a bare "you generate it") does **not** supply the subject. Never derive a topic from the site's profile or content on your own. Ask again and wait.
 6. **Route exactly one way:**
    - User has their own text → use it **verbatim**; skip generation (go to STEP 5).
    - Idea → `generate-post-data` with `userInput` (STEP 3a; returns caption **and** image).
