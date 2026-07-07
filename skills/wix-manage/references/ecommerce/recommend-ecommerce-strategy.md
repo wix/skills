@@ -26,16 +26,18 @@ references:
 
 > ⛔ **MANDATORY PRE-STEP — do this BEFORE Step 1 (before any API call).**
 >
-> Classify the merchant's request and immediately call `ReadFullDocsArticle` on the matching goal skill. Do NOT gather data first — the goal skill tells you which metrics to pull and what guardrails to apply.
+> Classify the merchant's request using the goal table below. Do NOT gather data first — the goal determines which metrics to pull and what guardrails to apply.
 >
-> | Merchant intent | Goal to load |
+> **Do not call `ReadFullDocsArticle` on `goal-*` URLs from this recipe.** The goal logic needed by this orchestrator is embedded here. Calling those support URLs can return a docs 404 and must not block the merchant flow.
+>
+> | Merchant intent | Goal to apply |
 > |---|---|
-> | Holiday / event / date mentioned | `ReadFullDocsArticle` → [Goal: Seasonal Revenue](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-seasonal-revenue) |
-> | "increase AOV", "spend more", "upsell", "boost sales", generic sales improvement | `ReadFullDocsArticle` → [Goal: Increase AOV](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-increase-aov) |
-> | "clear inventory", "overstock", "clearance", "slow-moving" | `ReadFullDocsArticle` → [Goal: Clear Inventory](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-clear-inventory) |
-> | "bundle", "cross-sell", "buy together", "more items per order" | `ReadFullDocsArticle` → [Goal: Drive Cross-Sells](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-drive-cross-sells) |
+> | Holiday / event / date mentioned | **SEASONAL** / Goal: Seasonal Revenue |
+> | "increase AOV", "spend more", "upsell", "boost sales", generic sales improvement | **UPSELL_BOOST** / Goal: Increase AOV |
+> | "clear inventory", "overstock", "clearance", "slow-moving" | **STOCK_MOVER** / Goal: Clear Inventory |
+> | "bundle", "cross-sell", "buy together", "more items per order" | **BUNDLE_AND_SAVE** / Goal: Drive Cross-Sells |
 >
-> After loading the goal skill, continue from Step 1 below. The goal skill will instruct you to load the matching flow skill — follow those instructions too.
+> After classifying the goal, continue from Step 1 below. When you reach concrete discount mechanics, load the matching **flow** or **action** skill listed later in this recipe.
 >
 > **If COUPON mechanism in Step 4c**, also load:
 > - [Pricing: Create Coupon](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-coupon)
@@ -190,25 +192,27 @@ Based on the merchant's request AND the site data, determine which domains to an
 
 ---
 
-## Step 4b: Load domain-specific goal skills
+## Step 4b: Apply domain-specific goal logic
 
-**MANDATORY — load the matching goal skill(s) now using `ReadFullDocsArticle`.** These contain detailed strategy logic, KPIs, margin tiers, campaign window calculations, and guardrails that you MUST follow.
+**MANDATORY — apply the matching goal logic now.** These goals determine detailed strategy logic, KPIs, margin tiers, campaign window calculations, and guardrails that you MUST follow.
+
+**Do not call `ReadFullDocsArticle` for `goal-*` support articles.** Use the embedded goal logic in this section. Only use `ReadFullDocsArticle` for concrete flow/action references such as `flow-upsell-boost`, `flow-bundle-and-save`, `flow-stock-mover`, `flow-seasonal-promotion`, `pricing-create-discount-rule`, and shipping setup references.
 
 **For DISCOUNTS domain — classify the discount goal and load it:**
 
-| Discount goal | Trigger | Load this skill |
+| Discount goal | Trigger | Flow/action reference to load when needed |
 |---|---|---|
-| SEASONAL | Holiday/event/date mentioned | [Goal: Seasonal Revenue](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-seasonal-revenue) |
-| UPSELL_BOOST | "increase AOV", "spend more", "upsell" | [Goal: Increase AOV](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-increase-aov) |
-| STOCK_MOVER | "clear inventory", "overstock", "clearance" | [Goal: Clear Inventory](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-clear-inventory) |
-| BUNDLE_AND_SAVE | "bundle", "cross-sell", "buy together" | [Goal: Drive Cross-Sells](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-drive-cross-sells) |
+| SEASONAL | Holiday/event/date mentioned | [Flow: Seasonal Promotion](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-seasonal-promotion) |
+| UPSELL_BOOST | "increase AOV", "spend more", "upsell" | [Flow: Upsell Boost](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-upsell-boost) |
+| STOCK_MOVER | "clear inventory", "overstock", "clearance" | [Flow: Stock Mover](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-stock-mover) |
+| BUNDLE_AND_SAVE | "bundle", "cross-sell", "buy together" | [Flow: Bundle and Save](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-bundle-and-save) |
 | Generic (no clear goal) | "boost sales", ambiguous | Default to SEASONAL if holiday nearby, else UPSELL_BOOST |
 
-**For SHIPPING domain — load the same goal as discounts.** Shipping flows (free shipping threshold, rate optimization) serve the same business goals as discount flows. Load the matching discount goal above — it now includes shipping flow references.
+**For SHIPPING domain — use the same goal classification as discounts.** Shipping flows (free shipping threshold, rate optimization) serve the same business goals as discount flows.
 
-**The goal skill will instruct you to load flow and guardrail skills** — follow those instructions. This chain provides the detailed execution logic you need for high-quality recommendations.
+**Load the concrete flow and guardrail skills only after data gathering identifies the relevant action.** This chain provides the detailed execution logic you need for high-quality recommendations.
 
-**Do NOT skip this step.** The goal/flow/guardrail skills contain critical constraints (margin tiers, campaign windows, conflict checks) that prevent bad recommendations.
+**Do NOT skip this step.** The goal logic and flow/guardrail skills contain critical constraints (margin tiers, campaign windows, conflict checks) that prevent bad recommendations.
 
 ---
 

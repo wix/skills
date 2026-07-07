@@ -29,7 +29,7 @@ Discount rules, coupon codes, sales, ribbons, bundles, tiered pricing, and the s
 
 ### Business flows — the orchestrator
 
-The single business-flow orchestrator (`recommend-ecommerce-strategy`) handles all strategic discount intents. It classifies internally (SEASONAL / UPSELL_BOOST / STOCK_MOVER / BUNDLE_AND_SAVE / ABANDONED_CART) and loads its `goal-*` / `flow-*` support files from the kept ecommerce-root siblings.
+The single business-flow orchestrator (`recommend-ecommerce-strategy`) handles all strategic discount intents. It classifies internally (SEASONAL / UPSELL_BOOST / STOCK_MOVER / BUNDLE_AND_SAVE) using embedded goal logic, then loads concrete `flow-*` and action support files only when needed.
 
 > - [Run a sale / promotion strategy](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/recommend-e-commerce-strategy) — tags: `[intent:run-a-sale]` · priority 0
 > - [Boost my business / increase sales](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/recommend-e-commerce-strategy) — tags: `[intent:boost-business]` · priority 0
@@ -37,11 +37,11 @@ The single business-flow orchestrator (`recommend-ecommerce-strategy`) handles a
 > - [Clearance / move slow stock](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/recommend-e-commerce-strategy) — tags: `[intent:clearance]` · priority 0
 > - [Increase AOV (bundle / upsell)](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/recommend-e-commerce-strategy) — tags: `[intent:increase-aov]` · priority 0
 >
-> **If the orchestrator above returns a 404** — do not stop. Classify the merchant intent directly and load the matching goal skill via `ReadFullDocsArticle`, then follow its routing chain into the flow skill:
-> - Holiday / event / date mentioned (SEASONAL — takes priority over all other signals) → [Goal: Seasonal Revenue](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-seasonal-revenue)
-> - "Boost sales", "increase AOV", "upsell", "spend more" (UPSELL_BOOST) → [Goal: Increase AOV](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-increase-aov)
-> - "Clearance", "slow stock", "overstock", "move inventory" (STOCK_MOVER) → [Goal: Clear Inventory](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-clear-inventory)
-> - "Bundle", "cross-sell", "buy together", "more items per order" (BUNDLE_AND_SAVE) → [Goal: Drive Cross-Sells](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-drive-cross-sells)
+> **If the orchestrator above returns a 404** — retry that same orchestrator URL once. If it is still unavailable, do not call `goal-*` support URLs; classify the merchant intent directly here and load the matching concrete flow:
+> - Holiday / event / date mentioned (SEASONAL — takes priority over all other signals) → [Flow: Seasonal Promotion](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-seasonal-promotion)
+> - "Boost sales", "increase AOV", "upsell", "spend more" (UPSELL_BOOST) → [Flow: Upsell Boost](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-upsell-boost)
+> - "Clearance", "slow stock", "overstock", "move inventory" (STOCK_MOVER) → [Flow: Stock Mover](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-stock-mover)
+> - "Bundle", "cross-sell", "buy together", "more items per order" (BUNDLE_AND_SAVE) → [Flow: Bundle and Save](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-bundle-and-save)
 
 ### Info / troubleshoot / recommendation
 
