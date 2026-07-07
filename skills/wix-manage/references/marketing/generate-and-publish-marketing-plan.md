@@ -22,6 +22,8 @@ For a first-time plan, configure marketing settings **before** generating (STEP 
 
 Both `marketingSettings` and `fieldMask` are **required**. `fieldMask` lists the paths to write, and **every path in `fieldMask` must be present** in `marketingSettings` (otherwise the call fails with `INVALID_FIELD_MASK_ERROR`).
 
+**Language and location cannot be set here.** If the request targets a language or a place ("posts in Spanish", "customers near Berlin"), those are site-derived, read-only fields on marketing settings — never put `language`, `targetLocations`, or `businessLocation` in the request, and never tell the user this call changed them. Set the fields that do belong here (goal, tone, audience description), and direct the user to the site-level settings for the rest — see **What you can't set here** below.
+
 ```json
 {
   "marketingSettings": {
@@ -57,11 +59,11 @@ Both `marketingSettings` and `fieldMask` are **required**. `fieldMask` lists the
 **`socialChannels` does not limit channels.** The plan generates post drafts for **all** supported channels; `settings.socialChannels` is only a hint to the caption generator, not a filter. To avoid publishing to a channel, simply don't schedule (or connect) it in STEP 4 — don't rely on `socialChannels` to exclude it. Supported channels: `FACEBOOK`, `INSTAGRAM`, `LINKEDIN`, `PINTEREST`, `GBP`, `TIKTOK`, `TWITTER` (X, sunset — no longer functional after **July 31, 2026**).
 
 **What you can't set here (site-derived, read-only).** Several inputs that shape the plan are **not** part of marketing settings and can't be changed through this endpoint — they come from the site, and setting them via Upsert Marketing Settings has no effect:
-- **Language / region** — from the site's Language & Region settings (`settings.language` is read-only here).
+- **Language / region** — from the site's Language & Region settings (`settings.language` is read-only here). The plan's activities and captions are generated in the site language, so "write my posts in French" means changing the site language, not marketing settings.
 - **Business / target locations** — from the site's SEO business-location settings (`settings.businessLocation` / `settings.targetLocations` are read-only here).
 - **Industry, SEO summary, and published site content** (products, blog posts, events) — from the published site itself.
 
-To change any of these, edit them at the site level, then (re)generate the plan (STEP 2) so it picks them up.
+To change any of these, edit them at the site level (or tell the user where: Language & Region for language, SEO business-location settings for locations), then (re)generate the plan (STEP 2) so it picks them up.
 
 To fetch selectable values at runtime, call `GET .../marketing-settings/plan-goal-options` (goals) and `GET .../marketing-settings/defaults` (the site's default goal, channels, and frequency); point-of-view values are the fixed enum above. (Two fields are accepted but currently ignored by generation: `settings.imageGenerationSettings` and `topics.coreTopic`.)
 
