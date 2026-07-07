@@ -41,33 +41,22 @@ import { wixApiRequest } from "./wix-client.js";
 export async function createRsvp(eventId, { firstName, lastName, email, status = "YES", additionalGuestNames = [], extraFields = {} } = {}) {
   if (!firstName || !lastName || !email) throw new Error("createRsvp requires firstName, lastName, and email.");
 
-  const inputValues = [
-    { inputName: "firstName", value: firstName },
-    { inputName: "lastName", value: lastName },
-    { inputName: "email", value: email },
-  ];
-  if (additionalGuestNames.length) {
-    inputValues.push({ inputName: "additionalGuests", value: String(additionalGuestNames.length) });
-    inputValues.push({ inputName: "guestNames", values: additionalGuestNames });
-  }
+  // The built-in fields go TOP-LEVEL on rsvp — the API rejects them inside form.inputValues
+  // (400 "rsvp.firstName must not be empty"). form.inputValues is ONLY for the event's extra
+  // custom fields; sending a built-in-only form, or additionalGuestDetails when the event has no
+  // guest fields, throws INVALID_FORM_RESPONSE ("input additionalGuests/guestNames is unexpected").
+  const rsvp = { eventId, firstName, lastName, email, status };
+
+  const inputValues = [];
   for (const [inputName, value] of Object.entries(extraFields)) {
     inputValues.push(Array.isArray(value) ? { inputName, values: value } : { inputName, value });
   }
+  if (inputValues.length) rsvp.form = { inputValues };
+  if (additionalGuestNames.length) {
+    rsvp.additionalGuestDetails = { guestCount: additionalGuestNames.length, guestNames: additionalGuestNames };
+  }
 
-  const res = await wixApiRequest("/events/v2/rsvps", {
-    method: "POST",
-    body: {
-      rsvp: {
-        eventId,
-        firstName,
-        lastName,
-        email,
-        status,
-        form: { inputValues },
-        additionalGuestDetails: { guestCount: additionalGuestNames.length, guestNames: additionalGuestNames },
-      },
-    },
-  });
+  const res = await wixApiRequest("/events/v2/rsvps", { method: "POST", body: { rsvp } });
   return res?.rsvp;
 }
 
