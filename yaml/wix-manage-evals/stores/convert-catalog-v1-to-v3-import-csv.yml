@@ -1,6 +1,6 @@
 name: stores/convert-catalog-v1-to-v3-import-csv
 description: Verifies the agent loads the Catalog V1 to V3 import CSV recipe and preserves product/media row groups when splitting files under the Stores import row limit.
-triggerPrompt: I exported products from my old Wix Stores Catalog V1 site and need to convert them into Catalog V3 dashboard import CSV files for my new site, including images. The full file will be over 10000 rows, so explain how you would split it safely without changing anything on either site.
+triggerPrompt: Use the Wix Manage recipe "Convert Catalog V1 Products to Catalog V3 Import CSV" to explain how to convert products exported from my old Wix Stores Catalog V1 site into Catalog V3 dashboard import CSV files for my new site, including images. The full file will be over 10000 rows, so explain how you would split it safely without changing anything on either site.
 tags: [stores]
 assertions:
   - tool: ReadFullDocsArticle
@@ -13,7 +13,7 @@ assertions:
       The user's request is advisory and non-mutating: convert a Catalog V1 products export into Catalog V3 dashboard import CSV files with images, splitting because the data will exceed 10,000 rows.
 
       Pass if the response:
-      - loads or clearly follows the Convert Catalog V1 Products to Catalog V3 Import CSV recipe, AND
+      - loads the Convert Catalog V1 Products to Catalog V3 Import CSV recipe with ReadFullDocsArticle, AND
       - explains that each product must be treated as an atomic group containing one PRODUCT row plus that product's MEDIA rows, AND
       - says not to split by raw row count alone, not to start a file with MEDIA rows, and not to place a product's MEDIA rows in a different file than its PRODUCT row, AND
       - keeps each generated file under the 10,000-row dashboard import limit, with the header counted or otherwise safely reserved, AND
