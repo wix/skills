@@ -136,8 +136,6 @@ One call tells you what the site's plan allows — whether you can publish or sc
 
 AI generation isn't gated by the plan (no premium check applies), so offer it by default. **THE PROTOCOL at the top of this recipe governs this step**: ask own-or-generated (rule 3), offer idea-or-asset (rule 4), hold the subject gate (rule 5), and route per rule 6. Never hand-write the caption or title; producing the post means calling the API below and presenting *its* output.
 
-One extra routing note: `generate-post-data` (3a) covers standard image posts on the six channels listed below. For content 3a can't produce (YouTube, story/reel/video formats), use `generate-text` (3b) for the text and assemble the content object yourself in STEP 5.
-
 ### 3a. Generate a full post — from an idea and/or the site's own assets
 
 Produces ready-to-use, per-channel payloads that drop straight into STEP 5. **This is the default** — lead with it for any "create a post" request, offering both the idea-based and asset-based paths.
