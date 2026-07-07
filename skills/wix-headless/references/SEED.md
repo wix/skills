@@ -1,224 +1,65 @@
-# Seed
+# Seed — create the backend content
 
-This article seeds backend data. Every loaded pack with a seed recipe gets its own seeder subagent; the orchestrator collects each seeder's JSON return (per `references/shared/RETURN_CONTRACT.md`) into a `seeded` map keyed by pack. (For the business-vs-frontend track model, see `PLAN.md` § "Two tracks". For run flow — dispatch timing, waits, batching, transitions — see `BUILD.md`.)
+For each resolved capability, create the backend content its *what* names. This file carries **only the *what*** (entities, counts, policy) and points at each capability's **inline recipe** for the API *how*. **No endpoints, payloads, field templates, caps, or batching mechanics live here** — those are inlined in the per-capability recipe (`inline-recipes/setup-*.md`, mapped in §2); read them there.
 
----
+Use `$TOKEN` / `$SITE_ID` from the provided authentication mechanism (see `<TYPE_DIR>/AUTHENTICATION.md`). The capabilities are **independent** — no cross-capability ordering or shared data (**two exceptions:** (a) **pricing-plans depends on bookings' service IDs**, so seed bookings before pricing-plans; (b) **restaurants online ordering depends on the restaurants menu** — the ordering add-on binds each menu to an operation, so the menu must be seeded before ordering — both in §2). For each one: read its inline recipe (§1; §2 maps each capability to its `setup-*.md`), build the body from `intent.<cap>` + `brand`, execute against `wixapis.com` with the universal call shape (Bearer `$TOKEN` + `wix-site-id` — see `SETUP.md` §1), and collect the created IDs into a `seeded` map keyed by capability.
 
-## Step 1 — Build the dispatch list
+> **Concurrency is an optional optimization, never a requirement.** The safe default is to **seed one capability after another** — that always works, and an agent that does everything itself simply seeds each in turn. *If* the runtime can do work concurrently, then because the capabilities are independent (above) you **may** seed them at the same time to save wall-clock — but phrase it to yourself as "you may," never "you must": a correct seed must not depend on parallelism. **Three constraints hold regardless of concurrency:** (1) **bookings before pricing-plans** (the plan→service coverage step needs the created service IDs — keep those two in order, in the same worker); (2) **the restaurants menu before its online ordering** — the ordering add-on (`setup-restaurant-orders.md`) verifies/reshapes an ordering setup that only exists once the menu does, so seed the menu first and do the ordering in the **same worker** (never dispatch an "orders" worker in parallel with, or before, the "menu" worker — it would find no menu to bind and get confused; if you delegate ordering, hand the doer the seeded `menuId`s and have it seed menus-then-ordering itself); (3) the **intra-recipe serial rules stay** — store categories one-at-a-time (they share the `@wix/stores` tree revision; concurrent creates `409`), and pricing-plans' sub-steps stay ordered.
+>
+> **Read a capability's recipe only if you're going to seed it yourself; if you delegate that capability to a separate worker, the *worker* reads the recipe — you don't.** Don't read all the seed recipes into your own context and *then* hand the work off — that loads each recipe twice (once wasted) and bloats working memory. Read-if-you-seed applies equally to the do-it-all-yourself path (read each recipe once, when you seed that capability) and the delegated path (only the doer reads).
 
-The recipe map and per-pack input notes are inlined below — **do NOT separately `Read references/seed-recipes.md`**. The Step 1 table here is canonical for the run; `seed-recipes.md` exists only as a human-readable index of the same data, and reading it adds a turn and a thinking gap before the dispatch batch.
+## 1 · Where the *how* comes from — the inline recipes
 
-From the `verticals` list in orchestrator scratch (captured in Discovery), build the dispatch list. For each loaded pack:
-- If the pack has a recipe in the table below (`stores`, `cms`, `blog`, `forms`, `bookings`, `events`) → add to the dispatch list.
-- If the pack has no recipe (`gift-cards`, `ecom`) → record a phase entry as `{phase: "seed-<pack>", status: "skipped", notes: "no seed surface for this pack"}` directly. No subagent.
+Each built capability's create flow lives in a **self-contained local recipe** at `inline-recipes/setup-<capability>.md` (§2 maps each capability to its file). The recipe inlines every endpoint, request body, and representative response — **open it with the file Read tool and seed from it alone**; it supersedes the live REST doc pages, so don't go fetch them. **Read a recipe once per run** — if you already opened it while planning, proceed from what you have — and only read a capability's recipe if you're going to seed it yourself (a delegated worker reads its own; see the concurrency note above).
 
-Resolve absolute recipe paths by joining `<wix-manage-root>` (already in scratch from Phase 2 Step 4 — do **not** re-invoke `Skill(name="wix-manage")` here) + the relative paths in this table.
+For a capability with **no** inline recipe (e.g. `coupons`), or for a field/error/endpoint a recipe doesn't cover, **`DOC_DISCOVERY.md` is the fallback** — never the first move.
 
-### Recipe map
+Two cautions apply to every capability regardless of recipe:
 
-| Pack       | Recipes                                                                                                                                                                                                                                                                      | Returns                                                                             |
-| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| stores     | (relative to `<wix-manage-root>`) `references/stores/setup-online-store-catalog-v3.md` (idempotent catalog setup) + `references/stores/bulk-create-products-with-options.md` (single bulk call for N products)                                                              | `productIds[]`, `categoryIds[]` (when `intent.stores.categoriesNamed` is non-empty) |
-| cms        | (relative to `<wix-manage-root>`) `references/cms/cms-schema-management.md` (collection create) + `references/cms/cms-data-items-crud.md` (item create per collection) + `references/cms/cms-references-and-relationships.md` (only when a collection's `intent.cms.collections[N]` declares cross-references) | `collectionIds{}`, `itemIds{<collection>: []}`                                      |
-| blog       | (relative to `<wix-manage-root>`) `references/blog/how-to-create-blog-posts.md`                                                                                                                                                                                              | `postIds[]`, `categoryIds[]`                                                        |
-| forms      | (relative to `<wix-manage-root>`) `references/forms/create-form.md`                                                                                                                                                                                                          | `formIds[]`                                                                         |
-| bookings   | (within skill) `<SKILL_ROOT>/references/bookings/SERVICES_DATA.md` — service creation + optional staff. Recipe path uses `<SKILL_ROOT>`, NOT `<wix-manage-root>`.                                                                                                           | `services[{id, slug, name, type, durationMinutes, price, currency}]`, `staff[{id, resourceId, name}]` |
-| events | (within skill) `<SKILL_ROOT>/references/events/EVENTS_DATA.md` — event create (`TICKETING` or `RSVP`) + ticket definitions (ticketed) + publish. Recipe path uses `<SKILL_ROOT>`, NOT `<wix-manage-root>`. | `events[{id, slug, title, type, ticketDefinitionIds[]}]` |
-| gift-cards | — (no seed surface; activation lives in Phase 2 app-install)                                                                                                                                                                                                                 | `{status: "skipped"}`                                                               |
-| ecom       | — (cart/checkout vertical; no seed surface)                                                                                                                                                                                                                                  | `{status: "skipped"}`                                                               |
+> **Public host, not `/_api/`.** Some method pages show an internal `https://www.wixapis.com/_api/<service>/...` URL in the schema header while the examples use the bare `https://www.wixapis.com/<service>/...`. Always call the **public (non-`/_api/`) form** — that's the external/headless endpoint; the `/_api/` prefix is internal and may be rejected.
 
-### Per-pack input notes
+> **Imagery is opt-in.** When `imagery` is **off** (the default), create entities **text-only** — omit image fields or use the placeholder the recipe documents; don't source imagery. When `imagery` is **on**, still create the entities text-first here, then attach generated images in the "Entity images" step below. This applies to **every** vertical, stores included — there is no per-vertical exception.
 
-These notes reduce dispatch-time guesswork. The recipe itself is the source of truth for the API shape — these notes are about how to translate `intent.<pack>` + `brand` into the recipe's input.
+## 2 · What to seed per capability
 
-**stores:**
-- Bulk recipe wants `products: [{name, slug, sku, price, options?, variants?}]`. Populate `name` and `slug` from `intent.stores.productCount` and `brand` (e.g. for a coffee shop with `productCount: 3`, generate three product names that fit the brand vibe).
-- `sku` defaults to `<slug>-001`; `price` is a positive brand-appropriate value (don't default to $1).
-- When `intent.stores.categoriesNamed` is non-empty, the subagent creates those categories via the Categories API after the bulk product create and assigns products into them. **Fire the N category-create calls as one parallel batch** (independent calls — they don't need to serialize). When the array is empty, skip categories entirely (do not invent a default set).
-- 5-product cap on the bulk endpoint. If `intent.stores.productCount` exceeds it, fan out into batches of 5.
-- Text-only seeding: do not generate or attach product images. Follow the recipe's documented placeholder pattern.
+Each entry states only the entities, where their count/content comes from, the policy that is genuinely the skill's call, the IDs to keep, and **which inline recipe carries the calls** — read that recipe (local; Read it, don't curl — it's self-contained and supersedes the doc pages) for everything else.
 
-**cms:**
-- Schema recipe wants one `POST /wix-data/v2/collections` call per collection in `intent.cms.collections`. Field shape comes from `collection.purpose` — e.g. `purpose: "about"` → single-row text collection with `title` + `body`; `purpose: "faq"` → repeated `question` + `answer` rows.
-- After all collections exist, the items recipe inserts `intent.cms.collections[N].itemCount` rows per collection, content generated from `brand`.
-- `cms-references-and-relationships.md` is consulted **only** when a collection's intent block declares cross-references. Otherwise skip it.
-- Return shape: `collectionIds: { <purpose>: <id> }` and `itemIds: { <purpose>: [<id>, ...] }`. Keying by `purpose` (not display name) lets Phase 4 wire pages without re-deriving slug ↔ id.
+- **stores** — *A product catalog.* Recipe: **`setup-online-store.md`**. `intent.stores.productCount` products whose names/prices fit `brand`. If `intent.stores.categoriesNamed` is non-empty, create exactly those categories and assign products into them; **if empty, create none** (skill policy — overrides any docs default). **Variant cardinality — keep it small by default:** unless `intent.stores` calls for specific options, give each product **at most one option with ≤3 choices** (so ≤3 variants/product); many products legitimately have **no** options (a single variant). Seeding cost scales with the variant Cartesian product and the field count per variant, so don't manufacture options the brief doesn't need — but **honor a larger/explicit option set when intent names one** (this default is a floor, not a cap). Text-only by default (images only when `imagery` is on — §1, §4). **Keep (seed-time only):** `categoryIds[]` to assign products into their categories; **nothing goes to the handoff** — the frontend lists products and categories **live** (`queryProducts` / `searchProducts` / `queryCategories`), so owner-added products/categories appear with no code change.
+- **blog** — *Initial posts.* Recipe: **`setup-blog.md`**. `intent.blog.postCount` posts on `intent.blog.topics` (or brand-derived topics). Text-only (no covers). Bulk-create when `postCount ≥ 2`. **Keep:** nothing for the handoff — posts are discovered **live** (`queryPosts`, `[...slug]` routes). Track created post ids only transiently (to confirm success / assign categories).
+- **cms** — *Content collections.* Recipe: **`setup-cms.md`**. One collection per `intent.cms.collections` entry; `itemCount` items each, content from `brand`. Collections are **public-read** (visitor reads on the frontend) by default. **(Opt-in, members only)** if the brief calls for per-user-private or member-only data **and** members login is in the run, seed that collection **member-scoped** instead (`SITE_MEMBER_AUTHOR` per-user / `SITE_MEMBER` member-only — see `setup-cms.md`); a per-user collection is seeded **empty** (members populate it), since admin-seeded rows are owned by the admin. **Keep (→ handoff):** `collectionIds{<name>}` + each collection's **field keys** — this is *structural* (the frontend must know the collection name and its fields to query and bind; it doesn't change when an owner adds a row). `itemIds{<name>:[]}` only transiently, for wiring multi-references during seeding.
+- **forms** — *Lead-capture forms.* Recipe: **`setup-forms.md`**. One form per `intent.forms.forms` entry; fields from the entry; `purpose` names the form. **Keep (→ handoff):** `formIds[]` + each form's field **`target`** keys — *structural* (the frontend sets input `name` = target to submit).
+- **events** — *A ticketed or RSVP occasion, or upcoming events.* Recipe: **`setup-events.md`**. Each event is **either `TICKETING`** (paid — it gets ticket tiers) **or `RSVP`** (free — the registration form is **built-in** (name + email), so don't seed form fields) per intent; the type is **immutable** after create. For an **RSVP occasion** (a wedding, party, gathering): create **one** RSVP-type event with the occasion's real details (title, a **future** date/time, location); just keep the event. For a **ticketed** event: create the event then its ticket tiers (a default `"General Admission"` tier if none named). For a **listing** site: `intent.events.eventCount` events with brand-appropriate titles and **future** start dates (a default location/timezone is fine). Text-only. **Keep:** nothing for the handoff — events and tiers are discovered **live** (`queryEvents`, `getEventBySlug`, `queryAvailableTickets`). Track `eventIds`/`ticketDefinitionIds` only transiently, to sequence create → tickets → publish.
+- **bookings** — *Bookable services.* Recipe: **`setup-bookings.md`**. `intent.bookings.serviceCount` services (name + short description fitting `brand`, a simple duration and price). One create call per service against the **public** `POST https://www.wixapis.com/bookings/v2/services` (the method page's schema header shows the internal `/_api/bookings/v2/services` — don't use that form); keep the schedule minimal — a single default availability is enough for the experiment. **Keep:** `serviceIds[]` as **seed-time state** (pricing-plans' coverage step keys on them, below); nothing for the handoff — services are discovered **live** (`queryServices`).
+- **pricing-plans** — *Membership tiers.* `intent.pricing-plans.planCount` recurring plans (name, price, a monthly billing cycle) fitting `brand`. One create call per plan. **When bookings is also in this run and the intent is a membership that covers services** (a studio/gym/class pass), also **attach the covered bookings services to the plan** via the Benefit Programs API — see `setup-pricing-plans.md` STEP 2 (seed the bookings services first, since it keys on their service ids). **Keep:** the bookings coverage `{ itemSetId, serviceIds[] }` only transiently, to wire Benefit Programs during seeding; nothing for the handoff — plans are discovered **live** (`queryPlans`) and plan→service coverage is read **live** at checkout, never from a frozen map (see `how-to-code-pricing-plans.md`).
+- **restaurants** — *A menu.* Recipe: **`setup-restaurants.md`** (add-ons have their own recipes, named below). Create one menu, then its `intent.restaurants.sections`, then `itemCount` items per section (name, description, price fitting `brand`) — **menu → sections → items**, since items reference their section. Text-only. **Keep (seed-time only):** `menuId`, `sectionIds[]`, `itemIds[]` to build menu → sections → items; nothing goes to the handoff — the frontend reads menus **live** (`listMenus`/`listSections`/`listItems`, assembled in the live parent's `sectionIds`/`itemIds` order). **Online ordering (add-on, on demand):** only when the request calls for ordering (not just a displayed menu). **Seed the menu (above) FIRST, then ordering — in the same worker** (ordering binds each menu to an operation, so it has nothing to work with until the menu exists; do not split the two across parallel workers). Install the **Orders** app (`SETUP.md` §2, appDefId `9a5d83fd-…`; it auto-installs Menus) and follow **`setup-restaurant-orders.md`** — the install auto-provisions a working pickup+delivery ordering setup over every menu, so the recipe *verifies and customizes* it (fulfillment methods/fees/hours per intent) rather than creating it. **Keep:** nothing for the handoff — the operation and fulfillment methods are read **live** (`listOperations`/`listFulfillmentMethods`); track `operationId`/`fulfillmentMethodIds[]` transiently to attach/customize during seeding. **Table reservations (add-on, on demand, INDEPENDENT of ordering/menu):** only when the request calls for table reservations. Install the **Table Reservations** app (`SETUP.md` §2, appDefId `f9c07de2-…`) and follow **`setup-restaurant-reservations.md`** — the install auto-provisions a default reservation location, so the recipe *verifies and configures* it (party size/hours per intent). **No menu dependency** (reservations bind to a location, not a menu — do NOT apply the menu-first rule) and **nothing to bulk-seed** (visitors create reservations at runtime); turning online reservations on is **premium-gated** (record the `428 PREMIUM_ONLY` precondition, don't fail). **Keep:** nothing for the handoff — the location is read **live** (`listReservationLocations`); track `reservationLocationId` transiently.
+- **portfolio** — *A project showcase.* Recipe: **`setup-portfolio.md`**. Create the `intent.portfolio.collections` (title + short description fitting `brand`), then `intent.portfolio.projectCount` projects assigned to them — **collections before projects** (a project's `collectionIds` must hold real collection ids, and the array is not validated, so a wrong id silently orphans the project). The install ships a default sample collection + projects — the recipe's STEP 0 cleans them first. Text-only by default (omit `coverImage`; images only when `imagery` is on — §1, §4). **Keep (seed-time only):** `collectionIds{<name>}` to assign projects into their collections; nothing goes to the handoff — the frontend lists collections and projects **live** (`collections.queryCollections` / `projects.queryProjects`), so owner-added content appears with no code change.
 
-**blog:**
-- Part 0 (member ID lookup) is mandatory. One `GET /members/v1/members?paging.limit=1`; reuse the returned id for every post.
-- `intent.blog.postCount` posts created. Topics from `intent.blog.topics` when present; otherwise pick brand-appropriate topics from `brand.description`.
-- **Use the bulk endpoint** `POST https://www.wixapis.com/blog/v3/bulk/draft-posts/create` for any `postCount ≥ 2`. The recipe's single-post curl is for demonstration; the bulk URL is the production path. (Skipping this and using N single-post creates costs ~30s per post.)
-- Text-only: cover images use the recipe's documented placeholder pattern; no Media Manager import.
+> **Cross-cutting (on demand).** `coupons` is not a standalone capability (`CAPABILITIES.md` § "Cross-cutting capabilities") — there's no app to install and it's not in `verticals[]`. If intent calls for discounts **and** a parent vertical (stores / bookings / events / pricing-plans) is in this run, create coupons scoped to that parent and add the coupon to the `seeded` map (`seeded.coupons = { couponIds[] }`). **Coupons has no inline recipe** — read the create shape from the docs (`DOC_DISCOVERY.md` is the fallback): every coupon needs a scope with a namespace and its parent vertical's app installed (<https://dev.wix.com/docs/api-reference/business-solutions/coupons/about-wix-coupons.md>), and the create-coupon spec needs name/code/start + a scope namespace + exactly one coupon-type field (<https://dev.wix.com/docs/api-reference/business-solutions/coupons/coupons/create-a-coupon.md>). eCommerce needs no seeding — it's the runtime checkout layer that rides along.
 
-**forms:**
-- One `POST /form-schema-service/v4/forms` call per entry in `intent.forms.forms`. Map `intent.forms.forms[N].fields` (string array) into the recipe's `formFields` payload using the documented field templates (`CONTACTS_FIRST_NAME`, `CONTACTS_EMAIL`, etc.).
-- `purpose` ("contact", "lead", "signup") drives the form's `name` — e.g. `"contact"` → `"Contact Form"`.
-- Wix Forms app is pre-installed via Phase 2; don't reinstall.
+> **members — nothing to seed.** Member login is the identity layer (`CAPABILITIES.md`): members **self-register** through the Wix login page, so there is **no member to create** at seed time and nothing lands in `seeded`. The frontend wiring is the two `how-to-code-members-*.md` recipes, surfaced via the Handoff. *Optionally* — and **only** if a run's prompt explicitly asks to exercise the pricing-plans purchase path end-to-end — seed one test member; keep this **off by default** so headless runs stay deterministic and don't stall on an interactive login. Do **not** seed a member just because pricing-plans is present.
 
-**bookings:**
-- Recipe path is `<SKILL_ROOT>/references/bookings/SERVICES_DATA.md` — NOT under `<wix-manage-root>`. Resolve the path with `<SKILL_ROOT>` (same root as all other skill references).
-- `intent.bookings.serviceCount` services (default 3). Names + descriptions from `brand`.
-- `intent.bookings.serviceType` (`"APPOINTMENT"` or `"CLASS"`) determines the service `type` field. Default `"APPOINTMENT"`.
-- `intent.bookings.hasStaff === true` → create 2 staff members (names from brand). Skip if false or absent.
-- Wix Bookings app is pre-installed via Phase 2 (app ID `13d21c63-b5ec-5912-8397-c3a5ddb27a97`); don't reinstall.
-- Return `seeded.bookings.services[{id, slug, name, ...}]` + `seeded.bookings.staff[{id, resourceId, name}]`.
+> **Simple seeds (experiment).** For these newer capabilities, create the minimum that demonstrates the shape — a couple of entities with required fields only. The recipe (§2) says which fields are *required* — stop there; don't seed optional structure (variants, multi-session schedules, perks) the host's app won't exercise.
 
-**events:**
-- Recipe path is `<SKILL_ROOT>/references/events/EVENTS_DATA.md` — NOT under `<wix-manage-root>`. Resolve with `<SKILL_ROOT>`.
-- `intent.events.eventCount` events (default 1). Titles + descriptions + venue from `brand`/`intent.events`. **Use FUTURE start/end dates** — a past event isn't purchasable; `initialType` (`TICKETING`|`RSVP`) is immutable after create.
-- `intent.events.eventType === "TICKETING"` → create the event with `registration.initialType: "TICKETING"`, then create one ticket definition per `intent.events.ticketTiers[]` (name + price; default a single "General Admission" tier if none given). `"RSVP"` → `registration.initialType: "RSVP"`; the registration form is built-in (name + email, can't be removed) so **seed no form fields** and **no ticket definitions**.
-- **Publish** the draft event after creating tickets (publishing is one-way — seed published, not draft).
-- **Paid-ticket precondition (note, don't block):** selling paid tickets requires a premium plan + a configured payment method (a dashboard step). Seeding still succeeds — the event and ticket definitions are created and live; only completing a *paid* purchase needs that setup. Free/RSVP events need neither. Surface this plainly in the run summary; never imply tickets are payable when no payment method is configured.
-- Wix Events app is pre-installed via Phase 2 (app ID `140603ad-af8d-84a5-2c80-a0f60cb47351`); don't reinstall.
-- Return `seeded.events.events[{id, slug, title, type, ticketDefinitionIds[]}]` (`ticketDefinitionIds` empty for RSVP events).
+## 3 · Enable the backend-backed required features
 
----
+A capability's **Required site features** (`references/CAPABILITIES.md`) are part of a complete site, and some of them need a backend feature switched on — not just content created. The clearest case: **blog comments** (readers commenting on posts). For each loaded capability, check its *Required site features*:
 
-## Step 2 — Seed domain (recipes, inputs, prompt templates)
+- If one depends on a backend feature that isn't on by default, enable it via the method its recipe documents (or `DOC_DISCOVERY.md` if the recipe doesn't cover it).
+- If it's already on by default, there's nothing to seed — but record it as **available** so the Handoff tells the host to surface it.
+- If it genuinely can't be enabled, note that, so the Handoff doesn't imply the site is complete.
 
-The seeders and Image Phase 1 below are launched as one concurrent background batch — that dispatch flow (timing, single-batch discipline, the two-dispatch trap) is owned by the conductor (`BUILD.md`, which routes to the active mode's seed step) / `PLAN.md` § "Batching discipline". This step defines only the seed domain: the pre-batch utilities script, the dispatch rows, the recipe map, the per-pack input notes, and the prompt templates.
+Don't silently skip a required feature — a bare list-and-detail with none of its required features is the "half-built site" this is meant to prevent. (Purely presentational items — showing the author, the date — need no backend and belong to the Handoff's *Implementation checklist*, not here.)
 
-**Pre-batch — `seed-utilities.sh` (project prep):** run the project-prep script once (idempotent). Astro is the only frontend built, so the template is always `astro`:
+## 4 · Entity images (opt-in)
 
-```bash
-bash "<SKILL_ROOT>/scripts/seed-utilities.sh" --template astro
-```
+**Only if `imagery` is on** (from `DISCOVERY.md`). For each seeded image-bearing capability — stores products, blog covers, CMS items, **bookings services**, restaurant items, **portfolio projects + collection covers** — generate a brand-contextual image per entity and **attach it as a required pass-2 step** (the seeder created the entity text-first in §2; this writes the image onto it), following `references/IMAGE_GENERATION.md` (generate → import to Wix Media → attach). **The per-entity attach shape lives in that capability's own seed recipe** (`setup-<capability>.md`), next to its create shape — read it there; `IMAGE_GENERATION.md` §3 carries the cross-entity essentials as a fallback. Use the IDs already in the `seeded` map. Image failures never block — skip and continue (the entity stays text-only). When `imagery` is off, skip this step entirely.
 
-Execute from the **project directory** (== CWD — the scaffold was flattened in, no subdir). (This is frontend-track project prep, not seeding — custom frontends route to the stub and never reach this article.)
+## Aggregate
 
-### Wave 3 dispatch table
+Hold a `seeded` map in scratch — `seeded[<capability>] = { …kept IDs… }` — as **seed-time working state** (it feeds intra-seed steps like image attach in §4 and cross-capability wiring like pricing-plans coverage). **What crosses into the handoff is only the *schema* carve-outs**, not the per-item content ids: **cms** `collectionId` + field keys, and **forms** `formId` + field `target`s (see `SDK_HANDOFF.md` §4). Everything else the frontend rediscovers with a live query, so it need not be surfaced — carrying a per-item id/slug list into the handoff only tempts the host to hardcode it. Whether to also write a sidecar file is a host-preference choice (default: return-only, in the handoff message).
 
-| Subagent                       | Mode | Instruction file                                 | Scope                      |
-| ------------------------------ | ---- | ------------------------------------------------ | -------------------------- |
-| Per-pack seeders (Step 1 list) | bg   | wix-manage recipes (see seeder template)         | `seed` / recipe-driven     |
-| Image Phase 1 Decorative       | bg   | `<SKILL_ROOT>/references/images/INSTRUCTIONS.md` | `image-phase-1-decorative` |
+On a per-capability error, keep the other capabilities' results and surface the failing REST-call response verbatim; partial state is fine — a targeted re-run is bounded.
 
-### Image Phase 1 gate (imagery flag)
+## Proceed to Handoff
 
-Whether the Image Phase 1 Decorative subagent is dispatched at all (the `ai-generated` vs `themed-blocks` branch) is owned by the conductor (`BUILD.md`). The decorative prompt template below is the seed-side domain for that subagent when it does run.
-
-For each pack on the dispatch list, dispatch a seeder subagent (`Agent` tool with `subagent_type: "general-purpose"`) with the prompt template below. Use `run_in_background: true`.
-
-### Subagent prompt template
-
-```
-You are seeding <pack> content into a Wix site as part of the wix-headless skill's Phase 1 Seed.
-
-Inputs (do not re-derive these — every value is inlined here):
-- brand: <brand JSON — inline from orchestrator scratch>
-- pack: <pack name>
-- intent.<pack>: <intent.<pack> JSON — inline from orchestrator scratch>
-- recipe path(s): <absolute path(s) joined from <wix-manage-root>>
-- siteId: <siteId — inline from orchestrator scratch>
-
-Every input you need is inlined above — do not read any shared state file. Read **only** your own `seeded.json` slice (the one read-only exception, per `IMPLEMENTER.md`).
-
-Steps:
-
-1. **Open with one concurrent batch** (single assistant message, multiple tool calls):
-   - One `Bash` to mint and capture the site-scoped REST token: `TOKEN=$(npx @wix/cli@latest token --site "<siteId>")`. Use `npx @wix/cli@latest token …` (not bare `wix token …`): `@wix/cli` may not be globally installed in every harness.
-   - One `Read` per absolute recipe path you were given. If you have N recipe paths, issue N Reads as siblings — do not serialize them.
-   No narration, no "Reading recipe and minting token:" preamble. Issue the batch.
-
-   > **Mint the token EXACTLY ONCE. Never re-mint.** Inline the captured `$TOKEN` value into every subsequent `curl` and reuse it for the entire seed phase. `npx @wix/cli@latest token --site "<siteId>"` returns a **byte-identical** string on every call within a run (the CLI caches it) **and** each call costs ~1.25 s of CLI startup — so re-minting is pure wasted wall that changes nothing. This holds on errors too: if a call fails, re-minting gives you the same token and the same failure. Do not re-mint to "get a fresh token," do not re-mint "to be safe," do not re-mint as a reaction to any error. One mint, reused everywhere.
-
-2. Fire the recipe's REST calls via `curl` against `wixapis.com`. Every call carries the headers documented in `<skill-root>/references/shared/AUTHENTICATION.md` — `Authorization: Bearer $TOKEN` (the token from Step 1), `wix-site-id: <siteId>`, and `Content-Type: application/json` — plus the recipe's documented body. Construct request bodies from intent.<pack> + brand. **When the recipe documents N independent calls** (e.g., creating N categories, adding products to N categories), issue them as one parallel batch — not sequentially.
-
-   **On any error (401/403/4xx), do NOT re-mint the token** — per the mint-once rule above, the re-minted token is byte-identical and will produce the same result. The token is not the cause. Retry the same call once as-is (covers a transient blip); if it still fails, return `status: "error"` with the response body. Do **not** spend turns debugging the auth call shape or cycling tokens — if the single retry fails, the issue is upstream (expired CLI session, missing app install, or a resource that requires a provisioning step the recipe didn't run), and neither re-minting nor header A/B-testing will recover it.
-
-3. Text-only seeding only — do not call media-manager import or generate AI imagery. Use the placeholder image patterns the recipes document.
-
-4. Collect the IDs the recipe returns and emit them in your return JSON (Return contract below).
-
-Return contract (your sole output channel — end your message with this fenced JSON block, no trailing prose):
-{
-  "phase": "seed-<pack>",
-  "status": "ok" | "error",
-  "seeded": { <pack-specific keys per the SEED.md recipe map "Returns" column> },
-  "recipeCalls": [{ "url": "<endpoint>", "status": <http-status> }, ...]
-}
-
-On error: status="error", include the failing recipe-call response verbatim under "error". Do not retry beyond what the recipe documents — orchestrator owns recovery.
-
-Do NOT write coordination files (`.wix/seed-returns/`, sidecars, etc.). The JSON above is parsed directly from your message by the orchestrator.
-```
-
-The subagent decides per-call payloads from `intent.<pack>` + `brand`. The orchestrator does **not** pre-decompose the intent into per-call payloads; that defeats the point of having a subagent read the recipe.
-
-`gift-cards` and `ecom` have no seed surface, so the orchestrator dispatches no subagent for them and simply moves on. No files involved.
-
-### Image Phase 1 Decorative subagent prompt (background)
-
-Always dispatch in the **same batch** (background). No Phase 1 Seed dependency.
-
-```
-Instruction file (absolute path): <SKILL_ROOT>/references/images/INSTRUCTIONS.md
-Scope: image-phase-1-decorative
-Project directory: <project dir>
-site-root: <site-root>
-siteId: <siteId>
-Brand context: <same as designer prompt>
-decorativeSlots: <string[] — REQUIRED; must match designer vocabulary exactly>
-  Always: ["hero", "about"]
-  Plus "productsHeader" if stores loaded
-  Plus "cmsHeader" if cms loaded (optional page-header decorative)
-```
-
----
-
-## Step 3 — Subagent return contract
-
-Every seeder ends its message with a fenced JSON block per `references/shared/RETURN_CONTRACT.md`:
-
-```json
-{
-  "phase": "seed-<pack>",
-  "status": "ok" | "skipped" | "error",
-  "seeded": { /* pack-specific keys — see Step 1 "Recipe map" Returns column */ },
-  "recipeCalls": [{ "url": "https://...", "status": 200 }]
-}
-```
-
-**Strict on:** `phase` (must equal `seed-<pack>`), `status` (must be `ok`, `skipped`, or `error`).
-
-**Permissive on:** `seeded` keys. Known keys (per the recipe map) pass through verbatim. Unknown keys are kept on `seeded[<pack>]` in orchestrator context so Phase 4 can surface them if needed.
-
-**On error:** the subagent's return additionally carries `error: <failing recipe-call response verbatim>`. The orchestrator keeps that field on the entry it holds.
-
-There are no seed-coordination files **between agents** — seeders return JSON inline, and no seeder writes or reads `.wix/seed-returns/<pack>.json`; the agent return *is* the contract. (This is distinct from `.wix/seeded.json`, which the **orchestrator** writes once at the seed gate from the aggregated returns — not a seeder-authored sidecar. Seeders never touch it; it's a read-only consumer handoff. See Step 4.)
-
----
-
-## Step 4 — Aggregate the seeded map
-
-The seed gate — waiting on seeders + `npm_handle`, and the decorative-slot patch — is owned by the conductor (`BUILD.md`). (`compose.mjs` writes the six design-system files synchronously in the Setup-window bridge; there is no Composer subagent to wait on.) (For npm install failures, see `SETUP.md § npm install recovery`.) This step defines only the aggregation shape.
-
-**Aggregate seeder returns in orchestrator context.** Each seeder's return JSON is in your session context (the harness surfaces it when the subagent completes). Build a `seeded` map keyed by pack from those returns and hold it in scratch.
-
-For each return:
-- `status: "ok"` — keep the `seeded` payload under `seeded[<pack>]`.
-- `status: "skipped"` — record `seeded[<pack>] = {status: "skipped"}`.
-- `status: "error"` — surface the `error` field verbatim. Do **not** autonomously retry; partial state for other packs is intact, so a targeted re-run is bounded.
-
-**Then write the aggregated map to `.wix/seeded.json` — once, at the gate (the conductor owns the timing; see `BUILD-astro.md` § "4. Seed gate" + § "The `.wix/seeded.json` handoff").** This is the producer→consumer handoff the per-vertical readers (astro Phase 4 Pages, own-build wiring) pull their slice from — the orchestrator no longer inlines `seeded.<vertical>` slices into those prompts. (Image Phase 2 is a single dispatch and keeps its inlined slice.) Exactly one writer, written before any reader is dispatched; it carries seeded entity IDs only. The orchestrator is the aggregator **and** the sole writer of this file.
-
----
-
-## Step 5 — Summary sentence
-
-Per `PLAN.md` § "User-facing output", emit one short plain-prose sentence naming what was seeded per pack — no tables, no machinery:
-
-> *"Seeded `<brand>`: `<N>` products in stores, `<M>` items across `<C>` CMS collections, `<P>` blog posts, `<F>` forms. Continuing with components and page build…"*
-
-Adapt the sentence to whichever packs were loaded — drop the irrelevant clauses.
-
----
-
-## Recovery
-
-| Failure mode                                       | What the orchestrator does                                                                                                                                                              |
-| -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| One subagent returns `error`                       | Surface the `error` payload verbatim; do not retry. Other packs' `seeded` data is intact in orchestrator scratch, so a re-run of the failing pack alone is bounded.                     |
-| Subagent return has no fenced JSON block           | Per `RETURN_CONTRACT.md` § "Observed failure mode" — the harness falls back to narrative parsing, which is fragile. Surface the issue; retry the failing seeder once with the same prompt. |
-| Recipe path drifted (Read fails inside a subagent) | The subagent should return `status: "error"` with the Read error in `error`. Surface it; the fix is to correct the recipe path in the Step 1 table (and the wix-manage recipe), not retry.                                               |
-| Bulk product create rate limit                     | The stores recipe documents the limit; the subagent fans out into batches of 5 internally. If it still hits a limit, returns `error`.                                                   |
+With `seeded` populated, continue to **`SDK_HANDOFF.md`** to produce the document the host wires from.

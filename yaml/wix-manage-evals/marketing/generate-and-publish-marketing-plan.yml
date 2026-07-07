@@ -1,0 +1,50 @@
+name: marketing/generate-and-publish-marketing-plan
+description: >-
+  Action scenario for the "Generate a Marketing Plan and Schedule Its Posts" skill:
+  the user asks to set up the plan for a French-speaking Paris audience and to boost
+  sales. The correct behavior is to set the goal via Upsert Marketing Settings (with
+  a valid fieldMask), while recognizing that language and location are site-derived
+  and read-only on marketing settings and must be changed at the site level, rather
+  than trying to set them through Upsert Marketing Settings.
+triggerPrompt: >-
+  Set up my marketing plan to promote to French-speaking customers in Paris, and
+  focus on boosting sales.
+tags: [marketing]
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/marketing/skills/generate-a-marketing-plan-and-schedule-its-posts
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked to set up their marketing plan to (a) target a French-speaking
+      audience in Paris and (b) focus on boosting sales. Key fact: on the Marketing Plan
+      API the plan's GOAL is settable via Upsert Marketing Settings, but LANGUAGE and
+      LOCATION are site-derived and read-only on marketing settings. They cannot be
+      changed through Upsert Marketing Settings; they are changed at the site level
+      (the site's Language & Region settings, and SEO business-location settings), after
+      which the plan is regenerated.
+
+      Pass if the response:
+      - sets the plan goal to BOOST_SALES via Upsert Marketing Settings
+        (POST /promote/marketing-plan-service/v1/marketing-settings) with a fieldMask in
+        which every path is also present in marketingSettings, AND
+      - correctly explains that language (French) and location (Paris) are NOT set through
+        marketing settings (they are site-derived / read-only) and directs the user to
+        change them in the site's Language & Region and SEO business-location settings,
+        then regenerate the plan, AND
+      - does NOT put language, targetLocations, or businessLocation in the Upsert Marketing
+        Settings request, and does NOT claim that call changed the plan's language or
+        location, AND
+      - does not fall back to searching the REST docs instead of using the skill.
+
+      Fail if the response:
+      - calls Upsert Marketing Settings with language / targetLocations / businessLocation,
+        or claims doing so sets them, OR
+      - omits fieldMask, or includes a fieldMask path not present in marketingSettings, OR
+      - fabricates a successful language/location change, OR
+      - never uses the skill.

@@ -1,76 +1,56 @@
-# Discovery
+# Discovery — infer, don't interview
 
-Capture brand + vibe + imagery + the per-vertical intent inferred from the user's prompt, present a slim plan, get approval, hold the captured contract in orchestrator scratch.
+The run starts here. **Infer** the Wix capability set, the brand, and per-capability intent from the user's words (and, optionally, the project on disk). Inference is just the first step — its output **drives Setup (install apps) and Seed (create content)**, which are the actual work; flow straight through into them. The host already has the user's buy-in to add Wix, so resolve everything from what's given and keep moving; when something isn't specified, use the defaults below.
 
-Infer as much as possible from the user's opening message; ask only what's genuinely unknown. Target: **~1:30 of discovery** including user think-time, **≤ 80 s** excluding it.
+Discovery is pure inference — it needs **no authentication** and is **agnostic to the project type**. The token and metasite id are obtained later, at Setup, via the provided authentication mechanism.
 
-This phase owns the *domain* of discovery only. Run FLOW — when background work is dispatched, what waits on what, batching, and the transition into Setup/Seed — is owned by `references/PLAN.md` (pre-approval, which routes on **operation** to `PLAN-create.md` / `PLAN-connect.md`) and `references/BUILD.md` (post-approval, which routes on **framework**).
+## 1 · Resolve the capability set
 
-**This file is the discovery router, and it routes on OPERATION.** It holds the two things every run does regardless of operation — **Wave 0 field resolution** and the **CLI-auth pre-flight** — then opens the operation-specific discovery file. The actual interview/parse + plan content lives in `DISCOVERY-create.md` (create) or `DISCOVERY-connect.md` (connect). Read only the matching one.
+Read the **user intent** (+ optional project signals: `package.json` name, README, visible copy) against the vertical index in `references/CAPABILITIES.md` — each entry there carries the intent signals that point to it. Pick every vertical that genuinely fits → `verticals[]`. Multiple signals → multiple capabilities. On ambiguity, prefer the more specific vertical; if nothing dynamic is named, fall to the **forms** floor (a contact form). **Never return an empty set.**
 
-## Wave 0 — Resolve `operation`, then `frontend` (BEFORE any user-facing question)
+Resolve to the skill's operational set — **stores · blog · cms · forms · events · bookings · pricing-plans · restaurants · portfolio** (`CAPABILITIES.md` § "Built verticals"). If intent points squarely at a vertical outside that set, note it plainly as not-yet-wired (per the index) and resolve the rest; don't force an unrelated capability in its place.
 
-Discovery routes on **operation** — *create* (the skill writes a new site from a prompt) vs *connect* (the user brings a finished design to wire to Wix). Resolve `operation` **first** from the user's prompt AND the working directory, then derive `frontend` (and `frontendBuild`) *within* that operation. Operation and framework are **orthogonal axes**: `frontendBuild` (`wix`/`none`/`own`) is derived inside the chosen operation, not implied by it — *create + framework-keyword* → `own`, *connect + SPA* → `own`, *connect + static HTML* → `none`, *create + default* → `wix`. Resolving operation first (then framework within it) is the seam that keeps the operation router untouched as frameworks are added (the framework-SPA plan; the extend plan).
+## 2 · Infer brand
 
-> **Intent is primary; the directory only confirms.** The bug to avoid: an *empty* CWD does **not** automatically mean create. If the prompt brings a design to connect — even one that will be **fetched into the empty dir** — it's connect. Read the prompt first.
+A short brand object for seeded-content naming: `{ name, description, vibe? }`. Source from the intent text and any project signals (the package name, a README title/tagline, headline copy). If nothing is available, derive a neutral name from the project directory. This is only used to make seeded content read naturally — keep it light.
 
-```
-Read the prompt, then inspect CWD — resolve OPERATION:
+## 3 · Derive per-capability intent
 
-1. CONNECT/IMPLEMENT-AN-EXISTING-DESIGN intent in the prompt → operation: connect,
-   EVEN IF THE CWD IS EMPTY. Signals: "connect this to wix", "implement this design",
-   "host/deploy this site", "this is a working site", or a design-file URL to fetch +
-   implement (Claude Design / v0 / Lovable / any tool). The design arrives by fetch into
-   the empty dir — emptiness at check time does not make it create.
-2. CWD already contains a working frontend (`index.html`, `*.html`, `*.jsx`/`*.tsx`/`*.vue`,
-   a design-handoff bundle) → operation: connect — connect the brought-in site.
-3. CWD contains `wix.config.json` → an existing wix-headless project (resume/extend; see
-   SKILL.md § "When NOT to use this skill" — out of pivot scope for now; the extend plan
-   adds `operation: extend` here, ahead of the emptiness tests).
-4. Otherwise — empty CWD AND a CREATE-A-NEW-SITE prompt ("build me a store", "I want to
-   sell tables online", "make a blog") with no design to connect → operation: create.
-```
+For each capability, build its `intent.<cap>` block — the inputs the seed step translates into REST calls. Use sensible brand-appropriate defaults when the user didn't specify counts:
 
-Then derive `frontend` and `frontendBuild` **within** the chosen operation, and capture all three in session scratch (the Plan→Build contract core, `PLAN.md` § "The Plan→Build contract"):
+| Capability | `intent.<cap>` shape | Defaults when unspecified |
+|---|---|---|
+| stores | `{ productCount, categoriesNamed: [] }` | `productCount: 3`, `categoriesNamed: []` (no categories) |
+| blog | `{ postCount, topics: [] }` | `postCount: 3`, topics derived from `brand.description` |
+| cms | `{ collections: [{ name, purpose, itemCount, fields? }] }` | one collection inferred from intent, `itemCount: 5` |
+| forms | `{ forms: [{ purpose, fields: [...] }] }` | one `contact` form: name, email, message |
+| events | `{ eventCount, titles: [] }` | `eventCount: 2`, titles brand-derived, future dates |
+| bookings | `{ serviceCount, servicesNamed: [] }` | `serviceCount: 2`, brand-derived service names |
+| pricing-plans | `{ planCount, tiersNamed: [] }` | `planCount: 2` (e.g. Basic / Pro), monthly billing |
+| restaurants | `{ menuName, sections: [{ name, itemCount }] }` | one menu, 2 sections, `itemCount: 3` each |
+| portfolio | `{ collections: [{ name }], projectCount }` | one brand-derived collection, `projectCount: 3` |
 
-> **Within `create`, branch `frontendBuild` on an explicit framework keyword.** A create prompt that **explicitly names a client-build framework** — `vite`, `react`, `vue`, `svelte`, "SPA", or similar (the same keyword set the connect SPA detector uses) — resolves to **`frontend: custom`, `frontendBuild: own`** (scaffold that framework, then connect via the SPA spine). A create prompt with **no** framework keyword stays **`frontend: astro`, `frontendBuild: wix`** — astro remains the default for a bare *"create a bakery site"*. **Only an explicit keyword flips it** — never infer a framework the user didn't ask for. A framework keyword on a *connect* prompt still routes to connect (the brought-in SPA), per `DISCOVERY-connect.md` § 1.5.
+Counts are deliberately small (the seed shows the shape, not a full catalog).
 
-| `operation` | `frontend` | `frontendBuild` | Wave 0 next |
-|---|---|---|---|
-| `connect` — connect/implement an existing design, OR a working site on disk | `custom` | `none` (static HTML) **or** `own` (framework SPA) — resolved from disk in `DISCOVERY-connect.md` § 1.5 | Pre-flight, then **`DISCOVERY-connect.md`** |
-| `create` — create-a-new-site prompt, **no** framework keyword (the default) | `astro` | `wix` | Pre-flight, then **`DISCOVERY-create.md`** (astro branch) |
-| `create` — create-a-new-site prompt that **explicitly names a client-build framework** (*"…using vite"*) | `custom` | `own` | Pre-flight, then **`DISCOVERY-create.md`** (own branch — minimal scaffold; runs vibe + Designer for brand tokens, but not astro `compose.mjs`) |
+## 4 · Imagery (opt-in)
 
-> **No `AskUserQuestion` for operation/frontend detection.** They are inferred from the prompt + directory, never asked. When intent is unclear, default to `operation: connect` — connecting/implementing what the user brings is the safe interpretation; creating a brand-new site over their intent is the destructive one. **A prompt that fetches or names a design to "connect"/"implement" is `connect` regardless of whether the CWD is empty.**
+Resolve an `imagery` flag — whether to generate AI images for seeded content (and, when building a frontend, for page surfaces). **Default OFF** (text-only): seed with no imagery; the user can add images later.
 
-These flow into:
-- The **Plan→Build contract** held in orchestrator scratch (`PLAN.md` § "The Plan→Build contract"). `frontend`, `operation`, and `frontendBuild` all live in scratch — **none** is persisted to disk. The conductor reads `frontendBuild` from scratch to decide whether to run `wix build` before release — `wix` builds, `none` doesn't.
-- **Bootstrap is (operation × framework)-keyed** (`BUILD.md` § "Bootstrap cell"): create+astro runs `scaffold.sh --frontend astro`; create+own runs the framework's own create command (`npm create vite`/…) then `init`; connect (own/none) does **not** scaffold — it bootstraps via `npm create @wix/new@latest init` over the brought-in/scaffolded source.
-- Orchestrator session scratch — every downstream branch reads the scratch values. For `connect`, the frontend track runs the connect flow (`references/custom/INSTRUCTIONS.md`); the create-only project-prep (`seed-utilities.sh`) and the Designer/Composer do not run. (Business-track steps — app install, seeders — never read these fields.)
+- If the prompt **signals imagery** ("with photos", "product photos", "AI images", "hero image"), set `imagery: on`.
+- Otherwise **ask one question** — text-only (default) vs AI-generated images, noting it costs ~1 Wix AI credit per image. Default to off on no answer.
 
-## Pre-flight — Verify CLI auth (BEFORE any user-facing question)
+**Bound the *cost*, not just the on/off decision.** `imagery: on` authorizes the *feature*, not unlimited *volume* — a single "imagery throughout" phrase can otherwise fan out to dozens of images (≈1 Wix AI credit each) with the spend never surfaced. So when imagery resolves on:
 
-The first Wix touch is the post-approval project bootstrap — create/astro: `scaffold.sh` → `npm create @wix/new@latest headless`; connect: `npm create @wix/new@latest init` — which creates a business + project against the user's Wix account and so requires an active CLI session. Without one it fails — and because the bootstrap runs **after** approval (`BUILD-astro.md` run-step 0 / the connect bootstrap cell, `BUILD.md` § "Bootstrap cell"), a logged-out user wouldn't find out until they'd done discovery *and* approved, only to have it fail immediately. Run the auth check foreground here (both operations) so a logged-out user sees the login prompt first.
+- **Surface the projected cost** in the brief pre-work line (§5): state the plan in credits — *"~N images ≈ N Wix AI credits"* — so the spend is visible even when nobody asked about volume. Always safe, no interactivity.
+- **Apply a per-run image cap** (`imageCap`, default **~12**). Generate up to the cap; for surfaces/entities beyond it, render the **themed-block fallback** instead of generating (see below). Log what was capped so it's not silently dropped.
+- **Confirm only when interactive *and* over the cap** — never a mandatory "always ask" gate (that would reintroduce the hang the eval policy prevents). A non-interactive run honors the cap and fills the rest with themed blocks; it never stalls.
 
-```bash
-npx @wix/cli@latest whoami >/dev/null 2>&1
-```
+**Themed-block fallback (the not-generating path).** Whenever an image is *not* generated — imagery off, over the cap, declined, or a generation failure — a **frontend** image slot renders a **styled `div` that follows the site's own design tokens** (palette, radius, spacing, maybe a label or gradient), *not* an empty slot or a broken `<img>`. The layout stays intentional and on-brand at **zero credits**, and it's deterministic/headless-safe. (This applies to page surfaces; a *seeded entity* with no image simply stays text-only — `SEED.md` §5.)
 
-- Exit 0 → open the matching operation discovery file (create → `DISCOVERY-create.md` Step 0; connect → `DISCOVERY-connect.md`).
-- Exit non-zero → **run `npx @wix/cli@latest login` yourself; do NOT punt to the user.** Steps:
-  1. `Bash` tool with command `npx @wix/cli@latest login`, `run_in_background: true`. No shell `&`, no `mktemp` redirect, no chaining.
-  2. Read the harness output-file path from the tool reply's `<bash-stdout>` (or use `TaskOutput`).
-  3. Parse line 1 for `{"event":"awaiting_user","userCode":"…","verificationUri":"…"}` (ignore any `TimeoutNaNWarning` on later lines).
-  4. Surface in one plain-prose message — *not* `AskUserQuestion`: *"Open `<verificationUri>` in your browser and enter the code `<userCode>` — I'll continue once you've completed the login."*
-  5. Wait for the harness `task-notification` with `<status>completed</status>`; confirm with `whoami`, then open the matching operation discovery file.
+When `imagery` is on, `SEED.md` attaches images to seeded entities and `IMAGE_GENERATION.md` is used for any page images a frontend build calls for (including the cap + themed-block mechanics). Hold `imageCap` alongside `imagery` in scratch. This flag is project-type-agnostic.
 
-  Full recovery reference: [`shared/AUTHENTICATION.md`](shared/AUTHENTICATION.md#wix-login-from-a-non-interactive-agent).
+> **Scope note:** the eval harness's *"never call AskUserQuestion"* rule governs runs, not skill design — a confirmation step is legitimate in the skill. The **themed-block fallback + cap** is what keeps headless/eval runs deterministic regardless of whether the confirm ever fires.
 
-## Next — open the operation-specific discovery
+## 5 · Hold the contract, proceed
 
-With `operation` (and the derived `frontend`/`frontendBuild`) resolved and auth confirmed:
-
-- **`create`** → `DISCOVERY-create.md` — the interview (Steps 0–2.5) → plan → approval → hold the contract in scratch.
-- **`connect`** → `DISCOVERY-connect.md` — parse the brought-in site → infer domain → light plan → approval → hold the contract in scratch.
-
-Read only the matching file. The pre-approval funnel (`PLAN-create.md` / `PLAN-connect.md`) names *when* to apply each discovery step.
+Hold in scratch: `verticals[]`, `brand`, `intent.<cap>` per capability, and `imagery`. The metasite id (`SITE_ID`) and the token are obtained at Setup via the provided authentication mechanism. Then **continue to `SETUP.md`** and install the apps — this is the start of the actual work, not a separate decision. A brief plain-prose line stating what will be set up is fine.
