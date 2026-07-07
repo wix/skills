@@ -1,0 +1,17 @@
+name: domains/domain-site-context-known
+description: User is inside a site dashboard (siteId provided in context) — agent must skip ListWixSites and use the known msid in the checkout link.
+triggerPrompt: "Buy mybakery.com and connect it to my site. My site ID is abc-123 and it has a premium plan."
+tags: [domains]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/domains/skills/domain-search-and-purchase
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Score 9-10: Agent did NOT call ListWixSites (site context was already known), used CallWixSiteAPI (with siteId abc-123) for all cart operations, and provided a checkout link containing ?msid=abc-123.
+      Score 7-8: Agent skipped ListWixSites and included msid in the checkout link, even if it used ManageWixSite instead of CallWixSiteAPI for cart operations.
+      Score 4-6: Agent completed the purchase flow but called ListWixSites unnecessarily, or omitted msid from the checkout link.
+      Score 1-3: Agent did not complete the purchase flow, or generated a checkout link without msid.
+      Fail immediately if the agent called ListWixSites when the siteId was already provided in the prompt.

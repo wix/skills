@@ -1,0 +1,17 @@
+name: domains/domain-unsupported-tld
+description: User requests a domain with an unsupported TLD — agent must inform the user and immediately suggest alternatives with supported TLDs.
+triggerPrompt: Buy mysite.io
+tags: [domains]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/domains/skills/domain-search-and-purchase
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Score 9-10: Agent called check-domain-availability for mysite.io, received a DOMAINS_UNSUPPORTED_TLD error, clearly told the user that .io is not supported by Wix, and immediately called the v2 suggest-domains endpoint to offer alternatives (e.g. mysite.com, mysite.online).
+      Score 7-8: Agent correctly handled the unsupported TLD and suggested alternatives, even if the explanation was brief.
+      Score 4-6: Agent informed the user that .io is unsupported but did not suggest alternatives, or only suggested alternatives without calling the suggest-domains API.
+      Score 1-3: Agent did not call the availability API, ignored the unsupported TLD error, or stopped without any path forward for the user.
+      Fail immediately if the agent used GetSuggestedDomains instead of the https://www.wixapis.com/domain-search/v2/suggest-domains endpoint for alternatives.
