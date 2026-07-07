@@ -263,7 +263,7 @@ When the recommendation output has `mechanism: "COUPON"`, use this mapping to co
 |---|---|
 | `minSubTotal > 0` | Use `minimumSubtotal` instead of `scope` (they are oneOf — cannot use both) |
 | `minItemQuantity > 0` | **Not natively supported by Coupons API**. Mention in the coupon name (e.g., "Buy 3+, use code BUNDLE15") but the API cannot enforce item quantity. |
-| `startDate` | Convert to UNIX epoch milliseconds: `Date.parse("2026-06-01") → 1748736000000`. Set as `startTime`. |
+| `startDate` | Convert to UNIX epoch milliseconds: `Date.parse("2026-06-01") → 1780272000000`. Set as `startTime`. |
 | `endDate` | Convert to UNIX epoch milliseconds. Set as `expirationTime`. |
 
 ### Code generation
@@ -309,8 +309,8 @@ When the recommendation output has `mechanism: "COUPON"`, use this mapping to co
         "entityId": "electronics-collection-uuid"
       }
     },
-    "startTime": 1748736000000,
-    "expirationTime": 1751328000000,
+    "startTime": 1780272000000,
+    "expirationTime": 1782777600000,
     "usageLimit": 100,
     "limitPerCustomer": 1,
     "active": true
