@@ -27,7 +27,7 @@ A contract for the **frontend code** of a pricing-plans site: showing the plans 
 
 **Never** import `@wix/site-pricing-plans` in headless code, and don't reach for a V1 `plans`-collection query — Plans V3 (`queryPlans` → `pricingVariants`) is the shape the seed creates.
 
-> **⚠️ The read module is `plansV3`, not `plans`.** In the pinned `@wix/pricing-plans` SDK, `queryPlans`/`getPlan` live on the **`plansV3`** namespace (`import { plansV3, orders } from '@wix/pricing-plans'`). Importing `plans` and calling `plans.queryPlans()` fails to type-check (`Property 'queryPlans' does not exist`). `orders` keeps its own namespace.
+> **⚠️ The read module is `plansV3`, not `plans`.** In the `@wix/pricing-plans` SDK, `queryPlans`/`getPlan` live on the **`plansV3`** namespace (`import { plansV3, orders } from '@wix/pricing-plans'`). Importing `plans` and calling `plans.queryPlans()` fails to type-check (`Property 'queryPlans' does not exist`). `orders` keeps its own namespace.
 
 **Auth / client — framework split** (same split as every other coding recipe):
 - **Astro (Wix-managed):** auth is ambient — call `plansV3` / `orders` directly from server components / `src/pages/api/*`. Member identity rides on the call automatically after login (`how-to-code-members-astro.md`). **No `createClient`, no `OAuthStrategy`, no `clientId`.** A member reading their own orders needs **no `auth.elevate`**.

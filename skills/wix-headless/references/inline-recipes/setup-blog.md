@@ -142,7 +142,7 @@ Only create categories or tags **if the request explicitly groups the posts** (e
 
 **⚠️ CRITICAL: re-publish after any PATCH.** Updating an already-published post sets `hasUnpublishedChanges: true` — the live site keeps showing the old version until you call `POST https://www.wixapis.com/blog/v3/draft-posts/{draftPostId}/publish` again. (Seeding categoryIds/tagIds directly in the Step-2 create body avoids this round-trip.)
 
-> **Comments (a Required site feature, conditional).** If the request's blog needs reader comments, comments are typically available once the Blog app is installed — record it as **available** so the Handoff tells the host to surface the comment UI (the coding recipe wires read-public / write-authenticated). Only if comments are off by default for this site, enable the feature via its docs method before relying on it. Don't seed comment *content*.
+> **Comments (a Required site feature, conditional).** If the request's blog needs reader comments, comments are typically available once the Blog app is installed — record it as **available** so the Handoff tells the host to surface the comment UI (the coding recipe wires read-public / write-authenticated). Only if comments are off by default for this site, enable the feature — find the check/enable method via `DOC_DISCOVERY.md` — before relying on it. Don't seed comment *content*.
 
 ---
 

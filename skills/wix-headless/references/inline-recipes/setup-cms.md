@@ -102,7 +102,7 @@ Which collection (if any) is visitor-writable comes from the request; this step 
 - **`403`** on collection-create (STEP 1), or
 - **`400 WDE0117: "MetaSite not found"`** on a bulk item-insert (STEP 2).
 
-Both are provisioning races, not payload bugs (the identical body succeeds on retry). On a `403` / `400 WDE0117` / `5xx` for any create or insert, wait briefly and **retry the failed call once with the same body**. **Do not loop** — a spiralling retry is a wasted headless run. If the single retry still fails, surface the response verbatim and fail loud. (Both were observed live: `403`-on-create and `400 WDE0117`-on-insert each fired on a fresh site and cleared on a retry.)
+Both are provisioning races, not payload bugs (the identical body succeeds on retry). On a `403` / `400 WDE0117` / `5xx` for any create or insert, wait briefly and **retry the failed call once with the same body**. **Do not loop** — a spiralling retry is a wasted headless run. If the single retry still fails, surface the response verbatim and fail loud.
 
 ### STEP 2: Bulk-insert each collection's items (with field data)
 

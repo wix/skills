@@ -52,7 +52,7 @@ curl -X POST 'https://www.wixapis.com/bookings/v1/staff-members' \
 
 ### STEP 2: Resolve (or create) a category
 
-**⚠️ CRITICAL: every service needs a `category.id` or it is NOT visible on the live site.** This is the Bookings analog of the Stores `visible:true` trap — a service created without a category is created successfully but hidden. **A fresh Bookings install ships ZERO categories** (verified live — `categories/query` returns `{ "categories": [], "count": 0 }`), so you **must create at least one** and assign it to every service. Do **not** assume a default "Our Services" category exists to reuse — it does not.
+**⚠️ CRITICAL: every service needs a `category.id` or it is NOT visible on the live site.** This is the Bookings analog of the Stores `visible:true` trap — a service created without a category is created successfully but hidden. **A fresh Bookings install ships ZERO categories**, so you **must create at least one** and assign it to every service. Do **not** assume a default "Our Services" category exists to reuse — it does not.
 
 **Query existing categories first** (to reuse one if a prior step in this run already created it):
 
@@ -176,7 +176,7 @@ Creating a CLASS service does **not** create any bookable sessions; the frontend
 }
 ```
 
-**⚠️ CRITICAL: each element of `events` MUST be wrapped in `{ "event": { … } }`** — a bare event object is rejected. Other earned requirements (verified against the live API):
+**⚠️ CRITICAL: each element of `events` MUST be wrapped in `{ "event": { … } }`** — a bare event object is rejected. Other requirements:
 - **`resources` must be non-empty** for a CLASS event (a session with no resource is rejected), and **`resources[].permissionRole` must be `"WRITER"`** (or `"COMMENTER"`) — omitting it defaults to `UNKNOWN_ROLE` → `400 "resources.permissionRole must not be UNKNOWN_ROLE"`. Use the same `resourceId` from STEP 1.
 - **`start`/`end` use `{ "localDate": "YYYY-MM-DDThh:mm:ss" }`** — local time, **no `Z`** (seconds ignored). Use **today-or-future** dates.
 - One bulk call can mix sessions for **different classes** — each event carries its own `scheduleId`. The response is the standard bulk shape (`results[]` with per-item `itemMetadata.success` + a `bulkActionMetadata` tally); retry only failed events once.
@@ -187,16 +187,19 @@ Keep each session's event id — it's `results[].itemMetadata.id` (the events bu
 
 ### STEP 5: Attach a service image (imagery ON only — skip otherwise)
 
-**Only when `imagery` is on** (`SEED.md` § "Entity images"). This is the bookings entry in the required pass-2 "attach the generated image to the entity" flow — the service was created text-only in STEP 3; now write the image onto it. Generate + import the image per `references/IMAGE_GENERATION.md` (→ keep `file.url` and its `file.id`), then patch the service.
+**Only when `imagery` is on** (`SEED.md` § "Entity images"). This is the bookings entry in the required pass-2 "attach the image to the entity" flow — the service was created text-only in STEP 3; now write the image onto it. Obtain the image per `references/IMAGE_GENERATION.md` (generate + import, or import an existing URL) → keep `file.url` and its `file.id`, then patch the service.
 
-**⚠️ CRITICAL: `media.image` is an OBJECT, not a string — a plain-string image (URL *or* file id) returns `400`.** The write shape is:
+**The image is written under `media.mainMedia` and `media.coverMedia`, each `{ "image": { "id", "url", "width", "height" } }`.** Per the Services V2 reference (`references/bookings/create-and-update-booking-services.md`): `media.mainMedia` is shown in the services list, `media.coverMedia` on the service page, and `media.items[]` is the service-page gallery. The binding field is the image **`id`** (the Wix Media file id); `url` and dimensions are descriptive. Write shape:
 
 ```json
 {
   "service": {
     "id": "<serviceId>",
     "revision": "<current revision>",
-    "media": { "image": { "id": "<file.id>", "url": "<file.url>", "width": 1024, "height": 1024, "altText": "<brand-appropriate alt>" } }
+    "media": {
+      "mainMedia":  { "image": { "id": "<file.id>", "url": "<file.url>", "width": 1024, "height": 1024 } },
+      "coverMedia": { "image": { "id": "<file.id>", "url": "<file.url>", "width": 1024, "height": 1024 } }
+    }
   }
 }
 ```
@@ -206,11 +209,11 @@ Keep each session's event id — it's `results[].itemMetadata.id` (the events bu
 curl -X PATCH 'https://www.wixapis.com/bookings/v2/services/<serviceId>' \
   -H 'Authorization: <AUTH>' \
   -H 'Content-Type: application/json' \
-  -d '{ "service": { "id": "<serviceId>", "revision": "<current revision>", "media": { "image": { "id": "<file.id>", "url": "<file.url>", "width": 1024, "height": 1024, "altText": "…" } } } }'
+  -d '{ "service": { "id": "<serviceId>", "revision": "<current revision>", "media": { "mainMedia": { "image": { "id": "<file.id>", "url": "<file.url>", "width": 1024, "height": 1024 } }, "coverMedia": { "image": { "id": "<file.id>", "url": "<file.url>", "width": 1024, "height": 1024 } } } } }'
 ```
 
 - **Fetch the current `revision` first** (`GET https://www.wixapis.com/bookings/v2/services/<serviceId>`, or reuse the `item.revision` from STEP 3's `returnEntity` response) and echo it back — a services V2 update is revision-checked.
-- **Do not brute-force the shape.** Plain-string `"image": "<url>"` and `"image": "<fileId>"` both `400`; the working shape is the object above (`id` + `url` + dimensions + `altText`). `width`/`height` are the generated image's dimensions (IMAGE_GENERATION §1 uses `1024×1024` for squares).
+- **⚠️ Writing the image under `media.image` (an `image` object directly under `media`) returns `HTTP 200` but silently drops it — the `revision` increments and no image lands.** Because the failure is a silent `200`, not a `400`, a successful status code is **not** on its own proof the image attached: **confirm by re-querying the service** (`GET …/bookings/v2/services/<serviceId>`) and checking `media.mainMedia` is populated.
 - **Never block on image failure** (`SEED.md` § "Entity images" / IMAGE_GENERATION "Credits, cost & the not-generating fallback") — on failure, skip and leave the service text-only.
 
 ---
@@ -221,5 +224,5 @@ Following these steps **in order** sets up a new Services V2 Wix Bookings site:
 - Every APPOINTMENT carries a non-empty **`staffMemberIds`** of staff **`resourceId`** values (the default Business-Owner resource when no staff are named), so it isn't rejected with `MISSING_APPOINTMENT_RESOURCES`.
 - Services use the correct **flat Services V2** shape on the **public** host, with `onlineBooking.enabled`, `defaultCapacity`, a valid `payment.options` combo, and `sessionDurations` for appointments.
 - Every CLASS has scheduled **Calendar Events V3** sessions, so its calendar is bookable rather than empty.
-- **When imagery is on**, each service's image is attached in the pass-2 STEP 5 via `PATCH …/services/{id}` with `media.image` as an **object** (`{id,url,width,height,altText}` — a plain string `400`s), revision-checked; on failure the service stays text-only.
+- **When imagery is on**, each service's image is attached in the pass-2 STEP 5 via `PATCH …/services/{id}` under `media.mainMedia`/`media.coverMedia` (each `{ image: { id, url, width, height } }`), revision-checked and confirmed with a follow-up query — writing under `media.image` returns `200` but silently drops the image; on failure the service stays text-only.
 - IDs kept for the coding handoff: `serviceIds[]`, service `slug`s (`mainSlug.name`), staff `resourceId`s, category ids, and CLASS `sessionEventIds`.

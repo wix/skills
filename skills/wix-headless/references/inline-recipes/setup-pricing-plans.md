@@ -13,14 +13,12 @@ A concise checklist for turning a freshly provisioned Wix site with the **Wix Pr
 
 > **API surfaces:** plans use **Plans V3** on the **public** host `https://www.wixapis.com/pricing-plans/v3/...`. The bookings integration uses the **Benefit Programs V1** API (`https://www.wixapis.com/benefit-programs/v1/...`) — a *separate* API from Pricing Plans. Both APIs' method-article headers may show an internal `…/_api/…` form — **do not use that**; call the public non-`/_api/` form shown below. Relevant **app def ids** (constants the integration needs): Wix **Bookings** = `13d21c63-b5ec-5912-8397-c3a5ddb27a97`, Wix **Pricing Plans** = `1522827f-c56c-a5c9-2ac9-00f9e6ae12d3`.
 
-> **Live-validated** on fresh sites (and across a live eval batch). STEP 1 create works with the shell-generated `id`s + `status: "ACTIVE"` (the client-supplied-`id` requirement is a **confirmed won't-fix** server-side gap, so it's handled here); the STEP 2 bookings-integration 2a→2b→2c Benefit-Programs chain passed as written.
-
 ---
 
 ## Article: Steps for Setting Up Wix Pricing Plans
 **YOU MUST** complete the following steps **in order** without skipping any and **without requiring additional user input**.
 
-There is **no clean-up step** — a fresh Wix Pricing Plans install ships **no sample plans** (verified live — `POST …/pricing-plans/v3/plans/query` on a fresh install returns `{ "plans": [], "pagingMetadata": { "count": 0 } }`), so there is nothing to delete first.
+There is **no clean-up step** — a fresh Wix Pricing Plans install ships **no sample plans**, so there is nothing to delete first.
 
 **⚠️ CRITICAL ORDER REQUIREMENT (integration only):** STEP 2 attaches **bookings service ids** to a plan. Those service ids come from the **Bookings seed** (`setup-bookings.md` → `seeded.bookings.serviceIds[]`). So when a run has **both** pricing-plans and bookings, **seed the bookings services first**, then create the plans (STEP 1), then attach (STEP 2). STEP 2 is **skipped entirely** when bookings is not in the run — a plans-only site stops after STEP 1.
 
@@ -124,7 +122,7 @@ Response — keep **`programDefinition.id`** (this is the "programDefinitionId" 
 ```
 
 - **⚠️ `namespace` is literally `@wix/pricing-plans`** (with the `@` and the slash) in every sub-step 2a–2c. The generic Benefit Programs docs use placeholder namespaces (`gym_rewards`, `benefit_programs_app`) — **do not** use those.
-- **Provisioning is effectively immediate.** The program definition is created by the Plans app within ~1s of STEP 1 and was present on the **first** GET in live testing (no lag observed — `programDefinition.createdDate` was ~1s after the plan's). It's still created *asynchronously*, so if this GET returns `404`/empty right after creating the plan, **retry once after a short backoff** as insurance — do not loop.
+- **Provisioning is effectively immediate.** The program definition is created by the Plans app within ~1s of STEP 1. It's still created *asynchronously*, so if this GET returns `404`/empty right after creating the plan, **retry once after a short backoff** as insurance — do not loop.
 
 #### STEP 2b: Create the pool definition (one per integrating app)
 
@@ -168,7 +166,7 @@ Response — keep the generated **`itemSetId`** for the benefit (matched by its 
 ```
 
 - **`benefitKey`** is a **freshly generated random UUID** you supply (any v4 UUID).
-- **`providerAppId`** is the **Bookings** app def id `13d21c63-b5ec-5912-8397-c3a5ddb27a97` (this is the same GUID used as the bookings app id in the cart/frontend recipes — confirmed). It is **not** the Pricing Plans id.
+- **`providerAppId`** is the **Bookings** app def id `13d21c63-b5ec-5912-8397-c3a5ddb27a97` (the same GUID used as the bookings app id in the cart/frontend recipes). It is **not** the Pricing Plans id.
 - **`price`** is credit-model, not money: **`"0"` = unlimited** sessions covered (leave `creditConfiguration` empty — the "unlimited membership" case, the default here); **`"1"` = limited credits**, which then requires a `details.creditConfiguration` (e.g. `{ "amount": "10" }` for a 10-session pack). Default to **`"0"` (unlimited)** unless the request names a session count.
 - **⚠️ Limited-credit plan (`price:"1"`): `creditConfiguration` goes at `details.creditConfiguration` — a SIBLING of `benefits[]`, NOT a field inside a benefit.** Nesting it inside the benefit makes the server treat the credit pool as "not set up" and reject the non-zero price with `400 "Price should be 0 when credit pool is not set up"`. The correct `details` shape for a limited pack (e.g. an 8-class pass):
   ```json
@@ -217,7 +215,7 @@ Response — standard bulk shape; each covered service lands under `results[].it
 
 - **`externalId` is the bookings SERVICE id** (`item.id` from `setup-bookings.md` STEP 3) — one item per service the plan should cover. Up to **100** items per call.
 - **`category` is an empty string `""`**, and **`namespace`/`providerAppId`** repeat the STEP-2b values on every item.
-- **The public path is `POST …/benefit-programs/v1/bulk/items/create`** (verified live — `200`, both items `success: true`). Some docs examples show a bare `…/bulk/items`; ignore that and use the `/bulk/items/create` form shown here.
+- **The public path is `POST …/benefit-programs/v1/bulk/items/create`.** Some docs examples show a bare `…/bulk/items`; ignore that and use the `/bulk/items/create` form shown here.
 - **Check `results[].itemMetadata.success` per item** (`false` populates `.error`); retry only the failed items **once** with the same format.
 
 Keep the linkage in the seed map so the coding handoff can reason about coverage: `seeded.pricing-plans.bookingsCoverage = { <planId>: { itemSetId, serviceIds: [ … ] } }`.

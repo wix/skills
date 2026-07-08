@@ -47,7 +47,7 @@ Each entry states only the entities, where their count/content comes from, the p
 
 ## 3 · Enable the backend-backed required features
 
-A capability's **Required site features** (`references/CAPABILITIES.md`) are part of a complete site, and some of them need a backend feature switched on — not just content created. The clearest case: **blog comments** (readers commenting on posts). For each loaded capability, check its *Required site features*:
+A capability's **Required site features** (`references/CAPABILITIES.md`) are part of a complete site, and some of them need a backend feature switched on — not just content created. The clearest case — **only when the brief asks for it** — is **blog comments** (readers commenting on posts): comments are intent-gated, not a baseline blog feature (`CAPABILITIES.md` blog entry), but when requested they need their backend feature available. For each loaded capability, check its *Required site features*:
 
 - If one depends on a backend feature that isn't on by default, enable it via the method its recipe documents (or `DOC_DISCOVERY.md` if the recipe doesn't cover it).
 - If it's already on by default, there's nothing to seed — but record it as **available** so the Handoff tells the host to surface it.

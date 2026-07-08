@@ -11,7 +11,7 @@ A checklist for turning on **table reservations** for a Wix site.
 
 > **⚠️ Reservations is CONFIGURATION, not creation — there is NOTHING to bulk-seed.** Reservations themselves are created by **visitors at runtime** (the frontend flow), not at setup. And a **reservation location CANNOT be created via this API** — the docs are explicit: locations are "created and archived only through the Dashboard, or the Locations API." The Reservation Locations API only **queries / lists / updates**. So "setup" here means: verify the location the install already made, configure it, and switch online reservations on.
 
-> **⚠️ THE INSTALL AUTO-provisions a default reservation location — this recipe VERIFIES and CONFIGURES it.** Confirmed live: installing the Table Reservations app auto-creates **one reservation location** (`default: true`) with its own `location` object and a **complete default configuration** — `approval.mode: "AUTOMATIC"` (manual approval already OFF), `partySize {min:1, max:6}`, `minimumReservationNotice 30 MINUTES`, `defaultTurnoverTime 90`, a 7-day `businessSchedule` (08:00–22:00), `timeSlotInterval 15`, and table management ON with default tables. **The one thing OFF is `onlineReservationsEnabled: false`** — flipping it on is STEP 3.
+> **⚠️ THE INSTALL AUTO-provisions a default reservation location — this recipe VERIFIES and CONFIGURES it.** Installing the Table Reservations app auto-creates **one reservation location** (`default: true`) with its own `location` object and a **complete default configuration** — `approval.mode: "AUTOMATIC"` (manual approval already OFF), `partySize {min:1, max:6}`, `minimumReservationNotice 30 MINUTES`, `defaultTurnoverTime 90`, a 7-day `businessSchedule` (08:00–22:00), `timeSlotInterval 15`, and table management ON with default tables. **The one thing OFF is `onlineReservationsEnabled: false`** — flipping it on is STEP 3.
 
 > **⚠️ NO menu dependency.** Reservations bind to a **location**, not a menu (unlike online ordering, which is menu-first). Do **not** copy the orders "seed the menu first" constraint — reservations can be set up with no menu at all.
 
@@ -59,7 +59,7 @@ Response (`reservationLocations[]`):
 
 ### STEP 2: Customize the configuration (only what the request names)
 
-PATCH the location to set party-size limits, hours, turnover, or notice per the request. Partial updates are supported; **`revision` is mandatory**. **Confirmed live: config PATCH works on a non-premium site** (unlike the enable toggle in STEP 3).
+PATCH the location to set party-size limits, hours, turnover, or notice per the request. Partial updates are supported; **`revision` is mandatory**. **Config PATCH works on a non-premium site** (unlike the enable toggle in STEP 3).
 
 ```bash
 curl -sS <AUTH> -X PATCH \
@@ -99,7 +99,7 @@ curl -sS <AUTH> -X PATCH \
   }'
 ```
 
-**⚠️ CRITICAL — this toggle is PREMIUM-ONLY; on a non-premium site it returns `428 PREMIUM_ONLY`, NOT success.** Confirmed live: on a free/headless site this PATCH fails with:
+**⚠️ CRITICAL — this toggle is PREMIUM-ONLY; on a non-premium site it returns `428 PREMIUM_ONLY`, NOT success.** On a free/headless site this PATCH fails with:
 ```json
 { "message": "Can't turn on online reservation for a non-premium website", "details": { "applicationError": { "code": "PREMIUM_ONLY" } } }
 ```

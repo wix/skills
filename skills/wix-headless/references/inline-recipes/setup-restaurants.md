@@ -24,7 +24,7 @@ A concise checklist for preparing any new Wix site that uses the Wix Restaurants
 
 ### STEP 0: Clean the install — remove the default sample menu
 
-**A freshly installed Wix Restaurants Menus app ships a fully populated default "Dinner Menu"** (confirmed live: 1 menu, 4 sections, ~21 items). Remove it **before** creating yours, so the storefront shows only your menu. Do this **first** — cleaning before you create guarantees the ids you delete are the install's samples, never your own entities. Delete children before parents (items → sections → menus):
+**A freshly installed Wix Restaurants Menus app ships a fully populated default "Dinner Menu"** (roughly one menu, ~4 sections, ~21 items). Remove it **before** creating yours, so the storefront shows only your menu. Do this **first** — cleaning before you create guarantees the ids you delete are the install's samples, never your own entities. Delete children before parents (items → sections → menus):
 
 1. **Bulk-delete items** — `GET https://www.wixapis.com/restaurants/menus/v1/items` (collect every `items[].id`), then `DELETE https://www.wixapis.com/restaurants/menus/v1/bulk/items/delete` with body `{"ids": ["<id>", …]}`.
 2. **Bulk-delete sections** — `GET https://www.wixapis.com/restaurants/menus/v1/sections` (collect every `sections[].id`), then `DELETE https://www.wixapis.com/restaurants/menus/v1/bulk/sections/delete` with body `{"ids": ["<id>", …]}`.
