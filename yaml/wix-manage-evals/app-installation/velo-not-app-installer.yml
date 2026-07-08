@@ -1,0 +1,31 @@
+name: app-installation/velo-not-app-installer
+description: >-
+  Verifies the agent does not try to enable Velo by installing the non-installable
+  Wix CMS appId through Apps Installer.
+triggerPrompt: >-
+  I want to enable Velo (Wix Code) on my site through the Apps Installer API.
+  Which appDefId should I install? I saw 675bbcef-18d8-41f5-800e-131ec9e08762
+  listed for Wix CMS.
+tags: [app-installation]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/app-installation/skills/install-wix-apps
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked how to enable Velo / Wix Code through Apps Installer and mentioned the Wix CMS appId `675bbcef-18d8-41f5-800e-131ec9e08762`.
+      Intent: prevent the agent from using Apps Installer for Velo enablement or the non-installable CMS appId.
+
+      Pass if the response:
+      - says Velo / Dev Mode / Wix Code itself cannot be enabled through Apps Installer, AND
+      - tells the user to enable Velo manually in the Wix editor, AND
+      - explicitly avoids using `675bbcef-18d8-41f5-800e-131ec9e08762` with Apps Installer, AND
+      - distinguishes that only Wix Data / CMS API setup should use the installable Wix CMS appDefId `e593b0bd-b783-45b8-97c2-873d42aacaf4`.
+
+      Fail if the response:
+      - provides an Apps Installer request body to enable Velo, OR
+      - suggests installing `675bbcef-18d8-41f5-800e-131ec9e08762`, OR
+      - says Apps Installer can directly enable Velo / Dev Mode / Wix Code, OR
+      - fails to explain the difference between manual Velo enablement and installing Wix CMS for Wix Data / CMS APIs.
