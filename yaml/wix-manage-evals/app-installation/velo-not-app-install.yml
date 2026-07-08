@@ -1,0 +1,30 @@
+name: app-installation/velo-not-app-install
+description: >-
+  Verifies the agent reads the install-wix-apps skill and refuses to enable
+  Velo/Wix Code by installing an app through Apps Installer.
+triggerPrompt: >-
+  Can you enable Velo / Wix Code on my site through the Apps Installer API?
+  If yes, which appDefId should I install?
+tags: [app-installation]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/app-installation/skills/install-wix-apps
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked whether Velo / Wix Code can be enabled on a site through
+      the Apps Installer API and which appDefId to install.
+
+      Pass if the response:
+      - says not to use the Apps Installer API to enable Velo, Wix Code, or Dev Mode, AND
+      - says not to search/install App Market results such as "Code with AI: Write Velo Code" as a Velo enablement path, AND
+      - says not to invent or guess a Velo appDefId or endpoint, AND
+      - directs the user to enable Velo/Dev Mode in the Editor or Wix Studio Editor before continuing with Velo-dependent work.
+
+      Fail if the response:
+      - provides an appDefId for Velo/Wix Code/Dev Mode, OR
+      - recommends installing "Code with AI: Write Velo Code" to enable Velo, OR
+      - recommends using Search Market Listings to find a Velo appDefId, OR
+      - calls or recommends calling the Apps Installer install endpoint for Velo.
