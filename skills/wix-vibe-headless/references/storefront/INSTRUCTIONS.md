@@ -55,7 +55,16 @@ reference for anything not shown.
   `actualPriceRange.minValue.formattedAmount` (already includes the currency symbol) — no
   manual formatting needed.
 - **PDP** — `getProductBySlug(slug)` keyed off the URL slug; returns null on miss — show
-  a not-found state, never invent a product.
+  a not-found state, never invent a product. Render a selector for **every** buyer choice the
+  product carries, not just variants: one control per `product.options` (variant choices) **and**
+  one per `product.modifiers` (TEXT_CHOICES → choice buttons/select; FREE_TEXT → a text input).
+  Skipping modifiers is a common miss — a product with a **mandatory** modifier (e.g. "gift wrap?")
+  whose control isn't rendered can never be added: the buyer can't satisfy the requirement, so
+  `add-to-cart` returns 200 with an **empty** `lineItems` and the add silently no-ops.
+- **Gate the Add-to-cart button** — keep it disabled until every required choice is made: a
+  variant resolves from the selected options, and every `modifier.mandatory === true` has a value.
+  Then pass those selections to `addToCart` (see Cart below). Never call `addToCart` with a
+  required selection missing.
 - **Categories** — `queryCategories()` for a category menu; `getCategoryBySlug(slug)` for
   a category landing page. Pass `category.id` to `queryProductsByCategory(categoryId, { limit?, cursor? })`
   to list only the products in that category; paginate exactly like `queryProducts`.
@@ -103,6 +112,9 @@ reference only for the gap.
 ## Verification checklist (before declaring done)
 - [ ] `WIX_CLIENT_ID` set to the prompt's value (not the `<YOUR-CLIENT-ID>` placeholder)
 - [ ] Visitor token persists across reload (cart survives reload, same visitor)
+- [ ] Every product choice renders on the PDP — variant options **and** modifiers (mandatory ones included)
+- [ ] Add-to-cart button stays disabled until all required choices are made (variant + mandatory modifiers)
+- [ ] A product with a mandatory modifier adds successfully (its selection is sent, cart line appears)
 - [ ] Add to cart works; out-of-stock items throw rather than add a dead line
 - [ ] Quantity update / remove reflect in `getCurrentCart()`
 - [ ] Checkout redirects via redirect-session `fullUrl` (no hand-built URL)

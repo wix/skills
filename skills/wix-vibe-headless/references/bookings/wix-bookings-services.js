@@ -100,8 +100,11 @@ export async function countServices() {
 }
 
 /**
- * List bookable appointment time slots for a service within a local date range.
- * APPOINTMENT services only. Dates are LOCAL ("YYYY-MM-DDThh:mm:ss") in timeZone.
+ * List bookable time slots for an **APPOINTMENT** service within a local date range (availability
+ * comes from staff working hours). For **CLASS / COURSE** services (booked against scheduled
+ * sessions) use `listEventTimeSlots` — this endpoint returns an empty list for them, silently.
+ * If you render a mixed catalog, route by `service.type` via `listSlotsForService`.
+ * Dates are LOCAL ("YYYY-MM-DDThh:mm:ss") in timeZone.
  * https://dev.wix.com/docs/api-reference/business-solutions/bookings/time-slots/time-slots-v2/list-availability-time-slots.md
  * @param {string} serviceId
  * @param {{ fromLocalDate: string, toLocalDate: string, timeZone?: string, limit?: number, cursor?: string }} options
@@ -152,4 +155,56 @@ export async function getAvailableSlot(serviceId, { localStartDate, localEndDate
     },
   });
   return res?.timeSlot ?? null;
+}
+
+/**
+ * List bookable session slots for **CLASS / COURSE** services within a local date range. These
+ * services are booked against scheduled sessions (calendar events), not staff working hours, so
+ * they use a different endpoint than appointments. Each returned slot carries `eventInfo.eventId`
+ * (the session) and has **no** `scheduleId` — `createBooking` reads that `eventId`.
+ * Dates are LOCAL ("YYYY-MM-DDThh:mm:ss") in timeZone.
+ * https://dev.wix.com/docs/api-reference/business-solutions/bookings/time-slots/time-slots-v2/list-event-time-slots.md
+ * @param {string|string[]} serviceIds  One service id or several (the endpoint takes a plural list).
+ * @param {{ fromLocalDate: string, toLocalDate: string, timeZone?: string, limit?: number, cursor?: string }} options
+ * @returns {Promise<{ slots: object[], nextCursor: string|null }>}
+ */
+export async function listEventTimeSlots(serviceIds, { fromLocalDate, toLocalDate, timeZone, limit = 1000, cursor } = {}) {
+  if (!cursor && (!fromLocalDate || !toLocalDate)) {
+    throw new Error("listEventTimeSlots requires fromLocalDate and toLocalDate (local 'YYYY-MM-DDThh:mm:ss').");
+  }
+  const ids = Array.isArray(serviceIds) ? serviceIds : [serviceIds];
+  const body = cursor
+    ? { cursorPaging: { limit, cursor } }
+    : {
+        serviceIds: ids,
+        bookable: true,
+        fromLocalDate,
+        toLocalDate,
+        timeZone: timeZone || defaultTimeZone(),
+        cursorPaging: { limit },
+      };
+  const res = await wixApiRequest("/_api/service-availability/v2/time-slots/event", { method: "POST", body });
+  return {
+    slots: res?.timeSlots ?? [],
+    nextCursor: res?.cursorPagingMetadata?.cursors?.next ?? null,
+  };
+}
+
+/**
+ * Type-agnostic convenience: list bookable slots for a service, routing to the right endpoint by
+ * `service.type` — APPOINTMENT → `listAvailableSlots`, CLASS/COURSE → `listEventTimeSlots`. The
+ * returned slots are shaped the same either way (`localStartDate`/`localEndDate`/`location`/
+ * `availableResources`), and each is bookable via `createBooking`.
+ * NOTE: a **COURSE** is enrolled as a whole (not per session), so it typically returns **no** slots
+ * here — the per-slot booking flow applies to APPOINTMENT and CLASS.
+ * @param {{ _id?: string, id?: string, type?: string }} service  A service from queryServices.
+ * @param {{ fromLocalDate: string, toLocalDate: string, timeZone?: string, limit?: number, cursor?: string }} options
+ * @returns {Promise<{ slots: object[], nextCursor: string|null }>}
+ */
+export async function listSlotsForService(service, options = {}) {
+  const serviceId = service?._id || service?.id;
+  if (!serviceId) throw new Error("listSlotsForService requires a service with an id.");
+  return service?.type === "CLASS" || service?.type === "COURSE"
+    ? listEventTimeSlots(serviceId, options)
+    : listAvailableSlots(serviceId, options);
 }

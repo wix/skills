@@ -1,14 +1,22 @@
 # Connect — wire an existing project to a managed Wix backend
 
 **Managed only.** This conductor runs when the project type is `managed` and the operation is
-`connect` — a frontend project is already on disk (or a design URL was fetched into CWD) and the
-user wants it hosted on Wix and powered by Wix Business Solutions. It attaches Wix to the existing
-project, runs the shared backend flow, wires the existing UI to that backend, builds, and releases.
+`connect` **or** `iterate` — a frontend project is already on disk (or a design URL was fetched into
+CWD) and the user wants it hosted on Wix and powered by Wix Business Solutions. It attaches Wix to the
+project (or reuses the existing connection when iterating), runs the shared backend flow, wires the UI
+to that backend, builds, and releases. **The only difference for `iterate`** — the project is already
+connected, so §1 skips `init` and reuses the existing `wix.config.json`.
 **No Designer, no templates, no binding-map machinery** — `SDK_HANDOFF.md` is the wiring reference.
 
 Run these in order:
 
-## 1 · Init the existing project
+## 1 · Attach Wix to the project — skip if already connected
+
+**If a `wix.config.json` (or `.wix/`) is already present, the project is already connected to Wix — this is the *iterate* case.** Do **not** run `init` again (it's for attaching a *new* Wix project). Read `./wix.config.json` → hold `SITE_ID` in scratch, and skip to §2.
+
+> **Iterate is incremental.** An already-connected project may already be set up and/or seeded from a prior run. In §3–§4, **check current state before acting** — query installed apps before installing, check for already-seeded content before seeding (re-seeding duplicates it), and inspect existing wiring before adding. Do only the delta the new intent requires; leave the rest untouched.
+
+Otherwise, attach Wix in place:
 
 ```bash
 CI=1 npm create @wix/new@latest init
