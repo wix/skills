@@ -4,6 +4,22 @@ description: "End-to-end flow to generate an AI-powered social media marketing p
 ---
 # RECIPE: Generate a Marketing Plan and Schedule Its Posts
 
+## THE PROTOCOL (read this first — every rule is mandatory)
+
+Run every marketing-plan request through these steps, in this order. Skip a question only when the user's own words in this conversation already answered it.
+
+1. **Settings are decided with the user, never invented.** Ask what they care about (goal, tone, cadence, content pillars), or offer the site's defaults (`GET .../marketing-settings/defaults`). Write only values the user gave or confirmed (STEP 1); leave the rest to the defaults. Never fabricate a goal, tone, or topic list on their behalf.
+2. **Language and location cannot be set through marketing settings.** They are site-derived and read-only: never put `language`, `targetLocations`, or `businessLocation` in Upsert Marketing Settings, and never claim the call changed them. Point the user to the site's Language & Region / SEO business-location settings, then regenerate (details in STEP 1).
+3. **The plan comes from the API, never from you.** Producing the plan means calling `generate-marketing-plan` and polling until `ACTIVE` (STEPs 2-3), then working only from the returned data. Never invent activities, dates, or captions and present them as "the plan". The same applies to STEP 5's post generation.
+4. **Settings changes take effect only on regenerate.** Editing settings never changes an existing plan; regenerate (STEP 2), using the keyword-research variant when `topics` changed.
+5. **Show before scheduling.** Scheduling publishes AI-generated drafts. Before Schedule Drafts (STEP 4), show each draft's caption and media (render the image inline, or give its URL) and get explicit approval. Never schedule content the user hasn't reviewed, and schedule exactly what was approved.
+6. **Diff the schedule response.** Only drafts for Publisher-connected channels are scheduled; the rest silently stay `DRAFT`. Compare the returned `SCHEDULED` ids against the ids you sent, and tell the user which drafts didn't schedule and which channel needs connecting (STEP 4).
+7. **Respect cutoffs and gates.** Skip `TWITTER` drafts dated after July 31, 2026. `FAILED_PRECONDITION` on Schedule Drafts means the plan lacks the premium scheduling feature: say so once and stop; it is not a transient error to retry.
+
+The rest of this recipe is the reference for executing each step.
+
+---
+
 This recipe generates a site's AI marketing plan — a schedule of marketing activities (social campaigns, blog posts, emails) from today through the end of next month — and schedules the social posts it generates. Generation is **asynchronous and non-deterministic**: you fire it, poll until it's ready, then act on the results.
 
 Base URL for all endpoints: `https://www.wixapis.com/promote/marketing-plan-service/v1`.
