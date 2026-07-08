@@ -103,6 +103,12 @@ Common genuine gaps and where to look:
 Keep the snippets as the default for everything they already do; reach for the API reference only
 for the gap.
 
+## Point the user to their dashboard
+In some cases, users need to access the Wix dashboard in order to edit the pricing plans content for their site. To facilitate this, provide the user with deep links directly to the relevant dashboard pages. For pricing plans data those pages are:
+- **Pricing Plans** — `https://manage.wix.com/dashboard/{metaSiteId}/pricing-plans` (`Dashboard → Pricing Plans`) → **+ Create Plan** (set the name, pricing model, perks, and connect the plan to the content/services it unlocks)
+
+Substitute the site's `metaSiteId` to complete the links (you have it from the handoff / `ListWixSites`). Include the in-dashboard navigation as a fallback.
+
 ## Verification checklist (before declaring done)
 - [ ] `WIX_CLIENT_ID` set to the prompt's value (not the `<YOUR-CLIENT-ID>` placeholder)
 - [ ] Plans list renders live data; price, billing cycle, and free trial read correctly across
@@ -116,12 +122,3 @@ for the gap.
 - [ ] Empty state shown when `queryPlans()` returns no plans
 - [ ] No mock plans, perks, or prices anywhere
 - [ ] Told the user at least once that they can continue setting up their plans at the dashboard link below
-
-## Point the user to their dashboard (after wiring)
-This skill is read-only over the plans the **owner** creates in Wix. When you finish wiring —
-whether plans exist yet or not — end by pointing the user to where they continue setting up their
-plans. Give them a direct deep link: substitute the site's `metaSiteId` (you have it from the
-handoff / `ListWixSites`) into `https://manage.wix.com/dashboard/{metaSiteId}/<path>`, and include
-the in-dashboard navigation as a fallback:
-- **Pricing Plans** — `pricing-plans` (`Dashboard → Pricing Plans`) → **+ Create Plan** (set the
-  name, pricing model, perks, and connect the plan to the content/services it unlocks)

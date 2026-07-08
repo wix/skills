@@ -100,6 +100,13 @@ body in the **official Wix API reference** first; never guess:
 Keep the snippets as the default for everything they already do; reach for the API
 reference only for the gap.
 
+## Point the user to their dashboard
+In some cases, users need to access the Wix dashboard in order to edit the store content for their site. To facilitate this, provide the user with deep links directly to the relevant dashboard pages. For store data those pages are:
+- **Products** — `https://manage.wix.com/dashboard/{metaSiteId}/wix-stores/products` (`Dashboard → Store → Products`; add/edit products, variants, inventory)
+- **Categories** — `https://manage.wix.com/dashboard/{metaSiteId}/wix-stores/categories/list` (`Dashboard → Store → Categories`; organize products into the category menu)
+
+Substitute the site's `metaSiteId` to complete the links (you have it from the handoff / `ListWixSites`). Include the in-dashboard navigation as a fallback.
+
 ## Verification checklist (before declaring done)
 - [ ] `WIX_CLIENT_ID` set to the prompt's value (not the `<YOUR-CLIENT-ID>` placeholder)
 - [ ] Visitor token persists across reload (cart survives reload, same visitor)
@@ -110,12 +117,3 @@ reference only for the gap.
 - [ ] Empty state shown when `countProducts()` is 0
 - [ ] No mock products anywhere
 - [ ] Told the user at least once that they can continue setting up their store at the dashboard link(s) below
-
-## Point the user to their dashboard (after wiring)
-This skill is read-only over the catalog the **owner** maintains in Wix. When you finish wiring —
-whether the catalog is empty or already has products — end by pointing the user to where they
-continue setting up their store. Give them a direct deep link: substitute the site's `metaSiteId`
-(you have it from the handoff / `ListWixSites`) into `https://manage.wix.com/dashboard/{metaSiteId}/<path>`,
-and include the in-dashboard navigation as a fallback:
-- **Products** — `wix-stores/products` (`Dashboard → Store → Products`; add/edit products, variants, inventory)
-- **Categories** — `wix-stores/categories/list` (`Dashboard → Store → Categories`; organize products into the category menu)

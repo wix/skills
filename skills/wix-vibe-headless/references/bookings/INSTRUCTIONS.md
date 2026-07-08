@@ -118,6 +118,13 @@ exact endpoint, method, and body in the **official Wix API reference** first (ne
 Keep the snippets as the default for everything they already do; reach for the API reference
 only for the gap.
 
+## Point the user to their dashboard
+In some cases, users need to access the Wix dashboard in order to edit the bookings content for their site. To facilitate this, provide the user with deep links directly to the relevant dashboard pages. For bookings data those pages are:
+- **Booking Services** — `https://manage.wix.com/dashboard/{metaSiteId}/bookings/services` (`Dashboard → Bookings → Booking Services`; add services and service categories)
+- **Staff** — `https://manage.wix.com/dashboard/{metaSiteId}/bookings/staff` (`Dashboard → Bookings → Staff`; add staff and set working hours, so slots are actually bookable)
+
+Substitute the site's `metaSiteId` to complete the links (you have it from the handoff / `ListWixSites`). Include the in-dashboard navigation as a fallback.
+
 ## Verification checklist (before declaring done)
 - [ ] `WIX_CLIENT_ID` set to the prompt's value (not the `<YOUR-CLIENT-ID>` placeholder)
 - [ ] Visitor token persists across reload (same visitor identity across reloads)
@@ -129,14 +136,3 @@ only for the gap.
 - [ ] On return from checkout the booking is confirmed (status `CONFIRMED`/`PENDING`)
 - [ ] No mock services, slots, or availability anywhere
 - [ ] Told the user at least once that they can continue setting up their bookings at the dashboard link(s) below
-
-## Point the user to their dashboard (after wiring)
-This skill is read-only over the services the **owner** maintains in Wix. When you finish wiring —
-whether there are services yet or not — end by pointing the user to where they continue setting up
-their bookings. Give them a direct deep link: substitute the site's `metaSiteId` (you have it from
-the handoff / `ListWixSites`) into `https://manage.wix.com/dashboard/{metaSiteId}/<path>`, and
-include the in-dashboard navigation as a fallback:
-- **Booking Services** — `bookings/services` (`Dashboard → Bookings → Booking Services`; add
-  services and service categories)
-- **Staff** — `bookings/staff` (`Dashboard → Bookings → Staff`; add staff and set working hours,
-  so slots are actually bookable)

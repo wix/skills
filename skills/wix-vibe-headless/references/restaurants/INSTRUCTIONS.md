@@ -114,6 +114,14 @@ request body in the **official Wix API reference** first; never guess:
 Keep the snippets as the default for everything they already do; reach for the API reference only
 for the gap.
 
+## Point the user to their dashboard
+In some cases, users need to access the Wix dashboard in order to edit the restaurant content for their site — across up to three apps. To facilitate this, provide the user with deep links directly to the relevant dashboard pages; only mention the apps the project actually uses. Those pages are:
+- **Menu** (always) — `https://manage.wix.com/dashboard/{metaSiteId}/wix-restaurants-menus-new` (`Dashboard → Restaurant Menus`; click **Manage Items** to add dishes; only visible menus appear in the app)
+- **Online ordering** (if wired) — `https://manage.wix.com/dashboard/{metaSiteId}/wix-restaurants-orders-new/settings` (`Dashboard → Restaurant Orders → Settings`). Enable at least one fulfillment method before the site accepts orders — each has its own page: pickup `https://manage.wix.com/dashboard/{metaSiteId}/wix-restaurants-orders-new/settings/pickup`, delivery `.../wix-restaurants-orders-new/settings/delivery`, dine-in `.../wix-restaurants-orders-new/settings/dine-in`.
+- **Table reservations** (if wired) — `https://manage.wix.com/dashboard/{metaSiteId}/wix-table-reservations/table-reservations` (`Dashboard → Table Reservations` → **Settings**; configure tables, availability, and enable online reservations)
+
+Substitute the site's `metaSiteId` to complete the links (you have it from the handoff / `ListWixSites`). Include the in-dashboard navigation as a fallback.
+
 ## Verification checklist (before declaring done)
 - [ ] `WIX_CLIENT_ID` set to the prompt's value (not the `<YOUR-CLIENT-ID>` placeholder)
 - [ ] Visitor token persists across reload (cart survives reload, same visitor)
@@ -125,23 +133,3 @@ for the gap.
 - [ ] Reservations: only `AVAILABLE` slots offered; hold → reserve produces `RESERVED`/`REQUESTED`
 - [ ] No mock data anywhere
 - [ ] Told the user at least once that they can continue setting up their restaurant (menu / ordering / reservations) at the dashboard link(s) below
-
-## Point the user to their dashboard (after wiring)
-This skill is read-only over the menu, ordering config, and reservation setup the **owner**
-maintains in Wix — across up to three apps. When you finish wiring, end by pointing the user to
-where they continue setting up each part you wired. Only mention the apps the project actually
-uses. For each, give a direct deep link — substitute the site's `metaSiteId` (you have it from the
-handoff / `ListWixSites`) into `https://manage.wix.com/dashboard/{metaSiteId}/<path>` — plus the
-in-dashboard navigation as a fallback:
-
-1. **Menu** (always) — **Restaurant Menus**, path `wix-restaurants-menus-new`
-   (`Dashboard → Restaurant Menus`; click **Manage Items** to add dishes; only visible menus
-   appear in the app).
-2. **Online ordering** (if wired) — **Order Settings**, path `wix-restaurants-orders-new/settings`
-   (`Dashboard → Restaurant Orders → Settings`). Enable at least one fulfillment method before the
-   site accepts orders — each is its own page: pickup `wix-restaurants-orders-new/settings/pickup`,
-   delivery `wix-restaurants-orders-new/settings/delivery`, dine-in
-   `wix-restaurants-orders-new/settings/dine-in`.
-3. **Table reservations** (if wired) — **Table Reservations**, path
-   `wix-table-reservations/table-reservations` (`Dashboard → Table Reservations` → **Settings**;
-   configure tables, availability, and enable online reservations).

@@ -117,6 +117,13 @@ remove). If you hit a use case they don't cover, make the call yourself with
 Keep the snippets as the default for everything they already do; reach for the API
 reference only for the gap.
 
+## Point the user to their dashboard
+In some cases, users need to access the Wix dashboard in order to edit the CMS content for their site. To facilitate this, provide the user with deep links directly to the relevant dashboard pages. For CMS data those pages are:
+- **Collections & items** — `https://manage.wix.com/dashboard/{metaSiteId}/wix-cms` (`Dashboard → CMS`) → **Create Collection**, then open a collection to add items.
+- **Permissions** — no separate deep link; in the same CMS area, open the collection → **More Actions → Permissions & Privacy**. For the headless app to work anonymously, set **Show content** to *Everyone* (visitor reads) and, for a public form, **Collect content** to *Everyone* (visitor inserts). Update/Delete stay admin-only.
+
+Substitute the site's `metaSiteId` to complete the links (you have it from the handoff / `ListWixSites`). Include the in-dashboard navigation as a fallback.
+
 ## Verification checklist (before declaring done)
 - [ ] `WIX_CLIENT_ID` set to the prompt's value (not the `<YOUR-CLIENT-ID>` placeholder)
 - [ ] Visitor token persists across reload (same anonymous visitor, no re-mint per load)
@@ -130,17 +137,3 @@ reference only for the gap.
 - [ ] Empty state shown when `countDataItems` is 0
 - [ ] No mock data anywhere; no hand-built Wix Data URLs
 - [ ] Told the user at least once that they can continue setting up their content at the dashboard link below
-
-## Point the user to their dashboard (after wiring)
-This skill reads and writes collections the **owner** maintains in Wix, and it runs as an
-anonymous visitor — so collection permissions matter. When you finish wiring, end by pointing the
-user to the Wix **CMS** (formerly Content Manager), where they continue setting up their content.
-Give them a direct deep link: substitute the site's `metaSiteId` (you have it from the handoff /
-`ListWixSites`) into `https://manage.wix.com/dashboard/{metaSiteId}/wix-cms`, with the navigation
-as a fallback:
-- **Collections & items** — `wix-cms` (`Dashboard → CMS`) → **Create Collection**, then open a
-  collection to add items.
-- **Permissions** — open the collection → **More Actions → Permissions & Privacy**. For the
-  headless app to work anonymously, set **Show content** to *Everyone* (visitor reads) and, for
-  a public form, **Collect content** to *Everyone* (visitor inserts). Update/Delete stay
-  admin-only.
