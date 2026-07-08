@@ -10,7 +10,7 @@ triggerPrompt: >-
   avoid claiming?
 tags: [app-installation]
 assertions:
-  - tool: ReadFullDocsArticle
+  - tool: wix_mcp_remote_ReadFullDocsArticle
     params:
       articleUrl: https://dev.wix.com/docs/api-reference/business-management/app-installation/skills/install-wix-apps
   - type: llm_judge
