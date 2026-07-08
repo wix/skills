@@ -156,7 +156,7 @@ const { formSummary } = await forms.getFormSummary(service.form._id);
 // formSummary.fields[] = { target, label, type, options?, deleted, _id }   ← FLAT, no nesting
 const fields = (formSummary?.fields ?? [])
   .filter(f => !f.deleted)
-  .filter(f => ['STRING', 'EMAIL', 'PHONE', 'NUMBER', 'URL'].includes(f.type));  // simple text-like only
+  .filter(f => f.type && ['STRING', 'EMAIL', 'PHONE', 'NUMBER', 'URL'].includes(f.type));  // simple text-like only (`f.type` is optional on the summary field — guard it or strict build errors)
 ```
 Doc: <https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/get-form-summary.md?apiView=SDK> · bookings↔forms: <https://dev.wix.com/docs/api-reference/business-solutions/bookings/wix-forms-integration.md?apiView=SDK>
 
@@ -195,7 +195,7 @@ const created = await bookings.createBooking({
   bookedEntity: {
     slot: {
       serviceId,
-      scheduleId: slot.scheduleId,        // APPOINTMENT only — the SELECTED SLOT's own scheduleId, NOT service.schedule.id
+      scheduleId: slot.scheduleId ?? undefined, // APPOINTMENT only — the SELECTED SLOT's own scheduleId, NOT service.schedule.id (the availability slot types it `string | null`; `?? undefined` to satisfy the `string | undefined` param under strict)
       eventId: slot.eventInfo?.eventId,   // CLASS only (Wix derives startDate/endDate/resource/location from it)
       startDate: slot.localStartDate,     // local "YYYY-MM-DDThh:mm:ss"
       endDate:   slot.localEndDate,
@@ -224,17 +224,19 @@ const cart = await createCart({
   catalogItems: [{ quantity: 1, catalogReference: { catalogItemId: bookingId, appId: BOOKING_APP_ID } }],
   cart: { source: { channelType: 'WEB' } },
 });
-const { cart: calc, summary } = await calculateCart(cart._id);   // totals are NOT stored on the Cart V2 entity
+if (!cart._id) throw new Error('cart creation failed');   // Cart V2 types `_id` as `string | undefined`; narrow once so the strict build accepts it downstream
+const cartId = cart._id;
+const { cart: calc, summary } = await calculateCart(cartId);   // totals are NOT stored on the Cart V2 entity
 
 // checkout required? cancellation-fee policy → yes; total 0 → no; FULL_PAYMENT_OFFLINE → no; else yes
 if (checkoutRequired) {
   const { redirectSession } = await redirects.createRedirectSession({
-    ecomCheckout: { checkoutId: cart._id },        // the cartId IS the checkoutId here
+    ecomCheckout: { checkoutId: cartId },          // the cartId IS the checkoutId here
     callbacks: { postFlowUrl: `${origin}/booking-confirmation` },
   });
   window.location.href = redirectSession.fullUrl;  // Wix-hosted checkout
 } else {
-  const order = await placeOrder(cart._id);        // free / pay-in-person → confirmation
+  const order = await placeOrder(cartId);          // free / pay-in-person → confirmation
 }
 ```
 

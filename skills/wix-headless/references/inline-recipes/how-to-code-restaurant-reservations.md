@@ -134,6 +134,9 @@ const held = await reservations.createHeldReservation({
   startDate: chosenSlot.startDate,
   partySize,
 });
+// ⚠️ `held.reservation` is OPTIONAL and its `_id`/`revision` are `string | null` in the SDK type —
+// narrow before use or the strict/`astro check` build fails (TS18048 / TS2345).
+if (!held.reservation?._id || !held.reservation.revision) throw new Error('hold failed');
 const reservationId = held.reservation._id;
 const revision = held.reservation.revision;   // reserve needs this
 
@@ -155,7 +158,7 @@ Docs: <https://dev.wix.com/docs/api-reference/business-solutions/restaurants/res
 
 **Result status:** with the seeded default (`approval.mode: "AUTOMATIC"`, manual approval off) the reservation becomes **`RESERVED`** immediately — confirm to the visitor. If the location requires manual approval it becomes **`REQUESTED`** (staff must approve) — tell the visitor it's pending.
 
-**Single-shot alternative:** if you collect all details up front (no "hold while they type" step), call `reservations.createReservation({ reservationLocationId, /* details */, reservee })` instead — same `firstName`/`phone` requirement; it returns `RESERVED`/`REQUESTED` directly, skipping the `HELD` phase.
+**Single-shot alternative:** if you collect all details up front (no "hold while they type" step), call `reservations.createReservation({ details: { reservationLocationId, startDate, partySize }, reservee })` instead — same `firstName`/`phone` requirement; it returns `RESERVED`/`REQUESTED` directly, skipping the `HELD` phase. **⚠️ The location/time/party go under a nested `details` object (NOT top-level), and this method returns the `Reservation` DIRECTLY — not wrapped in `{ reservation }`** (unlike `createHeldReservation`/`reserveReservation`). Top-level fields or reading `.reservation` off the result fails to type-check.
 Doc: <https://dev.wix.com/docs/api-reference/business-solutions/restaurants/reservations/reservations/create-reservation.md?apiView=SDK>
 
 ---
