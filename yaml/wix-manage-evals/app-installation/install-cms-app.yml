@@ -23,7 +23,7 @@ assertions:
       - shows a request body with a SITE tenant and the appInstance.appDefId set to that CMS ID.
 
       Fail if the response:
-      - guesses or invents a different appDefId for Wix CMS, OR
+      - guesses or invents a different appDefId for Wix CMS, including `675bbcef-18d8-41f5-800e-131ec9e08762`, OR
       - omits the install endpoint, OR
       - tells the user to enable Velo / call a velo provision endpoint (that flow was removed), OR
       - describes installation only through the editor UI with no API call.
