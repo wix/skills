@@ -54,7 +54,8 @@ The CLI scaffolds the builder file with sensible defaults — edit it only to cu
 | `width.defaultWidth` | number (px) | `450` | Initial width when the widget is added to a page. |
 | `width.allowStretch` | boolean | `true` | Whether the site owner can stretch the widget to the page width. |
 | `height.defaultHeight` | number (px) | `250` | Initial height. |
-| `installation.staticContainer` | `"HOMEPAGE"` \| omitted | omitted | Where the widget is auto-added on install. `"HOMEPAGE"` adds it to the home page; **omit the field** for opt-in widgets the user adds manually. Don't set `"HOMEPAGE"` for a widget defined as essential, or release fails validation with `ESSENTIAL_WIDGET_CANNOT_BE_IN_HOMEPAGE`. |
+| `installation.staticContainer` | `"HOMEPAGE"` \| omitted | omitted | Where the widget is auto-added on install. `"HOMEPAGE"` adds it to the home page; **omit the field** for opt-in widgets the user adds manually. Don't set `"HOMEPAGE"` for a widget defined as essential, or release fails validation with `ESSENTIAL_WIDGET_CANNOT_BE_IN_HOMEPAGE`. Prefer this over `installation.autoAdd`. |
+| `installation.autoAdd` | boolean | `true` | **Deprecated** — use `installation.staticContainer` instead. If true, the widget is auto-added to the site when the app is installed. |
 | `presets` | array | one default preset | Editor presets (saved configurations) the site owner can pick from. Each preset has its own `id`, `name`, and `thumbnailUrl`. |
 | `presets[].thumbnailUrl` | string | `{{BASE_URL}}/<name>-thumbnail.png` | Path to a preview image. `{{BASE_URL}}` is resolved at build time. Replace the placeholder image at the same relative path with your actual asset. |
 | `element` | path | `./extensions/site/widgets/<name>/<name>.tsx` | Path to the widget custom element file. Don't change unless renaming files. |
