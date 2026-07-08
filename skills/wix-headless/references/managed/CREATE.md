@@ -98,11 +98,14 @@ Then build the pages the user's intent calls for, **wired to the live backend**,
 bind (collection/form names + field keys; all other content is queried live). Install the SDK packages the loaded verticals need, author the pages/components directly in the
 project, and bind them to the live backend content. Keep it scoped to what was asked — no speculative pages.
 
-> **`npm install` note (Astro):** run the install with the optional native build skipped —
-> **`npm install --no-optional`** (or `--ignore-scripts`). Astro pulls `sharp` as an *optional*
-> transitive dep for local image optimization this headless flow never uses (all imagery is remote Wix
-> Media URLs), and its from-source build can fail and abort the whole install. A failed/absent `sharp`
-> is **expected and harmless here — do not try to repair it** (`astro.md` Caveat A9).
+> **`npm install` note (Astro):** always run **`npm install --ignore-scripts`**. Astro pulls `sharp`
+> as an *optional* transitive dep for **local, build-time**
+> image optimization this headless flow never uses (all imagery is remote Wix Media URLs served through
+> plain `<img>`), and its from-source native build can fail and abort the whole install; `--ignore-scripts`
+> skips that failing build up front. **Do not** use the deprecated `--no-optional` (silent no-op in modern
+> npm — sharp still builds) or `--omit=optional` (sharp still resolves). A failed/absent `sharp` is
+> **expected and harmless — never build, retry, or repair it, and never spend time diagnosing it**
+> (`astro.md` Caveat A9).
 
 If `imagery` is on and a surface needs an image (e.g. a homepage hero, an about-section visual),
 generate it per **`references/IMAGE_GENERATION.md`** and use its `file.url` — up to the per-run
