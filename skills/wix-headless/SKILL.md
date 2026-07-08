@@ -29,6 +29,8 @@ What happens with the frontend depends on the project type and operation:
 - **Backend-only** (self-managed, stripe, or a managed "just set up the backend" run) — the skill **emits the SDK guide** as its final output; the **host owns** the frontend, build, and hosting.
 - **Managed create / connect** — the skill **also owns the frontend**: it scaffolds a new project (create) or attaches Wix to an existing one (connect), wires it to the backend using that same guide, builds, and releases to Wix. (There is no Designer or template library — the frontend is built ad-hoc to intent.)
 
+> **On a backend-only run the skill does not own the project scaffolding.** When the work needs a frontend, **scaffold it according to user intent** — framework and structure follow the prompt; the skill's job is the Wix backend plus the **emitted SDK guide** describing how to call Wix from whatever frontend exists, not choosing or generating the app. This is the norm for a **stripe** run: the project is provisioned via Stripe Projects (credentials land in `.env` — see `stripe/AUTHENTICATION.md`), the skill configures the backend and emits the guide, and the live site is finalized per `stripe/DEPLOYMENT.md` — while the frontend is scaffolded and wired to intent, by the host.
+
 ## Project types
 
 The skill behaves identically across project types **except for authentication and deployment**, which are isolated in a per-type folder under `references/`:
@@ -62,7 +64,7 @@ Hold the resolved type in scratch; it selects `<TYPE_DIR>` (see Path resolution)
 
 create/connect/iterate are **managed-only**. For `managed`, resolve the operation **by intent first, directory second** — never let an empty directory override what the user is asking for. Check `iterate` first (it's decided by an unambiguous on-disk signal):
 
-- **`iterate`** → `references/managed/CONNECT.md`. The project is **already connected to Wix** — a `wix.config.json` (or `.wix/`) is already present — and the owner wants to add or change capabilities. Same conductor as `connect`, but §1 **skips `init`** and reuses the existing `wix.config.json`; **never re-`init` an already-connected project**.
+- **`iterate`** → `references/managed/CONNECT.md`. The project is **already connected to Wix** — a `wix.config.json` (or `.wix/`) is already present — and the owner wants to add or change capabilities. Same flow as `connect`, but §1 **skips `init`** and reuses the existing `wix.config.json`; **never re-`init` an already-connected project**.
 - **`connect`** → `references/managed/CONNECT.md`. The user **brings a design not yet connected to Wix and wants it wired**: a frontend project on disk **without** a `wix.config.json`, **or** a brought-in/fetched design (a `.zip`/folder/file you unzip or read, a design-file URL, a Claude-Design/v0/Lovable export), **or** language like "connect this / implement this design (… connecting to Wix) / host this on Wix / deploy this to Wix / add Wix Headless to this project". **A brought-in or fetched design is `connect` even when the current directory is empty** — the design arrives from elsewhere (zip/fetch/URL), so emptiness at trigger time is *not* a create signal. (`CONNECT.md` step 1 places the brought design into CWD, then `init`s it.)
 - **`create`** → `references/managed/CREATE.md`. The user wants a **new site built from a prompt with nothing brought in** — "build me a site / store / blog…", no design file, no project on disk.
 - **`backend-only`** — the user only wants the backend configured (no frontend work). → the shared spine + emit the SDK handoff.
@@ -89,7 +91,9 @@ If the credentials are absent, the Wix backend isn't reachable — **stop with a
 4. **Handoff** (`references/SDK_HANDOFF.md`) — after Setup and Seed, **emit** the integration guide: SDK bootstrap, per-capability call shapes, the **seeded IDs**, and the `@wix/*` package list.
 5. **Finalize deployment** (`<TYPE_DIR>/DEPLOYMENT.md`) — run the project-type's finalize steps.
 
-**Managed create / connect / iterate** — after Discovery, hand the whole run to the conductor:
+**Throughout any run** — if the user asks to send feedback to Wix, complains/gets frustrated, or the run hits substantial friction (repeated API/doc/tooling failures), you may **offer** to relay it to Wix per `references/FEEDBACK.md`. Send only after an explicit yes — never automatically.
+
+**Managed create / connect / iterate** — after Discovery, hand the whole run to the managed flow:
 - **create** → **`references/managed/CREATE.md`** (scaffold → Setup → Seed → build the frontend → release).
 - **connect** → **`references/managed/CONNECT.md`** (init → Setup → Seed → wire the existing UI → release).
 - **iterate** → **`references/managed/CONNECT.md`** — the project is already connected, so it reuses the existing `wix.config.json` (no `init`). Setup / Seed / wiring are **incremental**: it may already be set up and seeded from a prior run, so the agent **checks current state first** (installed apps, already-seeded content, existing wiring) and applies only the delta the new intent needs — never blindly re-installing or re-seeding. Re-release only if the frontend build output changed.
@@ -113,10 +117,11 @@ Compute `<SKILL_ROOT>` from this file (`<SKILL_ROOT>/SKILL.md` — strip `/SKILL
 | Seed (create backend content) | `<SKILL_ROOT>/references/SEED.md` |
 | SDK-integration handoff (emitted, or applied by create/connect) | `<SKILL_ROOT>/references/SDK_HANDOFF.md` |
 | Image generation (opt-in; agnostic) | `<SKILL_ROOT>/references/IMAGE_GENERATION.md` |
+| Feedback — relay the user's headless-experience feedback to Wix (opt-in; user-approved) | `<SKILL_ROOT>/references/FEEDBACK.md` |
 | **Authentication** — obtain `$TOKEN`/`$SITE_ID`/`clientId` (project-type-specific) | `<TYPE_DIR>/AUTHENTICATION.md` |
 | **Deployment** — finalize the live site (project-type-specific) | `<TYPE_DIR>/DEPLOYMENT.md` |
-| Managed **create** conductor (scaffold a new project) | `<SKILL_ROOT>/references/managed/CREATE.md` |
-| Managed **connect** conductor (wire an existing project) | `<SKILL_ROOT>/references/managed/CONNECT.md` |
+| Managed **create** flow (scaffold a new project) | `<SKILL_ROOT>/references/managed/CREATE.md` |
+| Managed **connect** flow (wire an existing project) | `<SKILL_ROOT>/references/managed/CONNECT.md` |
 | Frontend-axis references (how a frontend wires to Wix) | `<SKILL_ROOT>/references/astro.md`, `non-astro.md` |
 
 **Start a run by opening `DISCOVERY.md`.** The flow files (`CAPABILITIES`, `DISCOVERY`, `SETUP`, `SEED`, `SDK_HANDOFF`, `IMAGE_GENERATION`) are project-type-agnostic; the per-type specifics live under `<TYPE_DIR>/` (`AUTHENTICATION.md`, `DEPLOYMENT.md`, and — managed only — `CREATE.md`/`CONNECT.md`).
@@ -127,7 +132,7 @@ This skill has **no skill upstream** — the *how* is read from the **live Wix d
 
 **Doc discovery is the shared fallback for both tracks — never the first move.** Each track's *primary* source is its pinned material (below); when that doesn't cover what you need, fall back to `references/DOC_DISCOVERY.md` — a semantic doc-search + schema lookup that works with or without the Wix MCP.
 
-- **Seed** reads each capability's create flow from its **inline recipe** — a **self-contained local `inline-recipes/setup-*.md`** (mapped per capability in `SEED.md` §3) that inlines the calls and **supersedes** the REST doc pages, so read it and seed from it alone. Only a capability with **no** inline recipe (e.g. `coupons`) falls back to doc discovery (`DOC_DISCOVERY.md`).
+- **Seed** reads each capability's create flow from its **inline recipe** — a **self-contained local `inline-recipes/setup-*.md`** (mapped per capability in `SEED.md` § "What to seed per capability") that inlines the calls and **supersedes** the REST doc pages, so read it and seed from it alone. Only a capability with **no** inline recipe (e.g. `coupons`) falls back to doc discovery (`DOC_DISCOVERY.md`).
 - **Handoff** links the **SDK docs** for each capability's API shape, and supplies the runtime package set from the inlined map in `SDK_HANDOFF.md` (the SDK `.md` pages don't expose `@wix/*` import strings to navigation, so packages are mapped, not navigated).
 
 Setup carries its app-install call (and the appDefId constants) inline in `SETUP.md`; `CAPABILITIES.md` is the vertical index that lets Discovery match intent **and** declares, per built vertical, the *Required site features* + *Implementation checklist* that Seed enables (backend-backed features) and the Handoff carries into the guide (so the host builds a complete site, not a bare data dump). This skill carries the *what* (which capabilities, how much content, what a finished site includes) and reads the *how* off the docs.

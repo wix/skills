@@ -96,7 +96,7 @@ export const wixMetadata = {
   identifiers: { slug: WIX_APPS.blogs.postPageMetadata.identifiers.slug },
 };
 ```
-Use the `[...slug]` **rest** param (not `[slug]`), and `Astro.params` directly — Wix headless projects run `output: "server"` (SSR), so there's no `getStaticPaths()`. **If you add a blog category route** (e.g. `/category/[slug]`), wire it the same way with `WIX_APPS.blogs.categoryPageMetadata` + `seoTags.ItemType.BLOG_CATEGORY`. ⚠️ As of testing, dashboard SEO *overrides* for blog **categories** aren't honored by the resolver (it returns label-derived defaults) — the route still registers and gets valid default tags; this is a Wix-side gap, not a wiring bug.
+Use the `[...slug]` **rest** param (not `[slug]`), and `Astro.params` directly — Wix headless projects run `output: "server"` (SSR), so there's no `getStaticPaths()`. **If you add a blog category route** (e.g. `/category/[slug]`), wire it the same way with `WIX_APPS.blogs.categoryPageMetadata` + `seoTags.ItemType.BLOG_CATEGORY`. ⚠️ Dashboard SEO *overrides* for blog **categories** may not be honored by the resolver (it can return label-derived defaults) — the route still registers and gets valid default tags, so this is a Wix-side gap, not a wiring bug.
 
 ### Rendering the post body (Ricos rich content)
 
@@ -165,7 +165,7 @@ Liking is a first-class member action — `likes.createLike` / `deleteLike` / `q
 
 ### Comments — read public, write authenticated
 
-> **⚠️ Intent-gate this feature.** Comments **hard-depend on members/login**, so build them **only when the brief explicitly asks for reader comments or discussion.** An unrequested comments feature drags in an unrequested login gate — this overrides any generic "a blog has comments" default (`CAPABILITIES.md` blog entry). Reading comments is public; **submitting / editing / deleting** needs a logged-in member — render the thread always, and resolve identity **at the action** (show a "log in to comment" prompt to anonymous visitors, not a form that bounces).
+> **⚠️ Intent-gate this feature.** Comments **hard-depend on members/login**, so build them **only when the brief explicitly asks for reader comments or discussion.** An unrequested comments feature drags in an unrequested login gate — consistent with the `CAPABILITIES.md` blog entry (comments are optional / intent-gated, not part of the baseline blog surface). Reading comments is public; **submitting / editing / deleting** needs a logged-in member — render the thread always, and resolve identity **at the action** (show a "log in to comment" prompt to anonymous visitors, not a form that bounces).
 
 Package: `@wix/comments` (`comments`). The API keys off the post's **`referenceId`** — request the `REFERENCE_ID` fieldset when fetching the post, then `contextId = resourceId = post.referenceId`, and `appId = "14bcded7-0066-7c35-14d7-466cb3f09103"` (the Blog app id).
 
@@ -180,7 +180,7 @@ Package: `@wix/comments` (`comments`). The API keys off the post's **`referenceI
 - **Threaded replies (optional, only if the brief wants nested discussion):** a reply carries `comment.parentComment` (present *only* on replies); `comment.replyCount` is the number of replies; fetch one comment's thread with `comments.getCommentThread(commentId, …)`. For a flat thread (the common case), ignore `parentComment` and just render the `listCommentsByResource` results in `OLDEST_FIRST` order.
 - **Optional extras (wire only if asked):** comment votes — `comment.voteSummary.upvoteCount` / `downvoteCount`; and marking/pinning — `comment.marked`.
 
-> **⚠️ REST-vs-SDK permission trap.** The raw REST comments methods all report `applicableIdentities: [APP]` (admin) — but the **`@wix/comments` SDK path** resolves the **read as public** and the **write as the logged-in member** (verified live). Don't let the REST spec push you into `auth.elevate()`-ing the read or the member write — that's wrong for the visitor thread. Only the genuine **moderation** calls (`hideComment`, `moderateDraftContent`, `countComments`, `markComment`, publish/bulk-*) need elevation, and those are back-office, not part of the visitor-facing feature.
+> **⚠️ REST-vs-SDK permission trap.** The raw REST comments methods all report `applicableIdentities: [APP]` (admin) — but the **`@wix/comments` SDK path** resolves the **read as public** and the **write as the logged-in member**. Don't let the REST spec push you into `auth.elevate()`-ing the read or the member write — that's wrong for the visitor thread. Only the genuine **moderation** calls (`hideComment`, `moderateDraftContent`, `countComments`, `markComment`, publish/bulk-*) need elevation, and those are back-office, not part of the visitor-facing feature.
 
 ---
 
