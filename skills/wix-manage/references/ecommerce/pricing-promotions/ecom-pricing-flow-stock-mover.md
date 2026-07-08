@@ -1,10 +1,10 @@
 ---
 name: "Flow: Stock Mover"
-description: Stock-mover clearance sub-flow — load [Goal: Clear Inventory] FIRST (it owns the routing); this is a sub-step.
+description: Stock-mover clearance sub-flow — apply the orchestrator's Goal: Clear Inventory logic first; this is a sub-step.
 ---
 # Flow: Stock Mover Clearance
 
-> **Routing rule (READ FIRST).** This recipe is a sub-step of [Goal: Clear Inventory](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-clear-inventory). If you arrived here directly from the WixREADME index, load the goal recipe NOW before executing — it owns the velocity scoring, classification cues, and the per-recommendation presentation rules (including the **margin-floor guardrail** surfacing requirement).
+> **Routing rule (READ FIRST).** This recipe is a sub-step of the **STOCK_MOVER / Goal: Clear Inventory** logic embedded in `recommend-ecommerce-strategy`. If you arrived here directly from the WixREADME index, apply that embedded goal logic before executing. Do not call `ReadFullDocsArticle` on `goal-*` support URLs; those goal docs can be unavailable and must not block this flow. The goal logic owns the velocity scoring, classification cues, and the per-recommendation presentation rules (including the **margin-floor guardrail** surfacing requirement).
 >
 > **Then** read [Create Discount Rule](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-discount-rule) with `ReadFullDocsArticle` — it contains the discount-rule mechanics **and** the pre-create guardrails (conflict/stacking, margin floor, %-sanity).
 

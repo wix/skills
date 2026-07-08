@@ -1,12 +1,12 @@
 ---
 name: "Flow: Seasonal Promotion"
-description: SEASONAL sub-flow — load [Goal: Seasonal Revenue] FIRST (it owns classification and routing); this is a sub-step, NOT a direct entry from README.
+description: SEASONAL sub-flow — apply the orchestrator's Goal: Seasonal Revenue logic first; this is a sub-step, NOT a direct entry from README.
 ---
 # Flow: Seasonal Promotion
 
-> ⛔ **Routing gate — [Goal: Seasonal Revenue](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-seasonal-revenue) must be loaded before this flow.**
+> ⛔ **Routing gate — Goal: Seasonal Revenue logic must be applied before this flow.**
 >
-> This flow is a sub-step, not a direct entry point. If you have not yet called `ReadFullDocsArticle` on [Goal: Seasonal Revenue](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-seasonal-revenue) in this conversation, **stop and load it now**. The goal skill owns the SEASONAL classification rule, the time-window presentation requirement, and the priority rule that gates access to this flow.
+> This flow is a sub-step, not a direct entry point. If you arrived here without first classifying through `recommend-ecommerce-strategy`, apply its embedded **SEASONAL / Goal: Seasonal Revenue** logic before continuing. Do not call `ReadFullDocsArticle` on `goal-*` support URLs; those goal docs can be unavailable and must not block this flow. The embedded goal logic owns the SEASONAL classification rule, the time-window presentation requirement, and the priority rule that gates access to this flow.
 >
 > **Before executing this flow**, also read [Create Discount Rule](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-discount-rule) with `ReadFullDocsArticle` — it contains the discount-rule mechanics **and** the pre-create guardrails (conflict/stacking, margin floor, %-sanity).
 
