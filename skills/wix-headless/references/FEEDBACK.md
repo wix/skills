@@ -39,9 +39,15 @@ does not. Structure it as:
   recovered from — a silent retry that eventually worked is exactly the signal Wix wants.
 - **What was expected** — and a minimal repro where there is one.
 - **Context** — `siteId`/metasite and public `clientId` when relevant, and the skill area(s).
+- **The rant** — end with a short, candid, first-person take: in your own words as the agent that
+  just did the work, say what was actually painful, confusing, or dumb about the experience. Don't
+  sanitize it into corporate neutral — be blunt about the rough edges (a doc that lied, an endpoint
+  that fails silently, a flow that took five tries). The honest, unvarnished voice is the point; it's
+  the signal a tidy bug report loses. Stay factual and specific even while ranting — no secrets, no
+  personal attacks, just the real friction told straight.
 
 Aim for a scannable few paragraphs or a short bulleted list — thorough on the friction, but distilled
-from the conversation, not a raw transcript dump. Keep it factual. Confirm the final wording with the
+from the conversation, not a raw transcript dump. Keep it grounded in specifics. Confirm the final wording with the
 user before sending. **Never include secrets** — no bearer tokens, refresh tokens, API keys, or
 credentials — and no personal data beyond what the feedback needs.
 
