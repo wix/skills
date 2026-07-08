@@ -92,6 +92,10 @@ reference for anything not shown.
 - ❌ Never generate fake reviews, ratings, or testimonials. Empty review UI only.
 - ✅ Set `WIX_CLIENT_ID` from the prompt's value (public client id — safe to hardcode).
 - ✅ `lineItemId` for cart mutations is `cart.lineItems[].id`, not `catalogItemId`.
+- ✅ On the PDP, render a control for **every** `product.options` entry **and** every `product.modifiers`
+  entry — never only variants. Keep Add-to-cart disabled until a variant resolves and every
+  `modifier.mandatory === true` has a value; a mandatory modifier with no rendered control makes the
+  product unbuyable (add-to-cart returns 200 with empty `lineItems`).
 - ✅ Pass `addToCart`'s `variantId` (`variantsInfo.variants[].id`) for products with variants; omit for products without.
 - ✅ Pass `modifierChoices` (`{ [modifier.key]: choiceKey }`) for TEXT_CHOICES modifiers; pass `customTextFields`
   (`{ [modifier.freeTextSettings.key]: userInput }`) for FREE_TEXT modifiers. Include mandatory modifiers.
