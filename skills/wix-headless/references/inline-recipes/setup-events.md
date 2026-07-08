@@ -148,6 +148,16 @@ curl -X POST 'https://www.wixapis.com/events/v3/events/<eventId>/publish' \
 
 A `200` with `status: "UPCOMING"` (plus `OPEN_TICKETS` on the registration for a ticketed event) means it's live. **Publishing is one-way** — there's no un-publish — so confirm the tickets are created (STEP 2) before publishing a ticketed event.
 
+### STEP 4 (optional): Group events by a format / track — Event Categories
+
+**Only when the request wants events grouped or filtered by a format/track** (e.g. talk / workshop / social). Wix Events has a first-class **Categories** API for this — use it; do **not** invent an endpoint. **⚠️ It is `v1`, NOT `v3`**, and the assign path is specific:
+
+1. **Create one category per group** — `POST https://www.wixapis.com/events/v1/categories` with `{ "category": { "name": "Talks" } }` → keep `category.id`. One call each.
+2. **Assign events to a category** — `POST https://www.wixapis.com/events/v1/categories/{categoryId}/events` with `{ "eventId": ["<eventId>", …] }`. **⚠️ The path is `/{categoryId}/events`, NOT `/assign`** (and `v1`, not `v3/categories`) — the wrong forms `404`.
+3. **Verify via the EVENT read, not the category list.** Assignment can lag a few seconds — `listEventsByCategory` may briefly return `[]`, so don't gate on it. Confirm with `queryEvents` (or `getEventBySlug`) requesting **`fields: ["CATEGORIES"]`** — each event then carries `categories.categories[]` with the assigned `{ _id, name }`.
+
+Nothing else in the seed depends on categories, and the frontend filters **client-side** off the category name (`how-to-code-events.md`) — skip this step entirely if the request has no grouping.
+
 ### Paid-ticket precondition — record it, do NOT block
 
 Seeding **succeeds** and the event goes live regardless of payment setup. But **completing a paid purchase** later requires, in the site dashboard, both:

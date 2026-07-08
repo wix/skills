@@ -61,6 +61,7 @@ event = {
   dateAndTimeSettings: { formatted: { dateAndTime } },  // human-formatted date string
   location: { name, type },                             // "VENUE" | "ONLINE" | TBD
   registration: { initialType },                        // "TICKETING" | "RSVP" — BRANCH on this
+  categories: { categories: [{ _id, name }] },          // ONLY if you requested fields:['CATEGORIES'] — format/track, filter CLIENT-SIDE off .name
 }
 
 // orders.queryAvailableTickets({ filter: { eventId }, limit })  →  { definitions }   (VISITOR-public)
@@ -75,6 +76,8 @@ tier = {
 ```
 
 **⚠️ CRITICAL: entity ids are `_id`, NOT `id`.** `event._id`, `tier._id`. `event.id` is `undefined` in SDK code — a surprise `id`/`undefined` means you're reading the REST doc view; re-open it with `?apiView=SDK`.
+
+**Filtering by event format/track (talk/workshop/social)** — if the site groups events by a format, the seed models it as **Event Categories** (`setup-events.md` STEP 4). To read them you **must** request `fields: ['CATEGORIES']` on `queryEvents`/`getEventBySlug` (they're omitted otherwise), then filter **client-side** off `event.categories.categories[].name` (map name → your format enum). **Do NOT call the management categories endpoints** (`/events/v1/categories*`, `listEventsByCategory`) from the frontend — they're admin-scope and the visitor read is just the `CATEGORIES` field on the event.
 
 ---
 
