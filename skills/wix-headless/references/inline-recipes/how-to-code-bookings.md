@@ -35,7 +35,7 @@ A concise contract for writing the **frontend code** of a Bookings site: listing
 **Never** use `confirmBooking` (see *Creating the booking*) — the ecom cart confirms the seat here, not a server-side confirm.
 
 **Auth / client — framework split:**
-- **Astro (Wix-managed):** authentication is ambient. Call the modules directly from server components / backend routes and from browser islands (the `@wix/astro` visitor client) — **no `createClient`, no `OAuthStrategy`, no `clientId`.** SSR reads that need elevation use `@wix/essentials` (`auth.elevate(services.queryServices)(...)`); a public-env `clientId` read in `.astro` SSR is `undefined` at server render → 500, so don't build an `OAuthStrategy` client there.
+- **Astro (Wix-managed):** authentication is ambient. Call the modules directly from server components / backend routes and from browser islands (the `@wix/astro` visitor client) — **no `createClient`, no `OAuthStrategy`, no `clientId`.** Nothing here needs elevation (the reads below all run as the visitor); a public-env `clientId` read in `.astro` SSR is `undefined` at server render → 500, so don't build an `OAuthStrategy` client there.
 - **Non-Astro (Vite/React/Vue/static):** build one manual visitor client and reuse it:
   ```js
   import { createClient, OAuthStrategy } from '@wix/sdk';
@@ -273,4 +273,4 @@ A correct Services V2 booking frontend:
 - uses **`service._id`** (never `service.id`) and reads the **flat V2 fields** (`mainSlug.name`, `payment.fixed.price.value`, `schedule.availabilityConstraints.sessionDurations[0]`);
 - fetches availability per type (**`availabilityTimeSlots`** for APPOINTMENT, **`eventTimeSlots`** for CLASS) with **local date strings**, reads slot fields at the **top level**, and scopes to one location to avoid duplicate rows;
 - renders the booking form **schema-driven via `getFormSummary`** (the flat `formSummary.fields[].target`, never `getForm`/`formFields`), **falls back to `first_name`/`last_name`/`email` whenever the parsed list is empty** (so the form never renders blank or hangs), keys values by `target`, skips complex field types, and passes that object as **`formSubmission`** (not `contactDetails`);
-- runs **createBooking → createCart → calculateCart → checkout-or-place**, deriving `selectedPaymentOption` from the service (free/offline → `OFFLINE`, else `INSUFFICIENT_INVENTORY`) and using the **ANY_RESOURCE** fallback when no staff is chosen.
+- runs **createBooking → createCart → calculateCart → checkout-or-place**, deriving `selectedPaymentOption` from the service (free/offline → `OFFLINE`, else `ONLINE` — the wrong choice rejects the cart with `INSUFFICIENT_INVENTORY`) and using the **ANY_RESOURCE** fallback when no staff is chosen.

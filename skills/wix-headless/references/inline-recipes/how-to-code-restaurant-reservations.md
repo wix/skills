@@ -104,7 +104,7 @@ Doc: <https://dev.wix.com/docs/api-reference/business-solutions/restaurants/rese
 
 ### Getting available time slots
 
-Call `getTimeSlots` with **positional** args: the location id, an **ISO-8601 date string**, the party size, and optional `{ slotsBefore, slotsAfter, duration }`. Then keep the `AVAILABLE` slots.
+Call `getTimeSlots` with **positional** args: the location id, a **`Date` object** (`new Date(selectedDate)` — NOT the ISO string the doc shows; see the CRITICAL note below), the party size, and optional `{ slotsBefore, slotsAfter, duration }`. Then keep the `AVAILABLE` slots.
 
 ```js
 const { timeSlots: slots = [] } = await timeSlots.getTimeSlots(

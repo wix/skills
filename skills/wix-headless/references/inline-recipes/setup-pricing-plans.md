@@ -28,7 +28,7 @@ Create **one plan per create call** (Plans V3 has **no bulk-create** for plans) 
 
 **⚠️ The create body MUST include `plan.status: "ACTIVE"` and a valid, unique GUID `id` on every `pricingVariants[]` and every `perks[]` entry** — omitting any of them returns `400` (`status value is required` / `id is not a valid GUID` / `id must not be empty`). These `id`s are **client-supplied** (a confirmed won't-fix server-side gap: the Pricing-Plans team will not auto-generate them; only the plan's *own* top-level `id` comes back server-generated).
 
-**⚠️ Generate every GUID in the SHELL — never let the model type one.** A model emitting a UUID token-by-token isn't reliably valid or unique (→ `400`, or a duplicate-id collision across plans). Generate each in the shell and inject it via command substitution, so the value is always a real, fresh GUID regardless of which coding agent or OS runs this. This portable helper tries `uuidgen` → `python3` → `node`; **`node` is always present in a scaffolded Wix project, so it never fails to produce one:**
+**⚠️ Generate every GUID in the SHELL — never let the model type one.** A model emitting a UUID token-by-token isn't reliably valid or unique (→ `400`, or a duplicate-id collision across plans). Generate each in the shell and inject it via command substitution, so the value is always a real, fresh GUID regardless of which coding agent or OS runs this. This portable helper tries `uuidgen` → `python3` → `node`; **at least one is present in virtually every shell (a scaffolded Wix project always has `node`), so it effectively always succeeds — the fallback below covers the rare shell with none:**
 
 ```bash
 gen_uuid() { uuidgen 2>/dev/null | tr 'A-Z' 'a-z' \

@@ -10,7 +10,7 @@ A concise contract for wiring **login / sign-up / logout and member-gated surfac
 
 > **One mechanism, not three.** Sign-up, log-in and log-out are the *same* flow. The Wix login page **logs in an existing member or registers a new one** in the same step; you never build a separate "sign up" call. Log-out is the inverse of the same flow.
 
-> **Login surface — this recipe is the Wix-hosted login page (the default).** If the brief **explicitly** asks for a **custom/branded in-app login form or custom sign-up fields** (full name / username / address / arbitrary fields), that's the *custom login page* surface — **read `how-to-code-members-custom-login.md`**. Note custom login is a client-driven `OAuthStrategy` flow with **no client** under Astro auto-auth, so on Astro it means instantiating an explicit `OAuthStrategy` client in a backend route — take it on only on real intent; otherwise the built-in routes below are the default. The choice is **intent, not project type**.
+> **Login surface — this recipe is the Wix-hosted login page (the default).** If the brief **explicitly** asks for a **custom/branded in-app login form or custom sign-up fields** (full name / username / address / arbitrary fields), that's the *custom login page* surface — **read `how-to-code-members-custom-login.md`**. Note custom login is a client-driven `OAuthStrategy` flow with **no client** under Astro auto-auth, so on Astro it means instantiating an explicit `OAuthStrategy` client in a backend route or a client island (never in SSR frontmatter) — take it on only on real intent; otherwise the built-in routes below are the default. The choice is **intent, not project type**.
 
 Pinned docs (read before wiring — `curl` the `.md` directly):
 - Member login on Astro: <https://dev.wix.com/docs/go-headless/wix-managed-headless/authentication/handle-member-login-using-wix-s-astro-integration.md>
@@ -108,15 +108,15 @@ A logged-in member reading **their own** data — own orders, own bookings, own 
 
 ## pricing-plans is a HARD dependency on members
 
-If the site has pricing-plans (membership / subscription / paid tiers), **login is required, not optional**. Ordering a plan (`startOnlinePurchase(planId)` / `orders.createOnlineOrder(planId)`) orders it **for a logged-in member**; if none is logged in the Wix flow forces sign-up. `orders.listCurrentMemberOrders()` and "my subscription" reads return **nothing** for an anonymous visitor.
+If the site has pricing-plans (membership / subscription / paid tiers), **login is required, not optional**. Ordering a plan (`orders.createOnlineOrder(planId)`) orders it **for a logged-in member**; if none is logged in the Wix flow forces sign-up. `orders.memberListOrders()` and "my subscription" reads return **nothing** for an anonymous visitor.
 
-So: browsing the plans grid is public, but the **subscribe** button and the **my-subscription** surface both need the login mechanism above. A logged-in member calling `startOnlinePurchase` needs **no `onBehalf`** — the order is created on their behalf from the member session. (Everywhere else — stores "my orders", bookings "my bookings", events "my registrations" — member login is a *soft* add-on: the purchase/RSVP/book action itself runs fine as an anonymous visitor; only the account view of it needs a member.)
+So: browsing the plans grid is public, but the **subscribe** button and the **my-subscription** surface both need the login mechanism above. A logged-in member calling `orders.createOnlineOrder` needs **no `onBehalf`** — the order is created on their behalf from the member session. (Everywhere else — stores "my orders", bookings "my bookings", events "my registrations" — member login is a *soft* add-on: the purchase/RSVP/book action itself runs fine as an anonymous visitor; only the account view of it needs a member.)
 
 ---
 
 ## Conclusion
 Correct member auth on an Astro frontend:
-- uses the **built-in `/api/auth/login`** (login *and* sign-up) and **POST `/api/auth/logout`** routes with an allow-listed `returnUrl` — **never** builds an `OAuthStrategy` client (that 500s at SSR);
+- uses the **built-in `/api/auth/login`** (login *and* sign-up) and **POST `/api/auth/logout`** routes with an allow-listed `returnUrl` — the login handshake **never** builds an `OAuthStrategy` client, and one must never be built in **SSR frontmatter** (the public-env `clientId` is `undefined` at server render → 500). (The one exception is the custom-login surface — `how-to-code-members-custom-login.md` — which builds an explicit client in a backend route or client island, never in SSR frontmatter.)
 - gates surfaces **server-side** (SSR frontmatter or a `src/pages/api/*.ts` route), guarded in `try/catch`, bouncing anonymous visitors to `/api/auth/login?returnUrl=…`;
 - reads the current member via **`@wix/members` `getCurrentMember`** (not the dev-preview `@wix/site-members`), resolving the photo `wix:image://` URI and expecting only PUBLIC fields for other members;
 - does **no `auth.elevate`** for a member reading their own data (elevation is a different, admin-only axis that lives in a backend route);

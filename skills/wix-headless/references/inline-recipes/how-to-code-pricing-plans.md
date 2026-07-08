@@ -16,7 +16,7 @@ A contract for the **frontend code** of a pricing-plans site: showing the plans 
 
 ## The modules and the client (read this first)
 
-**⚠️ Two different packages — use the headless one.** The Wix docs surface `checkout.startOnlinePurchase()` / `checkout.createOnlineOrder()` under **`@wix/site-pricing-plans`** — that is the **Wix-site (Velo / `$w` page-code) package**, and `startOnlinePurchase` drives the **Wix Pay frontend UI** that only exists inside a hosted Wix page. **It is NOT the headless path** — do not import `@wix/site-pricing-plans` in a headless frontend. Use **`@wix/pricing-plans`** (the universal/headless SDK), whose `orders.createOnlineOrder` creates the order and leaves payment to a redirect you drive (see *Subscribing*). (Note: `SDK_HANDOFF.md` and the members recipes mention `startOnlinePurchase` — that's the site-package convenience; the headless equivalent is `orders.createOnlineOrder` + a payment redirect.)
+**⚠️ Two different packages — use the headless one.** The Wix docs surface `checkout.startOnlinePurchase()` / `checkout.createOnlineOrder()` under **`@wix/site-pricing-plans`** — that is the **Wix-site (Velo / `$w` page-code) package**, and `startOnlinePurchase` drives the **Wix Pay frontend UI** that only exists inside a hosted Wix page. **It is NOT the headless path** — do not import `@wix/site-pricing-plans` in a headless frontend. Use **`@wix/pricing-plans`** (the universal/headless SDK), whose `orders.createOnlineOrder` creates the order and leaves payment to a redirect you drive (see *Subscribing*).
 
 | Need | Package | Module / namespace |
 |---|---|---|

@@ -103,7 +103,7 @@ const { member } = await client.members.getCurrentMember({ fieldsets: ['FULL'] }
 
 ## pricing-plans is a HARD dependency on members
 
-If the site has pricing-plans, **login is required, not optional**. Ordering a plan (`startOnlinePurchase(planId)` / `orders.createOnlineOrder(planId)`) orders it **for a logged-in member**; anonymous → the Wix flow forces sign-up. `orders.listCurrentMemberOrders()` and "my subscription" reads return **nothing** for an anonymous visitor. So the plans grid is public, but the **subscribe** button and the **my-subscription** surface both need the login flow above; a logged-in member calling `startOnlinePurchase` needs **no `onBehalf`**. Everywhere else (stores "my orders", bookings "my bookings", events "my registrations"), login is a *soft* add-on — the purchase/RSVP/book action runs fine as an anonymous visitor; only the account view of it needs a member.
+If the site has pricing-plans, **login is required, not optional**. Ordering a plan (`orders.createOnlineOrder(planId)`) orders it **for a logged-in member**; anonymous → the Wix flow forces sign-up. `orders.memberListOrders()` and "my subscription" reads return **nothing** for an anonymous visitor. So the plans grid is public, but the **subscribe** button and the **my-subscription** surface both need the login flow above; a logged-in member calling `orders.createOnlineOrder` needs **no `onBehalf`**. Everywhere else (stores "my orders", bookings "my bookings", events "my registrations"), login is a *soft* add-on — the purchase/RSVP/book action runs fine as an anonymous visitor; only the account view of it needs a member.
 
 ---
 
