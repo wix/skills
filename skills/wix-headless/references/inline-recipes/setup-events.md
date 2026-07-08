@@ -154,7 +154,7 @@ A `200` with `status: "UPCOMING"` (plus `OPEN_TICKETS` on the registration for a
 
 1. **Create one category per group** — `POST https://www.wixapis.com/events/v1/categories` with `{ "category": { "name": "Talks" } }` → keep `category.id`. One call each.
 2. **Assign events to a category** — `POST https://www.wixapis.com/events/v1/categories/{categoryId}/events` with `{ "eventId": ["<eventId>", …] }`. **⚠️ The path is `/{categoryId}/events`, NOT `/assign`** (and `v1`, not `v3/categories`) — the wrong forms `404`.
-3. **Verify via the EVENT read, not the category list.** Assignment can lag a few seconds — `listEventsByCategory` may briefly return `[]`, so don't gate on it. Confirm with `queryEvents` (or `getEventBySlug`) requesting **`fields: ["CATEGORIES"]`** — each event then carries `categories.categories[]` with the assigned `{ _id, name }`.
+3. **Verify via the EVENT read, not the category list.** Assignment can lag a few seconds — `listEventsByCategory` may briefly return `[]`, so don't gate on it. Confirm with `queryEvents` (or `getEventBySlug`) requesting **`fields: ["CATEGORIES"]`** — each event then carries `categories.categories[]` with the assigned `{ id, name }` (REST view — the id key is `id`, not `_id`).
 
 Nothing else in the seed depends on categories, and the frontend filters **client-side** off the category name (`how-to-code-events.md`) — skip this step entirely if the request has no grouping.
 

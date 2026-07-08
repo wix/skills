@@ -61,7 +61,7 @@ event = {
   dateAndTimeSettings: { formatted: { dateAndTime } },  // human-formatted date string
   location: { name, type },                             // "VENUE" | "ONLINE" | TBD
   registration: { initialType },                        // "TICKETING" | "RSVP" — BRANCH on this
-  categories: { categories: [{ _id, name }] },          // ONLY if you requested fields:['CATEGORIES'] — format/track, filter CLIENT-SIDE off .name
+  // categories?: { categories: [{ _id, name }] }        // runtime shape when fields:['CATEGORIES'] is requested — but NOT on the typed Event (SDK gap): read via a cast, see below
 }
 
 // orders.queryAvailableTickets({ filter: { eventId }, limit })  →  { definitions }   (VISITOR-public)
@@ -77,7 +77,10 @@ tier = {
 
 **⚠️ CRITICAL: entity ids are `_id`, NOT `id`.** `event._id`, `tier._id`. `event.id` is `undefined` in SDK code — a surprise `id`/`undefined` means you're reading the REST doc view; re-open it with `?apiView=SDK`.
 
-**Filtering by event format/track (talk/workshop/social)** — if the site groups events by a format, the seed models it as **Event Categories** (`setup-events.md` STEP 4). To read them you **must** request `fields: ['CATEGORIES']` on `queryEvents`/`getEventBySlug` (they're omitted otherwise), then filter **client-side** off `event.categories.categories[].name` (map name → your format enum). **Do NOT call the management categories endpoints** (`/events/v1/categories*`, `listEventsByCategory`) from the frontend — they're admin-scope and the visitor read is just the `CATEGORIES` field on the event.
+**Filtering by event format/track (talk/workshop/social)** — if the site groups events by a format, the seed models it as **Event Categories** (`setup-events.md` STEP 4). Read the assigned category off the event and filter **client-side** — two gotchas, both verified against the installed SDK:
+- **Request `CATEGORIES` as the 2nd positional arg**, not inside the flat query: `queryEvents({ filter, sort, paging }, { fields: ['CATEGORIES'] })` and `getEventBySlug(slug, { fields: ['CATEGORIES'] })`. (`fields` lives on the options arg, not on `EventQuery`.)
+- **`categories` is NOT on the typed `Event` (an SDK type gap** — the `CATEGORIES` enum and `EventCategory`/`EventCategories` types ship, but `Event` omits the property, so a direct `event.categories` read fails `tsc`/`astro check`). **Read it through a cast:** `const cats = (event as any).categories?.categories ?? []` — each entry is `{ _id, name }`; map `cats[].name` → your format enum.
+- **Do NOT call the management categories endpoints** (`/events/v1/categories*`, `listEventsByCategory`) from the frontend — they're admin-scope; the visitor read is just the cast `CATEGORIES` field on the event.
 
 ---
 
