@@ -170,6 +170,17 @@ Response — keep the generated **`itemSetId`** for the benefit (matched by its 
 - **`benefitKey`** is a **freshly generated random UUID** you supply (any v4 UUID).
 - **`providerAppId`** is the **Bookings** app def id `13d21c63-b5ec-5912-8397-c3a5ddb27a97` (this is the same GUID used as the bookings app id in the cart/frontend recipes — confirmed). It is **not** the Pricing Plans id.
 - **`price`** is credit-model, not money: **`"0"` = unlimited** sessions covered (leave `creditConfiguration` empty — the "unlimited membership" case, the default here); **`"1"` = limited credits**, which then requires a `details.creditConfiguration` (e.g. `{ "amount": "10" }` for a 10-session pack). Default to **`"0"` (unlimited)** unless the request names a session count.
+- **⚠️ Limited-credit plan (`price:"1"`): `creditConfiguration` goes at `details.creditConfiguration` — a SIBLING of `benefits[]`, NOT a field inside a benefit.** Nesting it inside the benefit makes the server treat the credit pool as "not set up" and reject the non-zero price with `400 "Price should be 0 when credit pool is not set up"`. The correct `details` shape for a limited pack (e.g. an 8-class pass):
+  ```json
+  "details": {
+    "creditConfiguration": { "amount": "8" },
+    "benefits": [
+      { "benefitKey": "<RANDOM_UUID>", "displayName": "Bookings sessions",
+        "providerAppId": "13d21c63-b5ec-5912-8397-c3a5ddb27a97", "price": "1" }
+    ]
+  }
+  ```
+  (The unlimited case above keeps `price:"0"` and **no** `creditConfiguration`.)
 - **One pool definition per integrating app** — for a plan covering bookings, that's exactly one pool with one benefit. Don't create a second pool for the same app on the same plan.
 - **`itemSetId` path is `poolDefinition.details.benefits[i].itemSetId`** — pick the entry whose `benefitKey` matches the one you sent.
 
