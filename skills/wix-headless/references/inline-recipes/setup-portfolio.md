@@ -122,6 +122,27 @@ Attach to a project — `PATCH https://www.wixapis.com/portfolio/v1/projects/{pr
 - **`coverImage.imageInfo.id`** is the imported **WixMedia image id** (`file` id from the import step) — **and `height` + `width` are required** alongside it (`url` is read-only, returned populated). A missing revision or a stale one fails the PATCH.
 - Image failures never block the run — skip and leave the entity text-only.
 
+### STEP 3b: Add project media items — the ordered detail-page gallery (imagery on only)
+
+**Only if `imagery` is on.** The cover (STEP 3) is just the **listing-card thumbnail**. A project's **media gallery** — the ordered images on its detail page, which the frontend reads via the SDK `projectItems.listProjectItems(projectId)` (`how-to-code-portfolio.md`) — is a **separate `item` entity you must create**, one call per image. Without this step an imagery-on project has a cover but an empty gallery.
+
+```bash
+curl -X POST 'https://www.wixapis.com/portfolio/v1/items' \   # lowercase `items` — `/Items` (capital) 404s
+  -H 'Authorization: <AUTH>' -H 'Content-Type: application/json' \
+  -d '{ "item": {
+    "projectId": "<projectId FROM STEP 2>",
+    "sortOrder": 1,
+    "title": "<image title>",
+    "image": { "imageInfo": { "id": "<WixMedia image id>", "height": 896, "width": 1200 } }
+  } }'
+```
+
+- **One call per image**; **`sortOrder`** (1, 2, 3…) sets the order the frontend renders. `image.imageInfo` is the same shape as `coverImage` (imported WixMedia id + height + width).
+- **Response nests the created item under `item`** (a top-level empty `projectId:""` echo is also returned — ignore it).
+- **⚠️ There is NO public list endpoint.** `GET /portfolio/v1/items?projectId=…`, `/projects/{id}/items`, `/items/project/{id}` **all 404** — do not hunt for one. To verify, `GET https://www.wixapis.com/portfolio/v1/items/{itemId}` one at a time; the frontend lists them via the SDK `projectItems.listProjectItems` (an internal URL the SDK resolves).
+- **Cover vs items:** cover = listing thumbnail (STEP 3 PATCH); items = ordered detail-page gallery (this call). An imagery-on portfolio typically wants **both** — if a project has only its cover image, reuse that WixMedia id as item #1 so the gallery isn't empty.
+- Item failures never block the run — skip and continue (a project with no items still renders from its cover).
+
 ---
 
 ## Conclusion
