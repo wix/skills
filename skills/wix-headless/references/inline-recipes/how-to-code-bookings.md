@@ -67,7 +67,7 @@ service = {
   mainSlug: { name },                               // the URL slug   (NOT service.slug; fallback supportedSlugs[0].name)
   schedule: { id, availabilityConstraints: { sessionDurations: [60] } },  // duration = sessionDurations[0] (minutes)
   payment: { fixed: { price: { value, currency } } },                     // value is a STRING; currency is the site's
-  media: { mainMedia: { image: { url } } },         // already a URL in V2 reads
+  media: { mainMedia: { image } },                  // image is a "wix:image://…" string — resolve via media.getImageUrl()
   category: { _id },                                // the service's category
   form: { _id },                                    // the booking form (fetch via @wix/forms)
   bookingPolicy: { cancellationFeePolicy: { enabled } },  // drives the checkout-vs-place decision
@@ -249,7 +249,7 @@ if (checkoutRequired) {
 ### Rendering & mounting
 
 - **Price**: `service.payment.fixed.price.value` (string) + `.currency` (the site's stored currency — format from it, don't assume USD).
-- **Image**: `service.media.mainMedia.image` is a **bare URL string** (already absolute in V2 reads) — read it **directly**, NOT `.image.url` (the installed type is `image?: string`, so `.url` fails `tsc`). An already-`https://` URL goes straight into `<img src>`.
+- **Image**: `service.media.mainMedia.image` is a **string**, not an object (the installed type is `image?: string`, so `.image.url` fails `tsc`) — but its value is a Wix media URI like `wix:image://v1/…`, **not** an absolute URL (`.startsWith("https://")` is `false`). Putting it straight into `<img src>` ships broken images. Resolve it first: `import { media } from "@wix/sdk"`, then `media.getImageUrl(service.media.mainMedia.image).url` → `https://static.wixstatic.com/media/…`. Guard for services with no image.
 - **Mount slots + form + book in a `client:only="react"` island** (Astro) — availability is timezone/session-specific. SSR only the read pages (catalog/detail) for SEO.
 
 ### SEO on item pages (Astro, Wix-managed)
