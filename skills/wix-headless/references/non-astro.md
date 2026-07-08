@@ -2,7 +2,7 @@
 
 This is the framework reference for any **non-Astro** frontend — React/Vue/Svelte/Vite SPA or plain static HTML. Astro stays the default (`astro.md`); read this when the user **names a framework** or **brings a non-Astro design**. Like `astro.md`, it's an **index of doc pages** with one-line "what it settles" notes, **then a Caveats section**. It carries **no design, templates, payloads, or per-framework code** — the model designs and writes the whole frontend; this file says only *how it connects*.
 
-**This file is framework-axis only — it is mode-agnostic.** It is read in **both** the managed and self-managed flows, so it contains **no managed-vs-self-managed branching**: no `init` vs OAuth-app, no `wix release` vs external host, no `outputDirectory`, no `wix.config.json`. Anything that differs by *who hosts* lives in the project-type files (`managed/`, `self-managed/`) — the conductor is already reading those in a known mode. Here is only what's **identical across both flows**: a non-Astro frontend talks to Wix through a manual `OAuthStrategy` visitor client + the SDK, the same way no matter who hosts it.
+**This file is framework-axis only — it is mode-agnostic.** It is read in **both** the managed and self-managed flows, so it contains **no managed-vs-self-managed branching**: no `init` vs OAuth-app, no `wix release` vs external host, no `outputDirectory`, no `wix.config.json`. Anything that differs by *who hosts* lives in the project-type files (`managed/`, `self-managed/`) — you're already reading those in a known mode. Here is only what's **identical across both flows**: a non-Astro frontend talks to Wix through a manual `OAuthStrategy` visitor client + the SDK, the same way no matter who hosts it.
 
 **The auth rule (the cross-skill boundary).** **Astro = auto-auth, no client. Non-Astro = manual client.** Unlike Astro, you create a client — `createClient({ modules, auth: OAuthStrategy({ clientId }) })`. For non-Astro this is the **documented, correct** model (the "Create a Client with OAuth" doc scopes itself to "frameworks other than Astro"). The `clientId` is the project's **public** OAuth client id — **not** a secret. **Where that id comes from is your flow's `AUTHENTICATION.md`** (managed: the `appId` in `wix.config.json`; self-managed: the OAuth app you created) — this file just *uses* it.
 
@@ -47,7 +47,7 @@ This file **stops at "produce the build output."** *Where that output is deploye
 
 ## 4 — Caveats (framework-invariant only)
 
-These hold regardless of who hosts. Host-specific gotchas (static `outputDirectory`, the `index.html` rename) are filed in `managed/DEPLOYMENT.md`, where the conductor is in a known mode.
+These hold regardless of who hosts. Host-specific gotchas (static `outputDirectory`, the `index.html` rename) are filed in `managed/DEPLOYMENT.md`, where you're in a known mode. (Numbering: N2/N3 were retired; the gap is intentional and the remaining IDs are kept stable so inbound references don't shift.)
 
 | Caveat | What it says |
 |---|---|
