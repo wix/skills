@@ -129,3 +129,18 @@ reference only for the gap.
 - [ ] Update is treated as a full replace (fetch + merge), so no fields are silently dropped
 - [ ] Empty state shown when `countDataItems` is 0
 - [ ] No mock data anywhere; no hand-built Wix Data URLs
+- [ ] Told the user at least once that they can continue setting up their content at the dashboard link below
+
+## Point the user to their dashboard (after wiring)
+This skill reads and writes collections the **owner** maintains in Wix, and it runs as an
+anonymous visitor — so collection permissions matter. When you finish wiring, end by pointing the
+user to the Wix **CMS** (formerly Content Manager), where they continue setting up their content.
+Give them a direct deep link: substitute the site's `metaSiteId` (you have it from the handoff /
+`ListWixSites`) into `https://manage.wix.com/dashboard/{metaSiteId}/wix-cms`, with the navigation
+as a fallback:
+- **Collections & items** — `wix-cms` (`Dashboard → CMS`) → **Create Collection**, then open a
+  collection to add items.
+- **Permissions** — open the collection → **More Actions → Permissions & Privacy**. For the
+  headless app to work anonymously, set **Show content** to *Everyone* (visitor reads) and, for
+  a public form, **Collect content** to *Everyone* (visitor inserts). Update/Delete stay
+  admin-only.

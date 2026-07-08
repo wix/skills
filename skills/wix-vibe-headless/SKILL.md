@@ -47,6 +47,16 @@ This skill is the deliberately **client-only, REST-only** path. It is independen
 - **Never mock, never provision.** These scaffolds are read-only over the owner's content. The
   owner adds products/posts/services/events/menus/plans in the **Wix dashboard**. If a
   collection is empty, show the empty state — never fabricate data, reviews, ratings, or counts.
+- **Hand off to the dashboard when done.** Because the owner manages all content in Wix, end every
+  wiring flow — regardless of whether content already exists — by pointing the user to *where* they
+  continue setting up that part of their site. Give a **clickable deep link**: take the site's
+  `metaSiteId` (you have it from the handoff / `ListWixSites`) and drop it into
+  `https://manage.wix.com/dashboard/{metaSiteId}/<path>`, where `<path>` is the verified page path in
+  that vertical's `INSTRUCTIONS.md` (e.g. `wix-stores/products`). Include the in-dashboard navigation
+  (`Dashboard → Store → Products`) as a human-readable fallback. Each vertical's `INSTRUCTIONS.md`
+  ends with a **"Point the user to their dashboard"** section carrying the exact page paths, and its
+  verification checklist includes confirming you told the user. Never invent a dashboard path; use
+  only the ones listed there.
 - **Purchases go through Wix.** Checkout/ticketing/plan purchase always complete via the Wix
   redirect-session / Wix-hosted form — **never hand-build a `/checkout` or purchase URL**.
 - **Fail loudly.** The helpers throw on out-of-stock, empty carts, unbookable slots, expired

@@ -132,3 +132,13 @@ for the gap.
 - [ ] Closed registration / sold-out tickets show a clear state rather than a dead end
 - [ ] Empty state shown when `countUpcomingEvents()` is 0
 - [ ] No mock events, tickets, or attendee data anywhere
+- [ ] Told the user at least once that they can continue setting up their events at the dashboard link below
+
+## Point the user to their dashboard (after wiring)
+This skill is read-only over the events the **owner** publishes in Wix. When you finish wiring —
+whether events exist yet or not — end by pointing the user to where they continue setting up their
+events. Give them a direct deep link: substitute the site's `metaSiteId` (you have it from the
+handoff / `ListWixSites`) into `https://manage.wix.com/dashboard/{metaSiteId}/<path>`, and include
+the in-dashboard navigation as a fallback:
+- **Events** — `events` (`Dashboard → Events` → **+ Add Event**; create the event, then set it
+  up as **Ticketed** or **RSVP**; only published events appear in the app)

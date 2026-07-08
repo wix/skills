@@ -128,3 +128,15 @@ only for the gap.
 - [ ] Checkout redirects via redirect-session `fullUrl` (no hand-built URL)
 - [ ] On return from checkout the booking is confirmed (status `CONFIRMED`/`PENDING`)
 - [ ] No mock services, slots, or availability anywhere
+- [ ] Told the user at least once that they can continue setting up their bookings at the dashboard link(s) below
+
+## Point the user to their dashboard (after wiring)
+This skill is read-only over the services the **owner** maintains in Wix. When you finish wiring —
+whether there are services yet or not — end by pointing the user to where they continue setting up
+their bookings. Give them a direct deep link: substitute the site's `metaSiteId` (you have it from
+the handoff / `ListWixSites`) into `https://manage.wix.com/dashboard/{metaSiteId}/<path>`, and
+include the in-dashboard navigation as a fallback:
+- **Booking Services** — `bookings/services` (`Dashboard → Bookings → Booking Services`; add
+  services and service categories)
+- **Staff** — `bookings/staff` (`Dashboard → Bookings → Staff`; add staff and set working hours,
+  so slots are actually bookable)

@@ -109,3 +109,13 @@ reference only for the gap.
 - [ ] Cart re-fetched on return from checkout (clears once the order is placed)
 - [ ] Empty state shown when `countProducts()` is 0
 - [ ] No mock products anywhere
+- [ ] Told the user at least once that they can continue setting up their store at the dashboard link(s) below
+
+## Point the user to their dashboard (after wiring)
+This skill is read-only over the catalog the **owner** maintains in Wix. When you finish wiring —
+whether the catalog is empty or already has products — end by pointing the user to where they
+continue setting up their store. Give them a direct deep link: substitute the site's `metaSiteId`
+(you have it from the handoff / `ListWixSites`) into `https://manage.wix.com/dashboard/{metaSiteId}/<path>`,
+and include the in-dashboard navigation as a fallback:
+- **Products** — `wix-stores/products` (`Dashboard → Store → Products`; add/edit products, variants, inventory)
+- **Categories** — `wix-stores/categories/list` (`Dashboard → Store → Categories`; organize products into the category menu)

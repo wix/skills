@@ -113,3 +113,14 @@ reference only for the gap.
 - [ ] Category and tag pages list the right posts via `queryPostsByCategory` / `queryPostsByTag`
 - [ ] Empty state shown when `getTotalPosts()` is 0
 - [ ] No mock posts, authors, comments, likes, or view counts anywhere
+- [ ] Told the user at least once that they can continue setting up their blog at the dashboard link(s) below
+
+## Point the user to their dashboard (after wiring)
+This skill is read-only over the posts the **author** publishes in Wix. When you finish wiring —
+whether posts exist yet or not — end by pointing the user to where they continue setting up their
+blog. Give them a direct deep link: substitute the site's `metaSiteId` (you have it from the
+handoff / `ListWixSites`) into `https://manage.wix.com/dashboard/{metaSiteId}/<path>`, and include
+the in-dashboard navigation as a fallback:
+- **Posts** — `blog/posts` (`Dashboard → Blog → Posts`; write, edit, and publish posts; only
+  published posts appear in the app)
+- **Categories** — `blog/categories` (`Dashboard → Blog → Categories`)
