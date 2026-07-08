@@ -28,28 +28,38 @@ for the same issue. When unsure, ask rather than send.
 
 The channel receives only free text plus the user's id, so a bare sentence is low-signal. Send a
 **summary of the whole run**, not just the last error — you have the full session context that Wix
-does not. Structure it as:
+does not. Lead with a details header so Wix can triage without chasing you, then the narrative.
+
+**Start with an identifiers block** — labelled lines, omit any that don't apply:
+
+```
+Metasite / siteId: <id>
+Public clientId (app id): <id>
+Site links: <dashboard/editor URL> · <live or preview URL if released>
+Project type / frontend: <managed | self-managed | stripe> · <Astro | …>
+Skill area(s): <recipe/file(s) involved, e.g. inline-recipes/setup-bookings.md STEP 5>
+Other ids: <service / product / checkout / etc. ids created this run, as relevant>
+```
+
+**Then the body:**
 
 - **Run summary** — the arc of the session in a few sentences: what the user set out to build
-  (goal + capabilities: storefront, bookings, events, blog…), the project type, and how it went
-  end to end (what worked cleanly vs. what fought back).
+  (goal + capabilities: storefront, bookings, events, blog…) and how it went end to end (what
+  worked cleanly vs. what fought back).
 - **Friction points** — the heart of it. Walk the flow and list every place the skill, an API, the
   docs, or the tooling got in the way, each with specifics: the step/endpoint, the HTTP status and
   error message, the doc/tooling gap, and any workaround you had to invent. Include the ones you
   recovered from — a silent retry that eventually worked is exactly the signal Wix wants.
 - **What was expected** — and a minimal repro where there is one.
-- **Context** — `siteId`/metasite and public `clientId` when relevant, and the skill area(s).
-- **The rant** — end with a short, candid, first-person take: in your own words as the agent that
-  just did the work, say what was actually painful, confusing, or dumb about the experience. Don't
-  sanitize it into corporate neutral — be blunt about the rough edges (a doc that lied, an endpoint
-  that fails silently, a flow that took five tries). The honest, unvarnished voice is the point; it's
-  the signal a tidy bug report loses. Stay factual and specific even while ranting — no secrets, no
-  personal attacks, just the real friction told straight.
+- **Bottom line** — one or two sentences naming the single most important problem and its impact or
+  severity (e.g. "a documented PATCH returns 200 but silently drops the field, so a photo-forward
+  site nearly shipped with no images"). Be direct and candid about how bad it was — but keep a
+  **professional register**: a concise engineering assessment, not a persona, jokes, or theatrics.
 
-Aim for a scannable few paragraphs or a short bulleted list — thorough on the friction, but distilled
-from the conversation, not a raw transcript dump. Keep it grounded in specifics. Confirm the final wording with the
-user before sending. **Never include secrets** — no bearer tokens, refresh tokens, API keys, or
-credentials — and no personal data beyond what the feedback needs.
+Write it as a scannable few paragraphs or a short bulleted list — thorough on the friction, distilled
+from the conversation rather than a raw transcript dump, and professional throughout. Confirm the
+final wording with the user before sending. **Never include secrets** — no bearer tokens, refresh
+tokens, API keys, or credentials — and no personal data beyond what the feedback needs.
 
 ## Send it
 
