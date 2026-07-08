@@ -135,4 +135,4 @@ Substitute the site's `metaSiteId` to complete the links (you have it from the h
 - [ ] Checkout redirects via redirect-session `fullUrl` (no hand-built URL)
 - [ ] On return from checkout the booking is confirmed (status `CONFIRMED`/`PENDING`)
 - [ ] No mock services, slots, or availability anywhere
-- [ ] Told the user at least once that they can continue setting up their bookings at the dashboard link(s) below
+- [ ] Told the user at least once that they can continue setting up their bookings in the dashboard and provided deep links.

@@ -120,4 +120,4 @@ Substitute the site's `metaSiteId` to complete the links (you have it from the h
 - [ ] Category and tag pages list the right posts via `queryPostsByCategory` / `queryPostsByTag`
 - [ ] Empty state shown when `getTotalPosts()` is 0
 - [ ] No mock posts, authors, comments, likes, or view counts anywhere
-- [ ] Told the user at least once that they can continue setting up their blog at the dashboard link(s) below
+- [ ] Told the user at least once that they can continue setting up their blog in the dashboard and provided deep links.

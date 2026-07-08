@@ -136,4 +136,4 @@ Substitute the site's `metaSiteId` to complete the links (you have it from the h
 - [ ] Update is treated as a full replace (fetch + merge), so no fields are silently dropped
 - [ ] Empty state shown when `countDataItems` is 0
 - [ ] No mock data anywhere; no hand-built Wix Data URLs
-- [ ] Told the user at least once that they can continue setting up their content at the dashboard link below
+- [ ] Told the user at least once that they can continue setting up their content in the dashboard and provided deep links.

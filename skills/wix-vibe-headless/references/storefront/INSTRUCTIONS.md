@@ -116,4 +116,4 @@ Substitute the site's `metaSiteId` to complete the links (you have it from the h
 - [ ] Cart re-fetched on return from checkout (clears once the order is placed)
 - [ ] Empty state shown when `countProducts()` is 0
 - [ ] No mock products anywhere
-- [ ] Told the user at least once that they can continue setting up their store at the dashboard link(s) below
+- [ ] Told the user at least once that they can continue setting up their store in the dashboard and provided deep links.

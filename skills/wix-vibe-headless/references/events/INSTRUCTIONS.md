@@ -138,4 +138,4 @@ Substitute the site's `metaSiteId` to complete the links (you have it from the h
 - [ ] Closed registration / sold-out tickets show a clear state rather than a dead end
 - [ ] Empty state shown when `countUpcomingEvents()` is 0
 - [ ] No mock events, tickets, or attendee data anywhere
-- [ ] Told the user at least once that they can continue setting up their events at the dashboard link below
+- [ ] Told the user at least once that they can continue setting up their events in the dashboard and provided deep links.

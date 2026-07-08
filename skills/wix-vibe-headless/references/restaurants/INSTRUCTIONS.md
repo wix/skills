@@ -132,4 +132,4 @@ Substitute the site's `metaSiteId` to complete the links (you have it from the h
 - [ ] Checkout redirects via redirect-session `fullUrl` (no hand-built URL); cart re-fetched on return
 - [ ] Reservations: only `AVAILABLE` slots offered; hold → reserve produces `RESERVED`/`REQUESTED`
 - [ ] No mock data anywhere
-- [ ] Told the user at least once that they can continue setting up their restaurant (menu / ordering / reservations) at the dashboard link(s) below
+- [ ] Told the user at least once that they can continue setting up their restaurant (menu / ordering / reservations) in the dashboard and provided deep links.

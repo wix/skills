@@ -121,4 +121,4 @@ Substitute the site's `metaSiteId` to complete the links (you have it from the h
       anonymous visitors)
 - [ ] Empty state shown when `queryPlans()` returns no plans
 - [ ] No mock plans, perks, or prices anywhere
-- [ ] Told the user at least once that they can continue setting up their plans at the dashboard link below
+- [ ] Told the user at least once that they can continue setting up their plans in the dashboard and provided deep links.

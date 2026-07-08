@@ -108,4 +108,4 @@ Substitute the site's `metaSiteId` to complete the links (you have it from the h
 - [ ] Hidden collections/projects never appear
 - [ ] Empty state shown when `countCollections()` is 0
 - [ ] No mock projects, collections, or media anywhere
-- [ ] Told the user at least once that they can continue setting up their portfolio at the dashboard link below
+- [ ] Told the user at least once that they can continue setting up their portfolio in the dashboard and provided deep links.
