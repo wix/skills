@@ -194,7 +194,9 @@ export async function listEventTimeSlots(serviceIds, { fromLocalDate, toLocalDat
  * Type-agnostic convenience: list bookable slots for a service, routing to the right endpoint by
  * `service.type` — APPOINTMENT → `listAvailableSlots`, CLASS/COURSE → `listEventTimeSlots`. The
  * returned slots are shaped the same either way (`localStartDate`/`localEndDate`/`location`/
- * `availableResources`), and each is bookable via `createBooking` regardless of type.
+ * `availableResources`), and each is bookable via `createBooking`.
+ * NOTE: a **COURSE** is enrolled as a whole (not per session), so it typically returns **no** slots
+ * here — the per-slot booking flow applies to APPOINTMENT and CLASS.
  * @param {{ _id?: string, id?: string, type?: string }} service  A service from queryServices.
  * @param {{ fromLocalDate: string, toLocalDate: string, timeZone?: string, limit?: number, cursor?: string }} options
  * @returns {Promise<{ slots: object[], nextCursor: string|null }>}
