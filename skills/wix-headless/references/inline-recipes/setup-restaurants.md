@@ -53,7 +53,7 @@ Create all items in a **single bulk request** to `POST https://www.wixapis.com/r
 ```
 
 **⚠️ CRITICAL FORMAT REQUIREMENTS:**
-- **Price goes in `priceInfo.price` as a decimal STRING** (`"9.50"`, not the number `9.50`). The currency is **derived from the site** — do **not** send a currency; the response echoes a `priceInfo.formattedPrice` (e.g. `"₪9.50"`) in the site's currency.
+- **Price goes in `priceInfo.price` as a decimal STRING** (`"9.50"`, not the number `9.50`). The currency is **derived from the site** — do **not** send a currency; the response echoes a `priceInfo.formattedPrice` (e.g. `"$9.50"`) in the site's currency.
 - **Do NOT use the top-level `price` field** — it is deprecated (superseded by `priceInfo`). Use `priceInfo.price`.
 - **`description` is a plain string** (not rich-text nodes). Omit it for a name-only item.
 - **Set `"visible": true` explicitly** on every item (see the visibility callout below).
@@ -65,7 +65,7 @@ Create all items in a **single bulk request** to `POST https://www.wixapis.com/r
 ```json
 { "results": [
   { "itemMetadata": { "id": "<itemId>", "originalIndex": 0, "success": true },
-    "item": { "id": "<itemId>", "name": "Bruschetta al Pomodoro", "priceInfo": { "price": "9.50", "formattedPrice": "₪9.50" }, "visible": true } }
+    "item": { "id": "<itemId>", "name": "Bruschetta al Pomodoro", "priceInfo": { "price": "9.50", "formattedPrice": "$9.50" }, "visible": true } }
 ], "bulkActionMetadata": { "totalSuccesses": 1, "totalFailures": 0 } }
 ```
 

@@ -133,7 +133,7 @@ Response — one object per menu; match by **`menuId`**:
 ```json
 { "menuOrderingSettings": [
   { "id": "<settingsId>", "revision": "1", "operationId": "<operationId>", "menuId": "<menuId>",
-    "onlineOrderingEnabled": true, "availability": { "type": "ALWAYS_AVAILABLE", "timeZone": "Asia/Jerusalem" } }
+    "onlineOrderingEnabled": true, "availability": { "type": "ALWAYS_AVAILABLE", "timeZone": "America/New_York" } }
 ] }
 ```
 

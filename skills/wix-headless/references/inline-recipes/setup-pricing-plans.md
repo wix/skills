@@ -40,7 +40,7 @@ Then create each plan with **fresh** ids (one `gen_uuid` call per field — neve
 
 ```bash
 VID=$(gen_uuid); PERK1=$(gen_uuid); PERK2=$(gen_uuid)
-curl -sS -D /tmp/_h.$$ -w "\nHTTP:%{http_code}" -X POST 'https://www.wixapis.com/pricing-plans/v3/plans' \
+curl -sS -w "\nHTTP:%{http_code}" -X POST 'https://www.wixapis.com/pricing-plans/v3/plans' \
   -H 'Authorization: <AUTH>' -H 'Content-Type: application/json' \
   -d "{
     \"plan\": {
@@ -57,7 +57,7 @@ curl -sS -D /tmp/_h.$$ -w "\nHTTP:%{http_code}" -X POST 'https://www.wixapis.com
       ],
       \"perks\": [ { \"id\": \"$PERK1\", \"description\": \"Unlimited group classes\" }, { \"id\": \"$PERK2\", \"description\": \"10% off workshops\" } ]
     }
-  }"; grep -i '^x-wix-request-id:' /tmp/_h.$$; rm -f /tmp/_h.$$
+  }"
 ```
 
 > **Fallback — only if the shell has NO generator** (`uuidgen`, `python3`, **and** `node` all absent — effectively never in a Wix project): do **not** guess UUIDs. **Skip plan creation** and record a clear note for the user listing the plans to create by hand in the Wix dashboard (name, price, billing cycle). Failing loud beats seeding malformed plans.

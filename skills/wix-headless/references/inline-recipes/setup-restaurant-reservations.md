@@ -39,7 +39,7 @@ Response (`reservationLocations[]`):
 ```json
 { "reservationLocations": [
   { "id": "<reservationLocationId>", "revision": "1", "default": true, "archived": false,
-    "location": { "id": "<locationId>", "name": "Location 1", "timeZone": "Asia/Jerusalem" },
+    "location": { "id": "<locationId>", "name": "Location 1", "timeZone": "America/New_York" },
     "configuration": { "onlineReservations": {
       "approval": { "mode": "AUTOMATIC" },
       "partySize": { "min": 1, "max": 6 },
