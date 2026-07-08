@@ -60,7 +60,7 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 **Technical:** Full CRUD operations for Wix Bookings services using Services API. Covers service types (APPOINTMENT, CLASS, COURSE), pricing configuration, location setup, and schedule management.
 
 ### [Create Booking Service from Prompt](references/bookings/create-booking-service-from-prompt.md)
-**Technical:** Use when the user wants to create a booking service — e.g. "create a yoga class for $50", "set up consultations", "add a personal training appointment". Routes to the correct type-specific recipe (APPOINTMENT, CLASS, or COURSE), gathers business context, applies defaults, and creates the service.
+**Technical:** Use when the user wants to create a booking service — e.g. "create a yoga class for $50", "set up consultations", "add a personal training appointment", "create a hidden free test course with 8 sessions". Routes to the correct type-specific recipe (APPOINTMENT, CLASS, or COURSE), gathers business context, applies defaults, and creates the service. For COURSE services with session dates/counts, the course is not bookable until separate Calendar Events are created on the returned service schedule.
 
 ### [Create Appointment Service](references/bookings/create-appointment-service.md)
 **Technical:** Use when the user wants to create an appointment/consultation/1-on-1 service — e.g. "set up consultations for $75", "create a meeting service". Handles staff assignment, session duration, and pricing via bulkCreateServices API.
@@ -69,7 +69,7 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 **Technical:** Use when the user wants to create a group class — e.g. "create a yoga class for $50", "set up a pilates class". Handles group capacity, recurring sessions, and pricing via bulkCreateServices API.
 
 ### [Create Course Service](references/bookings/create-course-service.md)
-**Technical:** Use when the user wants to create a multi-session course — e.g. "create a 6-week workshop", "set up a training program for $300". Handles group capacity, full-course pricing, and fixed series via bulkCreateServices API.
+**Technical:** Use when the user wants to create a multi-session COURSE — e.g. "create a 6-week workshop", "set up a training program for $300", "create a hidden free test course with 8 online sessions". Handles group capacity, full-course pricing, `bulkCreateServices`, then creates bookable course session events with Calendar `bulkCreateEvents` using the returned `service.schedule.id`. Never put session dates under `course.sessions` in the Services V2 payload.
 
 ### [Diagnose Bookings Availability Issues](references/bookings/diagnose-availability-issues.md)
 **Technical:** Use when an appointment-based service has no bookable time slots / "customers can't book". Runs the DiagnoseAvailability endpoint (`POST /v2/time-slots/diagnose`) for ordered, machine-readable reason codes with suggested owner actions, and falls back to ListAvailabilityTimeSlots when the endpoint is inconclusive.
