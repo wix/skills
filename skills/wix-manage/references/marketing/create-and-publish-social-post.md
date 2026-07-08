@@ -21,7 +21,7 @@ Run every post request through these steps, in this order. Skip a question only 
    - User wants an **existing image edited** → `generate-image` (STEP 3c; requires a source image URL).
 
    Any request to generate an image for the post means `generate-post-data`. `generate-image` cannot create an image from text alone (it returns 400 without a source image); no endpoint can.
-7. **Present the tool's output** to the user: the caption **and** the image (rendered inline, or its URL). Never hand-write the caption or claim generated content you didn't get from the API. Get explicit approval on the final content before publishing (STEP 6).
+7. **Present the tool's output** to the user: the caption **and** the image (rendered inline, or its URL). Never hand-write the caption or claim generated content you didn't get from the API. Get explicit approval on the final content before publishing (STEP 6), and publish exactly what was approved: reuse the approved caption, image, and draft on any retry; never regenerate after approval.
 
 The rest of this recipe is the reference for executing each step.
 
@@ -295,7 +295,7 @@ Create the post as a draft. The response returns the draft's `id`, which STEP 6 
 Build the request from `item.channel` (`name` + the `accountId` from STEP 1), `item.type` (from the STEP 4 table), and exactly one channel-specific content object.
 
 **Assembling the content object:**
-- If you generated with **STEP 3a** (`generate-post-data`), the returned per-channel object (e.g. `instagramPost`) **is** the content object — pass it through as-is.
+- If you generated with **STEP 3a** (`generate-post-data`), the returned per-channel object (e.g. `instagramPost`) **is** the content object — pass it through as-is, then **add the channel-specific fields generation can't know**, from the STEP 1 account object: `authorId` (LinkedIn — the account's URN), `pageId` (Facebook), `boardId` (Pinterest), `locationId` (GBP), and `privacyLevel` (TikTok). The generated payload never includes them, the draft is accepted without them, and publishing then fails (e.g. LinkedIn rejects the post: `/author :: field is required`).
 - Otherwise, build it from the STEP 4 table row for your channel + `type`: the text field (`caption` for Instagram/Facebook/LinkedIn, `description` for YouTube/Pinterest/GBP/TikTok), the media (`mediaWrapper`, or `imageUrl`/`videoUrl` for a single item), and any channel-specific fields — the ID from the STEP 1 account object (`pageId` for Facebook, `boardId` for Pinterest, `locationId` for GBP), plus `authorId` (LinkedIn), `privacyLevel` (TikTok, one of the account's `privacyLevelOptions`), and `title` where the channel uses one.
 - Instagram and story types require media.
 
