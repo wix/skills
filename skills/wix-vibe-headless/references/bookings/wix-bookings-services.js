@@ -15,7 +15,12 @@ import { wixApiRequest } from "./wix-client.js";
  *   payment.fixed.price { value, currency, formattedValue },
  *   payment.options { online, inPerson, deposit, pricingPlan },
  *   schedule.id {string}, onlineBooking.enabled {boolean},
- *   category { id, name }, staffMemberIds {string[]}, locations {array}
+ *   category { id, name }, staffMemberIds {string[]}, locations {array},
+ *   bookingPolicy.participantsPolicy { enabled {boolean}, maxParticipantsPerBooking {number} }
+ *     — the MOST participants a single booking may reserve. Cap the participant selector at this
+ *     value (for a CLASS, also bound by the slot's remainingCapacity). It is commonly 1, in which
+ *     case there is no participant choice at all — book exactly 1. Sending totalParticipants above
+ *     this makes createBooking fail.
  *
  * TimeSlot (Time Slots V2, appointments):
  *   serviceId {string}, localStartDate {string}, localEndDate {string} — "YYYY-MM-DDThh:mm:ss" (no zone),
