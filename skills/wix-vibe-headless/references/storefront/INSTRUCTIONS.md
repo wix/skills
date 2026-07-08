@@ -70,9 +70,19 @@ reference for anything not shown.
   modifiers): if `product.options` is non-empty, a variant must resolve from the selections; every
   `modifier.mandatory === true` must have a value. A product with no options and no mandatory
   modifiers is immediately addable — don't leave the button stuck. Optional modifiers never block.
-  If stock data is present (`variant.inventoryStatus.inStock` / `product.inventory.availabilityStatus`),
-  reflect it (disable/label sold-out); a product with inventory tracking off simply stays addable.
   Then pass the selections to `addToCart` (see Cart below); never call it with a required selection missing.
+- **Reflect stock in the UI** — the product object already carries availability at three levels; surface
+  it rather than letting the buyer discover it only on click. Read it from the data at runtime (never
+  hardcode):
+  - **Grid / card:** `product.inventory.availabilityStatus` (`IN_STOCK` / `OUT_OF_STOCK` /
+    `PARTIALLY_OUT_OF_STOCK`) — badge an out-of-stock product as sold out.
+  - **Option choice:** `product.options[].choicesSettings.choices[].inStock` — disable/strike a choice
+    (e.g. size L) that has no in-stock variant, before a full variant is even resolved.
+  - **Variant:** `variantsInfo.variants[].inventoryStatus.inStock` — once selections resolve to a
+    variant, disable Add-to-cart (label "Out of stock") when that variant is `inStock: false`.
+  A product/variant with inventory tracking **off** reports `availabilityStatus: IN_STOCK` /
+  `inStock: true` and stays freely addable — tracking-off is not "no data", it's "always available".
+  `addToCart` still throws on a sold-out line as a backstop, but the UI should prevent reaching it.
 - **Categories** — `queryCategories()` for a category menu; `getCategoryBySlug(slug)` for
   a category landing page. Pass `category.id` to `queryProductsByCategory(categoryId, { limit?, cursor? })`
   to list only the products in that category; paginate exactly like `queryProducts`.
@@ -127,6 +137,7 @@ reference only for the gap.
 - [ ] Every product choice renders on the PDP — variant options **and** modifiers (mandatory ones included)
 - [ ] Add-to-cart button stays disabled until all required choices are made (variant + mandatory modifiers)
 - [ ] A product with a mandatory modifier adds successfully (its selection is sent, cart line appears)
+- [ ] Stock reflected in the UI — sold-out product badged (grid), out-of-stock option choices and variants disabled/labelled (PDP)
 - [ ] Add to cart works; out-of-stock items throw rather than add a dead line
 - [ ] Quantity update / remove reflect in `getCurrentCart()`
 - [ ] Checkout redirects via redirect-session `fullUrl` (no hand-built URL)
