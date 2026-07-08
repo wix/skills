@@ -115,6 +115,7 @@ Docs: <https://dev.wix.com/docs/api-reference/business-solutions/events/event-ma
 
 - **Request `REGISTRATION` in `fields`** so `event.registration.initialType` is populated — that's the value you branch on.
 - Per tier read `tier._id`, `tier.name`, `tier.price.value` (a **string**) + `tier.price.currency`, `tier.free`, and `tier.saleStatus` (gate the picker on `SALE_STARTED`).
+- **⚠️ The confirmation page (post-checkout) reads the event by ID, and the return envelope DIFFERS from `getEventBySlug`.** After the hosted checkout redirects back to your `postFlowUrl` (carrying `?eventId=…`), look the event up with **`wixEventsV2.getEvent(eventId, { fields: ['TEXTS', 'URLS'] })`** — this returns the **`Event` object DIRECTLY (unwrapped)**: read `event.title` / `event.slug`, **not** `{ event }`. This is the one read that isn't wrapped (`getEventBySlug` *is* `{ event }`); assume the wrapper and the page crashes. Use this exact call — don't inspect the installed `.d.ts` to rediscover it.
 
 ### Ticketed checkout — reserve → redirect (the exact sequence)
 
