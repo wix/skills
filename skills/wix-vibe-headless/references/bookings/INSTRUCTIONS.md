@@ -12,9 +12,11 @@ Builds a real, client-only Wix Bookings front end. The browser talks to Wix dire
 public `WIX_CLIENT_ID`. Never mock services or slots; never hand-build a `/checkout` URL —
 always create the booking through the API and complete it via the eCom checkout + redirect-session.
 
-This skill ships the **single-service appointment** flow: browse services → pick a service →
-pick an available time slot → enter details → book → hosted checkout. Classes and courses use
-different availability calls and are covered under "Beyond the snippets".
+This skill ships the single-service booking flow for **APPOINTMENT and CLASS** services: browse
+services → pick a service → pick an available slot → enter details → book → hosted checkout.
+Appointments and classes differ only in the availability call (`listAvailableSlots` vs
+`listEventTimeSlots`); `listSlotsForService` routes by `service.type`, and `createBooking` handles
+either slot. **COURSE (whole-course enrollment) is not covered** — see "Beyond the snippets".
 
 ## When to use
 - User wants a Wix Bookings appointment site or asks to "connect Wix Bookings".
@@ -57,14 +59,17 @@ the full API reference for anything not shown.
 - **Service list** — `queryServices()` for the listing (visitor-visible services only). Render
   `name`, `tagLine`, the image via `mediaUrl(service.media?.items?.[0]?.image)`, and the price
   from `payment.fixed.price.formattedValue` (already includes the currency). Pass the returned
-  `nextOffset` back as `offset` to load the next page. This skill books **APPOINTMENT** services;
-  if you mix in CLASS/COURSE services, branch on `service.type`.
+  `nextOffset` back as `offset` to load the next page. Books **APPOINTMENT and CLASS** services
+  (see the slot picker below); COURSE is whole-course enrollment and out of scope.
 - **Service detail** — `getService(serviceId)` keyed off the URL/route; returns null on miss —
   show a not-found state, never invent a service. Render `description`, price, and `locations`.
-- **Slot picker** — `listAvailableSlots(serviceId, { fromLocalDate, toLocalDate, timeZone? })`.
-  Dates are **local** wall-clock strings `"YYYY-MM-DDThh:mm:ss"` (no zone), interpreted in
-  `timeZone` (defaults to the visitor's IANA zone). Only `bookable: true` slots come back. Render
-  each `slot.localStartDate`/`localEndDate`; group by day for a calendar. Pass `nextCursor` back
+- **Slot picker** — use **`listSlotsForService(service, { fromLocalDate, toLocalDate, timeZone? })`**:
+  it routes by `service.type` — APPOINTMENT → `listAvailableSlots` (staff working hours), CLASS/COURSE
+  → `listEventTimeSlots` (scheduled sessions). Both return the same slot shape. (Call the specific
+  function directly if you already know the type.) Dates are **local** wall-clock strings
+  `"YYYY-MM-DDThh:mm:ss"` (no zone), interpreted in `timeZone` (defaults to the visitor's IANA zone).
+  Only `bookable: true` slots come back. Render each `slot.localStartDate`/`localEndDate`; group by
+  day for a calendar. Pass `nextCursor` back
   as `cursor` to page.
 - **Booking form** — collect the buyer's `firstName`, `lastName`, `email`, `phone`. Keep it
   minimal; richer per-service form fields live in the service's `form.id` (see "Beyond the snippets").
@@ -94,14 +99,15 @@ the full API reference for anything not shown.
   don't swallow these.
 
 ## Beyond the snippets
-The snippets cover the appointment booking path. For the "20%" they don't cover, extend the
-client: add a new helper on `wixApiRequest`, looking up the exact endpoint, method, and body in
-the **official Wix API reference** first (never guess):
+The snippets cover **APPOINTMENT and CLASS** bookings (the slot picker routes by `service.type`).
+For anything beyond that, extend the client: add a new helper on `wixApiRequest`, looking up the
+exact endpoint, method, and body in the **official Wix API reference** first (never guess):
 - Official Wix API reference: https://dev.wix.com/docs/api-reference.md
 - Single-service booking flow (the full picture): https://dev.wix.com/docs/api-reference/business-solutions/bookings/flow-single-service-booking.md
-- **Classes** (group sessions): list slots with List Event Time Slots —
-  https://dev.wix.com/docs/api-reference/business-solutions/bookings/time-slots/time-slots-v2/list-event-time-slots.md
-- **Courses** (multi-session): capacity is computed from bookings —
+- **Courses are NOT covered — a course is enrolled as a *whole*, not booked per session.**
+  `listEventTimeSlots` returns **no** per-session slots for a COURSE (verified — empty even for admin),
+  so the slot-picker flow doesn't apply. Enrolling in a course uses a course-specific flow (whole-course
+  capacity computed from bookings) that these snippets don't implement —
   https://dev.wix.com/docs/api-reference/business-solutions/bookings/bookings/bookings-reader-v2/query-extended-bookings.md
 - **Service variants / participants** (duration- or person-based pricing):
   https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/service-options-and-variants/get-service-options-and-variants-by-service-id.md
