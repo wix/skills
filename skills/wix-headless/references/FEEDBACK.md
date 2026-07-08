@@ -26,18 +26,24 @@ for the same issue. When unsure, ask rather than send.
 
 ## Compose a useful message
 
-The channel receives only free text plus the user's id, so a bare sentence is low-signal. Compose a
-few clear sentences covering:
+The channel receives only free text plus the user's id, so a bare sentence is low-signal. Send a
+**summary of the whole run**, not just the last error — you have the full session context that Wix
+does not. Structure it as:
 
-- **What the user was doing** — the goal / capability (storefront, bookings, events, blog…).
-- **What went wrong** — the concrete friction: the endpoint or step, the HTTP status, and the error
-  message; or the doc/tooling gap and the workaround.
-- **What was expected** — and a minimal repro if there is one.
-- **Context** — `siteId`/metasite and public `clientId` when relevant, and the skill area.
+- **Run summary** — the arc of the session in a few sentences: what the user set out to build
+  (goal + capabilities: storefront, bookings, events, blog…), the project type, and how it went
+  end to end (what worked cleanly vs. what fought back).
+- **Friction points** — the heart of it. Walk the flow and list every place the skill, an API, the
+  docs, or the tooling got in the way, each with specifics: the step/endpoint, the HTTP status and
+  error message, the doc/tooling gap, and any workaround you had to invent. Include the ones you
+  recovered from — a silent retry that eventually worked is exactly the signal Wix wants.
+- **What was expected** — and a minimal repro where there is one.
+- **Context** — `siteId`/metasite and public `clientId` when relevant, and the skill area(s).
 
-Keep it tight and factual. Confirm the final wording with the user before sending. **Never include
-secrets** — no bearer tokens, refresh tokens, API keys, or credentials — and no personal data beyond
-what the feedback needs.
+Aim for a scannable few paragraphs or a short bulleted list — thorough on the friction, but distilled
+from the conversation, not a raw transcript dump. Keep it factual. Confirm the final wording with the
+user before sending. **Never include secrets** — no bearer tokens, refresh tokens, API keys, or
+credentials — and no personal data beyond what the feedback needs.
 
 ## Send it
 
