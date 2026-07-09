@@ -77,16 +77,16 @@ tokens, API keys, or credentials — and no personal data beyond what the feedba
 
 ## Send it
 
-This call identifies **you** (the human account), not a site, so it needs a **user-scoped** bearer —
-mint it with **no `--site` flag**: `npx @wix/cli@latest token`. Do **not** reuse the
-`token --site "$SITE_ID"` bearer that `AUTHENTICATION.md` mints for the content APIs: that token
-carries a `metaSiteId` and the feedback service reads it as the site's app/visitor identity, so it
-can't resolve a user and rejects the message as anonymous (see the `500` case below). Send **only the
-bearer**, **no `wix-site-id` header**. If the CLI isn't logged in yet (e.g. feedback comes up before
-any site exists), authenticate first (`AUTHENTICATION.md` §1), then run `token` (no `--site`).
+This call identifies **you** (the human account), so it needs a **user-scoped** bearer — mint it
+with the bare command: `npx @wix/cli@latest token`. The site-scoped bearer `AUTHENTICATION.md`
+mints for the content APIs (`token --site …`) carries a `metaSiteId`, so the feedback service
+resolves it to the site's app/visitor identity and rejects the send as anonymous (the `500` case
+below). Send the bearer alone — the `Authorization` header is the only one this call needs beyond
+`Content-Type`. If the CLI isn't logged in yet (e.g. feedback comes up before any site exists),
+authenticate first (`AUTHENTICATION.md` §1), then run `token`.
 
 ```bash
-TOKEN=$(npx @wix/cli@latest token)   # NO --site: user-scoped, or the send is rejected as anonymous
+TOKEN=$(npx @wix/cli@latest token)   # bare token command → user-scoped bearer
 curl -sS -w "\nHTTP_STATUS:%{http_code}" \
   -X POST "https://www.wixapis.com/mcp-serverless/v1/headless-feedback" \
   -H "Authorization: Bearer $TOKEN" \
@@ -95,11 +95,10 @@ curl -sS -w "\nHTTP_STATUS:%{http_code}" \
 ```
 
 - **Success = `HTTP_STATUS:200`** with an empty body `{}`. Tell the user it was sent.
-- **`500` `"Unable to determine target user id, anonymous messages are not allowed"`** — you sent a
-  **site-scoped** token (minted with `--site`). Re-mint **without** `--site`
-  (`npx @wix/cli@latest token`) and retry once.
+- **`500` `"Unable to determine target user id, anonymous messages are not allowed"`** — the token
+  was site-scoped. Re-mint user-scoped (`npx @wix/cli@latest token`, bare) and retry once.
 - **`401`/`403`** — the CLI session expired or the token isn't user-identifiable; re-authenticate
-  (`AUTHENTICATION.md` §1), re-mint (no `--site`), retry once. If it still fails, surface the response
+  (`AUTHENTICATION.md` §1), re-mint user-scoped, retry once. If it still fails, surface the response
   and stop — do not loop.
 
 ## Hard rules
