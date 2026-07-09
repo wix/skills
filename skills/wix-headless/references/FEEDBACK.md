@@ -34,7 +34,8 @@ Wix receives only free text, so a bare sentence is low-signal. Send a
 does not. Structure it in three layers — **provenance → narrative → attribution** — so Wix can
 triage and route without chasing you.
 
-**1. Provenance** — labelled lines, omit any that don't apply:
+**1. Provenance** — labelled lines. A starting point, not a schema: omit lines that don't apply,
+add any field or value that would help Wix understand the run:
 
 ```
 Agent / model: <e.g. Claude Code · Opus, Cursor, … / whatever you are>
