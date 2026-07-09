@@ -1,12 +1,12 @@
-# Feedback — relay the user's Wix Headless experience to Wix
+# Feedback — relay the user's building-with-Wix experience to Wix
 
-A tiny, optional capability: send the **user's** feedback about the Wix Headless *building
-experience* to Wix. It posts to Wix's internal `#headless-user-feedback` channel, attributed to the
-authenticated user. Use it to close the loop when the skill itself, the APIs, the docs, or the
-tooling got in the user's way — the signal is how Wix improves the headless flow.
+A tiny, optional capability: send the **user's** feedback about the experience of *building with
+Wix* to Wix, attributed to the authenticated user. Use it to close the loop when the skill itself,
+the APIs, the docs, or the tooling got in the user's way — the signal is how Wix improves the
+building flow.
 
-This is **not** support, and not for the user's own site content. It is meta-feedback about *using
-Wix Headless*.
+This is **not** support, and not for the user's own site content. It is meta-feedback about
+*building with Wix*.
 
 ## When to offer it (user-approved only — never auto-send)
 
@@ -19,14 +19,14 @@ after an explicit yes:
   broken", "the docs are wrong", "why is this so hard"). Acknowledge, then offer to pass it on.
 - **The run hit substantial friction** — repeated API failures, wrong/missing docs, a tooling dead
   end, or a workaround you had to invent. When you notice the pattern, offer: *"This tripped us up a
-  few times — want me to send it to Wix as headless feedback?"*
+  few times — want me to send it to Wix as feedback?"*
 
 Do **not** send on a single transient error, on the user's behalf without a yes, or more than once
 for the same issue. When unsure, ask rather than send.
 
 ## Compose a useful message
 
-The channel receives only free text plus the user's id, so a bare sentence is low-signal. Send a
+Wix receives only free text plus the user's id, so a bare sentence is low-signal. Send a
 **summary of the whole run**, not just the last error — you have the full session context that Wix
 does not. Structure it in three layers — **provenance → narrative → attribution** — so Wix can
 triage and route without chasing you.
@@ -48,6 +48,10 @@ Other ids: <service / product / checkout / etc. ids created this run, as relevan
 
 - **User intent + run summary** — what the user set out to build and the arc of the session in a
   few sentences: what worked cleanly vs. what fought back.
+- **Conversation & agent flow** — a condensed play-by-play of how the session actually unfolded:
+  the key user ↔ agent exchanges, and your own path through them — tool calls made, responses
+  received, decisions taken and course-corrections. Distilled, not a transcript dump — enough for
+  Wix to replay the flow.
 - **Friction points** — the heart of it. Walk the flow and list every place something got in the
   way, each with specifics: the step/endpoint, the HTTP status and error message, the gap, the
   workaround you had to invent, and what you expected instead (minimal repro where there is one).
@@ -101,7 +105,7 @@ curl -sS -w "\nHTTP_STATUS:%{http_code}" \
 ## Hard rules
 
 - ✅ Send only after an explicit user yes — offering is fine, sending unprompted is not.
-- ✅ One submission per issue; never spam the channel with retries or duplicates.
+- ✅ One submission per issue; never spam with retries or duplicates.
 - ✅ Compose a specific, factual message; confirm the wording first.
 - ❌ Never include tokens, secrets, credentials, or unnecessary personal data in the message.
-- ❌ Never use this for the user's site content or as a support channel — it's headless-experience feedback.
+- ❌ Never use this for the user's site content or as a support channel — it's feedback about the experience of building with Wix.
