@@ -16,9 +16,9 @@ A concise checklist for populating any new Wix site that has the Blog app instal
 ---
 
 ## Article: Steps for Setting Up a Wix Blog
-**YOU MUST** complete all the following steps **in the given order** (1-3) without skipping any and **without requiring additional user input**.
+**YOU MUST** complete all the following steps **in the given order** (1-3), then **Attach images** when `imagery` is on, without skipping any and **without requiring additional user input**.
 
-**⚠️ CRITICAL ORDER REQUIREMENT: Fetch the author `memberId` FIRST (Step 1) — every post create needs it. Create the posts (Step 2). Categories/tags (Step 3) are optional and only created if the request names them.**
+**⚠️ CRITICAL ORDER REQUIREMENT: Fetch the author `memberId` FIRST — every post create needs it. Create the posts. Categories/tags are optional and only created if the request names them. Covers are added in the **Attach images** step, only when `imagery` is on.**
 
 ### STEP 1: Get an author `memberId` (required for 3rd-party callers)
 
@@ -103,7 +103,7 @@ Create the posts in a **single bulk request** to `POST https://www.wixapis.com/b
 - **Container nodes (`PARAGRAPH`, `HEADING`, `BLOCKQUOTE`, …) need a unique `id`** (any string, e.g. `"n1"`, `"n2"`); `TEXT` leaves may use `"id": ""`.
 - Common node types: `PARAGRAPH` (body), `HEADING` (`headingData.level` 2–4), `CODE_BLOCK` (`codeBlockData.language`), `BULLETED_LIST`/`ORDERED_LIST` + `LIST_ITEM`, `BLOCKQUOTE`. Mix at least a few per post for visual variety.
 
-**⚠️ CRITICAL: omit `media` — seed text-only.** Cover/inline images are attached in the dedicated Entity-images step **only when `imagery` is on** (`SEED.md` § "Entity images"). Do not pass external image URLs into `media` or `richContent` `IMAGE` nodes here — external URLs don't work directly (they must first be imported to Wix Media), and imagery is opt-in.
+**⚠️ CRITICAL: omit `media` — seed text-only.** Cover/inline images are attached in the dedicated **Attach images** step **only when `imagery` is on** (`SEED.md` § "Entity images"). Do not pass external image URLs into `media` or `richContent` `IMAGE` nodes here — external URLs don't work directly (they must first be imported to Wix Media), and imagery is opt-in.
 
 **⚠️ Reading the response — bulk results carry only ids, not slugs.** A successful bulk create returns `200` with:
 
@@ -138,11 +138,30 @@ Only create categories or tags **if the request explicitly groups the posts** (e
 
 - **Categories:** `POST https://www.wixapis.com/blog/v3/categories` per category; keep each returned category `id`.
 - **Tags:** `POST https://www.wixapis.com/blog/v3/tags` per tag; keep each returned tag `id`.
-- **Assign:** include the resolved ids in each post's `categoryIds` / `tagIds` array — set them **in the Step-2 create body** when you already know the grouping, or PATCH the post afterward via `POST https://www.wixapis.com/blog/v3/draft-posts/{draftPostId}/update`.
+- **Assign:** include the resolved ids in each post's `categoryIds` / `tagIds` array — set them **in the Step-2 create body** when you already know the grouping, or PATCH the post afterward via **`PATCH https://www.wixapis.com/blog/v3/draft-posts/{draftPostId}`** (body wrapped in `draftPost`). **⚠️ NOT `POST …/draft-posts/{id}/update`** — that path 404s for a single post; `/update` exists only as the bulk method.
 
 **⚠️ CRITICAL: re-publish after any PATCH.** Updating an already-published post sets `hasUnpublishedChanges: true` — the live site keeps showing the old version until you call `POST https://www.wixapis.com/blog/v3/draft-posts/{draftPostId}/publish` again. (Seeding categoryIds/tagIds directly in the Step-2 create body avoids this round-trip.)
 
 > **Comments (a Required site feature, conditional).** If the request's blog needs reader comments, comments are typically available once the Blog app is installed — record it as **available** so the Handoff tells the host to surface the comment UI (the coding recipe wires read-public / write-authenticated). Only if comments are off by default for this site, enable the feature — find the check/enable method via `DOC_DISCOVERY.md` — before relying on it. Don't seed comment *content*.
+
+### Attach images (imagery ON only)
+
+**Runs only when `imagery` is on** (`SEED.md` § "Entity images"). If imagery is off, **skip this step entirely** — the posts were seeded text-only in the bulk-create step and stay that way. This is the pass-2 "attach the image" step for blog posts (the create is pass-1, text-first).
+
+For each post that should get a cover:
+
+1. **Generate + import** per `references/IMAGE_GENERATION.md` (§1 Generate, §2 Import). From the imported `file` object keep **`file.id`** — the WixMedia file id (e.g. `<hash>~mv2.jpg`). Blog binds the cover **by this id** (not by `file.url`).
+2. **Attach the cover** via **`PATCH https://www.wixapis.com/blog/v3/draft-posts/{draftPostId}`** (body wrapped in a `draftPost` object), writing the cover under `media`:
+
+   ```json
+   { "draftPost": { "media": { "displayed": true, "custom": true, "wixMedia": { "image": { "id": "<file.id>" } } } } }
+   ```
+
+   **⚠️ CRITICAL: the endpoint is `PATCH …/draft-posts/{draftPostId}` — NOT `POST …/draft-posts/{draftPostId}/update`.** The `/update` path **404s** for a single post (it exists only as the *bulk* update method); use the bare `PATCH` on the id.
+   **⚠️ CRITICAL: `media.wixMedia.image.id` ALONE is a silent no-op.** The PATCH returns `200` but the response comes back `media: { "displayed": false, "custom": false }` with no `wixMedia`, and **no cover attaches**. You MUST also set **`media.displayed: true`** and **`media.custom: true`** for the cover to persist. A `200` is therefore **not** proof — re-query the post's `media` and confirm `wixMedia.image` populated.
+3. **⚠️ Re-publish after the PATCH.** Updating an already-published post sets `hasUnpublishedChanges: true` / unpublishes it, so the live site keeps showing the old cover-less version until you call `POST https://www.wixapis.com/blog/v3/draft-posts/{draftPostId}/publish` again. (Same re-publish rule as the categories/tags step — don't let the two drift.)
+
+**Never block the run on image failure** — on a generation/import/attach failure, skip that cover and leave the post text-only (`IMAGE_GENERATION.md` § "Never block the run on image failure").
 
 ---
 
@@ -151,6 +170,6 @@ Following these steps **in order** populates a new Blog V3 site:
 - Every post is authored by a **real `memberId`** (fetched first) and created **`publish: true`**, so it appears live immediately.
 - Posts carry valid **Ricos `richContent`** (correct `TEXT`-in-`PARAGRAPH` nesting), in the count and on the topics called for by the request.
 - The **bulk** endpoint is used for `postCount ≥ 2` (flat per-item shape), the single endpoint for one post.
-- Posts are **text-only** (covers attached later only when imagery is on).
+- Posts are seeded **text-only**; covers are attached by the **Attach images** step, only when `imagery` is on (`PATCH …/draft-posts/{id}` with `media.wixMedia.image.id = file.id` **plus `media.displayed:true` + `media.custom:true`**, then re-publish), otherwise they stay text-only.
 - Categories/tags exist **only if** the request named them, with posts assigned and re-published after any PATCH.
 - Posts are then discovered **live** by the frontend (`queryPosts`, `[...slug]` routes) — no per-post ids/slugs need to be carried into the coding handoff.

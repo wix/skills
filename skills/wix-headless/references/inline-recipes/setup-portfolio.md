@@ -54,7 +54,7 @@ The body wraps the entity in a `collection` object:
 - **The display name is `title`, not `name`.** A `name` field is ignored.
 - **`slug` is optional — omit it and Wix auto-generates one from the title** (`"Brand Identity"` → `brand-identity`). Only send `slug` to force a specific one.
 - **`hidden` is optional and defaults to `false` (shown)** — omit it for a visible collection; send `"hidden": true` only to hide one.
-- **Text-only by default** — omit `coverImage` entirely (imagery is opt-in; see STEP 3). `description` is a plain string.
+- **Text-only by default** — omit `coverImage` entirely (imagery is opt-in; see **Attach images**). `description` is a plain string.
 
 **Reading the response — the created collection is under `collection`, not a top-level field.** A `200` returns:
 
@@ -91,7 +91,7 @@ The body wraps the entity in a `project` object:
 - **The display name is `title`, not `name`.** `slug` auto-generates from the title when omitted.
 - **`hidden` defaults to `false` (shown)** — same as collections; omit for visible.
 - **`details` is optional** — an array of `{ label, text }` pairs (Role, Year, Client, …) that renders as the project's metadata. Include a couple where the brief gives that info; omit for a bare project (`details` comes back `[]`).
-- **Text-only by default** — omit `coverImage` (see STEP 3).
+- **Text-only by default** — omit `coverImage` (see **Attach images**).
 
 **Reading the response** — the created project is under `project`:
 
@@ -103,11 +103,11 @@ The body wraps the entity in a `project` object:
 
 Keep each **`project.id`** and `slug`. If a create fails, retry that project **once** with the same body; do not loop.
 
-### STEP 3: Attach cover images (imagery opt-in — skip when imagery is off)
+### Attach images (imagery opt-in — skip when imagery is off)
 
 **Only if `imagery` is on** (`SEED.md` § "Entity images"). Portfolio is a visual showcase, so the cover-image-bearing entities are **both projects and collections**. Generate + import each image per `references/IMAGE_GENERATION.md` (generate → import to Wix Media → keep the WixMedia image **id**), then **PATCH the entity's `coverImage`**.
 
-Attach to a project — `PATCH https://www.wixapis.com/portfolio/v1/projects/{projectId}` (collections are identical: `PATCH …/collections/{collectionId}` with a `collection` wrapper). Echo the entity's current **`revision`** (from STEP 1/2, or a fresh `GET`) — no field mask is needed:
+Attach to a project — `PATCH https://www.wixapis.com/portfolio/v1/projects/{projectId}` (collections are identical: `PATCH …/collections/{collectionId}` with a `collection` wrapper). Echo the entity's current **`revision`** (from the create response, or a fresh `GET`) — no field mask is needed:
 
 ```json
 {
@@ -122,15 +122,15 @@ Attach to a project — `PATCH https://www.wixapis.com/portfolio/v1/projects/{pr
 - **`coverImage.imageInfo.id`** is the imported **WixMedia image id** (`file` id from the import step) — **and `height` + `width` are required** alongside it (`url` is read-only, returned populated). A missing revision or a stale one fails the PATCH.
 - Image failures never block the run — skip and leave the entity text-only.
 
-### STEP 3b: Add project media items — the ordered detail-page gallery (imagery on only)
+### Attach images — project gallery (imagery on only)
 
-**Only if `imagery` is on.** The cover (STEP 3) is just the **listing-card thumbnail**. A project's **media gallery** — the ordered images on its detail page, which the frontend reads via the SDK `projectItems.listProjectItems(projectId)` (`how-to-code-portfolio.md`) — is a **separate `item` entity you must create**, one call per image. Without this step an imagery-on project has a cover but an empty gallery.
+**Only if `imagery` is on.** The cover (attached just above) is just the **listing-card thumbnail**. A project's **media gallery** — the ordered images on its detail page, which the frontend reads via the SDK `projectItems.listProjectItems(projectId)` (`how-to-code-portfolio.md`) — is a **separate `item` entity you must create**, one call per image. Without this step an imagery-on project has a cover but an empty gallery.
 
 ```bash
 curl -X POST 'https://www.wixapis.com/portfolio/v1/items' \   # lowercase `items` — `/Items` (capital) 404s
   -H 'Authorization: <AUTH>' -H 'Content-Type: application/json' \
   -d '{ "item": {
-    "projectId": "<projectId FROM STEP 2>",
+    "projectId": "<projectId from the create-projects step>",
     "sortOrder": 1,
     "title": "<image title>",
     "image": { "imageInfo": { "id": "<WixMedia image id>", "height": 896, "width": 1200 } }
@@ -140,7 +140,7 @@ curl -X POST 'https://www.wixapis.com/portfolio/v1/items' \   # lowercase `items
 - **One call per image**; **`sortOrder`** (1, 2, 3…) sets the order the frontend renders. `image.imageInfo` is the same shape as `coverImage` (imported WixMedia id + height + width).
 - **Response nests the created item under `item`** (a top-level empty `projectId:""` echo is also returned — ignore it).
 - **⚠️ There is NO public list endpoint.** `GET /portfolio/v1/items?projectId=…`, `/projects/{id}/items`, `/items/project/{id}` **all 404** — do not hunt for one. To verify, `GET https://www.wixapis.com/portfolio/v1/items/{itemId}` one at a time; the frontend lists them via the SDK `projectItems.listProjectItems` (an internal URL the SDK resolves).
-- **Cover vs items:** cover = listing thumbnail (STEP 3 PATCH); items = ordered detail-page gallery (this call). An imagery-on portfolio typically wants **both** — if a project has only its cover image, reuse that WixMedia id as item #1 so the gallery isn't empty.
+- **Cover vs items:** cover = listing thumbnail (the cover PATCH above); items = ordered detail-page gallery (this call). An imagery-on portfolio typically wants **both** — if a project has only its cover image, reuse that WixMedia id as item #1 so the gallery isn't empty.
 - Item failures never block the run — skip and continue (a project with no items still renders from its cover).
 
 ---

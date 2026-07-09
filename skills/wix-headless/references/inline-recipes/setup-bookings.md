@@ -16,7 +16,7 @@ A concise checklist for turning a freshly provisioned Wix site with the **Wix Bo
 ---
 
 ## Article: Steps for Setting Up Wix Bookings
-**YOU MUST** complete the following steps **in the given order** (1-4) without skipping any and **without requiring additional user input**. STEP 5 (attach a service image) runs **only when imagery is on** — skip it entirely otherwise.
+**YOU MUST** complete the following steps **in the given order** (1-4) without skipping any and **without requiring additional user input**. The **Attach images** step runs **only when imagery is on** — skip it entirely otherwise.
 
 **⚠️ CRITICAL ORDER REQUIREMENT: resolve a staff resource (STEP 1) and a category (STEP 2) BEFORE creating services (STEP 3).** An APPOINTMENT service is rejected (`MISSING_APPOINTMENT_RESOURCES`) unless `staffMemberIds` is non-empty, and **any service without a `category.id` is invisible on the live site** (see STEP 3). For CLASS services, sessions are created **after** the service (STEP 4) because they need the service's returned `schedule.id`.
 
@@ -116,7 +116,7 @@ Create **all the services in a single bulk call** against the **public** endpoin
 - **`staffMemberIds`** — required and **non-empty for APPOINTMENT** (pass the `resourceId`(s) from STEP 1; the default Business-Owner `resourceId` when the request names no staff). **Ignored for CLASS/COURSE** — omit it.
 - **`locations[].type`** — use **`"BUSINESS"`**, never `"OWNER_BUSINESS"` (the services endpoint rejects it; `OWNER_BUSINESS` is valid only on `createBooking`'s slot location — same field name, different enum).
 - **Currency** — the **site's business currency wins**: a EUR-locale site stores `EUR` even if you send `USD`. This is not an error; don't fight it (the frontend formats from the returned `currency`).
-- **Imagery is opt-in** (`SEED.md` § "Entity images"). Seed **text-only** by default — omit `media` here. When imagery is on, attach the image in the dedicated pass-2 step (**STEP 5**) after the service exists.
+- **Imagery is opt-in** (`SEED.md` § "Entity images"). Seed **text-only** by default — omit `media` here. When imagery is on, attach the image in the dedicated pass-2 **Attach images** step after the service exists.
 
 **Payment-options validation** (rejecting combos return `INVALID_PAYMENT_OPTIONS`):
 
@@ -185,7 +185,7 @@ Creating a CLASS service does **not** create any bookable sessions; the frontend
 
 Keep each session's event id — it's `results[].itemMetadata.id` (the events bulk sends no `returnEntity`, so there is **no `item`** in its response, only `itemMetadata`) — under `seeded.services[].sessionEventIds` if the frontend will deep-link. If STEP 4 is skipped or fails, record a `notes` entry so it's surfaced: *"CLASS sessions not scheduled — add session times in the Bookings dashboard before sign-up works."*
 
-### STEP 5: Attach a service image (imagery ON only — skip otherwise)
+### Attach images (imagery ON only — skip otherwise)
 
 **Only when `imagery` is on** (`SEED.md` § "Entity images"). This is the bookings entry in the required pass-2 "attach the image to the entity" flow — the service was created text-only in STEP 3; now write the image onto it. Obtain the image per `references/IMAGE_GENERATION.md` (generate + import, or import an existing URL) → keep `file.url` and its `file.id`, then patch the service.
 
@@ -224,5 +224,5 @@ Following these steps **in order** sets up a new Services V2 Wix Bookings site:
 - Every APPOINTMENT carries a non-empty **`staffMemberIds`** of staff **`resourceId`** values (the default Business-Owner resource when no staff are named), so it isn't rejected with `MISSING_APPOINTMENT_RESOURCES`.
 - Services use the correct **flat Services V2** shape on the **public** host, with `onlineBooking.enabled`, `defaultCapacity`, a valid `payment.options` combo, and `sessionDurations` for appointments.
 - Every CLASS has scheduled **Calendar Events V3** sessions, so its calendar is bookable rather than empty.
-- **When imagery is on**, each service's image is attached in the pass-2 STEP 5 via `PATCH …/services/{id}` under `media.mainMedia`/`media.coverMedia` (each `{ image: { id, url, width, height } }`), revision-checked and confirmed with a follow-up query — writing under `media.image` returns `200` but silently drops the image; on failure the service stays text-only.
+- **When imagery is on**, each service's image is attached by the **Attach images** step (pass-2) via `PATCH …/services/{id}` under `media.mainMedia`/`media.coverMedia` (each `{ image: { id, url, width, height } }`), revision-checked and confirmed with a follow-up query — writing under `media.image` returns `200` but silently drops the image; on failure the service stays text-only.
 - IDs kept for the coding handoff: `serviceIds[]`, service `slug`s (`mainSlug.name`), staff `resourceId`s, category ids, and CLASS `sessionEventIds`.
