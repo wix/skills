@@ -32,7 +32,7 @@ No app-id constant is needed in frontend code — the only id the client needs i
 - **Never complete a paid purchase with `orders.checkout` (inline payment)** — that path leaves orders unpaid without a payment integration. The supported headless completion is the **hosted redirect** (below).
 
 **Auth / client — framework split:**
-- **Astro (Wix-managed):** authentication is ambient. Call the modules directly — from server components for the SSR reads (listing/detail) and from browser islands for the visitor-session writes (reserve / redirect / rsvp) via the `@wix/astro` visitor client — **no `createClient`, no `OAuthStrategy`, no `clientId`.** SSR reads use `@wix/essentials`; a public-env `clientId` read in `.astro` SSR is `undefined` at server render → 500, so don't build an `OAuthStrategy` client there.
+- **Astro (Wix-managed):** authentication is ambient. Call the modules directly — from server components for the SSR reads (listing/detail) and from browser islands for the visitor-session writes (reserve / redirect / rsvp) via the `@wix/astro` visitor client — **no `createClient`, no `OAuthStrategy`, no `clientId`.** Nothing here needs elevation (every read and write runs as the visitor — "no elevation anywhere"); a public-env `clientId` read in `.astro` SSR is `undefined` at server render → 500, so don't build an `OAuthStrategy` client there.
 - **Non-Astro (Vite/React/Vue/static):** build one manual visitor client and reuse it:
   ```js
   import { createClient, OAuthStrategy } from '@wix/sdk';

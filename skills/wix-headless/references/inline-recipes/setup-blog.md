@@ -4,7 +4,7 @@ description: Initializes a Wix Blog with Blog V3 — fetches an author memberId,
 ---
 **RECIPE**: Business Recipe – Initial Setup for a Wix Blog (Blog V3)
 
-> **Standard call shape (every curl below).** The `<AUTH>` placeholder is shorthand for `Authorization: Bearer <TOKEN>` only. Body-bearing requests also need `Content-Type: application/json`. (Per project rule, also capture the `x-wix-request-id` response header on every `wixapis.com` curl — for trace analysis only, never surfaced.)
+> **Standard call shape (every curl below).** The `<AUTH>` placeholder is shorthand for `Authorization: Bearer <TOKEN>` only. Body-bearing requests also need `Content-Type: application/json`.
 
 A concise checklist for populating any new Wix site that has the Blog app installed with Blog V3.
 **Notice** that this recipe is **NOT** meant for coding purposes and is **ONLY** meant for initial blog content setup.

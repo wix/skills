@@ -16,7 +16,7 @@ A concise checklist for preparing any new Wix site that uses the Online Stores a
 ---
 
 ## Article: Steps for Setting Up a Wix Online Store
-**YOU MUST** complete all the following steps **in the given order** (1-4) without skipping any and **without requiring additional user input**.
+**YOU MUST** complete the following steps **in the given order** (1-4) and **without requiring additional user input**. One conditional: **the category steps (3-4) run only when the request names categories** — if `intent.stores.categoriesNamed` is empty, **create none** (skill policy, per `SEED.md` § "What to seed per capability") and skip straight from STEP 2 to done. Products (steps 1-2) always run.
 
 **⚠️ CRITICAL ORDER REQUIREMENT: Do the product operations FIRST (clean + create, Steps 1-2), then categories (Steps 3-4). Categories API might take some time to be fully available after Stores installation, so always finish products before attempting category operations.**
 
@@ -59,10 +59,6 @@ Storefront product queries (`searchProducts` / `queryProducts`) return **only vi
         ],
         "metadata": { "version": 1, "id": "basketball-desc-001" }
       },
-      "media": {
-        "main": { "url": "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&h=400&fit=crop&crop=center", "altText": "Pro Basketball Sneaker - Main" },
-        "itemsInfo": { "items": [{ "url": "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&h=400&fit=crop&crop=center", "altText": "Pro Basketball Sneaker - View" }] }
-      },
       "options": [
         {
           "name": "Size",
@@ -97,13 +93,13 @@ Storefront product queries (`searchProducts` / `queryProducts`) return **only vi
 
 **⚠️ CRITICAL FORMAT REQUIREMENTS:**
 - **Description MUST be rich-text nodes**, not a plain string — a plain string causes an `"Expected an object"` error. Use the `{ "nodes": [...], "metadata": {...} }` shape shown.
-- **Media — gated by the `imagery` policy (`SEED.md` § "Where the how comes from" + § "Entity images"), no exception for stores.** When `imagery` is **off** (the default), seed **text-only**: omit `media` (or use the schema's documented placeholder). When `imagery` is **on**, include both `main` and `itemsInfo.items`; the Entity-images step attaches generated brand images. The shape, when you do include it, is `media.main` + `media.itemsInfo.items`, each `{ url, altText }` (real image URL, append `?w=400&h=400&fit=crop&crop=center`).
+- **Media — gated by the `imagery` policy (`SEED.md` § "Entity images"), no exception for stores.** **Always create products text-only here** — omit `media`. When `imagery` is **on**, the Entity-images step attaches generated brand images in a second pass; it does **not** happen at create time. When you attach (pass 2), the field that persists is **`media.itemsInfo.items`**, NOT `media.main`. `PATCH /stores/v3/products/{id}` setting `"media": { "itemsInfo": { "items": [ { "url": "<static.wixstatic.com/…>", "altText": "…" } ] } }`; the image may be referenced by a `static.wixstatic.com` **`url`** or by its Wix Media **`id`** (`<hash>~mv2.png`), either works. **⚠️ `media.main` set ALONE silently no-ops** — a `200` comes back but re-query shows no image; that is the trap. The server promotes the first `itemsInfo.items` entry to `media.main` for you, so **verify success by reading `media.main`** (`media.main.image.url` resolves to a `static.wixstatic.com` URL). Conversely `media.itemsInfo` is **write-only** — it comes back `null` on read, so never assert on it. **428 prevention:** first `GET /stores/v3/products/{id}` for its **`revision` + `options` + `variantsInfo`** and echo all three back in the PATCH body — do **not** send a field mask (the validator runs before masking). Send one image per product (primary); a larger gallery is out of scope for the seed.
 - **Physical products MUST set `"productType": "PHYSICAL"` and an empty `"physicalProperties": {}`** (on the product and on each variant).
 - **Options:** text options use `"optionRenderType": "TEXT_CHOICES"` + `"choiceType": "CHOICE_TEXT"`; color options use `"optionRenderType": "SWATCH_CHOICES"` + `"choiceType": "ONE_COLOR"` + a `colorCode`.
 - **Variants = the full Cartesian product** of all option choices; each variant references **all** options via `optionChoiceNames`, sets `price.actualPrice.amount` (+ optional `compareAtPrice.amount`) as **strings**, and `inventoryItem.quantity`.
 - If part of the bulk request fails, retry the failed products **once** with the exact same format; do not loop.
 
-**⚠️ CRITICAL: options/variants are for things the buyer *selects and buys* — not for attributes you only filter or display by.** Make something an `option` (and thus a variant) **only if the buyer picks it to purchase a distinct SKU** (Size, Color, Format). An attribute you merely **filter, badge, or display by** — roast level, material, genre, "new arrival" — is **not** a variant: encode it in the **product name**, its **category**, or `description`, and never as an option. Modeling a display-only attribute as an option multiplies the variant Cartesian product for nothing (slower seeding, larger payload) and produces a buyer-facing selector that shouldn't exist. (A single-variant product is fine — give it one variant with no options.)
+**⚠️ CRITICAL: options/variants are for things the buyer *selects and buys* — not for attributes you only filter or display by.** Make something an `option` (and thus a variant) **only if the buyer picks it to purchase a distinct SKU** (Size, Color, Format). An attribute you merely **filter, badge, or display by** — roast level, material, genre, "new arrival" — is **not** a variant: encode it in the **product name**, its **category**, or `description`, and never as an option. Modeling a display-only attribute as an option multiplies the variant Cartesian product for nothing (slower seeding, larger payload) and produces a buyer-facing selector that shouldn't exist. (A single-variant product is fine — give it one variant with no options.) **Default cardinality — keep it small:** unless the request names specific options, give each product **at most one option with ≤3 choices** (≤3 variants); many products legitimately have **none** (a single variant). This is a floor, not a cap — honor a larger/explicit option set when intent names one. The two-option example above shows the multi-option *format*; it is not the default shape to reach for.
 
 **⚠️ Reading the response — created products are under `productResults.results[]`, NOT a top-level `results`.** A successful bulk create returns `200` with this shape:
 

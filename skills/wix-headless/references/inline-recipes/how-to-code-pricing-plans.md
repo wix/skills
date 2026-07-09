@@ -16,12 +16,12 @@ A contract for the **frontend code** of a pricing-plans site: showing the plans 
 
 ## The modules and the client (read this first)
 
-**⚠️ Two different packages — use the headless one.** The Wix docs surface `checkout.startOnlinePurchase()` / `checkout.createOnlineOrder()` under **`@wix/site-pricing-plans`** — that is the **Wix-site (Velo / `$w` page-code) package**, and `startOnlinePurchase` drives the **Wix Pay frontend UI** that only exists inside a hosted Wix page. **It is NOT the headless path** — do not import `@wix/site-pricing-plans` in a headless frontend. Use **`@wix/pricing-plans`** (the universal/headless SDK), whose `orders.createOnlineOrder` creates the order and leaves payment to a redirect you drive (see *Subscribing*). (Note: `SDK_HANDOFF.md` and the members recipes mention `startOnlinePurchase` — that's the site-package convenience; the headless equivalent is `orders.createOnlineOrder` + a payment redirect.)
+**⚠️ Two different packages — use the headless one.** The Wix docs surface `checkout.startOnlinePurchase()` / `checkout.createOnlineOrder()` under **`@wix/site-pricing-plans`** — that is the **Wix-site (Velo / `$w` page-code) package**, and `startOnlinePurchase` drives the **Wix Pay frontend UI** that only exists inside a hosted Wix page. **It is NOT the headless path** — do not import `@wix/site-pricing-plans` in a headless frontend. Use **`@wix/pricing-plans`** (the universal/headless SDK), whose `orders.createOnlineOrder` creates the order and leaves payment to a redirect you drive (see *Subscribing*).
 
 | Need | Package | Module / namespace |
 |---|---|---|
 | List / read plans (the grid) | `@wix/pricing-plans` | `plansV3` (Plans V3 — `queryPlans`, `getPlan`) |
-| Order a plan + read a member's orders | `@wix/pricing-plans` | `orders` (`createOnlineOrder`, `memberListOrders` / `listOrders`, `getOrder`) |
+| Order a plan + read a member's orders | `@wix/pricing-plans` | `orders` (`createOnlineOrder`, `memberListOrders`, `memberGetOrder`) |
 | Member login / current member | `@wix/members` + `@wix/sdk` auth | see the members recipe (`getCurrentMember`, `loggedIn()`) |
 | Book a service with a membership (integration) | `@wix/bookings` + `@wix/ecom` (+ `@wix/redirects`) | `bookings` (`createBooking`), ecom `checkout` (`membershipOptions`) — see *Booking with a membership* |
 
@@ -81,8 +81,10 @@ Doc: <https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans/or
 
 ```js
 // the logged-in member's own orders:
-const res = await orders.memberListOrders();       // or orders.listOrders({ planIds, orderStatuses, paymentStatuses, paging })
-// each order: { _id, planId, subscriptionId, status, lastPaymentStatus, startDate, endDate, currentCycle, planName, priceDetails }
+const res = await orders.memberListOrders();       // filtered: orders.memberListOrders({ planIds, orderStatuses, paymentStatuses, limit, offset })
+// ⚠️ member-scoped reads are memberListOrders / memberGetOrder — there is NO `orders.listOrders`/`getOrder` (those are the admin `managementListOrders`/`managementGetOrder`, server/elevate only).
+// ⚠️ filter args are TOP-LEVEL limit/offset, NOT a nested `paging` object.
+// each order: { _id, planId, subscriptionId, status, lastPaymentStatus, startDate, endDate, currentCycle, planName, pricing, planPrice }
 ```
 Doc: <https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans/orders/introduction.md?apiView=SDK>
 

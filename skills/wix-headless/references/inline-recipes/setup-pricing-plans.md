@@ -28,7 +28,7 @@ Create **one plan per create call** (Plans V3 has **no bulk-create** for plans) 
 
 **⚠️ The create body MUST include `plan.status: "ACTIVE"` and a valid, unique GUID `id` on every `pricingVariants[]` and every `perks[]` entry** — omitting any of them returns `400` (`status value is required` / `id is not a valid GUID` / `id must not be empty`). These `id`s are **client-supplied** (a confirmed won't-fix server-side gap: the Pricing-Plans team will not auto-generate them; only the plan's *own* top-level `id` comes back server-generated).
 
-**⚠️ Generate every GUID in the SHELL — never let the model type one.** A model emitting a UUID token-by-token isn't reliably valid or unique (→ `400`, or a duplicate-id collision across plans). Generate each in the shell and inject it via command substitution, so the value is always a real, fresh GUID regardless of which coding agent or OS runs this. This portable helper tries `uuidgen` → `python3` → `node`; **`node` is always present in a scaffolded Wix project, so it never fails to produce one:**
+**⚠️ Generate every GUID in the SHELL — never let the model type one.** A model emitting a UUID token-by-token isn't reliably valid or unique (→ `400`, or a duplicate-id collision across plans). Generate each in the shell and inject it via command substitution, so the value is always a real, fresh GUID regardless of which coding agent or OS runs this. This portable helper tries `uuidgen` → `python3` → `node`; **at least one is present in virtually every shell (a scaffolded Wix project always has `node`), so it effectively always succeeds — the fallback below covers the rare shell with none:**
 
 ```bash
 gen_uuid() { uuidgen 2>/dev/null | tr 'A-Z' 'a-z' \
@@ -40,7 +40,7 @@ Then create each plan with **fresh** ids (one `gen_uuid` call per field — neve
 
 ```bash
 VID=$(gen_uuid); PERK1=$(gen_uuid); PERK2=$(gen_uuid)
-curl -sS -D /tmp/_h.$$ -w "\nHTTP:%{http_code}" -X POST 'https://www.wixapis.com/pricing-plans/v3/plans' \
+curl -sS -w "\nHTTP:%{http_code}" -X POST 'https://www.wixapis.com/pricing-plans/v3/plans' \
   -H 'Authorization: <AUTH>' -H 'Content-Type: application/json' \
   -d "{
     \"plan\": {
@@ -57,7 +57,7 @@ curl -sS -D /tmp/_h.$$ -w "\nHTTP:%{http_code}" -X POST 'https://www.wixapis.com
       ],
       \"perks\": [ { \"id\": \"$PERK1\", \"description\": \"Unlimited group classes\" }, { \"id\": \"$PERK2\", \"description\": \"10% off workshops\" } ]
     }
-  }"; grep -i '^x-wix-request-id:' /tmp/_h.$$; rm -f /tmp/_h.$$
+  }"
 ```
 
 > **Fallback — only if the shell has NO generator** (`uuidgen`, `python3`, **and** `node` all absent — effectively never in a Wix project): do **not** guess UUIDs. **Skip plan creation** and record a clear note for the user listing the plans to create by hand in the Wix dashboard (name, price, billing cycle). Failing loud beats seeding malformed plans.
