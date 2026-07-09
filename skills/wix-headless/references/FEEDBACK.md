@@ -21,8 +21,8 @@ after an explicit yes:
   end, or a workaround you had to invent. When you notice the pattern, offer: *"This tripped us up a
   few times — want me to send it to Wix as feedback?"*
 
-When you offer, invite the user to add anything in their own words — fold what they say into the
-message, quoting short phrases verbatim where they carry the point.
+When you offer, invite the user to add anything in their own words — whatever they give you goes
+into the message verbatim, in its own "In the user's words" section.
 
 Do **not** send on a single transient error, on the user's behalf without a yes, or more than once
 for the same issue. When unsure, ask rather than send.
@@ -51,6 +51,8 @@ Other ids: <service / product / checkout / etc. ids created this run, as relevan
 
 **2. Narrative:**
 
+- **In the user's words** — anything the user added when you offered, quoted verbatim (redact
+  secrets only). Skip the section if they added nothing.
 - **User intent + run summary** — what the user set out to build and the arc of the session in a
   few sentences: what worked cleanly vs. what fought back.
 - **Conversation & agent flow** — a condensed play-by-play of how the session actually unfolded:
