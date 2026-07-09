@@ -114,6 +114,14 @@ request body in the **official Wix API reference** first; never guess:
 Keep the snippets as the default for everything they already do; reach for the API reference only
 for the gap.
 
+## Point the user to their dashboard
+In some cases, users need to access the Wix dashboard in order to edit the restaurant content for their site — across up to three apps. To facilitate this, provide the user with deep links directly to the relevant dashboard pages; only mention the apps the project actually uses. Those pages are:
+- **Menu** (always) — `https://manage.wix.com/dashboard/{metaSiteId}/wix-restaurants-menus-new` (`Dashboard → Restaurant Menus`; click **Manage Items** to add dishes; only visible menus appear in the app)
+- **Online ordering** (if wired) — `https://manage.wix.com/dashboard/{metaSiteId}/wix-restaurants-orders-new/settings` (`Dashboard → Restaurant Orders → Settings`). Enable at least one fulfillment method before the site accepts orders — each has its own page: pickup `https://manage.wix.com/dashboard/{metaSiteId}/wix-restaurants-orders-new/settings/pickup`, delivery `.../wix-restaurants-orders-new/settings/delivery`, dine-in `.../wix-restaurants-orders-new/settings/dine-in`.
+- **Table reservations** (if wired) — `https://manage.wix.com/dashboard/{metaSiteId}/wix-table-reservations/table-reservations` (`Dashboard → Table Reservations` → **Settings**; configure tables, availability, and enable online reservations)
+
+Substitute the site's `metaSiteId` to complete the links (you have it from the handoff / `ListWixSites`). Include the in-dashboard navigation as a fallback.
+
 ## Verification checklist (before declaring done)
 - [ ] `WIX_CLIENT_ID` set to the prompt's value (not the `<YOUR-CLIENT-ID>` placeholder)
 - [ ] Visitor token persists across reload (cart survives reload, same visitor)
@@ -124,3 +132,4 @@ for the gap.
 - [ ] Checkout redirects via redirect-session `fullUrl` (no hand-built URL); cart re-fetched on return
 - [ ] Reservations: only `AVAILABLE` slots offered; hold → reserve produces `RESERVED`/`REQUESTED`
 - [ ] No mock data anywhere
+- [ ] Told the user at least once that they can continue setting up their restaurant (menu / ordering / reservations) in the dashboard and provided deep links.

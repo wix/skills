@@ -131,6 +131,13 @@ body in the **official Wix API reference** first; never guess:
 Keep the snippets as the default for everything they already do; reach for the API
 reference only for the gap.
 
+## Point the user to their dashboard
+In some cases, users need to access the Wix dashboard in order to edit the store content for their site. To facilitate this, provide the user with deep links directly to the relevant dashboard pages. For store data those pages are:
+- **Products** — `https://manage.wix.com/dashboard/{metaSiteId}/wix-stores/products` (`Dashboard → Store → Products`; add/edit products, variants, inventory)
+- **Categories** — `https://manage.wix.com/dashboard/{metaSiteId}/wix-stores/categories/list` (`Dashboard → Store → Categories`; organize products into the category menu)
+
+Substitute the site's `metaSiteId` to complete the links (you have it from the handoff / `ListWixSites`). Include the in-dashboard navigation as a fallback.
+
 ## Verification checklist (before declaring done)
 - [ ] `WIX_CLIENT_ID` set to the prompt's value (not the `<YOUR-CLIENT-ID>` placeholder)
 - [ ] Visitor token persists across reload (cart survives reload, same visitor)
@@ -144,3 +151,4 @@ reference only for the gap.
 - [ ] Cart re-fetched on return from checkout (clears once the order is placed)
 - [ ] Empty state shown when `countProducts()` is 0
 - [ ] No mock products anywhere
+- [ ] Told the user at least once that they can continue setting up their store in the dashboard and provided deep links.

@@ -59,6 +59,7 @@ This skill is the deliberately **client-only, REST-only** path. It is independen
   diagnosing an API error — fall back to the **`wix-docs`** skill (`../wix-docs/SKILL.md` when
   co-installed): it covers `curl` doc-search, reading pages, and structured API-spec queries.
   Reference index: https://dev.wix.com/docs/api-reference.md
+- **Provide the user with deep links to the Wix dashboard**: In many cases, the user will need to modify the default vertical data in the Wix dashboard. Always provide the user with these links. The relevant information for each vertical's links is in its `INSTRUCTIONS.md` file.
 
 ## How this skill is structured
 

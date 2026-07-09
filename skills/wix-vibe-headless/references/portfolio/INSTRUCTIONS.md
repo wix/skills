@@ -91,6 +91,12 @@ HTTP method, and request body in the **official Wix API reference** first; never
 Keep the snippets as the default for everything they already do; reach for the API reference
 only for the gap.
 
+## Point the user to their dashboard
+In some cases, users need to access the Wix dashboard in order to edit the portfolio content for their site. To facilitate this, provide the user with deep links directly to the relevant dashboard pages. For portfolio data those pages are:
+- **Portfolio** — `https://manage.wix.com/dashboard/{metaSiteId}/wix-portfolio/projects` (`Dashboard → Portfolio`). Projects and Collections are tabs on this one page: the **Projects** tab adds projects and their media galleries; the **Collections** tab groups projects into collections.
+
+Substitute the site's `metaSiteId` to complete the links (you have it from the handoff / `ListWixSites`). Include the in-dashboard navigation as a fallback.
+
 ## Verification checklist (before declaring done)
 - [ ] `WIX_CLIENT_ID` set to the prompt's value (not the `<YOUR-CLIENT-ID>` placeholder)
 - [ ] Visitor token persists across reload (no re-mint storm; reads stay fast)
@@ -102,3 +108,4 @@ only for the gap.
 - [ ] Hidden collections/projects never appear
 - [ ] Empty state shown when `countCollections()` is 0
 - [ ] No mock projects, collections, or media anywhere
+- [ ] Told the user at least once that they can continue setting up their portfolio in the dashboard and provided deep links.

@@ -121,6 +121,12 @@ first; never guess:
 Keep the snippets as the default for everything they already do; reach for the API reference only
 for the gap.
 
+## Point the user to their dashboard
+In some cases, users need to access the Wix dashboard in order to edit the events content for their site. To facilitate this, provide the user with deep links directly to the relevant dashboard pages. For events data those pages are:
+- **Events** — `https://manage.wix.com/dashboard/{metaSiteId}/events` (`Dashboard → Events` → **+ Add Event**; create the event, then set it up as **Ticketed** or **RSVP**; only published events appear in the app)
+
+Substitute the site's `metaSiteId` to complete the links (you have it from the handoff / `ListWixSites`). Include the in-dashboard navigation as a fallback.
+
 ## Verification checklist (before declaring done)
 - [ ] `WIX_CLIENT_ID` set to the prompt's value (not the `<YOUR-CLIENT-ID>` placeholder)
 - [ ] Visitor token persists across reload (same visitor identity for reservations)
@@ -132,3 +138,4 @@ for the gap.
 - [ ] Closed registration / sold-out tickets show a clear state rather than a dead end
 - [ ] Empty state shown when `countUpcomingEvents()` is 0
 - [ ] No mock events, tickets, or attendee data anywhere
+- [ ] Told the user at least once that they can continue setting up their events in the dashboard and provided deep links.

@@ -129,6 +129,13 @@ exact endpoint, method, and body in the **official Wix API reference** first (ne
 Keep the snippets as the default for everything they already do; reach for the API reference
 only for the gap.
 
+## Point the user to their dashboard
+In some cases, users need to access the Wix dashboard in order to edit the bookings content for their site. To facilitate this, provide the user with deep links directly to the relevant dashboard pages. For bookings data those pages are:
+- **Booking Services** — `https://manage.wix.com/dashboard/{metaSiteId}/bookings/services` (`Dashboard → Bookings → Booking Services`; add services and service categories)
+- **Staff** — `https://manage.wix.com/dashboard/{metaSiteId}/bookings/staff` (`Dashboard → Bookings → Staff`; add staff and set working hours, so slots are actually bookable)
+
+Substitute the site's `metaSiteId` to complete the links (you have it from the handoff / `ListWixSites`). Include the in-dashboard navigation as a fallback.
+
 ## Verification checklist (before declaring done)
 - [ ] `WIX_CLIENT_ID` set to the prompt's value (not the `<YOUR-CLIENT-ID>` placeholder)
 - [ ] Visitor token persists across reload (same visitor identity across reloads)
@@ -140,3 +147,4 @@ only for the gap.
 - [ ] Checkout redirects via redirect-session `fullUrl` (no hand-built URL)
 - [ ] On return from checkout the booking is confirmed (status `CONFIRMED`/`PENDING`)
 - [ ] No mock services, slots, or availability anywhere
+- [ ] Told the user at least once that they can continue setting up their bookings in the dashboard and provided deep links.
