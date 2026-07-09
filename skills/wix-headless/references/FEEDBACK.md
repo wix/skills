@@ -36,8 +36,9 @@ triage and route without chasing you.
 ```
 Agent / model: <e.g. Claude Code · Opus, Cursor, … / whatever you are>
 Wix tooling used: <MCP tools, Wix CLI, REST via curl, … or other/none>
-Platform / products: <headless, Velo, … · storefront, bookings, events, …>
-Project type / frontend: <managed | self-managed | stripe | other> · <Astro | …>
+Platform / hosting: <headless, Velo, Wix-hosted, self-hosted, …>
+Wix products: <storefront, bookings, events, blog, …>
+Project type / frontend: <managed | self-managed | stripe | other> · <Astro, Next.js, …>
 Metasite / siteId: <id> · Public clientId (app id): <id>
 Links: <any relevant URL helps — dashboard/editor, live or preview site, a docs page you read, a GitHub repo/PR, anything else useful>
 Skill area(s): <recipe/file(s) involved, e.g. inline-recipes/setup-bookings.md STEP 5>
