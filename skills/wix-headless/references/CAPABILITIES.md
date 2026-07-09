@@ -48,7 +48,8 @@ The verticals the skill operates end-to-end today: **stores · blog · cms · fo
 - **Implementation checklist:** show the event's title, date and time, and location; show the description; show ticket types where they exist (ticketed events); a register/RSVP action; collect additional-guest names where extra guests are allowed; a confirmation after registering.
 
 ### bookings — appointments and classes
-- **Intent:** book / appointment / schedule / class / session / reserve a slot / reserve a table.
+- **Intent:** book / appointment / schedule / class / session / reserve a slot — a **service or appointment with a provider** (a stylist, trainer, tutor, clinic, studio).
+- **Not bookings — route to `restaurants` instead:** a **table at a restaurant** is a Table Reservations concern, not a bookable service; and a **special dining occasion guests reserve** — a wine tasting, cheese pairing, chef's table, or tasting-menu evening at a restaurant — is a **restaurants → Table Reservations *experience*** (see the restaurants entry), **not** a bookings service. Reach for `bookings` only when what's booked is a standalone service/class with a provider, never a seat at a restaurant.
 - **Required site features:** a list of services; a page per service; a way to pick a time and book it.
 - **Implementation checklist:** show each service's name, duration, and price; show the staff or provider; show the available time slots; a book action; a confirmation after booking.
 
@@ -58,9 +59,10 @@ The verticals the skill operates end-to-end today: **stores · blog · cms · fo
 - **Implementation checklist:** show each plan's name, price, and billing cycle; list what each plan includes (the perks); a clear "choose plan" action; highlight a recommended tier where it makes sense.
 
 ### restaurants — menus and food
-- **Intent:** menu / restaurant / cafe / food / dish list / order food / dine-in.
-- **Required site features:** a menu organized into sections; each item with a name, description, and price. (Online ordering and table reservations are optional add-ons — separate apps; see `SETUP.md`.)
-- **Implementation checklist:** show the menu grouped into sections in order; each item's name, description, price, and labels (vegan, spicy…) and modifiers / variants where they exist; an order action if online ordering is wired; a reserve-a-table action if reservations are wired.
+- **Intent:** menu / restaurant / cafe / food / dish list / order food / dine-in / **reserve a table** / a **special dining occasion guests reserve** (wine tasting, cheese pairing, chef's table, tasting-menu evening).
+- **Required site features:** a menu organized into sections; each item with a name, description, and price. **Add-ons, each on demand (separate apps/features; see `SETUP.md`):** online ordering, table reservations, and — **when the brief names special dining occasions** — **experiences** (a reservation that *is* a curated occasion at the restaurant, e.g. a wine-and-cheese pairing), which ride on the Table Reservations app.
+- **Experiences vs bookings — decide here:** an **experience** is a **reservation that is itself a special dining occasion at the restaurant** — it books seats at the restaurant's own location and carries its own name, per-guest price, schedule, and booking form. Use it for pairing sessions, tastings, and chef's tables. Use the separate **`bookings`** vertical only for a **service/appointment/class with a provider** that isn't a seat at the restaurant. For anything a restaurant hosts and seats, prefer an experience.
+- **Implementation checklist:** show the menu grouped into sections in order; each item's name, description, price, and labels (vegan, spicy…) and modifiers / variants where they exist; an order action if online ordering is wired; a reserve-a-table action if reservations are wired; **if experiences are wired, list each experience with its name, description, per-guest price, and schedule, and a reserve-seats action.**
 
 ### portfolio — showcase projects
 - **Intent:** portfolio / showcase / gallery of projects / creative work / case studies.
