@@ -104,7 +104,7 @@ Doc: <https://dev.wix.com/docs/api-reference/business-solutions/restaurants/rese
 
 ### Getting available time slots
 
-Call `getTimeSlots` with **positional** args: the location id, an **ISO-8601 date string**, the party size, and optional `{ slotsBefore, slotsAfter, duration }`. Then keep the `AVAILABLE` slots.
+Call `getTimeSlots` with **positional** args: the location id, a **`Date` object** (`new Date(selectedDate)` — NOT the ISO string the doc shows; see the CRITICAL note below), the party size, and optional `{ slotsBefore, slotsAfter, duration }`. Then keep the `AVAILABLE` slots.
 
 ```js
 const { timeSlots: slots = [] } = await timeSlots.getTimeSlots(
@@ -119,7 +119,7 @@ Doc: <https://dev.wix.com/docs/api-reference/business-solutions/restaurants/rese
 
 **⚠️ CRITICAL: `getTimeSlots` takes POSITIONAL args, not a single options object.** The signature is `getTimeSlots(reservationLocationId, date, partySize, options?)` — passing one object (`getTimeSlots({ reservationLocationId, date, partySize })`) does not type-check. Only `slotsBefore`/`slotsAfter`/`duration` go in the 4th `options` arg.
 
-**⚠️ CRITICAL: the `date` param is a `Date`, NOT the ISO-8601 string the doc shows (doc/SDK drift).** The REST/SDK doc describes `date` as an ISO-8601 string, but the shipped `@wix/table-reservations` type is **`Date`** — passing `new Date(...).toISOString()` fails to compile (`TS2345: 'string' is not assignable to 'Date'`, confirmed against `@wix/table-reservations@1.0.372`). Pass a **`Date` object** (`new Date(selectedDate)`). Both the `date` arg you send and each `slot.startDate` you read back are `Date`s — so pass the chosen slot's `startDate` straight into `createHeldReservation`, no conversion.
+**⚠️ CRITICAL: the `date` param is a `Date`, NOT the ISO-8601 string the doc shows (doc/SDK drift).** The REST/SDK doc describes `date` as an ISO-8601 string, but the shipped `@wix/table-reservations` type is **`Date`** — passing `new Date(...).toISOString()` fails to compile (`TS2345: 'string' is not assignable to 'Date'`). Pass a **`Date` object** (`new Date(selectedDate)`). Both the `date` arg you send and each `slot.startDate` you read back are `Date`s — so pass the chosen slot's `startDate` straight into `createHeldReservation`, no conversion.
 
 **⚠️ Book only `status === 'AVAILABLE'`.** `UNAVAILABLE` (can't seat that party then) and `NON_WORKING_HOURS` (closed) are also returned — filter them out before presenting slots, or the hold will fail.
 
@@ -134,6 +134,9 @@ const held = await reservations.createHeldReservation({
   startDate: chosenSlot.startDate,
   partySize,
 });
+// ⚠️ `held.reservation` is OPTIONAL and its `_id`/`revision` are `string | null` in the SDK type —
+// narrow before use or the strict/`astro check` build fails (TS18048 / TS2345).
+if (!held.reservation?._id || !held.reservation.revision) throw new Error('hold failed');
 const reservationId = held.reservation._id;
 const revision = held.reservation.revision;   // reserve needs this
 
@@ -155,7 +158,7 @@ Docs: <https://dev.wix.com/docs/api-reference/business-solutions/restaurants/res
 
 **Result status:** with the seeded default (`approval.mode: "AUTOMATIC"`, manual approval off) the reservation becomes **`RESERVED`** immediately — confirm to the visitor. If the location requires manual approval it becomes **`REQUESTED`** (staff must approve) — tell the visitor it's pending.
 
-**Single-shot alternative:** if you collect all details up front (no "hold while they type" step), call `reservations.createReservation({ reservationLocationId, /* details */, reservee })` instead — same `firstName`/`phone` requirement; it returns `RESERVED`/`REQUESTED` directly, skipping the `HELD` phase.
+**Single-shot alternative:** if you collect all details up front (no "hold while they type" step), call `reservations.createReservation({ details: { reservationLocationId, startDate, partySize }, reservee })` instead — same `firstName`/`phone` requirement; it returns `RESERVED`/`REQUESTED` directly, skipping the `HELD` phase. **⚠️ The location/time/party go under a nested `details` object (NOT top-level), and this method returns the `Reservation` DIRECTLY — not wrapped in `{ reservation }`** (unlike `createHeldReservation`/`reserveReservation`). Top-level fields or reading `.reservation` off the result fails to type-check.
 Doc: <https://dev.wix.com/docs/api-reference/business-solutions/restaurants/reservations/reservations/create-reservation.md?apiView=SDK>
 
 ---

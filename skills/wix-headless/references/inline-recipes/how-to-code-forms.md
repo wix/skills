@@ -37,7 +37,7 @@ A concise contract for writing the **frontend code** that renders a seeded form 
   ```
   The `clientId` is public, not a secret.
 
-**⚠️ CRITICAL: do NOT call `auth.elevate` to submit.** An anonymous visitor **can** create a submission on the plain visitor token — verified live (a `createSubmission` on an anonymous visitor token returns success and stamps `submitter.visitorId`). A pure SPA/static frontend has **no server and cannot elevate** anyway. (The Velo docs example wraps `createSubmission` in `auth.elevate` inside a backend `web.js` — that's the Velo hosted pattern, **not** the headless visitor path; ignore it here.)
+**⚠️ CRITICAL: do NOT call `auth.elevate` to submit.** An anonymous visitor **can** create a submission on the plain visitor token (it stamps `submitter.visitorId`). A pure SPA/static frontend has **no server and cannot elevate** anyway. (The Velo docs example wraps `createSubmission` in `auth.elevate` inside a backend `web.js` — that's the Velo hosted pattern, **not** the headless visitor path; ignore it here.)
 
 ---
 
@@ -87,7 +87,7 @@ async function submitContact(formEl) {
 
 ### Spam protection (only if the site raised it)
 
-The seed leaves `spamFilterProtectionLevel` at its default (`ADVANCED`), and an anonymous visitor submit **still succeeds without a captcha token** on the headless SDK path (verified live). So you normally pass **no** `options`. Only if a site is configured to *require* a CAPTCHA do you need to solve one and pass it as the second arg: `createSubmission(submission, { captchaToken })`. Don't add captcha plumbing speculatively — the default path needs none.
+The seed leaves `spamFilterProtectionLevel` at its default (`ADVANCED`), and an anonymous visitor submit **still succeeds without a captcha token** on the headless SDK path. So you normally pass **no** `options`. Only if a site is configured to *require* a CAPTCHA do you need to solve one and pass it as the second arg: `createSubmission(submission, { captchaToken })`. Don't add captcha plumbing speculatively — the default path needs none.
 
 ---
 

@@ -1,15 +1,15 @@
 ---
 name: "Setup Blog"
-description: Initializes a Wix Blog with Blog V3 — fetches an author memberId, then bulk-creates published posts with Ricos rich content (text-only), and optionally creates + assigns categories/tags. Specifies the *how* (calls + format); how many posts, their topics, and which categories come from the request being fulfilled (via `SEED.md` §3).
+description: Initializes a Wix Blog with Blog V3 — fetches an author memberId, then bulk-creates published posts with Ricos rich content (text-only), and optionally creates + assigns categories/tags. Specifies the *how* (calls + format); how many posts, their topics, and which categories come from the request being fulfilled.
 ---
 **RECIPE**: Business Recipe – Initial Setup for a Wix Blog (Blog V3)
 
-> **Standard call shape (every curl below).** The `<AUTH>` placeholder is shorthand for `Authorization: Bearer <TOKEN>` only. Body-bearing requests also need `Content-Type: application/json`. (Per project rule, also capture the `x-wix-request-id` response header on every `wixapis.com` curl — for trace analysis only, never surfaced.)
+> **Standard call shape (every curl below).** The `<AUTH>` placeholder is shorthand for `Authorization: Bearer <TOKEN>` only. Body-bearing requests also need `Content-Type: application/json`.
 
 A concise checklist for populating any new Wix site that has the Blog app installed with Blog V3.
 **Notice** that this recipe is **NOT** meant for coding purposes and is **ONLY** meant for initial blog content setup.
 
-> **This recipe is the *how*, not the *what*.** What to seed — how many posts, which topics, whether to group them into categories/tags — is determined by the request you're fulfilling (via `SEED.md` §3). This recipe only specifies the calls and the request format; it does not decide quantities or topics.
+> **This recipe is the *how*, not the *what*.** What to seed — how many posts, which topics, whether to group them into categories/tags — is determined by the request you're fulfilling. This recipe only specifies the calls and the request format; it does not decide quantities or topics.
 
 > **API surfaces:** posts use Blog V3 (`https://www.wixapis.com/blog/v3/...`). The author lookup is the exception — it lives on the Members API (`https://www.wixapis.com/members/v1/members`). Don't mix in any pre-V3 blog endpoints.
 
@@ -35,11 +35,11 @@ curl -sS -X GET "https://www.wixapis.com/members/v1/members?fieldsets=PUBLIC&pag
 
 Read `members[0].id` (a.k.a. `_id`) from the response — that's the `memberId` you pass to every post in Step 2.
 
-**⚠️ CRITICAL: the `memberId` must belong to a real site member/collaborator** — never fabricate one (a made-up id fails the create with `"memberIds ... do not exist"`). A provisioned site normally has the owner as a member, so this GET returns at least one id. **If the list comes back empty**, the documented fallback is to **create a member first** (find the Members API create method via the `SEED.md` §1 navigation mechanism — don't guess its URL/body) and use that id, or use the site owner's member id. Only if neither is possible, **fail loudly** with the empty-members response.
+**⚠️ CRITICAL: the `memberId` must belong to a real site member/collaborator** — never fabricate one (a made-up id fails the create with `"memberIds ... do not exist"`). A provisioned site normally has the owner as a member, so this GET returns at least one id. **If the list comes back empty**, the documented fallback is to **create a member first** (find the Members API create method via `DOC_DISCOVERY.md` — don't guess its URL/body) and use that id, or use the site owner's member id. Only if neither is possible, **fail loudly** with the empty-members response.
 
 ### STEP 2: Bulk-create the posts (published, with Ricos content)
 
-Create the posts in a **single bulk request** to `POST https://www.wixapis.com/blog/v3/bulk/draft-posts/create` with `"publish": true` so they go live immediately. **How many posts and their topics are set by the request you're fulfilling — this step only gives the call and the required format.** Each post is **text-only** (no cover image — imagery is attached later in the dedicated images step only when `imagery` is on; `SEED.md` §1, §5).
+Create the posts in a **single bulk request** to `POST https://www.wixapis.com/blog/v3/bulk/draft-posts/create` with `"publish": true` so they go live immediately. **How many posts and their topics are set by the request you're fulfilling — this step only gives the call and the required format.** Each post is **text-only** (no cover image — imagery is attached later in the dedicated images step only when `imagery` is on; `SEED.md` § "Entity images").
 
 > **Use the bulk endpoint whenever `postCount ≥ 2`** — one call replaces N single-post calls, each of which costs ~25–30 s of latency. For exactly one post, use the single-post endpoint shown at the end of this step.
 
@@ -103,7 +103,7 @@ Create the posts in a **single bulk request** to `POST https://www.wixapis.com/b
 - **Container nodes (`PARAGRAPH`, `HEADING`, `BLOCKQUOTE`, …) need a unique `id`** (any string, e.g. `"n1"`, `"n2"`); `TEXT` leaves may use `"id": ""`.
 - Common node types: `PARAGRAPH` (body), `HEADING` (`headingData.level` 2–4), `CODE_BLOCK` (`codeBlockData.language`), `BULLETED_LIST`/`ORDERED_LIST` + `LIST_ITEM`, `BLOCKQUOTE`. Mix at least a few per post for visual variety.
 
-**⚠️ CRITICAL: omit `media` — seed text-only.** Cover/inline images are attached in the dedicated Entity-images step **only when `imagery` is on** (`SEED.md` §5). Do not pass external image URLs into `media` or `richContent` `IMAGE` nodes here — external URLs don't work directly (they must first be imported to Wix Media), and imagery is opt-in.
+**⚠️ CRITICAL: omit `media` — seed text-only.** Cover/inline images are attached in the dedicated Entity-images step **only when `imagery` is on** (`SEED.md` § "Entity images"). Do not pass external image URLs into `media` or `richContent` `IMAGE` nodes here — external URLs don't work directly (they must first be imported to Wix Media), and imagery is opt-in.
 
 **⚠️ Reading the response — bulk results carry only ids, not slugs.** A successful bulk create returns `200` with:
 
@@ -142,7 +142,7 @@ Only create categories or tags **if the request explicitly groups the posts** (e
 
 **⚠️ CRITICAL: re-publish after any PATCH.** Updating an already-published post sets `hasUnpublishedChanges: true` — the live site keeps showing the old version until you call `POST https://www.wixapis.com/blog/v3/draft-posts/{draftPostId}/publish` again. (Seeding categoryIds/tagIds directly in the Step-2 create body avoids this round-trip.)
 
-> **Comments (a Required site feature, conditional).** If the request's blog needs reader comments, comments are typically available once the Blog app is installed — record it as **available** so the Handoff tells the host to surface the comment UI (the coding recipe wires read-public / write-authenticated). Only if comments are off by default for this site, enable the feature via its docs method before relying on it. Don't seed comment *content*.
+> **Comments (a Required site feature, conditional).** If the request's blog needs reader comments, comments are typically available once the Blog app is installed — record it as **available** so the Handoff tells the host to surface the comment UI (the coding recipe wires read-public / write-authenticated). Only if comments are off by default for this site, enable the feature — find the check/enable method via `DOC_DISCOVERY.md` — before relying on it. Don't seed comment *content*.
 
 ---
 

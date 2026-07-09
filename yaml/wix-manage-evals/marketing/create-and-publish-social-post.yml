@@ -2,9 +2,12 @@ name: marketing/create-and-publish-social-post
 description: >-
   Action scenario for the "Create and Publish a Social Media Post" skill on a
   fresh site with no connected Instagram: the agent is asked to publish now, and
-  the correct behavior is to check the connection first (List Accounts), find none,
-  and offer to connect rather than publish or fabricate an account. A fresh site
-  has no connected channel, so no post can actually go out.
+  per the recipe's opening protocol the correct behavior is to check the
+  connection first (List Accounts), find none, and offer to connect rather than
+  publish or fabricate an account. The user supplied their own caption and image,
+  so the agent must also keep that content verbatim (no generation, no rewriting)
+  and must not claim AI generation is plan-gated. A fresh site has no connected
+  channel, so no post can actually go out.
 triggerPrompt: >-
   Publish this post to my Instagram right now: caption "Summer sale — 20% off all
   our handmade ceramic mugs this week ☀️" with the image
@@ -35,10 +38,17 @@ assertions:
         channel must be connected first, AND
       - does NOT fabricate or guess an accountId, AND
       - does NOT attempt Create Draft Item or Publish on the unconnected channel, AND
+      - treats the user's caption and image as final: no generate-text /
+        generate-post-data / generate-image calls, no rewritten or "improved"
+        caption of its own, AND
+      - does NOT claim AI generation or content creation is blocked by the
+        site's plan (AI generation is not plan-gated), AND
       - does not fall back to searching the REST docs instead of using the skill.
 
       Fail if the response:
       - attempts to publish or schedule to the unconnected channel, OR
       - invents an accountId, OR
+      - generates, rewrites, or replaces the user's supplied caption or image, OR
+      - tells the user AI generation requires a premium plan, OR
       - makes blind API calls that error out, OR
       - never checks the connection before acting.

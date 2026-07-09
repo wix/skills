@@ -1,6 +1,6 @@
 ---
 name: "Setup Portfolio"
-description: Initializes a Wix Portfolio backend — cleans the install's default sample collection + projects, then creates collections and creates projects assigned to them via collectionIds (collections before projects). Specifies the *how* (calls + format); the collection/project counts and names come from the request (via `SEED.md` §3).
+description: Initializes a Wix Portfolio backend — cleans the install's default sample collection + projects, then creates collections and creates projects assigned to them via collectionIds (collections before projects). Specifies the *how* (calls + format); the collection/project counts and names come from the request.
 ---
 **RECIPE**: Business Recipe – Initial Setup for Wix Portfolio
 
@@ -9,7 +9,7 @@ description: Initializes a Wix Portfolio backend — cleans the install's defaul
 A concise checklist for preparing any new Wix site that uses the Wix Portfolio app.
 **Notice** that this recipe is **NOT** meant for coding purposes and is **ONLY** meant for initial portfolio setup.
 
-> **This recipe is the *how*, not the *what*.** What to seed — how many collections, which ones, how many projects and their titles/descriptions — is determined by the request you're fulfilling (via `SEED.md` §3). This recipe only specifies the calls and the request format; it does not decide quantities or which entities to create.
+> **This recipe is the *how*, not the *what*.** What to seed — how many collections, which ones, how many projects and their titles/descriptions — is determined by the request you're fulfilling. This recipe only specifies the calls and the request format; it does not decide quantities or which entities to create.
 
 > **API surfaces:** everything is the Portfolio **v1** API on `https://www.wixapis.com/portfolio/v1/...` — `/collections` and `/projects`. Use the **public `/portfolio/v1/...`** form; the method pages' schema headers show an internal `/portfolio/collections/api/v1/...` / `/portfolio/projects/projects/api/v1/...` URL — **do not** call those.
 
@@ -36,7 +36,7 @@ A freshly installed Wix Portfolio app comes pre-seeded with **one sample collect
 
 ### STEP 1: Create the collections
 
-Create the collections the request calls for — **which collections (and how many) come from the request** (via `SEED.md` §3); this step only gives the call and format. Use **Create Collection**: `POST https://www.wixapis.com/portfolio/v1/collections`. There is **no bulk-create** — issue **one call per collection** (they may be fired concurrently — no `409` race — but sequential is just as correct and simplest).
+Create the collections the request calls for — **which collections (and how many) come from the request**; this step only gives the call and format. Use **Create Collection**: `POST https://www.wixapis.com/portfolio/v1/collections`. There is **no bulk-create** — issue **one call per collection** (they may be fired concurrently — no `409` race — but sequential is just as correct and simplest).
 
 The body wraps the entity in a `collection` object:
 
@@ -67,7 +67,7 @@ Keep each **`collection.id`** (and `slug`) — the ids are the `collectionIds` y
 
 ### STEP 2: Create the projects, assigned to their collections
 
-Create the projects the request calls for (counts/titles from `SEED.md` §3). Use **Create Project**: `POST https://www.wixapis.com/portfolio/v1/projects` — **one call per project** (no bulk-create; concurrent is safe). Each project is assigned to one or more collections via **`collectionIds`**, populated with the **real ids from STEP 1**.
+Create the projects the request calls for (counts/titles from the request). Use **Create Project**: `POST https://www.wixapis.com/portfolio/v1/projects` — **one call per project** (no bulk-create; concurrent is safe). Each project is assigned to one or more collections via **`collectionIds`**, populated with the **real ids from STEP 1**.
 
 The body wraps the entity in a `project` object:
 
@@ -105,7 +105,7 @@ Keep each **`project.id`** and `slug`. If a create fails, retry that project **o
 
 ### STEP 3: Attach cover images (imagery opt-in — skip when imagery is off)
 
-**Only if `imagery` is on** (`SEED.md` §4). Portfolio is a visual showcase, so the cover-image-bearing entities are **both projects and collections**. Generate + import each image per `references/IMAGE_GENERATION.md` (generate → import to Wix Media → keep the WixMedia image **id**), then **PATCH the entity's `coverImage`**.
+**Only if `imagery` is on** (`SEED.md` § "Entity images"). Portfolio is a visual showcase, so the cover-image-bearing entities are **both projects and collections**. Generate + import each image per `references/IMAGE_GENERATION.md` (generate → import to Wix Media → keep the WixMedia image **id**), then **PATCH the entity's `coverImage`**.
 
 Attach to a project — `PATCH https://www.wixapis.com/portfolio/v1/projects/{projectId}` (collections are identical: `PATCH …/collections/{collectionId}` with a `collection` wrapper). Echo the entity's current **`revision`** (from STEP 1/2, or a fresh `GET`) — no field mask is needed:
 
@@ -121,6 +121,27 @@ Attach to a project — `PATCH https://www.wixapis.com/portfolio/v1/projects/{pr
 
 - **`coverImage.imageInfo.id`** is the imported **WixMedia image id** (`file` id from the import step) — **and `height` + `width` are required** alongside it (`url` is read-only, returned populated). A missing revision or a stale one fails the PATCH.
 - Image failures never block the run — skip and leave the entity text-only.
+
+### STEP 3b: Add project media items — the ordered detail-page gallery (imagery on only)
+
+**Only if `imagery` is on.** The cover (STEP 3) is just the **listing-card thumbnail**. A project's **media gallery** — the ordered images on its detail page, which the frontend reads via the SDK `projectItems.listProjectItems(projectId)` (`how-to-code-portfolio.md`) — is a **separate `item` entity you must create**, one call per image. Without this step an imagery-on project has a cover but an empty gallery.
+
+```bash
+curl -X POST 'https://www.wixapis.com/portfolio/v1/items' \   # lowercase `items` — `/Items` (capital) 404s
+  -H 'Authorization: <AUTH>' -H 'Content-Type: application/json' \
+  -d '{ "item": {
+    "projectId": "<projectId FROM STEP 2>",
+    "sortOrder": 1,
+    "title": "<image title>",
+    "image": { "imageInfo": { "id": "<WixMedia image id>", "height": 896, "width": 1200 } }
+  } }'
+```
+
+- **One call per image**; **`sortOrder`** (1, 2, 3…) sets the order the frontend renders. `image.imageInfo` is the same shape as `coverImage` (imported WixMedia id + height + width).
+- **Response nests the created item under `item`** (a top-level empty `projectId:""` echo is also returned — ignore it).
+- **⚠️ There is NO public list endpoint.** `GET /portfolio/v1/items?projectId=…`, `/projects/{id}/items`, `/items/project/{id}` **all 404** — do not hunt for one. To verify, `GET https://www.wixapis.com/portfolio/v1/items/{itemId}` one at a time; the frontend lists them via the SDK `projectItems.listProjectItems` (an internal URL the SDK resolves).
+- **Cover vs items:** cover = listing thumbnail (STEP 3 PATCH); items = ordered detail-page gallery (this call). An imagery-on portfolio typically wants **both** — if a project has only its cover image, reuse that WixMedia id as item #1 so the gallery isn't empty.
+- Item failures never block the run — skip and continue (a project with no items still renders from its cover).
 
 ---
 

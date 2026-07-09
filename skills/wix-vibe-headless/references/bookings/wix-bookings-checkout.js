@@ -26,16 +26,19 @@ function defaultTimeZone() {
 }
 
 /**
- * Create a booking for an appointment slot. The booking starts as status "CREATED" and is NOT
- * yet on the calendar — it is confirmed automatically after the buyer completes the hosted
- * checkout (call checkoutBooking next). selectedPaymentOption is "ONLINE".
+ * Create a booking for a slot. The booking starts as status "CREATED" and is NOT yet on the
+ * calendar — it is confirmed automatically after the buyer completes the hosted checkout (call
+ * checkoutBooking next). selectedPaymentOption is "ONLINE".
  *
- * Pass a slot from listAvailableSlots()/getAvailableSlot() — it carries serviceId, scheduleId,
- * localStartDate, localEndDate, location, availableResources. Always call getAvailableSlot
- * first to re-validate and get staff info. Throws on an unbookable slot or missing booking id.
+ * Works for **both** service types — it reads the discriminator off the slot:
+ *  - APPOINTMENT slot (from `listAvailableSlots`/`getAvailableSlot`) carries `scheduleId`.
+ *  - CLASS/COURSE slot (from `listEventTimeSlots`) carries `eventInfo.eventId` and no `scheduleId`;
+ *    Wix derives the session's date/resource/location from that event.
+ * For appointments, call `getAvailableSlot` first to re-validate and get staff (`availableResources`).
+ * Throws on an unbookable slot or missing booking id.
  * https://dev.wix.com/docs/api-reference/business-solutions/bookings/bookings/bookings-writer-v2/create-booking.md
  *
- * @param {object} slot                       A TimeSlot from listAvailableSlots/getAvailableSlot.
+ * @param {object} slot                       A TimeSlot from listAvailableSlots/getAvailableSlot/listEventTimeSlots.
  * @param {{ firstName?: string, lastName?: string, email: string, phone?: string }} contactDetails
  * @param {{ totalParticipants?: number, timeZone?: string, title?: string }} [options]
  * @returns {Promise<object>} The created booking (status "CREATED").
@@ -44,8 +47,10 @@ export async function createBooking(slot, contactDetails, { totalParticipants = 
   if (!slot || slot.bookable === false) {
     throw new Error("Cannot book: the selected slot is not bookable. Re-check availability and pick another time.");
   }
-  if (!slot.serviceId || !slot.scheduleId || !slot.localStartDate || !slot.localEndDate) {
-    throw new Error("Cannot book: slot is missing serviceId/scheduleId/localStartDate/localEndDate.");
+  // A slot is bound either by scheduleId (appointment) or by eventInfo.eventId (class/course).
+  const eventId = slot.eventInfo?.eventId;
+  if (!slot.serviceId || (!slot.scheduleId && !eventId) || !slot.localStartDate || !slot.localEndDate) {
+    throw new Error("Cannot book: slot is missing serviceId, localStartDate/localEndDate, and a scheduleId (appointment) or eventInfo.eventId (class/course).");
   }
   if (!contactDetails?.email) {
     throw new Error("Cannot book: contactDetails.email is required.");
@@ -53,13 +58,27 @@ export async function createBooking(slot, contactDetails, { totalParticipants = 
 
   const resource = slot.availableResources?.[0]?.resources?.[0];
 
+  // The availability slot's location uses the SERVICE location enum (e.g. "BUSINESS"), but the
+  // createBooking endpoint expects the BOOKING location enum [UNDEFINED, OWNER_BUSINESS,
+  // OWNER_CUSTOM, CUSTOM]. Passing slot.location straight through 400s
+  // ("slot.location.locationType enum must be in [...]"). Remap before sending.
+  const bookingLocation = (() => {
+    const loc = slot.location;
+    if (!loc) return null;
+    const valid = ["UNDEFINED", "OWNER_BUSINESS", "OWNER_CUSTOM", "CUSTOM"];
+    const map = { BUSINESS: "OWNER_BUSINESS", CUSTOM: "CUSTOM", CUSTOMER: "CUSTOM" };
+    const locationType = map[loc.locationType] || (valid.includes(loc.locationType) ? loc.locationType : "OWNER_BUSINESS");
+    return { ...loc, locationType };
+  })();
+
   const bookedSlot = {
     serviceId: slot.serviceId,
-    scheduleId: slot.scheduleId,
+    // Appointment → scheduleId; class/course → eventId. Send exactly one.
+    ...(eventId ? { eventId } : { scheduleId: slot.scheduleId }),
     startDate: slot.localStartDate,
     endDate: slot.localEndDate,
     timezone: timeZone || defaultTimeZone(),
-    ...(slot.location ? { location: slot.location } : {}),
+    ...(bookingLocation ? { location: bookingLocation } : {}),
     ...(resource ? { resource: { id: resource.id, name: resource.name } } : {}),
   };
 

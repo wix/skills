@@ -39,6 +39,7 @@ Always follow **List → Get → Query**. You cannot construct a valid query wit
 - **Set `interval.timezone` to the site's time zone to match the Wix dashboard.** Analytics in the Wix business manager are bucketed by the site's time zone. If `interval.timezone` is omitted it defaults to **UTC**, so day boundaries shift and your numbers won't match what the owner sees in the dashboard (and the same goes for using a different time zone). Get the site's IANA time zone from `properties.timeZone` via [Get Site Properties](https://dev.wix.com/docs/api-reference/business-management/site-properties/properties/get-site-properties) (`GET https://www.wixapis.com/site-properties/v4/properties`) and pass it through.
 - **Field names must come from `Get Semantic Model`.** The `fields`, `filters[].field`, and `sort.fieldName` values must exactly match a `name` returned by the model schema (e.g. `traffic.sessions_count`). Do not guess field names.
 - **Field dependencies.** A field returns data only if at least one of the field names in its `dependencies` array is also included in the same query; otherwise it's **silently omitted** from results (no error). For example, a measure may only return data when a specific dimension is also requested.
+- **Sorting a nullable measure — set `sort.nullsLast: true`.** `nullsLast` defaults to `false` and only affects **descending** (`DESC`) order. If a measure can return null and you sort it `DESC`, the null rows sort *first* — so a "top N" query surfaces nulls before your real values. Set `nullsLast: true` to push nulls to the end.
 - **Result cap: 1,000 rows per query.** `results` is capped at 1,000 rows — paginate with `paging.offset` for larger datasets.
 - **Formatting is opt-in.** Set `formattingEnabled: true` to also receive a human-readable `formattedValue` per cell (e.g. `1500` → `"$1,500.00"` or `1.5K`). Raw typed values are always returned.
 - **Totals are opt-in.** Set `totalsIncluded: true` to get a `totals` row summing numeric fields across the **full (unpaginated)** result set.
@@ -137,7 +138,8 @@ curl -X POST \
   ],
   "sort": {
     "fieldName": "traffic.sessions_count",
-    "order": "DESC"
+    "order": "DESC",
+    "nullsLast": true
   },
   "paging": {
     "limit": 50,
@@ -156,7 +158,7 @@ curl -X POST \
 | `interval` | Yes | `{ start, end }` UTC ISO date-times, plus `timezone`. Range is start-inclusive, end-exclusive (`[start, end)`) — set `end` to the day after the last day you want. Set `timezone` to the site's IANA time zone (see Time zone section) so results match the Wix dashboard; defaults to UTC when omitted. |
 | `fields` | Yes | Up to 60 field `name`s from the model schema. |
 | `filters` | No | Array of `{ field, values[], condition, prefix }`. `condition` defaults to `EQUAL`, `prefix` defaults to `IS`. For `RANGE_*` conditions provide exactly 2 values. |
-| `sort` | No | `{ fieldName, order, nullsLast }`. `order` defaults to `ASC`. Field must be `sortable`. |
+| `sort` | No | `{ fieldName, order, nullsLast }`. `order` defaults to `ASC`; field must be `sortable`. `nullsLast` (default `false`) applies only to `DESC` order — set it to `true` when the sorted measure can contain nulls, otherwise nulls sort before real values. |
 | `paging` | No | `{ limit, offset }`. Defaults: `limit` 50, `offset` 0. |
 | `formattingEnabled` | No | Default `false`. Adds `formattedValue` per cell. |
 | `totalsIncluded` | No | Default `false`. Adds a `totals` row. |

@@ -1,6 +1,6 @@
 ---
 name: "Setup Events"
-description: Initializes a Wix Events (Events V3) backend — creates one or more events (each TICKETING or RSVP) as drafts with future dates, adds ticket definitions for ticketed events, then publishes. Specifies the *how* (calls + format); counts, which events are ticketed vs RSVP, dates, and ticket tiers come from the request (via `SEED.md` §3).
+description: Initializes a Wix Events (Events V3) backend — creates one or more events (each TICKETING or RSVP) as drafts with future dates, adds ticket definitions for ticketed events, then publishes. Specifies the *how* (calls + format); counts, which events are ticketed vs RSVP, dates, and ticket tiers come from the request.
 ---
 **RECIPE**: Business Recipe – Initial Setup for Wix Events (Events V3)
 
@@ -47,8 +47,8 @@ curl -X POST 'https://www.wixapis.com/events/v3/events' \
         "address": { "addressLine": "120 Harbor St", "city": "Seattle", "subdivision": "US-WA", "postalCode": "98101", "country": "US" }
       },
       "dateAndTimeSettings": {
-        "startDate": "2026-09-20T03:30:00.000Z",
-        "endDate":   "2026-09-20T07:00:00.000Z",
+        "startDate": "<FUTURE_DATE>T03:30:00.000Z",
+        "endDate":   "<FUTURE_DATE>T07:00:00.000Z",
         "timeZoneId": "America/Los_Angeles",
         "showTimeZone": true
       },
@@ -148,13 +148,23 @@ curl -X POST 'https://www.wixapis.com/events/v3/events/<eventId>/publish' \
 
 A `200` with `status: "UPCOMING"` (plus `OPEN_TICKETS` on the registration for a ticketed event) means it's live. **Publishing is one-way** — there's no un-publish — so confirm the tickets are created (STEP 2) before publishing a ticketed event.
 
+### STEP 4 (optional): Group events by a format / track — Event Categories
+
+**Only when the request wants events grouped or filtered by a format/track** (e.g. talk / workshop / social). Wix Events has a first-class **Categories** API for this — use it; do **not** invent an endpoint. **⚠️ It is `v1`, NOT `v3`**, and the assign path is specific:
+
+1. **Create one category per group** — `POST https://www.wixapis.com/events/v1/categories` with `{ "category": { "name": "Talks" } }` → keep `category.id`. One call each.
+2. **Assign events to a category** — `POST https://www.wixapis.com/events/v1/categories/{categoryId}/events` with `{ "eventId": ["<eventId>", …] }`. **⚠️ The path is `/{categoryId}/events`, NOT `/assign`** (and `v1`, not `v3/categories`) — the wrong forms `404`.
+3. **Verify via the EVENT read, not the category list.** Assignment can lag a few seconds — `listEventsByCategory` may briefly return `[]`, so don't gate on it. Confirm with `queryEvents` (or `getEventBySlug`) requesting **`fields: ["CATEGORIES"]`** — each event then carries `categories.categories[]` with the assigned `{ id, name }` (REST view — the id key is `id`, not `_id`).
+
+Nothing else in the seed depends on categories, and the frontend filters **client-side** off the category name (`how-to-code-events.md`) — skip this step entirely if the request has no grouping.
+
 ### Paid-ticket precondition — record it, do NOT block
 
 Seeding **succeeds** and the event goes live regardless of payment setup. But **completing a paid purchase** later requires, in the site dashboard, both:
 - a **premium plan**, and
 - at least one **configured payment method** (Wix Payments / Stripe / PayPal).
 
-Free / RSVP events need neither. This is **not** a seeding failure and **not** something to fix here — record it in the kept `notes` so the orchestrator can surface it plainly (*"Paid tickets require a premium plan + a configured payment method in the dashboard to complete a purchase."*). Never imply tickets are payable when no payment method is configured, and never fail the seed over it.
+Free / RSVP events need neither. This is **not** a seeding failure and **not** something to fix here — record it in the kept `notes` so it's surfaced plainly (*"Paid tickets require a premium plan + a configured payment method in the dashboard to complete a purchase."*). Never imply tickets are payable when no payment method is configured, and never fail the seed over it.
 
 ---
 

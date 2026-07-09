@@ -8,7 +8,7 @@ A concise contract for building your **own** login / sign-up / logout UI and dri
 
 > **⚠️ WHEN TO USE THIS RECIPE — intent, not project type.** Reach for custom login **only when the brief explicitly asks for it**: a **branded / in-app login form** (the visitor never leaves your UI) *or* **custom sign-up fields** (full name, username/nickname, address, arbitrary fields). If the brief just says "let members log in / sign up / have an account" with no mention of a custom form or extra fields, **use the Wix login page instead** — `how-to-code-members-astro.md` (Astro) or `how-to-code-members-non-astro.md` (non-Astro). The Wix login page needs zero UI and is the deterministic default; custom login is more code and more failure modes, so take it on only on real intent.
 
-> **Works on any headless project.** The Wix docs frame custom login pages as "self-managed only," but that's positioning, not a technical lockout — the `register`/`login` SDK methods (and their `Register V2`/`Login V2` IAM endpoints) authenticate against the same Wix auth service and **work on managed projects too** (verified live: register + login both return `SUCCESS`). So **do not branch on project type** — if the intent is custom login, build it; the flow below is identical on managed and self-managed.
+> **Works on any headless project.** The Wix docs frame custom login pages as "self-managed only," but that's positioning, not a technical lockout — the `register`/`login` SDK methods (and their `Register V2`/`Login V2` IAM endpoints) authenticate against the same Wix auth service and **work on managed projects too**. So **do not branch on project type** — if the intent is custom login, build it; the flow below is identical on managed and self-managed.
 
 > **One client, one flow — sign-up and log-in are the same machine.** Both `register()` and `login()` return the **same** `StateMachine` shape and both end at `getMemberTokensForDirectLogin` → `setTokens`. Member tokens are the **same shape** as visitor tokens (`role: member`); logging in just swaps the token set on the visitor client you already have.
 
@@ -134,7 +134,7 @@ const { member } = await client.members.getCurrentMember({ fieldsets: ['FULL'] }
 // member.profile?.nickname, member.profile?.photo, member.loginEmail, member.contactId, member.roles
 ```
 
-- **⚠️ The SDK export is `getCurrentMember`, NOT `getMyMember`.** The REST method is named *Get My Member* and the SDK docs page may show `GetMyMember`, but `@wix/members` exports it as **`client.members.getCurrentMember`** — calling `getMyMember(...)` throws `is not a function` at runtime (verified against `@wix/members@1.0.x`). Silent trap: a logged-out smoke test never reaches the call.
+- **⚠️ The SDK export is `getCurrentMember`, NOT `getMyMember`.** The REST method is named *Get My Member* and the SDK docs page may show `GetMyMember`, but `@wix/members` exports it as **`client.members.getCurrentMember`** — calling `getMyMember(...)` throws `is not a function` at runtime. Silent trap: a logged-out smoke test never reaches the call.
 - **⚠️ Use `@wix/members`**, not the Developer-Preview `@wix/site-members`.
 - The **photo** is a `wix:image://` identifier — resolve with `media.getScaledToFillImageUrl` (`non-astro.md` N7); never hand-build the CDN URL.
 
