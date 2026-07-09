@@ -26,7 +26,7 @@ for the same issue. When unsure, ask rather than send.
 
 ## Compose a useful message
 
-Wix receives only free text plus the user's id, so a bare sentence is low-signal. Send a
+Wix receives only free text, so a bare sentence is low-signal. Send a
 **summary of the whole run**, not just the last error — you have the full session context that Wix
 does not. Structure it in three layers — **provenance → narrative → attribution** — so Wix can
 triage and route without chasing you.
@@ -103,7 +103,7 @@ curl -sS -w "\nHTTP_STATUS:%{http_code}" \
 
 ## Hard rules
 
-- ✅ Send only after an explicit user yes — offering is fine, sending unprompted is not.
+- ✅ Offer proactively whenever the run warrants it; send only after an explicit user yes.
 - ✅ One submission per issue; never spam with retries or duplicates.
 - ✅ Compose a specific, factual message; confirm the wording first.
 - ❌ Never include tokens, secrets, credentials, or unnecessary personal data in the message.
