@@ -103,7 +103,7 @@ const operationId = op._id;
 ```
 Doc: <https://dev.wix.com/docs/api-reference/business-solutions/restaurants/online-orders/operations/list-operations.md?apiView=SDK>
 
-**⚠️ `list*` return the array as OPTIONAL — default it (`= []`) or the strict build fails.** `listOperations()` / `listFulfillmentMethods()` / `listItems()` type the returned array as `T[] | undefined`, so destructuring `{ operations: ops }` and calling `ops.find(...)` directly errors under `strict` / `astro check` (`'ops' is possibly 'undefined'`, TS18048) — a build-breaker on managed Astro. Default it in the destructure (`{ operations: ops = [] }`) or guard with `?? []`. (Confirmed against `@wix/restaurants@1.0.508` via `tsc --noEmit`.)
+**⚠️ `list*` return the array as OPTIONAL — default it (`= []`) or the strict build fails.** `listOperations()` / `listFulfillmentMethods()` / `listItems()` type the returned array as `T[] | undefined`, so destructuring `{ operations: ops }` and calling `ops.find(...)` directly errors under `strict` / `astro check` (`'ops' is possibly 'undefined'`, TS18048) — a build-breaker on managed Astro. Default it in the destructure (`{ operations: ops = [] }`) or guard with `?? []`.
 
 **⚠️ CRITICAL: the entity id is `_id`, NOT `id`.** `operation.id` / `item.id` / `section.id` are `undefined` in SDK code. Feeding `operation.id` into `options.operationId` (or `item.id` into `catalogItemId`) sends an empty string and the add-to-cart fails. Use `_id` everywhere. (A surprising `id` field means you're reading the REST doc view — re-open with `?apiView=SDK`.)
 

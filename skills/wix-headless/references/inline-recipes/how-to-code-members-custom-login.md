@@ -134,7 +134,7 @@ const { member } = await client.members.getCurrentMember({ fieldsets: ['FULL'] }
 // member.profile?.nickname, member.profile?.photo, member.loginEmail, member.contactId, member.roles
 ```
 
-- **⚠️ The SDK export is `getCurrentMember`, NOT `getMyMember`.** The REST method is named *Get My Member* and the SDK docs page may show `GetMyMember`, but `@wix/members` exports it as **`client.members.getCurrentMember`** — calling `getMyMember(...)` throws `is not a function` at runtime (verified against `@wix/members@1.0.x`). Silent trap: a logged-out smoke test never reaches the call.
+- **⚠️ The SDK export is `getCurrentMember`, NOT `getMyMember`.** The REST method is named *Get My Member* and the SDK docs page may show `GetMyMember`, but `@wix/members` exports it as **`client.members.getCurrentMember`** — calling `getMyMember(...)` throws `is not a function` at runtime. Silent trap: a logged-out smoke test never reaches the call.
 - **⚠️ Use `@wix/members`**, not the Developer-Preview `@wix/site-members`.
 - The **photo** is a `wix:image://` identifier — resolve with `media.getScaledToFillImageUrl` (`non-astro.md` N7); never hand-build the CDN URL.
 
