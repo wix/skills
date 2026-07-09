@@ -28,33 +28,43 @@ for the same issue. When unsure, ask rather than send.
 
 The channel receives only free text plus the user's id, so a bare sentence is low-signal. Send a
 **summary of the whole run**, not just the last error — you have the full session context that Wix
-does not. Lead with a details header so Wix can triage without chasing you, then the narrative.
+does not. Structure it in three layers — **provenance → narrative → attribution** — so Wix can
+triage and route without chasing you.
 
-**Start with an identifiers block** — labelled lines, omit any that don't apply:
+**1. Provenance** — labelled lines, omit any that don't apply:
 
 ```
-Metasite / siteId: <id>
-Public clientId (app id): <id>
-Site links: <dashboard/editor URL> · <live or preview URL if released>
-Project type / frontend: <managed | self-managed | stripe> · <Astro | …>
+Agent / model: <e.g. Claude Code · Opus, Cursor, … / whatever you are>
+Wix tooling used: <MCP tools, Wix CLI, REST via curl, … or other/none>
+Platform / products: <headless, Velo, … · storefront, bookings, events, …>
+Project type / frontend: <managed | self-managed | stripe | other> · <Astro | …>
+Metasite / siteId: <id> · Public clientId (app id): <id>
+Links: <any relevant URL helps — dashboard/editor, live or preview site, a docs page you read, a GitHub repo/PR, anything else useful>
 Skill area(s): <recipe/file(s) involved, e.g. inline-recipes/setup-bookings.md STEP 5>
 Other ids: <service / product / checkout / etc. ids created this run, as relevant>
 ```
 
-**Then the body:**
+**2. Narrative:**
 
-- **Run summary** — the arc of the session in a few sentences: what the user set out to build
-  (goal + capabilities: storefront, bookings, events, blog…) and how it went end to end (what
-  worked cleanly vs. what fought back).
-- **Friction points** — the heart of it. Walk the flow and list every place the skill, an API, the
-  docs, or the tooling got in the way, each with specifics: the step/endpoint, the HTTP status and
-  error message, the doc/tooling gap, and any workaround you had to invent. Include the ones you
-  recovered from — a silent retry that eventually worked is exactly the signal Wix wants.
-- **What was expected** — and a minimal repro where there is one.
-- **Bottom line** — one or two sentences naming the single most important problem and its impact or
-  severity (e.g. "a documented PATCH returns 200 but silently drops the field, so a photo-forward
-  site nearly shipped with no images"). Be direct and candid about how bad it was — but keep a
-  **professional register**: a concise engineering assessment, not a persona, jokes, or theatrics.
+- **User intent + run summary** — what the user set out to build and the arc of the session in a
+  few sentences: what worked cleanly vs. what fought back.
+- **Friction points** — the heart of it. Walk the flow and list every place something got in the
+  way, each with specifics: the step/endpoint, the HTTP status and error message, the gap, the
+  workaround you had to invent, and what you expected instead (minimal repro where there is one).
+  Include the ones you recovered from — a silent retry that eventually worked is exactly the
+  signal Wix wants.
+
+**3. Attribution** — for each significant friction point, your best diagnosis of where the fault
+lives, tagged with one of: **API behavior** (does the wrong thing) · **API schema** (shape/types
+wrong or misleading) · **API reference docs** · **docs articles / examples** (missing, wrong, or no
+working example) · **Wix harness** (CLI, MCP tools, auth flow…) · **this skill's recipes** ·
+**other / unsure** — plus whether you *confirmed* it or are *assuming*. Don't force a tag; a wrong
+route is worse than "unsure".
+
+**Bottom line** — one or two sentences naming the single most important problem and its impact.
+Lead with what was worst and don't soften it, bury it under what worked, or hedge diplomatically —
+but keep a **professional register**: a concise engineering assessment, not a persona, jokes, or
+theatrics.
 
 Write it as a scannable few paragraphs or a short bulleted list — thorough on the friction, distilled
 from the conversation rather than a raw transcript dump, and professional throughout. Confirm the
