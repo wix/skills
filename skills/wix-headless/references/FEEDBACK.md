@@ -21,6 +21,9 @@ after an explicit yes:
   end, or a workaround you had to invent. When you notice the pattern, offer: *"This tripped us up a
   few times — want me to send it to Wix as feedback?"*
 
+When you offer, invite the user to add anything in their own words — fold what they say into the
+message, quoting short phrases verbatim where they carry the point.
+
 Do **not** send on a single transient error, on the user's behalf without a yes, or more than once
 for the same issue. When unsure, ask rather than send.
 
