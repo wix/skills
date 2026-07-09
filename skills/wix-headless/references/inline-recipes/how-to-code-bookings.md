@@ -76,12 +76,13 @@ service = {
 
 // availabilityTimeSlots.listAvailabilityTimeSlots(...)  →  result.timeSlots[]   (APPOINTMENT)
 apptSlot = { localStartDate, localEndDate, scheduleId, location, availableResources }  // fields at TOP level (NOT slot.startDate); availableResources may be []
+//   availableResources[] = { resources: [{ _id, name }] }   // NESTED; each resource id is _id NOT id — this is what you read to label/group a slot by its staff/instructor
 
 // eventTimeSlots.listEventTimeSlots(...)  →  result.timeSlots[]   (CLASS)
 classSlot = { localStartDate, localEndDate, eventInfo: { eventId } }  // carries eventId; NO scheduleId
 ```
 
-**⚠️ CRITICAL: entity ids are `_id`, NOT `id`.** `service._id`, `booking._id`. `service.id` is `undefined` in SDK code. **`staffMemberDetails.staffMembers[].staffMemberId`** is the exception — despite the name it **IS the resource GUID** (it matches the seed's staff `resourceId`), and it's the value you filter availability and book by.
+**⚠️ CRITICAL: entity ids are `_id`, NOT `id`.** `service._id`, `booking._id`. `service.id` is `undefined` in SDK code. This includes the **resource objects nested under a slot** — `slot.availableResources[].resources[]._id` (NOT `.id`); reading `.id` there silently yields `undefined`, so grouping/labeling/filtering slots by staff or instructor breaks with no error (an image-led class site rendering blank instructor names/photos is the tell). **`staffMemberDetails.staffMembers[].staffMemberId`** is the exception — despite the name it **IS the resource GUID** (it matches the seed's staff `resourceId`), and it's the value you filter availability and book by.
 
 ---
 
