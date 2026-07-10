@@ -122,7 +122,7 @@ curl -X GET \
 | `DATE` | Date only | `"2024-01-15"` |
 | `DATETIME` | Date and time | `{ "$date": "2024-01-15T10:00:00.000Z" }` |
 | `IMAGE` | Image reference | `"wix:image://v1/..."` |
-| `MEDIA_IMAGE` | Wix Media Image | `{ "url": "http://...", "height": 640, "width": 480, "alt": "Picture" }` |
+| `MEDIA_IMAGE` | Wix Media Image | `{ "id": "<mediaId>", "url": "http://...", "height": 640, "width": 480, "altText": "Picture" }` |
 | `MEDIA_VECTOR_ART` | Wix Media Vector Art | `{ "uri": "wix:vector://v1/...", "viewBox": "0 0 100 100", "contentType": "shape", "svgContent": "<svg>...</svg>" }` |
 | `URL` | Web URL | `"https://example.com"` |
 | `RICH_TEXT` | HTML content | `"<p>Rich text</p>"` |
@@ -138,6 +138,7 @@ curl -X GET \
 | `ANYONE` | All visitors (including anonymous) |
 | `SITE_MEMBER` | Logged-in site members |
 | `SITE_MEMBER_AUTHOR` | Members who created the item |
+| `PRIVILEGED` | Access to collection is controlled per role |
 | `ADMIN` | Site admins only |
 
 ## Related Documentation
