@@ -35652,8 +35652,8 @@ function makeCommenter(octokit, owner, repo, prNumber) {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.BASE_WORKSPACE_SUBDIR = exports.DOC_YAML_GLOB = exports.EVALS_GLOB = exports.EVALS_AREA_RE = exports.AREA_RE = exports.EVALS_RE = exports.MD_RE = exports.SKILLS_ROOT = void 0;
 exports.SKILLS_ROOT = 'skills/wix-manage/references';
-// `^skills/wix-manage/references/<area>/<basename>.md`
-exports.MD_RE = /^skills\/wix-manage\/references\/[^/]+\/[^/]+\.md$/;
+// `^skills/wix-manage/references/<area>/<nested/path>.md`
+exports.MD_RE = /^skills\/wix-manage\/references\/[^/]+\/.+\.md$/;
 // `^yaml/wix-manage-evals/<area>/<rest>.(yml|yaml)`
 exports.EVALS_RE = /^yaml\/wix-manage-evals\/[^/]+\/.+\.(ya?ml)$/;
 // Captures `<area>` from a doc path under SKILLS_ROOT.
