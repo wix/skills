@@ -80,7 +80,35 @@ STEP=$(lc)                     # the layout step (page)
 - **`namespace` MUST be `"wix.form_app.form"`** (the Wix Forms namespace) — any other value fails with `400 UNSUPPORTED_FORM_NAMESPACE`. It is immutable after create.
 - **Every INPUT field MUST carry a non-empty `target`** — the human-readable key the frontend binds to (input `name` = `target`). An empty/missing target fails with `400 UNSUPPORTED_FIELD_TARGETS_NAME` (`MISSING_FIELD_TARGETS`). Targets are **immutable** (set once).
 - **Targets MUST be unique within a form** — two fields sharing a target → `400 DUPLICATED_FIELD_TARGETS`. Use lowercase snake_case keys the frontend can reuse verbatim (`first_name`, `email`, `phone`, `message`).
-- **Field envelope:** each field is `{ id, hidden: false, identifier: "<CONTACTS_*>", fieldType: "INPUT", inputOptions: { target, readOnly: false, inputType: "STRING", stringOptions: { validation: { format, enum: [] }, componentType: "TEXT_INPUT", textInputOptions: { label, showLabel } } } }`. The `identifier` is MANDATORY for dashboard rendering — see the CRITICAL identifier block below. Use `inputType: "STRING"` + `componentType: "TEXT_INPUT"` for text fields. Set `required: true` on the fields the form must collect (defaults to `false`); mark `pii: true` on personal fields (name/email/phone). Richer field types (number, dropdown, checkbox group) follow the same envelope with a different `inputType`/`stringOptions`/`arrayOptions` — but plain STRING text covers the lead-capture case.
+- **Field envelope:** each field is `{ id, hidden: false, identifier: "<CONTACTS_*>", fieldType: "INPUT", inputOptions: { target, readOnly: false, inputType: "STRING", stringOptions: { validation: { format, enum: [] }, componentType: "TEXT_INPUT", textInputOptions: { label, showLabel } } } }`. The `identifier` is MANDATORY for dashboard rendering — see the CRITICAL identifier block below. Use `inputType: "STRING"` + `componentType: "TEXT_INPUT"` for text fields. Set `required: true` on the fields the form must collect (defaults to `false`); mark `pii: true` on personal fields (name/email/phone).
+
+**Dropdown (enum) fields — concrete envelope.** A dropdown is still `inputType: "STRING"`; only the `componentType` and its options block change. Set `componentType: "DROPDOWN"` and put the choices under `stringOptions.dropdownOptions.options` as `{ id, label, value }` — the `value` is what a submission stores (keep it a stable machine key), and **every option needs its own lowercase GUID `id`** (see the CRITICAL below). Keep the `validation` block as with any field (a plain dropdown reads back `format: UNDEFINED`, so write `UNKNOWN_FORMAT`):
+
+```jsonc
+// generate an option GUID per choice in the shell, same lc() helper as the field ids:
+//   O1=$(lc); O2=$(lc); O3=$(lc)
+{ "id": "$F4", "hidden": false, "identifier": "budget", "fieldType": "INPUT", "inputOptions": {
+    "target": "budget", "required": false, "inputType": "STRING", "readOnly": false,
+    "stringOptions": {
+      "validation": { "format": "UNKNOWN_FORMAT", "enum": [] },
+      "componentType": "DROPDOWN",
+      "dropdownOptions": {
+        "label": "Budget", "showLabel": true, "placeholder": "Select a range",
+        "options": [
+          { "id": "$O1", "label": "Under $1k", "value": "under_1k" },
+          { "id": "$O2", "label": "$1k–$5k",   "value": "1k_5k" },
+          { "id": "$O3", "label": "$5k+",      "value": "5k_plus" }
+        ]
+      } } } }
+```
+
+Add a matching `steps[].layout.large.items[]` entry for its `fieldId` like any other field.
+
+**⚠️ CRITICAL: every dropdown `options[]` entry MUST carry its own lowercase GUID `id` — a create without it 400s `options[N].id is not a valid GUID / must not be empty`.** The API spec marks the option `id` optional (it's for Multilingual translation), but the create validator **rejects an option with no `id`**. Generate one GUID per option in the shell (the same `lc()` helper used for field ids), exactly as you do for field/step ids — never type one from memory.
+
+**⚠️ A custom dropdown's options round-trip in `fields[].view.options`, NOT `formFields[]` — and the frontend reads them from there.** Verified live (2026-07-12): a dropdown whose `identifier` is a plain custom key (like `"budget"` — dropdowns rarely map to a `CONTACTS_*` system field) is **dropped from `formFields[]` by the identifier→dashboard rule below**, so it does **not** show in the Wix dashboard summary — *but its data is fully captured and its options survive under `form.fields[].view.options` as `[{ id, label, value }]`* (alongside `view.label` / `view.placeholder`). That's exactly where the schema-driven frontend reads dropdown choices from (`how-to-code-forms.md` projects `fields[]`, not `formFields[]`), so **a custom dropdown renders and submits correctly on the headless site even though the dashboard doesn't list it.** So: seed the dropdown as the request needs; verify persistence on the GET round-trip (STEP 3) by asserting the field appears in `fields[]` with a non-empty `view.options`; and — as with any custom (non-`CONTACTS_*`) field — do **not** claim the dashboard fully renders it (platform limitation, same as the CRITICAL identifier block). If a dropdown *does* map cleanly to a contact field, give it the matching `CONTACTS_*` identifier and it will also show in the dashboard.
+
+Other richer types (number, checkbox group, date) follow the same envelope with a different `inputType`/`stringOptions`/`arrayOptions` — but plain STRING text + dropdowns cover the lead-capture case.
 
 **⚠️ CRITICAL: every field MUST carry a `stringOptions.validation` block, or the field is NOT submittable — a visitor submission of it fails with `400 "must NOT have additional properties"`.** The submission validator builds its allowed-keys schema **only from fields that have a `validation` block**. A field created without one exists on the form and even renders, but any submission that includes its `target` is rejected as an unknown property (and `required` is silently dropped too) — the form looks fine but silently rejects real submissions. So give **every** field a `validation` block:
   - Plain text / name / message → `"validation": { "format": "UNKNOWN_FORMAT", "enum": [] }`.
