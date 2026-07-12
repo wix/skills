@@ -104,12 +104,12 @@ after release; some ids are **date-stamped**. Tested-current picks (verify with 
   **`claude-haiku-4-5-20251001`** — the *dated* id. **`claude-haiku-4-5` (undated) → `400 Unsupported
   model`**; use the dated id `/models` returns.
 
-## REST (provider pass-through) — for the skill's seed-time calls / non-JS callers
+## REST (provider pass-through) — when the SDK doesn't fit
 
-The gateway is a **transparent pass-through**: base URL `https://www.wixapis.com/{provider}/v1/...`,
-with the **provider's native request/response bodies** (model params, streaming, tool calls per the
-provider's own docs). The **skill's own seed/build-time AI calls use this** — the universal `curl`
-shape (`SETUP.md` §1), same as `SETUP`/`SEED`/`IMAGE_GENERATION`:
+Use REST if your backend **isn't JS/TS**, or when you want the **raw HTTP** API. The gateway is a
+**transparent pass-through**: base URL `https://www.wixapis.com/{provider}/v1/...` with the
+**provider's native request/response bodies** (model params, streaming, tool calls per the provider's
+own docs). Authenticate with the skill's universal call shape (`SETUP.md` §1):
 
 ```bash
 curl -sS -X POST "https://www.wixapis.com/openai/v1/chat/completions" \
@@ -152,8 +152,7 @@ without them:
    the credit balance is account-wide).
 3. **Cap inputs** — bound prompt/`max_tokens`/`input` size; large requests cost more credits.
 4. **Cache / dedupe** — memoize identical prompts (product description for the same product, etc.);
-   many "AI features" are computed once at seed/build time, not per request — prefer that when the
-   content is static.
+   static AI content is best computed **once, ahead of time** and stored, not regenerated per request.
 5. **Fail soft** — on a rejected/quota/insufficient-credits response, degrade gracefully (cached/canned
    copy), never hard-error the page; surface cost transparently to the owner.
 
