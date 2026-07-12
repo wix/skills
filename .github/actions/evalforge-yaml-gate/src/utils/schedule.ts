@@ -1,5 +1,5 @@
 import * as core from '@actions/core';
-import { EvalForgeClient, DRAFT_PREFIX, evalRunUrl } from './evalforge';
+import { CODE_TAG, EvalForgeClient, evalRunUrl } from './evalforge';
 import { getScheduleConfig } from './config';
 import { pollUntilDone, EvalRunTimeoutError } from './eval-run';
 
@@ -7,25 +7,16 @@ export async function runSchedule(): Promise<void> {
   const config = getScheduleConfig();
   const evalforge = new EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
 
-  core.info('EvalForge scheduled run — loading all production scenarios');
-
-  const allScenarios = await evalforge.listTestScenarios(config.projectId);
-  const scenarios = allScenarios.filter(s => !s.tags.some(t => t.startsWith(DRAFT_PREFIX)));
-  core.info(`Found ${scenarios.length} production scenarios (${allScenarios.length - scenarios.length} draft(s) excluded)`);
-
-  if (scenarios.length === 0) {
-    core.warning('No production scenarios found — nothing to run');
-    core.setOutput('status', 'skipped');
-    core.setOutput('summary', 'No production scenarios found.');
-    return;
-  }
+  core.info(`EvalForge scheduled run — running scenarios tagged "${CODE_TAG}"`);
 
   const { id: evalRunId } = await evalforge.createEvalRun(config.projectId, {
     name: config.runName,
-    description: 'Scheduled eval run for all production scenarios',
+    description: `Scheduled eval run for scenarios tagged ${CODE_TAG}`,
     projectId: config.projectId,
     agentId: config.agentId,
-    scenarioIds: scenarios.map(s => s.id),
+    filter: {
+      tag: CODE_TAG,
+    },
   });
   core.info(`Created eval run: ${evalRunId}`);
 
@@ -50,7 +41,7 @@ export async function runSchedule(): Promise<void> {
   }
 
   const { passed, failed, totalAssertions, passRate } = result.aggregateMetrics;
-  const pct = Math.round(passRate * 100);
+  const pct = Math.round(passRate);
 
   core.setOutput('status', result.status);
   core.setOutput('passed', String(passed));

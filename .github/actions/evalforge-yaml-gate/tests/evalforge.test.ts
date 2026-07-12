@@ -120,6 +120,28 @@ describe('EvalForgeClient — test-scenarios', () => {
     await c.deleteTestScenario('P', 'X');
   });
 
+  it('createEvalRun supports tag-filtered scheduled runs with projectId', async () => {
+    mockFetch(({ url, method, body }) => {
+      expect(method).toBe('POST');
+      expect(url).toContain('/projects/P/eval-runs');
+      expect(body).toMatchObject({
+        filter: { tag: 'created-via-code' },
+        projectId: 'P',
+      });
+      expect(body).not.toHaveProperty('scenarioIds');
+      return { status: 200, body: { id: 'run-1', status: 'pending' } };
+    });
+    const c = new EvalForgeClient(URL_BASE, APP_ID, APP_SECRET);
+    const r = await c.createEvalRun('P', {
+      name: 'scheduled-1',
+      description: 'scheduled',
+      projectId: 'P',
+      agentId: 'agent-1',
+      filter: { tag: 'created-via-code' },
+    });
+    expect(r.id).toBe('run-1');
+  });
+
   it('error responses carry HTTP status', async () => {
     mockFetch(() => ({ status: 404, body: { error: 'not found' } }));
     const c = new EvalForgeClient(URL_BASE, APP_ID, APP_SECRET);

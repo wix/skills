@@ -34226,6 +34226,8 @@ exports.formatEvalPassed = formatEvalPassed;
 exports.formatEvalFailed = formatEvalFailed;
 exports.formatEvalTimeout = formatEvalTimeout;
 exports.formatNoChanges = formatNoChanges;
+exports.noWinnerReason = noWinnerReason;
+exports.comparisonHasNoWinner = comparisonHasNoWinner;
 exports.formatComparisonResult = formatComparisonResult;
 exports.formatComparisonTimeout = formatComparisonTimeout;
 exports.formatTokenBudgetExceeded = formatTokenBudgetExceeded;
@@ -34312,9 +34314,27 @@ function assertionLine(a) {
     const detail = a.verdict ? `: ${a.verdict}` : a.message ? `: ${a.message}` : '';
     return `- ${icon} ${a.name}${score}${detail}`;
 }
+function bothRunsFailedLlmJudge(s) {
+    return s.with.assertions.some(a => a.type === 'llm_judge' && a.status !== 'passed')
+        && s.without.assertions.some(a => a.type === 'llm_judge' && a.status !== 'passed');
+}
+function noWinnerReason(s) {
+    return bothRunsFailedLlmJudge(s) ? 'both runs failed the LLM judge' : undefined;
+}
+function comparisonHasNoWinner(result) {
+    return (result.scenarios ?? []).some(s => noWinnerReason(s));
+}
+function winnerLabel(s) {
+    if (noWinnerReason(s)) {
+        return '-';
+    }
+    const winnerIcon = s.pairwiseJudgement.winner === 'tie' ? '≈' : s.pairwiseJudgement.winner === 'with' ? '⬆️' : '⬇️';
+    return `${winnerIcon} ${s.pairwiseJudgement.winner} (${s.pairwiseJudgement.confidence})`;
+}
 function formatComparisonResult(result, projectId) {
     const { verdict, tag, scenarios } = result.result;
-    const verdictIcon = verdict === 'not-required' ? '✅' : '⚠️';
+    const hasNoWinner = comparisonHasNoWinner(result.result);
+    const verdictIcon = verdict === 'not-required' && !hasNoWinner ? '✅' : '⚠️';
     const lines = [
         exports.COMMENT_MARKER,
         `## ${verdictIcon} ${HEADING}: Eval Comparison`,
@@ -34325,22 +34345,24 @@ function formatComparisonResult(result, projectId) {
         '|---|---|---|---|---|---|',
     ];
     for (const s of (scenarios ?? [])) {
-        const winner = s.pairwiseJudgement.winner;
-        const winnerLabel = winner === 'tie' ? '≈ tie' : winner === 'with' ? '⬆️ PR' : '⬇️ prod';
         const costWith = s.with.totalCostUsd.toFixed(3);
         const costWithout = s.without.totalCostUsd.toFixed(3);
         const tokWith = `${(s.with.totalTokens / 1000).toFixed(1)}K`;
         const tokWithout = `${(s.without.totalTokens / 1000).toFixed(1)}K`;
         const timeWith = `${(s.with.durationMs / 1000).toFixed(1)}s`;
         const timeWithout = `${(s.without.durationMs / 1000).toFixed(1)}s`;
-        lines.push(`| ${s.scenarioName} | ${s.required ? '✅' : '—'} | ${winnerLabel} (${s.pairwiseJudgement.confidence}) | $${costWith} / $${costWithout} | ${tokWith} / ${tokWithout} | ${timeWith} / ${timeWithout} |`);
+        lines.push(`| ${s.scenarioName} | ${s.required ? '✅' : '—'} | ${winnerLabel(s)} | $${costWith} / $${costWithout} | ${tokWith} / ${tokWithout} | ${timeWith} / ${timeWithout} |`);
     }
     for (const s of (scenarios ?? [])) {
+        const reason = noWinnerReason(s);
         lines.push('', `<details><summary>${s.scenarioName}</summary>`, '', s.reason, '');
         if (projectId && s.with.runId)
             lines.push(`[View run (PR)](${(0, evalforge_1.evalRunUrl)(projectId, s.with.runId, s.with.name)})`, '');
         if (projectId && s.without.runId)
             lines.push(`[View run (prod)](${(0, evalforge_1.evalRunUrl)(projectId, s.without.runId, s.without.name)})`, '');
+        if (reason) {
+            lines.push(`**No winner:** ${reason}.`, '');
+        }
         lines.push('**Assertions (PR):**', ...s.with.assertions.map(assertionLine), '');
         lines.push('**Assertions (prod):**', ...s.without.assertions.map(assertionLine), '');
         if (s.pairwiseJudgement.reasoning) {
@@ -35462,6 +35484,10 @@ async function runGate() {
             (0, github_1.fail)((0, token_budget_1.formatTokenBudgetFailureMessage)(tokenBudgetViolations), config.blocking);
             return;
         }
+        if ((0, comment_1.comparisonHasNoWinner)(done.result)) {
+            (0, github_1.fail)('Eval comparison has no winner because both runs failed assertions', config.blocking);
+            return;
+        }
         if (config.autoApprove && allScenariosRequired(done.result)) {
             await octokit.rest.pulls.createReview({
                 owner: config.owner,
@@ -35894,22 +35920,15 @@ const eval_run_1 = __nccwpck_require__(5879);
 async function runSchedule() {
     const config = (0, config_1.getScheduleConfig)();
     const evalforge = new evalforge_1.EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
-    core.info('EvalForge scheduled run — loading all production scenarios');
-    const allScenarios = await evalforge.listTestScenarios(config.projectId);
-    const scenarios = allScenarios.filter(s => !s.tags.some(t => t.startsWith(evalforge_1.DRAFT_PREFIX)));
-    core.info(`Found ${scenarios.length} production scenarios (${allScenarios.length - scenarios.length} draft(s) excluded)`);
-    if (scenarios.length === 0) {
-        core.warning('No production scenarios found — nothing to run');
-        core.setOutput('status', 'skipped');
-        core.setOutput('summary', 'No production scenarios found.');
-        return;
-    }
+    core.info(`EvalForge scheduled run — running scenarios tagged "${evalforge_1.CODE_TAG}"`);
     const { id: evalRunId } = await evalforge.createEvalRun(config.projectId, {
         name: config.runName,
-        description: 'Scheduled eval run for all production scenarios',
+        description: `Scheduled eval run for scenarios tagged ${evalforge_1.CODE_TAG}`,
         projectId: config.projectId,
         agentId: config.agentId,
-        scenarioIds: scenarios.map(s => s.id),
+        filter: {
+            tag: evalforge_1.CODE_TAG,
+        },
     });
     core.info(`Created eval run: ${evalRunId}`);
     await evalforge.triggerEvalRun(config.projectId, evalRunId);
@@ -35931,7 +35950,7 @@ async function runSchedule() {
         throw e;
     }
     const { passed, failed, totalAssertions, passRate } = result.aggregateMetrics;
-    const pct = Math.round(passRate * 100);
+    const pct = Math.round(passRate);
     core.setOutput('status', result.status);
     core.setOutput('passed', String(passed));
     core.setOutput('failed', String(failed));
