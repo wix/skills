@@ -5,6 +5,8 @@
 // run can poll for up to 30 minutes — so we cache the token and transparently
 // re-mint it shortly before it expires rather than minting once up front.
 
+import * as core from '@actions/core';
+
 type TokenResponse = { access_token: string; token_type: string; expires_in: number };
 
 // Re-mint this many ms before the stated expiry to avoid using a token that
@@ -34,6 +36,16 @@ export class TokenProvider {
     return this.inflight;
   }
 
+  /**
+   * Discards the cached token and mints a fresh one. Used to recover from a `401`
+   * when a token is rejected before its computed expiry (e.g. server-side revocation).
+   */
+  async forceRefresh(): Promise<string> {
+    this.token = null;
+    this.expiresAt = 0;
+    return this.getToken();
+  }
+
   private async mint(): Promise<string> {
     const res = await fetch(this.tokenUrl, {
       method: 'POST',
@@ -53,6 +65,8 @@ export class TokenProvider {
     if (!json.access_token) {
       throw new Error('OAuth token response missing access_token');
     }
+    // Mask the minted token so it can never surface in action logs.
+    core.setSecret(json.access_token);
     this.token = json.access_token;
     this.expiresAt = Date.now() + (json.expires_in ?? 300) * 1000;
     return this.token;

@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import * as core from '@actions/core';
 import { TokenProvider } from '../src/utils/auth';
+
+vi.mock('@actions/core', () => ({ setSecret: vi.fn() }));
 
 beforeEach(() => { vi.restoreAllMocks(); });
 
@@ -55,5 +58,24 @@ describe('TokenProvider', () => {
     globalThis.fetch = vi.fn(async () => new Response('nope', { status: 401 })) as unknown as typeof fetch;
     const p = new TokenProvider('https://x/oauth2/token', 'id', 'sec');
     await expect(p.getToken()).rejects.toThrow(/401/);
+  });
+
+  it('forceRefresh mints a fresh token even when the cache is still valid', async () => {
+    let n = 0;
+    const fetchMock = vi.fn(async () => tokenResponse(`tok-${++n}`, 300));
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const p = new TokenProvider('https://x/oauth2/token', 'id', 'sec');
+    expect(await p.getToken()).toBe('tok-1');
+    expect(await p.forceRefresh()).toBe('tok-2');
+    expect(await p.getToken()).toBe('tok-2'); // refreshed token is now cached
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('masks the minted token via core.setSecret', async () => {
+    globalThis.fetch = vi.fn(async () => tokenResponse('tok-secret', 300)) as unknown as typeof fetch;
+    const p = new TokenProvider('https://x/oauth2/token', 'id', 'sec');
+    await p.getToken();
+    expect(core.setSecret).toHaveBeenCalledWith('tok-secret');
   });
 });

@@ -198,3 +198,52 @@ describe('EvalForgeClient (V1) — eval runs', () => {
     expect(r.aggregateMetrics.passed).toBe(3);
   });
 });
+
+describe('EvalForgeClient (V1) — 401 handling', () => {
+  it('refreshes the token and retries once on 401', async () => {
+    let mints = 0;
+    let apiCalls = 0;
+    globalThis.fetch = vi.fn(async (input: string | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith('/oauth2/token')) {
+        mints++;
+        return new Response(
+          JSON.stringify({ access_token: `tok-${mints}`, token_type: 'Bearer', expires_in: 300 }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        );
+      }
+      apiCalls++;
+      const auth = (init?.headers as Record<string, string>).Authorization;
+      if (apiCalls === 1) {
+        expect(auth).toBe('Bearer tok-1'); // first attempt uses the original token
+        return new Response('', { status: 401 });
+      }
+      expect(auth).toBe('Bearer tok-2'); // retry uses the refreshed token
+      return new Response(JSON.stringify({ capabilityVersions: [] }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }) as unknown as typeof fetch;
+
+    const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    await c.listMcpVersions('M', 'P');
+    expect(mints).toBe(2);    // initial mint + forced refresh
+    expect(apiCalls).toBe(2); // 401 then retry
+  });
+
+  it('throws when the refreshed retry still returns 401', async () => {
+    let apiCalls = 0;
+    globalThis.fetch = vi.fn(async (input: string | URL) => {
+      const url = String(input);
+      if (url.endsWith('/oauth2/token')) {
+        return new Response(
+          JSON.stringify({ access_token: 'tok', token_type: 'Bearer', expires_in: 300 }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        );
+      }
+      apiCalls++;
+      return new Response(JSON.stringify({ message: 'unauthorized' }), { status: 401, headers: { 'content-type': 'application/json' } });
+    }) as unknown as typeof fetch;
+
+    const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    await expect(c.listMcpVersions('M', 'P')).rejects.toThrow(/401/);
+    expect(apiCalls).toBe(2); // original attempt + one retry, then give up
+  });
+});

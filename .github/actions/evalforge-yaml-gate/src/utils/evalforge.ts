@@ -141,9 +141,8 @@ export class EvalForgeClient {
     this.tokens = new TokenProvider(OAUTH_TOKEN_URL, clientId, clientSecret);
   }
 
-  private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
-    const token = await this.tokens.getToken();
-    const res = await fetch(`${this.baseUrl}/v1${path}`, {
+  private send(method: string, path: string, body: unknown, token: string): Promise<Response> {
+    return fetch(`${this.baseUrl}/v1${path}`, {
       method,
       headers: {
         'Content-Type': 'application/json',
@@ -152,6 +151,14 @@ export class EvalForgeClient {
       body: body !== undefined ? JSON.stringify(body) : undefined,
       signal: AbortSignal.timeout(15_000),
     });
+  }
+
+  private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
+    let res = await this.send(method, path, body, await this.tokens.getToken());
+    if (res.status === 401) {
+      // Token rejected before its computed expiry — mint a fresh one and retry once.
+      res = await this.send(method, path, body, await this.tokens.forceRefresh());
+    }
     if (!res.ok) {
       const err = (await res.json().catch(() => ({}))) as { message?: string; error?: string; details?: unknown };
       const msg = err.message ?? err.error ?? '';

@@ -34097,7 +34097,7 @@ else {
 /***/ }),
 
 /***/ 6087:
-/***/ ((__unused_webpack_module, exports) => {
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
 "use strict";
 
@@ -34107,8 +34107,42 @@ else {
 // from the app's OAuth credentials. Tokens are short-lived (~300s), but an eval
 // run can poll for up to 30 minutes — so we cache the token and transparently
 // re-mint it shortly before it expires rather than minting once up front.
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.TokenProvider = void 0;
+const core = __importStar(__nccwpck_require__(7484));
 // Re-mint this many ms before the stated expiry to avoid using a token that
 // expires mid-request.
 const EXPIRY_SKEW_MS = 30_000;
@@ -34137,6 +34171,15 @@ class TokenProvider {
         }
         return this.inflight;
     }
+    /**
+     * Discards the cached token and mints a fresh one. Used to recover from a `401`
+     * when a token is rejected before its computed expiry (e.g. server-side revocation).
+     */
+    async forceRefresh() {
+        this.token = null;
+        this.expiresAt = 0;
+        return this.getToken();
+    }
     async mint() {
         const res = await fetch(this.tokenUrl, {
             method: 'POST',
@@ -34156,6 +34199,8 @@ class TokenProvider {
         if (!json.access_token) {
             throw new Error('OAuth token response missing access_token');
         }
+        // Mask the minted token so it can never surface in action logs.
+        core.setSecret(json.access_token);
         this.token = json.access_token;
         this.expiresAt = Date.now() + (json.expires_in ?? 300) * 1000;
         return this.token;
@@ -35079,9 +35124,8 @@ class EvalForgeClient {
         // Token is minted at the fixed public endpoint, NOT under `baseUrl`.
         this.tokens = new auth_1.TokenProvider(OAUTH_TOKEN_URL, clientId, clientSecret);
     }
-    async request(method, path, body) {
-        const token = await this.tokens.getToken();
-        const res = await fetch(`${this.baseUrl}/v1${path}`, {
+    send(method, path, body, token) {
+        return fetch(`${this.baseUrl}/v1${path}`, {
             method,
             headers: {
                 'Content-Type': 'application/json',
@@ -35090,6 +35134,13 @@ class EvalForgeClient {
             body: body !== undefined ? JSON.stringify(body) : undefined,
             signal: AbortSignal.timeout(15_000),
         });
+    }
+    async request(method, path, body) {
+        let res = await this.send(method, path, body, await this.tokens.getToken());
+        if (res.status === 401) {
+            // Token rejected before its computed expiry — mint a fresh one and retry once.
+            res = await this.send(method, path, body, await this.tokens.forceRefresh());
+        }
         if (!res.ok) {
             const err = (await res.json().catch(() => ({})));
             const msg = err.message ?? err.error ?? '';
