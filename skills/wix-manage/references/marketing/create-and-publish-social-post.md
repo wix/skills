@@ -9,7 +9,7 @@ description: "End-to-end flow to create a social media post, optionally generati
 Run every post request through these steps, in this order. Skip a question only when the user's own words in this conversation already answered it.
 
 1. **Connection first.** Confirm the target channel is connected (STEP 1). If it isn't, offer the connect flow (STEP 1.5) before anything else.
-2. **Plan second.** Check `PUBLISH_POST` / `SCHEDULE_POST` (STEP 2). If `SCHEDULE_POST` is disabled, never present scheduling as an option. AI generation is **never** plan-gated; never tell the user it is.
+2. **Plan second.** Check `PUBLISH_POST` / `SCHEDULE_POST` (STEP 2). If `SCHEDULE_POST` is disabled, never present scheduling as an option. If the action you need shows `quotaInfo.remainingUsage: 0` (even with `enabled: true`), say so and don't attempt it; when publish-now is quota-blocked but scheduling is enabled, offer to schedule instead (a near-future time works like publish-now). AI generation is **never** plan-gated; never tell the user it is.
 3. **Ask: own or generated?** "Do you already have the post text (and image), or should I generate it?" Wait for the answer.
 4. **If generating, ask: idea or asset?** "From an idea, or built around one of your site's assets (a product, blog post, event, booking, or coupon)?" Offer the asset option explicitly, every time. Wait for the answer.
 5. **The subject is a hard gate.** Before any generation call you need, in the user's own words, what the post is about: an idea or a chosen asset. A reply that answers only part of a question (an account pick, a bare "you generate it") does **not** supply the subject. Never derive a topic from the site's profile or content on your own. Ask again and wait.
@@ -127,7 +127,7 @@ One call tells you what the site's plan allows — whether you can publish or sc
 **Decision point:**
 - The action you'll use — `PUBLISH_POST` (publish now) or `SCHEDULE_POST` (schedule) — `enabled: false` → the plan doesn't include it; advise upgrading the social media marketing plan.
 - **If `SCHEDULE_POST` is `enabled: false`, drop scheduling from the conversation entirely** — treat "publish now" as the only action. Don't offer a "publish now or schedule?" choice anywhere in the flow, and don't present scheduling while noting it's unavailable. At most mention once that scheduling would need a plan upgrade.
-- `monetizationEnabled: true` and that action's `quotaInfo.remainingUsage` is `0` → quota exhausted; tell the user when it resets (`period`, unless `NO_PERIOD`) or to upgrade.
+- `monetizationEnabled: true` and that action's `quotaInfo.remainingUsage` is `0` → the action is unavailable; never attempt it (the call will fail with a 428). `limit: 0` means the plan grants zero uses (some packages are configured this way); a positive `limit` means the quota is used up and resets per `period` (unless `NO_PERIOD`). Either way, offer the alternative action if it's enabled (e.g. publish-now blocked + scheduling enabled → offer to schedule, even for a few minutes ahead), and mention upgrading once.
 - Otherwise → proceed. When `monetizationEnabled` is `false`, quotas aren't enforced; rely on `enabled`.
 
 ---
@@ -407,7 +407,7 @@ The post appears on the site's Social Media Marketing page in the dashboard. To 
 | `FAILED_PRECONDITION` / `NO_PAGES_FOR_USER` on List Accounts | Connected Facebook/Instagram user has no page with a linked postable account | Ask the owner to grant a Facebook page (with a linked Instagram Business/Creator account) during authorization, then retry |
 | Generate Image poll returns `404 GENERATED_IMAGE_NOT_FOUND` | `executionId` invalid or expired | Re-run Generate Image and poll the new `executionId` |
 | STEP 2 shows the publish/schedule feature `enabled: false` or `remainingUsage: 0` | Plan doesn't allow the action, or quota used up | Advise upgrading, or wait for quota reset |
-| `FAILED_PRECONDITION` / `INELIGIBLE_FOR_FEATURE` on publish or schedule | Site's plan doesn't cover publishing/scheduling this post | Check STEP 2 first; advise upgrading the plan |
+| `FAILED_PRECONDITION` / `INELIGIBLE_FOR_FEATURE` on publish or schedule | Plan doesn't cover the action, or its quota is 0/exhausted (see the `quotaInfo` from STEP 2) | Don't retry; offer the other action if enabled (schedule vs publish now), or advise upgrading |
 | `429 RESOURCE_EXHAUSTED` / `PUBLISH_LIMIT_EXCEEDED` | Publishing rate limit hit | Back off and retry later |
 | `ALREADY_EXISTS` / `REFERENCE_ID_ALREADY_EXIST` on publish | An item with the same `referenceId` already exists | Expected when safely retrying a publish that already succeeded — don't re-publish with a new `referenceId` |
 | `FAILED_PRECONDITION` / `UNSUPPORTED_CHANNEL` | Targeting an unsupported channel, or X/Twitter after its July 31, 2026 cutoff | Use a supported channel; target X only before the cutoff |
