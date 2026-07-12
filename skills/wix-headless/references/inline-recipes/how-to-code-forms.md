@@ -57,7 +57,7 @@ A forms frontend is essentially one feature — **render the fields, then submit
 
 ### Rendering the inputs (read the schema, then bind `name` = `target`)
 
-**Read the live schema, project its `fields` into a render model, and generate one input per field.** The field's **`target`** (the immutable snake_case key — `first_name`, `email`, `message`) becomes the input's **`name`** — it's the contract the submission must use. Because the inputs are generated from the schema, the field **set, order, labels, `required`, validation format, and dropdown options** all track the dashboard: a field the owner adds/removes/relabels reflects on the site with no code change.
+**Read the live schema, project its `fields` into a render model, and generate one input per field.** The field's **`target`** (the immutable snake_case key — `first_name`, `email`, `message`) becomes the input's **`name`** — it's the contract the submission must use. Because the inputs are generated from the schema, the field **set, order, labels, `required`, validation format, length/pattern constraints, and dropdown options** all track the dashboard: a field the owner adds/removes/relabels — or a constraint they tighten — reflects on the site with no code change.
 
 **1 · Fetch the schema** (visitor token, no elevate — Gate 0). `getForm` resolves to the **`Form` directly** (not `{ form }`-wrapped). Fetch by id when you have it (the handoff carries `formId`), else discover by namespace:
 
@@ -83,6 +83,9 @@ const fields = ((form /* as any */).fields ?? [])      // `fields` is runtime-pr
     placeholder: f.view?.placeholder ?? '',
     required: f.validation?.required ?? false,
     format: f.validation?.string?.format,                // EMAIL | PHONE | URL | UNDEFINED | …
+    minLength: f.validation?.string?.minLength,          // owner-set length/pattern constraints —
+    maxLength: f.validation?.string?.maxLength,          // carry them so the client validates them too,
+    pattern: f.validation?.string?.pattern,              // not just the server (see "client-side validation" below)
     viewFieldType: f.view?.fieldType,                    // echoes the identifier: CONTACTS_*, TEXT_AREA, or a custom key
     options: f.view?.options?.map((o) => ({              // present ⇒ this is a dropdown/enum field
       value: o.value ?? o.label ?? '',
@@ -110,18 +113,20 @@ fields.map((field) => {
   if (field.viewFieldType === 'TEXT_AREA' || field.target === 'message') {
     return (
       <label key={field.target}>{field.label}{field.required && ' *'}
-        <textarea name={field.target} required={field.required} rows={4} />
+        <textarea name={field.target} required={field.required} rows={4}
+          minLength={field.minLength} maxLength={field.maxLength} />
       </label>
     );
   }
-  // Text input — derive `type` from the validation format
+  // Text input — derive `type` from the validation format; stamp the schema's constraints
   const type =
     field.format === 'EMAIL' ? 'email' :
     field.format === 'PHONE' ? 'tel' :
     field.format === 'URL' ? 'url' : 'text';
   return (
     <label key={field.target}>{field.label}{field.required && ' *'}
-      <input name={field.target} type={type} required={field.required} placeholder={field.placeholder} />
+      <input name={field.target} type={type} required={field.required} placeholder={field.placeholder}
+        minLength={field.minLength} maxLength={field.maxLength} pattern={field.pattern} />
     </label>
   );
 });
@@ -131,6 +136,31 @@ fields.map((field) => {
 - **Dropdown:** `field.view.options?.length` (a non-empty array). Custom dropdowns keep their options here even though they're absent from `formFields[]`. Don't look for a `"DROPDOWN"` componentType on `fields[]` — there isn't one.
 - **Textarea:** `field.view.fieldType === "TEXT_AREA"` **or** `field.target === "message"`. The seed marks a textarea via `identifier: "TEXT_AREA"`, which reads back as `view.fieldType`; the underlying `componentType` is always `"TEXT_INPUT"` (there is no `"TEXT_AREA"` componentType). Keying off componentType would render every text field single-line.
 - **Format:** `field.validation.string.format` reads back as `"UNDEFINED"` for unconstrained text (you seed `UNKNOWN_FORMAT`; it's stored as `UNDEFINED`) and `EMAIL`/`PHONE`/`URL`/… otherwise — map it to the input `type`.
+
+### Validation — schema-driven on the client, authoritative on the server
+
+The schema carries the validation rules too: `required`, the `format` (EMAIL/PHONE/URL), and `minLength`/`maxLength`/`pattern`. **Two layers, and the split matters:**
+
+**Server (authoritative).** `createSubmission` enforces the field's `validation` block server-side. Any violation — missing required, bad email, too short/long, pattern mismatch — comes back as `err.details.validationError.fieldViolations[].data.errors[].errorPath` (= the field's `target`) with a human message (e.g. `"must have between 2 and 12 characters"`). You **must** map these back to per-input errors (see the mapping in "Submitting"); this is the backstop that always holds even if a rule is missed client-side.
+
+**Client (schema-driven UX).** Pre-validate from the *same projected constraints* so the user gets inline feedback before a round-trip — and **derive every check from the schema, never from the field name.** ⚠️ The common mistake (seen in practice) is keying the email check on `target === "email"`; do it off `format` so an owner-added PHONE/URL/length rule is honored with no code change:
+
+```js
+function fieldError(field, raw) {
+  const v = (raw ?? '').trim();
+  if (field.required && !v) return `${field.label} is required.`;
+  if (!v) return '';                                              // optional + empty → ok
+  if (field.minLength && v.length < field.minLength) return `${field.label} must be at least ${field.minLength} characters.`;
+  if (field.maxLength && v.length > field.maxLength) return `${field.label} must be at most ${field.maxLength} characters.`;
+  if (field.format === 'EMAIL' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) return 'Please enter a valid email address.';
+  if (field.format === 'URL'   && !/^https?:\/\/.+/.test(v)) return 'Please enter a valid URL.';
+  if (field.format === 'PHONE' && !/^[+()\-\s\d]{7,}$/.test(v)) return 'Please enter a valid phone number.';
+  if (field.pattern && !new RegExp(field.pattern).test(v)) return `${field.label} is not in the expected format.`;
+  return '';
+}
+```
+
+Run it over the projected `fields` on submit (and optionally on blur); block the submit if any returns non-empty. The `<input>`/`<textarea>` also carry `minLength`/`maxLength`/`pattern` and (for text) the format-derived `type` from the render step, so native constraints reinforce the JS checks. **Don't hardcode a fixed field list or a per-field rule** — both the render and the validation read the live schema, so a dashboard-added constraint (a new `maxLength`, a stricter `pattern`) takes effect on the site with no code change.
 
 **The `steps` layout is Phase-2 concern — ignore it for Phase 1.** The schema also carries a `steps` layout (rows/columns/multi-page); Phase 1 renders a flat, stacked list in `fields` order and the frontend owns its own visual layout. (Honoring `steps` for side-by-side / multi-page rendering is a separate, later capability.)
 
@@ -179,8 +209,9 @@ The seed leaves `spamFilterProtectionLevel` at its default (`ADVANCED`), and an 
 
 ## Conclusion
 A correct Wix Forms frontend:
-- **reads the live schema** with the **`forms`** export of **`@wix/forms`** (`getForm`/`listForms`/`queryForms`) on the **plain visitor token — NO `auth.elevate`** (Gate 0: schema read is visitor-accessible on every framework incl. pure SPA, despite the docs marking it owner-scoped), and renders **schema-driven**: projects **`form.fields`** (the complete list — NOT `formFields`, which drops custom dropdowns) → `{ target, label, placeholder, required, format, viewFieldType, options }` and generates one input per field so a dashboard field add/remove/relabel reflects with no code change;
-- derives the control from `fields[].view` — **`<select>`** when `view.options` is non-empty (works for custom dropdowns), **`<textarea>`** when `view.fieldType === "TEXT_AREA"` or `target === "message"` (**never** off a componentType), else an `<input>` whose `type` comes from `validation.string.format`;
+- **reads the live schema** with the **`forms`** export of **`@wix/forms`** (`getForm`/`listForms`/`queryForms`) on the **plain visitor token — NO `auth.elevate`** (Gate 0: schema read is visitor-accessible on every framework incl. pure SPA, despite the docs marking it owner-scoped), and renders **schema-driven**: projects **`form.fields`** (the complete list — NOT `formFields`, which drops custom dropdowns) → `{ target, label, placeholder, required, format, minLength, maxLength, pattern, viewFieldType, options }` and generates one input per field so a dashboard field add/remove/relabel — or a changed constraint — reflects with no code change;
+- derives the control from `fields[].view` — **`<select>`** when `view.options` is non-empty (works for custom dropdowns), **`<textarea>`** when `view.fieldType === "TEXT_AREA"` or `target === "message"` (**never** off a componentType), else an `<input>` whose `type` comes from `validation.string.format`, with `minLength`/`maxLength`/`pattern` stamped on;
+- **validates schema-driven on the client and treats the server as authoritative**: pre-checks `required` + `minLength`/`maxLength`/`pattern` + format **keyed off `field.format`, never the field name**; and always maps `createSubmission`'s `fieldViolations[].data.errors[].errorPath` back to per-input errors as the backstop;
 - imports the **`submissions`** export of **`@wix/forms`** and calls **`submissions.createSubmission(submission, options)`** — **positional args**, the submission object first (never `{ submission }`-wrapped);
 - binds each input's **`name` = the schema's `target`** and builds the **`submissions` map keyed by `target`** (not label, not field id) — a wrong/unseeded key 400s the whole submission as "additional properties"; maps `fieldViolations[].data.errors[].errorPath` back to per-input errors;
 - **only writes submissions** — reading *submissions* back is owner-only, so the resolved promise is the success signal (show a thank-you); never `confirmSubmission` (owner-only, unneeded);
