@@ -1,6 +1,6 @@
 ---
 name: "Create and Publish a Social Media Post (with AI generation)"
-description: "End-to-end flow to create a social media post, optionally generating it with AI, and publish or schedule it to a site's connected channel (Instagram, Facebook, LinkedIn, X/Twitter, TikTok, Pinterest, YouTube, Google Business Profile) using the Wix Publisher API. Can generate a full per-channel post from a free-text idea or from the site's own assets (products, blog posts, events, bookings, coupons, categories), generate caption/title suggestions, and edit an existing image with AI. Then confirms the channel is connected, checks premium quota, creates a draft, and publishes now or schedules it. Use for 'create a post', 'generate a post from my product/idea', 'write a caption', 'edit a post image with AI', 'post to Instagram/Facebook/TikTok', or 'schedule a post'."
+description: "End-to-end flow to create a social media post, optionally generating it with AI, and publish or schedule it to a site's connected channel (Instagram, Facebook, LinkedIn, X/Twitter, TikTok, Pinterest, YouTube, Google Business Profile) using the Wix Publisher API. Can generate a full per-channel post from a free-text idea or from the site's own assets (products, blog posts, events, bookings, coupons, categories), generate caption/title suggestions, and edit an existing image with AI. Then confirms the channel is connected, checks premium quota, creates a draft, and publishes now or schedules it. Use for 'create a post', 'generate a post from my product/idea', 'write a caption', 'caption ideas/suggestions', 'edit a post image with AI', 'post to Instagram/Facebook/TikTok', 'connect my Instagram/Pinterest/LinkedIn', or 'schedule a post'."
 ---
 # RECIPE: Create and Publish a Social Media Post (with AI generation)
 
@@ -8,7 +8,7 @@ description: "End-to-end flow to create a social media post, optionally generati
 
 Run every post request through these steps, in this order. Skip a question only when the user's own words in this conversation already answered it.
 
-1. **Connection first.** Confirm the target channel is connected (STEP 1). If it isn't, offer the connect flow (STEP 1.5) before anything else.
+1. **Connection first.** Confirm the target channel is connected (STEP 1). If it isn't, offer the connect flow (STEP 1.5) before anything else. A standalone "connect my <channel>" request is also in scope: run STEP 1 + STEP 1.5 and stop once the connection is verified.
 2. **Plan second.** Check `PUBLISH_POST` / `SCHEDULE_POST` (STEP 2). If `SCHEDULE_POST` is disabled, never present scheduling as an option. If the action you need shows a positive `quotaInfo.limit` with `remainingUsage: 0`, its quota is used up: say so and don't attempt it; when publish-now is exhausted but scheduling is enabled, offer to schedule instead (a near-future time works like publish-now). A `limit: 0` is different: it currently means the quota is unmetered (the API misreports unlimited plans this way), so treat the action as available. AI generation is **never** plan-gated; never tell the user it is.
 3. **Ask: own or generated?** "Do you already have the post text (and image), or should I generate it?" Wait for the answer.
 4. **If generating, ask: idea or asset?** "From an idea, or built around one of your site's assets (a product, blog post, event, booking, or coupon)?" Offer the asset option explicitly, every time. Wait for the answer.
@@ -38,7 +38,7 @@ Base URL for all endpoints: `https://www.wixapis.com/social-publisher/v1`.
 
 **Flow:** STEP 1 confirm the channel is connected (connect if needed) → STEP 2 check premium features → STEP 3 generate content (offer this proactively) → STEP 4 pick channel/type → STEP 5 create the draft → STEP 6 publish or schedule. Checking connection and premium first avoids generating content for a channel that can't receive it or an action the plan doesn't allow.
 
-**Not covered here:** editing or analyzing already-published posts, post analytics/insights, or connecting a channel as a standalone goal (connection is handled here only as a precondition for publishing).
+**Not covered here:** editing or analyzing already-published posts, and post analytics/insights.
 
 ---
 
@@ -415,6 +415,7 @@ The post appears on the site's Social Media Marketing page in the dashboard. To 
 | Create item rejected for missing media | Instagram and story types require media (GBP needs `description` and/or media) | Provide a public image/video URL (or edit one from a source image in STEP 3c) |
 | Reschedule/cancel returns `ITEM_NOT_EXISTS`, `ITEM_IS_PUBLISHED`, or `ITEM_IS_DELETED` | The item can't be rescheduled/canceled in its current state | Only reschedule/cancel items still in `SCHEDULED` status |
 | Publish returns `status: FAILED` | Content/type mismatch or channel rejected the post | Verify the `type` + content object match the channel's supported combination and that media URLs are public |
+| An error arrives as an **HTML page** with only an HTTP status (no error code) | Some gateways render branded HTML error pages to non-browser callers, hiding the structured error | Interpret by status + endpoint: 428 on Get Connect Url = channel-count cap (handle per that row); 400 on List Accounts = channel not connected; 428 on publish/schedule = plan or quota gate. Never read it as "app not installed" or a random outage |
 
 ## References
 
