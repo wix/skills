@@ -173,6 +173,6 @@ without them:
 | insufficient credits / quota | Account is out of AI credits — degrade soft; tell the owner. |
 
 ## See also
-- `IMAGE_GENERATION.md` — image generation (Runware), a seed-time REST recipe using the same gateway.
+- `IMAGE_GENERATION.md` — image generation (Runware) via the same gateway.
 - Live docs: `dev.wix.com/docs/api-reference/articles/ai-tools/ai-apis/about-the-wix-ai-apis` (+ `…/set-up-the-wix-ai-sdk`).
 - Provider request/response params: OpenAI & Anthropic API references (the gateway is pass-through).
