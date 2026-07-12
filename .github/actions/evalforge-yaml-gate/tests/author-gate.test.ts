@@ -23,17 +23,13 @@ type CommitStub = { commit: { author: { email: string } | null } };
 
 function fakeOctokit(commits: CommitStub[]) {
   return {
-    rest: { pulls: { listCommits: 'listCommits' } },
-    paginate: async () => commits,
+    rest: { pulls: { listCommits: async () => ({ data: commits }) } },
   } as unknown as Parameters<typeof getFirstCommitAuthorEmail>[0];
 }
 
 describe('getFirstCommitAuthorEmail', () => {
   it('returns the first (oldest) commit author email', async () => {
-    const octokit = fakeOctokit([
-      { commit: { author: { email: 'first@wix.com' } } },
-      { commit: { author: { email: 'later@gmail.com' } } },
-    ]);
+    const octokit = fakeOctokit([{ commit: { author: { email: 'first@wix.com' } } }]);
     expect(await getFirstCommitAuthorEmail(octokit, 'wix', 'skills', 1)).toBe('first@wix.com');
   });
 

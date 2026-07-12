@@ -15,14 +15,15 @@ export async function getFirstCommitAuthorEmail(
   repo: string,
   prNumber: number,
 ): Promise<string | undefined> {
-  // listCommits returns the PR's commits oldest-first, so [0] is the first commit.
-  const commits = await octokit.paginate(octokit.rest.pulls.listCommits, {
+  // listCommits returns the PR's commits oldest-first; we only need the first,
+  // so ask for a single-item page rather than paginating the whole PR.
+  const { data } = await octokit.rest.pulls.listCommits({
     owner,
     repo,
     pull_number: prNumber,
-    per_page: 100,
+    per_page: 1,
   });
-  return commits[0]?.commit?.author?.email ?? undefined;
+  return data[0]?.commit?.author?.email ?? undefined;
 }
 
 export async function assertWixAuthor(
