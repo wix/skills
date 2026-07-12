@@ -34172,13 +34172,23 @@ class TokenProvider {
         return this.inflight;
     }
     /**
-     * Discards the cached token and mints a fresh one. Used to recover from a `401`
-     * when a token is rejected before its computed expiry (e.g. server-side revocation).
+     * Mints a fresh token to recover from a `401` on a token rejected before its
+     * computed expiry (e.g. server-side revocation). Pass the rejected token as
+     * `staleToken`: if a concurrent caller already refreshed past it, the fresh token
+     * is returned without minting again, and concurrent refreshes of the same stale
+     * token fold into a single in-flight mint — avoiding a token-churn loop when a
+     * burst of parallel requests all `401` at once.
      */
-    async forceRefresh() {
-        this.token = null;
-        this.expiresAt = 0;
-        return this.getToken();
+    async forceRefresh(staleToken) {
+        if (staleToken && this.token && this.token !== staleToken) {
+            return this.token;
+        }
+        if (!this.inflight) {
+            this.token = null;
+            this.expiresAt = 0;
+            this.inflight = this.mint().finally(() => { this.inflight = null; });
+        }
+        return this.inflight;
     }
     async mint() {
         const res = await fetch(this.tokenUrl, {
@@ -35044,6 +35054,14 @@ exports.uniqueRemoteScenarios = uniqueRemoteScenarios;
 const auth_1 = __nccwpck_require__(6087);
 const MCP_URL = 'https://mcp.wix.com/mcp';
 const MCP_CONFIG_KEY = 'wix-mcp-remote';
+// Cap on concurrent per-name scenario queries, so a PR touching many scenarios
+// doesn't fire an unbounded burst at the V1 gateway (which may rate-limit).
+const MAX_QUERY_CONCURRENCY = 8;
+// Fields updateTestScenario owns, as proto3-JSON (camelCase) field-mask paths.
+// Sent explicitly so a PATCH clears fields the author removed (e.g. siteSetup)
+// rather than leaving stale values — the gateway-inferred mask only covers fields
+// present in the request body.
+const TEST_SCENARIO_FIELD_MASK = 'name,description,triggerPrompt,assertionLinks,tags,siteSetup';
 // OAuth token endpoint — a fixed public Wix endpoint, independent of the EvalForge
 // API base (the internal `/_api/evalforge-backend` gateway). The token is minted
 // here, then used as a Bearer credential against the V1 API at `baseUrl`.
@@ -35136,10 +35154,11 @@ class EvalForgeClient {
         });
     }
     async request(method, path, body) {
-        let res = await this.send(method, path, body, await this.tokens.getToken());
+        const token = await this.tokens.getToken();
+        let res = await this.send(method, path, body, token);
         if (res.status === 401) {
             // Token rejected before its computed expiry — mint a fresh one and retry once.
-            res = await this.send(method, path, body, await this.tokens.forceRefresh());
+            res = await this.send(method, path, body, await this.tokens.forceRefresh(token));
         }
         if (!res.ok) {
             const err = (await res.json().catch(() => ({})));
@@ -35216,11 +35235,15 @@ class EvalForgeClient {
         const unique = [...new Set(names)];
         if (unique.length === 0)
             return [];
-        const pages = await Promise.all(unique.map(name => this.request('POST', `/projects/${enc(projectId)}/test-scenarios/query`, { filter: { name } }).then(res => (res.testScenarios ?? []).filter(s => s.name === name))));
+        // Query names in bounded-concurrency batches rather than all at once.
         const byId = new Map();
-        for (const page of pages) {
-            for (const s of page)
-                byId.set(s.id, { id: s.id, name: s.name, tags: s.tags ?? [] });
+        for (let i = 0; i < unique.length; i += MAX_QUERY_CONCURRENCY) {
+            const batch = unique.slice(i, i + MAX_QUERY_CONCURRENCY);
+            const pages = await Promise.all(batch.map(name => this.request('POST', `/projects/${enc(projectId)}/test-scenarios/query`, { filter: { name } }).then(res => (res.testScenarios ?? []).filter(s => s.name === name))));
+            for (const page of pages) {
+                for (const s of page)
+                    byId.set(s.id, { id: s.id, name: s.name, tags: s.tags ?? [] });
+            }
         }
         return [...byId.values()];
     }
@@ -35235,8 +35258,9 @@ class EvalForgeClient {
         return { id: res.testScenario.id };
     }
     async updateTestScenario(projectId, id, body, tags) {
-        // PATCH; the gateway infers the field mask from the provided `testScenario` fields.
-        await this.request('PATCH', `/projects/${enc(projectId)}/test-scenarios/${enc(id)}`, { testScenario: { id, ...body, tags } });
+        // Explicit field mask so the PATCH clears fields the author removed (e.g. siteSetup)
+        // instead of leaving stale values — see TEST_SCENARIO_FIELD_MASK.
+        await this.request('PATCH', `/projects/${enc(projectId)}/test-scenarios/${enc(id)}`, { testScenario: { id, ...body, tags }, fieldMask: TEST_SCENARIO_FIELD_MASK });
     }
     async deleteTestScenario(projectId, id) {
         await this.request('DELETE', `/projects/${enc(projectId)}/test-scenarios/${enc(id)}`);
@@ -35887,12 +35911,16 @@ async function runPromote() {
     const baseEvals = loadEvalsWithWarnings(node_path_1.posix.join(workspace, paths_1.BASE_WORKSPACE_SUBDIR));
     const removedNames = [...baseEvals.keys()].filter(name => !headScenarios.has(name));
     if (removedNames.length > 0) {
-        let removedRemote = [];
+        let removedRemote;
         try {
             removedRemote = await evalforge.listTestScenarios(config.projectId, removedNames);
         }
         catch (e) {
-            core.warning(`listTestScenarios failed: ${e instanceof Error ? e.message : String(e)}`);
+            // Fail loudly rather than continue with an empty list: swallowing this would
+            // silently leave YAML-removed production scenarios as orphans in EvalForge.
+            // Failing the promote run flags it so it can be re-run.
+            core.setFailed(`Could not fetch removed scenarios for delete-on-merge — ${removedNames.length} scenario(s) may be left orphaned; re-run promote. Cause: ${e instanceof Error ? e.message : String(e)}`);
+            return;
         }
         for (const r of removedRemote) {
             if (r.tags.some(t => t.startsWith(evalforge_1.DRAFT_PREFIX)))

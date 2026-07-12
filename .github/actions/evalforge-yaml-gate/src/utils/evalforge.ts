@@ -5,6 +5,16 @@ export type HttpError = Error & { status: number };
 const MCP_URL = 'https://mcp.wix.com/mcp';
 const MCP_CONFIG_KEY = 'wix-mcp-remote';
 
+// Cap on concurrent per-name scenario queries, so a PR touching many scenarios
+// doesn't fire an unbounded burst at the V1 gateway (which may rate-limit).
+const MAX_QUERY_CONCURRENCY = 8;
+
+// Fields updateTestScenario owns, as proto3-JSON (camelCase) field-mask paths.
+// Sent explicitly so a PATCH clears fields the author removed (e.g. siteSetup)
+// rather than leaving stale values — the gateway-inferred mask only covers fields
+// present in the request body.
+const TEST_SCENARIO_FIELD_MASK = 'name,description,triggerPrompt,assertionLinks,tags,siteSetup';
+
 // OAuth token endpoint — a fixed public Wix endpoint, independent of the EvalForge
 // API base (the internal `/_api/evalforge-backend` gateway). The token is minted
 // here, then used as a Bearer credential against the V1 API at `baseUrl`.
@@ -154,10 +164,11 @@ export class EvalForgeClient {
   }
 
   private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
-    let res = await this.send(method, path, body, await this.tokens.getToken());
+    const token = await this.tokens.getToken();
+    let res = await this.send(method, path, body, token);
     if (res.status === 401) {
       // Token rejected before its computed expiry — mint a fresh one and retry once.
-      res = await this.send(method, path, body, await this.tokens.forceRefresh());
+      res = await this.send(method, path, body, await this.tokens.forceRefresh(token));
     }
     if (!res.ok) {
       const err = (await res.json().catch(() => ({}))) as { message?: string; error?: string; details?: unknown };
@@ -263,16 +274,20 @@ export class EvalForgeClient {
     }
     const unique = [...new Set(names)];
     if (unique.length === 0) return [];
-    const pages = await Promise.all(unique.map(name =>
-      this.request<{ testScenarios?: RawScenario[] }>(
-        'POST',
-        `/projects/${enc(projectId)}/test-scenarios/query`,
-        { filter: { name } },
-      ).then(res => (res.testScenarios ?? []).filter(s => s.name === name)),
-    ));
+    // Query names in bounded-concurrency batches rather than all at once.
     const byId = new Map<string, RemoteScenario>();
-    for (const page of pages) {
-      for (const s of page) byId.set(s.id, { id: s.id, name: s.name, tags: s.tags ?? [] });
+    for (let i = 0; i < unique.length; i += MAX_QUERY_CONCURRENCY) {
+      const batch = unique.slice(i, i + MAX_QUERY_CONCURRENCY);
+      const pages = await Promise.all(batch.map(name =>
+        this.request<{ testScenarios?: RawScenario[] }>(
+          'POST',
+          `/projects/${enc(projectId)}/test-scenarios/query`,
+          { filter: { name } },
+        ).then(res => (res.testScenarios ?? []).filter(s => s.name === name)),
+      ));
+      for (const page of pages) {
+        for (const s of page) byId.set(s.id, { id: s.id, name: s.name, tags: s.tags ?? [] });
+      }
     }
     return [...byId.values()];
   }
@@ -298,11 +313,12 @@ export class EvalForgeClient {
   }
 
   async updateTestScenario(projectId: string, id: string, body: ScenarioBody, tags: string[]): Promise<void> {
-    // PATCH; the gateway infers the field mask from the provided `testScenario` fields.
+    // Explicit field mask so the PATCH clears fields the author removed (e.g. siteSetup)
+    // instead of leaving stale values — see TEST_SCENARIO_FIELD_MASK.
     await this.request<void>(
       'PATCH',
       `/projects/${enc(projectId)}/test-scenarios/${enc(id)}`,
-      { testScenario: { id, ...body, tags } },
+      { testScenario: { id, ...body, tags }, fieldMask: TEST_SCENARIO_FIELD_MASK },
     );
   }
 

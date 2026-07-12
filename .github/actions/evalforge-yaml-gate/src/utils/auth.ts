@@ -37,13 +37,23 @@ export class TokenProvider {
   }
 
   /**
-   * Discards the cached token and mints a fresh one. Used to recover from a `401`
-   * when a token is rejected before its computed expiry (e.g. server-side revocation).
+   * Mints a fresh token to recover from a `401` on a token rejected before its
+   * computed expiry (e.g. server-side revocation). Pass the rejected token as
+   * `staleToken`: if a concurrent caller already refreshed past it, the fresh token
+   * is returned without minting again, and concurrent refreshes of the same stale
+   * token fold into a single in-flight mint — avoiding a token-churn loop when a
+   * burst of parallel requests all `401` at once.
    */
-  async forceRefresh(): Promise<string> {
-    this.token = null;
-    this.expiresAt = 0;
-    return this.getToken();
+  async forceRefresh(staleToken?: string): Promise<string> {
+    if (staleToken && this.token && this.token !== staleToken) {
+      return this.token;
+    }
+    if (!this.inflight) {
+      this.token = null;
+      this.expiresAt = 0;
+      this.inflight = this.mint().finally(() => { this.inflight = null; });
+    }
+    return this.inflight;
   }
 
   private async mint(): Promise<string> {

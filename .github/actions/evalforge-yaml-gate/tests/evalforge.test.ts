@@ -78,6 +78,29 @@ describe('EvalForgeClient (V1) — auth + test-scenarios', () => {
     await expect(c.listTestScenarios('P', [])).resolves.toEqual([]);
   });
 
+  it('listTestScenarios(names) bounds query concurrency to 8', async () => {
+    let active = 0, maxConcurrent = 0;
+    globalThis.fetch = vi.fn(async (input: string | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith('/oauth2/token')) {
+        return new Response(JSON.stringify({ access_token: 'tok', token_type: 'Bearer', expires_in: 300 }), { status: 200, headers: { 'content-type': 'application/json' } });
+      }
+      active++;
+      maxConcurrent = Math.max(maxConcurrent, active);
+      await new Promise(r => setTimeout(r, 5));
+      active--;
+      const name = (JSON.parse(init!.body as string) as { filter: { name: string } }).filter.name;
+      return new Response(JSON.stringify({ testScenarios: [{ id: name, name, tags: [] }] }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }) as unknown as typeof fetch;
+
+    const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    const names = Array.from({ length: 20 }, (_, i) => `svc/${i}`);
+    const r = await c.listTestScenarios('P', names);
+    expect(r).toHaveLength(20);
+    expect(maxConcurrent).toBeGreaterThan(1);   // does run concurrently
+    expect(maxConcurrent).toBeLessThanOrEqual(8); // but bounded
+  });
+
   it('listTestScenariosByTag filters by the tag', async () => {
     mockFetch(({ url, method, body }) => {
       expect(method).toBe('POST');
@@ -105,11 +128,13 @@ describe('EvalForgeClient (V1) — auth + test-scenarios', () => {
     expect(r.id).toBe('new-id');
   });
 
-  it('updateTestScenario PATCHes /:id with {testScenario:{id,...}}', async () => {
+  it('updateTestScenario PATCHes /:id with {testScenario:{id,...}} and an explicit fieldMask', async () => {
     mockFetch(({ url, method, body }) => {
       expect(method).toBe('PATCH');
       expect(url).toContain('/v1/projects/P/test-scenarios/X');
       expect((body as { testScenario?: { id?: string } }).testScenario?.id).toBe('X');
+      // Explicit mask so a removed siteSetup is cleared rather than left stale.
+      expect((body as { fieldMask?: string }).fieldMask).toBe('name,description,triggerPrompt,assertionLinks,tags,siteSetup');
       return { status: 204 };
     });
     const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);

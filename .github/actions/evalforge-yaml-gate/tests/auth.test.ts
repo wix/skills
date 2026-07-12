@@ -78,4 +78,35 @@ describe('TokenProvider', () => {
     await p.getToken();
     expect(core.setSecret).toHaveBeenCalledWith('tok-secret');
   });
+
+  it('forceRefresh(staleToken) returns an already-refreshed token without minting again', async () => {
+    let n = 0;
+    const fetchMock = vi.fn(async () => tokenResponse(`tok-${++n}`, 300));
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const p = new TokenProvider('https://x/oauth2/token', 'id', 'sec');
+    const stale = await p.getToken();                 // tok-1
+    expect(await p.forceRefresh(stale)).toBe('tok-2'); // stale token → mints once
+    expect(await p.forceRefresh(stale)).toBe('tok-2'); // already past stale → no re-mint
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('concurrent forceRefresh of the same stale token folds into a single mint', async () => {
+    let active = 0, maxConcurrent = 0, n = 0;
+    const fetchMock = vi.fn(async () => {
+      active++;
+      maxConcurrent = Math.max(maxConcurrent, active);
+      await new Promise(r => setTimeout(r, 5));
+      active--;
+      return tokenResponse(`tok-${++n}`, 300);
+    });
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const p = new TokenProvider('https://x/oauth2/token', 'id', 'sec');
+    const stale = await p.getToken(); // tok-1
+    const [a, b, c] = await Promise.all([p.forceRefresh(stale), p.forceRefresh(stale), p.forceRefresh(stale)]);
+    expect([a, b, c]).toEqual(['tok-2', 'tok-2', 'tok-2']); // one shared refresh, not three
+    expect(maxConcurrent).toBe(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2); // initial getToken + one shared refresh
+  });
 });

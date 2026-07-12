@@ -62,11 +62,15 @@ export async function runPromote(): Promise<void> {
   const baseEvals = loadEvalsWithWarnings(posix.join(workspace, BASE_WORKSPACE_SUBDIR));
   const removedNames = [...baseEvals.keys()].filter(name => !headScenarios.has(name));
   if (removedNames.length > 0) {
-    let removedRemote: RemoteScenario[] = [];
+    let removedRemote: RemoteScenario[];
     try {
       removedRemote = await evalforge.listTestScenarios(config.projectId, removedNames);
     } catch (e) {
-      core.warning(`listTestScenarios failed: ${e instanceof Error ? e.message : String(e)}`);
+      // Fail loudly rather than continue with an empty list: swallowing this would
+      // silently leave YAML-removed production scenarios as orphans in EvalForge.
+      // Failing the promote run flags it so it can be re-run.
+      core.setFailed(`Could not fetch removed scenarios for delete-on-merge — ${removedNames.length} scenario(s) may be left orphaned; re-run promote. Cause: ${e instanceof Error ? e.message : String(e)}`);
+      return;
     }
     for (const r of removedRemote) {
       if (r.tags.some(t => t.startsWith(DRAFT_PREFIX))) continue;
