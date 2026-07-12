@@ -27,51 +27,13 @@ So the AI call always sits **behind a server boundary** — a Wix serverless/web
 endpoint calls Wix. This boundary is also where you enforce credits/abuse controls (see **Credits &
 cost control**) — it is not optional plumbing, it is the security and billing perimeter.
 
-**Authorized identities** (what may sit on the server side):
+On a **Wix-managed backend** (Astro-on-Wix serverless / web methods) the call is authenticated for
+you. On a **self-managed** backend, pass an authenticated `WixClient` (`AppStrategy` or
+`ApiKeyStrategy`) — see the SDK path below. Either way the browser only ever calls *your* server
+route; that route calls Wix.
 
-| Identity | How obtained | Works? |
-|---|---|---|
-| Wix **user** (site-scoped REST token) | managed CLI `wix token --site` — seed/build/backend | ✅ |
-| **API key** with `Invoke AI Models` scope | site-development API key (`ApiKeyStrategy`) | ✅ |
-| **App** (`AppStrategy`) with `Invoke AI Models` scope | a Wix app whose OAuth app has the `SCOPE.DATA_SCIENCE.INVOKE_AI_MODELS` permission granted in the Dev Center | ✅ |
-| App / API key **without** that scope | — | ❌ `403 Forbidden` |
-| Anonymous **visitor** / member | OAuth `grantType:anonymous`, member session | ❌ `403 Permission denied` |
-
-> A plain headless OAuth app **does not** have `Invoke AI Models` by default — it must be added to the
-> app's permissions before `AppStrategy`/`ApiKeyStrategy` can invoke models. Surface this
-> if a run 403s on a correctly-formed AI call.
-
-### Build/seed-time vs runtime — they use different identities (verified, easy to miss)
-
-- **Build/seed time** (the skill's *own* AI calls — e.g. generating product copy or images during
-  Seed, and `IMAGE_GENERATION.md`): these run under the **CLI token** (`wix token --site`), which is
-  the **Wix user (owner)** identity — the owner inherently owns the AI credits, so this **works today
-  with no extra setup**.
-- **Runtime** (AI features baked into the *deployed* site's server code): the running site does **not**
-  use the owner's CLI token — `@wix/ai` elevates to the site's **app/companion identity**, which is
-  **not granted `INVOKE_AI_MODELS` by default → `403 Forbidden` at runtime**, even though seed-time
-  worked. This is the trap: a feature that generated fine during Seed will 403 once it's serving real
-  requests.
-
-**Enabling runtime AI on a managed headless site** — grant `SCOPE.DATA_SCIENCE.INVOKE_AI_MODELS` to
-the site's app (`appId`/`clientId` from `wix.config.json`). Self-serve, as the app owner (a plain
-`wix token` developer bearer — **not** an account API key, despite the REST doc's claim):
-
-```bash
-curl -X POST 'https://www.wixapis.com/apps/v1/app-permissions/v1/app-permissions' \
-  -H "Authorization: Bearer $(npx @wix/cli@latest token)" \
-  -H 'Content-Type: application/json' \
-  -d '{"appPermission":{"appId":"<APP_ID>","permission":{"permissionId":"SCOPE.DATA_SCIENCE.INVOKE_AI_MODELS"}}}'
-```
-
-(Or click **Add** on the app's Dev Center permissions page — same API underneath.) Note the **doubled
-path** `/apps/v1/app-permissions/v1/app-permissions` (the doc's single-path "URL" is wrong), and that
-the grant takes **~60–90s to propagate** before the gateway honors it — the first calls after granting
-still `403`. Confirm with `ListAppPermissions`, then the runtime call succeeds.
-
-> This per-app grant is the current interim path. The clean platform fix (in progress with the CLI /
-> identity teams) is to add `INVOKE_AI_MODELS` to the `SCOPE.HEADLESS.MEGA` scope so every headless
-> site gets it automatically — once that lands, no per-app grant is needed.
+> **Building a Wix app** (rather than a site) needs the **`Invoke AI Models`** permission on the app —
+> see [About the Wix AI APIs](https://dev.wix.com/docs/api-reference/articles/ai-tools/ai-apis/about-the-wix-ai-apis).
 
 ## Call shape (REST — primary)
 
@@ -210,7 +172,7 @@ holds `$TOKEN`) — don't ship AI to end-users without them:
    credits; don't wire AI to a fully-open public route by default.
 2. **Rate-limit & quota per identity** — track calls per member/session/IP in a Wix Data/CMS
    collection; **check-and-decrement before the AI call**, reject over quota (re-check after, since
-   balance is shared — see the account-level `InsufficientCreditsError`).
+   the credit balance is account-wide).
 3. **Cap inputs** — bound prompt/`max_tokens`/`input` size; large requests cost more credits.
 4. **Cache / dedupe** — memoize identical prompts (product description for the same product, etc.);
    many "AI features" are computed once at seed/build time, not per request — prefer that when the
@@ -228,7 +190,7 @@ holds `$TOKEN`) — don't ship AI to end-users without them:
 | Symptom | Cause → fix |
 |---|---|
 | `403 Permission denied` | Called with a visitor/member token, or from the browser. **Move the call server-side** with an authorized identity. |
-| `403 Forbidden` (server identity) — esp. at **runtime** after seed-time worked | The site's app identity lacks `INVOKE_AI_MODELS`. Grant it (see "Enabling runtime AI") and wait ~60–90s for propagation. |
+| `403 Forbidden` (server identity) | Building a Wix **app**: add the `Invoke AI Models` permission to the app (see the AI-APIs doc). |
 | `400 anthropic-version: header is required` | Add `-H "anthropic-version: 2023-06-01"`. |
 | `400 Unsupported model` | Use the exact id from `/{provider}/v1/models` (Anthropic ids are often date-stamped, e.g. `claude-haiku-4-5-20251001`). |
 | `Unknown Runware API error` (images) | Transient, or the model rejects SDK params (`google:4@2`). Retry + fall back to `bfl:5@1` / `runware:100@1`. |
