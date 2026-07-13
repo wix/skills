@@ -118,6 +118,7 @@ This is different from V3 which uses an array structure.
 - `productType` only supports `"physical"` via the API.
 - To add media to a product, use the separate **Add Product Media** endpoint after creation.
 - To query products on a V1 site, see [Query Products (Catalog V1)](query-products-catalog-v1.md).
+- **Required permission scope: `SCOPE.DC-STORES.MANAGE-PRODUCTS`** (Method Permissions: `WIX_STORES.MODIFY_PRODUCTS`). This is a distinct, legacy scope from `SCOPE.STORES.PRODUCT_WRITE`, which only applies to Catalog V3 write endpoints. If this call returns `403` with `"the auth identity is not allowed on this resource for this site/account"`, the caller is missing `SCOPE.DC-STORES.MANAGE-PRODUCTS` specifically — granting/re-checking `SCOPE.STORES.PRODUCT_WRITE` will not fix it. [Update Product Variants (Catalog V1)](update-product-variants-catalog-v1.md) requires the same scope.
 
 ## References
 
