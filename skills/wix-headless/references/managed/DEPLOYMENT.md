@@ -52,6 +52,6 @@ These two fixes are **Wix-hosting facts** — they apply to a connected **static
 
 ## Transient errors
 
-A release can hit transient infrastructure errors (`ECONNRESET`, `ETIMEDOUT`, `STATE_MISMATCH`, "try again shortly"). Retry the release serially up to **3×** with a short backoff. **Build failures are not retryable** — they're code bugs; fix the code, not the retry.
+A release can hit transient infrastructure errors (`ECONNRESET`, `ETIMEDOUT`, `STATE_MISMATCH`, `errorCode -100`, "try again shortly"). Retry the release serially up to **3×** with a short backoff. **Build failures are not retryable** — they're code bugs; fix the code, not the retry.
 
 That's the whole of finalize for `managed` — no `site-publisher` call, and no `oauth-app` **origin** PATCH (the origin is auto-registered). The **one** exception is the member-login callback on a non-Astro frontend above — that `allowedRedirectUris` PATCH is manual and required.
