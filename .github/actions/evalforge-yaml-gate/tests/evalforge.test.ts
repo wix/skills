@@ -272,3 +272,39 @@ describe('EvalForgeClient (V1) — 401 handling', () => {
     expect(apiCalls).toBe(2); // original attempt + one retry, then give up
   });
 });
+
+describe('EvalForgeClient (V1) — ensureMcpVersion idempotency', () => {
+  const listBody = (version: string) => ({ capabilityVersions: [{ id: 'ver-1', capabilityId: 'M', version }] });
+
+  it('recovers from a 500 "already exists" by reusing the existing version', async () => {
+    mockFetch(({ url, method }) => {
+      if (url.includes('/capabilities/M/versions') && method === 'POST') return { status: 500 };
+      if (url.includes('/capabilities/M/versions') && method === 'GET') return { status: 200, body: listBody('pr-1-abc') };
+      return { status: 404 };
+    });
+    const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    const v = await c.ensureMcpVersion('M', 'P', 'pr-1-abc', 1, 'abc1234', 'wix/skills');
+    expect(v).toEqual({ id: 'ver-1', capabilityId: 'M', version: 'pr-1-abc' });
+  });
+
+  it('recovers from a 409 the same way', async () => {
+    mockFetch(({ url, method }) => {
+      if (url.includes('/capabilities/M/versions') && method === 'POST') return { status: 409 };
+      if (url.includes('/capabilities/M/versions') && method === 'GET') return { status: 200, body: listBody('pr-1-abc') };
+      return { status: 404 };
+    });
+    const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    const v = await c.ensureMcpVersion('M', 'P', 'pr-1-abc', 1, 'abc1234', 'wix/skills');
+    expect(v.id).toBe('ver-1');
+  });
+
+  it('rethrows the original error when the version is genuinely absent', async () => {
+    mockFetch(({ url, method }) => {
+      if (url.includes('/capabilities/M/versions') && method === 'POST') return { status: 500 };
+      if (url.includes('/capabilities/M/versions') && method === 'GET') return { status: 200, body: listBody('pr-2-other') };
+      return { status: 404 };
+    });
+    const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    await expect(c.ensureMcpVersion('M', 'P', 'pr-1-abc', 1, 'abc1234', 'wix/skills')).rejects.toMatchObject({ status: 500 });
+  });
+});

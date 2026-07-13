@@ -35213,12 +35213,15 @@ class EvalForgeClient {
             return await this.createMcpVersion(mcpId, projectId, versionLabel, prNumber, headSha, skillsRepo);
         }
         catch (e) {
-            if (!isHttpError(e) || e.status !== 409)
+            // A duplicate version should be 409, but the backend currently throws a plain
+            // error for "already exists" that transcodes to 500 — so recover on either by
+            // reusing the existing version, and only rethrow if it genuinely isn't there.
+            if (!isHttpError(e) || (e.status !== 409 && e.status !== 500))
                 throw e;
             const versions = await this.listMcpVersions(mcpId, projectId);
             const existing = versions.find(v => v.version === versionLabel);
             if (!existing)
-                throw new Error(`Version ${versionLabel} not found after 409`);
+                throw e;
             return existing;
         }
     }
