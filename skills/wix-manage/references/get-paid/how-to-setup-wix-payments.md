@@ -10,7 +10,7 @@ This recipe covers the setup flow needed before creating payment links or collec
 
 Before connecting Wix Payments, collect and confirm:
 
-1. Terms acceptance: https://www.wix.com/about/terms-of-payments
+1. Terms acceptance: https://support.wix.com/en/article/wix-payments-terms-of-service
 2. First name
 3. Last name
 4. Product/service description (minimum meaningful business description)
@@ -19,7 +19,7 @@ Before connecting Wix Payments, collect and confirm:
 
 Call:
 
-- `POST https://www.wixapis.com/payments/v1/wix-payments-account/connect`
+- `POST https://www.wixapis.com/payments/mcp/v1/wix-payments-account/connect`
 
 ```json
 {
