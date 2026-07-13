@@ -170,12 +170,17 @@ window.location.replace(oAuthData.originalUri || '/');
 
 ---
 
-## Frontend axis — non-Astro is the clean path; Astro means stepping outside auto-auth
+## Frontend axis — non-Astro (browser client) and Astro (client island + `wixSession` cookie)
 
-Both mechanisms are **client-driven `OAuthStrategy`** calls — they live on the manual visitor client, not on Astro auto-auth. This is important now that the Wix login page (and Astro's built-in `/api/auth/*` routes for it) is gone.
+Both mechanisms are **client-driven `OAuthStrategy`** calls. **They MUST run in the browser** — `register`/`login`/`getMemberTokensForDirectLogin` reach `window` (the SDK's iframe/postMessage token exchange, `@wix/sdk/.../iframeUtils`), so running them in a **server route throws `ReferenceError: window is not defined` (500)**. Don't put the auth calls in `src/pages/api/*.ts`.
 
 - **Non-Astro (Vite/React/Vue SPA, static HTML)** — the natural, proven path. Build the client once (`non-astro.md` §1), run the calls above in the browser, persist tokens in `localStorage`. Everything in this recipe applies directly.
-- **Astro** — auto-auth ships **no client** to call `register`/`login`/`getAuthUrl` on, so custom login means **instantiating an explicit `OAuthStrategy` client yourself** — in a `src/pages/api/*.ts` backend route or a hydrated client island, **never in SSR frontmatter** (the public-env `clientId` is `undefined` at server render → 500). Credential submit posts to a backend route that runs `register`/`login`; the social callback is its own route/page. This is **outside** the managed auto-auth happy path — persist the member token set yourself and re-hydrate the client with it; do not expect ambient `getCurrentMember()` to pick up a session you minted on a side client without wiring the token through. Treat the non-Astro flow as the reference and adapt the placement (backend route / island) for Astro.
+- **Astro (verified 2026-07-13 on `@wix/astro` 2.63.0)** — custom login **works**, but it runs **outside** auto-auth, in a **hydrated client island** (a `<script>` / framework island), **never in SSR frontmatter or a backend route** (public `clientId` is `undefined` at SSR → 500; the auth calls need `window` → 500). The pattern that verified end-to-end:
+  1. In the island, build your own `createClient({ auth: OAuthStrategy({ clientId: WIX_CLIENT_ID }) })` — `WIX_CLIENT_ID` is a **client-readable** env var (`import { WIX_CLIENT_ID } from 'astro:env/client'`; the integration provisions it).
+  2. Run `register`/`login` (or `getAuthUrl({ idp })` for social) → `getMemberTokensForDirectLogin(sessionToken)` → member `tokens`.
+  3. **Propagate to auto-auth by writing the `wixSession` cookie** in the shape the `@wix/astro` middleware reads: `{ clientId: WIX_CLIENT_ID, tokens }` (it rejects the cookie unless `clientId === WIX_CLIENT_ID`). Simplest robust way: POST the tokens to a tiny `src/pages/api/*.ts` route that calls `cookies.set('wixSession', { clientId: WIX_CLIENT_ID, tokens }, { path: '/', secure: true })` (identical to the integration's own `saveSessionTokensToCookie`) — this hands cookie encoding to Astro. Then navigate.
+  4. Now **ambient server-side `getCurrentMember()` runs as the member** (verified). Gate pages in SSR frontmatter as usual.
+  - Do **not** use Astro's built-in `/api/auth/login` route — it redirects to the removed Wix login page. `@wix/astro` also ships a `components/login.astro` element in some versions, but it's undocumented and version-dependent (and its cookie write is out of sync in at least one version) — prefer the explicit island pattern above.
 
 ---
 
