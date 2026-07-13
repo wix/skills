@@ -189,7 +189,7 @@ Keep each session's event id — it's `results[].itemMetadata.id` (the events bu
 
 **Only when `imagery` is on** (`SEED.md` § "Entity images"). This is the bookings entry in the required pass-2 "attach the image to the entity" flow — the service was created text-only in STEP 3; now write the image onto it. Obtain the image per `references/IMAGE_GENERATION.md` (generate + import, or import an existing URL) → keep `file.url` and its `file.id`, then patch the service.
 
-**The image is written under `media.mainMedia` and `media.coverMedia`, each `{ "image": { "id", "url", "width", "height" } }`.** Per the Services V2 reference (`references/bookings/create-and-update-booking-services.md`): `media.mainMedia` is shown in the services list, `media.coverMedia` on the service page, and `media.items[]` is the service-page gallery. The binding field is the image **`id`** (the Wix Media file id); `url` and dimensions are descriptive. Write shape:
+**The image is written under `media.mainMedia` and `media.coverMedia`, each `{ "image": { "id", "url", "width", "height" } }`.** Per the [Services V2 reference](https://dev.wix.com/docs/api-reference/business-solutions/bookings/skills/create-and-update-booking-services): `media.mainMedia` is shown in the services list, `media.coverMedia` on the service page, and `media.items[]` is the service-page gallery. The binding field is the image **`id`** (the Wix Media file id); `url` and dimensions are descriptive. Write shape:
 
 ```json
 {
