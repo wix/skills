@@ -6,3 +6,7 @@ apiDoc:
       title: Domain Search and Purchase
       docsEntry: https://dev.wix.com/docs/api-reference/account-level/domains
       tags: [domains]
+    - file: ../../../skills/wix-manage/references/domains/diagnose-domain-connectivity-issues.md
+      title: Diagnose Domain Connectivity Issues
+      docsEntry: https://dev.wix.com/docs/api-reference/account-level/domains
+      tags: [domains]
