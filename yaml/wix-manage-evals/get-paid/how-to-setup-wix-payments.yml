@@ -15,10 +15,10 @@ assertions:
 
       Pass if the response:
       - asks for (or confirms it has) the site owner's first name, last name, a product/service description, and terms-of-service acceptance before calling connect, AND
-      - if it states the connect endpoint, uses `POST https://www.wixapis.com/payments/mcp/v1/wix-payments-account/connect` (not `/payments/v1/wix-payments-account/connect`), AND
+      - if it states the connect endpoint, uses `POST https://www.wixapis.com/payments/v1/wix-payments-account/connect`, AND
       - obtains or explicitly asks for the user's consent before making the mutating connect call.
 
       Fail if the response:
       - fabricates the user's name/business details instead of asking, OR
-      - calls or states the connect endpoint as `/payments/v1/wix-payments-account/connect` (the stale, incorrect path), OR
+      - calls or states the connect endpoint with a different path (e.g. `/payments/mcp/v1/wix-payments-account/connect`), OR
       - connects without any indication of explicit user consent.

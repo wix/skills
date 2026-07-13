@@ -26,7 +26,7 @@ If the site's country is not on this list, stop here — do not call connect. Te
 
 Call:
 
-- `POST https://www.wixapis.com/payments/mcp/v1/wix-payments-account/connect`
+- `POST https://www.wixapis.com/payments/v1/wix-payments-account/connect`
 
 ```json
 {
