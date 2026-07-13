@@ -3,6 +3,7 @@ import * as github from '@actions/github';
 import { posix } from 'node:path';
 import { getEvalConfig, type Config } from './config';
 import { fail, getChangedFiles, classifyChanges, makeCommenter, type ChangedFile } from './github';
+import { assertWixAuthor } from './author-gate';
 import { loadEvals, type LoadedScenario } from './evals';
 import { canonicalDocUrl } from './doc-url';
 import { computeCoverage } from './coverage';
@@ -49,6 +50,7 @@ export function remoteScenarioFiltersForGate(input: {
 export async function runGate(): Promise<void> {
   const config = getEvalConfig();
   const octokit = github.getOctokit(config.githubToken);
+  await assertWixAuthor(octokit, config.owner, config.repo, config.prNumber);
   const comment = makeCommenter(octokit, config.owner, config.repo, config.prNumber);
   const workspace = workspaceRoot();
   const draftTag = draftTagFor(`${config.owner}/${config.repo}`, config.prNumber);

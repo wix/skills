@@ -34096,6 +34096,76 @@ else {
 
 /***/ }),
 
+/***/ 9916:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.isWixAuthorEmail = isWixAuthorEmail;
+exports.getFirstCommitAuthorEmail = getFirstCommitAuthorEmail;
+exports.assertWixAuthor = assertWixAuthor;
+const core = __importStar(__nccwpck_require__(7484));
+const WIX_EMAIL_RE = /@wix\.com$/i;
+function isWixAuthorEmail(email) {
+    return typeof email === 'string' && WIX_EMAIL_RE.test(email.trim());
+}
+async function getFirstCommitAuthorEmail(octokit, owner, repo, prNumber) {
+    // listCommits returns the PR's commits oldest-first; we only need the first,
+    // so ask for a single-item page rather than paginating the whole PR.
+    const { data } = await octokit.rest.pulls.listCommits({
+        owner,
+        repo,
+        pull_number: prNumber,
+        per_page: 1,
+    });
+    return data[0]?.commit?.author?.email ?? undefined;
+}
+async function assertWixAuthor(octokit, owner, repo, prNumber) {
+    const email = await getFirstCommitAuthorEmail(octokit, owner, repo, prNumber);
+    if (!isWixAuthorEmail(email)) {
+        throw new Error(`PR author gate failed: the PR's first-commit author email (${email ?? 'unknown'}) ` +
+            `is not a @wix.com address. This gate is restricted to Wix authors.`);
+    }
+    core.info(`Author gate passed — first-commit author email: ${email}`);
+}
+
+
+/***/ }),
+
 /***/ 6157:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
@@ -35197,6 +35267,7 @@ const github = __importStar(__nccwpck_require__(3228));
 const node_path_1 = __nccwpck_require__(6760);
 const config_1 = __nccwpck_require__(7799);
 const github_1 = __nccwpck_require__(6246);
+const author_gate_1 = __nccwpck_require__(9916);
 const evals_1 = __nccwpck_require__(1686);
 const doc_url_1 = __nccwpck_require__(8515);
 const coverage_1 = __nccwpck_require__(4035);
@@ -35224,6 +35295,7 @@ function remoteScenarioFiltersForGate(input) {
 async function runGate() {
     const config = (0, config_1.getEvalConfig)();
     const octokit = github.getOctokit(config.githubToken);
+    await (0, author_gate_1.assertWixAuthor)(octokit, config.owner, config.repo, config.prNumber);
     const comment = (0, github_1.makeCommenter)(octokit, config.owner, config.repo, config.prNumber);
     const workspace = (0, workspace_1.workspaceRoot)();
     const draftTag = (0, evalforge_1.draftTagFor)(`${config.owner}/${config.repo}`, config.prNumber);
