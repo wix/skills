@@ -30,7 +30,7 @@ A contract for the **frontend code** of a pricing-plans site: showing the plans 
 > **⚠️ The read module is `plansV3`, not `plans`.** In the `@wix/pricing-plans` SDK, `queryPlans`/`getPlan` live on the **`plansV3`** namespace (`import { plansV3, orders } from '@wix/pricing-plans'`). Importing `plans` and calling `plans.queryPlans()` fails to type-check (`Property 'queryPlans' does not exist`). `orders` keeps its own namespace.
 
 **Auth / client — framework split** (same split as every other coding recipe):
-- **Astro (Wix-managed):** call `plansV3` / `orders` directly from server components / `src/pages/api/*`; a logged-in member's identity rides on the call. Member login itself is the custom in-app flow on an explicit `OAuthStrategy` client in a backend route / island (`how-to-code-members-custom-login.md`) — the built-in `/api/auth/login` Wix-login redirect is removed. A member reading their own orders needs **no `auth.elevate`**.
+- **Astro (Wix-managed):** call `plansV3` / `orders` directly from server components / `src/pages/api/*`; a logged-in member's identity rides on the call. Member login itself is the custom in-app flow, run in a **client island** (not a backend route — the auth calls need `window`), writing the `wixSession` cookie (`how-to-code-members-custom-login.md`) — the built-in `/api/auth/login` Wix-login redirect is removed. A member reading their own orders needs **no `auth.elevate`**.
 - **Non-Astro (Vite/React/Vue/static):** build one manual client and reuse it — the **same** `OAuthStrategy` client the members/visitor flow already builds (don't make a second one). After the member-login handshake sets member tokens on it, `orders.*` runs as that member:
   ```js
   import { createClient, OAuthStrategy } from '@wix/sdk';
