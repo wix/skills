@@ -14,9 +14,9 @@ CI=1 npx @wix/cli@latest release
 - The deployed origin is registered on the OAuth app automatically — the frontend's visitor SDK calls are accepted from the live URL with no extra step.
 - The published URL is printed on stdout (`Site published on <url>`).
 
-## Member login on a **non-Astro** frontend — register the callback URI (post-release)
+## Social login (Google/Facebook) on a **non-Astro** frontend — register the callback URI (post-release)
 
-**Only when the run has member login on a non-Astro SPA/static frontend using the Wix login page** (`inline-recipes/how-to-code-members-non-astro.md` — the `getAuthUrl` → `/callback` handshake). Astro's built-in `/api/auth/*` callback shapes are auto-registered; a **non-Astro SPA's own callback path is not** — and **login stays dead (4xx on the login redirect) until you register it**. This is a genuine gap `wix release` does *not* close for you.
+**Only when the run has SOCIAL member login (Google/Facebook) on a non-Astro SPA/static frontend** (`inline-recipes/how-to-code-members-custom-login.md` mechanism (B) — the `getAuthUrl({ idp })` → `/callback` handshake). A **non-Astro SPA's own callback path is not auto-registered** — and **social login stays dead (4xx on the login redirect) until you register it**. This is a genuine gap `wix release` does *not* close for you. (**Direct-credential** login — mechanism (A), `register`/`login` — has no redirect and needs none of this.)
 
 - `release` auto-registers the deployed **origin** (`allowedRedirectDomains`) — that's the visitor-SDK/CORS surface (above). It does **not** register the member-login **callback URL** (`allowedRedirectUris`). These are two different fields; members needs **both**, and only the first is automatic.
 - **This is a post-release step** — the callback URL embeds the deployed origin, which is unknown until `release` prints it. Do it right after release, once the URL is known.
@@ -41,7 +41,7 @@ curl -sS -X PATCH https://www.wixapis.com/oauth-app/v1/oauth-apps/$ID \
 - `allowedRedirectDomains` and `allowedRedirectUris` can go in **one** `PATCH` (list both under `mask.paths`) if you ever need to set the origin by hand too.
 - **If you're not the one deploying**, you can't know the domain — flag the member-login callback URI to the user to register, and note **login is dead until they do** (higher-stakes than the origin flag).
 
-> **Custom-login** (`how-to-code-members-custom-login.md`) does **not** need this — `register`/`login` are direct API calls with no login-page redirect. Only `sendPasswordResetEmail`'s `redirectUri` and logout's return URL need allow-listing there.
+> **Direct-credential login** (mechanism (A) — `register`/`login`) does **not** need this — they're direct API calls with no redirect. Only `sendPasswordResetEmail`'s `redirectUri` and logout's return URL need allow-listing (same masked-`PATCH` shape). **Social login** (mechanism (B), above) is the one that needs the `/callback` registered.
 
 ## Static frontends (no build step)
 
