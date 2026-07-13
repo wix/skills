@@ -1,0 +1,29 @@
+name: app-installation/install-cms-app
+description: >-
+  Verifies the agent reads the install-wix-apps skill and explains how to install
+  the Wix CMS app via the Apps Installer API using the correct appDefId.
+triggerPrompt: >-
+  I need to install the Wix CMS (Wix Data) app on my site so I can start using collections.
+  Which REST endpoint do I call and what request body do I send?
+tags: [app-installation]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/app-installation/skills/install-wix-apps
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked how to install the Wix CMS (Wix Data) app on their site via REST.
+      Intent: surface the Apps Installer install endpoint and the correct Wix CMS appDefId.
+
+      Pass if the response:
+      - identifies the Apps Installer install endpoint (POST to .../apps-installer-service/v1/app-instance/install), AND
+      - uses the Wix CMS appDefId `e593b0bd-b783-45b8-97c2-873d42aacaf4` in the install request, AND
+      - shows a request body with a SITE tenant and the appInstance.appDefId set to that CMS ID.
+
+      Fail if the response:
+      - guesses or invents a different appDefId for Wix CMS, OR
+      - omits the install endpoint, OR
+      - tells the user to enable Velo / call a velo provision endpoint (that flow was removed), OR
+      - describes installation only through the editor UI with no API call.

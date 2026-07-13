@@ -1,6 +1,6 @@
 ---
 name: wix-manage
-description: "Wix business solution management recipes — REST API operations for configuring and managing Wix business solutions. Routes to: stores, bookings, get-paid, CMS, contacts, forms, media, app-installation, pricing-plans, restaurants, rich-content, sites, blog, calendar, domains, site-properties, ecommerce."
+description: "Wix business solution management recipes — REST API operations for configuring and managing Wix business solutions. Routes to: stores, bookings, get-paid, CMS, contacts, forms, media, app-installation, pricing-plans, restaurants, rich-content, sites, blog, calendar, domains, site-properties, ecommerce, marketing, analytics."
 compatibility: Requires Wix REST API access (API key or OAuth).
 ---
 
@@ -31,6 +31,13 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 
 ---
 
+## Analytics
+
+### [Query Site Analytics](references/analytics/query-site-analytics.md)
+**Technical:** Reads a site's analytics through the Semantic Model API. Covers listing semantic models, inspecting a model's schema (measures, dimensions, parameters), and querying data with a required time interval, filters, sorting, paging, and human-readable formatting. Key endpoints: /analytics/semantic-model/v3/semantic-models, /semantic-models/{id}, /semantic-models/query-data.
+
+---
+
 ## Blog
 
 ### [How to Create Blog Posts](references/blog/how-to-create-blog-posts.md)
@@ -51,6 +58,21 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 
 ### [Create and Update Booking Services](references/bookings/create-and-update-booking-services.md)
 **Technical:** Full CRUD operations for Wix Bookings services using Services API. Covers service types (APPOINTMENT, CLASS, COURSE), pricing configuration, location setup, and schedule management.
+
+### [Create Booking Service from Prompt](references/bookings/create-booking-service-from-prompt.md)
+**Technical:** Use when the user wants to create a booking service — e.g. "create a yoga class for $50", "set up consultations", "add a personal training appointment". Routes to the correct type-specific recipe (APPOINTMENT, CLASS, or COURSE), gathers business context, applies defaults, and creates the service.
+
+### [Create Appointment Service](references/bookings/create-appointment-service.md)
+**Technical:** Use when the user wants to create an appointment/consultation/1-on-1 service — e.g. "set up consultations for $75", "create a meeting service". Handles staff assignment, session duration, and pricing via bulkCreateServices API.
+
+### [Create Class Service](references/bookings/create-class-service.md)
+**Technical:** Use when the user wants to create a group class — e.g. "create a yoga class for $50", "set up a pilates class". Handles group capacity, recurring sessions, and pricing via bulkCreateServices API.
+
+### [Create Course Service](references/bookings/create-course-service.md)
+**Technical:** Use when the user wants to create a multi-session course — e.g. "create a 6-week workshop", "set up a training program for $300". Handles group capacity, full-course pricing, and fixed series via bulkCreateServices API.
+
+### [Diagnose Bookings Availability Issues](references/bookings/diagnose-availability-issues.md)
+**Technical:** Use when an appointment-based service has no bookable time slots / "customers can't book". Runs the DiagnoseAvailability endpoint (`POST /v2/time-slots/diagnose`) for ordered, machine-readable reason codes with suggested owner actions, and falls back to ListAvailabilityTimeSlots when the endpoint is inconclusive.
 
 ### [End-to-End Booking Flow](references/bookings/end-to-end-booking-flow.md)
 **Technical:** Complete booking flow from service discovery to payment. Query services, check availability with Time Slots V2, create bookings, and process payment via eCommerce checkout.
@@ -109,66 +131,44 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ## eCommerce
 
 **Routing — pick the right entry point:**
-- **Any sales/business improvement request** (boost sales, promotions, help my business, holiday deals, improve revenue, discounts, shipping, coupons, clearance) → use [Recommend: eCommerce Strategy](references/ecommerce/recommend-ecommerce-strategy.md). This is the **default entry point** — it analyzes ALL domains (discounts, shipping, future: gift cards, taxes) and generates cross-domain recommendations. Do NOT ask clarifying questions.
-- **Apply previously generated shipping recommendations** → use [Recipe: Apply Shipping Recommendations](references/ecommerce/recipe-apply-shipping-recommendations.md)
-- **Store pickup configuration** → use [Setup Store Pickup Location](references/ecommerce/setup-store-pickup-location.md)
-- **Discount not working at checkout** → use [Troubleshoot: Discount Not Applying](references/ecommerce/troubleshoot-discount-not-applying.md)
-- **Checkout delivery step drop-off** → use [Troubleshoot: Checkout Delivery Drop-off](references/ecommerce/troubleshoot-checkout-delivery-dropoff.md)
+- **Any sales/business improvement request** (boost sales, promotions, help my business, holiday deals, improve revenue, discounts, shipping, coupons, clearance) → use [Recommend: eCommerce Strategy](references/ecommerce/recommend-ecommerce-strategy.md). This is the **default entry point** — it analyzes ALL domains (discounts, shipping) and generates cross-domain recommendations. Do NOT ask clarifying questions.
+- **Pricing & promotions** (coupons, discount rules, ribbons, sales) → use the [Pricing & Promotions](references/ecommerce/ecom-pricing.md) dispatcher.
+- **Shipping setup** (rates, regions, pickup, free shipping, fix coverage) → use the [Shipping](references/ecommerce/ecom-shipping.md) dispatcher.
+
+### [eCommerce: Load Context](references/ecommerce/ecom-load-context.md)
+**L1 loader** — loads general site data (siteId, country, currency, industry, catalog analytics) needed by every eCommerce category. Each category dispatcher loads this before tag-matching; runs once per session.
 
 ### [Recommend: eCommerce Strategy](references/ecommerce/recommend-ecommerce-strategy.md)
-**THE entry point for all eCommerce recommendation requests.** Unified skill that analyzes site data across ALL domains (discounts + shipping), generates up to 5 cross-domain recommendations, and persists them to the tracking database. Covers discount strategies (seasonal, upsell, stock mover, bundling) AND shipping optimization (coverage gaps, free shipping, rate strategy, carrier backup). Use this for ANY business improvement request.
+**Entry point for all eCommerce recommendation requests.** Unified skill that analyzes site data across ALL domains (discounts + shipping), generates up to 5 cross-domain recommendations, and persists them to the tracking database. Covers discount strategies (seasonal, upsell, stock mover, bundling) AND shipping optimization (coverage gaps, free shipping, rate strategy, carrier backup). Use this for ANY business improvement request.
 
-### [Recipe: Apply Shipping Recommendations](references/ecommerce/recipe-apply-shipping-recommendations.md)
-**Technical:** Applies AI-generated shipping recommendations. Creates or updates shipping options based on recommendation data.
+### [Pricing & Promotions](references/ecommerce/ecom-pricing.md)
+**Dispatcher** — routes coupon/discount/sale/ribbon/bundle requests to the right leaf recipe (create coupon, create discount rule, troubleshoot discount-not-applying), and routes strategic "run a sale / boost sales" requests to `recommend-ecommerce-strategy`.
 
-### [Setup Store Pickup Location](references/ecommerce/setup-store-pickup-location.md)
-**Technical:** Configures in-store pickup at checkout using Delivery Profiles API.
-
-### [Troubleshoot: Discount Not Applying](references/ecommerce/troubleshoot-discount-not-applying.md)
-**Technical:** Diagnostic tree for inactive discounts — checks active status, time window, scope targeting, revision mismatch, app installation.
-
-### [Troubleshoot: Checkout Delivery Drop-off](references/ecommerce/troubleshoot-checkout-delivery-dropoff.md)
-**Technical:** Diagnostic tree for delivery step conversion below 65% benchmark.
+### [Shipping](references/ecommerce/ecom-shipping.md)
+**Dispatcher** — routes shipping-setup requests (rates, regions, pickup, free shipping, fix coverage, optimize rates) to the right leaf recipe. The Shipping Options + Delivery Profiles APIs have no public docs page; `ecom-shipping-api.md` is the authoritative inline reference.
 
 <details>
-<summary>Internal skills (loaded automatically by the entry points above — do NOT use directly)</summary>
+<summary>Internal skills (loaded automatically by the dispatchers / orchestrator above — do NOT use directly)</summary>
 
-#### Goals
-- [Goal: Increase AOV](references/ecommerce/goal-increase-aov.md) — UPSELL_BOOST
-- [Goal: Clear Inventory](references/ecommerce/goal-clear-inventory.md) — STOCK_MOVER
-- [Goal: Seasonal Revenue](references/ecommerce/goal-seasonal-revenue.md) — SEASONAL
-- [Goal: Drive Cross-Sells](references/ecommerce/goal-drive-cross-sells.md) — BUNDLE_AND_SAVE
-- [Goal: Reduce Cart Abandonment](references/ecommerce/goal-reduce-cart-abandonment.md) — Shipping
+#### Pricing & promotions leaves (loaded by the Pricing dispatcher or by the strategy orchestrator)
+- [Pricing: Create Coupon](references/ecommerce/pricing-promotions/ecom-pricing-create-coupon.md)
+- [Pricing: Create Discount Rule](references/ecommerce/pricing-promotions/ecom-pricing-create-discount-rule.md)
+- [Pricing: Discount Not Applying](references/ecommerce/pricing-promotions/ecom-pricing-troubleshoot-not-applying.md)
+- Goals: [Increase AOV](references/ecommerce/pricing-promotions/ecom-pricing-goal-increase-aov.md), [Clear Inventory](references/ecommerce/pricing-promotions/ecom-pricing-goal-clear-inventory.md), [Seasonal Revenue](references/ecommerce/pricing-promotions/ecom-pricing-goal-seasonal-revenue.md), [Drive Cross-Sells](references/ecommerce/pricing-promotions/ecom-pricing-goal-drive-cross-sells.md)
+- Flows: [Upsell Boost](references/ecommerce/pricing-promotions/ecom-pricing-flow-upsell-boost.md), [Bundle and Save](references/ecommerce/pricing-promotions/ecom-pricing-flow-bundle-and-save.md), [Stock Mover](references/ecommerce/pricing-promotions/ecom-pricing-flow-stock-mover.md), [Seasonal Promotion](references/ecommerce/pricing-promotions/ecom-pricing-flow-seasonal-promotion.md)
 
-#### Flows
-- [Flow: Upsell Boost](references/ecommerce/flow-upsell-boost.md)
-- [Flow: Bundle and Save](references/ecommerce/flow-bundle-and-save.md)
-- [Flow: Stock Mover](references/ecommerce/flow-stock-mover.md)
-- [Flow: Seasonal Promotion](references/ecommerce/flow-seasonal-promotion.md)
-- [Flow: Fix Coverage Gaps](references/ecommerce/flow-fix-coverage-gaps.md)
-- [Flow: Add Free Shipping](references/ecommerce/flow-add-free-shipping.md)
-- [Flow: Optimize Shipping Rates](references/ecommerce/flow-optimize-shipping-rates.md)
+#### Shipping leaves (loaded by the Shipping dispatcher)
+- [Set Up Rates](references/ecommerce/shipping/ecom-shipping-setup-rates.md)
+- [Set Up Regions](references/ecommerce/shipping/ecom-shipping-setup-regions.md)
+- [Set Up Pickup / Local Delivery](references/ecommerce/shipping/ecom-shipping-setup-pickup.md)
+- [Add Free Shipping](references/ecommerce/shipping/ecom-shipping-free-shipping.md)
+- [Optimize Rates](references/ecommerce/shipping/ecom-shipping-optimize-rates.md)
+- [Fix Coverage Gaps](references/ecommerce/shipping/ecom-shipping-fix-coverage.md)
+- [API Reference](references/ecommerce/shipping/ecom-shipping-api.md) — inline spec for Shipping Options + Delivery Profiles
 
-#### Guardrails
-- [Guardrail: Discount Conflicts](references/ecommerce/guardrail-discount-conflicts.md)
-- [Guardrail: Margin Protection](references/ecommerce/guardrail-margin-protection.md)
-- [Guardrail: Shipping Health](references/ecommerce/guardrail-shipping-health.md)
-- [Guardrail: Rate Pricing Sanity](references/ecommerce/guardrail-rate-pricing-sanity.md)
+#### Cross-cutting tracking
+- [API: Recommendation Tracking](references/ecommerce/api-recommendation-tracking.md) — load BEFORE generating any recommendation; persists PROPOSED state and tracks MarkExecuting → MarkDone/MarkFailed.
 
-#### Config & API References
-- [API: Recommendation Tracking](references/ecommerce/api-recommendation-tracking.md)
-- [API: Shipping Delivery](references/ecommerce/api-shipping.md)
-- [Setup: Discount Rules](references/ecommerce/setup-discount-rules.md)
-- [Setup: Coupons](references/ecommerce/setup-coupons.md)
-- [Setup: Shipping Regions](references/ecommerce/setup-shipping-regions.md)
-- [Setup: Shipping Rates](references/ecommerce/setup-shipping-rates.md)
-
-#### Tracking
-- Tracking is built into [Recommend: eCommerce Strategy](references/ecommerce/recommend-ecommerce-strategy.md) (Steps 2 + 8) — no separate skill needed
-- [API: Recommendation Tracking](references/ecommerce/api-recommendation-tracking.md) — CRUD API reference for the tracking service
-
-#### Reference
-- [Skill Graph](references/ecommerce/skill-graph.md)
 
 </details>
 
@@ -191,6 +191,16 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 
 ### [Payment Links for Bookings](references/get-paid/payment-links-for-bookings.md)
 **Technical:** Creates payment links for unpaid bookings using Payment Links API. Links booking IDs to payment requests with proper redirect handling.
+
+---
+
+## Marketing
+
+### [Create and Publish a Social Media Post (with AI generation)](references/marketing/create-and-publish-social-post.md)
+**Technical:** Creates and publishes (or schedules) a social media post to a connected channel (Instagram, Facebook, LinkedIn, TikTok, Pinterest, YouTube, Google Business Profile) via the Publisher API. Optionally generates the whole post from a free-text idea or the site's own assets (products, blog posts, events, bookings, coupons, categories), generates caption/title suggestions, and edits an existing image with AI. Verifies the channel is connected (and runs the OAuth connect flow if not), checks premium publishing quota, creates a draft item, then publishes it immediately or schedules it for a future date. Use when the user wants to create, generate, write, post, or schedule a social post (e.g. "post this to Instagram", "make a post from my product", "write a caption", "schedule a post").
+
+### [Generate a Marketing Plan and Schedule Its Posts](references/marketing/generate-and-publish-marketing-plan.md)
+**Technical:** Generates a site's AI social media marketing plan (a calendar of marketing activities, each with per-channel post drafts) via the Marketing Plan API, then schedules the drafts for publishing. Covers optional marketing settings (goal, channels, tone, frequency, content pillars), asynchronous generation with polling, and generating posts for additional activities. Use for "generate a marketing plan", "create a social media plan/calendar", or "schedule my plan's posts".
 
 ---
 
@@ -222,6 +232,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 
 ### [Ricos Converter Service](references/rich-content/ricos-converter-service.md)
 **Technical:** Validates and converts content between Ricos documents and HTML/Markdown/plain text using the Ricos Documents API. Covers plugin configuration, format conversion in both directions, and document validation.
+
+### [Author Ricos Rich Content](references/rich-content/author-ricos-rich-content.md)
+**Technical:** Hand-authoring valid Ricos rich-content JSON (the richContent/nodes tree) reused across Blog, Stores, Events, and CMS. Covers every common node shape — paragraphs, headings, lists, blockquotes, dividers, tables with cell fills, code blocks, images — plus inline text decorations and the nesting rules the format enforces.
 
 ---
 

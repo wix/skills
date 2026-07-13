@@ -1,0 +1,38 @@
+name: bookings/diagnose-availability-no-setup-problem
+description: >-
+  Verifies the agent reads the diagnose-availability-issues recipe and, when the
+  service setup looks fine but customers still can't book, explains the non-setup
+  causes (booking policy / capacity) and fixes in plain language.
+triggerPrompt: >-
+  I checked my Wix Bookings appointment service and the staff, working hours, and
+  locations all look fine — but customers still say there are no times to book.
+  What else could be stopping bookings, and how do I fix it?
+tags: [bookings]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/bookings/skills/diagnose-bookings-availability-issues
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user is a Wix site owner whose appointment service setup (staff, working hours,
+      locations) looks correct, but customers still can't book. They ask what else could be
+      blocking bookings and how to fix it.
+      Intent: point beyond setup to booking-policy / capacity causes, in plain language.
+
+      Pass if the response:
+      - identifies non-setup causes — i.e. booking-policy or capacity issues such as it being
+        too early or too late to book (advance-booking / cutoff limits), the times being fully
+        booked / no remaining capacity, spots reserved for a waitlist, or online booking being
+        turned off — as distinct from the staff/hours/location setup the user already checked, AND
+      - gives an actionable, plain-language fix or next step for the cause(s) it raises, AND
+      - is written for a site owner, not a developer.
+
+      Fail if the response:
+      - only repeats setup causes (assign staff, set working hours, fix locations) despite the
+        user saying those are fine, OR
+      - is generic with no specific policy/capacity cause or fix, OR
+      - dumps implementation internals at the user — raw reason codes, suggestedAction enum
+        values, JSON, field paths, or instructions for the user to call an API/endpoint
+        themselves.

@@ -7,23 +7,17 @@ Rules and patterns for props structure, elementProps, data types, file structure
 ## Should This Use elementProps or CSS?
 
 ```
-Does this element need:
-- Configuration/data beyond styling
-- Direction override
-- State management
-- Event handlers
-
+Is this element a named part (carries a global class string)?
 │
 ├─ YES
-│   └─ ✅ Use elementProps
+│   └─ ✅ It gets an elementProps entry — spread it + merge its className.
+│         Add config fields inside the entry only as needed
+│         (data, direction, event handlers).
 │
-└─ NO → Is it purely visual/decorative (including conditionally displayed)?
-    │
-    ├─ YES (icons, separators, decorations, elements only hidden/shown via CSS)
-    │   └─ ❌ CSS class only (no elementProps)
-    │
-    └─ NO
-        └─ Re-evaluate: likely needs elementProps
+└─ NO → purely visual/decorative non-part
+        (icons, separators, decorations, layout wrappers,
+         elements only hidden/shown via CSS)
+    └─ ❌ CSS class only — no elementProps entry
 ```
 
 ---
@@ -58,23 +52,53 @@ interface ComponentProps {
 }
 ```
 
-### When to Use elementProps
+### Propagate `elementProps` to inner elements
 
-**Use `elementProps`** for parts that need:
+`elementProps` is a map keyed by the manifest's inner-element keys; each entry
+carries that element's `className` (the editor sets it — this is how design
+states reach the element) plus any data.
 
-- Configuration/data beyond just styling
-- Direction override
-- State management
-- Event handlers
+**Every named inner element — every element that carries a global class
+string — gets an `elementProps` entry, and you spread that entry onto the
+element.** This is mandatory, even when the element needs no other config:
+without it the editor cannot style that element or drive its states.
 
-**DO NOT use `elementProps`** for:
+How `className` gets merged depends on what the element is:
 
-- Elements with only visual styling (use CSS classes)
-- Elements where conditional display is the only requirement (visibility controlled via CSS for per-breakpoint hiding, not React props)
-- Elements that would only have `className` — skip them entirely
-- Icons, decorations, separators
+- **Raw HTML element** (`<button>`, `<li>`, `<div>`): merge
+  `elementProps?.<key>.className` inline, alongside the global string and module
+  class — there's no component to do it.
+- **Sub-component built with this skill** (`<Inner/>`): the spread alone is
+  enough. `className` rides along inside it, and the sub-component merges it onto
+  its own root (every skill component merges its incoming `className`). Don't
+  merge it again at the call site.
 
-**Minimal elementProps rule:** If an element would only have `className?: string` in elementProps, do NOT include it.
+```tsx
+interface PlanCardProps {
+  className?: string;
+  elementProps?: {
+    cta?: { className?: string; href?: string };
+  };
+}
+
+// Raw HTML element — spread + merge className inline.
+// Note: the elementProps key is the short part name (`cta`), while the global
+// class is prefixed with the component name (`plan-card-cta`). Keep them as-is.
+<button {...elementProps?.cta} className={classNames('plan-card-cta', styles.cta, elementProps?.cta?.className)}>
+  {label}
+</button>
+
+// Sub-component built with this skill — spread is enough (it merges className itself):
+<PlanRow {...elementProps?.planRow} />
+```
+
+**Non-parts** (module-class-only elements: icons, decorations, separators,
+layout wrappers — no global class) get no entry. Style them with CSS.
+
+**Inside each entry**, add only the config the element needs (data, direction,
+event handlers). Never add a bare `className?` as the *only* field to decide
+whether an element qualifies — `className` always flows through; the entry
+exists because the element is a named part.
 
 ### What Qualifies as a Part
 
@@ -178,8 +202,8 @@ editor) or imported local assets bundled with the component.
 
 ### Default values for `Image` props
 
-Image defaults belong in the component file's exported `defaultProps`
-constant (the one consumed by `withDefaults(Component, defaultProps)` in
+Image defaults belong in the `<componentName>.props.ts` file's exported
+`defaultProps` constant (consumed by `withDefaults(Component, defaultProps)` in
 `component.tsx`). Use a Wix-hosted image from the Free-from-Wix public
 media catalog and populate **only** `uri`, `url`, and `alt` — leave
 `width`, `height`, `focalPoint`, etc. unset so the editor fills them when
@@ -426,7 +450,7 @@ elementProps?: {
 // Style via CSS classes directly
 ```
 
-**Why:** If element only has `className` (even if it can be hidden/shown via CSS), skip elementProps entirely. Conditional display is controlled via CSS, not React props.
+**Why:** Don't declare a `className?:` field — `className` already flows through each named inner element's `elementProps` entry (see "Propagate `elementProps` to inner elements"). Conditional display is controlled via CSS, not React props.
 
 ### Using T[] array syntax
 
@@ -452,3 +476,4 @@ interface ComponentProps {
 ```
 
 See also: [Array Element Types: Always Objects with Named Keys](#array-element-types-always-objects-with-named-keys) — items must be objects with named keys.
+
