@@ -21,19 +21,19 @@ CI=1 npx @wix/cli@latest release
 - `release` auto-registers the deployed **origin** (`allowedRedirectDomains`) — that's the visitor-SDK/CORS surface (above). It does **not** register the member-login **callback URL** (`allowedRedirectUris`). These are two different fields; members needs **both**, and only the first is automatic.
 - **This is a post-release step** — the callback URL embeds the deployed origin, which is unknown until `release` prints it. Do it right after release, once the URL is known.
 - **⚠️ `allowedRedirectUris` IS writable via the API — do not conclude it's read-only/dashboard-only.** The `UpdateOAuthApp` reference may not list it among the obvious updatable fields, but a masked `PATCH` sets it. The trap is a **required field mask**: without `mask.paths` the `PATCH` returns `200` and **silently no-ops**.
-- **⚠️ The `{id}` in `/oauth-app/v1/oauth-apps/{id}` is the OAuth app's own `id` (== the public `clientId`) — NOT `wix.config.json`'s `appId` or `siteId`.** Passing the `appId`/`siteId` returns `404 "appId was not found …"` (a real eval run burned minutes flailing on exactly this). Don't guess the id — **discover it with the query endpoint, scoped by `wix-site-id`** (which also returns the current `allowedRedirectUris` so you can append rather than clobber):
+- **⚠️ Right after `release`, the by-id `GetOAuthApp`/`UpdateOAuthApp` calls can return a TRANSIENT `404 "appId was not found <id>"` — even with the correct id — for several minutes (eventual consistency on the freshly-created app).** This is **not** a wrong-id error: the `{id}` in `/oauth-app/v1/oauth-apps/{id}` is the OAuth app's own `id`, which for a managed project **equals `wix.config.json`'s `appId`** (and equals the public `clientId`) — using it is correct. (`siteId` is *not* the app id — that one genuinely 404s.) The **`QueryOAuthApps` endpoint resolves sooner** than by-id, so use it to (a) confirm the app is ready and (b) read the current `allowedRedirectUris` to append. If a by-id `GET`/`PATCH` 404s, **retry with a short backoff — do not conclude the id is wrong or the field is unwritable** (a real eval run gave up here and shipped an unregistered callback; a later retry with the same id succeeded).
 
 ```bash
-SITE_ID="<siteId from wix.config.json>"
-# 1) Discover the app id (== clientId) AND current URIs — MUST send wix-site-id or you get another site's app:
+ID="<appId from wix.config.json>"   # == the OAuth app id == public clientId (NOT siteId)
+# 1) Read current URIs (query resolves before by-id does, post-release). Append to what it returns — PATCH REPLACES the array.
 curl -sS -w "\nHTTP_STATUS:%{http_code}" -X POST https://www.wixapis.com/oauth-app/v1/oauth-apps/query \
-  -H "Authorization: Bearer $TOKEN" -H "wix-site-id: $SITE_ID" -H 'content-type: application/json' \
-  -d '{ "query": { "paging": { "limit": 20 } } }'
-#   → response: oAuthApps[0].id  (use as ID below)  +  oAuthApps[0].allowedRedirectUris (append to these)
-ID="<oAuthApps[0].id from above>"
-# 2) PATCH with the field mask (append the exact callback AND the versioned-preview wildcard; keep existing):
+  -H "Authorization: Bearer $TOKEN" -H 'content-type: application/json' \
+  -d '{ "query": { "filter": { "id": { "$eq": "'"$ID"'" } } } }'
+#   → oAuthApps[0].allowedRedirectUris (append to these). Also confirms the id is live.
+# 2) PATCH with the field mask (append the exact callback AND the versioned-preview wildcard; keep existing).
+#    If this 404s right after release, RETRY with backoff — it is the propagation race, not a bad id:
 curl -sS -X PATCH https://www.wixapis.com/oauth-app/v1/oauth-apps/$ID \
-  -H "Authorization: Bearer $TOKEN" -H "wix-site-id: $SITE_ID" -H 'content-type: application/json' \
+  -H "Authorization: Bearer $TOKEN" -H 'content-type: application/json' \
   -w "\nHTTP_STATUS:%{http_code}" -d '{
     "oAuthApp": { "id": "'"$ID"'",
       "allowedRedirectUris": [ <existing…>, "https://<host>/callback", "https://*-<host>/callback" ] },
