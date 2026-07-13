@@ -21,15 +21,19 @@ CI=1 npx @wix/cli@latest release
 - `release` auto-registers the deployed **origin** (`allowedRedirectDomains`) — that's the visitor-SDK/CORS surface (above). It does **not** register the member-login **callback URL** (`allowedRedirectUris`). These are two different fields; members needs **both**, and only the first is automatic.
 - **This is a post-release step** — the callback URL embeds the deployed origin, which is unknown until `release` prints it. Do it right after release, once the URL is known.
 - **⚠️ `allowedRedirectUris` IS writable via the API — do not conclude it's read-only/dashboard-only.** The `UpdateOAuthApp` reference may not list it among the obvious updatable fields, but a masked `PATCH` sets it. The trap is a **required field mask**: without `mask.paths` the `PATCH` returns `200` and **silently no-ops**.
+- **⚠️ The `{id}` in `/oauth-app/v1/oauth-apps/{id}` is the OAuth app's own `id` (== the public `clientId`) — NOT `wix.config.json`'s `appId` or `siteId`.** Passing the `appId`/`siteId` returns `404 "appId was not found …"` (a real eval run burned minutes flailing on exactly this). Don't guess the id — **discover it with the query endpoint, scoped by `wix-site-id`** (which also returns the current `allowedRedirectUris` so you can append rather than clobber):
 
 ```bash
-ID="<clientId>"   # the OAuth app id == the public clientId
-# 1) GET first and append — the PATCH REPLACES the array, so include what's already there:
-curl -sS -w "\nHTTP_STATUS:%{http_code}" https://www.wixapis.com/oauth-app/v1/oauth-apps/$ID \
-  -H "Authorization: Bearer $TOKEN"
-# 2) PATCH with the field mask (register BOTH the exact callback and the versioned-preview wildcard):
+SITE_ID="<siteId from wix.config.json>"
+# 1) Discover the app id (== clientId) AND current URIs — MUST send wix-site-id or you get another site's app:
+curl -sS -w "\nHTTP_STATUS:%{http_code}" -X POST https://www.wixapis.com/oauth-app/v1/oauth-apps/query \
+  -H "Authorization: Bearer $TOKEN" -H "wix-site-id: $SITE_ID" -H 'content-type: application/json' \
+  -d '{ "query": { "paging": { "limit": 20 } } }'
+#   → response: oAuthApps[0].id  (use as ID below)  +  oAuthApps[0].allowedRedirectUris (append to these)
+ID="<oAuthApps[0].id from above>"
+# 2) PATCH with the field mask (append the exact callback AND the versioned-preview wildcard; keep existing):
 curl -sS -X PATCH https://www.wixapis.com/oauth-app/v1/oauth-apps/$ID \
-  -H "Authorization: Bearer $TOKEN" -H 'content-type: application/json' \
+  -H "Authorization: Bearer $TOKEN" -H "wix-site-id: $SITE_ID" -H 'content-type: application/json' \
   -w "\nHTTP_STATUS:%{http_code}" -d '{
     "oAuthApp": { "id": "'"$ID"'",
       "allowedRedirectUris": [ <existing…>, "https://<host>/callback", "https://*-<host>/callback" ] },
@@ -37,9 +41,11 @@ curl -sS -X PATCH https://www.wixapis.com/oauth-app/v1/oauth-apps/$ID \
   }'
 ```
 
-- Include **both** the exact URL **and** the `https://*-<host>/…` wildcard — Wix serves versioned preview subdomains. The callback path must match the recipe's `redirectUri` **exactly** (e.g. `window.location.origin + '/callback'`).
+- Include **both** the exact URL **and** the `https://*-<host>/…` wildcard — Wix serves versioned preview subdomains. The callback path must match the recipe's `redirectUri` **exactly** (e.g. `window.location.origin + '/callback'`). Note `release` may pre-register the framework's own `/api/auth/callback`, but **not your custom social `/callback`** — that's the one you add here.
 - `allowedRedirectDomains` and `allowedRedirectUris` can go in **one** `PATCH` (list both under `mask.paths`) if you ever need to set the origin by hand too.
 - **If you're not the one deploying**, you can't know the domain — flag the member-login callback URI to the user to register, and note **login is dead until they do** (higher-stakes than the origin flag).
+
+> **⚠️ Registering `/callback` is necessary but NOT sufficient for social login.** The provider itself (Google / Facebook) must also be **enabled/configured on the site** — and as of this writing there is **no public API for that**, and it isn't reliably exposed in the headless dashboard either (verified: the request reaches the IAM auth/identification backends and returns *"use a different login method"* until the provider is configured). So a headless run **cannot fully turn social login on by itself**. After wiring + registering the callback, **surface a clear manual step in the handoff**: *"Social login is wired, but Google/Facebook must be enabled for this site's members (Site Member Settings / internal IAM config) before it will complete — I can't do this headlessly."* Do **not** report social login as working. (Direct-credential login has no such gate and completes fully headlessly — prefer it when the brief allows.)
 
 > **Direct-credential login** (mechanism (A) — `register`/`login`) does **not** need this — they're direct API calls with no redirect. Only `sendPasswordResetEmail`'s `redirectUri` and logout's return URL need allow-listing (same masked-`PATCH` shape). **Social login** (mechanism (B), above) is the one that needs the `/callback` registered.
 
