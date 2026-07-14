@@ -202,6 +202,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ### [Generate a Marketing Plan and Schedule Its Posts](references/marketing/generate-and-publish-marketing-plan.md)
 **Technical:** Generates a site's AI social media marketing plan (a calendar of marketing activities, each with per-channel post drafts) via the Marketing Plan API, then schedules the drafts for publishing. Covers optional marketing settings (goal, channels, tone, frequency, content pillars), asynchronous generation with polling, and generating posts for additional activities. Use for "generate a marketing plan", "create a social media plan/calendar", or "schedule my plan's posts".
 
+### [Manage, Test, and Send an Email Marketing Campaign](references/marketing/manage-and-send-email-marketing-campaign.md)
+**Technical:** Manages existing Wix Email Marketing (Shoutout) campaigns via the Campaign API — list/get campaigns, send a test email, identify the sending address, publish (send) to contacts/labels, schedule/reschedule/pause a send, and reuse an existing campaign as a starting point for a new one. The API has no Create Campaign or Update-content method; a campaign's subject/body can only be authored in the Wix dashboard's visual editor. Use for "send my newsletter", "publish this email campaign", "test my campaign", "schedule this campaign", or "duplicate my last newsletter".
+
 ---
 
 ## Media
