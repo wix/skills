@@ -117,6 +117,7 @@ Compute `<SKILL_ROOT>` from this file (`<SKILL_ROOT>/SKILL.md` — strip `/SKILL
 | Seed (create backend content) | `<SKILL_ROOT>/references/SEED.md` |
 | SDK-integration handoff (emitted, or applied by create/connect) | `<SKILL_ROOT>/references/SDK_HANDOFF.md` |
 | Image generation (opt-in; agnostic) | `<SKILL_ROOT>/references/IMAGE_GENERATION.md` |
+| AI features — text/chat + embeddings (opt-in; agnostic) | `<SKILL_ROOT>/references/AI_FEATURES.md` |
 | Feedback — relay the user's headless-experience feedback to Wix (opt-in; user-approved) | `<SKILL_ROOT>/references/FEEDBACK.md` |
 | **Authentication** — obtain `$TOKEN`/`$SITE_ID`/`clientId` (project-type-specific) | `<TYPE_DIR>/AUTHENTICATION.md` |
 | **Deployment** — finalize the live site (project-type-specific) | `<TYPE_DIR>/DEPLOYMENT.md` |
@@ -124,7 +125,7 @@ Compute `<SKILL_ROOT>` from this file (`<SKILL_ROOT>/SKILL.md` — strip `/SKILL
 | Managed **connect** flow (wire an existing project) | `<SKILL_ROOT>/references/managed/CONNECT.md` |
 | Frontend-axis references (how a frontend wires to Wix) | `<SKILL_ROOT>/references/astro.md`, `non-astro.md` |
 
-**Start a run by opening `DISCOVERY.md`.** The flow files (`CAPABILITIES`, `DISCOVERY`, `SETUP`, `SEED`, `SDK_HANDOFF`, `IMAGE_GENERATION`) are project-type-agnostic; the per-type specifics live under `<TYPE_DIR>/` (`AUTHENTICATION.md`, `DEPLOYMENT.md`, and — managed only — `CREATE.md`/`CONNECT.md`).
+**Start a run by opening `DISCOVERY.md`.** The flow files (`CAPABILITIES`, `DISCOVERY`, `SETUP`, `SEED`, `SDK_HANDOFF`, `IMAGE_GENERATION`, `AI_FEATURES`) are project-type-agnostic; the per-type specifics live under `<TYPE_DIR>/` (`AUTHENTICATION.md`, `DEPLOYMENT.md`, and — managed only — `CREATE.md`/`CONNECT.md`).
 
 ## Where the *how* comes from
 
