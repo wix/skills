@@ -75,6 +75,63 @@ File where you can override the generated manifest from `<componentName>.generat
 Reference: when modifying an _existing_ component, follow
 [`editor-react-component/EDIT-FLOW.md`](editor-react-component/EDIT-FLOW.md).
 
+## Consuming a Context Provider
+
+If the component needs to consume a Wix context provider extension, follow this exact pattern.
+
+### ⚠️ Critical: the moduleSpecifier is NOT an npm package
+
+A context provider's `resources.contextSpecifier.moduleSpecifier` (e.g. `'my-counter-context'`) is a **virtual Wix module identifier** — not a real npm package. Rollup cannot resolve a bare static import from it, causing:
+
+```
+[vite]: Rollup failed to resolve import "my-counter-context" from "..."
+```
+
+**NEVER write:**
+```ts
+import { useCounterContext } from 'my-counter-context'; // ❌ Rollup cannot resolve this
+```
+
+**ALWAYS use `@ts-expect-error`:**
+```ts
+// @ts-expect-error — virtual Wix moduleSpecifier, resolved at runtime by the editor
+import { useCounterContext } from 'my-counter-context';
+// @ts-expect-error — virtual Wix moduleSpecifier
+import type { CounterContextType } from 'my-counter-context';
+```
+
+The string `'my-counter-context'` must exactly match the `moduleSpecifier` in the context provider's registration.
+
+### Registration
+
+Declare the dependency in the component's extension registration:
+
+```ts
+extensions.editorReactComponent({
+  // ...
+  resources: {
+    // ...
+    dependencies: {
+      contextDependencies: ['my-counter-context'], // must match moduleSpecifier
+    },
+  },
+});
+```
+
+### Usage in component
+
+```ts
+// @ts-expect-error — virtual Wix moduleSpecifier
+import { useCounterContext } from 'my-counter-context';
+// @ts-expect-error — virtual Wix moduleSpecifier
+import type { CounterContextType } from 'my-counter-context';
+
+export const MyComponent: FC = () => {
+  const { count, increment } = useCounterContext() as CounterContextType;
+  // ...
+};
+```
+
 ## React guidelines
 
 Core rules and workflow: [`editor-react-component/REACT-GUIDELINES.md`](editor-react-component/REACT-GUIDELINES.md).
