@@ -148,11 +148,13 @@ create in the Business Manager (dashboard link below).
 - ✅ **One shared client.** Member login swaps the token set on `wix-client.js` — reuse the same
   transport for everything so the member identity (and their cart) carries across the app. Never mint
   a second client or re-mint anonymously after login (it drops the member).
-- ⛔ **The Wix member is the ONLY identity — don't mix in the host platform's auth.** On a platform
-  with its own auth (Base44, Supabase, Firebase, …), the logged-in user is the **Wix member** here
-  (`getCurrentMember()` / the Wix member token), *not* the host's auth session. Don't gate on the
-  host's user, and don't key Wix data on the host's `created_by`/user id — for member-owned rows use
-  Wix's server-stamped `_owner` (see the `cms` vertical). Two identities = broken ownership.
+- ✅ **For a Wix-backed feature, prefer the Wix member as the identity — don't split it with the
+  host's auth.** On a platform with its own auth (Base44, Supabase, …), using the host login for
+  host-only features is fine; but when the feature is about **Wix members** (the user gave you a
+  `WIX_CLIENT_ID`), log in and gate on the **Wix member** (`getCurrentMember()` / the Wix member
+  token) rather than substituting the host's login, and key member-owned Wix rows on `_owner` (see the
+  `cms` vertical). Don't identify one feature's user by the host session on one side and the Wix member
+  on the other — the ids won't match.
 - ❌ **Don't blend the two exchanges.** Credential login finishes via the hidden iframe; social
   finishes via `/callback`. The helper keeps them separate — don't cross-wire.
 - ❌ **Never fake a member.** No mock "logged-in" state, no invented profile, roles, or member counts.

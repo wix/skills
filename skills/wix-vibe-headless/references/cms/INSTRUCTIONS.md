@@ -122,11 +122,13 @@ remove). If you hit a use case they don't cover, make the call yourself with
   `queryDataItems(collectionId, { filter: { _owner: <memberId> } })`, and author-only
   `updateDataItem`/`removeDataItem` are enforced server-side. (This skill never provisions the
   collection — the owner creates it with those permissions in the dashboard.)
-  **⚠️ Put this in Wix, not the host platform's backend.** If your front end is on Base44 /
-  Supabase / Firebase / etc., do **not** store member-generated content (likes, reviews, submissions)
-  in a host entity/table — it belongs in a Wix collection via these helpers, keyed on the Wix member's
-  server-stamped `_owner`. Do **not** filter by a host `created_by`/user id or a hand-stored member
-  id (it won't match the Wix member session, and it's spoofable). One store, one identity: Wix.
+  **Prefer Wix for member-generated content, and don't split one feature across two backends.** If
+  your front end is on Base44 / Supabase / Firebase / etc., using the host DB for its own app data is
+  fine — but content that belongs to the Wix site (likes, reviews, submissions) is best kept in a Wix
+  collection via these helpers, keyed on the Wix member's server-stamped `_owner`. What breaks is a
+  *split* feature — storing the row in a host table while identifying the member by the Wix session
+  (or filtering by a host `created_by`/user id): the two ids won't match, so ownership filters miss.
+  Keep a given feature's data and identity on one side; for Wix-backed rows that's `_owner`.
 
 Keep the snippets as the default for everything they already do; reach for the API
 reference only for the gap.
