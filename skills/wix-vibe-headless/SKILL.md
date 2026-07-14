@@ -49,19 +49,16 @@ This skill is the deliberately **client-only, REST-only** path. It is independen
   On success it writes the member's tokens into the *same* store the visitor token used
   (`setSessionTokens`), so **every subsequent `wixApiRequest` runs as the member** and the cart/session
   carries over. "My …" surfaces (plans, orders, bookings, registrations) light up only once logged in.
-- **Prefer Wix for anything backed by the Wix site — and keep one backend + one identity per feature.**
-  The front end may live on a platform with its own backend and auth (Base44 entities, Supabase,
-  Firebase, a Next.js API, …), and using that for the app's *own* data is perfectly fine. But when a
-  feature is meant to live on the user's **Wix** site — products, orders, members, and
+- **Prefer Wix for anything backed by the Wix site — keep one data store and one identity per feature.**
+  When a feature is meant to live on the user's **Wix** site — products, orders, members, and
   member-generated content (likes, reviews, submissions) — reach for these Wix helpers
-  (`wix-cms.js`, `wix-members-auth.js`, …) rather than the host's store. **Especially for auth:** if
-  the user wants Wix members (they gave you a `WIX_CLIENT_ID`), log them in as a **Wix member** via
-  the `members` vertical — don't substitute the host platform's own login. The thing to avoid is
-  *splitting a single feature across both* — e.g. storing "likes" in the host DB but identifying the
-  member by the Wix session (or vice-versa): the host's user id won't match the Wix member, so
-  ownership filters miss and the data never lands where the rest of the Wix content is. Per feature:
-  one backend, one identity. For Wix-backed member rows, ownership is Wix's server-stamped `_owner`
-  (not a hand-stored id).
+  (`wix-cms.js`, `wix-members-auth.js`, …). **Especially for auth:** when the user wants Wix members
+  (they gave you a `WIX_CLIENT_ID`), log them in as a **Wix member** via the `members` vertical. If
+  the project also has another data or auth layer around, the thing to avoid is *splitting one
+  feature across it* — storing a row in one place but identifying the member from the Wix session (or
+  vice-versa): the ids won't match, ownership filters miss, and the data won't sit with the rest of
+  the Wix content. Per feature: one store, one identity. For Wix-backed member rows, ownership is
+  Wix's server-stamped `_owner` (not a hand-stored id).
 - **Never mock, never provision.** These scaffolds are read-only over the owner's content. The
   owner adds products/posts/services/events/menus/plans in the **Wix dashboard**. If a
   collection is empty, show the empty state — never fabricate data, reviews, ratings, or counts.
