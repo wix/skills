@@ -26,6 +26,7 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
 - [ ] **Step 4b:** Filled in business logic in the generated files
   - [ ] Invoked `wix-design-system` skill ONLY before editing the first `.tsx`/`.jsx` file that imports `@wix/design-system`. Skip for backend-only or data-only extensions.
   - [ ] WDS: imported `@wix/design-system/styles.global.css` in the main component entry file (`page.tsx`, modal `.tsx`, etc.) — not child/tab/helper files.
+  - [ ] If any Editor React Component was created/edited: ran `npx wix build && npx wix generate manifest` — never hand-edited `<componentName>.generated.ts` directly
 - [ ] **Step 5:** Ran validation (see [Validation](#validation))
   - [ ] Dependencies installed
   - [ ] TypeScript compiled
@@ -46,6 +47,7 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
 | Using MCP discovery without checking refs   | Check reference files first                    |
 | Reporting done without validation           | Always run validation at the end               |
 | Letting manual action items get buried      | Aggregate all manual steps at the very end     |
+| Hand-editing `<componentName>.generated.ts` for Editor React Components | Run `npx wix build && npx wix generate manifest` to regenerate it instead |
 
 ---
 
@@ -260,6 +262,7 @@ Open every path returned in `newFiles` and replace stubbed handler bodies / UI /
 - ⚠️ MANDATORY when using WDS: Invoke the `wix-design-system` skill **before editing your first `.tsx`/`.jsx` file that imports `@wix/design-system`**. Do NOT invoke it preemptively for backend-only or data-only jobs — it adds large content to context that you won't use.
 - ⚠️ MANDATORY when using WDS: Add `import "@wix/design-system/styles.global.css";` in the **main component** entry file (`page.tsx`, modal `.tsx`, etc.) — not in child/tab/helper files.
 - ⚠️ MANDATORY when using Data Collections: Use the EXACT collection ID from `idSuffix` (case-sensitive). If `idSuffix` is `"product-recommendations"`, use `<app-namespace>/product-recommendations` NOT `productRecommendations`.
+- ⚠️ MANDATORY for Editor React Components: Never hand-edit `<componentName>.generated.ts` — it is derived from the component's JSX/CSS by the CLI, not authored directly. After editing the `.tsx` / `.module.css`, run `npx wix build && npx wix generate manifest` to regenerate it before moving to validation.
 
 ### Step 5: Run Validation
 
