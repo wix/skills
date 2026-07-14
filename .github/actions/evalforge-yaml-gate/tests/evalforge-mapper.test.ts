@@ -184,4 +184,37 @@ describe('toEvalForgeBody', () => {
       params: { maxDurationMs: 60_000, negate: true },
     });
   });
+
+  it('omits siteSetup when the scenario has none', () => {
+    expect(toEvalForgeBody(scenario)).not.toHaveProperty('siteSetup');
+  });
+
+  it('maps a template siteSetup (mode + templateId, no bootstrap)', () => {
+    const s: Scenario = { ...scenario, siteSetup: { mode: 'template', templateId: 'ecommerce' } };
+    expect(toEvalForgeBody(s).siteSetup).toEqual({ mode: 'template', templateId: 'ecommerce' });
+  });
+
+  it('omits bootstrap when steps is empty (matches EvalForge normalization)', () => {
+    const s: Scenario = {
+      ...scenario,
+      siteSetup: { mode: 'template', templateId: 'ecommerce', bootstrap: { steps: [] } },
+    };
+    expect(toEvalForgeBody(s).siteSetup).toEqual({ mode: 'template', templateId: 'ecommerce' });
+  });
+
+  it('maps bootstrap steps through, dropping undefined optionals', () => {
+    const s: Scenario = {
+      ...scenario,
+      siteSetup: {
+        mode: 'template',
+        templateId: 'ecommerce',
+        bootstrap: { steps: [{ method: 'post', url: 'https://x', body: { a: 1 } }] },
+      },
+    };
+    expect(toEvalForgeBody(s).siteSetup).toEqual({
+      mode: 'template',
+      templateId: 'ecommerce',
+      bootstrap: { steps: [{ method: 'post', url: 'https://x', body: { a: 1 } }] },
+    });
+  });
 });

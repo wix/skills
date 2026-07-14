@@ -19,6 +19,17 @@ describe('parseScenario', () => {
     expect(s.tags).toEqual(['blog']);
     expect(s.assertions).toHaveLength(1);
   });
+  it('accepts a top-level maxTokens budget', () => {
+    const s = parseScenario(minimalYaml.replace('tags: [blog]', 'tags: [blog]\nmaxTokens: 25000'));
+    expect(s.maxTokens).toBe(25000);
+  });
+  it('rejects non-positive top-level maxTokens budgets', () => {
+    expect(() => parseScenario(minimalYaml.replace('tags: [blog]', 'tags: [blog]\nmaxTokens: 0'))).toThrow(/maxTokens/);
+    expect(() => parseScenario(minimalYaml.replace('tags: [blog]', 'tags: [blog]\nmaxTokens: -1'))).toThrow(/maxTokens/);
+  });
+  it('rejects non-integer top-level maxTokens budgets', () => {
+    expect(() => parseScenario(minimalYaml.replace('tags: [blog]', 'tags: [blog]\nmaxTokens: 1.5'))).toThrow(/maxTokens/);
+  });
   it('rejects missing required fields', () => {
     expect(() => parseScenario('name: foo')).toThrow();
   });
@@ -33,6 +44,12 @@ describe('parseScenario', () => {
   });
   it('rejects rejected:* in tags', () => {
     expect(() => parseScenario(minimalYaml.replace('tags: [blog]', 'tags: [blog, "rejected:wix/skills#1"]'))).toThrow(/rejected|reserved/i);
+  });
+  it('rejects repo:* in tags (action-managed code-origin tag)', () => {
+    expect(() => parseScenario(minimalYaml.replace('tags: [blog]', 'tags: [blog, "repo:wix/skills"]'))).toThrow(/repo|reserved/i);
+  });
+  it('rejects the created-via-code tag (action-managed)', () => {
+    expect(() => parseScenario(minimalYaml.replace('tags: [blog]', 'tags: [blog, "created-via-code"]'))).toThrow(/created-via-code|reserved/i);
   });
   it('rejects empty assertions', () => {
     expect(() => parseScenario(minimalYaml.replace(/assertions:[\s\S]*$/, 'assertions: []'))).toThrow(/assertions/);
@@ -179,5 +196,68 @@ describe('parseScenario', () => {
       `assertions:\n  - type: time_limit\n    maxDurationMs: 1.5\n`,
     );
     expect(() => parseScenario(yaml)).toThrow();
+  });
+});
+
+describe('siteSetup (site provisioning)', () => {
+  const withSiteSetup = (block: string) => `${minimalYaml}\nsiteSetup:\n${block}\n`;
+
+  it('parses a template siteSetup with bootstrap steps', () => {
+    const s = parseScenario(withSiteSetup(
+`  templateId: ecommerce
+  bootstrap:
+    steps:
+      - label: seed product
+        method: post
+        url: https://www.wixapis.com/stores/v1/products
+        body:
+          product:
+            name: Test Product`));
+    expect(s.siteSetup?.mode).toBe('template');
+    expect(s.siteSetup?.templateId).toBe('ecommerce');
+    expect(s.siteSetup?.bootstrap?.steps).toHaveLength(1);
+    expect(s.siteSetup?.bootstrap?.steps[0].method).toBe('post');
+    expect(s.siteSetup?.bootstrap?.steps[0].body).toEqual({ product: { name: 'Test Product' } });
+  });
+
+  it('defaults mode to template when omitted', () => {
+    const s = parseScenario(withSiteSetup('  templateId: blog'));
+    expect(s.siteSetup?.mode).toBe('template');
+  });
+
+  it('leaves siteSetup undefined when the field is absent', () => {
+    expect(parseScenario(minimalYaml).siteSetup).toBeUndefined();
+  });
+
+  it('rejects a siteSetup missing templateId', () => {
+    expect(() => parseScenario(withSiteSetup('  bootstrap:\n    steps: []'))).toThrow(/templateId/);
+  });
+
+  it('rejects a bootstrap step with an invalid HTTP method', () => {
+    expect(() => parseScenario(withSiteSetup(
+`  templateId: ecommerce
+  bootstrap:
+    steps:
+      - method: fetch
+        url: https://example.com`))).toThrow(/method/);
+  });
+
+  it('allows a nested object in a bootstrap step body (nested-object guard is assertion-only)', () => {
+    expect(() => parseScenario(withSiteSetup(
+`  templateId: ecommerce
+  bootstrap:
+    steps:
+      - method: post
+        url: https://example.com
+        body:
+          a:
+            b: c`))).not.toThrow();
+  });
+
+  it('rejects siteSetup combined with a {{site-id}} run variable in triggerPrompt', () => {
+    const yaml = withSiteSetup('  templateId: ecommerce')
+      .replace('triggerPrompt: "Create a blog post titled Hello"',
+               'triggerPrompt: "Use site {{site-id}} to do the thing"');
+    expect(() => parseScenario(yaml)).toThrow(/site-id/);
   });
 });

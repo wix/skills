@@ -1,0 +1,20 @@
+name: ecommerce/shipping/setup-pickup
+description: Enable in-store pickup at checkout so local customers can pick up their orders for free instead of paying for shipping.
+triggerPrompt: For my Wix store, enable in-store pickup at checkout so local customers can pick up their orders for free instead of paying for shipping.
+tags: [ecommerce]
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping-set-up-pickup-local-delivery
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping-api-reference
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Pass if the response loads the setup-pickup recipe AND consults shipping-api-reference (for the List Installed Delivery Carriers / Query Delivery Profiles / Add Delivery Region / Add Delivery Carrier endpoints), discovers the Pickup carrier's `id`, attaches it to a delivery region with a free rate, and presents the result as a checkout-time pickup option.
+      Fail if it confuses pickup with a Pricing & Promotions free-shipping coupon, invents endpoints that aren't in shipping-api-reference, or skips the carrier-discovery step.

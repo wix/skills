@@ -261,6 +261,16 @@ const bulkResult = await items.bulkInsert("MyCollection", [
 | `get`, `query`, `count`, `distinct` | `SCOPE.DC-DATA.READ` |
 | `insert`, `update`, `save`, `remove`, `bulkInsert`, `bulkUpdate`, `bulkRemove` | `SCOPE.DC-DATA.WRITE` |
 
+### Elevating permissions (backend only)
+
+In backend code (service plugins, events, backend APIs), wrap the `items` method with `auth.elevate` from `@wix/essentials` to run with elevated permissions:
+
+```typescript
+import { auth } from '@wix/essentials';
+const elevatedQuery = auth.elevate(items.query);
+const configResult = await elevatedQuery('MyCollection').find();
+```
+
 ## Date/Time Handling
 
 - **Date (date-only)**: Store as a string in "YYYY-MM-DD" format (as returned by `<input type="date" />`).

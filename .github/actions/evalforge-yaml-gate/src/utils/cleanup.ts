@@ -1,7 +1,7 @@
 import * as core from '@actions/core';
 import { posix } from 'node:path';
 import { getSimpleConfig } from './config';
-import { EvalForgeClient, draftTagFor, type RemoteScenario, type ScenarioBody } from './evalforge';
+import { EvalForgeClient, draftTagFor, withManagedTags, type RemoteScenario, type ScenarioBody } from './evalforge';
 import { deletePrMcpVersions } from './pr-cleanup';
 import { loadEvals, type LoadedScenario } from './evals';
 import { toScenarioBody } from './sync';
@@ -25,13 +25,14 @@ export function planCleanup(
   remote: RemoteScenario[],
   baseEvals: Map<string, LoadedScenario>,
   draftTag: string,
+  repo: string,
 ): CleanupAction[] {
   const actions: CleanupAction[] = [];
   for (const s of remote) {
     if (!s.tags.includes(draftTag)) continue;
     const baseLs = baseEvals.get(s.name);
     actions.push(baseLs
-      ? { kind: 'RESTORE', id: s.id, name: s.name, body: toScenarioBody(baseLs.scenario), tags: baseLs.scenario.tags }
+      ? { kind: 'RESTORE', id: s.id, name: s.name, body: toScenarioBody(baseLs.scenario), tags: withManagedTags(baseLs.scenario.tags, repo) }
       : { kind: 'DELETE', id: s.id, name: s.name });
   }
   return actions;
@@ -46,7 +47,7 @@ export async function runCleanup(): Promise<void> {
 
   let remote: RemoteScenario[];
   try {
-    remote = await evalforge.listTestScenarios(config.projectId);
+    remote = await evalforge.listTestScenarios(config.projectId, { tags: [draftTag] });
   } catch (e) {
     core.warning(`listTestScenarios failed: ${errMsg(e)}`);
     return;
@@ -56,7 +57,7 @@ export async function runCleanup(): Promise<void> {
   const { scenarios: baseEvals, errors: baseErrs } = loadEvals(baseRoot);
   for (const e of baseErrs) core.warning(`Base SHA eval issue at ${baseRoot}/${e.path}: ${e.message}`);
 
-  const plan = planCleanup(remote, baseEvals, draftTag);
+  const plan = planCleanup(remote, baseEvals, draftTag, `${config.owner}/${config.repo}`);
   const summary = plan.reduce((a, p) => ({ ...a, [p.kind]: (a[p.kind] ?? 0) + 1 }), {} as Record<string, number>);
   core.info(`Cleanup plan: ${plan.length} action(s) — RESTORE=${summary.RESTORE ?? 0} DELETE=${summary.DELETE ?? 0}`);
 

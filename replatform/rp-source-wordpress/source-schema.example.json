@@ -1,0 +1,71 @@
+{
+  "$comment": "TEMPLATE / EXAMPLE for migrations/<project>/source-schema.json. This is a shape to follow, NOT a strict schema to validate against. Both the producer (rp-discovery) and the consumer (rp-mapper) are LLMs, so structure is a convention that prevents drift, not a hard contract. Keep the agnostic core stable across platforms; push platform quirks into the open `sourceMeta` blob.",
+
+  "platform": "wordpress",
+  "platformVersion": "6.5.2",
+  "sourceUrl": "https://acme.example.com",
+  "capturedAt": "2026-06-07T00:00:00.000Z",
+  "rawDiscovery": "data/wp-discovery/",
+
+  "entities": {
+    "post": {
+      "rawFile": "wp-v2--posts.md",
+      "route": "/wp/v2/posts",
+      "recordCount": 4200,
+      "inUse": true,
+      "primaryKey": "id",
+
+      "fields": {
+        "id":      { "type": "integer", "required": true, "identifier": true, "example": 1042 },
+        "title":   { "type": "string",  "required": true, "richText": false, "source": "title.rendered" },
+        "content": { "type": "string",  "required": true, "richText": true,  "source": "content.rendered" },
+        "author":  { "type": "integer", "required": true },
+        "date":    { "type": "string",  "required": true, "format": "date-time" }
+      },
+
+      "relations": [
+        { "field": "author",         "targetEntity": "user",     "cardinality": "many-to-one",  "evidence": "_links.author" },
+        { "field": "featured_media", "targetEntity": "media",    "cardinality": "many-to-one",  "evidence": "_links.wp:featuredmedia" },
+        { "field": "categories",     "targetEntity": "category", "cardinality": "many-to-many", "evidence": "_links.wp:term" }
+      ],
+
+      "sourceMeta": {
+        "$comment": "Open, platform-specific. Anything the agnostic core cannot hold goes here.",
+        "restNamespace": "wp/v2",
+        "statuses": ["publish", "draft", "pending", "private"]
+      }
+    },
+
+    "category": {
+      "rawFile": "wp-v2--categories.md",
+      "route": "/wp/v2/categories",
+      "recordCount": 38,
+      "inUse": true,
+      "primaryKey": "id",
+      "$comment": "hierarchical=true MUST be set when any term has parent != 0. The Wix Blog category target is flat (FR-006), so this flag triggers the mapper's mandatory faithfulness-ledger entry. See Read contract → Hierarchical taxonomies.",
+      "hierarchical": true,
+
+      "fields": {
+        "id":     { "type": "integer", "required": true, "identifier": true, "example": 7 },
+        "name":   { "type": "string",  "required": true, "example": "Tutorials" },
+        "slug":   { "type": "string",  "required": true, "example": "tutorials" },
+        "parent": { "type": "integer", "required": false, "example": 3, "$comment": "0 = top-level; non-zero = nested under another category id" }
+      },
+
+      "relations": [
+        { "field": "parent", "targetEntity": "category", "cardinality": "many-to-one", "evidence": "category.parent (self-reference)" }
+      ],
+
+      "sourceMeta": {
+        "restNamespace": "wp/v2"
+      }
+    }
+  },
+
+  "assumptions": [
+    "Rate limit inferred from observed throttling; not advertised by the server."
+  ],
+  "unknowns": [
+    "ACF custom fields appear in sample records but are absent from the OPTIONS schema."
+  ]
+}

@@ -1,0 +1,19 @@
+name: rich-content/ricos-decorations
+description: Sharp-edge check on inline decorations and blockquote nesting from the Author Ricos Rich Content recipe — bold + link split runs and a blockquote wrapping a paragraph.
+triggerPrompt: Give me the Ricos rich-content JSON (the nodes tree) with a blockquote, and then a paragraph that reads "Read the full guide for details" where the words "full guide" are a bold hyperlink to https://example.com/guide. Output only the richContent JSON.
+tags: [rich-content]
+maxTokens: 150000
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/assets/rich-content/skills/author-ricos-rich-content
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Inspect the produced Ricos JSON for a blockquote and a decorated paragraph.
+
+      Score 9-10: a BLOCKQUOTE node wraps a PARAGRAPH (not a bare TEXT); the final paragraph splits into multiple TEXT runs where the "full guide" run carries BOTH a BOLD decoration (`{ "type": "BOLD", "fontWeightValue": 700 }`) and a LINK decoration (`{ "type": "LINK", "linkData": { "link": { "url": "https://example.com/guide", "target": "BLANK" } } }`), while the surrounding words are separate plain TEXT runs; every `type` is a bare string.
+      Score 6-8: bold + link applied to the right words but a detail is off (e.g. the whole sentence is one run instead of split, or `target` missing).
+      Score 3-5: the BLOCKQUOTE contains a bare TEXT (no PARAGRAPH), OR bold and link are not both applied, OR the link data is malformed.
+      Score 0-2: no blockquote/decorations, or prose/plain-text output.

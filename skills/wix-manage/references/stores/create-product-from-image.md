@@ -183,6 +183,30 @@ Examine the images for visible product attributes that should become variant opt
 - If multiple images show the **same product from different angles**, treat them as additional product media — NOT as separate variants.
 - If only one image is provided and a distinctive color is visible, suggest that single color as a choice and ask the user if the product comes in other colors.
 
+### 4h. Subscription Eligibility Detection (silent — no user interaction)
+
+Based on the product name, description, and image analysis, determine whether this product is **subscription-eligible**. A product qualifies if it is a consumable that gets depleted at a predictable rate — something customers buy repeatedly on a regular schedule.
+
+**Eligible categories (examples):**
+- Food & beverage: coffee beans/pods, tea, protein powder, meal kits
+- Supplements & health: vitamins, probiotics, protein supplements
+- Pet: pet food, flea/tick treatments, cat litter
+- Personal care: skincare routine products, razor blades/cartridges, deodorant, shampoo/conditioner
+- Household: cleaning supplies, paper towels, toilet paper, laundry detergent
+- Baby: diapers, formula, wipes
+- Media: print/digital newspapers, magazines
+- Candles (daily-use scented candles with high burn frequency)
+
+**NOT eligible (do not suggest):**
+- Furniture, art, décor (one-time purchase)
+- Electronics, tools, appliances
+- Standard clothing, apparel, shoes (not subscription-typical)
+- Jewelry, watches
+- Books (single title), games, toys
+- Any unique or collectible item
+
+Store the result internally as `subscription_eligible: true/false`. If `true`, also note a brief reason (e.g., `"coffee beans — daily consumable"`). No user interaction at this step.
+
 ---
 
 ## V3 STEP 4: Present Review Card to User (INTERACTIVE)
@@ -207,6 +231,7 @@ Present a structured review card using the markdown format below. This provides 
 | Images | [count] uploaded |
 | SEO | [first 60 chars of meta description]… |
 | Tone | [Matched from existing site products / Neutral e-commerce] |
+| Subscription | [e.g. Monthly · 10% off] or [Not applicable] |
 
 **Info Sections**
 - **[Title 1]:** [one-line summary]
@@ -221,11 +246,73 @@ After the card, present the action options:
 
 > 1. **Refine** — tell me what to change (e.g., "make the description shorter", "the price should be lower")
 > 2. **Regenerate** — I'll start the analysis over, optionally with additional context from you
-> 3. **Approve** — proceed to options and product creation
+> 3. **Approve** — lock in these details and continue to the next steps
 
 If the user provided a text note that **contradicts** what's visible in the image (e.g., image shows blue but note says "available in red"), ask the user to clarify before proceeding.
 
 **Wait for user confirmation.** Apply any corrections they request. Do NOT proceed until approved.
+
+---
+
+## V3 STEP 4.5: Suggest Subscription (INTERACTIVE, conditional)
+
+> **Run this step ONLY if `subscription_eligible: true` was set in V3 STEP 3 section 4h.** Otherwise skip directly to V3 STEP 5.
+
+Present a short, non-pushy suggestion card:
+
+---
+
+**This product looks like a great candidate for a subscription plan.**
+Customers who subscribe to *[product name]* get auto-refills on a schedule they choose — boosting repeat revenue for you.
+
+Would you like to add a subscription option?
+- **Yes** — set it up now (takes ~30 seconds)
+- **No** — create as a one-time purchase only
+
+---
+
+If the user says **No**, proceed directly to V3 STEP 5.
+
+If the user says **Yes**, ask the following 4 questions (can be presented together as a single form):
+
+**Q1 — Billing frequency**
+> "How often should subscribers be charged and receive this product?"
+
+| Choice | `frequency` | `interval` |
+|--------|------------|-----------|
+| Every week | `WEEK` | `1` |
+| Every 2 weeks | `WEEK` | `2` |
+| Every month *(Recommended)* | `MONTH` | `1` |
+| Every 2 months | `MONTH` | `2` |
+| Every 3 months | `MONTH` | `3` |
+| Every 6 months | `MONTH` | `6` |
+| Every year | `YEAR` | `1` |
+
+**Q2 — Duration**
+> "How long should the subscription run?"
+
+- **Ongoing** — renews automatically until the customer cancels (omit `billingCycles`)
+- **Fixed** — ends after N cycles (ask: "How many cycles?") → set `billingCycles: N`
+
+**Q3 — Subscriber discount (optional incentive)**
+> "Would you like to offer a discount to customers who subscribe?"
+
+- No discount (omit `discount` block)
+- **10% off** *(Recommended)* → `type: "PERCENTAGE", amount: 10`
+- Custom percentage → ask for value → `type: "PERCENTAGE", amount: [value]`
+- Fixed amount off → ask for value → `type: "AMOUNT", amount: [value]`
+
+**Q4 — Allow one-time purchase alongside subscription**
+> "Can customers also buy this product as a one-time purchase (without subscribing)?"
+
+- **Yes — sell both ways** *(Recommended)* → `allowOneTimePurchases: true`
+- No — subscription only → `allowOneTimePurchases: false`
+
+After collecting the user's answers, show a brief confirmation line before moving on:
+
+> Subscription plan configured: [e.g. Monthly · Ongoing · 10% off · One-time purchases also allowed]
+
+Store the collected subscription data for use in V3 STEP 6.
 
 ---
 
@@ -255,9 +342,73 @@ If no options were detected:
 
 ## V3 STEP 6: Create the Product
 
+Before making the API call, ask the user one final time:
+
+> Everything is ready. Shall I create the product now?
+> - **Yes, create it** — I'll submit the product to your store now.
+> - **No, go back** — return to a previous step to make changes.
+
+**Wait for confirmation.** Only proceed with the API call if the user says Yes.
+
+---
+
 **API Endpoint:** `POST https://www.wixapis.com/stores/v3/products`
 
 Build the request body with all confirmed fields. The write must be **atomic** — either all fields save or none do.
+
+**If a subscription was configured in V3 STEP 4.5**, include a `subscriptionDetails` block in the product body (see rules below). Otherwise omit it entirely.
+
+**`subscriptionDetails` rules:**
+- `title`: auto-generate from frequency (e.g. `"Monthly Subscription"`, `"Weekly Subscription"`, `"Quarterly Subscription"`)
+- `description`: if a discount was set, write a short sentence referencing it (e.g. `"Subscribe and save 10% on every order."`). Omit if no discount.
+- `visible`: always `true`
+- `frequency` + `interval`: from user's Q1 answer
+- `billingCycles`: include only for fixed-duration subscriptions (from Q2). Omit for ongoing.
+- `discount`: include only if a discount was chosen (from Q3). Omit the entire block if no discount.
+- `allowOneTimePurchases`: from user's Q4 answer
+
+**Example `subscriptionDetails` block (monthly, ongoing, 10% off, one-time also allowed):**
+
+```json
+"subscriptionDetails": {
+    "subscriptions": [
+        {
+            "title": "Monthly Subscription",
+            "description": "Subscribe and save 10% on every order.",
+            "visible": true,
+            "frequency": "MONTH",
+            "interval": 1,
+            "discount": {
+                "type": "PERCENTAGE",
+                "amount": 10
+            }
+        }
+    ],
+    "allowOneTimePurchases": true
+}
+```
+
+**Example with fixed duration and flat amount discount (every 2 months, 6 cycles, $5 off, subscription only):**
+
+```json
+"subscriptionDetails": {
+    "subscriptions": [
+        {
+            "title": "Bi-Monthly Subscription",
+            "description": "Subscribe and save $5 on every order.",
+            "visible": true,
+            "frequency": "MONTH",
+            "interval": 2,
+            "billingCycles": 6,
+            "discount": {
+                "type": "AMOUNT",
+                "amount": 5
+            }
+        }
+    ],
+    "allowOneTimePurchases": false
+}
+```
 
 ---
 
@@ -650,8 +801,9 @@ Before reporting success to the user, verify ALL of the following:
 - [ ] V3 STEP 2 completed: User provided 1-3 images, all uploaded to Media Manager with wixstatic.com URLs.
 - [ ] V3 STEP 3 completed: Images analyzed from user's message, all product fields generated based on what's visible in the image(s).
 - [ ] V3 STEP 4 completed: User reviewed and approved the generated details.
+- [ ] V3 STEP 4.5 completed (if applicable): Subscription eligibility was evaluated. If eligible, user was asked and their choice (Yes/No) was applied before proceeding to STEP 5.
 - [ ] V3 STEP 5 completed: User confirmed, modified, or skipped product options.
-- [ ] V3 STEP 6 completed: Product was created via API and you received a product ID.
+- [ ] V3 STEP 6 completed: User confirmed "create now", product was created via API and you received a product ID.
 
 ---
 
