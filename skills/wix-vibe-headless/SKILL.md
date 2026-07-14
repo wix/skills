@@ -1,6 +1,6 @@
 ---
 name: wix-vibe-headless
-description: "Client-only, dependency-free REST scaffolds for connecting an already-built front end (a vibe-coded app, an HTML/JSX/Vite project, a design-tool export) to a live Wix site over the site's public WIX_CLIENT_ID — the browser talks to Wix directly, no SDK, no backend, no build step. One skill covering every Wix business solution: Stores/eCommerce storefront (products, cart, checkout), Bookings (services, slots, appointments), Blog (posts, categories, tags), Events & Tickets (browse, RSVP, ticketing), Portfolio (collections, projects, galleries), Restaurants (menu, online ordering, reservations), CMS / Wix Data (list, detail, filter, forms, CRUD), and Pricing Plans (memberships, subscriptions, checkout). Each vertical ships a copy-as-is REST layer plus wiring instructions. Read-only over the owner's content — never provisions, never mocks data. Triggers: connect my Wix store/shop, build a storefront over Wix, add a cart and checkout, connect Wix Bookings, take appointments/reservations, show my Wix blog, list my Wix events, sell tickets, take RSVPs, build a portfolio from Wix Portfolio, show my restaurant menu / order online / book a table, display my Wix CMS collection, wire a contact form to Wix, sell membership/subscription plans, 'here is my WIX_CLIENT_ID', connect this app to my Wix site over REST. Use this for CLIENT-ONLY REST integration over an existing site; use `wix-headless` instead for SDK + Wix CLI builds, hosting, and one-prompt new-site creation."
+description: "Client-only, dependency-free REST scaffolds for connecting an already-built front end (a vibe-coded app, an HTML/JSX/Vite project, a design-tool export) to a live Wix site over the site's public WIX_CLIENT_ID — the browser talks to Wix directly, no SDK, no backend, no build step. One skill covering every Wix business solution: Stores/eCommerce storefront (products, cart, checkout), Bookings (services, slots, appointments), Blog (posts, categories, tags), Events & Tickets (browse, RSVP, ticketing), Portfolio (collections, projects, galleries), Restaurants (menu, online ordering, reservations), CMS / Wix Data (list, detail, filter, forms, CRUD), Pricing Plans (memberships, subscriptions, checkout), and Members (custom login — email+password, Google/Facebook, and custom SSO — plus account areas and member-gated content). Each vertical ships a copy-as-is REST layer plus wiring instructions. Read-only over the owner's content — never provisions, never mocks data. Triggers: connect my Wix store/shop, build a storefront over Wix, add a cart and checkout, connect Wix Bookings, take appointments/reservations, show my Wix blog, list my Wix events, sell tickets, take RSVPs, build a portfolio from Wix Portfolio, show my restaurant menu / order online / book a table, display my Wix CMS collection, wire a contact form to Wix, sell membership/subscription plans, add member login / sign up, let members log in with Google or Facebook, custom login page, account / profile page, gate content behind login, sign in with SSO/Okta, 'here is my WIX_CLIENT_ID', connect this app to my Wix site over REST. Use this for CLIENT-ONLY REST integration over an existing site; use `wix-headless` instead for SDK + Wix CLI builds, hosting, and one-prompt new-site creation."
 ---
 
 # Wix Vibe Headless — client-only REST connectors
@@ -44,6 +44,11 @@ This skill is the deliberately **client-only, REST-only** path. It is independen
   **refresh token to `localStorage`**, and refreshes on expiry. That token IS the identity of
   the cart / reservation / member session — **never re-mint anonymously per load** or the cart
   silently empties.
+- **Member login swaps the token set on the same client.** The **members** vertical is *custom*
+  login — the front owns its login UI; the member is **never redirected to a Wix-hosted login page**.
+  On success it writes the member's tokens into the *same* store the visitor token used
+  (`setSessionTokens`), so **every subsequent `wixApiRequest` runs as the member** and the cart/session
+  carries over. "My …" surfaces (plans, orders, bookings, registrations) light up only once logged in.
 - **Never mock, never provision.** These scaffolds are read-only over the owner's content. The
   owner adds products/posts/services/events/menus/plans in the **Wix dashboard**. If a
   collection is empty, show the empty state — never fabricate data, reviews, ratings, or counts.
@@ -91,6 +96,7 @@ with a blog, or a store with pricing plans).
 | Restaurant: menu, online ordering, table reservations | **restaurants** | `references/restaurants/INSTRUCTIONS.md` | `wix-restaurants-menu.js` (always) + `wix-restaurants-ordering.js` + `wix-restaurants-reservations.js` as needed |
 | CMS content: list/detail, filter/search, forms, data CRUD | **cms** | `references/cms/INSTRUCTIONS.md` | `references/cms/wix-cms.js` |
 | Plans & pricing: memberships/subscriptions, subscribe, my plans | **pricing-plans** | `references/pricing-plans/INSTRUCTIONS.md` | `references/pricing-plans/wix-pricing-plans.js` |
+| Member accounts: custom login/sign-up (email+password, Google/Facebook, SSO), account area, gated content | **members** | `references/members/INSTRUCTIONS.md` | `references/members/wix-members-auth.js` |
 
 ## The run
 

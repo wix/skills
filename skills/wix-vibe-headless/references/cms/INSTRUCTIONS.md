@@ -113,6 +113,15 @@ remove). If you hit a use case they don't cover, make the call yourself with
   Data Items — https://dev.wix.com/docs/api-reference/business-solutions/cms/data-items/query-referenced-data-items.md
 - **Collection schema / field keys & types**: Get Data Collection —
   https://dev.wix.com/docs/api-reference/business-solutions/cms/collection-management/data-collections/get-data-collection.md
+- **Member-gated & user-generated content** → the **members** vertical
+  (`references/members/INSTRUCTIONS.md`). A collection whose permissions are `read: Anyone`,
+  `insert: Site Member`, `update/remove: Site Member Author` gives you the classic pattern: anyone
+  reads, only logged-in members write, and each member edits only their own. Sign the member in with
+  custom login (on your own UI), then `insertDataItem` runs as the member and Wix stamps the item's
+  `_owner` automatically — so a **"my items"** view is just
+  `queryDataItems(collectionId, { filter: { _owner: <memberId> } })`, and author-only
+  `updateDataItem`/`removeDataItem` are enforced server-side. (This skill never provisions the
+  collection — the owner creates it with those permissions in the dashboard.)
 
 Keep the snippets as the default for everything they already do; reach for the API
 reference only for the gap.

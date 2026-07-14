@@ -61,6 +61,48 @@ async function mintToken(body) {
 }
 
 /**
+ * Log a member in on THIS client by swapping the persisted token set for the
+ * member's tokens (see references/members/). Member tokens are the SAME shape as
+ * visitor tokens and refresh via the same `refresh_token` grant — logging in just
+ * replaces the set the client already carries, so EVERY subsequent `wixApiRequest`
+ * (cart, orders, bookings, "my …" reads) now runs as the member. Called by the
+ * members helper after a successful credential / social / SSO login.
+ *
+ * @param {{ accessToken: string, refreshToken: string, expiresIn: number }} tokens
+ */
+export function setSessionTokens({ accessToken, refreshToken, expiresIn }) {
+  saveToken({
+    accessToken,
+    refreshToken,
+    expiresAt: Date.now() + expiresIn * 1000,
+    role: "member",
+  });
+}
+
+/**
+ * Drop the persisted session so the next call mints a FRESH anonymous visitor.
+ * Call on logout — otherwise the dead member token lingers and reads fail.
+ */
+export function clearSession() {
+  tokenCache = null;
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(TOKEN_STORAGE_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
+ * True once a member is logged in on this client (vs. an anonymous visitor).
+ * Gate account UI on this, or on the members helper's `isLoggedIn()`.
+ * @returns {boolean}
+ */
+export function isMember() {
+  return loadToken()?.role === "member";
+}
+
+/**
  * Get a visitor access token from the client id.
  *
  * The visitor token IS the identity of the Wix "current cart", so we persist the
@@ -76,6 +118,8 @@ async function getAccessToken() {
   if (cached?.refreshToken) {
     try {
       const refreshed = await mintToken({ clientId: WIX_CLIENT_ID, grantType: "refresh_token", refreshToken: cached.refreshToken });
+      // Refreshing preserves identity: a member refresh token yields member tokens.
+      refreshed.role = cached.role || "visitor";
       saveToken(refreshed);
       return refreshed.accessToken;
     } catch {
@@ -83,6 +127,7 @@ async function getAccessToken() {
     }
   }
   const fresh = await mintToken({ clientId: WIX_CLIENT_ID, grantType: "anonymous" });
+  fresh.role = "visitor";
   saveToken(fresh);
   return fresh.accessToken;
 }
@@ -126,7 +171,15 @@ export async function wixApiRequest(path, options = {}) {
   }
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    throw new Error(`Wix API error ${res.status}: ${text}`);
+    let parsed;
+    try { parsed = JSON.parse(text); } catch { parsed = text; }
+    // Attach status + parsed body so callers (e.g. the members helper) can map a
+    // meaningful auth outcome (404 = bad credentials, 409 = email exists) to a
+    // friendly message instead of parsing the message string.
+    const err = new Error(`Wix API error ${res.status}: ${text}`);
+    err.status = res.status;
+    err.body = parsed;
+    throw err;
   }
   if (res.status === 204) return undefined;
   return await res.json();
