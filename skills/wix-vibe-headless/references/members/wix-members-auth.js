@@ -259,6 +259,12 @@ export async function logout(returnTo) {
 
 async function createRedirectSession({ authRequest }) {
   const { responseMode, sessionToken, idp, redirectUri, pkce } = authRequest;
+  // ⚠️ EXACT Wix wire shape — do NOT simplify or inline this. It is NOT the input
+  // object: the request needs the `auth.authRequest` wrapper, the PKCE fields FLAT
+  // (`codeChallenge` + `codeChallengeMethod`, not a nested `pkce` object; the
+  // `codeVerifier` is NOT sent here — it's kept for the token exchange), and
+  // `responseType`/`scope` present. Spreading the input straight onto the body →
+  // 400 Bad Request.
   const { redirectSession } = await wixApiRequest(REDIRECT_SESSION_URL, {
     body: {
       auth: {

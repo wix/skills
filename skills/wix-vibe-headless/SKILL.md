@@ -66,6 +66,11 @@ This skill is the deliberately **client-only, REST-only** path. It is independen
   redirect-session / Wix-hosted form — **never hand-build a `/checkout` or purchase URL**.
 - **Fail loudly.** The helpers throw on out-of-stock, empty carts, unbookable slots, expired
   holds, and payment-still-owed. A green path means it really worked — don't swallow the error.
+- **Copy the shipped helpers as-is — don't rewrite their internals.** Wire your UI to the *exported*
+  functions; don't "refactor" or reimplement the helper bodies. Several Wix request shapes are exact
+  and easy to break (the members `createRedirectSession` body is the classic trap — a rewritten
+  version returns 400 and login dies). Extend by *calling* the exports or adding a new
+  `wixApiRequest` call for a genuine gap — never by editing the shipped ones.
 - **Beyond the snippets, look it up — never guess.** The templates and the shipped
   `references/<vertical>/` helpers are the implementation — build from them first. When you hit a
   genuine gap (a field, an endpoint, or an error the snippets don't cover), extend the client with

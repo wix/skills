@@ -80,6 +80,12 @@ Copy `wix-client.js` + `wix-members-auth.js` into `src/rest/` and set `WIX_CLIEN
 The full state-machine, `profile`, and error semantics are documented as JSDoc at the top of
 `wix-members-auth.js`. **Read it before wiring the UI.**
 
+> **⚠️ Copy `wix-members-auth.js` verbatim — do NOT rewrite its internals.** Wire the UI to the
+> exported functions, but leave the helper's bodies alone. The OAuth request shapes are **exact and
+> unforgiving** — the `createRedirectSession` body in particular needs the `auth.authRequest` wrapper,
+> flat PKCE fields, and `responseType`/`scope`; "simplifying" it into a spread of the input object
+> returns **400 Bad Request** and login dies. Extend by *calling* the exports, not by editing them.
+
 ## How to wire it (UI is the project's choice — the skill ships the REST layer only)
 
 ### (A) Credential form + the state machine — handle every branch (not just SUCCESS)
