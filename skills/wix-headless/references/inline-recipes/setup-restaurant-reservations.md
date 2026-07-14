@@ -24,7 +24,26 @@ A checklist for turning on **table reservations** for a Wix site.
 ---
 
 ## Article: Steps for Setting Up Wix Table Reservations
-**YOU MUST** complete the steps in order (1-3) without requiring additional user input. Every step is idempotent — it verifies the auto-provisioned state and only writes when the request calls for a change.
+**YOU MUST** complete the steps in order (0-3) without requiring additional user input. Every step is idempotent — it verifies the auto-provisioned state and only writes when the request calls for a change.
+
+### STEP 0: Configure the business location address
+
+**Set a real street address on the site's default business location.** The reservation location **is** the site's business location (same entity — the reservation location's `location` object is the business `Location`), and a fresh site provisions it with an **empty street address**. A complete restaurant site needs a real address: it's where guests come, it's what the reservation/experience surface and the Business Manager show, and it's the **same** location online ordering requires (so a site with both ordering and reservations does this once). Set it via the **Locations API** — `PUT https://www.wixapis.com/locations/v1/locations/<id>` (Update Location). Docs: <https://dev.wix.com/docs/api-reference/business-management/locations/introduction.md>.
+
+```bash
+# 1) find the default location + its revision
+curl -sS <AUTH> -X GET "https://www.wixapis.com/locations/v1/locations"   # take the entry with "default": true
+# 2) overwrite it with a real address (FULL override — send the whole object)
+curl -sS <AUTH> -X PUT "https://www.wixapis.com/locations/v1/locations/<id>" \
+  -d '{ "location": {
+    "id": "<id>", "revision": "<revision>", "default": true,
+    "name": "<Business name>", "timeZone": "Europe/Paris",
+    "address": { "country": "FR", "subdivision": "FR-75", "city": "Paris", "postalCode": "75001",
+      "streetAddress": { "number": "18", "name": "Rue des Lumières" },
+      "formattedAddress": "18 Rue des Lumières, 75001 Paris, France" } } }'
+```
+
+**⚠️ Earned gotchas (identical to `setup-restaurant-orders.md` STEP 0 — the same call):** Update Location is a **full override**, not a partial update (a "just the address" body is the classic *"reported success, nothing changed"* failure); **echo `"default": true`** or it 400s `CHANGE_DEFAULT_FORBIDDEN`; **`revision` is mandatory**; **`country` is a 2-letter ISO code**. The address also propagates to Site Properties. **Where the address comes from:** the request; if the brief names none, set a clearly-marked placeholder and **flag in the handoff that the owner must set their real address**.
 
 ### STEP 1: Discover the auto-provisioned default reservation location
 
