@@ -1,0 +1,40 @@
+name: pricing-plans/pricing-plans-bookings-integration
+description: >-
+  Verifies the agent reads the pricing-plans-bookings-integration recipe when asked
+  to programmatically move a paid booking onto a specific pricing-plan credit pool,
+  and correctly reports the API limitation instead of claiming a working flow.
+triggerPrompt: >-
+  A customer booked and paid for a Pilates session using bonus credits, but I want to
+  move that booking onto their subscription plan's credits instead — like the "Redeem
+  session from" picker in the Wix Owner app, but done programmatically via the API for
+  our whole studio. How do I do this with the Wix APIs?
+tags: [bookings, pricing-plans]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans/skills/pricing-plans-bookings-integration
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user wants to programmatically move an already-paid booking onto a different,
+      specific pricing-plan credit pool via the Wix API (equivalent to the Owner app's
+      "Redeem session from" picker).
+      Intent: get an accurate answer about whether/how this is possible via the public API.
+
+      Pass if the response:
+      - clearly states there is no public API path to do this end-to-end today (selecting a
+        specific credit pool to pay/rebook an existing booking isn't supported), AND
+      - does not claim that setting `selectedPaymentOption: MEMBERSHIP` on the booking, or
+        setting `checkoutInfo.buyerInfo.memberId` plus `membershipOptions.selectedMemberships`
+        on a checkout, will work end-to-end as a backoffice/API-key automation, AND
+      - if it proposes a workaround, only proposes Benefit Programs `Redeem Benefit` while noting
+        it doesn't link back to the booking/order (paymentStatus won't update, no automatic
+        refund on cancellation) rather than presenting it as a complete solution.
+
+      Fail if the response:
+      - confidently describes a working end-to-end API flow to pay a specific booking from a
+        chosen plan/pool, OR
+      - is generic and never addresses whether this specific capability exists, OR
+      - tells the user to just call `createCheckout`/`createOrder` with membership options as if
+        that alone completes the payment.

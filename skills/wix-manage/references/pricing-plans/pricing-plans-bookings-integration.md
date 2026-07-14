@@ -156,6 +156,17 @@ Query the service to confirm integration is working. The service should now show
 - Handle concurrent operations gracefully
 - Consider queuing operations if dealing with high-frequency updates
 
+### Known Limitation: Selecting a Specific Credit Pool for an Existing Booking
+
+There is **no public API path** to programmatically pay/rebook a specific booking from a chosen pricing-plan credit pool (e.g. moving a session from bonus credits onto a customer's subscription credits) — the equivalent of the "Redeem session from" plan picker in the Wix Owner mobile app. This was confirmed by schema inspection and live testing (not a docs-only gap); every plausible path fails or is a dead end:
+
+- **`Booking.selectedPaymentOption = "MEMBERSHIP"`** only records the customer's payment *choice*. It does not itself charge a plan credit — `Booking.paymentStatus` is documented as "Automatically updated when using eCommerce checkout APIs," meaning the actual charge still requires the same booking→checkout→order flow used for `ONLINE` payments.
+- **eCom `createCheckout`/`updateCheckout`**: `checkoutInfo.buyerInfo.memberId` is a **read-only** field, populated from the caller's authenticated visitor/member session — it cannot be set in the request body. In an API-key or backoffice context there is no visitor session, so `buyerInfo` stays empty regardless of what you send. `membershipOptions.selectedMemberships` (which references a plan/membership `id` + `lineItemIds`) is accepted and clears `MEMBERSHIP_NOT_SELECTED_FOR_ITEMS`, but **Create Order then fails with `428 CHECKOUT_INVALID_MEMBERSHIP`** because the checkout has no associated member identity to validate the membership against.
+- **Benefit Programs `Redeem Benefit`** (`POST /v1/benefits/redeem`) will correctly move credit out of a chosen pool — its own description says "Calling this method records redemption of the benefit and adjusts the pool's associated balance. **You still need to handle providing the beneficiary with the item.**" It has no `orderId`/`bookingId` field, so nothing links the redemption back to the booking: `Booking.paymentStatus` stays `UNDEFINED`, and cancelling the booking will not automatically revert the credit (you'd need to store the returned `transactionId` yourself and manually call `Balances` → `Revert Balance Change` on cancellation).
+- **Order Transactions `Add Payments`** (`POST /v1/payments/orders/{orderId}/add-payment`) only accepts `regularPaymentDetails` or `giftcardPaymentDetails` in its `payments[]` — there's no membership-payment variant, so you can't manually record a synthetic "paid via plan X" transaction on the order after redeeming a benefit either.
+
+**Bottom line**: automating "rebook this session onto a specific plan/pool" for a backoffice/API-key integration isn't currently possible end-to-end. The closest working primitive is `Redeem Benefit` + `Revert Balance Change`, but it requires the integrator to build and maintain their own linkage between the benefit-programs transaction and the booking — there is no built-in reconciliation. If a user needs this, tell them plainly that today it requires the manual "Redeem session from" flow in the Wix Owner app; don't attempt the checkout/membershipOptions path and report it as working, since it will look successful up to `createCheckout` and only fail at `createOrder`.
+
 ## API Documentation References
 
 - [Create Plan](https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans/plans-v3/create-plan) — `POST https://www.wixapis.com/pricing-plans/v3/plans`
