@@ -66,6 +66,7 @@ Minimal shape (the doc has the complete tree — this is only the skeleton to or
 - **`businessSchedule.entries[]`** carries the recurrence: `WEEKLY` with `weeklyOptions.startDaysAndTimes[{ day, time }]` (`day` is `MONDAY`…`SUNDAY`, `time` is `"HH:mm"`), or `ONE_TIME` with `oneTimeOptions`. `durationInMinutes` sits on `businessSchedule`, not per entry.
 - **⚠️ Booking an experience is PREMIUM-GATED**, exactly like turning on online reservations (`setup-restaurant-reservations.md` STEP 3 → `428 PREMIUM_ONLY` on a free site). **Creating** the experience works on a free site; **booking** it at runtime needs the site to be premium with online reservations enabled. Record the precondition in the handoff; **don't fail the seed** over it.
 - **Cover image (opt-in):** `configuration.displayInfo.coverImage` takes a Wix Media image (`{ id, url, … }`) — attach it in the imagery pass (`IMAGE_GENERATION.md`) only when `imagery` is on; otherwise omit and the frontend renders a themed block.
+- **⚠️ Heads-up for the booking UI (not a seed step):** the experiences **sample-flow doc** (linked above) tells the frontend to call `getScheduledTimeSlots` with the experience GUID — **that parameter doesn't exist** (neither the SDK nor REST scopes slots to an experience), so it silently returns the *location's* slots. The frontend must instead project bookable times from the experience's own `businessSchedule`. Full detail: `how-to-code-restaurant-reservations.md` (Gotcha C).
 
 ## Keep
 

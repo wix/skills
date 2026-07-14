@@ -166,35 +166,37 @@ Doc: <https://dev.wix.com/docs/api-reference/business-solutions/restaurants/rese
 
 ### Booking an experience (only when experiences are in the run)
 
-An **experience** is a reservation that *is* a curated dining occasion (wine/cheese pairing, chef's table). It uses the **same** booking mechanism as a table — the only differences are that you **list experiences** to show and choose from, fetch slots from the **experience's own schedule**, and stamp the chosen `experienceId` onto the reservation. Read the shapes from the docs (`.md?apiView=SDK`); the earned drift gotchas below are what the docs won't tell you.
+An **experience** is a reservation that *is* a curated dining occasion (wine/cheese pairing, chef's table). It uses the **same** booking mechanism as a table, with two differences: you **list experiences** to show and choose from, and you offer bookable times **projected from the experience's own schedule** (there is *no* experience-scoped slot API — see Gotcha C) rather than from `getScheduledTimeSlots`, then stamp the chosen `experienceId` onto the reservation. Read the shapes from the docs (`.md?apiView=SDK`); the earned drift gotchas below are what the docs won't tell you.
 
 Flow (mirrors the docs' sample flow — <https://dev.wix.com/docs/api-reference/business-solutions/restaurants/reservations/experiences/sample-flows.md>):
 
 ```js
-import { experiences, timeSlots, reservations } from '@wix/table-reservations';
+import { experiences, reservations } from '@wix/table-reservations';
 
 // 1 · list experiences to display (name, price, schedule) — see gotcha A
 const { items: exps = [] } = await experiences.queryExperiences().find();
+const exp = exps.find((e) => e._id === chosenId);
 
-// 2 · slots for the chosen experience come from getScheduledTimeSlots — pass experienceId
-const { timeSlots: slots = [] } = await timeSlots.getScheduledTimeSlots(
-  reservationLocationId, partySize,
-  { timeRange: { startDate: new Date(from), endDate: new Date(to) }, experienceId },
-);
+// 2 · offer bookable times from the EXPERIENCE'S OWN schedule — do NOT call
+//     getScheduledTimeSlots for an experience (it can't scope to one — Gotcha C).
+//     queryExperiences() already returned the schedule; project the next occurrences yourself.
+const sched = exp.configuration?.onlineReservations?.businessSchedule; // { durationInMinutes, entries[] }
+// entries[].weeklyOptions.startDaysAndTimes[{ day, time }]  →  next N dates matching each weekday+time
+// (ONE_TIME entries carry oneTimeOptions.{startDate,startTime}). Build the option list from these.
 
 // 3 · book it — experienceId rides in details (see gotcha B); firstName + phone required
 const done = await reservations.createReservation({
-  details: { reservationLocationId, experienceId, startDate: chosenSlot.startDate, partySize },
+  details: { reservationLocationId, experienceId, startDate: chosenOccurrence, partySize },
   reservee: { firstName, lastName, email, phone },
 });
 ```
-Docs: <https://dev.wix.com/docs/api-reference/business-solutions/restaurants/reservations/experiences/query-experiences.md?apiView=SDK> · <https://dev.wix.com/docs/api-reference/business-solutions/restaurants/reservations/time-slots/get-scheduled-time-slots.md?apiView=SDK> · <https://dev.wix.com/docs/api-reference/business-solutions/restaurants/reservations/reservations/create-reservation.md?apiView=SDK>
+Docs: <https://dev.wix.com/docs/api-reference/business-solutions/restaurants/reservations/experiences/query-experiences.md?apiView=SDK> · <https://dev.wix.com/docs/api-reference/business-solutions/restaurants/reservations/reservations/create-reservation.md?apiView=SDK>
 
 **⚠️ Gotcha A — `queryExperiences()` is a QUERY BUILDER, not an object-arg method.** Call `experiences.queryExperiences().find()` (chain `.eq()`/`.limit()` etc. before `.find()` if needed) and read the array from the **result's `.items`**. Passing a query object — `queryExperiences({})` — does not type-check and returns no data; `await`-ing the un-`.find()`ed builder gives you the builder, not the results.
 
 **⚠️ Gotcha B — `details.experienceId` is a valid REST field but the SDK `Details` type may OMIT it (version drift).** The REST API accepts `experienceId` inside `details` (the Experiences intro and the reservation's own `meta` confirm `details.experienceId`), but an installed `@wix/table-reservations` older than the Experiences feature ships a `Details` type without it — so TypeScript rejects the property. Build the reservation object and **pass it through an `any` cast** (or `// @ts-expect-error`) so `experienceId` reaches the request body; it works at runtime. Don't drop the field to satisfy the compiler — a reservation without it books a plain table, not the experience.
 
-**⚠️ Use `getScheduledTimeSlots` (positional: `reservationLocationId, partySize, options`) for experiences — NOT `getTimeSlots`.** Experiences override the location's schedule with their own; passing the `experienceId` in the 3rd `options` arg (alongside `timeRange`) returns the experience's slots. Same `AVAILABLE`-only filtering and `Date` `startDate` rules as the table flow above.
+**⚠️ Gotcha C — there is NO experience-scoped slot fetch; project times from the experience's own `businessSchedule` instead.** The upstream `get-scheduled-time-slots` doc prose says "pass the GUID of that experience to this method," but **no such parameter exists at any layer**: the SDK (`@wix/auto_sdk_table-reservations_time-slots` ≤ 1.0.47, pulled by `@wix/table-reservations`) field-picks only `{ reservationLocationId, partySize, timeRange }`, and the REST body is those same three fields — so an `experienceId` option is **silently dropped** (an `as any` cast is a **no-op** here, unlike Gotcha B). Calling `getScheduledTimeSlots` for an experience returns the **location's default slots** (wrong day/time/duration), presented to guests as the experience's — and it **fails silently**: a populated-but-wrong list looks healthy, and the premium gate (below) stops live verification before you'd notice. Instead, **derive upcoming occurrences from the experience's own `configuration.onlineReservations.businessSchedule`** — `entries[].weeklyOptions.startDaysAndTimes[{ day, time }]` (or `oneTimeOptions`) + `durationInMinutes`, already returned by `queryExperiences()`. Treat that as a **display projection**; real capacity/conflict enforcement happens server-side when `createReservation` runs.
 
 **⚠️ Same premium precondition** as online reservations: **creating** experiences is free, but **booking** one needs a premium site with online reservations enabled (`428 PREMIUM_ONLY` otherwise — `setup-restaurant-experiences.md`). Build the flow; treat a booking failure on a non-premium site as a provisioning precondition, not a code bug.
 
@@ -207,5 +209,5 @@ A correct Table-Reservations frontend:
 - calls **`getTimeSlots(locationId, new Date(date), partySize, options?)`** with **positional** args — the `date` param is a **`Date`** (not the ISO string the doc shows) — and books only **`status === 'AVAILABLE'`** slots (passing the slot's `Date` `startDate` onward);
 - books via **`createHeldReservation({...})` → `reserveReservation(id, reservee, revision)`** (three positional args; `firstName` + `phone` required; 10-minute hold; `reserveReservation` is the only exit from `HELD`);
 - treats **`onlineReservationsEnabled` (premium)** as a precondition — the read/book flow only works once it's on;
-- **for experiences** (when in the run): lists via **`queryExperiences().find()`** (builder → `.items`), fetches slots via **`getScheduledTimeSlots(locationId, partySize, { timeRange, experienceId })`**, and books via `createReservation` with **`details.experienceId`** (cast past the SDK `Details` type if it omits the field) — same premium precondition.
+- **for experiences** (when in the run): lists via **`queryExperiences().find()`** (builder → `.items`); offers times **projected from the experience's own `businessSchedule`** — there is **no** experience-scoped `getScheduledTimeSlots` (Gotcha C: the `experienceId` option is silently dropped, so that call returns the location's slots); and books via `createReservation` with **`details.experienceId`** (an `any` cast past the SDK `Details` type — Gotcha B) — same premium precondition.
 </content>
