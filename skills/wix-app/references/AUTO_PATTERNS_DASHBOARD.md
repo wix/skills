@@ -28,32 +28,38 @@ Without these scopes, the dashboard page renders but all data operations fail.
 ## Core Rules
 
 ### Configuration Generation
+
 1. **Analyze** schema requirements.
 2. **Select** fields based on data types (max 3 initially).
 3. **Validate** against the constraints below.
 
 ### Enum Handling
+
 - **IF** `enumConfig` is required (implicit or explicit):
-    - **THEN** ASK user for possible option values.
-    - **THEN** Derive `label` from `value` (e.g., "dog" -> "Dog") unless specified.
-    - **NEVER** guess or invent enum values.
+  - **THEN** ASK user for possible option values.
+  - **THEN** Derive `label` from `value` (e.g., "dog" -> "Dog") unless specified.
+  - **NEVER** guess or invent enum values.
 
 ### Structural Limits
+
 - **MUST** have exactly 2 pages in `pages` array (`collectionPage` + `entityPage`).
 - **MUST** have exactly 1 component with `layout` array in `collectionPage`.
 - **MUST** use TypeScript for configuration.
 
 ### Field Selection
+
 - **MAX** 3 columns initially for `collectionPage`.
 - **MUST** include `create` action in `collectionPage` navigating to `entityPage`.
 - **NEVER** fill optional fields unless explicitly requested.
 
 ### Type Binding
+
 - **IF** `type: 'collectionPage'` **THEN** only `collectionPage` field allowed.
 - **IF** `type: 'entityPage'` **THEN** only `entityPage` field allowed.
 - **NEVER** mix types in single page config.
 
 ### Validation
+
 - **MUST** align with `AppConfig` structure.
 - **MUST** remove unsupported configuration entries.
 
@@ -85,12 +91,14 @@ src/extensions/dashboard/pages/<page-name>/
 You must produce the input JSON for the generator script. Top-level keys: `collection`, `schema`, `relevantCollectionId`, `extensionName`.
 
 **`collection`** (from the data collection you scaffolded):
+
 - `idSuffix` — the collection's short ID
 - `fields` — array of `{ key, displayName, type }` (types: TEXT, NUMBER, BOOLEAN, DATE, IMAGE, URL, RICH_TEXT, etc.)
 
 **`relevantCollectionId`** (top-level, sibling to `collection` and `schema`) — full scoped collection ID (e.g., `@namespace/my-collection`)
 
 **`schema.content`** — 20 string fields you generate:
+
 - `collectionRouteId` — URL-friendly collection ID (kebab-case, e.g., "cool-gadgets")
 - `singularEntityName` — URL-friendly singular form (e.g., "cool-gadget")
 - `pageTitle` — Main page title (e.g., "Cool Gadgets Collection")
@@ -113,23 +121,40 @@ You must produce the input JSON for the generator script. Top-level keys: `colle
 - `entityPageSubtitle` — Entity detail page subtitle
 
 **`schema.layout`** — organize ALL collection fields into sections:
+
 ```json
 {
-  "main": [{ "title": "Basic Info", "subtitle": "Core details", "fields": ["field1", "field2"] }],
-  "sidebar": [{ "title": "Status", "subtitle": "Metadata", "fields": ["isActive"] }]
+  "main": [
+    {
+      "title": "Basic Info",
+      "subtitle": "Core details",
+      "fields": ["field1", "field2"]
+    }
+  ],
+  "sidebar": [
+    { "title": "Status", "subtitle": "Metadata", "fields": ["isActive"] }
+  ]
 }
 ```
+
 Rules: Every field must appear exactly once. Main = user-facing content. Sidebar = metadata/status. If there are no sidebar-worthy fields, use `"sidebar": []`.
 
 **`schema.columns`** — ordered list for the table view:
+
 ```json
 [{ "id": "fieldKey", "displayName": "Short Name" }]
 ```
+
 Include ALL fields, primary identifiers first. Display names target ≤10 characters.
 
 **`schema.gridItem`** (only if IMAGE fields exist, otherwise `null`):
+
 ```json
-{ "titleFieldId": "name", "subtitleFieldId": "category", "imageFieldId": "photo" }
+{
+  "titleFieldId": "name",
+  "subtitleFieldId": "category",
+  "imageFieldId": "photo"
+}
 ```
 
 > **🛑 Nesting is required.** Content, layout, columns, and gridItem are **not** top-level keys and **not** flat siblings under `schema`. The generator rejects flat shapes like `"schema": { "collectionRouteId": "...", "main": [...] }`. Always nest as `"schema": { "content": {...}, "layout": {...}, "columns": [...], "gridItem": null }`.
@@ -200,6 +225,7 @@ node <SKILL_ROOT>/scripts/generate-auto-patterns.js --input /tmp/auto-patterns-i
 The `--output` directory MUST be the exact folder the CLI scaffolded in Step 1 — the script derives the component filename from that folder's name.
 
 The script produces:
+
 - `patterns.json` — The declarative AppConfig
 - `<page-name>.tsx` — Thin React wrapper component, written to the SAME filename the CLI scaffolded and the builder already registers (overwrites the stub)
 
@@ -207,8 +233,12 @@ The builder file (`<page-name>.extension.ts`) and `src/extensions.ts` registrati
 
 ### Step 4: Install Dependencies
 
+The CLI template pins `@wix/auto-patterns` and `@wix/patterns` to exact versions — keep it that way. Check `package.json` first: if both are already in `dependencies`, **skip this step**.
+
+If one is missing, install only that package:
+
 ```bash
-npm install @wix/auto-patterns @wix/patterns
+npm install --save-exact <missing-package>
 ```
 
 ### Step 5: Validate
@@ -234,31 +264,32 @@ Read the current `patterns.json` to understand the configuration structure.
 
 Use the topic index below to find the right reference file for your change:
 
-| Topic | Keywords | Reference File |
-|-------|----------|---------------|
-| AppConfig structure, page types, component types, page.tsx template | AppConfig, PageConfig, CollectionPageConfig, EntityPageConfig | [app-config-structure.md](auto-patterns-dashboard/app-config-structure.md) |
-| Page setup, relationships, routing, URL configuration, sticky columns | page relationships, routing, entityPageId, parentPageId, route parameters | [pages-configuration.md](auto-patterns-dashboard/pages-configuration.md) |
-| Collection page components, table/grid layouts, column configuration | table/grid configuration, columns, customColumns, view switching | [collection-page.md](auto-patterns-dashboard/collection-page.md) |
-| Views configuration, presets, categories, filters integration | views, presets, categories, columnPreferences, filters, default view | [views.md](auto-patterns-dashboard/views.md) |
-| Page-level actions, create actions, custom collection actions, row click actions | primaryActions, secondaryActions, onRowClick, action menus | [collection-page-actions.md](auto-patterns-dashboard/collection-page-actions.md) |
-| Row-level actions, update/delete actions, custom row actions | actionCell, edit, delete, inline actions, custom resolver | [action-cell.md](auto-patterns-dashboard/action-cell.md) |
-| Bulk operations, bulk delete, bulk action toolbar | bulk delete, multi-select actions, bulkActionToolbar | [bulk-actions.md](auto-patterns-dashboard/bulk-actions.md) |
-| Entity page layout, grid system, field layout, containers | entity page layout, grid system, column spans, main/sidebar, 12-column grid | [entity-page.md](auto-patterns-dashboard/entity-page.md) |
-| Entity page edit mode actions, moreActions, custom entity actions | edit mode actions, moreActions, duplicate, clone | [entity-page-actions.md](auto-patterns-dashboard/entity-page-actions.md) |
-| Entity page view mode actions, primaryActions, secondaryActions | view mode actions, read-only entity actions, navigation actions | [entity-page-view-actions.md](auto-patterns-dashboard/entity-page-view-actions.md) |
-| ResolvedAction interface, common return type for custom actions | ResolvedAction, label, icon, onClick, disabled, hidden, tooltip, skin | [resolved-action.md](auto-patterns-dashboard/resolved-action.md) |
-| AppContext hook, shared collection data, refresh functionality | useAppContext, items, refreshCollection | [app-context.md](auto-patterns-dashboard/app-context.md) |
-| SDK utilities, optimistic actions, schema access | AutoPatternsSDK, optimisticActions, getSchema, createOne, updateOne, deleteOne | [sdk-utilities.md](auto-patterns-dashboard/sdk-utilities.md) |
-| Custom action resolvers, action overrides, useActions hook | custom actions, action resolver, useActions, ResolvedAction | [custom-actions-override.md](auto-patterns-dashboard/custom-actions-override.md) |
-| Column rendering overrides, IColumnValue, custom column display | column override, IColumnValue, useColumns, custom rendering | [custom-columns-override.md](auto-patterns-dashboard/custom-columns-override.md) |
-| Custom form components, useController, entity page customization | custom components, useComponents, useController, form, entity | [custom-components-override.md](auto-patterns-dashboard/custom-components-override.md) |
-| Entity page header, dynamic subtitle, dynamic badges | header override, subtitle, badges, entityPageHeaderSubtitle, entityPageHeaderBadges | [custom-header-override.md](auto-patterns-dashboard/custom-header-override.md) |
-| Table row grouping, section headers, section renderer | sections, grouping, useSections, section renderer, row grouping | [custom-sections-override.md](auto-patterns-dashboard/custom-sections-override.md) |
-| Custom slot components, page slots, banners, informational sections | slots, useSlots, banner, custom content, top section | [custom-slots-override.md](auto-patterns-dashboard/custom-slots-override.md) |
+| Topic                                                                            | Keywords                                                                            | Reference File                                                                         |
+| -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| AppConfig structure, page types, component types, page.tsx template              | AppConfig, PageConfig, CollectionPageConfig, EntityPageConfig                       | [app-config-structure.md](auto-patterns-dashboard/app-config-structure.md)             |
+| Page setup, relationships, routing, URL configuration, sticky columns            | page relationships, routing, entityPageId, parentPageId, route parameters           | [pages-configuration.md](auto-patterns-dashboard/pages-configuration.md)               |
+| Collection page components, table/grid layouts, column configuration             | table/grid configuration, columns, customColumns, view switching                    | [collection-page.md](auto-patterns-dashboard/collection-page.md)                       |
+| Views configuration, presets, categories, filters integration                    | views, presets, categories, columnPreferences, filters, default view                | [views.md](auto-patterns-dashboard/views.md)                                           |
+| Page-level actions, create actions, custom collection actions, row click actions | primaryActions, secondaryActions, onRowClick, action menus                          | [collection-page-actions.md](auto-patterns-dashboard/collection-page-actions.md)       |
+| Row-level actions, update/delete actions, custom row actions                     | actionCell, edit, delete, inline actions, custom resolver                           | [action-cell.md](auto-patterns-dashboard/action-cell.md)                               |
+| Bulk operations, bulk delete, bulk action toolbar                                | bulk delete, multi-select actions, bulkActionToolbar                                | [bulk-actions.md](auto-patterns-dashboard/bulk-actions.md)                             |
+| Entity page layout, grid system, field layout, containers                        | entity page layout, grid system, column spans, main/sidebar, 12-column grid         | [entity-page.md](auto-patterns-dashboard/entity-page.md)                               |
+| Entity page edit mode actions, moreActions, custom entity actions                | edit mode actions, moreActions, duplicate, clone                                    | [entity-page-actions.md](auto-patterns-dashboard/entity-page-actions.md)               |
+| Entity page view mode actions, primaryActions, secondaryActions                  | view mode actions, read-only entity actions, navigation actions                     | [entity-page-view-actions.md](auto-patterns-dashboard/entity-page-view-actions.md)     |
+| ResolvedAction interface, common return type for custom actions                  | ResolvedAction, label, icon, onClick, disabled, hidden, tooltip, skin               | [resolved-action.md](auto-patterns-dashboard/resolved-action.md)                       |
+| AppContext hook, shared collection data, refresh functionality                   | useAppContext, items, refreshCollection                                             | [app-context.md](auto-patterns-dashboard/app-context.md)                               |
+| SDK utilities, optimistic actions, schema access                                 | AutoPatternsSDK, optimisticActions, getSchema, createOne, updateOne, deleteOne      | [sdk-utilities.md](auto-patterns-dashboard/sdk-utilities.md)                           |
+| Custom action resolvers, action overrides, useActions hook                       | custom actions, action resolver, useActions, ResolvedAction                         | [custom-actions-override.md](auto-patterns-dashboard/custom-actions-override.md)       |
+| Column rendering overrides, IColumnValue, custom column display                  | column override, IColumnValue, useColumns, custom rendering                         | [custom-columns-override.md](auto-patterns-dashboard/custom-columns-override.md)       |
+| Custom form components, useController, entity page customization                 | custom components, useComponents, useController, form, entity                       | [custom-components-override.md](auto-patterns-dashboard/custom-components-override.md) |
+| Entity page header, dynamic subtitle, dynamic badges                             | header override, subtitle, badges, entityPageHeaderSubtitle, entityPageHeaderBadges | [custom-header-override.md](auto-patterns-dashboard/custom-header-override.md)         |
+| Table row grouping, section headers, section renderer                            | sections, grouping, useSections, section renderer, row grouping                     | [custom-sections-override.md](auto-patterns-dashboard/custom-sections-override.md)     |
+| Custom slot components, page slots, banners, informational sections              | slots, useSlots, banner, custom content, top section                                | [custom-slots-override.md](auto-patterns-dashboard/custom-slots-override.md)           |
 
 ### Step 3: Make Targeted Edits
 
 Edit `patterns.json` based on the user's request. Key constraints:
+
 - **Always 2 pages** — one `collectionPage` + one `entityPage`
 - **Bidirectional linking** — `entityPageId` in collection component ↔ `parentPageId` in entity page
 - **Max 3 columns initially** for new table views
@@ -269,6 +300,7 @@ Edit `patterns.json` based on the user's request. Key constraints:
 - **Exactly 1 `appMainPage: true`** across all pages
 
 If adding custom overrides (actions, columns, components, slots, etc.):
+
 1. Create the override files in the appropriate `components/` subfolder
 2. Update the page component (`<page-name>.tsx`) to register overrides via `PatternsWizardOverridesProvider`
 3. See the `custom-*-override.md` reference files for implementation patterns
@@ -280,6 +312,7 @@ If adding custom overrides (actions, columns, components, slots, etc.):
 ## Non-Matching Intents
 
 Do NOT use this skill when:
+
 - User needs multi-collection data display → see [DASHBOARD_PAGE.md](DASHBOARD_PAGE.md)
 - User needs embedded script configuration → see [DASHBOARD_PAGE.md](DASHBOARD_PAGE.md)
 - User needs custom business logic or external APIs → see [DASHBOARD_PAGE.md](DASHBOARD_PAGE.md)
