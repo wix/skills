@@ -18,25 +18,27 @@ references:
   - name: "Goal: Drive Cross-Sells"
     path: ecommerce/goal-drive-cross-sells.md
     load: false
-  - name: "Goal: Reduce Cart Abandonment"
-    path: ecommerce/goal-reduce-cart-abandonment.md
-    load: false
   - name: "Setup: Coupons"
     path: ecommerce/setup-coupons.md
     load: false
 ---
 # Recommend: eCommerce Strategy
 
+> ⛔ **MANDATORY PRE-STEP — do this BEFORE Step 1 (before any API call).**
 >
-> **After classifying domains in Step 4b**, load the matching goal skill with `ReadFullDocsArticle`:
-> - **SEASONAL** → [Goal: Seasonal Revenue](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-seasonal-revenue)
-> - **UPSELL_BOOST** / **SHIPPING** → [Goal: Increase AOV](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-increase-aov) (includes both discount and shipping flows)
-> - **STOCK_MOVER** → [Goal: Clear Inventory](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-clear-inventory)
-> - **BUNDLE_AND_SAVE** → [Goal: Drive Cross-Sells](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-drive-cross-sells)
-> - **ABANDONED_CART** → [Goal: Reduce Cart Abandonment](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-reduce-cart-abandonment)
+> Classify the merchant's request and immediately call `ReadFullDocsArticle` on the matching goal skill. Do NOT gather data first — the goal skill tells you which metrics to pull and what guardrails to apply.
 >
-> **If COUPON mechanism in Step 4c**, load:
-> - [Setup: Coupons](https://dev.wix.com/docs/api-reference/business-solutions/coupons)
+> | Merchant intent | Goal to load |
+> |---|---|
+> | Holiday / event / date mentioned | `ReadFullDocsArticle` → [Goal: Seasonal Revenue](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-seasonal-revenue) |
+> | "increase AOV", "spend more", "upsell", "boost sales", generic sales improvement | `ReadFullDocsArticle` → [Goal: Increase AOV](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-increase-aov) |
+> | "clear inventory", "overstock", "clearance", "slow-moving" | `ReadFullDocsArticle` → [Goal: Clear Inventory](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-clear-inventory) |
+> | "bundle", "cross-sell", "buy together", "more items per order" | `ReadFullDocsArticle` → [Goal: Drive Cross-Sells](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-drive-cross-sells) |
+>
+> After loading the goal skill, continue from Step 1 below. The goal skill will instruct you to load the matching flow skill — follow those instructions too.
+>
+> **If COUPON mechanism in Step 4c**, also load:
+> - [Pricing: Create Coupon](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-coupon)
 
 ## EXECUTION RULES — READ BEFORE ANYTHING ELSE
 
@@ -179,7 +181,6 @@ Based on the merchant's request AND the site data, determine which domains to an
 |---|---|---|
 | **DISCOUNTS** | Merchant mentions sales, promotions, revenue, AOV, clearance, holidays, coupons. **Also activate if no specific domain is mentioned** (default). | Always — site data contains discount metrics |
 | **SHIPPING** | Merchant mentions shipping, delivery, checkout conversion, cart abandonment. **Also activate proactively** if site data suggests shipping issues. | High visitors + low orders may indicate shipping friction |
-| **ABANDONED_CART** | Activate proactively if site data shows abandoned carts with no active recovery automation. No merchant trigger needed — detect from data. | `currentDiscounts` empty or no cart recovery automation visible |
 
 **Priority rule**: If the merchant mentions a specific holiday/event/date, the DISCOUNTS domain MUST use the **SEASONAL** strategy — even if other signals like "boost sales" or "increase revenue" could match other goals. Holidays are time-sensitive and take priority over general intent.
 
@@ -204,10 +205,6 @@ Based on the merchant's request AND the site data, determine which domains to an
 | Generic (no clear goal) | "boost sales", ambiguous | Default to SEASONAL if holiday nearby, else UPSELL_BOOST |
 
 **For SHIPPING domain — load the same goal as discounts.** Shipping flows (free shipping threshold, rate optimization) serve the same business goals as discount flows. Load the matching discount goal above — it now includes shipping flow references.
-
-**For ABANDONED_CART domain — load the cart abandonment goal:**
-
-[Goal: Reduce Cart Abandonment](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-reduce-cart-abandonment)
 
 **The goal skill will instruct you to load flow and guardrail skills** — follow those instructions. This chain provides the detailed execution logic you need for high-quality recommendations.
 
@@ -418,35 +415,9 @@ Analyze the site's shipping configuration using the rules below. All shipping re
 
 **Priority order:** CRITICAL blockers (no options, no coverage) → Conversion-linked (no free shipping, high rates) → Revenue opportunities (international, tiered pricing) → Configuration improvements (consolidate, add estimates).
 
-### Abandoned cart recommendations (if ABANDONED_CART domain active)
-
-Detect if the merchant has significant cart abandonment without active recovery. All abandoned cart recommendations use `domain: "abandoned_cart_recovery"`.
-
-**Eligibility gate (BOTH conditions required):**
-1. Cart abandonment recovery automation is **NOT active** on the site
-2. Estimated missing sales >= $200 over the last 30 days
-
-**If either condition fails, do NOT generate abandoned cart recommendations.**
-
-**Urgency thresholds based on missing sales (USD, last 30 days):**
-
-| Missing sales | Urgency |
-|---|---|
-| >= $1,000 | HIGH |
-| $200 — $999 | MEDIUM |
-| < $200 | Do not recommend |
-
-**Action type:** `activate_abandoned_cart_recovery`
-
-**Params must include:** `automation_key` ("wix_e_commerce-cart_abandonment"), `missing_sales_usd` (integer, rounded), `abandoned_cart_count` (integer), `window_days` (always 30).
-
-**Title pattern:** "Recover $[missing_sales_usd] in abandoned carts"
-
-**Reasoning MUST cite:** automation is inactive, exact cart count, exact missing sales USD, 30-day window, and why the urgency level was chosen.
-
 ### Cross-domain balance
 
-- If request is generic, aim for recommendations from **multiple domains** (e.g., 2-3 discount + 1-2 shipping + abandoned cart if eligible)
+- If request is generic, aim for recommendations from **multiple domains** (e.g., 2-3 discount + 1-2 shipping)
 - If request targets a specific domain, focus all slots on that domain
 - Rank by business impact: CRITICAL blockers first, then conversion-linked, then revenue opportunities
 
@@ -471,7 +442,13 @@ Detect if the merchant has significant cart abandonment without active recovery.
 
 **MANDATORY — do NOT skip unless the user said `SKIP_TRACKING`.**
 
-Call `BatchCreate` to persist ALL recommendations as PROPOSED:
+Before calling BatchCreate, load the tracking recipe to get the exact request body shape:
+
+```
+ReadFullDocsArticle("https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/api-recommendation-tracking")
+```
+
+Then call `BatchCreate` to persist ALL recommendations as PROPOSED:
 
 ```
 CallWixSiteAPI(
@@ -483,7 +460,7 @@ CallWixSiteAPI(
       {
         "title": "<recommendation title>",
         "reasoning": "<recommendation reasoning>",
-        "domain": "<discounts|shipping|abandoned_cart_recovery>",
+        "domain": "<discounts|shipping>",
         "urgency": "<CRITICAL|HIGH|MEDIUM|LOW>",
         "advice": {
           "action": "<action type>",
@@ -550,7 +527,7 @@ If BatchCreate fails, report the error and include recommendations without track
 | `id` | GUID from tracking BatchCreate response (omit if tracking skipped/failed) |
 | `title` | Short, actionable. Max 200 chars. Always English. |
 | `reasoning` | **Must reference which API call returned the data.** Always English. |
-| `domain` | `"discounts"`, `"shipping"`, or `"abandoned_cart_recovery"` (future: `"gift_cards"`, `"taxes"`) |
+| `domain` | `"discounts"` or `"shipping"` (future: `"gift_cards"`, `"taxes"`) |
 | `urgency` | `CRITICAL`, `HIGH`, `MEDIUM`, or `LOW` |
 | `mechanism` | `AUTOMATIC` or `COUPON`. From Step 4c. Only for discounts domain. |
 | `name` | Marketing headline, 2-5 words. Translate to site `language` if not English. |
@@ -565,7 +542,6 @@ If BatchCreate fails, report the error and include recommendations without track
 |---|---|
 | discounts | `apply_discount` |
 | shipping | `create_shipping_option`, `update_shipping_option`, `enable_backup_rate`, `activate_region` |
-| abandoned_cart_recovery | `activate_abandoned_cart_recovery` |
 
 ---
 

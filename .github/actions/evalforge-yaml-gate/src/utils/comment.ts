@@ -4,6 +4,7 @@ import type { SyncError } from './sync';
 import type { EvalRunStatus } from './evalforge';
 import { evalRunUrl } from './evalforge';
 import type { CompareGroupComplete, ScenarioComparison } from './eval-pipeline';
+import { formatTokenCount, type TokenBudgetViolation } from './token-budget';
 
 export const COMMENT_MARKER = '<!-- evalforge-yaml-gate-action -->';
 const HEADING = 'EvalForge YAML Gate';
@@ -50,6 +51,19 @@ export function formatForeignDraftConflicts(errs: SyncError[], _pull: { owner: s
     'These scenarios are draft-tagged for other PRs. Wait for those PRs to merge/close, or coordinate with their authors:',
     '',
     ...lines,
+  ]);
+}
+
+export function formatTooManyNewSkills(count: number, limit: number, files: string[]): string {
+  return render('❌', 'Too Many New Skills', [
+    `This PR creates **${count} new Wix Manage skill .md files**, exceeding the limit of **${limit} per PR**.`,
+    '',
+    'New skill files added:',
+    ...files.map(f => `- \`${f}\``),
+    '',
+    'Please either:',
+    '- Split across multiple PRs',
+    '- Update existing skills instead of creating new ones',
   ]);
 }
 
@@ -137,4 +151,22 @@ export function formatComparisonResult(result: CompareGroupComplete, projectId?:
 
 export function formatComparisonTimeout(comparisonGroupId: string, blocking: boolean): string {
   return render(blocking ? '⏱' : '⚠️', 'Comparison Timed Out', [`comparisonGroupId: ${comparisonGroupId}`]);
+}
+
+export function formatTokenBudgetExceeded(violations: TokenBudgetViolation[], projectId?: string): string {
+  const lines = [
+    'These scenarios exceeded their configured top-level `maxTokens` budget on the PR run:',
+    '',
+    '| Scenario | Max tokens | PR tokens | Prod tokens | PR run |',
+    '|---|---:|---:|---:|---|',
+  ];
+
+  for (const v of violations) {
+    const run = projectId && v.prRunId
+      ? `[${v.prRunId}](${evalRunUrl(projectId, v.prRunId, v.prRunName)})`
+      : '—';
+    lines.push(`| ${v.scenarioName} | ${formatTokenCount(v.maxTokens)} | ${formatTokenCount(v.prTokens)} | ${formatTokenCount(v.prodTokens)} | ${run} |`);
+  }
+
+  return render('❌', 'Token Budget Exceeded', lines);
 }
