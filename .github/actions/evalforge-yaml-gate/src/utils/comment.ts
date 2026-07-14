@@ -113,8 +113,8 @@ export function formatComparisonResult(result: CompareGroupComplete, projectId?:
     '',
     `**Verdict:** \`${verdict}\` | **Tag:** \`${tag}\``,
     '',
-    '| Scenario | Required | Winner | Cost (PR / prod) | Tokens (PR / prod) | Time (PR / prod) |',
-    '|---|---|---|---|---|---|',
+    '| Scenario | Required | Winner | Cost (PR / prod) | Tokens (PR / prod) | Time (PR / prod) | Runs (PR / prod) |',
+    '|---|---|---|---|---|---|---|',
   ];
 
   for (const s of (scenarios ?? [])) {
@@ -126,7 +126,9 @@ export function formatComparisonResult(result: CompareGroupComplete, projectId?:
     const tokWithout = `${(s.without.totalTokens / 1000).toFixed(1)}K`;
     const timeWith = `${(s.with.durationMs / 1000).toFixed(1)}s`;
     const timeWithout = `${(s.without.durationMs / 1000).toFixed(1)}s`;
-    lines.push(`| ${s.scenarioName} | ${s.required ? '✅' : '—'} | ${winnerLabel} (${s.pairwiseJudgement.confidence}) | $${costWith} / $${costWithout} | ${tokWith} / ${tokWithout} | ${timeWith} / ${timeWithout} |`);
+    const runWith = projectId && s.with.runId ? `[PR](${evalRunUrl(projectId, s.with.runId, s.with.name)})` : '—';
+    const runWithout = projectId && s.without.runId ? `[prod](${evalRunUrl(projectId, s.without.runId, s.without.name)})` : '—';
+    lines.push(`| ${s.scenarioName} | ${s.required ? '✅' : '—'} | ${winnerLabel} (${s.pairwiseJudgement.confidence}) | $${costWith} / $${costWithout} | ${tokWith} / ${tokWithout} | ${timeWith} / ${timeWithout} | ${runWith} / ${runWithout} |`);
   }
 
   for (const s of (scenarios ?? [])) {
