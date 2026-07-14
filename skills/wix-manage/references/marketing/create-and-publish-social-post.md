@@ -9,7 +9,7 @@ description: "End-to-end flow to create a social media post, optionally generati
 Run every post request through these steps, in this order. Skip a question only when the user's own words in this conversation already answered it.
 
 1. **Connection first.** Confirm the target channel is connected (STEP 1). If it isn't, offer the connect flow (STEP 1.5) before anything else.
-2. **Plan second.** Check `PUBLISH_POST` / `SCHEDULE_POST` (STEP 2). If `SCHEDULE_POST` is disabled, never present scheduling as an option. AI generation is **never** plan-gated; never tell the user it is.
+2. **Plan second.** Check `PUBLISH_POST` / `SCHEDULE_POST` (STEP 2). Quota is action-specific: `PUBLISH_POST` quota exhaustion blocks publishing now, but it does not block scheduling when `SCHEDULE_POST` is enabled and has no exhausted quota of its own. If `SCHEDULE_POST` is disabled, never present scheduling as an option. AI generation is **never** plan-gated; never tell the user it is.
 3. **Ask: own or generated?** "Do you already have the post text (and image), or should I generate it?" Wait for the answer.
 4. **If generating, ask: idea or asset?** "From an idea, or built around one of your site's assets (a product, blog post, event, booking, or coupon)?" Offer the asset option explicitly, every time. Wait for the answer.
 5. **The subject is a hard gate.** Before any generation call you need, in the user's own words, what the post is about: an idea or a chosen asset. A reply that answers only part of a question (an account pick, a bare "you generate it") does **not** supply the subject. Never derive a topic from the site's profile or content on your own. Ask again and wait.
@@ -22,6 +22,7 @@ Run every post request through these steps, in this order. Skip a question only 
 
    Any request to generate an image for the post means `generate-post-data`. `generate-image` cannot create an image from text alone (it returns 400 without a source image); no endpoint can.
 7. **Present the tool's output** to the user: the caption **and** the image (rendered inline, or its URL). Never hand-write the caption or claim generated content you didn't get from the API. Get explicit approval on the final content before publishing (STEP 6).
+8. **Schedule only future instants.** For scheduling, resolve the requested wall-clock time in the site's timezone if known, otherwise UTC, convert it to ISO, and validate `new Date(scheduledDate).getTime() > Date.now()` immediately before `publish-by-id`. If it is not strictly in the future, advance to the next matching future occurrence or ask the user to confirm a later time. For repeated schedules, validate every occurrence independently.
 
 The rest of this recipe is the reference for executing each step.
 
@@ -122,13 +123,13 @@ One call tells you what the site's plan allows — whether you can publish or sc
 }
 ```
 
-`quotaInfo` is present only when the feature is metered — when quotas don't apply, `monetizationEnabled` is `false` and each entry carries just `type` and `enabled`. `period` is one of `NO_PERIOD`, `MILLISECOND`, `SECOND`, `MINUTE`, `HOUR`, `DAY`, `WEEK`, `MONTH`, `YEAR` (`NO_PERIOD` means the quota doesn't reset).
+`quotaInfo` is action-specific and present only when that feature entry is metered. Do not borrow quota from another feature entry. For example, if `PUBLISH_POST` has `remainingUsage: 0` but `SCHEDULE_POST` is `enabled: true` and has no `quotaInfo`, publishing now is quota-exhausted but scheduling is still allowed. `period` is one of `NO_PERIOD`, `MILLISECOND`, `SECOND`, `MINUTE`, `HOUR`, `DAY`, `WEEK`, `MONTH`, `YEAR` (`NO_PERIOD` means the quota doesn't reset).
 
 **Decision point:**
 - The action you'll use — `PUBLISH_POST` (publish now) or `SCHEDULE_POST` (schedule) — `enabled: false` → the plan doesn't include it; advise upgrading the social media marketing plan.
 - **If `SCHEDULE_POST` is `enabled: false`, drop scheduling from the conversation entirely** — treat "publish now" as the only action. Don't offer a "publish now or schedule?" choice anywhere in the flow, and don't present scheduling while noting it's unavailable. At most mention once that scheduling would need a plan upgrade.
-- `monetizationEnabled: true` and that action's `quotaInfo.remainingUsage` is `0` → quota exhausted; tell the user when it resets (`period`, unless `NO_PERIOD`) or to upgrade.
-- Otherwise → proceed. When `monetizationEnabled` is `false`, quotas aren't enforced; rely on `enabled`.
+- That action includes `quotaInfo` and `quotaInfo.remainingUsage` is `0` → quota exhausted for that action; tell the user when it resets (`period`, unless `NO_PERIOD`) or to upgrade.
+- Otherwise → proceed. If the action is `enabled: true` and its feature entry has no `quotaInfo`, there is no quota limit for that action in this response; rely on `enabled`.
 
 ---
 
@@ -377,7 +378,7 @@ Only offer scheduling if `SCHEDULE_POST` was `enabled: true` in STEP 2 (per that
 { "id": "ac01c174-5244-49df-8085-84d87cd0345a" }
 ```
 
-**Schedule for a future date** — include `scheduledDate` (ISO 8601, must be in the future; confirm `SCHEDULE_POST` in STEP 2). Compute it from the current date/time, resolving the user's relative wording ("next Monday 9am") in the site's timezone if known, otherwise UTC, and confirm the resolved date with the user:
+**Schedule for a future date** — include `scheduledDate` (ISO 8601, must be in the future; confirm `SCHEDULE_POST` in STEP 2). Resolve the user's relative wording ("next Monday 9am") as a local wall-clock time in the site's timezone if known, otherwise UTC, then convert that exact future local time to ISO. Immediately before calling `publish-by-id`, validate `new Date(scheduledDate).getTime() > Date.now()`. If the resolved instant is in the past or equal to now, don't call the API with it; advance to the next matching future occurrence or ask the user to confirm a later time. For repeating schedules, compute and validate each occurrence independently. Confirm the resolved date with the user:
 
 ```json
 { "id": "ac01c174-5244-49df-8085-84d87cd0345a", "scheduledDate": "<future-ISO-8601-datetime>" }
@@ -406,7 +407,8 @@ The post appears on the site's Social Media Marketing page in the dashboard. To 
 | `428 INELIGIBLE_FOR_FEATURE` on Get Connect Url | Site has hit its plan's cap on **number of connected channels** (e.g. free = 1), not a channel-specific block | Explain the channel-count limit; offer to upgrade, or find the already-connected channel (List Accounts / ask) and offer to post there. Don't suggest connecting a *different* new channel (same cap), don't suggest disconnecting/switching, don't retry the connect flow |
 | `FAILED_PRECONDITION` / `NO_PAGES_FOR_USER` on List Accounts | Connected Facebook/Instagram user has no page with a linked postable account | Ask the owner to grant a Facebook page (with a linked Instagram Business/Creator account) during authorization, then retry |
 | Generate Image poll returns `404 GENERATED_IMAGE_NOT_FOUND` | `executionId` invalid or expired | Re-run Generate Image and poll the new `executionId` |
-| STEP 2 shows the publish/schedule feature `enabled: false` or `remainingUsage: 0` | Plan doesn't allow the action, or quota used up | Advise upgrading, or wait for quota reset |
+| STEP 2 shows the action's feature entry with `enabled: false` or that action's `quotaInfo.remainingUsage: 0` | Plan doesn't allow the action, or quota used up for that action | Advise upgrading, or wait for quota reset |
+| Scheduling returns `SCHEDULED_TIME_ALREADY_PASSED` or a generic/HTML 400 page | The `scheduledDate` resolved to an instant that is not in the future | Recompute the requested wall-clock time in the site's timezone and validate the ISO instant is `> Date.now()` before retrying |
 | `FAILED_PRECONDITION` / `INELIGIBLE_FOR_FEATURE` on publish or schedule | Site's plan doesn't cover publishing/scheduling this post | Check STEP 2 first; advise upgrading the plan |
 | `429 RESOURCE_EXHAUSTED` / `PUBLISH_LIMIT_EXCEEDED` | Publishing rate limit hit | Back off and retry later |
 | `ALREADY_EXISTS` / `REFERENCE_ID_ALREADY_EXIST` on publish | An item with the same `referenceId` already exists | Expected when safely retrying a publish that already succeeded — don't re-publish with a new `referenceId` |
