@@ -32,7 +32,42 @@ A checklist for online ordering on a Wix site that already has a **Restaurants M
 ---
 
 ## Article: Steps for Setting Up Wix Restaurants Online Ordering
-**YOU MUST** complete all the following steps **in the given order** (1-3) without skipping any and **without requiring additional user input**. Every step is idempotent — it verifies the auto-provisioned state and only writes when the request calls for a change or the state is wrong.
+**YOU MUST** complete all the following steps **in the given order** (0-3) without skipping any and **without requiring additional user input**. Every step is idempotent — it verifies the auto-provisioned state and only writes when the request calls for a change or the state is wrong.
+
+### STEP 0: Configure the business location address (required for ordering to actually work)
+
+**⚠️ Online ordering needs a business location with a REAL address — without it, ordering is "testing only" and checkout breaks at runtime.** This is the #1 silent gap for ordering sites: the Wix docs are explicit — *"If locations aren't configured on a site, online ordering functionality is limited to testing only, and in some cases may not work as expected"* (<https://dev.wix.com/docs/api-reference/business-solutions/restaurants/about-business-locations.md>). A site provisions with a **default location that has no street address** (only an auto-defaulted country/city), which counts as *not configured*. Fix it here, before verifying the operation.
+
+The **default** business location is the one online ordering reads; its address also **propagates to Site Properties** (the site's business address that the Business Manager shows). Docs: Locations API <https://dev.wix.com/docs/api-reference/business-management/locations/introduction.md> · Update Location <https://dev.wix.com/docs/api-reference/business-management/locations/update-location.md>.
+
+1. **List locations** and take the default (`GET https://www.wixapis.com/locations/v1/locations` → the entry with `default: true`). Keep its **`id`** and **`revision`**. (There is normally exactly one, auto-provisioned.)
+2. **Overwrite it with a real address** via **Update Location** — `PUT https://www.wixapis.com/locations/v1/locations/<id>`. Use the address from the request; the timezone should match it.
+
+```bash
+curl -sS <AUTH> -X PUT "https://www.wixapis.com/locations/v1/locations/<id>" \
+  -d '{
+    "location": {
+      "id": "<id>", "revision": "<revision>", "default": true,
+      "name": "<Business name>", "timeZone": "Europe/Paris",
+      "email": "<email>", "phone": "<phone>",
+      "address": {
+        "country": "FR", "subdivision": "FR-75", "city": "Paris", "postalCode": "75001",
+        "streetAddress": { "number": "18", "name": "Rue des Lumières" },
+        "formattedAddress": "18 Rue des Lumières, 75001 Paris, France"
+      }
+    }
+  }'
+```
+
+**⚠️ CRITICAL — earned gotchas (verified against the live API):**
+- **Update Location is a FULL OVERRIDE, not a partial update** (the docs say so explicitly). Send the **whole** `location` object, not just the address — omitted fields are wiped. A partial "just the address" body is the classic *"it reported success but nothing changed / it's not in the Business Manager"* failure.
+- **Echo `"default": true`.** The default flag isn't in the documented request params, but omitting it on a full override reads as flipping it off and **400s** with `CHANGE_DEFAULT_FORBIDDEN`. (Good news: this API fails **loudly** — prefer it over a field-mask-less Site-Properties `PATCH`, which silently no-ops.)
+- **`revision` is mandatory** (from STEP 0.1) and increments each update; a stale one 400s.
+- **`address.country` is a 2-letter ISO-3166 code** (`"FR"`, `"US"`), not a full name.
+- **No default location at all?** (a bare Orders-only site can have none — operations then carry `businessLocationId: "none"`.) **Create** one instead: `POST https://www.wixapis.com/locations/v1/locations` with the same `location` body (no `id`/`revision`), then it becomes the site's location and operations auto-bind on first-location-add (see about-business-locations). Docs: <https://dev.wix.com/docs/api-reference/business-management/locations/create-location.md>.
+- **The operation's `businessLocationDetails` is a denormalized snapshot with eventual-consistency lag** — after the update it may briefly still show the old placeholder address (e.g. a "San Francisco" default). That's cosmetic and self-heals; checkout reads the configured location/site address, which is correct immediately. Don't loop trying to "force" the snapshot.
+
+**Where the address comes from:** the request. If the brief names the restaurant's address, use it. **If it doesn't, a real address is genuine owner info the skill can't invent** — set a clearly-marked placeholder and **flag prominently in the handoff/summary that the owner must set their real business address before ordering works** (this is exactly the "make it work end-to-end" gap). Pair this with the premium/payment precondition below.
 
 ### STEP 1: Verify (and if needed enable) the operation
 
@@ -147,12 +182,13 @@ Response — one object per menu; match by **`menuId`**:
 - The settings object's `businessLocationId` (inherited from its menu, `"none"` for a locationless site) must match the operation's `businessLocationId` for ordering to bind — both are `"none"` here, so they match. Don't override it.
 - To make a menu **display-only** (not orderable), PATCH that one to `onlineOrderingEnabled: false`; leave the rest enabled.
 
-> **⚠️ LIVE CHECKOUT PRECONDITION (note, don't fail).** A visitor can browse the orderable menu and build a cart with just this setup, but **completing a paid order** at runtime needs the site to have a **premium plan and a configured payment method** (checkout rides on Wix eCommerce). That's a site-provisioning concern, not a seed step — surface it in the handoff; do **not** fail the seed over it.
+> **⚠️ LIVE CHECKOUT PRECONDITIONS (note, don't fail).** A visitor can browse the orderable menu and build a cart with just this setup, but **completing an order** end-to-end needs three things beyond the seed: **(1) a configured business location with a real address** (STEP 0 — without it ordering is "testing only"); **(2) a premium plan**; and **(3) a configured payment method** (checkout rides on Wix eCommerce). STEP 0 handles (1) via API; (2) and (3) are **dashboard/premium provisioning** the skill can't do headlessly. Surface all three in the handoff; do **not** fail the seed over them.
 
 ---
 
 ## Conclusion
 Following these steps confirms/completes online ordering for a site whose **Menus** backend is already seeded:
+- A **business location with a real address is configured first** (STEP 0, Update Location full-override) — without it ordering is "testing only"; the address propagates to Site Properties. If the brief gives no address, a placeholder is set and the owner is flagged to fix it.
 - The **Orders-app install already produced a working setup** — an `ENABLED` operation with Pickup + Delivery attached and every menu ordering-enabled; this recipe **verifies** that and **reshapes it to the request**, it does not build it from nothing.
 - The **operation** is discovered, never created (operations/groups are auto-provisioned); it stays `onlineOrderingStatus: "ENABLED"`.
 - **Fulfillment methods** are reconciled to the request — auto-created ones customized (decimal-string `fee`/`minOrderPrice`, weekly `availability`), unwanted ones disabled, extra ones created **and attached** to the operation via `fulfillmentIds` (a create does not auto-attach).
