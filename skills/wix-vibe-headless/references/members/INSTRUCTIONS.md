@@ -53,7 +53,7 @@ have). Don't blend their exchange calls — the helper handles each internally.
      setup**. But social **still fails on `localhost:4321`** until you add `http://localhost:4321/callback`
      to `allowedRedirectUris` — the default covers the origin, not the callback URI. (These are genuinely
      two separate fields; matching Oz's SDK `wix-headless` `managed/DEPLOYMENT.md`.)
-   - **Any non-default origin** — your deployed domain (e.g. a Base44 URL), a different localhost port —
+   - **Any non-default origin** — your deployed domain, a different localhost port —
      must be registered too: the origin (for A) and the `<origin>/callback` (for B).
    - **Symptoms:** (A) unregistered origin → login hangs, then `MemberAuthError('timeout')` + a console
      *"Failed to execute 'postMessage'… target origin … does not match"*. (B) unregistered callback →
@@ -79,6 +79,12 @@ Copy `wix-client.js` + `wix-members-auth.js` into `src/rest/` and set `WIX_CLIEN
 
 The full state-machine, `profile`, and error semantics are documented as JSDoc at the top of
 `wix-members-auth.js`. **Read it before wiring the UI.**
+
+> **⚠️ Copy `wix-members-auth.js` verbatim — do NOT rewrite its internals.** Wire the UI to the
+> exported functions, but leave the helper's bodies alone. The OAuth request shapes are **exact and
+> unforgiving** — the `createRedirectSession` body in particular needs the `auth.authRequest` wrapper,
+> flat PKCE fields, and `responseType`/`scope`; "simplifying" it into a spread of the input object
+> returns **400 Bad Request** and login dies. Extend by *calling* the exports, not by editing them.
 
 ## How to wire it (UI is the project's choice — the skill ships the REST layer only)
 
@@ -148,6 +154,11 @@ create in the Business Manager (dashboard link below).
 - ✅ **One shared client.** Member login swaps the token set on `wix-client.js` — reuse the same
   transport for everything so the member identity (and their cart) carries across the app. Never mint
   a second client or re-mint anonymously after login (it drops the member).
+- ✅ **For a Wix-backed feature, use the Wix member as the identity — keep it consistent.** When the
+  feature is about **Wix members** (the user gave you a `WIX_CLIENT_ID`), log in and gate on the
+  **Wix member** (`getCurrentMember()` / the Wix member token), and key member-owned Wix rows on
+  `_owner` (see the `cms` vertical). Don't identify one feature's user from two different sessions —
+  the ids won't match.
 - ❌ **Don't blend the two exchanges.** Credential login finishes via the hidden iframe; social
   finishes via `/callback`. The helper keeps them separate — don't cross-wire.
 - ❌ **Never fake a member.** No mock "logged-in" state, no invented profile, roles, or member counts.
