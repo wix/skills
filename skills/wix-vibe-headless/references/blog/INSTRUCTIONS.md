@@ -98,9 +98,11 @@ body in the **official Wix API reference** first; never guess:
   https://dev.wix.com/docs/api-reference/business-solutions/blog/posts-stats/query-posts.md
 - Rendering `richContent` (Ricos document format):
   https://dev.wix.com/docs/ricos/api-reference/ricos-document
-- **Member-gated surfaces** (comments, likes, members-only posts) → the **members** vertical
-  (`references/members/INSTRUCTIONS.md`): those actions need a logged-in member, so wire custom
-  login on your own UI (email+password / Google / Facebook) before gating them.
+- **Members-only posts** → the **members** vertical (`references/members/INSTRUCTIONS.md`): once a
+  member is logged in (custom login on your own UI), the existing read helpers return the content
+  gated to members — no extra code. Note this blog helper is **read-only**: member *writes* (posting
+  a comment, liking a post) aren't included — add them as a beyond-the-snippets `wixApiRequest` call,
+  authenticated as the logged-in member.
 - Each helper in `wix-blog.js` links its exact reference page inline.
 
 Keep the snippets as the default for everything they already do; reach for the API
