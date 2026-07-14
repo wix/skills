@@ -125,6 +125,9 @@ exact endpoint, method, and body in the **official Wix API reference** first (ne
 - **Add-ons:** https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/list-add-on-groups-by-service-id.md
 - **Custom booking form fields** (render `service.form.id`): Get Form Summary —
   https://dev.wix.com/docs/rest/crm/forms/form-schemas/get-form-summary.md
+- **Member login + a "my bookings" account view** → the **members** vertical
+  (`references/members/INSTRUCTIONS.md`): booking itself works anonymously, but signing a member in
+  (custom login on your own UI) lets them see their own appointments/history.
 
 Keep the snippets as the default for everything they already do; reach for the API reference
 only for the gap.
