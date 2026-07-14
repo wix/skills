@@ -53,7 +53,7 @@ have). Don't blend their exchange calls — the helper handles each internally.
      setup**. But social **still fails on `localhost:4321`** until you add `http://localhost:4321/callback`
      to `allowedRedirectUris` — the default covers the origin, not the callback URI. (These are genuinely
      two separate fields; matching Oz's SDK `wix-headless` `managed/DEPLOYMENT.md`.)
-   - **Any non-default origin** — your deployed domain (e.g. a Base44 URL), a different localhost port —
+   - **Any non-default origin** — your deployed domain, a different localhost port —
      must be registered too: the origin (for A) and the `<origin>/callback` (for B).
    - **Symptoms:** (A) unregistered origin → login hangs, then `MemberAuthError('timeout')` + a console
      *"Failed to execute 'postMessage'… target origin … does not match"*. (B) unregistered callback →
