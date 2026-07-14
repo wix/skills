@@ -49,6 +49,17 @@ This skill is the deliberately **client-only, REST-only** path. It is independen
   On success it writes the member's tokens into the *same* store the visitor token used
   (`setSessionTokens`), so **every subsequent `wixApiRequest` runs as the member** and the cart/session
   carries over. "My …" surfaces (plans, orders, bookings, registrations) light up only once logged in.
+- **⚠️ Wix is the single source of truth — do NOT use the host platform's own backend/auth for
+  Wix-backed data.** When the front end is built on a platform that ships its *own* backend (Base44
+  entities, Supabase tables, Firebase, a Next.js API, etc.), it's tempting to store Wix-related data
+  there. Don't. Anything conceptually owned by the Wix site — products, orders, members, and
+  member-generated content like likes/reviews/submissions — lives in **Wix**, reached through these
+  helpers (`wix-cms.js`, `wix-members-auth.js`, …). Concretely: **do not create a parallel host entity
+  or table for it**, **member identity is the Wix member** (`getCurrentMember()` / the Wix member
+  token — never the host's auth session or user id), and **row ownership is Wix's server-stamped
+  `_owner`** (never a hand-stored, client-supplied member id — that's spoofable, and it won't match
+  the host's session). Mixing the two backends yields split-brain data (e.g. "likes" saved to the host
+  DB that never appear in the Wix collection). One store, one identity: Wix.
 - **Never mock, never provision.** These scaffolds are read-only over the owner's content. The
   owner adds products/posts/services/events/menus/plans in the **Wix dashboard**. If a
   collection is empty, show the empty state — never fabricate data, reviews, ratings, or counts.
