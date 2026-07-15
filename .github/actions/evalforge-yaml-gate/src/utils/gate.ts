@@ -185,8 +185,8 @@ export async function runGate(): Promise<void> {
   try {
     const done = await pollUntilComparisonDone(pipeline, comparison.comparisonGroupId);
     for (const s of (done.result.scenarios ?? [])) {
-      if (s.with.runId) core.info(`${s.scenarioName} [with draft tag]: ${evalRunUrl(config.projectId, s.with.runId, s.with.name)}`);
-      if (s.without.runId) core.info(`${s.scenarioName} [without draft tag]: ${evalRunUrl(config.projectId, s.without.runId, s.without.name)}`);
+      if (s.with.runId) core.info(`${s.scenarioName} [PR]: ${evalRunUrl(config.projectId, s.with.runId, s.with.name)}`);
+      if (s.without.runId) core.info(`${s.scenarioName} [prod]: ${evalRunUrl(config.projectId, s.without.runId, s.without.name)}`);
     }
     await comment(formatComparisonResult(done, config.projectId));
     const tokenBudgetViolations = findTokenBudgetViolations(done.result.scenarios ?? [], headScenarios);
@@ -223,11 +223,11 @@ async function listRemoteScenariosForGate(
   projectId: string,
   filters: RemoteScenarioFilters,
 ): Promise<RemoteScenario[]> {
-  const [byName, byDraftTag] = await Promise.all([
-    filters.names.length > 0 ? evalforge.listTestScenarios(projectId, { names: filters.names }) : Promise.resolve([]),
-    evalforge.listTestScenarios(projectId, { tags: filters.tags }),
+  const [byName, byTags] = await Promise.all([
+    filters.names.length > 0 ? evalforge.listTestScenarios(projectId, filters.names) : Promise.resolve([]),
+    Promise.all(filters.tags.map(tag => evalforge.listTestScenariosByTag(projectId, tag))),
   ]);
-  return uniqueRemoteScenarios([...byName, ...byDraftTag]);
+  return uniqueRemoteScenarios([byName, ...byTags].flat());
 }
 
 async function guardedCall<T>(

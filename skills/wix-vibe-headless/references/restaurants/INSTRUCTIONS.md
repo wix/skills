@@ -110,6 +110,9 @@ request body in the **official Wix API reference** first; never guess:
   https://dev.wix.com/docs/api-reference/business-solutions/restaurants/online-orders/sample-flows.md
 - Fulfillment methods, delivery-address validation, scheduled (preorder) time slots, service fees:
   see the Online Orders section of the reference.
+- **Member login + a "my orders" account view** → the **members** vertical
+  (`references/members/INSTRUCTIONS.md`): ordering/reserving works anonymously, but signing a member
+  in (custom login on your own UI) lets them see their own order/reservation history.
 
 Keep the snippets as the default for everything they already do; reach for the API reference only
 for the gap.
