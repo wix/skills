@@ -2,7 +2,7 @@ name: analytics/query-site-analytics
 description: >-
   Verifies the agent reads the query-site-analytics skill and explains how to retrieve a Wix
   site's analytics via the Semantic Model API using the List -> Get -> Query flow with a
-  required time interval.
+  required time interval. Additional dummy touch for scenario workflow validation.
 triggerPrompt: >-
   How do I retrieve my Wix site's traffic analytics (like sessions and page views by referrer)
   through the REST API? Please reference the relevant Semantic Model API methods and the request

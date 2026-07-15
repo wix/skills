@@ -1,0 +1,32 @@
+name: analytics/query-site-analytics-required-interval
+description: >-
+  Verifies the agent reads the query-site-analytics skill and explains that Semantic Model
+  queries require an explicit time interval instead of relying on an implicit default range.
+triggerPrompt: >-
+  I want to query Wix Analytics semantic model data for sessions by traffic source. Can I omit
+  the date range and let the API choose a default, or do I need to send a time interval?
+tags: [analytics]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/analytics/skills/query-site-analytics
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked whether they can omit the date range when querying Wix Analytics Semantic
+      Model data for sessions by traffic source.
+      Intent: confirm that Query Semantic Model Data requires an explicit time interval and that
+      fields should be selected from the semantic model schema.
+
+      Pass if the response:
+      - states that the query must include an explicit time interval/date range, AND
+      - references the Query Semantic Model Data flow for Wix Analytics, AND
+      - explains that fields such as sessions and traffic source/referrer should be chosen from
+        the schema returned by Get Semantic Model instead of guessed.
+
+      Fail if the response:
+      - says the API will choose a safe default date range when omitted, OR
+      - omits the required interval/date range requirement, OR
+      - recommends unrelated Analytics APIs instead of the Semantic Model API, OR
+      - invents fixed field names without saying to inspect the semantic model schema.
