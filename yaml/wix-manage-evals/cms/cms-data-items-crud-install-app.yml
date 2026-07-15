@@ -2,6 +2,7 @@ name: cms/cms-data-items-crud-install-app
 description: >-
   Verifies the agent reads the cms-data-items-crud skill and recovers from a WDE0110
   error by installing the Wix CMS app (correct appDefId) and then retrying the insert.
+  Touch to trigger EvalForge YAML gate.
 triggerPrompt: >-
   I'm inserting a data item into my Wix CMS collection through the REST API, but the call
   fails with error code WDE0110. What does this mean and how do I get the insert to succeed?
