@@ -116,6 +116,7 @@ up the exact endpoint, HTTP method, and request body in the **official Wix Event
 first; never guess:
 - Events API reference: https://dev.wix.com/docs/api-reference/business-solutions/events.md
 - Registration (RSVP + ticketing) overview: https://dev.wix.com/docs/api-reference/business-solutions/events/registration/introduction.md
+- Member login + a "my registrations" account view → the **members** vertical (`references/members/INSTRUCTIONS.md`).
 - Ticketing flow (reservations → orders → tickets): https://dev.wix.com/docs/api-reference/business-solutions/events/registration/ticketing/introduction.md
 
 Keep the snippets as the default for everything they already do; reach for the API reference only
