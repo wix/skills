@@ -24,7 +24,7 @@ For each capability in `verticals[]`, install its app by `appDefId` (these are t
 - **events** → `140603ad-af8d-84a5-2c80-a0f60cb47351`
 - **bookings** → `13d21c63-b5ec-5912-8397-c3a5ddb27a97`
 - **pricing-plans** → `1522827f-c56c-a5c9-2ac9-00f9e6ae12d3`
-- **restaurants** → `b278a256-2757-4f19-9313-c05c783bec92` (Wix Restaurants **Menus** — the seedable core). Online ordering and table reservations are **separate optional apps**, install only if intent calls for them: Orders (New) → `9a5d83fd-8570-482e-81ab-cfa88942ee60`, Table Reservations → `f9c07de2-5341-40c6-b096-8eb39de391fb`.
+- **restaurants** → `b278a256-2757-4f19-9313-c05c783bec92` (Wix Restaurants **Menus** — the seedable core). Online ordering and table reservations are **separate optional apps**, install only if intent calls for them: Orders (New) → `9a5d83fd-8570-482e-81ab-cfa88942ee60`, Table Reservations → `f9c07de2-5341-40c6-b096-8eb39de391fb`. **Experiences** (special dining occasions guests reserve — wine tastings, chef's tables; see `CAPABILITIES.md`) are a **feature of the Table Reservations app, not a separate install** — installing Table Reservations is all that's needed to create and book them (`setup-restaurant-experiences.md`).
 - **portfolio** → `d90652a2-f5a1-4c7c-84c4-d4cdcc41f130` (Wix Portfolio; the install ships a default sample collection + projects — `setup-portfolio.md` STEP 0 cleans them)
 - **cms** → **no install** (Wix Data is core) — skip
 
