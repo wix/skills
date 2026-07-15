@@ -50,6 +50,8 @@ Determine the target channel from the request (`INSTAGRAM`, `FACEBOOK`, `YOUTUBE
 
 (Channel-name placement differs by endpoint: `accounts` and `features` take it as a **query** param; `connect-url` and `long-lived-token-status` take it as a **path** segment.)
 
+`channelName` is **required** on this call — there's no "list accounts for every channel" mode. Omitting it doesn't return all channels; it fails with `428 FAILED_PRECONDITION` / `UNSUPPORTED_CHANNEL` (see Error handling). Always call this once per channel you need.
+
 **Expected response:**
 
 ```json
@@ -410,7 +412,8 @@ The post appears on the site's Social Media Marketing page in the dashboard. To 
 | `FAILED_PRECONDITION` / `INELIGIBLE_FOR_FEATURE` on publish or schedule | Site's plan doesn't cover publishing/scheduling this post | Check STEP 2 first; advise upgrading the plan |
 | `429 RESOURCE_EXHAUSTED` / `PUBLISH_LIMIT_EXCEEDED` | Publishing rate limit hit | Back off and retry later |
 | `ALREADY_EXISTS` / `REFERENCE_ID_ALREADY_EXIST` on publish | An item with the same `referenceId` already exists | Expected when safely retrying a publish that already succeeded — don't re-publish with a new `referenceId` |
-| `FAILED_PRECONDITION` / `UNSUPPORTED_CHANNEL` | Targeting an unsupported channel, or X/Twitter after its July 31, 2026 cutoff | Use a supported channel; target X only before the cutoff |
+| `428 FAILED_PRECONDITION` / `UNSUPPORTED_CHANNEL` on List Accounts | **Most common cause: the `channelName` query param was omitted** (it defaults to an unrecognized value, not "all channels") | Retry with an explicit `channelName` (`INSTAGRAM`, `FACEBOOK`, `YOUTUBE`, `LINKEDIN`, `PINTEREST`, `GBP`, or `TIKTOK`) — one call per channel |
+| `FAILED_PRECONDITION` / `UNSUPPORTED_CHANNEL` elsewhere | Targeting an unsupported channel, or X/Twitter after its July 31, 2026 cutoff | Use a supported channel; target X only before the cutoff |
 | Create item rejected for missing media | Instagram and story types require media (GBP needs `description` and/or media) | Provide a public image/video URL (or edit one from a source image in STEP 3c) |
 | Reschedule/cancel returns `ITEM_NOT_EXISTS`, `ITEM_IS_PUBLISHED`, or `ITEM_IS_DELETED` | The item can't be rescheduled/canceled in its current state | Only reschedule/cancel items still in `SCHEDULED` status |
 | Publish returns `status: FAILED` | Content/type mismatch or channel rejected the post | Verify the `type` + content object match the channel's supported combination and that media URLs are public |
