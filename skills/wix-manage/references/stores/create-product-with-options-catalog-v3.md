@@ -18,20 +18,18 @@ The goal of this step is not just to create *a* product, but to help the user cr
 
 ### 0a. Opening the conversation
 
-**If the user hasn't named a product yet, open the conversation with this question up front:**
+**As soon as this skill is triggered — and the user hasn't already described a product — YOU open the conversation.** Proactively send a single opening message that invites *either or both* input paths and makes clear you'll generate the full product info from whatever they provide:
 
-> **What product would you like to create?**
+> **What would you like to sell? Just describe your product in a few words and/or upload a photo of it — I'll generate the full product info (name, description, price, and any options) for you from there.**
 
-If the user already gave you product details, skip the opening question and go straight to the gap check in 0b.
+The user can reply with a text prompt, an image, or both:
 
-**Offer a starting path.** When opening the conversation (and the user hasn't already committed to a method), let them choose how to provide the product details:
+- **An image is provided (with or without text)** → follow the **[Create Product from Image](https://dev.wix.com/docs/api-reference/business-solutions/stores/skills/create-product-from-image)** recipe to generate the product info from the image(s), then continue from the gap check in 0b for anything still missing.
+- **Text only** → continue with the gap check in 0b.
 
-> "You can either **upload a product image** and I'll create the product info from it, or just **describe the product in text** and I'll take it from there. Which would you prefer?"
+If the user *already* described a product when triggering the skill, skip this opening message and go straight to 0b.
 
-- If the user wants to start from an image → follow the **[Create Product from Image](https://dev.wix.com/docs/api-reference/business-solutions/stores/skills/create-product-from-image)** recipe to extract the product name, description, price, and any visible options from the image(s), then continue the conversation from 0b with whatever that recipe couldn't fill in.
-- If the user prefers text / a prompt → continue with the gap check in 0b as usual.
-
-> **Count this toward the 1–2 question budget.** If you ask the image-vs-text question, keep the remaining follow-ups to one so the total conversation stays short.
+> **This opening message is the entry point, not a follow-up — it does NOT count against the 1–2 follow-up-question budget in 0b.**
 
 ### 0b. Gap check — decide what (if anything) to ask
 
@@ -59,7 +57,15 @@ You may ask **one** enrichment question to make the product more complete. Ask a
 
 > **CRITICAL — ONCE A PRODUCT-CREATION CONVERSATION HAS STARTED, STAY ON IT.** Do not switch to other topics, suggest unrelated tasks, or start new workflows until the product has actually been created (saved) via STEP 1 — **unless the user explicitly asks to do something else**. If the user goes off-topic, briefly answer if needed, then steer back to finishing and saving the product.
 
-After the product is saved, you're free to suggest next steps (e.g. adding more products, setting up the store).
+### 0d. Confirm once — then create
+
+> **CRITICAL — VALIDATE EXACTLY ONCE BEFORE CREATING.** Right before calling the Create Product API (STEP 1), show a brief summary of what you're about to create and ask for a single go-ahead. Ask **only once**. Do NOT approve-and-then-ask-again (e.g. present a summary, get a "yes", and then ask "shall I create it now?" a second time) — that double confirmation is exactly what we want to avoid. Once the user approves, go straight to STEP 1 with no further approval prompts.
+
+For example:
+
+> "Here's what I'll add to your store: **[name]** — **[price]**[, options: …]. Ready to create it?"
+
+If the user already signaled approval (e.g. "just create it", "go ahead"), treat that as the single confirmation and proceed straight to STEP 1 — do not ask again.
 
 ## STEP 1: create the product with options and variants
 
@@ -463,6 +469,42 @@ After Creating the product, verify that the options appear correctly in the stor
 > See [Update Product with Options](update-product-with-options.md) for updating existing products.
 >
 > **Important:** All update operations (PATCH) require the current `product.revision` value. Always GET the product first to obtain the revision before updating.
+
+## STEP 2: After creation — show the product and offer next actions
+
+Once the Create Product API call succeeds, **always** show the product back to the user as a card followed by exactly **two** call-to-action buttons. Do not just reply with a plain-text confirmation.
+
+### Product card (widget)
+
+Render a markdown product card from the created product's data in the API response:
+
+> ---
+> ### [product.name]
+>
+> **[formatted price]**
+>
+> ![product image]([product.media.main.url])
+>
+> [first line of the description, or a short one-liner]
+> ---
+
+Use the `main` media image and the name/price you just created.
+
+### Two call-to-action buttons
+
+Present exactly **two** CTAs. Which pair you show depends on the platform the user is on — **use the platform/client context available to you at runtime** to decide:
+
+**If the platform is mobile web:**
+1. **Create another product** — restart from STEP 0 to create a new product (continue in chat).
+2. **Download the Wix Owner app** — to view this product and continue editing on mobile. Link to the generic Wix Owner app download page: `{{WIX_OWNER_APP_LINK}}` _(placeholder — confirm/replace with the canonical link, e.g. `https://www.wix.com/mobile/wix-app`)_.
+
+**On any other platform (e.g. desktop web):**
+1. **Go to product** — link directly to the newly created product's page. Use the product page URL from the create response (`product.url`); if it was not returned, GET the product to obtain it.
+2. **Create another product** — restart from STEP 0 to create a new product (continue in chat).
+
+> **CRITICAL — exactly two CTAs, and the pair is platform-dependent.** Never show "Go to product" on mobile web, and never show "Download the Wix Owner app" on non-mobile platforms. "Create another product" appears in both pairs.
+
+After the card + CTAs, stop — do not proactively start other workflows unless the user chooses "Create another product" or explicitly asks for something else.
 
 ## Troubleshooting Common Issues
 
