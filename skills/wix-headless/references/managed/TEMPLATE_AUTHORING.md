@@ -22,29 +22,12 @@ These are the template product's choices. Where the skill's references branch on
 
 ## 2 — House style (where the skill is silent by design)
 
-### 2.1 Project structure
+### 2.1 Project requirements
 
-Every template lives at `astro/<template-name>/` in the templates repo and must contain:
+The on-disk shape comes from the scaffold (`astro.md` §1) — don't restate or hand-build it. On top of it, a template requires:
 
-```
-astro/<template-name>/
-├── .gitignore
-├── .npmrc
-├── .template-config.json        # Wix CLI template config (required)
-├── README.md                    # required sections: §2.4
-├── astro.config.mjs             # per astro.md Caveat A2 — do not diverge
-├── package.json                 # scripts: dev → wix dev, build → wix build, release → wix release
-├── tsconfig.json                # strict: true
-├── tailwind.config.mjs
-├── src/
-│   ├── components/              # UI components, co-located with feature area
-│   ├── pages/
-│   │   ├── index.astro          # home page
-│   │   └── api/                 # server-only API routes (elevation, backend logic)
-│   └── integrations/            # Wix vertical modules: service.ts + types.ts per vertical
-└── public/
-```
-
+- **Location:** every template lives at `astro/<template-name>/` in the templates repo.
+- **`.template-config.json`** — the Wix CLI template config — must exist at the template root.
 - **TypeScript required**, `strict: true`. No `.js` source files in new templates.
 - **Tailwind CSS required.** No CSS modules, no inline styles.
 - **No `.env.template`** — the CLI manages `WIX_CLIENT_*`; custom vars only, per the env-var mechanism (`astro.md` §5).
