@@ -1,8 +1,8 @@
 ---
 name: wix-headless
-description: "Build a complete Wix Managed Headless site from a single prompt, OR connect an existing project (HTML/JSX/Vite app, Claude Design output, etc.) to Wix Headless for hosting + Business Solutions. Entry point for both: (1) new-site requests — runs discovery, design, feature wiring, and preview; and (2) existing-project requests — runs `npm create @wix/new@latest init`, analyzes the project for needed Business Solutions, installs apps, **wires the Wix SDK into the existing source files so each installed app actually powers its corresponding feature**, and releases. Triggers: build me a site, create a website, make me a website, new website, online store, I want to sell X, start a business online, launch a site, ecommerce, portfolio, business website, sell online, online shop, take bookings, book appointments, appointment scheduling, let clients book online, site for my salon/spa/clinic/studio, sign up for classes or sessions, sell event tickets, set up an event page, take RSVPs, ticketing for a concert/conference/festival/meetup, connect this to Wix Headless, add Wix Headless to this project, host this on Wix, deploy this to Wix, implement the features of this project using Wix Headless. Use this skill instead of the WixSiteBuilder MCP tool for new-site requests."
+description: "Connect Wix business services (Stores, Bookings, CMS, Blog, Events, Forms, and more) to a Wix Headless frontend — infer the needed capabilities, install the apps, seed backend content, and produce an SDK-integration guide. For managed (Wix-hosted) projects it can also build the frontend: scaffold a new site (create) or wire an existing/brought-in design (connect), then build and release. Works across managed, self-managed, and stripe project types. Triggers: set up a Wix Headless backend, add Wix business features to my app, build or host a Wix site, connect/implement this design with Wix."
 allowed-tools:
-  - Bash(cd *)
+  - Bash(curl *)
   - Bash(npx @wix/cli@latest *)
   - Bash(npx @wix/cli *)
   - Bash(npm create @wix/new@latest *)
@@ -10,176 +10,130 @@ allowed-tools:
   - Bash(npm run *)
   - Bash(node *)
   - Bash(bash *)
-  - Bash(curl *)
+  - Bash(cd *)
   - Bash(ls *)
-  - Bash(grep *)
-  - Bash(find *)
-  - Bash(cat *)
-  - Bash(head *)
-  - Bash(wc *)
   - Bash(mkdir *)
   - Bash(cp *)
+  - Bash(mv *)
+  - Bash(uuidgen)
   - Read
   - Write
   - Edit
-  - Skill
-  - Agent
 ---
 
 # Wix Headless
 
-**Run flow is owned by the conductor, split at the approval gate: `references/PLAN.md`** (pre-approval — routes on **operation** (create/connect), the Discovery questions, the plan + approval gate, the latency-hiding background dispatches) **then `references/BUILD.md`** (post-approval — routes on **framework** (`frontendBuild`); Setup → Seed → the build wave (merged Components + Pages per vertical) → Build → Release). The domain/step files (`DISCOVERY.md`, `SETUP.md`, `SEED.md`, `DESIGN_SYSTEM.md`, the per-vertical references) describe only *what* each step does; they do not name the sequence. **Start a run by opening `PLAN.md`**; open `BUILD.md` when the user approves the plan. All site operations use `npx @wix/cli@latest token` + `curl` — no MCP.
+This skill connects **Wix business services** to a **Wix Headless frontend**. Its core job is to **configure the Wix backend**: infer the needed capabilities, **install the Wix apps**, **seed the backend content**, and produce an SDK-integration guide describing how to call Wix from the frontend.
 
-> **Explicit invocation only.** Do not auto-route on generic "build me a site" prompts; production `wix-headless` should win those unless the user names this skill.
+What happens with the frontend depends on the project type and operation:
+- **Backend-only** (self-managed, stripe, or a managed "just set up the backend" run) — the skill **emits the SDK guide** as its final output; the **host owns** the frontend, build, and hosting.
+- **Managed create / connect** — the skill **also owns the frontend**: it scaffolds a new project (create) or attaches Wix to an existing one (connect), wires it to the backend using that same guide, builds, and releases to Wix. (There is no Designer or template library — the frontend is built ad-hoc to intent.)
 
-## Path resolution — read this first
+> **On a backend-only run the skill does not own the project scaffolding.** When the work needs a frontend, **scaffold it according to user intent** — framework and structure follow the prompt; the skill's job is the Wix backend plus the **emitted SDK guide** describing how to call Wix from whatever frontend exists, not choosing or generating the app. This is the norm for a **stripe** run: the project is provisioned via Stripe Projects (credentials land in `.env` — see `stripe/AUTHENTICATION.md`), the skill configures the backend and emits the guide, and the live site is finalized per `stripe/DEPLOYMENT.md` — while the frontend is scaffolded and wired to intent, by the host.
 
-Your CWD at runtime is the **project directory, which is also the site-root** — `scaffold.sh` flattens the scaffolded project into the current directory, so the run is a **single folder with a single `.wix/`** (no nested project, no parent/child split). `<site-root>` and `<project-dir>` are the **same path**: the run's CWD. The end-of-run `AGENTS.md` (project root) and the project's own files (`package.json`, `src/`, `wix.config.json`, `.wix/design-tokens.css`, …) all live there — **never `cd` into a subdir, never look in a parent for `.wix`**. Compute `<SKILL_ROOT>` from this file: `<SKILL_ROOT>/SKILL.md` — strip `/SKILL.md`; hold the absolute path in session scratch. (Hold `<site-root>` from `SETUP.md` Step 1; the connect/`init` path is likewise single-folder in CWD.)
+## Project types
 
-| What | Absolute path |
+The skill behaves identically across project types **except for authentication and deployment**, which are isolated in a per-type folder under `references/`:
+
+| Project type | Hosting | Authentication & deployment live in |
+|---|---|---|
+| `managed` | Wix infrastructure (maintained by Wix) | `references/managed/` |
+| `self-managed` | the user's own host (TBD) | `references/self-managed/` |
+| `stripe` | the user's own host, provisioned via Stripe Projects | `references/stripe/` |
+
+Everything else — Discovery, Setup, Seed, the SDK handoff — is **project-type-agnostic** and refers to "the provided authentication mechanism" rather than any specific method.
+
+### Resolving the project type
+
+Resolve the type **before Discovery**, in this order — stop at the first that decides:
+
+1. **Caller-provided.** If the host/caller passed a project type (`managed` | `self-managed` | `stripe`), use it. An explicit value always wins.
+2. **Detect from project signals (on disk).** Check the working directory (read-only):
+   - **`stripe`** — `.env` carries `WIX_WIX_CLIENT_ID` / `WIX_WIX_CLIENT_SECRET` / `WIX_WIX_METASITE_ID` (or the plain `WIX_*` fallback). This is the Stripe-Projects fingerprint.
+   - **`managed`** — a Wix CLI project: `wix.config.json` present, or a `.wix/` directory, or `@wix/cli` / `@wix/astro` in `package.json`.
+   - **`self-managed`** — a frontend project on disk (e.g. `package.json` with a bundler/framework) with **neither** the Stripe `.env` fingerprint **nor** the Wix-CLI markers above.
+3. **Detect from user intent.** If disk is inconclusive, read the prompt:
+   - **`managed`** — "managed", "host on Wix", "Wix-hosted", "deploy to Wix", "`wix release`".
+   - **`stripe`** — "stripe projects", "I added Wix via Stripe", a Stripe-Projects context.
+   - **`self-managed`** — "self-hosted", "my own host", names a non-Wix host, "I'll deploy it myself".
+4. **Ask.** If signals are absent or conflict, **ask the user** which type applies — don't guess.
+
+Hold the resolved type in scratch; it selects `<TYPE_DIR>` (see Path resolution). Note `self-managed` is **TBD** — once resolved to it, the auth step will stop with a clear "not wired yet" error.
+
+### Resolving the operation (managed only)
+
+create/connect/iterate are **managed-only**. For `managed`, resolve the operation **by intent first, directory second** — never let an empty directory override what the user is asking for. Check `iterate` first (it's decided by an unambiguous on-disk signal):
+
+- **`iterate`** → `references/managed/CONNECT.md`. The project is **already connected to Wix** — a `wix.config.json` (or `.wix/`) is already present — and the owner wants to add or change capabilities. Same flow as `connect`, but §1 **skips `init`** and reuses the existing `wix.config.json`; **never re-`init` an already-connected project**.
+- **`connect`** → `references/managed/CONNECT.md`. The user **brings a design not yet connected to Wix and wants it wired**: a frontend project on disk **without** a `wix.config.json`, **or** a brought-in/fetched design (a `.zip`/folder/file you unzip or read, a design-file URL, a Claude-Design/v0/Lovable export), **or** language like "connect this / implement this design (… connecting to Wix) / host this on Wix / deploy this to Wix / add Wix Headless to this project". **A brought-in or fetched design is `connect` even when the current directory is empty** — the design arrives from elsewhere (zip/fetch/URL), so emptiness at trigger time is *not* a create signal. (`CONNECT.md` step 1 places the brought design into CWD, then `init`s it.)
+- **`create`** → `references/managed/CREATE.md`. The user wants a **new site built from a prompt with nothing brought in** — "build me a site / store / blog…", no design file, no project on disk.
+- **`backend-only`** — the user only wants the backend configured (no frontend work). → the shared spine + emit the SDK handoff.
+
+For `self-managed` and `stripe`, the operation is always **backend-only** (the host owns the frontend). Only when there is **genuinely no brought-in design and no connect language** does directory emptiness decide: empty → `create`; an existing frontend on disk → `connect`.
+
+## Preconditions (the host provides these — we read, never create)
+
+1. **The project type** — `managed` | `self-managed` | `stripe` — provided by the caller, else **detected from project signals / user intent** (see Project types § "Resolving the project type"), else asked. It selects `<TYPE_DIR>` (see Path resolution).
+2. **A Wix metasite + a headless OAuth app exist, and credentials are available** — obtained via the project type's `AUTHENTICATION.md`. The skill needs a bearer token authorized for the metasite and the metasite id.
+3. **The user intent** — free text describing what Wix should power ("add a store", "blog + contact form", "persist my app's data").
+4. *(Optional)* the project on disk — read-only, to sharpen brand/capability inference.
+
+If the credentials are absent, the Wix backend isn't reachable — **stop with a clear error**.
+
+## What this skill does
+
+**Always open `DISCOVERY.md` first** (it's agnostic — capability/brand/intent inference + the imagery gate, no auth). Then route by project type + operation:
+
+**Backend-only** (self-managed, stripe, or managed backend-only) — the lean spine:
+1. **Discovery** (`references/DISCOVERY.md`) — infer capabilities + brand + intent + imagery.
+2. **Setup** (`references/SETUP.md`) — **install** the Wix apps those capabilities need.
+3. **Seed** (`references/SEED.md`) — **create** the backend content (+ entity images if imagery is on).
+4. **Handoff** (`references/SDK_HANDOFF.md`) — after Setup and Seed, **emit** the integration guide: SDK bootstrap, per-capability call shapes, the **seeded IDs**, and the `@wix/*` package list.
+5. **Finalize deployment** (`<TYPE_DIR>/DEPLOYMENT.md`) — run the project-type's finalize steps.
+
+**Throughout any run** — if the user asks to send feedback to Wix, complains/gets frustrated, or the run hits substantial friction (repeated API/doc/tooling failures), you may **offer** to relay it to Wix per `references/FEEDBACK.md`. Send only after an explicit yes — never automatically.
+
+**Managed create / connect / iterate** — after Discovery, hand the whole run to the managed flow:
+- **create** → **`references/managed/CREATE.md`** (scaffold → Setup → Seed → build the frontend → release).
+- **connect** → **`references/managed/CONNECT.md`** (init → Setup → Seed → wire the existing UI → release).
+- **iterate** → **`references/managed/CONNECT.md`** — the project is already connected, so it reuses the existing `wix.config.json` (no `init`). Setup / Seed / wiring are **incremental**: it may already be set up and seeded from a prior run, so the agent **checks current state first** (installed apps, already-seeded content, existing wiring) and applies only the delta the new intent needs — never blindly re-installing or re-seeding. Re-release only if the frontend build output changed.
+  These reuse the same `SETUP.md`/`SEED.md`/`SDK_HANDOFF.md`, but **apply** the SDK guide to build/wire the frontend themselves rather than emitting it, and release via `managed/DEPLOYMENT.md`.
+
+Each Wix call uses the universal call shape (`SETUP.md` §1) with `$TOKEN`/`$SITE_ID` obtained per `<TYPE_DIR>/AUTHENTICATION.md`. The skill runs non-interactively except for the one imagery question (and asking the project type if it can't be resolved).
+
+> **Don't smoke-test the frontend locally unless the user asks to verify.** The deliverable is the built-and-released site (managed) or the SDK guide (backend-only) — not a local test report. By **default do not** start a dev server (`wix dev` / `astro dev` / `npm run dev`) to curl pages, drive the cart / booking / login flow, or launch a headless browser: correctness comes from following the recipes, real errors surface at `wix build` / `wix release`, and a headless run can't complete an interactive login or a real payment anyway — so these loops routinely burn minutes of wall for little signal (this is distinct from, and in addition to, the "release once at the very end" rule — that one only bans extra *build+release* cycles, not dev-server testing). **Only** spin up a dev server and smoke-test when the user's prompt **explicitly asks to verify / test / confirm it works** — and then keep it to a single lightweight pass (pages compile and render), not a full purchase/booking/login drive. The one post-release check in `<TYPE_DIR>/DEPLOYMENT.md` is the sanctioned verification.
+
+## Path resolution
+
+Compute `<SKILL_ROOT>` from this file (`<SKILL_ROOT>/SKILL.md` — strip `/SKILL.md`); hold the absolute path in scratch. Then resolve the project type to its folder and hold it too:
+
+> **`<TYPE_DIR>` = `<SKILL_ROOT>/references/<projectType>/`** — one of `managed/`, `self-managed/`, `stripe/`.
+
+| What | Path |
 |---|---|
-| Discovery flow (router on OPERATION → operation files) | `<SKILL_ROOT>/references/DISCOVERY.md` → `DISCOVERY-create.md` (create) / `DISCOVERY-connect.md` (connect) |
-| Setup flow | `<SKILL_ROOT>/references/SETUP.md` |
-| Seed flow | `<SKILL_ROOT>/references/SEED.md` |
-| Pre-approval funnel (plan; router on OPERATION → operation files) | `<SKILL_ROOT>/references/PLAN.md` → `PLAN-create.md` (create) / `PLAN-connect.md` (connect) |
-| Post-approval build (router on FRAMEWORK → framework files) | `<SKILL_ROOT>/references/BUILD.md` → `BUILD-astro.md` (`frontendBuild: wix`) / `BUILD-own-build.md` (`frontendBuild: none`/`own`) |
-| Seed recipe map (human ref) | `<SKILL_ROOT>/references/seed-recipes.md` |
-| Auth + REST headers | `<SKILL_ROOT>/references/shared/AUTHENTICATION.md` |
-| Public doc endpoints | `<SKILL_ROOT>/references/shared/DOCS_SEARCH.md` |
-| Return contract | `<SKILL_ROOT>/references/shared/RETURN_CONTRACT.md` |
-| Implementer shared behavior | `<SKILL_ROOT>/references/shared/IMPLEMENTER.md` |
-| Image generation | `<SKILL_ROOT>/references/shared/IMAGE_GENERATION.md` |
-| Design-system Designer (authors the DESIGN.md) | `<SKILL_ROOT>/references/DESIGN_SYSTEM.md` |
-| DESIGN.md format spec (vendored; Designer self-loads) | `<SKILL_ROOT>/references/shared/DESIGN_MD.md` |
-| Design-system Composer — deterministic script (writes the 6 files) | `<SKILL_ROOT>/scripts/compose.mjs` (self-documenting — its header is the spec) |
-| Composer astro skeletons | `<SKILL_ROOT>/references/astro/templates/` |
-| Vertical packs (discovery) | `<SKILL_ROOT>/references/verticals/` |
-| Per-vertical instructions | `<SKILL_ROOT>/references/{stores,ecom,cms,blog,forms,gift-cards,bookings,events,images}/INSTRUCTIONS.md` |
-| Phase 4 page-designer scopes | `<SKILL_ROOT>/references/astro/designer/INSTRUCTIONS.md` |
-| Templates | `<SKILL_ROOT>/references/astro/templates/` |
-| Shared utilities (copied by seed-utilities) | `<SKILL_ROOT>/shared-utilities/` |
-| Known app IDs | `<SKILL_ROOT>/references/commands/known-apps.json` |
-| Scripts | `<SKILL_ROOT>/scripts/` |
+| Vertical index (intent matching + per-vertical site spec) | `<SKILL_ROOT>/references/CAPABILITIES.md` |
+| Discovery (infer capabilities + brand + intent) | `<SKILL_ROOT>/references/DISCOVERY.md` |
+| Setup (install apps) | `<SKILL_ROOT>/references/SETUP.md` |
+| Seed (create backend content) | `<SKILL_ROOT>/references/SEED.md` |
+| SDK-integration handoff (emitted, or applied by create/connect) | `<SKILL_ROOT>/references/SDK_HANDOFF.md` |
+| Image generation (opt-in; agnostic) | `<SKILL_ROOT>/references/IMAGE_GENERATION.md` |
+| AI features — text/chat + embeddings (opt-in; agnostic) | `<SKILL_ROOT>/references/AI_FEATURES.md` |
+| Feedback — relay the user's headless-experience feedback to Wix (opt-in; user-approved) | `<SKILL_ROOT>/references/FEEDBACK.md` |
+| **Authentication** — obtain `$TOKEN`/`$SITE_ID`/`clientId` (project-type-specific) | `<TYPE_DIR>/AUTHENTICATION.md` |
+| **Deployment** — finalize the live site (project-type-specific) | `<TYPE_DIR>/DEPLOYMENT.md` |
+| Managed **create** flow (scaffold a new project) | `<SKILL_ROOT>/references/managed/CREATE.md` |
+| Managed **connect** flow (wire an existing project) | `<SKILL_ROOT>/references/managed/CONNECT.md` |
+| Frontend-axis references (how a frontend wires to Wix) | `<SKILL_ROOT>/references/astro.md`, `non-astro.md` |
 
-**Do NOT Read subagent role/instruction docs in the orchestrator** — pass the absolute path; the subagent opens it. Reading a role doc to "prepare a dispatch" pulls 5–14 KB of subagent-only how-to into the orchestrator's context, which it then has to reason over on the dispatch turn — measurably inflating bridge turns; the orchestrator only needs to know **which inputs to inline** for each dispatch, and that list lives in `BUILD.md`'s dispatch steps, not in the role doc.
+**Start a run by opening `DISCOVERY.md`.** The flow files (`CAPABILITIES`, `DISCOVERY`, `SETUP`, `SEED`, `SDK_HANDOFF`, `IMAGE_GENERATION`, `AI_FEATURES`) are project-type-agnostic; the per-type specifics live under `<TYPE_DIR>/` (`AUTHENTICATION.md`, `DEPLOYMENT.md`, and — managed only — `CREATE.md`/`CONNECT.md`).
 
-This covers **every** doc whose body is written *for a subagent to follow*, not just files literally named `INSTRUCTIONS.md`: `DESIGN_SYSTEM.md` (Designer), `astro/designer/INSTRUCTIONS.md` (page designers), the per-vertical `INSTRUCTIONS.md` routers, and the per-vertical guides under `references/astro/`. (There is no Composer doc — the Composer is the deterministic script `scripts/compose.mjs`, self-documenting in its header; the orchestrator never reads compose internals.)
+## Where the *how* comes from
 
-The orchestrator's own reading set is the conductor/domain docs only:
+This skill has **no skill upstream** — the *how* is read from the **live Wix docs** at `dev.wix.com/docs`. **Read-priority: a page this skill links is read by `curl`-ing its `.md` twin directly (first priority — don't re-discover a curated link with search); the Wix MCP doc/search tools are second priority, for finding pages the skill doesn't link or as a fallback if a fetch fails.** (Append `.md` to any docs URL for raw markdown; menu pages list child links, content pages carry the schema.)
 
-- `PLAN.md` (+ the one operation funnel it routes to — `PLAN-create.md` *or* `PLAN-connect.md`)
-- `BUILD.md` (+ the one framework build file — `BUILD-astro.md` *or* `BUILD-own-build.md`)
-- `DISCOVERY.md` (+ the one operation discovery file — `DISCOVERY-create.md` *or* `DISCOVERY-connect.md`)
-- `SETUP.md`
-- `SEED.md`
-- `references/verticals/*.md`
+**Doc discovery is the shared fallback for both tracks — never the first move.** Each track's *primary* source is its pinned material (below); when that doesn't cover what you need, fall back to `references/DOC_DISCOVERY.md` — a semantic doc-search + schema lookup that works with or without the Wix MCP.
 
-When and how each subagent is dispatched (Designer, seeders, image phases, vertical Components/Pages) — and the deterministic scripts in between (`emit-design-tokens.mjs`, `compose.mjs`) — is owned by the conductor (`references/PLAN.md` pre-approval, `references/BUILD.md` post-approval), not listed here.
+- **Seed** reads each capability's create flow from its **inline recipe** — a **self-contained local `inline-recipes/setup-*.md`** (mapped per capability in `SEED.md` § "What to seed per capability") that inlines the calls and **supersedes** the REST doc pages, so read it and seed from it alone. Only a capability with **no** inline recipe (e.g. `coupons`) falls back to doc discovery (`DOC_DISCOVERY.md`).
+- **Handoff** links the **SDK docs** for each capability's API shape, and supplies the runtime package set from the inlined map in `SDK_HANDOFF.md` (the SDK `.md` pages don't expose `@wix/*` import strings to navigation, so packages are mapped, not navigated).
 
-## Authentication
-
-Every Wix API call uses `@wix/cli` + `curl`:
-
-```
-Authorization: Bearer $(npx @wix/cli@latest token --site "$SITE_ID")
-wix-site-id: $SITE_ID
-```
-
-`wix login` is safe from non-interactive agents (URL + user code written to stderr, exits non-zero once the browser flow concludes). Full recovery ladder: `<SKILL_ROOT>/references/shared/AUTHENTICATION.md`.
-
-## Subagent model tier
-
-Match each subagent's task to one of two tiers; dispatch with the model
-your environment provides for that tier. Apply by lookup, not deliberation.
-
-**Fast tier** — recipe-following work whose return is JSON of IDs/URLs.
-No source-code authoring, no creative judgment.
-
-- All Seeder subagents (stores, cms, blog, forms, future verticals)
-- Image-generation subagents (while still dispatched as subagents)
-
-**Default tier** — everything else.
-
-- Design System / Designer (brand-voice CSS, type, layout)
-- Phase 3 Components (SDK composition, hooks, JSX)
-- Phase 4 Pages (cross-file dependencies, brand-voice content)
-- Any subagent that authors files the build will consume
-
-If unsure, pick default. Do not weigh alternatives per dispatch — the
-choice is determined by the task type, not by the subject matter of
-the run.
-
-
-## When this skill triggers
-
-Explicit invocation only. **Two entry paths — decide before doing anything else.**
-
-**Decide by intent first, directory second.** An empty directory does **not** by itself mean Path A — read what the prompt is asking for. (See `DISCOVERY.md` § "Wave 0" for the authoritative rule.)
-
-### Path A — New site from a prompt (default)
-
-The user asks to **create a new site from scratch** ("build me a store", "I want to sell tables online", "make a blog") with **no design to connect**, in an empty directory. Infer vertical(s) from the opening message and load the **full resolved pack set** (top-level + `requires:` transitives + always-on `cms`) in one read batch — routing examples: stores → stores+cms+ecom+gift-cards; blog → blog+cms; bookings → bookings+cms; events → events+cms; etc. If the prompt is too vague, ask one conversational clarifier (NOT `AskUserQuestion`): *"What do you want your site to do — sell things, publish content, take bookings?"*
-
-> **Framework keyword → scaffold that framework, not astro.** A create prompt that **explicitly names a client-build framework** (*"create a bakery site using vite and wix"*, react/vue/svelte/SPA) stays Path A (`operation: create`) but resolves `frontendBuild: own` — the skill scaffolds *that* framework and connects it via the SPA spine (companion case). A **bare** "create a bakery site" with no framework named stays **astro** (the default). Only an explicit keyword flips it — never infer a framework the user didn't ask for. (`DISCOVERY.md` § "Wave 0".)
-
-> **Do NOT call `WixSiteBuilder` MCP** for new-site requests — same intent, different flow; calling both produces a duplicated, conflicting build. This skill is the sole entry point.
-
-### Path B — Connect an existing/brought design to Wix (`operation: connect`)
-
-Triggers: *"connect this to Wix Headless"*, *"implement this design … connecting to wix"*, *"add Wix Headless to this project"*, *"host this on Wix"*, *"deploy this to Wix"*, *"implement the features … using Wix Headless"*, or a **design-file URL to fetch + implement** (Claude Design / v0 / Lovable / any tool). **These route to B even when the working directory is empty** — the design arrives by fetch, so emptiness at trigger time does not make it Path A.
-
-| Signal | Path |
-|---|---|
-| Prompt asks to **connect / implement / host an existing or fetched design** (incl. a design-file URL), **even if the CWD is empty** | **B (`operation: connect`)** |
-| A working frontend already on disk (`index.html`, `*.html`/`*.jsx`/`*.tsx`/`*.vue`, a design bundle) | **B (`operation: connect`)** |
-| Empty CWD **and** a create-a-new-site prompt, nothing to connect | A (`operation: create`) |
-| `wix.config.json` present (an existing wix-headless project) | resume/extend |
-
-**The connect operation wires a brought-in design to Wix.** When the working directory holds a brought-in site, the run **connects it to a live Wix backend** — parse the site (`DISCOVERY-connect.md`), init + shared Setup/Seed, wire existing dynamic regions to `@wix/sdk` and augment static designs with the connected feature their purpose implies, then no-build release. The frontend-track playbook is `<SKILL_ROOT>/references/custom/INSTRUCTIONS.md`; routing is owned by `PLAN-connect.md`.
-
-### Two routing axes: operation (Discovery/Plan) + framework (Build)
-
-The skill routes each phase on its own axis — they only *happen* to coincide while there are exactly two modes:
-
-- **Operation** (Discovery + Plan route on this) — *create* (scaffold a new site from a prompt) vs *connect* (integrate a brought-in design).
-- **Framework-build-class** (Build routes on this) — `frontendBuild`: `wix` (astro-native, `wix build`) vs `none` (static HTML, no build) vs `own` (own-build SPA, the project's own `npm run build`).
-
-These plus `frontend`, `verticals[]`, `designSource`, and `brand` form the **Plan→Build contract** (`PLAN.md` § "The Plan→Build contract"), held in orchestrator scratch and threaded into dispatch prompts. The axes are **orthogonal** — `frontendBuild` is derived inside the operation, not implied by it:
-
-| `operation` | `frontend` | `frontendBuild` | What runs |
-|---|---|---|---|
-| `create` (default) | `astro` | `wix` | the skill writes the site, then `wix build` + release (`references/astro/`) |
-| `create` + explicit framework keyword (*"…using vite"*) | `custom` | `own` | scaffold the named framework (vite/vue/svelte) → minimal app → connect via the SPA spine → the project's own `npm run build` + release (companion case) |
-| `connect` (brought static HTML) | `custom` | `none` | connect a brought-in HTML+CSS/JS site; init + Setup/Seed + connect/augment + **no-build** release (`references/custom/`) |
-| `connect` (brought framework SPA) | `custom` | `own` | connect a brought-in Vite/React/Vue/Svelte SPA; bundled `@wix/sdk` + source-edit wiring (persistence swap) + the project's own build + release |
-
-`DISCOVERY.md` § "Wave 0" resolves `operation` first, then derives `frontend`/`frontendBuild` (connect's build-class from disk — `DISCOVERY-connect.md` § 1.5; create's from an explicit framework keyword). `frontend`/`operation`/`frontendBuild` all live in **orchestrator scratch** and are **not** written to disk (on scratch loss, recover them from `package.json`: `@wix/astro` present ⇒ `frontend: astro`/`frontendBuild: wix`, else `frontend: custom` with `frontendBuild` re-derived from `scripts.build` + a bundler dep). **Operation routing is owned by `PLAN.md` § "Operation routing"; framework routing by `BUILD.md`.** Framework SPAs carry **no per-framework instruction files** — one agnostic playbook; only SSR frameworks (Next.js/Nuxt) are deferred.
-
-### Two tracks (business vs frontend)
-
-The skill runs two semi-independent tracks (business = frontend-blind site/app/seed work; frontend = scaffold/design/components/pages/build) that the orchestrator interleaves for wall-time. **The track model and interleaving are owned by `PLAN.md` § "Two tracks".**
-
-### When NOT to use this skill
-
-| Scenario | Use instead |
-|---|---|
-| Scaffold-only with no further design/wiring | `bash <SKILL_ROOT>/scripts/scaffold.sh <folder-name> "<Brand>"` |
-| Release an existing wix-headless project | from the project dir: `npx @wix/cli@latest build` then `release` (astro); `release` only (custom — no build) |
-| Install a Wix app onto an existing site | Follow `SETUP.md` Step 3 (delegates to the `wix-manage` skill) |
-| Add a feature / restyle a prior wix-headless run | Resume on disk; ask whether to start fresh |
-
-> Read individual `.md` files under `references/verticals/`; `Read` on the directory returns `EISDIR`.
-
-## The run
-
-The whole run — Discovery → Setup → design-system bridge → Seed → the build wave (merged Components + Pages per vertical) → Build → Release, with every dispatch, handle, wait, and transition — is owned by the conductor: **`references/PLAN.md`** (pre-approval) then **`references/BUILD.md`** (post-approval). Open `PLAN.md` to start a run. This file does not duplicate the sequence.
-
-Wall-time targets: discovery ≤ 80 s (excl. user think-time); setup foreground ≤ 25 s; seed longest pole ≤ 120 s. Full-build target: ≤ 600 s prompt-to-live-URL when all phases run.
-
-## Verticals
-
-Pack frontmatter in `references/verticals/` is **discovery-only**. Post-seed work uses `INSTRUCTIONS.md` + templates under each vertical directory.
-
-Upstream: `@skills/wix-manage` (seed + app install recipes).
-
-Current packs: `stores`, `ecom`, `gift-cards`, `cms`, `blog`, `forms`, `bookings`, `events`. Schema: `references/verticals/_schema.md` + `_schema.json`.
+Setup carries its app-install call (and the appDefId constants) inline in `SETUP.md`; `CAPABILITIES.md` is the vertical index that lets Discovery match intent **and** declares, per built vertical, the *Required site features* + *Implementation checklist* that Seed enables (backend-backed features) and the Handoff carries into the guide (so the host builds a complete site, not a bare data dump). This skill carries the *what* (which capabilities, how much content, what a finished site includes) and reads the *how* off the docs.

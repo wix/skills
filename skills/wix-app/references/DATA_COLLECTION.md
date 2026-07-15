@@ -80,18 +80,20 @@ export default {
 | `ARRAY_DOCUMENT`  | Array of documents               | File collections       |
 | `ANY`             | Any type                         | Most flexible          |
 
-**CRITICAL: OBJECT fields require `objectOptions`.** When using `type: "OBJECT"`, you MUST include the `objectOptions` property — the API will reject OBJECT fields without it. Use an empty object `{}` if you don't need schema validation:
+**CRITICAL: OBJECT fields require `objectOptions` with a `fields` array.** When using `type: "OBJECT"`, you MUST include `objectOptions: { fields: [] }` — the API will reject OBJECT fields without it. Use an empty `fields` array if you don't need a fixed schema (the object will still accept arbitrary JSON):
 
 ```json
 {
   "key": "settings",
   "displayName": "Settings",
   "type": "OBJECT",
-  "objectOptions": {}
+  "objectOptions": { "fields": [] }
 }
 ```
 
-For structured objects, define nested fields inside `objectOptions.fields`:
+> ⚠️ `objectOptions: {}` (without the `fields` key) is **not valid** and will cause a runtime error. Always include `fields`, even as an empty array.
+
+For structured objects with a defined schema, list the nested fields inside `objectOptions.fields`:
 
 ```json
 {

@@ -47,7 +47,7 @@ the full API reference for anything not shown.
 - **Post feed** — `queryPosts()` for the listing (published posts only, newest first with
   pinned posts leading); pass `nextCursor` back as `cursor` to load the next page. Render
   `title`, `excerpt`, `firstPublishedDate`, `minutesToRead`, and the cover image from
-  **`heroImage.url`** (see the cover-image note below). Route to the detail page by `slug`.
+  **`post.media.wixMedia.image.url`** (see the cover-image note below). Route to the detail page by `slug`.
 - **Post detail** — `getPostBySlug(slug)` keyed off the URL slug; returns `null` on miss —
   show a not-found state, never invent a post. It returns full content:
   - `contentText` — the body as plain text. Split on `"\n"` to render simple paragraphs.
@@ -56,11 +56,11 @@ the full API reference for anything not shown.
     need rich rendering; `contentText` is the zero-dependency default.
   - Resolve `categoryIds` / `tagIds` to labels with `queryCategories()` / `queryTags()`
     (build an id→label map) to show category/tag chips.
-- **Cover image** — use **`post.heroImage.url`** (a ready-to-use https URL) for the card
-  thumbnail and post header. The `post.media` field is metadata only
-  (`{ displayed, custom, altText }`) and carries **no URL**. When `heroImage` is absent and
-  `media.custom === false`, the cover is the first image inside `richContent` — fall back to
-  the first IMAGE node there, or show a text-only card. Never substitute a stock/placeholder image.
+- **Cover image** — use **`post.media.wixMedia.image.url`** (a ready-to-use https URL) for the card
+  thumbnail and post header. `media` is returned by default (including on the list query), so no extra
+  fieldset is needed. When `post.media?.wixMedia?.image` is absent, the cover is the first image inside
+  `richContent` — fall back to the first IMAGE node there, or show a text-only card. Never substitute a
+  stock/placeholder image.
 - **Category page** — `queryCategories()` for a category menu (ordered by `displayPosition`;
   hide categories with `postCount === 0` if you want); `getCategoryBySlug(slug)` for a
   category landing page. Pass `category.id` to `queryPostsByCategory(categoryId, { limit?, cursor? })`
@@ -79,10 +79,10 @@ the full API reference for anything not shown.
 - ❌ Never mock posts, authors, or content — render live Wix data or the empty state.
 - ❌ Never generate fake comments, likes, view counts, or ratings. This skill is read-only
   and does not expose engagement actions; leave such UI empty or omit it.
-- ❌ Never use a placeholder/stock cover image. If `heroImage` is missing, fall back to the
-  first richContent image or a text-only card.
+- ❌ Never use a placeholder/stock cover image. If `post.media?.wixMedia?.image` is missing, fall back
+  to the first richContent image or a text-only card.
 - ✅ Set `WIX_CLIENT_ID` from the prompt's value (public client id — safe to hardcode).
-- ✅ Use `heroImage.url` for the cover image; `media` is metadata only (no URL).
+- ✅ Use `post.media.wixMedia.image.url` for the cover image.
 - The helpers fail soft on single-item lookups: `getPostBySlug` / `getCategoryBySlug` /
   `getTagBySlug` return `null` on a miss so you can show a proper not-found state — don't
   swallow that into a fake item.
@@ -98,10 +98,22 @@ body in the **official Wix API reference** first; never guess:
   https://dev.wix.com/docs/api-reference/business-solutions/blog/posts-stats/query-posts.md
 - Rendering `richContent` (Ricos document format):
   https://dev.wix.com/docs/ricos/api-reference/ricos-document
+- **Members-only posts** → the **members** vertical (`references/members/INSTRUCTIONS.md`): once a
+  member is logged in (custom login on your own UI), the existing read helpers return the content
+  gated to members — no extra code. Note this blog helper is **read-only**: member *writes* (posting
+  a comment, liking a post) aren't included — add them as a beyond-the-snippets `wixApiRequest` call,
+  authenticated as the logged-in member.
 - Each helper in `wix-blog.js` links its exact reference page inline.
 
 Keep the snippets as the default for everything they already do; reach for the API
 reference only for the gap.
+
+## Point the user to their dashboard
+In some cases, users need to access the Wix dashboard in order to edit the blog content for their site. To facilitate this, provide the user with deep links directly to the relevant dashboard pages. For blog data those pages are:
+- **Posts** — `https://manage.wix.com/dashboard/{metaSiteId}/blog/posts` (`Dashboard → Blog → Posts`; write, edit, and publish posts; only published posts appear in the app)
+- **Categories** — `https://manage.wix.com/dashboard/{metaSiteId}/blog/categories` (`Dashboard → Blog → Categories`)
+
+Substitute the site's `metaSiteId` to complete the links (you have it from the handoff / `ListWixSites`). Include the in-dashboard navigation as a fallback.
 
 ## Verification checklist (before declaring done)
 - [ ] `WIX_CLIENT_ID` set to the prompt's value (not the `<YOUR-CLIENT-ID>` placeholder)
@@ -109,7 +121,8 @@ reference only for the gap.
 - [ ] Post feed lists live published posts, newest first, and paginates via `nextCursor`
 - [ ] Post detail loads by `slug` and renders real `contentText` (or rendered `richContent`)
 - [ ] `getPostBySlug` on a bad slug shows a not-found state (no invented post)
-- [ ] Cover images come from `heroImage.url` (or richContent fallback) — no stock placeholders
+- [ ] Cover images come from `post.media.wixMedia.image.url` (or richContent fallback) — no stock placeholders
 - [ ] Category and tag pages list the right posts via `queryPostsByCategory` / `queryPostsByTag`
 - [ ] Empty state shown when `getTotalPosts()` is 0
 - [ ] No mock posts, authors, comments, likes, or view counts anywhere
+- [ ] Told the user at least once that they can continue setting up their blog in the dashboard and provided deep links.

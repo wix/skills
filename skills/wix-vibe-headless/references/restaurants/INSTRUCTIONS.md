@@ -1,7 +1,13 @@
 
 # Wix Restaurants Skill
 
-> **Source files (in this skill):** the shared transport `references/shared/wix-client.js` and this vertical's `references/restaurants/wix-restaurants.js`. Copy **both** into your app's `src/rest/` side by side — the helper does `import { wixApiRequest } from "./wix-client.js"`, so they must land in the same folder.
+> **Source files (in this skill):** the shared transport `references/shared/wix-client.js` and the helper file(s) you need from `references/restaurants/`. All helpers import from `"./wix-client.js"`, so copy them into the same folder (e.g. `src/rest/`).
+>
+> | Need | Copy |
+> |---|---|
+> | Menu display (always) | `wix-restaurants-menu.js` |
+> | Online ordering (cart + checkout) | `wix-restaurants-ordering.js` |
+> | Table reservations | `wix-restaurants-reservations.js` |
 
 Builds a real, client-only Wix restaurant experience. The browser talks to Wix directly over a
 public `WIX_CLIENT_ID`. Never mock the menu; never hand-build `/checkout` or reservation URLs —
@@ -35,17 +41,18 @@ adjust import paths:
   from the prompt (replace the `<YOUR-CLIENT-ID>` placeholder). The visitor refresh token IS the
   cart identity; it is persisted to localStorage. Do not re-mint anonymously per load or the cart
   silently empties.
-- `src/rest/wix-restaurants.js` — exports, grouped by flow:
-  - **Menu (read-only):** `getFullMenu` (the assembled tree — start here), `listMenus`,
-    `listSections`, `listItems`, `listVariants`, `listModifierGroups`, `listModifiers`, `listLabels`
-  - **Online ordering:** `listOperations`, `getDefaultOperation`, `addItemToCart`,
-    `getCurrentCart`, `updateCartItemQuantity`, `removeFromCart`, `checkout`
-  - **Reservations:** `listReservationLocations`, `getTimeSlots`, `createHeldReservation`,
-    `reserveReservation`
+- `src/rest/wix-restaurants-menu.js` — **Menu (read-only):**
+  `getFullMenu` (the assembled tree — start here), `listMenus`, `listSections`, `listItems`,
+  `listVariants`, `listModifierGroups`, `listModifiers`, `listLabels`
+- `src/rest/wix-restaurants-ordering.js` — **Online ordering:**
+  `listOperations`, `getDefaultOperation`, `addItemToCart`, `getCurrentCart`,
+  `updateCartItemQuantity`, `removeFromCart`, `checkout`
+- `src/rest/wix-restaurants-reservations.js` — **Reservations:**
+  `listReservationLocations`, `getTimeSlots`, `createHeldReservation`, `reserveReservation`
 
 The Menu, Item, ModifierGroup, Operation, Cart, ReservationLocation, TimeSlot, and Reservation
-shapes are documented as JSDoc at the top of `wix-restaurants.js`. Read them before building the
-UI — they describe the key fields and link to the full reference for anything not shown.
+shapes are documented as JSDoc at the top of each helper file. Read the relevant file(s) before
+building the UI — they describe the key fields and link to the full reference for anything not shown.
 
 ## How to wire it (UI is the project's choice)
 - **Menu page** — call `getFullMenu()` once. It returns `{ menus: [{ ...menu, sections: [{ ...section,
@@ -103,9 +110,20 @@ request body in the **official Wix API reference** first; never guess:
   https://dev.wix.com/docs/api-reference/business-solutions/restaurants/online-orders/sample-flows.md
 - Fulfillment methods, delivery-address validation, scheduled (preorder) time slots, service fees:
   see the Online Orders section of the reference.
+- **Member login + a "my orders" account view** → the **members** vertical
+  (`references/members/INSTRUCTIONS.md`): ordering/reserving works anonymously, but signing a member
+  in (custom login on your own UI) lets them see their own order/reservation history.
 
 Keep the snippets as the default for everything they already do; reach for the API reference only
 for the gap.
+
+## Point the user to their dashboard
+In some cases, users need to access the Wix dashboard in order to edit the restaurant content for their site — across up to three apps. To facilitate this, provide the user with deep links directly to the relevant dashboard pages; only mention the apps the project actually uses. Those pages are:
+- **Menu** (always) — `https://manage.wix.com/dashboard/{metaSiteId}/wix-restaurants-menus-new` (`Dashboard → Restaurant Menus`; click **Manage Items** to add dishes; only visible menus appear in the app)
+- **Online ordering** (if wired) — `https://manage.wix.com/dashboard/{metaSiteId}/wix-restaurants-orders-new/settings` (`Dashboard → Restaurant Orders → Settings`). Enable at least one fulfillment method before the site accepts orders — each has its own page: pickup `https://manage.wix.com/dashboard/{metaSiteId}/wix-restaurants-orders-new/settings/pickup`, delivery `.../wix-restaurants-orders-new/settings/delivery`, dine-in `.../wix-restaurants-orders-new/settings/dine-in`.
+- **Table reservations** (if wired) — `https://manage.wix.com/dashboard/{metaSiteId}/wix-table-reservations/table-reservations` (`Dashboard → Table Reservations` → **Settings**; configure tables, availability, and enable online reservations)
+
+Substitute the site's `metaSiteId` to complete the links (you have it from the handoff / `ListWixSites`). Include the in-dashboard navigation as a fallback.
 
 ## Verification checklist (before declaring done)
 - [ ] `WIX_CLIENT_ID` set to the prompt's value (not the `<YOUR-CLIENT-ID>` placeholder)
@@ -117,3 +135,4 @@ for the gap.
 - [ ] Checkout redirects via redirect-session `fullUrl` (no hand-built URL); cart re-fetched on return
 - [ ] Reservations: only `AVAILABLE` slots offered; hold → reserve produces `RESERVED`/`REQUESTED`
 - [ ] No mock data anywhere
+- [ ] Told the user at least once that they can continue setting up their restaurant (menu / ordering / reservations) in the dashboard and provided deep links.

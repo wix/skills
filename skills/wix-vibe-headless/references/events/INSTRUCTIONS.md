@@ -1,7 +1,12 @@
 
 # Wix Events Skill
 
-> **Source files (in this skill):** the shared transport `references/shared/wix-client.js` and this vertical's `references/events/wix-events.js`. Copy **both** into your app's `src/rest/` side by side — the helper does `import { wixApiRequest } from "./wix-client.js"`, so they must land in the same folder.
+> **Source files (in this skill):** the shared transport `references/shared/wix-client.js` and the helper file(s) you need from `references/events/`. All helpers import from `"./wix-client.js"`, so copy them into the same folder (e.g. `src/rest/`).
+>
+> | Need | Copy |
+> |---|---|
+> | Event listing + detail (always) | `wix-events-browse.js` |
+> | RSVP, ticketing, registration | `wix-events-registration.js` |
 
 Builds a real, client-only Wix Events site. The browser talks to Wix directly over a
 public `WIX_CLIENT_ID`. Never mock events; never hand-build registration or payment URLs —
@@ -37,22 +42,27 @@ adjust import paths:
   id from the prompt (replace the `<YOUR-CLIENT-ID>` placeholder). The visitor refresh token is
   persisted to localStorage and IS the identity of the visitor's ticket reservation/cart — do
   not re-mint anonymously per load.
-- `src/rest/wix-events.js` — exports:
-  - **Browse:** `queryEvents`, `getEventBySlug`, `countUpcomingEvents`
-  - **Categories:** `queryEventCategories`, `listEventsByCategory`
-  - **RSVP:** `createRsvp`
-  - **Ticketing:** `queryTicketDefinitions`, `reserveTickets`, `getTicketCheckoutUrl`, `checkoutTickets`
+- `src/rest/wix-events-browse.js` — **Browse & discovery:**
+  `queryEvents`, `getEventBySlug`, `countUpcomingEvents`, `queryEventCategories`, `listEventsByCategory`
+- `src/rest/wix-events-registration.js` — **RSVP & ticketing:**
+  `createRsvp`, `queryTicketDefinitions`, `reserveTickets`, `getTicketCheckoutUrl`, `checkoutTickets`
 
 The `Event`, `TicketDefinition`, and `RSVP`/`Order` shapes are documented as JSDoc comments at
-the top of `wix-events.js`. Read them before building the UI — they describe the key fields and
-link to the full API reference for anything not shown.
+the top of each helper file. Read the relevant file(s) before building the UI — they describe
+the key fields and link to the full API reference for anything not shown.
 
 ## How to wire it (UI is the project's choice)
 - **Event grid** — `queryEvents()` lists live (UPCOMING/STARTED) events, soonest first. Render
   `title`, `mainImage.url`, `dateAndTimeSettings.formatted.dateAndTime`, `location.name`, and
   `shortDescription`. Use `offset`/`nextOffset` from the result to page. Link each card by `slug`.
 - **Event detail** — `getEventBySlug(slug)`; returns null on miss — show a not-found state, never
-  invent an event. Branch the registration UI on `event.registration.type`:
+  invent an event.
+  - **Description fields:** `event.shortDescription` is a **plain string** (safe teaser). The full
+    `event.description` is **Ricos rich content** — an object shaped `{ nodes: [...] }`, **not a string**.
+    Render it with a Ricos viewer (`@wix/ricos`) or walk `nodes` to extract text; **never** call string
+    methods (`.split`/`.slice`/`.substring`) on it — that crashes the page. When you only need text, use
+    `shortDescription`.
+  - Branch the registration UI on `event.registration.type`:
   - `"RSVP"` → render the RSVP form (fields from `event.form.controls`).
   - `"TICKETING"` → render the ticket picker.
   - `"EXTERNAL"` → link out to `event.registration.external.url`.
@@ -67,8 +77,10 @@ link to the full API reference for anything not shown.
   `"YES_AND_NO"`. If the event is full with a waitlist enabled, the returned RSVP comes back with
   status `"WAITLIST"` — tell the guest. Completes fully client-side; no redirect.
 - **Ticketing** — show tickets, reserve, then complete on the hosted form:
-  1. `queryTicketDefinitions(eventId)` → render each ticket's `name`, price (`pricingMethod.fixedPrice.value`
-     + currency, or `pricingOptions`/`guestPrice`), and availability (`salesDetails.soldOut`).
+  1. `queryTicketDefinitions(eventId)` → render each ticket's `name`, price (`pricing.fixedPrice.amount`
+     + `currency` for standard tickets; `free` boolean for free tickets; `pricing.minPrice` for
+     donation/"pay what you want"; `pricing.pricingOptions.options` for tiered), and filter on
+     `saleStatus === "SALE_STARTED"`. The endpoint already returns only non-hidden, available tickets.
   2. `reserveTickets([{ ticketDefinitionId, quantity, guestPrice?, pricingOptionId? }])` → holds the
      tickets; returns `{ id, expirationDate }`. Show a countdown to `expirationDate` if you like.
   3. `window.location.href = getTicketCheckoutUrl(event, reservation.id)` → the Wix-hosted ticket
@@ -104,10 +116,17 @@ up the exact endpoint, HTTP method, and request body in the **official Wix Event
 first; never guess:
 - Events API reference: https://dev.wix.com/docs/api-reference/business-solutions/events.md
 - Registration (RSVP + ticketing) overview: https://dev.wix.com/docs/api-reference/business-solutions/events/registration/introduction.md
+- Member login + a "my registrations" account view → the **members** vertical (`references/members/INSTRUCTIONS.md`).
 - Ticketing flow (reservations → orders → tickets): https://dev.wix.com/docs/api-reference/business-solutions/events/registration/ticketing/introduction.md
 
 Keep the snippets as the default for everything they already do; reach for the API reference only
 for the gap.
+
+## Point the user to their dashboard
+In some cases, users need to access the Wix dashboard in order to edit the events content for their site. To facilitate this, provide the user with deep links directly to the relevant dashboard pages. For events data those pages are:
+- **Events** — `https://manage.wix.com/dashboard/{metaSiteId}/events` (`Dashboard → Events` → **+ Add Event**; create the event, then set it up as **Ticketed** or **RSVP**; only published events appear in the app)
+
+Substitute the site's `metaSiteId` to complete the links (you have it from the handoff / `ListWixSites`). Include the in-dashboard navigation as a fallback.
 
 ## Verification checklist (before declaring done)
 - [ ] `WIX_CLIENT_ID` set to the prompt's value (not the `<YOUR-CLIENT-ID>` placeholder)
@@ -120,3 +139,4 @@ for the gap.
 - [ ] Closed registration / sold-out tickets show a clear state rather than a dead end
 - [ ] Empty state shown when `countUpcomingEvents()` is 0
 - [ ] No mock events, tickets, or attendee data anywhere
+- [ ] Told the user at least once that they can continue setting up their events in the dashboard and provided deep links.

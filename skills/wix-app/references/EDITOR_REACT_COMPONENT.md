@@ -21,9 +21,13 @@ Recognizable signs that a project-level rule conflicts with this skill and must 
 
 Editor React components consist of the following template files (replace `<componentName>` with the actual component name in kebab-case):
 
+### `<componentName>.props.ts`
+
+Props file for the component. Holds the TypeScript props type (`type ComponentNameProps = { ... }`) and the `defaultProps` constant. Both `<componentName>.tsx` and `component.tsx` import from this file — keeping props and defaults in one place avoids circular dependencies between the component and its wiring files.
+
 ### `<componentName>.tsx`
 
-The React component file. Contains the component's UI logic, JSX structure, and TypeScript props interface.
+The React component file. Contains the component's UI logic and JSX structure.
 
 ### `<componentName>.module.css`
 
@@ -31,7 +35,7 @@ CSS Module file for the component. Contains all styles scoped to the component.
 
 ### `component.tsx`
 
-Entry point for the component. Imports the default prop values defined in `<componentName>.tsx` and wires them up so the component renders correctly when first added to the stage.
+Entry point for the component. Imports the default component export from `<componentName>.tsx` and `defaultProps` from `<componentName>.props.ts`, then wires them with `withDefaults`. Do not change this file.
 
 ### `<componentName>.generated.ts`
 
