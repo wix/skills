@@ -1,0 +1,16 @@
+name: smoke/v1-migration-smoke
+description: >-
+  TEMPORARY smoke scenario to verify the EvalForge V1 + OAuth client migration runs
+  end-to-end through the gate. Revert after the run is confirmed.
+triggerPrompt: >-
+  How can I check which apps are installed on a Wix site using the Apps Installer API?
+tags: [smoke]
+assertions:
+  - type: llm_judge
+    minScore: 5
+    maxTokens: 1024
+    prompt: |
+      Be lenient. Pass if the response explains how to list the apps installed on a
+      Wix site — e.g. an Apps Installer / app-instances endpoint
+      (GET .../apps-installer-service/v1/app-instances) — and mentions matching by appDefId.
+      Fail only if it ignores installed-apps entirely.
