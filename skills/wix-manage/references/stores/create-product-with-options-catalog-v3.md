@@ -470,42 +470,6 @@ After Creating the product, verify that the options appear correctly in the stor
 >
 > **Important:** All update operations (PATCH) require the current `product.revision` value. Always GET the product first to obtain the revision before updating.
 
-## STEP 2: After creation — show the product and offer next actions
-
-Once the Create Product API call succeeds, **always** show the product back to the user as a card followed by exactly **two** call-to-action buttons. Do not just reply with a plain-text confirmation.
-
-### Product card (widget)
-
-Render a markdown product card from the created product's data in the API response:
-
-> ---
-> ### [product.name]
->
-> **[formatted price]**
->
-> ![product image]([product.media.main.url])
->
-> [first line of the description, or a short one-liner]
-> ---
-
-Use the `main` media image and the name/price you just created.
-
-### Two call-to-action buttons
-
-Present exactly **two** CTAs. Which pair you show depends on the platform the user is on — **use the platform/client context available to you at runtime** to decide:
-
-**If the platform is mobile web:**
-1. **Create another product** — restart from STEP 0 to create a new product (continue in chat).
-2. **Download the Wix Owner app** — to view this product and continue editing on mobile. Link to the generic Wix Owner app download page: `{{WIX_OWNER_APP_LINK}}` _(placeholder — confirm/replace with the canonical link, e.g. `https://www.wix.com/mobile/wix-app`)_.
-
-**On any other platform (e.g. desktop web):**
-1. **Go to product** — link directly to the newly created product's page. Use the product page URL from the create response (`product.url`); if it was not returned, GET the product to obtain it.
-2. **Create another product** — restart from STEP 0 to create a new product (continue in chat).
-
-> **CRITICAL — exactly two CTAs, and the pair is platform-dependent.** Never show "Go to product" on mobile web, and never show "Download the Wix Owner app" on non-mobile platforms. "Create another product" appears in both pairs.
-
-After the card + CTAs, stop — do not proactively start other workflows unless the user chooses "Create another product" or explicitly asks for something else.
-
 ## Troubleshooting Common Issues
 
 ### Issue 1: "ChoicesSettings must not be empty" error
