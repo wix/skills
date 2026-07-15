@@ -434,3 +434,5 @@ The post appears on the site's Social Media Marketing page in the dashboard. To 
 - [Media Manager: Import File](https://dev.wix.com/docs/api-reference/assets/media/media-manager/files/import-file)
 - [Media Manager: Generate File Upload URL](https://dev.wix.com/docs/api-reference/assets/media/media-manager/files/generate-file-upload-url)
 - [Publisher API sample flows](https://dev.wix.com/docs/api-reference/business-management/marketing/social-media/sample-flows)
+
+<!-- eval-gate test: doc-only edit to verify the covering scenario re-runs (revert after). -->
