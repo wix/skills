@@ -16,7 +16,7 @@ A concise checklist for preparing any new Wix site that uses the **Wix CMS** (Wi
 ---
 
 ## Article: Steps for Setting Up Wix CMS
-**YOU MUST** complete the steps in order, without requiring additional user input: create each collection (STEP 1) before inserting its items (STEP 2), and verify (STEP 3) before wiring any references (STEP 4). Items can only be inserted into a collection that already exists. STEP 5 (attach an item image) runs **only when imagery is on** — skip it entirely otherwise.
+**YOU MUST** complete the steps in order, without requiring additional user input: create each collection (STEP 1) before inserting its items (STEP 2), and verify (STEP 3) before wiring any references (STEP 4). Items can only be inserted into a collection that already exists. The **Attach images** step runs **only when imagery is on** — skip it entirely otherwise.
 
 ### STEP 1: Create each collection (public-read)
 
@@ -169,9 +169,9 @@ Use **Bulk Insert Reference Data Items**: `POST https://www.wixapis.com/wix-data
 
 **⚠️ References only resolve if the field was created with a non-empty `referencedCollectionId` (STEP 1).** This call can return `200` / `totalSuccesses` even when the field's target binding is empty — but then a read with `.include("categories")` (or `query-referenced`) returns nothing (and `query-referenced` errors `WDE0020 "Provided property [] is not a multi-reference field"`). If references insert "successfully" but never appear on reads, the field's `referencedCollectionId` was empty at create time — fix the STEP 1 field definition, not this call.
 
-### STEP 5: Attach an item image (imagery ON only — skip otherwise)
+### Attach images (imagery ON only — skip otherwise)
 
-**Only when `imagery` is on** (`SEED.md` § "Entity images"). This is the CMS entry in the required pass-2 "attach the generated image to the entity" flow — items were inserted text-only in STEP 2 (any `IMAGE` field left blank); now write the image onto each. It presumes the collection has an `IMAGE`-type field (STEP 1 field schema). Generate + import per `references/IMAGE_GENERATION.md` and keep `file.url` (the permanent `wixstatic.com` URL — an `IMAGE` field stores the URL string).
+**Only when `imagery` is on** (`SEED.md` § "Entity images"). This is the CMS entry in the required pass-2 "attach the generated image to the entity" flow — items were inserted text-only earlier (any `IMAGE` field left blank); now write the image onto each. It presumes the collection has an `IMAGE`-type field (from the field schema at create time). Generate + import per `references/IMAGE_GENERATION.md` and keep `file.url` (the permanent `wixstatic.com` URL — an `IMAGE` field stores the URL string).
 
 **⚠️ Use read-merge-PUT, not PATCH.** A partial JsonPatch is fragile here; instead query the item, merge the image URL into its `data`, and PUT the **whole** record back:
 
@@ -196,5 +196,5 @@ Following these steps **in order** sets up a Wix CMS backend:
 - Native collection `id`s carry **no namespace** and are kept verbatim for the frontend to bind to.
 - Every item is bulk-inserted with **real field values** in `data` (keys matching the schema) and **verified to have persisted**.
 - Reference fields are created with a non-empty `typeMetadata…referencedCollectionId` (the working key, not the docs' stale `referencedCollection`); multi-references are then wired with the reference endpoint's `dataItemReferences[]` shape (never set at insert — they're silently dropped there), and single references by item-id at insert.
-- **When imagery is on**, each item's `IMAGE` field is filled in the pass-2 STEP 5 via **read-merge-PUT** (`PUT …/items/{id}` with the full merged record — a partial PUT wipes omitted fields), storing `file.url`; on failure the item stays text-only.
+- **When imagery is on**, each item's `IMAGE` field is filled by the **Attach images** step (pass-2) via **read-merge-PUT** (`PUT …/items/{id}` with the full merged record — a partial PUT wipes omitted fields), storing `file.url`; on failure the item stays text-only.
 - **Keep** per collection: the `collectionId`, the field `key`s, and the `itemIds[]` — these are the producer for the coding handoff.

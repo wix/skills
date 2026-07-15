@@ -113,6 +113,21 @@ remove). If you hit a use case they don't cover, make the call yourself with
   Data Items — https://dev.wix.com/docs/api-reference/business-solutions/cms/data-items/query-referenced-data-items.md
 - **Collection schema / field keys & types**: Get Data Collection —
   https://dev.wix.com/docs/api-reference/business-solutions/cms/collection-management/data-collections/get-data-collection.md
+- **Member-gated & user-generated content** → the **members** vertical
+  (`references/members/INSTRUCTIONS.md`). A collection whose permissions are `read: Anyone`,
+  `insert: Site Member`, `update/remove: Site Member Author` gives you the classic pattern: anyone
+  reads, only logged-in members write, and each member edits only their own. Sign the member in with
+  custom login (on your own UI), then `insertDataItem` runs as the member and Wix stamps the item's
+  `_owner` automatically — so a **"my items"** view is just
+  `queryDataItems(collectionId, { filter: { _owner: <memberId> } })`, and author-only
+  `updateDataItem`/`removeDataItem` are enforced server-side. (This skill never provisions the
+  collection — the owner creates it with those permissions in the dashboard.)
+  **Prefer Wix for member-generated content, and keep one feature's data and identity together.**
+  Content that belongs to the Wix site (likes, reviews, submissions) is best kept in a Wix collection
+  via these helpers, keyed on the Wix member's server-stamped `_owner`. What breaks is a *split*
+  feature — the row stored in one place while the member is identified from the Wix session elsewhere
+  (or filtered by some other `created_by`/user id): the two ids won't match, so ownership filters
+  miss. Keep them on one side; for Wix-backed rows that's `_owner`.
 
 Keep the snippets as the default for everything they already do; reach for the API
 reference only for the gap.

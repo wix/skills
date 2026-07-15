@@ -16,7 +16,7 @@ A concise checklist for preparing any new Wix site that uses the Online Stores a
 ---
 
 ## Article: Steps for Setting Up a Wix Online Store
-**YOU MUST** complete the following steps **in the given order** (1-4) and **without requiring additional user input**. One conditional: **the category steps (3-4) run only when the request names categories** — if `intent.stores.categoriesNamed` is empty, **create none** (skill policy, per `SEED.md` § "What to seed per capability") and skip straight from STEP 2 to done. Products (steps 1-2) always run.
+**YOU MUST** complete the following steps **in the given order** (1-4) and **without requiring additional user input**. One conditional: **the category steps (3-4) run only when the request names categories** — if `intent.stores.categoriesNamed` is empty, **create none** (skill policy, per `SEED.md` § "What to seed per capability") and skip the category steps. Products (steps 1-2) always run; the **Attach images** step runs last, only when `imagery` is on.
 
 **⚠️ CRITICAL ORDER REQUIREMENT: Do the product operations FIRST (clean + create, Steps 1-2), then categories (Steps 3-4). Categories API might take some time to be fully available after Stores installation, so always finish products before attempting category operations.**
 
@@ -93,7 +93,7 @@ Storefront product queries (`searchProducts` / `queryProducts`) return **only vi
 
 **⚠️ CRITICAL FORMAT REQUIREMENTS:**
 - **Description MUST be rich-text nodes**, not a plain string — a plain string causes an `"Expected an object"` error. Use the `{ "nodes": [...], "metadata": {...} }` shape shown.
-- **Media — gated by the `imagery` policy (`SEED.md` § "Entity images"), no exception for stores.** **Always create products text-only here** — omit `media`. When `imagery` is **on**, the Entity-images step attaches generated brand images in a second pass; it does **not** happen at create time. When you attach (pass 2), the field that persists is **`media.itemsInfo.items`**, NOT `media.main`. `PATCH /stores/v3/products/{id}` setting `"media": { "itemsInfo": { "items": [ { "url": "<static.wixstatic.com/…>", "altText": "…" } ] } }`; the image may be referenced by a `static.wixstatic.com` **`url`** or by its Wix Media **`id`** (`<hash>~mv2.png`), either works. **⚠️ `media.main` set ALONE silently no-ops** — a `200` comes back but re-query shows no image; that is the trap. The server promotes the first `itemsInfo.items` entry to `media.main` for you, so **verify success by reading `media.main`** (`media.main.image.url` resolves to a `static.wixstatic.com` URL). Conversely `media.itemsInfo` is **write-only** — it comes back `null` on read, so never assert on it. **428 prevention:** first `GET /stores/v3/products/{id}` for its **`revision` + `options` + `variantsInfo`** and echo all three back in the PATCH body — do **not** send a field mask (the validator runs before masking). Send one image per product (primary); a larger gallery is out of scope for the seed.
+- **Media — gated by the `imagery` policy (`SEED.md` § "Entity images"), no exception for stores.** **Always create products text-only here** — omit `media`. When `imagery` is **on**, the **Attach images** step below writes generated brand images in a second pass; it does **not** happen at create time.
 - **Physical products MUST set `"productType": "PHYSICAL"` and an empty `"physicalProperties": {}`** (on the product and on each variant).
 - **Options:** text options use `"optionRenderType": "TEXT_CHOICES"` + `"choiceType": "CHOICE_TEXT"`; color options use `"optionRenderType": "SWATCH_CHOICES"` + `"choiceType": "ONE_COLOR"` + a `colorCode`.
 - **Variants = the full Cartesian product** of all option choices; each variant references **all** options via `optionChoiceNames`, sets `price.actualPrice.amount` (+ optional `compareAtPrice.amount`) as **strings**, and `inventoryItem.quantity`.
@@ -155,6 +155,16 @@ The request body is `items` (each with the product's `catalogItemId` and the Sto
   }
 }
 ```
+
+### Attach images (imagery ON only — skip otherwise)
+
+**Only when `imagery` is on** (`SEED.md` § "Entity images"). Products were created text-only above; this pass-2 step writes a generated brand image onto each. Generate + import per `references/IMAGE_GENERATION.md`, keep `file.url`, then PATCH the product.
+
+- The field that persists is **`media.itemsInfo.items`**, NOT `media.main`. `PATCH /stores/v3/products/{id}` setting `"media": { "itemsInfo": { "items": [ { "url": "<static.wixstatic.com/…>", "altText": "…" } ] } }`; the image may be referenced by a `static.wixstatic.com` **`url`** or by its Wix Media **`id`** (`<hash>~mv2.png`), either works.
+- **⚠️ `media.main` set ALONE silently no-ops** — a `200` comes back but re-query shows no image; that is the trap. The server promotes the first `itemsInfo.items` entry to `media.main` for you, so **verify success by reading `media.main`** (`media.main.image.url` resolves to a `static.wixstatic.com` URL). Conversely `media.itemsInfo` is **write-only** — it comes back `null` on read, so never assert on it.
+- **428 prevention:** first `GET /stores/v3/products/{id}` for its **`revision` + `options` + `variantsInfo`** and echo all three back in the PATCH body — do **not** send a field mask (the validator runs before masking).
+- Send **one image per product** (primary); a larger gallery is out of scope for the seed.
+- **Never block on image failure** — skip and leave the product text-only.
 
 ---
 

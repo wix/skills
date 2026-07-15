@@ -127,6 +127,7 @@ yourself with `wixApiRequest` — but look up the exact endpoint, HTTP method, a
 body in the **official Wix API reference** first; never guess:
 - Official Wix API reference: https://dev.wix.com/docs/api-reference.md
 - eCommerce integration guide (modifiers, custom text, variants): https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/e-commerce-integration.md
+- Member login + a "my orders" account view → the **members** vertical (`references/members/INSTRUCTIONS.md`): custom login on your own UI so buyers can sign in and see their account.
 
 Keep the snippets as the default for everything they already do; reach for the API
 reference only for the gap.

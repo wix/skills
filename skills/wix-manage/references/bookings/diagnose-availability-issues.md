@@ -1,29 +1,32 @@
 ---
-name: "Diagnose Bookings Availability Issues"
-description: "Diagnoses why an appointment-based Wix Bookings service has no bookable time slots or why customers can't book it. First rules out service-level blockers the availability endpoint can't see — the service being hidden from the site or having online booking turned off — then runs the DiagnoseAvailability endpoint for ordered, machine-readable staff/setup reasons, with a manual fallback for booking-policy and capacity causes. Use when a service shows no availability or customers can't book or find it."
+name: "Check Bookings Availability (and Diagnose Issues)"
+description: "Answers whether an appointment-based Wix Bookings service currently has bookable availability — the primary question — and diagnoses the cause only when there's no availability or the owner asks why. To diagnose, first rules out service-level blockers the availability endpoint can't see (service hidden, online booking off), then runs DiagnoseAvailability for ordered, machine-readable staff/setup reasons, with a manual fallback for booking-policy and capacity causes. Use when someone asks whether a service has availability, or why a service shows no times / customers can't book it."
 ---
-# Diagnose Bookings Availability Issues
+# Check Bookings Availability (and Diagnose Issues)
+
+This recipe answers two related questions, in order of how often they're asked:
+
+1. **"Does this service have availability right now?"** — the default. Give a short, plain status answer.
+2. **"Why is there no availability / why can't customers book?"** — diagnose the cause. Only do this when there's **no bookable availability**, or the owner **explicitly asks** why / how to fix it.
+
+Don't diagnose by default. If the owner just wants to know the status and the service is bookable, answer that and stop.
 
 > ## ⚠️ Output rule (read first)
-> You are talking to a **site owner**, not a developer. Use everything below — the endpoint, JSON, reason codes, `suggestedAction` values, field names — **only to run the diagnosis**. Your **reply to the user must be plain language**: the cause in everyday words plus the fix, and an offer to help.
+> You are talking to a **site owner**, not a developer. Use everything below — endpoints, JSON, reason codes, `suggestedAction` values, field names — **only to do the work.** Your **reply must be plain language**.
 >
-> **Never put any of these in your reply:** endpoint paths or curl, JSON, reason-code names (e.g. `RESOURCE_NOT_AVAILABLE_AT_SERVICE_LOCATION`), `suggestedAction` enums, or field names. Translate them. See [Presenting the diagnosis](#presenting-the-diagnosis-to-the-user).
+> **Keep it short and only say what's relevant:**
+> - When the service **is** bookable, confirm it in a sentence. **Don't recite everything that happens to be fine** — the owner didn't ask for an audit. ❌ "It's visible on your site (not hidden). Online booking is ON. It has 1 staff member assigned and 1 location." ✅ "Yes — **[service]** has open times customers can book."
+> - When you diagnose, surface **only the blocking cause and its fix** — not a checklist of everything that passed.
+>
+> **Never put any of these in your reply:** endpoint paths or curl, JSON, reason-code names (e.g. `RESOURCE_NOT_AVAILABLE_AT_SERVICE_LOCATION`), `suggestedAction` enums, or field names. Translate them. See [Presenting to the user](#presenting-to-the-user).
 >
 > ✅ "Your staff don't have working hours at the location this service is offered at, so there's nothing to book. Want me to add hours there?"
 > ❌ "`DiagnoseAvailability` returned `RESOURCE_NOT_AVAILABLE_AT_SERVICE_LOCATION` / `CHECK_WORK_LOCATIONS`."
 
 ## When to use
 
-A site owner reports that an **appointment-based** service has **no bookable time slots**, or that **customers can't book (or can't even find) the service**. This recipe finds the cause.
-
-Diagnosis runs in order — **cheapest, most common blockers first:**
-
-0. **Rule out service-level blockers.** Before touching availability, confirm the service is actually **visible** and **open to online booking**. A service that's hidden from the site, or has online booking turned off, can't be booked no matter how much staff availability exists — and `DiagnoseAvailability` does **not** check either. This is the single most common reason a customer "can't book" a service. See [Step 0](#step-0--rule-out-service-level-blockers-visibility--online-booking).
-1. **Call `DiagnoseAvailability`.** It returns ordered, machine-readable reason codes — each with a suggested owner action — for staff/resource setup and configuration problems. Fix what it reports and re-check.
-2. **Fall back to `ListAvailabilityTimeSlots`** only when the endpoint is inconclusive. The endpoint detects setup/configuration problems; it does **not** evaluate booking policy or remaining capacity, so those are checked here.
-
-> ### ⚠️ Don't skip Step 0
-> If the owner's complaint is "customers can't book / can't see this service" (as opposed to "the calendar is empty"), **Step 0 is very likely the answer.** Jumping straight to `DiagnoseAvailability` / `ListAvailabilityTimeSlots` on a hidden service will surface a real-but-irrelevant availability or policy detail (e.g. "too late to book") and give the owner the **wrong** diagnosis. Always confirm visibility and online booking first.
+- Owner asks whether an **appointment-based** service has availability / bookable times → [Step 1](#step-1--report-the-current-availability-status).
+- Owner reports the service has **no bookable times**, or that **customers can't book (or can't even find) it** → Step 1 will come back empty, so go on to diagnose ([Step 2](#step-2--rule-out-service-level-blockers-visibility--online-booking) onward). For "can't book / can't find," start diagnosis at Step 2 even if Step 1 returned slots — a hidden service still lists slots (see the note in Step 1).
 
 > **Scope:** appointment-based services.
 
@@ -37,13 +40,37 @@ Diagnosis runs in order — **cheapest, most common blockers first:**
 
 - Typically the `serviceId` (optionally with a staff member's `resourceId` to scope to one provider). A `resourceId` on its own is also supported for the staff editor, where no service is in context — see [Which inputs to pass](#which-inputs-to-pass-prefer-a-service).
 
-- **Authorization:** the caller needs the `bookings:availability:v2:time_slot:diagnose_availability` permission. A plain site/owner token can come back **403 (empty body)** if that permission isn't granted to the caller — that's an auth problem, not "no cause found." Ensure the calling context carries the permission before treating a 403 as inconclusive.
+- **Authorization (diagnosis only):** to call `DiagnoseAvailability` the caller needs the `bookings:availability:v2:time_slot:diagnose_availability` permission. A plain site/owner token can come back **403 (empty body)** if that permission isn't granted — that's an auth problem, not "no cause found." Ensure the calling context carries the permission before treating a 403 as inconclusive.
 
 ---
 
-## Step 0 — Rule out service-level blockers (visibility & online booking)
+## Step 1 — Report the current availability status
 
-Two service settings block booking **entirely**, regardless of staff availability, and are invisible to `DiagnoseAvailability` and `ListAvailabilityTimeSlots`. Check them **first** with a single read of the service.
+This is the default answer. Find out whether customers can actually book the service right now, then say so plainly.
+
+- **Endpoint:** `ListAvailabilityTimeSlots` — the same slots a customer sees. See [End-to-End Booking Flow](end-to-end-booking-flow.md) for the request shape. Query the service over a sensible upcoming window (e.g. the next few weeks) in the site's time zone.
+
+Interpret the result:
+
+| What comes back | Availability status | What to do |
+|-----------------|---------------------|------------|
+| One or more **bookable** slots | **Bookable.** | Tell the owner in a sentence and stop — no diagnosis needed unless they ask why/how to change something. |
+| Slots exist but **none are bookable** (`nonBookableReasons` / `bookingPolicyViolations` set) | **Not bookable — policy/capacity.** | This is the cause. Surface it directly ([policy/capacity causes](#booking-policy--capacity-slots-exist-but-arent-bookable)). No need to run `DiagnoseAvailability`. |
+| **No slots at all** | **No availability.** | Diagnose: go to [Step 2](#step-2--rule-out-service-level-blockers-visibility--online-booking). |
+
+> **The hidden-service trap.** A service that's **hidden** from the site, or has **online booking turned off**, can still list slots here — so bookable slots do **not** prove customers can book it. When the complaint is "customers can't book / can't find this service" (as opposed to "the calendar is empty"), **run [Step 2](#step-2--rule-out-service-level-blockers-visibility--online-booking) before trusting the slot count** — it's the single most common cause and neither `ListAvailabilityTimeSlots` nor `DiagnoseAvailability` detects it.
+
+If **no slots come back at all**, also sanity-check the inputs before concluding "no availability": the queried window isn't entirely in the past, and any `locations` filter is actually offered by the service.
+
+---
+
+## Diagnosis
+
+Do the following **only** when Step 1 found no availability, or the owner asks why there are no times / how to fix it / why customers can't book. Run the checks in order — cheapest, most common blockers first.
+
+## Step 2 — Rule out service-level blockers (visibility & online booking)
+
+Two service settings block booking **entirely**, regardless of staff availability, and are invisible to `DiagnoseAvailability`. Check them **first** with a single read of the service.
 
 - **Endpoint:** `GET https://www.wixapis.com/_api/bookings/v2/services/{serviceId}`
 
@@ -54,20 +81,20 @@ Inspect two fields on the returned `service`:
 | `hidden` | `true` | The service is **hidden from the site and app**. Customers can't see or book it. In the dashboard this is the **"Visible on your site and app"** toggle turned **off**. |
 | `onlineBooking.enabled` | `false` | **Online booking is turned off** for this service. It may be visible, but customers can't book it online (staff can still book it manually). |
 
-- If **`hidden: true`** → that's the cause. Stop here; don't run the availability diagnosis. Fix: make the service visible (offer to flip the toggle for them).
+- If **`hidden: true`** → that's the cause. Stop here. Fix: make the service visible (offer to flip the toggle for them).
 - If **`onlineBooking.enabled: false`** → that's the cause (for "can't book online"). Fix: turn online booking on.
-- If both are fine (`hidden: false`, `onlineBooking.enabled: true`) → proceed to Step 1.
+- If both are fine (`hidden: false`, `onlineBooking.enabled: true`) → proceed to Step 3. **Don't announce that they're fine** — just move on.
 
-> **Why this comes first:** a hidden service can still have staff, working hours, and internally-generated time slots — so the availability endpoint and `ListAvailabilityTimeSlots` will happily report on those slots (including policy details like "too late to book"). None of that is the real reason the customer can't book. Confirming visibility first prevents a confidently-wrong answer.
+> **Why this comes first:** a hidden service can still have staff, working hours, and internally-generated time slots — so `ListAvailabilityTimeSlots` and `DiagnoseAvailability` will happily report on those slots (including policy details like "too late to book"). None of that is the real reason the customer can't book. Confirming visibility first prevents a confidently-wrong answer.
 
 ---
 
-## Step 1 — Run the diagnosis
+## Step 3 — Run the diagnosis
 
 `DiagnoseAvailability` is a read-only custom action that explains **why availability is empty** rather than returning slots.
 
 - **Endpoint:** `POST https://www.wixapis.com/_api/service-availability/v2/time-slots/diagnose`
-- **Maturity:** ALPHA, behind the `diagnoseAvailabilityEndpoint` feature toggle (deployed and available in production). If it returns **no reasons** for a service you'd expect to be broken, treat the result as inconclusive and go to Step 2.
+- **Maturity:** ALPHA, behind the `diagnoseAvailabilityEndpoint` feature toggle (deployed and available in production). If it returns **no reasons** for a service you'd expect to be broken, treat the result as inconclusive and go to [Step 4](#step-4--fallback-when-the-endpoint-is-inconclusive).
 - **`hasAvailability`** is set `true` only on the **service paths**, when the availability-window check confirms real availability — and for `serviceId`-only, only when the service needs a single staff resource type. It is **never** asserted `true` for `serviceId`+`resourceId` (one resource can't confirm the whole service) or for resource-only. So `hasAvailability: false` with an empty `reasons` array means **inconclusive** ("no blocking cause found"), not necessarily "no availability."
 
 ### Which inputs to pass (prefer a service)
@@ -134,11 +161,11 @@ curl -X POST 'https://www.wixapis.com/_api/service-availability/v2/time-slots/di
 
 - `reasons` are ordered **most-specific first**. Fix the first, then re-run.
 - `resolvedContext` echoes the inputs actually used (resolved locations, duration, buffer, window, time zone) — use it to confirm you diagnosed what you meant to.
-- Empty `reasons` ⇒ **inconclusive** → go to **Step 2**.
+- Empty `reasons` ⇒ **inconclusive** → go to **Step 4**.
 
 ### Reason codes → owner fix (agent-internal — never shown to the user)
 
-> This table is for **your** interpretation only. Map the returned code to the plain-language cause and fix, then write the reply in everyday words — the code names and `suggestedAction` values must not appear in your response. See [Presenting the diagnosis](#presenting-the-diagnosis-to-the-user).
+> This table is for **your** interpretation only. Map the returned code to the plain-language cause and fix, then write the reply in everyday words — the code names and `suggestedAction` values must not appear in your response. See [Presenting to the user](#presenting-to-the-user).
 
 | `code` | `suggestedAction` | Meaning & fix |
 |--------|-------------------|---------------|
@@ -176,10 +203,11 @@ curl -X POST 'https://www.wixapis.com/_api/service-availability/v2/time-slots/di
 
 ---
 
-## Step 2 — Fallback when the endpoint is inconclusive
+## Step 4 — Fallback when the endpoint is inconclusive
 
-Empty `reasons` + still no bookable slots usually means the cause is one the endpoint **doesn't evaluate**: booking policy or remaining capacity. Call `ListAvailabilityTimeSlots` for the same service and window, and inspect the returned slots:
+Empty `reasons` + still no bookable slots usually means the cause is one `DiagnoseAvailability` **doesn't evaluate**: booking policy or remaining capacity. You may already have this from the `ListAvailabilityTimeSlots` call in Step 1 — if not, call it again for the same service and window and inspect the returned slots.
 
+<a id="booking-policy--capacity-slots-exist-but-arent-bookable"></a>
 - **`nonBookableReasons`** — `noRemainingCapacity`, `violatesBookingPolicy`, `reservedForWaitingList`, `eventCancelled`.
 - **`bookingPolicyViolations`** — `tooEarlyToBook`, `tooLateToBook`, `bookOnlineDisabled`.
 
@@ -189,20 +217,23 @@ See [End-to-End Booking Flow](end-to-end-booking-flow.md) for the `ListAvailabil
 
 ---
 
-## Presenting the diagnosis to the user
+## Presenting to the user
 
-The diagnosis is part of a conversation with a site owner. Reply in plain, friendly language:
+Whether you're reporting status or a cause, reply in plain, friendly language and keep it short.
 
-- **Don't expose the internals** — no reason codes, `suggestedAction` enums, raw JSON, endpoint names, or field paths.
-- **Lead with the cause in plain English**, then give the concrete fix as the next step. One or two short sentences is usually enough.
+- **Answer the actual question.** If they asked "is it available," the reply is a status line — not a diagnosis. Only explain causes when there's no availability or they asked why.
+- **Only say what's relevant.** When the service is bookable, confirm it in a sentence; **don't list every setting that's fine** ("visible, online booking on, 1 staff, 1 location" — the owner didn't ask). When diagnosing, give **only the blocking cause and its fix**, not a rundown of everything that passed.
+- **Don't expose internals** — no reason codes, `suggestedAction` enums, raw JSON, endpoint names, or field paths.
+- **Lead with the point in plain English**, then the concrete next step. One or two short sentences is usually enough.
 - **Use the owner's own terms** — "your service", "your staff", "the dates you're looking at", real location names from `resolvedLocations`.
 - **Offer to help with the fix** rather than only stating it.
-- If the result is inconclusive (empty `reasons`), say only that you **couldn't find a blocking problem**, and describe what you'll check next (policy/capacity, or re-run against a service for a resource-only check). **Do not state or imply that anything is set up correctly** — an empty `reasons` array means "no blocker detected," *not* "working hours / locations / setup are present." In particular, on the resource-only path never say the staff "have working hours set"; the check doesn't verify that. Don't imply the service is fine.
+- If diagnosis is **inconclusive** (empty `reasons`), say only that you **couldn't find a blocking problem**, and describe what you'll check next (policy/capacity, or re-run against a service for a resource-only check). **Do not state or imply that anything is set up correctly** — an empty `reasons` array means "no blocker detected," *not* "working hours / locations / setup are present." On the resource-only path never say the staff "have working hours set"; the check doesn't verify that.
 
-**Plain-language phrasing per cause:**
+**Plain-language phrasing per outcome:**
 
-| Cause | Say something like |
-|-------|--------------------|
+| Outcome | Say something like |
+|---------|--------------------|
+| Service **is** bookable (status) | "Yes — **[service]** has open times customers can book (the next one is [day/time])." |
 | Service is hidden from the site (`hidden: true`) | "This service is currently hidden from your site and app, so customers can't see or book it. Want me to make it visible?" |
 | Online booking turned off (`onlineBooking.enabled: false`) | "Online booking is turned off for this service, so customers can't book it themselves online (you can still book it for them manually). Want me to turn online booking on?" |
 | No staff/resources on the service | "This service doesn't have any staff assigned yet, so there's nothing to book. Want me to help you add someone?" |
@@ -214,7 +245,7 @@ The diagnosis is part of a conversation with a site owner. Reply in plain, frien
 | Within hours but blocked/busy (deep) | "Your staff are scheduled to work then, but that time is already taken up — by existing bookings or events on their calendar. Freeing some of it up will open slots." |
 | Service too long / buffer too large | "The service is longer than any open gap in your staff's schedule (the duration plus buffer doesn't fit). Shortening it a bit, or widening working hours, would open up slots." |
 | Requested location not offered | "This service isn't offered at the location you picked. Want me to add that location to the service, or check a different one?" |
-| Slots exist but aren't bookable (Step 2) | "There are times available, but customers can't book them right now — [e.g. they're fully booked / it's too early or late to book per your policy]. Here's how to adjust that." |
+| Slots exist but aren't bookable | "There are times available, but customers can't book them right now — [e.g. they're fully booked / it's too early or late to book per your policy]. Here's how to adjust that." |
 
 **Example conversational reply** (for a location-mismatch result):
 
@@ -230,8 +261,9 @@ Popular reasons a service shows no availability, and where each surfaces:
 
 | Situation | Where it surfaces | Fix |
 |-----------|-------------------|-----|
-| Service hidden from the site/app | Step 0 — `service.hidden: true` | Make the service visible ("Visible on your site and app" toggle). |
-| Online booking turned off | Step 0 — `service.onlineBooking.enabled: false` | Turn online booking on for the service. |
+| Service **is** bookable | Step 1 — `ListAvailabilityTimeSlots` returns bookable slots | Nothing — report the status. |
+| Service hidden from the site/app | Step 2 — `service.hidden: true` | Make the service visible ("Visible on your site and app" toggle). |
+| Online booking turned off | Step 2 — `service.onlineBooking.enabled: false` | Turn online booking on for the service. |
 | No staff/resources on the service | `NO_ASSIGNED_STAFF_OR_RESOURCES` | Assign staff/resources. |
 | Provider isn't on the service | `RESOURCE_NOT_ASSIGNED_TO_SERVICE` | Assign the provider. |
 | Provider has no working hours | `RESOURCE_HAS_NO_WORKING_HOURS` | Configure working hours. |
@@ -241,18 +273,20 @@ Popular reasons a service shows no availability, and where each surfaces:
 | No windows — within hours but blocked/busy (deep) | `RESOURCE_BLOCKED` (`deep: true`) | Free up blocked time / check the external calendar. |
 | Service too long / buffer too large for the windows | `DURATION_TOO_LONG_FOR_AVAILABLE_WINDOWS`, `BUFFER_TIME_ELIMINATES_WINDOWS` | Shorten duration/buffer or lengthen hours. |
 | Requested location not offered | `REQUESTED_LOCATION_NOT_OFFERED_BY_SERVICE` | Fix the location filter or the service's locations. |
-| Slots exist but aren't bookable (fully booked, too early/late, online booking off) | Step 2 — `ListAvailabilityTimeSlots` `nonBookableReasons` / `bookingPolicyViolations` | Adjust capacity or booking policy. |
+| Slots exist but aren't bookable (fully booked, too early/late, online booking off) | Step 1 / Step 4 — `ListAvailabilityTimeSlots` `nonBookableReasons` / `bookingPolicyViolations` | Adjust capacity or booking policy. |
 
 ---
 
 ## Gotchas
 
-- **A hidden service is the classic wrong-diagnosis trap.** `hidden: true` (or `onlineBooking.enabled: false`) blocks booking entirely, but a hidden service can still have staff and internally-generated slots — so `DiagnoseAvailability` and `ListAvailabilityTimeSlots` will report on those slots and their policy details (e.g. "too late to book"), none of which is the real reason. **Always run Step 0 first**, especially when the complaint is "customers can't book / can't see this service."
+- **Don't diagnose when you weren't asked to.** The default question is "does this have availability" — answer the status and stop. Only dig into causes when there's no availability or the owner asks why / how to fix.
+- **Keep the reply to what's relevant.** When a service is bookable, don't recite every setting that's fine; when diagnosing, give only the blocking cause, not a pass/fail checklist.
+- **A hidden service is the classic wrong-diagnosis trap.** `hidden: true` (or `onlineBooking.enabled: false`) blocks booking entirely, but a hidden service can still list slots — so `ListAvailabilityTimeSlots` and `DiagnoseAvailability` will report on those slots and their policy details (e.g. "too late to book"), none of which is the real reason. When the complaint is "customers can't book / can't see this service," **run Step 2 first.**
 - **`hasAvailability: false` + empty `reasons` ≠ a confirmed problem.** It means "no blocking cause detected." Always confirm with `ListAvailabilityTimeSlots`.
-- **The endpoint is ALPHA and feature-toggled.** If it returns nothing for an obviously broken service, the `diagnoseAvailabilityEndpoint` toggle may be off — fall back to Step 2.
+- **`DiagnoseAvailability` is ALPHA and feature-toggled.** If it returns nothing for an obviously broken service, the `diagnoseAvailabilityEndpoint` toggle may be off — fall back to Step 4.
 - **A 403 is an auth problem, not a diagnosis.** The action needs the `bookings:availability:v2:time_slot:diagnose_availability` permission; a caller without it gets a 403 with an empty body. Don't read that as "no cause found" — confirm the caller has the permission (see [Prerequisites](#prerequisites)).
 - **`deep: true` needs a `serviceId`** (resource-only + `deep` → `MISSING_ARGUMENTS`) and only refines a "no windows" result — it does nothing when windows already exist.
-- **The endpoint ignores booking policy and capacity** — those are Step 2.
+- **`DiagnoseAvailability` ignores booking policy and capacity** — those come from `ListAvailabilityTimeSlots` (Step 1 / Step 4).
 - **Resource-only diagnosis is lighter.** Passing `resourceId` without `serviceId` catches missing/empty working hours but skips the window, location, and deep checks, so it can return "inconclusive" for service-dependent problems. Valid when there's no service context (e.g. the staff editor); otherwise pair the resource with a service.
 - **Appointment-based services only.**
 
