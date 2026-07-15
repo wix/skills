@@ -10,7 +10,7 @@ Walk every marketing-plan request through this conversation, in this order. Skip
 
 1. **Open with the current state.** Fetch the plan (STEP 3 endpoint) and the marketing settings (`GET .../marketing-settings`). Tell the user what the plan is shaped by and what they can change: goal, marketing tools, content pillars (topics), tone of voice, point of view, business profile, and per-tool cadence. Say which inputs are site-derived and **read-only**: language, business/target locations, industry — those change in the site's Language & Region / SEO business-location settings, never through marketing settings (details in STEP 1).
 2. **Decide the settings with the user.** For each setting they want to change, use their words. If they want help choosing, fetch the selectable values (`GET .../marketing-settings/plan-goal-options`, `GET .../marketing-settings/defaults`) and propose suggestions for them to confirm. Write only values the user gave or confirmed; leave everything else to the site defaults. Never fabricate a goal, tone, or topic list on their behalf, and never put `language`, `targetLocations`, or `businessLocation` in the request or claim the call changed them.
-3. **Save, then offer to generate.** Upsert the confirmed settings (STEP 1, `fieldMask` matching exactly what you send), then offer to generate the plan — or, if a plan already exists, to regenerate it so the new settings take effect (settings are read only at generation time; use the keyword-research variant when `topics` changed). Poll until `ACTIVE` (STEPs 2-3).
+3. **Save, then offer to generate.** Upsert the confirmed settings (STEP 1, `fieldMask` as a comma-separated string matching exactly what you send), then offer to generate the plan — or, if a plan already exists, to regenerate it so the new settings take effect (settings are read only at generation time; use the keyword-research variant when `topics` changed). Poll until `ACTIVE` (STEPs 2-3).
 4. **Present the plan from the API data only.** Show the returned activities and their post drafts. Never invent activities, dates, or captions and present them as "the plan" — if it isn't in the response, it isn't in the plan (also applies to STEP 5's post generation).
 5. **Show before scheduling.** Scheduling publishes AI-generated drafts. Before Schedule Drafts (STEP 4), show each draft's caption and media (render the image inline, or give its URL) and get explicit approval. Schedule exactly what was approved — never regenerate after approval.
 6. **Diff the schedule response.** Only drafts for Publisher-connected channels are scheduled; the rest silently stay `DRAFT`. Compare the returned `SCHEDULED` ids against the ids you sent, and tell the user which drafts didn't schedule and which channel needs connecting (STEP 4).
@@ -36,7 +36,7 @@ For a first-time plan, configure marketing settings **before** generating (STEP 
 
 **API Endpoint:** `POST https://www.wixapis.com/promote/marketing-plan-service/v1/marketing-settings`
 
-Both `marketingSettings` and `fieldMask` are **required**. `fieldMask` lists the paths to write, and **every path in `fieldMask` must be present** in `marketingSettings` (otherwise the call fails with `INVALID_FIELD_MASK_ERROR`).
+Both `marketingSettings` and `fieldMask` are **required**. `fieldMask` is a **single comma-separated string** of the paths to write (proto3 field-mask form) — **not a JSON array**. Sending it as an array (`["settings.marketingPlanGoal", …]`) fails with `400` `"Failed to parse request message"`. Every path in `fieldMask` must also be present in `marketingSettings`, or the call fails with `INVALID_FIELD_MASK_ERROR`.
 
 **Language and location cannot be set here.** If the request targets a language or a place ("posts in Spanish", "customers near Berlin"), those are site-derived, read-only fields on marketing settings — never put `language`, `targetLocations`, or `businessLocation` in the request, and never tell the user this call changed them. Set the fields that do belong here (goal, tone, audience description), and direct the user to the site-level settings for the rest — see **What you can't set here** below.
 
@@ -55,15 +55,7 @@ Both `marketingSettings` and `fieldMask` are **required**. `fieldMask` lists the
       "socialMarketing": { "frequency": { "interval": "WEEK", "count": 3 } }
     }
   },
-  "fieldMask": [
-    "settings.marketingPlanGoal",
-    "settings.marketingTools",
-    "settings.topics",
-    "settings.toneOfVoice",
-    "settings.pointOfView",
-    "settings.businessProfile",
-    "overrides.socialMarketing.frequency"
-  ]
+  "fieldMask": "settings.marketingPlanGoal,settings.marketingTools,settings.topics,settings.toneOfVoice,settings.pointOfView,settings.businessProfile,overrides.socialMarketing.frequency"
 }
 ```
 
@@ -205,6 +197,7 @@ For activities that have no `items` yet, generate their posts, then schedule the
 | Symptom | Cause | Fix |
 | --- | --- | --- |
 | Plan `status: FAILED`, or `ACTIVE` with no posts | Site not published, or `SOCIAL_MARKETING` not enabled in settings | Publish the site; ensure `settings.marketingTools` includes `SOCIAL_MARKETING`, then regenerate (STEP 2) |
+| `400` `"Failed to parse request message"` on Upsert Marketing Settings | `fieldMask` sent as a JSON array (or `{ "paths": [...] }`) instead of a comma-separated string | Send `fieldMask` as a single comma-separated string, e.g. `"settings.marketingPlanGoal,settings.toneOfVoice"` |
 | `INVALID_FIELD_MASK_ERROR` on Upsert Marketing Settings | A `fieldMask` path is missing from `marketingSettings` | Include every `fieldMask` path in the `marketingSettings` body |
 | Language, region, or location "won't change" via Upsert Marketing Settings | Those fields are read-only here (site-derived) | Change them in the site's Language & Region / SEO business-location settings, then regenerate |
 | `FAILED_PRECONDITION` on Schedule Drafts | Plan lacks the schedule-posts premium feature | Advise upgrading the social media marketing plan |
