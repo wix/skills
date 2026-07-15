@@ -128,13 +128,14 @@ describe('EvalForgeClient (V1) — auth + test-scenarios', () => {
     expect(r.id).toBe('new-id');
   });
 
-  it('updateTestScenario PATCHes /:id with {testScenario:{id,...}} and an explicit fieldMask', async () => {
+  it('updateTestScenario PATCHes /:id with {testScenario:{id,...}} and no explicit fieldMask', async () => {
     mockFetch(({ url, method, body }) => {
       expect(method).toBe('PATCH');
       expect(url).toContain('/v1/projects/P/test-scenarios/X');
       expect((body as { testScenario?: { id?: string } }).testScenario?.id).toBe('X');
-      // Explicit mask so a removed siteSetup is cleared rather than left stale.
-      expect((body as { fieldMask?: string }).fieldMask).toBe('name,description,triggerPrompt,assertionLinks,tags,siteSetup');
+      // site_setup is not a maskable path; the gateway derives the mask from the
+      // present fields, so we must NOT send an explicit fieldMask.
+      expect((body as { fieldMask?: string }).fieldMask).toBeUndefined();
       return { status: 204 };
     });
     const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);

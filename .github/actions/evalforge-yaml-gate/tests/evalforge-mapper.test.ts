@@ -185,8 +185,8 @@ describe('toEvalForgeBody', () => {
     });
   });
 
-  it('omits siteSetup when the scenario has none', () => {
-    expect(toEvalForgeBody(scenario)).not.toHaveProperty('siteSetup');
+  it('emits siteSetup NONE when the scenario has none (explicit clear on update)', () => {
+    expect(toEvalForgeBody(scenario).siteSetup).toEqual({ mode: 'NONE' });
   });
 
   it('maps a template siteSetup to the V1 oneof shape (mode + templateOptions, no bootstrap)', () => {

@@ -32,38 +32,44 @@ export type EvalForgeBootstrapStep = {
 
 // V1 SiteSetupConfig is a discriminator enum (`mode`) + an aligned oneof. For
 // `TEMPLATE`, the template id goes under the `templateOptions` branch — not flat.
-export type EvalForgeSiteSetup = {
-  mode: 'TEMPLATE';
-  templateOptions: { templateId: string };
-  bootstrap?: { steps: EvalForgeBootstrapStep[] };
-};
+// `NONE` (mode only, no options) means "provision no site" and is the explicit
+// clearing representation on update — the backend always applies site_setup when
+// it is present in the body, so a scenario that drops its setup must send NONE.
+export type EvalForgeSiteSetup =
+  | { mode: 'TEMPLATE'; templateOptions: { templateId: string }; bootstrap?: { steps: EvalForgeBootstrapStep[] } }
+  | { mode: 'NONE' };
 
 export type EvalForgeBody = {
   name: string;
   description: string;
   triggerPrompt: string;
   assertionLinks: ScenarioAssertionLink[];
+  // `toEvalForgeBody` always populates this: TEMPLATE when the scenario provisions
+  // a site, NONE otherwise. Sending NONE explicitly clears any previously-set site
+  // setup on update. Optional only so hand-built test fixtures stay ergonomic.
   siteSetup?: EvalForgeSiteSetup;
 };
 
 export function toEvalForgeBody(s: Scenario): EvalForgeBody {
-  const body: EvalForgeBody = {
+  return {
     name: s.name,
     description: s.description,
     triggerPrompt: s.triggerPrompt,
     assertionLinks: s.assertions.map(mapAssertion),
+    siteSetup: s.siteSetup ? mapSiteSetup(s.siteSetup) : { mode: 'NONE' },
   };
-  if (s.siteSetup) body.siteSetup = mapSiteSetup(s.siteSetup);
-  return body;
 }
 
 function mapSiteSetup(s: SiteSetup): EvalForgeSiteSetup {
-  const out: EvalForgeSiteSetup = { mode: 'TEMPLATE', templateOptions: { templateId: s.templateId } };
   // Omit bootstrap when it has no steps.
-  if (s.bootstrap && s.bootstrap.steps.length > 0) {
-    out.bootstrap = { steps: s.bootstrap.steps.map(mapBootstrapStep) };
-  }
-  return out;
+  const bootstrap = s.bootstrap && s.bootstrap.steps.length > 0
+    ? { steps: s.bootstrap.steps.map(mapBootstrapStep) }
+    : undefined;
+  return {
+    mode: 'TEMPLATE',
+    templateOptions: { templateId: s.templateId },
+    ...(bootstrap ? { bootstrap } : {}),
+  };
 }
 
 function mapBootstrapStep(step: SiteBootstrapStep): EvalForgeBootstrapStep {

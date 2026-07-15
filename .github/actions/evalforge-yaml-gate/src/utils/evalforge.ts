@@ -9,12 +9,6 @@ const MCP_CONFIG_KEY = 'wix-mcp-remote';
 // doesn't fire an unbounded burst at the V1 gateway (which may rate-limit).
 const MAX_QUERY_CONCURRENCY = 8;
 
-// Fields updateTestScenario owns, as proto3-JSON (camelCase) field-mask paths.
-// Sent explicitly so a PATCH clears fields the author removed (e.g. siteSetup)
-// rather than leaving stale values — the gateway-inferred mask only covers fields
-// present in the request body.
-const TEST_SCENARIO_FIELD_MASK = 'name,description,triggerPrompt,assertionLinks,tags,siteSetup';
-
 // OAuth token endpoint — a fixed public Wix endpoint, independent of the EvalForge
 // API base (the internal `/_api/evalforge-backend` gateway). The token is minted
 // here, then used as a Bearer credential against the V1 API at `baseUrl`.
@@ -316,12 +310,14 @@ export class EvalForgeClient {
   }
 
   async updateTestScenario(projectId: string, id: string, body: ScenarioBody, tags: string[]): Promise<void> {
-    // Explicit field mask so the PATCH clears fields the author removed (e.g. siteSetup)
-    // instead of leaving stale values — see TEST_SCENARIO_FIELD_MASK.
+    // No explicit field mask: the gateway derives it from the fields present in
+    // `testScenario`. The gate always sends its full managed field set, and the
+    // body always carries an explicit siteSetup (TEMPLATE or NONE) — site_setup is
+    // always applied when present, so a dropped site setup is cleared via NONE.
     await this.request<void>(
       'PATCH',
       `/projects/${enc(projectId)}/test-scenarios/${enc(id)}`,
-      { testScenario: { id, ...body, tags }, fieldMask: TEST_SCENARIO_FIELD_MASK },
+      { testScenario: { id, ...body, tags } },
     );
   }
 

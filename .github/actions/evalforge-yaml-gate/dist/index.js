@@ -35006,23 +35006,24 @@ const SYSTEM_API_CALL = 'system:api_call';
 const SYSTEM_COST = 'system:cost';
 const SYSTEM_TIME_LIMIT = 'system:time_limit';
 function toEvalForgeBody(s) {
-    const body = {
+    return {
         name: s.name,
         description: s.description,
         triggerPrompt: s.triggerPrompt,
         assertionLinks: s.assertions.map(mapAssertion),
+        siteSetup: s.siteSetup ? mapSiteSetup(s.siteSetup) : { mode: 'NONE' },
     };
-    if (s.siteSetup)
-        body.siteSetup = mapSiteSetup(s.siteSetup);
-    return body;
 }
 function mapSiteSetup(s) {
-    const out = { mode: 'TEMPLATE', templateOptions: { templateId: s.templateId } };
     // Omit bootstrap when it has no steps.
-    if (s.bootstrap && s.bootstrap.steps.length > 0) {
-        out.bootstrap = { steps: s.bootstrap.steps.map(mapBootstrapStep) };
-    }
-    return out;
+    const bootstrap = s.bootstrap && s.bootstrap.steps.length > 0
+        ? { steps: s.bootstrap.steps.map(mapBootstrapStep) }
+        : undefined;
+    return {
+        mode: 'TEMPLATE',
+        templateOptions: { templateId: s.templateId },
+        ...(bootstrap ? { bootstrap } : {}),
+    };
 }
 function mapBootstrapStep(step) {
     // Schema methods are lowercase; V1's SiteBootstrapHttpMethod enum is uppercase.
@@ -35129,11 +35130,6 @@ const MCP_CONFIG_KEY = 'wix-mcp-remote';
 // Cap on concurrent per-name scenario queries, so a PR touching many scenarios
 // doesn't fire an unbounded burst at the V1 gateway (which may rate-limit).
 const MAX_QUERY_CONCURRENCY = 8;
-// Fields updateTestScenario owns, as proto3-JSON (camelCase) field-mask paths.
-// Sent explicitly so a PATCH clears fields the author removed (e.g. siteSetup)
-// rather than leaving stale values — the gateway-inferred mask only covers fields
-// present in the request body.
-const TEST_SCENARIO_FIELD_MASK = 'name,description,triggerPrompt,assertionLinks,tags,siteSetup';
 // OAuth token endpoint — a fixed public Wix endpoint, independent of the EvalForge
 // API base (the internal `/_api/evalforge-backend` gateway). The token is minted
 // here, then used as a Bearer credential against the V1 API at `baseUrl`.
@@ -35333,9 +35329,11 @@ class EvalForgeClient {
         return { id: res.testScenario.id };
     }
     async updateTestScenario(projectId, id, body, tags) {
-        // Explicit field mask so the PATCH clears fields the author removed (e.g. siteSetup)
-        // instead of leaving stale values — see TEST_SCENARIO_FIELD_MASK.
-        await this.request('PATCH', `/projects/${enc(projectId)}/test-scenarios/${enc(id)}`, { testScenario: { id, ...body, tags }, fieldMask: TEST_SCENARIO_FIELD_MASK });
+        // No explicit field mask: the gateway derives it from the fields present in
+        // `testScenario`. The gate always sends its full managed field set, and the
+        // body always carries an explicit siteSetup (TEMPLATE or NONE) — site_setup is
+        // always applied when present, so a dropped site setup is cleared via NONE.
+        await this.request('PATCH', `/projects/${enc(projectId)}/test-scenarios/${enc(id)}`, { testScenario: { id, ...body, tags } });
     }
     async deleteTestScenario(projectId, id) {
         await this.request('DELETE', `/projects/${enc(projectId)}/test-scenarios/${enc(id)}`);
