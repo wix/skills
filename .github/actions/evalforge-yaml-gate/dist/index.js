@@ -35486,6 +35486,8 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.remoteScenarioFiltersForGate = remoteScenarioFiltersForGate;
+exports.coveringScenarioNames = coveringScenarioNames;
+exports.selectScenariosToSync = selectScenariosToSync;
 exports.runGate = runGate;
 const core = __importStar(__nccwpck_require__(7484));
 const github = __importStar(__nccwpck_require__(3228));
@@ -35516,6 +35518,36 @@ function remoteScenarioFiltersForGate(input) {
             names.add(name);
     }
     return { names: [...names].sort(), tags: [input.draftTag] };
+}
+/**
+ * Flattens the coverage map (changed doc -> covering scenario names) into the
+ * unique set of scenario names that exercise a changed skill doc.
+ */
+function coveringScenarioNames(coveredBy) {
+    const names = new Set();
+    for (const list of coveredBy.values()) {
+        for (const name of list)
+            names.add(name);
+    }
+    return names;
+}
+/**
+ * Scenarios this PR must draft (and therefore run in the comparison):
+ *   1. scenarios whose own YAML changed in THIS PR, AND
+ *   2. scenarios that COVER a changed skill doc — even when their YAML is untouched.
+ *
+ * (2) closes the gap where a pure skill-doc edit (which can change agent behavior)
+ * would otherwise sync nothing, skip the eval comparison, and pass the gate green
+ * without ever being validated against the scenarios that exercise it.
+ */
+function selectScenariosToSync(input) {
+    const { head, changedEvalPaths, docCoveringNames } = input;
+    const out = new Map();
+    for (const [name, ls] of head) {
+        if (changedEvalPaths.has(ls.path) || docCoveringNames.has(name))
+            out.set(name, ls);
+    }
+    return out;
 }
 async function runGate() {
     const config = (0, config_1.getEvalConfig)();
@@ -35571,16 +35603,24 @@ async function runGate() {
     const { scenarios: baseScenarios, errors: baseErrors } = (0, evals_1.loadEvals)(baseWorkspace);
     for (const e of baseErrors)
         core.warning(`Base SHA eval issue (${e.path}): ${e.message}`);
-    // Restrict head to scenarios authored or modified in THIS PR — avoids spurious PUTs on every push.
+    // Draft (and therefore run) scenarios modified in THIS PR PLUS scenarios that
+    // cover a changed skill doc. Restricting to changed evals alone would let a pure
+    // doc edit skip the comparison; folding in doc-covering scenarios validates the
+    // doc change against the scenarios that exercise it. Untouched, uncovered
+    // scenarios are still excluded — avoids spurious PUTs on every push.
     const changedEvalPaths = new Set([
         ...classifiedChanges.evalsAdded.map(f => f.filename),
         ...classifiedChanges.evalsModified.map(f => f.filename),
     ]);
-    const changedHeadScenarios = new Map();
-    for (const [name, ls] of headScenarios) {
-        if (changedEvalPaths.has(ls.path))
-            changedHeadScenarios.set(name, ls);
+    const docCoveringNames = coveringScenarioNames(cov.coveredBy);
+    if (docCoveringNames.size > 0) {
+        core.info(`Drafting ${docCoveringNames.size} scenario(s) covering changed skill docs: ${[...docCoveringNames].sort().join(', ')}`);
     }
+    const changedHeadScenarios = selectScenariosToSync({
+        head: headScenarios,
+        changedEvalPaths,
+        docCoveringNames,
+    });
     const filters = remoteScenarioFiltersForGate({ changedHead: changedHeadScenarios, head: headScenarios, base: baseScenarios, draftTag });
     const remote = await guardedCall(() => listRemoteScenariosForGate(evalforge, config.projectId, filters), 'Could not reach EvalForge', comment, config);
     if (!remote)
