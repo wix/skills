@@ -34389,8 +34389,8 @@ function formatComparisonResult(result, projectId) {
         '',
         `**Verdict:** \`${verdict}\` | **Tag:** \`${tag}\``,
         '',
-        '| Scenario | Required | Winner | Cost (PR / prod) | Tokens (PR / prod) | Time (PR / prod) |',
-        '|---|---|---|---|---|---|',
+        '| Scenario | Required | Winner | Cost (PR / prod) | Tokens (PR / prod) | Time (PR / prod) | Runs (PR / prod) |',
+        '|---|---|---|---|---|---|---|',
     ];
     for (const s of (scenarios ?? [])) {
         const winner = s.pairwiseJudgement.winner;
@@ -34401,7 +34401,9 @@ function formatComparisonResult(result, projectId) {
         const tokWithout = `${(s.without.totalTokens / 1000).toFixed(1)}K`;
         const timeWith = `${(s.with.durationMs / 1000).toFixed(1)}s`;
         const timeWithout = `${(s.without.durationMs / 1000).toFixed(1)}s`;
-        lines.push(`| ${s.scenarioName} | ${s.required ? '✅' : '—'} | ${winnerLabel} (${s.pairwiseJudgement.confidence}) | $${costWith} / $${costWithout} | ${tokWith} / ${tokWithout} | ${timeWith} / ${timeWithout} |`);
+        const runWith = projectId && s.with.runId ? `[PR](${(0, evalforge_1.evalRunUrl)(projectId, s.with.runId, s.with.name)})` : '—';
+        const runWithout = projectId && s.without.runId ? `[prod](${(0, evalforge_1.evalRunUrl)(projectId, s.without.runId, s.without.name)})` : '—';
+        lines.push(`| ${s.scenarioName} | ${s.required ? '✅' : '—'} | ${winnerLabel} (${s.pairwiseJudgement.confidence}) | $${costWith} / $${costWithout} | ${tokWith} / ${tokWithout} | ${timeWith} / ${timeWithout} | ${runWith} / ${runWithout} |`);
     }
     for (const s of (scenarios ?? [])) {
         lines.push('', `<details><summary>${s.scenarioName}</summary>`, '', s.reason, '');
@@ -35412,9 +35414,9 @@ async function runGate() {
         const done = await (0, eval_pipeline_1.pollUntilComparisonDone)(pipeline, comparison.comparisonGroupId);
         for (const s of (done.result.scenarios ?? [])) {
             if (s.with.runId)
-                core.info(`${s.scenarioName} [with draft tag]: ${(0, evalforge_1.evalRunUrl)(config.projectId, s.with.runId, s.with.name)}`);
+                core.info(`${s.scenarioName} [PR]: ${(0, evalforge_1.evalRunUrl)(config.projectId, s.with.runId, s.with.name)}`);
             if (s.without.runId)
-                core.info(`${s.scenarioName} [without draft tag]: ${(0, evalforge_1.evalRunUrl)(config.projectId, s.without.runId, s.without.name)}`);
+                core.info(`${s.scenarioName} [prod]: ${(0, evalforge_1.evalRunUrl)(config.projectId, s.without.runId, s.without.name)}`);
         }
         await comment((0, comment_1.formatComparisonResult)(done, config.projectId));
         const tokenBudgetViolations = (0, token_budget_1.findTokenBudgetViolations)(done.result.scenarios ?? [], headScenarios);

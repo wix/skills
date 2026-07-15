@@ -20,15 +20,68 @@ After scaffolding, edit `<name>.tsx` for the widget logic, `<name>.panel.tsx` fo
 
 Wix calls `customElements.define()` for you using the builder's `tagName`; do NOT call it in your code.
 
+Two valid patterns exist: the **native class** component (CLI default) and the **React function component** via `react-to-webcomponent`.
+
+### Native class component (CLI default)
+
+```typescript
+import styles from './<name>.module.css';
+
+class MyWidget extends HTMLElement {
+  static get observedAttributes() { return ['display-name']; }
+
+  constructor() { super(); }
+
+  connectedCallback() { this.render(); }
+  disconnectedCallback() { /* tear down timers, listeners */ }
+  attributeChangedCallback() { this.render(); }
+
+  render() {
+    const displayName = this.getAttribute('display-name') || "Your Widget's Title";
+    this.innerHTML = `<div class="${styles.root}"><h2>${displayName}</h2></div>`;
+  }
+}
+
+export default MyWidget;
+```
+
 Key authoring rules:
 
-- Extend `HTMLElement` and export the class as the default export.
-- Declare every reactive attribute in a static `observedAttributes` getter that returns an array of **kebab-case** strings (HTML attributes don't preserve camelCase).
-- Initialize and start side effects (timers, listeners, fetches) in `connectedCallback`. Tear them down in `disconnectedCallback` to avoid leaks when the widget is unmounted in the Editor.
-- Re-render in `attributeChangedCallback` when a watched attribute changes.
-- Read attribute values with `this.getAttribute('attr-name')` and provide sensible defaults — attributes may be missing on first paint.
-- Render output via `this.innerHTML = \`...\`` (template strings) or imperative DOM, not JSX.
-- Pull design tokens from the generated `<name>.module.css` (e.g., apply the `.root` class) rather than hard-coding colors inline; the settings panel is the place for user-controlled colors.
+- Extend `HTMLElement`; export the class as the default export.
+- `observedAttributes` must return **kebab-case** strings — HTML attributes don't preserve camelCase.
+- Start side effects in `connectedCallback`, tear them down in `disconnectedCallback`.
+- Call `this.render()` from `attributeChangedCallback`; always provide defaults via `getAttribute` — attributes may be `null` on first paint.
+- Render via `this.innerHTML` (template strings) or imperative DOM, not JSX.
+- Apply the `.root` class from `<name>.module.css` rather than hard-coding colors inline.
+
+### React function component alternative (react-to-webcomponent)
+
+Use this pattern when you prefer JSX, React hooks, or want to share React components between the widget and the settings panel. Install `react-to-webcomponent` if not already present: `npm install react-to-webcomponent`.
+
+```typescript
+import React, { type FC } from 'react';
+import ReactDOM from 'react-dom';
+import reactToWebComponent from 'react-to-webcomponent';
+import styles from './<name>.module.css';
+
+const MyWidget: FC<{ displayName?: string }> = ({
+  displayName = "Your Widget's Title",
+}) => (
+  <div className={styles.root}>
+    <h2>{displayName}</h2>
+  </div>
+);
+
+export default reactToWebComponent(MyWidget, React, ReactDOM as any, {
+  props: { displayName: 'string' },
+});
+```
+
+Key authoring rules for the function component pattern:
+
+- Define props in the `props` option of `reactToWebComponent` using **camelCase** keys. The library automatically maps kebab-case HTML attributes (e.g., `display-name`) to camelCase React props — you do not need `observedAttributes` or `attributeChangedCallback`.
+- Use React hooks (`useState`, `useEffect`) for state and side effects.
+- Render with JSX; use `<name>.module.css` for styles via `className`.
 
 ## Settings Panel (`<name>.panel.tsx`)
 
@@ -67,17 +120,36 @@ The CLI scaffolds the builder file with sensible defaults — edit it only to cu
 
 ## Props Naming Convention
 
-All cross-boundary prop names are **kebab-case**. Both sides of the widget/panel boundary use the same string:
+The convention differs by pattern, but the settings panel side is always kebab-case.
 
-| Site                                                   | Convention | Example                            |
-| ------------------------------------------------------ | ---------- | ---------------------------------- |
-| `<name>.tsx` — `observedAttributes`, `getAttribute`    | kebab-case | `"display-name"`, `"bg-color"`     |
-| `<name>.panel.tsx` — `widget.getProp` / `widget.setProp` | kebab-case | `"display-name"`, `"bg-color"`     |
-| Local TypeScript variables                             | camelCase  | `displayName`, `bgColor`           |
+**Native class component:**
+
+| Side | Convention | Example |
+| ---- | ---------- | ------- |
+| `<name>.tsx` — `observedAttributes`, `getAttribute` | kebab-case | `"display-name"`, `"bg-color"` |
+| `<name>.panel.tsx` — `widget.getProp` / `widget.setProp` | kebab-case | `"display-name"`, `"bg-color"` |
+| Local TypeScript variables | camelCase | `displayName`, `bgColor` |
+
+**React function component (react-to-webcomponent):** Define props with camelCase keys in the `props` option. The library handles the kebab-case ↔ camelCase mapping at the HTML attribute boundary automatically.
+
+| Side | Convention | Example |
+| ---- | ---------- | ------- |
+| `reactToWebComponent` `props` option | camelCase | `{ displayName: 'string' }` |
+| React component props interface | camelCase | `displayName?: string` |
+| `<name>.panel.tsx` — `widget.getProp` / `widget.setProp` | kebab-case | `"display-name"`, `"bg-color"` |
 
 ## Wix Data API Integration
 
 When using the Wix Data API in widgets, you **must** handle the Wix Editor environment gracefully — fetching data inside the Editor produces empty results and noisy errors.
+
+**Requirements (both patterns):**
+
+- Import `{ window as wixWindow }` from `'@wix/site-window'`.
+- Check `await wixWindow.viewMode()` before fetching data.
+- If `viewMode === 'Editor'`, render a placeholder instead of fetching.
+- Only query and render real data when NOT in Editor mode.
+
+**Native class component:**
 
 ```typescript
 import { items } from '@wix/data';
@@ -126,115 +198,51 @@ class MyWidget extends HTMLElement {
 export default MyWidget;
 ```
 
-**Requirements:**
-
-- Import `{ window as wixWindow }` from `'@wix/site-window'`.
-- Check `await wixWindow.viewMode()` before fetching data.
-- If `viewMode === 'Editor'`, render a placeholder via `this.innerHTML` instead of fetching.
-- Only query and render real data when NOT in Editor mode.
-
-## Color Selection
-
-For color selection in settings panels, use `ColorPickerField` component with `inputs.selectColor()` from `@wix/editor`. Do NOT use `<Input type="color">`.
+**React function component** — use `useEffect` for the viewMode check and data fetch:
 
 ```typescript
-// components/ColorPickerField.tsx
-import React, { type FC } from 'react';
-import { inputs } from '@wix/editor';
-import { FormField, Box, FillPreview, SidePanel } from '@wix/design-system';
+const [results, setResults] = useState<string[]>([]);
+const [isEditor, setIsEditor] = useState(false);
 
-interface ColorPickerFieldProps {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-}
+useEffect(() => {
+  wixWindow.viewMode().then((viewMode) => {
+    if (viewMode === 'Editor') { setIsEditor(true); return; }
+    items.query(collectionId).limit(10).find()
+      .then(({ items: data }) => setResults(data.map((item) => item.title as string)))
+      .catch((err) => console.error('Failed to load data:', err));
+  });
+}, [collectionId]);
 
-export const ColorPickerField: FC<ColorPickerFieldProps> = ({
-  label,
-  value,
-  onChange,
-}) => (
-  <SidePanel.Field>
-    <FormField label={label}>
-      <Box width="30px" height="30px">
-        <FillPreview
-          fill={value}
-          onClick={() => inputs.selectColor(value, { onChange: (val) => { if (val) onChange(val); } })}
-        />
-      </Box>
-    </FormField>
-  </SidePanel.Field>
-);
+// render: if (isEditor) return <placeholder />; else return <results />;
 ```
 
-Usage in panel:
+## Color & Font Pickers
+
+Use native Wix pickers — never `<Input type="color">` or a plain text input.
+
+| Picker | API | Preview component | Value type |
+|--------|-----|-------------------|------------|
+| Color | `inputs.selectColor(value, { onChange })` from `@wix/editor` | `<FillPreview fill={value} onClick={...} />` | `string` |
+| Font | `inputs.selectFont(value, { onChange })` from `@wix/editor` | `<Button onClick={...}>Change Font</Button>` | `{ font: string; textDecoration: string }` — store as `JSON.stringify()` |
 
 ```typescript
-const handleBgColorChange = (value: string) => {
-  setBgColor(value);
-  widget.setProp("bg-color", value);
-};
+// Color — inside a SidePanel.Field > FormField
+<FillPreview
+  fill={bgColor}
+  onClick={() => inputs.selectColor(bgColor, {
+    onChange: (val) => { if (val) { setBgColor(val); widget.setProp('bg-color', val); } }
+  })}
+/>
 
-<ColorPickerField label="Background Color" value={bgColor} onChange={handleBgColorChange} />
+// Font — inside a SidePanel.Field > FormField
+<Button onClick={() => inputs.selectFont(font, {
+  onChange: (val) => {
+    const next = { font: val.font, textDecoration: val.textDecoration || '' };
+    setFont(next);
+    widget.setProp('font', JSON.stringify(next));
+  }
+})}>Change Font</Button>
 ```
-
-**Important:** Use `inputs.selectColor(value, { onChange })` from `@wix/editor` with `FillPreview` from WDS. This opens the native Wix color picker with theme colors, gradients, and more. Never use `<Input type="color">`.
-
-## Font Selection
-
-For font selection in settings panels, use `FontPickerField` component with `inputs.selectFont()` from `@wix/editor`. Do NOT use a text Input.
-
-```typescript
-// components/FontPickerField.tsx
-import React, { type FC } from 'react';
-import { inputs } from '@wix/editor';
-import { FormField, Button, Text, SidePanel } from '@wix/design-system';
-
-interface FontValue {
-  font: string;
-  textDecoration: string;
-}
-
-interface FontPickerFieldProps {
-  label: string;
-  value: FontValue;
-  onChange: (value: FontValue) => void;
-}
-
-export const FontPickerField: FC<FontPickerFieldProps> = ({
-  label,
-  value,
-  onChange,
-}) => (
-  <SidePanel.Field>
-    <FormField label={label}>
-      <Button
-        size="small"
-        priority="secondary"
-        onClick={() => inputs.selectFont(value, { onChange: (val) => onChange({ font: val.font, textDecoration: val.textDecoration || "" }) })}
-        fullWidth
-      >
-        <Text size="small" ellipsis>Change Font</Text>
-      </Button>
-    </FormField>
-  </SidePanel.Field>
-);
-```
-
-Usage in panel:
-
-```typescript
-const [font, setFont] = useState<FontValue>({ font: "", textDecoration: "" });
-
-const handleFontChange = (value: FontValue) => {
-  setFont(value);
-  widget.setProp("font", JSON.stringify(value));
-};
-
-<FontPickerField label="Text Font" value={font} onChange={handleFontChange} />
-```
-
-**Important:** Use `inputs.selectFont(value, { onChange })` from `@wix/editor` with the callback pattern. This provides a rich font picker dialog with bold, italic, size, and typography features. Font values are stored as JSON strings.
 
 ## Examples
 
@@ -276,7 +284,8 @@ Avoid generic aesthetics. Create distinctive designs with unique fonts (avoid In
 
 ## Custom-element-specific Conventions
 
-- Widget (`<name>.tsx`) extends `HTMLElement` and renders via `this.innerHTML`; the settings panel (`<name>.panel.tsx`) is a functional React component with hooks.
+- **Native class (CLI default):** Widget extends `HTMLElement` and renders via `this.innerHTML`. Use kebab-case throughout (`observedAttributes`, `getAttribute`, `getProp`, `setProp`).
+- **React function component alternative:** Widget uses a React FC converted via `react-to-webcomponent`. Use camelCase in the `props` option; the library handles kebab-case HTML attributes automatically. The settings panel side still uses kebab-case with `getProp`/`setProp`.
+- The settings panel (`<name>.panel.tsx`) is always a functional React component with hooks, regardless of which widget pattern is used.
 - Style via the generated `<name>.module.css` (preferred) or inline styles. Don't import other global CSS.
 - Handle the Wix Editor environment when using the Wix Data API.
-- Cross-boundary prop names are kebab-case on both sides (`observedAttributes`, `getAttribute`, `getProp`, `setProp`).
