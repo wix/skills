@@ -34902,6 +34902,9 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.ComparisonTimeoutError = exports.EvalPipelineClient = void 0;
 exports.pollUntilComparisonDone = pollUntilComparisonDone;
 const core = __importStar(__nccwpck_require__(7484));
+const auth_1 = __nccwpck_require__(6087);
+// Fixed public OAuth token endpoint (same as the EvalForge V1 client).
+const OAUTH_TOKEN_URL = 'https://www.wixapis.com/oauth2/token';
 const POLL_INTERVAL_MS = 2 * 60_000;
 const POLL_TIMEOUT_MS = 30 * 60 * 1_000;
 const RETRY_LIMIT = 5;
@@ -34919,19 +34922,25 @@ function isRetriable(e) {
 }
 class EvalPipelineClient {
     baseUrl;
-    headers;
+    tokens;
     constructor(baseUrl, appId, appSecret) {
         this.baseUrl = baseUrl;
-        this.headers = {
-            'Content-Type': 'application/json',
-            'x-app-id': appId,
-            'x-app-secret': appSecret,
-        };
+        // The pipeline authorizes the caller by gateway identity, so it needs a Bearer
+        // token from the app's OAuth credentials — the legacy x-app-id/x-app-secret
+        // headers no longer resolve the app identity once the app is public.
+        this.tokens = new auth_1.TokenProvider(OAUTH_TOKEN_URL, appId, appSecret);
     }
     async post(path, body) {
+        // No 401 refresh-retry: /run-comparison is non-idempotent (it queues eval runs)
+        // and getToken() re-mints proactively before expiry, so a 401 here is a
+        // permission denial, not a stale token — retrying would only double-fire.
+        const token = await this.tokens.getToken();
         const res = await fetch(`${this.baseUrl}${path}`, {
             method: 'POST',
-            headers: this.headers,
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+            },
             body: JSON.stringify(body),
             signal: AbortSignal.timeout(30_000),
         });
