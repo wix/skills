@@ -16,18 +16,18 @@ A contract for the **frontend code** of a pricing-plans site: showing the plans 
 
 ## The modules and the client (read this first)
 
-**⚠️ Two different packages — use the headless one.** The Wix docs surface `checkout.startOnlinePurchase()` / `checkout.createOnlineOrder()` under **`@wix/site-pricing-plans`** — that is the **Wix-site (Velo / `$w` page-code) package**, and `startOnlinePurchase` drives the **Wix Pay frontend UI** that only exists inside a hosted Wix page. **It is NOT the headless path** — do not import `@wix/site-pricing-plans` in a headless frontend. Use **`@wix/pricing-plans`** (the universal/headless SDK), whose `orders.createOnlineOrder` creates the order and leaves payment to a redirect you drive (see *Subscribing*). (Note: `SDK_HANDOFF.md` and the members recipes mention `startOnlinePurchase` — that's the site-package convenience; the headless equivalent is `orders.createOnlineOrder` + a payment redirect.)
+**⚠️ Two different packages — use the headless one.** The Wix docs surface `checkout.startOnlinePurchase()` / `checkout.createOnlineOrder()` under **`@wix/site-pricing-plans`** — that is the **Wix-site (Velo / `$w` page-code) package**, and `startOnlinePurchase` drives the **Wix Pay frontend UI** that only exists inside a hosted Wix page. **It is NOT the headless path** — do not import `@wix/site-pricing-plans` in a headless frontend. Use **`@wix/pricing-plans`** (the universal/headless SDK), whose `orders.createOnlineOrder` creates the order and leaves payment to a redirect you drive (see *Subscribing*).
 
 | Need | Package | Module / namespace |
 |---|---|---|
 | List / read plans (the grid) | `@wix/pricing-plans` | `plansV3` (Plans V3 — `queryPlans`, `getPlan`) |
-| Order a plan + read a member's orders | `@wix/pricing-plans` | `orders` (`createOnlineOrder`, `memberListOrders` / `listOrders`, `getOrder`) |
+| Order a plan + read a member's orders | `@wix/pricing-plans` | `orders` (`createOnlineOrder`, `memberListOrders`, `memberGetOrder`) |
 | Member login / current member | `@wix/members` + `@wix/sdk` auth | see the members recipe (`getCurrentMember`, `loggedIn()`) |
 | Book a service with a membership (integration) | `@wix/bookings` + `@wix/ecom` (+ `@wix/redirects`) | `bookings` (`createBooking`), ecom `checkout` (`membershipOptions`) — see *Booking with a membership* |
 
 **Never** import `@wix/site-pricing-plans` in headless code, and don't reach for a V1 `plans`-collection query — Plans V3 (`queryPlans` → `pricingVariants`) is the shape the seed creates.
 
-> **⚠️ The read module is `plansV3`, not `plans`.** In the pinned `@wix/pricing-plans` SDK, `queryPlans`/`getPlan` live on the **`plansV3`** namespace (`import { plansV3, orders } from '@wix/pricing-plans'`). Importing `plans` and calling `plans.queryPlans()` fails to type-check (`Property 'queryPlans' does not exist`). `orders` keeps its own namespace.
+> **⚠️ The read module is `plansV3`, not `plans`.** In the `@wix/pricing-plans` SDK, `queryPlans`/`getPlan` live on the **`plansV3`** namespace (`import { plansV3, orders } from '@wix/pricing-plans'`). Importing `plans` and calling `plans.queryPlans()` fails to type-check (`Property 'queryPlans' does not exist`). `orders` keeps its own namespace.
 
 **Auth / client — framework split** (same split as every other coding recipe):
 - **Astro (Wix-managed):** auth is ambient — call `plansV3` / `orders` directly from server components / `src/pages/api/*`. Member identity rides on the call automatically after login (`how-to-code-members-astro.md`). **No `createClient`, no `OAuthStrategy`, no `clientId`.** A member reading their own orders needs **no `auth.elevate`**.
@@ -81,8 +81,10 @@ Doc: <https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans/or
 
 ```js
 // the logged-in member's own orders:
-const res = await orders.memberListOrders();       // or orders.listOrders({ planIds, orderStatuses, paymentStatuses, paging })
-// each order: { _id, planId, subscriptionId, status, lastPaymentStatus, startDate, endDate, currentCycle, planName, priceDetails }
+const res = await orders.memberListOrders();       // filtered: orders.memberListOrders({ planIds, orderStatuses, paymentStatuses, limit, offset })
+// ⚠️ member-scoped reads are memberListOrders / memberGetOrder — there is NO `orders.listOrders`/`getOrder` (those are the admin `managementListOrders`/`managementGetOrder`, server/elevate only).
+// ⚠️ filter args are TOP-LEVEL limit/offset, NOT a nested `paging` object.
+// each order: { _id, planId, subscriptionId, status, lastPaymentStatus, startDate, endDate, currentCycle, planName, pricing, planPrice }
 ```
 Doc: <https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans/orders/introduction.md?apiView=SDK>
 
@@ -120,5 +122,3 @@ A correct Pricing Plans frontend:
 - lists the grid publicly with **`plansV3.queryPlans().eq('visibility','PUBLIC')`**, reads **`plan._id`** and price from **`pricingVariants[].pricingStrategies[].flatRate.amount`** (decimal string) — never a top-level `price` — and only shows a buy button on `buyable` plans;
 - treats **subscribe and my-subscription as login-gated** (the hard members dependency), orders with **`orders.createOnlineOrder(planId)`** (no `onBehalf`, no elevate), renders free plans as `ACTIVE` immediately, and drives paid plans through a payment redirect (**exact headless redirect to be confirmed in a live build**) — and **stops at the redirect**: no payments-account connect, no order activation / mark-as-paid from code (see *Out of scope*);
 - for the Bookings integration, books a covered service by setting **`selectedPaymentOption: "MEMBERSHIP"`** on `createBooking`, applies the membership on the **ecom checkout** (`membershipOptions`), never calls `confirmBooking`, and falls back to matching the member's active-order `planId`s to the service's coverage when the checkout eligibility field isn't readable client-side.
-
-> **⚠️ Not yet validated by a live frontend build.** The list/order/my-subscription mechanics are grounded in the live SDK docs, but two spots are flagged **⚠️ VERIFY IN A LIVE BUILD** — the headless paid-plan payment redirect, and whether `checkout.membershipOptions.eligibleMemberships` is readable by a member token. Confirm both in a real Astro + non-Astro build (per `how-to-write-a-coding-recipe.md`) and remove these markers.

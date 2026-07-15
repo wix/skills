@@ -1,6 +1,6 @@
 ---
 name: "Setup CMS"
-description: Initializes a Wix CMS (Wix Data) backend — creates each collection with a public-read permissions block and the field schema, then bulk-inserts items (real field values) and verifies they persisted; wires multi-reference links when collections relate. Specifies the *how* (calls + format); which collections, fields, and counts come from the request (via `SEED.md` §3).
+description: Initializes a Wix CMS (Wix Data) backend — creates each collection with a public-read permissions block and the field schema, then bulk-inserts items (real field values) and verifies they persisted; wires multi-reference links when collections relate. Specifies the *how* (calls + format); which collections, fields, and counts come from the request.
 ---
 **RECIPE**: Business Recipe – Initial Setup for Wix CMS (Wix Data v2)
 
@@ -9,14 +9,14 @@ description: Initializes a Wix CMS (Wix Data) backend — creates each collectio
 A concise checklist for preparing any new Wix site that uses the **Wix CMS** (Wix Data) to hold content collections (team directory, FAQ, portfolio items, resources, recipes — any repeated structured content).
 **Notice** this recipe is for **initial backend setup ONLY**, not for coding the frontend.
 
-> **This recipe is the *how*, not the *what*.** Which collections to create, their fields, and how many items each holds is determined by the request you're fulfilling (via `SEED.md` §3). This recipe only specifies the calls and the request format; it does not decide the schema or quantities.
+> **This recipe is the *how*, not the *what*.** Which collections to create, their fields, and how many items each holds is determined by the request you're fulfilling. This recipe only specifies the calls and the request format; it does not decide the schema or quantities.
 
 > **API surfaces:** Wix CMS uses the **Wix Data v2** API on `https://www.wixapis.com/wix-data/v2/...` — collections under `/collections`, items under `/items` and `/bulk/items/*`. The CMS (Wix Data) app's `appDefId` is `e593b0bd-b783-45b8-97c2-873d42aacaf4` (an unmet `WDE0110` error means the app isn't installed). There is no V1/V3 split here — everything is `/wix-data/v2/`.
 
 ---
 
 ## Article: Steps for Setting Up Wix CMS
-**YOU MUST** complete the steps in order, without requiring additional user input: create each collection (STEP 1) before inserting its items (STEP 2), and verify (STEP 3) before wiring any references (STEP 4). Items can only be inserted into a collection that already exists. STEP 5 (attach an item image) runs **only when imagery is on** — skip it entirely otherwise.
+**YOU MUST** complete the steps in order, without requiring additional user input: create each collection (STEP 1) before inserting its items (STEP 2), and verify (STEP 3) before wiring any references (STEP 4). Items can only be inserted into a collection that already exists. The **Attach images** step runs **only when imagery is on** — skip it entirely otherwise.
 
 ### STEP 1: Create each collection (public-read)
 
@@ -55,7 +55,7 @@ The response returns the created collection — its `id` is the value you sent (
 "permissions": { "read": "ANYONE", "insert": "ANYONE", "update": "ANYONE", "remove": "ANYONE" }
 ```
 
-Which collection (if any) is visitor-writable comes from the request (`SEED.md` §3); this step only gives the permission shape.
+Which collection (if any) is visitor-writable comes from the request; this step only gives the permission shape.
 
 **⚠️ With an ANONYMOUS visitor token there is NO per-user identity — an `ANYONE`-writable collection is SHARED and unscoped.** Every anonymous visitor authenticates as the same kind of identity, so on the **anonymous** path the only open-write level that works is **`ANYONE`**, which means **any visitor can edit or delete any row** (the data is global/shared, not per-user, not per-device). That's correct for a collaborative board. **For per-user-private data, use the member-scoped variant below** — it needs a logged-in member. Don't open `insert`/`update`/`remove` to `ANYONE` on a collection that shouldn't be globally editable.
 
@@ -102,7 +102,7 @@ Which collection (if any) is visitor-writable comes from the request (`SEED.md` 
 - **`403`** on collection-create (STEP 1), or
 - **`400 WDE0117: "MetaSite not found"`** on a bulk item-insert (STEP 2).
 
-Both are provisioning races, not payload bugs (the identical body succeeds on retry). On a `403` / `400 WDE0117` / `5xx` for any create or insert, wait briefly and **retry the failed call once with the same body**. **Do not loop** — a spiralling retry is a wasted headless run. If the single retry still fails, surface the response verbatim and fail loud. (Both were observed live: `403`-on-create and `400 WDE0117`-on-insert each fired on a fresh site and cleared on a retry.)
+Both are provisioning races, not payload bugs (the identical body succeeds on retry). On a `403` / `400 WDE0117` / `5xx` for any create or insert, wait briefly and **retry the failed call once with the same body**. **Do not loop** — a spiralling retry is a wasted headless run. If the single retry still fails, surface the response verbatim and fail loud.
 
 ### STEP 2: Bulk-insert each collection's items (with field data)
 
@@ -169,9 +169,9 @@ Use **Bulk Insert Reference Data Items**: `POST https://www.wixapis.com/wix-data
 
 **⚠️ References only resolve if the field was created with a non-empty `referencedCollectionId` (STEP 1).** This call can return `200` / `totalSuccesses` even when the field's target binding is empty — but then a read with `.include("categories")` (or `query-referenced`) returns nothing (and `query-referenced` errors `WDE0020 "Provided property [] is not a multi-reference field"`). If references insert "successfully" but never appear on reads, the field's `referencedCollectionId` was empty at create time — fix the STEP 1 field definition, not this call.
 
-### STEP 5: Attach an item image (imagery ON only — skip otherwise)
+### Attach images (imagery ON only — skip otherwise)
 
-**Only when `imagery` is on** (`SEED.md` §5). This is the CMS entry in the required pass-2 "attach the generated image to the entity" flow — items were inserted text-only in STEP 2 (any `IMAGE` field left blank); now write the image onto each. It presumes the collection has an `IMAGE`-type field (STEP 1 field schema). Generate + import per `references/IMAGE_GENERATION.md` and keep `file.url` (the permanent `wixstatic.com` URL — an `IMAGE` field stores the URL string).
+**Only when `imagery` is on** (`SEED.md` § "Entity images"). This is the CMS entry in the required pass-2 "attach the generated image to the entity" flow — items were inserted text-only earlier (any `IMAGE` field left blank); now write the image onto each. It presumes the collection has an `IMAGE`-type field (from the field schema at create time). Generate + import per `references/IMAGE_GENERATION.md` and keep `file.url` (the permanent `wixstatic.com` URL — an `IMAGE` field stores the URL string).
 
 **⚠️ Use read-merge-PUT, not PATCH.** A partial JsonPatch is fragile here; instead query the item, merge the image URL into its `data`, and PUT the **whole** record back:
 
@@ -184,7 +184,7 @@ Use **Bulk Insert Reference Data Items**: `POST https://www.wixapis.com/wix-data
 ```
 
 - **PUT replaces the entire record** — you must send back **all** existing fields (from step 1), not just the image, or the omitted fields are wiped. This is why you read-merge-PUT rather than sending the image alone.
-- **Never block on image failure** (`SEED.md` §5 / IMAGE_GENERATION "Credits & failure") — on failure, skip and leave the item text-only.
+- **Never block on image failure** (`SEED.md` § "Entity images" / IMAGE_GENERATION "Credits, cost & the not-generating fallback") — on failure, skip and leave the item text-only.
 
 ---
 
@@ -196,5 +196,5 @@ Following these steps **in order** sets up a Wix CMS backend:
 - Native collection `id`s carry **no namespace** and are kept verbatim for the frontend to bind to.
 - Every item is bulk-inserted with **real field values** in `data` (keys matching the schema) and **verified to have persisted**.
 - Reference fields are created with a non-empty `typeMetadata…referencedCollectionId` (the working key, not the docs' stale `referencedCollection`); multi-references are then wired with the reference endpoint's `dataItemReferences[]` shape (never set at insert — they're silently dropped there), and single references by item-id at insert.
-- **When imagery is on**, each item's `IMAGE` field is filled in the pass-2 STEP 5 via **read-merge-PUT** (`PUT …/items/{id}` with the full merged record — a partial PUT wipes omitted fields), storing `file.url`; on failure the item stays text-only.
+- **When imagery is on**, each item's `IMAGE` field is filled by the **Attach images** step (pass-2) via **read-merge-PUT** (`PUT …/items/{id}` with the full merged record — a partial PUT wipes omitted fields), storing `file.url`; on failure the item stays text-only.
 - **Keep** per collection: the `collectionId`, the field `key`s, and the `itemIds[]` — these are the producer for the coding handoff.
