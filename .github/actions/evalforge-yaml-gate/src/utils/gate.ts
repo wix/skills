@@ -69,6 +69,23 @@ export function scenariosToRun(input: {
   return result;
 }
 
+export function scenarioIdsToRun(
+  scenarios: Map<string, LoadedScenario>,
+  nameToId: Map<string, string>,
+): string[] {
+  const missing: string[] = [];
+  const ids: string[] = [];
+  for (const name of scenarios.keys()) {
+    const id = nameToId.get(name);
+    if (id) ids.push(id);
+    else missing.push(name);
+  }
+  if (missing.length > 0) {
+    throw new Error(`Missing EvalForge scenario IDs for: ${missing.join(', ')}`);
+  }
+  return ids;
+}
+
 export async function runGate(): Promise<void> {
   const config = getEvalConfig();
   const octokit = github.getOctokit(config.githubToken);
@@ -194,7 +211,7 @@ export async function runGate(): Promise<void> {
 
   const pipeline = new EvalPipelineClient(config.evalPipelineUrl, config.appId, config.appSecret);
   const comparison = await guardedCall(
-    () => pipeline.runComparison([draftTag], config.agentName, config.headSha, config.mcpSkillsRepo),
+    () => pipeline.runComparison([draftTag], config.agentName, config.headSha, config.mcpSkillsRepo, scenarioIdsToRun(changedHeadScenarios, nameToId)),
     'Could not start eval pipeline comparison', comment, config,
   );
   if (!comparison) return;
