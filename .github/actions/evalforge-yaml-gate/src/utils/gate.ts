@@ -48,13 +48,8 @@ export function remoteScenarioFiltersForGate(input: {
 }
 
 /**
- * The head scenarios this PR should sync and (re-)run:
- *  - scenarios whose own YAML changed in this PR (existing behavior), plus
- *  - scenarios that cover a changed skill doc, even when their YAML is unchanged —
- *    a doc edit changes agent behavior, so the scenarios exercising it should re-run.
- *
- * Both sets flow through the same sync → draft-tag → eval-compare path, so a
- * doc-only change gets its covering scenarios draft-tagged and compared.
+ * Head scenarios to sync and run: those whose YAML changed, plus those covering a
+ * changed skill doc (so editing a skill re-runs the scenarios that exercise it).
  */
 export function scenariosToRun(input: {
   headScenarios: Map<string, LoadedScenario>;
@@ -141,9 +136,6 @@ export async function runGate(): Promise<void> {
   const { scenarios: baseScenarios, errors: baseErrors } = loadEvals(baseWorkspace);
   for (const e of baseErrors) core.warning(`Base SHA eval issue (${e.path}): ${e.message}`);
 
-  // Scenarios to sync + run: those whose own YAML changed in this PR, plus those that
-  // cover a changed skill doc (so editing a skill re-runs the scenarios that exercise
-  // it, not just requires their existence). Both flow through the sync/compare path below.
   const changedEvalPaths = new Set<string>([
     ...classifiedChanges.evalsAdded.map(f => f.filename),
     ...classifiedChanges.evalsModified.map(f => f.filename),
