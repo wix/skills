@@ -2,7 +2,7 @@ name: app-installation/install-cms-app
 description: >-
   Verifies the agent reads the install-wix-apps skill and explains how to install
   the Wix CMS app via the Apps Installer API using the correct appDefId. Dummy
-  PR trigger for scenario workflow validation.
+  PR trigger for scenario workflow validation. Touch to trigger EvalForge YAML gate.
 triggerPrompt: >-
   I need to install the Wix CMS (Wix Data) app on my site so I can start using collections.
   Which REST endpoint do I call and what request body do I send?
