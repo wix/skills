@@ -47,6 +47,33 @@ export function remoteScenarioFiltersForGate(input: {
   return { names: [...names].sort(), tags: [input.draftTag] };
 }
 
+/**
+ * The head scenarios this PR should sync and (re-)run:
+ *  - scenarios whose own YAML changed in this PR (existing behavior), plus
+ *  - scenarios that cover a changed skill doc, even when their YAML is unchanged —
+ *    a doc edit changes agent behavior, so the scenarios exercising it should re-run.
+ *
+ * Both sets flow through the same sync → draft-tag → eval-compare path, so a
+ * doc-only change gets its covering scenarios draft-tagged and compared.
+ */
+export function scenariosToRun(input: {
+  headScenarios: Map<string, LoadedScenario>;
+  changedEvalPaths: Set<string>;
+  coveredBy: Map<string, string[]>;
+}): Map<string, LoadedScenario> {
+  const result = new Map<string, LoadedScenario>();
+  for (const [name, ls] of input.headScenarios) {
+    if (input.changedEvalPaths.has(ls.path)) result.set(name, ls);
+  }
+  for (const coveringNames of input.coveredBy.values()) {
+    for (const name of coveringNames) {
+      const ls = input.headScenarios.get(name);
+      if (ls) result.set(name, ls);
+    }
+  }
+  return result;
+}
+
 export async function runGate(): Promise<void> {
   const config = getEvalConfig();
   const octokit = github.getOctokit(config.githubToken);
@@ -114,15 +141,14 @@ export async function runGate(): Promise<void> {
   const { scenarios: baseScenarios, errors: baseErrors } = loadEvals(baseWorkspace);
   for (const e of baseErrors) core.warning(`Base SHA eval issue (${e.path}): ${e.message}`);
 
-  // Restrict head to scenarios authored or modified in THIS PR — avoids spurious PUTs on every push.
+  // Scenarios to sync + run: those whose own YAML changed in this PR, plus those that
+  // cover a changed skill doc (so editing a skill re-runs the scenarios that exercise
+  // it, not just requires their existence). Both flow through the sync/compare path below.
   const changedEvalPaths = new Set<string>([
     ...classifiedChanges.evalsAdded.map(f => f.filename),
     ...classifiedChanges.evalsModified.map(f => f.filename),
   ]);
-  const changedHeadScenarios = new Map<string, LoadedScenario>();
-  for (const [name, ls] of headScenarios) {
-    if (changedEvalPaths.has(ls.path)) changedHeadScenarios.set(name, ls);
-  }
+  const changedHeadScenarios = scenariosToRun({ headScenarios, changedEvalPaths, coveredBy: cov.coveredBy });
 
   const filters = remoteScenarioFiltersForGate({ changedHead: changedHeadScenarios, head: headScenarios, base: baseScenarios, draftTag });
   const remote = await guardedCall(
