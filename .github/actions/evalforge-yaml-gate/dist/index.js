@@ -34805,6 +34805,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.registeredDocFiles = registeredDocFiles;
 exports.canonicalDocUrl = canonicalDocUrl;
 const node_fs_1 = __nccwpck_require__(3024);
 const node_path_1 = __nccwpck_require__(6760);
@@ -34847,6 +34848,10 @@ function slugify(displayName) {
         trimmedSlug = trimmedSlug.slice(0, -1);
     }
     return `${shouldAddDollarPrefix ? '$' : ''}${trimmedSlug.toLowerCase()}`;
+}
+/** Repo-relative paths of every doc registered in a documentation.yaml under `workspace`. */
+function registeredDocFiles(workspace) {
+    return [...buildDocIndex(workspace).keys()].map(abs => (0, node_path_1.relative)(workspace, abs));
 }
 function canonicalDocUrl(filePath, workspace) {
     const info = buildDocIndex(workspace).get((0, node_path_1.resolve)(workspace, filePath));
@@ -35500,6 +35505,7 @@ const author_gate_1 = __nccwpck_require__(9916);
 const evals_1 = __nccwpck_require__(1686);
 const doc_url_1 = __nccwpck_require__(8515);
 const coverage_1 = __nccwpck_require__(4035);
+const reference_graph_1 = __nccwpck_require__(7749);
 const sync_1 = __nccwpck_require__(546);
 const evalforge_1 = __nccwpck_require__(280);
 const eval_pipeline_1 = __nccwpck_require__(3942);
@@ -35657,11 +35663,18 @@ async function runGate() {
     const { scenarios: baseScenarios, errors: baseErrors } = (0, evals_1.loadEvals)(baseWorkspace);
     for (const e of baseErrors)
         core.warning(`Base SHA eval issue (${e.path}): ${e.message}`);
+    // Expand changed docs to their reference-graph connected components, so editing any skill in a
+    // declared parent/child family re-runs the whole family's scenarios. Coverage gating above is
+    // unaffected — it stays per changed doc; this only widens which scenarios run.
+    const referenceGraph = (0, reference_graph_1.buildReferenceGraph)(workspace);
+    const changedDocs = classifiedChanges.mdFiles.filter(f => f.status !== 'removed').map(f => f.filename);
+    const runDocs = [...(0, reference_graph_1.connectedDocs)(referenceGraph, changedDocs)].map(filename => ({ filename, status: 'modified' }));
+    const runCoverage = (0, coverage_1.computeCoverage)(runDocs, headScenarios, (f) => (0, doc_url_1.canonicalDocUrl)(f, workspace));
     const changedEvalPaths = new Set([
         ...classifiedChanges.evalsAdded.map(f => f.filename),
         ...classifiedChanges.evalsModified.map(f => f.filename),
     ]);
-    const changedHeadScenarios = scenariosToRun({ headScenarios, changedEvalPaths, coveredBy: cov.coveredBy });
+    const changedHeadScenarios = scenariosToRun({ headScenarios, changedEvalPaths, coveredBy: runCoverage.coveredBy });
     const filters = remoteScenarioFiltersForGate({ changedHead: changedHeadScenarios, head: headScenarios, base: baseScenarios, draftTag });
     const remote = await guardedCall(() => listRemoteScenariosForGate(evalforge, config.projectId, filters), 'Could not reach EvalForge', comment, config);
     if (!remote)
@@ -36110,6 +36123,141 @@ function loadEvalsWithWarnings(root) {
     for (const e of errors)
         core.warning(`Eval load issue at ${root}/${e.path}: ${e.message}`);
     return scenarios;
+}
+
+
+/***/ }),
+
+/***/ 7749:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.buildGraph = buildGraph;
+exports.buildReferenceGraph = buildReferenceGraph;
+exports.connectedDocs = connectedDocs;
+const node_fs_1 = __nccwpck_require__(3024);
+const node_path_1 = __nccwpck_require__(6760);
+const jsYaml = __importStar(__nccwpck_require__(4281));
+const core = __importStar(__nccwpck_require__(7484));
+const doc_url_1 = __nccwpck_require__(8515);
+const paths_1 = __nccwpck_require__(6621);
+/**
+ * Builds the undirected reference graph. A doc is linked to each doc its frontmatter references,
+ * resolved by canonical slug (a slug shared across areas is disambiguated to the referrer's own
+ * area); an unresolvable reference is warned about and skipped rather than failing the gate.
+ * Pure over `nodes`, so it can be unit-tested without the filesystem.
+ */
+function buildGraph(nodes, warn = () => { }) {
+    const bySlug = new Map();
+    for (const node of nodes) {
+        if (node.slug)
+            (bySlug.get(node.slug) ?? bySlug.set(node.slug, []).get(node.slug)).push(node);
+    }
+    const graph = new Map();
+    const link = (a, b) => {
+        (graph.get(a) ?? graph.set(a, new Set()).get(a)).add(b);
+        (graph.get(b) ?? graph.set(b, new Set()).get(b)).add(a);
+    };
+    for (const node of nodes) {
+        for (const ref of node.refs) {
+            const slug = (ref.split('/').pop() ?? ref).replace(/\.md$/i, '');
+            const hits = bySlug.get(slug) ?? [];
+            const target = hits.length === 1 ? hits[0] : hits.find(h => h.area === node.area);
+            if (!target) {
+                warn(`reference-graph: unresolved reference "${ref}" (slug "${slug}") in ${node.file} — skipping`);
+                continue;
+            }
+            if (target.file !== node.file)
+                link(node.file, target.file);
+        }
+    }
+    return graph;
+}
+/** Reads registered docs and their frontmatter references to build the graph for a workspace. */
+function buildReferenceGraph(workspace) {
+    const nodes = (0, doc_url_1.registeredDocFiles)(workspace).map(file => ({
+        file,
+        area: file.match(paths_1.AREA_RE)?.[1] ?? null,
+        slug: (0, doc_url_1.canonicalDocUrl)(file, workspace)?.split('/skills/')[1]?.split('/')[0] ?? null,
+        refs: frontmatterReferences((0, node_path_1.resolve)(workspace, file)),
+    }));
+    return buildGraph(nodes, message => core.warning(message));
+}
+/** The union of the connected components containing `seeds` (an isolated seed returns itself). */
+function connectedDocs(graph, seeds) {
+    const seen = new Set();
+    const stack = [...seeds];
+    while (stack.length > 0) {
+        const doc = stack.pop();
+        if (seen.has(doc))
+            continue;
+        seen.add(doc);
+        for (const neighbor of graph.get(doc) ?? []) {
+            if (!seen.has(neighbor))
+                stack.push(neighbor);
+        }
+    }
+    return seen;
+}
+function frontmatterReferences(absFile) {
+    let raw;
+    try {
+        raw = (0, node_fs_1.readFileSync)(absFile, 'utf8');
+    }
+    catch {
+        return [];
+    }
+    const fm = raw.match(/^---\n([\s\S]*?)\n---/);
+    if (!fm)
+        return [];
+    let parsed;
+    try {
+        parsed = jsYaml.load(fm[1], { schema: jsYaml.CORE_SCHEMA });
+    }
+    catch {
+        return [];
+    }
+    const refs = parsed?.references;
+    if (!Array.isArray(refs))
+        return [];
+    return refs
+        .map(r => (typeof r?.path === 'string' ? r.path : null))
+        .filter((p) => p !== null);
 }
 
 
