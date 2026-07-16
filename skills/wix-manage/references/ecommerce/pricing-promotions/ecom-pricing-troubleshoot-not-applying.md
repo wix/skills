@@ -2,7 +2,12 @@
 name: "Pricing: Discount Not Applying"
 description: Diagnostic tree for when a discount rule exists but isn't applying at checkout. Checks active status, time window, scope targeting, revision, and app installation.
 layer: troubleshoot
+references:
+  - name: "Pricing: Create Coupon"
+    path: ecommerce/pricing-create-coupon.md
+    load: false
 ---
+<!-- e2e-refgraph: temp references edge; do not merge -->
 # Troubleshoot: Discount Not Applying
 
 ## When to use
