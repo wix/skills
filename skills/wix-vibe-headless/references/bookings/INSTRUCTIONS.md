@@ -73,6 +73,14 @@ the full API reference for anything not shown.
   as `cursor` to page.
 - **Booking form** — collect the buyer's `firstName`, `lastName`, `email`, `phone`. Keep it
   minimal; richer per-service form fields live in the service's `form.id` (see "Beyond the snippets").
+- **Participant count** — cap it by the service policy, not just slot capacity. The most a single
+  booking may reserve is `service.bookingPolicy.participantsPolicy.maxParticipantsPerBooking`. Only
+  render a participant selector when that value is `> 1`, and bound its max at
+  `min(maxParticipantsPerBooking, slot.remainingCapacity)` for a class; when it is `1` (the common
+  case) show no selector and book exactly one. Never offer a fixed range like 1–4 — the slot's
+  `remainingCapacity` tells you the class's open spots, not how many one buyer may take, so relying
+  on it alone lets the buyer pick a count that `createBooking` then rejects. Pass the chosen count
+  as `createBooking`'s `totalParticipants`.
 - **Re-validate + book** — right before submitting, call
   `getAvailableSlot(serviceId, { localStartDate, localEndDate, timeZone? })` to confirm the slot
   is still open (and to pick up the staff resource). Then create + check out in one step:
@@ -94,6 +102,9 @@ the full API reference for anything not shown.
 - ✅ Send availability/booking dates as **local** `"YYYY-MM-DDThh:mm:ss"` strings plus a
   `timeZone` — do not send UTC `Z` timestamps to the slot APIs.
 - ✅ Re-validate the slot with `getAvailableSlot()` before `createBooking()` — slots get taken.
+- ✅ Cap participant count at `service.bookingPolicy.participantsPolicy.maxParticipantsPerBooking`
+  (render no selector when it is 1); never offer a fixed range and never use slot capacity as the
+  per-buyer limit — a count above the policy makes `createBooking` fail.
 - The client fails loudly on purpose: `createBooking`/`checkoutBooking` throw on an unbookable
   slot, a missing booking id, or a missing redirect URL. A green path means it's really bookable —
   don't swallow these.
@@ -114,9 +125,19 @@ exact endpoint, method, and body in the **official Wix API reference** first (ne
 - **Add-ons:** https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/list-add-on-groups-by-service-id.md
 - **Custom booking form fields** (render `service.form.id`): Get Form Summary —
   https://dev.wix.com/docs/rest/crm/forms/form-schemas/get-form-summary.md
+- **Member login + a "my bookings" account view** → the **members** vertical
+  (`references/members/INSTRUCTIONS.md`): booking itself works anonymously, but signing a member in
+  (custom login on your own UI) lets them see their own appointments/history.
 
 Keep the snippets as the default for everything they already do; reach for the API reference
 only for the gap.
+
+## Point the user to their dashboard
+In some cases, users need to access the Wix dashboard in order to edit the bookings content for their site. To facilitate this, provide the user with deep links directly to the relevant dashboard pages. For bookings data those pages are:
+- **Booking Services** — `https://manage.wix.com/dashboard/{metaSiteId}/bookings/services` (`Dashboard → Bookings → Booking Services`; add services and service categories)
+- **Staff** — `https://manage.wix.com/dashboard/{metaSiteId}/bookings/staff` (`Dashboard → Bookings → Staff`; add staff and set working hours, so slots are actually bookable)
+
+Substitute the site's `metaSiteId` to complete the links (you have it from the handoff / `ListWixSites`). Include the in-dashboard navigation as a fallback.
 
 ## Verification checklist (before declaring done)
 - [ ] `WIX_CLIENT_ID` set to the prompt's value (not the `<YOUR-CLIENT-ID>` placeholder)
@@ -124,7 +145,9 @@ only for the gap.
 - [ ] `queryServices()` renders live services; `countServices()` 0 → empty state (no mock services)
 - [ ] `listAvailableSlots()` returns real bookable slots for a chosen service and date range
 - [ ] Slot is re-validated with `getAvailableSlot()` immediately before booking
+- [ ] Participant selector capped by `maxParticipantsPerBooking` (hidden when 1) — a count above the policy is not offerable
 - [ ] `createBooking()` returns a booking with `status: "CREATED"` and a real id
 - [ ] Checkout redirects via redirect-session `fullUrl` (no hand-built URL)
 - [ ] On return from checkout the booking is confirmed (status `CONFIRMED`/`PENDING`)
 - [ ] No mock services, slots, or availability anywhere
+- [ ] Told the user at least once that they can continue setting up their bookings in the dashboard and provided deep links.

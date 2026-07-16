@@ -1,7 +1,7 @@
 import * as core from '@actions/core';
 import { posix } from 'node:path';
 import { getSimpleConfig } from './config';
-import { EvalForgeClient, DRAFT_PREFIX, draftTagFor, uniqueRemoteScenarios, withManagedTags } from './evalforge';
+import { EvalForgeClient, DRAFT_PREFIX, draftTagFor, withManagedTags, type RemoteScenario } from './evalforge';
 import { loadEvals, type LoadedScenario } from './evals';
 import { toScenarioBody } from './sync';
 import { deletePrMcpVersions } from './pr-cleanup';
@@ -19,31 +19,20 @@ export async function runPromote(): Promise<void> {
   await deletePrMcpVersions(evalforge, config.mcpId, config.projectId, config.prNumber);
 
   const headScenarios = loadEvalsWithWarnings(workspace);
-  const baseEvals = loadEvalsWithWarnings(posix.join(workspace, BASE_WORKSPACE_SUBDIR));
-  const deletedScenarioNames = [...baseEvals.keys()]
-    .filter(name => !headScenarios.has(name))
-    .sort();
 
-  let remote;
+  // Only this PR's draft-tagged scenarios need promoting (vs. listing the project).
+  let tagged: RemoteScenario[];
   try {
-    const [drafts, deleted] = await Promise.all([
-      evalforge.listTestScenarios(config.projectId, { tags: [draftTag] }),
-      deletedScenarioNames.length > 0
-        ? evalforge.listTestScenarios(config.projectId, { names: deletedScenarioNames })
-        : Promise.resolve([]),
-    ]);
-    remote = uniqueRemoteScenarios([...drafts, ...deleted]);
+    tagged = await evalforge.listTestScenariosByTag(config.projectId, draftTag);
   } catch (e) {
-    core.warning(`listTestScenarios failed: ${e instanceof Error ? e.message : String(e)}`);
+    core.warning(`listTestScenariosByTag failed: ${e instanceof Error ? e.message : String(e)}`);
     return;
   }
-  const remoteByName = new Map(remote.map(r => [r.name, r]));
 
   let promoted = 0;
   let droppedDrafts = 0;
 
-  for (const s of remote) {
-    if (!s.tags.includes(draftTag)) continue;
+  for (const s of tagged) {
     const ls = headScenarios.get(s.name);
     if (!ls) {
       // Scenario was created or stamped by this PR but no YAML survived to the merged head
@@ -68,16 +57,29 @@ export async function runPromote(): Promise<void> {
     }
   }
 
-  for (const [name] of baseEvals) {
-    if (headScenarios.has(name)) continue;
-    const r = remoteByName.get(name);
-    if (!r) continue;
-    if (r.tags.some(t => t.startsWith(DRAFT_PREFIX))) continue;
+  // Scenarios present at base but removed in the merged head. They may be live
+  // (non-draft), so fetch them by name and delete those not held by any draft.
+  const baseEvals = loadEvalsWithWarnings(posix.join(workspace, BASE_WORKSPACE_SUBDIR));
+  const removedNames = [...baseEvals.keys()].filter(name => !headScenarios.has(name));
+  if (removedNames.length > 0) {
+    let removedRemote: RemoteScenario[];
     try {
-      await evalforge.deleteTestScenario(config.projectId, r.id);
-      core.info(`Deleted YAML-removed scenario ${name} (${r.id})`);
+      removedRemote = await evalforge.listTestScenarios(config.projectId, removedNames);
     } catch (e) {
-      core.warning(`Delete-on-merge failed for ${name}: ${e instanceof Error ? e.message : String(e)}`);
+      // Fail loudly rather than continue with an empty list: swallowing this would
+      // silently leave YAML-removed production scenarios as orphans in EvalForge.
+      // Failing the promote run flags it so it can be re-run.
+      core.setFailed(`Could not fetch removed scenarios for delete-on-merge — ${removedNames.length} scenario(s) may be left orphaned; re-run promote. Cause: ${e instanceof Error ? e.message : String(e)}`);
+      return;
+    }
+    for (const r of removedRemote) {
+      if (r.tags.some(t => t.startsWith(DRAFT_PREFIX))) continue;
+      try {
+        await evalforge.deleteTestScenario(config.projectId, r.id);
+        core.info(`Deleted YAML-removed scenario ${r.name} (${r.id})`);
+      } catch (e) {
+        core.warning(`Delete-on-merge failed for ${r.name}: ${e instanceof Error ? e.message : String(e)}`);
+      }
     }
   }
 

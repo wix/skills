@@ -1,4 +1,8 @@
 import * as core from '@actions/core';
+import { TokenProvider } from './auth';
+
+// Fixed public OAuth token endpoint (same as the EvalForge V1 client).
+const OAUTH_TOKEN_URL = 'https://www.wixapis.com/oauth2/token';
 
 export type ComparisonResult = { comparisonGroupId: string };
 
@@ -29,7 +33,8 @@ export type ScenarioComparison = {
   reason: string;
   with: ScenarioRunResult;
   without: ScenarioRunResult;
-  pairwiseJudgement: {
+  // Optional: the pipeline omits it when pairwise judging is disabled or the judge call fails.
+  pairwiseJudgement?: {
     winner: 'tie' | 'with' | 'without';
     confidence: string;
     reasoning: string;
@@ -72,24 +77,30 @@ function isRetriable(e: unknown): boolean {
 }
 
 export class EvalPipelineClient {
-  private readonly headers: Record<string, string>;
+  private readonly tokens: TokenProvider;
 
   constructor(
     private readonly baseUrl: string,
     appId: string,
     appSecret: string,
   ) {
-    this.headers = {
-      'Content-Type': 'application/json',
-      'x-app-id': appId,
-      'x-app-secret': appSecret,
-    };
+    // The pipeline authorizes the caller by gateway identity, so it needs a Bearer
+    // token from the app's OAuth credentials — the legacy x-app-id/x-app-secret
+    // headers no longer resolve the app identity once the app is public.
+    this.tokens = new TokenProvider(OAUTH_TOKEN_URL, appId, appSecret);
   }
 
   private async post<T>(path: string, body: unknown): Promise<T> {
+    // No 401 refresh-retry: /run-comparison is non-idempotent (it queues eval runs)
+    // and getToken() re-mints proactively before expiry, so a 401 here is a
+    // permission denial, not a stale token — retrying would only double-fire.
+    const token = await this.tokens.getToken();
     const res = await fetch(`${this.baseUrl}${path}`, {
       method: 'POST',
-      headers: this.headers,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(30_000),
     });
@@ -103,8 +114,8 @@ export class EvalPipelineClient {
     return res.json() as Promise<T>;
   }
 
-  async runComparison(tags: string[], agentName: string, commitSha?: string, skillsRepo?: string): Promise<ComparisonResult> {
-    return this.post<ComparisonResult>('/run-comparison', { tags, agentName, commitSha, skillsRepo });
+  async runComparison(tags: string[], agentName: string, commitSha?: string, skillsRepo?: string, scenarioIds?: string[]): Promise<ComparisonResult> {
+    return this.post<ComparisonResult>('/run-comparison', { tags, agentName, commitSha, skillsRepo, scenarioIds });
   }
 
   async compareGroup(comparisonGroupId: string): Promise<CompareGroupStatus> {

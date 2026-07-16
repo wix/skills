@@ -1,6 +1,6 @@
 ---
 name: "Setup Events"
-description: Initializes a Wix Events (Events V3) backend — creates one or more events (each TICKETING or RSVP) as drafts with future dates, adds ticket definitions for ticketed events, then publishes. Specifies the *how* (calls + format); counts, which events are ticketed vs RSVP, dates, and ticket tiers come from the request (via `SEED.md` §3).
+description: Initializes a Wix Events (Events V3) backend — creates one or more events (each TICKETING or RSVP) as drafts with future dates, adds ticket definitions for ticketed events, then publishes. Specifies the *how* (calls + format); counts, which events are ticketed vs RSVP, dates, and ticket tiers come from the request.
 ---
 **RECIPE**: Business Recipe – Initial Setup for Wix Events (Events V3)
 
@@ -16,7 +16,7 @@ A concise checklist for turning a freshly provisioned Wix site with the **Wix Ev
 ---
 
 ## Article: Steps for Setting Up Wix Events
-**YOU MUST** complete all the following steps **in the given order** (1-3) without skipping any and **without requiring additional user input**.
+**YOU MUST** complete all the following steps **in the given order** (1-3) without skipping any and **without requiring additional user input**. The **Attach images** step runs last, only when `imagery` is on.
 
 **⚠️ CRITICAL ORDER REQUIREMENT: create each event as a DRAFT (STEP 1) → add its ticket definitions (STEP 2, ticketed only) → PUBLISH (STEP 3).** Two one-way constraints force this order:
 - **`registration.initialType` is immutable after create** — a `TICKETING` event can never become `RSVP` (or vice-versa). Decide the type at create time from the request; never plan to convert.
@@ -47,8 +47,8 @@ curl -X POST 'https://www.wixapis.com/events/v3/events' \
         "address": { "addressLine": "120 Harbor St", "city": "Seattle", "subdivision": "US-WA", "postalCode": "98101", "country": "US" }
       },
       "dateAndTimeSettings": {
-        "startDate": "2026-09-20T03:30:00.000Z",
-        "endDate":   "2026-09-20T07:00:00.000Z",
+        "startDate": "<FUTURE_DATE>T03:30:00.000Z",
+        "endDate":   "<FUTURE_DATE>T07:00:00.000Z",
         "timeZoneId": "America/Los_Angeles",
         "showTimeZone": true
       },
@@ -148,13 +148,41 @@ curl -X POST 'https://www.wixapis.com/events/v3/events/<eventId>/publish' \
 
 A `200` with `status: "UPCOMING"` (plus `OPEN_TICKETS` on the registration for a ticketed event) means it's live. **Publishing is one-way** — there's no un-publish — so confirm the tickets are created (STEP 2) before publishing a ticketed event.
 
+### STEP 4 (optional): Group events by a format / track — Event Categories
+
+**Only when the request wants events grouped or filtered by a format/track** (e.g. talk / workshop / social). Wix Events has a first-class **Categories** API for this — use it; do **not** invent an endpoint. **⚠️ It is `v1`, NOT `v3`**, and the assign path is specific:
+
+1. **Create one category per group** — `POST https://www.wixapis.com/events/v1/categories` with `{ "category": { "name": "Talks" } }` → keep `category.id`. One call each.
+2. **Assign events to a category** — `POST https://www.wixapis.com/events/v1/categories/{categoryId}/events` with `{ "eventId": ["<eventId>", …] }`. **⚠️ The path is `/{categoryId}/events`, NOT `/assign`** (and `v1`, not `v3/categories`) — the wrong forms `404`.
+3. **Verify via the EVENT read, not the category list.** Assignment can lag a few seconds — `listEventsByCategory` may briefly return `[]`, so don't gate on it. Confirm with `queryEvents` (or `getEventBySlug`) requesting **`fields: ["CATEGORIES"]`** — each event then carries `categories.categories[]` with the assigned `{ id, name }` (REST view — the id key is `id`, not `_id`).
+
+Nothing else in the seed depends on categories, and the frontend filters **client-side** off the category name (`how-to-code-events.md`) — skip this step entirely if the request has no grouping.
+
+### Attach images (imagery ON only — skip otherwise)
+
+**Only when `imagery` is on** (`SEED.md` § "Entity images"). Events were created text-only; this pass-2 step writes a generated hero image onto each event's **`mainImage`**. Generate + import per `references/IMAGE_GENERATION.md` → keep `file.url` and its `file.id`, then update the event. This works **before or after publish** — updating an event (unlike publishing) is not one-way — so run it here regardless of an event's status.
+
+**`mainImage` is an `Image` OBJECT `{ id, url, height, width, altText }`.** The binding field is the image **`id`** (the WixMedia image id); `url`/`altText` are descriptive. **⚠️ `height` and `width` are REQUIRED for the image to render** — the schema states the image only appears when both are defined, so always send them (use the generated dimensions, e.g. `1024`×`1024`). Events V3 uses **no `revision`** — this is a partial update keyed by `event.id`; pass only the field you're setting.
+
+`PATCH https://www.wixapis.com/events/v3/events/{eventId}`:
+
+```bash
+curl -X PATCH 'https://www.wixapis.com/events/v3/events/<eventId>' \
+  -H 'Authorization: <AUTH>' \
+  -H 'Content-Type: application/json' \
+  -d '{ "event": { "id": "<eventId>", "mainImage": { "id": "<file.id>", "url": "<file.url>", "height": 1024, "width": 1024, "altText": "<alt>" } }, "fields": ["DETAILS"] }'
+```
+
+- **`mainImage` reads back only under the `DETAILS` fieldset** — pass `"fields": ["DETAILS"]` (as above, and on any confirming `getEvent`/`queryEvents`) or the response omits it and a confirm check looks empty.
+- **Never block on image failure** (`SEED.md` § "Entity images" / IMAGE_GENERATION "Credits, cost & the not-generating fallback") — on failure, skip and leave the event text-only.
+
 ### Paid-ticket precondition — record it, do NOT block
 
 Seeding **succeeds** and the event goes live regardless of payment setup. But **completing a paid purchase** later requires, in the site dashboard, both:
 - a **premium plan**, and
 - at least one **configured payment method** (Wix Payments / Stripe / PayPal).
 
-Free / RSVP events need neither. This is **not** a seeding failure and **not** something to fix here — record it in the kept `notes` so the orchestrator can surface it plainly (*"Paid tickets require a premium plan + a configured payment method in the dashboard to complete a purchase."*). Never imply tickets are payable when no payment method is configured, and never fail the seed over it.
+Free / RSVP events need neither. This is **not** a seeding failure and **not** something to fix here — record it in the kept `notes` so it's surfaced plainly (*"Paid tickets require a premium plan + a configured payment method in the dashboard to complete a purchase."*). Never imply tickets are payable when no payment method is configured, and never fail the seed over it.
 
 ---
 
@@ -165,3 +193,4 @@ Following these steps **in order** sets up a published Events V3 site:
 - Every event is **published** (one-way) so it's live, after its tickets exist.
 - IDs kept for the coding handoff: `eventIds[]`, event `slug`s, and per ticketed event its `ticketDefinitionIds[]` (`[]` for RSVP).
 - The paid-ticket precondition (premium plan + payment method) is **noted**, not treated as a failure.
+- Events are seeded **text-only**; when `imagery` is on, the **Attach images** step writes a `mainImage` **object** onto each (`{ id, url, height, width }` — `height`/`width` REQUIRED or it won't render; no revision; PATCH `/events/v3/events/{eventId}`).
