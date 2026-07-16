@@ -211,7 +211,7 @@ Store the result internally as `subscription_eligible: true/false`. If `true`, a
 
 ## V3 STEP 4: Present Review Card to User (INTERACTIVE)
 
-**You MUST present ALL generated fields to the user and ask for confirmation before proceeding.**
+**Present ALL generated fields to the user so they can review and refine them.** This is a content preview for editing — NOT the create approval. The single confirmation before creating happens later, in V3 STEP 6. Do not ask the user to approve creation at this step.
 
 Present a structured review card using the markdown format below. This provides a visual product-card-style layout:
 
@@ -242,15 +242,15 @@ Present a structured review card using the markdown format below. This provides 
 ---
 ```
 
-After the card, present the action options:
+After the card, offer the ways they can adjust the content:
 
 > 1. **Refine** — tell me what to change (e.g., "make the description shorter", "the price should be lower")
 > 2. **Regenerate** — I'll start the analysis over, optionally with additional context from you
-> 3. **Approve** — lock in these details and continue to the next steps
+> 3. **Looks good** — continue to the next steps (options / subscription)
 
 If the user provided a text note that **contradicts** what's visible in the image (e.g., image shows blue but note says "available in red"), ask the user to clarify before proceeding.
 
-**Wait for user confirmation.** Apply any corrections they request. Do NOT proceed until approved.
+Apply any corrections the user requests. When they're happy (or have no changes), continue to the next step. **Do NOT treat this as the final create approval** — that single confirmation comes once, at V3 STEP 6.
 
 ---
 
@@ -342,13 +342,15 @@ If no options were detected:
 
 ## V3 STEP 6: Create the Product
 
-Before making the API call, ask the user one final time:
+> **CRITICAL — THIS IS THE ONLY CREATE CONFIRMATION. ASK EXACTLY ONCE.** The review card in V3 STEP 4 was a content preview for editing, not an approval. Here you ask for the single go-ahead before creating. Do NOT summarize-and-ask more than once — one clear confirmation is enough.
+
+Ask the user once:
 
 > Everything is ready. Shall I create the product now?
 > - **Yes, create it** — I'll submit the product to your store now.
 > - **No, go back** — return to a previous step to make changes.
 
-**Wait for confirmation.** Only proceed with the API call if the user says Yes.
+**Wait for confirmation.** Only proceed with the API call if the user says Yes. If the user already said something like "just create it", treat that as the confirmation and proceed without asking again.
 
 ---
 

@@ -78,7 +78,7 @@ Docs (read `?apiView=SDK`):
 
 ### Grouping / filtering by collection
 
-A project links to its collections via **`project.collectionIds: string[]`** (a project can be in several). To show a collection's projects, the **proven-reliable default is a client-side filter** over the already-listed projects (narrow the nullable `_id` first):
+A project links to its collections via **`project.collectionIds: string[]`** (a project can be in several). To show a collection's projects, the **default is a client-side filter** over the already-listed projects (avoids a second round-trip; narrow the nullable `_id` first):
 
 ```ts
 const colId = collection._id;

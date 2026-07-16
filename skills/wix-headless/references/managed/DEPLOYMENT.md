@@ -20,21 +20,21 @@ CI=1 npx @wix/cli@latest release
 
 - `release` auto-registers the deployed **origin** (`allowedRedirectDomains`) — that's the visitor-SDK/CORS surface (above). It does **not** register the member-login **callback URL** (`allowedRedirectUris`). These are two different fields; members needs **both**, and only the first is automatic.
 - **This is a post-release step** — the callback URL embeds the deployed origin, which is unknown until `release` prints it. Do it right after release, once the URL is known.
-- **⚠️ `allowedRedirectUris` IS writable via the API — do not conclude it's read-only/dashboard-only.** The `UpdateOAuthApp` reference may not list it among the obvious updatable fields, but a masked `PATCH` sets it (verified live). The trap is a **required field mask**: without `mask.paths` the `PATCH` returns `200` and **silently no-ops**.
+- **⚠️ `allowedRedirectUris` IS writable via the API — do not conclude it's read-only/dashboard-only.** The `UpdateOAuthApp` reference may not list it among the obvious updatable fields, but a masked `PATCH` sets it. The trap is a **required field mask**: without `mask.paths` the `PATCH` returns `200` and **silently no-ops**.
 
 ```bash
 ID="<clientId>"   # the OAuth app id == the public clientId
 # 1) GET first and append — the PATCH REPLACES the array, so include what's already there:
-curl -sS -D /tmp/_h.$$ https://www.wixapis.com/oauth-app/v1/oauth-apps/$ID \
-  -H "Authorization: $TOKEN" && grep -i '^x-wix-request-id:' /tmp/_h.$$; rm -f /tmp/_h.$$
+curl -sS -w "\nHTTP_STATUS:%{http_code}" https://www.wixapis.com/oauth-app/v1/oauth-apps/$ID \
+  -H "Authorization: Bearer $TOKEN"
 # 2) PATCH with the field mask (register BOTH the exact callback and the versioned-preview wildcard):
-curl -sS -D /tmp/_h.$$ -X PATCH https://www.wixapis.com/oauth-app/v1/oauth-apps/$ID \
-  -H "Authorization: $TOKEN" -H 'content-type: application/json' \
+curl -sS -X PATCH https://www.wixapis.com/oauth-app/v1/oauth-apps/$ID \
+  -H "Authorization: Bearer $TOKEN" -H 'content-type: application/json' \
   -w "\nHTTP_STATUS:%{http_code}" -d '{
     "oAuthApp": { "id": "'"$ID"'",
       "allowedRedirectUris": [ <existing…>, "https://<host>/callback", "https://*-<host>/callback" ] },
     "mask": { "paths": ["allowedRedirectUris"] }
-  }' && grep -i '^x-wix-request-id:' /tmp/_h.$$; rm -f /tmp/_h.$$
+  }'
 ```
 
 - Include **both** the exact URL **and** the `https://*-<host>/…` wildcard — Wix serves versioned preview subdomains. The callback path must match the recipe's `redirectUri` **exactly** (e.g. `window.location.origin + '/callback'`).

@@ -1,6 +1,6 @@
 # Create — scaffold a new managed Wix Headless project
 
-**Managed only.** This conductor runs when the project type is `managed` and the operation is
+**Managed only.** This flow runs when the project type is `managed` and the operation is
 `create` (an empty directory + a "build me a site" intent). It scaffolds a fresh Wix Headless
 project, runs the shared backend flow against it, builds the frontend wired to that backend, and
 releases. There is **no Designer and no template library** — the frontend is built ad-hoc to the
@@ -98,11 +98,14 @@ Then build the pages the user's intent calls for, **wired to the live backend**,
 bind (collection/form names + field keys; all other content is queried live). Install the SDK packages the loaded verticals need, author the pages/components directly in the
 project, and bind them to the live backend content. Keep it scoped to what was asked — no speculative pages.
 
-> **`npm install` note (Astro):** run the install with the optional native build skipped —
-> **`npm install --no-optional`** (or `--ignore-scripts`). Astro pulls `sharp` as an *optional*
-> transitive dep for local image optimization this headless flow never uses (all imagery is remote Wix
-> Media URLs), and its from-source build can fail and abort the whole install. A failed/absent `sharp`
-> is **expected and harmless here — do not try to repair it** (`astro.md` Caveat A9).
+> **`npm install` note (Astro):** always run **`npm install --ignore-scripts`**. Astro pulls `sharp`
+> as an *optional* transitive dep for **local, build-time**
+> image optimization this headless flow never uses (all imagery is remote Wix Media URLs served through
+> plain `<img>`), and its from-source native build can fail and abort the whole install; `--ignore-scripts`
+> skips that failing build up front. **Do not** use the deprecated `--no-optional` (silent no-op in modern
+> npm — sharp still builds) or `--omit=optional` (sharp still resolves). A failed/absent `sharp` is
+> **expected and harmless — never build, retry, or repair it, and never spend time diagnosing it**
+> (`astro.md` Caveat A9).
 
 If `imagery` is on and a surface needs an image (e.g. a homepage hero, an about-section visual),
 generate it per **`references/IMAGE_GENERATION.md`** and use its `file.url` — up to the per-run
@@ -112,9 +115,9 @@ generate it per **`references/IMAGE_GENERATION.md`** and use its `file.url` — 
 
 ## 5 · Build & release
 
-**Release once, at the very end.** Do **not** `build && release` mid-flow to "preview" progress. Reach this step only after **all** of the earlier work is done: Setup (§3), Seed **including the entity-image attach** (`SEED.md` §5 — pass-2 patches), the frontend wiring (§4), and any page imagery. A single release at the end is the target; each extra build+release cycle is wasted wall time.
+**Release once, at the very end.** Do **not** `build && release` mid-flow to "preview" progress. Reach this step only after **all** of the earlier work is done: Setup (§3), Seed **including the entity-image attach** (`SEED.md` § "Entity images" — pass-2 patches), the frontend wiring (§4), and any page imagery. A single release at the end is the target; each extra build+release cycle is wasted wall time.
 
-**A re-release does not refresh backend content — don't reach for one to "fix" seeded data or images.** A headless frontend fetches seeded backend content **and entity images at runtime** (via the SDK / REST), so that content is *not* baked into the build output. If you change a seeded entity or attach an image **after** releasing, the live site already reflects it on the next request — there is nothing to re-publish. Re-release **only** when the **frontend build output itself** changed. In particular, a backend image that isn't showing is an **attach-shape bug** (wrong write shape → the entity has no image — see `SEED.md` §5 / `setup-bookings.md` STEP 5), **not** a stale CDN cache; don't re-release to "clear a cache" for it.
+**A re-release does not refresh backend content — don't reach for one to "fix" seeded data or images.** A headless frontend fetches seeded backend content **and entity images at runtime** (via the SDK / REST), so that content is *not* baked into the build output. If you change a seeded entity or attach an image **after** releasing, the live site already reflects it on the next request — there is nothing to re-publish. Re-release **only** when the **frontend build output itself** changed. In particular, a backend image that isn't showing is an **attach-shape bug** (wrong write shape → the entity has no image — see `SEED.md` § "Entity images" / the capability recipe's **Attach images** step), **not** a stale CDN cache; don't re-release to "clear a cache" for it.
 
 Produce the build output, then finalize per **`references/managed/DEPLOYMENT.md`**
 (`npx @wix/cli@latest release` — Wix publishes the site and registers the origin OOTB). The build step

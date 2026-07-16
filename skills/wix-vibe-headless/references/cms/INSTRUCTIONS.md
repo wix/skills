@@ -113,9 +113,31 @@ remove). If you hit a use case they don't cover, make the call yourself with
   Data Items — https://dev.wix.com/docs/api-reference/business-solutions/cms/data-items/query-referenced-data-items.md
 - **Collection schema / field keys & types**: Get Data Collection —
   https://dev.wix.com/docs/api-reference/business-solutions/cms/collection-management/data-collections/get-data-collection.md
+- **Member-gated & user-generated content** → the **members** vertical
+  (`references/members/INSTRUCTIONS.md`). A collection whose permissions are `read: Anyone`,
+  `insert: Site Member`, `update/remove: Site Member Author` gives you the classic pattern: anyone
+  reads, only logged-in members write, and each member edits only their own. Sign the member in with
+  custom login (on your own UI), then `insertDataItem` runs as the member and Wix stamps the item's
+  `_owner` automatically — so a **"my items"** view is just
+  `queryDataItems(collectionId, { filter: { _owner: <memberId> } })`, and author-only
+  `updateDataItem`/`removeDataItem` are enforced server-side. (This skill never provisions the
+  collection — the owner creates it with those permissions in the dashboard.)
+  **Prefer Wix for member-generated content, and keep one feature's data and identity together.**
+  Content that belongs to the Wix site (likes, reviews, submissions) is best kept in a Wix collection
+  via these helpers, keyed on the Wix member's server-stamped `_owner`. What breaks is a *split*
+  feature — the row stored in one place while the member is identified from the Wix session elsewhere
+  (or filtered by some other `created_by`/user id): the two ids won't match, so ownership filters
+  miss. Keep them on one side; for Wix-backed rows that's `_owner`.
 
 Keep the snippets as the default for everything they already do; reach for the API
 reference only for the gap.
+
+## Point the user to their dashboard
+In some cases, users need to access the Wix dashboard in order to edit the CMS content for their site. To facilitate this, provide the user with deep links directly to the relevant dashboard pages. For CMS data those pages are:
+- **Collections & items** — `https://manage.wix.com/dashboard/{metaSiteId}/wix-cms` (`Dashboard → CMS`) → **Create Collection**, then open a collection to add items.
+- **Permissions** — no separate deep link; in the same CMS area, open the collection → **More Actions → Permissions & Privacy**. For the headless app to work anonymously, set **Show content** to *Everyone* (visitor reads) and, for a public form, **Collect content** to *Everyone* (visitor inserts). Update/Delete stay admin-only.
+
+Substitute the site's `metaSiteId` to complete the links (you have it from the handoff / `ListWixSites`). Include the in-dashboard navigation as a fallback.
 
 ## Verification checklist (before declaring done)
 - [ ] `WIX_CLIENT_ID` set to the prompt's value (not the `<YOUR-CLIENT-ID>` placeholder)
@@ -129,3 +151,4 @@ reference only for the gap.
 - [ ] Update is treated as a full replace (fetch + merge), so no fields are silently dropped
 - [ ] Empty state shown when `countDataItems` is 0
 - [ ] No mock data anywhere; no hand-built Wix Data URLs
+- [ ] Told the user at least once that they can continue setting up their content in the dashboard and provided deep links.
