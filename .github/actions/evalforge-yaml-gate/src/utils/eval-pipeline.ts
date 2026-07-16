@@ -33,7 +33,8 @@ export type ScenarioComparison = {
   reason: string;
   with: ScenarioRunResult;
   without: ScenarioRunResult;
-  pairwiseJudgement: {
+  // Optional: the pipeline omits it when pairwise judging is disabled or the judge call fails.
+  pairwiseJudgement?: {
     winner: 'tie' | 'with' | 'without';
     confidence: string;
     reasoning: string;
@@ -113,8 +114,8 @@ export class EvalPipelineClient {
     return res.json() as Promise<T>;
   }
 
-  async runComparison(tags: string[], agentName: string, commitSha?: string, skillsRepo?: string): Promise<ComparisonResult> {
-    return this.post<ComparisonResult>('/run-comparison', { tags, agentName, commitSha, skillsRepo });
+  async runComparison(tags: string[], agentName: string, commitSha?: string, skillsRepo?: string, scenarioIds?: string[]): Promise<ComparisonResult> {
+    return this.post<ComparisonResult>('/run-comparison', { tags, agentName, commitSha, skillsRepo, scenarioIds });
   }
 
   async compareGroup(comparisonGroupId: string): Promise<CompareGroupStatus> {

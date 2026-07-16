@@ -47,6 +47,45 @@ export function remoteScenarioFiltersForGate(input: {
   return { names: [...names].sort(), tags: [input.draftTag] };
 }
 
+/**
+ * Head scenarios to sync and run: those whose YAML changed, plus those covering a
+ * changed skill doc (so editing a skill re-runs the scenarios that exercise it).
+ */
+export function scenariosToRun(input: {
+  headScenarios: Map<string, LoadedScenario>;
+  changedEvalPaths: Set<string>;
+  coveredBy: Map<string, string[]>;
+}): Map<string, LoadedScenario> {
+  const result = new Map<string, LoadedScenario>();
+  for (const [name, ls] of input.headScenarios) {
+    if (input.changedEvalPaths.has(ls.path)) result.set(name, ls);
+  }
+  for (const coveringNames of input.coveredBy.values()) {
+    for (const name of coveringNames) {
+      const ls = input.headScenarios.get(name);
+      if (ls) result.set(name, ls);
+    }
+  }
+  return result;
+}
+
+export function scenarioIdsToRun(
+  scenarios: Map<string, LoadedScenario>,
+  nameToId: Map<string, string>,
+): string[] {
+  const missing: string[] = [];
+  const ids: string[] = [];
+  for (const name of scenarios.keys()) {
+    const id = nameToId.get(name);
+    if (id) ids.push(id);
+    else missing.push(name);
+  }
+  if (missing.length > 0) {
+    throw new Error(`Missing EvalForge scenario IDs for: ${missing.join(', ')}`);
+  }
+  return ids;
+}
+
 export async function runGate(): Promise<void> {
   const config = getEvalConfig();
   const octokit = github.getOctokit(config.githubToken);
@@ -114,15 +153,11 @@ export async function runGate(): Promise<void> {
   const { scenarios: baseScenarios, errors: baseErrors } = loadEvals(baseWorkspace);
   for (const e of baseErrors) core.warning(`Base SHA eval issue (${e.path}): ${e.message}`);
 
-  // Restrict head to scenarios authored or modified in THIS PR — avoids spurious PUTs on every push.
   const changedEvalPaths = new Set<string>([
     ...classifiedChanges.evalsAdded.map(f => f.filename),
     ...classifiedChanges.evalsModified.map(f => f.filename),
   ]);
-  const changedHeadScenarios = new Map<string, LoadedScenario>();
-  for (const [name, ls] of headScenarios) {
-    if (changedEvalPaths.has(ls.path)) changedHeadScenarios.set(name, ls);
-  }
+  const changedHeadScenarios = scenariosToRun({ headScenarios, changedEvalPaths, coveredBy: cov.coveredBy });
 
   const filters = remoteScenarioFiltersForGate({ changedHead: changedHeadScenarios, head: headScenarios, base: baseScenarios, draftTag });
   const remote = await guardedCall(
@@ -176,7 +211,7 @@ export async function runGate(): Promise<void> {
 
   const pipeline = new EvalPipelineClient(config.evalPipelineUrl, config.appId, config.appSecret);
   const comparison = await guardedCall(
-    () => pipeline.runComparison([draftTag], config.agentName, config.headSha, config.mcpSkillsRepo),
+    () => pipeline.runComparison([draftTag], config.agentName, config.headSha, config.mcpSkillsRepo, scenarioIdsToRun(changedHeadScenarios, nameToId)),
     'Could not start eval pipeline comparison', comment, config,
   );
   if (!comparison) return;
