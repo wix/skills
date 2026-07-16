@@ -226,7 +226,7 @@ Based on the merchant's request AND the site data, determine which domains to an
 **If unclear, ask:** "Would you like this to apply automatically to everyone, or as a coupon code?"
 
 **If COUPON is selected**, load the coupon setup reference with `ReadFullDocsArticle`:
-[Setup: Coupons](https://dev.wix.com/docs/api-reference/business-solutions/coupons)
+[Pricing: Create Coupon](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-coupon)
 
 ---
 

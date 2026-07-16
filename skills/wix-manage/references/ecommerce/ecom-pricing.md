@@ -47,14 +47,14 @@ The single business-flow orchestrator (`recommend-ecommerce-strategy`) handles a
 
 > - [Discount not applying — diagnose](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-discount-not-applying) — tags: `[intent:troubleshoot]` · priority 0
 > - [View active discounts (Coupons API)](https://dev.wix.com/docs/api-reference/business-solutions/coupons/coupons/query-coupons) — tags: `[intent:view-active-discounts]` · priority 0 · **API doc, no skill** (per §7.5)
-> - [View active discounts (Discount Rules API)](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/discount-rules/query-discount-rules) — tags: `[intent:view-active-rules]` · priority 0 · **API doc, no skill**
-> - [Coupon usage stats](https://dev.wix.com/docs/api-reference/business-solutions/coupons/coupons/get-coupon-usage) — tags: `[intent:coupon-usage-stats]` · priority 0 · **API doc, no skill**
+> - [View active discounts (Discount Rules API)](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/discounts/discount-rules/query-discount-rules) — tags: `[intent:view-active-rules]` · priority 0 · **API doc, no skill**
+> - [Coupon usage stats](https://dev.wix.com/docs/api-reference/business-solutions/coupons/coupons/get-a-coupon) — tags: `[intent:coupon-usage-stats]` · priority 0 · **API doc, no skill** (usage count is the coupon object's `numberOfUsages` field)
 > - Competitive pricing check (how do my prices compare?) — tags: `[intent:competitive-pricing]` · *no Wix API for competitor data — advise the merchant to benchmark externally (Google Shopping / market research); Wix only exposes their own catalog prices via Catalog API*
 
 ### Cross-category routes (handled in another category)
 
-> - [Change product price](https://dev.wix.com/docs/api-reference/business-solutions/stores/products-v3/update-product) — tags: `[intent:change-price]` · *price is a product field — Catalog API*
-> - [Set compare-at price](https://dev.wix.com/docs/api-reference/business-solutions/stores/products-v3/update-product) — tags: `[intent:set-compare-at]` · *Catalog*
+> - [Change product price](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/update-product) — tags: `[intent:change-price]` · *price is a product field — Catalog API*
+> - [Set compare-at price](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/update-product) — tags: `[intent:set-compare-at]` · *Catalog*
 > - [Free shipping over $X (promo rule)](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-discount-rule) — tags: `[intent:free-shipping-promo]` · *belongs here as a promo rule; a $0 shipping rate is Shipping*
 
 ## Tag matching
