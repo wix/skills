@@ -34518,8 +34518,9 @@ function formatComparisonResult(result, projectId) {
         '|---|---|---|---|---|---|---|',
     ];
     for (const s of (scenarios ?? [])) {
-        const winner = s.pairwiseJudgement.winner;
-        const winnerLabel = winner === 'tie' ? '≈ tie' : winner === 'with' ? '⬆️ PR' : '⬇️ prod';
+        const j = s.pairwiseJudgement;
+        const winnerLabel = !j ? '—' : j.winner === 'tie' ? '≈ tie' : j.winner === 'with' ? '⬆️ PR' : '⬇️ prod';
+        const winnerCell = j ? `${winnerLabel} (${j.confidence})` : winnerLabel;
         const costWith = s.with.totalCostUsd.toFixed(3);
         const costWithout = s.without.totalCostUsd.toFixed(3);
         const tokWith = `${(s.with.totalTokens / 1000).toFixed(1)}K`;
@@ -34528,7 +34529,7 @@ function formatComparisonResult(result, projectId) {
         const timeWithout = `${(s.without.durationMs / 1000).toFixed(1)}s`;
         const runWith = projectId && s.with.runId ? `[PR](${(0, evalforge_1.evalRunUrl)(projectId, s.with.runId, s.with.name)})` : '—';
         const runWithout = projectId && s.without.runId ? `[prod](${(0, evalforge_1.evalRunUrl)(projectId, s.without.runId, s.without.name)})` : '—';
-        lines.push(`| ${s.scenarioName} | ${s.required ? '✅' : '—'} | ${winnerLabel} (${s.pairwiseJudgement.confidence}) | $${costWith} / $${costWithout} | ${tokWith} / ${tokWithout} | ${timeWith} / ${timeWithout} | ${runWith} / ${runWithout} |`);
+        lines.push(`| ${s.scenarioName} | ${s.required ? '✅' : '—'} | ${winnerCell} | $${costWith} / $${costWithout} | ${tokWith} / ${tokWithout} | ${timeWith} / ${timeWithout} | ${runWith} / ${runWithout} |`);
     }
     for (const s of (scenarios ?? [])) {
         lines.push('', `<details><summary>${s.scenarioName}</summary>`, '', s.reason, '');
@@ -34538,10 +34539,10 @@ function formatComparisonResult(result, projectId) {
             lines.push(`[View run (prod)](${(0, evalforge_1.evalRunUrl)(projectId, s.without.runId, s.without.name)})`, '');
         lines.push('**Assertions (PR):**', ...s.with.assertions.map(assertionLine), '');
         lines.push('**Assertions (prod):**', ...s.without.assertions.map(assertionLine), '');
-        if (s.pairwiseJudgement.reasoning) {
+        if (s.pairwiseJudgement?.reasoning) {
             lines.push(`**Compare result:** ${s.pairwiseJudgement.reasoning}`, '');
         }
-        if (s.pairwiseJudgement.dimensions) {
+        if (s.pairwiseJudgement?.dimensions) {
             lines.push('**Dimensions:**', ...Object.entries(s.pairwiseJudgement.dimensions).map(([k, v]) => `- ${k}: **${v.winner}**`), '');
         }
         lines.push('</details>');
@@ -34950,8 +34951,8 @@ class EvalPipelineClient {
         }
         return res.json();
     }
-    async runComparison(tags, agentName, commitSha, skillsRepo) {
-        return this.post('/run-comparison', { tags, agentName, commitSha, skillsRepo });
+    async runComparison(tags, agentName, commitSha, skillsRepo, scenarioIds) {
+        return this.post('/run-comparison', { tags, agentName, commitSha, skillsRepo, scenarioIds });
     }
     async compareGroup(comparisonGroupId) {
         return this.post('/compare-group', { comparisonGroupId });
@@ -35486,6 +35487,8 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.remoteScenarioFiltersForGate = remoteScenarioFiltersForGate;
+exports.scenariosToRun = scenariosToRun;
+exports.scenarioIdsToRun = scenarioIdsToRun;
 exports.runGate = runGate;
 const core = __importStar(__nccwpck_require__(7484));
 const github = __importStar(__nccwpck_require__(3228));
@@ -35516,6 +35519,40 @@ function remoteScenarioFiltersForGate(input) {
             names.add(name);
     }
     return { names: [...names].sort(), tags: [input.draftTag] };
+}
+/**
+ * Head scenarios to sync and run: those whose YAML changed, plus those covering a
+ * changed skill doc (so editing a skill re-runs the scenarios that exercise it).
+ */
+function scenariosToRun(input) {
+    const result = new Map();
+    for (const [name, ls] of input.headScenarios) {
+        if (input.changedEvalPaths.has(ls.path))
+            result.set(name, ls);
+    }
+    for (const coveringNames of input.coveredBy.values()) {
+        for (const name of coveringNames) {
+            const ls = input.headScenarios.get(name);
+            if (ls)
+                result.set(name, ls);
+        }
+    }
+    return result;
+}
+function scenarioIdsToRun(scenarios, nameToId) {
+    const missing = [];
+    const ids = [];
+    for (const name of scenarios.keys()) {
+        const id = nameToId.get(name);
+        if (id)
+            ids.push(id);
+        else
+            missing.push(name);
+    }
+    if (missing.length > 0) {
+        throw new Error(`Missing EvalForge scenario IDs for: ${missing.join(', ')}`);
+    }
+    return ids;
 }
 async function runGate() {
     const config = (0, config_1.getEvalConfig)();
@@ -35571,16 +35608,11 @@ async function runGate() {
     const { scenarios: baseScenarios, errors: baseErrors } = (0, evals_1.loadEvals)(baseWorkspace);
     for (const e of baseErrors)
         core.warning(`Base SHA eval issue (${e.path}): ${e.message}`);
-    // Restrict head to scenarios authored or modified in THIS PR — avoids spurious PUTs on every push.
     const changedEvalPaths = new Set([
         ...classifiedChanges.evalsAdded.map(f => f.filename),
         ...classifiedChanges.evalsModified.map(f => f.filename),
     ]);
-    const changedHeadScenarios = new Map();
-    for (const [name, ls] of headScenarios) {
-        if (changedEvalPaths.has(ls.path))
-            changedHeadScenarios.set(name, ls);
-    }
+    const changedHeadScenarios = scenariosToRun({ headScenarios, changedEvalPaths, coveredBy: cov.coveredBy });
     const filters = remoteScenarioFiltersForGate({ changedHead: changedHeadScenarios, head: headScenarios, base: baseScenarios, draftTag });
     const remote = await guardedCall(() => listRemoteScenariosForGate(evalforge, config.projectId, filters), 'Could not reach EvalForge', comment, config);
     if (!remote)
@@ -35629,7 +35661,7 @@ async function runGate() {
         return;
     }
     const pipeline = new eval_pipeline_1.EvalPipelineClient(config.evalPipelineUrl, config.appId, config.appSecret);
-    const comparison = await guardedCall(() => pipeline.runComparison([draftTag], config.agentName, config.headSha, config.mcpSkillsRepo), 'Could not start eval pipeline comparison', comment, config);
+    const comparison = await guardedCall(() => pipeline.runComparison([draftTag], config.agentName, config.headSha, config.mcpSkillsRepo, scenarioIdsToRun(changedHeadScenarios, nameToId)), 'Could not start eval pipeline comparison', comment, config);
     if (!comparison)
         return;
     core.info(`Eval pipeline comparison started: comparisonGroupId=${comparison.comparisonGroupId}`);
