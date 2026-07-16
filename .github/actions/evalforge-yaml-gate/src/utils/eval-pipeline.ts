@@ -33,7 +33,8 @@ export type ScenarioComparison = {
   reason: string;
   with: ScenarioRunResult;
   without: ScenarioRunResult;
-  pairwiseJudgement: {
+  // Optional: the pipeline omits it when pairwise judging is disabled or the judge call fails.
+  pairwiseJudgement?: {
     winner: 'tie' | 'with' | 'without';
     confidence: string;
     reasoning: string;
