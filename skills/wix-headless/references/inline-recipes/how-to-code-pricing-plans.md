@@ -10,7 +10,7 @@ A contract for the **frontend code** of a pricing-plans site: showing the plans 
 
 > **⚠️ Reading rule — append `.md?apiView=SDK` to every doc link below.** Wix docs render two views: the **bare/REST view shows `id`**, the **`?apiView=SDK` view shows `_id`** — the SDK is what your frontend calls. A surprising field name usually means you're reading the REST view. Discover any shape not pinned here with `SearchWixSDKDocumentation`, not by guessing a URL.
 
-> **⚠️ pricing-plans is a HARD dependency on members.** Ordering a plan and the "my subscription" surface both require a **logged-in member** (browsing the grid is public). So this recipe is always paired with member auth — read the matching **`how-to-code-members-astro.md`** or **`how-to-code-members-non-astro.md`** for the login flow. A logged-in member ordering their own plan needs **no `auth.elevate`** and **no `onBehalf`**.
+> **⚠️ pricing-plans is a HARD dependency on members.** Ordering a plan and the "my subscription" surface both require a **logged-in member** (browsing the grid is public). So this recipe is always paired with member auth — read **`how-to-code-members-custom-login.md`** for the login flow (a custom in-app login: `register`/`login` or Google/Facebook). A logged-in member ordering their own plan needs **no `auth.elevate`** and **no `onBehalf`**.
 
 ---
 
@@ -30,7 +30,7 @@ A contract for the **frontend code** of a pricing-plans site: showing the plans 
 > **⚠️ The read module is `plansV3`, not `plans`.** In the `@wix/pricing-plans` SDK, `queryPlans`/`getPlan` live on the **`plansV3`** namespace (`import { plansV3, orders } from '@wix/pricing-plans'`). Importing `plans` and calling `plans.queryPlans()` fails to type-check (`Property 'queryPlans' does not exist`). `orders` keeps its own namespace.
 
 **Auth / client — framework split** (same split as every other coding recipe):
-- **Astro (Wix-managed):** auth is ambient — call `plansV3` / `orders` directly from server components / `src/pages/api/*`. Member identity rides on the call automatically after login (`how-to-code-members-astro.md`). **No `createClient`, no `OAuthStrategy`, no `clientId`.** A member reading their own orders needs **no `auth.elevate`**.
+- **Astro (Wix-managed):** call `plansV3` / `orders` directly from server components / `src/pages/api/*`; a logged-in member's identity rides on the call. Member login itself is the custom in-app flow, run in a **client island** (not a backend route — the auth calls need `window`), writing the `wixSession` cookie (`how-to-code-members-custom-login.md`) — the built-in `/api/auth/login` Wix-login redirect is removed. A member reading their own orders needs **no `auth.elevate`**.
 - **Non-Astro (Vite/React/Vue/static):** build one manual client and reuse it — the **same** `OAuthStrategy` client the members/visitor flow already builds (don't make a second one). After the member-login handshake sets member tokens on it, `orders.*` runs as that member:
   ```js
   import { createClient, OAuthStrategy } from '@wix/sdk';

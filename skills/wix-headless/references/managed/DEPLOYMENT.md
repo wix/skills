@@ -14,20 +14,24 @@ CI=1 npx @wix/cli@latest release
 - The deployed origin is registered on the OAuth app automatically — the frontend's visitor SDK calls are accepted from the live URL with no extra step.
 - The published URL is printed on stdout (`Site published on <url>`).
 
-## Member login on a **non-Astro** frontend — register the callback URI (post-release)
+## Social login (Google/Facebook) on a **non-Astro** frontend — register the callback URI (post-release)
 
-**Only when the run has member login on a non-Astro SPA/static frontend using the Wix login page** (`inline-recipes/how-to-code-members-non-astro.md` — the `getAuthUrl` → `/callback` handshake). Astro's built-in `/api/auth/*` callback shapes are auto-registered; a **non-Astro SPA's own callback path is not** — and **login stays dead (4xx on the login redirect) until you register it**. This is a genuine gap `wix release` does *not* close for you.
+**Only when the run has SOCIAL member login (Google/Facebook) on a non-Astro SPA/static frontend** (`inline-recipes/how-to-code-members-custom-login.md` mechanism (B) — the `getAuthUrl({ idp })` → `/callback` handshake). A **non-Astro SPA's own callback path is not auto-registered** — and **social login stays dead (4xx on the login redirect) until you register it**. This is a genuine gap `wix release` does *not* close for you. (**Direct-credential** login — mechanism (A), `register`/`login` — has no redirect and needs none of this.)
 
 - `release` auto-registers the deployed **origin** (`allowedRedirectDomains`) — that's the visitor-SDK/CORS surface (above). It does **not** register the member-login **callback URL** (`allowedRedirectUris`). These are two different fields; members needs **both**, and only the first is automatic.
 - **This is a post-release step** — the callback URL embeds the deployed origin, which is unknown until `release` prints it. Do it right after release, once the URL is known.
 - **⚠️ `allowedRedirectUris` IS writable via the API — do not conclude it's read-only/dashboard-only.** The `UpdateOAuthApp` reference may not list it among the obvious updatable fields, but a masked `PATCH` sets it. The trap is a **required field mask**: without `mask.paths` the `PATCH` returns `200` and **silently no-ops**.
+- **⚠️ Right after `release`, the by-id `GetOAuthApp`/`UpdateOAuthApp` calls can return a TRANSIENT `404 "appId was not found <id>"` — even with the correct id — for several minutes (eventual consistency on the freshly-created app).** This is **not** a wrong-id error: the `{id}` in `/oauth-app/v1/oauth-apps/{id}` is the OAuth app's own `id`, which for a managed project **equals `wix.config.json`'s `appId`** (and equals the public `clientId`) — using it is correct. (`siteId` is *not* the app id — that one genuinely 404s.) The **`QueryOAuthApps` endpoint resolves sooner** than by-id, so use it to (a) confirm the app is ready and (b) read the current `allowedRedirectUris` to append. If a by-id `GET`/`PATCH` 404s, **retry with a short backoff — do not conclude the id is wrong or the field is unwritable** (a real eval run gave up here and shipped an unregistered callback; a later retry with the same id succeeded).
 
 ```bash
-ID="<clientId>"   # the OAuth app id == the public clientId
-# 1) GET first and append — the PATCH REPLACES the array, so include what's already there:
-curl -sS -w "\nHTTP_STATUS:%{http_code}" https://www.wixapis.com/oauth-app/v1/oauth-apps/$ID \
-  -H "Authorization: Bearer $TOKEN"
-# 2) PATCH with the field mask (register BOTH the exact callback and the versioned-preview wildcard):
+ID="<appId from wix.config.json>"   # == the OAuth app id == public clientId (NOT siteId)
+# 1) Read current URIs (query resolves before by-id does, post-release). Append to what it returns — PATCH REPLACES the array.
+curl -sS -w "\nHTTP_STATUS:%{http_code}" -X POST https://www.wixapis.com/oauth-app/v1/oauth-apps/query \
+  -H "Authorization: Bearer $TOKEN" -H 'content-type: application/json' \
+  -d '{ "query": { "filter": { "id": { "$eq": "'"$ID"'" } } } }'
+#   → oAuthApps[0].allowedRedirectUris (append to these). Also confirms the id is live.
+# 2) PATCH with the field mask (append the exact callback AND the versioned-preview wildcard; keep existing).
+#    If this 404s right after release, RETRY with backoff — it is the propagation race, not a bad id:
 curl -sS -X PATCH https://www.wixapis.com/oauth-app/v1/oauth-apps/$ID \
   -H "Authorization: Bearer $TOKEN" -H 'content-type: application/json' \
   -w "\nHTTP_STATUS:%{http_code}" -d '{
@@ -37,11 +41,13 @@ curl -sS -X PATCH https://www.wixapis.com/oauth-app/v1/oauth-apps/$ID \
   }'
 ```
 
-- Include **both** the exact URL **and** the `https://*-<host>/…` wildcard — Wix serves versioned preview subdomains. The callback path must match the recipe's `redirectUri` **exactly** (e.g. `window.location.origin + '/callback'`).
+- Include **both** the exact URL **and** the `https://*-<host>/…` wildcard — Wix serves versioned preview subdomains. The callback path must match the recipe's `redirectUri` **exactly** (e.g. `window.location.origin + '/callback'`). Note `release` may pre-register the framework's own `/api/auth/callback`, but **not your custom social `/callback`** — that's the one you add here.
 - `allowedRedirectDomains` and `allowedRedirectUris` can go in **one** `PATCH` (list both under `mask.paths`) if you ever need to set the origin by hand too.
 - **If you're not the one deploying**, you can't know the domain — flag the member-login callback URI to the user to register, and note **login is dead until they do** (higher-stakes than the origin flag).
 
-> **Custom-login** (`how-to-code-members-custom-login.md`) does **not** need this — `register`/`login` are direct API calls with no login-page redirect. Only `sendPasswordResetEmail`'s `redirectUri` and logout's return URL need allow-listing there.
+> **✅ Once `/callback` is registered, the `getAuthUrl({ idp })` direct-to-provider flow works end-to-end** (verified live, Google + Facebook). Registering the callback URI (above) is the **only** prerequisite for social login on a non-Astro frontend — there is no additional platform gate to clear. (Direct-credential login needs no callback registration at all.)
+
+> **Direct-credential login** (mechanism (A) — `register`/`login`) does **not** need this — they're direct API calls with no redirect. Only `sendPasswordResetEmail`'s `redirectUri` and logout's return URL need allow-listing (same masked-`PATCH` shape). **Social login** (mechanism (B), above) is the one that needs the `/callback` registered.
 
 ## Static frontends (no build step)
 
