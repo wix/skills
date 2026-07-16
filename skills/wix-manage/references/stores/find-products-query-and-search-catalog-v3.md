@@ -192,3 +192,5 @@ Check the response `pagingMetadata` to determine if more pages exist.
 ## Conclusion
 
 To find products by name or free text, use `POST https://www.wixapis.com/stores/v3/products/search`. To list, page, sort, or structurally filter products, use `POST https://www.wixapis.com/stores/v3/products/query`. Use `fields: []` for defaults, or pass valid enum values like `DESCRIPTION`, `URL`, `ALL_CATEGORIES_INFO` for additional data. Never pass property names as field values.
+
+<!-- e2e-gate-test: temporary edit; covered by the added stores/e2e-find-products-smoke scenario; do not merge -->
