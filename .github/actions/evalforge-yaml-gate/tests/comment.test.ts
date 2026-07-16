@@ -117,6 +117,25 @@ describe('comment formatters', () => {
     expect(out).toContain('[View run (prod)](https://bo.wix.com/pages/evalforge/proj-1/results?runId=prod-run');
   });
 
+  it('formatComparisonResult tolerates comparison scenarios without pairwiseJudgement', () => {
+    const out = c.formatComparisonResult(group([scenario({
+      verdict: 'not-sure',
+      reason: 'with-skill has failing assertions',
+      pairwiseJudgement: undefined,
+      with: run({
+        failed: 1,
+        assertions: [
+          { name: 'Tool called with param', type: 'tool_called_with_param', status: 'ASSERTION_RESULT_STATUS_FAILED' },
+          { name: 'LLM judge', type: 'llm_judge', status: 'ASSERTION_RESULT_STATUS_PASSED', score: 10 },
+        ],
+      }),
+    })]), 'proj-1');
+
+    expect(out).toContain('| scenario-a | ✅ | `not-sure` |');
+    expect(out).toContain('- ✅ LLM judge (10/10)');
+    expect(out).toContain('- ❌ Tool called with param');
+  });
+
   it('formatTooManyNewSkills includes count and file names', () => {
     const out = c.formatTooManyNewSkills(2, 1, [
       'skills/wix-manage/references/payments/process.md',

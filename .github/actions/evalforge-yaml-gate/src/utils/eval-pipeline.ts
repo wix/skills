@@ -30,10 +30,11 @@ export type ScenarioComparison = {
   scenarioId: string;
   scenarioName: string;
   required: boolean;
+  verdict?: string;
   reason: string;
   with: ScenarioRunResult;
   without: ScenarioRunResult;
-  pairwiseJudgement: {
+  pairwiseJudgement?: {
     winner: 'tie' | 'with' | 'without';
     confidence: string;
     reasoning: string;

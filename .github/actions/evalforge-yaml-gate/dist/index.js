@@ -34499,8 +34499,19 @@ function formatEvalTimeout(runId, runUrl, blocking) {
 function formatNoChanges() {
     return render('✅', 'No Gated Changes', ['Nothing under `evals/` or sibling `.md` changed.']);
 }
+function isPassedStatus(status) {
+    return status === 'passed' || status.endsWith('_PASSED');
+}
+function winnerLabel(s) {
+    const judgement = s.pairwiseJudgement;
+    if (!judgement)
+        return s.verdict ? `\`${s.verdict}\`` : '—';
+    const winner = judgement.winner;
+    const label = winner === 'tie' ? '≈ tie' : winner === 'with' ? '⬆️ PR' : '⬇️ prod';
+    return `${label} (${judgement.confidence})`;
+}
 function assertionLine(a) {
-    const icon = a.status === 'passed' ? '✅' : '❌';
+    const icon = isPassedStatus(a.status) ? '✅' : '❌';
     const score = a.score !== undefined ? ` (${a.score}/10)` : '';
     const detail = a.verdict ? `: ${a.verdict}` : a.message ? `: ${a.message}` : '';
     return `- ${icon} ${a.name}${score}${detail}`;
@@ -34518,8 +34529,6 @@ function formatComparisonResult(result, projectId) {
         '|---|---|---|---|---|---|---|',
     ];
     for (const s of (scenarios ?? [])) {
-        const winner = s.pairwiseJudgement.winner;
-        const winnerLabel = winner === 'tie' ? '≈ tie' : winner === 'with' ? '⬆️ PR' : '⬇️ prod';
         const costWith = s.with.totalCostUsd.toFixed(3);
         const costWithout = s.without.totalCostUsd.toFixed(3);
         const tokWith = `${(s.with.totalTokens / 1000).toFixed(1)}K`;
@@ -34528,7 +34537,7 @@ function formatComparisonResult(result, projectId) {
         const timeWithout = `${(s.without.durationMs / 1000).toFixed(1)}s`;
         const runWith = projectId && s.with.runId ? `[PR](${(0, evalforge_1.evalRunUrl)(projectId, s.with.runId, s.with.name)})` : '—';
         const runWithout = projectId && s.without.runId ? `[prod](${(0, evalforge_1.evalRunUrl)(projectId, s.without.runId, s.without.name)})` : '—';
-        lines.push(`| ${s.scenarioName} | ${s.required ? '✅' : '—'} | ${winnerLabel} (${s.pairwiseJudgement.confidence}) | $${costWith} / $${costWithout} | ${tokWith} / ${tokWithout} | ${timeWith} / ${timeWithout} | ${runWith} / ${runWithout} |`);
+        lines.push(`| ${s.scenarioName} | ${s.required ? '✅' : '—'} | ${winnerLabel(s)} | $${costWith} / $${costWithout} | ${tokWith} / ${tokWithout} | ${timeWith} / ${timeWithout} | ${runWith} / ${runWithout} |`);
     }
     for (const s of (scenarios ?? [])) {
         lines.push('', `<details><summary>${s.scenarioName}</summary>`, '', s.reason, '');
@@ -34538,10 +34547,10 @@ function formatComparisonResult(result, projectId) {
             lines.push(`[View run (prod)](${(0, evalforge_1.evalRunUrl)(projectId, s.without.runId, s.without.name)})`, '');
         lines.push('**Assertions (PR):**', ...s.with.assertions.map(assertionLine), '');
         lines.push('**Assertions (prod):**', ...s.without.assertions.map(assertionLine), '');
-        if (s.pairwiseJudgement.reasoning) {
+        if (s.pairwiseJudgement?.reasoning) {
             lines.push(`**Compare result:** ${s.pairwiseJudgement.reasoning}`, '');
         }
-        if (s.pairwiseJudgement.dimensions) {
+        if (s.pairwiseJudgement?.dimensions) {
             lines.push('**Dimensions:**', ...Object.entries(s.pairwiseJudgement.dimensions).map(([k, v]) => `- ${k}: **${v.winner}**`), '');
         }
         lines.push('</details>');
