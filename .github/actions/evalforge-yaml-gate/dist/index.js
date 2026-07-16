@@ -34950,8 +34950,8 @@ class EvalPipelineClient {
         }
         return res.json();
     }
-    async runComparison(tags, agentName, commitSha, skillsRepo) {
-        return this.post('/run-comparison', { tags, agentName, commitSha, skillsRepo });
+    async runComparison(tags, agentName, commitSha, skillsRepo, scenarioIds) {
+        return this.post('/run-comparison', { tags, agentName, commitSha, skillsRepo, scenarioIds });
     }
     async compareGroup(comparisonGroupId) {
         return this.post('/compare-group', { comparisonGroupId });
@@ -35487,6 +35487,7 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.remoteScenarioFiltersForGate = remoteScenarioFiltersForGate;
 exports.scenariosToRun = scenariosToRun;
+exports.scenarioIdsToRun = scenarioIdsToRun;
 exports.runGate = runGate;
 const core = __importStar(__nccwpck_require__(7484));
 const github = __importStar(__nccwpck_require__(3228));
@@ -35536,6 +35537,21 @@ function scenariosToRun(input) {
         }
     }
     return result;
+}
+function scenarioIdsToRun(scenarios, nameToId) {
+    const missing = [];
+    const ids = [];
+    for (const name of scenarios.keys()) {
+        const id = nameToId.get(name);
+        if (id)
+            ids.push(id);
+        else
+            missing.push(name);
+    }
+    if (missing.length > 0) {
+        throw new Error(`Missing EvalForge scenario IDs for: ${missing.join(', ')}`);
+    }
+    return ids;
 }
 async function runGate() {
     const config = (0, config_1.getEvalConfig)();
@@ -35644,7 +35660,7 @@ async function runGate() {
         return;
     }
     const pipeline = new eval_pipeline_1.EvalPipelineClient(config.evalPipelineUrl, config.appId, config.appSecret);
-    const comparison = await guardedCall(() => pipeline.runComparison([draftTag], config.agentName, config.headSha, config.mcpSkillsRepo), 'Could not start eval pipeline comparison', comment, config);
+    const comparison = await guardedCall(() => pipeline.runComparison([draftTag], config.agentName, config.headSha, config.mcpSkillsRepo, scenarioIdsToRun(changedHeadScenarios, nameToId)), 'Could not start eval pipeline comparison', comment, config);
     if (!comparison)
         return;
     core.info(`Eval pipeline comparison started: comparisonGroupId=${comparison.comparisonGroupId}`);

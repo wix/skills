@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { remoteScenarioFiltersForGate, scenariosToRun } from '../src/utils/gate';
+import { remoteScenarioFiltersForGate, scenarioIdsToRun, scenariosToRun } from '../src/utils/gate';
 import type { LoadedScenario } from '../src/utils/evals';
 import type { Scenario } from '../src/utils/schema';
 
@@ -85,5 +85,26 @@ describe('scenariosToRun', () => {
       coveredBy: new Map([['skills/wix-manage/references/x/y.md', ['does/not-exist']]]),
     });
     expect(out.size).toBe(0);
+  });
+});
+
+describe('scenarioIdsToRun', () => {
+  it('maps selected scenario names to EvalForge IDs in run order', () => {
+    const selected = new Map<string, LoadedScenario>([
+      ['blog/changed', scenario('blog/changed')],
+      ['marketing/social', scenario('marketing/social')],
+    ]);
+    const ids = scenarioIdsToRun(selected, new Map([
+      ['marketing/social', 'id-social'],
+      ['blog/changed', 'id-changed'],
+    ]));
+    expect(ids).toEqual(['id-changed', 'id-social']);
+  });
+
+  it('fails clearly when a selected scenario has no remote ID', () => {
+    const selected = new Map<string, LoadedScenario>([
+      ['blog/changed', scenario('blog/changed')],
+    ]);
+    expect(() => scenarioIdsToRun(selected, new Map())).toThrow('Missing EvalForge scenario IDs for: blog/changed');
   });
 });
