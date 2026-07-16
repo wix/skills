@@ -137,3 +137,5 @@ If the merchant's prompt names a specific lever (e.g., "give me a coupon"), this
 | Catalog has natural bundles | Bundle & Save (secondary) | Multi-item incentive drives AOV through quantity |
 | Both AOV and cross-sell opportunity | Both flows, different scopes | Upsell Boost on high-value categories, Bundle & Save on accessories |
 | Merchant specifies exact values | Honor merchant input | User overrides always take priority over calculated values |
+
+<!-- e2e-reference-graph: temporary edit to a CHILD skill; expect the gate to also run the recommend-ecommerce-strategy parent + sibling goals; do not merge -->
