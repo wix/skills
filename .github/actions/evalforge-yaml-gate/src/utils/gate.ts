@@ -8,7 +8,7 @@ import { loadEvals, type LoadedScenario } from './evals';
 import { canonicalDocUrl } from './doc-url';
 import { computeCoverage } from './coverage';
 import { diffSyncPlan } from './sync';
-import { EvalForgeClient, draftTagFor, evalRunUrl, uniqueRemoteScenarios, type RemoteScenario } from './evalforge';
+import { EvalForgeClient, draftTagFor, evalRunUrl, parseDraftTag, uniqueRemoteScenarios, type RemoteScenario } from './evalforge';
 import { EvalPipelineClient, pollUntilComparisonDone, ComparisonTimeoutError } from './eval-pipeline';
 import { workspaceRoot } from './workspace';
 import { BASE_WORKSPACE_SUBDIR } from './paths';
@@ -84,6 +84,64 @@ export function scenarioIdsToRun(
     throw new Error(`Missing EvalForge scenario IDs for: ${missing.join(', ')}`);
   }
   return ids;
+}
+
+function isForeignDraftTag(tag: string, myDraftTag: string): boolean {
+  return tag.startsWith('draft:') && tag !== myDraftTag;
+}
+
+export async function stripInactiveForeignDraftTags(
+  remote: RemoteScenario[],
+  myDraftTag: string,
+  isDraftTagActive: (tag: string) => Promise<boolean>,
+): Promise<RemoteScenario[]> {
+  const cachedStates = new Map<string, Promise<boolean>>();
+  const getState = (tag: string): Promise<boolean> => {
+    let state = cachedStates.get(tag);
+    if (!state) {
+      state = isDraftTagActive(tag);
+      cachedStates.set(tag, state);
+    }
+    return state;
+  };
+
+  const normalized: RemoteScenario[] = [];
+  for (const scenario of remote) {
+    const tags: string[] = [];
+    let changed = false;
+    for (const tag of scenario.tags) {
+      if (!isForeignDraftTag(tag, myDraftTag) || await getState(tag)) {
+        tags.push(tag);
+        continue;
+      }
+      changed = true;
+    }
+    normalized.push(changed ? { ...scenario, tags } : scenario);
+  }
+  return normalized;
+}
+
+async function isDraftTagActive(
+  octokit: ReturnType<typeof github.getOctokit>,
+  tag: string,
+): Promise<boolean> {
+  const draft = parseDraftTag(tag);
+  if (!draft) return true;
+
+  const [owner, repo] = draft.repo.split('/', 2);
+  if (!owner || !repo) return true;
+
+  try {
+    const pull = await octokit.rest.pulls.get({
+      owner,
+      repo,
+      pull_number: draft.prNumber,
+    });
+    return pull.data.state === 'open';
+  } catch (e) {
+    core.warning(`Could not resolve draft tag ${tag}: ${e instanceof Error ? e.message : String(e)}`);
+    return true;
+  }
 }
 
 export async function runGate(): Promise<void> {
@@ -165,15 +223,20 @@ export async function runGate(): Promise<void> {
     'Could not reach EvalForge', comment, config,
   );
   if (!remote) return;
+  const normalizedRemote = await stripInactiveForeignDraftTags(
+    remote,
+    draftTag,
+    (tag) => isDraftTagActive(octokit, tag),
+  );
 
-  const plan = diffSyncPlan({ changedHead: changedHeadScenarios, head: headScenarios, base: baseScenarios, remote, draftTag, repo: `${config.owner}/${config.repo}` });
+  const plan = diffSyncPlan({ changedHead: changedHeadScenarios, head: headScenarios, base: baseScenarios, remote: normalizedRemote, draftTag, repo: `${config.owner}/${config.repo}` });
   if (plan.errors.length > 0) {
     await comment(formatForeignDraftConflicts(plan.errors, { owner: config.owner, repo: config.repo }));
     fail(`Scenario(s) held by other PRs: ${plan.errors.map(e => e.name).join(', ')}`, config.blocking);
     return;
   }
 
-  const nameToId = new Map(remote.map(r => [r.name, r.id]));
+  const nameToId = new Map(normalizedRemote.map(r => [r.name, r.id]));
   for (const a of plan.actions) {
     try {
       if (a.kind === 'CREATE') {

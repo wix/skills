@@ -35489,6 +35489,7 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.remoteScenarioFiltersForGate = remoteScenarioFiltersForGate;
 exports.scenariosToRun = scenariosToRun;
 exports.scenarioIdsToRun = scenarioIdsToRun;
+exports.stripInactiveForeignDraftTags = stripInactiveForeignDraftTags;
 exports.runGate = runGate;
 const core = __importStar(__nccwpck_require__(7484));
 const github = __importStar(__nccwpck_require__(3228));
@@ -35554,6 +35555,54 @@ function scenarioIdsToRun(scenarios, nameToId) {
     }
     return ids;
 }
+function isForeignDraftTag(tag, myDraftTag) {
+    return tag.startsWith('draft:') && tag !== myDraftTag;
+}
+async function stripInactiveForeignDraftTags(remote, myDraftTag, isDraftTagActive) {
+    const cachedStates = new Map();
+    const getState = (tag) => {
+        let state = cachedStates.get(tag);
+        if (!state) {
+            state = isDraftTagActive(tag);
+            cachedStates.set(tag, state);
+        }
+        return state;
+    };
+    const normalized = [];
+    for (const scenario of remote) {
+        const tags = [];
+        let changed = false;
+        for (const tag of scenario.tags) {
+            if (!isForeignDraftTag(tag, myDraftTag) || await getState(tag)) {
+                tags.push(tag);
+                continue;
+            }
+            changed = true;
+        }
+        normalized.push(changed ? { ...scenario, tags } : scenario);
+    }
+    return normalized;
+}
+async function isDraftTagActive(octokit, tag) {
+    const draft = (0, evalforge_1.parseDraftTag)(tag);
+    if (!draft)
+        return true;
+    const [owner, repo] = draft.repo.split('/', 2);
+    if (!owner || !repo)
+        return true;
+    try {
+        const pull = await octokit.rest.pulls.get({
+            owner,
+            repo,
+            pull_number: draft.prNumber,
+        });
+        return pull.data.state === 'open';
+    }
+    catch (e) {
+        core.warning(`Could not resolve draft tag ${tag}: ${e instanceof Error ? e.message : String(e)}`);
+        return true;
+    }
+}
 async function runGate() {
     const config = (0, config_1.getEvalConfig)();
     const octokit = github.getOctokit(config.githubToken);
@@ -35617,13 +35666,14 @@ async function runGate() {
     const remote = await guardedCall(() => listRemoteScenariosForGate(evalforge, config.projectId, filters), 'Could not reach EvalForge', comment, config);
     if (!remote)
         return;
-    const plan = (0, sync_1.diffSyncPlan)({ changedHead: changedHeadScenarios, head: headScenarios, base: baseScenarios, remote, draftTag, repo: `${config.owner}/${config.repo}` });
+    const normalizedRemote = await stripInactiveForeignDraftTags(remote, draftTag, (tag) => isDraftTagActive(octokit, tag));
+    const plan = (0, sync_1.diffSyncPlan)({ changedHead: changedHeadScenarios, head: headScenarios, base: baseScenarios, remote: normalizedRemote, draftTag, repo: `${config.owner}/${config.repo}` });
     if (plan.errors.length > 0) {
         await comment((0, comment_1.formatForeignDraftConflicts)(plan.errors, { owner: config.owner, repo: config.repo }));
         (0, github_1.fail)(`Scenario(s) held by other PRs: ${plan.errors.map(e => e.name).join(', ')}`, config.blocking);
         return;
     }
-    const nameToId = new Map(remote.map(r => [r.name, r.id]));
+    const nameToId = new Map(normalizedRemote.map(r => [r.name, r.id]));
     for (const a of plan.actions) {
         try {
             if (a.kind === 'CREATE') {

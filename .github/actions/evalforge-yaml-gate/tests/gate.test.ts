@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { remoteScenarioFiltersForGate, scenarioIdsToRun, scenariosToRun } from '../src/utils/gate';
+import { remoteScenarioFiltersForGate, scenarioIdsToRun, scenariosToRun, stripInactiveForeignDraftTags } from '../src/utils/gate';
 import type { LoadedScenario } from '../src/utils/evals';
 import type { Scenario } from '../src/utils/schema';
 
@@ -106,5 +106,24 @@ describe('scenarioIdsToRun', () => {
       ['blog/changed', scenario('blog/changed')],
     ]);
     expect(() => scenarioIdsToRun(selected, new Map())).toThrow('Missing EvalForge scenario IDs for: blog/changed');
+  });
+});
+
+describe('stripInactiveForeignDraftTags', () => {
+  it('drops foreign draft tags from closed PRs and caches repeated lookups', async () => {
+    const seen: string[] = [];
+    const out = await stripInactiveForeignDraftTags([
+      { id: '1', name: 'marketing/social', tags: ['draft:wix/skills#42', 'draft:wix/skills#602', 'marketing'] },
+      { id: '2', name: 'blog/post', tags: ['draft:wix/skills#602', 'draft:wix/skills#777'] },
+    ], 'draft:wix/skills#42', async (tag) => {
+      seen.push(tag);
+      return tag !== 'draft:wix/skills#602';
+    });
+
+    expect(out).toEqual([
+      { id: '1', name: 'marketing/social', tags: ['draft:wix/skills#42', 'marketing'] },
+      { id: '2', name: 'blog/post', tags: ['draft:wix/skills#777'] },
+    ]);
+    expect(seen).toEqual(['draft:wix/skills#602', 'draft:wix/skills#777']);
   });
 });
