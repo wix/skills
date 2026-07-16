@@ -7,6 +7,7 @@ import { assertWixAuthor } from './author-gate';
 import { loadEvals, type LoadedScenario } from './evals';
 import { canonicalDocUrl } from './doc-url';
 import { computeCoverage } from './coverage';
+import { buildReferenceGraph, connectedDocs, unionGraphs } from './reference-graph';
 import { diffSyncPlan } from './sync';
 import { EvalForgeClient, draftTagFor, evalRunUrl, parseDraftTag, uniqueRemoteScenarios, type RemoteScenario } from './evalforge';
 import { EvalPipelineClient, pollUntilComparisonDone, ComparisonTimeoutError } from './eval-pipeline';
@@ -211,11 +212,24 @@ export async function runGate(): Promise<void> {
   const { scenarios: baseScenarios, errors: baseErrors } = loadEvals(baseWorkspace);
   for (const e of baseErrors) core.warning(`Base SHA eval issue (${e.path}): ${e.message}`);
 
+  // Expand changed docs to their reference-graph connected components, so editing any skill in a
+  // declared parent/child family re-runs the whole family's scenarios. Coverage gating above is
+  // unaffected — it stays per changed doc; this only widens which scenarios run.
+  // Union the head and base graphs: a PR that DETACHES a skill from its family (removes a
+  // `references` edge) still re-runs the detached skill, because the edge existed at base.
+  const referenceGraph = unionGraphs(
+    buildReferenceGraph(workspace),
+    buildReferenceGraph(baseWorkspace),
+  );
+  const changedDocs = classifiedChanges.mdFiles.filter(f => f.status !== 'removed').map(f => f.filename);
+  const runDocs: ChangedFile[] = [...connectedDocs(referenceGraph, changedDocs)].map(filename => ({ filename, status: 'modified' }));
+  const runCoverage = computeCoverage(runDocs, headScenarios, (f) => canonicalDocUrl(f, workspace));
+
   const changedEvalPaths = new Set<string>([
     ...classifiedChanges.evalsAdded.map(f => f.filename),
     ...classifiedChanges.evalsModified.map(f => f.filename),
   ]);
-  const changedHeadScenarios = scenariosToRun({ headScenarios, changedEvalPaths, coveredBy: cov.coveredBy });
+  const changedHeadScenarios = scenariosToRun({ headScenarios, changedEvalPaths, coveredBy: runCoverage.coveredBy });
 
   const filters = remoteScenarioFiltersForGate({ changedHead: changedHeadScenarios, head: headScenarios, base: baseScenarios, draftTag });
   const remote = await guardedCall(

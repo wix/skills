@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { dirname, resolve as resolvePath } from 'node:path';
+import { dirname, relative, resolve as resolvePath } from 'node:path';
 import { glob } from 'glob';
 import * as jsYaml from 'js-yaml';
 import { DOC_YAML_GLOB } from './paths';
@@ -48,6 +48,11 @@ function slugify(displayName: string): string {
     trimmedSlug = trimmedSlug.slice(0, -1);
   }
   return `${shouldAddDollarPrefix ? '$' : ''}${trimmedSlug.toLowerCase()}`;
+}
+
+/** Repo-relative paths of every doc registered in a documentation.yaml under `workspace`. */
+export function registeredDocFiles(workspace: string): string[] {
+  return [...buildDocIndex(workspace).keys()].map(abs => relative(workspace, abs));
 }
 
 export function canonicalDocUrl(filePath: string, workspace: string): string | null {
