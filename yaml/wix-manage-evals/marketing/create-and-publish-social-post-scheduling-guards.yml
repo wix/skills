@@ -1,0 +1,58 @@
+name: marketing/create-and-publish-social-post-scheduling-guards
+description: >-
+  Advisory scenario for the "Create and Publish a Social Media Post" skill: the
+  agent is asked how to schedule safely when the Social Publisher feature check
+  reports a publish quota of 0 but scheduling is enabled without quotaInfo. The
+  correct behavior is to treat quota as action-specific, proceed with scheduling
+  only if SCHEDULE_POST is allowed, and validate that each scheduledDate resolves
+  to a future ISO instant before making any mutating publish-by-id call.
+triggerPrompt: >-
+  I am using the Wix Social Publisher REST API to schedule posts for tomorrow at
+  9:00 AM America/Chicago. The feature check returns PUBLISH_POST enabled with
+  quotaInfo.remainingUsage 0, and SCHEDULE_POST enabled with no quotaInfo. How
+  should I decide whether scheduling is allowed, and how should I calculate the
+  scheduledDate safely?
+tags: [marketing]
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/marketing/skills/create-and-publish-a-social-media-post-with-ai-generation
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user is asking for guidance only. They did NOT ask the assistant to
+      create, publish, or schedule an actual post. The feature check says:
+      PUBLISH_POST is enabled with quotaInfo.remainingUsage 0, and SCHEDULE_POST
+      is enabled with no quotaInfo.
+
+      Pass if the response:
+      - uses the Create and Publish a Social Media Post skill / recipe, AND
+      - treats quota as action-specific: PUBLISH_POST remainingUsage 0 blocks
+        publishing now but does NOT block scheduling, AND
+      - explains that SCHEDULE_POST enabled with no quotaInfo means scheduling is
+        allowed unless that action is disabled or its own quotaInfo is exhausted,
+        AND
+      - says scheduledDate must be an ISO 8601 instant strictly in the future, AND
+      - resolves the requested 9:00 AM America/Chicago wall-clock time to UTC/ISO
+        using the site's or requested timezone, then validates immediately before
+        publish-by-id that new Date(scheduledDate).getTime() > Date.now(), AND
+      - says that if the resolved instant is in the past or equal to now, it must
+        advance to the next matching future occurrence or ask the user to confirm
+        a later time before calling the API, AND
+      - for multiple daily posts, says to compute and validate each occurrence
+        independently, AND
+      - does not perform any mutating API calls.
+
+      Fail if the response:
+      - says scheduling is blocked because PUBLISH_POST remainingUsage is 0, OR
+      - borrows quotaInfo between PUBLISH_POST and SCHEDULE_POST, OR
+      - treats missing quotaInfo on SCHEDULE_POST as quota exhausted, OR
+      - suggests sending a scheduledDate that may be in the past and handling the
+        API error afterward, OR
+      - attempts Create Draft Item, Publish Item By ID, or any other mutating API
+        call, OR
+      - falls back to searching the REST docs instead of using the skill.
