@@ -59,6 +59,11 @@ Seed the site with real content (products, categories, etc.) by following
 Wix APIs with the docs skill at `/app/skills/docs` — it explains how to search and read Wix
 documentation. Use the already-configured Wix connector for these management API calls.
 
+When you run seed/management code **inline via exec_tool**, `base44` is already declared — use
+it directly. Do **not** import `@base44/sdk`, re-declare `base44`, or call `createClient()` —
+that pattern is only for standalone `.js` skill files, and inline it throws *"Identifier
+'base44' has already been declared."*
+
 **IMPORTANT:** the Wix connector and the headless skill's seeding instructions are for
 management/admin operations only (STEP 2) — they are **NOT** part of the client. The client is
 built solely per the vibe-headless skill.
