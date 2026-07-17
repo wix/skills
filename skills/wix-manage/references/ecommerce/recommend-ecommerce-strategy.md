@@ -442,7 +442,11 @@ Analyze the site's shipping configuration using the rules below. All shipping re
 
 **MANDATORY — do NOT skip unless the user said `SKIP_TRACKING`.**
 
-Do **not** call `ReadFullDocsArticle` for tracking. The recommendation tracking service is an internal-but-callable API and does not have a public `dev.wix.com` docs article. Use the BatchCreate body shape below as the source of truth.
+Before calling BatchCreate, load the tracking recipe to get the exact request body shape:
+
+```
+ReadFullDocsArticle("https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/api-recommendation-tracking")
+```
 
 Then call `BatchCreate` to persist ALL recommendations as PROPOSED:
 
