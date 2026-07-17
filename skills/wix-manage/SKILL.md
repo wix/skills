@@ -253,6 +253,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ### [Query Sites](references/sites/query-sites.md)
 **Technical:** Lists and queries all sites associated with a Wix account using Sites API. Covers pagination with cursor-based navigation.
 
+### [Editing Pages, Menus, or Homepage Layout on an Existing Site — Known Gap](references/sites/editing-existing-site-pages-menus-and-homepage.md)
+**Technical:** There is no REST/MCP API to add pages, edit menus/navigation, or change homepage layout on an already-existing Wix Editor or Studio site — confirmed by a full REST docs catalog pass. Read this before spending multiple tool calls hunting for one; explains why, and the only (manual) options available.
+
 ---
 
 ## Stores
