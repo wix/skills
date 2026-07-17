@@ -50,8 +50,9 @@ reference for anything not shown.
 
 ## How to wire it (UI is the project's choice)
 - **Product grid** — `queryProducts()` for the listing (visible products only); pass
-  `nextCursor` back as `cursor` to load the next page. Render fields directly from the Wix
-  product object (see the `Product` typedef in `wix-store.js` for key fields). For price, use
+  `nextCursor` back as `cursor` to load the next page. Render most fields directly from the Wix
+  product object (see the `Product` typedef in `wix-store-catalog.js` for key fields) — the one
+  exception is `plainDescription`, which is HTML (see PDP below). For price, use
   `actualPriceRange.minValue.formattedAmount` (already includes the currency symbol) — no
   manual formatting needed.
 - **PDP** — `getProductBySlug(slug)` keyed off the URL slug; returns null on miss — show
@@ -65,6 +66,10 @@ reference for anything not shown.
   **mandatory** modifier (e.g. "gift wrap?") whose control isn't rendered can never be added: the
   buyer can't satisfy the requirement, so `add-to-cart` returns 200 with an **empty** `lineItems`
   and the add silently no-ops.
+  Render `product.plainDescription` as **HTML** — despite the name it contains markup (`<p>`,
+  `<br>`, `<strong>`), so `dangerouslySetInnerHTML={{ __html: product.plainDescription }}` (React)
+  or `el.innerHTML = product.plainDescription`, never as a plain text node (that shows raw `<p>`
+  tags). Strip tags only for plain-text contexts (SEO/meta description, a truncated card teaser).
 - **Gate the Add-to-cart button** — disable it only until the requirements the product *actually
   has* are met, computed from the product object (never assume every product has options or
   modifiers): if `product.options` is non-empty, a variant must resolve from the selections; every
@@ -86,6 +91,10 @@ reference for anything not shown.
 - **Categories** — `queryCategories()` for a category menu; `getCategoryBySlug(slug)` for
   a category landing page. Pass `category.id` to `queryProductsByCategory(categoryId, { limit?, cursor? })`
   to list only the products in that category; paginate exactly like `queryProducts`.
+  `queryCategories()` includes Wix's auto-created **"All Products" system category** (`slug:
+  "all-products"`) — it mirrors the full catalog, so drop it from the category menu
+  (`categories.filter(c => c.slug !== "all-products")`). Filter by that slug, not by name (renames/
+  localizes) or `visible` (it's `visible: true` like any other).
 - **Cart** — `addToCart(catalogItemId, variantId?, qty?, { modifierChoices?, customTextFields? }?)`,
   `updateCartItemQuantity(lineItemId, qty)`, `removeFromCart(lineItemId)`.
   - `variantId` (`variantsInfo.variants[].id` from `getProductBySlug`) — required for products with
