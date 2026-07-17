@@ -1,11 +1,18 @@
 # Wix Managed Headless — Base44 build instructions
 
 You are building a **Wix Managed** headless site inside Base44. The business to build is
-described in your initial prompt. Your Wix client id is available as `WIX_CLIENT_ID` in this
-Base44 app — read it from there, don't hardcode it. It's stored in the app's secrets store,
-but it is **not actually a secret**: `WIX_CLIENT_ID` is a public, buyer/visitor-facing
-credential (it only mints anonymous visitor tokens), so it's fine to expose it to the client.
-The Wix connector is already configured for this app — use it for all Wix API calls.
+described in your initial prompt. The Wix connector is already configured for this app — use
+it for all Wix API calls.
+
+Your Wix client id is the env var `WIX_CLIENT_ID`. It's a public, buyer/visitor-facing
+credential (it only mints anonymous visitor tokens), so it's safe in the frontend — but the
+exec_tool secret-guard still **blocks returning it** from a script, and you don't know its
+value at code-write time. So don't hardcode it and don't read it via exec_tool; expose it to
+the client with a tiny backend function and fetch it at runtime:
+
+```ts
+Deno.serve(() => Response.json({ clientId: Deno.env.get("WIX_CLIENT_ID") }));
+```
 
 Follow the steps below exactly.
 
@@ -22,11 +29,21 @@ for (const skill of ['headless', 'vibe-headless', 'docs']) {
 return 'done';
 ```
 
-Every archive already contains its own top-level folder, so you end up with
-`/app/skills/headless`, `/app/skills/vibe-headless`, `/app/skills/docs`.
+Each archive nests its own folder under `/app` → `skills/{headless,vibe-headless,docs}`. Read
+them with the `read_file` tool, using workspace-relative paths (`skills/vibe-headless/SKILL.md`),
+not an absolute `/app/...` path (`read_file` is rooted at `/app`). `read_file`'s cap is by line
+(~5000) — well above these docs, so each comes through whole; page past it with its offset/limit
+params only if ever needed. Do **not** `cat` skill files through exec_tool: its output caps at
+~5000 chars and silently truncates them. And don't fetch the skill URLs over the web (truncates/caches).
 
-Always read skill and reference files from the local `/app/skills` copy via exec_tool
-(`execSync('cat …')`) rather than through a web-fetch tool, to avoid caching and truncation.
+## STEP 0.5 — Note it in AGENTS.md
+
+Add a short "Wix skills" section to `AGENTS.md` (or the project's existing agent file —
+`CLAUDE.md`, `.cursor/rules`) so the next session doesn't rediscover it: skills at `/app/skills`
+(read via `read_file` with workspace-relative paths, not exec_tool `cat`); client built per
+`vibe-headless/SKILL.md`; admin/seeding
+via `headless/references/SEED.md` + `docs` over the Wix connector (management only, not the
+client); `WIX_CLIENT_ID` is public but must be exposed via a backend function (above).
 
 ## STEP 1 — Build the client
 
