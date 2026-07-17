@@ -15,13 +15,11 @@ apiDoc:
     # ============================================================
     # Cross-domain tracking — sibling to the L1 loader.
     # Used by any recipe (in any category) that generates recommendations.
-    # No docsEntry: this is an internal-but-callable API reference, not a public
-    # ReadFullDocsArticle target. Public recipes inline the required Query/BatchCreate
-    # body shapes where the assistant needs them.
     # ============================================================
 
     - file: ../../../skills/wix-manage/references/ecommerce/api-recommendation-tracking.md
       title: "API: Recommendation Tracking"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
       tags: [ecommerce]
 
     # ============================================================
