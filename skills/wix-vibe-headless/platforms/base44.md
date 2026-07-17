@@ -1,9 +1,11 @@
 # Wix Managed Headless — Base44 build instructions
 
 You are building a **Wix Managed** headless site inside Base44. The business to build is
-described in your initial prompt. Your Wix client id and metasite id were provided to you in
-that prompt / launch URL. The Wix connector is already configured for this app — use it for
-all Wix API calls.
+described in your initial prompt. Your Wix client id is available as `WIX_CLIENT_ID` in this
+Base44 app — read it from there, don't hardcode it. It's stored in the app's secrets store,
+but it is **not actually a secret**: `WIX_CLIENT_ID` is a public, buyer/visitor-facing
+credential (it only mints anonymous visitor tokens), so it's fine to expose it to the client.
+The Wix connector is already configured for this app — use it for all Wix API calls.
 
 Follow the steps below exactly.
 
