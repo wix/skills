@@ -45,8 +45,7 @@ scratch.
 
 ## STEP 2 — Manage and seed the business
 
-Seed the site with real content (products, categories, etc.) by following the **`headless`
-skill**'s `references/SEED.md`. Where its seed recipes don't cover what you need, **fall back
+Seed the site with real content by following the **`headless` skill**'s `references/SEED.md`. Where its seed recipes don't cover what you need, **fall back
 to the `docs` skill** (`/app/skills/docs`) to search and read the relevant Wix API docs. Use
 the already-configured Wix connector for these management API calls.
 
@@ -82,8 +81,7 @@ Once the site is built and seeded:
 
 ## Later admin requests
 
-For any admin/management request the user makes after the build (add or edit a service, change
-prices, add a category, adjust content…), work the same way as STEP 2: check the `headless`
-skill's inline recipes first (`references/inline-recipes/`, e.g. `setup-bookings.md`,
-`setup-online-store.md`) and, where the operation isn't documented there, fall back to the
-`docs` skill to search the Wix API docs — all over the Wix connector.
+For any later admin/management request the user makes, work the same way as STEP 2: check the
+`headless` skill's inline recipes first (`references/inline-recipes/`) and, where the operation
+isn't documented there, fall back to the `docs` skill to search the Wix API docs — all over the
+Wix connector.
