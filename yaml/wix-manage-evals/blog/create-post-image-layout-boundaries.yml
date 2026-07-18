@@ -1,0 +1,55 @@
+name: blog/create-post-image-layout-boundaries
+description: >-
+  Advisory scenario for the Blog post creation recipe: the agent must distinguish
+  cover media from embedded richContent images and avoid promising exact 50/50
+  Blog editor layouts or typography unless the payload can verifiably represent
+  them.
+triggerPrompt: >-
+  I am using the Wix Blog REST API to create a draft post. Before you make any
+  API calls, explain how you would handle one imported image that should be both
+  the cover and embedded in the intro, plus a requested 50/50 text-and-image
+  intro layout and custom site fonts. Do not create or update anything yet.
+tags: [blog]
+maxTokens: 60000
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/blog/skills/how-to-create-blog-posts
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user is asking for guidance only. They explicitly said not to create
+      or update anything yet. The scenario covers a draft blog post with one
+      imported image that should be used as both cover media and an embedded
+      intro image, plus a requested exact 50/50 text-and-image intro layout and
+      custom site fonts.
+
+      Pass if the response:
+      - uses the How to Create Blog Posts recipe, AND
+      - clearly states that `draftPost.media` sets only the post cover media, AND
+      - says body images require `IMAGE` or `GALLERY` nodes in
+        `richContent.nodes`, AND
+      - says the same imported Wix Media file ID may be used for both the cover
+        and an embedded body image, AND
+      - says not to claim embedded images unless the payload includes an
+        embedded body image node, AND
+      - explains that exact 50/50 side-by-side Blog layout and custom site fonts
+        must not be promised unless a verified Blog-compatible Ricos payload can
+        represent them, AND
+      - offers the supported fallback of creating semantic rich content with an
+        embedded image and telling the user that exact layout/font adjustments
+        may need to be completed in the Blog editor, AND
+      - does not perform any mutating API calls.
+
+      Fail if the response:
+      - implies that setting `draftPost.media` embeds an image in the post body,
+        OR
+      - claims it can guarantee a 50/50 text-left/image-right Blog body layout
+        or custom site fonts from the create-draft request without a verified
+        Blog-compatible payload, OR
+      - omits the need for `IMAGE` or `GALLERY` richContent nodes for body
+        images, OR
+      - says the image can only be cover media or only be embedded, OR
+      - attempts Import File, Create Draft Post, Bulk Create Draft Posts, or any
+        other mutating API call.

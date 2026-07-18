@@ -249,6 +249,27 @@ The natural intuition is "the bulk endpoint reuses the single-post `{draftPost: 
    }
    ```
 
+#### Cover media vs. embedded body images
+
+`draftPost.media` sets the post cover media only. It does **not** insert an image into the article body. If the user asks for images in the post body, place imported Wix Media IDs in `richContent.nodes` using `IMAGE` or `GALLERY` nodes at the requested positions. The same imported Media Manager file ID can be used both in `draftPost.media` for the cover and in an `IMAGE` node for the article body.
+
+Do not claim that images were embedded in the body unless the request payload actually contains at least one body `IMAGE` or `GALLERY` node. If the payload only sets `draftPost.media`, say that the image was set as the cover.
+
+#### Layout and typography boundaries
+
+This recipe is validated for creating Blog posts with semantic Ricos content, cover media, embedded images, image width/alignment, lists, headings, and related metadata. It does not by itself prove Blog editor rendering for exact page layouts such as a 50/50 text-and-image intro, side-by-side columns, or site-wide font/theme changes.
+
+When the user asks for an exact layout or typography treatment:
+
+- Only promise the layout or font result if the `richContent` payload you are sending explicitly and verifiably represents that result for Wix Blog.
+- Do not use `LAYOUT` / `LAYOUT_CELL` nodes for a 50/50 Blog layout unless you have first checked current Ricos documentation and have a verified Blog-compatible example for that structure.
+- If you cannot verify the exact layout through the API, create the supported content structure instead (for example, intro text followed by an embedded image) and tell the user that the exact side-by-side layout or theme typography must be adjusted in the Blog editor.
+- Make progress/status messages match the payload. A draft created with text nodes plus `draftPost.media` is a draft with a cover image, not a draft with embedded body images or a 50/50 body layout.
+
+❌ **Wrong:** create a post with `richContent` text nodes and `draftPost.media`, then say "the post has embedded images and a 50/50 text-left/image-right intro."
+
+✅ **Allowed:** create a post with an `IMAGE` node in `richContent` and say "I embedded the image in the body." If the user requested a 50/50 layout and you cannot verify a Blog-compatible layout node, say "I created the draft with the supported body image structure; the exact 50/50 side-by-side layout needs to be adjusted in the Blog editor."
+
 4. Set `publish: true` to immediately publish the post rather than saving as draft.
 
 ### Part 3: Handle Categories and Tags (Optional)
@@ -266,6 +287,7 @@ The natural intuition is "the bulk endpoint reuses the single-post `{draftPost: 
 - External images MUST be imported via Import File API before use in blog posts - direct external URLs will not work
 - For 3rd-party app integrations, `memberId` is mandatory - use the [List Members](https://dev.wix.com/docs/api-reference/crm/members-contacts/members/member-management/members/list-members) API if needed to get member ID
 - Use ONLY the file ID (without `wix:image://v1/` prefix) for both cover images and embedded images
+- `draftPost.media` is only the cover image. Body images require `IMAGE` or `GALLERY` nodes in `richContent.nodes`
 - Rich content IMAGE nodes require both `width` and `height` properties in the `image` object
 - Images with `"operationStatus": "PENDING"` from import can be used immediately in blog posts
 - Set `publish: true` in the request to publish immediately rather than save as draft
@@ -274,6 +296,7 @@ The natural intuition is "the bulk endpoint reuses the single-post `{draftPost: 
 - Handle image import failures gracefully - continue without images if import fails
 - Provide meaningful `displayName` values during image import for better organization
 - Use appropriate Ricos node types (PARAGRAPH, HEADING, LIST, etc.) for semantic content structure
+- Do not claim exact Blog editor layouts, side-by-side sections, 50/50 intros, or site font/theme changes unless the sent payload verifiably represents them
 - Consider batching image imports when creating multiple posts with many images
 
 ### CRITICAL RICOS JSON STRUCTURE RULES:
@@ -293,3 +316,5 @@ The natural intuition is "the bulk endpoint reuses the single-post `{draftPost: 
 | "memberIds ... do not exist"               | Invalid member ID           | Query members first using List Members API to get valid IDs         |
 | "Expected a paragraph node but found TEXT" | Invalid Ricos structure     | Wrap TEXT nodes in PARAGRAPH nodes (see structure rules above)      |
 | Image not displaying                       | Using external URL directly | Import image via Media Manager first, then use the returned file ID |
+| Body image missing but cover appears       | Image ID was set only in `draftPost.media` | Add an `IMAGE` or `GALLERY` node to `richContent.nodes`             |
+| 50/50 or side-by-side layout not rendered  | Exact Blog editor layout was promised without a verified `richContent` layout payload | Use verified Ricos layout docs before promising it, or tell the user the exact layout must be adjusted in the Blog editor |
