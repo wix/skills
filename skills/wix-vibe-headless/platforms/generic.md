@@ -33,8 +33,10 @@ relevant Wix API docs.
 
 These management/admin calls need **elevated Wix credentials** — the public client id is not
 enough. If you don't already have a way to authenticate them, **ask the user for a Wix API
-key / token** (follow the `headless` skill for the exact auth mechanism), or, if they'd rather,
-tell them they can add this content themselves in the Wix dashboard.
+key / token** and store it in your platform's built-in **connector / secrets (env) manager** —
+never hardcode or commit it — then use it to authenticate the REST admin calls (the `docs` skill
+covers Wix API-key auth). Or, if the user prefers, tell them they can add this content themselves
+in the Wix dashboard instead.
 
 Management/admin operations (seeding, `headless`, `docs`) are **separate from the client** — the
 client is built solely per the `vibe-headless` skill.
