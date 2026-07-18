@@ -45,10 +45,10 @@ scratch.
 
 ## STEP 2 — Manage and seed the business
 
-Seed the site with real content (products, categories, etc.) by following
-`/app/skills/headless/references/SEED.md`. For any other admin operations, find the relevant
-Wix APIs with the docs skill at `/app/skills/docs` — it explains how to search and read Wix
-documentation. Use the already-configured Wix connector for these management API calls.
+Seed the site with real content (products, categories, etc.) by following the **`headless`
+skill**'s `references/SEED.md`. Where its seed recipes don't cover what you need, **fall back
+to the `docs` skill** (`/app/skills/docs`) to search and read the relevant Wix API docs. Use
+the already-configured Wix connector for these management API calls.
 
 When you run seed/management code **inline via exec_tool**, `base44` is already declared — use
 it directly. Do **not** import `@base44/sdk`, re-declare `base44`, or call `createClient()` —
@@ -70,13 +70,20 @@ one-by-one, to finish faster.
 
 Once the site is built and seeded:
 
-1. **Record it in the project's agent-instructions file** so the next session doesn't
-   rediscover it. If one already exists (`AGENTS.md`, `CLAUDE.md`, `.cursor/rules`, …),
-   **append to or update it — never overwrite** its current contents: add a "Wix skills"
-   section, or refresh it if one is already there. Create `AGENTS.md` only if no such file
-   exists. The section: skills at `/app/skills` (read via `read_file` with workspace-relative
-   paths, not exec_tool `cat`); client built per `vibe-headless/SKILL.md`; admin/seeding via
-   `headless/references/SEED.md` + `docs` over the Wix connector (management only, not the
-   client); `WIX_CLIENT_ID` is public but must be exposed via a backend function (above).
+1. **Record how this project is wired to Wix** in the project's agent-instructions file so the
+   next session doesn't rediscover it. If `AGENTS.md` exists (at the project **root**, not
+   `src/`), **`read_file` it first and edit in place — never overwrite**; create it only if it
+   doesn't exist. Keep the "Wix skills" note short and technical — a few bullets:
+   - **Skills:** installed at `/app/skills` from `www.wix.com/skills` — `headless`, `vibe-headless`, `docs`.
+   - **Client:** built per the `vibe-headless` skill; `WIX_CLIENT_ID` exposed via a backend function.
+   - **Seeding / management:** per the `headless` skill, falling back to the `docs` skill where it's not documented — all over the Wix connector.
 2. **Ask the user to open** this URL to complete the setup in Wix (substitute the metasite id
    you were given): `https://manage.wix.com/dashboard/{metaSiteId}`
+
+## Later admin requests
+
+For any admin/management request the user makes after the build (add or edit a service, change
+prices, add a category, adjust content…), work the same way as STEP 2: check the `headless`
+skill's inline recipes first (`references/inline-recipes/`, e.g. `setup-bookings.md`,
+`setup-online-store.md`) and, where the operation isn't documented there, fall back to the
+`docs` skill to search the Wix API docs — all over the Wix connector.
