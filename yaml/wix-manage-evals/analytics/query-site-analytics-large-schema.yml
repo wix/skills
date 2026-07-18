@@ -1,0 +1,43 @@
+name: analytics/query-site-analytics-large-schema
+description: >-
+  Verifies the agent handles large Semantic Model schemas without returning raw JSON, sampling, or
+  guessing field names when the full schema would exceed the tool result limit.
+triggerPrompt: >-
+  I'm using the Wix Semantic Model API for the traffic model. Get Semantic Model returns a huge
+  schema and my tool output is getting truncated before I can see referrer fields. How should I
+  inspect the complete schema and still choose valid fields for the query?
+tags: [analytics]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/analytics/skills/query-site-analytics
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user is trying to inspect the traffic Semantic Model schema, but the raw Get Semantic
+      Model response is too large and the tool output is truncated before later fields such as
+      referrer dimensions are visible.
+      Intent: explain how to inspect a complete schema without returning raw JSON, sampling, or
+      guessing field names.
+
+      Pass ONLY if the response:
+      - says not to return the raw full `Get Semantic Model` JSON when it exceeds the tool result
+        limit, AND
+      - says not to use `.slice`, sampling, or only the first N fields because that can hide needed
+        fields, AND
+      - recommends returning a compact complete inventory that includes every measure, dimension,
+        and parameter with exact `name`s and full `dependencies` (plus compact metadata such as
+        type/sortable/group), AND
+      - explains that verbose details such as descriptions, filters, or enumerations should be
+        fetched or returned in a focused pass for candidate fields before querying, AND
+      - preserves the List -> Get -> Query flow and says query fields must come from Get Semantic
+        Model, not guessed from names or patterns.
+
+      Fail if the response:
+      - tells the user to increase the token/tool limit as the primary solution, OR
+      - suggests sampling, slicing, or inspecting only the first fields, OR
+      - suggests querying with guessed field names because the schema is too large, OR
+      - asks the user for screenshots or external data instead of explaining how to inspect the
+        schema via the Semantic Model API, OR
+      - omits field dependencies.
