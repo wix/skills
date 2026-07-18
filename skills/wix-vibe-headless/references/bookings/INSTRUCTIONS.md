@@ -58,7 +58,11 @@ the full API reference for anything not shown.
 ## How to wire it (UI is the project's choice)
 - **Service list** — `queryServices()` for the listing (visitor-visible services only). Render
   `name`, `tagLine`, the image via `mediaUrl(service.media?.items?.[0]?.image)`, and the price
-  from `payment.fixed.price.formattedValue` (already includes the currency). Pass the returned
+  from `payment.fixed.price`. `value` + `currency` are always present; `formattedValue` is
+  **optional** (it may be missing), so don't depend on it — build the price from `value`+`currency`
+  and use `formattedValue` only when present. e.g. `new Intl.NumberFormat(undefined, { style:
+  'currency', currency }).format(Number(value))`. (Rendering `formattedValue` alone leaves the price
+  blank — or your "Varies" fallback — whenever it's absent.) Pass the returned
   `nextOffset` back as `offset` to load the next page. Books **APPOINTMENT and CLASS** services
   (see the slot picker below); COURSE is whole-course enrollment and out of scope.
 - **Service detail** — `getService(serviceId)` keyed off the URL/route; returns null on miss —
