@@ -69,13 +69,12 @@ one-by-one, to finish faster.
 
 Once the site is built and seeded:
 
-1. **Record how this project is wired to Wix** in the project's agent-instructions file so the
-   next session doesn't rediscover it. If `AGENTS.md` exists (at the project **root**, not
-   `src/`), **`read_file` it first and edit in place — never overwrite**; create it only if it
-   doesn't exist. Keep the "Wix skills" note short and technical — a few bullets:
-   - **Skills:** installed at `/app/skills` from `www.wix.com/skills` — `headless`, `vibe-headless`, `docs`.
-   - **Client:** built per the `vibe-headless` skill; `WIX_CLIENT_ID` exposed via a backend function.
-   - **Seeding / management:** per the `headless` skill, falling back to the `docs` skill where it's not documented — all over the Wix connector.
+1. **Leave a brief "Wix skills" note in `AGENTS.md`** (project root) so a future session has
+   context. If the file already exists, **`read_file` it first and only append your section** —
+   do **not** rewrite, reorder, or remove anything already there; if you can't append cleanly,
+   skip this rather than overwrite. Create the file only if none exists. Keep the note
+   high-level, e.g.: the Wix skills are installed under `/app/skills`; the client is built per
+   the `vibe-headless` skill; seeding/management is done per the `headless` + `docs` skills.
 2. **Ask the user to open** this URL to complete the setup in Wix (substitute the metasite id
    you were given): `https://manage.wix.com/dashboard/{metaSiteId}`
 
