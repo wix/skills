@@ -70,10 +70,12 @@ one-by-one, to finish faster.
 
 Once the site is built and seeded:
 
-1. **Note it in `AGENTS.md`** (or the project's existing agent file — `CLAUDE.md`,
-   `.cursor/rules`) so the next session doesn't rediscover it. A short "Wix skills" section:
-   skills at `/app/skills` (read via `read_file` with workspace-relative paths, not exec_tool
-   `cat`); client built per `vibe-headless/SKILL.md`; admin/seeding via
+1. **Record it in the project's agent-instructions file** so the next session doesn't
+   rediscover it. If one already exists (`AGENTS.md`, `CLAUDE.md`, `.cursor/rules`, …),
+   **append to or update it — never overwrite** its current contents: add a "Wix skills"
+   section, or refresh it if one is already there. Create `AGENTS.md` only if no such file
+   exists. The section: skills at `/app/skills` (read via `read_file` with workspace-relative
+   paths, not exec_tool `cat`); client built per `vibe-headless/SKILL.md`; admin/seeding via
    `headless/references/SEED.md` + `docs` over the Wix connector (management only, not the
    client); `WIX_CLIENT_ID` is public but must be exposed via a backend function (above).
 2. **Ask the user to open** this URL to complete the setup in Wix (substitute the metasite id
