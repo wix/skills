@@ -36,15 +36,6 @@ not an absolute `/app/...` path (`read_file` is rooted at `/app`). `read_file`'s
 params only if ever needed. Do **not** `cat` skill files through exec_tool: its output caps at
 ~5000 chars and silently truncates them. And don't fetch the skill URLs over the web (truncates/caches).
 
-## STEP 0.5 — Note it in AGENTS.md
-
-Add a short "Wix skills" section to `AGENTS.md` (or the project's existing agent file —
-`CLAUDE.md`, `.cursor/rules`) so the next session doesn't rediscover it: skills at `/app/skills`
-(read via `read_file` with workspace-relative paths, not exec_tool `cat`); client built per
-`vibe-headless/SKILL.md`; admin/seeding
-via `headless/references/SEED.md` + `docs` over the Wix connector (management only, not the
-client); `WIX_CLIENT_ID` is public but must be exposed via a backend function (above).
-
 ## STEP 1 — Build the client
 
 Read `/app/skills/vibe-headless/SKILL.md` and follow it **EXACTLY** — it is the single source
@@ -75,9 +66,15 @@ are independent, so don't wait for one to start the other. Within each step, als
 parallel where possible (e.g. independent API calls, seeding multiple entities) instead of
 one-by-one, to finish faster.
 
-## When done
+## STEP 3 — Wrap up
 
-After the site is built and seeded, ask the user to open this URL to complete the setup in Wix
-(substitute the metasite id you were given):
+Once the site is built and seeded:
 
-`https://manage.wix.com/dashboard/{metaSiteId}`
+1. **Note it in `AGENTS.md`** (or the project's existing agent file — `CLAUDE.md`,
+   `.cursor/rules`) so the next session doesn't rediscover it. A short "Wix skills" section:
+   skills at `/app/skills` (read via `read_file` with workspace-relative paths, not exec_tool
+   `cat`); client built per `vibe-headless/SKILL.md`; admin/seeding via
+   `headless/references/SEED.md` + `docs` over the Wix connector (management only, not the
+   client); `WIX_CLIENT_ID` is public but must be exposed via a backend function (above).
+2. **Ask the user to open** this URL to complete the setup in Wix (substitute the metasite id
+   you were given): `https://manage.wix.com/dashboard/{metaSiteId}`
