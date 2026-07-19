@@ -18,45 +18,78 @@ Follow the steps below exactly.
 
 ## STEP 0 — Install the Wix skills locally
 
-Run this via exec_tool:
+Install three skills — they land under `.agents/skills/` as `wix-headless`, `wix-vibe-headless`,
+and `wix-docs`.
+
+**Option A — skills CLI (preferred).** Run via exec_tool (needs Node ≥ 22.20):
 
 ```js
 const { execSync } = require('child_process');
-execSync('mkdir -p /app/skills');
-for (const skill of ['headless', 'vibe-headless', 'docs']) {
-  execSync(`curl -s "https://www.wix.com/skills/${skill}.tgz" | tar xz -C /app/skills`);
+const { readdirSync } = require('fs');
+
+const skills = ['wix-headless', 'wix-vibe-headless', 'wix-docs'];
+const results = {};
+
+for (const skill of skills) {
+  try {
+    const out = execSync(`CI=1 npx -y skills add wix/skills/skills/${skill} --yes 2>&1`, {
+      cwd: '/app', timeout: 60000, shell: '/bin/bash', stdio: ['pipe', 'pipe', 'pipe'],
+    });
+    const text = out.toString().replace(/\x1b\[[0-9;]*m/g, '');
+    results[skill] = /installed 1 skill|found 1 skill/i.test(text)
+      ? 'success'
+      : text.includes('No valid skills') ? 'not_found' : 'unknown';
+  } catch (e) {
+    results[skill] = 'error: ' + e.message;
+  }
+}
+
+return { results, installed: readdirSync('/app/.agents/skills') };
+```
+
+**Option B — tarball (fallback, if the CLI is unavailable or errors).** Run via exec_tool:
+
+```js
+const { execSync } = require('child_process');
+for (const s of ['headless', 'vibe-headless', 'docs']) {
+  execSync(`mkdir -p /app/.agents/skills/wix-${s} && curl -s "https://www.wix.com/skills/${s}.tgz" | tar xz -C /app/.agents/skills/wix-${s} --strip-components=1`);
 }
 return 'done';
 ```
 
-Each archive nests its own folder under `/app` → `skills/{headless,vibe-headless,docs}`. Read
-them with the `read_file` tool, using workspace-relative paths (`skills/vibe-headless/SKILL.md`),
-not an absolute `/app/...` path (`read_file` is rooted at `/app`). `read_file`'s cap is by line
-(~5000) — well above these docs, so each comes through whole; page past it with its offset/limit
-params only if ever needed. Do **not** `cat` skill files through exec_tool: its output caps at
-~5000 chars and silently truncates them. And don't fetch the skill URLs over the web (truncates/caches).
+Either way you end up with `.agents/skills/{wix-headless,wix-vibe-headless,wix-docs}`. **Read them
+with the `read_file` tool** — it caps by line (~5000, well above these docs, so each comes through
+whole; page with offset/limit only if ever needed), whereas `cat` through exec_tool caps output at
+~5000 chars and silently truncates, and web-fetch tools truncate/summarise. The path form depends
+on the tool:
+- **`read_file` (preferred):** rooted at `/app`, so use the workspace-relative path
+  `.agents/skills/wix-vibe-headless/SKILL.md` — an absolute `/app/...` double-prefixes and fails.
+- **exec_tool / shell** (only if you must): use the absolute path
+  `/app/.agents/skills/wix-vibe-headless/SKILL.md`.
 
 ## STEP 1 — Build the client
 
-Read `/app/skills/vibe-headless/SKILL.md` and follow it **EXACTLY** — it is the single source
-of truth for how the client app is built. To save time, prefer copying ready-made files the
-skill provides (e.g. the Wix client setup) and adapting them over re-generating them from
-scratch.
+Read `.agents/skills/wix-vibe-headless/SKILL.md` and follow it **EXACTLY** — it is the single
+source of truth for how the client app is built. To save time, prefer copying ready-made files
+the `wix-vibe-headless` skill provides (e.g. the Wix client setup) and adapting them over
+re-generating them from scratch.
 
 ## STEP 2 — Manage and seed the business
 
-Seed the site with real content by following the **`headless` skill**'s `references/SEED.md`. Where its seed recipes don't cover what you need, **fall back
-to the `docs` skill** (`/app/skills/docs`) to search and read the relevant Wix API docs. Use
-the already-configured Wix connector for these management API calls.
+Seed the site with real content by following the **`wix-headless` skill**'s
+`references/SEED.md` (`.agents/skills/wix-headless/references/SEED.md`). Where its seed recipes
+don't cover what you need, **fall back to the `wix-docs` skill** (`.agents/skills/wix-docs`) to
+search and read the relevant Wix API docs. Use the already-configured Wix connector for these
+management API calls.
 
 When you run seed/management code **inline via exec_tool**, `base44` is already declared — use
 it directly. Do **not** import `@base44/sdk`, re-declare `base44`, or call `createClient()` —
 that pattern is only for standalone `.js` skill files, and inline it throws *"Identifier
 'base44' has already been declared."*
 
-**IMPORTANT:** the Wix connector and the headless skill's seeding instructions are for
+**IMPORTANT:** the Wix connector and the `wix-headless` skill's seeding instructions are for
 management/admin operations only (STEP 2) — they are **NOT** part of the client. The client is
-built solely per the vibe-headless skill.
+built solely per the `wix-vibe-headless` skill.
 
 ## Parallelism
 
@@ -73,14 +106,15 @@ Once the site is built and seeded:
    context. If the file already exists, **`read_file` it first and only append your section** —
    do **not** rewrite, reorder, or remove anything already there; if you can't append cleanly,
    skip this rather than overwrite. Create the file only if none exists. Keep the note
-   high-level, e.g.: the Wix skills are installed under `/app/skills`; the client is built per
-   the `vibe-headless` skill; seeding/management is done per the `headless` + `docs` skills.
+   high-level, e.g.: the Wix skills are installed under `.agents/skills/`; the client is built
+   per the `wix-vibe-headless` skill; seeding/management is done per the `wix-headless` +
+   `wix-docs` skills.
 2. **Ask the user to open** this URL to complete the setup in Wix (substitute the metasite id
    you were given): `https://manage.wix.com/dashboard/{metaSiteId}`
 
 ## Later admin requests
 
 For any later admin/management request the user makes, work the same way as STEP 2: check the
-`headless` skill's inline recipes first (`references/inline-recipes/`) and, where the operation
-isn't documented there, fall back to the `docs` skill to search the Wix API docs — all over the
-Wix connector.
+`wix-headless` skill's inline recipes first (`.agents/skills/wix-headless/references/inline-recipes/`)
+and, where the operation isn't documented there, fall back to the `wix-docs` skill to search the
+Wix API docs — all over the Wix connector.
