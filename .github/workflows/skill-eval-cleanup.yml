@@ -11,7 +11,10 @@ concurrency:
 jobs:
   cleanup:
     runs-on: ubuntu-latest
-    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+    # Disabled: skill-eval is superseded by the evalforge-yaml-* gate, and its own gate is already
+    # off (skill-eval.yml `if: false`). With no gate creating MCP versions there is nothing to clean
+    # up, and this job failed on every PR close — so turn it off instead of leaving a red check.
+    if: false
     permissions:
       contents: read
     steps:
