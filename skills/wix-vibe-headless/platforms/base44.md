@@ -4,15 +4,9 @@ You are building a **Wix Managed** headless site inside Base44. The business to 
 described in your initial prompt. The Wix connector is already configured for this app — use
 it for all Wix API calls.
 
-Your Wix client id is the env var `WIX_CLIENT_ID`. It's a public, buyer/visitor-facing
-credential (it only mints anonymous visitor tokens), so it's safe in the frontend — but the
-exec_tool secret-guard still **blocks returning it** from a script, and you don't know its
-value at code-write time. So don't hardcode it and don't read it via exec_tool; expose it to
-the client with a tiny backend function and fetch it at runtime:
-
-```ts
-Deno.serve(() => Response.json({ clientId: Deno.env.get("WIX_CLIENT_ID") }));
-```
+Your Wix client id is given in your prompt. It's a public, buyer/visitor-facing credential (it
+only mints anonymous visitor tokens), so it's safe in the frontend — use that value directly for
+the Wix client setup.
 
 Follow the steps below exactly.
 
