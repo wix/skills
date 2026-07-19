@@ -2,7 +2,7 @@ name: EvalForge YAML Gate
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, test/refgraph-detach-base]
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'skills/wix-manage/references/**'
