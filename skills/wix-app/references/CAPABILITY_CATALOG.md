@@ -8,8 +8,9 @@ After this catalog selects a host extension and primitive, read that host extens
 
 | Capability | Host extension | Preferred primitive | Boundary |
 | --- | --- | --- | --- |
-| Collection table with supported CRUD | Dashboard Page | Auto Patterns | One collection; full page fits declarative configuration or documented overrides |
+| Collection table or grid with supported CRUD | Dashboard Page | Auto Patterns | One collection; Table and Grid layouts can provide a documented view switcher when the full page fits declarative configuration or documented overrides |
 | Entity create/edit/view | Dashboard Page | Auto Patterns | Use supported entity pages and action configuration |
+| Per-record state or custom row/bulk action | Dashboard Page | Auto Patterns override | Check the documented action resolver and override path before calling it custom-dashboard-only |
 | Header, actions, slots, columns, sections | Existing Dashboard Page | Auto Patterns override | Only where `patterns.json` and a documented override exist |
 | Multiple collections or a join | Dashboard Page | Custom data/query logic | Define relationship, query, null behavior, and write path |
 | Relationship schema | Data Collection or existing site resource | Schema configuration | Reference definition is not data population |

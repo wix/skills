@@ -10,6 +10,8 @@ Before scaffolding or editing configuration, read [AUTO_PATTERNS_DASHBOARD.md](A
 
 - Confirm the source is one collection, not a join or aggregate across several collections.
 - Confirm the requested interaction maps to a documented declarative feature or override.
+- For a collection page, inspect the documented Table and Grid layouts, view-switcher rules, and collection-page action/override rules before treating a request as unsupported.
+- Treat a per-record derived state or custom row/bulk action as an eligibility question, not an automatic fallback. Use Auto Patterns when its documented resolver or override can implement the behavior; otherwise record the missing composition path before choosing a custom page.
 - For an existing page, inspect `patterns.json` and edit configuration or an override instead of the generated component.
 - Keep the initial field set intentionally small and typed correctly.
 
@@ -18,7 +20,7 @@ Before scaffolding or editing configuration, read [AUTO_PATTERNS_DASHBOARD.md](A
 Use another route for:
 
 - Multi-collection data displays or custom joins.
-- Custom business calculations or external APIs.
+- Cross-collection calculations, external APIs, or business logic that has no documented Auto Patterns resolver or override path.
 - KPI cards and charts.
 - A modal, SidePanel, or Drawer interaction.
 - Custom backend endpoints.

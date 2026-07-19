@@ -31,7 +31,19 @@ For every requested capability, identify data, surface, interaction, placement, 
 
 The routing references in this directory decide the path; they never replace the upstream implementation guides. Before code is written, read the detailed reference for every selected host extension and primitive. In particular: Auto Patterns → [AUTO_PATTERNS_DASHBOARD.md](AUTO_PATTERNS_DASHBOARD.md); custom page → [DASHBOARD_PAGE.md](DASHBOARD_PAGE.md); dashboard UI component → [DASHBOARD_COMPONENTS.md](DASHBOARD_COMPONENTS.md) plus its exact `packages/wix-design-system` documentation; modal → [DASHBOARD_MODAL.md](DASHBOARD_MODAL.md); app-owned schema → [DATA_COLLECTION.md](DATA_COLLECTION.md); Wix Data operation → [data-collection/WIX_DATA.md](data-collection/WIX_DATA.md).
 
-## 3. Decide Page Composition
+## 3. Auto Patterns Eligibility Gate
+
+For a single-collection manager, read [AUTO_PATTERNS.md](AUTO_PATTERNS.md) and the detailed [AUTO_PATTERNS_DASHBOARD.md](AUTO_PATTERNS_DASHBOARD.md) before selecting custom React. Add one of these states to each capability in the plan:
+
+| State | Meaning | Route |
+| --- | --- | --- |
+| `supported` | Declarative Auto Patterns configuration covers it. | Auto Patterns |
+| `supported-via-override` | A documented action, resolver, slot, or override covers it. | Auto Patterns with that documented override |
+| `unsupported` | No documented configuration or composition path exists. | Custom Dashboard Page or a separate extension |
+
+Do not classify a table/grid view switch, a per-record derived state, or a custom row/bulk action as `unsupported` without checking the detailed Table/Grid and action/override rules. For `unsupported`, include the exact missing capability and reference checked. Do this before `wix generate` or the first custom `.tsx` write.
+
+## 4. Decide Page Composition
 
 Decide how capabilities physically coexist before scaffolding:
 
@@ -42,7 +54,7 @@ Decide how capabilities physically coexist before scaffolding:
 
 An Auto Patterns table plus a custom chart or SidePanel is not automatically composable. Verify the documented integration path. If it does not exist, host the whole page as a custom Dashboard Page or split the manager workflow into separate pages.
 
-## 4. Build a Capability Plan
+## 5. Build a Capability Plan
 
 Use this shape:
 
@@ -56,6 +68,8 @@ Use this shape:
       "hostSurfaceId": "students-management",
       "hostExtension": "DASHBOARD_PAGE",
       "implementationPrimitive": "custom-dashboard",
+      "autoPatternsEligibility": "unsupported",
+      "autoPatternsEvidence": "The page joins Students and Classes; Auto Patterns does not document a join composition path.",
       "dataSource": { "kind": "existing-site-collection", "collection": "Students" },
       "composition": "custom-dashboard-page",
       "references": ["CUSTOM_DASHBOARD.md"],
@@ -78,14 +92,14 @@ Use this shape:
 }
 ```
 
-## 5. Data Source Rules
+## 6. Data Source Rules
 
 - Existing collection named by the user or verified from site context: resolve and use it. Do not create a new app-owned collection.
 - New app-owned data: create a Data Collection extension and obtain the namespace.
 - Reference fields require both schema creation and a plan to populate or assign values.
 - Data source unclear: inspect or ask before creating storage.
 
-## 6. Overlay Precedence
+## 7. Overlay Precedence
 
 - **SidePanel:** persistent desktop contextual work while the source page remains visible.
 - **Dashboard Modal:** focused, blocking, bounded task such as confirmation or isolated form.
@@ -93,6 +107,6 @@ Use this shape:
 
 Do not use the words interchangeably. A SidePanel may only be added to an Auto Patterns page through a documented override/action integration; otherwise use a custom Dashboard Page.
 
-## 7. Runtime Evidence
+## 8. Runtime Evidence
 
 For every data-driven or interactive dashboard, read [RUNTIME_VALIDATION.md](RUNTIME_VALIDATION.md). The route is incomplete until the primary data request and primary manager action are verified in the browser.
