@@ -9,9 +9,11 @@ Install three skills — they land under `.agents/skills/` as:
 - **`wix-vibe-headless`** — the client build guide: how to build the frontend against the Wix
   APIs. This is your main source of truth (STEP 1).
 - **`wix-headless`** — a broad skill for building full Wix apps with the Wix SDK packages, **most
-  of which does not apply to how you build here**. Use it **only as a seeding reference** — its
-  `references/SEED.md` (and inline API recipes) for populating/managing the business in STEP 2.
-  Ignore the rest of it.
+  of which does not apply to how you build here**. Use it **only** as a seeding/admin recipe
+  reference — its `references/SEED.md` and `references/inline-recipes/`, for STEP 2. **Ignore
+  everything else in it** — in particular do **not** follow its authentication / `@wix/cli` /
+  "managed project" setup (e.g. anything under `references/managed/`, such as `AUTHENTICATION.md`).
+  That is **not** how auth works here — auth is handled per STEP 2 below.
 - **`wix-docs`** — a **fallback**: how to search and read the Wix API reference docs, for anything
   the seeding recipes above don't cover.
 
@@ -49,11 +51,17 @@ Seed the site with real content by following the `wix-headless` skill's `referen
 need, fall back to the `wix-docs` skill to search and read the relevant Wix API docs.
 
 These management/admin calls need **elevated Wix credentials** — the public client id is not
-enough. If you don't already have a way to authenticate them, **ask the user for a Wix API
-key / token** and store it in your platform's built-in **connector / secrets (env) manager** —
-never hardcode or commit it — then use it to authenticate the REST admin calls (the `wix-docs`
-skill covers Wix API-key auth). Or, if the user prefers, tell them they can add this content
-themselves in the Wix dashboard instead.
+enough. If you don't already have a way to authenticate them, either **connect your platform's
+Wix connector** (if it has one) or **ask the user for a Wix API key / token** and store it in your
+platform's built-in **connector / secrets (env) manager** — never hardcode or commit it. **Once
+the connector is connected (or the API key is in place), you can make Wix REST admin calls
+directly** — authenticate each call with that credential (the `wix-docs` skill covers Wix API-key
+auth). Or, if the user prefers, tell them they can add this content themselves in the Wix
+dashboard instead.
+
+Authenticate admin calls with **only** that connector/API key. Do **not** install or run the Wix
+CLI (`@wix/cli`), do a device-login, or follow `wix-headless`'s `references/managed/AUTHENTICATION.md`
+— that managed-project auth flow does not apply here.
 
 Management/admin operations (seeding, `wix-headless`, `wix-docs`) are **separate from the
 client** — the client is built solely per the `wix-vibe-headless` skill.
