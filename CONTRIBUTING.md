@@ -21,6 +21,10 @@ In this repo, many requests to add a "new skill" should actually be added as a n
 
 Use `wix-manage` for REST API operations that configure, set up, or manage Wix business entities and account/site resources.
 
+If you are adding or changing `wix-manage` skills, do not open the PR from a fork. The automated evaluation bot verifies the PR branch against eval scenarios, and fork-based PRs cannot be used for that workflow.
+
+If you do not have write permissions for this repository, please read [bo.wix.com/github-assist](https://bo.wix.com/github-assist) for the approved contribution path.
+
 When adding a `wix-manage` skill:
 
 1. Add the skill markdown under `skills/wix-manage/references/<area>/<skill>.md`.
