@@ -93,3 +93,5 @@ Are other active discount rules conflicting with or overriding this one?
 | 4 | Revision mismatch | Retry the update with correct revision |
 | 5 | App installation | Install Wix Stores app |
 | 6 | Stacking interference | Review and resolve overlapping rules |
+
+<!-- e2e-regression: isolated covered doc, no references; expect ONLY troubleshoot-not-applying to run; do not merge -->
