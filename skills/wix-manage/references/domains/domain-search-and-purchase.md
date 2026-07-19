@@ -453,7 +453,7 @@ This opens the checkout page with the pre-filled cart. The user only needs to co
 
 ### Flow 5: No premium site, suggest bundle
 
-1. User is in the Business Manager of "My Bakery Site" (msid: abc-123). User: "I want mybakery.com for my website"
+1. User is in the Business Manager of a site (msid: abc-123). User: "I want mybakery.com for my website"
 2. Check availability -> available: true
 3. Site context already known (msid: abc-123) -- skip ListWixSites
 4. Site has no premium plan -> call ListTlds for `.com` -> `coupons_applicable: true` -> voucher eligible
