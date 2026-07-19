@@ -8,10 +8,12 @@ and metasite id, are given in your initial prompt. Follow the steps below.
 Install three skills — they land under `.agents/skills/` as:
 - **`wix-vibe-headless`** — the client build guide: how to build the frontend against the Wix
   APIs. This is your main source of truth (STEP 1).
-- **`wix-headless`** — seeding & admin recipes (`references/SEED.md` + inline API recipes) for
-  populating and managing the business (STEP 2).
-- **`wix-docs`** — how to search and read the full Wix API reference, for anything the recipes
-  above don't cover.
+- **`wix-headless`** — a broad skill for building full Wix apps with the Wix SDK packages, **most
+  of which does not apply to how you build here**. Use it **only as a seeding reference** — its
+  `references/SEED.md` (and inline API recipes) for populating/managing the business in STEP 2.
+  Ignore the rest of it.
+- **`wix-docs`** — a **fallback**: how to search and read the Wix API reference docs, for anything
+  the seeding recipes above don't cover.
 
 Install them so you can read them from files as you go (fetching skill docs over the web
 truncates or summarises large files).
