@@ -435,7 +435,7 @@ This opens the checkout page with the pre-filled cart. The user only needs to co
 
 ### Flow 4: Purchase with site connection — site context known (no ListWixSites)
 
-1. User is in the Business Manager of "My Bakery Site" (msid: abc-123). User: "Buy mybakery.com and connect it to my site"
+1. User is in the Business Manager of a site (msid: abc-123). User: "Buy mybakery.com and connect it to my site"
 2. Check availability -> available: true
 3. Site context already known (msid: abc-123) -- skip ListWixSites
 4. Site has premium plan -> "Your domain will be automatically connected to your site after purchase."
@@ -446,7 +446,7 @@ This opens the checkout page with the pre-filled cart. The user only needs to co
 
 1. User has no active site context. User: "Buy mybakery.com and connect it to my site"
 2. Check availability -> available: true
-3. No site context available -> ask "Which site would you like to connect it to?" -> call ListWixSites -> user picks "My Bakery Site" (msid: abc-123)
+3. No site context available -> ask "Which site would you like to connect it to?" -> call ListWixSites -> user picks a site (msid: abc-123)
 4. Site has premium plan -> "Your domain will be automatically connected to your site after purchase."
 5. Get pricing, user picks 1 year, wants privacy, confirms contact info
 6. Save contact, create cart, share checkout link with msid: `https://manage.wix.com/cart/checkout?msid=abc-123`
