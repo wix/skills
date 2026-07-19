@@ -5,24 +5,34 @@ and metasite id, are given in your initial prompt. Follow the steps below.
 
 ## STEP 0 — Install the Wix skills locally
 
-Install three skills — they land under `.agents/skills/` as `wix-headless`, `wix-vibe-headless`,
-and `wix-docs` — so you can read them from files as you go (fetching skill docs over the web
-truncates or summarises large files). Either approach works — use whichever fits your environment:
+Install three skills — they land under `.agents/skills/` as:
+- **`wix-vibe-headless`** — the client build guide: how to build the frontend against the Wix
+  APIs. This is your main source of truth (STEP 1).
+- **`wix-headless`** — a broad skill for building full Wix apps with the Wix SDK packages, **most
+  of which does not apply to how you build here**. Use it **only as a seeding reference** — its
+  `references/SEED.md` (and inline API recipes) for populating/managing the business in STEP 2.
+  Ignore the rest of it.
+- **`wix-docs`** — a **fallback**: how to search and read the Wix API reference docs, for anything
+  the seeding recipes above don't cover.
 
-- **Skills CLI, if available:**
-  ```bash
-  CI=1 npx skills@latest add wix/skills/skills/wix-headless --yes
-  CI=1 npx skills@latest add wix/skills/skills/wix-vibe-headless --yes
-  CI=1 npx skills@latest add wix/skills/skills/wix-docs --yes
-  ```
-- **curl + gzip:** download each bundle and extract it into `.agents/skills/wix-<name>/`, then
-  read the files from there as you go:
-  ```bash
-  for s in headless vibe-headless docs; do
-    mkdir -p ".agents/skills/wix-$s"
-    curl -s "https://www.wix.com/skills/$s.tgz" | tar xz -C ".agents/skills/wix-$s" --strip-components=1
-  done
-  ```
+Install them so you can read them from files as you go (fetching skill docs over the web
+truncates or summarises large files).
+
+**Run the Skills CLI** — this is the install path to use:
+```bash
+CI=1 npx skills@latest add wix/skills/skills/wix-headless --yes
+CI=1 npx skills@latest add wix/skills/skills/wix-vibe-headless --yes
+CI=1 npx skills@latest add wix/skills/skills/wix-docs --yes
+```
+
+**Only if the CLI above actually errors** (not on a guess), fall back to curl + gzip — download
+each bundle and extract it into `.agents/skills/wix-<name>/`:
+```bash
+for s in headless vibe-headless docs; do
+  mkdir -p ".agents/skills/wix-$s"
+  curl -s "https://www.wix.com/skills/$s.tgz" | tar xz -C ".agents/skills/wix-$s" --strip-components=1
+done
+```
 
 ## STEP 1 — Build the client
 
