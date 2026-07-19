@@ -41,7 +41,7 @@ For a single-collection manager, read [AUTO_PATTERNS.md](AUTO_PATTERNS.md) and t
 | `supported-via-override` | A documented action, resolver, slot, or override covers it. | Auto Patterns with that documented override |
 | `unsupported` | No documented configuration or composition path exists. | Custom Dashboard Page or a separate extension |
 
-Do not classify a table/grid view switch, a per-record derived state, or a custom row/bulk action as `unsupported` without checking the detailed Table/Grid and action/override rules. For `unsupported`, include the exact missing capability and reference checked. Do this before `wix generate` or the first custom `.tsx` write.
+Do not classify a table/grid view switch, named saved View, per-record derived state, or custom row/bulk action as `unsupported` without checking the detailed Table/Grid, Views, and action/override rules. For `unsupported`, include the exact missing capability and reference checked. Do this before `wix generate` or the first custom `.tsx` write.
 
 ## 4. Decide Page Composition
 
@@ -97,6 +97,7 @@ Use this shape:
 - Existing collection named by the user or verified from site context: resolve and use it. Do not create a new app-owned collection.
 - New app-owned data: create a Data Collection extension and obtain the namespace.
 - Reference fields require both schema creation and a plan to populate or assign values.
+- A saved View can filter a documented field, but it does not calculate one field from another. For a dynamic workset such as "Low stock" (`stockOnHand <= reorderPoint`), maintain a filterable status field such as `inventoryStatus` and define how it is updated before configuring the View.
 - Data source unclear: inspect or ask before creating storage.
 
 ## 7. Overlay Precedence

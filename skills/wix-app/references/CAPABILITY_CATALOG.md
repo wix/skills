@@ -9,6 +9,7 @@ After this catalog selects a host extension and primitive, read that host extens
 | Capability | Host extension | Preferred primitive | Boundary |
 | --- | --- | --- | --- |
 | Collection table or grid with supported CRUD | Dashboard Page | Auto Patterns | One collection; Table and Grid layouts can provide a documented view switcher when the full page fits declarative configuration or documented overrides |
+| Named saved worksets or recurring filter presets | Dashboard Page | Auto Patterns Views | Configure Views alongside Table/Grid layouts; use it for named filters and column preferences, not to choose a presentation layout |
 | Entity create/edit/view | Dashboard Page | Auto Patterns | Use supported entity pages and action configuration |
 | Per-record state or custom row/bulk action | Dashboard Page | Auto Patterns override | Check the documented action resolver and override path before calling it custom-dashboard-only |
 | Header, actions, slots, columns, sections | Existing Dashboard Page | Auto Patterns override | Only where `patterns.json` and a documented override exist |

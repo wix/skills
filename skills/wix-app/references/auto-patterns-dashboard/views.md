@@ -1,5 +1,18 @@
 # Views Configuration Rules
 
+## When To Use Views
+
+Views are named, saved operational worksets. Use them when the manager needs recurring subsets such as `All products`, `Low stock`, `Discontinued`, or `My queue`.
+
+Views are separate from the collection page layout:
+
+- `layout: [Table, Grid]` enables the Table/Grid presentation switcher.
+- `views` configures named presets, their filters, and optional column preferences.
+- Configure both when the user needs both visual representations and named worksets.
+- `isDefaultView` selects the default saved View. It does not select Table or Grid as the initial presentation.
+
+For a dynamic condition that compares two fields, such as `stockOnHand <= reorderPoint`, do not claim that a View calculates it. First provide a maintained filterable field, for example `inventoryStatus: In stock | Low stock | Discontinued`, then configure the View against that field's documented filter ID.
+
 ## Type Definitions
 ```typescript
 interface ViewsConfig {
@@ -48,6 +61,7 @@ interface PresetView {
 - **MUST** use valid filter structures (Date/Number/Boolean/Enum/Reference) matching `AppConfig`.
 - **MUST** avoid reserved IDs (`predefined-views`, `saved-views`, `all-items-view`).
 - **SHOULD** set `isDefaultView: true` on exactly one preset if default override needed.
+- **SHOULD** use `type: 'views'` for a short flat set of manager worksets; use categories only when the sets need a meaningful hierarchy.
 
 ## Canonical Example
 ```typescript

@@ -296,6 +296,7 @@ Edit `patterns.json` based on the user's request. Key constraints:
 - **`biName` is mandatory** for every action (kebab-case: `{action-purpose}-action`)
 - **`customColumns.enabled: true`** when > 5 columns
 - **Grid item only if IMAGE fields exist**
+- **Named worksets require Views**: when the request names recurring subsets or saved filters, read `views.md` and configure Views in addition to any Table/Grid presentation switcher
 - **Route format**: entity page must be `/[segment]/:entityId`
 - **Exactly 1 `appMainPage: true`** across all pages
 
