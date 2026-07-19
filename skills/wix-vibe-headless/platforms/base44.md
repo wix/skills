@@ -18,10 +18,16 @@ Follow the steps below exactly.
 
 ## STEP 0 — Install the Wix skills locally
 
-Install three skills — they land under `.agents/skills/` as `wix-headless`, `wix-vibe-headless`,
-and `wix-docs`.
+Install three skills — they land under `.agents/skills/` as:
+- **`wix-vibe-headless`** — the client build guide: how to build the frontend against the Wix
+  APIs. This is your main source of truth (STEP 1).
+- **`wix-headless`** — seeding & admin recipes (`references/SEED.md` + inline API recipes) for
+  populating and managing the business (STEP 2).
+- **`wix-docs`** — how to search and read the full Wix API reference, for anything the recipes
+  above don't cover.
 
-**Option A — skills CLI (preferred).** Run via exec_tool:
+**Option A — skills CLI.** This is the Base44-verified install path — run it first via
+exec_tool, exactly as written:
 
 ```js
 const { execSync } = require('child_process');
@@ -47,7 +53,8 @@ for (const skill of skills) {
 return { results, installed: readdirSync('/app/.agents/skills') };
 ```
 
-**Option B — tarball (fallback, if the CLI is unavailable or errors).** Run via exec_tool:
+**Option B — tarball.** Use this **only if Option A actually errored** (check its `results`) —
+do not skip Option A on a guess. Run via exec_tool:
 
 ```js
 const { execSync } = require('child_process');
