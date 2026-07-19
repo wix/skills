@@ -21,7 +21,7 @@ Follow the steps below exactly.
 Install three skills — they land under `.agents/skills/` as `wix-headless`, `wix-vibe-headless`,
 and `wix-docs`.
 
-**Option A — skills CLI (preferred).** Run via exec_tool (needs Node ≥ 22.20):
+**Option A — skills CLI (preferred).** Run via exec_tool:
 
 ```js
 const { execSync } = require('child_process');

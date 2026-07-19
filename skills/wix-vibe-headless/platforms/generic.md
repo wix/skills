@@ -9,7 +9,7 @@ Install three skills — they land under `.agents/skills/` as `wix-headless`, `w
 and `wix-docs` — so you can read them from files as you go (fetching skill docs over the web
 truncates or summarises large files). Either approach works — use whichever fits your environment:
 
-- **Skills CLI, if available** (needs Node ≥ 22.20):
+- **Skills CLI, if available:**
   ```bash
   CI=1 npx skills@latest add wix/skills/skills/wix-headless --yes
   CI=1 npx skills@latest add wix/skills/skills/wix-vibe-headless --yes
