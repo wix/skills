@@ -1,0 +1,42 @@
+# Data Model and Operations
+
+Treat source selection, schema, relationship values, and manager workflows as separate deliverables.
+
+## Canonical Implementation References
+
+Read [DATA_COLLECTION.md](DATA_COLLECTION.md) before creating or changing app-owned collection schema. Read [data-collection/WIX_DATA.md](data-collection/WIX_DATA.md) before implementing data reads, writes, reference assignment, or permissions-sensitive operations. This file is a routing and product-workflow checklist, not an SDK reference.
+
+## 0. Choose the Data Source
+
+| Source | Action |
+| --- | --- |
+| Existing site CMS collection | Resolve the existing collection by supplied ID, clear name, or verified site context. Do not create an app-owned collection. |
+| New app-owned data | Create a Data Collection extension, obtain the app namespace, and use its scoped collection ID. |
+| Wix business data or external API | Read the matching API reference. Create a CMS collection only when app-owned persistence is explicitly required. |
+| Unknown | Inspect available context or ask one targeted question before choosing storage. |
+
+## 1. Schema
+
+For new app-owned collections, define fields, indexes, permissions, and reference fields. Obtain the required namespace and use the scoped collection identifier. For existing collections, inspect the actual schema before relying on a field name or type.
+
+## 2. Relationship Data
+
+Creating a reference field does not populate it. Decide how existing and future records receive relationship values:
+
+- migration or initial-data strategy;
+- user assignment workflow;
+- validation for missing or invalid references;
+- behavior for records with no relationship.
+
+## 3. Manager Workflow
+
+If a manager must assign a relationship from the dashboard, implement a discoverable write flow. The flow must:
+
+1. show available target records;
+2. persist the chosen reference on the source record;
+3. refresh the table/detail surface;
+4. communicate failure without losing context.
+
+## Data Contract
+
+Before building a table that combines records, write down the source collection, target collection, reference field, required display fields, missing-value treatment, and mutation path. Do not rely on implied naming such as `classRef` without verifying the actual schema.
