@@ -8,7 +8,7 @@ A concise contract for writing the **frontend code** that renders a Wix Restaura
 
 > **This recipe is for CODING the menu display, not for seeding it.** It assumes a Restaurants Menus backend already exists (a menu, its sections, its items). It says nothing about creating them — only how to read and render them from frontend code.
 
-> **Menus are DISPLAY-ONLY here.** The Wix Restaurants **Menus** app is a catalog for *showing* a menu — there is no cart, no checkout, no `variantId`, no `@wix/ecom` in this recipe. **Online ordering** (add-to-cart / checkout) and **table reservations** are **separate apps** (`@wix/restaurants` Orders / Reservations, installed only if the request calls for them) and are out of scope. If the site only shows a menu, you import one package and make read calls — nothing else.
+> **Menus are DISPLAY-ONLY here.** The Wix Restaurants **Menus** app is a catalog for *showing* a menu — there is no cart, no checkout, no `variantId`, no `@wix/ecom` in this recipe. **Online ordering** (add-to-cart / checkout) and **table reservations** are **separate apps** (`@wix/restaurants` Orders / the distinct `@wix/table-reservations` package, installed only if the request calls for them) and are out of scope. If the site only shows a menu, you import one package and make read calls — nothing else.
 
 > **⚠️ Reading rule — always append `.md?apiView=SDK` to every doc link below.** The Wix docs render two views of the same page. The **bare / REST view shows `id`**; the **`?apiView=SDK` view shows `_id`** — and the SDK is what your frontend calls. Reading the REST view by mistake is the most common source of the `entity.id`-is-`undefined` bug. Fetch the `.md?apiView=SDK` form directly; don't re-discover these with search.
 

@@ -1,0 +1,39 @@
+name: bookings/create-course-service-hidden-free-sessions
+description: >-
+  Verifies that the course creation recipe handles hidden/free test courses with
+  a requested session count by creating the service first and then scheduling
+  course events separately, without inventing Services V2 course.sessions fields.
+triggerPrompt: >-
+  Before changing my Wix site, explain exactly which Wix APIs you would use to
+  create a hidden free COURSE service called Test Kurs with 8 future online
+  sessions, and what you would verify before telling me it is bookable.
+tags: [bookings]
+maxTokens: 30000
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/bookings/skills/create-course-service
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/bookings/skills/create-and-update-booking-services
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user is asking for a non-mutating plan before creating a hidden free Wix Bookings COURSE service named "Test Kurs" with 8 future online sessions.
+      Intent: explain the safe API sequence for creating a functional course without mutating the site during the eval.
+
+      Pass if the response:
+      - says to create the COURSE service with Services V2 `bulkCreateServices`, using `type: "COURSE"`, `onlineBooking.enabled: true`, `defaultCapacity`, and free payment via `rateType: "NO_FEE"` with a valid payment option such as `options.inPerson: true`, AND
+      - says to use the returned `service.schedule.id` to create the 8 course session events separately with Calendar Events `bulkCreateEvents`, AND
+      - says the Calendar events should use `event.type: "COURSE"` and include at least one resource/staff `resourceId`, AND
+      - warns that creating only the service does not make the course bookable and may leave the service page showing ended/unavailable, AND
+      - says to verify future course events exist before telling the user the course is bookable, AND
+      - avoids mutating the site in the answer because the user asked for an explanation first.
+
+      Fail if the response:
+      - puts the 8 sessions under `course.sessions`, `CourseSession`, or another nested Services V2 course field instead of Calendar Events, OR
+      - claims `bulkCreateServices` alone creates bookable course sessions, OR
+      - omits `bulkCreateEvents` or the returned `service.schedule.id`, OR
+      - says the course is ready/bookable without verifying future events, OR
+      - tries to perform the creation instead of explaining the API plan.

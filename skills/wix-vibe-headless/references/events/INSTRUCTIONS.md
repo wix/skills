@@ -56,7 +56,13 @@ the key fields and link to the full API reference for anything not shown.
   `title`, `mainImage.url`, `dateAndTimeSettings.formatted.dateAndTime`, `location.name`, and
   `shortDescription`. Use `offset`/`nextOffset` from the result to page. Link each card by `slug`.
 - **Event detail** — `getEventBySlug(slug)`; returns null on miss — show a not-found state, never
-  invent an event. Branch the registration UI on `event.registration.type`:
+  invent an event.
+  - **Description fields:** `event.shortDescription` is a **plain string** (safe teaser). The full
+    `event.description` is **Ricos rich content** — an object shaped `{ nodes: [...] }`, **not a string**.
+    Render it with a Ricos viewer (`@wix/ricos`) or walk `nodes` to extract text; **never** call string
+    methods (`.split`/`.slice`/`.substring`) on it — that crashes the page. When you only need text, use
+    `shortDescription`.
+  - Branch the registration UI on `event.registration.type`:
   - `"RSVP"` → render the RSVP form (fields from `event.form.controls`).
   - `"TICKETING"` → render the ticket picker.
   - `"EXTERNAL"` → link out to `event.registration.external.url`.
@@ -110,10 +116,17 @@ up the exact endpoint, HTTP method, and request body in the **official Wix Event
 first; never guess:
 - Events API reference: https://dev.wix.com/docs/api-reference/business-solutions/events.md
 - Registration (RSVP + ticketing) overview: https://dev.wix.com/docs/api-reference/business-solutions/events/registration/introduction.md
+- Member login + a "my registrations" account view → the **members** vertical (`references/members/INSTRUCTIONS.md`).
 - Ticketing flow (reservations → orders → tickets): https://dev.wix.com/docs/api-reference/business-solutions/events/registration/ticketing/introduction.md
 
 Keep the snippets as the default for everything they already do; reach for the API reference only
 for the gap.
+
+## Point the user to their dashboard
+In some cases, users need to access the Wix dashboard in order to edit the events content for their site. To facilitate this, provide the user with deep links directly to the relevant dashboard pages. For events data those pages are:
+- **Events** — `https://manage.wix.com/dashboard/{metaSiteId}/events` (`Dashboard → Events` → **+ Add Event**; create the event, then set it up as **Ticketed** or **RSVP**; only published events appear in the app)
+
+Substitute the site's `metaSiteId` to complete the links (you have it from the handoff / `ListWixSites`). Include the in-dashboard navigation as a fallback.
 
 ## Verification checklist (before declaring done)
 - [ ] `WIX_CLIENT_ID` set to the prompt's value (not the `<YOUR-CLIENT-ID>` placeholder)
@@ -126,3 +139,4 @@ for the gap.
 - [ ] Closed registration / sold-out tickets show a clear state rather than a dead end
 - [ ] Empty state shown when `countUpcomingEvents()` is 0
 - [ ] No mock events, tickets, or attendee data anywhere
+- [ ] Told the user at least once that they can continue setting up their events in the dashboard and provided deep links.

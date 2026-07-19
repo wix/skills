@@ -59,14 +59,21 @@ export async function addToCart(catalogItemId, variantId, quantity = 1, { modifi
   const line = (res?.cart?.lineItems ?? []).find(
     (l) => l.catalogReference?.catalogItemId === catalogItemId && (!variantId || l.catalogReference?.options?.variantId === variantId),
   );
-  // Wix returns 200 even when stock is exhausted — guard both signals:
+  // Wix returns 200 even when the line is silently rejected — guard both signals:
   // 1. availability.status set to something other than AVAILABLE
-  // 2. quantity 0 (stock exhausted, no availability field populated)
+  // 2. no matching line at all (quantity 0 / line absent)
   if (line?.availability?.status && line.availability.status !== "AVAILABLE") {
     throw new Error(`Item not available for sale (status: ${line.availability.status}). Is it in stock?`);
   }
   if (!line || line.quantity === 0) {
-    throw new Error("Item could not be added to the cart — it may be out of stock.");
+    // A missing line usually means a required selection wasn't sent — a mandatory modifier
+    // (pass modifierChoices/customTextFields) or the variantId for a product with options —
+    // not necessarily out of stock. Verify every required choice is included in this call.
+    throw new Error(
+      "Item could not be added to the cart. Check that every required selection was sent: " +
+        "the variantId for a product with options, and all mandatory modifiers " +
+        "(modifierChoices for TEXT_CHOICES, customTextFields for FREE_TEXT). It may also be out of stock.",
+    );
   }
   return res?.cart;
 }
