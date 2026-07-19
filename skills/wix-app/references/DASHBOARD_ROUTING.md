@@ -41,7 +41,7 @@ For a single-collection manager, read [AUTO_PATTERNS.md](AUTO_PATTERNS.md) and t
 | `supported-via-override` | A documented action, resolver, slot, or override covers it. | Auto Patterns with that documented override |
 | `unsupported` | No documented configuration or composition path exists. | Custom Dashboard Page or a separate extension |
 
-Do not classify a table/grid view switch, named saved View, per-record derived state, or custom row/bulk action as `unsupported` without checking the detailed Table/Grid, Views, and action/override rules. For `unsupported`, include the exact missing capability and reference checked. Do this before `wix generate` or the first custom `.tsx` write.
+Do not classify a Table/Grid layout switcher, named Saved View, per-record derived state, or custom row/bulk action as `unsupported` without checking the detailed Table/Grid, Saved Views, and action/override rules. For `unsupported`, include the exact missing capability and reference checked. The native CMS layout picker, `List` layout, and a configurable initial Table/Grid selection are not documented Auto Patterns capabilities. Do this before `wix generate` or the first custom `.tsx` write.
 
 ## 4. Decide Page Composition
 

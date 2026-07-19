@@ -8,8 +8,8 @@ After this catalog selects a host extension and primitive, read that host extens
 
 | Capability | Host extension | Preferred primitive | Boundary |
 | --- | --- | --- | --- |
-| Collection table or grid with supported CRUD | Dashboard Page | Auto Patterns | One collection; Table and Grid layouts can provide a documented view switcher when the full page fits declarative configuration or documented overrides |
-| Named saved worksets or recurring filter presets | Dashboard Page | Auto Patterns Views | Configure Views alongside Table/Grid layouts; use it for named filters and column preferences, not to choose a presentation layout |
+| Collection table or grid with supported CRUD | Dashboard Page | Auto Patterns | One collection; Table and Grid layouts provide the documented built-in layout switcher when the full page fits declarative configuration or documented overrides |
+| Named saved worksets or recurring filter presets | Dashboard Page | Auto Patterns Saved Views | Configure Saved Views alongside Table/Grid layouts; use them for named filters and column preferences, not to choose a presentation layout |
 | Entity create/edit/view | Dashboard Page | Auto Patterns | Use supported entity pages and action configuration |
 | Per-record state or custom row/bulk action | Dashboard Page | Auto Patterns override | Check the documented action resolver and override path before calling it custom-dashboard-only |
 | Header, actions, slots, columns, sections | Existing Dashboard Page | Auto Patterns override | Only where `patterns.json` and a documented override exist |
@@ -29,5 +29,6 @@ Do not assume any of these without a documented source:
 - Auto Patterns supports charts, KPI widgets, arbitrary multi-collection joins, or arbitrary component composition.
 - Creating a reference field populates existing records.
 - A table action is automatically inline-editable or can open a SidePanel.
+- Auto Patterns can reproduce the CMS `Choose layout` menu, its `List` layout, or configure which Table/Grid layout is initially selected.
 - A custom fixed-position panel behaves like a documented WDS overlay.
 - A build or deployment proves runtime data correctness.
