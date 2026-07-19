@@ -22,9 +22,11 @@ Install three skills — they land under `.agents/skills/` as:
 - **`wix-vibe-headless`** — the client build guide: how to build the frontend against the Wix
   APIs. This is your main source of truth (STEP 1).
 - **`wix-headless`** — a broad skill for building full Wix apps with the Wix SDK packages, **most
-  of which does not apply to how you build here**. Use it **only as a seeding reference** — its
-  `references/SEED.md` (and inline API recipes) for populating/managing the business in STEP 2.
-  Ignore the rest of it.
+  of which does not apply to how you build here**. Use it **only** as a seeding/admin recipe
+  reference — its `references/SEED.md` and `references/inline-recipes/`, for STEP 2. **Ignore
+  everything else in it** — in particular do **not** follow its authentication / `@wix/cli` /
+  "managed project" setup (e.g. anything under `references/managed/`, such as `AUTHENTICATION.md`).
+  That is **not** how auth works here — auth is handled per STEP 2 below.
 - **`wix-docs`** — a **fallback**: how to search and read the Wix API reference docs, for anything
   the seeding recipes above don't cover.
 
@@ -88,8 +90,12 @@ re-generating them from scratch.
 Seed the site with real content by following the **`wix-headless` skill**'s
 `references/SEED.md` (`.agents/skills/wix-headless/references/SEED.md`). Where its seed recipes
 don't cover what you need, **fall back to the `wix-docs` skill** (`.agents/skills/wix-docs`) to
-search and read the relevant Wix API docs. Use the already-configured Wix connector for these
-management API calls.
+search and read the relevant Wix API docs.
+
+**Auth for these admin calls is the already-configured Wix connector — and nothing else.** With
+the connector in place you can make Wix API calls directly. Do **not** install or run the Wix CLI
+(`@wix/cli`), do a device-login, or follow `wix-headless`'s `references/managed/AUTHENTICATION.md`
+— that managed-project auth flow does not apply to Base44 and will send you down the wrong path.
 
 When you run seed/management code **inline via exec_tool**, `base44` is already declared — use
 it directly. Do **not** import `@base44/sdk`, re-declare `base44`, or call `createClient()` —
