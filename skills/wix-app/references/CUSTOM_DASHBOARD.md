@@ -13,7 +13,8 @@ For every custom data surface, define:
 - data source and required access;
 - query, aggregation, and transformation contract;
 - loading state;
-- empty state;
+- empty-collection state with an appropriate setup or create CTA;
+- no-filter-results state with a clear-filters action;
 - permission-denied state;
 - recoverable error state;
 - null, malformed, and partial-response handling;
@@ -25,6 +26,8 @@ For every custom data surface, define:
 - Use the correct documented overlay primitive rather than hand-built fixed positioning.
 - Do not place a full-page layout inside a panel or modal host.
 - Keep data fetching separate from rendering and validate response shape before visualizing it.
+- For WDS data tables, read the documented `EmptyState` guidance and render it whenever the table has no rows after loading. Do not render `Table.Content` as the only non-loading branch.
+- For a multi-source row, define the source of truth for each displayed field and the behavior when a related record is missing.
 
 ## Exit Criteria
 

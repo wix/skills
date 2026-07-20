@@ -12,8 +12,9 @@ Read [APP_VALIDATION.md](APP_VALIDATION.md) for installation, TypeScript, build,
 2. Confirm the primary data request succeeds.
 3. Check browser console for uncaught errors and the network panel for failed primary requests.
 4. Exercise the main workflow: list, filter, create, edit, assign, or open detail as applicable.
-5. Verify the applicable loading, empty, permission-denied, and error states.
-6. Refresh the page and confirm state remains stable.
+5. For every filter, test one known matching record and confirm the submitted filter value matches the raw value stored in the data source. Also test a zero-results state and its clear-filters recovery action.
+6. Verify the applicable loading, empty-collection, permission-denied, and error states. For a custom WDS table, verify the documented `EmptyState` is rendered rather than a blank table area.
+7. Refresh the page and confirm state remains stable.
 
 ## Failure Classification
 
