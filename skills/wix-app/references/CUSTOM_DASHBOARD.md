@@ -4,7 +4,7 @@ Use a custom dashboard page for capabilities that cannot be represented declarat
 
 ## Canonical Implementation References
 
-Before implementation, read [DASHBOARD_PAGE.md](DASHBOARD_PAGE.md) and the relevant Dashboard SDK guidance in [dashboard-page/DASHBOARD_API.md](dashboard-page/DASHBOARD_API.md). If the page uses WDS, read [DASHBOARD_COMPONENTS.md](DASHBOARD_COMPONENTS.md), invoke the Wix Design System skill, and read the exact component guidance before editing UI.
+Before implementation, read [DASHBOARD_PAGE.md](DASHBOARD_PAGE.md) and the relevant Dashboard SDK guidance in [dashboard-page/DASHBOARD_API.md](dashboard-page/DASHBOARD_API.md). If the page uses WDS, read [DASHBOARD_COMPONENTS.md](DASHBOARD_COMPONENTS.md), invoke the Wix Design System skill, and read the exact component guidance before editing UI. If a prompt asks to select a row and inspect, edit, or assign it in a panel, also read [OVERLAYS.md](OVERLAYS.md) before choosing layout or mounting `SidePanel`.
 
 ## Responsibilities
 
@@ -13,7 +13,7 @@ For every custom data surface, define:
 - data source and required access;
 - query, aggregation, and transformation contract;
 - loading state;
-- empty-collection state with an appropriate setup or create CTA;
+- empty-collection state with an appropriate setup or create CTA and a verified destination;
 - no-filter-results state with a clear-filters action;
 - permission-denied state;
 - recoverable error state;
@@ -32,7 +32,7 @@ Choose the visible state from the complete data set before rendering table contr
 | Source records but no visible rows | Active filters and no-results state with clear-filters action. Close any selected-record panel. |
 | Visible rows | Relevant filters, table controls, table, and row selection. |
 
-Use a documented deep link to the native data surface when the manager must create records outside the dashboard. Do not replace a CTA with explanatory text. If no documented destination exists, provide the creation flow inside the dashboard.
+Use a documented deep link to the native data surface when the manager must create records outside the dashboard. Name the destination in the capability plan and verify that the CTA opens it. Do not replace a CTA with explanatory text. If no documented destination exists, provide the creation flow inside the dashboard.
 
 ## Record Detail Hierarchy
 
@@ -42,14 +42,15 @@ For a selected-record panel or detail form, organize information in this order:
 2. **Summary:** the 2-4 facts needed to understand the current task.
 3. **Context:** related person, account, or secondary metadata.
 4. **Working fields:** only fields the manager can actually edit; display read-only facts as text, not disabled-looking inputs.
-5. **Footer:** primary action, then secondary save or cancel actions.
+5. **Footer:** secondary action(s), then the primary action, aligned to the right.
 
-Status badges that determine urgency or available actions belong in the header, not midway through supporting content. A field is editable only when it has a write path, validation, and save behavior.
+Status badges that determine urgency or available actions belong in the header, not midway through supporting content. A field is editable only when it has a write path, validation, and save behavior. Use standard WDS `Divider` for thin in-content section separation; do not use a heavyweight structural separator merely to create visual spacing.
 
 ## Composition Rules
 
 - Prefer documented WDS components over custom approximations.
 - Use the correct documented overlay primitive rather than hand-built fixed positioning.
+- A request to keep the list visible while showing a selected record means a floating `SidePanel` by default, not a side-by-side flex column. Use a push layout only when the prompt explicitly asks for persistent split-screen work.
 - Do not place a full-page layout inside a panel or modal host.
 - Keep data fetching separate from rendering and validate response shape before visualizing it.
 - For WDS data tables, read the documented `EmptyState` guidance and render it whenever the table has no rows after loading. Do not render `Table.Content` as the only non-loading branch.

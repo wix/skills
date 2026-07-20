@@ -18,6 +18,7 @@ For Dashboard Modal, read [DASHBOARD_MODAL.md](DASHBOARD_MODAL.md) before scaffo
 - Use `skin="floating"` for the default overlay surface. `SidePanel` does not create a modal backdrop or block page interaction by itself; do not add a dimming scrim unless the request explicitly calls for a blocking modal-like interaction.
 - `SidePanel` is a surface component, not a portal. Mount its overlay host outside every scrolling or clipping ancestor; do not place it under `overflow: hidden`, `overflow: auto`, or a table/card content wrapper.
 - Use a push layout only when the user explicitly asks for a persistent side-by-side workspace, or when the capability plan explains why the manager must see the full main-page context while editing. Record that choice before implementation.
+- "Keep the list visible" means leave the background page visible beneath a floating SidePanel; it does not imply that the panel should consume a grid or flex column beside the table.
 - Keep close controls, focus handling, and page blocking behavior in the documented component.
 
 ## Language Guardrail
