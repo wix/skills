@@ -30,6 +30,7 @@ Read the WDS `Table` **Column width** and **Horizontal scroll** examples, plus t
 ## Toolbar And Filters
 
 - Keep table title, filters, search, and general actions in the table toolbar. Keep search in a consistent right-side toolbar position when present.
+- Render a result count such as `3 sessions` as one semantic, non-wrapping text label. Do not distribute the number, singular/plural label, or suffix across separate flex children, spacing tokens, or columns; the count must remain legible as a single phrase at every supported width.
 - Use at most three visible filter controls. If the task needs more, move advanced filters into a WDS SidePanel with the documented header, scrollable content, and footer; follow [OVERLAYS.md](OVERLAYS.md).
 - Keep normal filters and bulk-action controls mutually exclusive: selecting rows replaces the normal toolbar with selected count and available bulk actions.
 - Show active filters clearly and provide a clear-filters action for a no-results state.
