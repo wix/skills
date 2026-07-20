@@ -86,6 +86,11 @@ Seed the site with real content by following the **`wix-headless` skill**'s
 don't cover what you need, **fall back to the `wix-docs` skill** (`.agents/skills/wix-docs`) to
 search and read the relevant Wix API docs.
 
+**Seeding is additive.** You may clean up the app install's **obvious default sample/mock data**
+right after a fresh install, but the site may already hold **real content** (a prior run, or
+owner-added) — if what's there isn't obviously install sample data, or you're unsure, **do not
+delete or overwrite it without the user's explicit ask or approval** (ask first).
+
 **Auth for these admin calls is the already-configured Wix connector — and nothing else.** Get the
 access token from it and send it as a bearer token — do **not** hand-roll a token getter (e.g. a
 custom `getAdminToken()`):
