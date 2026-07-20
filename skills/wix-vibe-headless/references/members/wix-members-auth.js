@@ -2,10 +2,28 @@ import {
   wixApiRequest,
   WIX_API_BASE,
   WIX_CLIENT_ID,
+  WIX_META_SITE_ID,
   setSessionTokens,
   clearSession,
   isMember,
 } from "./wix-client.js";
+
+// One-click "approve this domain" dashboard deep link for when login fails because this app's
+// ORIGIN isn't in the OAuth app's allowed domains. Built client-side (no server change needed —
+// the ?addAllowedDomain= param already exists) so the UI can offer a fix. Returns undefined when
+// WIX_META_SITE_ID isn't set (the deep link needs it) — the caller then just shows the message.
+function pageOrigin() {
+  return typeof window !== "undefined" ? window.location.origin : "";
+}
+
+function buildApproveDomainUrl(origin) {
+  if (!origin || !WIX_META_SITE_ID || WIX_META_SITE_ID.startsWith("<")) return undefined;
+  return (
+    `https://manage.wix.com/dashboard/${encodeURIComponent(WIX_META_SITE_ID)}` +
+    `/oauth-apps-settings/manage/${encodeURIComponent(WIX_CLIENT_ID)}` +
+    `?addAllowedDomain=${encodeURIComponent(origin)}`
+  );
+}
 
 /**
  * Custom member login for a client-only headless front end — the REST analog of
@@ -305,11 +323,11 @@ function authorizeViaHiddenIframe(authUrl, expectedState) {
       cleanup();
       if (e.data.error) {
         const err = new MemberAuthError(e.data.error, e.data.error_description || e.data.error);
-        // When the origin isn't allow-listed, the authorize server now returns a benign
-        // `redirect_uri_not_allowed` error carrying an `approveUrl` (a one-click dashboard deep
-        // link to approve this origin). Surface it so the UI can render an "Approve this domain"
-        // CTA instead of a dead end. (Absent on older server versions — harmless.)
-        if (e.data.approveUrl) err.approveUrl = e.data.approveUrl;
+        // Origin not allow-listed. Prefer the authorize server's `approveUrl` (newer servers send
+        // a benign `redirect_uri_not_allowed` carrying it); otherwise build it client-side. Either
+        // way the UI gets a one-click "Approve this domain" deep link instead of a dead end.
+        err.approveUrl = e.data.approveUrl || buildApproveDomainUrl(pageOrigin());
+        if (err.approveUrl) console.warn(`Wix member login: approve this origin — ${err.approveUrl}`);
         reject(err);
       } else resolve({ code: e.data.code, state: e.data.state });
     };
@@ -317,15 +335,18 @@ function authorizeViaHiddenIframe(authUrl, expectedState) {
     const timer = setTimeout(() => {
       if (!settled) {
         cleanup();
-        // Fast-fail fallback for older authorize servers that *silently drop* the postMessage
-        // when this app's ORIGIN isn't in the OAuth app's allowed domains (newer servers return
-        // an actionable `redirect_uri_not_allowed` + `approveUrl` immediately — handled above).
-        // The fix: add this origin to the OAuth app's allowed domains — see INSTRUCTIONS.md.
-        reject(new MemberAuthError(
-          "timeout",
-          `Login timed out. This app's origin (${typeof window !== "undefined" ? window.location.origin : "?"}) ` +
-            `is most likely not in the Wix OAuth app's allowed domains — add it in the site's Headless Settings.`,
-        ));
+        // Fast-fail fallback for older authorize servers that *silently drop* the postMessage when
+        // this app's ORIGIN isn't in the OAuth app's allowed domains. Build the approve deep link
+        // client-side so the UI can still offer the one-click fix (no server change needed).
+        const approveUrl = buildApproveDomainUrl(pageOrigin());
+        if (approveUrl) console.warn(`Wix member login: approve this origin — ${approveUrl}`);
+        const err = new MemberAuthError(
+          "redirect_uri_not_allowed",
+          `This app's origin (${pageOrigin() || "?"}) is not in the Wix OAuth app's allowed domains — ` +
+            `add it in the site's Headless Settings.`,
+        );
+        if (approveUrl) err.approveUrl = approveUrl;
+        reject(err);
       }
     }, 30000);
     iframe.src = authUrl;
