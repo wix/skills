@@ -43,7 +43,10 @@ export class EvalForge {
     const label = ('prb-' + branch.toLowerCase().replace(/[^a-z0-9]+/g, '-')).slice(0, 60);
     const resp = await this.api('POST', `/capabilities/${entryCap}/versions`, {
       version: label, origin: 'pr', notes: marker,
-      content: { skillContent: { files: [{ path: 'SKILL.md', content: md2 }] } },
+      // NB: inline files live under content.files (NOT content.skillContent.files); the
+      // wrong shape is silently dropped and the version resolves from its GitHub source
+      // (the published skill), so the branch install never takes effect. Verified via POC.
+      content: { files: [{ path: 'SKILL.md', content: md2 }] },
     });
     if (!resp?.id) throw new Error(`failed to create entry version: ${JSON.stringify(resp)}`);
     return { versionId: resp.id as string, state: 'created' };
