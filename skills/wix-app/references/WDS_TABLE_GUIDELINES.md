@@ -39,6 +39,7 @@ Read the WDS `Table` **Column width** and **Horizontal scroll** examples, plus t
 
 - Put single-row actions in the final column with `TableActionCell`.
 - Use descriptive labels for bulk actions. Show no more than three direct bulk actions; place additional secondary actions in a menu.
+- For an action that resolves, assigns, reviews, or otherwise changes one record's work state, pair the bulk action with a selected-record equivalent. When the row opens a SidePanel, place that equivalent in the documented panel footer instead of making the manager return to the bulk toolbar.
 - Map a CMS record's `_id` to the table's stable `id` and resolve selected ids back to source records before writes.
 - Define the exact post-success result: persisted write, feedback, refreshed rows, selection cleared or retained intentionally, and any queue/filter update.
 

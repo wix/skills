@@ -73,6 +73,15 @@ For a bulk action:
 5. Keep the selected rows and their source records intact until the write succeeds. On failure, preserve selection, show a recoverable error, and log the request failure rather than reporting a generic completed action.
 6. Never use a double cast to force a UI DTO through a Wix Data write. Build the documented update payload from the source CMS record and validate that at least one selected source record exists before calling a bulk operation.
 
+## Action Parity
+
+A bulk action that resolves or changes a record's work state normally requires a single-record equivalent. When a selected-record SidePanel is part of the workflow, expose that equivalent as the panel footer's primary action unless the capability plan explicitly justifies a bulk-only operation.
+
+- For example, **Mark as reviewed** in a bulk toolbar also appears as **Mark as reviewed** for the selected record.
+- Reuse the same validated mutation path with that record's stable id. On success, show feedback, close or update the panel intentionally, clear affected selection, and refresh the queue according to its post-action rule.
+- Do not make the panel read-only while hiding the only resolution action in an unrelated bulk toolbar or overflow menu.
+- A destructive, privileged, or inherently multi-record operation may be bulk-only, but the capability plan must state why.
+
 ## Composition Rules
 
 - Prefer documented WDS components over custom approximations.
@@ -86,6 +95,7 @@ For a bulk action:
 - For a multi-source row, define the source of truth for each displayed field and the behavior when a related record is missing.
 - A selected-record panel is valid only while its `selectedId` appears in `visibleRows`. Clear selection after filtering, refresh, deletion, or a permission/data change that removes the row.
 - A bulk action is incomplete until checked rows visibly remain checked, the write succeeds against those exact CMS records, and a refresh confirms the persisted outcome.
+- A state-changing bulk action must have a single-record equivalent in the selected-record workflow unless its bulk-only rationale is explicit.
 
 ## Exit Criteria
 
