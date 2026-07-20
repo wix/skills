@@ -60,6 +60,16 @@ Status badges that determine urgency or available actions belong in the header, 
 
 For a SidePanel with an action, use the documented three-part structure: `SidePanel.Header`, scrollable `SidePanel.Content`, and `SidePanel.Footer`. The header must use the documented title/status composition and its spacing; do not bypass it with unpadded custom markup. The footer stays visible, contains the action controls, and follows the secondary-then-primary, right-aligned order. Do not create an extra scroll wrapper around the panel or substitute custom header/body/footer containers. Mount the panel in a stable dashboard-level overlay host, never inside the table/card/page-content wrapper. `SidePanel.Content` owns the default body padding; its first layout child should provide gaps and grouping, not duplicate root padding.
 
+## Table-To-Detail Continuity
+
+Treat a selected-record SidePanel as the detailed extension of that table row, not as a separate read-only profile.
+
+- Repeat the row's identity and action-relevant status in the panel header. Keep the same source record, labels, and state semantics as the table.
+- Carry the row's primary facts into the panel summary before adding deeper context, notes, related data, or editable fields. Do not make a manager hunt for a value that was visible in the row.
+- Surface the selected record's applicable primary action in the panel footer. A bulk state-change action normally becomes a single-record primary action; a row-menu action remains available when it applies to that record.
+- Do not mirror table-only controls such as row checkboxes, filter controls, pagination, or bulk selection. The panel extends the record; it does not reproduce the entire table.
+- After a panel action succeeds, update the table and panel from the same source-of-truth state. Do not leave the panel showing a stale record or an action that is no longer valid.
+
 ## Selection And Bulk Operations
 
 When a WDS `Table` supports selection, create a table-row adapter with `id: cmsItem._id`; keep the original CMS `_id` in that adapter or in a source-record map. Resolve `selectedIds` through that map before a write. Do not pass raw CMS items to the table and assume their `_id` is the WDS selection ID; do not rely on a row index or implicit identifier.
