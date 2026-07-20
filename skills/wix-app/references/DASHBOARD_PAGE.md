@@ -1,7 +1,7 @@
 
 # Wix Dashboard Page Builder
 Dashboard pages appear in the site owner's Wix dashboard and enable site administrators to manage data, configure settings, and perform admin tasks.
-At Wix we build dashbaord pages using `@wix/patterns` (see patterns docs under reference) and `@wix/design-system`.
+At Wix we build dashboard pages using `@wix/patterns` (see patterns docs under reference) and `@wix/design-system`.
 
 ## Scaffold
 
