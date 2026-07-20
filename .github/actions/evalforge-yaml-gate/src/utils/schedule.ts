@@ -9,7 +9,7 @@ export async function runSchedule(): Promise<void> {
 
   core.info(`EvalForge scheduled run — running scenarios tagged "${CODE_TAG}"`);
 
-  const { id: evalRunId } = await evalforge.createEvalRun(config.projectId, {
+  const { id: evalRunId } = await evalforge.createAndRunEvalRun(config.projectId, {
     name: config.runName,
     description: `Scheduled eval run for scenarios tagged ${CODE_TAG}`,
     projectId: config.projectId,

@@ -35483,7 +35483,7 @@ class EvalForgeClient {
     // V1 `RunEvaluation` creates AND queues the run in a single call, so this maps
     // to that endpoint. `triggerEvalRun` below is kept as a no-op for caller
     // compatibility (the express API needed a separate trigger; V1 does not).
-    async createEvalRun(projectId, input) {
+    async createAndRunEvalRun(projectId, input) {
         const res = await this.request('POST', `/projects/${enc(projectId)}/eval-runs/run`, {
             evalRun: {
                 name: input.name,
@@ -36300,7 +36300,7 @@ async function runSchedule() {
     const config = (0, config_1.getScheduleConfig)();
     const evalforge = new evalforge_1.EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
     core.info(`EvalForge scheduled run — running scenarios tagged "${evalforge_1.CODE_TAG}"`);
-    const { id: evalRunId } = await evalforge.createEvalRun(config.projectId, {
+    const { id: evalRunId } = await evalforge.createAndRunEvalRun(config.projectId, {
         name: config.runName,
         description: `Scheduled eval run for scenarios tagged ${evalforge_1.CODE_TAG}`,
         projectId: config.projectId,

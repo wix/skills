@@ -163,7 +163,7 @@ describe('EvalForgeClient (V1) — auth + test-scenarios', () => {
       return { status: 200, body: { evalRun: { id: 'run-1', status: 'PENDING' } } };
     });
     const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
-    const r = await c.createEvalRun('P', {
+    const r = await c.createAndRunEvalRun('P', {
       name: 'scheduled-1',
       description: 'scheduled',
       projectId: 'P',
@@ -219,7 +219,7 @@ describe('EvalForgeClient (V1) — eval runs', () => {
       return { status: 200, body: { evalRun: { id: 'run-1', status: 'PENDING' } } };
     });
     const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
-    const r = await c.createEvalRun('P', { name: 'n', description: 'd', projectId: 'P', agentId: 'a', scenarioIds: ['s1'] });
+    const r = await c.createAndRunEvalRun('P', { name: 'n', description: 'd', projectId: 'P', agentId: 'a', scenarioIds: ['s1'] });
     expect(r).toEqual({ id: 'run-1', status: 'pending' });
   });
 

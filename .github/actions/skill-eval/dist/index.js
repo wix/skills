@@ -34573,7 +34573,7 @@ async function runEval() {
     }
     let runId;
     try {
-        const run = await evalforge.createEvalRun(config.projectId, {
+        const run = await evalforge.createAndRunEvalRun(config.projectId, {
             name: `PR #${config.prNumber} skill eval`,
             description: `Skill eval for PR #${config.prNumber}`,
             projectId: config.projectId,
@@ -34590,7 +34590,7 @@ async function runEval() {
         const status = e.status;
         if (status === 400) {
             const message = e instanceof Error ? e.message : String(e);
-            core.error(`createEvalRun 400 — treating as no matching scenarios. Full error: ${message}`);
+            core.error(`createAndRunEvalRun 400 — treating as no matching scenarios. Full error: ${message}`);
             await (0, github_1.upsertComment)(octokit, config, (0, comment_1.formatNoScenarios)(tags, config.blocking));
             (0, github_1.fail)(`Skill evaluation failed: no scenarios matched tags: ${tags.join(', ')}`, config.blocking);
             return;
@@ -34720,7 +34720,7 @@ class EvalForgeClient {
         const tags = await this.request('GET', `/projects/${projectId}/tags`);
         return new Set(tags);
     }
-    async createEvalRun(projectId, input) {
+    async createAndRunEvalRun(projectId, input) {
         return this.request('POST', `/projects/${projectId}/eval-runs`, input);
     }
     async triggerEvalRun(projectId, runId) {
