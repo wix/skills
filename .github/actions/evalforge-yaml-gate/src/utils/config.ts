@@ -22,6 +22,7 @@ export type Config = SimpleConfig & {
   agentName: string;
   autoApprove: boolean;
   triggerEvalCompare: boolean;
+  maxNewSkills: number;
 };
 
 function ensureHttps(url: string): string {
@@ -45,6 +46,15 @@ function getPrNumber(): number {
   return n;
 }
 
+function getPositiveIntegerInput(name: string, fallback: number): number {
+  const raw = core.getInput(name) || String(fallback);
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < 1) {
+    throw new Error(`${name} must be a positive integer (received: ${raw})`);
+  }
+  return value;
+}
+
 export function getSimpleConfig(): SimpleConfig {
   return {
     githubToken: safeGetSecret('github-token'),
@@ -56,6 +66,26 @@ export function getSimpleConfig(): SimpleConfig {
     prNumber: getPrNumber(),
     owner: github.context.repo.owner,
     repo: github.context.repo.repo,
+  };
+}
+
+export type ScheduleConfig = {
+  evalforgeUrl: string;
+  projectId: string;
+  agentId: string;
+  appId: string;
+  appSecret: string;
+  runName: string;
+};
+
+export function getScheduleConfig(): ScheduleConfig {
+  return {
+    evalforgeUrl: ensureHttps(core.getInput('evalforge-url', { required: true })),
+    projectId: core.getInput('evalforge-project-id', { required: true }),
+    agentId: core.getInput('evalforge-agent-id', { required: true }),
+    appId: safeGetSecret('evalforge-app-id'),
+    appSecret: safeGetSecret('evalforge-app-secret'),
+    runName: core.getInput('run-name') || 'scheduled-run',
   };
 }
 
@@ -79,5 +109,6 @@ export function getEvalConfig(): Config {
     agentName: core.getInput('agent-name') || 'agent',
     autoApprove: core.getInput('auto-approve') === 'true',
     triggerEvalCompare: core.getInput('eval-compare') !== 'false',
+    maxNewSkills: getPositiveIntegerInput('max-new-skills', 1),
   };
 }

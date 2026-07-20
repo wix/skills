@@ -1,0 +1,14 @@
+name: ecommerce/pricing-promotions/troubleshoot-not-applying
+description: I created a discount rule but it isn't applying at checkout — help me figure out why.
+triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) I have a discount rule that isn't applying at checkout — help me figure out why.
+tags: [ecommerce]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-discount-not-applying
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Pass if the response loads the troubleshoot-not-applying recipe and walks the diagnostic tree — checks ACTIVE status, time-window (active period), scope/target match against the cart, revision/version, and app-installation/eligibility — and queries Discount Rules (and Coupons if relevant) to gather evidence before recommending a fix.
+      Fail if it tries to "fix" the rule by creating a new one without diagnosing, routes to Checkout/Cart, or assumes the rule is fine and blames cart-side issues without checking the rule's state.

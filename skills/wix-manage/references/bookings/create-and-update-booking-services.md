@@ -33,7 +33,7 @@ A Bookings service defines a time based offering and includes the following cons
 - When creating an APPOINTMENT service and specifying `staffMemberIds`, ensure you are using the staff member's resourceId, not their primary staff member id.
 - Service Images - the service may have several images - `service.media.mainMedia` - presented in the services list, `service.media.coverMedia` - presented in the service page and `service.media.items` - array of images presented as a gallery in the service page for site visitors.
 - In order to add a media (image) to a service, it should first be defined in Wix Media Manager - search existing ([REST](https://dev.wix.com/docs/api-reference/assets/media/media-manager/files/search-files)) or new ([REST](https://dev.wix.com/docs/api-reference/assets/media/media-manager/files/bulk-import-file))
-- You should only set the image id (for example `item.id` -> `service.media.mainMedia.id`) there is no need to set the entire object.
+- Set only the image **id**, but nest it inside the media item's `image` object: `service.media.mainMedia.image.id` (likewise `service.media.coverMedia.image.id` and `service.media.items[].image.id`). The `id` is the binding field; `url` and dimensions are descriptive and need not be set. ⚠️ Setting the id directly on the media item (`service.media.mainMedia.id`, without the `image` wrapper) returns HTTP 200 but **silently drops** it — the image reads back empty (`image.id: ""`). Because it's a silent 200, a success status is not proof: always nest under `.image` and confirm with a re-query.
 
 ### Service Type Selection Guide
 

@@ -19,6 +19,17 @@ describe('parseScenario', () => {
     expect(s.tags).toEqual(['blog']);
     expect(s.assertions).toHaveLength(1);
   });
+  it('accepts a top-level maxTokens budget', () => {
+    const s = parseScenario(minimalYaml.replace('tags: [blog]', 'tags: [blog]\nmaxTokens: 25000'));
+    expect(s.maxTokens).toBe(25000);
+  });
+  it('rejects non-positive top-level maxTokens budgets', () => {
+    expect(() => parseScenario(minimalYaml.replace('tags: [blog]', 'tags: [blog]\nmaxTokens: 0'))).toThrow(/maxTokens/);
+    expect(() => parseScenario(minimalYaml.replace('tags: [blog]', 'tags: [blog]\nmaxTokens: -1'))).toThrow(/maxTokens/);
+  });
+  it('rejects non-integer top-level maxTokens budgets', () => {
+    expect(() => parseScenario(minimalYaml.replace('tags: [blog]', 'tags: [blog]\nmaxTokens: 1.5'))).toThrow(/maxTokens/);
+  });
   it('rejects missing required fields', () => {
     expect(() => parseScenario('name: foo')).toThrow();
   });
@@ -33,6 +44,12 @@ describe('parseScenario', () => {
   });
   it('rejects rejected:* in tags', () => {
     expect(() => parseScenario(minimalYaml.replace('tags: [blog]', 'tags: [blog, "rejected:wix/skills#1"]'))).toThrow(/rejected|reserved/i);
+  });
+  it('rejects repo:* in tags (action-managed code-origin tag)', () => {
+    expect(() => parseScenario(minimalYaml.replace('tags: [blog]', 'tags: [blog, "repo:wix/skills"]'))).toThrow(/repo|reserved/i);
+  });
+  it('rejects the created-via-code tag (action-managed)', () => {
+    expect(() => parseScenario(minimalYaml.replace('tags: [blog]', 'tags: [blog, "created-via-code"]'))).toThrow(/created-via-code|reserved/i);
   });
   it('rejects empty assertions', () => {
     expect(() => parseScenario(minimalYaml.replace(/assertions:[\s\S]*$/, 'assertions: []'))).toThrow(/assertions/);

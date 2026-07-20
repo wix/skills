@@ -128,14 +128,14 @@ resizeDirection: LAYOUT.RESIZE_DIRECTION.aspectRatio,
 
 ## 3. Wiring defaults into the manifest
 
-1. **Export `defaultProps` from `component.tsx`** so the extension file can import it.
+1. **Define and export `defaultProps` from `<componentName>.props.ts`** — this is the single source of truth used by both `component.tsx` and the extension file.
 2. **Import `componentUrl` from `'./component.tsx?url'`** (the wrapped component), not from `'./ComponentName.tsx?url'` (the raw component).
 3. **Wrap `editorElement` with `withEditorElementDefaults`** using the same `defaultProps`.
 
 ```ts
 import { withEditorElementDefaults } from '@wix/react-component-utils';
 import componentUrl from './component.tsx?url';
-import { defaultProps } from './component';
+import { defaultProps } from './<componentName>.props';
 
 // in the extension:
 editorElement: withEditorElementDefaults({

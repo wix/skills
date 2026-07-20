@@ -1,0 +1,15 @@
+name: ecommerce/recommend-ecommerce-strategy
+description: Generic "boost my business" prompt should load the carry-forward strategy orchestrator and produce cross-domain (discounts + shipping) recommendations with tracking.
+triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) help me boost my business — give me concrete actions I can approve to increase sales.
+tags: [ecommerce]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/recommend-e-commerce-strategy
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Pass if the response (a) loads the recommend-ecommerce-strategy orchestrator, (b) classifies the request into one of the 4 supported discount goals (SEASONAL / UPSELL_BOOST / STOCK_MOVER / BUNDLE_AND_SAVE) and/or activates the SHIPPING domain, (c) generates concrete recommendations the merchant can approve (each with a clear action and reasoning grounded in site data — AOV, orders, country, currency, etc.), and (d) references or loads api-recommendation-tracking and persists the recommendations via BatchCreate before presenting them.
+      Fail if the response activates an ABANDONED_CART domain (it was removed from the orchestrator in the routing-tree migration), invents discount goals outside the 4 supported ones, returns generic advice without any concrete action / data citation, or skips the tracking lifecycle entirely.
+      Topic-completeness across all 4 discount goals AND shipping is NOT required to pass — judge the orchestrator load + classification + concrete-actions + tracking, not the breadth.

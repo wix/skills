@@ -11,6 +11,8 @@ const s = (name: string): Scenario => ({
 const r = (id: string, name: string, tags: string[] = []): RemoteScenario => ({ id, name, tags });
 
 const TAG = 'draft:wix/skills#42';
+const REPO = 'wix/skills';
+const MANAGED = ['created-via-code', 'repo:wix/skills'];
 
 const ls = (name: string) => ({ path: `${name}.yml`, scenario: s(name) });
 
@@ -22,9 +24,10 @@ describe('diffSyncPlan', () => {
       base: new Map(),
       remote: [],
       draftTag: TAG,
+      repo: REPO,
     });
     expect(plan.actions).toHaveLength(1);
-    expect(plan.actions[0]).toMatchObject({ kind: 'CREATE', name: 'blog/a', tags: [TAG] });
+    expect(plan.actions[0]).toMatchObject({ kind: 'CREATE', name: 'blog/a', tags: [TAG, ...MANAGED] });
     expect(plan.errors).toEqual([]);
   });
 
@@ -35,9 +38,10 @@ describe('diffSyncPlan', () => {
       base: new Map([['blog/a', ls('blog/a')]]),
       remote: [r('id-1', 'blog/a', [TAG])],
       draftTag: TAG,
+      repo: REPO,
     });
     expect(plan.actions).toHaveLength(1);
-    expect(plan.actions[0]).toMatchObject({ kind: 'UPDATE', id: 'id-1', name: 'blog/a', tags: [TAG] });
+    expect(plan.actions[0]).toMatchObject({ kind: 'UPDATE', id: 'id-1', name: 'blog/a', tags: [TAG, ...MANAGED] });
   });
 
   it('plans FAIL on foreign draft tag at update site', () => {
@@ -47,6 +51,7 @@ describe('diffSyncPlan', () => {
       base: new Map(),
       remote: [r('id-1', 'blog/a', ['draft:wix/skills#99'])],
       draftTag: TAG,
+      repo: REPO,
     });
     expect(plan.errors).toHaveLength(1);
     expect(plan.errors[0]).toMatchObject({ kind: 'FOREIGN_DRAFT', name: 'blog/a' });
@@ -60,6 +65,7 @@ describe('diffSyncPlan', () => {
       base: new Map([['blog/a', ls('blog/a')]]),
       remote: [r('id-1', 'blog/a', [TAG])],
       draftTag: TAG,
+      repo: REPO,
     });
     expect(plan.actions).toEqual([{ kind: 'DELETE', id: 'id-1', name: 'blog/a' }]);
   });
@@ -71,6 +77,7 @@ describe('diffSyncPlan', () => {
       base: new Map([['blog/a', ls('blog/a')]]),
       remote: [r('id-1', 'blog/a', ['blog'])],
       draftTag: TAG,
+      repo: REPO,
     });
     expect(plan.actions).toEqual([{ kind: 'DEFER_DELETE', id: 'id-1', name: 'blog/a' }]);
   });
@@ -82,6 +89,7 @@ describe('diffSyncPlan', () => {
       base: new Map([['blog/a', ls('blog/a')]]),
       remote: [r('id-1', 'blog/a', ['draft:wix/skills#99'])],
       draftTag: TAG,
+      repo: REPO,
     });
     expect(plan.errors).toHaveLength(1);
     expect(plan.errors[0]).toMatchObject({ kind: 'FOREIGN_DRAFT', name: 'blog/a' });
@@ -94,6 +102,7 @@ describe('diffSyncPlan', () => {
       base: new Map([['blog/a', ls('blog/a')]]),
       remote: [],
       draftTag: TAG,
+      repo: REPO,
     });
     expect(plan.actions).toEqual([]);
     expect(plan.errors).toEqual([]);
@@ -110,6 +119,7 @@ describe('diffSyncPlan', () => {
       base: new Map([['blog/a', ls('blog/a')]]),
       remote: [r('id-1', 'blog/a', [TAG])],
       draftTag: TAG,
+      repo: REPO,
     });
     expect(plan.actions).toEqual([]);
     expect(plan.errors).toEqual([]);

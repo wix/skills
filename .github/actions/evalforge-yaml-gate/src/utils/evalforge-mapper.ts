@@ -22,49 +22,62 @@ export type ScenarioAssertionLink = {
   params?: LinkParams;
 };
 
+// V1 SiteBootstrapHttpMethod enum names are uppercase.
 export type EvalForgeBootstrapStep = {
   label?: string;
-  method: SiteBootstrapStep['method'];
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   url: string;
   body?: Record<string, unknown>;
 };
 
-export type EvalForgeSiteSetup = {
-  mode: 'template';
-  templateId: string;
-  bootstrap?: { steps: EvalForgeBootstrapStep[] };
-};
+// V1 SiteSetupConfig is a discriminator enum (`mode`) + an aligned oneof. For
+// `TEMPLATE`, the template id goes under the `templateOptions` branch — not flat.
+// `NONE` (mode only, no options) means "provision no site" and is the explicit
+// clearing representation on update — the backend always applies site_setup when
+// it is present in the body, so a scenario that drops its setup must send NONE.
+export type EvalForgeSiteSetup =
+  | { mode: 'TEMPLATE'; templateOptions: { templateId: string }; bootstrap?: { steps: EvalForgeBootstrapStep[] } }
+  | { mode: 'NONE' };
 
 export type EvalForgeBody = {
   name: string;
   description: string;
   triggerPrompt: string;
   assertionLinks: ScenarioAssertionLink[];
+  // `toEvalForgeBody` always populates this: TEMPLATE when the scenario provisions
+  // a site, NONE otherwise. Sending NONE explicitly clears any previously-set site
+  // setup on update. Optional only so hand-built test fixtures stay ergonomic.
   siteSetup?: EvalForgeSiteSetup;
 };
 
 export function toEvalForgeBody(s: Scenario): EvalForgeBody {
-  const body: EvalForgeBody = {
+  return {
     name: s.name,
     description: s.description,
     triggerPrompt: s.triggerPrompt,
     assertionLinks: s.assertions.map(mapAssertion),
+    siteSetup: s.siteSetup ? mapSiteSetup(s.siteSetup) : { mode: 'NONE' },
   };
-  if (s.siteSetup) body.siteSetup = mapSiteSetup(s.siteSetup);
-  return body;
 }
 
 function mapSiteSetup(s: SiteSetup): EvalForgeSiteSetup {
-  const out: EvalForgeSiteSetup = { mode: s.mode, templateId: s.templateId };
   // Omit bootstrap when it has no steps.
-  if (s.bootstrap && s.bootstrap.steps.length > 0) {
-    out.bootstrap = { steps: s.bootstrap.steps.map(mapBootstrapStep) };
-  }
-  return out;
+  const bootstrap = s.bootstrap && s.bootstrap.steps.length > 0
+    ? { steps: s.bootstrap.steps.map(mapBootstrapStep) }
+    : undefined;
+  return {
+    mode: 'TEMPLATE',
+    templateOptions: { templateId: s.templateId },
+    ...(bootstrap ? { bootstrap } : {}),
+  };
 }
 
 function mapBootstrapStep(step: SiteBootstrapStep): EvalForgeBootstrapStep {
-  const out: EvalForgeBootstrapStep = { method: step.method, url: step.url };
+  // Schema methods are lowercase; V1's SiteBootstrapHttpMethod enum is uppercase.
+  const out: EvalForgeBootstrapStep = {
+    method: step.method.toUpperCase() as EvalForgeBootstrapStep['method'],
+    url: step.url,
+  };
   if (step.label !== undefined) out.label = step.label;
   if (step.body !== undefined) out.body = step.body;
   return out;
