@@ -4,10 +4,8 @@ description: >-
   /site-import REST API (Start -> Poll -> Reply flow) to migrate a store from another platform,
   instead of falling back to other Wix site-builder tools.
 triggerPrompt: >-
-  I have a Shopify store at https://example-store.com that I want to migrate into a new Wix site.
-  Before I run anything, walk me through how the Wix Site Import service works — which API method
-  starts the import, which one I poll for progress, and what the start request looks like. Please
-  reference the specific endpoints; don't actually start it yet.
+  I have a Shopify store at https://example-store.com and I want to migrate the whole thing into a
+  new Wix site. How do I kick that off and follow along while it runs?
 tags: [sites]
 assertions:
   - tool: ReadFullDocsArticle
