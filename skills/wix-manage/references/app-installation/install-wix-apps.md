@@ -101,6 +101,9 @@ Some common apps:
 | Wix Events | `140603ad-af8d-84a5-2c80-a0f60cb47351` |
 | Wix Pricing Plans | `1522827f-c56c-a5c9-2ac9-00f9e6ae12d3` |
 | Wix CMS | `e593b0bd-b783-45b8-97c2-873d42aacaf4` |
+| Wix Forms (New) | `225dd912-7dea-4738-8688-4b8c6955ffc2` |
+
+> **Wix Forms has two apps — use the New one.** `225dd912-7dea-4738-8688-4b8c6955ffc2` ("Wix Forms (New)") owns the `wix.form_app.form` namespace used by the Form Schemas v4 API (see the [Create Form](../forms/create-form.md) recipe). `14ce1214-b278-a7e4-1373-00cebd1bef7c` ("Wix Forms (Old)", aka "Wix Forms & Payments") is a different, legacy app — installing it will not activate that namespace, even though the install call itself succeeds.
 
 ### IMPORTANT NOTES:
 - NEVER guess the `appDefId`. For Wix-built apps, use the table above. For any other app, resolve the ID using Step 0 (Search Market Listings).
