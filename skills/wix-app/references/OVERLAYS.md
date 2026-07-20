@@ -15,8 +15,10 @@ For Dashboard Modal, read [DASHBOARD_MODAL.md](DASHBOARD_MODAL.md) before scaffo
 ## Layout Guardrails
 
 - Render `SidePanel` using its documented overlay host by default. Do not wrap it in a fixed-width `Box`, grid column, or flex sibling that reserves page space.
-- Use `skin="floating"` for the default overlay surface. `SidePanel` does not create a modal backdrop or block page interaction by itself; do not add a dimming scrim unless the request explicitly calls for a blocking modal-like interaction.
+- Before implementation, read the WDS `SidePanel` `Skin` and `Quick view` examples. Use their component tree and documented props as the baseline; do not recreate their positioning with custom layout CSS.
+- Use `skin="floating"` explicitly for the default overlay surface. Render the selected panel in the page's top-level overlay slot, outside `Page.Content`, table cards, and every `Box` used for the table layout. `SidePanel` does not create a modal backdrop or block page interaction by itself; do not add a dimming scrim unless the request explicitly calls for a blocking modal-like interaction.
 - `SidePanel` is a surface component, not a portal. Mount its overlay host outside every scrolling or clipping ancestor; do not place it under `overflow: hidden`, `overflow: auto`, or a table/card content wrapper.
+- Never put a `SidePanel` beside the table in `Box direction="horizontal"`, CSS grid, or a custom split layout. It must not shrink the table or inherit the table container's height. Only use a split layout when the user explicitly requests one.
 - Use a push layout only when the user explicitly asks for a persistent side-by-side workspace, or when the capability plan explains why the manager must see the full main-page context while editing. Record that choice before implementation.
 - "Keep the list visible" means leave the background page visible beneath a floating SidePanel; it does not imply that the panel should consume a grid or flex column beside the table.
 - Keep close controls, focus handling, and page blocking behavior in the documented component.
