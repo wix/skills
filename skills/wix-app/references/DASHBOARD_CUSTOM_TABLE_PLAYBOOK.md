@@ -1,0 +1,51 @@
+# Dashboard Custom Table Playbook
+
+Use this route for a WDS management table that requires multiple sources, joins, external data, unsupported custom logic, or a workflow Auto Patterns cannot represent. Use the table-and-panel playbook instead when selecting a row opens contextual detail.
+
+## Required Documentation
+
+Read [DASHBOARD_PAGE.md](DASHBOARD_PAGE.md) for the host extension. Invoke the Wix Design System skill, then read the installed `Table`, `TableToolbar`, `TableActionCell`, selected filter controls, `EmptyState`, and relevant Pagination examples. Read [DATA_MODEL_AND_OPERATIONS.md](DATA_MODEL_AND_OPERATIONS.md) when creating collections, references, joins, or mutations.
+
+## Pre-Build Contract
+
+Record the source of truth, join/transformation, visible columns, exact filter values, primary action, write path, and post-success state. Define loading, empty collection, no-results, permission, error, and populated states before JSX.
+
+## Table Rules
+
+- **CT-01:** Keep source records, table row adapters, visible rows, and selected IDs distinct. Map CMS `_id` to the stable table `id` and resolve IDs back to source records before writes.
+- **CT-02:** Keep labeled column headers visible in normal and bulk-selection states.
+- **CT-03:** Define a width and overflow strategy for every column. A value, badge, date, amount, or action must never paint over another cell.
+- **CT-04:** For variable statuses, show one primary status plus a compact `+N` summary, or deliberately use a taller wrapping row. Never invade the final action column.
+- **CT-05:** Keep `TableActionCell` in a dedicated final column using documented sizing and behavior.
+- **CT-06:** Precompute result-count copy as one string before passing it to a toolbar label. Do not compose adjacent JSX text fragments.
+- **CT-07:** Use no more than three visible filters. Submitted values must match stored values exactly.
+- **CT-08:** Selecting rows replaces normal toolbar actions with selected count and applicable bulk actions; it does not replace column headers.
+
+## Data States
+
+| State | Required surface |
+| --- | --- |
+| Loading | Stable page/table shell with documented loading feedback. |
+| Load failure | Recoverable error with retry. |
+| No source records | Hide filters and row actions; show `EmptyState` with a verified create/setup CTA. |
+| No matching rows | Keep active filters visible; show clear-filters recovery. |
+| Visible rows | Show relevant controls, labeled columns, and working actions. |
+
+## Actions
+
+- Resolve selected table IDs to complete source records before a mutation.
+- Use the documented Wix Data or API write method; do not write display-only DTOs.
+- Define success feedback, refresh behavior, selection clearing, and queue membership before coding.
+- Preserve context and selection on failure, and expose a useful recovery path.
+
+## Invalid Implementations
+
+- Custom table markup that approximates WDS behavior.
+- Hidden column headers, index-based row IDs, or filters using display labels as unverified values.
+- Variable non-wrapping badge arrays in bounded cells.
+- Page-level clipping used to hide table overflow or the final action.
+- A blank table area used as an empty state.
+
+## Acceptance
+
+Test the longest row, every status, narrowest supported width, matching and zero-result filters, visible checked selection, every row/bulk mutation, empty-state CTA, retry, console, network, and persisted refresh. Run `node scripts/audit-dashboard-code.mjs <generated-files>` before reporting completion.

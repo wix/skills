@@ -1,34 +1,13 @@
-# Runtime Validation
+# Dashboard Runtime Validation
 
-Build and deployment validation are necessary but insufficient. For every dashboard that reads data or supports a manager action, validate the actual workflow in a browser.
+The selected dashboard playbook owns route-specific acceptance criteria. Apply this common gate after implementation.
 
-## Canonical Implementation Reference
+1. Open the real Dashboard Page and complete the primary workflow with known data.
+2. Inspect browser console and failed network requests from initial load through the final action.
+3. Exercise loading, empty source, no-results, permission/error, and populated states that apply.
+4. Verify every filter against a known stored value and confirm its recovery path.
+5. Complete every primary row, bulk, panel, or modal mutation and refresh to confirm persistence.
+6. Test the densest record and narrowest supported viewport for overlap, clipping, hidden actions, or page-level overflow.
+7. Run `node <SKILL_ROOT>/scripts/audit-dashboard-code.mjs <generated-files>` for custom WDS dashboards.
 
-Read [APP_VALIDATION.md](APP_VALIDATION.md) for installation, TypeScript, build, preview, and debug-log validation. This file adds browser workflow evidence; it does not replace the application validation workflow.
-
-## Required Smoke Test
-
-1. Open the generated dashboard and wait for loading to settle.
-2. Confirm the primary data request succeeds.
-3. Check browser console for uncaught errors and the network panel for failed primary requests.
-4. Exercise the main workflow: list, filter, create, edit, assign, or open detail as applicable.
-5. For every filter, test one known matching record and confirm the submitted filter value matches the raw value stored in the data source. Also test a zero-results state and its clear-filters recovery action.
-6. Verify the applicable loading, empty-collection, permission-denied, and error states. For a custom WDS table, verify the documented `EmptyState` is rendered rather than a blank table area. When records are created outside the dashboard, click the empty-state CTA and confirm it opens the stated native creation or setup destination.
-7. For a row-detail workflow, select a known row, then apply a filter that removes it. Confirm the panel closes, no clipped overlay remains, no table space is reserved for a floating panel, and no hidden record can still be edited. Confirm the panel fills the available dashboard content region at the right edge, with a visible floating-surface gap/shadow on all four outer edges, and that the table keeps its original width beneath it. Change the table height through filtering or a bulk action while a panel is open; its outer top and bottom bounds must not change. Confirm the panel itself does not create a browser/page-level scrollbar, the source-supported header title and status share the documented inset, content has one standard WDS padding inset rather than a doubled inset, only the content region scrolls, and an action footer remains visible with secondary action(s) before a right-aligned primary action.
-8. For a bulk-selection workflow, select known rows and confirm every selected checkbox visibly enters the checked state while labeled table headers remain visible. Run the bulk action, confirm it succeeds without a console or network error, verify a success notification with the affected count, refresh, and verify the same CMS records changed and the queue reflects its documented post-action rule. Inspect one selected ID against its source CMS `_id` before the action; test that the queue excludes a reviewed record after refresh.
-9. For any state-changing bulk action, open one selected record and complete its single-record equivalent from the detail surface. Confirm it uses the same persisted write, provides feedback, and updates or closes the panel and queue intentionally. Treat a bulk-only action as valid only when its stated rationale is present.
-10. For a row-detail workflow, compare the selected row and its SidePanel. The record identity, primary status, and action-relevant facts must agree; the panel must expose the record's applicable primary action before deeper supporting context. Do not require table-only controls to be duplicated.
-11. For each displayed date, verify one known date is formatted successfully in both the table and record-detail surface. Never ship an `Invalid Date` value.
-12. For a dense table, test the row with the longest values and every status/issue present. Each value, chip, date, amount, action, and toolbar count must remain inside its own region; no cell or toolbar phrase may overlap a neighboring control or appear as split characters. When multiple issues are present, confirm the table uses its planned compact primary-status-plus-summary or deliberate wrapping behavior, while the selected-record detail shows the full set. Confirm the intended truncation, summary, wrapping, or documented horizontal-scroll behavior is usable. At the narrowest supported width, verify the final `TableActionCell` is fully visible and its direct and overflow actions can be opened and used.
-13. Refresh the page and confirm state remains stable.
-
-## Failure Classification
-
-| Signal | Investigate first |
-| --- | --- |
-| Page blanks after skeletons | Uncaught render error, response-shape assumption, failed data request |
-| Table loads but related columns are blank | Reference values, join/query path, missing target records |
-| Overlay scrolls unexpectedly | Host/content sizing, overflow ownership, wrong overlay primitive |
-| Build succeeded but feature fails | Browser console, network request, permission and runtime data contract |
-
-Record the evidence, the capability affected, and whether the failure is routing, schema, implementation, or runtime validation coverage. Report runtime status as `passed`, `failed`, or `blocked`; do not report implementation complete without it.
+Classify failures as routing, schema/data, implementation, or runtime validation. Report `passed`, `failed`, or `blocked`; a successful build alone is not runtime evidence.
