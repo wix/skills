@@ -13,7 +13,7 @@ Before writing JSX, record only the decisions that change the page behavior:
 - primary work surface and page-region hierarchy;
 - selected WDS layout span when the page has multiple regions;
 - table mode: normal, filtered, selectable, bulk-action, empty, no-results, or error;
-- exact overlay primitive and host, when an overlay is required;
+- exact overlay primitive, stable host, height owner, and overflow owner, when an overlay is required;
 - selected component and documentation target for every non-trivial WDS capability.
 
 Do not create this record for an Auto Patterns page; follow its documented capability plan instead.
