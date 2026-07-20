@@ -4,7 +4,7 @@ Choose an overlay by user context, not by loose wording such as “drawer” or 
 
 ## Canonical Implementation References
 
-For Dashboard Modal, read [DASHBOARD_MODAL.md](DASHBOARD_MODAL.md) before scaffolding or calling the dashboard API. For WDS SidePanel or Drawer, read [DASHBOARD_COMPONENTS.md](DASHBOARD_COMPONENTS.md), invoke the Wix Design System skill, and read the exact component guidance before writing UI. This file chooses the overlay; it does not replace component documentation.
+For Dashboard Modal, read [DASHBOARD_MODAL.md](DASHBOARD_MODAL.md) and [WDS_MODAL_GUIDELINES.md](WDS_MODAL_GUIDELINES.md) before scaffolding or calling the dashboard API. For WDS SidePanel or Drawer, read [DASHBOARD_COMPONENTS.md](DASHBOARD_COMPONENTS.md), invoke the Wix Design System skill, and read the exact component guidance before writing UI. This file chooses the overlay; it does not replace component documentation.
 
 | User need | Primitive | Rules |
 | --- | --- | --- |
@@ -19,6 +19,7 @@ For Dashboard Modal, read [DASHBOARD_MODAL.md](DASHBOARD_MODAL.md) before scaffo
 - `SidePanel` is a surface component, not a portal or positioning system: it owns its internal header/content/footer layout, while its host determines where it appears and how much viewport height it receives. Use the dashboard application's documented optional side-panel region for that host. Do not assume that mounting a `SidePanel` next to a table makes it an overlay.
 - Do not mount a panel under a scrolling or clipping table/card wrapper. Do not create a custom split layout or hard-coded positioning just to imitate a floating panel. If the current Dashboard Page host has no documented panel region, record that limitation instead of presenting a shrunken or clipped panel as a valid floating implementation.
 - Use the documented three-region structure only: `SidePanel.Header`, `SidePanel.Content`, then `SidePanel.Footer`. Let the component own its spacing and sizing; do not replace these regions with custom padded containers. The body is the only scrollable region, while the header and footer remain fixed.
+- Validate the panel with content longer than the available viewport: its footer must remain visible, and only `SidePanel.Content` may scroll. A clipped footer or a page-level scrollbar is a failed overlay implementation.
 - Use a push layout only when the user explicitly asks for a persistent side-by-side workspace, or when the capability plan explains why the manager must see the full main-page context while editing. Record that choice before implementation.
 - "Keep the list visible" means leave the background page visible beneath a floating SidePanel; it does not imply that the panel should consume a grid or flex column beside the table.
 - Keep close controls, focus handling, and page blocking behavior in the documented component.

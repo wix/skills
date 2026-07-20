@@ -315,10 +315,10 @@ If adding custom overrides (actions, columns, components, slots, etc.):
 
 Do NOT use this skill when:
 
-- User needs multi-collection data display → see [DASHBOARD_PAGE.md](DASHBOARD_PAGE.md)
-- User needs embedded script configuration → see [DASHBOARD_PAGE.md](DASHBOARD_PAGE.md)
-- User needs custom business logic or external APIs → see [DASHBOARD_PAGE.md](DASHBOARD_PAGE.md)
-- User needs a modal/popup → see [DASHBOARD_MODAL.md](DASHBOARD_MODAL.md)
+- User needs multi-collection data display → return to [DASHBOARD_ROUTING.md](DASHBOARD_ROUTING.md) and choose the custom-dashboard route
+- User needs embedded script configuration → see [EMBEDDED_SCRIPT.md](EMBEDDED_SCRIPT.md)
+- User needs custom business logic or external APIs → return to [DASHBOARD_ROUTING.md](DASHBOARD_ROUTING.md) and choose the custom-dashboard route
+- User needs a modal/popup → see [OVERLAYS.md](OVERLAYS.md) and name the exact primitive
 - User needs backend endpoints → see [BACKEND_API.md](BACKEND_API.md)
 
 ---

@@ -4,7 +4,19 @@ Use a custom dashboard page for capabilities that cannot be represented declarat
 
 ## Canonical Implementation References
 
-Before implementation, read [DASHBOARD_PAGE.md](DASHBOARD_PAGE.md) and the relevant Dashboard SDK guidance in [dashboard-page/DASHBOARD_API.md](dashboard-page/DASHBOARD_API.md). If the page uses WDS, read [DASHBOARD_COMPONENTS.md](DASHBOARD_COMPONENTS.md), invoke the Wix Design System skill, and read the exact component guidance before editing UI. If a prompt asks to select a row and inspect, edit, or assign it in a panel, also read [OVERLAYS.md](OVERLAYS.md) before choosing layout or mounting `SidePanel`.
+Before implementation, read [DASHBOARD_PAGE.md](DASHBOARD_PAGE.md) and the relevant Dashboard SDK guidance in [dashboard-page/DASHBOARD_API.md](dashboard-page/DASHBOARD_API.md). If the page uses WDS, read [DASHBOARD_COMPONENTS.md](DASHBOARD_COMPONENTS.md), invoke the Wix Design System skill, and read the exact component guidance before editing UI. Then read only the matching conditional guide: [DASHBOARD_LAYOUT.md](DASHBOARD_LAYOUT.md) for multi-region composition, [WDS_TABLE_GUIDELINES.md](WDS_TABLE_GUIDELINES.md) for a WDS table/list, or [WDS_MODAL_GUIDELINES.md](WDS_MODAL_GUIDELINES.md) for a Dashboard Modal flow. If a prompt asks to select a row and inspect, edit, or assign it in a panel, also read [OVERLAYS.md](OVERLAYS.md) before choosing layout or mounting `SidePanel`.
+
+## Pre-Build Decision Record
+
+Before writing JSX, record only the decisions that change the page behavior:
+
+- primary work surface and page-region hierarchy;
+- selected WDS layout span when the page has multiple regions;
+- table mode: normal, filtered, selectable, bulk-action, empty, no-results, or error;
+- exact overlay primitive and host, when an overlay is required;
+- selected component and documentation target for every non-trivial WDS capability.
+
+Do not create this record for an Auto Patterns page; follow its documented capability plan instead.
 
 ## Responsibilities
 

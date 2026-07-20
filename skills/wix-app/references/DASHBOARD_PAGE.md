@@ -104,7 +104,7 @@ The CLI scaffolds the builder with `id`, `title`, `routePath`, and `component`. 
 
 **Request:** "Create an admin panel for customer orders"
 
-**Output:** Page with orders table, status badges, filters, detail dashboard modal (using [Dashboard Modal reference](DASHBOARD_MODAL.md)), status update actions.
+**Output:** Page with orders table, status badges, filters, selected-order `SidePanel`, and status update actions. Use a Dashboard Modal only for a bounded blocking task such as confirming a destructive action.
 
 ### Embedded Script Configuration
 
@@ -150,6 +150,8 @@ When an API specification is provided, you can make API calls to those endpoints
 
 
 ## Layout Guidelines
+
+For custom WDS page composition, [DASHBOARD_LAYOUT.md](DASHBOARD_LAYOUT.md) is the canonical routing reference. This section provides background only; do not copy dashboard-frame dimensions or side-panel geometry from it.
 
 Layout determines how users interact with your dashboard content. It establishes the structure, hierarchy, and rhythm of your dashboard page, contributing to the overall coherence and user experience. By making mindful and calculated choices in how you organize your content, users can move around more smoothly, saving time and frustration when completing tasks.
 
@@ -209,11 +211,9 @@ The dashboard app frame is used by the majority of Wix applications settings. Da
 | 1. Global navigation (top bar) | General navigation at the top of a page which allows users to navigate between different environments. Full width container with a fixed height of 48px. |
 | 2. Sidebar navigation | Local navigation of an environment. Container with a fixed width of 228px. |
 | 3. Content area | Page content area with a width that's adaptive to screen size. |
-| 4. Side panel (optional) | An optional panel that shows additional actions or content associated with the content of a page. Fixed width of 420px. Use a floating, non-blocking overlay by default; use a pushed layout only when the workflow explicitly requires it. |
+| 4. Side panel (optional) | An optional panel that shows additional actions or content associated with a page. Choose and host it through [OVERLAYS.md](OVERLAYS.md); use a floating, non-blocking overlay by default and a pushed layout only when the workflow explicitly requires it. |
 
-**Side Panel Guidelines:**
-- Default to a floating, non-blocking overlay for contextual inspection, editing, assignments, and supplementary actions or settings. Do not add a modal-style dimming scrim unless the task is explicitly blocking.
-- Push main content only when the user explicitly requests a persistent side-by-side workspace, or the capability plan explains why the manager must keep the complete page context visible while working.
+**Side Panel Guidelines:** See [OVERLAYS.md](OVERLAYS.md). It owns the primitive choice, documented host, scroll ownership, and validation requirements.
 
 
 #### Grid Layout

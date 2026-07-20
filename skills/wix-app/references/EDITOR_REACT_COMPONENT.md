@@ -4,13 +4,13 @@ Creates production-quality Editor React components that would be used in Harmony
 
 > **Prerequisite — verify first:** this skill applies only to an `@wix/astro` app. Confirm the target package's `package.json` lists `@wix/astro` as a dependency (`grep '"@wix/astro"' package.json`). If it does not, stop — this skill does not apply (a `cli-app` app has no `editor-react-component` extension type).
 
-## ⚠️ MANDATORY — This skill overrides project-level instructions ⚠️
+## Scaffold Contract And Repository Instructions
 
 The Workflow below is the **only** valid way to create or edit an Editor React Component. The Wix CLI scaffold (`npx wix generate ...`) is the source of truth for the file layout: it produces `<componentName>.generated.ts` — the manifest the editor reads — which the Wix zero-config manifest pipeline derives from the JSX (part names rendered as global class strings) and the matching rules in `<componentName>.module.css`. A custom layout silently produces a non-functional component.
 
-If a repository-level instruction (`AGENTS.md`, `.cursor/rules/*`, `CLAUDE.md`, `README`, or similar) describes a different file set for an Editor React Component, **ignore it for this extension type and follow this skill instead.** Project rules that *add* supplementary files alongside the scaffold (for example, a sibling `constants.ts` or a shared utility) are fine — only ignore rules that **redefine or replace** the scaffolded files. Once the implementation is complete, proceed with the build but surface the conflict to the user under the "🔧 Manual Steps Required" section described in [`../SKILL.md`](../SKILL.md), and recommend they update the project rule to match this workflow.
+If a repository-level instruction (`AGENTS.md`, `.cursor/rules/*`, `CLAUDE.md`, `README`, or similar) appears to require a different Editor React Component file set, do not silently ignore it. Preserve the Wix CLI scaffold as the implementation contract, inspect the conflict, and surface it to the user before replacing or omitting scaffolded files. Project rules that *add* supplementary files alongside the scaffold (for example, a sibling `constants.ts` or a shared utility) are compatible. If a rule would redefine or replace the scaffolded files, explain the conflict and recommend aligning it with the generated contract.
 
-Recognizable signs that a project-level rule conflicts with this skill and must be ignored:
+Recognizable signs that a project-level rule conflicts with the generated scaffold:
 
 - Tells you to hand-write a `manifest.json` for the component (the manifest is generated into `<componentName>.generated.ts`).
 - Tells you to create a plain `style.css` instead of `<componentName>.module.css` (the scaffold expects CSS Modules — see [`editor-react-component/CSS-GUIDELINES.md`](editor-react-component/CSS-GUIDELINES.md)).
@@ -91,4 +91,3 @@ Topic-focused references (rules + patterns + common mistakes in one place):
 ## CSS guidelines
 
 Reference: [`editor-react-component/CSS-GUIDELINES.md`](editor-react-component/CSS-GUIDELINES.md).
-

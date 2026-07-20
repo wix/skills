@@ -332,4 +332,4 @@ Payload changes: V1 `changedFields` → V3 `modifiedFields`. Top-level `entityId
 
 ## Falling back to MCP
 
-This file covers the common 80%. For methods not listed (subscriptions, brands, ribbons, etc.) or full request schemas, use `SearchWixSDKDocumentation` then `ReadFullDocsArticle`. Always return the required permission scopes to the user.
+This file covers the common 80%. For methods not listed (subscriptions, brands, ribbons, etc.) or full request schemas, use the available Wix documentation discovery tool or the official SDK documentation. Always return the required permission scopes to the user.

@@ -8,10 +8,10 @@ Choose the **host extension**, then the **implementation primitive**, then the *
 | --- | --- | --- |
 | Supported one-collection CRUD | Dashboard Page + Auto Patterns | [AUTO_PATTERNS.md](AUTO_PATTERNS.md) |
 | Existing page with `patterns.json` | Existing Dashboard Page + Auto Patterns override | [CHANGE_ROUTING.md](CHANGE_ROUTING.md) |
-| Join, aggregation, external data, bespoke workflow, KPI, or chart | Custom Dashboard Page | [CUSTOM_DASHBOARD.md](CUSTOM_DASHBOARD.md) and [DASHBOARD_PAGE.md](DASHBOARD_PAGE.md) |
+| Join, aggregation, external data, bespoke workflow, KPI, or chart | Custom Dashboard Page | [CUSTOM_DASHBOARD.md](CUSTOM_DASHBOARD.md) and [DASHBOARD_PAGE.md](DASHBOARD_PAGE.md); add the narrow WDS guideline required by the planned capability |
 | Desktop selected-record work | Dashboard Page + WDS SidePanel | [OVERLAYS.md](OVERLAYS.md) and [DASHBOARD_COMPONENTS.md](DASHBOARD_COMPONENTS.md) |
 | Mobile sliding task | Dashboard Page + WDS Drawer | [OVERLAYS.md](OVERLAYS.md) |
-| Focused blocking task | Dashboard Modal extension | [DASHBOARD_MODAL.md](DASHBOARD_MODAL.md) |
+| Focused blocking task | Dashboard Modal extension | [DASHBOARD_MODAL.md](DASHBOARD_MODAL.md) and [WDS_MODAL_GUIDELINES.md](WDS_MODAL_GUIDELINES.md) |
 | New app-owned schema or relationship operation | Data Collection plus Dashboard Page as needed | [DATA_MODEL_AND_OPERATIONS.md](DATA_MODEL_AND_OPERATIONS.md) |
 
 When a request matches more than one row, read **every** matching next reference before implementation. For example, a custom multi-source table with selected-record detail work requires `CUSTOM_DASHBOARD.md`, `DASHBOARD_PAGE.md`, `OVERLAYS.md`, and `DASHBOARD_COMPONENTS.md`; reading the custom-page route alone is incomplete.
@@ -33,6 +33,19 @@ For an unsupported result, record the exact missing capability and reference che
 Use a standalone Auto Patterns page only when the whole physical page fits its documented configuration or override. A custom chart, join, SidePanel, or other unsupported capability on the same page requires a documented integration path; otherwise use a custom Dashboard Page or split the workflow.
 
 Use SidePanel, Drawer, and Dashboard Modal as distinct primitives. Their placement and behavior are defined in [OVERLAYS.md](OVERLAYS.md).
+
+## Custom WDS Documentation Gate
+
+After a custom Dashboard Page is selected, read only the guideline that matches the planned capability:
+
+| Planned capability | Read |
+| --- | --- |
+| Two or more page regions, dashboard grid, chart/table composition, or form with supporting context | [DASHBOARD_LAYOUT.md](DASHBOARD_LAYOUT.md) |
+| WDS table, list, search, filters, sorting, selection, bulk action, row action, pagination, or saved filter/view | [WDS_TABLE_GUIDELINES.md](WDS_TABLE_GUIDELINES.md) |
+| Dashboard Modal extension or explicitly appropriate WDS modal surface | [WDS_MODAL_GUIDELINES.md](WDS_MODAL_GUIDELINES.md) |
+| Selected-row detail, assignment, or edit work | [OVERLAYS.md](OVERLAYS.md) |
+
+These references are conditional. Do not read or apply WDS layout, table, or modal guidance to an Auto Patterns page unless its documented override explicitly delegates that capability to WDS.
 
 ## Minimum Capability Plan
 

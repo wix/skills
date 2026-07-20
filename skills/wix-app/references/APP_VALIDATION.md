@@ -161,7 +161,7 @@ Read: .wix/debug.log (with offset to the end)
 
 | Issue | Cause | Solution |
 |-------|-------|----------|
-| Package installation fails | Missing lock file, network issues, or corrupted node_modules | Delete `node_modules` and lock file, then reinstall |
+| Package installation fails | Missing lock file, network issues, or corrupted node_modules | Preserve the lock file. Inspect the package-manager error, retry the matching install command, and remove only generated dependency artifacts when the project owner approves it. |
 | TypeScript compilation fails | Type mismatches, missing declarations, or incorrect types | Fix TypeScript errors shown in `npx tsc --noEmit` output |
 | Build fails | TypeScript errors, missing dependencies, or internal CLI error | Fix TypeScript errors in source; for non-obvious failures, check `.wix/debug.log` |
 | Preview fails to start | Port conflict, config issue, or internal CLI error | Check `wix.config.json`; if unclear, check `.wix/debug.log` for details |

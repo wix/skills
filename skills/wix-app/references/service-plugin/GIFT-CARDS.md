@@ -14,7 +14,7 @@ The Gift Vouchers Provider SPI allows you to integrate external gift card or vou
 
 ## Request and Response Schema
 
-Before implementing, call `ReadFullDocsMethodSchema` on each docs URL to get the full request/response types.
+Before implementing, obtain the full request/response schema from each docs URL using the available Wix documentation tooling or the official SDK documentation.
 
 | Handler | Docs URL |
 | --- | --- |
