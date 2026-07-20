@@ -16,6 +16,8 @@ Choose the **host extension**, then the **implementation primitive**, then the *
 
 When a request matches more than one row, read **every** matching next reference before implementation. For example, a custom multi-source table with selected-record detail work requires `CUSTOM_DASHBOARD.md`, `DASHBOARD_PAGE.md`, `OVERLAYS.md`, and `DASHBOARD_COMPONENTS.md`; reading the custom-page route alone is incomplete.
 
+A new app-owned collection does not turn a selected-row detail workflow into a Dashboard Modal. For an app-owned data table where clicking a row reveals that record's details, the required route is `DATA_MODEL_AND_OPERATIONS.md` + `CUSTOM_DASHBOARD.md` + `DASHBOARD_COMPONENTS.md` + `OVERLAYS.md`, with WDS `SidePanel`. A Dashboard Modal needs a separate, explicit blocking-task justification.
+
 ## Auto Patterns Gate
 
 For a one-collection manager, check Auto Patterns before choosing custom React. Mark every requested capability as:

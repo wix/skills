@@ -50,21 +50,25 @@ For a SidePanel with an action, use the documented three-part structure: `SidePa
 
 ## Selection And Bulk Operations
 
-When a WDS `Table` supports selection, map every CMS row to a stable table `id` equal to its CMS `_id`. Keep the CMS `_id` available for data operations. Do not rely on the table's row index or an implicit identifier.
+When a WDS `Table` supports selection, create a table-row adapter with `id: cmsItem._id`; keep the original CMS `_id` in that adapter or in a source-record map. Resolve `selectedIds` through that map before a write. Do not pass raw CMS items to the table and assume their `_id` is the WDS selection ID; do not rely on a row index or implicit identifier.
 
 For a bulk action:
 
 1. Resolve every selected table `id` back to an existing CMS record before writing.
 2. Use the appropriate documented Wix Data write path, including `items.bulkUpdate()` when the same change applies to multiple records.
 3. Do not construct an update from a display-only UI DTO that may have dropped source fields.
-4. Update local state only after the write succeeds, then clear selection and refresh affected rows.
+4. Define the post-success state before coding. For “Mark as reviewed”, persist `isReviewed: true` on the selected CMS records, show a success notification with the affected count, clear selection, and remove those records from an exceptions-only queue after refresh. The exception predicate itself must exclude `isReviewed === true`; a refresh alone does not remove a record from the queue.
+5. Keep the selected rows and their source records intact until the write succeeds. On failure, preserve selection, show a recoverable error, and log the request failure rather than reporting a generic completed action.
+6. Never use a double cast to force a UI DTO through a Wix Data write. Build the documented update payload from the source CMS record and validate that at least one selected source record exists before calling a bulk operation.
 
 ## Composition Rules
 
 - Prefer documented WDS components over custom approximations.
 - Use the correct documented overlay primitive rather than hand-built fixed positioning.
 - A request to keep the list visible while showing a selected record means a floating `SidePanel` by default, not a side-by-side flex column. Use a push layout only when the prompt explicitly asks for persistent split-screen work.
+- A row click that reveals information about that same row is a desktop `SidePanel` workflow. Do not substitute a Dashboard Modal merely because it is available. A Dashboard Modal is reserved for a blocking, bounded task that interrupts page context.
 - Do not place a full-page layout inside a panel or modal host.
+- A WDS table must retain its labeled column header row in every state, including selected-row and bulk-action states. Selection controls belong in the toolbar or selection column; they never replace the field labels. Do not set `Table.Content` `titleBarVisible={false}` for a management table with visible columns.
 - Keep data fetching separate from rendering and validate response shape before visualizing it.
 - For WDS data tables, read the documented `EmptyState` guidance and render it whenever the table has no rows after loading. Do not render `Table.Content` as the only non-loading branch.
 - For a multi-source row, define the source of truth for each displayed field and the behavior when a related record is missing.
