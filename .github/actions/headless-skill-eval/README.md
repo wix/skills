@@ -30,5 +30,7 @@ cheapest-first to `e2e.budgetUsd`. Unmatched files fall back to the whole dry-ru
 ## Rebuild after editing `src/`
 `npm install && npm run build` (commits `dist/index.js`).
 
-_Note: the end-to-end branch-install path still needs one confirming run on a healthy
-EvalForge backend before the gate is relied upon._
+_Branch-install path confirmed via POC: a run pinned to a `.../tree/<branch>`-rewritten
+entry version had the agent execute `npx skills@latest add https://github.com/wix/skills/tree/<branch>`
+and judge correctly. (The inline `content.files` override is load-bearing — the wrong
+`content.skillContent.files` shape is dropped and silently falls back to the published skill.)_
