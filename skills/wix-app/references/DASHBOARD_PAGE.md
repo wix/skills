@@ -54,10 +54,11 @@ See [Dashboard API Reference](dashboard-page/DASHBOARD_API.md) for complete docu
 
 **CRITICAL: Using Modals in Dashboard Pages**
 
-When you need to display popup forms, confirmations, detail views, or any dialog overlays from a dashboard page, you **MUST** use dashboard modals, not regular React modals or WDS Modal components.
+When you need a blocking dialog from a dashboard page, use a Dashboard Modal extension, not a regular React modal or WDS `Modal` component.
 
-- **Use dashboard modals** for: edit forms, delete confirmations, detail views, settings dialogs, any popup content
-- **Do NOT use** WDS `Modal` component or custom React modal implementations
+- **Use dashboard modals** for: confirmations, isolated forms, settings dialogs, and other bounded blocking tasks.
+- **Use WDS `SidePanel`** for a desktop table row's contextual detail, inspection, editing, assignment, or supplementary action flow. Read [OVERLAYS.md](OVERLAYS.md) before choosing its host; a detail view is not automatically a Dashboard Modal.
+- **Do NOT use** a WDS `Modal` component or custom React modal implementation inside a Dashboard Page.
 - **See [Dashboard Modal reference](DASHBOARD_MODAL.md)** for complete implementation guide
 
 Dashboard modals are opened using `dashboard.openModal()` and provide proper integration with the dashboard lifecycle, state management, and navigation.

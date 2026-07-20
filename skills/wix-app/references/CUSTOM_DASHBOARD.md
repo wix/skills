@@ -46,7 +46,7 @@ For a selected-record panel or detail form, organize information in this order:
 
 Status badges that determine urgency or available actions belong in the header, not midway through supporting content. A field is editable only when it has a write path, validation, and save behavior. Use standard WDS `Divider` for thin in-content section separation; do not use a heavyweight structural separator merely to create visual spacing.
 
-For a SidePanel with an action, use the documented three-part structure: `SidePanel.Header`, scrollable `SidePanel.Content`, and `SidePanel.Footer`. The header must use the documented title/status composition and its spacing; do not bypass it with unpadded custom markup. The footer stays visible, contains the action controls, and follows the secondary-then-primary, right-aligned order.
+For a SidePanel with an action, use the documented three-part structure: `SidePanel.Header`, scrollable `SidePanel.Content`, and `SidePanel.Footer`. The header must use the documented title/status composition and its spacing; do not bypass it with unpadded custom markup. The footer stays visible, contains the action controls, and follows the secondary-then-primary, right-aligned order. Do not create an extra scroll wrapper around the panel or substitute custom header/body/footer containers.
 
 ## Selection And Bulk Operations
 
