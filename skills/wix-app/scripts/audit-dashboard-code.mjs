@@ -48,6 +48,50 @@ try {
 const contents = new Map(files.map((filePath) => [filePath, fs.readFileSync(filePath, 'utf8')]));
 const projectHasSidePanel = [...contents.values()].some((content) => /<SidePanel\b/.test(content));
 
+function componentNames(filePath, content) {
+  const names = new Set();
+  const baseName = path.basename(filePath, path.extname(filePath));
+  if (/^[A-Z][A-Za-z0-9]*$/.test(baseName)) names.add(baseName);
+
+  for (const match of content.matchAll(
+    /(?:export\s+default\s+)?(?:function|class|const)\s+([A-Z][A-Za-z0-9]*)\b/g,
+  )) {
+    names.add(match[1]);
+  }
+  for (const match of content.matchAll(/export\s+default\s+([A-Z][A-Za-z0-9]*)\s*;?/g)) {
+    names.add(match[1]);
+  }
+  return names;
+}
+
+const declaredComponents = new Map(
+  [...contents].map(([filePath, content]) => [filePath, componentNames(filePath, content)]),
+);
+const sidePanelComponents = new Set(['SidePanel']);
+
+// Follow local component wrappers so a page mounting <SessionDetail /> is audited
+// even when the actual <SidePanel> lives in a different file.
+let discoveredWrapper = true;
+while (discoveredWrapper) {
+  discoveredWrapper = false;
+  for (const [filePath, content] of contents) {
+    const mountsKnownPanel = [...sidePanelComponents].some((name) =>
+      new RegExp(`<${name}\\b`).test(content),
+    );
+    if (!mountsKnownPanel) continue;
+    for (const name of declaredComponents.get(filePath)) {
+      if (!sidePanelComponents.has(name)) {
+        sidePanelComponents.add(name);
+        discoveredWrapper = true;
+      }
+    }
+  }
+}
+
+function mountsSidePanel(content) {
+  return [...sidePanelComponents].some((name) => new RegExp(`<${name}\\b`).test(content));
+}
+
 for (const filePath of files) {
   const content = contents.get(filePath);
   const hasSidePanel = /<SidePanel\b/.test(content);
@@ -67,6 +111,26 @@ for (const filePath of files) {
           'Standard record Header omits the documented title API and rebuilds identity with custom children.',
         );
       }
+      if (/\btitle=/.test(match[1]) && /<Badge\b/.test(match[2])) {
+        addFinding(
+          filePath,
+          content,
+          match.index,
+          'TP-10',
+          'Standard record Header mixes the title API with a custom status badge; put status first in SidePanel.Content or follow the exact custom-header example.',
+        );
+      }
+    }
+
+    const contentRegions = (content.match(/<SidePanel\.Content\b/g) || []).length;
+    if (contentRegions > 1 && /<SidePanel\.Divider\b/.test(content)) {
+      addFinding(
+        filePath,
+        content,
+        content.indexOf('<SidePanel.Divider'),
+        'TP-11',
+        'Routine record details are split into multiple SidePanel.Content regions with thick SidePanel.Divider bands; use one Content region and standard thin WDS Divider only where needed.',
+      );
     }
 
     if (/<Button\b/.test(content) && !/<SidePanel\.Footer\b/.test(content)) {
@@ -89,6 +153,16 @@ for (const filePath of files) {
   );
 
   if (/<Table\b/.test(content)) {
+    if (/\bonRowClick=/.test(content) && !/<TableActionCell\b/.test(content)) {
+      addFinding(
+        filePath,
+        content,
+        content.indexOf('onRowClick='),
+        'CT-10',
+        'Interactive table rows rely on row click without a visible final-column TableActionCell.',
+      );
+    }
+
     const percentageWidths = [...content.matchAll(/\bwidth:\s*['"](\d+(?:\.\d+)?)%['"]/g)];
     const totalWidth = percentageWidths.reduce((sum, match) => sum + Number(match[1]), 0);
     if (percentageWidths.length > 1 && totalWidth > 100.5) {
@@ -127,7 +201,7 @@ for (const filePath of files) {
 
 if (projectHasSidePanel) {
   for (const [filePath, content] of contents) {
-    const mountsPanel = /<(?:SidePanel|[A-Z][A-Za-z0-9]*SidePanel)\b/.test(content);
+    const mountsPanel = mountsSidePanel(content);
     if (!mountsPanel) continue;
 
     const relativeIndex = content.search(/position:\s*['"]relative['"]/);
@@ -161,6 +235,40 @@ if (projectHasSidePanel) {
       /(?:100vh|100dvh)/,
       'Panel mount uses browser viewport height inside an embedded Dashboard Page.',
     );
+
+    const fixedSiblingIndex = content.search(/(?:width:\s*['"]\d+(?:px)?['"]|flexShrink:\s*0)/);
+    if (fixedSiblingIndex >= 0 && /display:\s*['"]flex['"]/.test(content)) {
+      addFinding(
+        filePath,
+        content,
+        fixedSiblingIndex,
+        'TP-07',
+        'Floating SidePanel is mounted as a fixed-width flex sibling/push column instead of the documented dashboard-level overlay.',
+      );
+    }
+
+    const wrapperShadowIndex = content.search(/boxShadow\s*:/);
+    if (wrapperShadowIndex >= 0) {
+      addFinding(
+        filePath,
+        content,
+        wrapperShadowIndex,
+        'TP-12',
+        'A wrapper adds its own SidePanel shadow; let skin="floating" own panel geometry and shadow.',
+      );
+    }
+
+    const wrapperOverflowIndex = content.search(/overflow:\s*['"](?:auto|hidden)['"]/);
+    const wrapperGeometryIndex = content.search(/(?:width:\s*['"]\d+(?:px)?['"]|height:\s*['"]100%['"])/);
+    if (wrapperOverflowIndex >= 0 && wrapperGeometryIndex >= 0) {
+      addFinding(
+        filePath,
+        content,
+        Math.min(wrapperOverflowIndex, wrapperGeometryIndex),
+        'TP-12',
+        'A SidePanel wrapper owns overflow and fixed/full geometry, which can clip the floating skin and its shadow.',
+      );
+    }
   }
 }
 

@@ -30,4 +30,4 @@ List the page regions in reading order, name the primary operational surface, an
 
 ## Acceptance
 
-Verify every metric against known source records and dates, inspect the composition at wide and narrow dashboard widths, and test empty and partial responses. Confirm equal-level cards align, the operational region stays full width, and any combined table/SidePanel acceptance checklist passes. Console and network must remain clean; one failed visualization must not erase unrelated content. Run `node <SKILL_ROOT>/scripts/audit-dashboard-code.mjs <generated-files>` before completion.
+Verify every metric against known source records and dates, inspect the composition at wide and narrow dashboard widths, and test empty and partial responses. Confirm equal-level cards align, the operational region stays full width, and any combined table/SidePanel acceptance checklist passes. Console and network must remain clean; one failed visualization must not erase unrelated content. Run `node "$HOME/.agents/skills/wix-app/scripts/audit-dashboard-code.mjs" <dashboard-source-directory>` before build validation.

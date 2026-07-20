@@ -78,6 +78,6 @@ Use focused discovery only when the selected local guide does not cover the requ
 ## Validation
 
 1. Run `npx tsc --noEmit`, `npx wix build`, and `npx wix preview`.
-2. For generated custom dashboard code, run `node <SKILL_ROOT>/scripts/audit-dashboard-code.mjs <generated-files>`. This blocking audit must pass; a TypeScript/build validator does not replace it.
+2. For generated custom dashboard code, run `node "$HOME/.agents/skills/wix-app/scripts/audit-dashboard-code.mjs" <dashboard-source-directory>` before delegating build validation. This blocking audit must pass; a TypeScript/build validator does not replace it.
 3. Exercise the selected playbook's acceptance checklist in a browser, including console, network, visible states, and persistence.
 4. Report runtime status as `passed`, `failed`, or `blocked`, followed by separate manual steps.
