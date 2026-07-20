@@ -17,6 +17,16 @@ Before coding, define the table's data contract and its planned states:
 
 The field-label row remains visible in normal, selected, and bulk-action states. Do not hide table headers to make room for selection controls.
 
+## Column Layout And Overflow
+
+Read the WDS `Table` **Column width** and **Horizontal scroll** examples, plus the selected text/status component's overflow behavior, before implementing a dense management table.
+
+- Define a width and overflow strategy for every displayed column before writing cell renderers. Prioritize identity, primary status, and row actions; secondary metadata may truncate or move to the selected-record detail.
+- A cell must never paint over an adjacent cell. Long text uses the selected WDS text-overflow behavior and an accessible way to reveal the complete value. Numeric, date, action, and status columns must remain legible at the supported table width.
+- Do not put a variable number of chips in a non-wrapping flex row inside a bounded cell. Show a primary status plus a count/summary, allow a deliberately taller wrapping row, or move secondary statuses to the row detail. Choose one behavior and test the densest record.
+- Use documented table column sizing. Do not rely on accidental intrinsic widths, negative offsets, z-index, or page-level horizontal clipping to make a dense row fit. Use documented horizontal scrolling only when every required column must remain directly comparable.
+- Keep `TableActionCell` in a dedicated final action column. Its controls must not compete with content columns.
+
 ## Toolbar And Filters
 
 - Keep table title, filters, search, and general actions in the table toolbar. Keep search in a consistent right-side toolbar position when present.
@@ -46,4 +56,4 @@ Use pagination when users work in discrete result sets or need a total count and
 
 ## Required Evidence
 
-Test sort direction, filter values, checked selection state, each bulk-action write, row action, empty state, no-results state, and error recovery in a browser. A table that renders rows but cannot complete its primary action is not complete.
+Test sort direction, filter values, checked selection state, each bulk-action write, row action, empty state, no-results state, and error recovery in a browser. Test the densest row: longest text, every displayed status, date, number, and row action must stay inside its own cell without overlap or clipping that hides an action. A table that renders rows but cannot complete its primary action is not complete.
