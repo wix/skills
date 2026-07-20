@@ -46,6 +46,19 @@ For a selected-record panel or detail form, organize information in this order:
 
 Status badges that determine urgency or available actions belong in the header, not midway through supporting content. A field is editable only when it has a write path, validation, and save behavior. Use standard WDS `Divider` for thin in-content section separation; do not use a heavyweight structural separator merely to create visual spacing.
 
+For a SidePanel with an action, use the documented three-part structure: `SidePanel.Header`, scrollable `SidePanel.Content`, and `SidePanel.Footer`. The header must use the documented title/status composition and its spacing; do not bypass it with unpadded custom markup. The footer stays visible, contains the action controls, and follows the secondary-then-primary, right-aligned order.
+
+## Selection And Bulk Operations
+
+When a WDS `Table` supports selection, map every CMS row to a stable table `id` equal to its CMS `_id`. Keep the CMS `_id` available for data operations. Do not rely on the table's row index or an implicit identifier.
+
+For a bulk action:
+
+1. Resolve every selected table `id` back to an existing CMS record before writing.
+2. Use the appropriate documented Wix Data write path, including `items.bulkUpdate()` when the same change applies to multiple records.
+3. Do not construct an update from a display-only UI DTO that may have dropped source fields.
+4. Update local state only after the write succeeds, then clear selection and refresh affected rows.
+
 ## Composition Rules
 
 - Prefer documented WDS components over custom approximations.
@@ -56,6 +69,7 @@ Status badges that determine urgency or available actions belong in the header, 
 - For WDS data tables, read the documented `EmptyState` guidance and render it whenever the table has no rows after loading. Do not render `Table.Content` as the only non-loading branch.
 - For a multi-source row, define the source of truth for each displayed field and the behavior when a related record is missing.
 - A selected-record panel is valid only while its `selectedId` appears in `visibleRows`. Clear selection after filtering, refresh, deletion, or a permission/data change that removes the row.
+- A bulk action is incomplete until checked rows visibly remain checked, the write succeeds against those exact CMS records, and a refresh confirms the persisted outcome.
 
 ## Exit Criteria
 

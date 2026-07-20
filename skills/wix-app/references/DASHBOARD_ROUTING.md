@@ -14,6 +14,8 @@ Choose the **host extension**, then the **implementation primitive**, then the *
 | Focused blocking task | Dashboard Modal extension | [DASHBOARD_MODAL.md](DASHBOARD_MODAL.md) |
 | New app-owned schema or relationship operation | Data Collection plus Dashboard Page as needed | [DATA_MODEL_AND_OPERATIONS.md](DATA_MODEL_AND_OPERATIONS.md) |
 
+When a request matches more than one row, read **every** matching next reference before implementation. For example, a custom multi-source table with selected-record detail work requires `CUSTOM_DASHBOARD.md`, `DASHBOARD_PAGE.md`, `OVERLAYS.md`, and `DASHBOARD_COMPONENTS.md`; reading the custom-page route alone is incomplete.
+
 ## Auto Patterns Gate
 
 For a one-collection manager, check Auto Patterns before choosing custom React. Mark every requested capability as:

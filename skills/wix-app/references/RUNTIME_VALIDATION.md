@@ -14,8 +14,9 @@ Read [APP_VALIDATION.md](APP_VALIDATION.md) for installation, TypeScript, build,
 4. Exercise the main workflow: list, filter, create, edit, assign, or open detail as applicable.
 5. For every filter, test one known matching record and confirm the submitted filter value matches the raw value stored in the data source. Also test a zero-results state and its clear-filters recovery action.
 6. Verify the applicable loading, empty-collection, permission-denied, and error states. For a custom WDS table, verify the documented `EmptyState` is rendered rather than a blank table area. When records are created outside the dashboard, click the empty-state CTA and confirm it opens the stated native creation or setup destination.
-7. For a row-detail workflow, select a known row, then apply a filter that removes it. Confirm the panel closes, no clipped overlay remains, no table space is reserved for a floating panel, and no hidden record can still be edited. Confirm the footer has secondary action(s) before a right-aligned primary action.
-8. Refresh the page and confirm state remains stable.
+7. For a row-detail workflow, select a known row, then apply a filter that removes it. Confirm the panel closes, no clipped overlay remains, no table space is reserved for a floating panel, and no hidden record can still be edited. Confirm the header is padded, content scrolls within the viewport, and an action footer remains visible with secondary action(s) before a right-aligned primary action.
+8. For a bulk-selection workflow, select known rows and confirm every selected checkbox visibly enters the checked state. Run the bulk action, confirm it succeeds without a console or network error, refresh, and verify the same CMS records changed.
+9. Refresh the page and confirm state remains stable.
 
 ## Failure Classification
 
