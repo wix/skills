@@ -34562,10 +34562,10 @@ function formatComparisonResult(result, projectId) {
         }
         lines.push('**Assertions (PR):**', ...s.with.assertions.map(assertionLine), '');
         lines.push('**Assertions (prod):**', ...s.without.assertions.map(assertionLine), '');
-        if (s.pairwiseJudgement.reasoning) {
+        if (s.pairwiseJudgement?.reasoning) {
             lines.push(`**Compare result:** ${s.pairwiseJudgement.reasoning}`, '');
         }
-        if (s.pairwiseJudgement.dimensions) {
+        if (s.pairwiseJudgement?.dimensions) {
             lines.push('**Dimensions:**', ...Object.entries(s.pairwiseJudgement.dimensions).map(([k, v]) => `- ${k}: **${v.winner}**`), '');
         }
         lines.push('</details>');
@@ -34985,8 +34985,8 @@ class EvalPipelineClient {
         }
         return res.json();
     }
-    async runComparison(tags, agentName, commitSha, skillsRepo) {
-        return this.post('/run-comparison', { tags, agentName, commitSha, skillsRepo });
+    async runComparison(tags, agentName, commitSha, skillsRepo, scenarioIds) {
+        return this.post('/run-comparison', { tags, agentName, commitSha, skillsRepo, scenarioIds });
     }
     async compareGroup(comparisonGroupId) {
         return this.post('/compare-group', { comparisonGroupId });
@@ -35620,6 +35620,9 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.remoteScenarioFiltersForGate = remoteScenarioFiltersForGate;
+exports.scenariosToRun = scenariosToRun;
+exports.scenarioIdsToRun = scenarioIdsToRun;
+exports.stripInactiveForeignDraftTags = stripInactiveForeignDraftTags;
 exports.runGate = runGate;
 const core = __importStar(__nccwpck_require__(7484));
 const github = __importStar(__nccwpck_require__(3228));
@@ -35650,6 +35653,88 @@ function remoteScenarioFiltersForGate(input) {
             names.add(name);
     }
     return { names: [...names].sort(), tags: [input.draftTag] };
+}
+/**
+ * Head scenarios to sync and run: those whose YAML changed, plus those covering a
+ * changed skill doc (so editing a skill re-runs the scenarios that exercise it).
+ */
+function scenariosToRun(input) {
+    const result = new Map();
+    for (const [name, ls] of input.headScenarios) {
+        if (input.changedEvalPaths.has(ls.path))
+            result.set(name, ls);
+    }
+    for (const coveringNames of input.coveredBy.values()) {
+        for (const name of coveringNames) {
+            const ls = input.headScenarios.get(name);
+            if (ls)
+                result.set(name, ls);
+        }
+    }
+    return result;
+}
+function scenarioIdsToRun(scenarios, nameToId) {
+    const missing = [];
+    const ids = [];
+    for (const name of scenarios.keys()) {
+        const id = nameToId.get(name);
+        if (id)
+            ids.push(id);
+        else
+            missing.push(name);
+    }
+    if (missing.length > 0) {
+        throw new Error(`Missing EvalForge scenario IDs for: ${missing.join(', ')}`);
+    }
+    return ids;
+}
+function isForeignDraftTag(tag, myDraftTag) {
+    return tag.startsWith('draft:') && tag !== myDraftTag;
+}
+async function stripInactiveForeignDraftTags(remote, myDraftTag, isDraftTagActive) {
+    const cachedStates = new Map();
+    const getState = (tag) => {
+        let state = cachedStates.get(tag);
+        if (!state) {
+            state = isDraftTagActive(tag);
+            cachedStates.set(tag, state);
+        }
+        return state;
+    };
+    const normalized = [];
+    for (const scenario of remote) {
+        const tags = [];
+        let changed = false;
+        for (const tag of scenario.tags) {
+            if (!isForeignDraftTag(tag, myDraftTag) || await getState(tag)) {
+                tags.push(tag);
+                continue;
+            }
+            changed = true;
+        }
+        normalized.push(changed ? { ...scenario, tags } : scenario);
+    }
+    return normalized;
+}
+async function isDraftTagActive(octokit, tag) {
+    const draft = (0, evalforge_1.parseDraftTag)(tag);
+    if (!draft)
+        return true;
+    const [owner, repo] = draft.repo.split('/', 2);
+    if (!owner || !repo)
+        return true;
+    try {
+        const pull = await octokit.rest.pulls.get({
+            owner,
+            repo,
+            pull_number: draft.prNumber,
+        });
+        return pull.data.state === 'open';
+    }
+    catch (e) {
+        core.warning(`Could not resolve draft tag ${tag}: ${e instanceof Error ? e.message : String(e)}`);
+        return true;
+    }
 }
 async function runGate() {
     const config = (0, config_1.getEvalConfig)();
@@ -35705,27 +35790,23 @@ async function runGate() {
     const { scenarios: baseScenarios, errors: baseErrors } = (0, evals_1.loadEvals)(baseWorkspace);
     for (const e of baseErrors)
         core.warning(`Base SHA eval issue (${e.path}): ${e.message}`);
-    // Restrict head to scenarios authored or modified in THIS PR — avoids spurious PUTs on every push.
     const changedEvalPaths = new Set([
         ...classifiedChanges.evalsAdded.map(f => f.filename),
         ...classifiedChanges.evalsModified.map(f => f.filename),
     ]);
-    const changedHeadScenarios = new Map();
-    for (const [name, ls] of headScenarios) {
-        if (changedEvalPaths.has(ls.path))
-            changedHeadScenarios.set(name, ls);
-    }
+    const changedHeadScenarios = scenariosToRun({ headScenarios, changedEvalPaths, coveredBy: cov.coveredBy });
     const filters = remoteScenarioFiltersForGate({ changedHead: changedHeadScenarios, head: headScenarios, base: baseScenarios, draftTag });
     const remote = await guardedCall(() => listRemoteScenariosForGate(evalforge, config.projectId, filters), 'Could not reach EvalForge', comment, config);
     if (!remote)
         return;
-    const plan = (0, sync_1.diffSyncPlan)({ changedHead: changedHeadScenarios, head: headScenarios, base: baseScenarios, remote, draftTag, repo: `${config.owner}/${config.repo}` });
+    const normalizedRemote = await stripInactiveForeignDraftTags(remote, draftTag, (tag) => isDraftTagActive(octokit, tag));
+    const plan = (0, sync_1.diffSyncPlan)({ changedHead: changedHeadScenarios, head: headScenarios, base: baseScenarios, remote: normalizedRemote, draftTag, repo: `${config.owner}/${config.repo}` });
     if (plan.errors.length > 0) {
         await comment((0, comment_1.formatForeignDraftConflicts)(plan.errors, { owner: config.owner, repo: config.repo }));
         (0, github_1.fail)(`Scenario(s) held by other PRs: ${plan.errors.map(e => e.name).join(', ')}`, config.blocking);
         return;
     }
-    const nameToId = new Map(remote.map(r => [r.name, r.id]));
+    const nameToId = new Map(normalizedRemote.map(r => [r.name, r.id]));
     for (const a of plan.actions) {
         try {
             if (a.kind === 'CREATE') {
@@ -35763,7 +35844,7 @@ async function runGate() {
         return;
     }
     const pipeline = new eval_pipeline_1.EvalPipelineClient(config.evalPipelineUrl, config.appId, config.appSecret);
-    const comparison = await guardedCall(() => pipeline.runComparison([draftTag], config.agentName, config.headSha, config.mcpSkillsRepo), 'Could not start eval pipeline comparison', comment, config);
+    const comparison = await guardedCall(() => pipeline.runComparison([draftTag], config.agentName, config.headSha, config.mcpSkillsRepo, scenarioIdsToRun(changedHeadScenarios, nameToId)), 'Could not start eval pipeline comparison', comment, config);
     if (!comparison)
         return;
     core.info(`Eval pipeline comparison started: comparisonGroupId=${comparison.comparisonGroupId}`);

@@ -12,7 +12,9 @@ import { wixApiRequest } from "./wix-client.js";
  *   media.items {array} — [{ image: { id, url, width, height, altText } }]
  *     (url may be a bare Wix media handle — pass through mediaUrl() before rendering),
  *   payment.rateType "FIXED"|"CUSTOM"|"VARIED"|"NO_FEE"|"SUBSCRIPTION",
- *   payment.fixed.price { value, currency, formattedValue },
+ *   payment.fixed.price { value, currency, formattedValue } — value + currency are always
+ *     present; formattedValue is optional (may be missing), so format the price from
+ *     value+currency and use formattedValue only when present,
  *   payment.options { online, inPerson, deposit, pricingPlan },
  *   schedule.id {string}, onlineBooking.enabled {boolean},
  *   category { id, name }, staffMemberIds {string[]}, locations {array},

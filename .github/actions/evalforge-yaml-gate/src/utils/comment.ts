@@ -162,10 +162,10 @@ export function formatComparisonResult(result: CompareGroupComplete, projectId?:
     }
     lines.push('**Assertions (PR):**', ...s.with.assertions.map(assertionLine), '');
     lines.push('**Assertions (prod):**', ...s.without.assertions.map(assertionLine), '');
-    if (s.pairwiseJudgement.reasoning) {
+    if (s.pairwiseJudgement?.reasoning) {
       lines.push(`**Compare result:** ${s.pairwiseJudgement.reasoning}`, '');
     }
-    if (s.pairwiseJudgement.dimensions) {
+    if (s.pairwiseJudgement?.dimensions) {
       lines.push('**Dimensions:**', ...Object.entries(s.pairwiseJudgement.dimensions).map(([k, v]) => `- ${k}: **${v.winner}**`), '');
     }
     lines.push('</details>');

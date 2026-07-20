@@ -117,6 +117,14 @@ describe('comment formatters', () => {
     expect(out).toContain('[View run (prod)](https://bo.wix.com/pages/evalforge/proj-1/results?runId=prod-run');
   });
 
+  it('formatComparisonResult handles a scenario with no pairwiseJudgement', () => {
+    // The pipeline omits pairwiseJudgement when pairwise judging is off or the judge fails.
+    const out = c.formatComparisonResult(group([scenario({ pairwiseJudgement: undefined })]), 'proj-1');
+    // renders a placeholder winner instead of throwing on the missing field
+    expect(out).toContain('| scenario-a | ✅ | — |');
+    expect(out).not.toContain('Compare result:');
+  });
+
   it('formatTooManyNewSkills includes count and file names', () => {
     const out = c.formatTooManyNewSkills(2, 1, [
       'skills/wix-manage/references/payments/process.md',

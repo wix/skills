@@ -24,7 +24,8 @@ import { wixApiRequest } from "./wix-client.js";
  *     type {string} — "RSVP"|"TICKETING"|"EXTERNAL"|"NONE",
  *     status {string} — only OPEN_* statuses accept new registrations,
  *     rsvp.responseType — "YES_AND_NO" allows a "NO" reply,
- *     tickets.currency, tickets.lowestPrice, tickets.soldOut,
+ *     tickets.lowestPrice {object} — money { value, currency, formattedValue }; render
+ *       formattedValue, not the object (see "Money/price fields" in SKILL.md). tickets.soldOut {boolean},
  *     external.url — link out when type === "EXTERNAL",
  *   eventPageUrl {object} — { base, path } (URLS fieldset) — needed for getTicketCheckoutUrl,
  *   form {object} — registration form controls (FORM fieldset),
