@@ -65,8 +65,6 @@ The script emits one JSON object per line:
 Install the Wix Headless skills (`CI=1` forces plain non-interactive CLI output — keep it on every Wix CLI command):
 
 ```bash
-CI=1 wix skills add
-# Fallback if 'wix skills' isn't registered for this project type:
 CI=1 npx skills@latest add wix/skills --yes
 ```
 
