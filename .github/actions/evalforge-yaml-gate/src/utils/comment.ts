@@ -122,6 +122,10 @@ function winnerLabel(s: ScenarioComparison): string {
     return '-';
   }
 
+  if (!s.pairwiseJudgement) {
+    return '—';
+  }
+
   const winnerIcon = s.pairwiseJudgement.winner === 'tie' ? '≈' : s.pairwiseJudgement.winner === 'with' ? '⬆️' : '⬇️';
   return `${winnerIcon} ${s.pairwiseJudgement.winner} (${s.pairwiseJudgement.confidence})`;
 }
