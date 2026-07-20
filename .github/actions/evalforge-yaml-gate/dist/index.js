@@ -34427,10 +34427,7 @@ const token_budget_1 = __nccwpck_require__(5984);
 exports.COMMENT_MARKER = '<!-- evalforge-yaml-gate-action -->';
 const HEADING = 'EvalForge YAML Gate';
 function render(icon, label, body) {
-    return [exports.COMMENT_MARKER, `## ${icon} ${HEADING}: ${label}`, '', ...body].join('\n');
-}
-function failIcon(blocking) {
-    return blocking ? { icon: '❌', label: 'Failed' } : { icon: '⚠️', label: 'Warning' };
+    return [exports.COMMENT_MARKER, `## ${icon ? `${icon} ` : ''}${HEADING}: ${label}`, '', ...body].join('\n');
 }
 function formatLoadErrors(errors) {
     return render('❌', 'Invalid YAML', errors.map(e => `- \`${e.path}\`: ${e.message}`));
@@ -34476,8 +34473,7 @@ function formatTooManyNewSkills(count, limit, files) {
     ]);
 }
 function formatServiceError(message, blocking) {
-    const { icon } = failIcon(blocking);
-    return render(icon, blocking ? 'Error' : 'Warning', [message]);
+    return render('', blocking ? 'Error' : 'Warning', [message]);
 }
 function runLink(runId, runUrl) {
     return `Run: [${runId}](${runUrl})`;
@@ -34486,8 +34482,7 @@ function formatEvalPassed(m, runId, runUrl) {
     return render('✅', 'Passed', [`Pass rate: ${m.passRate}%`, runLink(runId, runUrl)]);
 }
 function formatEvalFailed(m, runId, runUrl, blocking) {
-    const { icon, label } = failIcon(blocking);
-    return render(icon, label, [
+    return render('', blocking ? 'Failed' : 'Warning', [
         `Pass rate: ${m.passRate}%`,
         `${m.failed} failed, ${m.errors} errored, ${m.passed}/${m.totalAssertions} passed`,
         runLink(runId, runUrl),
@@ -34507,10 +34502,9 @@ function assertionLine(a) {
 }
 function formatComparisonResult(result, projectId) {
     const { verdict, tag, scenarios } = result.result;
-    const verdictIcon = verdict === 'not-required' ? '✅' : '⚠️';
     const lines = [
         exports.COMMENT_MARKER,
-        `## ${verdictIcon} ${HEADING}: Eval Comparison`,
+        `## ${HEADING}: Eval Comparison`,
         '',
         `**Verdict:** \`${verdict}\` | **Tag:** \`${tag}\``,
         '',

@@ -9,12 +9,8 @@ import { formatTokenCount, type TokenBudgetViolation } from './token-budget';
 export const COMMENT_MARKER = '<!-- evalforge-yaml-gate-action -->';
 const HEADING = 'EvalForge YAML Gate';
 
-function render(icon: string, label: string, body: string[]): string {
-  return [COMMENT_MARKER, `## ${icon} ${HEADING}: ${label}`, '', ...body].join('\n');
-}
-
-function failIcon(blocking: boolean): { icon: string; label: string } {
-  return blocking ? { icon: '❌', label: 'Failed' } : { icon: '⚠️', label: 'Warning' };
+function render(icon: string | undefined, label: string, body: string[]): string {
+  return [COMMENT_MARKER, `## ${icon ? `${icon} ` : ''}${HEADING}: ${label}`, '', ...body].join('\n');
 }
 
 export function formatLoadErrors(errors: LoadError[]): string {
@@ -68,8 +64,7 @@ export function formatTooManyNewSkills(count: number, limit: number, files: stri
 }
 
 export function formatServiceError(message: string, blocking: boolean): string {
-  const { icon } = failIcon(blocking);
-  return render(icon, blocking ? 'Error' : 'Warning', [message]);
+  return render('', blocking ? 'Error' : 'Warning', [message]);
 }
 
 function runLink(runId: string, runUrl: string): string {
@@ -81,8 +76,7 @@ export function formatEvalPassed(m: EvalRunStatus['aggregateMetrics'], runId: st
 }
 
 export function formatEvalFailed(m: EvalRunStatus['aggregateMetrics'], runId: string, runUrl: string, blocking: boolean): string {
-  const { icon, label } = failIcon(blocking);
-  return render(icon, label, [
+  return render('', blocking ? 'Failed' : 'Warning', [
     `Pass rate: ${m.passRate}%`,
     `${m.failed} failed, ${m.errors} errored, ${m.passed}/${m.totalAssertions} passed`,
     runLink(runId, runUrl),
@@ -106,10 +100,9 @@ function assertionLine(a: { status: string; name: string; score?: number; verdic
 
 export function formatComparisonResult(result: CompareGroupComplete, projectId?: string): string {
   const { verdict, tag, scenarios } = result.result;
-  const verdictIcon = verdict === 'not-required' ? '✅' : '⚠️';
   const lines: string[] = [
     COMMENT_MARKER,
-    `## ${verdictIcon} ${HEADING}: Eval Comparison`,
+    `## ${HEADING}: Eval Comparison`,
     '',
     `**Verdict:** \`${verdict}\` | **Tag:** \`${tag}\``,
     '',
