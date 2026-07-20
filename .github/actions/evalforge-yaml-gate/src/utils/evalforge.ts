@@ -29,7 +29,10 @@ export type EvalRunInput = {
   description: string;
   projectId: string;
   agentId: string;
-  scenarioIds: string[];
+  scenarioIds?: string[];
+  filter?: {
+    tag: string;
+  };
   capabilityIds?: string[];
   capabilityVersions?: Record<string, string>;
 };
@@ -328,7 +331,7 @@ export class EvalForgeClient {
   // V1 `RunEvaluation` creates AND queues the run in a single call, so this maps
   // to that endpoint. `triggerEvalRun` below is kept as a no-op for caller
   // compatibility (the express API needed a separate trigger; V1 does not).
-  async createEvalRun(projectId: string, input: EvalRunInput): Promise<EvalRunCreated> {
+  async createAndRunEvalRun(projectId: string, input: EvalRunInput): Promise<EvalRunCreated> {
     const res = await this.request<{ evalRun: { id: string; status: string } }>(
       'POST',
       `/projects/${enc(projectId)}/eval-runs/run`,
@@ -338,6 +341,7 @@ export class EvalForgeClient {
           description: input.description,
           agentId: input.agentId,
           scenarioIds: input.scenarioIds,
+          filter: input.filter,
           capabilityIds: input.capabilityIds,
           capabilityVersions: input.capabilityVersions,
         },

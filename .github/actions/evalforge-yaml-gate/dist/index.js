@@ -34079,10 +34079,12 @@ const core = __importStar(__nccwpck_require__(7484));
 const gate_1 = __nccwpck_require__(2302);
 const promote_1 = __nccwpck_require__(2245);
 const cleanup_1 = __nccwpck_require__(6157);
+const schedule_1 = __nccwpck_require__(6004);
 const modes = {
     eval: gate_1.runGate,
     promote: promote_1.runPromote,
     cleanup: cleanup_1.runCleanup,
+    'run-all': schedule_1.runSchedule,
 };
 const mode = core.getInput('mode') || 'eval';
 const handler = modes[mode];
@@ -34419,6 +34421,8 @@ exports.formatEvalPassed = formatEvalPassed;
 exports.formatEvalFailed = formatEvalFailed;
 exports.formatEvalTimeout = formatEvalTimeout;
 exports.formatNoChanges = formatNoChanges;
+exports.noWinnerReason = noWinnerReason;
+exports.comparisonHasNoWinner = comparisonHasNoWinner;
 exports.formatComparisonResult = formatComparisonResult;
 exports.formatComparisonTimeout = formatComparisonTimeout;
 exports.formatTokenBudgetExceeded = formatTokenBudgetExceeded;
@@ -34505,9 +34509,30 @@ function assertionLine(a) {
     const detail = a.verdict ? `: ${a.verdict}` : a.message ? `: ${a.message}` : '';
     return `- ${icon} ${a.name}${score}${detail}`;
 }
+function bothRunsFailedLlmJudge(s) {
+    return s.with.assertions.some(a => a.type === 'llm_judge' && a.status !== 'passed')
+        && s.without.assertions.some(a => a.type === 'llm_judge' && a.status !== 'passed');
+}
+function noWinnerReason(s) {
+    return bothRunsFailedLlmJudge(s) ? 'both runs failed the LLM judge' : undefined;
+}
+function comparisonHasNoWinner(result) {
+    return (result.scenarios ?? []).some(s => noWinnerReason(s));
+}
+function winnerLabel(s) {
+    if (noWinnerReason(s)) {
+        return '-';
+    }
+    if (!s.pairwiseJudgement) {
+        return '—';
+    }
+    const winnerIcon = s.pairwiseJudgement.winner === 'tie' ? '≈' : s.pairwiseJudgement.winner === 'with' ? '⬆️' : '⬇️';
+    return `${winnerIcon} ${s.pairwiseJudgement.winner} (${s.pairwiseJudgement.confidence})`;
+}
 function formatComparisonResult(result, projectId) {
     const { verdict, tag, scenarios } = result.result;
-    const verdictIcon = verdict === 'not-required' ? '✅' : '⚠️';
+    const hasNoWinner = comparisonHasNoWinner(result.result);
+    const verdictIcon = verdict === 'not-required' && !hasNoWinner ? '✅' : '⚠️';
     const lines = [
         exports.COMMENT_MARKER,
         `## ${verdictIcon} ${HEADING}: Eval Comparison`,
@@ -34518,9 +34543,6 @@ function formatComparisonResult(result, projectId) {
         '|---|---|---|---|---|---|---|',
     ];
     for (const s of (scenarios ?? [])) {
-        const j = s.pairwiseJudgement;
-        const winnerLabel = !j ? '—' : j.winner === 'tie' ? '≈ tie' : j.winner === 'with' ? '⬆️ PR' : '⬇️ prod';
-        const winnerCell = j ? `${winnerLabel} (${j.confidence})` : winnerLabel;
         const costWith = s.with.totalCostUsd.toFixed(3);
         const costWithout = s.without.totalCostUsd.toFixed(3);
         const tokWith = `${(s.with.totalTokens / 1000).toFixed(1)}K`;
@@ -34529,14 +34551,18 @@ function formatComparisonResult(result, projectId) {
         const timeWithout = `${(s.without.durationMs / 1000).toFixed(1)}s`;
         const runWith = projectId && s.with.runId ? `[PR](${(0, evalforge_1.evalRunUrl)(projectId, s.with.runId, s.with.name)})` : '—';
         const runWithout = projectId && s.without.runId ? `[prod](${(0, evalforge_1.evalRunUrl)(projectId, s.without.runId, s.without.name)})` : '—';
-        lines.push(`| ${s.scenarioName} | ${s.required ? '✅' : '—'} | ${winnerCell} | $${costWith} / $${costWithout} | ${tokWith} / ${tokWithout} | ${timeWith} / ${timeWithout} | ${runWith} / ${runWithout} |`);
+        lines.push(`| ${s.scenarioName} | ${s.required ? '✅' : '—'} | ${winnerLabel(s)} | $${costWith} / $${costWithout} | ${tokWith} / ${tokWithout} | ${timeWith} / ${timeWithout} | ${runWith} / ${runWithout} |`);
     }
     for (const s of (scenarios ?? [])) {
+        const reason = noWinnerReason(s);
         lines.push('', `<details><summary>${s.scenarioName}</summary>`, '', s.reason, '');
         if (projectId && s.with.runId)
             lines.push(`[View run (PR)](${(0, evalforge_1.evalRunUrl)(projectId, s.with.runId, s.with.name)})`, '');
         if (projectId && s.without.runId)
             lines.push(`[View run (prod)](${(0, evalforge_1.evalRunUrl)(projectId, s.without.runId, s.without.name)})`, '');
+        if (reason) {
+            lines.push(`**No winner:** ${reason}.`, '');
+        }
         lines.push('**Assertions (PR):**', ...s.with.assertions.map(assertionLine), '');
         lines.push('**Assertions (prod):**', ...s.without.assertions.map(assertionLine), '');
         if (s.pairwiseJudgement?.reasoning) {
@@ -34611,6 +34637,7 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.getSimpleConfig = getSimpleConfig;
+exports.getScheduleConfig = getScheduleConfig;
 exports.getEvalConfig = getEvalConfig;
 const core = __importStar(__nccwpck_require__(7484));
 const github = __importStar(__nccwpck_require__(3228));
@@ -34654,6 +34681,16 @@ function getSimpleConfig() {
         prNumber: getPrNumber(),
         owner: github.context.repo.owner,
         repo: github.context.repo.repo,
+    };
+}
+function getScheduleConfig() {
+    return {
+        evalforgeUrl: ensureHttps(core.getInput('evalforge-url', { required: true })),
+        projectId: core.getInput('evalforge-project-id', { required: true }),
+        agentId: core.getInput('evalforge-agent-id', { required: true }),
+        appId: safeGetSecret('evalforge-app-id'),
+        appSecret: safeGetSecret('evalforge-app-secret'),
+        runName: core.getInput('run-name') || 'scheduled-run',
     };
 }
 function getEvalConfig() {
@@ -34995,6 +35032,104 @@ class ComparisonTimeoutError extends Error {
     }
 }
 exports.ComparisonTimeoutError = ComparisonTimeoutError;
+
+
+/***/ }),
+
+/***/ 5879:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.EvalRunTimeoutError = void 0;
+exports.pollUntilDone = pollUntilDone;
+const core = __importStar(__nccwpck_require__(7484));
+const evalforge_1 = __nccwpck_require__(280);
+function isTerminal(status) {
+    return evalforge_1.TERMINAL_RUN_STATUSES.includes(status);
+}
+const POLL_INTERVAL_MS = 30_000;
+const POLL_TIMEOUT_MS = 30 * 60 * 1_000;
+const RETRY_LIMIT = 5;
+const RETRY_DELAY_MS = 10_000;
+function isRetriable(e) {
+    const status = e.status;
+    if (status && status >= 500)
+        return true;
+    if (e instanceof Error && (e.name === 'AbortError' || e.name === 'TimeoutError'))
+        return true;
+    return false;
+}
+function delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, Math.max(0, ms)));
+}
+async function pollUntilDone(client, projectId, runId) {
+    const deadline = Date.now() + POLL_TIMEOUT_MS;
+    while (Date.now() < deadline) {
+        let status;
+        for (let attempt = 0; attempt <= RETRY_LIMIT; attempt++) {
+            try {
+                status = await client.getEvalRun(projectId, runId);
+                break;
+            }
+            catch (e) {
+                if (isRetriable(e) && attempt < RETRY_LIMIT) {
+                    core.warning(`Poll attempt failed (retry ${attempt + 1}/${RETRY_LIMIT}): ${e instanceof Error ? e.message : String(e)}`);
+                    await delay(RETRY_DELAY_MS);
+                }
+                else {
+                    throw e;
+                }
+            }
+        }
+        if (isTerminal(status.status))
+            return status;
+        core.info(`Eval run ${runId}: ${status.status}...`);
+        await delay(Math.min(POLL_INTERVAL_MS, deadline - Date.now()));
+    }
+    throw new EvalRunTimeoutError('Eval run timed out after 30 minutes');
+}
+class EvalRunTimeoutError extends Error {
+    constructor(message) {
+        super(message);
+        this.name = 'EvalRunTimeoutError';
+    }
+}
+exports.EvalRunTimeoutError = EvalRunTimeoutError;
 
 
 /***/ }),
@@ -35351,13 +35486,14 @@ class EvalForgeClient {
     // V1 `RunEvaluation` creates AND queues the run in a single call, so this maps
     // to that endpoint. `triggerEvalRun` below is kept as a no-op for caller
     // compatibility (the express API needed a separate trigger; V1 does not).
-    async createEvalRun(projectId, input) {
+    async createAndRunEvalRun(projectId, input) {
         const res = await this.request('POST', `/projects/${enc(projectId)}/eval-runs/run`, {
             evalRun: {
                 name: input.name,
                 description: input.description,
                 agentId: input.agentId,
                 scenarioIds: input.scenarioIds,
+                filter: input.filter,
                 capabilityIds: input.capabilityIds,
                 capabilityVersions: input.capabilityVersions,
             },
@@ -35728,6 +35864,10 @@ async function runGate() {
         if (tokenBudgetViolations.length > 0) {
             await comment((0, comment_1.formatTokenBudgetExceeded)(tokenBudgetViolations, config.projectId));
             (0, github_1.fail)((0, token_budget_1.formatTokenBudgetFailureMessage)(tokenBudgetViolations), config.blocking);
+            return;
+        }
+        if ((0, comment_1.comparisonHasNoWinner)(done.result)) {
+            (0, github_1.fail)('Eval comparison has no winner because both runs failed assertions', config.blocking);
             return;
         }
         if (config.autoApprove && allScenariosRequired(done.result)) {
@@ -36110,6 +36250,99 @@ function loadEvalsWithWarnings(root) {
     for (const e of errors)
         core.warning(`Eval load issue at ${root}/${e.path}: ${e.message}`);
     return scenarios;
+}
+
+
+/***/ }),
+
+/***/ 6004:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.runSchedule = runSchedule;
+const core = __importStar(__nccwpck_require__(7484));
+const evalforge_1 = __nccwpck_require__(280);
+const config_1 = __nccwpck_require__(7799);
+const eval_run_1 = __nccwpck_require__(5879);
+async function runSchedule() {
+    const config = (0, config_1.getScheduleConfig)();
+    const evalforge = new evalforge_1.EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
+    core.info(`EvalForge scheduled run — running scenarios tagged "${evalforge_1.CODE_TAG}"`);
+    const { id: evalRunId } = await evalforge.createAndRunEvalRun(config.projectId, {
+        name: config.runName,
+        description: `Scheduled eval run for scenarios tagged ${evalforge_1.CODE_TAG}`,
+        projectId: config.projectId,
+        agentId: config.agentId,
+        filter: {
+            tag: evalforge_1.CODE_TAG,
+        },
+    });
+    core.info(`Created eval run: ${evalRunId}`);
+    await evalforge.triggerEvalRun(config.projectId, evalRunId);
+    core.info(`Triggered eval run: ${evalRunId}`);
+    const runUrl = (0, evalforge_1.evalRunUrl)(config.projectId, evalRunId);
+    core.setOutput('run-id', evalRunId);
+    core.setOutput('run-url', runUrl);
+    let result;
+    try {
+        result = await (0, eval_run_1.pollUntilDone)(evalforge, config.projectId, evalRunId);
+    }
+    catch (e) {
+        if (e instanceof eval_run_1.EvalRunTimeoutError) {
+            core.setOutput('status', 'timeout');
+            core.setOutput('summary', `Eval run timed out after 30 minutes. View: ${runUrl}`);
+            core.setFailed(e.message);
+            return;
+        }
+        throw e;
+    }
+    const { passed, failed, totalAssertions, passRate } = result.aggregateMetrics;
+    const pct = Math.round(passRate);
+    core.setOutput('status', result.status);
+    core.setOutput('passed', String(passed));
+    core.setOutput('failed', String(failed));
+    core.setOutput('total', String(totalAssertions));
+    core.setOutput('pass-rate', String(pct));
+    core.setOutput('run-url', runUrl);
+    core.setOutput('summary', `${pct}% pass rate — ${passed}/${totalAssertions} assertions passed, ${failed} failed`);
+    if (result.status === 'failed' || failed > 0) {
+        core.setFailed(`${failed} assertion(s) failed (${pct}% pass rate)`);
+    }
 }
 
 
