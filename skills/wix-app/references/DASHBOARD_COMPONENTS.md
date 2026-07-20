@@ -22,7 +22,7 @@ For any dashboard UI not listed below, use the `wix-design-system` skill to sear
 | Search and filters | WDS `Input`, `Dropdown` or `MultiSelect`, and `DatePicker` as needed | `packages/wix-design-system`: selected filter component documentation | Match the data contract. A filter option's submitted value must match the stored value exactly; do not hard-code display labels as query values unless the app controls those stored values. |
 | Labeled input or form field | WDS `FormField` plus the selected input control | `packages/wix-design-system`: `FormField` and selected control documentation | Use visible labels and documented validation; do not use placeholder-only labels. |
 | Destructive or primary action | WDS `Button`; use `IconButton` only for a familiar icon action | `packages/wix-design-system`: selected button documentation | Give icon-only actions an accessible label and tooltip when needed. |
-| Desktop contextual inspect, edit, or assign flow | WDS `SidePanel` | `packages/wix-design-system`: `SidePanel` documentation | Use `skin="floating"` as a non-blocking overlay by default. Keep the source page visible and interactive; only use a push layout when the request explicitly calls for persistent side-by-side work. |
+| Desktop contextual inspect, edit, or assign flow | WDS `SidePanel` | `packages/wix-design-system`: `SidePanel` documentation and [OVERLAYS.md](OVERLAYS.md) | Use the documented `SidePanel` component. Overlay, host, clipping, and push-layout rules live in `OVERLAYS.md`. |
 | Mobile sliding task surface | WDS `Drawer` | `packages/wix-design-system`: `Drawer` documentation | Do not substitute this for a desktop SidePanel. |
 | Focused blocking task or standalone form | Dashboard Modal extension | [DASHBOARD_MODAL.md](DASHBOARD_MODAL.md) | This is not a WDS `Modal` inside a Dashboard Page. |
 | Persistent warning, permission, or setup issue | WDS `TopBanner` or the documented feedback component | `packages/wix-design-system`: selected feedback component documentation | Explain the consequence and next action; do not use a banner as a hidden console log. |
@@ -32,22 +32,6 @@ For any dashboard UI not listed below, use the `wix-design-system` skill to sear
 | Page frame, responsive grid, or grouped content | WDS `Page`, `Layout`, `Cell`, and `Card` as needed | `packages/wix-design-system`: selected layout component documentation | Use the documented dashboard grid and spacing tokens; do not nest full-page layouts inside overlays. |
 | KPI or chart | Custom visualization after [VISUALIZATIONS.md](VISUALIZATIONS.md) | Exact chart/library documentation selected for the project | Do not claim an Auto Patterns chart capability unless its docs explicitly support it. |
 
-## Plan Evidence
+## Evidence
 
-For every WDS-backed capability, add its selected components and documentation targets to the plan. Example:
-
-```json
-{
-  "id": "class-assignment",
-  "implementationPrimitive": "wds-side-panel",
-  "wdsComponents": ["SidePanel", "FormField", "Dropdown", "Button"],
-  "documentationTargets": [
-    "packages/wix-design-system: SidePanel",
-    "packages/wix-design-system: FormField",
-    "packages/wix-design-system: Dropdown",
-    "packages/wix-design-system: Button"
-  ]
-}
-```
-
-The completion report must name the WDS components and documentation targets actually used. Do not report a generic claim such as “used WDS.”
+For each WDS-backed capability, record the selected component and exact documentation target before implementation. Name those components in the completion report; do not report only “used WDS.”

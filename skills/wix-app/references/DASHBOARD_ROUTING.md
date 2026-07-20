@@ -1,113 +1,51 @@
 # Dashboard Routing
 
-## Purpose
+Choose the **host extension**, then the **implementation primitive**, then the **data source**. Components and data operations are not CLI extensions.
 
-Route a dashboard request in two layers. First choose the **host extension** that owns a physical surface. Then choose the **implementation primitive** used inside that host. Do not treat a component or data operation as a CLI extension.
+## Route Once
 
-| Layer | Examples |
-| --- | --- |
-| Host extension | Dashboard Page, Dashboard Modal, Dashboard Plugin, Data Collection |
-| Implementation primitive | Auto Patterns, Auto Patterns override, WDS SidePanel, WDS Drawer, custom visualization, Wix Data operation |
-| Data source | Existing site CMS collection, new app-owned collection, Wix business data, external API |
-
-## 1. Decompose Before Choosing Technology
-
-For every requested capability, identify data, surface, interaction, placement, and browser proof. Confirm the data model before treating a table as single-collection CRUD.
-
-## 2. Choose the Host and Primitive
-
-| Capability | Host extension | Primitive | Read |
-| --- | --- | --- | --- |
-| Supported single-collection CRUD page | Dashboard Page | Auto Patterns | [AUTO_PATTERNS_DASHBOARD.md](AUTO_PATTERNS_DASHBOARD.md) and [AUTO_PATTERNS.md](AUTO_PATTERNS.md) |
-| Existing Auto Patterns change | Existing Dashboard Page | Auto Patterns override | [CHANGE_ROUTING.md](CHANGE_ROUTING.md) |
-| Join, aggregation, custom workflow, external data, KPI, or chart | Dashboard Page | Custom dashboard capability | [CUSTOM_DASHBOARD.md](CUSTOM_DASHBOARD.md), [VISUALIZATIONS.md](VISUALIZATIONS.md) |
-| Desktop contextual inspector or assignment | Dashboard Page | WDS SidePanel | [OVERLAYS.md](OVERLAYS.md), [DASHBOARD_COMPONENTS.md](DASHBOARD_COMPONENTS.md) |
-| Mobile sliding task surface | Dashboard Page | WDS Drawer | [OVERLAYS.md](OVERLAYS.md), [DASHBOARD_COMPONENTS.md](DASHBOARD_COMPONENTS.md) |
-| Focused blocking popup task | Dashboard Modal | Dashboard Modal API | [OVERLAYS.md](OVERLAYS.md) |
-| New app-owned schema | Data Collection | Schema configuration | [DATA_MODEL_AND_OPERATIONS.md](DATA_MODEL_AND_OPERATIONS.md) |
-| Reference assignment or record update | Dashboard Page | Wix Data operation | [DATA_MODEL_AND_OPERATIONS.md](DATA_MODEL_AND_OPERATIONS.md) |
-
-## Canonical Implementation Rule
-
-The routing references in this directory decide the path; they never replace the upstream implementation guides. Before code is written, read the detailed reference for every selected host extension and primitive. In particular: Auto Patterns → [AUTO_PATTERNS_DASHBOARD.md](AUTO_PATTERNS_DASHBOARD.md); custom page → [DASHBOARD_PAGE.md](DASHBOARD_PAGE.md); dashboard UI component → [DASHBOARD_COMPONENTS.md](DASHBOARD_COMPONENTS.md) plus its exact `packages/wix-design-system` documentation; modal → [DASHBOARD_MODAL.md](DASHBOARD_MODAL.md); app-owned schema → [DATA_COLLECTION.md](DATA_COLLECTION.md); Wix Data operation → [data-collection/WIX_DATA.md](data-collection/WIX_DATA.md).
-
-## 3. Auto Patterns Eligibility Gate
-
-For a single-collection manager, read [AUTO_PATTERNS.md](AUTO_PATTERNS.md) and the detailed [AUTO_PATTERNS_DASHBOARD.md](AUTO_PATTERNS_DASHBOARD.md) before selecting custom React. Add one of these states to each capability in the plan:
-
-| State | Meaning | Route |
+| Need | Host and primitive | Read next |
 | --- | --- | --- |
-| `supported` | Declarative Auto Patterns configuration covers it. | Auto Patterns |
-| `supported-via-override` | A documented action, resolver, slot, or override covers it. | Auto Patterns with that documented override |
-| `unsupported` | No documented configuration or composition path exists. | Custom Dashboard Page or a separate extension |
+| Supported one-collection CRUD | Dashboard Page + Auto Patterns | [AUTO_PATTERNS.md](AUTO_PATTERNS.md) |
+| Existing page with `patterns.json` | Existing Dashboard Page + Auto Patterns override | [CHANGE_ROUTING.md](CHANGE_ROUTING.md) |
+| Join, aggregation, external data, bespoke workflow, KPI, or chart | Custom Dashboard Page | [CUSTOM_DASHBOARD.md](CUSTOM_DASHBOARD.md) and [DASHBOARD_PAGE.md](DASHBOARD_PAGE.md) |
+| Desktop selected-record work | Dashboard Page + WDS SidePanel | [OVERLAYS.md](OVERLAYS.md) and [DASHBOARD_COMPONENTS.md](DASHBOARD_COMPONENTS.md) |
+| Mobile sliding task | Dashboard Page + WDS Drawer | [OVERLAYS.md](OVERLAYS.md) |
+| Focused blocking task | Dashboard Modal extension | [DASHBOARD_MODAL.md](DASHBOARD_MODAL.md) |
+| New app-owned schema or relationship operation | Data Collection plus Dashboard Page as needed | [DATA_MODEL_AND_OPERATIONS.md](DATA_MODEL_AND_OPERATIONS.md) |
 
-Do not classify a Table/Grid layout switcher, named Saved View, per-record derived state, or custom row/bulk action as `unsupported` without checking the detailed Table/Grid, Saved Views, and action/override rules. For `unsupported`, include the exact missing capability and reference checked. The native CMS layout picker, `List` layout, and a configurable initial Table/Grid selection are not documented Auto Patterns capabilities. Do this before `wix generate` or the first custom `.tsx` write.
+## Auto Patterns Gate
 
-## 4. Decide Page Composition
+For a one-collection manager, check Auto Patterns before choosing custom React. Mark every requested capability as:
 
-Decide how capabilities physically coexist before scaffolding:
+- `supported`: declarative configuration covers it.
+- `supported-via-override`: a documented action, resolver, slot, or override covers it.
+- `unsupported`: no documented composition path exists.
 
-1. **Standalone Auto Patterns page:** use when the full page fits Auto Patterns and documented overrides.
-2. **Documented Auto Patterns override:** use only when the requested addition has a documented override or slot integration.
-3. **Custom Dashboard Page:** use when unsupported capabilities must share the same physical page with the table or each other.
-4. **Separate extension:** use Dashboard Modal when the task is a focused blocking popup. Do not create an extra extension merely for SidePanel, Drawer, data operations, or a chart.
+For an unsupported result, record the exact missing capability and reference checked. A Table/Grid switcher, Saved View, derived state, or row action is not automatically unsupported. Read the narrowest relevant Auto Patterns guide before deciding. Do not assume the native CMS layout picker, List layout, custom layout labels, or configurable default Table/Grid layout are supported.
 
-An Auto Patterns table plus a custom chart or SidePanel is not automatically composable. Verify the documented integration path. If it does not exist, host the whole page as a custom Dashboard Page or split the manager workflow into separate pages.
+## Composition Rules
 
-## 5. Build a Capability Plan
+Use a standalone Auto Patterns page only when the whole physical page fits its documented configuration or override. A custom chart, join, SidePanel, or other unsupported capability on the same page requires a documented integration path; otherwise use a custom Dashboard Page or split the workflow.
 
-Use this shape:
+Use SidePanel, Drawer, and Dashboard Modal as distinct primitives. Their placement and behavior are defined in [OVERLAYS.md](OVERLAYS.md).
 
-```json
-{
-  "userOutcome": "Managers can assign a class to each student from a registrations table.",
-  "capabilities": [
-    {
-      "id": "registrations-table",
-      "surface": "table",
-      "hostSurfaceId": "students-management",
-      "hostExtension": "DASHBOARD_PAGE",
-      "implementationPrimitive": "custom-dashboard",
-      "autoPatternsEligibility": "unsupported",
-      "autoPatternsEvidence": "The page joins Students and Classes; Auto Patterns does not document a join composition path.",
-      "dataSource": { "kind": "existing-site-collection", "collection": "Students" },
-      "composition": "custom-dashboard-page",
-      "references": ["CUSTOM_DASHBOARD.md"],
-      "acceptance": "Rows, filters, and loading state render from Students."
-    },
-    {
-      "id": "class-assignment",
-      "surface": "contextual editor",
-      "hostSurfaceId": "students-management",
-      "hostExtension": "DASHBOARD_PAGE",
-      "implementationPrimitive": "wds-side-panel",
-      "wdsComponents": ["SidePanel", "FormField", "Dropdown", "Button"],
-      "documentationTargets": ["packages/wix-design-system: SidePanel", "packages/wix-design-system: FormField", "packages/wix-design-system: Dropdown", "packages/wix-design-system: Button"],
-      "dataSource": { "kind": "existing-site-collection", "collection": "Students" },
-      "composition": "custom-dashboard-page",
-      "references": ["OVERLAYS.md", "DATA_MODEL_AND_OPERATIONS.md"],
-      "acceptance": "A selected student can be assigned a class and the row refreshes."
-    }
-  ]
-}
+## Minimum Capability Plan
+
+Before scaffolding, capture only the decisions that affect implementation:
+
+```text
+capability: managers assign a class from a registrations table
+host: DASHBOARD_PAGE
+primitive: custom dashboard + WDS SidePanel
+source: Students plus Classes, joined through classRef
+reason: no documented Auto Patterns join/SidePanel composition
+proof: filter a known row, assign a class, refresh the row
 ```
 
-## 6. Data Source Rules
+## Data And Runtime Rules
 
-- Existing collection named by the user or verified from site context: resolve and use it. Do not create a new app-owned collection.
-- New app-owned data: create a Data Collection extension and obtain the namespace.
-- Reference fields require both schema creation and a plan to populate or assign values.
-- A saved View can filter a documented field, but it does not calculate one field from another. For a dynamic workset such as "Low stock" (`stockOnHand <= reorderPoint`), maintain a filterable status field such as `inventoryStatus` and define how it is updated before configuring the View.
-- Data source unclear: inspect or ask before creating storage.
-
-## 7. Overlay Precedence
-
-- **SidePanel:** persistent desktop contextual work while the source page remains visible.
-- **Dashboard Modal:** focused, blocking, bounded task such as confirmation or isolated form.
-- **Drawer:** mobile sliding task surface.
-
-Do not use the words interchangeably. A SidePanel may only be added to an Auto Patterns page through a documented override/action integration; otherwise use a custom Dashboard Page.
-
-## 8. Runtime Evidence
-
-For every data-driven or interactive dashboard, read [RUNTIME_VALIDATION.md](RUNTIME_VALIDATION.md). The route is incomplete until the primary data request and primary manager action are verified in the browser.
+- Use existing verified collections. For new app-owned data, create a Data Collection and obtain the namespace.
+- A reference field needs schema, population or assignment, and missing-reference behavior.
+- Saved Views filter documented fields; they do not calculate a derived value. Persist a filterable status when a workset needs one.
+- For interactive or data-driven dashboards, run [RUNTIME_VALIDATION.md](RUNTIME_VALIDATION.md) after implementation. Build success is not browser proof.

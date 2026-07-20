@@ -20,6 +20,32 @@ For every custom data surface, define:
 - null, malformed, and partial-response handling;
 - primary action and post-mutation refresh behavior.
 
+## Data-State Hierarchy
+
+Choose the visible state from the complete data set before rendering table controls. Keep `allRows`, `visibleRows`, and `selectedId` distinct; do not use one filtered array for every decision.
+
+| State | Surface |
+| --- | --- |
+| Loading | Stable page shell and loading indicator only. |
+| Load failure | Error state with retry action. |
+| No source records | EmptyState with the direct creation or setup CTA. Do not show filters, table toolbar, row actions, or a selected-record panel. |
+| Source records but no visible rows | Active filters and no-results state with clear-filters action. Close any selected-record panel. |
+| Visible rows | Relevant filters, table controls, table, and row selection. |
+
+Use a documented deep link to the native data surface when the manager must create records outside the dashboard. Do not replace a CTA with explanatory text. If no documented destination exists, provide the creation flow inside the dashboard.
+
+## Record Detail Hierarchy
+
+For a selected-record panel or detail form, organize information in this order:
+
+1. **Header:** record identity and action-relevant status badges.
+2. **Summary:** the 2-4 facts needed to understand the current task.
+3. **Context:** related person, account, or secondary metadata.
+4. **Working fields:** only fields the manager can actually edit; display read-only facts as text, not disabled-looking inputs.
+5. **Footer:** primary action, then secondary save or cancel actions.
+
+Status badges that determine urgency or available actions belong in the header, not midway through supporting content. A field is editable only when it has a write path, validation, and save behavior.
+
 ## Composition Rules
 
 - Prefer documented WDS components over custom approximations.
@@ -28,6 +54,7 @@ For every custom data surface, define:
 - Keep data fetching separate from rendering and validate response shape before visualizing it.
 - For WDS data tables, read the documented `EmptyState` guidance and render it whenever the table has no rows after loading. Do not render `Table.Content` as the only non-loading branch.
 - For a multi-source row, define the source of truth for each displayed field and the behavior when a related record is missing.
+- A selected-record panel is valid only while its `selectedId` appears in `visibleRows`. Clear selection after filtering, refresh, deletion, or a permission/data change that removes the row.
 
 ## Exit Criteria
 
