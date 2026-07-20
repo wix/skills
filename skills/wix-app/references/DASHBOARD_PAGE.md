@@ -208,11 +208,11 @@ The dashboard app frame is used by the majority of Wix applications settings. Da
 | 1. Global navigation (top bar) | General navigation at the top of a page which allows users to navigate between different environments. Full width container with a fixed height of 48px. |
 | 2. Sidebar navigation | Local navigation of an environment. Container with a fixed width of 228px. |
 | 3. Content area | Page content area with a width that's adaptive to screen size. |
-| 4. Side panel (optional) | An optional panel that shows additional actions or content associated with the content of a page. Fixed width of 420px. Can either overlay the main content area or push it from the right side. |
+| 4. Side panel (optional) | An optional panel that shows additional actions or content associated with the content of a page. Fixed width of 420px. Overlay the main content area by default; use a pushed layout only when the workflow explicitly requires it. |
 
 **Side Panel Guidelines:**
-- Let the side panel overlay main content when it contains supplementary actions or settings, such as data filters
-- Push main content with the side panel when users must see the full context to continue
+- Default to overlaying main content for contextual inspection, editing, assignments, and supplementary actions or settings.
+- Push main content only when the user explicitly requests a persistent side-by-side workspace, or the capability plan explains why the manager must keep the complete page context visible while working.
 
 
 #### Grid Layout
