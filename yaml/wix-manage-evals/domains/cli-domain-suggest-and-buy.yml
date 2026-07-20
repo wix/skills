@@ -1,0 +1,41 @@
+name: domains/cli-domain-suggest-and-buy
+description: >-
+  Verifies the agent reads the cli-domain-suggest-and-buy skill when asked to find and buy a
+  domain from the terminal, and answers with the wix account domain commands — suggest with
+  --json for parsing, buy with the browser checkout handoff, login required, and --msid placed
+  right after account for site scoping.
+triggerPrompt: >-
+  I'm working in a terminal with the Wix CLI installed. How do I get domain name suggestions for
+  my coffee shop and then start buying one of them using CLI commands? I may want the purchase
+  tied to a specific site.
+tags: [domains]
+maxTokens: 25000
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/account-level/domains/skills/cli-domain-suggest-and-buy
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user's request: "I'm working in a terminal with the Wix CLI installed. How do I get
+      domain name suggestions for my coffee shop and then start buying one of them using CLI
+      commands? I may want the purchase tied to a specific site."
+      Intent: surface the Wix CLI `wix account domain` commands — `suggest` for finding domains
+      and `buy` for starting the purchase — with correct flags and flow.
+
+      Pass if the response:
+      - uses `wix account domain suggest <query>` (any invocation form, e.g. npx @wix/cli@latest)
+        for suggestions, mentioning at least one of its options (--limit, --tld, --json), AND
+      - uses `wix account domain buy <domain>` for the purchase and conveys that payment
+        completes in the browser / via a checkout URL (not headlessly in the terminal), AND
+      - for the site-specific case, places `--msid` right after `account`
+        (e.g. `wix account --msid <id> domain buy ...`) or explains the wix.config.json fallback.
+
+      Fail if the response:
+      - answers with REST API endpoints or MCP tools instead of CLI commands, OR
+      - hallucinates CLI commands not in the skill (e.g. `wix account domain check`,
+        `wix domains ls`, `wix account domain connect`), OR
+      - claims the purchase can complete entirely in the terminal without a browser checkout, OR
+      - never mentions that account commands require being logged in when discussing errors,
+        AND also omits the browser handoff (missing both sharp edges).

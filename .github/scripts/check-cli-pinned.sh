@@ -12,7 +12,7 @@
 
 set -euo pipefail
 
-SUBCMDS="token|whoami|login|env|build|release|preview|dev"
+SUBCMDS="token|whoami|login|env|build|release|preview|dev|account"
 
 bare=$(grep -rnE "npx @wix/cli (${SUBCMDS})([[:space:]]|$)" \
   --include='*.md' --include='*.sh' --include='*.mjs' --include='*.js' --include='*.ts' \
