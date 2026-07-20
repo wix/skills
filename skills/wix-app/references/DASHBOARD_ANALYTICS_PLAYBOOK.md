@@ -4,17 +4,30 @@ Use this route for KPIs, summaries, charts, calculated worksets, or pages combin
 
 ## Required Documentation
 
-Read [DASHBOARD_PAGE.md](DASHBOARD_PAGE.md), [VISUALIZATIONS.md](VISUALIZATIONS.md), and the installed WDS Page/Layout/Cell/Card/StatisticsWidget documentation selected for the composition. Read the custom table playbook when a WDS operational table is also present, or the table-and-panel playbook when rows open contextual detail.
+Read [DASHBOARD_PAGE.md](DASHBOARD_PAGE.md), [VISUALIZATIONS.md](VISUALIZATIONS.md), and the installed WDS `Page`, `Layout`, `Cell`, `Card`, and `StatisticsWidget` props and composition examples. Read the custom-table playbook when a WDS operational table is present, or the table-and-panel playbook when rows open contextual detail. Those secondary playbooks own only their region; this playbook still owns the whole-page composition.
+
+## Pre-Build Contract
+
+List the page regions in reading order, name the primary operational surface, and record each region's WDS layout span at wide and narrow dashboard widths. Define every metric's source and every data state before JSX.
 
 ## Build Contract
 
 - **AN-01:** Define each metric's source, formula, date boundary, null behavior, and refresh behavior before choosing a visualization.
-- **AN-02:** Put the primary operational surface first. Metrics summarize or prioritize work; they do not push the main workflow below decorative content.
-- **AN-03:** Use the documented WDS grid and responsive spans. Do not create arbitrary dashboard columns or nest full-page layout components inside overlays.
+- **AN-02:** Keep summary content compact and coherent. Put the primary operational surface before secondary explanation; do not create an isolated card for legends or copy that belongs beside the relevant metric.
+- **AN-03:** Compose page regions with WDS `Layout` and `Cell`, using documented responsive spans. Do not build the page grid from horizontal `Box` rows, ad hoc `flex: 1`, fixed widths, or manual gaps.
 - **AN-04:** Validate response shape before rendering. A missing metric or malformed series must not blank the whole page.
 - **AN-05:** Give loading, empty, partial, error, and populated data deliberate surfaces. Keep the page structure stable while requests resolve.
 - **AN-06:** Use a proven chart library and its exact documentation when a chart is required. Do not claim Auto Patterns chart support without explicit installed documentation.
+- **AN-07:** Keep equal-level metric groups visually equal and fill their intended grid row. Use one compact summary band or a deliberate documented grid; do not leave arbitrary holes between cards.
+- **AN-08:** Keep filters and their results together. A dense operational table is normally full width, including when a floating SidePanel opens above it.
+
+## Invalid Implementations
+
+- Selecting the table-and-panel route as primary for a page that also requests KPIs or several page regions.
+- Multiple `StatisticsWidget` cards arranged by nested horizontal `Box` elements instead of `Layout` and `Cell`.
+- Unequal card widths, unused grid gaps, or a small explanatory card competing with the operational surface.
+- A table or filter region narrowed, clipped, or pushed by the selected-record panel.
 
 ## Acceptance
 
-Verify every metric against known source records and dates, test empty and partial responses, confirm chart labels and legends remain legible, and exercise the primary operational workflow. Console and network must remain clean; one failed visualization must not erase unrelated content.
+Verify every metric against known source records and dates, inspect the composition at wide and narrow dashboard widths, and test empty and partial responses. Confirm equal-level cards align, the operational region stays full width, and any combined table/SidePanel acceptance checklist passes. Console and network must remain clean; one failed visualization must not erase unrelated content. Run `node <SKILL_ROOT>/scripts/audit-dashboard-code.mjs <generated-files>` before completion.

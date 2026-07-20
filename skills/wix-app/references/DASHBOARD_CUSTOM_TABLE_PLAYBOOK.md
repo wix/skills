@@ -20,6 +20,7 @@ Record the source of truth, join/transformation, visible columns, exact filter v
 - **CT-06:** Precompute result-count copy as one string before passing it to a toolbar label. Do not compose adjacent JSX text fragments.
 - **CT-07:** Use no more than three visible filters. Submitted values must match stored values exactly.
 - **CT-08:** Selecting rows replaces normal toolbar actions with selected count and applicable bulk actions; it does not replace column headers.
+- **CT-09:** Every empty, no-results, error, or permission surface includes its relevant verified recovery action: create/setup, clear filters, retry, or request access.
 
 ## Data States
 
@@ -48,4 +49,4 @@ Record the source of truth, join/transformation, visible columns, exact filter v
 
 ## Acceptance
 
-Test the longest row, every status, narrowest supported width, matching and zero-result filters, visible checked selection, every row/bulk mutation, empty-state CTA, retry, console, network, and persisted refresh. Run `node scripts/audit-dashboard-code.mjs <generated-files>` before reporting completion.
+Test the longest row, every status, narrowest supported width, matching and zero-result filters, visible checked selection, every row/bulk mutation, empty-state CTA, retry, console, network, and persisted refresh. Run `node <SKILL_ROOT>/scripts/audit-dashboard-code.mjs <generated-files>` before reporting completion; this audit is blocking and a successful build does not replace it.

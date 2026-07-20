@@ -27,6 +27,10 @@ function lineAt(content, index) {
 
 const findings = [];
 
+function addFinding(filePath, content, index, rule, message) {
+  findings.push({ filePath, line: lineAt(content, Math.max(index, 0)), rule, message });
+}
+
 function report(filePath, content, rule, pattern, message) {
   const match = pattern.exec(content);
   if (!match) return;
@@ -41,15 +45,29 @@ try {
   process.exit(2);
 }
 
+const contents = new Map(files.map((filePath) => [filePath, fs.readFileSync(filePath, 'utf8')]));
+const projectHasSidePanel = [...contents.values()].some((content) => /<SidePanel\b/.test(content));
+
 for (const filePath of files) {
-  const content = fs.readFileSync(filePath, 'utf8');
+  const content = contents.get(filePath);
   const hasSidePanel = /<SidePanel\b/.test(content);
 
   if (hasSidePanel) {
     report(filePath, content, 'TP-09', /(?:100vh|100dvh)/, 'SidePanel code uses browser viewport height inside a Dashboard Page.');
     report(filePath, content, 'TP-09', /<SidePanel\b[^>]*(?:width|height)=\{?['"]?\d+/, 'SidePanel has hard-coded geometry instead of documented defaults/host sizing.');
     report(filePath, content, 'TP-09', /position:\s*['"]relative['"][\s\S]{0,180}overflow:\s*['"]hidden['"][\s\S]{0,500}<SidePanel/, 'SidePanel is mounted under a relative overflow-hidden page wrapper.');
-    report(filePath, content, 'TP-10', /<SidePanel\.Header[^>]*>[\s\S]{0,220}<(?:Box|div)\b/, 'SidePanel Header is rebuilt with custom layout children.');
+
+    for (const match of content.matchAll(/<SidePanel\.Header\b([^>]*)>([\s\S]*?)<\/SidePanel\.Header>/g)) {
+      if (!/\btitle=/.test(match[1]) && /<(?:Box|div|Text)\b/.test(match[2])) {
+        addFinding(
+          filePath,
+          content,
+          match.index,
+          'TP-10',
+          'Standard record Header omits the documented title API and rebuilds identity with custom children.',
+        );
+      }
+    }
 
     if (/<Button\b/.test(content) && !/<SidePanel\.Footer\b/.test(content)) {
       findings.push({
@@ -69,6 +87,81 @@ for (const filePath of files) {
     /<TableToolbar\.Label[^>]*>[\s\S]{0,180}\{[^}]+\}[^{<\n]+\{[^}]+\}[\s\S]{0,60}<\/TableToolbar\.Label>/,
     'Toolbar count is composed from separately spaced JSX fragments; precompute one string.',
   );
+
+  if (/<Table\b/.test(content)) {
+    const percentageWidths = [...content.matchAll(/\bwidth:\s*['"](\d+(?:\.\d+)?)%['"]/g)];
+    const totalWidth = percentageWidths.reduce((sum, match) => sum + Number(match[1]), 0);
+    if (percentageWidths.length > 1 && totalWidth > 100.5) {
+      addFinding(
+        filePath,
+        content,
+        percentageWidths[0].index,
+        'CT-03',
+        `Table percentage column widths total ${totalWidth}%; reserve a non-overlapping final action column within 100%.`,
+      );
+    }
+
+    if (/<EmptyState\b/.test(content) && !/<Button\b/.test(content)) {
+      addFinding(
+        filePath,
+        content,
+        content.indexOf('<EmptyState'),
+        'CT-09',
+        'Table EmptyState has no visible recovery action such as create, clear filters, retry, or request access.',
+      );
+    }
+  }
+
+  const statisticsCount = (content.match(/<StatisticsWidget\b/g) || []).length;
+  const cardCount = (content.match(/<Card\b/g) || []).length;
+  if (statisticsCount > 1 && cardCount > 1 && !/<Layout\b/.test(content)) {
+    addFinding(
+      filePath,
+      content,
+      content.indexOf('<StatisticsWidget'),
+      'AN-03',
+      'Multiple analytics cards are not composed with the documented WDS Layout/Cell grid.',
+    );
+  }
+}
+
+if (projectHasSidePanel) {
+  for (const [filePath, content] of contents) {
+    const mountsPanel = /<(?:SidePanel|[A-Z][A-Za-z0-9]*SidePanel)\b/.test(content);
+    if (!mountsPanel) continue;
+
+    const relativeIndex = content.search(/position:\s*['"]relative['"]/);
+    const overflowIndex = content.search(/overflow:\s*['"]hidden['"]/);
+    const fullHeightIndex = content.search(/height:\s*['"]100%['"]/);
+    if (relativeIndex >= 0 && overflowIndex >= 0 && fullHeightIndex >= 0) {
+      addFinding(
+        filePath,
+        content,
+        Math.min(relativeIndex, overflowIndex, fullHeightIndex),
+        'TP-09',
+        'Panel mount uses a relative, overflow-hidden, 100%-height page wrapper; this ties panel bounds to page content.',
+      );
+    }
+
+    const absoluteIndex = content.search(/position:\s*['"]absolute['"]/);
+    if (absoluteIndex >= 0 && fullHeightIndex >= 0) {
+      addFinding(
+        filePath,
+        content,
+        Math.min(absoluteIndex, fullHeightIndex),
+        'TP-09',
+        'Panel mount uses absolute positioning with height 100%; use the documented stable dashboard host instead.',
+      );
+    }
+
+    report(
+      filePath,
+      content,
+      'TP-09',
+      /(?:100vh|100dvh)/,
+      'Panel mount uses browser viewport height inside an embedded Dashboard Page.',
+    );
+  }
 }
 
 if (findings.length) {

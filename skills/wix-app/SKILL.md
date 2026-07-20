@@ -26,9 +26,9 @@ For every dashboard request, read [DASHBOARD_ROUTING.md](references/DASHBOARD_RO
 | --- | --- |
 | New supported one-collection manager | [DASHBOARD_AUTO_PATTERNS_PLAYBOOK.md](references/DASHBOARD_AUTO_PATTERNS_PLAYBOOK.md) |
 | Change an existing page with `patterns.json` | [DASHBOARD_AUTO_PATTERNS_CHANGE_PLAYBOOK.md](references/DASHBOARD_AUTO_PATTERNS_CHANGE_PLAYBOOK.md) |
-| Custom or multi-source WDS table | [DASHBOARD_CUSTOM_TABLE_PLAYBOOK.md](references/DASHBOARD_CUSTOM_TABLE_PLAYBOOK.md) |
-| Custom table with selected-record detail | [DASHBOARD_CUSTOM_TABLE_PANEL_PLAYBOOK.md](references/DASHBOARD_CUSTOM_TABLE_PANEL_PLAYBOOK.md) |
-| KPIs, charts, or multi-region analytics | [DASHBOARD_ANALYTICS_PLAYBOOK.md](references/DASHBOARD_ANALYTICS_PLAYBOOK.md) |
+| Custom or multi-source WDS table with no analytics regions | [DASHBOARD_CUSTOM_TABLE_PLAYBOOK.md](references/DASHBOARD_CUSTOM_TABLE_PLAYBOOK.md) |
+| Custom table with selected-record detail and no analytics regions | [DASHBOARD_CUSTOM_TABLE_PANEL_PLAYBOOK.md](references/DASHBOARD_CUSTOM_TABLE_PANEL_PLAYBOOK.md) |
+| KPIs, charts, calculated summaries, or multiple page regions, including table + panel pages | [DASHBOARD_ANALYTICS_PLAYBOOK.md](references/DASHBOARD_ANALYTICS_PLAYBOOK.md) |
 | Focused blocking task | [DASHBOARD_MODAL_PLAYBOOK.md](references/DASHBOARD_MODAL_PLAYBOOK.md) |
 
 The selected playbook owns the behavioral contract and acceptance criteria. Detailed extension, SDK, and WDS documentation owns exact APIs. Do not load other dashboard playbooks unless the selected playbook explicitly requires one for a combined surface.
@@ -78,6 +78,6 @@ Use focused discovery only when the selected local guide does not cover the requ
 ## Validation
 
 1. Run `npx tsc --noEmit`, `npx wix build`, and `npx wix preview`.
-2. For generated custom dashboard code, run `node <SKILL_ROOT>/scripts/audit-dashboard-code.mjs <generated-files>`.
+2. For generated custom dashboard code, run `node <SKILL_ROOT>/scripts/audit-dashboard-code.mjs <generated-files>`. This blocking audit must pass; a TypeScript/build validator does not replace it.
 3. Exercise the selected playbook's acceptance checklist in a browser, including console, network, visible states, and persistence.
 4. Report runtime status as `passed`, `failed`, or `blocked`, followed by separate manual steps.

@@ -4,7 +4,7 @@ Use this self-contained route for a custom WDS table where selecting a desktop r
 
 ## Required Documentation
 
-Read [DASHBOARD_PAGE.md](DASHBOARD_PAGE.md). Invoke the Wix Design System skill and read the installed `Table`, `TableToolbar`, `TableActionCell`, selected filters, `EmptyState`, `SidePanel`, SidePanel Skin, Height, Header, Content, Footer, and Quick View examples. Read [DATA_MODEL_AND_OPERATIONS.md](DATA_MODEL_AND_OPERATIONS.md) for collections, joins, references, and writes.
+Read [DASHBOARD_PAGE.md](DASHBOARD_PAGE.md). Invoke the Wix Design System skill and retrieve the installed `Table`, `TableToolbar`, `TableActionCell`, selected filters, and `EmptyState` documentation. Before writing the panel, retrieve the exact installed `SidePanel` **Skin**, **Height**, **Header**, **Content sections**, **Custom footer**, and **Quick view** examples. Keep their JSX available while implementing; parent props do not describe compound Header/Content/Footer APIs. Read [DATA_MODEL_AND_OPERATIONS.md](DATA_MODEL_AND_OPERATIONS.md) for collections, joins, references, and writes.
 
 ## Pre-Build Contract
 
@@ -21,10 +21,10 @@ Record the source of truth, join, visible columns, filter values, selected-recor
 
 ## SidePanel Contract
 
-- **TP-07:** Use WDS `SidePanel` with `skin="floating"` for desktop contextual work. Do not substitute Drawer, Dashboard Modal, or a push column unless the prompt explicitly requires that behavior.
+- **TP-07:** Use WDS `SidePanel` with `skin="floating"` for desktop contextual work. Do not scaffold or substitute Drawer, Dashboard Modal, or a push column unless the prompt explicitly requires that separate behavior.
 - **TP-08:** Mount the panel in the documented dashboard-level host, outside Page content, Card, table, and their overflow containers. Identify a stable host whose height comes from the available dashboard content region, not rendered page/table height.
-- **TP-09:** Never mount an absolute panel under `position: relative; overflow: hidden`, and never use `100vh`, `100dvh`, fixed panel dimensions, or unverified `height: 100%` as a generic host fix.
-- **TP-10:** Use only `SidePanel.Header`, `SidePanel.Content`, and `SidePanel.Footer`. Use the Header's documented title/status API; do not construct it with custom Box/div children.
+- **TP-09:** Never combine a `position: relative; overflow: hidden; height: 100%` page wrapper with an absolute `height: 100%` panel child. Never use `100vh`, `100dvh`, fixed panel dimensions, or unverified `height: 100%` as a generic host fix.
+- **TP-10:** Use only `SidePanel.Header`, `SidePanel.Content`, and `SidePanel.Footer`. For standard record detail, use the exact installed Header example and its `title` API; child content may supplement that title but must not rebuild or replace it with a flush `Box`/`Text` title. Do not infer compound-component props from the parent `SidePanel` prop list.
 - **TP-11:** Let each region own its documented spacing. Do not duplicate Content padding with a padded root child. Only Content scrolls; Header and Footer stay visible.
 - **TP-12:** The panel and its complete floating shadow fit the dashboard content region without creating page-level scrolling or changing bounds when the table height changes.
 
@@ -48,4 +48,4 @@ Treat the panel as an extension of the selected row. Preserve identity, statuses
 
 ## Acceptance
 
-Test the densest row and all table states. Open a known row, compare row and panel facts, complete the single-record action, and verify persistence. Filter the selected row out and confirm the panel closes. Change table height while open: panel bounds and shadow remain stable, only Content scrolls, and Footer remains visible. Run `node scripts/audit-dashboard-code.mjs <generated-files>` before completion.
+Test the densest row and all table states. Open a known row, compare row and panel facts, complete the single-record action, and verify persistence. Filter the selected row out and confirm the panel closes. Change table height while open: panel bounds and shadow remain stable, only Content scrolls, and Footer remains visible. Run `node <SKILL_ROOT>/scripts/audit-dashboard-code.mjs <generated-files>` before completion; this audit is blocking and a successful build does not replace it.
