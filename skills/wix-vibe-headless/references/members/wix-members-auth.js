@@ -303,24 +303,31 @@ function authorizeViaHiddenIframe(authUrl, expectedState) {
       if (!e.data || e.data.state !== expectedState) return; // not our message
       settled = true;
       cleanup();
-      if (e.data.error) reject(new MemberAuthError(e.data.error, e.data.error_description || e.data.error));
-      else resolve({ code: e.data.code, state: e.data.state });
+      if (e.data.error) {
+        const err = new MemberAuthError(e.data.error, e.data.error_description || e.data.error);
+        // When the origin isn't allow-listed, the authorize server now returns a benign
+        // `redirect_uri_not_allowed` error carrying an `approveUrl` (a one-click dashboard deep
+        // link to approve this origin). Surface it so the UI can render an "Approve this domain"
+        // CTA instead of a dead end. (Absent on older server versions — harmless.)
+        if (e.data.approveUrl) err.approveUrl = e.data.approveUrl;
+        reject(err);
+      } else resolve({ code: e.data.code, state: e.data.state });
     };
     window.addEventListener("message", onMessage);
     const timer = setTimeout(() => {
       if (!settled) {
         cleanup();
-        // The overwhelmingly common cause: this app's ORIGIN is not an allowed
-        // authorization redirect URI on the OAuth app, so the browser silently
-        // blocks the iframe's postMessage (check the console for a "target origin
-        // … does not match" error). Register the origin — see INSTRUCTIONS.md.
+        // Fast-fail fallback for older authorize servers that *silently drop* the postMessage
+        // when this app's ORIGIN isn't in the OAuth app's allowed domains (newer servers return
+        // an actionable `redirect_uri_not_allowed` + `approveUrl` immediately — handled above).
+        // The fix: add this origin to the OAuth app's allowed domains — see INSTRUCTIONS.md.
         reject(new MemberAuthError(
           "timeout",
-          `Login timed out. Most likely this app's origin (${typeof window !== "undefined" ? window.location.origin : "?"}) ` +
-            `is not an allowed authorization redirect URI on the Wix OAuth app — register it in the site's Headless Settings.`,
+          `Login timed out. This app's origin (${typeof window !== "undefined" ? window.location.origin : "?"}) ` +
+            `is most likely not in the Wix OAuth app's allowed domains — add it in the site's Headless Settings.`,
         ));
       }
-    }, 120000);
+    }, 30000);
     iframe.src = authUrl;
     document.body.appendChild(iframe);
   });

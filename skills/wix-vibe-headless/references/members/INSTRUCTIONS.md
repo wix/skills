@@ -67,6 +67,12 @@ have). Don't blend their exchange calls — the helper handles each internally.
    > origin), **tell the user** the exact URIs to add and where, and note that **social login stays
    > dead until they do it** (a client-only front has no account token to register it via the API).
    > See "Point the user to their dashboard" below for the deep link and the exact values.
+   >
+   > **Self-serve fallback (newer authorize servers):** when an origin/callback isn't approved, the
+   > Wix authorize flow now returns an actionable error carrying an **`approveUrl`** — a one-click
+   > "Approve this domain/URI" deep link into the OAuth app. The helper attaches it to the thrown
+   > `MemberAuthError` as `err.approveUrl`; **render it as an "Approve" button** so the user fixes it
+   > themselves in one click. (Older servers just fail fast with a `timeout` — still tell the user.)
 
 ## The API (copy as-is; do not re-derive it)
 Copy `wix-client.js` + `wix-members-auth.js` into `src/rest/` and set `WIX_CLIENT_ID`. Exports of
