@@ -4,11 +4,11 @@ description: >-
   statuses: AUTH_EXPIRED is not success and is recovered by restarting Start, and it never falls back
   to another site-builder tool to check status or compensate for a slow/failed import.
 triggerPrompt: >-
-  My Wix site import has been running for a while. When I check on it the status comes back as
-  AUTH_EXPIRED. Does that mean my new site is ready? What should I do now, and can you just build me a
-  site another way if the import is taking too long?
+  I'm using the Wix Site Import service and my import's status comes back as AUTH_EXPIRED. Just
+  explain — does that mean my new site is already live? What should I do to recover, and is it okay to
+  build the site another way with a different Wix tool if the import is taking too long? Please don't
+  run or change anything, just talk me through it.
 tags: [sites]
-maxTokens: 25000
 assertions:
   - tool: ReadFullDocsArticle
     params:
