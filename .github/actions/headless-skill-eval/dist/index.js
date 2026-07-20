@@ -34020,14 +34020,13 @@ function buildComment(resolved, verState, branch, results) {
     const failed = results.filter(r => r.judge !== 'passed');
     const L = [];
     L.push(`### 🧪 Wix Headless skill eval — \`${branch}\``, '');
-    L.push(`${failed.length ? '❌' : '✅'} **${passed.length}/${results.length} passed** · dry-run: ${dry.length} · e2e: ${e2e.length} · entry version: _${verState}_ (branch-pinned)`);
-    if (resolved.e2eDropped.length)
-        L.push(`> ⚠️ e2e trimmed to budget — skipped: ${resolved.e2eDropped.join(', ')}`);
+    L.push(`${failed.length ? '❌' : '✅'} **${passed.length}/${results.length} passed** · dry-run: ${dry.length} · e2e: ${e2e.length}${resolved.e2eFull ? ' (full set — `run-e2e-all`)' : ''} · entry version: _${verState}_ (branch-pinned)`);
     L.push('');
     const table = (title, items) => {
         if (!items.length)
             return;
         L.push(`**${title}**`, '| | Scenario | Judge | Cost |', '|---|---|---|---|');
+        // failures first, then alphabetical
         const sorted = [...items].sort((a, b) => (a.judge === 'passed' ? 1 : 0) - (b.judge === 'passed' ? 1 : 0) || a.name.localeCompare(b.name));
         for (const r of sorted) {
             const ic = r.judge === 'passed' ? '✅' : '❌';
@@ -34092,6 +34091,17 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.EvalForge = void 0;
+/**
+ * evalforge.ts — thin EvalForge REST client + the run orchestration the gate needs:
+ *   1. ensureBranchEntryVersion — a per-branch version of the entry skill whose install
+ *      line targets the PR branch, so the eval tests the PR's skill (not published).
+ *   2. selectScenarios — resolve the resolved tag set to concrete scenario ids.
+ *   3. launch / poll — one eval-run per scenario, pinned to the branch version, then
+ *      wait for judge results.
+ *
+ * Auth is simple header auth (x-app-id / x-app-secret). Base is bo.wix.com (NOT manage).
+ * Every call retries a few times on 5xx because the backend can be transiently degraded.
+ */
 const fs = __importStar(__nccwpck_require__(9896));
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 class EvalForge {
@@ -34099,6 +34109,7 @@ class EvalForge {
     constructor(o) {
         this.o = o;
     }
+    /** One REST call, retrying on 5xx (the backend OOM/timeouts intermittently). */
     async api(method, path, body) {
         for (let i = 0; i < 5; i++) {
             try {
@@ -34125,8 +34136,18 @@ class EvalForge {
         }
         return null;
     }
-    /** Reuse the entry-skill version for this branch, else create one whose install
-     *  line targets github.com/<repo>/tree/<branch>. */
+    /**
+     * Ensure an entry-skill capability version whose install line points at the PR branch,
+     * so `npx skills add …/tree/<branch>` installs the PR's wix-headless skill.
+     *
+     * Cached per branch: we stamp `headless-pr-eval branch=<branch>` into the version notes
+     * and reuse a matching version if one exists. Pinning a BRANCH (not a SHA) means the
+     * install fetches the branch HEAD at run time, so later commits are covered automatically.
+     *
+     * IMPORTANT: inline files must go under `content.files`. The `content.skillContent.files`
+     * shape is silently dropped, after which the version resolves from its GitHub `source`
+     * (the published skill) and the branch install never takes effect. (Verified via POC.)
+     */
     async ensureBranchEntryVersion(entryCap, branch, repo, entryFile) {
         const marker = `headless-pr-eval branch=${branch}`;
         const vers = await this.api('GET', `/capabilities/${entryCap}/versions`);
@@ -34136,46 +34157,45 @@ class EvalForge {
                 return { versionId: v.id, state: 'reused' };
         const md = fs.readFileSync(entryFile, 'utf8');
         const tree = `https://github.com/${repo}/tree/${branch}`;
+        // Rewrite `npx skills@latest add wix/skills` → `… add https://github.com/<repo>/tree/<branch>`.
         let md2 = md.replace(/(npx skills@latest add )wix\/skills\b/, `$1${tree}`);
         if (md2 === md)
             md2 = md.replace(/(npx skills@latest add )https:\/\/github\.com\/\S+/, `$1${tree}`);
         const label = ('prb-' + branch.toLowerCase().replace(/[^a-z0-9]+/g, '-')).slice(0, 60);
         const resp = await this.api('POST', `/capabilities/${entryCap}/versions`, {
             version: label, origin: 'pr', notes: marker,
-            // NB: inline files live under content.files (NOT content.skillContent.files); the
-            // wrong shape is silently dropped and the version resolves from its GitHub source
-            // (the published skill), so the branch install never takes effect. Verified via POC.
-            content: { files: [{ path: 'SKILL.md', content: md2 }] },
+            content: { files: [{ path: 'SKILL.md', content: md2 }] }, // content.files — NOT content.skillContent.files
         });
         if (!resp?.id)
             throw new Error(`failed to create entry version: ${JSON.stringify(resp)}`);
         return { versionId: resp.id, state: 'created' };
     }
-    async selectScenarios(r) {
+    /**
+     * Resolve the tag selection to concrete scenarios.
+     * Dry-run scenarios carry hs-dr-* tags; e2e builds carry hs-<vertical> tags — the two
+     * namespaces don't overlap, so each scenario is unambiguously one kind.
+     */
+    async selectScenarios(dryRunTags, e2eRun) {
         const scn = await this.api('GET', '/test-scenarios');
         const list = Array.isArray(scn) ? scn : [];
-        const dryTags = new Set(r.dryRunTags), e2eTags = new Set(r.e2eRun);
+        const dry = new Set(dryRunTags), e2e = new Set(e2eRun);
         const picked = {};
         for (const s of list) {
             const tags = new Set(s.tags || []);
-            let kind = null;
-            if (r.dryRunAll && tags.has('hs-dry-run'))
-                kind = 'dry';
-            else if (!r.dryRunAll && [...dryTags].some(t => tags.has(t)))
-                kind = 'dry';
-            if (!kind && [...e2eTags].some(t => tags.has(t)) && !tags.has('hs-dry-run'))
-                kind = 'e2e';
-            if (kind)
-                picked[s.id] = { name: s.name, tags: [...tags].sort(), kind };
+            if ([...dry].some(t => tags.has(t)))
+                picked[s.id] = { name: s.name, tags: [...tags].sort(), kind: 'dry' };
+            else if ([...e2e].some(t => tags.has(t)))
+                picked[s.id] = { name: s.name, tags: [...tags].sort(), kind: 'e2e' };
         }
         return picked;
     }
+    /** Create + trigger one eval-run per scenario, each pinned to the branch entry version. */
     async launch(scenarios, agent, cap, ver) {
         const runs = {};
         for (const [sid, meta] of Object.entries(scenarios)) {
             const resp = await this.api('POST', '/eval-runs', {
                 projectId: this.o.project, name: 'PR-eval — ' + meta.name.slice(0, 60), description: 'headless PR eval',
-                agentId: agent, capabilityIds: [cap], capabilityVersions: { [cap]: ver },
+                agentId: agent, capabilityIds: [cap], capabilityVersions: { [cap]: ver }, // pin to the branch version
                 scenarioIds: [sid], runsPerScenario: 1,
             });
             if (resp?.id) {
@@ -34185,6 +34205,11 @@ class EvalForge {
         }
         return runs;
     }
+    /**
+     * Poll every launched run until it has a result (or a terminal job status), up to
+     * timeoutMin. One run per scenario means a stuck run can't block the others; any run
+     * still pending at the deadline is reported as `timeout`.
+     */
     async poll(runs, timeoutMin) {
         const done = [];
         const pending = new Map(Object.entries(runs));
@@ -34262,12 +34287,24 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
+/**
+ * index.ts — action entry point.
+ *
+ * On a wix-headless PR: read the changed files, resolve them to scenario tags via the
+ * map, ensure a branch-pinned entry-skill version, run the selected scenarios against
+ * it, and post an advisory PR comment. Dry-run + mapped e2e always run; the
+ * `run-e2e-all` label widens e2e to the full set.
+ *
+ * Advisory: eval failures are reported (comment + `eval-failed` output), never
+ * `setFailed`. A genuine action error (bad config, throw) does fail the step.
+ */
 const core = __importStar(__nccwpck_require__(7484));
 const github = __importStar(__nccwpck_require__(3228));
 const path = __importStar(__nccwpck_require__(6928));
 const resolve_1 = __nccwpck_require__(1259);
 const evalforge_1 = __nccwpck_require__(7906);
 const comment_1 = __nccwpck_require__(2246);
+const E2E_FULL_LABEL = 'run-e2e-all';
 async function run() {
     const token = core.getInput('github-token', { required: true });
     const octokit = github.getOctokit(token);
@@ -34287,11 +34324,12 @@ async function run() {
     const entryCap = core.getInput('evalforge-entry-cap-id', { required: true });
     const skillsRepo = core.getInput('skills-repo') || `${owner}/${repo}`;
     const pollTimeout = parseInt(core.getInput('poll-timeout-min') || '45', 10);
+    // Changed files come from the PR file list (not a git diff), so we need no deep clone.
     const files = await octokit.paginate(octokit.rest.pulls.listFiles, { owner, repo, pull_number: pr.number, per_page: 100 });
     const changed = files.map((f) => f.filename);
-    const e2eLabel = (pr.labels || []).some((l) => l.name === 'run-e2e');
+    const e2eFullLabel = (pr.labels || []).some((l) => l.name === E2E_FULL_LABEL);
     const mapPath = path.join(__dirname, '..', 'headless-eval-map.yaml');
-    const resolved = (0, resolve_1.resolveEvals)(changed, mapPath, e2eLabel);
+    const resolved = (0, resolve_1.resolveEvals)(changed, mapPath, e2eFullLabel);
     core.info('Resolved: ' + JSON.stringify(resolved));
     const postComment = (body) => octokit.rest.issues.createComment({ owner, repo, issue_number: pr.number, body });
     if (!resolved.dryRunTags.length && !resolved.e2eRun.length) {
@@ -34299,18 +34337,19 @@ async function run() {
         await postComment('_No wix-headless changes mapped to eval scenarios._');
         return;
     }
+    // Pin every run to a branch-built entry skill so the install pulls the PR's code.
     const branch = pr.head.ref;
     const { versionId, state } = await ef.ensureBranchEntryVersion(entryCap, branch, skillsRepo, 'skills/wix-headless/entry/skill.md');
     core.info(`entry version ${state}: ${versionId}`);
-    const scenarios = await ef.selectScenarios(resolved);
+    const scenarios = await ef.selectScenarios(resolved.dryRunTags, resolved.e2eRun);
     core.info(`selected ${Object.keys(scenarios).length} scenarios`);
     const runs = await ef.launch(scenarios, agentId, entryCap, versionId);
     core.info(`launched ${Object.keys(runs).length} runs`);
     const results = await ef.poll(runs, pollTimeout);
     await postComment((0, comment_1.buildComment)(resolved, state, branch, results));
     const failed = results.some(r => r.judge !== 'passed');
-    core.setOutput('eval_failed', String(failed));
-    core.info(`eval_failed=${failed}`);
+    core.setOutput('eval-failed', String(failed));
+    core.info(`eval-failed=${failed}`);
 }
 run().catch(e => core.setFailed(e instanceof Error ? e.message : String(e)));
 
@@ -34357,12 +34396,30 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.resolveEvals = resolveEvals;
+/**
+ * resolve.ts — turn a PR's changed files into the set of EvalForge scenario tags to run.
+ *
+ * The map (headless-eval-map.yaml) is a list of { paths(globs), dryRun[], e2e[] } rules.
+ * We union the tags of every rule whose glob matches a changed wix-headless file:
+ *   • dryRunTags → the cheap decision scenarios (hs-dr-*), always run.
+ *   • e2eRun     → the expensive build scenarios (hs-<vertical>), also always run
+ *                  for the touched verticals; the `run-e2e-all` PR label widens this
+ *                  to the full e2e set (map.e2e.allTags) instead.
+ * There is deliberately NO whole-suite "*" and NO fallback: an unmatched file adds
+ * nothing, and an all-unmatched diff yields empty sets (the caller posts
+ * "no mapped scenarios"). Completeness of the map is the contract.
+ */
 const fs = __importStar(__nccwpck_require__(9896));
 const yaml = __importStar(__nccwpck_require__(4281));
 const SKILL_PREFIX = 'skills/wix-headless/';
+/**
+ * Convert a simple glob to an anchored RegExp.
+ *   `**` matches across path separators; `*` matches within one segment; `?` one char.
+ * (We roll our own rather than pull in a glob dep, to keep the bundled action small.)
+ */
 function globToRe(glob) {
     let out = '';
-    const g = glob.replace(/\*\*/g, ' ');
+    const g = glob.replace(/\*\*/g, ' '); // stash `**` so the `*` pass doesn't split it
     for (const ch of g) {
         if (ch === ' ')
             out += '.*';
@@ -34371,62 +34428,40 @@ function globToRe(glob) {
         else if (ch === '?')
             out += '[^/]';
         else
-            out += ch.replace(/[.+^${}()|[\]\\]/g, '\\$&');
+            out += ch.replace(/[.+^${}()|[\]\\]/g, '\\$&'); // escape regex metachars
     }
     return new RegExp('^' + out + '$');
 }
 const matches = (p, globs) => globs.some(g => globToRe(g).test(p));
-function resolveEvals(changed, mapPath, e2eLabel) {
+/**
+ * @param changed              every changed path in the PR (repo-relative)
+ * @param mapPath              path to headless-eval-map.yaml
+ * @param e2eFullLabelPresent  whether the PR carries the `run-e2e-all` label
+ */
+function resolveEvals(changed, mapPath, e2eFullLabelPresent) {
     const cfg = yaml.load(fs.readFileSync(mapPath, 'utf8'));
     const rules = cfg.rules || [];
-    const fb = cfg.fallback || { dryRun: ['*'], e2e: [] };
+    // Only wix-headless changes matter; ignore the rest of the diff.
     const hs = changed.filter(f => f.startsWith(SKILL_PREFIX));
-    let allDry = false, matched = false;
-    const dry = new Set(), e2e = new Set();
+    const dry = new Set();
+    const e2eMapped = new Set();
     for (const f of hs) {
-        let hit = false;
         for (const r of rules) {
             if (matches(f, r.paths || [])) {
-                hit = true;
-                matched = true;
-                if ((r.dryRun || []).includes('*'))
-                    allDry = true;
-                else
-                    (r.dryRun || []).forEach(t => dry.add(t));
-                (r.e2e || []).forEach(t => e2e.add(t));
+                (r.dryRun || []).forEach(t => dry.add(t));
+                (r.e2e || []).forEach(t => e2eMapped.add(t));
             }
         }
-        if (!hit) {
-            matched = true;
-            if ((fb.dryRun || []).includes('*'))
-                allDry = true;
-            else
-                (fb.dryRun || []).forEach(t => dry.add(t));
-            (fb.e2e || []).forEach(t => e2e.add(t));
-        }
+        // no fallback — an unmatched file contributes no tags
     }
-    const costs = cfg.e2e?.costUsd || {};
-    const budget = cfg.e2e?.budgetUsd || 0;
-    const cands = [...e2e].sort((a, b) => (costs[a] ?? 999) - (costs[b] ?? 999));
-    const run = [], dropped = [];
-    let spent = 0;
-    if (e2eLabel) {
-        for (const t of cands) {
-            const c = costs[t] ?? 999;
-            if (spent + c <= budget) {
-                run.push(t);
-                spent += c;
-            }
-            else
-                dropped.push(t);
-        }
-    }
-    const dryTags = allDry ? [cfg.allDryRunTag || 'hs-dry-run'] : [...dry].sort();
+    // Mapped e2e always runs; `run-e2e-all` swaps in the full set instead.
+    const full = e2eFullLabelPresent && (cfg.e2e?.allTags?.length ?? 0) > 0;
+    const e2e = full ? new Set(cfg.e2e.allTags) : e2eMapped;
     return {
-        changedCount: hs.length, matched, dryRunAll: allDry, dryRunTags: dryTags,
-        e2eLabelPresent: e2eLabel, e2eCandidates: [...cands].sort(),
-        e2eRun: [...run].sort(), e2eDropped: [...dropped].sort(),
-        e2eSpendUsd: Math.round(spent * 100) / 100,
+        changedCount: hs.length,
+        dryRunTags: [...dry].sort(),
+        e2eRun: [...e2e].sort(),
+        e2eFull: full,
     };
 }
 

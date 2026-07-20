@@ -1,3 +1,7 @@
+/**
+ * comment.ts — render the advisory PR comment: a pass/fail headline, dry-run and e2e
+ * tables (failures first), and collapsed failure verdicts. Purely presentational.
+ */
 import { Resolved } from './resolve';
 import { RunResult } from './evalforge';
 
@@ -7,14 +11,15 @@ export function buildComment(resolved: Resolved, verState: string, branch: strin
   const passed = results.filter(r => r.judge === 'passed');
   const failed = results.filter(r => r.judge !== 'passed');
   const L: string[] = [];
+
   L.push(`### 🧪 Wix Headless skill eval — \`${branch}\``, '');
-  L.push(`${failed.length ? '❌' : '✅'} **${passed.length}/${results.length} passed** · dry-run: ${dry.length} · e2e: ${e2e.length} · entry version: _${verState}_ (branch-pinned)`);
-  if (resolved.e2eDropped.length) L.push(`> ⚠️ e2e trimmed to budget — skipped: ${resolved.e2eDropped.join(', ')}`);
+  L.push(`${failed.length ? '❌' : '✅'} **${passed.length}/${results.length} passed** · dry-run: ${dry.length} · e2e: ${e2e.length}${resolved.e2eFull ? ' (full set — `run-e2e-all`)' : ''} · entry version: _${verState}_ (branch-pinned)`);
   L.push('');
 
   const table = (title: string, items: RunResult[]) => {
     if (!items.length) return;
     L.push(`**${title}**`, '| | Scenario | Judge | Cost |', '|---|---|---|---|');
+    // failures first, then alphabetical
     const sorted = [...items].sort((a, b) =>
       (a.judge === 'passed' ? 1 : 0) - (b.judge === 'passed' ? 1 : 0) || a.name.localeCompare(b.name));
     for (const r of sorted) {

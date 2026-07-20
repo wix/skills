@@ -1,78 +1,89 @@
 # headless-eval-map.yaml
-#
+# ─────────────────────────────────────────────────────────────────────────────
 # Maps files changed in a wix/skills PR (under skills/wix-headless/**) to the
-# EvalForge scenario tags that should run for that change.
+# EvalForge scenario TAGS that should run for that change. Consumed by resolve.ts.
 #
-# How it's consumed (resolve_evals.py):
-#   - For every changed path, collect the `dryRun` and `e2e` tags of ALL rules
-#     whose globs match (union — not first-match).
-#   - dryRun "*" means "the whole dry-run suite" (run by the umbrella tag).
-#   - Dry-run scenarios ALWAYS run (cheap, ~$1.5 each). e2e scenarios run only
-#     when the PR carries the `e2e.label`, and are trimmed to `e2e.budgetUsd`.
-#   - A changed wix-headless file that matches no rule falls back to `fallback`.
+# Model (see resolve.ts):
+#   • For every changed path, union the `dryRun` and `e2e` tags of ALL rules whose
+#     globs match it (union, not first-match).
+#   • DRY-RUN scenarios (cheap, ~$1.5) and the mapped E2E builds BOTH always run —
+#     e2e is NOT label-gated. The optional `run-e2e-all` label instead swaps the
+#     mapped e2e set for the FULL e2e set (`e2e.allTags`).
+#   • A changed file that matches no rule contributes nothing (no fallback). If the
+#     whole diff maps to nothing, the gate posts "no mapped scenarios" — keeping this
+#     map complete is the contract.
 #
-# Tags reference the EvalForge project "Tech Writers - Skill Evals"
-# (cd479f00-8e05-473b-9c10-3a2886387dbf): dry-run scenarios carry `hs-dry-run`
-# + a family subtag (hs-dr-*); e2e scenarios carry `headless-skills` + hs-<vertical>.
+# Tag scheme (two coexisting layers on each scenario):
+#   • Granular tags — what the map keys on:
+#       verticals: hs-dr-cms hs-dr-forms hs-dr-events hs-dr-pricing-plans hs-dr-bookings
+#                  hs-dr-blog hs-dr-portfolio hs-dr-store hs-dr-restaurants hs-dr-members
+#       topics:    hs-dr-projecttype hs-dr-operation hs-dr-routing hs-dr-arch
+#                  hs-dr-imagery hs-dr-framework hs-dr-release
+#   • Family/intent tags — kept on scenarios for humans/manual runs, NOT used here:
+#       hs-dr-routing/intra/appinstall/gates/preconditions/projecttype/operation/arch
+#   E2E scenarios (the `HS —` builds) carry hs-<vertical> (no "dr").
 
-version: 1
-
-# Running by this umbrella tag = the full dry-run suite (used for broad-impact files).
-allDryRunTag: hs-dry-run
+version: 2
 
 e2e:
-  label: run-e2e            # PR label that opts a PR into e2e builds
-  budgetUsd: 60             # hard cap per PR; resolver drops most-expensive verticals over budget
-  costUsd:                  # approx per-vertical cost (from run history) for the budget trim
-    hs-store: 6
-    hs-forms: 7
-    hs-portfolio: 12
-    hs-blog: 12
-    hs-pricing-plans: 13
-    hs-restaurants: 13
-    hs-restaurant-experiences: 20
-    hs-events: 20
-    hs-cms: 26
-    hs-bookings: 34
+  # PR label that swaps the mapped e2e set for the full set below. (Mapped e2e still
+  # runs without any label — this only widens it to everything.)
+  fullLabel: run-e2e-all
+  allTags:
+    [hs-store, hs-cms, hs-forms, hs-events, hs-pricing-plans, hs-bookings,
+     hs-blog, hs-portfolio, hs-restaurants, hs-restaurant-experiences]
 
 rules:
-  # ── Core router / dispatch: broad blast radius → whole dry-run suite ──
-  - paths: ["skills/wix-headless/SKILL.md", "skills/wix-headless/entry/**"]
-    dryRun: ["*"]
-    e2e: []                 # entry/router changes: opt into e2e explicitly if needed
+  # ── Router / dispatch: which project type, which operation, which vertical ──
+  - paths: ["skills/wix-headless/SKILL.md"]
+    dryRun: [hs-dr-projecttype, hs-dr-operation, hs-dr-routing]   # NOT the whole suite
+    e2e: []
+  - paths: ["skills/wix-headless/entry/**"]
+    dryRun: [hs-dr-projecttype, hs-dr-operation]                  # bootstrap + install + starting point
+    e2e: []
+  # The vertical index defines routing AND every vertical's required features →
+  # run routing + all per-vertical dry-run scenarios (still not gates/type/op/arch).
   - paths: ["skills/wix-headless/references/CAPABILITIES.md"]
-    dryRun: ["*"]           # the vertical index touches routing + every intra branch
+    dryRun: [hs-dr-routing, hs-dr-cms, hs-dr-forms, hs-dr-events, hs-dr-pricing-plans,
+             hs-dr-bookings, hs-dr-blog, hs-dr-portfolio, hs-dr-store, hs-dr-restaurants, hs-dr-members]
     e2e: []
 
   # ── Agnostic spine ──
   - paths: ["skills/wix-headless/references/DISCOVERY.md"]
-    dryRun: [hs-dr-routing, hs-dr-gates]     # capability inference + the imagery gate
+    dryRun: [hs-dr-routing, hs-dr-imagery]        # capability inference + the imagery gate
     e2e: []
   - paths: ["skills/wix-headless/references/DOC_DISCOVERY.md"]
     dryRun: [hs-dr-routing]
     e2e: []
   - paths: ["skills/wix-headless/references/SETUP.md"]
-    dryRun: [hs-dr-appinstall, hs-dr-preconditions]
+    dryRun: [hs-dr-cms, hs-dr-members, hs-dr-restaurants]   # the app-install decisions
     e2e: []
-  - paths: ["skills/wix-headless/references/SEED.md", "skills/wix-headless/references/SDK_HANDOFF.md"]
-    dryRun: [hs-dr-arch, hs-dr-intra]
+  # SEED is the shared content-creation spine (per-vertical sections, one file) →
+  # exercise all vertical DRY-RUN decisions + the live-read arch principle. No e2e
+  # fan-out here: a vertical's own recipe change is what triggers that vertical's build.
+  - paths: ["skills/wix-headless/references/SEED.md"]
+    dryRun: [hs-dr-arch, hs-dr-cms, hs-dr-forms, hs-dr-events, hs-dr-pricing-plans,
+             hs-dr-bookings, hs-dr-blog, hs-dr-portfolio, hs-dr-store, hs-dr-restaurants, hs-dr-members]
+    e2e: []
+  - paths: ["skills/wix-headless/references/SDK_HANDOFF.md"]
+    dryRun: [hs-dr-arch]
     e2e: []
   - paths: ["skills/wix-headless/references/IMAGE_GENERATION.md", "skills/wix-headless/references/AI_FEATURES.md"]
-    dryRun: [hs-dr-gates]
+    dryRun: [hs-dr-imagery]
     e2e: []
   - paths: ["skills/wix-headless/references/astro.md", "skills/wix-headless/references/non-astro.md"]
-    dryRun: [hs-dr-gates, hs-dr-arch]
+    dryRun: [hs-dr-framework, hs-dr-arch]
     e2e: []
 
   # ── Project type / operation (managed / self-managed / stripe) ──
   - paths: ["skills/wix-headless/references/managed/CREATE.md"]
-    dryRun: [hs-dr-operation, hs-dr-gates]   # create flow + framework/imagery/release
+    dryRun: [hs-dr-operation, hs-dr-framework]    # create flow chooses the framework
     e2e: []
   - paths: ["skills/wix-headless/references/managed/CONNECT.md"]
     dryRun: [hs-dr-operation]
     e2e: []
   - paths: ["skills/wix-headless/references/managed/DEPLOYMENT.md"]
-    dryRun: [hs-dr-gates]                    # release cadence
+    dryRun: [hs-dr-release]
     e2e: []
   - paths: ["skills/wix-headless/references/managed/AUTHENTICATION.md"]
     dryRun: [hs-dr-projecttype, hs-dr-operation]
@@ -81,39 +92,34 @@ rules:
     dryRun: [hs-dr-projecttype]
     e2e: []
 
-  # ── Per-vertical recipes (setup-* + how-to-code-*) → intra/precondition tags + the vertical's e2e ──
+  # ── Per-vertical recipes (setup-* + how-to-code-*) → that vertical's dry-run + e2e ──
   - paths: ["skills/wix-headless/references/inline-recipes/*store*", "skills/wix-headless/references/inline-recipes/setup-online-store.md"]
-    dryRun: [hs-dr-intra, hs-dr-arch]
+    dryRun: [hs-dr-store]
     e2e: [hs-store]
   - paths: ["skills/wix-headless/references/inline-recipes/*cms*"]
-    dryRun: [hs-dr-intra, hs-dr-arch]
+    dryRun: [hs-dr-cms]
     e2e: [hs-cms]
   - paths: ["skills/wix-headless/references/inline-recipes/*forms*"]
-    dryRun: [hs-dr-intra, hs-dr-preconditions]
+    dryRun: [hs-dr-forms]
     e2e: [hs-forms]
   - paths: ["skills/wix-headless/references/inline-recipes/*events*"]
-    dryRun: [hs-dr-intra, hs-dr-preconditions, hs-dr-routing]   # RSVP-vs-forms trap
+    dryRun: [hs-dr-events]
     e2e: [hs-events]
   - paths: ["skills/wix-headless/references/inline-recipes/*pricing-plans*"]
-    dryRun: [hs-dr-intra, hs-dr-preconditions, hs-dr-appinstall]
+    dryRun: [hs-dr-pricing-plans]
     e2e: [hs-pricing-plans]
   - paths: ["skills/wix-headless/references/inline-recipes/*bookings*"]
-    dryRun: [hs-dr-routing, hs-dr-intra]                        # bookings-vs-restaurant trap
+    dryRun: [hs-dr-bookings]
     e2e: [hs-bookings]
   - paths: ["skills/wix-headless/references/inline-recipes/*blog*"]
-    dryRun: [hs-dr-intra, hs-dr-appinstall]                     # comments ⇒ members
+    dryRun: [hs-dr-blog]
     e2e: [hs-blog]
   - paths: ["skills/wix-headless/references/inline-recipes/*portfolio*"]
-    dryRun: [hs-dr-intra]
+    dryRun: [hs-dr-portfolio]
     e2e: [hs-portfolio]
   - paths: ["skills/wix-headless/references/inline-recipes/*restaurant*", "skills/wix-headless/references/inline-recipes/setup-restaurants.md", "skills/wix-headless/references/inline-recipes/how-to-code-restaurants.md"]
-    dryRun: [hs-dr-routing, hs-dr-preconditions, hs-dr-intra]   # table/experience-vs-bookings traps
+    dryRun: [hs-dr-restaurants]
     e2e: [hs-restaurants, hs-restaurant-experiences]
   - paths: ["skills/wix-headless/references/inline-recipes/*members*"]
-    dryRun: [hs-dr-appinstall, hs-dr-intra]                     # identity-vs-profile install, custom login
-    e2e: [hs-pricing-plans]                                     # members exercised end-to-end via plans
-
-# Any changed skills/wix-headless file that matches no rule above.
-fallback:
-  dryRun: ["*"]     # be safe: run the whole dry-run suite
-  e2e: []
+    dryRun: [hs-dr-members]
+    e2e: [hs-pricing-plans]     # members are exercised end-to-end through the plans build

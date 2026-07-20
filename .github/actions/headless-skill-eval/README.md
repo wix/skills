@@ -1,8 +1,10 @@
 # headless-skill-eval
 
 Advisory GitHub Action: on a PR touching `skills/wix-headless/**`, run the EvalForge
-scenarios **mapped to the changed files** (dry-run always; e2e only under a `run-e2e`
-label), against a **branch-pinned** copy of the skill, then post a PR comment.
+scenarios **mapped to the changed files** — the cheap dry-run decisions **and** the e2e
+builds for the touched verticals both run — against a **branch-pinned** copy of the
+skill, then post a PR comment. Adding the **`run-e2e-all`** label widens e2e to the full
+set (all verticals) instead of just the touched ones.
 
 ## Flow
 diff changed files → `headless-eval-map.yaml` resolves them to scenario tags →
@@ -23,9 +25,13 @@ Secrets: `HEADLESS_EVALFORGE_APP_ID`, `HEADLESS_EVALFORGE_APP_SECRET`.
 The EvalForge app needs an AI Gateway budget (Prompt Hub) or runs 404.
 
 ## Editing the map
-Globs → `{ dryRun, e2e }` tags (union across matches). `dryRun: ["*"]` = whole dry-run
-suite (broad-impact files). e2e tags run only with the `run-e2e` label, trimmed
-cheapest-first to `e2e.budgetUsd`. Unmatched files fall back to the whole dry-run suite.
+Globs → `{ dryRun, e2e }` tags (union across all matching rules). No `"*"`/whole-suite and
+no fallback — a file that matches no rule contributes nothing (keep the map complete).
+Scenarios carry **granular** tags the map keys on — verticals (`hs-dr-cms`, `hs-dr-events`,
+…) and topics (`hs-dr-imagery`, `hs-dr-framework`, `hs-dr-release`, `hs-dr-projecttype`,
+`hs-dr-operation`, `hs-dr-routing`, `hs-dr-arch`) — plus the coarser family/intent tags
+(`hs-dr-intra`, `hs-dr-gates`, …) kept for humans and manual runs. Dry-run + mapped e2e
+always run; `run-e2e-all` swaps the mapped e2e for `e2e.allTags`.
 
 ## Rebuild after editing `src/`
 `npm install && npm run build` (commits `dist/index.js`).
