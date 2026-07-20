@@ -1,0 +1,38 @@
+name: sites/site-import-status-handling
+description: >-
+  Verifies the agent applies the site-import golden rules when handling terminal and recoverable
+  statuses: AUTH_EXPIRED is not success and is recovered by restarting Start, and it never falls back
+  to another site-builder tool to check status or compensate for a slow/failed import.
+triggerPrompt: >-
+  My Wix site import has been running for a while. When I check on it the status comes back as
+  AUTH_EXPIRED. Does that mean my new site is ready? What should I do now, and can you just build me a
+  site another way if the import is taking too long?
+tags: [sites]
+maxTokens: 25000
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/account-level/sites/skills/site-import
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user's import returned AUTH_EXPIRED and they asked (a) whether that means the site is ready
+      and (b) whether they can just build a site another way because the import is slow.
+      Intent: apply the site-import golden rules — only DEPLOYED means the site is live, AUTH_EXPIRED
+      is recoverable but not success, and site creation for this task stays inside the site-import API.
+
+      Pass if the response:
+      - clearly states AUTH_EXPIRED does NOT mean the site is ready/live (only DEPLOYED means live), AND
+      - explains recovery: the Wix session expired mid-import and the fix is to restart via Start
+        (POST /v1/imports) with the same request, and that work done so far is preserved, AND
+      - declines to check status or "compensate" with a different Wix site-builder / template /
+        AI-site-generation tool while the import is the task (only offering an alternative build after a
+        real failure and with explicit user consent).
+
+      Fail if the response:
+      - treats AUTH_EXPIRED (or any non-DEPLOYED status) as success or "your site is live", OR
+      - immediately builds/creates a site with a different tool (e.g. create-site-from-template,
+        WixSiteBuilder, CreateSiteFromTemplate, pullSiteCreationJob) to check on or replace the import, OR
+      - exposes raw ids/JSON/HTTP codes as the primary user-facing answer, OR
+      - is generic with no reference to the AUTH_EXPIRED recovery via Start.

@@ -1,0 +1,36 @@
+name: sites/site-import-start
+description: >-
+  Verifies the agent reads the site-import skill and drives the Wix Site Import agent over the
+  /site-import REST API (Start -> Poll -> Reply flow) to migrate a store from another platform,
+  instead of falling back to other Wix site-builder tools.
+triggerPrompt: >-
+  I have a Shopify store at https://example-store.com and I want to migrate the whole thing into a
+  new Wix site. How do I kick that off and follow along while it runs?
+tags: [sites]
+maxTokens: 25000
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/account-level/sites/skills/site-import
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user wants to migrate an existing Shopify store (https://example-store.com) into a new Wix
+      site and asked how to start it and follow progress.
+      Intent: use the Wix Site Import service (base https://www.wixapis.com/site-import) to Start the
+      import, then Poll it for status/progress.
+
+      Pass if the response:
+      - starts the import with POST /v1/imports (base https://www.wixapis.com/site-import), passing a
+        natural-language `request` that includes the source store URL, AND
+      - describes polling GET /v1/imports/{importId} for status/progress and using the returned
+        importId, AND
+      - treats DEPLOYED as the only "site is live" outcome (does not claim success on other statuses).
+
+      Fail if the response:
+      - substitutes another Wix site-creation tool/API (e.g. create-site-from-template, a
+        site-builder/template/AI-site-generation tool) instead of the site-import API, OR
+      - hallucinates endpoints or fields not in the site-import API, OR
+      - exposes raw ids/JSON/HTTP codes as the primary user-facing answer, OR
+      - is generic with no specific site-import endpoints or flow.
