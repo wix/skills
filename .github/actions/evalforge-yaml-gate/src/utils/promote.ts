@@ -1,7 +1,7 @@
 import * as core from '@actions/core';
 import { posix } from 'node:path';
 import { getSimpleConfig } from './config';
-import { EvalForgeClient, DRAFT_PREFIX, draftTagFor, withManagedTags, type RemoteScenario } from './evalforge';
+import { EvalForgeClient, DRAFT_PREFIX, draftTagFor, withManagedTags, type RemoteScenario } from '@wix/evalforge-core';
 import { loadEvals, type LoadedScenario } from './evals';
 import { toScenarioBody } from './sync';
 import { deletePrMcpVersions } from './pr-cleanup';

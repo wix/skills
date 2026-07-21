@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { remoteScenarioFiltersForGate, scenarioIdsToRun, scenariosToRun, stripInactiveForeignDraftTags } from '../src/utils/gate';
 import type { LoadedScenario } from '../src/utils/evals';
-import type { Scenario } from '../src/utils/schema';
+import type { Scenario } from '@wix/evalforge-core';
 
 const scenario = (name: string): LoadedScenario => ({
   path: `yaml/wix-manage-evals/${name}.yml`,

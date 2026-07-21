@@ -1,7 +1,7 @@
 import type { LoadedScenario } from './evals';
-import type { Scenario } from './schema';
-import { toEvalForgeBody } from './evalforge-mapper';
-import { withManagedTags, type RemoteScenario, type ScenarioBody } from './evalforge';
+import type { Scenario } from '@wix/evalforge-core';
+import { toEvalForgeBody } from '@wix/evalforge-core';
+import { withManagedTags, type RemoteScenario, type ScenarioBody } from '@wix/evalforge-core';
 
 export type CreateAction = { kind: 'CREATE'; name: string; body: ScenarioBody; tags: string[] };
 export type UpdateAction = { kind: 'UPDATE'; id: string; name: string; body: ScenarioBody; tags: string[] };
