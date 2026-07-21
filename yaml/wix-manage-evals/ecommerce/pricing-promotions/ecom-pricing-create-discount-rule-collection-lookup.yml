@@ -1,0 +1,31 @@
+name: ecommerce/pricing-promotions/create-discount-rule-collection-lookup
+description: Verifies that collection-scoped discount-rule guidance resolves Wix Stores collection names through Stores/Collections instead of Catalog V3 Categories.
+triggerPrompt: |
+  For my Wix store, prepare the API calls to apply a 15% automatic discount to every product in the "Summer" collection.
+
+  Do not execute any mutating calls. I only need the lookup call and the discount-rule payload shape you would use after the collection ID is resolved.
+tags: [ecommerce]
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-discount-rule
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user wants a non-mutating plan for a 15% automatic discount scoped to the "Summer" Wix Stores collection.
+
+      Pass if ALL of these are true:
+        1. The agent loaded the `pricing-create-discount-rule` recipe.
+        2. The plan resolves the collection ID by querying `POST https://www.wixapis.com/wix-data/v2/items/query` with `dataCollectionId: "Stores/Collections"` and a name-based lookup for "Summer".
+        3. The discount-rule payload uses a collection/CATEGORY scope with `customFilter.appId` (or equivalent catalog app ID field) set to `215238eb-22a5-4c36-9e7b-e7c08025e04e` and `collectionIds` populated from the lookup result.
+        4. The response stays non-mutating: it does not actually create or update a discount rule.
+
+      Fail if ANY of these are true:
+        - The agent uses `POST https://www.wixapis.com/categories/v1/categories/query` for the Stores collection lookup.
+        - The agent treats a human-readable collection name as the collection ID.
+        - The agent makes the discount catalog-wide instead of collection-scoped.
+        - The agent asks the user to manually provide the collection ID without showing the documented lookup path.
