@@ -43,14 +43,15 @@ guard, and (in later phases) reports on and helps fix failures.
 **In scope (now):** the **wix-app** skill, running against the EvalForge **App Builder**
 project only. (Confirm the wix-app → App Builder project mapping.)
 
-**Out of scope now, planned as later phases:** repo-YAML scenario authoring; rules/tools
-and other codegen-configuration change coverage; **Studio2** skills; **headless** skills.
+**Out of scope now, planned as later phases:** rules/tools and other
+codegen-configuration change coverage; **Studio2** skills; **headless** skills.
 The design must not hard-code anything that makes adding these a rewrite.
 
 ## The run model (key facts that shape everything)
 
-1. **Scenarios live in the EvalForge UI**, not in repo YAML. (Repo-YAML authoring is a
-   later phase, so "scenario source" sits behind a clean seam.)
+1. **Scenarios come from the EvalForge UI and from repo YAML.** The UI is the primary
+   source; repo-YAML authoring is delivered **as part of Phase 1** (formerly a later
+   phase). "Scenario source" sits behind a clean seam so either can feed the gate.
 2. **Every run uses a fixed preset configuration** (agent, model, tools).
 3. **The only variable is the skill version.** EvalForge **already supports skill
    versions** — the work is to **auto-create a version when a PR is opened** and point the
@@ -58,7 +59,7 @@ The design must not hard-code anything that makes adding these a rewrite.
    **Preferred direction:** make this a native **EvalForge feature** — any artifact
    *linked to git* (skill / rule / tool / any codegen config) automatically gets a new
    version when a PR is opened. This generalizes across every artifact type and project
-   (feeds Phases 6–8) and keeps the GitHub Action thin — it just references "the version
+   (feeds Phases 5–7) and keeps the GitHub Action thin — it just references "the version
    for this PR." **Bootstrap fallback:** until that feature exists, the flow creates the
    version itself via the EvalForge API; migrate to the platform feature when it lands
    (same seam, thinner action).
@@ -89,10 +90,16 @@ DRY/generic principles above point toward a single shared unit.
 
 ### Phase 0 — Foundations (prerequisites)
 
-- **Tag convention** — a documented mapping from a changed reference file/area to an
-  EvalForge tag (e.g. `references/DASHBOARD_PAGE.md` → tag `dashboard-page`). Because
-  scenarios are tagged **by hand in the UI**, this is a human process; the Phase 1 guard is
-  its safety net.
+- **Tag convention** — a documented mapping from a changed reference file/area to the
+  EvalForge tag(s) whose scenarios must run (e.g. `references/DASHBOARD_PAGE.md` →
+  `dashboard-page`). **This is many-to-many, not 1:1** — and it must include *negative*
+  dependencies: a scenario can depend on a reference file even when it exercises the
+  **opposite** behavior. Example: a flow that must **not** create a dashboard page still
+  has to re-run when `DASHBOARD_PAGE.md` changes, to prove the edit didn't break the
+  "don't create it" path. So a file resolves to a **set** of tags, scenarios carry
+  multiple tags, and selection must pull in these related/negative scenarios — a naive
+  filename→tag map is insufficient. Because tagging is done **by hand in the UI**, this is
+  a human process; the Phase 1 guard is its safety net.
 - **First scenario batch** — author an initial set of wix-app scenarios in the EvalForge
   UI, tagged per the convention.
 - **Preset run configuration** — a fixed run config (agent, model, tools) that references a
@@ -107,6 +114,14 @@ DRY/generic principles above point toward a single shared unit.
 
 **Trigger:** a PR that touches the skill under test (for wix-app: `skills/wix-app/**` —
 `SKILL.md` or `references/**`).
+
+**Precondition — author check:** only run for PRs whose author is a Wix employee
+(`@wix.com` email / internal account); skip external-fork PRs. Reuses the existing
+`author-gate` from `evalforge-yaml-gate`.
+
+**Scenario authoring:** scenarios can be authored in **repo YAML** (synced into EvalForge)
+as well as in the UI — folded in from the former Phase 5. Both sources feed selection by
+tag.
 
 Steps within one gate run (guard runs *before* the run):
 
@@ -162,14 +177,11 @@ Answers "is this change needed, and does it regress anything?"
 
 ### Later phases (post-core)
 
-- **Phase 5 — Scenario authoring via YAML.** Add a repo-YAML scenario source (in addition
-  to the UI), synced into EvalForge — reintroducing an authoring path behind the
-  scenario-source seam.
-- **Phase 6 — Rules / tools / codegen-config coverage.** Track new **rules** created or
+- **Phase 5 — Rules / tools / codegen-config coverage.** Track new **rules** created or
   **tools** that codegen will use, and any other codegen-configuration change, so those are
   evaluated too — not just skill reference `.md` changes.
-- **Phase 7 — Studio2 skills.** Point the generic flow at the **Studio2** project.
-- **Phase 8 — Headless skills.** Point the generic flow at the **headless** project.
+- **Phase 6 — Studio2 skills.** Point the generic flow at the **Studio2** project.
+- **Phase 7 — Headless skills.** Point the generic flow at the **headless** project.
 
 ## Cross-cutting concerns
 
@@ -179,8 +191,9 @@ Answers "is this change needed, and does it regress anything?"
 - **Genericity & DRY.** Enforced by the design principles above; every new skill/project
   should be configuration, not new code.
 - **Tag-convention enforcement.** Human process; the Phase 1 guard is the safety net.
-- **Scenario-source seam.** Keep "where scenarios come from" abstracted so Phase 5's
-  repo-YAML source can be added without a rewrite.
+- **Scenario-source seam.** Keep "where scenarios come from" abstracted so the UI and
+  repo-YAML sources (both delivered in Phase 1) stay interchangeable and new sources can be
+  added without a rewrite.
 
 ## Open decisions
 
@@ -195,12 +208,16 @@ Answers "is this change needed, and does it regress anything?"
    (preferred, generalizes to all artifacts/projects) vs. flow-created via API (bootstrap).
    Decide the target and whether to start on the bootstrap while the platform feature is
    built in parallel.
+6. **Tag model** — how to express the many-to-many mapping, including **negative**
+   dependencies (a scenario that must keep working when a file changes even though it
+   exercises the opposite behavior). Filename→tag is insufficient; likely scenarios carry
+   multiple tags and each changed file resolves to a *set* of tags.
 
 ## Reuse map (from `evalforge-yaml-gate`)
 
 | Concern | wix-manage today | this flow |
 |---|---|---|
-| Scenario source | repo YAML, synced to EvalForge | EvalForge UI, selected by tag (repo-YAML later) |
+| Scenario source | repo YAML, synced to EvalForge | EvalForge UI + repo YAML (Phase 1), selected by tag |
 | Artifact under test | per-PR MCP version | per-PR **skill version** (already supported) |
 | Coverage / selection | doc-URL from `documentation.yaml` | **tag** → scenario query |
 | Run + results | reuse | reuse |
