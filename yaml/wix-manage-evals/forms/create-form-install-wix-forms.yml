@@ -8,7 +8,6 @@ triggerPrompt: >-
   not be installed yet. Which API do you call first, which appDefId do you use,
   and what namespace should the form use?
 tags: [forms]
-maxTokens: 25000
 assertions:
   - tool: ReadFullDocsArticle
     params:
