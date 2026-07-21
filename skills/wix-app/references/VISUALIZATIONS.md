@@ -1,10 +1,10 @@
 # Visualizations
 
-Charts and KPI cards are custom dashboard capabilities unless a documented Auto Patterns component supports the exact requirement.
+Charts and KPI cards are custom dashboard capabilities unless a documented Auto Patterns component supports the exact requirement. WDS provides surrounding dashboard layout and metrics components, not an assumed chart implementation.
 
 ## Canonical Implementation References
 
-Read [CUSTOM_DASHBOARD.md](CUSTOM_DASHBOARD.md) for custom-page responsibilities and [DASHBOARD_LAYOUT.md](DASHBOARD_LAYOUT.md) for chart/table composition. Invoke the Wix Design System skill before implementing the chosen WDS components. This file does not define a chart library or invent an Auto Patterns chart capability.
+Read [CUSTOM_DASHBOARD.md](CUSTOM_DASHBOARD.md) for custom-page responsibilities, [DASHBOARD_LAYOUT.md](DASHBOARD_LAYOUT.md) for chart/table composition, and [DASHBOARD_WDS_COMPONENT_GATE.md](DASHBOARD_WDS_COMPONENT_GATE.md) for WDS layout lookups. Before coding a chart, identify an installed or explicitly approved chart library, then read its exact API and example for the chosen chart type. If no chart library is available, do not invent one; report the dependency gap. This file does not define a chart library or invent an Auto Patterns chart capability.
 
 ## Plan First
 

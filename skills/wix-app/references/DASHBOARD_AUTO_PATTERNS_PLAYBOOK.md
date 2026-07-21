@@ -4,13 +4,22 @@ Use this route for a new management surface backed by one CMS collection when Au
 
 ## Required Documentation
 
-Read [AUTO_PATTERNS_DASHBOARD.md](AUTO_PATTERNS_DASHBOARD.md) for generation, configuration, permissions, supported layouts, actions, and validation. Read only the matching leaf under `auto-patterns-dashboard/` for an override or Saved View. Do not load custom WDS dashboard playbooks for this route.
+Read [AUTO_PATTERNS_DASHBOARD.md](AUTO_PATTERNS_DASHBOARD.md) for generation, configuration, permissions, supported layouts, actions, and validation. Then use the narrowest matching capability reference below. Do not load custom WDS dashboard playbooks unless the required capability has no documented Auto Patterns path.
+
+| Requested capability | Exact Auto Patterns reference |
+| --- | --- |
+| Saved Views or named worksets | [views.md](auto-patterns-dashboard/views.md) |
+| Row actions | [action-cell.md](auto-patterns-dashboard/action-cell.md) |
+| Custom row or bulk actions | [custom-actions-override.md](auto-patterns-dashboard/custom-actions-override.md) and [bulk-actions.md](auto-patterns-dashboard/bulk-actions.md) |
+| Custom displayed field or column | [custom-columns-override.md](auto-patterns-dashboard/custom-columns-override.md) |
+| Custom section, header, or slot | [custom-sections-override.md](auto-patterns-dashboard/custom-sections-override.md), [custom-header-override.md](auto-patterns-dashboard/custom-header-override.md), or [custom-slots-override.md](auto-patterns-dashboard/custom-slots-override.md) |
+| External child component needs collection data or refresh | [app-context.md](auto-patterns-dashboard/app-context.md) |
 
 ## Route Contract
 
 - **AP-01:** Mark each requested capability `supported`, `supported-via-override`, or `unsupported`, with the checked documentation target.
 - **AP-02:** Use Auto Patterns only when the whole physical page has a documented configuration or override path. Do not mix an unsupported chart, join, SidePanel, or custom data surface into the page without a documented slot/override composition.
-- **AP-03:** A Table/Grid switch, row action, derived display, or named workset is not automatically unsupported. Check its focused reference before falling back.
+- **AP-03:** A Table/Grid switch, row action, derived display, or named workset is not automatically unsupported. Check its focused reference before falling back; record that exact file in the capability decision.
 - **AP-04:** Auto Patterns documents Table and Grid. Do not promise the native CMS layout menu, List layout, custom layout labels, or a configurable initial layout unless the installed docs explicitly support them.
 
 ## Build Contract

@@ -4,7 +4,7 @@ Use this route for KPIs, summaries, charts, calculated worksets, or pages combin
 
 ## Required Documentation
 
-Read [DASHBOARD_PAGE.md](DASHBOARD_PAGE.md), [VISUALIZATIONS.md](VISUALIZATIONS.md), and the installed WDS `Page`, `Layout`, `Cell`, `Card`, and `StatisticsWidget` props and composition examples. Read the custom-table playbook when a WDS operational table is present, or the table-and-panel playbook when rows open contextual detail. Those secondary playbooks own only their region; this playbook still owns the whole-page composition.
+Read [DASHBOARD_PAGE.md](DASHBOARD_PAGE.md), [VISUALIZATIONS.md](VISUALIZATIONS.md), and [DASHBOARD_WDS_COMPONENT_GATE.md](DASHBOARD_WDS_COMPONENT_GATE.md). Retrieve the installed WDS `Page`, `Layout`, `Cell`, `Card`, and `StatisticsWidget` props and composition examples. For every chart, read the exact supported chart-library documentation before implementation; a WDS card or metric component does not supply chart behavior. Read the custom-table playbook when a WDS operational table is present, or the table-and-panel playbook when rows open contextual detail. Those secondary playbooks own only their region; this playbook still owns the whole-page composition.
 
 ## Pre-Build Contract
 

@@ -33,6 +33,10 @@ For every dashboard request, read [DASHBOARD_ROUTING.md](references/DASHBOARD_RO
 
 The selected playbook owns the behavioral contract and acceptance criteria. Detailed extension, SDK, and WDS documentation owns exact APIs. Do not load other dashboard playbooks unless the selected playbook explicitly requires one for a combined surface.
 
+## Auto Patterns Fallback Gate
+
+Auto Patterns is a capability check, not a substitute for component guidance. When a required surface is absent from its documented configuration or override path, record the unsupported capability and read [DASHBOARD_WDS_COMPONENT_GATE.md](references/DASHBOARD_WDS_COMPONENT_GATE.md) before writing custom JSX. The gate names the exact WDS documentation required for SidePanel, Modal, charts, and other dashboard surfaces.
+
 ## Extension Directory
 
 | Need | CLI type | Implementation reference |
@@ -71,7 +75,7 @@ For collection schema, references, joins, assignments, and writes, read [DATA_MO
 - App Market: [APP_MARKET_REVIEW.md](references/APP_MARKET_REVIEW.md)
 - Registration recovery: [EXTENSION_REGISTRATION.md](references/EXTENSION_REGISTRATION.md)
 
-Before importing WDS, invoke the Wix Design System skill and read the exact installed component documentation and examples named by the selected playbook. Import `@wix/design-system/styles.global.css` once in the main component entry. Do not approximate a documented WDS component with custom markup or positioning.
+Before importing WDS, invoke the Wix Design System skill and read the exact installed component documentation and examples named by the selected playbook or component gate. Record the component, documentation target, and reason it is required before implementation. Import `@wix/design-system/styles.global.css` once in the main component entry. Do not approximate a documented WDS component with custom markup or positioning.
 
 Use focused discovery only when the selected local guide does not cover the required API. Read the discovered method schema before implementation.
 

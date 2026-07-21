@@ -4,7 +4,7 @@ Treat source selection, schema, relationship values, and manager workflows as se
 
 ## Canonical Implementation References
 
-Read [DATA_COLLECTION.md](DATA_COLLECTION.md) before creating or changing app-owned collection schema. Read [data-collection/WIX_DATA.md](data-collection/WIX_DATA.md) before implementing data reads, writes, reference assignment, or permissions-sensitive operations. This file is a routing and product-workflow checklist, not an SDK reference.
+Read [DATA_COLLECTION.md](DATA_COLLECTION.md) before creating or changing app-owned collection schema. Use its [Relationships](DATA_COLLECTION.md#relationships), [Initial Data Rules](DATA_COLLECTION.md#initial-data-rules), and [Permissions](DATA_COLLECTION.md#permissions) sections when applicable. Read [data-collection/WIX_DATA.md](data-collection/WIX_DATA.md) before implementing data reads, writes, reference assignment, or permissions-sensitive operations; use its [SDK Methods & Interfaces](data-collection/WIX_DATA.md#sdk-methods--interfaces) and [Permissions](data-collection/WIX_DATA.md#permissions) sections. This file is a routing and product-workflow checklist, not an SDK reference.
 
 ## 0. Choose the Data Source
 

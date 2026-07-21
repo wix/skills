@@ -4,7 +4,7 @@ Use this route for a WDS management table that requires multiple sources, joins,
 
 ## Required Documentation
 
-Read [DASHBOARD_PAGE.md](DASHBOARD_PAGE.md) for the host extension. Invoke the Wix Design System skill, then read the installed `Table`, `TableToolbar`, `TableActionCell`, selected filter controls, `EmptyState`, and relevant Pagination examples. Read [DATA_MODEL_AND_OPERATIONS.md](DATA_MODEL_AND_OPERATIONS.md) when creating collections, references, joins, or mutations.
+Read [DASHBOARD_PAGE.md](DASHBOARD_PAGE.md) for the host extension and [WDS_TABLE_GUIDELINES.md](WDS_TABLE_GUIDELINES.md) for dashboard table behavior. Invoke the Wix Design System skill, then read the installed `Table`, `TableToolbar`, `TableActionCell`, selected filter controls, `EmptyState`, and relevant Pagination examples. Read [DATA_MODEL_AND_OPERATIONS.md](DATA_MODEL_AND_OPERATIONS.md) when creating collections, references, joins, or mutations.
 
 ## Pre-Build Contract
 

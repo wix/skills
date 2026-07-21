@@ -4,7 +4,7 @@ Use this route for a focused, blocking, bounded dashboard task such as confirmat
 
 ## Required Documentation
 
-Read [DASHBOARD_MODAL.md](DASHBOARD_MODAL.md), the Dashboard API method used to open it, and the installed modal-layout documentation selected by the guide.
+Read [DASHBOARD_MODAL.md](DASHBOARD_MODAL.md), [DASHBOARD_WDS_COMPONENT_GATE.md](DASHBOARD_WDS_COMPONENT_GATE.md), [dashboard.openModal()](dashboard-page/DASHBOARD_API.md#openmodal), and the installed WDS `Modal` and `CustomModalLayout` documentation and composition example. Do not use a modal template as a substitute for the retrieved component example.
 
 ## Modal Contract
 

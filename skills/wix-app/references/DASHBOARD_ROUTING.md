@@ -28,7 +28,7 @@ If a page combines analytics with a table, use the analytics playbook as primary
 
 ## Routing Gates
 
-- Check Auto Patterns before custom React for a one-collection manager. Record the exact unsupported capability before falling back.
+- Check Auto Patterns before custom React for a one-collection manager. Record the exact unsupported capability before falling back, then read [DASHBOARD_WDS_COMPONENT_GATE.md](DASHBOARD_WDS_COMPONENT_GATE.md) for every unsupported required surface.
 - A new app-owned collection does not imply Auto Patterns or Dashboard Modal; the physical workflow selects the page route.
 - Desktop selected-record context uses WDS SidePanel. Mobile sliding work uses Drawer. A focused blocking task uses Dashboard Modal. Do not scaffold a Dashboard Modal when the selected workflow is a SidePanel.
 - Data creation and reference operations add [DATA_MODEL_AND_OPERATIONS.md](DATA_MODEL_AND_OPERATIONS.md) to the selected playbook; they do not replace it.
