@@ -254,12 +254,17 @@ signed-in user.
 - Never invent a `deployUrl` — only report the one returned with `DEPLOYED`.
 - Treat `NEEDS_INPUT` and `AUTH_EXPIRED` as normal turns of the conversation,
   not errors.
-- A `403` with `"code": "NOT_ENABLED"` means Site Import is being rolled out
-  gradually and is not available on this user's account yet — tell them that
-  plainly and stop; do not retry or work around it. Any other `403` means the
-  caller is not permitted or does not own this import — check that you are
-  using the ids from this user's own Start response. A `400` means a required
-  field is missing (`request`/`message` must be 1–20000 chars).
+- **Site Import is available to some accounts, not all users yet** (limited,
+  gradual rollout). If Start returns a `404` (or any response signalling the
+  API is not available for this account) or a `403` with
+  `"code": "NOT_ENABLED"`, this account is not in the rollout: tell the user
+  plainly that **site import isn't supported on their account yet, and they
+  can contact Wix support** to ask about access — then stop. Do not retry, do
+  not work around it, and do not fall back to another site-creation tool.
+- Any other `403` means the caller is not permitted or does not own this
+  import — check that you are using the ids from this user's own Start
+  response. A `400` means a required field is missing (`request`/`message`
+  must be 1–20000 chars).
 - `tasks[]` is low-level infrastructure progress (task ids, exit codes) — use
   it for debugging only; `recentActivity`/`todos`/`message` are what you show
   the user.
