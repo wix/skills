@@ -105,9 +105,9 @@ DRY/generic principles above point toward a single shared unit.
   filename→tag map is insufficient. Tags live in the scenario **YAML**; keeping them
   correct is a contributor responsibility, and the Phase 1 guard is its safety net.
 - **Master YAML — the single source of truth.** Define the YAML scenario format (like a
-  tests file), author the first wix-app scenarios in YAML tagged per the convention, and
-  migrate any scenarios already created in the UI. From here on the master YAML on `main`
-  is canonical.
+  tests file) and **migrate the existing scenarios out of the EvalForge UI into repo
+  YAML**, tagged per the convention. From here on the master YAML on `main` is canonical;
+  UI edits are no longer authoritative.
 - **Sync-on-merge flow.** On merge to `main`, sync the master YAML into EvalForge —
   **create / update / remove** scenarios so the eval system always matches the repo.
   (Reuses the wix-manage sync/promote pattern, previously out of scope.)
