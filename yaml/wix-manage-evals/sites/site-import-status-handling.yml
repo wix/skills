@@ -27,7 +27,8 @@ assertions:
       Pass if the response:
       - clearly states AUTH_EXPIRED does NOT mean the site is ready/live (only DEPLOYED means live), AND
       - explains recovery: the Wix session expired mid-import and the fix is to restart via Start
-        (POST /v1/imports) with the same request, and that work done so far is preserved, AND
+        (POST /v1/imports) with the same request (noting the in-progress work continues/is preserved is
+        a plus but not required), AND
       - declines to check status or "compensate" with a different Wix site-builder / template /
         AI-site-generation tool while the import is the task (only offering an alternative build after a
         real failure and with explicit user consent).
