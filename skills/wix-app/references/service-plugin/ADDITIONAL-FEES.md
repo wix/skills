@@ -6,7 +6,7 @@ The Additional Fees SPI lets you add custom fees to orders during checkout (hand
 
 ## Request and Response Schema
 
-Before implementing, call `ReadFullDocsMethodSchema` on the docs URL to get the full request/response types.
+Before implementing, obtain the full request/response schema from the docs URL using the available Wix documentation tooling or the official SDK documentation.
 
 | Handler | Docs URL |
 | --- | --- |

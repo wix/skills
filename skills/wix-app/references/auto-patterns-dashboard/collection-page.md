@@ -20,6 +20,7 @@ interface TableLayout {
   table: {
     columns: ColumnConfig[];
     customColumns?: { enabled: boolean };
+    dataExtension?: { enabled: boolean };
     stickyColumns?: number;
     showTitleBar?: boolean;
   };
@@ -47,9 +48,15 @@ interface GridLayout {
 }
 ```
 
+## Terminology and Boundary
+
+Use **layout switcher** for the automatic presentation control created when both `Table` and `Grid` layouts are configured. Use **Saved Views** for the separate named-filter and column-preference system in `views` configuration.
+
+The layout switcher supports only `Table` and `Grid`. It is not the native CMS `Choose layout` picker: `List`, custom layout labels, a dropdown layout-picker presentation, and a configurable initial layout are not documented configuration capabilities.
+
 ## Validation Logic
 - **IF** `components` array length != 1 **THEN** Invalid Config (Must be exactly 1).
-- **IF** `layout` contains both 'Table' and 'Grid' **THEN** View Switcher is automatically enabled.
+- **IF** `layout` contains both 'Table' and 'Grid' **THEN** the built-in Table/Grid layout switcher is automatically enabled.
 - **IF** `columns` count > 5 **THEN** `customColumns.enabled` = `true`.
 - **IF** `columns` count <= 5 **THEN** `customColumns.enabled` = `false` (unless explicitly requested).
 - **IF** `type` is 'Grid' **THEN** `titleFieldId` is **REQUIRED**.

@@ -170,6 +170,17 @@ indexes: [
 
 Leave `indexes: []` when no custom indexing is needed; the `_id` index is created automatically.
 
+**Maximum:** A collection can declare at most **3 custom indexes**. Choose only the indexes that support the most important server-side query paths; a fourth index causes the app configuration to be rejected before preview.
+
+## Filterable Text Value Contracts
+
+Text fields used by dashboard filters need a deliberate value contract. Decide whether their values are:
+
+- controlled by the app, using one canonical value set for create/edit forms, badges, and queries; or
+- entered outside the app, in which case the dashboard must derive filter option IDs from the actual stored values and may format only the display labels.
+
+Wix Data equality filters are exact. Never use a label such as `Paid` as a query value for an uncontrolled text field unless the stored records are verified to use exactly `Paid`.
+
 ## Naming Conventions
 
 - **Field keys:** `lowerCamelCase`, ASCII only (e.g., `productName`, `isActive`, `createdAt`)

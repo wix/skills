@@ -6,7 +6,7 @@ The Payment Settings SPI lets you integrate custom payment settings with the Wix
 
 ## Request and Response Schema
 
-Before implementing, call `ReadFullDocsMethodSchema` on the docs URL to get the full request/response types.
+Before implementing, obtain the full request/response schema from the docs URL using the available Wix documentation tooling or the official SDK documentation.
 
 | Handler | Docs URL |
 | --- | --- |
@@ -94,4 +94,3 @@ paymentSettings.provideHandlers({
 4. **Settings passed to provider** - The returned settings are passed to the payment provider for enforcement
 5. **Fallback configuration** - Use the `fallbackValueForRequires3dSecure` builder field to set a default value if the SPI call fails (defaults to `false`)
 6. **Handle errors gracefully** - Return sensible defaults on error rather than throwing
-

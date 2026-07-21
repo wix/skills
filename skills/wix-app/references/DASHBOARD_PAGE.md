@@ -54,10 +54,11 @@ See [Dashboard API Reference](dashboard-page/DASHBOARD_API.md) for complete docu
 
 **CRITICAL: Using Modals in Dashboard Pages**
 
-When you need to display popup forms, confirmations, detail views, or any dialog overlays from a dashboard page, you **MUST** use dashboard modals, not regular React modals or WDS Modal components.
+When you need a blocking dialog from a dashboard page, use a Dashboard Modal extension, not a regular React modal or WDS `Modal` component.
 
-- **Use dashboard modals** for: edit forms, delete confirmations, detail views, settings dialogs, any popup content
-- **Do NOT use** WDS `Modal` component or custom React modal implementations
+- **Use dashboard modals** for: confirmations, isolated forms, settings dialogs, and other bounded blocking tasks.
+- **Use WDS `SidePanel`** for a desktop table row's contextual detail, inspection, editing, assignment, or supplementary action flow. Read [OVERLAYS.md](OVERLAYS.md) before choosing its host; a detail view is not automatically a Dashboard Modal.
+- **Do NOT use** a WDS `Modal` component or custom React modal implementation inside a Dashboard Page.
 - **See [Dashboard Modal reference](DASHBOARD_MODAL.md)** for complete implementation guide
 
 Dashboard modals are opened using `dashboard.openModal()` and provide proper integration with the dashboard lifecycle, state management, and navigation.
@@ -103,7 +104,7 @@ The CLI scaffolds the builder with `id`, `title`, `routePath`, and `component`. 
 
 **Request:** "Create an admin panel for customer orders"
 
-**Output:** Page with orders table, status badges, filters, detail dashboard modal (using [Dashboard Modal reference](DASHBOARD_MODAL.md)), status update actions.
+**Output:** Page with orders table, status badges, filters, selected-order `SidePanel`, and status update actions. Use a Dashboard Modal only for a bounded blocking task such as confirming a destructive action.
 
 ### Embedded Script Configuration
 
@@ -149,6 +150,8 @@ When an API specification is provided, you can make API calls to those endpoints
 
 
 ## Layout Guidelines
+
+For custom WDS page composition, [DASHBOARD_LAYOUT.md](DASHBOARD_LAYOUT.md) is the canonical routing reference. This section provides background only; do not copy dashboard-frame dimensions or side-panel geometry from it.
 
 Layout determines how users interact with your dashboard content. It establishes the structure, hierarchy, and rhythm of your dashboard page, contributing to the overall coherence and user experience. By making mindful and calculated choices in how you organize your content, users can move around more smoothly, saving time and frustration when completing tasks.
 
@@ -208,11 +211,9 @@ The dashboard app frame is used by the majority of Wix applications settings. Da
 | 1. Global navigation (top bar) | General navigation at the top of a page which allows users to navigate between different environments. Full width container with a fixed height of 48px. |
 | 2. Sidebar navigation | Local navigation of an environment. Container with a fixed width of 228px. |
 | 3. Content area | Page content area with a width that's adaptive to screen size. |
-| 4. Side panel (optional) | An optional panel that shows additional actions or content associated with the content of a page. Fixed width of 420px. Can either overlay the main content area or push it from the right side. |
+| 4. Side panel (optional) | An optional panel that shows additional actions or content associated with a page. Choose and host it through [OVERLAYS.md](OVERLAYS.md); use a floating, non-blocking overlay by default and a pushed layout only when the workflow explicitly requires it. |
 
-**Side Panel Guidelines:**
-- Let the side panel overlay main content when it contains supplementary actions or settings, such as data filters
-- Push main content with the side panel when users must see the full context to continue
+**Side Panel Guidelines:** See [OVERLAYS.md](OVERLAYS.md). It owns the primitive choice, documented host, scroll ownership, and validation requirements.
 
 
 #### Grid Layout

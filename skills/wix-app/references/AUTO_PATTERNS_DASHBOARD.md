@@ -268,8 +268,8 @@ Use the topic index below to find the right reference file for your change:
 | -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
 | AppConfig structure, page types, component types, page.tsx template              | AppConfig, PageConfig, CollectionPageConfig, EntityPageConfig                       | [app-config-structure.md](auto-patterns-dashboard/app-config-structure.md)             |
 | Page setup, relationships, routing, URL configuration, sticky columns            | page relationships, routing, entityPageId, parentPageId, route parameters           | [pages-configuration.md](auto-patterns-dashboard/pages-configuration.md)               |
-| Collection page components, table/grid layouts, column configuration             | table/grid configuration, columns, customColumns, view switching                    | [collection-page.md](auto-patterns-dashboard/collection-page.md)                       |
-| Views configuration, presets, categories, filters integration                    | views, presets, categories, columnPreferences, filters, default view                | [views.md](auto-patterns-dashboard/views.md)                                           |
+| Collection page components, Table/Grid layouts, table configuration               | layouts, layout switcher, columns, customColumns, sticky columns                     | [collection-page.md](auto-patterns-dashboard/collection-page.md)                       |
+| Saved Views configuration, presets, categories, filters integration               | saved views, presets, categories, columnPreferences, filters, default saved view    | [views.md](auto-patterns-dashboard/views.md)                                           |
 | Page-level actions, create actions, custom collection actions, row click actions | primaryActions, secondaryActions, onRowClick, action menus                          | [collection-page-actions.md](auto-patterns-dashboard/collection-page-actions.md)       |
 | Row-level actions, update/delete actions, custom row actions                     | actionCell, edit, delete, inline actions, custom resolver                           | [action-cell.md](auto-patterns-dashboard/action-cell.md)                               |
 | Bulk operations, bulk delete, bulk action toolbar                                | bulk delete, multi-select actions, bulkActionToolbar                                | [bulk-actions.md](auto-patterns-dashboard/bulk-actions.md)                             |
@@ -296,6 +296,8 @@ Edit `patterns.json` based on the user's request. Key constraints:
 - **`biName` is mandatory** for every action (kebab-case: `{action-purpose}-action`)
 - **`customColumns.enabled: true`** when > 5 columns
 - **Grid item only if IMAGE fields exist**
+- **Named worksets require Saved Views**: when the request names recurring subsets or saved filters, read `views.md` and configure Saved Views in addition to the Table/Grid layout switcher
+- **Layout boundary**: Auto Patterns documents only `Table` and `Grid`, with an automatic built-in layout switcher when both exist. It does not document the native CMS `Choose layout` menu, `List`, or a configurable initial layout
 - **Route format**: entity page must be `/[segment]/:entityId`
 - **Exactly 1 `appMainPage: true`** across all pages
 
@@ -313,10 +315,10 @@ If adding custom overrides (actions, columns, components, slots, etc.):
 
 Do NOT use this skill when:
 
-- User needs multi-collection data display → see [DASHBOARD_PAGE.md](DASHBOARD_PAGE.md)
-- User needs embedded script configuration → see [DASHBOARD_PAGE.md](DASHBOARD_PAGE.md)
-- User needs custom business logic or external APIs → see [DASHBOARD_PAGE.md](DASHBOARD_PAGE.md)
-- User needs a modal/popup → see [DASHBOARD_MODAL.md](DASHBOARD_MODAL.md)
+- User needs multi-collection data display → return to [DASHBOARD_ROUTING.md](DASHBOARD_ROUTING.md) and choose the custom-dashboard route
+- User needs embedded script configuration → see [EMBEDDED_SCRIPT.md](EMBEDDED_SCRIPT.md)
+- User needs custom business logic or external APIs → return to [DASHBOARD_ROUTING.md](DASHBOARD_ROUTING.md) and choose the custom-dashboard route
+- User needs a modal/popup → see [OVERLAYS.md](OVERLAYS.md) and name the exact primitive
 - User needs backend endpoints → see [BACKEND_API.md](BACKEND_API.md)
 
 ---

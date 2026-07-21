@@ -12,6 +12,7 @@
     "url": "https://github.com/wix/skills/issues"
   },
   "scripts": {
+    "validate:wix-app-dashboard": "node skills/wix-app/scripts/validate-dashboard-skill.mjs && node skills/wix-app/scripts/test-audit-dashboard-code.mjs",
     "version": "node .github/scripts/sync-plugin-versions.mjs && git add .claude-plugin/plugin.json .codex-plugin/plugin.json .cursor-plugin/plugin.json plugin.json gemini-extension.json"
   },
   "files": [

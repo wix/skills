@@ -13,7 +13,7 @@ The Custom Triggers SPI allows you to define custom conditions that can trigger 
 
 ## Request and Response Schema
 
-Before implementing, call `ReadFullDocsMethodSchema` on each docs URL to get the full request/response types.
+Before implementing, obtain the full request/response schema from each docs URL using the available Wix documentation tooling or the official SDK documentation.
 
 | Handler | Docs URL |
 | --- | --- |
