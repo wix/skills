@@ -14,9 +14,9 @@ Record the source of truth, join/transformation, visible columns, exact filter v
 
 - **CT-01:** Keep source records, table row adapters, visible rows, and selected IDs distinct. Map CMS `_id` to the stable table `id` and resolve IDs back to source records before writes.
 - **CT-02:** Keep labeled column headers visible in normal and bulk-selection states.
-- **CT-03:** Define a width and overflow strategy for every column. A value, badge, date, amount, or action must never paint over another cell.
+- **CT-03:** Define a width and overflow strategy for every column. A value, badge, date, amount, or action must never paint over another cell. When required columns cannot fit at the supported dashboard viewport, preserve their usable widths and enable the documented table horizontal scroll; do not compress, hide, or clip the final action column to force the table to fit.
 - **CT-04:** For variable statuses, show one primary status plus a compact `+N` summary, or deliberately use a taller wrapping row. Never invade the final action column.
-- **CT-05:** Keep `TableActionCell` in a dedicated final column using documented sizing and behavior.
+- **CT-05:** Keep `TableActionCell` in a dedicated final column using documented sizing and behavior. A labeled action always reserves non-zero space; budget preceding columns so its text and focus ring remain visible.
 - **CT-06:** Precompute result-count copy as one string before passing it to a toolbar label. Do not compose adjacent JSX text fragments.
 - **CT-07:** Use no more than three visible filters. Submitted values must match stored values exactly.
 - **CT-08:** Selecting rows replaces normal toolbar actions with selected count and applicable bulk actions; it does not replace column headers.
@@ -45,7 +45,7 @@ Record the source of truth, join/transformation, visible columns, exact filter v
 - Custom table markup that approximates WDS behavior.
 - Hidden column headers, index-based row IDs, or filters using display labels as unverified values.
 - Variable non-wrapping badge arrays in bounded cells.
-- Page-level clipping used to hide table overflow or the final action.
+- Page-level clipping used to hide table overflow or the final action. Do not replace required table horizontal scrolling with squeezed cells, truncated controls, or zero-width action columns.
 - A blank table area used as an empty state.
 
 ## Acceptance

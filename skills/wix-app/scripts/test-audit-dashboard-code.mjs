@@ -24,7 +24,7 @@ try {
     'SessionsTable.tsx',
     `export default function SessionsTable() {
   return <Table onRowClick={() => {}} columns={[
-    { width: '55%' }, { width: '50%' }
+    { width: '55%' }, { width: '50%' }, { width: '0' }
   ]}>
     {!loading && sessions.length === 0 && (
       <EmptyState title="No sessions found"><TextButton>Clear filters</TextButton></EmptyState>
@@ -58,11 +58,11 @@ export default function CapacityPlanner() {
     goodRoot,
     'Dashboard.tsx',
     `function DashboardSidePanelHost({ children }) {
-  return <div style={{ position: 'fixed', top: 0, right: 0, bottom: 0, zIndex: 1000 }}>{children}</div>;
+  return <div style={{ position: 'fixed', top: 0, right: 0, bottom: 0, zIndex: 1000, display: 'flex', alignItems: 'stretch' }}>{children}</div>;
 }
 export default function Dashboard() {
   return <>
-    <Table onRowClick={() => {}} columns={[{ width: '88%' }, { width: '12%' }]}>
+    <Table onRowClick={() => {}} isRowActive={() => false} columns={[{ width: '82%' }, { width: '18%' }]}>
       <TableActionCell primaryAction={{ text: 'View', onClick: () => {} }} />
     </Table>
     <DashboardSidePanelHost>

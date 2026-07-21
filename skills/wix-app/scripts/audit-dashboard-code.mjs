@@ -176,6 +176,26 @@ for (const filePath of files) {
       );
     }
 
+    if (/<TableActionCell\b/.test(content) && /\bwidth:\s*['"]0(?:%|px)?['"]/.test(content)) {
+      addFinding(
+        filePath,
+        content,
+        content.indexOf('<TableActionCell'),
+        'CT-05',
+        'A labeled TableActionCell is assigned a zero-width column; reserve non-zero space for its visible action label.',
+      );
+    }
+
+    if (projectHasSidePanel && /\bonRowClick=/.test(content) && !/\bisRowActive=/.test(content)) {
+      addFinding(
+        filePath,
+        content,
+        content.indexOf('onRowClick='),
+        'TP-01',
+        'A row opens contextual detail but Table has no isRowActive predicate for the selected record.',
+      );
+    }
+
     if (/<EmptyState\b/.test(content) && !/<Button\b/.test(content)) {
       addFinding(
         filePath,
@@ -220,7 +240,7 @@ for (const filePath of files) {
 if (projectHasSidePanel) {
   const projectSource = [...contents.values()].join('\n');
   const hostPattern = new RegExp(
-    `(?:function|const)\\s+${sidePanelHostName}\\b[\\s\\S]{0,1600}position:\\s*['"]fixed['"][\\s\\S]{0,360}top:\\s*0[\\s\\S]{0,360}right:\\s*0[\\s\\S]{0,360}bottom:\\s*0`,
+    `(?:function|const)\\s+${sidePanelHostName}\\b[\\s\\S]{0,1800}position:\\s*['"]fixed['"][\\s\\S]{0,360}top:\\s*0[\\s\\S]{0,360}right:\\s*0[\\s\\S]{0,360}bottom:\\s*0[\\s\\S]{0,360}display:\\s*['"]flex['"][\\s\\S]{0,360}alignItems:\\s*['"]stretch['"][\\s\\S]{0,520}>\\s*\\{children\\}\\s*<\\/div>`,
   );
   const hasApprovedHost = hostPattern.test(projectSource);
 
@@ -315,7 +335,7 @@ if (projectHasSidePanel) {
       contents.get(firstPanelFile),
       contents.get(firstPanelFile).indexOf('<SidePanel'),
       'TP-08',
-      'Project uses a floating SidePanel but does not define the required fixed DashboardSidePanelHost with top, right, and bottom anchors.',
+      'Project uses a floating SidePanel but does not define the required stretching fixed DashboardSidePanelHost with a direct SidePanel child.',
     );
   }
 }

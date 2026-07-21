@@ -20,7 +20,7 @@ List the page regions in reading order, name the primary operational surface, an
 - **AN-06:** Use a proven chart library and its exact documentation when a chart is required. Do not claim Auto Patterns chart support without explicit installed documentation.
 - **AN-07:** Keep equal-level metric groups visually equal and fill their intended grid row. Use one compact summary band or a deliberate documented grid; do not leave arbitrary holes between cards.
 - **AN-08:** Keep filters and their results together. A dense operational table is normally full width, including when a floating SidePanel opens above it.
-- **AN-09:** When an analytics page includes selected-record detail, inherit the table-and-panel SidePanel contract in full: use the standard fixed `DashboardSidePanelHost`, keep the table full width beneath it, and validate that the panel stays anchored when table or page height changes.
+- **AN-09:** When an analytics page includes selected-record detail, inherit the table-and-panel SidePanel contract in full: use the standard stretching fixed `DashboardSidePanelHost`, preserve the selected row with `Table.isRowActive`, keep the table full width beneath it, and validate that the panel stays anchored when table or page height changes.
 - **AN-10:** Separate source-empty from filtered-empty operational data. Source-empty hides table controls and presents an in-context primary setup/create CTA. Filtered-empty preserves active filters and presents clear-filters recovery. Do not render a filtered-empty message or `Clear filters` when the source has no records.
 
 ## Invalid Implementations
