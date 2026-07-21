@@ -29,7 +29,7 @@ reason: <why this surface fits the workflow>
 
 | Required workflow surface | Exact installed documentation to retrieve | Route rule |
 | --- | --- | --- |
-| Desktop row detail, inspection, edit, assignment, or resolution | `component SidePanel`; examples: `Skin`, `Height`, `Header`, `Custom header`, `Content sections`, `Custom footer`, `Quick view` | Use floating SidePanel; never scaffold Dashboard Modal for this case. |
+| Desktop row detail, inspection, edit, assignment, or resolution | `component SidePanel`; examples: `Skin`, `Height`, `Header`, `Custom header`, `Content sections`, `Custom footer`, `Quick view` | Use floating SidePanel inside the standard dashboard overlay host; never scaffold Dashboard Modal for this case. |
 | Focused blocking form, confirmation, or destructive decision | `components Modal CustomModalLayout`; the `CustomModalLayout` composition example; Dashboard Modal API | Use Dashboard Modal only for the bounded blocking task. |
 | Mobile sliding work | `component Drawer`; its relevant composition example | Do not substitute it for desktop SidePanel. |
 | Metrics or summary band | `components StatisticsWidget Layout Cell Card`; relevant layout examples | Use the analytics playbook. |
@@ -39,6 +39,6 @@ reason: <why this surface fits the workflow>
 ## Rules
 
 - A component name in a prompt is not enough: retrieve its exact documentation and composition example first.
-- Do not hand-compose a documented surface from generic `Box`, CSS positioning, or a copied scaffold template.
+- Do not hand-compose a documented surface from generic `Box` or a copied scaffold template. A floating `SidePanel` is the exception only for its mount: use the selected playbook's standard `DashboardSidePanelHost` for fixed viewport anchoring. Do not invent other panel positioning, sizing, shadow, or overflow styles.
 - When multiple surfaces are needed, read only the component documentation mapped to those surfaces. Do not load the whole WDS library.
 - Validate the real browser behavior specific to the surface: containment and scrolling for overlay components; empty, populated, and interaction states for tables; data shape and failure states for charts.

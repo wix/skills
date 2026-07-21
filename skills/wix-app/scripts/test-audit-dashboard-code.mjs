@@ -45,34 +45,34 @@ try {
     'CapacityPlanner.tsx',
     `import SessionDetail from './SessionDetail';
 export default function CapacityPlanner() {
-  return <div style={{ display: 'flex', height: '100%', overflow: 'hidden' }}>
-    <main />
-    <div style={{ width: '420px', flexShrink: 0, overflow: 'auto', boxShadow: '0 3px 24px #0003' }}>
-      <SessionDetail />
-    </div>
-  </div>;
+  return <><Page /><SessionDetail /></>;
 }`,
   );
 
   write(
     goodRoot,
     'Dashboard.tsx',
-    `export default function Dashboard() {
+    `function DashboardSidePanelHost({ children }) {
+  return <div style={{ position: 'fixed', top: 0, right: 0, bottom: 0, zIndex: 1000 }}>{children}</div>;
+}
+export default function Dashboard() {
   return <>
     <Table onRowClick={() => {}} columns={[{ width: '88%' }, { width: '12%' }]}>
       <TableActionCell primaryAction={{ text: 'View', onClick: () => {} }} />
     </Table>
-    <SidePanel skin="floating">
-      <SidePanel.Header title="Session" />
-      <SidePanel.Content><Badge>Overbooked</Badge><Divider /></SidePanel.Content>
-    </SidePanel>
+    <DashboardSidePanelHost>
+      <SidePanel skin="floating">
+        <SidePanel.Header title="Session" />
+        <SidePanel.Content><Badge>Overbooked</Badge><Divider /></SidePanel.Content>
+      </SidePanel>
+    </DashboardSidePanelHost>
   </>;
 }`,
   );
 
   const bad = spawnSync(process.execPath, [auditPath, badRoot], { encoding: 'utf8' });
   const badOutput = `${bad.stdout}\n${bad.stderr}`;
-  const expectedRules = ['CT-10', 'TP-07', 'TP-10', 'TP-11', 'TP-12'];
+  const expectedRules = ['CT-10', 'TP-08', 'TP-10', 'TP-11'];
   const missedRules = expectedRules.filter((rule) => !badOutput.includes(rule));
   if (bad.status === 0 || missedRules.length) {
     console.error('Dashboard audit self-test failed to reject the bad fixture.');

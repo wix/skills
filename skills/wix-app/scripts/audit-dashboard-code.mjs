@@ -68,6 +68,7 @@ const declaredComponents = new Map(
   [...contents].map(([filePath, content]) => [filePath, componentNames(filePath, content)]),
 );
 const sidePanelComponents = new Set(['SidePanel']);
+const sidePanelHostName = 'DashboardSidePanelHost';
 
 // Follow local component wrappers so a page mounting <SessionDetail /> is audited
 // even when the actual <SidePanel> lives in a different file.
@@ -200,9 +201,28 @@ for (const filePath of files) {
 }
 
 if (projectHasSidePanel) {
+  const projectSource = [...contents.values()].join('\n');
+  const hostPattern = new RegExp(
+    `(?:function|const)\\s+${sidePanelHostName}\\b[\\s\\S]{0,1600}position:\\s*['"]fixed['"][\\s\\S]{0,360}top:\\s*0[\\s\\S]{0,360}right:\\s*0[\\s\\S]{0,360}bottom:\\s*0`,
+  );
+  const hasApprovedHost = hostPattern.test(projectSource);
+
   for (const [filePath, content] of contents) {
     const mountsPanel = mountsSidePanel(content);
     if (!mountsPanel) continue;
+
+    const mountsWrapper = [...sidePanelComponents]
+      .filter((name) => name !== 'SidePanel')
+      .some((name) => new RegExp(`<${name}\\b`).test(content));
+    if (mountsWrapper && !new RegExp(`<${sidePanelHostName}\\b`).test(content)) {
+      addFinding(
+        filePath,
+        content,
+        content.search(/<(?:[A-Z][A-Za-z0-9]*Panel)\\b/),
+        'TP-08',
+        'Floating SidePanel wrapper is mounted without DashboardSidePanelHost, so it can enter normal page flow instead of the dashboard overlay layer.',
+      );
+    }
 
     const relativeIndex = content.search(/position:\s*['"]relative['"]/);
     const overflowIndex = content.search(/overflow:\s*['"]hidden['"]/);
@@ -269,6 +289,17 @@ if (projectHasSidePanel) {
         'A SidePanel wrapper owns overflow and fixed/full geometry, which can clip the floating skin and its shadow.',
       );
     }
+  }
+
+  if (!hasApprovedHost) {
+    const firstPanelFile = files.find((filePath) => mountsSidePanel(contents.get(filePath)));
+    addFinding(
+      firstPanelFile,
+      contents.get(firstPanelFile),
+      contents.get(firstPanelFile).indexOf('<SidePanel'),
+      'TP-08',
+      'Project uses a floating SidePanel but does not define the required fixed DashboardSidePanelHost with top, right, and bottom anchors.',
+    );
   }
 }
 

@@ -20,6 +20,7 @@ List the page regions in reading order, name the primary operational surface, an
 - **AN-06:** Use a proven chart library and its exact documentation when a chart is required. Do not claim Auto Patterns chart support without explicit installed documentation.
 - **AN-07:** Keep equal-level metric groups visually equal and fill their intended grid row. Use one compact summary band or a deliberate documented grid; do not leave arbitrary holes between cards.
 - **AN-08:** Keep filters and their results together. A dense operational table is normally full width, including when a floating SidePanel opens above it.
+- **AN-09:** When an analytics page includes selected-record detail, inherit the table-and-panel SidePanel contract in full: use the standard fixed `DashboardSidePanelHost`, keep the table full width beneath it, and validate that the panel stays anchored when table or page height changes.
 
 ## Invalid Implementations
 

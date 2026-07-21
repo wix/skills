@@ -4,7 +4,7 @@ Use this self-contained route for a custom WDS table where selecting a desktop r
 
 ## Required Documentation
 
-Read [DASHBOARD_PAGE.md](DASHBOARD_PAGE.md) and [DASHBOARD_WDS_COMPONENT_GATE.md](DASHBOARD_WDS_COMPONENT_GATE.md). Invoke the Wix Design System skill and retrieve the installed `Table`, `TableToolbar`, `TableActionCell`, selected filters, and `EmptyState` documentation. Before writing the panel, retrieve the exact installed `SidePanel` **Skin**, **Height**, **Header**, **Custom header**, **Dividers**, **Content sections**, **Custom footer**, and **Quick view** examples. Keep their JSX available while implementing; parent props do not describe compound Header/Content/Footer APIs. Treat Quick View's fixed demo frame as behavioral evidence, not production host code. Read [DATA_MODEL_AND_OPERATIONS.md](DATA_MODEL_AND_OPERATIONS.md) for collections, joins, references, and writes.
+Read [DASHBOARD_PAGE.md](DASHBOARD_PAGE.md) and [DASHBOARD_WDS_COMPONENT_GATE.md](DASHBOARD_WDS_COMPONENT_GATE.md). Invoke the Wix Design System skill and retrieve the installed `Table`, `TableToolbar`, `TableActionCell`, selected filters, and `EmptyState` documentation. Before writing the panel, retrieve the exact installed `SidePanel` **Skin**, **Height**, **Header**, **Custom header**, **Dividers**, **Content sections**, **Custom footer**, and **Quick view** examples. Keep their JSX available while implementing; parent props do not describe compound Header/Content/Footer APIs. Use the standard `DashboardSidePanelHost` integration defined below, rather than copying Quick View's demo frame. Read [DATA_MODEL_AND_OPERATIONS.md](DATA_MODEL_AND_OPERATIONS.md) for collections, joins, references, and writes.
 
 ## Pre-Build Contract
 
@@ -22,11 +22,11 @@ Record the source of truth, join, visible columns, filter values, selected-recor
 ## SidePanel Contract
 
 - **TP-07:** Use WDS `SidePanel` with `skin="floating"` as an overlay for desktop contextual work. Do not scaffold or substitute Drawer, Dashboard Modal, a fixed-width flex sibling, or a push column unless the prompt explicitly requires that separate behavior.
-- **TP-08:** Mount the panel in the documented dashboard-level overlay host, outside Page content, Card, table, and their overflow containers. Identify a stable host whose height comes from the available dashboard content region, not rendered page/table height. Do not copy Quick View's fixed `Page` height, animated `right`, hard-coded wrapper width, or demo overflow styles into production.
-- **TP-09:** Never combine a `position: relative; overflow: hidden; height: 100%` page wrapper with an absolute `height: 100%` panel child. Never use `100vh`, `100dvh`, fixed panel dimensions, or unverified `height: 100%` as a generic host fix.
+- **TP-08:** A floating `SidePanel` is not a portal. Mount it through a `DashboardSidePanelHost`, outside `Page`, `Card`, table, and their overflow containers. The host is the only approved custom positioning: `position: fixed`, `top: 0`, `right: 0`, `bottom: 0`, and a dashboard overlay `zIndex`. It has no width, height, padding, shadow, or overflow styles. This anchors the WDS panel to the available dashboard viewport instead of page/table content. A bare `<RecordPanel />` after `<Page>` is invalid because it remains in normal document flow.
+- **TP-09:** Never combine a `position: relative; overflow: hidden; height: 100%` page wrapper with an absolute `height: 100%` panel child. Never use `position: absolute`, `100vh`, `100dvh`, fixed panel dimensions, or unverified `height: 100%` as a generic host fix. The fixed host owns anchoring only; WDS `SidePanel` owns its dimensions, shadow, and internal scrolling.
 - **TP-10:** Default record detail uses `SidePanel.Header` with its documented `title` API only. Put status first in Content. Add custom Header children only when the exact Custom header example is required, preserving its documented horizontal inset; never place a bare badge or title against the panel edge.
 - **TP-11:** Default record detail uses one `SidePanel.Content` with internal groups and the standard thin WDS `Divider` when separation is necessary. Reserve multiple Content regions plus `SidePanel.Divider` for genuinely independent panel regions justified by the Content sections example. Only Content scrolls; Header and Footer stay visible.
-- **TP-12:** Let `skin="floating"` own panel shadow and geometry. The overlay host must allow the shadow to render on every edge; do not add wrapper `boxShadow`, `overflow: auto/hidden`, or fixed width/height around the panel.
+- **TP-12:** Let `skin="floating"` own panel shadow and geometry. The fixed overlay host must allow the shadow to render on every edge; do not add wrapper `boxShadow`, `overflow: auto/hidden`, or fixed width/height around the panel.
 
 ## Detail Hierarchy And Actions
 
@@ -40,7 +40,7 @@ Treat the panel as an extension of the selected row. Preserve identity, statuses
 
 ## Invalid Implementations
 
-- SidePanel mounted inside a page/card/table wrapper, pushed beside the table, or sized from page/table content.
+- SidePanel mounted inside a page/card/table wrapper, rendered as a bare page-flow sibling, pushed beside the table, or sized from page/table content.
 - Custom header/body/footer containers, bare custom-header badges, routine record groups split by thick `SidePanel.Divider` bands, hard-coded panel geometry, clipped shadow, doubled padding, or a missing action footer.
 - Full status arrays competing with the table action column.
 - A stale panel remaining open for a filtered-out record.
