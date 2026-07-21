@@ -14,6 +14,20 @@ CI=1 npx @wix/cli@latest release
 - The deployed origin is registered on the OAuth app automatically — the frontend's visitor SDK calls are accepted from the live URL with no extra step.
 - The published URL is printed on stdout (`Site published on <url>`).
 
+## Give the user both links — the live site **and** the dashboard
+
+When you close the run, surface **two** links, not one:
+
+1. **The live site URL** — the `Site published on <url>` value from release above.
+2. **The site dashboard (Business Manager)** — `https://manage.wix.com/dashboard/<SITE_ID>`, where `<SITE_ID>` is the `siteId` held in scratch (read from `wix.config.json`). This is where the owner manages the site behind the headless frontend — view store orders, edit content, manage members, etc. **Always include it**: a headless site has no editor button, so without this link the owner has no obvious way back into their own backend, and the seeded content/apps look unreachable.
+
+Present them plainly, e.g.:
+
+```
+Live site:  <published-url>
+Dashboard:  https://manage.wix.com/dashboard/<SITE_ID>
+```
+
 ## Member login on a **non-Astro** frontend — register the callback URI (post-release)
 
 **Only when the run has member login on a non-Astro SPA/static frontend using the Wix login page** (`inline-recipes/how-to-code-members-non-astro.md` — the `getAuthUrl` → `/callback` handshake). Astro's built-in `/api/auth/*` callback shapes are auto-registered; a **non-Astro SPA's own callback path is not** — and **login stays dead (4xx on the login redirect) until you register it**. This is a genuine gap `wix release` does *not* close for you.

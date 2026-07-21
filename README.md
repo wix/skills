@@ -91,6 +91,14 @@ When a major bump is required (a breaking change in the underlying `wix-cli`), t
 
 Run the [`release-bump`](.github/workflows/release-bump.yml) workflow from the **Actions** tab and pick a `version_strategy`. The rest is automatic — the bump PR auto-merges once checks pass and [`release.yml`](.github/workflows/release.yml) publishes to npm via Trusted Publishing.
 
+## Serving & caching (`www.wix.com/skills`)
+
+Besides the npm package, skills are served as raw markdown / `.tgz` at `https://www.wix.com/skills/<name>` (also `dev.wix.com/skills`). That registry is **not** in this repo — it's an Express service in [`wix-private/docs`](https://github.com/wix-private/docs) (`docs-web-app`) that serves this repo's `main` branch directly, with no build step.
+
+Responses are cached at the Wix edge (Pepyaka, tag `skills`) plus a ~5-min per-pod tarball cache. A push to `main` touching `skills/**` **auto-invalidates** the edge tag (via `md-resolver`'s GitHub-push consumer), so a merge reflects within a few minutes. To force it immediately, hit the manual flush (`POST /api/v1/invalidate-ssr-cache/skills`, BO staff) or the Fire Console `invalidateCache` call.
+
+Full details — endpoints, `wix-` prefix stripping, host-relative links, invalidation — are in the [docs-web-app skills README](https://github.com/wix-private/docs/blob/main/packages/docs-web-app/express/skills/README.md).
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on adding new skills.

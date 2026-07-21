@@ -141,6 +141,12 @@ curl -X GET \
 | `PRIVILEGED` | Access to collection is controlled per role |
 | `ADMIN` | Site admins only |
 
+## Error Handling
+
+| Error | Cause | Solution |
+|-------|-------|----------|
+| `WDE0110` | Wix CMS (Wix Data) app is not installed on the site | Install it: `POST https://www.wixapis.com/apps-installer-service/v1/app-instance/install` with body `{"tenant":{"tenantType":"SITE","id":"<SITE_ID>"},"appInstance":{"appDefId":"e593b0bd-b783-45b8-97c2-873d42aacaf4"}}`, then retry. See the [Install Wix Apps recipe](../app-installation/install-wix-apps.md). |
+
 ## Related Documentation
 
 - [Data Collections API Reference](https://dev.wix.com/docs/api-reference/business-solutions/cms/collection-management/data-collections/introduction)

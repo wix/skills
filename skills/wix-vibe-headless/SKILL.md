@@ -40,6 +40,12 @@ This skill is the deliberately **client-only, REST-only** path. It is independen
   it only mints anonymous visitor tokens. It is **not a secret**; hardcoding and committing it
   is fine. The user provides it (their vibe/host platform surfaces a copyable prompt with the
   id filled in). Paste it into `wix-client.js` in place of the `<YOUR-CLIENT-ID>` placeholder.
+- **Money/price fields are objects, never scalars.** Every price/amount a Wix API returns —
+  Stores `price.actualPrice`, Bookings service `payment.fixed.price`, Events ticket
+  `registration.tickets.lowestPrice`, and the rest — has the shape `{ value, currency,
+  formattedValue }`. Render **`formattedValue`** (it already includes the currency symbol), or
+  fall back to building from `value` + `currency`. **Never** drop the object straight into the UI
+  or treat it as a number/string — that renders `[object Object]` or a bare unformatted number.
 - **Visitor token = identity.** `wix-client.js` mints an anonymous visitor token, persists the
   **refresh token to `localStorage`**, and refreshes on expiry. That token IS the identity of
   the cart / reservation / member session — **never re-mint anonymously per load** or the cart

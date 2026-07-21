@@ -31,12 +31,12 @@ describe('EvalForgeClient', () => {
   });
 });
 
-describe('createEvalRun', () => {
+describe('createAndRunEvalRun', () => {
   beforeEach(() => vi.restoreAllMocks());
 
   it('returns created eval run', async () => {
     mockFetch(201, { id: 'run-1', status: 'pending', scenarioIds: ['s1', 's2'] });
-    const run = await CLIENT.createEvalRun('proj-1', {
+    const run = await CLIENT.createAndRunEvalRun('proj-1', {
       name: 'PR #42 skill eval',
       description: 'Skill eval for PR #42',
       projectId: 'proj-1',
@@ -49,7 +49,7 @@ describe('createEvalRun', () => {
 
   it('throws with status 400 when no scenarios match tags', async () => {
     mockFetch(400, { error: 'No scenarios found' });
-    const err = await CLIENT.createEvalRun('proj-1', {
+    const err = await CLIENT.createAndRunEvalRun('proj-1', {
       name: 'PR #42 skill eval',
       description: 'Skill eval for PR #42',
       projectId: 'proj-1',

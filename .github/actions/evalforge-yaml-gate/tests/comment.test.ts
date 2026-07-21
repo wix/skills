@@ -117,6 +117,14 @@ describe('comment formatters', () => {
     expect(out).toContain('[View run (prod)](https://bo.wix.com/pages/evalforge/proj-1/results?runId=prod-run');
   });
 
+  it('formatComparisonResult handles a scenario with no pairwiseJudgement', () => {
+    // The pipeline omits pairwiseJudgement when pairwise judging is off or the judge fails.
+    const out = c.formatComparisonResult(group([scenario({ pairwiseJudgement: undefined })]), 'proj-1');
+    // renders a placeholder winner instead of throwing on the missing field
+    expect(out).toContain('| scenario-a | ✅ | — |');
+    expect(out).not.toContain('Compare result:');
+  });
+
   it('formatTooManyNewSkills includes count and file names', () => {
     const out = c.formatTooManyNewSkills(2, 1, [
       'skills/wix-manage/references/payments/process.md',
@@ -164,5 +172,56 @@ describe('comment formatters', () => {
     expect(out).toContain('18,000');
     expect(out).toContain('run-pr');
     expect(out).toContain(c.COMMENT_MARKER);
+  });
+
+  it('formatComparisonResult reports no winner when both runs fail the LLM judge', () => {
+    const out = c.formatComparisonResult({
+      status: 'complete',
+      completedRuns: 2,
+      totalRuns: 2,
+      result: {
+        comparisonGroupId: 'cmp-1',
+        verdict: 'not-required',
+        tag: 'draft:wix/skills#473',
+        scenarios: [{
+          scenarioId: 'scenario-1',
+          scenarioName: 'bookings/diagnose-availability-issues',
+          required: false,
+          reason: 'pairwise judge: with-skill wins',
+          with: {
+            passed: 1,
+            failed: 1,
+            totalCostUsd: 0.312,
+            totalTokens: 121_503,
+            durationMs: 55_900,
+            assertions: [
+              { name: 'Tool called with param', type: 'tool', status: 'passed' },
+              { name: 'LLM judge', type: 'llm_judge', status: 'failed', score: 4, message: 'incomplete' },
+            ],
+          },
+          without: {
+            passed: 1,
+            failed: 1,
+            totalCostUsd: 0.411,
+            totalTokens: 159_736,
+            durationMs: 62_800,
+            assertions: [
+              { name: 'Tool called with param', type: 'tool', status: 'passed' },
+              { name: 'LLM judge', type: 'llm_judge', status: 'failed', score: 0, message: 'wrong level of detail' },
+            ],
+          },
+          pairwiseJudgement: {
+            winner: 'with',
+            confidence: 'high',
+            reasoning: 'Response A better serves the task.',
+          },
+        }],
+      },
+    });
+
+    expect(out).toContain('## ⚠️ EvalForge YAML Gate: Eval Comparison');
+    expect(out).toContain('| bookings/diagnose-availability-issues | — | - |');
+    expect(out).toContain('**No winner:** both runs failed the LLM judge.');
+    expect(out).not.toContain('⬆️ with (high)');
   });
 });

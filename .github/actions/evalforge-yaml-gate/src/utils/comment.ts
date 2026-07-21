@@ -104,9 +104,36 @@ function assertionLine(a: { status: string; name: string; score?: number; verdic
   return `- ${icon} ${a.name}${score}${detail}`;
 }
 
+function bothRunsFailedLlmJudge(s: ScenarioComparison): boolean {
+  return s.with.assertions.some(a => a.type === 'llm_judge' && a.status !== 'passed')
+    && s.without.assertions.some(a => a.type === 'llm_judge' && a.status !== 'passed');
+}
+
+export function noWinnerReason(s: ScenarioComparison): string | undefined {
+  return bothRunsFailedLlmJudge(s) ? 'both runs failed the LLM judge' : undefined;
+}
+
+export function comparisonHasNoWinner(result: CompareGroupComplete['result']): boolean {
+  return (result.scenarios ?? []).some(s => noWinnerReason(s));
+}
+
+function winnerLabel(s: ScenarioComparison): string {
+  if (noWinnerReason(s)) {
+    return '-';
+  }
+
+  if (!s.pairwiseJudgement) {
+    return '—';
+  }
+
+  const winnerIcon = s.pairwiseJudgement.winner === 'tie' ? '≈' : s.pairwiseJudgement.winner === 'with' ? '⬆️' : '⬇️';
+  return `${winnerIcon} ${s.pairwiseJudgement.winner} (${s.pairwiseJudgement.confidence})`;
+}
+
 export function formatComparisonResult(result: CompareGroupComplete, projectId?: string): string {
   const { verdict, tag, scenarios } = result.result;
-  const verdictIcon = verdict === 'not-required' ? '✅' : '⚠️';
+  const hasNoWinner = comparisonHasNoWinner(result.result);
+  const verdictIcon = verdict === 'not-required' && !hasNoWinner ? '✅' : '⚠️';
   const lines: string[] = [
     COMMENT_MARKER,
     `## ${verdictIcon} ${HEADING}: Eval Comparison`,
@@ -118,8 +145,6 @@ export function formatComparisonResult(result: CompareGroupComplete, projectId?:
   ];
 
   for (const s of (scenarios ?? [])) {
-    const winner = s.pairwiseJudgement.winner;
-    const winnerLabel = winner === 'tie' ? '≈ tie' : winner === 'with' ? '⬆️ PR' : '⬇️ prod';
     const costWith = s.with.totalCostUsd.toFixed(3);
     const costWithout = s.without.totalCostUsd.toFixed(3);
     const tokWith = `${(s.with.totalTokens / 1000).toFixed(1)}K`;
@@ -128,19 +153,23 @@ export function formatComparisonResult(result: CompareGroupComplete, projectId?:
     const timeWithout = `${(s.without.durationMs / 1000).toFixed(1)}s`;
     const runWith = projectId && s.with.runId ? `[PR](${evalRunUrl(projectId, s.with.runId, s.with.name)})` : '—';
     const runWithout = projectId && s.without.runId ? `[prod](${evalRunUrl(projectId, s.without.runId, s.without.name)})` : '—';
-    lines.push(`| ${s.scenarioName} | ${s.required ? '✅' : '—'} | ${winnerLabel} (${s.pairwiseJudgement.confidence}) | $${costWith} / $${costWithout} | ${tokWith} / ${tokWithout} | ${timeWith} / ${timeWithout} | ${runWith} / ${runWithout} |`);
+    lines.push(`| ${s.scenarioName} | ${s.required ? '✅' : '—'} | ${winnerLabel(s)} | $${costWith} / $${costWithout} | ${tokWith} / ${tokWithout} | ${timeWith} / ${timeWithout} | ${runWith} / ${runWithout} |`);
   }
 
   for (const s of (scenarios ?? [])) {
+    const reason = noWinnerReason(s);
     lines.push('', `<details><summary>${s.scenarioName}</summary>`, '', s.reason, '');
     if (projectId && s.with.runId) lines.push(`[View run (PR)](${evalRunUrl(projectId, s.with.runId, s.with.name)})`, '');
     if (projectId && s.without.runId) lines.push(`[View run (prod)](${evalRunUrl(projectId, s.without.runId, s.without.name)})`, '');
+    if (reason) {
+      lines.push(`**No winner:** ${reason}.`, '');
+    }
     lines.push('**Assertions (PR):**', ...s.with.assertions.map(assertionLine), '');
     lines.push('**Assertions (prod):**', ...s.without.assertions.map(assertionLine), '');
-    if (s.pairwiseJudgement.reasoning) {
+    if (s.pairwiseJudgement?.reasoning) {
       lines.push(`**Compare result:** ${s.pairwiseJudgement.reasoning}`, '');
     }
-    if (s.pairwiseJudgement.dimensions) {
+    if (s.pairwiseJudgement?.dimensions) {
       lines.push('**Dimensions:**', ...Object.entries(s.pairwiseJudgement.dimensions).map(([k, v]) => `- ${k}: **${v.winner}**`), '');
     }
     lines.push('</details>');

@@ -1,0 +1,39 @@
+name: sites/site-import-start
+description: >-
+  Verifies the agent reads the site-import skill and explains the Wix Site Import service flow
+  (Start -> Poll) over the /site-import REST API to migrate a store from another platform, instead
+  of falling back to other Wix site-builder or template tools.
+triggerPrompt: >-
+  I want to use Wix Site Import to migrate my Shopify store at https://example-store.com into a new
+  Wix site. Explain how the Wix Site Import service works end to end: which method starts the import,
+  how I track its progress, and how I know when the new site is actually live. Please reference the
+  specific Site Import methods and endpoints.
+tags: [sites]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/account-level/sites/skills/site-import
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user wants to migrate a Shopify store (https://example-store.com) into a new Wix site using
+      the Wix Site Import service, and asked how the service works end to end — how to start it, how to
+      track progress, and how to know when the site is live.
+      Intent: describe the Wix Site Import flow — Start the import, then Poll it — using the
+      /site-import REST API (base https://www.wixapis.com/site-import).
+
+      Pass if the response:
+      - says the import is started with the Start method (POST /v1/imports) whose natural-language
+        request includes the source store URL, AND
+      - says progress is tracked by polling the import (GET /v1/imports/{importId}), AND
+      - states that only the DEPLOYED status means the site is actually live.
+      A response that additionally asks the user to confirm before starting still PASSES, as long as it
+      describes the Start -> Poll flow above.
+
+      Fail if the response:
+      - claims the Wix Site Import service/API does not exist, OR
+      - substitutes a different Wix site-creation path (create-site-from-template, a
+        site-builder / template / AI-site-generation tool) instead of the Site Import service, OR
+      - omits the Start method or the polling step, OR
+      - is generic with no specific Site Import methods or endpoints.

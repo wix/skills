@@ -152,6 +152,27 @@ describe('EvalForgeClient (V1) — auth + test-scenarios', () => {
     await c.deleteTestScenario('P', 'X');
   });
 
+  it('createEvalRun supports tag-filtered scheduled runs', async () => {
+    mockFetch(({ url, method, body }) => {
+      expect(method).toBe('POST');
+      expect(url).toContain('/v1/projects/P/eval-runs/run');
+      expect((body as { evalRun?: { filter?: unknown } }).evalRun).toMatchObject({
+        filter: { tag: 'created-via-code' },
+      });
+      expect((body as { evalRun?: { scenarioIds?: unknown } }).evalRun).not.toHaveProperty('scenarioIds');
+      return { status: 200, body: { evalRun: { id: 'run-1', status: 'PENDING' } } };
+    });
+    const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    const r = await c.createAndRunEvalRun('P', {
+      name: 'scheduled-1',
+      description: 'scheduled',
+      projectId: 'P',
+      agentId: 'agent-1',
+      filter: { tag: 'created-via-code' },
+    });
+    expect(r).toEqual({ id: 'run-1', status: 'pending' });
+  });
+
   it('error responses carry HTTP status (V1 {message})', async () => {
     mockFetch(() => ({ status: 404, body: { message: 'not found' } }));
     const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
@@ -198,7 +219,7 @@ describe('EvalForgeClient (V1) — eval runs', () => {
       return { status: 200, body: { evalRun: { id: 'run-1', status: 'PENDING' } } };
     });
     const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
-    const r = await c.createEvalRun('P', { name: 'n', description: 'd', projectId: 'P', agentId: 'a', scenarioIds: ['s1'] });
+    const r = await c.createAndRunEvalRun('P', { name: 'n', description: 'd', projectId: 'P', agentId: 'a', scenarioIds: ['s1'] });
     expect(r).toEqual({ id: 'run-1', status: 'pending' });
   });
 

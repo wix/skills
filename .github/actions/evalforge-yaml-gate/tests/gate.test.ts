@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { remoteScenarioFiltersForGate } from '../src/utils/gate';
+import { remoteScenarioFiltersForGate, scenarioIdsToRun, scenariosToRun, stripInactiveForeignDraftTags } from '../src/utils/gate';
 import type { LoadedScenario } from '../src/utils/evals';
 import type { Scenario } from '../src/utils/schema';
 
@@ -38,5 +38,92 @@ describe('remoteScenarioFiltersForGate', () => {
       names: ['blog/changed', 'blog/deleted', 'stores/changed'],
       tags: ['draft:wix/skills#42'],
     });
+  });
+});
+
+describe('scenariosToRun', () => {
+  const head = new Map<string, LoadedScenario>([
+    ['blog/changed', scenario('blog/changed')],
+    ['blog/unchanged', scenario('blog/unchanged')],
+    ['marketing/social', scenario('marketing/social')],
+  ]);
+
+  it('includes scenarios whose own YAML changed in this PR (existing behavior)', () => {
+    const out = scenariosToRun({
+      headScenarios: head,
+      changedEvalPaths: new Set(['yaml/wix-manage-evals/blog/changed.yml']),
+      coveredBy: new Map(),
+    });
+    expect([...out.keys()]).toEqual(['blog/changed']);
+  });
+
+  it('also includes scenarios covering a changed doc, even when their YAML is unchanged', () => {
+    const out = scenariosToRun({
+      headScenarios: head,
+      changedEvalPaths: new Set(),
+      coveredBy: new Map([['skills/wix-manage/references/marketing/social.md', ['marketing/social']]]),
+    });
+    expect([...out.keys()]).toEqual(['marketing/social']);
+  });
+
+  it('unions changed + doc-covered scenarios without duplicates', () => {
+    const out = scenariosToRun({
+      headScenarios: head,
+      changedEvalPaths: new Set(['yaml/wix-manage-evals/blog/changed.yml']),
+      coveredBy: new Map([
+        ['skills/wix-manage/references/marketing/social.md', ['marketing/social']],
+        ['skills/wix-manage/references/blog/changed.md', ['blog/changed']],
+      ]),
+    });
+    expect([...out.keys()].sort()).toEqual(['blog/changed', 'marketing/social']);
+  });
+
+  it('ignores covering names with no loaded head scenario', () => {
+    const out = scenariosToRun({
+      headScenarios: head,
+      changedEvalPaths: new Set(),
+      coveredBy: new Map([['skills/wix-manage/references/x/y.md', ['does/not-exist']]]),
+    });
+    expect(out.size).toBe(0);
+  });
+});
+
+describe('scenarioIdsToRun', () => {
+  it('maps selected scenario names to EvalForge IDs in run order', () => {
+    const selected = new Map<string, LoadedScenario>([
+      ['blog/changed', scenario('blog/changed')],
+      ['marketing/social', scenario('marketing/social')],
+    ]);
+    const ids = scenarioIdsToRun(selected, new Map([
+      ['marketing/social', 'id-social'],
+      ['blog/changed', 'id-changed'],
+    ]));
+    expect(ids).toEqual(['id-changed', 'id-social']);
+  });
+
+  it('fails clearly when a selected scenario has no remote ID', () => {
+    const selected = new Map<string, LoadedScenario>([
+      ['blog/changed', scenario('blog/changed')],
+    ]);
+    expect(() => scenarioIdsToRun(selected, new Map())).toThrow('Missing EvalForge scenario IDs for: blog/changed');
+  });
+});
+
+describe('stripInactiveForeignDraftTags', () => {
+  it('drops foreign draft tags from closed PRs and caches repeated lookups', async () => {
+    const seen: string[] = [];
+    const out = await stripInactiveForeignDraftTags([
+      { id: '1', name: 'marketing/social', tags: ['draft:wix/skills#42', 'draft:wix/skills#602', 'marketing'] },
+      { id: '2', name: 'blog/post', tags: ['draft:wix/skills#602', 'draft:wix/skills#777'] },
+    ], 'draft:wix/skills#42', async (tag) => {
+      seen.push(tag);
+      return tag !== 'draft:wix/skills#602';
+    });
+
+    expect(out).toEqual([
+      { id: '1', name: 'marketing/social', tags: ['draft:wix/skills#42', 'marketing'] },
+      { id: '2', name: 'blog/post', tags: ['draft:wix/skills#777'] },
+    ]);
+    expect(seen).toEqual(['draft:wix/skills#602', 'draft:wix/skills#777']);
   });
 });
