@@ -53,6 +53,23 @@ export default function CapacityPlanner() {
   return <><Page /><SessionDetail /></>;
 }`,
   );
+  write(
+    badRoot,
+    'BrokenAnalytics.tsx',
+    `export default function BrokenAnalytics() {
+  const options = { responsive: true, maintainAspectRatio: true };
+  return <Card><Box height="260px"><Bar options={options} /></Box></Card>;
+}`,
+  );
+  write(
+    badRoot,
+    'InteractiveTable.tsx',
+    `export default function InteractiveTable() {
+  return <Table isRowActive={() => false} columns={[{ width: '82%' }, { width: '18%' }]}>
+    <TableActionCell primaryAction={{ text: 'View', visibility: 'always' }} />
+  </Table>;
+}`,
+  );
 
   write(
     goodRoot,
@@ -78,7 +95,7 @@ export default function Dashboard() {
 
   const bad = spawnSync(process.execPath, [auditPath, badRoot], { encoding: 'utf8' });
   const badOutput = `${bad.stdout}\n${bad.stderr}`;
-  const expectedRules = ['CT-10', 'TP-05', 'TP-08', 'TP-10', 'TP-11'];
+  const expectedRules = ['CT-10', 'TP-01', 'TP-03', 'TP-05', 'TP-08', 'TP-10', 'TP-11', 'AN-11'];
   const missedRules = expectedRules.filter((rule) => !badOutput.includes(rule));
   if (bad.status === 0 || missedRules.length) {
     console.error('Dashboard audit self-test failed to reject the bad fixture.');

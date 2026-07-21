@@ -196,6 +196,26 @@ for (const filePath of files) {
       );
     }
 
+    if (projectHasSidePanel && /\bisRowActive=/.test(content) && !/\bonRowClick=/.test(content)) {
+      addFinding(
+        filePath,
+        content,
+        content.indexOf('isRowActive='),
+        'TP-01',
+        'A selected row opens contextual detail but Table has no onRowClick handler matching its final action.',
+      );
+    }
+
+    if (projectHasSidePanel && /<TableActionCell\b[\s\S]{0,420}visibility:\s*['"]always['"]/.test(content)) {
+      addFinding(
+        filePath,
+        content,
+        content.indexOf('<TableActionCell'),
+        'TP-03',
+        'A contextual row action is permanently visible; use documented hover/focus visibility unless the workflow explicitly requires an always-visible control.',
+      );
+    }
+
     if (/<EmptyState\b/.test(content) && !/<Button\b/.test(content)) {
       addFinding(
         filePath,
@@ -233,6 +253,17 @@ for (const filePath of files) {
       content.indexOf('<StatisticsWidget'),
       'AN-03',
       'Multiple analytics cards are not composed with the documented WDS Layout/Cell grid.',
+    );
+  }
+
+  const usesChartJs = /from\s+['"]react-chartjs-2['"]/.test(content) || /<(?:Bar|Line|Pie|Doughnut|Radar)\b/.test(content);
+  if (usesChartJs && /maintainAspectRatio\s*:\s*true/.test(content) && /<Box\b[^>]*\bheight=/.test(content)) {
+    addFinding(
+      filePath,
+      content,
+      content.indexOf('maintainAspectRatio'),
+      'AN-11',
+      'Chart.js uses maintainAspectRatio: true inside a fixed-height dashboard chart region; it can overflow into the next surface.',
     );
   }
 }

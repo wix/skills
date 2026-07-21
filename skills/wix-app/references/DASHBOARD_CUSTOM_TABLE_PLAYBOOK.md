@@ -21,7 +21,7 @@ Record the source of truth, join/transformation, visible columns, exact filter v
 - **CT-07:** Use no more than three visible filters. Submitted values must match stored values exactly.
 - **CT-08:** Selecting rows replaces normal toolbar actions with selected count and applicable bulk actions; it does not replace column headers.
 - **CT-09:** Every empty, no-results, error, or permission surface includes its relevant verified recovery action: create/setup, clear filters, retry, or request access.
-- **CT-10:** If a row opens detail or performs work, expose that interaction through the documented final-column `TableActionCell`; row click alone is not a sufficient visible or keyboard affordance.
+- **CT-10:** If a row opens detail or performs work, expose that interaction through the documented final-column `TableActionCell`; row click and its action must invoke the same handler. Use documented hover/focus action visibility by default; a permanently visible row action requires an explicit workflow reason. Row click alone is not a sufficient visible or keyboard affordance.
 
 ## Data States
 

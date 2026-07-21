@@ -22,6 +22,7 @@ List the page regions in reading order, name the primary operational surface, an
 - **AN-08:** Keep filters and their results together. A dense operational table is normally full width, including when a floating SidePanel opens above it.
 - **AN-09:** When an analytics page includes selected-record detail, inherit the table-and-panel SidePanel contract in full: use the standard stretching fixed `DashboardSidePanelHost`, preserve the selected row with `Table.isRowActive`, keep the table full width beneath it, and validate that the panel stays anchored when table or page height changes.
 - **AN-10:** Separate source-empty from filtered-empty operational data. Source-empty hides table controls and presents an in-context primary setup/create CTA. Filtered-empty preserves active filters and presents clear-filters recovery. Do not render a filtered-empty message or `Clear filters` when the source has no records.
+- **AN-11:** A chart lives in a bounded chart region inside its Card. Use the selected chart library's documented responsive-container pattern so its canvas or SVG fills that region and cannot paint into the next dashboard surface. For Chart.js, use `responsive: true` with `maintainAspectRatio: false` when the chart region has an intended height; do not combine a fixed-height chart wrapper with `maintainAspectRatio: true`.
 
 ## Invalid Implementations
 
@@ -32,4 +33,4 @@ List the page regions in reading order, name the primary operational surface, an
 
 ## Acceptance
 
-Verify every metric against known source records and dates, inspect the composition at wide and narrow dashboard widths, and test source-empty, filtered-empty, partial, and populated responses. Confirm equal-level cards align, the operational region stays full width, and any combined table/SidePanel acceptance checklist passes. Console and network must remain clean; one failed visualization must not erase unrelated content. Run `node "$HOME/.agents/skills/wix-app/scripts/audit-dashboard-code.mjs" <dashboard-source-directory>` before build validation.
+Verify every metric against known source records and dates, inspect the composition at wide and narrow dashboard widths, and test source-empty, filtered-empty, partial, and populated responses. Confirm equal-level cards align, every chart remains inside its own Card, the operational region stays full width, and any combined table/SidePanel acceptance checklist passes. Console and network must remain clean; one failed visualization must not erase unrelated content. Run `node "$HOME/.agents/skills/wix-app/scripts/audit-dashboard-code.mjs" <dashboard-source-directory>` before build validation.
