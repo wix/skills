@@ -118,11 +118,12 @@ DRY/generic principles above point toward a single shared unit.
   so contributors add coverage correctly.
 - **Preset run configuration** — a fixed run config (agent, model, tools) that references a
   **skill version**, used by every run.
-- **Auto-create a skill version per PR** — skill versions already exist in EvalForge; add
-  automation to create one from the PR branch's skill on PR open/update (as an EvalForge
-  feature or inside the flow). No new versioning platform work is required.
 - **Project targeting** — target the **App Builder** project only for now; confirm the
   wix-app → App Builder mapping.
+
+(Per-PR skill-version creation is **not** a Phase 0 task — it happens at PR time, so it
+lives in Phase 1's "Create PR skill version" step. The generic git-linked auto-versioning
+that would replace it is tracked separately.)
 
 ### Phase 1 — PR eval gate (core loop)
 
