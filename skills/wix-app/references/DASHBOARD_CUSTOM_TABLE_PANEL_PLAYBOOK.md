@@ -22,6 +22,7 @@ Record the source of truth, join, visible columns, filter values, selected-recor
 - **TP-04:** Precompute toolbar count text as one string. Never compose `{count} item{suffix}` as separate JSX children.
 - **TP-05:** Implement stable loading, recoverable load/permission failure, empty source, no-results, and populated states. Compute source-empty from all loaded records and filtered-empty from visible records separately. Empty source data hides filters/actions and shows its primary create/setup CTA inside the empty state; filtered zero results keep active filters and provide clear-filters recovery. Never show `Clear filters` when no source records exist.
 - **TP-06:** Bulk selection visibly checks the selected rows and resolves stable table IDs to complete source records before writing.
+- **TP-06a:** Inherit **CT-11** in full: the selected-record workflow does not replace the table's populated `<Table.Content />` branch. Use `Table.EmptyState` only for source-empty or filtered-empty states.
 
 ## SidePanel Contract
 

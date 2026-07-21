@@ -70,6 +70,16 @@ export default function CapacityPlanner() {
   </Table>;
 }`,
   );
+  write(
+    badRoot,
+    'BrokenEmptyStateTable.tsx',
+    `export default function BrokenEmptyStateTable() {
+  return <Table data={rows} columns={columns}>
+    {!hasSource && <Table.EmptyState title="No records" />}
+    {!hasFiltered && hasSource && <Table.EmptyState title="No results" />}
+  </Table>;
+}`,
+  );
 
   write(
     goodRoot,
@@ -95,7 +105,7 @@ export default function Dashboard() {
 
   const bad = spawnSync(process.execPath, [auditPath, badRoot], { encoding: 'utf8' });
   const badOutput = `${bad.stdout}\n${bad.stderr}`;
-  const expectedRules = ['CT-10', 'TP-01', 'TP-03', 'TP-05', 'TP-08', 'TP-10', 'TP-11', 'AN-11'];
+  const expectedRules = ['CT-10', 'CT-11', 'TP-01', 'TP-03', 'TP-05', 'TP-08', 'TP-10', 'TP-11', 'AN-11'];
   const missedRules = expectedRules.filter((rule) => !badOutput.includes(rule));
   if (bad.status === 0 || missedRules.length) {
     console.error('Dashboard audit self-test failed to reject the bad fixture.');

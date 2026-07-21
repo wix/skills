@@ -154,6 +154,16 @@ for (const filePath of files) {
   );
 
   if (/<Table\b/.test(content)) {
+    if (/<Table\.EmptyState\b/.test(content) && !/<Table\.Content\b/.test(content)) {
+      addFinding(
+        filePath,
+        content,
+        content.indexOf('<Table.EmptyState'),
+        'CT-11',
+        'Table defines empty-state handling but has no Table.Content branch for populated rows.',
+      );
+    }
+
     if (/\bonRowClick=/.test(content) && !/<TableActionCell\b/.test(content)) {
       addFinding(
         filePath,
