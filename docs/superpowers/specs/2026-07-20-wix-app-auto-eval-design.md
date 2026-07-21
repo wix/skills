@@ -49,9 +49,11 @@ The design must not hard-code anything that makes adding these a rewrite.
 
 ## The run model (key facts that shape everything)
 
-1. **Scenarios come from the EvalForge UI and from repo YAML.** The UI is the primary
-   source; repo-YAML authoring is delivered **as part of Phase 1** (formerly a later
-   phase). "Scenario source" sits behind a clean seam so either can feed the gate.
+1. **The master YAML is the single source of truth for scenarios** — all scenarios live as
+   YAML in the repo (like a tests file), maintained on `main`. **Phase 0 owns this**: it
+   defines the YAML, migrates scenarios into it, and runs a **sync-on-merge** flow that
+   pushes the master YAML into EvalForge so the eval system always matches the repo. Edits
+   made directly in the UI are not canonical.
 2. **Every run uses a fixed preset configuration** (agent, model, tools).
 3. **The only variable is the skill version.** EvalForge **already supports skill
    versions** — the work is to **auto-create a version when a PR is opened** and point the
@@ -72,9 +74,11 @@ The design must not hard-code anything that makes adding these a rewrite.
 ### Relative to the existing wix-manage action
 
 `.github/actions/evalforge-yaml-gate` is hardcoded to wix-manage and to a repo-YAML +
-documentation-coverage model. We **drop**: scenario-YAML authoring, repo→EvalForge sync,
-YAML-tag `promote`, draft-scenario lifecycle, repo doc-URL coverage, and the MCP-version
-lifecycle.
+documentation-coverage model. Because we're making **repo YAML the source of truth**, much
+of that machinery comes **back into scope** and is reused (adapted): **scenario-YAML
+authoring**, **repo→EvalForge sync**, and **promote/sync on merge**. We still **drop**: the
+doc-URL / `documentation.yaml` coverage model (we select by **tag** instead) and the
+**MCP-version lifecycle** (we version the **skill**, not an MCP).
 
 We **reuse** the skill-agnostic core: auth, the EvalForge API client (it already models
 scenarios as `{ id, name, tags[] }` and supports a `filter: { tag }` query), triggering a
@@ -98,10 +102,20 @@ DRY/generic principles above point toward a single shared unit.
   has to re-run when `DASHBOARD_PAGE.md` changes, to prove the edit didn't break the
   "don't create it" path. So a file resolves to a **set** of tags, scenarios carry
   multiple tags, and selection must pull in these related/negative scenarios — a naive
-  filename→tag map is insufficient. Because tagging is done **by hand in the UI**, this is
-  a human process; the Phase 1 guard is its safety net.
-- **First scenario batch** — author an initial set of wix-app scenarios in the EvalForge
-  UI, tagged per the convention.
+  filename→tag map is insufficient. Tags live in the scenario **YAML**; keeping them
+  correct is a contributor responsibility, and the Phase 1 guard is its safety net.
+- **Master YAML — the single source of truth.** Define the YAML scenario format (like a
+  tests file), author the first wix-app scenarios in YAML tagged per the convention, and
+  migrate any scenarios already created in the UI. From here on the master YAML on `main`
+  is canonical.
+- **Sync-on-merge flow.** On merge to `main`, sync the master YAML into EvalForge —
+  **create / update / remove** scenarios so the eval system always matches the repo.
+  (Reuses the wix-manage sync/promote pattern, previously out of scope.)
+- **`AGENTS.md` coverage rule.** Every skill change must be covered by a scenario in the
+  master YAML — reuse a relevant existing scenario, or add a new one. Makes coverage a
+  contributor habit; the Phase 1 guard enforces it.
+- **Scenario-authoring skill.** A skill that explains how to write a new scenario in YAML,
+  so contributors add coverage correctly.
 - **Preset run configuration** — a fixed run config (agent, model, tools) that references a
   **skill version**, used by every run.
 - **Auto-create a skill version per PR** — skill versions already exist in EvalForge; add
@@ -119,9 +133,8 @@ DRY/generic principles above point toward a single shared unit.
 (`@wix.com` email / internal account); skip external-fork PRs. Reuses the existing
 `author-gate` from `evalforge-yaml-gate`.
 
-**Scenario authoring:** scenarios can be authored in **repo YAML** (synced into EvalForge)
-as well as in the UI — folded in from the former Phase 5. Both sources feed selection by
-tag.
+**Scenario source:** the PR gate reads scenarios from the repo **YAML** at the PR ref (the
+same master YAML the PR will update on merge), selected by tag.
 
 Steps within one gate run (guard runs *before* the run):
 
@@ -129,11 +142,12 @@ Steps within one gate run (guard runs *before* the run):
    by EvalForge (git-linked auto-versioning); until then, created by the flow via the API.
    See run-model note 3.
 2. **Derive tags** — map the changed reference files to tag(s).
-3. **Quality guard** — for each tag, query EvalForge and require:
+3. **Quality guard** — for each tag, read the scenario **YAML** and require:
    - at least **X** scenarios,
    - each scenario with at least **Y** assertions,
    - at least **one LLM-judge** assertion,
-   - a **new** reference file with **zero** scenarios **blocks**.
+   - a changed or new reference file with **no covering scenario blocks** (enforces the
+     `AGENTS.md` coverage rule).
 
    Guard failure **blocks and skips the run** — this protects against evals that pass
    trivially.
@@ -191,9 +205,9 @@ Answers "is this change needed, and does it regress anything?"
 - **Genericity & DRY.** Enforced by the design principles above; every new skill/project
   should be configuration, not new code.
 - **Tag-convention enforcement.** Human process; the Phase 1 guard is the safety net.
-- **Scenario-source seam.** Keep "where scenarios come from" abstracted so the UI and
-  repo-YAML sources (both delivered in Phase 1) stay interchangeable and new sources can be
-  added without a rewrite.
+- **Source of truth = master YAML, one-way sync.** Scenarios live as YAML in the repo (like
+  tests) and sync **repo → EvalForge** on merge; keep the sync one-way so the two never
+  diverge. UI edits are not canonical.
 
 ## Open decisions
 
@@ -212,17 +226,19 @@ Answers "is this change needed, and does it regress anything?"
    dependencies (a scenario that must keep working when a file changes even though it
    exercises the opposite behavior). Filename→tag is insufficient; likely scenarios carry
    multiple tags and each changed file resolves to a *set* of tags.
+7. **Sync semantics** — how the merge-time sync handles create / update / **delete** and
+   any UI-only edits (kept strictly one-way repo → EvalForge, or reconciled).
 
 ## Reuse map (from `evalforge-yaml-gate`)
 
 | Concern | wix-manage today | this flow |
 |---|---|---|
-| Scenario source | repo YAML, synced to EvalForge | EvalForge UI + repo YAML (Phase 1), selected by tag |
+| Scenario source | repo YAML, synced to EvalForge | **master YAML = source of truth**, selected by tag |
 | Artifact under test | per-PR MCP version | per-PR **skill version** (already supported) |
 | Coverage / selection | doc-URL from `documentation.yaml` | **tag** → scenario query |
 | Run + results | reuse | reuse |
 | With/without comparison | eval-pipeline comparison (reuse) | PR skill version vs. version without the diff |
 | PR comment / gate / blocking | reuse | reuse |
 | Cleanup | delete MCP version on close | delete **skill version** on close/merge |
-| Promote on merge | apply YAML tags | **not needed** (UI-authored) |
+| Sync/promote on merge | apply YAML tags | **needed** — sync master YAML → EvalForge (create/update/delete) |
 | Scheduled run-all | separate mode | **not in this flow** (system already provides it) |
