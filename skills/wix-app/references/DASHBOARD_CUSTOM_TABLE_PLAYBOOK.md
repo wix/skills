@@ -2,6 +2,12 @@
 
 Use this route for a WDS management table that requires multiple sources, joins, external data, unsupported custom logic, or a workflow Auto Patterns cannot represent. Use the table-and-panel playbook instead when selecting a row opens contextual detail.
 
+## Entry Gate
+
+Do not read, select, or execute this playbook for a new one-collection manager until [DASHBOARD_AUTO_PATTERNS_PLAYBOOK.md](DASHBOARD_AUTO_PATTERNS_PLAYBOOK.md) has been evaluated. The route record must include the first required capability marked `unsupported` and the exact Auto Patterns reference that was checked.
+
+The following do **not** qualify a page for this custom route by themselves: Table/Grid or gallery presentation, search, filters, standard CRUD, saved views, sample data, or a same-collection row action. If those are the only requirements, return to the Auto Patterns playbook.
+
 ## Required Documentation
 
 Read [DASHBOARD_PAGE.md](DASHBOARD_PAGE.md) for the host extension and [WDS_TABLE_GUIDELINES.md](WDS_TABLE_GUIDELINES.md) for dashboard table behavior. Invoke the Wix Design System skill, then read the installed `Table`, `TableToolbar`, `TableActionCell`, selected filter controls, `EmptyState`, and relevant Pagination examples. Read [DATA_MODEL_AND_OPERATIONS.md](DATA_MODEL_AND_OPERATIONS.md) when creating collections, references, joins, or mutations.

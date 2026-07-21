@@ -2,6 +2,10 @@
 
 Use this self-contained route for a custom WDS table where selecting a desktop row opens contextual record detail, editing, assignment, or resolution work.
 
+## Entry Gate
+
+For a new one-collection manager, first evaluate [DASHBOARD_AUTO_PATTERNS_PLAYBOOK.md](DASHBOARD_AUTO_PATTERNS_PLAYBOOK.md). This playbook may begin only after the route record identifies the first required capability that is `unsupported` and cites the checked Auto Patterns reference. A Table/Grid presentation, search, filters, CRUD, sample data, or a documented same-collection action is not sufficient reason to bypass Auto Patterns.
+
 ## Required Documentation
 
 Read [DASHBOARD_PAGE.md](DASHBOARD_PAGE.md) and [DASHBOARD_WDS_COMPONENT_GATE.md](DASHBOARD_WDS_COMPONENT_GATE.md). Invoke the Wix Design System skill and retrieve the installed `Table`, `TableToolbar`, `TableActionCell`, selected filters, and `EmptyState` documentation. Before writing the panel, retrieve the exact installed `SidePanel` **Skin**, **Height**, **Header**, **Custom header**, **Dividers**, **Content sections**, **Custom footer**, and **Quick view** examples. Keep their JSX available while implementing; parent props do not describe compound Header/Content/Footer APIs. Use the standard `DashboardSidePanelHost` integration defined below, rather than copying Quick View's demo frame. Read [DATA_MODEL_AND_OPERATIONS.md](DATA_MODEL_AND_OPERATIONS.md) for collections, joins, references, and writes.

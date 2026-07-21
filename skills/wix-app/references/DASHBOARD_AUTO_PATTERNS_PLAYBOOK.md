@@ -21,6 +21,20 @@ Read [AUTO_PATTERNS_DASHBOARD.md](AUTO_PATTERNS_DASHBOARD.md) for generation, co
 - **AP-02:** Use Auto Patterns only when the whole physical page has a documented configuration or override path. Do not mix an unsupported chart, join, SidePanel, or custom data surface into the page without a documented slot/override composition.
 - **AP-03:** A Table/Grid switch, row action, derived display, or named workset is not automatically unsupported. Check its focused reference before falling back; record that exact file in the capability decision.
 - **AP-04:** Auto Patterns documents Table and Grid. Do not promise the native CMS layout menu, List layout, custom layout labels, or a configurable initial layout unless the installed docs explicitly support them.
+- **AP-05:** Do not read or select a custom WDS dashboard playbook until this evaluation records the first `unsupported` capability. A new one-collection manager stays on this route when every requested capability is `supported` or `supported-via-override`.
+
+## Canonical Auto Patterns Profile: Inventory Manager
+
+Use Auto Patterns for a single `Inventory Products`-style collection that needs product name, image, SKU, category, stock/reorder values, standard search or filters, Table and Grid presentation, and a documented row action such as **Mark restocked**.
+
+This remains an Auto Patterns page even when the user asks for:
+
+- a card/gallery-first presentation alongside a table;
+- filters for category or stock status;
+- representative sample records; or
+- a row action that updates the same collection.
+
+Configure the documented Auto Patterns Table/Grid layouts and action override. Do not replace them with a custom WDS gallery, a hand-built layout toggle, or a custom React table unless a required capability is explicitly documented as unsupported.
 
 ## Build Contract
 
@@ -29,6 +43,7 @@ Read [AUTO_PATTERNS_DASHBOARD.md](AUTO_PATTERNS_DASHBOARD.md) for generation, co
 3. Scaffold with the Wix CLI and run the bundled Auto Patterns generator exactly as documented.
 4. Keep the generated page component thin. Put configuration in `patterns.json` and every override in its documented separate file.
 5. When the prompt asks for representative data, create 3-5 realistic records and verify the collection and dashboard show the same items.
+6. Before adding any custom dashboard JSX, verify `patterns.json` exists and that the generated Auto Patterns wrapper is registered by the CLI-scaffolded extension.
 
 ## Invalid Implementations
 

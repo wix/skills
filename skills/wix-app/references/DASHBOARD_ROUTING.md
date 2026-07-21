@@ -28,7 +28,10 @@ If a page combines analytics with a table, use the analytics playbook as primary
 
 ## Routing Gates
 
-- Check Auto Patterns before custom React for a one-collection manager. Record the exact unsupported capability before falling back, then read [DASHBOARD_WDS_COMPONENT_GATE.md](DASHBOARD_WDS_COMPONENT_GATE.md) for every unsupported required surface.
+- **Auto Patterns is a mandatory first gate for every new one-collection manager.** Before reading a custom table, table-and-panel, analytics, or WDS component playbook, open [DASHBOARD_AUTO_PATTERNS_PLAYBOOK.md](DASHBOARD_AUTO_PATTERNS_PLAYBOOK.md) and evaluate the requested physical page against its focused references.
+- A custom dashboard route is **invalid** for a new one-collection manager until the route record names each required Auto Patterns capability, the exact checked reference, and the first capability that is `unsupported`. Search, filters, Table/Grid, standard CRUD, saved views, and documented row or bulk actions are not evidence of unsupported complexity.
+- Do not classify a page as `custom-table` merely because it has a Table/Grid switch, gallery/card presentation, search, filters, a restock-style action, or sample records. These are Auto Patterns candidates and must be evaluated there first.
+- Only after an exact unsupported capability is recorded may the agent read [DASHBOARD_WDS_COMPONENT_GATE.md](DASHBOARD_WDS_COMPONENT_GATE.md) for that WDS surface and select a custom route.
 - A new app-owned collection does not imply Auto Patterns or Dashboard Modal; the physical workflow selects the page route.
 - Desktop selected-record context uses WDS SidePanel. Mobile sliding work uses Drawer. A focused blocking task uses Dashboard Modal. Do not scaffold a Dashboard Modal when the selected workflow is a SidePanel.
 - Data creation and reference operations add [DATA_MODEL_AND_OPERATIONS.md](DATA_MODEL_AND_OPERATIONS.md) to the selected playbook; they do not replace it.
@@ -39,11 +42,17 @@ If a page combines analytics with a table, use the analytics playbook as primary
 Before scaffolding, record:
 
 ```text
-route: custom-table-panel
+route: auto-patterns
 secondary: none
-source: Students + Classes through classRef
-reason: multi-source join and selected-record assignment workflow
-proof: filter a known row, assign its class, refresh, and confirm persistence
+source: Inventory Products collection
+capabilities:
+  - Table/Grid layouts: supported (AUTO_PATTERNS_DASHBOARD.md)
+  - search and filters: supported (AUTO_PATTERNS_DASHBOARD.md)
+  - Mark restocked row action: supported-via-override (auto-patterns-dashboard/action-cell.md)
+reason: one collection with documented layouts, filters, and action extension path
+proof: create sample products, switch Table/Grid, filter low stock, mark one item restocked, refresh, and confirm persistence
 ```
+
+For a custom fallback, replace the capability list with the exact first unsupported capability and reference checked. A statement such as "gallery + table + action" is not a valid fallback reason.
 
 Do not proceed with an unnamed route.

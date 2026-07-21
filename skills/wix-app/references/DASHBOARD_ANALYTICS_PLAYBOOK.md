@@ -2,6 +2,10 @@
 
 Use this route for KPIs, summaries, charts, calculated worksets, or pages combining multiple information regions. It does not imply that Auto Patterns supports charts.
 
+## Entry Gate
+
+For a new one-collection manager, first evaluate [DASHBOARD_AUTO_PATTERNS_PLAYBOOK.md](DASHBOARD_AUTO_PATTERNS_PLAYBOOK.md). Select analytics only after the route record cites the checked Auto Patterns reference and identifies the first unsupported required region, such as a chart, calculated multi-region summary, or unsupported external data composition. Do not bypass Auto Patterns solely because the page also needs Table/Grid, filters, search, standard CRUD, or a documented action.
+
 ## Required Documentation
 
 Read [DASHBOARD_PAGE.md](DASHBOARD_PAGE.md), [VISUALIZATIONS.md](VISUALIZATIONS.md), and [DASHBOARD_WDS_COMPONENT_GATE.md](DASHBOARD_WDS_COMPONENT_GATE.md). Retrieve the installed WDS `Page`, `Layout`, `Cell`, `Card`, and `StatisticsWidget` props and composition examples. For every chart, read the exact supported chart-library documentation before implementation; a WDS card or metric component does not supply chart behavior. Read the custom-table playbook when a WDS operational table is present, or the table-and-panel playbook when rows open contextual detail. Those secondary playbooks own only their region; this playbook still owns the whole-page composition.
