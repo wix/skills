@@ -16,7 +16,7 @@ Record the source of truth, join, visible columns, filter values, selected-recor
 - **TP-02:** Keep labeled headers visible. Define every column's width and overflow behavior before renderers.
 - **TP-03:** Use one primary status plus `+N` for variable issue sets; show the complete status set in record detail. Every interactive row exposes a documented `TableActionCell` in a dedicated final column with an explicit View/Edit action; row click may mirror it but never replaces its affordance.
 - **TP-04:** Precompute toolbar count text as one string. Never compose `{count} item{suffix}` as separate JSX children.
-- **TP-05:** Implement stable loading, recoverable load/permission failure, empty source, no-results, and populated states. Empty source data hides filters/actions and shows a verified create/setup CTA; filtered zero results keep active filters and provide clear-filters recovery.
+- **TP-05:** Implement stable loading, recoverable load/permission failure, empty source, no-results, and populated states. Compute source-empty from all loaded records and filtered-empty from visible records separately. Empty source data hides filters/actions and shows its primary create/setup CTA inside the empty state; filtered zero results keep active filters and provide clear-filters recovery. Never show `Clear filters` when no source records exist.
 - **TP-06:** Bulk selection visibly checks the selected rows and resolves stable table IDs to complete source records before writing.
 
 ## SidePanel Contract
@@ -25,7 +25,7 @@ Record the source of truth, join, visible columns, filter values, selected-recor
 - **TP-08:** A floating `SidePanel` is not a portal. Mount it through a `DashboardSidePanelHost`, outside `Page`, `Card`, table, and their overflow containers. The host is the only approved custom positioning: `position: fixed`, `top: 0`, `right: 0`, `bottom: 0`, and a dashboard overlay `zIndex`. It has no width, height, padding, shadow, or overflow styles. This anchors the WDS panel to the available dashboard viewport instead of page/table content. A bare `<RecordPanel />` after `<Page>` is invalid because it remains in normal document flow.
 - **TP-09:** Never combine a `position: relative; overflow: hidden; height: 100%` page wrapper with an absolute `height: 100%` panel child. Never use `position: absolute`, `100vh`, `100dvh`, fixed panel dimensions, or unverified `height: 100%` as a generic host fix. The fixed host owns anchoring only; WDS `SidePanel` owns its dimensions, shadow, and internal scrolling.
 - **TP-10:** Default record detail uses `SidePanel.Header` with its documented `title` API only. Put status first in Content. Add custom Header children only when the exact Custom header example is required, preserving its documented horizontal inset; never place a bare badge or title against the panel edge.
-- **TP-11:** Default record detail uses one `SidePanel.Content` with internal groups and the standard thin WDS `Divider` when separation is necessary. Reserve multiple Content regions plus `SidePanel.Divider` for genuinely independent panel regions justified by the Content sections example. Only Content scrolls; Header and Footer stay visible.
+- **TP-11:** Every contextual record-detail panel uses `SidePanel.Header`, one `SidePanel.Content`, and `SidePanel.Footer`. The Footer always includes a right-aligned secondary `Close` button, even for read-only detail; add a right-aligned primary action when the record has a verified mutation path. Use internal Content groups and the standard thin WDS `Divider` when separation is necessary. Reserve multiple Content regions plus `SidePanel.Divider` for genuinely independent panel regions justified by the Content sections example. Only Content scrolls; Header and Footer stay visible.
 - **TP-12:** Let `skin="floating"` own panel shadow and geometry. The fixed overlay host must allow the shadow to render on every edge; do not add wrapper `boxShadow`, `overflow: auto/hidden`, or fixed width/height around the panel.
 
 ## Detail Hierarchy And Actions
@@ -41,7 +41,7 @@ Treat the panel as an extension of the selected row. Preserve identity, statuses
 ## Invalid Implementations
 
 - SidePanel mounted inside a page/card/table wrapper, rendered as a bare page-flow sibling, pushed beside the table, or sized from page/table content.
-- Custom header/body/footer containers, bare custom-header badges, routine record groups split by thick `SidePanel.Divider` bands, hard-coded panel geometry, clipped shadow, doubled padding, or a missing action footer.
+- Custom header/body/footer containers, bare custom-header badges, routine record groups split by thick `SidePanel.Divider` bands, hard-coded panel geometry, clipped shadow, doubled padding, or a record-detail panel with only the header close icon and no Footer.
 - Full status arrays competing with the table action column.
 - A stale panel remaining open for a filtered-out record.
 - A read-only panel that hides the row's primary operational action.

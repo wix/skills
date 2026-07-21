@@ -25,7 +25,12 @@ try {
     `export default function SessionsTable() {
   return <Table onRowClick={() => {}} columns={[
     { width: '55%' }, { width: '50%' }
-  ]}><Table.Content /></Table>;
+  ]}>
+    {!loading && sessions.length === 0 && (
+      <EmptyState title="No sessions found"><TextButton>Clear filters</TextButton></EmptyState>
+    )}
+    <Table.Content />
+  </Table>;
 }`,
   );
   write(
@@ -64,6 +69,7 @@ export default function Dashboard() {
       <SidePanel skin="floating">
         <SidePanel.Header title="Session" />
         <SidePanel.Content><Badge>Overbooked</Badge><Divider /></SidePanel.Content>
+        <SidePanel.Footer><Button priority="secondary">Close</Button></SidePanel.Footer>
       </SidePanel>
     </DashboardSidePanelHost>
   </>;
@@ -72,7 +78,7 @@ export default function Dashboard() {
 
   const bad = spawnSync(process.execPath, [auditPath, badRoot], { encoding: 'utf8' });
   const badOutput = `${bad.stdout}\n${bad.stderr}`;
-  const expectedRules = ['CT-10', 'TP-08', 'TP-10', 'TP-11'];
+  const expectedRules = ['CT-10', 'TP-05', 'TP-08', 'TP-10', 'TP-11'];
   const missedRules = expectedRules.filter((rule) => !badOutput.includes(rule));
   if (bad.status === 0 || missedRules.length) {
     console.error('Dashboard audit self-test failed to reject the bad fixture.');

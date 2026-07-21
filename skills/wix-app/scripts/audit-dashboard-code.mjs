@@ -134,12 +134,12 @@ for (const filePath of files) {
       );
     }
 
-    if (/<Button\b/.test(content) && !/<SidePanel\.Footer\b/.test(content)) {
+    if (!/<SidePanel\.Footer\b/.test(content)) {
       findings.push({
         filePath,
         line: lineAt(content, content.indexOf('<SidePanel')),
-        rule: 'TP-10',
-        message: 'SidePanel contains actions but has no SidePanel.Footer.',
+        rule: 'TP-11',
+        message: 'Contextual SidePanel has no SidePanel.Footer; include a right-aligned Close button even when the detail is read-only.',
       });
     }
   }
@@ -183,6 +183,23 @@ for (const filePath of files) {
         content.indexOf('<EmptyState'),
         'CT-09',
         'Table EmptyState has no visible recovery action such as create, clear filters, retry, or request access.',
+      );
+    }
+  }
+
+  for (const match of content.matchAll(
+    /\{([^{}]{0,360}\b[A-Za-z_$][\w$]*\.length\s*===\s*0[^{}]{0,360})&&\s*\(\s*(<EmptyState\b[\s\S]{0,1600}?<\/EmptyState>)\s*\)\s*\}/g,
+  )) {
+    const [, condition, emptyState] = match;
+    const sourceEmpty = !/\.length\s*>\s*0/.test(condition);
+    if (!sourceEmpty) continue;
+    if (/clear\s+(?:all\s+)?filters/i.test(emptyState) || !/<Button\b/.test(emptyState)) {
+      addFinding(
+        filePath,
+        content,
+        match.index,
+        'TP-05',
+        'Source-empty state must contain its own primary setup/create CTA, not a Clear filters recovery action.',
       );
     }
   }
