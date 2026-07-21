@@ -19,6 +19,15 @@ description: "Create a booking service from a user prompt — e.g. 'create a yog
 | workshop, program, course, training program, multi-session, fixed series, 8 sessions | `COURSE` | [Create Course Service](./create-course-service.md) |
 | (unclear or unspecified) | `APPOINTMENT` | [Create Appointment Service](./create-appointment-service.md) |
 
+## Random / Load-Test Requests
+
+If the user asks for a **random** service ("surprise me", "any random service"),
+gives no specific type or attributes, or asks to provision a service **for a load
+test**, do not run the type-classification flow below. Instead follow
+[create-random-booking-service.md](create-random-booking-service.md), which picks a
+random valid type and attributes (and biases toward high capacity / wide
+availability in load-test mode) and emits the created resource IDs as JSON.
+
 ## Step 2: Follow the Type-Specific Recipe
 
 Once the service type is determined, follow the corresponding recipe linked above. Each recipe covers:
