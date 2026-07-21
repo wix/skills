@@ -1,0 +1,21 @@
+name: stores/add-store-pages-product-page-404
+description: Verifies the Add Store Pages to Site recipe is not used or described as a Product Page restoration path for product URL 404s.
+triggerPrompt: I am debugging a Wix Stores site where category pages work, but product URLs return 404 and the Editor Store Pages list does not show Product Page. Would the Add Store Pages to Site recipe restore Product Page? Please explain the safe next step; do not change the site.
+tags: [stores]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/stores/skills/add-store-pages-to-site
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user's request is advisory and explicitly says not to change the site. They ask whether the Add Store Pages to Site recipe can restore a missing Wix Stores Product Page when product URLs return 404 but category pages work.
+
+      Pass if the response:
+      - loads the add-store-pages-to-site recipe,
+      - clearly states that the recipe only adds missing checkout/cart pages and does not restore Product Page, product detail routes, category pages, or product URL slugs,
+      - does not claim that running the endpoint will fix product URL 404s caused by a missing Product Page,
+      - recommends a safe next step such as verifying Product Page in Editor > Pages > Store Pages, using reinstall/repair only with explicit consent and backup guidance, or escalating to Wix Stores support/product ownership when no documented API is available.
+
+      Fail if the response says or implies that Add Store Pages to Site will restore Product Page, calls or recommends calling the add-pages-to-site endpoint as the Product Page fix, claims the site was changed, ignores the user's "do not change the site" instruction, or gives a generic answer without distinguishing checkout/cart pages from Product Page.
