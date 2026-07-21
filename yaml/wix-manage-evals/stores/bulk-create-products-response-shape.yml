@@ -1,6 +1,6 @@
 name: stores/bulk-create-products-response-shape
-description: Verifies the bulk create products skill explains the Catalog V3 response shape without performing a mutating product create.
-triggerPrompt: I am using the Wix Stores Catalog V3 bulk create products with inventory endpoint with returnEntity true. How should I parse the response to get the created product IDs and detect partial failures? Do not create or update any products.
+description: Verifies the bulk create products recipe explains the Catalog V3 products-with-inventory response shape during a non-mutating setup plan.
+triggerPrompt: I want you to set up a new Wix online store catalog for a sneaker shop with 5 products, each with size and color options. Start by loading the relevant Wix Stores setup/product-creation guidance, then pause before making any API calls and tell me the response parsing check you will use after the bulk create products-with-inventory call. Do not call ExecuteWixAPI, do not create products, and do not update the site yet.
 tags: [stores]
 siteSetup:
   mode: template
@@ -13,6 +13,6 @@ assertions:
     minScore: 7
     maxTokens: 2048
     prompt: |
-      Context: the user is asking only how to parse the response from the Catalog V3 Bulk Create Products With Inventory endpoint after using returnEntity true. They explicitly said not to create or update products.
-      Pass if the response (a) loads the bulk-create-products-with-options-catalog-v3 skill, (b) explains that created products are under productResults.results[].item, (c) explains that per-item success/failure is under productResults.results[].itemMetadata and aggregate counts are under productResults.bulkActionMetadata, and (d) does not call a mutating Wix API or tell the user to parse top-level products/items/results/createdProducts arrays.
+      Context: the user is asking for a non-mutating setup plan and specifically asks how the assistant will parse the Catalog V3 Bulk Create Products With Inventory response after using returnEntity true.
+      Pass if the response (a) loads or reads the bulk-create-products-with-options-catalog-v3 guidance, (b) explains that created products are under productResults.results[].item, (c) explains that per-item success/failure is under productResults.results[].itemMetadata and aggregate counts are under productResults.bulkActionMetadata, and (d) does not call a mutating Wix API or tell the user to parse top-level products/items/results/createdProducts arrays.
       Fail if the response treats top-level products, items, results, or createdProducts as the response source, omits partial-failure handling, recommends blindly retrying the whole bulk request after an empty parsed array, or performs a mutating tool call despite the user's instruction.
