@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { toEvalForgeBody, type ScenarioAssertionLink } from '../src/utils/evalforge-mapper';
-import type { Scenario } from '../src/utils/schema';
+import { toEvalForgeBody, type ScenarioAssertionLink } from '../src/evalforge-mapper';
+import type { Scenario } from '../src/schema';
 
 const scenario: Scenario = {
   name: 'blog/how-to-create-blog-posts',
