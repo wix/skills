@@ -195,31 +195,19 @@ V1 and V3 differ in **both where choices live and what the choice fields are nam
 | Choice color | `choice.value` (hex string) | `choice.colorCode` |
 
 ```typescript
-import { catalogVersioning, products, productsV3 } from '@wix/stores';
-
 if (v === 'V3_CATALOG') {
   const product = await productsV3.getProduct(id);
   for (const option of product.options ?? []) {
-    const optionName = option.name;                           // e.g. "Size"
-    const renderType = option.optionRenderType;               // "TEXT_CHOICES" | "SWATCH_CHOICES"
-    // ✅ V3: choices are NESTED under choicesSettings
-    const choices = option.choicesSettings?.choices ?? [];
+    const choices = option.choicesSettings?.choices ?? [];  // ✅ nested — NOT option.choices / option.optionValues (TS2339)
     for (const choice of choices) {
-      const label = choice.name;       // e.g. "Small"
-      const color = choice.colorCode; // HEX, only for SWATCH_CHOICES
+      render(option.name, choice.name, choice.colorCode);   // name = label; colorCode = hex for SWATCH_CHOICES
     }
-    // ❌ WRONG — fails tsc (TS2339) on V3
-    // option.choices        — doesn't exist on ConnectedOption
-    // option.optionValues   — doesn't exist on ConnectedOption
   }
 } else {
   const { product } = await products.getProduct(id);
   for (const option of product.productOptions ?? []) {
-    // ✅ V1: choices are DIRECTLY on the option
-    const choices = option.choices ?? [];
-    for (const choice of choices) {
-      const label = choice.value;     // e.g. "Small"
-      const color = choice.value;     // hex string for color options
+    for (const choice of option.choices ?? []) {           // ✅ direct in V1
+      render(option.name, choice.value);                   // value = label or hex string
     }
   }
 }
