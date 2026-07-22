@@ -10,6 +10,7 @@ This guide defines rules and guidance on **how to implement** production-quality
 - [`PROPS-VS-CSS.md`](PROPS-VS-CSS.md) — What should be a React prop vs CSS
 - [`COMPONENT-API.md`](COMPONENT-API.md) — Props structure, elementProps, data types, file splitting, containers, array props
 - [`ANIMATED-COMPONENTS.md`](ANIMATED-COMPONENTS.md) — Play/pause control and autoplay for animated/playable components
+- [`COMPONENT-PREVIEW.md`](COMPONENT-PREVIEW.md) — `component.preview.tsx` patterns and `useIsEditMode()` usage
 - [`REACT-PATTERNS.md`](REACT-PATTERNS.md) — SSR-safe patterns, CSS rules, common mistakes
 
 ## React 18 features are not supported
