@@ -465,6 +465,12 @@ slide instead.
 }
 ```
 
+**Media playback is functional, not decorative.** When the component's content
+*is* a playing animation (Lottie/JSON, animated GIF/SVG, canvas/WebGL, video),
+letting it play is allowed — the motion is the content. Such components get a
+play/pause control positioned in CSS. See
+[`ANIMATED-COMPONENTS.md`](ANIMATED-COMPONENTS.md).
+
 ### Set `pointer-events: auto` on the root and every interactive element
 
 The root selector and every nested class that the user can click,
