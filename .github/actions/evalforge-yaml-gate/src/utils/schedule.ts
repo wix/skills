@@ -9,19 +9,33 @@ export async function runSchedule(): Promise<void> {
 
   core.info(`EvalForge scheduled run — running scenarios tagged "${CODE_TAG}"`);
 
+  // Tags are not expanded server-side; resolve them to explicit scenario ids.
+  // A tags-only run would evaluate nothing.
+  const scenarios = await evalforge.listTestScenariosByTag(config.projectId, CODE_TAG);
+  const scenarioIds = scenarios.map(s => s.id);
+  if (scenarioIds.length === 0) {
+    core.info(`No scenarios tagged "${CODE_TAG}" — nothing to run.`);
+    core.setOutput('status', 'skipped');
+    core.setOutput('passed', '0');
+    core.setOutput('failed', '0');
+    core.setOutput('total', '0');
+    core.setOutput('pass-rate', '0');
+    core.setOutput('summary', `No scenarios tagged ${CODE_TAG}.`);
+    return;
+  }
+  core.info(`Resolved ${scenarioIds.length} scenario(s) tagged "${CODE_TAG}".`);
+
+  // `/eval-runs/run` creates AND starts the run in one call — no separate trigger.
   const { id: evalRunId } = await evalforge.createAndRunEvalRun(config.projectId, {
     name: config.runName,
     description: `Scheduled eval run for scenarios tagged ${CODE_TAG}`,
     projectId: config.projectId,
     agentId: config.agentId,
-    filter: {
-      tag: CODE_TAG,
-    },
+    tags: [CODE_TAG],
+    scenarioIds,
+    capabilityIds: [config.mcpId],
   });
   core.info(`Created eval run: ${evalRunId}`);
-
-  await evalforge.triggerEvalRun(config.projectId, evalRunId);
-  core.info(`Triggered eval run: ${evalRunId}`);
 
   const runUrl = evalRunUrl(config.projectId, evalRunId);
   core.setOutput('run-id', evalRunId);
@@ -33,7 +47,7 @@ export async function runSchedule(): Promise<void> {
   } catch (e) {
     if (e instanceof EvalRunTimeoutError) {
       core.setOutput('status', 'timeout');
-      core.setOutput('summary', `Eval run timed out after 30 minutes. View: ${runUrl}`);
+      core.setOutput('summary', `Eval run timed out after 3.5 hours. View: ${runUrl}`);
       core.setFailed(e.message);
       return;
     }
