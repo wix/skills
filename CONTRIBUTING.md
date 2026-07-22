@@ -186,10 +186,10 @@ Use evaluation as a loop, not a one-time check. Review the failures, tighten the
 
 ### Working on the EvalForge actions themselves
 
-The EvalForge GitHub Actions (e.g. `.github/actions/evalforge-yaml-gate`) depend
-on the shared `packages/evalforge-core` package (scenario schema, EvalForge API
-client, YAML↔EvalForge mapper, auth) via a local `portal:` dependency, bundled
-into each action's committed `dist/index.js` by `ncc`. CI runs that committed
+The `.github/actions/evalforge-yaml-gate` action depends on the shared
+`packages/evalforge-core` package (scenario schema, EvalForge API client,
+YAML↔EvalForge mapper, auth) via a local `portal:` dependency, bundled into the
+action's committed `dist/index.js` by `ncc`. CI runs that committed
 bundle directly — there's no `yarn install`/build step in CI — so if you change
 code in `packages/evalforge-core`, build the package first, then rebuild and
 commit the consuming action's `dist`:
