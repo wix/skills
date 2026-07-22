@@ -296,6 +296,32 @@ curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
   }'
 ```
 
+### Set SEO Focus Keywords
+
+If the product has never had `seoData.settings` set before (most products, unless SEO was configured earlier), a PATCH that sets **only** `seoData.settings.keywords` fails with `400 INVALID_PATCH: "Invalid patch. Patch failed due to missing hierarchies"`. Always include `preventAutoRedirect` alongside `keywords` the first time you write to `seoData.settings` on a product to avoid this:
+
+```bash
+curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: <AUTH>" \
+  -d '{
+    "product": {
+      "id": "{productId}",
+      "revision": "{currentRevision}",
+      "seoData": {
+        "settings": {
+          "preventAutoRedirect": false,
+          "keywords": [
+            { "term": "focus keyword", "isMain": true }
+          ]
+        }
+      }
+    }
+  }'
+```
+
+Once `seoData.settings` exists on the product (confirm via [Get Product](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/get-product)), subsequent PATCHes to `seoData.settings.keywords` alone work fine.
+
 ## Important Notes
 
 - To update array fields like `options`, `modifiers`, `variantsInfo.variants`, and any others, pass the entire existing array. Passing only the changed item overwrites the whole array.
@@ -315,4 +341,5 @@ curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
 | `choicesSettings must not be empty` | Missing choices array | Include full `choicesSettings.choices` array |
 | `Missing product option choices` | Variant references non-existent option | Use `optionChoiceNames` with exact option and choice names |
 | `price must not be empty` | A variant was created or replaced without a price | Include `price.actualPrice.amount` on every new variant |
+| `Invalid patch. Patch failed due to missing hierarchies` (`INVALID_PATCH`) | Patched `seoData.settings.keywords` alone on a product with no `seoData.settings` yet | Include `seoData.settings.preventAutoRedirect` in the same PATCH the first time you write to `seoData.settings` |
 | `Missing option choices` or `INVALID_DEFAULT_VARIANT` | Product has options but at least one variant has no matching choices | Rebuild `variantsInfo.variants` so every variant includes choices for all product options |
