@@ -217,4 +217,93 @@ describe('toEvalForgeBody', () => {
       bootstrap: { steps: [{ method: 'POST', url: 'https://x', body: { a: 1 } }] },
     });
   });
+
+  it('maps skill_was_called: JSON-stringifies skillNames and referenceFiles', () => {
+    const s: Scenario = {
+      ...scenario,
+      assertions: [{
+        type: 'skill_was_called',
+        skillNames: ['wix-app', 'wds-docs'],
+        referenceFiles: { 'wix-app': ['SKILL.md'] },
+        negate: true,
+      }],
+    };
+    const [l] = toEvalForgeBody(s).assertionLinks;
+    expect(l.assertionId).toBe('system:skill_was_called');
+    expect(typeof l.params?.skillNames).toBe('string');
+    expect(JSON.parse(String(l.params?.skillNames))).toEqual(['wix-app', 'wds-docs']);
+    expect(typeof l.params?.referenceFiles).toBe('string');
+    expect(JSON.parse(String(l.params?.referenceFiles))).toEqual({ 'wix-app': ['SKILL.md'] });
+    expect(l.params?.negate).toBe(true);
+  });
+
+  it('maps skill_was_called with only the required field', () => {
+    const s: Scenario = {
+      ...scenario,
+      assertions: [{ type: 'skill_was_called', skillNames: ['wix-app'] }],
+    };
+    const [l] = toEvalForgeBody(s).assertionLinks;
+    expect(l).toEqual({
+      assertionId: 'system:skill_was_called',
+      params: { skillNames: '["wix-app"]' },
+    });
+  });
+
+  it('maps build_passed with fields set', () => {
+    const s: Scenario = {
+      ...scenario,
+      assertions: [{
+        type: 'build_passed',
+        command: 'yarn build',
+        expectedExitCode: 0,
+        negate: false,
+      }],
+    };
+    const [l] = toEvalForgeBody(s).assertionLinks;
+    expect(l).toEqual({
+      assertionId: 'system:build_passed',
+      params: { command: 'yarn build', expectedExitCode: 0, negate: false },
+    });
+  });
+
+  it('maps build_passed with no fields to a link with no params', () => {
+    const s: Scenario = {
+      ...scenario,
+      assertions: [{ type: 'build_passed' }],
+    };
+    const [l] = toEvalForgeBody(s).assertionLinks;
+    expect(l).toEqual({ assertionId: 'system:build_passed' });
+  });
+
+  it('maps token_count', () => {
+    const s: Scenario = {
+      ...scenario,
+      assertions: [{ type: 'token_count', maxTokens: 4096 }],
+    };
+    const [l] = toEvalForgeBody(s).assertionLinks;
+    expect(l).toEqual({
+      assertionId: 'system:token_count',
+      params: { maxTokens: 4096 },
+    });
+  });
+
+  it('maps llm_judge with browserTools, scoringMode, and parameters', () => {
+    const s: Scenario = {
+      ...scenario,
+      assertions: [{
+        type: 'llm_judge',
+        prompt: 'judge {{output}}',
+        scoringMode: 'boolean',
+        browserTools: true,
+        parameters: [{ name: 'foo', label: 'Foo', type: 'string', required: true }],
+      }],
+    };
+    const [l] = toEvalForgeBody(s).assertionLinks;
+    expect(l.params?.scoringMode).toBe('boolean');
+    expect(l.params?.browserTools).toBe(true);
+    expect(typeof l.params?.parameters).toBe('string');
+    expect(JSON.parse(String(l.params?.parameters))).toEqual([
+      { name: 'foo', label: 'Foo', type: 'string', required: true },
+    ]);
+  });
 });

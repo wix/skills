@@ -1,8 +1,8 @@
 import {
-  isApiCall, isCost, isLlmJudge, isTimeLimit,
-  type ApiCallAssertion, type Assertion, type CostAssertion,
+  isApiCall, isBuildPassed, isCost, isLlmJudge, isSkillWasCalled, isTimeLimit, isTokenCount,
+  type ApiCallAssertion, type Assertion, type BuildPassedAssertion, type CostAssertion,
   type LlmJudgeAssertion, type Scenario, type SiteBootstrapStep, type SiteSetup,
-  type TimeLimitAssertion,
+  type SkillWasCalledAssertion, type TimeLimitAssertion, type TokenCountAssertion,
 } from './schema';
 
 // EvalForge v1 TestScenario uses assertionLinks (system-assertion references with primitive params)
@@ -14,6 +14,9 @@ const SYSTEM_LLM_JUDGE = 'system:llm_judge';
 const SYSTEM_API_CALL = 'system:api_call';
 const SYSTEM_COST = 'system:cost';
 const SYSTEM_TIME_LIMIT = 'system:time_limit';
+const SYSTEM_SKILL_WAS_CALLED = 'system:skill_was_called';
+const SYSTEM_BUILD_PASSED = 'system:build_passed';
+const SYSTEM_TOKEN_COUNT = 'system:token_count';
 
 type LinkParams = Record<string, string | number | boolean | null>;
 
@@ -88,6 +91,9 @@ function mapAssertion(a: Assertion): ScenarioAssertionLink {
   if (isApiCall(a)) return mapApiCall(a);
   if (isCost(a)) return mapCost(a);
   if (isTimeLimit(a)) return mapTimeLimit(a);
+  if (isSkillWasCalled(a)) return mapSkillWasCalled(a);
+  if (isBuildPassed(a)) return mapBuildPassed(a);
+  if (isTokenCount(a)) return mapTokenCount(a);
   return mapToolCall(a);
 }
 
@@ -106,8 +112,34 @@ function mapLlmJudge(a: LlmJudgeAssertion): ScenarioAssertionLink {
   if (a.model !== undefined) params.model = a.model;
   if (a.maxTokens !== undefined) params.maxTokens = a.maxTokens;
   if (a.temperature !== undefined) params.temperature = a.temperature;
+  if (a.scoringMode !== undefined) params.scoringMode = a.scoringMode;
+  if (a.browserTools !== undefined) params.browserTools = a.browserTools;
+  if (a.parameters !== undefined) params.parameters = JSON.stringify(a.parameters);
   if (a.negate !== undefined) params.negate = a.negate;
   return { assertionId: SYSTEM_LLM_JUDGE, params };
+}
+
+function mapSkillWasCalled(a: SkillWasCalledAssertion): ScenarioAssertionLink {
+  const params: LinkParams = { skillNames: JSON.stringify(a.skillNames) };
+  if (a.referenceFiles !== undefined) params.referenceFiles = JSON.stringify(a.referenceFiles);
+  if (a.negate !== undefined) params.negate = a.negate;
+  return { assertionId: SYSTEM_SKILL_WAS_CALLED, params };
+}
+
+function mapBuildPassed(a: BuildPassedAssertion): ScenarioAssertionLink {
+  const params: LinkParams = {};
+  if (a.command !== undefined) params.command = a.command;
+  if (a.expectedExitCode !== undefined) params.expectedExitCode = a.expectedExitCode;
+  if (a.negate !== undefined) params.negate = a.negate;
+  return Object.keys(params).length > 0
+    ? { assertionId: SYSTEM_BUILD_PASSED, params }
+    : { assertionId: SYSTEM_BUILD_PASSED };
+}
+
+function mapTokenCount(a: TokenCountAssertion): ScenarioAssertionLink {
+  const params: LinkParams = { maxTokens: a.maxTokens };
+  if (a.negate !== undefined) params.negate = a.negate;
+  return { assertionId: SYSTEM_TOKEN_COUNT, params };
 }
 
 function mapApiCall(a: ApiCallAssertion): ScenarioAssertionLink {
