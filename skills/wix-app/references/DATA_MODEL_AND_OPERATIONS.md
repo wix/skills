@@ -37,6 +37,16 @@ If a manager must assign a relationship from the dashboard, implement a discover
 3. refresh the table/detail surface;
 4. communicate failure without losing context.
 
+## 4. Mutation Readiness
+
+Treat the availability of every write action as part of the workflow, not as decoration. A create, save, assign, resolve, or status-change action must be enabled only when a meaningful, valid mutation can be persisted.
+
+- Capture the loaded value as the initial state and derive a semantic `isDirty`/`canSave` value from the current form state.
+- Disable the action when there is no meaningful change, required input is invalid or absent, or a request is already in flight.
+- Allow an intentional clear of an existing optional value when that is a valid persisted change; reverting a new value back to its original value is not a change.
+- Guard the write handler as well as the control. A no-op click must not issue a data write.
+- After success, refresh the initial state or close the workflow; after recoverable failure, preserve the entered value and restore the action only when the mutation remains valid.
+
 ## Data Contract
 
 Before building a table that combines records, write down the source collection, target collection, reference field, required display fields, missing-value treatment, and mutation path. Do not rely on implied naming such as `classRef` without verifying the actual schema.

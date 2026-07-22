@@ -10,7 +10,7 @@ Read [AUTO_PATTERNS_DASHBOARD.md](AUTO_PATTERNS_DASHBOARD.md) Part B and only th
 
 - **APC-01:** Treat `patterns.json` as ownership evidence. Inspect configuration and registered overrides before editing.
 - **APC-02:** Change content, layouts, columns, actions, and page configuration in `patterns.json` when supported.
-- **APC-03:** Put action, column, component, header, section, and slot overrides in their documented separate files and register them through the existing page component.
+- **APC-03:** Put action, column, component, header, section, and slot overrides in their documented separate files and register them through the existing page component. Keep the Auto Patterns collection page as owner when adding a contextual SidePanel child, Dashboard Modal action, or linked entity-page input flow.
 - **APC-04:** Do not hand-write UI in the generated page component or create a second page component.
 - **APC-05:** If no documented configuration, slot, or override supports the requested capability, record the missing path and move the entire physical page to a custom Dashboard Page or split the workflow. Do not partially replace the generated lifecycle.
 

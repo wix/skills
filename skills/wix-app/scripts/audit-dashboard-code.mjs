@@ -93,6 +93,19 @@ function mountsSidePanel(content) {
   return [...sidePanelComponents].some((name) => new RegExp(`<${name}\\b`).test(content));
 }
 
+function selectionCallbackUsesSelectedRows(content) {
+  const callbackNames = [
+    ...content.matchAll(/\bonSelectionChanged\s*=\s*\{\s*([A-Za-z_$][\w$]*)\s*\}/g),
+  ].map((match) => match[1]);
+
+  return callbackNames.some((name) => {
+    const declaration = new RegExp(
+      `(?:function\\s+${name}\\s*\\([^)]*\\)|(?:const|let|var)\\s+${name}\\s*=\\s*(?:\\([^)]*\\)|[A-Za-z_$][\\w$]*)\\s*=>)[\\s\\S]{0,1200}?selectedRows`,
+    );
+    return declaration.test(content);
+  }) || /\bonSelectionChanged\s*=\s*\{\s*(?:\([^)]*\)|[A-Za-z_$][\w$]*)\s*=>[\s\S]{0,1200}?selectedRows/.test(content);
+}
+
 for (const filePath of files) {
   const content = contents.get(filePath);
   const hasSidePanel = /<SidePanel\b/.test(content);
@@ -154,6 +167,16 @@ for (const filePath of files) {
   );
 
   if (/<Table\b/.test(content)) {
+    if (/\bshowSelection(?:=|\b)/.test(content) && /\bonSelectionChanged=/.test(content) && selectionCallbackUsesSelectedRows(content)) {
+      addFinding(
+        filePath,
+        content,
+        content.indexOf('onSelectionChanged'),
+        'CT-08',
+        'Controlled WDS Table selection receives an ID array in onSelectionChanged; do not read selectedRows from that callback.',
+      );
+    }
+
     if (/<Table\.EmptyState\b/.test(content) && !/<Table\.Content\b/.test(content)) {
       addFinding(
         filePath,

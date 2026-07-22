@@ -24,18 +24,18 @@ For every dashboard request, read [DASHBOARD_ROUTING.md](references/DASHBOARD_RO
 
 | Route | Playbook |
 | --- | --- |
-| New supported one-collection manager | [DASHBOARD_AUTO_PATTERNS_PLAYBOOK.md](references/DASHBOARD_AUTO_PATTERNS_PLAYBOOK.md) |
+| New supported one-collection manager, including contextual record detail, entity-page inputs, or bounded action overlays | [DASHBOARD_AUTO_PATTERNS_PLAYBOOK.md](references/DASHBOARD_AUTO_PATTERNS_PLAYBOOK.md) |
 | Change an existing page with `patterns.json` | [DASHBOARD_AUTO_PATTERNS_CHANGE_PLAYBOOK.md](references/DASHBOARD_AUTO_PATTERNS_CHANGE_PLAYBOOK.md) |
 | Custom or multi-source WDS table with no analytics regions | [DASHBOARD_CUSTOM_TABLE_PLAYBOOK.md](references/DASHBOARD_CUSTOM_TABLE_PLAYBOOK.md) |
-| Custom table with selected-record detail and no analytics regions | [DASHBOARD_CUSTOM_TABLE_PANEL_PLAYBOOK.md](references/DASHBOARD_CUSTOM_TABLE_PANEL_PLAYBOOK.md) |
+| Unsupported custom table with selected-record detail and no analytics regions | [DASHBOARD_CUSTOM_TABLE_PANEL_PLAYBOOK.md](references/DASHBOARD_CUSTOM_TABLE_PANEL_PLAYBOOK.md) |
 | KPIs, charts, calculated summaries, or multiple page regions, including table + panel pages | [DASHBOARD_ANALYTICS_PLAYBOOK.md](references/DASHBOARD_ANALYTICS_PLAYBOOK.md) |
 | Focused blocking task | [DASHBOARD_MODAL_PLAYBOOK.md](references/DASHBOARD_MODAL_PLAYBOOK.md) |
 
 The selected playbook owns the behavioral contract and acceptance criteria. Detailed extension, SDK, and WDS documentation owns exact APIs. Do not load other dashboard playbooks unless the selected playbook explicitly requires one for a combined surface.
 
-## Auto Patterns Fallback Gate
+## Auto Patterns Extension And Fallback Gate
 
-Auto Patterns is a capability check, not a substitute for component guidance. When a required surface is absent from its documented configuration or override path, record the unsupported capability and read [DASHBOARD_WDS_COMPONENT_GATE.md](references/DASHBOARD_WDS_COMPONENT_GATE.md) before writing custom JSX. The gate names the exact WDS documentation required for SidePanel, Modal, charts, and other dashboard surfaces.
+Auto Patterns is the mandatory first route for a new one-collection manager. A contextual SidePanel, Dashboard Modal action, or structured input flow does not make the table custom by itself: first use the documented Auto Patterns row-action/AppContext, Dashboard Modal action, or entity-page path. Read [DASHBOARD_WDS_COMPONENT_GATE.md](references/DASHBOARD_WDS_COMPONENT_GATE.md) when that documented extension needs the exact WDS composition. Only when a required capability is absent from its documented configuration or override path may the agent record it as unsupported and build a custom dashboard surface.
 
 ## Extension Directory
 

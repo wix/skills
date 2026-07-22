@@ -55,6 +55,8 @@ type CustomActionCollectionPageActionOnRowClickResolver = (params: {
 - **MUST** implement row click resolvers using `CustomActionCollectionPageActionOnRowClickResolver` returning `ResolvedAction`.
 - **MUST** place onRowClick resolvers in `components/actions/` folder (same as other custom actions).
 - **MUST** register onRowClick resolvers via `useActions` hook pattern (see **custom_actions_override**).
+- **MUST** use `actionParams.item` to open contextual record detail. The resolver may call a page-owned `openItem(item)` callback, but must not rebuild the collection table or own a parallel data lifecycle.
+- **SHOULD** use the linked entity page for structured create or edit inputs. Use a contextual SidePanel only for detail, inspection, assignment, or a small verified mutation while retaining collection context.
 - **NEVER** mix `create` logic with `custom` action types.
 - **NEVER** assume `schema` or `optimisticActions` exist without checking.
 

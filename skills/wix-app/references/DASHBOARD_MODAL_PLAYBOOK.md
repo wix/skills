@@ -12,8 +12,8 @@ Read [DASHBOARD_MODAL.md](DASHBOARD_MODAL.md), [DASHBOARD_WDS_COMPONENT_GATE.md]
 - **DM-02:** Keep the task focused and bounded. Use a SidePanel for non-blocking selected-record context and Drawer for mobile sliding work.
 - **DM-03:** Use the documented modal header, content, and footer composition. Secondary actions precede a right-aligned primary action.
 - **DM-04:** Give one element ownership of scrolling. Constrain the surface to its documented viewport behavior; only Content scrolls when necessary, and horizontal overflow is forbidden.
-- **DM-05:** Validate inputs, preserve entered data on recoverable failure, communicate success, and intentionally close or return a result to the caller.
+- **DM-05:** Apply the mutation-readiness contract from [DATA_MODEL_AND_OPERATIONS.md](DATA_MODEL_AND_OPERATIONS.md#4-mutation-readiness): validate inputs, disable a no-op or invalid save, preserve entered data on recoverable failure, communicate success, and intentionally close or return a result to the caller.
 
 ## Acceptance
 
-Open the modal from its real caller, complete and cancel the task, test validation and request failure, and verify focus, content containment, footer visibility, console, network, and persisted result.
+Open the modal from its real caller, complete and cancel the task, test initial, changed, reverted, saving, validation, and request-failure states, and verify focus, content containment, footer visibility, console, network, and persisted result.

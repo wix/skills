@@ -277,7 +277,7 @@ Use the topic index below to find the right reference file for your change:
 | Entity page edit mode actions, moreActions, custom entity actions                | edit mode actions, moreActions, duplicate, clone                                    | [entity-page-actions.md](auto-patterns-dashboard/entity-page-actions.md)               |
 | Entity page view mode actions, primaryActions, secondaryActions                  | view mode actions, read-only entity actions, navigation actions                     | [entity-page-view-actions.md](auto-patterns-dashboard/entity-page-view-actions.md)     |
 | ResolvedAction interface, common return type for custom actions                  | ResolvedAction, label, icon, onClick, disabled, hidden, tooltip, skin               | [resolved-action.md](auto-patterns-dashboard/resolved-action.md)                       |
-| AppContext hook, shared collection data, refresh functionality                   | useAppContext, items, refreshCollection                                             | [app-context.md](auto-patterns-dashboard/app-context.md)                               |
+| AppContext hook, shared collection data, refresh functionality, panel child       | useAppContext, items, refreshCollection, SidePanel                                  | [app-context.md](auto-patterns-dashboard/app-context.md)                               |
 | SDK utilities, optimistic actions, schema access                                 | AutoPatternsSDK, optimisticActions, getSchema, createOne, updateOne, deleteOne      | [sdk-utilities.md](auto-patterns-dashboard/sdk-utilities.md)                           |
 | Custom action resolvers, action overrides, useActions hook                       | custom actions, action resolver, useActions, ResolvedAction                         | [custom-actions-override.md](auto-patterns-dashboard/custom-actions-override.md)       |
 | Column rendering overrides, IColumnValue, custom column display                  | column override, IColumnValue, useColumns, custom rendering                         | [custom-columns-override.md](auto-patterns-dashboard/custom-columns-override.md)       |
@@ -317,8 +317,10 @@ Do NOT use this skill when:
 
 - User needs multi-collection data display → return to [DASHBOARD_ROUTING.md](DASHBOARD_ROUTING.md) and choose the custom-dashboard route
 - User needs embedded script configuration → see [EMBEDDED_SCRIPT.md](EMBEDDED_SCRIPT.md)
-- User needs custom business logic or external APIs → return to [DASHBOARD_ROUTING.md](DASHBOARD_ROUTING.md) and choose the custom-dashboard route
-- User needs a modal/popup → see [OVERLAYS.md](OVERLAYS.md) and name the exact primitive
+- User needs custom business logic or external APIs that cannot be implemented through a documented action, override, or child component → return to [DASHBOARD_ROUTING.md](DASHBOARD_ROUTING.md) and choose the custom-dashboard route
+- User needs contextual record detail → preserve the Auto Patterns collection page and use its documented row-action/AppContext extension with the WDS SidePanel primitive in [OVERLAYS.md](OVERLAYS.md)
+- User needs structured inputs → use the linked Auto Patterns entity page before considering an overlay
+- User needs a focused blocking confirmation or isolated input → see [OVERLAYS.md](OVERLAYS.md) and use the documented Dashboard Modal action path
 - User needs backend endpoints → see [BACKEND_API.md](BACKEND_API.md)
 
 ---

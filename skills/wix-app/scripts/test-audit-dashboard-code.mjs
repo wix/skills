@@ -80,6 +80,16 @@ export default function CapacityPlanner() {
   </Table>;
 }`,
   );
+  write(
+    badRoot,
+    'BrokenSelectionTable.tsx',
+    `export default function BrokenSelectionTable() {
+  const handleSelectionChanged = (selection) => {
+    setSelectedIds((selection.selectedRows ?? []).map((row) => row._id));
+  };
+  return <Table showSelection selectedIds={selectedIds} onSelectionChanged={handleSelectionChanged} />;
+}`,
+  );
 
   write(
     goodRoot,
@@ -88,8 +98,9 @@ export default function CapacityPlanner() {
   return <div style={{ position: 'fixed', top: 0, right: 0, bottom: 0, zIndex: 1000, display: 'flex', alignItems: 'stretch' }}>{children}</div>;
 }
 export default function Dashboard() {
+  const [selectedIds, setSelectedIds] = useState([]);
   return <>
-    <Table onRowClick={() => {}} isRowActive={() => false} columns={[{ width: '82%' }, { width: '18%' }]}>
+    <Table showSelection selectedIds={selectedIds} onSelectionChanged={setSelectedIds} onRowClick={() => {}} isRowActive={() => false} columns={[{ width: '82%' }, { width: '18%' }]}>
       <TableActionCell primaryAction={{ text: 'View', onClick: () => {} }} />
     </Table>
     <DashboardSidePanelHost>
@@ -105,7 +116,7 @@ export default function Dashboard() {
 
   const bad = spawnSync(process.execPath, [auditPath, badRoot], { encoding: 'utf8' });
   const badOutput = `${bad.stdout}\n${bad.stderr}`;
-  const expectedRules = ['CT-10', 'CT-11', 'TP-01', 'TP-03', 'TP-05', 'TP-08', 'TP-10', 'TP-11', 'AN-11'];
+  const expectedRules = ['CT-08', 'CT-10', 'CT-11', 'TP-01', 'TP-03', 'TP-05', 'TP-08', 'TP-10', 'TP-11', 'AN-11'];
   const missedRules = expectedRules.filter((rule) => !badOutput.includes(rule));
   if (bad.status === 0 || missedRules.length) {
     console.error('Dashboard audit self-test failed to reject the bad fixture.');

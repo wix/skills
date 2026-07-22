@@ -14,14 +14,29 @@ Read [AUTO_PATTERNS_DASHBOARD.md](AUTO_PATTERNS_DASHBOARD.md) for generation, co
 | Custom displayed field or column | [custom-columns-override.md](auto-patterns-dashboard/custom-columns-override.md) |
 | Custom section, header, or slot | [custom-sections-override.md](auto-patterns-dashboard/custom-sections-override.md), [custom-header-override.md](auto-patterns-dashboard/custom-header-override.md), or [custom-slots-override.md](auto-patterns-dashboard/custom-slots-override.md) |
 | External child component needs collection data or refresh | [app-context.md](auto-patterns-dashboard/app-context.md) |
+| Contextual desktop record detail | [collection-page-actions.md](auto-patterns-dashboard/collection-page-actions.md), [custom-actions-override.md](auto-patterns-dashboard/custom-actions-override.md), and [app-context.md](auto-patterns-dashboard/app-context.md); then retrieve the WDS `SidePanel` documentation through [DASHBOARD_WDS_COMPONENT_GATE.md](DASHBOARD_WDS_COMPONENT_GATE.md) |
+| Structured create or edit inputs | [entity-page.md](auto-patterns-dashboard/entity-page.md) and the relevant entity-page action reference |
+| Focused confirmation or isolated blocking input | a documented Auto Patterns action plus [DASHBOARD_MODAL_PLAYBOOK.md](DASHBOARD_MODAL_PLAYBOOK.md) |
 
 ## Route Contract
 
 - **AP-01:** Mark each requested capability `supported`, `supported-via-override`, or `unsupported`, with the checked documentation target.
-- **AP-02:** Use Auto Patterns only when the whole physical page has a documented configuration or override path. Do not mix an unsupported chart, join, SidePanel, or custom data surface into the page without a documented slot/override composition.
+- **AP-02:** Use Auto Patterns when the collection manager and every extension of its physical workflow have a documented configuration or override path. A contextual WDS `SidePanel` is supported-via-override when a documented row action sets the selected record and the panel is an `AutoPatternsApp` child with AppContext/refresh access. A Dashboard Modal is supported as a bounded action launched through the dashboard API. Do not mix an unsupported chart, join, or custom data surface into the page without a documented composition path.
 - **AP-03:** A Table/Grid switch, row action, derived display, or named workset is not automatically unsupported. Check its focused reference before falling back; record that exact file in the capability decision.
 - **AP-04:** Auto Patterns documents Table and Grid. Do not promise the native CMS layout menu, List layout, custom layout labels, or a configurable initial layout unless the installed docs explicitly support them.
 - **AP-05:** Do not read or select a custom WDS dashboard playbook until this evaluation records the first `unsupported` capability. A new one-collection manager stays on this route when every requested capability is `supported` or `supported-via-override`.
+
+## Extension Choice
+
+Keep Auto Patterns as the owner of the collection table, layouts, filters, selection, CRUD, and refresh lifecycle. Add only the narrow supplemental surface required by the workflow:
+
+| Need | Auto Patterns extension |
+| --- | --- |
+| Inspect or resolve one selected record while retaining table context | Custom row/action override opens a WDS `SidePanel` child of `AutoPatternsApp`. The panel reads the selected item and calls `refreshCollection` after mutation. |
+| Create or edit several fields with validation, field layout, and save behavior | Link the collection page to an Auto Patterns `entityPage`; use its `edit` mode and documented form/component overrides. |
+| Confirm a destructive or bounded action | Launch a Dashboard Modal from a documented custom action. Do not replace the Auto Patterns collection page with a custom WDS page. |
+
+The overlay or entity page is a secondary extension, not evidence that the table itself should be rebuilt in WDS.
 
 ## Canonical Auto Patterns Profile: Inventory Manager
 

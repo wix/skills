@@ -25,7 +25,7 @@ Record the source of truth, join/transformation, visible columns, exact filter v
 - **CT-05:** Keep `TableActionCell` in a dedicated final column using documented sizing and behavior. A labeled action always reserves non-zero space; budget preceding columns so its text and focus ring remain visible.
 - **CT-06:** Precompute result-count copy as one string before passing it to a toolbar label. Do not compose adjacent JSX text fragments.
 - **CT-07:** Use no more than three visible filters. Submitted values must match stored values exactly.
-- **CT-08:** Selecting rows replaces normal toolbar actions with selected count and applicable bulk actions; it does not replace column headers.
+- **CT-08:** Controlled WDS selection uses stable row `id` values: keep `selectedIds` in state and pass the state setter directly to `Table.onSelectionChanged`, because that callback receives the selected ID array. `Table.ToolbarContainer` may expose selection context for rendering toolbar actions, but it is not the `onSelectionChanged` payload. Never read `selectedRows` from the change callback. Selecting rows replaces normal toolbar actions with selected count and applicable bulk actions; it does not replace column headers.
 - **CT-09:** Every empty, no-results, error, or permission surface includes its relevant verified recovery action: create/setup, clear filters, retry, or request access.
 - **CT-10:** If a row opens detail or performs work, expose that interaction through the documented final-column `TableActionCell`; row click and its action must invoke the same handler. Use documented hover/focus action visibility by default; a permanently visible row action requires an explicit workflow reason. Row click alone is not a sufficient visible or keyboard affordance.
 - **CT-11:** A populated table always renders the documented `<Table.Content />` branch. `Table.EmptyState` is only the source-empty or filtered-empty branch; correcting its API must never remove the populated table content.
@@ -50,7 +50,7 @@ Record the source of truth, join/transformation, visible columns, exact filter v
 ## Invalid Implementations
 
 - Custom table markup that approximates WDS behavior.
-- Hidden column headers, index-based row IDs, or filters using display labels as unverified values.
+- Hidden column headers, index-based row IDs, selection callbacks that treat selected IDs as `selectedRows`, or filters using display labels as unverified values.
 - Variable non-wrapping badge arrays in bounded cells.
 - Page-level clipping used to hide table overflow or the final action. Do not replace required table horizontal scrolling with squeezed cells, truncated controls, or zero-width action columns.
 - A blank table area used as an empty state.
