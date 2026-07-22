@@ -18,7 +18,7 @@ Content-Type: application/json
 
 For each capability in `verticals[]`, install its app by `appDefId` (these are the constants the install call needs):
 
-- **stores** → `215238eb-22a5-4c36-9e7b-e7c08025e04e`
+- **stores** → `215238eb-22a5-4c36-9e7b-e7c08025e04e`. **A 200 here does not mean the catalog version has settled** — `setup-online-store.md` STEP 0 checks and settles it before any product call; don't query/delete products until that step passes.
 - **blog** → `14bcded7-0066-7c35-14d7-466cb3f09103`
 - **forms** → `225dd912-7dea-4738-8688-4b8c6955ffc2`
 - **events** → `140603ad-af8d-84a5-2c80-a0f60cb47351`
