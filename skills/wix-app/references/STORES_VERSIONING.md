@@ -181,6 +181,54 @@ const { product } = await products.getProduct(id);  // V1 wraps in { product }
 return product;
 ```
 
+### Read product options and choices (V1 vs V3)
+
+V1 and V3 differ in **both where choices live and what the choice fields are named**. Getting this wrong causes `TS2339` at validate time.
+
+| | V1 | V3 |
+|---|---|---|
+| Options array on product | `product.productOptions` | `product.options` |
+| Option name | `option.name` | `option.name` |
+| Option type | `option.optionType` (`"color"` / `"drop_down"`) | `option.optionRenderType` (`"SWATCH_CHOICES"` / `"TEXT_CHOICES"`) |
+| **Choices array** | `option.choices` ← **directly on the option** | `option.choicesSettings?.choices` ← **nested** |
+| Choice display value | `choice.value` | `choice.name` |
+| Choice color | `choice.value` (hex string) | `choice.colorCode` |
+
+```typescript
+import { catalogVersioning, products, productsV3 } from '@wix/stores';
+
+if (v === 'V3_CATALOG') {
+  const product = await productsV3.getProduct(id);
+  for (const option of product.options ?? []) {
+    const optionName = option.name;                           // e.g. "Size"
+    const renderType = option.optionRenderType;               // "TEXT_CHOICES" | "SWATCH_CHOICES"
+    // ✅ V3: choices are NESTED under choicesSettings
+    const choices = option.choicesSettings?.choices ?? [];
+    for (const choice of choices) {
+      const label = choice.name;       // e.g. "Small"
+      const color = choice.colorCode; // HEX, only for SWATCH_CHOICES
+    }
+    // ❌ WRONG — fails tsc (TS2339) on V3
+    // option.choices        — doesn't exist on ConnectedOption
+    // option.optionValues   — doesn't exist on ConnectedOption
+  }
+} else {
+  const { product } = await products.getProduct(id);
+  for (const option of product.productOptions ?? []) {
+    // ✅ V1: choices are DIRECTLY on the option
+    const choices = option.choices ?? [];
+    for (const choice of choices) {
+      const label = choice.value;     // e.g. "Small"
+      const color = choice.value;     // hex string for color options
+    }
+  }
+}
+```
+
+**In a site plugin on a product page**: get `productId` from `widget.getProp('product-id')`, then call the appropriate version's `getProduct` — same pattern as above.
+
+---
+
 ### Create a product (single-variant, with price)
 
 ```typescript
