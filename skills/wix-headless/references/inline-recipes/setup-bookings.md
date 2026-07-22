@@ -24,7 +24,7 @@ A concise checklist for turning a freshly provisioned Wix site with the **Wix Bo
 1. **List** — `POST https://www.wixapis.com/bookings/v2/services/query` `<AUTH>` with body `{"query": {"paging": {"limit": 100}}}`; collect every `service.id`.
 2. **If any come back, delete them** — `DELETE https://www.wixapis.com/bookings/v2/services/<serviceId>` `<AUTH>` for each. If the list is empty, there's nothing to clean — move on.
 
-Delete them **yourself via the API** — never leave sample services in place or tell the user to remove them by hand in the Wix dashboard; cleaning the install's demo data is part of this setup. Doing it before you create yours keeps it unambiguous: anything present at this point is the install's leftover sample data, never your own. (The default **"Business Owner" staff resource** is a resource, **not** a service — leave it; you reuse it in STEP 1.)
+Clean the install's **own demo services** yourself via the API — that's part of this setup, so don't leave obvious sample services in place or push that work onto the user. But do **not** assume every existing service is a sample: the site may already hold the owner's **real services** (a connect/iterate run, or an owner-populated site). If what's there isn't obviously the install's demo data, or you're unsure, **do not delete it — ask the user first** (`SEED.md`: seeding is additive; deleting real content needs the owner's approval). When they clearly are install samples, delete them before creating yours. (The default **"Business Owner" staff resource** is a resource, **not** a service — leave it; you reuse it in STEP 1.)
 
 ### STEP 1: Resolve a staff resource (REQUIRED for APPOINTMENT)
 
