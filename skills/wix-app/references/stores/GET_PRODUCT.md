@@ -36,7 +36,8 @@ if (v === 'V3_CATALOG') {
     }
   }
 } else {
-  const { product } = await products.getProduct(id);
+  const res = await products.getProduct(id);
+  const product = res.product!;  // product is optional in the raw type; ! matches SDK's strict-mode guarantee
   for (const option of product.productOptions ?? []) {
     for (const choice of option.choices ?? []) {           // ✅ direct in V1
       render(option.name, choice.value);                   // value = label or hex string
@@ -88,7 +89,8 @@ if (v === 'V3_CATALOG') {
     // ❌ variant.choices['Size'] — always undefined in V3 (object map is gone)
   }
 } else {
-  const { product } = await products.getProduct(id);
+  const res = await products.getProduct(id);
+  const product = res.product!;  // product is optional in the raw type; ! matches SDK's strict-mode guarantee
   for (const variant of product.variants ?? []) {
     // V1: choices is { [optionName]: value }
     render(Object.entries(variant.choices ?? {}).map(([k, v]) => `${k}:${v}`).join(', '));
