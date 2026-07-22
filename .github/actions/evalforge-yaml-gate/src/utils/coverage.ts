@@ -2,7 +2,7 @@ import type { LoadedScenario } from './evals';
 import type { ChangedFile } from './github';
 import { normalizeUrl, isUrlShaped } from './url-normalize';
 import { AREA_RE, EVALS_AREA_RE } from './paths';
-import { isToolCall } from './schema';
+import { isToolCall } from '@wix/evalforge-core';
 
 export type { ChangedFile };
 export type Uncovered = { file: string; canonicalUrl: string; area: string };

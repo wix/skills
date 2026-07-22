@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { planCleanup } from '../src/utils/cleanup';
-import type { RemoteScenario } from '../src/utils/evalforge';
+import type { RemoteScenario } from '@wix/evalforge-core';
 import type { LoadedScenario } from '../src/utils/evals';
-import type { Scenario } from '../src/utils/schema';
+import type { Scenario } from '@wix/evalforge-core';
 
 const TAG = 'draft:wix/skills#100';
 const REPO = 'wix/skills';
