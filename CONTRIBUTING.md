@@ -199,10 +199,10 @@ commit the consuming action's `dist`:
 (cd .github/actions/evalforge-yaml-gate && yarn build)
 ```
 
-Use the `(cd <dir> && yarn <script>)` subshell form, not `yarn --cwd <dir>
-<script>` — under Corepack, `--cwd` resolves the yarn version from the real
-process cwd, so invoking it from the repo root can silently run the wrong
-yarn. See `packages/evalforge-core/README.md` for details.
+Use the `(cd DIR && yarn SCRIPT)` subshell form, not `yarn --cwd DIR SCRIPT` —
+under Corepack, `--cwd` resolves the yarn version from the real process cwd, so
+invoking it from the repo root can silently run the wrong yarn. See
+`packages/evalforge-core/README.md` for details.
 
 ## PR Checklist
 
