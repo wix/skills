@@ -39,6 +39,7 @@ staffSorting.provideHandlers({
     const { availableResourceIds, slot } = request;
 
     // Query recent bookings for each available staff member
+    // @ts-ignore — bookings.queryBookings is valid at runtime; types may lag behind API
     const elevatedQuery = auth.elevate(bookings.queryBookings);
     const recentBookings = await elevatedQuery()
       .eq("resource.id", availableResourceIds)

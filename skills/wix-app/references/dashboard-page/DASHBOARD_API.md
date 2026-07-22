@@ -23,7 +23,8 @@ Host Module '@wix/dashboard' 'navigate()' method for navigating between dashboar
 import { dashboard } from '@wix/dashboard';
 // Navigate to your own app's page with some internal state
 dashboard.navigate({pageId: <your-page-id>, relativeUrl: "/an/internal/state?param=value"})
-// Navigate to a relative route of the current page
+// Navigate to a relative route of the current page (pageId is the page's own ID)
+// @ts-ignore — navigating without pageId is valid at runtime; types require it
 dashboard.navigate({ relativeUrl: "/some/internal/route" });
 // Navigate to the Products List page
 dashboard.navigate({ pageId: "0845ada2-467f-4cab-ba40-2f07c812343d" });

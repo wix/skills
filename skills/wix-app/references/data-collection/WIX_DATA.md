@@ -231,6 +231,7 @@ await items.update("MyCollection", {
   price: 39.99,
 });
 
+// @ts-ignore — intentionally showing wrong usage for contrast
 // ❌ WRONG — three args
 await items.update("MyCollection", "item-id", { title: "x" });
 // ✅ CORRECT — _id inside data object
