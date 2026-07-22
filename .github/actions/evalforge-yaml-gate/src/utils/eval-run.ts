@@ -1,5 +1,5 @@
 import * as core from '@actions/core';
-import { TERMINAL_RUN_STATUSES, type EvalForgeClient, type EvalRunStatus, type RunStatus } from './evalforge';
+import { TERMINAL_RUN_STATUSES, type EvalForgeClient, type EvalRunStatus, type RunStatus } from '@wix/evalforge-core';
 
 function isTerminal(status: RunStatus): boolean {
   return (TERMINAL_RUN_STATUSES as readonly RunStatus[]).includes(status);

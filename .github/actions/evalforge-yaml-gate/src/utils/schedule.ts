@@ -1,5 +1,5 @@
 import * as core from '@actions/core';
-import { CODE_TAG, EvalForgeClient, evalRunUrl } from './evalforge';
+import { CODE_TAG, EvalForgeClient, evalRunUrl } from '@wix/evalforge-core';
 import { getScheduleConfig } from './config';
 import { pollUntilDone, EvalRunTimeoutError } from './eval-run';
 
