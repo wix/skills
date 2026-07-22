@@ -1,0 +1,35 @@
+name: sites/site-import-autonomous-monitoring
+description: >-
+  Verifies the agent commits to autonomous monitoring (polling ~every 30 seconds) after starting
+  a site import, without asking the user whether to keep monitoring or what to do next.
+triggerPrompt: >-
+  I want to import my Shopify store at https://my-shop.com into a new Wix site. Start the import
+  now — I'll be doing other things while it runs, just let me know when something happens.
+tags: [sites]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/account-level/sites/skills/site-import
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked to start a Wix Site Import for https://my-shop.com and said they'll be doing
+      other things while it runs. They want the agent to monitor autonomously and notify them on
+      milestones — no hand-holding required.
+
+      Pass if the response:
+      - starts the import by calling POST /v1/imports (or clearly commits to doing so immediately),
+        AND
+      - commits to monitoring autonomously — continuing to poll on its own and notifying the user
+        when something meaningful happens — WITHOUT asking the user whether they want it to keep
+        checking or what monitoring mode they prefer, AND
+      - does NOT end with a question like "would you like me to keep monitoring?", "should I keep
+        polling?", "do you want updates?", or any equivalent that requires the user to opt in to
+        continued monitoring.
+
+      Fail if the response:
+      - asks the user whether to keep monitoring / which monitoring approach they prefer, OR
+      - says it will wait for the user to check back before polling again (turn-based only with no
+        commitment to continue polling), OR
+      - requires the user to answer a question before monitoring will begin or continue.
