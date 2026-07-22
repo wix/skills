@@ -75,7 +75,7 @@ CallWixSiteAPI(
   method: "POST",
   body: {
     "aggregates": [
-      {"op":"count","field":"price"},
+      {"op":"count"},
       {"op":"min","field":"price"},
       {"op":"max","field":"price"},
       {"op":"avg","field":"profitMargin"},
@@ -87,6 +87,8 @@ CallWixSiteAPI(
   }
 )
 ```
+
+For `count`, omit `field` so the service generates `count()`, not `count(<field>)`.
 
 Save the full `categoryGroups` array as `siteData.catalogAnalytics`. From the "All Products" group extract:
 - `siteData.catalogProductCount` = `count()` value (0 if missing or call fails)
