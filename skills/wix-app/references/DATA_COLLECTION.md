@@ -11,6 +11,8 @@ Use `wix generate --params` with `extensionType: DATA_COLLECTION`. The only othe
 
 The CLI manages a shared aggregator file (`data-collections.extension.ts`) that imports every collection file and registers them in one `extensions.dataCollections({...})` builder. The aggregator and `src/extensions.ts` are updated automatically — don't edit them manually.
 
+**Exactly one data component per app.** All collections share that single `extensions.dataCollections({...})` builder — it registers as one `DATA_COMPONENT`, and Wix allows only one. Always add collections with `wix generate` (it appends to the existing builder); never hand-write a second aggregator or `extensions.dataCollections(...)` call. A duplicate fails the release with `There can be only a single [DATA_COMPONENT] per app` — if you hit it, `grep -rn "extensions.dataCollections(" src` should return exactly one match; fold the rest into it.
+
 ## App Namespace Handling
 
 **App namespace is REQUIRED** for data collections to work. The namespace scopes your collection IDs to prevent conflicts between apps.
