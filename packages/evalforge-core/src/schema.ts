@@ -28,6 +28,15 @@ const ToolCallAssertionSchema = z.object({
   negate: z.boolean().optional(),
 }).strict();
 
+const AssertionParameterSchema = z.object({
+  name: z.string().min(1),
+  label: z.string().min(1),
+  type: z.enum(['string', 'number', 'boolean']),
+  required: z.boolean(),
+  defaultValue: z.union([z.string(), z.number(), z.boolean()]).optional(),
+  advanced: z.boolean().optional(),
+}).strict();
+
 const LlmJudgeAssertionSchema = z.object({
   type: z.literal('llm_judge'),
   prompt: z.string().min(1),
@@ -35,6 +44,9 @@ const LlmJudgeAssertionSchema = z.object({
   model: z.string().optional(),
   maxTokens: z.number().int().positive().optional(),
   temperature: z.number().min(0).max(1).optional(),
+  scoringMode: z.enum(['numeric', 'boolean']).optional(),
+  browserTools: z.boolean().optional(),
+  parameters: z.array(AssertionParameterSchema).optional(),
   negate: z.boolean().optional(),
 }).strict();
 
@@ -61,12 +73,35 @@ const TimeLimitAssertionSchema = z.object({
   negate: z.boolean().optional(),
 }).strict();
 
+const SkillWasCalledAssertionSchema = z.object({
+  type: z.literal('skill_was_called'),
+  skillNames: z.array(z.string().min(1)).min(1),
+  referenceFiles: z.record(z.string(), z.array(z.string().min(1)).min(1)).optional(),
+  negate: z.boolean().optional(),
+}).strict();
+
+const BuildPassedAssertionSchema = z.object({
+  type: z.literal('build_passed'),
+  command: z.string().optional(),
+  expectedExitCode: z.number().int().optional(),
+  negate: z.boolean().optional(),
+}).strict();
+
+const TokenCountAssertionSchema = z.object({
+  type: z.literal('token_count'),
+  maxTokens: z.number().int().positive(),
+  negate: z.boolean().optional(),
+}).strict();
+
 const AssertionSchema = z.union([
   ToolCallAssertionSchema,
   LlmJudgeAssertionSchema,
   ApiCallAssertionSchema,
   CostAssertionSchema,
   TimeLimitAssertionSchema,
+  SkillWasCalledAssertionSchema,
+  BuildPassedAssertionSchema,
+  TokenCountAssertionSchema,
 ]);
 
 export type ToolCallAssertion = z.infer<typeof ToolCallAssertionSchema>;
@@ -74,6 +109,9 @@ export type LlmJudgeAssertion = z.infer<typeof LlmJudgeAssertionSchema>;
 export type ApiCallAssertion = z.infer<typeof ApiCallAssertionSchema>;
 export type CostAssertion = z.infer<typeof CostAssertionSchema>;
 export type TimeLimitAssertion = z.infer<typeof TimeLimitAssertionSchema>;
+export type SkillWasCalledAssertion = z.infer<typeof SkillWasCalledAssertionSchema>;
+export type BuildPassedAssertion = z.infer<typeof BuildPassedAssertionSchema>;
+export type TokenCountAssertion = z.infer<typeof TokenCountAssertionSchema>;
 export type Assertion = z.infer<typeof AssertionSchema>;
 
 // Optional per-scenario site provisioning. Only `template` mode is supported.
@@ -142,6 +180,18 @@ export function isTimeLimit(a: Assertion): a is TimeLimitAssertion {
 
 export function isToolCall(a: Assertion): a is ToolCallAssertion {
   return a.type === undefined || a.type === 'tool_called_with_param';
+}
+
+export function isSkillWasCalled(a: Assertion): a is SkillWasCalledAssertion {
+  return a.type === 'skill_was_called';
+}
+
+export function isBuildPassed(a: Assertion): a is BuildPassedAssertion {
+  return a.type === 'build_passed';
+}
+
+export function isTokenCount(a: Assertion): a is TokenCountAssertion {
+  return a.type === 'token_count';
 }
 
 export function parseScenario(raw: string): Scenario {

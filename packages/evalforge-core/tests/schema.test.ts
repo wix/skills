@@ -199,6 +199,129 @@ describe('parseScenario', () => {
   });
 });
 
+describe('new assertion types (EvalForge parity)', () => {
+  it('accepts a skill_was_called assertion with required fields only', () => {
+    const yaml = minimalYaml.replace(
+      /assertions:[\s\S]*$/,
+      `assertions:\n  - type: skill_was_called\n    skillNames:\n      - wix-app\n`,
+    );
+    const s = parseScenario(yaml);
+    const assertion = s.assertions[0];
+    expect(assertion.type).toBe('skill_was_called');
+    if (assertion.type === 'skill_was_called') expect(assertion.skillNames).toEqual(['wix-app']);
+  });
+
+  it('accepts a skill_was_called assertion with a referenceFiles map', () => {
+    const yaml = minimalYaml.replace(
+      /assertions:[\s\S]*$/,
+      `assertions:
+  - type: skill_was_called
+    skillNames:
+      - wix-app
+    referenceFiles:
+      wix-app:
+        - src/dashboard/page.tsx
+        - src/backend/api.ts
+`,
+    );
+    const s = parseScenario(yaml);
+    const assertion = s.assertions[0];
+    if (assertion.type !== 'skill_was_called') throw new Error('expected skill_was_called');
+    expect(assertion.referenceFiles).toEqual({
+      'wix-app': ['src/dashboard/page.tsx', 'src/backend/api.ts'],
+    });
+  });
+
+  it('rejects a skill_was_called assertion with empty skillNames', () => {
+    const yaml = minimalYaml.replace(
+      /assertions:[\s\S]*$/,
+      `assertions:\n  - type: skill_was_called\n    skillNames: []\n`,
+    );
+    expect(() => parseScenario(yaml)).toThrow(/skillNames/);
+  });
+
+  it('accepts a build_passed assertion with optional fields', () => {
+    const yaml = minimalYaml.replace(
+      /assertions:[\s\S]*$/,
+      `assertions:\n  - type: build_passed\n    command: yarn build\n    expectedExitCode: 0\n`,
+    );
+    const s = parseScenario(yaml);
+    const assertion = s.assertions[0];
+    expect(assertion.type).toBe('build_passed');
+    if (assertion.type === 'build_passed') {
+      expect(assertion.command).toBe('yarn build');
+      expect(assertion.expectedExitCode).toBe(0);
+    }
+  });
+
+  it('accepts a build_passed assertion with no optional fields', () => {
+    const yaml = minimalYaml.replace(
+      /assertions:[\s\S]*$/,
+      `assertions:\n  - type: build_passed\n`,
+    );
+    expect(() => parseScenario(yaml)).not.toThrow();
+  });
+
+  it('accepts a token_count assertion', () => {
+    const yaml = minimalYaml.replace(
+      /assertions:[\s\S]*$/,
+      `assertions:\n  - type: token_count\n    maxTokens: 10000\n`,
+    );
+    const s = parseScenario(yaml);
+    const assertion = s.assertions[0];
+    expect(assertion.type).toBe('token_count');
+    if (assertion.type === 'token_count') expect(assertion.maxTokens).toBe(10000);
+  });
+
+  it('rejects a token_count assertion with maxTokens: 0', () => {
+    const yaml = minimalYaml.replace(
+      /assertions:[\s\S]*$/,
+      `assertions:\n  - type: token_count\n    maxTokens: 0\n`,
+    );
+    expect(() => parseScenario(yaml)).toThrow(/maxTokens/);
+  });
+
+  it('accepts an llm_judge assertion with browserTools and scoringMode', () => {
+    const yaml = minimalYaml.replace(
+      /assertions:[\s\S]*$/,
+      `assertions:
+  - type: llm_judge
+    prompt: "judge it: {{output}}"
+    browserTools: true
+    scoringMode: boolean
+`,
+    );
+    const s = parseScenario(yaml);
+    const assertion = s.assertions[0];
+    if (assertion.type !== 'llm_judge') throw new Error('expected llm_judge');
+    expect(assertion.browserTools).toBe(true);
+    expect(assertion.scoringMode).toBe('boolean');
+  });
+
+  it('accepts an llm_judge assertion with parameters', () => {
+    const yaml = minimalYaml.replace(
+      /assertions:[\s\S]*$/,
+      `assertions:
+  - type: llm_judge
+    prompt: "judge it: {{output}}"
+    parameters:
+      - name: tone
+        label: Tone
+        type: string
+        required: true
+        defaultValue: friendly
+        advanced: false
+`,
+    );
+    const s = parseScenario(yaml);
+    const assertion = s.assertions[0];
+    if (assertion.type !== 'llm_judge') throw new Error('expected llm_judge');
+    expect(assertion.parameters).toEqual([
+      { name: 'tone', label: 'Tone', type: 'string', required: true, defaultValue: 'friendly', advanced: false },
+    ]);
+  });
+});
+
 describe('siteSetup (site provisioning)', () => {
   const withSiteSetup = (block: string) => `${minimalYaml}\nsiteSetup:\n${block}\n`;
 
