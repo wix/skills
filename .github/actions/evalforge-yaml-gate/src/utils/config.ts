@@ -89,6 +89,28 @@ export function getScheduleConfig(): ScheduleConfig {
   };
 }
 
+export type SyncConfig = {
+  evalforgeUrl: string;
+  projectId: string;
+  appId: string;
+  appSecret: string;
+  evalsGlob: string;
+  dryRun: boolean;
+  repo: string;
+};
+
+export function getSyncConfig(): SyncConfig {
+  return {
+    evalforgeUrl: ensureHttps(core.getInput('evalforge-url', { required: true })),
+    projectId: core.getInput('evalforge-project-id', { required: true }),
+    appId: safeGetSecret('evalforge-app-id'),
+    appSecret: safeGetSecret('evalforge-app-secret'),
+    evalsGlob: core.getInput('evals-glob', { required: true }),
+    dryRun: core.getInput('dry-run') === 'true',
+    repo: `${github.context.repo.owner}/${github.context.repo.repo}`,
+  };
+}
+
 export function getEvalConfig(): Config {
   const pr = github.context.payload.pull_request!;
   const headSha = (pr.head as { sha?: string } | undefined)?.sha;

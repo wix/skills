@@ -34650,6 +34650,9 @@ function loadScenarios(root, globPattern) {
     const found = glob_1.glob.sync(globPattern, {
         cwd: root,
         nodir: true,
+        // .action-src/** is the wix-manage two-checkout convention (a nested checkout of the
+        // action's own source), not a generic default — exclude it so its fixtures/tests aren't
+        // picked up as scenarios.
         ignore: ['**/node_modules/**', '**/dist/**', '.action-src/**'],
         posix: true,
     });
@@ -34693,10 +34696,10 @@ function reconcile(input) {
     const { local, remote, repo } = input;
     const managedTag = (0, evalforge_1.repoTagFor)(repo);
     const remoteByName = new Map(remote.map(r => [r.name, r]));
-    const localNames = new Set(local.map(l => l.name));
+    const localNames = new Set(local.map(scenario => scenario.name));
     const actions = [];
     const skipped = [];
-    for (const { scenario } of local) {
+    for (const scenario of local) {
         const tags = (0, evalforge_1.withManagedTags)(scenario.tags, repo);
         const body = (0, evalforge_mapper_1.toEvalForgeBody)(scenario);
         const match = remoteByName.get(scenario.name);
@@ -64715,11 +64718,13 @@ const gate_1 = __nccwpck_require__(2302);
 const promote_1 = __nccwpck_require__(2245);
 const cleanup_1 = __nccwpck_require__(6157);
 const schedule_1 = __nccwpck_require__(6004);
+const sync_run_1 = __nccwpck_require__(5466);
 const modes = {
     eval: gate_1.runGate,
     promote: promote_1.runPromote,
     cleanup: cleanup_1.runCleanup,
     'run-all': schedule_1.runSchedule,
+    sync: sync_run_1.runSync,
 };
 const mode = core.getInput('mode') || 'eval';
 const handler = modes[mode];
@@ -65148,6 +65153,7 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.getSimpleConfig = getSimpleConfig;
 exports.getScheduleConfig = getScheduleConfig;
+exports.getSyncConfig = getSyncConfig;
 exports.getEvalConfig = getEvalConfig;
 const core = __importStar(__nccwpck_require__(7484));
 const github = __importStar(__nccwpck_require__(3228));
@@ -65201,6 +65207,17 @@ function getScheduleConfig() {
         appId: safeGetSecret('evalforge-app-id'),
         appSecret: safeGetSecret('evalforge-app-secret'),
         runName: core.getInput('run-name') || 'scheduled-run',
+    };
+}
+function getSyncConfig() {
+    return {
+        evalforgeUrl: ensureHttps(core.getInput('evalforge-url', { required: true })),
+        projectId: core.getInput('evalforge-project-id', { required: true }),
+        appId: safeGetSecret('evalforge-app-id'),
+        appSecret: safeGetSecret('evalforge-app-secret'),
+        evalsGlob: core.getInput('evals-glob', { required: true }),
+        dryRun: core.getInput('dry-run') === 'true',
+        repo: `${github.context.repo.owner}/${github.context.repo.repo}`,
     };
 }
 function getEvalConfig() {
@@ -66419,6 +66436,117 @@ async function runSchedule() {
     core.setOutput('summary', `${pct}% pass rate — ${passed}/${totalAssertions} assertions passed, ${failed} failed`);
     if (result.status === 'failed' || failed > 0) {
         core.setFailed(`${failed} assertion(s) failed (${pct}% pass rate)`);
+    }
+}
+
+
+/***/ }),
+
+/***/ 5466:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.applyPlan = applyPlan;
+exports.runSync = runSync;
+const core = __importStar(__nccwpck_require__(7484));
+const evalforge_core_1 = __nccwpck_require__(7495);
+const config_1 = __nccwpck_require__(7799);
+const workspace_1 = __nccwpck_require__(9620);
+/**
+ * Applies a reconcile plan against EvalForge: CREATE/UPDATE/DELETE per action.
+ * In dry-run mode it only logs the actions and makes no client calls. Per-action
+ * failures are surfaced as warnings and tracked in the returned flag rather than
+ * aborting the loop, so a partial failure doesn't skip unrelated actions.
+ */
+async function applyPlan(client, projectId, plan, dryRun) {
+    let hasFailures = false;
+    for (const action of plan.actions) {
+        if (dryRun) {
+            core.info(`[dry-run] ${action.kind} ${action.name}`);
+            continue;
+        }
+        try {
+            if (action.kind === 'CREATE') {
+                const created = await client.createTestScenario(projectId, action.body, action.tags);
+                core.info(`Created scenario ${action.name} (${created.id})`);
+            }
+            else if (action.kind === 'UPDATE') {
+                await client.updateTestScenario(projectId, action.id, action.body, action.tags);
+                core.info(`Updated scenario ${action.name} (${action.id})`);
+            }
+            else {
+                await client.deleteTestScenario(projectId, action.id);
+                core.info(`Deleted scenario ${action.name} (${action.id})`);
+            }
+        }
+        catch (e) {
+            core.warning(`Sync action ${action.kind} for "${action.name}" failed: ${e instanceof Error ? e.message : String(e)}`);
+            hasFailures = true;
+        }
+    }
+    return { hasFailures };
+}
+async function runSync() {
+    const config = (0, config_1.getSyncConfig)();
+    const workspace = (0, workspace_1.workspaceRoot)();
+    const { scenarios, errors } = (0, evalforge_core_1.loadScenarios)(workspace, config.evalsGlob);
+    if (errors.length > 0) {
+        for (const e of errors)
+            core.error(`${e.path}: ${e.message}`);
+        core.setFailed(`Invalid YAML or duplicate names: ${errors.length}`);
+        return;
+    }
+    const local = Array.from(scenarios.values()).map(loaded => loaded.scenario);
+    const client = new evalforge_core_1.EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
+    const remote = await client.listTestScenarios(config.projectId);
+    const plan = (0, evalforge_core_1.reconcile)({ local, remote, repo: config.repo });
+    const createCount = plan.actions.filter(a => a.kind === 'CREATE').length;
+    const updateCount = plan.actions.filter(a => a.kind === 'UPDATE').length;
+    const deleteCount = plan.actions.filter(a => a.kind === 'DELETE').length;
+    core.info(`Sync plan for ${config.repo}: ${createCount} create, ${updateCount} update, ${deleteCount} delete, `
+        + `${plan.skipped.length} skipped (unmanaged)${config.dryRun ? ' [dry-run]' : ''}`);
+    for (const action of plan.actions)
+        core.info(`  ${action.kind} ${action.name}`);
+    for (const skip of plan.skipped)
+        core.info(`  SKIP ${skip.name} (${skip.reason})`);
+    const result = await applyPlan(client, config.projectId, plan, config.dryRun);
+    if (result.hasFailures) {
+        core.setFailed('One or more sync actions failed — see warnings above; re-run to retry');
     }
 }
 

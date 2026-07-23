@@ -2,7 +2,7 @@ name: 'EvalForge YAML Gate'
 description: 'Authors YAML scenarios in PRs and runs EvalForge evaluations against PR-version docs'
 inputs:
   mode:
-    description: 'Action mode: "eval" (default) runs the gate on a PR; "promote" applies YAML tags on PR merge; "cleanup" deletes MCP versions and restores or removes draft scenarios on PR close; "run-all" runs all production scenarios on a schedule'
+    description: 'Action mode: "eval" (default) runs the gate on a PR; "promote" applies YAML tags on PR merge; "cleanup" deletes MCP versions and restores or removes draft scenarios on PR close; "run-all" runs all production scenarios on a schedule; "sync" reconciles repo YAML scenarios into EvalForge on merge/push'
     required: false
     default: 'eval'
   github-token:
@@ -60,6 +60,14 @@ inputs:
     description: 'Name for the eval run (run-all mode only)'
     required: false
     default: 'scheduled-run'
+  evals-glob:
+    description: 'Glob for scenario YAML files to reconcile against EvalForge (required for sync mode)'
+    required: false
+    default: ''
+  dry-run:
+    description: 'Log the sync plan without applying it to EvalForge (sync mode only)'
+    required: false
+    default: 'false'
 outputs:
   status:
     description: 'Eval run terminal status: completed, failed, cancelled, timeout, or skipped (run-all mode only)'
