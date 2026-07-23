@@ -384,3 +384,25 @@ describe('siteSetup (site provisioning)', () => {
     expect(() => parseScenario(yaml)).toThrow(/site-id/);
   });
 });
+
+describe('scenario templateId', () => {
+  const base = [
+    'name: area/with-template',
+    'description: d',
+    'triggerPrompt: a long enough trigger prompt',
+    'tags: [area]',
+    'assertions:',
+    '  - type: llm_judge',
+    '    prompt: p',
+    '    minScore: 7',
+  ].join('\n');
+
+  it('accepts an optional top-level templateId', () => {
+    const s = parseScenario(base + '\ntemplateId: 8116ffa2-e212-4a74-a9f0-1738c9cbb6b1\n');
+    expect(s.templateId).toBe('8116ffa2-e212-4a74-a9f0-1738c9cbb6b1');
+  });
+  it('is valid without templateId (wix-manage scenarios omit it)', () => {
+    const s = parseScenario(base + '\n');
+    expect(s.templateId).toBeUndefined();
+  });
+});

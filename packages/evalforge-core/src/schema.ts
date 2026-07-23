@@ -141,6 +141,9 @@ export const ScenarioSchema = z.object({
   name: z.string().min(1).regex(NamePattern, 'name must match /^[a-z0-9][a-z0-9/_-]*$/'),
   description: z.string(),
   triggerPrompt: z.string().min(10),
+  // Optional scenario-level template the run scaffolds from (an EvalForge template
+  // id/alias). Distinct from `siteSetup` (which provisions a site). Omit when unused.
+  templateId: z.string().min(1).optional(),
   tags: z.array(z.string().min(1)).min(1).refine(
     tags => tags.every(t =>
       !RESERVED_TAG_PREFIXES.some(p => t.startsWith(p)) && !RESERVED_TAGS.some(r => t === r)),

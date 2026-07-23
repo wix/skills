@@ -46,6 +46,9 @@ export type EvalForgeBody = {
   name: string;
   description: string;
   triggerPrompt: string;
+  // The scenario-level template the run scaffolds from (distinct from siteSetup's
+  // provisioned-site template). Omitted when the scenario doesn't set one.
+  templateId?: string;
   assertionLinks: ScenarioAssertionLink[];
   // `toEvalForgeBody` always populates this: TEMPLATE when the scenario provisions
   // a site, NONE otherwise. Sending NONE explicitly clears any previously-set site
@@ -58,6 +61,7 @@ export function toEvalForgeBody(s: Scenario): EvalForgeBody {
     name: s.name,
     description: s.description,
     triggerPrompt: s.triggerPrompt,
+    ...(s.templateId ? { templateId: s.templateId } : {}),
     assertionLinks: s.assertions.map(mapAssertion),
     siteSetup: s.siteSetup ? mapSiteSetup(s.siteSetup) : { mode: 'NONE' },
   };

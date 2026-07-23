@@ -307,3 +307,13 @@ describe('toEvalForgeBody', () => {
     ]);
   });
 });
+
+describe('toEvalForgeBody templateId', () => {
+  it('includes templateId when the scenario sets one', () => {
+    const body = toEvalForgeBody({ ...scenario, templateId: 'blank-editor' });
+    expect(body.templateId).toBe('blank-editor');
+  });
+  it('omits templateId when the scenario has none', () => {
+    expect(toEvalForgeBody(scenario)).not.toHaveProperty('templateId');
+  });
+});
