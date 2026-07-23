@@ -1,0 +1,23 @@
+name: employee-shift-dashboard
+description: Dashboard page for store owners to manage employee shifts with a table and add-shift functionality
+triggerPrompt: |-
+  Build a dashboard page that lets store owners manage employee shifts. The page should have a table where each row is a shift with these fields: employee name, date, and hours. The store owner must be able to add new shifts to the table.
+  APP_NAMESPACE: "@mirivo/my-app31ceim", Use this namespace when creating data collections (for idSuffix scoping).
+  CODE_IDENTIFIER: "MirivoMyApp31ceim" When generating editor React component or function library extensions, use this identifier as the type prefix (e.g. type: 'MirivoMyApp31ceim"ComponentName').
+templateId: 8116ffa2-e212-4a74-a9f0-1738c9cbb6b1
+tags: [dashboard-page, data-collection, auto-patterns]
+assertions:
+  - type: skill_was_called
+    negate: false
+    skillNames: [wix-app]
+  - type: build_passed
+    command: npm run build
+  - type: llm_judge
+    model: claude-sonnet-4-6
+    minScore: 7
+    prompt: |-
+      Evaluate whether the agent created a functional dashboard page for managing employee shifts. Check: (1) There is a visible table/grid displaying shifts with columns for employee name, date, and hours. (2) There is a way to add new shifts (e.g. a form or add button). (3) New shifts appear in the table after being added. (4) The code is well-structured and the UI is usable. Score 0-10.
+  - type: time_limit
+    maxDurationMs: 180000
+  - type: cost
+    maxCostUsd: 1

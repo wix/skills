@@ -1,0 +1,27 @@
+name: shipping-fees-spi
+description: Build an app that adds fixed-cost shipping fees at checkout using the Additional Fees SPI, stores fees in a data collection, and provides a dashboard to manage them.
+triggerPrompt: |-
+  Build an app that adds fixed-cost shipping fees at checkout using the Additional Fees SPI. The app should save the fee description text and amount in a dedicated database collection. Also provide the user with a dashboard to manage these fixed fees.
+  APP_NAMESPACE: "@mirivo/my-app31ceim", Use this namespace when creating data collections (for idSuffix scoping).
+  CODE_IDENTIFIER: "MirivoMyApp31ceim" When generating editor React component or function library extensions, use this identifier as the type prefix (e.g. type: 'MirivoMyApp31ceim"ComponentName').
+templateId: 8116ffa2-e212-4a74-a9f0-1738c9cbb6b1
+tags: [spi]
+siteSetup:
+  mode: template
+  templateId: blank-editor
+assertions:
+  - type: skill_was_called
+    skillNames: [wix-app]
+    referenceFiles:
+      wix-app: [references/SERVICE_PLUGIN.md]
+  - type: build_passed
+    command: npm run build
+    expectedExitCode: 0
+  - type: cost
+    maxCostUsd: 1
+  - type: time_limit
+    maxDurationMs: 180000
+  - type: llm_judge
+    minScore: 7
+    prompt: |-
+      Evaluate whether the agent built an app that adds fixed-cost shipping fees at checkout via the Additional Fees SPI (a service plugin). Check: (1) a service plugin / SPI extension implementing the additional-fees integration is created; (2) fee description text and amount are persisted in a dedicated data collection; (3) a dashboard is provided to create/edit/delete the fixed fees; (4) the code is coherent and wires the SPI to the stored fees. Score 0-10.
