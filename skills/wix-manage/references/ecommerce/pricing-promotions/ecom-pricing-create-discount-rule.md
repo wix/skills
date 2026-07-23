@@ -17,6 +17,7 @@ layer: config
 - [Query Discount Rules](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/discounts/discount-rules/query-discount-rules)
 - [Update Discount Rule](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/discounts/discount-rules/update-discount-rule)
 - [Delete Discount Rule](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/extensions/discounts/discount-rules/delete-discount-rule)
+- [Query Data Items](https://dev.wix.com/docs/api-reference/business-solutions/cms/data-items/query-data-items) for looking up Wix Stores collection IDs from the `Stores/Collections` app collection
 
 ---
 
@@ -123,6 +124,29 @@ Filterable fields: `id`, `name`, `active`, `revision`, `created_date`, `updated_
 ```
 
 Note existing rules and their scopes to avoid stacking conflicts.
+
+---
+
+## Before creating a collection-scoped rule: resolve the Stores collection ID
+
+If the merchant names a Wix Stores collection/category but doesn't provide its ID, resolve the ID before creating the discount rule. Use the Wix Data Items API against the Stores app collection:
+
+```json
+POST https://www.wixapis.com/wix-data/v2/items/query
+{
+  "dataCollectionId": "Stores/Collections",
+  "query": {
+    "filter": {
+      "name": { "$eq": "Summer" }
+    },
+    "paging": { "limit": 100 }
+  }
+}
+```
+
+Read the collection GUID from the returned `dataItems` entry (`data._id`, or `id` if the response exposes it on the wrapper) and the display name from `data.name`. If there is no exact match, return the closest collection names/IDs and ask the merchant to choose; do not create a collection-scoped rule with a guessed ID.
+
+Do **not** use `POST https://www.wixapis.com/categories/v1/categories/query` to look up legacy Wix Stores collections. That endpoint is Catalog V3 Categories and may require the Categories app, causing `APP_NOT_INSTALLED` even when Wix Stores is installed. Use it only when the task is explicitly about Catalog V3 categories, not Stores collections used in discount scopes.
 
 ---
 
@@ -603,7 +627,7 @@ All recommendation-created rules use these fixed settings:
 | `INVALID_DISCOUNT_TYPE` | Unsupported discount type | Use `PERCENTAGE` or `FIXED_AMOUNT` |
 | Both `productIds` and `categoryIds` set | Scope mutual exclusivity violation | Use only one: ITEMS with productIds OR CATEGORY with categoryIds |
 | `productIds` empty when scope is ITEMS | Missing required IDs | Query products and provide at least 1 product UUID |
-| `categoryIds` empty when scope is CATEGORY | Missing required IDs | Call getCategoryIds to convert category names to GUIDs |
+| `categoryIds` empty when scope is CATEGORY | Missing required IDs | Query `Stores/Collections` with the Wix Data Items API to convert collection names to GUIDs |
 
 ## References
 
