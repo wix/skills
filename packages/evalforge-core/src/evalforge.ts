@@ -30,9 +30,7 @@ export type EvalRunInput = {
   projectId: string;
   agentId: string;
   scenarioIds?: string[];
-  filter?: {
-    tag: string;
-  };
+  tags?: string[];
   capabilityIds?: string[];
   capabilityVersions?: Record<string, string>;
 };
@@ -168,11 +166,18 @@ export class EvalForgeClient {
       res = await this.send(method, path, body, await this.tokens.forceRefresh(token));
     }
     if (!res.ok) {
-      const err = (await res.json().catch(() => ({}))) as { message?: string; error?: string; details?: unknown };
+      const raw = await res.text().catch(() => '');
+      let err: { message?: string; error?: string; details?: unknown } = {};
+      try {
+        err = JSON.parse(raw);
+      } catch {
+        // non-JSON body — fall through to raw
+      }
       const msg = err.message ?? err.error ?? '';
       const detail = err.details !== undefined ? ` details=${JSON.stringify(err.details)}` : '';
+      const rawSuffix = !msg && !detail && raw ? ` raw=${raw.slice(0, 500)}` : '';
       throw Object.assign(
-        new Error(`EvalForge ${method} /v1${path} → ${res.status}: ${msg}${detail}`),
+        new Error(`EvalForge ${method} /v1${path} → ${res.status}: ${msg}${detail}${rawSuffix}`),
         { status: res.status },
       ) as HttpError;
     }
@@ -328,32 +333,31 @@ export class EvalForgeClient {
     await this.request<void>('DELETE', `/projects/${enc(projectId)}/test-scenarios/${enc(id)}`);
   }
 
-  // V1 `RunEvaluation` creates AND queues the run in a single call, so this maps
-  // to that endpoint. `triggerEvalRun` below is kept as a no-op for caller
-  // compatibility (the express API needed a separate trigger; V1 does not).
+  // `POST /eval-runs/run` both creates AND starts the run in a single call — do
+  // NOT also POST /eval-runs (that leaves an extra un-triggered draft). The body
+  // is wrapped in an `evalRun` envelope (mirroring `testScenario` on scenario
+  // writes) and the server reads `evalRun.projectId`, so it must be set inside.
+  // The evaluator selects scenarios by `scenarioIds` only — tags are NOT expanded
+  // server-side, so callers must resolve tags to ids (see listTestScenariosByTag).
   async createAndRunEvalRun(projectId: string, input: EvalRunInput): Promise<EvalRunCreated> {
-    const res = await this.request<{ evalRun: { id: string; status: string } }>(
+    const res = await this.request<{ id?: string; status?: string; evalRun?: { id: string; status: string } }>(
       'POST',
       `/projects/${enc(projectId)}/eval-runs/run`,
       {
         evalRun: {
+          projectId,
           name: input.name,
           description: input.description,
           agentId: input.agentId,
+          tags: input.tags,
           scenarioIds: input.scenarioIds,
-          filter: input.filter,
           capabilityIds: input.capabilityIds,
           capabilityVersions: input.capabilityVersions,
         },
       },
     );
-    return { id: res.evalRun.id, status: normalizeStatus(res.evalRun.status) };
-  }
-
-  // No-op: V1's RunEvaluation (in createEvalRun) already queued the run. Retained
-  // so callers that follow create-then-trigger keep working unchanged.
-  async triggerEvalRun(_projectId: string, runId: string): Promise<{ evalRunId: string }> {
-    return { evalRunId: runId };
+    const run = res.evalRun ?? res;
+    return { id: run.id ?? '', status: normalizeStatus(run.status ?? '') };
   }
 
   async getEvalRun(projectId: string, runId: string): Promise<EvalRunStatus> {
