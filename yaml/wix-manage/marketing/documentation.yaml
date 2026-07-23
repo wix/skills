@@ -10,3 +10,7 @@ apiDoc:
       title: Generate a Marketing Plan and Schedule Its Posts
       docsEntry: https://dev.wix.com/docs/api-reference/business-management/marketing
       tags: [marketing]
+    - file: ../../../skills/wix-manage/references/marketing/manage-and-send-email-marketing-campaign.md
+      title: Manage, Test, and Send an Email Marketing Campaign
+      docsEntry: https://dev.wix.com/docs/api-reference/business-management/marketing/emails/email-marketing/campaign/introduction
+      tags: [marketing]
