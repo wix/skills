@@ -211,6 +211,13 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 
 ---
 
+## Multilingual
+
+### [Multilingual Translation Management](references/multilingual/multilingual-setup.md)
+**Technical:** Manages site languages and translations. Covers configuring main language, adding and removing secondary languages, making languages visible or hidden and translating content.
+
+---
+
 ## Pricing Plans
 
 ### [Create and Update Pricing Plans](references/pricing-plans/create-and-update-pricing-plans.md)
