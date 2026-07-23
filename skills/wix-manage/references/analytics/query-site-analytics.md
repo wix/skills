@@ -66,7 +66,7 @@ This guesses field names, ignores each field's `dependencies` (so those fields c
 - **Set `interval.timezone` to the site's time zone to match the Wix dashboard.** Analytics in the Wix business manager are bucketed by the site's time zone. If `interval.timezone` is omitted it defaults to **UTC**, so day boundaries shift and your numbers won't match what the owner sees in the dashboard (and the same goes for using a different time zone). Get the site's IANA time zone from `properties.timeZone` via [Get Site Properties](https://dev.wix.com/docs/api-reference/business-management/site-properties/properties/get-site-properties) (`GET https://www.wixapis.com/site-properties/v4/properties`) and pass it through.
 - **Field names must come from `Get Semantic Model`.** The `fields`, `filters[].field`, and `sort.fieldName` values must exactly match a `name` returned by the model schema (e.g. `traffic.sessions_count`). Do not guess field names.
 - **The field-name prefix is NOT the model slug.** Do not build names as `<slug>.<field>`. A model's fields often use a different prefix — e.g. the model with slug `crm-people-subscribers` exposes its measure as `people.contacts_count`, not `people_subscribers.contacts_count`. Copy the exact `name` strings from `Get Semantic Model`; inferring the prefix from the slug produces a field the model doesn't have.
-- **Read the COMPLETE schema — never sample or truncate it.** When inspecting a model in Step 2, read the full `measures` and `dimensions` lists; do not cap them with `.slice(0, N)` or otherwise return only the first few. Lists are often long and alphabetical, so a cutoff silently hides exactly the field you need (e.g. on `traffic`, a `.slice(0, 25)` drops `traffic.referrer_category_name`, `traffic.referrer_source_name`, and `traffic.visitor_type`). Choosing from a partial list re-introduces guessing — the agent assumes a missing field doesn't exist or fabricates a name. The same applies to a field's full `dependencies` array and to the model list from `List Semantic Models`.
+- **Read the COMPLETE schema — never sample or truncate it, even when you compact the returned JSON.** When inspecting a model in Step 2, the API call must fetch the full schema and preserve every entry in `measures`, `dimensions`, and `parameters`; do not cap them with `.slice(0, N)` or otherwise return only the first few. Lists are often long and alphabetical, so a cutoff silently hides exactly the field you need (e.g. on `traffic`, a `.slice(0, 25)` drops `traffic.referrer_category_name`, `traffic.referrer_source_name`, and `traffic.visitor_type`). Choosing from a partial list re-introduces guessing — the agent assumes a missing field doesn't exist or fabricates a name. If the raw `Get Semantic Model` response is too large for the tool output, repeat Step 2 and return a complete compact projection instead of the raw response: include every field's `name`, `type`, `groupSlug`, `description`, `dependencies`, and `sortable`; omit repeated verbose metadata such as `filters` until you need it for specific chosen fields. The same no-truncation rule applies to a field's full `dependencies` array and to the model list from `List Semantic Models`.
 - **A wrong field name can fail loudly OR fail silently — assume neither.** A `fields`/`filters[].field`/`sort.fieldName` value that isn't a valid model field either (a) rejects the query with a `4XX` error and a self-explanatory string code (e.g. `fieldIsInvalid`), sometimes listing the model's **available field names**, or (b) is **silently dropped** — the query returns `200` and that field just doesn't appear in `results[].fields` (same as a missing dependency). In testing, an unknown field in `fields` was silently omitted, not errored. Never rely on an error to catch a bad field. (See *Handling wrong fields* below.)
 - **Field dependencies.** A field returns data only if at least one of the field names in its `dependencies` array is also included in the same query; otherwise it's **silently omitted** from results (no error). For example, a measure may only return data when a specific dimension is also requested.
 - **Sorting a nullable measure — set `sort.nullsLast: true`.** `nullsLast` defaults to `false` and only affects **descending** (`DESC`) order. If a measure can return null and you sort it `DESC`, the null rows sort *first* — so a "top N" query surfaces nulls before your real values. Set `nullsLast: true` to push nulls to the end.
@@ -135,6 +135,56 @@ Each `Field` (in `measures`, `dimensions`, and `parameters`):
 - **Measures** are quantitative fields you aggregate (revenue, page views, order count).
 - **Dimensions** are categorical fields you group by (traffic source, country, product name).
 - **Parameters** are optional inputs that customize query behavior (currency, date granularity).
+
+### Large schemas and tool output limits
+
+Some models, especially `traffic`, have enough field metadata that returning the raw `Get Semantic Model` JSON can exceed tool output limits. Do not respond by reading only the first N fields, choosing from truncated output, or asking the user to pick from an incomplete list.
+
+Fetch the full schema as the separate Step 2 API call, then return a compact projection that still includes every field:
+
+```js
+async function() {
+  const semanticModelId = "<GUID from List Semantic Models>";
+  const { semanticModel } = await wix.request({
+    method: "GET",
+    url: `https://www.wixapis.com/analytics/semantic-model/v3/semantic-models/${semanticModelId}`,
+  });
+
+  const compactField = ({
+    name,
+    type,
+    groupSlug,
+    description,
+    dependencies = [],
+    sortable,
+  }) => ({
+    name,
+    type,
+    groupSlug,
+    description,
+    dependencies,
+    sortable,
+  });
+
+  return {
+    semanticModel: {
+      id: semanticModel.id,
+      slug: semanticModel.slug,
+      description: semanticModel.description,
+      counts: {
+        measures: semanticModel.measures.length,
+        dimensions: semanticModel.dimensions.length,
+        parameters: semanticModel.parameters.length,
+      },
+      measures: semanticModel.measures.map(compactField),
+      dimensions: semanticModel.dimensions.map(compactField),
+      parameters: semanticModel.parameters.map(compactField),
+    },
+  };
+}
+```
+
+This is still the **complete** schema for field selection because every field remains present with its exact `name` and required `dependencies`. If you need to build filters after choosing candidate fields, run another focused `Get Semantic Model` projection that returns `filters` only for those exact field names. Do not query until you have inspected the complete field list and selected exact field names from it.
 
 ## Step 3: Query the model data
 
