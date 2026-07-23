@@ -26,7 +26,7 @@ const AGENT_ENV = { ...process.env, AI_AGENT: process.env.AI_AGENT || 'wix-headl
 
 // run a command, capture stdout+stderr (combined), return {status, out}
 function capture(cmd, args, opts = {}) {
-  const r = spawnSync(cmd, args, { encoding: 'utf8', shell: false, env: AGENT_ENV, ...opts });
+  const r = spawnSync(cmd, args, { encoding: 'utf8', shell: isWin, env: AGENT_ENV, ...opts });
   return { status: r.status ?? 1, out: `${r.stdout || ''}${r.stderr || ''}`, error: r.error };
 }
 
@@ -43,7 +43,7 @@ function checkCli() {
 // ── 2. Login (human-in-the-loop device code; forward the CLI's own events) ───
 function login() {
   return new Promise((resolve) => {
-    const child = spawn(WIX[0], [...WIX.slice(1), 'login'], { shell: false, env: AGENT_ENV });
+    const child = spawn(WIX[0], [...WIX.slice(1), 'login'], { shell: isWin, env: AGENT_ENV });
     const rl = readline.createInterface({ input: child.stdout });
     let loggedIn = false;
     // Buffer the CLI's own diagnostics (stderr + any non-event stdout chatter) so a
