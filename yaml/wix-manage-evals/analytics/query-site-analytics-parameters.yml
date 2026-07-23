@@ -1,0 +1,38 @@
+name: analytics/query-site-analytics-parameters
+description: >-
+  Verifies the agent handles Semantic Model parameters as constrained context inputs and does not
+  guess invalid device type or timeframe granularity values.
+triggerPrompt: >-
+  I am querying the Site Performance semantic model through the REST API. Get Semantic Model shows
+  deviceType and timeframeGranularity under parameters. Can I filter with desktop/mobile/tablet or
+  day/month values to break down the data? Please explain the safe request shape.
+tags: [analytics]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/analytics/skills/query-site-analytics
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user wants to query the Site Performance semantic model and asks whether parameters such
+      as deviceType and timeframeGranularity can be filtered with guessed values like
+      desktop/mobile/tablet or day/month.
+
+      Pass if the response:
+      - distinguishes measures/dimensions from Semantic Model parameters, AND
+      - explains that parameter/context-filter values must come from the complete Get Semantic Model
+        parameter entry, especially its enumerations, and must be copied exactly rather than guessed, AND
+      - warns that guessed values such as desktop/mobile/tablet or day/month may cause
+        INVALID_CONTEXT_FILTER_VALUE, AND
+      - says to omit the parameter or report that the segment/granularity cannot be determined if
+        allowed values are not exposed.
+
+      Fail if the response:
+      - recommends using filters with guessed values like { field: "deviceType", values: ["desktop"] }
+        without first checking exact enumerations, OR
+      - invents a top-level parameters request field that is not in the Query Semantic Model Data
+        request schema, OR
+      - treats parameter names as ordinary returned fields or sort fields, OR
+      - gives generic analytics advice without addressing Semantic Model parameters and
+        INVALID_CONTEXT_FILTER_VALUE.

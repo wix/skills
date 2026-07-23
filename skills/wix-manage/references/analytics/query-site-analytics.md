@@ -4,7 +4,7 @@ description: Retrieve a Wix site's analytics through the Semantic Model API. Cov
 ---
 # Query Site Analytics
 
-This article shows how to read a site's analytics with the **Semantic Model API**. A semantic model describes one analytics subject area (such as site traffic, revenue, etc.) and defines the **measures**, **dimensions**, and **parameters** you can query.
+This article shows how to read a site's analytics with the **Semantic Model API**. A semantic model describes one analytics subject area (such as site traffic, revenue, etc.) and defines the **measures** and **dimensions** you can query, plus **parameters** that can customize query behavior.
 
 ## Prerequisites
 
@@ -29,13 +29,13 @@ Base path: `https://www.wixapis.com/analytics/semantic-model/v3`
 Always follow **List → Get → Query**. You cannot construct a valid query without first discovering the model's field names from `Get Semantic Model`.
 
 1. **List Semantic Models** — discover which subject areas exist and their IDs.
-2. **Get Semantic Model** — inspect a model's `measures`, `dimensions`, and `parameters` to find the exact `name` values to query and their supported filters/sorting.
+2. **Get Semantic Model** — inspect a model's `measures`, `dimensions`, and `parameters` to find the exact `name` values to query. Treat measures/dimensions as result fields, and treat parameters as constrained query inputs whose allowed values must be copied from the schema.
 3. **Query Semantic Model Data** — request specific field names for a time `interval`, with optional filters, sorting, paging, and formatting.
 
 **Run each step as its own separate API call, and stop to read the result before starting the next step.** The inputs to each step do not exist until the previous step returns:
 
 - You cannot set `semanticModelId` until **List** returns it. **Never fabricate or guess a model ID** — it must be a GUID copied verbatim from a `List Semantic Models` result. A plausible-looking GUID that List did not return will fail (`SEMANTIC_MODEL_NOT_FOUND`).
-- You cannot set `fields`, `filters[].field`, or `sort.fieldName` until you have read the schema from **Get**.
+- You cannot set `fields`, `filters[].field`, `sort.fieldName`, or any parameter/context-filter value until you have read the schema from **Get**.
 
 Choosing the model and the field names is a **reasoning** step you perform by reading the returned JSON — not something to automate with string matching. Do **not** chain List, Get, and Query into a single script/execution.
 
@@ -54,7 +54,7 @@ This guesses field names, ignores each field's `dependencies` (so those fields c
 ✅ **Do this** — three separate calls, reading each result before composing the next:
 
 1. Call **List**. Read the returned models; pick the `id` whose subject area matches the request.
-2. Call **Get** with that `id`. Read `measures`/`dimensions`/`parameters`; choose the exact `name`s you need and note each field's `dependencies`.
+2. Call **Get** with that `id`. Read `measures`/`dimensions`/`parameters`; choose the exact measure/dimension `name`s you need, note each field's `dependencies`, and copy any parameter values only from that parameter's `enumerations`.
 3. Call **Query** with the field names you chose.
 
 ## Before you begin (sharp edges)
@@ -64,7 +64,8 @@ This guesses field names, ignores each field's `dependencies` (so those fields c
 - **`interval` is start-inclusive, end-exclusive (`[start, end)`).** `start` is included, `end` is not — set `end` to the local-midnight instant of the day *after* the last day you want (e.g. for all of January, `end` is Feb 1 local midnight, in UTC).
 - **Convert local midnight → UTC per date, and watch DST.** Compute each boundary as local-midnight-in-UTC using the site's offset **for that specific date** — the offset changes with daylight saving. `America/New_York` is UTC−4 in summer (June local midnight = `04:00:00.000Z`) but UTC−5 in winter (January local midnight = `05:00:00.000Z`), so a range spanning a DST switch has *different* offsets at its two ends. Don't hardcode one offset across a range.
 - **Set `interval.timezone` to the site's time zone to match the Wix dashboard.** Analytics in the Wix business manager are bucketed by the site's time zone. If `interval.timezone` is omitted it defaults to **UTC**, so day boundaries shift and your numbers won't match what the owner sees in the dashboard (and the same goes for using a different time zone). Get the site's IANA time zone from `properties.timeZone` via [Get Site Properties](https://dev.wix.com/docs/api-reference/business-management/site-properties/properties/get-site-properties) (`GET https://www.wixapis.com/site-properties/v4/properties`) and pass it through.
-- **Field names must come from `Get Semantic Model`.** The `fields`, `filters[].field`, and `sort.fieldName` values must exactly match a `name` returned by the model schema (e.g. `traffic.sessions_count`). Do not guess field names.
+- **Field names must come from `Get Semantic Model`.** The `fields`, `filters[].field`, and `sort.fieldName` values must exactly match a supported `name` returned by the model schema (e.g. `traffic.sessions_count`). Do not guess field names.
+- **Parameters are not ordinary result fields.** `parameters` customize query behavior (for example device type, currency, or date granularity). Do not treat a parameter name as a measure/dimension to return, sort by, or filter with arbitrary guessed values. Before using a parameter as a context filter, read that parameter's `filters` and `enumerations`; copy the allowed value exactly and preserve case. If `enumerations` is empty or you did not read the complete parameter entry, do not guess values such as `desktop`, `mobile`, `tablet`, `day`, or `month`; query without that parameter or say the valid parameter value cannot be determined from the schema.
 - **The field-name prefix is NOT the model slug.** Do not build names as `<slug>.<field>`. A model's fields often use a different prefix — e.g. the model with slug `crm-people-subscribers` exposes its measure as `people.contacts_count`, not `people_subscribers.contacts_count`. Copy the exact `name` strings from `Get Semantic Model`; inferring the prefix from the slug produces a field the model doesn't have.
 - **Read the COMPLETE schema — never sample or truncate it.** When inspecting a model in Step 2, read the full `measures` and `dimensions` lists; do not cap them with `.slice(0, N)` or otherwise return only the first few. Lists are often long and alphabetical, so a cutoff silently hides exactly the field you need (e.g. on `traffic`, a `.slice(0, 25)` drops `traffic.referrer_category_name`, `traffic.referrer_source_name`, and `traffic.visitor_type`). Choosing from a partial list re-introduces guessing — the agent assumes a missing field doesn't exist or fabricates a name. The same applies to a field's full `dependencies` array and to the model list from `List Semantic Models`.
 - **A wrong field name can fail loudly OR fail silently — assume neither.** A `fields`/`filters[].field`/`sort.fieldName` value that isn't a valid model field either (a) rejects the query with a `4XX` error and a self-explanatory string code (e.g. `fieldIsInvalid`), sometimes listing the model's **available field names**, or (b) is **silently dropped** — the query returns `200` and that field just doesn't appear in `results[].fields` (same as a missing dependency). In testing, an unknown field in `fields` was silently omitted, not errored. Never rely on an error to catch a bad field. (See *Handling wrong fields* below.)
@@ -123,9 +124,9 @@ Each `Field` (in `measures`, `dimensions`, and `parameters`):
 
 | Property | Meaning |
 |---|---|
-| `name` | The exact value to use in `fields`, `filters[].field`, and `sort.fieldName`. |
+| `name` | For measures/dimensions, the exact value to use in `fields` and, only when supported, `filters[].field` or `sort.fieldName`. For parameters, the exact context input name; do not use it as a returned field or sort field. |
 | `type` | `STRING`, `NUMBER`, `BOOLEAN`, `DATE`, `DATE_TIME`, `OBJECT`, or `ARRAY`. |
-| `filters` | Supported filter `prefixes` (`IS`/`NOT`) and `conditions` (e.g. `EQUAL`, `RANGE_II`, `CONTAINS_ANY`). |
+| `filters` | Supported filter `prefixes` (`IS`/`NOT`) and `conditions` (e.g. `EQUAL`, `RANGE_II`, `CONTAINS_ANY`). For parameters, this only says which context-filter operations are supported; the value must still come from `enumerations` when the parameter is enumerated. |
 | `sortable` | Whether the field can be used in `sort`. |
 | `enumerations` | Allowed values, for enumerated fields. |
 | `dependencies` | Other field names this field needs present in the query to return data (see sharp edges). |
@@ -188,8 +189,8 @@ curl -X POST \
 |---|---|---|
 | `semanticModelId` | Yes | GUID from List/Get. |
 | `interval` | Yes | `{ start, end }` absolute UTC ISO instants (trailing `Z`), plus `timezone`. `start`/`end` are real points in time, not wall-clock in `timezone` — to capture a local calendar range set them to local-midnight-in-UTC for the site's time zone (offset varies with DST). Range is start-inclusive, end-exclusive (`[start, end)`) — set `end` to the local midnight after the last day you want. Set `timezone` to the site's IANA time zone (see Time zone section) so results align to the Wix dashboard; defaults to UTC when omitted. |
-| `fields` | Yes | Up to 60 field `name`s from the model schema. |
-| `filters` | No | Array of `{ field, values[], condition, prefix }`. `condition` defaults to `EQUAL`, `prefix` defaults to `IS`. For `RANGE_*` conditions provide exactly 2 values. |
+| `fields` | Yes | Up to 60 measure/dimension field `name`s from the model schema. |
+| `filters` | No | Array of `{ field, values[], condition, prefix }`. `field` must be a supported model field/filter. For enumerated fields or parameters, `values[]` must be copied exactly from that field's `enumerations`; do not invent lowercase or friendly labels. `condition` defaults to `EQUAL`, `prefix` defaults to `IS`. For `RANGE_*` conditions provide exactly 2 values. |
 | `sort` | No | `{ fieldName, order, nullsLast }`. `order` defaults to `ASC`; field must be `sortable`. `nullsLast` (default `false`) applies only to `DESC` order — set it to `true` when the sorted measure can contain nulls, otherwise nulls sort before real values. |
 | `paging` | No | `{ limit, offset }`. Defaults: `limit` 50, `offset` 0. |
 | `formattingEnabled` | No | Default `false`. Adds `formattedValue` per cell. |
@@ -271,6 +272,7 @@ Analytics questions are answered from the site's **semantic models**, discovered
 | HTTP | Code | Meaning |
 |---|---|---|
 | 4XX | `fieldIsInvalid` | A `fields`/`filters[].field`/`sort.fieldName` value doesn't exist in the model, and this query rejected it (some invalid fields are instead silently dropped from a `200` — see *Handling wrong fields*). When present, the error lists the model's **available field names** — pick the correct one and re-query. |
+| 400 | `INVALID_CONTEXT_FILTER_VALUE` | A parameter/context filter recognized the field name but rejected the supplied value (for example a guessed `deviceType` or `timeframeGranularity` value). Recovery: re-open **Get Semantic Model**, read the complete parameter entry, and retry only with a value from `enumerations` exactly as returned. If the allowed values are not exposed, omit that parameter or explain that the requested segment/granularity cannot be queried safely. |
 | 401 | `NO_ACCOUNT_IDENTITY` / `UNAUTHENTICATED` | Caller isn't authenticated; provide valid credentials. |
 | 404 | `SEMANTIC_MODEL_NOT_FOUND` | The `semanticModelId` doesn't exist for this site. |
 
@@ -284,9 +286,10 @@ Silent gap (no error): a requested field returns no data because none of its `de
 2. Pass the site's time zone (`properties.timeZone` from Get Site Properties) in `interval.timezone` **and** set `start`/`end` to local-midnight-in-UTC for that zone (DST-aware) so results match the Wix dashboard. `start`/`end` are absolute instants, not wall-clock.
 3. Include a field's `dependencies` in the query, or expect that field to be silently dropped.
 4. After each query, validate the response — confirm every requested field appears in `results[].fields`. A wrong field either errors (`4XX`, e.g. `fieldIsInvalid`) or is silently dropped from a `200`; a missing field means an unknown name or a missing dependency. Fix and re-query rather than trusting the partial result. Choose fields by reading their `description` (honoring "do not use" notes), never by name pattern.
-5. Use `formattingEnabled: true` for anything shown directly to a user; keep raw values for calculations.
-6. Use `totalsIncluded: true` to get period totals alongside a paged breakdown in a single call.
-7. Keep `fields` minimal (projection) and paginate large result sets with `offset`.
+5. For semantic-model `parameters`, use only the exact values exposed in `enumerations`; never guess common labels such as device types or date granularities. An `INVALID_CONTEXT_FILTER_VALUE` means the value is wrong, not that you should keep trying nearby guesses.
+6. Use `formattingEnabled: true` for anything shown directly to a user; keep raw values for calculations.
+7. Use `totalsIncluded: true` to get period totals alongside a paged breakdown in a single call.
+8. Keep `fields` minimal (projection) and paginate large result sets with `offset`.
 
 ## Related Documentation
 
