@@ -224,6 +224,41 @@ for (const recordPath of routeRecordPaths) {
       message: 'multi-source requires at least two physical collections or systems.',
     });
   }
+
+  if (record.route === 'analytics' && record.sourceCount === 1) {
+    const collectionOwner = record.regionOwners?.collection;
+    const usesAutoPatternsCollection =
+      patternsPaths.length > 0 && /@wix\/auto-patterns/.test(projectSource);
+    const usesCustomWdsTable = /<Table\b/.test(projectSource) && !usesAutoPatternsCollection;
+
+    if (collectionOwner === 'auto-patterns' && !usesAutoPatternsCollection) {
+      findings.push({
+        filePath: recordPath,
+        line: 1,
+        rule: 'RT-06',
+        message: 'regionOwners assigns the collection region to Auto Patterns, but patterns.json or @wix/auto-patterns source is missing.',
+      });
+    }
+
+    if (usesCustomWdsTable) {
+      const requiredTableEvidence = [
+        'tableUnsupportedCapability',
+        'tableCheckedReference',
+        'whyAutoPatternsTableCannotBeUsed',
+      ];
+      const missingTableEvidence = requiredTableEvidence.filter(
+        (key) => typeof record[key] !== 'string' || !record[key].trim(),
+      );
+      if (collectionOwner !== 'custom-wds-table' || missingTableEvidence.length) {
+        findings.push({
+          filePath: recordPath,
+          line: 1,
+          rule: 'RT-06',
+          message: `A one-source analytics page may use a custom WDS table only when regionOwners.collection is "custom-wds-table" and table-specific evidence is recorded: ${requiredTableEvidence.join(', ')}. Chart or metric fallback evidence does not transfer table ownership.`,
+        });
+      }
+    }
+  }
 }
 
 function escapeRegExp(value) {
@@ -400,6 +435,20 @@ for (const filePath of files) {
         message: 'Contextual SidePanel has no SidePanel.Footer; include a right-aligned Close button even when the detail is read-only.',
       });
     }
+
+    for (const match of content.matchAll(
+      /<SidePanel\.Footer\b[^>]*>([\s\S]*?)<\/SidePanel\.Footer>/g,
+    )) {
+      if (/<button\b/.test(match[1])) {
+        addFinding(
+          filePath,
+          content,
+          match.index,
+          'TP-14',
+          'SidePanel.Footer uses a native HTML button; use the documented WDS Button component for Close and other footer actions.',
+        );
+      }
+    }
   }
 
   report(filePath, content, 'CT-02', /titleBarVisible=\{false\}/, 'Management table explicitly hides its labeled header row.');
@@ -537,14 +586,28 @@ for (const filePath of files) {
   }
 
   const statisticsCount = (content.match(/<StatisticsWidget\b/g) || []).length;
-  const cardCount = (content.match(/<Card\b/g) || []).length;
-  if (statisticsCount > 1 && cardCount > 1 && !/<Layout\b/.test(content)) {
+  const statisticsInCard = /<Card\b[^>]*>[\s\S]{0,2400}?<StatisticsWidget\b[\s\S]{0,2400}?<\/Card>/.exec(content);
+  if (statisticsInCard) {
+    addFinding(
+      filePath,
+      content,
+      statisticsInCard.index,
+      'AN-13',
+      'StatisticsWidget already owns its contained metric surface; remove the redundant Card wrapper unless the installed WDS example explicitly requires it.',
+    );
+  }
+
+  if (
+    statisticsCount > 1
+    && /<(?:Box|Flex)\b/.test(content)
+    && !(/<Layout\b/.test(content) && /<Cell\b/.test(content))
+  ) {
     addFinding(
       filePath,
       content,
       content.indexOf('<StatisticsWidget'),
-      'AN-03',
-      'Multiple analytics cards are not composed with the documented WDS Layout/Cell grid.',
+      'AN-13',
+      'Multiple StatisticsWidget instances are manually arranged with generic layout primitives; use the documented widget composition and WDS Layout/Cell placement.',
     );
   }
 

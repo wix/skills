@@ -11,12 +11,16 @@ const auditPath = path.join(scriptDirectory, 'audit-dashboard-code.mjs');
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'wix-dashboard-audit-'));
 const badRoot = path.join(root, 'bad');
 const badAutoRoot = path.join(root, 'bad-auto');
+const badAnalyticsRoot = path.join(root, 'bad-analytics');
 const goodRoot = path.join(root, 'good');
 const autoRoot = path.join(root, 'auto');
+const hybridRoot = path.join(root, 'hybrid');
 fs.mkdirSync(badRoot);
 fs.mkdirSync(badAutoRoot);
+fs.mkdirSync(badAnalyticsRoot);
 fs.mkdirSync(goodRoot);
 fs.mkdirSync(autoRoot);
+fs.mkdirSync(hybridRoot);
 
 function write(directory, fileName, content) {
   fs.writeFileSync(path.join(directory, fileName), content);
@@ -59,6 +63,7 @@ try {
     <SidePanel.Content>Details</SidePanel.Content>
     <SidePanel.Divider />
     <SidePanel.Content>Coach</SidePanel.Content>
+    <SidePanel.Footer><button>Close</button></SidePanel.Footer>
   </SidePanel>;
 }`,
   );
@@ -76,6 +81,16 @@ export default function CapacityPlanner() {
     `export default function BrokenAnalytics() {
   const options = { responsive: true, maintainAspectRatio: true };
   return <Card><Box height="260px"><Bar options={options} /></Box></Card>;
+}`,
+  );
+  write(
+    badRoot,
+    'BrokenMetrics.tsx',
+    `export default function BrokenMetrics() {
+  return <Box>
+    <Card><StatisticsWidget items={[{ value: '1', description: 'Active' }]} /></Card>
+    <StatisticsWidget items={[{ value: '2', description: 'At risk' }]} />
+  </Box>;
 }`,
   );
   write(
@@ -119,6 +134,31 @@ export default function CapacityPlanner() {
       detailSurface: 'side-panel',
       detailSurfaceReason: 'Preserve table context while inspecting one exception',
     }),
+  );
+
+  write(
+    badAnalyticsRoot,
+    '.dashboard-route.json',
+    JSON.stringify({
+      route: 'analytics',
+      sourceCount: 1,
+      sources: ['Subscriptions'],
+      regionOwners: {
+        collection: 'custom-wds-table',
+        metrics: 'wds-statistics-widget',
+        chart: 'custom-chart',
+        detail: null,
+      },
+      firstUnsupportedCapability: 'Chart region is not supported by Auto Patterns',
+      checkedReference: 'DASHBOARD_AUTO_PATTERNS_PLAYBOOK.md',
+    }),
+  );
+  write(
+    badAnalyticsRoot,
+    'SubscriptionHealth.tsx',
+    `export default function SubscriptionHealth() {
+  return <><StatisticsWidget items={items} /><Card><Bar data={chartData} /></Card><Table data={rows} columns={columns}><Table.Content /></Table></>;
+}`,
   );
   write(
     badAutoRoot,
@@ -205,9 +245,36 @@ export default function OrderExceptions() {
 }`,
   );
 
+  write(
+    hybridRoot,
+    '.dashboard-route.json',
+    JSON.stringify({
+      route: 'analytics',
+      sourceCount: 1,
+      sources: ['Subscriptions'],
+      regionOwners: {
+        collection: 'auto-patterns',
+        metrics: 'wds-statistics-widget',
+        chart: 'custom-chart',
+        detail: null,
+      },
+      firstUnsupportedCapability: 'Chart region is not supported by Auto Patterns',
+      checkedReference: 'auto-patterns-dashboard/custom-sections-override.md',
+    }),
+  );
+  write(hybridRoot, 'patterns.json', JSON.stringify({ collection: { id: 'subscriptions' } }));
+  write(
+    hybridRoot,
+    'SubscriptionHealth.tsx',
+    `import { AutoPatternsApp } from '@wix/auto-patterns';
+export default function SubscriptionHealth() {
+  return <AutoPatternsApp><StatisticsWidget items={items} /><Card><Bar data={chartData} /></Card></AutoPatternsApp>;
+}`,
+  );
+
   const bad = spawnSync(process.execPath, [auditPath, badRoot], { encoding: 'utf8' });
   const badOutput = `${bad.stdout}\n${bad.stderr}`;
-  const expectedRules = ['RT-02', 'RT-04', 'RT-05', 'CT-08', 'CT-10', 'CT-11', 'CT-12', 'TP-01', 'TP-03', 'TP-05', 'TP-08', 'TP-10', 'TP-11', 'AN-11'];
+  const expectedRules = ['RT-02', 'RT-04', 'RT-05', 'CT-08', 'CT-10', 'CT-11', 'CT-12', 'TP-01', 'TP-03', 'TP-05', 'TP-08', 'TP-10', 'TP-11', 'TP-14', 'AN-11', 'AN-13'];
   const missedRules = expectedRules.filter((rule) => !badOutput.includes(rule));
   if (bad.status === 0 || missedRules.length) {
     console.error('Dashboard audit self-test failed to reject the bad fixture.');
@@ -226,6 +293,14 @@ export default function OrderExceptions() {
     process.exit(1);
   }
 
+  const badAnalytics = spawnSync(process.execPath, [auditPath, badAnalyticsRoot], { encoding: 'utf8' });
+  const badAnalyticsOutput = `${badAnalytics.stdout}\n${badAnalytics.stderr}`;
+  if (badAnalytics.status === 0 || !badAnalyticsOutput.includes('RT-06')) {
+    console.error('Dashboard audit self-test failed to reject analytics fallback that unnecessarily replaces an Auto Patterns table.');
+    console.error(badAnalyticsOutput.trim());
+    process.exit(1);
+  }
+
   const good = spawnSync(process.execPath, [auditPath, goodRoot], { encoding: 'utf8' });
   if (good.status !== 0) {
     console.error('Dashboard audit self-test rejected the good fixture.');
@@ -240,7 +315,14 @@ export default function OrderExceptions() {
     process.exit(1);
   }
 
-  console.log('Dashboard audit self-test passed: bad routes and no-op row detail rejected; custom and Auto Patterns fixtures accepted.');
+  const hybrid = spawnSync(process.execPath, [auditPath, hybridRoot], { encoding: 'utf8' });
+  if (hybrid.status !== 0) {
+    console.error('Dashboard audit self-test rejected the valid Auto Patterns collection with supplemental analytics regions.');
+    console.error(`${hybrid.stdout}\n${hybrid.stderr}`.trim());
+    process.exit(1);
+  }
+
+  console.log('Dashboard audit self-test passed: bad routes, native panel controls, and unnecessary custom analytics tables rejected; custom, Auto Patterns, and hybrid fixtures accepted.');
 } finally {
   fs.rmSync(root, { recursive: true, force: true });
 }
