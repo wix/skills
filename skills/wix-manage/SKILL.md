@@ -57,7 +57,7 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 **Technical:** Creates staff members and configures custom working hours using Staff API + Calendar Events API. Critical two-step process: create staff → assign schedule → create working hours events.
 
 ### [Create and Update Booking Services](references/bookings/create-and-update-booking-services.md)
-**Technical:** Full CRUD operations for Wix Bookings services using Services API. Covers service types (APPOINTMENT, CLASS, COURSE), pricing configuration, location setup, and schedule management.
+**Technical:** Full CRUD operations for Wix Bookings services using Services API. Covers service types (APPOINTMENT, CLASS, COURSE), pricing configuration, price variation troubleshooting, location setup, and schedule management.
 
 ### [Create Booking Service from Prompt](references/bookings/create-booking-service-from-prompt.md)
 **Technical:** Use when the user wants to create a booking service — e.g. "create a yoga class for $50", "set up consultations", "add a personal training appointment", "create a hidden free test course with 8 sessions". Routes to the correct type-specific recipe (APPOINTMENT, CLASS, or COURSE), gathers business context, applies defaults, and creates the service. For COURSE services with session dates/counts, the course is not bookable until separate Calendar Events are created on the returned service schedule.
