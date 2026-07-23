@@ -6,3 +6,8 @@ apiDoc:
       title: Domain Search and Purchase
       docsEntry: https://dev.wix.com/docs/api-reference/account-level/domains
       tags: [domains]
+
+    - file: ../../../skills/wix-manage/references/domains/cli-domain-suggest-and-buy.md
+      title: CLI Domain Suggest and Buy
+      docsEntry: https://dev.wix.com/docs/api-reference/account-level/domains
+      tags: [domains]

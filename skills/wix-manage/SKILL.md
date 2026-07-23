@@ -123,6 +123,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 
 ## Domains
 
+### [CLI Domain Suggest and Buy](references/domains/cli-domain-suggest-and-buy.md)
+**Technical:** Suggest available domains and start a domain purchase from the terminal using the Wix CLI `wix account domain` commands. Covers the account-level `wix account` group, the `--msid` scoping flag, JSON output, and the browser checkout handoff.
+
 ### [Domain Search and Purchase](references/domains/domain-search-and-purchase.md)
 **Technical:** Search for available domains, get domain suggestions, and generate purchase links using Domain Search V2 API. Covers availability checks, TLD filtering, and connecting domains to Wix sites.
 
