@@ -49,7 +49,12 @@ Use the returned `appId` as the `appDefId` in Step 2.
 
 ### IMPORTANT NOTES
 - The `appDefId` field in the install request and the `appId` field returned here are the same value
-- If multiple results come back, match on `basicInfo.name` to confirm you have the right app before installing
+- Search results are only candidates. Before installing, confirm the exact intended listing by one of:
+  - exact `basicInfo.name` match to the app name the user asked for,
+  - an app URL/app ID the user provided, or
+  - explicit user confirmation after you show the candidate listing name and purpose.
+- Do **not** install an app from a broad or fuzzy match such as `name.includes("sheets")`, category overlap, or the first search result. If the user named a capability or integration rather than a specific app, ask for the exact listing or route to the product/API flow that implements the capability.
+- For workflow/integration requests, verify that the found app performs that workflow before installing it. For example, a user who wants Wix Forms submissions sent to Google Sheets needs a Forms/Automations-to-Sheets workflow; do not install a Google Sheets table display/viewer app just because it matches "Google Sheets".
 - Only listings with `status: "PUBLISHED"` can be installed
 
 ## Install the Wix App
@@ -130,5 +135,6 @@ After installing an app:
 ## Common Pitfalls
 
 - **"I don't have the appDefId"** → Run Step 0. The table in Step 2 only covers Wix-built apps; the App Market has thousands of others.
+- **Broad App Market matches are not install approval** → If the search term is a product family or capability ("Google Sheets", "forms to sheets", "chat", "analytics"), treat results as candidates and stop unless the result is the exact app or the user confirms it. Installing the wrong app is worse than asking one clarifying question.
 - **Don't try to scrape the App Market website to find IDs** — pages are client-rendered and the appId is not in the HTML. Use Search Market Listings instead.
 - **Don't try `InstallAppFromShareUrl` as a workaround for unknown IDs** — `shareUrlId` is an internal identifier you generally don't have either.
