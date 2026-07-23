@@ -16,8 +16,8 @@ and report the final result.
    `AUTH_EXPIRED` — means there is NO finished site yet. Never declare
    success, completion, or "your site is live" otherwise, and never present a
    URL from any other source as the result.
-2. **Never show the user ids** (`importId`), raw JSON, or HTTP codes. Track
-   them silently.
+2. **Show the user the `importId` after Start succeeds** — share it as a
+   reference they can use to check back. Never show raw JSON or HTTP codes.
 3. **Never offer menus of monitoring or technical options** — pick the right
    behavior yourself and do it quietly.
 4. **Plain language only** — write for a shopkeeper, not an engineer.
@@ -39,6 +39,13 @@ so do NOT search the Wix docs / API spec for it — the search will come up
 empty every time. That is expected and is NOT a reason to stop, ask the user
 for "special permissions", or switch to a different import product. This
 skill is the documentation; the endpoints below are real and live.
+
+**Call `ExecuteWixAPI` immediately — no preamble.** Never announce "let me
+load Wix tooling", "checking auth", or anything similar before the first
+call. The Wix MCP connection is already established; there is nothing to set
+up. If Start returns an error, handle it per the Rules section below —
+**never probe other endpoints** (e.g. site-properties, site-list) as an auth
+check. Those calls reveal nothing useful and create confusion.
 
 With the Wix MCP in Claude, call them through `ExecuteWixAPI` using
 `wix.request` with `scope: "account"` and the **full URL**. Cite
@@ -123,19 +130,22 @@ on a running job.
 
 You are the user experience; the API is plumbing. Keep the protocol invisible:
 
-- **Never show identifiers or raw protocol data**: `importId`, raw JSON
-  responses, HTTP status codes, the `tasks[]` rows, or
-  `sourcePlatform`/`sourceConfidence` values. Track them silently — you need
-  them for the API calls, the user never does. Never offer ids as a
-  "check back later" reference either.
+- **Show the `importId` to the user once, right after Start succeeds** — one
+  short sentence, e.g. "Your import ID is `abc123` — keep it handy in case
+  you need to check back." Never show raw JSON, HTTP status codes, the
+  `tasks[]` rows, or `sourcePlatform`/`sourceConfidence` values.
 - **Write for a non-technical audience.** No jargon: no "endpoint", "API",
   "poll", "HTTP", "429", "rate limit", "headers", "JSON", "scraping",
   "session". Translate events into outcomes a shopkeeper understands —
   "the source store limits how fast it can be read, so this step is taking a
   minute" instead of "hit Cloudflare rate limit (HTTP 429)".
-- **Monitor quietly by default — do not ask the user to choose a monitoring
-  mode.** Quiet means low-noise, never uninformed: the user should always know
-  what stage their import is in. Match your environment:
+- **Monitor autonomously — never ask the user whether to keep monitoring.**
+  Once started, poll every ~30 seconds until a terminal status arrives. The
+  user does not need to say "keep going" or "check again" — that is the
+  default behavior. If the user sends a message about something else, handle
+  it and then resume polling. Quiet means low-noise, never uninformed: the
+  user should always know what stage their import is in. Match your
+  environment:
   - **If you can keep working between user messages** (background polling),
     poll continuously and speak up only on meaningful milestones: the source
     platform is identified, a plan step completes, the agent asks a question,
@@ -143,11 +153,10 @@ You are the user experience; the API is plumbing. Keep the protocol invisible:
     plenty; never narrate each poll ("let me poll again", "retrying") or
     transient errors — retry those silently.
   - **If you can only act while answering a message** (turn-based clients):
-    before ending each turn, poll a few times over ~a minute and close with
-    one concrete update of what the import is doing right now, then remind the
-    user the import keeps running on Wix's side and they can ask "how's it
-    going?" anytime. On EVERY later user message, poll first and answer with
-    current specifics.
+    before ending each turn, poll a few times and close with one concrete
+    update of what the import is doing right now. On EVERY later user message,
+    poll first and answer with current specifics. **Do not end a turn with a
+    question asking whether to keep checking** — just keep checking.
 - **Status answers must be substantive.** When the user asks how it's going,
   never answer with a bare "still in progress". While the import is running,
   the poll's `message` field is a ready-made plain-language progress line
@@ -162,9 +171,10 @@ You are the user experience; the API is plumbing. Keep the protocol invisible:
 - **Keep every routine update to 1–3 short sentences.** No headers, no emoji
   walls, no bullet lists for ordinary progress — save structure for the final
   result or a question that needs a decision.
-- On start, one friendly sentence: the import is underway and you'll keep them
-  posted. Mention the detected platform only when it helps ("Looks like a
-  Shopify store — I'll migrate the catalog accordingly"); never say
+- On start, two short sentences: (1) the import is underway and you'll keep
+  them posted, mentioning the detected platform when it helps ("Looks like a
+  Shopify store — I'll migrate the catalog accordingly"); (2) share the
+  `importId` ("Your import ID is `<id>` — keep it handy."). Never say
   "confidence", "sandbox", "execution", or "session".
 - Progress updates come from `recentActivity` `TEXT` entries and the `todos`
   checklist, rephrased in plain language ("setting up your product catalog"),
@@ -209,9 +219,12 @@ signed-in user.
 
 ## How to run the flow
 
-- After Start, poll every 5–10 seconds while `status` is `IMPORTING` —
+- After Start, poll every ~30 seconds while `status` is `IMPORTING` —
   quietly, per the presentation rules above: polling is background work, not
-  conversation.
+  conversation. **Never pause to ask the user whether to keep monitoring —
+  just keep going.** If the user sends another message in the meantime, handle
+  it, then resume polling. Only stop when a terminal status arrives
+  (`DEPLOYED`, `FAILED`, `CANCELLED`) or the user explicitly cancels.
 - Track progress from two fields (source material for your milestone updates,
   not a transcript to relay):
   - `recentActivity`: up to 20 entries `{kind, text}`, oldest first —
@@ -261,10 +274,12 @@ signed-in user.
   plainly that **site import isn't supported on their account yet, and they
   can contact Wix support** to ask about access — then stop. Do not retry, do
   not work around it, and do not fall back to another site-creation tool.
-- Any other `403` means the caller is not permitted or does not own this
-  import — check that you are using the ids from this user's own Start
-  response. A `400` means a required field is missing (`request`/`message`
-  must be 1–20000 chars).
+- Any other `403` on Start means the caller is not authorized — tell the user
+  plainly and stop. **Never probe other Wix endpoints** (site-properties,
+  site-list, or anything else) to "verify auth" — those calls add no
+  diagnostic value and just create noise. The Wix MCP connection is either
+  working or it isn't; a 403 on Start is its own answer. A `400` means a
+  required field is missing (`request`/`message` must be 1–20000 chars).
 - `tasks[]` is low-level infrastructure progress (task ids, exit codes) — use
   it for debugging only; `recentActivity`/`todos`/`message` are what you show
   the user.
