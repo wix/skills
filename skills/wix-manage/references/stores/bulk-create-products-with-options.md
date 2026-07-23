@@ -39,6 +39,25 @@ Learn how to create multiple Wix store products with customizable options like c
 
 * Missing `itemsInfo` section in media (media won't work)
 * Missing URL parameters `?w=400&h=400&fit=crop&crop=center`
+* Treating a successful response as empty because the response does **not** return top-level `products`, `items`, `results`, or `createdProducts` arrays.
+
+**CRITICAL: Successful response shape**
+
+When `returnEntity: true`, parse created products from:
+
+```js
+const productResults = resp.data?.productResults;
+const results = productResults?.results ?? [];
+const created = results
+  .filter(({ itemMetadata }) => itemMetadata?.success !== false)
+  .map(({ item }) => item)
+  .filter(Boolean);
+
+const failed = results.filter(({ itemMetadata }) => itemMetadata?.success === false);
+const metadata = productResults?.bulkActionMetadata;
+```
+
+Use `created.length` or `metadata.totalSuccesses` as the created count, and inspect `failed` / `metadata.totalFailures` before retrying. Do **not** use `resp.data.products`, `resp.data.items`, `resp.data.results`, or `resp.data.createdProducts`; those fields are not the response shape for this endpoint and will make a successful bulk create look empty.
 
 ## Article: Steps for Bulk Creating Wix Store Products with Options
 
@@ -950,6 +969,7 @@ curl -X POST "https://www.wixapis.com/stores/v3/bulk/products-with-inventory/cre
 * **URL**: `https://www.wixapis.com/stores/v3/bulk/products-with-inventory/create`
 * **Body**: `{"products": [array of product objects]}`
 * Each product in the array follows the exact same format as single product creation
+* **Response**: successful product entities are in `productResults.results[].item`; per-product success/failure is in `productResults.results[].itemMetadata`; aggregate success/failure is in `productResults.bulkActionMetadata`; inventory results are separate under `inventoryResults`.
 
 **CRITICAL: Description Format**If you include a description, it MUST use Wix's rich text nodes structure, NOT a plain string. Plain strings will cause "Expected an object" API errors.
 
