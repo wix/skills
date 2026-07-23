@@ -46,8 +46,6 @@ export type EvalForgeBody = {
   name: string;
   description: string;
   triggerPrompt: string;
-  // The scenario-level template the run scaffolds from (distinct from siteSetup's
-  // provisioned-site template). Omitted when the scenario doesn't set one.
   templateId?: string;
   assertionLinks: ScenarioAssertionLink[];
   // `toEvalForgeBody` always populates this: TEMPLATE when the scenario provisions
