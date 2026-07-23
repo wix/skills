@@ -12,10 +12,15 @@ This reference lists common event types, SDK imports, permissions, and links. Fo
 
 ## eCommerce Events
 
+Order events use **`@wix/ecom`** (namespace `orders`). Order **refund** events are the exception: they live in **`@wix/payments`** (namespace `refunds`), not `@wix/ecom`.
+
 | Event | Import | Handler Call | Permission | API Reference |
 | --- | --- | --- | --- | --- |
 | Order created | `import { orders } from "@wix/ecom"` | `orders.onOrderCreated(handler)` | `SCOPE.DC-STORES.READ-ORDERS` | [onOrderCreated](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/orders/orders/order-created?apiView=SDK) |
 | Order approved | `import { orders } from "@wix/ecom"` | `orders.onOrderApproved(handler)` | `SCOPE.DC-STORES.READ-ORDERS` | [onOrderApproved](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/orders/orders/order-approved?apiView=SDK) |
+| Order canceled | `import { orders } from "@wix/ecom"` | `orders.onOrderCanceled(handler)` | `SCOPE.DC-STORES.READ-ORDERS` | [onOrderCanceled](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/orders/orders/order-canceled?apiView=SDK) |
+| Refund created | `import { refunds } from "@wix/payments"` | `refunds.onRefundCreated(handler)` | `SCOPE.DC-PAYMENTS.READ-REFUNDS` | [onRefundCreated](https://dev.wix.com/docs/api-reference/business-management/payments/refunds/refund-created?apiView=SDK) |
+| Refund updated | `import { refunds } from "@wix/payments"` | `refunds.onRefundUpdated(handler)` | `SCOPE.DC-PAYMENTS.READ-REFUNDS` | [onRefundUpdated](https://dev.wix.com/docs/api-reference/business-management/payments/refunds/refund-updated?apiView=SDK) |
 | Cart created | `import { cart } from "@wix/ecom"` | `cart.onCartCreated(handler)` | `SCOPE.DC-STORES.READ-ORDERS` | [onCartCreated](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart/cart/cart-created?apiView=SDK) |
 | Cart updated | `import { cart } from "@wix/ecom"` | `cart.onCartUpdated(handler)` | `SCOPE.DC-STORES.READ-ORDERS` | [onCartUpdated](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/cart/cart/cart-updated?apiView=SDK) |
 

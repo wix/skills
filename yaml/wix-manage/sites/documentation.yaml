@@ -10,3 +10,7 @@ apiDoc:
       title: Create Site from Template
       docsEntry: https://dev.wix.com/docs/api-reference/account-level/sites
       tags: [sites]
+    - file: ../../../skills/wix-manage/references/sites/site-import.md
+      title: Site Import
+      docsEntry: https://dev.wix.com/docs/api-reference/account-level/sites
+      tags: [sites]

@@ -120,7 +120,7 @@ export async function runEval(): Promise<void> {
 
   let runId: string;
   try {
-    const run = await evalforge.createEvalRun(config.projectId, {
+    const run = await evalforge.createAndRunEvalRun(config.projectId, {
       name: `PR #${config.prNumber} skill eval`,
       description: `Skill eval for PR #${config.prNumber}`,
       projectId: config.projectId,
@@ -136,7 +136,7 @@ export async function runEval(): Promise<void> {
     const status = (e as { status?: number }).status;
     if (status === 400) {
       const message = e instanceof Error ? e.message : String(e);
-      core.error(`createEvalRun 400 — treating as no matching scenarios. Full error: ${message}`);
+      core.error(`createAndRunEvalRun 400 — treating as no matching scenarios. Full error: ${message}`);
       await upsertComment(octokit, config, formatNoScenarios(tags, config.blocking));
       fail(`Skill evaluation failed: no scenarios matched tags: ${tags.join(', ')}`, config.blocking);
       return;

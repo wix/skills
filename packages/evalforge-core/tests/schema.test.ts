@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { ScenarioSchema, parseScenario } from '../src/utils/schema';
+import { ScenarioSchema, parseScenario } from '../src/schema';
 
 const minimalYaml = `
 name: blog/create-and-publish-post

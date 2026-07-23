@@ -13,6 +13,8 @@ A concise checklist for preparing any new Wix site that uses the Wix Portfolio a
 
 > **API surfaces:** everything is the Portfolio **v1** API on `https://www.wixapis.com/portfolio/v1/...` — `/collections` and `/projects`. Use the **public `/portfolio/v1/...`** form; the method pages' schema headers show an internal `/portfolio/collections/api/v1/...` / `/portfolio/projects/projects/api/v1/...` URL — **do not** call those.
 
+> **This recipe seeds content and assumes the Portfolio app is already installed.** Installing apps is a separate, earlier step in the run (the **Setup** step — `SETUP.md` — runs before any seeding); this recipe only *creates content* on an already-installed app. So if a call returns **`428` / `APP_NOT_INSTALLED`**, it means the Setup step was skipped for Portfolio — **fail loudly with the response verbatim** and let Setup handle the install. Do **not** fabricate a limitation ("I can't install apps / do it in your Wix dashboard") — installing is not this recipe's job, but it *is* something the skill does, in Setup.
+
 > **Visibility is `hidden`, not `visible` — and it defaults to visible.** Portfolio's polarity is the **inverse** of Stores/Restaurants: entities carry a `hidden` boolean that **defaults to `false` (shown)**. So a collection/project created with no `hidden` field **appears on the live site** — you do **not** need to set anything to make it visible. Only set `"hidden": true` to hide one. (Send a plain boolean — `"hidden": false` — never a `{"value": …}` wrapper.) **Note:** when you omit `hidden` (or send `false`), the field is **absent** from the create/list response — proto3 drops false defaults — so *absent* reads as *false* reads as *shown*; `hidden` appears in the response only when you explicitly sent `true`. Don't treat a missing `hidden` as an error.
 
 ---
@@ -24,7 +26,7 @@ A concise checklist for preparing any new Wix site that uses the Wix Portfolio a
 
 ### STEP 0: Clean the portfolio — remove the default sample data
 
-A freshly installed Wix Portfolio app comes pre-seeded with **one sample collection ("My Portfolio") and several sample projects** ("Editorial Portraits", "Seasonal Lookbook", …), all assigned to that collection. Remove them **before** creating yours, so the site shows only your content. Do this **first** — cleaning before you create guarantees the ids you delete are the install's samples, never your own.
+A freshly installed Wix Portfolio app comes pre-seeded with **one sample collection ("My Portfolio") and several sample projects** ("Editorial Portraits", "Seasonal Lookbook", …), all assigned to that collection. **Only remove data that is obviously the install's own sample content on a fresh install** (that "My Portfolio" collection and its sample projects). Do **not** assume existing collections/projects are samples: the site may already hold the owner's **real content** (a connect/iterate run, or an owner-populated portfolio). If what's there isn't obviously install sample data, or you're unsure, **do not delete it — ask the user first** (`SEED.md`: seeding is additive; deleting real content needs the owner's approval). When it clearly is the install's samples, remove it **before** creating yours so the site shows only the intended content.
 
 **Delete children before the parent — projects first, then collections.** (Deleting a collection does not clean up the projects that reference it.)
 

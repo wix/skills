@@ -10,16 +10,27 @@ This is **not** support, and not for the user's own site content. It is meta-fee
 
 ## When to offer it (user-approved only — never auto-send)
 
-Sending is always the user's call. Offer once, in plain prose, in any of these situations; send only
-after an explicit yes:
+Sending is always the user's call, but **offering is not** — default to offering, don't wait to be
+asked or for the user to complain first. Offer once, in plain prose, in any of these situations; send
+only after an explicit yes:
 
 - The user **explicitly asks** to send feedback / report something to Wix ("tell Wix that…", "report
   this", "send feedback"). Then just confirm the wording and send.
 - The user **complains, is frustrated, or reports a Wix bug** in the course of the work ("this API is
   broken", "the docs are wrong", "why is this so hard"). Acknowledge, then offer to pass it on.
-- **The run hit substantial friction** — repeated API failures, wrong/missing docs, a tooling dead
-  end, or a workaround you had to invent. When you notice the pattern, offer: *"This tripped us up a
-  few times — want me to send it to Wix as feedback?"*
+- **The run hit any real friction** — not just repeated failures. A single confusing error, a doc
+  that was wrong/stale/missing, an extra round trip you had to make, a workaround you had to invent,
+  or anything that cost more turns than it should have all qualify — it doesn't need to have happened
+  more than once. When you notice it, offer in the moment: *"That [error/doc gap] tripped us up —
+  want me to send it to Wix as feedback?"*
+- **At the natural end of every run** (deployment/handoff, or wherever the skill's flow closes out),
+  do a deliberate self-check over the whole session even if nothing felt dramatic at the time — friction
+  you shrugged off or silently retried past is still signal. If the self-check turns up anything,
+  offer before you sign off rather than letting the run end without asking.
+
+Bias toward offering over staying quiet: a redundant offer costs the user one "no thanks"; a friction
+point that goes unreported is a signal Wix never gets. Only skip the offer when the run was genuinely
+clean end to end.
 
 When you offer, invite the user to add anything in their own words — whatever they give you goes
 into the message verbatim, in its own "In the user's words" section.

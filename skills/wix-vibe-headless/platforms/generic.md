@@ -50,6 +50,11 @@ Seed the site with real content by following the `wix-headless` skill's `referen
 (`.agents/skills/wix-headless/references/SEED.md`). Where its seed recipes don't cover what you
 need, fall back to the `wix-docs` skill to search and read the relevant Wix API docs.
 
+**Seeding is additive.** You may clean up the app install's **obvious default sample/mock data**
+right after a fresh install, but the site may already hold **real content** (a prior run, or
+owner-added) — if what's there isn't obviously install sample data, or you're unsure, **do not
+delete or overwrite it without the user's explicit ask or approval** (ask first).
+
 These management/admin calls need **elevated Wix credentials** — the public client id is not
 enough. If you don't already have a way to authenticate them, either **connect your platform's
 Wix connector** (if it has one) or **ask the user for a Wix API key / token** and store it in your

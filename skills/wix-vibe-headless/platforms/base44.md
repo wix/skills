@@ -86,10 +86,23 @@ Seed the site with real content by following the **`wix-headless` skill**'s
 don't cover what you need, **fall back to the `wix-docs` skill** (`.agents/skills/wix-docs`) to
 search and read the relevant Wix API docs.
 
-**Auth for these admin calls is the already-configured Wix connector — and nothing else.** With
-the connector in place you can make Wix API calls directly. Do **not** install or run the Wix CLI
-(`@wix/cli`), do a device-login, or follow `wix-headless`'s `references/managed/AUTHENTICATION.md`
-— that managed-project auth flow does not apply to Base44 and will send you down the wrong path.
+**Seeding is additive.** You may clean up the app install's **obvious default sample/mock data**
+right after a fresh install, but the site may already hold **real content** (a prior run, or
+owner-added) — if what's there isn't obviously install sample data, or you're unsure, **do not
+delete or overwrite it without the user's explicit ask or approval** (ask first).
+
+**Auth for these admin calls is the already-configured Wix connector — and nothing else.** Get the
+access token from it and send it as a bearer token — do **not** hand-roll a token getter (e.g. a
+custom `getAdminToken()`):
+
+```js
+const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");
+// then: fetch(url, { headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, ... })
+```
+
+Do **not** install or run the Wix CLI (`@wix/cli`), do a device-login, or follow `wix-headless`'s
+`references/managed/AUTHENTICATION.md` — that managed-project auth flow does not apply to Base44
+and will send you down the wrong path.
 
 When you run seed/management code **inline via exec_tool**, `base44` is already declared — use
 it directly. Do **not** import `@base44/sdk`, re-declare `base44`, or call `createClient()` —
