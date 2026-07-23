@@ -261,7 +261,7 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ## Stores
 
 ### [Add Store Pages to Site](references/stores/add-store-pages-to-site.md)
-**Technical:** Adds missing checkout and cart pages to a site when Stores app is installed. Used when store pages are missing after migration or setup issues.
+**Technical:** Adds missing checkout and cart pages to a site when Stores app is installed. Does not restore Product Page, category pages, product detail routes, or product URL slugs.
 
 ### [Bulk Create Products with Options](references/stores/bulk-create-products-with-options.md)
 **Technical:** Uses bulk products endpoint to create multiple products with inventory in a single request. Handles variant generation from options, media format requirements, and error handling for partial failures.
