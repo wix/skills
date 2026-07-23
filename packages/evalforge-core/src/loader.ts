@@ -13,6 +13,9 @@ export function loadScenarios(root: string, globPattern: string): {
   const found = glob.sync(globPattern, {
     cwd: root,
     nodir: true,
+    // .action-src/** is the wix-manage two-checkout convention (a nested checkout of the
+    // action's own source), not a generic default — exclude it so its fixtures/tests aren't
+    // picked up as scenarios.
     ignore: ['**/node_modules/**', '**/dist/**', '.action-src/**'],
     posix: true,
   });

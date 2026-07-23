@@ -24,4 +24,11 @@ describe('loadScenarios', () => {
     const { errors } = loadScenarios(dir, GLOB);
     expect(errors.some(e => /duplicate name/.test(e.message))).toBe(true);
   });
+  it('reports a malformed scenario file as a LoadError, excluded from scenarios', () => {
+    writeFileSync(join(dir, 'evals/area/bad.yml'), 'name: [unterminated\n');
+    const { scenarios, errors } = loadScenarios(dir, GLOB);
+    expect(scenarios.size).toBe(0);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toMatchObject({ path: 'evals/area/bad.yml' });
+  });
 });

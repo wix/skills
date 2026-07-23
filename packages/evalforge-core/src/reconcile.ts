@@ -10,18 +10,18 @@ export type ReconcileAction =
 export type ReconcileSkip = { name: string; id: string; reason: 'unmanaged' };
 
 export function reconcile(input: {
-  local: { name: string; scenario: Scenario }[];
+  local: Scenario[];
   remote: RemoteScenario[];
   repo: string;
 }): { actions: ReconcileAction[]; skipped: ReconcileSkip[] } {
   const { local, remote, repo } = input;
   const managedTag = repoTagFor(repo);
   const remoteByName = new Map(remote.map(r => [r.name, r]));
-  const localNames = new Set(local.map(l => l.name));
+  const localNames = new Set(local.map(scenario => scenario.name));
   const actions: ReconcileAction[] = [];
   const skipped: ReconcileSkip[] = [];
 
-  for (const { scenario } of local) {
+  for (const scenario of local) {
     const tags = withManagedTags(scenario.tags, repo);
     const body = toEvalForgeBody(scenario);
     const match = remoteByName.get(scenario.name);
