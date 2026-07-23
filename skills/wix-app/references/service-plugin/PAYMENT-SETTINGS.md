@@ -25,8 +25,8 @@ const HIGH_VALUE_THRESHOLD = 1000;
 paymentSettings.provideHandlers({
   getPaymentSettings: async ({ request, metadata }) => {
     try {
-      // Get the order total
-      const orderTotal = request.order?.totals?.total || 0;
+      // Get the order total (amount is a string)
+      const orderTotal = Number(request.order?.priceSummary?.total?.amount) || 0;
 
       // Determine if 3DS is required based on order value
       const require3DS = orderTotal >= HIGH_VALUE_THRESHOLD;
@@ -45,6 +45,7 @@ paymentSettings.provideHandlers({
       };
     }
   },
+  getPaymentSettingsForCheckout: async () => ({ blockedPaymentOptions: [] }),
 });
 ```
 
@@ -83,6 +84,7 @@ paymentSettings.provideHandlers({
       };
     }
   },
+  getPaymentSettingsForCheckout: async () => ({ blockedPaymentOptions: [] }),
 });
 ```
 

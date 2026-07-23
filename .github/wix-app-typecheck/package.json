@@ -1,0 +1,38 @@
+{
+  "name": "@wix/skills-wix-app-typecheck",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "node extract.mjs"
+  },
+  "dependencies": {
+    "@types/react": "^18.3.1",
+    "@types/react-dom": "^18.3.1",
+    "@wix/app-management": "^1.0.149",
+    "@wix/astro": "^2.57.0",
+    "@wix/auto-patterns": "^1.45.0",
+    "@wix/auto_sdk_ecom_shipping-rates": "*",
+    "@wix/blog": "*",
+    "@wix/bookings": "*",
+    "@wix/categories": "*",
+    "@wix/crm": "^1.0.1534",
+    "@wix/dashboard": "^1.3.43",
+    "@wix/data": "^1.0.461",
+    "@wix/design-system": "^1.285.0",
+    "@wix/ecom": "^1.0.2065",
+    "@wix/editor": "^1.508.0",
+    "@wix/editor-react-types": "^1.0.21",
+    "@wix/essentials": "^1.0.6",
+    "@wix/patterns": "^1.364.0",
+    "@wix/payments": "*",
+    "@wix/react-component-schema": "^1.6.0",
+    "@wix/react-component-utils": "^1.9.0",
+    "@wix/sdk": "^1.21.11",
+    "@wix/services-manager-react": "*",
+    "@wix/site-window": "^1.59.0",
+    "@wix/stores": "^1.0.779",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "typescript": "^5.8.3"
+  }
+}
