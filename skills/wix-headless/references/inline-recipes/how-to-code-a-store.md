@@ -23,7 +23,7 @@ A concise contract for writing the **frontend code** of a storefront against a C
 |---|---|---|
 | Products (list, get, search, filter) | `@wix/stores` | `productsV3` |
 | Variants (to resolve `variantId`) | `@wix/stores` | `readOnlyVariantsV3` |
-| Categories | `@wix/stores` | `categories` |
+| Categories | `@wix/categories` | `categories` |
 | Cart (add / get / checkout) | `@wix/ecom` | `currentCart` |
 | Redirect to hosted checkout | `@wix/redirects` | `redirects` |
 
@@ -52,7 +52,7 @@ A concise contract for writing the **frontend code** of a storefront against a C
 The exact field paths the storefront reads, and the **plausible-wrong sibling** each is mistaken for — the sections below reference these instead of re-describing them. All `amount`s are **strings**. These are **read** shapes; the cart-add body (under *Adding to cart*) is a separate **write** shape, and the `_id` rule applies to read **entities**, not to method-return wrappers (note `checkoutId`).
 
 ```jsonc
-// productsV3.queryProducts() / .searchProducts()  →  result.items[]
+// productsV3.queryProducts()  →  result.items[]   ⚠️ .searchProducts() is DIFFERENT — result.products[], NOT .items (see below)
 product = {
   _id,                                            // links · cart catalogItemId · variant filter   (NOT .id → empty → HTTP 500)
   slug, name, visible,                            // only visible:true is returned to a visitor token
@@ -119,11 +119,12 @@ const res = await categories.queryCategories({
 **⚠️ CRITICAL: category filtering MUST use `searchProducts`, NOT `queryProducts`.** `directCategoriesInfo.categories` is **not declared as filterable in `queryProducts`** — passing it there returns HTTP `400 "... is not declared as filterable"`, which the SDK **swallows silently**, leaving an empty category page that looks like "no products". This is the #1 way this breaks. Use Search Products:
 
 ```js
-const { items } = await productsV3.searchProducts({
+const { products } = await productsV3.searchProducts({
   filter: { 'directCategoriesInfo.categories': { $matchItems: [{ id: categoryId }] } },
 });
 ```
 
+- **⚠️ `searchProducts()` returns `{ products, pagingMetadata }` — NOT `{ items }`.** Unlike `queryProducts()` (a query-builder result that exposes `.items[]`), `searchProducts()` is a plain RPC call whose response is REST-shaped: the array is `result.products`. Destructuring `{ items }` from it (an easy copy-paste from the `queryProducts` pattern above) silently yields `items === undefined` — no error, just an empty-looking category page. Verified live against Catalog V3.
 - **`categoryId`** is the stable id from the live `categories.queryCategories()` result above (a category's `_id`) — read it from the render context, never a hardcoded seed-time id list.
 - **Method:** `searchProducts`, never `queryProducts` (the field is only filterable in search).
 - **Operator:** `$matchItems`, never `$hasSome` (the natural-looking guess returns nothing).
