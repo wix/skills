@@ -42,6 +42,10 @@ function transformBlock(code, index) {
   // Replace with a string literal so the surrounding expression still parses.
   result = result.replace(/<([a-z][a-z0-9]*(?:-[a-z0-9]+)+)>/g, "'$1'");
 
+  // Pattern 4 — remove intentional wrong-usage lines (marked with `// ❌`) and the
+  // code line immediately following each one. Only correct examples get typechecked.
+  result = result.replace(/[ \t]*\/\/ ❌[^\n]*\n[ \t]*[^\n]*\n?/g, '');
+
   return result;
 }
 
