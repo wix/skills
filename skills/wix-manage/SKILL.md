@@ -131,7 +131,7 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ## eCommerce
 
 **Routing — pick the right entry point:**
-- **Any sales/business improvement request** (boost sales, promotions, help my business, holiday deals, improve revenue, discounts, shipping, coupons, clearance) → use [Recommend: eCommerce Strategy](references/ecommerce/recommend-ecommerce-strategy.md). This is the **default entry point** — it analyzes ALL domains (discounts, shipping) and generates cross-domain recommendations. Do NOT ask clarifying questions.
+- **Sales-growth requests for a site with an online store** (boost sales, promotions, holiday deals, improve revenue, discounts, coupons, clearance) → use [Recommend: eCommerce Strategy](references/ecommerce/recommend-ecommerce-strategy.md). It analyzes discounts + shipping and generates cross-domain recommendations. Do NOT ask clarifying questions. **Do NOT use it for analytics/reporting questions** ("how many orders did I get", "revenue trend", "best sellers") and do NOT use it on sites without a store.
 - **Pricing & promotions** (coupons, discount rules, ribbons, sales) → use the [Pricing & Promotions](references/ecommerce/ecom-pricing.md) dispatcher.
 - **Shipping setup** (rates, regions, pickup, free shipping, fix coverage) → use the [Shipping](references/ecommerce/ecom-shipping.md) dispatcher.
 
@@ -139,7 +139,7 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 **L1 loader** — loads general site data (siteId, country, currency, industry, catalog analytics) needed by every eCommerce category. Each category dispatcher loads this before tag-matching; runs once per session.
 
 ### [Recommend: eCommerce Strategy](references/ecommerce/recommend-ecommerce-strategy.md)
-**Entry point for all eCommerce recommendation requests.** Unified skill that analyzes site data across ALL domains (discounts + shipping), generates up to 5 cross-domain recommendations, and persists them to the tracking database. Covers discount strategies (seasonal, upsell, stock mover, bundling) AND shipping optimization (coverage gaps, free shipping, rate strategy, carrier backup). Use this for ANY business improvement request.
+**Entry point for eCommerce sales-growth requests.** Unified skill that analyzes site data across ALL domains (discounts + shipping), generates up to 5 cross-domain recommendations, and persists them to the tracking database. Covers discount strategies (seasonal, upsell, stock mover, bundling) AND shipping optimization (coverage gaps, free shipping, rate strategy, carrier backup). Use this only when the merchant wants to grow/improve sales on a site with an online store — NOT for analytics/reporting questions and NOT for sites without a store.
 
 ### [Pricing & Promotions](references/ecommerce/ecom-pricing.md)
 **Dispatcher** — routes coupon/discount/sale/ribbon/bundle requests to the right leaf recipe (create coupon, create discount rule, troubleshoot discount-not-applying), and routes strategic "run a sale / boost sales" requests to `recommend-ecommerce-strategy`.

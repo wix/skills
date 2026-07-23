@@ -1,0 +1,17 @@
+name: ecommerce/recommend-strategy-not-analytics-sales-report
+description: A reporting question that contains the word "sales" ("how were my sales, show me a report") must NOT load the recommend-e-commerce-strategy orchestrator — the trigger word alone is not sales-growth intent.
+triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) how were my sales last month? Show me a report of my orders and revenue — I just want to see the numbers.
+tags: [ecommerce]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/recommend-e-commerce-strategy
+    negate: true
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The merchant used the word "sales" but explicitly asked for a REPORT ("I just want to see the numbers"). This is an analytics/reporting request, not a request to grow sales.
+      Pass if the response treats it as a reporting request (however it sources the numbers) and does NOT load the "Recommend: eCommerce Strategy" orchestrator, does NOT generate discount/shipping recommendations, and does NOT write to the agentic-recommendations tracking API.
+      Fail if the agent interprets "sales" as a boost-sales intent — loading the recommend-e-commerce-strategy recipe, classifying a discount goal (SEASONAL / UPSELL_BOOST / STOCK_MOVER / BUNDLE_AND_SAVE), proposing promotions, or persisting recommendations — despite the merchant saying they only want the numbers.
+      A brief follow-up offer ("want ideas to grow these?") is acceptable; judge whether the recommendation pipeline actually ran.

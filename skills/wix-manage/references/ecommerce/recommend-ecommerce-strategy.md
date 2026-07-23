@@ -1,29 +1,16 @@
 ---
 name: "Recommend: eCommerce Strategy"
-description: Unified eCommerce recommendation skill — analyzes site data across ALL domains (discounts, shipping, and future domains) and generates up to 5 actionable recommendations. Single entry point for any "help my business" request. Tracking is built-in.
-layer: R
-references:
-  - name: "API: Recommendation Tracking"
-    path: ecommerce/api-recommendation-tracking.md
-    load: false
-  - name: "Goal: Increase AOV"
-    path: ecommerce/goal-increase-aov.md
-    load: false
-  - name: "Goal: Clear Inventory"
-    path: ecommerce/goal-clear-inventory.md
-    load: false
-  - name: "Goal: Seasonal Revenue"
-    path: ecommerce/goal-seasonal-revenue.md
-    load: false
-  - name: "Goal: Drive Cross-Sells"
-    path: ecommerce/goal-drive-cross-sells.md
-    load: false
-  - name: "Setup: Coupons"
-    path: ecommerce/setup-coupons.md
-    load: false
+description: Sales-growth orchestrator for sites with a Wix online store — turns "boost sales / run a promotion / clear stock / increase AOV" intents into up to 5 actionable discount + shipping recommendations with tracking. Do NOT load for analytics/reporting questions (order counts, revenue trends, best sellers) or for sites without a store.
 ---
 # Recommend: eCommerce Strategy
 
+> ⛔ **SCOPE GATE — check BEFORE anything else (before the pre-step, before any API call).**
+>
+> This orchestrator applies ONLY when BOTH conditions hold:
+>
+> 1. **The site has an online store** (a Wix Stores / eCommerce catalog). If the site has no store, do NOT run this recipe — tell the merchant these recommendations require an online store and stop.
+> 2. **The merchant's intent is to grow or improve sales** — boost sales, run a promotion/sale, holiday deals, clear stock, increase AOV, improve conversion.
+>
 > ⛔ **MANDATORY PRE-STEP — do this BEFORE Step 1 (before any API call).**
 >
 > Classify the merchant's request and immediately call `ReadFullDocsArticle` on the matching goal skill. Do NOT gather data first — the goal skill tells you which metrics to pull and what guardrails to apply.
@@ -167,6 +154,8 @@ Check if the merchant's request includes anything unsupported. **Reject** these:
 |---|---|
 | Buy one get one (BOGO) | Explain: not supported by Discount Rules API |
 | Fixed-price bundles ("3 for $100") | Explain: requires custom pricing logic |
+| Analytics / reporting question ("how many orders", "revenue report", "best sellers") | STOP — this recipe generates recommendations, not reports. The question is out of scope for this skill |
+| Site has no online store | STOP — explain that sales recommendations require a Wix online store |
 | Unrelated to eCommerce | Decline politely |
 
 If valid, continue.

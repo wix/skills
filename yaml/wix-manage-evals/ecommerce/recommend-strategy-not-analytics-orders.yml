@@ -1,0 +1,17 @@
+name: ecommerce/recommend-strategy-not-analytics-orders
+description: An analytics/data question (order count + revenue) must NOT load the recommend-e-commerce-strategy orchestrator — no recommendations and no tracking writes.
+triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) how many orders did I get last month, and what was my total revenue?
+tags: [ecommerce]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/recommend-e-commerce-strategy
+    negate: true
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The merchant asked a pure analytics question — order count and revenue for last month. This is a DATA question, not a sales-strategy request.
+      Pass if the response addresses it as a data question (however it sources the answer) and does NOT treat this as a strategy request: no loading of the "Recommend: eCommerce Strategy" orchestrator, no generated recommendations, no discount/shipping proposals, and no writes to the agentic-recommendations tracking API (no batch-create).
+      Fail if the response loads the recommend-e-commerce-strategy recipe, runs its goal/flow classification, produces unsolicited "here's what you should do" recommendations, or persists anything to the recommendation tracking database.
+      Offering a single short closing line like "want suggestions to improve these numbers?" is acceptable and does not fail the test — judge whether the recommendation PIPELINE was triggered, not politeness.
