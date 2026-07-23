@@ -71,6 +71,8 @@ create/connect/iterate are **managed-only**. For `managed`, resolve the operatio
 
 For `self-managed` and `stripe`, the operation is always **backend-only** (the host owns the frontend). Only when there is **genuinely no brought-in design and no connect language** does directory emptiness decide: empty → `create`; an existing frontend on disk → `connect`.
 
+> **Template authoring (overlay, not an operation).** When the deliverable is a **contributable template** — a reusable managed-Astro template for the Wix templates repo, not an ad-hoc site — the run still resolves to `create` or `iterate` as above, but **also reads `references/managed/TEMPLATE_AUTHORING.md`**: a standing brief (pre-resolved intent choices, e.g. custom-branded login) plus the house style (structure, code standards, testing, README) that a contributable template requires and an ad-hoc site doesn't.
+
 ## Preconditions (the host provides these — we read, never create)
 
 1. **The project type** — `managed` | `self-managed` | `stripe` — provided by the caller, else **detected from project signals / user intent** (see Project types § "Resolving the project type"), else asked. It selects `<TYPE_DIR>` (see Path resolution).
@@ -128,6 +130,7 @@ Compute `<SKILL_ROOT>` from this file (`<SKILL_ROOT>/SKILL.md` — strip `/SKILL
 | **Deployment** — finalize the live site (project-type-specific) | `<TYPE_DIR>/DEPLOYMENT.md` |
 | Managed **create** flow (scaffold a new project) | `<SKILL_ROOT>/references/managed/CREATE.md` |
 | Managed **connect** flow (wire an existing project) | `<SKILL_ROOT>/references/managed/CONNECT.md` |
+| Managed **template authoring** overlay (contributable templates: standing brief + house style) | `<SKILL_ROOT>/references/managed/TEMPLATE_AUTHORING.md` |
 | Frontend-axis references (how a frontend wires to Wix) | `<SKILL_ROOT>/references/astro.md`, `non-astro.md` |
 
 **Start a run by opening `DISCOVERY.md`.** The flow files (`CAPABILITIES`, `DISCOVERY`, `SETUP`, `SEED`, `SDK_HANDOFF`, `IMAGE_GENERATION`, `AI_FEATURES`) are project-type-agnostic; the per-type specifics live under `<TYPE_DIR>/` (`AUTHENTICATION.md`, `DEPLOYMENT.md`, and — managed only — `CREATE.md`/`CONNECT.md`).
