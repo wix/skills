@@ -39,9 +39,11 @@ assertions:
       Pass if ALL of these are true:
         1. The agent loaded the `pricing-create-coupon` recipe (NOT the legacy `setup-coupons` slug).
         2. The create payload correctly maps recommendation fields: `percentOffRate: 20`, `code: "TECH20"`, `usageLimit: 100`, `limitPerCustomer: 1`, and `expirationTime` in UNIX milliseconds for 2026-06-30 (value ~1782777600000, ending in three zeros).
-        3. It applied the recommendation's `scope: "SITE"` — no category filter.
+        3. For the `scope: "SITE"` recommendation, the coupon `scope` is exactly `{ "namespace": "stores" }` with NO `group` object — i.e. the coupon was created successfully and applies to all products with no category filter.
 
       Fail if ANY of these are true:
         - The agent used the legacy `setup-coupons` slug or its content.
         - `expirationTime` was sent in seconds (ten-digit integer) instead of milliseconds.
         - The agent ignored the recommendation fields and invented its own coupon parameters.
+        - The `scope` contains a `group` object with `name: "product"` (or any `group.name`) WITHOUT a `group.entityId`. This is the exact combination the Coupons V2 API rejects with `400 — "The provided combination of scope and coupon type is invalid"`, so a site-wide coupon built this way fails. A site-wide scope MUST omit `group`.
+        - The create call returned an error / the coupon was not created.
