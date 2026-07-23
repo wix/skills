@@ -4,6 +4,8 @@ description: "PREFERRED recipe for converting a COUPON recommendation (mechanism
 ---
 # Pricing: Create Coupon
 
+Preview test marker: existing skill content-only update.
+
 > **This skill is the single source for coupon creation.** Do NOT load `…/skills/setup-coupons` — that legacy slug pre-dates the routing tree migration and its content has been merged into this file. If the WixREADME index surfaces it, ignore it.
 
 ## Prerequisites
