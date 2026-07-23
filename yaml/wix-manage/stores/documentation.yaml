@@ -30,6 +30,10 @@ apiDoc:
       title: Update Product Pre-Order (Catalog V3)
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
       tags: [stores]
+    - file: ../../../skills/wix-manage/references/stores/update-product-variants-catalog-v1.md
+      title: Update Product Variants (Catalog V1)
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
+      tags: [stores]
     - file: ../../../skills/wix-manage/references/stores/setup-online-store-catalog-v3.md
       title: Setup Online Store (Catalog V3)
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
