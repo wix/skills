@@ -1,0 +1,32 @@
+name: app-installation/uninstall-wix-apps
+description: >-
+  Verifies the agent reads the uninstall-wix-apps skill and explains how to
+  uninstall an app through Apps Installer while avoiding false promises about
+  dashboard entry points disappearing.
+triggerPrompt: >-
+  I need to remove the Session Recordings (Twipla) app from my site. Which REST
+  endpoint and request body should I use, and how should I verify it is gone?
+tags: [app-installation]
+maxTokens: 25000
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/app-installation/skills/uninstall-wix-apps
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked how to remove the Session Recordings (Twipla) app from a site using REST and how to verify it is gone.
+      Intent: surface the Apps Installer uninstall endpoint, the correct request shape, and the verification/limitation guidance.
+
+      Pass if the response:
+      - identifies POST https://www.wixapis.com/apps-installer-service/v1/app-instance/uninstall, AND
+      - shows or describes a request body with tenant.tenantType set to SITE, tenant.id set to the site ID, and appDefId set to the app's ID, AND
+      - says to verify removal by calling GET https://www.wixapis.com/apps-installer-service/v1/app-instances and checking that the target appDefId no longer appears, AND
+      - warns that uninstalling the app does not guarantee Analytics > Session Recordings or another dashboard entry point disappears.
+
+      Fail if the response:
+      - omits the uninstall endpoint or uses the install endpoint instead, OR
+      - says a successful uninstall guarantees the Session Recordings dashboard page, menu item, or iframe will disappear, OR
+      - tells the user to guess the Twipla appDefId without resolving it from a trusted source, OR
+      - attempts to perform the uninstall instead of answering the advisory question.
