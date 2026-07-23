@@ -1,0 +1,22 @@
+name: stores/setup-online-store-catalog-v3
+description: Verifies the setup online store recipe teaches sequential category creation for the shared Wix Stores category tree, while keeping category item assignment efficient.
+triggerPrompt: How should I set up a Wix Stores Catalog V3 shop with five products and three categories? Please summarize the safe API flow before making any changes.
+tags: [stores]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/stores/skills/setup-online-store-catalog-v3
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Context: the user asks for a non-mutating summary of the Catalog V3 store setup flow before making changes.
+
+      Pass if the response:
+      - loads the setup-online-store-catalog-v3 skill,
+      - says products should be created first with the Catalog V3 bulk products-with-inventory endpoint,
+      - says each `POST /categories/v1/categories` create-category call must run sequentially, one at a time, for the `@wix/stores` tree,
+      - warns not to use `Promise.all`, parallel tool calls, or concurrent category creates because they can cause `409 INVALID_REVISION` / stale tree revision conflicts, and
+      - allows bulk add-items/category assignment calls to run after categories exist.
+
+      Fail if the response recommends concurrent category creation, suggests using a nonexistent Stores bulk-create categories endpoint, omits the sequential category-create requirement, or starts mutating the site instead of summarizing the safe flow.
