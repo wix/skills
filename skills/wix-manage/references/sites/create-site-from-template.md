@@ -1,10 +1,10 @@
 ---
 name: "Create Site from Template"
-description: Creates new Wix sites from templates using account-level APIs. Covers template search, site creation, headless site setup, OAuth app creation, and publishing.
+description: Creates new Wix sites from known template IDs using the Projects API. Covers supported template selection, site creation, headless project setup, OAuth app creation, and publishing.
 ---
 # Create Site from Template
 
-This recipe guides you through creating a new Wix site from a template, including template selection and optional publishing.
+This recipe guides you through creating a new Wix site from a known template ID with the public Projects API, including supported template selection and optional publishing.
 
 ## Prerequisites
 
@@ -13,15 +13,14 @@ This recipe guides you through creating a new Wix site from a template, includin
 
 ## Required APIs
 
-- **Templates Search API**: `GET https://www.wix.com/_api/template-cms-view-service/view/v2/templates/search`
-- **Create Site API**: `POST https://www.wixapis.com/msm/v1/meta-site/create-from-template`
+- **Create Project API**: `POST https://www.wixapis.com/funnel/projects/v1/create`
 - **Publish Site API**: `POST https://www.wixapis.com/site-publisher/v1/site/publish`
 
 ---
 
 ## Step 1: Understand User Requirements
 
-Before searching templates, gather information:
+Before choosing a template source, gather information:
 
 1. **Ask the user** to describe the site they want in a few sentences
 2. **Ask if they want** Wix Editor or Wix Studio
@@ -30,97 +29,75 @@ Before searching templates, gather information:
 ### Quick Start (Skip Template Search)
 
 If user wants an empty/blank site:
-- **Wix Studio blank**: `fe86a14e-ef67-49b4-a409-d086f3abaa1a`
-- **Wix Editor blank**: `b55bdf43-95e0-4cef-b9bb-92dcc7af2742`
+- Use `type: "WIX"` and omit `templateId`; the Projects API defaults to a blank template.
 
-Skip to Step 3 with these template IDs.
+Skip to Step 3.
 
 ---
 
-## Step 2: Search for Templates
+## Step 2: Choose a Supported Template Source
 
-**Endpoint**: `GET https://www.wix.com/_api/template-cms-view-service/view/v2/templates/search`
+Wix MCP cannot search the Wix template catalog from this recipe.
 
-**Query Parameters**:
-| Parameter | Description | Values |
-|-----------|-------------|--------|
-| `language` | Always use | `en` |
-| `limit` | Results per page | `24` |
-| `offset` | Pagination offset | Start at `0`, increment by 24 |
-| `bookType` | Editor type | `studio` or `main-v2` |
-| `query` | Search keywords | `yoga+studio`, `ecommerce`, etc. |
+Do **not** call `GET https://www.wix.com/_api/template-cms-view-service/view/v2/templates/search` from `CallWixSiteAPI` or `ExecuteWixAPI`. That catalog URL is an internal `www.wix.com` endpoint and is blocked by the Wix MCP execution host policy (`403 Forbidden: requests to www.wix.com not allowed`).
 
-**Example Request**:
-```bash
-curl -X GET \
-  'https://www.wix.com/_api/template-cms-view-service/view/v2/templates/search?language=en&limit=24&offset=0&bookType=studio&query=yoga+studio' \
-  -H 'Authorization: <AUTH>'
-```
+Use one of these supported paths instead:
 
-**Response** includes for each template:
-- `metaSiteId` - Template ID for creation
-- `templateSlug` - For preview URL
-- Template name and description
-- Color scheme
+1. **Known template ID**: If the user already has a template GUID from an approved source, use it as `templateId` in Step 3.
+2. **Published template ID list**: Read the [Site Template IDs](https://dev.wix.com/docs/api-reference/account-level/sites/projects/site-template-ids) article and choose a listed template that fits the user's request.
+3. **Designed template browsing**: If the user wants a visual/designed template and no listed ID fits, ask them to browse the Wix Template gallery manually, or provide an approved template ID. Do not claim you can fetch or search the catalog from Wix MCP.
 
-### Present Templates to User
-
-For each relevant template, show:
-- Template name
-- Description (without "Click Edit" text)
-- "Good for" description
-- Color scheme
-- Preview link: `https://www.wix.com/website-template/view/html/{templateSlug}`
+A template preview URL such as `https://www.wix.com/website-template/view/html/{templateSlug}` is useful for the user to identify a design, but the Projects API request needs the actual template GUID. Do not pass a preview slug as `templateId`.
 
 ---
 
 ## Step 3: Create the Site
 
-**Endpoint**: `POST https://www.wixapis.com/msm/v1/meta-site/create-from-template`
+**Endpoint**: `POST https://www.wixapis.com/funnel/projects/v1/create`
 
 **Request Body**:
 ```json
 {
-  "originTemplateId": "<TEMPLATE_METASITE_ID>",
-  "siteName": "my-new-site"
+  "type": "WIX",
+  "name": "My New Site",
+  "templateId": "<TEMPLATE_ID>"
 }
 ```
+
+Omit `templateId` to create a blank Wix site.
 
 **Request**:
 ```bash
 curl -X POST \
-  'https://www.wixapis.com/msm/v1/meta-site/create-from-template' \
+  'https://www.wixapis.com/funnel/projects/v1/create' \
   -H 'Authorization: <AUTH>' \
   -H 'Content-Type: application/json' \
+  -H 'wix-account-id: <ACCOUNT_ID>' \
   -d '{
-    "originTemplateId": "<TEMPLATE_ID>",
-    "siteName": "my-new-site"
+    "type": "WIX",
+    "name": "My New Site",
+    "templateId": "<TEMPLATE_ID>"
   }'
 ```
 
-### Site Name Requirements
+### Project Name Requirements
 
-The `siteName` must follow these rules:
-- 4-20 characters
-- Only lowercase letters, numbers, hyphens, underscores
-- Pattern: `[a-z0-9_-]{4,20}`
-- Must be unique
+The `name` is the project name displayed in the project dashboard.
 
-If `siteName` is not provided, one is generated automatically.
+If `name` is not provided, Wix may generate one automatically.
 
 ### For Headless Sites
 
-Add `"namespace": "HEADLESS"` to the request body:
+Use `"type": "HEADLESS"` instead of `"WIX"`:
 
 ```json
 {
-  "originTemplateId": "<TEMPLATE_ID>",
-  "siteName": "my-headless-site",
-  "namespace": "HEADLESS"
+  "type": "HEADLESS",
+  "name": "My Headless Backend"
 }
 ```
 
-**Response** includes the new site's `metaSiteId`.
+**Response** includes `project.metaSiteId`, `project.siteId`, and `project.templateId`.
 
 ### IMPORTANT NOTES:
 - Only mention headless if user specifically requests it
@@ -163,15 +140,17 @@ This is a site-level call in the context of the newly created site.
 
 ## Common Template IDs
 
-For quick access without searching:
+These examples come from the [Site Template IDs](https://dev.wix.com/docs/api-reference/account-level/sites/projects/site-template-ids) article.
 
-| Type | Template ID |
-|------|-------------|
-| Blank (Studio) | `fe86a14e-ef67-49b4-a409-d086f3abaa1a` |
-| Blank (Editor) | `b55bdf43-95e0-4cef-b9bb-92dcc7af2742` |
-| Store | `b783f9f9-4f4d-4139-9659-cc95a51b9ee5` |
-| Bookings/Services | `17b2bf9e-8661-4c92-973c-67502b415e58` |
-| Beauty | `0281d415-0682-42ac-b35e-49b349f19332` |
+| Type | Template ID | Style |
+|------|-------------|-------|
+| AI tech company | `a8c8f960-abe7-41d5-be33-ccba1bb56aa4` | Modern |
+| Cyber security company | `c117d77c-c545-40f2-8a70-4b16fcd7d0ec` | Dark |
+| Law firm | `7375da5f-e9e0-4fb5-af3b-d28ddb7531f1` | Minimalist |
+| City tours | `ec94402c-e1ab-42ec-8573-0848940c660a` | Illustrative |
+| Hair salon | `950aacb3-5c15-48e6-b85d-95c2ab8d7ecf` | Minimalist |
+| Electronics store | `9b6ae83a-02a6-4c47-8816-bade636b412e` | Minimalist |
+| Online beauty store | `21948e45-bd20-49e9-8479-c96827af41c9` | Modern |
 
 ---
 
