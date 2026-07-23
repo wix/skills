@@ -10,8 +10,9 @@ assertions:
     minScore: 7
     maxTokens: 2048
     prompt: |
-      Score 9-10: Agent called ReadFullDocsArticle on the eCommerce Load Context recipe, used the wix-profile-client metasite endpoint, and reported all fields: siteId, country, currency, industry, visitors30d, orders30d, GPV.
+      Score 9-10: Agent called ReadFullDocsArticle on the eCommerce Load Context recipe, used the wix-profile-client metasite endpoint, loaded catalog analytics with a fieldless count aggregate (`{"op":"count"}`), and reported all fields: siteId, country, currency, industry, visitors30d, orders30d, GPV.
       Score 7-8: Agent attempted to load the recipe (even if it returned 404), AND correctly reported all required fields (siteId, country, currency, industry, visitors30d, orders30d, GPV) via any endpoint combination.
       Score 4-6: All fields reported but recipe was never attempted.
       Score 1-3: Missing visitor count, order count, or GPV; or field values were invented without API calls.
+      Fail if the agent sends a catalog analytics count aggregate with any field, such as `{"op":"count","field":"price"}`, because that generates invalid `count(price)` output.
       Do NOT penalize solely for using a non-metasite endpoint when the recipe returned 404 — a 404 is a content-availability issue, not an agent error.
