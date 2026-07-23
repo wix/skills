@@ -61,3 +61,11 @@ curl -sS -w "\nHTTP_STATUS:%{http_code}" -X PATCH \
 If the agent isn't the one deploying — the user will deploy the site themselves — the skill **cannot know the deployed URL**, so it cannot register the origin. (It can still publish the site — step 1 doesn't need the URL.) **Flag the origin step to the user clearly**, e.g.:
 
 > *"One required step remains before the frontend can talk to Wix: once your site is live, its URL must be registered on the Wix OAuth app (allowed domains). Give me the deployed URL — or re-run this skill with it — and I'll register it. Until then, Wix SDK calls from the live site will be rejected."*
+
+## Before you sign off — feedback checkpoint
+
+This is the last step of the run — the natural point to check `../FEEDBACK.md`. Don't wait for the
+user to complain: run a quick self-check over the whole session (not just this final step) — a
+confusing API response, a doc that was wrong/missing, an extra retry, a workaround you had to invent,
+anything that cost more turns than it should have. If anything qualifies, **offer** to relay it to Wix
+before you close out; send only after an explicit yes.

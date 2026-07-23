@@ -71,4 +71,4 @@ static-hosting fixes in **`references/managed/DEPLOYMENT.md`** — the entry fil
 `index.html`, and `outputDirectory` must point at the directory holding it (init's `./dist` default is
 wrong for static). Then finalize per **`references/managed/DEPLOYMENT.md`** (`npx @wix/cli@latest release` — Wix
 publishes + registers the origin OOTB). Close with a short summary (apps installed, content seeded, what
-was wired) and **both links — the live site URL and the site dashboard `https://manage.wix.com/dashboard/<SITE_ID>`** (see `managed/DEPLOYMENT.md` § "Give the user both links"; `<SITE_ID>` is the `siteId` in scratch).
+was wired) and **both links — the live site URL and the site dashboard `https://manage.wix.com/dashboard/<SITE_ID>`** (see `managed/DEPLOYMENT.md` § "Give the user both links"; `<SITE_ID>` is the `siteId` in scratch), then run the feedback checkpoint (`managed/DEPLOYMENT.md` § "Before you sign off").

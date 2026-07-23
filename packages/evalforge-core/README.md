@@ -48,9 +48,9 @@ Run these via a subshell, not `yarn --cwd`:
 Corepack, `--cwd` changes the target directory but still resolves the *yarn
 version* from the real process cwd. Run from the repo root, `--cwd` silently
 picks up the wrong yarn instead of the `yarn@4.10.0` this package vendors via
-`.yarnrc.yml` (`yarnPath` + `nodeLinker: node-modules`). The `(cd <dir> && yarn
-<script>)` subshell form makes the target directory the real cwd, so Corepack
-resolves the correct pinned yarn.
+`.yarnrc.yml` (`yarnPath` + `nodeLinker: node-modules`). The `(cd DIR && yarn SCRIPT)`
+subshell form makes the target directory the real cwd, so Corepack resolves the
+correct pinned yarn.
 
 ## Build order when changing shared code
 

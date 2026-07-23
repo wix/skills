@@ -28,6 +28,14 @@ Live site:  <published-url>
 Dashboard:  https://manage.wix.com/dashboard/<SITE_ID>
 ```
 
+## Before you sign off — feedback checkpoint
+
+This is the last step of the run — the natural point to check `../FEEDBACK.md`. Don't wait for the
+user to complain: run a quick self-check over the whole session (not just this final step) — a
+confusing API response, a doc that was wrong/missing, an extra retry, a workaround you had to invent,
+anything that cost more turns than it should have. If anything qualifies, **offer** to relay it to Wix
+as you deliver the links above; send only after an explicit yes.
+
 ## Member login on a **non-Astro** frontend — register the callback URI (post-release)
 
 **Only when the run has member login on a non-Astro SPA/static frontend using the Wix login page** (`inline-recipes/how-to-code-members-non-astro.md` — the `getAuthUrl` → `/callback` handshake). Astro's built-in `/api/auth/*` callback shapes are auto-registered; a **non-Astro SPA's own callback path is not** — and **login stays dead (4xx on the login redirect) until you register it**. This is a genuine gap `wix release` does *not* close for you.

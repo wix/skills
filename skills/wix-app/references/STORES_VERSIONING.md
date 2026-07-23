@@ -1,4 +1,3 @@
-
 # Wix Stores Catalog Versioning (V1 / V3)
 
 Wix Stores has two catalog versions that are **NOT backwards compatible**. Apps **must support both** — single-version apps cannot list in the App Market and break on new sites.
@@ -82,214 +81,6 @@ Handle `STORES_NOT_INSTALLED` gracefully — return empty results, do not throw.
 
 ---
 
-## Copy-Paste Recipes
-
-Each recipe handles both versions. `V3Product` and V1 `Product` types are **not** re-exported from `@wix/stores` top-level — let TS infer or use structural types.
-
-### List products with pagination
-
-Both versions expose a fluent query builder, but the paging method differs:
-
-| Aspect | V1 (`products.queryProducts()`) | V3 (`productsV3.queryProducts()`) |
-|--------|--------------------------------|----------------------------------|
-| API style | Fluent builder: `.skip().limit().find()` | Fluent builder: `.skipTo(cursor).limit().find()` |
-| Pagination | Offset (`.skip(n)`) | Cursor (`.skipTo(cursor)`) |
-| Result `items` | `res.items` (V1 `Product[]`) | `res.items` (V3 `Product[]`) |
-| Total count | `res.totalCount` | **None** — V3 only has `cursors.next` + `hasNext()` |
-| `hasNext` | `res.hasNext()` (method) | `res.hasNext()` (method) |
-| Next cursor | n/a | `res.cursors.next` (string) |
-
-```typescript
-import { catalogVersioning, products, productsV3 } from '@wix/stores';
-
-export interface ProductsPage {
-  products: unknown[];        // narrow at call site
-  nextCursor: string | null;  // V3 only
-  hasNext: boolean;
-  totalCount: number | null;  // V1 only
-}
-
-export async function listProductsPage(
-  limit: number,
-  cursorOrSkip: string | number | undefined,
-): Promise<ProductsPage> {
-  const v = await getVersion();
-  if (v === 'STORES_NOT_INSTALLED') {
-    return { products: [], nextCursor: null, hasNext: false, totalCount: 0 };
-  }
-
-  if (v === 'V3_CATALOG') {
-    let builder = productsV3.queryProducts().limit(limit);
-    if (typeof cursorOrSkip === 'string') builder = builder.skipTo(cursorOrSkip);
-    // Do NOT chain a sort — see gotcha #10.
-    const res = await builder.find();
-    return {
-      products: res.items,
-      nextCursor: res.cursors.next ?? null,
-      hasNext: res.hasNext(),
-      totalCount: null,
-    };
-  }
-
-  const skip = typeof cursorOrSkip === 'number' ? cursorOrSkip : 0;
-  const res = await products.queryProducts().skip(skip).limit(limit).find();
-  return {
-    products: res.items,
-    nextCursor: null,
-    hasNext: res.hasNext(),
-    totalCount: res.totalCount ?? null,
-  };
-}
-```
-
-> **Two ways to call V3 `queryProducts`:** the canonical builder shown above, and a direct-call form `productsV3.queryProducts({ cursorPaging: { limit, cursor } })` returning a `Promise<{ products, pagingMetadata }>`. Both compile and run, but the builder is more idiomatic and matches V1's shape.
-
-### Display price/stock without fetching variants
-
-V3 `queryProducts` does not return variants. Read product-level rollup fields instead:
-
-```typescript
-function displayPrice(p: { actualPriceRange?: { minValue?: { amount?: string }; maxValue?: { amount?: string } } }): string {
-  const min = p.actualPriceRange?.minValue?.amount;
-  const max = p.actualPriceRange?.maxValue?.amount;
-  if (!min) return '—';
-  return max && max !== min ? `${min} – ${max}` : min;
-}
-
-function stockLabel(status: string | undefined): string {
-  switch (status) {
-    case 'IN_STOCK': return 'In Stock';
-    case 'OUT_OF_STOCK': return 'Out of Stock';
-    case 'PARTIALLY_OUT_OF_STOCK': return 'Limited';
-    case 'PREORDER': return 'Pre-order';
-    default: return '—';
-  }
-}
-// V1 path: product.stock.inventoryStatus  (same UPPER_SNAKE_CASE values)
-// V3 path: product.inventory.availabilityStatus (adds PREORDER)
-// SKU lives on the variant — show "—" in lists, or use Read-Only Variants API.
-```
-
-### Get a single product
-
-```typescript
-if (v === 'V3_CATALOG') {
-  const product = await productsV3.getProduct(id);  // returns Product directly
-  return product;
-}
-const { product } = await products.getProduct(id);  // V1 wraps in { product }
-return product;
-```
-
-### Create a product (single-variant, with price)
-
-```typescript
-if (v === 'V3_CATALOG') {
-  const product = await productsV3.createProduct({
-    name: 'My Product',
-    productType: 'PHYSICAL',                            // UPPER_CASE
-    variantsInfo: {
-      variants: [{
-        price: { actualPrice: { amount: '19.99' } },    // string, on the variant
-        sku: 'SKU-001',
-      }],
-    },
-  });
-  return product;
-}
-
-const { product } = await products.createProduct({
-  name: 'My Product',
-  productType: 'physical',                              // lower-case
-  priceData: { price: 19.99 },                          // number, on the product
-  sku: 'SKU-001',
-});
-return product;
-```
-
-### Update a product (V3 needs `revision`)
-
-```typescript
-if (v === 'V3_CATALOG') {
-  // Signature: updateProduct(_id, productFields). Returns Product directly.
-  const current = await productsV3.getProduct(id);
-  if (current.revision == null) throw new Error(`Product ${id} has no revision`);
-  return await productsV3.updateProduct(id, {
-    revision: current.revision,  // narrowed — required under exactOptionalPropertyTypes
-    name: 'New name',
-  });
-}
-// V1: updateProduct(id, productFields). Returns { product }.
-const { product } = await products.updateProduct(id, { name: 'New name' });
-return product;
-```
-
-### Delete a product
-
-```typescript
-if (v === 'V3_CATALOG') await productsV3.deleteProduct(id);
-else await products.deleteProduct(id);
-```
-
-### Inventory: increment stock
-
-```typescript
-import { inventory, inventoryItemsV3 } from '@wix/stores';
-
-if (v === 'V3_CATALOG') {
-  // Per-variant; flat shape.
-  await inventoryItemsV3.bulkIncrementInventoryItems([
-    { inventoryItemId, incrementBy: 5 },
-  ]);
-} else {
-  // Per-product (variant optional).
-  await inventory.incrementInventory([
-    { productId, variantId, incrementBy: 5 },
-  ]);
-}
-```
-
-To find a V3 inventory item ID, use `inventoryItemsV3.searchInventoryItems` filtered by `productId` / `variantId`.
-
-### Query inventory
-
-```typescript
-if (v === 'V3_CATALOG') {
-  const res = await inventoryItemsV3.queryInventoryItems().eq('productId', productId).find();
-  return res.items;
-}
-// V1: filter is a JSON-stringified expression.
-const res = await inventory.queryInventory({
-  query: { filter: JSON.stringify({ productId }) },
-});
-return res.inventoryItems;
-```
-
-### Collections (V1) ↔ Categories (V3)
-
-```typescript
-// V1 write ops (createCollection, updateCollection, addProductsToCollection, …)
-// live on the `products` namespace, NOT `collections`. The `collections` namespace is read-only.
-import { products } from '@wix/stores';
-import { categories } from '@wix/categories';
-
-if (v === 'V3_CATALOG') {
-  // V3 createCategory(category, options). treeReference is REQUIRED and goes in `options`.
-  // For Wix Stores categories: appNamespace MUST be the literal "@wix/stores", treeKey is null.
-  const category = await categories.createCategory(
-    { name: 'Sale' },
-    { treeReference: { appNamespace: '@wix/stores', treeKey: null } },
-  );
-  return category;
-}
-const { collection } = await products.createCollection({ name: 'Sale' });  // V1 returns { collection }
-return collection;
-```
-
-V3 categories are tree-structured. Reference them on a product via `directCategories[]`, not `collectionIds[]`. **All Stores category API calls must pass `treeReference: { appNamespace: '@wix/stores', treeKey: null }` in `options`** — applies to `createCategory`, `updateCategory`, `queryCategories`, etc.
-
----
-
 ## V1 → V3 Field Mapping (most common)
 
 For the full table see the [Catalog V1 to V3 Migration Guide](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/catalog-v1-to-v3-migration-guide?apiView=SDK).
@@ -311,6 +102,7 @@ For the full table see the [Catalog V1 to V3 Migration Guide](https://dev.wix.co
 | `collectionIds[i]` | `directCategories[i].id` |
 | `ribbon`, `brand` (string) | `ribbon.name`, `brand.name` (managed via `ribbonsV3` / `brandsV3`) |
 | `media.mainMedia.image.url` (main image URL) | `media.main.image ?? media.main.url` — in V3, `ProductMedia.image` is a `string` (Wix-hosted URL), `url` is a `string` (external URL); check both |
+| `lastUpdated` | `updatedDate` |
 
 **Pricing model** — V1 had a `discount` object; V3 removed it. Discounts are now expressed by the relationship between two fields on the variant: `actualPrice` (required, what the customer pays) vs `compareAtPrice` (optional, original price shown struck through). With discount: V1 `price`/`discountedPrice` → V3 `compareAtPrice`/`actualPrice`. Without discount: V1 `price` → V3 `actualPrice`, leave `compareAtPrice` empty.
 
@@ -330,6 +122,12 @@ Payload changes: V1 `changedFields` → V3 `modifiedFields`. Top-level `entityId
 
 ---
 
-## Falling back to MCP
+## Detailed references
 
-This file covers the common 80%. For methods not listed (subscriptions, brands, ribbons, etc.) or full request schemas, use `SearchWixSDKDocumentation` then `ReadFullDocsArticle`. Always return the required permission scopes to the user.
+- [stores/QUERY.md](stores/QUERY.md) — list/query products, pagination, price and stock display
+- [stores/GET_PRODUCT.md](stores/GET_PRODUCT.md) — getProduct, options/choices, modifiers, variant choices
+- [stores/WRITE.md](stores/WRITE.md) — create, update, delete products
+- [stores/INVENTORY.md](stores/INVENTORY.md) — inventory read and write operations
+- [stores/CATEGORIES.md](stores/CATEGORIES.md) — collections (V1) ↔ categories (V3)
+
+For methods not listed here, use `SearchWixSDKDocumentation` then `ReadFullDocsArticle`. Always return the required permission scopes to the user.
