@@ -1,0 +1,32 @@
+name: ecommerce/abandoned-carts/troubleshoot-recovery
+description: My abandoned-cart recovery emails are enabled but no one's coming back — help me figure out why.
+triggerPrompt: |
+  I turned on abandoned-cart recovery emails a while ago but barely anyone's coming back to finish their order. Don't change anything yet — just walk me through how you'd figure out what's going wrong. I want to see your plan first.
+tags: [ecommerce]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/abandoned-carts-troubleshoot-recovery
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      **Exception to the action-oriented pattern.** The merchant explicitly asked for a diagnostic plan only — no API calls, no fixes. We are evaluating plan quality, not execution. (The store's actual recovery state is unknown to this test, which is why we test the plan.)
+
+      Pass if ALL of these are true:
+        1. The agent dispatched to the `abandoned-carts-troubleshoot-recovery` recipe.
+        2. The plan starts by **identifying the recovery path** the merchant is using — Dashboard automation vs API-assisted recovery — and asks if unsure rather than guessing.
+        3. The plan covers the documented branches in a sensible order:
+           a. **Dashboard automation checks** — automation active, trigger = abandoned checkout/cart (not checkout-started), sender email valid, recovery CTA in body, no exclusion segment.
+           b. **Eligibility checks** — email/contact captured, opt-out flags, post-conversion exclusion, cart-mutation impact.
+           c. **API-link path checks** — redirect endpoint returns `302` with a `Location` header (when API-assisted).
+           d. **Weak-performance triage** — timing, content, shipping/payment/tax surprises.
+        4. For weak-performance / reporting questions inside the plan, it points to **Analytics APIs** as the source of counts and trends, not the Abandoned Checkout query endpoint as a reporting surface (that endpoint is for record-level drill-down).
+        5. The plan respects the "don't change anything yet" constraint — no fix proposed before the merchant has confirmed the root cause.
+
+      Fail if ANY of these are true:
+        - The plan gives only generic marketing advice (better subject lines, stronger CTA) without any of the documented branches.
+        - It jumps to a single root cause without first identifying which recovery path the merchant is on.
+        - It routes the issue to live-checkout drop-off troubleshooting (`checkout-troubleshoot-dropoff`).
+        - It uses the Abandoned Checkout query endpoint as the primary recovery-rate / trend reporting source.
+        - It starts making mutating API calls or "fixing" things despite the merchant asking for a plan only.

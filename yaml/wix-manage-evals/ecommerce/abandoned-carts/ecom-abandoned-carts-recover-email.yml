@@ -1,0 +1,30 @@
+name: ecommerce/abandoned-carts/recover-email
+description: Customers keep abandoning their cart — can you set up automatic emails to win them back?
+triggerPrompt: |
+  Customers keep adding things to cart and then disappearing. Can you set up automatic emails that follow up with them so I can win some of them back?
+tags: [ecommerce]
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/abandoned-carts-recover-via-email
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Recurring abandoned-cart recovery emails on Wix are configured via a **Dashboard automation** (Marketing → Automations → "Recover abandoned carts"). There is no public API for the recurring send — the agent must direct the merchant to the Dashboard. The Abandoned Checkout API is read-only here (used to verify state or build a custom one-off, not to send the recurring email).
+
+      Pass if ALL of these are true:
+        1. The agent dispatched to the `abandoned-carts-recover-via-email` recipe.
+        2. It directed the merchant to **Wix Dashboard → Marketing → Automations** and named the pre-built "Recover abandoned carts" automation (or instructed them to create one with trigger = abandoned checkout/cart, action = send email).
+        3. It surfaced concrete setup guidance the merchant can act on — at least TWO of: send timing (e.g. 1h / 1h+24h / +72h with incentive), email content priorities (cart contents, "Complete your order" CTA, reassurance/policy, optional incentive), eligibility/guardrails (consent, no-double-send after conversion, discount stacking, email captured).
+        4. For measurement, it points to **Analytics APIs** (not the Abandoned Checkout query endpoint) as the source of recovery rate / trends.
+
+      Fail if ANY of these are true:
+        - The agent claimed a public API sends the recurring recovery email automatically.
+        - It dispatched to the live-checkout `reduce-abandonment` skill instead of post-abandonment recovery.
+        - It described "configure the email via the API" without mentioning the Dashboard automation.
+        - It treated this as a Pricing/Promotions task (discount-to-win-back) without first setting up the recovery email.
+        - It only described the recipe in abstract terms without naming the specific Dashboard path or any concrete setup field (timing, content, eligibility).

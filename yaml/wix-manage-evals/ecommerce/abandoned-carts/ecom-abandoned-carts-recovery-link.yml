@@ -1,0 +1,31 @@
+name: ecommerce/abandoned-carts/recovery-link
+description: Send a recent abandoner a link back to their cart.
+triggerPrompt: |
+  Can you grab the most recent shopper who left their cart and give me a link I can send them to finish their order?
+tags: [ecommerce]
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/abandoned-carts-recovery-link
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The merchant asked the agent to generate a recovery link on a **fresh `stores-v3-editor` template with no abandoned checkouts**. The correct skill behavior is the **guardrail path** — query for abandoned checkouts, find zero, and explain to the merchant that there's nothing to recover yet (rather than fabricate an id or skip the lookup).
+
+      Pass if ALL of these are true:
+        1. The agent dispatched to the `abandoned-carts-recovery-link` recipe.
+        2. It actually called `POST /ecom/v1/abandoned-checkout/query` (or the `search` variant) to look up abandoned checkouts.
+        3. It correctly recognized the empty result and surfaced "no abandoned checkouts on this store yet — no link can be generated until a shopper actually abandons one".
+        4. It explained the intended happy path so the merchant knows what to expect next: confirm the target checkout (buyer email, cart total, abandoned-checkout `id`, metasiteId), then call `GET /ecom/v1/abandoned-checkout/{id}/redirect-to-checkout?metasiteId=…` and use the `Location` header from the redirect response as the link.
+        5. It stopped before fabricating a link / abandoned-checkout id that doesn't exist.
+
+      Fail if ANY of these are true:
+        - The agent fabricated an abandoned-checkout `id` and called the redirect endpoint anyway.
+        - It described the recipe without making the query call.
+        - It dispatched to the Dashboard email automation skill (`recover-email`) instead — the merchant asked for a one-off link, not recurring email.
+        - It treated "no abandoned checkouts" as a failure or proposed creating one synthetically.
+        - It omitted the `metasiteId` requirement on the redirect call.

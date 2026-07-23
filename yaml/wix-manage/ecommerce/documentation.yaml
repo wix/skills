@@ -136,6 +136,35 @@ apiDoc:
       tags: [ecommerce]
 
     # ============================================================
+    # Abandoned carts category
+    # ============================================================
+
+    - file: ../../../skills/wix-manage/references/ecommerce/ecom-abandoned-carts.md
+      title: "Abandoned Carts"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    - file: ../../../skills/wix-manage/references/ecommerce/abandoned-carts/ecom-abandoned-carts-recover-email.md
+      title: "Abandoned Carts: Recover via Email"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    - file: ../../../skills/wix-manage/references/ecommerce/abandoned-carts/ecom-abandoned-carts-recovery-link.md
+      title: "Abandoned Carts: Recovery Link"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    - file: ../../../skills/wix-manage/references/ecommerce/abandoned-carts/ecom-abandoned-carts-troubleshoot-recovery.md
+      title: "Abandoned Carts: Troubleshoot Recovery"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    - file: ../../../skills/wix-manage/references/ecommerce/abandoned-carts/ecom-abandoned-carts-recovery-health.md
+      title: "Abandoned Carts: Recovery Health"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce
+      tags: [ecommerce]
+
+    # ============================================================
     # Carry-forward root orchestrator (not yet in routing tree)
     # The strategy orchestrator is preserved at its main-branch URL.
     # ABANDONED_CART branch removed; classification falls back to the
