@@ -22,7 +22,6 @@
     "@wix/ecom": "^1.0.2065",
     "@wix/editor": "^1.508.0",
     "@wix/editor-react-types": "^1.0.21",
-    "@wix/environment-service": "*",
     "@wix/essentials": "^1.0.6",
     "@wix/patterns": "^1.364.0",
     "@wix/payments": "*",
