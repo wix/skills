@@ -134,6 +134,7 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 - **Any sales/business improvement request** (boost sales, promotions, help my business, holiday deals, improve revenue, discounts, shipping, coupons, clearance) → use [Recommend: eCommerce Strategy](references/ecommerce/recommend-ecommerce-strategy.md). This is the **default entry point** — it analyzes ALL domains (discounts, shipping) and generates cross-domain recommendations. Do NOT ask clarifying questions.
 - **Pricing & promotions** (coupons, discount rules, ribbons, sales) → use the [Pricing & Promotions](references/ecommerce/ecom-pricing.md) dispatcher.
 - **Shipping setup** (rates, regions, pickup, free shipping, fix coverage) → use the [Shipping](references/ecommerce/ecom-shipping.md) dispatcher.
+- **Tax setup** (calculator choice, EU VAT, troubleshoot wrong calculation) → use the [Tax](references/ecommerce/ecom-tax.md) dispatcher.
 
 ### [eCommerce: Load Context](references/ecommerce/ecom-load-context.md)
 **L1 loader** — loads general site data (siteId, country, currency, industry, catalog analytics) needed by every eCommerce category. Each category dispatcher loads this before tag-matching; runs once per session.
@@ -146,6 +147,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 
 ### [Shipping](references/ecommerce/ecom-shipping.md)
 **Dispatcher** — routes shipping-setup requests (rates, regions, pickup, free shipping, fix coverage, optimize rates) to the right leaf recipe. The Shipping Options + Delivery Profiles APIs have no public docs page; `ecom-shipping-api.md` is the authoritative inline reference.
+
+### [Tax](references/ecommerce/ecom-tax.md)
+**Dispatcher** — routes tax-setup and tax-troubleshoot requests to the right leaf recipe (Wix Manual, EU VAT, calculation-wrong). Loads MerchantContext (country) before tag-matching.
 
 <details>
 <summary>Internal skills (loaded automatically by the dispatchers / orchestrator above — do NOT use directly)</summary>
@@ -165,6 +169,11 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 - [Optimize Rates](references/ecommerce/shipping/ecom-shipping-optimize-rates.md)
 - [Fix Coverage Gaps](references/ecommerce/shipping/ecom-shipping-fix-coverage.md)
 - [API Reference](references/ecommerce/shipping/ecom-shipping-api.md) — inline spec for Shipping Options + Delivery Profiles
+
+#### Tax leaves (loaded by the Tax dispatcher)
+- [Configure (Wix Manual)](references/ecommerce/tax/ecom-tax-configure.md) — baseline manual calculator setup
+- [Configure (EU VAT)](references/ecommerce/tax/ecom-tax-eu-vat.md) — context promotion `[region:EU]`
+- [Tax Calculation Wrong](references/ecommerce/tax/ecom-tax-troubleshoot-calc-wrong.md) (diagnostic)
 
 #### Cross-cutting tracking
 - [API: Recommendation Tracking](references/ecommerce/api-recommendation-tracking.md) — load BEFORE generating any recommendation; persists PROPOSED state and tracks MarkExecuting → MarkDone/MarkFailed.

@@ -1,0 +1,39 @@
+name: ecommerce/tax/ecom-tax-uk-boundary
+description: I sell in the UK and need to charge 20% VAT — set it up for me.
+triggerPrompt: |
+  I sell in the United Kingdom and I need to charge 20% VAT on my products. Can you set it up?
+tags: [ecommerce]
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/tax
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/tax-configure-wix-manual
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The merchant's question is **the UK + VAT trap**: "UK + 20% VAT" surface-matches EU VAT (same `taxName: VAT`, same tax-inclusive pricing, same "I sell to country X — set up VAT" phrasing). But UK is **NOT** in the EU27 since Brexit — `country: GB` must route to **Wix Manual**, not EU VAT. This test exercises the **dispatcher's boundary rule** (`UK is NOT EU` in `ecom-tax.md`). Without the dispatcher, the agent could pick `tax-configure-eu-vat` on surface match and then either fail or recover via the in-body `UK ≠ EU` guardrail at extra cost.
+
+      Pass if ALL of these are true:
+        1. The agent called `ReadFullDocsArticle` on the **Tax dispatcher** (slug `tax`) — proves the dispatcher was consulted before leaf selection.
+        2. The dispatcher's boundary rule sent it to **Wix Manual** (`tax-configure-wix-manual`), NOT EU VAT.
+        3. It called `GET /billing/v1/list-tax-calculators` and captured the Manual calculator's identifier.
+        4. It called `POST /billing/v1/tax-regions` with `country: "GB"`, the Manual calculator identifier, and `taxIncludedInPrice: true` (UK is a tax-inclusive market per the dispatcher's country table).
+        5. It called `POST /billing/v1/tax-groups` to create a tax group.
+        6. It called `POST /billing/v1/manual-tax-mappings` binding the GB region + group with a rate equivalent to **20%** (`"0.2"` or `"0.20"` or any equivalent), `taxName: "VAT"`, and a sensible `taxType` (e.g. `"VAT/GST"` or `"VAT"`).
+        7. It reported back the resulting state: country GB, rate 20%, tax-inclusive pricing.
+
+      Fail if ANY of these are true:
+        - The agent dispatched directly to `tax-configure-eu-vat` for `country: GB` (the UK trap).
+        - It created the GB region by walking the EU VAT recipe (looping or bulk-creating mappings) instead of the Wix Manual recipe.
+        - It bypassed the dispatcher entirely on first read (no `ReadFullDocsArticle` on `tax` slug).
+        - It configured GB as tax-exclusive (UK is inclusive per the country defaults).
+        - The configured rate is not equivalent to 20% (e.g. it sent `"20"` and the API interpreted it as 2000%).
+        - It used Avalara or any non-Wix-Manual calculator.
+
+      **Why this test exists:** the dispatcher's value over leaf-only routing is the boundary rule. The EU VAT leaf's description says "EU countries"; the UK *uses* VAT but is *not* in the EU. Surface-similarity routing fails the UK case; the dispatcher's tag-table catches it because `country:GB` doesn't satisfy `region:EU`.
