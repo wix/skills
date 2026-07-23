@@ -1,0 +1,33 @@
+name: EvalForge wix-app Sync
+
+on:
+  pull_request:
+    branches: [main]
+    types: [closed]
+    paths: ['yaml/wix-app-evals/**']
+
+# Serialize syncs per PR. cancel-in-progress: false because canceling mid-sync
+# leaves scenarios half-reconciled.
+concurrency:
+  group: evalforge-wix-app-sync-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.pull_request.merged == true && github.event.pull_request.head.repo.full_name == github.repository }}
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+      - uses: ./.github/actions/evalforge-yaml-gate
+        with:
+          mode: sync
+          evalforge-url: ${{ vars.EVALFORGE_URL }}
+          evalforge-project-id: ${{ vars.APP_BUILDER_PIPELINE_PROJECT_ID }}
+          evals-glob: 'yaml/wix-app-evals/**/*.{yml,yaml}'
+          evalforge-app-id: ${{ secrets.AUTO_SKILLS_PIPELINE_APP_ID }}
+          evalforge-app-secret: ${{ secrets.AUTO_SKILLS_PIPELINE_APP_SECRET }}
+          dry-run: 'true'

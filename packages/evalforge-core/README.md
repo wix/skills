@@ -16,6 +16,20 @@ CLI surface or file layout:
 - **`auth`** — `TokenProvider`, an OAuth2 client-credentials token provider for
   the Wix public API, with caching and re-mint-before-expiry so a long-running
   eval poll doesn't get caught mid-request with a stale token.
+- **`reconcile`** — `reconcile({ local, remote, repo })`, a pure planner that
+  diffs local `Scenario[]` against `RemoteScenario[]` by name and returns a
+  `{ actions, skipped }` plan: `CREATE`/`UPDATE` for every local scenario
+  (matched by name, mapped through `toEvalForgeBody`, tagged with
+  `withManagedTags`), and `DELETE` for remote scenarios with no local match —
+  but only when they already carry this repo's managed tag
+  (`repoTagFor(repo)`); unmanaged remote-only scenarios are reported in
+  `skipped` and left untouched. No network calls — deterministic and
+  unit-tested against hand-built inputs.
+- **`loader`** — `loadScenarios(root, globPattern)`, which globs scenario YAML
+  files under `root` (excluding `node_modules`, `dist`, and the
+  `.action-src/**` two-checkout convention), parses each with
+  `parseScenario`, and returns a `Map<name, LoadedScenario>` plus a
+  `LoadError[]` for unparseable files or duplicate scenario names.
 
 Everything is re-exported from `src/index.ts`.
 
@@ -34,6 +48,23 @@ and `ncc` inlines the built output into that action's committed
 build step for the actions — it runs the committed bundle directly — so any
 change to this package must be built, and the consuming action must be rebuilt
 and its `dist` re-committed, before it takes effect in CI.
+
+## Sync mode: repo YAML -> EvalForge
+
+`.github/actions/evalforge-yaml-gate`'s `sync` mode is built on `loadScenarios`
++ `reconcile`: it loads the repo's scenario YAML via a caller-supplied
+`evals-glob`, fetches the current remote scenarios for the target
+`evalforge-project-id`, computes a plan with `reconcile`, and applies it
+(CREATE/UPDATE/DELETE) unless `dry-run: 'true'`, in which case it only logs
+the plan. Sync is **one-way** (repo -> EvalForge; it never reads results back
+into YAML) and deletes are scoped to scenarios this repo already manages, so
+UI-authored or other repos' scenarios are never touched.
+
+`.github/workflows/evalforge-wix-app-sync.yml` drives this on every PR merged
+into `main` that touches `yaml/wix-app-evals/**`: it checks out the merge
+commit and runs the gate action in `sync` mode against the
+`APP_BUILDER_PIPELINE_PROJECT_ID` project, currently with `dry-run: 'true'`
+(applying is a deliberate follow-up once the logged plan has been verified).
 
 ## Local commands
 
