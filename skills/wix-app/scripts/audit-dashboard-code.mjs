@@ -10,6 +10,7 @@ if (!inputs.length) {
 }
 
 const supportedExtensions = new Set(['.js', '.jsx', '.ts', '.tsx']);
+const routeRecordName = '.dashboard-route.json';
 
 function sourceFiles(inputPath) {
   const absolute = path.resolve(inputPath);
@@ -18,6 +19,16 @@ function sourceFiles(inputPath) {
   if (stat.isFile()) return supportedExtensions.has(path.extname(absolute)) ? [absolute] : [];
   return fs.readdirSync(absolute, { withFileTypes: true }).flatMap((entry) =>
     sourceFiles(path.join(absolute, entry.name)),
+  );
+}
+
+function namedFiles(inputPath, fileName) {
+  const absolute = path.resolve(inputPath);
+  if (!fs.existsSync(absolute)) throw new Error(`Path does not exist: ${inputPath}`);
+  const stat = fs.statSync(absolute);
+  if (stat.isFile()) return path.basename(absolute) === fileName ? [absolute] : [];
+  return fs.readdirSync(absolute, { withFileTypes: true }).flatMap((entry) =>
+    namedFiles(path.join(absolute, entry.name), fileName),
   );
 }
 
@@ -38,15 +49,136 @@ function report(filePath, content, rule, pattern, message) {
 }
 
 let files;
+let routeRecordPaths;
+let patternsPaths;
 try {
   files = [...new Set(inputs.flatMap(sourceFiles))];
+  routeRecordPaths = [...new Set(inputs.flatMap((input) => namedFiles(input, routeRecordName)))];
+  patternsPaths = [...new Set(inputs.flatMap((input) => namedFiles(input, 'patterns.json')))];
 } catch (error) {
   console.error(error.message);
   process.exit(2);
 }
 
 const contents = new Map(files.map((filePath) => [filePath, fs.readFileSync(filePath, 'utf8')]));
+const projectSource = [...contents.values()].join('\n');
 const projectHasSidePanel = [...contents.values()].some((content) => /<SidePanel\b/.test(content));
+
+if (files.length && routeRecordPaths.length !== 1) {
+  const firstFile = files[0];
+  addFinding(
+    firstFile,
+    contents.get(firstFile),
+    0,
+    'RT-01',
+    routeRecordPaths.length
+      ? `Dashboard source must contain exactly one ${routeRecordName}; found ${routeRecordPaths.length}.`
+      : `Dashboard source is missing the required ${routeRecordName}.`,
+  );
+}
+
+for (const recordPath of routeRecordPaths) {
+  let record;
+  try {
+    record = JSON.parse(fs.readFileSync(recordPath, 'utf8'));
+  } catch (error) {
+    findings.push({
+      filePath: recordPath,
+      line: 1,
+      rule: 'RT-01',
+      message: `Route record is not valid JSON: ${error.message}`,
+    });
+    continue;
+  }
+
+  const routes = new Set([
+    'auto-patterns',
+    'auto-patterns-change',
+    'custom-table',
+    'custom-table-panel',
+    'analytics',
+    'modal',
+  ]);
+  if (!routes.has(record.route)) {
+    findings.push({
+      filePath: recordPath,
+      line: 1,
+      rule: 'RT-01',
+      message: `Route record has unsupported route "${record.route ?? ''}".`,
+    });
+  }
+
+  if (!Number.isInteger(record.sourceCount) || record.sourceCount < 0) {
+    findings.push({
+      filePath: recordPath,
+      line: 1,
+      rule: 'RT-02',
+      message: 'sourceCount must be a non-negative integer counting physical collections or systems.',
+    });
+  }
+  if (!Array.isArray(record.sources) || record.sources.length !== record.sourceCount) {
+    findings.push({
+      filePath: recordPath,
+      line: 1,
+      rule: 'RT-02',
+      message: 'sources must list each physical source exactly once and match sourceCount.',
+    });
+  }
+
+  const isAutoPatterns = ['auto-patterns', 'auto-patterns-change'].includes(record.route);
+  if (isAutoPatterns) {
+    if (!patternsPaths.length || !/@wix\/auto-patterns/.test(projectSource)) {
+      findings.push({
+        filePath: recordPath,
+        line: 1,
+        rule: 'RT-03',
+        message: 'Auto Patterns route must produce patterns.json and source that uses @wix/auto-patterns.',
+      });
+    }
+  }
+
+  const isCustomCollectionSurface = ['custom-table', 'custom-table-panel'].includes(record.route);
+  if (isCustomCollectionSurface && record.sourceCount === 1) {
+    const requiredEvidence = [
+      'firstUnsupportedCapability',
+      'checkedReference',
+      'whyDataAdaptationCannotSolve',
+    ];
+    const missingEvidence = requiredEvidence.filter(
+      (key) => typeof record[key] !== 'string' || !record[key].trim(),
+    );
+    if (record.fallbackCategory !== 'unsupported-presentation' || missingEvidence.length) {
+      findings.push({
+        filePath: recordPath,
+        line: 1,
+        rule: 'RT-04',
+        message: `One-source custom table requires fallbackCategory "unsupported-presentation" and evidence fields: ${requiredEvidence.join(', ')}.`,
+      });
+    }
+
+    const fallbackText = [
+      record.firstUnsupportedCapability,
+      record.whyDataAdaptationCannotSolve,
+    ].filter(Boolean).join(' ');
+    if (/\b(?:filter(?:ing)?|predicate|or logic|date comparison|derived (?:field|state|status)|elapsed time)\b/i.test(fallbackText)) {
+      findings.push({
+        filePath: recordPath,
+        line: 1,
+        rule: 'RT-05',
+        message: 'Query/filter complexity is data shaping, not an unsupported presentation capability; keep the one-collection surface in Auto Patterns.',
+      });
+    }
+  }
+
+  if (record.fallbackCategory === 'multi-source' && record.sourceCount < 2) {
+    findings.push({
+      filePath: recordPath,
+      line: 1,
+      rule: 'RT-02',
+      message: 'multi-source requires at least two physical collections or systems.',
+    });
+  }
+}
 
 function componentNames(filePath, content) {
   const names = new Set();
@@ -302,7 +434,6 @@ for (const filePath of files) {
 }
 
 if (projectHasSidePanel) {
-  const projectSource = [...contents.values()].join('\n');
   const hostPattern = new RegExp(
     `(?:function|const)\\s+${sidePanelHostName}\\b[\\s\\S]{0,1800}position:\\s*['"]fixed['"][\\s\\S]{0,360}top:\\s*0[\\s\\S]{0,360}right:\\s*0[\\s\\S]{0,360}bottom:\\s*0[\\s\\S]{0,360}display:\\s*['"]flex['"][\\s\\S]{0,360}alignItems:\\s*['"]stretch['"][\\s\\S]{0,520}>\\s*\\{children\\}\\s*<\\/div>`,
   );

@@ -13,7 +13,13 @@ Views are separate from the collection page layout:
 
 The native CMS `Choose layout` dropdown is a different product surface. Do not call it a Saved View. Auto Patterns does not document its `List` layout, a dropdown presentation for the layout switcher, or a `defaultLayout` configuration key.
 
-For a dynamic condition that compares two fields, such as `stockOnHand <= reorderPoint`, do not claim that a View calculates it. First provide a maintained filterable field, for example `inventoryStatus: In stock | Low stock | Discontinued`, then configure the View against that field's documented filter ID.
+For a dynamic condition that compares fields, combines predicates, or depends on elapsed time, do not claim that a View calculates it. First provide maintained filterable fields, then configure the View against their documented filter IDs:
+
+- `stockOnHand <= reorderPoint` -> `inventoryStatus`
+- unpaid OR unfulfilled for more than 24 hours OR customer issue -> `needsAttention`, `exceptionType`, and `exceptionSince`
+- reviewed queue -> `isReviewed`
+
+Define who updates each field on create, source changes, time transitions, and backfill. This remains a one-collection Auto Patterns route; filter complexity is data shaping, not evidence for a custom WDS table.
 
 ## Type Definitions
 ```typescript

@@ -1,19 +1,20 @@
 ---
 name: wix-app
 description: "Build and review Wix CLI app extensions: dashboard pages, modals, plugins, menu plugins, custom element widgets, Editor React components, site plugins, embedded scripts, backend APIs, backend events, service plugins, data collections, and App Market readiness. Use for any Wix CLI app feature, extension, CMS schema, dashboard, widget, plugin, backend API, event, service plugin, or App Market review."
-compatibility: requires `@wix/cli` >= 1.1.192.
 ---
 
 # Wix App Builder
+
+Require `@wix/cli` 1.1.192 or newer.
 
 The Wix CLI owns scaffolding. This skill classifies the request, selects one execution route, and loads detailed references only when that route requires them.
 
 ## Core Workflow
 
-1. Classify the extension, data source, and primary user workflow.
+1. Classify the extension, physical data sources, and primary user workflow.
 2. Read one selected extension guide or dashboard playbook.
 3. Read only the exact API/component documentation named by that guide.
-4. Scaffold with the CLI, then implement in generated files.
+4. For dashboards, save the selected route in `.dashboard-route.json`, then scaffold with the CLI and implement in generated files.
 5. Validate build and the real browser workflow before reporting completion.
 
 Read [CODE_QUALITY.md](references/CODE_QUALITY.md) before implementation. Do not claim completion after a build alone.
@@ -82,6 +83,6 @@ Use focused discovery only when the selected local guide does not cover the requ
 ## Validation
 
 1. Run `npx tsc --noEmit`, `npx wix build`, and `npx wix preview`.
-2. For generated custom dashboard code, run `node "$HOME/.agents/skills/wix-app/scripts/audit-dashboard-code.mjs" <dashboard-source-directory>` before delegating build validation. This blocking audit must pass; a TypeScript/build validator does not replace it.
-3. Exercise the selected playbook's acceptance checklist in a browser, including console, network, visible states, and persistence.
+2. For every generated dashboard, run `node "$HOME/.agents/skills/wix-app/scripts/audit-dashboard-code.mjs" <dashboard-source-directory>`. This blocking audit validates the route record and generated ownership; a TypeScript/build validator does not replace it.
+3. Open the registered dashboard route in a browser. Confirm the loader resolves, representative records render, console and network are clean, and the primary filter/action/detail workflow persists after refresh.
 4. Report runtime status as `passed`, `failed`, or `blocked`, followed by separate manual steps.

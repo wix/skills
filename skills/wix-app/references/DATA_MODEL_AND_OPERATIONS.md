@@ -47,6 +47,17 @@ Treat the availability of every write action as part of the workflow, not as dec
 - Guard the write handler as well as the control. A no-op click must not issue a data write.
 - After success, refresh the initial state or close the workflow; after recoverable failure, preserve the entered value and restore the action only when the mutation remains valid.
 
+## 5. Operational Derived State
+
+When a recurring manager workset depends on OR logic, field comparisons, or elapsed time, persist a queryable operational field instead of moving the collection UI to a custom table. Record:
+
+1. the canonical field and values, such as `needsAttention`, `exceptionType`, `exceptionSince`, or `inventoryStatus`;
+2. the write/event/scheduled process that maintains it, including backfill;
+3. its behavior when source data is missing;
+4. the actual filter-plus-sort query shape.
+
+Create only the most important indexes allowed by the collection. When the runtime query filters and sorts together, validate whether it needs a compound index; a successful build does not prove that query works on the live collection.
+
 ## Data Contract
 
 Before building a table that combines records, write down the source collection, target collection, reference field, required display fields, missing-value treatment, and mutation path. Do not rely on implied naming such as `classRef` without verifying the actual schema.

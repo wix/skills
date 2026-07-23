@@ -29,6 +29,8 @@ If a page combines analytics with a table, use the analytics playbook as primary
 ## Routing Gates
 
 - **Auto Patterns is a mandatory first gate for every new one-collection manager.** Before reading a custom table, table-and-panel, analytics, or WDS component playbook, open [DASHBOARD_AUTO_PATTERNS_PLAYBOOK.md](DASHBOARD_AUTO_PATTERNS_PLAYBOOK.md) and evaluate the requested physical page against its focused references.
+- Count physical systems or collections, not query branches. Search, projections, OR predicates, date comparisons, derived statuses, saved worksets, and filtered subsets of one collection still have `sourceCount: 1`.
+- Query complexity does not transfer table ownership. For a one-collection manager, adapt the data model with maintained filterable fields when needed, then keep Auto Patterns as the collection surface.
 - A contextual detail panel, an input flow, or a bounded confirmation does not by itself make a one-collection manager custom. First evaluate the documented Auto Patterns row action, child-component/AppContext, and entity-page paths. A custom dashboard route is **invalid** until the route record names each required Auto Patterns capability, the exact checked reference, and the first capability that is `unsupported`. Search, filters, Table/Grid, standard CRUD, saved views, documented row or bulk actions, contextual SidePanel detail, and entity-page edits are not evidence of unsupported complexity when their documented extension path exists.
 - Do not classify a page as `custom-table` merely because it has a Table/Grid switch, gallery/card presentation, search, filters, a restock-style action, or sample records. These are Auto Patterns candidates and must be evaluated there first.
 - Read [DASHBOARD_WDS_COMPONENT_GATE.md](DASHBOARD_WDS_COMPONENT_GATE.md) when a documented Auto Patterns extension needs the exact WDS composition for its supplemental surface. Select a custom route only after an exact unsupported capability is recorded.
@@ -39,21 +41,21 @@ If a page combines analytics with a table, use the analytics playbook as primary
 
 ## Route Record
 
-Before scaffolding, record:
+Before reading a custom playbook or scaffolding, save `.dashboard-route.json` in the dashboard source directory:
 
-```text
-route: auto-patterns
-secondary: SidePanel detail via row-action override
-source: Inventory Products collection
-capabilities:
-  - Table/Grid layouts: supported (AUTO_PATTERNS_DASHBOARD.md)
-  - search and filters: supported (AUTO_PATTERNS_DASHBOARD.md)
-  - Mark restocked row action: supported-via-override (auto-patterns-dashboard/action-cell.md)
-  - selected product detail: supported-via-override (auto-patterns-dashboard/collection-page-actions.md, auto-patterns-dashboard/app-context.md)
-reason: one collection with documented layouts, filters, actions, and contextual-detail extension path
-proof: create sample products, switch Table/Grid, filter low stock, open a product detail SidePanel, mark one item restocked, refresh, and confirm persistence
+```json
+{
+  "route": "auto-patterns",
+  "sourceCount": 1,
+  "sources": ["Inventory Products"],
+  "secondary": "SidePanel detail via row-action override",
+  "dataAdaptation": "Maintain inventoryStatus for saved filtering",
+  "fallbackCategory": null,
+  "firstUnsupportedCapability": null,
+  "checkedReference": "auto-patterns-dashboard/views.md"
+}
 ```
 
-For a custom fallback, replace the capability list with the exact first unsupported capability and reference checked. A statement such as "gallery + table + action" is not a valid fallback reason.
+Allowed custom fallback categories are `multi-source`, `external-data`, and `unsupported-presentation`. A one-source custom fallback must use `unsupported-presentation` and also provide non-empty `firstUnsupportedCapability`, `checkedReference`, and `whyDataAdaptationCannotSolve`. Filtering, OR/date logic, derived state, a gallery/table switch, or a detail overlay are never valid fallback categories.
 
-Do not proceed with an unnamed route.
+Do not proceed without this record. Update it if evidence changes the route.

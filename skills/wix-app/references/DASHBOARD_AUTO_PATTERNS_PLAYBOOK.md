@@ -25,6 +25,7 @@ Read [AUTO_PATTERNS_DASHBOARD.md](AUTO_PATTERNS_DASHBOARD.md) for generation, co
 - **AP-03:** A Table/Grid switch, row action, derived display, or named workset is not automatically unsupported. Check its focused reference before falling back; record that exact file in the capability decision.
 - **AP-04:** Auto Patterns documents Table and Grid. Do not promise the native CMS layout menu, List layout, custom layout labels, or a configurable initial layout unless the installed docs explicitly support them.
 - **AP-05:** Do not read or select a custom WDS dashboard playbook until this evaluation records the first `unsupported` capability. A new one-collection manager stays on this route when every requested capability is `supported` or `supported-via-override`.
+- **AP-06:** Keep one physical collection classified as one source even when the workflow uses OR conditions, elapsed-time rules, comparisons, or several saved subsets. Materialize operational state as maintained fields and configure filters/Views against those fields; do not rebuild the table to express query logic.
 
 ## Extension Choice
 
@@ -54,11 +55,11 @@ Configure the documented Auto Patterns Table/Grid layouts and action override. D
 ## Build Contract
 
 1. Reuse a verified collection or create the required app-owned Data Collection and obtain its namespace.
-2. Define schema, permissions, references, initial data, and missing-reference behavior before page generation.
+2. Define schema, permissions, references, operational derived fields, indexes, initial data, and missing-reference behavior before page generation.
 3. Scaffold with the Wix CLI and run the bundled Auto Patterns generator exactly as documented.
 4. Keep the generated page component thin. Put configuration in `patterns.json` and every override in its documented separate file.
 5. When the prompt asks for representative data, create 3-5 realistic records and verify the collection and dashboard show the same items.
-6. Before adding any custom dashboard JSX, verify `patterns.json` exists and that the generated Auto Patterns wrapper is registered by the CLI-scaffolded extension.
+6. Before adding any custom dashboard JSX, verify `.dashboard-route.json` says `auto-patterns`, `patterns.json` exists, and the generated Auto Patterns wrapper is registered by the CLI-scaffolded extension.
 
 ## Invalid Implementations
 
@@ -74,3 +75,4 @@ Configure the documented Auto Patterns Table/Grid layouts and action override. D
 - Table/Grid, Saved Views, actions, create/edit/delete flows, and overrides behave as requested.
 - Loading, empty, no-results, error, and populated states are intentional.
 - Browser, console, network, and persistence checks pass.
+- The registered dashboard page opens, its loader settles, and a build-only success is not reported as runtime success.
