@@ -276,6 +276,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ### [Create Product with Options (Catalog V3)](references/stores/create-product-with-options-catalog-v3.md)
 **Technical:** Single product creation with options using Catalog V3 Products API. Covers option types (TEXT_CHOICES, SWATCH_CHOICES), choice configuration, and automatic variant generation.
 
+### [Convert Catalog V1 Products to Catalog V3 Import CSV](references/stores/convert-catalog-v1-to-v3-import-csv.md)
+**Technical:** **MANDATORY entry point** for requests to export, convert, migrate, or reformat Wix Stores Catalog V1 products into Catalog V3 dashboard import CSV files, especially when the user asks to preserve images/media or split import files under the 10,000-row limit. Call `ReadFullDocsArticle("https://dev.wix.com/docs/api-reference/business-solutions/stores/skills/convert-catalog-v1-products-to-catalog-v3-import-csv")` before giving conversion or splitting instructions. Covers product/media row grouping, category slug mapping, and safe batching without splitting a product's `PRODUCT` row from its `MEDIA` rows.
+
 ### [Find Products (Query and Search, Catalog V3)](references/stores/find-products-query-and-search-catalog-v3.md)
 **Technical:** Find, search, query, and list products from a Wix Store using Catalog V3 Search Products and Query Products endpoints. Explains when to use each endpoint, correct fields enum values, filtering, sorting, and paging.
 
