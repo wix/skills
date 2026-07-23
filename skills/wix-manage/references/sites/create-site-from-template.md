@@ -98,6 +98,39 @@ curl -X POST \
   }'
 ```
 
+**Response shape**:
+```json
+{
+  "metaSite": {
+    "metaSiteId": "<NEW_SITE_ID>",
+    "name": "my-new-site",
+    "ownerId": "<ACCOUNT_ID>",
+    "published": false
+  }
+}
+```
+
+When using `ExecuteWixAPI`, read the site ID and name from the nested response:
+
+```js
+const response = await wix.request({
+  scope: "account",
+  method: "POST",
+  url: "https://www.wixapis.com/msm/v1/meta-site/create-from-template",
+  body: { originTemplateId, siteName }
+});
+
+const site = response.data?.metaSite;
+return {
+  metaSiteId: site?.metaSiteId,
+  name: site?.name,
+  ownerId: site?.ownerId,
+  published: site?.published
+};
+```
+
+If `response.data.metaSite.metaSiteId` is missing, do **not** assume the site was created and do **not** immediately retry with a different `siteName`. First verify by listing the account's sites and matching by the requested `siteName` or returned `metaSiteId`.
+
 ### Site Name Requirements
 
 The `siteName` must follow these rules:
@@ -122,9 +155,19 @@ Add `"namespace": "HEADLESS"` to the request body:
 
 **Response** includes the new site's `metaSiteId`.
 
+### Verify the Created Site Before Continuing
+
+After a successful create response:
+
+1. Use the `metaSite.metaSiteId` and `metaSite.name` from the create response as the source of truth for the new site.
+2. Call `listSites` (or the Query Sites recipe for advanced filtering) and match the new site by `metaSiteId` first, then by exact `name`.
+3. If the create response returned a `metaSiteId` but the site is not in the list yet, tell the user the site was created but may take a few minutes to appear in the Sites list. Ask them to refresh/search by the exact name, and offer to check again later.
+4. Do **not** create another site just because the newly-created site is not visible in the Sites list immediately. Retrying a successful create with a new name can create duplicate sites.
+
 ### IMPORTANT NOTES:
 - Only mention headless if user specifically requests it
 - If user doesn't ask for headless, do NOT include the `namespace` field
+- Never publish, duplicate, or retry a site-creation mutation unless the user explicitly confirms that they want another new site.
 
 ---
 

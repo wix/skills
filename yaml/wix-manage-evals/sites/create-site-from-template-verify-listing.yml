@@ -1,0 +1,32 @@
+name: sites/create-site-from-template-verify-listing
+description: >-
+  Verifies the create-site-from-template skill explains the nested create response shape
+  and tells the agent to verify the new site in the account listing instead of blindly
+  retrying the mutation when the site is not immediately visible.
+triggerPrompt: >-
+  I am building an integration that creates a blank Wix Editor site from a template.
+  What is the safe REST flow, which fields should I read from the create response, and
+  how should I verify the site appears in the account before deciding whether to retry?
+tags: [sites]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/account-level/sites/skills/create-site-from-template
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asks for advisory guidance about safely creating a blank Wix Editor site from a template.
+      Intent: explain the create-from-template flow, the exact nested response fields, and safe verification before retrying.
+
+      Pass if the response:
+      - identifies the Create Site API endpoint `POST https://www.wixapis.com/msm/v1/meta-site/create-from-template`, AND
+      - says the new site's ID and name come from the nested response fields `metaSite.metaSiteId` and `metaSite.name` (or `response.data.metaSite.metaSiteId` / `response.data.metaSite.name` when using ExecuteWixAPI), AND
+      - says to verify the created site by listing/querying the account's sites and matching by `metaSiteId` or exact `name`, AND
+      - explicitly warns not to immediately retry the create mutation with a new name merely because the site is not visible in the Sites list yet, since that can create duplicate sites.
+
+      Fail if the response:
+      - claims the create response has a top-level `metaSiteId` only, OR
+      - recommends retrying site creation with a different name before checking the account's site list, OR
+      - omits the post-create listing verification step, OR
+      - suggests publishing the site without asking the user first.
