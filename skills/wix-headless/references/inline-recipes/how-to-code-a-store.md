@@ -120,14 +120,14 @@ const res = await categories.queryCategories({
 
 ```js
 const { items } = await productsV3.searchProducts({
-  filter: { 'directCategoriesInfo.categories': { $matchItems: [{ id: categoryId }] } },
+  filter: { 'directCategoriesInfo.categories': { $matchItems: [{ id: { $eq: categoryId } }] } },
 });
 ```
 
 - **`categoryId`** is the stable id from the live `categories.queryCategories()` result above (a category's `_id`) — read it from the render context, never a hardcoded seed-time id list.
 - **Method:** `searchProducts`, never `queryProducts` (the field is only filterable in search).
 - **Operator:** `$matchItems`, never `$hasSome` (the natural-looking guess returns nothing).
-- **Inner key:** `id` (the category GUID), inside `$matchItems: [{ id: … }]`.
+- **Inner key:** `id` wrapped in an explicit `$eq`, inside `$matchItems: [{ id: { $eq: … } }]` — a bare `{ id: categoryId }` is not a valid sub-condition on `$matchItems` (every official example wraps the value in `$eq`) and risks a schema-rejected filter returning zero products with no visible error.
 - **Never** the V1 `collectionIds` / `collections.id` paths — they return empty against V3 data.
 
 Docs: <https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/search-products.md?apiView=SDK> · <https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/supported-filters-and-sorting.md?apiView=SDK>
@@ -232,5 +232,5 @@ A correct Catalog V3 storefront frontend:
 - imports **`productsV3` / `readOnlyVariantsV3` / `categories` / `currentCart` / `redirects`** — never the V1 `products`/`collections` modules;
 - uses **`product._id`** (never `product.id`) as the cart's `catalogItemId`;
 - resolves the **mandatory `variantId`** via `readOnlyVariantsV3` and passes it as `options.variantId` (not `options.options`);
-- builds its category nav from a **live `categories.queryCategories()`** and filters category pages server-side with **`searchProducts` + `$matchItems: [{ id: categoryId }]`** keyed on the live `categoryId` — never a frozen seed-time `productIds` map, never `queryProducts` for category filtering, never `$hasSome`, never V1 `collectionIds`;
+- builds its category nav from a **live `categories.queryCategories()`** and filters category pages server-side with **`searchProducts` + `$matchItems: [{ id: { $eq: categoryId } }]`** keyed on the live `categoryId` — never a frozen seed-time `productIds` map, never `queryProducts` for category filtering, never `$hasSome`, never V1 `collectionIds`;
 - reads inventory from the **V3** shape and renders rich-text descriptions, not raw nodes.
