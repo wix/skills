@@ -1,0 +1,36 @@
+name: analytics/query-site-analytics-primitive-values
+description: >-
+  Verifies the agent reads the query-site-analytics skill and explains that Semantic Model API
+  typed cell values are primitives, not nested value wrappers.
+triggerPrompt: >-
+  I'm querying Wix Semantic Model API traffic data with formattingEnabled and totalsIncluded.
+  My JavaScript maps sessions with row.fields["traffic.sessions_count"].numericValue.value and
+  source names with row.fields["traffic.referrer_source_name"].stringValue.value, but everything
+  becomes null even though the fields are present. What is the correct way to read these values?
+tags: [analytics]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/analytics/skills/query-site-analytics
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user is mapping Wix Semantic Model API response cells in JavaScript and is incorrectly
+      reading `numericValue.value` and `stringValue.value`, which makes present fields look null.
+      Intent: explain the actual response shape and show the correct access pattern.
+
+      Pass ONLY if the response:
+      - states that `numericValue`, `stringValue`, `booleanValue`, and `timestampValue` are the
+        primitive values themselves, not objects with a nested `.value`, AND
+      - explicitly corrects `row.fields["traffic.sessions_count"].numericValue.value` to reading
+        `row.fields["traffic.sessions_count"].numericValue` directly, AND
+      - explains that `formattedValue` is optional display text when `formattingEnabled` is true,
+        while raw typed values should be used for calculations.
+
+      Fail if the response:
+      - keeps or recommends `.numericValue.value`, `.stringValue.value`, or any nested `.value`
+        accessor for Semantic Model field cells, OR
+      - says the nulls mean the metric field is absent, the API has no data, or permissions failed
+        without first identifying the wrong accessor, OR
+      - gives generic JavaScript null-checking advice without the Semantic Model response shape.

@@ -72,6 +72,7 @@ This guesses field names, ignores each field's `dependencies` (so those fields c
 - **Sorting a nullable measure — set `sort.nullsLast: true`.** `nullsLast` defaults to `false` and only affects **descending** (`DESC`) order. If a measure can return null and you sort it `DESC`, the null rows sort *first* — so a "top N" query surfaces nulls before your real values. Set `nullsLast: true` to push nulls to the end.
 - **Result cap: 1,000 rows per query.** `results` is capped at 1,000 rows — paginate with `paging.offset` for larger datasets.
 - **Formatting is opt-in.** Set `formattingEnabled: true` to also receive a human-readable `formattedValue` per cell (e.g. `1500` → `"$1,500.00"` or `1.5K`). Raw typed values are always returned.
+- **Typed values are primitives — not `{ value }` wrappers.** In each `results[].fields[fieldName]` cell, `numericValue` is the number itself, `stringValue` is the string itself, `booleanValue` is the boolean itself, and `timestampValue` is the ISO timestamp string itself. Do **not** read `cell.numericValue.value`, `cell.stringValue.value`, or similar nested `.value` properties — they will be `undefined` and make real data look null.
 - **Totals are opt-in.** Set `totalsIncluded: true` to get a `totals` row summing numeric fields across the **full (unpaginated)** result set.
 - **Unique fields are not additive.** For `unique` measures (e.g. unique visitors), query the exact time range you want in a **single request** — never sum values from separate date-range queries. Uniques are deduplicated within each queried range, so adding per-range results double-counts anyone who appears in more than one range and overstates the true total.
 
@@ -214,6 +215,29 @@ curl -X POST \
 
 Each cell in `results[].fields` is a typed value — one of `numericValue`, `stringValue`, `booleanValue`, `timestampValue`, `arrayValue`, or `objectValue` — plus `formattedValue` when `formattingEnabled` is `true`. `totals` is present only when `totalsIncluded` is `true`.
 
+When transforming rows in code, read the typed values directly:
+
+```js
+function rawCellValue(row, fieldName) {
+  const cell = row?.fields?.[fieldName];
+  if (!cell) return null;
+  if ("numericValue" in cell) return cell.numericValue;
+  if ("stringValue" in cell) return cell.stringValue;
+  if ("booleanValue" in cell) return cell.booleanValue;
+  if ("timestampValue" in cell) return cell.timestampValue;
+  if ("arrayValue" in cell) return cell.arrayValue;
+  if ("objectValue" in cell) return cell.objectValue;
+  return null;
+}
+
+function displayCellValue(row, fieldName) {
+  const cell = row?.fields?.[fieldName];
+  return cell?.formattedValue ?? rawCellValue(row, fieldName);
+}
+```
+
+Do not use `row.fields[fieldName].numericValue.value` or `row.fields[fieldName].stringValue.value`; those paths do not exist in the Semantic Model API response.
+
 ## Time zone (match the Wix dashboard)
 
 Analytics shown in the Wix business manager are aggregated by the **site's time zone**. To return numbers that match what the site owner sees, pass that time zone in `interval.timezone` on every query. **When `timezone` is omitted, the API defaults to UTC** — which shifts day boundaries and produces totals that don't line up with the dashboard (the same applies to any non-site time zone).
@@ -284,9 +308,10 @@ Silent gap (no error): a requested field returns no data because none of its `de
 2. Pass the site's time zone (`properties.timeZone` from Get Site Properties) in `interval.timezone` **and** set `start`/`end` to local-midnight-in-UTC for that zone (DST-aware) so results match the Wix dashboard. `start`/`end` are absolute instants, not wall-clock.
 3. Include a field's `dependencies` in the query, or expect that field to be silently dropped.
 4. After each query, validate the response — confirm every requested field appears in `results[].fields`. A wrong field either errors (`4XX`, e.g. `fieldIsInvalid`) or is silently dropped from a `200`; a missing field means an unknown name or a missing dependency. Fix and re-query rather than trusting the partial result. Choose fields by reading their `description` (honoring "do not use" notes), never by name pattern.
-5. Use `formattingEnabled: true` for anything shown directly to a user; keep raw values for calculations.
-6. Use `totalsIncluded: true` to get period totals alongside a paged breakdown in a single call.
-7. Keep `fields` minimal (projection) and paginate large result sets with `offset`.
+5. Read typed cell values directly (`numericValue`, `stringValue`, `booleanValue`, `timestampValue`); do not append `.value`. Use `formattedValue` for display when present, and keep raw values for calculations.
+6. Use `formattingEnabled: true` for anything shown directly to a user.
+7. Use `totalsIncluded: true` to get period totals alongside a paged breakdown in a single call.
+8. Keep `fields` minimal (projection) and paginate large result sets with `offset`.
 
 ## Related Documentation
 
