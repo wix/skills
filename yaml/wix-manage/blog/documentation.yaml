@@ -2,6 +2,10 @@ apiDoc:
   title: Wix Blog Management Recipes
 
   docs:
+    - file: ../../../skills/wix-manage/references/blog/fix-blog-seo-title-tag-duplicates-h1.md
+      title: "Fix Blog SEO: Distinct Title Tag from H1"
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/blog
+      tags: [blog]
     - file: ../../../skills/wix-manage/references/blog/how-to-create-blog-posts.md
       title: How to Create Blog Posts
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/blog

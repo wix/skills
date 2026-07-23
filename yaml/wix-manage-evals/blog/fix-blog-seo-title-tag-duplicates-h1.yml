@@ -1,0 +1,32 @@
+name: blog/fix-blog-seo-title-tag-duplicates-h1
+description: >-
+  Verifies the agent reads the fix-blog-seo-title-tag-duplicates-h1 skill and
+  fixes an "H1 duplicates title tag" SEO finding by setting a distinct SEO
+  title via seoData.tags, without changing the post's H1/title.
+triggerPrompt: >-
+  Our SEO audit flagged this blog post for "H1 duplicates title tag" — draft post id
+  abc123 has the same text for its H1 and its SEO title tag. Fix it so the SEO title
+  is distinct from the H1, without changing the visible heading.
+tags: [blog]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/blog/skills/fix-blog-seo-distinct-title-tag-from-h1
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked to fix an "H1 duplicates title tag" SEO finding on a specific blog draft post
+      without changing the visible H1.
+      Intent: use UpdateDraftPost's seoData.tags to set a distinct SEO <title>, leaving draftPost.title untouched.
+
+      Pass if the response:
+      - calls out that the fix is `seoData.tags` (a tag with `type: "title"`) on Update Draft Post
+        (PATCH https://www.wixapis.com/blog/v3/draft-posts/{draftPostId}), AND
+      - explicitly does NOT change `draftPost.title` (the H1), AND
+      - sets a new, distinct title string in `seoData.tags[].children` different from the H1.
+
+      Fail if the response:
+      - changes `draftPost.title` instead of (or in addition to) `seoData.tags`, OR
+      - invents a different field name for the SEO title (e.g. `seoTitle`, `metaTitle`) instead of `seoData.tags`, OR
+      - claims the response body's `seoData`/`slugs` are unreliable without recommending a follow-up GET to confirm the write.
