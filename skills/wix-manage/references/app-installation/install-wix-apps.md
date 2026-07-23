@@ -107,6 +107,17 @@ Some common apps:
 - NEVER guess the `appDefId`. For Wix-built apps, use the table above. For any other app, resolve the ID using Step 0 (Search Market Listings).
 - The `tenantType` MUST be `SITE`
 - The `id` in tenant is the site's metaSiteId
+- Installing an app only adds/enables the app on the site. Do not tell the user that app-specific setup, payout rules, automations, products, or other configuration are complete unless you successfully performed those steps through verified app-specific APIs.
+- For third-party apps, the Apps Installer API usually cannot configure the app's internal setup wizard or vendor dashboard. After installation, tell the user the app is installed and guide them to open the app's own dashboard/settings for any remaining setup.
+
+## Post-install guidance for third-party apps
+
+When the installed app is a third-party App Market listing:
+- Treat a successful Apps Installer response as installation/enabling only. Do not say seller payouts, commission rules, automations, products, or app-specific business rules are configured unless you verified those exact settings through documented app-specific APIs or the visible app UI.
+- If the user still needs in-app setup, tell them you can guide them through the third-party app's dashboard/settings after it loads, field by field, based on what they see.
+- If the third-party app dashboard, settings panel, or setup wizard does not load, include these browser checks in the user-facing response: open the Wix dashboard in an incognito/private window, allow popups, disable ad blockers/privacy extensions for the Wix dashboard, and hard-refresh the page.
+- Ask for the exact visible state before escalating: blank page, endless spinner, popup blocked message, browser console error, or screenshot.
+- If the Wix dashboard works but only the third-party app screen still fails after those checks, explain that the remaining in-app setup is owned by the app provider. Direct the user to the app's App Market support/contact option or Wix Customer Care with the app name, site name, browser, and screenshot/error.
 
 ---
 
@@ -117,13 +128,20 @@ If you receive an error indicating a required app is not installed, use this rec
 
 If Locale Settings or Locales APIs return `428 MULTILINGUAL_NOT_INSTALLED`, install **Wix Multilingual** using appDefId `14d84998-ae09-1abf-c6fc-3f3cace5bf19`, then retry enabling multilingual mode or creating locales. Confirm with the user before installing unless they already explicitly asked you to install Wix Multilingual.
 
+### Third-party app dashboard does not load
+If a third-party app's dashboard, settings panel, or setup wizard does not load after installation:
+- Do not keep claiming the app is configured or that the user's business rules were applied.
+- Use the browser checks and escalation path from the post-install guidance above.
+- Offer to continue once the app screen loads, using the user's saved setup choices to guide field-by-field configuration.
+
 ---
 
 ## Next Steps
 
 After installing an app:
-- Configure the app's settings using its specific APIs
-- Set up any required app-specific data (products for Stores, services for Bookings, etc.)
+- For Wix-built apps, configure settings or data only through documented APIs for that app (for example, products for Stores or services for Bookings).
+- For third-party apps, open the app's own dashboard/settings and guide the user through what they see. Do not invent internal fields or setup steps.
+- If no verified app-specific API or visible setup screen is available, stop at installation confirmation and ask the user to open the app UI or contact the app provider.
 
 ---
 
