@@ -22,7 +22,11 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
         with:
           ref: ${{ github.event.pull_request.merge_commit_sha }}
-      - uses: ./.github/actions/evalforge-yaml-gate
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: .action-src
+      - uses: ./.action-src/.github/actions/evalforge-yaml-gate
         with:
           mode: sync
           evalforge-url: ${{ vars.EVALFORGE_URL }}
