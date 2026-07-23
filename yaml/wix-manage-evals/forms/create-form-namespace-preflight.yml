@@ -1,0 +1,27 @@
+name: forms/create-form-namespace-preflight
+description: Verifies the Create Form recipe teaches agents to preflight the Wix Forms namespace and stop on unsupported namespace errors instead of retrying a mutating create call.
+triggerPrompt: Before I create a Wix lead capture form via the Forms API, how should I handle a site that returns UNSUPPORTED_FORM_NAMESPACE for wix.form_app.form?
+tags: [forms]
+maxTokens: 20000
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/crm/forms/skills/create-form
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user's request: "Before I create a Wix lead capture form via the Forms API, how should I handle a site that returns UNSUPPORTED_FORM_NAMESPACE for wix.form_app.form?"
+      Intent: explain the safe Create Form workflow for namespace readiness without mutating the site.
+
+      Pass if the response:
+      - says to run a non-mutating list/query preflight for the `wix.form_app.form` namespace before creating the form, AND
+      - says that `UNSUPPORTED_FORM_NAMESPACE`, `Permissions for given namespace not found`, or `Form has unsupported namespace` means the namespace is not active for API-created forms on that site, AND
+      - says not to retry the same Create Form request or create throwaway test forms, AND
+      - instructs the user to activate Wix Forms by creating or adding a form once in the dashboard/editor, then rerun the preflight before using Create Form again.
+
+      Fail if the response:
+      - tells the user to retry Create Form with the same `wix.form_app.form` namespace after this error, OR
+      - treats installing the Wix Forms app as sufficient proof that the namespace is active, OR
+      - omits the user activation step through Forms & Submissions or the Wix Editor, OR
+      - hallucinates a different namespace as the fix.
