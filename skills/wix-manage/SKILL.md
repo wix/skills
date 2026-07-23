@@ -126,6 +126,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ### [Domain Search and Purchase](references/domains/domain-search-and-purchase.md)
 **Technical:** Search for available domains, get domain suggestions, and generate purchase links using Domain Search V2 API. Covers availability checks, TLD filtering, and connecting domains to Wix sites.
 
+### [Diagnose Domain Connectivity Issues](references/domains/diagnose-domain-connectivity-issues.md)
+**Technical:** Diagnoses a down/unreachable domain or NXDOMAIN using the DNS Propagation API, then distinguishes genuine DNS misconfiguration from registry-level status holds (clientHold/serverHold), pending ICANN contact verification, and expired/redemption states -- none of which are visible via any public Domains API and most of which have no self-serve fix. Use when DNS looks correct but the domain still doesn't resolve, or the dashboard's connectivity banner seems wrong.
+
 ---
 
 ## eCommerce
