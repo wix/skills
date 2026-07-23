@@ -228,6 +228,8 @@ Use the `id` and `revision` from the Create Booking response. Set `paymentStatus
 
 ### For online payments: Create checkout
 
+> **Before defaulting to checkout, check for a redeemable Pricing Plan**: if the service has `payment.options.pricingPlan: true` and the buyer is a signed-in member, they may hold a plan that should cover this booking instead of a card charge. Creating an eCommerce checkout unconditionally (as below) always charges the buyer's card/wallet — it does **not** check or redeem Pricing Plan credits. To support paying with a plan, call Benefit Programs' [Get Eligible Benefits](https://dev.wix.com/docs/api-reference/business-solutions/benefit-programs/pools/get-eligible-benefits) (`itemReference.externalId` = the service ID, `providerAppId` = the Bookings app ID) before checkout, and if eligible, [Redeem Benefit](https://dev.wix.com/docs/api-reference/business-solutions/benefit-programs/pools/redeem-benefit) + [Confirm Or Decline Booking](https://dev.wix.com/docs/api-reference/business-solutions/bookings/bookings/bookings-writer-v2/confirm-or-decline-booking) with `paymentStatus: EXEMPT` instead of creating a checkout. See [Pricing Plans Bookings Integration](../pricing-plans/pricing-plans-bookings-integration.md) for how the plan↔service link is set up. Note `Create Booking`'s `selectedPaymentOption` field only supports `ONLINE`/`OFFLINE` — there's no `PLAN` value, so this eligibility check has to happen in your own flow, not via a booking field.
+
 **4a. Create Checkout**
 
 **Endpoint**: `POST https://www.wixapis.com/ecom/v1/checkouts`
