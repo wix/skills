@@ -1,6 +1,6 @@
 ---
 name: "Create Product with Options (Catalog V3)"
-description: Single product creation with options using Catalog V3 Products API. Covers option types (TEXT_CHOICES, SWATCH_CHOICES), choice configuration, and automatic variant generation.
+description: Create a product with options (like size, color, or material) for a Wix Store. Use when the user wants to add a new product to their store, create a product listing, add an item to sell, set up a product with variants, or says things like 'create a product', 'add a product', 'I want to sell X', 'add an item to my store', 'create a listing'. Handles product name, description, pricing, images, options/variants, and inventory. Uses the Catalog V3 Products API — use this when the site's catalog version is V3 or unknown.
 ---
 # RECIPE: Business Recipe - Creating a Wix Store Product with options (Catalog V3)
 
