@@ -46,6 +46,8 @@ type CustomBulkActionsActionResolver = (params: {
 - **MUST** use `CustomBulkActionsActionResolver` type for custom logic.
 - **MUST** register custom resolvers in `AutoPatternsOverridesProvider`.
 - **MUST** use `errorHandler` for Wix API calls in resolvers.
+- **MUST** provide a discoverable single-record equivalent for every bulk workflow transition unless the operation is inherently bulk-only. The equivalent may live in the row action, SidePanel, Modal, or entity page.
+- **MUST** add bulk delete only when deleting the managed entity is a valid requested lifecycle action; do not use deletion to process or dismiss a queue.
 - **NEVER** use default navigation in bulk actions; implement explicitly.
 
 ## Canonical Example

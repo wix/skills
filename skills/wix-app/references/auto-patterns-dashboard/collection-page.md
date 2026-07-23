@@ -66,7 +66,7 @@ The layout switcher supports only `Table` and `Grid`. It is not the native CMS `
 - **MUST** select max 3 columns initially for the table.
 - **MUST** use `tooltipContent` to explain complex column data.
 - **SHOULD** include a primary action with `type: 'update'` in Grid view to allow easy editing.
-- **SHOULD** use the linked entity page, rather than a custom overlay, when the workflow requires structured user inputs, multiple editable fields, validation, or a full record edit experience.
+- **SHOULD** choose the linked entity page for deep, multi-section, validation-heavy, deep-linkable, or long-running work. A SidePanel or Modal may support viewing or editing when its depth and context fit better.
 - **NEVER** use `onRowClick` unless custom behavior (not entity page navigation) is explicitly required.
 
 ## Canonical Example

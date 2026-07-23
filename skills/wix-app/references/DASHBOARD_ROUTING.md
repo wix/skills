@@ -31,7 +31,7 @@ If a page combines analytics with a table, use the analytics playbook as primary
 - **Auto Patterns is a mandatory first gate for every new one-collection manager.** Before reading a custom table, table-and-panel, analytics, or WDS component playbook, open [DASHBOARD_AUTO_PATTERNS_PLAYBOOK.md](DASHBOARD_AUTO_PATTERNS_PLAYBOOK.md) and evaluate the requested physical page against its focused references.
 - Count physical systems or collections, not query branches. Search, projections, OR predicates, date comparisons, derived statuses, saved worksets, and filtered subsets of one collection still have `sourceCount: 1`.
 - Query complexity does not transfer table ownership. For a one-collection manager, adapt the data model with maintained filterable fields when needed, then keep Auto Patterns as the collection surface.
-- A contextual detail panel, an input flow, or a bounded confirmation does not by itself make a one-collection manager custom. First evaluate the documented Auto Patterns row action, child-component/AppContext, and entity-page paths. A custom dashboard route is **invalid** until the route record names each required Auto Patterns capability, the exact checked reference, and the first capability that is `unsupported`. Search, filters, Table/Grid, standard CRUD, saved views, documented row or bulk actions, contextual SidePanel detail, and entity-page edits are not evidence of unsupported complexity when their documented extension path exists.
+- A contextual detail surface, input flow, or bounded confirmation does not by itself make a one-collection manager custom. First evaluate the documented Auto Patterns row action, child-component/AppContext, Modal, and entity-page paths. A custom dashboard route is **invalid** until the route record names each required Auto Patterns capability, the exact checked reference, and the first capability that is `unsupported`. Search, filters, Table/Grid, lifecycle-appropriate CRUD, saved views, documented row or bulk actions, and documented SidePanel/Modal/entity-page extensions are not evidence of unsupported complexity.
 - Do not classify a page as `custom-table` merely because it has a Table/Grid switch, gallery/card presentation, search, filters, a restock-style action, or sample records. These are Auto Patterns candidates and must be evaluated there first.
 - Read [DASHBOARD_WDS_COMPONENT_GATE.md](DASHBOARD_WDS_COMPONENT_GATE.md) when a documented Auto Patterns extension needs the exact WDS composition for its supplemental surface. Select a custom route only after an exact unsupported capability is recorded.
 - A new app-owned collection does not imply Auto Patterns or Dashboard Modal; the physical workflow selects the page route.
@@ -49,6 +49,8 @@ Before reading a custom playbook or scaffolding, save `.dashboard-route.json` in
   "sourceCount": 1,
   "sources": ["Inventory Products"],
   "secondary": "SidePanel detail via row-action override",
+  "detailSurface": "side-panel",
+  "detailSurfaceReason": "Moderate record detail; preserve table context",
   "dataAdaptation": "Maintain inventoryStatus for saved filtering",
   "fallbackCategory": null,
   "firstUnsupportedCapability": null,
@@ -57,5 +59,7 @@ Before reading a custom playbook or scaffolding, save `.dashboard-route.json` in
 ```
 
 Allowed custom fallback categories are `multi-source`, `external-data`, and `unsupported-presentation`. A one-source custom fallback must use `unsupported-presentation` and also provide non-empty `firstUnsupportedCapability`, `checkedReference`, and `whyDataAdaptationCannotSolve`. Filtering, OR/date logic, derived state, a gallery/table switch, or a detail overlay are never valid fallback categories.
+
+When record detail exists, set `detailSurface` to `side-panel`, `modal`, or `entity-page` and explain the choice in `detailSurfaceReason`. This records a design decision; it does not make one surface mandatory for viewing or editing.
 
 Do not proceed without this record. Update it if evidence changes the route.

@@ -49,7 +49,8 @@ Without these scopes, the dashboard page renders but all data operations fail.
 ### Field Selection
 
 - **MAX** 3 columns initially for `collectionPage`.
-- **MUST** include `create` action in `collectionPage` navigating to `entityPage`.
+- **IF** the workflow allows users to create the managed entity **THEN** include a `create` action in `collectionPage` navigating to `entityPage`.
+- **IF** the page represents a derived queue, alert set, or processing workset **THEN** do not add create/delete actions unless they belong to the underlying entity lifecycle.
 - **NEVER** fill optional fields unless explicitly requested.
 
 ### Type Binding

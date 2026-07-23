@@ -10,9 +10,11 @@ const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const auditPath = path.join(scriptDirectory, 'audit-dashboard-code.mjs');
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'wix-dashboard-audit-'));
 const badRoot = path.join(root, 'bad');
+const badAutoRoot = path.join(root, 'bad-auto');
 const goodRoot = path.join(root, 'good');
 const autoRoot = path.join(root, 'auto');
 fs.mkdirSync(badRoot);
+fs.mkdirSync(badAutoRoot);
 fs.mkdirSync(goodRoot);
 fs.mkdirSync(autoRoot);
 
@@ -107,6 +109,42 @@ export default function CapacityPlanner() {
   );
 
   write(
+    badAutoRoot,
+    '.dashboard-route.json',
+    JSON.stringify({
+      route: 'auto-patterns',
+      sourceCount: 1,
+      sources: ['Order Exceptions'],
+      secondary: 'SidePanel detail via row action',
+      detailSurface: 'side-panel',
+      detailSurfaceReason: 'Preserve table context while inspecting one exception',
+    }),
+  );
+  write(
+    badAutoRoot,
+    'patterns.json',
+    JSON.stringify({
+      components: [{
+        type: 'collectionPage',
+        onRowClick: { type: 'custom', id: 'openOrderDetail' },
+      }],
+    }),
+  );
+  write(
+    badAutoRoot,
+    'OrderExceptions.tsx',
+    `import { AutoPatternsApp } from '@wix/auto-patterns';
+export const openOrderDetail = ({ actionParams }) => ({
+  label: 'View details',
+  biName: 'view-details',
+  onClick: () => { void actionParams; },
+});
+export default function OrderExceptions() {
+  return <AutoPatternsApp />;
+}`,
+  );
+
+  write(
     goodRoot,
     '.dashboard-route.json',
     JSON.stringify({
@@ -114,6 +152,9 @@ export default function CapacityPlanner() {
       sourceCount: 2,
       sources: ['Orders', 'Customers'],
       fallbackCategory: 'multi-source',
+      secondary: 'SidePanel detail via row action',
+      detailSurface: 'side-panel',
+      detailSurfaceReason: 'Moderate detail while preserving table context',
     }),
   );
   write(
@@ -124,8 +165,9 @@ export default function CapacityPlanner() {
 }
 export default function Dashboard() {
   const [selectedIds, setSelectedIds] = useState([]);
+  const [selectedItem, setSelectedItem] = useState(null);
   return <>
-    <Table showSelection selectedIds={selectedIds} onSelectionChanged={setSelectedIds} onRowClick={() => {}} isRowActive={() => false} columns={[{ width: '82%' }, { width: '18%' }]}>
+    <Table showSelection selectedIds={selectedIds} onSelectionChanged={setSelectedIds} onRowClick={(row) => setSelectedItem(row)} isRowActive={(row) => row.id === selectedItem?.id} columns={[{ width: '82%' }, { width: '18%' }]}>
       <TableActionCell primaryAction={{ text: 'View', onClick: () => {} }} />
     </Table>
     <DashboardSidePanelHost>
@@ -146,7 +188,7 @@ export default function Dashboard() {
       route: 'auto-patterns',
       sourceCount: 1,
       sources: ['Order Exceptions'],
-      secondary: 'SidePanel detail via row action',
+      secondary: null,
       dataAdaptation: 'Maintain needsAttention and exceptionType',
       fallbackCategory: null,
       firstUnsupportedCapability: null,
@@ -165,12 +207,22 @@ export default function OrderExceptions() {
 
   const bad = spawnSync(process.execPath, [auditPath, badRoot], { encoding: 'utf8' });
   const badOutput = `${bad.stdout}\n${bad.stderr}`;
-  const expectedRules = ['RT-02', 'RT-04', 'RT-05', 'CT-08', 'CT-10', 'CT-11', 'TP-01', 'TP-03', 'TP-05', 'TP-08', 'TP-10', 'TP-11', 'AN-11'];
+  const expectedRules = ['RT-02', 'RT-04', 'RT-05', 'CT-08', 'CT-10', 'CT-11', 'CT-12', 'TP-01', 'TP-03', 'TP-05', 'TP-08', 'TP-10', 'TP-11', 'AN-11'];
   const missedRules = expectedRules.filter((rule) => !badOutput.includes(rule));
   if (bad.status === 0 || missedRules.length) {
     console.error('Dashboard audit self-test failed to reject the bad fixture.');
     if (missedRules.length) console.error(`Missing rules: ${missedRules.join(', ')}`);
     console.error(badOutput.trim());
+    process.exit(1);
+  }
+
+  const badAuto = spawnSync(process.execPath, [auditPath, badAutoRoot], { encoding: 'utf8' });
+  const badAutoOutput = `${badAuto.stdout}\n${badAuto.stderr}`;
+  const missedAutoRules = ['AP-07', 'AP-08'].filter((rule) => !badAutoOutput.includes(rule));
+  if (badAuto.status === 0 || missedAutoRules.length) {
+    console.error('Dashboard audit self-test failed to reject the broken Auto Patterns detail route.');
+    if (missedAutoRules.length) console.error(`Missing rules: ${missedAutoRules.join(', ')}`);
+    console.error(badAutoOutput.trim());
     process.exit(1);
   }
 
@@ -188,7 +240,7 @@ export default function OrderExceptions() {
     process.exit(1);
   }
 
-  console.log('Dashboard audit self-test passed: bad route/composition rejected, custom and Auto Patterns fixtures accepted.');
+  console.log('Dashboard audit self-test passed: bad routes and no-op row detail rejected; custom and Auto Patterns fixtures accepted.');
 } finally {
   fs.rmSync(root, { recursive: true, force: true });
 }

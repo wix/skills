@@ -19,6 +19,14 @@ Read [DATA_COLLECTION.md](DATA_COLLECTION.md) before creating or changing app-ow
 
 For new app-owned collections, define fields, indexes, permissions, and reference fields. Obtain the required namespace and use the scoped collection identifier. For existing collections, inspect the actual schema before relying on a field name or type.
 
+## 1a. Managed Entity And Workset
+
+Name the entity whose lifecycle the dashboard manages before selecting actions. A queue, exception, alert, or saved subset is often a derived workset over entities such as orders, bookings, or products rather than a separately created/deleted entity.
+
+- Create and delete actions must follow the managed entity's real lifecycle, not generic CRUD availability.
+- A processing queue should normally preserve records and transition workflow state, such as `reviewed`, `resolved`, or `assigned`.
+- Label actions for the user outcome: `View`, `Edit`, `Mark as reviewed`, or `Resolve`; do not substitute a generic `Update`.
+
 ## 2. Relationship Data
 
 Creating a reference field does not populate it. Decide how existing and future records receive relationship values:
@@ -60,4 +68,4 @@ Create only the most important indexes allowed by the collection. When the runti
 
 ## Data Contract
 
-Before building a table that combines records, write down the source collection, target collection, reference field, required display fields, missing-value treatment, and mutation path. Do not rely on implied naming such as `classRef` without verifying the actual schema.
+Before building, write down the managed entity, physical source collection(s), derived worksets, required display fields, allowed lifecycle actions, missing-value treatment, and mutation path. For relationships, also record the target collection and reference field. Do not rely on implied naming such as `classRef` without verifying the actual schema.

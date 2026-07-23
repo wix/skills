@@ -63,6 +63,51 @@ try {
 const contents = new Map(files.map((filePath) => [filePath, fs.readFileSync(filePath, 'utf8')]));
 const projectSource = [...contents.values()].join('\n');
 const projectHasSidePanel = [...contents.values()].some((content) => /<SidePanel\b/.test(content));
+const routeRecords = [];
+const patternDocuments = [];
+
+function walkJson(value, visit) {
+  visit(value);
+  if (Array.isArray(value)) {
+    value.forEach((entry) => walkJson(entry, visit));
+    return;
+  }
+  if (value && typeof value === 'object') {
+    Object.values(value).forEach((entry) => walkJson(entry, visit));
+  }
+}
+
+for (const patternsPath of patternsPaths) {
+  try {
+    patternDocuments.push({
+      path: patternsPath,
+      value: JSON.parse(fs.readFileSync(patternsPath, 'utf8')),
+    });
+  } catch (error) {
+    findings.push({
+      filePath: patternsPath,
+      line: 1,
+      rule: 'AP-06',
+      message: `patterns.json is not valid JSON: ${error.message}`,
+    });
+  }
+}
+
+const customRowActionIds = new Set();
+let hasEntityPagePattern = false;
+for (const document of patternDocuments) {
+  walkJson(document.value, (value) => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return;
+    if (value.type === 'entityPage') hasEntityPagePattern = true;
+    if (
+      value.onRowClick?.type === 'custom'
+      && typeof value.onRowClick.id === 'string'
+      && value.onRowClick.id.trim()
+    ) {
+      customRowActionIds.add(value.onRowClick.id.trim());
+    }
+  });
+}
 
 if (files.length && routeRecordPaths.length !== 1) {
   const firstFile = files[0];
@@ -81,6 +126,7 @@ for (const recordPath of routeRecordPaths) {
   let record;
   try {
     record = JSON.parse(fs.readFileSync(recordPath, 'utf8'));
+    routeRecords.push({ path: recordPath, record });
   } catch (error) {
     findings.push({
       filePath: recordPath,
@@ -176,6 +222,73 @@ for (const recordPath of routeRecordPaths) {
       line: 1,
       rule: 'RT-02',
       message: 'multi-source requires at least two physical collections or systems.',
+    });
+  }
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+for (const actionId of customRowActionIds) {
+  const escapedId = escapeRegExp(actionId);
+  const resolverStart = new RegExp(`(?:const|let|var|function)\\s+${escapedId}\\b`).exec(projectSource);
+  if (!resolverStart) {
+    findings.push({
+      filePath: patternDocuments[0]?.path ?? routeRecordPaths[0],
+      line: 1,
+      rule: 'AP-07',
+      message: `Custom onRowClick "${actionId}" has no matching resolver implementation.`,
+    });
+    continue;
+  }
+
+  const resolverSlice = projectSource.slice(resolverStart.index, resolverStart.index + 2400);
+  const noOpHandler =
+    /onClick\s*:\s*\(\s*\)\s*=>\s*\{\s*(?:(?:void\s+[^;]+|return\s+undefined)\s*;?\s*)*\}/.test(
+      resolverSlice,
+    )
+    || /onClick\s*:\s*\(\s*\)\s*=>\s*(?:undefined|null)\b/.test(resolverSlice);
+  if (noOpHandler) {
+    const sourceEntry = [...contents].find(([, content]) =>
+      new RegExp(`(?:const|let|var|function)\\s+${escapedId}\\b`).test(content),
+    );
+    findings.push({
+      filePath: sourceEntry?.[0] ?? files[0],
+      line: sourceEntry ? lineAt(sourceEntry[1], sourceEntry[1].search(new RegExp(`\\b${escapedId}\\b`))) : 1,
+      rule: 'AP-07',
+      message: `Custom onRowClick "${actionId}" resolves to a no-op; it must open the declared detail surface or perform its stated action.`,
+    });
+  }
+}
+
+for (const { path: recordPath, record } of routeRecords) {
+  const detailIntent = /\b(?:detail|view|inspect|edit|resolve)\b/i.test(String(record.secondary ?? ''));
+  if (!detailIntent && record.detailSurface == null) continue;
+
+  const allowedSurfaces = new Set(['side-panel', 'modal', 'entity-page']);
+  const surface = record.detailSurface;
+  const reason = record.detailSurfaceReason;
+  if (!allowedSurfaces.has(surface) || typeof reason !== 'string' || !reason.trim()) {
+    findings.push({
+      filePath: recordPath,
+      line: 1,
+      rule: 'AP-08',
+      message: 'Record detail requires detailSurface (side-panel, modal, or entity-page) and a non-empty detailSurfaceReason.',
+    });
+    continue;
+  }
+
+  const surfaceExists =
+    (surface === 'side-panel' && /<SidePanel\b/.test(projectSource))
+    || (surface === 'modal' && /(?:<Modal\b|\bopenModal\s*\()/.test(projectSource))
+    || (surface === 'entity-page' && hasEntityPagePattern);
+  if (!surfaceExists) {
+    findings.push({
+      filePath: recordPath,
+      line: 1,
+      rule: 'AP-08',
+      message: `Route declares detailSurface "${surface}", but the generated project does not contain that surface.`,
     });
   }
 }
@@ -299,6 +412,20 @@ for (const filePath of files) {
   );
 
   if (/<Table\b/.test(content)) {
+    if (
+      /\bonRowClick\s*=\s*\{\s*(?:\([^)]*\)|[A-Za-z_$][\w$]*)\s*=>\s*\{\s*\}\s*\}/.test(
+        content,
+      )
+    ) {
+      addFinding(
+        filePath,
+        content,
+        content.indexOf('onRowClick'),
+        'CT-12',
+        'Interactive table declares an empty onRowClick handler; open the selected surface or remove the interaction.',
+      );
+    }
+
     if (/\bshowSelection(?:=|\b)/.test(content) && /\bonSelectionChanged=/.test(content) && selectionCallbackUsesSelectedRows(content)) {
       addFinding(
         filePath,

@@ -61,6 +61,8 @@ type CustomActionCellSecondaryActionResolver = (params: {
 - **MUST** place `actionCell` at component level (sibling to `collection`), NOT inside `table`/`grid`.
 - **MUST** implement custom resolvers using `CustomActionCellPrimaryActionResolver` (for primary actions) or `CustomActionCellSecondaryActionResolver` (for secondary actions).
 - **MUST** use `errorHandler` for Wix API calls in resolvers.
+- **MUST** label the primary action for its user outcome. Use `View` for inspection, `Edit` for editing, and the actual workflow verb for a transition; do not default to generic `Update`.
+- **MUST** keep row, detail-surface, and bulk actions coherent. A bulk workflow transition needs a discoverable single-record equivalent unless it is inherently bulk-only.
 - **SHOULD** use `multiplePrimary` for 2-3 equally important actions.
 - **NEVER** use `primaryAction` inside `secondaryActions`.
 - **NEVER** use `actionResolvers` prop on `AutoPatternsApp` - this prop does not exist.

@@ -47,16 +47,17 @@ type CustomActionCollectionPageActionOnRowClickResolver = (params: {
 - **IF** `onRowClick` is configured **THEN** matching `custom` resolver is **MANDATORY**.
 - **IF** `onRowClick` is configured **THEN** default navigation is **DISABLED**.
 - **IF** `onRowClick` resolver accesses row data **THEN** use `actionParams.item` (NOT direct `item` param).
+- **IF** `onRowClick` is configured **THEN** its resolver must produce the declared visible outcome; an empty handler, `void` placeholder, or comment-only body is invalid.
 
 ## Implementation Rules
-- **MUST** include a `create` action in `primaryActions` for every collection page.
+- **MUST** include a create action only when users can create the managed entity in this workflow.
 - **MUST** include `biName` for every action (kebab-case).
 - **MUST** implement custom resolvers using `CustomActionCollectionPageActionResolver`.
 - **MUST** implement row click resolvers using `CustomActionCollectionPageActionOnRowClickResolver` returning `ResolvedAction`.
 - **MUST** place onRowClick resolvers in `components/actions/` folder (same as other custom actions).
 - **MUST** register onRowClick resolvers via `useActions` hook pattern (see **custom_actions_override**).
-- **MUST** use `actionParams.item` to open contextual record detail. The resolver may call a page-owned `openItem(item)` callback, but must not rebuild the collection table or own a parallel data lifecycle.
-- **SHOULD** use the linked entity page for structured create or edit inputs. Use a contextual SidePanel only for detail, inspection, assignment, or a small verified mutation while retaining collection context.
+- **MUST** use `actionParams.item` to produce the selected surface outcome. For a SidePanel, call a page-owned `openItem(item)` callback; for a Modal or entity page, invoke its documented navigation API. Do not rebuild the collection table or own a parallel data lifecycle.
+- **MUST** choose the detail surface from depth and context: SidePanel for moderate contextual work, Modal for short blocking work, and entity page for deep or multi-section work. These are recommendations, not rules based only on `view` versus `edit`.
 - **NEVER** mix `create` logic with `custom` action types.
 - **NEVER** assume `schema` or `optimisticActions` exist without checking.
 
@@ -108,14 +109,13 @@ type CustomActionCollectionPageActionOnRowClickResolver = (params: {
 }
 
 // Resolver (if custom) - see custom_actions_override for full registration pattern
-export const myRowClickAction: CustomActionCollectionPageActionOnRowClickResolver = ({
-  actionParams: { item },  // item is nested under actionParams
-}) => ({
-  label: 'Custom Action',
-  icon: <MyIcon />,
-  biName: 'my-row-click-action',
-  onClick: () => {
-    // Custom onClick logic using item
-  }
-});
+export const createRowClickAction = (
+  openItem: (item: Record<string, unknown>) => void,
+): CustomActionCollectionPageActionOnRowClickResolver =>
+  ({ actionParams: { item } }) => ({
+    label: 'View details',
+    icon: <MyIcon />,
+    biName: 'view-details-action',
+    onClick: () => openItem(item),
+  });
 ```

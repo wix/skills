@@ -14,9 +14,9 @@ Read [AUTO_PATTERNS_DASHBOARD.md](AUTO_PATTERNS_DASHBOARD.md) for generation, co
 | Custom displayed field or column | [custom-columns-override.md](auto-patterns-dashboard/custom-columns-override.md) |
 | Custom section, header, or slot | [custom-sections-override.md](auto-patterns-dashboard/custom-sections-override.md), [custom-header-override.md](auto-patterns-dashboard/custom-header-override.md), or [custom-slots-override.md](auto-patterns-dashboard/custom-slots-override.md) |
 | External child component needs collection data or refresh | [app-context.md](auto-patterns-dashboard/app-context.md) |
-| Contextual desktop record detail | [collection-page-actions.md](auto-patterns-dashboard/collection-page-actions.md), [custom-actions-override.md](auto-patterns-dashboard/custom-actions-override.md), and [app-context.md](auto-patterns-dashboard/app-context.md); then retrieve the WDS `SidePanel` documentation through [DASHBOARD_WDS_COMPONENT_GATE.md](DASHBOARD_WDS_COMPONENT_GATE.md) |
-| Structured create or edit inputs | [entity-page.md](auto-patterns-dashboard/entity-page.md) and the relevant entity-page action reference |
-| Focused confirmation or isolated blocking input | a documented Auto Patterns action plus [DASHBOARD_MODAL_PLAYBOOK.md](DASHBOARD_MODAL_PLAYBOOK.md) |
+| Record detail, viewing, or editing beyond the collection row | [collection-page-actions.md](auto-patterns-dashboard/collection-page-actions.md), [custom-actions-override.md](auto-patterns-dashboard/custom-actions-override.md), and [app-context.md](auto-patterns-dashboard/app-context.md); choose SidePanel, Modal, or entity page through [DASHBOARD_WDS_COMPONENT_GATE.md](DASHBOARD_WDS_COMPONENT_GATE.md) |
+| Deep or multi-section record flow | [entity-page.md](auto-patterns-dashboard/entity-page.md) and the relevant entity-page action reference |
+| Short focused or blocking record flow | a documented Auto Patterns action plus [DASHBOARD_MODAL_PLAYBOOK.md](DASHBOARD_MODAL_PLAYBOOK.md) |
 
 ## Route Contract
 
@@ -31,13 +31,20 @@ Read [AUTO_PATTERNS_DASHBOARD.md](AUTO_PATTERNS_DASHBOARD.md) for generation, co
 
 Keep Auto Patterns as the owner of the collection table, layouts, filters, selection, CRUD, and refresh lifecycle. Add only the narrow supplemental surface required by the workflow:
 
-| Need | Auto Patterns extension |
+| Workflow shape | Recommended extension |
 | --- | --- |
-| Inspect or resolve one selected record while retaining table context | Custom row/action override opens a WDS `SidePanel` child of `AutoPatternsApp`. The panel reads the selected item and calls `refreshCollection` after mutation. |
-| Create or edit several fields with validation, field layout, and save behavior | Link the collection page to an Auto Patterns `entityPage`; use its `edit` mode and documented form/component overrides. |
-| Confirm a destructive or bounded action | Launch a Dashboard Modal from a documented custom action. Do not replace the Auto Patterns collection page with a custom WDS page. |
+| Moderate view/edit depth where table context should remain visible | Custom row/action override opens a WDS `SidePanel` child of `AutoPatternsApp`. |
+| Short, focused, blocking view/edit task or confirmation | Launch a Dashboard Modal from a documented custom action. |
+| Extensive or multi-section view/edit flow, complex validation, deep linking, or long work | Link to an Auto Patterns `entityPage` in the appropriate mode. |
 
-The overlay or entity page is a secondary extension, not evidence that the table itself should be rebuilt in WDS.
+These are best-practice defaults, not intent-to-component rules: viewing and editing may use any surface when its depth and context justify it. Record the chosen `detailSurface` and reason before implementation. The supplemental surface is not evidence that the table itself should be rebuilt in WDS.
+
+## Action Coherence
+
+- Treat inspect, edit, workflow transition, create, and delete as different intents.
+- Give a bulk workflow transition a single-record equivalent in the row detail surface or row actions unless it is inherently bulk-only.
+- Do not add create or delete merely because the collection supports CRUD. Follow the managed entity lifecycle from [DATA_MODEL_AND_OPERATIONS.md](DATA_MODEL_AND_OPERATIONS.md).
+- For an inspect-first workflow, use `View` or the specific workflow verb as the row action; keep full-record editing available from the chosen detail surface when appropriate.
 
 ## Canonical Auto Patterns Profile: Inventory Manager
 
@@ -73,6 +80,7 @@ Configure the documented Auto Patterns Table/Grid layouts and action override. D
 - The collection, schema, permissions, and representative records exist as planned.
 - The generated page uses `patterns.json` and the documented page lifecycle.
 - Table/Grid, Saved Views, actions, create/edit/delete flows, and overrides behave as requested.
+- Individual, bulk, and detail-surface actions form one coherent workflow and follow the managed entity lifecycle.
 - Loading, empty, no-results, error, and populated states are intentional.
 - Browser, console, network, and persistence checks pass.
 - The registered dashboard page opens, its loader settles, and a build-only success is not reported as runtime success.

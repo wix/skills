@@ -19,7 +19,7 @@ interface AppContext {
 
 ## Contextual Detail Integration
 
-Use this pattern when an Auto Patterns collection row opens supplemental desktop detail without replacing the generated table:
+Use this SidePanel pattern when an Auto Patterns collection row opens moderate-depth supplemental view or edit content while retaining table context. Use a Modal for a short blocking task and an entity page for a deep, multi-section, or long-running flow.
 
 1. The page component owns `selectedItem` state and renders the generated Auto Patterns collection page unchanged.
 2. A documented custom row/action resolver receives `actionParams.item` and calls the page-owned `openItem(item)` callback.

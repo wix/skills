@@ -30,8 +30,9 @@ reason: <why this surface fits the workflow>
 
 | Required workflow surface | Exact installed documentation to retrieve | Route rule |
 | --- | --- | --- |
-| Desktop row detail, inspection, edit, assignment, or resolution | `component SidePanel`; examples: `Skin`, `Height`, `Header`, `Custom header`, `Content sections`, `Custom footer`, `Quick view` | For a supported one-collection manager, keep Auto Patterns as primary and mount the floating SidePanel through its documented row-action/AppContext extension. Use a custom table-and-panel route only when the collection workflow itself is unsupported. |
-| Focused blocking form, confirmation, or destructive decision | `components Modal CustomModalLayout`; the `CustomModalLayout` composition example; Dashboard Modal API | Use Dashboard Modal only for the bounded blocking task. |
+| Moderate-depth view or edit that should preserve table context | `component SidePanel`; examples: `Skin`, `Height`, `Header`, `Custom header`, `Content sections`, `Custom footer`, `Quick view` | Keep Auto Patterns primary and mount the floating SidePanel through its documented row-action/AppContext extension. |
+| Short, focused, blocking view/edit task, confirmation, or destructive decision | `components Modal CustomModalLayout`; the `CustomModalLayout` composition example; Dashboard Modal API | Use Dashboard Modal for the bounded task without replacing the collection page. |
+| Extensive or multi-section view/edit flow, complex validation, deep linking, or long work | Auto Patterns `entity-page.md` and relevant entity-page action reference | Use the linked entity page; viewing and editing are both valid when the workflow depth warrants a full page. |
 | Mobile sliding work | `component Drawer`; its relevant composition example | Do not substitute it for desktop SidePanel. |
 | Metrics or summary band | `components StatisticsWidget Layout Cell Card`; relevant layout examples | Use the analytics playbook. |
 | Chart or graph | Exact installed/supported chart-library API plus `components Layout Cell Card` | Do not invent chart APIs or claim Auto Patterns chart support. |
@@ -40,6 +41,7 @@ reason: <why this surface fits the workflow>
 ## Rules
 
 - A component name in a prompt is not enough: retrieve its exact documentation and composition example first.
+- Choose SidePanel, Modal, or entity page from information depth, task duration, blocking behavior, need for table context, validation complexity, and deep-linking needs. Do not map `view` or `edit` to one mandatory component.
 - A WDS component gate does not transfer ownership of a supported one-collection table from Auto Patterns to custom React. Extend the generated page with the narrow documented action/AppContext/entity-page path instead.
 - Do not hand-compose a documented surface from generic `Box` or a copied scaffold template. A floating `SidePanel` is the exception only for its mount: use the selected playbook's standard `DashboardSidePanelHost` for fixed viewport anchoring. Do not invent other panel positioning, sizing, shadow, or overflow styles.
 - When multiple surfaces are needed, read only the component documentation mapped to those surfaces. Do not load the whole WDS library.
