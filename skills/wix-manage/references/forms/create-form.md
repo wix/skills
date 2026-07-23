@@ -10,9 +10,35 @@ Create a form on a Wix site that appears in the Forms & Submissions dashboard. T
 
 ---
 
+## Step 0: Ensure Wix Forms is installed
+
+The `wix.form_app.form` namespace is provided by **Wix Forms (New)**. Before the first Form Schemas `POST`, install or verify the Wix Forms app on the site.
+
+- Use appDefId `225dd912-7dea-4738-8688-4b8c6955ffc2` for Wix Forms (New).
+- Do **not** use `14ce1214-b278-a7e4-1373-00cebd1bef7c` for this flow — that is Wix Forms (Old) and does not reliably activate the `wix.form_app.form` namespace for new form creation.
+- If the user has not already explicitly asked you to create or configure the form, ask before installing the app because app installation changes the site.
+
+```bash
+curl -X POST \
+  'https://www.wixapis.com/apps-installer-service/v1/app-instance/install' \
+  -H 'Content-Type: application/json' \
+  -H 'Authorization: <AUTH>' \
+  -d '{
+    "tenant": {
+      "tenantType": "SITE",
+      "id": "<SITE_ID>"
+    },
+    "appInstance": {
+      "appDefId": "225dd912-7dea-4738-8688-4b8c6955ffc2"
+    }
+  }'
+```
+
+After Wix Forms (New) is installed, create the form with `namespace: "wix.form_app.form"` as shown below.
+
 ## Create the form
 
-Call the Create Form endpoint with the `wix.form_app.form` namespace. The Wix Forms app (appDefId: `14ce1214-b278-a7e4-1373-00cebd1bef7c`) is usually already installed on sites.
+Call the Create Form endpoint with the `wix.form_app.form` namespace.
 
 ```bash
 curl -X POST \
@@ -290,7 +316,7 @@ The `postSubmissionTriggers.upsertContact` object maps form field targets to con
 
 ### Prerequisites
 
-The Wix Forms app (appDefId: `14ce1214-b278-a7e4-1373-00cebd1bef7c`) must be installed on the site. It is usually pre-installed, but if the API returns a "missing installed app" error, install it first using the [Install Wix Apps](../app-installation/install-wix-apps.md) recipe.
+The Wix Forms (New) app (appDefId: `225dd912-7dea-4738-8688-4b8c6955ffc2`) must be installed on the site before creating a form in the `wix.form_app.form` namespace. Install it first using the Apps Installer API shown in Step 0, or the [Install Wix Apps](../app-installation/install-wix-apps.md) recipe.
 
 ## Troubleshooting
 
@@ -300,8 +326,8 @@ The Wix Forms app (appDefId: `14ce1214-b278-a7e4-1373-00cebd1bef7c`) must be ins
 | Field silently missing from created form | Custom `identifier` value (e.g., `"product_name"`) | Use a recognized identifier like `TEXT_INPUT` and set display name via `label` |
 | Choice field rendered as a plain text box | `radioGroupOptions`/`dropdownOptions` malformed (wrong key, option missing `id`, empty `validation.enum`) — API silently falls back to `TEXT_INPUT` | Match the § "Choice fields" shape exactly: `componentType` in `stringOptions`, `options[]` each with a UUID `id`, and `validation.enum` listing all option values |
 | `maximum number of forms reached` / form-cap error | Sites cap at ~4 forms; reached by creating throwaway test forms | `GET form-schema-service/v4/forms` then `DELETE` the unwanted forms; build the real form in one call (don't probe) |
-| `Permissions for given namespace not found` | `wix.form_app.form` namespace not active | Ensure the Wix Forms app is installed; try creating a form through the UI first to activate the namespace |
-| `missing installed app` | Wix Forms app not installed | Install app `14ce1214-b278-a7e4-1373-00cebd1bef7c` via the [Install Wix Apps](../app-installation/install-wix-apps.md) recipe |
+| `Permissions for given namespace not found` / `UNSUPPORTED_FORM_NAMESPACE` | Wix Forms (New) is not installed or the `wix.form_app.form` namespace is not active for the site | Install Wix Forms (New) app `225dd912-7dea-4738-8688-4b8c6955ffc2` with the Apps Installer API, then retry the create call. Do not keep retrying the same Form Schemas request before installing the app |
+| `missing installed app` | Wix Forms (New) app not installed | Install app `225dd912-7dea-4738-8688-4b8c6955ffc2` via the [Install Wix Apps](../app-installation/install-wix-apps.md) recipe |
 
 ## Related Documentation
 

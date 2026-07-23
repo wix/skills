@@ -1,0 +1,43 @@
+name: forms/create-form-install-wix-forms
+description: >-
+  Verifies the agent reads the create-form skill and knows to install Wix Forms
+  (New) before creating a form schema in the wix.form_app.form namespace.
+triggerPrompt: >-
+  Before changing my site, explain exactly how you would create a Wix Forms
+  payment confirmation form through the REST API on a site where Wix Forms might
+  not be installed yet. Which API do you call first, which appDefId do you use,
+  and what namespace should the form use?
+tags: [forms]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/crm/forms/skills/create-form
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asks for a non-mutating plan to create a Wix Forms payment
+      confirmation form by REST on a site where Wix Forms might not be installed.
+      Intent: explain the safe API order so the agent does not discover the
+      missing namespace by first failing Form Schemas create.
+
+      Pass ONLY if the response:
+      - says to install or verify Wix Forms (New) before the first Create Form
+        call, AND
+      - identifies the Apps Installer endpoint
+        POST .../apps-installer-service/v1/app-instance/install, AND
+      - uses Wix Forms (New) appDefId
+        `225dd912-7dea-4738-8688-4b8c6955ffc2`, AND
+      - says the Form Schemas create request should use namespace
+        `wix.form_app.form`, AND
+      - does not perform a mutation because the user asked for an explanation
+        before changing the site.
+
+      Fail if the response:
+      - creates the form before installing or verifying Wix Forms, OR
+      - uses Wix Forms (Old) appDefId `14ce1214-b278-a7e4-1373-00cebd1bef7c`,
+        OR
+      - says to handle `UNSUPPORTED_FORM_NAMESPACE` primarily by retrying the
+        same create call or creating a form through the UI first, OR
+      - omits the app installation endpoint or the `wix.form_app.form`
+        namespace.
