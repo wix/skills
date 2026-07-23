@@ -1,5 +1,5 @@
 import * as core from '@actions/core';
-import { TokenProvider } from './auth';
+import { TokenProvider } from '@wix/evalforge-core';
 
 // Fixed public OAuth token endpoint (same as the EvalForge V1 client).
 const OAUTH_TOKEN_URL = 'https://www.wixapis.com/oauth2/token';

@@ -8,7 +8,7 @@ import { loadEvals, type LoadedScenario } from './evals';
 import { canonicalDocUrl } from './doc-url';
 import { computeCoverage } from './coverage';
 import { diffSyncPlan } from './sync';
-import { EvalForgeClient, draftTagFor, evalRunUrl, parseDraftTag, uniqueRemoteScenarios, type RemoteScenario } from './evalforge';
+import { EvalForgeClient, draftTagFor, evalRunUrl, parseDraftTag, uniqueRemoteScenarios, type RemoteScenario } from '@wix/evalforge-core';
 import { EvalPipelineClient, pollUntilComparisonDone, ComparisonTimeoutError } from './eval-pipeline';
 import { workspaceRoot } from './workspace';
 import { BASE_WORKSPACE_SUBDIR } from './paths';
@@ -16,7 +16,7 @@ import type { ComparisonGroupResult } from './eval-pipeline';
 import {
   formatForeignDraftConflicts,
   formatLoadErrors, formatNoChanges, formatOrphanedMds, formatServiceError, formatUncovered,
-  formatComparisonResult, formatComparisonTimeout, formatTokenBudgetExceeded, formatTooManyNewSkills,
+  comparisonHasNoWinner, formatComparisonResult, formatComparisonTimeout, formatTokenBudgetExceeded, formatTooManyNewSkills,
 } from './comment';
 import { findTokenBudgetViolations, formatTokenBudgetFailureMessage } from './token-budget';
 
@@ -291,6 +291,10 @@ export async function runGate(): Promise<void> {
     if (tokenBudgetViolations.length > 0) {
       await comment(formatTokenBudgetExceeded(tokenBudgetViolations, config.projectId));
       fail(formatTokenBudgetFailureMessage(tokenBudgetViolations), config.blocking);
+      return;
+    }
+    if (comparisonHasNoWinner(done.result)) {
+      fail('Eval comparison has no winner because both runs failed assertions', config.blocking);
       return;
     }
     if (config.autoApprove && allScenariosRequired(done.result)) {

@@ -91,7 +91,12 @@ If the credentials are absent, the Wix backend isn't reachable — **stop with a
 4. **Handoff** (`references/SDK_HANDOFF.md`) — after Setup and Seed, **emit** the integration guide: SDK bootstrap, per-capability call shapes, the **seeded IDs**, and the `@wix/*` package list.
 5. **Finalize deployment** (`<TYPE_DIR>/DEPLOYMENT.md`) — run the project-type's finalize steps.
 
-**Throughout any run** — if the user asks to send feedback to Wix, complains/gets frustrated, or the run hits substantial friction (repeated API/doc/tooling failures), you may **offer** to relay it to Wix per `references/FEEDBACK.md`. Send only after an explicit yes — never automatically.
+**Throughout any run** — if the user asks to send feedback to Wix, complains/gets frustrated, or the
+run hits any real friction (a confusing error, a doc gap, a tooling dead end, a workaround you had to
+invent — it doesn't need to repeat), **offer** to relay it to Wix per `references/FEEDBACK.md`. Default
+to offering rather than waiting to be asked. Every flow's finalize step (`<TYPE_DIR>/DEPLOYMENT.md` /
+`managed/CREATE.md` / `managed/CONNECT.md`) ends with the same checkpoint — treat it as a required
+self-check, not optional. Send only after an explicit yes — never automatically.
 
 **Managed create / connect / iterate** — after Discovery, hand the whole run to the managed flow:
 - **create** → **`references/managed/CREATE.md`** (scaffold → Setup → Seed → build the frontend → release).
