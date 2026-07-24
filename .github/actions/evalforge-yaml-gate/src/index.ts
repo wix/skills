@@ -3,12 +3,14 @@ import { runGate } from './utils/gate';
 import { runPromote } from './utils/promote';
 import { runCleanup } from './utils/cleanup';
 import { runSchedule } from './utils/schedule';
+import { runSync } from './utils/sync-run';
 
 const modes: Record<string, () => Promise<void>> = {
   eval: runGate,
   promote: runPromote,
   cleanup: runCleanup,
   'run-all': runSchedule,
+  sync: runSync,
 };
 
 const mode = core.getInput('mode') || 'eval';
