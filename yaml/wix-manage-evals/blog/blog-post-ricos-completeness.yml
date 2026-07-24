@@ -1,0 +1,34 @@
+name: blog/blog-post-ricos-completeness
+description: Verifies that a blog post body built via the How to Create Blog Posts recipe exercises the full Ricos device set — headings, a filled-header table, a divider, an ordered list, inline text decorations (bold + link), and a code block — each correctly nested, with the title kept out of the body and section headings starting at level 2.
+triggerPrompt: |
+  Using the Wix REST API, I want to create and immediately publish one blog post on my site: a developer tutorial titled "Getting Started with the Acme Webhooks API". The post should open with a short intro, then a "Plan limits" section comparing the Free and Pro tiers (requests per minute and event retention) in a small table with a highlighted header row, a "Setup" section showing the install command `npm install @acme/webhooks` as a code snippet, a "Send your first webhook" section with the steps as a numbered list, and — separated from the rest by a horizontal divider line — a closing "Next steps" section whose text includes the words "API reference" as a bold hyperlink to https://example.com/docs. Give the exact endpoint and the full request body, including the complete richContent JSON.
+tags: [blog]
+# Reads two full docs articles (blog recipe + Ricos recipe) and composes a six-device
+# richContent body — needs more headroom than the flow-focused blog eval (a 300k run
+# came in at ~305k).
+maxTokens: 400000
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/blog/skills/how-to-create-blog-posts
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/assets/rich-content/skills/author-ricos-rich-content
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked for the full request to create and publish one Wix blog post (a developer tutorial) whose body needs six rich-content devices. Inspect the `richContent` JSON in the response and judge device completeness and nesting (the create/publish flow only needs to be plausible: a Blog draft-posts create endpoint with the body under `draftPost` and `publish: true`).
+
+      The six devices, each with its correct shape:
+      1. HEADING nodes for the sections, each with `headingData.level`; section headings start at `level: 2` and the post title lives in `draftPost.title`, NOT as an H1 in the body.
+      2. A TABLE nested TABLE → TABLE_ROW → TABLE_CELL → PARAGRAPH → TEXT (no TEXT directly in a cell), with the header-row fill set via `tableCellData.cellStyle.backgroundColor`.
+      3. A DIVIDER node with `dividerData` and no children, placed before the closing section.
+      4. An ORDERED_LIST for the steps, nested LIST → LIST_ITEM → PARAGRAPH → TEXT with `orderedListData`.
+      5. Inline decorations: the "API reference" words are their own TEXT run carrying BOTH a BOLD decoration (`{ "type": "BOLD", "fontWeightValue": 700 }`) and a LINK decoration with `linkData.link.url` = https://example.com/docs, with the surrounding words as separate plain runs.
+      6. A CODE_BLOCK whose children are TEXT nodes containing the install command, with `codeBlockData`.
+
+      Score 9-10: all six devices present and correctly shaped as above; every `type` is a bare string; no `\n` inside `textData.text`; title not duplicated as a body heading; `publish: true` set.
+      Score 6-8: all six devices present and correctly nested, but one or two minor field details are off (e.g. `orderedListData` or `tableData.dimensions` omitted, divider placed elsewhere, heading levels jump).
+      Score 3-5: one device missing entirely (e.g. divider or code block dropped, or the table replaced by paragraphs), OR a structural nesting error (TEXT directly inside a LIST_ITEM or TABLE_CELL, bold+link not both on the "API reference" run), OR the title repeated as a body H1.
+      Score 0-2: two or more devices missing, the body is mostly plain paragraphs, or no richContent JSON is produced.
