@@ -14,6 +14,14 @@
  */
 export const WIX_CLIENT_ID = "<YOUR-CLIENT-ID>";
 
+/**
+ * WIX_META_SITE_ID — the site's metasite id (from the same prompt). Optional: only used to build a
+ * one-click "approve this domain" dashboard deep link when member login fails because this app's
+ * origin isn't allow-listed (see wix-members-auth.js). Leave the placeholder if you don't have it —
+ * the helper falls back to a plain error message.
+ */
+export const WIX_META_SITE_ID = "<YOUR-METASITE-ID>";
+
 export const WIX_API_BASE = "https://www.wixapis.com";
 const OAUTH_TOKEN_URL = `${WIX_API_BASE}/oauth2/token`;
 

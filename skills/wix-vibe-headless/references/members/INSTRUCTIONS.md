@@ -41,7 +41,9 @@ have). Don't blend their exchange calls — the helper handles each internally.
    roles) or custom field definitions. Pure "logged-in vs. not" gating needs no app — see the
    identity-vs-profile split below.
 2. The site's public headless **`WIX_CLIENT_ID`** (from the handoff prompt), pasted into
-   `src/rest/wix-client.js`. Public, buyer-facing credential — safe to hardcode/commit.
+   `src/rest/wix-client.js`. Public, buyer-facing credential — safe to hardcode/commit. Also set
+   **`WIX_META_SITE_ID`** there (same prompt) — optional, only used to build the one-click
+   "approve this domain" link on an allow-listing failure; leave the placeholder if you don't have it.
 3. **OAuth-app allow-listing — the #1 gotcha. Two *different* fields gate the two mechanisms:**
 
    | Mechanism | What must be allow-listed | OAuth-app field | On `localhost:4321`? |
@@ -67,6 +69,17 @@ have). Don't blend their exchange calls — the helper handles each internally.
    > origin), **tell the user** the exact URIs to add and where, and note that **social login stays
    > dead until they do it** (a client-only front has no account token to register it via the API).
    > See "Point the user to their dashboard" below for the deep link and the exact values.
+   >
+   > **Self-serve on failure — render the approve link.** For **credential** login, when the origin
+   > isn't approved the helper throws `MemberAuthError` with code `redirect_uri_not_allowed` and an
+   > **`err.approveUrl`** — a one-click "Approve this domain" deep link into the OAuth app. It builds
+   > this **client-side** (needs `WIX_META_SITE_ID`), so it works today; it also uses the authorize
+   > server's `approveUrl` when present. **Render `err.approveUrl` as an "Approve" button** in your
+   > auth error state (and it's `console.warn`'d for the developer regardless). This is a
+   > build/test-time safety net — a correctly-registered site never hits it — so surface it plainly;
+   > no need to distinguish owner vs visitor (matches the platform's checkout "approve domain" page).
+   > **Social/SSO** fails on a Wix-rendered page that never returns to your app, so it can't be caught
+   > client-side — for social, the proactive registration above is the only lever.
 
 ## The API (copy as-is; do not re-derive it)
 Copy `wix-client.js` + `wix-members-auth.js` into `src/rest/` and set `WIX_CLIENT_ID`. Exports of

@@ -2,10 +2,32 @@ import {
   wixApiRequest,
   WIX_API_BASE,
   WIX_CLIENT_ID,
+  WIX_META_SITE_ID,
   setSessionTokens,
   clearSession,
   isMember,
 } from "./wix-client.js";
+
+// One-click "approve this domain" dashboard deep link for when login fails because this app's
+// ORIGIN isn't in the OAuth app's allowed domains. Built client-side (no server change needed —
+// the ?addAllowedDomain= param already exists) so the UI can offer a fix. Returns undefined when
+// WIX_META_SITE_ID isn't set (the deep link needs it) — the caller then just shows the message.
+function pageOrigin() {
+  return typeof window !== "undefined" ? window.location.origin : "";
+}
+
+function buildApproveDomainUrl(origin, metaSiteId) {
+  // Prefer the metaSiteId the authorize server returns in the error payload (a client-only front
+  // usually doesn't know it); fall back to the optional WIX_META_SITE_ID constant if it's set.
+  const msid =
+    metaSiteId || (WIX_META_SITE_ID && !WIX_META_SITE_ID.startsWith("<") ? WIX_META_SITE_ID : undefined);
+  if (!origin || !msid) return undefined;
+  return (
+    `https://manage.wix.com/dashboard/${encodeURIComponent(msid)}` +
+    `/oauth-apps-settings/manage/${encodeURIComponent(WIX_CLIENT_ID)}` +
+    `?addAllowedDomain=${encodeURIComponent(origin)}`
+  );
+}
 
 /**
  * Custom member login for a client-only headless front end — the REST analog of
@@ -185,7 +207,18 @@ export async function startSocialLogin(idp, callbackUri, returnTo = "/") {
     OAUTH_STASH_KEY,
     JSON.stringify({ codeVerifier: pkce.codeVerifier, state: pkce.state, redirectUri: callbackUri, returnTo }),
   );
-  window.location.href = fullUrl;
+  // Route through the headless gate instead of straight to identity's authorize URL: it validates
+  // the callback and either forwards to identity or shows a one-click "Approve this URI" page — so a
+  // not-yet-allow-listed callback gets a fix, not a dead-end error. (Identity stays generic; the gate
+  // lives in the headless layer, same pattern as Wix-hosted checkout.) The gate is on the Wix host,
+  // which we take from the authorize URL's origin; forwarding is a relative path (no open redirect).
+  const u = new URL(fullUrl);
+  const gateUrl =
+    `${u.origin}/_serverless/wix-to-headless-redirect/authorize-or-approve` +
+    `?authorizePath=${encodeURIComponent(u.pathname + u.search)}` +
+    `&clientId=${encodeURIComponent(WIX_CLIENT_ID)}` +
+    `&redirectUri=${encodeURIComponent(callbackUri)}`;
+  window.location.href = gateUrl;
 }
 
 /**
@@ -303,24 +336,36 @@ function authorizeViaHiddenIframe(authUrl, expectedState) {
       if (!e.data || e.data.state !== expectedState) return; // not our message
       settled = true;
       cleanup();
-      if (e.data.error) reject(new MemberAuthError(e.data.error, e.data.error_description || e.data.error));
-      else resolve({ code: e.data.code, state: e.data.state });
+      if (e.data.error) {
+        const err = new MemberAuthError(e.data.error, e.data.error_description || e.data.error);
+        // Origin not allow-listed. The authorize server returns the facts (`metaSiteId` +
+        // `rejectedOrigin`); build the one-click "Approve this domain" deep link from them so the UI
+        // offers a fix instead of a dead end. Falls back to this page's origin / WIX_META_SITE_ID.
+        const origin = e.data.rejectedOrigin || pageOrigin();
+        err.rejectedOrigin = origin;
+        err.approveUrl = buildApproveDomainUrl(origin, e.data.metaSiteId);
+        if (err.approveUrl) console.warn(`Wix member login: approve this origin — ${err.approveUrl}`);
+        reject(err);
+      } else resolve({ code: e.data.code, state: e.data.state });
     };
     window.addEventListener("message", onMessage);
     const timer = setTimeout(() => {
       if (!settled) {
         cleanup();
-        // The overwhelmingly common cause: this app's ORIGIN is not an allowed
-        // authorization redirect URI on the OAuth app, so the browser silently
-        // blocks the iframe's postMessage (check the console for a "target origin
-        // … does not match" error). Register the origin — see INSTRUCTIONS.md.
-        reject(new MemberAuthError(
-          "timeout",
-          `Login timed out. Most likely this app's origin (${typeof window !== "undefined" ? window.location.origin : "?"}) ` +
-            `is not an allowed authorization redirect URI on the Wix OAuth app — register it in the site's Headless Settings.`,
-        ));
+        // Fast-fail fallback for older authorize servers that *silently drop* the postMessage when
+        // this app's ORIGIN isn't in the OAuth app's allowed domains. Build the approve deep link
+        // client-side so the UI can still offer the one-click fix (no server change needed).
+        const approveUrl = buildApproveDomainUrl(pageOrigin());
+        if (approveUrl) console.warn(`Wix member login: approve this origin — ${approveUrl}`);
+        const err = new MemberAuthError(
+          "redirect_uri_not_allowed",
+          `This app's origin (${pageOrigin() || "?"}) is not in the Wix OAuth app's allowed domains — ` +
+            `add it in the site's Headless Settings.`,
+        );
+        if (approveUrl) err.approveUrl = approveUrl;
+        reject(err);
       }
-    }, 120000);
+    }, 30000);
     iframe.src = authUrl;
     document.body.appendChild(iframe);
   });
