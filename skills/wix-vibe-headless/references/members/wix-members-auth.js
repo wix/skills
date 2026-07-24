@@ -16,10 +16,14 @@ function pageOrigin() {
   return typeof window !== "undefined" ? window.location.origin : "";
 }
 
-function buildApproveDomainUrl(origin) {
-  if (!origin || !WIX_META_SITE_ID || WIX_META_SITE_ID.startsWith("<")) return undefined;
+function buildApproveDomainUrl(origin, metaSiteId) {
+  // Prefer the metaSiteId the authorize server returns in the error payload (a client-only front
+  // usually doesn't know it); fall back to the optional WIX_META_SITE_ID constant if it's set.
+  const msid =
+    metaSiteId || (WIX_META_SITE_ID && !WIX_META_SITE_ID.startsWith("<") ? WIX_META_SITE_ID : undefined);
+  if (!origin || !msid) return undefined;
   return (
-    `https://manage.wix.com/dashboard/${encodeURIComponent(WIX_META_SITE_ID)}` +
+    `https://manage.wix.com/dashboard/${encodeURIComponent(msid)}` +
     `/oauth-apps-settings/manage/${encodeURIComponent(WIX_CLIENT_ID)}` +
     `?addAllowedDomain=${encodeURIComponent(origin)}`
   );
@@ -323,10 +327,12 @@ function authorizeViaHiddenIframe(authUrl, expectedState) {
       cleanup();
       if (e.data.error) {
         const err = new MemberAuthError(e.data.error, e.data.error_description || e.data.error);
-        // Origin not allow-listed. Prefer the authorize server's `approveUrl` (newer servers send
-        // a benign `redirect_uri_not_allowed` carrying it); otherwise build it client-side. Either
-        // way the UI gets a one-click "Approve this domain" deep link instead of a dead end.
-        err.approveUrl = e.data.approveUrl || buildApproveDomainUrl(pageOrigin());
+        // Origin not allow-listed. The authorize server returns the facts (`metaSiteId` +
+        // `rejectedOrigin`); build the one-click "Approve this domain" deep link from them so the UI
+        // offers a fix instead of a dead end. Falls back to this page's origin / WIX_META_SITE_ID.
+        const origin = e.data.rejectedOrigin || pageOrigin();
+        err.rejectedOrigin = origin;
+        err.approveUrl = buildApproveDomainUrl(origin, e.data.metaSiteId);
         if (err.approveUrl) console.warn(`Wix member login: approve this origin — ${err.approveUrl}`);
         reject(err);
       } else resolve({ code: e.data.code, state: e.data.state });
