@@ -207,7 +207,18 @@ export async function startSocialLogin(idp, callbackUri, returnTo = "/") {
     OAUTH_STASH_KEY,
     JSON.stringify({ codeVerifier: pkce.codeVerifier, state: pkce.state, redirectUri: callbackUri, returnTo }),
   );
-  window.location.href = fullUrl;
+  // Route through the headless gate instead of straight to identity's authorize URL: it validates
+  // the callback and either forwards to identity or shows a one-click "Approve this URI" page — so a
+  // not-yet-allow-listed callback gets a fix, not a dead-end error. (Identity stays generic; the gate
+  // lives in the headless layer, same pattern as Wix-hosted checkout.) The gate is on the Wix host,
+  // which we take from the authorize URL's origin; forwarding is a relative path (no open redirect).
+  const u = new URL(fullUrl);
+  const gateUrl =
+    `${u.origin}/_serverless/wix-to-headless-redirect/authorize-or-approve` +
+    `?authorizePath=${encodeURIComponent(u.pathname + u.search)}` +
+    `&clientId=${encodeURIComponent(WIX_CLIENT_ID)}` +
+    `&redirectUri=${encodeURIComponent(callbackUri)}`;
+  window.location.href = gateUrl;
 }
 
 /**
