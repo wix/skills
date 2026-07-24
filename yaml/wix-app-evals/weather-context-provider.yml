@@ -1,0 +1,15 @@
+name: weather-context-provider
+description: A weather React component that must fetch data only through its context provider, not directly
+triggerPrompt: |-
+  Build a weather component with the following: 1. WeatherContext provider (WeatherProvider) that: - Fetches real-time weather data from Open-Meteo API (https://api.open-meteo.com/v1/forecast) — no API key needed - Uses Open-Meteo's geocoding API (https://geocoding-api.open-meteo.com/v1/search) to resolve city names to coordinates - Stores current temperature, conditions (via WMO weather codes), humidity, wind speed, and location name - Auto-refreshes data on a configurable interval (default: 5 minutes) - Exposes a refreshWeather() function and loading/error states - Accepts an initial location prop (city name) 2. Weather site component (WeatherApp) that: - Wraps content in WeatherProvider - Displays current weather with an icon, temperature (toggle C/F), conditions, humidity, and wind - Shows a search bar to change location - Handles loading and error states gracefully - Is responsive and styled with CSS modules or styled-components
+  APP_NAMESPACE: "@mirivo/my-app31ceim", Use this namespace when creating data collections (for idSuffix scoping).
+  CODE_IDENTIFIER: "MirivoMyApp31ceim" When generating editor React component or function library extensions, use this identifier as the type prefix (e.g. type: 'MirivoMyApp31ceim"ComponentName').
+templateId: 8116ffa2-e212-4a74-a9f0-1738c9cbb6b1
+tags: [editor-react-component]
+assertions:
+  - type: llm_judge
+    minScore: 7
+    prompt: |-
+      the react component should use the context provider to fetch the weather data.
+      the only component which should fetch the weather data is the context provider.
+      the react component should not call the weather API directly.

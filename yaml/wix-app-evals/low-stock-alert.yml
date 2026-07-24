@@ -1,0 +1,27 @@
+name: low-stock-alert
+description: Dashboard plugin on the Wix Stores Products page showing a read-only low-stock alert banner
+triggerPrompt: |-
+  Create a dashboard plugin on the Wix Stores Products page that shows a low stock alert banner.
+
+  The plugin should:
+
+  * Query the store's product inventory using the Wix Stores SDK
+  * Display products that have stock below 5 units
+  * Show each low-stock product's name, current stock count, and a status indicator (red for 0, yellow for 1-4)
+  * Show a success message if all products are well-stocked
+  * Use Wix Design System components (Card, Table, StatusIndicator, Text)
+  * Keep it simple — read-only, no editing functionality
+  APP_NAMESPACE: "@mirivo/my-app31ceim", Use this namespace when creating data collections (for idSuffix scoping).
+  CODE_IDENTIFIER: "MirivoMyApp31ceim" When generating editor React component or function library extensions, use this identifier as the type prefix (e.g. type: 'MirivoMyApp31ceim"ComponentName').
+templateId: 8116ffa2-e212-4a74-a9f0-1738c9cbb6b1
+tags: [dashboard-plugin]
+assertions:
+  - type: skill_was_called
+    skillNames: [wix-app]
+  - type: build_passed
+    command: npm run build
+    expectedExitCode: 0
+  - type: cost
+    maxCostUsd: 1
+  - type: time_limit
+    maxDurationMs: 150000
