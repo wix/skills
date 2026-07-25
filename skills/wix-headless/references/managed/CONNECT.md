@@ -26,6 +26,14 @@ Run from the project directory. It creates `wix.config.json` (with the `siteId` 
 OAuth app) and registers the project's origin on that app. Read `./wix.config.json` → hold `SITE_ID`
 in scratch.
 
+**If the CLI session isn't already authenticated, `init` embeds the same device-code login wait as
+`login` does** — it blocks on an `{"event":"awaiting_user",...}` line before continuing. Run it the
+same way `AUTHENTICATION.md` §1 prescribes for `login`: **`run_in_background: true`, no pipe/redirect
+of your own**. In particular, never pipe it through `tail -N` (without `-f`) — `tail` can't know which
+lines are "the last N" on a non-seekable pipe until the input ends, so it shows **nothing at all**
+until the process exits, making an actively-working login wait indistinguishable from a hang. Poll the
+captured output for the `awaiting_user` line and relay it per `AUTHENTICATION.md` §1.
+
 **If the design was brought in from elsewhere** (a `.zip`/folder/file, or a fetched design-file URL),
 place it into CWD **first** — unzip/copy/fetch the design's files into the working directory so it's the
 project on disk — **then** `init`. An empty CWD plus a brought-in design is still `connect`, not create:
