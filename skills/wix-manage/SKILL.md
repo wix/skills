@@ -109,6 +109,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ### [CMS Schema Management](references/cms/cms-schema-management.md)
 **Technical:** Create and modify CMS collection structures. Covers listing collections, creating collections with fields, adding/removing fields, and updating collection settings.
 
+### [Displaying a CMS Collection on a Page (Dynamic Pages) — Known Gap](references/sites/editing-existing-site-pages-menus-and-homepage.md#same-gap-from-the-cms-angle-turn-my-collection-into-a-page)
+**Technical:** There is no REST/MCP API to turn a populated CMS collection into an on-site page (a Wix "Dynamic Page" List/Item pair or a collection-backed repeater section). "Add Dynamic Page" only exists inside the classic/Studio Editor, not the dashboard CMS. Read this before assuming CMS data work alone gets a collection displayed on the site.
+
 ---
 
 ## Contacts

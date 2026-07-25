@@ -34,3 +34,13 @@ If the user's site already exists (has a `siteId`, is live, has real content/pro
 ## Why this matters
 
 A user who doesn't hear this clearly can spend days having an agent retry `import-claude-design-from-url` with different URLs, hunt through docs for a nonexistent pages/menu API, or reuse a `WixSiteBuilder` jobId expecting an edit — all while a fully-prepared design sits unusable because there was never a way to deliver it to their live site.
+
+## Same gap from the CMS angle: "turn my collection into a page"
+
+The gap above also blocks a distinct, common request: the user already has a CMS/Data collection fully populated (via the Data Items/Collections APIs) and wants it **displayed on the site** — e.g. "put these 18 knowledge-base articles on a page as a grid" or "add a page listing my collection." This looks purely data-related, so it's easy to burn a full CMS session before hitting the same wall:
+
+- There is no REST/MCP API to create a Wix "Dynamic Page" (the List + Item page pair bound to a collection) or to add a collection-backed repeater/grid section to an existing page. The Data Items/Collections/Data Permissions APIs only manage the data itself, never its on-page presentation.
+- The **only** entry point for "Add Dynamic Page" is inside the classic Wix Editor or Studio Editor — it is not exposed in the dashboard CMS's own "More Actions" menu, so there's no dashboard-only path either. Reaching it still requires the same desktop-browser Editor session called out above.
+- Even after a human manually adds the dynamic page in the Editor, double-check the auto-generated List page's repeater before publishing: the title/description fields typically connect correctly, but the item-linking button (e.g. "Read More") has been observed shipping as **"Not connected"**, producing dead links until manually reconnected via Connect to Data. Don't assume the auto-generated page is fully wired just because the visible text fields populated correctly in preview.
+
+Treat "make my CMS collection visible on a page" the same as the homepage-design case above: state plainly that no API can do the visual/page-composition part, and that the manual Editor step is required — including the repeater-button check.
