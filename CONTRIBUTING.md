@@ -76,7 +76,7 @@ Each scenario's `name` must be unique across its evals tree, lowercase, and may 
 | `triggerPrompt` | The natural-language request you'd expect a real user to make. Minimum 10 characters. |
 | `tags` | One or more tags. For `wix-manage`, include a production tag for the area (e.g. `[domains]`, `[stores]`, `[bookings]`). For `wix-app`, tag the area the scenario exercises (e.g. `[dashboard-page]`, `[dashboard-plugin]`, `[spi]`, `[editor-react-component]`). |
 | `maxTokens` | Optional top-level PR-run token budget for this scenario. If the PR eval run exceeds this total token count, the GitHub Actions gate fails. |
-| `templateId` | Optional (`wix-app`) **file template** — scaffolds the run's starter project/app from a Wix template (alias or GUID). See [Templates](#templates-file-vs-site). |
+| `templateId` | Optional (`wix-app`) **file template** — scaffolds the run's starter project/app from an EvalForge template (id or alias). See [Templates](#templates-file-vs-site). |
 | `siteSetup` | Optional **site template** — provisions a fresh isolated Wix site for the run. See [Templates](#templates-file-vs-site). |
 | `assertions` | A non-empty array of assertions that decide whether the scenario passed. The schema requires at least one; you should include both a coverage assertion (proves the skill was invoked) and an `llm_judge` (proves the response was correct) — see below. |
 
@@ -174,7 +174,7 @@ A scenario can start from a template in **two independent ways** — they map to
 
 Either is optional; omit both to run against the default (a shared test site, no scaffolded project).
 
-**File template** — a Wix template alias or GUID the run scaffolds the app from:
+**File template** — an EvalForge template (id or alias) the run scaffolds the app from:
 
 ```yaml
 templateId: 8116ffa2-e212-4a74-a9f0-1738c9cbb6b1
