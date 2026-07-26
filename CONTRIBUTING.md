@@ -46,7 +46,7 @@ When adding or changing `wix-app` skill content:
 1. Add or update the content under `skills/wix-app/SKILL.md` or `skills/wix-app/references/<name>.md`.
 2. Update the relevant index entry in `skills/wix-app/SKILL.md`.
 3. **Add at least one covering eval scenario** under `yaml/wix-app-evals/`, tagged for the area(s) you changed. See [Adding an Eval Scenario](#adding-an-eval-scenario) below.
-4. Every change to `wix-app` skill content should be covered by a scenario — reuse an existing one if it fits, otherwise add a new tagged scenario. Keeping coverage current is a contributor responsibility today; the Phase 1 PR gate will enforce it automatically.
+4. Every change to `wix-app` skill content should be covered by a scenario — reuse an existing one if it fits, otherwise add a new tagged scenario.
 5. Keep the skill's `description` to at most 1024 characters.
 
 ## Adding an Eval Scenario
