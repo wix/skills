@@ -76,4 +76,12 @@ These two fixes are **Wix-hosting facts** — they apply to a connected **static
 
 A release can hit transient infrastructure errors (`ECONNRESET`, `ETIMEDOUT`, `STATE_MISMATCH`, "try again shortly"). Retry the release serially up to **3×** with a short backoff. **Build failures are not retryable** — they're code bugs; fix the code, not the retry.
 
+## Site works in `wix preview` but 404s everywhere after `wix release`
+
+If **every** route 404s in production (including `/` and `/_wix/pages.json`) right after a `wix release`, while the same build works under `wix preview`, this is a known server-side deployment classification bug, not a build or config problem in the project — don't chase entry-file/output-directory fixes (those are for the *static-frontend* case above) or re-check `astro.config`/adapter settings. Re-running `release` (even with a cache-busted rebuild, or with the suspect commit reverted) does **not** self-recover; it re-triggers the same classification and comes back 404.
+
+- **Diagnose:** confirm the report shape matches (works in `preview`, 404s in `release`) — that difference is the signature of this bug, since `preview` never calls the release/publish step. Check `.wix/debug.log` for the release request if you need to confirm.
+- **Recover:** the only fix is a **dashboard Site History republish** of a previous working deployment — open the site's dashboard (Business Manager) → Site History, and republish the last release that worked. This discards the new build, so if the new build has real changes, republish first to restore the live site, then re-release the new build once the underlying bug is fixed (tracked in wix-private/wix-code#8153).
+- Don't tell the user to keep re-releasing — it won't help, and it burns their time.
+
 That's the whole of finalize for `managed` — no `site-publisher` call, and no `oauth-app` **origin** PATCH (the origin is auto-registered). The **one** exception is the member-login callback on a non-Astro frontend above — that `allowedRedirectUris` PATCH is manual and required.
