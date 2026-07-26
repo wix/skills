@@ -117,8 +117,7 @@ Compute `<SKILL_ROOT>` from this file (`<SKILL_ROOT>/SKILL.md` — strip `/SKILL
 | What | Path |
 |---|---|
 | Vertical index (intent matching + per-vertical site spec) | `<SKILL_ROOT>/references/CAPABILITIES.md` |
-| Discovery (infer capabilities + brand + intent) | `<SKILL_ROOT>/references/DISCOVERY.md` |
-| Site discovery script (existing site → installed apps + site props) | `<SKILL_ROOT>/references/discover-site.mjs` |
+| Discovery (infer capabilities + brand + intent; existing site → the Dynamic Context call in §1) | `<SKILL_ROOT>/references/DISCOVERY.md` |
 | Setup (install apps) | `<SKILL_ROOT>/references/SETUP.md` |
 | Seed (create backend content) | `<SKILL_ROOT>/references/SEED.md` |
 | SDK-integration handoff (emitted, or applied by create/connect) | `<SKILL_ROOT>/references/SDK_HANDOFF.md` |

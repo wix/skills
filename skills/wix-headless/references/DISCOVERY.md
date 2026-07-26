@@ -7,22 +7,28 @@ Discovery is pure inference — it needs **no authentication** and is **agnostic
 ## 1 · Resolve the capability set
 
 > **Targeting an existing site with an ambiguous brief? Read the site — don't guess.** When the
-> run points at a site that already exists (connect/iterate, a funnel-created site, "build a
-> frontend for my business" with no vertical named) and an elevated credential is already
-> available, the site itself is the ground truth of what the business is:
+> run points at a site that already exists (connect/iterate, a funnel-created site) and an
+> elevated credential is already available, one documented call returns the site's context —
+> installed apps by name (including the Stores catalog version), status, URL,
+> locale/currency/timezone, and CMS collections — as an agent-ready markdown report:
 >
 > ```bash
-> WIX_TOKEN=$TOKEN node <SKILL_ROOT>/references/discover-site.mjs $SITE_ID
+> curl -sS -X POST 'https://www.wixapis.com/_api/dynamic-context/v1/dynamic-context/markdown' \
+>   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+>   -d "{\"siteId\": \"$SITE_ID\"}"
 > ```
 >
-> The installed apps it reports (plus non-empty `cmsCollections` → cms) map to the vertical
-> set and seed `verticals[]` directly; inference below then only fills what the site can't
-> answer (brand, per-capability intent).
-> Several verticals installed → prioritize by the user's words and by which holds real
-> (non-sample) content. Nothing installed → **ask the user one short question** ("what do you
-> offer — products, appointments, posts, events?") rather than defaulting to a store. This is
-> the one case where Discovery may use the authentication mechanism early; with no credential
-> at hand yet, skip it and infer from the words as below.
+> Docs: <https://dev.wix.com/docs/api-reference/tools/dynamic-site-context/get-dynamic-context-markdown.md>
+> (a JSON variant lives at the same path without `/markdown`). With an API key, send it raw as
+> the `Authorization` header value, no `Bearer` prefix.
+>
+> The installed business apps map to the vertical set and seed `verticals[]` directly (CMS
+> collections present → cms); inference below then only fills what the site can't answer
+> (brand, per-capability intent). Several verticals installed → prioritize by the user's words
+> and by which holds real (non-sample) content. Nothing relevant installed → **ask the user one
+> short question** ("what do you offer — products, appointments, posts, events?") rather than
+> defaulting to a store. This is the one case where Discovery may use the authentication
+> mechanism early; with no credential at hand yet, skip it and infer from the words as below.
 
 Read the **user intent** (+ optional project signals: `package.json` name, README, visible copy) against the vertical index in `references/CAPABILITIES.md` — each entry there carries the intent signals that point to it. Pick every vertical that genuinely fits → `verticals[]`. Multiple signals → multiple capabilities. On ambiguity, prefer the more specific vertical; if nothing dynamic is named, fall to the **forms** floor (a contact form). **Never return an empty set.**
 
