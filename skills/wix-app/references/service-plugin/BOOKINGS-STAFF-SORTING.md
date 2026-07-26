@@ -31,27 +31,32 @@ This example sorts staff members to balance workload by prioritizing those with 
 ```typescript
 import { staffSorting } from "@wix/bookings/service-plugins";
 import { auth } from "@wix/essentials";
-import { bookings } from "@wix/bookings";
+import { extendedBookings } from "@wix/bookings";
 
 staffSorting.provideHandlers({
   sortStaffMembers: async (payload) => {
     const { request } = payload;
     const { availableResourceIds, slot } = request;
 
-    // Query recent bookings for each available staff member
-    const elevatedQuery = auth.elevate(bookings.queryBookings);
-    const recentBookings = await elevatedQuery()
-      .eq("resource.id", availableResourceIds)
-      .ge("start.timestamp", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
-      .find();
+    // Query recent bookings for each available staff member using WQL filter
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const elevatedQuery = auth.elevate(extendedBookings.query);
+    const result = await elevatedQuery({
+      filter: {
+        "booking.resource.id": { "$hasSome": availableResourceIds },
+        "booking.slot.startDate": { "$gte": sevenDaysAgo },
+      },
+      cursorPaging: { limit: 100 },
+    });
+    const recentBookings = result.extendedBookings ?? [];
 
     // Count bookings per staff member
     const bookingCounts = new Map<string, number>();
     for (const id of availableResourceIds) {
       bookingCounts.set(id, 0);
     }
-    for (const booking of recentBookings.items) {
-      const resourceId = booking.resource?.id;
+    for (const booking of recentBookings) {
+      const resourceId = booking.booking?.bookedEntity?.slot?.resource?._id;
       if (resourceId && bookingCounts.has(resourceId)) {
         bookingCounts.set(resourceId, (bookingCounts.get(resourceId) ?? 0) + 1);
       }

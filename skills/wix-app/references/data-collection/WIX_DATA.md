@@ -198,7 +198,7 @@ interface WixDataBulkError extends Error {
 import { items } from "@wix/data";
 
 // --- Get by ID ---
-const item = await items.getItem("MyCollection", "item-id-123");
+const item = await items.get("MyCollection", "item-id-123");
 // Returns WixDataItem | null
 
 // --- Query with filters ---
