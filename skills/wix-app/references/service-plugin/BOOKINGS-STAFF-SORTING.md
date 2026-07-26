@@ -38,7 +38,6 @@ staffSorting.provideHandlers({
     const { request } = payload;
     const { availableResourceIds, slot } = request;
 
-    // Query recent bookings for each available staff member using WQL filter
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
     const elevatedQuery = auth.elevate(extendedBookings.query);
     const result = await elevatedQuery({
