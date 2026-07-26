@@ -1,0 +1,24 @@
+name: stores/setup-online-store-catalog-v3-user-products
+description: Verifies the Catalog V3 setup recipe honors a user-provided product list and does not require fabricated media URLs.
+triggerPrompt: I need to set up a Wix Stores Catalog V3 shop for my gelato business with 11 named products, prices, and short descriptions, but I do not have product images yet. Please summarize the safe setup flow before making any changes.
+tags: [stores]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/stores/skills/setup-online-store-catalog-v3
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      Context: the user asks for a non-mutating summary before setup. They have an 11-product gelato catalog with short text descriptions and no product images.
+
+      Pass if the response:
+      - loads the setup-online-store-catalog-v3 skill,
+      - says to honor the user's full product list/count instead of forcing exactly 5 products,
+      - says product media is optional and should be omitted when the user has not provided image URLs or uploaded media,
+      - warns not to invent, search for, or use external product image URLs just to satisfy setup,
+      - notes that Catalog V3 descriptions must be rich-content objects or omitted, not plain strings,
+      - describes using the Catalog V3 bulk products endpoint for simple products, with options/inventory-specific flows only when those are requested, and
+      - stays non-mutating by summarizing or asking for confirmation before creating products.
+
+      Fail if the response says the recipe must create exactly 5 products, requires web image URLs, fabricates image URLs, sends descriptions as plain strings, ignores the user's 11-product catalog, or starts mutating the site without confirmation.
