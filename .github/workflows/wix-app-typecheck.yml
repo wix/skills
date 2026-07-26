@@ -2,7 +2,7 @@ name: Wix App Typecheck
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, master]
     paths:
       - 'skills/wix-app/**'
 
