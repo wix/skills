@@ -30,42 +30,20 @@ When adding a `wix-manage` skill:
 1. Add the skill markdown under `skills/wix-manage/references/<area>/<skill>.md`.
 2. Add a short entry to the relevant section in `skills/wix-manage/SKILL.md`.
 3. Add the skill to `yaml/wix-manage/<area>/documentation.yaml`.
-4. **Add at least one eval scenario** for the skill under `yaml/wix-manage-evals/<area>/<skill>.yml`. See [Adding an Eval Scenario](#adding-an-eval-scenario) below.
+4. **Add at least one eval scenario** for the skill under `yaml/wix-manage-evals/<area>/<skill>.yml`. See [Adding a Wix Manage Eval Scenario](#adding-a-wix-manage-eval-scenario) below.
 5. Include at least one valid EvalForge tag, for example `domains`, `stores`, `bookings`, or another existing tag that matches the skill.
 6. Keep the skill focused on public Wix REST APIs or documented SDK APIs. Do not translate internal gRPC names or internal-only APIs into public skills.
 7. Keep the skill's `description` to at most 1024 characters.
 
-## Adding a Wix App Skill
+## Adding a Wix Manage Eval Scenario
 
-Use `wix-app` for building Wix app extensions — dashboard pages, dashboard plugins, service plugins (SPIs), editor/site widgets, backend code, and CLI-based app development.
-
-The `wix-app` eval scenarios sync to EvalForge on merge (see [wix-app scenarios: sync on merge](#wix-app-scenarios-sync-on-merge)).
-
-When adding or changing `wix-app` skill content:
-
-1. Add or update the content under `skills/wix-app/SKILL.md` or `skills/wix-app/references/<name>.md`.
-2. Update the relevant index entry in `skills/wix-app/SKILL.md`.
-3. **Add at least one covering eval scenario** under `yaml/wix-app-evals/`, tagged for the area(s) you changed. See [Adding an Eval Scenario](#adding-an-eval-scenario) below.
-4. Every change to `wix-app` skill content should be covered by a scenario — reuse an existing one if it fits, otherwise add a new tagged scenario.
-5. Keep the skill's `description` to at most 1024 characters.
-
-## Adding an Eval Scenario
-
-Every skill — `wix-manage` and `wix-app` alike — should have at least one **eval scenario**: a YAML file that describes a realistic user request and how to verify the agent handled it correctly. PRs that modify skill content without a covering scenario will fail the automated evaluation check.
-
-Scenarios use the **same YAML format** for both skills. They differ only in where they live and which assertion proves the skill was used:
-
-| | `wix-manage` | `wix-app` |
-|---|---|---|
-| Location | `yaml/wix-manage-evals/<area>/` | `yaml/wix-app-evals/` (flat or grouped) |
-| Selected by | the changed skill's doc URL | tag |
-| Coverage assertion | `tool: ReadFullDocsArticle` on the doc URL | `type: skill_was_called` with `skillNames: [wix-app]` |
+Every `wix-manage` skill should have at least one **eval scenario** — a YAML file that describes a realistic user request and how to verify the agent handled it correctly. PRs that modify a skill `.md` without a covering scenario will fail the automated evaluation check.
 
 ### Where to put it
 
-For `wix-manage`, put the scenario under `yaml/wix-manage-evals/<area>/` matching the skill's area in `skills/wix-manage/references/<area>/`. For `wix-app`, put it under `yaml/wix-app-evals/` — flat, or grouped into area subfolders. Subfolders are fine in both.
+Put the scenario under `yaml/wix-manage-evals/<area>/` matching the skill's area in `skills/wix-manage/references/<area>/`. Subfolders are fine.
 
-Each scenario's `name` must be unique across its evals tree, lowercase, and may contain `/`, `_`, `-`.
+Each scenario's `name` must be unique across the whole `yaml/wix-manage-evals/` tree, lowercase, and may contain `/`, `_`, `-`.
 
 ### Required fields
 
@@ -74,19 +52,16 @@ Each scenario's `name` must be unique across its evals tree, lowercase, and may 
 | `name` | A stable identifier, conventionally `<area>/<skill-name>`. |
 | `description` | One or two sentences describing what the scenario verifies. |
 | `triggerPrompt` | The natural-language request you'd expect a real user to make. Minimum 10 characters. |
-| `tags` | One or more tags. For `wix-manage`, include a production tag for the area (e.g. `[domains]`, `[stores]`, `[bookings]`). For `wix-app`, tag the area the scenario exercises (e.g. `[dashboard-page]`, `[dashboard-plugin]`, `[spi]`, `[editor-react-component]`). |
+| `tags` | An array of one or more tags. Must include a production tag for the area (e.g. `[domains]`, `[stores]`, `[bookings]`). |
 | `maxTokens` | Optional top-level PR-run token budget for this scenario. If the PR eval run exceeds this total token count, the GitHub Actions gate fails. |
-| `templateId` | Optional (`wix-app`) **file template** — scaffolds the run's starter project/app from an EvalForge template (id or alias). See [Templates](#templates-file-vs-site). |
-| `siteSetup` | Optional **site template** — provisions a fresh isolated Wix site for the run. See [Templates](#templates-file-vs-site). |
-| `assertions` | A non-empty array of assertions that decide whether the scenario passed. The schema requires at least one; you should include both a coverage assertion (proves the skill was invoked) and an `llm_judge` (proves the response was correct) — see below. |
+| `siteSetup` | Optional. Provisions a fresh isolated Wix site for the run — see [Site provisioning](#site-provisioning-optional). |
+| `assertions` | A non-empty array of assertions that decide whether the scenario passed. The schema requires at least one; include both a tool-call assertion (proves the skill was invoked) and an `llm_judge` (proves the response was correct) — see below. |
 
 ### Assertions to include
 
-Include **both**: a coverage assertion is what ties the scenario to its skill, and the `llm_judge` checks the response is correct.
+Include **both**: a tool-call assertion is what makes a scenario cover its doc, and the `llm_judge` checks the response is correct.
 
-**1. A coverage assertion** — proves the agent actually invoked the skill.
-
-For `wix-manage`, a `tool` assertion on `ReadFullDocsArticle` with the skill's doc URL:
+**1. A tool-call assertion on `ReadFullDocsArticle` with the skill's doc URL** — proves the agent actually loaded the skill's content. You write it with a `tool:` field naming the doc-reading tool call (its schema type is `tool_called_with_param`; the `type` key is optional and normally omitted):
 
 ```yaml
 - tool: ReadFullDocsArticle
@@ -96,16 +71,7 @@ For `wix-manage`, a `tool` assertion on `ReadFullDocsArticle` with the skill's d
 
 The `articleUrl` must match the doc URL for the skill — built as `<docsEntry>/skills/<slug>`, where `<docsEntry>` and the skill's `title` come from its entry in `yaml/wix-manage/<area>/documentation.yaml`, and `<slug>` is that `title` slugified (lowercased, spaces/punctuation → `-`). For example `title: "Abandoned Carts"` → `…/skills/abandoned-carts`.
 
-For `wix-app`, a `type: skill_was_called` assertion:
-
-```yaml
-- type: skill_was_called
-  skillNames: [wix-app]
-  # optionally require specific reference files were read:
-  # referenceFiles: { wix-app: [references/DASHBOARD_PAGE.md] }
-```
-
-**2. An `llm_judge` assertion** — proves the agent's response was substantively correct, not just that it loaded the skill.
+**2. An `llm_judge` assertion** — proves the agent's response was substantively correct, not just that it loaded the docs.
 
 ```yaml
 - type: llm_judge
@@ -114,24 +80,19 @@ For `wix-app`, a `type: skill_was_called` assertion:
     <Pass/fail criteria specific to this scenario>
 ```
 
-Without the `llm_judge`, a scenario passes whenever the agent loads the skill, even if the response is wrong. Without the coverage assertion, the judge can pass on a response that never touched the skill at all — and the scenario won't cover it. That's why you include both.
+Without the `llm_judge`, a scenario passes whenever the agent reads the doc, even if the response is wrong or unhelpful. Without the tool-call assertion, the judge can pass on a fabricated response that never touched the skill at all — and the scenario won't cover its doc. That's why you include both.
 
 ### Assertion types
 
 You can mix these in a single scenario:
 
-- **`tool`** (`wix-manage` coverage) — proves the agent invoked the skill by asserting on the specific tool call that loads its content. Substring matching on string values, so a partial value is OK.
-- **`type: skill_was_called`** (`wix-app` coverage) — proves a skill was invoked by name (`skillNames`); optional `referenceFiles` requires specific reference docs were read.
-- **`type: build_passed`** (`wix-app`) — runs a build command (`command`, default `npm run build`) and checks the exit code; use when the scenario generates a buildable app.
-- **`type: llm_judge`** (recommended) — an LLM rubric that scores the agent's final response on a 0–10 scale. You write the pass/fail criteria in the `prompt` field. Set `browserTools: true` to let the judge drive a provisioned site's published URL.
-- **`type: token_count`** (`wix-app`) — fails if total LLM token usage exceeds `maxTokens`.
+- **tool-call** (`tool:` field, type `tool_called_with_param`) — proves the agent invoked the skill by asserting on the specific tool call that loads its content. Substring matching on string values, so a partial value is OK.
+- **`type: llm_judge`** (recommended) — an LLM rubric that scores the agent's final response on a 0–10 scale. You write the pass/fail criteria in the `prompt` field.
 - **`type: api_call`** — makes an HTTP request after the scenario runs and validates the response (use for end-to-end checks of state changes).
 - **`type: cost`** — fails if the run exceeded a USD cost ceiling.
 - **`type: time_limit`** — fails if the run exceeded a duration ceiling.
 
 ### Example
-
-The format is identical for both skills — this is a `wix-manage` scenario; a `wix-app` one swaps the coverage assertion (`skill_was_called` instead of the `ReadFullDocsArticle` `tool` call) and its area tags, per the table above.
 
 ```yaml
 name: domains/domain-search-and-purchase
@@ -162,25 +123,9 @@ assertions:
 
 Top-level `maxTokens` is enforced by this repository's GitHub Actions gate after the PR-vs-production eval comparison finishes. It applies to the PR run's total tokens for the whole scenario. This is different from `llm_judge.maxTokens`, which is passed to the judge model as an output/config limit for that assertion only.
 
-### Templates: file vs. site
+### Site provisioning (optional)
 
-A scenario can start from a template in **two independent ways** — they map to different fields in the EvalForge run and can be used together (as `shipping-fees-spi` does):
-
-| | **File template** | **Site template** |
-|---|---|---|
-| YAML | top-level `templateId` | `siteSetup` block |
-| What it does | scaffolds the run's starter **project/app** from a template | provisions a fresh, isolated **Wix site** before the run |
-| Sent to the API as | `templateId` on the run | `siteSetup.templateOptions.templateId` (`mode: TEMPLATE`) |
-
-Either is optional; omit both to run against the default (a shared test site, no scaffolded project).
-
-**File template** — an EvalForge template (id or alias) the run scaffolds the app from:
-
-```yaml
-templateId: 8116ffa2-e212-4a74-a9f0-1738c9cbb6b1
-```
-
-**Site template** (`siteSetup`) — provisions a fresh site before the run; its ID is made available to the agent and it is torn down afterward:
+By default a scenario runs against a shared test site. To run against a **fresh, isolated site** instead, add a `siteSetup` block (a **site template**). The site is provisioned before the run, its ID is made available to the agent, and it is torn down afterward.
 
 ```yaml
 siteSetup:
@@ -206,6 +151,100 @@ siteSetup:
 - `siteSetup.templateId` — a Wix template alias (e.g. `stores-v3-editor`, `blank-editor`, `bookings-editor`) or a template GUID.
 - `bootstrap.steps` — ordered HTTP calls run against the new site before the agent runs. They are fail-fast: a non-2xx step fails the run.
 - Do **not** use a `{{site-id}}` run variable in `triggerPrompt` together with `siteSetup` — the provisioned site supplies the id.
+
+## Adding a Wix App Skill
+
+Use `wix-app` for building Wix app extensions — dashboard pages, dashboard plugins, service plugins (SPIs), editor/site widgets, backend code, and CLI-based app development.
+
+When adding or changing `wix-app` skill content:
+
+1. Add or update the content under `skills/wix-app/SKILL.md` or `skills/wix-app/references/<name>.md`.
+2. Update the relevant index entry in `skills/wix-app/SKILL.md`.
+3. **Add at least one covering eval scenario** under `yaml/wix-app-evals/`, tagged for the area(s) you changed. See [Adding a Wix App Eval Scenario](#adding-a-wix-app-eval-scenario) below.
+4. Every change to `wix-app` skill content should be covered by a scenario — reuse an existing one if it fits, otherwise add a new tagged scenario.
+5. Keep the skill's `description` to at most 1024 characters.
+
+## Adding a Wix App Eval Scenario
+
+Every `wix-app` skill change should be covered by an **eval scenario** — a YAML file describing a realistic build request and how to verify the agent handled it. `wix-app` scenarios are the **source of truth** in the repo and sync to EvalForge on merge (see [wix-app scenarios: sync on merge](#wix-app-scenarios-sync-on-merge)); they're selected by **tag**.
+
+### Where to put it
+
+Put the scenario under `yaml/wix-app-evals/` — flat, or grouped into area subfolders. Each scenario's `name` must be unique across the tree, lowercase, and may contain `/`, `_`, `-`.
+
+### Required fields
+
+| Field | What it is |
+|---|---|
+| `name` | A stable identifier, conventionally `<area>/<scenario-name>`. |
+| `description` | One or two sentences describing what the scenario verifies. |
+| `triggerPrompt` | The natural-language build request you'd expect a real user to make. Minimum 10 characters. |
+| `tags` | An array of one or more tags for the area the scenario exercises (e.g. `[dashboard-page]`, `[dashboard-plugin]`, `[spi]`, `[editor-react-component]`, `[data-collection]`). |
+| `maxTokens` | Optional top-level PR-run token budget for this scenario. |
+| `templateId` | Optional **file template** — scaffolds the run's starter project/app from an EvalForge template (id or alias). See [Templates](#file-templates). |
+| `assertions` | A non-empty array of assertions that decide whether the scenario passed. The schema requires at least one; include both a `skill_was_called` assertion (proves the skill was invoked) and an `llm_judge` (proves the response was correct) — see below. |
+
+### Assertions to include
+
+Include **both**: `skill_was_called` is what ties the scenario to the skill, and the `llm_judge` checks the output is correct.
+
+**1. A `type: skill_was_called` assertion** — proves the agent actually invoked the skill:
+
+```yaml
+- type: skill_was_called
+  skillNames: [wix-app]
+  # optionally require specific reference files were read:
+  # referenceFiles: { wix-app: [references/DASHBOARD_PAGE.md] }
+```
+
+**2. An `llm_judge` assertion** — proves the agent's output was substantively correct, not just that it loaded the skill.
+
+```yaml
+- type: llm_judge
+  minScore: 7
+  prompt: |
+    <Pass/fail criteria specific to this scenario>
+```
+
+### Assertion types
+
+You can mix these in a single scenario:
+
+- **`type: skill_was_called`** (coverage) — proves a skill was invoked by name (`skillNames`); optional `referenceFiles` requires specific reference docs were read.
+- **`type: build_passed`** — runs a build command (`command`, default `npm run build`) and checks the exit code; use when the scenario generates a buildable app.
+- **`type: llm_judge`** (recommended) — an LLM rubric that scores the agent's final output on a 0–10 scale. You write the pass/fail criteria in the `prompt` field. Set `browserTools: true` to let the judge drive a provisioned site's published URL.
+- **`type: token_count`** — fails if total LLM token usage exceeds `maxTokens`.
+- **`type: cost`** — fails if the run exceeded a USD cost ceiling.
+- **`type: time_limit`** — fails if the run exceeded a duration ceiling.
+
+### File templates
+
+A `wix-app` scenario usually scaffolds its starter project from a **file template** — the top-level `templateId`, an EvalForge template (id or alias). It maps to `templateId` on the EvalForge run:
+
+```yaml
+templateId: 8116ffa2-e212-4a74-a9f0-1738c9cbb6b1
+```
+
+(Distinct from the wix-manage **site template**, `siteSetup`, which provisions a live Wix site — see [Site provisioning](#site-provisioning-optional). The current `wix-app` scenarios use only the file template.)
+
+### Example
+
+```yaml
+name: dashboard-page/employee-shift-dashboard
+description: Dashboard page for store owners to manage employee shifts with a table and add-shift form.
+triggerPrompt: Build a dashboard page that lets store owners manage employee shifts, with a table (employee name, date, hours) and a way to add new shifts.
+tags: [dashboard-page, data-collection]
+templateId: 8116ffa2-e212-4a74-a9f0-1738c9cbb6b1
+assertions:
+  - type: skill_was_called
+    skillNames: [wix-app]
+  - type: build_passed
+    command: npm run build
+  - type: llm_judge
+    minScore: 7
+    prompt: |
+      <pass/fail criteria specific to this scenario>
+```
 
 ## Writing Wix API Skills
 
@@ -294,9 +333,8 @@ Before opening a PR, confirm:
 - Each skill's `description` is at most 1024 characters.
 - The relevant `SKILL.md` index is updated.
 - Any new `wix-manage` skill is listed in the relevant `yaml/wix-manage/<area>/documentation.yaml`.
-- Any new or modified `wix-manage` skill has at least one covering eval scenario under `yaml/wix-manage-evals/<area>/`.
-- Any new or modified `wix-app` skill content (`skills/wix-app/SKILL.md` or `skills/wix-app/references/**`) is covered by a scenario under `yaml/wix-app-evals/` — reuse an existing one or add a tagged scenario.
-- Every eval scenario includes both a coverage assertion (`tool` for `wix-manage`, `skill_was_called` for `wix-app`) proving the skill was invoked and an `llm_judge` assertion proving the response was substantively correct.
+- Any new or modified `wix-manage` skill has at least one covering eval scenario under `yaml/wix-manage-evals/<area>/`, with a tool-call assertion (`tool:`) plus an `llm_judge`.
+- Any new or modified `wix-app` skill content (`skills/wix-app/SKILL.md` or `skills/wix-app/references/**`) is covered by a scenario under `yaml/wix-app-evals/`, with a `skill_was_called` assertion plus an `llm_judge`.
 - Wix API details were checked against official docs through the Wix MCP docs tools, or distilled from a successful agent run.
 - Mutating flows ask for user confirmation before changing site or account data.
 - The skill evaluation workflow is expected to run for the changed files, if applicable.
