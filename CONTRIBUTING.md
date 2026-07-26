@@ -150,6 +150,54 @@ siteSetup:
 - `bootstrap.steps` — ordered HTTP calls run against the new site before the agent runs. They are fail-fast: a non-2xx step fails the run.
 - Do **not** use a `{{site-id}}` run variable in `triggerPrompt` together with `siteSetup` — the provisioned site supplies the id.
 
+## Adding a wix-app eval scenario
+
+The `wix-app` skill has eval scenarios too, but a different model from `wix-manage`: they live in the EvalForge **App Builder** project, the repo YAML is the **source of truth** (synced to EvalForge on merge — see [Skill Evaluation](#skill-evaluation)), and scenarios are selected by **tag** rather than by doc URL.
+
+**Coverage rule.** Every change to a `wix-app` skill — `skills/wix-app/SKILL.md` or a file under `skills/wix-app/references/**` — should be covered by a scenario in `yaml/wix-app-evals/`. Reuse a relevant existing scenario if one fits; otherwise add a new one, tagged for the area(s) you changed. Keeping coverage current is a contributor responsibility today; the Phase 1 PR gate will enforce it automatically.
+
+### Where to put it
+
+Put the scenario under `yaml/wix-app-evals/` — flat, or grouped into area subfolders (both are picked up by the sync). Each scenario's `name` must be unique across the tree, lowercase, and may contain `/`, `_`, `-`.
+
+### Fields
+
+Same base fields as a wix-manage scenario (`name`, `description`, `triggerPrompt`, `tags`, `assertions`), plus two optional ones:
+
+| Field | What it is |
+|---|---|
+| `tags` | Area tag(s) for what the scenario exercises, e.g. `[dashboard-page]`, `[dashboard-plugin]`, `[service-plugin]`, `[editor-react-component]`, `[data-collection]`. (The full tag convention, including negative/related deps, is still evolving.) |
+| `templateId` | Optional. The EvalForge template the run scaffolds from. |
+| `siteSetup` | Optional. Provisions a site for the run (`mode: template`, `templateId`). |
+
+### Assertion types (wix-app)
+
+- **`type: skill_was_called`** (recommended) — proves the skill was invoked: `skillNames: [wix-app]`; optionally `referenceFiles: { wix-app: [references/DASHBOARD_PAGE.md] }` to require specific reference files were read.
+- **`type: build_passed`** — runs a build command (`command`, default `npm run build`) and checks the exit code; use when the scenario generates a buildable app.
+- **`type: llm_judge`** — scores the response 0–10 against your `prompt`. Set `browserTools: true` to let the judge drive a provisioned site's published URL (`{{siteUrl}}`).
+- **`type: token_count`** — fails if total LLM token usage exceeds `maxTokens`.
+- **`type: cost`** / **`type: time_limit`** — USD / duration ceilings.
+
+Prefer at least a `skill_was_called` (the skill was used) plus an `llm_judge` (the output was correct).
+
+### Example
+
+```yaml
+name: dashboard-page/employee-shift-dashboard
+description: Dashboard page for store owners to manage employee shifts with a table and add-shift form.
+triggerPrompt: Build a dashboard page that lets store owners manage employee shifts, with a table (employee name, date, hours) and a way to add new shifts.
+tags: [dashboard-page, data-collection]
+assertions:
+  - type: skill_was_called
+    skillNames: [wix-app]
+  - type: build_passed
+    command: npm run build
+  - type: llm_judge
+    minScore: 7
+    prompt: |
+      <pass/fail criteria specific to this scenario>
+```
+
 ## Writing Wix API Skills
 
 Connect an agent to the Wix MCP and use official docs, examples, and method schemas to verify any API skill. Do not rely on memory, copied internal service names, or old examples.
@@ -184,6 +232,31 @@ That PR override makes the Wix MCP load skill content from the pull request inst
 
 Use evaluation as a loop, not a one-time check. Review the failures, tighten the skill or the scenario, and rerun until performance is good enough for the target scenarios.
 
+### wix-app scenarios: sync on merge
+
+`wix-app` scenarios follow a different model. The repo YAML under
+`yaml/wix-app-evals/` is the **source of truth**, and a workflow keeps the
+EvalForge **App Builder** project aligned with it: when a PR that touches
+`yaml/wix-app-evals/**` is merged into `main`,
+`.github/workflows/evalforge-wix-app-sync.yml` runs the `evalforge-yaml-gate`
+action in **`sync` mode** and reconciles the YAML into EvalForge.
+
+- **One-way** (repo → EvalForge). The sync writes scenarios to EvalForge; it
+  never reads results back into the YAML.
+- **CREATE / UPDATE / DELETE, matched by `name`.** A YAML scenario with no
+  match in EvalForge is created; a matching one is updated; a scenario that
+  was previously synced from the repo and whose YAML file was removed is
+  deleted.
+- **Deletes are scoped to what the repo manages.** Only scenarios carrying
+  this repo's managed tag (`repo:wix/skills`) are ever deleted. Scenarios
+  authored directly in the EvalForge UI (or by another repo) are left
+  untouched — so removing a YAML file only removes *its own* previously-synced
+  scenario, never a hand-made one.
+- **Gated to `@wix.com` authors.** If the merged PR's author is not a
+  `@wix.com` address, the sync is skipped (logged, not failed).
+- **Applies on merge.** There is no per-PR run and no dry-run — the merge to
+  `main` is what applies the plan.
+
 ### Working on the EvalForge actions themselves
 
 The `.github/actions/evalforge-yaml-gate` action depends on the shared
@@ -213,6 +286,7 @@ Before opening a PR, confirm:
 - The relevant `SKILL.md` index is updated.
 - Any new `wix-manage` skill is listed in the relevant `yaml/wix-manage/<area>/documentation.yaml`.
 - Any new or modified `wix-manage` skill has at least one covering eval scenario under `yaml/wix-manage-evals/<area>/`.
+- Any new or modified `wix-app` skill content (`skills/wix-app/SKILL.md` or `skills/wix-app/references/**`) is covered by a scenario under `yaml/wix-app-evals/` — reuse an existing one or add a tagged scenario.
 - Every eval scenario includes both a `tool` assertion (skill was invoked) and an `llm_judge` assertion (response was substantively correct).
 - Wix API details were checked against official docs through the Wix MCP docs tools, or distilled from a successful agent run.
 - Mutating flows ask for user confirmation before changing site or account data.
