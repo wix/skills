@@ -39,7 +39,7 @@ When adding a `wix-manage` skill:
 
 Use `wix-app` for building Wix app extensions — dashboard pages, dashboard plugins, service plugins (SPIs), editor/site widgets, backend code, and CLI-based app development.
 
-The `wix-app` eval scenarios sync to EvalForge on merge (see [Skill Evaluation](#skill-evaluation)), and that sync only runs for PRs opened from this repository (not forks) by a `@wix.com` author. If you are contributing from a fork or do not have write access, see [bo.wix.com/github-assist](https://bo.wix.com/github-assist).
+The `wix-app` eval scenarios sync to EvalForge on merge (see [Skill Evaluation](#skill-evaluation)).
 
 When adding or changing `wix-app` skill content:
 
@@ -129,9 +129,9 @@ You can mix these in a single scenario:
 - **`type: cost`** — fails if the run exceeded a USD cost ceiling.
 - **`type: time_limit`** — fails if the run exceeded a duration ceiling.
 
-### Examples
+### Example
 
-**A `wix-manage` scenario:**
+The format is identical for both skills — this is a `wix-manage` scenario; a `wix-app` one swaps the coverage assertion (`skill_was_called` instead of the `ReadFullDocsArticle` `tool` call) and its area tags, per the table above.
 
 ```yaml
 name: domains/domain-search-and-purchase
@@ -158,24 +158,6 @@ assertions:
       - is generic with no specific endpoints or method names, OR
       - hallucinates endpoints not in the Wix Domains Management API, OR
       - describes a different Wix feature (e.g. domain connection rather than purchase).
-```
-
-**A `wix-app` scenario:**
-
-```yaml
-name: dashboard-page/employee-shift-dashboard
-description: Dashboard page for store owners to manage employee shifts with a table and add-shift form.
-triggerPrompt: Build a dashboard page that lets store owners manage employee shifts, with a table (employee name, date, hours) and a way to add new shifts.
-tags: [dashboard-page, data-collection]
-assertions:
-  - type: skill_was_called
-    skillNames: [wix-app]
-  - type: build_passed
-    command: npm run build
-  - type: llm_judge
-    minScore: 7
-    prompt: |
-      <pass/fail criteria specific to this scenario>
 ```
 
 Top-level `maxTokens` is enforced by this repository's GitHub Actions gate after the PR-vs-production eval comparison finishes. It applies to the PR run's total tokens for the whole scenario. This is different from `llm_judge.maxTokens`, which is passed to the judge model as an output/config limit for that assertion only.
