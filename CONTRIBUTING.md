@@ -47,15 +47,12 @@ Each scenario's `name` must be unique across the whole `yaml/wix-manage-evals/` 
 
 ### Required fields
 
+On top of the [common fields](#common-scenario-fields):
+
 | Field | What it is |
 |---|---|
-| `name` | A stable identifier, conventionally `<area>/<skill-name>`. |
-| `description` | One or two sentences describing what the scenario verifies. |
-| `triggerPrompt` | The natural-language request you'd expect a real user to make. Minimum 10 characters. |
 | `tags` | An array of one or more tags. Must include a production tag for the area (e.g. `[domains]`, `[stores]`, `[bookings]`). |
-| `maxTokens` | Optional top-level PR-run token budget for this scenario. If the PR eval run exceeds this total token count, the GitHub Actions gate fails. |
 | `siteSetup` | Optional. Provisions a fresh isolated Wix site for the run — see [Site provisioning](#site-provisioning-optional). |
-| `assertions` | A non-empty array of assertions that decide whether the scenario passed. The schema requires at least one; include both a tool-call assertion (proves the skill was invoked) and an `llm_judge` (proves the response was correct) — see below. |
 
 ### Assertions to include
 
@@ -166,15 +163,12 @@ Put the scenario under `yaml/wix-app-evals/` — flat, or grouped into area subf
 
 ### Required fields
 
+On top of the [common fields](#common-scenario-fields):
+
 | Field | What it is |
 |---|---|
-| `name` | A stable identifier, conventionally `<area>/<scenario-name>`. |
-| `description` | One or two sentences describing what the scenario verifies. |
-| `triggerPrompt` | The natural-language build request you'd expect a real user to make. Minimum 10 characters. |
 | `tags` | An array of one or more tags for the area the scenario exercises (e.g. `[dashboard-page]`, `[dashboard-plugin]`, `[spi]`, `[editor-react-component]`, `[data-collection]`). |
-| `maxTokens` | Optional top-level PR-run token budget for this scenario. |
-| `templateId` | Optional **file template** — scaffolds the run's starter project/app from an EvalForge template (id or alias). See [Templates](#file-templates). |
-| `assertions` | A non-empty array of assertions that decide whether the scenario passed. The schema requires at least one; include both a `skill_was_called` assertion (proves the skill was invoked) and an `llm_judge` (proves the response was correct) — see below. |
+| `templateId` | Optional **file template** — scaffolds the run's starter project/app from an EvalForge template (id or alias). See [File templates](#file-templates). |
 
 ### Assertions to include
 
@@ -228,6 +222,18 @@ assertions:
     prompt: |
       <pass/fail criteria specific to this scenario>
 ```
+
+## Common Scenario Fields
+
+Every eval scenario — `wix-manage` or `wix-app` — has these fields. Each skill's *Required fields* adds its own `tags` and template rows on top.
+
+| Field | What it is |
+|---|---|
+| `name` | A stable identifier, conventionally `<area>/<name>`. Must be unique within its evals tree, lowercase, and may contain `/`, `_`, `-`. |
+| `description` | One or two sentences describing what the scenario verifies. |
+| `triggerPrompt` | The natural-language request you'd expect a real user to make. Minimum 10 characters. |
+| `maxTokens` | Optional top-level PR-run token budget for this scenario. If the PR eval run exceeds this total token count, the GitHub Actions gate fails. |
+| `assertions` | A non-empty array of assertions that decide whether the scenario passed (schema requires at least one). Pair a coverage assertion with an `llm_judge` — see [Assertion Types](#assertion-types). |
 
 ## Assertion Types
 
