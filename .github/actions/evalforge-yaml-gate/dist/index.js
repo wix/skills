@@ -66272,7 +66272,7 @@ const core = __importStar(__nccwpck_require__(7484));
 const evalforge_core_1 = __nccwpck_require__(7495);
 const config_1 = __nccwpck_require__(7799);
 const eval_run_1 = __nccwpck_require__(5879);
-const BATCH_SIZE = 20;
+const BATCH_SIZE = 15;
 function chunk(items, size) {
     const batches = [];
     for (let i = 0; i < items.length; i += size) {

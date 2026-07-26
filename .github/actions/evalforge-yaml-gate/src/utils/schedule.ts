@@ -9,7 +9,7 @@ import {
 import { getScheduleConfig, type ScheduleConfig } from './config';
 import { pollUntilDone, EvalRunTimeoutError } from './eval-run';
 
-const BATCH_SIZE = 20;
+const BATCH_SIZE = 15;
 
 function chunk<T>(items: T[], size: number): T[][] {
   const batches: T[][] = [];

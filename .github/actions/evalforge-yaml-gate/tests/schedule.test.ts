@@ -16,8 +16,8 @@ const h = vi.hoisted(() => {
     constructor(_url: string, _appId: string, _appSecret: string) {}
 
     async listTestScenariosByTag(_projectId: string, _tag: string) {
-      // 45 scenarios -> batches of 20, 20, 5.
-      return Array.from({ length: 45 }, (_, i) => ({ id: `scenario-${i + 1}` }));
+      // 40 scenarios -> batches of 15, 15, 10.
+      return Array.from({ length: 40 }, (_, i) => ({ id: `scenario-${i + 1}` }));
     }
 
     async createAndRunEvalRun(_projectId: string, input: { scenarioIds: string[] }) {
@@ -109,10 +109,10 @@ afterEach(() => {
 });
 
 describe('runSchedule batching', () => {
-  it('splits 45 scenarios into batches of 20/20/5 and runs them in parallel', async () => {
+  it('splits 40 scenarios into batches of 15/15/10 and runs them in parallel', async () => {
     await runSchedule();
 
-    expect(h.createCalls.map(c => c.scenarioIds.length)).toEqual([20, 20, 5]);
+    expect(h.createCalls.map(c => c.scenarioIds.length)).toEqual([15, 15, 10]);
     // Every batch is created before any poll resolves -> they run concurrently.
     const firstPollAt = h.timeline.findIndex(l => l.startsWith('poll'));
     const createsBeforeFirstPoll = h.timeline.slice(0, firstPollAt).filter(l => l.startsWith('create')).length;
@@ -123,8 +123,8 @@ describe('runSchedule batching', () => {
     await runSchedule();
 
     expect(h.outputs.get('status')).toBe('completed');
-    expect(h.outputs.get('total')).toBe('90'); // 45 scenarios * 2 assertions
-    expect(h.outputs.get('passed')).toBe('90');
+    expect(h.outputs.get('total')).toBe('80'); // 40 scenarios * 2 assertions
+    expect(h.outputs.get('passed')).toBe('80');
     expect(h.outputs.get('failed')).toBe('0');
     expect(h.outputs.get('pass-rate')).toBe('100');
     expect(h.state.failedMessage).toBeUndefined();
@@ -137,8 +137,8 @@ describe('runSchedule batching', () => {
 
     expect(h.outputs.get('status')).toBe('failed');
     expect(h.outputs.get('failed')).toBe('3');
-    expect(h.outputs.get('passed')).toBe('87');
-    expect(h.outputs.get('pass-rate')).toBe('97'); // round(87/90*100)
+    expect(h.outputs.get('passed')).toBe('77');
+    expect(h.outputs.get('pass-rate')).toBe('96'); // round(77/80*100)
     expect(h.state.failedMessage).toContain('3 assertion(s) failed');
   });
 });
