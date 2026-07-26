@@ -43,8 +43,8 @@ staffSorting.provideHandlers({
     const elevatedQuery = auth.elevate(extendedBookings.query);
     const result = await elevatedQuery({
       filter: {
-        "booking.resource.id": { "$hasSome": availableResourceIds },
-        "booking.slot.startDate": { "$gte": sevenDaysAgo },
+        "booking.bookedEntity.slot.resource._id": { "$hasSome": availableResourceIds },
+        "booking.startDate": { "$gte": sevenDaysAgo },
       },
       cursorPaging: { limit: 100 },
     });
