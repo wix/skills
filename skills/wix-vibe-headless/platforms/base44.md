@@ -8,7 +8,13 @@ Your Wix client id is given in your prompt. It's a public, buyer/visitor-facing 
 only mints anonymous visitor tokens), so it's safe in the frontend — use that value directly for
 the Wix client setup.
 
-Follow the steps below exactly.
+Follow the steps below exactly:
+
+1. **Install the Wix skills locally**
+2. **(optional) Brief doesn't say what to build? Ask, or check the site**
+3. **Build the client**
+4. **Manage and seed the business** (run in parallel with 3)
+5. **Wrap up**
 
 ## STEP 1 — Install the Wix skills locally
 
@@ -16,9 +22,8 @@ Install three skills — they land under `.agents/skills/` as:
 - **`wix-vibe-headless`** — the client build guide: how to build the frontend against the Wix
   APIs. This is your main source of truth (STEP 3).
 - **`wix-headless`** — a broad skill for building full Wix apps with the Wix SDK packages, **most
-  of which does not apply to how you build here**. Use it **only** as a seeding/admin reference —
-  its `references/SEED.md` and `references/inline-recipes/` for STEP 4, and its
-  `references/discover-site.mjs` discovery script for STEP 2. **Ignore
+  of which does not apply to how you build here**. Use it **only** as a seeding/admin recipe
+  reference — its `references/SEED.md` and `references/inline-recipes/`, for STEP 4. **Ignore
   everything else in it** — in particular do **not** follow its authentication / `@wix/cli` /
   "managed project" setup (e.g. anything under `references/managed/`, such as `AUTHENTICATION.md`).
   That is **not** how auth works here — auth is handled per STEP 4 below.
@@ -73,19 +78,32 @@ on the tool:
 - **exec_tool / shell** (only if you must): use the absolute path
   `/app/.agents/skills/wix-vibe-headless/SKILL.md`.
 
-## STEP 2 (optional) — Brief doesn't say what to build? Read the site
+## STEP 2 (optional) — Brief doesn't say what to build? Ask, or check the site
 
 Only needed when the business description in your prompt is vague or missing — otherwise skip
-to STEP 3. Don't guess a vertical: the site's installed apps are the ground truth. Get the
-connector access token (STEP 4 snippet) and run:
+to STEP 3. Don't guess which Wix Business Solution to build (stores, bookings, blog, events,
+portfolio, restaurants, CMS, pricing plans, members, etc..): **ask the user** one short question
+(what do they offer?), or **check what the site actually has** using the `wix-vibe-headless`
+skill's query APIs (`queryProducts`, `queryServices`, `queryPosts`, …) — with a visitor token
+minted from the client id, or with an admin token if you have one (the connector) — and build
+for the solutions that return content (a `428` "app not installed" means that solution isn't
+on the site). The resolved solutions also drive STEP 4's seeding — never seed guessed
+ones.
 
-```bash
-WIX_TOKEN=<connector access token> node .agents/skills/wix-headless/references/discover-site.mjs <metasite id>
+The gist, as one exec_tool call:
+
+```js
+// token = visitor token (minted from the client id) or the connector's admin token
+// one cheap first-page read per solution (endpoints = each helper's first query)
+// stores:   POST /stores/v3/products/query   { query: { cursorPaging: { limit: 3 } } }
+// bookings: POST /bookings/v2/services/query { query: { paging: { limit: 3 } } }
+// blog: /v3/posts/query · events: /events/v3/events/query · portfolio, restaurants, pricing-plans: …
+// fetch each with { Authorization: token }, then per solution:
+//   !res.ok (428 / blog 401)          -> not installed
+//   items with real names             -> build for it
+//   empty, or "Sample product 3" names -> installed, but says little about the business
+return { stores: "...", bookings: "...", /* ... */ };
 ```
-
-Build for the verticals matching the installed apps it reports (several → prioritize by the
-user's words and by which holds real, non-sample content); the same output drives STEP 4's
-seeding. If it fails or reports nothing, ask the user what they offer.
 
 ## STEP 3 — Build the client
 

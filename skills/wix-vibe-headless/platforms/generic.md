@@ -1,7 +1,12 @@
 # Wix Managed Headless — build instructions
 
 You are building a **Wix Managed** headless site. The business to build, and your Wix client id
-and metasite id, are given in your initial prompt. Follow the steps below.
+and metasite id, are given in your initial prompt. Follow the steps below:
+
+1. **Install the Wix skills locally**
+2. **(optional) Brief doesn't say what to build? Ask, or check the site**
+3. **Build the client**
+4. **Seed and manage the business** (run in parallel with 3)
 
 ## STEP 1 — Install the Wix skills locally
 
@@ -9,9 +14,8 @@ Install three skills — they land under `.agents/skills/` as:
 - **`wix-vibe-headless`** — the client build guide: how to build the frontend against the Wix
   APIs. This is your main source of truth (STEP 3).
 - **`wix-headless`** — a broad skill for building full Wix apps with the Wix SDK packages, **most
-  of which does not apply to how you build here**. Use it **only** as a seeding/admin reference —
-  its `references/SEED.md` and `references/inline-recipes/` for STEP 4, and its
-  `references/discover-site.mjs` discovery script for STEP 2. **Ignore
+  of which does not apply to how you build here**. Use it **only** as a seeding/admin recipe
+  reference — its `references/SEED.md` and `references/inline-recipes/`, for STEP 4. **Ignore
   everything else in it** — in particular do **not** follow its authentication / `@wix/cli` /
   "managed project" setup (e.g. anything under `references/managed/`, such as `AUTHENTICATION.md`).
   That is **not** how auth works here — auth is handled per STEP 4 below.
@@ -37,20 +41,32 @@ for s in headless vibe-headless docs; do
 done
 ```
 
-## STEP 2 (optional) — Brief doesn't say what to build? Ask, or read the site
+## STEP 2 (optional) — Brief doesn't say what to build? Ask, or check the site
 
 Only needed when the business description in your prompt is vague or missing — otherwise skip
-to STEP 3. Don't guess a vertical. Either **ask the user** one short question (what do they
-offer?), or — if you have an admin-grade Wix credential (connector token or API key, per
-STEP 4; the public `WIX_CLIENT_ID` is not enough) — **read the site**:
+to STEP 3. Don't guess which Wix Business Solution to build (stores, bookings, blog, events,
+portfolio, restaurants, CMS, pricing plans, members, etc..): **ask the user** one short question
+(what do they offer?), or **check what the site actually has** using the `wix-vibe-headless`
+skill's query APIs (`queryProducts`, `queryServices`, `queryPosts`, …) — with a visitor token
+minted from the client id, or with an admin token if you have one (connector / API key) — and
+build for the solutions that return content (a `428` "app not installed" means that solution
+isn't on the site). The resolved solutions also drive STEP 4's seeding — never seed guessed
+ones.
 
-```bash
-WIX_TOKEN=<admin token or API key> node .agents/skills/wix-headless/references/discover-site.mjs <metasite id>
+The gist, as a one-shot script (run however your platform runs code):
+
+```js
+// token = visitor token (minted from the client id) or your admin token
+// one cheap first-page read per solution (endpoints = each helper's first query)
+// stores:   POST /stores/v3/products/query   { query: { cursorPaging: { limit: 3 } } }
+// bookings: POST /bookings/v2/services/query { query: { paging: { limit: 3 } } }
+// blog: /v3/posts/query · events: /events/v3/events/query · portfolio, restaurants, pricing-plans: …
+// fetch each with { Authorization: token }, then per solution:
+//   !res.ok (428 / blog 401)          -> not installed
+//   items with real names             -> build for it
+//   empty, or "Sample product 3" names -> installed, but says little about the business
+console.log({ stores: "...", bookings: "...", /* ... */ });
 ```
-
-Build for the verticals matching the installed apps it reports (several → prioritize by the
-user's words and by which holds real, non-sample content); the same set drives STEP 4's
-seeding — never seed guessed verticals.
 
 ## STEP 3 — Build the client
 
