@@ -321,7 +321,6 @@ export default {
   fields: [
     { key: 'title', displayName: 'Fee Title', type: 'TEXT' },
     { key: 'amount', displayName: 'Fee Amount', type: 'NUMBER' },
-    // OBJECT fields MUST carry objectOptions.fields — an empty array still accepts arbitrary JSON
     { key: 'metadata', displayName: 'Metadata', type: 'OBJECT', objectOptions: { fields: [] } },
   ],
   dataPermissions: {
