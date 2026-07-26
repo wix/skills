@@ -39,7 +39,7 @@ When adding a `wix-manage` skill:
 
 Use `wix-app` for building Wix app extensions — dashboard pages, dashboard plugins, service plugins (SPIs), editor/site widgets, backend code, and CLI-based app development.
 
-The `wix-app` eval scenarios sync to EvalForge on merge (see [Skill Evaluation](#skill-evaluation)).
+The `wix-app` eval scenarios sync to EvalForge on merge (see [wix-app scenarios: sync on merge](#wix-app-scenarios-sync-on-merge)).
 
 When adding or changing `wix-app` skill content:
 
