@@ -45,7 +45,7 @@ export default {
   displayName: '<CollectionName>',
   displayField: 'title',            // Field shown when referencing items
   fields: [ /* field definitions */ ],
-  dataPermissions: { itemRead: 'ANYONE', itemInsert: 'SITE_MEMBER', itemUpdate: 'SITE_MEMBER_AUTHOR', itemRemove: 'SITE_MEMBER_AUTHOR' },
+  dataPermissions: { /* itemRead, itemInsert, itemUpdate, itemRemove */ },
   indexes: [],
   initialData: [],
 } satisfies DataCollection;
