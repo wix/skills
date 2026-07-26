@@ -76,8 +76,8 @@ Each scenario's `name` must be unique across its evals tree, lowercase, and may 
 | `triggerPrompt` | The natural-language request you'd expect a real user to make. Minimum 10 characters. |
 | `tags` | One or more tags. For `wix-manage`, include a production tag for the area (e.g. `[domains]`, `[stores]`, `[bookings]`). For `wix-app`, tag the area the scenario exercises (e.g. `[dashboard-page]`, `[dashboard-plugin]`, `[spi]`, `[editor-react-component]`). |
 | `maxTokens` | Optional top-level PR-run token budget for this scenario. If the PR eval run exceeds this total token count, the GitHub Actions gate fails. |
-| `templateId` | Optional (`wix-app`). The EvalForge template the run scaffolds from. |
-| `siteSetup` | Optional. Provisions a fresh isolated site for the run — see [Site provisioning](#site-provisioning-optional). |
+| `templateId` | Optional (`wix-app`) **file template** — scaffolds the run's starter project/app from a Wix template (alias or GUID). See [Templates](#templates-file-vs-site). |
+| `siteSetup` | Optional **site template** — provisions a fresh isolated Wix site for the run. See [Templates](#templates-file-vs-site). |
 | `assertions` | A non-empty array of assertions that decide whether the scenario passed. The schema requires at least one; you should include both a coverage assertion (proves the skill was invoked) and an `llm_judge` (proves the response was correct) — see below. |
 
 ### Assertions to include
@@ -180,12 +180,29 @@ assertions:
 
 Top-level `maxTokens` is enforced by this repository's GitHub Actions gate after the PR-vs-production eval comparison finishes. It applies to the PR run's total tokens for the whole scenario. This is different from `llm_judge.maxTokens`, which is passed to the judge model as an output/config limit for that assertion only.
 
-### Site provisioning (optional)
+### Templates: file vs. site
 
-By default a scenario runs against a shared test site. To run against a **fresh, isolated site** instead, add a `siteSetup` block. The site is provisioned before the run, its ID is made available to the agent, and it is torn down afterward.
+A scenario can start from a template in **two independent ways** — they map to different fields in the EvalForge run and can be used together (as `shipping-fees-spi` does):
+
+| | **File template** | **Site template** |
+|---|---|---|
+| YAML | top-level `templateId` | `siteSetup` block |
+| What it does | scaffolds the run's starter **project/app** from a template | provisions a fresh, isolated **Wix site** before the run |
+| Sent to the API as | `templateId` on the run | `siteSetup.templateOptions.templateId` (`mode: TEMPLATE`) |
+
+Either is optional; omit both to run against the default (a shared test site, no scaffolded project).
+
+**File template** — a Wix template alias or GUID the run scaffolds the app from:
+
+```yaml
+templateId: 8116ffa2-e212-4a74-a9f0-1738c9cbb6b1
+```
+
+**Site template** (`siteSetup`) — provisions a fresh site before the run; its ID is made available to the agent and it is torn down afterward:
 
 ```yaml
 siteSetup:
+  mode: template                 # optional — 'template' is the only mode, and the default
   templateId: stores-v3-editor   # Wix template alias or template GUID
   bootstrap:                     # optional — seed data into the fresh site
     steps:
@@ -204,7 +221,7 @@ siteSetup:
                   visible: true
 ```
 
-- `templateId` — a Wix template alias (e.g. `stores-v3-editor`, `blank-editor`, `bookings-editor`) or a template GUID.
+- `siteSetup.templateId` — a Wix template alias (e.g. `stores-v3-editor`, `blank-editor`, `bookings-editor`) or a template GUID.
 - `bootstrap.steps` — ordered HTTP calls run against the new site before the agent runs. They are fail-fast: a non-2xx step fails the run.
 - Do **not** use a `{{site-id}}` run variable in `triggerPrompt` together with `siteSetup` — the provisioned site supplies the id.
 
