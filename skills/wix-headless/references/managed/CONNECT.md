@@ -14,7 +14,7 @@ Run these in order:
 
 **If a `wix.config.json` (or `.wix/`) is already present, the project is already connected to Wix — this is the *iterate* case.** Do **not** run `init` again (it's for attaching a *new* Wix project). Read `./wix.config.json` → hold `SITE_ID` in scratch, and skip to §2.
 
-> **Iterate is incremental.** An already-connected project may already be set up and/or seeded from a prior run. In §3–§4, **check current state before acting** — query installed apps before installing, check for already-seeded content before seeding (re-seeding duplicates it), and inspect existing wiring before adding. Do only the delta the new intent requires; leave the rest untouched.
+> **Iterate is incremental.** An already-connected project may already be set up and/or seeded from a prior run. In §3–§4, **check current state before acting** — query installed apps before installing (`WIX_TOKEN=$TOKEN node <SKILL_ROOT>/references/discover-site.mjs $SITE_ID` reports them in one call), check for already-seeded content before seeding (re-seeding duplicates it), and inspect existing wiring before adding. Do only the delta the new intent requires; leave the rest untouched.
 
 Otherwise, attach Wix in place:
 

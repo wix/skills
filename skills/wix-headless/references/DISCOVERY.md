@@ -6,6 +6,24 @@ Discovery is pure inference — it needs **no authentication** and is **agnostic
 
 ## 1 · Resolve the capability set
 
+> **Targeting an existing site with an ambiguous brief? Read the site — don't guess.** When the
+> run points at a site that already exists (connect/iterate, a funnel-created site, "build a
+> frontend for my business" with no vertical named) and an elevated credential is already
+> available, the site itself is the ground truth of what the business is:
+>
+> ```bash
+> WIX_TOKEN=$TOKEN node <SKILL_ROOT>/references/discover-site.mjs $SITE_ID
+> ```
+>
+> The installed apps it reports (plus non-empty `cmsCollections` → cms) map to the vertical
+> set and seed `verticals[]` directly; inference below then only fills what the site can't
+> answer (brand, per-capability intent).
+> Several verticals installed → prioritize by the user's words and by which holds real
+> (non-sample) content. Nothing installed → **ask the user one short question** ("what do you
+> offer — products, appointments, posts, events?") rather than defaulting to a store. This is
+> the one case where Discovery may use the authentication mechanism early; with no credential
+> at hand yet, skip it and infer from the words as below.
+
 Read the **user intent** (+ optional project signals: `package.json` name, README, visible copy) against the vertical index in `references/CAPABILITIES.md` — each entry there carries the intent signals that point to it. Pick every vertical that genuinely fits → `verticals[]`. Multiple signals → multiple capabilities. On ambiguity, prefer the more specific vertical; if nothing dynamic is named, fall to the **forms** floor (a contact form). **Never return an empty set.**
 
 Resolve to the skill's operational set — **stores · blog · cms · forms · events · bookings · pricing-plans · restaurants · portfolio** (`CAPABILITIES.md` § "Built verticals"). If intent points squarely at a vertical outside that set, note it plainly as not-yet-wired (per the index) and resolve the rest; don't force an unrelated capability in its place.
