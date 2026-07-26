@@ -167,8 +167,49 @@ On top of the [common fields](#common-scenario-fields):
 
 | Field | What it is |
 |---|---|
-| `tags` | An array of one or more tags for the area the scenario exercises (e.g. `[dashboard-page]`, `[dashboard-plugin]`, `[spi]`, `[editor-react-component]`, `[data-collection]`). |
+| `tags` | An array of one or more tags for the reference files / areas the scenario depends on (e.g. `[dashboard-page]`, `[dashboard-plugin]`, `[service-plugin]`, `[editor-react-component]`, `[data-collection]`). Tags drive which scenarios re-run when a reference file changes — see [Tagging](#tagging). |
 | `templateId` | Optional **file template** — scaffolds the run's starter project/app from an EvalForge template (id or alias). See [File templates](#file-templates). |
+
+### Tagging
+
+Tags aren't just for grouping — they drive **coverage**. When a reference file under `skills/wix-app/references/**` changes, the eval gate re-runs every scenario carrying that file's tag. Tagging is therefore how the repo knows *which scenarios must run for a given change*.
+
+The convention:
+
+- **One tag per reference file, derived from its filename** — lowercase, `_` → `-`, drop the `.md`. So `references/DASHBOARD_PAGE.md` → `dashboard-page`, `references/SERVICE_PLUGIN.md` → `service-plugin`. Broader area tags (e.g. `data-collection`) are fine on top when a scenario exercises a cross-cutting capability.
+- **Tag every reference file the scenario depends on — including files whose behavior it deliberately *avoids*.** This is **many-to-many**: a file maps to many scenarios (all carrying its tag), and a scenario carries many tags. A scenario that must **not** create a dashboard page still tags `[dashboard-page]`, so it re-runs when `DASHBOARD_PAGE.md` changes and proves the "don't create it" path still holds. That's a **negative dependency** — and it's why a plain "the scenario builds X → tag X" rule isn't enough.
+- **Whether the file *should* or *shouldn't* be used lives in the assertions, not the tag.** The tag decides *when a scenario runs*; the assertions decide *what passing means*. Require a file was read with `skill_was_called` + `referenceFiles`; require it was **not** read with `negate: true`; and prove the actual behavior with the `llm_judge`.
+
+**Positive dependency** — must build a dashboard page (must use `DASHBOARD_PAGE.md`):
+
+```yaml
+tags: [dashboard-page]
+assertions:
+  - type: skill_was_called
+    skillNames: [wix-app]
+    referenceFiles: { wix-app: [references/DASHBOARD_PAGE.md] }
+  - type: llm_judge
+    minScore: 7
+    prompt: |
+      The app must include a working dashboard page. ...
+```
+
+**Negative dependency** — must **not** create a dashboard page, but still re-runs when `DASHBOARD_PAGE.md` changes:
+
+```yaml
+tags: [dashboard-page]        # same tag → re-runs on DASHBOARD_PAGE.md changes
+assertions:
+  - type: skill_was_called    # the skill is still used (for whatever it does build)
+    skillNames: [wix-app]
+  - type: skill_was_called    # ...but the dashboard-page reference must NOT be used
+    skillNames: [wix-app]
+    referenceFiles: { wix-app: [references/DASHBOARD_PAGE.md] }
+    negate: true
+  - type: llm_judge           # the behavioral proof: no dashboard page was created
+    minScore: 7
+    prompt: |
+      The app must NOT contain a dashboard page. ...
+```
 
 ### Assertions to include
 
