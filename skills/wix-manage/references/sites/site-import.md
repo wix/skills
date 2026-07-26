@@ -90,7 +90,19 @@ async () => {
   return await wix.request({
     scope: "account",
     method: "GET",
-    url: "https://www.wixapis.com/site-import/v1/imports/<importId>",
+    url: "https://www.wixapis.com/site-import/v1/imports/<importId>?includeRecentActivity=true",
+  });
+}
+```
+
+Example — Poll fetching a review document (add `artifactIds`):
+
+```js
+async () => {
+  return await wix.request({
+    scope: "account",
+    method: "GET",
+    url: "https://www.wixapis.com/site-import/v1/imports/<importId>?includeRecentActivity=true&artifactIds=mapping-summary,mapping-plan",
   });
 }
 ```
@@ -132,8 +144,8 @@ You are the user experience; the API is plumbing. Keep the protocol invisible:
 
 - **Show the `importId` to the user once, right after Start succeeds** — one
   short sentence, e.g. "Your import ID is `abc123` — keep it handy in case
-  you need to check back." Never show raw JSON, HTTP status codes, the
-  `tasks[]` rows, or `sourcePlatform`/`sourceConfidence` values.
+  you need to check back." Never show raw JSON, HTTP status codes, artifact
+  ids, or `sourcePlatform`/`sourceConfidence` values.
 - **Write for a non-technical audience.** No jargon: no "endpoint", "API",
   "poll", "HTTP", "429", "rate limit", "headers", "JSON", "scraping",
   "session". Translate events into outcomes a shopkeeper understands —
@@ -205,9 +217,14 @@ signed-in user.
    Returns: `importId` (keep it — it's the import's id) and detected
    `sourcePlatform`/`sourceConfidence`.
 
-2. **Poll** — `GET /v1/imports/{importId}`
-   Returns: `status`, `deployUrl`, `message`, `recentActivity[]`, `todos[]`,
-   `question` (only when status is `NEEDS_INPUT`), `tasks[]`.
+2. **Poll** — `GET /v1/imports/{importId}?includeRecentActivity=true`
+   Returns: `status`, `deployUrl`, `message`, `options[]` (only when status is
+   `NEEDS_INPUT`), `recentActivity[]`, `recentActivityCount`, `todos[]`,
+   `artifacts[]`.
+   **Always pass `includeRecentActivity=true`** — you need the activity feed to
+   narrate progress, and it is withheld unless asked for.
+   To read a review document, add `&artifactIds=mapping-plan,mapping-gaps` (see
+   "Review documents" below).
 
 3. **Reply** — `POST /v1/imports/{importId}/reply`
    Body: `{"message": "<answer or follow-up>"}`
@@ -230,7 +247,9 @@ signed-in user.
   - `recentActivity`: up to 20 entries `{kind, text}`, oldest first —
     `TEXT` entries are the agent's own messages, `TOOL_USE` entries are short
     labels of actions it took. It's a rolling window: track which entries you
-    have already covered so an update never repeats them.
+    have already covered so an update never repeats them. **Only returned when
+    you pass `includeRecentActivity=true`** — `recentActivityCount` tells you
+    how many entries were available either way.
   - `todos`: the agent's plan, `{content, status, activeForm}` with status
     `PENDING | IN_PROGRESS | COMPLETED`. Each poll returns the full latest
     snapshot — replace your tracked list, don't append. `activeForm`
@@ -238,10 +257,12 @@ signed-in user.
   - Empty `recentActivity`/`todos` in the first polls is normal.
 - Act on `status`:
   - `IMPORTING` — keep polling.
-  - `NEEDS_INPUT` — the agent is blocked on a decision. Show `question.text`
-    (and `question.options` if present) to the user, collect their answer
-    (an option or free text), send it via Reply, then poll the NEW
-    `importId` from the Reply response.
+  - `NEEDS_INPUT` — the agent is blocked on a decision. The question IS
+    `message`; show it (and `options` if present) to the user, collect their
+    answer (an option or free text), send it via Reply, then poll the NEW
+    `importId` from the Reply response. If `message` says review documents are
+    available, read them FIRST (see "Review documents" below) — the decision
+    usually depends on what is in them.
   - `DEPLOYED` — terminal success. Deliver `deployUrl` (already verified
     reachable server-side) and `message` per the presentation rules above.
   - `FAILED` — terminal. `message` usually contains the agent's own
@@ -259,6 +280,25 @@ signed-in user.
 - If Reply returns `409 { "code": "SESSION_EXPIRED" }`, the environment was
   reclaimed and the conversation cannot resume — tell the user and offer to
   start a fresh import.
+
+### Review documents
+
+At the approval gates the agent writes review documents — the mapping plan and
+its summary, the gaps list, the execution plan, the completion summary. These
+are the substance the user is approving, and **they exist only in the API
+response**: the user has no way to open a file.
+
+- Every poll returns `artifacts[]` as a **list of what is available**:
+  `{id, title, format, contentBytes}` — with `content` **empty**. This is
+  deliberate: the documents are large and most polls don't need them.
+- To read one, poll again with `&artifactIds=<id>[,<id>]`. Those come back with
+  `content` filled in (Markdown or JSON). Fetch only what you need.
+- **When `message` announces review documents, fetch them and tell the user
+  what's in them** — summarized in plain language, before asking them to
+  approve. Never answer "the plan is in a file I can't read", and never relay
+  a filename as something the user should open: fetching it is your job.
+- On `DEPLOYED`, the completion summary is available the same way if you want
+  detail beyond `message`.
 
 ## Rules
 
@@ -280,6 +320,7 @@ signed-in user.
   diagnostic value and just create noise. The Wix MCP connection is either
   working or it isn't; a 403 on Start is its own answer. A `400` means a
   required field is missing (`request`/`message` must be 1–20000 chars).
-- `tasks[]` is low-level infrastructure progress (task ids, exit codes) — use
-  it for debugging only; `recentActivity`/`todos`/`message` are what you show
-  the user.
+- **The user cannot open files.** They see only what you tell them. If a
+  message mentions a document by filename, that filename is meaningless to
+  them — fetch the document with `artifactIds` and read it to them instead
+  (see "Review documents" above).
