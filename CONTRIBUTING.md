@@ -82,15 +82,7 @@ The `articleUrl` must match the doc URL for the skill — built as `<docsEntry>/
 
 Without the `llm_judge`, a scenario passes whenever the agent reads the doc, even if the response is wrong or unhelpful. Without the tool-call assertion, the judge can pass on a fabricated response that never touched the skill at all — and the scenario won't cover its doc. That's why you include both.
 
-### Assertion types
-
-You can mix these in a single scenario:
-
-- **tool-call** (`tool:` field, type `tool_called_with_param`) — proves the agent invoked the skill by asserting on the specific tool call that loads its content. Substring matching on string values, so a partial value is OK.
-- **`type: llm_judge`** (recommended) — an LLM rubric that scores the agent's final response on a 0–10 scale. You write the pass/fail criteria in the `prompt` field.
-- **`type: api_call`** — makes an HTTP request after the scenario runs and validates the response (use for end-to-end checks of state changes).
-- **`type: cost`** — fails if the run exceeded a USD cost ceiling.
-- **`type: time_limit`** — fails if the run exceeded a duration ceiling.
+Beyond these two, you can add other assertions (`api_call`, `cost`, `time_limit`) — see [Assertion Types](#assertion-types) for the full catalog.
 
 ### Example
 
@@ -206,16 +198,7 @@ Include **both**: `skill_was_called` is what ties the scenario to the skill, and
     <Pass/fail criteria specific to this scenario>
 ```
 
-### Assertion types
-
-You can mix these in a single scenario:
-
-- **`type: skill_was_called`** (coverage) — proves a skill was invoked by name (`skillNames`); optional `referenceFiles` requires specific reference docs were read.
-- **`type: build_passed`** — runs a build command (`command`, default `npm run build`) and checks the exit code; use when the scenario generates a buildable app.
-- **`type: llm_judge`** (recommended) — an LLM rubric that scores the agent's final output on a 0–10 scale. You write the pass/fail criteria in the `prompt` field. Set `browserTools: true` to let the judge drive a provisioned site's published URL.
-- **`type: token_count`** — fails if total LLM token usage exceeds `maxTokens`.
-- **`type: cost`** — fails if the run exceeded a USD cost ceiling.
-- **`type: time_limit`** — fails if the run exceeded a duration ceiling.
+Beyond these two, `wix-app` scenarios often add `build_passed`, and you can use `token_count`, `cost`, or `time_limit` — see [Assertion Types](#assertion-types) for the full catalog.
 
 ### File templates
 
@@ -245,6 +228,21 @@ assertions:
     prompt: |
       <pass/fail criteria specific to this scenario>
 ```
+
+## Assertion Types
+
+Assertions decide whether a scenario passed; the schema requires at least one, and you should pair a coverage assertion with an `llm_judge`. You can mix any of these in a single scenario:
+
+| Assertion | Skill | What it does |
+|---|---|---|
+| tool-call (`tool:` field, type `tool_called_with_param`) | `wix-manage` | **Coverage** — asserts the agent invoked the skill via the specific tool call that loads its doc (e.g. `ReadFullDocsArticle`). Substring matching on string values. |
+| `type: skill_was_called` | `wix-app` | **Coverage** — proves a skill was invoked by name (`skillNames`); optional `referenceFiles` requires specific reference docs were read. |
+| `type: llm_judge` | both | An LLM rubric that scores the agent's final response 0–10 against your `prompt`. Set `browserTools: true` to let the judge drive a provisioned site's published URL. |
+| `type: build_passed` | `wix-app` | Runs a build command (`command`, default `npm run build`) and checks the exit code; use when the scenario generates a buildable app. |
+| `type: token_count` | `wix-app` | Fails if total LLM token usage exceeds `maxTokens`. |
+| `type: api_call` | both | Makes an HTTP request after the scenario runs and validates the response (end-to-end state checks). |
+| `type: cost` | both | Fails if the run exceeded a USD cost ceiling. |
+| `type: time_limit` | both | Fails if the run exceeded a duration ceiling. |
 
 ## Writing Wix API Skills
 
