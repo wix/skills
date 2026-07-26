@@ -123,11 +123,31 @@ with a blog, or a store with pricing plans).
 | Plans & pricing: memberships/subscriptions, subscribe, my plans | **pricing-plans** | `references/pricing-plans/INSTRUCTIONS.md` | `references/pricing-plans/wix-pricing-plans.js` |
 | Member accounts: custom login/sign-up (email+password, Google/Facebook, SSO), account area, gated content | **members** | `references/members/INSTRUCTIONS.md` | `references/members/wix-members-auth.js` |
 
+### When the request doesn't name a vertical — read the site or ask, never guess
+
+Don't infer a vertical from a vague brief. In order of preference:
+
+1. **Read the site.** With an admin-grade Wix credential — the platform's Wix connector or a
+   user-provided API key (the public `WIX_CLIENT_ID` is **not** enough) — run the
+   `wix-headless` skill's discovery script (`../wix-headless/references/discover-site.mjs`
+   when co-installed):
+
+   ```bash
+   WIX_TOKEN=<admin token or API key> node ../wix-headless/references/discover-site.mjs <metaSiteId>
+   ```
+
+   Build for the verticals matching the installed apps it reports; several → prioritize by
+   the user's words and by which holds real (non-sample) content.
+2. **Ask.** No admin credential — or the script failed, reported nothing, or doesn't apply?
+   Ask one short question — what do they offer (products? appointments? posts? events?).
+
 ## The run
 
 1. **Get `WIX_CLIENT_ID`.** It comes from the user (the handoff prompt from their Wix/vibe
    platform carries it). If it's missing, ask for it before wiring — nothing works without it.
-2. **Pick the vertical(s)** from the routing table and open each one's `INSTRUCTIONS.md`.
+2. **Pick the vertical(s)** from the routing table — and when the request doesn't name any,
+   **read the site or ask** (see above) instead of guessing. Open each picked vertical's
+   `INSTRUCTIONS.md`.
 3. **Copy the two files per vertical** — `shared/wix-client.js` (once) + the vertical helper —
    into the app's `src/rest/` (adjust only the import path if the app uses a different folder),
    and set `WIX_CLIENT_ID`.
