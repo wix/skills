@@ -31,6 +31,25 @@ place it into CWD **first** — unzip/copy/fetch the design's files into the wor
 project on disk — **then** `init`. An empty CWD plus a brought-in design is still `connect`, not create:
 land the design, then attach Wix to it.
 
+**If `init` half-fails** (a step after the business is created throws — e.g. "Failed to update your
+oauth app in Wix" on a transient 504/timeout): the metasite is already created server-side, but no
+`wix.config.json` was written, so the project looks unconnected while the site already exists.
+**Do not re-run `init`** — it has no idea a business already exists and will create a *second* one.
+Recover instead:
+1. The failing command's error output / `wix-error.log` (CWD or `~/.wix/`) has the `siteId` (metasite
+   id) and OAuth app id — the app id **is** the `id` in the failed `UpdateOAuthApp`/`CreateOAuthApp`
+   request, and is also the `appId`/`clientId` you need (app id === client id for headless).
+2. Confirm ownership: `npx @wix/cli@latest token --site <siteId>` must succeed (only works for sites
+   this account owns), then the Dynamic Context call in `DISCOVERY.md` §1 against that `siteId` should
+   return.
+3. Hand-write `wix.config.json` in the project root with the shape `init` would have written:
+   ```json
+   { "projectType": "Site", "appId": "<oauthAppId>", "siteId": "<metasiteId>", "site": { "outputDirectory": "./dist" } }
+   ```
+4. Continue from §2 below as if `init` had succeeded. If a step *other* than the OAuth app update is
+   what failed, the same recovery applies — the business and its companion app already exist; only the
+   local config is missing.
+
 ## 2 · Authenticate
 
 Per `references/managed/AUTHENTICATION.md` — `whoami`/login if needed, then mint the site token
