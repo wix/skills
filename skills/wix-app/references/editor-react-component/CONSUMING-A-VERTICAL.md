@@ -20,10 +20,14 @@ Read [`../EXTENDING_A_VERTICAL.md`](../EXTENDING_A_VERTICAL.md) first: an ERC al
 
    ```ts
    // <componentName>.extension.ts
+   import { extensions } from '@wix/astro/builders';
+   import { editorElement } from './best-seller-badge.generated';
+
    export default extensions.editorReactComponent({
      id: '…',
      type: '…',
      editorElement,
+     installation: { /* see Rule 8 */ },
      resources: {
        client: {
          // the withDefaults entry point, NOT the raw component file
@@ -66,7 +70,7 @@ Read [`../EXTENDING_A_VERTICAL.md`](../EXTENDING_A_VERTICAL.md) first: an ERC al
 
 2. **Context data is platform-supplied, not an external fetch.** [`COMPONENT-API.md`](COMPONENT-API.md) forbids external resources; a vertical context is not one. It arrives through the platform like `a11y` props or `EnvironmentDefinition` in [`DIRECTIONALITY.md`](DIRECTIONALITY.md). Reading it is allowed and expected.
 
-3. **The context is not attached automatically.** Declaring `contextDependencies` does not put a provider on the page — someone must attach it to the page or section. Until then the hook throws (Rule 4) and the component fails to render. See [Attaching the provider](#attaching-the-provider): this is the single most common reason an otherwise-correct component shows nothing.
+3. **The context is not attached automatically, and you don't control that.** Declaring `contextDependencies` does not put a provider on the page; attachment is platform-controlled and happens at install time. Until it happens the hook throws (Rule 4) and the component fails to render — the single most common reason an otherwise-correct component shows nothing. See [Attaching the provider](#attaching-the-provider).
 
 4. **The hook throws when the provider is absent — it does not return `null`.** Every vertical hook is written as "read context, throw if missing":
 
@@ -89,7 +93,7 @@ Read [`../EXTENDING_A_VERTICAL.md`](../EXTENDING_A_VERTICAL.md) first: an ERC al
    if (!serviceName) return null;
    ```
 
-   This is the real pattern — `low-stock-indicator` reads `remainingItemCount`, checks it, and returns `null` when there's nothing to show.
+   This is what shipping consumers do: read the field, check it, render nothing when there is nothing to show.
 
 6. **Split smart from dumb.** Within one component, the hook is called once at the top and the values flow down as props — presentation components never call it themselves. (Across the page, any number of separate components may each consume the same context; the rule is about one component's internals, not a page-wide limit.) See [Patterns](#patterns).
 
@@ -207,7 +211,7 @@ export default function BestSellerBadge({ className, id, label }: BestSellerBadg
 }
 ```
 
-The two comments mark the two different failure modes — see Rules 4 and 5. The root element follows the usual ERC pattern ([`CSS-GUIDELINES.md`](CSS-GUIDELINES.md)); consuming a context changes nothing about it.
+The root element follows the usual ERC pattern ([`CSS-GUIDELINES.md`](CSS-GUIDELINES.md)) — consuming a context changes nothing about it.
 
 ### Composition over one large component
 

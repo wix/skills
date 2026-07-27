@@ -1,6 +1,6 @@
 # Wix Editor React Component Builder
 
-Creates production-quality Editor React components that would be used in Harmony Editor for Wix CLI applications. Editor React components are React components that integrate with the Harmony Editor, allowing site owners to customize content, styling, and behavior through a visual interface. **Note: Editor React components are not available in Wix Editor (Classic) or Wix Studio.** The public docs scope them to Harmony; the internal Builder architecture guide scopes them to "Studio 2 & Harmony" — verify against the target site when it affects a decision.
+Creates production-quality Editor React components that would be used in Harmony Editor for Wix CLI applications. Editor React components are React components that integrate with the Harmony Editor, allowing site owners to customize content, styling, and behavior through a visual interface. **Note: Editor React components are not available in Wix Editor (Classic) or Wix Studio.** The public docs scope them to Harmony; Studio 2 is also a Builder-architecture editor — treat Harmony as the supported target and verify against the actual site when the difference affects a decision.
 
 > **Extending a Wix business solution's page?** An Editor React component covers only the Harmony side. See [`EXTENDING_A_VERTICAL.md`](EXTENDING_A_VERTICAL.md) for the two-surface requirement and [`editor-react-component/CONSUMING-A-VERTICAL.md`](editor-react-component/CONSUMING-A-VERTICAL.md) for reading vertical data.
 
