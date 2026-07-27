@@ -14,3 +14,7 @@ apiDoc:
       title: Create and Launch a Smart Campaign
       docsEntry: https://dev.wix.com/docs/api-reference/business-management/marketing/ads/google-ads
       tags: [marketing]
+    - file: ../../../skills/wix-manage/references/google-ads/create-performance-max-campaign.md
+      title: Create and Launch a Performance Max Campaign
+      docsEntry: https://dev.wix.com/docs/api-reference/business-management/marketing/ads/google-ads
+      tags: [marketing]
