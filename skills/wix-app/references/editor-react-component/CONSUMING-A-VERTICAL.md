@@ -42,9 +42,24 @@ Read [`../EXTENDING_A_VERTICAL.md`](../EXTENDING_A_VERTICAL.md) first: an ERC al
 
    The string in `contextDependencies` is the provider's `moduleSpecifier` — the same value you import from. Get both from the catalog below. The array takes more than one entry: a component may consume several contexts.
 
-   > **⚠️ `dependencies` placement is genuinely ambiguous — check before you copy.** Two forms both ship in production. Stores consumers nest it **inside `client`** (`resources.client.dependencies`, as above — `low-stock-indicator`, `ribbons`, `discount-names` all do this). The internal Builder guide and the Events `event-title` consumer put it as a **sibling of `client`** (`resources.dependencies`). Providers are a third case: Bookings' manifests comment that "context providers declare all dependencies at `resources.dependencies` — the `client`/`editor` Resources hold only `url`."
+   > **⚠️ `dependencies` goes inside `client`, and the wrong placement fails silently.** The published `@wix/astro` type for this builder (`editorReactComponent` is an alias of `siteComponent`) declares:
    >
-   > The public [`resources`](https://dev.wix.com/docs/build-apps/develop-your-app/extensions/site-extensions/editor-react-components/manifest-reference/root-properties/resources) reference documents no `dependencies` key at all, and the published `@wix/component-protocol` schema has `serviceDependencies` but no `contextDependencies` — so neither settles it. Run `wix schema generate --type EDITOR_REACT_COMPONENT` for your CLI version and match whichever the schema accepts, rather than trusting either example.
+   > ```ts
+   > resources: {
+   >   [key: string]: unknown;
+   >   client: {
+   >     [key: string]: unknown;
+   >     componentUrl: string;
+   >     cssUrl?: string;
+   >     dependencies?: { componentDependencies?: string[]; contextDependencies?: string[] };
+   >   };
+   >   editor?: { /* same shape */ };
+   > }
+   > ```
+   >
+   > Because both `resources` and `client` carry `[key: string]: unknown`, writing `dependencies` as a **sibling** of `client` type-checks and is then ignored — no build error, no context at runtime. The internal Builder guide's snippet and the Events `event-title` consumer both use that sibling form, which is why you will see it in the wild; prefer the typed placement above. (Context *providers* are a genuinely different shape — Bookings' manifests note that providers declare deps at `resources.dependencies`, with `client`/`editor` holding only `url`. Don't carry a provider's layout over to a consumer.)
+   >
+   > `componentDependencies` sits beside `contextDependencies` for depending on other components, and `resources.editor` takes the same `dependencies` object when you ship a separate editor bundle. Neither the public [`resources`](https://dev.wix.com/docs/build-apps/develop-your-app/extensions/site-extensions/editor-react-components/manifest-reference/root-properties/resources) reference nor `@wix/component-protocol` mentions `contextDependencies` — `@wix/astro` is the authority.
 
 2. **Context data is platform-supplied, not an external fetch.** [`COMPONENT-API.md`](COMPONENT-API.md) forbids external resources; a vertical context is not one. It arrives through the platform like `a11y` props or `EnvironmentDefinition` in [`DIRECTIONALITY.md`](DIRECTIONALITY.md). Reading it is allowed and expected.
 
