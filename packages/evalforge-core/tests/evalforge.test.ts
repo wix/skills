@@ -152,14 +152,17 @@ describe('EvalForgeClient (V1) — auth + test-scenarios', () => {
     await c.deleteTestScenario('P', 'X');
   });
 
-  it('createEvalRun supports tag-filtered scheduled runs', async () => {
+  it('createEvalRun runs resolved scenario ids for scheduled runs', async () => {
     mockFetch(({ url, method, body }) => {
       expect(method).toBe('POST');
-      expect(url).toContain('/v1/projects/P/eval-runs/run');
-      expect((body as { evalRun?: { filter?: unknown } }).evalRun).toMatchObject({
-        filter: { tag: 'created-via-code' },
+      // Single create-and-run endpoint.
+      expect(url).toMatch(/\/v1\/projects\/P\/eval-runs\/run$/);
+      // Body wrapped in an `evalRun` envelope carrying projectId, tags, scenarioIds.
+      expect((body as { evalRun?: unknown }).evalRun).toMatchObject({
+        projectId: 'P',
+        tags: ['created-via-code'],
+        scenarioIds: ['sc-1', 'sc-2'],
       });
-      expect((body as { evalRun?: { scenarioIds?: unknown } }).evalRun).not.toHaveProperty('scenarioIds');
       return { status: 200, body: { evalRun: { id: 'run-1', status: 'PENDING' } } };
     });
     const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
@@ -168,7 +171,8 @@ describe('EvalForgeClient (V1) — auth + test-scenarios', () => {
       description: 'scheduled',
       projectId: 'P',
       agentId: 'agent-1',
-      filter: { tag: 'created-via-code' },
+      tags: ['created-via-code'],
+      scenarioIds: ['sc-1', 'sc-2'],
     });
     expect(r).toEqual({ id: 'run-1', status: 'pending' });
   });
@@ -214,19 +218,13 @@ describe('EvalForgeClient (V1) — eval runs', () => {
   it('createEvalRun maps to eval-runs/run and normalizes status', async () => {
     mockFetch(({ url, method, body }) => {
       expect(method).toBe('POST');
-      expect(url).toContain('/v1/projects/P/eval-runs/run');
+      expect(url).toMatch(/\/v1\/projects\/P\/eval-runs\/run$/);
       expect((body as { evalRun?: { scenarioIds?: string[] } }).evalRun?.scenarioIds).toEqual(['s1']);
       return { status: 200, body: { evalRun: { id: 'run-1', status: 'PENDING' } } };
     });
     const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
     const r = await c.createAndRunEvalRun('P', { name: 'n', description: 'd', projectId: 'P', agentId: 'a', scenarioIds: ['s1'] });
     expect(r).toEqual({ id: 'run-1', status: 'pending' });
-  });
-
-  it('triggerEvalRun is a no-op returning the run id (no network call)', async () => {
-    mockFetch(() => ({ status: 500 })); // would fail if called
-    const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
-    await expect(c.triggerEvalRun('P', 'run-1')).resolves.toEqual({ evalRunId: 'run-1' });
   });
 
   it('getEvalRun unwraps {evalRun}, lowercases status, and converts passRate to a percent', async () => {

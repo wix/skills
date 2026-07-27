@@ -1,0 +1,3 @@
+# Bundled GitHub Action output (ncc). Generated from src/ — collapse in diffs
+# and exclude from language stats so PRs show only real source changes.
+.github/actions/evalforge-yaml-gate/dist/index.js linguist-generated=true -diff

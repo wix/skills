@@ -5,8 +5,8 @@ function isTerminal(status: RunStatus): boolean {
   return (TERMINAL_RUN_STATUSES as readonly RunStatus[]).includes(status);
 }
 
-const POLL_INTERVAL_MS = 30_000;
-const POLL_TIMEOUT_MS = 30 * 60 * 1_000;
+const POLL_INTERVAL_MS = 10 * 60 * 1_000;
+const POLL_TIMEOUT_MS = 210 * 60 * 1_000;
 const RETRY_LIMIT = 5;
 const RETRY_DELAY_MS = 10_000;
 
@@ -51,7 +51,7 @@ export async function pollUntilDone(
     await delay(Math.min(POLL_INTERVAL_MS, deadline - Date.now()));
   }
 
-  throw new EvalRunTimeoutError('Eval run timed out after 30 minutes');
+  throw new EvalRunTimeoutError('Eval run timed out after 3.5 hours');
 }
 
 export class EvalRunTimeoutError extends Error {

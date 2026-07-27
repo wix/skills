@@ -12,7 +12,7 @@ jobs:
   run-all:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
         with:
           fetch-depth: 0  # need full history to inspect commits over the past week
 
@@ -45,12 +45,16 @@ jobs:
           evalforge-url: ${{ vars.EVALFORGE_URL }}
           evalforge-project-id: ${{ vars.AUTO_SKILLS_PIPELINE_PROJECT_ID }}
           evalforge-agent-id: ${{ vars.AUTO_SKILLS_PIPELINE_AGENT_ID }}
+          evalforge-mcp-id: ${{ vars.AUTO_SKILLS_PIPELINE_MCP_ID }}
           evalforge-app-id: ${{ secrets.AUTO_SKILLS_PIPELINE_APP_ID }}
           evalforge-app-secret: ${{ secrets.AUTO_SKILLS_PIPELINE_APP_SECRET }}
           run-name: scheduled-${{ github.run_number }}
 
+      # Only notify when a run actually produced results. If the run errored out
+      # (couldn't be created/started, timed out, or no scenarios matched) the eval
+      # step logs the failure and we stay quiet in Slack rather than post noise.
       - name: Post Slack notification
-        if: always() && steps.check.outputs.should-run == 'true'
+        if: always() && (steps.eval.outputs.status == 'completed' || steps.eval.outputs.status == 'failed')
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           PASS_RATE: ${{ steps.eval.outputs.pass-rate }}
