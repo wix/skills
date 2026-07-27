@@ -315,7 +315,7 @@ Use evaluation as a loop, not a one-time check. Review the failures, tighten the
 `yaml/wix-app-evals/` is the **source of truth**, and a workflow keeps the
 EvalForge **App Builder** project aligned with it: when a PR that touches
 `yaml/wix-app-evals/**` is merged into `main`,
-`.github/workflows/evalforge-wix-app-sync.yml` runs the `evalforge-yaml-gate`
+`.github/workflows/evalforge-wix-app-sync.yml` runs the `evalforge-skill-gate`
 action in **`sync` mode** and reconciles the YAML into EvalForge.
 
 - **One-way** (repo → EvalForge). The sync writes scenarios to EvalForge; it
@@ -336,7 +336,8 @@ action in **`sync` mode** and reconciles the YAML into EvalForge.
 
 ### Working on the EvalForge actions themselves
 
-The `.github/actions/evalforge-yaml-gate` action depends on the shared
+The `.github/actions/evalforge-yaml-gate` (wix-manage flows) and
+`.github/actions/evalforge-skill-gate` (wix-app flows) actions depend on the shared
 `packages/evalforge-core` package (scenario schema, EvalForge API client,
 YAML↔EvalForge mapper, auth) via a local `portal:` dependency, bundled into the
 action's committed `dist/index.js` by `ncc`. CI runs that committed
@@ -347,6 +348,7 @@ commit the consuming action's `dist`:
 ```bash
 (cd packages/evalforge-core && yarn build)
 (cd .github/actions/evalforge-yaml-gate && yarn build)
+(cd .github/actions/evalforge-skill-gate && yarn build)
 ```
 
 Use the `(cd DIR && yarn SCRIPT)` subshell form, not `yarn --cwd DIR SCRIPT` —
