@@ -93,11 +93,14 @@ Run the agnostic flow against the scaffolded site:
   (`createClient({ modules, auth: OAuthStrategy({ clientId }) })`), where `clientId` is the public
   `appId` from the `wix.config.json` written by `init` (§1).
 
-**Before writing any component, decide the run's design tokens per `references/DESIGN.md`** — theme
-polarity, a 2–4 color palette, type scale, radius/spacing — and hold them for reuse across every page and
-the themed-block fallback (`IMAGE_GENERATION.md`). `DESIGN.md` also pins the hard layout/accessibility
-rules (full-bleed, one primary CTA per page, WCAG 2.2 AA contrast, 16px/1.5 body type) — a page that
-violates one of those isn't done yet, regardless of how the backend wiring looks.
+**If the user didn't specify their own design direction** (no palette, no theme/style words, no
+reference site, no brand guidelines), **decide the run's design tokens per `references/DESIGN.md`**
+before writing any component — theme polarity, a 2–4 color palette, type scale, radius/spacing — and
+hold them for reuse across every page and the themed-block fallback (`IMAGE_GENERATION.md`). If the
+user *did* specify a direction, use theirs instead — `DESIGN.md` is a fallback, not a checklist to
+enforce over an explicit ask. Either way, `DESIGN.md` §3's accessibility floor (WCAG 2.2 AA contrast,
+16px/1.5 body type) always applies — a page that fails it isn't done yet, regardless of whose palette
+it's using.
 
 Then build the pages the user's intent calls for, **wired to the live backend**, using
 **`references/SDK_HANDOFF.md`** for the per-capability packages, the SDK docs, and the seeded schema to

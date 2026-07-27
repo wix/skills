@@ -1,10 +1,10 @@
-# Design — visual quality bar for the built frontend (managed create)
+# Design — default visual quality bar for the built frontend (managed create)
 
 **Applies when this skill builds the frontend from scratch** (managed `create`, `CREATE.md` §4). It does **not** apply to `connect`/`iterate` — there the design already exists (brought in by the user), and the job is wiring, not designing (`CONNECT.md` §4).
 
-This is the **agent's own design-tokens contract** — it's the thing `IMAGE_GENERATION.md` and `DISCOVERY.md` §4 already assume exists when they say a themed-block fallback "follows the site's own design tokens (palette, radius, spacing)". Decide the tokens below *before* writing the first component; every page and fallback then draws from that one decision instead of improvising per-component.
+**This is a fallback, not an override.** It fills the gap **only when the user gave no design direction of their own** — no palette, no "make it dark/minimal/playful," no reference site or screenshot, no brand guidelines. The moment the user specifies *any* of that, their explicit intent wins outright — don't apply a rule below just because it's here if it contradicts what they asked for. Two exceptions that hold regardless of what's requested: **§3 (accessibility)** is a hard floor — if a user-requested palette fails contrast, fix the specific pair to comply, don't ship a violation — and the **anti-genericism intent** of §1 (derive tokens from *this* brand, don't reuse the last project's look) still applies even when the user supplied their own palette/theme, since it's about not being lazy with *their* inputs, not about overriding them.
 
-*Provenance note: this distills — not ports — Base44's internal beautification prompts (`base44-dev/apper`: `design_enhancement_system.md`, `design_guidelines_apps_*.md`). Those are meta-prompts for a single isolated Gemini call that outputs a prose design brief for a second generation stage; only the checkable, code-facing rules below carry over. Their persona-priming ("Visionary Creative Designer", "industry-defining benchmark") and prescribed brief-output format don't apply to an agent writing files directly — skip that framing entirely.*
+This is the **agent's own design-tokens contract** — it's the thing `IMAGE_GENERATION.md` and `DISCOVERY.md` §4 already assume exists when they say a themed-block fallback "follows the site's own design tokens (palette, radius, spacing)". Decide the tokens below *before* writing the first component; every page and fallback then draws from that one decision instead of improvising per-component.
 
 ## 1 · Decide the design tokens once, before any component
 
