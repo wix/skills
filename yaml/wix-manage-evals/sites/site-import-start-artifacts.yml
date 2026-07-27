@@ -1,4 +1,4 @@
-name: sites/site-import-artifacts
+name: sites/site-import-start-artifacts
 description: >-
   Verifies the agent knows how Site Import review documents (artifacts) work: every poll advertises
   them as a manifest with an empty content field, the content is fetched by naming ids in the
