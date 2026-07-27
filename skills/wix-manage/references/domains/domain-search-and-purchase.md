@@ -1,5 +1,5 @@
 ---
-name: "Connect Domain"
+name: "Domain Search and Purchase"
 description: Help users connect a domain they already own to their Wix site. Verify the domain is registered, resolve the site UUID/MSID, check Premium status, then route to the connection wizard or an upgrade prompt.
 ---
 
