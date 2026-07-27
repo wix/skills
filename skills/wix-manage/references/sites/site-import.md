@@ -16,23 +16,19 @@ and report the final result.
    `AUTH_EXPIRED` — means there is NO finished site yet. Never declare
    success, completion, or "your site is live" otherwise, and never present a
    URL from any other source as the result.
-2. **Never show the user ids** (`importId`), raw JSON, or HTTP codes. Track
-   them silently.
+2. **Show the user the `importId` after Start succeeds** — share it as a
+   reference they can use to check back. Never show raw JSON or HTTP codes.
 3. **Never offer menus of monitoring or technical options** — pick the right
    behavior yourself and do it quietly.
 4. **Plain language only** — write for a shopkeeper, not an engineer.
 5. **This API is the only site-creation tool for this task** — never
    substitute other Wix site-builder tools (see Scope).
 
-Base URL: `https://www.wixapis.com/site-import`. All calls are scoped to the
-signed-in Wix user's account (use the Wix API tool available in this
-environment for auth — never handle credentials directly). A full import
-typically takes 15–60 minutes.
+Base URL: `https://www.wixapis.com/site-import`. All calls use account-level
+scope on the signed-in Wix user's account. A full import typically takes
+15–60 minutes.
 
-Example: Start is `POST https://www.wixapis.com/site-import/v1/imports`;
-all endpoint paths below are relative to the base URL.
-
-## Calling the API (important — read before your first call)
+## Calling the API
 
 This API is **deliberately not listed in the public Wix REST documentation**,
 so do NOT search the Wix docs / API spec for it — the search will come up
@@ -40,231 +36,200 @@ empty every time. That is expected and is NOT a reason to stop, ask the user
 for "special permissions", or switch to a different import product. This
 skill is the documentation; the endpoints below are real and live.
 
-With the Wix MCP in Claude, call them through `ExecuteWixAPI` using
-`wix.request` with `scope: "account"` and the **full URL**. Cite
-`sourceDocUrls: ["user-provided"]` (the user supplied this skill). Set
-`hasMutations: true` for Start/Reply/Cancel and `false` for Poll.
+**Make the first API call immediately — no preamble.** Never announce "let me
+check the tools" or "checking auth" before the first call. If Start returns
+an error, handle it per the Rules section — **never probe other endpoints**
+(e.g. site-properties, site-list) to "verify auth"; those calls reveal
+nothing useful.
 
-In environments with a different Wix connector (e.g. ChatGPT), use its
-account-level API tool the same way — the `ManageWixSite` tool accepts
-`{method, url, body}` with the full URL directly.
+**All calls are server-side.** Never call this API from an artifact, a web
+page, or any client-side code — those fail with CORS. The entire experience
+is plain chat — API calls plus short messages.
 
-Platform quirk: if the chat UI shows a rendering error like *"Failed to load
-MCP app: HTML exceeds the maximum supported size"*, that is the connector's
-optional visual widget failing to display — NOT the API call. If the tool
-result contains the JSON, the call succeeded: continue normally and never
-report it to the user as a failure.
-
-**Every call goes through that tool, from your side of the conversation.**
-Never call this API from an artifact, a web page, or any browser/client-side
-code — those run in a sandboxed frame and fail with CORS. Do not build
-monitoring dashboards, status widgets, or any UI for this flow: the entire
-experience is plain chat — tool calls plus short messages. If an approach
-fails, quietly switch to plain tool-call polling; never present the user a
-menu of technical workarounds.
+Use the Wix account-level REST API tool available in your environment with
+the **full URL**. Start, Send-a-message, and Cancel are mutating (POST);
+Poll is read-only (GET).
 
 Example — Start:
 
-```js
-async () => {
-  return await wix.request({
-    scope: "account",
-    method: "POST",
-    url: "https://www.wixapis.com/site-import/v1/imports",
-    body: { request: "Import https://example-store.com into a new Wix site" },
-  });
-}
+```
+POST https://www.wixapis.com/site-import/v1/imports
+Body: { "request": "Import https://example-store.com into a new Wix site" }
 ```
 
 Example — Poll:
 
-```js
-async () => {
-  return await wix.request({
-    scope: "account",
-    method: "GET",
-    url: "https://www.wixapis.com/site-import/v1/imports/<importId>",
-  });
-}
+```
+GET https://www.wixapis.com/site-import/v1/imports/<importId>?includeRecentActivity=true
+```
+
+Example — Poll fetching a review document:
+
+```
+GET https://www.wixapis.com/site-import/v1/imports/<importId>?includeRecentActivity=true&artifactIds=mapping-summary,mapping-plan
+```
+
+Example — Send a message:
+
+```
+POST https://www.wixapis.com/site-import/v1/imports/<importId>/messages
+Body: { "message": "Use the blue logo from the About page instead" }
 ```
 
 ## Scope — this skill drives the import service, nothing else
 
 While an import is the task at hand, ALL site-creation work goes through this
 API. Never fall back to other site-building tools (site-builder/template/AI
-site-generation tools from your Wix connector) to "compensate" — not when the
-import is slow, and especially not when it FAILS.
+site-generation tools) to "compensate" — not when the import is slow, and
+especially not when it FAILS.
 
 **Status comes ONLY from this API's Poll endpoint.** Never call
 `WixSiteBuilder`, `CreateSiteFromTemplate`, `pullSiteCreationJob`, or any
 other connector tool to "check on the build" — `WixSiteBuilder` in particular
-STARTS a new site build on every call, even when the prompt asks for status;
-"checking" with it silently creates sites the user never asked for. A failed import ends with a
-clear failure report and a full stop; the user must never discover a
-different site in their account that they didn't ask for. If an alternative
-(e.g. building an original site instead of importing) makes sense, propose it
-AFTER reporting the failure and act only on the user's explicit yes. If you
-already know the import agent refused the source (see `message`), don't
-retry the same source with other tools — relay the reason and let the user
-decide.
+STARTS a new site build on every call, even when the prompt asks for status.
+A failed import ends with a clear failure report and a full stop; the user
+must never discover a different site in their account that they didn't ask
+for. If an alternative makes sense, propose it AFTER reporting the failure
+and act only on the user's explicit yes.
 
 ## Before starting an import
 
-This creates real infrastructure and will eventually write to the user's Wix
-account. Before calling **Start**, confirm with the user:
+This creates real infrastructure and writes to the user's Wix account. Before
+calling **Start**, confirm:
 - The source URL and platform are correct
-- They understand this will run for up to ~60 minutes and may ask them
-  questions mid-way
+- The user understands it runs for up to ~60 minutes and may ask questions mid-way
 
-Also confirm before calling **Cancel** — it's a mutating, irreversible action
-on a running job.
+Also confirm before calling **Cancel** — it's irreversible.
 
 ## What the user sees (presentation rules)
 
 You are the user experience; the API is plumbing. Keep the protocol invisible:
 
-- **Never show identifiers or raw protocol data**: `importId`, raw JSON
-  responses, HTTP status codes, the `tasks[]` rows, or
-  `sourcePlatform`/`sourceConfidence` values. Track them silently — you need
-  them for the API calls, the user never does. Never offer ids as a
-  "check back later" reference either.
+- **Show the `importId` once, right after Start succeeds** — e.g. "Your import
+  ID is `abc123` — keep it handy." Never show raw JSON, HTTP codes, artifact
+  ids, or `sourcePlatform`/`sourceConfidence` values.
 - **Write for a non-technical audience.** No jargon: no "endpoint", "API",
-  "poll", "HTTP", "429", "rate limit", "headers", "JSON", "scraping",
-  "session". Translate events into outcomes a shopkeeper understands —
-  "the source store limits how fast it can be read, so this step is taking a
-  minute" instead of "hit Cloudflare rate limit (HTTP 429)".
-- **Monitor quietly by default — do not ask the user to choose a monitoring
-  mode.** Quiet means low-noise, never uninformed: the user should always know
-  what stage their import is in. Match your environment:
-  - **If you can keep working between user messages** (background polling),
-    poll continuously and speak up only on meaningful milestones: the source
-    platform is identified, a plan step completes, the agent asks a question,
-    the site deploys, or something fails. A short update every few minutes is
-    plenty; never narrate each poll ("let me poll again", "retrying") or
-    transient errors — retry those silently.
-  - **If you can only act while answering a message** (turn-based clients):
-    before ending each turn, poll a few times over ~a minute and close with
-    one concrete update of what the import is doing right now, then remind the
-    user the import keeps running on Wix's side and they can ask "how's it
-    going?" anytime. On EVERY later user message, poll first and answer with
-    current specifics.
-- **Status answers must be substantive.** When the user asks how it's going,
-  never answer with a bare "still in progress". While the import is running,
-  the poll's `message` field is a ready-made plain-language progress line
-  ("Now: Importing products (2 of 6 steps done) — Latest update: …") — relay
-  it (lightly rephrased is fine), and add anything fresh from `recentActivity`
-  / `todos`. If `message` is empty it's still early — say the import is
-  setting up and check again on the next message.
-- **Never announce or describe the monitoring itself.** No "background monitor
-  is live", no feature lists of your polling/alerts/badges — the user asked
-  for a site import, not a monitoring product. After the one-sentence start
-  message, stay silent until the first milestone.
-- **Keep every routine update to 1–3 short sentences.** No headers, no emoji
-  walls, no bullet lists for ordinary progress — save structure for the final
-  result or a question that needs a decision.
-- On start, one friendly sentence: the import is underway and you'll keep them
-  posted. Mention the detected platform only when it helps ("Looks like a
-  Shopify store — I'll migrate the catalog accordingly"); never say
-  "confidence", "sandbox", "execution", or "session".
-- Progress updates come from `recentActivity` `TEXT` entries and the `todos`
-  checklist, rephrased in plain language ("setting up your product catalog"),
-  never echoed verbatim.
+  "poll", "HTTP", "rate limit", "JSON". Translate events into plain outcomes —
+  "the source store limits how fast it can be read" not "hit rate limit (429)".
+- **Monitor autonomously — never ask the user whether to keep monitoring.**
+  Poll every ~30 seconds until a terminal status arrives. If the user sends a
+  message about something else, handle it then resume polling. Match your
+  environment:
+  - **Background polling**: speak up only on meaningful milestones — platform
+    identified, plan step completes, agent asks a question, site deploys, or
+    something fails. Never narrate each poll or transient errors.
+  - **Turn-based**: end each turn with one concrete progress update. On every
+    later user message, poll first. **Do not end a turn asking whether to keep
+    checking** — just keep checking.
+- **Status answers must be substantive.** Never answer "still in progress".
+  Relay `message` (lightly rephrased) and anything fresh from `recentActivity`
+  / `todos`. If `message` is empty, say the import is still setting up.
+- **Never announce or describe the monitoring itself.** After the one-sentence
+  start message, stay silent until the first milestone.
+- **Keep routine updates to 1–3 short sentences.** No headers, emoji walls, or
+  bullet lists for ordinary progress.
+- On start, two short sentences: (1) import underway, mention detected platform
+  when it helps; (2) share the `importId`. Never say "confidence", "sandbox",
+  "execution", or "session".
+- Progress updates: rephrase `recentActivity` `TEXT` entries and `todos` in
+  plain language; never echo verbatim.
 - Ask `NEEDS_INPUT` questions conversationally, as if they were your own.
-- On `DEPLOYED`, lead with the live URL, then the agent's closing summary
-  **rewritten for a non-technical reader**: what the user got (pages,
-  products, look & feel), any honest limitations in plain words ("the buy
-  buttons aren't connected to a real checkout yet"), and 2–3 short follow-up
-  offers they can answer in one sentence (those become Reply messages). Leave
-  out how it was built — frameworks, SDKs, workarounds, and anything from the
-  jargon list have no place in the final message either.
-- On `FAILED` / `AUTH_EXPIRED` / `SESSION_EXPIRED`, explain what happened and
-  what you'll do next in plain words — no codes, no id dumps.
+- On `DEPLOYED`, lead with the live URL, then a plain-language summary of what
+  the user got, honest limitations, and 2–3 short follow-up offers. Leave out
+  frameworks, SDKs, and anything from the jargon list.
+- On `FAILED` / `AUTH_EXPIRED` / `SESSION_EXPIRED`, explain what happened in
+  plain words — no codes, no id dumps.
 - **A failure is the headline, never a footnote.** The moment a poll returns
-  `FAILED`, your very next message leads with that fact and the reason (from
-  `message`) — never bury it, never keep talking as if work is ongoing, and
-  never paper over it with work done by other tools (see Scope above).
+  `FAILED`, your very next message leads with that fact and the reason — never
+  bury it or paper over it with other tools.
 
 ## Endpoints
 
-**There is exactly ONE id in this API: the latest `importId`.** Requests and
-responses carry nothing else — the service resolves everything from the
-signed-in user.
+**Single `importId` for the whole import — assigned at Start, never changes.**
 
 1. **Start** — `POST /v1/imports`
    Body: `{"request": "<natural language; MUST include the source store URL>"}`
-   Returns: `importId` (keep it — it's the import's id) and detected
-   `sourcePlatform`/`sourceConfidence`.
+   Returns: `importId`, `sourcePlatform`, `sourceConfidence`.
 
-2. **Poll** — `GET /v1/imports/{importId}`
-   Returns: `status`, `deployUrl`, `message`, `recentActivity[]`, `todos[]`,
-   `question` (only when status is `NEEDS_INPUT`), `tasks[]`.
+2. **Poll** — `GET /v1/imports/{importId}?includeRecentActivity=true`
+   Returns: `status`, `deployUrl`, `message`, `options[]` (only when
+   `NEEDS_INPUT`), `recentActivity[]`, `recentActivityCount`, `todos[]`,
+   `artifacts[]`.
+   **Always pass `includeRecentActivity=true`** — the activity feed is withheld
+   unless requested. To read a review document, add
+   `&artifactIds=mapping-plan,mapping-gaps` (see "Review documents").
 
-3. **Reply** — `POST /v1/imports/{importId}/reply`
-   Body: `{"message": "<answer or follow-up>"}`
-   Returns a **NEW `importId` — poll that one from now on.** The agent
-   continues the same conversation with full context.
+3. **Send a message** — `POST /v1/imports/{importId}/messages`
+   Body: `{"message": "<whatever the user said>"}`
+   **This is the ONE way anything the user says reaches the agent** — an answer
+   to a question, a comment, a correction, or a new instruction. Valid at any
+   point: while `IMPORTING`, at a `NEEDS_INPUT` stop, and after the import
+   finishes. Returns the **same `importId`** — keep polling it.
 
 4. **Cancel** — `POST /v1/imports/{importId}/cancel`
    Body: `{}`. Only meaningful while status is `IMPORTING`.
 
 ## How to run the flow
 
-- After Start, poll every 5–10 seconds while `status` is `IMPORTING` —
-  quietly, per the presentation rules above: polling is background work, not
-  conversation.
-- Track progress from two fields (source material for your milestone updates,
-  not a transcript to relay):
-  - `recentActivity`: up to 20 entries `{kind, text}`, oldest first —
-    `TEXT` entries are the agent's own messages, `TOOL_USE` entries are short
-    labels of actions it took. It's a rolling window: track which entries you
-    have already covered so an update never repeats them.
-  - `todos`: the agent's plan, `{content, status, activeForm}` with status
-    `PENDING | IN_PROGRESS | COMPLETED`. Each poll returns the full latest
-    snapshot — replace your tracked list, don't append. `activeForm`
-    (e.g. "Importing products") describes the in-progress item.
-  - Empty `recentActivity`/`todos` in the first polls is normal.
+- After Start, poll every ~30 seconds while `status` is `IMPORTING`. Never
+  pause to ask the user whether to keep monitoring — just keep going. Stop
+  only on a terminal status (`DEPLOYED`, `FAILED`, `CANCELLED`) or explicit
+  cancel.
+- Track progress from:
+  - `recentActivity`: up to 20 `{kind, text}` entries, oldest first. `TEXT`
+    entries are the agent's messages; `TOOL_USE` are action labels. Rolling
+    window — track which entries you've covered to avoid repeating them.
+  - `todos`: `{content, status, activeForm}` — `PENDING | IN_PROGRESS |
+    COMPLETED`. Full snapshot each poll; replace, don't append.
+  - Empty `recentActivity`/`todos` in early polls is normal.
 - Act on `status`:
   - `IMPORTING` — keep polling.
-  - `NEEDS_INPUT` — the agent is blocked on a decision. Show `question.text`
-    (and `question.options` if present) to the user, collect their answer
-    (an option or free text), send it via Reply, then poll the NEW
-    `importId` from the Reply response.
-  - `DEPLOYED` — terminal success. Deliver `deployUrl` (already verified
-    reachable server-side) and `message` per the presentation rules above.
-  - `FAILED` — terminal. `message` usually contains the agent's own
-    explanation of what happened and what it needs — relay it in plain words.
-  - `AUTH_EXPIRED` — recoverable, but **NOT a success and nothing is live**
-    (golden rule 1). The user's Wix session expired mid-import. Tell the user
-    the secure connection to their account expired and you're restarting the
-    import, then call Start again with the same request — work done so far is
-    preserved and the import continues.
-  - `CANCELLED` — terminal; stopped by Cancel.
-- Follow-up changes after a deploy ("make the header blue", "also import the
-  blog"): send them via Reply on the latest `importId` — same mechanics as
-  answering a question. This works while the import environment is alive
-  (~60 minutes idle).
-- If Reply returns `409 { "code": "SESSION_EXPIRED" }`, the environment was
-  reclaimed and the conversation cannot resume — tell the user and offer to
-  start a fresh import.
+  - `NEEDS_INPUT` — agent is blocked. Show `message` (and `options` if present)
+    to the user, collect their answer, send it with Send-a-message, then keep
+    polling the same `importId`. If `message` mentions review documents, read
+    them FIRST (see "Review documents") — the decision usually depends on them.
+  - `DEPLOYED` — terminal success. Deliver `deployUrl` and `message` per
+    presentation rules.
+  - `FAILED` — terminal. Relay `message` in plain words.
+  - `AUTH_EXPIRED` — recoverable, NOT success, nothing is live (golden rule 1).
+    Tell the user the connection to their account expired and you're restarting,
+    then call Start again with the same request — work so far is preserved.
+  - `CANCELLED` — terminal.
+- **Anything the user says mid-import goes straight to Send-a-message** — no
+  need to wait for `NEEDS_INPUT`.
+- Follow-up changes after a deploy use the same Send-a-message call. The import
+  stays resumable for 7 days; if idle for ~60 minutes the next message revives
+  it — do not warn the user about a time limit.
+- If Send-a-message returns `409 { "code": "SESSION_EXPIRED" }`, the import
+  can no longer be resumed — tell the user and offer a fresh start.
+
+### Review documents
+
+The agent writes review documents at approval gates (mapping plan, gaps list,
+execution plan, completion summary). **They exist only in the API response** —
+the user has no way to open a file.
+
+- Every poll returns `artifacts[]` as a manifest: `{id, title, format,
+  contentBytes}` with `content` **empty**. This is deliberate — documents are
+  large and most polls don't need them.
+- To read one, poll again with `&artifactIds=<id>[,<id>]`. Those come back with
+  `content` filled in (Markdown or JSON).
+- **When `message` announces review documents, fetch them and summarize for the
+  user in plain language before asking for approval.** Never say "the plan is
+  in a file I can't read" or relay a filename as something the user should open.
 
 ## Rules
 
-- Always use the **newest** `importId` (each Reply returns a new one) —
-  it is the only id you need to track.
+- Single `importId` — assigned at Start, returned unchanged by Send-a-message.
 - Never invent a `deployUrl` — only report the one returned with `DEPLOYED`.
-- Treat `NEEDS_INPUT` and `AUTH_EXPIRED` as normal turns of the conversation,
-  not errors.
-- **Site Import is available to some accounts, not all users yet** (limited,
-  gradual rollout). If Start returns a `404` (or any response signalling the
-  API is not available for this account) or a `403` with
-  `"code": "NOT_ENABLED"`, this account is not in the rollout: tell the user
-  plainly that **site import isn't supported on their account yet, and they
-  can contact Wix support** to ask about access — then stop. Do not retry, do
-  not work around it, and do not fall back to another site-creation tool.
-- Any other `403` means the caller is not permitted or does not own this
-  import — check that you are using the ids from this user's own Start
-  response. A `400` means a required field is missing (`request`/`message`
-  must be 1–20000 chars).
-- `tasks[]` is low-level infrastructure progress (task ids, exit codes) — use
-  it for debugging only; `recentActivity`/`todos`/`message` are what you show
-  the user.
+- Treat `NEEDS_INPUT` and `AUTH_EXPIRED` as normal conversation turns, not
+  errors.
+- **Site Import is in limited rollout.** If Start returns `404` or `403` with
+  `"code": "NOT_ENABLED"`, tell the user plainly that site import isn't
+  supported on their account yet and they can contact Wix support — then stop.
+  Do not retry or fall back to another site-creation tool.
+- Any other `403` on Start means the caller is not authorized — tell the user
+  and stop. Do not probe other endpoints to diagnose this. A `400` means a
+  required field is missing (`request`/`message` must be 1–20000 chars).
+- **The user cannot open files.** If a message mentions a document by filename,
+  fetch it with `artifactIds` and read it to them.
