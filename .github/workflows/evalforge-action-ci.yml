@@ -14,7 +14,12 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  test:
+  # Named `typecheck` (not `test`) so this satisfies main's branch-protection required
+  # status check of that exact name. wix-app-typecheck.yml is the only other source of a
+  # "typecheck" context, and it's scoped to `skills/wix-app/**` — so any PR touching only
+  # these evalforge paths (like #696, #731) previously got no "typecheck" status at all and
+  # sat stuck as "Expected — waiting" forever, mergeable only by an admin bypassing checks.
+  typecheck:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
