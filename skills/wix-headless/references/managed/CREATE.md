@@ -102,7 +102,7 @@ enforce over an explicit ask. Either way, `DESIGN.md` §3's accessibility floor 
 16px/1.5 body type) always applies — a page that fails it isn't done yet, regardless of whose palette
 it's using.
 
-**Same for page copy**: if the user didn't supply their own copy or voice direction, write hero/section
+**For page copy:** if the user didn't supply their own copy or voice direction, write hero/section
 headlines, kickers, subtitles, and CTA labels per **`references/CONTENT.md`** — otherwise use theirs.
 Either way, `CONTENT.md` §1 (the business's category must read literally above the fold) always holds —
 a page a first-time visitor can't identify isn't done yet, regardless of voice.
