@@ -1,0 +1,31 @@
+name: domains/domain-search-and-purchase
+description: >-
+  Verifies the agent reads the connect-domain skill and correctly routes a user
+  who already owns a domain through the availability check, UUID/MSID resolution,
+  Premium status gate, and connection wizard redirect.
+triggerPrompt: >-
+  I already own mybusiness.com and I want to connect it to my Wix site. How do I do that?
+tags: [domains]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/account-level/domains/skills/domain-search-and-purchase
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user already owns mybusiness.com and wants to connect it to their Wix site.
+
+      Pass if the response:
+      - checks domain availability using the /domain-search/v2/check-domain-availability API, AND
+      - confirms the domain is already registered (available: false) before proceeding, AND
+      - resolves the user's Wix site UUID/MSID (either from context or via ListWixSites), AND
+      - checks whether the site has a Premium plan (allowedDomain field), AND
+      - either redirects to the connection wizard (redirectToConcierge) for Premium sites
+        or shows an upgrade prompt (premiumUpgradeBanner) for free sites.
+
+      Fail if the response:
+      - treats the domain as available for purchase instead of connecting it, OR
+      - skips the availability check entirely, OR
+      - skips the Premium status check, OR
+      - provides generic instructions without referencing the specific APIs or tools above.
