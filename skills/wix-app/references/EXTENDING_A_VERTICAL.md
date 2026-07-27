@@ -33,7 +33,7 @@ Within the editor, there is no single extension type that extends a vertical acr
 > "Editor React Component extensions are built for Wix Harmony... They're not supported on Wix Editor or Wix Studio sites, and **there's no way to conditionally switch between extension types based on the editor**."
 > — [Editor React Component Extension Files and Code](https://dev.wix.com/docs/build-apps/develop-your-app/develop-an-app-with-the-cli/supported-extensions/site/editor-react-components/editor-react-component-extension-files-and-code)
 
-Co-existence is a known open problem on the platform side. The current approach is dev-center **specs that show/hide extensions per editor group**, which is not self-serve — raise it in `#editor-platform-dev` before assuming a single app version can ship both cleanly.
+Co-existence is a known open problem on the platform side. The current approach is dev-center **specs that show/hide extensions per editor group**, which is not self-serve — check with Wix developer support before assuming one app version can ship both surfaces cleanly.
 
 **The ERC half depends on the vertical.** An ERC reads vertical data from a Context Provider the vertical publishes, so if the target vertical hasn't shipped one, that half cannot be built at all — Wix Blog and Wix Restaurants are in this position today. Check the catalog in [`editor-react-component/CONSUMING-A-VERTICAL.md`](editor-react-component/CONSUMING-A-VERTICAL.md) before promising both surfaces.
 
@@ -41,7 +41,7 @@ Same shape as [`STORES_VERSIONING.md`](STORES_VERSIONING.md), where an app must 
 
 ### Which editors support Editor React Components
 
-The public docs (quoted above) say Harmony **only**. Wix's internal Builder architecture guide scopes it to "Studio 2 & Harmony." Verify against the target site when the difference affects a decision, rather than assuming either.
+The public docs (quoted above) say Harmony **only**, while Wix's Builder architecture is described elsewhere as covering Studio 2 as well. Treat Harmony as the supported target and verify against the actual site when the difference affects a decision.
 
 ---
 

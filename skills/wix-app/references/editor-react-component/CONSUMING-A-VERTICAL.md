@@ -60,7 +60,7 @@ Read [`../EXTENDING_A_VERTICAL.md`](../EXTENDING_A_VERTICAL.md) first: an ERC al
    > }
    > ```
    >
-   > Because both `resources` and `client` carry `[key: string]: unknown`, writing `dependencies` as a **sibling** of `client` type-checks and is then ignored — no build error, no context at runtime. The internal Builder guide's snippet and the Events `event-title` consumer both use that sibling form, which is why you will see it in the wild; prefer the typed placement above. (Context *providers* are a genuinely different shape — Bookings' manifests note that providers declare deps at `resources.dependencies`, with `client`/`editor` holding only `url`. Don't carry a provider's layout over to a consumer.)
+   > Because both `resources` and `client` carry `[key: string]: unknown`, writing `dependencies` as a **sibling** of `client` type-checks and is then ignored — no build error, no context at runtime. Some existing components and some older guidance use that sibling form, so you may encounter it; prefer the typed placement above. (Context *providers* are a different shape, declaring deps at `resources.dependencies` with `client`/`editor` holding only `url` — don't carry a provider's layout over to a consumer.)
    >
    > `componentDependencies` sits beside `contextDependencies` for depending on other components, and `resources.editor` takes the same `dependencies` object when you ship a separate editor bundle. Neither the public [`resources`](https://dev.wix.com/docs/build-apps/develop-your-app/extensions/site-extensions/editor-react-components/manifest-reference/root-properties/resources) reference nor `@wix/component-protocol` mentions `contextDependencies` — `@wix/astro` is the authority.
 
@@ -186,21 +186,9 @@ Locations and Categories back their selection with the URL — selecting updates
 
 ### Verticals not in this catalog
 
-**This catalog covers Stores, Bookings, and Events only. Other verticals have shipped context providers too**, and more appear regularly — do not conclude a context doesn't exist because it is missing here. Confirmed elsewhere:
+**This catalog covers Stores, Bookings, and Events only.** Other verticals have shipped context providers too — Members Area (groups, wallet, wishlist), eCommerce (cart), and Donations among them — and the set grows. Do not conclude a context doesn't exist just because it is missing here; ask Wix developer support whether one is available for your target vertical.
 
-| Vertical | Repo | Providers |
-| --- | --- | --- |
-| Members Area | `wix-private/members-area-builder` | my-groups, my-wallet, my-wishlist |
-| eCommerce | `wix-private/ecom-platform-storefront-builder` | cart-context |
-| Donations | `wix-private/wix-donations-builder` | donation, thank-you |
-
-With `wix-private` access, list the current set with:
-
-```bash
-gh api -X GET search/code -f q='contextSpecifier org:wix-private' --jq '.items[].path'
-```
-
-**If the vertical you need genuinely has no context provider, you cannot build the ERC half** — no amount of manifest configuration substitutes for a provider that doesn't exist. Ship the site plugin, and ask the owning team (or `#editor-platform-dev`) for a provider. Wix Blog and Wix Restaurants are site-plugin hosts in [`../site-plugin/SLOTS.md`](../site-plugin/SLOTS.md) with no context provider found at the time of writing.
+**If the vertical genuinely has no context provider, the ERC half cannot be built** — no manifest configuration substitutes for a provider that doesn't exist. Ship the site plugin and request a provider through Wix developer support. Wix Blog and Wix Restaurants are site-plugin hosts in [`../site-plugin/SLOTS.md`](../site-plugin/SLOTS.md) with no context provider found at the time of writing.
 
 ---
 
@@ -242,21 +230,9 @@ function WithData({ promise }) {
 
 ## Attaching the provider
 
-A context provider is attached to a **page** or a **section**, not to your component. Until it is, your hook throws — so "nothing renders" and "the hook threw" are the same bug seen from two angles.
+A context provider is attached to a **page** or a **section** — never to your component. Components inside that page or section then receive the context. Until a provider is attached, your hook throws, so "nothing renders" and "the hook threw" are the same bug seen from two angles.
 
-To test locally, open the editor with `&experiments=specs.thunderbolt.contextProviders`, select the section, then run this in the editor console — `s` is the editor's scope handle exposed there, not something you import:
-
-```js
-const pointer = { id: s.ds.pages.getCurrentPageId(), type: 'DESKTOP' }; // page
-// const pointer = s.selected.documentPointer;                          // or section
-
-s.ds.contexts.attach(pointer, '<yourContextType>'); // the provider's `type`, e.g. 'onlineStoresBuilder.ProductPageContextProvider'
-s.ds.contexts.list(pointer); // verify
-```
-
-Components inside that page/section then receive the context.
-
-For production, attachment must happen when the app is installed — this is an Editor Platform dependency, not something the component can arrange for itself. If a context will not attach, raise it in `#editor-platform-dev`.
+**You cannot arrange this from inside the component**, and declaring `contextDependencies` does not do it either. Attachment happens when the app is installed, which is platform-controlled. If your component builds correctly but receives no context, that is the thing to raise with Wix developer support — not a bug in your code.
 
 Page and section attachment are the two cases you will meet. Two others exist — a developer wrapping ERC containers, and the legacy OOI slot adapter ([`../EXTENDING_A_VERTICAL.md`](../EXTENDING_A_VERTICAL.md)).
 
@@ -267,7 +243,7 @@ Page and section attachment are the two cases you will meet. Two others exist �
 - **Importing the hook without `contextDependencies`.** Builds, then fails at runtime with no context. Both halves are required.
 - **Guarding a missing provider with `useXContext() ?? {}`.** Dead code — the hook throws before returning, so the fallback can never run. Guard nullable *fields* instead (Rule 5); a missing provider is not recoverable in-component (Rule 4).
 - **Treating the catalog's field list as the hook's return type.** It is the editor-bindable subset; the runtime type is wider. Read the exported `*ContextValue` type.
-- **Expecting the provider to attach itself.** The most common "my component renders nothing" cause. Verify with `s.ds.contexts.list(pointer)`.
+- **Expecting the provider to attach itself.** The most common "my component renders nothing" cause, and not fixable in component code — see [Attaching the provider](#attaching-the-provider).
 - **Writing code against a catalog row without checking the package resolves.** See the TODO at the top — these packages are not on public npm yet.
 - **Re-formatting pre-formatted values.** Stores prices and Events dates/locations arrive display-ready; parsing them back into numbers or `Date`s loses locale and currency handling.
 - **Fetching in `useEffect` for first-render data.** Breaks SSR. Use the `use` utility.
