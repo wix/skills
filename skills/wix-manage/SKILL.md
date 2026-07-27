@@ -199,12 +199,16 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 **Routing — Google paid-advertising campaigns for a site (Smart & Performance Max).** All flows require a Google Ads account, created once via the setup recipe. Budgets are in micros (1,000,000 = 1 currency unit). REST base: `https://www.wixapis.com/google-ads/v1`.
 - **First-time setup / "connect Google Ads" / `ACCOUNT_NOT_FOUND`** → [Install and Create an Account](references/google-ads/install-and-create-account.md) (do this before anything else).
 - **Suggested keywords / geo / budget / ad copy / images** → [Get AI Campaign Suggestions](references/google-ads/get-campaign-suggestions.md).
+- **Create a simple auto-managed campaign** → [Create a Smart Campaign](references/google-ads/create-smart-campaign.md).
 
 ### [Install Google Ads and Create an Account](references/google-ads/install-and-create-account.md)
 **Technical:** One-time setup prerequisite for all Google Ads flows. Installs the Wix Google Ads app (`POST /v1/install-if-not-installed`) then creates the linked account (`POST /v1/accounts` with `currency`). Covers checking for an existing account (`GET /v1/accounts/current-site`, empty when none), optional promotional incentives, Merchant Center linking, and account deletion.
 
 ### [Get AI Campaign Suggestions for Google Ads](references/google-ads/get-campaign-suggestions.md)
 **Technical:** Read-only Suggestions API reference — keyword themes, geo options, Smart budget tiers, PMAX budget recommendations, text/image assets, search themes, full AI campaign configs from a campaign brief (`POST /v1/campaign-suggestions`), and promotional incentive offers. Budgets in micros; generation endpoints have 60–120s SLAs.
+
+### [Create and Launch a Smart Campaign](references/google-ads/create-smart-campaign.md)
+**Technical:** Creates and launches a Smart campaign (Google auto-manages bidding/delivery). Gathers keyword-theme, geo-target, and daily-budget suggestions, assembles the `SMART` campaign (business name, landing URL, language, `budget.amountMicros`, `locations`, `keywordThemes`), creates it in `PAUSED`, then `POST /v1/campaigns/{id}/launch`. Budgets in micros; 5 live campaigns per site.
 
 ---
 

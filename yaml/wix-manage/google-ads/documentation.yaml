@@ -10,3 +10,7 @@ apiDoc:
       title: Get AI Campaign Suggestions for Google Ads
       docsEntry: https://dev.wix.com/docs/api-reference/business-management/marketing/ads/google-ads
       tags: [marketing]
+    - file: ../../../skills/wix-manage/references/google-ads/create-smart-campaign.md
+      title: Create and Launch a Smart Campaign
+      docsEntry: https://dev.wix.com/docs/api-reference/business-management/marketing/ads/google-ads
+      tags: [marketing]

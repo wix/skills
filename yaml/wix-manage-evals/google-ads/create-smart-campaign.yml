@@ -1,0 +1,36 @@
+name: google-ads/create-smart-campaign
+description: >-
+  Verifies the agent uses the Smart campaign recipe: gathering keyword-theme,
+  geo, and budget suggestions, creating the SMART campaign in PAUSED with a
+  micros budget, and launching separately after approval.
+triggerPrompt: >-
+  Create and launch a simple Google Ads Smart campaign for my bakery site using
+  the Wix Google Ads API. Walk me through the endpoints and the request body.
+tags: [marketing]
+maxTokens: 30000
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/marketing/ads/google-ads/skills/create-and-launch-a-smart-campaign
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user wants to create and launch a Smart campaign.
+
+      Pass if the response:
+      - uses the Smart campaign recipe, AND
+      - creates the campaign with campaignType SMART via POST /v1/campaigns,
+        including budget.amountMicros, at least one location
+        (geoTargetConstant), and smartCampaign with keywordThemes,
+        businessName, url, and languageCode, AND
+      - explains budgets are in micros (1,000,000 = 1 currency unit), AND
+      - launches separately via POST /v1/campaigns/{id}/launch (i.e. create in
+        PAUSED/DRAFT then launch), AND
+      - references getting suggestions (keyword themes / geo / budget) as inputs.
+
+      Fail if the response:
+      - claims a single create call also starts serving without a launch step, OR
+      - omits the micros budget concept, OR
+      - hallucinates endpoints, OR
+      - confuses Launch with Resume for a brand-new campaign.
