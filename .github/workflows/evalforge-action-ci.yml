@@ -1,0 +1,61 @@
+name: EvalForge Action CI
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'packages/evalforge-core/**'
+      - '.github/actions/evalforge-yaml-gate/**'
+      - '.github/workflows/evalforge-action-ci.yml'
+
+concurrency:
+  group: evalforge-action-ci-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4
+        with:
+          node-version: '24'
+
+      # Each package vendors yarn 4.10.0 via .yarn/releases + yarnPath. `working-directory`
+      # makes the package the real cwd, which is what Corepack needs to resolve the pinned
+      # yarn — the same reason CONTRIBUTING.md requires `(cd DIR && yarn ...)` over `--cwd`.
+      - name: evalforge-core — install, test, build
+        working-directory: packages/evalforge-core
+        run: |
+          yarn install --immutable
+          yarn test
+          yarn build
+
+      # Must run after core's build: the action consumes it via `portal:`, and the package's
+      # `main`/`types` point at dist/.
+      - name: evalforge-yaml-gate — install, typecheck, test
+        working-directory: .github/actions/evalforge-yaml-gate
+        run: |
+          yarn install --immutable
+          yarn typecheck
+          yarn test
+
+      # CI runs the committed bundle, not src — so a PR that changes source without
+      # rebuilding dist ships nothing. This is what let #689's assertion parity sit
+      # unbundled: source merged green, and the behavior never reached CI.
+      - name: Verify committed dist matches source
+        working-directory: .github/actions/evalforge-yaml-gate
+        run: yarn build
+
+      - name: Fail if dist is stale
+        run: |
+          if ! git diff --exit-code -- .github/actions/evalforge-yaml-gate/dist; then
+            echo "::error::dist/index.js does not match a fresh build. Run:"
+            echo "::error::  (cd packages/evalforge-core && yarn build)"
+            echo "::error::  (cd .github/actions/evalforge-yaml-gate && yarn build)"
+            echo "::error::then commit the regenerated dist."
+            exit 1
+          fi
