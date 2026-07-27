@@ -8,7 +8,7 @@ Read [`../EXTENDING_A_VERTICAL.md`](../EXTENDING_A_VERTICAL.md) first: an ERC al
 
 > **🚧 TODO — package names are internal.** The `moduleSpecifier` values in the catalog below are the real identifiers the verticals ship today, taken verbatim from their manifests, but the packages are **not on public npm** (`npm view @wix/bookings-uou` → E404; same for `@wix/stores-product-page` and `@wix/events-contexts-poc`). Replace with the public package names once they are published. Until then a third-party app cannot install these — verify with `npm view <pkg> version` before writing code against a row.
 
-> **Alpha.** Editor React Components are alpha. The Events contexts are an explicit POC (`events-contexts-poc`). Context manifests **cannot take breaking changes once released**, so treat a context's shape as frozen only after it ships.
+> **Alpha.** Editor React Components are alpha, and the Events contexts are an explicit POC (`events-contexts-poc`). A context's shape can still change before it is released; once released it is frozen, because context manifests **cannot take breaking changes**.
 
 ---
 
@@ -67,9 +67,9 @@ Read [`../EXTENDING_A_VERTICAL.md`](../EXTENDING_A_VERTICAL.md) first: an ERC al
    if (!serviceName) return null;
    ```
 
-6. **Split smart from dumb.** Exactly one component calls the hook; presentation components take props. See [Patterns](#patterns).
+6. **Split smart from dumb.** Within one component, the hook is called once at the top and the values flow down as props — presentation components never call it themselves. (Across the page, any number of separate components may each consume the same context; the rule is about one component's internals, not a page-wide limit.) See [Patterns](#patterns).
 
-7. **Any backend call of your own must be platformized.** Exported sites run off Wix domains, so calls must go through public `wixapis.com`-mapped APIs. Fetch with the `use`/`usePromise` utility (a React-18 implementation of React 19's `use`) so Suspense works during SSR — never `useEffect` + `setState` for first-render data.
+7. **Any backend call of your own must be platformized.** Exported sites run off Wix domains, so calls must go through public `wixapis.com`-mapped APIs. Fetch with the `use` utility so Suspense works during SSR — never `useEffect` + `setState` for first-render data. See [Fetching your own data](#fetching-your-own-data).
 
 ---
 
@@ -77,9 +77,9 @@ Read [`../EXTENDING_A_VERTICAL.md`](../EXTENDING_A_VERTICAL.md) first: an ERC al
 
 `type` is the provider's dev-center component type. `Hook` + `moduleSpecifier` are what you write in code. `Requires` lists other contexts the provider itself depends on — those must also be present on the page.
 
-> **The field lists below are the manifest's `context.items` — the editor-**bindable** subset, not the hook's full return type.** The hook usually returns **more**: raw entity objects and extra actions that were deliberately left undeclared because they are smart-component API rather than editor-bindable values. Two confirmed examples: Bookings `ServiceContextValue` also carries `service`, `selection`, `setVariant`, `toggleAddOn`, `setAddOnQuantity`, `setSlot`, `clearSlot`; Bookings time-slots also carries `selectTimeSlot` and `navigateToBookingForm`. Stores composes its value by spreading several internal hooks (info, price, inventory, selected media, cart actions, back-in-stock), so its runtime surface is considerably wider than the five bindable items listed.
+> **These field lists are the manifest's `context.items` — the editor-bindable subset, not the hook's return type.** The hook returns more: raw entity objects and actions left undeclared because they are smart-component API rather than bindable values. Bookings `ServiceContextValue`, for example, also carries `service`, `selection`, `setVariant`, `toggleAddOn`, `setAddOnQuantity`, `setSlot`, and `clearSlot`; Stores builds its value by spreading six internal hooks behind five bindable items.
 >
-> Use the lists below to answer "what can the editor bind?" and to know a context is the right one. For the authoritative runtime shape, read the exported type — `ProductContextValue`, `ServiceContextValue`, etc. — from the provider package.
+> Use these lists to pick the right context and to know what the editor can bind. For the runtime shape, read the exported `ProductContextValue` / `ServiceContextValue` type from the provider package.
 
 | Vertical | `type` | Hook | `moduleSpecifier` | Requires |
 | --- | --- | --- | --- | --- |
@@ -97,14 +97,14 @@ Read [`../EXTENDING_A_VERTICAL.md`](../EXTENDING_A_VERTICAL.md) first: an ERC al
 
 ### Wix Stores — product context
 
-Product page. `description` is a Ricos document; everything else here is pre-formatted text.
+Product page.
 
 - `name`, `sku`
 - `description` — Ricos document
 - `prices` → `currentSellingPrice`, `originalPrice`, `pricePerUnit`
 - `productPriceRange` → `minCurrentSellingPrice`, `maxCurrentSellingPrice`, `minOriginalPrice`, `maxOriginalPrice`, `minPricePerUnit`, `maxPricePerUnit`
 
-Prices arrive **formatted for display** — do not re-format or do currency math on them.
+Every price is a **display-formatted string**, not a number — don't parse it back for currency math.
 
 ### Wix Events
 
@@ -121,11 +121,9 @@ Prices arrive **formatted for display** — do not re-format or do currency math
 **Membership offers** — `plans` → `name`
 **Seating plan** — `seatingPlan` → `title`
 
-The three above are thin by design in the POC; expect them to grow.
-
 ### Wix Bookings
 
-**Service context** — service page. The richest context of the three verticals:
+**Service context** — service page:
 
 - Identity — `serviceId`, `serviceSlug`, `serviceName`, `serviceDescription`, `serviceTagLine`, `serviceType`, `serviceCtaState`
 - Price — `servicePrice` → `rateType`, `price`, `priceAfterDiscount`, `discountName`, `calculatedAtCheckout`
@@ -143,7 +141,7 @@ The three above are thin by design in the POC; expect them to grow.
 
 **Sessions context** — requires Service. `sessions[]` → `id`, `title`, `startDate`, `endDate`, `durationMinutes`, `staff[]` (`staffMemberId`, `name`), `totalCapacity`, `spotsLeft`, `isFullyBooked`, `isConfirmed`, `isCancelled`, `isAllDay`; plus `timeZone`, `hasMore`, `loadMoreSessions()` (async).
 
-Plural — pair with a repeater to render one row per session.
+This context is plural — it exposes the whole array, so pair it with a repeater to render one row per session.
 
 **Time slots context** — requires Service. `timeSlots` and `nextAvailableSlots`, each slot → `slotId`, `startTime`, `endTime`, `bookable`, `totalCapacity`, `remainingCapacity`, `bookableCapacity`, `eventId`, `eventTitle`, `waitlistCapacity`, `locationId`, `locationName`. Plus `loading`, `error`, `timeZone`, `nextAvailableSlotsCount`, `selectedResourceId`, `selectedTimeSlot` (`slotStartTime`, `slotEndTime`, `bookable`, `eventId`), `staffFromSlots`, `setDateRange(start, end)`, `setSelectedResource(resourceId)`.
 
@@ -172,39 +170,16 @@ export default function BestSellerBadge({ className, id, label }: BestSellerBadg
 }
 ```
 
-Two distinct failure modes, and they need different handling:
-
-| Situation | Symptom | Handling |
-| --- | --- | --- |
-| No provider on the page | Hook **throws** | Error boundary, or don't render the consumer at all |
-| Provider present, data not resolved / not applicable | Field is `null` | Per-field guard, as above |
-
-Conflating them — `useProductContext() ?? {}` — produces code that looks defensive and isn't.
-
-### The root node must stay selectable
-
-The editor can only select the component if its root carries all three:
-
-```tsx
-<div className={`${props.className} ${styles.root}`} id={props.id}>
-```
-
-- `className` from props
-- the class matching the selector declared in the manifest
-- `id` from `props.id`
-
-Dropping any one of them makes the component unselectable in the editor even though it renders correctly on the site.
+The two comments mark the two different failure modes — see Rules 4 and 5. The root element follows the usual ERC pattern ([`CSS-GUIDELINES.md`](CSS-GUIDELINES.md)); consuming a context changes nothing about it.
 
 ### Composition over one large component
 
-Prefer several small context-consuming components (a name, a price, a badge) that the user can add, remove, and rearrange, over one component that owns the whole page layout. Multiple components may consume the same context, and a provider may itself consume a parent context.
-
-Segregate contexts by data purpose: list vs single item, backend data vs UI state (filters, dropdowns), shareable vs specific.
+Prefer several small context-consuming components (a name, a price, a badge) that the user can add, remove, and rearrange, over one component that owns the whole page layout. Any number of components on the page may consume the same context.
 
 ### Fetching your own data
 
 ```tsx
-import { use } from '../usePromise'; // app-local utility — see note below
+import { use } from '../../hooks/use'; // app-local — see note below
 
 function WithData({ promise }) {
   const result = use(promise); // suspends during SSR until resolved
@@ -212,7 +187,7 @@ function WithData({ promise }) {
 }
 ```
 
-`use` is a React-18 backport of React 19's `use` and is **not yet a published package** — the verticals each vendor a local copy (Stores keeps it at `src/hooks/use.ts`). Vendor it in your own app until it ships in a shared lib, and expect to delete it when the platform moves to React 19.
+`use` is a React-18 backport of React 19's `use` and is **not a published package** — each vertical vendors a local copy (Stores keeps it at `src/hooks/use.ts`). Vendor it in your app too, and delete it once the platform moves to React 19.
 
 ---
 
@@ -234,20 +209,19 @@ Components inside that page/section then receive the context.
 
 For production, attachment must happen when the app is installed — this is an Editor Platform dependency, not something the component can arrange for itself. If a context will not attach, raise it in `#editor-platform-dev`.
 
-There are four ways a provider ends up on stage: attached to a page, attached to a section, wrapping ERC containers the developer injects, or the legacy OOI slot adapter (see [`../EXTENDING_A_VERTICAL.md`](../EXTENDING_A_VERTICAL.md)).
+Page and section attachment are the two cases you will meet. Two others exist — a developer wrapping ERC containers, and the legacy OOI slot adapter ([`../EXTENDING_A_VERTICAL.md`](../EXTENDING_A_VERTICAL.md)).
 
 ---
 
 ## Common Mistakes
 
 - **Importing the hook without `contextDependencies`.** Builds, then fails at runtime with no context. Both halves are required.
-- **`useXContext() ?? {}`.** Looks defensive, is dead code — the hook throws before returning. See Rule 4.
+- **Guarding a missing provider with `useXContext() ?? {}`.** Dead code — the hook throws before returning. A component users can place anywhere needs an error boundary or a guaranteed provider (Rule 4).
 - **Treating the catalog's field list as the hook's return type.** It is the editor-bindable subset; the runtime type is wider. Read the exported `*ContextValue` type.
-- **Calling a vertical hook unconditionally in a component users can place anywhere.** Crashes off the vertical's page — needs an error boundary or a guaranteed provider.
 - **Expecting the provider to attach itself.** The most common "my component renders nothing" cause. Verify with `s.ds.contexts.list(pointer)`.
 - **Writing code against a catalog row without checking the package resolves.** See the TODO at the top — these packages are not on public npm yet.
 - **Re-formatting pre-formatted values.** Stores prices and Events dates/locations arrive display-ready; parsing them back into numbers or `Date`s loses locale and currency handling.
-- **Fetching in `useEffect` for first-render data.** Breaks SSR. Use `use`/`usePromise`.
+- **Fetching in `useEffect` for first-render data.** Breaks SSR. Use the `use` utility.
 - **Calling a non-platformized backend.** Works on a Wix-hosted site, fails on an exported one.
 - **Shipping only the ERC.** Dead on Wix Editor and Studio — see [`../EXTENDING_A_VERTICAL.md`](../EXTENDING_A_VERTICAL.md).
 - **Building a dashboard extension this way.** Vertical dashboard pages use `observeState()` and typed host props, not contexts — see [`../DASHBOARD_PLUGIN.md`](../DASHBOARD_PLUGIN.md).

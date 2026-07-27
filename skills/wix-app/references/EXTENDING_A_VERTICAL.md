@@ -35,11 +35,11 @@ Within the editor, there is no single extension type that extends a vertical acr
 
 Co-existence is a known open problem on the platform side. The current approach is dev-center **specs that show/hide extensions per editor group**, which is not self-serve — raise it in `#editor-platform-dev` before assuming a single app version can ship both cleanly.
 
-**Precedent for this shape of requirement:** [`STORES_VERSIONING.md`](STORES_VERSIONING.md) — an app must support both Stores V1 and V3 for the same reason (single-version apps break on some sites). Editor-side vertical extension has the same "cover both or be silently broken" property, one axis up.
+Same shape as [`STORES_VERSIONING.md`](STORES_VERSIONING.md), where an app must support both Stores V1 and V3 or break on some sites.
 
-### Editor-support discrepancy — state it, don't resolve it
+### Which editors support Editor React Components
 
-The public docs say Harmony **only**. The internal Builder guide scopes the Builder architecture to "**Studio 2 & Harmony**." Both are cited above; when it matters for a decision, verify against the target site rather than picking one.
+The public docs (quoted above) say Harmony **only**. Wix's internal Builder architecture guide scopes it to "Studio 2 & Harmony." Verify against the target site when the difference affects a decision, rather than assuming either.
 
 ---
 
@@ -50,7 +50,7 @@ Before calling an editor-side vertical extension "done":
 - [ ] A **Site Plugin** exists, with `placements` for every relevant slot — including **both** Stores product-page versions where applicable (see [`site-plugin/SLOTS.md`](site-plugin/SLOTS.md)).
 - [ ] An **Editor React Component** exists that reads the same data from the vertical's context (see [`editor-react-component/CONSUMING-A-VERTICAL.md`](editor-react-component/CONSUMING-A-VERTICAL.md)).
 - [ ] Both surfaces produce the **same** user-visible behaviour from the same underlying data.
-- [ ] The ERC degrades to a deterministic empty/placeholder render when its context is absent — it will be placeable outside the vertical's page.
+- [ ] The ERC survives being placed **outside** the vertical's page — the context hook throws when no provider is present, so this needs an error boundary or a guaranteed provider, not a null check. See [`editor-react-component/CONSUMING-A-VERTICAL.md`](editor-react-component/CONSUMING-A-VERTICAL.md) Rule 4.
 - [ ] The user has been told, under "🔧 Manual Steps Required", that two extensions ship for one feature and why.
 
 ---
