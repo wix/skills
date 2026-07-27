@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as core from '@actions/core';
-import { TokenProvider } from '../src/utils/auth';
+import { TokenProvider } from '../src/auth';
 
 vi.mock('@actions/core', () => ({ setSecret: vi.fn() }));
 

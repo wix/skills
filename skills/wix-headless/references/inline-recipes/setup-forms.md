@@ -18,7 +18,7 @@ A concise checklist for preparing any new Wix site that uses the **Wix Forms** a
 ## Article: Steps for Setting Up Wix Forms
 **YOU MUST** complete the steps in order, without requiring additional user input: clean the default form (STEP 1) **before** creating yours (STEP 2), then verify (STEP 3).
 
-**⚠️ CRITICAL ORDER REQUIREMENT: clean any pre-existing forms FIRST (STEP 1), before creating any form.** Listing-then-deleting before you create guarantees every id you delete is a pre-existing form, never one you just created — and it prevents a name collision (see STEP 1).
+**⚠️ CRITICAL ORDER REQUIREMENT: clean the install's default sample form FIRST (STEP 1), before creating any form.** Listing-then-deleting before you create guarantees every id you delete is a pre-existing form, never one you just created — and it prevents a name collision (see STEP 1). **But only delete forms that are obviously the install's own default sample form:** the site may already hold the owner's **real forms** (a connect/iterate run, or an owner-populated site). If what's there isn't obviously install sample data, or you're unsure, **do not delete it — ask the user first** (`SEED.md`: seeding is additive; deleting real content needs the owner's approval).
 
 ### STEP 1: Clean — remove any pre-existing (install-default) forms
 

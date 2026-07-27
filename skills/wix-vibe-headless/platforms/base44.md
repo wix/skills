@@ -4,80 +4,169 @@ You are building a **Wix Managed** headless site inside Base44. The business to 
 described in your initial prompt. The Wix connector is already configured for this app — use
 it for all Wix API calls.
 
-Your Wix client id is the env var `WIX_CLIENT_ID`. It's a public, buyer/visitor-facing
-credential (it only mints anonymous visitor tokens), so it's safe in the frontend — but the
-exec_tool secret-guard still **blocks returning it** from a script, and you don't know its
-value at code-write time. So don't hardcode it and don't read it via exec_tool; expose it to
-the client with a tiny backend function and fetch it at runtime:
+Your Wix client id is given in your prompt. It's a public, buyer/visitor-facing credential (it
+only mints anonymous visitor tokens), so it's safe in the frontend — use that value directly for
+the Wix client setup.
 
-```ts
-Deno.serve(() => Response.json({ clientId: Deno.env.get("WIX_CLIENT_ID") }));
-```
+Follow the steps below exactly:
 
-Follow the steps below exactly.
+1. **Install the Wix skills locally**
+2. **(optional) Brief doesn't say what to build? Read the site**
+3. **Build the client**
+4. **Manage and seed the business** (run in parallel with 3)
+5. **Wrap up**
 
-## STEP 0 — Install the Wix skills locally
+## STEP 1 — Install the Wix skills locally
 
-Run this via exec_tool:
+Install three skills — they land under `.agents/skills/` as:
+- **`wix-vibe-headless`** — the client build guide: how to build the frontend against the Wix
+  APIs. This is your main source of truth (STEP 3).
+- **`wix-headless`** — a broad skill for building full Wix apps with the Wix SDK packages, **most
+  of which does not apply to how you build here**. Use it **only** as a seeding/admin recipe
+  reference — its `references/SEED.md` and `references/inline-recipes/`, for STEP 4. **Ignore
+  everything else in it** — in particular do **not** follow its authentication / `@wix/cli` /
+  "managed project" setup (e.g. anything under `references/managed/`, such as `AUTHENTICATION.md`).
+  That is **not** how auth works here — auth is handled per STEP 4 below.
+- **`wix-docs`** — a **fallback**: how to search and read the Wix API reference docs, for anything
+  the seeding recipes above don't cover.
+
+**Option A — skills CLI.** This is the Base44-verified install path — run it first via
+exec_tool, exactly as written:
 
 ```js
 const { execSync } = require('child_process');
-execSync('mkdir -p /app/skills');
-for (const skill of ['headless', 'vibe-headless', 'docs']) {
-  execSync(`curl -s "https://www.wix.com/skills/${skill}.tgz" | tar xz -C /app/skills`);
+const { readdirSync } = require('fs');
+
+const skills = ['wix-headless', 'wix-vibe-headless', 'wix-docs'];
+const results = {};
+
+for (const skill of skills) {
+  try {
+    const out = execSync(`CI=1 npx -y skills add wix/skills/skills/${skill} --yes 2>&1`, {
+      cwd: '/app', timeout: 60000, shell: '/bin/bash', stdio: ['pipe', 'pipe', 'pipe'],
+    });
+    const text = out.toString().replace(/\x1b\[[0-9;]*m/g, '');
+    results[skill] = /installed 1 skill|found 1 skill/i.test(text)
+      ? 'success'
+      : text.includes('No valid skills') ? 'not_found' : 'unknown';
+  } catch (e) {
+    results[skill] = 'error: ' + e.message;
+  }
+}
+
+return { results, installed: readdirSync('/app/.agents/skills') };
+```
+
+**Option B — tarball.** Use this **only if Option A actually errored** (check its `results`) —
+do not skip Option A on a guess. Run via exec_tool:
+
+```js
+const { execSync } = require('child_process');
+for (const s of ['headless', 'vibe-headless', 'docs']) {
+  execSync(`mkdir -p /app/.agents/skills/wix-${s} && curl -s "https://www.wix.com/skills/${s}.tgz" | tar xz -C /app/.agents/skills/wix-${s} --strip-components=1`);
 }
 return 'done';
 ```
 
-Each archive nests its own folder under `/app` → `skills/{headless,vibe-headless,docs}`. Read
-them with the `read_file` tool, using workspace-relative paths (`skills/vibe-headless/SKILL.md`),
-not an absolute `/app/...` path (`read_file` is rooted at `/app`). `read_file`'s cap is by line
-(~5000) — well above these docs, so each comes through whole; page past it with its offset/limit
-params only if ever needed. Do **not** `cat` skill files through exec_tool: its output caps at
-~5000 chars and silently truncates them. And don't fetch the skill URLs over the web (truncates/caches).
+Either way you end up with `.agents/skills/{wix-headless,wix-vibe-headless,wix-docs}`. **Read them
+with the `read_file` tool** — it caps by line (~5000, well above these docs, so each comes through
+whole; page with offset/limit only if ever needed), whereas `cat` through exec_tool caps output at
+~5000 chars and silently truncates, and web-fetch tools truncate/summarise. The path form depends
+on the tool:
+- **`read_file` (preferred):** rooted at `/app`, so use the workspace-relative path
+  `.agents/skills/wix-vibe-headless/SKILL.md` — an absolute `/app/...` double-prefixes and fails.
+- **exec_tool / shell** (only if you must): use the absolute path
+  `/app/.agents/skills/wix-vibe-headless/SKILL.md`.
 
-## STEP 0.5 — Note it in AGENTS.md
+## STEP 2 (optional) — Brief doesn't say what to build? Read the site
 
-Add a short "Wix skills" section to `AGENTS.md` (or the project's existing agent file —
-`CLAUDE.md`, `.cursor/rules`) so the next session doesn't rediscover it: skills at `/app/skills`
-(read via `read_file` with workspace-relative paths, not exec_tool `cat`); client built per
-`vibe-headless/SKILL.md`; admin/seeding
-via `headless/references/SEED.md` + `docs` over the Wix connector (management only, not the
-client); `WIX_CLIENT_ID` is public but must be exposed via a backend function (above).
+Only needed when the business description in your prompt is vague or missing — otherwise skip
+to STEP 3. Don't guess which Wix Business Solution to build (stores, bookings, blog, events,
+portfolio, restaurants, CMS, pricing plans, members, etc..) — **read the site in one call**
+via the connector (exec_tool):
 
-## STEP 1 — Build the client
+```js
+const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");
+const res = await fetch("https://www.wixapis.com/_api/dynamic-context/v1/dynamic-context/markdown", {
+  method: "POST",
+  headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+  body: JSON.stringify({ siteId: "<metasite id from your prompt>" }),
+});
+return (await res.json()).markdown;
+```
 
-Read `/app/skills/vibe-headless/SKILL.md` and follow it **EXACTLY** — it is the single source
-of truth for how the client app is built. To save time, prefer copying ready-made files the
-skill provides (e.g. the Wix client setup) and adapting them over re-generating them from
-scratch.
+It returns a markdown report of the site — installed apps (by name), status, URL, locale, and
+CMS collections
+([docs](https://dev.wix.com/docs/api-reference/tools/dynamic-site-context/get-dynamic-context-markdown.md)).
+Build for the solutions whose apps are installed (several → prioritize by the user's words and
+by which holds real, non-sample content); the same output drives STEP 4's seeding — never seed
+guessed ones. If the call fails or reports nothing relevant, ask the user what they offer.
 
-## STEP 2 — Manage and seed the business
+## STEP 3 — Build the client
 
-Seed the site with real content (products, categories, etc.) by following
-`/app/skills/headless/references/SEED.md`. For any other admin operations, find the relevant
-Wix APIs with the docs skill at `/app/skills/docs` — it explains how to search and read Wix
-documentation. Use the already-configured Wix connector for these management API calls.
+Read `.agents/skills/wix-vibe-headless/SKILL.md` and follow it **EXACTLY** — it is the single
+source of truth for how the client app is built. To save time, prefer copying ready-made files
+the `wix-vibe-headless` skill provides (e.g. the Wix client setup) and adapting them over
+re-generating them from scratch.
+
+## STEP 4 — Manage and seed the business
+
+Seed the site with real content by following the **`wix-headless` skill**'s
+`references/SEED.md` (`.agents/skills/wix-headless/references/SEED.md`). Where its seed recipes
+don't cover what you need, **fall back to the `wix-docs` skill** (`.agents/skills/wix-docs`) to
+search and read the relevant Wix API docs.
+
+**Seeding is additive.** You may clean up the app install's **obvious default sample/mock data**
+right after a fresh install, but the site may already hold **real content** (a prior run, or
+owner-added) — if what's there isn't obviously install sample data, or you're unsure, **do not
+delete or overwrite it without the user's explicit ask or approval** (ask first).
+
+**Auth for these admin calls is the already-configured Wix connector — and nothing else.** Get the
+access token from it and send it as a bearer token — do **not** hand-roll a token getter (e.g. a
+custom `getAdminToken()`):
+
+```js
+const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");
+// then: fetch(url, { headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, ... })
+```
+
+Do **not** install or run the Wix CLI (`@wix/cli`), do a device-login, or follow `wix-headless`'s
+`references/managed/AUTHENTICATION.md` — that managed-project auth flow does not apply to Base44
+and will send you down the wrong path.
 
 When you run seed/management code **inline via exec_tool**, `base44` is already declared — use
 it directly. Do **not** import `@base44/sdk`, re-declare `base44`, or call `createClient()` —
 that pattern is only for standalone `.js` skill files, and inline it throws *"Identifier
 'base44' has already been declared."*
 
-**IMPORTANT:** the Wix connector and the headless skill's seeding instructions are for
-management/admin operations only (STEP 2) — they are **NOT** part of the client. The client is
-built solely per the vibe-headless skill.
+**IMPORTANT:** the Wix connector and the `wix-headless` skill's seeding instructions are for
+management/admin operations only (STEP 4) — they are **NOT** part of the client. The client is
+built solely per the `wix-vibe-headless` skill.
 
 ## Parallelism
 
-If possible, run STEP 1 and STEP 2 in parallel — building the client and seeding the business
+If possible, run STEP 3 and STEP 4 in parallel — building the client and seeding the business
 are independent, so don't wait for one to start the other. Within each step, also work in
 parallel where possible (e.g. independent API calls, seeding multiple entities) instead of
 one-by-one, to finish faster.
 
-## When done
+## STEP 5 — Wrap up
 
-After the site is built and seeded, ask the user to open this URL to complete the setup in Wix
-(substitute the metasite id you were given):
+Once the site is built and seeded:
 
-`https://manage.wix.com/dashboard/{metaSiteId}`
+1. **Leave a brief "Wix skills" note in `AGENTS.md`** (project root) so a future session has
+   context. If the file already exists, **`read_file` it first and only append your section** —
+   do **not** rewrite, reorder, or remove anything already there; if you can't append cleanly,
+   skip this rather than overwrite. Create the file only if none exists. Keep the note
+   high-level, e.g.: the Wix skills are installed under `.agents/skills/`; the client is built
+   per the `wix-vibe-headless` skill; seeding/management is done per the `wix-headless` +
+   `wix-docs` skills.
+2. **Ask the user to open** this URL to complete the setup in Wix (substitute the metasite id
+   you were given): `https://manage.wix.com/dashboard/{metaSiteId}`
+
+## Later admin requests
+
+For any later admin/management request the user makes, work the same way as STEP 4: check the
+`wix-headless` skill's inline recipes first (`.agents/skills/wix-headless/references/inline-recipes/`)
+and, where the operation isn't documented there, fall back to the `wix-docs` skill to search the
+Wix API docs — all over the Wix connector.

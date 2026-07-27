@@ -4,6 +4,11 @@ One file per AI-builder platform (Base44, Lovable, Bolt, v0, Manus, …). Each f
 **handoff prompt** the Wix Headless funnel hands to that platform after it creates the site +
 OAuth app: build the client, then seed/manage the business.
 
+`generic.md` is the **platform-agnostic** version — same flow (install skills → build client →
+seed/manage → wrap up) with no assumptions about a specific platform's tooling. Use it as the
+default/fallback for platforms without their own tuned file; `base44.md` is the Base44-specific
+one (its exec tool, secret store, pre-configured connector, etc.).
+
 These are hosted (served at `https://www.wix.com/skills/vibe-headless/platforms/<platform>.md`)
 so the funnel loader can pass a short pointer to the prompt instead of inlining the whole
 script into the launch URL. Inlining tripped the Base44 edge WAF, which scans the POST body
