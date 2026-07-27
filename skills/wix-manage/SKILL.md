@@ -256,6 +256,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ### [Site Import](references/sites/site-import.md)
 **Technical:** Drives the autonomous Wix Site Import agent over REST (`/site-import/v1/imports`) to migrate a store/site from another platform (Shopify, WooCommerce, Magento, or any URL) into Wix. Covers Start/Poll/Reply/Cancel, relaying agent questions and progress in plain language, handling `DEPLOYED`/`FAILED`/`AUTH_EXPIRED`/`SESSION_EXPIRED` states, and post-deploy follow-up changes. Use when the user wants to import, migrate, or clone an existing store/site into Wix.
 
+### [Diagnose Stale Content After Publish](references/sites/verify-published-content-staleness.md)
+**Technical:** Use when a fetch of a published page's public URL shows outdated content (old text, old nav links) even though the site owner confirms the edit is live in their own browser. Covers the cache-busting query-param check that separates CDN/edge cache staleness (self-healing, not a real bug) from a genuine content problem — never conclude a publish failed from a single plain fetch.
+
 ---
 
 ## Stores
