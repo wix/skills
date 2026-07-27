@@ -3,10 +3,6 @@
 
 Custom element widgets are native web components (HTML custom elements) that appear in the Wix Editor. Site owners add interactive, configurable widgets to their pages and edit them through a built-in settings panel.
 
-## Compatibility
-
-> **Custom Element Widgets are NOT supported in Studio 2 (Astro-based) environments.** If the user's project uses `@wix/astro/builders` or is a Studio 2 app, do not generate a Custom Element Widget — use an Editor React Component instead.
-
 ## Scaffold
 
 Use `wix generate --params` with `extensionType: CUSTOM_ELEMENT`. `folder` must be a valid custom-element tag name (lowercase, starts with a letter, contains at least one hyphen). The CLI generates 4 files plus the `src/extensions.ts` registration:
