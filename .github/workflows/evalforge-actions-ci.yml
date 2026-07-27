@@ -1,0 +1,53 @@
+name: EvalForge Actions CI
+
+on:
+  pull_request:
+    paths:
+      - 'packages/evalforge-core/**'
+      - '.github/actions/evalforge-yaml-gate/**'
+      - '.github/actions/evalforge-skill-gate/**'
+      - '.github/workflows/evalforge-actions-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4
+        with:
+          node-version: '24'
+
+      # Built first (and not typecheck'd/tested in isolation from the others) because the
+      # actions below depend on it via a `portal:` link — their typecheck resolves
+      # @wix/evalforge-core to this package's dist/index.d.ts, so it must exist first.
+      - name: evalforge-core — install, typecheck, test, build
+        working-directory: packages/evalforge-core
+        run: |
+          node .yarn/releases/yarn-*.cjs install --immutable
+          node .yarn/releases/yarn-*.cjs typecheck
+          node .yarn/releases/yarn-*.cjs test
+          node .yarn/releases/yarn-*.cjs build
+
+      - name: evalforge-yaml-gate — install, typecheck, test, verify dist is committed
+        working-directory: .github/actions/evalforge-yaml-gate
+        run: |
+          node .yarn/releases/yarn-*.cjs install --immutable
+          node .yarn/releases/yarn-*.cjs typecheck
+          node .yarn/releases/yarn-*.cjs test
+          node .yarn/releases/yarn-*.cjs build
+          git diff --exit-code dist/index.js
+
+      # Guarded on the directory existing: this workflow lands before the action itself does.
+      - name: evalforge-skill-gate — install, typecheck, test, verify dist is committed
+        if: ${{ hashFiles('.github/actions/evalforge-skill-gate/package.json') != '' }}
+        working-directory: .github/actions/evalforge-skill-gate
+        run: |
+          node .yarn/releases/yarn-*.cjs install --immutable
+          node .yarn/releases/yarn-*.cjs typecheck
+          node .yarn/releases/yarn-*.cjs test
+          node .yarn/releases/yarn-*.cjs build
+          git diff --exit-code dist/index.js
