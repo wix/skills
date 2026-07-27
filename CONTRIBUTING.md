@@ -184,6 +184,26 @@ That PR override makes the Wix MCP load skill content from the pull request inst
 
 Use evaluation as a loop, not a one-time check. Review the failures, tighten the skill or the scenario, and rerun until performance is good enough for the target scenarios.
 
+### Working on the EvalForge actions themselves
+
+The `.github/actions/evalforge-yaml-gate` action depends on the shared
+`packages/evalforge-core` package (scenario schema, EvalForge API client,
+YAML↔EvalForge mapper, auth) via a local `portal:` dependency, bundled into the
+action's committed `dist/index.js` by `ncc`. CI runs that committed
+bundle directly — there's no `yarn install`/build step in CI — so if you change
+code in `packages/evalforge-core`, build the package first, then rebuild and
+commit the consuming action's `dist`:
+
+```bash
+(cd packages/evalforge-core && yarn build)
+(cd .github/actions/evalforge-yaml-gate && yarn build)
+```
+
+Use the `(cd DIR && yarn SCRIPT)` subshell form, not `yarn --cwd DIR SCRIPT` —
+under Corepack, `--cwd` resolves the yarn version from the real process cwd, so
+invoking it from the repo root can silently run the wrong yarn. See
+`packages/evalforge-core/README.md` for details.
+
 ## PR Checklist
 
 Before opening a PR, confirm:

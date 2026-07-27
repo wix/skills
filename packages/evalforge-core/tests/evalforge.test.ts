@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { EvalForgeClient, CODE_TAG, repoTagFor, managedTagsFor, withManagedTags } from '../src/utils/evalforge';
+import { EvalForgeClient, CODE_TAG, repoTagFor, managedTagsFor, withManagedTags } from '../src/evalforge';
 
 const CLIENT_ID = 'cid';
 const CLIENT_SECRET = 'csec';

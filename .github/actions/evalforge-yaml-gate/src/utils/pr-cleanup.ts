@@ -1,5 +1,5 @@
 import * as core from '@actions/core';
-import type { EvalForgeClient } from './evalforge';
+import type { EvalForgeClient } from '@wix/evalforge-core';
 
 export async function deletePrMcpVersions(
   client: EvalForgeClient,
