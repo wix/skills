@@ -3,6 +3,10 @@
 
 Custom element widgets are native web components (HTML custom elements) that appear in the Wix Editor. Site owners add interactive, configurable widgets to their pages and edit them through a built-in settings panel.
 
+## Compatibility
+
+> **Custom Element Widgets are NOT supported in Studio 2 (Astro-based) environments.** If the user's project uses `@wix/astro/builders` or is a Studio 2 app, do not generate a Custom Element Widget — use an Editor React Component instead.
+
 ## Scaffold
 
 Use `wix generate --params` with `extensionType: CUSTOM_ELEMENT`. `folder` must be a valid custom-element tag name (lowercase, starts with a letter, contains at least one hyphen). The CLI generates 4 files plus the `src/extensions.ts` registration:
@@ -102,7 +106,7 @@ The CLI scaffolds the builder file with sensible defaults — edit it only to cu
 | Field | Type | Default | Purpose |
 |---|---|---|---|
 | `id` | UUID | generated | Extension ID. Don't change after scaffolding. |
-| `name` | string | from scaffold param | Display name. |
+| `name` | string | from scaffold param | Display name. **Maximum 30 characters** — longer names cause a platform validation error on deployment. |
 | `tagName` | kebab-case | derived from `folder` | Custom-element tag the widget is registered under. Used by the Editor and by `customElements.define()`. |
 | `width.defaultWidth` | number (px) | `450` | Initial width when the widget is added to a page. |
 | `width.allowStretch` | boolean | `true` | Whether the site owner can stretch the widget to the page width. |
