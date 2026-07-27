@@ -80,21 +80,26 @@ The data channel is the part that cannot be shared — write a thin per-surface 
 
 ## Escape hatch: an ERC plugin inside a not-yet-migrated OOI host
 
-If the host vertical has **not** migrated to Builder but you want to ship ERC-based UI into its OOI slot, there is a legacy adapter that wraps a slot placeholder in a context provider:
+If the host vertical has **not** migrated to Builder but you want to ship ERC-based UI into its OOI slot, a legacy adapter wraps a slot placeholder in a context provider. **This code lives in an OOI widget, not in the ERC** — so it only applies if you own an OOI widget on that page:
 
 ```tsx
-function OOIWidget({ someContainer1, someContainer2 }) {
-  const [ProductSlotPlaceholder] = useSlotPlaceholder('product-page-slot-1');
+import { useSlotPlaceholder } from '@wix/widget-plugins-ooi';
+import { ContextProviderFactory } from '@wix/context-provider-import-ooi';
+
+const Widget = () => {
+  const [SlotPlaceholder] = useSlotPlaceholder('slot1');
   return (
     <ContextProviderFactory
-      moduleName="@wix/stores-smth/product-context"
-      providerProps={{ productVariant, productId }}
+      moduleName="@wix/vertical-example-cli-app/product-context-provider"
+      providerProps={{ productVariantFromOOIWidget: variant }}
     >
-      <ProductSlotPlaceholder />
+      <SlotPlaceholder />
     </ContextProviderFactory>
   );
-}
+};
 ```
+
+`moduleName` is the provider's `moduleSpecifier`; `providerProps` are the values the provider needs, supplied by the host instead of being fetched. Both packages are on public npm.
 
 **Treat this as a last resort.** Per the Builder guide it is "only meant for ERC-plugin developers who need to remain compatible with non-migrated OOI host apps," is **not SSR-compatible yet**, and is intended only until the hosting app migrates. Do not reach for it as the default path — build the two surfaces above instead.
 

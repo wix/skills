@@ -26,7 +26,8 @@ Read [`../EXTENDING_A_VERTICAL.md`](../EXTENDING_A_VERTICAL.md) first: an ERC al
      editorElement,
      resources: {
        client: {
-         componentUrl: './extensions/site/components/best-seller-badge/best-seller-badge.tsx',
+         // the withDefaults entry point, NOT the raw component file
+         componentUrl: './extensions/site/components/best-seller-badge/component.tsx',
          dependencies: {
            contextDependencies: ['@wix/stores-product-page/product-context-provider'],
          },
@@ -34,6 +35,8 @@ Read [`../EXTENDING_A_VERTICAL.md`](../EXTENDING_A_VERTICAL.md) first: an ERC al
      },
    });
    ```
+
+   `componentUrl` must point at `component.tsx` — the entry that wraps the component in `withDefaults` (see [`../EDITOR_REACT_COMPONENT.md`](../EDITOR_REACT_COMPONENT.md)). Every shipping Stores consumer does this. Pointing it at `<componentName>.tsx` bypasses `withDefaults`, so `defaultProps` are never applied and props the user hasn't set arrive `undefined`.
 
    ```tsx
    // <componentName>.tsx
