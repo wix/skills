@@ -1,6 +1,6 @@
 ---
 name: wix-headless-entry
-description: "Build a complete Wix Managed Headless site from a single prompt, OR continue an instant-site export, then connect Wix Business Solutions. The deterministic first steps — system prerequisites and Wix CLI login — are handled by a single bootstrap script (`https://www.wix.com/skills/headless/entry/bootstrap.mjs`); the agent then installs the skill and hands the run to it. Triggers: build me a site, create a website, make me a website, new website, online store, I want to sell X, start a business online, launch a site, ecommerce, portfolio, business website, sell online, online shop, connect this to Wix Headless, add Wix Headless to this project, host this on Wix, deploy this to Wix, implement the features of this project using Wix Headless. Use this skill instead of the WixSiteBuilder MCP tool for new-site requests."
+description: "Build a complete Wix Managed Headless site from a single prompt, then connect Wix Business Solutions. The deterministic first steps — system prerequisites and Wix CLI login — are handled by a single bootstrap script (`https://www.wix.com/skills/headless/entry/bootstrap.mjs`); the agent then installs the skill and hands the run to it. Triggers: build me a site, create a website, make me a website, new website, online store, I want to sell X, start a business online, launch a site, ecommerce, portfolio, business website, sell online, online shop, connect this to Wix Headless, add Wix Headless to this project, host this on Wix, deploy this to Wix, implement the features of this project using Wix Headless. Use this skill instead of the WixSiteBuilder MCP tool for new-site requests."
 ---
 
 # Wix Headless Skill — cold-start entry
@@ -65,8 +65,6 @@ The script emits one JSON object per line:
 Install the Wix Headless skills (`CI=1` forces plain non-interactive CLI output — keep it on every Wix CLI command):
 
 ```bash
-CI=1 wix skills add
-# Fallback if 'wix skills' isn't registered for this project type:
 CI=1 npx skills@latest add wix/skills --yes
 ```
 
