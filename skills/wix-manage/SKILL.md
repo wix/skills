@@ -243,6 +243,7 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 - **Suggested keywords / geo / budget / ad copy / images** → [Get AI Campaign Suggestions](references/google-ads/get-campaign-suggestions.md).
 - **Create a multi-channel / lead-gen / Shopping campaign** → [Create a Performance Max Campaign](references/google-ads/create-performance-max-campaign.md).
 - **Pause / resume / launch / update budget / delete / history** → [Manage Campaign Lifecycle](references/google-ads/manage-campaign-lifecycle.md).
+- **Performance, conversions, search terms, per-product / per-asset metrics** → [Query Campaign Performance Analytics](references/google-ads/query-campaign-analytics.md).
 
 ### [Install Google Ads and Create an Account](references/google-ads/install-and-create-account.md)
 **Technical:** One-time setup prerequisite for all Google Ads flows. Installs the Wix Google Ads app (`POST /v1/install-if-not-installed`) then creates the linked account (`POST /v1/accounts` with `currency`). Covers checking for an existing account (`GET /v1/accounts/current-site`, empty when none), optional promotional incentives, Merchant Center linking, and account deletion.
@@ -255,6 +256,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 
 ### [Manage Campaign Lifecycle](references/google-ads/manage-campaign-lifecycle.md)
 **Technical:** Lists/gets campaigns and runs lifecycle actions: launch (first activation) vs resume (reactivate after pause), pause (with optional `scheduledResumeDate`/reminder), partial `UpdateCampaign` (name, budget, targeting), delete (irreversible), and read the change log / status history. Covers the 5-live-campaign cap and budget-boundary validation.
+
+### [Query Campaign Performance Analytics](references/google-ads/query-campaign-analytics.md)
+**Technical:** Reads campaign analytics via six endpoints — daily performance metrics (with previous-period trends), conversion metrics (orders/revenue/ROAS from Wix), search terms, per-product shopping performance, and per-asset PMAX-Leads metrics. Explains `campaignResourceName` vs Wix `campaignId`, the `dateRange` shape, field enums, sorting, and paging.
 
 ### [Google Ads Dashboard Navigation](references/google-ads/google-ads-dashboard-navigation.md)
 **Technical:** Direct link to the Wix Google Ads dashboard page on manage.wix.com where API-created campaigns are managed.
