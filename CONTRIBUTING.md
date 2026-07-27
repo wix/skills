@@ -141,17 +141,14 @@ siteSetup:
 - `bootstrap.steps` — ordered HTTP calls run against the new site before the agent runs. They are fail-fast: a non-2xx step fails the run.
 - Do **not** use a `{{site-id}}` run variable in `triggerPrompt` together with `siteSetup` — the provisioned site supplies the id.
 
-## Adding a Wix App Skill
+## Updating a Wix App Reference
 
-Use `wix-app` for building Wix app extensions — dashboard pages, dashboard plugins, service plugins (SPIs), editor/site widgets, backend code, and CLI-based app development.
-
-When adding or changing `wix-app` skill content:
+When updating `wix-app` skill content:
 
 1. Add or update the content under `skills/wix-app/SKILL.md` or `skills/wix-app/references/<name>.md`.
 2. Update the relevant index entry in `skills/wix-app/SKILL.md`.
-3. **Add at least one covering eval scenario** under `yaml/wix-app-evals/`, tagged for the area(s) you changed. See [Adding a Wix App Eval Scenario](#adding-a-wix-app-eval-scenario) below.
-4. Every change to `wix-app` skill content should be covered by a scenario — reuse an existing one if it fits, otherwise add a new tagged scenario.
-5. Keep the skill's `description` to at most 1024 characters.
+3. **Every change must be covered by an eval scenario** under `yaml/wix-app-evals/`, tagged for the area(s) you changed — reuse an existing one if it fits, otherwise add a new one. See [Adding a Wix App Eval Scenario](#adding-a-wix-app-eval-scenario) below.
+4. Keep the skill's `description` to at most 1024 characters.
 
 ## Adding a Wix App Eval Scenario
 
@@ -249,22 +246,7 @@ This is the **default template all wix-app runs start from**.
 
 ### Example
 
-```yaml
-name: dashboard-page/employee-shift-dashboard
-description: Dashboard page for store owners to manage employee shifts with a table and add-shift form.
-triggerPrompt: Build a dashboard page that lets store owners manage employee shifts, with a table (employee name, date, hours) and a way to add new shifts.
-tags: [dashboard-page, data-collection]
-templateId: 8116ffa2-e212-4a74-a9f0-1738c9cbb6b1
-assertions:
-  - type: skill_was_called
-    skillNames: [wix-app]
-  - type: build_passed
-    command: npm run build
-  - type: llm_judge
-    minScore: 7
-    prompt: |
-      <pass/fail criteria specific to this scenario>
-```
+See [`yaml/wix-app-evals/employee-shift-dashboard.yml`](yaml/wix-app-evals/employee-shift-dashboard.yml) for a real scenario — it also demonstrates the negative-dependency pattern from [Tagging](#tagging) above (asserting `AUTO_PATTERNS_DASHBOARD.md` and `DATA_COLLECTION.md` were used, and `DASHBOARD_PAGE.md` was not).
 
 ## Common Scenario Fields
 
