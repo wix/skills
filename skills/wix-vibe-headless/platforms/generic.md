@@ -4,7 +4,7 @@ You are building a **Wix Managed** headless site. The business to build, and you
 and metasite id, are given in your initial prompt. Follow the steps below:
 
 1. **Install the Wix skills locally**
-2. **(optional) Brief doesn't say what to build? Ask, or check the site**
+2. **(optional) Brief doesn't say what to build? Ask, or read the site**
 3. **Build the client**
 4. **Seed and manage the business** (run in parallel with 3)
 
@@ -41,32 +41,26 @@ for s in headless vibe-headless docs; do
 done
 ```
 
-## STEP 2 (optional) — Brief doesn't say what to build? Ask, or check the site
+## STEP 2 (optional) — Brief doesn't say what to build? Ask, or read the site
 
 Only needed when the business description in your prompt is vague or missing — otherwise skip
 to STEP 3. Don't guess which Wix Business Solution to build (stores, bookings, blog, events,
-portfolio, restaurants, CMS, pricing plans, members, etc..): **ask the user** one short question
-(what do they offer?), or **check what the site actually has** using the `wix-vibe-headless`
-skill's query APIs (`queryProducts`, `queryServices`, `queryPosts`, …) — with a visitor token
-minted from the client id, or with an admin token if you have one (connector / API key) — and
-build for the solutions that return content (a `428` "app not installed" means that solution
-isn't on the site). The resolved solutions also drive STEP 4's seeding — never seed guessed
-ones.
+portfolio, restaurants, CMS, pricing plans, members, etc..): **ask the user** one short
+question (what do they offer?), or — with an admin-grade Wix credential (connector token or
+API key, per STEP 4; the public `WIX_CLIENT_ID` is not enough) — **read the site in one call**:
 
-The gist, as a one-shot script (run however your platform runs code):
-
-```js
-// token = visitor token (minted from the client id) or your admin token
-// one cheap first-page read per solution (endpoints = each helper's first query)
-// stores:   POST /stores/v3/products/query   { query: { cursorPaging: { limit: 3 } } }
-// bookings: POST /bookings/v2/services/query { query: { paging: { limit: 3 } } }
-// blog: /v3/posts/query · events: /events/v3/events/query · portfolio, restaurants, pricing-plans: …
-// fetch each with { Authorization: token }, then per solution:
-//   !res.ok (428 / blog 401)          -> not installed
-//   items with real names             -> build for it
-//   empty, or "Sample product 3" names -> installed, but says little about the business
-console.log({ stores: "...", bookings: "...", /* ... */ });
+```bash
+curl -sS -X POST 'https://www.wixapis.com/_api/dynamic-context/v1/dynamic-context/markdown' \
+  -H 'Authorization: Bearer <admin token>' -H 'Content-Type: application/json' \
+  -d '{"siteId": "<metasite id from your prompt>"}'
 ```
+
+It returns a markdown report of the site — installed apps (by name), status, URL, locale, and
+CMS collections
+([docs](https://dev.wix.com/docs/api-reference/tools/dynamic-site-context/get-dynamic-context-markdown.md);
+with an API key send it raw as the `Authorization` value, no `Bearer`). Build for the solutions
+whose apps are installed (several → prioritize by the user's words and by which holds real,
+non-sample content); the same set drives STEP 4's seeding — never seed guessed ones.
 
 ## STEP 3 — Build the client
 
