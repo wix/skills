@@ -109,7 +109,9 @@ Update or patch against the **drafts** collection (`articles__drafts`). See [CMS
 
 ### Edit a PUBLISHED item → produces CHANGED
 
-Editing a live item does **not** overwrite the live copy — it stages a **pending draft**, leaving the published version untouched until published. Write the edit to the **drafts** collection (`articles__drafts`) for the same item id; the live item now has a pending draft (state **CHANGED**).
+Editing a live item does **not** overwrite the live copy — it stages a **pending draft**, leaving the published version untouched until published. The live item then has a pending draft (state **CHANGED**).
+
+**Create the draft first, then edit it.** To edit a published item, explicitly create the draft via the **create-draft** flow (`createDataItemDraft`) rather than relying on an implicit draft-on-update. Create-draft seeds a full draft copy of the currently-published item into the drafts collection under the same item id; you then apply your edits to that draft. This is the more reliable path — a bare partial update straight to the drafts collection risks producing a draft that is missing the fields you didn't touch. So: create-draft for the published item id, then Update/Patch that draft on the drafts collection (`articles__drafts`).
 
 ### Publish a pending draft (DRAFT/CHANGED → PUBLISHED)
 
@@ -239,16 +241,9 @@ curl -X POST 'https://www.wixapis.com/wix-data/v2/collections/delete-draft-items
 
 ---
 
-## Permissions — draft vs publish
+## Permissions
 
-The Draft Items plugin distinguishes two capabilities, surfaced per caller on the plugin's `draftItemsPluginOptions` as `manageDrafts` and `managePublishStatus`:
-
-| Capability | Governs | Transitions it gates |
-|------------|---------|----------------------|
-| **manageDrafts** | Create / edit drafts | Author a draft, edit a live item into CHANGED, **Revert to live version** (discard draft) |
-| **managePublishStatus** | Change what is live | **Publish** a draft, **Unpublish** a live item |
-
-A caller with `manageDrafts` but **not** `managePublishStatus` can prepare and revert drafts but cannot make them live or take them down — the "content editor who cannot publish" case. At the REST level, all of these calls require **Write Data Items** (`SCOPE.DC-DATA.WRITE`); the finer split is applied by the plugin's permissions on the collection.
+At the REST level, every read/author/publish/unpublish call here goes through the Data Items API and requires **Write Data Items** (`SCOPE.DC-DATA.WRITE`) for writes. Beyond that, individual draft and publish actions may be further permission-restricted per caller on the collection, and the agent has no way to introspect those specific scopes ahead of time — so attempt the action and **handle authorization errors gracefully** if the write is rejected.
 
 ---
 
@@ -260,12 +255,12 @@ A caller with `manageDrafts` but **not** `managePublishStatus` can prepare and r
 | Draft Items enabled | Detect workflow | `GET /collections/{id}` → inspect plugins for the Draft Items plugin; read `draftItemsPluginOptions.draftsCollectionId` | (read) |
 | Draft Items enabled | Read published items | `POST /items/query` on the published id | read |
 | Draft Items enabled | Read drafts | `POST /items/query` on the drafts collection id | read |
-| PUBLISHED | Edit into a pending draft (→ CHANGED) | Insert/Update on the drafts collection | manageDrafts (Write Data Items) |
-| — | Create new draft (→ DRAFT) | `POST /items` on the drafts collection | manageDrafts (Write Data Items) |
-| DRAFT / CHANGED | Publish (→ PUBLISHED) | `POST /items/publish-draft` (published id) | managePublishStatus (Write Data Items) |
-| PUBLISHED / CHANGED | Unpublish, keep as draft (→ DRAFT) | `POST /items/unpublish` `copyToDraft:true` | managePublishStatus (Write Data Items) |
-| PUBLISHED / CHANGED | Unpublish, discard | `POST /items/unpublish` `copyToDraft:false` | managePublishStatus (Write Data Items) |
-| CHANGED | Revert to live version (discard edit) | `DELETE /items/{id}?dataCollectionId=<drafts id>` | manageDrafts (Write Data Items) |
+| PUBLISHED | Edit into a pending draft (→ CHANGED) | Create the draft (`createDataItemDraft`), then edit it on the drafts collection | Write Data Items |
+| — | Create new draft (→ DRAFT) | `POST /items` on the drafts collection | Write Data Items |
+| DRAFT / CHANGED | Publish (→ PUBLISHED) | `POST /items/publish-draft` (published id) | Write Data Items |
+| PUBLISHED / CHANGED | Unpublish, keep as draft (→ DRAFT) | `POST /items/unpublish` `copyToDraft:true` | Write Data Items |
+| PUBLISHED / CHANGED | Unpublish, discard | `POST /items/unpublish` `copyToDraft:false` | Write Data Items |
+| CHANGED | Revert to live version (discard edit) | `DELETE /items/{id}?dataCollectionId=<drafts id>` | Write Data Items |
 | any | Delete entirely (both versions) | Delete on the published id (+ drafts id if a draft exists) | Write Data Items |
 | plain, no plugin | Enable workflow | `POST /collections/add-draft-items-plugin` | Manage Data Collections |
 
