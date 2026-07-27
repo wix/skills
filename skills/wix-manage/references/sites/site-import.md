@@ -208,9 +208,9 @@ You are the user experience; the API is plumbing. Keep the protocol invisible:
 
 ## Endpoints
 
-**There is exactly ONE id in this API: the latest `importId`.** Requests and
-responses carry nothing else — the service resolves everything from the
-signed-in user.
+**There is exactly ONE id in this API: the `importId`, and it never changes.**
+Requests and responses carry nothing else — the service resolves everything
+from the signed-in user.
 
 1. **Start** — `POST /v1/imports`
    Body: `{"request": "<natural language; MUST include the source store URL>"}`
@@ -228,8 +228,9 @@ signed-in user.
 
 3. **Reply** — `POST /v1/imports/{importId}/reply`
    Body: `{"message": "<answer or follow-up>"}`
-   Returns a **NEW `importId` — poll that one from now on.** The agent
-   continues the same conversation with full context.
+   Returns the **SAME `importId`** (it is stable for the import's lifetime) —
+   keep polling it. The agent continues the same conversation with full
+   context.
 
 4. **Cancel** — `POST /v1/imports/{importId}/cancel`
    Body: `{}`. Only meaningful while status is `IMPORTING`.
@@ -259,8 +260,8 @@ signed-in user.
   - `IMPORTING` — keep polling.
   - `NEEDS_INPUT` — the agent is blocked on a decision. The question IS
     `message`; show it (and `options` if present) to the user, collect their
-    answer (an option or free text), send it via Reply, then poll the NEW
-    `importId` from the Reply response. If `message` says review documents are
+    answer (an option or free text), send it via Reply, then keep polling the
+    same `importId`. If `message` says review documents are
     available, read them FIRST (see "Review documents" below) — the decision
     usually depends on what is in them.
   - `DEPLOYED` — terminal success. Deliver `deployUrl` (already verified
@@ -274,7 +275,7 @@ signed-in user.
     preserved and the import continues.
   - `CANCELLED` — terminal; stopped by Cancel.
 - Follow-up changes after a deploy ("make the header blue", "also import the
-  blog"): send them via Reply on the latest `importId` — same mechanics as
+  blog"): send them via Reply on the import's `importId` — same mechanics as
   answering a question. This works while the import environment is alive
   (~60 minutes idle).
 - If Reply returns `409 { "code": "SESSION_EXPIRED" }`, the environment was
@@ -302,8 +303,8 @@ response**: the user has no way to open a file.
 
 ## Rules
 
-- Always use the **newest** `importId` (each Reply returns a new one) —
-  it is the only id you need to track.
+- There is a **single** `importId` for the whole import — assigned at Start,
+  returned unchanged by Reply, and the only id you ever track.
 - Never invent a `deployUrl` — only report the one returned with `DEPLOYED`.
 - Treat `NEEDS_INPUT` and `AUTH_EXPIRED` as normal turns of the conversation,
   not errors.
