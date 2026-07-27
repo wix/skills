@@ -60,7 +60,9 @@ Read [`../EXTENDING_A_VERTICAL.md`](../EXTENDING_A_VERTICAL.md) first: an ERC al
    }
    ```
 
-   So `useServiceContext() ?? {}` is dead code — the throw happens first. Defending against a missing provider means **not calling the hook** unless the provider is guaranteed, or wrapping the consumer in an error boundary. Users can place a component anywhere, so an ERC that calls a vertical hook unconditionally will crash when dropped outside the vertical's page.
+   So `useServiceContext() ?? {}` is dead code — the throw happens first. There is no in-component way to recover: you either have a provider or you don't.
+
+   **What shipping components actually do: call the hook unguarded.** Every Stores consumer does this, and a search for `ErrorBoundary` across that repo's extensions returns zero hits. They rely on the component only ever being placed where the provider exists. Follow that convention — but understand what you are relying on, and don't add a defensive branch that cannot fire.
 
 5. **Missing *data* is expressed as `null` fields, not a null context.** Most fields are `T | null` (e.g. `serviceName: string | null`), so guard per field and keep first render SSR-safe per [`SSR.md`](SSR.md):
 
@@ -69,9 +71,13 @@ Read [`../EXTENDING_A_VERTICAL.md`](../EXTENDING_A_VERTICAL.md) first: an ERC al
    if (!serviceName) return null;
    ```
 
+   This is the real pattern — `low-stock-indicator` reads `remainingItemCount`, checks it, and returns `null` when there's nothing to show.
+
 6. **Split smart from dumb.** Within one component, the hook is called once at the top and the values flow down as props — presentation components never call it themselves. (Across the page, any number of separate components may each consume the same context; the rule is about one component's internals, not a page-wide limit.) See [Patterns](#patterns).
 
 7. **Any backend call of your own must be platformized.** Exported sites run off Wix domains, so calls must go through public `wixapis.com`-mapped APIs. Fetch with the `use` utility so Suspense works during SSR — never `useEffect` + `setState` for first-render data. See [Fetching your own data](#fetching-your-own-data).
+
+8. **Don't leave the scaffold's `installation.staticContainer` on a vertical component.** `wix generate` emits `staticContainer: 'HOMEPAGE'`, which is wrong for something that belongs on a vertical's page. The shipping Stores consumers declare only `installation.initialSize` (content-sized width and height) and omit `staticContainer` entirely.
 
 ---
 
@@ -108,6 +114,8 @@ Product page.
 - `productPriceRange` → `minCurrentSellingPrice`, `maxCurrentSellingPrice`, `minOriginalPrice`, `maxOriginalPrice`, `minPricePerUnit`, `maxPricePerUnit`
 
 Every price is a **display-formatted string**, not a number — don't parse it back for currency math.
+
+The hook returns considerably more than these five bindable items: `low-stock-indicator` reads `remainingItemCount`, which appears nowhere in the manifest. Read `ProductContextValue` for the full set.
 
 ### Wix Events
 
@@ -218,13 +226,13 @@ function WithData({ promise }) {
 
 A context provider is attached to a **page** or a **section**, not to your component. Until it is, your hook throws — so "nothing renders" and "the hook threw" are the same bug seen from two angles.
 
-To test locally, open the editor with `&experiments=specs.thunderbolt.contextProviders`, select the section, then:
+To test locally, open the editor with `&experiments=specs.thunderbolt.contextProviders`, select the section, then run this in the editor console — `s` is the editor's scope handle exposed there, not something you import:
 
 ```js
 const pointer = { id: s.ds.pages.getCurrentPageId(), type: 'DESKTOP' }; // page
 // const pointer = s.selected.documentPointer;                          // or section
 
-s.ds.contexts.attach(pointer, '<yourContextType>');
+s.ds.contexts.attach(pointer, '<yourContextType>'); // the provider's `type`, e.g. 'onlineStoresBuilder.ProductPageContextProvider'
 s.ds.contexts.list(pointer); // verify
 ```
 
@@ -239,7 +247,7 @@ Page and section attachment are the two cases you will meet. Two others exist �
 ## Common Mistakes
 
 - **Importing the hook without `contextDependencies`.** Builds, then fails at runtime with no context. Both halves are required.
-- **Guarding a missing provider with `useXContext() ?? {}`.** Dead code — the hook throws before returning. A component users can place anywhere needs an error boundary or a guaranteed provider (Rule 4).
+- **Guarding a missing provider with `useXContext() ?? {}`.** Dead code — the hook throws before returning, so the fallback can never run. Guard nullable *fields* instead (Rule 5); a missing provider is not recoverable in-component (Rule 4).
 - **Treating the catalog's field list as the hook's return type.** It is the editor-bindable subset; the runtime type is wider. Read the exported `*ContextValue` type.
 - **Expecting the provider to attach itself.** The most common "my component renders nothing" cause. Verify with `s.ds.contexts.list(pointer)`.
 - **Writing code against a catalog row without checking the package resolves.** See the TODO at the top — these packages are not on public npm yet.

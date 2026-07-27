@@ -52,7 +52,7 @@ Before calling an editor-side vertical extension "done":
 - [ ] A **Site Plugin** exists, with `placements` for every relevant slot — including **both** Stores product-page versions where applicable (see [`site-plugin/SLOTS.md`](site-plugin/SLOTS.md)).
 - [ ] An **Editor React Component** exists that reads the same data from the vertical's context (see [`editor-react-component/CONSUMING-A-VERTICAL.md`](editor-react-component/CONSUMING-A-VERTICAL.md)) — **or** the vertical has no context provider yet, in which case this half is blocked, not optional: say so explicitly rather than shipping silently half-covered.
 - [ ] Both surfaces produce the **same** user-visible behaviour from the same underlying data.
-- [ ] The ERC survives being placed **outside** the vertical's page — the context hook throws when no provider is present, so this needs an error boundary or a guaranteed provider, not a null check. See [`editor-react-component/CONSUMING-A-VERTICAL.md`](editor-react-component/CONSUMING-A-VERTICAL.md) Rule 4.
+- [ ] You know where the ERC can be placed. Its context hook **throws** when no provider is present, and shipping vertical components call the hook unguarded rather than defending against that — so the guarantee comes from placement, not from the component. See [`editor-react-component/CONSUMING-A-VERTICAL.md`](editor-react-component/CONSUMING-A-VERTICAL.md) Rules 4–5.
 - [ ] The user has been told, under "🔧 Manual Steps Required", that two extensions ship for one feature and why.
 
 ---
