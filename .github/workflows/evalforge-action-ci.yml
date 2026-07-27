@@ -14,12 +14,51 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Named `typecheck` (not `test`) so this satisfies main's branch-protection required
-  # status check of that exact name. wix-app-typecheck.yml is the only other source of a
-  # "typecheck" context, and it's scoped to `skills/wix-app/**` — so any PR touching only
-  # these evalforge paths (like #696, #731) previously got no "typecheck" status at all and
-  # sat stuck as "Expected — waiting" forever, mergeable only by an admin bypassing checks.
+  # Typechecking is its own job so the name means what it says — and so its check-run is
+  # named exactly `typecheck`, which is what main's branch protection requires on every PR.
+  # wix-app-typecheck.yml is the only other source of that context and it's scoped to
+  # `skills/wix-app/**`, so a PR touching only these evalforge paths (#696, #731) got no
+  # `typecheck` status at all and sat as "Expected — waiting" forever, mergeable only by
+  # bypassing required checks.
   typecheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4
+        with:
+          node-version: '24'
+
+      # Setup, not a separate check: both actions consume evalforge-core via `portal:` and
+      # its `main`/`types` point at `dist/`, so its declarations have to exist before they
+      # can be typechecked. `tsc` emitting is itself a typecheck of the package.
+      #
+      # `working-directory` rather than `yarn --cwd`: each package vendors yarn 4.10.0 via
+      # .yarn/releases + yarnPath, and Corepack resolves the yarn *version* from the real
+      # process cwd — the same reason CONTRIBUTING.md requires `(cd DIR && yarn ...)`.
+      - name: evalforge-core — install and build
+        working-directory: packages/evalforge-core
+        run: |
+          yarn install --immutable
+          yarn build
+
+      - name: evalforge-yaml-gate — typecheck
+        working-directory: .github/actions/evalforge-yaml-gate
+        run: |
+          yarn install --immutable
+          yarn typecheck
+
+      - name: evalforge-skill-gate — typecheck
+        working-directory: .github/actions/evalforge-skill-gate
+        run: |
+          yarn install --immutable
+          yarn typecheck
+
+  # Test suites, plus the bundle-freshness check — both are "does the committed code do what
+  # source says", which is why they share a job rather than splitting further.
+  test:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -30,9 +69,6 @@ jobs:
         with:
           node-version: '24'
 
-      # Each package vendors yarn 4.10.0 via .yarn/releases + yarnPath. `working-directory`
-      # makes the package the real cwd, which is what Corepack needs to resolve the pinned
-      # yarn — the same reason CONTRIBUTING.md requires `(cd DIR && yarn ...)` over `--cwd`.
       - name: evalforge-core — install, test, build
         working-directory: packages/evalforge-core
         run: |
@@ -40,20 +76,17 @@ jobs:
           yarn test
           yarn build
 
-      # Must run after core's build: the action consumes it via `portal:`, and the package's
-      # `main`/`types` point at dist/.
-      - name: evalforge-yaml-gate — install, typecheck, test
+      # Must run after core's build, for the same `portal:` reason as the typecheck job.
+      - name: evalforge-yaml-gate — install, test
         working-directory: .github/actions/evalforge-yaml-gate
         run: |
           yarn install --immutable
-          yarn typecheck
           yarn test
 
-      - name: evalforge-skill-gate — install, typecheck, test
+      - name: evalforge-skill-gate — install, test
         working-directory: .github/actions/evalforge-skill-gate
         run: |
           yarn install --immutable
-          yarn typecheck
           yarn test
 
       # CI runs the committed bundles, not src — so a PR that changes source without
