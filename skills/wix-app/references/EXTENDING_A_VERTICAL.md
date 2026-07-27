@@ -35,6 +35,8 @@ Within the editor, there is no single extension type that extends a vertical acr
 
 Co-existence is a known open problem on the platform side. The current approach is dev-center **specs that show/hide extensions per editor group**, which is not self-serve — raise it in `#editor-platform-dev` before assuming a single app version can ship both cleanly.
 
+**The ERC half depends on the vertical.** An ERC reads vertical data from a Context Provider the vertical publishes, so if the target vertical hasn't shipped one, that half cannot be built at all — Wix Blog and Wix Restaurants are in this position today. Check the catalog in [`editor-react-component/CONSUMING-A-VERTICAL.md`](editor-react-component/CONSUMING-A-VERTICAL.md) before promising both surfaces.
+
 Same shape as [`STORES_VERSIONING.md`](STORES_VERSIONING.md), where an app must support both Stores V1 and V3 or break on some sites.
 
 ### Which editors support Editor React Components
@@ -48,7 +50,7 @@ The public docs (quoted above) say Harmony **only**. Wix's internal Builder arch
 Before calling an editor-side vertical extension "done":
 
 - [ ] A **Site Plugin** exists, with `placements` for every relevant slot — including **both** Stores product-page versions where applicable (see [`site-plugin/SLOTS.md`](site-plugin/SLOTS.md)).
-- [ ] An **Editor React Component** exists that reads the same data from the vertical's context (see [`editor-react-component/CONSUMING-A-VERTICAL.md`](editor-react-component/CONSUMING-A-VERTICAL.md)).
+- [ ] An **Editor React Component** exists that reads the same data from the vertical's context (see [`editor-react-component/CONSUMING-A-VERTICAL.md`](editor-react-component/CONSUMING-A-VERTICAL.md)) — **or** the vertical has no context provider yet, in which case this half is blocked, not optional: say so explicitly rather than shipping silently half-covered.
 - [ ] Both surfaces produce the **same** user-visible behaviour from the same underlying data.
 - [ ] The ERC survives being placed **outside** the vertical's page — the context hook throws when no provider is present, so this needs an error boundary or a guaranteed provider, not a null check. See [`editor-react-component/CONSUMING-A-VERTICAL.md`](editor-react-component/CONSUMING-A-VERTICAL.md) Rule 4.
 - [ ] The user has been told, under "🔧 Manual Steps Required", that two extensions ship for one feature and why.

@@ -16,7 +16,7 @@ Read [`../EXTENDING_A_VERTICAL.md`](../EXTENDING_A_VERTICAL.md) first: an ERC al
 
 1. **Declare the dependency in the manifest, import the hook in the component.** Both halves are required — the hook import alone will not cause the platform to provide the context.
 
-   `resources` lives in `<componentName>.extension.ts` — add `dependencies` alongside the existing `client`, inside the `extensions.editorReactComponent({ ... })` call the scaffold already generated. Do not introduce a second `resources` block.
+   `resources` lives in `<componentName>.extension.ts`, inside the `extensions.editorReactComponent({ ... })` call the scaffold generated. Add `dependencies` there — don't introduce a second `resources` block.
 
    ```ts
    // <componentName>.extension.ts
@@ -27,9 +27,9 @@ Read [`../EXTENDING_A_VERTICAL.md`](../EXTENDING_A_VERTICAL.md) first: an ERC al
      resources: {
        client: {
          componentUrl: './extensions/site/components/best-seller-badge/best-seller-badge.tsx',
-       },
-       dependencies: {
-         contextDependencies: ['@wix/stores-product-page/product-context-provider'],
+         dependencies: {
+           contextDependencies: ['@wix/stores-product-page/product-context-provider'],
+         },
        },
      },
    });
@@ -40,9 +40,11 @@ Read [`../EXTENDING_A_VERTICAL.md`](../EXTENDING_A_VERTICAL.md) first: an ERC al
    import { useProductContext } from '@wix/stores-product-page/product-context-provider';
    ```
 
-   The string in `contextDependencies` is the provider's `moduleSpecifier` — the same value you import from. Get both from the catalog below.
+   The string in `contextDependencies` is the provider's `moduleSpecifier` — the same value you import from. Get both from the catalog below. The array takes more than one entry: a component may consume several contexts.
 
-   > **`contextDependencies` is not in the public manifest reference.** The [`resources`](https://dev.wix.com/docs/build-apps/develop-your-app/extensions/site-extensions/editor-react-components/manifest-reference/root-properties/resources) page documents no `dependencies` key at all — the field is confirmed only by the internal Builder guide and by the verticals' own manifests. Don't conclude it doesn't exist because the public docs omit it; do expect the shape to move while ERCs are alpha.
+   > **⚠️ `dependencies` placement is genuinely ambiguous — check before you copy.** Two forms both ship in production. Stores consumers nest it **inside `client`** (`resources.client.dependencies`, as above — `low-stock-indicator`, `ribbons`, `discount-names` all do this). The internal Builder guide and the Events `event-title` consumer put it as a **sibling of `client`** (`resources.dependencies`). Providers are a third case: Bookings' manifests comment that "context providers declare all dependencies at `resources.dependencies` — the `client`/`editor` Resources hold only `url`."
+   >
+   > The public [`resources`](https://dev.wix.com/docs/build-apps/develop-your-app/extensions/site-extensions/editor-react-components/manifest-reference/root-properties/resources) reference documents no `dependencies` key at all, and the published `@wix/component-protocol` schema has `serviceDependencies` but no `contextDependencies` — so neither settles it. Run `wix schema generate --type EDITOR_REACT_COMPONENT` for your CLI version and match whichever the schema accepts, rather than trusting either example.
 
 2. **Context data is platform-supplied, not an external fetch.** [`COMPONENT-API.md`](COMPONENT-API.md) forbids external resources; a vertical context is not one. It arrives through the platform like `a11y` props or `EnvironmentDefinition` in [`DIRECTIONALITY.md`](DIRECTIONALITY.md). Reading it is allowed and expected.
 
@@ -85,6 +87,7 @@ Read [`../EXTENDING_A_VERTICAL.md`](../EXTENDING_A_VERTICAL.md) first: an ERC al
 | --- | --- | --- | --- | --- |
 | Stores | `onlineStoresBuilder.ProductPageContextProvider` | `useProductContext` | `@wix/stores-product-page/product-context-provider` | — |
 | Events | `eventsContextsPOC.EventContextProvider` | `useEventContext` | `@wix/events-contexts-poc/event-context-provider` | — |
+| Events | `eventsContextsPOC.EventListContextProvider` | `useEventListContext` | `@wix/events-contexts-poc/event-list-context-provider` | — |
 | Events | `eventsContextsPOC.AvailableTicketsContextProvider` | `useAvailableTicketsContext` | `@wix/events-contexts-poc/available-tickets-context-provider` | Event |
 | Events | `eventsContextsPOC.MembershipOffersContextProvider` | `useMembershipOffersContext` | `@wix/events-contexts-poc/membership-offers-context-provider` | Event |
 | Events | `eventsContextsPOC.SeatingPlanContextProvider` | `useSeatingPlanContext` | `@wix/events-contexts-poc/seating-plan-context-provider` | Event |
@@ -116,6 +119,8 @@ Every price is a **display-formatted string**, not a number — don't parse it b
 - `event` → `title`
 - `locations` → `address`, `description`, `title`, `latitude`, `longitude`
 - `openEventDetails()` — navigates to the public event details page; bound to a pointer event
+
+**Event list context** — a list page rather than a single event. `events` → `title`. Its `filter` is provider config (`upcoming` | `past` | `all`, default `upcoming`), set where the provider is configured, not read from the hook.
 
 **Available tickets** — `ticketDefinitions` → `name`
 **Membership offers** — `plans` → `name`
@@ -152,6 +157,24 @@ This context is plural — it exposes the whole array, so pair it with a repeate
 **Categories context** — `categoryItems[]` → `categoryId`, `categoryName`, `isSelected`; `selectedCategoryId`, `selectedCategoryIndex`, `selectedCategoryName`, `selectCategory(categoryId)`, `refetch()` (async).
 
 Locations and Categories back their selection with the URL — selecting updates the address bar, so treat them as the source of truth rather than mirroring selection into local state.
+
+### Verticals not in this catalog
+
+**This catalog covers Stores, Bookings, and Events only. Other verticals have shipped context providers too**, and more appear regularly — do not conclude a context doesn't exist because it is missing here. Confirmed elsewhere:
+
+| Vertical | Repo | Providers |
+| --- | --- | --- |
+| Members Area | `wix-private/members-area-builder` | my-groups, my-wallet, my-wishlist |
+| eCommerce | `wix-private/ecom-platform-storefront-builder` | cart-context |
+| Donations | `wix-private/wix-donations-builder` | donation, thank-you |
+
+With `wix-private` access, list the current set with:
+
+```bash
+gh api -X GET search/code -f q='contextSpecifier org:wix-private' --jq '.items[].path'
+```
+
+**If the vertical you need genuinely has no context provider, you cannot build the ERC half** — no amount of manifest configuration substitutes for a provider that doesn't exist. Ship the site plugin, and ask the owning team (or `#editor-platform-dev`) for a provider. Wix Blog and Wix Restaurants are site-plugin hosts in [`../site-plugin/SLOTS.md`](../site-plugin/SLOTS.md) with no context provider found at the time of writing.
 
 ---
 
