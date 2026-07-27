@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isWixAuthorEmail, getFirstCommitAuthorEmail, assertWixAuthor } from '../src/utils/author-gate';
+import { isWixAuthorEmail, getFirstCommitAuthorEmail, assertWixAuthor } from '../src/author-gate';
 
 describe('isWixAuthorEmail', () => {
   it('accepts @wix.com addresses (case-insensitive)', () => {

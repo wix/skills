@@ -1,16 +1,28 @@
-import * as core from '@actions/core';
-import * as github from '@actions/github';
-
-type Octokit = ReturnType<typeof github.getOctokit>;
-
 const WIX_EMAIL_RE = /@wix\.com$/i;
+
+/**
+ * The slice of Octokit this module needs. Declared structurally so the package
+ * takes no dependency on `@actions/github` — a real Octokit satisfies it.
+ */
+export type PullCommitsClient = {
+  rest: {
+    pulls: {
+      listCommits: (params: {
+        owner: string;
+        repo: string;
+        pull_number: number;
+        per_page?: number;
+      }) => Promise<{ data: Array<{ commit?: { author?: { email?: string | null } | null } | null }> }>;
+    };
+  };
+};
 
 export function isWixAuthorEmail(email: string | undefined | null): boolean {
   return typeof email === 'string' && WIX_EMAIL_RE.test(email.trim());
 }
 
 export async function getFirstCommitAuthorEmail(
-  octokit: Octokit,
+  octokit: PullCommitsClient,
   owner: string,
   repo: string,
   prNumber: number,
@@ -27,10 +39,11 @@ export async function getFirstCommitAuthorEmail(
 }
 
 export async function assertWixAuthor(
-  octokit: Octokit,
+  octokit: PullCommitsClient,
   owner: string,
   repo: string,
   prNumber: number,
+  log?: (message: string) => void,
 ): Promise<void> {
   const email = await getFirstCommitAuthorEmail(octokit, owner, repo, prNumber);
   if (!isWixAuthorEmail(email)) {
@@ -39,5 +52,5 @@ export async function assertWixAuthor(
         `is not a @wix.com address. This gate is restricted to Wix authors.`,
     );
   }
-  core.info(`Author gate passed — first-commit author email: ${email}`);
+  log?.(`Author gate passed — first-commit author email: ${email}`);
 }
