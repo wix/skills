@@ -35,7 +35,7 @@ A concise contract for writing the **frontend code** of a Bookings site: listing
 **Never** use `confirmBooking` (see *Creating the booking*) — the ecom cart confirms the seat here, not a server-side confirm.
 
 **Auth / client — framework split:**
-- **Astro (Wix-managed):** authentication is ambient. Call the modules directly from server components / backend routes and from browser islands (the `@wix/astro` visitor client) — **no `createClient`, no `OAuthStrategy`, no `clientId`.** SSR reads that need elevation use `@wix/essentials` (`auth.elevate(services.queryServices)(...)`); a public-env `clientId` read in `.astro` SSR is `undefined` at server render → 500, so don't build an `OAuthStrategy` client there.
+- **Astro (Wix-managed):** authentication is ambient. Call the modules directly from server components / backend routes and from browser islands (the `@wix/astro` visitor client) — **no `createClient`, no `OAuthStrategy`, no `clientId`.** Nothing here needs elevation (the reads below all run as the visitor); a public-env `clientId` read in `.astro` SSR is `undefined` at server render → 500, so don't build an `OAuthStrategy` client there.
 - **Non-Astro (Vite/React/Vue/static):** build one manual visitor client and reuse it:
   ```js
   import { createClient, OAuthStrategy } from '@wix/sdk';
@@ -67,7 +67,7 @@ service = {
   mainSlug: { name },                               // the URL slug   (NOT service.slug; fallback supportedSlugs[0].name)
   schedule: { id, availabilityConstraints: { sessionDurations: [60] } },  // duration = sessionDurations[0] (minutes)
   payment: { fixed: { price: { value, currency } } },                     // value is a STRING; currency is the site's
-  media: { mainMedia: { image: { url } } },         // already a URL in V2 reads
+  media: { mainMedia: { image } },                  // image is a "wix:image://…" string — resolve via media.getImageUrl()
   category: { _id },                                // the service's category
   form: { _id },                                    // the booking form (fetch via @wix/forms)
   bookingPolicy: { cancellationFeePolicy: { enabled } },  // drives the checkout-vs-place decision
@@ -76,12 +76,13 @@ service = {
 
 // availabilityTimeSlots.listAvailabilityTimeSlots(...)  →  result.timeSlots[]   (APPOINTMENT)
 apptSlot = { localStartDate, localEndDate, scheduleId, location, availableResources }  // fields at TOP level (NOT slot.startDate); availableResources may be []
+//   availableResources[] = { resources: [{ _id, name }] }   // NESTED; each resource id is _id NOT id — this is what you read to label/group a slot by its staff/instructor
 
 // eventTimeSlots.listEventTimeSlots(...)  →  result.timeSlots[]   (CLASS)
 classSlot = { localStartDate, localEndDate, eventInfo: { eventId } }  // carries eventId; NO scheduleId
 ```
 
-**⚠️ CRITICAL: entity ids are `_id`, NOT `id`.** `service._id`, `booking._id`. `service.id` is `undefined` in SDK code. **`staffMemberDetails.staffMembers[].staffMemberId`** is the exception — despite the name it **IS the resource GUID** (it matches the seed's staff `resourceId`), and it's the value you filter availability and book by.
+**⚠️ CRITICAL: entity ids are `_id`, NOT `id`.** `service._id`, `booking._id`. `service.id` is `undefined` in SDK code. This includes the **resource objects nested under a slot** — `slot.availableResources[].resources[]._id` (NOT `.id`); reading `.id` there silently yields `undefined`, so grouping/labeling/filtering slots by staff or instructor breaks with no error (an image-led class site rendering blank instructor names/photos is the tell). **`staffMemberDetails.staffMembers[].staffMemberId`** is the exception — despite the name it **IS the resource GUID** (it matches the seed's staff `resourceId`), and it's the value you filter availability and book by.
 
 ---
 
@@ -106,7 +107,7 @@ const { items: [service] } = await services
 ```
 Doc: <https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/query-services.md?apiView=SDK>
 
-- **⚠️ `queryServices` is a fluent builder — its only argument is `QueryServicesOptions` (`conditionalFields`, etc.), NOT a `{ query: { filter, paging } }` object.** Apply the `appId` filter and paging as `.eq(...)` / `.limit(...)` chain calls, then `.find()`. The `{query:{filter,paging}}` form is the REST body shape; it does **not** type-check against the SDK (`'query' does not exist in type 'QueryServicesOptions'`), and the SDK reference page still shows the stale object-param form — trust the installed builder, not that doc example.
+- **⚠️ `queryServices` is a fluent builder — its only argument is `QueryServicesOptions` (`conditionalFields`, etc.), NOT a `{ query: { filter, paging } }` object.** Apply the `appId` filter and paging as `.eq(...)` / `.limit(...)` chain calls, then `.find()`. The `{query:{filter,paging}}` form is the REST body shape; it does **not** type-check against the SDK (`'query' does not exist in type 'QueryServicesOptions'`) — if the SDK reference page shows an object-param form, trust the installed builder, not that doc example.
 
 - **`appId` filter is required** — omitting it returns services from other apps / nothing useful.
 - **Read V2 flat fields** (cheat-sheet): slug `mainSlug.name` (**not** `service.slug`), `name`/`description`/`tagLine`, duration `schedule.availabilityConstraints.sessionDurations[0]`, price `payment.fixed.price.value` (a **string**). A missing service usually means it wasn't seeded **with a category** (the visibility invariant), not a query bug.
@@ -156,7 +157,7 @@ const { formSummary } = await forms.getFormSummary(service.form._id);
 // formSummary.fields[] = { target, label, type, options?, deleted, _id }   ← FLAT, no nesting
 const fields = (formSummary?.fields ?? [])
   .filter(f => !f.deleted)
-  .filter(f => ['STRING', 'EMAIL', 'PHONE', 'NUMBER', 'URL'].includes(f.type));  // simple text-like only
+  .filter(f => f.type && ['STRING', 'EMAIL', 'PHONE', 'NUMBER', 'URL'].includes(f.type));  // simple text-like only (`f.type` is optional on the summary field — guard it or strict build errors)
 ```
 Doc: <https://dev.wix.com/docs/api-reference/crm/forms/form-schemas/get-form-summary.md?apiView=SDK> · bookings↔forms: <https://dev.wix.com/docs/api-reference/business-solutions/bookings/wix-forms-integration.md?apiView=SDK>
 
@@ -195,7 +196,7 @@ const created = await bookings.createBooking({
   bookedEntity: {
     slot: {
       serviceId,
-      scheduleId: slot.scheduleId,        // APPOINTMENT only — the SELECTED SLOT's own scheduleId, NOT service.schedule.id
+      scheduleId: slot.scheduleId ?? undefined, // APPOINTMENT only — the SELECTED SLOT's own scheduleId, NOT service.schedule.id (the availability slot types it `string | null`; `?? undefined` to satisfy the `string | undefined` param under strict)
       eventId: slot.eventInfo?.eventId,   // CLASS only (Wix derives startDate/endDate/resource/location from it)
       startDate: slot.localStartDate,     // local "YYYY-MM-DDThh:mm:ss"
       endDate:   slot.localEndDate,
@@ -224,29 +225,34 @@ const cart = await createCart({
   catalogItems: [{ quantity: 1, catalogReference: { catalogItemId: bookingId, appId: BOOKING_APP_ID } }],
   cart: { source: { channelType: 'WEB' } },
 });
-const { cart: calc, summary } = await calculateCart(cart._id);   // totals are NOT stored on the Cart V2 entity
+if (!cart._id) throw new Error('cart creation failed');   // Cart V2 types `_id` as `string | undefined`; narrow once so the strict build accepts it downstream
+const cartId = cart._id;
+const { cart: calc, summary } = await calculateCart(cartId);   // totals are NOT stored on the Cart V2 entity
 
 // checkout required? cancellation-fee policy → yes; total 0 → no; FULL_PAYMENT_OFFLINE → no; else yes
 if (checkoutRequired) {
   const { redirectSession } = await redirects.createRedirectSession({
-    ecomCheckout: { checkoutId: cart._id },        // the cartId IS the checkoutId here
+    ecomCheckout: { checkoutId: cartId },          // the cartId IS the checkoutId here
     callbacks: { postFlowUrl: `${origin}/booking-confirmation` },
   });
   window.location.href = redirectSession.fullUrl;  // Wix-hosted checkout
 } else {
-  const order = await placeOrder(cart._id);        // free / pay-in-person → confirmation
+  const order = await placeOrder(cartId);          // free / pay-in-person → confirmation
 }
 ```
 
 - **⚠️ No `confirmBooking`.** The classic server-side confirm step is not used — the **ecom Cart V2** holds the seat: `placeOrder` (free/offline) or the hosted checkout (paid) drives confirmation, so a client-only site completes the whole flow with no server elevation.
 - **⚠️ CRITICAL: `origin` in `postFlowUrl` MUST be the `https://` published host — from `window.location.origin`, NEVER `new URL(request.url).origin`.** The Headless redirect allowlist registers the `https://` host and treats `http://<same host>` as a different, unlisted origin; a `http://` `postFlowUrl` makes the return ("Continue Browsing") **403** with *"… isn't listed as an allowed redirect domain."* Server-derived `new URL(request.url).origin` is `http://` behind Wix's proxy → pass `window.location.origin` from the client, or force `https`. Doc: <https://dev.wix.com/docs/go-headless/getting-started/setup/manage-urls/add-allowed-redirect-domains>.
 - **⚠️ CRITICAL: the confirmation page must reflect REAL status — do NOT hardcode `?status=success` in `postFlowUrl`, and do NOT default the page to success.** The buyer lands on `postFlowUrl` whether they completed payment **or** clicked "Continue Browsing" to abandon the hosted checkout. A confirmation page that reads `status ?? 'success'` (or trusts a `?status=success` you baked into the URL) renders "confirmed" for an **unpaid, abandoned** booking. Drive the confirmation from the actual order/booking — look up the booking (it's `CREATED` after `createBooking`; payment is a separate state) or the order — and don't present an unconfirmed booking as confirmed. For the free/offline branch, `placeOrder` having returned an `orderId` is a real success signal; for the paid branch, returning from the redirect is **not**.
+- **⚠️ Read the booking back as the anonymous visitor — `getBooking` is a manage-scope read that `403`s the visitor (same axis as the events `ticketDefinitions` trap; do NOT `auth.elevate`).** The visitor-public path is a two-step token handoff, both exports on `@wix/bookings` — use these exact calls, don't hunt the installed `.d.ts` for them:
+  1. **At booking time** (right after `createBooking` returns `booking._id`) mint a one-shot read token: `const { token } = await bookings.getAnonymousActionToken(bookingId)` — **`bookingId` is a POSITIONAL string arg, not `{ bookingId }`** (the object form fails `tsc`). Append the token to your `postFlowUrl` (e.g. `?bookingId=…&token=…`).
+  2. **On the confirmation page** read it back: `const { booking } = await bookings.bookingsGetBookingAnonymously(token)` — the response is **wrapped** (`{ booking }`). Drive the UI off **`booking.status`** (`CREATED` = seat held / payment pending; `CONFIRMED`/`PENDING` = done) and the time off **`booking.bookedEntity.slot.startDate`**.
 - The cart's `catalogReference.catalogItemId` is the **`booking._id`** and `appId` is the **Bookings app id** (a booking id is automatically valid as an ecom catalog item).
 
 ### Rendering & mounting
 
 - **Price**: `service.payment.fixed.price.value` (string) + `.currency` (the site's stored currency — format from it, don't assume USD).
-- **Image**: `service.media.mainMedia.image.url` (already an absolute URL in V2 reads). An already-`https://` URL goes straight into `<img src>`.
+- **Image**: `service.media.mainMedia.image` is a **string**, not an object (the installed type is `image?: string`, so `.image.url` fails `tsc`) — but its value is a Wix media URI like `wix:image://v1/…`, **not** an absolute URL (`.startsWith("https://")` is `false`). Putting it straight into `<img src>` ships broken images. Resolve it first: `import { media } from "@wix/sdk"`, then `media.getImageUrl(service.media.mainMedia.image).url` → `https://static.wixstatic.com/media/…`. Guard for services with no image.
 - **Mount slots + form + book in a `client:only="react"` island** (Astro) — availability is timezone/session-specific. SSR only the read pages (catalog/detail) for SEO.
 
 ### SEO on item pages (Astro, Wix-managed)
@@ -270,4 +276,4 @@ A correct Services V2 booking frontend:
 - uses **`service._id`** (never `service.id`) and reads the **flat V2 fields** (`mainSlug.name`, `payment.fixed.price.value`, `schedule.availabilityConstraints.sessionDurations[0]`);
 - fetches availability per type (**`availabilityTimeSlots`** for APPOINTMENT, **`eventTimeSlots`** for CLASS) with **local date strings**, reads slot fields at the **top level**, and scopes to one location to avoid duplicate rows;
 - renders the booking form **schema-driven via `getFormSummary`** (the flat `formSummary.fields[].target`, never `getForm`/`formFields`), **falls back to `first_name`/`last_name`/`email` whenever the parsed list is empty** (so the form never renders blank or hangs), keys values by `target`, skips complex field types, and passes that object as **`formSubmission`** (not `contactDetails`);
-- runs **createBooking → createCart → calculateCart → checkout-or-place**, deriving `selectedPaymentOption` from the service (free/offline → `OFFLINE`, else `INSUFFICIENT_INVENTORY`) and using the **ANY_RESOURCE** fallback when no staff is chosen.
+- runs **createBooking → createCart → calculateCart → checkout-or-place**, deriving `selectedPaymentOption` from the service (free/offline → `OFFLINE`, else `ONLINE` — the wrong choice rejects the cart with `INSUFFICIENT_INVENTORY`) and using the **ANY_RESOURCE** fallback when no staff is chosen.

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { diffSyncPlan } from '../src/utils/sync';
-import type { RemoteScenario } from '../src/utils/evalforge';
-import type { Scenario } from '../src/utils/schema';
+import type { RemoteScenario } from '@wix/evalforge-core';
+import type { Scenario } from '@wix/evalforge-core';
 
 const s = (name: string): Scenario => ({
   name, description: '', triggerPrompt: '0123456789', tags: ['blog'],

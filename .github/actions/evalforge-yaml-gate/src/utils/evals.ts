@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { posix } from 'node:path';
 import { glob } from 'glob';
-import { parseScenario, type Scenario } from './schema';
+import { parseScenario, type Scenario } from '@wix/evalforge-core';
 import { EVALS_GLOB } from './paths';
 
 export type LoadedScenario = { path: string; scenario: Scenario };
