@@ -182,6 +182,12 @@ https://mcp.wix.com/mcp?skillsRepo=wix/skills&skillsPr=<headSha>
 
 That PR override makes the Wix MCP load skill content from the pull request instead of from `main`, so eval scenarios test the proposed skill content.
 
+The capability version authenticates as a **user session**, not an API key: it carries an
+`x-wix-mcp-account-token` header whose value is the `{{wix-auth-account-token}}` placeholder, which
+EvalForge substitutes at run time with a base64-encoded Wix session. No credential is ever committed
+here or stored in the capability config. If EvalForge retires or renames that placeholder, this gate
+must be updated in the same rollout — an unresolvable placeholder fails the eval run outright.
+
 Use evaluation as a loop, not a one-time check. Review the failures, tighten the skill or the scenario, and rerun until performance is good enough for the target scenarios.
 
 ### Working on the EvalForge actions themselves

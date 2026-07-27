@@ -34668,6 +34668,11 @@ exports.EvalForgeClient = void 0;
 const MCP_URL = 'https://mcp.wix.com/mcp';
 const MCP_SKILLS_REPO = 'wix/skills';
 const MCP_CONFIG_KEY = 'wix-mcp-remote';
+// Kept in step with `packages/evalforge-core` — see the comment there. This gate
+// is disabled (`skill-eval.yml` is `if: false`), but the placeholder pair it used
+// to emit is retired in EvalForge, so leaving it would break on re-enable.
+const MCP_AUTH_HEADER = 'x-wix-mcp-account-token';
+const MCP_AUTH_PLACEHOLDER = '{{wix-auth-account-token}}';
 class EvalForgeClient {
     baseUrl;
     headers;
@@ -34708,8 +34713,7 @@ class EvalForgeClient {
                         url: `${MCP_URL}?skillsRepo=${MCP_SKILLS_REPO}&skillsPr=${headSha}`,
                         type: 'http',
                         headers: {
-                            Authorization: '{{wix-auth-token}}',
-                            'wix-account-id': '{{wix-auth-user-id}}',
+                            [MCP_AUTH_HEADER]: MCP_AUTH_PLACEHOLDER,
                         },
                     },
                 },

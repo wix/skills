@@ -34177,11 +34177,15 @@ const SYSTEM_LLM_JUDGE = 'system:llm_judge';
 const SYSTEM_API_CALL = 'system:api_call';
 const SYSTEM_COST = 'system:cost';
 const SYSTEM_TIME_LIMIT = 'system:time_limit';
+const SYSTEM_SKILL_WAS_CALLED = 'system:skill_was_called';
+const SYSTEM_BUILD_PASSED = 'system:build_passed';
+const SYSTEM_TOKEN_COUNT = 'system:token_count';
 function toEvalForgeBody(s) {
     return {
         name: s.name,
         description: s.description,
         triggerPrompt: s.triggerPrompt,
+        ...(s.templateId ? { templateId: s.templateId } : {}),
         assertionLinks: s.assertions.map(mapAssertion),
         siteSetup: s.siteSetup ? mapSiteSetup(s.siteSetup) : { mode: 'NONE' },
     };
@@ -34218,6 +34222,12 @@ function mapAssertion(a) {
         return mapCost(a);
     if ((0, schema_1.isTimeLimit)(a))
         return mapTimeLimit(a);
+    if ((0, schema_1.isSkillWasCalled)(a))
+        return mapSkillWasCalled(a);
+    if ((0, schema_1.isBuildPassed)(a))
+        return mapBuildPassed(a);
+    if ((0, schema_1.isTokenCount)(a))
+        return mapTokenCount(a);
     return mapToolCall(a);
 }
 function mapToolCall(a) {
@@ -34239,9 +34249,41 @@ function mapLlmJudge(a) {
         params.maxTokens = a.maxTokens;
     if (a.temperature !== undefined)
         params.temperature = a.temperature;
+    if (a.scoringMode !== undefined)
+        params.scoringMode = a.scoringMode;
+    if (a.browserTools !== undefined)
+        params.browserTools = a.browserTools;
+    if (a.parameters !== undefined)
+        params.parameters = JSON.stringify(a.parameters);
     if (a.negate !== undefined)
         params.negate = a.negate;
     return { assertionId: SYSTEM_LLM_JUDGE, params };
+}
+function mapSkillWasCalled(a) {
+    const params = { skillNames: JSON.stringify(a.skillNames) };
+    if (a.referenceFiles !== undefined)
+        params.referenceFiles = JSON.stringify(a.referenceFiles);
+    if (a.negate !== undefined)
+        params.negate = a.negate;
+    return { assertionId: SYSTEM_SKILL_WAS_CALLED, params };
+}
+function mapBuildPassed(a) {
+    const params = {};
+    if (a.command !== undefined)
+        params.command = a.command;
+    if (a.expectedExitCode !== undefined)
+        params.expectedExitCode = a.expectedExitCode;
+    if (a.negate !== undefined)
+        params.negate = a.negate;
+    return Object.keys(params).length > 0
+        ? { assertionId: SYSTEM_BUILD_PASSED, params }
+        : { assertionId: SYSTEM_BUILD_PASSED };
+}
+function mapTokenCount(a) {
+    const params = { maxTokens: a.maxTokens };
+    if (a.negate !== undefined)
+        params.negate = a.negate;
+    return { assertionId: SYSTEM_TOKEN_COUNT, params };
 }
 function mapApiCall(a) {
     const params = {
@@ -34299,6 +34341,18 @@ exports.uniqueRemoteScenarios = uniqueRemoteScenarios;
 const auth_1 = __nccwpck_require__(3693);
 const MCP_URL = 'https://mcp.wix.com/mcp';
 const MCP_CONFIG_KEY = 'wix-mcp-remote';
+// The Wix MCP authenticates eval runs as the *user* via a session header: the
+// whole `~/.wix/auth/account.json` session, base64-encoded. EvalForge substitutes
+// the `{{wix-auth-account-token}}` placeholder at run time (it mints an
+// on-behalf-of-user session for remote runs), so the credential never lands in
+// this repo or in the capability config stored in EvalForge.
+//
+// This replaced an API-key pair (`Authorization` + `wix-account-id`, fed by the
+// retired `{{wix-auth-token}}`/`{{wix-auth-user-id}}` placeholders). EvalForge
+// no longer resolves those — a config still using them fails the run outright —
+// so the two must stay in lockstep.
+const MCP_AUTH_HEADER = 'x-wix-mcp-account-token';
+const MCP_AUTH_PLACEHOLDER = '{{wix-auth-account-token}}';
 // Cap on concurrent per-name scenario queries, so a PR touching many scenarios
 // doesn't fire an unbounded burst at the V1 gateway (which may rate-limit).
 const MAX_QUERY_CONCURRENCY = 8;
@@ -34437,8 +34491,7 @@ class EvalForgeClient {
                             url: this.buildMcpUrl(skillsRepo, headSha),
                             type: 'http',
                             headers: {
-                                Authorization: '{{wix-auth-token}}',
-                                'wix-account-id': '{{wix-auth-user-id}}',
+                                [MCP_AUTH_HEADER]: MCP_AUTH_PLACEHOLDER,
                             },
                         },
                     },
@@ -34636,6 +34689,9 @@ exports.isApiCall = isApiCall;
 exports.isCost = isCost;
 exports.isTimeLimit = isTimeLimit;
 exports.isToolCall = isToolCall;
+exports.isSkillWasCalled = isSkillWasCalled;
+exports.isBuildPassed = isBuildPassed;
+exports.isTokenCount = isTokenCount;
 exports.parseScenario = parseScenario;
 const zod_1 = __nccwpck_require__(822);
 const jsYaml = __importStar(__nccwpck_require__(3691));
@@ -34661,6 +34717,14 @@ const ToolCallAssertionSchema = zod_1.z.object({
     params: zod_1.z.record(zod_1.z.string(), ParamValueSchema).optional(),
     negate: zod_1.z.boolean().optional(),
 }).strict();
+const AssertionParameterSchema = zod_1.z.object({
+    name: zod_1.z.string().min(1),
+    label: zod_1.z.string().min(1),
+    type: zod_1.z.enum(['string', 'number', 'boolean']),
+    required: zod_1.z.boolean(),
+    defaultValue: zod_1.z.union([zod_1.z.string(), zod_1.z.number(), zod_1.z.boolean()]).optional(),
+    advanced: zod_1.z.boolean().optional(),
+}).strict();
 const LlmJudgeAssertionSchema = zod_1.z.object({
     type: zod_1.z.literal('llm_judge'),
     prompt: zod_1.z.string().min(1),
@@ -34668,6 +34732,9 @@ const LlmJudgeAssertionSchema = zod_1.z.object({
     model: zod_1.z.string().optional(),
     maxTokens: zod_1.z.number().int().positive().optional(),
     temperature: zod_1.z.number().min(0).max(1).optional(),
+    scoringMode: zod_1.z.enum(['numeric', 'boolean']).optional(),
+    browserTools: zod_1.z.boolean().optional(),
+    parameters: zod_1.z.array(AssertionParameterSchema).optional(),
     negate: zod_1.z.boolean().optional(),
 }).strict();
 const ApiCallAssertionSchema = zod_1.z.object({
@@ -34690,12 +34757,32 @@ const TimeLimitAssertionSchema = zod_1.z.object({
     maxDurationMs: zod_1.z.number().int().positive(),
     negate: zod_1.z.boolean().optional(),
 }).strict();
+const SkillWasCalledAssertionSchema = zod_1.z.object({
+    type: zod_1.z.literal('skill_was_called'),
+    skillNames: zod_1.z.array(zod_1.z.string().min(1)).min(1),
+    referenceFiles: zod_1.z.record(zod_1.z.string(), zod_1.z.array(zod_1.z.string().min(1)).min(1)).optional(),
+    negate: zod_1.z.boolean().optional(),
+}).strict();
+const BuildPassedAssertionSchema = zod_1.z.object({
+    type: zod_1.z.literal('build_passed'),
+    command: zod_1.z.string().optional(),
+    expectedExitCode: zod_1.z.number().int().optional(),
+    negate: zod_1.z.boolean().optional(),
+}).strict();
+const TokenCountAssertionSchema = zod_1.z.object({
+    type: zod_1.z.literal('token_count'),
+    maxTokens: zod_1.z.number().int().positive(),
+    negate: zod_1.z.boolean().optional(),
+}).strict();
 const AssertionSchema = zod_1.z.union([
     ToolCallAssertionSchema,
     LlmJudgeAssertionSchema,
     ApiCallAssertionSchema,
     CostAssertionSchema,
     TimeLimitAssertionSchema,
+    SkillWasCalledAssertionSchema,
+    BuildPassedAssertionSchema,
+    TokenCountAssertionSchema,
 ]);
 // Optional per-scenario site provisioning. Only `template` mode is supported.
 const SiteBootstrapStepSchema = zod_1.z.object({
@@ -34718,6 +34805,9 @@ exports.ScenarioSchema = zod_1.z.object({
     name: zod_1.z.string().min(1).regex(NamePattern, 'name must match /^[a-z0-9][a-z0-9/_-]*$/'),
     description: zod_1.z.string(),
     triggerPrompt: zod_1.z.string().min(10),
+    // Optional scenario-level template the run scaffolds from (an EvalForge template
+    // id/alias). Distinct from `siteSetup` (which provisions a site). Omit when unused.
+    templateId: zod_1.z.string().min(1).optional(),
     tags: zod_1.z.array(zod_1.z.string().min(1)).min(1).refine(tags => tags.every(t => !exports.RESERVED_TAG_PREFIXES.some(p => t.startsWith(p)) && !exports.RESERVED_TAGS.some(r => t === r)), { message: 'tags must not include reserved namespaces (draft:*, pending:*, rejected:*, repo:*) or reserved tags (created-via-code) — the action manages those' }),
     maxTokens: zod_1.z.number().int().positive().optional(),
     assertions: zod_1.z.array(AssertionSchema).min(1),
@@ -34746,6 +34836,15 @@ function isTimeLimit(a) {
 }
 function isToolCall(a) {
     return a.type === undefined || a.type === 'tool_called_with_param';
+}
+function isSkillWasCalled(a) {
+    return a.type === 'skill_was_called';
+}
+function isBuildPassed(a) {
+    return a.type === 'build_passed';
+}
+function isTokenCount(a) {
+    return a.type === 'token_count';
 }
 function parseScenario(raw) {
     // CORE_SCHEMA refuses unsafe YAML tags (e.g. !!js/function); defense in depth before Zod.

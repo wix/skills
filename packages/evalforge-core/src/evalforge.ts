@@ -5,6 +5,19 @@ export type HttpError = Error & { status: number };
 const MCP_URL = 'https://mcp.wix.com/mcp';
 const MCP_CONFIG_KEY = 'wix-mcp-remote';
 
+// The Wix MCP authenticates eval runs as the *user* via a session header: the
+// whole `~/.wix/auth/account.json` session, base64-encoded. EvalForge substitutes
+// the `{{wix-auth-account-token}}` placeholder at run time (it mints an
+// on-behalf-of-user session for remote runs), so the credential never lands in
+// this repo or in the capability config stored in EvalForge.
+//
+// This replaced an API-key pair (`Authorization` + `wix-account-id`, fed by the
+// retired `{{wix-auth-token}}`/`{{wix-auth-user-id}}` placeholders). EvalForge
+// no longer resolves those — a config still using them fails the run outright —
+// so the two must stay in lockstep.
+const MCP_AUTH_HEADER = 'x-wix-mcp-account-token';
+const MCP_AUTH_PLACEHOLDER = '{{wix-auth-account-token}}';
+
 // Cap on concurrent per-name scenario queries, so a PR touching many scenarios
 // doesn't fire an unbounded burst at the V1 gateway (which may rate-limit).
 const MAX_QUERY_CONCURRENCY = 8;
@@ -223,8 +236,7 @@ export class EvalForgeClient {
                 url: this.buildMcpUrl(skillsRepo, headSha),
                 type: 'http',
                 headers: {
-                  Authorization: '{{wix-auth-token}}',
-                  'wix-account-id': '{{wix-auth-user-id}}',
+                  [MCP_AUTH_HEADER]: MCP_AUTH_PLACEHOLDER,
                 },
               },
             },
