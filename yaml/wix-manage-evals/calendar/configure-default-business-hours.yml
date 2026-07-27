@@ -1,0 +1,49 @@
+name: calendar/configure-default-business-hours
+description: >-
+  Verifies that the agent configures Bookings default business hours with the
+  business schedule's internal ID, a minimal WORKING_HOURS event shape, and safe
+  reconciliation that preserves existing hours until replacements are proven.
+triggerPrompt: >-
+  This is a dedicated test site. Set Wix Bookings default business hours to
+  Monday through Friday from 5:00 PM to 8:00 PM and Saturday through Sunday from
+  8:00 AM to 8:00 PM in America/Chicago. I explicitly authorize the mutation.
+  Verify the final MASTER working-hours events when you finish.
+tags: [calendar, bookings]
+siteSetup:
+  mode: template
+  templateId: bookings-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/calendar/skills/configure-default-business-hours
+  - tool: ExecuteWixAPI
+    params:
+      hasMutations: true
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 4096
+    prompt: |
+      The user authorized configuring Bookings default business hours on a
+      dedicated test site and required final verification.
+
+      Pass only if the transcript shows that the agent:
+      - queries the business schedule using externalId
+        `4e0579a5-491e-4e70-a872-d097eed6e520`, then uses the returned
+        site-specific `schedule.id` as each event's `scheduleId`, AND
+      - successfully creates or updates recurring MASTER `WORKING_HOURS` events
+        for all seven requested days and verifies the final state by querying
+        it, AND
+      - reports Monday-Friday 17:00-20:00 and Saturday-Sunday 08:00-20:00 in
+        America/Chicago, with no failed bulk items, AND
+      - does not send the fixed external ID or an arbitrary staff ID in
+        `resources`, and does not send `externalScheduleId` or
+        `scheduleOwnerId`, AND
+      - omits unnecessary optional parent objects such as `location`,
+        `participants`, and `conferencingDetails`, AND
+      - does not cancel all existing hours before a successful create/update and
+        verification has established the replacement state.
+
+      Fail if any write ends in an API or item-level error, if the response only
+      explains what to do without completing the mutation, if final state isn't
+      queried, if fewer than seven requested MASTER events are verified, or if
+      the site is left without its prior working hours after a failed write.
