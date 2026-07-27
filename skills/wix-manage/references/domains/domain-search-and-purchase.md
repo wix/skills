@@ -1,6 +1,6 @@
 ---
 name: "Domain Search and Purchase"
-description: Help users connect a domain they already own to their Wix site. Verify the domain is registered, resolve the site UUID/MSID, check Premium status, then route to the connection wizard or an upgrade prompt.
+description: Help users search for, purchase, or connect a domain through Wix. Check availability, route to purchase if unregistered or connection wizard if already owned, verify Premium status, and guide through the appropriate flow.
 ---
 
 # Connect Domain
