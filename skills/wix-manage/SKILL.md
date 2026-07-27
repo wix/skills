@@ -242,6 +242,7 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 - **First-time setup / "connect Google Ads" / `ACCOUNT_NOT_FOUND`** → [Install and Create an Account](references/google-ads/install-and-create-account.md) (do this before anything else).
 - **Suggested keywords / geo / budget / ad copy / images** → [Get AI Campaign Suggestions](references/google-ads/get-campaign-suggestions.md).
 - **Create a multi-channel / lead-gen / Shopping campaign** → [Create a Performance Max Campaign](references/google-ads/create-performance-max-campaign.md).
+- **Pause / resume / launch / update budget / delete / history** → [Manage Campaign Lifecycle](references/google-ads/manage-campaign-lifecycle.md).
 
 ### [Install Google Ads and Create an Account](references/google-ads/install-and-create-account.md)
 **Technical:** One-time setup prerequisite for all Google Ads flows. Installs the Wix Google Ads app (`POST /v1/install-if-not-installed`) then creates the linked account (`POST /v1/accounts` with `currency`). Covers checking for an existing account (`GET /v1/accounts/current-site`, empty when none), optional promotional incentives, Merchant Center linking, and account deletion.
@@ -251,6 +252,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 
 ### [Create and Launch a Performance Max Campaign](references/google-ads/create-performance-max-campaign.md)
 **Technical:** Creates and launches a PMAX campaign — `PERFORMANCE_MAX`, `PERFORMANCE_MAX_LEADS`, or retail/Shopping. Generates AI text/image assets and search themes, gets a Google budget recommendation, assembles an asset group meeting Google's minimum asset counts (headlines/descriptions/images), creates in `PAUSED`, then launches. Bidding is server-enforced to `MAXIMIZE_CONVERSIONS`.
+
+### [Manage Campaign Lifecycle](references/google-ads/manage-campaign-lifecycle.md)
+**Technical:** Lists/gets campaigns and runs lifecycle actions: launch (first activation) vs resume (reactivate after pause), pause (with optional `scheduledResumeDate`/reminder), partial `UpdateCampaign` (name, budget, targeting), delete (irreversible), and read the change log / status history. Covers the 5-live-campaign cap and budget-boundary validation.
 
 ### [Google Ads Dashboard Navigation](references/google-ads/google-ads-dashboard-navigation.md)
 **Technical:** Direct link to the Wix Google Ads dashboard page on manage.wix.com where API-created campaigns are managed.

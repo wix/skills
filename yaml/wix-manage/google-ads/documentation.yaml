@@ -18,3 +18,7 @@ apiDoc:
       title: Google Ads Dashboard Navigation
       docsEntry: https://dev.wix.com/docs/api-reference/business-management/marketing/ads/google-ads
       tags: [google-ads]
+    - file: ../../../skills/wix-manage/references/google-ads/manage-campaign-lifecycle.md
+      title: Manage Campaign Lifecycle
+      docsEntry: https://dev.wix.com/docs/api-reference/business-management/marketing/ads/google-ads
+      tags: [marketing]
