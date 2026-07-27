@@ -150,6 +150,10 @@ You are the user experience; the API is plumbing. Keep the protocol invisible:
 1. **Start** — `POST /v1/imports`
    Body: `{"request": "<natural language; MUST include the source store URL>"}`
    Returns: `importId`, `sourcePlatform`, `sourceConfidence`.
+   One import per store at a time: if the same user re-starts for the same store,
+   the server returns the existing `importId` (no new import is created). If a
+   different user on the account already owns an import for that store, Start
+   returns `409 { "code": "IMPORT_IN_PROGRESS" }` — tell the user and stop.
 
 2. **Poll** — `GET /v1/imports/{importId}?includeRecentActivity=true`
    Returns: `status`, `deployUrl`, `message`, `options[]` (only when
@@ -181,13 +185,15 @@ You are the user experience; the API is plumbing. Keep the protocol invisible:
     window — track which entries you've covered to avoid repeating them.
   - `todos`: `{content, status, activeForm}` — `PENDING | IN_PROGRESS |
     COMPLETED`. Full snapshot each poll; replace, don't append.
-  - Empty `recentActivity`/`todos` in early polls is normal.
+  - Empty `recentActivity`/`todos`/`artifacts` in early polls is normal — these
+    are best-effort and the agent may not have produced them yet.
 - Act on `status`:
   - `IMPORTING` — keep polling.
   - `NEEDS_INPUT` — agent is blocked. Show `message` (and `options` if present)
     to the user, collect their answer, send it with Send-a-message, then keep
-    polling the same `importId`. If `message` mentions review documents, read
-    them FIRST (see "Review documents") — the decision usually depends on them.
+    polling the same `importId`. The user may answer in free text even when
+    `options` lists suggested answers. If `message` mentions review documents,
+    read them FIRST (see "Review documents") — the decision usually depends on them.
   - `DEPLOYED` — terminal success. Deliver `deployUrl` and `message` per
     presentation rules.
   - `FAILED` — terminal. Relay `message` in plain words.
@@ -231,5 +237,7 @@ the user has no way to open a file.
 - Any other `403` on Start means the caller is not authorized — tell the user
   and stop. Do not probe other endpoints to diagnose this. A `400` means a
   required field is missing (`request`/`message` must be 1–20000 chars).
+- Requesting an unknown id in `artifactIds` is silently ignored — not an error.
+  A document simply may not exist yet on an earlier turn.
 - **The user cannot open files.** If a message mentions a document by filename,
   fetch it with `artifactIds` and read it to them.
