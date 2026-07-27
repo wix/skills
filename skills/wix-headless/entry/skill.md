@@ -70,6 +70,19 @@ CI=1 npx skills@latest add wix/skills --yes
 
 The skills land in `.agents/skills/`.
 
+**Testing an unreleased branch or PR?** Only if the person running this explicitly asked to test a
+specific branch/PR rather than the published skill, replace the command above with:
+
+```bash
+CI=1 npx skills@latest add "https://github.com/wix/skills.git#<branch-name>" --yes
+```
+
+using the **PR's source branch name** (not a PR number — GitHub doesn't expose PR refs as an
+installable tree). Use the `repo.git#branch` form shown above, not a `/tree/<branch>/...` URL — the
+latter breaks whenever the branch name itself contains a `/` (e.g. `feat/xxx`), since it naively splits
+on the first slash and tries to fetch a branch called just `feat`. Everything else in this entry is
+unchanged.
+
 Then **open `wix-headless/SKILL.md` and follow it.** That skill owns the rest of the run — it resolves the **project type** (`managed` / `self-managed` / `stripe`) and, for managed, the **operation** (create / connect), then runs Discovery → Setup → Seed → the SDK handoff, and for managed create/connect it also scaffolds, builds, and releases.
 
 - **Don't** scaffold, install apps, or release by hand here — the skill does all of that (`SETUP.md`, `references/managed/CREATE.md`, etc.). This entry stops at *logged in*.
