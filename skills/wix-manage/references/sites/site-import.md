@@ -50,7 +50,7 @@ check. Those calls reveal nothing useful and create confusion.
 With the Wix MCP in Claude, call them through `ExecuteWixAPI` using
 `wix.request` with `scope: "account"` and the **full URL**. Cite
 `sourceDocUrls: ["user-provided"]` (the user supplied this skill). Set
-`hasMutations: true` for Start/Reply/Cancel and `false` for Poll.
+`hasMutations: true` for Start/Send-a-message/Cancel and `false` for Poll.
 
 In environments with a different Wix connector (e.g. ChatGPT), use its
 account-level API tool the same way — the `ManageWixSite` tool accepts
@@ -103,6 +103,19 @@ async () => {
     scope: "account",
     method: "GET",
     url: "https://www.wixapis.com/site-import/v1/imports/<importId>?includeRecentActivity=true&artifactIds=mapping-summary,mapping-plan",
+  });
+}
+```
+
+Example — Send a message (an answer, a comment, or a new instruction):
+
+```js
+async () => {
+  return await wix.request({
+    scope: "account",
+    method: "POST",
+    url: "https://www.wixapis.com/site-import/v1/imports/<importId>/messages",
+    body: { message: "Use the blue logo from the About page instead" },
   });
 }
 ```
@@ -196,7 +209,8 @@ You are the user experience; the API is plumbing. Keep the protocol invisible:
   **rewritten for a non-technical reader**: what the user got (pages,
   products, look & feel), any honest limitations in plain words ("the buy
   buttons aren't connected to a real checkout yet"), and 2–3 short follow-up
-  offers they can answer in one sentence (those become Reply messages). Leave
+  offers they can answer in one sentence (their answer becomes a message you
+  send). Leave
   out how it was built — frameworks, SDKs, workarounds, and anything from the
   jargon list have no place in the final message either.
 - On `FAILED` / `AUTH_EXPIRED` / `SESSION_EXPIRED`, explain what happened and
@@ -226,8 +240,13 @@ from the signed-in user.
    To read a review document, add `&artifactIds=mapping-plan,mapping-gaps` (see
    "Review documents" below).
 
-3. **Reply** — `POST /v1/imports/{importId}/reply`
-   Body: `{"message": "<answer or follow-up>"}`
+3. **Send a message** — `POST /v1/imports/{importId}/messages`
+   Body: `{"message": "<whatever the user said>"}`
+   **This is the ONE way anything the user says reaches the agent** — an answer
+   to a question, a comment on work already done, a correction, or a new
+   instruction. Valid at any point: while `IMPORTING`, at a `NEEDS_INPUT` stop,
+   and after the import has finished. Answering a question is one case of it,
+   not what it is for.
    Returns the **SAME `importId`** (it is stable for the import's lifetime) —
    keep polling it. The agent continues the same conversation with full
    context.
@@ -260,8 +279,8 @@ from the signed-in user.
   - `IMPORTING` — keep polling.
   - `NEEDS_INPUT` — the agent is blocked on a decision. The question IS
     `message`; show it (and `options` if present) to the user, collect their
-    answer (an option or free text), send it via Reply, then keep polling the
-    same `importId`. If `message` says review documents are
+    answer (an option or free text), send it with Send-a-message, then keep
+    polling the same `importId`. If `message` says review documents are
     available, read them FIRST (see "Review documents" below) — the decision
     usually depends on what is in them.
   - `DEPLOYED` — terminal success. Deliver `deployUrl` (already verified
@@ -274,13 +293,17 @@ from the signed-in user.
     import, then call Start again with the same request — work done so far is
     preserved and the import continues.
   - `CANCELLED` — terminal; stopped by Cancel.
+- **Anything the user says mid-import goes straight to Send-a-message** — a
+  comment on work already done, a correction, an extra requirement. You do not
+  need to wait for `NEEDS_INPUT`, and there is no other endpoint for it.
 - Follow-up changes after a deploy ("make the header blue", "also import the
-  blog"): send them via Reply on the import's `importId` — same mechanics as
-  answering a question. This works while the import environment is alive
-  (~60 minutes idle).
-- If Reply returns `409 { "code": "SESSION_EXPIRED" }`, the environment was
-  reclaimed and the conversation cannot resume — tell the user and offer to
-  start a fresh import.
+  blog") use exactly the same call. The import stays resumable for 7 days: if
+  its environment was reclaimed for being idle (~60 minutes), the next message
+  revives it and the agent picks up with full context — so do not warn the user
+  about a time limit or discourage them from coming back later.
+- If Send-a-message returns `409 { "code": "SESSION_EXPIRED" }`, the import can
+  no longer be resumed (it is past its 7-day lifetime, or the id is not this
+  user's) — tell the user and offer to start a fresh import.
 
 ### Review documents
 
@@ -304,7 +327,7 @@ response**: the user has no way to open a file.
 ## Rules
 
 - There is a **single** `importId` for the whole import — assigned at Start,
-  returned unchanged by Reply, and the only id you ever track.
+  returned unchanged by Send-a-message, and the only id you ever track.
 - Never invent a `deployUrl` — only report the one returned with `DEPLOYED`.
 - Treat `NEEDS_INPUT` and `AUTH_EXPIRED` as normal turns of the conversation,
   not errors.
