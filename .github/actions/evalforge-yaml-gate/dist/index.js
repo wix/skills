@@ -34469,6 +34469,18 @@ function uniqueRemoteScenarios(scenarios) {
         byId.set(scenario.id, scenario);
     return [...byId.values()];
 }
+function assertNotTruncated(received, meta, path) {
+    if (!meta)
+        return;
+    const total = typeof meta.total === 'number' ? meta.total : undefined;
+    const truncated = Boolean(meta.cursors?.next) || (total !== undefined && total > received);
+    if (!truncated)
+        return;
+    throw new Error(`EvalForge ${path} returned a truncated page (received ${received}` +
+        `${total !== undefined ? ` of ${total}` : ''}${meta.cursors?.next ? ', more pages available' : ''}). ` +
+        `Reconciling against a partial list would re-create the scenarios it could not see. ` +
+        `Add cursor paging to listTestScenarios before syncing this project.`);
+}
 // V1's EvalStatus enum is UPPERCASE (COMPLETED/FAILED/…); the rest of the action
 // works in lowercase. The enum NAMES match, so a lowercase is the full mapping.
 function normalizeStatus(s) {
@@ -34586,8 +34598,11 @@ class EvalForgeClient {
     // scenarios — normalize so callers can assume `string[]`.
     async listTestScenarios(projectId, names) {
         if (names === undefined) {
-            const res = await this.request('POST', `/projects/${enc(projectId)}/test-scenarios/query`, { filter: {} });
-            return (res.testScenarios ?? []).map(s => ({ id: s.id, name: s.name, tags: s.tags ?? [] }));
+            const path = `/projects/${enc(projectId)}/test-scenarios/query`;
+            const res = await this.request('POST', path, { filter: {} });
+            const scenarios = res.testScenarios ?? [];
+            assertNotTruncated(scenarios.length, res.pagingMetadata, path);
+            return scenarios.map(s => ({ id: s.id, name: s.name, tags: s.tags ?? [] }));
         }
         const unique = [...new Set(names)];
         if (unique.length === 0)
@@ -34701,6 +34716,7 @@ __exportStar(__nccwpck_require__(3540), exports);
 __exportStar(__nccwpck_require__(7230), exports);
 __exportStar(__nccwpck_require__(6006), exports);
 __exportStar(__nccwpck_require__(3693), exports);
+__exportStar(__nccwpck_require__(9851), exports);
 __exportStar(__nccwpck_require__(8525), exports);
 __exportStar(__nccwpck_require__(3754), exports);
 __exportStar(__nccwpck_require__(1243), exports);
@@ -34748,6 +34764,49 @@ function loadScenarios(root, globPattern) {
         scenarios.set(parsed.name, { path: rel, scenario: parsed });
     }
     return { scenarios, errors };
+}
+
+
+/***/ }),
+
+/***/ 9851:
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.planScenarioSync = planScenarioSync;
+const evalforge_1 = __nccwpck_require__(7230);
+const evalforge_mapper_1 = __nccwpck_require__(6006);
+function planScenarioSync(input) {
+    const { local, remote, repo } = input;
+    const managedTag = (0, evalforge_1.repoTagFor)(repo);
+    const remoteByName = new Map(remote.map(remoteScenario => [remoteScenario.name, remoteScenario]));
+    const localNames = new Set(local.map(scenario => scenario.name));
+    const actions = [];
+    const skipped = [];
+    for (const scenario of local) {
+        const tags = (0, evalforge_1.withManagedTags)(scenario.tags, repo);
+        const body = (0, evalforge_mapper_1.toEvalForgeBody)(scenario);
+        const match = remoteByName.get(scenario.name);
+        if (match) {
+            actions.push({ kind: 'UPDATE', id: match.id, name: scenario.name, body, tags });
+        }
+        else {
+            actions.push({ kind: 'CREATE', name: scenario.name, body, tags });
+        }
+    }
+    for (const remoteScenario of remote) {
+        if (localNames.has(remoteScenario.name))
+            continue;
+        if (remoteScenario.tags.includes(managedTag)) {
+            actions.push({ kind: 'DELETE', id: remoteScenario.id, name: remoteScenario.name });
+        }
+        else {
+            skipped.push({ id: remoteScenario.id, name: remoteScenario.name, reason: 'unmanaged' });
+        }
+    }
+    return { actions, skipped };
 }
 
 
