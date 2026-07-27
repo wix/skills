@@ -16,6 +16,20 @@ CLI surface or file layout:
 - **`auth`** — `TokenProvider`, an OAuth2 client-credentials token provider for
   the Wix public API, with caching and re-mint-before-expiry so a long-running
   eval poll doesn't get caught mid-request with a stale token.
+- **`load-scenarios`** — `loadScenarios(root, globPattern)`, which globs scenario YAML
+  files under `root` (excluding `node_modules`, `dist`, and the
+  `.action-src/**` two-checkout convention), parses each with
+  `parseScenario`, and returns a `Map<name, LoadedScenario>` plus a
+  `LoadError[]` for unparseable files or duplicate scenario names.
+- **`author-gate`** — `isWixAuthorEmail`, `getFirstCommitAuthorEmail` and
+  `assertWixAuthor`, the shared "only run for `@wix.com` authors" check. The
+  Octokit it needs is described structurally (`PullCommitsClient`) and the
+  success log is an injected callback, so the package takes no dependency on
+  `@actions/github` or `@actions/core` for this.
+- **`action-inputs`** — `ensureHttps`, `safeGetSecret` and `getPrNumber`, input
+  plumbing shared across this repo's EvalForge actions. `@actions/core` and the
+  event payload are passed in (`ActionsIo`, `PullRequestPayload`) rather than
+  imported, for the same reason.
 
 Everything is re-exported from `src/index.ts`.
 
