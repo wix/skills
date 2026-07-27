@@ -243,6 +243,8 @@ A `wix-app` scenario usually scaffolds its starter project from a **file templat
 templateId: 8116ffa2-e212-4a74-a9f0-1738c9cbb6b1
 ```
 
+This is the **default template all wix-app runs start from**.
+
 (Distinct from the wix-manage **site template**, `siteSetup`, which provisions a live Wix site — see [Site provisioning](#site-provisioning-optional). The current `wix-app` scenarios use only the file template.)
 
 ### Example
