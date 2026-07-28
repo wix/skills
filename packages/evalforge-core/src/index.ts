@@ -12,3 +12,4 @@ export * from './plan-pr-scenario-sync';
 export * from './plan-cleanup';
 export * from './pr-github';
 export * from './collect-skill-files';
+export * from './derive-tags';

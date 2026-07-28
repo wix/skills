@@ -30185,6 +30185,99 @@ function collectSkillFiles(root, skillDir, options = {}) {
 
 /***/ }),
 
+/***/ 7264:
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.DEFAULT_BROAD_IMPACT_GLOBS = exports.DEFAULT_IGNORE_GLOBS = void 0;
+exports.tagForReferencePath = tagForReferencePath;
+exports.deriveTags = deriveTags;
+exports.touchedScenarioPaths = touchedScenarioPaths;
+const minimatch_1 = __nccwpck_require__(8911);
+exports.DEFAULT_IGNORE_GLOBS = ['scripts/**'];
+/**
+ * `SKILL.md` plus the six references that apply across scenarios rather than to one
+ * capability. "Changed → run everything" is the honest semantics for these: their effect is
+ * not confined to one capability, so no single tag could describe it, and demanding a
+ * `code-quality`-tagged scenario would be asking for a scenario that verifies nothing in
+ * particular.
+ */
+exports.DEFAULT_BROAD_IMPACT_GLOBS = [
+    'SKILL.md',
+    'references/APP_IDENTIFIERS.md',
+    'references/APP_MARKET_REVIEW.md',
+    'references/APP_VALIDATION.md',
+    'references/CODE_QUALITY.md',
+    'references/DOCUMENTATION.md',
+    'references/EXTENSION_REGISTRATION.md',
+];
+/** `DASHBOARD_PAGE.md` → `dashboard-page`. */
+function tagForReferencePath(relativeReferencePath) {
+    return relativeReferencePath.replace(/\.md$/i, '').toLowerCase().replace(/_/g, '-');
+}
+function matchesAny(relativePath, globs) {
+    return globs.some(pattern => (0, minimatch_1.minimatch)(relativePath, pattern, { dot: true }));
+}
+function relativeToSkillDir(changedPath, skillDir) {
+    const prefix = `${skillDir}/`;
+    return changedPath.startsWith(prefix) ? changedPath.slice(prefix.length) : undefined;
+}
+/**
+ * Classifies the PR's changed paths into the tags whose scenarios must run.
+ *
+ * Precedence is first-match-wins: **ignore → broad-impact → reference → unmapped**. The
+ * order is load-bearing. A broad-impact file that happens to live inside `referenceDir` must
+ * be caught before the reference rule sees it, or `references/CODE_QUALITY.md` would derive
+ * a `code-quality` tag and the coverage guard would block on a tag no scenario will ever
+ * carry.
+ */
+function deriveTags(changedPaths, rules) {
+    const tags = new Set();
+    const unmapped = [];
+    let broadImpact = false;
+    const referencePrefix = `${rules.referenceDir}/`;
+    for (const changedPath of changedPaths) {
+        const relativePath = relativeToSkillDir(changedPath, rules.skillDir);
+        if (relativePath === undefined)
+            continue;
+        if (matchesAny(relativePath, rules.ignoreGlobs))
+            continue;
+        if (matchesAny(relativePath, rules.broadImpactGlobs)) {
+            broadImpact = true;
+            continue;
+        }
+        if (relativePath.startsWith(referencePrefix)) {
+            const withinReferences = relativePath.slice(referencePrefix.length);
+            const [head, ...rest] = withinReferences.split('/');
+            // A sub-doc directory is already named for its capability, so the directory name is
+            // the tag; a flat reference file derives its tag from the filename.
+            tags.add(rest.length > 0 ? head.toLowerCase() : tagForReferencePath(head));
+            continue;
+        }
+        unmapped.push(changedPath);
+    }
+    return {
+        tags: [...tags].sort(),
+        broadImpact,
+        unmapped: unmapped.sort(),
+    };
+}
+/**
+ * Scenario files this PR added, modified or renamed. Removals are excluded: a deleted
+ * scenario cannot be quality-checked, and the sync plan handles the delete.
+ */
+function touchedScenarioPaths(changed, evalsGlob) {
+    return changed
+        .filter(file => file.status !== 'removed' && (0, minimatch_1.minimatch)(file.path, evalsGlob))
+        .map(file => file.path)
+        .sort();
+}
+
+
+/***/ }),
+
 /***/ 6006:
 /***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
 
@@ -30719,6 +30812,7 @@ __exportStar(__nccwpck_require__(7208), exports);
 __exportStar(__nccwpck_require__(473), exports);
 __exportStar(__nccwpck_require__(5781), exports);
 __exportStar(__nccwpck_require__(4527), exports);
+__exportStar(__nccwpck_require__(7264), exports);
 
 
 /***/ }),
