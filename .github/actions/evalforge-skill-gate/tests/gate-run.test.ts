@@ -210,7 +210,6 @@ describe('runGate — the happy path', () => {
     );
   });
 
-  // The configured dir, whole — references send the agent to `<SKILL_ROOT>/scripts/…`.
   it('collects from the configured skill dir', async () => {
     const { runGate, evalforge } = await harness({ skillDir: 'packages/other-skill' });
     vi.mocked(evalforge.getChangedFiles).mockResolvedValue([
@@ -373,7 +372,6 @@ describe('runGate — sync and selection', () => {
     await runGate();
 
     expect(createAndRunEvalRun).not.toHaveBeenCalled();
-    // A gate that verified nothing must not read as green.
     expect(setFailedSpy).toHaveBeenCalledWith(expect.stringContaining('nothing was verified'));
   });
 
