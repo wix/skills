@@ -1,11 +1,19 @@
 name: sync-smoke-test
-description: Throwaway scenario that exercises the sync-on-merge CREATE and DELETE paths end to end. Added and removed by back-to-back PRs; not intended to be run.
+description: UPDATED BY SYNC TEST — if you are reading this in EvalForge, the update path propagated the new body.
 triggerPrompt: |-
-  Build a dashboard page that displays the static text "sync smoke test" and nothing else.
+  Build a dashboard page that displays the static text "sync smoke test v2" and nothing else.
 templateId: 8116ffa2-e212-4a74-a9f0-1738c9cbb6b1
-tags: [sync-smoke-test]
+tags: [sync-smoke-test, sync-update-verified]
 assertions:
   - type: build_passed
     command: npm run build
   - type: time_limit
-    maxDurationMs: 60000
+    maxDurationMs: 120000
+  - type: cost
+    maxCostUsd: 2
+  - type: llm_judge
+    model: claude-sonnet-4-6
+    minScore: 7
+    browserTools: true
+    prompt: |-
+      Open the rendered dashboard page in the browser and confirm it displays the static text "sync smoke test v2". Score 0-10 based on whether that text is visible.
