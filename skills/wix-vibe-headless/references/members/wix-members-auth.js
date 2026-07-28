@@ -180,7 +180,18 @@ async function completeDirectLogin(sessionToken) {
   const { fullUrl } = await createRedirectSession({
     authRequest: { responseMode: "web_message", sessionToken, pkce },
   });
-  const { code } = await authorizeViaHiddenIframe(fullUrl, pkce.state);
+  // Route the hidden iframe through the headless gate: it checks this app's origin against the
+  // OAuth app's allowed domains and either forwards to identity's web_message authorize (origin
+  // allowed) or posts a benign { error, rejectedOrigin, metaSiteId } back so we fail fast with a
+  // one-click approve link — instead of the browser silently dropping identity's postMessage.
+  const u = new URL(fullUrl);
+  const gateUrl =
+    `${u.origin}/_serverless/wix-to-headless-redirect/web-message-authorize-or-approve` +
+    `?authorizePath=${encodeURIComponent(u.pathname + u.search)}` +
+    `&clientId=${encodeURIComponent(WIX_CLIENT_ID)}` +
+    `&origin=${encodeURIComponent(pageOrigin())}` +
+    `&state=${encodeURIComponent(pkce.state)}`;
+  const { code } = await authorizeViaHiddenIframe(gateUrl, pkce.state);
   const tokens = await exchangeCode(code, pkce.codeVerifier);
   setSessionTokens(tokens);
   return getCurrentMember();
