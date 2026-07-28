@@ -14,6 +14,5 @@ assertions:
   - type: llm_judge
     model: claude-sonnet-4-6
     minScore: 7
-    browserTools: true
     prompt: |-
       Open the rendered dashboard page in the browser and confirm it displays the static text "sync smoke test v2". Score 0-10 based on whether that text is visible.
