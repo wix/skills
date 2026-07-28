@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { toEvalForgeBody, type ScenarioAssertionLink } from '../src/utils/evalforge-mapper';
-import type { Scenario } from '../src/utils/schema';
+import { toEvalForgeBody, type ScenarioAssertionLink } from '../src/evalforge-mapper';
+import type { Scenario } from '../src/schema';
 
 const scenario: Scenario = {
   name: 'blog/how-to-create-blog-posts',
@@ -185,13 +185,13 @@ describe('toEvalForgeBody', () => {
     });
   });
 
-  it('omits siteSetup when the scenario has none', () => {
-    expect(toEvalForgeBody(scenario)).not.toHaveProperty('siteSetup');
+  it('emits siteSetup NONE when the scenario has none (explicit clear on update)', () => {
+    expect(toEvalForgeBody(scenario).siteSetup).toEqual({ mode: 'NONE' });
   });
 
-  it('maps a template siteSetup (mode + templateId, no bootstrap)', () => {
+  it('maps a template siteSetup to the V1 oneof shape (mode + templateOptions, no bootstrap)', () => {
     const s: Scenario = { ...scenario, siteSetup: { mode: 'template', templateId: 'ecommerce' } };
-    expect(toEvalForgeBody(s).siteSetup).toEqual({ mode: 'template', templateId: 'ecommerce' });
+    expect(toEvalForgeBody(s).siteSetup).toEqual({ mode: 'TEMPLATE', templateOptions: { templateId: 'ecommerce' } });
   });
 
   it('omits bootstrap when steps is empty (matches EvalForge normalization)', () => {
@@ -199,10 +199,10 @@ describe('toEvalForgeBody', () => {
       ...scenario,
       siteSetup: { mode: 'template', templateId: 'ecommerce', bootstrap: { steps: [] } },
     };
-    expect(toEvalForgeBody(s).siteSetup).toEqual({ mode: 'template', templateId: 'ecommerce' });
+    expect(toEvalForgeBody(s).siteSetup).toEqual({ mode: 'TEMPLATE', templateOptions: { templateId: 'ecommerce' } });
   });
 
-  it('maps bootstrap steps through, dropping undefined optionals', () => {
+  it('maps bootstrap steps through, uppercasing method and dropping undefined optionals', () => {
     const s: Scenario = {
       ...scenario,
       siteSetup: {
@@ -212,9 +212,108 @@ describe('toEvalForgeBody', () => {
       },
     };
     expect(toEvalForgeBody(s).siteSetup).toEqual({
-      mode: 'template',
-      templateId: 'ecommerce',
-      bootstrap: { steps: [{ method: 'post', url: 'https://x', body: { a: 1 } }] },
+      mode: 'TEMPLATE',
+      templateOptions: { templateId: 'ecommerce' },
+      bootstrap: { steps: [{ method: 'POST', url: 'https://x', body: { a: 1 } }] },
     });
+  });
+
+  it('maps skill_was_called: JSON-stringifies skillNames and referenceFiles', () => {
+    const s: Scenario = {
+      ...scenario,
+      assertions: [{
+        type: 'skill_was_called',
+        skillNames: ['wix-app', 'wds-docs'],
+        referenceFiles: { 'wix-app': ['SKILL.md'] },
+        negate: true,
+      }],
+    };
+    const [l] = toEvalForgeBody(s).assertionLinks;
+    expect(l.assertionId).toBe('system:skill_was_called');
+    expect(typeof l.params?.skillNames).toBe('string');
+    expect(JSON.parse(String(l.params?.skillNames))).toEqual(['wix-app', 'wds-docs']);
+    expect(typeof l.params?.referenceFiles).toBe('string');
+    expect(JSON.parse(String(l.params?.referenceFiles))).toEqual({ 'wix-app': ['SKILL.md'] });
+    expect(l.params?.negate).toBe(true);
+  });
+
+  it('maps skill_was_called with only the required field', () => {
+    const s: Scenario = {
+      ...scenario,
+      assertions: [{ type: 'skill_was_called', skillNames: ['wix-app'] }],
+    };
+    const [l] = toEvalForgeBody(s).assertionLinks;
+    expect(l).toEqual({
+      assertionId: 'system:skill_was_called',
+      params: { skillNames: '["wix-app"]' },
+    });
+  });
+
+  it('maps build_passed with fields set', () => {
+    const s: Scenario = {
+      ...scenario,
+      assertions: [{
+        type: 'build_passed',
+        command: 'yarn build',
+        expectedExitCode: 0,
+        negate: false,
+      }],
+    };
+    const [l] = toEvalForgeBody(s).assertionLinks;
+    expect(l).toEqual({
+      assertionId: 'system:build_passed',
+      params: { command: 'yarn build', expectedExitCode: 0, negate: false },
+    });
+  });
+
+  it('maps build_passed with no fields to a link with no params', () => {
+    const s: Scenario = {
+      ...scenario,
+      assertions: [{ type: 'build_passed' }],
+    };
+    const [l] = toEvalForgeBody(s).assertionLinks;
+    expect(l).toEqual({ assertionId: 'system:build_passed' });
+  });
+
+  it('maps token_count', () => {
+    const s: Scenario = {
+      ...scenario,
+      assertions: [{ type: 'token_count', maxTokens: 4096 }],
+    };
+    const [l] = toEvalForgeBody(s).assertionLinks;
+    expect(l).toEqual({
+      assertionId: 'system:token_count',
+      params: { maxTokens: 4096 },
+    });
+  });
+
+  it('maps llm_judge with browserTools, scoringMode, and parameters', () => {
+    const s: Scenario = {
+      ...scenario,
+      assertions: [{
+        type: 'llm_judge',
+        prompt: 'judge {{output}}',
+        scoringMode: 'boolean',
+        browserTools: true,
+        parameters: [{ name: 'foo', label: 'Foo', type: 'string', required: true }],
+      }],
+    };
+    const [l] = toEvalForgeBody(s).assertionLinks;
+    expect(l.params?.scoringMode).toBe('boolean');
+    expect(l.params?.browserTools).toBe(true);
+    expect(typeof l.params?.parameters).toBe('string');
+    expect(JSON.parse(String(l.params?.parameters))).toEqual([
+      { name: 'foo', label: 'Foo', type: 'string', required: true },
+    ]);
+  });
+});
+
+describe('toEvalForgeBody templateId', () => {
+  it('includes templateId when the scenario sets one', () => {
+    const body = toEvalForgeBody({ ...scenario, templateId: 'blank-editor' });
+    expect(body.templateId).toBe('blank-editor');
+  });
+  it('omits templateId when the scenario has none', () => {
+    expect(toEvalForgeBody(scenario)).not.toHaveProperty('templateId');
   });
 });

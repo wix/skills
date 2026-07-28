@@ -36,23 +36,31 @@ const PROJECTS_QUERY_URL = "/portfolio/v1/projects/query";
  * @returns {Promise<{ collections: object[], nextCursor: string|null }>}
  */
 export async function queryCollections({ limit = 100, cursor } = {}) {
-  const res = await wixApiRequest(COLLECTIONS_QUERY_URL, {
-    method: "POST",
-    body: {
-      includePageUrl: true,
-      query: cursor
-        ? { cursorPaging: { limit, cursor } }
-        : {
-            filter: { hidden: false },
-            sort: [{ fieldName: "sortOrder", order: "ASC" }],
-            cursorPaging: { limit },
-          },
-    },
-  });
-  return {
-    collections: res?.collections ?? [],
-    nextCursor: res?.metadata?.cursors?.next ?? null,
-  };
+  try {
+    const res = await wixApiRequest(COLLECTIONS_QUERY_URL, {
+      method: "POST",
+      body: {
+        includePageUrl: true,
+        query: cursor
+          ? { cursorPaging: { limit, cursor } }
+          : {
+              filter: { hidden: false },
+              sort: [{ fieldName: "sortOrder", order: "ASC" }],
+              cursorPaging: { limit },
+            },
+      },
+    });
+    return {
+      collections: res?.collections ?? [],
+      nextCursor: res?.metadata?.cursors?.next ?? null,
+    };
+  } catch (err) {
+    // Degrade to an empty page instead of rethrowing: an uncaught read would leave a
+    // component's `loading` flag stuck true and hang the gallery on a spinner. Empty
+    // renders the same empty state as a genuinely empty backend.
+    console.error("queryCollections failed:", err);
+    return { collections: [], nextCursor: null };
+  }
 }
 
 /**
@@ -79,11 +87,18 @@ export async function getCollectionBySlug(slug) {
  * @returns {Promise<number>}
  */
 export async function countCollections() {
-  const res = await wixApiRequest(COLLECTIONS_QUERY_URL, {
-    method: "POST",
-    body: { query: { filter: { hidden: false }, cursorPaging: { limit: 100 } } },
-  });
-  return res?.metadata?.total ?? (res?.collections?.length ?? 0);
+  try {
+    const res = await wixApiRequest(COLLECTIONS_QUERY_URL, {
+      method: "POST",
+      body: { query: { filter: { hidden: false }, cursorPaging: { limit: 100 } } },
+    });
+    return res?.metadata?.total ?? (res?.collections?.length ?? 0);
+  } catch (err) {
+    // On failure treat as empty (0) rather than rethrowing — a thrown count would hang
+    // the empty-state check; 0 falls through to the "add collections" prompt.
+    console.error("countCollections failed:", err);
+    return 0;
+  }
 }
 
 /**
@@ -93,23 +108,30 @@ export async function countCollections() {
  * @returns {Promise<{ projects: object[], nextCursor: string|null }>}
  */
 export async function queryProjects({ limit = 100, cursor } = {}) {
-  const res = await wixApiRequest(PROJECTS_QUERY_URL, {
-    method: "POST",
-    body: {
-      includePageUrl: true,
-      query: cursor
-        ? { cursorPaging: { limit, cursor } }
-        : {
-            filter: { hidden: false },
-            sort: [{ fieldName: "createdDate", order: "DESC" }],
-            cursorPaging: { limit },
-          },
-    },
-  });
-  return {
-    projects: res?.projects ?? [],
-    nextCursor: res?.metadata?.cursors?.next ?? null,
-  };
+  try {
+    const res = await wixApiRequest(PROJECTS_QUERY_URL, {
+      method: "POST",
+      body: {
+        includePageUrl: true,
+        query: cursor
+          ? { cursorPaging: { limit, cursor } }
+          : {
+              filter: { hidden: false },
+              sort: [{ fieldName: "createdDate", order: "DESC" }],
+              cursorPaging: { limit },
+            },
+      },
+    });
+    return {
+      projects: res?.projects ?? [],
+      nextCursor: res?.metadata?.cursors?.next ?? null,
+    };
+  } catch (err) {
+    // Degrade to an empty page instead of rethrowing (see queryCollections) — an uncaught
+    // read hangs the gallery on an infinite spinner; empty renders the empty state instead.
+    console.error("queryProjects failed:", err);
+    return { projects: [], nextCursor: null };
+  }
 }
 
 /**
@@ -121,22 +143,29 @@ export async function queryProjects({ limit = 100, cursor } = {}) {
  * @returns {Promise<{ projects: object[], nextCursor: string|null }>}
  */
 export async function queryProjectsByCollection(collectionId, { limit = 100, cursor } = {}) {
-  const res = await wixApiRequest(PROJECTS_QUERY_URL, {
-    method: "POST",
-    body: {
-      includePageUrl: true,
-      query: cursor
-        ? { cursorPaging: { limit, cursor } }
-        : {
-            filter: { hidden: false, collectionIds: { $hasSome: [collectionId] } },
-            cursorPaging: { limit },
-          },
-    },
-  });
-  return {
-    projects: res?.projects ?? [],
-    nextCursor: res?.metadata?.cursors?.next ?? null,
-  };
+  try {
+    const res = await wixApiRequest(PROJECTS_QUERY_URL, {
+      method: "POST",
+      body: {
+        includePageUrl: true,
+        query: cursor
+          ? { cursorPaging: { limit, cursor } }
+          : {
+              filter: { hidden: false, collectionIds: { $hasSome: [collectionId] } },
+              cursorPaging: { limit },
+            },
+      },
+    });
+    return {
+      projects: res?.projects ?? [],
+      nextCursor: res?.metadata?.cursors?.next ?? null,
+    };
+  } catch (err) {
+    // Degrade to an empty page instead of rethrowing (see queryCollections) — an uncaught
+    // read hangs the collection page on an infinite spinner; empty renders the empty state.
+    console.error("queryProjectsByCollection failed:", err);
+    return { projects: [], nextCursor: null };
+  }
 }
 
 /**

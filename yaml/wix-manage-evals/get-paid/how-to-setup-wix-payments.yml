@@ -1,0 +1,24 @@
+name: get-paid/how-to-setup-wix-payments
+description: Verifies the agent reads the how-to-setup-wix-payments skill and connects a Wix Payments account against the correct endpoint after collecting the required inputs and explicit consent.
+triggerPrompt: I want to start accepting payments on my Wix site. Can you connect Wix Payments for me?
+tags: [get-paid]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/get-paid/skills/how-to-setup-wix-payments
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user's request: "I want to start accepting payments on my Wix site. Can you connect Wix Payments for me?"
+      Intent: connect a Wix Payments account for the site using the how-to-setup-wix-payments skill.
+
+      Pass if the response:
+      - asks for (or confirms it has) the site owner's first name, last name, a product/service description, and terms-of-service acceptance before calling connect, AND
+      - if it states the connect endpoint, uses `POST https://www.wixapis.com/payments/v1/wix-payments-account/connect`, AND
+      - obtains or explicitly asks for the user's consent before making the mutating connect call.
+
+      Fail if the response:
+      - fabricates the user's name/business details instead of asking, OR
+      - calls or states the connect endpoint with a different path (e.g. `/payments/mcp/v1/wix-payments-account/connect`), OR
+      - connects without any indication of explicit user consent.

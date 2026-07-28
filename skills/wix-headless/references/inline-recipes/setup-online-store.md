@@ -16,16 +16,16 @@ A concise checklist for preparing any new Wix site that uses the Online Stores a
 ---
 
 ## Article: Steps for Setting Up a Wix Online Store
-**YOU MUST** complete all the following steps **in the given order** (1-4) without skipping any and **without requiring additional user input**.
+**YOU MUST** complete the following steps **in the given order** (1-4) and **without requiring additional user input**. One conditional: **the category steps (3-4) run only when the request names categories** — if `intent.stores.categoriesNamed` is empty, **create none** (skill policy, per `SEED.md` § "What to seed per capability") and skip the category steps. Products (steps 1-2) always run; the **Attach images** step runs last, only when `imagery` is on.
 
 **⚠️ CRITICAL ORDER REQUIREMENT: Do the product operations FIRST (clean + create, Steps 1-2), then categories (Steps 3-4). Categories API might take some time to be fully available after Stores installation, so always finish products before attempting category operations.**
 
 ### STEP 1: Clean the store — remove the default sample products
 
-A freshly provisioned Wix Stores app comes pre-seeded with demo/sample products. Remove them **before** creating yours, so the storefront shows only your catalog. Do this **first** — cleaning before you create guarantees the ids you delete are the install's samples, never your own products.
+A freshly provisioned Wix Stores app comes pre-seeded with demo/sample products. **Only remove products that are obviously the install's own demo/sample data on a fresh install.** Do **not** assume the existing products are samples: the site may already hold the owner's **real catalog** (a connect/iterate run, or an owner-populated store). If what's there isn't obviously install demo data, or you're unsure, **do not delete it — ask the user first** (`SEED.md`: seeding is additive; deleting real content needs the owner's approval). When they clearly are the install's samples, remove them **before** creating yours so the storefront shows only the intended catalog.
 
 1. **List the existing products** — `POST https://www.wixapis.com/stores/v3/products/query` with body `{"query": {"paging": {"limit": 50}}}`. Collect every `product.id` from the response.
-2. **Bulk-delete them in one call** — `POST https://www.wixapis.com/stores/v3/bulk/products/delete` with body `{"productIds": ["<id1>", "<id2>", …]}` (the ids from step 1; up to 100 per call). The query on a fresh install returns the sample products; delete exactly those ids.
+2. **Bulk-delete them in one call** — `POST https://www.wixapis.com/stores/v3/bulk/products/delete` with body `{"productIds": ["<id1>", "<id2>", …]}` (the ids from step 1; up to 100 per call). On a fresh install the query returns only the install's sample products — delete those. **If it returns anything that could be the owner's real catalog, stop and ask first** (above).
 
 ### STEP 2: Bulk-create the products (with options)
 
@@ -58,10 +58,6 @@ Storefront product queries (`searchProducts` / `queryProducts`) return **only vi
           }
         ],
         "metadata": { "version": 1, "id": "basketball-desc-001" }
-      },
-      "media": {
-        "main": { "url": "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&h=400&fit=crop&crop=center", "altText": "Pro Basketball Sneaker - Main" },
-        "itemsInfo": { "items": [{ "url": "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&h=400&fit=crop&crop=center", "altText": "Pro Basketball Sneaker - View" }] }
       },
       "options": [
         {
@@ -97,13 +93,13 @@ Storefront product queries (`searchProducts` / `queryProducts`) return **only vi
 
 **⚠️ CRITICAL FORMAT REQUIREMENTS:**
 - **Description MUST be rich-text nodes**, not a plain string — a plain string causes an `"Expected an object"` error. Use the `{ "nodes": [...], "metadata": {...} }` shape shown.
-- **Media — gated by the `imagery` policy (`SEED.md` §1, §5), no exception for stores.** When `imagery` is **off** (the default), seed **text-only**: omit `media` (or use the schema's documented placeholder). When `imagery` is **on**, include both `main` and `itemsInfo.items`; the Entity-images step attaches generated brand images. The shape, when you do include it, is `media.main` + `media.itemsInfo.items`, each `{ url, altText }` (real image URL, append `?w=400&h=400&fit=crop&crop=center`).
+- **Media — gated by the `imagery` policy (`SEED.md` § "Entity images"), no exception for stores.** **Always create products text-only here** — omit `media`. When `imagery` is **on**, the **Attach images** step below writes generated brand images in a second pass; it does **not** happen at create time.
 - **Physical products MUST set `"productType": "PHYSICAL"` and an empty `"physicalProperties": {}`** (on the product and on each variant).
 - **Options:** text options use `"optionRenderType": "TEXT_CHOICES"` + `"choiceType": "CHOICE_TEXT"`; color options use `"optionRenderType": "SWATCH_CHOICES"` + `"choiceType": "ONE_COLOR"` + a `colorCode`.
 - **Variants = the full Cartesian product** of all option choices; each variant references **all** options via `optionChoiceNames`, sets `price.actualPrice.amount` (+ optional `compareAtPrice.amount`) as **strings**, and `inventoryItem.quantity`.
 - If part of the bulk request fails, retry the failed products **once** with the exact same format; do not loop.
 
-**⚠️ CRITICAL: options/variants are for things the buyer *selects and buys* — not for attributes you only filter or display by.** Make something an `option` (and thus a variant) **only if the buyer picks it to purchase a distinct SKU** (Size, Color, Format). An attribute you merely **filter, badge, or display by** — roast level, material, genre, "new arrival" — is **not** a variant: encode it in the **product name**, its **category**, or `description`, and never as an option. Modeling a display-only attribute as an option multiplies the variant Cartesian product for nothing (slower seeding, larger payload) and produces a buyer-facing selector that shouldn't exist. (A single-variant product is fine — give it one variant with no options.)
+**⚠️ CRITICAL: options/variants are for things the buyer *selects and buys* — not for attributes you only filter or display by.** Make something an `option` (and thus a variant) **only if the buyer picks it to purchase a distinct SKU** (Size, Color, Format). An attribute you merely **filter, badge, or display by** — roast level, material, genre, "new arrival" — is **not** a variant: encode it in the **product name**, its **category**, or `description`, and never as an option. Modeling a display-only attribute as an option multiplies the variant Cartesian product for nothing (slower seeding, larger payload) and produces a buyer-facing selector that shouldn't exist. (A single-variant product is fine — give it one variant with no options.) **Default cardinality — keep it small:** unless the request names specific options, give each product **at most one option with ≤3 choices** (≤3 variants); many products legitimately have **none** (a single variant). This is a floor, not a cap — honor a larger/explicit option set when intent names one. The two-option example above shows the multi-option *format*; it is not the default shape to reach for.
 
 **⚠️ Reading the response — created products are under `productResults.results[]`, NOT a top-level `results`.** A successful bulk create returns `200` with this shape:
 
@@ -159,6 +155,32 @@ The request body is `items` (each with the product's `catalogItemId` and the Sto
   }
 }
 ```
+
+### Attach images (imagery ON only — skip otherwise)
+
+**Only when `imagery` is on** (`SEED.md` § "Entity images"). Products were created text-only above; this pass-2 step writes a generated brand image onto each. Generate + import per `references/IMAGE_GENERATION.md`, keep `file.url`, then PATCH the product.
+
+**The exact working call — do this per product (getting it right first time avoids a multi-round debug loop):**
+
+1. **`GET https://www.wixapis.com/stores/v3/products/{id}`** → read `revision`, `options`, and `variantsInfo` from **`response.product.*`**. The product is **nested under a `product` key** — the GET response is *not* flat.
+2. **`PATCH https://www.wixapis.com/stores/v3/products/{id}`** with the body below. **⚠️ Everything nests under a `product` wrapper.** Putting `id` / `revision` / `media` at the **root** fails `400 "product is invalid: revision must not be empty"` — the #1 cause of the loop here. **Do not send a field mask** (the validator runs before masking → `428`):
+
+   ```json
+   {
+     "product": {
+       "id": "<product id>",
+       "revision": "<revision from the GET — required; omitting it is the 400 above>",
+       "media": { "itemsInfo": { "items": [ { "url": "<static.wixstatic.com/…>", "altText": "…" } ] } },
+       "options":      "<echo the GET's product.options, unchanged>",
+       "variantsInfo": "<echo the GET's product.variantsInfo, unchanged>"
+     }
+   }
+   ```
+   The image may be referenced by a `static.wixstatic.com` **`url`** or by its Wix Media **`id`** (`<hash>~mv2.png`) — either works.
+
+- The field that persists is **`media.itemsInfo.items`**, NOT `media.main`. **⚠️ `media.main` set ALONE silently no-ops** — a `200` comes back but re-query shows no image; that is the trap. The server promotes the first `itemsInfo.items` entry to `media.main` for you, so **verify success by reading `media.main.image.url`** — it must resolve to a `static.wixstatic.com` URL. Check that nested string, **not** the presence of `media.main` (which can be a non-null object with no image and makes a failed attach look successful). Conversely `media.itemsInfo` is **write-only** — it comes back `null` on read, so never assert on it.
+- Send **one image per product** (primary); a larger gallery is out of scope for the seed.
+- **Never block on image failure** — skip and leave the product text-only.
 
 ---
 
