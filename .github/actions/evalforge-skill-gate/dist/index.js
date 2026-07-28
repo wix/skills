@@ -30778,6 +30778,41 @@ function enc(segment) {
 
 /***/ }),
 
+/***/ 3460:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.evaluateRunResult = evaluateRunResult;
+/**
+ * Decides whether a finished run counts as a pass.
+ *
+ * Note the zero-assertion rule: a run that evaluated nothing has no failures, so a naive
+ * `failed + errors === 0` check would report green having verified nothing. That is exactly
+ * the false pass the gate exists to prevent, so it is an explicit failure.
+ */
+function evaluateRunResult(status) {
+    const reasons = [];
+    const metrics = status.aggregateMetrics;
+    if (status.status !== 'completed') {
+        reasons.push(`the eval run ${status.status === 'cancelled' ? 'was cancelled' : `ended as "${status.status}"`}`);
+    }
+    if (metrics.failed > 0) {
+        reasons.push(`${metrics.failed} assertion${metrics.failed === 1 ? '' : 's'} failed`);
+    }
+    if (metrics.errors > 0) {
+        reasons.push(`${metrics.errors} assertion${metrics.errors === 1 ? '' : 's'} errored`);
+    }
+    if (metrics.totalAssertions === 0) {
+        reasons.push('the run produced no assertions, so nothing was verified');
+    }
+    return { passed: reasons.length === 0, reasons };
+}
+
+
+/***/ }),
+
 /***/ 3308:
 /***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
 
@@ -30916,6 +30951,8 @@ __exportStar(__nccwpck_require__(5781), exports);
 __exportStar(__nccwpck_require__(4527), exports);
 __exportStar(__nccwpck_require__(7264), exports);
 __exportStar(__nccwpck_require__(3308), exports);
+__exportStar(__nccwpck_require__(8833), exports);
+__exportStar(__nccwpck_require__(3460), exports);
 
 
 /***/ }),
@@ -31571,6 +31608,57 @@ function parseScenario(raw) {
         }
     }
     return exports.ScenarioSchema.parse(parsed);
+}
+
+
+/***/ }),
+
+/***/ 8833:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.selectScenarios = selectScenarios;
+/**
+ * Builds the run's scenario set.
+ *
+ * `nameToId` is the union of the sync plan's own results (CREATE returns the new id, UPDATE
+ * already has it) and the remote tag query, so the gate never depends on read-after-write
+ * consistency: a slow tag index cannot silently shrink the run.
+ *
+ * The cap prioritises scenarios this PR touched. Sorting purely alphabetically would let a
+ * capped run drop the author's own new scenario in favour of an unrelated one.
+ */
+function selectScenarios(input) {
+    const derivedTags = new Set(input.tags);
+    const candidates = [...input.localScenarios.values()].filter(loaded => input.broadImpact
+        || input.touchedScenarioPaths.has(loaded.path)
+        || loaded.scenario.tags.some(tag => derivedTags.has(tag)));
+    const ordered = candidates.sort((left, right) => {
+        const leftTouched = input.touchedScenarioPaths.has(left.path) ? 0 : 1;
+        const rightTouched = input.touchedScenarioPaths.has(right.path) ? 0 : 1;
+        if (leftTouched !== rightTouched)
+            return leftTouched - rightTouched;
+        return left.scenario.name.localeCompare(right.scenario.name);
+    });
+    const missingIds = [];
+    const resolvable = [];
+    for (const loaded of ordered) {
+        const id = input.nameToId.get(loaded.scenario.name);
+        if (id)
+            resolvable.push({ name: loaded.scenario.name, id });
+        else
+            missingIds.push(loaded.scenario.name);
+    }
+    const running = resolvable.slice(0, Math.max(0, input.maxScenarios));
+    const cut = resolvable.slice(running.length);
+    return {
+        ids: running.map(entry => entry.id),
+        selected: running.map(entry => entry.name),
+        dropped: cut.map(entry => entry.name).sort(),
+        missingIds: missingIds.sort(),
+    };
 }
 
 
