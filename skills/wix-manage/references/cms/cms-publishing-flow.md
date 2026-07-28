@@ -14,7 +14,7 @@ This reference is for an agent that must **detect** whether a collection uses th
 
 1. Wix CMS enabled on the site.
 2. The collection already exists (see [CMS Schema Management](cms-schema-management.md)).
-3. API access with the relevant scopes. Reading, authoring drafts, and publishing all go through the Data Items API and require **Write Data Items** (`SCOPE.DC-DATA.WRITE`) for writes; adding or removing the Draft Items plugin requires **Manage Data Collections** (`SCOPE.DC-DATA.DATA-COLLECTIONS-MANAGE`).
+3. API access with write permission on the collection's data items (reading, authoring drafts, and publishing all go through the Data Items API), plus collection-management permission to add or remove the Draft Items plugin.
 
 ## Required APIs
 
@@ -196,7 +196,7 @@ curl -X DELETE 'https://www.wixapis.com/wix-data/v2/items/<id>?dataCollectionId=
 
 ## 4. Enable / disable the workflow on a collection
 
-**Enable** — add the Draft Items plugin (requires Manage Data Collections scope). Use the dedicated endpoint; the Draft Items plugin cannot be added through the generic add-plugin call.
+**Enable** — add the Draft Items plugin (requires collection-management permission). Use the dedicated endpoint; the Draft Items plugin cannot be added through the generic add-plugin call.
 
 **Endpoint**: `POST /wix-data/v2/collections/add-draft-items-plugin`
 
@@ -243,7 +243,7 @@ curl -X POST 'https://www.wixapis.com/wix-data/v2/collections/delete-draft-items
 
 ## Permissions
 
-At the REST level, every read/author/publish/unpublish call here goes through the Data Items API and requires **Write Data Items** (`SCOPE.DC-DATA.WRITE`) for writes. Beyond that, individual draft and publish actions may be further permission-restricted per caller on the collection, and the agent has no way to introspect those specific scopes ahead of time — so attempt the action and **handle authorization errors gracefully** if the write is rejected.
+At the REST level, every read/author/publish/unpublish call here goes through the Data Items API and requires write access to the collection's data items. Beyond that, individual draft and publish actions may be further permission-restricted per caller on the collection, and there's no way to introspect those permissions ahead of time — so attempt the action and **handle authorization errors gracefully** if the write is rejected.
 
 ---
 
