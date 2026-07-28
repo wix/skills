@@ -1,6 +1,6 @@
 ---
 name: "Create Site from Template"
-description: Creates new Wix sites from templates using account-level APIs. Covers template search, site creation, headless site setup, OAuth app creation, and publishing.
+description: Creates new Wix sites from templates using account-level APIs. Covers template search, site creation, headless business provisioning, and publishing.
 ---
 # Create Site from Template
 
@@ -108,23 +108,10 @@ The `siteName` must follow these rules:
 
 If `siteName` is not provided, one is generated automatically.
 
-### For Headless Sites
-
-Add `"namespace": "HEADLESS"` to the request body:
-
-```json
-{
-  "originTemplateId": "<TEMPLATE_ID>",
-  "siteName": "my-headless-site",
-  "namespace": "HEADLESS"
-}
-```
-
 **Response** includes the new site's `metaSiteId`.
 
 ### IMPORTANT NOTES:
-- Only mention headless if user specifically requests it
-- If user doesn't ask for headless, do NOT include the `namespace` field
+- This API creates regular Wix sites. Do NOT use it for headless sites (even with a `namespace` field) — see [Headless Sites](#headless-sites) below
 
 ---
 
@@ -151,13 +138,37 @@ curl -X POST \
 
 ---
 
-## Step 5: For Headless Sites - Create OAuth App
+## Headless Sites
 
-If the site was created as headless, you MUST create an OAuth app for authentication.
+Headless sites are NOT created from templates. One account-level call creates the site, installs the requested Wix Business Solution apps, and creates and configures the site's OAuth client:
 
-See [Create OAuth App](https://dev.wix.com/docs/api-reference/business-management/headless/oauth-apps/create-oauth-app) documentation.
+**Endpoint**: `POST https://www.wixapis.com/headless-business-setup/v1/headless-business/provision`
 
-This is a site-level call in the context of the newly created site.
+**Request Body**:
+```json
+{
+  "newMetasite": {
+    "namingStrategy": { "metaSiteName": "My Headless Business" },
+    "seedOptions": [
+      { "businessSolution": "STORES", "clearTemplateContent": true, "seedDemoContent": false }
+    ]
+  },
+  "synchronousSteps": ["SET_METASITE_NAME", "CONFIGURE_HEADLESS_APP"]
+}
+```
+
+- `namingStrategy` — exactly one of: `metaSiteName` (exact display name), `llmPromptBasedName: {}` (name derived from the top-level `prompt` field), or `defaultName: {}`
+- `seedOptions` — Wix Business Solution apps to install at creation: `STORES`, `BLOG`, `BOOKINGS`, `EVENTS`, `PORTFOLIO`, `PRICING_PLANS`. Each entry takes `clearTemplateContent` (remove sample content) and `seedDemoContent` (seed demo content). Empty installs none
+- `synchronousSteps` — steps to complete before the call returns: `SET_METASITE_NAME`, `CONFIGURE_HEADLESS_APP`, `SEED_CONTENT`. Omitted steps run asynchronously. Include `CONFIGURE_HEADLESS_APP` when the OAuth client must be usable immediately
+
+**Response**:
+```json
+{ "metaSiteId": "<SITE_ID>", "appId": "<OAUTH_CLIENT_ID>" }
+```
+
+`appId` is the site's OAuth client ID — do NOT create a separate OAuth app.
+
+To provision headless onto an existing site, pass `"existingMetasite": {}` instead of `newMetasite` (site-level call in the context of that site).
 
 ---
 
