@@ -34,7 +34,8 @@ export function collectSkillFiles(
   const relativePaths = glob.sync('**/*', {
     cwd: skillRoot,
     nodir: true,
-    dot: false,
+    // Dotfiles included: a silently dropped file the docs reference is worse than a stray one.
+    dot: true,
     ignore: ['**/node_modules/**', '**/dist/**'],
     posix: true,
   }).sort();

@@ -93,7 +93,6 @@ describe('guardScenarios — the outcome table', () => {
     expect(violations).toEqual([
       { kind: 'WEAK_TOUCHED_SCENARIO', name: 'thin', path: pathOf('thin'), reasons: expect.any(Array) },
     ]);
-    // Already blocking on it — no duplicate warning.
     expect(warnings).toEqual([]);
   });
 });

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { collectSkillFiles } from '../src/collect-skill-files';
+import { collectSkillFiles, DEFAULT_COLLECT_LIMITS } from '../src/collect-skill-files';
 
 let root: string;
 
@@ -14,6 +14,12 @@ function write(relativePath: string, content: string): void {
   mkdirSync(join(full, '..'), { recursive: true });
   writeFileSync(full, content);
 }
+
+describe('DEFAULT_COLLECT_LIMITS', () => {
+  it('leaves room for a real skill', () => {
+    expect(DEFAULT_COLLECT_LIMITS).toEqual({ maxFileBytes: 1_000_000, maxTotalBytes: 10_000_000 });
+  });
+});
 
 describe('collectSkillFiles', () => {
   it('returns paths relative to the skill dir, sorted deterministically', () => {
@@ -29,6 +35,45 @@ describe('collectSkillFiles', () => {
       'references/dashboard-page/API.md',
     ]);
     expect(files[0].content).toBe('# skill');
+  });
+
+  it('collects the whole skill dir, scripts and assets included', () => {
+    write('skills/wix-app/SKILL.md', '# skill');
+    write('skills/wix-app/references/DASHBOARD_PAGE.md', 'dashboard');
+    write('skills/wix-app/scripts/gen.js', 'x');
+    write('skills/wix-app/assets/template.txt', 'y');
+
+    const files = collectSkillFiles(root, 'skills/wix-app');
+
+    expect(files.map(file => file.path)).toEqual([
+      'SKILL.md',
+      'assets/template.txt',
+      'references/DASHBOARD_PAGE.md',
+      'scripts/gen.js',
+    ]);
+  });
+
+  it('collects dotfiles', () => {
+    write('skills/wix-app/SKILL.md', '# skill');
+    write('skills/wix-app/.eslintrc', '{}');
+    write('skills/wix-app/references/.shared.md', 'shared');
+
+    const files = collectSkillFiles(root, 'skills/wix-app');
+
+    expect(files.map(file => file.path)).toEqual([
+      '.eslintrc',
+      'SKILL.md',
+      'references/.shared.md',
+    ]);
+  });
+
+  it('collects nested reference sub-docs at their full relative path', () => {
+    write('skills/wix-app/SKILL.md', '# skill');
+    write('skills/wix-app/references/stores/deep/NOTE.md', 'note');
+
+    const files = collectSkillFiles(root, 'skills/wix-app');
+
+    expect(files.map(file => file.path)).toContain('references/stores/deep/NOTE.md');
   });
 
   it('excludes node_modules and dist', () => {
@@ -73,32 +118,5 @@ describe('collectSkillFiles', () => {
     mkdirSync(join(root, 'skills/wix-app'), { recursive: true });
 
     expect(() => collectSkillFiles(root, 'skills/wix-app')).toThrow(/no files/i);
-  });
-
-  // Not just the docs: they tell the agent to run `<SKILL_ROOT>/scripts/…`, and selecting only
-  // referenced files would miss what those in turn require.
-  it('collects the whole skill dir, scripts and assets included', () => {
-    write('skills/wix-app/SKILL.md', '# skill');
-    write('skills/wix-app/references/DASHBOARD_PAGE.md', 'dashboard');
-    write('skills/wix-app/scripts/gen.js', 'x');
-    write('skills/wix-app/assets/template.txt', 'y');
-
-    const files = collectSkillFiles(root, 'skills/wix-app');
-
-    expect(files.map(file => file.path)).toEqual([
-      'SKILL.md',
-      'assets/template.txt',
-      'references/DASHBOARD_PAGE.md',
-      'scripts/gen.js',
-    ]);
-  });
-
-  it('collects nested reference sub-docs at their full relative path', () => {
-    write('skills/wix-app/SKILL.md', '# skill');
-    write('skills/wix-app/references/stores/deep/NOTE.md', 'note');
-
-    const files = collectSkillFiles(root, 'skills/wix-app');
-
-    expect(files.map(file => file.path)).toContain('references/stores/deep/NOTE.md');
   });
 });
