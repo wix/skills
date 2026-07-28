@@ -1,8 +1,8 @@
 import {
-  isApiCall, isCost, isLlmJudge, isTimeLimit,
-  type ApiCallAssertion, type Assertion, type CostAssertion,
+  isApiCall, isBuildPassed, isCost, isLlmJudge, isSkillWasCalled, isTimeLimit, isTokenCount,
+  type ApiCallAssertion, type Assertion, type BuildPassedAssertion, type CostAssertion,
   type LlmJudgeAssertion, type Scenario, type SiteBootstrapStep, type SiteSetup,
-  type TimeLimitAssertion,
+  type SkillWasCalledAssertion, type TimeLimitAssertion, type TokenCountAssertion,
 } from './schema';
 
 // EvalForge v1 TestScenario uses assertionLinks (system-assertion references with primitive params)
@@ -14,6 +14,9 @@ const SYSTEM_LLM_JUDGE = 'system:llm_judge';
 const SYSTEM_API_CALL = 'system:api_call';
 const SYSTEM_COST = 'system:cost';
 const SYSTEM_TIME_LIMIT = 'system:time_limit';
+const SYSTEM_SKILL_WAS_CALLED = 'system:skill_was_called';
+const SYSTEM_BUILD_PASSED = 'system:build_passed';
+const SYSTEM_TOKEN_COUNT = 'system:token_count';
 
 type LinkParams = Record<string, string | number | boolean | null>;
 
@@ -22,49 +25,64 @@ export type ScenarioAssertionLink = {
   params?: LinkParams;
 };
 
+// V1 SiteBootstrapHttpMethod enum names are uppercase.
 export type EvalForgeBootstrapStep = {
   label?: string;
-  method: SiteBootstrapStep['method'];
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   url: string;
   body?: Record<string, unknown>;
 };
 
-export type EvalForgeSiteSetup = {
-  mode: 'template';
-  templateId: string;
-  bootstrap?: { steps: EvalForgeBootstrapStep[] };
-};
+// V1 SiteSetupConfig is a discriminator enum (`mode`) + an aligned oneof. For
+// `TEMPLATE`, the template id goes under the `templateOptions` branch — not flat.
+// `NONE` (mode only, no options) means "provision no site" and is the explicit
+// clearing representation on update — the backend always applies site_setup when
+// it is present in the body, so a scenario that drops its setup must send NONE.
+export type EvalForgeSiteSetup =
+  | { mode: 'TEMPLATE'; templateOptions: { templateId: string }; bootstrap?: { steps: EvalForgeBootstrapStep[] } }
+  | { mode: 'NONE' };
 
 export type EvalForgeBody = {
   name: string;
   description: string;
   triggerPrompt: string;
+  templateId?: string;
   assertionLinks: ScenarioAssertionLink[];
+  // `toEvalForgeBody` always populates this: TEMPLATE when the scenario provisions
+  // a site, NONE otherwise. Sending NONE explicitly clears any previously-set site
+  // setup on update. Optional only so hand-built test fixtures stay ergonomic.
   siteSetup?: EvalForgeSiteSetup;
 };
 
 export function toEvalForgeBody(s: Scenario): EvalForgeBody {
-  const body: EvalForgeBody = {
+  return {
     name: s.name,
     description: s.description,
     triggerPrompt: s.triggerPrompt,
+    ...(s.templateId ? { templateId: s.templateId } : {}),
     assertionLinks: s.assertions.map(mapAssertion),
+    siteSetup: s.siteSetup ? mapSiteSetup(s.siteSetup) : { mode: 'NONE' },
   };
-  if (s.siteSetup) body.siteSetup = mapSiteSetup(s.siteSetup);
-  return body;
 }
 
 function mapSiteSetup(s: SiteSetup): EvalForgeSiteSetup {
-  const out: EvalForgeSiteSetup = { mode: s.mode, templateId: s.templateId };
   // Omit bootstrap when it has no steps.
-  if (s.bootstrap && s.bootstrap.steps.length > 0) {
-    out.bootstrap = { steps: s.bootstrap.steps.map(mapBootstrapStep) };
-  }
-  return out;
+  const bootstrap = s.bootstrap && s.bootstrap.steps.length > 0
+    ? { steps: s.bootstrap.steps.map(mapBootstrapStep) }
+    : undefined;
+  return {
+    mode: 'TEMPLATE',
+    templateOptions: { templateId: s.templateId },
+    ...(bootstrap ? { bootstrap } : {}),
+  };
 }
 
 function mapBootstrapStep(step: SiteBootstrapStep): EvalForgeBootstrapStep {
-  const out: EvalForgeBootstrapStep = { method: step.method, url: step.url };
+  // Schema methods are lowercase; V1's SiteBootstrapHttpMethod enum is uppercase.
+  const out: EvalForgeBootstrapStep = {
+    method: step.method.toUpperCase() as EvalForgeBootstrapStep['method'],
+    url: step.url,
+  };
   if (step.label !== undefined) out.label = step.label;
   if (step.body !== undefined) out.body = step.body;
   return out;
@@ -75,6 +93,9 @@ function mapAssertion(a: Assertion): ScenarioAssertionLink {
   if (isApiCall(a)) return mapApiCall(a);
   if (isCost(a)) return mapCost(a);
   if (isTimeLimit(a)) return mapTimeLimit(a);
+  if (isSkillWasCalled(a)) return mapSkillWasCalled(a);
+  if (isBuildPassed(a)) return mapBuildPassed(a);
+  if (isTokenCount(a)) return mapTokenCount(a);
   return mapToolCall(a);
 }
 
@@ -93,8 +114,34 @@ function mapLlmJudge(a: LlmJudgeAssertion): ScenarioAssertionLink {
   if (a.model !== undefined) params.model = a.model;
   if (a.maxTokens !== undefined) params.maxTokens = a.maxTokens;
   if (a.temperature !== undefined) params.temperature = a.temperature;
+  if (a.scoringMode !== undefined) params.scoringMode = a.scoringMode;
+  if (a.browserTools !== undefined) params.browserTools = a.browserTools;
+  if (a.parameters !== undefined) params.parameters = JSON.stringify(a.parameters);
   if (a.negate !== undefined) params.negate = a.negate;
   return { assertionId: SYSTEM_LLM_JUDGE, params };
+}
+
+function mapSkillWasCalled(a: SkillWasCalledAssertion): ScenarioAssertionLink {
+  const params: LinkParams = { skillNames: JSON.stringify(a.skillNames) };
+  if (a.referenceFiles !== undefined) params.referenceFiles = JSON.stringify(a.referenceFiles);
+  if (a.negate !== undefined) params.negate = a.negate;
+  return { assertionId: SYSTEM_SKILL_WAS_CALLED, params };
+}
+
+function mapBuildPassed(a: BuildPassedAssertion): ScenarioAssertionLink {
+  const params: LinkParams = {};
+  if (a.command !== undefined) params.command = a.command;
+  if (a.expectedExitCode !== undefined) params.expectedExitCode = a.expectedExitCode;
+  if (a.negate !== undefined) params.negate = a.negate;
+  return Object.keys(params).length > 0
+    ? { assertionId: SYSTEM_BUILD_PASSED, params }
+    : { assertionId: SYSTEM_BUILD_PASSED };
+}
+
+function mapTokenCount(a: TokenCountAssertion): ScenarioAssertionLink {
+  const params: LinkParams = { maxTokens: a.maxTokens };
+  if (a.negate !== undefined) params.negate = a.negate;
+  return { assertionId: SYSTEM_TOKEN_COUNT, params };
 }
 
 function mapApiCall(a: ApiCallAssertion): ScenarioAssertionLink {

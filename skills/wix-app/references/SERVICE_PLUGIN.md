@@ -7,16 +7,18 @@ Service plugins are a set of APIs defined by Wix that let you inject custom logi
 
 Use `wix generate --params` with `extensionType: SERVICE_PLUGIN`. `pluginType` is one of:
 
-| Value | SPI |
-| --- | --- |
-| `ECOM_ADDITIONAL_FEES` | Additional Fees |
-| `ECOM_SHIPPING_RATES` | Shipping Rates |
-| `ECOM_DISCOUNTS_TRIGGER` | Discount Triggers |
-| `ECOM_VALIDATIONS` | Validations |
-| `ECOM_PAYMENT_SETTINGS` | Payment Settings |
-| `GIFT_CARDS_PROVIDER` | Gift Cards Provider |
-| `STAFF_SORTING_PROVIDER` | Bookings Staff Sorting |
-| `REALTIME_PERMISSIONS_PROVIDER` | Realtime Permissions Provider |
+| Value | SPI | Singular |
+| --- | --- | --- |
+| `ECOM_ADDITIONAL_FEES` | Additional Fees | No |
+| `ECOM_SHIPPING_RATES` | Shipping Rates | **Yes** |
+| `ECOM_DISCOUNTS_TRIGGER` | Discount Triggers | **Yes** |
+| `ECOM_VALIDATIONS` | Validations | No |
+| `ECOM_PAYMENT_SETTINGS` | Payment Settings | No |
+| `GIFT_CARDS_PROVIDER` | Gift Cards Provider | **Yes** |
+| `STAFF_SORTING_PROVIDER` | Bookings Staff Sorting | No |
+| `REALTIME_PERMISSIONS_PROVIDER` | Realtime Permissions Provider | No |
+
+> **Singular types** — `ECOM_SHIPPING_RATES`, `ECOM_DISCOUNTS_TRIGGER`, and `GIFT_CARDS_PROVIDER` are **singular**: only one component of each type is allowed per app. Never scaffold or include two components of the same singular type in the same app payload.
 
 `name` must be lowercase alphanumeric + hyphens, max 19 characters. The CLI generates the folder, `plugin.ts`, the builder file, the UUID, and the `src/extensions.ts` registration with the appropriate builder method for the SPI type. Some SPI types (e.g., `ECOM_SHIPPING_RATES`) get a `description` placeholder field in the generated builder — replace it with your real copy.
 

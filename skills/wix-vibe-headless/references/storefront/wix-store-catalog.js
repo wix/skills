@@ -20,7 +20,9 @@ import { wixApiRequest } from "./wix-client.js";
  *   modifiers {array} — non-variant customizations (engraving, gift wrap):
  *     [{ id, name, mandatory, modifierRenderType "TEXT_CHOICES"|"FREE_TEXT",
  *        key, choicesSettings.choices, freeTextSettings.key }],
- *   plainDescription {string} — HTML product description,
+ *   plainDescription {string} — product description as an HTML string (contains <p>, <br>,
+ *     <strong>…) despite the "plain" name — NOT plain text. Render with innerHTML /
+ *     dangerouslySetInnerHTML; strip tags only for plain-text contexts (meta description, teaser),
  *   variantsInfo.variants {array} — returned only by getProductBySlug:
  *     [{ id, visible, choices [{ optionChoiceIds: { optionId, choiceId } }],
  *        price: { actualPrice, compareAtPrice }, media, inventoryStatus: { inStock } }]
@@ -28,6 +30,8 @@ import { wixApiRequest } from "./wix-client.js";
  *     match all selected { optionId, choiceId } pairs, then pass variant.id to addToCart.
  *
  * Category: { id, name, slug, visible, description, image, itemCounter, parentCategory.id }
+ *   NB: queryCategories includes the auto-created system category { slug: "all-products" } —
+ *   filter it out of a category menu (see INSTRUCTIONS.md). `visible` does not flag it.
  * Full model: https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/categories
  */
 
