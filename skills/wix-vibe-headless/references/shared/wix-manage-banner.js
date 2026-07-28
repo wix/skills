@@ -67,12 +67,26 @@ export function mountWixManageBanner() {
     "background:#131720;color:#fff;border-radius:999px;padding:8px 18px;" +
     "font-size:14px;text-decoration:none;";
 
+  // The tooltip is real DOM, not a `title` attribute — native tooltips don't
+  // show inside sandboxed preview iframes (e.g. a vibe platform's app preview).
+  const TIP_TEXT =
+    "This banner only shows while developing. Don't want it? Ask the agent in the chat to remove it.";
   const info = document.createElement("span");
   info.textContent = "ⓘ";
-  info.title =
-    "This banner only shows while developing. Don't want it? Ask the agent in the chat to remove it.";
-  info.setAttribute("aria-label", info.title);
-  info.style.cssText = "color:#868aa5;font-size:16px;cursor:help;user-select:none;";
+  info.setAttribute("aria-label", TIP_TEXT);
+  info.style.cssText =
+    "position:relative;color:#868aa5;font-size:16px;cursor:pointer;user-select:none;";
+  const tip = document.createElement("span");
+  tip.textContent = TIP_TEXT;
+  tip.style.cssText =
+    "position:absolute;top:calc(100% + 8px);right:-8px;display:none;width:240px;" +
+    "background:#131720;color:#fff;font-size:12px;line-height:1.4;font-weight:400;" +
+    "border-radius:8px;padding:8px 12px;box-shadow:0 2px 8px rgba(0,0,0,.2);";
+  info.append(tip);
+  info.addEventListener("mouseenter", () => (tip.style.display = "block"));
+  info.addEventListener("mouseleave", () => (tip.style.display = "none"));
+  // Touch devices have no hover — a tap toggles instead.
+  info.addEventListener("click", () => (tip.style.display = tip.style.display === "block" ? "none" : "block"));
 
   card.append(text, button, info);
   bar.append(card);
