@@ -107,6 +107,44 @@ describe('selectScenarios', () => {
     expect(selection.selected).toEqual(['known']);
   });
 
+  it('does not run a scenario the PR deleted, though EvalForge still holds it', () => {
+    const selection = selectScenarios({
+      broadImpact: false,
+      tags: ['dashboard-page'],
+      localScenarios: loadedMap(['kept', ['dashboard-page']]),
+      nameToId: idsFor('kept', 'deleted-in-pr'),
+      touchedScenarioPaths: new Set(),
+      maxScenarios: 25,
+    });
+    expect(selection.selected).toEqual(['kept']);
+    expect(selection.ids).toEqual(['id-kept']);
+    expect(selection.missingIds).toEqual([]);
+  });
+
+  it('keeps a deleted scenario out of a broad-impact run too', () => {
+    const selection = selectScenarios({
+      broadImpact: true,
+      tags: [],
+      localScenarios: loadedMap(['kept', ['dashboard-page']]),
+      nameToId: idsFor('kept', 'deleted-in-pr'),
+      touchedScenarioPaths: new Set(),
+      maxScenarios: 25,
+    });
+    expect(selection.selected).toEqual(['kept']);
+  });
+
+  it('runs the PR version of a renamed scenario, not the old name', () => {
+    const selection = selectScenarios({
+      broadImpact: false,
+      tags: ['dashboard-page'],
+      localScenarios: loadedMap(['new-name', ['dashboard-page']]),
+      nameToId: idsFor('old-name', 'new-name'),
+      touchedScenarioPaths: new Set([pathOf('new-name')]),
+      maxScenarios: 25,
+    });
+    expect(selection.selected).toEqual(['new-name']);
+  });
+
   it('returns an empty selection when nothing matches', () => {
     const selection = selectScenarios({
       broadImpact: false,
