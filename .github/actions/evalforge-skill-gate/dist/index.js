@@ -61919,7 +61919,13 @@ async function runGate() {
         fail(`Eval coverage guard failed: ${guard.violations.length} violation(s)`, config.blocking);
         return;
     }
-    const skillFiles = await guardedCall(async () => (0, evalforge_core_1.collectSkillFiles)(workspace, config.skillDir, { warn: core.warning }), `Could not read the skill directory ${config.skillDir}`, comment, config.blocking);
+    const skillFiles = await guardedCall(
+    // Only the entry file and the reference docs — the same shape tag derivation reasons
+    // about, so a path the gate calls `unmapped` is not shipped to the agent either.
+    async () => (0, evalforge_core_1.collectSkillFiles)(workspace, config.skillDir, {
+        includeGlobs: (0, evalforge_core_1.skillContentGlobs)(config.referenceDir),
+        warn: core.warning,
+    }), `Could not read the skill directory ${config.skillDir}`, comment, config.blocking);
     if (!skillFiles)
         return;
     core.info(`Collected ${skillFiles.length} skill file(s) from ${config.skillDir}`);

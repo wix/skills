@@ -209,6 +209,35 @@ describe('runGate — the happy path', () => {
     );
   });
 
+  // Only the entry file and the reference docs are the skill. An allowlist means a new stray
+  // file under the skill dir never reaches the agent as skill guidance.
+  it('uploads only SKILL.md and the reference docs', async () => {
+    const { runGate, evalforge } = await harness();
+
+    await runGate();
+
+    expect(evalforge.collectSkillFiles).toHaveBeenCalledWith(
+      expect.any(String), 'skills/wix-app',
+      expect.objectContaining({ includeGlobs: ['SKILL.md', 'references/**'] }),
+    );
+  });
+
+  it('derives the allowlist from reference-dir, not a hardcoded path', async () => {
+    const { runGate, evalforge } = await harness({ referenceDir: 'docs' });
+    // The changed path has to live under the configured reference dir, or it is unmapped and
+    // the gate exits before collecting anything.
+    vi.mocked(evalforge.getChangedFiles).mockResolvedValue([
+      { filename: 'skills/wix-app/docs/DASHBOARD_PAGE.md', status: 'modified' },
+    ]);
+
+    await runGate();
+
+    expect(evalforge.collectSkillFiles).toHaveBeenCalledWith(
+      expect.any(String), 'skills/wix-app',
+      expect.objectContaining({ includeGlobs: ['SKILL.md', 'docs/**'] }),
+    );
+  });
+
   it('runs the tag-selected scenario against that version and passes', async () => {
     const { runGate, core } = await harness();
     const setFailedSpy = vi.spyOn(core, 'setFailed');

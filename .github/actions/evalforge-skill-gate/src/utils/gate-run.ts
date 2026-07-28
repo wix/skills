@@ -8,7 +8,7 @@ import {
   formatGuardFailure, formatNoGatedChanges, formatYamlErrors,
   getChangedFiles, getFirstCommitAuthorEmail, guardScenarios, isWixAuthorEmail,
   listRemoteScenariosForGate, loadScenarios, makeCommenter, parseDraftTag, pollUntilDone,
-  remoteScenarioFiltersForGate, selectScenarios, semanticPlusDraftTags,
+  remoteScenarioFiltersForGate, selectScenarios, semanticPlusDraftTags, skillContentGlobs,
   stripInactiveForeignDraftTags, touchedScenarioPaths,
   type Commenter, type EvalRunStatus, type SyncAction,
 } from '@wix/evalforge-core';
@@ -131,7 +131,12 @@ export async function runGate(): Promise<void> {
   }
 
   const skillFiles = await guardedCall(
-    async () => collectSkillFiles(workspace, config.skillDir, { warn: core.warning }),
+    // Only the entry file and the reference docs — the same shape tag derivation reasons
+    // about, so a path the gate calls `unmapped` is not shipped to the agent either.
+    async () => collectSkillFiles(workspace, config.skillDir, {
+      includeGlobs: skillContentGlobs(config.referenceDir),
+      warn: core.warning,
+    }),
     `Could not read the skill directory ${config.skillDir}`, comment, config.blocking,
   );
   if (!skillFiles) return;
