@@ -75,18 +75,9 @@ describe('collectSkillFiles', () => {
     expect(() => collectSkillFiles(root, 'skills/wix-app')).toThrow(/no files/i);
   });
 
-  // Docs tell the agent to run `<SKILL_ROOT>/scripts/…`; omit it and the capability breaks.
-  it('includes executable helpers the docs tell the agent to run', () => {
-    write('skills/wix-app/SKILL.md', '# skill');
-    write('skills/wix-app/references/AUTO_PATTERNS_DASHBOARD.md', 'run <SKILL_ROOT>/scripts/gen.js');
-    write('skills/wix-app/scripts/gen.js', 'module.exports = {}');
-
-    const files = collectSkillFiles(root, 'skills/wix-app');
-
-    expect(files.map(file => file.path)).toContain('scripts/gen.js');
-  });
-
-  it('collects the whole skill dir — the directory is the deployed unit', () => {
+  // Not just the docs: they tell the agent to run `<SKILL_ROOT>/scripts/…`, and selecting only
+  // referenced files would miss what those in turn require.
+  it('collects the whole skill dir, scripts and assets included', () => {
     write('skills/wix-app/SKILL.md', '# skill');
     write('skills/wix-app/references/DASHBOARD_PAGE.md', 'dashboard');
     write('skills/wix-app/scripts/gen.js', 'x');
