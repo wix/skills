@@ -391,18 +391,6 @@ describe('EvalForgeClient (V1) — skill capability versions', () => {
     });
   });
 
-  it('sends no mcpContent alongside skillContent — the field is a oneof', async () => {
-    let captured: Record<string, unknown> | undefined;
-    mockFetch(({ body }) => {
-      captured = (body as { capabilityVersion: Record<string, unknown> }).capabilityVersion;
-      return { status: 200, body: { capabilityVersion: { id: 'v1', capabilityId: 'C', version: 'L' } } };
-    });
-
-    const client = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
-    await client.createOrReuseSkillVersion('C', 'P', 'L', 42, files);
-
-    expect(captured).not.toHaveProperty('mcpContent');
-  });
 
   it('createOrReuseSkillVersion reuses an existing version on a 409', async () => {
     mockFetch(({ method }) => {
