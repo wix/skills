@@ -210,8 +210,7 @@ describe('runGate — the happy path', () => {
     );
   });
 
-  // The skill dir is the deployed unit — references tell the agent to run
-  // `<SKILL_ROOT>/scripts/…`, so the upload is the configured dir, whole.
+  // The configured dir, whole — references send the agent to `<SKILL_ROOT>/scripts/…`.
   it('collects from the configured skill dir', async () => {
     const { runGate, evalforge } = await harness({ skillDir: 'packages/other-skill' });
     vi.mocked(evalforge.getChangedFiles).mockResolvedValue([

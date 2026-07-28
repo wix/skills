@@ -51,9 +51,9 @@ export type GateConfig = {
   repo: string;
   repoFullName: string;
   prNumber: number;
-  /** The PR's head commit — reported, but not what the label is built from. See `evaluatedSha`. */
+  /** Reported only; the label comes from `evaluatedSha`. */
   headSha: string;
-  /** The commit whose content is actually uploaded and evaluated. */
+  /** The commit actually uploaded and evaluated. */
   evaluatedSha: string;
   versionLabel: string;
 };
@@ -97,14 +97,9 @@ function getHeadSha(): string {
 }
 
 /**
- * The commit whose content is actually evaluated.
- *
- * On `pull_request` the workflow's first checkout has no `ref:`, so it checks out the *merge*
- * commit — head merged into base — and `GITHUB_SHA` names exactly that. The version label has
- * to be built from this, not from `head.sha`: the same head produces different merge content
- * as base advances, so a head-based label would not uniquely identify what it labels, and
- * `ensureSkillVersion` would find the existing label and reuse a version built from stale
- * content.
+ * On `pull_request` the checkout is the merge commit, which `GITHUB_SHA` names. The label must
+ * come from this, not `head.sha`: the same head yields different merge content as base
+ * advances, so `ensureSkillVersion` would reuse a version built from stale content.
  */
 function getEvaluatedSha(): string {
   const sha = process.env.GITHUB_SHA;

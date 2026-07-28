@@ -61,9 +61,8 @@ describe('getGateConfig', () => {
     expect(config.blocking).toBe(false);
   });
 
-  // The label must name the commit actually evaluated. On pull_request the checkout is the
-  // merge commit (GITHUB_SHA), not head — so a head-based label would not uniquely identify
-  // its own content once base advances, and ensureSkillVersion would reuse a stale version.
+  // A head-based label stops matching its own content once base advances, and
+  // ensureSkillVersion would then reuse a stale version.
   it('builds the version label from the evaluated merge commit, not the PR head', async () => {
     setInputs(REQUIRED_GATE_INPUTS);
     process.env.GITHUB_SHA = 'merge99feedface';

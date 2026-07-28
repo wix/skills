@@ -61624,9 +61624,8 @@ function describeError(error) {
     return error instanceof Error ? error.message : String(error);
 }
 /**
- * PR-close cleanup. Every failure is a warning: the PR is already closed, so failing the
- * workflow would only leave a red check nobody can act on, and the next run of this job
- * sweeps whatever was left behind.
+ * Failures are warnings throughout: the PR is closed, so a red check is not actionable and the
+ * next run sweeps what was left.
  */
 async function runCleanup() {
     const config = (0, config_1.getCleanupConfig)();
@@ -61760,14 +61759,9 @@ function getHeadSha() {
     return headSha;
 }
 /**
- * The commit whose content is actually evaluated.
- *
- * On `pull_request` the workflow's first checkout has no `ref:`, so it checks out the *merge*
- * commit — head merged into base — and `GITHUB_SHA` names exactly that. The version label has
- * to be built from this, not from `head.sha`: the same head produces different merge content
- * as base advances, so a head-based label would not uniquely identify what it labels, and
- * `ensureSkillVersion` would find the existing label and reuse a version built from stale
- * content.
+ * On `pull_request` the checkout is the merge commit, which `GITHUB_SHA` names. The label must
+ * come from this, not `head.sha`: the same head yields different merge content as base
+ * advances, so `ensureSkillVersion` would reuse a version built from stale content.
  */
 function getEvaluatedSha() {
     const sha = process.env.GITHUB_SHA;
@@ -61914,7 +61908,7 @@ async function isDraftTagActive(octokit, tag) {
 async function runGate() {
     const config = (0, config_1.getGateConfig)();
     const octokit = github.getOctokit(config.githubToken);
-    // Author gate first — a fork PR must cost nothing at all.
+    // First, so a fork PR costs nothing.
     const authorEmail = await (0, evalforge_core_1.getFirstCommitAuthorEmail)(octokit, config.owner, config.repo, config.prNumber);
     if (!(0, evalforge_core_1.isWixAuthorEmail)(authorEmail)) {
         core.info('Skipping wix-app eval gate — PR author is not a @wix.com address');
@@ -61957,8 +61951,7 @@ async function runGate() {
         await comment((0, evalforge_core_1.formatNoGatedChanges)(derived.unmapped));
         return;
     }
-    // The guard runs on local YAML alone — before any version, sync or run — so a coverage
-    // failure costs nothing.
+    // Local YAML only, before any version or run, so a coverage failure costs nothing.
     const guard = (0, evalforge_core_1.guardScenarios)({
         tags: derived.tags,
         scenarios: headScenarios,
@@ -61970,8 +61963,7 @@ async function runGate() {
         return;
     }
     const skillFiles = await guardedCall(
-    // The whole skill dir, not just the docs: references point the agent at sibling paths
-    // like `<SKILL_ROOT>/scripts/…` and tell it to run them.
+    // Whole dir: references send the agent to sibling paths like `<SKILL_ROOT>/scripts/…`.
     async () => (0, evalforge_core_1.collectSkillFiles)(workspace, config.skillDir, { warn: core.warning }), `Could not read the skill directory ${config.skillDir}`, comment, config.blocking);
     if (!skillFiles)
         return;
@@ -62083,10 +62075,8 @@ async function runGate() {
         fail(`Eval gate failed: ${verdict.reasons.join('; ')}`, config.blocking);
     }
 }
-/**
- * Applies the sync plan, recording the ids CREATE returns. Returns false once an action
- * fails — running against a half-synced scenario set would report on the wrong content.
- */
+/** Applies the plan, recording ids CREATE returns. Stops on failure: a half-synced set would
+ * report on the wrong content. */
 async function applySyncPlan(client, config, actions, nameToId, comment) {
     for (const action of actions) {
         try {
