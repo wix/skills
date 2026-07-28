@@ -18,7 +18,6 @@ const lines = (value: string | undefined) =>
 
 describe('action.yml', () => {
   it('declares every input the gate and cleanup configs read', () => {
-    // An undeclared input reads as empty at runtime, failing far from the cause.
     for (const name of [
       'mode', 'github-token', 'evalforge-url', 'evalforge-project-id',
       'evalforge-app-id', 'evalforge-app-secret', 'evals-glob',

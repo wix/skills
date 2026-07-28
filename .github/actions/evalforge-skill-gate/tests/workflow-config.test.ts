@@ -38,7 +38,6 @@ describe('EvalForge wix-app gate workflow', () => {
     );
   });
 
-  // The job skips drafts, so without this event a PR marked ready never fires the gate.
   it('also triggers on ready_for_review, since the job skips drafts', () => {
     expect(workflow.on.pull_request.types).toContain('ready_for_review');
     expect(workflow.jobs.gate.if).toContain('draft');

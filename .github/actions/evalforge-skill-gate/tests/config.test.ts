@@ -33,7 +33,6 @@ beforeEach(() => {
     if (key.startsWith('INPUT_')) delete process.env[key];
   }
   process.env.GITHUB_REPOSITORY = 'wix/skills';
-  // On pull_request this is the merge commit the workflow checked out, distinct from head.sha.
   process.env.GITHUB_SHA = 'merge99feedface';
 });
 
@@ -61,8 +60,6 @@ describe('getGateConfig', () => {
     expect(config.blocking).toBe(false);
   });
 
-  // A head-based label stops matching its own content once base advances, and
-  // ensureSkillVersion would then reuse a stale version.
   it('builds the version label from the evaluated merge commit, not the PR head', async () => {
     setInputs(REQUIRED_GATE_INPUTS);
     process.env.GITHUB_SHA = 'merge99feedface';
