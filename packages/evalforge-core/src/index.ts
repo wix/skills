@@ -16,3 +16,4 @@ export * from './derive-tags';
 export * from './guard-scenarios';
 export * from './select-scenarios';
 export * from './evaluate-run-result';
+export * from './format-gate-comment';

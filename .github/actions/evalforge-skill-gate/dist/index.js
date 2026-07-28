@@ -30813,6 +30813,144 @@ function evaluateRunResult(status) {
 
 /***/ }),
 
+/***/ 5970:
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.GATE_COMMENT_MARKER = void 0;
+exports.formatYamlErrors = formatYamlErrors;
+exports.formatNoGatedChanges = formatNoGatedChanges;
+exports.formatGuardFailure = formatGuardFailure;
+exports.formatForeignDraftConflicts = formatForeignDraftConflicts;
+exports.formatGateResult = formatGateResult;
+exports.formatGateTimeout = formatGateTimeout;
+exports.formatGateServiceError = formatGateServiceError;
+const evalforge_1 = __nccwpck_require__(7230);
+exports.GATE_COMMENT_MARKER = '<!-- evalforge-skill-gate-action -->';
+const HEADING = 'EvalForge Skill Gate';
+function render(icon, label, body) {
+    return [exports.GATE_COMMENT_MARKER, `## ${icon} ${HEADING}: ${label}`, '', ...body].join('\n');
+}
+function failIcon(blocking) {
+    return blocking ? { icon: '❌', label: 'Failed' } : { icon: '⚠️', label: 'Warning' };
+}
+function soakNote(blocking) {
+    return blocking
+        ? []
+        : ['', '_The gate is in its soak period (`blocking: false`), so this check still passes._'];
+}
+function unmappedSection(unmapped) {
+    if (unmapped.length === 0)
+        return [];
+    return [
+        '',
+        '**Unmapped paths** — these changed under the skill directory but no rule covers them, so they triggered nothing. Add them to `ignore-globs` if that is correct:',
+        ...unmapped.map(path => `- \`${path}\``),
+    ];
+}
+function warningSection(warnings) {
+    if (warnings.length === 0)
+        return [];
+    return [
+        '',
+        '**Existing scenarios below the quality bar** (not blocking — you did not write these, but they are worth fixing):',
+        ...warnings.map(warning => `- \`${warning.path}\` (\`${warning.name}\`, tagged ${warning.tags.map(tag => `\`${tag}\``).join(', ')}) — ${warning.reasons.join('; ')}`),
+    ];
+}
+function formatYamlErrors(errors) {
+    return render('❌', 'Invalid Scenario YAML', [
+        'These scenario files did not parse against the schema:',
+        '',
+        ...errors.map(error => `- \`${error.path}\`: ${error.message}`),
+    ]);
+}
+function formatNoGatedChanges(unmapped) {
+    return render('✅', 'No Gated Changes', [
+        'Nothing in this PR maps to an eval tag, so no run was needed.',
+        ...unmappedSection(unmapped),
+    ]);
+}
+function violationLine(violation) {
+    switch (violation.kind) {
+        case 'UNCOVERED_TAG':
+            return `- **\`${violation.tag}\`** has no eval scenario at all. Add one under the scenario directory tagged \`${violation.tag}\`, or add that tag to a scenario that already exercises the area.`;
+        case 'WEAK_TAG':
+            return `- **\`${violation.tag}\`** is carried only by scenarios below the quality bar (${violation.scenarios.map(name => `\`${name}\``).join(', ')}). Strengthen one of them, or add a scenario that meets the bar.`;
+        case 'WEAK_TOUCHED_SCENARIO':
+            return `- \`${violation.path}\` (\`${violation.name}\`) — ${violation.reasons.join('; ')}. This PR added or edited it, so it must meet the bar.`;
+    }
+}
+function formatGuardFailure(input) {
+    const { icon, label } = failIcon(input.blocking);
+    return render(icon, `Coverage ${label}`, [
+        'The quality bar is **at least 3 assertions including one `llm_judge`** — a scenario below it would run, pass, and verify nothing.',
+        '',
+        ...input.violations.map(violationLine),
+        '',
+        '_No eval run was started — a coverage failure is caught before any run cost._',
+        ...warningSection(input.warnings),
+        ...soakNote(input.blocking),
+    ]);
+}
+function formatForeignDraftConflicts(errors, blocking) {
+    const { icon } = failIcon(blocking);
+    return render(icon, 'Scenario Locked by Another PR', [
+        'These scenarios are draft-tagged for other open PRs. Wait for those to merge or close, or coordinate with their authors:',
+        '',
+        ...errors.map(error => {
+            const links = error.foreignTags.map(tag => {
+                const draft = (0, evalforge_1.parseDraftTag)(tag);
+                return draft ? `https://github.com/${draft.repo}/pull/${draft.prNumber}` : tag;
+            });
+            return `- \`${error.name}\` is held by: ${links.join(', ')}`;
+        }),
+        ...soakNote(blocking),
+    ]);
+}
+function formatGateResult(input) {
+    const { metrics, verdict, selection } = input;
+    const { icon, label } = verdict.passed ? { icon: '✅', label: 'Passed' } : failIcon(input.blocking);
+    const body = [
+        `**Pass rate:** ${metrics.passRate}% — ${metrics.passed}/${metrics.totalAssertions} assertions passed`
+            + (metrics.failed > 0 ? `, ${metrics.failed} failed` : '')
+            + (metrics.errors > 0 ? `, ${metrics.errors} errored` : ''),
+        `**Run:** [${input.runId}](${input.runUrl})`,
+    ];
+    if (!verdict.passed) {
+        body.push('', `**Why this ${input.blocking ? 'blocks' : 'would block'}:** ${verdict.reasons.join('; ')}`);
+    }
+    body.push('', input.broadImpact
+        ? `**Scope:** a cross-cutting file changed, so the whole suite was in play — ${selection.selected.length} scenario(s) ran.`
+        : `**Scope:** ${selection.selected.length} scenario(s) ran.`, '', ...selection.selected.map(name => `- \`${name}\``));
+    if (selection.dropped.length > 0) {
+        body.push('', `**Capped at \`max-scenarios: ${input.maxScenarios}\`** — these were not run:`, ...selection.dropped.map(name => `- \`${name}\``));
+    }
+    if (selection.missingIds.length > 0) {
+        body.push('', '**Not run — no EvalForge scenario found for these names.** They are in the repo YAML but not in EvalForge, which points at a sync gap:', ...selection.missingIds.map(name => `- \`${name}\``));
+    }
+    body.push(...warningSection(input.warnings), ...unmappedSection(input.unmapped));
+    if (!verdict.passed)
+        body.push(...soakNote(input.blocking));
+    return render(icon, label, body);
+}
+function formatGateTimeout(runId, runUrl, blocking) {
+    return render(blocking ? '⏱' : '⚠️', 'Timed Out', [
+        'The eval run did not finish within the poll window. It may still be running in EvalForge.',
+        '',
+        `**Run:** [${runId}](${runUrl})`,
+        ...soakNote(blocking),
+    ]);
+}
+function formatGateServiceError(message, blocking) {
+    const { icon, label } = failIcon(blocking);
+    return render(icon, label, [message, ...soakNote(blocking)]);
+}
+
+
+/***/ }),
+
 /***/ 3308:
 /***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
 
@@ -30953,6 +31091,7 @@ __exportStar(__nccwpck_require__(7264), exports);
 __exportStar(__nccwpck_require__(3308), exports);
 __exportStar(__nccwpck_require__(8833), exports);
 __exportStar(__nccwpck_require__(3460), exports);
+__exportStar(__nccwpck_require__(5970), exports);
 
 
 /***/ }),
