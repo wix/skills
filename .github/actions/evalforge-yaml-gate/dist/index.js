@@ -34727,6 +34727,7 @@ __exportStar(__nccwpck_require__(1243), exports);
 __exportStar(__nccwpck_require__(7853), exports);
 __exportStar(__nccwpck_require__(5992), exports);
 __exportStar(__nccwpck_require__(7208), exports);
+__exportStar(__nccwpck_require__(473), exports);
 
 
 /***/ }),
@@ -34771,6 +34772,42 @@ function loadScenarios(root, globPattern) {
         scenarios.set(parsed.name, { path: rel, scenario: parsed });
     }
     return { scenarios, errors };
+}
+
+
+/***/ }),
+
+/***/ 473:
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.planCleanup = planCleanup;
+const evalforge_1 = __nccwpck_require__(7230);
+const plan_pr_scenario_sync_1 = __nccwpck_require__(7208);
+/**
+ * Decides what to do with each of this PR's draft-tagged scenarios once the PR closes.
+ * A name present in the base SHA's YAML pre-existed the PR, so it is RESTOREd to that
+ * pre-PR state; anything else was a PR-only draft and is DELETEd. Pure.
+ */
+function planCleanup(remote, baseScenarios, draftTag, repo) {
+    const actions = [];
+    for (const scenario of remote) {
+        if (!scenario.tags.includes(draftTag))
+            continue;
+        const baseScenario = baseScenarios.get(scenario.name);
+        actions.push(baseScenario
+            ? {
+                kind: 'RESTORE',
+                id: scenario.id,
+                name: scenario.name,
+                body: (0, plan_pr_scenario_sync_1.toScenarioBody)(baseScenario.scenario),
+                tags: (0, evalforge_1.withManagedTags)(baseScenario.scenario.tags, repo),
+            }
+            : { kind: 'DELETE', id: scenario.id, name: scenario.name });
+    }
+    return actions;
 }
 
 
@@ -65101,7 +65138,6 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.planCleanup = planCleanup;
 exports.runCleanup = runCleanup;
 const core = __importStar(__nccwpck_require__(7484));
 const node_path_1 = __nccwpck_require__(6760);
@@ -65110,21 +65146,6 @@ const evalforge_core_1 = __nccwpck_require__(7495);
 const evals_1 = __nccwpck_require__(1686);
 const workspace_1 = __nccwpck_require__(9620);
 const paths_1 = __nccwpck_require__(6621);
-// Pure: decide what to do with each draft-tagged scenario on PR close-without-merge.
-// If the scenario's name matches one in the base SHA's evals, it pre-existed our PR — RESTORE
-// it from the base YAML's state. Otherwise it was a PR-only draft — DELETE it.
-function planCleanup(remote, baseEvals, draftTag, repo) {
-    const actions = [];
-    for (const s of remote) {
-        if (!s.tags.includes(draftTag))
-            continue;
-        const baseLs = baseEvals.get(s.name);
-        actions.push(baseLs
-            ? { kind: 'RESTORE', id: s.id, name: s.name, body: (0, evalforge_core_1.toScenarioBody)(baseLs.scenario), tags: (0, evalforge_core_1.withManagedTags)(baseLs.scenario.tags, repo) }
-            : { kind: 'DELETE', id: s.id, name: s.name });
-    }
-    return actions;
-}
 async function runCleanup() {
     const config = (0, config_1.getSimpleConfig)();
     const evalforge = new evalforge_core_1.EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
@@ -65145,7 +65166,7 @@ async function runCleanup() {
     const { scenarios: baseEvals, errors: baseErrs } = (0, evals_1.loadEvals)(baseRoot);
     for (const e of baseErrs)
         core.warning(`Base SHA eval issue at ${baseRoot}/${e.path}: ${e.message}`);
-    const plan = planCleanup(remote, baseEvals, draftTag, `${config.owner}/${config.repo}`);
+    const plan = (0, evalforge_core_1.planCleanup)(remote, baseEvals, draftTag, `${config.owner}/${config.repo}`);
     const summary = plan.reduce((a, p) => ({ ...a, [p.kind]: (a[p.kind] ?? 0) + 1 }), {});
     core.info(`Cleanup plan: ${plan.length} action(s) — RESTORE=${summary.RESTORE ?? 0} DELETE=${summary.DELETE ?? 0}`);
     for (const a of plan)

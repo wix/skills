@@ -1,41 +1,11 @@
 import * as core from '@actions/core';
 import { posix } from 'node:path';
 import { getSimpleConfig } from './config';
-import { EvalForgeClient, deletePrCapabilityVersions, draftTagFor, toScenarioBody, withManagedTags, type RemoteScenario, type ScenarioBody } from '@wix/evalforge-core';
-import { loadEvals, type LoadedScenario } from './evals';
+import { EvalForgeClient, deletePrCapabilityVersions, draftTagFor, planCleanup, type CleanupAction, type RemoteScenario } from '@wix/evalforge-core';
+import { loadEvals } from './evals';
 
 import { workspaceRoot } from './workspace';
 import { BASE_WORKSPACE_SUBDIR } from './paths';
-
-export type CleanupRestoreAction = {
-  kind: 'RESTORE';
-  id: string;
-  name: string;
-  body: ScenarioBody;
-  tags: string[];
-};
-export type CleanupDeleteAction = { kind: 'DELETE'; id: string; name: string };
-export type CleanupAction = CleanupRestoreAction | CleanupDeleteAction;
-
-// Pure: decide what to do with each draft-tagged scenario on PR close-without-merge.
-// If the scenario's name matches one in the base SHA's evals, it pre-existed our PR — RESTORE
-// it from the base YAML's state. Otherwise it was a PR-only draft — DELETE it.
-export function planCleanup(
-  remote: RemoteScenario[],
-  baseEvals: Map<string, LoadedScenario>,
-  draftTag: string,
-  repo: string,
-): CleanupAction[] {
-  const actions: CleanupAction[] = [];
-  for (const s of remote) {
-    if (!s.tags.includes(draftTag)) continue;
-    const baseLs = baseEvals.get(s.name);
-    actions.push(baseLs
-      ? { kind: 'RESTORE', id: s.id, name: s.name, body: toScenarioBody(baseLs.scenario), tags: withManagedTags(baseLs.scenario.tags, repo) }
-      : { kind: 'DELETE', id: s.id, name: s.name });
-  }
-  return actions;
-}
 
 export async function runCleanup(): Promise<void> {
   const config = getSimpleConfig();

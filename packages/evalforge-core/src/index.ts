@@ -9,3 +9,4 @@ export * from './action-inputs';
 export * from './poll-eval-run';
 export * from './plan-version-cleanup';
 export * from './plan-pr-scenario-sync';
+export * from './plan-cleanup';

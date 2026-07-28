@@ -30613,6 +30613,7 @@ __exportStar(__nccwpck_require__(1243), exports);
 __exportStar(__nccwpck_require__(7853), exports);
 __exportStar(__nccwpck_require__(5992), exports);
 __exportStar(__nccwpck_require__(7208), exports);
+__exportStar(__nccwpck_require__(473), exports);
 
 
 /***/ }),
@@ -30657,6 +30658,42 @@ function loadScenarios(root, globPattern) {
         scenarios.set(parsed.name, { path: rel, scenario: parsed });
     }
     return { scenarios, errors };
+}
+
+
+/***/ }),
+
+/***/ 473:
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.planCleanup = planCleanup;
+const evalforge_1 = __nccwpck_require__(7230);
+const plan_pr_scenario_sync_1 = __nccwpck_require__(7208);
+/**
+ * Decides what to do with each of this PR's draft-tagged scenarios once the PR closes.
+ * A name present in the base SHA's YAML pre-existed the PR, so it is RESTOREd to that
+ * pre-PR state; anything else was a PR-only draft and is DELETEd. Pure.
+ */
+function planCleanup(remote, baseScenarios, draftTag, repo) {
+    const actions = [];
+    for (const scenario of remote) {
+        if (!scenario.tags.includes(draftTag))
+            continue;
+        const baseScenario = baseScenarios.get(scenario.name);
+        actions.push(baseScenario
+            ? {
+                kind: 'RESTORE',
+                id: scenario.id,
+                name: scenario.name,
+                body: (0, plan_pr_scenario_sync_1.toScenarioBody)(baseScenario.scenario),
+                tags: (0, evalforge_1.withManagedTags)(baseScenario.scenario.tags, repo),
+            }
+            : { kind: 'DELETE', id: scenario.id, name: scenario.name });
+    }
+    return actions;
 }
 
 
