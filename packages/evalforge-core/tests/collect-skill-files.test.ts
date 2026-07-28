@@ -75,6 +75,35 @@ describe('collectSkillFiles', () => {
     expect(() => collectSkillFiles(root, 'skills/wix-app')).toThrow(/no files/i);
   });
 
+  // references/AUTO_PATTERNS_DASHBOARD.md tells the agent to run
+  // `node <SKILL_ROOT>/scripts/generate-auto-patterns.js`. Ship only the docs and that
+  // capability breaks at run time, and the eval failure looks like a skill regression.
+  it('includes executable helpers the docs tell the agent to run', () => {
+    write('skills/wix-app/SKILL.md', '# skill');
+    write('skills/wix-app/references/AUTO_PATTERNS_DASHBOARD.md', 'run <SKILL_ROOT>/scripts/gen.js');
+    write('skills/wix-app/scripts/gen.js', 'module.exports = {}');
+
+    const files = collectSkillFiles(root, 'skills/wix-app');
+
+    expect(files.map(file => file.path)).toContain('scripts/gen.js');
+  });
+
+  it('collects the whole skill dir — the directory is the deployed unit', () => {
+    write('skills/wix-app/SKILL.md', '# skill');
+    write('skills/wix-app/references/DASHBOARD_PAGE.md', 'dashboard');
+    write('skills/wix-app/scripts/gen.js', 'x');
+    write('skills/wix-app/assets/template.txt', 'y');
+
+    const files = collectSkillFiles(root, 'skills/wix-app');
+
+    expect(files.map(file => file.path)).toEqual([
+      'SKILL.md',
+      'assets/template.txt',
+      'references/DASHBOARD_PAGE.md',
+      'scripts/gen.js',
+    ]);
+  });
+
   it('collects nested reference sub-docs at their full relative path', () => {
     write('skills/wix-app/SKILL.md', '# skill');
     write('skills/wix-app/references/stores/deep/NOTE.md', 'note');

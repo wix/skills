@@ -30135,13 +30135,9 @@ exports.DEFAULT_COLLECT_LIMITS = {
     maxTotalBytes: 10_000_000,
 };
 /**
- * Reads `<root>/<skillDir>/**` into the file list a skill-content capability version takes.
- *
- * Paths are relative to `skillDir`, so a collected file reads `references/DASHBOARD_PAGE.md`
- * — matching what a scenario's `referenceFiles` assertions name.
- *
- * Caps throw rather than truncate: a silently shortened skill would be evaluated as if it
- * were the whole thing, and the run would report on a skill that never existed.
+ * Reads all of `<root>/<skillDir>`, minus build artifacts, with paths relative to `skillDir`.
+ * Ships the whole directory because docs send the agent to sibling paths like
+ * `<SKILL_ROOT>/scripts/…`. Over-cap throws rather than truncating.
  */
 function collectSkillFiles(root, skillDir, options = {}) {
     const limits = options.limits ?? exports.DEFAULT_COLLECT_LIMITS;
@@ -30157,27 +30153,24 @@ function collectSkillFiles(root, skillDir, options = {}) {
     let totalBytes = 0;
     for (const relativePath of relativePaths) {
         const buffer = (0, node_fs_1.readFileSync)(node_path_1.posix.join(skillRoot, relativePath));
-        // A NUL byte means this is not text, and skill content is text. Skipping keeps a stray
-        // image from breaking the version; warning keeps it from being invisible.
+        // A NUL byte means binary, and skill content is text. Skip it, but say so.
         if (buffer.includes(0)) {
             options.warn?.(`Skipping non-text file in ${skillDir}: ${relativePath}`);
             continue;
         }
         if (buffer.byteLength > limits.maxFileBytes) {
             throw new Error(`Skill file ${relativePath} is ${buffer.byteLength} bytes, over the per-file cap of `
-                + `${limits.maxFileBytes}. Split it or raise the cap — truncating would evaluate a skill `
-                + `that does not exist.`);
+                + `${limits.maxFileBytes}. Split it or raise the cap.`);
         }
         totalBytes += buffer.byteLength;
         if (totalBytes > limits.maxTotalBytes) {
             throw new Error(`Skill ${skillDir} exceeds the total content cap of ${limits.maxTotalBytes} bytes at `
-                + `${relativePath}. Raise the cap deliberately rather than shipping a partial skill.`);
+                + `${relativePath}. Raise the cap deliberately.`);
         }
         files.push({ path: relativePath, content: buffer.toString('utf8') });
     }
     if (files.length === 0) {
-        throw new Error(`No files collected from ${skillRoot} — the skill directory is empty or mis-configured. `
-            + `Check the skill-dir input.`);
+        throw new Error(`No files collected from ${skillRoot}. Check the skill-dir and reference-dir inputs.`);
     }
     return files;
 }
