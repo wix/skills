@@ -34728,6 +34728,7 @@ __exportStar(__nccwpck_require__(7853), exports);
 __exportStar(__nccwpck_require__(5992), exports);
 __exportStar(__nccwpck_require__(7208), exports);
 __exportStar(__nccwpck_require__(473), exports);
+__exportStar(__nccwpck_require__(5781), exports);
 
 
 /***/ }),
@@ -35080,6 +35081,83 @@ async function pollUntilDone(client, projectId, runId, options = {}) {
         await sleep(Math.min(intervalMs, deadline - Date.now()));
     }
     throw new EvalRunTimeoutError(`Eval run timed out after ${Math.round(timeoutMs / 60_000)} minutes`);
+}
+
+
+/***/ }),
+
+/***/ 5781:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+/**
+ * PR plumbing shared by the repo's EvalForge actions.
+ *
+ * Octokit is declared structurally, as `author-gate.ts` already does, so this package
+ * gains no dependency on `@actions/github` — a real Octokit satisfies these shapes.
+ */
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.getChangedFiles = getChangedFiles;
+exports.makeCommenter = makeCommenter;
+/**
+ * The PR's cumulative diff against its base — not the last commit. A gate keyed on the
+ * newest commit alone would miss files an earlier commit in the same PR changed.
+ */
+async function getChangedFiles(octokit, owner, repo, prNumber) {
+    const files = await octokit.paginate(octokit.rest.pulls.listFiles, {
+        owner, repo, pull_number: prNumber, per_page: 100,
+    });
+    return files.map(file => ({
+        filename: file.filename,
+        status: file.status,
+        previousFilename: file.previous_filename,
+    }));
+}
+/**
+ * Upserts a single marked PR comment, so repeated runs edit one comment rather than
+ * spamming the thread. Never throws: a comment is a report, and losing it must not fail
+ * the gate — the body goes to the job summary instead.
+ */
+function makeCommenter(octokit, target, io) {
+    let cachedId;
+    let resolved = false;
+    async function findExistingId() {
+        if (resolved)
+            return cachedId;
+        for await (const page of octokit.paginate.iterator(octokit.rest.issues.listComments, {
+            owner: target.owner, repo: target.repo, issue_number: target.prNumber, per_page: 100,
+        })) {
+            const hit = page.data.find(comment => comment.body?.includes(target.marker));
+            if (hit) {
+                cachedId = hit.id;
+                break;
+            }
+        }
+        resolved = true;
+        return cachedId;
+    }
+    return async function upsert(body) {
+        try {
+            const id = await findExistingId();
+            if (id !== undefined) {
+                await octokit.rest.issues.updateComment({
+                    owner: target.owner, repo: target.repo, comment_id: id, body,
+                });
+            }
+            else {
+                const created = await octokit.rest.issues.createComment({
+                    owner: target.owner, repo: target.repo, issue_number: target.prNumber, body,
+                });
+                cachedId = created.data.id;
+                resolved = true;
+            }
+        }
+        catch (error) {
+            io.warn(`Failed to post PR comment: ${error instanceof Error ? error.message : String(error)}`);
+            await io.writeSummary(body);
+        }
+    };
 }
 
 
@@ -66148,28 +66226,28 @@ exports.getChangedFiles = getChangedFiles;
 exports.fail = fail;
 exports.makeCommenter = makeCommenter;
 const core = __importStar(__nccwpck_require__(7484));
+const evalforge_core_1 = __nccwpck_require__(7495);
 const comment_1 = __nccwpck_require__(3116);
 const paths_1 = __nccwpck_require__(6621);
 function classifyChanges(files) {
-    const c = { mdFiles: [], evalsAdded: [], evalsModified: [], evalsRemoved: [] };
-    for (const f of files) {
-        if (paths_1.MD_RE.test(f.filename) && f.status !== 'removed') {
-            c.mdFiles.push(f);
+    const classification = { mdFiles: [], evalsAdded: [], evalsModified: [], evalsRemoved: [] };
+    for (const file of files) {
+        if (paths_1.MD_RE.test(file.filename) && file.status !== 'removed') {
+            classification.mdFiles.push(file);
         }
-        else if (paths_1.EVALS_RE.test(f.filename)) {
-            if (f.status === 'added')
-                c.evalsAdded.push(f);
-            else if (f.status === 'removed')
-                c.evalsRemoved.push(f);
-            else if (f.status === 'modified' || f.status === 'renamed')
-                c.evalsModified.push(f);
+        else if (paths_1.EVALS_RE.test(file.filename)) {
+            if (file.status === 'added')
+                classification.evalsAdded.push(file);
+            else if (file.status === 'removed')
+                classification.evalsRemoved.push(file);
+            else if (file.status === 'modified' || file.status === 'renamed')
+                classification.evalsModified.push(file);
         }
     }
-    return c;
+    return classification;
 }
-async function getChangedFiles(octokit, owner, repo, prNumber) {
-    const files = await octokit.paginate(octokit.rest.pulls.listFiles, { owner, repo, pull_number: prNumber, per_page: 100 });
-    return files.map(f => ({ filename: f.filename, status: f.status, previousFilename: f.previous_filename }));
+function getChangedFiles(octokit, owner, repo, prNumber) {
+    return (0, evalforge_core_1.getChangedFiles)(octokit, owner, repo, prNumber);
 }
 function fail(message, blocking) {
     if (blocking)
@@ -66178,39 +66256,10 @@ function fail(message, blocking) {
         core.warning(message);
 }
 function makeCommenter(octokit, owner, repo, prNumber) {
-    let cachedId;
-    let resolved = false;
-    async function findExistingId() {
-        if (resolved)
-            return cachedId;
-        for await (const page of octokit.paginate.iterator(octokit.rest.issues.listComments, {
-            owner, repo, issue_number: prNumber, per_page: 100,
-        })) {
-            const hit = page.data.find(c => c.body?.includes(comment_1.COMMENT_MARKER));
-            if (hit) {
-                cachedId = hit.id;
-                break;
-            }
-        }
-        resolved = true;
-        return cachedId;
-    }
-    return async function upsert(body) {
-        try {
-            const id = await findExistingId();
-            if (id !== undefined) {
-                await octokit.rest.issues.updateComment({ owner, repo, comment_id: id, body });
-            }
-            else {
-                const created = await octokit.rest.issues.createComment({ owner, repo, issue_number: prNumber, body });
-                cachedId = created.data.id;
-            }
-        }
-        catch (e) {
-            core.error(`Failed to post PR comment: ${e instanceof Error ? e.message : String(e)}`);
-            await core.summary.addRaw(body).write();
-        }
-    };
+    return (0, evalforge_core_1.makeCommenter)(octokit, { owner, repo, prNumber, marker: comment_1.COMMENT_MARKER }, {
+        warn: core.warning,
+        writeSummary: async (body) => { await core.summary.addRaw(body).write(); },
+    });
 }
 
 
