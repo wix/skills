@@ -46,13 +46,12 @@ After delivering the links above, **proactively offer a custom domain** — don'
    npx @wix/cli@latest account --site-id <SITE_ID> domain buy <domain> --json
    ```
 
-   Use the `siteId` from `wix.config.json`. `buy` does **not** charge anything — it returns a checkout URL (`https://manage.wix.com/get-domain?...`); the user completes payment in the browser. Present it alongside the live-site and dashboard links, e.g.:
+   Use the `siteId` from `wix.config.json`. `buy` does **not** charge anything — it returns a checkout URL (`https://manage.wix.com/get-domain?...`); the user completes payment in the browser.
 
-   ```
-   Live site:   <published-url>
-   Dashboard:   https://manage.wix.com/dashboard/<SITE_ID>
-   Buy domain:  <checkout-url>   (mybusiness.com — pay to complete)
-   ```
+   Then tell them: the **dashboard** is at `https://manage.wix.com/dashboard/<SITE_ID>`, the site is **live** (give the live URL), and "To build a professional online presence, [connect a custom domain](<checkout-url>)" — naming the suggested domain with its link, e.g.:
+
+   > Your site is live at <published-url>, and you can manage it from your [dashboard](https://manage.wix.com/dashboard/<SITE_ID>).
+   > To build a professional online presence, [connect a custom domain](<checkout-url>) — **mybusiness.com** is available.
 
 If the user isn't interested, drop it — one offer, no upselling.
 
