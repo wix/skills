@@ -22,7 +22,7 @@ export type GuardWarning = {
   kind: 'WEAK_UNTOUCHED_SCENARIO';
   name: string;
   path: string;
-  /** The derived tags this scenario carries — why it is in scope for this PR at all. */
+  /** The derived tags it carries — why it is in scope for this PR. */
   tags: string[];
   reasons: string[];
 };
@@ -43,21 +43,16 @@ export function meetsQualityBar(scenario: Scenario, bar: QualityBar = DEFAULT_QU
 }
 
 /**
- * The quality guard, evaluated entirely on local YAML plus the PR's changed-file list — no
- * EvalForge calls, no capability version, no run. That is why it comes first: a coverage
- * failure costs nothing.
+ * Runs on local YAML alone, so a coverage failure costs no EvalForge call.
  *
- * Coverage folds the bar in: a tag is covered only by a scenario that *meets* the bar,
- * because a one-assertion scenario would run, pass, and have verified nothing. Untouched
- * shortfalls on an otherwise-covered tag warn instead of blocking — blocking there would
- * hold a PR hostage to a weak scenario someone else authored, which is how thresholds get
- * lowered and gates get bypassed.
+ * A tag counts as covered only by a scenario that meets the bar — a one-assertion scenario
+ * would run, pass, and verify nothing. Untouched shortfalls warn rather than block, so a PR is
+ * never held hostage to a weak scenario someone else wrote.
  */
 export function guardScenarios(input: {
-  /** Reference-derived tags. Broad impact contributes none — it has no tag to cover. */
+  /** Reference-derived tags. Broad impact contributes none. */
   tags: string[];
   scenarios: Map<string, LoadedScenario>;
-  /** Repo-relative paths of scenario files this PR added or edited. */
   touchedScenarioPaths: Set<string>;
   bar?: QualityBar;
 }): { violations: GuardViolation[]; warnings: GuardWarning[] } {
@@ -84,7 +79,7 @@ export function guardScenarios(input: {
       continue;
     }
 
-    // Tag is covered. Surface the weak siblings the PR did not touch, without blocking.
+    // Covered — surface weak siblings without blocking.
     for (const loaded of carrying) {
       if (input.touchedScenarioPaths.has(loaded.path)) continue;
       const check = meetsQualityBar(loaded.scenario, bar);
@@ -105,8 +100,7 @@ export function guardScenarios(input: {
     }
   }
 
-  // No weakening: every scenario this PR added or edited must meet the bar, whatever its
-  // tags and whether or not a strong sibling already satisfies coverage.
+  // No weakening: a touched scenario must meet the bar even if a strong sibling covers its tag.
   for (const loaded of allScenarios) {
     if (!input.touchedScenarioPaths.has(loaded.path)) continue;
     const check = meetsQualityBar(loaded.scenario, bar);

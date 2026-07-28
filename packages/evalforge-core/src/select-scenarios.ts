@@ -1,25 +1,20 @@
 import type { LoadedScenario } from './load-scenarios';
 
 export type ScenarioSelection = {
-  /** EvalForge ids to run, in selection order. */
   ids: string[];
-  /** Names actually running. */
   selected: string[];
-  /** Names cut by the cap — reported in the comment, never dropped silently. */
+  /** Cut by the cap. Reported in the comment, never dropped silently. */
   dropped: string[];
-  /** Names selected locally with no known EvalForge id — a sync gap worth surfacing. */
+  /** Selected locally but absent from EvalForge — a sync gap worth surfacing. */
   missingIds: string[];
 };
 
 /**
- * Builds the run's scenario set.
+ * Builds the run's scenario set. Callers pass `nameToId` as the union of the sync plan's own
+ * results and the tag query, so a slow tag index cannot silently shrink the run.
  *
- * `nameToId` is the union of the sync plan's own results (CREATE returns the new id, UPDATE
- * already has it) and the remote tag query, so the gate never depends on read-after-write
- * consistency: a slow tag index cannot silently shrink the run.
- *
- * The cap prioritises scenarios this PR touched. Sorting purely alphabetically would let a
- * capped run drop the author's own new scenario in favour of an unrelated one.
+ * Touched scenarios sort first: a purely alphabetical cap could drop the author's own new
+ * scenario for an unrelated one.
  */
 export function selectScenarios(input: {
   broadImpact: boolean;

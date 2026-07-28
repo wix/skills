@@ -56,8 +56,7 @@ describe('evaluateRunResult', () => {
     expect(verdict.passed).toBe(false);
   });
 
-  // The false-pass case: zero assertions means nothing was verified, which must never read
-  // as green just because no assertion happened to fail.
+  // The false pass: nothing verified must not read as green.
   it('fails a run that produced no assertions at all', () => {
     const verdict = evaluateRunResult(runStatus({ totalAssertions: 0, passed: 0, passRate: 0 }));
     expect(verdict.passed).toBe(false);

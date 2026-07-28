@@ -2,16 +2,13 @@ import type { EvalRunStatus } from './evalforge';
 
 export type RunVerdict = {
   passed: boolean;
-  /** Why it failed, in comment-ready wording. Empty when it passed. */
+  /** Comment-ready wording. Empty when it passed. */
   reasons: string[];
 };
 
 /**
- * Decides whether a finished run counts as a pass.
- *
- * Note the zero-assertion rule: a run that evaluated nothing has no failures, so a naive
- * `failed + errors === 0` check would report green having verified nothing. That is exactly
- * the false pass the gate exists to prevent, so it is an explicit failure.
+ * Zero assertions fails: such a run has no failures either, so `failed + errors === 0` alone
+ * would report green having verified nothing.
  */
 export function evaluateRunResult(status: EvalRunStatus): RunVerdict {
   const reasons: string[] = [];

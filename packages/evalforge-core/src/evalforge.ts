@@ -19,7 +19,7 @@ export type RunStatus = 'pending' | 'running' | typeof TERMINAL_RUN_STATUSES[num
 
 export type CapabilityVersion = { id: string; capabilityId: string; version: string };
 
-/** One file of a skill-content capability version. `path` is relative to the skill root. */
+/** One file of a skill capability version; `path` is relative to the skill root. */
 export type SkillFileContent = { path: string; content: string };
 
 import type { EvalForgeBody } from './evalforge-mapper';
@@ -280,11 +280,8 @@ export class EvalForgeClient {
   }
 
   /**
-   * Creates a skill-content capability version — the same endpoint as createMcpVersion,
-   * with the content oneof set to `skillContent` rather than `mcpContent`. This is what
-   * lets a run evaluate a PR's skill files directly, with no MCP URL indirection (and so
-   * without the eval-pipeline comparison service, which builds its MCP URL from
-   * skillsRepo/commitSha and cannot drive skill content).
+   * Same endpoint as createMcpVersion, with the content oneof set to `skillContent`. Lets a
+   * run evaluate a PR's skill files directly, with no MCP URL indirection.
    */
   async createSkillVersion(
     capabilityId: string,
@@ -320,9 +317,7 @@ export class EvalForgeClient {
     try {
       return await this.createSkillVersion(capabilityId, projectId, versionLabel, prNumber, files);
     } catch (error) {
-      // A duplicate label should be 409, but the backend currently throws a plain
-      // "already exists" that transcodes to 500 — so recover on either by reusing the
-      // existing version, and only rethrow if it genuinely is not there.
+      // Duplicate labels should be 409, but the backend transcodes "already exists" to 500.
       if (!isHttpError(error) || (error.status !== 409 && error.status !== 500)) throw error;
       const versions = await this.listCapabilityVersions(capabilityId, projectId);
       const existing = versions.find(candidate => candidate.version === versionLabel);

@@ -75,9 +75,7 @@ describe('collectSkillFiles', () => {
     expect(() => collectSkillFiles(root, 'skills/wix-app')).toThrow(/no files/i);
   });
 
-  // references/AUTO_PATTERNS_DASHBOARD.md tells the agent to run
-  // `node <SKILL_ROOT>/scripts/generate-auto-patterns.js`. Ship only the docs and that
-  // capability breaks at run time, and the eval failure looks like a skill regression.
+  // Docs tell the agent to run `<SKILL_ROOT>/scripts/…`; omit it and the capability breaks.
   it('includes executable helpers the docs tell the agent to run', () => {
     write('skills/wix-app/SKILL.md', '# skill');
     write('skills/wix-app/references/AUTO_PATTERNS_DASHBOARD.md', 'run <SKILL_ROOT>/scripts/gen.js');

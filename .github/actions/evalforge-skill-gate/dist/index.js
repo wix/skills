@@ -30190,13 +30190,7 @@ exports.deriveTags = deriveTags;
 exports.touchedScenarioPaths = touchedScenarioPaths;
 const minimatch_1 = __nccwpck_require__(8911);
 exports.DEFAULT_IGNORE_GLOBS = ['scripts/**'];
-/**
- * `SKILL.md` plus the six references that apply across scenarios rather than to one
- * capability. "Changed → run everything" is the honest semantics for these: their effect is
- * not confined to one capability, so no single tag could describe it, and demanding a
- * `code-quality`-tagged scenario would be asking for a scenario that verifies nothing in
- * particular.
- */
+/** References that apply across scenarios, so no single tag describes them. */
 exports.DEFAULT_BROAD_IMPACT_GLOBS = [
     'SKILL.md',
     'references/APP_IDENTIFIERS.md',
@@ -30218,13 +30212,11 @@ function relativeToSkillDir(changedPath, skillDir) {
     return changedPath.startsWith(prefix) ? changedPath.slice(prefix.length) : undefined;
 }
 /**
- * Classifies the PR's changed paths into the tags whose scenarios must run.
+ * Changed paths → the tags whose scenarios must run.
  *
- * Precedence is first-match-wins: **ignore → broad-impact → reference → unmapped**. The
- * order is load-bearing. A broad-impact file that happens to live inside `referenceDir` must
- * be caught before the reference rule sees it, or `references/CODE_QUALITY.md` would derive
- * a `code-quality` tag and the coverage guard would block on a tag no scenario will ever
- * carry.
+ * Order is load-bearing: ignore → broad-impact → reference → unmapped, first match wins. Let
+ * the reference rule run first and `references/CODE_QUALITY.md` derives a `code-quality` tag
+ * the coverage guard can never satisfy.
  */
 function deriveTags(changedPaths, rules) {
     const tags = new Set();
@@ -30244,8 +30236,7 @@ function deriveTags(changedPaths, rules) {
         if (relativePath.startsWith(referencePrefix)) {
             const withinReferences = relativePath.slice(referencePrefix.length);
             const [head, ...rest] = withinReferences.split('/');
-            // A sub-doc directory is already named for its capability, so the directory name is
-            // the tag; a flat reference file derives its tag from the filename.
+            // A sub-doc directory is already named for its capability.
             tags.add(rest.length > 0 ? head.toLowerCase() : tagForReferencePath(head));
             continue;
         }
@@ -30257,10 +30248,7 @@ function deriveTags(changedPaths, rules) {
         unmapped: unmapped.sort(),
     };
 }
-/**
- * Scenario files this PR added, modified or renamed. Removals are excluded: a deleted
- * scenario cannot be quality-checked, and the sync plan handles the delete.
- */
+/** Scenario files added, modified or renamed. Removals are the sync plan's business. */
 function touchedScenarioPaths(changed, evalsGlob) {
     return changed
         .filter(file => file.status !== 'removed' && (0, minimatch_1.minimatch)(file.path, evalsGlob))
@@ -30634,11 +30622,8 @@ class EvalForgeClient {
         }
     }
     /**
-     * Creates a skill-content capability version — the same endpoint as createMcpVersion,
-     * with the content oneof set to `skillContent` rather than `mcpContent`. This is what
-     * lets a run evaluate a PR's skill files directly, with no MCP URL indirection (and so
-     * without the eval-pipeline comparison service, which builds its MCP URL from
-     * skillsRepo/commitSha and cannot drive skill content).
+     * Same endpoint as createMcpVersion, with the content oneof set to `skillContent`. Lets a
+     * run evaluate a PR's skill files directly, with no MCP URL indirection.
      */
     async createSkillVersion(capabilityId, projectId, versionLabel, prNumber, files) {
         const res = await this.request('POST', `/projects/${enc(projectId)}/capabilities/${enc(capabilityId)}/versions`, {
@@ -30658,9 +30643,7 @@ class EvalForgeClient {
             return await this.createSkillVersion(capabilityId, projectId, versionLabel, prNumber, files);
         }
         catch (error) {
-            // A duplicate label should be 409, but the backend currently throws a plain
-            // "already exists" that transcodes to 500 — so recover on either by reusing the
-            // existing version, and only rethrow if it genuinely is not there.
+            // Duplicate labels should be 409, but the backend transcodes "already exists" to 500.
             if (!isHttpError(error) || (error.status !== 409 && error.status !== 500))
                 throw error;
             const versions = await this.listCapabilityVersions(capabilityId, projectId);
@@ -30779,11 +30762,8 @@ function enc(segment) {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.evaluateRunResult = evaluateRunResult;
 /**
- * Decides whether a finished run counts as a pass.
- *
- * Note the zero-assertion rule: a run that evaluated nothing has no failures, so a naive
- * `failed + errors === 0` check would report green having verified nothing. That is exactly
- * the false pass the gate exists to prevent, so it is an explicit failure.
+ * Zero assertions fails: such a run has no failures either, so `failed + errors === 0` alone
+ * would report green having verified nothing.
  */
 function evaluateRunResult(status) {
     const reasons = [];
@@ -30971,15 +30951,11 @@ function meetsQualityBar(scenario, bar = exports.DEFAULT_QUALITY_BAR) {
     return { ok: reasons.length === 0, reasons };
 }
 /**
- * The quality guard, evaluated entirely on local YAML plus the PR's changed-file list — no
- * EvalForge calls, no capability version, no run. That is why it comes first: a coverage
- * failure costs nothing.
+ * Runs on local YAML alone, so a coverage failure costs no EvalForge call.
  *
- * Coverage folds the bar in: a tag is covered only by a scenario that *meets* the bar,
- * because a one-assertion scenario would run, pass, and have verified nothing. Untouched
- * shortfalls on an otherwise-covered tag warn instead of blocking — blocking there would
- * hold a PR hostage to a weak scenario someone else authored, which is how thresholds get
- * lowered and gates get bypassed.
+ * A tag counts as covered only by a scenario that meets the bar — a one-assertion scenario
+ * would run, pass, and verify nothing. Untouched shortfalls warn rather than block, so a PR is
+ * never held hostage to a weak scenario someone else wrote.
  */
 function guardScenarios(input) {
     const bar = input.bar ?? exports.DEFAULT_QUALITY_BAR;
@@ -31001,7 +30977,7 @@ function guardScenarios(input) {
             });
             continue;
         }
-        // Tag is covered. Surface the weak siblings the PR did not touch, without blocking.
+        // Covered — surface weak siblings without blocking.
         for (const loaded of carrying) {
             if (input.touchedScenarioPaths.has(loaded.path))
                 continue;
@@ -31022,8 +30998,7 @@ function guardScenarios(input) {
             });
         }
     }
-    // No weakening: every scenario this PR added or edited must meet the bar, whatever its
-    // tags and whether or not a strong sibling already satisfies coverage.
+    // No weakening: a touched scenario must meet the bar even if a strong sibling covers its tag.
     for (const loaded of allScenarios) {
         if (!input.touchedScenarioPaths.has(loaded.path))
             continue;
@@ -31753,14 +31728,11 @@ function parseScenario(raw) {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.selectScenarios = selectScenarios;
 /**
- * Builds the run's scenario set.
+ * Builds the run's scenario set. Callers pass `nameToId` as the union of the sync plan's own
+ * results and the tag query, so a slow tag index cannot silently shrink the run.
  *
- * `nameToId` is the union of the sync plan's own results (CREATE returns the new id, UPDATE
- * already has it) and the remote tag query, so the gate never depends on read-after-write
- * consistency: a slow tag index cannot silently shrink the run.
- *
- * The cap prioritises scenarios this PR touched. Sorting purely alphabetically would let a
- * capped run drop the author's own new scenario in favour of an unrelated one.
+ * Touched scenarios sort first: a purely alphabetical cap could drop the author's own new
+ * scenario for an unrelated one.
  */
 function selectScenarios(input) {
     const derivedTags = new Set(input.tags);

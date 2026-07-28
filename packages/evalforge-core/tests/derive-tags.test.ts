@@ -19,9 +19,8 @@ describe('tagForReferencePath', () => {
 });
 
 describe('deriveTags — precedence', () => {
-  // The ordering bug this rule set exists to prevent: a broad-impact file living inside
-  // referenceDir must be classified broad-impact BEFORE the reference rule sees it,
-  // otherwise the guard demands a `code-quality` scenario that will never exist.
+  // The ordering bug this exists to prevent — otherwise the guard demands a
+  // `code-quality` scenario that will never exist.
   it('classifies references/CODE_QUALITY.md as broad impact and derives no tag from it', () => {
     const derived = deriveTags(['skills/wix-app/references/CODE_QUALITY.md'], WIX_APP_RULES);
     expect(derived.broadImpact).toBe(true);
