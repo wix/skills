@@ -38,7 +38,7 @@ After delivering the links above, **proactively offer a custom domain** — don'
    npx @wix/cli@latest account domain suggest "<business name or site topic>" --limit 5 --json
    ```
 
-   All returned suggestions are already available for purchase. Show the user a few of the best fits.
+   All returned suggestions are already available for purchase. Show the user a few of the best fits, and mention they can explore more options — re-run `suggest` with different keywords, a higher `--limit`, or `--tld com net ...` to filter extensions.
 
 2. **Offer to buy, with a direct purchase link.** For the domain(s) the user likes, generate a site-scoped deep link so the purchase is tied to this site and can be connected after payment:
 
