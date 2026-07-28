@@ -28,22 +28,33 @@ Live site:  <published-url>
 Dashboard:  https://manage.wix.com/dashboard/<SITE_ID>
 ```
 
-## Buying a custom domain with the Wix CLI (optional)
+## Suggest a custom domain (proactive, after release)
 
-If the user wants a custom domain for the live site, the CLI handles the whole flow — no dashboard digging and no REST calls:
+After delivering the links above, **proactively offer a custom domain** — don't wait for the user to ask. The published URL is a generic Wix subdomain; a custom domain is the obvious next step, and the CLI handles the whole flow.
 
-```bash
-# Brainstorm available domains from a keyword, brand, or business idea:
-npx @wix/cli@latest account domain suggest "coffee shop" --limit 5 --tld com net
+1. **Suggest options.** Build a search query from what you know about the site — its business name, topic, or purpose from this run (not a generic placeholder):
 
-# Buy a chosen domain (include the TLD). Scope to the site so it can be connected after purchase:
-npx @wix/cli@latest account --site-id <SITE_ID> domain buy example.com
-```
+   ```bash
+   npx @wix/cli@latest account domain suggest "<business name or site topic>" --limit 5 --json
+   ```
 
-- `buy` does **not** charge anything itself — it returns a checkout URL (`https://manage.wix.com/get-domain?...`) where the user completes payment in the browser. Add `--json` to get the URL as machine-readable output.
-- All suggestions returned by `suggest` are already available for purchase.
-- Use the `siteId` from `wix.config.json` for `--site-id`; omit it for a standalone (account-level) domain purchase.
-- Surface the checkout URL to the user the same way as the live-site and dashboard links above — the purchase isn't done until they pay.
+   All returned suggestions are already available for purchase. Show the user a few of the best fits.
+
+2. **Offer to buy, with a direct purchase link.** For the domain(s) the user likes, generate a site-scoped deep link so the purchase is tied to this site and can be connected after payment:
+
+   ```bash
+   npx @wix/cli@latest account --site-id <SITE_ID> domain buy <domain> --json
+   ```
+
+   Use the `siteId` from `wix.config.json`. `buy` does **not** charge anything — it returns a checkout URL (`https://manage.wix.com/get-domain?...`); the user completes payment in the browser. Present it alongside the live-site and dashboard links, e.g.:
+
+   ```
+   Live site:   <published-url>
+   Dashboard:   https://manage.wix.com/dashboard/<SITE_ID>
+   Buy domain:  <checkout-url>   (mybusiness.com — pay to complete)
+   ```
+
+If the user isn't interested, drop it — one offer, no upselling.
 
 ## Before you sign off — feedback checkpoint
 
