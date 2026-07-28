@@ -56,7 +56,8 @@ const CONFIG = {
   repoFullName: 'wix/skills',
   prNumber: 42,
   headSha: 'abc1234deadbeef',
-  versionLabel: 'pr-42-abc1234',
+  evaluatedSha: 'merge99feedface',
+  versionLabel: 'pr-42-merge99',
 };
 
 const strongScenario = (name: string, tags: string[]) => ({
@@ -88,7 +89,7 @@ beforeEach(async () => {
   vi.mocked(evalforge.getChangedFiles).mockResolvedValue([]);
   vi.mocked(evalforge.loadScenarios).mockReturnValue({ scenarios: new Map(), errors: [] });
   vi.mocked(evalforge.collectSkillFiles).mockReturnValue([{ path: 'SKILL.md', content: '# skill' }]);
-  ensureSkillVersion.mockResolvedValue({ id: 'ver-1', capabilityId: 'cap', version: 'pr-42-abc1234' });
+  ensureSkillVersion.mockResolvedValue({ id: 'ver-1', capabilityId: 'cap', version: 'pr-42-merge99' });
   createAndRunEvalRun.mockResolvedValue({ id: 'run-1', status: 'pending' });
   listTestScenarios.mockResolvedValue([]);
   listTestScenariosByTag.mockResolvedValue([]);
@@ -205,37 +206,23 @@ describe('runGate — the happy path', () => {
     await runGate();
 
     expect(ensureSkillVersion).toHaveBeenCalledWith(
-      'cap', 'proj', 'pr-42-abc1234', 42, [{ path: 'SKILL.md', content: '# skill' }],
+      'cap', 'proj', 'pr-42-merge99', 42, [{ path: 'SKILL.md', content: '# skill' }],
     );
   });
 
-  // Only the entry file and the reference docs are the skill. An allowlist means a new stray
-  // file under the skill dir never reaches the agent as skill guidance.
-  it('uploads only SKILL.md and the reference docs', async () => {
-    const { runGate, evalforge } = await harness();
-
-    await runGate();
-
-    expect(evalforge.collectSkillFiles).toHaveBeenCalledWith(
-      expect.any(String), 'skills/wix-app',
-      expect.objectContaining({ includeGlobs: ['SKILL.md', 'references/**'] }),
-    );
-  });
-
-  it('derives the allowlist from reference-dir, not a hardcoded path', async () => {
-    const { runGate, evalforge } = await harness({ referenceDir: 'docs' });
-    // The changed path has to live under the configured reference dir, or it is unmapped and
-    // the gate exits before collecting anything.
+  // The skill dir is the deployed unit — references tell the agent to run
+  // `<SKILL_ROOT>/scripts/…`, so the upload is the configured dir, whole.
+  it('collects from the configured skill dir', async () => {
+    const { runGate, evalforge } = await harness({ skillDir: 'packages/other-skill' });
     vi.mocked(evalforge.getChangedFiles).mockResolvedValue([
-      { filename: 'skills/wix-app/docs/DASHBOARD_PAGE.md', status: 'modified' },
+      { filename: 'packages/other-skill/references/DASHBOARD_PAGE.md', status: 'modified' },
     ]);
 
     await runGate();
 
-    expect(evalforge.collectSkillFiles).toHaveBeenCalledWith(
-      expect.any(String), 'skills/wix-app',
-      expect.objectContaining({ includeGlobs: ['SKILL.md', 'docs/**'] }),
-    );
+    const [collectRoot, collectDir] = vi.mocked(evalforge.collectSkillFiles).mock.calls[0];
+    expect(collectDir).toBe('packages/other-skill');
+    expect(collectRoot).toEqual(expect.any(String));
   });
 
   it('runs the tag-selected scenario against that version and passes', async () => {
@@ -248,7 +235,7 @@ describe('runGate — the happy path', () => {
       agentId: 'agent',
       scenarioIds: ['remote-id'],
       capabilityIds: ['cap'],
-      capabilityVersions: { cap: 'pr-42-abc1234' },
+      capabilityVersions: { cap: 'pr-42-merge99' },
     }));
     expect(upsertComment).toHaveBeenCalledWith(expect.stringContaining('✅'));
     expect(setFailedSpy).not.toHaveBeenCalled();

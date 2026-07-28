@@ -8,7 +8,7 @@ import {
   formatGuardFailure, formatNoGatedChanges, formatYamlErrors,
   getChangedFiles, getFirstCommitAuthorEmail, guardScenarios, isWixAuthorEmail,
   listRemoteScenariosForGate, loadScenarios, makeCommenter, parseDraftTag, pollUntilDone,
-  remoteScenarioFiltersForGate, selectScenarios, semanticPlusDraftTags, skillContentGlobs,
+  remoteScenarioFiltersForGate, selectScenarios, semanticPlusDraftTags,
   stripInactiveForeignDraftTags, touchedScenarioPaths,
   type Commenter, type EvalRunStatus, type SyncAction,
 } from '@wix/evalforge-core';
@@ -81,7 +81,10 @@ export async function runGate(): Promise<void> {
 
   const workspace = workspaceRoot();
   const draftTag = draftTagFor(config.repoFullName, config.prNumber);
-  core.info(`EvalForge skill gate — PR #${config.prNumber}, version ${config.versionLabel}`);
+  core.info(
+    `EvalForge skill gate — PR #${config.prNumber}, version ${config.versionLabel} `
+    + `(evaluating ${config.evaluatedSha.slice(0, 7)}, the merge of head ${config.headSha.slice(0, 7)} into base)`,
+  );
 
   const { scenarios: headScenarios, errors: loadErrors } = loadScenarios(workspace, config.evalsGlob);
   if (loadErrors.length > 0) {
@@ -131,12 +134,9 @@ export async function runGate(): Promise<void> {
   }
 
   const skillFiles = await guardedCall(
-    // Only the entry file and the reference docs — the same shape tag derivation reasons
-    // about, so a path the gate calls `unmapped` is not shipped to the agent either.
-    async () => collectSkillFiles(workspace, config.skillDir, {
-      includeGlobs: skillContentGlobs(config.referenceDir),
-      warn: core.warning,
-    }),
+    // The whole skill dir, not just the docs: references point the agent at sibling paths
+    // like `<SKILL_ROOT>/scripts/…` and tell it to run them.
+    async () => collectSkillFiles(workspace, config.skillDir, { warn: core.warning }),
     `Could not read the skill directory ${config.skillDir}`, comment, config.blocking,
   );
   if (!skillFiles) return;

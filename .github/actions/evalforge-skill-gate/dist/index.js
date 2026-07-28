@@ -61730,11 +61730,30 @@ function getHeadSha() {
         throw new Error('PR payload missing head.sha');
     return headSha;
 }
+/**
+ * The commit whose content is actually evaluated.
+ *
+ * On `pull_request` the workflow's first checkout has no `ref:`, so it checks out the *merge*
+ * commit — head merged into base — and `GITHUB_SHA` names exactly that. The version label has
+ * to be built from this, not from `head.sha`: the same head produces different merge content
+ * as base advances, so a head-based label would not uniquely identify what it labels, and
+ * `ensureSkillVersion` would find the existing label and reuse a version built from stale
+ * content.
+ */
+function getEvaluatedSha() {
+    const sha = process.env.GITHUB_SHA;
+    if (!sha) {
+        throw new Error('GITHUB_SHA is not set, so the skill version cannot be labelled for the commit actually '
+            + 'evaluated. This action expects to run in GitHub Actions.');
+    }
+    return sha;
+}
 function getGateConfig() {
     const owner = github.context.repo.owner;
     const repo = github.context.repo.repo;
     const prNumber = (0, evalforge_core_1.getPrNumber)(github.context.payload);
     const headSha = getHeadSha();
+    const evaluatedSha = getEvaluatedSha();
     return {
         githubToken: (0, evalforge_core_1.safeGetSecret)(core, 'github-token'),
         evalforgeUrl: (0, evalforge_core_1.ensureHttps)(core, core.getInput('evalforge-url', { required: true })),
@@ -61755,7 +61774,8 @@ function getGateConfig() {
         repoFullName: `${owner}/${repo}`,
         prNumber,
         headSha,
-        versionLabel: `pr-${prNumber}-${headSha.slice(0, 7)}`,
+        evaluatedSha,
+        versionLabel: `pr-${prNumber}-${evaluatedSha.slice(0, 7)}`,
     };
 }
 function getCleanupConfig() {
@@ -61882,7 +61902,8 @@ async function runGate() {
     });
     const workspace = (0, workspace_1.workspaceRoot)();
     const draftTag = (0, evalforge_core_1.draftTagFor)(config.repoFullName, config.prNumber);
-    core.info(`EvalForge skill gate — PR #${config.prNumber}, version ${config.versionLabel}`);
+    core.info(`EvalForge skill gate — PR #${config.prNumber}, version ${config.versionLabel} `
+        + `(evaluating ${config.evaluatedSha.slice(0, 7)}, the merge of head ${config.headSha.slice(0, 7)} into base)`);
     const { scenarios: headScenarios, errors: loadErrors } = (0, evalforge_core_1.loadScenarios)(workspace, config.evalsGlob);
     if (loadErrors.length > 0) {
         await comment((0, evalforge_core_1.formatYamlErrors)(loadErrors));
@@ -61920,12 +61941,9 @@ async function runGate() {
         return;
     }
     const skillFiles = await guardedCall(
-    // Only the entry file and the reference docs — the same shape tag derivation reasons
-    // about, so a path the gate calls `unmapped` is not shipped to the agent either.
-    async () => (0, evalforge_core_1.collectSkillFiles)(workspace, config.skillDir, {
-        includeGlobs: (0, evalforge_core_1.skillContentGlobs)(config.referenceDir),
-        warn: core.warning,
-    }), `Could not read the skill directory ${config.skillDir}`, comment, config.blocking);
+    // The whole skill dir, not just the docs: references point the agent at sibling paths
+    // like `<SKILL_ROOT>/scripts/…` and tell it to run them.
+    async () => (0, evalforge_core_1.collectSkillFiles)(workspace, config.skillDir, { warn: core.warning }), `Could not read the skill directory ${config.skillDir}`, comment, config.blocking);
     if (!skillFiles)
         return;
     core.info(`Collected ${skillFiles.length} skill file(s) from ${config.skillDir}`);
