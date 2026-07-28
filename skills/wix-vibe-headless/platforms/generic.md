@@ -109,5 +109,16 @@ back to the `wix-docs` skill where the operation isn't documented there.
 
 ## When done
 
-After the site is built and seeded, ask the user to open this URL to complete the setup in Wix
-(substitute the metasite id you were given): `https://manage.wix.com/dashboard/{metaSiteId}`
+After the site is built and seeded:
+
+1. **Add the dev-only manage banner** (links the app to its Wix back office): copy the
+   `wix-vibe-headless` skill's `references/shared/wix-manage-banner.js` next to
+   `wix-client.js`, set `WIX_METASITE_ID` to your metasite id, and call
+   `mountWixManageBanner()` once from the app entry. The file already gates itself to dev
+   builds (via `import.meta.env.DEV`) — use it as-is, don't rewrite it — but you own the
+   guarantee: verify the gate actually holds in this stack, and that a production build never
+   shows the banner (no dev flag → no banner at all). Also verify it really pushes the site
+   down: a `fixed`/`absolute` app header is not in normal flow and will slide under the
+   banner — offset such a header by the banner's height.
+2. **Ask the user to open** this URL to complete the setup in Wix (substitute the metasite id
+   you were given): `https://manage.wix.com/dashboard/{metaSiteId}`
