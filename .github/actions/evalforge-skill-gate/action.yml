@@ -1,12 +1,12 @@
 name: 'EvalForge Skill Gate'
-description: 'EvalForge flows for wix-app skills: syncs repo scenario YAML into EvalForge, and (later) gates PRs on eval results'
+description: 'EvalForge flows for file-based skills: per-PR eval gate, PR-close cleanup, and merge-time scenario sync'
 inputs:
   mode:
-    description: 'Action mode: "sync" (default) reconciles repo YAML scenarios into EvalForge on merge'
+    description: 'Action mode: "gate" (per-PR eval run), "cleanup" (PR close), or "sync" (merge-time reconcile, the default)'
     required: false
     default: 'sync'
   github-token:
-    description: 'GitHub token, used to resolve the PR author for the Wix-author gate'
+    description: 'GitHub token — resolves the PR author for the Wix-author gate, reads the changed-file list, and upserts the PR comment'
     required: true
   evalforge-url:
     description: 'EvalForge API base URL'
@@ -21,8 +21,45 @@ inputs:
     description: 'Wix app secret (OAuth client_secret)'
     required: true
   evals-glob:
-    description: 'Glob for scenario YAML files to reconcile against EvalForge (sync mode)'
+    description: 'Glob for scenario YAML files, relative to the workspace root'
     required: true
+  capability-id:
+    description: 'EvalForge capability ID the PR skill version is created under (gate and cleanup modes)'
+    required: false
+  agent-id:
+    description: 'EvalForge preset agent ID the eval run uses (gate mode)'
+    required: false
+  skill-dir:
+    description: 'Repo-relative skill root whose files become the PR capability version, e.g. skills/wix-app (gate mode)'
+    required: false
+  reference-dir:
+    description: 'Reference directory relative to skill-dir. Each file there derives a tag from its name: DASHBOARD_PAGE.md -> dashboard-page'
+    required: false
+    default: 'references'
+  ignore-globs:
+    description: 'Newline-separated globs, relative to skill-dir, whose changes trigger nothing at all'
+    required: false
+    default: |
+      scripts/**
+  broad-impact-globs:
+    description: 'Newline-separated globs, relative to skill-dir, whose changes put the whole suite in play. These derive no tag of their own and are never coverage-checked'
+    required: false
+    default: |
+      SKILL.md
+      references/APP_IDENTIFIERS.md
+      references/APP_MARKET_REVIEW.md
+      references/APP_VALIDATION.md
+      references/CODE_QUALITY.md
+      references/DOCUMENTATION.md
+      references/EXTENSION_REGISTRATION.md
+  max-scenarios:
+    description: 'Cap on scenarios per gate run. Scenarios the PR touched are kept first; anything cut is named in the PR comment'
+    required: false
+    default: '25'
+  blocking:
+    description: 'When "true" a gate failure fails the check. Anything else warns and passes — the soak setting'
+    required: false
+    default: 'false'
 runs:
   using: 'node20'
   main: 'dist/index.js'
