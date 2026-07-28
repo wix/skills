@@ -1,0 +1,111 @@
+name: EvalForge Action CI
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'packages/evalforge-core/**'
+      - '.github/actions/evalforge-yaml-gate/**'
+      - '.github/actions/evalforge-skill-gate/**'
+      - '.github/workflows/evalforge-action-ci.yml'
+
+concurrency:
+  group: evalforge-action-ci-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  # Typechecking is its own job so the name means what it says — and so its check-run is
+  # named exactly `typecheck`, which is what main's branch protection requires on every PR.
+  # wix-app-typecheck.yml is the only other source of that context and it's scoped to
+  # `skills/wix-app/**`, so a PR touching only these evalforge paths (#696, #731) got no
+  # `typecheck` status at all and sat as "Expected — waiting" forever, mergeable only by
+  # bypassing required checks.
+  typecheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4
+        with:
+          node-version: '24'
+
+      # Setup, not a separate check: both actions consume evalforge-core via `portal:` and
+      # its `main`/`types` point at `dist/`, so its declarations have to exist before they
+      # can be typechecked. `tsc` emitting is itself a typecheck of the package.
+      #
+      # `working-directory` rather than `yarn --cwd`: each package vendors yarn 4.10.0 via
+      # .yarn/releases + yarnPath, and Corepack resolves the yarn *version* from the real
+      # process cwd — the same reason CONTRIBUTING.md requires `(cd DIR && yarn ...)`.
+      - name: evalforge-core — install and build
+        working-directory: packages/evalforge-core
+        run: |
+          yarn install --immutable
+          yarn build
+
+      - name: evalforge-yaml-gate — typecheck
+        working-directory: .github/actions/evalforge-yaml-gate
+        run: |
+          yarn install --immutable
+          yarn typecheck
+
+      - name: evalforge-skill-gate — typecheck
+        working-directory: .github/actions/evalforge-skill-gate
+        run: |
+          yarn install --immutable
+          yarn typecheck
+
+  # Test suites, plus the bundle-freshness check — both are "does the committed code do what
+  # source says", which is why they share a job rather than splitting further.
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4
+        with:
+          node-version: '24'
+
+      - name: evalforge-core — install, test, build
+        working-directory: packages/evalforge-core
+        run: |
+          yarn install --immutable
+          yarn test
+          yarn build
+
+      # Must run after core's build, for the same `portal:` reason as the typecheck job.
+      - name: evalforge-yaml-gate — install, test
+        working-directory: .github/actions/evalforge-yaml-gate
+        run: |
+          yarn install --immutable
+          yarn test
+
+      - name: evalforge-skill-gate — install, test
+        working-directory: .github/actions/evalforge-skill-gate
+        run: |
+          yarn install --immutable
+          yarn test
+
+      # CI runs the committed bundles, not src — so a PR that changes source without
+      # rebuilding dist ships nothing. This is what let #689's assertion parity sit
+      # unbundled: source merged green, and the behavior never reached CI.
+      - name: Rebuild both action bundles
+        run: |
+          (cd .github/actions/evalforge-yaml-gate && yarn build)
+          (cd .github/actions/evalforge-skill-gate && yarn build)
+
+      - name: Fail if any dist is stale
+        run: |
+          if ! git diff --exit-code -- \
+              .github/actions/evalforge-yaml-gate/dist \
+              .github/actions/evalforge-skill-gate/dist; then
+            echo "::error::A committed dist/index.js does not match a fresh build. Run:"
+            echo "::error::  (cd packages/evalforge-core && yarn build)"
+            echo "::error::  (cd .github/actions/evalforge-yaml-gate && yarn build)"
+            echo "::error::  (cd .github/actions/evalforge-skill-gate && yarn build)"
+            echo "::error::then commit the regenerated dist."
+            exit 1
+          fi

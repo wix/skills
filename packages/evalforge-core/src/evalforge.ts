@@ -114,6 +114,20 @@ export function uniqueRemoteScenarios(scenarios: RemoteScenario[]): RemoteScenar
 // ── Raw V1 wire shapes (camelCase JSON from www.wixapis.com) ──────────────────
 type RawCapabilityVersion = { id: string; capabilityId: string; version: string };
 type RawScenario = { id: string; name: string; tags?: string[] };
+type RawPagingMetadata = { total?: number; count?: number; cursors?: { next?: string } };
+
+function assertNotTruncated(received: number, meta: RawPagingMetadata | undefined, path: string): void {
+  if (!meta) return;
+  const total = typeof meta.total === 'number' ? meta.total : undefined;
+  const truncated = Boolean(meta.cursors?.next) || (total !== undefined && total > received);
+  if (!truncated) return;
+  throw new Error(
+    `EvalForge ${path} returned a truncated page (received ${received}` +
+    `${total !== undefined ? ` of ${total}` : ''}${meta.cursors?.next ? ', more pages available' : ''}). ` +
+    `Reconciling against a partial list would re-create the scenarios it could not see. ` +
+    `Add cursor paging to listTestScenarios before syncing this project.`,
+  );
+}
 type RawMetrics = Partial<EvalRunStatus['aggregateMetrics']>;
 type RawEvalRun = { id: string; status: string; progress?: number; aggregateMetrics?: RawMetrics };
 
@@ -265,12 +279,15 @@ export class EvalForgeClient {
   // scenarios — normalize so callers can assume `string[]`.
   async listTestScenarios(projectId: string, names?: string[]): Promise<RemoteScenario[]> {
     if (names === undefined) {
-      const res = await this.request<{ testScenarios?: RawScenario[] }>(
+      const path = `/projects/${enc(projectId)}/test-scenarios/query`;
+      const res = await this.request<{ testScenarios?: RawScenario[]; pagingMetadata?: RawPagingMetadata }>(
         'POST',
-        `/projects/${enc(projectId)}/test-scenarios/query`,
+        path,
         { filter: {} },
       );
-      return (res.testScenarios ?? []).map(s => ({ id: s.id, name: s.name, tags: s.tags ?? [] }));
+      const scenarios = res.testScenarios ?? [];
+      assertNotTruncated(scenarios.length, res.pagingMetadata, path);
+      return scenarios.map(s => ({ id: s.id, name: s.name, tags: s.tags ?? [] }));
     }
     const unique = [...new Set(names)];
     if (unique.length === 0) return [];
