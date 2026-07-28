@@ -61525,11 +61525,12 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 const core = __importStar(__nccwpck_require__(7484));
 const sync_run_1 = __nccwpck_require__(5466);
-// Modes for the wix-app skill flows. CODEAI-889 adds the PR eval gate
-// (author check -> skill version -> tags -> quality guard -> run -> comment -> cleanup)
-// alongside `sync`.
+const cleanup_run_1 = __nccwpck_require__(5717);
+// Modes for the wix-app skill flows: the per-PR eval gate, its PR-close cleanup, and
+// merge-time scenario sync. See README.md for the full flow of each.
 const modes = {
     sync: sync_run_1.runSync,
+    cleanup: cleanup_run_1.runCleanup,
 };
 const mode = core.getInput('mode') || 'sync';
 const handler = modes[mode];
@@ -61538,6 +61539,107 @@ if (!handler) {
 }
 else {
     handler().catch(err => core.setFailed(err instanceof Error ? err.message : String(err)));
+}
+
+
+/***/ }),
+
+/***/ 5717:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.runCleanup = runCleanup;
+const core = __importStar(__nccwpck_require__(7484));
+const node_path_1 = __nccwpck_require__(6760);
+const evalforge_core_1 = __nccwpck_require__(7495);
+const config_1 = __nccwpck_require__(7799);
+const workspace_1 = __nccwpck_require__(9620);
+function describeError(error) {
+    return error instanceof Error ? error.message : String(error);
+}
+/**
+ * PR-close cleanup. Every failure is a warning: the PR is already closed, so failing the
+ * workflow would only leave a red check nobody can act on, and the next run of this job
+ * sweeps whatever was left behind.
+ */
+async function runCleanup() {
+    const config = (0, config_1.getCleanupConfig)();
+    const client = new evalforge_core_1.EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
+    const draftTag = (0, evalforge_core_1.draftTagFor)(config.repoFullName, config.prNumber);
+    await (0, evalforge_core_1.deletePrCapabilityVersions)(client, config.capabilityId, config.projectId, config.prNumber, {
+        log: core.info,
+        warn: core.warning,
+    });
+    let remote;
+    try {
+        remote = await client.listTestScenariosByTag(config.projectId, draftTag);
+    }
+    catch (error) {
+        core.warning(`listTestScenariosByTag failed: ${describeError(error)}`);
+        return;
+    }
+    const baseRoot = node_path_1.posix.join((0, workspace_1.workspaceRoot)(), config_1.BASE_WORKSPACE_SUBDIR);
+    const { scenarios: baseScenarios, errors } = (0, evalforge_core_1.loadScenarios)(baseRoot, config.evalsGlob);
+    for (const error of errors) {
+        core.warning(`Base SHA scenario issue at ${baseRoot}/${error.path}: ${error.message}`);
+    }
+    const plan = (0, evalforge_core_1.planCleanup)(remote, baseScenarios, draftTag, config.repoFullName);
+    const restoreCount = plan.filter(action => action.kind === 'RESTORE').length;
+    const deleteCount = plan.filter(action => action.kind === 'DELETE').length;
+    core.info(`Cleanup plan: ${plan.length} action(s) — RESTORE=${restoreCount} DELETE=${deleteCount}`);
+    for (const action of plan)
+        await execute(client, config.projectId, action);
+}
+async function execute(client, projectId, action) {
+    try {
+        if (action.kind === 'RESTORE') {
+            await client.updateTestScenario(projectId, action.id, action.body, action.tags);
+            core.info(`Restored ${action.name} to its pre-PR state`);
+        }
+        else {
+            await client.deleteTestScenario(projectId, action.id);
+            core.info(`Deleted draft ${action.name}`);
+        }
+    }
+    catch (error) {
+        const verb = action.kind === 'RESTORE' ? 'Restore' : 'Delete draft';
+        core.warning(`${verb} failed for ${action.name}: ${describeError(error)}`);
+    }
 }
 
 
@@ -61582,10 +61684,15 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.BASE_WORKSPACE_SUBDIR = void 0;
 exports.getSyncConfig = getSyncConfig;
+exports.getGateConfig = getGateConfig;
+exports.getCleanupConfig = getCleanupConfig;
 const core = __importStar(__nccwpck_require__(7484));
 const github = __importStar(__nccwpck_require__(3228));
 const evalforge_core_1 = __nccwpck_require__(7495);
+/** Subdirectory the base-SHA checkout lands in, matching the yaml-gate workflows. */
+exports.BASE_WORKSPACE_SUBDIR = '.action-src';
 function getSyncConfig() {
     return {
         evalforgeUrl: (0, evalforge_core_1.ensureHttps)(core, core.getInput('evalforge-url', { required: true })),
@@ -61595,6 +61702,74 @@ function getSyncConfig() {
         evalsGlob: core.getInput('evals-glob', { required: true }),
         repo: `${github.context.repo.owner}/${github.context.repo.repo}`,
         githubToken: core.getInput('github-token', { required: true }),
+        prNumber: (0, evalforge_core_1.getPrNumber)(github.context.payload),
+    };
+}
+/** Newline-separated list input, falling back to `fallback` when blank. */
+function getMultilineList(name, fallback) {
+    const raw = core.getInput(name);
+    if (raw.trim() === '')
+        return fallback;
+    const entries = raw.split('\n').map(line => line.trim()).filter(line => line !== '');
+    return entries.length > 0 ? entries : fallback;
+}
+function getPositiveIntegerInput(name, fallback) {
+    const raw = core.getInput(name) || String(fallback);
+    const value = Number(raw);
+    if (!Number.isInteger(value) || value < 1) {
+        throw new Error(`${name} must be a positive integer (received: ${raw})`);
+    }
+    return value;
+}
+function getHeadSha() {
+    const pullRequest = github.context.payload.pull_request;
+    const headSha = pullRequest?.head?.sha;
+    if (!headSha)
+        throw new Error('PR payload missing head.sha');
+    return headSha;
+}
+function getGateConfig() {
+    const owner = github.context.repo.owner;
+    const repo = github.context.repo.repo;
+    const prNumber = (0, evalforge_core_1.getPrNumber)(github.context.payload);
+    const headSha = getHeadSha();
+    return {
+        githubToken: (0, evalforge_core_1.safeGetSecret)(core, 'github-token'),
+        evalforgeUrl: (0, evalforge_core_1.ensureHttps)(core, core.getInput('evalforge-url', { required: true })),
+        projectId: core.getInput('evalforge-project-id', { required: true }),
+        appId: (0, evalforge_core_1.safeGetSecret)(core, 'evalforge-app-id'),
+        appSecret: (0, evalforge_core_1.safeGetSecret)(core, 'evalforge-app-secret'),
+        capabilityId: core.getInput('capability-id', { required: true }),
+        agentId: core.getInput('agent-id', { required: true }),
+        evalsGlob: core.getInput('evals-glob', { required: true }),
+        skillDir: core.getInput('skill-dir', { required: true }),
+        referenceDir: core.getInput('reference-dir') || 'references',
+        ignoreGlobs: getMultilineList('ignore-globs', evalforge_core_1.DEFAULT_IGNORE_GLOBS),
+        broadImpactGlobs: getMultilineList('broad-impact-globs', evalforge_core_1.DEFAULT_BROAD_IMPACT_GLOBS),
+        maxScenarios: getPositiveIntegerInput('max-scenarios', 25),
+        blocking: core.getInput('blocking') === 'true',
+        owner,
+        repo,
+        repoFullName: `${owner}/${repo}`,
+        prNumber,
+        headSha,
+        versionLabel: `pr-${prNumber}-${headSha.slice(0, 7)}`,
+    };
+}
+function getCleanupConfig() {
+    const owner = github.context.repo.owner;
+    const repo = github.context.repo.repo;
+    return {
+        githubToken: (0, evalforge_core_1.safeGetSecret)(core, 'github-token'),
+        evalforgeUrl: (0, evalforge_core_1.ensureHttps)(core, core.getInput('evalforge-url', { required: true })),
+        projectId: core.getInput('evalforge-project-id', { required: true }),
+        appId: (0, evalforge_core_1.safeGetSecret)(core, 'evalforge-app-id'),
+        appSecret: (0, evalforge_core_1.safeGetSecret)(core, 'evalforge-app-secret'),
+        capabilityId: core.getInput('capability-id', { required: true }),
+        evalsGlob: core.getInput('evals-glob', { required: true }),
+        owner,
+        repo,
+        repoFullName: `${owner}/${repo}`,
         prNumber: (0, evalforge_core_1.getPrNumber)(github.context.payload),
     };
 }
