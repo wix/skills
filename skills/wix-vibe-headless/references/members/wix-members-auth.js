@@ -8,24 +8,30 @@ import {
   isMember,
 } from "./wix-client.js";
 
-// One-click "approve this domain" dashboard deep link for when login fails because this app's
-// ORIGIN isn't in the OAuth app's allowed domains. Built client-side (no server change needed —
-// the ?addAllowedDomain= param already exists) so the UI can offer a fix. Returns undefined when
-// WIX_META_SITE_ID isn't set (the deep link needs it) — the caller then just shows the message.
+// One-click "approve" dashboard deep link for when login fails because this app isn't allow-listed on
+// the OAuth app. It pre-fills BOTH allow-list fields so the owner configures ONCE (in a single
+// dashboard visit) and BOTH mechanisms work afterward — regardless of which one they hit first:
+//   • addAllowedDomain      → this app's ORIGIN            (credential / web_message postMessage target)
+//   • addAllowedRedirectUri → the social/SSO callback URL  (defaults to `<origin>/callback`, the skill's convention)
+// Built client-side (no server change needed — both params already exist on the dashboard). Returns
+// undefined when the metaSiteId is unknown (the deep link needs it) — the caller then just shows the
+// message. Pass `callbackUri` to override the `<origin>/callback` default if your app uses another path.
 function pageOrigin() {
   return typeof window !== "undefined" ? window.location.origin : "";
 }
 
-function buildApproveDomainUrl(origin, metaSiteId) {
+function buildApproveUrl(origin, metaSiteId, callbackUri) {
   // Prefer the metaSiteId the authorize server returns in the error payload (a client-only front
   // usually doesn't know it); fall back to the optional WIX_META_SITE_ID constant if it's set.
   const msid =
     metaSiteId || (WIX_META_SITE_ID && !WIX_META_SITE_ID.startsWith("<") ? WIX_META_SITE_ID : undefined);
   if (!origin || !msid) return undefined;
+  const redirectUri = callbackUri || `${origin}/callback`;
   return (
     `https://manage.wix.com/dashboard/${encodeURIComponent(msid)}` +
     `/oauth-apps-settings/manage/${encodeURIComponent(WIX_CLIENT_ID)}` +
-    `?addAllowedDomain=${encodeURIComponent(origin)}`
+    `?addAllowedDomain=${encodeURIComponent(origin)}` +
+    `&addAllowedRedirectUri=${encodeURIComponent(redirectUri)}`
   );
 }
 
@@ -354,8 +360,8 @@ function authorizeViaHiddenIframe(authUrl, expectedState) {
         // offers a fix instead of a dead end. Falls back to this page's origin / WIX_META_SITE_ID.
         const origin = e.data.rejectedOrigin || pageOrigin();
         err.rejectedOrigin = origin;
-        err.approveUrl = buildApproveDomainUrl(origin, e.data.metaSiteId);
-        if (err.approveUrl) console.warn(`Wix member login: approve this origin — ${err.approveUrl}`);
+        err.approveUrl = buildApproveUrl(origin, e.data.metaSiteId);
+        if (err.approveUrl) console.warn(`Wix member login: approve this app — ${err.approveUrl}`);
         reject(err);
       } else resolve({ code: e.data.code, state: e.data.state });
     };
@@ -366,8 +372,8 @@ function authorizeViaHiddenIframe(authUrl, expectedState) {
         // Fast-fail fallback for older authorize servers that *silently drop* the postMessage when
         // this app's ORIGIN isn't in the OAuth app's allowed domains. Build the approve deep link
         // client-side so the UI can still offer the one-click fix (no server change needed).
-        const approveUrl = buildApproveDomainUrl(pageOrigin());
-        if (approveUrl) console.warn(`Wix member login: approve this origin — ${approveUrl}`);
+        const approveUrl = buildApproveUrl(pageOrigin());
+        if (approveUrl) console.warn(`Wix member login: approve this app — ${approveUrl}`);
         const err = new MemberAuthError(
           "redirect_uri_not_allowed",
           `This app's origin (${pageOrigin() || "?"}) is not in the Wix OAuth app's allowed domains — ` +
