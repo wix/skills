@@ -62,7 +62,7 @@ export async function runGate(): Promise<void> {
   const config = getGateConfig();
   const octokit = github.getOctokit(config.githubToken);
 
-  // Author gate first — a fork PR must cost nothing at all.
+  // First, so a fork PR costs nothing.
   const authorEmail = await getFirstCommitAuthorEmail(octokit, config.owner, config.repo, config.prNumber);
   if (!isWixAuthorEmail(authorEmail)) {
     core.info('Skipping wix-app eval gate — PR author is not a @wix.com address');
@@ -120,8 +120,7 @@ export async function runGate(): Promise<void> {
     return;
   }
 
-  // The guard runs on local YAML alone — before any version, sync or run — so a coverage
-  // failure costs nothing.
+  // Local YAML only, before any version or run, so a coverage failure costs nothing.
   const guard = guardScenarios({
     tags: derived.tags,
     scenarios: headScenarios,
@@ -134,8 +133,7 @@ export async function runGate(): Promise<void> {
   }
 
   const skillFiles = await guardedCall(
-    // The whole skill dir, not just the docs: references point the agent at sibling paths
-    // like `<SKILL_ROOT>/scripts/…` and tell it to run them.
+    // Whole dir: references send the agent to sibling paths like `<SKILL_ROOT>/scripts/…`.
     async () => collectSkillFiles(workspace, config.skillDir, { warn: core.warning }),
     `Could not read the skill directory ${config.skillDir}`, comment, config.blocking,
   );
@@ -273,10 +271,8 @@ export async function runGate(): Promise<void> {
   }
 }
 
-/**
- * Applies the sync plan, recording the ids CREATE returns. Returns false once an action
- * fails — running against a half-synced scenario set would report on the wrong content.
- */
+/** Applies the plan, recording ids CREATE returns. Stops on failure: a half-synced set would
+ * report on the wrong content. */
 async function applySyncPlan(
   client: EvalForgeClient,
   config: GateConfig,

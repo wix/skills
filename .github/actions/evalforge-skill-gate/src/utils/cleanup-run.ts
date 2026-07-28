@@ -12,9 +12,8 @@ function describeError(error: unknown): string {
 }
 
 /**
- * PR-close cleanup. Every failure is a warning: the PR is already closed, so failing the
- * workflow would only leave a red check nobody can act on, and the next run of this job
- * sweeps whatever was left behind.
+ * Failures are warnings throughout: the PR is closed, so a red check is not actionable and the
+ * next run sweeps what was left.
  */
 export async function runCleanup(): Promise<void> {
   const config = getCleanupConfig();
