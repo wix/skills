@@ -30425,9 +30425,13 @@ class EvalForgeClient {
             throw new Error(`EvalForge ${method} /v1${path} → ${res.status} but invalid JSON: ${e instanceof Error ? e.message : String(e)}`);
         });
     }
-    async listMcpVersions(mcpId, projectId) {
-        const res = await this.request('GET', `/projects/${enc(projectId)}/capabilities/${enc(mcpId)}/versions`);
-        return (res.capabilityVersions ?? []).map(v => ({ id: v.id, capabilityId: v.capabilityId, version: v.version }));
+    // Content-agnostic: this endpoint lists versions of any capability, whether their content
+    // is `mcpContent` or `skillContent`.
+    async listCapabilityVersions(capabilityId, projectId) {
+        const res = await this.request('GET', `/projects/${enc(projectId)}/capabilities/${enc(capabilityId)}/versions`);
+        return (res.capabilityVersions ?? []).map(version => ({
+            id: version.id, capabilityId: version.capabilityId, version: version.version,
+        }));
     }
     buildMcpUrl(skillsRepo, headSha) {
         const url = new URL(MCP_URL);
@@ -30470,7 +30474,7 @@ class EvalForgeClient {
             // reusing the existing version, and only rethrow if it genuinely isn't there.
             if (!isHttpError(e) || (e.status !== 409 && e.status !== 500))
                 throw e;
-            const versions = await this.listMcpVersions(mcpId, projectId);
+            const versions = await this.listCapabilityVersions(mcpId, projectId);
             const existing = versions.find(v => v.version === versionLabel);
             if (!existing)
                 throw e;
@@ -30566,8 +30570,8 @@ class EvalForgeClient {
             },
         };
     }
-    async deleteMcpVersion(mcpId, projectId, versionId) {
-        await this.request('DELETE', `/projects/${enc(projectId)}/capabilities/${enc(mcpId)}/versions/${enc(versionId)}`);
+    async deleteCapabilityVersion(capabilityId, projectId, versionId) {
+        await this.request('DELETE', `/projects/${enc(projectId)}/capabilities/${enc(capabilityId)}/versions/${enc(versionId)}`);
     }
 }
 exports.EvalForgeClient = EvalForgeClient;
@@ -30607,6 +30611,7 @@ __exportStar(__nccwpck_require__(8525), exports);
 __exportStar(__nccwpck_require__(3754), exports);
 __exportStar(__nccwpck_require__(1243), exports);
 __exportStar(__nccwpck_require__(7853), exports);
+__exportStar(__nccwpck_require__(5992), exports);
 
 
 /***/ }),
@@ -30694,6 +30699,45 @@ function planScenarioSync(input) {
         }
     }
     return { actions, skipped };
+}
+
+
+/***/ }),
+
+/***/ 5992:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.deletePrCapabilityVersions = deletePrCapabilityVersions;
+function describeError(error) {
+    return error instanceof Error ? error.message : String(error);
+}
+/**
+ * Deletes every capability version this PR minted (`pr-<n>-*`). Best-effort throughout:
+ * cleanup runs after the PR closed, so a failure here must never fail the workflow — the
+ * next run of the same job sweeps whatever was left behind.
+ */
+async function deletePrCapabilityVersions(client, capabilityId, projectId, prNumber, io) {
+    let versions;
+    try {
+        versions = await client.listCapabilityVersions(capabilityId, projectId);
+    }
+    catch (error) {
+        io.warn(`listCapabilityVersions failed: ${describeError(error)}`);
+        return;
+    }
+    const prefix = `pr-${prNumber}-`;
+    for (const version of versions.filter(candidate => candidate.version.startsWith(prefix))) {
+        try {
+            await client.deleteCapabilityVersion(capabilityId, projectId, version.id);
+            io.log(`Deleted capability version ${version.version}`);
+        }
+        catch (error) {
+            io.warn(`Delete capability version ${version.version} failed: ${describeError(error)}`);
+        }
+    }
 }
 
 

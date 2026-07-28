@@ -1,8 +1,7 @@
 import * as core from '@actions/core';
 import { posix } from 'node:path';
 import { getSimpleConfig } from './config';
-import { EvalForgeClient, draftTagFor, withManagedTags, type RemoteScenario, type ScenarioBody } from '@wix/evalforge-core';
-import { deletePrMcpVersions } from './pr-cleanup';
+import { EvalForgeClient, deletePrCapabilityVersions, draftTagFor, withManagedTags, type RemoteScenario, type ScenarioBody } from '@wix/evalforge-core';
 import { loadEvals, type LoadedScenario } from './evals';
 import { toScenarioBody } from './sync';
 import { workspaceRoot } from './workspace';
@@ -43,7 +42,10 @@ export async function runCleanup(): Promise<void> {
   const evalforge = new EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
   const draftTag = draftTagFor(`${config.owner}/${config.repo}`, config.prNumber);
 
-  await deletePrMcpVersions(evalforge, config.mcpId, config.projectId, config.prNumber);
+  await deletePrCapabilityVersions(evalforge, config.mcpId, config.projectId, config.prNumber, {
+    log: core.info,
+    warn: core.warning,
+  });
 
   let remote: RemoteScenario[];
   try {

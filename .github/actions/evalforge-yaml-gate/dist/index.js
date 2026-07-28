@@ -34539,9 +34539,13 @@ class EvalForgeClient {
             throw new Error(`EvalForge ${method} /v1${path} → ${res.status} but invalid JSON: ${e instanceof Error ? e.message : String(e)}`);
         });
     }
-    async listMcpVersions(mcpId, projectId) {
-        const res = await this.request('GET', `/projects/${enc(projectId)}/capabilities/${enc(mcpId)}/versions`);
-        return (res.capabilityVersions ?? []).map(v => ({ id: v.id, capabilityId: v.capabilityId, version: v.version }));
+    // Content-agnostic: this endpoint lists versions of any capability, whether their content
+    // is `mcpContent` or `skillContent`.
+    async listCapabilityVersions(capabilityId, projectId) {
+        const res = await this.request('GET', `/projects/${enc(projectId)}/capabilities/${enc(capabilityId)}/versions`);
+        return (res.capabilityVersions ?? []).map(version => ({
+            id: version.id, capabilityId: version.capabilityId, version: version.version,
+        }));
     }
     buildMcpUrl(skillsRepo, headSha) {
         const url = new URL(MCP_URL);
@@ -34584,7 +34588,7 @@ class EvalForgeClient {
             // reusing the existing version, and only rethrow if it genuinely isn't there.
             if (!isHttpError(e) || (e.status !== 409 && e.status !== 500))
                 throw e;
-            const versions = await this.listMcpVersions(mcpId, projectId);
+            const versions = await this.listCapabilityVersions(mcpId, projectId);
             const existing = versions.find(v => v.version === versionLabel);
             if (!existing)
                 throw e;
@@ -34680,8 +34684,8 @@ class EvalForgeClient {
             },
         };
     }
-    async deleteMcpVersion(mcpId, projectId, versionId) {
-        await this.request('DELETE', `/projects/${enc(projectId)}/capabilities/${enc(mcpId)}/versions/${enc(versionId)}`);
+    async deleteCapabilityVersion(capabilityId, projectId, versionId) {
+        await this.request('DELETE', `/projects/${enc(projectId)}/capabilities/${enc(capabilityId)}/versions/${enc(versionId)}`);
     }
 }
 exports.EvalForgeClient = EvalForgeClient;
@@ -34721,6 +34725,7 @@ __exportStar(__nccwpck_require__(8525), exports);
 __exportStar(__nccwpck_require__(3754), exports);
 __exportStar(__nccwpck_require__(1243), exports);
 __exportStar(__nccwpck_require__(7853), exports);
+__exportStar(__nccwpck_require__(5992), exports);
 
 
 /***/ }),
@@ -34808,6 +34813,45 @@ function planScenarioSync(input) {
         }
     }
     return { actions, skipped };
+}
+
+
+/***/ }),
+
+/***/ 5992:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.deletePrCapabilityVersions = deletePrCapabilityVersions;
+function describeError(error) {
+    return error instanceof Error ? error.message : String(error);
+}
+/**
+ * Deletes every capability version this PR minted (`pr-<n>-*`). Best-effort throughout:
+ * cleanup runs after the PR closed, so a failure here must never fail the workflow — the
+ * next run of the same job sweeps whatever was left behind.
+ */
+async function deletePrCapabilityVersions(client, capabilityId, projectId, prNumber, io) {
+    let versions;
+    try {
+        versions = await client.listCapabilityVersions(capabilityId, projectId);
+    }
+    catch (error) {
+        io.warn(`listCapabilityVersions failed: ${describeError(error)}`);
+        return;
+    }
+    const prefix = `pr-${prNumber}-`;
+    for (const version of versions.filter(candidate => candidate.version.startsWith(prefix))) {
+        try {
+            await client.deleteCapabilityVersion(capabilityId, projectId, version.id);
+            io.log(`Deleted capability version ${version.version}`);
+        }
+        catch (error) {
+            io.warn(`Delete capability version ${version.version} failed: ${describeError(error)}`);
+        }
+    }
 }
 
 
@@ -64942,7 +64986,6 @@ const core = __importStar(__nccwpck_require__(7484));
 const node_path_1 = __nccwpck_require__(6760);
 const config_1 = __nccwpck_require__(7799);
 const evalforge_core_1 = __nccwpck_require__(7495);
-const pr_cleanup_1 = __nccwpck_require__(7310);
 const evals_1 = __nccwpck_require__(1686);
 const sync_1 = __nccwpck_require__(546);
 const workspace_1 = __nccwpck_require__(9620);
@@ -64966,7 +65009,10 @@ async function runCleanup() {
     const config = (0, config_1.getSimpleConfig)();
     const evalforge = new evalforge_core_1.EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
     const draftTag = (0, evalforge_core_1.draftTagFor)(`${config.owner}/${config.repo}`, config.prNumber);
-    await (0, pr_cleanup_1.deletePrMcpVersions)(evalforge, config.mcpId, config.projectId, config.prNumber);
+    await (0, evalforge_core_1.deletePrCapabilityVersions)(evalforge, config.mcpId, config.projectId, config.prNumber, {
+        log: core.info,
+        warn: core.warning,
+    });
     let remote;
     try {
         remote = await evalforge.listTestScenariosByTag(config.projectId, draftTag);
@@ -66104,71 +66150,6 @@ exports.BASE_WORKSPACE_SUBDIR = '.action-src';
 
 /***/ }),
 
-/***/ 7310:
-/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
-
-"use strict";
-
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.deletePrMcpVersions = deletePrMcpVersions;
-const core = __importStar(__nccwpck_require__(7484));
-async function deletePrMcpVersions(client, mcpId, projectId, prNumber) {
-    let versions;
-    try {
-        versions = await client.listMcpVersions(mcpId, projectId);
-    }
-    catch (e) {
-        core.warning(`listMcpVersions failed: ${e instanceof Error ? e.message : String(e)}`);
-        return;
-    }
-    const prefix = `pr-${prNumber}-`;
-    for (const v of versions.filter(x => x.version.startsWith(prefix))) {
-        try {
-            await client.deleteMcpVersion(mcpId, projectId, v.id);
-            core.info(`Deleted MCP version ${v.version}`);
-        }
-        catch (e) {
-            core.warning(`Delete MCP version ${v.version} failed: ${e instanceof Error ? e.message : String(e)}`);
-        }
-    }
-}
-
-
-/***/ }),
-
 /***/ 2245:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
@@ -66215,7 +66196,6 @@ const config_1 = __nccwpck_require__(7799);
 const evalforge_core_1 = __nccwpck_require__(7495);
 const evals_1 = __nccwpck_require__(1686);
 const sync_1 = __nccwpck_require__(546);
-const pr_cleanup_1 = __nccwpck_require__(7310);
 const paths_1 = __nccwpck_require__(6621);
 const workspace_1 = __nccwpck_require__(9620);
 async function runPromote() {
@@ -66225,7 +66205,10 @@ async function runPromote() {
     const draftTag = (0, evalforge_core_1.draftTagFor)(repo, config.prNumber);
     const workspace = (0, workspace_1.workspaceRoot)();
     // Cleanup workflow no longer fires on merged PRs — promote owns MCP version teardown.
-    await (0, pr_cleanup_1.deletePrMcpVersions)(evalforge, config.mcpId, config.projectId, config.prNumber);
+    await (0, evalforge_core_1.deletePrCapabilityVersions)(evalforge, config.mcpId, config.projectId, config.prNumber, {
+        log: core.info,
+        warn: core.warning,
+    });
     const headScenarios = loadEvalsWithWarnings(workspace);
     // Only this PR's draft-tagged scenarios need promoting (vs. listing the project).
     let tagged;
