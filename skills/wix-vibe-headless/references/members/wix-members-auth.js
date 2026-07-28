@@ -69,8 +69,9 @@ function buildApproveUrl(origin, metaSiteId, callbackUri) {
  * Members Area app or they're silently dropped. Social (B) can't collect any of
  * these — that's the reason to pick direct-credential.
  *
- * Docs (curl the .md): custom login <https://dev.wix.com/docs/go-headless/self-managed-headless/authentication/members/custom-login-page/custom-login/custom-login-using-the-js-sdk.md>
- * · external/social login <https://dev.wix.com/docs/rest/business-management/headless-authentication/redirects/create-redirect-session>
+ * Docs (curl the .md): about member login — the mechanism map <https://dev.wix.com/docs/go-headless/authentication/members/about-member-login.md>
+ * · custom login page (REST) — the credential flow this file implements, steps 1-10 <https://dev.wix.com/docs/go-headless/authentication/members/custom-login-page/build-a-custom-login-page-rest.md>
+ * · sign in with Google/Facebook (REST) — social/SSO, with the idp connection ids <https://dev.wix.com/docs/go-headless/authentication/members/identity-providers/sign-in-with-google-or-facebook-rest.md>
  * · Retrieve Tokens <https://dev.wix.com/docs/rest/business-management/headless-authentication/authentication/retrieve-tokens>
  * · allow redirect URIs & domains (the allow-listing this vertical's #1 gotcha is about, and what the
  *   `approveUrl` deep link pre-fills) <https://dev.wix.com/docs/go-headless/authentication/setup/allow-redirect-uris-and-domains>

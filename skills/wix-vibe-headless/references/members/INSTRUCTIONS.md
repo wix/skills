@@ -214,9 +214,10 @@ create in the Business Manager (dashboard link below).
 The helper covers sign-up / login / social / SSO / logout / current-member. For a genuine gap, extend
 with `wixApiRequest` — but confirm the endpoint, method, and body in the API reference first (or via
 the co-installed **`wix-docs`** skill). Never guess.
+- About member login (the mechanism map — which flow to use when): https://dev.wix.com/docs/go-headless/authentication/members/about-member-login.md
+- Build a custom login page (REST) — the credential flow this vertical implements, steps 1-10: https://dev.wix.com/docs/go-headless/authentication/members/custom-login-page/build-a-custom-login-page-rest.md
+- Sign in with Google or Facebook (REST) — social/SSO, with the `idp` connection ids: https://dev.wix.com/docs/go-headless/authentication/members/identity-providers/sign-in-with-google-or-facebook-rest.md
 - Allow redirect URIs & domains (allow-listing setup — this vertical's #1 gotcha; what the `approveUrl` pre-fills): https://dev.wix.com/docs/go-headless/authentication/setup/allow-redirect-uris-and-domains
-- Custom login (JS SDK, concepts mirror the REST calls): https://dev.wix.com/docs/go-headless/self-managed-headless/authentication/members/custom-login-page/custom-login/custom-login-using-the-js-sdk.md
-- External / social login (REST): https://dev.wix.com/docs/rest/business-management/headless-authentication/redirects/create-redirect-session
 - Retrieve Tokens (REST): https://dev.wix.com/docs/rest/business-management/headless-authentication/authentication/retrieve-tokens
 - Members API (read/update profile, query members): https://dev.wix.com/docs/api-reference/members/members/members-v1/introduction
 
