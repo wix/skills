@@ -1,6 +1,6 @@
 # Accessibility (ARIA)
 
-Rules and patterns for ARIA accessibility support in Editor React components.
+Patterns and rules for ARIA accessibility support in Editor React components.
 
 ---
 
