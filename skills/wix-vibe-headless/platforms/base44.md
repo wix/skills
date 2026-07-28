@@ -163,14 +163,7 @@ Once the site is built and seeded:
    shows the banner (no dev flag → no banner at all). Also verify it really pushes the site
    down: a `fixed`/`absolute` app header is not in normal flow and will slide under the
    banner — offset such a header by the banner's height.
-2. **Leave a brief "Wix skills" note in `AGENTS.md`** (project root) so a future session has
-   context. If the file already exists, **`read_file` it first and only append your section** —
-   do **not** rewrite, reorder, or remove anything already there; if you can't append cleanly,
-   skip this rather than overwrite. Create the file only if none exists. Keep the note
-   high-level, e.g.: the Wix skills are installed under `.agents/skills/`; the client is built
-   per the `wix-vibe-headless` skill; seeding/management is done per the `wix-headless` +
-   `wix-docs` skills.
-3. **Ask the user to open** this URL to complete the setup in Wix (substitute the metasite id
+2. **Ask the user to open** this URL to complete the setup in Wix (substitute the metasite id
    you were given): `https://manage.wix.com/dashboard/{metaSiteId}`
 
 ## Later admin requests
