@@ -34539,9 +34539,13 @@ class EvalForgeClient {
             throw new Error(`EvalForge ${method} /v1${path} → ${res.status} but invalid JSON: ${e instanceof Error ? e.message : String(e)}`);
         });
     }
-    async listMcpVersions(mcpId, projectId) {
-        const res = await this.request('GET', `/projects/${enc(projectId)}/capabilities/${enc(mcpId)}/versions`);
-        return (res.capabilityVersions ?? []).map(v => ({ id: v.id, capabilityId: v.capabilityId, version: v.version }));
+    // Content-agnostic: this endpoint lists versions of any capability, whether their content
+    // is `mcpContent` or `skillContent`.
+    async listCapabilityVersions(capabilityId, projectId) {
+        const res = await this.request('GET', `/projects/${enc(projectId)}/capabilities/${enc(capabilityId)}/versions`);
+        return (res.capabilityVersions ?? []).map(version => ({
+            id: version.id, capabilityId: version.capabilityId, version: version.version,
+        }));
     }
     buildMcpUrl(skillsRepo, headSha) {
         const url = new URL(MCP_URL);
@@ -34584,7 +34588,7 @@ class EvalForgeClient {
             // reusing the existing version, and only rethrow if it genuinely isn't there.
             if (!isHttpError(e) || (e.status !== 409 && e.status !== 500))
                 throw e;
-            const versions = await this.listMcpVersions(mcpId, projectId);
+            const versions = await this.listCapabilityVersions(mcpId, projectId);
             const existing = versions.find(v => v.version === versionLabel);
             if (!existing)
                 throw e;
@@ -34680,8 +34684,8 @@ class EvalForgeClient {
             },
         };
     }
-    async deleteMcpVersion(mcpId, projectId, versionId) {
-        await this.request('DELETE', `/projects/${enc(projectId)}/capabilities/${enc(mcpId)}/versions/${enc(versionId)}`);
+    async deleteCapabilityVersion(capabilityId, projectId, versionId) {
+        await this.request('DELETE', `/projects/${enc(projectId)}/capabilities/${enc(capabilityId)}/versions/${enc(versionId)}`);
     }
 }
 exports.EvalForgeClient = EvalForgeClient;
@@ -34720,6 +34724,11 @@ __exportStar(__nccwpck_require__(9851), exports);
 __exportStar(__nccwpck_require__(8525), exports);
 __exportStar(__nccwpck_require__(3754), exports);
 __exportStar(__nccwpck_require__(1243), exports);
+__exportStar(__nccwpck_require__(7853), exports);
+__exportStar(__nccwpck_require__(5992), exports);
+__exportStar(__nccwpck_require__(7208), exports);
+__exportStar(__nccwpck_require__(473), exports);
+__exportStar(__nccwpck_require__(5781), exports);
 
 
 /***/ }),
@@ -34769,6 +34778,162 @@ function loadScenarios(root, globPattern) {
 
 /***/ }),
 
+/***/ 473:
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.planCleanup = planCleanup;
+const evalforge_1 = __nccwpck_require__(7230);
+const plan_pr_scenario_sync_1 = __nccwpck_require__(7208);
+/**
+ * Decides what to do with each of this PR's draft-tagged scenarios once the PR closes.
+ * A name present in the base SHA's YAML pre-existed the PR, so it is RESTOREd to that
+ * pre-PR state; anything else was a PR-only draft and is DELETEd. Pure.
+ */
+function planCleanup(remote, baseScenarios, draftTag, repo) {
+    const actions = [];
+    for (const scenario of remote) {
+        if (!scenario.tags.includes(draftTag))
+            continue;
+        const baseScenario = baseScenarios.get(scenario.name);
+        actions.push(baseScenario
+            ? {
+                kind: 'RESTORE',
+                id: scenario.id,
+                name: scenario.name,
+                body: (0, plan_pr_scenario_sync_1.toScenarioBody)(baseScenario.scenario),
+                tags: (0, evalforge_1.withManagedTags)(baseScenario.scenario.tags, repo),
+            }
+            : { kind: 'DELETE', id: scenario.id, name: scenario.name });
+    }
+    return actions;
+}
+
+
+/***/ }),
+
+/***/ 7208:
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.semanticPlusDraftTags = exports.draftOnlyTags = void 0;
+exports.toScenarioBody = toScenarioBody;
+exports.diffSyncPlan = diffSyncPlan;
+exports.remoteScenarioFiltersForGate = remoteScenarioFiltersForGate;
+exports.listRemoteScenariosForGate = listRemoteScenariosForGate;
+exports.stripInactiveForeignDraftTags = stripInactiveForeignDraftTags;
+const evalforge_1 = __nccwpck_require__(7230);
+const evalforge_mapper_1 = __nccwpck_require__(6006);
+function toScenarioBody(scenario) {
+    return (0, evalforge_mapper_1.toEvalForgeBody)(scenario);
+}
+const draftOnlyTags = (_scenario, draftTag) => [draftTag];
+exports.draftOnlyTags = draftOnlyTags;
+const semanticPlusDraftTags = (scenario, draftTag) => [...scenario.tags, draftTag];
+exports.semanticPlusDraftTags = semanticPlusDraftTags;
+function foreignDraftTags(tags, myDraftTag) {
+    return tags.filter(tag => tag.startsWith(evalforge_1.DRAFT_PREFIX) && tag !== myDraftTag);
+}
+function diffSyncPlan(input) {
+    const { changedHead, head, base, remote, draftTag, repo } = input;
+    const tagStrategy = input.tagStrategy ?? exports.draftOnlyTags;
+    const remoteByName = new Map(remote.map(entry => [entry.name, entry]));
+    const actions = [];
+    const errors = [];
+    for (const [name, localScenario] of changedHead) {
+        const tags = (0, evalforge_1.withManagedTags)(tagStrategy(localScenario.scenario, draftTag), repo);
+        const match = remoteByName.get(name);
+        if (!match) {
+            actions.push({ kind: 'CREATE', name, body: toScenarioBody(localScenario.scenario), tags });
+            continue;
+        }
+        const foreign = foreignDraftTags(match.tags, draftTag);
+        if (foreign.length > 0) {
+            errors.push({ kind: 'FOREIGN_DRAFT', name, foreignTags: foreign, path: localScenario.path });
+            continue;
+        }
+        actions.push({ kind: 'UPDATE', id: match.id, name, body: toScenarioBody(localScenario.scenario), tags });
+    }
+    for (const [name, baseScenario] of base) {
+        if (head.has(name))
+            continue;
+        const match = remoteByName.get(name);
+        if (!match)
+            continue;
+        if (match.tags.includes(draftTag)) {
+            actions.push({ kind: 'DELETE', id: match.id, name });
+            continue;
+        }
+        const foreign = foreignDraftTags(match.tags, draftTag);
+        if (foreign.length > 0) {
+            errors.push({ kind: 'FOREIGN_DRAFT', name, foreignTags: foreign, path: baseScenario.path });
+        }
+        else {
+            actions.push({ kind: 'DEFER_DELETE', id: match.id, name });
+        }
+    }
+    return { actions, errors };
+}
+/** The smallest remote scenario lookup that can both sync and select for this PR. */
+function remoteScenarioFiltersForGate(input) {
+    const names = new Set(input.changedHead.keys());
+    for (const [name] of input.base) {
+        if (!input.head.has(name))
+            names.add(name);
+    }
+    const tags = [input.draftTag, ...(input.extraTags ?? []).filter(tag => tag !== input.draftTag)];
+    return { names: [...names].sort(), tags, all: input.all ?? false };
+}
+async function listRemoteScenariosForGate(client, projectId, filters) {
+    if (filters.all) {
+        return (0, evalforge_1.uniqueRemoteScenarios)(await client.listTestScenarios(projectId));
+    }
+    const [byName, byTag] = await Promise.all([
+        filters.names.length > 0 ? client.listTestScenarios(projectId, filters.names) : Promise.resolve([]),
+        Promise.all(filters.tags.map(tag => client.listTestScenariosByTag(projectId, tag))),
+    ]);
+    return (0, evalforge_1.uniqueRemoteScenarios)([byName, ...byTag].flat());
+}
+function isForeignDraftTag(tag, myDraftTag) {
+    return tag.startsWith(evalforge_1.DRAFT_PREFIX) && tag !== myDraftTag;
+}
+/**
+ * Drops draft tags belonging to PRs that are no longer open, so an abandoned PR's lock
+ * cannot block this one forever. Lookups are memoized per tag.
+ */
+async function stripInactiveForeignDraftTags(remote, myDraftTag, isDraftTagActive) {
+    const cachedStates = new Map();
+    const getState = (tag) => {
+        let state = cachedStates.get(tag);
+        if (!state) {
+            state = isDraftTagActive(tag);
+            cachedStates.set(tag, state);
+        }
+        return state;
+    };
+    const normalized = [];
+    for (const scenario of remote) {
+        const tags = [];
+        let changed = false;
+        for (const tag of scenario.tags) {
+            if (!isForeignDraftTag(tag, myDraftTag) || await getState(tag)) {
+                tags.push(tag);
+                continue;
+            }
+            changed = true;
+        }
+        normalized.push(changed ? { ...scenario, tags } : scenario);
+    }
+    return normalized;
+}
+
+
+/***/ }),
+
 /***/ 9851:
 /***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
 
@@ -34807,6 +34972,192 @@ function planScenarioSync(input) {
         }
     }
     return { actions, skipped };
+}
+
+
+/***/ }),
+
+/***/ 5992:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.deletePrCapabilityVersions = deletePrCapabilityVersions;
+function describeError(error) {
+    return error instanceof Error ? error.message : String(error);
+}
+/**
+ * Deletes every capability version this PR minted (`pr-<n>-*`). Best-effort throughout:
+ * cleanup runs after the PR closed, so a failure here must never fail the workflow — the
+ * next run of the same job sweeps whatever was left behind.
+ */
+async function deletePrCapabilityVersions(client, capabilityId, projectId, prNumber, io) {
+    let versions;
+    try {
+        versions = await client.listCapabilityVersions(capabilityId, projectId);
+    }
+    catch (error) {
+        io.warn(`listCapabilityVersions failed: ${describeError(error)}`);
+        return;
+    }
+    const prefix = `pr-${prNumber}-`;
+    for (const version of versions.filter(candidate => candidate.version.startsWith(prefix))) {
+        try {
+            await client.deleteCapabilityVersion(capabilityId, projectId, version.id);
+            io.log(`Deleted capability version ${version.version}`);
+        }
+        catch (error) {
+            io.warn(`Delete capability version ${version.version} failed: ${describeError(error)}`);
+        }
+    }
+}
+
+
+/***/ }),
+
+/***/ 7853:
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.EvalRunTimeoutError = void 0;
+exports.pollUntilDone = pollUntilDone;
+const evalforge_1 = __nccwpck_require__(7230);
+const POLL_INTERVAL_MS = 30_000;
+const POLL_TIMEOUT_MS = 30 * 60 * 1_000;
+const RETRY_LIMIT = 5;
+const RETRY_DELAY_MS = 10_000;
+class EvalRunTimeoutError extends Error {
+    constructor(message) {
+        super(message);
+        this.name = 'EvalRunTimeoutError';
+    }
+}
+exports.EvalRunTimeoutError = EvalRunTimeoutError;
+function isTerminal(status) {
+    return evalforge_1.TERMINAL_RUN_STATUSES.includes(status);
+}
+function isRetriable(error) {
+    const status = error.status;
+    if (status && status >= 500)
+        return true;
+    if (error instanceof Error && (error.name === 'AbortError' || error.name === 'TimeoutError'))
+        return true;
+    return false;
+}
+function realSleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, Math.max(0, ms)));
+}
+function describeError(error) {
+    return error instanceof Error ? error.message : String(error);
+}
+async function pollUntilDone(client, projectId, runId, options = {}) {
+    const intervalMs = options.intervalMs ?? POLL_INTERVAL_MS;
+    const timeoutMs = options.timeoutMs ?? POLL_TIMEOUT_MS;
+    const sleep = options.sleep ?? realSleep;
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+        let current;
+        for (let attempt = 0; attempt <= RETRY_LIMIT; attempt++) {
+            try {
+                current = await client.getEvalRun(projectId, runId);
+                break;
+            }
+            catch (error) {
+                if (isRetriable(error) && attempt < RETRY_LIMIT) {
+                    options.warn?.(`Poll attempt failed (retry ${attempt + 1}/${RETRY_LIMIT}): ${describeError(error)}`);
+                    await sleep(RETRY_DELAY_MS);
+                }
+                else {
+                    throw error;
+                }
+            }
+        }
+        if (isTerminal(current.status))
+            return current;
+        options.log?.(`Eval run ${runId}: ${current.status}...`);
+        await sleep(Math.min(intervalMs, deadline - Date.now()));
+    }
+    throw new EvalRunTimeoutError(`Eval run timed out after ${Math.round(timeoutMs / 60_000)} minutes`);
+}
+
+
+/***/ }),
+
+/***/ 5781:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+/**
+ * PR plumbing shared by the repo's EvalForge actions.
+ *
+ * Octokit is declared structurally, as `author-gate.ts` already does, so this package
+ * gains no dependency on `@actions/github` — a real Octokit satisfies these shapes.
+ */
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.getChangedFiles = getChangedFiles;
+exports.makeCommenter = makeCommenter;
+/**
+ * The PR's cumulative diff against its base — not the last commit. A gate keyed on the
+ * newest commit alone would miss files an earlier commit in the same PR changed.
+ */
+async function getChangedFiles(octokit, owner, repo, prNumber) {
+    const files = await octokit.paginate(octokit.rest.pulls.listFiles, {
+        owner, repo, pull_number: prNumber, per_page: 100,
+    });
+    return files.map(file => ({
+        filename: file.filename,
+        status: file.status,
+        previousFilename: file.previous_filename,
+    }));
+}
+/**
+ * Upserts a single marked PR comment, so repeated runs edit one comment rather than
+ * spamming the thread. Never throws: a comment is a report, and losing it must not fail
+ * the gate — the body goes to the job summary instead.
+ */
+function makeCommenter(octokit, target, io) {
+    let cachedId;
+    let resolved = false;
+    async function findExistingId() {
+        if (resolved)
+            return cachedId;
+        for await (const page of octokit.paginate.iterator(octokit.rest.issues.listComments, {
+            owner: target.owner, repo: target.repo, issue_number: target.prNumber, per_page: 100,
+        })) {
+            const hit = page.data.find(comment => comment.body?.includes(target.marker));
+            if (hit) {
+                cachedId = hit.id;
+                break;
+            }
+        }
+        resolved = true;
+        return cachedId;
+    }
+    return async function upsert(body) {
+        try {
+            const id = await findExistingId();
+            if (id !== undefined) {
+                await octokit.rest.issues.updateComment({
+                    owner: target.owner, repo: target.repo, comment_id: id, body,
+                });
+            }
+            else {
+                const created = await octokit.rest.issues.createComment({
+                    owner: target.owner, repo: target.repo, issue_number: target.prNumber, body,
+                });
+                cachedId = created.data.id;
+                resolved = true;
+            }
+        }
+        catch (error) {
+            io.warn(`Failed to post PR comment: ${error instanceof Error ? error.message : String(error)}`);
+            await io.writeSummary(body);
+        }
+    };
 }
 
 
@@ -64865,37 +65216,22 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.planCleanup = planCleanup;
 exports.runCleanup = runCleanup;
 const core = __importStar(__nccwpck_require__(7484));
 const node_path_1 = __nccwpck_require__(6760);
 const config_1 = __nccwpck_require__(7799);
 const evalforge_core_1 = __nccwpck_require__(7495);
-const pr_cleanup_1 = __nccwpck_require__(7310);
 const evals_1 = __nccwpck_require__(1686);
-const sync_1 = __nccwpck_require__(546);
 const workspace_1 = __nccwpck_require__(9620);
 const paths_1 = __nccwpck_require__(6621);
-// Pure: decide what to do with each draft-tagged scenario on PR close-without-merge.
-// If the scenario's name matches one in the base SHA's evals, it pre-existed our PR — RESTORE
-// it from the base YAML's state. Otherwise it was a PR-only draft — DELETE it.
-function planCleanup(remote, baseEvals, draftTag, repo) {
-    const actions = [];
-    for (const s of remote) {
-        if (!s.tags.includes(draftTag))
-            continue;
-        const baseLs = baseEvals.get(s.name);
-        actions.push(baseLs
-            ? { kind: 'RESTORE', id: s.id, name: s.name, body: (0, sync_1.toScenarioBody)(baseLs.scenario), tags: (0, evalforge_core_1.withManagedTags)(baseLs.scenario.tags, repo) }
-            : { kind: 'DELETE', id: s.id, name: s.name });
-    }
-    return actions;
-}
 async function runCleanup() {
     const config = (0, config_1.getSimpleConfig)();
     const evalforge = new evalforge_core_1.EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
     const draftTag = (0, evalforge_core_1.draftTagFor)(`${config.owner}/${config.repo}`, config.prNumber);
-    await (0, pr_cleanup_1.deletePrMcpVersions)(evalforge, config.mcpId, config.projectId, config.prNumber);
+    await (0, evalforge_core_1.deletePrCapabilityVersions)(evalforge, config.mcpId, config.projectId, config.prNumber, {
+        log: core.info,
+        warn: core.warning,
+    });
     let remote;
     try {
         remote = await evalforge.listTestScenariosByTag(config.projectId, draftTag);
@@ -64908,7 +65244,7 @@ async function runCleanup() {
     const { scenarios: baseEvals, errors: baseErrs } = (0, evals_1.loadEvals)(baseRoot);
     for (const e of baseErrs)
         core.warning(`Base SHA eval issue at ${baseRoot}/${e.path}: ${e.message}`);
-    const plan = planCleanup(remote, baseEvals, draftTag, `${config.owner}/${config.repo}`);
+    const plan = (0, evalforge_core_1.planCleanup)(remote, baseEvals, draftTag, `${config.owner}/${config.repo}`);
     const summary = plan.reduce((a, p) => ({ ...a, [p.kind]: (a[p.kind] ?? 0) + 1 }), {});
     core.info(`Cleanup plan: ${plan.length} action(s) — RESTORE=${summary.RESTORE ?? 0} DELETE=${summary.DELETE ?? 0}`);
     for (const a of plan)
@@ -65549,104 +65885,6 @@ exports.ComparisonTimeoutError = ComparisonTimeoutError;
 
 /***/ }),
 
-/***/ 5879:
-/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
-
-"use strict";
-
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.EvalRunTimeoutError = void 0;
-exports.pollUntilDone = pollUntilDone;
-const core = __importStar(__nccwpck_require__(7484));
-const evalforge_core_1 = __nccwpck_require__(7495);
-function isTerminal(status) {
-    return evalforge_core_1.TERMINAL_RUN_STATUSES.includes(status);
-}
-const POLL_INTERVAL_MS = 30_000;
-const POLL_TIMEOUT_MS = 30 * 60 * 1_000;
-const RETRY_LIMIT = 5;
-const RETRY_DELAY_MS = 10_000;
-function isRetriable(e) {
-    const status = e.status;
-    if (status && status >= 500)
-        return true;
-    if (e instanceof Error && (e.name === 'AbortError' || e.name === 'TimeoutError'))
-        return true;
-    return false;
-}
-function delay(ms) {
-    return new Promise(resolve => setTimeout(resolve, Math.max(0, ms)));
-}
-async function pollUntilDone(client, projectId, runId) {
-    const deadline = Date.now() + POLL_TIMEOUT_MS;
-    while (Date.now() < deadline) {
-        let status;
-        for (let attempt = 0; attempt <= RETRY_LIMIT; attempt++) {
-            try {
-                status = await client.getEvalRun(projectId, runId);
-                break;
-            }
-            catch (e) {
-                if (isRetriable(e) && attempt < RETRY_LIMIT) {
-                    core.warning(`Poll attempt failed (retry ${attempt + 1}/${RETRY_LIMIT}): ${e instanceof Error ? e.message : String(e)}`);
-                    await delay(RETRY_DELAY_MS);
-                }
-                else {
-                    throw e;
-                }
-            }
-        }
-        if (isTerminal(status.status))
-            return status;
-        core.info(`Eval run ${runId}: ${status.status}...`);
-        await delay(Math.min(POLL_INTERVAL_MS, deadline - Date.now()));
-    }
-    throw new EvalRunTimeoutError('Eval run timed out after 30 minutes');
-}
-class EvalRunTimeoutError extends Error {
-    constructor(message) {
-        super(message);
-        this.name = 'EvalRunTimeoutError';
-    }
-}
-exports.EvalRunTimeoutError = EvalRunTimeoutError;
-
-
-/***/ }),
-
 /***/ 1686:
 /***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
 
@@ -65702,10 +65940,8 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.remoteScenarioFiltersForGate = remoteScenarioFiltersForGate;
 exports.scenariosToRun = scenariosToRun;
 exports.scenarioIdsToRun = scenarioIdsToRun;
-exports.stripInactiveForeignDraftTags = stripInactiveForeignDraftTags;
 exports.runGate = runGate;
 const core = __importStar(__nccwpck_require__(7484));
 const github = __importStar(__nccwpck_require__(3228));
@@ -65715,7 +65951,6 @@ const github_1 = __nccwpck_require__(6246);
 const evals_1 = __nccwpck_require__(1686);
 const doc_url_1 = __nccwpck_require__(8515);
 const coverage_1 = __nccwpck_require__(4035);
-const sync_1 = __nccwpck_require__(546);
 const evalforge_core_1 = __nccwpck_require__(7495);
 const eval_pipeline_1 = __nccwpck_require__(3942);
 const workspace_1 = __nccwpck_require__(9620);
@@ -65724,17 +65959,6 @@ const comment_1 = __nccwpck_require__(3116);
 const token_budget_1 = __nccwpck_require__(5984);
 function allScenariosRequired(result) {
     return result.scenarios.length > 0 && result.scenarios.every(s => s.required);
-}
-/**
- * Computes the smallest remote scenario lookup needed to sync this PR.
- */
-function remoteScenarioFiltersForGate(input) {
-    const names = new Set(input.changedHead.keys());
-    for (const [name] of input.base) {
-        if (!input.head.has(name))
-            names.add(name);
-    }
-    return { names: [...names].sort(), tags: [input.draftTag] };
 }
 /**
  * Head scenarios to sync and run: those whose YAML changed, plus those covering a
@@ -65769,34 +65993,6 @@ function scenarioIdsToRun(scenarios, nameToId) {
         throw new Error(`Missing EvalForge scenario IDs for: ${missing.join(', ')}`);
     }
     return ids;
-}
-function isForeignDraftTag(tag, myDraftTag) {
-    return tag.startsWith('draft:') && tag !== myDraftTag;
-}
-async function stripInactiveForeignDraftTags(remote, myDraftTag, isDraftTagActive) {
-    const cachedStates = new Map();
-    const getState = (tag) => {
-        let state = cachedStates.get(tag);
-        if (!state) {
-            state = isDraftTagActive(tag);
-            cachedStates.set(tag, state);
-        }
-        return state;
-    };
-    const normalized = [];
-    for (const scenario of remote) {
-        const tags = [];
-        let changed = false;
-        for (const tag of scenario.tags) {
-            if (!isForeignDraftTag(tag, myDraftTag) || await getState(tag)) {
-                tags.push(tag);
-                continue;
-            }
-            changed = true;
-        }
-        normalized.push(changed ? { ...scenario, tags } : scenario);
-    }
-    return normalized;
 }
 async function isDraftTagActive(octokit, tag) {
     const draft = (0, evalforge_core_1.parseDraftTag)(tag);
@@ -65877,12 +66073,12 @@ async function runGate() {
         ...classifiedChanges.evalsModified.map(f => f.filename),
     ]);
     const changedHeadScenarios = scenariosToRun({ headScenarios, changedEvalPaths, coveredBy: cov.coveredBy });
-    const filters = remoteScenarioFiltersForGate({ changedHead: changedHeadScenarios, head: headScenarios, base: baseScenarios, draftTag });
-    const remote = await guardedCall(() => listRemoteScenariosForGate(evalforge, config.projectId, filters), 'Could not reach EvalForge', comment, config);
+    const filters = (0, evalforge_core_1.remoteScenarioFiltersForGate)({ changedHead: changedHeadScenarios, head: headScenarios, base: baseScenarios, draftTag });
+    const remote = await guardedCall(() => (0, evalforge_core_1.listRemoteScenariosForGate)(evalforge, config.projectId, filters), 'Could not reach EvalForge', comment, config);
     if (!remote)
         return;
-    const normalizedRemote = await stripInactiveForeignDraftTags(remote, draftTag, (tag) => isDraftTagActive(octokit, tag));
-    const plan = (0, sync_1.diffSyncPlan)({ changedHead: changedHeadScenarios, head: headScenarios, base: baseScenarios, remote: normalizedRemote, draftTag, repo: `${config.owner}/${config.repo}` });
+    const normalizedRemote = await (0, evalforge_core_1.stripInactiveForeignDraftTags)(remote, draftTag, (tag) => isDraftTagActive(octokit, tag));
+    const plan = (0, evalforge_core_1.diffSyncPlan)({ changedHead: changedHeadScenarios, head: headScenarios, base: baseScenarios, remote: normalizedRemote, draftTag, repo: `${config.owner}/${config.repo}` });
     if (plan.errors.length > 0) {
         await comment((0, comment_1.formatForeignDraftConflicts)(plan.errors, { owner: config.owner, repo: config.repo }));
         (0, github_1.fail)(`Scenario(s) held by other PRs: ${plan.errors.map(e => e.name).join(', ')}`, config.blocking);
@@ -65971,13 +66167,6 @@ async function runGate() {
         (0, github_1.fail)('Eval pipeline comparison failed', config.blocking);
     }
 }
-async function listRemoteScenariosForGate(evalforge, projectId, filters) {
-    const [byName, byTags] = await Promise.all([
-        filters.names.length > 0 ? evalforge.listTestScenarios(projectId, filters.names) : Promise.resolve([]),
-        Promise.all(filters.tags.map(tag => evalforge.listTestScenariosByTag(projectId, tag))),
-    ]);
-    return (0, evalforge_core_1.uniqueRemoteScenarios)([byName, ...byTags].flat());
-}
 async function guardedCall(fn, userMessage, comment, config) {
     try {
         return await fn();
@@ -66037,28 +66226,28 @@ exports.getChangedFiles = getChangedFiles;
 exports.fail = fail;
 exports.makeCommenter = makeCommenter;
 const core = __importStar(__nccwpck_require__(7484));
+const evalforge_core_1 = __nccwpck_require__(7495);
 const comment_1 = __nccwpck_require__(3116);
 const paths_1 = __nccwpck_require__(6621);
 function classifyChanges(files) {
-    const c = { mdFiles: [], evalsAdded: [], evalsModified: [], evalsRemoved: [] };
-    for (const f of files) {
-        if (paths_1.MD_RE.test(f.filename) && f.status !== 'removed') {
-            c.mdFiles.push(f);
+    const classification = { mdFiles: [], evalsAdded: [], evalsModified: [], evalsRemoved: [] };
+    for (const file of files) {
+        if (paths_1.MD_RE.test(file.filename) && file.status !== 'removed') {
+            classification.mdFiles.push(file);
         }
-        else if (paths_1.EVALS_RE.test(f.filename)) {
-            if (f.status === 'added')
-                c.evalsAdded.push(f);
-            else if (f.status === 'removed')
-                c.evalsRemoved.push(f);
-            else if (f.status === 'modified' || f.status === 'renamed')
-                c.evalsModified.push(f);
+        else if (paths_1.EVALS_RE.test(file.filename)) {
+            if (file.status === 'added')
+                classification.evalsAdded.push(file);
+            else if (file.status === 'removed')
+                classification.evalsRemoved.push(file);
+            else if (file.status === 'modified' || file.status === 'renamed')
+                classification.evalsModified.push(file);
         }
     }
-    return c;
+    return classification;
 }
-async function getChangedFiles(octokit, owner, repo, prNumber) {
-    const files = await octokit.paginate(octokit.rest.pulls.listFiles, { owner, repo, pull_number: prNumber, per_page: 100 });
-    return files.map(f => ({ filename: f.filename, status: f.status, previousFilename: f.previous_filename }));
+function getChangedFiles(octokit, owner, repo, prNumber) {
+    return (0, evalforge_core_1.getChangedFiles)(octokit, owner, repo, prNumber);
 }
 function fail(message, blocking) {
     if (blocking)
@@ -66067,39 +66256,10 @@ function fail(message, blocking) {
         core.warning(message);
 }
 function makeCommenter(octokit, owner, repo, prNumber) {
-    let cachedId;
-    let resolved = false;
-    async function findExistingId() {
-        if (resolved)
-            return cachedId;
-        for await (const page of octokit.paginate.iterator(octokit.rest.issues.listComments, {
-            owner, repo, issue_number: prNumber, per_page: 100,
-        })) {
-            const hit = page.data.find(c => c.body?.includes(comment_1.COMMENT_MARKER));
-            if (hit) {
-                cachedId = hit.id;
-                break;
-            }
-        }
-        resolved = true;
-        return cachedId;
-    }
-    return async function upsert(body) {
-        try {
-            const id = await findExistingId();
-            if (id !== undefined) {
-                await octokit.rest.issues.updateComment({ owner, repo, comment_id: id, body });
-            }
-            else {
-                const created = await octokit.rest.issues.createComment({ owner, repo, issue_number: prNumber, body });
-                cachedId = created.data.id;
-            }
-        }
-        catch (e) {
-            core.error(`Failed to post PR comment: ${e instanceof Error ? e.message : String(e)}`);
-            await core.summary.addRaw(body).write();
-        }
-    };
+    return (0, evalforge_core_1.makeCommenter)(octokit, { owner, repo, prNumber, marker: comment_1.COMMENT_MARKER }, {
+        warn: core.warning,
+        writeSummary: async (body) => { await core.summary.addRaw(body).write(); },
+    });
 }
 
 
@@ -66127,71 +66287,6 @@ exports.EVALS_GLOB = 'yaml/wix-manage-evals/*/**/*.{yml,yaml}';
 exports.DOC_YAML_GLOB = 'yaml/wix-manage/*/documentation.yaml';
 // Subdirectory used by the trusted-action-source two-checkout workflow pattern.
 exports.BASE_WORKSPACE_SUBDIR = '.action-src';
-
-
-/***/ }),
-
-/***/ 7310:
-/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
-
-"use strict";
-
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.deletePrMcpVersions = deletePrMcpVersions;
-const core = __importStar(__nccwpck_require__(7484));
-async function deletePrMcpVersions(client, mcpId, projectId, prNumber) {
-    let versions;
-    try {
-        versions = await client.listMcpVersions(mcpId, projectId);
-    }
-    catch (e) {
-        core.warning(`listMcpVersions failed: ${e instanceof Error ? e.message : String(e)}`);
-        return;
-    }
-    const prefix = `pr-${prNumber}-`;
-    for (const v of versions.filter(x => x.version.startsWith(prefix))) {
-        try {
-            await client.deleteMcpVersion(mcpId, projectId, v.id);
-            core.info(`Deleted MCP version ${v.version}`);
-        }
-        catch (e) {
-            core.warning(`Delete MCP version ${v.version} failed: ${e instanceof Error ? e.message : String(e)}`);
-        }
-    }
-}
 
 
 /***/ }),
@@ -66241,8 +66336,6 @@ const node_path_1 = __nccwpck_require__(6760);
 const config_1 = __nccwpck_require__(7799);
 const evalforge_core_1 = __nccwpck_require__(7495);
 const evals_1 = __nccwpck_require__(1686);
-const sync_1 = __nccwpck_require__(546);
-const pr_cleanup_1 = __nccwpck_require__(7310);
 const paths_1 = __nccwpck_require__(6621);
 const workspace_1 = __nccwpck_require__(9620);
 async function runPromote() {
@@ -66252,7 +66345,10 @@ async function runPromote() {
     const draftTag = (0, evalforge_core_1.draftTagFor)(repo, config.prNumber);
     const workspace = (0, workspace_1.workspaceRoot)();
     // Cleanup workflow no longer fires on merged PRs — promote owns MCP version teardown.
-    await (0, pr_cleanup_1.deletePrMcpVersions)(evalforge, config.mcpId, config.projectId, config.prNumber);
+    await (0, evalforge_core_1.deletePrCapabilityVersions)(evalforge, config.mcpId, config.projectId, config.prNumber, {
+        log: core.info,
+        warn: core.warning,
+    });
     const headScenarios = loadEvalsWithWarnings(workspace);
     // Only this PR's draft-tagged scenarios need promoting (vs. listing the project).
     let tagged;
@@ -66283,7 +66379,7 @@ async function runPromote() {
         }
         try {
             const tags = (0, evalforge_core_1.withManagedTags)(ls.scenario.tags, repo);
-            await evalforge.updateTestScenario(config.projectId, s.id, (0, sync_1.toScenarioBody)(ls.scenario), tags);
+            await evalforge.updateTestScenario(config.projectId, s.id, (0, evalforge_core_1.toScenarioBody)(ls.scenario), tags);
             promoted++;
             core.info(`Promoted ${s.name}: tags = ${JSON.stringify(tags)}`);
         }
@@ -66377,7 +66473,6 @@ exports.runSchedule = runSchedule;
 const core = __importStar(__nccwpck_require__(7484));
 const evalforge_core_1 = __nccwpck_require__(7495);
 const config_1 = __nccwpck_require__(7799);
-const eval_run_1 = __nccwpck_require__(5879);
 async function runSchedule() {
     const config = (0, config_1.getScheduleConfig)();
     const evalforge = new evalforge_core_1.EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
@@ -66399,10 +66494,13 @@ async function runSchedule() {
     core.setOutput('run-url', runUrl);
     let result;
     try {
-        result = await (0, eval_run_1.pollUntilDone)(evalforge, config.projectId, evalRunId);
+        result = await (0, evalforge_core_1.pollUntilDone)(evalforge, config.projectId, evalRunId, {
+            log: core.info,
+            warn: core.warning,
+        });
     }
     catch (e) {
-        if (e instanceof eval_run_1.EvalRunTimeoutError) {
+        if (e instanceof evalforge_core_1.EvalRunTimeoutError) {
             core.setOutput('status', 'timeout');
             core.setOutput('summary', `Eval run timed out after 30 minutes. View: ${runUrl}`);
             core.setFailed(e.message);
@@ -66422,64 +66520,6 @@ async function runSchedule() {
     if (result.status === 'failed' || failed > 0) {
         core.setFailed(`${failed} assertion(s) failed (${pct}% pass rate)`);
     }
-}
-
-
-/***/ }),
-
-/***/ 546:
-/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
-
-"use strict";
-
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.toScenarioBody = toScenarioBody;
-exports.diffSyncPlan = diffSyncPlan;
-const evalforge_core_1 = __nccwpck_require__(7495);
-const evalforge_core_2 = __nccwpck_require__(7495);
-function toScenarioBody(s) {
-    return (0, evalforge_core_1.toEvalForgeBody)(s);
-}
-function foreignDraftTags(tags, myTag) {
-    return tags.filter(t => t.startsWith('draft:') && t !== myTag);
-}
-function diffSyncPlan(input) {
-    const { changedHead, head, base, remote, draftTag, repo } = input;
-    const remoteByName = new Map(remote.map(r => [r.name, r]));
-    const actions = [];
-    const errors = [];
-    for (const [name, ls] of changedHead) {
-        const r = remoteByName.get(name);
-        if (!r) {
-            actions.push({ kind: 'CREATE', name, body: toScenarioBody(ls.scenario), tags: (0, evalforge_core_2.withManagedTags)([draftTag], repo) });
-            continue;
-        }
-        const foreign = foreignDraftTags(r.tags, draftTag);
-        if (foreign.length > 0) {
-            errors.push({ kind: 'FOREIGN_DRAFT', name, foreignTags: foreign, path: ls.path });
-            continue;
-        }
-        actions.push({ kind: 'UPDATE', id: r.id, name, body: toScenarioBody(ls.scenario), tags: (0, evalforge_core_2.withManagedTags)([draftTag], repo) });
-    }
-    for (const [name, ls] of base) {
-        if (head.has(name))
-            continue;
-        const r = remoteByName.get(name);
-        if (!r)
-            continue;
-        if (r.tags.includes(draftTag)) {
-            actions.push({ kind: 'DELETE', id: r.id, name });
-            continue;
-        }
-        const foreign = foreignDraftTags(r.tags, draftTag);
-        if (foreign.length > 0) {
-            errors.push({ kind: 'FOREIGN_DRAFT', name, foreignTags: foreign, path: ls.path });
-        }
-        else {
-            actions.push({ kind: 'DEFER_DELETE', id: r.id, name });
-        }
-    }
-    return { actions, errors };
 }
 
 

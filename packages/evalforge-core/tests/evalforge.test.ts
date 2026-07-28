@@ -301,7 +301,7 @@ describe('EvalForgeClient (V1) — 401 handling', () => {
     }) as unknown as typeof fetch;
 
     const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
-    await c.listMcpVersions('M', 'P');
+    await c.listCapabilityVersions('M', 'P');
     expect(mints).toBe(2);    // initial mint + forced refresh
     expect(apiCalls).toBe(2); // 401 then retry
   });
@@ -321,7 +321,7 @@ describe('EvalForgeClient (V1) — 401 handling', () => {
     }) as unknown as typeof fetch;
 
     const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
-    await expect(c.listMcpVersions('M', 'P')).rejects.toThrow(/401/);
+    await expect(c.listCapabilityVersions('M', 'P')).rejects.toThrow(/401/);
     expect(apiCalls).toBe(2); // original attempt + one retry, then give up
   });
 });

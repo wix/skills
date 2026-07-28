@@ -6,8 +6,11 @@ import { fail, getChangedFiles, classifyChanges, makeCommenter, type ChangedFile
 import { loadEvals, type LoadedScenario } from './evals';
 import { canonicalDocUrl } from './doc-url';
 import { computeCoverage } from './coverage';
-import { diffSyncPlan } from './sync';
-import { EvalForgeClient, assertWixAuthor, draftTagFor, evalRunUrl, parseDraftTag, uniqueRemoteScenarios, type RemoteScenario } from '@wix/evalforge-core';
+import {
+  EvalForgeClient, assertWixAuthor, diffSyncPlan, draftTagFor, evalRunUrl,
+  listRemoteScenariosForGate, parseDraftTag, remoteScenarioFiltersForGate,
+  stripInactiveForeignDraftTags, type RemoteScenario,
+} from '@wix/evalforge-core';
 import { EvalPipelineClient, pollUntilComparisonDone, ComparisonTimeoutError } from './eval-pipeline';
 import { workspaceRoot } from './workspace';
 import { BASE_WORKSPACE_SUBDIR } from './paths';
@@ -23,27 +26,6 @@ type Commenter = ReturnType<typeof makeCommenter>;
 
 function allScenariosRequired(result: ComparisonGroupResult): boolean {
   return result.scenarios.length > 0 && result.scenarios.every(s => s.required);
-}
-
-export type RemoteScenarioFilters = {
-  names: string[];
-  tags: string[];
-};
-
-/**
- * Computes the smallest remote scenario lookup needed to sync this PR.
- */
-export function remoteScenarioFiltersForGate(input: {
-  changedHead: Map<string, LoadedScenario>;
-  head: Map<string, LoadedScenario>;
-  base: Map<string, LoadedScenario>;
-  draftTag: string;
-}): RemoteScenarioFilters {
-  const names = new Set<string>(input.changedHead.keys());
-  for (const [name] of input.base) {
-    if (!input.head.has(name)) names.add(name);
-  }
-  return { names: [...names].sort(), tags: [input.draftTag] };
 }
 
 /**
@@ -83,41 +65,6 @@ export function scenarioIdsToRun(
     throw new Error(`Missing EvalForge scenario IDs for: ${missing.join(', ')}`);
   }
   return ids;
-}
-
-function isForeignDraftTag(tag: string, myDraftTag: string): boolean {
-  return tag.startsWith('draft:') && tag !== myDraftTag;
-}
-
-export async function stripInactiveForeignDraftTags(
-  remote: RemoteScenario[],
-  myDraftTag: string,
-  isDraftTagActive: (tag: string) => Promise<boolean>,
-): Promise<RemoteScenario[]> {
-  const cachedStates = new Map<string, Promise<boolean>>();
-  const getState = (tag: string): Promise<boolean> => {
-    let state = cachedStates.get(tag);
-    if (!state) {
-      state = isDraftTagActive(tag);
-      cachedStates.set(tag, state);
-    }
-    return state;
-  };
-
-  const normalized: RemoteScenario[] = [];
-  for (const scenario of remote) {
-    const tags: string[] = [];
-    let changed = false;
-    for (const tag of scenario.tags) {
-      if (!isForeignDraftTag(tag, myDraftTag) || await getState(tag)) {
-        tags.push(tag);
-        continue;
-      }
-      changed = true;
-    }
-    normalized.push(changed ? { ...scenario, tags } : scenario);
-  }
-  return normalized;
 }
 
 async function isDraftTagActive(
@@ -317,18 +264,6 @@ export async function runGate(): Promise<void> {
     fail('Eval pipeline comparison failed', config.blocking);
   }
 
-}
-
-async function listRemoteScenariosForGate(
-  evalforge: EvalForgeClient,
-  projectId: string,
-  filters: RemoteScenarioFilters,
-): Promise<RemoteScenario[]> {
-  const [byName, byTags] = await Promise.all([
-    filters.names.length > 0 ? evalforge.listTestScenarios(projectId, filters.names) : Promise.resolve([]),
-    Promise.all(filters.tags.map(tag => evalforge.listTestScenariosByTag(projectId, tag))),
-  ]);
-  return uniqueRemoteScenarios([byName, ...byTags].flat());
 }
 
 async function guardedCall<T>(
