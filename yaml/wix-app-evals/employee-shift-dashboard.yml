@@ -27,6 +27,7 @@ assertions:
   - type: llm_judge
     model: claude-sonnet-4-6
     minScore: 7
+    browserTools: true
     prompt: |-
       Evaluate whether the agent created a functional dashboard page for managing employee shifts. Check: (1) There is a visible table/grid displaying shifts with columns for employee name, date, and hours. (2) There is a way to add new shifts (e.g. a form or add button). (3) New shifts appear in the table after being added. (4) The code is well-structured and the UI is usable. Score 0-10.
   - type: time_limit
