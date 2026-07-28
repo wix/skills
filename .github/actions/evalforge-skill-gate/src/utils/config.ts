@@ -51,7 +51,10 @@ export type GateConfig = {
   repo: string;
   repoFullName: string;
   prNumber: number;
+  /** The PR's head commit — reported, but not what the label is built from. See `evaluatedSha`. */
   headSha: string;
+  /** The commit whose content is actually uploaded and evaluated. */
+  evaluatedSha: string;
   versionLabel: string;
 };
 
@@ -93,11 +96,33 @@ function getHeadSha(): string {
   return headSha;
 }
 
+/**
+ * The commit whose content is actually evaluated.
+ *
+ * On `pull_request` the workflow's first checkout has no `ref:`, so it checks out the *merge*
+ * commit — head merged into base — and `GITHUB_SHA` names exactly that. The version label has
+ * to be built from this, not from `head.sha`: the same head produces different merge content
+ * as base advances, so a head-based label would not uniquely identify what it labels, and
+ * `ensureSkillVersion` would find the existing label and reuse a version built from stale
+ * content.
+ */
+function getEvaluatedSha(): string {
+  const sha = process.env.GITHUB_SHA;
+  if (!sha) {
+    throw new Error(
+      'GITHUB_SHA is not set, so the skill version cannot be labelled for the commit actually '
+      + 'evaluated. This action expects to run in GitHub Actions.',
+    );
+  }
+  return sha;
+}
+
 export function getGateConfig(): GateConfig {
   const owner = github.context.repo.owner;
   const repo = github.context.repo.repo;
   const prNumber = getPrNumber(github.context.payload);
   const headSha = getHeadSha();
+  const evaluatedSha = getEvaluatedSha();
 
   return {
     githubToken: safeGetSecret(core, 'github-token'),
@@ -119,7 +144,8 @@ export function getGateConfig(): GateConfig {
     repoFullName: `${owner}/${repo}`,
     prNumber,
     headSha,
-    versionLabel: `pr-${prNumber}-${headSha.slice(0, 7)}`,
+    evaluatedSha,
+    versionLabel: `pr-${prNumber}-${evaluatedSha.slice(0, 7)}`,
   };
 }
 

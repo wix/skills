@@ -33,6 +33,8 @@ beforeEach(() => {
     if (key.startsWith('INPUT_')) delete process.env[key];
   }
   process.env.GITHUB_REPOSITORY = 'wix/skills';
+  // On pull_request this is the merge commit the workflow checked out, distinct from head.sha.
+  process.env.GITHUB_SHA = 'merge99feedface';
 });
 
 afterEach(() => { process.env = { ...ORIGINAL_ENV }; });
@@ -59,16 +61,37 @@ describe('getGateConfig', () => {
     expect(config.blocking).toBe(false);
   });
 
-  it('reads the PR number and builds the version label from a 7-character head sha', async () => {
+  // The label must name the commit actually evaluated. On pull_request the checkout is the
+  // merge commit (GITHUB_SHA), not head — so a head-based label would not uniquely identify
+  // its own content once base advances, and ensureSkillVersion would reuse a stale version.
+  it('builds the version label from the evaluated merge commit, not the PR head', async () => {
     setInputs(REQUIRED_GATE_INPUTS);
+    process.env.GITHUB_SHA = 'merge99feedface';
     const { getGateConfig } = await import('../src/utils/config');
 
     const config = getGateConfig();
 
     expect(config.prNumber).toBe(42);
     expect(config.headSha).toBe('abc1234deadbeef');
-    expect(config.versionLabel).toBe('pr-42-abc1234');
+    expect(config.evaluatedSha).toBe('merge99feedface');
+    expect(config.versionLabel).toBe('pr-42-merge99');
     expect(config.repoFullName).toBe('wix/skills');
+  });
+
+  it('keeps the pr-<n>- prefix so PR-close cleanup still sweeps the version', async () => {
+    setInputs(REQUIRED_GATE_INPUTS);
+    process.env.GITHUB_SHA = 'deadbeefcafe';
+    const { getGateConfig } = await import('../src/utils/config');
+
+    expect(getGateConfig().versionLabel.startsWith('pr-42-')).toBe(true);
+  });
+
+  it('throws rather than guessing when GITHUB_SHA is absent', async () => {
+    setInputs(REQUIRED_GATE_INPUTS);
+    delete process.env.GITHUB_SHA;
+    const { getGateConfig } = await import('../src/utils/config');
+
+    expect(() => getGateConfig()).toThrow(/GITHUB_SHA/);
   });
 
   it('parses multi-line glob inputs, trimming and dropping blanks', async () => {
