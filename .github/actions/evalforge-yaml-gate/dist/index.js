@@ -34248,19 +34248,14 @@ exports.DEFAULT_COLLECT_LIMITS = {
     maxFileBytes: 1_000_000,
     maxTotalBytes: 10_000_000,
 };
-/**
- * Reads all of `<root>/<skillDir>`, minus build artifacts, with paths relative to `skillDir`.
- * Ships the whole directory because docs send the agent to sibling paths like
- * `<SKILL_ROOT>/scripts/…`. Over-cap throws rather than truncating.
- */
+/** Reads all of `<root>/<skillDir>`, minus build artifacts, with paths relative to `skillDir`. */
 function collectSkillFiles(root, skillDir, options = {}) {
     const limits = options.limits ?? exports.DEFAULT_COLLECT_LIMITS;
     const skillRoot = node_path_1.posix.join(root, skillDir);
     const relativePaths = glob_1.glob.sync('**/*', {
         cwd: skillRoot,
         nodir: true,
-        // Dotfiles included: a silently dropped file the docs reference is worse than a stray one.
-        dot: true,
+        dot: false,
         ignore: ['**/node_modules/**', '**/dist/**'],
         posix: true,
     }).sort();

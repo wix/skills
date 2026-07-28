@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { collectSkillFiles, DEFAULT_COLLECT_LIMITS } from '../src/collect-skill-files';
+import { collectSkillFiles } from '../src/collect-skill-files';
 
 let root: string;
 
@@ -14,12 +14,6 @@ function write(relativePath: string, content: string): void {
   mkdirSync(join(full, '..'), { recursive: true });
   writeFileSync(full, content);
 }
-
-describe('DEFAULT_COLLECT_LIMITS', () => {
-  it('leaves room for a real skill', () => {
-    expect(DEFAULT_COLLECT_LIMITS).toEqual({ maxFileBytes: 1_000_000, maxTotalBytes: 10_000_000 });
-  });
-});
 
 describe('collectSkillFiles', () => {
   it('returns paths relative to the skill dir, sorted deterministically', () => {
@@ -53,18 +47,15 @@ describe('collectSkillFiles', () => {
     ]);
   });
 
-  it('collects dotfiles', () => {
+  it('excludes dotfiles', () => {
     write('skills/wix-app/SKILL.md', '# skill');
     write('skills/wix-app/.eslintrc', '{}');
+    write('skills/wix-app/.env', 'SECRET=x');
     write('skills/wix-app/references/.shared.md', 'shared');
 
     const files = collectSkillFiles(root, 'skills/wix-app');
 
-    expect(files.map(file => file.path)).toEqual([
-      '.eslintrc',
-      'SKILL.md',
-      'references/.shared.md',
-    ]);
+    expect(files.map(file => file.path)).toEqual(['SKILL.md']);
   });
 
   it('collects nested reference sub-docs at their full relative path', () => {

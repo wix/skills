@@ -18,11 +18,7 @@ export type CollectOptions = {
   warn?: (message: string) => void;
 };
 
-/**
- * Reads all of `<root>/<skillDir>`, minus build artifacts, with paths relative to `skillDir`.
- * Ships the whole directory because docs send the agent to sibling paths like
- * `<SKILL_ROOT>/scripts/…`. Over-cap throws rather than truncating.
- */
+/** Reads all of `<root>/<skillDir>`, minus build artifacts, with paths relative to `skillDir`. */
 export function collectSkillFiles(
   root: string,
   skillDir: string,
@@ -34,8 +30,7 @@ export function collectSkillFiles(
   const relativePaths = glob.sync('**/*', {
     cwd: skillRoot,
     nodir: true,
-    // Dotfiles included: a silently dropped file the docs reference is worse than a stray one.
-    dot: true,
+    dot: false,
     ignore: ['**/node_modules/**', '**/dist/**'],
     posix: true,
   }).sort();
