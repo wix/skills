@@ -1,6 +1,6 @@
 ---
 name: "Create Site from Template"
-description: Creates new Wix sites from templates using account-level APIs. Covers template search, site creation, headless site setup, OAuth app creation, and publishing.
+description: Creates new Wix sites from templates using account-level APIs. Covers template search, site creation, and publishing. Not for headless sites.
 ---
 # Create Site from Template
 
@@ -108,23 +108,10 @@ The `siteName` must follow these rules:
 
 If `siteName` is not provided, one is generated automatically.
 
-### For Headless Sites
-
-Add `"namespace": "HEADLESS"` to the request body:
-
-```json
-{
-  "originTemplateId": "<TEMPLATE_ID>",
-  "siteName": "my-headless-site",
-  "namespace": "HEADLESS"
-}
-```
-
 **Response** includes the new site's `metaSiteId`.
 
 ### IMPORTANT NOTES:
-- Only mention headless if user specifically requests it
-- If user doesn't ask for headless, do NOT include the `namespace` field
+- This API creates regular Wix sites. Do NOT use it for headless sites (even with a `namespace` field) — use [Create Headless Site](create-headless-site.md) instead
 
 ---
 
@@ -148,16 +135,6 @@ curl -X POST \
 ### IMPORTANT NOTES:
 - NEVER publish without asking the user first
 - This makes the site publicly accessible
-
----
-
-## Step 5: For Headless Sites - Create OAuth App
-
-If the site was created as headless, you MUST create an OAuth app for authentication.
-
-See [Create OAuth App](https://dev.wix.com/docs/api-reference/business-management/headless/oauth-apps/create-oauth-app) documentation.
-
-This is a site-level call in the context of the newly created site.
 
 ---
 
