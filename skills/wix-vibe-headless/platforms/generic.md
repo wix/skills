@@ -109,5 +109,12 @@ back to the `wix-docs` skill where the operation isn't documented there.
 
 ## When done
 
-After the site is built and seeded, ask the user to open this URL to complete the setup in Wix
-(substitute the metasite id you were given): `https://manage.wix.com/dashboard/{metaSiteId}`
+After the site is built and seeded:
+
+1. **Add the dev-only manage banner** (links the app to its Wix back office): copy the
+   `wix-vibe-headless` skill's `references/shared/wix-manage-banner.js` next to
+   `wix-client.js`, set `WIX_METASITE_ID` to your metasite id, and call
+   `mountWixManageBanner()` once from the app entry. It renders only in dev builds — use it
+   as-is, don't rewrite it.
+2. **Ask the user to open** this URL to complete the setup in Wix (substitute the metasite id
+   you were given): `https://manage.wix.com/dashboard/{metaSiteId}`
