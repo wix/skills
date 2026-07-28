@@ -361,3 +361,84 @@ describe('EvalForgeClient (V1) — ensureMcpVersion idempotency', () => {
     await expect(c.ensureMcpVersion('M', 'P', 'pr-1-abc', 1, 'abc1234', 'wix/skills')).rejects.toMatchObject({ status: 500 });
   });
 });
+
+describe('EvalForgeClient (V1) — skill capability versions', () => {
+  const files = [
+    { path: 'SKILL.md', content: '# wix-app' },
+    { path: 'references/DASHBOARD_PAGE.md', content: 'dashboard docs' },
+  ];
+
+  it('posts skillContent with the file list to the capability versions endpoint', async () => {
+    let captured: unknown;
+    mockFetch(({ url, method, body }) => {
+      expect(method).toBe('POST');
+      expect(url).toContain('/v1/projects/P/capabilities/C/versions');
+      captured = body;
+      return { status: 200, body: { capabilityVersion: { id: 'v1', capabilityId: 'C', version: 'pr-42-abc1234' } } };
+    });
+
+    const client = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    const version = await client.createSkillVersion('C', 'P', 'pr-42-abc1234', 42, files);
+
+    expect(version).toEqual({ id: 'v1', capabilityId: 'C', version: 'pr-42-abc1234' });
+    expect(captured).toMatchObject({
+      capabilityVersion: {
+        capabilityId: 'C',
+        version: 'pr-42-abc1234',
+        origin: 'pr',
+        skillContent: { files },
+      },
+    });
+  });
+
+  it('sends no mcpContent alongside skillContent — the field is a oneof', async () => {
+    let captured: Record<string, unknown> | undefined;
+    mockFetch(({ body }) => {
+      captured = (body as { capabilityVersion: Record<string, unknown> }).capabilityVersion;
+      return { status: 200, body: { capabilityVersion: { id: 'v1', capabilityId: 'C', version: 'L' } } };
+    });
+
+    const client = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    await client.createSkillVersion('C', 'P', 'L', 42, files);
+
+    expect(captured).not.toHaveProperty('mcpContent');
+  });
+
+  it('ensureSkillVersion reuses an existing version on a 409', async () => {
+    mockFetch(({ method }) => {
+      if (method === 'POST') return { status: 409, body: { message: 'already exists' } };
+      return { status: 200, body: { capabilityVersions: [{ id: 'v9', capabilityId: 'C', version: 'pr-42-abc1234' }] } };
+    });
+
+    const client = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    const version = await client.ensureSkillVersion('C', 'P', 'pr-42-abc1234', 42, files);
+
+    expect(version).toEqual({ id: 'v9', capabilityId: 'C', version: 'pr-42-abc1234' });
+  });
+
+  it('ensureSkillVersion also recovers from the backend 500 for a duplicate label', async () => {
+    mockFetch(({ method }) => {
+      if (method === 'POST') return { status: 500, body: { message: 'already exists' } };
+      return { status: 200, body: { capabilityVersions: [{ id: 'v9', capabilityId: 'C', version: 'L' }] } };
+    });
+
+    const client = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    await expect(client.ensureSkillVersion('C', 'P', 'L', 42, files)).resolves.toMatchObject({ id: 'v9' });
+  });
+
+  it('ensureSkillVersion rethrows when the label genuinely is not there', async () => {
+    mockFetch(({ method }) => {
+      if (method === 'POST') return { status: 500, body: { message: 'boom' } };
+      return { status: 200, body: { capabilityVersions: [] } };
+    });
+
+    const client = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    await expect(client.ensureSkillVersion('C', 'P', 'L', 42, files)).rejects.toMatchObject({ status: 500 });
+  });
+
+  it('ensureSkillVersion does not swallow a 400', async () => {
+    mockFetch(() => ({ status: 400, body: { message: 'bad request' } }));
+    const client = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    await expect(client.ensureSkillVersion('C', 'P', 'L', 42, files)).rejects.toMatchObject({ status: 400 });
+  });
+});

@@ -30481,6 +30481,43 @@ class EvalForgeClient {
             return existing;
         }
     }
+    /**
+     * Creates a skill-content capability version — the same endpoint as createMcpVersion,
+     * with the content oneof set to `skillContent` rather than `mcpContent`. This is what
+     * lets a run evaluate a PR's skill files directly, with no MCP URL indirection (and so
+     * without the eval-pipeline comparison service, which builds its MCP URL from
+     * skillsRepo/commitSha and cannot drive skill content).
+     */
+    async createSkillVersion(capabilityId, projectId, versionLabel, prNumber, files) {
+        const res = await this.request('POST', `/projects/${enc(projectId)}/capabilities/${enc(capabilityId)}/versions`, {
+            capabilityVersion: {
+                capabilityId,
+                version: versionLabel,
+                origin: 'pr',
+                notes: `Auto-created for PR #${prNumber}`,
+                skillContent: { files },
+            },
+        });
+        const created = res.capabilityVersion;
+        return { id: created.id, capabilityId: created.capabilityId, version: created.version };
+    }
+    async ensureSkillVersion(capabilityId, projectId, versionLabel, prNumber, files) {
+        try {
+            return await this.createSkillVersion(capabilityId, projectId, versionLabel, prNumber, files);
+        }
+        catch (error) {
+            // A duplicate label should be 409, but the backend currently throws a plain
+            // "already exists" that transcodes to 500 — so recover on either by reusing the
+            // existing version, and only rethrow if it genuinely is not there.
+            if (!isHttpError(error) || (error.status !== 409 && error.status !== 500))
+                throw error;
+            const versions = await this.listCapabilityVersions(capabilityId, projectId);
+            const existing = versions.find(candidate => candidate.version === versionLabel);
+            if (!existing)
+                throw error;
+            return existing;
+        }
+    }
     // Without `names`: lists ALL scenarios via an empty-filter query (used by
     // promote / cleanup / run-all). With `names`: fetches only those scenarios —
     // the V1 `name` filter is a substring match, so each name is queried and then

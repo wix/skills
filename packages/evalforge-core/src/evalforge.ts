@@ -19,6 +19,9 @@ export type RunStatus = 'pending' | 'running' | typeof TERMINAL_RUN_STATUSES[num
 
 export type CapabilityVersion = { id: string; capabilityId: string; version: string };
 
+/** One file of a skill-content capability version. `path` is relative to the skill root. */
+export type SkillFileContent = { path: string; content: string };
+
 import type { EvalForgeBody } from './evalforge-mapper';
 
 export type RemoteScenario = { id: string; name: string; tags: string[] };
@@ -272,6 +275,58 @@ export class EvalForgeClient {
       const versions = await this.listCapabilityVersions(mcpId, projectId);
       const existing = versions.find(v => v.version === versionLabel);
       if (!existing) throw e;
+      return existing;
+    }
+  }
+
+  /**
+   * Creates a skill-content capability version — the same endpoint as createMcpVersion,
+   * with the content oneof set to `skillContent` rather than `mcpContent`. This is what
+   * lets a run evaluate a PR's skill files directly, with no MCP URL indirection (and so
+   * without the eval-pipeline comparison service, which builds its MCP URL from
+   * skillsRepo/commitSha and cannot drive skill content).
+   */
+  async createSkillVersion(
+    capabilityId: string,
+    projectId: string,
+    versionLabel: string,
+    prNumber: number,
+    files: SkillFileContent[],
+  ): Promise<CapabilityVersion> {
+    const res = await this.request<{ capabilityVersion: RawCapabilityVersion }>(
+      'POST',
+      `/projects/${enc(projectId)}/capabilities/${enc(capabilityId)}/versions`,
+      {
+        capabilityVersion: {
+          capabilityId,
+          version: versionLabel,
+          origin: 'pr',
+          notes: `Auto-created for PR #${prNumber}`,
+          skillContent: { files },
+        },
+      },
+    );
+    const created = res.capabilityVersion;
+    return { id: created.id, capabilityId: created.capabilityId, version: created.version };
+  }
+
+  async ensureSkillVersion(
+    capabilityId: string,
+    projectId: string,
+    versionLabel: string,
+    prNumber: number,
+    files: SkillFileContent[],
+  ): Promise<CapabilityVersion> {
+    try {
+      return await this.createSkillVersion(capabilityId, projectId, versionLabel, prNumber, files);
+    } catch (error) {
+      // A duplicate label should be 409, but the backend currently throws a plain
+      // "already exists" that transcodes to 500 — so recover on either by reusing the
+      // existing version, and only rethrow if it genuinely is not there.
+      if (!isHttpError(error) || (error.status !== 409 && error.status !== 500)) throw error;
+      const versions = await this.listCapabilityVersions(capabilityId, projectId);
+      const existing = versions.find(candidate => candidate.version === versionLabel);
+      if (!existing) throw error;
       return existing;
     }
   }
