@@ -34720,6 +34720,7 @@ __exportStar(__nccwpck_require__(9851), exports);
 __exportStar(__nccwpck_require__(8525), exports);
 __exportStar(__nccwpck_require__(3754), exports);
 __exportStar(__nccwpck_require__(1243), exports);
+__exportStar(__nccwpck_require__(7853), exports);
 
 
 /***/ }),
@@ -34807,6 +34808,76 @@ function planScenarioSync(input) {
         }
     }
     return { actions, skipped };
+}
+
+
+/***/ }),
+
+/***/ 7853:
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.EvalRunTimeoutError = void 0;
+exports.pollUntilDone = pollUntilDone;
+const evalforge_1 = __nccwpck_require__(7230);
+const POLL_INTERVAL_MS = 30_000;
+const POLL_TIMEOUT_MS = 30 * 60 * 1_000;
+const RETRY_LIMIT = 5;
+const RETRY_DELAY_MS = 10_000;
+class EvalRunTimeoutError extends Error {
+    constructor(message) {
+        super(message);
+        this.name = 'EvalRunTimeoutError';
+    }
+}
+exports.EvalRunTimeoutError = EvalRunTimeoutError;
+function isTerminal(status) {
+    return evalforge_1.TERMINAL_RUN_STATUSES.includes(status);
+}
+function isRetriable(error) {
+    const status = error.status;
+    if (status && status >= 500)
+        return true;
+    if (error instanceof Error && (error.name === 'AbortError' || error.name === 'TimeoutError'))
+        return true;
+    return false;
+}
+function realSleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, Math.max(0, ms)));
+}
+function describeError(error) {
+    return error instanceof Error ? error.message : String(error);
+}
+async function pollUntilDone(client, projectId, runId, options = {}) {
+    const intervalMs = options.intervalMs ?? POLL_INTERVAL_MS;
+    const timeoutMs = options.timeoutMs ?? POLL_TIMEOUT_MS;
+    const sleep = options.sleep ?? realSleep;
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+        let current;
+        for (let attempt = 0; attempt <= RETRY_LIMIT; attempt++) {
+            try {
+                current = await client.getEvalRun(projectId, runId);
+                break;
+            }
+            catch (error) {
+                if (isRetriable(error) && attempt < RETRY_LIMIT) {
+                    options.warn?.(`Poll attempt failed (retry ${attempt + 1}/${RETRY_LIMIT}): ${describeError(error)}`);
+                    await sleep(RETRY_DELAY_MS);
+                }
+                else {
+                    throw error;
+                }
+            }
+        }
+        if (isTerminal(current.status))
+            return current;
+        options.log?.(`Eval run ${runId}: ${current.status}...`);
+        await sleep(Math.min(intervalMs, deadline - Date.now()));
+    }
+    throw new EvalRunTimeoutError(`Eval run timed out after ${Math.round(timeoutMs / 60_000)} minutes`);
 }
 
 
@@ -65549,104 +65620,6 @@ exports.ComparisonTimeoutError = ComparisonTimeoutError;
 
 /***/ }),
 
-/***/ 5879:
-/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
-
-"use strict";
-
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.EvalRunTimeoutError = void 0;
-exports.pollUntilDone = pollUntilDone;
-const core = __importStar(__nccwpck_require__(7484));
-const evalforge_core_1 = __nccwpck_require__(7495);
-function isTerminal(status) {
-    return evalforge_core_1.TERMINAL_RUN_STATUSES.includes(status);
-}
-const POLL_INTERVAL_MS = 30_000;
-const POLL_TIMEOUT_MS = 30 * 60 * 1_000;
-const RETRY_LIMIT = 5;
-const RETRY_DELAY_MS = 10_000;
-function isRetriable(e) {
-    const status = e.status;
-    if (status && status >= 500)
-        return true;
-    if (e instanceof Error && (e.name === 'AbortError' || e.name === 'TimeoutError'))
-        return true;
-    return false;
-}
-function delay(ms) {
-    return new Promise(resolve => setTimeout(resolve, Math.max(0, ms)));
-}
-async function pollUntilDone(client, projectId, runId) {
-    const deadline = Date.now() + POLL_TIMEOUT_MS;
-    while (Date.now() < deadline) {
-        let status;
-        for (let attempt = 0; attempt <= RETRY_LIMIT; attempt++) {
-            try {
-                status = await client.getEvalRun(projectId, runId);
-                break;
-            }
-            catch (e) {
-                if (isRetriable(e) && attempt < RETRY_LIMIT) {
-                    core.warning(`Poll attempt failed (retry ${attempt + 1}/${RETRY_LIMIT}): ${e instanceof Error ? e.message : String(e)}`);
-                    await delay(RETRY_DELAY_MS);
-                }
-                else {
-                    throw e;
-                }
-            }
-        }
-        if (isTerminal(status.status))
-            return status;
-        core.info(`Eval run ${runId}: ${status.status}...`);
-        await delay(Math.min(POLL_INTERVAL_MS, deadline - Date.now()));
-    }
-    throw new EvalRunTimeoutError('Eval run timed out after 30 minutes');
-}
-class EvalRunTimeoutError extends Error {
-    constructor(message) {
-        super(message);
-        this.name = 'EvalRunTimeoutError';
-    }
-}
-exports.EvalRunTimeoutError = EvalRunTimeoutError;
-
-
-/***/ }),
-
 /***/ 1686:
 /***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
 
@@ -66377,7 +66350,6 @@ exports.runSchedule = runSchedule;
 const core = __importStar(__nccwpck_require__(7484));
 const evalforge_core_1 = __nccwpck_require__(7495);
 const config_1 = __nccwpck_require__(7799);
-const eval_run_1 = __nccwpck_require__(5879);
 async function runSchedule() {
     const config = (0, config_1.getScheduleConfig)();
     const evalforge = new evalforge_core_1.EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
@@ -66399,10 +66371,13 @@ async function runSchedule() {
     core.setOutput('run-url', runUrl);
     let result;
     try {
-        result = await (0, eval_run_1.pollUntilDone)(evalforge, config.projectId, evalRunId);
+        result = await (0, evalforge_core_1.pollUntilDone)(evalforge, config.projectId, evalRunId, {
+            log: core.info,
+            warn: core.warning,
+        });
     }
     catch (e) {
-        if (e instanceof eval_run_1.EvalRunTimeoutError) {
+        if (e instanceof evalforge_core_1.EvalRunTimeoutError) {
             core.setOutput('status', 'timeout');
             core.setOutput('summary', `Eval run timed out after 30 minutes. View: ${runUrl}`);
             core.setFailed(e.message);

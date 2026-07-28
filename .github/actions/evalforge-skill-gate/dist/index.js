@@ -30606,6 +30606,7 @@ __exportStar(__nccwpck_require__(9851), exports);
 __exportStar(__nccwpck_require__(8525), exports);
 __exportStar(__nccwpck_require__(3754), exports);
 __exportStar(__nccwpck_require__(1243), exports);
+__exportStar(__nccwpck_require__(7853), exports);
 
 
 /***/ }),
@@ -30693,6 +30694,76 @@ function planScenarioSync(input) {
         }
     }
     return { actions, skipped };
+}
+
+
+/***/ }),
+
+/***/ 7853:
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.EvalRunTimeoutError = void 0;
+exports.pollUntilDone = pollUntilDone;
+const evalforge_1 = __nccwpck_require__(7230);
+const POLL_INTERVAL_MS = 30_000;
+const POLL_TIMEOUT_MS = 30 * 60 * 1_000;
+const RETRY_LIMIT = 5;
+const RETRY_DELAY_MS = 10_000;
+class EvalRunTimeoutError extends Error {
+    constructor(message) {
+        super(message);
+        this.name = 'EvalRunTimeoutError';
+    }
+}
+exports.EvalRunTimeoutError = EvalRunTimeoutError;
+function isTerminal(status) {
+    return evalforge_1.TERMINAL_RUN_STATUSES.includes(status);
+}
+function isRetriable(error) {
+    const status = error.status;
+    if (status && status >= 500)
+        return true;
+    if (error instanceof Error && (error.name === 'AbortError' || error.name === 'TimeoutError'))
+        return true;
+    return false;
+}
+function realSleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, Math.max(0, ms)));
+}
+function describeError(error) {
+    return error instanceof Error ? error.message : String(error);
+}
+async function pollUntilDone(client, projectId, runId, options = {}) {
+    const intervalMs = options.intervalMs ?? POLL_INTERVAL_MS;
+    const timeoutMs = options.timeoutMs ?? POLL_TIMEOUT_MS;
+    const sleep = options.sleep ?? realSleep;
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+        let current;
+        for (let attempt = 0; attempt <= RETRY_LIMIT; attempt++) {
+            try {
+                current = await client.getEvalRun(projectId, runId);
+                break;
+            }
+            catch (error) {
+                if (isRetriable(error) && attempt < RETRY_LIMIT) {
+                    options.warn?.(`Poll attempt failed (retry ${attempt + 1}/${RETRY_LIMIT}): ${describeError(error)}`);
+                    await sleep(RETRY_DELAY_MS);
+                }
+                else {
+                    throw error;
+                }
+            }
+        }
+        if (isTerminal(current.status))
+            return current;
+        options.log?.(`Eval run ${runId}: ${current.status}...`);
+        await sleep(Math.min(intervalMs, deadline - Date.now()));
+    }
+    throw new EvalRunTimeoutError(`Eval run timed out after ${Math.round(timeoutMs / 60_000)} minutes`);
 }
 
 
