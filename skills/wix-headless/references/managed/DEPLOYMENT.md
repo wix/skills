@@ -28,6 +28,23 @@ Live site:  <published-url>
 Dashboard:  https://manage.wix.com/dashboard/<SITE_ID>
 ```
 
+## Buying a custom domain with the Wix CLI (optional)
+
+If the user wants a custom domain for the live site, the CLI handles the whole flow — no dashboard digging and no REST calls:
+
+```bash
+# Brainstorm available domains from a keyword, brand, or business idea:
+npx @wix/cli@latest account domain suggest "coffee shop" --limit 5 --tld com net
+
+# Buy a chosen domain (include the TLD). Scope to the site so it can be connected after purchase:
+npx @wix/cli@latest account --site-id <SITE_ID> domain buy example.com
+```
+
+- `buy` does **not** charge anything itself — it returns a checkout URL (`https://manage.wix.com/get-domain?...`) where the user completes payment in the browser. Add `--json` to get the URL as machine-readable output.
+- All suggestions returned by `suggest` are already available for purchase.
+- Use the `siteId` from `wix.config.json` for `--site-id`; omit it for a standalone (account-level) domain purchase.
+- Surface the checkout URL to the user the same way as the live-site and dashboard links above — the purchase isn't done until they pay.
+
 ## Before you sign off — feedback checkpoint
 
 This is the last step of the run — the natural point to check `../FEEDBACK.md`. Don't wait for the
