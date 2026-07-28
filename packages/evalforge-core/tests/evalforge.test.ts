@@ -54,6 +54,37 @@ describe('EvalForgeClient (V1) — auth + test-scenarios', () => {
     expect(r).toEqual([{ id: 'a', name: 'x', tags: ['t'] }, { id: 'b', name: 'y', tags: [] }]);
   });
 
+  it('listTestScenarios() throws when pagingMetadata reports a next cursor', async () => {
+    mockFetch(() => ({
+      status: 200,
+      body: { testScenarios: [{ id: 'a', name: 'x' }], pagingMetadata: { cursors: { next: 'c2' } } },
+    }));
+    const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    await expect(c.listTestScenarios('P')).rejects.toThrow(/truncated page/);
+  });
+
+  it('listTestScenarios() throws when pagingMetadata.total exceeds the page received', async () => {
+    mockFetch(() => ({
+      status: 200,
+      body: { testScenarios: [{ id: 'a', name: 'x' }], pagingMetadata: { total: 42, count: 1 } },
+    }));
+    const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    await expect(c.listTestScenarios('P')).rejects.toThrow(/received 1 of 42/);
+  });
+
+  it('listTestScenarios() accepts a complete page, and tolerates absent pagingMetadata', async () => {
+    mockFetch(() => ({
+      status: 200,
+      body: { testScenarios: [{ id: 'a', name: 'x' }], pagingMetadata: { total: 1, count: 1 } },
+    }));
+    const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    await expect(c.listTestScenarios('P')).resolves.toEqual([{ id: 'a', name: 'x', tags: [] }]);
+
+    mockFetch(() => ({ status: 200, body: { testScenarios: [{ id: 'a', name: 'x' }] } }));
+    const c2 = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    await expect(c2.listTestScenarios('P')).resolves.toHaveLength(1);
+  });
+
   it('listTestScenarios(names) queries each name and keeps only exact matches', async () => {
     const queried: (string | undefined)[] = [];
     mockFetch(({ url, method, body }) => {
@@ -270,7 +301,7 @@ describe('EvalForgeClient (V1) — 401 handling', () => {
     }) as unknown as typeof fetch;
 
     const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
-    await c.listMcpVersions('M', 'P');
+    await c.listCapabilityVersions('M', 'P');
     expect(mints).toBe(2);    // initial mint + forced refresh
     expect(apiCalls).toBe(2); // 401 then retry
   });
@@ -290,7 +321,7 @@ describe('EvalForgeClient (V1) — 401 handling', () => {
     }) as unknown as typeof fetch;
 
     const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
-    await expect(c.listMcpVersions('M', 'P')).rejects.toThrow(/401/);
+    await expect(c.listCapabilityVersions('M', 'P')).rejects.toThrow(/401/);
     expect(apiCalls).toBe(2); // original attempt + one retry, then give up
   });
 });

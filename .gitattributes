@@ -1,0 +1,5 @@
+# The action bundles are ncc output, committed because CI runs them directly. Marking them
+# generated keeps GitHub from rendering ~1500 lines of machine-written diff on every PR that
+# touches evalforge-core — the review surface that matters is src/ and tests/.
+# `-diff` also stops git itself from trying to produce a textual diff for them locally.
+.github/actions/*/dist/index.js linguist-generated=true -diff
