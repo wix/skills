@@ -3,12 +3,11 @@ import * as github from '@actions/github';
 import { posix } from 'node:path';
 import { getEvalConfig, type Config } from './config';
 import { fail, getChangedFiles, classifyChanges, makeCommenter, type ChangedFile } from './github';
-import { assertWixAuthor } from './author-gate';
 import { loadEvals, type LoadedScenario } from './evals';
 import { canonicalDocUrl } from './doc-url';
 import { computeCoverage } from './coverage';
 import { diffSyncPlan } from './sync';
-import { EvalForgeClient, draftTagFor, evalRunUrl, parseDraftTag, uniqueRemoteScenarios, type RemoteScenario } from '@wix/evalforge-core';
+import { EvalForgeClient, assertWixAuthor, draftTagFor, evalRunUrl, parseDraftTag, uniqueRemoteScenarios, type RemoteScenario } from '@wix/evalforge-core';
 import { EvalPipelineClient, pollUntilComparisonDone, ComparisonTimeoutError } from './eval-pipeline';
 import { workspaceRoot } from './workspace';
 import { BASE_WORKSPACE_SUBDIR } from './paths';
@@ -147,7 +146,7 @@ async function isDraftTagActive(
 export async function runGate(): Promise<void> {
   const config = getEvalConfig();
   const octokit = github.getOctokit(config.githubToken);
-  await assertWixAuthor(octokit, config.owner, config.repo, config.prNumber);
+  await assertWixAuthor(octokit, config.owner, config.repo, config.prNumber, core.info);
   const comment = makeCommenter(octokit, config.owner, config.repo, config.prNumber);
   const workspace = workspaceRoot();
   const draftTag = draftTagFor(`${config.owner}/${config.repo}`, config.prNumber);

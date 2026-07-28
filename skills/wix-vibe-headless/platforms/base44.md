@@ -8,19 +8,25 @@ Your Wix client id is given in your prompt. It's a public, buyer/visitor-facing 
 only mints anonymous visitor tokens), so it's safe in the frontend — use that value directly for
 the Wix client setup.
 
-Follow the steps below exactly.
+Follow the steps below exactly:
 
-## STEP 0 — Install the Wix skills locally
+1. **Install the Wix skills locally**
+2. **(optional) Brief doesn't say what to build? Read the site**
+3. **Build the client**
+4. **Manage and seed the business** (run in parallel with 3)
+5. **Wrap up**
+
+## STEP 1 — Install the Wix skills locally
 
 Install three skills — they land under `.agents/skills/` as:
 - **`wix-vibe-headless`** — the client build guide: how to build the frontend against the Wix
-  APIs. This is your main source of truth (STEP 1).
+  APIs. This is your main source of truth (STEP 3).
 - **`wix-headless`** — a broad skill for building full Wix apps with the Wix SDK packages, **most
   of which does not apply to how you build here**. Use it **only** as a seeding/admin recipe
-  reference — its `references/SEED.md` and `references/inline-recipes/`, for STEP 2. **Ignore
+  reference — its `references/SEED.md` and `references/inline-recipes/`, for STEP 4. **Ignore
   everything else in it** — in particular do **not** follow its authentication / `@wix/cli` /
   "managed project" setup (e.g. anything under `references/managed/`, such as `AUTHENTICATION.md`).
-  That is **not** how auth works here — auth is handled per STEP 2 below.
+  That is **not** how auth works here — auth is handled per STEP 4 below.
 - **`wix-docs`** — a **fallback**: how to search and read the Wix API reference docs, for anything
   the seeding recipes above don't cover.
 
@@ -72,14 +78,38 @@ on the tool:
 - **exec_tool / shell** (only if you must): use the absolute path
   `/app/.agents/skills/wix-vibe-headless/SKILL.md`.
 
-## STEP 1 — Build the client
+## STEP 2 (optional) — Brief doesn't say what to build? Read the site
+
+Only needed when the business description in your prompt is vague or missing — otherwise skip
+to STEP 3. Don't guess which Wix Business Solution to build (stores, bookings, blog, events,
+portfolio, restaurants, CMS, pricing plans, members, etc..) — **read the site in one call**
+via the connector (exec_tool):
+
+```js
+const { accessToken } = await base44.asServiceRole.connectors.getConnection("wix");
+const res = await fetch("https://www.wixapis.com/_api/dynamic-context/v1/dynamic-context/markdown", {
+  method: "POST",
+  headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+  body: JSON.stringify({ siteId: "<metasite id from your prompt>" }),
+});
+return (await res.json()).markdown;
+```
+
+It returns a markdown report of the site — installed apps (by name), status, URL, locale, and
+CMS collections
+([docs](https://dev.wix.com/docs/api-reference/tools/dynamic-site-context/get-dynamic-context-markdown.md)).
+Build for the solutions whose apps are installed (several → prioritize by the user's words and
+by which holds real, non-sample content); the same output drives STEP 4's seeding — never seed
+guessed ones. If the call fails or reports nothing relevant, ask the user what they offer.
+
+## STEP 3 — Build the client
 
 Read `.agents/skills/wix-vibe-headless/SKILL.md` and follow it **EXACTLY** — it is the single
 source of truth for how the client app is built. To save time, prefer copying ready-made files
 the `wix-vibe-headless` skill provides (e.g. the Wix client setup) and adapting them over
 re-generating them from scratch.
 
-## STEP 2 — Manage and seed the business
+## STEP 4 — Manage and seed the business
 
 Seed the site with real content by following the **`wix-headless` skill**'s
 `references/SEED.md` (`.agents/skills/wix-headless/references/SEED.md`). Where its seed recipes
@@ -110,17 +140,17 @@ that pattern is only for standalone `.js` skill files, and inline it throws *"Id
 'base44' has already been declared."*
 
 **IMPORTANT:** the Wix connector and the `wix-headless` skill's seeding instructions are for
-management/admin operations only (STEP 2) — they are **NOT** part of the client. The client is
+management/admin operations only (STEP 4) — they are **NOT** part of the client. The client is
 built solely per the `wix-vibe-headless` skill.
 
 ## Parallelism
 
-If possible, run STEP 1 and STEP 2 in parallel — building the client and seeding the business
+If possible, run STEP 3 and STEP 4 in parallel — building the client and seeding the business
 are independent, so don't wait for one to start the other. Within each step, also work in
 parallel where possible (e.g. independent API calls, seeding multiple entities) instead of
 one-by-one, to finish faster.
 
-## STEP 3 — Wrap up
+## STEP 5 — Wrap up
 
 Once the site is built and seeded:
 
@@ -136,7 +166,7 @@ Once the site is built and seeded:
 
 ## Later admin requests
 
-For any later admin/management request the user makes, work the same way as STEP 2: check the
+For any later admin/management request the user makes, work the same way as STEP 4: check the
 `wix-headless` skill's inline recipes first (`.agents/skills/wix-headless/references/inline-recipes/`)
 and, where the operation isn't documented there, fall back to the `wix-docs` skill to search the
 Wix API docs — all over the Wix connector.

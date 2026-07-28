@@ -53,6 +53,10 @@ shippingRates.provideHandlers({
 });
 ```
 
+## Singular Constraint
+
+`ECOM_SHIPPING_RATES` is **singular** — only one component of this type is allowed per app. Do not scaffold or include two Shipping Rates service plugins in the same app.
+
 ## Key Implementation Notes
 
 1. **Price as string** - All price values must be strings, not numbers
