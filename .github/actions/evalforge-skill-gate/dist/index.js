@@ -61732,7 +61732,7 @@ function getHeadSha() {
 /**
  * On `pull_request` the checkout is the merge commit, which `GITHUB_SHA` names. The label must
  * come from this, not `head.sha`: the same head yields different merge content as base
- * advances, so `ensureSkillVersion` would reuse a version built from stale content.
+ * advances, so `createOrReuseSkillVersion` would reuse a version built from stale content.
  */
 function getEvaluatedSha() {
     const sha = process.env.GITHUB_SHA;
@@ -61940,7 +61940,7 @@ async function runGate() {
         return;
     core.info(`Collected ${skillFiles.length} skill file(s) from ${config.skillDir}`);
     const client = new evalforge_core_1.EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
-    const version = await guardedCall(() => client.ensureSkillVersion(config.capabilityId, config.projectId, config.versionLabel, config.prNumber, skillFiles), 'Could not create the PR skill capability version', comment, config.blocking);
+    const version = await guardedCall(() => client.createOrReuseSkillVersion(config.capabilityId, config.projectId, config.versionLabel, config.prNumber, skillFiles), 'Could not create the PR skill capability version', comment, config.blocking);
     if (!version)
         return;
     const baseWorkspace = node_path_1.posix.join(workspace, config_1.BASE_WORKSPACE_SUBDIR);

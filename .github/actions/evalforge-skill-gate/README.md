@@ -29,7 +29,7 @@ flowchart TD
     ANY -->|yes| GUARD["guardScenarios<br/>coverage: every tag has ≥1 scenario meeting the bar<br/>no weakening: every touched scenario meets the bar<br/>bar = ≥3 assertions + ≥1 llm_judge"]
     GUARD --> GUARDOK{Violations?}
     GUARDOK -->|yes| FAILGUARD[comment violations<br/>run is skipped entirely] --> GATEFAIL
-    GUARDOK -->|"no — warnings carried forward"| VER[collectSkillFiles whole skill dir<br/>→ ensureSkillVersion, label pr-N-mergesha7]
+    GUARDOK -->|"no — warnings carried forward"| VER[collectSkillFiles whole skill dir<br/>→ createOrReuseSkillVersion, label pr-N-mergesha7]
     VER --> SYNC[loadScenarios base + remote lookup<br/>diffSyncPlan — semantic tags + draft tag]
     SYNC --> APPLY[apply CREATE · UPDATE · DELETE · DEFER_DELETE]
     APPLY --> SELECT[selectScenarios<br/>synced ids ∪ tag query, dedup, cap at max-scenarios]
@@ -59,7 +59,7 @@ run. The version is labelled
 `pr-<number>-<evaluated-sha7>`, where the evaluated SHA is `GITHUB_SHA`: on `pull_request`
 that is the **merge** commit the workflow checked out, not the PR head. Labelling by head
 would not uniquely identify the content, since the same head yields different merge results
-as base advances — and `ensureSkillVersion` would then reuse a version built from stale
+as base advances — and `createOrReuseSkillVersion` would then reuse a version built from stale
 content. The `pr-<number>-` prefix is what PR-close cleanup sweeps.
 
 Two paths deliberately fail rather than reporting green, because each would otherwise be a

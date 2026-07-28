@@ -99,7 +99,7 @@ function getHeadSha(): string {
 /**
  * On `pull_request` the checkout is the merge commit, which `GITHUB_SHA` names. The label must
  * come from this, not `head.sha`: the same head yields different merge content as base
- * advances, so `ensureSkillVersion` would reuse a version built from stale content.
+ * advances, so `createOrReuseSkillVersion` would reuse a version built from stale content.
  */
 function getEvaluatedSha(): string {
   const sha = process.env.GITHUB_SHA;
