@@ -1,0 +1,28 @@
+name: 'EvalForge Skill Gate'
+description: 'EvalForge flows for wix-app skills: syncs repo scenario YAML into EvalForge, and (later) gates PRs on eval results'
+inputs:
+  mode:
+    description: 'Action mode: "sync" (default) reconciles repo YAML scenarios into EvalForge on merge'
+    required: false
+    default: 'sync'
+  github-token:
+    description: 'GitHub token, used to resolve the PR author for the Wix-author gate'
+    required: true
+  evalforge-url:
+    description: 'EvalForge API base URL'
+    required: true
+  evalforge-project-id:
+    description: 'EvalForge project ID'
+    required: true
+  evalforge-app-id:
+    description: 'Wix app def ID (OAuth client_id)'
+    required: true
+  evalforge-app-secret:
+    description: 'Wix app secret (OAuth client_secret)'
+    required: true
+  evals-glob:
+    description: 'Glob for scenario YAML files to reconcile against EvalForge (sync mode)'
+    required: true
+runs:
+  using: 'node20'
+  main: 'dist/index.js'
