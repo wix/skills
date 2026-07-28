@@ -30778,6 +30778,108 @@ function enc(segment) {
 
 /***/ }),
 
+/***/ 3308:
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.DEFAULT_QUALITY_BAR = void 0;
+exports.meetsQualityBar = meetsQualityBar;
+exports.guardScenarios = guardScenarios;
+const schema_1 = __nccwpck_require__(3540);
+exports.DEFAULT_QUALITY_BAR = {
+    minAssertions: 3,
+    requireLlmJudge: true,
+};
+/** Does this scenario verify enough to be worth running? */
+function meetsQualityBar(scenario, bar = exports.DEFAULT_QUALITY_BAR) {
+    const reasons = [];
+    if (scenario.assertions.length < bar.minAssertions) {
+        reasons.push(`has ${scenario.assertions.length} assertion${scenario.assertions.length === 1 ? '' : 's'} `
+            + `(needs at least ${bar.minAssertions})`);
+    }
+    if (bar.requireLlmJudge && !scenario.assertions.some(schema_1.isLlmJudge)) {
+        reasons.push('has no llm_judge assertion');
+    }
+    return { ok: reasons.length === 0, reasons };
+}
+/**
+ * The quality guard, evaluated entirely on local YAML plus the PR's changed-file list — no
+ * EvalForge calls, no capability version, no run. That is why it comes first: a coverage
+ * failure costs nothing.
+ *
+ * Coverage folds the bar in: a tag is covered only by a scenario that *meets* the bar,
+ * because a one-assertion scenario would run, pass, and have verified nothing. Untouched
+ * shortfalls on an otherwise-covered tag warn instead of blocking — blocking there would
+ * hold a PR hostage to a weak scenario someone else authored, which is how thresholds get
+ * lowered and gates get bypassed.
+ */
+function guardScenarios(input) {
+    const bar = input.bar ?? exports.DEFAULT_QUALITY_BAR;
+    const allScenarios = [...input.scenarios.values()];
+    const violations = [];
+    const weakUntouched = new Map();
+    for (const tag of input.tags) {
+        const carrying = allScenarios.filter(loaded => loaded.scenario.tags.includes(tag));
+        if (carrying.length === 0) {
+            violations.push({ kind: 'UNCOVERED_TAG', tag });
+            continue;
+        }
+        const meeting = carrying.filter(loaded => meetsQualityBar(loaded.scenario, bar).ok);
+        if (meeting.length === 0) {
+            violations.push({
+                kind: 'WEAK_TAG',
+                tag,
+                scenarios: carrying.map(loaded => loaded.scenario.name).sort(),
+            });
+            continue;
+        }
+        // Tag is covered. Surface the weak siblings the PR did not touch, without blocking.
+        for (const loaded of carrying) {
+            if (input.touchedScenarioPaths.has(loaded.path))
+                continue;
+            const check = meetsQualityBar(loaded.scenario, bar);
+            if (check.ok)
+                continue;
+            const existing = weakUntouched.get(loaded.scenario.name);
+            if (existing) {
+                existing.tags.push(tag);
+                continue;
+            }
+            weakUntouched.set(loaded.scenario.name, {
+                kind: 'WEAK_UNTOUCHED_SCENARIO',
+                name: loaded.scenario.name,
+                path: loaded.path,
+                tags: [tag],
+                reasons: check.reasons,
+            });
+        }
+    }
+    // No weakening: every scenario this PR added or edited must meet the bar, whatever its
+    // tags and whether or not a strong sibling already satisfies coverage.
+    for (const loaded of allScenarios) {
+        if (!input.touchedScenarioPaths.has(loaded.path))
+            continue;
+        const check = meetsQualityBar(loaded.scenario, bar);
+        if (check.ok)
+            continue;
+        violations.push({
+            kind: 'WEAK_TOUCHED_SCENARIO',
+            name: loaded.scenario.name,
+            path: loaded.path,
+            reasons: check.reasons,
+        });
+    }
+    return {
+        violations,
+        warnings: [...weakUntouched.values()].sort((left, right) => left.name.localeCompare(right.name)),
+    };
+}
+
+
+/***/ }),
+
 /***/ 7495:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
@@ -30813,6 +30915,7 @@ __exportStar(__nccwpck_require__(473), exports);
 __exportStar(__nccwpck_require__(5781), exports);
 __exportStar(__nccwpck_require__(4527), exports);
 __exportStar(__nccwpck_require__(7264), exports);
+__exportStar(__nccwpck_require__(3308), exports);
 
 
 /***/ }),
