@@ -84,6 +84,23 @@ const REDIRECT_SESSION_URL = "/_api/redirects-api/v1/redirect-session";
 const CURRENT_MEMBER_URL = "/members/v1/members/my";
 const OAUTH_STASH_KEY = `wix-oauth-data-${WIX_CLIENT_ID}`;
 
+// ── The headless "gate" — why we don't hit identity's authorize URL directly ──────────────────────
+// `createRedirectSession` returns `fullUrl`, which is identity's authorize endpoint. The PURE flow
+// points the iframe (credential) / full-page redirect (social) straight at it. The problem: when this
+// app isn't allow-listed, identity DEAD-ENDS with no way to fix it — credential (web_message) silently
+// drops the postMessage so the iframe just hangs, and social (fragment) shows a generic "Invalid
+// redirect URI" page that never returns to your app. So instead we hop through the headless GATE (a
+// Wix-owned serverless on the same Wix host): it checks this app against the OAuth app's allow-list
+// and either FORWARDS to identity's authorize path (allowed) or fails fast with the facts to build a
+// one-click approve link (not allowed) — keeping this approve UX out of generic identity, the same
+// pattern Wix-hosted checkout already uses.
+//
+// TODO(gate): this gate hop is a headless-layer stopgap. If/when identity's official authorize flow
+// gains fail-fast + approve natively, drop the gate and point the iframe / redirect straight back at
+// `fullUrl` (remove GATE_BASE and the two gateUrl builders below; use `u.pathname + u.search` on
+// `u.origin`). Until then, keep routing through the gate.
+const GATE_BASE = "/_serverless/wix-to-headless-redirect";
+
 /**
  * `idp` connection ids for social login. Google & Facebook are enabled by default
  * on every headless client. For custom SSO / OIDC (Okta, Auth0, …) pass the
@@ -195,7 +212,7 @@ async function completeDirectLogin(sessionToken) {
   // one-click approve link — instead of the browser silently dropping identity's postMessage.
   const u = new URL(fullUrl);
   const gateUrl =
-    `${u.origin}/_serverless/wix-to-headless-redirect/web-message-authorize-or-approve` +
+    `${u.origin}${GATE_BASE}/web-message-authorize-or-approve` +
     `?authorizePath=${encodeURIComponent(u.pathname + u.search)}` +
     `&clientId=${encodeURIComponent(WIX_CLIENT_ID)}` +
     `&origin=${encodeURIComponent(pageOrigin())}` +
@@ -234,7 +251,7 @@ export async function startSocialLogin(idp, callbackUri, returnTo = "/") {
   // which we take from the authorize URL's origin; forwarding is a relative path (no open redirect).
   const u = new URL(fullUrl);
   const gateUrl =
-    `${u.origin}/_serverless/wix-to-headless-redirect/authorize-or-approve` +
+    `${u.origin}${GATE_BASE}/authorize-or-approve` +
     `?authorizePath=${encodeURIComponent(u.pathname + u.search)}` +
     `&clientId=${encodeURIComponent(WIX_CLIENT_ID)}` +
     `&redirectUri=${encodeURIComponent(callbackUri)}`;
