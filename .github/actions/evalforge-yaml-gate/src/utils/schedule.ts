@@ -1,7 +1,6 @@
 import * as core from '@actions/core';
-import { CODE_TAG, EvalForgeClient, evalRunUrl } from '@wix/evalforge-core';
+import { CODE_TAG, EvalForgeClient, EvalRunTimeoutError, evalRunUrl, pollUntilDone } from '@wix/evalforge-core';
 import { getScheduleConfig } from './config';
-import { pollUntilDone, EvalRunTimeoutError } from './eval-run';
 
 export async function runSchedule(): Promise<void> {
   const config = getScheduleConfig();
@@ -29,7 +28,10 @@ export async function runSchedule(): Promise<void> {
 
   let result;
   try {
-    result = await pollUntilDone(evalforge, config.projectId, evalRunId);
+    result = await pollUntilDone(evalforge, config.projectId, evalRunId, {
+      log: core.info,
+      warn: core.warning,
+    });
   } catch (e) {
     if (e instanceof EvalRunTimeoutError) {
       core.setOutput('status', 'timeout');
