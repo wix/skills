@@ -219,6 +219,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ### [Pricing Plans Bookings Integration](references/pricing-plans/pricing-plans-bookings-integration.md)
 **Technical:** Links Pricing Plans to Bookings services using the Benefit Programs API. Enables package deals and memberships that grant booking access.
 
+### [Troubleshoot Embedded Pricing Plans Widget Checkout](references/pricing-plans/troubleshoot-embedded-pricing-plans-widget-checkout.md)
+**Technical:** Explains why a Plan List/Single Plan widget added to a non-system page always redirects to the Plans & Pricing page to check out, and diagnoses the duplicated-plan-list-above-checkout and disappearing-checkout symptoms as a duplicate or wrongly-deleted widget on that page rather than a rendering bug.
+
 ---
 
 ## Restaurants

@@ -10,3 +10,7 @@ apiDoc:
       title: Pricing Plans Bookings Integration
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans
       tags: [bookings, pricing-plans]
+    - file: ../../../skills/wix-manage/references/pricing-plans/troubleshoot-embedded-pricing-plans-widget-checkout.md
+      title: Troubleshoot Embedded Pricing Plans Widget Checkout
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans
+      tags: [pricing-plans]
