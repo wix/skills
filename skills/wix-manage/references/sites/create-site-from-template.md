@@ -1,6 +1,6 @@
 ---
 name: "Create Site from Template"
-description: Creates new Wix sites from templates using account-level APIs. Covers template search, site creation, headless business provisioning, and publishing.
+description: Creates new Wix sites from templates using account-level APIs. Covers template search, site creation, and publishing. Not for headless sites.
 ---
 # Create Site from Template
 
@@ -111,7 +111,7 @@ If `siteName` is not provided, one is generated automatically.
 **Response** includes the new site's `metaSiteId`.
 
 ### IMPORTANT NOTES:
-- This API creates regular Wix sites. Do NOT use it for headless sites (even with a `namespace` field) — see [Headless Sites](#headless-sites) below
+- This API creates regular Wix sites. Do NOT use it for headless sites (even with a `namespace` field) — use [Create Headless Site](create-headless-site.md) instead
 
 ---
 
@@ -135,40 +135,6 @@ curl -X POST \
 ### IMPORTANT NOTES:
 - NEVER publish without asking the user first
 - This makes the site publicly accessible
-
----
-
-## Headless Sites
-
-Headless sites are NOT created from templates. One account-level call creates the site, installs the requested Wix Business Solution apps, and creates and configures the site's OAuth client:
-
-**Endpoint**: `POST https://www.wixapis.com/headless-business-setup/v1/headless-business/provision`
-
-**Request Body**:
-```json
-{
-  "newMetasite": {
-    "namingStrategy": { "metaSiteName": "My Headless Business" },
-    "seedOptions": [
-      { "businessSolution": "STORES", "clearTemplateContent": true, "seedDemoContent": false }
-    ]
-  },
-  "synchronousSteps": ["SET_METASITE_NAME", "CONFIGURE_HEADLESS_APP"]
-}
-```
-
-- `namingStrategy` — exactly one of: `metaSiteName` (exact display name), `llmPromptBasedName: {}` (name derived from the top-level `prompt` field), or `defaultName: {}`
-- `seedOptions` — Wix Business Solution apps to install at creation: `STORES`, `BLOG`, `BOOKINGS`, `EVENTS`, `PORTFOLIO`, `PRICING_PLANS`. Each entry takes `clearTemplateContent` (remove sample content) and `seedDemoContent` (seed demo content). Empty installs none
-- `synchronousSteps` — steps to complete before the call returns: `SET_METASITE_NAME`, `CONFIGURE_HEADLESS_APP`, `SEED_CONTENT`. Omitted steps run asynchronously. Include `CONFIGURE_HEADLESS_APP` when the OAuth client must be usable immediately
-
-**Response**:
-```json
-{ "metaSiteId": "<SITE_ID>", "appId": "<OAUTH_CLIENT_ID>" }
-```
-
-`appId` is the site's OAuth client ID — do NOT create a separate OAuth app.
-
-To provision headless onto an existing site, pass `"existingMetasite": {}` instead of `newMetasite` (site-level call in the context of that site).
 
 ---
 

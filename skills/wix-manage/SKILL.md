@@ -248,7 +248,10 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ## Sites
 
 ### [Create Site from Template](references/sites/create-site-from-template.md)
-**Technical:** Creates new Wix sites from templates using account-level APIs. Covers template search, site creation, headless business provisioning, and publishing.
+**Technical:** Creates new Wix sites from templates using account-level APIs. Covers template search, site creation, and publishing. Not for headless sites.
+
+### [Create Headless Site](references/sites/create-headless-site.md)
+**Technical:** Creates a Wix Headless site (headless business) with one account-level API call — site, Wix Business Solution apps, and a configured OAuth client.
 
 ### [Query Sites](references/sites/query-sites.md)
 **Technical:** Lists and queries all sites associated with a Wix account using Sites API. Covers pagination with cursor-based navigation.
