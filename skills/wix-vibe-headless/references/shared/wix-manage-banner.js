@@ -67,7 +67,14 @@ export function mountWixManageBanner() {
     "background:#131720;color:#fff;border-radius:999px;padding:8px 18px;" +
     "font-size:14px;text-decoration:none;";
 
-  card.append(text, button);
+  const info = document.createElement("span");
+  info.textContent = "ⓘ";
+  info.title =
+    "This banner only shows while developing. Don't want it? Ask the agent in the chat to remove it.";
+  info.setAttribute("aria-label", info.title);
+  info.style.cssText = "color:#868aa5;font-size:16px;cursor:help;user-select:none;";
+
+  card.append(text, button, info);
   bar.append(card);
   document.body.append(bar);
 }
