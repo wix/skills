@@ -11,7 +11,7 @@ const listTestScenariosByTag = vi.fn().mockResolvedValue([]);
 const createTestScenario = vi.fn().mockResolvedValue({ id: 'created-id' });
 const updateTestScenario = vi.fn().mockResolvedValue(undefined);
 const deleteTestScenario = vi.fn().mockResolvedValue(undefined);
-const ensureSkillVersion = vi.fn();
+const createOrReuseSkillVersion = vi.fn();
 const createAndRunEvalRun = vi.fn();
 
 vi.mock('@actions/github', () => ({
@@ -31,7 +31,7 @@ vi.mock('@wix/evalforge-core', async (importOriginal) => {
     pollUntilDone: vi.fn(),
     EvalForgeClient: vi.fn().mockImplementation(() => ({
       listTestScenarios, listTestScenariosByTag, createTestScenario, updateTestScenario,
-      deleteTestScenario, ensureSkillVersion, createAndRunEvalRun,
+      deleteTestScenario, createOrReuseSkillVersion, createAndRunEvalRun,
     })),
   };
 });
@@ -89,7 +89,7 @@ beforeEach(async () => {
   vi.mocked(evalforge.getChangedFiles).mockResolvedValue([]);
   vi.mocked(evalforge.loadScenarios).mockReturnValue({ scenarios: new Map(), errors: [] });
   vi.mocked(evalforge.collectSkillFiles).mockReturnValue([{ path: 'SKILL.md', content: '# skill' }]);
-  ensureSkillVersion.mockResolvedValue({ id: 'ver-1', capabilityId: 'cap', version: 'pr-42-merge99' });
+  createOrReuseSkillVersion.mockResolvedValue({ id: 'ver-1', capabilityId: 'cap', version: 'pr-42-merge99' });
   createAndRunEvalRun.mockResolvedValue({ id: 'run-1', status: 'pending' });
   listTestScenarios.mockResolvedValue([]);
   listTestScenariosByTag.mockResolvedValue([]);
@@ -114,7 +114,7 @@ describe('runGate — cheap exits before any EvalForge write', () => {
     await runGate();
 
     expect(evalforge.EvalForgeClient).not.toHaveBeenCalled();
-    expect(ensureSkillVersion).not.toHaveBeenCalled();
+    expect(createOrReuseSkillVersion).not.toHaveBeenCalled();
     expect(setFailedSpy).not.toHaveBeenCalled();
   });
 
@@ -128,7 +128,7 @@ describe('runGate — cheap exits before any EvalForge write', () => {
 
     await runGate();
 
-    expect(ensureSkillVersion).not.toHaveBeenCalled();
+    expect(createOrReuseSkillVersion).not.toHaveBeenCalled();
     expect(upsertComment).toHaveBeenCalledWith(expect.stringContaining('bad.yml'));
     expect(setFailedSpy).toHaveBeenCalled();
   });
@@ -142,7 +142,7 @@ describe('runGate — cheap exits before any EvalForge write', () => {
 
     await runGate();
 
-    expect(ensureSkillVersion).not.toHaveBeenCalled();
+    expect(createOrReuseSkillVersion).not.toHaveBeenCalled();
     expect(createAndRunEvalRun).not.toHaveBeenCalled();
     expect(upsertComment).toHaveBeenCalledWith(expect.stringMatching(/no gated changes/i));
     expect(setFailedSpy).not.toHaveBeenCalled();
@@ -157,7 +157,7 @@ describe('runGate — cheap exits before any EvalForge write', () => {
 
     await runGate();
 
-    expect(ensureSkillVersion).not.toHaveBeenCalled();
+    expect(createOrReuseSkillVersion).not.toHaveBeenCalled();
     expect(createAndRunEvalRun).not.toHaveBeenCalled();
     expect(upsertComment).toHaveBeenCalledWith(expect.stringContaining('backend-api'));
     expect(setFailedSpy).toHaveBeenCalled();
@@ -205,7 +205,7 @@ describe('runGate — the happy path', () => {
 
     await runGate();
 
-    expect(ensureSkillVersion).toHaveBeenCalledWith(
+    expect(createOrReuseSkillVersion).toHaveBeenCalledWith(
       'cap', 'proj', 'pr-42-merge99', 42, [{ path: 'SKILL.md', content: '# skill' }],
     );
   });

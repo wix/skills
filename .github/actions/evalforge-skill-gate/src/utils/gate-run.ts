@@ -142,7 +142,7 @@ export async function runGate(): Promise<void> {
 
   const client = new EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
   const version = await guardedCall(
-    () => client.ensureSkillVersion(
+    () => client.createOrReuseSkillVersion(
       config.capabilityId, config.projectId, config.versionLabel, config.prNumber, skillFiles,
     ),
     'Could not create the PR skill capability version', comment, config.blocking,
