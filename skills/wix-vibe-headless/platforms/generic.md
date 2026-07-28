@@ -117,6 +117,8 @@ After the site is built and seeded:
    `mountWixManageBanner()` once from the app entry. The file already gates itself to dev
    builds (via `import.meta.env.DEV`) — use it as-is, don't rewrite it — but you own the
    guarantee: verify the gate actually holds in this stack, and that a production build never
-   shows the banner (no dev flag → no banner at all).
+   shows the banner (no dev flag → no banner at all). Also verify it really pushes the site
+   down: a `fixed`/`absolute` app header is not in normal flow and will slide under the
+   banner — offset such a header by the banner's height.
 2. **Ask the user to open** this URL to complete the setup in Wix (substitute the metasite id
    you were given): `https://manage.wix.com/dashboard/{metaSiteId}`
