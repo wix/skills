@@ -8,7 +8,7 @@ export type CollectLimits = {
   maxTotalBytes: number;
 };
 
-export const DEFAULT_COLLECT_LIMITS: CollectLimits = {
+const DEFAULT_COLLECT_LIMITS: CollectLimits = {
   maxFileBytes: 1_000_000,
   maxTotalBytes: 10_000_000,
 };

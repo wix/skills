@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  deriveTags, tagForReferencePath, touchedScenarioPaths,
+  deriveTags, touchedScenarioPaths,
   DEFAULT_IGNORE_GLOBS, DEFAULT_BROAD_IMPACT_GLOBS, type TagRules,
 } from '../src/derive-tags';
 
@@ -10,13 +10,6 @@ const WIX_APP_RULES: TagRules = {
   ignoreGlobs: DEFAULT_IGNORE_GLOBS,
   broadImpactGlobs: DEFAULT_BROAD_IMPACT_GLOBS,
 };
-
-describe('tagForReferencePath', () => {
-  it('lowercases, maps underscores to hyphens and drops the .md', () => {
-    expect(tagForReferencePath('DASHBOARD_PAGE.md')).toBe('dashboard-page');
-    expect(tagForReferencePath('STORES_VERSIONING.md')).toBe('stores-versioning');
-  });
-});
 
 describe('deriveTags — precedence', () => {
   it('classifies references/CODE_QUALITY.md as broad impact and derives no tag from it', () => {

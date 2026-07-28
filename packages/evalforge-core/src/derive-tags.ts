@@ -1,26 +1,17 @@
 import { minimatch } from 'minimatch';
 
-/** Everything but `skillDir` is relative to it. */
+/** `skillDir` is repo-relative (`skills/wix-app`); everything else is relative to it. */
 export type TagRules = {
-  /** Repo-relative skill root, e.g. `skills/wix-app`. */
   skillDir: string;
-  /** e.g. `references`. */
   referenceDir: string;
-  /** Changes here derive nothing. */
   ignoreGlobs: string[];
-  /** Changes here put the whole suite in play. */
   broadImpactGlobs: string[];
 };
 
 export type DerivedTags = {
-  /** Reference-derived tags, sorted and deduped. */
   tags: string[];
-  /**
-   * Whole suite is in play. Drives selection only — expanding it to a tag union for the guard
-   * would block a SKILL.md typo fix on any weak scenario in the repo.
-   */
+  /** Drives selection only — feeding it to the guard as a tag union would block on any weak scenario. */
   broadImpact: boolean;
-  /** Paths under `skillDir` no rule covered — reported, never blocking. */
   unmapped: string[];
 };
 
@@ -38,7 +29,7 @@ export const DEFAULT_BROAD_IMPACT_GLOBS: string[] = [
 ];
 
 /** `DASHBOARD_PAGE.md` → `dashboard-page`. */
-export function tagForReferencePath(relativeReferencePath: string): string {
+function tagForReferencePath(relativeReferencePath: string): string {
   return relativeReferencePath.replace(/\.md$/i, '').toLowerCase().replace(/_/g, '-');
 }
 

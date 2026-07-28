@@ -279,10 +279,6 @@ export class EvalForgeClient {
     }
   }
 
-  /**
-   * Same endpoint as createMcpVersion, with the content oneof set to `skillContent`. Lets a
-   * run evaluate a PR's skill files directly, with no MCP URL indirection.
-   */
   async createSkillVersion(
     capabilityId: string,
     projectId: string,
