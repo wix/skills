@@ -355,6 +355,30 @@ curl -X DELETE \
 }
 ```
 
+**Response**:
+```json
+{
+  "results": [
+    {
+      "action": "DELETE",
+      "itemMetadata": { "id": "item-id-1", "originalIndex": 0, "success": true }
+    },
+    {
+      "action": "DELETE",
+      "itemMetadata": {
+        "id": "item-id-2",
+        "originalIndex": 1,
+        "success": false,
+        "error": { "code": "WDE0073", "description": "WDE0073: Item [item-id-2] does not exist in collection [Products]." }
+      }
+    }
+  ],
+  "bulkActionMetadata": { "totalSuccesses": 1, "totalFailures": 1 }
+}
+```
+
+> **Important**: The HTTP status is `200` even when every item fails — it only confirms the request was accepted, not that anything was deleted. Always check `bulkActionMetadata.totalFailures` and each `results[].itemMetadata.success` before treating a bulk delete as done; a stale or mistyped ID list fails silently otherwise (each failing item gets `success: false` with an error like `WDE0073`, but the overall call still returns 200). If using the `@wix/data` SDK's `items.bulkRemove()` instead of raw REST, note it doesn't throw or list not-found IDs in `result.errors` at all — check `result.removed`/`result.skipped` (and `result.skippedItemIds`, once available) instead of assuming `errors.length === 0` means everything was removed.
+
 ## Field Types Reference
 
 | Type | Description | Example Value |
