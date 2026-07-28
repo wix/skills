@@ -1,9 +1,9 @@
 import * as core from '@actions/core';
 import { posix } from 'node:path';
 import { getSimpleConfig } from './config';
-import { EvalForgeClient, deletePrCapabilityVersions, draftTagFor, withManagedTags, type RemoteScenario, type ScenarioBody } from '@wix/evalforge-core';
+import { EvalForgeClient, deletePrCapabilityVersions, draftTagFor, toScenarioBody, withManagedTags, type RemoteScenario, type ScenarioBody } from '@wix/evalforge-core';
 import { loadEvals, type LoadedScenario } from './evals';
-import { toScenarioBody } from './sync';
+
 import { workspaceRoot } from './workspace';
 import { BASE_WORKSPACE_SUBDIR } from './paths';
 

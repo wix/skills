@@ -30612,6 +30612,7 @@ __exportStar(__nccwpck_require__(3754), exports);
 __exportStar(__nccwpck_require__(1243), exports);
 __exportStar(__nccwpck_require__(7853), exports);
 __exportStar(__nccwpck_require__(5992), exports);
+__exportStar(__nccwpck_require__(7208), exports);
 
 
 /***/ }),
@@ -30656,6 +30657,126 @@ function loadScenarios(root, globPattern) {
         scenarios.set(parsed.name, { path: rel, scenario: parsed });
     }
     return { scenarios, errors };
+}
+
+
+/***/ }),
+
+/***/ 7208:
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.semanticPlusDraftTags = exports.draftOnlyTags = void 0;
+exports.toScenarioBody = toScenarioBody;
+exports.diffSyncPlan = diffSyncPlan;
+exports.remoteScenarioFiltersForGate = remoteScenarioFiltersForGate;
+exports.listRemoteScenariosForGate = listRemoteScenariosForGate;
+exports.stripInactiveForeignDraftTags = stripInactiveForeignDraftTags;
+const evalforge_1 = __nccwpck_require__(7230);
+const evalforge_mapper_1 = __nccwpck_require__(6006);
+function toScenarioBody(scenario) {
+    return (0, evalforge_mapper_1.toEvalForgeBody)(scenario);
+}
+const draftOnlyTags = (_scenario, draftTag) => [draftTag];
+exports.draftOnlyTags = draftOnlyTags;
+const semanticPlusDraftTags = (scenario, draftTag) => [...scenario.tags, draftTag];
+exports.semanticPlusDraftTags = semanticPlusDraftTags;
+function foreignDraftTags(tags, myDraftTag) {
+    return tags.filter(tag => tag.startsWith(evalforge_1.DRAFT_PREFIX) && tag !== myDraftTag);
+}
+function diffSyncPlan(input) {
+    const { changedHead, head, base, remote, draftTag, repo } = input;
+    const tagStrategy = input.tagStrategy ?? exports.draftOnlyTags;
+    const remoteByName = new Map(remote.map(entry => [entry.name, entry]));
+    const actions = [];
+    const errors = [];
+    for (const [name, localScenario] of changedHead) {
+        const tags = (0, evalforge_1.withManagedTags)(tagStrategy(localScenario.scenario, draftTag), repo);
+        const match = remoteByName.get(name);
+        if (!match) {
+            actions.push({ kind: 'CREATE', name, body: toScenarioBody(localScenario.scenario), tags });
+            continue;
+        }
+        const foreign = foreignDraftTags(match.tags, draftTag);
+        if (foreign.length > 0) {
+            errors.push({ kind: 'FOREIGN_DRAFT', name, foreignTags: foreign, path: localScenario.path });
+            continue;
+        }
+        actions.push({ kind: 'UPDATE', id: match.id, name, body: toScenarioBody(localScenario.scenario), tags });
+    }
+    for (const [name, baseScenario] of base) {
+        if (head.has(name))
+            continue;
+        const match = remoteByName.get(name);
+        if (!match)
+            continue;
+        if (match.tags.includes(draftTag)) {
+            actions.push({ kind: 'DELETE', id: match.id, name });
+            continue;
+        }
+        const foreign = foreignDraftTags(match.tags, draftTag);
+        if (foreign.length > 0) {
+            errors.push({ kind: 'FOREIGN_DRAFT', name, foreignTags: foreign, path: baseScenario.path });
+        }
+        else {
+            actions.push({ kind: 'DEFER_DELETE', id: match.id, name });
+        }
+    }
+    return { actions, errors };
+}
+/** The smallest remote scenario lookup that can both sync and select for this PR. */
+function remoteScenarioFiltersForGate(input) {
+    const names = new Set(input.changedHead.keys());
+    for (const [name] of input.base) {
+        if (!input.head.has(name))
+            names.add(name);
+    }
+    const tags = [input.draftTag, ...(input.extraTags ?? []).filter(tag => tag !== input.draftTag)];
+    return { names: [...names].sort(), tags, all: input.all ?? false };
+}
+async function listRemoteScenariosForGate(client, projectId, filters) {
+    if (filters.all) {
+        return (0, evalforge_1.uniqueRemoteScenarios)(await client.listTestScenarios(projectId));
+    }
+    const [byName, byTag] = await Promise.all([
+        filters.names.length > 0 ? client.listTestScenarios(projectId, filters.names) : Promise.resolve([]),
+        Promise.all(filters.tags.map(tag => client.listTestScenariosByTag(projectId, tag))),
+    ]);
+    return (0, evalforge_1.uniqueRemoteScenarios)([byName, ...byTag].flat());
+}
+function isForeignDraftTag(tag, myDraftTag) {
+    return tag.startsWith(evalforge_1.DRAFT_PREFIX) && tag !== myDraftTag;
+}
+/**
+ * Drops draft tags belonging to PRs that are no longer open, so an abandoned PR's lock
+ * cannot block this one forever. Lookups are memoized per tag.
+ */
+async function stripInactiveForeignDraftTags(remote, myDraftTag, isDraftTagActive) {
+    const cachedStates = new Map();
+    const getState = (tag) => {
+        let state = cachedStates.get(tag);
+        if (!state) {
+            state = isDraftTagActive(tag);
+            cachedStates.set(tag, state);
+        }
+        return state;
+    };
+    const normalized = [];
+    for (const scenario of remote) {
+        const tags = [];
+        let changed = false;
+        for (const tag of scenario.tags) {
+            if (!isForeignDraftTag(tag, myDraftTag) || await getState(tag)) {
+                tags.push(tag);
+                continue;
+            }
+            changed = true;
+        }
+        normalized.push(changed ? { ...scenario, tags } : scenario);
+    }
+    return normalized;
 }
 
 
