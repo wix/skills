@@ -34742,7 +34742,7 @@ class EvalForgeClient {
         const created = res.capabilityVersion;
         return { id: created.id, capabilityId: created.capabilityId, version: created.version };
     }
-    async ensureSkillVersion(capabilityId, projectId, versionLabel, prNumber, files) {
+    async createOrReuseSkillVersion(capabilityId, projectId, versionLabel, prNumber, files) {
         try {
             return await this.createSkillVersion(capabilityId, projectId, versionLabel, prNumber, files);
         }

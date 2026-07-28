@@ -279,7 +279,7 @@ export class EvalForgeClient {
     }
   }
 
-  async createSkillVersion(
+  private async createSkillVersion(
     capabilityId: string,
     projectId: string,
     versionLabel: string,
@@ -303,7 +303,7 @@ export class EvalForgeClient {
     return { id: created.id, capabilityId: created.capabilityId, version: created.version };
   }
 
-  async ensureSkillVersion(
+  async createOrReuseSkillVersion(
     capabilityId: string,
     projectId: string,
     versionLabel: string,
