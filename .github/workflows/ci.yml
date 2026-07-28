@@ -1,0 +1,217 @@
+name: CI
+
+# Owns both status checks main's branch protection requires: `typecheck` and `test`.
+#
+# Neither this workflow nor its jobs are path-filtered, and that is the whole point. A
+# required check whose workflow is path-scoped is never reported on PRs outside those
+# paths, and GitHub leaves them "Expected — waiting for status to be reported" forever —
+# it does not resolve on its own. That is what blocked #701 (CONTRIBUTING.md only) and
+# #694 (a scenario YAML), and what forced admin bypasses on #712, #707 and #731.
+#
+# So both jobs always run and decide *inside* themselves what is worth doing. A PR that
+# touches no relevant area reports success having done no work, which is the honest
+# signal. Note the jobs deliberately do not use a job-level `if:` to skip: a skipped job
+# reports the "skipped" conclusion, and relying on GitHub counting that as a pass for a
+# required check is a subtlety not worth depending on. Steps are conditional instead, so
+# the job always genuinely succeeds.
+#
+# Both areas are dispatched from one workflow so exactly one workflow emits each context.
+# Two jobs sharing a name would create two check-runs under a single context, which branch
+# protection resolves ambiguously.
+
+on:
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  # Computed once and shared, so the detection rules live in exactly one place.
+  detect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      wix_app: ${{ steps.changes.outputs.wix_app }}
+      evalforge: ${{ steps.changes.outputs.evalforge }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          fetch-depth: 0  # need the base commit to diff against
+
+      - name: Detect which areas changed
+        id: changes
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          changed=$(git diff --name-only "$BASE_SHA"...HEAD)
+          echo "Changed files:"
+          echo "$changed" | sed 's/^/  /'
+
+          match() { echo "$changed" | grep -qE "$1"; }
+
+          # The wix-app harness itself is included: a change to extract.mjs or its deps can
+          # break the typecheck just as a reference-doc change can.
+          if match '^skills/wix-app/|^\.github/wix-app-typecheck/'; then
+            echo "wix_app=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "wix_app=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          # evalforge-core plus both actions that bundle it. A change to core affects both
+          # actions' committed bundles, so any of these paths exercises the whole set.
+          if match '^packages/evalforge-core/|^\.github/actions/evalforge-(yaml|skill)-gate/'; then
+            echo "evalforge=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "evalforge=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  typecheck:
+    needs: detect
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4
+        if: ${{ needs.detect.outputs.wix_app == 'true' || needs.detect.outputs.evalforge == 'true' }}
+        with:
+          node-version: '24'
+
+      # ── wix-app: typecheck the TypeScript embedded in the reference docs ────────────
+      # Absorbed from the former wix-app-typecheck.yml, which owned the `typecheck`
+      # context but only fired on `skills/wix-app/**`.
+
+      - name: Cache wix-app typecheck node_modules
+        if: ${{ needs.detect.outputs.wix_app == 'true' }}
+        id: cache-deps
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830  # v4
+        with:
+          path: .github/wix-app-typecheck/node_modules
+          key: ${{ runner.os }}-node-modules-wix-app-typecheck-${{ hashFiles('.github/wix-app-typecheck/package-lock.json') }}
+
+      - name: wix-app — install dependencies
+        if: ${{ needs.detect.outputs.wix_app == 'true' && steps.cache-deps.outputs.cache-hit != 'true' }}
+        working-directory: .github/wix-app-typecheck
+        run: npm install --legacy-peer-deps
+
+      - name: wix-app — typecheck reference docs
+        if: ${{ needs.detect.outputs.wix_app == 'true' }}
+        working-directory: .github/wix-app-typecheck
+        run: node extract.mjs
+
+      # ── evalforge: typecheck the shared package and both actions ────────────────────
+      # `working-directory` rather than `yarn --cwd`: each package vendors yarn 4.10.0 via
+      # .yarn/releases + yarnPath, and Corepack resolves the yarn *version* from the real
+      # process cwd — the same reason CONTRIBUTING.md requires `(cd DIR && yarn ...)`.
+      #
+      # Building evalforge-core is setup, not a second check: both actions consume it via
+      # `portal:` and its `main`/`types` point at `dist/`, so its declarations must exist
+      # before they can be typechecked. `tsc` emitting is itself a typecheck of the package.
+
+      - name: evalforge-core — install and build
+        if: ${{ needs.detect.outputs.evalforge == 'true' }}
+        working-directory: packages/evalforge-core
+        run: |
+          yarn install --immutable
+          yarn build
+
+      - name: evalforge-yaml-gate — typecheck
+        if: ${{ needs.detect.outputs.evalforge == 'true' }}
+        working-directory: .github/actions/evalforge-yaml-gate
+        run: |
+          yarn install --immutable
+          yarn typecheck
+
+      - name: evalforge-skill-gate — typecheck
+        if: ${{ needs.detect.outputs.evalforge == 'true' }}
+        working-directory: .github/actions/evalforge-skill-gate
+        run: |
+          yarn install --immutable
+          yarn typecheck
+
+      - name: Summary
+        run: |
+          echo "wix-app:   ${{ needs.detect.outputs.wix_app }}"
+          echo "evalforge: ${{ needs.detect.outputs.evalforge }}"
+          if [ "${{ needs.detect.outputs.wix_app }}" = "false" ] \
+          && [ "${{ needs.detect.outputs.evalforge }}" = "false" ]; then
+            echo "No typecheckable areas changed — nothing to do."
+          fi
+
+  # Test suites plus the bundle-freshness check. Both answer "does the committed code do
+  # what source says", which is why they share a job rather than splitting further.
+  #
+  # Absorbed from evalforge-action-ci.yml, which was path-filtered and so could not be
+  # required without recreating the deadlock described at the top of this file.
+  test:
+    needs: detect
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4
+        if: ${{ needs.detect.outputs.evalforge == 'true' }}
+        with:
+          node-version: '24'
+
+      - name: evalforge-core — install, test, build
+        if: ${{ needs.detect.outputs.evalforge == 'true' }}
+        working-directory: packages/evalforge-core
+        run: |
+          yarn install --immutable
+          yarn test
+          yarn build
+
+      # Must run after core's build, for the same `portal:` reason as in the typecheck job.
+      - name: evalforge-yaml-gate — install, test
+        if: ${{ needs.detect.outputs.evalforge == 'true' }}
+        working-directory: .github/actions/evalforge-yaml-gate
+        run: |
+          yarn install --immutable
+          yarn test
+
+      - name: evalforge-skill-gate — install, test
+        if: ${{ needs.detect.outputs.evalforge == 'true' }}
+        working-directory: .github/actions/evalforge-skill-gate
+        run: |
+          yarn install --immutable
+          yarn test
+
+      # CI runs the committed bundles, not src — so a PR that changes source without
+      # rebuilding dist ships nothing. This is what let #689's assertion parity sit
+      # unbundled: source merged green, and the behavior never reached CI.
+      - name: Rebuild both action bundles
+        if: ${{ needs.detect.outputs.evalforge == 'true' }}
+        run: |
+          (cd .github/actions/evalforge-yaml-gate && yarn build)
+          (cd .github/actions/evalforge-skill-gate && yarn build)
+
+      - name: Fail if any dist is stale
+        if: ${{ needs.detect.outputs.evalforge == 'true' }}
+        run: |
+          if ! git diff --exit-code -- \
+              .github/actions/evalforge-yaml-gate/dist \
+              .github/actions/evalforge-skill-gate/dist; then
+            echo "::error::A committed dist/index.js does not match a fresh build. Run:"
+            echo "::error::  (cd packages/evalforge-core && yarn build)"
+            echo "::error::  (cd .github/actions/evalforge-yaml-gate && yarn build)"
+            echo "::error::  (cd .github/actions/evalforge-skill-gate && yarn build)"
+            echo "::error::then commit the regenerated dist."
+            exit 1
+          fi
+
+      - name: Summary
+        run: |
+          echo "evalforge: ${{ needs.detect.outputs.evalforge }}"
+          if [ "${{ needs.detect.outputs.evalforge }}" = "false" ]; then
+            echo "No tested areas changed — nothing to do."
+          fi
