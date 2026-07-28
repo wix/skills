@@ -1,0 +1,11 @@
+name: sync-smoke-test
+description: Throwaway scenario that exercises the sync-on-merge CREATE and DELETE paths end to end. Added and removed by back-to-back PRs; not intended to be run.
+triggerPrompt: |-
+  Build a dashboard page that displays the static text "sync smoke test" and nothing else.
+templateId: 8116ffa2-e212-4a74-a9f0-1738c9cbb6b1
+tags: [sync-smoke-test]
+assertions:
+  - type: build_passed
+    command: npm run build
+  - type: time_limit
+    maxDurationMs: 60000
