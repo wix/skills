@@ -102,6 +102,13 @@ runtime:
    `src/rest/` folder (it does `import { wixApiRequest } from "./wix-client.js"`, so the two
    files must sit side by side).
 
+There is also an optional **manage banner** — `references/shared/wix-manage-banner.js`, a
+dev-build-only banner linking the running app to the Wix Business Manager (the back office)
+behind it. Copy it beside `wix-client.js`, set `WIX_METASITE_ID`, and call
+`mountWixManageBanner()` once from the app entry. It renders only when a dev-build flag
+(`import.meta.env.DEV`) exists and is true — never in production, and not at all on stacks
+without such a flag.
+
 Each vertical's `INSTRUCTIONS.md` is the full playbook for that solution: when to use it,
 prerequisites, the exported API, how to wire it, the hard rules, and a verification checklist.
 **Open the relevant `INSTRUCTIONS.md` before wiring** — the shapes and gotchas live there.
