@@ -10,7 +10,7 @@ tags: [cms]
 assertions:
   - tool: ReadFullDocsArticle
     params:
-      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/cms/skills/cms-publishing-flow
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/cms/skills/cms-publishing-flow-visible-hidden
   - type: llm_judge
     minScore: 7
     maxTokens: 2048
