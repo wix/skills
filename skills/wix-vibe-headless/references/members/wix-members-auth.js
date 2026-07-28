@@ -72,6 +72,8 @@ function buildApproveUrl(origin, metaSiteId, callbackUri) {
  * Docs (curl the .md): custom login <https://dev.wix.com/docs/go-headless/self-managed-headless/authentication/members/custom-login-page/custom-login/custom-login-using-the-js-sdk.md>
  * · external/social login <https://dev.wix.com/docs/rest/business-management/headless-authentication/redirects/create-redirect-session>
  * · Retrieve Tokens <https://dev.wix.com/docs/rest/business-management/headless-authentication/authentication/retrieve-tokens>
+ * · allow redirect URIs & domains (the allow-listing this vertical's #1 gotcha is about, and what the
+ *   `approveUrl` deep link pre-fills) <https://dev.wix.com/docs/go-headless/authentication/setup/allow-redirect-uris-and-domains>
  */
 
 const AUTH_BASE = "/_api/iam/authentication/v2";

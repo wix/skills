@@ -63,6 +63,8 @@ have). Don't blend their exchange calls — the helper handles each internally.
      **before** returning — so the client can't catch it; you must register it up front.
    - Google & Facebook are enabled by default; **custom SSO** also needs an IDP connection created in
      the Business Manager, whose **connection id** you pass as `idp` (see "Custom SSO" below).
+   - **Docs — read this for the allow-listing setup (the authority on both fields):**
+     https://dev.wix.com/docs/go-headless/authentication/setup/allow-redirect-uris-and-domains
 
    > **⚠️ AGENT: this is a manual, owner-only step you cannot do from client-only code — surface it
    > proactively.** As soon as a run uses social/SSO (or deploys credential login to a non-`4321`
@@ -212,6 +214,7 @@ create in the Business Manager (dashboard link below).
 The helper covers sign-up / login / social / SSO / logout / current-member. For a genuine gap, extend
 with `wixApiRequest` — but confirm the endpoint, method, and body in the API reference first (or via
 the co-installed **`wix-docs`** skill). Never guess.
+- Allow redirect URIs & domains (allow-listing setup — this vertical's #1 gotcha; what the `approveUrl` pre-fills): https://dev.wix.com/docs/go-headless/authentication/setup/allow-redirect-uris-and-domains
 - Custom login (JS SDK, concepts mirror the REST calls): https://dev.wix.com/docs/go-headless/self-managed-headless/authentication/members/custom-login-page/custom-login/custom-login-using-the-js-sdk.md
 - External / social login (REST): https://dev.wix.com/docs/rest/business-management/headless-authentication/redirects/create-redirect-session
 - Retrieve Tokens (REST): https://dev.wix.com/docs/rest/business-management/headless-authentication/authentication/retrieve-tokens
