@@ -35,16 +35,17 @@ export function mountWixManageBanner() {
   if (typeof document === "undefined") return;
   if (document.getElementById("wix-manage-banner")) return;
 
+  // In normal flow as <body>'s first child — pushes the site down rather than
+  // floating over it.
   const bar = document.createElement("div");
   bar.id = "wix-manage-banner";
   bar.style.cssText =
-    "position:fixed;top:0;left:0;right:0;z-index:2147483647;display:flex;" +
-    "justify-content:center;padding:10px 16px;pointer-events:none;" +
+    "display:flex;justify-content:center;padding:10px 16px;background:#f4f4f7;" +
     "font-family:system-ui,-apple-system,sans-serif;";
 
   const card = document.createElement("div");
   card.style.cssText =
-    "pointer-events:auto;display:flex;align-items:center;gap:14px;" +
+    "display:flex;align-items:center;gap:14px;" +
     "background:#fff;color:#131720;border-radius:12px;padding:10px 20px;" +
     "font-size:15px;box-shadow:0 1px 4px rgba(0,0,0,.12);";
 
@@ -79,9 +80,9 @@ export function mountWixManageBanner() {
   const tip = document.createElement("span");
   tip.textContent = TIP_TEXT;
   tip.style.cssText =
-    "position:absolute;top:calc(100% + 8px);right:-8px;display:none;width:240px;" +
-    "background:#131720;color:#fff;font-size:12px;line-height:1.4;font-weight:400;" +
-    "border-radius:8px;padding:8px 12px;box-shadow:0 2px 8px rgba(0,0,0,.2);";
+    "position:absolute;top:calc(100% + 8px);right:-8px;z-index:2147483647;display:none;" +
+    "width:240px;background:#131720;color:#fff;font-size:12px;line-height:1.4;" +
+    "font-weight:400;border-radius:8px;padding:8px 12px;box-shadow:0 2px 8px rgba(0,0,0,.2);";
   info.append(tip);
   info.addEventListener("mouseenter", () => (tip.style.display = "block"));
   info.addEventListener("mouseleave", () => (tip.style.display = "none"));
@@ -90,5 +91,5 @@ export function mountWixManageBanner() {
 
   card.append(text, button, info);
   bar.append(card);
-  document.body.append(bar);
+  document.body.prepend(bar);
 }
