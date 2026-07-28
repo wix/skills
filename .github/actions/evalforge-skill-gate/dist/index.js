@@ -30119,6 +30119,72 @@ async function assertWixAuthor(octokit, owner, repo, prNumber, log) {
 
 /***/ }),
 
+/***/ 4527:
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.DEFAULT_COLLECT_LIMITS = void 0;
+exports.collectSkillFiles = collectSkillFiles;
+const node_fs_1 = __nccwpck_require__(3024);
+const node_path_1 = __nccwpck_require__(6760);
+const glob_1 = __nccwpck_require__(2311);
+exports.DEFAULT_COLLECT_LIMITS = {
+    maxFileBytes: 1_000_000,
+    maxTotalBytes: 10_000_000,
+};
+/**
+ * Reads `<root>/<skillDir>/**` into the file list a skill-content capability version takes.
+ *
+ * Paths are relative to `skillDir`, so a collected file reads `references/DASHBOARD_PAGE.md`
+ * — matching what a scenario's `referenceFiles` assertions name.
+ *
+ * Caps throw rather than truncate: a silently shortened skill would be evaluated as if it
+ * were the whole thing, and the run would report on a skill that never existed.
+ */
+function collectSkillFiles(root, skillDir, options = {}) {
+    const limits = options.limits ?? exports.DEFAULT_COLLECT_LIMITS;
+    const skillRoot = node_path_1.posix.join(root, skillDir);
+    const relativePaths = glob_1.glob.sync('**/*', {
+        cwd: skillRoot,
+        nodir: true,
+        dot: false,
+        ignore: ['**/node_modules/**', '**/dist/**'],
+        posix: true,
+    }).sort();
+    const files = [];
+    let totalBytes = 0;
+    for (const relativePath of relativePaths) {
+        const buffer = (0, node_fs_1.readFileSync)(node_path_1.posix.join(skillRoot, relativePath));
+        // A NUL byte means this is not text, and skill content is text. Skipping keeps a stray
+        // image from breaking the version; warning keeps it from being invisible.
+        if (buffer.includes(0)) {
+            options.warn?.(`Skipping non-text file in ${skillDir}: ${relativePath}`);
+            continue;
+        }
+        if (buffer.byteLength > limits.maxFileBytes) {
+            throw new Error(`Skill file ${relativePath} is ${buffer.byteLength} bytes, over the per-file cap of `
+                + `${limits.maxFileBytes}. Split it or raise the cap — truncating would evaluate a skill `
+                + `that does not exist.`);
+        }
+        totalBytes += buffer.byteLength;
+        if (totalBytes > limits.maxTotalBytes) {
+            throw new Error(`Skill ${skillDir} exceeds the total content cap of ${limits.maxTotalBytes} bytes at `
+                + `${relativePath}. Raise the cap deliberately rather than shipping a partial skill.`);
+        }
+        files.push({ path: relativePath, content: buffer.toString('utf8') });
+    }
+    if (files.length === 0) {
+        throw new Error(`No files collected from ${skillRoot} — the skill directory is empty or mis-configured. `
+            + `Check the skill-dir input.`);
+    }
+    return files;
+}
+
+
+/***/ }),
+
 /***/ 6006:
 /***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
 
@@ -30652,6 +30718,7 @@ __exportStar(__nccwpck_require__(5992), exports);
 __exportStar(__nccwpck_require__(7208), exports);
 __exportStar(__nccwpck_require__(473), exports);
 __exportStar(__nccwpck_require__(5781), exports);
+__exportStar(__nccwpck_require__(4527), exports);
 
 
 /***/ }),
