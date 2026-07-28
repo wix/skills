@@ -94,11 +94,6 @@ const OAUTH_STASH_KEY = `wix-oauth-data-${WIX_CLIENT_ID}`;
 // and either FORWARDS to identity's authorize path (allowed) or fails fast with the facts to build a
 // one-click approve link (not allowed) — keeping this approve UX out of generic identity, the same
 // pattern Wix-hosted checkout already uses.
-//
-// TODO(gate): this gate hop is a headless-layer stopgap. If/when identity's official authorize flow
-// gains fail-fast + approve natively, drop the gate and point the iframe / redirect straight back at
-// `fullUrl` (remove GATE_BASE and the two gateUrl builders below; use `u.pathname + u.search` on
-// `u.origin`). Until then, keep routing through the gate.
 const GATE_BASE = "/_serverless/wix-to-headless-redirect";
 
 /**

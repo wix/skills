@@ -86,18 +86,14 @@ have). Don't blend their exchange calls — the helper handles each internally.
    > This is a build/test-time safety net — a correctly-registered site never hits it — so surface it
    > plainly; no need to distinguish owner vs visitor (matches the platform's checkout "approve" page).
 
-## Why login routes through the Wix "gate" (and a TODO to carry forward)
+## Why login routes through the Wix "gate"
 Both mechanisms send the browser to a **headless gate** (`/_serverless/wix-to-headless-redirect/…`)
 instead of straight to identity's authorize URL. The gate checks this app against the OAuth app's
 allow-list and either **forwards** to identity (allowed) or **fails fast with a one-click approve
 link** (not allowed). Without it, the *pure* identity flow dead-ends when the app isn't allow-listed:
 credential login silently hangs (the `web_message` postMessage is dropped), and social shows a generic
-"Invalid redirect URI" page that never returns to your app — neither is actionable.
-
-> **⚠️ AGENT: leave a `TODO` in the app** next to the login wiring (and note the helper's `TODO(gate)`
-> marker): the gate hop is a **stopgap** in the headless layer. If/when identity's official authorize
-> flow supports fail-fast + approve natively, drop the gate and point the flow straight back at the
-> redirect-session `fullUrl`. Don't remove the gate now — it's what makes the approve UX work today.
+"Invalid redirect URI" page that never returns to your app — neither is actionable. Keep routing
+through the gate (the helper does this for you) — it's what makes the approve UX work.
 
 ## The API (copy as-is; do not re-derive it)
 Copy `wix-client.js` + `wix-members-auth.js` into `src/rest/` and set `WIX_CLIENT_ID`. Exports of
