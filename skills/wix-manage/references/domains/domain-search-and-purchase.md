@@ -199,8 +199,25 @@ If no products returned → TLD not supported, suggest `.com` / `.net` / `.org`.
 Addon product type (all three): `b3d86a1d-9db3-4f69-bd54-c132808856b1`
 
 **Contact:** `GET https://manage.wix.com/v1/domain-registration-intents/preview/{domain}`
-- Contacts exist → show them, ask to confirm or provide new.
-- No contacts → collect: first name, last name, email, phone (`+{countryCode}.{number}`), street address, city, country (ISO-2), postal code.
+
+Response contains `domainRegistrationIntent` with existing contacts:
+```json
+{
+  "domainRegistrationIntent": {
+    "registrantContact": {
+      "firstName": "...", "lastName": "...", "email": "...", "phone": "...",
+      "streetAddress": "...", "city": "...", "country": "...", "postalCode": "..."
+    },
+    "adminContact": { ... },
+    "techContact": { ... }
+  }
+}
+```
+
+> Address fields are **flat** on each contact (`streetAddress`, `city`, `country`, `postalCode`) — there is no nested `address` sub-object.
+
+- **Contacts exist:** Show the info and explicitly ask *"Should I use these details, or would you like to register with different info?"* Wait for the user to confirm before proceeding to 4P-c. Do NOT skip this confirmation.
+- **No contacts:** Ask the user for: first name, last name, email, phone number, street address, city, country, and postal code. The user can provide country as a full name (e.g. "Israel", "United States") — convert it to the 2-letter ISO country code (e.g. "IL", "US") before sending to the API. Wait for all fields before proceeding.
 
 ### 4P-c — Save contact info
 
