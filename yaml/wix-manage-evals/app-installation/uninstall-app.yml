@@ -1,0 +1,42 @@
+name: app-installation/uninstall-app
+description: >-
+  Verifies the agent reads the uninstall-app skill and, when the Uninstall App call
+  fails with HAS_EDITOR_PRESENCE, explains the real remediation instead of blindly
+  retrying or telling the user to just close the editor and wait.
+triggerPrompt: >-
+  I called the Wix Uninstall App endpoint to remove Wix Bookings from my site (tenant
+  SITE, appDefId 13d21c63-b5ec-5912-8397-c3a5ddb27a97). It failed with 428
+  FAILED_PRECONDITION, code UNINSTALL_FAILED, reason "HAS_EDITOR_PRESENCE" on the
+  MetaSite. I already closed the Wix Editor and waited 5 minutes, then retried, and got
+  the exact same error again. What's going on and what should I do?
+tags: [app-installation]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/app-installation/skills/uninstall-app
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user hit HAS_EDITOR_PRESENCE on Uninstall App, already closed the editor and
+      waited, and retried with an identical failure.
+
+      Intent: explain that HAS_EDITOR_PRESENCE is a persisted flag on the app's install
+      state (the app has components placed in the site's Wix Editor), not a live/expiring
+      editor session lock, and that closing the editor tab and waiting does not clear it.
+
+      Pass if the response:
+      - explains HAS_EDITOR_PRESENCE means the app has pages/widgets/components placed in
+        the site's Editor, not that someone currently has an editor session open, AND
+      - explicitly says closing the editor and/or waiting will not clear this and retrying
+        the same call will keep failing identically, AND
+      - gives the correct remediation: open the site in the actual Wix Editor, remove the
+        app's components there, and save (or otherwise use the Editor UI itself) before the
+        uninstall can succeed, AND
+      - does not recommend simply retrying the API call again or waiting longer as a fix.
+
+      Fail if the response:
+      - suggests retrying the identical call, waiting longer, or re-closing the editor as a
+        plausible fix, OR
+      - describes HAS_EDITOR_PRESENCE as a live session/lock that should expire on its own, OR
+      - has no concrete remediation at all.

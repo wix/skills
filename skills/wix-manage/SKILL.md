@@ -29,6 +29,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ### [List Installed Apps](references/app-installation/list-installed-apps.md)
 **Technical:** Lists all apps installed on a site using Apps Installer API. Useful for verifying app installations before making API calls and diagnosing authorization errors.
 
+### [Uninstall App](references/app-installation/uninstall-app.md)
+**Technical:** Uninstalls a Wix app from a site using the Apps Installer API. Covers the HAS_EDITOR_PRESENCE precondition failure and why blind retries never resolve it.
+
 ---
 
 ## Analytics
