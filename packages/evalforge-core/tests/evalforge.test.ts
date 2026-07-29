@@ -260,13 +260,13 @@ describe('EvalForgeClient (V1) — eval runs', () => {
     await expect(c.triggerEvalRun('P', 'run-1')).resolves.toEqual({ evalRunId: 'run-1' });
   });
 
-  it('getEvalRun unwraps {evalRun}, lowercases status, and converts passRate to a percent', async () => {
+  it('getEvalRun unwraps {evalRun}, lowercases status, and keeps passRate as a percentage', async () => {
     mockFetch(({ url, method }) => {
       expect(method).toBe('GET');
       expect(url).toContain('/v1/projects/P/eval-runs/run-1');
       return {
         status: 200,
-        body: { evalRun: { id: 'run-1', status: 'COMPLETED', progress: 100, aggregateMetrics: { totalAssertions: 4, passed: 3, failed: 1, passRate: 0.75 } } },
+        body: { evalRun: { id: 'run-1', status: 'COMPLETED', progress: 100, aggregateMetrics: { totalAssertions: 4, passed: 3, failed: 1, passRate: 75 } } },
       };
     });
     const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);

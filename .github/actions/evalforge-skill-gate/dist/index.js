@@ -30506,10 +30506,11 @@ function assertNotTruncated(received, meta, path) {
 function normalizeStatus(s) {
     return String(s).toLowerCase();
 }
-// V1 `pass_rate` is a fraction (0.0–1.0); the action's internal contract (and
-// comment.ts) expects an integer percentage (0–100).
-function toPercent(fraction) {
-    return Math.round((fraction ?? 0) * 100);
+// V1 `pass_rate` already arrives as a percentage (0–100), verified against 8 real runs in the
+// App Builder project: 4/5 reports 80, 26/30 reports 86.667. Multiplying by 100 here rendered
+// every comment as "10000%".
+function toPercent(passRate) {
+    return Math.round(passRate ?? 0);
 }
 // Client for the EvalForge V1 REST API (`${baseUrl}/v1/...`, e.g.
 // https://manage.wix.com/_api/evalforge-backend/v1/...), authenticated with an
