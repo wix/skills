@@ -1,6 +1,8 @@
 # AGENTS.md
 
-Read and follow `CONTRIBUTING.md` before editing this repository. What it covers, one line each:
+Read and follow `CONTRIBUTING.md` before editing this repository. It is the entry point;
+`docs/eval-scenarios.md` holds the scenario format and `docs/skill-evaluation.md` explains the
+automated checks. What they cover, one line each:
 
 - **Skill placement** — no new top-level skills (admin-only); new content goes into an existing skill (`wix-manage`, `wix-app`, `wix-design-system`, `wix-headless`), usually as a new reference.
 - **Adding a wix-manage skill** — a change is FOUR files, not one: the reference `.md` + the `SKILL.md` index entry + a `yaml/wix-manage/<area>/documentation.yaml` entry + an eval scenario under `yaml/wix-manage-evals/<area>/`.
