@@ -68,7 +68,7 @@ async function loadHeadScenarios(
 ): Promise<Guarded<Map<string, LoadedScenario>>> {
   const { scenarios, errors } = loadScenarios(workspace, config.evalsGlob);
   if (errors.length === 0) return { ok: true, value: scenarios };
-  await comment(formatYamlErrors(errors));
+  await comment(formatYamlErrors(errors, config.isBlocking));
   fail(`Invalid scenario YAML or duplicate names: ${errors.length}`, config.isBlocking);
   return HALTED;
 }

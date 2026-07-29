@@ -27,7 +27,7 @@ const baseResult = {
 describe('every gate comment', () => {
   it('carries the marker so the upserter can find and edit it', () => {
     for (const body of [
-      formatYamlErrors([{ path: 'a.yml', message: 'bad' }]),
+      formatYamlErrors([{ path: 'a.yml', message: 'bad' }], true),
       formatNoGatedChanges([]),
       formatGuardFailure({ violations: [{ kind: 'UNCOVERED_TAG', tag: 't' }], warnings: [], blocking: true, scenarioDir: 'd' }),
       formatForeignDraftConflicts([{ kind: 'FOREIGN_DRAFT', name: 'n', foreignTags: ['draft:o/r#1'] }], true),
@@ -42,9 +42,24 @@ describe('every gate comment', () => {
 
 describe('formatYamlErrors', () => {
   it('lists each offending file and message', () => {
-    const body = formatYamlErrors([{ path: 'yaml/wix-app-evals/a.yml', message: 'tags required' }]);
+    const body = formatYamlErrors([{ path: 'yaml/wix-app-evals/a.yml', message: 'tags required' }], true);
     expect(body).toContain('yaml/wix-app-evals/a.yml');
     expect(body).toContain('tags required');
+  });
+
+  // It used to render ❌ unconditionally while `fail` only warned, so a soaking PR showed a hard
+  // failure next to a green check with nothing explaining the mismatch.
+  it('renders as a warning and says why the check is green when soaking', () => {
+    const body = formatYamlErrors([{ path: 'a.yml', message: 'bad' }], false);
+    expect(body).toContain('⚠️');
+    expect(body).not.toContain('❌');
+    expect(body).toContain('soak period');
+  });
+
+  it('renders as a hard failure with no soak note when blocking', () => {
+    const body = formatYamlErrors([{ path: 'a.yml', message: 'bad' }], true);
+    expect(body).toContain('❌');
+    expect(body).not.toContain('soak period');
   });
 });
 
@@ -280,5 +295,51 @@ describe('formatGateSkipped', () => {
       blocking: true, scenarioDir: 'yaml/wix-app-evals',
     });
     expect(body).toContain('quality bar');
+  });
+});
+
+describe('gate result presentation', () => {
+  const verdict = { passed: true, reasons: [] };
+  const base = {
+    runId: 'run-1', runUrl: 'https://example.com/run-1', maxScenarios: 25,
+    warnings: [], unmapped: [], broadImpact: false, blocking: false, verdict,
+  };
+
+  // The API sends a fraction of a percent — 26/30 arrives as 86.667, which rendered in full.
+  it('rounds the pass rate rather than printing the API fraction', () => {
+    const body = formatGateResult({
+      ...base,
+      metrics: metrics({ totalAssertions: 30, passed: 26, failed: 4, passRate: 86.667 }),
+      selection: { ids: ['i'], selected: ['one'], dropped: [], missingIds: [] },
+    });
+    expect(body).toContain('87%');
+    expect(body).not.toContain('86.667');
+  });
+
+  it('says "1 scenario" and "2 scenarios", not "scenario(s)"', () => {
+    const one = formatGateResult({
+      ...base, metrics: metrics(),
+      selection: { ids: ['i'], selected: ['one'], dropped: [], missingIds: [] },
+    });
+    const two = formatGateResult({
+      ...base, metrics: metrics(),
+      selection: { ids: ['i', 'j'], selected: ['one', 'two'], dropped: [], missingIds: [] },
+    });
+    expect(one).toContain('1 scenario ran');
+    expect(two).toContain('2 scenarios ran');
+    expect(one + two).not.toContain('scenario(s)');
+  });
+});
+
+describe('formatGateServiceError', () => {
+  it('names the stage rather than heading a bare "Failed"', () => {
+    expect(formatGateServiceError('Could not reach EvalForge', true)).toContain('Service Error');
+  });
+
+  // Nothing broke in the zero-selection case; the gate just had nothing to run.
+  it('takes a caller label, so "nothing verified" does not read as a service outage', () => {
+    const body = formatGateServiceError('nothing was verified', false, 'Nothing Verified');
+    expect(body).toContain('Nothing Verified');
+    expect(body).not.toContain('Service Error');
   });
 });

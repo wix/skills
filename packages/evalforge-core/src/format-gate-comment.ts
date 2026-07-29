@@ -16,6 +16,15 @@ function failIcon(blocking: boolean): { icon: string; label: string } {
   return blocking ? { icon: '❌', label: 'Failed' } : { icon: '⚠️', label: 'Warning' };
 }
 
+function count(quantity: number, noun: string): string {
+  return `${quantity} ${noun}${quantity === 1 ? '' : 's'}`;
+}
+
+/** The API sends a fraction of a percent (26/30 arrives as 86.667); nobody needs the decimals. */
+function percent(passRate: number): number {
+  return Math.round(passRate);
+}
+
 function soakNote(blocking: boolean): string[] {
   return blocking
     ? []
@@ -42,11 +51,13 @@ function warningSection(warnings: GuardWarning[]): string[] {
   ];
 }
 
-export function formatYamlErrors(errors: LoadError[]): string {
-  return render('❌', 'Invalid Scenario YAML', [
+export function formatYamlErrors(errors: LoadError[], blocking: boolean): string {
+  const { icon } = failIcon(blocking);
+  return render(icon, 'Invalid Scenario YAML', [
     'These scenario files did not parse against the schema:',
     '',
     ...errors.map(error => `- \`${error.path}\`: ${error.message}`),
+    ...soakNote(blocking),
   ]);
 }
 
@@ -138,7 +149,7 @@ export function formatGateResult(input: {
   const { icon, label } = verdict.passed ? { icon: '✅', label: 'Passed' } : failIcon(input.blocking);
 
   const body: string[] = [
-    `**Pass rate:** ${metrics.passRate}% — ${metrics.passed}/${metrics.totalAssertions} assertions passed`
+    `**Pass rate:** ${percent(metrics.passRate)}% — ${metrics.passed}/${metrics.totalAssertions} assertions passed`
     + (metrics.failed > 0 ? `, ${metrics.failed} failed` : '')
     + (metrics.errors > 0 ? `, ${metrics.errors} errored` : ''),
     `**Run:** [${input.runId}](${input.runUrl})`,
@@ -151,8 +162,8 @@ export function formatGateResult(input: {
   body.push(
     '',
     input.broadImpact
-      ? `**Scope:** a cross-cutting file changed, so the whole suite was in play — ${selection.selected.length} scenario(s) ran.`
-      : `**Scope:** ${selection.selected.length} scenario(s) ran.`,
+      ? `**Scope:** a cross-cutting file changed, so the whole suite was in play — ${count(selection.selected.length, 'scenario')} ran.`
+      : `**Scope:** ${count(selection.selected.length, 'scenario')} ran.`,
     '',
     ...selection.selected.map(name => `- \`${name}\``),
   );
@@ -188,7 +199,11 @@ export function formatGateTimeout(runId: string, runUrl: string, blocking: boole
   ]);
 }
 
-export function formatGateServiceError(message: string, blocking: boolean): string {
-  const { icon, label } = failIcon(blocking);
+/**
+ * `label` defaults to a service failure, the common case. The zero-selection guard passes its own:
+ * nothing broke there, the gate simply had nothing to run, and that deserves saying in the heading.
+ */
+export function formatGateServiceError(message: string, blocking: boolean, label = 'Service Error'): string {
+  const { icon } = failIcon(blocking);
   return render(icon, label, [message, ...soakNote(blocking)]);
 }
