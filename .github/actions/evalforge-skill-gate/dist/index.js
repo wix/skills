@@ -30803,6 +30803,13 @@ function render(icon, label, body) {
 function failIcon(blocking) {
     return blocking ? { icon: '❌', label: 'Failed' } : { icon: '⚠️', label: 'Warning' };
 }
+function count(quantity, noun) {
+    return `${quantity} ${noun}${quantity === 1 ? '' : 's'}`;
+}
+/** The API sends a fraction of a percent (26/30 arrives as 86.667); nobody needs the decimals. */
+function percent(passRate) {
+    return Math.round(passRate);
+}
 function soakNote(blocking) {
     return blocking
         ? []
@@ -30826,11 +30833,13 @@ function warningSection(warnings) {
         ...warnings.map(warning => `- \`${warning.path}\` (\`${warning.name}\`, tagged ${warning.tags.map(tag => `\`${tag}\``).join(', ')}) — ${warning.reasons.join('; ')}`),
     ];
 }
-function formatYamlErrors(errors) {
-    return render('❌', 'Invalid Scenario YAML', [
+function formatYamlErrors(errors, blocking) {
+    const { icon } = failIcon(blocking);
+    return render(icon, 'Invalid Scenario YAML', [
         'These scenario files did not parse against the schema:',
         '',
         ...errors.map(error => `- \`${error.path}\`: ${error.message}`),
+        ...soakNote(blocking),
     ]);
 }
 /**
@@ -30898,7 +30907,7 @@ function formatGateResult(input) {
     const { metrics, verdict, selection } = input;
     const { icon, label } = verdict.passed ? { icon: '✅', label: 'Passed' } : failIcon(input.blocking);
     const body = [
-        `**Pass rate:** ${metrics.passRate}% — ${metrics.passed}/${metrics.totalAssertions} assertions passed`
+        `**Pass rate:** ${percent(metrics.passRate)}% — ${metrics.passed}/${metrics.totalAssertions} assertions passed`
             + (metrics.failed > 0 ? `, ${metrics.failed} failed` : '')
             + (metrics.errors > 0 ? `, ${metrics.errors} errored` : ''),
         `**Run:** [${input.runId}](${input.runUrl})`,
@@ -30907,8 +30916,8 @@ function formatGateResult(input) {
         body.push('', `**Why this ${input.blocking ? 'blocks' : 'would block'}:** ${verdict.reasons.join('; ')}`);
     }
     body.push('', input.broadImpact
-        ? `**Scope:** a cross-cutting file changed, so the whole suite was in play — ${selection.selected.length} scenario(s) ran.`
-        : `**Scope:** ${selection.selected.length} scenario(s) ran.`, '', ...selection.selected.map(name => `- \`${name}\``));
+        ? `**Scope:** a cross-cutting file changed, so the whole suite was in play — ${count(selection.selected.length, 'scenario')} ran.`
+        : `**Scope:** ${count(selection.selected.length, 'scenario')} ran.`, '', ...selection.selected.map(name => `- \`${name}\``));
     if (selection.dropped.length > 0) {
         body.push('', `**Capped at \`max-scenarios: ${input.maxScenarios}\`** — these were not run:`, ...selection.dropped.map(name => `- \`${name}\``));
     }
@@ -30928,8 +30937,12 @@ function formatGateTimeout(runId, runUrl, blocking) {
         ...soakNote(blocking),
     ]);
 }
-function formatGateServiceError(message, blocking) {
-    const { icon, label } = failIcon(blocking);
+/**
+ * `label` defaults to a service failure, the common case. The zero-selection guard passes its own:
+ * nothing broke there, the gate simply had nothing to run, and that deserves saying in the heading.
+ */
+function formatGateServiceError(message, blocking, label = 'Service Error') {
+    const { icon } = failIcon(blocking);
     return render(icon, label, [message, ...soakNote(blocking)]);
 }
 
@@ -62102,7 +62115,7 @@ async function loadHeadScenarios(workspace, config, comment) {
     const { scenarios, errors } = (0, evalforge_core_1.loadScenarios)(workspace, config.evalsGlob);
     if (errors.length === 0)
         return { ok: true, value: scenarios };
-    await comment((0, evalforge_core_1.formatYamlErrors)(errors));
+    await comment((0, evalforge_core_1.formatYamlErrors)(errors, config.isBlocking));
     (0, report_1.fail)(`Invalid scenario YAML or duplicate names: ${errors.length}`, config.isBlocking);
     return report_1.HALTED;
 }
@@ -62402,7 +62415,7 @@ async function resolveScenarioIds(config, scope, nameToId, comment) {
         return { ok: true, value: selection };
     // A gate that resolved nothing to run must not report a green check.
     const message = 'No eval scenarios could be resolved to run, so nothing was verified';
-    await comment((0, evalforge_core_1.formatGateServiceError)(message, config.isBlocking));
+    await comment((0, evalforge_core_1.formatGateServiceError)(message, config.isBlocking, 'Nothing Verified'));
     (0, report_1.fail)(message, config.isBlocking);
     return report_1.HALTED;
 }
