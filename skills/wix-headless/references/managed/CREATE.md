@@ -93,6 +93,20 @@ Run the agnostic flow against the scaffolded site:
   (`createClient({ modules, auth: OAuthStrategy({ clientId }) })`), where `clientId` is the public
   `appId` from the `wix.config.json` written by `init` (§1).
 
+**If the user didn't specify their own design direction** (no palette, no theme/style words, no
+reference site, no brand guidelines), **decide the run's design tokens per `references/DESIGN.md`**
+before writing any component — theme polarity, a 2–4 color palette, type scale, radius/spacing — and
+hold them for reuse across every page and the themed-block fallback (`IMAGE_GENERATION.md`). If the
+user *did* specify a direction, use theirs instead — `DESIGN.md` is a fallback, not a checklist to
+enforce over an explicit ask. Either way, `DESIGN.md` §3's accessibility floor (WCAG 2.2 AA contrast,
+16px/1.5 body type) always applies — a page that fails it isn't done yet, regardless of whose palette
+it's using.
+
+**For page copy:** if the user didn't supply their own copy or voice direction, write hero/section
+headlines, kickers, subtitles, and CTA labels per **`references/CONTENT.md`** — otherwise use theirs.
+Either way, `CONTENT.md` §1 (the business's category must read literally above the fold) always holds —
+a page a first-time visitor can't identify isn't done yet, regardless of voice.
+
 Then build the pages the user's intent calls for, **wired to the live backend**, using
 **`references/SDK_HANDOFF.md`** for the per-capability packages, the SDK docs, and the seeded schema to
 bind (collection/form names + field keys; all other content is queried live). Install the SDK packages the loaded verticals need, author the pages/components directly in the

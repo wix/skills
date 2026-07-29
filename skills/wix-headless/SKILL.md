@@ -122,6 +122,8 @@ Compute `<SKILL_ROOT>` from this file (`<SKILL_ROOT>/SKILL.md` — strip `/SKILL
 | Seed (create backend content) | `<SKILL_ROOT>/references/SEED.md` |
 | SDK-integration handoff (emitted, or applied by create/connect) | `<SKILL_ROOT>/references/SDK_HANDOFF.md` |
 | Image generation (opt-in; agnostic) | `<SKILL_ROOT>/references/IMAGE_GENERATION.md` |
+| Design — fallback visual quality bar for the built frontend, when the user gave no design direction of their own (managed **create** only) | `<SKILL_ROOT>/references/DESIGN.md` |
+| Content — fallback copy quality bar for the built frontend, when the user gave no copy/voice direction of their own (managed **create** only) | `<SKILL_ROOT>/references/CONTENT.md` |
 | AI features — text/chat + embeddings (opt-in; agnostic) | `<SKILL_ROOT>/references/AI_FEATURES.md` |
 | Feedback — relay the user's headless-experience feedback to Wix (opt-in; user-approved) | `<SKILL_ROOT>/references/FEEDBACK.md` |
 | **Authentication** — obtain `$TOKEN`/`$SITE_ID`/`clientId` (project-type-specific) | `<TYPE_DIR>/AUTHENTICATION.md` |
