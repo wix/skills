@@ -1,7 +1,7 @@
 import * as core from '@actions/core';
 import { posix } from 'node:path';
 import {
-  EvalForgeClient, deletePrCapabilityVersions, draftTagFor, loadScenarios, planCleanup,
+  CleanupKind, EvalForgeClient, deletePrCapabilityVersions, draftTagFor, loadScenarios, planCleanup,
   type CleanupAction, type RemoteScenario,
 } from '@wix/evalforge-core';
 import { getCleanupConfig, BASE_WORKSPACE_SUBDIR } from './config';
@@ -45,8 +45,8 @@ export async function runCleanup(): Promise<void> {
   }
 
   const plan = planCleanup(remote, baseScenarios, draftTag, config.repoFullName);
-  const restoreCount = plan.filter(action => action.kind === 'RESTORE').length;
-  const deleteCount = plan.filter(action => action.kind === 'DELETE').length;
+  const restoreCount = plan.filter(action => action.kind === CleanupKind.RESTORE).length;
+  const deleteCount = plan.filter(action => action.kind === CleanupKind.DELETE).length;
   core.info(`Cleanup plan: ${plan.length} action(s) — RESTORE=${restoreCount} DELETE=${deleteCount}`);
 
   for (const action of plan) await execute(client, config.projectId, action);
@@ -54,7 +54,7 @@ export async function runCleanup(): Promise<void> {
 
 async function execute(client: EvalForgeClient, projectId: string, action: CleanupAction): Promise<void> {
   try {
-    if (action.kind === 'RESTORE') {
+    if (action.kind === CleanupKind.RESTORE) {
       await client.updateTestScenario(projectId, action.id, action.body, action.tags);
       core.info(`Restored ${action.name} to its pre-PR state`);
     } else {
@@ -62,7 +62,7 @@ async function execute(client: EvalForgeClient, projectId: string, action: Clean
       core.info(`Deleted draft ${action.name}`);
     }
   } catch (error) {
-    const verb = action.kind === 'RESTORE' ? 'Restore' : 'Delete draft';
+    const verb = action.kind === CleanupKind.RESTORE ? 'Restore' : 'Delete draft';
     core.warning(`${verb} failed for ${action.name}: ${describeError(error)}`);
   }
 }

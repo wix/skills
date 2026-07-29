@@ -61625,16 +61625,16 @@ const report_1 = __nccwpck_require__(7267);
 async function applySyncPlan(client, config, actions, nameToId, comment) {
     for (const action of actions) {
         try {
-            if (action.kind === 'CREATE') {
+            if (action.kind === evalforge_core_1.SyncActionKind.CREATE) {
                 const created = await client.createTestScenario(config.projectId, action.body, action.tags);
                 nameToId.set(action.name, created.id);
                 core.info(`Created scenario ${action.name} (${created.id})`);
             }
-            else if (action.kind === 'UPDATE') {
+            else if (action.kind === evalforge_core_1.SyncActionKind.UPDATE) {
                 await client.updateTestScenario(config.projectId, action.id, action.body, action.tags);
                 core.info(`Updated scenario ${action.name} (${action.id})`);
             }
-            else if (action.kind === 'DELETE') {
+            else if (action.kind === evalforge_core_1.SyncActionKind.DELETE) {
                 await client.deleteTestScenario(config.projectId, action.id);
                 nameToId.delete(action.name);
                 core.info(`Deleted draft scenario ${action.name} (${action.id})`);
@@ -61732,15 +61732,15 @@ async function runCleanup() {
         core.warning(`Base SHA scenario issue at ${baseRoot}/${error.path}: ${error.message}`);
     }
     const plan = (0, evalforge_core_1.planCleanup)(remote, baseScenarios, draftTag, config.repoFullName);
-    const restoreCount = plan.filter(action => action.kind === 'RESTORE').length;
-    const deleteCount = plan.filter(action => action.kind === 'DELETE').length;
+    const restoreCount = plan.filter(action => action.kind === evalforge_core_1.CleanupKind.RESTORE).length;
+    const deleteCount = plan.filter(action => action.kind === evalforge_core_1.CleanupKind.DELETE).length;
     core.info(`Cleanup plan: ${plan.length} action(s) — RESTORE=${restoreCount} DELETE=${deleteCount}`);
     for (const action of plan)
         await execute(client, config.projectId, action);
 }
 async function execute(client, projectId, action) {
     try {
-        if (action.kind === 'RESTORE') {
+        if (action.kind === evalforge_core_1.CleanupKind.RESTORE) {
             await client.updateTestScenario(projectId, action.id, action.body, action.tags);
             core.info(`Restored ${action.name} to its pre-PR state`);
         }
@@ -61750,7 +61750,7 @@ async function execute(client, projectId, action) {
         }
     }
     catch (error) {
-        const verb = action.kind === 'RESTORE' ? 'Restore' : 'Delete draft';
+        const verb = action.kind === evalforge_core_1.CleanupKind.RESTORE ? 'Restore' : 'Delete draft';
         core.warning(`${verb} failed for ${action.name}: ${(0, report_1.describeError)(error)}`);
     }
 }

@@ -1,5 +1,5 @@
 import * as core from '@actions/core';
-import { EvalForgeClient, formatGateServiceError, type Commenter, type SyncAction } from '@wix/evalforge-core';
+import { EvalForgeClient, SyncActionKind, formatGateServiceError, type Commenter, type SyncAction } from '@wix/evalforge-core';
 import { describeError, fail } from './report';
 import type { GateConfig } from './config';
 
@@ -16,14 +16,14 @@ export async function applySyncPlan(
 ): Promise<boolean> {
   for (const action of actions) {
     try {
-      if (action.kind === 'CREATE') {
+      if (action.kind === SyncActionKind.CREATE) {
         const created = await client.createTestScenario(config.projectId, action.body, action.tags);
         nameToId.set(action.name, created.id);
         core.info(`Created scenario ${action.name} (${created.id})`);
-      } else if (action.kind === 'UPDATE') {
+      } else if (action.kind === SyncActionKind.UPDATE) {
         await client.updateTestScenario(config.projectId, action.id, action.body, action.tags);
         core.info(`Updated scenario ${action.name} (${action.id})`);
-      } else if (action.kind === 'DELETE') {
+      } else if (action.kind === SyncActionKind.DELETE) {
         await client.deleteTestScenario(config.projectId, action.id);
         nameToId.delete(action.name);
         core.info(`Deleted draft scenario ${action.name} (${action.id})`);
