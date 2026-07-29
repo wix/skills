@@ -326,6 +326,49 @@ describe('EvalForgeClient (V1) — 401 handling', () => {
   });
 });
 
+describe('EvalForgeClient (V1) — createMcpVersion payload', () => {
+  // The gate is the only writer of this config, and EvalForge only substitutes
+  // placeholders it still knows about — so pin the exact auth header and URL.
+  // Drifting from EvalForge here fails every eval run, not just this repo's.
+  it('authenticates the PR MCP with the base64 user session, pinned to the PR commit', async () => {
+    let posted: any;
+    mockFetch(({ url, method, body }) => {
+      expect(method).toBe('POST');
+      expect(url).toContain('/v1/projects/P/capabilities/M/versions');
+      posted = body;
+      return { status: 200, body: { capabilityVersion: { id: 'ver-1', capabilityId: 'M', version: 'pr-7-abc1234' } } };
+    });
+    const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    await c.createMcpVersion('M', 'P', 'pr-7-abc1234', 7, 'abc1234', 'wix/skills');
+
+    const server = posted.capabilityVersion.mcpContent.config['wix-mcp-remote'];
+    expect(server.type).toBe('http');
+    expect(server.url).toBe('https://mcp.wix.com/mcp?skillsRepo=wix%2Fskills&skillsPr=abc1234');
+    expect(server.headers).toEqual({ 'x-wix-mcp-account-token': '{{wix-auth-account-token}}' });
+    expect(posted.capabilityVersion.origin).toBe('pr');
+    expect(posted.capabilityVersion.notes).toBe('Auto-created for PR #7');
+  });
+
+  it('emits no literal credential and none of the retired placeholders', async () => {
+    let raw = '';
+    mockFetch(({ body }) => {
+      raw = JSON.stringify(body);
+      return { status: 200, body: { capabilityVersion: { id: 'ver-1', capabilityId: 'M', version: 'pr-7-abc1234' } } };
+    });
+    const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    await c.createMcpVersion('M', 'P', 'pr-7-abc1234', 7, 'abc1234', 'wix/skills');
+
+    // EvalForge dropped these; a config still carrying them fails the run.
+    expect(raw).not.toContain('{{wix-auth-token}}');
+    expect(raw).not.toContain('{{wix-auth-user-id}}');
+    expect(raw).not.toContain('Authorization');
+    expect(raw).not.toContain('wix-account-id');
+    // Every credential must arrive as a placeholder EvalForge resolves at run time.
+    expect(raw).not.toContain('IST.');
+    expect(raw).not.toContain('Bearer ');
+  });
+});
+
 describe('EvalForgeClient (V1) — ensureMcpVersion idempotency', () => {
   const listBody = (version: string) => ({ capabilityVersions: [{ id: 'ver-1', capabilityId: 'M', version }] });
 
