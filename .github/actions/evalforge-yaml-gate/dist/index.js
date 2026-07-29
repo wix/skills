@@ -34907,6 +34907,7 @@ exports.formatGuardFailure = formatGuardFailure;
 exports.formatForeignDraftConflicts = formatForeignDraftConflicts;
 exports.formatGateResult = formatGateResult;
 exports.formatGateTimeout = formatGateTimeout;
+exports.formatGatePollFailure = formatGatePollFailure;
 exports.formatGateServiceError = formatGateServiceError;
 const evalforge_1 = __nccwpck_require__(7230);
 exports.GATE_COMMENT_MARKER = '<!-- evalforge-skill-gate-action -->';
@@ -34923,6 +34924,10 @@ function count(quantity, noun) {
 /** The API sends a fraction of a percent (26/30 arrives as 86.667); nobody needs the decimals. */
 function percent(passRate) {
     return Math.round(passRate);
+}
+/** Shared by every outcome that has a run to point at. */
+function runLine(runId, runUrl) {
+    return `**Run:** [${runId}](${runUrl})`;
 }
 function soakNote(blocking) {
     return blocking
@@ -35024,7 +35029,7 @@ function formatGateResult(input) {
         `**Pass rate:** ${percent(metrics.passRate)}% — ${metrics.passed}/${metrics.totalAssertions} assertions passed`
             + (metrics.failed > 0 ? `, ${metrics.failed} failed` : '')
             + (metrics.errors > 0 ? `, ${metrics.errors} errored` : ''),
-        `**Run:** [${input.runId}](${input.runUrl})`,
+        runLine(input.runId, input.runUrl),
     ];
     if (!verdict.passed) {
         body.push('', `**Why this ${input.blocking ? 'blocks' : 'would block'}:** ${verdict.reasons.join('; ')}`);
@@ -35047,8 +35052,23 @@ function formatGateTimeout(runId, runUrl, blocking) {
     return render(blocking ? '⏱' : '⚠️', 'Timed Out', [
         'The eval run did not finish within the poll window. It may still be running in EvalForge.',
         '',
-        `**Run:** [${runId}](${runUrl})`,
+        runLine(runId, runUrl),
         ...soakNote(blocking),
+    ]);
+}
+/**
+ * Polling broke after the run started. Distinct from a service error, which has no run to name:
+ * here the run exists and may well have finished, so the link is the whole point of the comment.
+ */
+function formatGatePollFailure(input) {
+    const { icon } = failIcon(input.blocking);
+    return render(icon, 'Run Status Unavailable', [
+        `The run started, but the gate could not read its status: ${input.detail}`,
+        '',
+        'Open it to see whether it finished — the gate could not verify the result either way, so treat this as unverified rather than passing.',
+        '',
+        runLine(input.runId, input.runUrl),
+        ...soakNote(input.blocking),
     ]);
 }
 /**
@@ -35873,7 +35893,19 @@ function parseScenario(raw) {
             }
         }
     }
-    return exports.ScenarioSchema.parse(parsed);
+    const result = exports.ScenarioSchema.safeParse(parsed);
+    if (result.success)
+        return result.data;
+    throw new Error(describeIssues(result.error));
+}
+/**
+ * Zod's own `message` is the serialised issue array, so it reached the PR comment as ~15 lines of
+ * JSON for a one-line problem. One `path: message` per issue instead.
+ */
+function describeIssues(error) {
+    return error.issues
+        .map(issue => (issue.path.length === 0 ? issue.message : `${issue.path.join('.')}: ${issue.message}`))
+        .join('; ');
 }
 
 

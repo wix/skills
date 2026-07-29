@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
   GATE_COMMENT_MARKER, formatYamlErrors, formatNoGatedChanges, formatGuardFailure,
-  formatForeignDraftConflicts, formatGateResult, formatGateTimeout, formatGateServiceError, formatGateSkipped,
+  formatForeignDraftConflicts, formatGateResult, formatGatePollFailure, formatGateTimeout,
+  formatGateServiceError, formatGateSkipped,
 } from '../src/format-gate-comment';
 import type { EvalRunStatus } from '../src/evalforge';
 
@@ -341,5 +342,43 @@ describe('formatGateServiceError', () => {
     const body = formatGateServiceError('nothing was verified', false, 'Nothing Verified');
     expect(body).toContain('Nothing Verified');
     expect(body).not.toContain('Service Error');
+  });
+});
+
+describe('formatGatePollFailure', () => {
+  const input = {
+    runId: '1a3d3e51-4fd3-4838-94fa-57f213d9c3b5',
+    runUrl: 'https://bo.wix.com/pages/evalforge/proj/results?runId=1a3d3e51',
+    detail: 'EvalForge GET /v1/projects/proj/eval-runs/1a3d3e51 → 403: ',
+    blocking: false,
+  };
+
+  // Seen on #773: the run had been executing for six minutes and the comment named nothing, so
+  // there was no way to reach it from the PR.
+  it('links the run, since that is the whole point of the comment', () => {
+    const body = formatGatePollFailure(input);
+    expect(body).toContain(input.runId);
+    expect(body).toContain(input.runUrl);
+  });
+
+  it('carries the underlying error, so the reader knows what broke', () => {
+    expect(formatGatePollFailure(input)).toContain('403');
+  });
+
+  it('says the result is unverified rather than passing', () => {
+    expect(formatGatePollFailure(input)).toMatch(/unverified|could not verify/i);
+  });
+
+  it('is distinguishable from a timeout, which is a different outcome', () => {
+    const polled = formatGatePollFailure(input);
+    const timedOut = formatGateTimeout(input.runId, input.runUrl, input.blocking);
+    expect(polled).not.toBe(timedOut);
+    expect(polled).toContain('Run Status Unavailable');
+    expect(timedOut).toContain('Timed Out');
+  });
+
+  it('respects soak, like every other failure path', () => {
+    expect(formatGatePollFailure(input)).toContain('soak period');
+    expect(formatGatePollFailure({ ...input, blocking: true })).not.toContain('soak period');
   });
 });
