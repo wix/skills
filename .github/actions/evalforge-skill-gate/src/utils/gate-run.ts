@@ -6,14 +6,14 @@ import {
   collectSkillFiles, deriveTags, diffSyncPlan, draftTagFor, evalRunUrl, evaluateRunResult,
   formatForeignDraftConflicts, formatGateResult, formatGateServiceError,
   formatGuardFailure, formatNoGatedChanges, formatYamlErrors,
-  getChangedFiles, getFirstCommitAuthorEmail, guardScenarios, isWixAuthorEmail,
+  getChangedFiles, guardScenarios,
   listRemoteScenariosForGate, loadScenarios, remoteScenarioFiltersForGate, selectScenarios,
   semanticPlusDraftTags, stripInactiveForeignDraftTags, touchedScenarioPaths,
 } from '@wix/evalforge-core';
 import { getGateConfig, BASE_WORKSPACE_SUBDIR } from './config';
 import { workspaceRoot } from './workspace';
 import { fail, guardedCall, makeGateCommenter } from './report';
-import { isDraftTagActive } from './draft-tags';
+import { isDraftTagActive, isWixAuthoredPr } from './pr-lookups';
 import { applySyncPlan } from './apply-sync-plan';
 import { pollToCompletion, startEvalRun } from './run-eval';
 
@@ -21,12 +21,9 @@ export async function runGate(): Promise<void> {
   const config = getGateConfig();
   const octokit = github.getOctokit(config.githubToken);
 
-  // First, so a fork PR costs nothing.
-  const authorEmail = await getFirstCommitAuthorEmail(octokit, config.owner, config.repo, config.prNumber);
-  if (!isWixAuthorEmail(authorEmail)) {
-    core.info('Skipping wix-app eval gate — PR author is not a @wix.com address');
-    return;
-  }
+  // First, so a fork PR costs nothing. Skips rather than fails if the author cannot be
+  // resolved — a GitHub blip must not turn into a red check.
+  if (!await isWixAuthoredPr(octokit, config)) return;
 
   const comment = makeGateCommenter(octokit, config);
   const workspace = workspaceRoot();

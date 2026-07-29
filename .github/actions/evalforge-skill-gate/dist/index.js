@@ -61905,70 +61905,6 @@ function getCleanupConfig() {
 
 /***/ }),
 
-/***/ 6522:
-/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
-
-"use strict";
-
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.isDraftTagActive = isDraftTagActive;
-const core = __importStar(__nccwpck_require__(7484));
-const evalforge_core_1 = __nccwpck_require__(7495);
-const report_1 = __nccwpck_require__(7267);
-/** Unresolvable tags count as active, so a lookup failure never releases another PR's lock. */
-async function isDraftTagActive(octokit, tag) {
-    const draft = (0, evalforge_core_1.parseDraftTag)(tag);
-    if (!draft)
-        return true;
-    const [owner, repo] = draft.repo.split('/', 2);
-    if (!owner || !repo)
-        return true;
-    try {
-        const pull = await octokit.rest.pulls.get({ owner, repo, pull_number: draft.prNumber });
-        return pull.data.state === 'open';
-    }
-    catch (error) {
-        core.warning(`Could not resolve draft tag ${tag}: ${(0, report_1.describeError)(error)}`);
-        return true;
-    }
-}
-
-
-/***/ }),
-
 /***/ 4734:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
@@ -62016,18 +61952,16 @@ const evalforge_core_1 = __nccwpck_require__(7495);
 const config_1 = __nccwpck_require__(7799);
 const workspace_1 = __nccwpck_require__(9620);
 const report_1 = __nccwpck_require__(7267);
-const draft_tags_1 = __nccwpck_require__(6522);
+const pr_lookups_1 = __nccwpck_require__(1661);
 const apply_sync_plan_1 = __nccwpck_require__(2237);
 const run_eval_1 = __nccwpck_require__(1943);
 async function runGate() {
     const config = (0, config_1.getGateConfig)();
     const octokit = github.getOctokit(config.githubToken);
-    // First, so a fork PR costs nothing.
-    const authorEmail = await (0, evalforge_core_1.getFirstCommitAuthorEmail)(octokit, config.owner, config.repo, config.prNumber);
-    if (!(0, evalforge_core_1.isWixAuthorEmail)(authorEmail)) {
-        core.info('Skipping wix-app eval gate — PR author is not a @wix.com address');
+    // First, so a fork PR costs nothing. Skips rather than fails if the author cannot be
+    // resolved — a GitHub blip must not turn into a red check.
+    if (!await (0, pr_lookups_1.isWixAuthoredPr)(octokit, config))
         return;
-    }
     const comment = (0, report_1.makeGateCommenter)(octokit, config);
     const workspace = (0, workspace_1.workspaceRoot)();
     const draftTag = (0, evalforge_core_1.draftTagFor)(config.repoFullName, config.prNumber);
@@ -62095,7 +62029,7 @@ async function runGate() {
     const remote = await (0, report_1.guardedCall)(() => (0, evalforge_core_1.listRemoteScenariosForGate)(client, config.projectId, filters), 'Could not reach EvalForge', comment, config.blocking);
     if (!remote)
         return;
-    const normalizedRemote = await (0, evalforge_core_1.stripInactiveForeignDraftTags)(remote, draftTag, tag => (0, draft_tags_1.isDraftTagActive)(octokit, tag));
+    const normalizedRemote = await (0, evalforge_core_1.stripInactiveForeignDraftTags)(remote, draftTag, tag => (0, pr_lookups_1.isDraftTagActive)(octokit, tag));
     const plan = (0, evalforge_core_1.diffSyncPlan)({
         changedHead: changedHeadScenarios,
         head: headScenarios,
@@ -62156,6 +62090,87 @@ async function runGate() {
     }));
     if (!verdict.passed) {
         (0, report_1.fail)(`Eval gate failed: ${verdict.reasons.join('; ')}`, config.blocking);
+    }
+}
+
+
+/***/ }),
+
+/***/ 1661:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.isWixAuthoredPr = isWixAuthoredPr;
+exports.isDraftTagActive = isDraftTagActive;
+const core = __importStar(__nccwpck_require__(7484));
+const evalforge_core_1 = __nccwpck_require__(7495);
+const report_1 = __nccwpck_require__(7267);
+// Both lookups swallow their errors and return the safe answer. A GitHub blip must not fail a
+// PR's check — least of all during the soak period, when the gate promises it cannot.
+/** False when the author is not a Wix address *or* cannot be resolved: either way, do not run. */
+async function isWixAuthoredPr(octokit, config) {
+    try {
+        const email = await (0, evalforge_core_1.getFirstCommitAuthorEmail)(octokit, config.owner, config.repo, config.prNumber);
+        if ((0, evalforge_core_1.isWixAuthorEmail)(email))
+            return true;
+        core.info('Skipping wix-app eval gate — PR author is not a @wix.com address');
+        return false;
+    }
+    catch (error) {
+        core.warning(`Skipping wix-app eval gate — could not resolve the PR author: ${(0, report_1.describeError)(error)}`);
+        return false;
+    }
+}
+/** True when unresolvable, so a lookup failure never releases another PR's lock. */
+async function isDraftTagActive(octokit, tag) {
+    const draft = (0, evalforge_core_1.parseDraftTag)(tag);
+    if (!draft)
+        return true;
+    const [owner, repo] = draft.repo.split('/', 2);
+    if (!owner || !repo)
+        return true;
+    try {
+        const pull = await octokit.rest.pulls.get({ owner, repo, pull_number: draft.prNumber });
+        return pull.data.state === 'open';
+    }
+    catch (error) {
+        core.warning(`Could not resolve draft tag ${tag}: ${(0, report_1.describeError)(error)}`);
+        return true;
     }
 }
 

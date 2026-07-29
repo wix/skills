@@ -118,6 +118,29 @@ describe('runGate — cheap exits before any EvalForge write', () => {
     expect(setFailedSpy).not.toHaveBeenCalled();
   });
 
+  it('skips rather than fails when the author lookup itself errors', async () => {
+    const { runGate, core, evalforge } = await harness();
+    vi.mocked(evalforge.getFirstCommitAuthorEmail).mockRejectedValue(new Error('Bad credentials'));
+    const setFailedSpy = vi.spyOn(core, 'setFailed');
+    const warningSpy = vi.spyOn(core, 'warning');
+
+    await runGate();
+
+    expect(evalforge.EvalForgeClient).not.toHaveBeenCalled();
+    expect(setFailedSpy).not.toHaveBeenCalled();
+    expect(warningSpy).toHaveBeenCalledWith(expect.stringContaining('could not resolve the PR author'));
+  });
+
+  it('skips on an author lookup error even when blocking is on', async () => {
+    const { runGate, core, evalforge } = await harness({ blocking: true });
+    vi.mocked(evalforge.getFirstCommitAuthorEmail).mockRejectedValue(new Error('502'));
+    const setFailedSpy = vi.spyOn(core, 'setFailed');
+
+    await runGate();
+
+    expect(setFailedSpy).not.toHaveBeenCalled();
+  });
+
   it('fails on YAML load errors before creating any capability version', async () => {
     const { runGate, core, evalforge } = await harness();
     vi.mocked(evalforge.loadScenarios).mockReturnValue({
