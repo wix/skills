@@ -50,6 +50,18 @@ export function formatYamlErrors(errors: LoadError[]): string {
   ]);
 }
 
+/**
+ * The gate did not evaluate this PR. Said out loud because otherwise a green check is
+ * indistinguishable from one that actually ran the scenarios.
+ */
+export function formatGateSkipped(reason: string): string {
+  return render('⏭', 'Skipped', [
+    `This PR was **not evaluated**: ${reason}`,
+    '',
+    'The check is green because the gate did not run, not because the scenarios passed.',
+  ]);
+}
+
 export function formatNoGatedChanges(unmapped: string[]): string {
   return render('✅', 'No Gated Changes', [
     'Nothing in this PR maps to an eval tag, so no run was needed.',

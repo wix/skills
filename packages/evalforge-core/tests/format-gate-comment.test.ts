@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   GATE_COMMENT_MARKER, formatYamlErrors, formatNoGatedChanges, formatGuardFailure,
-  formatForeignDraftConflicts, formatGateResult, formatGateTimeout, formatGateServiceError,
+  formatForeignDraftConflicts, formatGateResult, formatGateTimeout, formatGateServiceError, formatGateSkipped,
 } from '../src/format-gate-comment';
 import type { EvalRunStatus } from '../src/evalforge';
 
@@ -221,5 +221,18 @@ describe('formatGateTimeout and formatGateServiceError', () => {
   it('surfaces the service error message', () => {
     expect(formatGateServiceError('Could not reach EvalForge', false))
       .toContain('Could not reach EvalForge');
+  });
+});
+
+describe('formatGateSkipped', () => {
+  it('says the PR was not evaluated and why', () => {
+    const body = formatGateSkipped('the PR author is not a @wix.com address');
+    expect(body).toContain(GATE_COMMENT_MARKER);
+    expect(body).toMatch(/not \*\*evaluated\*\*|not evaluated/);
+    expect(body).toContain('not a @wix.com address');
+  });
+
+  it('spells out that green does not mean the scenarios passed', () => {
+    expect(formatGateSkipped('reason')).toMatch(/did not run, not because the scenarios passed/);
   });
 });

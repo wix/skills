@@ -30785,6 +30785,7 @@ function evaluateRunResult(status) {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.GATE_COMMENT_MARKER = void 0;
 exports.formatYamlErrors = formatYamlErrors;
+exports.formatGateSkipped = formatGateSkipped;
 exports.formatNoGatedChanges = formatNoGatedChanges;
 exports.formatGuardFailure = formatGuardFailure;
 exports.formatForeignDraftConflicts = formatForeignDraftConflicts;
@@ -30828,6 +30829,17 @@ function formatYamlErrors(errors) {
         'These scenario files did not parse against the schema:',
         '',
         ...errors.map(error => `- \`${error.path}\`: ${error.message}`),
+    ]);
+}
+/**
+ * The gate did not evaluate this PR. Said out loud because otherwise a green check is
+ * indistinguishable from one that actually ran the scenarios.
+ */
+function formatGateSkipped(reason) {
+    return render('⏭', 'Skipped', [
+        `This PR was **not evaluated**: ${reason}`,
+        '',
+        'The check is green because the gate did not run, not because the scenarios passed.',
     ]);
 }
 function formatNoGatedChanges(unmapped) {
