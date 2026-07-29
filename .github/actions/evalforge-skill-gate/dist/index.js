@@ -61554,11 +61554,14 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 const core = __importStar(__nccwpck_require__(7484));
 const sync_run_1 = __nccwpck_require__(5466);
-// Modes for the wix-app skill flows. CODEAI-889 adds the PR eval gate
-// (author check -> skill version -> tags -> quality guard -> run -> comment -> cleanup)
-// alongside `sync`.
+const gate_run_1 = __nccwpck_require__(4734);
+const cleanup_run_1 = __nccwpck_require__(5717);
+// Modes for the wix-app skill flows: the per-PR eval gate, its PR-close cleanup, and
+// merge-time scenario sync. See README.md for the full flow of each.
 const modes = {
     sync: sync_run_1.runSync,
+    gate: gate_run_1.runGate,
+    cleanup: cleanup_run_1.runCleanup,
 };
 const mode = core.getInput('mode') || 'sync';
 const handler = modes[mode];
@@ -61567,6 +61570,189 @@ if (!handler) {
 }
 else {
     handler().catch(err => core.setFailed(err instanceof Error ? err.message : String(err)));
+}
+
+
+/***/ }),
+
+/***/ 2237:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.applySyncPlan = applySyncPlan;
+const core = __importStar(__nccwpck_require__(7484));
+const evalforge_core_1 = __nccwpck_require__(7495);
+const report_1 = __nccwpck_require__(7267);
+/**
+ * Applies the plan, recording ids CREATE returns. Stops on failure: a half-synced set would
+ * report on the wrong content.
+ */
+async function applySyncPlan(client, config, actions, nameToId, comment) {
+    for (const action of actions) {
+        try {
+            if (action.kind === evalforge_core_1.SyncActionKind.CREATE) {
+                const created = await client.createTestScenario(config.projectId, action.body, action.tags);
+                nameToId.set(action.name, created.id);
+                core.info(`Created scenario ${action.name} (${created.id})`);
+            }
+            else if (action.kind === evalforge_core_1.SyncActionKind.UPDATE) {
+                await client.updateTestScenario(config.projectId, action.id, action.body, action.tags);
+                core.info(`Updated scenario ${action.name} (${action.id})`);
+            }
+            else if (action.kind === evalforge_core_1.SyncActionKind.DELETE) {
+                await client.deleteTestScenario(config.projectId, action.id);
+                nameToId.delete(action.name);
+                core.info(`Deleted draft scenario ${action.name} (${action.id})`);
+            }
+            else {
+                core.info(`Deferring DELETE of "${action.name}" — handled at merge`);
+            }
+        }
+        catch (error) {
+            core.error(`Sync action ${action.kind} for ${action.name} failed: ${(0, report_1.describeError)(error)}`);
+            await comment((0, evalforge_core_1.formatGateServiceError)(`Sync failed for "${action.name}"`, config.isBlocking));
+            (0, report_1.fail)(`Sync failed for ${action.name}`, config.isBlocking);
+            return false;
+        }
+    }
+    return true;
+}
+
+
+/***/ }),
+
+/***/ 5717:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.runCleanup = runCleanup;
+const core = __importStar(__nccwpck_require__(7484));
+const node_path_1 = __nccwpck_require__(6760);
+const evalforge_core_1 = __nccwpck_require__(7495);
+const config_1 = __nccwpck_require__(7799);
+const report_1 = __nccwpck_require__(7267);
+const workspace_1 = __nccwpck_require__(9620);
+async function listDraftScenarios(client, projectId, draftTag) {
+    try {
+        return { ok: true, value: await client.listTestScenariosByTag(projectId, draftTag) };
+    }
+    catch (error) {
+        core.warning(`listTestScenariosByTag failed: ${(0, report_1.describeError)(error)}`);
+        return report_1.HALTED;
+    }
+}
+/**
+ * Failures are warnings throughout: the PR is closed, so a red check is not actionable and the
+ * next run sweeps what was left.
+ */
+async function runCleanup() {
+    const config = (0, config_1.getCleanupConfig)();
+    const client = new evalforge_core_1.EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
+    const draftTag = (0, evalforge_core_1.draftTagFor)(config.repoFullName, config.prNumber);
+    await (0, evalforge_core_1.deletePrCapabilityVersions)(client, config.capabilityId, config.projectId, config.prNumber, {
+        log: core.info,
+        warn: core.warning,
+    });
+    const remote = await listDraftScenarios(client, config.projectId, draftTag);
+    if (!remote.ok)
+        return;
+    const baseRoot = node_path_1.posix.join((0, workspace_1.workspaceRoot)(), config_1.BASE_WORKSPACE_SUBDIR);
+    const { scenarios: baseScenarios, errors } = (0, evalforge_core_1.loadScenarios)(baseRoot, config.evalsGlob);
+    for (const error of errors) {
+        core.warning(`Base SHA scenario issue at ${baseRoot}/${error.path}: ${error.message}`);
+    }
+    const plan = (0, evalforge_core_1.planCleanup)(remote.value, baseScenarios, draftTag, config.repoFullName);
+    const restoreCount = plan.filter(action => action.kind === evalforge_core_1.CleanupKind.RESTORE).length;
+    const deleteCount = plan.filter(action => action.kind === evalforge_core_1.CleanupKind.DELETE).length;
+    core.info(`Cleanup plan: ${plan.length} action(s) — RESTORE=${restoreCount} DELETE=${deleteCount}`);
+    for (const action of plan)
+        await execute(client, config.projectId, action);
+}
+async function execute(client, projectId, action) {
+    try {
+        if (action.kind === evalforge_core_1.CleanupKind.RESTORE) {
+            await client.updateTestScenario(projectId, action.id, action.body, action.tags);
+            core.info(`Restored ${action.name} to its pre-PR state`);
+        }
+        else {
+            await client.deleteTestScenario(projectId, action.id);
+            core.info(`Deleted draft ${action.name}`);
+        }
+    }
+    catch (error) {
+        const verb = action.kind === evalforge_core_1.CleanupKind.RESTORE ? 'Restore' : 'Delete draft';
+        core.warning(`${verb} failed for ${action.name}: ${(0, report_1.describeError)(error)}`);
+    }
 }
 
 
@@ -61611,10 +61797,17 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.MAX_SCENARIOS_CEILING = exports.BASE_WORKSPACE_SUBDIR = void 0;
 exports.getSyncConfig = getSyncConfig;
+exports.getGateConfig = getGateConfig;
+exports.getCleanupConfig = getCleanupConfig;
 const core = __importStar(__nccwpck_require__(7484));
 const github = __importStar(__nccwpck_require__(3228));
 const evalforge_core_1 = __nccwpck_require__(7495);
+/** Subdirectory the base-SHA checkout lands in, matching the yaml-gate workflows. */
+exports.BASE_WORKSPACE_SUBDIR = '.action-src';
+/** A misconfigured repo variable should cost a bounded run, not an unbounded one. */
+exports.MAX_SCENARIOS_CEILING = 100;
 function getSyncConfig() {
     return {
         evalforgeUrl: (0, evalforge_core_1.ensureHttps)(core, core.getInput('evalforge-url', { required: true })),
@@ -61626,6 +61819,740 @@ function getSyncConfig() {
         githubToken: core.getInput('github-token', { required: true }),
         prNumber: (0, evalforge_core_1.getPrNumber)(github.context.payload),
     };
+}
+/** Newline-separated list input, falling back to `fallback` when blank. */
+function getMultilineList(name, fallback) {
+    const entries = core.getInput(name).split('\n').map(line => line.trim()).filter(line => line !== '');
+    return entries.length > 0 ? entries : fallback;
+}
+function getPositiveIntegerInput(name, fallback) {
+    const raw = core.getInput(name) || String(fallback);
+    const value = Number(raw);
+    if (!Number.isInteger(value) || value < 1) {
+        throw new Error(`${name} must be a positive integer (received: ${raw})`);
+    }
+    return value;
+}
+/**
+ * Clamps rather than throws. `getGateConfig` runs before `isBlocking` is known, so a throw here
+ * would fail the check even during the soak period, when the gate promises it cannot — the same
+ * bug the author gate had. A clamp keeps the cost bounded and stays visible: `selectScenarios`
+ * reports what the cap dropped, and the PR comment names it.
+ */
+function getMaxScenarios() {
+    const requested = getPositiveIntegerInput('max-scenarios', evalforge_core_1.DEFAULT_MAX_SCENARIOS);
+    if (requested <= exports.MAX_SCENARIOS_CEILING)
+        return requested;
+    core.warning(`max-scenarios: ${requested} exceeds the ceiling of ${exports.MAX_SCENARIOS_CEILING}, running `
+        + `${exports.MAX_SCENARIOS_CEILING}. Every scenario is a live agent build, so the cap bounds real cost.`);
+    return exports.MAX_SCENARIOS_CEILING;
+}
+/**
+ * The assertion narrows rather than widens: `@actions/github` declares the payload as
+ * `[key: string]: any`, so `pull_request.head` arrives as `any`. The precise `PullRequestEvent`
+ * type lives in `@octokit/webhooks-types`, which is not a dependency of either action — adding it
+ * would move all three lockfiles through the `portal:` link to type one property.
+ */
+function getHeadSha() {
+    const head = github.context.payload.pull_request?.head;
+    if (!head?.sha)
+        throw new Error('PR payload missing head.sha');
+    return head.sha;
+}
+/**
+ * On `pull_request` the checkout is the merge commit, which `GITHUB_SHA` names. The label must
+ * come from this, not `head.sha`: the same head yields different merge content as base
+ * advances, so `createOrReuseSkillVersion` would reuse a version built from stale content.
+ */
+function getEvaluatedSha() {
+    const sha = process.env.GITHUB_SHA;
+    if (!sha) {
+        throw new Error('GITHUB_SHA is not set, so the skill version cannot be labelled for the commit actually '
+            + 'evaluated. This action expects to run in GitHub Actions.');
+    }
+    return sha;
+}
+function getGateConfig() {
+    const owner = github.context.repo.owner;
+    const repo = github.context.repo.repo;
+    const prNumber = (0, evalforge_core_1.getPrNumber)(github.context.payload);
+    const headSha = getHeadSha();
+    const evaluatedSha = getEvaluatedSha();
+    return {
+        githubToken: (0, evalforge_core_1.safeGetSecret)(core, 'github-token'),
+        evalforgeUrl: (0, evalforge_core_1.ensureHttps)(core, core.getInput('evalforge-url', { required: true })),
+        projectId: core.getInput('evalforge-project-id', { required: true }),
+        appId: (0, evalforge_core_1.safeGetSecret)(core, 'evalforge-app-id'),
+        appSecret: (0, evalforge_core_1.safeGetSecret)(core, 'evalforge-app-secret'),
+        capabilityId: core.getInput('capability-id', { required: true }),
+        agentId: core.getInput('agent-id', { required: true }),
+        evalsGlob: core.getInput('evals-glob', { required: true }),
+        skillDir: core.getInput('skill-dir', { required: true }),
+        referenceDir: core.getInput('reference-dir') || evalforge_core_1.DEFAULT_REFERENCE_DIR,
+        ignoreGlobs: getMultilineList('ignore-globs', evalforge_core_1.DEFAULT_IGNORE_GLOBS),
+        broadImpactGlobs: getMultilineList('broad-impact-globs', evalforge_core_1.DEFAULT_BROAD_IMPACT_GLOBS),
+        maxScenarios: getMaxScenarios(),
+        isBlocking: core.getInput('blocking') === 'true',
+        owner,
+        repo,
+        repoFullName: `${owner}/${repo}`,
+        prNumber,
+        headSha,
+        evaluatedSha,
+        versionLabel: `pr-${prNumber}-${evaluatedSha.slice(0, 7)}`,
+    };
+}
+function getCleanupConfig() {
+    const owner = github.context.repo.owner;
+    const repo = github.context.repo.repo;
+    return {
+        evalforgeUrl: (0, evalforge_core_1.ensureHttps)(core, core.getInput('evalforge-url', { required: true })),
+        projectId: core.getInput('evalforge-project-id', { required: true }),
+        appId: (0, evalforge_core_1.safeGetSecret)(core, 'evalforge-app-id'),
+        appSecret: (0, evalforge_core_1.safeGetSecret)(core, 'evalforge-app-secret'),
+        capabilityId: core.getInput('capability-id', { required: true }),
+        evalsGlob: core.getInput('evals-glob', { required: true }),
+        repoFullName: `${owner}/${repo}`,
+        prNumber: (0, evalforge_core_1.getPrNumber)(github.context.payload),
+    };
+}
+
+
+/***/ }),
+
+/***/ 4734:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.runGate = runGate;
+const core = __importStar(__nccwpck_require__(7484));
+const github = __importStar(__nccwpck_require__(3228));
+const evalforge_core_1 = __nccwpck_require__(7495);
+const config_1 = __nccwpck_require__(7799);
+const workspace_1 = __nccwpck_require__(9620);
+const report_1 = __nccwpck_require__(7267);
+const pr_lookups_1 = __nccwpck_require__(1661);
+const gate_scope_1 = __nccwpck_require__(355);
+const sync_draft_scenarios_1 = __nccwpck_require__(9542);
+const run_and_report_1 = __nccwpck_require__(7535);
+async function runGate() {
+    const config = (0, config_1.getGateConfig)();
+    const octokit = github.getOctokit(config.githubToken);
+    const comment = (0, report_1.makeGateCommenter)(octokit, config);
+    // First, so a fork PR costs nothing. Skips rather than fails, including when the lookup
+    // errors — a GitHub blip must not turn into a red check. Says so on the PR, since otherwise
+    // a green check would look like a pass.
+    const author = await (0, pr_lookups_1.checkPrAuthor)(octokit, config);
+    if (!author.allowed) {
+        const log = author.isUnexpected ? core.warning : core.info;
+        log(`Skipping wix-app eval gate — ${author.reason}`);
+        await comment((0, evalforge_core_1.formatGateSkipped)(author.reason));
+        return;
+    }
+    const workspace = (0, workspace_1.workspaceRoot)();
+    const draftTag = (0, evalforge_core_1.draftTagFor)(config.repoFullName, config.prNumber);
+    core.info(`EvalForge skill gate — PR #${config.prNumber}, version ${config.versionLabel} `
+        + `(evaluating ${config.evaluatedSha.slice(0, 7)}, the merge of head ${config.headSha.slice(0, 7)} into base)`);
+    const scope = await (0, gate_scope_1.resolveGateScope)(octokit, config, workspace, comment);
+    if (!scope.ok)
+        return;
+    const client = new evalforge_core_1.EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
+    const version = await (0, report_1.guardedCall)(() => client.createOrReuseSkillVersion(config.capabilityId, config.projectId, config.versionLabel, config.prNumber, scope.value.skillFiles), 'Could not create the PR skill capability version', comment, config.isBlocking);
+    if (!version.ok)
+        return;
+    const nameToId = await (0, sync_draft_scenarios_1.syncDraftScenarios)(client, octokit, config, scope.value, draftTag, workspace, comment);
+    if (!nameToId.ok)
+        return;
+    await (0, run_and_report_1.runAndReport)(client, config, scope.value, nameToId.value, version.value.id, comment);
+}
+
+
+/***/ }),
+
+/***/ 355:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.resolveGateScope = resolveGateScope;
+const core = __importStar(__nccwpck_require__(7484));
+const evalforge_core_1 = __nccwpck_require__(7495);
+const report_1 = __nccwpck_require__(7267);
+/**
+ * Everything up to the first EvalForge write, so a coverage failure costs no call.
+ * A halted result means the reason is already on the PR, and already failed if it failed.
+ */
+async function resolveGateScope(octokit, config, workspace, comment) {
+    const loaded = await loadHeadScenarios(workspace, config, comment);
+    if (!loaded.ok)
+        return report_1.HALTED;
+    const headScenarios = loaded.value;
+    const changedFiles = await (0, report_1.guardedCall)(() => (0, evalforge_core_1.getChangedFiles)(octokit, config.owner, config.repo, config.prNumber), 'Could not retrieve the PR file list', comment, config.isBlocking);
+    if (!changedFiles.ok)
+        return report_1.HALTED;
+    const { derived, touchedPaths } = deriveChangeScope(changedFiles.value, config);
+    for (const path of derived.unmapped) {
+        core.warning(`Unmapped path under ${config.skillDir}: ${path}`);
+    }
+    if (derived.tags.length === 0 && !derived.broadImpact && touchedPaths.size === 0) {
+        core.info('No gated changes');
+        await comment((0, evalforge_core_1.formatNoGatedChanges)(derived.unmapped));
+        return report_1.HALTED;
+    }
+    const guard = await runCoverageGuard(derived, headScenarios, touchedPaths, config, comment);
+    if (!guard.ok)
+        return report_1.HALTED;
+    const skillFiles = await collectSkill(workspace, config, comment);
+    if (!skillFiles.ok)
+        return report_1.HALTED;
+    return {
+        ok: true,
+        value: { headScenarios, derived, touchedPaths, guard: guard.value, skillFiles: skillFiles.value },
+    };
+}
+async function loadHeadScenarios(workspace, config, comment) {
+    const { scenarios, errors } = (0, evalforge_core_1.loadScenarios)(workspace, config.evalsGlob);
+    if (errors.length === 0)
+        return { ok: true, value: scenarios };
+    await comment((0, evalforge_core_1.formatYamlErrors)(errors));
+    (0, report_1.fail)(`Invalid scenario YAML or duplicate names: ${errors.length}`, config.isBlocking);
+    return report_1.HALTED;
+}
+function deriveChangeScope(changedFiles, config) {
+    const derived = (0, evalforge_core_1.deriveTags)(changedFiles.map(file => file.filename), {
+        skillDir: config.skillDir,
+        referenceDir: config.referenceDir,
+        ignoreGlobs: config.ignoreGlobs,
+        broadImpactGlobs: config.broadImpactGlobs,
+    });
+    const touchedPaths = new Set((0, evalforge_core_1.touchedScenarioPaths)(changedFiles.map(file => ({ path: file.filename, status: file.status })), config.evalsGlob));
+    return { derived, touchedPaths };
+}
+/** Local YAML alone — no version and no run exist yet. */
+async function runCoverageGuard(derived, headScenarios, touchedPaths, config, comment) {
+    const guard = (0, evalforge_core_1.guardScenarios)({
+        tags: derived.tags,
+        scenarios: headScenarios,
+        touchedScenarioPaths: touchedPaths,
+    });
+    if (guard.violations.length === 0)
+        return { ok: true, value: guard };
+    await comment((0, evalforge_core_1.formatGuardFailure)({ ...guard, blocking: config.isBlocking }));
+    (0, report_1.fail)(`Eval coverage guard failed: ${guard.violations.length} violation(s)`, config.isBlocking);
+    return report_1.HALTED;
+}
+async function collectSkill(workspace, config, comment) {
+    const skillFiles = await (0, report_1.guardedCall)(
+    // Whole dir: references send the agent to sibling paths like `<SKILL_ROOT>/scripts/…`.
+    async () => (0, evalforge_core_1.collectSkillFiles)(workspace, config.skillDir, { warn: core.warning }), `Could not read the skill directory ${config.skillDir}`, comment, config.isBlocking);
+    if (skillFiles.ok) {
+        core.info(`Collected ${skillFiles.value.length} skill file(s) from ${config.skillDir}`);
+    }
+    return skillFiles;
+}
+
+
+/***/ }),
+
+/***/ 1661:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.checkPrAuthor = checkPrAuthor;
+exports.isDraftTagActive = isDraftTagActive;
+const core = __importStar(__nccwpck_require__(7484));
+const evalforge_core_1 = __nccwpck_require__(7495);
+const report_1 = __nccwpck_require__(7267);
+const AUTHOR_ALLOWED = { allowed: true };
+/**
+ * Whether the gate may run for this PR's author. Denies both when the author is not a Wix address
+ * and when the lookup fails: either way the gate must not run, and neither is worth failing a check.
+ */
+async function checkPrAuthor(octokit, config) {
+    try {
+        const email = await (0, evalforge_core_1.getFirstCommitAuthorEmail)(octokit, config.owner, config.repo, config.prNumber);
+        if ((0, evalforge_core_1.isWixAuthorEmail)(email))
+            return AUTHOR_ALLOWED;
+        return { allowed: false, reason: 'the PR author is not a wix author', isUnexpected: false };
+    }
+    catch (error) {
+        return {
+            allowed: false,
+            reason: `could not resolve the PR author: ${(0, report_1.describeError)(error)}`,
+            isUnexpected: true,
+        };
+    }
+}
+/** True when unresolvable, so a lookup failure never releases another PR's lock. */
+async function isDraftTagActive(octokit, tag) {
+    const draft = (0, evalforge_core_1.parseDraftTag)(tag);
+    if (!draft)
+        return true;
+    const [owner, repo] = draft.repo.split('/', 2);
+    if (!owner || !repo)
+        return true;
+    try {
+        const pull = await octokit.rest.pulls.get({ owner, repo, pull_number: draft.prNumber });
+        return pull.data.state === 'open';
+    }
+    catch (error) {
+        core.warning(`Could not resolve draft tag ${tag}: ${(0, report_1.describeError)(error)}`);
+        return true;
+    }
+}
+
+
+/***/ }),
+
+/***/ 7267:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.HALTED = void 0;
+exports.describeError = describeError;
+exports.fail = fail;
+exports.guardedCall = guardedCall;
+exports.makeGateCommenter = makeGateCommenter;
+const core = __importStar(__nccwpck_require__(7484));
+const evalforge_core_1 = __nccwpck_require__(7495);
+function describeError(error) {
+    return error instanceof Error ? error.message : String(error);
+}
+/** During the soak period (`blocking: false`) a failure warns and the check still passes. */
+function fail(message, blocking) {
+    if (blocking)
+        core.setFailed(message);
+    else
+        core.warning(message);
+}
+exports.HALTED = { ok: false };
+/** Runs an EvalForge call, reporting a user-facing comment and gate failure if it throws. */
+async function guardedCall(operation, userMessage, comment, blocking) {
+    try {
+        return { ok: true, value: await operation() };
+    }
+    catch (error) {
+        core.error(`${userMessage}: ${describeError(error)}`);
+        await comment((0, evalforge_core_1.formatGateServiceError)(userMessage, blocking));
+        fail(userMessage, blocking);
+        return exports.HALTED;
+    }
+}
+function makeGateCommenter(octokit, target) {
+    return (0, evalforge_core_1.makeCommenter)(octokit, { ...target, marker: evalforge_core_1.GATE_COMMENT_MARKER }, {
+        warn: core.warning,
+        writeSummary: async (body) => { await core.summary.addRaw(body).write(); },
+    });
+}
+
+
+/***/ }),
+
+/***/ 7535:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.runAndReport = runAndReport;
+const core = __importStar(__nccwpck_require__(7484));
+const evalforge_core_1 = __nccwpck_require__(7495);
+const report_1 = __nccwpck_require__(7267);
+const run_eval_1 = __nccwpck_require__(1943);
+async function runAndReport(client, config, scope, nameToId, 
+/** The version's **id**, not its label. */
+versionId, comment) {
+    const selected = await resolveScenarioIds(config, scope, nameToId, comment);
+    if (!selected.ok)
+        return;
+    const selection = selected.value;
+    const run = await (0, run_eval_1.startEvalRun)(client, config, selection.ids, versionId, comment);
+    if (!run.ok)
+        return;
+    const runUrl = (0, evalforge_core_1.evalRunUrl)(config.projectId, run.value.id);
+    core.info(`Eval run started: ${runUrl}`);
+    const status = await (0, run_eval_1.pollToCompletion)(client, config, run.value.id, runUrl, comment);
+    if (!status.ok)
+        return;
+    const verdict = (0, evalforge_core_1.evaluateRunResult)(status.value);
+    await comment((0, evalforge_core_1.formatGateResult)({
+        metrics: status.value.aggregateMetrics,
+        verdict,
+        runId: run.value.id,
+        runUrl,
+        selection,
+        maxScenarios: config.maxScenarios,
+        warnings: scope.guard.warnings,
+        unmapped: scope.derived.unmapped,
+        broadImpact: scope.derived.broadImpact,
+        blocking: config.isBlocking,
+    }));
+    if (!verdict.passed) {
+        (0, report_1.fail)(`Eval gate failed: ${verdict.reasons.join('; ')}`, config.isBlocking);
+    }
+}
+async function resolveScenarioIds(config, scope, nameToId, comment) {
+    const selection = (0, evalforge_core_1.selectScenarios)({
+        broadImpact: scope.derived.broadImpact,
+        tags: scope.derived.tags,
+        localScenarios: scope.headScenarios,
+        nameToId,
+        touchedScenarioPaths: scope.touchedPaths,
+        maxScenarios: config.maxScenarios,
+    });
+    for (const name of selection.missingIds) {
+        core.warning(`No EvalForge scenario found for "${name}" — it is in the repo YAML but not in EvalForge`);
+    }
+    if (selection.ids.length > 0)
+        return { ok: true, value: selection };
+    // A gate that resolved nothing to run must not report a green check.
+    const message = 'No eval scenarios could be resolved to run, so nothing was verified';
+    await comment((0, evalforge_core_1.formatGateServiceError)(message, config.isBlocking));
+    (0, report_1.fail)(message, config.isBlocking);
+    return report_1.HALTED;
+}
+
+
+/***/ }),
+
+/***/ 1943:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.startEvalRun = startEvalRun;
+exports.pollToCompletion = pollToCompletion;
+const core = __importStar(__nccwpck_require__(7484));
+const evalforge_core_1 = __nccwpck_require__(7495);
+const report_1 = __nccwpck_require__(7267);
+function startEvalRun(client, config, scenarioIds, 
+/** The version's **id**, not its label — the evaluator resolves capabilityVersions by id. */
+versionId, comment) {
+    return (0, report_1.guardedCall)(() => client.createAndRunEvalRun(config.projectId, {
+        name: `${config.repoFullName} PR #${config.prNumber} (${config.versionLabel})`,
+        description: `Skill gate run for PR #${config.prNumber}`,
+        projectId: config.projectId,
+        agentId: config.agentId,
+        scenarioIds,
+        capabilityIds: [config.capabilityId],
+        capabilityVersions: { [config.capabilityId]: versionId },
+    }), 'Could not start the eval run', comment, config.isBlocking);
+}
+/** Timeout gets its own comment; anything else is a generic service failure. */
+async function pollToCompletion(client, config, runId, runUrl, comment) {
+    try {
+        return {
+            ok: true,
+            value: await (0, evalforge_core_1.pollUntilDone)(client, config.projectId, runId, { log: core.info, warn: core.warning }),
+        };
+    }
+    catch (error) {
+        if (error instanceof evalforge_core_1.EvalRunTimeoutError) {
+            await comment((0, evalforge_core_1.formatGateTimeout)(runId, runUrl, config.isBlocking));
+            (0, report_1.fail)(error.message, config.isBlocking);
+            return report_1.HALTED;
+        }
+        core.error(`Polling the eval run failed: ${(0, report_1.describeError)(error)}`);
+        await comment((0, evalforge_core_1.formatGateServiceError)('Polling the eval run failed', config.isBlocking));
+        (0, report_1.fail)('Polling the eval run failed', config.isBlocking);
+        return report_1.HALTED;
+    }
+}
+
+
+/***/ }),
+
+/***/ 9542:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.syncDraftScenarios = syncDraftScenarios;
+const core = __importStar(__nccwpck_require__(7484));
+const node_path_1 = __nccwpck_require__(6760);
+const evalforge_core_1 = __nccwpck_require__(7495);
+const config_1 = __nccwpck_require__(7799);
+const report_1 = __nccwpck_require__(7267);
+const pr_lookups_1 = __nccwpck_require__(1661);
+const apply_sync_plan_1 = __nccwpck_require__(2237);
+/**
+ * Reconciles the PR's scenario edits into EvalForge as draft-tagged scenarios, yielding the
+ * name→id map the run selects from. A halted result means the reason is already on the PR.
+ */
+async function syncDraftScenarios(client, octokit, config, scope, draftTag, workspace, comment) {
+    const baseScenarios = loadBaseScenarios(workspace, config);
+    const changedHead = new Map([...scope.headScenarios].filter(([, loaded]) => scope.touchedPaths.has(loaded.path)));
+    const shared = { changedHead, head: scope.headScenarios, base: baseScenarios, draftTag };
+    const remote = await (0, report_1.guardedCall)(() => (0, evalforge_core_1.listRemoteScenariosForGate)(client, config.projectId, (0, evalforge_core_1.remoteScenarioFiltersForGate)({
+        ...shared, extraTags: scope.derived.tags, all: scope.derived.broadImpact,
+    })), 'Could not reach EvalForge', comment, config.isBlocking);
+    if (!remote.ok)
+        return report_1.HALTED;
+    const normalizedRemote = await (0, evalforge_core_1.stripInactiveForeignDraftTags)(remote.value, draftTag, tag => (0, pr_lookups_1.isDraftTagActive)(octokit, tag));
+    const plan = (0, evalforge_core_1.diffSyncPlan)({
+        ...shared,
+        remote: normalizedRemote,
+        repo: config.repoFullName,
+        // Semantic tags must survive the draft sync — the gate selects by them.
+        tagStrategy: evalforge_core_1.semanticPlusDraftTags,
+    });
+    if (plan.errors.length > 0) {
+        await comment((0, evalforge_core_1.formatForeignDraftConflicts)(plan.errors, config.isBlocking));
+        (0, report_1.fail)(`Scenario(s) held by other PRs: ${plan.errors.map(error => error.name).join(', ')}`, config.isBlocking);
+        return report_1.HALTED;
+    }
+    const nameToId = new Map(normalizedRemote.map(entry => [entry.name, entry.id]));
+    const applied = await (0, apply_sync_plan_1.applySyncPlan)(client, config, plan.actions, nameToId, comment);
+    return applied ? { ok: true, value: nameToId } : report_1.HALTED;
+}
+/** Warns rather than fails: the base SHA's YAML is not this PR's to fix. */
+function loadBaseScenarios(workspace, config) {
+    const baseWorkspace = node_path_1.posix.join(workspace, config_1.BASE_WORKSPACE_SUBDIR);
+    const { scenarios, errors } = (0, evalforge_core_1.loadScenarios)(baseWorkspace, config.evalsGlob);
+    for (const error of errors) {
+        core.warning(`Base SHA scenario issue (${error.path}): ${error.message}`);
+    }
+    return scenarios;
 }
 
 

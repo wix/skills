@@ -1,0 +1,42 @@
+name: EvalForge wix-app Gate Cleanup
+
+on:
+  pull_request:
+    branches: [main]
+    types: [closed]
+
+# Shares the gate's group so closing a PR cancels an in-flight gate run for it.
+concurrency:
+  group: evalforge-wix-app-gate-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    # Runs on merge as well as on close. Unlike wix-manage, wix-app has no promote step —
+    # semantic tags survive the draft sync — so nothing else would sweep a merged PR's
+    # draft tags and capability versions. Merge-time reconciliation is a separate workflow
+    # (evalforge-wix-app-sync.yml) and does not delete versions.
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+    # No pull-requests scope: cleanup calls no GitHub API — the PR number comes from the event payload.
+    permissions:
+      contents: read
+    steps:
+      # Base SHA only. It provides both the pre-PR scenario YAML the restore plan needs and
+      # a trusted copy of the action source.
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: .action-src
+      - uses: ./.action-src/.github/actions/evalforge-skill-gate
+        with:
+          mode: cleanup
+          evalforge-url: ${{ vars.EVALFORGE_URL }}
+          evalforge-project-id: ${{ vars.APP_BUILDER_PIPELINE_PROJECT_ID }}
+          evalforge-app-id: ${{ secrets.AUTO_SKILLS_PIPELINE_APP_ID }}
+          evalforge-app-secret: ${{ secrets.AUTO_SKILLS_PIPELINE_APP_SECRET }}
+          evals-glob: 'yaml/wix-app-evals/**/*.{yml,yaml}'
+          capability-id: ad0b7e36-e85b-40b1-902b-d67bb3c90363
