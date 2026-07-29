@@ -7,19 +7,23 @@ import type { GateConfig } from './config';
 // Both lookups swallow their errors and return the safe answer. A GitHub blip must not fail a
 // PR's check — least of all during the soak period, when the gate promises it cannot.
 
-/** False when the author is not a Wix address *or* cannot be resolved: either way, do not run. */
-export async function isWixAuthoredPr(
+/** `unexpected` separates a routine non-Wix author from a lookup that actually broke. */
+export type AuthorSkip = { reason: string; unexpected: boolean };
+
+/**
+ * The reason to skip, or undefined to proceed. Skips both when the author is not a Wix address and
+ * when the lookup fails: either way the gate must not run, and neither is worth failing a check.
+ */
+export async function skipReasonForAuthor(
   octokit: ReturnType<typeof github.getOctokit>,
   config: Pick<GateConfig, 'owner' | 'repo' | 'prNumber'>,
-): Promise<boolean> {
+): Promise<AuthorSkip | undefined> {
   try {
     const email = await getFirstCommitAuthorEmail(octokit, config.owner, config.repo, config.prNumber);
-    if (isWixAuthorEmail(email)) return true;
-    core.info('Skipping wix-app eval gate — PR author is not a @wix.com address');
-    return false;
+    if (isWixAuthorEmail(email)) return undefined;
+    return { reason: 'the PR author is not a @wix.com address', unexpected: false };
   } catch (error) {
-    core.warning(`Skipping wix-app eval gate — could not resolve the PR author: ${describeError(error)}`);
-    return false;
+    return { reason: `could not resolve the PR author: ${describeError(error)}`, unexpected: true };
   }
 }
 

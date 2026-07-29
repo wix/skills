@@ -5,7 +5,7 @@ import {
   EvalForgeClient,
   collectSkillFiles, deriveTags, diffSyncPlan, draftTagFor, evalRunUrl, evaluateRunResult,
   formatForeignDraftConflicts, formatGateResult, formatGateServiceError,
-  formatGuardFailure, formatNoGatedChanges, formatYamlErrors,
+  formatGateSkipped, formatGuardFailure, formatNoGatedChanges, formatYamlErrors,
   getChangedFiles, guardScenarios,
   listRemoteScenariosForGate, loadScenarios, remoteScenarioFiltersForGate, selectScenarios,
   semanticPlusDraftTags, stripInactiveForeignDraftTags, touchedScenarioPaths,
@@ -13,7 +13,7 @@ import {
 import { getGateConfig, BASE_WORKSPACE_SUBDIR } from './config';
 import { workspaceRoot } from './workspace';
 import { fail, guardedCall, makeGateCommenter } from './report';
-import { isDraftTagActive, isWixAuthoredPr } from './pr-lookups';
+import { isDraftTagActive, skipReasonForAuthor } from './pr-lookups';
 import { applySyncPlan } from './apply-sync-plan';
 import { pollToCompletion, startEvalRun } from './run-eval';
 
@@ -21,11 +21,19 @@ export async function runGate(): Promise<void> {
   const config = getGateConfig();
   const octokit = github.getOctokit(config.githubToken);
 
-  // First, so a fork PR costs nothing. Skips rather than fails if the author cannot be
-  // resolved — a GitHub blip must not turn into a red check.
-  if (!await isWixAuthoredPr(octokit, config)) return;
-
   const comment = makeGateCommenter(octokit, config);
+
+  // First, so a fork PR costs nothing. Skips rather than fails, including when the lookup
+  // errors — a GitHub blip must not turn into a red check. Says so on the PR, since otherwise
+  // a green check would look like a pass.
+  const skip = await skipReasonForAuthor(octokit, config);
+  if (skip) {
+    const log = skip.unexpected ? core.warning : core.info;
+    log(`Skipping wix-app eval gate — ${skip.reason}`);
+    await comment(formatGateSkipped(skip.reason));
+    return;
+  }
+
   const workspace = workspaceRoot();
   const draftTag = draftTagFor(config.repoFullName, config.prNumber);
   core.info(

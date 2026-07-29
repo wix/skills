@@ -61958,11 +61958,17 @@ const run_eval_1 = __nccwpck_require__(1943);
 async function runGate() {
     const config = (0, config_1.getGateConfig)();
     const octokit = github.getOctokit(config.githubToken);
-    // First, so a fork PR costs nothing. Skips rather than fails if the author cannot be
-    // resolved — a GitHub blip must not turn into a red check.
-    if (!await (0, pr_lookups_1.isWixAuthoredPr)(octokit, config))
-        return;
     const comment = (0, report_1.makeGateCommenter)(octokit, config);
+    // First, so a fork PR costs nothing. Skips rather than fails, including when the lookup
+    // errors — a GitHub blip must not turn into a red check. Says so on the PR, since otherwise
+    // a green check would look like a pass.
+    const skip = await (0, pr_lookups_1.skipReasonForAuthor)(octokit, config);
+    if (skip) {
+        const log = skip.unexpected ? core.warning : core.info;
+        log(`Skipping wix-app eval gate — ${skip.reason}`);
+        await comment((0, evalforge_core_1.formatGateSkipped)(skip.reason));
+        return;
+    }
     const workspace = (0, workspace_1.workspaceRoot)();
     const draftTag = (0, evalforge_core_1.draftTagFor)(config.repoFullName, config.prNumber);
     core.info(`EvalForge skill gate — PR #${config.prNumber}, version ${config.versionLabel} `
@@ -62135,25 +62141,24 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.isWixAuthoredPr = isWixAuthoredPr;
+exports.skipReasonForAuthor = skipReasonForAuthor;
 exports.isDraftTagActive = isDraftTagActive;
 const core = __importStar(__nccwpck_require__(7484));
 const evalforge_core_1 = __nccwpck_require__(7495);
 const report_1 = __nccwpck_require__(7267);
-// Both lookups swallow their errors and return the safe answer. A GitHub blip must not fail a
-// PR's check — least of all during the soak period, when the gate promises it cannot.
-/** False when the author is not a Wix address *or* cannot be resolved: either way, do not run. */
-async function isWixAuthoredPr(octokit, config) {
+/**
+ * The reason to skip, or undefined to proceed. Skips both when the author is not a Wix address and
+ * when the lookup fails: either way the gate must not run, and neither is worth failing a check.
+ */
+async function skipReasonForAuthor(octokit, config) {
     try {
         const email = await (0, evalforge_core_1.getFirstCommitAuthorEmail)(octokit, config.owner, config.repo, config.prNumber);
         if ((0, evalforge_core_1.isWixAuthorEmail)(email))
-            return true;
-        core.info('Skipping wix-app eval gate — PR author is not a @wix.com address');
-        return false;
+            return undefined;
+        return { reason: 'the PR author is not a @wix.com address', unexpected: false };
     }
     catch (error) {
-        core.warning(`Skipping wix-app eval gate — could not resolve the PR author: ${(0, report_1.describeError)(error)}`);
-        return false;
+        return { reason: `could not resolve the PR author: ${(0, report_1.describeError)(error)}`, unexpected: true };
     }
 }
 /** True when unresolvable, so a lookup failure never releases another PR's lock. */

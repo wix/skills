@@ -141,6 +141,25 @@ describe('runGate — cheap exits before any EvalForge write', () => {
     expect(setFailedSpy).not.toHaveBeenCalled();
   });
 
+  it('comments on skip, so a green check is not mistaken for a pass', async () => {
+    const { runGate, evalforge } = await harness();
+    vi.mocked(evalforge.getFirstCommitAuthorEmail).mockResolvedValue('outsider@gmail.com');
+
+    await runGate();
+
+    expect(upsertComment).toHaveBeenCalledWith(expect.stringMatching(/\*\*not evaluated\*\*/));
+    expect(upsertComment).toHaveBeenCalledWith(expect.stringContaining('not a @wix.com address'));
+  });
+
+  it('comments on skip when the lookup breaks too', async () => {
+    const { runGate, evalforge } = await harness();
+    vi.mocked(evalforge.getFirstCommitAuthorEmail).mockRejectedValue(new Error('Bad credentials'));
+
+    await runGate();
+
+    expect(upsertComment).toHaveBeenCalledWith(expect.stringContaining('could not resolve the PR author'));
+  });
+
   it('fails on YAML load errors before creating any capability version', async () => {
     const { runGate, core, evalforge } = await harness();
     vi.mocked(evalforge.loadScenarios).mockReturnValue({
