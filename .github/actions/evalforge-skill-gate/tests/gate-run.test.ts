@@ -148,7 +148,7 @@ describe('runGate — cheap exits before any EvalForge write', () => {
     await runGate();
 
     expect(upsertComment).toHaveBeenCalledWith(expect.stringMatching(/\*\*not evaluated\*\*/));
-    expect(upsertComment).toHaveBeenCalledWith(expect.stringContaining('not a @wix.com address'));
+    expect(upsertComment).toHaveBeenCalledWith(expect.stringContaining('not a wix author'));
   });
 
   it('comments on skip when the lookup breaks too', async () => {

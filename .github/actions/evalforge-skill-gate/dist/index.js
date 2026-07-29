@@ -62155,7 +62155,7 @@ async function skipReasonForAuthor(octokit, config) {
         const email = await (0, evalforge_core_1.getFirstCommitAuthorEmail)(octokit, config.owner, config.repo, config.prNumber);
         if ((0, evalforge_core_1.isWixAuthorEmail)(email))
             return undefined;
-        return { reason: 'the PR author is not a @wix.com address', unexpected: false };
+        return { reason: 'the PR author is not a wix author', unexpected: false };
     }
     catch (error) {
         return { reason: `could not resolve the PR author: ${(0, report_1.describeError)(error)}`, unexpected: true };

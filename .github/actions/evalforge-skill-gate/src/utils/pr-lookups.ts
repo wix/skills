@@ -21,7 +21,7 @@ export async function skipReasonForAuthor(
   try {
     const email = await getFirstCommitAuthorEmail(octokit, config.owner, config.repo, config.prNumber);
     if (isWixAuthorEmail(email)) return undefined;
-    return { reason: 'the PR author is not a @wix.com address', unexpected: false };
+    return { reason: 'the PR author is not a wix author', unexpected: false };
   } catch (error) {
     return { reason: `could not resolve the PR author: ${describeError(error)}`, unexpected: true };
   }
