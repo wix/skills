@@ -19,6 +19,9 @@ export type RunStatus = 'pending' | 'running' | typeof TERMINAL_RUN_STATUSES[num
 
 export type CapabilityVersion = { id: string; capabilityId: string; version: string };
 
+/** One file of a skill capability version; `path` is relative to the skill root. */
+export type SkillFileContent = { path: string; content: string };
+
 import type { EvalForgeBody } from './evalforge-mapper';
 
 export type RemoteScenario = { id: string; name: string; tags: string[] };
@@ -137,10 +140,11 @@ function normalizeStatus(s: string): RunStatus {
   return String(s).toLowerCase() as RunStatus;
 }
 
-// V1 `pass_rate` is a fraction (0.0–1.0); the action's internal contract (and
-// comment.ts) expects an integer percentage (0–100).
-function toPercent(fraction: number | undefined): number {
-  return Math.round((fraction ?? 0) * 100);
+// V1 `pass_rate` already arrives as a percentage (0–100), verified against 8 real runs in the
+// App Builder project: 4/5 reports 80, 26/30 reports 86.667. Multiplying by 100 here rendered
+// every comment as "10000%".
+function toPercent(passRate: number | undefined): number {
+  return Math.round(passRate ?? 0);
 }
 
 // Client for the EvalForge V1 REST API (`${baseUrl}/v1/...`, e.g.
@@ -272,6 +276,49 @@ export class EvalForgeClient {
       const versions = await this.listCapabilityVersions(mcpId, projectId);
       const existing = versions.find(v => v.version === versionLabel);
       if (!existing) throw e;
+      return existing;
+    }
+  }
+
+  private async createSkillVersion(
+    capabilityId: string,
+    projectId: string,
+    versionLabel: string,
+    prNumber: number,
+    files: SkillFileContent[],
+  ): Promise<CapabilityVersion> {
+    const res = await this.request<{ capabilityVersion: RawCapabilityVersion }>(
+      'POST',
+      `/projects/${enc(projectId)}/capabilities/${enc(capabilityId)}/versions`,
+      {
+        capabilityVersion: {
+          capabilityId,
+          version: versionLabel,
+          origin: 'pr',
+          notes: `Auto-created for PR #${prNumber}`,
+          skillContent: { files },
+        },
+      },
+    );
+    const created = res.capabilityVersion;
+    return { id: created.id, capabilityId: created.capabilityId, version: created.version };
+  }
+
+  async createOrReuseSkillVersion(
+    capabilityId: string,
+    projectId: string,
+    versionLabel: string,
+    prNumber: number,
+    files: SkillFileContent[],
+  ): Promise<CapabilityVersion> {
+    try {
+      return await this.createSkillVersion(capabilityId, projectId, versionLabel, prNumber, files);
+    } catch (error) {
+      // Duplicate labels should be 409, but the backend transcodes "already exists" to 500.
+      if (!isHttpError(error) || (error.status !== 409 && error.status !== 500)) throw error;
+      const versions = await this.listCapabilityVersions(capabilityId, projectId);
+      const existing = versions.find(candidate => candidate.version === versionLabel);
+      if (!existing) throw error;
       return existing;
     }
   }

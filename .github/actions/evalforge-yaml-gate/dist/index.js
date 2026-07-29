@@ -34233,6 +34233,142 @@ async function assertWixAuthor(octokit, owner, repo, prNumber, log) {
 
 /***/ }),
 
+/***/ 4527:
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.collectSkillFiles = collectSkillFiles;
+const node_fs_1 = __nccwpck_require__(3024);
+const node_path_1 = __nccwpck_require__(6760);
+const glob_1 = __nccwpck_require__(2311);
+const DEFAULT_COLLECT_LIMITS = {
+    maxFileBytes: 1_000_000,
+    maxTotalBytes: 10_000_000,
+};
+/** Reads all of `<root>/<skillDir>`, minus build artifacts, with paths relative to `skillDir`. */
+function collectSkillFiles(root, skillDir, options = {}) {
+    const limits = options.limits ?? DEFAULT_COLLECT_LIMITS;
+    const skillRoot = node_path_1.posix.join(root, skillDir);
+    const relativePaths = glob_1.glob.sync('**/*', {
+        cwd: skillRoot,
+        nodir: true,
+        dot: false,
+        ignore: ['**/node_modules/**', '**/dist/**'],
+        posix: true,
+    }).sort();
+    const files = [];
+    let totalBytes = 0;
+    for (const relativePath of relativePaths) {
+        const buffer = (0, node_fs_1.readFileSync)(node_path_1.posix.join(skillRoot, relativePath));
+        // A NUL byte means binary, and skill content is text. Skip it, but say so.
+        if (buffer.includes(0)) {
+            options.warn?.(`Skipping non-text file in ${skillDir}: ${relativePath}`);
+            continue;
+        }
+        if (buffer.byteLength > limits.maxFileBytes) {
+            throw new Error(`Skill file ${relativePath} is ${buffer.byteLength} bytes, over the per-file cap of `
+                + `${limits.maxFileBytes}. Split it or raise the cap.`);
+        }
+        totalBytes += buffer.byteLength;
+        if (totalBytes > limits.maxTotalBytes) {
+            throw new Error(`Skill ${skillDir} exceeds the total content cap of ${limits.maxTotalBytes} bytes at `
+                + `${relativePath}. Raise the cap deliberately.`);
+        }
+        files.push({ path: relativePath, content: buffer.toString('utf8') });
+    }
+    if (files.length === 0) {
+        throw new Error(`No files collected from ${skillRoot}. Check the skill-dir and reference-dir inputs.`);
+    }
+    return files;
+}
+
+
+/***/ }),
+
+/***/ 7264:
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.DEFAULT_BROAD_IMPACT_GLOBS = exports.DEFAULT_IGNORE_GLOBS = exports.DEFAULT_REFERENCE_DIR = void 0;
+exports.deriveTags = deriveTags;
+exports.touchedScenarioPaths = touchedScenarioPaths;
+const minimatch_1 = __nccwpck_require__(8911);
+/** Single home for the default: `action.yml`, the config reader and the workflow all defer to it. */
+exports.DEFAULT_REFERENCE_DIR = 'references';
+exports.DEFAULT_IGNORE_GLOBS = ['scripts/**'];
+/** References that apply across scenarios, so no single tag describes them. */
+exports.DEFAULT_BROAD_IMPACT_GLOBS = [
+    'SKILL.md',
+    'references/APP_IDENTIFIERS.md',
+    'references/APP_MARKET_REVIEW.md',
+    'references/APP_VALIDATION.md',
+    'references/CODE_QUALITY.md',
+    'references/DOCUMENTATION.md',
+    'references/EXTENSION_REGISTRATION.md',
+];
+/** `DASHBOARD_PAGE.md` → `dashboard-page`. */
+function tagForReferencePath(relativeReferencePath) {
+    return relativeReferencePath.replace(/\.md$/i, '').toLowerCase().replace(/_/g, '-');
+}
+function matchesAny(relativePath, globs) {
+    return globs.some(pattern => (0, minimatch_1.minimatch)(relativePath, pattern, { dot: true }));
+}
+function relativeToSkillDir(changedPath, skillDir) {
+    const prefix = `${skillDir}/`;
+    return changedPath.startsWith(prefix) ? changedPath.slice(prefix.length) : undefined;
+}
+/**
+ * Changed paths → the tags whose scenarios must run.
+ *
+ * Order is load-bearing: ignore → broad-impact → reference → unmapped, first match wins. Let
+ * the reference rule run first and `references/CODE_QUALITY.md` derives a `code-quality` tag
+ * the coverage guard can never satisfy.
+ */
+function deriveTags(changedPaths, rules) {
+    const tags = new Set();
+    const unmapped = [];
+    let broadImpact = false;
+    const referencePrefix = `${rules.referenceDir}/`;
+    for (const changedPath of changedPaths) {
+        const relativePath = relativeToSkillDir(changedPath, rules.skillDir);
+        if (relativePath === undefined)
+            continue;
+        if (matchesAny(relativePath, rules.ignoreGlobs))
+            continue;
+        if (matchesAny(relativePath, rules.broadImpactGlobs)) {
+            broadImpact = true;
+            continue;
+        }
+        if (relativePath.startsWith(referencePrefix)) {
+            const withinReferences = relativePath.slice(referencePrefix.length);
+            const [head, ...rest] = withinReferences.split('/');
+            // A sub-doc directory is already named for its capability.
+            tags.add(rest.length > 0 ? head.toLowerCase() : tagForReferencePath(head));
+            continue;
+        }
+        unmapped.push(changedPath);
+    }
+    return {
+        tags: [...tags].sort(),
+        broadImpact,
+        unmapped: unmapped.sort(),
+    };
+}
+/** Scenario files added, modified or renamed. Removals are the sync plan's business. */
+function touchedScenarioPaths(changed, evalsGlob) {
+    return changed
+        .filter(file => file.status !== 'removed' && (0, minimatch_1.minimatch)(file.path, evalsGlob))
+        .map(file => file.path)
+        .sort();
+}
+
+
+/***/ }),
+
 /***/ 6006:
 /***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
 
@@ -34486,10 +34622,11 @@ function assertNotTruncated(received, meta, path) {
 function normalizeStatus(s) {
     return String(s).toLowerCase();
 }
-// V1 `pass_rate` is a fraction (0.0–1.0); the action's internal contract (and
-// comment.ts) expects an integer percentage (0–100).
-function toPercent(fraction) {
-    return Math.round((fraction ?? 0) * 100);
+// V1 `pass_rate` already arrives as a percentage (0–100), verified against 8 real runs in the
+// App Builder project: 4/5 reports 80, 26/30 reports 86.667. Multiplying by 100 here rendered
+// every comment as "10000%".
+function toPercent(passRate) {
+    return Math.round(passRate ?? 0);
 }
 // Client for the EvalForge V1 REST API (`${baseUrl}/v1/...`, e.g.
 // https://manage.wix.com/_api/evalforge-backend/v1/...), authenticated with an
@@ -34595,6 +34732,34 @@ class EvalForgeClient {
             return existing;
         }
     }
+    async createSkillVersion(capabilityId, projectId, versionLabel, prNumber, files) {
+        const res = await this.request('POST', `/projects/${enc(projectId)}/capabilities/${enc(capabilityId)}/versions`, {
+            capabilityVersion: {
+                capabilityId,
+                version: versionLabel,
+                origin: 'pr',
+                notes: `Auto-created for PR #${prNumber}`,
+                skillContent: { files },
+            },
+        });
+        const created = res.capabilityVersion;
+        return { id: created.id, capabilityId: created.capabilityId, version: created.version };
+    }
+    async createOrReuseSkillVersion(capabilityId, projectId, versionLabel, prNumber, files) {
+        try {
+            return await this.createSkillVersion(capabilityId, projectId, versionLabel, prNumber, files);
+        }
+        catch (error) {
+            // Duplicate labels should be 409, but the backend transcodes "already exists" to 500.
+            if (!isHttpError(error) || (error.status !== 409 && error.status !== 500))
+                throw error;
+            const versions = await this.listCapabilityVersions(capabilityId, projectId);
+            const existing = versions.find(candidate => candidate.version === versionLabel);
+            if (!existing)
+                throw error;
+            return existing;
+        }
+    }
     // Without `names`: lists ALL scenarios via an empty-filter query (used by
     // promote / cleanup / run-all). With `names`: fetches only those scenarios —
     // the V1 `name` filter is a substring match, so each name is queried and then
@@ -34696,6 +34861,334 @@ function enc(segment) {
 
 /***/ }),
 
+/***/ 3460:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.evaluateRunResult = evaluateRunResult;
+/**
+ * Zero assertions fails: such a run has no failures either, so `failed + errors === 0` alone
+ * would report green having verified nothing.
+ */
+function evaluateRunResult(status) {
+    const reasons = [];
+    const metrics = status.aggregateMetrics;
+    if (status.status !== 'completed') {
+        reasons.push(`the eval run ${status.status === 'cancelled' ? 'was cancelled' : `ended as "${status.status}"`}`);
+    }
+    if (metrics.failed > 0) {
+        reasons.push(`${metrics.failed} assertion${metrics.failed === 1 ? '' : 's'} failed`);
+    }
+    if (metrics.errors > 0) {
+        reasons.push(`${metrics.errors} assertion${metrics.errors === 1 ? '' : 's'} errored`);
+    }
+    if (metrics.totalAssertions === 0) {
+        reasons.push('the run produced no assertions, so nothing was verified');
+    }
+    return { passed: reasons.length === 0, reasons };
+}
+
+
+/***/ }),
+
+/***/ 5970:
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.GATE_COMMENT_MARKER = void 0;
+exports.formatYamlErrors = formatYamlErrors;
+exports.formatGateSkipped = formatGateSkipped;
+exports.formatNoGatedChanges = formatNoGatedChanges;
+exports.formatGuardFailure = formatGuardFailure;
+exports.formatForeignDraftConflicts = formatForeignDraftConflicts;
+exports.formatGateResult = formatGateResult;
+exports.formatGateTimeout = formatGateTimeout;
+exports.formatGatePollFailure = formatGatePollFailure;
+exports.formatGateServiceError = formatGateServiceError;
+const evalforge_1 = __nccwpck_require__(7230);
+exports.GATE_COMMENT_MARKER = '<!-- evalforge-skill-gate-action -->';
+const HEADING = 'EvalForge Skill Gate';
+function render(icon, label, body) {
+    return [exports.GATE_COMMENT_MARKER, `## ${icon} ${HEADING}: ${label}`, '', ...body].join('\n');
+}
+function failIcon(blocking) {
+    return blocking ? { icon: '❌', label: 'Failed' } : { icon: '⚠️', label: 'Warning' };
+}
+function count(quantity, noun) {
+    return `${quantity} ${noun}${quantity === 1 ? '' : 's'}`;
+}
+/** The API sends a fraction of a percent (26/30 arrives as 86.667); nobody needs the decimals. */
+function percent(passRate) {
+    return Math.round(passRate);
+}
+/** Shared by every outcome that has a run to point at. */
+function runLine(runId, runUrl) {
+    return `**Run:** [${runId}](${runUrl})`;
+}
+/**
+ * The three outcomes where nothing was verified and retrying is the answer. A push re-triggers the
+ * gate today; CODEAI-895 adds a `/re-eval` comment so it does not need a commit.
+ */
+function retryNote() {
+    return ['', '_Push any commit to run the gate again._'];
+}
+function soakNote(blocking) {
+    return blocking
+        ? []
+        : ['', '_The gate is in its soak period (`blocking: false`), so this check still passes._'];
+}
+function unmappedSection(unmapped) {
+    if (unmapped.length === 0)
+        return [];
+    return [
+        '',
+        '**Unmapped paths** — these changed under the skill directory but no rule covers them, so they triggered nothing. Add them to `ignore-globs` if that is correct:',
+        ...unmapped.map(path => `- \`${path}\``),
+    ];
+}
+function warningSection(warnings) {
+    if (warnings.length === 0)
+        return [];
+    return [
+        '',
+        '**Existing scenarios below the quality bar** (not blocking — you did not write these, but they are worth fixing):',
+        ...warnings.map(warning => `- \`${warning.path}\` (\`${warning.name}\`, tagged ${warning.tags.map(tag => `\`${tag}\``).join(', ')}) — ${warning.reasons.join('; ')}`),
+    ];
+}
+function formatYamlErrors(errors, blocking) {
+    const { icon } = failIcon(blocking);
+    return render(icon, 'Invalid Scenario YAML', [
+        'These scenario files did not parse against the schema:',
+        '',
+        ...errors.map(error => `- \`${error.path}\`: ${error.message}`),
+        ...soakNote(blocking),
+    ]);
+}
+/**
+ * The gate did not evaluate this PR. Said out loud because otherwise a green check is
+ * indistinguishable from one that actually ran the scenarios.
+ */
+function formatGateSkipped(reason) {
+    return render('⏭', 'Skipped', [
+        `This PR was **not evaluated**: ${reason}`,
+        '',
+        'The check is green because the gate did not run, not because the scenarios passed.',
+    ]);
+}
+function formatNoGatedChanges(unmapped) {
+    return render('✅', 'No Gated Changes', [
+        'Nothing in this PR maps to an eval tag, so no run was needed.',
+        ...unmappedSection(unmapped),
+    ]);
+}
+function violationLine(violation, scenarioDir) {
+    switch (violation.kind) {
+        case 'UNCOVERED_TAG': {
+            const where = scenarioDir === '' ? 'the scenario directory' : `\`${scenarioDir}/\``;
+            return `- **\`${violation.tag}\`** has no eval scenario at all. Add one under ${where} tagged \`${violation.tag}\`, or add that tag to a scenario that already exercises the area.`;
+        }
+        case 'WEAK_TAG':
+            return `- **\`${violation.tag}\`** is carried only by scenarios below the quality bar (${violation.scenarios.map(name => `\`${name}\``).join(', ')}). Strengthen one of them, or add a scenario that meets the bar.`;
+        case 'WEAK_TOUCHED_SCENARIO':
+            return `- \`${violation.path}\` (\`${violation.name}\`) — ${violation.reasons.join('; ')}. This PR added or edited it, so it must meet the bar.`;
+    }
+}
+function formatGuardFailure(input) {
+    const { icon, label } = failIcon(input.blocking);
+    // Only when something here is actually about quality. On a bare uncovered tag there is no
+    // scenario to be below the bar, and leading with it reads as though one was too weak.
+    const aboutQuality = input.violations.some(violation => violation.kind !== 'UNCOVERED_TAG')
+        || input.warnings.length > 0;
+    return render(icon, `Coverage ${label}`, [
+        ...(aboutQuality
+            ? ['The quality bar is **at least 3 assertions including one `llm_judge`** — a scenario below it would run, pass, and verify nothing.', '']
+            : []),
+        ...input.violations.map(violation => violationLine(violation, input.scenarioDir)),
+        '',
+        '_No eval run was started — a coverage failure is caught before any run cost._',
+        ...warningSection(input.warnings),
+        ...soakNote(input.blocking),
+    ]);
+}
+function formatForeignDraftConflicts(errors, blocking) {
+    const { icon } = failIcon(blocking);
+    return render(icon, 'Scenario Locked by Another PR', [
+        'These scenarios are draft-tagged for other open PRs. Wait for those to merge or close, or coordinate with their authors:',
+        '',
+        ...errors.map(error => {
+            const links = error.foreignTags.map(tag => {
+                const draft = (0, evalforge_1.parseDraftTag)(tag);
+                return draft ? `https://github.com/${draft.repo}/pull/${draft.prNumber}` : tag;
+            });
+            return `- \`${error.name}\` is held by: ${links.join(', ')}`;
+        }),
+        ...soakNote(blocking),
+    ]);
+}
+function formatGateResult(input) {
+    const { metrics, verdict, selection } = input;
+    const { icon, label } = verdict.passed ? { icon: '✅', label: 'Passed' } : failIcon(input.blocking);
+    const body = [
+        `**Pass rate:** ${percent(metrics.passRate)}% — ${metrics.passed}/${metrics.totalAssertions} assertions passed`
+            + (metrics.failed > 0 ? `, ${metrics.failed} failed` : '')
+            + (metrics.errors > 0 ? `, ${metrics.errors} errored` : ''),
+        runLine(input.runId, input.runUrl),
+    ];
+    if (!verdict.passed) {
+        body.push('', `**Why this ${input.blocking ? 'blocks' : 'would block'}:** ${verdict.reasons.join('; ')}`);
+    }
+    body.push('', input.broadImpact
+        ? `**Scope:** a cross-cutting file changed, so the whole suite was in play — ${count(selection.selected.length, 'scenario')} ran.`
+        : `**Scope:** ${count(selection.selected.length, 'scenario')} ran.`, '', ...selection.selected.map(name => `- \`${name}\``));
+    if (selection.dropped.length > 0) {
+        body.push('', `**Capped at \`max-scenarios: ${input.maxScenarios}\`** — these were not run:`, ...selection.dropped.map(name => `- \`${name}\``));
+    }
+    if (selection.missingIds.length > 0) {
+        body.push('', '**Not run — no EvalForge scenario found for these names.** They are in the repo YAML but not in EvalForge, which points at a sync gap:', ...selection.missingIds.map(name => `- \`${name}\``));
+    }
+    body.push(...warningSection(input.warnings), ...unmappedSection(input.unmapped));
+    if (!verdict.passed)
+        body.push(...soakNote(input.blocking));
+    return render(icon, label, body);
+}
+function formatGateTimeout(runId, runUrl, blocking) {
+    return render(blocking ? '⏱' : '⚠️', 'Timed Out', [
+        'The eval run did not finish within the poll window. It may still be running in EvalForge.',
+        '',
+        runLine(runId, runUrl),
+        ...retryNote(),
+        ...soakNote(blocking),
+    ]);
+}
+/**
+ * Polling broke after the run started. Distinct from a service error, which has no run to name:
+ * here the run exists and may well have finished, so the link is the whole point of the comment.
+ */
+function formatGatePollFailure(input) {
+    const { icon } = failIcon(input.blocking);
+    return render(icon, 'Run Status Unavailable', [
+        `The run started, but the gate could not read its status: ${input.detail}`,
+        '',
+        'Open it to see whether it finished — the gate could not verify the result either way, so treat this as unverified rather than passing.',
+        '',
+        runLine(input.runId, input.runUrl),
+        ...retryNote(),
+        ...soakNote(input.blocking),
+    ]);
+}
+/**
+ * `label` defaults to a service failure, the common case. The zero-selection guard passes its own:
+ * nothing broke there, the gate simply had nothing to run, and that deserves saying in the heading.
+ */
+function formatGateServiceError(message, blocking, label = 'Service Error') {
+    const { icon } = failIcon(blocking);
+    return render(icon, label, [message, ...retryNote(), ...soakNote(blocking)]);
+}
+
+
+/***/ }),
+
+/***/ 3308:
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.DEFAULT_QUALITY_BAR = void 0;
+exports.meetsQualityBar = meetsQualityBar;
+exports.guardScenarios = guardScenarios;
+const schema_1 = __nccwpck_require__(3540);
+exports.DEFAULT_QUALITY_BAR = {
+    minAssertions: 3,
+    requireLlmJudge: true,
+};
+/** Does this scenario verify enough to be worth running? */
+function meetsQualityBar(scenario, bar = exports.DEFAULT_QUALITY_BAR) {
+    const reasons = [];
+    if (scenario.assertions.length < bar.minAssertions) {
+        reasons.push(`has ${scenario.assertions.length} assertion${scenario.assertions.length === 1 ? '' : 's'} `
+            + `(needs at least ${bar.minAssertions})`);
+    }
+    if (bar.requireLlmJudge && !scenario.assertions.some(schema_1.isLlmJudge)) {
+        reasons.push('has no llm_judge assertion');
+    }
+    return { ok: reasons.length === 0, reasons };
+}
+/**
+ * Runs on local YAML alone, so a coverage failure costs no EvalForge call.
+ *
+ * A tag counts as covered only by a scenario that meets the bar — a one-assertion scenario
+ * would run, pass, and verify nothing. Untouched shortfalls warn rather than block, so a PR is
+ * never held hostage to a weak scenario someone else wrote.
+ */
+function guardScenarios(input) {
+    const bar = input.bar ?? exports.DEFAULT_QUALITY_BAR;
+    const allScenarios = [...input.scenarios.values()];
+    const violations = [];
+    const weakUntouched = new Map();
+    for (const tag of input.tags) {
+        const carrying = allScenarios.filter(loaded => loaded.scenario.tags.includes(tag));
+        if (carrying.length === 0) {
+            violations.push({ kind: 'UNCOVERED_TAG', tag });
+            continue;
+        }
+        const meeting = carrying.filter(loaded => meetsQualityBar(loaded.scenario, bar).ok);
+        if (meeting.length === 0) {
+            violations.push({
+                kind: 'WEAK_TAG',
+                tag,
+                scenarios: carrying.map(loaded => loaded.scenario.name).sort(),
+            });
+            continue;
+        }
+        // Covered — surface weak siblings without blocking.
+        for (const loaded of carrying) {
+            if (input.touchedScenarioPaths.has(loaded.path))
+                continue;
+            const check = meetsQualityBar(loaded.scenario, bar);
+            if (check.ok)
+                continue;
+            const existing = weakUntouched.get(loaded.scenario.name);
+            if (existing) {
+                existing.tags.push(tag);
+                continue;
+            }
+            weakUntouched.set(loaded.scenario.name, {
+                kind: 'WEAK_UNTOUCHED_SCENARIO',
+                name: loaded.scenario.name,
+                path: loaded.path,
+                tags: [tag],
+                reasons: check.reasons,
+            });
+        }
+    }
+    // No weakening: a touched scenario must meet the bar even if a strong sibling covers its tag.
+    for (const loaded of allScenarios) {
+        if (!input.touchedScenarioPaths.has(loaded.path))
+            continue;
+        const check = meetsQualityBar(loaded.scenario, bar);
+        if (check.ok)
+            continue;
+        violations.push({
+            kind: 'WEAK_TOUCHED_SCENARIO',
+            name: loaded.scenario.name,
+            path: loaded.path,
+            reasons: check.reasons,
+        });
+    }
+    return {
+        violations,
+        warnings: [...weakUntouched.values()].sort((left, right) => left.name.localeCompare(right.name)),
+    };
+}
+
+
+/***/ }),
+
 /***/ 7495:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
@@ -34729,6 +35222,12 @@ __exportStar(__nccwpck_require__(5992), exports);
 __exportStar(__nccwpck_require__(7208), exports);
 __exportStar(__nccwpck_require__(473), exports);
 __exportStar(__nccwpck_require__(5781), exports);
+__exportStar(__nccwpck_require__(4527), exports);
+__exportStar(__nccwpck_require__(7264), exports);
+__exportStar(__nccwpck_require__(3308), exports);
+__exportStar(__nccwpck_require__(8833), exports);
+__exportStar(__nccwpck_require__(3460), exports);
+__exportStar(__nccwpck_require__(5970), exports);
 
 
 /***/ }),
@@ -34739,11 +35238,23 @@ __exportStar(__nccwpck_require__(5781), exports);
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.scenarioDirFromGlob = scenarioDirFromGlob;
 exports.loadScenarios = loadScenarios;
 const node_fs_1 = __nccwpck_require__(3024);
 const node_path_1 = __nccwpck_require__(6760);
 const glob_1 = __nccwpck_require__(2311);
 const schema_1 = __nccwpck_require__(3540);
+/**
+ * The directory a scenario glob covers, so an author can be told where to add one: the leading
+ * wildcard-free prefix of the pattern. With no wildcard at all the last segment is a filename,
+ * so it is dropped. See the tests for the concrete patterns.
+ */
+function scenarioDirFromGlob(globPattern) {
+    const segments = globPattern.split('/');
+    const firstWildcard = segments.findIndex(segment => /[*?{[]/.test(segment));
+    const directory = firstWildcard === -1 ? segments.slice(0, -1) : segments.slice(0, firstWildcard);
+    return directory.join('/');
+}
 function loadScenarios(root, globPattern) {
     const found = glob_1.glob.sync(globPattern, {
         cwd: root,
@@ -34784,9 +35295,11 @@ function loadScenarios(root, globPattern) {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.CleanupKind = void 0;
 exports.planCleanup = planCleanup;
 const evalforge_1 = __nccwpck_require__(7230);
 const plan_pr_scenario_sync_1 = __nccwpck_require__(7208);
+exports.CleanupKind = { RESTORE: 'RESTORE', DELETE: 'DELETE' };
 /**
  * Decides what to do with each of this PR's draft-tagged scenarios once the PR closes.
  * A name present in the base SHA's YAML pre-existed the PR, so it is RESTOREd to that
@@ -34800,13 +35313,13 @@ function planCleanup(remote, baseScenarios, draftTag, repo) {
         const baseScenario = baseScenarios.get(scenario.name);
         actions.push(baseScenario
             ? {
-                kind: 'RESTORE',
+                kind: exports.CleanupKind.RESTORE,
                 id: scenario.id,
                 name: scenario.name,
                 body: (0, plan_pr_scenario_sync_1.toScenarioBody)(baseScenario.scenario),
                 tags: (0, evalforge_1.withManagedTags)(baseScenario.scenario.tags, repo),
             }
-            : { kind: 'DELETE', id: scenario.id, name: scenario.name });
+            : { kind: exports.CleanupKind.DELETE, id: scenario.id, name: scenario.name });
     }
     return actions;
 }
@@ -34820,7 +35333,7 @@ function planCleanup(remote, baseScenarios, draftTag, repo) {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.semanticPlusDraftTags = exports.draftOnlyTags = void 0;
+exports.semanticPlusDraftTags = exports.draftOnlyTags = exports.SyncActionKind = void 0;
 exports.toScenarioBody = toScenarioBody;
 exports.diffSyncPlan = diffSyncPlan;
 exports.remoteScenarioFiltersForGate = remoteScenarioFiltersForGate;
@@ -34828,6 +35341,12 @@ exports.listRemoteScenariosForGate = listRemoteScenariosForGate;
 exports.stripInactiveForeignDraftTags = stripInactiveForeignDraftTags;
 const evalforge_1 = __nccwpck_require__(7230);
 const evalforge_mapper_1 = __nccwpck_require__(6006);
+exports.SyncActionKind = {
+    CREATE: 'CREATE',
+    UPDATE: 'UPDATE',
+    DELETE: 'DELETE',
+    DEFER_DELETE: 'DEFER_DELETE',
+};
 function toScenarioBody(scenario) {
     return (0, evalforge_mapper_1.toEvalForgeBody)(scenario);
 }
@@ -34848,7 +35367,7 @@ function diffSyncPlan(input) {
         const tags = (0, evalforge_1.withManagedTags)(tagStrategy(localScenario.scenario, draftTag), repo);
         const match = remoteByName.get(name);
         if (!match) {
-            actions.push({ kind: 'CREATE', name, body: toScenarioBody(localScenario.scenario), tags });
+            actions.push({ kind: exports.SyncActionKind.CREATE, name, body: toScenarioBody(localScenario.scenario), tags });
             continue;
         }
         const foreign = foreignDraftTags(match.tags, draftTag);
@@ -34856,7 +35375,7 @@ function diffSyncPlan(input) {
             errors.push({ kind: 'FOREIGN_DRAFT', name, foreignTags: foreign, path: localScenario.path });
             continue;
         }
-        actions.push({ kind: 'UPDATE', id: match.id, name, body: toScenarioBody(localScenario.scenario), tags });
+        actions.push({ kind: exports.SyncActionKind.UPDATE, id: match.id, name, body: toScenarioBody(localScenario.scenario), tags });
     }
     for (const [name, baseScenario] of base) {
         if (head.has(name))
@@ -34865,7 +35384,7 @@ function diffSyncPlan(input) {
         if (!match)
             continue;
         if (match.tags.includes(draftTag)) {
-            actions.push({ kind: 'DELETE', id: match.id, name });
+            actions.push({ kind: exports.SyncActionKind.DELETE, id: match.id, name });
             continue;
         }
         const foreign = foreignDraftTags(match.tags, draftTag);
@@ -34873,7 +35392,7 @@ function diffSyncPlan(input) {
             errors.push({ kind: 'FOREIGN_DRAFT', name, foreignTags: foreign, path: baseScenario.path });
         }
         else {
-            actions.push({ kind: 'DEFER_DELETE', id: match.id, name });
+            actions.push({ kind: exports.SyncActionKind.DEFER_DELETE, id: match.id, name });
         }
     }
     return { actions, errors };
@@ -35383,7 +35902,73 @@ function parseScenario(raw) {
             }
         }
     }
-    return exports.ScenarioSchema.parse(parsed);
+    const result = exports.ScenarioSchema.safeParse(parsed);
+    if (result.success)
+        return result.data;
+    throw new Error(describeIssues(result.error));
+}
+/**
+ * Zod's own `message` is the serialised issue array, so it reached the PR comment as ~15 lines of
+ * JSON for a one-line problem. One `path: message` per issue instead.
+ */
+function describeIssues(error) {
+    return error.issues
+        .map(issue => (issue.path.length === 0 ? issue.message : `${issue.path.join('.')}: ${issue.message}`))
+        .join('; ');
+}
+
+
+/***/ }),
+
+/***/ 8833:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.DEFAULT_MAX_SCENARIOS = void 0;
+exports.selectScenarios = selectScenarios;
+/**
+ * Cap on scenarios per gate run. Every wix-app scenario is a live agent build, so this bounds real
+ * money and wall-clock, not test runtime. Single home for the default — see DEFAULT_REFERENCE_DIR.
+ */
+exports.DEFAULT_MAX_SCENARIOS = 25;
+/**
+ * Builds the run's scenario set. Callers pass `nameToId` as the union of the sync plan's own
+ * results and the tag query, so a slow tag index cannot silently shrink the run.
+ *
+ * Touched scenarios sort first: a purely alphabetical cap could drop the author's own new
+ * scenario for an unrelated one.
+ */
+function selectScenarios(input) {
+    const derivedTags = new Set(input.tags);
+    const candidates = [...input.localScenarios.values()].filter(loaded => input.broadImpact
+        || input.touchedScenarioPaths.has(loaded.path)
+        || loaded.scenario.tags.some(tag => derivedTags.has(tag)));
+    const ordered = candidates.sort((left, right) => {
+        const leftTouched = input.touchedScenarioPaths.has(left.path) ? 0 : 1;
+        const rightTouched = input.touchedScenarioPaths.has(right.path) ? 0 : 1;
+        if (leftTouched !== rightTouched)
+            return leftTouched - rightTouched;
+        return left.scenario.name.localeCompare(right.scenario.name);
+    });
+    const missingIds = [];
+    const resolvable = [];
+    for (const loaded of ordered) {
+        const id = input.nameToId.get(loaded.scenario.name);
+        if (id)
+            resolvable.push({ name: loaded.scenario.name, id });
+        else
+            missingIds.push(loaded.scenario.name);
+    }
+    const running = resolvable.slice(0, Math.max(0, input.maxScenarios));
+    const cut = resolvable.slice(running.length);
+    return {
+        ids: running.map(entry => entry.id),
+        selected: running.map(entry => entry.name),
+        dropped: cut.map(entry => entry.name).sort(),
+        missingIds: missingIds.sort(),
+    };
 }
 
 

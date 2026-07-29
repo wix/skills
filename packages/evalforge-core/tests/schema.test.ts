@@ -398,11 +398,42 @@ describe('scenario templateId', () => {
   ].join('\n');
 
   it('accepts an optional top-level templateId', () => {
-    const s = parseScenario(base + '\ntemplateId: 8116ffa2-e212-4a74-a9f0-1738c9cbb6b1\n');
-    expect(s.templateId).toBe('8116ffa2-e212-4a74-a9f0-1738c9cbb6b1');
+    const s = parseScenario(base + '\ntemplateId: 33f2cb85-054e-4281-b617-3bc21ac0803f\n');
+    expect(s.templateId).toBe('33f2cb85-054e-4281-b617-3bc21ac0803f');
   });
   it('is valid without templateId (wix-manage scenarios omit it)', () => {
     const s = parseScenario(base + '\n');
     expect(s.templateId).toBeUndefined();
+  });
+});
+
+describe('parse error messages', () => {
+  // Seen on #770: ZodError.message is the serialised issue array, so the PR comment carried ~15
+  // lines of JSON for a one-line problem.
+  const bad = 'name: x\ndescription: d\ntriggerPrompt: build a dashboard page\ntags: [t]\nassertions: []\n';
+
+  it('names the field and the problem in one line', () => {
+    expect(() => parseScenario(bad)).toThrow('assertions: Array must contain at least 1 element(s)');
+  });
+
+  it('does not leak the raw Zod issue objects', () => {
+    try {
+      parseScenario(bad);
+      throw new Error('expected parseScenario to throw');
+    } catch (error) {
+      const message = (error as Error).message;
+      expect(message).not.toContain('too_small');
+      expect(message).not.toContain('"code"');
+      expect(message).not.toContain('\n');
+    }
+  });
+
+  it('joins multiple issues rather than dumping an array', () => {
+    const message = (() => {
+      try { parseScenario('name: x\n'); return ''; } catch (error) { return (error as Error).message; }
+    })();
+    expect(message).toContain('description: Required');
+    expect(message).toContain('assertions: Required');
+    expect(message).not.toContain('[');
   });
 });

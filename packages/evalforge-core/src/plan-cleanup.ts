@@ -2,14 +2,16 @@ import type { LoadedScenario } from './load-scenarios';
 import { withManagedTags, type RemoteScenario, type ScenarioBody } from './evalforge';
 import { toScenarioBody } from './plan-pr-scenario-sync';
 
+export const CleanupKind = { RESTORE: 'RESTORE', DELETE: 'DELETE' } as const;
+
 export type CleanupRestoreAction = {
-  kind: 'RESTORE';
+  kind: typeof CleanupKind.RESTORE;
   id: string;
   name: string;
   body: ScenarioBody;
   tags: string[];
 };
-export type CleanupDeleteAction = { kind: 'DELETE'; id: string; name: string };
+export type CleanupDeleteAction = { kind: typeof CleanupKind.DELETE; id: string; name: string };
 export type CleanupAction = CleanupRestoreAction | CleanupDeleteAction;
 
 /**
@@ -29,13 +31,13 @@ export function planCleanup(
     const baseScenario = baseScenarios.get(scenario.name);
     actions.push(baseScenario
       ? {
-          kind: 'RESTORE',
+          kind: CleanupKind.RESTORE,
           id: scenario.id,
           name: scenario.name,
           body: toScenarioBody(baseScenario.scenario),
           tags: withManagedTags(baseScenario.scenario.tags, repo),
         }
-      : { kind: 'DELETE', id: scenario.id, name: scenario.name });
+      : { kind: CleanupKind.DELETE, id: scenario.id, name: scenario.name });
   }
   return actions;
 }
