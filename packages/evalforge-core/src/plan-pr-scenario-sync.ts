@@ -27,9 +27,12 @@ export function toScenarioBody(scenario: Scenario): ScenarioBody {
  * - `draftOnlyTags` replaces the scenario's semantic tags with the draft tag. Correct only
  *   when the gate selects scenarios by explicit id and a promote step restores the real
  *   tags on merge (wix-manage).
- * - `semanticPlusDraftTags` keeps them. Required whenever the gate *queries by tag*: strip
- *   `dashboard-page` off the scenario and the query looking for it returns nothing, so the
- *   gate runs zero scenarios and reports green. Needs no promote step.
+ * - `semanticPlusDraftTags` keeps them, for a gate that selects by tag. Not needed for the run
+ *   that does the stripping — a touched scenario is also queried by name, so it still resolves.
+ *   It matters afterwards: once the semantic tag is gone from EvalForge, a later run of the same
+ *   PR that no longer has the scenario in its diff (the author reverted that edit) cannot find it
+ *   by tag either, so it silently drops out of tag-based selection. Keeping the tags avoids that,
+ *   and avoids needing a promote step to put them back.
  */
 export type PrTagStrategy = (scenario: Scenario, draftTag: string) => string[];
 
