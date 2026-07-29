@@ -1,7 +1,6 @@
 import type { LoadError } from './evals';
 import type { Uncovered } from './coverage';
-import type { SyncError } from './sync';
-import type { EvalRunStatus } from '@wix/evalforge-core';
+import type { EvalRunStatus, SyncError } from '@wix/evalforge-core';
 import { evalRunUrl } from '@wix/evalforge-core';
 import type { CompareGroupComplete, ScenarioComparison } from './eval-pipeline';
 import { formatTokenCount, type TokenBudgetViolation } from './token-budget';

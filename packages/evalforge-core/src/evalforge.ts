@@ -19,6 +19,9 @@ export type RunStatus = 'pending' | 'running' | typeof TERMINAL_RUN_STATUSES[num
 
 export type CapabilityVersion = { id: string; capabilityId: string; version: string };
 
+/** One file of a skill capability version; `path` is relative to the skill root. */
+export type SkillFileContent = { path: string; content: string };
+
 import type { EvalForgeBody } from './evalforge-mapper';
 
 export type RemoteScenario = { id: string; name: string; tags: string[] };
@@ -137,10 +140,11 @@ function normalizeStatus(s: string): RunStatus {
   return String(s).toLowerCase() as RunStatus;
 }
 
-// V1 `pass_rate` is a fraction (0.0–1.0); the action's internal contract (and
-// comment.ts) expects an integer percentage (0–100).
-function toPercent(fraction: number | undefined): number {
-  return Math.round((fraction ?? 0) * 100);
+// V1 `pass_rate` already arrives as a percentage (0–100), verified against 8 real runs in the
+// App Builder project: 4/5 reports 80, 26/30 reports 86.667. Multiplying by 100 here rendered
+// every comment as "10000%".
+function toPercent(passRate: number | undefined): number {
+  return Math.round(passRate ?? 0);
 }
 
 // Client for the EvalForge V1 REST API (`${baseUrl}/v1/...`, e.g.
@@ -198,12 +202,16 @@ export class EvalForgeClient {
     }) as Promise<T>;
   }
 
-  async listMcpVersions(mcpId: string, projectId: string): Promise<CapabilityVersion[]> {
+  // Content-agnostic: this endpoint lists versions of any capability, whether their content
+  // is `mcpContent` or `skillContent`.
+  async listCapabilityVersions(capabilityId: string, projectId: string): Promise<CapabilityVersion[]> {
     const res = await this.request<{ capabilityVersions?: RawCapabilityVersion[] }>(
       'GET',
-      `/projects/${enc(projectId)}/capabilities/${enc(mcpId)}/versions`,
+      `/projects/${enc(projectId)}/capabilities/${enc(capabilityId)}/versions`,
     );
-    return (res.capabilityVersions ?? []).map(v => ({ id: v.id, capabilityId: v.capabilityId, version: v.version }));
+    return (res.capabilityVersions ?? []).map(version => ({
+      id: version.id, capabilityId: version.capabilityId, version: version.version,
+    }));
   }
 
   private buildMcpUrl(skillsRepo: string, headSha: string): string {
@@ -265,9 +273,52 @@ export class EvalForgeClient {
       // error for "already exists" that transcodes to 500 — so recover on either by
       // reusing the existing version, and only rethrow if it genuinely isn't there.
       if (!isHttpError(e) || (e.status !== 409 && e.status !== 500)) throw e;
-      const versions = await this.listMcpVersions(mcpId, projectId);
+      const versions = await this.listCapabilityVersions(mcpId, projectId);
       const existing = versions.find(v => v.version === versionLabel);
       if (!existing) throw e;
+      return existing;
+    }
+  }
+
+  private async createSkillVersion(
+    capabilityId: string,
+    projectId: string,
+    versionLabel: string,
+    prNumber: number,
+    files: SkillFileContent[],
+  ): Promise<CapabilityVersion> {
+    const res = await this.request<{ capabilityVersion: RawCapabilityVersion }>(
+      'POST',
+      `/projects/${enc(projectId)}/capabilities/${enc(capabilityId)}/versions`,
+      {
+        capabilityVersion: {
+          capabilityId,
+          version: versionLabel,
+          origin: 'pr',
+          notes: `Auto-created for PR #${prNumber}`,
+          skillContent: { files },
+        },
+      },
+    );
+    const created = res.capabilityVersion;
+    return { id: created.id, capabilityId: created.capabilityId, version: created.version };
+  }
+
+  async createOrReuseSkillVersion(
+    capabilityId: string,
+    projectId: string,
+    versionLabel: string,
+    prNumber: number,
+    files: SkillFileContent[],
+  ): Promise<CapabilityVersion> {
+    try {
+      return await this.createSkillVersion(capabilityId, projectId, versionLabel, prNumber, files);
+    } catch (error) {
+      // Duplicate labels should be 409, but the backend transcodes "already exists" to 500.
+      if (!isHttpError(error) || (error.status !== 409 && error.status !== 500)) throw error;
+      const versions = await this.listCapabilityVersions(capabilityId, projectId);
+      const existing = versions.find(candidate => candidate.version === versionLabel);
+      if (!existing) throw error;
       return existing;
     }
   }
@@ -396,8 +447,8 @@ export class EvalForgeClient {
     };
   }
 
-  async deleteMcpVersion(mcpId: string, projectId: string, versionId: string): Promise<void> {
-    await this.request<void>('DELETE', `/projects/${enc(projectId)}/capabilities/${enc(mcpId)}/versions/${enc(versionId)}`);
+  async deleteCapabilityVersion(capabilityId: string, projectId: string, versionId: string): Promise<void> {
+    await this.request<void>('DELETE', `/projects/${enc(projectId)}/capabilities/${enc(capabilityId)}/versions/${enc(versionId)}`);
   }
 }
 

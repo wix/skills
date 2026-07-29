@@ -6,6 +6,18 @@ import { parseScenario, type Scenario } from './schema';
 export type LoadedScenario = { path: string; scenario: Scenario };
 export type LoadError = { path: string; message: string };
 
+/**
+ * The directory a scenario glob covers, so an author can be told where to add one: the leading
+ * wildcard-free prefix of the pattern. With no wildcard at all the last segment is a filename,
+ * so it is dropped. See the tests for the concrete patterns.
+ */
+export function scenarioDirFromGlob(globPattern: string): string {
+  const segments = globPattern.split('/');
+  const firstWildcard = segments.findIndex(segment => /[*?{[]/.test(segment));
+  const directory = firstWildcard === -1 ? segments.slice(0, -1) : segments.slice(0, firstWildcard);
+  return directory.join('/');
+}
+
 export function loadScenarios(root: string, globPattern: string): {
   scenarios: Map<string, LoadedScenario>;
   errors: LoadError[];

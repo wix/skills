@@ -13,8 +13,10 @@
     "@wix/evalforge-core": "portal:../../../packages/evalforge-core"
   },
   "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
     "@types/node": "^20.0.0",
     "@vercel/ncc": "^0.38.4",
+    "js-yaml": "^4.1.1",
     "typescript": "^5.0.0",
     "vitest": "^2.0.0"
   },

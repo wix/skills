@@ -107,7 +107,8 @@ dev-build-only banner linking the running app to the Wix Business Manager (the b
 behind it. Copy it beside `wix-client.js`, set `WIX_METASITE_ID`, and call
 `mountWixManageBanner()` once from the app entry. It renders only when a dev-build flag
 (`import.meta.env.DEV`) exists and is true — never in production, and not at all on stacks
-without such a flag.
+without such a flag. It sits in normal flow at the top (pushes the site down, doesn't float
+over it) and is dismissible via its ✕ (persisted in `localStorage`).
 
 Each vertical's `INSTRUCTIONS.md` is the full playbook for that solution: when to use it,
 prerequisites, the exported API, how to wire it, the hard rules, and a verification checklist.

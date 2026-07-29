@@ -214,5 +214,17 @@ export function parseScenario(raw: string): Scenario {
       }
     }
   }
-  return ScenarioSchema.parse(parsed);
+  const result = ScenarioSchema.safeParse(parsed);
+  if (result.success) return result.data;
+  throw new Error(describeIssues(result.error));
+}
+
+/**
+ * Zod's own `message` is the serialised issue array, so it reached the PR comment as ~15 lines of
+ * JSON for a one-line problem. One `path: message` per issue instead.
+ */
+function describeIssues(error: z.ZodError): string {
+  return error.issues
+    .map(issue => (issue.path.length === 0 ? issue.message : `${issue.path.join('.')}: ${issue.message}`))
+    .join('; ');
 }

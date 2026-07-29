@@ -1,6 +1,6 @@
 ---
 name: wix-manage
-description: "Wix business solution management recipes — REST API operations for configuring and managing Wix business solutions. Routes to: stores, bookings, get-paid, CMS, contacts, forms, media, app-installation, pricing-plans, restaurants, rich-content, sites, blog, calendar, domains, site-properties, ecommerce, marketing, analytics."
+description: "Wix business solution management recipes — REST API operations for configuring and managing Wix business solutions. Routes to: stores, bookings, get-paid, CMS, contacts, forms, media, app-installation, pricing-plans, restaurants, rich-content, sites, blog, calendar, domains, site-properties, ecommerce, marketing, google-ads, analytics."
 compatibility: Requires Wix REST API access (API key or OAuth).
 ---
 
@@ -109,6 +109,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ### [CMS Schema Management](references/cms/cms-schema-management.md)
 **Technical:** Create and modify CMS collection structures. Covers listing collections, creating collections with fields, adding/removing fields, and updating collection settings.
 
+### [CMS Publishing Flow & Visible/Hidden](references/cms/cms-publishing-flow.md)
+**Technical:** Interact with collections that gate items behind a draft/publish workflow — Visible/Hidden and Publishing Flow (Review, with DRAFT/PUBLISHED/CHANGED states). Detect the mode, read the combined draft+live view (`publishPluginOptions.includeDraftItems`), author/edit drafts against the `<collectionId>__drafts` shadow, and publish/unpublish/revert/delete items. Key endpoints: /wix-data/v2/items/publish-draft, /wix-data/v2/items/unpublish, /wix-data/v2/collections/add-plugin.
+
 ---
 
 ## Contacts
@@ -191,6 +194,24 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 
 ### [Payment Links for Bookings](references/get-paid/payment-links-for-bookings.md)
 **Technical:** Creates payment links for unpaid bookings using Payment Links API. Links booking IDs to payment requests with proper redirect handling.
+
+---
+
+## Google Ads
+
+**Routing — Google paid-advertising campaigns for a site (Smart & Performance Max).** All flows require a Google Ads account, created once via the setup recipe. Budgets are in micros (1,000,000 = 1 currency unit). REST base: `https://www.wixapis.com/google-ads/v1`.
+- **First-time setup / "connect Google Ads" / `ACCOUNT_NOT_FOUND`** → [Install and Create an Account](references/google-ads/install-and-create-account.md) (do this before anything else).
+- **Suggested keywords / geo / budget / ad copy / images** → [Get AI Campaign Suggestions](references/google-ads/get-campaign-suggestions.md).
+- **Create a multi-channel / lead-gen / Shopping campaign** → [Create a Performance Max Campaign](references/google-ads/create-performance-max-campaign.md).
+
+### [Install Google Ads and Create an Account](references/google-ads/install-and-create-account.md)
+**Technical:** One-time setup prerequisite for all Google Ads flows. Installs the Wix Google Ads app (`POST /v1/install-if-not-installed`) then creates the linked account (`POST /v1/accounts` with `currency`). Covers checking for an existing account (`GET /v1/accounts/current-site`, empty when none), optional promotional incentives, Merchant Center linking, and account deletion.
+
+### [Get AI Campaign Suggestions for Google Ads](references/google-ads/get-campaign-suggestions.md)
+**Technical:** Read-only Suggestions API reference — keyword themes, geo options, Smart budget tiers, PMAX budget recommendations, text/image assets, search themes, full AI campaign configs from a campaign brief (`POST /v1/campaign-suggestions`), and promotional incentive offers. Budgets in micros; generation endpoints have 60–120s SLAs.
+
+### [Create and Launch a Performance Max Campaign](references/google-ads/create-performance-max-campaign.md)
+**Technical:** Creates and launches a PMAX campaign — `PERFORMANCE_MAX`, `PERFORMANCE_MAX_LEADS`, or retail/Shopping. Generates AI text/image assets and search themes, gets a Google budget recommendation, assembles an asset group meeting Google's minimum asset counts (headlines/descriptions/images), creates in `PAUSED`, then launches. Bidding is server-enforced to `MAXIMIZE_CONVERSIONS`.
 
 ---
 
