@@ -112,6 +112,31 @@ curl -X GET \
 }
 ```
 
+This works for `displayName`/`displayField`. **It does not work for `permissions`** — confirmed (2026-07): any `dataCollection.permissions.*` value is rejected with `WDE0075: Not recognized role provided in permissions.`, even a value identical to the collection's current one (a true no-op). Don't try to work around it via the `dataPermissions.{itemRead,itemInsert,itemUpdate,itemRemove}` field that shows up in `GET`/`PATCH` responses — it's an internal mirror of `permissions`, not a separate public field, and patching it fails the same way. Don't burn attempts on `mask` variations either — `PatchDataCollection` takes no `mask` parameter.
+
+**To change permissions on an existing collection, use the full-replace endpoint instead** (`UpdateDataCollection`, not `PatchDataCollection`) — it requires the collection's current `revision` and full `fields` array (get both from a `GET` first), but it does work:
+
+**Endpoint**: `PUT /wix-data/v2/collections`
+
+```json
+{
+  "collection": {
+    "id": "Products",
+    "revision": "3",
+    "displayName": "Product Catalog",
+    "fields": [ /* the collection's full current non-system fields, from GET */ ],
+    "permissions": {
+      "insert": "ADMIN",
+      "update": "ADMIN",
+      "remove": "ADMIN",
+      "read": "SITE_MEMBER"
+    }
+  }
+}
+```
+
+Don't delete and recreate a collection just to change its permissions — this full-replace call is the working path.
+
 ## Field Types Reference
 
 | Type | Description | Example Value |
