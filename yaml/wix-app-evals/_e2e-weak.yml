@@ -1,0 +1,9 @@
+name: e2e-weak-scenario
+description: Throwaway scenario deliberately below the quality bar, to exercise the no-weakening check.
+triggerPrompt: |-
+  Build a dashboard page that lists products.
+templateId: 8116ffa2-e212-4a74-a9f0-1738c9cbb6b1
+tags: [dashboard-page]
+assertions:
+  - type: skill_was_called
+    skillNames: [wix-app]

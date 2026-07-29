@@ -231,3 +231,5 @@ src/pages/api/
 - Include `Content-Type: application/json` header on JSON responses.
 - Include `statusText` in error responses.
 - Validate input parameters and request bodies.
+
+<!-- e2e-verify: throwaway change, do not merge -->
