@@ -29,7 +29,7 @@ describe('every gate comment', () => {
     for (const body of [
       formatYamlErrors([{ path: 'a.yml', message: 'bad' }]),
       formatNoGatedChanges([]),
-      formatGuardFailure({ violations: [{ kind: 'UNCOVERED_TAG', tag: 't' }], warnings: [], blocking: true }),
+      formatGuardFailure({ violations: [{ kind: 'UNCOVERED_TAG', tag: 't' }], warnings: [], blocking: true, scenarioDir: 'd' }),
       formatForeignDraftConflicts([{ kind: 'FOREIGN_DRAFT', name: 'n', foreignTags: ['draft:o/r#1'] }], true),
       formatGateResult(baseResult),
       formatGateTimeout('run-1', 'https://x', false),
@@ -63,7 +63,7 @@ describe('formatGuardFailure', () => {
   it('names an uncovered tag and says a scenario is needed', () => {
     const body = formatGuardFailure({
       violations: [{ kind: 'UNCOVERED_TAG', tag: 'backend-api' }],
-      warnings: [], blocking: true,
+      warnings: [], blocking: true, scenarioDir: 'yaml/wix-app-evals',
     });
     expect(body).toContain('backend-api');
     expect(body).toMatch(/scenario/i);
@@ -72,7 +72,7 @@ describe('formatGuardFailure', () => {
   it('distinguishes a weak tag from an uncovered one, naming the weak scenarios', () => {
     const body = formatGuardFailure({
       violations: [{ kind: 'WEAK_TAG', tag: 'dashboard-page', scenarios: ['thin'] }],
-      warnings: [], blocking: true,
+      warnings: [], blocking: true, scenarioDir: 'yaml/wix-app-evals',
     });
     expect(body).toContain('dashboard-page');
     expect(body).toContain('thin');
@@ -84,7 +84,7 @@ describe('formatGuardFailure', () => {
         kind: 'WEAK_TOUCHED_SCENARIO', name: 'thin',
         path: 'yaml/wix-app-evals/thin.yml', reasons: ['has 1 assertion (needs at least 3)'],
       }],
-      warnings: [], blocking: true,
+      warnings: [], blocking: true, scenarioDir: 'yaml/wix-app-evals',
     });
     expect(body).toContain('yaml/wix-app-evals/thin.yml');
     expect(body).toContain('has 1 assertion');
@@ -92,14 +92,14 @@ describe('formatGuardFailure', () => {
 
   it('states that the run was skipped, since a guard failure costs no run', () => {
     const body = formatGuardFailure({
-      violations: [{ kind: 'UNCOVERED_TAG', tag: 't' }], warnings: [], blocking: true,
+      violations: [{ kind: 'UNCOVERED_TAG', tag: 't' }], warnings: [], blocking: true, scenarioDir: 'yaml/wix-app-evals',
     });
     expect(body).toMatch(/no eval run|skipped|not run/i);
   });
 
   it('renders as a warning rather than a failure when not blocking', () => {
-    const blocked = formatGuardFailure({ violations: [{ kind: 'UNCOVERED_TAG', tag: 't' }], warnings: [], blocking: true });
-    const soaking = formatGuardFailure({ violations: [{ kind: 'UNCOVERED_TAG', tag: 't' }], warnings: [], blocking: false });
+    const blocked = formatGuardFailure({ violations: [{ kind: 'UNCOVERED_TAG', tag: 't' }], warnings: [], blocking: true, scenarioDir: 'd' });
+    const soaking = formatGuardFailure({ violations: [{ kind: 'UNCOVERED_TAG', tag: 't' }], warnings: [], blocking: false, scenarioDir: 'd' });
     expect(blocked).not.toBe(soaking);
     expect(soaking).toContain('⚠️');
     expect(blocked).toContain('❌');
@@ -112,7 +112,7 @@ describe('formatGuardFailure', () => {
         kind: 'WEAK_UNTOUCHED_SCENARIO', name: 'old', path: 'yaml/wix-app-evals/old.yml',
         tags: ['dashboard-page'], reasons: ['has no llm_judge assertion'],
       }],
-      blocking: true,
+      blocking: true, scenarioDir: 'yaml/wix-app-evals',
     });
     expect(body).toContain('old');
     expect(body).toContain('llm_judge');
@@ -234,5 +234,51 @@ describe('formatGateSkipped', () => {
 
   it('spells out that green does not mean the scenarios passed', () => {
     expect(formatGateSkipped('reason')).toMatch(/did not run, not because the scenarios passed/);
+  });
+  it('names the scenario directory, so the author knows where to add the file', () => {
+    const body = formatGuardFailure({
+      violations: [{ kind: 'UNCOVERED_TAG', tag: 'backend-api' }],
+      warnings: [], blocking: true, scenarioDir: 'yaml/wix-app-evals',
+    });
+    expect(body).toContain('`yaml/wix-app-evals/`');
+  });
+
+  it('falls back to generic wording rather than an empty path', () => {
+    const body = formatGuardFailure({
+      violations: [{ kind: 'UNCOVERED_TAG', tag: 'backend-api' }],
+      warnings: [], blocking: true, scenarioDir: '',
+    });
+    expect(body).toContain('the scenario directory');
+    expect(body).not.toContain('`/`');
+  });
+
+  // An uncovered tag has no scenario, so nothing can be below the bar. Leading with the bar read
+  // as though an existing scenario was too weak.
+  it('omits the quality bar note when nothing is about quality', () => {
+    const body = formatGuardFailure({
+      violations: [{ kind: 'UNCOVERED_TAG', tag: 'backend-api' }],
+      warnings: [], blocking: true, scenarioDir: 'yaml/wix-app-evals',
+    });
+    expect(body).not.toContain('quality bar');
+  });
+
+  it('keeps the quality bar note for a weak tag', () => {
+    const body = formatGuardFailure({
+      violations: [{ kind: 'WEAK_TAG', tag: 'dashboard-page', scenarios: ['thin'] }],
+      warnings: [], blocking: true, scenarioDir: 'yaml/wix-app-evals',
+    });
+    expect(body).toContain('quality bar');
+  });
+
+  it('keeps the quality bar note when only the carried-forward warnings concern quality', () => {
+    const body = formatGuardFailure({
+      violations: [{ kind: 'UNCOVERED_TAG', tag: 'backend-api' }],
+      warnings: [{
+        kind: 'WEAK_UNTOUCHED_SCENARIO', name: 'old', path: 'yaml/wix-app-evals/old.yml',
+        tags: ['dashboard-page'], reasons: ['has no llm_judge assertion'],
+      }],
+      blocking: true, scenarioDir: 'yaml/wix-app-evals',
+    });
+    expect(body).toContain('quality bar');
   });
 });

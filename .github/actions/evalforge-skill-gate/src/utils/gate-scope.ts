@@ -2,7 +2,7 @@ import * as core from '@actions/core';
 import * as github from '@actions/github';
 import {
   collectSkillFiles, deriveTags, formatGuardFailure, formatNoGatedChanges, formatYamlErrors,
-  getChangedFiles, guardScenarios, loadScenarios, touchedScenarioPaths,
+  getChangedFiles, guardScenarios, loadScenarios, scenarioDirFromGlob, touchedScenarioPaths,
   type ChangedFile, type Commenter, type DerivedTags, type GuardViolation, type GuardWarning,
   type LoadedScenario, type SkillFileContent,
 } from '@wix/evalforge-core';
@@ -104,7 +104,11 @@ async function runCoverageGuard(
     touchedScenarioPaths: touchedPaths,
   });
   if (guard.violations.length === 0) return { ok: true, value: guard };
-  await comment(formatGuardFailure({ ...guard, blocking: config.isBlocking }));
+  await comment(formatGuardFailure({
+    ...guard,
+    blocking: config.isBlocking,
+    scenarioDir: scenarioDirFromGlob(config.evalsGlob),
+  }));
   fail(`Eval coverage guard failed: ${guard.violations.length} violation(s)`, config.isBlocking);
   return HALTED;
 }

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { loadScenarios } from '../src/load-scenarios';
+import { loadScenarios, scenarioDirFromGlob } from '../src/load-scenarios';
 
 const GLOB = 'evals/*/**/*.{yml,yaml}';
 const yaml = (name: string) => `name: ${name}\ndescription: d\ntriggerPrompt: a long enough trigger prompt\ntags: [dashboard-page]\nassertions:\n  - type: llm_judge\n    prompt: p\n    minScore: 7\n`;
@@ -45,5 +45,23 @@ describe('loadScenarios', () => {
     const greedy = loadScenarios(dir, '**/*.{yml,yaml}');
     expect(greedy.errors).toHaveLength(0);
     expect([...greedy.scenarios.keys()]).toEqual(['area/a']);
+  });
+});
+
+describe('scenarioDirFromGlob', () => {
+  it('strips the wildcard tail from a scenario glob', () => {
+    expect(scenarioDirFromGlob('yaml/wix-app-evals/**/*.{yml,yaml}')).toBe('yaml/wix-app-evals');
+  });
+
+  it('handles a single-level glob', () => {
+    expect(scenarioDirFromGlob('yaml/wix-app-evals/*.yml')).toBe('yaml/wix-app-evals');
+  });
+
+  it('drops the filename when the pattern has no wildcard', () => {
+    expect(scenarioDirFromGlob('yaml/wix-app-evals/one.yml')).toBe('yaml/wix-app-evals');
+  });
+
+  it('returns empty rather than a bare slash for a wildcard-only pattern', () => {
+    expect(scenarioDirFromGlob('**/*.yml')).toBe('');
   });
 });

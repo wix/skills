@@ -30850,10 +30850,12 @@ function formatNoGatedChanges(unmapped) {
         ...unmappedSection(unmapped),
     ]);
 }
-function violationLine(violation) {
+function violationLine(violation, scenarioDir) {
     switch (violation.kind) {
-        case 'UNCOVERED_TAG':
-            return `- **\`${violation.tag}\`** has no eval scenario at all. Add one under the scenario directory tagged \`${violation.tag}\`, or add that tag to a scenario that already exercises the area.`;
+        case 'UNCOVERED_TAG': {
+            const where = scenarioDir === '' ? 'the scenario directory' : `\`${scenarioDir}/\``;
+            return `- **\`${violation.tag}\`** has no eval scenario at all. Add one under ${where} tagged \`${violation.tag}\`, or add that tag to a scenario that already exercises the area.`;
+        }
         case 'WEAK_TAG':
             return `- **\`${violation.tag}\`** is carried only by scenarios below the quality bar (${violation.scenarios.map(name => `\`${name}\``).join(', ')}). Strengthen one of them, or add a scenario that meets the bar.`;
         case 'WEAK_TOUCHED_SCENARIO':
@@ -30862,10 +30864,15 @@ function violationLine(violation) {
 }
 function formatGuardFailure(input) {
     const { icon, label } = failIcon(input.blocking);
+    // Only when something here is actually about quality. On a bare uncovered tag there is no
+    // scenario to be below the bar, and leading with it reads as though one was too weak.
+    const aboutQuality = input.violations.some(violation => violation.kind !== 'UNCOVERED_TAG')
+        || input.warnings.length > 0;
     return render(icon, `Coverage ${label}`, [
-        'The quality bar is **at least 3 assertions including one `llm_judge`** — a scenario below it would run, pass, and verify nothing.',
-        '',
-        ...input.violations.map(violationLine),
+        ...(aboutQuality
+            ? ['The quality bar is **at least 3 assertions including one `llm_judge`** — a scenario below it would run, pass, and verify nothing.', '']
+            : []),
+        ...input.violations.map(violation => violationLine(violation, input.scenarioDir)),
         '',
         '_No eval run was started — a coverage failure is caught before any run cost._',
         ...warningSection(input.warnings),
@@ -31075,11 +31082,23 @@ __exportStar(__nccwpck_require__(5970), exports);
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.scenarioDirFromGlob = scenarioDirFromGlob;
 exports.loadScenarios = loadScenarios;
 const node_fs_1 = __nccwpck_require__(3024);
 const node_path_1 = __nccwpck_require__(6760);
 const glob_1 = __nccwpck_require__(2311);
 const schema_1 = __nccwpck_require__(3540);
+/**
+ * The directory a scenario glob covers, so an author can be told where to add one: the leading
+ * wildcard-free prefix of the pattern. With no wildcard at all the last segment is a filename,
+ * so it is dropped. See the tests for the concrete patterns.
+ */
+function scenarioDirFromGlob(globPattern) {
+    const segments = globPattern.split('/');
+    const firstWildcard = segments.findIndex(segment => /[*?{[]/.test(segment));
+    const directory = firstWildcard === -1 ? segments.slice(0, -1) : segments.slice(0, firstWildcard);
+    return directory.join('/');
+}
 function loadScenarios(root, globPattern) {
     const found = glob_1.glob.sync(globPattern, {
         cwd: root,
@@ -62106,7 +62125,11 @@ async function runCoverageGuard(derived, headScenarios, touchedPaths, config, co
     });
     if (guard.violations.length === 0)
         return { ok: true, value: guard };
-    await comment((0, evalforge_core_1.formatGuardFailure)({ ...guard, blocking: config.isBlocking }));
+    await comment((0, evalforge_core_1.formatGuardFailure)({
+        ...guard,
+        blocking: config.isBlocking,
+        scenarioDir: (0, evalforge_core_1.scenarioDirFromGlob)(config.evalsGlob),
+    }));
     (0, report_1.fail)(`Eval coverage guard failed: ${guard.violations.length} violation(s)`, config.isBlocking);
     return report_1.HALTED;
 }
