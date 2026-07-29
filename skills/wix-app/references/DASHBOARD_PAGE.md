@@ -325,3 +325,5 @@ Wizard pages guide users through setting up a product or feature. They split com
 - `<Layout />` - Grid layout container
 - `<MarketingPageLayout />` - Marketing page wrapper
 - `<Card />` - Content container with 24px gaps between cards
+
+<!-- e2e throwaway marker: PR-only content, proves the version came from this PR. Do not merge. -->
