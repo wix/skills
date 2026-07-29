@@ -1,5 +1,11 @@
 import type { LoadedScenario } from './load-scenarios';
 
+/**
+ * Cap on scenarios per gate run. Every wix-app scenario is a live agent build, so this bounds real
+ * money and wall-clock, not test runtime. Single home for the default — see DEFAULT_REFERENCE_DIR.
+ */
+export const DEFAULT_MAX_SCENARIOS = 25;
+
 export type ScenarioSelection = {
   ids: string[];
   selected: string[];

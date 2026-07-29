@@ -30179,10 +30179,12 @@ function collectSkillFiles(root, skillDir, options = {}) {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.DEFAULT_BROAD_IMPACT_GLOBS = exports.DEFAULT_IGNORE_GLOBS = void 0;
+exports.DEFAULT_BROAD_IMPACT_GLOBS = exports.DEFAULT_IGNORE_GLOBS = exports.DEFAULT_REFERENCE_DIR = void 0;
 exports.deriveTags = deriveTags;
 exports.touchedScenarioPaths = touchedScenarioPaths;
 const minimatch_1 = __nccwpck_require__(8911);
+/** Single home for the default: `action.yml`, the config reader and the workflow all defer to it. */
+exports.DEFAULT_REFERENCE_DIR = 'references';
 exports.DEFAULT_IGNORE_GLOBS = ['scripts/**'];
 /** References that apply across scenarios, so no single tag describes them. */
 exports.DEFAULT_BROAD_IMPACT_GLOBS = [
@@ -31737,7 +31739,13 @@ function parseScenario(raw) {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.DEFAULT_MAX_SCENARIOS = void 0;
 exports.selectScenarios = selectScenarios;
+/**
+ * Cap on scenarios per gate run. Every wix-app scenario is a live agent build, so this bounds real
+ * money and wall-clock, not test runtime. Single home for the default — see DEFAULT_REFERENCE_DIR.
+ */
+exports.DEFAULT_MAX_SCENARIOS = 25;
 /**
  * Builds the run's scenario set. Callers pass `nameToId` as the union of the sync plan's own
  * results and the tag query, so a slow tag index cannot silently shrink the run.

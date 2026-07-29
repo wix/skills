@@ -15,6 +15,9 @@ export type DerivedTags = {
   unmapped: string[];
 };
 
+/** Single home for the default: `action.yml`, the config reader and the workflow all defer to it. */
+export const DEFAULT_REFERENCE_DIR = 'references';
+
 export const DEFAULT_IGNORE_GLOBS: string[] = ['scripts/**'];
 
 /** References that apply across scenarios, so no single tag describes them. */
