@@ -10,3 +10,7 @@ apiDoc:
       title: List Installed Apps
       docsEntry: https://dev.wix.com/docs/api-reference/business-management/app-installation
       tags: [app-installation]
+    - file: ../../../skills/wix-manage/references/app-installation/uninstall-wix-apps.md
+      title: Uninstall Wix Apps
+      docsEntry: https://dev.wix.com/docs/api-reference/business-management/app-installation
+      tags: [app-installation]
