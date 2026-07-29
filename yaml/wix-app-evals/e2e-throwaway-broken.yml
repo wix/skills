@@ -1,0 +1,5 @@
+name: e2e-throwaway-broken
+description: Deliberately invalid — assertions must be a non-empty array. Throwaway.
+triggerPrompt: build something
+tags: [dashboard-page]
+assertions: []
