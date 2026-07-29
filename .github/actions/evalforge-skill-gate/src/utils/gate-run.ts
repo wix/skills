@@ -164,7 +164,7 @@ export async function runGate(): Promise<void> {
     return;
   }
 
-  const run = await startEvalRun(client, config, selection.ids, comment);
+  const run = await startEvalRun(client, config, selection.ids, version.id, comment);
   if (!run) return;
 
   const runUrl = evalRunUrl(config.projectId, run.id);

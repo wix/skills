@@ -256,10 +256,22 @@ describe('runGate — the happy path', () => {
       agentId: 'agent',
       scenarioIds: ['remote-id'],
       capabilityIds: ['cap'],
-      capabilityVersions: { cap: 'pr-42-merge99' },
+      capabilityVersions: { cap: 'ver-1' },
     }));
     expect(upsertComment).toHaveBeenCalledWith(expect.stringContaining('✅'));
     expect(setFailedSpy).not.toHaveBeenCalled();
+  });
+
+  // The evaluator resolves capabilityVersions by version id; passing the label makes it 400
+  // and the run fails with zero assertions.
+  it('pins the capability version by id, not by label', async () => {
+    const { runGate } = await harness();
+
+    await runGate();
+
+    const input = createAndRunEvalRun.mock.calls[0][1];
+    expect(input.capabilityVersions).toEqual({ cap: 'ver-1' });
+    expect(Object.values(input.capabilityVersions)).not.toContain('pr-42-merge99');
   });
 
   it('never passes filter.tag — scenario ids are explicit', async () => {

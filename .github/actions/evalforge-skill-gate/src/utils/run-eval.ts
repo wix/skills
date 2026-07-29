@@ -10,6 +10,8 @@ export function startEvalRun(
   client: EvalForgeClient,
   config: GateConfig,
   scenarioIds: string[],
+  /** The version's **id**, not its label — the evaluator resolves capabilityVersions by id. */
+  versionId: string,
   comment: Commenter,
 ): Promise<EvalRunCreated | undefined> {
   return guardedCall(
@@ -20,7 +22,7 @@ export function startEvalRun(
       agentId: config.agentId,
       scenarioIds,
       capabilityIds: [config.capabilityId],
-      capabilityVersions: { [config.capabilityId]: config.versionLabel },
+      capabilityVersions: { [config.capabilityId]: versionId },
     }),
     'Could not start the eval run', comment, config.blocking,
   );

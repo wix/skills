@@ -62067,7 +62067,7 @@ async function runGate() {
         (0, report_1.fail)(message, config.blocking);
         return;
     }
-    const run = await (0, run_eval_1.startEvalRun)(client, config, selection.ids, comment);
+    const run = await (0, run_eval_1.startEvalRun)(client, config, selection.ids, version.id, comment);
     if (!run)
         return;
     const runUrl = (0, evalforge_core_1.evalRunUrl)(config.projectId, run.id);
@@ -62298,7 +62298,9 @@ exports.pollToCompletion = pollToCompletion;
 const core = __importStar(__nccwpck_require__(7484));
 const evalforge_core_1 = __nccwpck_require__(7495);
 const report_1 = __nccwpck_require__(7267);
-function startEvalRun(client, config, scenarioIds, comment) {
+function startEvalRun(client, config, scenarioIds, 
+/** The version's **id**, not its label — the evaluator resolves capabilityVersions by id. */
+versionId, comment) {
     return (0, report_1.guardedCall)(() => client.createAndRunEvalRun(config.projectId, {
         name: `${config.repoFullName} PR #${config.prNumber} (${config.versionLabel})`,
         description: `Skill gate run for PR #${config.prNumber}`,
@@ -62306,7 +62308,7 @@ function startEvalRun(client, config, scenarioIds, comment) {
         agentId: config.agentId,
         scenarioIds,
         capabilityIds: [config.capabilityId],
-        capabilityVersions: { [config.capabilityId]: config.versionLabel },
+        capabilityVersions: { [config.capabilityId]: versionId },
     }), 'Could not start the eval run', comment, config.blocking);
 }
 /** Timeout gets its own comment; anything else is a generic service failure. */
