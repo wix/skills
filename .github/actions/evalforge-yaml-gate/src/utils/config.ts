@@ -1,5 +1,6 @@
 import * as core from '@actions/core';
 import * as github from '@actions/github';
+import { ensureHttps as coreEnsureHttps, safeGetSecret as coreSafeGetSecret, getPrNumber as coreGetPrNumber } from '@wix/evalforge-core';
 
 export type SimpleConfig = {
   githubToken: string;
@@ -25,26 +26,8 @@ export type Config = SimpleConfig & {
   maxNewSkills: number;
 };
 
-function ensureHttps(url: string): string {
-  if (url.startsWith('https://')) return url;
-  const upgraded = 'https://' + url.replace(/^https?:\/\//, '');
-  core.warning(`evalforge-url was not HTTPS — upgraded to: ${upgraded}`);
-  return upgraded;
-}
 
-function safeGetSecret(name: string): string {
-  const value = core.getInput(name, { required: true });
-  core.setSecret(value);
-  return value;
-}
 
-function getPrNumber(): number {
-  const pr = github.context.payload.pull_request;
-  if (!pr) throw new Error('No pull_request payload — action must be triggered by a pull_request event');
-  const n = pr.number as number | undefined;
-  if (!n) throw new Error('PR payload missing number');
-  return n;
-}
 
 function getPositiveIntegerInput(name: string, fallback: number): number {
   const raw = core.getInput(name) || String(fallback);
@@ -57,15 +40,35 @@ function getPositiveIntegerInput(name: string, fallback: number): number {
 
 export function getSimpleConfig(): SimpleConfig {
   return {
-    githubToken: safeGetSecret('github-token'),
-    evalforgeUrl: ensureHttps(core.getInput('evalforge-url', { required: true })),
+    githubToken: coreSafeGetSecret(core, 'github-token'),
+    evalforgeUrl: coreEnsureHttps(core, core.getInput('evalforge-url', { required: true })),
     projectId: core.getInput('evalforge-project-id', { required: true }),
     mcpId: core.getInput('evalforge-mcp-id', { required: true }),
-    appId: safeGetSecret('evalforge-app-id'),
-    appSecret: safeGetSecret('evalforge-app-secret'),
-    prNumber: getPrNumber(),
+    appId: coreSafeGetSecret(core, 'evalforge-app-id'),
+    appSecret: coreSafeGetSecret(core, 'evalforge-app-secret'),
+    prNumber: coreGetPrNumber(github.context.payload),
     owner: github.context.repo.owner,
     repo: github.context.repo.repo,
+  };
+}
+
+export type ScheduleConfig = {
+  evalforgeUrl: string;
+  projectId: string;
+  agentId: string;
+  appId: string;
+  appSecret: string;
+  runName: string;
+};
+
+export function getScheduleConfig(): ScheduleConfig {
+  return {
+    evalforgeUrl: coreEnsureHttps(core, core.getInput('evalforge-url', { required: true })),
+    projectId: core.getInput('evalforge-project-id', { required: true }),
+    agentId: core.getInput('evalforge-agent-id', { required: true }),
+    appId: coreSafeGetSecret(core, 'evalforge-app-id'),
+    appSecret: coreSafeGetSecret(core, 'evalforge-app-secret'),
+    runName: core.getInput('run-name') || 'scheduled-run',
   };
 }
 

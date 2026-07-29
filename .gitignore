@@ -1,0 +1,21 @@
+# Repo-wide ignores. Deliberately narrow: each package has its own .gitignore for build output
+# and dependencies, and the actions' `dist/index.js` is committed on purpose — CI runs that bundle
+# directly. So nothing here may ignore `dist`.
+
+# OS cruft. `skills/wix-headless/.DS_Store` was committed before this file existed.
+.DS_Store
+._*
+Thumbs.db
+
+# Editor state
+.idea/
+.vscode/
+*.swp
+
+# Local credentials. The eval flows read EvalForge app secrets from an env file; keep it out of the
+# repo entirely, but ignore it here too so a stray copy cannot be committed by accident.
+.env
+.env.*
+
+# Safety net — every package already ignores this, but a new one might not yet.
+node_modules/

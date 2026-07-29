@@ -30,12 +30,28 @@ curl -X POST \
   -d '{}'
 ```
 
-**Response**: Empty body on success.
+**Response**: `200` with `{"pagesAdded": ["<widgetId>", ...]}` when the call completes within the gateway timeout. On sites with many installed apps the call usually does **not** complete in time — see the notes below.
+
+### If the User Already Got a 504
+
+Answer as troubleshooting, not as a failed install:
+
+| What happened | What to do | Why |
+| --- | --- | --- |
+| `504 Gateway Timeout` after ~30 seconds | Wait 1–2 minutes, then verify that the cart/checkout pages exist and checkout works | The gateway timed out while the server-side install may still be running |
+| Pages now exist | Do not call the endpoint again | The repair completed despite the timeout |
+| Pages are still missing after waiting | Call the endpoint once more, then verify again | A second call is only warranted after the first run had time to finish |
+
+Do not describe an immediate retry as harmless or normally idempotent. The endpoint only adds missing pages, but each call still starts a full scan/add/republish pass, so retrying before the first pass finishes can create overlapping work and another publish.
 
 ### IMPORTANT NOTES:
 - This endpoint adds missing store pages (cart, checkout) if they don't exist
 - The request body is empty - no parameters needed
 - Only required Authorization header
+- **Long-running — a 504 does not mean failure.** The endpoint synchronously scans every app installed on the site, adds any missing essential pages, and republishes the site. On real sites this often exceeds the ~30-second gateway timeout, so the call returns `504 Gateway Timeout` (sometimes wrapped as `Internal Server Error` with `errorCode: -100`) while the installation keeps running server-side and usually completes.
+- **On 504, do not retry immediately.** An immediate retry starts a second full install-and-republish pass. Wait 1–2 minutes, then verify the missing pages now exist (check the site's store pages, or have the user refresh and re-test checkout). Call the endpoint again only if the pages are still missing.
+- **Call it from an HTTP tool that is allowed to reach `www.wix.com`** (for example, the Wix MCP `CallWixSiteAPI` tool). Sandboxed code-execution tools (such as `ExecuteWixAPI`) block this host and fail with `403 Forbidden: requests to www.wix.com not allowed`.
+- **The operation republishes the site.** Confirm with the user before running it on a live site.
 
 ---
 

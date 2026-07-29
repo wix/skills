@@ -21,7 +21,7 @@ Run every post request through these steps, in this order. The principle is **va
    To get an **AI image from a bare idea**, that's `generate-post-data` — it returns a generated image as part of the post. `generate-image` only *edits* an existing image (it returns 400 without a source image); there is no endpoint that turns a prompt into a standalone image.
 5. **Show it and get approval.** Present the tool's actual output — the caption **and** the image (rendered inline, or its URL). Never hand-write the caption or claim generated content you didn't get from the API. Get explicit approval on the final post **before** any delivery step.
 6. **Only now, check delivery — just-in-time.** After the user approves, confirm the channel is connected (STEP 4; connect if needed) and check the plan for publish vs. schedule (STEP 5). This is where connection/plan problems surface — never lead with them. If `SCHEDULE_POST` is disabled, never present scheduling. A positive `quotaInfo.limit` with `remainingUsage: 0` means that action's quota is used up (offer the other action if enabled — a near-future schedule works like publish-now); `limit: 0` means unmetered, so treat the action as available. AI generation is **never** plan-gated; never tell the user it is.
-7. **Publish exactly what was approved.** Create the draft (STEP 6) from the approved content plus the account's IDs, then publish or schedule (STEP 7). Reuse the approved caption, image, and draft on any retry; never regenerate after approval.
+7. **Publish exactly what was approved.** Create the draft (STEP 6) from the approved content plus the account's IDs, then publish or schedule (STEP 7). For a scheduled time, verify the resolved `scheduledDate` is **strictly in the future** right before the call (a "today at 9am"-style time can resolve to the past). Reuse the approved caption, image, and draft on any retry; never regenerate after approval.
 
 The rest of this recipe is the reference for executing each step.
 
@@ -454,7 +454,7 @@ The user already approved this exact content in STEP 3, so publish what was appr
 { "id": "ac01c174-5244-49df-8085-84d87cd0345a" }
 ```
 
-**Schedule for a future date** — include `scheduledDate` (ISO 8601, must be in the future; confirm `SCHEDULE_POST` in STEP 5). Compute it from the current date/time, resolving the user's relative wording ("next Monday 9am") in the site's timezone if known, otherwise UTC, and confirm the resolved date with the user:
+**Schedule for a future date** — include `scheduledDate` (ISO 8601, **must be strictly in the future**; confirm `SCHEDULE_POST` in STEP 5). Resolve the user's relative wording ("next Monday 9am", "today at 9") as a wall-clock time in the site's timezone if known, otherwise UTC, then convert that to an ISO instant. **Immediately before `publish-by-id`, validate `new Date(scheduledDate).getTime() > Date.now()`** — wording like "today at 9am" easily resolves to an instant that has already passed. If it isn't strictly in the future, don't send it: advance to the next matching future occurrence (e.g. tomorrow at 9am) or ask the user to confirm a later time. For a series of scheduled posts, compute and validate **each** occurrence independently. Confirm the resolved date(s) with the user:
 
 ```json
 { "id": "ac01c174-5244-49df-8085-84d87cd0345a", "scheduledDate": "<future-ISO-8601-datetime>" }
@@ -487,6 +487,7 @@ The post appears on the site's Social Media Marketing page in the dashboard. To 
 | Generate Image poll returns `404 GENERATED_IMAGE_NOT_FOUND` | `executionId` invalid or expired | Re-run Generate Image and poll the new `executionId` |
 | STEP 5 shows the publish/schedule feature `enabled: false` or `remainingUsage: 0` | Plan doesn't allow the action, or quota used up | Advise upgrading, or wait for quota reset |
 | `FAILED_PRECONDITION` / `INELIGIBLE_FOR_FEATURE` on publish or schedule | Plan doesn't cover the action, or its quota is 0/exhausted (see the `quotaInfo` from STEP 5) | Don't retry; offer the other action if enabled (schedule vs publish now), or advise upgrading |
+| `SCHEDULED_TIME_ALREADY_PASSED` (or a generic/HTML `400`) on schedule | The resolved `scheduledDate` is in the past — usually a relative time like "today at 9am" that resolved to a past instant | Recompute the wall-clock time in the site's timezone, validate the ISO instant is `> Date.now()`, and advance to the next future occurrence (or confirm a later time) before retrying — don't send-and-catch |
 | `429 RESOURCE_EXHAUSTED` / `PUBLISH_LIMIT_EXCEEDED` | Publishing rate limit hit | Back off and retry later |
 | `ALREADY_EXISTS` / `REFERENCE_ID_ALREADY_EXIST` on create or publish | An item with the same `referenceId` already exists | Expected when safely retrying a create/publish that already succeeded — don't retry with a new `referenceId` |
 | `FAILED_PRECONDITION` / `UNSUPPORTED_CHANNEL` | Targeting an unsupported channel, or X/Twitter after its July 31, 2026 cutoff | Use a supported channel; target X only before the cutoff |
