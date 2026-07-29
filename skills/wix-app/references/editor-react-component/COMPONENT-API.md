@@ -202,8 +202,8 @@ editor) or imported local assets bundled with the component.
 
 ### Default values for `Image` props
 
-Image defaults belong in the component file's exported `defaultProps`
-constant (the one consumed by `withDefaults(Component, defaultProps)` in
+Image defaults belong in the `<componentName>.props.ts` file's exported
+`defaultProps` constant (consumed by `withDefaults(Component, defaultProps)` in
 `component.tsx`). Use a Wix-hosted image from the Free-from-Wix public
 media catalog and populate **only** `uri`, `url`, and `alt` — leave
 `width`, `height`, `focalPoint`, etc. unset so the editor fills them when

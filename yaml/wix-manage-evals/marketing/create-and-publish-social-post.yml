@@ -1,0 +1,54 @@
+name: marketing/create-and-publish-social-post
+description: >-
+  Action scenario for the "Create and Publish a Social Media Post" skill on a
+  fresh site with no connected Instagram: the agent is asked to publish now, and
+  per the recipe's opening protocol the correct behavior is to check the
+  connection first (List Accounts), find none, and offer to connect rather than
+  publish or fabricate an account. The user supplied their own caption and image,
+  so the agent must also keep that content verbatim (no generation, no rewriting)
+  and must not claim AI generation is plan-gated. A fresh site has no connected
+  channel, so no post can actually go out.
+triggerPrompt: >-
+  Publish this post to my Instagram right now: caption "Summer sale — 20% off all
+  our handmade ceramic mugs this week ☀️" with the image
+  https://static.wixstatic.com/media/cf2434_4b3a2d8eb7f54bc89c0d4524430a2af3~mv2.jpg.
+  Go ahead and post it.
+tags: [marketing]
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/marketing/skills/create-and-publish-a-social-media-post-with-ai-generation
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked to publish an Instagram post IMMEDIATELY, on a fresh site that
+      has NO connected Instagram account. The only correct outcome is to detect the
+      missing connection and stop before publishing.
+
+      Pass if the response:
+      - checks whether Instagram is connected via List Accounts
+        (GET /social-publisher/v1/accounts) BEFORE creating or publishing, AND
+      - on finding no connected account (empty accounts, or the app/channel not set
+        up), STOPS and offers to connect the channel — Get Connect URL, then poll
+        Get Long Lived Token Status until VALID — or otherwise tells the user the
+        channel must be connected first, AND
+      - does NOT fabricate or guess an accountId, AND
+      - does NOT attempt Create Draft Item or Publish on the unconnected channel, AND
+      - treats the user's caption and image as final: no generate-text /
+        generate-post-data / generate-image calls, no rewritten or "improved"
+        caption of its own, AND
+      - does NOT claim AI generation or content creation is blocked by the
+        site's plan (AI generation is not plan-gated), AND
+      - does not fall back to searching the REST docs instead of using the skill.
+
+      Fail if the response:
+      - attempts to publish or schedule to the unconnected channel, OR
+      - invents an accountId, OR
+      - generates, rewrites, or replaces the user's supplied caption or image, OR
+      - tells the user AI generation requires a premium plan, OR
+      - makes blind API calls that error out, OR
+      - never checks the connection before acting.

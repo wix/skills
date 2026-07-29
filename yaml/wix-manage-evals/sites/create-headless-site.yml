@@ -1,0 +1,41 @@
+name: sites/create-headless-site
+description: >-
+  Verifies the agent reads the create-headless-site skill and creates a headless site via the
+  Headless Business Setup provision API (one call: site + business apps + OAuth client), instead
+  of using the meta-site template API with a HEADLESS namespace or creating a standalone OAuth app.
+triggerPrompt: >-
+  Create a new Wix Headless site for my project called "Acme Storefront" with Wix Stores installed,
+  so I can build my own frontend against the Wix APIs. Explain which API call you would make, what
+  the request body looks like, and how I get the OAuth client ID my frontend needs.
+tags: [sites]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/account-level/sites/skills/create-headless-site
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user wants a new Wix Headless site named "Acme Storefront" with Wix Stores installed, and
+      asked which API call creates it, what the request body looks like, and where the OAuth client
+      ID comes from.
+      Intent: create the headless site with the Headless Business Setup provision API —
+      POST https://www.wixapis.com/headless-business-setup/v1/headless-business/provision — one
+      account-level call that creates the site, installs the requested business solution apps, and
+      creates + configures the site's OAuth client.
+
+      Pass if the response:
+      - creates the site with the provision endpoint (POST .../headless-business-setup/v1/headless-business/provision), AND
+      - shows a request body with a newMetasite target carrying a naming strategy (e.g.
+        metaSiteName "Acme Storefront") and a seedOptions entry installing STORES, AND
+      - says the response's appId is the site's OAuth client ID (no separate OAuth app needs to be
+        created).
+      A response that additionally asks the user to confirm before creating still PASSES, as long
+      as it describes the provision call above.
+
+      Fail if the response:
+      - creates the site with the meta-site template API (msm/v1/meta-site/create-from-template),
+        with or without a namespace: "HEADLESS" field, OR
+      - instructs creating a standalone OAuth app as a separate step, OR
+      - omits the provision endpoint or the request body shape, OR
+      - is generic with no specific endpoint.

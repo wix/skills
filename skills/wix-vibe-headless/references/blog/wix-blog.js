@@ -1,73 +1,28 @@
 import { wixApiRequest } from "./wix-client.js";
 
 /**
- * Wix Blog Post — key fields for building a blog reader.
+ * Wix Blog Post — key fields.
  * Full model: https://dev.wix.com/docs/api-reference/business-solutions/blog/posts-stats/post-object.md
  *
- *   id                         {string}   Post GUID.
- *   title                      {string}   Post title.
- *   excerpt                    {string}   Short summary (≤500 chars). Auto-extracted from the
- *                                         content if the author didn't set one. Use for cards.
- *   slug                       {string}   URL slug for routing (pass to getPostBySlug).
- *   firstPublishedDate         {string}   ISO date — when first published. Default sort key (DESC).
- *   lastPublishedDate          {string}   ISO date — when last updated.
- *   pinned                     {boolean}  Pinned posts sort to the top of the feed.
- *   featured                   {boolean}  Whether the author flagged the post as featured.
- *   minutesToRead              {number}   Estimated reading time (auto-calculated).
- *   categoryIds                {string[]} Category GUIDs. Resolve labels via queryCategories.
- *   tagIds                     {string[]} Tag GUIDs. Resolve labels via queryTags.
- *   hashtags                   {string[]} Inline hashtags used in the post.
- *   heroImage                  {object}   Cover image — THE field with an actual image URL:
- *                                         { id, url, height, width, altText, filename }.
- *                                         `url` is a ready-to-use https image URL. Use it as the
- *                                         card thumbnail / post header image. May be absent.
- *   media                      {object}   Cover-media METADATA only — { displayed, custom, altText }.
- *                                         NOTE: this field carries NO image URL. When media.custom
- *                                         is false the cover is the first image inside richContent.
- *                                         For a thumbnail use heroImage.url (above); fall back to the
- *                                         first IMAGE node in richContent if heroImage is missing.
- *   contentText                {string}   Full post body as PLAIN TEXT. Returned only when the
- *                                         CONTENT_TEXT fieldset is requested (getPostBySlug does).
- *                                         Newlines separate paragraphs — split on "\n" to render.
- *   richContent                {object}   Full post body as a Ricos rich-content document
- *                                         ({ nodes, metadata, documentStyle }). Returned only when
- *                                         the RICH_CONTENT fieldset is requested (getPostBySlug does).
- *                                         Render with a Ricos renderer for images/embeds/formatting.
- *                                         Ricos document reference: https://dev.wix.com/docs/ricos/api-reference/ricos-document
- *   url                        {object}   Live post URL on the Wix site — { base, path }. Returned
- *                                         only when the URL fieldset is requested. Build the full
- *                                         link as `url.base + url.path`. Use for canonical/share links.
- *   seoData                    {object}   SEO tags/settings. Returned only with the SEO fieldset.
- *   memberId                   {string}   GUID of the post author (a site member).
- *   language                   {string}   IETF BCP 47 language code (e.g. "en").
+ *   id {string}, title {string}, slug {string},
+ *   excerpt {string} — short summary ≤500 chars (use for cards),
+ *   firstPublishedDate {string} — ISO date, default sort key DESC,
+ *   pinned {boolean}, featured {boolean}, minutesToRead {number},
+ *   categoryIds {string[]}, tagIds {string[]}, hashtags {string[]},
+ *   media {object} — cover image at media.wixMedia.image { id, url, height, width, filename, altText? };
+ *     media.wixMedia.image.url is a ready-to-use https URL (returned by default, incl. the list query).
+ *     media.displayed / media.custom are booleans,
+ *   contentText {string} — plain text body (CONTENT_TEXT fieldset; getPostBySlug requests it),
+ *   richContent {object} — Ricos document (RICH_CONTENT fieldset; getPostBySlug requests it),
+ *   url {object} — { base, path } live post URL (URL fieldset; build full link as base+path)
+ * Available fieldsets: "URL" | "CONTENT_TEXT" | "RICH_CONTENT" | "METRICS" | "SEO"
  *
- * Available fieldsets (pass in `fieldsets` to enrich the response):
- *   "URL" | "CONTENT_TEXT" | "RICH_CONTENT" | "METRICS" | "SEO" | "CONTACT_ID" | "REFERENCE_ID"
- */
-
-/**
- * Wix Blog Category — key fields for a category menu / landing page.
+ * Category: { id, label, slug, description, postCount, displayPosition,
+ *   coverImage: { id, url, height, width, altText }, url: { base, path } }
  * Full model: https://dev.wix.com/docs/api-reference/business-solutions/blog/category/category-object.md
  *
- *   id               {string}   Category GUID. Pass to queryPostsByCategory.
- *   label            {string}   Display name shown in the category menu.
- *   slug             {string}   URL slug for routing (pass to getCategoryBySlug).
- *   description      {string}   Optional category description (≤500 chars).
- *   postCount        {number}   Number of posts in the category. Use to hide empty categories.
- *   displayPosition  {number}   Menu order (ascending). -1 means "show at the end".
- *   coverImage       {object}   { id, url, height, width, altText, filename } — may be absent.
- *   url              {object}   { base, path } — live category page URL. Only with the URL fieldset.
- */
-
-/**
- * Wix Blog Tag — key fields for a tag chip / tag landing page.
+ * Tag: { id, label, slug, publishedPostCount, url: { base, path } }
  * Full model: https://dev.wix.com/docs/api-reference/business-solutions/blog/tags/tag-object.md
- *
- *   id                  {string}   Tag GUID. Pass to queryPostsByTag.
- *   label               {string}   Tag display label.
- *   slug                {string}   URL slug for routing (pass to getTagBySlug).
- *   publishedPostCount  {number}   Number of published posts with this tag.
- *   url                 {object}   { base, path } — live tag page URL. Only with the URL fieldset.
  */
 
 const POST_LIST_FIELDSETS = ["URL"];

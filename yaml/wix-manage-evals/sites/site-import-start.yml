@@ -1,0 +1,23 @@
+name: sites/site-import-start
+description: >-
+  Verifies the agent reads the site-import skill and explains the Start → Poll flow over the
+  /site-import REST API instead of falling back to other Wix site-builder tools.
+triggerPrompt: >-
+  How does Wix Site Import work? Which method starts it, how do I track progress, and what status
+  means the new site is actually live?
+tags: [sites]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/account-level/sites/skills/site-import
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked how Wix Site Import works: how to start it, track progress, and know when live.
+
+      Pass: covers Start (POST /v1/imports), Poll (GET /v1/imports/{importId}), and states only
+      DEPLOYED means the site is live.
+
+      Fail: denies the API exists, substitutes another Wix site-creation tool, omits Start or
+      Poll, or gives no specific Site Import endpoints.

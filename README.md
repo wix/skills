@@ -58,7 +58,7 @@ npx skills add wix/skills -g
 | [wix-app](skills/wix-app/SKILL.md)       | Build Wix app extensions         | Adding any extension — dashboard pages, site widgets, backend events, service plugins, embedded scripts, data collections, and more |
 | [wix-design-system](skills/wix-design-system/SKILL.md) | Wix Design System reference      | Looking up WDS component props, examples, icons                                                                                     |
 | [wix-manage](skills/wix-manage/SKILL.md) | Wix business solution management | REST API operations for configuring and managing Wix business solutions                                                             |
-| [wix-headless](skills/wix-headless/SKILL.md) | Build a complete Wix Managed Headless site | Building a new site end-to-end from a single prompt — discovery, design, feature wiring, and preview |
+| [wix-headless](skills/wix-headless/SKILL.md) | Connect Wix business services to a headless frontend (SDK + Wix CLI), and optionally build & host the site | Setting up a Wix Headless backend or adding Wix business features (Stores, Bookings, CMS, Blog, Events, Forms, Members, Restaurants, Portfolio, Pricing Plans) — install apps, seed content, and produce an SDK-integration guide; for managed projects also scaffold a new site (create) or wire an existing design (connect), then build and release. Works across managed, self-managed, and stripe project types |
 | [wix-vibe-headless](skills/wix-vibe-headless/SKILL.md) | Connect an existing front end to Wix over client-only REST | Wiring a vibe-coded / HTML / Vite app to a live Wix site (storefront, bookings, blog, events, portfolio, restaurants, CMS, pricing plans) from the browser with a public `WIX_CLIENT_ID` — no SDK, no backend |
 | [wix-docs](skills/wix-docs/SKILL.md) | Look up the Wix API/SDK docs (shared fallback) | Confirming an exact Wix endpoint, method schema, field, or enum before writing code — `curl` doc-search + the `.md`-twin trick, or the Wix MCP tools. Referenced by the other skills as their docs-lookup fallback |
 | [replatform](replatform/README.md) | Migrate sites from WordPress and other platforms into Wix | Migrating an exiting business from another platform into Wix. Both backend data and website. `npx skills add wix/skills/replatform` |
@@ -90,6 +90,14 @@ When a major bump is required (a breaking change in the underlying `wix-cli`), t
 ## Releasing
 
 Run the [`release-bump`](.github/workflows/release-bump.yml) workflow from the **Actions** tab and pick a `version_strategy`. The rest is automatic — the bump PR auto-merges once checks pass and [`release.yml`](.github/workflows/release.yml) publishes to npm via Trusted Publishing.
+
+## Serving & caching (`www.wix.com/skills`)
+
+Besides the npm package, skills are served as raw markdown / `.tgz` at `https://www.wix.com/skills/<name>` (also `dev.wix.com/skills`). That registry is **not** in this repo — it's an Express service in [`wix-private/docs`](https://github.com/wix-private/docs) (`docs-web-app`) that serves this repo's `main` branch directly, with no build step.
+
+Responses are cached at the Wix edge (Pepyaka, tag `skills`) plus a ~5-min per-pod tarball cache. A push to `main` touching `skills/**` **auto-invalidates** the edge tag (via `md-resolver`'s GitHub-push consumer), so a merge reflects within a few minutes. To force it immediately, hit the manual flush (`POST /api/v1/invalidate-ssr-cache/skills`, BO staff) or the Fire Console `invalidateCache` call.
+
+Full details — endpoints, `wix-` prefix stripping, host-relative links, invalidation — are in the [docs-web-app skills README](https://github.com/wix-private/docs/blob/main/packages/docs-web-app/express/skills/README.md).
 
 ## Contributing
 

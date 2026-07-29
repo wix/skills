@@ -1,0 +1,59 @@
+name: EvalForge wix-app Gate
+
+on:
+  pull_request:
+    branches: [main]
+    # ready_for_review matters because the job is gated on `!draft`: without it, marking a
+    # draft PR ready would not fire the gate at all, and the PR would sit unevaluated until
+    # its next push.
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - 'skills/wix-app/**'
+      - 'yaml/wix-app-evals/**'
+
+# Only the newest commit's verdict is correct, so supersede in-flight runs. Accepted cost:
+# a cancelled workflow leaves its EvalForge run executing server-side and its capability
+# version orphaned — both are swept by the cleanup job when the PR closes.
+concurrency:
+  group: evalforge-wix-app-gate-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    # Longer than the 30-minute eval poll window, with room for setup and the draft sync.
+    timeout-minutes: 60
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    if: ${{ !github.event.pull_request.draft && github.event.pull_request.head.repo.full_name == github.repository }}
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      # Two checkouts, as the yaml-gate workflows do:
+      # 1) PR merge ref — the skill files and head scenario YAML, and the action source.
+      # 2) Base SHA into .action-src — base scenarios, so the sync plan can tell a PR-only
+      #    scenario from one that pre-existed the PR.
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: .action-src
+      - uses: ./.github/actions/evalforge-skill-gate
+        with:
+          mode: gate
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          evalforge-url: ${{ vars.EVALFORGE_URL }}
+          evalforge-project-id: ${{ vars.APP_BUILDER_PIPELINE_PROJECT_ID }}
+          evalforge-app-id: ${{ secrets.AUTO_SKILLS_PIPELINE_APP_ID }}
+          evalforge-app-secret: ${{ secrets.AUTO_SKILLS_PIPELINE_APP_SECRET }}
+          evals-glob: 'yaml/wix-app-evals/**/*.{yml,yaml}'
+          skill-dir: skills/wix-app
+          # Inline rather than repo vars: neither is a secret, and in the workflow file they
+          # appear in the diff, get reviewed when they change, and document what the gate
+          # evaluates against. As repo vars they could be edited silently.
+          capability-id: ad0b7e36-e85b-40b1-902b-d67bb3c90363
+          agent-id: 76093ada-d1ad-42a4-9f49-743673763b00
+          # Blank falls through to the action default, so the number has one home (DEFAULT_MAX_SCENARIOS).
+          max-scenarios: ${{ vars.WIX_APP_EVAL_MAX_SCENARIOS }}
+          blocking: ${{ vars.WIX_APP_EVAL_BLOCK_MERGE || 'false' }}

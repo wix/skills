@@ -1,0 +1,12 @@
+apiDoc:
+  title: Wix Marketing Recipes
+
+  docs:
+    - file: ../../../skills/wix-manage/references/marketing/create-and-publish-social-post.md
+      title: Create and Publish a Social Media Post (with AI generation)
+      docsEntry: https://dev.wix.com/docs/api-reference/business-management/marketing
+      tags: [marketing]
+    - file: ../../../skills/wix-manage/references/marketing/generate-and-publish-marketing-plan.md
+      title: Generate a Marketing Plan and Schedule Its Posts
+      docsEntry: https://dev.wix.com/docs/api-reference/business-management/marketing
+      tags: [marketing]
