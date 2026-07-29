@@ -61575,6 +61575,87 @@ else {
 
 /***/ }),
 
+/***/ 2237:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.applySyncPlan = applySyncPlan;
+const core = __importStar(__nccwpck_require__(7484));
+const evalforge_core_1 = __nccwpck_require__(7495);
+const report_1 = __nccwpck_require__(7267);
+/**
+ * Applies the plan, recording ids CREATE returns. Stops on failure: a half-synced set would
+ * report on the wrong content.
+ */
+async function applySyncPlan(client, config, actions, nameToId, comment) {
+    for (const action of actions) {
+        try {
+            if (action.kind === 'CREATE') {
+                const created = await client.createTestScenario(config.projectId, action.body, action.tags);
+                nameToId.set(action.name, created.id);
+                core.info(`Created scenario ${action.name} (${created.id})`);
+            }
+            else if (action.kind === 'UPDATE') {
+                await client.updateTestScenario(config.projectId, action.id, action.body, action.tags);
+                core.info(`Updated scenario ${action.name} (${action.id})`);
+            }
+            else if (action.kind === 'DELETE') {
+                await client.deleteTestScenario(config.projectId, action.id);
+                nameToId.delete(action.name);
+                core.info(`Deleted draft scenario ${action.name} (${action.id})`);
+            }
+            else {
+                core.info(`Deferring DELETE of "${action.name}" — handled at merge`);
+            }
+        }
+        catch (error) {
+            core.error(`Sync action ${action.kind} for ${action.name} failed: ${(0, report_1.describeError)(error)}`);
+            await comment((0, evalforge_core_1.formatGateServiceError)(`Sync failed for "${action.name}"`, config.blocking));
+            (0, report_1.fail)(`Sync failed for ${action.name}`, config.blocking);
+            return false;
+        }
+    }
+    return true;
+}
+
+
+/***/ }),
+
 /***/ 5717:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
@@ -61619,16 +61700,14 @@ const core = __importStar(__nccwpck_require__(7484));
 const node_path_1 = __nccwpck_require__(6760);
 const evalforge_core_1 = __nccwpck_require__(7495);
 const config_1 = __nccwpck_require__(7799);
+const report_1 = __nccwpck_require__(7267);
 const workspace_1 = __nccwpck_require__(9620);
-function describeError(error) {
-    return error instanceof Error ? error.message : String(error);
-}
 async function listDraftScenarios(client, projectId, draftTag) {
     try {
         return await client.listTestScenariosByTag(projectId, draftTag);
     }
     catch (error) {
-        core.warning(`listTestScenariosByTag failed: ${describeError(error)}`);
+        core.warning(`listTestScenariosByTag failed: ${(0, report_1.describeError)(error)}`);
         return undefined;
     }
 }
@@ -61672,7 +61751,7 @@ async function execute(client, projectId, action) {
     }
     catch (error) {
         const verb = action.kind === 'RESTORE' ? 'Restore' : 'Delete draft';
-        core.warning(`${verb} failed for ${action.name}: ${describeError(error)}`);
+        core.warning(`${verb} failed for ${action.name}: ${(0, report_1.describeError)(error)}`);
     }
 }
 
@@ -61826,6 +61905,70 @@ function getCleanupConfig() {
 
 /***/ }),
 
+/***/ 6522:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.isDraftTagActive = isDraftTagActive;
+const core = __importStar(__nccwpck_require__(7484));
+const evalforge_core_1 = __nccwpck_require__(7495);
+const report_1 = __nccwpck_require__(7267);
+/** Unresolvable tags count as active, so a lookup failure never releases another PR's lock. */
+async function isDraftTagActive(octokit, tag) {
+    const draft = (0, evalforge_core_1.parseDraftTag)(tag);
+    if (!draft)
+        return true;
+    const [owner, repo] = draft.repo.split('/', 2);
+    if (!owner || !repo)
+        return true;
+    try {
+        const pull = await octokit.rest.pulls.get({ owner, repo, pull_number: draft.prNumber });
+        return pull.data.state === 'open';
+    }
+    catch (error) {
+        core.warning(`Could not resolve draft tag ${tag}: ${(0, report_1.describeError)(error)}`);
+        return true;
+    }
+}
+
+
+/***/ }),
+
 /***/ 4734:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
@@ -61872,63 +62015,10 @@ const node_path_1 = __nccwpck_require__(6760);
 const evalforge_core_1 = __nccwpck_require__(7495);
 const config_1 = __nccwpck_require__(7799);
 const workspace_1 = __nccwpck_require__(9620);
-function describeError(error) {
-    return error instanceof Error ? error.message : String(error);
-}
-function fail(message, blocking) {
-    if (blocking)
-        core.setFailed(message);
-    else
-        core.warning(message);
-}
-/** Runs an EvalForge call, reporting a user-facing comment and gate failure if it throws. */
-async function guardedCall(operation, userMessage, comment, blocking) {
-    try {
-        return await operation();
-    }
-    catch (error) {
-        core.error(`${userMessage}: ${describeError(error)}`);
-        await comment((0, evalforge_core_1.formatGateServiceError)(userMessage, blocking));
-        fail(userMessage, blocking);
-        return undefined;
-    }
-}
-/** Timeout gets its own comment; anything else is a generic service failure. */
-async function pollToCompletion(client, config, runId, runUrl, comment) {
-    try {
-        return await (0, evalforge_core_1.pollUntilDone)(client, config.projectId, runId, {
-            log: core.info,
-            warn: core.warning,
-        });
-    }
-    catch (error) {
-        if (error instanceof evalforge_core_1.EvalRunTimeoutError) {
-            await comment((0, evalforge_core_1.formatGateTimeout)(runId, runUrl, config.blocking));
-            fail(error.message, config.blocking);
-            return undefined;
-        }
-        core.error(`Polling the eval run failed: ${describeError(error)}`);
-        await comment((0, evalforge_core_1.formatGateServiceError)('Polling the eval run failed', config.blocking));
-        fail('Polling the eval run failed', config.blocking);
-        return undefined;
-    }
-}
-async function isDraftTagActive(octokit, tag) {
-    const draft = (0, evalforge_core_1.parseDraftTag)(tag);
-    if (!draft)
-        return true;
-    const [owner, repo] = draft.repo.split('/', 2);
-    if (!owner || !repo)
-        return true;
-    try {
-        const pull = await octokit.rest.pulls.get({ owner, repo, pull_number: draft.prNumber });
-        return pull.data.state === 'open';
-    }
-    catch (error) {
-        core.warning(`Could not resolve draft tag ${tag}: ${describeError(error)}`);
-        return true;
-    }
-}
+const report_1 = __nccwpck_require__(7267);
+const draft_tags_1 = __nccwpck_require__(6522);
+const apply_sync_plan_1 = __nccwpck_require__(2237);
+const run_eval_1 = __nccwpck_require__(1943);
 async function runGate() {
     const config = (0, config_1.getGateConfig)();
     const octokit = github.getOctokit(config.githubToken);
@@ -61938,15 +62028,7 @@ async function runGate() {
         core.info('Skipping wix-app eval gate — PR author is not a @wix.com address');
         return;
     }
-    const comment = (0, evalforge_core_1.makeCommenter)(octokit, {
-        owner: config.owner,
-        repo: config.repo,
-        prNumber: config.prNumber,
-        marker: evalforge_core_1.GATE_COMMENT_MARKER,
-    }, {
-        warn: core.warning,
-        writeSummary: async (body) => { await core.summary.addRaw(body).write(); },
-    });
+    const comment = (0, report_1.makeGateCommenter)(octokit, config);
     const workspace = (0, workspace_1.workspaceRoot)();
     const draftTag = (0, evalforge_core_1.draftTagFor)(config.repoFullName, config.prNumber);
     core.info(`EvalForge skill gate — PR #${config.prNumber}, version ${config.versionLabel} `
@@ -61954,10 +62036,10 @@ async function runGate() {
     const { scenarios: headScenarios, errors: loadErrors } = (0, evalforge_core_1.loadScenarios)(workspace, config.evalsGlob);
     if (loadErrors.length > 0) {
         await comment((0, evalforge_core_1.formatYamlErrors)(loadErrors));
-        fail(`Invalid scenario YAML or duplicate names: ${loadErrors.length}`, config.blocking);
+        (0, report_1.fail)(`Invalid scenario YAML or duplicate names: ${loadErrors.length}`, config.blocking);
         return;
     }
-    const changedFiles = await guardedCall(() => (0, evalforge_core_1.getChangedFiles)(octokit, config.owner, config.repo, config.prNumber), 'Could not retrieve the PR file list', comment, config.blocking);
+    const changedFiles = await (0, report_1.guardedCall)(() => (0, evalforge_core_1.getChangedFiles)(octokit, config.owner, config.repo, config.prNumber), 'Could not retrieve the PR file list', comment, config.blocking);
     if (!changedFiles)
         return;
     const derived = (0, evalforge_core_1.deriveTags)(changedFiles.map(file => file.filename), {
@@ -61983,17 +62065,17 @@ async function runGate() {
     });
     if (guard.violations.length > 0) {
         await comment((0, evalforge_core_1.formatGuardFailure)({ ...guard, blocking: config.blocking }));
-        fail(`Eval coverage guard failed: ${guard.violations.length} violation(s)`, config.blocking);
+        (0, report_1.fail)(`Eval coverage guard failed: ${guard.violations.length} violation(s)`, config.blocking);
         return;
     }
-    const skillFiles = await guardedCall(
+    const skillFiles = await (0, report_1.guardedCall)(
     // Whole dir: references send the agent to sibling paths like `<SKILL_ROOT>/scripts/…`.
     async () => (0, evalforge_core_1.collectSkillFiles)(workspace, config.skillDir, { warn: core.warning }), `Could not read the skill directory ${config.skillDir}`, comment, config.blocking);
     if (!skillFiles)
         return;
     core.info(`Collected ${skillFiles.length} skill file(s) from ${config.skillDir}`);
     const client = new evalforge_core_1.EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
-    const version = await guardedCall(() => client.createOrReuseSkillVersion(config.capabilityId, config.projectId, config.versionLabel, config.prNumber, skillFiles), 'Could not create the PR skill capability version', comment, config.blocking);
+    const version = await (0, report_1.guardedCall)(() => client.createOrReuseSkillVersion(config.capabilityId, config.projectId, config.versionLabel, config.prNumber, skillFiles), 'Could not create the PR skill capability version', comment, config.blocking);
     if (!version)
         return;
     const baseWorkspace = node_path_1.posix.join(workspace, config_1.BASE_WORKSPACE_SUBDIR);
@@ -62010,10 +62092,10 @@ async function runGate() {
         extraTags: derived.tags,
         all: derived.broadImpact,
     });
-    const remote = await guardedCall(() => (0, evalforge_core_1.listRemoteScenariosForGate)(client, config.projectId, filters), 'Could not reach EvalForge', comment, config.blocking);
+    const remote = await (0, report_1.guardedCall)(() => (0, evalforge_core_1.listRemoteScenariosForGate)(client, config.projectId, filters), 'Could not reach EvalForge', comment, config.blocking);
     if (!remote)
         return;
-    const normalizedRemote = await (0, evalforge_core_1.stripInactiveForeignDraftTags)(remote, draftTag, tag => isDraftTagActive(octokit, tag));
+    const normalizedRemote = await (0, evalforge_core_1.stripInactiveForeignDraftTags)(remote, draftTag, tag => (0, draft_tags_1.isDraftTagActive)(octokit, tag));
     const plan = (0, evalforge_core_1.diffSyncPlan)({
         changedHead: changedHeadScenarios,
         head: headScenarios,
@@ -62026,11 +62108,11 @@ async function runGate() {
     });
     if (plan.errors.length > 0) {
         await comment((0, evalforge_core_1.formatForeignDraftConflicts)(plan.errors, config.blocking));
-        fail(`Scenario(s) held by other PRs: ${plan.errors.map(error => error.name).join(', ')}`, config.blocking);
+        (0, report_1.fail)(`Scenario(s) held by other PRs: ${plan.errors.map(error => error.name).join(', ')}`, config.blocking);
         return;
     }
     const nameToId = new Map(normalizedRemote.map(entry => [entry.name, entry.id]));
-    const applied = await applySyncPlan(client, config, plan.actions, nameToId, comment);
+    const applied = await (0, apply_sync_plan_1.applySyncPlan)(client, config, plan.actions, nameToId, comment);
     if (!applied)
         return;
     const selection = (0, evalforge_core_1.selectScenarios)({
@@ -62048,23 +62130,15 @@ async function runGate() {
     if (selection.ids.length === 0) {
         const message = 'No eval scenarios could be resolved to run, so nothing was verified';
         await comment((0, evalforge_core_1.formatGateServiceError)(message, config.blocking));
-        fail(message, config.blocking);
+        (0, report_1.fail)(message, config.blocking);
         return;
     }
-    const run = await guardedCall(() => client.createAndRunEvalRun(config.projectId, {
-        name: `${config.repoFullName} PR #${config.prNumber} (${config.versionLabel})`,
-        description: `Skill gate run for PR #${config.prNumber}`,
-        projectId: config.projectId,
-        agentId: config.agentId,
-        scenarioIds: selection.ids,
-        capabilityIds: [config.capabilityId],
-        capabilityVersions: { [config.capabilityId]: config.versionLabel },
-    }), 'Could not start the eval run', comment, config.blocking);
+    const run = await (0, run_eval_1.startEvalRun)(client, config, selection.ids, comment);
     if (!run)
         return;
     const runUrl = (0, evalforge_core_1.evalRunUrl)(config.projectId, run.id);
     core.info(`Eval run started: ${runUrl}`);
-    const status = await pollToCompletion(client, config, run.id, runUrl, comment);
+    const status = await (0, run_eval_1.pollToCompletion)(client, config, run.id, runUrl, comment);
     if (!status)
         return;
     const verdict = (0, evalforge_core_1.evaluateRunResult)(status);
@@ -62081,40 +62155,164 @@ async function runGate() {
         blocking: config.blocking,
     }));
     if (!verdict.passed) {
-        fail(`Eval gate failed: ${verdict.reasons.join('; ')}`, config.blocking);
+        (0, report_1.fail)(`Eval gate failed: ${verdict.reasons.join('; ')}`, config.blocking);
     }
 }
-/** Applies the plan, recording ids CREATE returns. Stops on failure: a half-synced set would
- * report on the wrong content. */
-async function applySyncPlan(client, config, actions, nameToId, comment) {
-    for (const action of actions) {
-        try {
-            if (action.kind === 'CREATE') {
-                const created = await client.createTestScenario(config.projectId, action.body, action.tags);
-                nameToId.set(action.name, created.id);
-                core.info(`Created scenario ${action.name} (${created.id})`);
-            }
-            else if (action.kind === 'UPDATE') {
-                await client.updateTestScenario(config.projectId, action.id, action.body, action.tags);
-                core.info(`Updated scenario ${action.name} (${action.id})`);
-            }
-            else if (action.kind === 'DELETE') {
-                await client.deleteTestScenario(config.projectId, action.id);
-                nameToId.delete(action.name);
-                core.info(`Deleted draft scenario ${action.name} (${action.id})`);
-            }
-            else {
-                core.info(`Deferring DELETE of "${action.name}" — handled at merge`);
-            }
-        }
-        catch (error) {
-            core.error(`Sync action ${action.kind} for ${action.name} failed: ${describeError(error)}`);
-            await comment((0, evalforge_core_1.formatGateServiceError)(`Sync failed for "${action.name}"`, config.blocking));
-            fail(`Sync failed for ${action.name}`, config.blocking);
-            return false;
-        }
+
+
+/***/ }),
+
+/***/ 7267:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
     }
-    return true;
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.describeError = describeError;
+exports.fail = fail;
+exports.guardedCall = guardedCall;
+exports.makeGateCommenter = makeGateCommenter;
+const core = __importStar(__nccwpck_require__(7484));
+const evalforge_core_1 = __nccwpck_require__(7495);
+function describeError(error) {
+    return error instanceof Error ? error.message : String(error);
+}
+/** During the soak period (`blocking: false`) a failure warns and the check still passes. */
+function fail(message, blocking) {
+    if (blocking)
+        core.setFailed(message);
+    else
+        core.warning(message);
+}
+/** Runs an EvalForge call, reporting a user-facing comment and gate failure if it throws. */
+async function guardedCall(operation, userMessage, comment, blocking) {
+    try {
+        return await operation();
+    }
+    catch (error) {
+        core.error(`${userMessage}: ${describeError(error)}`);
+        await comment((0, evalforge_core_1.formatGateServiceError)(userMessage, blocking));
+        fail(userMessage, blocking);
+        return undefined;
+    }
+}
+function makeGateCommenter(octokit, target) {
+    return (0, evalforge_core_1.makeCommenter)(octokit, { ...target, marker: evalforge_core_1.GATE_COMMENT_MARKER }, {
+        warn: core.warning,
+        writeSummary: async (body) => { await core.summary.addRaw(body).write(); },
+    });
+}
+
+
+/***/ }),
+
+/***/ 1943:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.startEvalRun = startEvalRun;
+exports.pollToCompletion = pollToCompletion;
+const core = __importStar(__nccwpck_require__(7484));
+const evalforge_core_1 = __nccwpck_require__(7495);
+const report_1 = __nccwpck_require__(7267);
+function startEvalRun(client, config, scenarioIds, comment) {
+    return (0, report_1.guardedCall)(() => client.createAndRunEvalRun(config.projectId, {
+        name: `${config.repoFullName} PR #${config.prNumber} (${config.versionLabel})`,
+        description: `Skill gate run for PR #${config.prNumber}`,
+        projectId: config.projectId,
+        agentId: config.agentId,
+        scenarioIds,
+        capabilityIds: [config.capabilityId],
+        capabilityVersions: { [config.capabilityId]: config.versionLabel },
+    }), 'Could not start the eval run', comment, config.blocking);
+}
+/** Timeout gets its own comment; anything else is a generic service failure. */
+async function pollToCompletion(client, config, runId, runUrl, comment) {
+    try {
+        return await (0, evalforge_core_1.pollUntilDone)(client, config.projectId, runId, {
+            log: core.info,
+            warn: core.warning,
+        });
+    }
+    catch (error) {
+        if (error instanceof evalforge_core_1.EvalRunTimeoutError) {
+            await comment((0, evalforge_core_1.formatGateTimeout)(runId, runUrl, config.blocking));
+            (0, report_1.fail)(error.message, config.blocking);
+            return undefined;
+        }
+        core.error(`Polling the eval run failed: ${(0, report_1.describeError)(error)}`);
+        await comment((0, evalforge_core_1.formatGateServiceError)('Polling the eval run failed', config.blocking));
+        (0, report_1.fail)('Polling the eval run failed', config.blocking);
+        return undefined;
+    }
 }
 
 

@@ -5,11 +5,8 @@ import {
   type CleanupAction, type RemoteScenario,
 } from '@wix/evalforge-core';
 import { getCleanupConfig, BASE_WORKSPACE_SUBDIR } from './config';
+import { describeError } from './report';
 import { workspaceRoot } from './workspace';
-
-function describeError(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
 
 async function listDraftScenarios(
   client: EvalForgeClient,
