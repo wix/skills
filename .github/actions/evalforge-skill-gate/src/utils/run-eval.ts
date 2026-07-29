@@ -3,7 +3,7 @@ import {
   EvalForgeClient, EvalRunTimeoutError, formatGateServiceError, formatGateTimeout, pollUntilDone,
   type Commenter, type EvalRunCreated, type EvalRunStatus,
 } from '@wix/evalforge-core';
-import { describeError, fail, guardedCall } from './report';
+import { HALTED, describeError, fail, guardedCall, type Guarded } from './report';
 import type { GateConfig } from './config';
 
 export function startEvalRun(
@@ -13,7 +13,7 @@ export function startEvalRun(
   /** The version's **id**, not its label — the evaluator resolves capabilityVersions by id. */
   versionId: string,
   comment: Commenter,
-): Promise<EvalRunCreated | undefined> {
+): Promise<Guarded<EvalRunCreated>> {
   return guardedCall(
     () => client.createAndRunEvalRun(config.projectId, {
       name: `${config.repoFullName} PR #${config.prNumber} (${config.versionLabel})`,
@@ -35,21 +35,21 @@ export async function pollToCompletion(
   runId: string,
   runUrl: string,
   comment: Commenter,
-): Promise<EvalRunStatus | undefined> {
+): Promise<Guarded<EvalRunStatus>> {
   try {
-    return await pollUntilDone(client, config.projectId, runId, {
-      log: core.info,
-      warn: core.warning,
-    });
+    return {
+      ok: true,
+      value: await pollUntilDone(client, config.projectId, runId, { log: core.info, warn: core.warning }),
+    };
   } catch (error) {
     if (error instanceof EvalRunTimeoutError) {
       await comment(formatGateTimeout(runId, runUrl, config.blocking));
       fail(error.message, config.blocking);
-      return undefined;
+      return HALTED;
     }
     core.error(`Polling the eval run failed: ${describeError(error)}`);
     await comment(formatGateServiceError('Polling the eval run failed', config.blocking));
     fail('Polling the eval run failed', config.blocking);
-    return undefined;
+    return HALTED;
   }
 }

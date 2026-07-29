@@ -8,22 +8,30 @@ import type { GateConfig } from './config';
 // PR's check — least of all during the soak period, when the gate promises it cannot.
 
 /** `unexpected` separates a routine non-Wix author from a lookup that actually broke. */
-export type AuthorSkip = { reason: string; unexpected: boolean };
+export type AuthorCheck =
+  | { allowed: true }
+  | { allowed: false; reason: string; unexpected: boolean };
+
+const AUTHOR_ALLOWED: AuthorCheck = { allowed: true };
 
 /**
- * The reason to skip, or undefined to proceed. Skips both when the author is not a Wix address and
- * when the lookup fails: either way the gate must not run, and neither is worth failing a check.
+ * Whether the gate may run for this PR's author. Denies both when the author is not a Wix address
+ * and when the lookup fails: either way the gate must not run, and neither is worth failing a check.
  */
-export async function skipReasonForAuthor(
+export async function checkPrAuthor(
   octokit: ReturnType<typeof github.getOctokit>,
   config: Pick<GateConfig, 'owner' | 'repo' | 'prNumber'>,
-): Promise<AuthorSkip | undefined> {
+): Promise<AuthorCheck> {
   try {
     const email = await getFirstCommitAuthorEmail(octokit, config.owner, config.repo, config.prNumber);
-    if (isWixAuthorEmail(email)) return undefined;
-    return { reason: 'the PR author is not a wix author', unexpected: false };
+    if (isWixAuthorEmail(email)) return AUTHOR_ALLOWED;
+    return { allowed: false, reason: 'the PR author is not a wix author', unexpected: false };
   } catch (error) {
-    return { reason: `could not resolve the PR author: ${describeError(error)}`, unexpected: true };
+    return {
+      allowed: false,
+      reason: `could not resolve the PR author: ${describeError(error)}`,
+      unexpected: true,
+    };
   }
 }
 

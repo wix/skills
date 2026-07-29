@@ -12,20 +12,32 @@ export function fail(message: string, blocking: boolean): void {
   else core.warning(message);
 }
 
+/**
+ * A guarded step's outcome. `ok: false` means the step already reported the reason and already
+ * called `fail`, so the caller has nothing left to do but return.
+ *
+ * Not `T | undefined`: every caller tests the result for truth, so a step legitimately yielding
+ * `0`, `''`, `false` or an empty value would read as a failure and the gate would return without
+ * commenting and without failing — a green check that verified nothing.
+ */
+export type Guarded<T> = { ok: true; value: T } | { ok: false };
+
+export const HALTED: Guarded<never> = { ok: false };
+
 /** Runs an EvalForge call, reporting a user-facing comment and gate failure if it throws. */
 export async function guardedCall<T>(
   operation: () => Promise<T>,
   userMessage: string,
   comment: Commenter,
   blocking: boolean,
-): Promise<T | undefined> {
+): Promise<Guarded<T>> {
   try {
-    return await operation();
+    return { ok: true, value: await operation() };
   } catch (error) {
     core.error(`${userMessage}: ${describeError(error)}`);
     await comment(formatGateServiceError(userMessage, blocking));
     fail(userMessage, blocking);
-    return undefined;
+    return HALTED;
   }
 }
 

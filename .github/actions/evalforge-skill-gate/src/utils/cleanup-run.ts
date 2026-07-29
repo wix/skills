@@ -5,19 +5,19 @@ import {
   type CleanupAction, type RemoteScenario,
 } from '@wix/evalforge-core';
 import { getCleanupConfig, BASE_WORKSPACE_SUBDIR } from './config';
-import { describeError } from './report';
+import { HALTED, describeError, type Guarded } from './report';
 import { workspaceRoot } from './workspace';
 
 async function listDraftScenarios(
   client: EvalForgeClient,
   projectId: string,
   draftTag: string,
-): Promise<RemoteScenario[] | undefined> {
+): Promise<Guarded<RemoteScenario[]>> {
   try {
-    return await client.listTestScenariosByTag(projectId, draftTag);
+    return { ok: true, value: await client.listTestScenariosByTag(projectId, draftTag) };
   } catch (error) {
     core.warning(`listTestScenariosByTag failed: ${describeError(error)}`);
-    return undefined;
+    return HALTED;
   }
 }
 
@@ -36,7 +36,7 @@ export async function runCleanup(): Promise<void> {
   });
 
   const remote = await listDraftScenarios(client, config.projectId, draftTag);
-  if (!remote) return;
+  if (!remote.ok) return;
 
   const baseRoot = posix.join(workspaceRoot(), BASE_WORKSPACE_SUBDIR);
   const { scenarios: baseScenarios, errors } = loadScenarios(baseRoot, config.evalsGlob);
@@ -44,7 +44,7 @@ export async function runCleanup(): Promise<void> {
     core.warning(`Base SHA scenario issue at ${baseRoot}/${error.path}: ${error.message}`);
   }
 
-  const plan = planCleanup(remote, baseScenarios, draftTag, config.repoFullName);
+  const plan = planCleanup(remote.value, baseScenarios, draftTag, config.repoFullName);
   const restoreCount = plan.filter(action => action.kind === CleanupKind.RESTORE).length;
   const deleteCount = plan.filter(action => action.kind === CleanupKind.DELETE).length;
   core.info(`Cleanup plan: ${plan.length} action(s) — RESTORE=${restoreCount} DELETE=${deleteCount}`);

@@ -61704,11 +61704,11 @@ const report_1 = __nccwpck_require__(7267);
 const workspace_1 = __nccwpck_require__(9620);
 async function listDraftScenarios(client, projectId, draftTag) {
     try {
-        return await client.listTestScenariosByTag(projectId, draftTag);
+        return { ok: true, value: await client.listTestScenariosByTag(projectId, draftTag) };
     }
     catch (error) {
         core.warning(`listTestScenariosByTag failed: ${(0, report_1.describeError)(error)}`);
-        return undefined;
+        return report_1.HALTED;
     }
 }
 /**
@@ -61724,14 +61724,14 @@ async function runCleanup() {
         warn: core.warning,
     });
     const remote = await listDraftScenarios(client, config.projectId, draftTag);
-    if (!remote)
+    if (!remote.ok)
         return;
     const baseRoot = node_path_1.posix.join((0, workspace_1.workspaceRoot)(), config_1.BASE_WORKSPACE_SUBDIR);
     const { scenarios: baseScenarios, errors } = (0, evalforge_core_1.loadScenarios)(baseRoot, config.evalsGlob);
     for (const error of errors) {
         core.warning(`Base SHA scenario issue at ${baseRoot}/${error.path}: ${error.message}`);
     }
-    const plan = (0, evalforge_core_1.planCleanup)(remote, baseScenarios, draftTag, config.repoFullName);
+    const plan = (0, evalforge_core_1.planCleanup)(remote.value, baseScenarios, draftTag, config.repoFullName);
     const restoreCount = plan.filter(action => action.kind === evalforge_core_1.CleanupKind.RESTORE).length;
     const deleteCount = plan.filter(action => action.kind === evalforge_core_1.CleanupKind.DELETE).length;
     core.info(`Cleanup plan: ${plan.length} action(s) — RESTORE=${restoreCount} DELETE=${deleteCount}`);
@@ -61947,14 +61947,14 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.runGate = runGate;
 const core = __importStar(__nccwpck_require__(7484));
 const github = __importStar(__nccwpck_require__(3228));
-const node_path_1 = __nccwpck_require__(6760);
 const evalforge_core_1 = __nccwpck_require__(7495);
 const config_1 = __nccwpck_require__(7799);
 const workspace_1 = __nccwpck_require__(9620);
 const report_1 = __nccwpck_require__(7267);
 const pr_lookups_1 = __nccwpck_require__(1661);
-const apply_sync_plan_1 = __nccwpck_require__(2237);
-const run_eval_1 = __nccwpck_require__(1943);
+const gate_scope_1 = __nccwpck_require__(355);
+const sync_draft_scenarios_1 = __nccwpck_require__(9542);
+const run_and_report_1 = __nccwpck_require__(7535);
 async function runGate() {
     const config = (0, config_1.getGateConfig)();
     const octokit = github.getOctokit(config.githubToken);
@@ -61962,26 +61962,117 @@ async function runGate() {
     // First, so a fork PR costs nothing. Skips rather than fails, including when the lookup
     // errors — a GitHub blip must not turn into a red check. Says so on the PR, since otherwise
     // a green check would look like a pass.
-    const skip = await (0, pr_lookups_1.skipReasonForAuthor)(octokit, config);
-    if (skip) {
-        const log = skip.unexpected ? core.warning : core.info;
-        log(`Skipping wix-app eval gate — ${skip.reason}`);
-        await comment((0, evalforge_core_1.formatGateSkipped)(skip.reason));
+    const author = await (0, pr_lookups_1.checkPrAuthor)(octokit, config);
+    if (!author.allowed) {
+        const log = author.unexpected ? core.warning : core.info;
+        log(`Skipping wix-app eval gate — ${author.reason}`);
+        await comment((0, evalforge_core_1.formatGateSkipped)(author.reason));
         return;
     }
     const workspace = (0, workspace_1.workspaceRoot)();
     const draftTag = (0, evalforge_core_1.draftTagFor)(config.repoFullName, config.prNumber);
     core.info(`EvalForge skill gate — PR #${config.prNumber}, version ${config.versionLabel} `
         + `(evaluating ${config.evaluatedSha.slice(0, 7)}, the merge of head ${config.headSha.slice(0, 7)} into base)`);
-    const { scenarios: headScenarios, errors: loadErrors } = (0, evalforge_core_1.loadScenarios)(workspace, config.evalsGlob);
-    if (loadErrors.length > 0) {
-        await comment((0, evalforge_core_1.formatYamlErrors)(loadErrors));
-        (0, report_1.fail)(`Invalid scenario YAML or duplicate names: ${loadErrors.length}`, config.blocking);
+    const scope = await (0, gate_scope_1.resolveGateScope)(octokit, config, workspace, comment);
+    if (!scope.ok)
         return;
+    const client = new evalforge_core_1.EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
+    const version = await (0, report_1.guardedCall)(() => client.createOrReuseSkillVersion(config.capabilityId, config.projectId, config.versionLabel, config.prNumber, scope.value.skillFiles), 'Could not create the PR skill capability version', comment, config.blocking);
+    if (!version.ok)
+        return;
+    const nameToId = await (0, sync_draft_scenarios_1.syncDraftScenarios)(client, octokit, config, scope.value, draftTag, workspace, comment);
+    if (!nameToId.ok)
+        return;
+    await (0, run_and_report_1.runAndReport)(client, config, scope.value, nameToId.value, version.value.id, comment);
+}
+
+
+/***/ }),
+
+/***/ 355:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
     }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.resolveGateScope = resolveGateScope;
+const core = __importStar(__nccwpck_require__(7484));
+const evalforge_core_1 = __nccwpck_require__(7495);
+const report_1 = __nccwpck_require__(7267);
+/**
+ * Everything up to the first EvalForge write, so a coverage failure costs no call.
+ * A halted result means the reason is already on the PR, and already failed if it failed.
+ */
+async function resolveGateScope(octokit, config, workspace, comment) {
+    const loaded = await loadHeadScenarios(workspace, config, comment);
+    if (!loaded.ok)
+        return report_1.HALTED;
+    const headScenarios = loaded.value;
     const changedFiles = await (0, report_1.guardedCall)(() => (0, evalforge_core_1.getChangedFiles)(octokit, config.owner, config.repo, config.prNumber), 'Could not retrieve the PR file list', comment, config.blocking);
-    if (!changedFiles)
-        return;
+    if (!changedFiles.ok)
+        return report_1.HALTED;
+    const { derived, touchedPaths } = deriveChangeScope(changedFiles.value, config);
+    for (const path of derived.unmapped) {
+        core.warning(`Unmapped path under ${config.skillDir}: ${path}`);
+    }
+    if (derived.tags.length === 0 && !derived.broadImpact && touchedPaths.size === 0) {
+        core.info('No gated changes');
+        await comment((0, evalforge_core_1.formatNoGatedChanges)(derived.unmapped));
+        return report_1.HALTED;
+    }
+    const guard = await runCoverageGuard(derived, headScenarios, touchedPaths, config, comment);
+    if (!guard.ok)
+        return report_1.HALTED;
+    const skillFiles = await collectSkill(workspace, config, comment);
+    if (!skillFiles.ok)
+        return report_1.HALTED;
+    return {
+        ok: true,
+        value: { headScenarios, derived, touchedPaths, guard: guard.value, skillFiles: skillFiles.value },
+    };
+}
+async function loadHeadScenarios(workspace, config, comment) {
+    const { scenarios, errors } = (0, evalforge_core_1.loadScenarios)(workspace, config.evalsGlob);
+    if (errors.length === 0)
+        return { ok: true, value: scenarios };
+    await comment((0, evalforge_core_1.formatYamlErrors)(errors));
+    (0, report_1.fail)(`Invalid scenario YAML or duplicate names: ${errors.length}`, config.blocking);
+    return report_1.HALTED;
+}
+function deriveChangeScope(changedFiles, config) {
     const derived = (0, evalforge_core_1.deriveTags)(changedFiles.map(file => file.filename), {
         skillDir: config.skillDir,
         referenceDir: config.referenceDir,
@@ -61989,114 +62080,29 @@ async function runGate() {
         broadImpactGlobs: config.broadImpactGlobs,
     });
     const touchedPaths = new Set((0, evalforge_core_1.touchedScenarioPaths)(changedFiles.map(file => ({ path: file.filename, status: file.status })), config.evalsGlob));
-    for (const path of derived.unmapped) {
-        core.warning(`Unmapped path under ${config.skillDir}: ${path}`);
-    }
-    if (derived.tags.length === 0 && !derived.broadImpact && touchedPaths.size === 0) {
-        core.info('No gated changes');
-        await comment((0, evalforge_core_1.formatNoGatedChanges)(derived.unmapped));
-        return;
-    }
-    // Local YAML only, before any version or run, so a coverage failure costs nothing.
+    return { derived, touchedPaths };
+}
+/** Local YAML alone — no version and no run exist yet. */
+async function runCoverageGuard(derived, headScenarios, touchedPaths, config, comment) {
     const guard = (0, evalforge_core_1.guardScenarios)({
         tags: derived.tags,
         scenarios: headScenarios,
         touchedScenarioPaths: touchedPaths,
     });
-    if (guard.violations.length > 0) {
-        await comment((0, evalforge_core_1.formatGuardFailure)({ ...guard, blocking: config.blocking }));
-        (0, report_1.fail)(`Eval coverage guard failed: ${guard.violations.length} violation(s)`, config.blocking);
-        return;
-    }
+    if (guard.violations.length === 0)
+        return { ok: true, value: guard };
+    await comment((0, evalforge_core_1.formatGuardFailure)({ ...guard, blocking: config.blocking }));
+    (0, report_1.fail)(`Eval coverage guard failed: ${guard.violations.length} violation(s)`, config.blocking);
+    return report_1.HALTED;
+}
+async function collectSkill(workspace, config, comment) {
     const skillFiles = await (0, report_1.guardedCall)(
     // Whole dir: references send the agent to sibling paths like `<SKILL_ROOT>/scripts/…`.
     async () => (0, evalforge_core_1.collectSkillFiles)(workspace, config.skillDir, { warn: core.warning }), `Could not read the skill directory ${config.skillDir}`, comment, config.blocking);
-    if (!skillFiles)
-        return;
-    core.info(`Collected ${skillFiles.length} skill file(s) from ${config.skillDir}`);
-    const client = new evalforge_core_1.EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
-    const version = await (0, report_1.guardedCall)(() => client.createOrReuseSkillVersion(config.capabilityId, config.projectId, config.versionLabel, config.prNumber, skillFiles), 'Could not create the PR skill capability version', comment, config.blocking);
-    if (!version)
-        return;
-    const baseWorkspace = node_path_1.posix.join(workspace, config_1.BASE_WORKSPACE_SUBDIR);
-    const { scenarios: baseScenarios, errors: baseErrors } = (0, evalforge_core_1.loadScenarios)(baseWorkspace, config.evalsGlob);
-    for (const error of baseErrors) {
-        core.warning(`Base SHA scenario issue (${error.path}): ${error.message}`);
+    if (skillFiles.ok) {
+        core.info(`Collected ${skillFiles.value.length} skill file(s) from ${config.skillDir}`);
     }
-    const changedHeadScenarios = new Map([...headScenarios].filter(([, loaded]) => touchedPaths.has(loaded.path)));
-    const filters = (0, evalforge_core_1.remoteScenarioFiltersForGate)({
-        changedHead: changedHeadScenarios,
-        head: headScenarios,
-        base: baseScenarios,
-        draftTag,
-        extraTags: derived.tags,
-        all: derived.broadImpact,
-    });
-    const remote = await (0, report_1.guardedCall)(() => (0, evalforge_core_1.listRemoteScenariosForGate)(client, config.projectId, filters), 'Could not reach EvalForge', comment, config.blocking);
-    if (!remote)
-        return;
-    const normalizedRemote = await (0, evalforge_core_1.stripInactiveForeignDraftTags)(remote, draftTag, tag => (0, pr_lookups_1.isDraftTagActive)(octokit, tag));
-    const plan = (0, evalforge_core_1.diffSyncPlan)({
-        changedHead: changedHeadScenarios,
-        head: headScenarios,
-        base: baseScenarios,
-        remote: normalizedRemote,
-        draftTag,
-        repo: config.repoFullName,
-        // Semantic tags must survive the draft sync — the gate selects by them.
-        tagStrategy: evalforge_core_1.semanticPlusDraftTags,
-    });
-    if (plan.errors.length > 0) {
-        await comment((0, evalforge_core_1.formatForeignDraftConflicts)(plan.errors, config.blocking));
-        (0, report_1.fail)(`Scenario(s) held by other PRs: ${plan.errors.map(error => error.name).join(', ')}`, config.blocking);
-        return;
-    }
-    const nameToId = new Map(normalizedRemote.map(entry => [entry.name, entry.id]));
-    const applied = await (0, apply_sync_plan_1.applySyncPlan)(client, config, plan.actions, nameToId, comment);
-    if (!applied)
-        return;
-    const selection = (0, evalforge_core_1.selectScenarios)({
-        broadImpact: derived.broadImpact,
-        tags: derived.tags,
-        localScenarios: headScenarios,
-        nameToId,
-        touchedScenarioPaths: touchedPaths,
-        maxScenarios: config.maxScenarios,
-    });
-    for (const name of selection.missingIds) {
-        core.warning(`No EvalForge scenario found for "${name}" — it is in the repo YAML but not in EvalForge`);
-    }
-    // A gate that resolved nothing to run must not report a green check.
-    if (selection.ids.length === 0) {
-        const message = 'No eval scenarios could be resolved to run, so nothing was verified';
-        await comment((0, evalforge_core_1.formatGateServiceError)(message, config.blocking));
-        (0, report_1.fail)(message, config.blocking);
-        return;
-    }
-    const run = await (0, run_eval_1.startEvalRun)(client, config, selection.ids, version.id, comment);
-    if (!run)
-        return;
-    const runUrl = (0, evalforge_core_1.evalRunUrl)(config.projectId, run.id);
-    core.info(`Eval run started: ${runUrl}`);
-    const status = await (0, run_eval_1.pollToCompletion)(client, config, run.id, runUrl, comment);
-    if (!status)
-        return;
-    const verdict = (0, evalforge_core_1.evaluateRunResult)(status);
-    await comment((0, evalforge_core_1.formatGateResult)({
-        metrics: status.aggregateMetrics,
-        verdict,
-        runId: run.id,
-        runUrl,
-        selection,
-        maxScenarios: config.maxScenarios,
-        warnings: guard.warnings,
-        unmapped: derived.unmapped,
-        broadImpact: derived.broadImpact,
-        blocking: config.blocking,
-    }));
-    if (!verdict.passed) {
-        (0, report_1.fail)(`Eval gate failed: ${verdict.reasons.join('; ')}`, config.blocking);
-    }
+    return skillFiles;
 }
 
 
@@ -62141,24 +62147,29 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.skipReasonForAuthor = skipReasonForAuthor;
+exports.checkPrAuthor = checkPrAuthor;
 exports.isDraftTagActive = isDraftTagActive;
 const core = __importStar(__nccwpck_require__(7484));
 const evalforge_core_1 = __nccwpck_require__(7495);
 const report_1 = __nccwpck_require__(7267);
+const AUTHOR_ALLOWED = { allowed: true };
 /**
- * The reason to skip, or undefined to proceed. Skips both when the author is not a Wix address and
- * when the lookup fails: either way the gate must not run, and neither is worth failing a check.
+ * Whether the gate may run for this PR's author. Denies both when the author is not a Wix address
+ * and when the lookup fails: either way the gate must not run, and neither is worth failing a check.
  */
-async function skipReasonForAuthor(octokit, config) {
+async function checkPrAuthor(octokit, config) {
     try {
         const email = await (0, evalforge_core_1.getFirstCommitAuthorEmail)(octokit, config.owner, config.repo, config.prNumber);
         if ((0, evalforge_core_1.isWixAuthorEmail)(email))
-            return undefined;
-        return { reason: 'the PR author is not a wix author', unexpected: false };
+            return AUTHOR_ALLOWED;
+        return { allowed: false, reason: 'the PR author is not a wix author', unexpected: false };
     }
     catch (error) {
-        return { reason: `could not resolve the PR author: ${(0, report_1.describeError)(error)}`, unexpected: true };
+        return {
+            allowed: false,
+            reason: `could not resolve the PR author: ${(0, report_1.describeError)(error)}`,
+            unexpected: true,
+        };
     }
 }
 /** True when unresolvable, so a lookup failure never releases another PR's lock. */
@@ -62221,6 +62232,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.HALTED = void 0;
 exports.describeError = describeError;
 exports.fail = fail;
 exports.guardedCall = guardedCall;
@@ -62237,16 +62249,17 @@ function fail(message, blocking) {
     else
         core.warning(message);
 }
+exports.HALTED = { ok: false };
 /** Runs an EvalForge call, reporting a user-facing comment and gate failure if it throws. */
 async function guardedCall(operation, userMessage, comment, blocking) {
     try {
-        return await operation();
+        return { ok: true, value: await operation() };
     }
     catch (error) {
         core.error(`${userMessage}: ${describeError(error)}`);
         await comment((0, evalforge_core_1.formatGateServiceError)(userMessage, blocking));
         fail(userMessage, blocking);
-        return undefined;
+        return exports.HALTED;
     }
 }
 function makeGateCommenter(octokit, target) {
@@ -62254,6 +62267,106 @@ function makeGateCommenter(octokit, target) {
         warn: core.warning,
         writeSummary: async (body) => { await core.summary.addRaw(body).write(); },
     });
+}
+
+
+/***/ }),
+
+/***/ 7535:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.runAndReport = runAndReport;
+const core = __importStar(__nccwpck_require__(7484));
+const evalforge_core_1 = __nccwpck_require__(7495);
+const report_1 = __nccwpck_require__(7267);
+const run_eval_1 = __nccwpck_require__(1943);
+async function runAndReport(client, config, scope, nameToId, 
+/** The version's **id**, not its label. */
+versionId, comment) {
+    const selected = await resolveScenarioIds(config, scope, nameToId, comment);
+    if (!selected.ok)
+        return;
+    const selection = selected.value;
+    const run = await (0, run_eval_1.startEvalRun)(client, config, selection.ids, versionId, comment);
+    if (!run.ok)
+        return;
+    const runUrl = (0, evalforge_core_1.evalRunUrl)(config.projectId, run.value.id);
+    core.info(`Eval run started: ${runUrl}`);
+    const status = await (0, run_eval_1.pollToCompletion)(client, config, run.value.id, runUrl, comment);
+    if (!status.ok)
+        return;
+    const verdict = (0, evalforge_core_1.evaluateRunResult)(status.value);
+    await comment((0, evalforge_core_1.formatGateResult)({
+        metrics: status.value.aggregateMetrics,
+        verdict,
+        runId: run.value.id,
+        runUrl,
+        selection,
+        maxScenarios: config.maxScenarios,
+        warnings: scope.guard.warnings,
+        unmapped: scope.derived.unmapped,
+        broadImpact: scope.derived.broadImpact,
+        blocking: config.blocking,
+    }));
+    if (!verdict.passed) {
+        (0, report_1.fail)(`Eval gate failed: ${verdict.reasons.join('; ')}`, config.blocking);
+    }
+}
+async function resolveScenarioIds(config, scope, nameToId, comment) {
+    const selection = (0, evalforge_core_1.selectScenarios)({
+        broadImpact: scope.derived.broadImpact,
+        tags: scope.derived.tags,
+        localScenarios: scope.headScenarios,
+        nameToId,
+        touchedScenarioPaths: scope.touchedPaths,
+        maxScenarios: config.maxScenarios,
+    });
+    for (const name of selection.missingIds) {
+        core.warning(`No EvalForge scenario found for "${name}" — it is in the repo YAML but not in EvalForge`);
+    }
+    if (selection.ids.length > 0)
+        return { ok: true, value: selection };
+    // A gate that resolved nothing to run must not report a green check.
+    const message = 'No eval scenarios could be resolved to run, so nothing was verified';
+    await comment((0, evalforge_core_1.formatGateServiceError)(message, config.blocking));
+    (0, report_1.fail)(message, config.blocking);
+    return report_1.HALTED;
 }
 
 
@@ -62319,22 +62432,112 @@ versionId, comment) {
 /** Timeout gets its own comment; anything else is a generic service failure. */
 async function pollToCompletion(client, config, runId, runUrl, comment) {
     try {
-        return await (0, evalforge_core_1.pollUntilDone)(client, config.projectId, runId, {
-            log: core.info,
-            warn: core.warning,
-        });
+        return {
+            ok: true,
+            value: await (0, evalforge_core_1.pollUntilDone)(client, config.projectId, runId, { log: core.info, warn: core.warning }),
+        };
     }
     catch (error) {
         if (error instanceof evalforge_core_1.EvalRunTimeoutError) {
             await comment((0, evalforge_core_1.formatGateTimeout)(runId, runUrl, config.blocking));
             (0, report_1.fail)(error.message, config.blocking);
-            return undefined;
+            return report_1.HALTED;
         }
         core.error(`Polling the eval run failed: ${(0, report_1.describeError)(error)}`);
         await comment((0, evalforge_core_1.formatGateServiceError)('Polling the eval run failed', config.blocking));
         (0, report_1.fail)('Polling the eval run failed', config.blocking);
-        return undefined;
+        return report_1.HALTED;
     }
+}
+
+
+/***/ }),
+
+/***/ 9542:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.syncDraftScenarios = syncDraftScenarios;
+const core = __importStar(__nccwpck_require__(7484));
+const node_path_1 = __nccwpck_require__(6760);
+const evalforge_core_1 = __nccwpck_require__(7495);
+const config_1 = __nccwpck_require__(7799);
+const report_1 = __nccwpck_require__(7267);
+const pr_lookups_1 = __nccwpck_require__(1661);
+const apply_sync_plan_1 = __nccwpck_require__(2237);
+/**
+ * Reconciles the PR's scenario edits into EvalForge as draft-tagged scenarios, yielding the
+ * name→id map the run selects from. A halted result means the reason is already on the PR.
+ */
+async function syncDraftScenarios(client, octokit, config, scope, draftTag, workspace, comment) {
+    const baseScenarios = loadBaseScenarios(workspace, config);
+    const changedHead = new Map([...scope.headScenarios].filter(([, loaded]) => scope.touchedPaths.has(loaded.path)));
+    const shared = { changedHead, head: scope.headScenarios, base: baseScenarios, draftTag };
+    const remote = await (0, report_1.guardedCall)(() => (0, evalforge_core_1.listRemoteScenariosForGate)(client, config.projectId, (0, evalforge_core_1.remoteScenarioFiltersForGate)({
+        ...shared, extraTags: scope.derived.tags, all: scope.derived.broadImpact,
+    })), 'Could not reach EvalForge', comment, config.blocking);
+    if (!remote.ok)
+        return report_1.HALTED;
+    const normalizedRemote = await (0, evalforge_core_1.stripInactiveForeignDraftTags)(remote.value, draftTag, tag => (0, pr_lookups_1.isDraftTagActive)(octokit, tag));
+    const plan = (0, evalforge_core_1.diffSyncPlan)({
+        ...shared,
+        remote: normalizedRemote,
+        repo: config.repoFullName,
+        // Semantic tags must survive the draft sync — the gate selects by them.
+        tagStrategy: evalforge_core_1.semanticPlusDraftTags,
+    });
+    if (plan.errors.length > 0) {
+        await comment((0, evalforge_core_1.formatForeignDraftConflicts)(plan.errors, config.blocking));
+        (0, report_1.fail)(`Scenario(s) held by other PRs: ${plan.errors.map(error => error.name).join(', ')}`, config.blocking);
+        return report_1.HALTED;
+    }
+    const nameToId = new Map(normalizedRemote.map(entry => [entry.name, entry.id]));
+    const applied = await (0, apply_sync_plan_1.applySyncPlan)(client, config, plan.actions, nameToId, comment);
+    return applied ? { ok: true, value: nameToId } : report_1.HALTED;
+}
+/** Warns rather than fails: the base SHA's YAML is not this PR's to fix. */
+function loadBaseScenarios(workspace, config) {
+    const baseWorkspace = node_path_1.posix.join(workspace, config_1.BASE_WORKSPACE_SUBDIR);
+    const { scenarios, errors } = (0, evalforge_core_1.loadScenarios)(baseWorkspace, config.evalsGlob);
+    for (const error of errors) {
+        core.warning(`Base SHA scenario issue (${error.path}): ${error.message}`);
+    }
+    return scenarios;
 }
 
 
