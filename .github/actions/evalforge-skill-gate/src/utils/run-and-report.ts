@@ -70,7 +70,7 @@ async function resolveScenarioIds(
 
   // A gate that resolved nothing to run must not report a green check.
   const message = 'No eval scenarios could be resolved to run, so nothing was verified';
-  await comment(formatGateServiceError(message, config.isBlocking));
+  await comment(formatGateServiceError(message, config.isBlocking, 'Nothing Verified'));
   fail(message, config.isBlocking);
   return HALTED;
 }
