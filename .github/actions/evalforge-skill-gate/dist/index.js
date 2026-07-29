@@ -61718,7 +61718,7 @@ async function applySyncPlan(client, config, actions, nameToId, comment) {
         }
         catch (error) {
             core.error(`Sync action ${action.kind} for ${action.name} failed: ${(0, report_1.describeError)(error)}`);
-            await comment((0, evalforge_core_1.formatGateServiceError)(`Sync failed for "${action.name}"`, config.isBlocking));
+            await comment((0, evalforge_core_1.formatGateServiceError)(`Sync failed for "${action.name}"`, config.isBlocking, 'Scenario Sync Failed'));
             (0, report_1.fail)(`Sync failed for ${action.name}`, config.isBlocking);
             return false;
         }
@@ -62065,7 +62065,7 @@ async function runGate() {
     if (!scope.ok)
         return;
     const client = new evalforge_core_1.EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
-    const version = await (0, report_1.guardedCall)(() => client.createOrReuseSkillVersion(config.capabilityId, config.projectId, config.versionLabel, config.prNumber, scope.value.skillFiles), 'Could not create the PR skill capability version', comment, config.isBlocking);
+    const version = await (0, report_1.guardedCall)(() => client.createOrReuseSkillVersion(config.capabilityId, config.projectId, config.versionLabel, config.prNumber, scope.value.skillFiles), { message: 'Could not create the PR skill capability version', label: 'Version Not Created' }, comment, config.isBlocking);
     if (!version.ok)
         return;
     const nameToId = await (0, sync_draft_scenarios_1.syncDraftScenarios)(client, octokit, config, scope.value, draftTag, workspace, comment);
@@ -62129,7 +62129,7 @@ async function resolveGateScope(octokit, config, workspace, comment) {
     if (!loaded.ok)
         return report_1.HALTED;
     const headScenarios = loaded.value;
-    const changedFiles = await (0, report_1.guardedCall)(() => (0, evalforge_core_1.getChangedFiles)(octokit, config.owner, config.repo, config.prNumber), 'Could not retrieve the PR file list', comment, config.isBlocking);
+    const changedFiles = await (0, report_1.guardedCall)(() => (0, evalforge_core_1.getChangedFiles)(octokit, config.owner, config.repo, config.prNumber), { message: 'Could not retrieve the PR file list', label: 'GitHub Lookup Failed' }, comment, config.isBlocking);
     if (!changedFiles.ok)
         return report_1.HALTED;
     const { derived, touchedPaths } = deriveChangeScope(changedFiles.value, config);
@@ -62190,7 +62190,7 @@ async function runCoverageGuard(derived, headScenarios, touchedPaths, config, co
 async function collectSkill(workspace, config, comment) {
     const skillFiles = await (0, report_1.guardedCall)(
     // Whole dir: references send the agent to sibling paths like `<SKILL_ROOT>/scripts/…`.
-    async () => (0, evalforge_core_1.collectSkillFiles)(workspace, config.skillDir, { warn: core.warning }), `Could not read the skill directory ${config.skillDir}`, comment, config.isBlocking);
+    async () => (0, evalforge_core_1.collectSkillFiles)(workspace, config.skillDir, { warn: core.warning }), { message: `Could not read the skill directory ${config.skillDir}`, label: 'Skill Content Unreadable' }, comment, config.isBlocking);
     if (skillFiles.ok) {
         core.info(`Collected ${skillFiles.value.length} skill file(s) from ${config.skillDir}`);
     }
@@ -62342,15 +62342,20 @@ function fail(message, blocking) {
         core.warning(message);
 }
 exports.HALTED = { ok: false };
-/** Runs an EvalForge call, reporting a user-facing comment and gate failure if it throws. */
-async function guardedCall(operation, userMessage, comment, blocking) {
+/**
+ * Runs an EvalForge call, reporting a user-facing comment and gate failure if it throws.
+ *
+ * `label` becomes the comment heading, so a reader can tell which stage broke without parsing the
+ * body — every one of these used to render the same bare "Service Error".
+ */
+async function guardedCall(operation, failure, comment, blocking) {
     try {
         return { ok: true, value: await operation() };
     }
     catch (error) {
-        core.error(`${userMessage}: ${describeError(error)}`);
-        await comment((0, evalforge_core_1.formatGateServiceError)(userMessage, blocking));
-        fail(userMessage, blocking);
+        core.error(`${failure.message}: ${describeError(error)}`);
+        await comment((0, evalforge_core_1.formatGateServiceError)(failure.message, blocking, failure.label));
+        fail(failure.message, blocking);
         return exports.HALTED;
     }
 }
@@ -62519,7 +62524,7 @@ versionId, comment) {
         scenarioIds,
         capabilityIds: [config.capabilityId],
         capabilityVersions: { [config.capabilityId]: versionId },
-    }), 'Could not start the eval run', comment, config.isBlocking);
+    }), { message: 'Could not start the eval run', label: 'Run Not Started' }, comment, config.isBlocking);
 }
 /** Timeout gets its own comment; anything else is a generic service failure. */
 async function pollToCompletion(client, config, runId, runUrl, comment) {
@@ -62605,7 +62610,7 @@ async function syncDraftScenarios(client, octokit, config, scope, draftTag, work
     const shared = { changedHead, head: scope.headScenarios, base: baseScenarios, draftTag };
     const remote = await (0, report_1.guardedCall)(() => (0, evalforge_core_1.listRemoteScenariosForGate)(client, config.projectId, (0, evalforge_core_1.remoteScenarioFiltersForGate)({
         ...shared, extraTags: scope.derived.tags, all: scope.derived.broadImpact,
-    })), 'Could not reach EvalForge', comment, config.isBlocking);
+    })), { message: 'Could not reach EvalForge', label: 'EvalForge Unreachable' }, comment, config.isBlocking);
     if (!remote.ok)
         return report_1.HALTED;
     const normalizedRemote = await (0, evalforge_core_1.stripInactiveForeignDraftTags)(remote.value, draftTag, tag => (0, pr_lookups_1.isDraftTagActive)(octokit, tag));

@@ -35,7 +35,8 @@ export async function resolveGateScope(
 
   const changedFiles = await guardedCall(
     () => getChangedFiles(octokit, config.owner, config.repo, config.prNumber),
-    'Could not retrieve the PR file list', comment, config.isBlocking,
+    { message: 'Could not retrieve the PR file list', label: 'GitHub Lookup Failed' },
+    comment, config.isBlocking,
   );
   if (!changedFiles.ok) return HALTED;
 
@@ -121,7 +122,8 @@ async function collectSkill(
   const skillFiles = await guardedCall(
     // Whole dir: references send the agent to sibling paths like `<SKILL_ROOT>/scripts/…`.
     async () => collectSkillFiles(workspace, config.skillDir, { warn: core.warning }),
-    `Could not read the skill directory ${config.skillDir}`, comment, config.isBlocking,
+    { message: `Could not read the skill directory ${config.skillDir}`, label: 'Skill Content Unreadable' },
+    comment, config.isBlocking,
   );
   if (skillFiles.ok) {
     core.info(`Collected ${skillFiles.value.length} skill file(s) from ${config.skillDir}`);

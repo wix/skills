@@ -381,6 +381,59 @@ describe('runGate — the happy path', () => {
   });
 });
 
+describe('runGate — failure comments name their stage', () => {
+  // They all used to render the same bare "Service Error", so a reader could not tell which stage
+  // broke without reading the body.
+  beforeEach(async () => {
+    const evalforge = await import('@wix/evalforge-core');
+    vi.mocked(evalforge.getChangedFiles).mockResolvedValue([
+      { filename: 'skills/wix-app/references/DASHBOARD_PAGE.md', status: 'modified' },
+    ]);
+    vi.mocked(evalforge.loadScenarios).mockReturnValue({
+      scenarios: new Map([['covers', strongScenario('covers', ['dashboard-page'])]]),
+      errors: [],
+    });
+  });
+
+  it('heads a GitHub lookup failure differently from an EvalForge outage', async () => {
+    const { runGate, evalforge } = await harness();
+    vi.mocked(evalforge.getChangedFiles).mockRejectedValue(new Error('Bad credentials'));
+
+    await runGate();
+
+    expect(upsertComment).toHaveBeenCalledWith(expect.stringContaining('GitHub Lookup Failed'));
+  });
+
+  it('heads a failed version creation as such', async () => {
+    const { runGate } = await harness();
+    createOrReuseSkillVersion.mockRejectedValue(new Error('409 conflict'));
+
+    await runGate();
+
+    expect(upsertComment).toHaveBeenCalledWith(expect.stringContaining('Version Not Created'));
+  });
+
+  it('heads an unreachable EvalForge as such', async () => {
+    const { runGate } = await harness();
+    listTestScenariosByTag.mockRejectedValue(new Error('ECONNRESET'));
+
+    await runGate();
+
+    expect(upsertComment).toHaveBeenCalledWith(expect.stringContaining('EvalForge Unreachable'));
+  });
+
+  it('heads an unreadable skill directory as such', async () => {
+    const { runGate, evalforge } = await harness();
+    vi.mocked(evalforge.collectSkillFiles).mockImplementation(() => {
+      throw new Error('EACCES');
+    });
+
+    await runGate();
+
+    expect(upsertComment).toHaveBeenCalledWith(expect.stringContaining('Skill Content Unreadable'));
+  });
+});
+
 describe('runGate — sync and selection', () => {
   it('CREATEs a scenario this PR added and includes the returned id in the run', async () => {
     const { runGate, evalforge } = await harness();

@@ -35,7 +35,8 @@ export async function syncDraftScenarios(
     () => listRemoteScenariosForGate(client, config.projectId, remoteScenarioFiltersForGate({
       ...shared, extraTags: scope.derived.tags, all: scope.derived.broadImpact,
     })),
-    'Could not reach EvalForge', comment, config.isBlocking,
+    { message: 'Could not reach EvalForge', label: 'EvalForge Unreachable' },
+    comment, config.isBlocking,
   );
   if (!remote.ok) return HALTED;
 

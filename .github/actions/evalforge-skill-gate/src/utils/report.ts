@@ -24,19 +24,24 @@ export type Guarded<T> = { ok: true; value: T } | { ok: false };
 
 export const HALTED: Guarded<never> = { ok: false };
 
-/** Runs an EvalForge call, reporting a user-facing comment and gate failure if it throws. */
+/**
+ * Runs an EvalForge call, reporting a user-facing comment and gate failure if it throws.
+ *
+ * `label` becomes the comment heading, so a reader can tell which stage broke without parsing the
+ * body — every one of these used to render the same bare "Service Error".
+ */
 export async function guardedCall<T>(
   operation: () => Promise<T>,
-  userMessage: string,
+  failure: { message: string; label: string },
   comment: Commenter,
   blocking: boolean,
 ): Promise<Guarded<T>> {
   try {
     return { ok: true, value: await operation() };
   } catch (error) {
-    core.error(`${userMessage}: ${describeError(error)}`);
-    await comment(formatGateServiceError(userMessage, blocking));
-    fail(userMessage, blocking);
+    core.error(`${failure.message}: ${describeError(error)}`);
+    await comment(formatGateServiceError(failure.message, blocking, failure.label));
+    fail(failure.message, blocking);
     return HALTED;
   }
 }
