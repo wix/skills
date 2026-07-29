@@ -61623,6 +61623,15 @@ const workspace_1 = __nccwpck_require__(9620);
 function describeError(error) {
     return error instanceof Error ? error.message : String(error);
 }
+async function listDraftScenarios(client, projectId, draftTag) {
+    try {
+        return await client.listTestScenariosByTag(projectId, draftTag);
+    }
+    catch (error) {
+        core.warning(`listTestScenariosByTag failed: ${describeError(error)}`);
+        return undefined;
+    }
+}
 /**
  * Failures are warnings throughout: the PR is closed, so a red check is not actionable and the
  * next run sweeps what was left.
@@ -61635,14 +61644,9 @@ async function runCleanup() {
         log: core.info,
         warn: core.warning,
     });
-    let remote;
-    try {
-        remote = await client.listTestScenariosByTag(config.projectId, draftTag);
-    }
-    catch (error) {
-        core.warning(`listTestScenariosByTag failed: ${describeError(error)}`);
+    const remote = await listDraftScenarios(client, config.projectId, draftTag);
+    if (!remote)
         return;
-    }
     const baseRoot = node_path_1.posix.join((0, workspace_1.workspaceRoot)(), config_1.BASE_WORKSPACE_SUBDIR);
     const { scenarios: baseScenarios, errors } = (0, evalforge_core_1.loadScenarios)(baseRoot, config.evalsGlob);
     for (const error of errors) {
@@ -61889,6 +61893,26 @@ async function guardedCall(operation, userMessage, comment, blocking) {
         return undefined;
     }
 }
+/** Timeout gets its own comment; anything else is a generic service failure. */
+async function pollToCompletion(client, config, runId, runUrl, comment) {
+    try {
+        return await (0, evalforge_core_1.pollUntilDone)(client, config.projectId, runId, {
+            log: core.info,
+            warn: core.warning,
+        });
+    }
+    catch (error) {
+        if (error instanceof evalforge_core_1.EvalRunTimeoutError) {
+            await comment((0, evalforge_core_1.formatGateTimeout)(runId, runUrl, config.blocking));
+            fail(error.message, config.blocking);
+            return undefined;
+        }
+        core.error(`Polling the eval run failed: ${describeError(error)}`);
+        await comment((0, evalforge_core_1.formatGateServiceError)('Polling the eval run failed', config.blocking));
+        fail('Polling the eval run failed', config.blocking);
+        return undefined;
+    }
+}
 async function isDraftTagActive(octokit, tag) {
     const draft = (0, evalforge_core_1.parseDraftTag)(tag);
     if (!draft)
@@ -62040,24 +62064,9 @@ async function runGate() {
         return;
     const runUrl = (0, evalforge_core_1.evalRunUrl)(config.projectId, run.id);
     core.info(`Eval run started: ${runUrl}`);
-    let status;
-    try {
-        status = await (0, evalforge_core_1.pollUntilDone)(client, config.projectId, run.id, {
-            log: core.info,
-            warn: core.warning,
-        });
-    }
-    catch (error) {
-        if (error instanceof evalforge_core_1.EvalRunTimeoutError) {
-            await comment((0, evalforge_core_1.formatGateTimeout)(run.id, runUrl, config.blocking));
-            fail(error.message, config.blocking);
-            return;
-        }
-        core.error(`Polling the eval run failed: ${describeError(error)}`);
-        await comment((0, evalforge_core_1.formatGateServiceError)('Polling the eval run failed', config.blocking));
-        fail('Polling the eval run failed', config.blocking);
+    const status = await pollToCompletion(client, config, run.id, runUrl, comment);
+    if (!status)
         return;
-    }
     const verdict = (0, evalforge_core_1.evaluateRunResult)(status);
     await comment((0, evalforge_core_1.formatGateResult)({
         metrics: status.aggregateMetrics,

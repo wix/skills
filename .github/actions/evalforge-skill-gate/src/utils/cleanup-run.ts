@@ -11,6 +11,19 @@ function describeError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+async function listDraftScenarios(
+  client: EvalForgeClient,
+  projectId: string,
+  draftTag: string,
+): Promise<RemoteScenario[] | undefined> {
+  try {
+    return await client.listTestScenariosByTag(projectId, draftTag);
+  } catch (error) {
+    core.warning(`listTestScenariosByTag failed: ${describeError(error)}`);
+    return undefined;
+  }
+}
+
 /**
  * Failures are warnings throughout: the PR is closed, so a red check is not actionable and the
  * next run sweeps what was left.
@@ -25,13 +38,8 @@ export async function runCleanup(): Promise<void> {
     warn: core.warning,
   });
 
-  let remote: RemoteScenario[];
-  try {
-    remote = await client.listTestScenariosByTag(config.projectId, draftTag);
-  } catch (error) {
-    core.warning(`listTestScenariosByTag failed: ${describeError(error)}`);
-    return;
-  }
+  const remote = await listDraftScenarios(client, config.projectId, draftTag);
+  if (!remote) return;
 
   const baseRoot = posix.join(workspaceRoot(), BASE_WORKSPACE_SUBDIR);
   const { scenarios: baseScenarios, errors } = loadScenarios(baseRoot, config.evalsGlob);

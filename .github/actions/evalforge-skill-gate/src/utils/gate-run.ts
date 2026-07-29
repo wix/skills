@@ -41,6 +41,32 @@ async function guardedCall<T>(
   }
 }
 
+/** Timeout gets its own comment; anything else is a generic service failure. */
+async function pollToCompletion(
+  client: EvalForgeClient,
+  config: GateConfig,
+  runId: string,
+  runUrl: string,
+  comment: Commenter,
+): Promise<EvalRunStatus | undefined> {
+  try {
+    return await pollUntilDone(client, config.projectId, runId, {
+      log: core.info,
+      warn: core.warning,
+    });
+  } catch (error) {
+    if (error instanceof EvalRunTimeoutError) {
+      await comment(formatGateTimeout(runId, runUrl, config.blocking));
+      fail(error.message, config.blocking);
+      return undefined;
+    }
+    core.error(`Polling the eval run failed: ${describeError(error)}`);
+    await comment(formatGateServiceError('Polling the eval run failed', config.blocking));
+    fail('Polling the eval run failed', config.blocking);
+    return undefined;
+  }
+}
+
 async function isDraftTagActive(
   octokit: ReturnType<typeof github.getOctokit>,
   tag: string,
@@ -234,23 +260,8 @@ export async function runGate(): Promise<void> {
   const runUrl = evalRunUrl(config.projectId, run.id);
   core.info(`Eval run started: ${runUrl}`);
 
-  let status: EvalRunStatus;
-  try {
-    status = await pollUntilDone(client, config.projectId, run.id, {
-      log: core.info,
-      warn: core.warning,
-    });
-  } catch (error) {
-    if (error instanceof EvalRunTimeoutError) {
-      await comment(formatGateTimeout(run.id, runUrl, config.blocking));
-      fail(error.message, config.blocking);
-      return;
-    }
-    core.error(`Polling the eval run failed: ${describeError(error)}`);
-    await comment(formatGateServiceError('Polling the eval run failed', config.blocking));
-    fail('Polling the eval run failed', config.blocking);
-    return;
-  }
+  const status = await pollToCompletion(client, config, run.id, runUrl, comment);
+  if (!status) return;
 
   const verdict = evaluateRunResult(status);
   await comment(formatGateResult({
