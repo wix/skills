@@ -31118,9 +31118,11 @@ function loadScenarios(root, globPattern) {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.CleanupKind = void 0;
 exports.planCleanup = planCleanup;
 const evalforge_1 = __nccwpck_require__(7230);
 const plan_pr_scenario_sync_1 = __nccwpck_require__(7208);
+exports.CleanupKind = { RESTORE: 'RESTORE', DELETE: 'DELETE' };
 /**
  * Decides what to do with each of this PR's draft-tagged scenarios once the PR closes.
  * A name present in the base SHA's YAML pre-existed the PR, so it is RESTOREd to that
@@ -31134,13 +31136,13 @@ function planCleanup(remote, baseScenarios, draftTag, repo) {
         const baseScenario = baseScenarios.get(scenario.name);
         actions.push(baseScenario
             ? {
-                kind: 'RESTORE',
+                kind: exports.CleanupKind.RESTORE,
                 id: scenario.id,
                 name: scenario.name,
                 body: (0, plan_pr_scenario_sync_1.toScenarioBody)(baseScenario.scenario),
                 tags: (0, evalforge_1.withManagedTags)(baseScenario.scenario.tags, repo),
             }
-            : { kind: 'DELETE', id: scenario.id, name: scenario.name });
+            : { kind: exports.CleanupKind.DELETE, id: scenario.id, name: scenario.name });
     }
     return actions;
 }
@@ -31154,7 +31156,7 @@ function planCleanup(remote, baseScenarios, draftTag, repo) {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.semanticPlusDraftTags = exports.draftOnlyTags = void 0;
+exports.semanticPlusDraftTags = exports.draftOnlyTags = exports.SyncActionKind = void 0;
 exports.toScenarioBody = toScenarioBody;
 exports.diffSyncPlan = diffSyncPlan;
 exports.remoteScenarioFiltersForGate = remoteScenarioFiltersForGate;
@@ -31162,6 +31164,12 @@ exports.listRemoteScenariosForGate = listRemoteScenariosForGate;
 exports.stripInactiveForeignDraftTags = stripInactiveForeignDraftTags;
 const evalforge_1 = __nccwpck_require__(7230);
 const evalforge_mapper_1 = __nccwpck_require__(6006);
+exports.SyncActionKind = {
+    CREATE: 'CREATE',
+    UPDATE: 'UPDATE',
+    DELETE: 'DELETE',
+    DEFER_DELETE: 'DEFER_DELETE',
+};
 function toScenarioBody(scenario) {
     return (0, evalforge_mapper_1.toEvalForgeBody)(scenario);
 }
@@ -31182,7 +31190,7 @@ function diffSyncPlan(input) {
         const tags = (0, evalforge_1.withManagedTags)(tagStrategy(localScenario.scenario, draftTag), repo);
         const match = remoteByName.get(name);
         if (!match) {
-            actions.push({ kind: 'CREATE', name, body: toScenarioBody(localScenario.scenario), tags });
+            actions.push({ kind: exports.SyncActionKind.CREATE, name, body: toScenarioBody(localScenario.scenario), tags });
             continue;
         }
         const foreign = foreignDraftTags(match.tags, draftTag);
@@ -31190,7 +31198,7 @@ function diffSyncPlan(input) {
             errors.push({ kind: 'FOREIGN_DRAFT', name, foreignTags: foreign, path: localScenario.path });
             continue;
         }
-        actions.push({ kind: 'UPDATE', id: match.id, name, body: toScenarioBody(localScenario.scenario), tags });
+        actions.push({ kind: exports.SyncActionKind.UPDATE, id: match.id, name, body: toScenarioBody(localScenario.scenario), tags });
     }
     for (const [name, baseScenario] of base) {
         if (head.has(name))
@@ -31199,7 +31207,7 @@ function diffSyncPlan(input) {
         if (!match)
             continue;
         if (match.tags.includes(draftTag)) {
-            actions.push({ kind: 'DELETE', id: match.id, name });
+            actions.push({ kind: exports.SyncActionKind.DELETE, id: match.id, name });
             continue;
         }
         const foreign = foreignDraftTags(match.tags, draftTag);
@@ -31207,7 +31215,7 @@ function diffSyncPlan(input) {
             errors.push({ kind: 'FOREIGN_DRAFT', name, foreignTags: foreign, path: baseScenario.path });
         }
         else {
-            actions.push({ kind: 'DEFER_DELETE', id: match.id, name });
+            actions.push({ kind: exports.SyncActionKind.DEFER_DELETE, id: match.id, name });
         }
     }
     return { actions, errors };

@@ -3,10 +3,17 @@ import type { LoadedScenario } from './load-scenarios';
 import { withManagedTags, uniqueRemoteScenarios, DRAFT_PREFIX, type RemoteScenario, type ScenarioBody } from './evalforge';
 import { toEvalForgeBody } from './evalforge-mapper';
 
-export type CreateAction = { kind: 'CREATE'; name: string; body: ScenarioBody; tags: string[] };
-export type UpdateAction = { kind: 'UPDATE'; id: string; name: string; body: ScenarioBody; tags: string[] };
-export type DeleteAction = { kind: 'DELETE'; id: string; name: string };
-export type DeferDeleteAction = { kind: 'DEFER_DELETE'; id: string; name: string };
+export const SyncActionKind = {
+  CREATE: 'CREATE',
+  UPDATE: 'UPDATE',
+  DELETE: 'DELETE',
+  DEFER_DELETE: 'DEFER_DELETE',
+} as const;
+
+export type CreateAction = { kind: typeof SyncActionKind.CREATE; name: string; body: ScenarioBody; tags: string[] };
+export type UpdateAction = { kind: typeof SyncActionKind.UPDATE; id: string; name: string; body: ScenarioBody; tags: string[] };
+export type DeleteAction = { kind: typeof SyncActionKind.DELETE; id: string; name: string };
+export type DeferDeleteAction = { kind: typeof SyncActionKind.DEFER_DELETE; id: string; name: string };
 export type SyncAction = CreateAction | UpdateAction | DeleteAction | DeferDeleteAction;
 
 export type SyncError = {
@@ -70,7 +77,7 @@ export function diffSyncPlan(input: {
     const tags = withManagedTags(tagStrategy(localScenario.scenario, draftTag), repo);
     const match = remoteByName.get(name);
     if (!match) {
-      actions.push({ kind: 'CREATE', name, body: toScenarioBody(localScenario.scenario), tags });
+      actions.push({ kind: SyncActionKind.CREATE, name, body: toScenarioBody(localScenario.scenario), tags });
       continue;
     }
     const foreign = foreignDraftTags(match.tags, draftTag);
@@ -78,7 +85,7 @@ export function diffSyncPlan(input: {
       errors.push({ kind: 'FOREIGN_DRAFT', name, foreignTags: foreign, path: localScenario.path });
       continue;
     }
-    actions.push({ kind: 'UPDATE', id: match.id, name, body: toScenarioBody(localScenario.scenario), tags });
+    actions.push({ kind: SyncActionKind.UPDATE, id: match.id, name, body: toScenarioBody(localScenario.scenario), tags });
   }
 
   for (const [name, baseScenario] of base) {
@@ -86,14 +93,14 @@ export function diffSyncPlan(input: {
     const match = remoteByName.get(name);
     if (!match) continue;
     if (match.tags.includes(draftTag)) {
-      actions.push({ kind: 'DELETE', id: match.id, name });
+      actions.push({ kind: SyncActionKind.DELETE, id: match.id, name });
       continue;
     }
     const foreign = foreignDraftTags(match.tags, draftTag);
     if (foreign.length > 0) {
       errors.push({ kind: 'FOREIGN_DRAFT', name, foreignTags: foreign, path: baseScenario.path });
     } else {
-      actions.push({ kind: 'DEFER_DELETE', id: match.id, name });
+      actions.push({ kind: SyncActionKind.DEFER_DELETE, id: match.id, name });
     }
   }
 
