@@ -16,8 +16,13 @@ const deleteTestScenario = vi.fn().mockResolvedValue(undefined);
 const createOrReuseSkillVersion = vi.fn();
 const createAndRunEvalRun = vi.fn();
 
+// pulls.get is real: with a bare `{}` the call threw a TypeError that isDraftTagActive's catch
+// swallowed into `true`, so the FOREIGN_DRAFT tests below passed via the error path rather than
+// via a genuinely open PR.
+const pullsGet = vi.fn().mockResolvedValue({ data: { state: 'open' } });
+
 vi.mock('@actions/github', () => ({
-  getOctokit: vi.fn(() => ({ rest: { pulls: {}, issues: {} }, paginate: vi.fn() })),
+  getOctokit: vi.fn(() => ({ rest: { pulls: { get: pullsGet }, issues: {} }, paginate: vi.fn() })),
   context: { repo: { owner: 'wix', repo: 'skills' }, payload: {} },
 }));
 
