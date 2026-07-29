@@ -1,11 +1,14 @@
 import * as core from '@actions/core';
 import { runSync } from './utils/sync-run';
+import { runGate } from './utils/gate-run';
+import { runCleanup } from './utils/cleanup-run';
 
-// Modes for the wix-app skill flows. CODEAI-889 adds the PR eval gate
-// (author check -> skill version -> tags -> quality guard -> run -> comment -> cleanup)
-// alongside `sync`.
+// Modes for the wix-app skill flows: the per-PR eval gate, its PR-close cleanup, and
+// merge-time scenario sync. See README.md for the full flow of each.
 const modes: Record<string, () => Promise<void>> = {
   sync: runSync,
+  gate: runGate,
+  cleanup: runCleanup,
 };
 
 const mode = core.getInput('mode') || 'sync';
