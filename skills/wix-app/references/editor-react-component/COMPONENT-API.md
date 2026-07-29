@@ -200,6 +200,13 @@ Allowed image hosts: `static.wixstatic.com` (and other `*.wixstatic.com`
 subdomains). Allowed data: values supplied through props (populated by the
 editor) or imported local assets bundled with the component.
 
+**Platform-supplied data is not an external resource.** Values that arrive
+through the platform — `a11y` props, `EnvironmentDefinition` (see
+[`DIRECTIONALITY.md`](DIRECTIONALITY.md)), and a Wix vertical's context via a
+declared `contextDependencies` hook (see
+[`CONSUMING-A-VERTICAL.md`](CONSUMING-A-VERTICAL.md)) — are allowed. This rule
+bans reaching out to non-Wix hosts, not reading data the platform hands you.
+
 ### Default values for `Image` props
 
 Image defaults belong in the `<componentName>.props.ts` file's exported

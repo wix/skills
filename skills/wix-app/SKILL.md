@@ -1,6 +1,6 @@
 ---
 name: wix-app
-description: "Build and review Wix CLI app extensions — dashboard pages, modals, plugins, menu plugins, custom element widgets, Editor React components, site plugins, embedded scripts, backend APIs, backend events, service plugins, data collections, and App Market readiness. Use when building ANY feature or extension for a Wix CLI app or preparing a Wix app for App Market review. Triggers on: add, build, create, implement, help me, dashboard, widget, plugin, backend, API, event, collection, embedded script, service plugin, Editor React component, checkout, shipping, tax, discount, SPI, CMS, schema, tracking, popup, admin panel, menu item, modal, validate, test, verify, register extension, App Market, app review, submission readiness."
+description: "Build and review Wix CLI app extensions — dashboard pages, modals, plugins, menu plugins, custom element widgets, Editor React components, site plugins, embedded scripts, backend APIs, backend events, service plugins, data collections, and App Market readiness. Use when building ANY feature or extension for a Wix CLI app or preparing a Wix app for App Market review. Triggers on: add, build, create, implement, help me, dashboard, widget, plugin, backend, API, event, collection, embedded script, service plugin, Editor React component, extend a vertical, business solution page, product page, service page, event page, vertical context, context provider, checkout, shipping, tax, discount, SPI, CMS, schema, tracking, popup, admin panel, menu item, modal, validate, test, verify, register extension, App Market, app review, submission readiness."
 compatibility: requires `@wix/cli` >= 1.1.192.
 ---
 
@@ -75,7 +75,8 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
    - Existing Wix app dashboard (menu item) → Dashboard Menu Plugin
    - Anywhere on site → custom element widget
    - Anywhere on site (with editor manifest) → Editor React component
-   - Wix business solution page → Site Plugin
+   - Wix business solution **site page** → [Extending a Vertical](references/EXTENDING_A_VERTICAL.md) (needs **both** a Site Plugin and an Editor React component)
+   - Wix business solution **dashboard** → Dashboard Plugin / Dashboard Menu Plugin
    - During business flow → Service Plugin
    - After event occurs → Backend Event Extension
 
@@ -83,7 +84,7 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
 
 - **Admin:** Single-collection CRUD admin page? → **Auto Patterns Dashboard (DEFAULT)**. Custom React page (multi-collection / custom logic / embedded scripts / external APIs / explicit user request)? → Dashboard Page. Need popup/form? → Dashboard Modal. Extending Wix app dashboard with a visual widget? → Dashboard Plugin. Adding a menu item to a Wix app dashboard's more-actions or bulk-actions menu? → Dashboard Menu Plugin. **Modal constraint:** Dashboard Pages cannot use `<Modal />`; use a separate Dashboard Modal extension and `dashboard.openModal()`.
 - **Backend:** During business flow (checkout/shipping/tax)? → Service Plugin. After event (webhooks/sync)? → Backend Event Extension. Custom HTTP endpoints? → Backend API. Need CMS collections for app data? → Data Collection.
-- **Site:** User places anywhere (standalone)? → custom element widget. Editor React component with editor manifest (styling, content, elements)? → Editor React component. Fixed slot on Wix app page? → Site Plugin. Scripts/analytics only? → Embedded Script.
+- **Site:** User places anywhere (standalone)? → custom element widget. Editor React component with editor manifest (styling, content, elements)? → Editor React component. Extending a Wix business solution's site page? → **[EXTENDING_A_VERTICAL.md](references/EXTENDING_A_VERTICAL.md) first** — no single extension type covers all editors, so this needs a Site Plugin (Wix Editor/Studio) **and** an Editor React component (Harmony). Scripts/analytics only? → Embedded Script.
 
 ---
 
@@ -126,6 +127,7 @@ Helps build extensions for Wix CLI applications. Covers all extension types: das
 | App Validation | [APP_VALIDATION.md](references/APP_VALIDATION.md) |
 | App Market Review | [APP_MARKET_REVIEW.md](references/APP_MARKET_REVIEW.md) |
 | App Identifiers (Namespace, Code ID) | [APP_IDENTIFIERS.md](references/APP_IDENTIFIERS.md) |
+| Extending a Vertical in the Editor (Site Plugin + Editor React component) | [EXTENDING_A_VERTICAL.md](references/EXTENDING_A_VERTICAL.md) |
 | Wix Stores Versioning (V1/V3) | [STORES_VERSIONING.md](references/STORES_VERSIONING.md) |
 | Official Documentation Links | [DOCUMENTATION.md](references/DOCUMENTATION.md) |
 | Auto-patterns Dashboard Pages | [AUTO_PATTERNS_DASHBOARD.md](references/AUTO_PATTERNS_DASHBOARD.md) |

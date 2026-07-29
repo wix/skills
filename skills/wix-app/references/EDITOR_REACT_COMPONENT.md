@@ -1,6 +1,8 @@
 # Wix Editor React Component Builder
 
-Creates production-quality Editor React components that would be used in Harmony Editor for Wix CLI applications. Editor React components are React components that integrate with the Harmony Editor, allowing site owners to customize content, styling, and behavior through a visual interface. **Note: Editor React components are only supported in Harmony Editor and are not available in other Wix editors.**
+Creates production-quality Editor React components that would be used in Harmony Editor for Wix CLI applications. Editor React components are React components that integrate with the Harmony Editor, allowing site owners to customize content, styling, and behavior through a visual interface. **Note: Editor React components are not available in Wix Editor (Classic) or Wix Studio.** The public docs scope them to Harmony; Studio 2 is also a Builder-architecture editor — treat Harmony as the supported target and verify against the actual site when the difference affects a decision.
+
+> **Extending a Wix business solution's page?** An Editor React component covers only the Harmony side. See [`EXTENDING_A_VERTICAL.md`](EXTENDING_A_VERTICAL.md) for the two-surface requirement and [`editor-react-component/CONSUMING-A-VERTICAL.md`](editor-react-component/CONSUMING-A-VERTICAL.md) for reading vertical data.
 
 > **Prerequisite — verify first:** this skill applies only to an `@wix/astro` app. Confirm the target package's `package.json` lists `@wix/astro` as a dependency (`grep '"@wix/astro"' package.json`). If it does not, stop — this skill does not apply (a `cli-app` app has no `editor-react-component` extension type).
 
@@ -89,6 +91,7 @@ Topic-focused references (rules + patterns + common mistakes in one place):
 - [`editor-react-component/REACT-PATTERNS.md`](editor-react-component/REACT-PATTERNS.md) — SSR-safe patterns, CSS rules, remaining common mistakes
 - [`editor-react-component/ANIMATED-COMPONENTS.md`](editor-react-component/ANIMATED-COMPONENTS.md) — Play/pause controls for animated components (Lottie, GIF, autoPlay props)
 - [`editor-react-component/COMPONENT-PREVIEW.md`](editor-react-component/COMPONENT-PREVIEW.md) — `component.preview.tsx` patterns and `useIsEditMode()` usage
+- [`editor-react-component/CONSUMING-A-VERTICAL.md`](editor-react-component/CONSUMING-A-VERTICAL.md) — Reading a Wix vertical's data (Stores/Bookings/Events context providers), `contextDependencies`, per-vertical catalog
 
 ## CSS guidelines
 
