@@ -30,6 +30,14 @@ function runLine(runId: string, runUrl: string): string {
   return `**Run:** [${runId}](${runUrl})`;
 }
 
+/**
+ * The three outcomes where nothing was verified and retrying is the answer. A push re-triggers the
+ * gate today; CODEAI-895 adds a `/re-eval` comment so it does not need a commit.
+ */
+function retryNote(): string[] {
+  return ['', '_Push any commit to run the gate again._'];
+}
+
 function soakNote(blocking: boolean): string[] {
   return blocking
     ? []
@@ -200,6 +208,7 @@ export function formatGateTimeout(runId: string, runUrl: string, blocking: boole
     'The eval run did not finish within the poll window. It may still be running in EvalForge.',
     '',
     runLine(runId, runUrl),
+    ...retryNote(),
     ...soakNote(blocking),
   ]);
 }
@@ -221,6 +230,7 @@ export function formatGatePollFailure(input: {
     'Open it to see whether it finished — the gate could not verify the result either way, so treat this as unverified rather than passing.',
     '',
     runLine(input.runId, input.runUrl),
+    ...retryNote(),
     ...soakNote(input.blocking),
   ]);
 }
@@ -231,5 +241,5 @@ export function formatGatePollFailure(input: {
  */
 export function formatGateServiceError(message: string, blocking: boolean, label = 'Service Error'): string {
   const { icon } = failIcon(blocking);
-  return render(icon, label, [message, ...soakNote(blocking)]);
+  return render(icon, label, [message, ...retryNote(), ...soakNote(blocking)]);
 }

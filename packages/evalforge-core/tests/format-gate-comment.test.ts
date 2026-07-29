@@ -382,3 +382,30 @@ describe('formatGatePollFailure', () => {
     expect(formatGatePollFailure({ ...input, blocking: true })).not.toContain('soak period');
   });
 });
+
+describe('retry guidance', () => {
+  const run = { runId: 'run-1', runUrl: 'https://example.com/run-1', blocking: false };
+
+  // Nothing was verified in any of these, so the reader needs to know how to get a verdict.
+  it('tells the reader how to re-run, on every outcome that verified nothing', () => {
+    expect(formatGatePollFailure({ ...run, detail: '403' })).toMatch(/run the gate again/i);
+    expect(formatGateTimeout(run.runId, run.runUrl, false)).toMatch(/run the gate again/i);
+    expect(formatGateServiceError('Could not reach EvalForge', false)).toMatch(/run the gate again/i);
+  });
+
+  // A verdict exists in these, so re-running is not the next step.
+  it('does not suggest re-running when the gate actually reached a verdict', () => {
+    const passed = formatGateResult({
+      metrics: metrics(), verdict: { passed: true, reasons: [] },
+      runId: 'run-1', runUrl: 'https://example.com/run-1', maxScenarios: 25,
+      selection: { ids: ['i'], selected: ['one'], dropped: [], missingIds: [] },
+      warnings: [], unmapped: [], broadImpact: false, blocking: false,
+    });
+    const guard = formatGuardFailure({
+      violations: [{ kind: 'UNCOVERED_TAG', tag: 't' }], warnings: [],
+      blocking: false, scenarioDir: 'yaml/wix-app-evals',
+    });
+    expect(passed).not.toMatch(/run the gate again/i);
+    expect(guard).not.toMatch(/run the gate again/i);
+  });
+});
