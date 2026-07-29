@@ -7,7 +7,7 @@ Three modes, in one action so they share one committed bundle:
 
 | Mode | Trigger | What it does |
 |---|---|---|
-| `gate` | `pull_request` opened / synchronize / reopened | Derives which eval tags the PR affects, enforces coverage, creates a PR skill version, runs the covering scenarios against it, comments the result |
+| `gate` | `pull_request` opened / synchronize / reopened / ready_for_review | Derives which eval tags the PR affects, enforces coverage, creates a PR skill version, runs the covering scenarios against it, comments the result |
 | `cleanup` | `pull_request` closed | Deletes the PR's capability versions and restores or removes its draft scenarios |
 | `sync` | `pull_request` closed **and merged** | Reconciles the repo's scenario YAML into EvalForge, so EvalForge mirrors `main` |
 

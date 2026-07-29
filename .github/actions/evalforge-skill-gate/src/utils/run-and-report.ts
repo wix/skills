@@ -41,11 +41,11 @@ export async function runAndReport(
     warnings: scope.guard.warnings,
     unmapped: scope.derived.unmapped,
     broadImpact: scope.derived.broadImpact,
-    blocking: config.blocking,
+    blocking: config.isBlocking,
   }));
 
   if (!verdict.passed) {
-    fail(`Eval gate failed: ${verdict.reasons.join('; ')}`, config.blocking);
+    fail(`Eval gate failed: ${verdict.reasons.join('; ')}`, config.isBlocking);
   }
 }
 
@@ -70,7 +70,7 @@ async function resolveScenarioIds(
 
   // A gate that resolved nothing to run must not report a green check.
   const message = 'No eval scenarios could be resolved to run, so nothing was verified';
-  await comment(formatGateServiceError(message, config.blocking));
-  fail(message, config.blocking);
+  await comment(formatGateServiceError(message, config.isBlocking));
+  fail(message, config.isBlocking);
   return HALTED;
 }

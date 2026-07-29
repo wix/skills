@@ -24,7 +24,7 @@ export function startEvalRun(
       capabilityIds: [config.capabilityId],
       capabilityVersions: { [config.capabilityId]: versionId },
     }),
-    'Could not start the eval run', comment, config.blocking,
+    'Could not start the eval run', comment, config.isBlocking,
   );
 }
 
@@ -43,13 +43,13 @@ export async function pollToCompletion(
     };
   } catch (error) {
     if (error instanceof EvalRunTimeoutError) {
-      await comment(formatGateTimeout(runId, runUrl, config.blocking));
-      fail(error.message, config.blocking);
+      await comment(formatGateTimeout(runId, runUrl, config.isBlocking));
+      fail(error.message, config.isBlocking);
       return HALTED;
     }
     core.error(`Polling the eval run failed: ${describeError(error)}`);
-    await comment(formatGateServiceError('Polling the eval run failed', config.blocking));
-    fail('Polling the eval run failed', config.blocking);
+    await comment(formatGateServiceError('Polling the eval run failed', config.isBlocking));
+    fail('Polling the eval run failed', config.isBlocking);
     return HALTED;
   }
 }

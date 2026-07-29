@@ -56,6 +56,8 @@ describe('EvalForge wix-app gate workflow', () => {
 
   it('can write PR comments', () => {
     expect(workflow.jobs.gate.permissions['pull-requests']).toBe('write');
+    // Auth to EvalForge is OAuth client-credentials, so the job never mints an OIDC token.
+    expect(workflow.jobs.gate.permissions).not.toHaveProperty('id-token');
   });
 
   it('allows more wall-clock than the 30-minute eval poll window', () => {
@@ -107,5 +109,10 @@ describe('EvalForge wix-app gate cleanup workflow', () => {
   it('needs no agent id or skill dir', () => {
     expect(cleanupStep.with).not.toHaveProperty('agent-id');
     expect(cleanupStep.with).not.toHaveProperty('skill-dir');
+  });
+
+  it('asks for no GitHub API access, since cleanup calls none', () => {
+    expect(workflow.jobs.cleanup.permissions).toEqual({ 'contents': 'read' });
+    expect(cleanupStep.with).not.toHaveProperty('github-token');
   });
 });

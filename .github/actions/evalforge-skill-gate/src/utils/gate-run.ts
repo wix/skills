@@ -19,7 +19,7 @@ export async function runGate(): Promise<void> {
   // a green check would look like a pass.
   const author = await checkPrAuthor(octokit, config);
   if (!author.allowed) {
-    const log = author.unexpected ? core.warning : core.info;
+    const log = author.isUnexpected ? core.warning : core.info;
     log(`Skipping wix-app eval gate — ${author.reason}`);
     await comment(formatGateSkipped(author.reason));
     return;
@@ -41,7 +41,7 @@ export async function runGate(): Promise<void> {
       config.capabilityId, config.projectId, config.versionLabel, config.prNumber,
       scope.value.skillFiles,
     ),
-    'Could not create the PR skill capability version', comment, config.blocking,
+    'Could not create the PR skill capability version', comment, config.isBlocking,
   );
   if (!version.ok) return;
 

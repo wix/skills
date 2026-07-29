@@ -57,7 +57,7 @@ describe('getGateConfig', () => {
       'references/EXTENSION_REGISTRATION.md',
     ]);
     expect(config.maxScenarios).toBe(25);
-    expect(config.blocking).toBe(false);
+    expect(config.isBlocking).toBe(false);
   });
 
   it('builds the version label from the evaluated merge commit, not the PR head', async () => {
@@ -100,13 +100,13 @@ describe('getGateConfig', () => {
   it('treats blocking: true as blocking and anything else as soaking', async () => {
     setInputs({ ...REQUIRED_GATE_INPUTS, blocking: 'true' });
     const { getGateConfig } = await import('../src/utils/config');
-    expect(getGateConfig().blocking).toBe(true);
+    expect(getGateConfig().isBlocking).toBe(true);
   });
 
   it('does not treat a stray blocking value as blocking', async () => {
     setInputs({ ...REQUIRED_GATE_INPUTS, blocking: 'yes' });
     const { getGateConfig } = await import('../src/utils/config');
-    expect(getGateConfig().blocking).toBe(false);
+    expect(getGateConfig().isBlocking).toBe(false);
   });
 
   it('rejects a non-positive max-scenarios rather than running an empty suite', async () => {
@@ -119,6 +119,32 @@ describe('getGateConfig', () => {
     setInputs({ ...REQUIRED_GATE_INPUTS, 'max-scenarios': 'lots' });
     const { getGateConfig } = await import('../src/utils/config');
     expect(() => getGateConfig()).toThrow(/max-scenarios/);
+  });
+
+  it('clamps a max-scenarios above the ceiling instead of throwing', async () => {
+    // A throw here would fail the check even during the soak period: getGateConfig runs before
+    // isBlocking is known.
+    setInputs({ ...REQUIRED_GATE_INPUTS, 'max-scenarios': '100000' });
+    const core = await import('@actions/core');
+    const warningSpy = vi.spyOn(core, 'warning');
+    const { getGateConfig, MAX_SCENARIOS_CEILING } = await import('../src/utils/config');
+
+    expect(getGateConfig().maxScenarios).toBe(MAX_SCENARIOS_CEILING);
+    expect(warningSpy).toHaveBeenCalledWith(expect.stringContaining('exceeds the ceiling'));
+  });
+
+  it('leaves a max-scenarios at the ceiling alone', async () => {
+    const { MAX_SCENARIOS_CEILING } = await import('../src/utils/config');
+    setInputs({ ...REQUIRED_GATE_INPUTS, 'max-scenarios': String(MAX_SCENARIOS_CEILING) });
+    const { getGateConfig } = await import('../src/utils/config');
+    expect(getGateConfig().maxScenarios).toBe(MAX_SCENARIOS_CEILING);
+  });
+
+  it('falls back to the exported default when max-scenarios is blank', async () => {
+    setInputs({ ...REQUIRED_GATE_INPUTS, 'max-scenarios': '' });
+    const { DEFAULT_MAX_SCENARIOS } = await import('@wix/evalforge-core');
+    const { getGateConfig } = await import('../src/utils/config');
+    expect(getGateConfig().maxScenarios).toBe(DEFAULT_MAX_SCENARIOS);
   });
 
   it('falls back to the default when a glob input is blank', async () => {

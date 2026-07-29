@@ -7,10 +7,10 @@ import type { GateConfig } from './config';
 // Both lookups swallow their errors and return the safe answer. A GitHub blip must not fail a
 // PR's check — least of all during the soak period, when the gate promises it cannot.
 
-/** `unexpected` separates a routine non-Wix author from a lookup that actually broke. */
+/** `isUnexpected` separates a routine non-Wix author from a lookup that actually broke. */
 export type AuthorCheck =
   | { allowed: true }
-  | { allowed: false; reason: string; unexpected: boolean };
+  | { allowed: false; reason: string; isUnexpected: boolean };
 
 const AUTHOR_ALLOWED: AuthorCheck = { allowed: true };
 
@@ -25,12 +25,12 @@ export async function checkPrAuthor(
   try {
     const email = await getFirstCommitAuthorEmail(octokit, config.owner, config.repo, config.prNumber);
     if (isWixAuthorEmail(email)) return AUTHOR_ALLOWED;
-    return { allowed: false, reason: 'the PR author is not a wix author', unexpected: false };
+    return { allowed: false, reason: 'the PR author is not a wix author', isUnexpected: false };
   } catch (error) {
     return {
       allowed: false,
       reason: `could not resolve the PR author: ${describeError(error)}`,
-      unexpected: true,
+      isUnexpected: true,
     };
   }
 }

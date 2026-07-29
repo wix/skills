@@ -35,7 +35,7 @@ export async function syncDraftScenarios(
     () => listRemoteScenariosForGate(client, config.projectId, remoteScenarioFiltersForGate({
       ...shared, extraTags: scope.derived.tags, all: scope.derived.broadImpact,
     })),
-    'Could not reach EvalForge', comment, config.blocking,
+    'Could not reach EvalForge', comment, config.isBlocking,
   );
   if (!remote.ok) return HALTED;
 
@@ -50,8 +50,8 @@ export async function syncDraftScenarios(
     tagStrategy: semanticPlusDraftTags,
   });
   if (plan.errors.length > 0) {
-    await comment(formatForeignDraftConflicts(plan.errors, config.blocking));
-    fail(`Scenario(s) held by other PRs: ${plan.errors.map(error => error.name).join(', ')}`, config.blocking);
+    await comment(formatForeignDraftConflicts(plan.errors, config.isBlocking));
+    fail(`Scenario(s) held by other PRs: ${plan.errors.map(error => error.name).join(', ')}`, config.isBlocking);
     return HALTED;
   }
 

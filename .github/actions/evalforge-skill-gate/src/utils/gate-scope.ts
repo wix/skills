@@ -35,7 +35,7 @@ export async function resolveGateScope(
 
   const changedFiles = await guardedCall(
     () => getChangedFiles(octokit, config.owner, config.repo, config.prNumber),
-    'Could not retrieve the PR file list', comment, config.blocking,
+    'Could not retrieve the PR file list', comment, config.isBlocking,
   );
   if (!changedFiles.ok) return HALTED;
 
@@ -69,7 +69,7 @@ async function loadHeadScenarios(
   const { scenarios, errors } = loadScenarios(workspace, config.evalsGlob);
   if (errors.length === 0) return { ok: true, value: scenarios };
   await comment(formatYamlErrors(errors));
-  fail(`Invalid scenario YAML or duplicate names: ${errors.length}`, config.blocking);
+  fail(`Invalid scenario YAML or duplicate names: ${errors.length}`, config.isBlocking);
   return HALTED;
 }
 
@@ -104,8 +104,8 @@ async function runCoverageGuard(
     touchedScenarioPaths: touchedPaths,
   });
   if (guard.violations.length === 0) return { ok: true, value: guard };
-  await comment(formatGuardFailure({ ...guard, blocking: config.blocking }));
-  fail(`Eval coverage guard failed: ${guard.violations.length} violation(s)`, config.blocking);
+  await comment(formatGuardFailure({ ...guard, blocking: config.isBlocking }));
+  fail(`Eval coverage guard failed: ${guard.violations.length} violation(s)`, config.isBlocking);
   return HALTED;
 }
 
@@ -117,7 +117,7 @@ async function collectSkill(
   const skillFiles = await guardedCall(
     // Whole dir: references send the agent to sibling paths like `<SKILL_ROOT>/scripts/…`.
     async () => collectSkillFiles(workspace, config.skillDir, { warn: core.warning }),
-    `Could not read the skill directory ${config.skillDir}`, comment, config.blocking,
+    `Could not read the skill directory ${config.skillDir}`, comment, config.isBlocking,
   );
   if (skillFiles.ok) {
     core.info(`Collected ${skillFiles.value.length} skill file(s) from ${config.skillDir}`);

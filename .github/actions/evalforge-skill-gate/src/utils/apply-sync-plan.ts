@@ -32,8 +32,8 @@ export async function applySyncPlan(
       }
     } catch (error) {
       core.error(`Sync action ${action.kind} for ${action.name} failed: ${describeError(error)}`);
-      await comment(formatGateServiceError(`Sync failed for "${action.name}"`, config.blocking));
-      fail(`Sync failed for ${action.name}`, config.blocking);
+      await comment(formatGateServiceError(`Sync failed for "${action.name}"`, config.isBlocking));
+      fail(`Sync failed for ${action.name}`, config.isBlocking);
       return false;
     }
   }

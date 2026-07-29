@@ -61645,8 +61645,8 @@ async function applySyncPlan(client, config, actions, nameToId, comment) {
         }
         catch (error) {
             core.error(`Sync action ${action.kind} for ${action.name} failed: ${(0, report_1.describeError)(error)}`);
-            await comment((0, evalforge_core_1.formatGateServiceError)(`Sync failed for "${action.name}"`, config.blocking));
-            (0, report_1.fail)(`Sync failed for ${action.name}`, config.blocking);
+            await comment((0, evalforge_core_1.formatGateServiceError)(`Sync failed for "${action.name}"`, config.isBlocking));
+            (0, report_1.fail)(`Sync failed for ${action.name}`, config.isBlocking);
             return false;
         }
     }
@@ -61797,7 +61797,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.BASE_WORKSPACE_SUBDIR = void 0;
+exports.MAX_SCENARIOS_CEILING = exports.BASE_WORKSPACE_SUBDIR = void 0;
 exports.getSyncConfig = getSyncConfig;
 exports.getGateConfig = getGateConfig;
 exports.getCleanupConfig = getCleanupConfig;
@@ -61806,6 +61806,8 @@ const github = __importStar(__nccwpck_require__(3228));
 const evalforge_core_1 = __nccwpck_require__(7495);
 /** Subdirectory the base-SHA checkout lands in, matching the yaml-gate workflows. */
 exports.BASE_WORKSPACE_SUBDIR = '.action-src';
+/** A misconfigured repo variable should cost a bounded run, not an unbounded one. */
+exports.MAX_SCENARIOS_CEILING = 100;
 function getSyncConfig() {
     return {
         evalforgeUrl: (0, evalforge_core_1.ensureHttps)(core, core.getInput('evalforge-url', { required: true })),
@@ -61820,10 +61822,7 @@ function getSyncConfig() {
 }
 /** Newline-separated list input, falling back to `fallback` when blank. */
 function getMultilineList(name, fallback) {
-    const raw = core.getInput(name);
-    if (raw.trim() === '')
-        return fallback;
-    const entries = raw.split('\n').map(line => line.trim()).filter(line => line !== '');
+    const entries = core.getInput(name).split('\n').map(line => line.trim()).filter(line => line !== '');
     return entries.length > 0 ? entries : fallback;
 }
 function getPositiveIntegerInput(name, fallback) {
@@ -61834,12 +61833,31 @@ function getPositiveIntegerInput(name, fallback) {
     }
     return value;
 }
+/**
+ * Clamps rather than throws. `getGateConfig` runs before `isBlocking` is known, so a throw here
+ * would fail the check even during the soak period, when the gate promises it cannot — the same
+ * bug the author gate had. A clamp keeps the cost bounded and stays visible: `selectScenarios`
+ * reports what the cap dropped, and the PR comment names it.
+ */
+function getMaxScenarios() {
+    const requested = getPositiveIntegerInput('max-scenarios', evalforge_core_1.DEFAULT_MAX_SCENARIOS);
+    if (requested <= exports.MAX_SCENARIOS_CEILING)
+        return requested;
+    core.warning(`max-scenarios: ${requested} exceeds the ceiling of ${exports.MAX_SCENARIOS_CEILING}, running `
+        + `${exports.MAX_SCENARIOS_CEILING}. Every scenario is a live agent build, so the cap bounds real cost.`);
+    return exports.MAX_SCENARIOS_CEILING;
+}
+/**
+ * The assertion narrows rather than widens: `@actions/github` declares the payload as
+ * `[key: string]: any`, so `pull_request.head` arrives as `any`. The precise `PullRequestEvent`
+ * type lives in `@octokit/webhooks-types`, which is not a dependency of either action — adding it
+ * would move all three lockfiles through the `portal:` link to type one property.
+ */
 function getHeadSha() {
-    const pullRequest = github.context.payload.pull_request;
-    const headSha = pullRequest?.head?.sha;
-    if (!headSha)
+    const head = github.context.payload.pull_request?.head;
+    if (!head?.sha)
         throw new Error('PR payload missing head.sha');
-    return headSha;
+    return head.sha;
 }
 /**
  * On `pull_request` the checkout is the merge commit, which `GITHUB_SHA` names. The label must
@@ -61870,11 +61888,11 @@ function getGateConfig() {
         agentId: core.getInput('agent-id', { required: true }),
         evalsGlob: core.getInput('evals-glob', { required: true }),
         skillDir: core.getInput('skill-dir', { required: true }),
-        referenceDir: core.getInput('reference-dir') || 'references',
+        referenceDir: core.getInput('reference-dir') || evalforge_core_1.DEFAULT_REFERENCE_DIR,
         ignoreGlobs: getMultilineList('ignore-globs', evalforge_core_1.DEFAULT_IGNORE_GLOBS),
         broadImpactGlobs: getMultilineList('broad-impact-globs', evalforge_core_1.DEFAULT_BROAD_IMPACT_GLOBS),
-        maxScenarios: getPositiveIntegerInput('max-scenarios', 25),
-        blocking: core.getInput('blocking') === 'true',
+        maxScenarios: getMaxScenarios(),
+        isBlocking: core.getInput('blocking') === 'true',
         owner,
         repo,
         repoFullName: `${owner}/${repo}`,
@@ -61888,15 +61906,12 @@ function getCleanupConfig() {
     const owner = github.context.repo.owner;
     const repo = github.context.repo.repo;
     return {
-        githubToken: (0, evalforge_core_1.safeGetSecret)(core, 'github-token'),
         evalforgeUrl: (0, evalforge_core_1.ensureHttps)(core, core.getInput('evalforge-url', { required: true })),
         projectId: core.getInput('evalforge-project-id', { required: true }),
         appId: (0, evalforge_core_1.safeGetSecret)(core, 'evalforge-app-id'),
         appSecret: (0, evalforge_core_1.safeGetSecret)(core, 'evalforge-app-secret'),
         capabilityId: core.getInput('capability-id', { required: true }),
         evalsGlob: core.getInput('evals-glob', { required: true }),
-        owner,
-        repo,
         repoFullName: `${owner}/${repo}`,
         prNumber: (0, evalforge_core_1.getPrNumber)(github.context.payload),
     };
@@ -61964,7 +61979,7 @@ async function runGate() {
     // a green check would look like a pass.
     const author = await (0, pr_lookups_1.checkPrAuthor)(octokit, config);
     if (!author.allowed) {
-        const log = author.unexpected ? core.warning : core.info;
+        const log = author.isUnexpected ? core.warning : core.info;
         log(`Skipping wix-app eval gate — ${author.reason}`);
         await comment((0, evalforge_core_1.formatGateSkipped)(author.reason));
         return;
@@ -61977,7 +61992,7 @@ async function runGate() {
     if (!scope.ok)
         return;
     const client = new evalforge_core_1.EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
-    const version = await (0, report_1.guardedCall)(() => client.createOrReuseSkillVersion(config.capabilityId, config.projectId, config.versionLabel, config.prNumber, scope.value.skillFiles), 'Could not create the PR skill capability version', comment, config.blocking);
+    const version = await (0, report_1.guardedCall)(() => client.createOrReuseSkillVersion(config.capabilityId, config.projectId, config.versionLabel, config.prNumber, scope.value.skillFiles), 'Could not create the PR skill capability version', comment, config.isBlocking);
     if (!version.ok)
         return;
     const nameToId = await (0, sync_draft_scenarios_1.syncDraftScenarios)(client, octokit, config, scope.value, draftTag, workspace, comment);
@@ -62041,7 +62056,7 @@ async function resolveGateScope(octokit, config, workspace, comment) {
     if (!loaded.ok)
         return report_1.HALTED;
     const headScenarios = loaded.value;
-    const changedFiles = await (0, report_1.guardedCall)(() => (0, evalforge_core_1.getChangedFiles)(octokit, config.owner, config.repo, config.prNumber), 'Could not retrieve the PR file list', comment, config.blocking);
+    const changedFiles = await (0, report_1.guardedCall)(() => (0, evalforge_core_1.getChangedFiles)(octokit, config.owner, config.repo, config.prNumber), 'Could not retrieve the PR file list', comment, config.isBlocking);
     if (!changedFiles.ok)
         return report_1.HALTED;
     const { derived, touchedPaths } = deriveChangeScope(changedFiles.value, config);
@@ -62069,7 +62084,7 @@ async function loadHeadScenarios(workspace, config, comment) {
     if (errors.length === 0)
         return { ok: true, value: scenarios };
     await comment((0, evalforge_core_1.formatYamlErrors)(errors));
-    (0, report_1.fail)(`Invalid scenario YAML or duplicate names: ${errors.length}`, config.blocking);
+    (0, report_1.fail)(`Invalid scenario YAML or duplicate names: ${errors.length}`, config.isBlocking);
     return report_1.HALTED;
 }
 function deriveChangeScope(changedFiles, config) {
@@ -62091,14 +62106,14 @@ async function runCoverageGuard(derived, headScenarios, touchedPaths, config, co
     });
     if (guard.violations.length === 0)
         return { ok: true, value: guard };
-    await comment((0, evalforge_core_1.formatGuardFailure)({ ...guard, blocking: config.blocking }));
-    (0, report_1.fail)(`Eval coverage guard failed: ${guard.violations.length} violation(s)`, config.blocking);
+    await comment((0, evalforge_core_1.formatGuardFailure)({ ...guard, blocking: config.isBlocking }));
+    (0, report_1.fail)(`Eval coverage guard failed: ${guard.violations.length} violation(s)`, config.isBlocking);
     return report_1.HALTED;
 }
 async function collectSkill(workspace, config, comment) {
     const skillFiles = await (0, report_1.guardedCall)(
     // Whole dir: references send the agent to sibling paths like `<SKILL_ROOT>/scripts/…`.
-    async () => (0, evalforge_core_1.collectSkillFiles)(workspace, config.skillDir, { warn: core.warning }), `Could not read the skill directory ${config.skillDir}`, comment, config.blocking);
+    async () => (0, evalforge_core_1.collectSkillFiles)(workspace, config.skillDir, { warn: core.warning }), `Could not read the skill directory ${config.skillDir}`, comment, config.isBlocking);
     if (skillFiles.ok) {
         core.info(`Collected ${skillFiles.value.length} skill file(s) from ${config.skillDir}`);
     }
@@ -62162,13 +62177,13 @@ async function checkPrAuthor(octokit, config) {
         const email = await (0, evalforge_core_1.getFirstCommitAuthorEmail)(octokit, config.owner, config.repo, config.prNumber);
         if ((0, evalforge_core_1.isWixAuthorEmail)(email))
             return AUTHOR_ALLOWED;
-        return { allowed: false, reason: 'the PR author is not a wix author', unexpected: false };
+        return { allowed: false, reason: 'the PR author is not a wix author', isUnexpected: false };
     }
     catch (error) {
         return {
             allowed: false,
             reason: `could not resolve the PR author: ${(0, report_1.describeError)(error)}`,
-            unexpected: true,
+            isUnexpected: true,
         };
     }
 }
@@ -62342,10 +62357,10 @@ versionId, comment) {
         warnings: scope.guard.warnings,
         unmapped: scope.derived.unmapped,
         broadImpact: scope.derived.broadImpact,
-        blocking: config.blocking,
+        blocking: config.isBlocking,
     }));
     if (!verdict.passed) {
-        (0, report_1.fail)(`Eval gate failed: ${verdict.reasons.join('; ')}`, config.blocking);
+        (0, report_1.fail)(`Eval gate failed: ${verdict.reasons.join('; ')}`, config.isBlocking);
     }
 }
 async function resolveScenarioIds(config, scope, nameToId, comment) {
@@ -62364,8 +62379,8 @@ async function resolveScenarioIds(config, scope, nameToId, comment) {
         return { ok: true, value: selection };
     // A gate that resolved nothing to run must not report a green check.
     const message = 'No eval scenarios could be resolved to run, so nothing was verified';
-    await comment((0, evalforge_core_1.formatGateServiceError)(message, config.blocking));
-    (0, report_1.fail)(message, config.blocking);
+    await comment((0, evalforge_core_1.formatGateServiceError)(message, config.isBlocking));
+    (0, report_1.fail)(message, config.isBlocking);
     return report_1.HALTED;
 }
 
@@ -62427,7 +62442,7 @@ versionId, comment) {
         scenarioIds,
         capabilityIds: [config.capabilityId],
         capabilityVersions: { [config.capabilityId]: versionId },
-    }), 'Could not start the eval run', comment, config.blocking);
+    }), 'Could not start the eval run', comment, config.isBlocking);
 }
 /** Timeout gets its own comment; anything else is a generic service failure. */
 async function pollToCompletion(client, config, runId, runUrl, comment) {
@@ -62439,13 +62454,13 @@ async function pollToCompletion(client, config, runId, runUrl, comment) {
     }
     catch (error) {
         if (error instanceof evalforge_core_1.EvalRunTimeoutError) {
-            await comment((0, evalforge_core_1.formatGateTimeout)(runId, runUrl, config.blocking));
-            (0, report_1.fail)(error.message, config.blocking);
+            await comment((0, evalforge_core_1.formatGateTimeout)(runId, runUrl, config.isBlocking));
+            (0, report_1.fail)(error.message, config.isBlocking);
             return report_1.HALTED;
         }
         core.error(`Polling the eval run failed: ${(0, report_1.describeError)(error)}`);
-        await comment((0, evalforge_core_1.formatGateServiceError)('Polling the eval run failed', config.blocking));
-        (0, report_1.fail)('Polling the eval run failed', config.blocking);
+        await comment((0, evalforge_core_1.formatGateServiceError)('Polling the eval run failed', config.isBlocking));
+        (0, report_1.fail)('Polling the eval run failed', config.isBlocking);
         return report_1.HALTED;
     }
 }
@@ -62510,7 +62525,7 @@ async function syncDraftScenarios(client, octokit, config, scope, draftTag, work
     const shared = { changedHead, head: scope.headScenarios, base: baseScenarios, draftTag };
     const remote = await (0, report_1.guardedCall)(() => (0, evalforge_core_1.listRemoteScenariosForGate)(client, config.projectId, (0, evalforge_core_1.remoteScenarioFiltersForGate)({
         ...shared, extraTags: scope.derived.tags, all: scope.derived.broadImpact,
-    })), 'Could not reach EvalForge', comment, config.blocking);
+    })), 'Could not reach EvalForge', comment, config.isBlocking);
     if (!remote.ok)
         return report_1.HALTED;
     const normalizedRemote = await (0, evalforge_core_1.stripInactiveForeignDraftTags)(remote.value, draftTag, tag => (0, pr_lookups_1.isDraftTagActive)(octokit, tag));
@@ -62522,8 +62537,8 @@ async function syncDraftScenarios(client, octokit, config, scope, draftTag, work
         tagStrategy: evalforge_core_1.semanticPlusDraftTags,
     });
     if (plan.errors.length > 0) {
-        await comment((0, evalforge_core_1.formatForeignDraftConflicts)(plan.errors, config.blocking));
-        (0, report_1.fail)(`Scenario(s) held by other PRs: ${plan.errors.map(error => error.name).join(', ')}`, config.blocking);
+        await comment((0, evalforge_core_1.formatForeignDraftConflicts)(plan.errors, config.isBlocking));
+        (0, report_1.fail)(`Scenario(s) held by other PRs: ${plan.errors.map(error => error.name).join(', ')}`, config.isBlocking);
         return report_1.HALTED;
     }
     const nameToId = new Map(normalizedRemote.map(entry => [entry.name, entry.id]));

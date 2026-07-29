@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { EvalRunStatus } from '@wix/evalforge-core';
+import type { GateConfig } from '../src/utils/config';
 
 vi.mock('../src/utils/config', () => ({
   getGateConfig: vi.fn(),
@@ -36,7 +38,7 @@ vi.mock('@wix/evalforge-core', async (importOriginal) => {
   };
 });
 
-const CONFIG = {
+const CONFIG: GateConfig = {
   githubToken: 'gh-token',
   evalforgeUrl: 'https://evalforge.example.com',
   projectId: 'proj',
@@ -50,7 +52,7 @@ const CONFIG = {
   ignoreGlobs: ['scripts/**'],
   broadImpactGlobs: ['SKILL.md'],
   maxScenarios: 25,
-  blocking: true,
+  isBlocking: true,
   owner: 'wix',
   repo: 'skills',
   repoFullName: 'wix/skills',
@@ -72,7 +74,9 @@ const strongScenario = (name: string, tags: string[]) => ({
   },
 });
 
-const runMetrics = (overrides: Record<string, unknown> = {}) => ({
+const runMetrics = (
+  overrides: Partial<EvalRunStatus['aggregateMetrics']> = {},
+): EvalRunStatus => ({
   status: 'completed',
   progress: 100,
   aggregateMetrics: {
@@ -96,12 +100,12 @@ beforeEach(async () => {
   createTestScenario.mockResolvedValue({ id: 'created-id' });
 });
 
-async function harness(configOverrides: Record<string, unknown> = {}) {
+async function harness(configOverrides: Partial<GateConfig> = {}) {
   const { getGateConfig } = await import('../src/utils/config');
   const coreModule = await import('@actions/core');
   const evalforge = await import('@wix/evalforge-core');
   const { runGate } = await import('../src/utils/gate-run');
-  vi.mocked(getGateConfig).mockReturnValue({ ...CONFIG, ...configOverrides } as never);
+  vi.mocked(getGateConfig).mockReturnValue({ ...CONFIG, ...configOverrides });
   return { runGate, core: coreModule, evalforge };
 }
 
@@ -132,7 +136,7 @@ describe('runGate — cheap exits before any EvalForge write', () => {
   });
 
   it('skips on an author lookup error even when blocking is on', async () => {
-    const { runGate, core, evalforge } = await harness({ blocking: true });
+    const { runGate, core, evalforge } = await harness({ isBlocking: true });
     vi.mocked(evalforge.getFirstCommitAuthorEmail).mockRejectedValue(new Error('502'));
     const setFailedSpy = vi.spyOn(core, 'setFailed');
 
@@ -239,7 +243,7 @@ describe('runGate — the happy path', () => {
       errors: [],
     });
     listTestScenariosByTag.mockResolvedValue([{ id: 'remote-id', name: 'covers', tags: ['dashboard-page'] }]);
-    vi.mocked(evalforge.pollUntilDone).mockResolvedValue(runMetrics() as never);
+    vi.mocked(evalforge.pollUntilDone).mockResolvedValue(runMetrics());
   });
 
   it('creates the PR skill version from the collected files', async () => {
@@ -304,7 +308,7 @@ describe('runGate — the happy path', () => {
   it('fails the check when assertions failed', async () => {
     const { runGate, core, evalforge } = await harness();
     vi.mocked(evalforge.pollUntilDone).mockResolvedValue(
-      runMetrics({ failed: 2, passed: 1, passRate: 33 }) as never,
+      runMetrics({ failed: 2, passed: 1, passRate: 33 }),
     );
     const setFailedSpy = vi.spyOn(core, 'setFailed');
 
@@ -315,9 +319,9 @@ describe('runGate — the happy path', () => {
   });
 
   it('warns instead of failing when blocking is false', async () => {
-    const { runGate, core, evalforge } = await harness({ blocking: false });
+    const { runGate, core, evalforge } = await harness({ isBlocking: false });
     vi.mocked(evalforge.pollUntilDone).mockResolvedValue(
-      runMetrics({ failed: 1, passed: 2, passRate: 66 }) as never,
+      runMetrics({ failed: 1, passed: 2, passRate: 66 }),
     );
     const setFailedSpy = vi.spyOn(core, 'setFailed');
     const warningSpy = vi.spyOn(core, 'warning');
@@ -331,7 +335,7 @@ describe('runGate — the happy path', () => {
   it('fails a run that produced no assertions, rather than reporting green', async () => {
     const { runGate, core, evalforge } = await harness();
     vi.mocked(evalforge.pollUntilDone).mockResolvedValue(
-      runMetrics({ totalAssertions: 0, passed: 0, passRate: 0 }) as never,
+      runMetrics({ totalAssertions: 0, passed: 0, passRate: 0 }),
     );
     const setFailedSpy = vi.spyOn(core, 'setFailed');
 
@@ -364,7 +368,7 @@ describe('runGate — sync and selection', () => {
       scenarios: new Map([['fresh', strongScenario('fresh', ['dashboard-page'])]]),
       errors: [],
     });
-    vi.mocked(evalforge.pollUntilDone).mockResolvedValue(runMetrics() as never);
+    vi.mocked(evalforge.pollUntilDone).mockResolvedValue(runMetrics());
 
     await runGate();
 
@@ -383,7 +387,7 @@ describe('runGate — sync and selection', () => {
       scenarios: new Map([['fresh', strongScenario('fresh', ['dashboard-page'])]]),
       errors: [],
     });
-    vi.mocked(evalforge.pollUntilDone).mockResolvedValue(runMetrics() as never);
+    vi.mocked(evalforge.pollUntilDone).mockResolvedValue(runMetrics());
 
     await runGate();
 
@@ -457,7 +461,7 @@ describe('runGate — sync and selection', () => {
       errors: [],
     });
     listTestScenarios.mockResolvedValue([{ id: 'remote-id', name: 'covers', tags: ['dashboard-page'] }]);
-    vi.mocked(evalforge.pollUntilDone).mockResolvedValue(runMetrics() as never);
+    vi.mocked(evalforge.pollUntilDone).mockResolvedValue(runMetrics());
 
     await runGate();
 

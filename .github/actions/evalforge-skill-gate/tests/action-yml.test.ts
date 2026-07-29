@@ -2,7 +2,9 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import * as yaml from 'js-yaml';
-import { DEFAULT_BROAD_IMPACT_GLOBS, DEFAULT_IGNORE_GLOBS } from '@wix/evalforge-core';
+import {
+  DEFAULT_BROAD_IMPACT_GLOBS, DEFAULT_IGNORE_GLOBS, DEFAULT_MAX_SCENARIOS, DEFAULT_REFERENCE_DIR,
+} from '@wix/evalforge-core';
 
 type ActionInput = { description: string; required?: boolean; default?: string };
 type ActionYml = { name: string; inputs: Record<string, ActionInput>; runs: { main: string } };
@@ -33,9 +35,9 @@ describe('action.yml', () => {
   });
 
   it('documents the reviewed max-scenarios and soak defaults', () => {
-    expect(action.inputs['max-scenarios'].default).toBe('25');
+    expect(action.inputs['max-scenarios'].default).toBe(String(DEFAULT_MAX_SCENARIOS));
     expect(action.inputs.blocking.default).toBe('false');
-    expect(action.inputs['reference-dir'].default).toBe('references');
+    expect(action.inputs['reference-dir'].default).toBe(DEFAULT_REFERENCE_DIR);
   });
 
   it('leaves gate-only inputs optional so sync mode needs none of them', () => {
