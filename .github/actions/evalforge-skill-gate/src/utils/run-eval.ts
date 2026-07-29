@@ -24,7 +24,8 @@ export function startEvalRun(
       capabilityIds: [config.capabilityId],
       capabilityVersions: { [config.capabilityId]: versionId },
     }),
-    'Could not start the eval run', comment, config.isBlocking,
+    { message: 'Could not start the eval run', label: 'Run Not Started' },
+    comment, config.isBlocking,
   );
 }
 

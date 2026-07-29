@@ -41,7 +41,8 @@ export async function runGate(): Promise<void> {
       config.capabilityId, config.projectId, config.versionLabel, config.prNumber,
       scope.value.skillFiles,
     ),
-    'Could not create the PR skill capability version', comment, config.isBlocking,
+    { message: 'Could not create the PR skill capability version', label: 'Version Not Created' },
+    comment, config.isBlocking,
   );
   if (!version.ok) return;
 
