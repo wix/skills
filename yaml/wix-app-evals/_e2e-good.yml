@@ -1,0 +1,22 @@
+name: e2e-good-scenario
+description: Throwaway scenario that meets the quality bar, to exercise draft-sync CREATE and tag selection.
+triggerPrompt: |-
+  Build a dashboard page with a table listing products, each row showing name and price.
+  APP_NAMESPACE: "@mirivo/my-app31ceim", Use this namespace when creating data collections (for idSuffix scoping).
+  CODE_IDENTIFIER: "MirivoMyApp31ceim" When generating editor React component or function library extensions, use this identifier as the type prefix.
+templateId: 8116ffa2-e212-4a74-a9f0-1738c9cbb6b1
+tags: [dashboard-page]
+assertions:
+  - type: skill_was_called
+    skillNames: [wix-app]
+    referenceFiles:
+      wix-app: [references/DASHBOARD_PAGE.md]
+  - type: build_passed
+    command: npm run build
+  - type: llm_judge
+    model: claude-sonnet-4-6
+    minScore: 7
+    prompt: |-
+      Evaluate whether the agent created a dashboard page showing a table of products with name and price columns. Score 0-10.
+  - type: cost
+    maxCostUsd: 1
