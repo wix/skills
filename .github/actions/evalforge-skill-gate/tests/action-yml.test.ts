@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import * as yaml from 'js-yaml';
@@ -7,11 +7,7 @@ import { DEFAULT_BROAD_IMPACT_GLOBS, DEFAULT_IGNORE_GLOBS } from '@wix/evalforge
 type ActionInput = { description: string; required?: boolean; default?: string };
 type ActionYml = { name: string; inputs: Record<string, ActionInput>; runs: { main: string } };
 
-let action: ActionYml;
-
-beforeAll(() => {
-  action = yaml.load(readFileSync(join(__dirname, '../action.yml'), 'utf8')) as ActionYml;
-});
+const action = yaml.load(readFileSync(join(__dirname, '../action.yml'), 'utf8')) as ActionYml;
 
 const lines = (value: string | undefined) =>
   (value ?? '').split('\n').map(line => line.trim()).filter(line => line !== '');

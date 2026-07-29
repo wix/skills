@@ -1,9 +1,10 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import * as yaml from 'js-yaml';
 
-const workflowPath = (name: string) => join(__dirname, '../../../workflows', name);
+const loadWorkflow = (name: string) =>
+  yaml.load(readFileSync(join(__dirname, '../../../workflows', name), 'utf8')) as Workflow;
 
 type Workflow = {
   on: { pull_request: { types: string[]; paths?: string[]; branches: string[] } };
@@ -17,15 +18,8 @@ type Workflow = {
 };
 
 describe('EvalForge wix-app gate workflow', () => {
-  let raw: string;
-  let workflow: Workflow;
-  let gateStep: { uses: string; with?: Record<string, string> };
-
-  beforeAll(() => {
-    raw = readFileSync(workflowPath('evalforge-wix-app-gate.yml'), 'utf8');
-    workflow = yaml.load(raw) as Workflow;
-    gateStep = workflow.jobs.gate.steps[workflow.jobs.gate.steps.length - 1];
-  });
+  const workflow = loadWorkflow('evalforge-wix-app-gate.yml');
+  const gateStep = workflow.jobs.gate.steps[workflow.jobs.gate.steps.length - 1];
 
   it('runs the action in gate mode', () => {
     expect(gateStep.uses).toBe('./.github/actions/evalforge-skill-gate');
@@ -90,15 +84,8 @@ describe('EvalForge wix-app gate workflow', () => {
 });
 
 describe('EvalForge wix-app gate cleanup workflow', () => {
-  let raw: string;
-  let workflow: Workflow;
-  let cleanupStep: { uses: string; with?: Record<string, string> };
-
-  beforeAll(() => {
-    raw = readFileSync(workflowPath('evalforge-wix-app-gate-cleanup.yml'), 'utf8');
-    workflow = yaml.load(raw) as Workflow;
-    cleanupStep = workflow.jobs.cleanup.steps[workflow.jobs.cleanup.steps.length - 1];
-  });
+  const workflow = loadWorkflow('evalforge-wix-app-gate-cleanup.yml');
+  const cleanupStep = workflow.jobs.cleanup.steps[workflow.jobs.cleanup.steps.length - 1];
 
   it('runs the action in cleanup mode on PR close', () => {
     expect(cleanupStep.with?.mode).toBe('cleanup');
