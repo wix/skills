@@ -406,3 +406,34 @@ describe('scenario templateId', () => {
     expect(s.templateId).toBeUndefined();
   });
 });
+
+describe('parse error messages', () => {
+  // Seen on #770: ZodError.message is the serialised issue array, so the PR comment carried ~15
+  // lines of JSON for a one-line problem.
+  const bad = 'name: x\ndescription: d\ntriggerPrompt: build a dashboard page\ntags: [t]\nassertions: []\n';
+
+  it('names the field and the problem in one line', () => {
+    expect(() => parseScenario(bad)).toThrow('assertions: Array must contain at least 1 element(s)');
+  });
+
+  it('does not leak the raw Zod issue objects', () => {
+    try {
+      parseScenario(bad);
+      throw new Error('expected parseScenario to throw');
+    } catch (error) {
+      const message = (error as Error).message;
+      expect(message).not.toContain('too_small');
+      expect(message).not.toContain('"code"');
+      expect(message).not.toContain('\n');
+    }
+  });
+
+  it('joins multiple issues rather than dumping an array', () => {
+    const message = (() => {
+      try { parseScenario('name: x\n'); return ''; } catch (error) { return (error as Error).message; }
+    })();
+    expect(message).toContain('description: Required');
+    expect(message).toContain('assertions: Required');
+    expect(message).not.toContain('[');
+  });
+});

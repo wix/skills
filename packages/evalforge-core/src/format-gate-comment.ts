@@ -25,6 +25,19 @@ function percent(passRate: number): number {
   return Math.round(passRate);
 }
 
+/** Shared by every outcome that has a run to point at. */
+function runLine(runId: string, runUrl: string): string {
+  return `**Run:** [${runId}](${runUrl})`;
+}
+
+/**
+ * The three outcomes where nothing was verified and retrying is the answer. A push re-triggers the
+ * gate today; CODEAI-895 adds a `/re-eval` comment so it does not need a commit.
+ */
+function retryNote(): string[] {
+  return ['', '_Push any commit to run the gate again._'];
+}
+
 function soakNote(blocking: boolean): string[] {
   return blocking
     ? []
@@ -152,7 +165,7 @@ export function formatGateResult(input: {
     `**Pass rate:** ${percent(metrics.passRate)}% — ${metrics.passed}/${metrics.totalAssertions} assertions passed`
     + (metrics.failed > 0 ? `, ${metrics.failed} failed` : '')
     + (metrics.errors > 0 ? `, ${metrics.errors} errored` : ''),
-    `**Run:** [${input.runId}](${input.runUrl})`,
+    runLine(input.runId, input.runUrl),
   ];
 
   if (!verdict.passed) {
@@ -194,8 +207,31 @@ export function formatGateTimeout(runId: string, runUrl: string, blocking: boole
   return render(blocking ? '⏱' : '⚠️', 'Timed Out', [
     'The eval run did not finish within the poll window. It may still be running in EvalForge.',
     '',
-    `**Run:** [${runId}](${runUrl})`,
+    runLine(runId, runUrl),
+    ...retryNote(),
     ...soakNote(blocking),
+  ]);
+}
+
+/**
+ * Polling broke after the run started. Distinct from a service error, which has no run to name:
+ * here the run exists and may well have finished, so the link is the whole point of the comment.
+ */
+export function formatGatePollFailure(input: {
+  runId: string;
+  runUrl: string;
+  detail: string;
+  blocking: boolean;
+}): string {
+  const { icon } = failIcon(input.blocking);
+  return render(icon, 'Run Status Unavailable', [
+    `The run started, but the gate could not read its status: ${input.detail}`,
+    '',
+    'Open it to see whether it finished — the gate could not verify the result either way, so treat this as unverified rather than passing.',
+    '',
+    runLine(input.runId, input.runUrl),
+    ...retryNote(),
+    ...soakNote(input.blocking),
   ]);
 }
 
@@ -205,5 +241,5 @@ export function formatGateTimeout(runId: string, runUrl: string, blocking: boole
  */
 export function formatGateServiceError(message: string, blocking: boolean, label = 'Service Error'): string {
   const { icon } = failIcon(blocking);
-  return render(icon, label, [message, ...soakNote(blocking)]);
+  return render(icon, label, [message, ...retryNote(), ...soakNote(blocking)]);
 }

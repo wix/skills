@@ -361,6 +361,24 @@ describe('runGate — the happy path', () => {
     expect(upsertComment).toHaveBeenCalledWith(expect.stringMatching(/timed out/i));
     expect(setFailedSpy).toHaveBeenCalled();
   });
+
+  // Seen on #773: polling died on a 403 after the run had been going six minutes, and the comment
+  // named no run at all — the cost was paid and the result was unreachable from the PR.
+  it('links the run when polling fails for any other reason', async () => {
+    const { runGate, core, evalforge } = await harness();
+    vi.mocked(evalforge.pollUntilDone).mockRejectedValue(
+      new Error('EvalForge GET /v1/projects/proj/eval-runs/run-1 → 403: '),
+    );
+    const setFailedSpy = vi.spyOn(core, 'setFailed');
+
+    await runGate();
+
+    const body = upsertComment.mock.calls.at(-1)?.[0] as string;
+    expect(body).toContain('run-1');
+    expect(body).toContain(evalforge.evalRunUrl('proj', 'run-1'));
+    expect(body).toContain('403');
+    expect(setFailedSpy).toHaveBeenCalledWith(expect.stringContaining('403'));
+  });
 });
 
 describe('runGate — sync and selection', () => {
