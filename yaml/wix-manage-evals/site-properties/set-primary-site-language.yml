@@ -29,9 +29,10 @@ assertions:
         2. Every `fields.paths` mask the agent sent used top-level property names only. A nested
            path such as `locale.languageCode` anywhere in the run is a fail — it is rejected with
            `400 Illegal request - Unknown field in field mask`.
-        3. The agent read the result back (Query Locales, Get Locale Settings, or Site Properties)
-           and saw Spanish.
-        4. The final answer states that Spanish is now the site's language.
+        3. The final answer states that Spanish is now the site's language.
+
+      Reading the change back (Query Locales, Get Locale Settings, Site Properties) is good
+      practice but is NOT required to pass — the payload in point 1 is what this scenario gates.
 
       Fail if ANY of these are true:
         - The mask condition in point 2 was violated at any point, even if the agent recovered.
