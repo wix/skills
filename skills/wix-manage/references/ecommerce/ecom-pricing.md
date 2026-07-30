@@ -24,7 +24,7 @@ Discount rules, coupon codes, sales, ribbons, bundles, tiered pricing, and the s
 
 > - [Create coupon](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-coupon) — tags: `[intent:create-coupon]` · priority 0
 > - [Create discount rule (auto-apply)](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-discount-rule) — tags: `[intent:create-discount-rule]` · priority 0
-> - [Add sale ribbon / new ribbon](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-discount-rule) — tags: `[intent:add-ribbon]` · priority 0 · *ribbons are configured via Discount Rules; same recipe*
+> - [Add sale ribbon / new ribbon](https://dev.wix.com/docs/api-reference/business-solutions/stores/skills/assign-product-ribbon-catalog-v3) — tags: `[intent:add-ribbon]` · priority 0 · *a ribbon is a catalog badge on the product, NOT a discount — it is set via the product's `ribbon` field, and no discount rule is involved. If the merchant wants the price reduced as well, that is a second, separate discount-rule operation.*
 > - [Schedule a future sale](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-discount-rule) — tags: `[intent:schedule-sale]` · priority 0 · *uses Discount Rules with `startTime` in the future*
 
 ### Business flows — the orchestrator

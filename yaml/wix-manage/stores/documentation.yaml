@@ -22,6 +22,10 @@ apiDoc:
       title: Bulk Create Products with Options (Catalog V3)
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
       tags: [stores]
+    - file: ../../../skills/wix-manage/references/stores/assign-product-ribbon.md
+      title: Assign Product Ribbon (Catalog V3)
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores
+      tags: [stores]
     - file: ../../../skills/wix-manage/references/stores/update-product-with-options.md
       title: Update Product with Options (Catalog V3)
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/stores

@@ -165,7 +165,8 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 
 **Routing — pick the right entry point:**
 - **Any sales/business improvement request** (boost sales, promotions, help my business, holiday deals, improve revenue, discounts, shipping, coupons, clearance) → use [Recommend: eCommerce Strategy](references/ecommerce/recommend-ecommerce-strategy.md). This is the **default entry point** — it analyzes ALL domains (discounts, shipping) and generates cross-domain recommendations. Do NOT ask clarifying questions.
-- **Pricing & promotions** (coupons, discount rules, ribbons, sales) → use the [Pricing & Promotions](references/ecommerce/ecom-pricing.md) dispatcher.
+- **Pricing & promotions** (coupons, discount rules, sales) → use the [Pricing & Promotions](references/ecommerce/ecom-pricing.md) dispatcher.
+- **Product ribbons / badges** ("Sale", "New", "Bestseller") → use [Assign Product Ribbon](references/stores/assign-product-ribbon.md). A ribbon is a catalog badge, not a discount; it does not change price.
 - **Shipping setup** (rates, regions, pickup, free shipping, fix coverage) → use the [Shipping](references/ecommerce/ecom-shipping.md) dispatcher.
 
 ### [eCommerce: Load Context](references/ecommerce/ecom-load-context.md)
@@ -175,7 +176,7 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 **Entry point for all eCommerce recommendation requests.** Unified skill that analyzes site data across ALL domains (discounts + shipping), generates up to 5 cross-domain recommendations, and persists them to the tracking database. Covers discount strategies (seasonal, upsell, stock mover, bundling) AND shipping optimization (coverage gaps, free shipping, rate strategy, carrier backup). Use this for ANY business improvement request.
 
 ### [Pricing & Promotions](references/ecommerce/ecom-pricing.md)
-**Dispatcher** — routes coupon/discount/sale/ribbon/bundle requests to the right leaf recipe (create coupon, create discount rule, troubleshoot discount-not-applying), and routes strategic "run a sale / boost sales" requests to `recommend-ecommerce-strategy`.
+**Dispatcher** — routes coupon/discount/sale/bundle requests to the right leaf recipe (create coupon, create discount rule, troubleshoot discount-not-applying), and routes strategic "run a sale / boost sales" requests to `recommend-ecommerce-strategy`. Ribbon requests route out to the catalog recipe, since a ribbon is a product badge rather than a discount.
 
 ### [Shipping](references/ecommerce/ecom-shipping.md)
 **Dispatcher** — routes shipping-setup requests (rates, regions, pickup, free shipping, fix coverage, optimize rates) to the right leaf recipe. The Shipping Options + Delivery Profiles APIs have no public docs page; `ecom-shipping-api.md` is the authoritative inline reference.
@@ -342,6 +343,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 
 ### [Add Store Pages to Site](references/stores/add-store-pages-to-site.md)
 **Technical:** Adds missing checkout and cart pages to a site when Stores app is installed. Used when store pages are missing after migration or setup issues.
+
+### [Assign Product Ribbon (Catalog V3)](references/stores/assign-product-ribbon.md)
+Adds a ribbon badge ("Sale", "New", "Bestseller") to a product via the product's `ribbon` field. Ribbons are catalog badges, not discounts — no discount rule or coupon is involved, and price is unchanged.
 
 ### [Bulk Create Products with Options](references/stores/bulk-create-products-with-options.md)
 **Technical:** Uses bulk products endpoint to create multiple products with inventory in a single request. Handles variant generation from options, media format requirements, and error handling for partial failures.
