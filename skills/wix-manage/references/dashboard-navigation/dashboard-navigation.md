@@ -59,7 +59,7 @@ For a business solution not listed yet, use the app-ID fallback URL with the sol
 
 ## Machine-Readable Route Data
 
-[routes.json](routes.json) holds the full page inventory behind these recipes — every covered app with its `appDefinitionId`, `slug`, and per page: `path` (append to `https://manage.wix.com/dashboard/{metaSiteId}/`), `title`, `inSidebar`, redirecting `legacyAliases`, and — where the page shows a single entity — `deepLink` with the ID placeholder (`bookings/services/form/{serviceId}`). Prefer the per-solution recipes for guidance (curation, entity deep links, read-API pairing); use the JSON to look up or enumerate routes programmatically:
+[routes.json](https://www.wix.com/skills/manage/references/dashboard-navigation/routes.json) holds the full page inventory behind these recipes — every covered app with its `appDefinitionId`, `slug`, and per page: `path` (append to `https://manage.wix.com/dashboard/{metaSiteId}/`), `title`, `inSidebar`, redirecting `legacyAliases`, and — where the page shows a single entity — `deepLink` with the ID placeholder (`bookings/services/form/{serviceId}`). Prefer the per-solution recipes for guidance (curation, entity deep links, read-API pairing); use the JSON to look up or enumerate routes programmatically:
 
 ```bash
 curl -s https://www.wix.com/skills/manage/references/dashboard-navigation/routes.json
