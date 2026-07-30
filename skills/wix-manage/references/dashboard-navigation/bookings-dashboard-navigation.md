@@ -5,26 +5,13 @@ description: "Builds direct links to Wix Bookings dashboard pages on manage.wix.
 
 # Bookings Dashboard Navigation
 
-Build direct links into the Wix Bookings pages of a site's dashboard (manage.wix.com).
+Build direct links into the Wix Bookings pages of a site's dashboard. For the general URL contract (metaSiteId, fallbacks, redirects), see [Dashboard Navigation](dashboard-navigation.md).
 
-## URL Structure
-
-All Bookings dashboard pages live under:
+All Wix Bookings (app ID `13d21c63-b5ec-5912-8397-c3a5ddb27a97`) pages live under:
 
 ```
 https://manage.wix.com/dashboard/{metaSiteId}/bookings/{route}
 ```
-
-- `{metaSiteId}` — the site's meta site ID. This is the `id` returned by the Query Sites API and the `siteId` in a CLI project's `wix.config.json`.
-- `{route}` — a page route from the table below.
-
-A fallback format also works and redirects to the same pages, using the Wix Bookings app ID (`13d21c63-b5ec-5912-8397-c3a5ddb27a97`):
-
-```
-https://manage.wix.com/dashboard/{metaSiteId}/app/13d21c63-b5ec-5912-8397-c3a5ddb27a97/{route}
-```
-
-Unknown deeper paths fall back to the longest matching route (e.g. a link to `bookings/services/unknown` lands on the services list), so links degrade gracefully.
 
 ## Main Pages
 
@@ -73,5 +60,4 @@ Manage it here: https://manage.wix.com/dashboard/{metaSiteId}/bookings/services/
 
 ## Notes
 
-- These pages require the user to be logged in to Wix with a role that can manage the site; the dashboard enforces its own permissions per page.
 - Pages marked with an entity ID also work without it (they fall back to the list/create state).
