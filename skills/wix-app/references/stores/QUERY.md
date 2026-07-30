@@ -60,85 +60,16 @@ export async function listProductsPage(
 
 ---
 
-## Search products by name — use `searchProducts`, NOT `queryProducts`
+## Search products by name
 
-**V3 `queryProducts` can only filter on `_id`, `slug`, `options.id`, and `handle`.** Any other
-field is a compile error on the builder methods:
+V3 `queryProducts` filters only on `_id`, `slug`, `options.id` and `handle` — `name` is a
+compile error. Use `productsV3.searchProducts()`, a direct call rather than a builder. V1 has
+no search method; its builder accepts `name` via `startsWith` (prefix match only, no `fuzzy`).
 
-```typescript
-// ❌ TS2345: '"name"' is not assignable to '"_id" | "slug" | "options.id" | "handle"'
-productsV3.queryProducts().startsWith('name', searchTerm);
-// ❌ TS2339: Property 'contains' does not exist on type 'ProductsQueryBuilder'
-productsV3.queryProducts().contains('name', searchTerm);
-```
-
-For free-text lookup by product name (or brand, SKU, description) call
-**`productsV3.searchProducts()`**. It is a **direct call, not a fluent builder**
-(imports and `getVersion` come from the first example in this file):
+Imports come from the first example in this file.
 
 ```typescript
-export async function searchProductsByName(term: string, limit = 20, cursor?: string) {
-  const res = await productsV3.searchProducts({
-    cursorPaging: { limit, ...(cursor ? { cursor } : {}) },
-    // `fields` is required for free-text search — searchable: 'name', 'description',
-    // 'variantsInfo.variants.sku', 'minVariantPriceInfo.sku',
-    // 'directCategoryIdsInfo.categoryIds', 'physicalProperties.*'
-    search: { expression: term, fields: ['name'], fuzzy: true },
-  });
-
-  return {
-    products: res.products ?? [],                  // ⚠️ `products`, NOT `items`
-    nextCursor: res.pagingMetadata?.cursors?.next ?? null,
-    hasNext: res.pagingMetadata?.hasNext ?? false,  // ⚠️ property, NOT a `hasNext()` call
-  };
-}
-```
-
-**Shape differences from the `queryProducts` builder — these are the ones that bite:**
-
-| | `queryProducts()` builder | `searchProducts()` |
-|---|---|---|
-| Call style | fluent, ends in `.find()` | single call, returns the response |
-| Result array | `res.items` | `res.products` |
-| `hasNext` | `res.hasNext()` — **method** | `res.pagingMetadata?.hasNext` — **property** |
-| Next cursor | `res.cursors.next` | `res.pagingMetadata?.cursors?.next` |
-| Paging in | `.limit()` / `.skipTo()` | `cursorPaging: { limit, cursor }` |
-
-### V1: no `searchProducts` — prefix match on the builder instead
-
-**V1 has no search method at all.** The `products` namespace exposes only `queryProducts`;
-there is no `products.searchProducts`. Instead, V1's builder *does* accept `name`, which is
-exactly what V3's builder rejects:
-
-```typescript
-// ✅ V1 — allowed. startsWith accepts '_id' | 'name' | 'slug' | 'description' | 'sku'
-export async function v1SearchByName(term: string, limit: number) {
-  const res = await products.queryProducts().startsWith('name', term).limit(limit).find();
-  return res.items;
-}
-
-// ❌ V1 — TS2339: Property 'contains' does not exist on type 'ProductsQueryBuilder'
-products.queryProducts().contains('name', searchTerm);
-```
-
-⚠️ **The two versions are not equivalent in behaviour, only in intent.** V1 gives you a
-**prefix match** (`startsWith`) — "sho" finds "Shoes" but *not* "Running Shoes". V3
-`searchProducts` is real full-text with optional `fuzzy`, matching anywhere in the field and
-tolerating typos. A single search box will behave noticeably differently across catalog
-versions; if that matters to the user, say so rather than implying parity.
-
-| | V1 (`products`) | V3 (`productsV3`) |
-|---|---|---|
-| Search method | none — use the builder | `searchProducts()` |
-| Name matching | `startsWith` — prefix only | `search.expression` — full-text, anywhere |
-| Fuzzy / typo tolerance | ✗ | ✓ via `fuzzy: true` |
-| Other searchable fields | `_id`, `slug`, `description`, `sku` | `name`, `description`, `variantsInfo.variants.sku`, `minVariantPriceInfo.sku`, `directCategoryIdsInfo.categoryIds`, `physicalProperties.*` |
-| `contains` | ✗ not on the builder | ✗ use `search.expression` |
-
-So the two versions need genuinely different code paths here, not just a renamed module:
-
-```typescript
-// `v` comes from getVersion() — see STORES_VERSIONING.md § "Mandatory: Detect Version First".
+// `v` comes from getVersion() — see STORES_VERSIONING.md.
 export async function searchByName(
   term: string,
   limit: number,
@@ -147,21 +78,17 @@ export async function searchByName(
   if (v === 'V3_CATALOG') {
     const res = await productsV3.searchProducts({
       cursorPaging: { limit },
+      // `fields` is required for free-text search. Searchable: 'name', 'description',
+      // 'variantsInfo.variants.sku', 'minVariantPriceInfo.sku'.
       search: { expression: term, fields: ['name'], fuzzy: true },
     });
-    return res.products ?? [];          // full-text match
+    // Note `products` (not `items`) and `pagingMetadata.hasNext` (a property, not a method).
+    return res.products ?? [];
   }
-  const res = await products.queryProducts()
-    .startsWith('name', term)           // prefix match only
-    .limit(limit)
-    .find();
+  const res = await products.queryProducts().startsWith('name', term).limit(limit).find();
   return res.items;
 }
 ```
-
-> **If a name/brand search cannot be expressed, do not silently drop the feature.** Removing
-> the user's search box to make `tsc` pass is a functional regression, not a fix — switch to
-> `searchProducts`.
 
 ---
 
