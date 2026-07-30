@@ -27,12 +27,12 @@ No app-id constant is needed in frontend code — the only id the client needs i
 | Redirect to hosted checkout (ticketed) | `@wix/redirects` | `redirects` (`createRedirectSession`) |
 
 - **The events query/get namespace is `wixEventsV2`** (despite the name, this is the current Events V3 module from `@wix/events`). Import `wixEventsV2`, `orders`, `ticketReservations`, `rsvpV2` from `@wix/events`.
-- **⚠️ CRITICAL: read ticket tiers with `orders.queryAvailableTickets`, NOT `ticketDefinitions(V2).queryTicketDefinitions`.** The `ticketDefinitions*` namespaces are the **management** API (`TicketDefinitionManagement`, a manage scope) — the **anonymous visitor is `403`-denied** on every one of them (`queryTicketDefinitions`, `queryTicketDefinitionsV2`, `listTicketDefinitions`), so a storefront that reads tiers that way gets an empty picker. **Do NOT work around it with `auth.elevate()`** — that's the wrong axis (an app/admin permission elevation), it's SSR-only (useless on a non-Astro SPA), and it's unnecessary: the **visitor-public storefront read** is `orders.queryAvailableTickets({ filter: { eventId }, limit })` → `{ definitions }` (verified live as an anonymous visitor, Astro *and* SPA). The event read (`queryEvents`/`getEventBySlug`) is visitor-public too — **no elevation anywhere in this recipe.**
+- **⚠️ CRITICAL: read ticket tiers with `orders.queryAvailableTickets`, NOT `ticketDefinitions(V2).queryTicketDefinitions`.** The `ticketDefinitions*` namespaces are the **management** API (`TicketDefinitionManagement`, a manage scope) — the **anonymous visitor is `403`-denied** on every one of them (`queryTicketDefinitions`, `queryTicketDefinitionsV2`, `listTicketDefinitions`), so a storefront that reads tiers that way gets an empty picker. **Do NOT work around it with `auth.elevate()`** — that's the wrong axis (an app/admin permission elevation), it's SSR-only (useless on a non-Astro SPA), and it's unnecessary: the **visitor-public storefront read** is `orders.queryAvailableTickets({ filter: { eventId }, limit })` → `{ definitions }` (visitor-public — works for the anonymous visitor on Astro *and* SPA). The event read (`queryEvents`/`getEventBySlug`) is visitor-public too — **no elevation anywhere in this recipe.**
 - **Never use the deprecated `orders.createReservation`** — reserve with `ticketReservations.createTicketReservation`.
 - **Never complete a paid purchase with `orders.checkout` (inline payment)** — that path leaves orders unpaid without a payment integration. The supported headless completion is the **hosted redirect** (below).
 
 **Auth / client — framework split:**
-- **Astro (Wix-managed):** authentication is ambient. Call the modules directly — from server components for the SSR reads (listing/detail) and from browser islands for the visitor-session writes (reserve / redirect / rsvp) via the `@wix/astro` visitor client — **no `createClient`, no `OAuthStrategy`, no `clientId`.** SSR reads use `@wix/essentials`; a public-env `clientId` read in `.astro` SSR is `undefined` at server render → 500, so don't build an `OAuthStrategy` client there.
+- **Astro (Wix-managed):** authentication is ambient. Call the modules directly — from server components for the SSR reads (listing/detail) and from browser islands for the visitor-session writes (reserve / redirect / rsvp) via the `@wix/astro` visitor client — **no `createClient`, no `OAuthStrategy`, no `clientId`.** Nothing here needs elevation (every read and write runs as the visitor — "no elevation anywhere"); a public-env `clientId` read in `.astro` SSR is `undefined` at server render → 500, so don't build an `OAuthStrategy` client there.
 - **Non-Astro (Vite/React/Vue/static):** build one manual visitor client and reuse it:
   ```js
   import { createClient, OAuthStrategy } from '@wix/sdk';
@@ -61,6 +61,7 @@ event = {
   dateAndTimeSettings: { formatted: { dateAndTime } },  // human-formatted date string
   location: { name, type },                             // "VENUE" | "ONLINE" | TBD
   registration: { initialType },                        // "TICKETING" | "RSVP" — BRANCH on this
+  // categories?: { categories: [{ _id, name }] }        // runtime shape when fields:['CATEGORIES'] is requested — but NOT on the typed Event (SDK gap): read via a cast, see below
 }
 
 // orders.queryAvailableTickets({ filter: { eventId }, limit })  →  { definitions }   (VISITOR-public)
@@ -75,6 +76,11 @@ tier = {
 ```
 
 **⚠️ CRITICAL: entity ids are `_id`, NOT `id`.** `event._id`, `tier._id`. `event.id` is `undefined` in SDK code — a surprise `id`/`undefined` means you're reading the REST doc view; re-open it with `?apiView=SDK`.
+
+**Filtering by event format/track (talk/workshop/social)** — if the site groups events by a format, the seed models it as **Event Categories** (`setup-events.md` STEP 4). Read the assigned category off the event and filter **client-side** — two gotchas:
+- **Request `CATEGORIES` as the 2nd positional arg**, not inside the flat query: `queryEvents({ filter, sort, paging }, { fields: ['CATEGORIES'] })` and `getEventBySlug(slug, { fields: ['CATEGORIES'] })`. (`fields` lives on the options arg, not on `EventQuery`.)
+- **`categories` is NOT on the typed `Event` (an SDK type gap** — the `CATEGORIES` enum and `EventCategory`/`EventCategories` types ship, but `Event` omits the property, so a direct `event.categories` read fails `tsc`/`astro check`). **Read it through a cast:** `const cats = (event as any).categories?.categories ?? []` — each entry is `{ _id, name }`; map `cats[].name` → your format enum.
+- **Do NOT call the management categories endpoints** (`/events/v1/categories*`, `listEventsByCategory`) from the frontend — they're admin-scope; the visitor read is just the cast `CATEGORIES` field on the event.
 
 ---
 
@@ -93,7 +99,7 @@ const { events } = await wixEventsV2.queryEvents({
 ```
 Doc: <https://dev.wix.com/docs/api-reference/business-solutions/events/event-management/events-v3/query-events.md?apiView=SDK>
 
-- **⚠️ CRITICAL: `queryEvents` takes the query object FLAT as its first arg — `queryEvents({ filter, sort, paging })`, NOT `queryEvents({ query: { … } })`.** The signature is `queryEvents(query, options)` where `query` *is* `{ filter, sort, paging }`. Wrapping it in an extra `{ query: … }` (the REST body shape, and the `.queryServices({ query })` builder shape from other verticals) is **not** rejected — the SDK silently ignores the unrecognized `query` key, so `paging` never applies, `limit` defaults to **0**, and you get **`events: []` with no error**. This is the #1 "my listing is empty even though events are published" trap. (Verified live: the flat form returns the events; the nested form returns zero.)
+- **⚠️ CRITICAL: `queryEvents` takes the query object FLAT as its first arg — `queryEvents({ filter, sort, paging })`, NOT `queryEvents({ query: { … } })`.** The signature is `queryEvents(query, options)` where `query` *is* `{ filter, sort, paging }`. Wrapping it in an extra `{ query: … }` (the REST body shape, and the `.queryServices({ query })` builder shape from other verticals) is **not** rejected — the SDK silently ignores the unrecognized `query` key, so `paging` never applies, `limit` defaults to **0**, and you get **`events: []` with no error**. This is the #1 "my listing is empty even though events are published" trap. (The flat form returns the events; the nested form returns zero.)
 - **⚠️ `paging.limit` MUST be > 0.** Even with the flat shape, `queryEvents` defaults `paging.limit` to **`0`, which returns zero events**. Always set a positive limit.
 - The result array is **`result.events`** (not `.items`).
 - **Filter to upcoming/published and never list or link a past event** — a past event isn't purchasable/registerable (the seed uses future dates). Filter by `status` (above) or by a future `startDate`.
@@ -115,6 +121,7 @@ Docs: <https://dev.wix.com/docs/api-reference/business-solutions/events/event-ma
 
 - **Request `REGISTRATION` in `fields`** so `event.registration.initialType` is populated — that's the value you branch on.
 - Per tier read `tier._id`, `tier.name`, `tier.price.value` (a **string**) + `tier.price.currency`, `tier.free`, and `tier.saleStatus` (gate the picker on `SALE_STARTED`).
+- **⚠️ The confirmation page (post-checkout) reads the event by ID, and the return envelope DIFFERS from `getEventBySlug`.** After the hosted checkout redirects back to your `postFlowUrl` (carrying `?eventId=…`), look the event up with **`wixEventsV2.getEvent(eventId, { fields: ['TEXTS', 'URLS'] })`** — this returns the **`Event` object DIRECTLY (unwrapped)**: read `event.title` / `event.slug`, **not** `{ event }`. This is the one read that isn't wrapped (`getEventBySlug` *is* `{ event }`); assume the wrapper and the page crashes. Use this exact call — don't inspect the installed `.d.ts` to rediscover it.
 
 ### Ticketed checkout — reserve → redirect (the exact sequence)
 
@@ -160,7 +167,7 @@ await rsvpV2.createRsvp({
 ```
 Doc: <https://dev.wix.com/docs/api-reference/business-solutions/events/registration/rsvp-v2/create-rsvp.md?apiView=SDK>
 
-- **⚠️ CRITICAL: use the `rsvpV2` module, NOT `rsvp`.** The legacy `rsvp.createRsvp` posts to `/events/v1/rsvp` and **400s** with `"rsvp.firstName/lastName/email must not be empty"` even when you pass those fields — that v1 surface expects a different form-response body. Import **`rsvpV2`** from `@wix/events` and call `rsvpV2.createRsvp(rsvp)` with the rsvp object **directly as the first arg** (not wrapped in `{ rsvp: … }`, which is the elevated/`@wix/essentials` style). The flat `{ eventId, firstName, lastName, email, status }` object is correct for `rsvpV2` and **works for the anonymous visitor** (verified live).
+- **⚠️ CRITICAL: use the `rsvpV2` module, NOT `rsvp`.** The legacy `rsvp.createRsvp` posts to `/events/v1/rsvp` and **400s** with `"rsvp.firstName/lastName/email must not be empty"` even when you pass those fields — that v1 surface expects a different form-response body. Import **`rsvpV2`** from `@wix/events` and call `rsvpV2.createRsvp(rsvp)` with the rsvp object **directly as the first arg** (not wrapped in `{ rsvp: … }`, which is the elevated/`@wix/essentials` style). The flat `{ eventId, firstName, lastName, email, status }` object is correct for `rsvpV2` and **works for the anonymous visitor**.
 - **The RSVP registration form is built-in** (firstName, lastName, email) — add exactly those fields; **don't fetch a form schema** or hand-build extra fields.
 - Wrap in try/catch — a duplicate email or closed registration rejects; surface a friendly message.
 

@@ -1,0 +1,36 @@
+name: pricing-plans/pricing-plans-dashboard-navigation
+description: >-
+  Verifies the agent reads the pricing-plans-dashboard-navigation recipe when
+  asked for direct links to Wix Pricing Plans dashboard pages, and returns
+  correct manage.wix.com URLs under the pricing-plans namespace.
+triggerPrompt: >-
+  My Wix site's meta site id is 2c9d2b46-fc18-4557-ae71-4d21a2228914. Give me
+  direct dashboard links to: my pricing plans list, the page where I'd create a
+  new plan, the page to record a manual plan order for a member, and my pricing
+  plans settings.
+tags: [pricing-plans]
+maxTokens: 30000
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans/skills/pricing-plans-dashboard-navigation
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked for direct Wix dashboard links (meta site id
+      2c9d2b46-fc18-4557-ae71-4d21a2228914) to: the pricing plans list, the
+      create-plan page, the page to record a manual plan order, and the pricing
+      plans settings.
+
+      Pass if the response:
+      - gives URLs under https://manage.wix.com/dashboard/2c9d2b46-fc18-4557-ae71-4d21a2228914/, AND
+      - uses pricing-plans for the plans list, pricing-plans/new for creating a
+        plan, pricing-plans/new-order for recording a manual order, and
+        pricing-plans/settings for settings.
+
+      Fail if the response:
+      - invents dashboard routes that are not in the recipe (e.g.
+        pricing-plans/orders, membership/plans, pricing-plans/list), OR
+      - omits the meta site id from the URLs or uses a different domain, OR
+      - only describes how to click through the dashboard instead of giving links.

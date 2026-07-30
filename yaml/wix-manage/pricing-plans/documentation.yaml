@@ -10,3 +10,7 @@ apiDoc:
       title: Pricing Plans Bookings Integration
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans
       tags: [bookings, pricing-plans]
+    - file: ../../../skills/wix-manage/references/pricing-plans/pricing-plans-dashboard-navigation.md
+      title: Pricing Plans Dashboard Navigation
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans
+      tags: [pricing-plans]

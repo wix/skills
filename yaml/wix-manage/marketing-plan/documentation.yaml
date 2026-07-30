@@ -1,8 +1,0 @@
-apiDoc:
-  title: Wix Marketing Plan Recipes
-
-  docs:
-    - file: ../../../skills/wix-manage/references/marketing-plan/generate-and-publish-marketing-plan.md
-      title: Generate a Marketing Plan and Schedule Its Posts
-      docsEntry: https://dev.wix.com/docs/api-reference/business-management/marketing/marketing-plan
-      tags: [marketing]

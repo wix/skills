@@ -10,6 +10,63 @@ Learn how to create a Wix store product with customizable options like colors, s
 
 ## Article: Steps for creating a Wix Store Product with Options
 
+## STEP 0: Conversation — gather what's needed for a "ready-to-sell" product
+
+The goal of this step is not just to create *a* product, but to help the user create a **complete, ready-to-sell** product. Before jumping to the API call in STEP 1, run a short conversation to fill the important gaps — but keep it brief.
+
+> **CRITICAL — ASK AT MOST 1–2 FOLLOW-UP QUESTIONS.** Never interrogate the user. Ask no more than one or two follow-up questions total before creating the product. If the user is disengaged or says "just create it", proceed with sensible generated values rather than asking again.
+
+### 0a. Opening the conversation
+
+**As soon as this skill is triggered — and the user hasn't already described a product — YOU open the conversation.** Proactively send a single opening message that invites *either or both* input paths and makes clear you'll generate the full product info from whatever they provide:
+
+> **What would you like to sell? Just describe your product in a few words and/or upload a photo of it — I'll generate the full product info (name, description, price, and any options) for you from there.**
+
+The user can reply with a text prompt, an image, or both:
+
+- **An image is provided (with or without text)** → follow the **[Create Product from Image](https://dev.wix.com/docs/api-reference/business-solutions/stores/skills/create-product-from-image)** recipe to generate the product info from the image(s), then continue from the gap check in 0b for anything still missing.
+- **Text only** → continue with the gap check in 0b.
+
+If the user *already* described a product when triggering the skill, skip this opening message and go straight to 0b.
+
+> **This opening message is the entry point, not a follow-up — it does NOT count against the 1–2 follow-up-question budget in 0b.**
+
+### 0b. Gap check — decide what (if anything) to ask
+
+**Mandatory inputs are `name` and `price`.** Check what the user has already provided:
+
+**Case 1 — a mandatory input is missing (no name and/or no price):**
+Ask for the missing mandatory field(s), and in the same message offer to generate it for them. Combine both missing fields into a single question. For example:
+
+> "What would you like to call this product, and what price should I set? I can also suggest a name and price for you if you'd like."
+
+If the user asks you to generate them (or doesn't provide them after being asked once), generate a sensible name and price based on the product context and proceed — do not ask a second time.
+
+**Case 2 — both mandatory inputs are provided:**
+You may ask **one** enrichment question to make the product more complete. Ask about whichever is most relevant, and offer to do the work for them. For example:
+
+> "Does this product come in different **sizes or colors** (e.g. options customers choose from)? And would you like me to generate a **SEO description** and/or **info sections** to make it ready to sell?"
+
+- If the user wants options/choices → collect them and build the options + variants per STEP 1.
+- If the user wants generated SEO description and/or info sections → generate them and include them in the product.
+- If the user declines or says "just create it" → proceed with what you have.
+
+> **Do NOT ask about options AND enrichment as two separate rounds.** Bundle them into the single enrichment question above so the total stays within the 1–2 question budget.
+
+### 0c. Stay focused on the product until it's saved
+
+> **CRITICAL — ONCE A PRODUCT-CREATION CONVERSATION HAS STARTED, STAY ON IT.** Do not switch to other topics, suggest unrelated tasks, or start new workflows until the product has actually been created (saved) via STEP 1 — **unless the user explicitly asks to do something else**. If the user goes off-topic, briefly answer if needed, then steer back to finishing and saving the product.
+
+### 0d. Confirm once — then create
+
+> **CRITICAL — VALIDATE EXACTLY ONCE BEFORE CREATING.** Right before calling the Create Product API (STEP 1), show a brief summary of what you're about to create and ask for a single go-ahead. Ask **only once**. Do NOT approve-and-then-ask-again (e.g. present a summary, get a "yes", and then ask "shall I create it now?" a second time) — that double confirmation is exactly what we want to avoid. Once the user approves, go straight to STEP 1 with no further approval prompts.
+
+For example:
+
+> "Here's what I'll add to your store: **[name]** — **[price]**[, options: …]. Ready to create it?"
+
+If the user already signaled approval (e.g. "just create it", "go ahead"), treat that as the single confirmation and proceed straight to STEP 1 — do not ask again.
+
 ## STEP 1: create the product with options and variants
 
 1. create the product with options and create variants for them - Wix REST API: [Create Product](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/create-product) **CRITICAL: USE THIS WORKING EXAMPLE**

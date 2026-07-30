@@ -16,13 +16,16 @@ A contract for the **frontend code** that lets a visitor **book a table**: readi
 
 ## The modules and the client (read this first)
 
-**One package: `@wix/table-reservations`** — a **distinct** package from `@wix/restaurants` (menus) and from the Orders app. It exposes three namespaces you use:
+**One package: `@wix/table-reservations`** — a **distinct** package from `@wix/restaurants` (menus) and from the Orders app. It exposes the namespaces you use:
 
 | Need | Package | Module (namespace) |
 |---|---|---|
 | The reservation location (id, party-size bounds) | `@wix/table-reservations` | `reservationLocations` |
 | Available time slots for a date + party size | `@wix/table-reservations` | `timeSlots` |
 | Create / hold / reserve a reservation | `@wix/table-reservations` | `reservations` |
+| **Experiences** — special dining occasions guests reserve (only when experiences are in the run) | `@wix/table-reservations` | `experiences` |
+
+> **Experiences** ride on this same package and booking mechanism — see the **Booking an experience** feature below. Skip that section entirely if the run has no experiences.
 
 **No cart, no `@wix/ecom`, no `@wix/redirects`.** A basic table reservation is a **hold**, not a purchase — there's no checkout in this flow. (Deposit/prepayment reservations exist — status `PAYMENT_INFORMATION_PENDING` — but they're out of scope for the standard book-a-table flow.)
 
@@ -104,7 +107,7 @@ Doc: <https://dev.wix.com/docs/api-reference/business-solutions/restaurants/rese
 
 ### Getting available time slots
 
-Call `getTimeSlots` with **positional** args: the location id, an **ISO-8601 date string**, the party size, and optional `{ slotsBefore, slotsAfter, duration }`. Then keep the `AVAILABLE` slots.
+Call `getTimeSlots` with **positional** args: the location id, a **`Date` object** (`new Date(selectedDate)` — NOT the ISO string the doc shows; see the CRITICAL note below), the party size, and optional `{ slotsBefore, slotsAfter, duration }`. Then keep the `AVAILABLE` slots.
 
 ```js
 const { timeSlots: slots = [] } = await timeSlots.getTimeSlots(
@@ -119,7 +122,7 @@ Doc: <https://dev.wix.com/docs/api-reference/business-solutions/restaurants/rese
 
 **⚠️ CRITICAL: `getTimeSlots` takes POSITIONAL args, not a single options object.** The signature is `getTimeSlots(reservationLocationId, date, partySize, options?)` — passing one object (`getTimeSlots({ reservationLocationId, date, partySize })`) does not type-check. Only `slotsBefore`/`slotsAfter`/`duration` go in the 4th `options` arg.
 
-**⚠️ CRITICAL: the `date` param is a `Date`, NOT the ISO-8601 string the doc shows (doc/SDK drift).** The REST/SDK doc describes `date` as an ISO-8601 string, but the shipped `@wix/table-reservations` type is **`Date`** — passing `new Date(...).toISOString()` fails to compile (`TS2345: 'string' is not assignable to 'Date'`, confirmed against `@wix/table-reservations@1.0.372`). Pass a **`Date` object** (`new Date(selectedDate)`). Both the `date` arg you send and each `slot.startDate` you read back are `Date`s — so pass the chosen slot's `startDate` straight into `createHeldReservation`, no conversion.
+**⚠️ CRITICAL: the `date` param is a `Date`, NOT the ISO-8601 string the doc shows (doc/SDK drift).** The REST/SDK doc describes `date` as an ISO-8601 string, but the shipped `@wix/table-reservations` type is **`Date`** — passing `new Date(...).toISOString()` fails to compile (`TS2345: 'string' is not assignable to 'Date'`). Pass a **`Date` object** (`new Date(selectedDate)`). Both the `date` arg you send and each `slot.startDate` you read back are `Date`s — so pass the chosen slot's `startDate` straight into `createHeldReservation`, no conversion.
 
 **⚠️ Book only `status === 'AVAILABLE'`.** `UNAVAILABLE` (can't seat that party then) and `NON_WORKING_HOURS` (closed) are also returned — filter them out before presenting slots, or the hold will fail.
 
@@ -134,6 +137,9 @@ const held = await reservations.createHeldReservation({
   startDate: chosenSlot.startDate,
   partySize,
 });
+// ⚠️ `held.reservation` is OPTIONAL and its `_id`/`revision` are `string | null` in the SDK type —
+// narrow before use or the strict/`astro check` build fails (TS18048 / TS2345).
+if (!held.reservation?._id || !held.reservation.revision) throw new Error('hold failed');
 const reservationId = held.reservation._id;
 const revision = held.reservation.revision;   // reserve needs this
 
@@ -155,8 +161,44 @@ Docs: <https://dev.wix.com/docs/api-reference/business-solutions/restaurants/res
 
 **Result status:** with the seeded default (`approval.mode: "AUTOMATIC"`, manual approval off) the reservation becomes **`RESERVED`** immediately — confirm to the visitor. If the location requires manual approval it becomes **`REQUESTED`** (staff must approve) — tell the visitor it's pending.
 
-**Single-shot alternative:** if you collect all details up front (no "hold while they type" step), call `reservations.createReservation({ reservationLocationId, /* details */, reservee })` instead — same `firstName`/`phone` requirement; it returns `RESERVED`/`REQUESTED` directly, skipping the `HELD` phase.
+**Single-shot alternative:** if you collect all details up front (no "hold while they type" step), call `reservations.createReservation({ details: { reservationLocationId, startDate, partySize }, reservee })` instead — same `firstName`/`phone` requirement; it returns `RESERVED`/`REQUESTED` directly, skipping the `HELD` phase. **⚠️ The location/time/party go under a nested `details` object (NOT top-level), and this method returns the `Reservation` DIRECTLY — not wrapped in `{ reservation }`** (unlike `createHeldReservation`/`reserveReservation`). Top-level fields or reading `.reservation` off the result fails to type-check.
 Doc: <https://dev.wix.com/docs/api-reference/business-solutions/restaurants/reservations/reservations/create-reservation.md?apiView=SDK>
+
+### Booking an experience (only when experiences are in the run)
+
+An **experience** is a reservation that *is* a curated dining occasion (wine/cheese pairing, chef's table). It uses the **same** booking mechanism as a table, with two differences: you **list experiences** to show and choose from, and you offer bookable times **projected from the experience's own schedule** (there is *no* experience-scoped slot API — see Gotcha C) rather than from `getScheduledTimeSlots`, then stamp the chosen `experienceId` onto the reservation. Read the shapes from the docs (`.md?apiView=SDK`); the earned drift gotchas below are what the docs won't tell you.
+
+Flow (mirrors the docs' sample flow — <https://dev.wix.com/docs/api-reference/business-solutions/restaurants/reservations/experiences/sample-flows.md>):
+
+```js
+import { experiences, reservations } from '@wix/table-reservations';
+
+// 1 · list experiences to display (name, price, schedule) — see gotcha A
+const { items: exps = [] } = await experiences.queryExperiences().find();
+const exp = exps.find((e) => e._id === chosenId);
+
+// 2 · offer bookable times from the EXPERIENCE'S OWN schedule — do NOT call
+//     getScheduledTimeSlots for an experience (it can't scope to one — Gotcha C).
+//     queryExperiences() already returned the schedule; project the next occurrences yourself.
+const sched = exp.configuration?.onlineReservations?.businessSchedule; // { durationInMinutes, entries[] }
+// entries[].weeklyOptions.startDaysAndTimes[{ day, time }]  →  next N dates matching each weekday+time
+// (ONE_TIME entries carry oneTimeOptions.{startDate,startTime}). Build the option list from these.
+
+// 3 · book it — experienceId rides in details (see gotcha B); firstName + phone required
+const done = await reservations.createReservation({
+  details: { reservationLocationId, experienceId, startDate: chosenOccurrence, partySize },
+  reservee: { firstName, lastName, email, phone },
+});
+```
+Docs: <https://dev.wix.com/docs/api-reference/business-solutions/restaurants/reservations/experiences/query-experiences.md?apiView=SDK> · <https://dev.wix.com/docs/api-reference/business-solutions/restaurants/reservations/reservations/create-reservation.md?apiView=SDK>
+
+**⚠️ Gotcha A — `queryExperiences()` is a QUERY BUILDER, not an object-arg method.** Call `experiences.queryExperiences().find()` (chain `.eq()`/`.limit()` etc. before `.find()` if needed) and read the array from the **result's `.items`**. Passing a query object — `queryExperiences({})` — does not type-check and returns no data; `await`-ing the un-`.find()`ed builder gives you the builder, not the results.
+
+**⚠️ Gotcha B — `details.experienceId` is a valid REST field but the SDK `Details` type may OMIT it (version drift).** The REST API accepts `experienceId` inside `details` (the Experiences intro and the reservation's own `meta` confirm `details.experienceId`), but an installed `@wix/table-reservations` older than the Experiences feature ships a `Details` type without it — so TypeScript rejects the property. Build the reservation object and **pass it through an `any` cast** (or `// @ts-expect-error`) so `experienceId` reaches the request body; it works at runtime. Don't drop the field to satisfy the compiler — a reservation without it books a plain table, not the experience.
+
+**⚠️ Gotcha C — there is NO experience-scoped slot fetch; project times from the experience's own `businessSchedule` instead.** The upstream `get-scheduled-time-slots` doc prose says "pass the GUID of that experience to this method," but **no such parameter exists at any layer**: the SDK (`@wix/auto_sdk_table-reservations_time-slots` ≤ 1.0.47, pulled by `@wix/table-reservations`) field-picks only `{ reservationLocationId, partySize, timeRange }`, and the REST body is those same three fields — so an `experienceId` option is **silently dropped** (an `as any` cast is a **no-op** here, unlike Gotcha B). Calling `getScheduledTimeSlots` for an experience returns the **location's default slots** (wrong day/time/duration), presented to guests as the experience's — and it **fails silently**: a populated-but-wrong list looks healthy, and the premium gate (below) stops live verification before you'd notice. Instead, **derive upcoming occurrences from the experience's own `configuration.onlineReservations.businessSchedule`** — `entries[].weeklyOptions.startDaysAndTimes[{ day, time }]` (or `oneTimeOptions`) + `durationInMinutes`, already returned by `queryExperiences()`. Treat that as a **display projection**; real capacity/conflict enforcement happens server-side when `createReservation` runs.
+
+**⚠️ Same premium precondition** as online reservations: **creating** experiences is free, but **booking** one needs a premium site with online reservations enabled (`428 PREMIUM_ONLY` otherwise — `setup-restaurant-experiences.md`). Build the flow; treat a booking failure on a non-premium site as a provisioning precondition, not a code bug.
 
 ---
 
@@ -166,5 +208,6 @@ A correct Table-Reservations frontend:
 - uses **`_id`** (never `id`) for the location and reservation, and **defaults the `list*` array** (`= []`) so strict/`astro check` passes;
 - calls **`getTimeSlots(locationId, new Date(date), partySize, options?)`** with **positional** args — the `date` param is a **`Date`** (not the ISO string the doc shows) — and books only **`status === 'AVAILABLE'`** slots (passing the slot's `Date` `startDate` onward);
 - books via **`createHeldReservation({...})` → `reserveReservation(id, reservee, revision)`** (three positional args; `firstName` + `phone` required; 10-minute hold; `reserveReservation` is the only exit from `HELD`);
-- treats **`onlineReservationsEnabled` (premium)** as a precondition — the read/book flow only works once it's on.
+- treats **`onlineReservationsEnabled` (premium)** as a precondition — the read/book flow only works once it's on;
+- **for experiences** (when in the run): lists via **`queryExperiences().find()`** (builder → `.items`); offers times **projected from the experience's own `businessSchedule`** — there is **no** experience-scoped `getScheduledTimeSlots` (Gotcha C: the `experienceId` option is silently dropped, so that call returns the location's slots); and books via `createReservation` with **`details.experienceId`** (an `any` cast past the SDK `Details` type — Gotcha B) — same premium precondition.
 </content>

@@ -29,7 +29,7 @@ Set up and tune how a store ships — what rates to charge, which regions are co
 
 > - [Set up shipping rates / rules](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping-set-up-rates) — tags: `[intent:setup-rates]` · priority 0
 > - [Set up delivery regions / coverage](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping-set-up-regions) — tags: `[intent:setup-regions]` · priority 0
-> - [Set up store pickup / local delivery](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping-set-up-pickup-local-delivery) — tags: `[intent:setup-pickup]` · priority 0
+> - [Set up store pickup / local delivery](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/local-delivery) — tags: `[intent:setup-pickup]` · priority 0
 > - [Add free shipping over $X](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping-add-free-shipping) — tags: `[intent:free-shipping]` · priority 0
 
 ### Optimize & fix
