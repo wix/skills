@@ -1,6 +1,6 @@
 ---
 name: "Restaurants Dashboard Navigation"
-description: "Builds direct links to Wix Restaurants dashboard pages on manage.wix.com — menus, menu items, the online orders board, online-ordering fulfillment settings (pickup, delivery, dine-in), the reservations list, floor plans, and reservation experience settings. Pairs each main Restaurants entity (menu, section, item, order, reservation) with its read API so you can fetch an entity and hand back a 'view it in your dashboard' link. Use when the user asks where to manage restaurant things in the Wix dashboard, wants a link to a restaurants dashboard page, or after creating/updating a restaurants entity via API."
+description: "Builds direct links to Wix Restaurants dashboard pages on manage.wix.com — menus, menu items, the online orders board, online-ordering fulfillment settings (pickup, delivery, dine-in), the reservations list, floor plans, and reservation experience settings. Pairs each main Restaurants entity (menu, section, item, order, reservation) with its read API so you can fetch an entity and hand back a 'view it in your dashboard' link. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
 ---
 
 # Restaurants Dashboard Navigation

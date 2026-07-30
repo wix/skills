@@ -1,6 +1,6 @@
 ---
 name: "Domains Dashboard Navigation"
-description: "Builds direct links to the domain-management pages on manage.wix.com — the site-level domain settings page and the account-level My Domains page. Pairs domain search/purchase with its read APIs. Use when the user asks where to manage or connect domains in the Wix dashboard, or after a domain search/purchase via API."
+description: "Builds direct links to the domain-management pages on manage.wix.com — the site-level domain settings page and the account-level My Domains page. Pairs domain search/purchase with its read APIs. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
 ---
 
 # Domains Dashboard Navigation

@@ -1,6 +1,6 @@
 ---
 name: "Contacts Dashboard Navigation"
-description: "Builds direct links to Wix Contacts (CRM) dashboard pages on manage.wix.com — the contacts list, a specific contact's view page, contact import, and the segments page. Pairs each main contacts entity with its read API so you can fetch an entity and hand back a 'view it in your dashboard' link. Use when the user asks where to manage contacts in the Wix dashboard, wants a link to a contact or the contacts list, or after creating/updating a contact via API."
+description: "Builds direct links to Wix Contacts (CRM) dashboard pages on manage.wix.com — the contacts list, a specific contact's view page, contact import, and the segments page. Pairs each main contacts entity with its read API so you can fetch an entity and hand back a 'view it in your dashboard' link. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
 ---
 
 # Contacts Dashboard Navigation

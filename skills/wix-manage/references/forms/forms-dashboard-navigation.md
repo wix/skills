@@ -1,6 +1,6 @@
 ---
 name: "Forms Dashboard Navigation"
-description: "Builds direct links to Wix Forms dashboard pages on manage.wix.com — the forms list, the submissions table, the form builder for a specific form, standalone forms, templates, and forms settings. Pairs each main Forms entity (form, submission) with its read API so you can fetch an entity and hand back a 'view it in your dashboard' link. Use when the user asks where to manage forms or submissions in the Wix dashboard, wants a link to a forms dashboard page, or after creating/updating a form or reading submissions via API."
+description: "Builds direct links to Wix Forms dashboard pages on manage.wix.com — the forms list, the submissions table, the form builder for a specific form, standalone forms, templates, and forms settings. Pairs each main Forms entity (form, submission) with its read API so you can fetch an entity and hand back a 'view it in your dashboard' link. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
 ---
 
 # Forms Dashboard Navigation
