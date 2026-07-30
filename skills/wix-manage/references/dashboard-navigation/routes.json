@@ -1,5 +1,5 @@
 {
- "$comment": "Live dashboard page routes per Wix app. Full URL = https://manage.wix.com/dashboard/{metaSiteId}/{path}. Generated from the app registrations; legacyAliases redirect to path.",
+ "$comment": "Live dashboard page routes per Wix app. Full URL = https://manage.wix.com/dashboard/{metaSiteId}/{path}. legacyAliases redirect to path. Where a page shows a single entity, deepLink gives the path with the entity-ID placeholder appended ({serviceId}, {productId}, ...); pages without deepLink take no ID segment or the pattern is undocumented. Generated from the app registrations, enriched from the per-solution recipes.",
  "apps": [
   {
    "app": "Checkout & Orders",
@@ -89,7 +89,8 @@
      "legacyAliases": [
       "store/orders/order",
       "ecom-platform/orders-list/order"
-     ]
+     ],
+     "deepLink": "ecom-platform/order-details/{orderId}"
     },
     {
      "path": "ecom-platform/orders-list",
@@ -186,7 +187,8 @@
      "title": "menu.store.contactsCrm.contactList",
      "legacyAliases": [
       "contacts/view"
-     ]
+     ],
+     "deepLink": "contacts/view/{contactId}"
     }
    ]
   },
@@ -676,7 +678,8 @@
       "bookings/scheduler/owner/offerings-form/new/COURSE",
       "bookings/scheduler/owner/offerings-form",
       "bookings/services/form"
-     ]
+     ],
+     "deepLink": "bookings/services/form/{serviceId}"
     },
     {
      "path": "bookings/services/templates-catalog",
@@ -786,7 +789,8 @@
      "title": "menu.bookings.calendar.staff",
      "legacyAliases": [
       "bookings/staff/details"
-     ]
+     ],
+     "deepLink": "bookings/staff/details/{staffMemberId}"
     },
     {
      "path": "bookings/staff/edit",
@@ -825,6 +829,13 @@
      "inSidebar": false,
      "title": "CMS Package Picker",
      "legacyAliases": []
+    },
+    {
+     "path": "wix-cms/data/{collectionId}",
+     "inSidebar": false,
+     "title": "Collection items",
+     "legacyAliases": [],
+     "note": "client-side route inside the wix-cms page"
     }
    ]
   },
@@ -840,7 +851,8 @@
      "legacyAliases": [
       "wix-forms/form",
       "app/225dd912-7dea-4738-8688-4b8c6955ffc2"
-     ]
+     ],
+     "deepLink": "wix-forms/form/{formId}"
     },
     {
      "path": "wix-forms/standalone-form",
@@ -1112,7 +1124,8 @@
      "path": "wix-restaurants-menus-new/menu",
      "inSidebar": false,
      "title": "Menu",
-     "legacyAliases": []
+     "legacyAliases": [],
+     "deepLink": "wix-restaurants-menus-new/menu/{menuId}"
     },
     {
      "path": "wix-restaurants-menus-new/menus-printing",
@@ -1385,7 +1398,8 @@
      "path": "wix-stores/products/product",
      "inSidebar": false,
      "title": "menu.store.storeProducts.products",
-     "legacyAliases": []
+     "legacyAliases": [],
+     "deepLink": "wix-stores/products/product/{productId}"
     },
     {
      "path": "wix-stores/settings",
