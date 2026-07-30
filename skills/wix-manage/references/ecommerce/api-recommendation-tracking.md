@@ -10,19 +10,15 @@ This service persists recommendations in a database and tracks their lifecycle s
 
 **Base URL**: `https://manage.wix.com/_api/agentic-recommendations/v1/agentic-recommendations`
 
-> **Internal-but-callable API.** This is a Wix-internal service with NO public `dev.wix.com` docs page. It **IS callable via `CallWixSiteAPI`** in the authenticated editor/dashboard context the MCP runs in (verified: the endpoints return auth/validation errors, not 404). This file is the authoritative spec — do not try to `ReadFullDocsArticle` an external doc for it.
+> **Internal-but-callable API.** This is a Wix-internal service with NO public `dev.wix.com` docs page. The endpoints below **are** callable as authenticated requests in the merchant's editor/dashboard context (verified: they return auth/validation errors, not 404) — do not skip the tracking step assuming the service is unavailable. This file is the authoritative spec; there is no external docs article to fetch for it, so do not go looking for one.
 
 ## How to call these APIs
 
-Use `CallWixSiteAPI` to invoke each endpoint:
+Issue each endpoint below as an authenticated request in the merchant's site context, against:
 
-```
-CallWixSiteAPI(
-  url: "https://manage.wix.com/_api/agentic-recommendations/v1/agentic-recommendations/<endpoint>",
-  method: "POST",
-  body: { ... }
-)
-```
+`https://manage.wix.com/_api/agentic-recommendations/v1/agentic-recommendations/<endpoint>`
+
+Every endpoint is `POST` except Get (`GET`) and Update (`PATCH`). Each section below gives its own full URL and request body.
 
 ---
 
