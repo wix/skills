@@ -198,7 +198,7 @@ Beyond these two, `wix-app` scenarios often add `build_passed`, and you can use 
 A `wix-app` scenario usually scaffolds its starter project from a **file template** — the top-level `templateId`, an EvalForge template (id or alias). It maps to `templateId` on the EvalForge run:
 
 ```yaml
-templateId: 8116ffa2-e212-4a74-a9f0-1738c9cbb6b1
+templateId: 33f2cb85-054e-4281-b617-3bc21ac0803f
 ```
 
 This is the **default template all wix-app runs start from**.

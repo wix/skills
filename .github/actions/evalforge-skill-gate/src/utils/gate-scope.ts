@@ -2,7 +2,7 @@ import * as core from '@actions/core';
 import * as github from '@actions/github';
 import {
   collectSkillFiles, deriveTags, formatGuardFailure, formatNoGatedChanges, formatYamlErrors,
-  getChangedFiles, guardScenarios, loadScenarios, touchedScenarioPaths,
+  getChangedFiles, guardScenarios, loadScenarios, scenarioDirFromGlob, touchedScenarioPaths,
   type ChangedFile, type Commenter, type DerivedTags, type GuardViolation, type GuardWarning,
   type LoadedScenario, type SkillFileContent,
 } from '@wix/evalforge-core';
@@ -35,7 +35,8 @@ export async function resolveGateScope(
 
   const changedFiles = await guardedCall(
     () => getChangedFiles(octokit, config.owner, config.repo, config.prNumber),
-    'Could not retrieve the PR file list', comment, config.isBlocking,
+    { message: 'Could not retrieve the PR file list', label: 'GitHub Lookup Failed' },
+    comment, config.isBlocking,
   );
   if (!changedFiles.ok) return HALTED;
 
@@ -68,7 +69,7 @@ async function loadHeadScenarios(
 ): Promise<Guarded<Map<string, LoadedScenario>>> {
   const { scenarios, errors } = loadScenarios(workspace, config.evalsGlob);
   if (errors.length === 0) return { ok: true, value: scenarios };
-  await comment(formatYamlErrors(errors));
+  await comment(formatYamlErrors(errors, config.isBlocking));
   fail(`Invalid scenario YAML or duplicate names: ${errors.length}`, config.isBlocking);
   return HALTED;
 }
@@ -104,7 +105,11 @@ async function runCoverageGuard(
     touchedScenarioPaths: touchedPaths,
   });
   if (guard.violations.length === 0) return { ok: true, value: guard };
-  await comment(formatGuardFailure({ ...guard, blocking: config.isBlocking }));
+  await comment(formatGuardFailure({
+    ...guard,
+    blocking: config.isBlocking,
+    scenarioDir: scenarioDirFromGlob(config.evalsGlob),
+  }));
   fail(`Eval coverage guard failed: ${guard.violations.length} violation(s)`, config.isBlocking);
   return HALTED;
 }
@@ -117,7 +122,8 @@ async function collectSkill(
   const skillFiles = await guardedCall(
     // Whole dir: references send the agent to sibling paths like `<SKILL_ROOT>/scripts/…`.
     async () => collectSkillFiles(workspace, config.skillDir, { warn: core.warning }),
-    `Could not read the skill directory ${config.skillDir}`, comment, config.isBlocking,
+    { message: `Could not read the skill directory ${config.skillDir}`, label: 'Skill Content Unreadable' },
+    comment, config.isBlocking,
   );
   if (skillFiles.ok) {
     core.info(`Collected ${skillFiles.value.length} skill file(s) from ${config.skillDir}`);

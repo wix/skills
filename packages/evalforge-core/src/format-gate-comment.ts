@@ -16,6 +16,28 @@ function failIcon(blocking: boolean): { icon: string; label: string } {
   return blocking ? { icon: '❌', label: 'Failed' } : { icon: '⚠️', label: 'Warning' };
 }
 
+function count(quantity: number, noun: string): string {
+  return `${quantity} ${noun}${quantity === 1 ? '' : 's'}`;
+}
+
+/** The API sends a fraction of a percent (26/30 arrives as 86.667); nobody needs the decimals. */
+function percent(passRate: number): number {
+  return Math.round(passRate);
+}
+
+/** Shared by every outcome that has a run to point at. */
+function runLine(runId: string, runUrl: string): string {
+  return `**Run:** [${runId}](${runUrl})`;
+}
+
+/**
+ * The three outcomes where nothing was verified and retrying is the answer. A push re-triggers the
+ * gate today; CODEAI-895 adds a `/re-eval` comment so it does not need a commit.
+ */
+function retryNote(): string[] {
+  return ['', '_Push any commit to run the gate again._'];
+}
+
 function soakNote(blocking: boolean): string[] {
   return blocking
     ? []
@@ -42,11 +64,13 @@ function warningSection(warnings: GuardWarning[]): string[] {
   ];
 }
 
-export function formatYamlErrors(errors: LoadError[]): string {
-  return render('❌', 'Invalid Scenario YAML', [
+export function formatYamlErrors(errors: LoadError[], blocking: boolean): string {
+  const { icon } = failIcon(blocking);
+  return render(icon, 'Invalid Scenario YAML', [
     'These scenario files did not parse against the schema:',
     '',
     ...errors.map(error => `- \`${error.path}\`: ${error.message}`),
+    ...soakNote(blocking),
   ]);
 }
 
@@ -69,10 +93,12 @@ export function formatNoGatedChanges(unmapped: string[]): string {
   ]);
 }
 
-function violationLine(violation: GuardViolation): string {
+function violationLine(violation: GuardViolation, scenarioDir: string): string {
   switch (violation.kind) {
-    case 'UNCOVERED_TAG':
-      return `- **\`${violation.tag}\`** has no eval scenario at all. Add one under the scenario directory tagged \`${violation.tag}\`, or add that tag to a scenario that already exercises the area.`;
+    case 'UNCOVERED_TAG': {
+      const where = scenarioDir === '' ? 'the scenario directory' : `\`${scenarioDir}/\``;
+      return `- **\`${violation.tag}\`** has no eval scenario at all. Add one under ${where} tagged \`${violation.tag}\`, or add that tag to a scenario that already exercises the area.`;
+    }
     case 'WEAK_TAG':
       return `- **\`${violation.tag}\`** is carried only by scenarios below the quality bar (${violation.scenarios.map(name => `\`${name}\``).join(', ')}). Strengthen one of them, or add a scenario that meets the bar.`;
     case 'WEAK_TOUCHED_SCENARIO':
@@ -84,12 +110,19 @@ export function formatGuardFailure(input: {
   violations: GuardViolation[];
   warnings: GuardWarning[];
   blocking: boolean;
+  /** Named in the fix instructions, so an author is not left guessing where scenarios live. */
+  scenarioDir: string;
 }): string {
   const { icon, label } = failIcon(input.blocking);
+  // Only when something here is actually about quality. On a bare uncovered tag there is no
+  // scenario to be below the bar, and leading with it reads as though one was too weak.
+  const aboutQuality = input.violations.some(violation => violation.kind !== 'UNCOVERED_TAG')
+    || input.warnings.length > 0;
   return render(icon, `Coverage ${label}`, [
-    'The quality bar is **at least 3 assertions including one `llm_judge`** — a scenario below it would run, pass, and verify nothing.',
-    '',
-    ...input.violations.map(violationLine),
+    ...(aboutQuality
+      ? ['The quality bar is **at least 3 assertions including one `llm_judge`** — a scenario below it would run, pass, and verify nothing.', '']
+      : []),
+    ...input.violations.map(violation => violationLine(violation, input.scenarioDir)),
     '',
     '_No eval run was started — a coverage failure is caught before any run cost._',
     ...warningSection(input.warnings),
@@ -129,10 +162,10 @@ export function formatGateResult(input: {
   const { icon, label } = verdict.passed ? { icon: '✅', label: 'Passed' } : failIcon(input.blocking);
 
   const body: string[] = [
-    `**Pass rate:** ${metrics.passRate}% — ${metrics.passed}/${metrics.totalAssertions} assertions passed`
+    `**Pass rate:** ${percent(metrics.passRate)}% — ${metrics.passed}/${metrics.totalAssertions} assertions passed`
     + (metrics.failed > 0 ? `, ${metrics.failed} failed` : '')
     + (metrics.errors > 0 ? `, ${metrics.errors} errored` : ''),
-    `**Run:** [${input.runId}](${input.runUrl})`,
+    runLine(input.runId, input.runUrl),
   ];
 
   if (!verdict.passed) {
@@ -142,8 +175,8 @@ export function formatGateResult(input: {
   body.push(
     '',
     input.broadImpact
-      ? `**Scope:** a cross-cutting file changed, so the whole suite was in play — ${selection.selected.length} scenario(s) ran.`
-      : `**Scope:** ${selection.selected.length} scenario(s) ran.`,
+      ? `**Scope:** a cross-cutting file changed, so the whole suite was in play — ${count(selection.selected.length, 'scenario')} ran.`
+      : `**Scope:** ${count(selection.selected.length, 'scenario')} ran.`,
     '',
     ...selection.selected.map(name => `- \`${name}\``),
   );
@@ -174,12 +207,39 @@ export function formatGateTimeout(runId: string, runUrl: string, blocking: boole
   return render(blocking ? '⏱' : '⚠️', 'Timed Out', [
     'The eval run did not finish within the poll window. It may still be running in EvalForge.',
     '',
-    `**Run:** [${runId}](${runUrl})`,
+    runLine(runId, runUrl),
+    ...retryNote(),
     ...soakNote(blocking),
   ]);
 }
 
-export function formatGateServiceError(message: string, blocking: boolean): string {
-  const { icon, label } = failIcon(blocking);
-  return render(icon, label, [message, ...soakNote(blocking)]);
+/**
+ * Polling broke after the run started. Distinct from a service error, which has no run to name:
+ * here the run exists and may well have finished, so the link is the whole point of the comment.
+ */
+export function formatGatePollFailure(input: {
+  runId: string;
+  runUrl: string;
+  detail: string;
+  blocking: boolean;
+}): string {
+  const { icon } = failIcon(input.blocking);
+  return render(icon, 'Run Status Unavailable', [
+    `The run started, but the gate could not read its status: ${input.detail}`,
+    '',
+    'Open it to see whether it finished — the gate could not verify the result either way, so treat this as unverified rather than passing.',
+    '',
+    runLine(input.runId, input.runUrl),
+    ...retryNote(),
+    ...soakNote(input.blocking),
+  ]);
+}
+
+/**
+ * `label` defaults to a service failure, the common case. The zero-selection guard passes its own:
+ * nothing broke there, the gate simply had nothing to run, and that deserves saying in the heading.
+ */
+export function formatGateServiceError(message: string, blocking: boolean, label = 'Service Error'): string {
+  const { icon } = failIcon(blocking);
+  return render(icon, label, [message, ...retryNote(), ...soakNote(blocking)]);
 }

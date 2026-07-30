@@ -1,6 +1,6 @@
 import * as core from '@actions/core';
 import {
-  EvalForgeClient, EvalRunTimeoutError, formatGateServiceError, formatGateTimeout, pollUntilDone,
+  EvalForgeClient, EvalRunTimeoutError, formatGatePollFailure, formatGateTimeout, pollUntilDone,
   type Commenter, type EvalRunCreated, type EvalRunStatus,
 } from '@wix/evalforge-core';
 import { HALTED, describeError, fail, guardedCall, type Guarded } from './report';
@@ -24,7 +24,8 @@ export function startEvalRun(
       capabilityIds: [config.capabilityId],
       capabilityVersions: { [config.capabilityId]: versionId },
     }),
-    'Could not start the eval run', comment, config.isBlocking,
+    { message: 'Could not start the eval run', label: 'Run Not Started' },
+    comment, config.isBlocking,
   );
 }
 
@@ -47,9 +48,12 @@ export async function pollToCompletion(
       fail(error.message, config.isBlocking);
       return HALTED;
     }
-    core.error(`Polling the eval run failed: ${describeError(error)}`);
-    await comment(formatGateServiceError('Polling the eval run failed', config.isBlocking));
-    fail('Polling the eval run failed', config.isBlocking);
+    // Names the run: it started, it may have finished, and without the link there is no way
+    // to find out from the PR.
+    const detail = describeError(error);
+    core.error(`Polling the eval run failed: ${detail}`);
+    await comment(formatGatePollFailure({ runId, runUrl, detail, blocking: config.isBlocking }));
+    fail(`Polling the eval run failed: ${detail}`, config.isBlocking);
     return HALTED;
   }
 }

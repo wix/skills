@@ -361,6 +361,77 @@ describe('runGate — the happy path', () => {
     expect(upsertComment).toHaveBeenCalledWith(expect.stringMatching(/timed out/i));
     expect(setFailedSpy).toHaveBeenCalled();
   });
+
+  // Seen on #773: polling died on a 403 after the run had been going six minutes, and the comment
+  // named no run at all — the cost was paid and the result was unreachable from the PR.
+  it('links the run when polling fails for any other reason', async () => {
+    const { runGate, core, evalforge } = await harness();
+    vi.mocked(evalforge.pollUntilDone).mockRejectedValue(
+      new Error('EvalForge GET /v1/projects/proj/eval-runs/run-1 → 403: '),
+    );
+    const setFailedSpy = vi.spyOn(core, 'setFailed');
+
+    await runGate();
+
+    const body = upsertComment.mock.calls.at(-1)?.[0] as string;
+    expect(body).toContain('run-1');
+    expect(body).toContain(evalforge.evalRunUrl('proj', 'run-1'));
+    expect(body).toContain('403');
+    expect(setFailedSpy).toHaveBeenCalledWith(expect.stringContaining('403'));
+  });
+});
+
+describe('runGate — failure comments name their stage', () => {
+  // They all used to render the same bare "Service Error", so a reader could not tell which stage
+  // broke without reading the body.
+  beforeEach(async () => {
+    const evalforge = await import('@wix/evalforge-core');
+    vi.mocked(evalforge.getChangedFiles).mockResolvedValue([
+      { filename: 'skills/wix-app/references/DASHBOARD_PAGE.md', status: 'modified' },
+    ]);
+    vi.mocked(evalforge.loadScenarios).mockReturnValue({
+      scenarios: new Map([['covers', strongScenario('covers', ['dashboard-page'])]]),
+      errors: [],
+    });
+  });
+
+  it('heads a GitHub lookup failure differently from an EvalForge outage', async () => {
+    const { runGate, evalforge } = await harness();
+    vi.mocked(evalforge.getChangedFiles).mockRejectedValue(new Error('Bad credentials'));
+
+    await runGate();
+
+    expect(upsertComment).toHaveBeenCalledWith(expect.stringContaining('GitHub Lookup Failed'));
+  });
+
+  it('heads a failed version creation as such', async () => {
+    const { runGate } = await harness();
+    createOrReuseSkillVersion.mockRejectedValue(new Error('409 conflict'));
+
+    await runGate();
+
+    expect(upsertComment).toHaveBeenCalledWith(expect.stringContaining('Version Not Created'));
+  });
+
+  it('heads an unreachable EvalForge as such', async () => {
+    const { runGate } = await harness();
+    listTestScenariosByTag.mockRejectedValue(new Error('ECONNRESET'));
+
+    await runGate();
+
+    expect(upsertComment).toHaveBeenCalledWith(expect.stringContaining('EvalForge Unreachable'));
+  });
+
+  it('heads an unreadable skill directory as such', async () => {
+    const { runGate, evalforge } = await harness();
+    vi.mocked(evalforge.collectSkillFiles).mockImplementation(() => {
+      throw new Error('EACCES');
+    });
+
+    await runGate();
+
+    expect(upsertComment).toHaveBeenCalledWith(expect.stringContaining('Skill Content Unreadable'));
+  });
 });
 
 describe('runGate — sync and selection', () => {

@@ -30793,6 +30793,7 @@ exports.formatGuardFailure = formatGuardFailure;
 exports.formatForeignDraftConflicts = formatForeignDraftConflicts;
 exports.formatGateResult = formatGateResult;
 exports.formatGateTimeout = formatGateTimeout;
+exports.formatGatePollFailure = formatGatePollFailure;
 exports.formatGateServiceError = formatGateServiceError;
 const evalforge_1 = __nccwpck_require__(7230);
 exports.GATE_COMMENT_MARKER = '<!-- evalforge-skill-gate-action -->';
@@ -30802,6 +30803,24 @@ function render(icon, label, body) {
 }
 function failIcon(blocking) {
     return blocking ? { icon: '❌', label: 'Failed' } : { icon: '⚠️', label: 'Warning' };
+}
+function count(quantity, noun) {
+    return `${quantity} ${noun}${quantity === 1 ? '' : 's'}`;
+}
+/** The API sends a fraction of a percent (26/30 arrives as 86.667); nobody needs the decimals. */
+function percent(passRate) {
+    return Math.round(passRate);
+}
+/** Shared by every outcome that has a run to point at. */
+function runLine(runId, runUrl) {
+    return `**Run:** [${runId}](${runUrl})`;
+}
+/**
+ * The three outcomes where nothing was verified and retrying is the answer. A push re-triggers the
+ * gate today; CODEAI-895 adds a `/re-eval` comment so it does not need a commit.
+ */
+function retryNote() {
+    return ['', '_Push any commit to run the gate again._'];
 }
 function soakNote(blocking) {
     return blocking
@@ -30826,11 +30845,13 @@ function warningSection(warnings) {
         ...warnings.map(warning => `- \`${warning.path}\` (\`${warning.name}\`, tagged ${warning.tags.map(tag => `\`${tag}\``).join(', ')}) — ${warning.reasons.join('; ')}`),
     ];
 }
-function formatYamlErrors(errors) {
-    return render('❌', 'Invalid Scenario YAML', [
+function formatYamlErrors(errors, blocking) {
+    const { icon } = failIcon(blocking);
+    return render(icon, 'Invalid Scenario YAML', [
         'These scenario files did not parse against the schema:',
         '',
         ...errors.map(error => `- \`${error.path}\`: ${error.message}`),
+        ...soakNote(blocking),
     ]);
 }
 /**
@@ -30850,10 +30871,12 @@ function formatNoGatedChanges(unmapped) {
         ...unmappedSection(unmapped),
     ]);
 }
-function violationLine(violation) {
+function violationLine(violation, scenarioDir) {
     switch (violation.kind) {
-        case 'UNCOVERED_TAG':
-            return `- **\`${violation.tag}\`** has no eval scenario at all. Add one under the scenario directory tagged \`${violation.tag}\`, or add that tag to a scenario that already exercises the area.`;
+        case 'UNCOVERED_TAG': {
+            const where = scenarioDir === '' ? 'the scenario directory' : `\`${scenarioDir}/\``;
+            return `- **\`${violation.tag}\`** has no eval scenario at all. Add one under ${where} tagged \`${violation.tag}\`, or add that tag to a scenario that already exercises the area.`;
+        }
         case 'WEAK_TAG':
             return `- **\`${violation.tag}\`** is carried only by scenarios below the quality bar (${violation.scenarios.map(name => `\`${name}\``).join(', ')}). Strengthen one of them, or add a scenario that meets the bar.`;
         case 'WEAK_TOUCHED_SCENARIO':
@@ -30862,10 +30885,15 @@ function violationLine(violation) {
 }
 function formatGuardFailure(input) {
     const { icon, label } = failIcon(input.blocking);
+    // Only when something here is actually about quality. On a bare uncovered tag there is no
+    // scenario to be below the bar, and leading with it reads as though one was too weak.
+    const aboutQuality = input.violations.some(violation => violation.kind !== 'UNCOVERED_TAG')
+        || input.warnings.length > 0;
     return render(icon, `Coverage ${label}`, [
-        'The quality bar is **at least 3 assertions including one `llm_judge`** — a scenario below it would run, pass, and verify nothing.',
-        '',
-        ...input.violations.map(violationLine),
+        ...(aboutQuality
+            ? ['The quality bar is **at least 3 assertions including one `llm_judge`** — a scenario below it would run, pass, and verify nothing.', '']
+            : []),
+        ...input.violations.map(violation => violationLine(violation, input.scenarioDir)),
         '',
         '_No eval run was started — a coverage failure is caught before any run cost._',
         ...warningSection(input.warnings),
@@ -30891,17 +30919,17 @@ function formatGateResult(input) {
     const { metrics, verdict, selection } = input;
     const { icon, label } = verdict.passed ? { icon: '✅', label: 'Passed' } : failIcon(input.blocking);
     const body = [
-        `**Pass rate:** ${metrics.passRate}% — ${metrics.passed}/${metrics.totalAssertions} assertions passed`
+        `**Pass rate:** ${percent(metrics.passRate)}% — ${metrics.passed}/${metrics.totalAssertions} assertions passed`
             + (metrics.failed > 0 ? `, ${metrics.failed} failed` : '')
             + (metrics.errors > 0 ? `, ${metrics.errors} errored` : ''),
-        `**Run:** [${input.runId}](${input.runUrl})`,
+        runLine(input.runId, input.runUrl),
     ];
     if (!verdict.passed) {
         body.push('', `**Why this ${input.blocking ? 'blocks' : 'would block'}:** ${verdict.reasons.join('; ')}`);
     }
     body.push('', input.broadImpact
-        ? `**Scope:** a cross-cutting file changed, so the whole suite was in play — ${selection.selected.length} scenario(s) ran.`
-        : `**Scope:** ${selection.selected.length} scenario(s) ran.`, '', ...selection.selected.map(name => `- \`${name}\``));
+        ? `**Scope:** a cross-cutting file changed, so the whole suite was in play — ${count(selection.selected.length, 'scenario')} ran.`
+        : `**Scope:** ${count(selection.selected.length, 'scenario')} ran.`, '', ...selection.selected.map(name => `- \`${name}\``));
     if (selection.dropped.length > 0) {
         body.push('', `**Capped at \`max-scenarios: ${input.maxScenarios}\`** — these were not run:`, ...selection.dropped.map(name => `- \`${name}\``));
     }
@@ -30917,13 +30945,34 @@ function formatGateTimeout(runId, runUrl, blocking) {
     return render(blocking ? '⏱' : '⚠️', 'Timed Out', [
         'The eval run did not finish within the poll window. It may still be running in EvalForge.',
         '',
-        `**Run:** [${runId}](${runUrl})`,
+        runLine(runId, runUrl),
+        ...retryNote(),
         ...soakNote(blocking),
     ]);
 }
-function formatGateServiceError(message, blocking) {
-    const { icon, label } = failIcon(blocking);
-    return render(icon, label, [message, ...soakNote(blocking)]);
+/**
+ * Polling broke after the run started. Distinct from a service error, which has no run to name:
+ * here the run exists and may well have finished, so the link is the whole point of the comment.
+ */
+function formatGatePollFailure(input) {
+    const { icon } = failIcon(input.blocking);
+    return render(icon, 'Run Status Unavailable', [
+        `The run started, but the gate could not read its status: ${input.detail}`,
+        '',
+        'Open it to see whether it finished — the gate could not verify the result either way, so treat this as unverified rather than passing.',
+        '',
+        runLine(input.runId, input.runUrl),
+        ...retryNote(),
+        ...soakNote(input.blocking),
+    ]);
+}
+/**
+ * `label` defaults to a service failure, the common case. The zero-selection guard passes its own:
+ * nothing broke there, the gate simply had nothing to run, and that deserves saying in the heading.
+ */
+function formatGateServiceError(message, blocking, label = 'Service Error') {
+    const { icon } = failIcon(blocking);
+    return render(icon, label, [message, ...retryNote(), ...soakNote(blocking)]);
 }
 
 
@@ -31075,11 +31124,23 @@ __exportStar(__nccwpck_require__(5970), exports);
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.scenarioDirFromGlob = scenarioDirFromGlob;
 exports.loadScenarios = loadScenarios;
 const node_fs_1 = __nccwpck_require__(3024);
 const node_path_1 = __nccwpck_require__(6760);
 const glob_1 = __nccwpck_require__(2311);
 const schema_1 = __nccwpck_require__(3540);
+/**
+ * The directory a scenario glob covers, so an author can be told where to add one: the leading
+ * wildcard-free prefix of the pattern. With no wildcard at all the last segment is a filename,
+ * so it is dropped. See the tests for the concrete patterns.
+ */
+function scenarioDirFromGlob(globPattern) {
+    const segments = globPattern.split('/');
+    const firstWildcard = segments.findIndex(segment => /[*?{[]/.test(segment));
+    const directory = firstWildcard === -1 ? segments.slice(0, -1) : segments.slice(0, firstWildcard);
+    return directory.join('/');
+}
 function loadScenarios(root, globPattern) {
     const found = glob_1.glob.sync(globPattern, {
         cwd: root,
@@ -31727,7 +31788,19 @@ function parseScenario(raw) {
             }
         }
     }
-    return exports.ScenarioSchema.parse(parsed);
+    const result = exports.ScenarioSchema.safeParse(parsed);
+    if (result.success)
+        return result.data;
+    throw new Error(describeIssues(result.error));
+}
+/**
+ * Zod's own `message` is the serialised issue array, so it reached the PR comment as ~15 lines of
+ * JSON for a one-line problem. One `path: message` per issue instead.
+ */
+function describeIssues(error) {
+    return error.issues
+        .map(issue => (issue.path.length === 0 ? issue.message : `${issue.path.join('.')}: ${issue.message}`))
+        .join('; ');
 }
 
 
@@ -61645,7 +61718,7 @@ async function applySyncPlan(client, config, actions, nameToId, comment) {
         }
         catch (error) {
             core.error(`Sync action ${action.kind} for ${action.name} failed: ${(0, report_1.describeError)(error)}`);
-            await comment((0, evalforge_core_1.formatGateServiceError)(`Sync failed for "${action.name}"`, config.isBlocking));
+            await comment((0, evalforge_core_1.formatGateServiceError)(`Sync failed for "${action.name}"`, config.isBlocking, 'Scenario Sync Failed'));
             (0, report_1.fail)(`Sync failed for ${action.name}`, config.isBlocking);
             return false;
         }
@@ -61992,7 +62065,7 @@ async function runGate() {
     if (!scope.ok)
         return;
     const client = new evalforge_core_1.EvalForgeClient(config.evalforgeUrl, config.appId, config.appSecret);
-    const version = await (0, report_1.guardedCall)(() => client.createOrReuseSkillVersion(config.capabilityId, config.projectId, config.versionLabel, config.prNumber, scope.value.skillFiles), 'Could not create the PR skill capability version', comment, config.isBlocking);
+    const version = await (0, report_1.guardedCall)(() => client.createOrReuseSkillVersion(config.capabilityId, config.projectId, config.versionLabel, config.prNumber, scope.value.skillFiles), { message: 'Could not create the PR skill capability version', label: 'Version Not Created' }, comment, config.isBlocking);
     if (!version.ok)
         return;
     const nameToId = await (0, sync_draft_scenarios_1.syncDraftScenarios)(client, octokit, config, scope.value, draftTag, workspace, comment);
@@ -62056,7 +62129,7 @@ async function resolveGateScope(octokit, config, workspace, comment) {
     if (!loaded.ok)
         return report_1.HALTED;
     const headScenarios = loaded.value;
-    const changedFiles = await (0, report_1.guardedCall)(() => (0, evalforge_core_1.getChangedFiles)(octokit, config.owner, config.repo, config.prNumber), 'Could not retrieve the PR file list', comment, config.isBlocking);
+    const changedFiles = await (0, report_1.guardedCall)(() => (0, evalforge_core_1.getChangedFiles)(octokit, config.owner, config.repo, config.prNumber), { message: 'Could not retrieve the PR file list', label: 'GitHub Lookup Failed' }, comment, config.isBlocking);
     if (!changedFiles.ok)
         return report_1.HALTED;
     const { derived, touchedPaths } = deriveChangeScope(changedFiles.value, config);
@@ -62083,7 +62156,7 @@ async function loadHeadScenarios(workspace, config, comment) {
     const { scenarios, errors } = (0, evalforge_core_1.loadScenarios)(workspace, config.evalsGlob);
     if (errors.length === 0)
         return { ok: true, value: scenarios };
-    await comment((0, evalforge_core_1.formatYamlErrors)(errors));
+    await comment((0, evalforge_core_1.formatYamlErrors)(errors, config.isBlocking));
     (0, report_1.fail)(`Invalid scenario YAML or duplicate names: ${errors.length}`, config.isBlocking);
     return report_1.HALTED;
 }
@@ -62106,14 +62179,18 @@ async function runCoverageGuard(derived, headScenarios, touchedPaths, config, co
     });
     if (guard.violations.length === 0)
         return { ok: true, value: guard };
-    await comment((0, evalforge_core_1.formatGuardFailure)({ ...guard, blocking: config.isBlocking }));
+    await comment((0, evalforge_core_1.formatGuardFailure)({
+        ...guard,
+        blocking: config.isBlocking,
+        scenarioDir: (0, evalforge_core_1.scenarioDirFromGlob)(config.evalsGlob),
+    }));
     (0, report_1.fail)(`Eval coverage guard failed: ${guard.violations.length} violation(s)`, config.isBlocking);
     return report_1.HALTED;
 }
 async function collectSkill(workspace, config, comment) {
     const skillFiles = await (0, report_1.guardedCall)(
     // Whole dir: references send the agent to sibling paths like `<SKILL_ROOT>/scripts/…`.
-    async () => (0, evalforge_core_1.collectSkillFiles)(workspace, config.skillDir, { warn: core.warning }), `Could not read the skill directory ${config.skillDir}`, comment, config.isBlocking);
+    async () => (0, evalforge_core_1.collectSkillFiles)(workspace, config.skillDir, { warn: core.warning }), { message: `Could not read the skill directory ${config.skillDir}`, label: 'Skill Content Unreadable' }, comment, config.isBlocking);
     if (skillFiles.ok) {
         core.info(`Collected ${skillFiles.value.length} skill file(s) from ${config.skillDir}`);
     }
@@ -62265,15 +62342,20 @@ function fail(message, blocking) {
         core.warning(message);
 }
 exports.HALTED = { ok: false };
-/** Runs an EvalForge call, reporting a user-facing comment and gate failure if it throws. */
-async function guardedCall(operation, userMessage, comment, blocking) {
+/**
+ * Runs an EvalForge call, reporting a user-facing comment and gate failure if it throws.
+ *
+ * `label` becomes the comment heading, so a reader can tell which stage broke without parsing the
+ * body — every one of these used to render the same bare "Service Error".
+ */
+async function guardedCall(operation, failure, comment, blocking) {
     try {
         return { ok: true, value: await operation() };
     }
     catch (error) {
-        core.error(`${userMessage}: ${describeError(error)}`);
-        await comment((0, evalforge_core_1.formatGateServiceError)(userMessage, blocking));
-        fail(userMessage, blocking);
+        core.error(`${failure.message}: ${describeError(error)}`);
+        await comment((0, evalforge_core_1.formatGateServiceError)(failure.message, blocking, failure.label));
+        fail(failure.message, blocking);
         return exports.HALTED;
     }
 }
@@ -62379,7 +62461,7 @@ async function resolveScenarioIds(config, scope, nameToId, comment) {
         return { ok: true, value: selection };
     // A gate that resolved nothing to run must not report a green check.
     const message = 'No eval scenarios could be resolved to run, so nothing was verified';
-    await comment((0, evalforge_core_1.formatGateServiceError)(message, config.isBlocking));
+    await comment((0, evalforge_core_1.formatGateServiceError)(message, config.isBlocking, 'Nothing Verified'));
     (0, report_1.fail)(message, config.isBlocking);
     return report_1.HALTED;
 }
@@ -62442,7 +62524,7 @@ versionId, comment) {
         scenarioIds,
         capabilityIds: [config.capabilityId],
         capabilityVersions: { [config.capabilityId]: versionId },
-    }), 'Could not start the eval run', comment, config.isBlocking);
+    }), { message: 'Could not start the eval run', label: 'Run Not Started' }, comment, config.isBlocking);
 }
 /** Timeout gets its own comment; anything else is a generic service failure. */
 async function pollToCompletion(client, config, runId, runUrl, comment) {
@@ -62458,9 +62540,12 @@ async function pollToCompletion(client, config, runId, runUrl, comment) {
             (0, report_1.fail)(error.message, config.isBlocking);
             return report_1.HALTED;
         }
-        core.error(`Polling the eval run failed: ${(0, report_1.describeError)(error)}`);
-        await comment((0, evalforge_core_1.formatGateServiceError)('Polling the eval run failed', config.isBlocking));
-        (0, report_1.fail)('Polling the eval run failed', config.isBlocking);
+        // Names the run: it started, it may have finished, and without the link there is no way
+        // to find out from the PR.
+        const detail = (0, report_1.describeError)(error);
+        core.error(`Polling the eval run failed: ${detail}`);
+        await comment((0, evalforge_core_1.formatGatePollFailure)({ runId, runUrl, detail, blocking: config.isBlocking }));
+        (0, report_1.fail)(`Polling the eval run failed: ${detail}`, config.isBlocking);
         return report_1.HALTED;
     }
 }
@@ -62525,7 +62610,7 @@ async function syncDraftScenarios(client, octokit, config, scope, draftTag, work
     const shared = { changedHead, head: scope.headScenarios, base: baseScenarios, draftTag };
     const remote = await (0, report_1.guardedCall)(() => (0, evalforge_core_1.listRemoteScenariosForGate)(client, config.projectId, (0, evalforge_core_1.remoteScenarioFiltersForGate)({
         ...shared, extraTags: scope.derived.tags, all: scope.derived.broadImpact,
-    })), 'Could not reach EvalForge', comment, config.isBlocking);
+    })), { message: 'Could not reach EvalForge', label: 'EvalForge Unreachable' }, comment, config.isBlocking);
     if (!remote.ok)
         return report_1.HALTED;
     const normalizedRemote = await (0, evalforge_core_1.stripInactiveForeignDraftTags)(remote.value, draftTag, tag => (0, pr_lookups_1.isDraftTagActive)(octokit, tag));
