@@ -1,10 +1,10 @@
 ---
 name: "Update Product with Options (Catalog V3)"
-description: Modifies existing products and variants using Catalog V3 Products API. Covers adding/removing option choices, variant-specific pricing, and revision-based updates to prevent conflicts.
+description: "Modifies an existing Catalog V3 product with Update Product (PATCH /stores/v3/products/{productId}). Use this recipe for any request to hide, unhide, or show an existing product in the storefront — that is a product-level `visible` update, not a delete — and for updating description, media, options, option choices, variant prices, and variant stock. Explains the revision-based optimistic lock and the partial-update rules."
 ---
 **RECIPE**: Business Recipe - Updating a Wix Store Product (Catalog V3)
 
-Use this recipe to update an existing Catalog V3 product: description, media, options, variants, prices, or stock-related inventory records.
+Use this recipe to update an existing Catalog V3 product: storefront visibility, description, media, options, variants, prices, or stock-related inventory records.
 
 ## Before Any Product Update
 
@@ -13,6 +13,7 @@ Every Catalog V3 product update is revision-based:
 - If the user gives a product name instead of a product ID, use [Search Products](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/search-products) and choose the exact product name match.
 - Use [Get Product](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/get-product) to retrieve the current product and `product.revision`.
 - Include `product.id` and the current `product.revision` in every [Update Product](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/update-product) PATCH body.
+- Update Product is a partial update: only `product`, `product.id`, and `product.revision` are required, and top-level fields you omit (for example `name`, `ribbon`, `brand`) are left unchanged. The full-array overwrite rule applies only to the repeated fields `options`, `modifiers`, and `variantsInfo.variants`.
 - For simple text/HTML description updates, prefer `plainDescription`. Use `description` only when sending a Rich Content object.
 
 ### Find the product by name
@@ -38,6 +39,32 @@ curl -X GET "https://www.wixapis.com/stores/v3/products/{productId}" \
 ```
 
 ## Common Update Patterns
+
+### Hide or Show a Product
+
+"Hide this product", "make it not show in my store", "unhide it", "put it back in the store" are all product-level visibility changes. Set the `visible` boolean on the product in an Update Product PATCH. Do not delete the product, and do not change variant visibility to hide the product.
+
+```bash
+curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: <AUTH>" \
+  -d '{
+    "product": {
+      "id": "{productId}",
+      "revision": "{currentRevision}",
+      "visible": false
+    }
+  }'
+```
+
+Send `"visible": true` to show it again. Nothing else needs to be in the body — `name`, `options`, `variantsInfo` and the other top-level fields you omit are left unchanged. Confirm the result from `product.visible` in the response.
+
+Visibility behaviour to report back accurately:
+
+- `visible` defaults to `true`.
+- For a product **without** options, updating `product.visible` automatically updates the default variant's `visible` to match.
+- For a product **with** options, product and variant visibility are independent: setting `product.visible` to `false` leaves each `variantsInfo.variants[].visible` as it was.
+- Point-of-sale visibility is a separate field, `visibleInPos`. Only change it when the user asks about POS. It is always `false` for `productType: DIGITAL`.
 
 ### Update Description Only
 
@@ -298,6 +325,7 @@ curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
 
 ## Important Notes
 
+- A request to hide a product is a `visible: false` update on the product, never a Delete Product call and never a variant-only change.
 - To update array fields like `options`, `modifiers`, `variantsInfo.variants`, and any others, pass the entire existing array. Passing only the changed item overwrites the whole array.
 - To update `variantsInfo.variants`, also pass `options`, and vice versa. Variants and options are mutually dependent and must stay aligned.
 - When converting a simple product to an optioned product, rebuild the variants list so every variant has `choices`; do not keep an existing choice-less default variant unchanged.
@@ -316,3 +344,4 @@ curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
 | `Missing product option choices` | Variant references non-existent option | Use `optionChoiceNames` with exact option and choice names |
 | `price must not be empty` | A variant was created or replaced without a price | Include `price.actualPrice.amount` on every new variant |
 | `Missing option choices` or `INVALID_DEFAULT_VARIANT` | Product has options but at least one variant has no matching choices | Rebuild `variantsInfo.variants` so every variant includes choices for all product options |
+| `DIGITAL_PRODUCT_CANNOT_BE_VISIBLE_IN_POS` | Sent `visibleInPos: true` on a digital product | Digital products can't be visible in POS; leave `visibleInPos` out of the body |
