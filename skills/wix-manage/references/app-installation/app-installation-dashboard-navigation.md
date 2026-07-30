@@ -1,6 +1,6 @@
 ---
 name: "App Management Dashboard Navigation"
-description: "Builds direct links to the app-management dashboard pages on manage.wix.com — the App Market and the installed-apps management page. Pairs installed apps with the List Installed Apps read API. Use when the user asks where to manage or install apps in the Wix dashboard, or after installing an app via API to hand back a 'manage it in your dashboard' link."
+description: "Builds direct links to the app-management dashboard pages on manage.wix.com — the App Market and the installed-apps management page. Pairs installed apps with the List Installed Apps read API. Navigation only — never a substitute for API work: when the user asks to create, update, delete, or configure something, do it with the solution's API recipes and attach the dashboard link to the result. Use when the user asks where something is in the Wix dashboard or wants a direct link, or to hand back a 'view it in your dashboard' link after completing an API operation."
 ---
 
 # App Management Dashboard Navigation
