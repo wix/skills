@@ -6,3 +6,7 @@ apiDoc:
       title: Domain Search and Purchase
       docsEntry: https://dev.wix.com/docs/api-reference/account-level/domains
       tags: [domains]
+    - file: ../../../skills/wix-manage/references/domains/domains-dashboard-navigation.md
+      title: Domains Dashboard Navigation
+      docsEntry: https://dev.wix.com/docs/api-reference/account-level/domains
+      tags: [domains]

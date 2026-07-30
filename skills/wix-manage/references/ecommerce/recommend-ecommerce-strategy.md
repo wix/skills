@@ -226,7 +226,7 @@ Based on the merchant's request AND the site data, determine which domains to an
 **If unclear, ask:** "Would you like this to apply automatically to everyone, or as a coupon code?"
 
 **If COUPON is selected**, load the coupon setup reference with `ReadFullDocsArticle`:
-[Setup: Coupons](https://dev.wix.com/docs/api-reference/business-solutions/coupons)
+[Pricing: Create Coupon](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-coupon)
 
 ---
 
@@ -513,7 +513,7 @@ If BatchCreate fails, report the error and include recommendations without track
             "endDate": "2026-05-26"
           }
         },
-        "success_criteria": "15% discount applied site-wide for orders above $250 during Memorial Weekend"
+        "successCriteria": "15% discount applied site-wide for orders above $250 during Memorial Weekend"
       }
     }
   ]
@@ -534,7 +534,7 @@ If BatchCreate fails, report the error and include recommendations without track
 | `why` | 1-2 sentences with specific data points from API responses. Translate to site `language`. |
 | `code` | Only for COUPON mechanism. Memorable code, max 20 chars (e.g., "SAVE15"). |
 | `scope` + IDs | For discounts: SITE = both empty, CATEGORY = categoryIds only (max 3), ITEMS = productIds only (max 5). |
-| `success_criteria` | How to verify the recommendation was applied correctly |
+| `successCriteria` | How to verify the recommendation was applied correctly |
 
 ### Valid action types by domain
 

@@ -22,10 +22,10 @@ A concise checklist for preparing any new Wix site that uses the Online Stores a
 
 ### STEP 1: Clean the store — remove the default sample products
 
-A freshly provisioned Wix Stores app comes pre-seeded with demo/sample products. Remove them **before** creating yours, so the storefront shows only your catalog. Do this **first** — cleaning before you create guarantees the ids you delete are the install's samples, never your own products.
+A freshly provisioned Wix Stores app comes pre-seeded with demo/sample products. **Only remove products that are obviously the install's own demo/sample data on a fresh install.** Do **not** assume the existing products are samples: the site may already hold the owner's **real catalog** (a connect/iterate run, or an owner-populated store). If what's there isn't obviously install demo data, or you're unsure, **do not delete it — ask the user first** (`SEED.md`: seeding is additive; deleting real content needs the owner's approval). When they clearly are the install's samples, remove them **before** creating yours so the storefront shows only the intended catalog.
 
 1. **List the existing products** — `POST https://www.wixapis.com/stores/v3/products/query` with body `{"query": {"paging": {"limit": 50}}}`. Collect every `product.id` from the response.
-2. **Bulk-delete them in one call** — `POST https://www.wixapis.com/stores/v3/bulk/products/delete` with body `{"productIds": ["<id1>", "<id2>", …]}` (the ids from step 1; up to 100 per call). The query on a fresh install returns the sample products; delete exactly those ids.
+2. **Bulk-delete them in one call** — `POST https://www.wixapis.com/stores/v3/bulk/products/delete` with body `{"productIds": ["<id1>", "<id2>", …]}` (the ids from step 1; up to 100 per call). On a fresh install the query returns only the install's sample products — delete those. **If it returns anything that could be the owner's real catalog, stop and ask first** (above).
 
 ### STEP 2: Bulk-create the products (with options)
 

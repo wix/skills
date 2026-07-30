@@ -1,0 +1,103 @@
+name: EvalForge Scheduled Run
+
+on:
+  schedule:
+    - cron: '0 0 * * 1'  # Every Monday at midnight UTC
+  workflow_dispatch: {}     # Allow manual trigger
+
+permissions:
+  contents: read
+
+jobs:
+  run-all:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # need full history to inspect commits over the past week
+
+      - name: Check for recent commits to skills/wix-manage
+        id: check
+        run: |
+          # Only run scenarios if skills/wix-manage changed in the last 7 days.
+          # On manual runs (workflow_dispatch) always run, regardless of recency.
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "Manual trigger — running regardless of recent commits."
+            echo "should-run=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          COMMITS=$(git log --since="7 days ago" --oneline -- skills/wix-manage)
+          if [ -n "$COMMITS" ]; then
+            echo "Found commits to skills/wix-manage in the last week:"
+            echo "$COMMITS"
+            echo "should-run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No commits to skills/wix-manage in the last week — skipping eval run."
+            echo "should-run=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run all eval scenarios
+        id: eval
+        if: steps.check.outputs.should-run == 'true'
+        uses: ./.github/actions/evalforge-yaml-gate
+        with:
+          mode: run-all
+          evalforge-url: ${{ vars.EVALFORGE_URL }}
+          evalforge-project-id: ${{ vars.AUTO_SKILLS_PIPELINE_PROJECT_ID }}
+          evalforge-agent-id: ${{ vars.AUTO_SKILLS_PIPELINE_AGENT_ID }}
+          evalforge-app-id: ${{ secrets.AUTO_SKILLS_PIPELINE_APP_ID }}
+          evalforge-app-secret: ${{ secrets.AUTO_SKILLS_PIPELINE_APP_SECRET }}
+          run-name: scheduled-${{ github.run_number }}
+
+      - name: Post Slack notification
+        if: always() && steps.check.outputs.should-run == 'true'
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          PASS_RATE: ${{ steps.eval.outputs.pass-rate }}
+          PASSED: ${{ steps.eval.outputs.passed }}
+          FAILED: ${{ steps.eval.outputs.failed }}
+          TOTAL: ${{ steps.eval.outputs.total }}
+          STATUS: ${{ steps.eval.outputs.status || 'error' }}
+          RUN_URL: ${{ steps.eval.outputs.run-url }}
+          RUN_NUMBER: ${{ github.run_number }}
+          WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          EMOJI=$([ "${FAILED:-1}" = "0" ] && echo ":white_check_mark:" || echo ":warning:")
+          jq -n \
+            --arg emoji "$EMOJI" \
+            --arg rate  "${PASS_RATE:-0}" \
+            --arg passed "${PASSED:-0}" \
+            --arg total  "${TOTAL:-0}" \
+            --arg failed "${FAILED:-0}" \
+            --arg status "${STATUS}" \
+            --arg run_url "${RUN_URL}" \
+            --arg wf_url "${WORKFLOW_URL}" \
+            --arg run_no "${RUN_NUMBER}" \
+            '{
+              text: ($emoji + " *EvalForge Scheduled Run #" + $run_no + "* — " + $rate + "% pass rate (" + $passed + "/" + $total + " passed, " + $failed + " failed)"),
+              blocks: [
+                {
+                  type: "header",
+                  text: { type: "plain_text", text: ($emoji + " EvalForge Scheduled Run · #" + $run_no), emoji: true }
+                },
+                {
+                  type: "section",
+                  fields: [
+                    { type: "mrkdwn", text: ("*Pass rate:* " + $rate + "%") },
+                    { type: "mrkdwn", text: ("*Status:* " + $status) },
+                    { type: "mrkdwn", text: ("*Passed:* " + $passed + " / " + $total) },
+                    { type: "mrkdwn", text: ("*Failed:* " + $failed) }
+                  ]
+                },
+                {
+                  type: "actions",
+                  elements: (
+                    [{ type: "button", text: { type: "plain_text", text: "GitHub Run" }, url: $wf_url }]
+                    + (if $run_url != "" then [{ type: "button", text: { type: "plain_text", text: "EvalForge Results" }, url: $run_url }] else [] end)
+                  )
+                }
+              ]
+            }' \
+          | curl -s -X POST \
+              -H "Content-Type: application/json" \
+              -d @- "$SLACK_WEBHOOK_URL"
