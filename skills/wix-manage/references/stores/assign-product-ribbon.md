@@ -14,11 +14,12 @@ about price.
 
 - It is **not** a discount rule, and **not** a coupon. Creating a discount rule does not produce a
   ribbon, and assigning a ribbon does not reduce any price.
-- If the merchant wants the price actually reduced *as well as* badged, that is two separate
-  operations: this recipe for the badge, and
+- A request for a ribbon is a request for the badge. **Assign it — do not ask the merchant to
+  choose first.** "Put a sale ribbon on it" means the badge, and nothing about the price.
+- If the merchant asks for the price reduced *as well*, that is two separate operations: this
+  recipe for the badge, and
   [Create Discount Rule](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-discount-rule)
-  for the price. Ask which they want if the request is ambiguous — "put a sale ribbon on it" alone
-  means the badge only.
+  for the price. Do both rather than picking one.
 
 ## Before assigning
 
@@ -83,5 +84,4 @@ of creating a near-duplicate with different casing.
 
 ## Confirming to the merchant
 
-Say which ribbon is now on which product, and that the price is unchanged. If they expected a
-price change, point them at the discount-rule recipe above.
+Say which ribbon is now on which product, and that the price is unchanged.
