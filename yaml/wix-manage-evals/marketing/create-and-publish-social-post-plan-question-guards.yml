@@ -1,0 +1,57 @@
+name: marketing/create-and-publish-social-post-plan-question-guards
+description: >-
+  Diagnosis scenario for the "Create and Publish a Social Media Post" skill: a user
+  on a paid Premium plan reports that posting to Facebook worked but Instagram
+  asked them to upgrade. The correct behavior is to check the real feature and
+  connection state through the Publisher API and answer from those numbers, never
+  to invent a separate "Social Posts / Marketing plan" or to tell a paying user to
+  upgrade on an assumption. Mirrors a real production conversation where the
+  assistant fabricated a plan product and repeated it four times.
+triggerPrompt: >-
+  I just made a post on Facebook. Then I tried to post to Instagram and it said I
+  need a plan. I have one, a Core plan. Why does this keep happening?
+tags: [marketing]
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-management/marketing/skills/create-and-publish-a-social-media-post-with-ai-generation
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user is reporting a problem and asking why it happens. They say they
+      have a paid Core Premium plan, Facebook posting worked, and Instagram asked
+      them to upgrade. They did NOT ask for a post to be created or published.
+
+      Pass if the response:
+      - uses the Create and Publish a Social Media Post skill / recipe, AND
+      - establishes the actual state before explaining it — checks the social
+        publisher feature data (features / quota limit and currentUsage) and the
+        Instagram connection state (long-lived-token-status, or List Accounts),
+        or clearly states it needs those values and asks for them, AND
+      - distinguishes the two possible causes: the channel-connection cap being
+        genuinely full (a real plan limit) versus the numbers not supporting the
+        block at all (limit 0, usage 0, or fewer channels connected than allowed),
+        AND
+      - if the numbers do not support the block, says the message looks wrong and
+        offers to retry with a fresh connect link, rather than advising an
+        upgrade, AND
+      - keeps the explanation anchored to what it actually verified.
+
+      Fail if the response:
+      - claims the site's Social Posts / social media / Marketing features require
+        their own separate plan or subscription, distinct from the site Premium
+        plan, OR
+      - tells the user their Core / Premium plan is unrelated to this limit, OR
+      - advises upgrading without having established that the cap is actually
+        full, OR
+      - invents dashboard navigation paths, menu names, or upgrade screens to send
+        the user to, OR
+      - answers purely from assumptions with no attempt to read the real feature
+        or connection state, OR
+      - attempts Create Draft Item, Publish Item By ID, or any other mutating API
+        call, OR
+      - falls back to searching the REST docs instead of using the skill.
