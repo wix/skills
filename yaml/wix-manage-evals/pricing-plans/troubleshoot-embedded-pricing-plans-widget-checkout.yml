@@ -1,0 +1,44 @@
+name: pricing-plans/troubleshoot-embedded-plan-widget-checkout
+description: >-
+  Verifies the agent reads the troubleshoot-embedded-plan-widget-checkout recipe
+  when a site owner reports that a Pricing Plans widget placed on a service page
+  redirects to the Plans & Pricing page instead of checking out in place, and that
+  the Plans & Pricing page shows the full plan list stacked above checkout.
+triggerPrompt: >-
+  I added a Plan List widget for my Pricing Plans directly onto one of my service
+  pages so customers could buy a package without leaving that page. But when they
+  click Select, they get sent to my site's Plans & Pricing page instead of checking
+  out right there, and that page shows the full list of all my plans again above the
+  checkout form. Why does this happen and how do I fix it?
+tags: [pricing-plans]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/pricing-plans/skills/troubleshoot-embedded-pricing-plans-widget-checkout
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user is a Wix site owner who embedded a Plan List widget on a service page and is
+      confused about two things: (1) selecting a plan redirects to the Plans & Pricing page
+      instead of checking out on the service page, and (2) that Plans & Pricing page shows the
+      full plan list above checkout.
+
+      Pass if the response:
+      - explains that navigating to the Plans & Pricing page to complete checkout is expected,
+        current platform behavior for embedded Plan List/Single Plan widgets — not a bug or a
+        missing setting — and that there's no supported way to check out in place on the page
+        the widget was added to, AND
+      - explains that the full plan list appearing above checkout on the Plans & Pricing page is
+        most likely a second, separately-added Plan List/Single Plan widget on that page (not the
+        built-in element misbehaving), and recommends checking the Editor for a duplicate element
+        and removing only the extra one, AND
+      - does not invent or call a REST API/endpoint to fix this, since none exists for page/widget
+        layout.
+
+      Fail if the response:
+      - claims there's a setting, API, or endpoint to make the embedded widget check out in place, OR
+      - tells the owner to delete the built-in Plans & Pricing widget/element without warning that
+        doing so removes checkout too, OR
+      - is generic and doesn't address the specific redirect-to-system-page or duplicated-list
+        symptoms.
