@@ -280,6 +280,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ### [Site Import](references/sites/site-import.md)
 **Technical:** Drives the autonomous Wix Site Import agent over REST (`/site-import/v1/imports`) to migrate a store/site from another platform (Shopify, WooCommerce, Magento, or any URL) into Wix. Covers Start/Poll/Reply/Cancel, relaying agent questions and progress in plain language, handling `DEPLOYED`/`FAILED`/`AUTH_EXPIRED`/`SESSION_EXPIRED` states, and post-deploy follow-up changes. Use when the user wants to import, migrate, or clone an existing store/site into Wix.
 
+### [Editing Body Copy or Per-Page SEO Tags on an Existing Editor Page — Known Gap](references/sites/editing-existing-site-page-content-and-seo.md)
+**Technical:** There is no REST/MCP API to edit the body text/components of an existing classic Wix Editor or Studio page, or to read/write that page's own SEO title/description/OG tags — confirmed by a full REST spec + docs catalog pass. Read this before spending multiple tool calls hunting for one; also explains why (and that a matching internal SEO-tags write API already exists but isn't public yet).
+
 ---
 
 ## Stores
