@@ -66,7 +66,11 @@ export async function runReEval(): Promise<void> {
         + 'runs automatically',
       );
     case GateRunLookup.ACTIVE:
-      return refuse(`a gate run is already in progress for this commit — see ${run.runUrl}`);
+      // A markdown link, not a bare URL: the reason is rendered mid-sentence and the trailing
+      // period would otherwise be swallowed into the href by some clients.
+      return refuse(
+        `a gate run is already in progress for this commit — see [the run in progress](${run.runUrl})`,
+      );
     case GateRunLookup.TOO_OLD:
       return refuse(
         `the gate run for this commit completed on ${run.completedAt.slice(0, 10)} and is past `

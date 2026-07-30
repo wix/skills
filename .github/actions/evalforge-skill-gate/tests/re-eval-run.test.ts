@@ -57,7 +57,7 @@ async function setPayload(comment: { body: string; login: string }): Promise<voi
   const github = await import('@actions/github');
   github.context.payload = {
     issue: { number: 42, pull_request: { url: 'https://api.github.com/repos/wix/skills/pulls/42' } },
-    comment: { body: comment.body, user: { login: comment.login } },
+    comment: { id: 1, body: comment.body, user: { login: comment.login } },
   };
 }
 
@@ -184,7 +184,10 @@ describe('runReEval — run lookup', () => {
 
     expect(reRunWorkflow).not.toHaveBeenCalled();
     expect(refusal()).toMatch(/already in progress/);
-    expect(refusal()).toContain('/actions/runs/555');
+    // A markdown link, not a bare URL: rendered mid-sentence, a trailing period would otherwise be
+    // swallowed into the href.
+    expect(refusal()).toContain('](https://github.com/wix/skills/actions/runs/555)');
+    expect(refusal()).not.toMatch(/runs\/555\./);
   });
 
   it("refuses a run past GitHub's re-run window", async () => {

@@ -7,13 +7,19 @@ const loadWorkflow = (name: string) =>
   yaml.load(readFileSync(join(__dirname, '../../../workflows', name), 'utf8')) as Workflow;
 
 type Workflow = {
-  on: { pull_request: { types: string[]; paths?: string[]; branches: string[] } };
+  on: {
+    pull_request: { types: string[]; paths?: string[]; branches: string[] };
+    /** Only the re-eval workflow has this one. */
+    issue_comment?: { types: string[] };
+  };
   concurrency: { group: string; 'cancel-in-progress': boolean };
   jobs: Record<string, {
     'timeout-minutes': number;
     permissions: Record<string, string>;
     if?: string;
-    steps: Array<{ uses: string; with?: Record<string, string> }>;
+    // `uses` and `run` are mutually exclusive per step, and both optional here so a `run:` step
+    // typechecks — the gate gained one to capture the checked-out merge commit.
+    steps: Array<{ id?: string; uses?: string; run?: string; with?: Record<string, string> }>;
   }>;
 };
 
@@ -89,8 +95,8 @@ describe('EvalForge wix-app gate workflow', () => {
   // so the label must come from the commit on disk.
   it('labels the version from the commit actually checked out', () => {
     expect(gateStep.with?.['evaluated-sha']).toContain('steps.merge.outputs.sha');
-    const mergeStep = workflow.jobs.gate.steps.find((step: { id?: string }) => step.id === 'merge');
-    expect(mergeStep.run).toContain('git rev-parse HEAD');
+    const mergeStep = workflow.jobs.gate.steps.find(step => step.id === 'merge');
+    expect(mergeStep?.run).toContain('git rev-parse HEAD');
   });
 });
 
@@ -133,7 +139,7 @@ describe('EvalForge wix-app re-eval workflow', () => {
 
   it('runs the action in re-eval mode on a created comment', () => {
     expect(step.with?.mode).toBe('re-eval');
-    expect(workflow.on.issue_comment.types).toEqual(['created']);
+    expect(workflow.on.issue_comment?.types).toEqual(['created']);
   });
 
   it('fires only for PR comments mentioning the command', () => {
@@ -169,7 +175,7 @@ describe('EvalForge wix-app re-eval workflow', () => {
   // Checking out PR content here would be a pwn-request: issue_comment runs from the default
   // branch with secrets available.
   it('checks out no PR ref', () => {
-    for (const checkout of job.steps.filter((s: { uses?: string }) => s.uses?.includes('actions/checkout'))) {
+    for (const checkout of job.steps.filter(step => step.uses?.includes('actions/checkout'))) {
       expect(checkout.with?.ref).toBeUndefined();
     }
   });

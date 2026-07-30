@@ -29946,13 +29946,13 @@ function safeGetSecret(io, name) {
     return value;
 }
 function getPrNumber(payload) {
-    const pr = payload.pull_request;
-    if (!pr)
-        throw new Error('No pull_request payload — action must be triggered by a pull_request event');
-    const n = pr.number;
-    if (!n)
-        throw new Error('PR payload missing number');
-    return n;
+    const number = payload.pull_request?.number
+        ?? (payload.issue?.pull_request ? payload.issue.number : undefined);
+    if (!number) {
+        throw new Error('No pull request in the event payload — this action must be triggered by a pull_request '
+            + 'event, or by an issue_comment on a pull request');
+    }
+    return number;
 }
 
 
@@ -30114,6 +30114,49 @@ async function assertWixAuthor(octokit, owner, repo, prNumber, log) {
             `is not a @wix.com address. This gate is restricted to Wix authors.`);
     }
     log?.(`Author gate passed — first-commit author email: ${email}`);
+}
+
+
+/***/ }),
+
+/***/ 6151:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.checkReEvalRequester = checkReEvalRequester;
+/**
+ * Allow-list rather than a deny-list: `triage` and anything GitHub adds later must not be read as
+ * approval just because it is not `read`.
+ */
+const ALLOWED_PERMISSIONS = ['admin', 'write'];
+async function checkReEvalRequester(octokit, target) {
+    // First, so the common case — "my run flaked, run it again" — costs no API call and cannot be
+    // denied by a permissions problem on an endpoint that itself wants push access.
+    if (target.requester === target.prAuthor)
+        return { allowed: true, via: 'author' };
+    try {
+        const { data } = await octokit.rest.repos.getCollaboratorPermissionLevel({
+            owner: target.owner,
+            repo: target.repo,
+            username: target.requester,
+        });
+        if (data.permission && ALLOWED_PERMISSIONS.includes(data.permission)) {
+            return { allowed: true, via: 'collaborator' };
+        }
+        return {
+            allowed: false,
+            reason: 'only the PR author or a collaborator with write access can trigger `/re-eval`',
+        };
+    }
+    catch (error) {
+        const detail = error instanceof Error ? error.message : String(error);
+        return {
+            allowed: false,
+            reason: `the collaborator permission lookup failed (${detail}), so the request could not be authorised`,
+        };
+    }
 }
 
 
@@ -30779,13 +30822,67 @@ function evaluateRunResult(status) {
 
 /***/ }),
 
+/***/ 202:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.RERUN_WINDOW_DAYS = exports.GateRunLookup = void 0;
+exports.findGateRun = findGateRun;
+/**
+ * Locates the gate workflow run that `/re-eval` should re-run.
+ *
+ * `/re-eval` re-runs the PR's own `pull_request` run rather than evaluating in a second workflow,
+ * because an `issue_comment` run is associated with the default branch's commit while required
+ * checks are evaluated on the PR head. A second workflow would therefore pass somewhere the PR
+ * cannot see, leaving the original failed check in place and the PR unmergeable.
+ */
+exports.GateRunLookup = {
+    FOUND: 'FOUND',
+    NONE: 'NONE',
+    ACTIVE: 'ACTIVE',
+    TOO_OLD: 'TOO_OLD',
+};
+/** GitHub allows re-running a workflow run for 30 days after it completes. */
+exports.RERUN_WINDOW_DAYS = 30;
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+async function findGateRun(octokit, target) {
+    const { data } = await octokit.rest.actions.listWorkflowRuns({
+        owner: target.owner,
+        repo: target.repo,
+        workflow_id: target.workflowFile,
+        // The gate's own trigger, so a differently-triggered run of the same file cannot be picked up.
+        // The API returns newest first, so a single item is the latest attempt.
+        event: 'pull_request',
+        head_sha: target.headSha,
+        per_page: 1,
+    });
+    const [latest] = data.workflow_runs;
+    if (!latest)
+        return { kind: exports.GateRunLookup.NONE };
+    // Anything other than `completed` — queued, in_progress, waiting, pending, requested — is a run
+    // we must not race. Tested against the whole set rather than the two obvious values.
+    if (latest.status !== 'completed') {
+        return { kind: exports.GateRunLookup.ACTIVE, runUrl: latest.html_url };
+    }
+    const ageDays = (target.now.getTime() - new Date(latest.updated_at).getTime()) / MS_PER_DAY;
+    if (ageDays > exports.RERUN_WINDOW_DAYS) {
+        return { kind: exports.GateRunLookup.TOO_OLD, completedAt: latest.updated_at };
+    }
+    return { kind: exports.GateRunLookup.FOUND, runId: latest.id, runUrl: latest.html_url };
+}
+
+
+/***/ }),
+
 /***/ 5970:
 /***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
 
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.GATE_COMMENT_MARKER = void 0;
+exports.RE_EVAL_COMMENT_MARKER = exports.GATE_COMMENT_MARKER = void 0;
 exports.formatYamlErrors = formatYamlErrors;
 exports.formatGateSkipped = formatGateSkipped;
 exports.formatNoGatedChanges = formatNoGatedChanges;
@@ -30795,8 +30892,18 @@ exports.formatGateResult = formatGateResult;
 exports.formatGateTimeout = formatGateTimeout;
 exports.formatGatePollFailure = formatGatePollFailure;
 exports.formatGateServiceError = formatGateServiceError;
+exports.formatReEvalRefusal = formatReEvalRefusal;
 const evalforge_1 = __nccwpck_require__(7230);
 exports.GATE_COMMENT_MARKER = '<!-- evalforge-skill-gate-action -->';
+/**
+ * A second marker, so a `/re-eval` refusal cannot clobber a verdict.
+ *
+ * The gate commenter upserts on `GATE_COMMENT_MARKER`. Since anyone who can comment on a public
+ * repo can trigger a refusal, sharing the marker would let a stranger's rejected request overwrite
+ * the evidence of the run that mattered. Refusals also upsert over each other, so ten attempts
+ * leave one comment.
+ */
+exports.RE_EVAL_COMMENT_MARKER = '<!-- evalforge-skill-gate-re-eval -->';
 const HEADING = 'EvalForge Skill Gate';
 function render(icon, label, body) {
     return [exports.GATE_COMMENT_MARKER, `## ${icon} ${HEADING}: ${label}`, '', ...body].join('\n');
@@ -30816,11 +30923,12 @@ function runLine(runId, runUrl) {
     return `**Run:** [${runId}](${runUrl})`;
 }
 /**
- * The three outcomes where nothing was verified and retrying is the answer. A push re-triggers the
- * gate today; CODEAI-895 adds a `/re-eval` comment so it does not need a commit.
+ * The three outcomes where nothing was verified and retrying is the answer. These are live-system
+ * flakes rather than PR problems, so `/re-eval` (CODEAI-895) is listed first: it re-runs the gate
+ * without asking for a commit the PR does not need.
  */
 function retryNote() {
-    return ['', '_Push any commit to run the gate again._'];
+    return ['', '_Comment `/re-eval` to run the gate again, or push a new commit._'];
 }
 function soakNote(blocking) {
     return blocking
@@ -30974,6 +31082,21 @@ function formatGateServiceError(message, blocking, label = 'Service Error') {
     const { icon } = failIcon(blocking);
     return render(icon, label, [message, ...retryNote(), ...soakNote(blocking)]);
 }
+/**
+ * Declining a `/re-eval` request.
+ *
+ * Rendered under `RE_EVAL_COMMENT_MARKER`, not the gate marker — see that constant. A refusal is an
+ * ordinary outcome, not a failed check: the dispatcher declining to spend money is the system
+ * working.
+ */
+function formatReEvalRefusal(reason) {
+    return [
+        exports.RE_EVAL_COMMENT_MARKER,
+        `## 🚫 ${HEADING}: Re-eval Declined`,
+        '',
+        `Cannot re-run the gate: ${reason}.`,
+    ].join('\n');
+}
 
 
 /***/ }),
@@ -31114,6 +31237,9 @@ __exportStar(__nccwpck_require__(3308), exports);
 __exportStar(__nccwpck_require__(8833), exports);
 __exportStar(__nccwpck_require__(3460), exports);
 __exportStar(__nccwpck_require__(5970), exports);
+__exportStar(__nccwpck_require__(9587), exports);
+__exportStar(__nccwpck_require__(6151), exports);
+__exportStar(__nccwpck_require__(202), exports);
 
 
 /***/ }),
@@ -31170,6 +31296,23 @@ function loadScenarios(root, globPattern) {
         scenarios.set(parsed.name, { path: rel, scenario: parsed });
     }
     return { scenarios, errors };
+}
+
+
+/***/ }),
+
+/***/ 9587:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.parseReEvalCommand = parseReEvalCommand;
+const COMMAND = '/re-eval';
+function parseReEvalCommand(body) {
+    const [firstLine = ''] = body.trim().split('\n');
+    const [firstToken = ''] = firstLine.trim().split(/\s+/);
+    return { isCommand: firstToken.toLowerCase() === COMMAND };
 }
 
 
@@ -61629,12 +61772,14 @@ const core = __importStar(__nccwpck_require__(7484));
 const sync_run_1 = __nccwpck_require__(5466);
 const gate_run_1 = __nccwpck_require__(4734);
 const cleanup_run_1 = __nccwpck_require__(5717);
-// Modes for the wix-app skill flows: the per-PR eval gate, its PR-close cleanup, and
-// merge-time scenario sync. See README.md for the full flow of each.
+const re_eval_run_1 = __nccwpck_require__(9747);
+// Modes for the wix-app skill flows: the per-PR eval gate, its PR-close cleanup, merge-time
+// scenario sync, and the `/re-eval` comment dispatcher. See README.md for the full flow of each.
 const modes = {
     sync: sync_run_1.runSync,
     gate: gate_run_1.runGate,
     cleanup: cleanup_run_1.runCleanup,
+    're-eval': re_eval_run_1.runReEval,
 };
 const mode = core.getInput('mode') || 'sync';
 const handler = modes[mode];
@@ -61874,6 +62019,7 @@ exports.MAX_SCENARIOS_CEILING = exports.BASE_WORKSPACE_SUBDIR = void 0;
 exports.getSyncConfig = getSyncConfig;
 exports.getGateConfig = getGateConfig;
 exports.getCleanupConfig = getCleanupConfig;
+exports.getReEvalConfig = getReEvalConfig;
 const core = __importStar(__nccwpck_require__(7484));
 const github = __importStar(__nccwpck_require__(3228));
 const evalforge_core_1 = __nccwpck_require__(7495);
@@ -61933,15 +62079,20 @@ function getHeadSha() {
     return head.sha;
 }
 /**
- * On `pull_request` the checkout is the merge commit, which `GITHUB_SHA` names. The label must
- * come from this, not `head.sha`: the same head yields different merge content as base
- * advances, so `createOrReuseSkillVersion` would reuse a version built from stale content.
+ * The commit the version label is content-addressed to. It must be the commit actually checked out,
+ * not `head.sha`: the same head yields different merge content as base advances, so
+ * `createOrReuseSkillVersion` would reuse a version built from stale content.
+ *
+ * `GITHUB_SHA` names the merge commit on `pull_request` — but on a **re-run** it names the merge
+ * commit from the *original* event, while `actions/checkout` resolves `refs/pull/<n>/merge` fresh.
+ * If base advanced in between, those differ. So the workflow passes `git rev-parse HEAD` and this
+ * prefers it; `GITHUB_SHA` remains the fallback for a caller that does not.
  */
 function getEvaluatedSha() {
-    const sha = process.env.GITHUB_SHA;
+    const sha = core.getInput('evaluated-sha') || process.env.GITHUB_SHA;
     if (!sha) {
-        throw new Error('GITHUB_SHA is not set, so the skill version cannot be labelled for the commit actually '
-            + 'evaluated. This action expects to run in GitHub Actions.');
+        throw new Error('Neither the evaluated-sha input nor GITHUB_SHA is set, so the skill version cannot be '
+            + 'labelled for the commit actually evaluated. This action expects to run in GitHub Actions.');
     }
     return sha;
 }
@@ -61987,6 +62138,14 @@ function getCleanupConfig() {
         evalsGlob: core.getInput('evals-glob', { required: true }),
         repoFullName: `${owner}/${repo}`,
         prNumber: (0, evalforge_core_1.getPrNumber)(github.context.payload),
+    };
+}
+function getReEvalConfig() {
+    return {
+        githubToken: (0, evalforge_core_1.safeGetSecret)(core, 'github-token'),
+        owner: github.context.repo.owner,
+        repo: github.context.repo.repo,
+        gateWorkflowFile: core.getInput('gate-workflow-file', { required: true }),
     };
 }
 
@@ -62280,6 +62439,210 @@ async function isDraftTagActive(octokit, tag) {
         core.warning(`Could not resolve draft tag ${tag}: ${(0, report_1.describeError)(error)}`);
         return true;
     }
+}
+
+
+/***/ }),
+
+/***/ 3437:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.resolveCommentPrContext = resolveCommentPrContext;
+const github = __importStar(__nccwpck_require__(3228));
+const evalforge_core_1 = __nccwpck_require__(7495);
+/**
+ * Everything the `/re-eval` dispatcher needs about a PR and the person asking.
+ *
+ * One `pulls.get` supplies state, draft and whether the head is a fork — which the automatic gate
+ * gets from its workflow `if:`, and a comment trigger has no equivalent of.
+ */
+async function resolveCommentPrContext(octokit) {
+    const { owner, repo } = github.context.repo;
+    const prNumber = (0, evalforge_core_1.getPrNumber)(github.context.payload);
+    const { data } = await octokit.rest.pulls.get({ owner, repo, pull_number: prNumber });
+    const comment = github.context.payload.comment;
+    return {
+        prNumber,
+        headSha: data.head.sha,
+        prAuthor: data.user?.login ?? '',
+        requester: comment?.user?.login ?? '',
+        commentBody: comment?.body ?? '',
+        state: data.state === 'open' ? 'open' : 'closed',
+        isDraft: data.draft === true,
+        isSameRepo: data.head.repo?.full_name === `${owner}/${repo}`,
+    };
+}
+
+
+/***/ }),
+
+/***/ 9747:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.runReEval = runReEval;
+const core = __importStar(__nccwpck_require__(7484));
+const github = __importStar(__nccwpck_require__(3228));
+const evalforge_core_1 = __nccwpck_require__(7495);
+const config_1 = __nccwpck_require__(7799);
+const re_eval_context_1 = __nccwpck_require__(3437);
+/**
+ * The `/re-eval` dispatcher.
+ *
+ * It evaluates nothing. It re-runs the PR's own gate run, so the existing check updates in place —
+ * the only version of this feature that leaves the PR mergeable once the gate is a required check.
+ * An `issue_comment` run is associated with the default branch's commit, while required checks are
+ * evaluated on the PR head, so a second workflow would pass somewhere the PR cannot see.
+ */
+async function runReEval() {
+    const config = (0, config_1.getReEvalConfig)();
+    const octokit = github.getOctokit(config.githubToken);
+    const context = await (0, re_eval_context_1.resolveCommentPrContext)(octokit);
+    if (!(0, evalforge_core_1.parseReEvalCommand)(context.commentBody).isCommand) {
+        core.info('Comment is not a /re-eval command — nothing to do.');
+        return;
+    }
+    const refuse = async (reason) => {
+        core.info(`Declining /re-eval from ${context.requester} on PR #${context.prNumber}: ${reason}`);
+        // Its own marker: upserting through GATE_COMMENT_MARKER would overwrite the last real verdict,
+        // and anyone who can comment on a public repo can reach this path.
+        const comment = (0, evalforge_core_1.makeCommenter)(octokit, { owner: config.owner, repo: config.repo, prNumber: context.prNumber, marker: evalforge_core_1.RE_EVAL_COMMENT_MARKER }, {
+            warn: core.warning,
+            writeSummary: async (body) => { await core.summary.addRaw(body).write(); },
+        });
+        await comment((0, evalforge_core_1.formatReEvalRefusal)(reason));
+    };
+    const ineligible = describeIneligibility(context);
+    if (ineligible !== null)
+        return refuse(ineligible);
+    const requester = await (0, evalforge_core_1.checkReEvalRequester)(octokit, {
+        owner: config.owner,
+        repo: config.repo,
+        requester: context.requester,
+        prAuthor: context.prAuthor,
+    });
+    if (!requester.allowed)
+        return refuse(requester.reason);
+    const run = await (0, evalforge_core_1.findGateRun)(octokit, {
+        owner: config.owner,
+        repo: config.repo,
+        workflowFile: config.gateWorkflowFile,
+        headSha: context.headSha,
+        now: new Date(),
+    });
+    switch (run.kind) {
+        case evalforge_core_1.GateRunLookup.NONE:
+            return refuse('no gate run exists for this commit — push a commit touching a gated path and the gate '
+                + 'runs automatically');
+        case evalforge_core_1.GateRunLookup.ACTIVE:
+            // A markdown link, not a bare URL: the reason is rendered mid-sentence and the trailing
+            // period would otherwise be swallowed into the href by some clients.
+            return refuse(`a gate run is already in progress for this commit — see [the run in progress](${run.runUrl})`);
+        case evalforge_core_1.GateRunLookup.TOO_OLD:
+            return refuse(`the gate run for this commit completed on ${run.completedAt.slice(0, 10)} and is past `
+                + "GitHub's 30-day re-run window — push a commit to run the gate again");
+        case evalforge_core_1.GateRunLookup.FOUND:
+            await octokit.rest.actions.reRunWorkflow({
+                owner: config.owner,
+                repo: config.repo,
+                run_id: run.runId,
+            });
+            core.info(`Re-running gate run ${run.runId} (${run.runUrl}) for PR #${context.prNumber}, `
+                + `requested by ${context.requester} (allowed as ${requester.via}).`);
+            return;
+    }
+}
+/**
+ * The three PR states the automatic gate excludes in its workflow `if:`, which a comment trigger
+ * has to check for itself.
+ *
+ * `null` means "no reason to refuse" — a genuine absence, not a "stop here" signal, so a plain
+ * nullable is right here where a discriminated result would be ceremony. Checked before the
+ * requester so an ineligible PR costs no permission lookup.
+ */
+function describeIneligibility(context) {
+    if (context.state === 'closed') {
+        return 'this PR is closed — the gate only evaluates open PRs, and its capability version and '
+            + 'draft tags were already swept on close';
+    }
+    if (context.isDraft) {
+        return 'this PR is a draft — mark it ready for review and the gate runs automatically';
+    }
+    if (!context.isSameRepo) {
+        return 'the branch lives in a fork — the gate only evaluates branches in this repository';
+    }
+    return null;
 }
 
 
