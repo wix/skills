@@ -1,0 +1,41 @@
+name: restaurants/restaurants-dashboard-navigation
+description: >-
+  Verifies the agent reads the restaurants-dashboard-navigation recipe when
+  asked for direct links to Wix Restaurants dashboard pages, and returns
+  correct manage.wix.com URLs across the wix-restaurants-menus-new,
+  wix-restaurants-orders-new, and wix-table-reservations namespaces.
+triggerPrompt: >-
+  My Wix site's meta site id is 2c9d2b46-fc18-4557-ae71-4d21a2228914. Give me
+  direct dashboard links to: my restaurant's menus, the menu items page, the
+  board where incoming online orders show up, and my table reservations list.
+tags: [restaurants]
+maxTokens: 30000
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/skills/restaurants-dashboard-navigation
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked for direct Wix dashboard links (meta site id
+      2c9d2b46-fc18-4557-ae71-4d21a2228914) to: the restaurant menus page, the
+      menu items page, the incoming online orders board, and the table
+      reservations list.
+
+      Pass if the response:
+      - gives URLs under https://manage.wix.com/dashboard/2c9d2b46-fc18-4557-ae71-4d21a2228914/, AND
+      - uses wix-restaurants-menus-new for the menus page and
+        wix-restaurants-menus-new/items for the items page, AND
+      - uses wix-restaurants-orders-new for the online orders board, AND
+      - uses wix-table-reservations/table-reservations for the reservations list.
+
+      Fail if the response:
+      - invents dashboard routes that are not in the recipe (e.g.
+        restaurants/orders, dashboard/menus), OR
+      - uses the legacy restaurants/menus-management or
+        restaurants/table-reservations paths instead of the current routes, OR
+      - puts orders under wix-restaurants-menus-new/ or reservations under
+        wix-restaurants-orders-new/, OR
+      - omits the meta site id from the URLs or uses a different domain, OR
+      - only describes how to click through the dashboard instead of giving links.

@@ -1,0 +1,33 @@
+name: blog/blog-dashboard-navigation
+description: >-
+  Verifies the agent reads the blog-dashboard-navigation recipe when asked
+  for direct links to Wix Blog dashboard pages, and returns correct
+  manage.wix.com URLs under the blog namespace.
+triggerPrompt: >-
+  My Wix site's meta site id is 2c9d2b46-fc18-4557-ae71-4d21a2228914. Give me
+  direct dashboard links to: my blog posts list, my blog categories, comment
+  moderation, and my blog analytics.
+tags: [blog]
+maxTokens: 30000
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/blog/skills/blog-dashboard-navigation
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked for direct Wix dashboard links (meta site id
+      2c9d2b46-fc18-4557-ae71-4d21a2228914) to: the blog posts list, blog
+      categories, comment moderation, and blog analytics.
+
+      Pass if the response:
+      - gives URLs under https://manage.wix.com/dashboard/2c9d2b46-fc18-4557-ae71-4d21a2228914/, AND
+      - uses blog/posts for the posts list, blog/categories for categories,
+        blog/comments for comment moderation, and blog/analytics for analytics.
+
+      Fail if the response:
+      - invents dashboard routes that are not in the recipe (e.g.
+        blog/manage-posts, blog/post-list, dashboard/blog), OR
+      - omits the meta site id from the URLs or uses a different domain, OR
+      - only describes how to click through the dashboard instead of giving links.

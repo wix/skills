@@ -43,6 +43,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ### [How to Create Blog Posts](references/blog/how-to-create-blog-posts.md)
 **Technical:** Creates and publishes blog posts using Blog Posts API. Covers Ricos rich content format, image upload via Media Manager, category/tag assignment, and bulk post creation.
 
+### [Blog Dashboard Navigation](references/blog/blog-dashboard-navigation.md)
+**Technical:** Direct links to Wix Blog dashboard pages on manage.wix.com (posts list with published/draft tabs, categories, tags, writers, comments, analytics, monetization, settings), pairing each main Blog entity with its read API for "view it in your dashboard" links.
+
 ---
 
 ## Bookings
@@ -250,12 +253,18 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ### [Pricing Plans Bookings Integration](references/pricing-plans/pricing-plans-bookings-integration.md)
 **Technical:** Links Pricing Plans to Bookings services using the Benefit Programs API. Enables package deals and memberships that grant booking access.
 
+### [Pricing Plans Dashboard Navigation](references/pricing-plans/pricing-plans-dashboard-navigation.md)
+**Technical:** Direct links to Wix Pricing Plans dashboard pages on manage.wix.com (plans list, create plan, edit plan, new manual order, settings), pairing each main Pricing Plans entity with its read API for "view it in your dashboard" links.
+
 ---
 
 ## Restaurants
 
 ### [Wix Restaurants Setup](references/restaurants/wix-restaurants-setup.md)
 **Technical:** Configures restaurant menus, sections, and items using Menus API. Covers menu structure (Menu → Section → Item), modifiers, pricing, availability schedules, and ordering settings.
+
+### [Restaurants Dashboard Navigation](references/restaurants/restaurants-dashboard-navigation.md)
+**Technical:** Direct links to Wix Restaurants dashboard pages on manage.wix.com (menus, edit menu, items, online orders board, online-ordering fulfillment settings, reservations list, floor plans, reservation experiences), pairing each main Restaurants entity with its read API for "view it in your dashboard" links.
 
 ---
 
