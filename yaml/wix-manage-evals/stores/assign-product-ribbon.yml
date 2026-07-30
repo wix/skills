@@ -4,8 +4,7 @@ description: >-
   badge on the product, not as a discount rule, and that the product's price is
   left unchanged.
 triggerPrompt: >-
-  Put a "Sale" ribbon on the Ribbon Test Mug in my store so it stands out on the
-  product list. I just want the badge — don't change the price.
+  Create a "Sale" ribbon for my store products and put it on the Ribbon Test Mug.
 tags: [stores]
 siteSetup:
   mode: template
@@ -35,8 +34,10 @@ assertions:
     minScore: 7
     maxTokens: 2048
     prompt: |
-      The merchant asked for a "Sale" ribbon on the product "Ribbon Test Mug", and explicitly said
-      not to change the price.
+      The merchant asked for a "Sale" ribbon on the product "Ribbon Test Mug". They said nothing
+      about price, and that is deliberate: the request is ambiguous exactly where the defect lives.
+      A ribbon request means the badge. It is NOT a request for a discount, and an agent that
+      reaches for Discount Rules here has been misrouted.
 
       A ribbon is a catalog badge set through the product's `ribbon` field on the Catalog V3
       Products API. It is NOT a discount rule and NOT a coupon, and assigning one does not change
@@ -48,7 +49,7 @@ assertions:
            (`stores/v3/products`), and reports it as done.
         2. The ribbon is "Sale".
         3. No discount rule and no coupon was created.
-        4. The product's price was not changed.
+        4. The product's price was not changed, and no discount was applied to it.
 
       Fail if ANY of these are true:
         - The agent created a discount rule or a coupon, or reports that a ribbon is configured
