@@ -1,0 +1,204 @@
+# Seeds nine products through /stores/v3/products-with-inventory so each one gets a real
+# inventory item: four are created with inventoryItem.inStock = false and five with
+# inStock = true. A plain POST /stores/v3/products creates NO inventory item, so the
+# product would come back untracked/available and could never surface as out of stock —
+# hence products-with-inventory here. The seeded names are the ground truth: they are
+# knowable only by querying the catalog.
+#
+# The mix matters. Reading the stock flag off a field that does not exist on a Catalog V3
+# product yields an empty result set rather than an error, so a wrong field name produces a
+# confident "everything is in stock" answer. Five in-stock decoys mean a correct answer has
+# to be both complete (all four) and precise (none of the five).
+name: stores/list-out-of-stock-products-catalog-v3
+description: >
+  A store owner asking which of their products are out of stock. Stock lives on the Catalog
+  V3 product as `inventory.availabilityStatus` (IN_STOCK / OUT_OF_STOCK /
+  PARTIALLY_OUT_OF_STOCK) and is returned by default with no `fields` request; there is no
+  `stock` field on the product. Expected: one products query, then select on
+  `inventory.availabilityStatus` client-side, and report all four seeded out-of-stock
+  products by name. Anti-patterns: reading a non-existent `stock` field and reporting zero
+  out-of-stock products; omitting some of them; naming in-stock products as out of stock;
+  answering without querying.
+triggerPrompt: >
+  Which of my store products are out of stock?
+tags: [stores, aria]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/stores/skills/find-products-query-and-search-catalog-v3
+  - type: llm_judge          # GATE — outcome correctness
+    minScore: 7
+    maxTokens: 2048
+    prompt: >
+      Intent: the user wants the list of products in their Wix store that are out of stock.
+
+      Ground truth for this site. Exactly four products are out of stock: "Eval Stock
+      Kettle", "Eval Stock Tumbler", "Eval Stock Apron", "Eval Stock Coaster Set". Five
+      products are in stock: "Eval Stock Mug", "Eval Stock Teapot", "Eval Stock Strainer",
+      "Eval Stock Caddy", "Eval Stock Whisk". The agent can only know these names by
+      actually querying the catalog.
+
+      Pass only if the final answer names all four out-of-stock products and names none of
+      the five in-stock products as out of stock.
+
+      Fail if the answer reports that no products are out of stock, or reports an empty
+      list, or states it could not determine stock status. Fail if it omits any of the four
+      out-of-stock products — an incomplete list is a wrong answer here, not a partial
+      credit. Fail if it labels any of the five in-stock products as out of stock. Fail if
+      it lists products it never retrieved (invented names, or names not among the nine
+      above).
+
+      Return ONLY {"score":<0-10>,"reason":"<one sentence>"}.
+  - type: llm_judge          # SIGNAL — non-gating MCP friction
+    minScore: 0
+    maxTokens: 2048
+    prompt: >
+      DIAGNOSTIC, non-gating — rate how smoothly the Wix MCP and its docs let the agent
+      fulfill the request. Examine the tool-call trace. Score 0-10 (10 = direct: one
+      products query plus a client-side selection, no wasted calls, no errors).
+
+      Penalize and LIST any of: reading or filtering on a product field that does not
+      exist (for example `stock`, `stock.inventoryStatus`, `priceData`) and getting an
+      empty or undefined result; a query that returned zero matches and had to be re-run;
+      a repeat query issued only to dump a product object and discover where stock lives;
+      a `filter` on `inventory.availabilityStatus` sent to the products query, which does
+      not support it; a guessed endpoint that 404'd (for example
+      `/stores/v3/inventory/query`); a 400 from filtering on an unsupported field; extra
+      documentation or API-spec searches needed to locate the stock field or the inventory
+      endpoint; falling back to Inventory Items V3 and then needing further calls to map
+      product IDs back to names.
+
+      For each issue, name the likely MCP or docs gap.
+
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected MCP/docs gap, or 'clean path' if none>"}.
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
+  bootstrap:
+    steps:
+      - label: seed out-of-stock kettle
+        method: post
+        url: https://www.wixapis.com/stores/v3/products-with-inventory
+        body:
+          product:
+            name: Eval Stock Kettle
+            productType: PHYSICAL
+            physicalProperties: {}
+            variantsInfo:
+              variants:
+                - price: { actualPrice: { amount: "48.00" } }
+                  physicalProperties: {}
+                  visible: true
+                  inventoryItem: { inStock: false }
+      - label: seed out-of-stock tumbler
+        method: post
+        url: https://www.wixapis.com/stores/v3/products-with-inventory
+        body:
+          product:
+            name: Eval Stock Tumbler
+            productType: PHYSICAL
+            physicalProperties: {}
+            variantsInfo:
+              variants:
+                - price: { actualPrice: { amount: "22.50" } }
+                  physicalProperties: {}
+                  visible: true
+                  inventoryItem: { inStock: false }
+      - label: seed out-of-stock apron
+        method: post
+        url: https://www.wixapis.com/stores/v3/products-with-inventory
+        body:
+          product:
+            name: Eval Stock Apron
+            productType: PHYSICAL
+            physicalProperties: {}
+            variantsInfo:
+              variants:
+                - price: { actualPrice: { amount: "31.00" } }
+                  physicalProperties: {}
+                  visible: true
+                  inventoryItem: { inStock: false }
+      - label: seed out-of-stock coaster set
+        method: post
+        url: https://www.wixapis.com/stores/v3/products-with-inventory
+        body:
+          product:
+            name: Eval Stock Coaster Set
+            productType: PHYSICAL
+            physicalProperties: {}
+            variantsInfo:
+              variants:
+                - price: { actualPrice: { amount: "17.25" } }
+                  physicalProperties: {}
+                  visible: true
+                  inventoryItem: { inStock: false }
+      - label: seed in-stock mug
+        method: post
+        url: https://www.wixapis.com/stores/v3/products-with-inventory
+        body:
+          product:
+            name: Eval Stock Mug
+            productType: PHYSICAL
+            physicalProperties: {}
+            variantsInfo:
+              variants:
+                - price: { actualPrice: { amount: "14.00" } }
+                  physicalProperties: {}
+                  visible: true
+                  inventoryItem: { inStock: true }
+      - label: seed in-stock teapot
+        method: post
+        url: https://www.wixapis.com/stores/v3/products-with-inventory
+        body:
+          product:
+            name: Eval Stock Teapot
+            productType: PHYSICAL
+            physicalProperties: {}
+            variantsInfo:
+              variants:
+                - price: { actualPrice: { amount: "39.90" } }
+                  physicalProperties: {}
+                  visible: true
+                  inventoryItem: { inStock: true }
+      - label: seed in-stock strainer
+        method: post
+        url: https://www.wixapis.com/stores/v3/products-with-inventory
+        body:
+          product:
+            name: Eval Stock Strainer
+            productType: PHYSICAL
+            physicalProperties: {}
+            variantsInfo:
+              variants:
+                - price: { actualPrice: { amount: "9.50" } }
+                  physicalProperties: {}
+                  visible: true
+                  inventoryItem: { inStock: true }
+      - label: seed in-stock caddy
+        method: post
+        url: https://www.wixapis.com/stores/v3/products-with-inventory
+        body:
+          product:
+            name: Eval Stock Caddy
+            productType: PHYSICAL
+            physicalProperties: {}
+            variantsInfo:
+              variants:
+                - price: { actualPrice: { amount: "26.75" } }
+                  physicalProperties: {}
+                  visible: true
+                  inventoryItem: { inStock: true }
+      - label: seed in-stock whisk
+        method: post
+        url: https://www.wixapis.com/stores/v3/products-with-inventory
+        body:
+          product:
+            name: Eval Stock Whisk
+            productType: PHYSICAL
+            physicalProperties: {}
+            variantsInfo:
+              variants:
+                - price: { actualPrice: { amount: "11.40" } }
+                  physicalProperties: {}
+                  visible: true
+                  inventoryItem: { inStock: true }

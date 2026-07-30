@@ -19,6 +19,7 @@ Use **Search Products** for text search and name-based lookup. Use **Query Produ
 | List all products or page through the catalog | [Query Products](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/query-products) | Supports paging and structured filters on the fields listed below. |
 | Filter by `id`, `slug`, `handle`, dates, or `visible` | [Query Products](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/query-products) | Best for exact structured criteria. |
 | Need exact name matching after text lookup | [Search Products](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/search-products) + client-side match | Search by the name text, then match the returned `product.name` in your own code. |
+| Find which products are out of stock | [Query Products](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/query-products) + client-side select | Stock lives on `inventory`, **not** `stock`, and is not filterable. See STEP 6. |
 
 ### STEP 1: Search products by name or free text
 
@@ -54,7 +55,7 @@ curl -X POST 'https://www.wixapis.com/stores/v3/products/query' \
 }'
 ```
 
-This returns all products with their default fields (id, name, slug, visible, productType, priceData, stock, media, etc.).
+This returns all products with their default fields (`id`, `name`, `slug`, `visible`, `productType`, `inventory`, `media`, `actualPriceRange`, `createdDate`, `updatedDate`, and more).
 
 ### STEP 3: Understanding the `fields` parameter
 
@@ -142,43 +143,51 @@ curl -X POST 'https://www.wixapis.com/stores/v3/products/query' \
 }'
 ```
 
-**Filter by product IDs:**
-
-```bash
-curl -X POST 'https://www.wixapis.com/stores/v3/products/query' \
--H 'Content-Type: application/json' \
--H 'Authorization: <AUTH>' \
--d '{
-  "fields": [],
-  "query": {
-    "filter": {
-      "id": {
-        "$in": [
-          "product-id-1",
-          "product-id-2"
-        ]
-      }
-    }
-  }
-}'
-```
+To filter by several product IDs, use the same shape with `"filter": {"id": {"$in": ["id-1", "id-2"]}}`.
 
 ### STEP 5: Handling pagination
 
-When there are more products than the page limit, use cursor-based or offset-based paging:
+The endpoint returns at most 100 products per request. Raise `query.paging.limit` to 100, then check the response `pagingMetadata` to determine whether more pages exist and continue paging until they are exhausted.
+
+### STEP 6: Find which products are out of stock
+
+Stock is on the product as **`inventory`**. There is **no `stock` field** on a Catalog V3 product, so `product.stock` is always `undefined` and any check on it silently matches nothing.
+
+`inventory` is returned **by default** — no `fields` enum value requests it, and none is needed:
 
 ```json
-{
-  "query": {
-    "paging": {
-      "limit": 100,
-      "offset": 0
-    }
-  }
+"inventory": {
+  "availabilityStatus": "OUT_OF_STOCK",
+  "preorderStatus": "DISABLED",
+  "preorderAvailability": "NO_VARIANTS"
 }
 ```
 
-Check the response `pagingMetadata` to determine if more pages exist.
+`inventory.availabilityStatus` is one of exactly three values:
+
+| Value | Meaning |
+| ----- | ------- |
+| `IN_STOCK` | All variants are in stock and available for purchase. |
+| `OUT_OF_STOCK` | All variants are out of stock. |
+| `PARTIALLY_OUT_OF_STOCK` | Some variants are out of stock, some are in stock. |
+
+`inventory` is **absent from STEP 4's filterable field list**, so `QueryProducts` cannot filter on it — put it in `query.filter` and the request is rejected. Answer the question in **one** query call and select in your own code:
+
+```js
+// products from POST /stores/v3/products/query with "fields": []
+const outOfStock = products.filter(
+  (p) => p.inventory?.availabilityStatus === 'OUT_OF_STOCK'
+      || p.inventory?.availabilityStatus === 'PARTIALLY_OUT_OF_STOCK',
+);
+```
+
+Include `PARTIALLY_OUT_OF_STOCK` — those products do have out-of-stock variants, and omitting them under-reports. Page until `pagingMetadata.hasNext` is `false` so no product is missed.
+
+**Only for per-variant or per-location stock detail**, use Inventory Items V3 — do not reach for it just to list out-of-stock products:
+
+**Endpoint:** `POST https://www.wixapis.com/stores/v3/inventory-items/query`
+
+It *can* filter on `availabilityStatus` (`IN_STOCK`, `OUT_OF_STOCK`, `PREORDER` — a different enum from the product's), and on `inStock`, `quantity`, `trackQuantity`, `productId`, and `product.name`. Items with `trackQuantity: true` carry a numeric `quantity`; items with `trackQuantity: false` carry a boolean `inStock` instead.
 
 ---
 
@@ -186,7 +195,8 @@ Check the response `pagingMetadata` to determine if more pages exist.
 
 - **Variant data is NOT returned** by Query Products. To get variant details, use [Get Product](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/get-product) for individual products.
 - **Non-visible products** require the `SCOPE.STORES.PRODUCT_READ_ADMIN` permission.
-- Default fields include: `id`, `name`, `slug`, `visible`, `productType`, `priceData`, `stock`, `media`, `createdDate`, `updatedDate`.
+- Default fields include: `id`, `name`, `slug`, `visible`, `productType`, `inventory`, `media`, `actualPriceRange`, `compareAtPriceRange`, `variantSummary`, `createdDate`, `updatedDate`.
+- There is **no `stock` field and no `priceData` field** on a Catalog V3 product. `priceData` is Catalog V1; in V3 prices are `actualPriceRange` / `compareAtPriceRange`, and stock is `inventory` (see STEP 6).
 - The `fields` parameter adds fields **on top of** the defaults — you never need to request `id` or `name` explicitly.
 
 ## Conclusion
