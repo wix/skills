@@ -200,18 +200,29 @@ If scope is CATEGORY, call `getCategoryIds` to convert category names to GUIDs.
       "start": "2026-11-23T00:00:00.000Z",
       "end": "2026-12-01T23:59:59.000Z"
     },
-    "discounts": [
-      {
-        "discount": {
+    "discounts": {
+      "values": [
+        {
+          "targetType": "SPECIFIC_ITEMS",
+          "specificItemsInfo": {
+            "scopes": [
+              {
+                "id": "collections_215238eb-22a5-4c36-9e7b-e7c08025e04e",
+                "type": "CUSTOM_FILTER",
+                "customFilter": {
+                  "appId": "215238eb-22a5-4c36-9e7b-e7c08025e04e",
+                  "params": {
+                    "collectionIds": ["electronics-category-guid"]
+                  }
+                }
+              }
+            ]
+          },
           "discountType": "PERCENTAGE",
           "percentage": 20
-        },
-        "scope": {
-          "id": "electronics-category-guid",
-          "type": "COLLECTION"
         }
-      }
-    ]
+      ]
+    }
   }
 }
 ```

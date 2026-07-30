@@ -101,26 +101,26 @@ Filterable fields: `id`, `name`, `active`, `revision`, `created_date`, `updated_
         "start": "2026-06-01T00:00:00.000Z",
         "end": "2026-08-31T23:59:59.000Z"
       },
-      "discounts": [
-        {
-          "targetType": "SPECIFIC_ITEMS",
-          "specificItemsInfo": {
-            "scopes": [
-              {
-                "id": "all_215238eb-22a5-4c36-9e7b-e7c08025e04e",
-                "type": "CATALOG_ITEM",
-                "catalogItemFilter": {
-                  "catalogAppId": "215238eb-22a5-4c36-9e7b-e7c08025e04e"
+      "discounts": {
+        "values": [
+          {
+            "targetType": "SPECIFIC_ITEMS",
+            "specificItemsInfo": {
+              "scopes": [
+                {
+                  "id": "all_215238eb-22a5-4c36-9e7b-e7c08025e04e",
+                  "type": "CATALOG_ITEM",
+                  "catalogItemFilter": {
+                    "catalogAppId": "215238eb-22a5-4c36-9e7b-e7c08025e04e"
+                  }
                 }
-              }
-            ]
-          },
-          "discount": {
+              ]
+            },
             "discountType": "PERCENTAGE",
             "percentage": 10
           }
-        }
-      ]
+        ]
+      }
     }
   ],
   "pagingMetadata": {

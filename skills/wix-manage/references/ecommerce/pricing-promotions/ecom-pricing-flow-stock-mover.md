@@ -150,38 +150,31 @@ If scope is CATEGORY, call `getCategoryIds` to convert category names to GUIDs.
     "revision": "1",
     "name": "Clearance - Overstock Items 20% Off",
     "active": true,
-    "discounts": [
-      {
-        "discount": {
+    "discounts": {
+      "values": [
+        {
+          "targetType": "SPECIFIC_ITEMS",
+          "specificItemsInfo": {
+            "scopes": [
+              {
+                "id": "specific_215238eb-22a5-4c36-9e7b-e7c08025e04e",
+                "type": "CATALOG_ITEM",
+                "catalogItemFilter": {
+                  "catalogAppId": "215238eb-22a5-4c36-9e7b-e7c08025e04e",
+                  "catalogItemIds": [
+                        "slow-mover-product-uuid-1",
+                        "slow-mover-product-uuid-2",
+                        "slow-mover-product-uuid-3"
+                  ]
+                }
+              }
+            ]
+          },
           "discountType": "PERCENTAGE",
           "percentage": 20
-        },
-        "scope": {
-          "id": "slow-mover-product-uuid-1",
-          "type": "SPECIFIC_PRODUCTS"
         }
-      },
-      {
-        "discount": {
-          "discountType": "PERCENTAGE",
-          "percentage": 20
-        },
-        "scope": {
-          "id": "slow-mover-product-uuid-2",
-          "type": "SPECIFIC_PRODUCTS"
-        }
-      },
-      {
-        "discount": {
-          "discountType": "PERCENTAGE",
-          "percentage": 20
-        },
-        "scope": {
-          "id": "slow-mover-product-uuid-3",
-          "type": "SPECIFIC_PRODUCTS"
-        }
-      }
-    ]
+      ]
+    }
   }
 }
 ```

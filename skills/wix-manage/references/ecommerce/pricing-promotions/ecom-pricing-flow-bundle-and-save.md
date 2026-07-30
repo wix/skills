@@ -166,21 +166,45 @@ If scope is CATEGORY, call `getCategoryIds` to convert category names to GUIDs.
     "revision": "1",
     "name": "Buy 2+, Save 15% on Accessories",
     "active": true,
-    "discounts": [
-      {
-        "discount": {
+    "discounts": {
+      "values": [
+        {
+          "targetType": "SPECIFIC_ITEMS",
+          "specificItemsInfo": {
+            "scopes": [
+              {
+                "id": "collections_215238eb-22a5-4c36-9e7b-e7c08025e04e",
+                "type": "CUSTOM_FILTER",
+                "customFilter": {
+                  "appId": "215238eb-22a5-4c36-9e7b-e7c08025e04e",
+                  "params": {
+                    "collectionIds": ["accessories-category-guid"]
+                  }
+                }
+              }
+            ]
+          },
           "discountType": "PERCENTAGE",
           "percentage": 15
-        },
-        "scope": {
-          "id": "accessories-category-guid",
-          "type": "COLLECTION"
         }
-      }
-    ],
-    "conditions": {
+      ]
+    },
+    "trigger": {
+      "triggerType": "ITEM_QUANTITY_RANGE",
       "itemQuantityRange": {
-        "from": 2
+        "from": 2,
+        "scopes": [
+          {
+            "id": "collections_215238eb-22a5-4c36-9e7b-e7c08025e04e",
+            "type": "CUSTOM_FILTER",
+            "customFilter": {
+              "appId": "215238eb-22a5-4c36-9e7b-e7c08025e04e",
+              "params": {
+                "collectionIds": ["accessories-category-guid"]
+              }
+            }
+          }
+        ]
       }
     }
   }
