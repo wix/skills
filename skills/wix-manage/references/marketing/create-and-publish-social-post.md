@@ -1,6 +1,6 @@
 ---
 name: "Create and Publish a Social Media Post (with AI generation)"
-description: "End-to-end flow to create a social media post, optionally generating it with AI, and publish or schedule it to a site's connected channel (Instagram, Facebook, LinkedIn, X/Twitter, TikTok, Pinterest, YouTube, Google Business Profile) using the Wix Publisher API. Can generate a full per-channel post from a free-text idea or from the site's own assets (products, blog posts, events, bookings, coupons, categories), generate caption/title suggestions, and edit an existing image with AI. Settles the post content with you first, then confirms the channel is connected, checks premium quota, creates a draft, and publishes now or schedules it. Use for 'create a post', 'generate a post from my product/idea', 'write a caption', 'caption ideas/suggestions', 'edit a post image with AI', 'post to Instagram/Facebook/TikTok', 'connect my Instagram/Pinterest/LinkedIn', or 'schedule a post'."
+description: "End-to-end flow to create a social media post, optionally generating it with AI, and publish or schedule it to a site's connected channel (Instagram, Facebook, LinkedIn, X/Twitter, TikTok, Pinterest, YouTube, Google Business Profile) using the Wix Publisher API. Can generate a full per-channel post from a free-text idea or from the site's own assets (products, blog posts, events, bookings, coupons, categories), generate caption/title suggestions, and edit an existing image with AI. Settles the post content with you first, then confirms the channel is connected, checks premium quota, creates a draft, and publishes now or schedules it. Use for 'create a post', 'generate a post from my product/idea', 'write a caption', 'caption ideas/suggestions', 'edit a post image with AI', 'post to Instagram/Facebook/TikTok', 'connect my Instagram/Pinterest/LinkedIn', or 'schedule a post'. Also use when a user asks why posting or connecting is blocked, says they were asked to upgrade despite having a plan, or reports the connect link expired."
 ---
 # RECIPE: Create and Publish a Social Media Post (with AI generation)
 
@@ -297,9 +297,11 @@ Ask the user if they'd like to connect the channel now. If yes, run the OAuth co
    { "connectUrl": "https://www.instagram.com/oauth/authorize?client_id=...&redirect_uri=...&state=..." }
    ```
 
-   A `428 INELIGIBLE_FOR_FEATURE` here means the site has hit its plan's cap on **how many** channels it can connect (free plans allow one), not that this channel is blocked. Since the cap is full, another channel is already connected — offer only two options: **upgrade the plan**, or **post to the already-connected channel** (find it via `List Accounts` on the other channels, or ask). Don't suggest connecting a different new channel (same cap, same 428) or disconnecting the existing one.
+   A `428 INELIGIBLE_FOR_FEATURE` here means the site has hit its plan's cap on **how many** channels it can connect (free plans allow one), not that this channel is blocked. Check the cap against `features` and the connected channels before mentioning an upgrade. At the cap, offer only two options: **upgrade the plan**, or **post to the already-connected channel** (find it via `List Accounts` on the other channels, or ask) — don't suggest connecting a different new channel (same cap, same 428) or disconnecting the existing one. **Under** the cap, the 428 is a fault, not a plan state: offer a fresh link (step 1) and don't tell the user to upgrade. This cap comes from the site's own Premium plan — there is no separate "Social Posts" or "Marketing" plan to buy, so never tell a user their Premium plan is unrelated to it, and never invent dashboard paths to an upgrade screen.
 
 2. **Surface `connectUrl` to the user** and ask them to open it and authorize the channel. The channel's OAuth redirect completes the connection server-side.
+
+   Each URL is good for one successful connection and expires after 2 hours, so **never re-surface one you already sent** — mint a fresh URL (step 1) for every retry.
 
 3. **Poll the connection status** — `GET https://www.wixapis.com/social-publisher/v1/INSTAGRAM/long-lived-token-status` every few seconds, for up to ~2 minutes, until `status` is `VALID`:
 
@@ -307,7 +309,7 @@ Ask the user if they'd like to connect the channel now. If yes, run the OAuth co
    { "status": "VALID" }
    ```
 
-   `status` values: `NEVER_CREATED` (not connected yet — keep polling until the timeout), `VALID` (connected — proceed), `INVALID` (connection expired — reconnect with the same flow), `DISCONNECTED` (was disconnected — reconnect). If it's still not `VALID` after ~2 minutes, stop and tell the user the connection wasn't completed and they can retry.
+   `status` values: `NEVER_CREATED` (not connected yet — keep polling until the timeout), `VALID` (connected — proceed), `INVALID` (connection expired — reconnect with the same flow), `DISCONNECTED` (was disconnected — reconnect). If it's still not `VALID` after ~2 minutes, stop and tell the user the connection wasn't completed and that a retry needs a fresh link (step 1).
 
 4. **If this was a standalone connect request, stop here** — the channel is connected. Otherwise, run **STEP 4b** (`List Accounts`) to get the now-connected account's `id` for `channel.accountId`. (The poll already confirmed `VALID`, so no need to re-check status.)
 
