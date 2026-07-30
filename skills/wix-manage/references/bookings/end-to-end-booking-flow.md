@@ -17,7 +17,7 @@ Step-by-step flow for implementing a complete booking experience using REST APIs
 ## Required APIs
 
 - **Services API**: [Query Services](https://dev.wix.com/docs/api-reference/business-solutions/bookings/services/services-v2/query-services)
-- **Time Slots V2 API**: [List Availability Time Slots](https://dev.wix.com/docs/api-reference/business-solutions/bookings/time-slots/time-slots-v2/list-availability-time-slots)
+- **Time Slots V2 API**: [List Availability Time Slots](https://dev.wix.com/docs/api-reference/business-solutions/bookings/time-slots/time-slots-v2/list-availability-time-slots) for appointments, [List Event Time Slots](https://dev.wix.com/docs/api-reference/business-solutions/bookings/time-slots/time-slots-v2/list-event-time-slots) for classes
 - **Bookings API**: [Create Booking](https://dev.wix.com/docs/api-reference/business-solutions/bookings/bookings/bookings-writer-v2/create-booking), [Confirm Booking](https://dev.wix.com/docs/api-reference/business-solutions/bookings/bookings/bookings-writer-v2/confirm-booking)
 - **eCommerce API**: [Create Checkout](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/purchase-flow/checkout/checkout/create-checkout)
 
@@ -60,6 +60,10 @@ Step-by-step flow for implementing a complete booking experience using REST APIs
 **Endpoint**: `POST https://www.wixapis.com/_api/service-availability/v2/time-slots`
 
 > **Important**: The old Availability Calendar API (`/bookings/v2/availability/query`) is deprecated. Always use Time Slots V2.
+>
+> Class availability does **not** come from the calendar or schedule APIs either. `/bookings/v2/calendar/sessions/query`
+> and `/bookings/v1/schedules/sessions/query` are not the route to it — use the class endpoint in
+> [For Classes](#for-classes) below.
 
 ```json
 {
@@ -96,7 +100,46 @@ Dates **must** be in `YYYY-MM-DDThh:mm:ss` format (local datetime). Plain dates 
 
 ### For Classes
 
-Use [List Event Time Slots](https://dev.wix.com/docs/api-reference/business-solutions/bookings/time-slots/time-slots-v2/list-event-time-slots) instead. Each class session has an `eventId` — save it for the booking.
+Classes use a **different endpoint**. The appointment call above returns no slots for a class service.
+
+**Endpoint**: `POST https://www.wixapis.com/_api/service-availability/v2/time-slots/event`
+
+```json
+{
+  "serviceIds": ["<SERVICE_ID>"],
+  "fromLocalDate": "2024-06-15T00:00:00",
+  "toLocalDate": "2024-06-30T23:59:59",
+  "timeZone": "America/New_York"
+}
+```
+
+| Parameter            | Required | Description                                                                                      |
+| -------------------- | -------- | ------------------------------------------------------------------------------------------------ |
+| `fromLocalDate`      | Yes      | Start of range in `YYYY-MM-DDThh:mm:ss` format. Required unless paging with `cursorPaging.cursor` |
+| `toLocalDate`        | Yes      | End of range, same format. Required unless paging with `cursorPaging.cursor`                      |
+| `serviceIds`         | No       | **Array** of service GUIDs (max 100). Omit to return slots for every service                     |
+| `timeZone`           | No       | IANA timezone. Defaults to the business time zone                                                |
+| `includeNonBookable` | No       | Default `true`. Set `false` for bookable sessions only                                           |
+| `maxSlotsPerDay`     | No       | Requires `toLocalDate` no more than 1 month after `fromLocalDate`                                 |
+
+Two parameter names differ from the appointment call above. Check them before treating an empty or
+over-broad result as a data problem:
+
+- `serviceIds` is an **array**, not the singular `serviceId` used above. Omit it and slots for
+  every service are returned.
+- `includeNonBookable` replaces `bookable`. Pass `includeNonBookable: false` for bookable
+  sessions only.
+
+### Save from each class time slot
+
+- `eventInfo.eventId` — the session id, and the only field Create Booking needs for a class (see Step 3)
+- `localStartDate`, `localEndDate` — session times
+- `bookableCapacity` — spots customers can actually book (`remainingCapacity` minus waitlist reservations)
+- `nonBookableReasons` — why a returned slot is unbookable: `noRemainingCapacity`,
+  `violatesBookingPolicy`, `reservedForWaitingList`, `eventCancelled`
+
+An empty `timeSlots` array means the class has no sessions scheduled in that range. That is a valid
+answer to "when can customers book this?", not an error.
 
 ---
 

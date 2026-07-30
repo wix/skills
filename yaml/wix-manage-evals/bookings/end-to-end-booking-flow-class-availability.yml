@@ -1,0 +1,69 @@
+name: bookings/end-to-end-booking-flow-class-availability
+description: >-
+  Verifies the agent can report when customers can book a CLASS service, reading
+  the end-to-end-booking-flow recipe and reaching a successful class-session
+  availability read rather than dead-ending or answering from business hours.
+triggerPrompt: >-
+  I have a class on my Wix Bookings site. Tell me when customers can book it —
+  which sessions are scheduled and how many spots are open on each. Don't change
+  anything on my site, just tell me what's there.
+tags: [bookings]
+siteSetup:
+  mode: template
+  templateId: bookings-editor
+  bootstrap:
+    steps:
+      - label: Seed one free in-person CLASS service (classes need no staff)
+        method: post
+        url: https://www.wixapis.com/bookings/v2/bulk/services/create
+        body:
+          returnEntity: true
+          services:
+            - name: Sunrise Yoga Class
+              type: CLASS
+              onlineBooking:
+                enabled: true
+              payment:
+                rateType: NO_FEE
+                options:
+                  online: false
+                  inPerson: true
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/bookings/skills/end-to-end-booking-flow
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The site has one CLASS service, "Sunrise Yoga Class", just created and with no sessions
+      scheduled yet. The owner asked which sessions are scheduled and how many spots are open,
+      and explicitly asked for no changes.
+
+      Class availability comes from a class-specific time-slots read, NOT from business working
+      hours and NOT from the appointment availability call. "No sessions are scheduled yet" is
+      the correct answer here — the point is whether the agent established that from an actual
+      successful read of the class's sessions.
+
+      Pass if ALL of these are true:
+        1. The agent named the actual service it found ("Sunrise Yoga Class").
+        2. It made a successful (2xx) read of the class's sessions/time slots and based its
+           answer on that response.
+        3. It reported that no sessions are currently scheduled — or, if the read did return
+           sessions, reported their times and open spots consistently with the response.
+
+      Fail if ANY of these are true:
+        - The agent created or modified anything (service, session, event, booking, schedule).
+          The request was read-only.
+        - It never reached a successful class-session read: it gave up, said it could not
+          determine availability or could not find the right API, or told the owner to check
+          the Bookings dashboard instead.
+        - It answered from the site's business working hours, or from the service's general
+          settings, without reading the class's actual sessions — business hours are when the
+          business is open, not when a class session runs.
+        - It reported specific session times or spot counts that its own API reads did not
+          return (fabrication).
+        - It claimed the site has no class service even though a services read returned
+          "Sunrise Yoga Class".
+
+      Judge only the points above. Do not require pricing, policy, or booking-flow commentary.
