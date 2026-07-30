@@ -1,6 +1,6 @@
 ---
 name: "CMS Schema Management"
-description: Create and modify CMS collection structures. Covers listing collections, creating collections with fields, adding/removing fields, and updating collection settings.
+description: Create and modify CMS collection structures. Covers listing collections, creating collections with fields, adding/removing fields — including REFERENCE and MULTI_REFERENCE fields, whose definitions require typeMetadata.reference.referencedCollectionId or typeMetadata.multiReference.referencedCollectionId — and updating collection settings.
 ---
 # CMS Schema Management
 
@@ -70,6 +70,10 @@ curl -X GET \
 }
 ```
 
+Entries in `collection.fields` use the same `field` shape as `create-field`, so a `REFERENCE` or
+`MULTI_REFERENCE` field declared here needs the `typeMetadata` block described in
+[Reference Fields: `typeMetadata` Is Required](#reference-fields-typemetadata-is-required).
+
 ## Add a Field to Existing Collection
 
 **Endpoint**: `POST /wix-data/v2/collections/create-field`
@@ -85,6 +89,61 @@ curl -X GET \
   }
 }
 ```
+
+### Reference Fields: `typeMetadata` Is Required
+
+`REFERENCE` and `MULTI_REFERENCE` fields carry the target collection in
+`field.typeMetadata`, **not** on `field` itself. There is no top-level
+`field.referencedCollection` or `field.referencedCollectionId`; a request that puts the target
+collection there is rejected with `WDE0075: Metadata for Reference type field not provided.`
+Use the shapes below verbatim — the same `field` object works in `create-field`, `update-field`,
+and the `collection.fields` array of a create-collection call.
+
+**Single reference** (`REFERENCE`) — each item links to one item in the other collection:
+
+```json
+{
+  "dataCollectionId": "Books",
+  "field": {
+    "key": "author",
+    "displayName": "Author",
+    "type": "REFERENCE",
+    "typeMetadata": {
+      "reference": {
+        "referencedCollectionId": "Authors"
+      }
+    }
+  }
+}
+```
+
+**Multi-reference** (`MULTI_REFERENCE`) — each item links to many items, and the referenced
+collection gets a back-reference field described by `referencingFieldKey` /
+`referencingDisplayName`:
+
+```json
+{
+  "dataCollectionId": "Books",
+  "field": {
+    "key": "genres",
+    "displayName": "Genres",
+    "type": "MULTI_REFERENCE",
+    "typeMetadata": {
+      "multiReference": {
+        "referencedCollectionId": "Genres",
+        "referencingFieldKey": "books",
+        "referencingDisplayName": "Books"
+      }
+    }
+  }
+}
+```
+
+`referencedCollectionId` is the referenced collection's id (for example `Authors`), not an item id.
+
+For managing the reference *values* on items once the field exists — `insert-references`,
+`replace-references`, `remove-references`, and querying with `includeReferencedItems` — see the
+[CMS References & Relationships recipe](cms-references-and-relationships.md).
 
 ## Delete a Field from Collection
 
@@ -128,8 +187,12 @@ curl -X GET \
 | `RICH_TEXT` | HTML content | `"<p>Rich text</p>"` |
 | `ARRAY_STRING` | Array of strings | `["tag1", "tag2"]` |
 | `OBJECT` | JSON object | `{"key": "value"}` |
-| `REFERENCE` | Single reference | Item ID string |
-| `MULTI_REFERENCE` | Multiple references | Array of IDs |
+| `REFERENCE` | Single reference — field definition requires `typeMetadata.reference.referencedCollectionId` | Item ID string |
+| `MULTI_REFERENCE` | Multiple references — field definition requires `typeMetadata.multiReference.referencedCollectionId` | Array of IDs |
+
+> The "Example Value" column is the value stored on an **item**. Defining a `REFERENCE` or
+> `MULTI_REFERENCE` **field** additionally requires the `typeMetadata` block shown in
+> [Reference Fields: `typeMetadata` Is Required](#reference-fields-typemetadata-is-required).
 
 ## Permission Levels
 
@@ -144,6 +207,7 @@ curl -X GET \
 
 | Error | Cause | Solution |
 |-------|-------|----------|
+| `WDE0075: Metadata for Reference type field not provided.` | A `REFERENCE` or `MULTI_REFERENCE` field was sent without `typeMetadata`, or with the target collection on `field` instead of inside `typeMetadata` | Move the target collection to `field.typeMetadata.reference.referencedCollectionId` (or `field.typeMetadata.multiReference.referencedCollectionId`) and resend. See [Reference Fields: `typeMetadata` Is Required](#reference-fields-typemetadata-is-required). |
 | `WDE0110` | Wix CMS (Wix Data) app is not installed on the site | Install it: `POST https://www.wixapis.com/apps-installer-service/v1/app-instance/install` with body `{"tenant":{"tenantType":"SITE","id":"<SITE_ID>"},"appInstance":{"appDefId":"e593b0bd-b783-45b8-97c2-873d42aacaf4"}}`, then retry. See the [Install Wix Apps recipe](../app-installation/install-wix-apps.md). |
 
 ## Related Documentation

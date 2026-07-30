@@ -121,7 +121,7 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 **Technical:** Add, replace, or remove items from MULTI_REFERENCE fields. Use insert-references, replace-references, remove-references endpoints. Required for managing multi-reference relationships - these CANNOT be set via regular insert/update/patch operations. Also covers single references and querying with expanded references.
 
 ### [CMS Schema Management](references/cms/cms-schema-management.md)
-**Technical:** Create and modify CMS collection structures. Covers listing collections, creating collections with fields, adding/removing fields, and updating collection settings.
+**Technical:** Create and modify CMS collection structures. Covers listing collections, creating collections with fields, adding/removing fields — including REFERENCE and MULTI_REFERENCE fields, whose definitions require `typeMetadata.reference.referencedCollectionId` or `typeMetadata.multiReference.referencedCollectionId` — and updating collection settings.
 
 ### [CMS Publishing Flow & Visible/Hidden](references/cms/cms-publishing-flow.md)
 **Technical:** Interact with collections that gate items behind a draft/publish workflow — Visible/Hidden and Publishing Flow (Review, with DRAFT/PUBLISHED/CHANGED states). Detect the mode, read the combined draft+live view (`publishPluginOptions.includeDraftItems`), author/edit drafts against the `<collectionId>__drafts` shadow, and publish/unpublish/revert/delete items. Key endpoints: /wix-data/v2/items/publish-draft, /wix-data/v2/items/unpublish, /wix-data/v2/collections/add-plugin.
