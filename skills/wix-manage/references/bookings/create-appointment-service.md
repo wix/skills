@@ -171,7 +171,13 @@ curl -X POST 'https://www.wixapis.com/bookings/v2/bulk/services/create' \
 - `schedule.availabilityConstraints.sessionDurations` sets the appointment length
 - Availability is based on the assigned staff member's working hours schedule
 
-Save the `serviceId` from the response: `results[0].item.service.id`
+Save the `serviceId` from the response: `results[0].itemMetadata.id`.
+
+Bulk Create Services returns a bulk envelope — `{ results: [{ itemMetadata, item }], bulkActionMetadata }`
+— so there is no top-level `service`, and no `service` wrapper under `item`: `item` **is** the
+Service object, and it is omitted unless the request sets `returnEntity: true`. See
+[Create Class Service](./create-class-service.md#step-3b-read-the-bulk-create-services-response)
+for the full envelope and a worked example.
 
 ---
 

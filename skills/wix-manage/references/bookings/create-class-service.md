@@ -96,6 +96,7 @@ curl -X POST 'https://www.wixapis.com/bookings/v2/bulk/services/create' \
   -H 'Authorization: <AUTH>' \
   -H 'Content-Type: application/json' \
   -d '{
+    "returnEntity": true,
     "services": [{
       "name": "<SERVICE_NAME>",
       "description": "<GENERATED_DESCRIPTION>",
@@ -124,6 +125,7 @@ curl -X POST 'https://www.wixapis.com/bookings/v2/bulk/services/create' \
   -H 'Authorization: <AUTH>' \
   -H 'Content-Type: application/json' \
   -d '{
+    "returnEntity": true,
     "services": [{
       "name": "<SERVICE_NAME>",
       "description": "<GENERATED_DESCRIPTION>",
@@ -147,9 +149,52 @@ curl -X POST 'https://www.wixapis.com/bookings/v2/bulk/services/create' \
 - Do **NOT** include `staffMemberIds` — it is ignored for CLASS services
 - Do **NOT** include `schedule.availabilityConstraints.sessionDurations` — not used for CLASS
 - `defaultCapacity` is **required** — sets max participants per session
-- After creation, class sessions must be scheduled separately via `bulkCreateEvents` using the returned `service.schedule.id` (see [Create and Update Booking Services](./create-and-update-booking-services.md))
+- After creation, class sessions must be scheduled separately via `bulkCreateEvents` using the created service's `schedule.id` (see [Create and Update Booking Services](./create-and-update-booking-services.md))
 
-Save the `serviceId` from the response: `results[0].item.service.id`
+### Step 3b: Read the Bulk Create Services Response
+
+Bulk Create Services returns a **bulk envelope**, not a single `service` object. Each entry in
+`results` is wrapped in its own per-item result:
+
+```json
+{
+  "results": [
+    {
+      "itemMetadata": { "id": "cf9561ed-95d0-4944-adb9-cf142086d378", "originalIndex": 0, "success": true },
+      "item": { "id": "cf9561ed-95d0-4944-adb9-cf142086d378", "name": "Morning Yoga", "type": "CLASS", "schedule": { "id": "..." } }
+    }
+  ],
+  "bulkActionMetadata": { "totalSuccesses": 1, "totalFailures": 0, "undetailedFailures": 0 }
+}
+```
+
+Read the created service like this — **send `returnEntity: true` in the request** (both bodies
+above already do), then take the service straight off `item`:
+
+```js
+const created = serviceRes.results[0];
+const serviceId = created.itemMetadata.id;   // always present, even without returnEntity
+const service = created.item;                // the Service object — only when returnEntity: true
+const scheduleId = service.schedule.id;      // pass to bulkCreateEvents to schedule sessions
+```
+
+Two things to get right:
+
+- **There is no `service` wrapper under `item`.** `item` **is** the Service, so the id is
+  `results[0].item.id` — `results[0].item.service` does not exist and reading `.service` from it
+  throws `Cannot read properties of undefined (reading 'service')`.
+- **`item` is omitted entirely unless the request sets `returnEntity: true`.** Without that flag
+  the entry contains only `itemMetadata`, so `results[0].item` is `undefined`. When you only need
+  the id, read `results[0].itemMetadata.id` and skip the flag.
+
+Both API calls can still have succeeded (200) when this read throws — the failure is in parsing
+the response, not in the create. Do **not** re-create the service, and do not issue a Query
+Services call to rediscover the id: take it from `itemMetadata.id` in the response you already
+have.
+
+Check `results[0].itemMetadata.success` before using the service. On a per-item failure it is
+`false` and `results[0].itemMetadata.error` carries `code` and `description`, while the overall
+call still returns 200 — `bulkActionMetadata.totalFailures` tells you how many entries failed.
 
 ---
 
@@ -184,6 +229,7 @@ Provide a summary including:
 |---|---|---|
 | 400 "INVALID_PAYMENT_OPTIONS" | Payment misconfigured | Free: `inPerson: true`, `online: false`. Paid: price > 0 |
 | 403 | Permission denied | Inform user they lack permission |
+| `Cannot read properties of undefined (reading 'service')` | Reading `results[0].item.service` — `item` **is** the Service, and it is absent unless `returnEntity: true` was sent | The create already succeeded. Read `results[0].itemMetadata.id`; see [Step 3b](#step-3b-read-the-bulk-create-services-response). Do not re-create or re-query |
 
 ---
 
