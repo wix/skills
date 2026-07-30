@@ -1,6 +1,6 @@
 ---
 name: "Analytics Dashboard Navigation"
-description: "Builds direct links to Wix Analytics dashboard pages on manage.wix.com — highlights, reports, custom reports, per-domain overviews (traffic, behavior, sales, marketing), and performance insights/benchmarks. Pairs analytics data with its read API so you can answer a question via API and hand back a 'see it in your dashboard' link. Use when the user asks where something is in the Wix dashboard or wants a direct link, or to include a 'view it in your dashboard' link alongside the result of an API operation. For requests to actually create, update, or configure something, prefer the solution's API recipes and add the link to the result."
+description: "Builds direct links to Wix Analytics dashboard pages on manage.wix.com — highlights, reports, custom reports, per-domain overviews (traffic, behavior, sales, marketing), and performance insights/benchmarks. Pairs analytics data with its read API so you can answer a question via API and hand back a 'see it in your dashboard' link. Use when the user asks where something is in the Wix dashboard, wants a direct link to a dashboard page, or you need a dashboard URL to include with the result of an API operation."
 ---
 
 # Analytics Dashboard Navigation
