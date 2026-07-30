@@ -14,3 +14,7 @@ apiDoc:
       title: Create and Launch a Performance Max Campaign
       docsEntry: https://dev.wix.com/docs/api-reference/business-management/marketing/ads/google-ads
       tags: [marketing]
+    - file: ../../../skills/wix-manage/references/google-ads/google-ads-dashboard-navigation.md
+      title: Google Ads Dashboard Navigation
+      docsEntry: https://dev.wix.com/docs/api-reference/business-management/marketing/ads/google-ads
+      tags: [google-ads]

@@ -10,3 +10,7 @@ apiDoc:
       title: Generate a Marketing Plan and Schedule Its Posts
       docsEntry: https://dev.wix.com/docs/api-reference/business-management/marketing
       tags: [marketing]
+    - file: ../../../skills/wix-manage/references/marketing/marketing-dashboard-navigation.md
+      title: Marketing Dashboard Navigation
+      docsEntry: https://dev.wix.com/docs/api-reference/business-management/marketing
+      tags: [marketing]
