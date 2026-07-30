@@ -1,0 +1,34 @@
+name: cms/cms-dashboard-navigation
+description: >-
+  Verifies the agent reads the cms-dashboard-navigation recipe when asked for
+  direct links to the Wix CMS dashboard, and returns correct manage.wix.com
+  URLs including a collection-specific deep link.
+triggerPrompt: >-
+  My Wix site's meta site id is 2c9d2b46-fc18-4557-ae71-4d21a2228914. Give me
+  direct dashboard links to my CMS: the collections list, and the items view
+  of my "Recipes" collection.
+tags: [cms]
+maxTokens: 30000
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/cms/skills/cms-dashboard-navigation
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked for direct Wix dashboard links (meta site id
+      2c9d2b46-fc18-4557-ae71-4d21a2228914) to the CMS collections list and to
+      the items view of a collection called "Recipes".
+
+      Pass if the response:
+      - gives URLs under https://manage.wix.com/dashboard/2c9d2b46-fc18-4557-ae71-4d21a2228914/, AND
+      - uses wix-cms for the collections list, AND
+      - uses wix-cms/data/Recipes (or wix-cms/data/{collectionId} with an
+        explanation) for the collection's items view.
+
+      Fail if the response:
+      - invents dashboard routes not in the recipe (e.g. cms/collections,
+        content-manager/recipes), OR
+      - omits the meta site id from the URLs or uses a different domain, OR
+      - only describes how to click through the dashboard instead of giving links.

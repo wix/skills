@@ -26,3 +26,7 @@ apiDoc:
       title: CMS Publishing Flow & Visible/Hidden
       docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/cms
       tags: [cms]
+    - file: ../../../skills/wix-manage/references/cms/cms-dashboard-navigation.md
+      title: CMS Dashboard Navigation
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/cms
+      tags: [cms]

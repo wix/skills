@@ -1,0 +1,8 @@
+apiDoc:
+  title: Wix Dashboard Navigation Recipes
+
+  docs:
+    - file: ../../../skills/wix-manage/references/dashboard-navigation/dashboard-navigation.md
+      title: Dashboard Navigation
+      docsEntry: https://dev.wix.com/docs/api-reference/business-solutions/bookings
+      tags: [bookings, stores]
