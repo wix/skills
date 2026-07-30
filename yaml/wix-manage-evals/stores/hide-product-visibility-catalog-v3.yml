@@ -6,8 +6,9 @@ description: >
   Product PATCH — not a delete, not a variant-only change — and reports the product/variant
   visibility relationship correctly.
 triggerPrompt: >
-  Hide my "Eval Gate Tee" product so it no longer shows in my store, and tell me whether
-  that also hid its variant.
+  Hide my "Eval Gate Tee" product so it no longer shows in my store. Then tell me which
+  field you set and on which endpoint, and whether the product's variant ended up hidden
+  too.
 tags: [stores, aria]
 assertions:
   - tool: ReadFullDocsArticle
@@ -18,7 +19,8 @@ assertions:
     maxTokens: 2048
     prompt: >
       The user's request (verbatim): "Hide my \"Eval Gate Tee\" product so it no longer shows
-      in my store, and tell me whether that also hid its variant."
+      in my store. Then tell me which field you set and on which endpoint, and whether the
+      product's variant ended up hidden too."
 
       The site is a Catalog V3 store seeded with one product, "Eval Gate Tee", which has a
       single variant and no product options.
@@ -26,14 +28,14 @@ assertions:
       Score 9-10: the agent hid the product with a successful (2xx) product-level visibility
       update — `visible: false` on the product in a PATCH to the Catalog V3 Update Product
       endpoint, carrying the product `id` and current `revision` — did not delete the product,
-      confirmed the resulting state, AND answers the variant question correctly: because this
-      product has no options, the default variant's visibility follows the product
-      automatically (bonus, not required: noting that for a product WITH options the product
-      and variant visibility values are independent).
+      names that field and endpoint back to the user, AND answers the variant question
+      correctly: because this product has no options, the default variant's visibility follows
+      the product automatically (bonus, not required: noting that for a product WITH options
+      the product and variant visibility values are independent).
 
       Score 7-8: the product is hidden by a successful product-level `visible: false` update
-      and the agent confirms it, but the variant answer is missing, vague, or only partly
-      right.
+      and the agent names the field and endpoint, but the variant answer is missing, vague, or
+      only partly right.
 
       Score 4-6: the product ends up hidden but through the wrong mechanism (for example
       variant-level visibility only), or the agent cannot confirm the resulting state.
