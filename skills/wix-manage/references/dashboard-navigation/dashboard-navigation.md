@@ -20,7 +20,14 @@ https://manage.wix.com/dashboard/{metaSiteId}/{route}
 
 Useful properties of these URLs:
 
-- **App-ID fallback.** `https://manage.wix.com/dashboard/{metaSiteId}/app/{appDefinitionId}/{pagePath}` always works and redirects to the slug form — use it when you know the app ID but not its slug.
+- **App-ID fallback.** `https://manage.wix.com/dashboard/{metaSiteId}/app/{appDefinitionId}/{pagePath}` always works and redirects to the slug form. With no `pagePath` it lands on the app's main dashboard page, so knowing just the app ID is enough for a working link:
+
+  ```
+  https://manage.wix.com/dashboard/{metaSiteId}/app/13d21c63-b5ec-5912-8397-c3a5ddb27a97
+  → redirects to .../bookings (the Wix Bookings main page)
+  ```
+
+  To get an app's `appDefinitionId`, use [List Installed Apps](../app-installation/list-installed-apps.md) (`GET /apps-installer-service/v1/app-instances` returns each installed app's ID and name), or take it from the per-solution recipe — each leaf states its apps' IDs.
 - **Graceful degradation.** Unknown deeper paths fall back to the longest matching route (`.../bookings/services/unknown` lands on the services list), so links don't 404.
 - **Legacy redirects.** Older route formats (e.g. `store/orders`, `bookings/scheduler/owner/...`) redirect to the current pages; links in existing content keep working.
 - **Entity deep links.** Pages that show a single entity accept the entity ID as an extra path segment (e.g. `bookings/services/form/{serviceId}`). Query params can follow.
@@ -42,3 +49,7 @@ Useful properties of these URLs:
 | Wix Marketing | [Marketing Dashboard Navigation](../marketing/marketing-dashboard-navigation.md) | Social posts hub, design templates, email campaigns, campaign analytics |
 
 For a business solution not listed yet, use the app-ID fallback URL with the solution's app definition ID, or link the dashboard home: `https://manage.wix.com/dashboard/{metaSiteId}/home`.
+
+## Machine-Readable Route Data
+
+[routes.json](routes.json) holds the full page inventory behind these recipes — every covered app with its `appDefinitionId`, `slug`, and each page's `path` (append to `https://manage.wix.com/dashboard/{metaSiteId}/`), `title`, sidebar visibility, and redirecting `legacyAliases`. Prefer the per-solution recipes for guidance (curation, entity deep links, read-API pairing); use the JSON when you need to look up or enumerate routes programmatically.
