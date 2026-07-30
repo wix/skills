@@ -292,7 +292,7 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ## Restaurants
 
 ### [Wix Restaurants Setup](references/restaurants/wix-restaurants-setup.md)
-**Technical:** Configures restaurant menus, sections, and items using Menus API. Covers menu structure (Menu → Section → Item), modifiers, pricing, availability schedules, and ordering settings.
+**Technical:** Configures restaurant menus, sections, and items using Menus API. Covers menu structure (Menu → Section → Item), the two-step item modifier / modifier group flow, pricing, availability schedules, and ordering settings.
 
 ### [Restaurants Dashboard Navigation](references/restaurants/restaurants-dashboard-navigation.md)
 **Technical:** Direct links to Wix Restaurants dashboard pages on manage.wix.com (menus, edit menu, items, online orders board, online-ordering fulfillment settings, reservations list, floor plans, reservation experiences), pairing each main Restaurants entity with its read API for "view it in your dashboard" links.
