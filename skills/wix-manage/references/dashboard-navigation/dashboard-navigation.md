@@ -1,6 +1,6 @@
 ---
 name: "Dashboard Navigation"
-description: "Entry point for building direct links into a site's Wix dashboard (manage.wix.com). Documents the shared URL structure for all dashboard pages and routes to the per-business-solution recipes (Bookings, Stores) that list each solution's page routes and pair entities with their read APIs. Use when the user asks where to manage something in the Wix dashboard, wants a dashboard link, or after an API operation to hand back a 'view it in your dashboard' link."
+description: "Entry point for building direct links into a site's Wix dashboard (manage.wix.com). Documents the shared URL structure for all dashboard pages (site and account level, app-ID fallback, entity deep links, machine-readable routes.json) and routes to a per-business-solution recipe for every covered solution — bookings, stores/ecommerce, blog, pricing plans, restaurants, CMS, contacts, forms, marketing, get paid, analytics, google ads, app management, site settings, sites, and domains. Use when the user asks where to manage something in the Wix dashboard, wants a dashboard link, or after an API operation to hand back a 'view it in your dashboard' link."
 ---
 
 # Dashboard Navigation
