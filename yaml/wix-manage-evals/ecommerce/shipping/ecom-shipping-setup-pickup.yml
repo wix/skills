@@ -8,7 +8,7 @@ siteSetup:
 assertions:
   - tool: ReadFullDocsArticle
     params:
-      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping-set-up-pickup-local-delivery
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/local-delivery
   - tool: ReadFullDocsArticle
     params:
       articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/shipping-api-reference

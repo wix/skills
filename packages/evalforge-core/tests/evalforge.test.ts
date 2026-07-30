@@ -54,6 +54,37 @@ describe('EvalForgeClient (V1) — auth + test-scenarios', () => {
     expect(r).toEqual([{ id: 'a', name: 'x', tags: ['t'] }, { id: 'b', name: 'y', tags: [] }]);
   });
 
+  it('listTestScenarios() throws when pagingMetadata reports a next cursor', async () => {
+    mockFetch(() => ({
+      status: 200,
+      body: { testScenarios: [{ id: 'a', name: 'x' }], pagingMetadata: { cursors: { next: 'c2' } } },
+    }));
+    const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    await expect(c.listTestScenarios('P')).rejects.toThrow(/truncated page/);
+  });
+
+  it('listTestScenarios() throws when pagingMetadata.total exceeds the page received', async () => {
+    mockFetch(() => ({
+      status: 200,
+      body: { testScenarios: [{ id: 'a', name: 'x' }], pagingMetadata: { total: 42, count: 1 } },
+    }));
+    const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    await expect(c.listTestScenarios('P')).rejects.toThrow(/received 1 of 42/);
+  });
+
+  it('listTestScenarios() accepts a complete page, and tolerates absent pagingMetadata', async () => {
+    mockFetch(() => ({
+      status: 200,
+      body: { testScenarios: [{ id: 'a', name: 'x' }], pagingMetadata: { total: 1, count: 1 } },
+    }));
+    const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    await expect(c.listTestScenarios('P')).resolves.toEqual([{ id: 'a', name: 'x', tags: [] }]);
+
+    mockFetch(() => ({ status: 200, body: { testScenarios: [{ id: 'a', name: 'x' }] } }));
+    const c2 = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    await expect(c2.listTestScenarios('P')).resolves.toHaveLength(1);
+  });
+
   it('listTestScenarios(names) queries each name and keeps only exact matches', async () => {
     const queried: (string | undefined)[] = [];
     mockFetch(({ url, method, body }) => {
@@ -229,13 +260,13 @@ describe('EvalForgeClient (V1) — eval runs', () => {
     await expect(c.triggerEvalRun('P', 'run-1')).resolves.toEqual({ evalRunId: 'run-1' });
   });
 
-  it('getEvalRun unwraps {evalRun}, lowercases status, and converts passRate to a percent', async () => {
+  it('getEvalRun unwraps {evalRun}, lowercases status, and keeps passRate as a percentage', async () => {
     mockFetch(({ url, method }) => {
       expect(method).toBe('GET');
       expect(url).toContain('/v1/projects/P/eval-runs/run-1');
       return {
         status: 200,
-        body: { evalRun: { id: 'run-1', status: 'COMPLETED', progress: 100, aggregateMetrics: { totalAssertions: 4, passed: 3, failed: 1, passRate: 0.75 } } },
+        body: { evalRun: { id: 'run-1', status: 'COMPLETED', progress: 100, aggregateMetrics: { totalAssertions: 4, passed: 3, failed: 1, passRate: 75 } } },
       };
     });
     const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
@@ -270,7 +301,7 @@ describe('EvalForgeClient (V1) — 401 handling', () => {
     }) as unknown as typeof fetch;
 
     const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
-    await c.listMcpVersions('M', 'P');
+    await c.listCapabilityVersions('M', 'P');
     expect(mints).toBe(2);    // initial mint + forced refresh
     expect(apiCalls).toBe(2); // 401 then retry
   });
@@ -290,7 +321,7 @@ describe('EvalForgeClient (V1) — 401 handling', () => {
     }) as unknown as typeof fetch;
 
     const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
-    await expect(c.listMcpVersions('M', 'P')).rejects.toThrow(/401/);
+    await expect(c.listCapabilityVersions('M', 'P')).rejects.toThrow(/401/);
     expect(apiCalls).toBe(2); // original attempt + one retry, then give up
   });
 });
@@ -328,5 +359,74 @@ describe('EvalForgeClient (V1) — ensureMcpVersion idempotency', () => {
     });
     const c = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
     await expect(c.ensureMcpVersion('M', 'P', 'pr-1-abc', 1, 'abc1234', 'wix/skills')).rejects.toMatchObject({ status: 500 });
+  });
+});
+
+describe('EvalForgeClient (V1) — skill capability versions', () => {
+  const files = [
+    { path: 'SKILL.md', content: '# wix-app' },
+    { path: 'references/DASHBOARD_PAGE.md', content: 'dashboard docs' },
+  ];
+
+  it('posts skillContent with the file list to the capability versions endpoint', async () => {
+    let captured: unknown;
+    mockFetch(({ url, method, body }) => {
+      expect(method).toBe('POST');
+      expect(url).toContain('/v1/projects/P/capabilities/C/versions');
+      captured = body;
+      return { status: 200, body: { capabilityVersion: { id: 'v1', capabilityId: 'C', version: 'pr-42-abc1234' } } };
+    });
+
+    const client = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    const version = await client.createOrReuseSkillVersion('C', 'P', 'pr-42-abc1234', 42, files);
+
+    expect(version).toEqual({ id: 'v1', capabilityId: 'C', version: 'pr-42-abc1234' });
+    expect(captured).toMatchObject({
+      capabilityVersion: {
+        capabilityId: 'C',
+        version: 'pr-42-abc1234',
+        origin: 'pr',
+        skillContent: { files },
+      },
+    });
+  });
+
+
+  it('createOrReuseSkillVersion reuses an existing version on a 409', async () => {
+    mockFetch(({ method }) => {
+      if (method === 'POST') return { status: 409, body: { message: 'already exists' } };
+      return { status: 200, body: { capabilityVersions: [{ id: 'v9', capabilityId: 'C', version: 'pr-42-abc1234' }] } };
+    });
+
+    const client = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    const version = await client.createOrReuseSkillVersion('C', 'P', 'pr-42-abc1234', 42, files);
+
+    expect(version).toEqual({ id: 'v9', capabilityId: 'C', version: 'pr-42-abc1234' });
+  });
+
+  it('createOrReuseSkillVersion also recovers from the backend 500 for a duplicate label', async () => {
+    mockFetch(({ method }) => {
+      if (method === 'POST') return { status: 500, body: { message: 'already exists' } };
+      return { status: 200, body: { capabilityVersions: [{ id: 'v9', capabilityId: 'C', version: 'L' }] } };
+    });
+
+    const client = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    await expect(client.createOrReuseSkillVersion('C', 'P', 'L', 42, files)).resolves.toMatchObject({ id: 'v9' });
+  });
+
+  it('createOrReuseSkillVersion rethrows when the label genuinely is not there', async () => {
+    mockFetch(({ method }) => {
+      if (method === 'POST') return { status: 500, body: { message: 'boom' } };
+      return { status: 200, body: { capabilityVersions: [] } };
+    });
+
+    const client = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    await expect(client.createOrReuseSkillVersion('C', 'P', 'L', 42, files)).rejects.toMatchObject({ status: 500 });
+  });
+
+  it('createOrReuseSkillVersion does not swallow a 400', async () => {
+    mockFetch(() => ({ status: 400, body: { message: 'bad request' } }));
+    const client = new EvalForgeClient(URL_BASE, CLIENT_ID, CLIENT_SECRET);
+    await expect(client.createOrReuseSkillVersion('C', 'P', 'L', 42, files)).rejects.toMatchObject({ status: 400 });
   });
 });

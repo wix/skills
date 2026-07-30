@@ -8,8 +8,8 @@ triggerPrompt: >-
   AUTH_EXPIRED. Using the Wix Site Import API, walk me through it: does AUTH_EXPIRED mean my new site
   is already live, and what is the exact way to recover — which API method do I call, and does it lose
   the work done so far? Also, is it right to just switch to a different Wix site-creation API to finish
-  faster? Please reference the specific Site Import methods, endpoints, and status meanings; don't run
-  or change anything.
+  faster? Please reference the specific Site Import methods, endpoints, and status meanings; don't
+  start, cancel, or modify any imports or site settings.
 tags: [sites]
 assertions:
   - tool: ReadFullDocsArticle
