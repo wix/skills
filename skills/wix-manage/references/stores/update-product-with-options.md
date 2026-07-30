@@ -1,10 +1,10 @@
 ---
 name: "Update Product with Options (Catalog V3)"
-description: Modifies existing products and variants using Catalog V3 Products API. Covers adding/removing option choices, variant-specific pricing, and revision-based updates to prevent conflicts.
+description: Modifies existing products and variants using Catalog V3 Products API. Covers adding/removing option choices, variant-specific pricing, ribbon badges such as "Sale" or "New", and revision-based updates to prevent conflicts.
 ---
 **RECIPE**: Business Recipe - Updating a Wix Store Product (Catalog V3)
 
-Use this recipe to update an existing Catalog V3 product: description, media, options, variants, prices, or stock-related inventory records.
+Use this recipe to update an existing Catalog V3 product: description, media, options, variants, prices, ribbon badges, or stock-related inventory records.
 
 ## Before Any Product Update
 
@@ -296,9 +296,55 @@ curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
   }'
 ```
 
+### Add or Change a Ribbon Badge ("Sale", "New", "Bestseller")
+
+A ribbon is a **badge on the product**, set through the product's `ribbon` field. It is not a discount rule and not a coupon, and assigning one does not change any price. A request for a ribbon is a request for the badge — assign it, do not ask the merchant to choose between a badge and a price cut first. If the merchant asks for a price reduction *as well*, that is two separate operations: this recipe for the badge, and [Create Discount Rule](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-discount-rule) for the price. Do both.
+
+Pass a ribbon **name** and Wix resolves it: if a ribbon with that name already exists it is assigned, otherwise a new ribbon is created. There is no need to create the ribbon first.
+
+```bash
+curl -X PATCH "https://www.wixapis.com/stores/v3/products/{productId}" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: <AUTH>" \
+  -d '{
+    "product": {
+      "id": "{productId}",
+      "revision": "{currentRevision}",
+      "ribbon": {
+        "name": "Sale"
+      }
+    }
+  }'
+```
+
+To assign a ribbon you already hold the ID for, pass `id` instead of `name`:
+
+```json
+{
+  "product": {
+    "id": "{productId}",
+    "revision": "{currentRevision}",
+    "ribbon": { "id": "{ribbonId}" }
+  }
+}
+```
+
+| Field | Description |
+|-------|-------------|
+| `ribbon` | The single **primary** ribbon. Accepts `{ "name": … }` or `{ "id": … }` |
+| `additionalRibbons` | Up to **4** further ribbons, displayed alongside the primary one. Same `name`/`id` assignment rules |
+
+- A product has one primary `ribbon`. Assigning another replaces it.
+- A ribbon can be assigned to a product at most once: the same ribbon cannot repeat within `additionalRibbons`, and the primary `ribbon` cannot also appear in `additionalRibbons`.
+- `additionalRibbons` is an array field, so pass the entire intended array — sending one entry overwrites the whole list rather than merging.
+
+The [Ribbons API](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/ribbons-v3/introduction) creates, queries, and manages the ribbons themselves, independently of any product. Use it to list the ribbons a site already has, so an existing "Sale" ribbon is reused instead of a near-duplicate with different casing. Deleting a ribbon removes it from every product that references it.
+
+When confirming to the merchant, say which ribbon is now on which product, and that the price is unchanged.
+
 ## Important Notes
 
-- To update array fields like `options`, `modifiers`, `variantsInfo.variants`, and any others, pass the entire existing array. Passing only the changed item overwrites the whole array.
+- To update array fields like `options`, `modifiers`, `variantsInfo.variants`, `additionalRibbons`, and any others, pass the entire existing array. Passing only the changed item overwrites the whole array.
 - To update `variantsInfo.variants`, also pass `options`, and vice versa. Variants and options are mutually dependent and must stay aligned.
 - When converting a simple product to an optioned product, rebuild the variants list so every variant has `choices`; do not keep an existing choice-less default variant unchanged.
 - Always include `choicesSettings` with the complete list of choices when updating a product with options.
