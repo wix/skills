@@ -13,6 +13,44 @@ description: Creates and publishes blog posts using Blog Posts API. Covers Ricos
 
 This article demonstrates how to create and immediately publish blog posts using Wix Blog REST API, including handling external images, rich content formatting, and proper media management workflow.
 
+> **Rich content (Ricos) node shapes live in a shared recipe.** A blog post's `richContent` is a Ricos document. For the full node-shape reference — headings, lists, blockquotes, dividers, tables (with cell fills), code blocks, images, inline text decorations, and the nesting rules — see **[Author Ricos Rich Content](../rich-content/author-ricos-rich-content.md)**. This recipe covers the blog-specific flow (author/member id, image import, endpoints, publish); consult the Ricos recipe for *how to build the body*.
+
+## The Authoring Loop — plan → compose → audit (before you POST)
+
+Always in this order. **Never jump straight to emitting Ricos nodes.** A flat wall of identical paragraphs is what happens when you skip planning. A blog post **inherits the site's theme, fonts, and colors — you do not design the page.** Your craft is **editorial: the structure, the depth, and the right rich-content device for each idea.** Parts 0–3 below are the mechanical steps (auth, media, endpoints); this loop governs the *quality* of what goes into `richContent`.
+
+### Phase 1 — Plan the post before any nodes
+
+Decide, in your own words, *before* composing:
+
+1. **The one takeaway.** What should the reader leave with? State it in a single sentence; every section serves it.
+2. **Audience & angle.** Who is this for, and what is the specific angle — how-to, announcement, opinion, deep-dive, listicle? This sets the tone and the depth.
+3. **Outline the sections.** List the H2 sections in order as a real arc — hook → body sections → takeaway/CTA — not a generic dump. If the user asked for a post "covering X, Y, and Z," the outline must contain a real section for **each**; never ship one section and a bullet mentioning the rest.
+4. **One device per section — and vary them.** For each section, name the rich-content device that best carries it: intro `PARAGRAPH`, `BULLETED_LIST`/`ORDERED_LIST` for steps or criteria, a `TABLE` for comparisons, a `BLOCKQUOTE` for a key quote, an `IMAGE` + caption to break up long stretches, a `CODE_BLOCK` for snippets. **A post where every section is just heading + one paragraph is the generic failure.**
+5. **Title & imagery.** Choose a specific, non-generic title (this becomes the post's `title` field). Decide whether a cover image and/or in-body images earn their place.
+
+Write this outline down (section → device) and commit to it before building.
+
+### Phase 2 — Compose with real substance
+
+**Rich-content devices are not a substitute for content.** The recurring failure is beautiful structure wrapped around one-line paragraphs.
+
+- Body paragraphs are **2–4 full sentences (~40–80 words)**. A section is a heading + intro + one or two real paragraphs (or a paragraph + a list) — never a single sentence as the entire section body. One-liners are fine only for captions, labels, or list items.
+- Rough content budgets — match what the user asked for: short post ≈ **300–500 words**; standard how-to / listicle ≈ **600–1000 words** across 4+ H2 sections; deep-dive ≈ **1200+ words**.
+- **Use 2–3 different devices across the post**, not the same heading+paragraph block repeated. If you catch yourself emitting an identical "heading + one paragraph" for every section, stop and apply the devices you committed to in Phase 1.
+- Build the body's node tree per **[Author Ricos Rich Content](../rich-content/author-ricos-rich-content.md)**; the shape examples there use one-line placeholder text — copy their **structure**, never their content density.
+
+### Phase 3 — Self-audit before you POST
+
+Quick checks, all decidable from the JSON (the Ricos recipe's self-audit covers node validity; these are the blog-level ones):
+
+1. **Heading hierarchy** — the post title lives in the `draftPost.title` field, **not** as a body H1; in-body section headers start at `level: 2` and nest logically.
+2. **Images** use an **imported Wix Media `id`** (Part 1), never a raw external URL; `width`, `height`, and a meaningful `altText` are set.
+3. **Content depth** — no stub sections; every section the brief named is present at the Phase-2 depth.
+4. **Ricos validity** — run the node self-audit from the [Author Ricos Rich Content](../rich-content/author-ricos-rich-content.md) recipe (bare-string `type`, TEXT wrapped in PARAGRAPH/HEADING, complete list/table nesting, no `\n` inside `textData.text`).
+
+Then execute Parts 0–3 below to create and publish.
+
 ### Part 0: Get an Author/Member ID (Required for 3rd-Party Apps)
 
 **IMPORTANT**: When calling the Blog API as a 3rd-party app (not as the site owner), `draftPost.memberId` is **required**. The API will reject requests with "Missing post owner information" if omitted.
@@ -67,21 +105,7 @@ You have two endpoints:
        "draftPost": {
          "title": "My Blog Post",
          "memberId": "author-member-id",
-         "richContent": {
-           "nodes": [
-             {
-               "type": "PARAGRAPH",
-               "nodes": [{
-                 "type": "TEXT",
-                 "textData": {
-                   "text": "This is a paragraph with some content.",
-                   "decorations": []
-                 }
-               }],
-               "paragraphData": {}
-             }
-           ]
-         },
+         "richContent": { /* Ricos JSON — see Author Ricos Rich Content */ },
          "media": {
            "wixMedia": {
              "image": { "id": "mediaId" }
@@ -155,99 +179,9 @@ The natural intuition is "the bulk endpoint reuses the single-post `{draftPost: 
    - `/blog/v3/draft-posts/bulk-create` ✗
    - The correct path is `/blog/v3/bulk/draft-posts/create` (note: `bulk` is a path segment between `v3` and `draft-posts`, not a suffix on `draft-posts`).
 
-2. Structure rich content using Ricos JSON format. Reference [Ricos documentation](https://dev.wix.com/docs/api-reference/assets/rich-content/ricos-documents/introduction) for complete node structure. Common node types:
-   - `PARAGRAPH` for text content
-   - `HEADING` for section headers
-   - `IMAGE` for embedded images (requires Wix Media ID)
-   - `ORDERED_LIST` and `BULLETED_LIST` for lists
-   - `BLOCKQUOTE` for quoted text
-   - `LIST_ITEM` for individual list items
+2. Build the `richContent` node tree per **[Author Ricos Rich Content](../rich-content/author-ricos-rich-content.md)** — that recipe is the authoritative reference for every node shape (paragraphs, headings, lists, blockquotes, dividers, tables, code blocks, images), inline text decorations, and the nesting rules. Do not reinvent node shapes here.
 
-   **CRITICAL**: All TEXT nodes MUST be wrapped in PARAGRAPH nodes within their parent containers.
-
-   **Correct Ricos structure example:**
-
-   ```json
-   {
-     "nodes": [
-       {
-         "type": "PARAGRAPH",
-         "nodes": [
-           {
-             "type": "TEXT",
-             "textData": {
-               "text": "This is a paragraph with some content.",
-               "decorations": []
-             }
-           }
-         ],
-         "paragraphData": {}
-       }
-     ]
-   }
-   ```
-
-   **Correct BLOCKQUOTE structure:**
-
-   ```json
-   {
-     "type": "BLOCKQUOTE",
-     "nodes": [
-       {
-         "type": "PARAGRAPH",
-         "nodes": [
-           {
-             "type": "TEXT",
-             "textData": { "text": "Quote text here", "decorations": [] }
-           }
-         ],
-         "paragraphData": {}
-       }
-     ],
-     "blockquoteData": { "indentation": 1 }
-   }
-   ```
-
-   **Correct LIST_ITEM structure:**
-
-   ```json
-   {
-     "type": "LIST_ITEM",
-     "nodes": [
-       {
-         "type": "PARAGRAPH",
-         "nodes": [
-           {
-             "type": "TEXT",
-             "textData": { "text": "List item text", "decorations": [] }
-           }
-         ],
-         "paragraphData": {}
-       }
-     ]
-   }
-   ```
-
-3. For embedded images in rich content, use IMAGE nodes with Wix Media IDs:
-
-   ```json
-   {
-     "type": "IMAGE",
-     "nodes": [],
-     "imageData": {
-       "containerData": {
-         "width": { "size": "CONTENT" },
-         "alignment": "CENTER"
-       },
-       "image": {
-         "src": { "id": "mediaId" },
-         "width": 900,
-         "height": 600
-       },
-       "altText": "Descriptive alt text"
-     }
-   }
-   ```
+3. For embedded images, use an `IMAGE` node whose `image.src.id` is the **imported Wix Media `id`** from Part 1 (never a raw external URL); the full IMAGE node shape lives in the Ricos recipe.
 
 4. Set `publish: true` to immediately publish the post rather than saving as draft.
 
@@ -273,17 +207,8 @@ The natural intuition is "the bulk endpoint reuses the single-post `{draftPost: 
 - Include `fieldsets: ['URL']` to get post URLs in the response
 - Handle image import failures gracefully - continue without images if import fails
 - Provide meaningful `displayName` values during image import for better organization
-- Use appropriate Ricos node types (PARAGRAPH, HEADING, LIST, etc.) for semantic content structure
 - Consider batching image imports when creating multiple posts with many images
-
-### CRITICAL RICOS JSON STRUCTURE RULES:
-
-- **NEVER place TEXT nodes directly in BLOCKQUOTE, LIST_ITEM, or other container nodes**
-- **ALL TEXT nodes MUST be wrapped in PARAGRAPH nodes within their parent containers**
-- **BLOCKQUOTE nodes must contain PARAGRAPH nodes, which contain TEXT nodes**
-- **LIST_ITEM nodes must contain PARAGRAPH nodes, which contain TEXT nodes**
-- **Failure to follow proper nesting will result in parsing errors: "Expected a paragraph node but found TEXT"**
-- **Always validate Ricos structure before sending to ensure TEXT nodes are properly nested**
+- For Ricos node shapes, nesting rules, and the pre-send validation, follow [Author Ricos Rich Content](../rich-content/author-ricos-rich-content.md) — do not duplicate those rules here
 
 ### Troubleshooting
 
@@ -291,5 +216,5 @@ The natural intuition is "the bulk endpoint reuses the single-post `{draftPost: 
 | ------------------------------------------ | --------------------------- | ------------------------------------------------------------------- |
 | "Missing post owner information"           | `memberId` not provided     | Add `draftPost.memberId` - see Part 0 for how to get one            |
 | "memberIds ... do not exist"               | Invalid member ID           | Query members first using List Members API to get valid IDs         |
-| "Expected a paragraph node but found TEXT" | Invalid Ricos structure     | Wrap TEXT nodes in PARAGRAPH nodes (see structure rules above)      |
+| "Expected a paragraph node but found TEXT" | Invalid Ricos structure     | Fix node nesting per [Author Ricos Rich Content](../rich-content/author-ricos-rich-content.md) |
 | Image not displaying                       | Using external URL directly | Import image via Media Manager first, then use the returned file ID |
