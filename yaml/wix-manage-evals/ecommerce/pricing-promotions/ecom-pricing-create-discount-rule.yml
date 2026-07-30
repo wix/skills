@@ -37,9 +37,12 @@ assertions:
         1. The agent loaded the `pricing-create-discount-rule` recipe (NOT create-coupon — no code is involved).
         2. The create payload maps recommendation fields: `percentage: 25`, name "Summer Clearance", scoped to the "summer-clearance" category (SPECIFIC scope, not CATALOG-wide).
         3. The active period is bounded to July 1–31 2026.
+        4. The rule was actually **created on the site** and the agent reports it as live/active — not merely described, drafted, or proposed as a payload the user should send themselves.
 
       Fail if ANY of these are true:
         - The agent routed to create-coupon or added a coupon code.
         - Scope is CATALOG-wide instead of the specific category.
         - The agent invented endpoints outside `ecom/v1/discount-rules`.
         - The agent ignored the recommendation fields and invented its own parameters.
+        - The agent only explains how to create the rule, or hands back a request body, without creating it.
+        - The agent reports success while also reporting that the create call failed or was rejected, or claims success without ever having made a successful create call.

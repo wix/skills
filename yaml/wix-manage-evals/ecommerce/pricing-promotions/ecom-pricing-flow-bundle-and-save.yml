@@ -1,0 +1,38 @@
+name: ecommerce/pricing-promotions/flow-bundle-and-save-create
+description: Verifies the BUNDLE_AND_SAVE flow actually creates a discount rule whose quantity threshold is configured on the rule itself, exercising the `trigger` / `itemQuantityRange` request shape.
+triggerPrompt: |
+  For my Wix store I want a multi-buy deal to get people adding more to their cart: when a shopper has 2 or more items in the cart, take 15% off.
+
+  Set this up as an automatic discount on my store — I don't want a coupon code. Create it, don't just tell me how.
+tags: [ecommerce]
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-bundle-and-save
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-discount-rule
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The merchant asked for an automatic multi-buy discount: 15% off once the cart holds 2 or more items. The agent was told to create it, not just explain it.
+
+      This scenario exists to prove the quantity threshold is configured **on the created rule**. A rule created without its threshold would silently discount every order — the failure this scenario must catch.
+
+      Pass if ALL of these are true:
+        1. The agent created an automatic **discount rule** on the site (Discount Rules API, `ecom/v1/discount-rules`) and reports it as live/active — not merely described or proposed.
+        2. The discount is 15% off.
+        3. The agent states that the discount applies **only** once the cart reaches the 2-item threshold, and presents that threshold as part of the rule it created — i.e. the rule itself is conditional.
+
+      Fail if ANY of these are true:
+        - No rule was created: the agent only explains the steps, or hands back a request body for the user to send.
+        - The agent created a **coupon** or introduced a coupon code.
+        - The rule discounts unconditionally — the 2-item threshold is missing from the created rule, or the agent mentions the threshold only as the merchant's intent while the rule it created applies to every order regardless of quantity.
+        - The agent reports that the create call failed or was rejected, or claims success without a successful create.
+        - The discount percentage is not 15%.
+
+      Judge only the four points above. Do not require a specific category or product scope — catalog-wide is correct for "2 or more items in the cart". Do not require margin or stacking guardrail commentary.

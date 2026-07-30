@@ -1,0 +1,39 @@
+name: ecommerce/pricing-promotions/flow-upsell-boost-create
+description: Verifies the UPSELL_BOOST flow actually creates a discount rule whose subtotal threshold is configured on the rule itself, exercising the `trigger` / `subtotalRange` request shape.
+triggerPrompt: |
+  For my Wix store I want to push up my average order value: once a shopper's cart subtotal reaches $175, give them 10% off the whole order.
+
+  Set this up as an automatic store-wide discount — no coupon code. Please actually create it rather than describing the steps.
+tags: [ecommerce]
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/flow-upsell-boost
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-discount-rule
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The merchant asked for an automatic store-wide discount: 10% off once the cart subtotal reaches $175. The agent was told to create it, not just describe it.
+
+      This scenario exists to prove the subtotal threshold is configured **on the created rule**. A rule created without its threshold would silently discount every order — the failure this scenario must catch.
+
+      Pass if ALL of these are true:
+        1. The agent created an automatic **discount rule** on the site (Discount Rules API, `ecom/v1/discount-rules`) and reports it as live/active — not merely described or proposed.
+        2. The discount is 10% off.
+        3. The agent states that the discount applies **only** once the cart subtotal reaches $175, and presents that threshold as part of the rule it created — i.e. the rule itself is conditional.
+        4. The rule is store-wide / catalog-wide, not limited to one category or product.
+
+      Fail if ANY of these are true:
+        - No rule was created: the agent only explains the steps, or hands back a request body for the user to send.
+        - The agent created a **coupon** or introduced a coupon code.
+        - The rule discounts unconditionally — the $175 subtotal threshold is missing from the created rule, or the agent mentions it only as the merchant's intent while the rule it created applies to every order regardless of subtotal.
+        - The agent reports that the create call failed or was rejected, or claims success without a successful create.
+        - The discount percentage is not 10%.
+
+      Judge only the points above. Do not require margin or stacking guardrail commentary.
