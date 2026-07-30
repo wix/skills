@@ -41,7 +41,9 @@ have). Don't blend their exchange calls — the helper handles each internally.
    roles) or custom field definitions. Pure "logged-in vs. not" gating needs no app — see the
    identity-vs-profile split below.
 2. The site's public headless **`WIX_CLIENT_ID`** (from the handoff prompt), pasted into
-   `src/rest/wix-client.js`. Public, buyer-facing credential — safe to hardcode/commit.
+   `src/rest/wix-client.js`. Public, buyer-facing credential — safe to hardcode/commit. Also set
+   **`WIX_META_SITE_ID`** there (same prompt) — optional, only used to build the one-click
+   "approve" link on an allow-listing failure; leave the placeholder if you don't have it.
 3. **OAuth-app allow-listing — the #1 gotcha. Two *different* fields gate the two mechanisms:**
 
    | Mechanism | What must be allow-listed | OAuth-app field | On `localhost:4321`? |
@@ -61,12 +63,37 @@ have). Don't blend their exchange calls — the helper handles each internally.
      **before** returning — so the client can't catch it; you must register it up front.
    - Google & Facebook are enabled by default; **custom SSO** also needs an IDP connection created in
      the Business Manager, whose **connection id** you pass as `idp` (see "Custom SSO" below).
+   - **Docs — read this for the allow-listing setup (the authority on both fields):**
+     https://dev.wix.com/docs/go-headless/authentication/setup/allow-redirect-uris-and-domains
 
    > **⚠️ AGENT: this is a manual, owner-only step you cannot do from client-only code — surface it
    > proactively.** As soon as a run uses social/SSO (or deploys credential login to a non-`4321`
    > origin), **tell the user** the exact URIs to add and where, and note that **social login stays
    > dead until they do it** (a client-only front has no account token to register it via the API).
    > See "Point the user to their dashboard" below for the deep link and the exact values.
+   >
+   > **Self-serve on failure — render the approve link.** When this app isn't allow-listed yet, both
+   > mechanisms surface a **one-click "Approve" deep link** into the OAuth-app dashboard that pre-fills
+   > **both** allow-list fields at once — the app **origin** *and* the `/callback` URI — so the owner
+   > approves **once** and both credential *and* social work afterward (no matter which one failed first):
+   > - **Credential:** the helper throws `MemberAuthError` (code `redirect_uri_not_allowed`) carrying
+   >   **`err.approveUrl`**, built client-side from the authorize server's `metaSiteId` + `rejectedOrigin`
+   >   (falls back to `WIX_META_SITE_ID`). **Render `err.approveUrl` as an "Approve" button** in your auth
+   >   error state (it's also `console.warn`'d for the developer). See the wiring snippet under (A) below.
+   > - **Social/SSO:** fails on a Wix-rendered **gate page** (a full-page redirect that doesn't return to
+   >   your app, so you can't catch it client-side) — but that page renders the **same** one-click approve
+   >   button, so the owner fixes it right there and retries.
+   > This is a build/test-time safety net — a correctly-registered site never hits it — so surface it
+   > plainly; no need to distinguish owner vs visitor (matches the platform's checkout "approve" page).
+
+## Why login routes through the Wix "gate"
+Both mechanisms send the browser to a **headless gate** (`/_serverless/wix-to-headless-redirect/…`)
+instead of straight to identity's authorize URL. The gate checks this app against the OAuth app's
+allow-list and either **forwards** to identity (allowed) or **fails fast with a one-click approve
+link** (not allowed). Without it, the *pure* identity flow dead-ends when the app isn't allow-listed:
+credential login silently hangs (the `web_message` postMessage is dropped), and social shows a generic
+"Invalid redirect URI" page that never returns to your app — neither is actionable. Keep routing
+through the gate (the helper does this for you) — it's what makes the approve UX work.
 
 ## The API (copy as-is; do not re-derive it)
 Copy `wix-client.js` + `wix-members-auth.js` into `src/rest/` and set `WIX_CLIENT_ID`. Exports of
@@ -108,8 +135,29 @@ try {
   else if (res.state === "REQUIRE_EMAIL_VERIFICATION") promptForCode(res.stateToken);
   else if (res.state === "REQUIRE_OWNER_APPROVAL") showPending();
 } catch (e) {
-  if (e instanceof MemberAuthError) showError(e.message); else throw e;
+  if (!(e instanceof MemberAuthError)) throw e;
+  // ⚠️ Store the whole error object — NOT just `e.message`. On an allow-listing failure the error
+  // carries an `e.approveUrl` (a one-click dashboard deep link). Doing `setError(e.message)` throws
+  // that away and the "Approve" button can never render — the single most common wiring mistake here.
+  setAuthError(e);
 }
+```
+
+Then render the message **and**, when present, `authError.approveUrl` as a button (opens the dashboard
+in a new tab). One click there approves **both** allow-list fields at once (see the allow-listing
+gotcha above), so the owner fixes it once and comes back:
+
+```jsx
+{authError && (
+  <div className="login-error">
+    <p>{authError.message}</p>
+    {authError.approveUrl && (
+      <a href={authError.approveUrl} target="_blank" rel="noopener noreferrer" className="btn btn-primary">
+        Approve this app
+      </a>
+    )}
+  </div>
+)}
 ```
 
 Custom sign-up fields go in `register`'s `profile` (`{ firstName, lastName, nickname, addresses, … }`).
@@ -175,8 +223,10 @@ create in the Business Manager (dashboard link below).
 The helper covers sign-up / login / social / SSO / logout / current-member. For a genuine gap, extend
 with `wixApiRequest` — but confirm the endpoint, method, and body in the API reference first (or via
 the co-installed **`wix-docs`** skill). Never guess.
-- Custom login (JS SDK, concepts mirror the REST calls): https://dev.wix.com/docs/go-headless/self-managed-headless/authentication/members/custom-login-page/custom-login/custom-login-using-the-js-sdk.md
-- External / social login (REST): https://dev.wix.com/docs/rest/business-management/headless-authentication/redirects/create-redirect-session
+- About member login (the mechanism map — which flow to use when): https://dev.wix.com/docs/go-headless/authentication/members/about-member-login.md
+- Build a custom login page (REST) — the credential flow this vertical implements, steps 1-10: https://dev.wix.com/docs/go-headless/authentication/members/custom-login-page/build-a-custom-login-page-rest.md
+- Sign in with Google or Facebook (REST) — social/SSO, with the `idp` connection ids: https://dev.wix.com/docs/go-headless/authentication/members/identity-providers/sign-in-with-google-or-facebook-rest.md
+- Allow redirect URIs & domains (allow-listing setup — this vertical's #1 gotcha; what the `approveUrl` pre-fills): https://dev.wix.com/docs/go-headless/authentication/setup/allow-redirect-uris-and-domains
 - Retrieve Tokens (REST): https://dev.wix.com/docs/rest/business-management/headless-authentication/authentication/retrieve-tokens
 - Members API (read/update profile, query members): https://dev.wix.com/docs/api-reference/members/members/members-v1/introduction
 
@@ -191,7 +241,9 @@ Some setup only happens in the Wix dashboard — always give the user the deep l
   - the **exact `/callback` URL** (e.g. `https://myapp.example.com/callback`) — required for social/SSO;
   - also add password-reset / logout return URLs if you use them.
   Tell the user these exact values; the callback URL must match your `startSocialLogin` `callbackUri`
-  character-for-character.
+  character-for-character. **Faster path:** the in-app "Approve" button / gate approve page deep-links
+  straight here with the origin **and** `/callback` pre-filled, so the owner approves both in one click
+  rather than typing them — this manual list is the fallback for when that link can't be built.
 - **Custom SSO connection** (to obtain a `connectionId`) — created under the project's IAM / SSO
   settings in the Business Manager.
 
