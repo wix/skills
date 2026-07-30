@@ -101,15 +101,16 @@ interface Options$1 {
 ### 🚫 Do NOT write these — they do not exist on `dashboardPage`
 
 ```ts
-// ❌ ALL of these fail tsc: "does not exist in type 'Options$1'"
+// ❌ Each extra key below fails: TS2353 "... does not exist in type 'Options$1'"
 extensions.dashboardPage({
-  id, title, routePath, component,
-  sidebar: { disabled: true },                        // ❌ no `sidebar` field, at all
-  sidebar: { priority: 10 },                          // ❌
-  sidebar: { whenActive: { hideSidebar: true } },     // ❌
-  additionalRoutes: ['/other-route'],                 // ❌ not available here
+  id, title, routePath, component,   // ✅ the only fields that belong here
+  sidebar: { disabled: true },       // ❌ there is no `sidebar` field, in any shape
+  additionalRoutes: ['/other'],      // ❌ not available on this builder
 });
 ```
+
+The same applies to `sidebar.priority`, `sidebar.whenActive.selectedPageId` and
+`sidebar.whenActive.hideSidebar` — no nested `sidebar` object exists on this builder at all.
 
 **There is no sidebar configuration available to third-party apps.** A dashboard page always
 appears in the sidebar, titled by `title`. If a user asks to hide the page from the sidebar,
@@ -151,33 +152,51 @@ rather than guessing a field name — every guess is a build failure.
 
 ```typescript
 // Key pattern for embedded script configuration pages
+import { useEffect, useState } from "react";
 import { embeddedScripts } from "@wix/app-management";
+import { dashboard } from "@wix/dashboard";
 
-// Load on mount
-useEffect(() => {
-  const load = async () => {
-    const script = await embeddedScripts.getEmbeddedScript();
-    const data = script.parameters || {};
-    setOptions({
-      headline: data.headline || "Default",
-      enabled: data.enabled === "true",
-      threshold: Number(data.threshold) || 0,
-    });
-  };
-  load();
-}, []);
+interface ScriptOptions {
+  headline: string;
+  enabled: boolean;
+  threshold: number;
+}
 
-// Save handler
-const handleSave = async () => {
-  await embeddedScripts.embedScript({
-    parameters: {
-      headline: options.headline,
-      enabled: String(options.enabled),
-      threshold: String(options.threshold),
-    },
+export function useEmbeddedScriptOptions() {
+  const [options, setOptions] = useState<ScriptOptions>({
+    headline: "Default",
+    enabled: false,
+    threshold: 0,
   });
-  dashboard.showToast({ message: "Saved!", type: "success" });
-};
+
+  // Load on mount. Parameters come back as STRINGS — convert on read.
+  useEffect(() => {
+    const load = async () => {
+      const script = await embeddedScripts.getEmbeddedScript();
+      const data = script.parameters || {};
+      setOptions({
+        headline: data.headline || "Default",
+        enabled: data.enabled === "true",
+        threshold: Number(data.threshold) || 0,
+      });
+    };
+    load();
+  }, []);
+
+  // Save handler. All parameters must be saved as strings.
+  const handleSave = async () => {
+    await embeddedScripts.embedScript({
+      parameters: {
+        headline: options.headline,
+        enabled: String(options.enabled),
+        threshold: String(options.threshold),
+      },
+    });
+    dashboard.showToast({ message: "Saved!", type: "success" });
+  };
+
+  return { options, setOptions, handleSave };
+}
 ```
 
 

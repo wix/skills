@@ -16,6 +16,20 @@ Both versions expose a fluent query builder, but the paging method differs:
 ```typescript
 import { catalogVersioning, products, productsV3 } from '@wix/stores';
 
+// Version detection is mandatory before any Stores call, and the version is
+// permanent per site — see STORES_VERSIONING.md § "Mandatory: Detect Version First".
+// Repeated here so every example below is complete and type-checks as written.
+export type CatalogVersion = 'V1_CATALOG' | 'V3_CATALOG' | 'STORES_NOT_INSTALLED';
+
+let cachedVersion: CatalogVersion | undefined;
+
+export async function getVersion(): Promise<CatalogVersion> {
+  if (cachedVersion) return cachedVersion;
+  const { catalogVersion } = await catalogVersioning.getCatalogVersion();
+  cachedVersion = catalogVersion as CatalogVersion;
+  return cachedVersion;
+}
+
 export interface ProductsPage {
   products: unknown[];        // narrow at call site
   nextCursor: string | null;  // V3 only
@@ -65,21 +79,18 @@ export async function listProductsPage(
 **V3 `queryProducts` can only filter on `_id`, `slug`, `options.id`, and `handle`.** Any other
 field is a compile error on the builder methods:
 
-```ts
-// ❌ error TS2345: Argument of type '"name"' is not assignable to parameter of
-//    type '"_id" | "slug" | "options.id" | "handle"'
-productsV3.queryProducts().startsWith('name', term);
-
-// ❌ error TS2339: Property 'contains' does not exist on type 'ProductsQueryBuilder'
-productsV3.queryProducts().contains('name', term);
+```typescript
+// ❌ TS2345: '"name"' is not assignable to '"_id" | "slug" | "options.id" | "handle"'
+productsV3.queryProducts().startsWith('name', searchTerm);
+// ❌ TS2339: Property 'contains' does not exist on type 'ProductsQueryBuilder'
+productsV3.queryProducts().contains('name', searchTerm);
 ```
 
 For free-text lookup by product name (or brand, SKU, description) call
-**`productsV3.searchProducts()`**. It is a **direct call, not a fluent builder**:
+**`productsV3.searchProducts()`**. It is a **direct call, not a fluent builder**
+(imports and `getVersion` come from the first example in this file):
 
 ```typescript
-import { productsV3 } from '@wix/stores';
-
 export async function searchProductsByName(term: string, limit = 20, cursor?: string) {
   const res = await productsV3.searchProducts({
     cursorPaging: { limit, ...(cursor ? { cursor } : {}) },
@@ -115,10 +126,13 @@ exactly what V3's builder rejects:
 
 ```typescript
 // ✅ V1 — allowed. startsWith accepts '_id' | 'name' | 'slug' | 'description' | 'sku'
-products.queryProducts().startsWith('name', term);
+export async function v1SearchByName(term: string, limit: number) {
+  const res = await products.queryProducts().startsWith('name', term).limit(limit).find();
+  return res.items;
+}
 
-// ❌ V1 — error TS2339: Property 'contains' does not exist on type 'ProductsQueryBuilder'
-products.queryProducts().contains('name', term);
+// ❌ V1 — TS2339: Property 'contains' does not exist on type 'ProductsQueryBuilder'
+products.queryProducts().contains('name', searchTerm);
 ```
 
 ⚠️ **The two versions are not equivalent in behaviour, only in intent.** V1 gives you a
@@ -138,10 +152,6 @@ versions; if that matters to the user, say so rather than implying parity.
 So the two versions need genuinely different code paths here, not just a renamed module:
 
 ```typescript
-import { products, productsV3 } from '@wix/stores';
-// CatalogVersion + getVersion() come from the mandatory version-detection helper —
-// see STORES_VERSIONING.md § "Mandatory: Detect Version First".
-
 export async function searchByName(term: string, limit: number, v: CatalogVersion) {
   if (v === 'V3_CATALOG') {
     const res = await productsV3.searchProducts({
