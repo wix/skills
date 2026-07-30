@@ -35,6 +35,11 @@ Useful properties of these URLs:
 | Wix Blog | [Blog Dashboard Navigation](../blog/blog-dashboard-navigation.md) | Posts (published + drafts), categories, tags, writers, comments, analytics, monetization, settings |
 | Wix Pricing Plans | [Pricing Plans Dashboard Navigation](../pricing-plans/pricing-plans-dashboard-navigation.md) | Plans list, create/edit plan, manual orders, settings |
 | Wix Restaurants | [Restaurants Dashboard Navigation](../restaurants/restaurants-dashboard-navigation.md) | Menus, items, online orders board, ordering settings, reservations, floor plans, reservation experiences |
+| Wix CMS | [CMS Dashboard Navigation](../cms/cms-dashboard-navigation.md) | Collections list, collection items view |
+| Wix Contacts (CRM) | [Contacts Dashboard Navigation](../contacts/contacts-dashboard-navigation.md) | Contacts list, contact view, import, segments |
+| Wix Forms | [Forms Dashboard Navigation](../forms/forms-dashboard-navigation.md) | Forms list, submissions, form builder, standalone forms, templates, settings |
+| Get Paid | [Get Paid Dashboard Navigation](../get-paid/get-paid-dashboard-navigation.md) | Payment links, invoices, recurring invoices, accept-payments settings |
+| Wix Marketing | [Marketing Dashboard Navigation](../marketing/marketing-dashboard-navigation.md) | Social posts hub, design templates, email campaigns, campaign analytics |
 
 For a business solution not listed yet, use the app-ID fallback URL with the solution's app definition ID, or link the dashboard home: `https://manage.wix.com/dashboard/{metaSiteId}/home`.
 

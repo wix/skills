@@ -118,6 +118,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ### [CMS Publishing Flow & Visible/Hidden](references/cms/cms-publishing-flow.md)
 **Technical:** Interact with collections that gate items behind a draft/publish workflow — Visible/Hidden and Publishing Flow (Review, with DRAFT/PUBLISHED/CHANGED states). Detect the mode, read the combined draft+live view (`publishPluginOptions.includeDraftItems`), author/edit drafts against the `<collectionId>__drafts` shadow, and publish/unpublish/revert/delete items. Key endpoints: /wix-data/v2/items/publish-draft, /wix-data/v2/items/unpublish, /wix-data/v2/collections/add-plugin.
 
+### [CMS Dashboard Navigation](references/cms/cms-dashboard-navigation.md)
+**Technical:** Direct links to the Wix CMS (Content Manager) dashboard pages on manage.wix.com (collections list, a specific collection's items view), pairing collections and data items with their read APIs for "view it in your dashboard" links.
+
 ---
 
 ## Contacts
@@ -127,6 +130,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 
 ### [Bulk Label and Unlabel Contacts](references/contacts/bulk-label-and-unlabel-contacts.md)
 **Technical:** Adds/removes labels from multiple contacts using Contacts API bulk operations. Covers label creation, contact filtering, batch processing, and rate limit handling.
+
+### [Contacts Dashboard Navigation](references/contacts/contacts-dashboard-navigation.md)
+**Technical:** Direct links to Wix Contacts (CRM) dashboard pages on manage.wix.com (contacts list, view a specific contact, contact import, segments), pairing each main contacts entity with its read API for "view it in your dashboard" links.
 
 ---
 
@@ -195,6 +201,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 ### [Create Form](references/forms/create-form.md)
 **Technical:** Creates a form with fields (name, email, etc.) using the Form Schemas API. Covers field configuration, layout, and post-submission triggers.
 
+### [Forms Dashboard Navigation](references/forms/forms-dashboard-navigation.md)
+**Technical:** Direct links to Wix Forms dashboard pages on manage.wix.com (forms list, submissions table, form builder for a specific form, standalone forms, templates, settings), pairing forms and submissions with their read APIs for "view it in your dashboard" links.
+
 ---
 
 ## Get Paid
@@ -207,6 +216,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 
 ### [Payment Links for Bookings](references/get-paid/payment-links-for-bookings.md)
 **Technical:** Creates payment links for unpaid bookings using Payment Links API. Links booking IDs to payment requests with proper redirect handling.
+
+### [Get Paid Dashboard Navigation](references/get-paid/get-paid-dashboard-navigation.md)
+**Technical:** Direct links to payments and invoicing dashboard pages on manage.wix.com (payment links, invoices list, new invoice, invoice settings, recurring invoices, accept-payments settings), pairing each get-paid entity with its read API for "view it in your dashboard" links.
 
 ---
 
@@ -235,6 +247,9 @@ These recipes do NOT cover frontend development or SDK usage for displaying data
 
 ### [Generate a Marketing Plan and Schedule Its Posts](references/marketing/generate-and-publish-marketing-plan.md)
 **Technical:** Generates a site's AI social media marketing plan (a calendar of marketing activities, each with per-channel post drafts) via the Marketing Plan API, then schedules the drafts for publishing. Covers optional marketing settings (goal, channels, tone, frequency, content pillars), asynchronous generation with polling, and generating posts for additional activities. Use for "generate a marketing plan", "create a social media plan/calendar", or "schedule my plan's posts".
+
+### [Marketing Dashboard Navigation](references/marketing/marketing-dashboard-navigation.md)
+**Technical:** Direct links to Wix marketing dashboard pages on manage.wix.com (social posts hub with drafts/scheduled/published posts, post design templates, saved designs, email campaigns list, campaign templates, campaign analytics), pairing each main marketing entity with its read API for "view it in your dashboard" links.
 
 ---
 
