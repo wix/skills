@@ -107,20 +107,55 @@ export async function searchProductsByName(term: string, limit = 20, cursor?: st
 | Next cursor | `res.cursors.next` | `res.pagingMetadata?.cursors?.next` |
 | Paging in | `.limit()` / `.skipTo()` | `cursorPaging: { limit, cursor }` |
 
-**V1 equivalent:** V1 has no separate search method — use the builder's
-`products.queryProducts().startsWith('name', term)`, which V1 *does* allow. So the two
-catalog versions need genuinely different code paths here, not just a renamed module:
+### V1: no `searchProducts` — prefix match on the builder instead
+
+**V1 has no search method at all.** The `products` namespace exposes only `queryProducts`;
+there is no `products.searchProducts`. Instead, V1's builder *does* accept `name`, which is
+exactly what V3's builder rejects:
 
 ```typescript
-if (v === 'V3_CATALOG') {
-  const res = await productsV3.searchProducts({
-    cursorPaging: { limit },
-    search: { expression: term, fields: ['name'] },
-  });
-  return res.products ?? [];
+// ✅ V1 — allowed. startsWith accepts '_id' | 'name' | 'slug' | 'description' | 'sku'
+products.queryProducts().startsWith('name', term);
+
+// ❌ V1 — error TS2339: Property 'contains' does not exist on type 'ProductsQueryBuilder'
+products.queryProducts().contains('name', term);
+```
+
+⚠️ **The two versions are not equivalent in behaviour, only in intent.** V1 gives you a
+**prefix match** (`startsWith`) — "sho" finds "Shoes" but *not* "Running Shoes". V3
+`searchProducts` is real full-text with optional `fuzzy`, matching anywhere in the field and
+tolerating typos. A single search box will behave noticeably differently across catalog
+versions; if that matters to the user, say so rather than implying parity.
+
+| | V1 (`products`) | V3 (`productsV3`) |
+|---|---|---|
+| Search method | none — use the builder | `searchProducts()` |
+| Name matching | `startsWith` — prefix only | `search.expression` — full-text, anywhere |
+| Fuzzy / typo tolerance | ✗ | ✓ via `fuzzy: true` |
+| Other searchable fields | `_id`, `slug`, `description`, `sku` | `name`, `description`, `variantsInfo.variants.sku`, `minVariantPriceInfo.sku`, `directCategoryIdsInfo.categoryIds`, `physicalProperties.*` |
+| `contains` | ✗ not on the builder | ✗ use `search.expression` |
+
+So the two versions need genuinely different code paths here, not just a renamed module:
+
+```typescript
+import { products, productsV3 } from '@wix/stores';
+// CatalogVersion + getVersion() come from the mandatory version-detection helper —
+// see STORES_VERSIONING.md § "Mandatory: Detect Version First".
+
+export async function searchByName(term: string, limit: number, v: CatalogVersion) {
+  if (v === 'V3_CATALOG') {
+    const res = await productsV3.searchProducts({
+      cursorPaging: { limit },
+      search: { expression: term, fields: ['name'], fuzzy: true },
+    });
+    return res.products ?? [];          // full-text match
+  }
+  const res = await products.queryProducts()
+    .startsWith('name', term)           // prefix match only
+    .limit(limit)
+    .find();
+  return res.items;
 }
-const res = await products.queryProducts().startsWith('name', term).limit(limit).find();
-return res.items;
 ```
 
 > **If a name/brand search cannot be expressed, do not silently drop the feature.** Removing
