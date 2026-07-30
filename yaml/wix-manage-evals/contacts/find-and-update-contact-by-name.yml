@@ -1,20 +1,28 @@
 ---
 name: contacts/find-and-update-contact-by-name
 description: >-
-  Verifies the agent reads the find-and-update-contact recipe when Query Contacts
-  rejects a name filter as "not declared as filterable", and routes to Search
-  Contacts instead of paging every contact — including the revision that Update
-  Contact requires and where it already comes from.
+  Verifies the agent reads the find-and-update-contact recipe and actually completes an
+  update to a contact it can only identify by name — routing to Search Contacts instead
+  of the name filter Query Contacts rejects as "not declared as filterable", and passing
+  the revision Update Contact requires.
 triggerPrompt: >-
-  I need to update a contact on my Wix site but I only know their name, "Jordan Lee".
-  I called POST https://www.wixapis.com/contacts/v5/contacts/query with body
-  {"query":{"filter":{"name.last":"Lee","name.first":"Jordan"}}} and got a 400:
-  "value Field 'name.last' is not declared as filterable". I retried with
-  {"query":{"filter":{"name.last":{"$eq":"Lee"}}}} and got exactly the same 400.
-  Do I have to page through every contact and match the name in memory? What is the
-  correct way to find Jordan Lee and set their phone number to +1-212-555-0100?
+  Update my contact Jordan Lee — set their phone number to +1-212-555-0100.
 tags: [contacts]
-maxTokens: 30000
+siteSetup:
+  mode: template
+  templateId: blank-editor
+  bootstrap:
+    steps:
+      - label: seed the contact Jordan Lee
+        method: post
+        url: https://www.wixapis.com/contacts/v5/contacts
+        body:
+          contact:
+            name:
+              first: Jordan
+              last: Lee
+            email:
+              email: jordan.lee@example.com
 assertions:
   - tool: ReadFullDocsArticle
     params:
@@ -23,35 +31,25 @@ assertions:
     minScore: 7
     maxTokens: 2048
     prompt: |
-      The user hit HTTP 400 "Field 'name.last' is not declared as filterable" from
-      Query Contacts (POST /contacts/v5/contacts/query) twice — once with a bare value
-      and once with $eq — and asks whether they must page all contacts and filter in
-      memory, and how to find "Jordan Lee" and set their phone to +1-212-555-0100.
+      The user's request (verbatim): "Update my contact Jordan Lee — set their phone
+      number to +1-212-555-0100."
 
-      Intent: route the user to Search Contacts for finding a contact by name, and to
-      Update Contact with the contact's current revision for the change.
+      Intent: the contact named Jordan Lee, who exists on the site, must end up with the
+      phone number +1-212-555-0100. The agent is only given the name, so it has to locate
+      the contact before it can update it.
 
-      Pass if the response:
-      - names Search Contacts, POST https://www.wixapis.com/contacts/v5/contacts/search,
-        as the way to find a contact by name — either free text (the expression is nested
-        as search.search.expression) or a filter on name.last / name.first inside the
-        search request, AND
-      - explains that Query Contacts declares only a limited set of filterable fields
-        (id, createdDate, updatedDate, email.email, phone.phone, externalId), so no
-        operator makes name.last work there, AND
-      - answers the user's actual question by saying a full scan with in-memory matching
-        is NOT required, AND
-      - states the update is PATCH https://www.wixapis.com/contacts/v5/contacts/{contactId}
-        with the contact's current revision in the request body, AND
-      - notes that the revision (and id) already come back on the contact returned by the
-        search, so no extra Get Contact call is needed just to read it.
+      Pass only if the tool-call trace shows the agent:
+      - located the existing contact Jordan Lee, AND
+      - issued a successful (2xx) update against that contact setting the phone number to
+        +1-212-555-0100 (equivalently +12125550100 in phone.e164), AND
+      - confirmed the completed change in its final answer, referring to the actual result
+        it got back rather than to what the API would do.
 
       Fail if the response:
-      - suggests any way to make Query Contacts filter on name.first / name.last
-        (different operator, nesting, or field projection), OR
-      - presents paging all contacts and filtering in memory as the answer or as an
-        equally good option, OR
-      - omits revision from the update request, or calls it optional, OR
-      - invents an endpoint that is not in the Contacts v5 API, or uses the Contacts v4
-        info.* field paths (e.g. info.name.last) against a v5 endpoint, OR
-      - only explains the error without giving the concrete find-then-update calls.
+      - only explains how to find and update a contact, or hands back curl/API instructions,
+        without actually performing the update, OR
+      - stops to ask which API, which contact, or whether to proceed, when exactly one
+        contact matches the name, OR
+      - left the update call erroring (non-2xx) at the end of the run, OR
+      - claims the phone number was updated with no successful update call in the trace, OR
+      - updated the wrong field or a different contact.

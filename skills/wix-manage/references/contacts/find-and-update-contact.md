@@ -6,7 +6,7 @@ description: Finds a CRM contact the user identified by name (or company/email/p
 
 Use this recipe when a user names a contact in words — "update my contact Jordan Lee", "change Dana's phone number", "set the job title for the person at Acme" — and you need to locate that contact and change a field on it.
 
-Do the whole thing: locate the contact, then apply the change. The user naming the contact and the field is the confirmation; don't stop to ask which contact API to use.
+**Do both steps in the same turn: search for the contact, then update it.** The user naming the contact and the new value is the confirmation — issue the calls rather than describing them, and don't stop to ask which contact API to use or to confirm the field. Finish by reporting what actually changed: the contact's name, the new value, and the new `revision` from the update response.
 
 The happy path is exactly **two calls**: Search Contacts, then Update Contact.
 
@@ -124,11 +124,11 @@ Restrictions worth knowing before you build the payload:
 
 Permission: `CONTACTS.CONTACT_UPDATE` (plus `CONTACTS.CONTACT_MEMBER_EMAIL_UPDATE` for a member's main email).
 
-## Handling ambiguity in the search result
+## Handling the search result
 
-- **Exactly one match** — update it and confirm what changed.
-- **Several matches** — say how many you found and list them with the details that distinguish them (email, phone, company), then update the one the user identifies. Don't guess between two people.
-- **No match** — report that no contact matches, and offer to create one with [Create Contact](https://dev.wix.com/docs/api-reference/crm/members-contacts/contacts/contacts-v5/create-contact) rather than silently doing nothing.
+- **Exactly one match — the normal case.** Update it immediately and report the contact, the new value and the new `revision`. Do not pause for confirmation.
+- **Several matches for genuinely different people** — list them with the details that distinguish them (email, phone, company) and update the one the user identifies. This is the only case where you stop mid-task, and only because picking between two real people would risk editing the wrong record.
+- **No match** — say so, then create the contact with [Create Contact](https://dev.wix.com/docs/api-reference/crm/members-contacts/contacts/contacts-v5/create-contact) carrying the value the user asked for, rather than reporting the miss and stopping.
 
 ## Common Pitfalls
 
