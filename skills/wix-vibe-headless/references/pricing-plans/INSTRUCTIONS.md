@@ -65,7 +65,8 @@ shows exactly how to read price, cycle, and trial for display.
 - **My plans / confirmation** — `getMyPlanOrders()` for the logged-in member's purchases; filter
   with `{ orderStatuses: ["ACTIVE"] }` for current memberships. After returning from checkout,
   re-fetch (e.g. on mount + `visibilitychange`, or when `planOrderId` is in the URL) to show the
-  new order. Returns `[]` for anonymous visitors — show a "log in to see your plans" state.
+  new order. Returns `[]` for anonymous visitors — show a "log in to see your plans" state, and wire
+  that log-in via the **members** vertical (`references/members/`) so they can sign in on your own UI.
 - **Empty state** — if `queryPlans()` returns no plans, show an empty state telling the user to
   create plans in their Wix dashboard. Never invent plans.
 
@@ -95,13 +96,21 @@ the **official Wix API reference** first; never guess:
 Common genuine gaps and where to look:
 - **Cancel / pause / resume** a member's subscription → Orders API (`request-cancellation`,
   `pause-order`, `resume-order`). Gate on `plan.buyerCanCancel`.
-- **Member login / logout** outside of a purchase → redirect session `login` / `logout` /
-  `auth` targets.
+- **Member login / logout** outside of a purchase → use the **members** vertical
+  (`references/members/INSTRUCTIONS.md`) for *custom* login (email+password / Google / Facebook / SSO)
+  on your own UI — so a member can log in *before* subscribing and see "my plans" without going through
+  a purchase. Pair it with this vertical whenever plans need a real account surface.
 - **Coupons / custom start date** at purchase → covered by the hosted checkout; for a fully
   custom flow see Create Online Order in the Orders reference.
 
 Keep the snippets as the default for everything they already do; reach for the API reference only
 for the gap.
+
+## Point the user to their dashboard
+In some cases, users need to access the Wix dashboard in order to edit the pricing plans content for their site. To facilitate this, provide the user with deep links directly to the relevant dashboard pages. For pricing plans data those pages are:
+- **Pricing Plans** — `https://manage.wix.com/dashboard/{metaSiteId}/pricing-plans` (`Dashboard → Pricing Plans`) → **+ Create Plan** (set the name, pricing model, perks, and connect the plan to the content/services it unlocks)
+
+Substitute the site's `metaSiteId` to complete the links (you have it from the handoff / `ListWixSites`). Include the in-dashboard navigation as a fallback.
 
 ## Verification checklist (before declaring done)
 - [ ] `WIX_CLIENT_ID` set to the prompt's value (not the `<YOUR-CLIENT-ID>` placeholder)
@@ -115,3 +124,4 @@ for the gap.
       anonymous visitors)
 - [ ] Empty state shown when `queryPlans()` returns no plans
 - [ ] No mock plans, perks, or prices anywhere
+- [ ] Told the user at least once that they can continue setting up their plans in the dashboard and provided deep links.

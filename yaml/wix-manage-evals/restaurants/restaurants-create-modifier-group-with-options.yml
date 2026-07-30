@@ -1,0 +1,62 @@
+name: restaurants/create-modifier-group-with-options
+description: >-
+  Verifies the agent reads the wix-restaurants-setup recipe and creates a
+  Toppings modifier group whose choices actually persist — item modifiers
+  created first, then a modifier group wrapped in `modifierGroup` that
+  references their IDs with per-choice surcharges under
+  `additionalChargeInfo.additionalCharge`.
+triggerPrompt: >-
+  Set up a Toppings modifier group on my restaurant menu with three optional
+  toppings customers can add: Extra Cheese for $2.00, Mushrooms for $1.00, and
+  Bacon for $3.00. They can pick any number of them, including none.
+tags: [restaurants]
+siteSetup:
+  mode: template
+  templateId: restaurants-editor
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/restaurants/skills/wix-restaurants-setup
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user asked for a "Toppings" modifier group on their Wix Restaurants
+      menu with three optional toppings — Extra Cheese $2.00, Mushrooms $1.00,
+      Bacon $3.00 — any number selectable, including none.
+
+      Creating this correctly takes two API stages: create one item modifier per
+      topping (Item Modifiers API) to get their IDs, then create the modifier
+      group (Item Modifier Groups API) referencing those IDs.
+
+      Examine the tool-call trace, not just the final prose.
+
+      Pass only if ALL of these hold:
+        1. The agent created the three toppings as individual item modifiers
+           (three successful 2xx creates against the Item Modifiers API,
+           singly or via its bulk endpoint) BEFORE creating the group.
+        2. The modifier-group create body used `modifierGroup` as its
+           top-level field.
+        3. The group's `modifiers` array referenced the item modifier IDs from
+           step 1, with each topping's surcharge given as
+           `additionalChargeInfo.additionalCharge` ("2.00", "1.00", "3.00").
+        4. The group was created successfully (2xx) and the response's
+           `modifiers` array is NOT empty.
+        5. The optional/any-number rule was expressed under `rule` — a `rule`
+           object with `required: false` and `minSelections: 0`.
+
+      Fail if ANY of these hold:
+        - Any modifier-group create call was rejected with HTTP 400, including
+          one the agent later recovered from — in particular
+          "modifierGroup must not be empty", which means the body was wrapped
+          in `modifier` instead of `modifierGroup`.
+        - The toppings were sent inline on the group — e.g. an `options` array,
+          or `modifiers` entries carrying a `name` or a
+          `price: { amount, currency }` object instead of an `id` and
+          `additionalChargeInfo`.
+        - The group was created but its `modifiers` array came back empty, or
+          the agent told the user the toppings "weren't persisted" / offered to
+          add them in a follow-up step.
+        - `required`, `minSelections`, or `maxSelections` were sent flattened on
+          `modifierGroup` instead of nested under `rule`.
+        - The agent only described the steps without executing them.

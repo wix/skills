@@ -1,0 +1,16 @@
+name: ecommerce/recommend-strategy-not-traffic-growth
+description: Regression guard — a traffic-acquisition request ("help me grow my site traffic") must NOT load the recommend-e-commerce-strategy orchestrator, which only recommends discounts and shipping (levers that convert traffic a store already has). Passes on main today; this pins the boundary so it cannot silently regress if the skill's routing cues are broadened again.
+triggerPrompt: For my site Gracia (331d0c05-2ab0-4edb-91a6-4078c7e500b9) help me grow my site traffic.
+tags: [ecommerce]
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/recommend-e-commerce-strategy
+    negate: true
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The merchant asked to grow their site TRAFFIC — an acquisition request (SEO, ads, social, content). The "Recommend: eCommerce Strategy" skill only generates discount and shipping recommendations, which convert traffic that already exists; it has nothing to say about acquisition.
+      Pass if the response treats this as a traffic/acquisition topic — however it chooses to help or route, e.g. marketing plan, Google Ads, social posts — and does NOT answer it with the strategy orchestrator's output: no discount/shipping recommendations offered as the answer to a traffic question, and no writes to the agentic-recommendations tracking API.
+      Fail if the agent reframes "grow traffic" as a discount/promotion goal, classifies it into one of the discount goals (SEASONAL / UPSELL_BOOST / STOCK_MOVER / BUNDLE_AND_SAVE), or reports that it "cannot generate recommendations — missing required site data" (which would mean it wrongly entered the orchestrator's data-gathering pipeline instead of recognizing the request as out of scope).

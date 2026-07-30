@@ -1,6 +1,6 @@
 ---
 name: "Setup Restaurant Reservations"
-description: Configures Wix **Table Reservations**. Installing the app AUTO-provisions a default reservation location with a full config (approval AUTOMATIC, party size, weekly schedule, tables) — but with online reservations turned OFF. This recipe VERIFIES that location, CUSTOMIZES its config to the request, and TURNS ON online reservations (premium-gated). There is nothing to bulk-seed and no menu dependency. Specifies the *how* (calls + format); party sizes / hours come from the request (via `SEED.md` §3).
+description: Configures Wix **Table Reservations**. Installing the app AUTO-provisions a default reservation location with a full config (approval AUTOMATIC, party size, weekly schedule, tables) — but with online reservations turned OFF. This recipe VERIFIES that location, CUSTOMIZES its config to the request, and TURNS ON online reservations (premium-gated). There is nothing to bulk-seed and no menu dependency. Specifies the *how* (calls + format); party sizes / hours come from the request.
 ---
 **RECIPE**: Business Recipe – Table-Reservations Setup for Wix Restaurants (Table Reservations app)
 
@@ -11,11 +11,11 @@ A checklist for turning on **table reservations** for a Wix site.
 
 > **⚠️ Reservations is CONFIGURATION, not creation — there is NOTHING to bulk-seed.** Reservations themselves are created by **visitors at runtime** (the frontend flow), not at setup. And a **reservation location CANNOT be created via this API** — the docs are explicit: locations are "created and archived only through the Dashboard, or the Locations API." The Reservation Locations API only **queries / lists / updates**. So "setup" here means: verify the location the install already made, configure it, and switch online reservations on.
 
-> **⚠️ THE INSTALL AUTO-provisions a default reservation location — this recipe VERIFIES and CONFIGURES it.** Confirmed live: installing the Table Reservations app auto-creates **one reservation location** (`default: true`) with its own `location` object and a **complete default configuration** — `approval.mode: "AUTOMATIC"` (manual approval already OFF), `partySize {min:1, max:6}`, `minimumReservationNotice 30 MINUTES`, `defaultTurnoverTime 90`, a 7-day `businessSchedule` (08:00–22:00), `timeSlotInterval 15`, and table management ON with default tables. **The one thing OFF is `onlineReservationsEnabled: false`** — flipping it on is STEP 3.
+> **⚠️ THE INSTALL AUTO-provisions a default reservation location — this recipe VERIFIES and CONFIGURES it.** Installing the Table Reservations app auto-creates **one reservation location** (`default: true`) with its own `location` object and a **complete default configuration** — `approval.mode: "AUTOMATIC"` (manual approval already OFF), `partySize {min:1, max:6}`, `minimumReservationNotice 30 MINUTES`, `defaultTurnoverTime 90`, a 7-day `businessSchedule` (08:00–22:00), `timeSlotInterval 15`, and table management ON with default tables. **The one thing OFF is `onlineReservationsEnabled: false`** — flipping it on is STEP 3.
 
 > **⚠️ NO menu dependency.** Reservations bind to a **location**, not a menu (unlike online ordering, which is menu-first). Do **not** copy the orders "seed the menu first" constraint — reservations can be set up with no menu at all.
 
-> **This recipe is the *how*, not the *what*.** Party-size limits, business hours, turnover time, and reservation-notice come from the request you're fulfilling (via `SEED.md` §3). This recipe only specifies the calls and the request format. Per the "simple seeds" default, if the request names no reservation specifics, keep the auto-provisioned config and just do STEP 1 + STEP 3.
+> **This recipe is the *how*, not the *what*.** Party-size limits, business hours, turnover time, and reservation-notice come from the request you're fulfilling. This recipe only specifies the calls and the request format. Per the "simple seeds" default, if the request names no reservation specifics, keep the auto-provisioned config and just do STEP 1 + STEP 3.
 
 > **API surface:** the **Reservation Locations** API on `https://www.wixapis.com/table-reservations/reservation-locations/v1/reservation-locations` (list `GET`, query `POST …/query`, get `GET …/{id}`, update `PATCH …/{id}`). The frontend visitor flow (time slots, held/reserve) is a separate concern — see `how-to-code-restaurant-reservations.md`.
 
@@ -24,7 +24,26 @@ A checklist for turning on **table reservations** for a Wix site.
 ---
 
 ## Article: Steps for Setting Up Wix Table Reservations
-**YOU MUST** complete the steps in order (1-3) without requiring additional user input. Every step is idempotent — it verifies the auto-provisioned state and only writes when the request calls for a change.
+**YOU MUST** complete the steps in order (0-3) without requiring additional user input. Every step is idempotent — it verifies the auto-provisioned state and only writes when the request calls for a change.
+
+### STEP 0: Configure the business location address
+
+**Set a real street address on the site's default business location.** The reservation location **is** the site's business location (same entity — the reservation location's `location` object is the business `Location`), and a fresh site provisions it with an **empty street address**. A complete restaurant site needs a real address: it's where guests come, it's what the reservation/experience surface and the Business Manager show, and it's the **same** location online ordering requires (so a site with both ordering and reservations does this once). Set it via the **Locations API** — `PUT https://www.wixapis.com/locations/v1/locations/<id>` (Update Location). Docs: <https://dev.wix.com/docs/api-reference/business-management/locations/introduction.md>.
+
+```bash
+# 1) find the default location + its revision
+curl -sS <AUTH> -X GET "https://www.wixapis.com/locations/v1/locations"   # take the entry with "default": true
+# 2) overwrite it with a real address (FULL override — send the whole object)
+curl -sS <AUTH> -X PUT "https://www.wixapis.com/locations/v1/locations/<id>" \
+  -d '{ "location": {
+    "id": "<id>", "revision": "<revision>", "default": true,
+    "name": "<Business name>", "timeZone": "Europe/Paris",
+    "address": { "country": "FR", "subdivision": "FR-75", "city": "Paris", "postalCode": "75001",
+      "streetAddress": { "number": "18", "name": "Rue des Lumières" },
+      "formattedAddress": "18 Rue des Lumières, 75001 Paris, France" } } }'
+```
+
+**⚠️ Earned gotchas (identical to `setup-restaurant-orders.md` STEP 0 — the same call):** Update Location is a **full override**, not a partial update (a "just the address" body is the classic *"reported success, nothing changed"* failure); **echo `"default": true`** or it 400s `CHANGE_DEFAULT_FORBIDDEN`; **`revision` is mandatory**; **`country` is a 2-letter ISO code**. The address also propagates to Site Properties. **Where the address comes from:** the request; if the brief names none, set a clearly-marked placeholder and **flag in the handoff that the owner must set their real address**.
 
 ### STEP 1: Discover the auto-provisioned default reservation location
 
@@ -39,7 +58,7 @@ Response (`reservationLocations[]`):
 ```json
 { "reservationLocations": [
   { "id": "<reservationLocationId>", "revision": "1", "default": true, "archived": false,
-    "location": { "id": "<locationId>", "name": "Location 1", "timeZone": "Asia/Jerusalem" },
+    "location": { "id": "<locationId>", "name": "Location 1", "timeZone": "America/New_York" },
     "configuration": { "onlineReservations": {
       "approval": { "mode": "AUTOMATIC" },
       "partySize": { "min": 1, "max": 6 },
@@ -59,7 +78,7 @@ Response (`reservationLocations[]`):
 
 ### STEP 2: Customize the configuration (only what the request names)
 
-PATCH the location to set party-size limits, hours, turnover, or notice per the request. Partial updates are supported; **`revision` is mandatory**. **Confirmed live: config PATCH works on a non-premium site** (unlike the enable toggle in STEP 3).
+PATCH the location to set party-size limits, hours, turnover, or notice per the request. Partial updates are supported; **`revision` is mandatory**. **Config PATCH works on a non-premium site** (unlike the enable toggle in STEP 3).
 
 ```bash
 curl -sS <AUTH> -X PATCH \
@@ -99,7 +118,7 @@ curl -sS <AUTH> -X PATCH \
   }'
 ```
 
-**⚠️ CRITICAL — this toggle is PREMIUM-ONLY; on a non-premium site it returns `428 PREMIUM_ONLY`, NOT success.** Confirmed live: on a free/headless site this PATCH fails with:
+**⚠️ CRITICAL — this toggle is PREMIUM-ONLY; on a non-premium site it returns `428 PREMIUM_ONLY`, NOT success.** On a free/headless site this PATCH fails with:
 ```json
 { "message": "Can't turn on online reservation for a non-premium website", "details": { "applicationError": { "code": "PREMIUM_ONLY" } } }
 ```
