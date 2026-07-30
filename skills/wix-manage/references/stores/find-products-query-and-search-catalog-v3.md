@@ -1,6 +1,6 @@
 ---
 name: "Find Products (Query and Search, Catalog V3)"
-description: Find, search, query, and list products from a Wix Store using Catalog V3 Search Products and Query Products endpoints. Explains when to use each endpoint, correct fields enum values, filtering, sorting, and paging.
+description: Find, search, query, and list products from a Wix Store using Catalog V3 Search Products and Query Products endpoints. Explains when to use each endpoint, correct fields enum values, filtering, sorting, and paging. Also covers resolving a product name to its product ID for a follow-up write, and the removal endpoints to call next when the user asks to remove or delete a product by name.
 ---
 
 # RECIPE: Business Recipe – Find Products in a Wix Store (Query and Search, Catalog V3)
@@ -19,6 +19,7 @@ Use **Search Products** for text search and name-based lookup. Use **Query Produ
 | List all products or page through the catalog | [Query Products](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/query-products) | Supports paging and structured filters on the fields listed below. |
 | Filter by `id`, `slug`, `handle`, dates, or `visible` | [Query Products](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/query-products) | Best for exact structured criteria. |
 | Need exact name matching after text lookup | [Search Products](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/search-products) + client-side match | Search by the name text, then match the returned `product.name` in your own code. |
+| Remove, delete, or hide a product the user named | [Search Products](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/search-products) first, then the write in [After the lookup](#after-the-lookup-acting-on-the-product-you-found) | Every product write takes a product ID, so the name lookup always comes first. Do not stop at the lookup — carry out the write in the same task. |
 
 ### STEP 1: Search products by name or free text
 
@@ -36,6 +37,27 @@ curl -X POST 'https://www.wixapis.com/stores/v3/products/search' \
 ```
 
 For exact name matching, search with the user-provided text and then compare the returned `product.name` values in your own code.
+
+#### Return only the fields you need when you are resolving a name to an ID
+
+Search Products returns **every default field of every match** — media, variants, price ranges, inventory, categories. A single product runs to dozens or hundreds of lines of JSON depending on its media and variants, and the search is fuzzy, so a query for one product name commonly matches several others. Returned raw from a sandboxed execution, that response can exceed the tool response size limit and be truncated — cutting off the very `id` you were looking for.
+
+When the goal is a product ID for a follow-up write, reduce the response to `id` and `name` **before returning it**:
+
+```js
+async function() {
+  const { products } = await wix.request({
+    method: 'POST',
+    url: 'https://www.wixapis.com/stores/v3/products/search',
+    siteId: '<SITE_ID>',
+    body: { search: { expression: 'Blue Shirt' } },
+  });
+  // Return the minimum you need — never the raw product objects.
+  return products.map(p => ({ id: p.id, name: p.name, visible: p.visible }));
+}
+```
+
+Then pick the product whose `name` matches what the user asked for, and use its `id` in the write.
 
 ### STEP 2: Query products with structured filters, sorting, or paging
 
@@ -182,6 +204,54 @@ Check the response `pagingMetadata` to determine if more pages exist.
 
 ---
 
+## After the lookup: acting on the product you found
+
+Every Catalog V3 product write is keyed by **product ID**, and neither Search nor Query accepts a name as an exact filter (`name` is not in the filterable list in STEP 4). So a request that names a product is always a two-call flow: look the name up, then write with the ID. Once you have the ID, go straight to the write — the request shapes below are complete, and no further schema lookup is needed.
+
+**Catalog V3 has no "archive" operation for products.** "Removing" a product means one of exactly two different things, and the user's wording tells you which:
+
+| The user says | What they mean | Do this |
+| ------------- | -------------- | ------- |
+| remove, delete, get rid of, take it out of my store/catalog | Permanent deletion | **Delete Product** — below |
+| hide, unpublish, take it off the storefront, stop showing it to shoppers | Keep the product, stop displaying it | Set `visible: false` — see [Update Product with Options (Catalog V3)](https://dev.wix.com/docs/api-reference/business-solutions/stores/skills/update-product-with-options-catalog-v3) |
+
+Match the request to a row and carry that operation out — a user who names a product and asks for it to be removed has already authorised the change, so do not stop to re-confirm. Do confirm the list first when the request is a broad clear-out that would delete products the user never named. The API exposes no restore or undelete for a deleted product, so mention that deletion is permanent when you report back.
+
+### Delete one product
+
+**Endpoint:** `DELETE https://www.wixapis.com/stores/v3/products/{productId}` — takes no request body.
+
+```bash
+curl -X DELETE 'https://www.wixapis.com/stores/v3/products/PRODUCT_ID' \
+-H 'Authorization: <AUTH>'
+```
+
+A 2xx response with an empty body means the product was deleted.
+
+### Delete several products at once
+
+**Endpoint:** `POST https://www.wixapis.com/stores/v3/bulk/products/delete`
+
+```bash
+curl -X POST 'https://www.wixapis.com/stores/v3/bulk/products/delete' \
+-H 'Content-Type: application/json' \
+-H 'Authorization: <AUTH>' \
+-d '{
+  "productIds": [
+    "product-id-1",
+    "product-id-2"
+  ]
+}'
+```
+
+`productIds` is required, 1–100 IDs per request. The response carries a per-product `results[].itemMetadata.success` plus `bulkActionMetadata.totalSuccesses` / `totalFailures` — a 200 does **not** mean every ID succeeded, so check them.
+
+### Deleting everything that matches a filter
+
+`POST https://www.wixapis.com/stores/v3/bulk/products/delete-by-filter` takes a required `filter` (plus an optional fuzzy `search`) and returns only a `jobId` to poll via [Get Async Job](https://dev.wix.com/docs/api-reference/business-management/async-job/introduction) — the deletion is asynchronous, so nothing is confirmed by the response itself. It deletes **every** match, and search matching is fuzzy, so never use it to satisfy a request about one named product; resolve that product's ID and use Delete Product instead. Reserve delete-by-filter for an explicit bulk clear-out.
+
+---
+
 ## Important Notes
 
 - **Variant data is NOT returned** by Query Products. To get variant details, use [Get Product](https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/get-product) for individual products.
@@ -191,4 +261,4 @@ Check the response `pagingMetadata` to determine if more pages exist.
 
 ## Conclusion
 
-To find products by name or free text, use `POST https://www.wixapis.com/stores/v3/products/search`. To list, page, sort, or structurally filter products, use `POST https://www.wixapis.com/stores/v3/products/query`. Use `fields: []` for defaults, or pass valid enum values like `DESCRIPTION`, `URL`, `ALL_CATEGORIES_INFO` for additional data. Never pass property names as field values.
+To find products by name or free text, use `POST https://www.wixapis.com/stores/v3/products/search`. To list, page, sort, or structurally filter products, use `POST https://www.wixapis.com/stores/v3/products/query`. Use `fields: []` for defaults, or pass valid enum values like `DESCRIPTION`, `URL`, `ALL_CATEGORIES_INFO` for additional data. Never pass property names as field values. When the lookup exists to feed a write, reduce the response to the fields you need and then act on the ID: `DELETE https://www.wixapis.com/stores/v3/products/{productId}` to remove a product, or `visible: false` to hide one.

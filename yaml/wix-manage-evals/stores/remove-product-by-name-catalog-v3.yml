@@ -1,0 +1,143 @@
+# A merchant naming one product to remove. The catalog is seeded with sibling products that share
+# the "Eval Gate" prefix so the fuzzy name search returns several full product objects — that makes
+# both frictions this scenario targets expensive: an oversized search response, and the absence of
+# the removal endpoint from the recipe that owns the name lookup.
+name: stores/remove-product-by-name-catalog-v3
+description: >
+  A store owner asks to remove one product, naming it. Catalog V3 keys every product write by
+  product ID and cannot filter by name, so the agent must resolve the name to an ID and then
+  delete by ID. Expected: the agent loads the Find Products (Catalog V3) recipe, resolves
+  "Eval Gate Mug" to its ID, and deletes that product with a successful call — without a
+  separate API-spec lookup to discover the delete endpoint, and without the raw search response
+  being truncated. Anti-patterns: deleting or hiding the wrong product; hiding instead of
+  deleting; describing the steps without doing them.
+triggerPrompt: >
+  Remove my "Eval Gate Mug" product from the store.
+tags: [stores]
+assertions:
+  # Coverage + routing: the recipe that owns the name lookup is also the one that must carry the
+  # removal endpoint, so the whole flow is one article read.
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/business-solutions/stores/skills/find-products-query-and-search-catalog-v3
+
+  # DISCRIMINATOR: with the delete endpoint absent from the recipe, the agent has to probe the API
+  # spec to find it. With it documented, the recipe alone is enough.
+  - tool: SearchWixAPISpec
+    negate: true
+
+  - type: llm_judge          # GATE — outcome correctness
+    minScore: 7
+    maxTokens: 2048
+    prompt: >
+      The user's request (verbatim): "Remove my \"Eval Gate Mug\" product from the store."
+      The store also contains "Eval Gate Tote", "Eval Gate Cap", "Eval Gate Poster",
+      "Eval Gate Notebook" and "Eval Gate Sticker Pack", which must be left alone.
+
+      Pass only if the trace shows the agent (a) resolved the name "Eval Gate Mug" to a
+      product ID, and (b) deleted that product via a successful (2xx) Wix Stores Catalog V3
+      call — DELETE on the product ID, or a bulk delete carrying only that product's ID —
+      and confirmed the removal.
+
+      Fail if the agent deleted or modified any of the other "Eval Gate" products; OR merely
+      hid the product (set it not visible) instead of deleting it; OR the delete call errored
+      (non-2xx); OR it only described how to remove the product without doing it.
+
+      Return ONLY {"score":<0-10>,"reason":"<one sentence>"}.
+
+  - type: llm_judge          # SIGNAL — non-gating MCP friction
+    minScore: 0
+    maxTokens: 2048
+    prompt: >
+      DIAGNOSTIC, non-gating — rate how smoothly the Wix MCP and its docs let the agent
+      fulfil the request. Examine the tool-call trace. Score 0-10 (10 = direct: no wasted
+      calls, no errors, no truncated responses). Penalize and LIST any of: a tool response
+      that came back truncated or over its size limit because the call returned more data
+      than was needed; a call made only to discover an endpoint, URL, or request shape that a
+      recipe should already have supplied; a call that returned a non-2xx error even if
+      recovered; a response shape or field guessed wrong then corrected; a wrong endpoint or
+      catalog version tried first. For each issue, name the likely MCP/docs gap.
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected MCP/docs gap, or 'clean path' if none>"}.
+siteSetup:
+  mode: template
+  templateId: stores-v3-editor
+  bootstrap:
+    steps:
+      - label: seed target mug product
+        method: post
+        url: https://www.wixapis.com/stores/v3/products
+        body:
+          product:
+            name: Eval Gate Mug
+            productType: PHYSICAL
+            physicalProperties: {}
+            variantsInfo:
+              variants:
+                - price: { actualPrice: { amount: "12.00" } }
+                  physicalProperties: {}
+                  visible: true
+      - label: seed decoy tote
+        method: post
+        url: https://www.wixapis.com/stores/v3/products
+        body:
+          product:
+            name: Eval Gate Tote
+            productType: PHYSICAL
+            physicalProperties: {}
+            variantsInfo:
+              variants:
+                - price: { actualPrice: { amount: "24.00" } }
+                  physicalProperties: {}
+                  visible: true
+      - label: seed decoy cap
+        method: post
+        url: https://www.wixapis.com/stores/v3/products
+        body:
+          product:
+            name: Eval Gate Cap
+            productType: PHYSICAL
+            physicalProperties: {}
+            variantsInfo:
+              variants:
+                - price: { actualPrice: { amount: "18.00" } }
+                  physicalProperties: {}
+                  visible: true
+      - label: seed decoy poster
+        method: post
+        url: https://www.wixapis.com/stores/v3/products
+        body:
+          product:
+            name: Eval Gate Poster
+            productType: PHYSICAL
+            physicalProperties: {}
+            variantsInfo:
+              variants:
+                - price: { actualPrice: { amount: "9.50" } }
+                  physicalProperties: {}
+                  visible: true
+      - label: seed decoy notebook
+        method: post
+        url: https://www.wixapis.com/stores/v3/products
+        body:
+          product:
+            name: Eval Gate Notebook
+            productType: PHYSICAL
+            physicalProperties: {}
+            variantsInfo:
+              variants:
+                - price: { actualPrice: { amount: "14.00" } }
+                  physicalProperties: {}
+                  visible: true
+      - label: seed decoy sticker pack
+        method: post
+        url: https://www.wixapis.com/stores/v3/products
+        body:
+          product:
+            name: Eval Gate Sticker Pack
+            productType: PHYSICAL
+            physicalProperties: {}
+            variantsInfo:
+              variants:
+                - price: { actualPrice: { amount: "6.00" } }
+                  physicalProperties: {}
+                  visible: true
