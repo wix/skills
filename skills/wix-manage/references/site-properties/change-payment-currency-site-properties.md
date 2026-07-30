@@ -1,6 +1,6 @@
 ---
 name: "RECIPE: Change a Site's Payment (Store) Currency via Site Properties API"
-description: "Updates site-level regional properties with the Site Properties API — the payment currency (store billing currency) and the site's language — including the required request body shape and field mask. Covers the exact payload that actually changes the site's language (`language` and `locale` together in one PATCH), the top-level-only field-mask rule, and why the Multilingual change-primary flow is not needed for a language change."
+description: "Changes a site's LANGUAGE or PAYMENT CURRENCY with the Site Properties API — the recipe to use for 'change my site's language/primary language to X' and for switching the store billing currency. For a language change, send `language` and `locale` together in one PATCH masked as [\"language\",\"locale\"]; either field alone leaves the site's primary locale unchanged. Also covers the currency payload, the top-level-only field-mask rule, and why the Multilingual change-primary token-polling flow is not needed."
 ---
 
 # RECIPE: Change a Site's Payment (Store) Currency via Site Properties API

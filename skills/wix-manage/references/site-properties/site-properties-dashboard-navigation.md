@@ -1,11 +1,13 @@
 ---
 name: "Site Settings Dashboard Navigation"
-description: "Builds direct links to the site-settings dashboard pages on manage.wix.com — the settings hub, website settings, and language & region. Pairs site properties with the Site Properties read API. Use when the user asks where to change site settings (business info, name, language, currency) in the Wix dashboard."
+description: "Builds direct links to the site-settings dashboard pages on manage.wix.com — the settings hub, website settings, and language & region. Pairs site properties with the Site Properties read API. Use when the user asks WHERE to change site settings (business info, name, language, currency) in the Wix dashboard; to change the language or currency over the API instead, use the Change Payment Currency (Site Properties) recipe."
 ---
 
 # Site Settings Dashboard Navigation
 
 Build direct links into the settings pages of a site's dashboard. For the general URL contract (metaSiteId, fallbacks, redirects), see [Dashboard Navigation](../dashboard-navigation/dashboard-navigation.md).
+
+This recipe only builds links. To actually **change** a site's language or payment currency over the API, use [Change Payment Currency (Site Properties)](change-payment-currency-site-properties.md) — a single `PATCH /site-properties/v4/properties`.
 
 ## Main Pages
 

@@ -22,25 +22,23 @@ assertions:
       Intent: make Spanish the site's language, and confirm it took effect.
 
       Pass only if ALL of these are true:
-        1. A single PATCH to `https://www.wixapis.com/site-properties/v4/properties` succeeded
-           (2xx) whose body set BOTH `properties.language` to `"es"` AND
+        1. A PATCH to `https://www.wixapis.com/site-properties/v4/properties` succeeded (2xx)
+           whose body set BOTH `properties.language` to `"es"` AND
            `properties.locale.languageCode` to `"es"`, with a `fields.paths` mask containing both
            `language` and `locale`.
-        2. No call to `wixapis.com` returned a non-2xx status at any point in the run — not even
-           one the agent recovered from.
+        2. Every `fields.paths` mask the agent sent used top-level property names only. A nested
+           path such as `locale.languageCode` anywhere in the run is a fail — it is rejected with
+           `400 Illegal request - Unknown field in field mask`.
         3. The agent read the result back (Query Locales, Get Locale Settings, or Site Properties)
            and saw Spanish.
         4. The final answer states that Spanish is now the site's language.
 
       Fail if ANY of these are true:
-        - The field mask used a nested path such as `locale.languageCode` — that is rejected with
-          `400 Illegal request - Unknown field in field mask`.
-        - Only `language` or only `locale` was sent — that leaves the site's primary locale
-          unchanged, so the request was not actually fulfilled.
+        - The mask condition in point 2 was violated at any point, even if the agent recovered.
+        - The only successful update sent `language` alone or `locale` alone — that leaves the
+          site's primary locale unchanged, so the request was not actually fulfilled.
         - The agent used `POST https://www.wixapis.com/locales/v2/locale/change-primary` and its
-          token-polling flow instead of the single Site Properties PATCH.
-        - Any Wix API call was rejected and retried with a different shape (probing for the
-          payload rather than knowing it).
+          token-polling flow to do the work instead of the Site Properties PATCH.
         - The agent only described the steps without performing them.
   - type: llm_judge
     minScore: 0
