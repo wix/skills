@@ -16,20 +16,6 @@ Both versions expose a fluent query builder, but the paging method differs:
 ```typescript
 import { catalogVersioning, products, productsV3 } from '@wix/stores';
 
-// Version detection is mandatory before any Stores call, and the version is
-// permanent per site — see STORES_VERSIONING.md § "Mandatory: Detect Version First".
-// Repeated here so every example below is complete and type-checks as written.
-export type CatalogVersion = 'V1_CATALOG' | 'V3_CATALOG' | 'STORES_NOT_INSTALLED';
-
-let cachedVersion: CatalogVersion | undefined;
-
-export async function getVersion(): Promise<CatalogVersion> {
-  if (cachedVersion) return cachedVersion;
-  const { catalogVersion } = await catalogVersioning.getCatalogVersion();
-  cachedVersion = catalogVersion as CatalogVersion;
-  return cachedVersion;
-}
-
 export interface ProductsPage {
   products: unknown[];        // narrow at call site
   nextCursor: string | null;  // V3 only
@@ -152,7 +138,12 @@ versions; if that matters to the user, say so rather than implying parity.
 So the two versions need genuinely different code paths here, not just a renamed module:
 
 ```typescript
-export async function searchByName(term: string, limit: number, v: CatalogVersion) {
+// `v` comes from getVersion() — see STORES_VERSIONING.md § "Mandatory: Detect Version First".
+export async function searchByName(
+  term: string,
+  limit: number,
+  v: 'V1_CATALOG' | 'V3_CATALOG' | 'STORES_NOT_INSTALLED',
+) {
   if (v === 'V3_CATALOG') {
     const res = await productsV3.searchProducts({
       cursorPaging: { limit },

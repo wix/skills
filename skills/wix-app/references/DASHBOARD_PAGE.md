@@ -152,51 +152,33 @@ rather than guessing a field name — every guess is a build failure.
 
 ```typescript
 // Key pattern for embedded script configuration pages
-import { useEffect, useState } from "react";
 import { embeddedScripts } from "@wix/app-management";
-import { dashboard } from "@wix/dashboard";
 
-interface ScriptOptions {
-  headline: string;
-  enabled: boolean;
-  threshold: number;
-}
-
-export function useEmbeddedScriptOptions() {
-  const [options, setOptions] = useState<ScriptOptions>({
-    headline: "Default",
-    enabled: false,
-    threshold: 0,
-  });
-
-  // Load on mount. Parameters come back as STRINGS — convert on read.
-  useEffect(() => {
-    const load = async () => {
-      const script = await embeddedScripts.getEmbeddedScript();
-      const data = script.parameters || {};
-      setOptions({
-        headline: data.headline || "Default",
-        enabled: data.enabled === "true",
-        threshold: Number(data.threshold) || 0,
-      });
-    };
-    load();
-  }, []);
-
-  // Save handler. All parameters must be saved as strings.
-  const handleSave = async () => {
-    await embeddedScripts.embedScript({
-      parameters: {
-        headline: options.headline,
-        enabled: String(options.enabled),
-        threshold: String(options.threshold),
-      },
+// Load on mount
+useEffect(() => {
+  const load = async () => {
+    const script = await embeddedScripts.getEmbeddedScript();
+    const data = script.parameters || {};
+    setOptions({
+      headline: data.headline || "Default",
+      enabled: data.enabled === "true",
+      threshold: Number(data.threshold) || 0,
     });
-    dashboard.showToast({ message: "Saved!", type: "success" });
   };
+  load();
+}, []);
 
-  return { options, setOptions, handleSave };
-}
+// Save handler
+const handleSave = async () => {
+  await embeddedScripts.embedScript({
+    parameters: {
+      headline: options.headline,
+      enabled: String(options.enabled),
+      threshold: String(options.threshold),
+    },
+  });
+  dashboard.showToast({ message: "Saved!", type: "success" });
+};
 ```
 
 
