@@ -26,14 +26,14 @@ references:
 
 > ⛔ **MANDATORY PRE-STEP — do this BEFORE Step 1 (before any API call).**
 >
-> Classify the merchant's request and immediately call `ReadFullDocsArticle` on the matching goal skill. Do NOT gather data first — the goal skill tells you which metrics to pull and what guardrails to apply.
+> Classify the merchant's request and immediately read the full article for the matching goal skill. Do NOT gather data first — the goal skill tells you which metrics to pull and what guardrails to apply.
 >
-> | Merchant intent | Goal to load |
+> | Merchant intent | Goal to read |
 > |---|---|
-> | Holiday / event / date mentioned | `ReadFullDocsArticle` → [Goal: Seasonal Revenue](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-seasonal-revenue) |
-> | "increase AOV", "spend more", "upsell", "boost sales", generic sales improvement | `ReadFullDocsArticle` → [Goal: Increase AOV](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-increase-aov) |
-> | "clear inventory", "overstock", "clearance", "slow-moving" | `ReadFullDocsArticle` → [Goal: Clear Inventory](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-clear-inventory) |
-> | "bundle", "cross-sell", "buy together", "more items per order" | `ReadFullDocsArticle` → [Goal: Drive Cross-Sells](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-drive-cross-sells) |
+> | Holiday / event / date mentioned | [Goal: Seasonal Revenue](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-seasonal-revenue) |
+> | "increase AOV", "spend more", "upsell", "boost sales", generic sales improvement | [Goal: Increase AOV](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-increase-aov) |
+> | "clear inventory", "overstock", "clearance", "slow-moving" | [Goal: Clear Inventory](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-clear-inventory) |
+> | "bundle", "cross-sell", "buy together", "more items per order" | [Goal: Drive Cross-Sells](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/goal-drive-cross-sells) |
 >
 > After loading the goal skill, continue from Step 1 below. The goal skill will instruct you to load the matching flow skill — follow those instructions too.
 >
@@ -49,7 +49,7 @@ references:
 3. **Execute every step in order.** Do not skip steps. Do not merge steps. Do not answer "in the meantime."
 4. **Use ONLY data returned by API calls.** Never substitute reasoning, general knowledge, or doc summaries for live data. Every number you cite in `reasoning` MUST come directly from an API response — do NOT assume, infer, or fabricate data.
 5. **If a call fails or is blocked, report the exact blocker.** Do not work around it with assumptions.
-6. **All API calls use `CallWixSiteAPI`.** The internal tool names (getSiteData, getCatalogAnalytics, etc.) are NOT directly callable.
+6. **Issue every API call as an authenticated request in the merchant's site context, using exactly the endpoints given below.** The internal service method names (getSiteData, getCatalogAnalytics, etc.) are NOT directly callable — only these HTTP endpoints are.
 7. **Generate recommendations across ALL relevant domains** — not just discounts. Consider shipping, discounts, and any other domain that the data supports.
 
 ---
@@ -58,7 +58,7 @@ references:
 
 **MANDATORY — do this first.**
 
-If you don't already have a `siteId`, call `ListWixSites` to find it.
+If you don't already have a `siteId`, list the merchant's Wix sites to find it.
 
 If the merchant mentioned a site name, match it. If only one site exists, auto-select it. Store the `siteId` — every subsequent API call requires it.
 
@@ -70,15 +70,12 @@ If the merchant mentioned a site name, match it. If only one site exists, auto-s
 
 **MANDATORY — do NOT skip unless the user said `SKIP_TRACKING` or "don't track".**
 
-Query the tracking database for existing recommendations on this site:
+Query the tracking database for existing recommendations on this site.
 
-```
-CallWixSiteAPI(
-  url: "https://manage.wix.com/_api/agentic-recommendations/v1/agentic-recommendations/query",
-  method: "POST",
+**Endpoint:** `POST https://manage.wix.com/_api/agentic-recommendations/v1/agentic-recommendations/query`
 
-  body: { "query": { "filter": {}, "cursorPaging": { "limit": 50 } } }
-)
+```json
+{ "query": { "filter": {}, "cursorPaging": { "limit": 50 } } }
 ```
 
 **Use the returned history to inform your analysis:**
@@ -99,24 +96,21 @@ If the query returns empty results or fails, continue — this is a fresh sessio
 
 **MANDATORY API CALL — do not skip.**
 
-```
-CallWixSiteAPI(
-  url: "https://www.wix.com/wix-profile-client/v4/profile/metasite",
-  method: "POST",
+**Endpoint:** `POST https://www.wix.com/wix-profile-client/v4/profile/metasite`
 
-  body: {
-    "fields": [
-      "language",
-      "merchant_business_country",
-      "suggested_main_industry",
-      "suggested_sub_industry",
-      "last_30_days_distinct_visitors",
-      "last_30_days_orders_count",
-      "online_gpv_last_30_days",
-      "payment_currency"
-    ]
-  }
-)
+```json
+{
+  "fields": [
+    "language",
+    "merchant_business_country",
+    "suggested_main_industry",
+    "suggested_sub_industry",
+    "last_30_days_distinct_visitors",
+    "last_30_days_orders_count",
+    "online_gpv_last_30_days",
+    "payment_currency"
+  ]
+}
 ```
 
 **Available fields:**
@@ -192,7 +186,7 @@ Based on the merchant's request AND the site data, determine which domains to an
 
 ## Step 4b: Load domain-specific goal skills
 
-**MANDATORY — load the matching goal skill(s) now using `ReadFullDocsArticle`.** These contain detailed strategy logic, KPIs, margin tiers, campaign window calculations, and guardrails that you MUST follow.
+**MANDATORY — read the full article for the matching goal skill(s) now.** These contain detailed strategy logic, KPIs, margin tiers, campaign window calculations, and guardrails that you MUST follow.
 
 **For DISCOUNTS domain — classify the discount goal and load it:**
 
@@ -225,7 +219,7 @@ Based on the merchant's request AND the site data, determine which domains to an
 
 **If unclear, ask:** "Would you like this to apply automatically to everyone, or as a coupon code?"
 
-**If COUPON is selected**, load the coupon setup reference with `ReadFullDocsArticle`:
+**If COUPON is selected**, read the full article for the coupon setup reference:
 [Pricing: Create Coupon](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/pricing-create-coupon)
 
 ---
@@ -238,15 +232,13 @@ Call both APIs concurrently:
 
 ### Call 1: GetCatalogAnalytics
 
+**Endpoint:** `POST https://manage.wix.com/recommendations/v1/recommendations/get-catalog-analytics-tool`
+
 ```
-CallWixSiteAPI(
-  url: "https://manage.wix.com/recommendations/v1/recommendations/get-catalog-analytics-tool",
-  method: "POST",
-  body: {
-    "aggregates": <see table below>,
-    "minMarginPct": 0.15
-  }
-)
+{
+  "aggregates": <see table below>,
+  "minMarginPct": 0.15
+}
 ```
 
 Valid `aggregates` values: `op` ∈ `count|sum|avg|min|max|stddev|quantiles` · `field` ∈ `quantity|price|cost|profit|profitMargin|ordersCount` · `q` required only for `quantiles` (array of 0.0–1.0, max 20)
@@ -284,18 +276,16 @@ Valid `aggregates` values: `op` ∈ `count|sum|avg|min|max|stddev|quantiles` · 
 
 ### Call 2: GetProductCatalogData
 
+**Endpoint:** `POST https://manage.wix.com/recommendations/v1/recommendations/get-product-catalog-data-tool`
+
 ```
-CallWixSiteAPI(
-  url: "https://manage.wix.com/recommendations/v1/recommendations/get-product-catalog-data-tool",
-  method: "POST",
-  body: {
-    "businessGoal": "<goal from Step 4>",
-    "minMarginPct": 0.15,
-    "catalogLimit": 30,
-    "query": "<keywords from merchant request, or empty string>",
-    "categoryNames": <category names if mentioned, or empty array>
-  }
-)
+{
+  "businessGoal": "<goal from Step 4>",
+  "minMarginPct": 0.15,
+  "catalogLimit": 30,
+  "query": "<keywords from merchant request, or empty string>",
+  "categoryNames": <category names if mentioned, or empty array>
+}
 ```
 
 **Sort order applied server-side by `businessGoal`:**
@@ -331,12 +321,10 @@ CallWixSiteAPI(
 
 **Send only categories you plan to target — max 10 per call.**
 
-```
-CallWixSiteAPI(
-  url: "https://manage.wix.com/recommendations/v1/recommendations/get-category-ids-tool",
-  method: "POST",
-  body: { "categoryNames": ["<top category 1>", "<top category 2>"] }
-)
+**Endpoint:** `POST https://manage.wix.com/recommendations/v1/recommendations/get-category-ids-tool`
+
+```json
+{ "categoryNames": ["<top category 1>", "<top category 2>"] }
 ```
 
 **Response:** `{ "categoryIds": ["a1b2c3d4-...", "b2c3d4e5-..."] }`
@@ -442,36 +430,30 @@ Analyze the site's shipping configuration using the rules below. All shipping re
 
 **MANDATORY — do NOT skip unless the user said `SKIP_TRACKING`.**
 
-Before calling BatchCreate, load the tracking recipe to get the exact request body shape:
+Before calling BatchCreate, read the full article for the tracking recipe to get the exact request body shape:
+[API: Recommendation Tracking](https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/api-recommendation-tracking)
+
+Then call BatchCreate to persist ALL recommendations as PROPOSED.
+
+**Endpoint:** `POST https://manage.wix.com/_api/agentic-recommendations/v1/agentic-recommendations/batch-create`
 
 ```
-ReadFullDocsArticle("https://dev.wix.com/docs/api-reference/business-solutions/e-commerce/skills/api-recommendation-tracking")
-```
-
-Then call `BatchCreate` to persist ALL recommendations as PROPOSED:
-
-```
-CallWixSiteAPI(
-  url: "https://manage.wix.com/_api/agentic-recommendations/v1/agentic-recommendations/batch-create",
-  method: "POST",
-
-  body: {
-    "agenticRecommendations": [
-      {
-        "title": "<recommendation title>",
-        "reasoning": "<recommendation reasoning>",
-        "domain": "<discounts|shipping>",
-        "urgency": "<CRITICAL|HIGH|MEDIUM|LOW>",
-        "advice": {
-          "action": "<action type>",
-          "params": <params object>,
-          "successCriteria": "<how to verify success>"
-        }
+{
+  "agenticRecommendations": [
+    {
+      "title": "<recommendation title>",
+      "reasoning": "<recommendation reasoning>",
+      "domain": "<discounts|shipping>",
+      "urgency": "<CRITICAL|HIGH|MEDIUM|LOW>",
+      "advice": {
+        "action": "<action type>",
+        "params": <params object>,
+        "successCriteria": "<how to verify success>"
       }
-    ],
-    "conversationId": "<conversationId>"
-  }
-)
+    }
+  ],
+  "conversationId": "<conversationId>"
+}
 ```
 
 **Save the `id` and `revision` from each result.** Include them in the output.
