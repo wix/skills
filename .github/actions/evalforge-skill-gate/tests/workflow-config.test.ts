@@ -125,3 +125,59 @@ describe('EvalForge wix-app gate cleanup workflow', () => {
     expect(cleanupStep.with).not.toHaveProperty('github-token');
   });
 });
+
+describe('EvalForge wix-app re-eval workflow', () => {
+  const workflow = loadWorkflow('evalforge-wix-app-re-eval.yml');
+  const job = workflow.jobs['re-eval'];
+  const step = job.steps[job.steps.length - 1];
+
+  it('runs the action in re-eval mode on a created comment', () => {
+    expect(step.with?.mode).toBe('re-eval');
+    expect(workflow.on.issue_comment.types).toEqual(['created']);
+  });
+
+  it('fires only for PR comments mentioning the command', () => {
+    expect(job.if).toContain('github.event.issue.pull_request');
+    expect(job.if).toContain('/re-eval');
+  });
+
+  // Sharing the gate's group would let the dispatcher cancel the run it is about to re-run.
+  it('does not share the gate concurrency group', () => {
+    expect(workflow.concurrency.group).not.toContain('evalforge-wix-app-gate-pr');
+  });
+
+  it('grants exactly what it needs and no more', () => {
+    expect(job.permissions).toEqual({
+      actions: 'write',
+      'pull-requests': 'write',
+      contents: 'read',
+    });
+  });
+
+  it('names the gate workflow whose run it re-runs', () => {
+    expect(step.with?.['gate-workflow-file']).toBe('evalforge-wix-app-gate.yml');
+  });
+
+  // It calls EvalForge zero times, so passing credentials would be exposure with no purpose.
+  // Asserted on input names rather than the serialised block, because `gate-workflow-file`
+  // legitimately holds a filename that starts with `evalforge-`.
+  it('passes no EvalForge credentials', () => {
+    expect(Object.keys(step.with ?? {})).toEqual(['mode', 'github-token', 'gate-workflow-file']);
+    expect(JSON.stringify(step.with)).not.toContain('secrets.AUTO_SKILLS_PIPELINE');
+  });
+
+  // Checking out PR content here would be a pwn-request: issue_comment runs from the default
+  // branch with secrets available.
+  it('checks out no PR ref', () => {
+    for (const checkout of job.steps.filter((s: { uses?: string }) => s.uses?.includes('actions/checkout'))) {
+      expect(checkout.with?.ref).toBeUndefined();
+    }
+  });
+
+  it('pins every action by commit sha rather than a tag', () => {
+    for (const s of job.steps) {
+      if (!s.uses || s.uses.startsWith('./')) continue;
+      expect(s.uses, s.uses).toMatch(/@[0-9a-f]{40}$/);
+    }
+  });
+});
