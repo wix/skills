@@ -1,0 +1,188 @@
+---
+name: contacts/tag-contact-resolve-label-key
+description: >-
+  Verifies the agent reads the bulk-label-and-unlabel-contacts recipe and completes a
+  labeling request stated the only way a user can state it — by the label's display name.
+  The bulk endpoint takes label keys, so the display name "VIP Customer" has to be resolved
+  to a key first. The site holds 24 other labels and no "VIP Customer", so scanning every
+  label finds nothing and the agent has to create the label and read its key back rather
+  than reporting the label missing or asking whether to create it.
+triggerPrompt: >-
+  Tag my contact Jordan Lee with the VIP Customer label.
+tags: [contacts]
+siteSetup:
+  mode: template
+  templateId: blank-editor
+  bootstrap:
+    steps:
+      # A realistic label set, so resolving one display name is a real lookup rather than a
+      # one-item list. None of these is "VIP Customer", and none contains "VIP" or
+      # "Customer", so a display-name scan has no near-miss to latch onto and the requested
+      # label genuinely does not exist yet.
+      - label: seed label Newsletter Subscriber
+        method: post
+        url: https://www.wixapis.com/contacts/v4/labels
+        body: { displayName: Newsletter Subscriber }
+      - label: seed label Wholesale Buyer
+        method: post
+        url: https://www.wixapis.com/contacts/v4/labels
+        body: { displayName: Wholesale Buyer }
+      - label: seed label Trade Account
+        method: post
+        url: https://www.wixapis.com/contacts/v4/labels
+        body: { displayName: Trade Account }
+      - label: seed label Returning Buyer
+        method: post
+        url: https://www.wixapis.com/contacts/v4/labels
+        body: { displayName: Returning Buyer }
+      - label: seed label First Time Buyer
+        method: post
+        url: https://www.wixapis.com/contacts/v4/labels
+        body: { displayName: First Time Buyer }
+      - label: seed label Abandoned Cart
+        method: post
+        url: https://www.wixapis.com/contacts/v4/labels
+        body: { displayName: Abandoned Cart }
+      - label: seed label Local Pickup
+        method: post
+        url: https://www.wixapis.com/contacts/v4/labels
+        body: { displayName: Local Pickup }
+      - label: seed label Gift Card Holder
+        method: post
+        url: https://www.wixapis.com/contacts/v4/labels
+        body: { displayName: Gift Card Holder }
+      - label: seed label Loyalty Member
+        method: post
+        url: https://www.wixapis.com/contacts/v4/labels
+        body: { displayName: Loyalty Member }
+      - label: seed label Workshop Attendee
+        method: post
+        url: https://www.wixapis.com/contacts/v4/labels
+        body: { displayName: Workshop Attendee }
+      - label: seed label Trade Show Lead
+        method: post
+        url: https://www.wixapis.com/contacts/v4/labels
+        body: { displayName: Trade Show Lead }
+      - label: seed label Referral Partner
+        method: post
+        url: https://www.wixapis.com/contacts/v4/labels
+        body: { displayName: Referral Partner }
+      - label: seed label Press Contact
+        method: post
+        url: https://www.wixapis.com/contacts/v4/labels
+        body: { displayName: Press Contact }
+      - label: seed label Supplier
+        method: post
+        url: https://www.wixapis.com/contacts/v4/labels
+        body: { displayName: Supplier }
+      - label: seed label Bulk Order
+        method: post
+        url: https://www.wixapis.com/contacts/v4/labels
+        body: { displayName: Bulk Order }
+      - label: seed label Corporate Account
+        method: post
+        url: https://www.wixapis.com/contacts/v4/labels
+        body: { displayName: Corporate Account }
+      - label: seed label Student Discount
+        method: post
+        url: https://www.wixapis.com/contacts/v4/labels
+        body: { displayName: Student Discount }
+      - label: seed label Senior Discount
+        method: post
+        url: https://www.wixapis.com/contacts/v4/labels
+        body: { displayName: Senior Discount }
+      - label: seed label Seasonal Shopper
+        method: post
+        url: https://www.wixapis.com/contacts/v4/labels
+        body: { displayName: Seasonal Shopper }
+      - label: seed label Online Only
+        method: post
+        url: https://www.wixapis.com/contacts/v4/labels
+        body: { displayName: Online Only }
+      - label: seed label In Store Only
+        method: post
+        url: https://www.wixapis.com/contacts/v4/labels
+        body: { displayName: In Store Only }
+      - label: seed label Waitlist
+        method: post
+        url: https://www.wixapis.com/contacts/v4/labels
+        body: { displayName: Waitlist }
+      - label: seed label Review Left
+        method: post
+        url: https://www.wixapis.com/contacts/v4/labels
+        body: { displayName: Review Left }
+      - label: seed label Support Escalation
+        method: post
+        url: https://www.wixapis.com/contacts/v4/labels
+        body: { displayName: Support Escalation }
+      - label: seed the target contact Jordan Lee
+        method: post
+        url: https://www.wixapis.com/contacts/v5/contacts
+        body:
+          contact:
+            name:
+              first: Jordan
+              last: Lee
+            email:
+              email: jordan.lee@example.com
+assertions:
+  - tool: ReadFullDocsArticle
+    params:
+      articleUrl: https://dev.wix.com/docs/api-reference/crm/members-contacts/contacts/skills/bulk-label-and-unlabel-contacts
+  - type: llm_judge
+    minScore: 7
+    maxTokens: 2048
+    prompt: |
+      The user's request (verbatim): "Tag my contact Jordan Lee with the VIP Customer
+      label."
+
+      Site state: the contact Jordan Lee exists. 24 contact labels exist, but none of them
+      is named "VIP Customer" — that label does not exist on the site yet. The user named
+      the label the only way they can, by the display name they would see in the dashboard.
+      The Contacts labeling endpoints address labels by *key*, not by display name, so the
+      agent has to obtain a key before it can label anyone.
+
+      Pass only if the tool-call trace shows the agent:
+      - obtained a label key for "VIP Customer" by reading it out of a Wix API response —
+        creating the label is the correct action here, and Find Or Create Label
+        (POST /contacts/v4/labels with {"displayName": "VIP Customer"}) does this in one
+        call; any successful (2xx) call that returns the label and its key is acceptable,
+        AND
+      - issued a successful (2xx) call that applied that label key to the contact Jordan
+        Lee (via Bulk Label And Unlabel Contacts with labelKeysToAdd, or Label Contact with
+        labelKeys — either is fine), AND
+      - confirmed the completed result in its final answer, referring to what the API
+        actually returned rather than to what the API would do.
+
+      Fail if the response:
+      - reports that the "VIP Customer" label does not exist and stops there, OR
+      - stops to ask whether to create the label, which label to use, or whether to
+        proceed, instead of applying the label the user named, OR
+      - passed the display name "VIP Customer" where a label key is required, OR
+      - used a label key it did not read back from an API response — for example guessing
+        "custom.vip-customer" from the display name, or reusing one of the 24 unrelated
+        seeded labels, OR
+      - applied the label to a different contact, OR
+      - left the labeling call erroring (non-2xx) at the end of the run, OR
+      - only explains how to resolve a label key and label a contact, or hands back
+        curl/API instructions, without actually performing the change, OR
+      - claims the contact was labeled with no successful labeling call in the trace.
+
+      Return ONLY {"score":<0-10>,"reason":"<one sentence>"}.
+  - type: llm_judge
+    minScore: 0
+    maxTokens: 2048
+    prompt: |
+      DIAGNOSTIC, non-gating — rate how smoothly the Wix MCP let the agent fulfill the
+      request. Examine the tool-call trace. Score 0-10 (10 = direct: no wasted calls, no
+      errors).
+
+      Penalize and LIST any of: a call that returned a non-2xx error even if recovered;
+      listing or paging every label on the site to hunt for one display name, where a
+      single documented call resolves it; a probing call that clearer docs would avoid; a
+      request shape or field guessed wrong then corrected (display name passed as a key,
+      labelKeys vs labelKeysToAdd); a wrong endpoint or API tried first; a dead end at the
+      point where the requested label turned out not to exist. For each issue, name the
+      likely MCP/docs gap.
+
+      Return ONLY {"score":<0-10>,"reason":"<terse list of frictions + suspected MCP/docs gap, or 'clean path' if none>"}.
