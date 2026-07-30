@@ -5,7 +5,10 @@ description: >-
 triggerPrompt: >-
   My Wix site's meta site id is 2c9d2b46-fc18-4557-ae71-4d21a2228914. Give me direct dashboard links to my site's settings hub and to where I change the site language and currency.
 tags: [site-properties]
-maxTokens: 30000
+# Raised from 30000: both the PR and production sides of the eval comparison exceed that
+# ceiling for this prompt (observed 33k and 134k in the same run), so it fails on content it
+# is not measuring. 150000 matches the other scenarios in this tree.
+maxTokens: 150000
 assertions:
   - tool: ReadFullDocsArticle
     params:
