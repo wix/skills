@@ -109,6 +109,7 @@ curl -X POST 'https://www.wixapis.com/bookings/v2/bulk/services/create' \
   -H 'Authorization: <AUTH>' \
   -H 'Content-Type: application/json' \
   -d '{
+    "returnEntity": true,
     "services": [{
       "name": "<SERVICE_NAME>",
       "description": "<GENERATED_DESCRIPTION>",
@@ -142,6 +143,7 @@ curl -X POST 'https://www.wixapis.com/bookings/v2/bulk/services/create' \
   -H 'Authorization: <AUTH>' \
   -H 'Content-Type: application/json' \
   -d '{
+    "returnEntity": true,
     "services": [{
       "name": "<SERVICE_NAME>",
       "description": "<GENERATED_DESCRIPTION>",
@@ -175,9 +177,20 @@ Save the `serviceId` from the response: `results[0].itemMetadata.id`.
 
 Bulk Create Services returns a bulk envelope — `{ results: [{ itemMetadata, item }], bulkActionMetadata }`
 — so there is no top-level `service`, and no `service` wrapper under `item`: `item` **is** the
-Service object, and it is omitted unless the request sets `returnEntity: true`. See
+Service object, and it is omitted unless the request sets `returnEntity: true` (both bodies above
+send it). So:
+
+```js
+const created = serviceRes.results[0];
+const serviceId = created.itemMetadata.id;   // always present, even without returnEntity
+const service = created.item;                // the Service object — only when returnEntity: true
+```
+
+Reading `results[0].item.service` instead throws `Cannot read properties of undefined (reading
+'service')` on an otherwise successful 200 — the service was created, so take the id from
+`itemMetadata.id` rather than re-creating or re-querying it. See
 [Create Class Service](./create-class-service.md#step-3b-read-the-bulk-create-services-response)
-for the full envelope and a worked example.
+for the full envelope and the per-item `itemMetadata.success` check.
 
 ---
 
