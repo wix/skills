@@ -1,6 +1,6 @@
 ---
 name: "Google Ads Dashboard Navigation"
-description: "Builds a direct link to the Wix Google Ads dashboard page on manage.wix.com, where campaigns created via the Google Ads API recipes are managed. Navigation only — never a substitute for API work: when the user asks to create, update, delete, or configure something, do it with the solution's API recipes and attach the dashboard link to the result. Use when the user asks where something is in the Wix dashboard or wants a direct link, or to hand back a 'view it in your dashboard' link after completing an API operation."
+description: "Builds a direct link to the Wix Google Ads dashboard page on manage.wix.com, where campaigns created via the Google Ads API recipes are managed. Use when the user asks where something is in the Wix dashboard or wants a direct link, or to include a 'view it in your dashboard' link alongside the result of an API operation. For requests to actually create, update, or configure something, prefer the solution's API recipes and add the link to the result."
 ---
 
 # Google Ads Dashboard Navigation

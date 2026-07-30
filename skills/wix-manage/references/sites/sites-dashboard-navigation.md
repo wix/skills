@@ -1,6 +1,6 @@
 ---
 name: "Sites Dashboard Navigation"
-description: "Builds direct links to the account-level sites pages on manage.wix.com — the My Sites list (all sites in the account) and each site's own dashboard. Pairs the site list with the Query Sites read API. Navigation only — never a substitute for API work: when the user asks to create, update, delete, or configure something, do it with the solution's API recipes and attach the dashboard link to the result. Use when the user asks where something is in the Wix dashboard or wants a direct link, or to hand back a 'view it in your dashboard' link after completing an API operation."
+description: "Builds direct links to the account-level sites pages on manage.wix.com — the My Sites list (all sites in the account) and each site's own dashboard. Pairs the site list with the Query Sites read API. Use when the user asks where something is in the Wix dashboard or wants a direct link, or to include a 'view it in your dashboard' link alongside the result of an API operation. For requests to actually create, update, or configure something, prefer the solution's API recipes and add the link to the result."
 ---
 
 # Sites Dashboard Navigation

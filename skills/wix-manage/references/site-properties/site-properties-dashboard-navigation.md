@@ -1,6 +1,6 @@
 ---
 name: "Site Settings Dashboard Navigation"
-description: "Builds direct links to the site-settings dashboard pages on manage.wix.com — the settings hub, website settings, and language & region. Pairs site properties with the Site Properties read API. Navigation only — never a substitute for API work: when the user asks to create, update, delete, or configure something, do it with the solution's API recipes and attach the dashboard link to the result. Use when the user asks where something is in the Wix dashboard or wants a direct link, or to hand back a 'view it in your dashboard' link after completing an API operation."
+description: "Builds direct links to the site-settings dashboard pages on manage.wix.com — the settings hub, website settings, and language & region. Pairs site properties with the Site Properties read API. Use when the user asks where something is in the Wix dashboard or wants a direct link, or to include a 'view it in your dashboard' link alongside the result of an API operation. For requests to actually create, update, or configure something, prefer the solution's API recipes and add the link to the result."
 ---
 
 # Site Settings Dashboard Navigation
