@@ -62,6 +62,18 @@ export type GateConfig = {
   versionLabel: string;
 };
 
+/**
+ * The `/re-eval` dispatcher's inputs. Notably short: it calls EvalForge zero times, so no URL,
+ * project, app id, app secret, capability or agent id belongs here. The PR number is
+ * `resolveCommentPrContext`'s, since it comes from the comment payload with the rest of the context.
+ */
+export type ReEvalConfig = {
+  githubToken: string;
+  owner: string;
+  repo: string;
+  gateWorkflowFile: string;
+};
+
 /** No `githubToken`, `owner` or `repo`: cleanup makes no GitHub API call — `getPrNumber` reads the event payload. */
 export type CleanupConfig = {
   evalforgeUrl: string;
@@ -178,5 +190,14 @@ export function getCleanupConfig(): CleanupConfig {
     evalsGlob: core.getInput('evals-glob', { required: true }),
     repoFullName: `${owner}/${repo}`,
     prNumber: getPrNumber(github.context.payload),
+  };
+}
+
+export function getReEvalConfig(): ReEvalConfig {
+  return {
+    githubToken: safeGetSecret(core, 'github-token'),
+    owner: github.context.repo.owner,
+    repo: github.context.repo.repo,
+    gateWorkflowFile: core.getInput('gate-workflow-file', { required: true }),
   };
 }
