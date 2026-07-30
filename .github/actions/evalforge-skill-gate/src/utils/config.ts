@@ -125,16 +125,26 @@ function getHeadSha(): string {
  * `GITHUB_SHA` names the merge commit on `pull_request` — but on a **re-run** it names the merge
  * commit from the *original* event, while `actions/checkout` resolves `refs/pull/<n>/merge` fresh.
  * If base advanced in between, those differ. So the workflow passes `git rev-parse HEAD` and this
- * prefers it; `GITHUB_SHA` remains the fallback for a caller that does not.
+ * prefers it. The `GITHUB_SHA` fallback warns rather than staying silent: it is the pre-existing
+ * bug, so a future gate-mode caller that forgets the input should say so in its own log instead of
+ * quietly relabelling a re-run's version.
  */
 function getEvaluatedSha(): string {
-  const sha = core.getInput('evaluated-sha') || process.env.GITHUB_SHA;
+  const provided = core.getInput('evaluated-sha');
+  if (provided) return provided;
+
+  const sha = process.env.GITHUB_SHA;
   if (!sha) {
     throw new Error(
       'Neither the evaluated-sha input nor GITHUB_SHA is set, so the skill version cannot be '
       + 'labelled for the commit actually evaluated. This action expects to run in GitHub Actions.',
     );
   }
+  core.warning(
+    'evaluated-sha was not passed, so the version label falls back to GITHUB_SHA. On a re-run that '
+    + 'names the original event\'s merge commit, which can differ from the commit checked out. Pass '
+    + '`evaluated-sha: ${{ steps.<checkout-step>.outputs.sha }}` from `git rev-parse HEAD`.',
+  );
   return sha;
 }
 

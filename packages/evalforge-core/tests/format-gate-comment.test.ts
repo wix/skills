@@ -410,7 +410,6 @@ describe('retry guidance', () => {
   });
 });
 
-
 describe('the retry note', () => {
   it('offers /re-eval in every outcome where nothing was verified', () => {
     const bodies = [

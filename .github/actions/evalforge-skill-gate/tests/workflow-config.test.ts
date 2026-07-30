@@ -132,17 +132,15 @@ describe('EvalForge wix-app gate cleanup workflow', () => {
   });
 });
 
-
 /**
- * The logic now lives in an inline `github-script` step, so it has no unit tests. What is still
- * assertable is the wiring and the guards — the parts that would be silently wrong rather than
- * loudly broken.
+ * The workflow-level wiring only. What the script itself does — the parse, the spend gate, which
+ * runs are re-run — is covered behaviourally in re-eval-script.test.ts, which compiles this same
+ * `script:` string the way `github-script` does.
  */
 describe('EvalForge re-eval workflow', () => {
   const workflow = loadWorkflow('evalforge-re-eval.yml');
   const job = workflow.jobs['re-eval'];
   const step = job.steps[job.steps.length - 1];
-  const script = step.with?.script ?? '';
 
   it('runs on created comments only', () => {
     expect(workflow.on.issue_comment?.types).toEqual(['created']);
@@ -155,10 +153,12 @@ describe('EvalForge re-eval workflow', () => {
     expect(job.if).toContain("github.event.comment.user.type != 'Bot'");
   });
 
-  // Sharing the gate's group would let this job cancel the very run it re-runs.
-  it('does not share a gate concurrency group', () => {
+  // Sharing the gate's group would let this job cancel the very run it re-runs. Nor does it cancel
+  // its own predecessor: this job spends, so losing one mid-flight can lose the acknowledgement of
+  // a re-run that was already triggered.
+  it('neither shares a gate concurrency group nor cancels itself', () => {
     expect(workflow.concurrency.group).not.toContain('evalforge-wix-app-gate-pr');
-    expect(workflow.concurrency['cancel-in-progress']).toBe(true);
+    expect(workflow.concurrency['cancel-in-progress']).toBe(false);
   });
 
   it('grants exactly what it needs and no more', () => {
@@ -171,35 +171,5 @@ describe('EvalForge re-eval workflow', () => {
 
   it('pins github-script by commit sha', () => {
     expect(step.uses).toMatch(/^actions\/github-script@[0-9a-f]{40}$/);
-  });
-
-  // Scoped to wix-app for now. The loop is over an array so the wix-manage gate is one entry away,
-  // and the "no run" refusal says so rather than claiming no run exists.
-  it('covers the wix-app gate, and not yet the wix-manage one', () => {
-    expect(script).toContain("const GATES = ['evalforge-wix-app-gate.yml']");
-    expect(script).toContain('does not cover the wix-manage gate yet');
-  });
-
-  it('parses the command strictly, from the first token of the first line', () => {
-    expect(script).toContain("toLowerCase() !== '/re-eval'");
-  });
-
-  it('accepts maintain alongside admin and write', () => {
-    expect(script).toContain("['admin', 'maintain', 'write']");
-  });
-
-  /**
-   * Deliberately unlike clay's `#rerun`, which re-runs only failed jobs and skips passing runs. In
-   * soak mode an unverified run still reports success, so the run worth re-running is green and has
-   * no failed job in it.
-   */
-  it('re-runs every job regardless of conclusion', () => {
-    expect(script).toContain('reRunWorkflow(');
-    expect(script).not.toContain('reRunWorkflowFailedJobs');
-    expect(script).not.toContain("conclusion === 'success'");
-  });
-
-  it('authorises the PR author without an API call', () => {
-    expect(script).toContain('requester === pr.user.login');
   });
 });

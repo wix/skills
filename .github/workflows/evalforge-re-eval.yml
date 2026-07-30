@@ -18,9 +18,14 @@ on:
     types: [created]
 
 # Not the gate's concurrency group: sharing it would let this job cancel the very run it re-runs.
+#
+# `cancel-in-progress: false` because this job spends: cancelling it mid-flight can lose the
+# acknowledgement of a re-run that was already triggered, or drop the POST after the run was already
+# listed as completed. Serialising instead costs at most a few queued 5-minute jobs, and the second
+# one then correctly reports the first's run as already in progress.
 concurrency:
   group: evalforge-re-eval-pr-${{ github.event.issue.number }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   re-eval:
@@ -95,7 +100,12 @@ jobs:
                 const { data: level } = await github.rest.repos.getCollaboratorPermissionLevel({
                   owner, repo, username: requester,
                 });
-                allowed = ['admin', 'maintain', 'write'].includes(level.permission);
+                // Both fields, because they answer differently. `permission` is the legacy collapsed
+                // one — admin/write/read/none — where the maintain role reports as `write` and
+                // triage as `read`. `role_name` carries the real role, including custom ones. Push
+                // access under either name is enough to spend.
+                const PUSH_ROLES = ['admin', 'maintain', 'write'];
+                allowed = PUSH_ROLES.includes(level.permission) || PUSH_ROLES.includes(level.role_name);
               } catch (error) {
                 return decline(
                   `the collaborator permission lookup failed (${error.message}), so the request `
@@ -116,6 +126,10 @@ jobs:
             // Left out deliberately until the wix-app flow has been exercised in anger.
             const GATES = ['evalforge-wix-app-gate.yml'];
             const notes = [];
+            // Counted, not inferred from `notes`: three of the four branches below add a note
+            // without having re-run anything, and a heading that claims otherwise is a lie the
+            // requester has to read the whole comment to catch.
+            let rerunCount = 0;
 
             for (const workflowId of GATES) {
               const { data: runs } = await github.rest.actions.listWorkflowRuns({
@@ -132,12 +146,26 @@ jobs:
                 continue;
               }
 
+              // A re-run replays the original event, so a run whose gate job was skipped by its own
+              // `if:` — the PR was a draft then, or the author is not an @wix.com address — skips
+              // again and evaluates nothing. Say so rather than acknowledging a re-run that cannot
+              // produce a verdict.
+              if (run.conclusion === 'skipped') {
+                notes.push(
+                  `- \`${workflowId}\`: the gate did not run for this commit (it was skipped — draft `
+                  + `at the time, or a non-Wix author), and a re-run would skip again. Push a commit `
+                  + `to run it ([view run](${run.html_url}))`
+                );
+                continue;
+              }
+
               // Every job, and regardless of conclusion. Deliberately unlike clay, which skips
               // passing runs and re-runs only failed jobs: in soak mode (`blocking: false`) an
               // unverified run still reports success, so the run worth re-running is green and has
               // no failed job to re-run.
               try {
                 await github.rest.actions.reRunWorkflow({ owner, repo, run_id: run.id });
+                rerunCount += 1;
                 notes.push(`- \`${workflowId}\`: re-running ([view run](${run.html_url}))`);
               } catch (error) {
                 // Most likely past GitHub's 30-day re-run window.
@@ -158,7 +186,10 @@ jobs:
               );
             }
 
+            const heading = rerunCount > 0
+              ? 'Re-running the eval gate'
+              : 'Nothing to re-run for the eval gate';
             await comment(
-              `Re-running the eval gate for \`${pr.head.sha.substring(0, 7)}\`, `
+              `${heading} for \`${pr.head.sha.substring(0, 7)}\`, `
               + `requested by @${requester}:\n\n${notes.join('\n')}`
             );
